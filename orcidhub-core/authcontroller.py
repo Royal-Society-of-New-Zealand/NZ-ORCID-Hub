@@ -53,7 +53,6 @@ def profile():
     orcid = session['oauth_token']['orcid']
     name = session['oauth_token']['name']
     print(orcid)
-    import pdb;pdb.set_trace();
 
     researcher = Researcher(rname=session['oauth_token']['name'],orcidid=session['oauth_token']['orcid'],auth_token=session['oauth_token']['access_token'])
     db.session.add(researcher)

@@ -11,7 +11,7 @@ If you are running this application for the first time then follow steps a to d:
 > - GRANT ALL PRIVILEGES ON DATABASE orcidhub to orcidhub;.
 
 
-d) Run initialize.py to create table in postgres
+d) Run initializedb.py to create table in postgres
 
 Run application.py
 Open link http://127.0.0.1:5000/orcidhub/index2
