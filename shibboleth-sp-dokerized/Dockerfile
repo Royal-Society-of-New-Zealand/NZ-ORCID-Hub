@@ -2,9 +2,10 @@ FROM centos:centos7
 
 MAINTAINER The University of Auckland
 
-RUN yum -y update \
-    && curl http://download.opensuse.org/repositories/security://shibboleth/CentOS_7/security:shibboleth.repo -o /etc/yum.repos.d/shibboleth.repo \
-    && yum -y install httpd shibboleth.x86_64 mod_ssl \
+RUN curl -k "http://download.opensuse.org/repositories/security://shibboleth/CentOS_7/security:shibboleth.repo" | tee /etc/yum.repos.d/shibboleth.repo \
+    && yum -y update \ 
+    # && yum -y install shibboleth.x86_64 \
+    # && yum -y install httpd mod_ssl mod_wsgi \
     && yum -y clean all
 
 COPY run-httpd-shibd /usr/local/bin/
