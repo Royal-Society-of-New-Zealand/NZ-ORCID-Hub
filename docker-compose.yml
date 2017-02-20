@@ -1,0 +1,9 @@
+version: '2'
+services:
+  app:
+    image: nad2000/orcidhub-app
+    volumes:
+      - ./app:/var/www/html/
+
+  db:
+    image: postgres:9.6.2
