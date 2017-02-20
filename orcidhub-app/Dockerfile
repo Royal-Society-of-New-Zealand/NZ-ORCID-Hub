@@ -3,18 +3,21 @@ FROM nad2000/shibboleth-sp
 MAINTAINER The University of Auckland
 
 RUN yum -y update \ 
-    && yum -y install mod_wsgi \
-    && yum -y clean all
+    && yum -y install https://centos7.iuscommunity.org/ius-release.rpm \
+    && yum -y install \
+    	gcc.x86_64 \
+	httpd-devel.x86_64 \
+	python36u.x86_64 \
+	python36u-devel.x86_64 \
+	python36u-pip \
+    && pip3.6 install mod_wsgi \
+    && yum -y erase gcc.x86_64 python36u-devel.x86_64 httpd-devel.x86_64 \
+    && yum -y clean all \
+    && /usr/bin/mod_wsgi-express module-config >/etc/httpd/conf.modules.d/10-wsgi.conf
 
-#COPY run-httpd-shibd /usr/local/bin/
+COPY app.wsgi /var/www/html/
+COPY app.conf /etc/httpd/conf.d/
 
-#RUN [ -d /var/run/lock ] || mkdir -p /var/run/lock \
-#    && [ -d /var/lock/subsys/ ] || mkdir -p /var/lock/subsys/ \
-#    && chmod +x /etc/shibboleth/shibd-redhat \
-#    && echo $'export LD_LIBRARY_PATH=/opt/shibboleth/lib64:$LD_LIBRARY_PATH\n'\
-#       > /etc/sysconfig/shibd \
-#    && chmod +x /etc/sysconfig/shibd /etc/shibboleth/shibd-redhat /usr/local/bin/run-httpd-shibd
-#
 EXPOSE 80 443
 
 CMD ["run-httpd-shibd"]
