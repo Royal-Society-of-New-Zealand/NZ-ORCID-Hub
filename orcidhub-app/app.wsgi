@@ -12,6 +12,9 @@ def application(environ, start_response):
 ╚═══╩══╩╝╚╩═╗╠╝╚╝╚╩═╩══╩═╩╝╚╩═╩╩══╩╝╚╩══╝
 ──────────╔═╝║
 ──────────╚══╝
+
+IT IS RUNNING!
+
 """
     output += 'sys.version = %s\n' % sys.version
     output += 'sys.prefix = %s\n' % sys.prefix
