@@ -1,0 +1,10 @@
+#pip install -r requirements.txt
+Flask
+Flask-OAuth
+Flask-SQLAlchemy
+Flask-Script
+juggernaut
+requests
+requests_oauthlib
+sqlalchemy-migrate
+psycopg2
