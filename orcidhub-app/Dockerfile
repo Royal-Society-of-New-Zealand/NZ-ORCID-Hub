@@ -7,11 +7,13 @@ RUN yum -y update \
     && yum -y install \
     	gcc.x86_64 \
 	httpd-devel.x86_64 \
+	libpqxx-devel.x86_64 \
+	postgresql.x86_64 \
 	python36u.x86_64 \
 	python36u-devel.x86_64 \
 	python36u-pip \
-    && pip3.6 install mod_wsgi \
-    && yum -y erase gcc.x86_64 python36u-devel.x86_64 httpd-devel.x86_64 \
+    && pip3.6 install mod_wsgi psycopg2 \
+    && yum -y erase gcc.x86_64 python36u-devel.x86_64 httpd-devel.x86_64 bpqxx-devel.x86_64 \
     && yum -y clean all \
     && /usr/bin/mod_wsgi-express module-config >/etc/httpd/conf.modules.d/10-wsgi.conf
 
