@@ -2,7 +2,7 @@ Steps to execute this application
 -------------
 
 If you are running this application for the first time then follow steps a to d:
-	a) From the project directory run pip install -r requirement.txt
+	a) From the project directory run pip3 install -r requirement.txt
 	b) install run install_package.sh to install postgress and required libraries
 	c) Create database and user in postgres
 	

@@ -10,10 +10,10 @@ from application import app
 from application import db
 
 
-@app.route("/orcidhub/index2")
+@app.route("/orcidhub/index")
 def index():
-    print session
-    print request.headers
+    print(session)
+    print(request.headers)
     return render_template("index.html")
 @app.route("/orcidhub/redirect")
 def demo():
@@ -37,7 +37,7 @@ def callback():
     """
     client = OAuth2Session(client_id)
     token = client.fetch_token(token_url, client_secret=client_secret, authorization_response=request.url)
-    print token
+    print(token)
     # At this point you can fetch protected resources but lets save
     # the token and show how this is done from a persisted token
     # in /profile.
