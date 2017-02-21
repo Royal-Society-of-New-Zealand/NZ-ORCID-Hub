@@ -5,7 +5,8 @@ services:
     domainname: orcidhub.org.nz
     hostname: app
     volumes:
-      - ./app:/var/www/html/
+      - ./orcidhub-core:/var/www/orcidhub/
+      - ./orcidhub-core/app.conf:/etc/httpd/conf.d/app.conf:ro
 
   db:
     image: postgres:9.6.2
