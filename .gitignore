@@ -92,3 +92,10 @@ ENV/
 
 # Rope project settings
 .ropeproject
+
+# Key stuff:
+*.key
+*.key.org
+*.crt
+CSR/
+

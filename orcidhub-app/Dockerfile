@@ -1,10 +1,19 @@
-FROM nad2000/shibboleth-sp
+FROM centos:centos7
 
 MAINTAINER The University of Auckland
+
+ADD http://download.opensuse.org/repositories/security://shibboleth/CentOS_7/security:shibboleth.repo /etc/yum.repos.d/shibboleth.repo
+
+COPY run-httpd-shibd /usr/local/bin/
+COPY app.wsgi /var/www/html/
+COPY app.conf /etc/httpd/conf.d/ZZ-app.conf
 
 RUN yum -y update \ 
     && yum -y install https://centos7.iuscommunity.org/ius-release.rpm \
     && yum -y install \
+    	shibboleth.x86_64 \
+    	httpd \
+	mod_ssl \
     	gcc.x86_64 \
 	httpd-devel.x86_64 \
 	libpqxx-devel.x86_64 \
@@ -13,12 +22,27 @@ RUN yum -y update \
 	python36u-devel.x86_64 \
 	python36u-pip \
     && pip3.6 install mod_wsgi psycopg2 \
-    && yum -y erase gcc.x86_64 python36u-devel.x86_64 httpd-devel.x86_64 bpqxx-devel.x86_64 \
-    && yum -y clean all \
-    && /usr/bin/mod_wsgi-express module-config >/etc/httpd/conf.modules.d/10-wsgi.conf
-
-COPY app.wsgi /var/www/html/
-COPY app.conf /etc/httpd/conf.d/
+    && /usr/bin/mod_wsgi-express module-config >/etc/httpd/conf.modules.d/10-wsgi.conf \
+    && [ -d /var/run/lock ] || mkdir -p /var/run/lock \
+    && [ -d /var/lock/subsys/ ] || mkdir -p /var/lock/subsys/ \
+    && echo $'export LD_LIBRARY_PATH=/opt/shibboleth/lib64:$LD_LIBRARY_PATH\n' > /etc/sysconfig/shibd \
+    && chmod +x /etc/sysconfig/shibd /etc/shibboleth/shibd-redhat /usr/local/bin/run-httpd-shibd \
+    && yum erase -y \
+	apr-util-devel \
+	cpp \
+	cyrus-sasl-devel \
+	expat-devel \
+	gcc \
+	glibc-devel \
+	glibc-headers \
+	httpd-devel \
+	kernel-headers \
+	libdb-devel \
+	openldap-devel \
+	perl \
+	postgresql-devel \
+	python36u-devel \
+    && yum -y clean all
 
 EXPOSE 80 443
 

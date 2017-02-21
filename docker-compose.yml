@@ -6,7 +6,10 @@ services:
     hostname: app
     volumes:
       - ./orcidhub-core:/var/www/orcidhub/
-      - ./orcidhub-core/app.conf:/etc/httpd/conf.d/app.conf:ro
+      - ./orcidhub-core/app.conf:/etc/httpd/conf.d/ZZ-app.conf:ro
+      - ./orcidhub-core/shibboleth2.xml:/etc/shibboleth/shibboleth2.xml:ro
+      - ./orcidhub-core/attribute-map.xml:/etc/shibboleth/attribute-map.xml:ro
+      - ./orcidhub-core/tuakiri-test-metadata-cert.pem:/etc/shibboleth/tuakiri-test-metadata-cert.pem:ro
 
   db:
     image: postgres:9.6.2
