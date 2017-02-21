@@ -17,3 +17,10 @@ scritp:
 	- docker exec orcidhub_db_1 psql -U postgres -c "SELECT 1" && echo "DB IS RUNNING"
 	- docker exec orcidhub_app_1 psql -U postgres -h orcidhub_db_1 -c "SELECT 1" && echo "APP CAN ACCESS DB"
 
+notifications:
+  hipchat:
+    rooms:
+      - 051c5fee1d651e83b133c1b117d5c9@Nz-orcid-hub
+    template:
+      - '%{repository}#%{build_number} (%{branch} - %{commit} : %{author}): %{message} (<a href="%{build_url}">Details</a>/<a href="%{compare_url}">Change view</a>)'
+    format: html
