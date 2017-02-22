@@ -1,10 +1,8 @@
 from requests_oauthlib import OAuth2Session
-from flask import Flask, request, redirect, session, url_for,render_template
-from flask.json import jsonify
-import os
+from flask import request, redirect, session, url_for, render_template
 from werkzeug.urls import iri_to_uri
-from config import *
-from flask_sqlalchemy import SQLAlchemy
+from config import client_id, client_secret, authorization_base_url,\
+    token_url, scope, redirect_uri
 from model import Researcher
 from application import app
 from application import db
@@ -15,13 +13,15 @@ def index():
     print(session)
     print(request.headers)
     return render_template("index.html")
+
+
 @app.route("/orcidhub/redirect")
 def demo():
     """Step 1: User Authorization.
     Redirect the user/resource owner to the OAuth provider (i.e.Orcid )
     using an URL with a few key OAuth parameters.
     """
-    client = OAuth2Session(client_id,scope=scope,redirect_uri=redirect_uri)
+    client = OAuth2Session(client_id, scope=scope, redirect_uri=redirect_uri)
     authorization_url, state = client.authorization_url(authorization_base_url)
     session['oauth_state'] = state
     return redirect(iri_to_uri(authorization_url))
@@ -36,7 +36,8 @@ def callback():
     in the redirect URL. We will use that to obtain an access token.
     """
     client = OAuth2Session(client_id)
-    token = client.fetch_token(token_url, client_secret=client_secret, authorization_response=request.url)
+    token = client.fetch_token(token_url, client_secret=client_secret,
+                               authorization_response=request.url)
     print(token)
     # At this point you can fetch protected resources but lets save
     # the token and show how this is done from a persisted token
@@ -54,11 +55,13 @@ def profile():
     name = session['oauth_token']['name']
     print(orcid)
 
-    researcher = Researcher(rname=session['oauth_token']['name'],orcidid=session['oauth_token']['orcid'],auth_token=session['oauth_token']['access_token'])
+    researcher = Researcher(rname=session['oauth_token']['name'],
+                            orcidid=session['oauth_token']['orcid'],
+                            auth_token=session['oauth_token']['access_token'])
     db.session.add(researcher)
     db.session.commit()
     client = OAuth2Session(client_id, token=session['oauth_token'])
-    headers = {'Accept':'application/json'}
-    resp = client.get("https://api.sandbox.orcid.org/v1.2/"+str(orcid)+"/orcid-works",headers=headers)
-    return render_template("login.html",userName=name,work=resp.text)
-
+    headers = {'Accept': 'application/json'}
+    resp = client.get("https://api.sandbox.orcid.org/v1.2/" + str(orcid)
+                      + "/orcid-works", headers=headers)
+    return render_template("login.html", userName=name, work=resp.text)
