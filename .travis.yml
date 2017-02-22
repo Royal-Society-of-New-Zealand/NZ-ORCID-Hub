@@ -1,4 +1,7 @@
 sudo: required
+language: python
+python:
+  - '3.6'
 
 services:
 	- docker
@@ -12,7 +15,12 @@ before_install:
 	- chmod +x docker-compose
 	- sudo mv docker-compose /usr/local/bin
 
+install:
+  - pip install -r orcidhub-core/requirements.txt
+  - pip install flake8 pep257 pytest  coverage coveralls beautifulsoup4<Paste>
+
 scritp:
+  - flake8 orcidhub-core
 	- docker-compose -p orcidhub up
 	- docker exec orcidhub_db_1 psql -U postgres -c "SELECT 1" && echo "DB IS RUNNING"
 	- docker exec orcidhub_app_1 psql -U postgres -h orcidhub_db_1 -c "SELECT 1" && echo "APP CAN ACCESS DB"
