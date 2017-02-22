@@ -1,19 +1,17 @@
-import sys, os
+import sys
+import os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-import os
 from application import app
 import unittest
-import tempfile
-import json
-
 
 
 class OrcidhubTestCase(unittest.TestCase):
 
     def setUp(self):
         app.config['TESTING'] = True
-        app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postres:postgres@db:5432/testdb'
+        app.config[
+            'SQLALCHEMY_DATABASE_URI'] = 'postgresql://postres:postgres@db:5432/testdb'
         self.app = app.test_client()
 
     def tearDown(self):
@@ -29,6 +27,7 @@ class OrcidhubTestCase(unittest.TestCase):
 
     def test_auth(self):
         pass
+
 
 if __name__ == '__main__':
     unittest.main()
