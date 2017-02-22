@@ -23,7 +23,7 @@ script:
   - function wait_pg() { until docker-compose exec db psql -U postgres -l; do echo "Waiting for postgres to start..."; sleep 1; done }
   - wait_pg
   - docker-compose exec db psql -U postgres -c "SELECT 1" && echo "DB IS RUNNING"
-  - wait_pg
+  - sleep 10 ; wait_pg
   - docker-compose exec app psql -h db -U postgres -c "SELECT 1" && echo "APP CAN ACCESS DB"
   - docker-compose logs
   - docker-compose logs app
