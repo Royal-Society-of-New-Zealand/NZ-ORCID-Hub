@@ -25,10 +25,7 @@ script:
   - wait_pg_up ; wait_pg_down ; wait_pg_up
   - docker-compose exec db psql -U postgres -c "SELECT 1" && echo "DB IS RUNNING"
   - docker-compose exec app psql -h db -U postgres -c "SELECT 1" && echo "APP CAN ACCESS DB"
-  - docker-compose logs
-  - docker-compose logs app
-  - docker-compose version
-  - docker network ls
+  - pytest -v test.py
 
 notifications:
   email:
