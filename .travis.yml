@@ -27,6 +27,7 @@ script:
   - docker exec orcidhub_db_1 psql -U postgres -c "SELECT 1" && echo "DB IS RUNNING"
   - docker exec orcidhub_app_1 psql -U postgres -h db -c "SELECT 1" && echo "APP CAN ACCESS DB"
   - docker-compose -p orcidhub logs
+  - docker network inspect orcidhub_default
 
 notifications:
   email:
