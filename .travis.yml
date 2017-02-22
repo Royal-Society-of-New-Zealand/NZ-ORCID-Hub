@@ -3,6 +3,7 @@ services:
   - docker
 
 language: python
+cache: pip
 python:
   - '3.6'
 
@@ -22,8 +23,10 @@ install:
 script:
   - flake8 orcidhub-core
   - docker-compose -p orcidhub up -d
+  - until docker exec orcidhub_db_1 psql -U postgres -l; do echo "Waiting for postgres to start..."; sleep 0.5; done
   - docker exec orcidhub_db_1 psql -U postgres -c "SELECT 1" && echo "DB IS RUNNING"
-  - docker exec orcidhub_app_1 psql -U postgres -h orcidhub_db_1 -c "SELECT 1" && echo "APP CAN ACCESS DB" || docker-compose logs
+  - docker exec orcidhub_app_1 psql -U postgres -h orcidhub_db_1 -c "SELECT 1" && echo "APP CAN ACCESS DB"
+  - docker-compose logs
 
 notifications:
   email:
