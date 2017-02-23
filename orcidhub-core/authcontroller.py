@@ -62,6 +62,6 @@ def profile():
     db.session.commit()
     client = OAuth2Session(client_id, token=session['oauth_token'])
     headers = {'Accept': 'application/json'}
-    resp = client.get("https://api.sandbox.orcid.org/v1.2/" + str(orcid)
-                      + "/orcid-works", headers=headers)
+    resp = client.get("https://api.sandbox.orcid.org/v1.2/" +
+                      str(orcid) + "/orcid-works", headers=headers)
     return render_template("login.html", userName=name, work=resp.text)
