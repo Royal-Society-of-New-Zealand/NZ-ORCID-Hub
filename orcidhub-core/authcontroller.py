@@ -8,14 +8,14 @@ from application import app
 from application import db
 
 
-@app.route("/orcidhub/index")
+@app.route("/index")
 def index():
     print(session)
     print(request.headers)
     return render_template("index.html")
 
 
-@app.route("/orcidhub/redirect")
+@app.route("/redirect")
 def demo():
     """Step 1: User Authorization.
     Redirect the user/resource owner to the OAuth provider (i.e.Orcid )
@@ -47,7 +47,7 @@ def callback():
     return redirect(url_for('.profile'))
 
 
-@app.route("/orcidhub/profile", methods=["GET"])
+@app.route("/profile", methods=["GET"])
 def profile():
     """Fetching a protected resource using an OAuth 2 token.
     """
@@ -62,7 +62,6 @@ def profile():
     db.session.commit()
     client = OAuth2Session(client_id, token=session['oauth_token'])
     headers = {'Accept': 'application/json'}
-    resp = client.get(
-        "https://api.sandbox.orcid.org/v1.2/" + str(orcid) + "/orcid-works",
-        headers=headers)
+    resp = client.get("https://api.sandbox.orcid.org/v1.2/" + str(orcid)
+                      + "/orcid-works", headers=headers)
     return render_template("login.html", userName=name, work=resp.text)

@@ -30,4 +30,4 @@ If you are running this application for the first time then follow steps a to d:
 d) Run initializedb.py to create table in postgres
 
 Run application.py
-Open link http://127.0.0.1:5000/orcidhub/index2
+Open link https://test.orcidhub.org.nz/index
