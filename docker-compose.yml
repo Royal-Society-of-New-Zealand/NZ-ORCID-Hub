@@ -1,6 +1,13 @@
 version: '2'
 services:
+  db:
+    image: postgres:9.6.2
+    domainname: orcidhub.org.nz
+    hostname: db
+
   app:
+    depends_on:
+      - db
     image: orcidhub/app
     domainname: orcidhub.org.nz
     hostname: app
@@ -10,8 +17,3 @@ services:
       - ./orcidhub-core/shibboleth2.xml:/etc/shibboleth/shibboleth2.xml:ro
       - ./orcidhub-core/attribute-map.xml:/etc/shibboleth/attribute-map.xml:ro
       - ./orcidhub-core/tuakiri-test-metadata-cert.pem:/etc/shibboleth/tuakiri-test-metadata-cert.pem:ro
-
-  db:
-    image: postgres:9.6.2
-    domainname: orcidhub.org.nz
-    hostname: db

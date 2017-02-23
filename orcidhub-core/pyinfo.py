@@ -7,17 +7,17 @@ import sys
 import cgi
 import socket
 
-
 optional_modules_list = [
-    'Cookie', 'mod_wsgi', 'psycopg2', 'zlib', 'gzip', 'bz2', 'zipfile', 'tarfile',
-    'ldap', 'socket', 'audioop', 'curses', 'imageop', 'aifc', 'sunau', 'wave', 
-    'chunk', 'colorsys', 'rgbimg', 'imghdr', 'sndhdr', 'ossaudiodev', 'sunaudiodev',
-    'adodbapi', 'cx_Oracle', 'ibm_db', 'mxODBC', 'MySQLdb', 'pgdb', 'PyDO', 'sapdbapi', 'sqlite3'
+    'Cookie', 'mod_wsgi', 'psycopg2', 'zlib', 'gzip',
+    'bz2', 'zipfile', 'tarfile', 'ldap', 'socket', 'audioop',
+    'curses', 'imageop', 'aifc', 'sunau', 'wave', 'chunk',
+    'colorsys', 'rgbimg', 'imghdr', 'sndhdr', 'ossaudiodev',
+    'sunaudiodev', 'adodbapi', 'cx_Oracle', 'ibm_db', 'mxODBC',
+    'MySQLdb', 'pgdb', 'PyDO', 'sapdbapi', 'sqlite3'
 ]
 
 
 def _info():
-
     for i in optional_modules_list:
         try:
             module = __import__(i)
@@ -78,6 +78,7 @@ def get_system_info():
 
     return system_info
 
+
 def get_py_internals():
     py_internals = []
     if hasattr(sys, 'builtin_module_names'):
@@ -93,12 +94,12 @@ def get_py_internals():
             ('File System Encoding', sys.getfilesystemencoding()))
 
     max_integer_size = str(sys.maxsize) + ' (%s)' % \
-        hex(sys.maxsize).upper()
+                                          hex(sys.maxsize).upper()
     py_internals.append(('Maximum Integer Size', max_integer_size))
 
     if hasattr(sys, 'getrecursionlimit'):
         py_internals.append(('Maximum Recursion Depth',
-                            sys.getrecursionlimit()))
+                             sys.getrecursionlimit()))
 
     if hasattr(sys, 'tracebacklimit'):
         traceback_limit = sys.tracebacklimit
@@ -108,6 +109,7 @@ def get_py_internals():
 
     py_internals.append(('Maximum Code Point', sys.maxunicode))
     return py_internals
+
 
 def get_os_internals():
     os_internals = []
@@ -137,15 +139,18 @@ def get_os_internals():
 
     if hasattr(os, 'getloadavg'):
         os_internals.append(("Load Avarage",
-             ', '.join(map(lambda x: str(round(x, 2)), os.getloadavg()))))
+                             ', '.join(map(lambda x: str(round(x, 2)),
+                                           os.getloadavg()))))
 
     return os_internals
+
 
 def get_envvars():
     envvars = []
     for key, value in os.environ.items():
         envvars.append((key, cgi.escape(str(value), quote=True)))
     return envvars
+
 
 def get_database_info():
     database_info = []
@@ -161,6 +166,7 @@ def get_database_info():
     database_info.append(('SQLite3', is_imported('sqlite3')))
     return database_info
 
+
 def get_compression_info():
     compression_info = []
     compression_info.append(('Bzip2 Support', is_imported('bz2')))
@@ -170,6 +176,7 @@ def get_compression_info():
     compression_info.append(('Zlib Support', is_imported('zlib')))
     return compression_info
 
+
 def get_socket_info():
     socket_info = []
     socket_info.append(('Hostname', socket.gethostname()))
@@ -177,12 +184,13 @@ def get_socket_info():
                         socket.gethostbyaddr(socket.gethostname())[0]))
     try:
         socket_info.append(('IP Address',
-                           socket.gethostbyname(socket.gethostname())))
+                            socket.gethostbyname(socket.gethostname())))
     except:
         pass
     socket_info.append(('IPv6 Support', getattr(socket, 'has_ipv6', False)))
     socket_info.append(('SSL Support', hasattr(socket, 'ssl')))
     return socket_info
+
 
 def get_multimedia_info():
     multimedia_info = []
@@ -216,5 +224,5 @@ def is_imported(module):
         return 'enabled'
     return 'disabled'
 
-info = _info()
 
+info = _info()
