@@ -4,9 +4,10 @@ MAINTAINER The University of Auckland
 
 ADD http://download.opensuse.org/repositories/security://shibboleth/CentOS_7/security:shibboleth.repo /etc/yum.repos.d/shibboleth.repo
 
-COPY run-httpd-shibd /usr/local/bin/
-COPY app.wsgi /var/www/html/
-COPY app.conf /etc/httpd/conf.d/ZZ-app.conf
+COPY conf/run-httpd-shibd /usr/local/bin/
+COPY conf/app.wsgi /var/www/html/
+# prefix "ZZ" added, that it gest inluded the very end (after Shibboleth gets loaded)
+COPY conf/app.conf /etc/httpd/conf.d/ZZ-app.conf
 
 RUN yum -y update \ 
     && yum -y install https://centos7.iuscommunity.org/ius-release.rpm \
@@ -43,6 +44,9 @@ RUN yum -y update \
 	postgresql-devel \
 	python36u-devel \
     && yum -y clean all
+
+COPY requirements.txt /requirements.txt
+RUN pip3.6 install -r /requirements.txt
 
 EXPOSE 80 443
 
