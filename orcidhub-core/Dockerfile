@@ -45,8 +45,12 @@ RUN yum -y update \
 	python36u-devel \
     && yum -y clean all
 
+# NOTE: the keygeneration should be done during the deployment of the container
+ENV ENV=${ENV:-test}
+ENV DOMAINNAME=${DOMAINNAME:-${ENV}.orcidhub.org.nz}
 COPY requirements.txt /requirements.txt
-RUN pip3.6 install -r /requirements.txt
+RUN pip3.6 install -r /requirements.txt \
+  rm -f /anaconda-post.log
 
 EXPOSE 80 443
 
