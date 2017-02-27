@@ -15,8 +15,8 @@ def index():
 
 @app.route("/Tuakiri/login")
 def login():
-    #print(session)
-    #print(request.headers)
+    # print(session)
+    # print(request.headers)
     return render_template("login.html")
 
 @app.route("/Tuakiri/redirect")
@@ -42,7 +42,7 @@ def callback():
     client = OAuth2Session(client_id)
     token = client.fetch_token(token_url, client_secret=client_secret,
                                authorization_response=request.url)
-    ##print(token)
+    # #print(token)
     # At this point you can fetch protected resources but lets save
     # the token and show how this is done from a persisted token
     # in /profile.
@@ -66,9 +66,9 @@ def profile():
         researcher.auth_token = auth_token
     else:
         researcher = Researcher(
-                rname=oauth_token['name'],
-                orcidid=oauth_token['orcid'],
-                auth_token=oauth_token['access_token'])
+            rname=oauth_token['name'],
+            orcidid=oauth_token['orcid'],
+            auth_token=oauth_token['access_token'])
         db.session.add(researcher)
 
     db.session.commit()
@@ -77,6 +77,6 @@ def profile():
     resp = client.get("https://api.sandbox.orcid.org/v1.2/" +
                       str(orcid) + "/orcid-works", headers=headers)
     return render_template(
-            "login.html", 
-            userName=name, 
-            work=json.dumps(json.loads(resp.text), sort_keys=True, indent=4, separators=(',', ': ')))
+        "login.html",
+        userName=name,
+        work=json.dumps(json.loads(resp.text), sort_keys=True, indent=4, separators=(',', ': ')))

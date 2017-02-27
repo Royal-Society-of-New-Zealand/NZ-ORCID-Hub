@@ -7,6 +7,11 @@ cache: pip
 python:
   - '3.6'
 
+env:
+  - ENV=test
+  - POSTGRES_PASSWORD=p455w0rd
+  - PGPASSWORD=p455w0rd
+
 before_install:
   - sudo rm /usr/local/bin/docker-compose
   - curl -L "https://github.com/docker/compose/releases/download/1.11.1/docker-compose-$(uname -s)-$(uname -m)" -o docker-compose
@@ -25,6 +30,8 @@ script:
   - sleep 5 ; wait_pg_up
   - docker-compose exec db psql -U postgres -c "SELECT 1" && echo "DB IS RUNNING"
   - docker-compose exec app psql -h db -U postgres -c "SELECT 1" && echo "APP CAN ACCESS DB"
+  - docker-compose exec db psql -U orcidhub -c "SELECT 1" && echo "DB IS RUNNING"
+  - docker-compose exec app psql -h orcidhub -U orcidhub -c "SELECT 1" && echo "APP CAN ACCESS DB"
   - pytest -v orcidhub-core/test.py
 
 notifications:
