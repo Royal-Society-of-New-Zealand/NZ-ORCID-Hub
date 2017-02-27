@@ -1,0 +1,7 @@
+:
+# create and secure with a password P12 keystore:
+# openssl pkcs12 -export -inkey KEY.pem -in CERT.pem -out STORE.p12 -password pass:PASSWORD
+P12=${1:-.keys/${ENV}-sp.p12}
+openssl pkcs12 -in $P12 -nocerts -nodes -out .keys/sp-key.pem -passin env:P12_PASSWORD -passout pass:
+openssl pkcs12 -in $P12 -clcerts -nokeys -out .keys/sp-cert.pem -passin env:P12_PASSWORD -passout pass:
+
