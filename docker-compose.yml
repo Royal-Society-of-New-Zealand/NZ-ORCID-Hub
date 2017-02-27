@@ -4,6 +4,7 @@ services:
     image: postgres:9.6.2
     environment:
       - POSTGRES_PASSWORD
+      - PGPASSWORD
     domainname: orcidhub.org.nz
     hostname: db
     volumes:
@@ -16,6 +17,7 @@ services:
     environment:
       - ENV
       - POSTGRES_PASSWORD
+      - PGPASSWORD
       - ORCID_CLIENT_ID=APP-TF7LKIE084PYTQ59
       - ORCID_CLIENT_SECRET
     domainname: orcidhub.org.nz

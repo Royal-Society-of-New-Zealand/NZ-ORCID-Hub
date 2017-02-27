@@ -8,7 +8,7 @@ python:
   - '3.6'
 
 env:
-  - ENV=test POSTGRES_PASSWORD=p455w0rd PGPASSWORD=p455w0rd
+  - ENV=test
 
 before_install:
   - sudo rm /usr/local/bin/docker-compose
