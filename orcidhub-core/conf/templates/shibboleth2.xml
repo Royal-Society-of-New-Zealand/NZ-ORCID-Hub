@@ -20,7 +20,7 @@
     -->
 
     <!-- The ApplicationDefaults element is where most of Shibboleth's SAML bits are defined. -->
-    <ApplicationDefaults entityID="https://test.orcidhub.org.nz/shibboleth"
+    <ApplicationDefaults entityID="https://${SHIB_SP_DOMAINNAME:-${ENV}.orcidhub.org.nz}/shibboleth"
                          REMOTE_USER="eppn persistent-id targeted-id">
 
         <!--
@@ -33,7 +33,7 @@
         security of your site. Stealing sessions via cookie theft is much easier with this disabled.
         -->
         <Sessions lifetime="28800" timeout="3600" relayState="ss:mem"
-                  checkAddress="false" handlerSSL="true" cookieProps="http" handlerURL="https://test.orcidhub.org.nz/Shibboleth.sso">
+                  checkAddress="false" handlerSSL="true" cookieProps="http" handlerURL="https://$SHIB_SP_DOMAINNAME/Shibboleth.sso">
 
             <!--
             Configures SSO for a default IdP. To allow for >1 IdP, remove
@@ -42,7 +42,7 @@
             You can also override entityID on /Login query string, or in RequestMap/htaccess.
             -->
             <SSO
-discoveryProtocol="SAMLDS" discoveryURL="https://directory.test.tuakiri.ac.nz/ds/DS">
+              discoveryProtocol="SAMLDS" discoveryURL="${SHIB_SSO_DS_URL:-https://directory.${ENV}.tuakiri.ac.nz/ds/DS}">
               SAML2 SAML1
             </SSO>
 
@@ -79,10 +79,10 @@ discoveryProtocol="SAMLDS" discoveryURL="https://directory.test.tuakiri.ac.nz/ds
         </MetadataProvider>
         -->
 
-	<MetadataProvider type="XML" uri="https://directory.test.tuakiri.ac.nz/metadata/tuakiri-test-metadata-signed.xml"
-        	backingFilePath="metadata.tuakiri-test.xml" reloadInterval="7200">
+        <MetadataProvider type="XML" uri="https://${SHIB_METADATAPROVIDER_URI:-directory.${ENV}.tuakiri.ac.nz/metadata/tuakiri-${ENV}-metadata-signed.xml}"
+        	backingFilePath="metadata.xml" reloadInterval="7200">
     		<MetadataFilter type="RequireValidUntil" maxValidityInterval="2419200"/>
-    		<MetadataFilter type="Signature" certificate="tuakiri-test-metadata-cert.pem"/>
+                <MetadataFilter type="Signature" certificate="${METADATA_CERT_FILE:-tuakiri-${ENV}-metadata-cert.pem}"/>
         </MetadataProvider>
         <!-- Example of locally maintained metadata. -->
         <!--

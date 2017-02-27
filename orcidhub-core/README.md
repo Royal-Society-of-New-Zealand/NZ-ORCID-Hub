@@ -15,6 +15,36 @@ Application Docker Image ([orcidhub/app](https://hub.docker.com/r/orcidhub/app/)
 1. find container IP address: `docker inspect --format '{{.NetworkSettings.IPAddress}}' app`
 1. verify it's running: `curl $(docker inspect --format '{{.NetworkSettings.IPAddress}}' app)`
 
+### Environment Variables
+
+The application image uses several environment variables which are easy to miss. These ariable should be set up for the specific runtime environment.
+
+#### ENV
+
+The runtime environment name (default: **test**)
+
+#### SHIB_SP_DOMAINNAME
+
+Your **Service Provider** domain name (default: **${ENV}.<container domainname>"**)
+
+#### SHIB_IDP_DOMAINNAME
+
+Your **Idendtity Provider** domain name, e.g., *http://directory.tuakiri.ac.nz*
+
+#### SHIB_SSO_DS_URL
+
+SSO discovery service URL (default: **https://${SHIB_IDP_DOMAINNAME}/ds/DS**)
+
+#### SHIB_METADATA_PROVIDER_URI
+
+**Shibboleth** SAML 2.0 meta data provider URI (moro at: https://wiki.shibboleth.net/confluence/display/SHIB2/NativeSPMetadataProvider)
+
+#### SHIB_METADATA_CERT_FILE
+
+Meta data signig certificat
+
+
+
 ## Steps to execute this application
 
 If you are running this application for the first time then follow steps a to d:

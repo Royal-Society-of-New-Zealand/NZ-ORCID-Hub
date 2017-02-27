@@ -1,19 +1,21 @@
-# You should put the valid member API client id
-# of Research Organisation in place of this dummy data
-client_id = "APP-AAAAAAAAA"
+from os import environ
 
-# You should put the valid member API Secret id of
-# Research Organisation in place of this dummy data
-client_secret = "AAAA-AAA-AA-AAA-AAAAA"
+# Orcid API client ID and secret
+client_id = environ.get("ORCID_CLIENT_ID", "APP-TF7LKIE084PYTQ59")
+client_secret = environ.get("ORCID_CLIENT_SECRET")
 
 # Change the URL as per the enviornment
 authorization_base_url = 'https://sandbox.orcid.org/oauth/authorize'
 token_url = 'https://pub.sandbox.orcid.org/oauth/token'
 scope = ['/authenticate']
 
-# Put your application redirect URL in place of dummy data
-redirect_uri = 'https://AAAA'
+# Application redirect URL:
+redirect_uri = 'https://test.orcidhub.org.nz/orcidhub/test'
 
-# Put the postgresql connection url
-SQLALCHEMY_DATABASE_URI = 'postgresql://AAA:AAA@localhost:5432/AAAA'
+# Postgresql connection url
+POSTGRES_PASSWORD = environ.get("POSTGRES_PASSWORD")
+SQLALCHEMY_DATABASE_URI = "postgresql://postgres"
+if POSTGRES_PASSWORD:
+    SQLALCHEMY_DATABASE_URI += ':' + POSTGRES_PASSWORD
+SQLALCHEMY_DATABASE_URI += "@db:5432/orcidhub"
 SQLALCHEMY_MIGRATE_REPO = 'db_repository'

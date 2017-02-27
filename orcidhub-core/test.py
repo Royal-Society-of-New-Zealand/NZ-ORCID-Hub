@@ -21,7 +21,7 @@ class OrcidhubTestCase(unittest.TestCase):
         pass
 
     def test_index(self):
-        rv = self.app.get("/index")
+        rv = self.app.get("/")
         assert b"<!DOCTYPE html>" in rv.data
         assert b"Home" in rv.data
 

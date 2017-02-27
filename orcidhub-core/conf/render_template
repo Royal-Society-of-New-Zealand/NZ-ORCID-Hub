@@ -1,0 +1,6 @@
+#!/bin/sh
+
+# render a template configuration file
+# expand variables + preserve formatting
+eval "echo \"$(sed 's/\"/\\\"/g' $1)\""
+

@@ -4,11 +4,6 @@ MAINTAINER The University of Auckland
 
 ADD http://download.opensuse.org/repositories/security://shibboleth/CentOS_7/security:shibboleth.repo /etc/yum.repos.d/shibboleth.repo
 
-COPY conf/run-httpd-shibd /usr/local/bin/
-COPY conf/app.wsgi /var/www/html/
-# prefix "ZZ" added, that it gest inluded the very end (after Shibboleth gets loaded)
-COPY conf/app.conf /etc/httpd/conf.d/ZZ-app.conf
-
 RUN yum -y update \ 
     && yum -y install https://centos7.iuscommunity.org/ius-release.rpm \
     && yum -y install \
@@ -27,7 +22,7 @@ RUN yum -y update \
     && [ -d /var/run/lock ] || mkdir -p /var/run/lock \
     && [ -d /var/lock/subsys/ ] || mkdir -p /var/lock/subsys/ \
     && echo $'export LD_LIBRARY_PATH=/opt/shibboleth/lib64:$LD_LIBRARY_PATH\n' > /etc/sysconfig/shibd \
-    && chmod +x /etc/sysconfig/shibd /etc/shibboleth/shibd-redhat /usr/local/bin/run-httpd-shibd \
+    && chmod +x /etc/sysconfig/shibd /etc/shibboleth/shibd-redhat \
     && yum erase -y \
 	apr-util-devel \
 	cpp \
@@ -45,14 +40,17 @@ RUN yum -y update \
 	python36u-devel \
     && yum -y clean all
 
-# NOTE: the keygeneration should be done during the deployment of the container
-ENV ENV=${ENV:-test}
-ENV DOMAINNAME=${DOMAINNAME:-${ENV}.orcidhub.org.nz}
+COPY conf/app.wsgi /var/www/html/
+# prefix "ZZ" added, that it gest inluded the very end (after Shibboleth gets loaded)
+COPY conf/app.conf /etc/httpd/conf.d/ZZ-app.conf
 COPY requirements.txt /requirements.txt
-RUN pip3.6 install -r /requirements.txt \
-  rm -f /anaconda-post.log
+COPY run-app /usr/local/bin/
+COPY ./conf /conf
+RUN rm -f /anaconda-post.log ; chmod +x /usr/local/bin/run-app \
+   && yum -y install gettext \
+   && pip3.6 install -r /requirements.txt
 
 EXPOSE 80 443
 
-CMD ["run-httpd-shibd"]
+CMD ["run-app"]
 
