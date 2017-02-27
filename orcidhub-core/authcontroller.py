@@ -6,6 +6,7 @@ from config import client_id, client_secret, authorization_base_url,\
 from model import Researcher
 from application import app
 from application import db
+import json
 
 
 @app.route("/")
@@ -54,17 +55,28 @@ def callback():
 def profile():
     """Fetching a protected resource using an OAuth 2 token.
     """
-    orcid = session['oauth_token']['orcid']
-    name = session['oauth_token']['name']
-    ##print(orcid)
+    oauth_token = session["oauth_token"]
+    orcid = oauth_token["orcid"]
+    name = oauth_token["name"]
+    auth_token = oauth_token["access_token"]
 
-    researcher = Researcher(rname=session['oauth_token']['name'],
-                            orcidid=session['oauth_token']['orcid'],
-                            auth_token=session['oauth_token']['access_token'])
-    db.session.add(researcher)
+    researcher = Researcher.query.filter_by(rname=name).first()
+    if researcher:
+        researcher.orcidid = orcid
+        researcher.auth_token = auth_token
+    else:
+        researcher = Researcher(
+                rname=oauth_token['name'],
+                orcidid=oauth_token['orcid'],
+                auth_token=oauth_token['access_token'])
+        db.session.add(researcher)
+
     db.session.commit()
-    client = OAuth2Session(client_id, token=session['oauth_token'])
+    client = OAuth2Session(client_id, token=oauth_token)
     headers = {'Accept': 'application/json'}
     resp = client.get("https://api.sandbox.orcid.org/v1.2/" +
                       str(orcid) + "/orcid-works", headers=headers)
-    return render_template("login.html", userName=name, work=resp.text)
+    return render_template(
+            "login.html", 
+            userName=name, 
+            work=json.dumps(json.loads(resp.text), sort_keys=True, indent=4, separators=(',', ': ')))
