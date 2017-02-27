@@ -14,7 +14,7 @@ redirect_uri = 'https://test.orcidhub.org.nz/orcidhub/test'
 
 # Postgresql connection url
 POSTGRES_PASSWORD = environ.get("POSTGRES_PASSWORD")
-SQLALCHEMY_DATABASE_URI = "postgresql://postgres"
+SQLALCHEMY_DATABASE_URI = "postgresql://orcidhub"
 if POSTGRES_PASSWORD:
     SQLALCHEMY_DATABASE_URI += ':' + POSTGRES_PASSWORD
 SQLALCHEMY_DATABASE_URI += "@db:5432/orcidhub"

@@ -98,4 +98,6 @@ ENV/
 *.key.org
 *.crt
 CSR/
+*key.pem
+*cert.pem
 

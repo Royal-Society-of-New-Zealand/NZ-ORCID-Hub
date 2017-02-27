@@ -7,13 +7,15 @@ if [ -z "$ORCID_CLIENT_ID" ] || [ -z "$ORCID_CLIENT_SECRET" ] ; then
 fi
 ## Runtime environment name:
 ENV=${ENV:-test}
+echo "Runtime Environment: $ENV"
 ## host domainnname:
-DOMAINNAME=${DOMAINNAME-$(hostname -A)}
+DOMAINNAME=${DOMAINNAME:-$(hostname -A | cut -d\  -f1)}
 HOSTNAME=${HOSTNAME-$(hostname)}
 
+echo \"$DOMAINNAME\" \"$HOSTNAME\"
 ## Shibboleth SP domainname:
 [ -z "$SHIB_SP_DOMAINNAME" ] && SHIB_SP_DOMAINNAME=${DOMAINNAME/$HOSTNAME/$ENV}
-echo "Shibboleth SP Domainname: $SHIB_SP_DOMAINNAME"
+echo "Shibboleth SP Domainname: \"$SHIB_SP_DOMAINNAME\""
 
 ## Shibboleth SP domainname:
 [ -z "$SHIB_IDP_DOMAINNAME" ] && SHIB_IDP_DOMAINNAME=directory.$ENV.tuakiri.ac.nz

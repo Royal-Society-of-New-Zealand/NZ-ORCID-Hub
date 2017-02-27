@@ -20,7 +20,7 @@
     -->
 
     <!-- The ApplicationDefaults element is where most of Shibboleth's SAML bits are defined. -->
-    <ApplicationDefaults entityID="https://${SHIB_SP_DOMAINNAME:-${ENV}.orcidhub.org.nz}/shibboleth"
+    <ApplicationDefaults entityID="https://${SHIB_SP_DOMAINNAME:-${ENV:-test}.orcidhub.org.nz}/shibboleth"
                          REMOTE_USER="eppn persistent-id targeted-id">
 
         <!--
