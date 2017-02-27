@@ -43,7 +43,9 @@ SSO discovery service URL (default: **https://${SHIB_IDP_DOMAINNAME}/ds/DS**)
 
 Meta data signig certificat
 
+#### ORCID_CLIENT_ID and ORCID_CLIENT_SECRET
 
+Orcid API client ID and secret
 
 ## Steps to execute this application
 

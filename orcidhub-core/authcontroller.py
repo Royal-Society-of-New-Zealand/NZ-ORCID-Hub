@@ -10,14 +10,12 @@ from application import db
 
 @app.route("/")
 def index():
-    ##print(session)
-    ##print(request.headers)
     return render_template("index.html")
 
 @app.route("/Tuakiri/login")
 def login():
-    print(session)
-    print(request.headers)
+    #print(session)
+    #print(request.headers)
     return render_template("login.html")
 
 @app.route("/Tuakiri/redirect")
