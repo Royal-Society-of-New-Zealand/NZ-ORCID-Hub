@@ -14,8 +14,13 @@ def index():
     ##print(request.headers)
     return render_template("index.html")
 
+@app.route("/Tuakiri/login")
+def login():
+    print(session)
+    print(request.headers)
+    return render_template("login.html")
 
-@app.route("/redirect")
+@app.route("/Tuakiri/redirect")
 def demo():
     """Step 1: User Authorization.
     Redirect the user/resource owner to the OAuth provider (i.e.Orcid )
@@ -47,7 +52,7 @@ def callback():
     return redirect(url_for('.profile'))
 
 
-@app.route("/profile", methods=["GET"])
+@app.route("/Tuakiri/profile", methods=["GET"])
 def profile():
     """Fetching a protected resource using an OAuth 2 token.
     """
