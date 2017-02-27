@@ -2,40 +2,45 @@
 <html lang="en">
 
 <head>
-  <title>ORCID Hub LOGIN</title>
+  <title>ORCHID HUB</title>
   <meta name="description" content="website description" />
   <meta name="keywords" content="ORCID Hub New zealand" />
   <meta http-equiv="content-type" content="text/html; charset=windows-1252" />
   <link rel="stylesheet" type="text/css" href="/static/assets/css/style.css" />
   <script type="text/javascript" src="/static/js/modernizr-1.5.min.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet"
+	href="/static/assets/bootstrap-4.0.0-alpha.6-dist/css/bootstrap.css" type="text/css">
+<link rel="stylesheet"
+	href="/static/assets/bootstrap-4.0.0-alpha.6-dist/js/bootstrap.min.js" type="text/css">
+<link rel="stylesheet" href="/static/assets/css/trial.css">
 </head>
 
 <body>
   <div id="main">		
 
     <header>
-	  <div id="strapline">
-	    <div id="welcome_slogan">
-	      <h3>ORCID Hub- Powering Researcher</h3>
-	    </div><!--close welcome_slogan-->
-      </div><!--close strapline-->	  
-	  <nav>
-	    <div id="menubar">
-          <ul id="nav">
-            <li class="current"><a href="index.html">Home</a></li>
-            <li><a href="/Tuakiri/redirect">Affiliate yourself with ORCID HUB</a></li>
-            <li><a href="index.html">Projects</a></li>
-            <li><a href="index.html">Contact Us</a></li>
-          </ul>
-        </div><!--close menubar-->	
-      </nav>
+	<div class="container-fluid">
+		<img src="/static/images/background.png" class="img-responsive"
+			alt="Cinque Terre" width="100%" height="100">
+	</div>
+
+	<!-- Menu Details -->
+	<label for="show-menu" class="show-menu">Show Menu</label>
+	<input type="checkbox" id="show-menu" role="button">
+	<ul id="menu">
+		<li><a href="/index">Home</a></li>
+		<li><a href="#">About</a></li>
+		<li><a href="/Tuakiri/redirect">Affiliate yourself with ORCID HUB</a></li>
+		<li><a href="#">Contact</a></li>
+	</ul>
     </header>
     
     <div id="slideshow_container">  
 	  <div class="slideshow">
 	    <ul class="slideshow">
-          <li class="show"><img width="940" height="250" src="/static/images/screen1.jpg" alt="ORCID Hub Powering Researcher" /></li>
-          <li><img width="940" height="250" src="/static/images/screen2.jpg" alt="ORCID Hub Powering Researcher" /></li>
+          <li class="show"><img width="940" height="350" src="/static/images/screen1.jpg" alt="ORCID Hub Powering Researcher" /></li>
+          <li><img width="940" height="350" src="/static/images/screen2.jpg" alt="ORCID Hub Powering Researcher" /></li>
         </ul> 
 	  </div><!--close slideshow-->  	
 	</div><!--close slideshow_container-->   
@@ -69,17 +74,18 @@
         <div class="content_item">
 		  <h1>Welcome To ORCID Hub</h1>
 		<div id="logged-in-info"><span><h2> </h2>Hello, <b text="{{ userName }}">{{userName}}</b></span></div>
-                <div id="logged-in-info"><span><h2> </h2>Work: <b text="{{ userName }}">
-                            <pre>{{work}}</pre></b></span>
-                </div>
+		<div id="logged-in-info"><span><h2> </h2>Work: <b text="{{ userName }}">{{work}}</b></span></div>
+          
 		  
 		</div><!--close content_item-->
       </div><!--close content-->   
 	</div><!--close site_content-->  	
 
     <footer>
-	  <a href="index.html">Home</a> | <a href="index.html">Our Work</a> | <a href="index.html">Projects</a> | <a href="index.html">Contact</a><br/><br/>
-    </footer>
+		<div class="container">
+			<p>Royal Society of New Zealand</p>
+		</div>
+	</footer>
 	
   </div><!--close main-->
   
