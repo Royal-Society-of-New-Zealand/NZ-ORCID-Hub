@@ -1,6 +1,5 @@
 from application import db
-from peewee import Model, CharField, DateTimeField, ForeignKeyField, \
-    TextField, IntegerField, DateField, TimeField, BooleanField
+from peewee import Model, CharField
 from peewee import drop_model_tables
 
 class BaseModel(Model):
@@ -25,7 +24,6 @@ def create_tables():
     """
     db.connect()
     models = (Researcher,)
-    #models = (m for m in globals().values() if isinstance(m, type) and issubclass(m, Model))
     db.create_tables(models)
 
 

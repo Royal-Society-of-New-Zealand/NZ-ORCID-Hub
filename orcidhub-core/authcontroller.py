@@ -5,7 +5,6 @@ from config import client_id, client_secret, authorization_base_url, \
     token_url, scope, redirect_uri
 from models import Researcher
 from application import app
-from application import db
 import json
 
 
@@ -59,12 +58,11 @@ def profile():
     oauth_token = session["oauth_token"]
     orcid = oauth_token["orcid"]
     name = oauth_token["name"]
-    auth_token = oauth_token["access_token"]
 
-    researcher = Researcher.get_or_create(
-            rname=oauth_token["name"],
-            orcid=oauth_token["orcid"],
-            auth_token=oauth_token["access_token"])
+    Researcher.get_or_create(
+        rname=oauth_token["name"],
+        orcid=oauth_token["orcid"],
+        auth_token=oauth_token["access_token"])
 
     client = OAuth2Session(client_id, token=oauth_token)
     headers = {'Accept': 'application/json'}
