@@ -8,6 +8,8 @@ from pyinfo import info
 app = Flask(__name__)
 
 app.secret_key = os.urandom(24)
+# NB! Disable in production
+pp.config['TESTING'] = True
 app.config['SQLALCHEMY_DATABASE_URI'] = SQLALCHEMY_DATABASE_URI
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = True
 os.environ['DEBUG'] = "1"
