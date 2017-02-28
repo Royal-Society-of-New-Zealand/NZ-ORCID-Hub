@@ -3,7 +3,7 @@ from flask import request, redirect, session, url_for, render_template
 from werkzeug.urls import iri_to_uri
 from config import client_id, client_secret, authorization_base_url, \
     token_url, scope, redirect_uri
-from model import Researcher
+from models import Researcher
 from application import app
 from application import db
 import json
@@ -61,18 +61,11 @@ def profile():
     name = oauth_token["name"]
     auth_token = oauth_token["access_token"]
 
-    researcher = Researcher.query.filter_by(rname=name).first()
-    if researcher:
-        researcher.orcidid = orcid
-        researcher.auth_token = auth_token
-    else:
-        researcher = Researcher(
-            rname=oauth_token['name'],
-            orcidid=oauth_token['orcid'],
-            auth_token=oauth_token['access_token'])
-        db.session.add(researcher)
+    researcher = Researcher.get_or_create(
+            rname=oauth_token["name"],
+            orcid=oauth_token["orcid"],
+            auth_token=oauth_token["access_token"])
 
-    db.session.commit()
     client = OAuth2Session(client_id, token=oauth_token)
     headers = {'Accept': 'application/json'}
     resp = client.get("https://api.sandbox.orcid.org/v1.2/" +

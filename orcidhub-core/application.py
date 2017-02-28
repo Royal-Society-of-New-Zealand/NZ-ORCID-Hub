@@ -4,6 +4,8 @@ from config import SQLALCHEMY_DATABASE_URI
 from flask_sqlalchemy import SQLAlchemy
 # NB! Should be disabled in production
 from pyinfo import info
+from peewee import PostgresqlDatabase
+import config
 
 app = Flask(__name__)
 
@@ -19,7 +21,23 @@ def pyinfo():
     return render_template('pyinfo.html', **info)
 
 
-db = SQLAlchemy(app)
+db = PostgresqlDatabase(
+    config.DB_NAME,
+    user=config.DB_USERNAME,
+    password=config.DB_PASSWORD,
+    host=config.DB_HOSTNAME
+)
+
+# TODO: connection should be managed explicitely
+@app.before_request
+def before_request():
+    db.connect()
+
+@app.after_request
+def after_request(response):
+    db.close()
+    return response
+
 # flake8: noqa
 from authcontroller import *
 
