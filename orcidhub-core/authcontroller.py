@@ -1,7 +1,7 @@
 from requests_oauthlib import OAuth2Session
 from flask import request, redirect, session, url_for, render_template
 from werkzeug.urls import iri_to_uri
-from config import client_id, client_secret, authorization_base_url,\
+from config import client_id, client_secret, authorization_base_url, \
     token_url, scope, redirect_uri
 from model import Researcher
 from application import app
@@ -13,11 +13,12 @@ import json
 def index():
     return render_template("index.html")
 
+
 @app.route("/Tuakiri/login")
 def login():
-    # print(session)
     # print(request.headers)
-    return render_template("login.html")
+    return render_template("login.html", userName=request.headers['Displayname'], organisationName=request.headers['O'])
+
 
 @app.route("/Tuakiri/redirect")
 def demo():
