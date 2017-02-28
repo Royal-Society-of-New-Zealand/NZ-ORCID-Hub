@@ -11,25 +11,45 @@ fail_if_error() {
     unset PASSPHRASE
   }
 }
-  export PASSPHRASE=$(head -c 64 /dev/urandom  | base64)
 
-  subj="
+export PASSPHRASE=$(head -c 64 /dev/urandom  | base64)
+subj="
+"
+ALTNAME=DNS:$DOMAIN,DNS:api.$DOMAIN,URI:https://$DOMAIN/shibboleth,URI:https://$DOMAIN/Shibboleth.sso
+
+SSLCNF=$(mktemp -t --suffix=.cfg)
+cat >$SSLCNF <<EOF
+# OpenSSL configuration file for creating keypair
+[req]
+prompt=no
+default_bits=3072
+encrypt_key=no
+default_md=sha256
+distinguished_name=dn
+# PrintableStrings only
+string_mask=MASK:0002
+x509_extensions=ext
+[dn]
+CN=$DOMAIN
 C=NZ
 ST=Auckland
 O=The University of Auckland
-localityName=Auckland
-commonName=$DOMAIN
-organizationalUnitName=IT Strategy, Policy, and Planning
+L=Auckland
+OU=IT Strategy, Policy, and Planning
 emailAddress=nz-orcid-hub-gg@aucklanduni.ac.nz
-"
+[ext]
+subjectAltName=$ALTNAME
+subjectKeyIdentifier=hash
+EOF
 
 openssl genrsa -des3 -out $DOMAIN.key -passout env:PASSPHRASE 2048
 fail_if_error $?
 
 openssl req \
+    -reqexts ext \
     -new \
     -batch \
-    -subj "$(echo -n "$subj" | tr "\n" "/")" \
+    -config $SSLCNF \
     -key $DOMAIN.key \
     -out $DOMAIN.csr \
     -passin env:PASSPHRASE 
@@ -41,7 +61,9 @@ fail_if_error $?
 openssl rsa -in $DOMAIN.key.org -out $DOMAIN.key -passin env:PASSPHRASE
 fail_if_error $?
 
-# Create the certificate file:
+# Create a self-signed certificate:
 openssl x509 -req -days 1365 -in $DOMAIN.csr -signkey $DOMAIN.key -out $DOMAIN.crt
 fail_if_error $?
 
+[ ! -d CSR ] && mkdir CSR
+mv $DOMAIN.csr CSR/

@@ -1,10 +1,6 @@
 test.orcidhub.org.nz
-api.test.orcidhub.org.nz
 demo.orcidhub.org.nz
-api.demo.orcidhub.org.nz
 test.orcidhub.org.nz
-api.test.orcidhub.org.nz
+dev.orcidhub.org.nz
 dev1.orcidhub.org.nz
-api.dev1.orcidhub.org.nz
 dev2.orcidhub.org.nz
-api.dev2.orcidhub.org.nz
