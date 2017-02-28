@@ -23,7 +23,7 @@ def login():
         return render_template("login.html", userName=request.headers['Displayname'],
                                organisationName=request.headers['O'])
     else:
-        return render_template("index.html")
+        return render_template("login.html")
 
 
 @app.route("/Tuakiri/redirect")
