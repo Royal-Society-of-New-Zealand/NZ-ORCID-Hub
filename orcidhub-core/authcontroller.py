@@ -17,8 +17,12 @@ def index():
 @app.route("/Tuakiri/login")
 def login():
     # print(request.headers)
-    return render_template("login.html", userName=request.headers['Displayname'], organisationName=request.headers['O'])
-
+    if request.headers.get("Auedupersonsharedtoken") != None:
+      # This is a unique id got from Tuakiri SAML used as identity in database
+      session['Auedupersonsharedtoken'] = request.headers.get("Auedupersonsharedtoken")
+      return render_template("login.html", userName=request.headers['Displayname'], organisationName=request.headers['O'])
+    else:
+      return render_template("index.html")
 
 @app.route("/Tuakiri/redirect")
 def demo():
@@ -29,7 +33,18 @@ def demo():
     client = OAuth2Session(client_id, scope=scope, redirect_uri=redirect_uri)
     authorization_url, state = client.authorization_url(authorization_base_url)
     session['oauth_state'] = state
-    return redirect(iri_to_uri(authorization_url))
+    auedupersonsharedtoken = session['Auedupersonsharedtoken']
+    userPresent = False
+    # Check if user details are already in database
+    if auedupersonsharedtoken!=None:
+        data =Researcher.query.filter_by(auedupersonsharedtoken=auedupersonsharedtoken).first()
+        if None!=data:
+            userPresent=True
+    # If user details are already there in database redirect to profile instead of orcid
+    if userPresent:
+        return redirect(url_for('.profile'))
+    else:
+        return redirect(iri_to_uri(authorization_url))
 
 
 # Step 2: User authorization, this happens on the provider.
@@ -56,24 +71,28 @@ def callback():
 def profile():
     """Fetching a protected resource using an OAuth 2 token.
     """
-    oauth_token = session["oauth_token"]
-    orcid = oauth_token["orcid"]
-    name = oauth_token["name"]
-    auth_token = oauth_token["access_token"]
+    name=""
+    oauth_token=""
+    orcid=""
+    auedupersonsharedtoken = session['Auedupersonsharedtoken']
 
-    researcher = Researcher.query.filter_by(rname=name).first()
-    if researcher:
-        researcher.orcidid = orcid
-        researcher.auth_token = auth_token
-    else:
-        researcher = Researcher(
-            rname=oauth_token['name'],
-            orcidid=oauth_token['orcid'],
-            auth_token=oauth_token['access_token'])
-        db.session.add(researcher)
-
-    db.session.commit()
-    client = OAuth2Session(client_id, token=oauth_token)
+    if auedupersonsharedtoken!=None:
+        data =Researcher.query.filter_by(auedupersonsharedtoken=auedupersonsharedtoken).first()
+        if None!=data:
+            name=data.rname
+            oauth_token=data.auth_token
+            orcid=data.orcidid
+        else:
+            orcid = session['oauth_token']['orcid']
+            name = session['oauth_token']['name']
+            researcher = Researcher(rname=session['oauth_token']['name'],
+                                orcidid=session['oauth_token']['orcid'],
+                                auth_token=session['oauth_token']['access_token'],
+                                auedupersonsharedtoken=session['Auedupersonsharedtoken'])
+            oauth_token=session['oauth_token']['access_token']
+            db.session.add(researcher)
+            db.session.commit()
+    client = OAuth2Session(client_id, token={'access_token':oauth_token})
     headers = {'Accept': 'application/json'}
     resp = client.get("https://api.sandbox.orcid.org/v1.2/" +
                       str(orcid) + "/orcid-works", headers=headers)
