@@ -10,8 +10,6 @@ class OrcidhubTestCase(unittest.TestCase):
 
     def setUp(self):
         app.config['TESTING'] = True
-        app.config[
-            'SQLALCHEMY_DATABASE_URI'] = 'postgresql://postres:postgres@db:5432/testdb'
         self.app = app.test_client()
 
     def tearDown(self):

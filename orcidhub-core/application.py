@@ -1,7 +1,5 @@
 import os
 from flask import Flask, render_template
-from config import SQLALCHEMY_DATABASE_URI
-from flask_sqlalchemy import SQLAlchemy
 # NB! Should be disabled in production
 from pyinfo import info
 from peewee import PostgresqlDatabase
@@ -10,8 +8,6 @@ import config
 app = Flask(__name__)
 
 app.secret_key = os.urandom(24)
-app.config['SQLALCHEMY_DATABASE_URI'] = SQLALCHEMY_DATABASE_URI
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = True
 os.environ['DEBUG'] = "1"
 os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
 
