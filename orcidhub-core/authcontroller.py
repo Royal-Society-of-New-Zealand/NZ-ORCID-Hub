@@ -17,9 +17,10 @@ def index():
 @app.route("/Tuakiri/login")
 def login():
     # print(request.headers)
-    if request.headers.get("Auedupersonsharedtoken") is not None:
+    token = request.headers.get("Auedupersonsharedtoken")
+    if token:
         # This is a unique id got from Tuakiri SAML used as identity in database
-        session['Auedupersonsharedtoken'] = request.headers.get("Auedupersonsharedtoken")
+        session['Auedupersonsharedtoken'] = token
         return render_template("login.html", userName=request.headers['Displayname'],
                                organisationName=request.headers['O'])
     else:
@@ -35,10 +36,10 @@ def demo():
     client = OAuth2Session(client_id, scope=scope, redirect_uri=redirect_uri)
     authorization_url, state = client.authorization_url(authorization_base_url)
     session['oauth_state'] = state
-    auedupersonsharedtoken = session['Auedupersonsharedtoken']
+    auedupersonsharedtoken = session.get("Auedupersonsharedtoken")
     userPresent = False
     # Check if user details are already in database
-    if auedupersonsharedtoken is not None:
+    if auedupersonsharedtoken:
         data = Researcher.query.filter_by(auedupersonsharedtoken=auedupersonsharedtoken).first()
         if None is not data:
             userPresent = True
