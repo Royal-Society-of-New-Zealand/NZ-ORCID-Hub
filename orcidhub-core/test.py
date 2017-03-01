@@ -24,6 +24,8 @@ class OrcidhubTestCase(unittest.TestCase):
         rv = self.app.get("/")
         assert b"<!DOCTYPE html>" in rv.data
         assert b"Home" in rv.data
+        assert b"Royal Society of New Zealand" in rv.data, \
+            "'Royal Society of New Zealand' should be present on the index page."
 
     def test_auth(self):
         pass

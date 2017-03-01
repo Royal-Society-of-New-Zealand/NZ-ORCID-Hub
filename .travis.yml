@@ -34,6 +34,13 @@ script:
   - pytest -v orcidhub-core/test.py
   - docker-compose exec app curl -k -s https://localhost/pyinfo -o /dev/null && echo "WSGI is working..."
 
+after_success:
+  - eval "$(ssh-agent -s)"
+  - openssl rsa -in .travis/deploy_key.pem -out .travis/_deploy_key.pem -passin env:DEPLOY_KEY_PASSPHRASE
+  - chmod 400 .travis/_deploy_key.pem
+  - ssh-add .travis/_deploy_key.pem
+  - git remote add deploy ssh://ec2-user@13.54.165.101/~/repo.git
+
 notifications:
   hipchat:
     rooms:
