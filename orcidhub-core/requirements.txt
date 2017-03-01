@@ -8,3 +8,4 @@ requests
 requests_oauthlib
 sqlalchemy-migrate
 psycopg2
+flask-debugtoolbar

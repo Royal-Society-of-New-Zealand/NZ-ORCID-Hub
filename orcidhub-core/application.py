@@ -4,17 +4,22 @@ from config import SQLALCHEMY_DATABASE_URI
 from flask_sqlalchemy import SQLAlchemy
 # NB! Should be disabled in production
 from pyinfo import info
+from flask_debugtoolbar import DebugToolbarExtension
 
 app = Flask(__name__)
 
-app.secret_key = os.urandom(24)
+app.secret_key = ")Xq/4vc'K%wesQ$n'n;?+y@^rY\/u8!sk{?D7Y>.V`t_/y'wn>7~cZ$(Q.$n)d_j"
 # NB! Disable in production
 app.config['TESTING'] = True
 app.config['SQLALCHEMY_DATABASE_URI'] = SQLALCHEMY_DATABASE_URI
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = True
 os.environ['DEBUG'] = "1"
+app.debug = True
+app.config['SECRET_KEY'] = app.secret_key
 os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
 
+# NB! Disable in production
+toolbar = DebugToolbarExtension(app)
 
 @app.route('/pyinfo')
 def pyinfo():
