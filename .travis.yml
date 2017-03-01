@@ -31,6 +31,7 @@ script:
   - docker-compose exec app psql -h db -U postgres -c "SELECT 1" && echo "APP CAN ACCESS DB"
   - docker-compose exec db psql -U orcidhub -d orcidhub -c "SELECT 1" && echo "DB orcidhub IS RUNNING"
   - docker-compose exec app psql -h db -d orcidhub -U orcidhub -c "SELECT 1" && echo "APP CAN ACCESS DB orcidhub"
+  - docker-compose exec app python3.6 /var/www/orcidhub/initializedb.py
   - pytest -v orcidhub-core/test.py
   - docker-compose exec app curl -k -s https://localhost/pyinfo -o /dev/null && echo "WSGI is working..."
 
@@ -40,6 +41,7 @@ after_success:
   - chmod 400 .travis/_deploy_key.pem
   - ssh-add .travis/_deploy_key.pem
   - git remote add deploy ssh://ec2-user@13.54.165.101/~/repo.git
+  - git push --all deploy
 
 notifications:
   hipchat:
