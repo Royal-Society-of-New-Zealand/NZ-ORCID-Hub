@@ -4,6 +4,7 @@ MAINTAINER The University of Auckland
 
 ADD http://download.opensuse.org/repositories/security://shibboleth/CentOS_7/security:shibboleth.repo /etc/yum.repos.d/shibboleth.repo
 
+## libpqxx-devel.x86_64 \ postgresql96 \ postgresql96-libs \
 RUN yum -y update \ 
     && yum -y install  install https://download.postgresql.org/pub/repos/yum/9.6/redhat/rhel-7-x86_64/pgdg-redhat96-9.6-3.noarch.rpm \
     && yum -y install https://centos7.iuscommunity.org/ius-release.rpm \
@@ -13,8 +14,6 @@ RUN yum -y update \
 	mod_ssl \
     	gcc.x86_64 \
 	httpd-devel.x86_64 \
-	libpqxx-devel.x86_64 \
-	postgresql96 \
 	postgresql96-libs \
 	python36u.x86_64 \
 	python36u-devel.x86_64 \
@@ -38,7 +37,6 @@ RUN yum -y update \
 	libdb-devel \
 	openldap-devel \
 	perl \
-	postgresql-devel \
 	python36u-devel \
     && yum -y clean all
 
