@@ -6,6 +6,7 @@ from config import client_id, client_secret, authorization_base_url, \
 from models import Researcher
 from application import app
 import json
+from peewee import DoesNotExist
 
 
 @app.route("/")
@@ -16,7 +17,14 @@ def index():
 @app.route("/Tuakiri/login")
 def login():
     # print(request.headers)
-    return render_template("login.html", userName=request.headers['Displayname'], organisationName=request.headers['O'])
+    token = request.headers.get("Auedupersonsharedtoken")
+    if token:
+        # This is a unique id got from Tuakiri SAML used as identity in database
+        session['Auedupersonsharedtoken'] = token
+        return render_template("login.html", userName=request.headers['Displayname'],
+                               organisationName=request.headers['O'])
+    else:
+        return render_template("login.html")
 
 
 @app.route("/Tuakiri/redirect")
@@ -28,6 +36,15 @@ def demo():
     client = OAuth2Session(client_id, scope=scope, redirect_uri=redirect_uri)
     authorization_url, state = client.authorization_url(authorization_base_url)
     session['oauth_state'] = state
+    edu_person_shared_token = session.get("Auedupersonsharedtoken")
+    # Check if user details are already in database
+    if edu_person_shared_token:
+        try:
+            Researcher.get(Researcher.edu_person_shared_token == edu_person_shared_token)
+            # If user details are already there in database redirect to profile instead of orcid
+            return redirect(url_for('.profile'))
+        except DoesNotExist:
+            pass
     return redirect(iri_to_uri(authorization_url))
 
 
@@ -55,16 +72,20 @@ def callback():
 def profile():
     """Fetching a protected resource using an OAuth 2 token.
     """
+
+    edu_person_shared_token = session.get('Auedupersonsharedtoken')
     oauth_token = session["oauth_token"]
     orcid = oauth_token["orcid"]
     name = oauth_token["name"]
 
     Researcher.get_or_create(
-        rname=oauth_token["name"],
-        orcid=oauth_token["orcid"],
-        auth_token=oauth_token["access_token"])
+        rname=name,
+        orcid=orcid,
+        auth_token=oauth_token["access_token"],
+        edu_person_shared_token=edu_person_shared_token)
 
     client = OAuth2Session(client_id, token=oauth_token)
+
     headers = {'Accept': 'application/json'}
     resp = client.get("https://api.sandbox.orcid.org/v1.2/" +
                       str(orcid) + "/orcid-works", headers=headers)

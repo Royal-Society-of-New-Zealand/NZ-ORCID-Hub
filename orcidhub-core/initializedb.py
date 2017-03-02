@@ -1,2 +1,4 @@
-from application import db
-db.create_all()
+import models
+
+models.drop_talbes()
+models.create_tables()

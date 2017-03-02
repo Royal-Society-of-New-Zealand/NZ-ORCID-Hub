@@ -8,14 +8,25 @@ import config
 app = Flask(__name__)
 
 app.secret_key = os.urandom(24)
+from flask_debugtoolbar import DebugToolbarExtension
+
+app = Flask(__name__)
+
+app.secret_key = ")Xq/4vc'K%wesQ$n'n;?+y@^rY\/u8!sk{?D7Y>.V`t_/y'wn>7~cZ$(Q.$n)d_j"
+# NB! Disable in production
+app.config['TESTING'] = True
+app.config['DEBUG_TB_INTERCEPT_REDIRECTS'] = False
 os.environ['DEBUG'] = "1"
+app.debug = True
+app.config['SECRET_KEY'] = app.secret_key
 os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
 
+# NB! Disable in production
+toolbar = DebugToolbarExtension(app)
 
 @app.route('/pyinfo')
 def pyinfo():
     return render_template('pyinfo.html', **info)
-
 
 db = PostgresqlDatabase(
     config.DB_NAME,
