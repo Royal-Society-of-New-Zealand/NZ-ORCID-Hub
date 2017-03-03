@@ -29,10 +29,10 @@ echo "Shibboleth metadata provider URI: $SHIB_METADATA_PROVIDER_URI"
 
 export ENV SHIB_SP_DOMAINNAME SHIB_IDP_DOMAINNAME SHIB_SSO_DS_URL SHIB_METADATA_PROVIDER_URI
 
-if [ ! -f /etc/shibboleth/sp-key.pem ] || [ ! -f /etc/shibboleth/sp-cert.pem ] ; then
-  cd /etc/shibboleth
-  ./keygen.sh -f -h $SHIB_SP_DOMAINNAME -e https://$SHIB_SP_DOMAINNAME/shibboleth
-fi
+#if [ ! -f /etc/shibboleth/sp-key.pem ] || [ ! -f /etc/shibboleth/sp-cert.pem ] ; then
+#  cd /etc/shibboleth
+#  ./keygen.sh -f -h $SHIB_SP_DOMAINNAME -e https://$SHIB_SP_DOMAINNAME/shibboleth
+#fi
 
 /conf/render_template /conf/templates/shibboleth2.xml >/etc/shibboleth/shibboleth2.xml
 

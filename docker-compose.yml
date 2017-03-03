@@ -35,5 +35,5 @@ services:
       - ./orcidhub-core/tuakiri-${ENV}-metadata-cert.pem:/etc/shibboleth/tuakiri-${ENV}-metadata-cert.pem
       - ./.keys/sp-key.pem:/etc/shibboleth/sp-key.pem
       - ./.keys/sp-cert.pem:/etc/shibboleth/sp-cert.pem
-      - ./.keys/${ENV:-dev}-server.key:/etc/pki/tls/private/server.key:ro
-      - ./.keys/${ENV:-dev}-server.crt:/etc/pki/tls/certs/server.crt:ro
+      - ./.keys/${ENV:-dev}-server.key:/etc/pki/tls/private/server.key
+      - ./.keys/${ENV:-dev}-server.crt:/etc/pki/tls/certs/server.crt
