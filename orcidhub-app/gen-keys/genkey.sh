@@ -19,6 +19,8 @@ ALTNAME=DNS:$DOMAIN,DNS:api.$DOMAIN,URI:https://$DOMAIN/shibboleth,URI:https://$
 
 SSLCNF=$(mktemp -t --suffix=.cfg)
 cat >$SSLCNF <<EOF
+[ CA_default ]
+copy_extensions = copy
 # OpenSSL configuration file for creating keypair
 [req]
 prompt=no
@@ -62,7 +64,7 @@ openssl rsa -in $DOMAIN.key.org -out $DOMAIN.key -passin env:PASSPHRASE
 fail_if_error $?
 
 # Create a self-signed certificate:
-openssl x509 -req -days 1365 -in $DOMAIN.csr -signkey $DOMAIN.key -out $DOMAIN.crt
+openssl x509 -req -days 1365 -in $DOMAIN.csr -signkey $DOMAIN.key -out $DOMAIN.crt -extensions ext -extfile $SSLCNF
 fail_if_error $?
 
 [ ! -d CSR ] && mkdir CSR

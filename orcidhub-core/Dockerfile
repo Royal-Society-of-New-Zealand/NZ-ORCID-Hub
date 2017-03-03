@@ -12,8 +12,6 @@ RUN yum -y update \
 	mod_ssl \
     	gcc.x86_64 \
 	httpd-devel.x86_64 \
-	libpqxx-devel.x86_64 \
-	postgresql.x86_64 \
 	python36u.x86_64 \
 	python36u-devel.x86_64 \
 	python36u-pip \
