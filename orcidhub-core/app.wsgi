@@ -2,4 +2,4 @@
 import sys
 sys.path.insert(0, '/var/www/orcidhub')
 
-from application import app as application
+from main import app as application

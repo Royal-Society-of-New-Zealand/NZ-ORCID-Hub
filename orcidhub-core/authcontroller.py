@@ -4,10 +4,9 @@ from werkzeug.urls import iri_to_uri
 from config import client_id, client_secret, authorization_base_url, \
     token_url, scope, redirect_uri
 from models import Researcher
-from application import app
 import json
 from peewee import DoesNotExist
-
+from application import app
 
 @app.route("/")
 def index():
@@ -18,6 +17,9 @@ def index():
 def login():
     # print(request.headers)
     token = request.headers.get("Auedupersonsharedtoken")
+    session['family_names'] = request.headers['Sn']
+    session['given_names'] = request.headers['Givenname']
+    session['email'] = request.headers['Mail']
     if token:
         # This is a unique id got from Tuakiri SAML used as identity in database
         session['Auedupersonsharedtoken'] = token
@@ -45,7 +47,11 @@ def demo():
             return redirect(url_for('.profile'))
         except DoesNotExist:
             pass
-    return redirect(iri_to_uri(authorization_url))
+    return redirect(
+        iri_to_uri(authorization_url) +
+        "&family_names=" + session['family_names'] +
+        "&given_names=" + session['given_names'] +
+        "&email=" + session['email'])
 
 
 # Step 2: User authorization, this happens on the provider.

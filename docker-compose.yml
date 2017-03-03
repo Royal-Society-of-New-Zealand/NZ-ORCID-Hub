@@ -33,6 +33,6 @@ services:
       - ./orcidhub-core/app.conf:/etc/httpd/conf.d/ZZ-app.conf
       - ./orcidhub-core/conf/attribute-map.xml:/etc/shibboleth/attribute-map.xml
       - ./orcidhub-core/tuakiri-${ENV}-metadata-cert.pem:/etc/shibboleth/tuakiri-${ENV}-metadata-cert.pem
-      - ./.keys/sp-key.pem:/etc/shibboleth/sp-key.pem
-      - ./.keys/sp-cert.pem:/etc/shibboleth/sp-cert.pem
-
+      - ./.keys/${ENV:-dev}-sp.key:/etc/shibboleth/sp-key.pem
+      - ./.keys/${ENV:-dev}-sp.crt:/etc/shibboleth/sp-cert.pem
+      - ./.keys:/.keys

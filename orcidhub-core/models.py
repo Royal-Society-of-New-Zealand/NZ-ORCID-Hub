@@ -1,6 +1,6 @@
-from application import db
 from peewee import Model, CharField
 from peewee import drop_model_tables, OperationalError
+from application import db
 
 class BaseModel(Model):
     class Meta:
@@ -18,6 +18,7 @@ class Researcher(BaseModel):
 
     class Meta:
         table_alias = 'r'
+
 
 def create_tables():
     """
