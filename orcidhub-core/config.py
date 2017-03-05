@@ -10,7 +10,7 @@ token_url = 'https://pub.sandbox.orcid.org/oauth/token'
 scope = ['/authenticate']
 
 # Application redirect URL:
-redirect_uri = 'https://test.orcidhub.org.nz/orcidhub/test'
+redirect_uri = 'https://test.orcidhub.org.nz/auth'
 
 # Postgresql connection url
 POSTGRES_PASSWORD = environ.get("POSTGRES_PASSWORD")

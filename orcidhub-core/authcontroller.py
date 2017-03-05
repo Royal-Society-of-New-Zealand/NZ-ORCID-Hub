@@ -56,7 +56,7 @@ def demo():
 
 
 # Step 2: User authorization, this happens on the provider.
-@app.route("/orcidhub/test", methods=["GET"])
+@app.route("/auth", methods=["GET"])
 def callback():
     """ Step 3: Retrieving an access token.
     The user has been redirected back from the provider to your registered
