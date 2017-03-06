@@ -9,7 +9,7 @@ The private is encrypted.
 ```
 #!/bin/sh
 git --work-tree=$HOME/site --git-dir=$HOME/repo.git checkout -f
-cd $HOME/NZ-ORCID-Hub
+cd $HOME/site
 docker-compose restart
 docker-compose logs
 ```
