@@ -12,10 +12,12 @@ echo "Runtime Environment: $ENV"
 DOMAINNAME=${DOMAINNAME:-$(hostname -A | cut -d\  -f1)}
 HOSTNAME=${HOSTNAME-$(hostname)}
 
-echo \"$DOMAINNAME\" \"$HOSTNAME\"
+echo "Domain name: \"$DOMAINNAME\""
+echo "Host anem: \"$HOSTNAME\""
+
 ## Shibboleth SP domainname:
 [ -z "$SHIB_SP_DOMAINNAME" ] && SHIB_SP_DOMAINNAME=${DOMAINNAME/$HOSTNAME/$ENV}
-echo "Shibboleth SP Domainname: \"$SHIB_SP_DOMAINNAME\""
+echo "Shibboleth SP Domainname (\$SHIB_SP_DOMAINNAME): \"$SHIB_SP_DOMAINNAME\""
 
 ## Shibboleth SP domainname:
 if [ -z "$SHIB_IDP_DOMAINNAME" ] ; then
@@ -25,7 +27,7 @@ if [ -z "$SHIB_IDP_DOMAINNAME" ] ; then
     SHIB_IDP_DOMAINNAME=directory.tuakiri.ac.nz
   fi
 fi
-echo "Shibboleth IdP Domainname: $SHIB_IDP_DOMAINNAME"
+echo "Shibboleth IdP Domainname (\$SHIB_IDP_DOMAINNAME): $SHIB_IDP_DOMAINNAME"
 
 [ -z "$SHIB_SSO_DS_URL" ] && SHIB_SSO_DS_URL=https://${SHIB_IDP_DOMAINNAME}/ds/DS
 echo "Shibboleth SSO Discovery URL: $SHIB_SSO_DS_URL"
@@ -37,9 +39,19 @@ if [ -z "$SHIB_METADATA_PROVIDER_URI" ] ; then
     SHIB_METADATA_PROVIDER_URI=https://${SHIB_IDP_DOMAINNAME}/metadata/tuakiri-metadata-signed.xml
   fi
 fi
-echo "Shibboleth metadata provider URI: $SHIB_METADATA_PROVIDER_URI"
+echo "Shibboleth metadata provider URI (\$SHIB_METADATA_PROVIDER_URI): $SHIB_METADATA_PROVIDER_URI"
+
+if [ -z "$SHIB_METADATA_CERT_FILE" ] ; then
+  if [ "$ENV" != "prod" ] ; then
+    SHIB_METADATA_CERT_FILE=tuakiri-test-metadata-cert.pem
+  else 
+    SHIB_METADATA_CERT_FILE=tuakiri-metadata-cert.pem
+  fi
+fi
+echo "Shibboleth metadata certificate file (\$SHIB_METADATA_CERT_FILE): $SHIB_METADATA_CERT_FILE"
 
 export ENV SHIB_SP_DOMAINNAME SHIB_IDP_DOMAINNAME SHIB_SSO_DS_URL SHIB_METADATA_PROVIDER_URI
+export SHIB_METADATA_CERT_FILE
 
 if [ ! -f /etc/shibboleth/sp-key.pem ] || [ ! -f /etc/shibboleth/sp-cert.pem ] ; then
   cd /etc/shibboleth
@@ -60,4 +72,4 @@ echo "Starting Shibboleth ..."
 /etc/shibboleth/shibd-redhat start
 rm -f /usr/local/apache2/logs/httpd.pid /var/lock/subsys/shibd
 echo "Starting Apache2 ..."
-httpd -DFOREGROUND || tail /etc/httpd/logs/error_log
+exec httpd -DFOREGROUND

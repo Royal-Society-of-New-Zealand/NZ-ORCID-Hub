@@ -32,7 +32,8 @@ services:
       - ./orcidhub-core/run-app:/usr/local/bin/run-app
       - ./orcidhub-core/app.conf:/etc/httpd/conf.d/ZZ-app.conf
       - ./orcidhub-core/conf/attribute-map.xml:/etc/shibboleth/attribute-map.xml
-      - ./orcidhub-core/tuakiri-${ENV}-metadata-cert.pem:/etc/shibboleth/tuakiri-${ENV}-metadata-cert.pem
+      - ./orcidhub-core/tuakiri-test-metadata-cert.pem:/etc/shibboleth/tuakiri-test-metadata-cert.pem
       - ./.keys/${ENV:-dev}-sp.key:/etc/shibboleth/sp-key.pem
       - ./.keys/${ENV:-dev}-sp.crt:/etc/shibboleth/sp-cert.pem
       - ./.keys:/.keys
+      - ./orcidhub-core/conf:/conf

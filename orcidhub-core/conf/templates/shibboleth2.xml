@@ -20,7 +20,7 @@
     -->
 
     <!-- The ApplicationDefaults element is where most of Shibboleth's SAML bits are defined. -->
-    <ApplicationDefaults entityID="https://${SHIB_SP_DOMAINNAME:-${ENV:-test}.orcidhub.org.nz}/shibboleth"
+    <ApplicationDefaults entityID="https://${SHIB_SP_DOMAINNAME:-${ENV:=test}.orcidhub.org.nz}/shibboleth"
                          REMOTE_USER="eppn persistent-id targeted-id">
 
         <!--
@@ -79,10 +79,10 @@
         </MetadataProvider>
         -->
 
-        <MetadataProvider type="XML" uri="https://${SHIB_METADATAPROVIDER_URI:-directory.${ENV}.tuakiri.ac.nz/metadata/tuakiri-${ENV}-metadata-signed.xml}"
+	<MetadataProvider type="XML" uri="${SHIB_METADATA_PROVIDER_URI:-https://directory.${ENV}.tuakiri.ac.nz/metadata/tuakiri-${ENV}-metadata-signed.xml}"
         	backingFilePath="metadata.xml" reloadInterval="7200">
     		<MetadataFilter type="RequireValidUntil" maxValidityInterval="2419200"/>
-                <MetadataFilter type="Signature" certificate="${METADATA_CERT_FILE:-tuakiri-${ENV}-metadata-cert.pem}"/>
+                <MetadataFilter type="Signature" certificate="${SHIB_METADATA_CERT_FILE:-tuakiri-${ENV}-metadata-cert.pem}"/>
         </MetadataProvider>
         <!-- Example of locally maintained metadata. -->
         <!--
