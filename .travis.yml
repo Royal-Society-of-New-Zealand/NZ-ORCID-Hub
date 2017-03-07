@@ -15,7 +15,7 @@ before_install:
   - curl -L "https://github.com/docker/compose/releases/download/1.11.1/docker-compose-$(uname -s)-$(uname -m)" -o docker-compose
   - chmod +x docker-compose
   - sudo mv docker-compose /usr/local/bin
-  - openssl rsa -in .keys/.${ENV}-server.key -out .keys/server.key -passin env:SERVER_KEY_PASSPHRASE
+  - openssl rsa -in .keys/.${ENV}-server.key -out .keys/${ENV}-server.key -passin env:SERVER_KEY_PASSPHRASE
   - openssl rsa -in .keys/.${ENV}-sp.key -out .keys/${ENV}-sp.key -passin env:SERVER_KEY_PASSPHRASE
 
 install:
