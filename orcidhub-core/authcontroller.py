@@ -87,6 +87,7 @@ def profile():
     Researcher.get_or_create(
         rname=name,
         orcid=orcid,
+        email=session["email"],
         auth_token=oauth_token["access_token"],
         edu_person_shared_token=edu_person_shared_token)
 
