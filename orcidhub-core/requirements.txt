@@ -7,3 +7,4 @@ requests_oauthlib
 psycopg2
 peewee
 flask-debugtoolbar
+flask-login

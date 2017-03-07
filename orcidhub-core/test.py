@@ -1,15 +1,21 @@
 import sys
 import os
+
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from application import app
+# from application import db
 import unittest
 
 
-class OrcidhubTestCase(unittest.TestCase):
+# import flask
 
+
+class OrcidhubTestCase(unittest.TestCase):
     def setUp(self):
         app.config['TESTING'] = True
+        app.config[
+            'SQLALCHEMY_DATABASE_URI'] = 'postgresql://orcidhub:orcid@localhost:5432/orcidhub'
         self.app = app.test_client()
 
     def tearDown(self):
@@ -24,6 +30,28 @@ class OrcidhubTestCase(unittest.TestCase):
         assert b"Home" in rv.data
         assert b"Royal Society of New Zealand" in rv.data, \
             "'Royal Society of New Zealand' should be present on the index page."
+
+    def test_ValidLogin(self):
+        with self.app.session_transaction() as sess:
+            sess['Auedupersonsharedtoken'] = "abc"
+            sess['email'] = "admin@orcidhub.com"
+            resp = self.app.get('/Tuakiri/login',
+                                environ_base={'HTTP_SN': "surname_Test", 'HTTP_GIVENNAME': "givenName_Test",
+                                              'HTTP_MAIL': "admin@orcidhub.com", 'HTTP_AUEDUPERSONSHAREDTOKEN': "abc",
+                                              'HTTP_DISPLAYNAME': "ADMIN", 'HTTP_O': "Org_Test"})
+            assert b"Affiliate yourself with ORCID HUB" in resp.data
+
+    def test_InvalidLogin(self):
+        with self.app.session_transaction() as sess:
+            sess['Auedupersonsharedtoken'] = "abc"
+            sess['email'] = "admin@orcidhub.com"
+            resp = self.app.get('/Tuakiri/login',
+                                environ_base={'HTTP_SN': "surname_Test", 'HTTP_GIVENNAME': "givenName_Test",
+                                              'HTTP_MAIL': "admin@orcidhub.com"})
+            assert b"<!DOCTYPE html>" in resp.data
+            assert b"Home" in resp.data
+            assert b"Royal Society of New Zealand" in resp.data, \
+                "'Royal Society of New Zealand' should be present on the index page."
 
     def test_auth(self):
         pass

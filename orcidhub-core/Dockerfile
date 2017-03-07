@@ -4,7 +4,6 @@ MAINTAINER The University of Auckland
 
 ADD http://download.opensuse.org/repositories/security://shibboleth/CentOS_7/security:shibboleth.repo /etc/yum.repos.d/shibboleth.repo
 
-## libpqxx-devel.x86_64 \ postgresql96 \ postgresql96-libs \
 RUN yum -y update \ 
     && yum -y install  install https://download.postgresql.org/pub/repos/yum/9.6/redhat/rhel-7-x86_64/pgdg-redhat96-9.6-3.noarch.rpm \
     && yum -y install https://centos7.iuscommunity.org/ius-release.rpm \
@@ -13,7 +12,7 @@ RUN yum -y update \
     	httpd \
 	mod_ssl \
     	gcc.x86_64 \
-	httpd-devel.x86_64 \
+        httpd-devel.x86_64 \
 	python36u.x86_64 \
 	python36u-devel.x86_64 \
 	python36u-pip \
@@ -37,7 +36,12 @@ RUN yum -y update \
 	openldap-devel \
 	perl \
 	python36u-devel \
-    && yum -y clean all
+    && cd /var/lib/rpm \
+    && rm -rf __db* \
+    && rpm --rebuilddb \
+    && yum -y clean all \
+    && rm -rf $HOME/.pip/cache \
+    && rm -rf /var/cache/*/* /anaconda-post.log
 
 COPY conf/app.wsgi /var/www/html/
 # prefix "ZZ" added, that it gest inluded the very end (after Shibboleth gets loaded)
@@ -45,11 +49,11 @@ COPY conf/app.conf /etc/httpd/conf.d/ZZ-app.conf
 COPY requirements.txt /requirements.txt
 COPY run-app /usr/local/bin/
 COPY ./conf /conf
-RUN rm -f /anaconda-post.log ; chmod +x /usr/local/bin/run-app \
-   && yum -y install gettext \
-   && pip3.6 install -r /requirements.txt
+RUN chmod +x /usr/local/bin/run-app \
+   && pip3.6 install -r /requirements.txt \
+   && rm -rf $HOME/.pip/cache \
+   && rm -rf /var/cache/*/*
 
 EXPOSE 80 443
 
 CMD ["run-app"]
-
