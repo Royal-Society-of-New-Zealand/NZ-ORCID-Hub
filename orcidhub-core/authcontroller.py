@@ -108,3 +108,9 @@ def profile():
         "login.html",
         userName=name,
         work=json.dumps(json.loads(resp.text), sort_keys=True, indent=4, separators=(',', ': ')))
+
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    return redirect(url_for("index"))
