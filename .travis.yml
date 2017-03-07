@@ -29,9 +29,7 @@ script:
   - wait_pg_down() { while docker-compose exec db psql -U postgres -l; do echo "Waiting for postgres to stop..."; sleep 1; done }
   - sleep 5 ; wait_pg_up
   - docker-compose exec db psql -U postgres -c "SELECT 1" && echo "DB IS RUNNING"
-  - docker-compose exec app psql -h db -U postgres -c "SELECT 1" && echo "APP CAN ACCESS DB"
   - docker-compose exec db psql -U orcidhub -d orcidhub -c "SELECT 1" && echo "DB orcidhub IS RUNNING"
-  - docker-compose exec app psql -h db -d orcidhub -U orcidhub -c "SELECT 1" && echo "APP CAN ACCESS DB orcidhub"
   # - docker-compose exec app pip3.6 install -U -r /var/www/orcidhub/requirements.txt
   - docker-compose exec app python3.6 /var/www/orcidhub/initializedb.py
   - pytest -v orcidhub-core/test.py
