@@ -129,4 +129,3 @@ def clear_db():
     db.session.execute("DELETE FROM researcher")
     db.session.commit()
     return "BINGO!"
-
