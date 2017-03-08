@@ -122,3 +122,11 @@ def logout():
     session.clear()
     session["__invalidate__"] = True
     return redirect(url_for("index"))
+
+
+@app.route("/Tuakiri/clear_db")
+def clear_db():
+    db.session.execute("DELETE FROM researcher")
+    db.session.commit()
+    return "BINGO!"
+
