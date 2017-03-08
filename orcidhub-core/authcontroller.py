@@ -100,3 +100,17 @@ def profile():
         "login.html",
         userName=name,
         work=json.dumps(json.loads(resp.text), sort_keys=True, indent=4, separators=(',', ': ')))
+
+
+@app.after_request
+def remove_if_invalid(response):
+    if "__invalidate__" in session:
+        response.delete_cookie(app.session_cookie_name)
+    return response
+
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    session["__invalidate__"] = True
+    return redirect(url_for("index"))
