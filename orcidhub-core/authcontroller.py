@@ -7,7 +7,7 @@ from model import Researcher
 from application import app
 from application import db
 import json
-from urllib.parse import urlencode
+from urllib.parse import quote
 
 
 @app.route("/")
@@ -122,11 +122,11 @@ def remove_if_invalid(response):
 def logout():
     session.clear()
     session["__invalidate__"] = True
-    return redirect("/Shibboleth.sso/Logout?return=" + urlencode(url_for("index")))
+    return redirect("/Shibboleth.sso/Logout?return=" + quote(url_for("index")))
 
 
 @app.route("/Tuakiri/clear_db")
 def clear_db():
     db.session.execute("DELETE FROM researcher")
     db.session.commit()
-    return "BINGO!"
+    return redirect(url_for("logout"))
