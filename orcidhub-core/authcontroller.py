@@ -7,6 +7,7 @@ from model import Researcher
 from application import app
 from application import db
 import json
+from urllib.parse import urlencode
 
 
 @app.route("/")
@@ -121,7 +122,7 @@ def remove_if_invalid(response):
 def logout():
     session.clear()
     session["__invalidate__"] = True
-    return redirect(url_for("index"))
+    return redirect("/Shibboleth.sso/Logout?return=" + urlencode(url_for("index")))
 
 
 @app.route("/Tuakiri/clear_db")
