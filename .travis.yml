@@ -32,16 +32,18 @@ script:
   - docker-compose exec db psql -U orcidhub -d orcidhub -c "SELECT 1" && echo "DB orcidhub IS RUNNING"
   # - docker-compose exec app pip3.6 install -U -r /var/www/orcidhub/requirements.txt
   - docker-compose exec app python3.6 /var/www/orcidhub/initializedb.py
+  - docker-compose logs
   - pytest -v orcidhub-core/test.py
   - docker-compose exec app curl -k -s https://localhost/pyinfo -o /dev/null && echo "WSGI is working..."
 
 after_success:
   - eval "$(ssh-agent -s)"
-  - openssl rsa -in .travis/deploy_key.pem -out .travis/_deploy_key.pem -passin env:DEPLOY_KEY_PASSPHRASE
-  - chmod 400 .travis/_deploy_key.pem
-  - ssh-add .travis/_deploy_key.pem
-  - git remote add deploy ssh://ec2-user@13.54.165.101/~/repo.git
+  - openssl rsa -in .travis/.deploy.key -out .travis/deploy.key -passin env:DEPLOY_KEY_PASSPHRASE
+  - chmod 400 .travis/deploy.key
+  - ssh-add .travis/deploy.key
+  - git remote add deploy ssh://ec2-user@dev.orcidhub.org.nz/~/repo.git
   - git push --all deploy
+  - rm -f .travis/deploy.key
 
 notifications:
   hipchat:
