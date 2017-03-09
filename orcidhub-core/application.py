@@ -1,7 +1,9 @@
 import os
-from flask import Flask, render_template
-from config import SQLALCHEMY_DATABASE_URI
+from flask import Flask
+from config import SQLALCHEMY_DATABASE_URI,MAIL_USERNAME,MAIL_PASSWORD,TOKEN_PASSWORD_SALT,TOKEN_SECRET_KEY
 from flask_sqlalchemy import SQLAlchemy
+from flask_login import  LoginManager
+from flask_mail import Mail
 # NB! Should be disabled in production
 from pyinfo import info
 from flask_debugtoolbar import DebugToolbarExtension
@@ -18,7 +20,25 @@ os.environ['DEBUG'] = "1"
 app.debug = True
 app.config['SECRET_KEY'] = app.secret_key
 os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
+login_manager = LoginManager()
+login_manager.init_app(app)
 
+
+# add mail server config
+app.config['MAIL_SERVER'] = 'smtp.gmail.com'
+app.config['MAIL_PORT'] = 587
+app.config['MAIL_USE_SSL'] = False
+app.config['MAIL_USE_TLS'] = True
+app.config['MAIL_USERNAME'] = MAIL_USERNAME
+app.config['MAIL_DEFAULT_SENDER'] = MAIL_USERNAME
+app.config['MAIL_PASSWORD'] = MAIL_PASSWORD
+app.config['MAIL_SUPPRESS_SEND'] = False
+mail = Mail()
+mail.init_app(app)
+
+# Secret key and salt for token generation
+app.config['TOKEN_SECRET_KEY'] = TOKEN_SECRET_KEY
+app.config['TOKEN_PASSWORD_SALT'] = TOKEN_PASSWORD_SALT
 # NB! Disable in production
 toolbar = DebugToolbarExtension(app)
 

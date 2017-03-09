@@ -4,10 +4,20 @@ from werkzeug.urls import iri_to_uri
 from config import client_id, client_secret, authorization_base_url, \
     token_url, scope, redirect_uri
 from model import Researcher
+from model import OrcidUser
+from model import UserRole
+from model import Organisation
 from application import app
 from application import db
 import json
 from urllib.parse import quote
+from flask_login import login_user, current_user
+from loginProvider import login_required
+from registrationForm import OrgRegistrationForm
+from flask_mail import Message
+from application import mail
+from tokenGeneration import generate_confirmation_token, confirm_token
+from application import login_manager
 
 
 @app.route("/")
@@ -22,16 +32,31 @@ def login():
     session['family_names'] = request.headers['Sn']
     session['given_names'] = request.headers['Givenname']
     session['email'] = request.headers['Mail']
-    if token:
-        # This is a unique id got from Tuakiri SAML used as identity in database
-        session['Auedupersonsharedtoken'] = token
-        return render_template("login.html", userName=request.headers['Displayname'],
-                               organisationName=request.headers['O'])
+    orcidUser = OrcidUser.query.filter_by(email=session['email']).first()
+    # import pdb;pdb.set_trace()
+
+    if (not (orcidUser is None) and (orcidUser.confirmed)):
+        login_user(orcidUser)
+        registerOptions = {}
+        if current_user.get_urole() == UserRole.ADMIN:
+            registerOptions['Register Researcher'] = "/Tuakiri/register/researcher"
+        elif current_user.get_urole() == UserRole.SUPERUSER:
+            registerOptions['Register Researcher'] = "/Tuakiri/register/researcher"
+            registerOptions['Register Organisation'] = "/Tuakiri/register/organisation"
+
+        if token:
+            # This is a unique id got from Tuakiri SAML used as identity in database
+            session['Auedupersonsharedtoken'] = token
+            return render_template("base.html", userName=request.headers['Displayname'],
+                                   organisationName=request.headers['O'], registerOptions=registerOptions)
+        else:
+            return render_template("base.html")
     else:
         return render_template("login.html")
 
 
 @app.route("/Tuakiri/redirect")
+@login_required(role=[UserRole.ANY])
 def demo():
     """Step 1: User Authorization.
     Redirect the user/resource owner to the OAuth provider (i.e.Orcid )
@@ -58,6 +83,7 @@ def demo():
 
 # Step 2: User authorization, this happens on the provider.
 @app.route("/auth", methods=["GET"])
+@login_required(role=[UserRole.ANY])
 def callback():
     """ Step 3: Retrieving an access token.
     The user has been redirected back from the provider to your registered
@@ -77,6 +103,7 @@ def callback():
 
 
 @app.route("/Tuakiri/profile", methods=["GET"])
+@login_required(role=[UserRole.ANY])
 def profile():
     """Fetching a protected resource using an OAuth 2 token.
     """
@@ -109,6 +136,82 @@ def profile():
         "login.html",
         userName=name,
         work=json.dumps(json.loads(resp.text), sort_keys=True, indent=4, separators=(',', ': ')))
+
+
+@app.route("/Tuakiri/register/researcher", methods=["GET"])
+@login_required(role=[UserRole.SUPERUSER, UserRole.ADMIN])
+def registerOrganisation():
+    # For now on boarding of researcher is not supported
+    return "Organisation Register successfully!!!"
+
+
+@app.route("/Tuakiri/register/organisation", methods=["GET", "POST"])
+@login_required(role=[UserRole.SUPERUSER])
+def registerResearcher():
+    form = OrgRegistrationForm()
+    if request.method == 'POST':
+        if form.validate() is False:
+            return 'Please fill in all fields <p><a href="/Tuakiri/register/organisation">Try Again!!!</a></p>'
+        else:
+            organisation = Organisation(org_name=form.orgName.data, emailid=form.orgEmailid.data)
+            db.session.add(organisation)
+            db.session.commit()
+
+            orcidUser = OrcidUser(rname=form.orgName.data, email=form.orgEmailid.data, urole=UserRole.ADMIN,
+                                  orgid=organisation.emailid)
+            db.session.add(orcidUser)
+            db.session.commit()
+            # Using app context due to issue: https://github.com/mattupstate/flask-mail/issues/63
+            with app.app_context():
+                msg = Message("Welcome to OrcidhHub",
+                              recipients=[str(form.orgEmailid.data)])
+                token = generate_confirmation_token(form.orgEmailid.data)
+                msg.body = "Your organisation is just one step behind to get onboarded" \
+                           " please click on following link to get onboarded " \
+                           "http://test.orcidhub.org.nz/Tuakiri/confirm/" + str(token)
+                mail.send(msg)
+            return "Organisation Onboarded Successfully!!!  "
+    elif request.method == 'GET':
+        return render_template('registration.html', form=form)
+
+
+@app.route("/Tuakiri/confirm/<token>", methods=["GET", "POST"])
+def confirmUser(token):
+    email = confirm_token(token)
+    # For now only GET method is implemented
+    if request.method == 'GET':
+        if email is False:
+            login_manager.unauthorized()
+        tuakiri_token = request.headers.get("Auedupersonsharedtoken")
+        tuakiri_mail = request.headers['Mail']
+        tuakiri_orgName = request.headers['O']
+        if email == tuakiri_mail:
+            orcidUser = OrcidUser.query.filter_by(email=email).first()
+            organisation = Organisation.query.filter_by(emailid=email).first()
+            if (not (orcidUser is None) and (not (organisation is None))):
+                # Update Organisation
+                organisation.tuakiriname = tuakiri_orgName
+                organisation.confirmed = True
+                organisation.orcid_client_id = "Test"
+                organisation.orcid_secret = "Test sec"
+
+                # Update Orcid User
+                orcidUser.confirmed = True
+                orcidUser.auedupersonsharedtoken = tuakiri_token
+                db.commit()
+                with app.app_context():
+                    msg = Message("Welcome to OrcidhHub",
+                                  recipients=[email])
+                    msg.body = "Congratulations your emailid has been confirmed and " \
+                               "organisation onboarded successfully."
+                    mail.send(msg)
+                return "Organisation Register successfully!!!"
+            else:
+                login_manager.unauthorized()
+        else:
+            login_manager.unauthorized()
+    elif request.method == 'GET':
+        return "Form"
 
 
 @app.after_request

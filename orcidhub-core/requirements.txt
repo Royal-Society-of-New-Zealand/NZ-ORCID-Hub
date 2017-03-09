@@ -10,3 +10,5 @@ sqlalchemy-migrate
 psycopg2
 flask-debugtoolbar
 flask-login
+Flask-WTF
+flask_mail
