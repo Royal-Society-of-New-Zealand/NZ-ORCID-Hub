@@ -36,7 +36,7 @@ def _info():
     info['compression_info'] = get_compression_info()
     info['socket_info'] = get_socket_info()
     info['multimedia_info'] = get_multimedia_info()
-    return info
+    inof["wsgi_mode"] = "DAEMON MODE" if os.environ.get("mod_wsgi.process_group") else "EMBEDDED MODE"
 
 
 def get_system_info():
