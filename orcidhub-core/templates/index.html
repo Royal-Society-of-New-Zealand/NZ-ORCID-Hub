@@ -1,43 +1,11 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<title>ORCID HUB</title>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<link rel="stylesheet"
-	href="/static/assets/bootstrap-4.0.0-alpha.6-dist/css/bootstrap.css" type="text/css">
-<link rel="stylesheet"
-	href="/static/assets/bootstrap-4.0.0-alpha.6-dist/js/bootstrap.min.js" type="text/css">
-<link rel="stylesheet" href="/static/assets/css/trial.css">
-</head>
-
-<body>
-
-<!-- Header Details -->
-	<header>
-	<div class="container-fluid">
-		<img src="/static/images/background.png" class="img-responsive"
-			alt="Cinque Terre" width="100%" height="100">
-	</div>
-
-	<!-- Menu Details -->
-	<label for="show-menu" class="show-menu">Show Menu</label>
-	<input type="checkbox" id="show-menu" role="button">
-	<ul id="menu">
-		<li><a href="#">Home</a></li>
-		<li><a href="#">About</a></li>
-		<li><a href="/Tuakiri/login">Login Via Tuakiri</a></li>
-		<li><a href="#">Contact</a></li>
-	</ul>
-    </header>
-
-    <!--h1>HELO WORLD!</h1 -->
-<!--  Footer Details -->
-
-	<footer class="footer">
-		<div class="container">
-			<p>Royal Society of New Zealand</p>
-		</div>
-	</footer>
-</body>
-</html>
+{% extends "layout.html" %}
+{% block content %}
+  <div class="jumbotron">
+    <h1 class="display-3">Welcome to NZ ORCiD Hub</h1>
+    <p class="lead">Cras justo odio, dapibus ac facilisis in, egestas eget quam. Fusce dapibus, tellus ac cursus commodo, tortor mauris condimentum nibh, ut fermentum massa justo sit amet risus.</p>
+    <p>
+    <a class="btn btn-lg btn-primary" href="/Tuakiri/login" role="button">Login via Tuakiri</a>
+    <a class="btn btn-lg btn-success" href="#" role="button">Login via ORCiD</a>
+    </p>
+  </div>
+{% endblock %}

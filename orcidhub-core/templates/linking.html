@@ -1,0 +1,13 @@
+{% extends "layout.html" %}
+{% block content %}
+  <div class="jumbotron">
+    <h1 class="display-3">Welcome to NZ ORCiD Hub</h1>
+    <p class="lead">Hi <b text="{{ userName }}">{{userName}},</b>
+    (Organisation Name: <b text="{{ organisationName }}">{{organisationName}}</b>)
+    </p>
+    <p>
+    <a id="connect-orcid-button" class="btn btn-outline-success" href="{{ url_for('demo') }}" role="button">
+    <img id="orcid-id-logo" src="https://orcid.org/sites/default/files/images/orcid_24x24.png" width='24' height='24' alt="ORCID logo"/>&nbsp;Take me to ORCiD iD</a>
+    </p>
+  </div>
+{% endblock %}

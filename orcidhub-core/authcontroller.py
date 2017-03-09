@@ -1,5 +1,5 @@
 from requests_oauthlib import OAuth2Session
-from flask import request, redirect, session, url_for, render_template
+from flask import request, redirect, session, url_for, render_template, flash
 from werkzeug.urls import iri_to_uri
 from config import client_id, client_secret, authorization_base_url, \
     token_url, scope, redirect_uri
@@ -25,10 +25,10 @@ def login():
     if token:
         # This is a unique id got from Tuakiri SAML used as identity in database
         session['Auedupersonsharedtoken'] = token
-        return render_template("login.html", userName=request.headers['Displayname'],
+        return render_template("linking.html", userName=request.headers['Displayname'],
                                organisationName=request.headers['O'])
     else:
-        return render_template("login.html")
+        return redirect(url_for("index"))
 
 
 @app.route("/Tuakiri/redirect")
@@ -49,6 +49,7 @@ def demo():
             userPresent = True
     # If user details are already there in database redirect to profile instead of orcid
     if userPresent:
+        flash("Your account is already linked to ORCiD", 'warning')
         return redirect(url_for('.profile'))
     else:
         return redirect(
@@ -72,8 +73,10 @@ def callback():
     # the token and show how this is done from a persisted token
     # in /profile.
     session['oauth_token'] = token
+    orcid = token['orcid']
+    flash("Your account was linked to ORCiD %s" % orcid)
 
-    return redirect(url_for('.profile'))
+    return redirect(url_for('profile'))
 
 
 @app.route("/Tuakiri/profile", methods=["GET"])
@@ -106,8 +109,9 @@ def profile():
     resp = client.get("https://api.sandbox.orcid.org/v1.2/" +
                       str(orcid) + "/orcid-works", headers=headers)
     return render_template(
-        "login.html",
+        "profile.html",
         userName=name,
+        orcid=orcid,
         work=json.dumps(json.loads(resp.text), sort_keys=True, indent=4, separators=(',', ': ')))
 
 
