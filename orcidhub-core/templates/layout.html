@@ -2,64 +2,55 @@
 <html lang="en">
   <head>
     {% block head %}
-      <title>{% block title %}ORCID Hub{% endblock %}</title>
+      <title>{% block title %}New Zealand ORCiD Hub{% endblock %}</title>
       <meta charset="utf-8">
       <meta http-equiv="content-type" content="text/html; charset=utf-8" />
       <meta name="description" content="ORCID Hub New Zealand" />
+      <meta name="author" content="">
+      <link rel="icon" href="/static/favicon.ico">
       <meta name="keywords" content="ORCID HUB,New Zealand,NZ,orcid" />
-      <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-      <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-alpha.6/css/bootstrap.min.css" integrity="sha384-rwoIResjU2yc3z8GV/NPeZWAv56rSmLldC3R/AZzGRnGxQQKnKkoFVhFQhNUwEyJ" crossorigin="anonymous">
-      <link href="static/css/sticky-footer.css" rel="stylesheet">
+      <meta name="viewport" content="width=device-width, initial-scale=1">
+      <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+      <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap-theme.min.css" integrity="sha384-rHyoN1iRsVXV4nD0JutlnGaslCJuC7uwjduW9SVrLvRYooPp2bWYgmgJQIXwl/Sp" crossorigin="anonymous">
+      <link href="/static/css/sticky-footer.css" rel="stylesheet">
     {% endblock %}
   </head>
   <body>
-      <!-- Header Details -->
+    <!-- Header Details -->
+    <header>
       {% block header %}
         <div class="lead">
           <img src="/static/images/background.png" class="img-responsive"
                                                    alt="Cinque Terre" width="100%" height="100">
         </div>
-        <!--div class="header clearfix">
-          <nav>
-          <ul class="nav nav-pills float-right">
-          <li class="nav-item">
-          <a class="nav-link active" href="#">Home <span class="sr-only">(current)</span></a>
-          </li>
-          <li class="nav-item">
-          <a class="nav-link" href="#">About</a>
-          <li class="nav-item">
-          {% if work %}
-            <a class="nav-link" href="{{ url_for('logout') }}">Logout</a>
-          {% elif userName %}
-            <a class="nav-link" href="/Tuakiri/redirect">Affiliate yourself with ORCID HUB</a>
-          {% else %}
-            <a class="nav-link" href="/Tuakiri/login">Login via Tuakiri</a>
-          {% endif %}
-          </li>
-          <li class="nav-item">
-          <a class="nav-link" href="#">Contact</a>
-          </li>
-          </ul>
-          </nav>
-          </div -->
-        {% endblock %}
-        </header>
-        <div id="content">
-          {% block content %}{% endblock %}
-        </div>
-
-        <!--  Footer Details -->
-
-        <footer class="footer">
-          <div class="container">
-            {% block footer %}
-              <p>Royal Society of New Zealand</p>
-            {% endblock %}
+      {% endblock %}
+    </header>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      <!-- Categories: success (green), info (blue), warning (yellow), danger (red) -->
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }} alert-dismissible" role="alert">
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+            <!-- <strong>Title</strong> --> {{ message }}
           </div>
-        </footer>
-        <!-- javascript at the bottom for fast page loading -->
-        <script src="https://code.jquery.com/jquery-3.1.1.slim.min.js" integrity="sha384-A7FZj7v+d/sdmMqp/nOQwliLvUsJfDHW+k9Omg/a/EheAdgtzNs3hpfag6Ed950n" crossorigin="anonymous"></script>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/tether/1.4.0/js/tether.min.js" integrity="sha384-DztdAPBWPRXSA/3eYEEUWrWCy7G5KFbe8fFjk5JAIxUYHKkDx6Qin1DkWx51bBrb" crossorigin="anonymous"></script>
-        <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-alpha.6/js/bootstrap.min.js" integrity="sha384-vBWWzlZJ8ea9aCX4pEW3rVHjgjt7zpkNpZk+02D9phzyeVkE+jo0ieGizqPLForn" crossorigin="anonymous"></script>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+    <div id="content">
+      {% block content %}{% endblock %}
+    </div>
+
+    <!--  Footer Details -->
+
+    <footer class="footer">
+      <div class="container">
+        {% block footer %}
+          <p>Royal Society of New Zealand</p>
+        {% endblock %}
+      </div>
+    </footer>
+    <!-- javascript at the bottom for fast page loading -->
+    <script src="https://code.jquery.com/jquery-3.1.1.slim.min.js" integrity="sha384-A7FZj7v+d/sdmMqp/nOQwliLvUsJfDHW+k9Omg/a/EheAdgtzNs3hpfag6Ed950n" crossorigin="anonymous"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
   </body>
 </html>
