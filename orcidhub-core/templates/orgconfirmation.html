@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <h1>Organisation Confirmation Form</h1>
+  <form action="" method="post" name="confirm">
+      {{ form.hidden_tag() }}
+
+      <p>Organisation Name:{{ form.orgName(size=50) }}</p><br>
+      <p>Organisation Email:{{ form.orgEmailid(size=50) }}</p><br>
+      <p>Enter Organisation Orcid Client ID:{{ form.orgOricdClientId(size=50) }}</p><br>
+      <p>Enter Organisation Orcid Client Secret:{{ form.orgOrcidClientSecret(size=50) }}</p><br>
+
+      <p><input type="submit" value="Confirm"></p>
+  </form>
+{% endblock %}

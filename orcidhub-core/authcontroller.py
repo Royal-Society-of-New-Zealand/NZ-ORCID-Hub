@@ -18,6 +18,7 @@ from flask_mail import Message
 from application import mail
 from tokenGeneration import generate_confirmation_token, confirm_token
 from application import login_manager
+from registrationForm import OrgConfirmationForm
 
 
 @app.route("/")
@@ -33,16 +34,18 @@ def login():
     session['given_names'] = request.headers['Givenname']
     session['email'] = request.headers['Mail']
     orcidUser = OrcidUser.query.filter_by(email=session['email']).first()
+    tuakiri_orgName = request.headers['O']
     # import pdb;pdb.set_trace()
 
+    registerOptions = {}
     if (not (orcidUser is None) and (orcidUser.confirmed)):
         login_user(orcidUser)
-        registerOptions = {}
         if current_user.get_urole() == UserRole.ADMIN:
             registerOptions['Register Researcher'] = "/Tuakiri/register/researcher"
         elif current_user.get_urole() == UserRole.SUPERUSER:
-            registerOptions['Register Researcher'] = "/Tuakiri/register/researcher"
             registerOptions['Register Organisation'] = "/Tuakiri/register/organisation"
+        else:
+            registerOptions['View Work'] = "/Tuakiri/redirect"
 
         if token:
             # This is a unique id got from Tuakiri SAML used as identity in database
@@ -51,7 +54,23 @@ def login():
                                    organisationName=request.headers['O'], registerOptions=registerOptions)
         else:
             return render_template("base.html")
+    elif (orcidUser is None):
+        # Check if the organization to which user belong is onboarded, if yes onboard user automatically
+        organisation = Organisation.query.filter_by(tuakiriname=tuakiri_orgName).first()
+        if (organisation is not None) and (organisation.confirmed):
+            orcidUser = OrcidUser(rname=session['given_names'], email=session['email'], urole=UserRole.RESEARCHER,
+                                  confirmed=True, orgid=organisation.emailid, auedupersonsharedtoken=token)
+            db.session.add(orcidUser)
+            db.session.commit()
+            login_user(orcidUser)
+            registerOptions['View Work'] = "/Tuakiri/redirect"
+            return render_template("base.html", userName=request.headers['Displayname'],
+                               organisationName=request.headers['O'], registerOptions=registerOptions)
+        else:
+            flash("Organisation not onboarded", 'warning')
+            return redirect(url_for("index"))
     else:
+        # return render_template("login.html")
         return redirect(url_for("index"))
 
 
@@ -66,20 +85,22 @@ def demo():
     authorization_url, state = client.authorization_url(authorization_base_url)
     session['oauth_state'] = state
     auedupersonsharedtoken = session.get("Auedupersonsharedtoken")
-    userPresent = False
+    # userPresent = False
     # Check if user details are already in database
-    if auedupersonsharedtoken:
-        data = Researcher.query.filter_by(auedupersonsharedtoken=auedupersonsharedtoken).first()
+    if auedupersonsharedtoken and current_user.is_active():
+        # data = Researcher.query.filter_by(auedupersonsharedtoken=auedupersonsharedtoken).first()
+        data = OrcidUser.query.filter_by(auedupersonsharedtoken=auedupersonsharedtoken,
+                                         email=current_user.email).first()
         if None is not data:
-            userPresent = True
-    # If user details are already there in database redirect to profile instead of orcid
-    if userPresent:
-        flash("Your account is already linked to ORCiD", 'warning')
-        return redirect(url_for('profile'))
-    else:
-        return redirect(
-            iri_to_uri(authorization_url) + "&family_names=" + session['family_names'] + "&given_names=" + session[
-                'given_names'] + "&email=" + session['email'])
+            # If user details are already there in database redirect to profile instead of orcid
+            if (data.auth_token is not None) and (data.orcidid is not None):
+                flash("Your account is already linked to ORCiD", 'warning')
+                return redirect(url_for('.profile'))
+            else:
+                return redirect(
+                    iri_to_uri(authorization_url) + "&family_names=" + session['family_names'] + "&given_names=" +
+                    session[
+                        'given_names'] + "&email=" + session['email'])
 
 
 # Step 2: User authorization, this happens on the provider.
@@ -115,22 +136,21 @@ def profile():
     orcid = ""
     auedupersonsharedtoken = session['Auedupersonsharedtoken']
 
-    if auedupersonsharedtoken is not None:
-        data = Researcher.query.filter_by(auedupersonsharedtoken=auedupersonsharedtoken).first()
-        if None is not data:
-            name = data.rname
-            oauth_token = data.auth_token
-            orcid = data.orcidid
-        else:
+    #   if auedupersonsharedtoken is not None:
+    data = OrcidUser.query.filter_by(email=session['email']).first()
+    if data is not None:
+        # data = Researcher.query.filter_by(auedupersonsharedtoken=auedupersonsharedtoken).first()
+        name = data.rname
+        oauth_token = data.auth_token
+        orcid = data.orcidid
+        if oauth_token is None:
             orcid = session['oauth_token']['orcid']
-            name = session['oauth_token']['name']
-            researcher = Researcher(rname=session['oauth_token']['name'],
-                                    orcidid=session['oauth_token']['orcid'],
-                                    auth_token=session['oauth_token']['access_token'],
-                                    auedupersonsharedtoken=session['Auedupersonsharedtoken'])
             oauth_token = session['oauth_token']['access_token']
-            db.session.add(researcher)
+            data.orcidid = orcid
+            data.auth_token = oauth_token
             db.session.commit()
+    else:
+        login_manager.unauthorized()
     client = OAuth2Session(client_id, token={'access_token': oauth_token})
     headers = {'Accept': 'application/json'}
     resp = client.get("https://api.sandbox.orcid.org/v1.2/" +
@@ -182,8 +202,13 @@ def registerResearcher():
 @app.route("/Tuakiri/confirm/<token>", methods=["GET", "POST"])
 def confirmUser(token):
     email = confirm_token(token)
-    # For now only GET method is implemented
-    if request.method == 'GET':
+    form = OrgConfirmationForm()
+    # For now only GET method is implemented will need post method for organisation
+    # to enter client secret and client key for orcid
+    if request.method == 'POST':
+        if form.validate() is False:
+            return 'Please fill in all fields <p><a href="/Tuakiri/register/organisation">Try Again!!!</a></p>'
+
         if email is False:
             login_manager.unauthorized()
         tuakiri_token = request.headers.get("Auedupersonsharedtoken")
@@ -196,13 +221,13 @@ def confirmUser(token):
                 # Update Organisation
                 organisation.tuakiriname = tuakiri_orgName
                 organisation.confirmed = True
-                organisation.orcid_client_id = "Test"
-                organisation.orcid_secret = "Test sec"
+                organisation.orcid_client_id = form.orgOricdClientId.data
+                organisation.orcid_secret = form.orgOrcidClientSecret.data
 
                 # Update Orcid User
                 orcidUser.confirmed = True
                 orcidUser.auedupersonsharedtoken = tuakiri_token
-                db.commit()
+                db.session.commit()
                 with app.app_context():
                     msg = Message("Welcome to OrcidhHub",
                                   recipients=[email])
@@ -215,7 +240,11 @@ def confirmUser(token):
         else:
             login_manager.unauthorized()
     elif request.method == 'GET':
-        return "Form"
+        if email is False:
+            login_manager.unauthorized()
+        form.orgEmailid.data = email
+        form.orgName.data = request.headers['O']
+        return render_template('orgconfirmation.html', form=form)
 
 
 @app.after_request

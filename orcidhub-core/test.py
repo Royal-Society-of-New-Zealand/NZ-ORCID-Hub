@@ -4,6 +4,8 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from application import app
+from config import client_id, client_secret, authorization_base_url, \
+    token_url, scope, redirect_uri
 # from application import db
 import unittest
 
@@ -31,6 +33,7 @@ class OrcidhubTestCase(unittest.TestCase):
         assert b"Royal Society of New Zealand" in rv.data, \
             "'Royal Society of New Zealand' should be present on the index page."
 
+    """
     def test_ValidLogin(self):
         with self.app.session_transaction() as sess:
             sess['Auedupersonsharedtoken'] = "abc"
@@ -51,7 +54,20 @@ class OrcidhubTestCase(unittest.TestCase):
             assert b"<!DOCTYPE html>" in resp.data
             assert b"Home" in resp.data
             assert b"Royal Society of New Zealand" in resp.data, \
-                "'Royal Society of New Zealand' should be present on the index page."
+                "'Royal Society of New Zealand' should be present on the index page. """
+
+    def test_demo(self):
+        with self.app.session_transaction() as sess:
+            sess['Auedupersonsharedtoken'] = "abc"
+            sess['family_names'] = "paw"
+            sess['given_names'] = "ros"
+            sess['email'] = "get@orcidhub.org.nz"
+            sess['client_id'] = client_id
+            sess['scope'] = scope
+            sess['redirect_uri'] = redirect_uri
+            sess['authorization_base_url'] = authorization_base_url
+            resp = self.app.get('/Tuakiri/redirect')
+            #assertRedirects(resp,"url")
 
     def test_auth(self):
         pass
