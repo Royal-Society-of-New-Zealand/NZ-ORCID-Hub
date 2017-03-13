@@ -9,10 +9,12 @@ class OrgRegistrationForm(FlaskForm):
     orgName = StringField('Organisation Name: ', validators=[DataRequired()])
     orgEmailid = EmailField('Organisation EmailId: ',
                             validators=[DataRequired(), Email()])
+
+
 class OrgConfirmationForm(FlaskForm):
     orgName = StringField('Organisation Name: ', validators=[DataRequired()])
     orgEmailid = EmailField('Organisation EmailId: ',
-                                validators=[DataRequired(), Email()])
+                            validators=[DataRequired(), Email()])
     orgOricdClientId = StringField('Organisation Orcid Client Id: ', validators=[DataRequired()])
     orgOrcidClientSecret = StringField('Organisation Orcid Client Secret: ',
-                                validators=[DataRequired()])
+                                       validators=[DataRequired()])

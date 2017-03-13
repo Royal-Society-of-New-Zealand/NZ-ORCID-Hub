@@ -3,7 +3,6 @@ from flask import request, redirect, session, url_for, render_template, flash
 from werkzeug.urls import iri_to_uri
 from config import client_id, client_secret, authorization_base_url, \
     token_url, scope, redirect_uri
-from model import Researcher
 from model import OrcidUser
 from model import UserRole
 from model import Organisation
@@ -65,7 +64,7 @@ def login():
             login_user(orcidUser)
             registerOptions['View Work'] = "/Tuakiri/redirect"
             return render_template("base.html", userName=request.headers['Displayname'],
-                               organisationName=request.headers['O'], registerOptions=registerOptions)
+                                   organisationName=request.headers['O'], registerOptions=registerOptions)
         else:
             flash("Organisation not onboarded", 'warning')
             return redirect(url_for("index"))
@@ -134,7 +133,7 @@ def profile():
     name = ""
     oauth_token = ""
     orcid = ""
-    auedupersonsharedtoken = session['Auedupersonsharedtoken']
+    # auedupersonsharedtoken = session['Auedupersonsharedtoken']
 
     #   if auedupersonsharedtoken is not None:
     data = OrcidUser.query.filter_by(email=session['email']).first()
