@@ -22,6 +22,11 @@ services:
       - PGPASSWORD
       - ORCID_CLIENT_ID=APP-TF7LKIE084PYTQ59
       - ORCID_CLIENT_SECRET
+      - TOKEN_PASSWORD_SALT
+      - TOKEN_SECRET_KEY
+      - MAIL_USERNAME
+      - MAIL_PASSWORD
+      - MAIL_SERVER
     domainname: orcidhub.org.nz
     hostname: app
     ports:
