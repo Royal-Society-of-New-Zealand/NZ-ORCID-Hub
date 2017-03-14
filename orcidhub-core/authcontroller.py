@@ -262,6 +262,8 @@ def logout():
 
 @app.route("/Tuakiri/clear_db")
 def clear_db():
+    db.session.execute("DELETE FROM orciduser WHERE rname NOT LIKE '%Royal%'")
+    db.session.execute("DELETE FROM organisation WHERE org_name NOT LIKE '%Royal%'")
     db.session.execute("DELETE FROM researcher")
     db.session.commit()
     return redirect(url_for("logout"))
