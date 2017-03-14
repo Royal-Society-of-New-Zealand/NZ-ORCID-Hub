@@ -66,8 +66,8 @@ def login():
             return render_template("base.html", userName=request.headers['Displayname'],
                                    organisationName=request.headers['O'], registerOptions=registerOptions)
         else:
-            flash("Organisation not onboarded", 'warning')
-            return redirect(url_for("index"))
+            flash("Your organisation (%s) is not onboarded" % tuakiri_orgName, 'error')
+            return redirect(url_for("logout"))
     else:
         # return render_template("login.html")
         return redirect(url_for("index"))
