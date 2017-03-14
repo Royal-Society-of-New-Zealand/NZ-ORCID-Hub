@@ -33,7 +33,11 @@ def login():
     session['given_names'] = request.headers['Givenname']
     session['email'] = request.headers['Mail']
     orcidUser = OrcidUser.query.filter_by(email=session['email']).first()
-    tuakiri_orgName = request.headers['O']
+    session["shib_O"] = tuakiri_orgName = request.headers['O']
+
+    if tuakiri_orgName:
+        app.logger.info("User logged in from '%s'", tuakiri_orgName)
+
     # import pdb;pdb.set_trace()
 
     registerOptions = {}
@@ -248,14 +252,26 @@ def confirmUser(token):
 def remove_if_invalid(response):
     if "__invalidate__" in session:
         response.delete_cookie(app.session_cookie_name)
+        session.clear()
     return response
 
 
 @app.route("/logout")
 def logout():
+    org_name = session.get("shib_O")
     session.clear()
     session["__invalidate__"] = True
-    return redirect("/Shibboleth.sso/Logout?return=" + quote(url_for("index")))
+    return redirect(
+        "/Shibboleth.sso/Logout?return=" +
+        quote(url_for("uoa_slo" if org_name and org_name == "University of Auckland" else "index")))
+
+
+@app.route("/uoa-slo")
+def uoa_slo():
+    flash("""You had logged in from 'The University of Auckland'.
+You have to close all open browser tabs and windows in order
+in order to complete the log-out.""", "warning")
+    return render_template("uoa-slo.html")
 
 
 @app.route("/Tuakiri/clear_db")

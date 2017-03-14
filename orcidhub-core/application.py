@@ -7,8 +7,17 @@ from flask_mail import Mail
 # NB! Should be disabled in production
 from pyinfo import info
 from flask_debugtoolbar import DebugToolbarExtension
+import logging
+from logging.handlers import RotatingFileHandler
 
 app = Flask(__name__)
+
+handler = RotatingFileHandler(
+        #os.path.join(os.path.dirname(os.path.realpath(__file__)), 'orcidhub.log'),
+        '/tmp/orcidhub.log',
+        maxBytes=10000, backupCount=10)
+handler.setLevel(logging.INFO)
+app.logger.addHandler(handler)
 
 app.secret_key = ")Xq/4vc'K%wesQ$n'n;?+y@^rY\/u8!sk{?D7Y>.V`t_/y'wn>7~cZ$(Q.$n)d_j"
 # NB! Disable in production
