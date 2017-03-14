@@ -10,6 +10,8 @@ services:
     hostname: db
     volumes:
       - ./orcidhub-core/conf/init-user-db.sh:/docker-entrypoint-initdb.d/init-user-db.sh
+    restart: always
+
 
   app:
     depends_on:
@@ -22,11 +24,6 @@ services:
       - PGPASSWORD
       - ORCID_CLIENT_ID=APP-TF7LKIE084PYTQ59
       - ORCID_CLIENT_SECRET
-      - TOKEN_PASSWORD_SALT
-      - TOKEN_SECRET_KEY
-      - MAIL_USERNAME
-      - MAIL_PASSWORD
-      - MAIL_SERVER
     domainname: orcidhub.org.nz
     hostname: app
     ports:
@@ -42,3 +39,5 @@ services:
       - ./.keys/${ENV:-dev}-sp.crt:/etc/shibboleth/sp-cert.pem
       - ./.keys:/.keys
       - ./orcidhub-core/conf:/conf
+    restart: always
+
