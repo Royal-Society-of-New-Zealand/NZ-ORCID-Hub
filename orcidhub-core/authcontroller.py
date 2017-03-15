@@ -18,7 +18,7 @@ from application import mail
 from tokenGeneration import generate_confirmation_token, confirm_token
 from application import login_manager
 from registrationForm import OrgConfirmationForm
-
+from os import environ
 
 @app.route("/")
 def index():
@@ -167,7 +167,7 @@ def profile():
 @login_required(role=[UserRole.SUPERUSER, UserRole.ADMIN])
 def registerOrganisation():
     # For now on boarding of researcher is not supported
-    return "Organisation Register successfully!!!"
+    return "Work in Progress!!!"
 
 
 @app.route("/Tuakiri/register/organisation", methods=["GET", "POST"])
@@ -178,24 +178,33 @@ def registerResearcher():
         if form.validate() is False:
             return 'Please fill in all fields <p><a href="/Tuakiri/register/organisation">Try Again!!!</a></p>'
         else:
-            organisation = Organisation(org_name=form.orgName.data, emailid=form.orgEmailid.data)
-            db.session.add(organisation)
-            db.session.commit()
+            data = OrcidUser.query.filter_by(email=form.orgEmailid.data).first()
+            if data is not None:
+                flash("This Email address is already an Admin for one of the organisation", "warning")
+                return render_template('registration.html', form=form)
+                # return redirect(url_for('.profile'))
+            else:
+                organisation = Organisation(org_name=form.orgName.data, emailid=form.orgEmailid.data)
+                db.session.add(organisation)
+                db.session.commit()
 
-            orcidUser = OrcidUser(rname=form.orgName.data, email=form.orgEmailid.data, urole=UserRole.ADMIN,
-                                  orgid=organisation.emailid)
-            db.session.add(orcidUser)
-            db.session.commit()
-            # Using app context due to issue: https://github.com/mattupstate/flask-mail/issues/63
-            with app.app_context():
-                msg = Message("Welcome to OrcidhHub",
-                              recipients=[str(form.orgEmailid.data)])
-                token = generate_confirmation_token(form.orgEmailid.data)
-                msg.body = "Your organisation is just one step behind to get onboarded" \
-                           " please click on following link to get onboarded " \
-                           "http://test.orcidhub.org.nz/Tuakiri/confirm/" + str(token)
-                mail.send(msg)
-            return "Organisation Onboarded Successfully!!!  "
+                orcidUser = OrcidUser(rname=form.orgName.data, email=form.orgEmailid.data, urole=UserRole.ADMIN,
+                                      orgid=organisation.emailid)
+                db.session.add(orcidUser)
+                db.session.commit()
+                # Using app context due to issue: https://github.com/mattupstate/flask-mail/issues/63
+                with app.app_context():
+                    msg = Message("Welcome to OrcidhHub",
+                                  recipients=[str(form.orgEmailid.data)])
+                    token = generate_confirmation_token(form.orgEmailid.data)
+                    msg.body = "Your organisation is just one step behind to get onboarded" \
+                               " please click on following link to get onboarded " \
+                               "http://"+environ.get("ENV", "dev")+".orcidhub.org.nz/Tuakiri/confirm/" + str(token)
+                    mail.send(msg)
+                    flash("Organisation Onboarded Successfully!!! Email Communication has been sent to Admin",
+                          "success")
+                return render_template('registration.html', form=form)
+
     elif request.method == 'GET':
         return render_template('registration.html', form=form)
 
@@ -235,7 +244,9 @@ def confirmUser(token):
                     msg.body = "Congratulations your emailid has been confirmed and " \
                                "organisation onboarded successfully."
                     mail.send(msg)
-                return "Organisation Register successfully!!!"
+                    flash("Your Onboarding is Completed!!!", "success")
+                return redirect(url_for("login"))
+                # return render_template("login.html")
             else:
                 login_manager.unauthorized()
         else:

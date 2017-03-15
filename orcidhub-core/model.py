@@ -25,7 +25,7 @@ class Researcher(db.Model):
 
 class Organisation(db.Model):
     __tablename__ = 'organisation'
-    org_name = db.Column(db.String(100), index=True, unique=True)
+    org_name = db.Column(db.String(100), index=True)
     emailid = db.Column(db.String(80), index=True, primary_key=True, unique=True)
     tuakiriname = db.Column(db.String(80), index=True, unique=True)
     orcid_client_id = db.Column(db.String(80), index=True, unique=True)
