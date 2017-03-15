@@ -199,7 +199,7 @@ def registerResearcher():
                     token = generate_confirmation_token(form.orgEmailid.data)
                     msg.body = "Your organisation is just one step behind to get onboarded" \
                                " please click on following link to get onboarded " \
-                               "http://"+environ.get("ENV", "dev")+".orcidhub.org.nz/Tuakiri/confirm/" + str(token)
+                               "https://"+environ.get("ENV", "dev")+".orcidhub.org.nz/Tuakiri/confirm/" + str(token)
                     mail.send(msg)
                     flash("Organisation Onboarded Successfully!!! Email Communication has been sent to Admin",
                           "success")
