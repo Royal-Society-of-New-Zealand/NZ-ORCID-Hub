@@ -13,8 +13,7 @@ from logging.handlers import RotatingFileHandler
 app = Flask(__name__)
 
 handler = RotatingFileHandler(
-        #os.path.join(os.path.dirname(os.path.realpath(__file__)), 'orcidhub.log'),
-        '/tmp/orcidhub.log',
+        '/var/log/orcidhub/orcidhub.log',
         maxBytes=10000, backupCount=10)
 handler.setLevel(logging.INFO)
 app.logger.addHandler(handler)

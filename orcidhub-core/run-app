@@ -67,6 +67,10 @@ chown root /etc/pki/tls/certs/server.crt
 echo "Rendering Shibboleth configuration template ..."
 /conf/render_template /conf/templates/shibboleth2.xml >/etc/shibboleth/shibboleth2.xml
 
+# Create a dirctory for application logs:
+mkdir -p /var/log/orcidhub
+chown -R apache:apache /var/log/orcidhub
+
 # Run Shibboleth and Apache:
 echo "Starting Shibboleth ..."
 /etc/shibboleth/shibd-redhat start
