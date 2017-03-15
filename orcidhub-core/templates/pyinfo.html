@@ -119,6 +119,19 @@
     </table>
   </div>
 
+  <h2 class="center"> Request Environments </h2>
+
+  <div class="content">
+    <table> 
+      {% for k, v in request.environ.items() %}
+      <tr>
+        <td class="name">{{ k }}</td>
+        <td class="value">{{ v | escape }}</td>
+      </tr>
+      {% endfor %}
+    </table>
+  </div>
+
   <h2 class="center"> License</h2>
   <div class="content footer">
     <p>

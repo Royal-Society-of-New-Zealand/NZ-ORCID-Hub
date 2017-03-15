@@ -146,10 +146,7 @@ def get_os_internals():
 
 
 def get_envvars():
-    envvars = []
-    for key, value in os.environ.items():
-        envvars.append((key, cgi.escape(str(value), quote=True)))
-    return envvars
+    return [(k, cgi.escape(v, quote=True)) for k, v in os.environ.items()]
 
 
 def get_database_info():
