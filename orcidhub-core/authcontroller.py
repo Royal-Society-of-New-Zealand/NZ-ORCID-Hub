@@ -90,12 +90,12 @@ def demo():
     # Check if user details are already in database
     if auedupersonsharedtoken and current_user.is_active():
         # data = Researcher.query.filter_by(auedupersonsharedtoken=auedupersonsharedtoken).first()
-        data = OrcidUser.query.filter_by(auedupersonsharedtoken=auedupersonsharedtoken,
-                                         email=current_user.email).first()
+        data = OrcidUser.query.filter_by(email=current_user.email).first()
         if None is not data:
             # If user details are already there in database redirect to profile instead of orcid
             if (data.auth_token is not None) and (data.orcidid is not None):
                 flash("Your account is already linked to ORCiD", 'warning')
+                session['oauth_token'] = data.auth_token
                 return redirect(url_for('.profile'))
             else:
                 return redirect(
@@ -144,7 +144,7 @@ def profile():
         name = data.rname
         oauth_token = data.auth_token
         orcid = data.orcidid
-        if oauth_token is None:
+        if ((oauth_token is None) or (oauth_token != session['oauth_token'])):
             orcid = session['oauth_token']['orcid']
             oauth_token = session['oauth_token']['access_token']
             data.orcidid = orcid

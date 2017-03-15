@@ -8,8 +8,7 @@ addOrganisation = Organisation(org_name="The Royal Society of NewZealand", email
                                tuakiriname="The Royal Society of NewZealand",
                                orcid_client_id="client-123", orcid_secret="secret-123", confirmed=True)
 superUser = OrcidUser(rname="The Royal Society of NewZealand", email="nzorcidhub@royalsociety.org.nz",
-                      orcidid="test123", auth_token="test123",
-                      auedupersonsharedtoken="test-123", confirmed=True,
+                      auedupersonsharedtoken="aaRtDix1l2z43M0vvWTBpBuf_ek", confirmed=True,
                       urole=UserRole.SUPERUSER, orgid="nzorcidhub@royalsociety.org.nz")
 
 db.session.add(addOrganisation)
