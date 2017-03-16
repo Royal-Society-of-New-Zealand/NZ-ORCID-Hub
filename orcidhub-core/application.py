@@ -5,10 +5,11 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_login import  LoginManager
 from flask_mail import Mail
 # NB! Should be disabled in production
-from pyinfo import info
 from flask_debugtoolbar import DebugToolbarExtension
 import logging
 from logging.handlers import RotatingFileHandler
+from flask_admin import Admin
+#from flask_admin.contrib.peewee import ModelView
 
 app = Flask(__name__)
 
@@ -50,17 +51,16 @@ mail.init_app(app)
 # Secret key and salt for token generation
 app.config['TOKEN_SECRET_KEY'] = TOKEN_SECRET_KEY
 app.config['TOKEN_PASSWORD_SALT'] = TOKEN_PASSWORD_SALT
-# NB! Disable in production
-toolbar = DebugToolbarExtension(app)
 
-@app.route('/pyinfo')
-def pyinfo():
-    return render_template('pyinfo.html', **info)
+admin = Admin(app, name="NZ ORCiD Hub", template_mode="bootstrap3")
 
+if app.debug:
+    toolbar = DebugToolbarExtension(app)
 
 db = SQLAlchemy(app)
 # flake8: noqa
 from authcontroller import *
+from views import *
 
 if __name__ == "__main__":
     # This allows us to use a plain HTTP callback

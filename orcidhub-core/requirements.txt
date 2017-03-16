@@ -8,9 +8,14 @@ requests
 requests_oauthlib
 sqlalchemy-migrate
 psycopg2
-flask-debugtoolbar
 flask-login
 Flask-WTF
 flask_mail
 inotify
+flask-admin
+python-slugify
+flask-script
 
+# For testing (should be disabled in the production):
+flask-debugtoolbar
+fake-factory
