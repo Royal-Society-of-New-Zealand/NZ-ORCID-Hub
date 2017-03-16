@@ -20,7 +20,7 @@ from application import login_manager
 from registrationForm import OrgConfirmationForm
 from os import environ
 
-@app.route("/") ## /, /login
+@app.route("/")  # /, /login
 def index():  # login
     try:  # TODO: current_user.has_roles(... ) should do the trick
         role = current_user.get_urole().name
@@ -87,9 +87,10 @@ def login():  # shib_login
     return redirect(url_for("index"))
 
 
-@app.route("/Tuakiri/redirect")  # /link  ## links the user's account with ORCiD (i.e. affiliates user with his/her org on ORCID)
+@app.route("/Tuakiri/redirect")  # /link
+# links the user's account with ORCiD (i.e. affiliates user with his/her org on ORCID)
 @login_required(role=[UserRole.ANY])
-def demo():  # link() 
+def demo():  # link()
     """Step 1: User Authorization.
     Redirect the user/resource owner to the OAuth provider (i.e.Orcid )
     using an URL with a few key OAuth parameters.
@@ -119,7 +120,7 @@ def demo():  # link()
 # Step 2: User authorization, this happens on the provider.
 @app.route("/auth", methods=["GET"])
 @login_required(role=[UserRole.ANY])
-def callback(): # orcid_callback()
+def callback():  # orcid_callback()
     """ Step 3: Retrieving an access token.
     The user has been redirected back from the provider to your registered
     callback URL. With this redirection comes an authorization code included
@@ -316,8 +317,8 @@ You have to close all open browser tabs and windows in order
 in order to complete the log-out.""", "warning")
     return render_template("uoa-slo.html")
 
-#NB! Disable for the production!!!
-@app.route("/Tuakiri/clear_db")  #  /reset_db
+# NB! Disable for the production!!!
+@app.route("/Tuakiri/clear_db")  # /reset_db
 def reset_db():
     """
     Resets the DB for testing cycle
