@@ -2,12 +2,9 @@
 {% block content %}
   <div class="container">
     <div id="content">
-      <div class="content_item">
-        <h1>Welcome To ORCID Hub</h1>
-        <div id="logged-in-info-username"><span><h2> </h2>Hi <b text="{{ userName }}">{{userName}} ,</b></span></div>
-        <div id="logged-in-info-orgname"><span><h2> </h2>Organisation Name: <b text="{{ organisationName }}">{{organisationName}}</b></span></div>
-
-
-      </div><!--close content_item-->
-    </div><!--close content-->
-  {% endblock %}
+      <h1>Welcome To ORCiD Hub</h1>
+      <div id="logged-in-info-username"><span><h2> </h2>Hi <b text="{{ userName }}">{{userName}} ,</b></span></div>
+      <div id="logged-in-info-orgname"><span><h2> </h2>Organisation Name: <b text="{{ organisationName }}">{{organisationName}}</b></span></div>
+    </div>
+  </div>
+{% endblock %}

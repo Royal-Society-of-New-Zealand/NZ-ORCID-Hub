@@ -20,9 +20,9 @@ from application import login_manager
 from registrationForm import OrgConfirmationForm
 from os import environ
 
-@app.route("/")
-def index():
-    try:
+@app.route("/") ## /, /login
+def index():  # login
+    try:  # TODO: current_user.has_roles(... ) should do the trick
         role = current_user.get_urole().name
     except:
         role = None
@@ -30,7 +30,7 @@ def index():
 
 
 @app.route("/Tuakiri/login")
-def login():
+def login():  # shib_login
     # print(request.headers)
     token = request.headers.get("Auedupersonsharedtoken")
     session['family_names'] = request.headers['Sn']
@@ -43,7 +43,7 @@ def login():
         app.logger.info("User logged in from '%s'", tuakiri_orgName)
 
     # import pdb;pdb.set_trace()
-
+    # Handle it in template
     registerOptions = {}
     if (not (orcidUser is None) and (orcidUser.confirmed)):
         login_user(orcidUser)
@@ -87,9 +87,9 @@ def login():
     return redirect(url_for("index"))
 
 
-@app.route("/Tuakiri/redirect")
+@app.route("/Tuakiri/redirect")  # /link  ## links the user's account with ORCiD (i.e. affiliates user with his/her org on ORCID)
 @login_required(role=[UserRole.ANY])
-def demo():
+def demo():  # link() 
     """Step 1: User Authorization.
     Redirect the user/resource owner to the OAuth provider (i.e.Orcid )
     using an URL with a few key OAuth parameters.
@@ -108,7 +108,7 @@ def demo():
             if (data.auth_token is not None) and (data.orcidid is not None):
                 flash("Your account is already linked to ORCiD", 'warning')
                 session['oauth_token'] = data.auth_token
-                return redirect(url_for('.profile'))
+                return redirect(url_for('profile'))
             else:
                 return redirect(
                     iri_to_uri(authorization_url) + "&family_names=" + session['family_names'] + "&given_names=" +
@@ -119,7 +119,7 @@ def demo():
 # Step 2: User authorization, this happens on the provider.
 @app.route("/auth", methods=["GET"])
 @login_required(role=[UserRole.ANY])
-def callback():
+def callback(): # orcid_callback()
     """ Step 3: Retrieving an access token.
     The user has been redirected back from the provider to your registered
     callback URL. With this redirection comes an authorization code included
@@ -139,7 +139,7 @@ def callback():
     return redirect(url_for('profile'))
 
 
-@app.route("/Tuakiri/profile", methods=["GET"])
+@app.route("/Tuakiri/profile", methods=["GET"])  # /profile
 @login_required(role=[UserRole.ANY])
 def profile():
     """Fetching a protected resource using an OAuth 2 token.
@@ -180,16 +180,16 @@ def profile():
         work=json.dumps(json.loads(resp.text), sort_keys=True, indent=4, separators=(',', ': ')))
 
 
-@app.route("/Tuakiri/register/researcher", methods=["GET"])
+@app.route("/Tuakiri/register/researcher", methods=["GET"])  # /invite/user
 @login_required(role=[UserRole.SUPERUSER, UserRole.ADMIN])
-def registerResearcher():
+def registerResearcher():  # invite_user
     # For now on boarding of researcher is not supported
     return "Work in Progress!!!"
 
 
-@app.route("/Tuakiri/register/organisation", methods=["GET", "POST"])
+@app.route("/Tuakiri/register/organisation", methods=["GET", "POST"])  # /register/organisation
 @login_required(role=[UserRole.SUPERUSER])
-def registerOrganisation():
+def registerOrganisation():  # register_organisation
     form = OrgRegistrationForm()
     try:
         role = current_user.get_urole().name
@@ -224,7 +224,7 @@ def registerOrganisation():
                     token = generate_confirmation_token(form.orgEmailid.data)
                     msg.body = "Your organisation is just one step behind to get onboarded" \
                                " please click on following link to get onboarded " \
-                               "http://"+environ.get("ENV", "dev")+".orcidhub.org.nz/Tuakiri/confirm/" + str(token)
+                               "https://"+environ.get("ENV", "dev")+".orcidhub.org.nz/Tuakiri/confirm/" + str(token)
                     mail.send(msg)
                     flash("Organisation Onboarded Successfully!!! Email Communication has been sent to Admin",
                           "success")
@@ -234,8 +234,8 @@ def registerOrganisation():
         return render_template('registration.html', form=form, role=role)
 
 
-@app.route("/Tuakiri/confirm/<token>", methods=["GET", "POST"])
-def confirmUser(token):
+@app.route("/Tuakiri/confirm/<token>", methods=["GET", "POST"])  # /confirm/organisation/<token>
+def confirmUser(token):  # confirm_organisation
     email = confirm_token(token)
     form = OrgConfirmationForm()
     try:
@@ -308,14 +308,20 @@ def logout():
 
 @app.route("/uoa-slo")
 def uoa_slo():
+    """
+    Shows the logout info for UoA users.
+    """
     flash("""You had logged in from 'The University of Auckland'.
 You have to close all open browser tabs and windows in order
 in order to complete the log-out.""", "warning")
     return render_template("uoa-slo.html")
 
-
-@app.route("/Tuakiri/clear_db")
-def clear_db():
+#NB! Disable for the production!!!
+@app.route("/Tuakiri/clear_db")  #  /reset_db
+def reset_db():
+    """
+    Resets the DB for testing cycle
+    """
     db.session.execute("DELETE FROM orciduser WHERE rname NOT LIKE '%Royal%'")
     db.session.execute("DELETE FROM organisation WHERE org_name NOT LIKE '%Royal%'")
     db.session.execute("DELETE FROM researcher")
