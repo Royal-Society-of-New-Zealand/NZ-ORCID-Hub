@@ -5,11 +5,23 @@
   <form action="" method="post" name="confirm">
       {{ form.hidden_tag() }}
 
-      <p>Organisation Name:{{ form.orgName(size=50) }}</p><br>
-      <p>Organisation Email:{{ form.orgEmailid(size=50) }}</p><br>
-      <p>Enter Organisation Orcid Client ID:{{ form.orgOricdClientId(size=50) }}</p><br>
-      <p>Enter Organisation Orcid Client Secret:{{ form.orgOrcidClientSecret(size=50) }}</p><br>
+      <div class="form-group">
+        <label for="org_name">Organisation Name:</label>
+        {{ form.orgName(size=50, id="org_name", class="form-control") }}
+      </div>
+      <div class="form-group">
+        <label for="org_email">Organisation Email:</label>
+        {{ form.orgEmailid(size=50, id="org_email", class="form-control") }}
+      </div>
+      <div class="form-group">
+        <label for="org_id">Orcid Client ID:</label>
+        {{ form.orgOricdClientId(size=50, id="org_id", class="form-control") }}
+      </div>
+      <div class="form-group">
+        <label for="org_secret">Orcid Client Secret:</label>
+      {{ form.orgOrcidClientSecret(size=50, id="org_secret", class="form-control") }}
+      </div>
 
-      <p><input type="submit" value="Confirm"></p>
-  </form>
+      <button type="submit" class="btn btn-default" value="Confirmation">Confirmation</button>
+   </form>
 {% endblock %}

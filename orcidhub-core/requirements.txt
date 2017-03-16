@@ -12,5 +12,5 @@ flask-debugtoolbar
 flask-login
 Flask-WTF
 flask_mail
-notify
+inotify
 

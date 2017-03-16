@@ -12,11 +12,12 @@ from logging.handlers import RotatingFileHandler
 
 app = Flask(__name__)
 
-handler = RotatingFileHandler(
-        '/var/log/orcidhub/orcidhub.log',
-        maxBytes=10000, backupCount=10)
-handler.setLevel(logging.INFO)
-app.logger.addHandler(handler)
+if os.path.exists("/var/log/orcidhub"):
+    handler = RotatingFileHandler(
+            '/var/log/orcidhub/orcidhub.log',
+            maxBytes=10000, backupCount=10)
+    handler.setLevel(logging.INFO)
+    app.logger.addHandler(handler)
 
 app.secret_key = ")Xq/4vc'K%wesQ$n'n;?+y@^rY\/u8!sk{?D7Y>.V`t_/y'wn>7~cZ$(Q.$n)d_j"
 # NB! Disable in production

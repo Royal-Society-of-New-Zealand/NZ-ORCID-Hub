@@ -22,7 +22,11 @@ from os import environ
 
 @app.route("/")
 def index():
-    return render_template("index.html")
+    try:
+        role = current_user.get_urole().name
+    except:
+        role = None
+    return render_template("index.html", role=role)
 
 
 @app.route("/Tuakiri/login")
@@ -43,6 +47,10 @@ def login():
     registerOptions = {}
     if (not (orcidUser is None) and (orcidUser.confirmed)):
         login_user(orcidUser)
+        try:
+            role = current_user.get_urole().name
+        except:
+            role = None
         if current_user.get_urole() == UserRole.ADMIN:
             registerOptions['Register Researcher'] = "/Tuakiri/register/researcher"
         elif current_user.get_urole() == UserRole.SUPERUSER:
@@ -53,10 +61,10 @@ def login():
         if token:
             # This is a unique id got from Tuakiri SAML used as identity in database
             session['Auedupersonsharedtoken'] = token
-            return render_template("base.html", userName=request.headers['Displayname'],
+            return render_template("linking.html", userName=request.headers['Displayname'], role=role,
                                    organisationName=request.headers['O'], registerOptions=registerOptions)
         else:
-            return render_template("base.html")
+            return render_template("linking.html", role=role)
     elif (orcidUser is None):
         # Check if the organization to which user belong is onboarded, if yes onboard user automatically
         organisation = Organisation.query.filter_by(tuakiriname=tuakiri_orgName).first()
@@ -67,7 +75,11 @@ def login():
             db.session.commit()
             login_user(orcidUser)
             registerOptions['View Work'] = "/Tuakiri/redirect"
-            return render_template("base.html", userName=request.headers['Displayname'],
+            try:
+                role = current_user.get_urole().name
+            except:
+                role = None
+            return render_template("linking.html", userName=request.headers['Displayname'], role=role,
                                    organisationName=request.headers['O'], registerOptions=registerOptions)
         else:
             flash("Your organisation (%s) is not onboarded" % tuakiri_orgName, "danger")
@@ -144,7 +156,7 @@ def profile():
         name = data.rname
         oauth_token = data.auth_token
         orcid = data.orcidid
-        if ((oauth_token is None) or (oauth_token != session['oauth_token'])):
+        if ((oauth_token is None) or (oauth_token != session.get('oauth_token'))):
             orcid = session['oauth_token']['orcid']
             oauth_token = session['oauth_token']['access_token']
             data.orcidid = orcid
@@ -156,8 +168,13 @@ def profile():
     headers = {'Accept': 'application/json'}
     resp = client.get("https://api.sandbox.orcid.org/v1.2/" +
                       str(orcid) + "/orcid-works", headers=headers)
+    try:
+        role = current_user.get_urole().name
+    except:
+        role = None
     return render_template(
         "profile.html",
+        role=role,
         userName=name,
         orcid=orcid,
         work=json.dumps(json.loads(resp.text), sort_keys=True, indent=4, separators=(',', ': ')))
@@ -165,15 +182,19 @@ def profile():
 
 @app.route("/Tuakiri/register/researcher", methods=["GET"])
 @login_required(role=[UserRole.SUPERUSER, UserRole.ADMIN])
-def registerOrganisation():
+def registerResearcher():
     # For now on boarding of researcher is not supported
     return "Work in Progress!!!"
 
 
 @app.route("/Tuakiri/register/organisation", methods=["GET", "POST"])
 @login_required(role=[UserRole.SUPERUSER])
-def registerResearcher():
+def registerOrganisation():
     form = OrgRegistrationForm()
+    try:
+        role = current_user.get_urole().name
+    except:
+        role = None
     if request.method == 'POST':
         if form.validate() is False:
             return 'Please fill in all fields <p><a href="/Tuakiri/register/organisation">Try Again!!!</a></p>'
@@ -181,8 +202,12 @@ def registerResearcher():
             data = OrcidUser.query.filter_by(email=form.orgEmailid.data).first()
             if data is not None:
                 flash("This Email address is already an Admin for one of the organisation", "warning")
-                return render_template('registration.html', form=form)
+                return render_template('registration.html', form=form, role=role)
                 # return redirect(url_for('.profile'))
+            try:
+                role = current_user.get_urole().name
+            except:
+                role = None
             else:
                 organisation = Organisation(org_name=form.orgName.data, emailid=form.orgEmailid.data)
                 db.session.add(organisation)
@@ -203,16 +228,20 @@ def registerResearcher():
                     mail.send(msg)
                     flash("Organisation Onboarded Successfully!!! Email Communication has been sent to Admin",
                           "success")
-                return render_template('registration.html', form=form)
+                return render_template('registration.html', form=form, role=role)
 
     elif request.method == 'GET':
-        return render_template('registration.html', form=form)
+        return render_template('registration.html', form=form, role=role)
 
 
 @app.route("/Tuakiri/confirm/<token>", methods=["GET", "POST"])
 def confirmUser(token):
     email = confirm_token(token)
     form = OrgConfirmationForm()
+    try:
+        role = current_user.get_urole().name
+    except:
+        role = None
     # For now only GET method is implemented will need post method for organisation
     # to enter client secret and client key for orcid
     if request.method == 'POST':
@@ -256,7 +285,7 @@ def confirmUser(token):
             login_manager.unauthorized()
         form.orgEmailid.data = email
         form.orgName.data = request.headers['O']
-        return render_template('orgconfirmation.html', form=form)
+        return render_template('orgconfirmation.html', form=form, role=role)
 
 
 @app.after_request
