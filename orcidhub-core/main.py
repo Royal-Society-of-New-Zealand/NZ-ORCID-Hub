@@ -1,13 +1,9 @@
 from application import app, db
-from flask_debugtoolbar import DebugToolbarExtension
 import models  # noqa: F401
 from views import *  # noqa: F401, F403
 from authcontroller import *  # noqa: F401, F403
 import os
 from peewee import OperationalError
-
-# NB! Disable in production
-toolbar = DebugToolbarExtension(app)
 
 # TODO: connection should be managed explicitely
 @app.before_request

@@ -1,8 +1,10 @@
 # SEE: http://flask.pocoo.org/docs/0.12/deploying/mod_wsgi/
 import sys, os
-sys.path.insert(0, os.path.dirname(__file__))
+app_dir = os.path.dirname(__file__)
+sys.path.insert(0, app_dir)
 
-import monitor
-from application import app as application
+from main import app as application
 
-monitor.start(os.path.dirname(__file__))
+if application.debug:
+    import monitor
+    monitor.start(app_dir)

@@ -1,17 +1,29 @@
-from application import db
-from model import Organisation, OrcidUser, UserRole
+import models
+from models import Organisation, User, Role
 
-db.drop_all()
-db.create_all()
+models.drop_talbes()
+models.create_tables()
 
-addOrganisation = Organisation(org_name="The Royal Society of NewZealand", emailid="nzorcidhub@royalsociety.org.nz",
-                               tuakiriname="The Royal Society of NewZealand",
-                               orcid_client_id="client-123", orcid_secret="secret-123", confirmed=True)
-superUser = OrcidUser(rname="The Royal Society of NewZealand", email="nzorcidhub@royalsociety.org.nz",
-                      auedupersonsharedtoken="aaRtDix1l2z43M0vvWTBpBuf_ek", confirmed=True,
-                      urole=UserRole.SUPERUSER, orgid="nzorcidhub@royalsociety.org.nz")
+org0 = Organisation(
+    name="The Royal Society of NewZealand",
+    email="nzorcidhub@royalsociety.org.nz",
+    tuakiri_name="The Royal Society of NewZealand",
+    orcid_client_id="client-123",
+    orcid_secret="secret-123",
+    confirmed=True)
+org0.save()
 
-db.session.add(addOrganisation)
-db.session.commit()
-db.session.add(superUser)
-db.session.commit()
+super_user = User(
+    name="The Royal Society of NewZealand",
+    email="nzorcidhub@royalsociety.org.nz",
+    edu_person_shared_token="aaRtDix1l2z43M0vvWTBpBuf_ek",
+    confirmed=True,
+    roles=Role.SUPERUSER)
+super_user.save()
+
+super_user = User(
+    name="The Root",
+    email="root@mailinator.com",
+    confirmed=True,
+    roles=Role.SUPERUSER)
+super_user.save()

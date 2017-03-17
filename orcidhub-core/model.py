@@ -4,7 +4,7 @@ from flask_login import UserMixin
 
 
 # Enum used to represent user role
-class UserRole(enum.Enum):
+class Role(enum.Enum):
     ADMIN = "Admin"
     SUPERUSER = "SuperUser"
     RESEARCHER = "Researcher"
@@ -45,7 +45,7 @@ class OrcidUser(db.Model, UserMixin):
     # TODO: Seems some bug in flask SQLAlchemy
     is_active = db.Column(db.Boolean, default=True, unique=False)
     confirmed = db.Column(db.Boolean, default=False, unique=False)
-    urole = db.Column(db.Enum(UserRole))
+    urole = db.Column(db.Enum(Role))
     orgid = db.Column(db.String(80), db.ForeignKey('organisation.emailid'))
 
     # def __init__(self,username,pwd_hash,email,is_active,urole,auedupersonsharedtoken):

@@ -4,9 +4,8 @@ MAINTAINER The University of Auckland
 
 ADD http://download.opensuse.org/repositories/security://shibboleth/CentOS_7/security:shibboleth.repo /etc/yum.repos.d/shibboleth.repo
 
-## libpqxx-devel.x86_64 \ postgresql96 \ postgresql96-libs \
-##    && yum -y install  install https://download.postgresql.org/pub/repos/yum/9.6/redhat/rhel-7-x86_64/pgdg-redhat96-9.6-3.noarch.rpm \
 RUN yum -y update \ 
+    && yum -y install  install https://download.postgresql.org/pub/repos/yum/9.6/redhat/rhel-7-x86_64/pgdg-redhat96-9.6-3.noarch.rpm \
     && yum -y install https://centos7.iuscommunity.org/ius-release.rpm \
     && yum -y install \
     	shibboleth.x86_64 \
@@ -55,8 +54,6 @@ RUN chmod +x /usr/local/bin/run-app \
    && rm -rf $HOME/.pip/cache \
    && rm -rf /var/cache/*/*
 
-
 EXPOSE 80 443
 
 CMD ["run-app"]
-
