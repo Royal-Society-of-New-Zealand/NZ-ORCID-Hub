@@ -4,7 +4,6 @@ from werkzeug.urls import iri_to_uri
 from config import client_id, client_secret, authorization_base_url, \
     token_url, scope, redirect_uri
 import json
-from peewee import DoesNotExist
 from application import app, db, mail
 from models import User, Role, Organisation
 from urllib.parse import quote
@@ -13,17 +12,17 @@ from registrationForm import OrgRegistrationForm
 from flask_mail import Message
 from tokenGeneration import generate_confirmation_token, confirm_token
 from registrationForm import OrgConfirmationForm
-from flask_login import login_required
+from flask_login import login_required, logout_user
 from login_provider import roles_required
 from os import environ
+from urllib.parse import urlencode
 
-@app.route("/")
-@app.route("/login")
-@app.route("/home")
 @app.route("/index")
+@app.route("/login")
+@app.route("/")
 def login():
     """
-    Main landing page
+    Main landing page.
     """
     return render_template("index.html")
 
@@ -31,19 +30,33 @@ def login():
 @app.route("/Tuakiri/login")
 def shib_login():
     token = request.headers.get("Auedupersonsharedtoken")
-    last_name = session['family_names'] = request.headers['Sn']
-    first_name = session['given_names'] = request.headers['Givenname']
-    email = session['email'] = request.headers['Mail']
+    last_name = request.headers['Sn']
+    first_name = request.headers['Givenname']
+    email = request.headers['Mail']
     session["shib_O"] = shib_org_name = request.headers['O']
     name = request.headers.get('Displayname')
 
     try:
-        org = Organisation.get(Organisation.name == shib_org_name)
+        org = Organisation.get(name=shib_org_name)
     except Organisation.DoesNotExist:
         org = None
 
     try:
-        user = User.get(User.email == session['email'])
+        user = User.get(User.email == email)
+        if not user.organisation and org:
+            user.organisation = org
+
+        # Add Shibboleth meta data if they are missing
+        if not user.edu_person_shared_token:
+            user.edu_person_shared_token = token
+        if (not user.name or (user.organisation and user.name == user.organisation.name)) and name:
+            user.name = name
+        if not user.first_name and first_name:
+            user.firts_name = first_name
+        if not user.last_name and last_name:
+            user.last_name = last_name
+        # TODO: keep login autiting (last_loggedin_at... etc)
+
     except User.DoesNotExist:
         user = User.create(
             email=email,
@@ -54,44 +67,41 @@ def shib_login():
             roles=Role.RESEARCHER,
             organisation=org,
             edu_person_shared_token=token)
-        user.save()
+
+    user.save()
     login_user(user)
 
-    if org and org.confirmed:
+    # TODO: redirect user according to the role
+    if user.is_superuser:
+        return redirect(url_for("invite_organisation"))
+    elif org and org.confirmed:
         return redirect(url_for("link"))
     else:
         flash("Your organisation (%s) is not onboarded" % shib_org_name, "danger")
 
     return redirect(url_for("login"))
 
-
 @app.route("/link")
 @login_required
 def link():
     """
     Links the user's account with ORCiD (i.e. affiliates user with his/her org on ORCID)
-
-    Step 1: User Authorization.
-    Redirect the user/resource owner to the OAuth provider (i.e.Orcid )
-    using an URL with a few key OAuth parameters.
     """
     client = OAuth2Session(client_id, scope=scope, redirect_uri=redirect_uri)
     authorization_url, state = client.authorization_url(authorization_base_url)
     session['oauth_state'] = state
-    edu_person_shared_token = session.get("Auedupersonsharedtoken")
     # Check if user details are already in database
-    if edu_person_shared_token:
-        try:
-            User.get(User.edu_person_shared_token == edu_person_shared_token)
-            # If user details are already there in database redirect to profile instead of orcid
-            return redirect(url_for('.profile'))
-        except DoesNotExist:
-            pass
-    return redirect(
-        iri_to_uri(authorization_url) +
-        "&family_names=" + session['family_names'] +
-        "&given_names=" + session['given_names'] +
-        "&email=" + session['email'])
+    if current_user.orcid:
+        flash("You have already affilated '%s' with your ORCiD %s" % (
+            current_user.organisation.name, current_user.orcid), "warning")
+        return redirect(url_for("profile"))
+
+    orcid_url = iri_to_uri(authorization_url) + \
+        urlencode(dict(
+            family_names=current_user.last_name,
+            given_names=current_user.first_name,
+            email=current_user.email))
+    return render_template("linking.html", orcid_url=orcid_url)
 
 
 # Step 2: User authorization, this happens on the provider.
@@ -111,16 +121,15 @@ def orcid_callback():
     # the token and show how this is done from a persisted token
     # in /profile.
     session['oauth_token'] = token
+    app.logger.info("* TOKEN: %s", token)
     orcid = token['orcid']
     name = token["name"]
     access_token = token["access_token"]
-    user = current_user()
-    if orcid:
-        user.orcid = orcid
-    if name:
+    user = current_user
+    user.orcid = orcid
+    if not user.name and name:
         user.name = name
-    if access_token:
-        user.auth_token = access_token
+    user.access_token = access_token
     user.save()
 
     flash("Your account was linked to ORCiD %s" % orcid, "success")
@@ -133,16 +142,16 @@ def orcid_callback():
 def profile():
     """Fetching a protected resource using an OAuth 2 token.
     """
-    user = current_user()
-    client = OAuth2Session(client_id, token={"oauth_token": user.access_token})
+    user = current_user
+    client = OAuth2Session(client_id, token={"access_token": user.access_token})
 
     headers = {'Accept': 'application/json'}
     resp = client.get("https://api.sandbox.orcid.org/v1.2/" +
                       user.orcid + "/orcid-works", headers=headers)
     return render_template(
         "profile.html",
-        user,
-        work=json.dumps(json.loads(resp.text), sort_keys=True, indent=4, separators=(',', ': ')))
+        user=user,
+        data=json.loads(resp.text))
 
 
 @app.route("/invite/user", methods=["GET"])  # /invite/user
@@ -152,21 +161,46 @@ def invite_user():
     return "Work in Progress!!!"
 
 
-@app.route("/register/organisation", methods=["GET", "POST"])
+# TODO: user can be admin for multiple org and org can have multiple admins:
+# TODO: user shoud be assigned exclicitly organization
+# TODO: OrgAdmin ...
+# TODO: gracefully handle all exceptions (repeated infitation, user is already an admin for the organization etc.)
+@app.route("/invite/organisation", methods=["GET", "POST"])
 @roles_required(Role.SUPERUSER)
-def register_organisation():
+def invite_organisation():
     form = OrgRegistrationForm()
     if request.method == "POST":
-        if form.validate() is False:
+        if not form.validate():
             flash("Please fill in all fields and try again.", "danger")
         else:
-            data = User.query.filter_by(email=form.orgEmailid.data).first()
-            if data is not None:
+            email = form.orgEmailid.data
+            org_name = form.orgName.data
+            try:
+                User.get(User.email == form.orgEmailid.data)
                 flash("This Email address is already an Admin for one of the organisation", "warning")
-            else:
-                org = Organisation(org_name=form.orgName.data, emailid=form.orgEmailid.data)
+            except User.DoesNotExist:
+                pass
+            finally:
+                # TODO: organisation can have mutiple admins:
+                # TODO: user OrgAdmin
+                try:
+                    org = Organisation.get(name=org_name)
+                    # TODO: fix it!
+                    org.email = email
+                except Organisation.DoesNotExist:
+                    org = Organisation(name=org_name, email=email)
                 org.save()
-                user = User(name=form.orgName.data, email=form.orgEmailid.data, roles=Role.ADMIN, organisation=org)
+
+                try:
+                    user = User.get(email=email)
+                    user.roles |= Role.ADMIN
+                    user.organisation = org
+                except User.DoesNotExist:
+                    user = User(
+                        name=form.orgName.data,
+                        email=form.orgEmailid.data,
+                        roles=Role.ADMIN,
+                        organisation=org)
                 user.save()
                 # Note: Using app context due to issue: https://github.com/mattupstate/flask-mail/issues/63
                 with app.app_context():
@@ -177,7 +211,7 @@ def register_organisation():
                     msg.body = "Your organisation is just one step behind to get onboarded" \
                                " please click on following link to get onboarded " \
                                "https://"+environ.get("ENV", "dev")+".orcidhub.org.nz" + \
-                               url_for("confirm_orgganisation", token=token)
+                               url_for("confirm_organisation", token=token)
                     mail.send(msg)
                     flash(
                         "Organisation Onboarded Successfully!!! Email Communication has been sent to Admin",
@@ -189,56 +223,50 @@ def register_organisation():
 @app.route("/confirm/organisation/<token>", methods=["GET", "POST"])
 def confirm_organisation(token):
     email = confirm_token(token)
-    form = OrgConfirmationForm()
+    if not email:
+        app.login_manager.unauthorized()
     try:
-        role = current_user.get_urole().name
-    except:
-        role = None
+        user = User.get(email=email)
+    except User.DoesNotExist:
+        flash("User for whom the token was created desn't exist...", "danger")
+        return redirect(url_for("login"))
+
+    # TODO: support for mutliple orgs and admins
+    # TODO: admin role asigning to an exiting user
+    # TODO: support for org not participating in Tuakiri
+    form = OrgConfirmationForm()
+
     # For now only GET method is implemented will need post method for organisation
     # to enter client secret and client key for orcid
     if request.method == 'POST':
         if not form.validate():
             flash('Please fill in all fields and try again!', "danger")
         else:
-            if email is False:
-                app.login_manager.unauthorized()
-            tuakiri_token = request.headers.get("Auedupersonsharedtoken")
-            tuakiri_mail = request.headers['Mail']
-            shib_org_name = request.headers['O']
-            if email == tuakiri_mail:
-                user = User.query.filter_by(email=email).first()
-                organisation = Organisation.get(emailid=email)
-                if (not (user is None) and (not (organisation is None))):
-                    # Update Organisation
-                    organisation.tuakiri_name = shib_org_name
-                    organisation.confirmed = True
-                    organisation.orcid_client_id = form.orgOricdClientId.data
-                    organisation.orcid_secret = form.orgOrcidClientSecret.data
+            organisation = Organisation.get(email=email)
+            if (not (user is None) and (not (organisation is None))):
+                # Update Organisation
+                organisation.confirmed = True
+                organisation.orcid_client_id = form.orgOricdClientId.data
+                organisation.orcid_secret = form.orgOrcidClientSecret.data
+                organisation.save()
 
-                    # Update Orcid User
-                    user.confirmed = True
-                    user.edu_person_shared_token = tuakiri_token
-                    db.session.commit()
-                    with app.app_context():
-                        msg = Message("Welcome to OrcidhHub", recipients=[email])
-                        msg.body = "Congratulations your emailid has been confirmed and " \
-                            "organisation onboarded successfully."
-                        mail.send(msg)
-                        flash("Your Onboarding is Completed!!!", "success")
-                    return redirect(url_for("login"))
-                    # return render_template("login.html")
-                else:
-                    app.login_manager.unauthorized()
-            else:
-                app.login_manager.unauthorized()
+                # Update Orcid User
+                user.confirmed = True
+                user.save()
+                with app.app_context():
+                    msg = Message("Welcome to OrcidhHub", recipients=[email])
+                    msg.body = "Congratulations your emailid has been confirmed and " \
+                        "organisation onboarded successfully."
+                    mail.send(msg)
+                    flash("Your Onboarding is Completed!!!", "success")
+                return redirect(url_for("login"))
+
     elif request.method == 'GET':
 
-        if email is False:
-            app.login_manager.unauthorized()
         form.orgEmailid.data = email
-        form.orgName.data = request.headers['O']
+        form.orgName.data = user.organisation.name
 
-    return render_template('orgconfirmation.html', form=form, role=role)
+    return render_template('orgconfirmation.html', form=form)
 
 
 @app.after_request
@@ -255,11 +283,16 @@ def remove_if_invalid(response):
 @app.route("/logout")
 def logout():
     org_name = session.get("shib_O")
+    try:
+        logout_user()
+    except Exception as ex:
+        app.logger.error("Failed to logout: %s", ex)
+
     session.clear()
     session["__invalidate__"] = True
     return redirect(
         "/Shibboleth.sso/Logout?return=" +
-        quote(url_for("uoa_slo" if org_name and org_name == "University of Auckland" else "index")))
+        quote(url_for("uoa_slo" if org_name and org_name == "University of Auckland" else "login")))
 
 
 @app.route("/uoa-slo")

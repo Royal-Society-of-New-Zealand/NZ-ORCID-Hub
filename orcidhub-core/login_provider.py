@@ -25,4 +25,4 @@ def load_user(user_id):
 
     :param unicode user_id: user_id (email) user to retrieve
     """
-    return User.get(user_id)
+    return User.get(id=user_id)

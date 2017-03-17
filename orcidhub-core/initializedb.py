@@ -18,6 +18,12 @@ super_user = User(
     email="nzorcidhub@royalsociety.org.nz",
     edu_person_shared_token="aaRtDix1l2z43M0vvWTBpBuf_ek",
     confirmed=True,
-    roles=Role.SUPERUSER,
-    orgid="nzorcidhub@royalsociety.org.nz")
+    roles=Role.SUPERUSER)
+super_user.save()
+
+super_user = User(
+    name="The Root",
+    email="root@mailinator.com",
+    confirmed=True,
+    roles=Role.SUPERUSER)
 super_user.save()
