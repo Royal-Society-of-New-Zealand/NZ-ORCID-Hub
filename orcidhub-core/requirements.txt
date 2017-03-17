@@ -13,6 +13,7 @@ inotify
 flask-admin
 python-slugify
 flask-script
+wtf-peewee
 
 # For testing (should be disabled in the production):
 flask-debugtoolbar
