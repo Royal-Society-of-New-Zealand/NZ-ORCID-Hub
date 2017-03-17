@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    {% block head %}
+      <title>{% block title %}New Zealand ORCiD Hub{% endblock %}</title>
+      <meta charset="utf-8">
+      <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+      <meta name="description" content="ORCID Hub New Zealand" />
+      <meta name="author" content="">
+      <link rel="icon" href="/static/favicon.ico">
+      <meta name="keywords" content="ORCID HUB,New Zealand,NZ,orcid" />
+      <meta name="viewport" content="width=device-width, initial-scale=1">
+      <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+      <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap-theme.min.css" integrity="sha384-rHyoN1iRsVXV4nD0JutlnGaslCJuC7uwjduW9SVrLvRYooPp2bWYgmgJQIXwl/Sp" crossorigin="anonymous">
+      <link href="/static/css/sticky-footer.css" rel="stylesheet">
+    {% endblock %}
+  </head>
+  <body>
+
+    <!-- Header Details -->
+    <header>
+      {% block header %}
+        <div class="lead">
+          <img src="/static/images/background.png" class="img-responsive"
+                                                   alt="Cinque Terre" width="100%" height="100">
+        </div>
+      {% endblock %}
+      {% if current_user.is_authenticated %}
+      <nav class="navbar navbar-inverse">
+        <div class="container-fluid">
+          <div class="navbar-header">
+            <a class="navbar-brand" href="#">NZ ORCiD Hub</a>
+          </div>
+          <ul class="nav navbar-nav">
+            <li id="index"><a href="#">Home</a></li>
+            <li id="about"><a href="#">About</a></li>
+            <li id="demo"><a href="{{ url_for('profile') }}"data-toggle="tooltip" title="Affiliate yourself with ORCID HUB or view your ORCiD">Your ORDiD</a></li>
+            {% if current_user.has_role("ADMIN") %}
+              <li id="researcher"><a href="/Tuakiri/register/researcher">Register Researcher</a></li>
+            {% elif current_user.has_role("SUPERUSER") %}
+              <li id="registerOrganisation"><a href="/Tuakiri/register/organisation">Register Organisation</a></li>
+            {% endif %}
+            <li><a href="#">Contact</a></li>
+          </ul>
+          <!-- button class="btn btn-danger navbar-btn">Button</button -->
+        </div>
+      </nav>
+    {% endif %}
+    </header>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      <!-- Categories: success (green), info (blue), warning (yellow), danger (red) -->
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }} alert-dismissible" role="alert">
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+            <!-- <strong>Title</strong> --> {{ message }}
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+    <div id="content">
+      {% block content %}{% endblock %}
+    </div>
+
+    <!--  Footer Details -->
+
+    <footer class="footer">
+      <div class="container">
+        {% block footer %}
+          <p>Royal Society of New Zealand</p>
+        {% endblock %}
+      </div>
+    </footer>
+    <!-- javascript at the bottom for fast page loading -->
+    <script src="https://code.jquery.com/jquery-3.1.1.slim.min.js" integrity="sha384-A7FZj7v+d/sdmMqp/nOQwliLvUsJfDHW+k9Omg/a/EheAdgtzNs3hpfag6Ed950n" crossorigin="anonymous"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
+    <script>
+$(document).ready(function(){
+  $('[data-toggle="tooltip"]').tooltip(); 
+  $("#{{request.endpoint}}").addClass("active");
+});
+    </script>
+  </body>
+</html>

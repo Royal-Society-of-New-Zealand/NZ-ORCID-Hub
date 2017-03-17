@@ -1,0 +1,12 @@
+{% extends "layout.html" %}
+{% block content %}
+  <div class="container">
+    <p>Hi <strong text="{{ userName }}">{{userName}},</strong>
+    (Organisation: <strong text="{{ organisationName }}">{{organisationName}}</strong>)
+    </p>
+    <p>
+    <a id="connect-orcid-button" class="btn btn-default" href="{{ url_for('demo') }}" role="button">
+      <img id="orcid-id-logo" src="https://orcid.org/sites/default/files/images/orcid_24x24.png" width='24' height='24' alt="ORCID logo"/>&nbsp;Take me to ORCiD iD</a>
+    </p>
+  </div>
+{% endblock %}

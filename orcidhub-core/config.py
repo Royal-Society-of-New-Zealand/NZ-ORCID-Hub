@@ -17,10 +17,18 @@ POSTGRES_PASSWORD = environ.get("POSTGRES_PASSWORD")
 SQLALCHEMY_DATABASE_URI = "postgresql://orcidhub"
 if POSTGRES_PASSWORD:
     SQLALCHEMY_DATABASE_URI += ':' + POSTGRES_PASSWORD
-SQLALCHEMY_DATABASE_URI += "@db:5432/orcidhub"
+SQLALCHEMY_DATABASE_URI += "@" + environ.get("PGHOST", "db") + ":5432/orcidhub"
 SQLALCHEMY_MIGRATE_REPO = 'db_repository'
 
 DB_NAME = environ.get("PGDATABASE", "orcidhub")
 DB_USERNAME = environ.get("PGUSER", "orcidhub")
 DB_PASSWORD = environ.get("POSTGRES_PASSWORD", environ.get("POSTGRES_PASSWORD", "p455w0rd"))
 DB_HOSTNAME = environ.get("PGHOST", "db")
+
+MAIL_USERNAME = environ.get("MAIL_USERNAME", "AKIAICSRSUE3LNBSIBVQ")
+MAIL_PASSWORD = environ.get("MAIL_PASSWORD")
+MAIL_DEFAULT_SENDER = environ.get("MAIL_DEFAULT_SENDER", "no-reply@orcidhub.org.nz")
+MAIL_SERVER = environ.get("MAIL_SERVER", "email-smtp.us-east-1.amazonaws.com")
+
+TOKEN_PASSWORD_SALT = environ.get("TOKEN_PASSWORD_SALT")
+TOKEN_SECRET_KEY = environ.get("TOKEN_SECRET_KEY")

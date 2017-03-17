@@ -1,0 +1,10 @@
+{% extends "layout.html" %}
+{% block content %}
+  <div class="container">
+    <p>
+    <strong>{{userName}}</strong>, your ORCiD <a href="{{orcid_url}}">{{orcid_url}}</a>
+    is now linked with <strong>{{ organisationName }}</strong>.
+    </p>
+    <p><a class="btn btn-primary" href="{{ url_for('logout') }}" role="button">Logout</a></p>
+  </div>
+{% endblock %}
