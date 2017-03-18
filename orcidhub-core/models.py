@@ -17,6 +17,8 @@ class Role(IntFlag):
     ANY = 255  # ANY
 
     def __eq__(self, other):
+        if isinstance(other, Role):
+            return self.value == other.value
         return (self.name == other or
                 self.name == getattr(other, 'name', None))
 
