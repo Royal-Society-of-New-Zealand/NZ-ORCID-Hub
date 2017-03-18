@@ -32,7 +32,9 @@ script:
   - docker-compose exec db psql -U orcidhub -d orcidhub -c "SELECT 1" && echo "DB orcidhub IS RUNNING"
   #- docker-compose exec app pip3.6 install -U -r /var/www/orcidhub/requirements.txt
   - docker-compose exec app python3.6 /var/www/orcidhub/initializedb.py
-  - pytest -v orcidhub-core/test_models.py
+  - docker-compose exec app pip3.6 install -U pytest
+  - docker-compose exec app python3.6 /var/www/orcidhub/test_models.py
+  #- pytest -v orcidhub-core/test_models.py
   #- pytest -v orcidhub-core/test.py
   - docker-compose exec app curl -k -s https://localhost/pyinfo -o /dev/null && echo "WSGI is working..."
 
