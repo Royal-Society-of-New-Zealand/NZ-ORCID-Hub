@@ -3,10 +3,10 @@ import os
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from unittest import TestCase
-from models import *
+from unittest import TestCase, main
+from models import User, Organisation, UserOrg, Role
 from playhouse.test_utils import test_database
-from peewee import *
+from peewee import SqliteDatabase
 from itertools import product
 
 _db = SqliteDatabase(':memory:')
@@ -59,4 +59,4 @@ class ModelTestCase(TestCase):
 
 
 if __name__ == '__main__':
-    unittest.main()
+    main()
