@@ -58,5 +58,5 @@ class ModelTestCase(TestCase):
             assert Organisation.get(id=5).admins.count() > 0
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
