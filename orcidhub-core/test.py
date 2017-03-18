@@ -70,5 +70,6 @@ class OrcidhubTestCase(unittest.TestCase):
     def test_auth(self):
         pass
 
+
 if __name__ == '__main__':
     unittest.main()

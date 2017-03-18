@@ -11,6 +11,7 @@ from itertools import product
 
 _db = SqliteDatabase(':memory:')
 
+
 class ModelTestCase(TestCase):
 
     def create_test_data(self):
@@ -27,7 +28,7 @@ class ModelTestCase(TestCase):
             name="Test User #%d" % i,
             first_name="Test_%d" % i,
             last_name="User_%d" % i,
-            email="user%d@org%d.org.nz" % (i, i*42 % 1000),
+            email="user%d@org%d.org.nz" % (i, i * 42 % 1000),
             edu_person_shared_token="EDU PERSON SHARED TOKEN #%d" % i,
             confirmed=(i % 3 != 0),
             roles=Role.SUPERUSER if i % 42 == 0 else Role.ADMIN if i % 13 == 0 else Role.RESEARCHER)
@@ -55,6 +56,7 @@ class ModelTestCase(TestCase):
             assert Organisation.get(id=1).admins.count() == 1
             assert Organisation.get(id=5).users.count() > 0
             assert Organisation.get(id=5).admins.count() > 0
+
 
 if __name__ == '__main__':
     unittest.main()
