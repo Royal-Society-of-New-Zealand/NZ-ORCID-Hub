@@ -5,9 +5,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from application import app
 from config import client_id, authorization_base_url, scope, redirect_uri
-# from config import client_secret, token_url
-# from application import db
 import unittest
+from peewee import SqliteDatabase
 
 
 # import flask
@@ -16,8 +15,7 @@ import unittest
 class OrcidhubTestCase(unittest.TestCase):
     def setUp(self):
         app.config['TESTING'] = True
-        app.config[
-            'SQLALCHEMY_DATABASE_URI'] = 'postgresql://orcidhub:orcid@localhost:5432/orcidhub'
+        app.db = SqliteDatabase(':memory:')
         self.app = app.test_client()
 
     def tearDown(self):
@@ -27,7 +25,7 @@ class OrcidhubTestCase(unittest.TestCase):
         pass
 
     def test_index(self):
-        rv = self.app.get("/index")
+        rv = self.app.get("/")
         assert b"<!DOCTYPE html>" in rv.data
         # assert b"Home" in rv.data
         assert b"Royal Society of New Zealand" in rv.data, \
