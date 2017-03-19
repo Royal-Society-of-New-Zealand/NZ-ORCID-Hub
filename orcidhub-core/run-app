@@ -74,6 +74,6 @@ chown -R apache:apache /var/log/orcidhub
 # Run Shibboleth and Apache:
 echo "Starting Shibboleth ..."
 /etc/shibboleth/shibd-redhat start
-rm -f /usr/local/apache2/logs/httpd.pid /var/lock/subsys/shibd
+rm -f /run/httpd/httpd.pid /usr/local/apache2/logs/httpd.pid /var/lock/subsys/shibd
 echo "Starting Apache2 ..."
 exec httpd -DFOREGROUND
