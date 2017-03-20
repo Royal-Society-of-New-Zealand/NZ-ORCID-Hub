@@ -41,7 +41,7 @@
               {% if current_user.has_role("ADMIN") %}
                 <li id="researcher"><a href="/Tuakiri/register/researcher">Register Researcher</a></li>
               {% elif current_user.has_role("SUPERUSER") %}
-                <li id="registerOrganisation"><a href="/Tuakiri/register/organisation">Register Organisation</a></li>
+                <li id="registerOrganisation"><a href="{{ url_for('invite_organisation') }}">Register Organisation</a></li>
               {% endif %}
               <li><a href="#">Contact</a></li>
             </ul>
@@ -94,7 +94,7 @@
         {% for category, message in messages %}
           <div class="alert alert-{{ category }} alert-dismissible" role="alert">
             <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
-            <!-- <strong>Title</strong> --> {{ message }}
+            {{ message }}
           </div>
         {% endfor %}
       {% endif %}
