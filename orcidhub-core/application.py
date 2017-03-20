@@ -68,12 +68,13 @@ admin = Admin(app, name="NZ ORCiD Hub", template_mode="bootstrap3")
 login_manager = flask_login.LoginManager()
 login_manager.init_app(app)
 
-if app.debug:
-    toolbar = DebugToolbarExtension(app)
-
 if __name__ == "__main__":
     # This allows us to use a plain HTTP callback
+    from authcontroller import *
     os.environ['DEBUG'] = "1"
     os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
     app.secret_key = os.urandom(24)
+    if app.debug:
+        toolbar = DebugToolbarExtension(app)
     app.run(debug=True, port=5000)
+
