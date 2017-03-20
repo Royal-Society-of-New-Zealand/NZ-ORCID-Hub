@@ -6,6 +6,7 @@ from config import SQLALCHEMY_DATABASE_URI, MAIL_USERNAME, MAIL_PASSWORD, TOKEN_
     TOKEN_SECRET_KEY, MAIL_DEFAULT_SENDER, MAIL_SERVER
 from flask_mail import Mail
 import flask_login
+from flask_debugtoolbar import DebugToolbarExtension
 import logging
 from logging.handlers import RotatingFileHandler
 from flask_admin import Admin

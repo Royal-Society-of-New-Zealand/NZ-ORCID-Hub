@@ -2,7 +2,7 @@ from requests_oauthlib import OAuth2Session
 from flask import request, redirect, session, url_for, render_template, flash
 from werkzeug.urls import iri_to_uri
 from config import client_id, client_secret, authorization_base_url, \
-    token_url, scope, redirect_uri, MEMBER_AIP_FORM_BASE_URL_SANDBOX, \
+    token_url, scope, redirect_uri, MEMBER_API_FORM_BASE_URL, \
     NEW_CREDENTIALS, NOTE_ORCID, CRED_TYPE_PREMIUM, APP_NAME, APP_DESCRIPTION, APP_URL
 import json
 from application import app, db, mail
@@ -290,7 +290,7 @@ def confirm_organisation(token):
         Please request those by clicking on link 'Take me to ORCiD to obtain Client iD and Client Secret'
         and come back to this same place once you have them within 15 days""", "warning")
 
-        clientSecret_url = iri_to_uri(MEMBER_AIP_FORM_BASE_URL_SANDBOX) + "?" + urlencode(dict(
+        clientSecret_url = iri_to_uri(MEMBER_API_FORM_BASE_URL) + "?" + urlencode(dict(
             new_existing=NEW_CREDENTIALS, note=NOTE_ORCID + " " + user.organisation.name,
             contact_email=email, contact_name=user.name, org_name=user.organisation.name,
             cred_type=CRED_TYPE_PREMIUM, app_name=APP_NAME + " at " + user.organisation.name,
