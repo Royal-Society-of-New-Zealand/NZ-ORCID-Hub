@@ -46,7 +46,6 @@ app.debug = True
 app.config['SECRET_KEY'] = app.secret_key
 os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
 
-
 # add mail server config
 app.config['MAIL_SERVER'] = MAIL_SERVER
 app.config['MAIL_PORT'] = 587
@@ -70,11 +69,12 @@ login_manager.init_app(app)
 
 if __name__ == "__main__":
     # This allows us to use a plain HTTP callback
+    # flake8: noqa
     from authcontroller import *
+
     os.environ['DEBUG'] = "1"
     os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
     app.secret_key = os.urandom(24)
     if app.debug:
         toolbar = DebugToolbarExtension(app)
     app.run(debug=True, port=5000)
-

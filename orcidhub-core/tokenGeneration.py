@@ -7,7 +7,8 @@ def generate_confirmation_token(email):
     return serializer.dumps(email, salt=app.config['TOKEN_PASSWORD_SALT'])
 
 
-def confirm_token(token, expiration=36000):
+# Token Expiry after 15 days.
+def confirm_token(token, expiration=1300000):
     serializer = URLSafeTimedSerializer(app.config['TOKEN_SECRET_KEY'])
     try:
         email = serializer.loads(
