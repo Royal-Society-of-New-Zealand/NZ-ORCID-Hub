@@ -2,11 +2,11 @@
 
 {% block content %}
   <h1>Onboard Organisation</h1>
-  <form action="" method="post" autocomplete="on">
+  <form method="POST"">
       {{ form.hidden_tag() }}
       <div class="form-group">
         <label for="org_name">Organisation Name:</label>
-        {{ form.orgName(size=30, class="form-control", id="org_name", autocomplete="on") }}
+        {{ form.orgName(size=30, class="form-control", id="org_name") }}
       </div>
       <div class="form-group">
         <label for="org_email">Organisation Email:</label>
