@@ -4,6 +4,8 @@ from views import *  # noqa: F401, F403
 from authcontroller import *  # noqa: F401, F403
 import os
 from peewee import OperationalError
+# NB! Should be disabled in production
+from flask_debugtoolbar import DebugToolbarExtension
 
 # TODO: connection should be managed explicitely
 @app.before_request
@@ -22,6 +24,9 @@ def after_request(response):
         pass
     return response
 
+
+if app.debug:
+    toolbar = DebugToolbarExtension(app)
 
 if __name__ == "__main__":
     # This allows us to use a plain HTTP callback
