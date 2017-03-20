@@ -6,8 +6,6 @@ from config import SQLALCHEMY_DATABASE_URI, MAIL_USERNAME, MAIL_PASSWORD, TOKEN_
     TOKEN_SECRET_KEY, MAIL_DEFAULT_SENDER, MAIL_SERVER
 from flask_mail import Mail
 import flask_login
-# NB! Should be disabled in production
-from flask_debugtoolbar import DebugToolbarExtension
 import logging
 from logging.handlers import RotatingFileHandler
 from flask_admin import Admin
@@ -37,8 +35,8 @@ db = PostgresqlDatabase(
     password=config.DB_PASSWORD,
     host=config.DB_HOSTNAME)
 
-app.config['DEBUG_TB_INTERCEPT_REDIRECTS'] = is_dev_env
-app.config['DEBUG_TB_PROFILER_ENABLED'] = is_dev_env
+app.config['DEBUG_TB_INTERCEPT_REDIRECTS'] = False
+app.config['DEBUG_TB_PROFILER_ENABLED'] = True
 app.config['SQLALCHEMY_DATABASE_URI'] = SQLALCHEMY_DATABASE_URI
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = True
 os.environ['DEBUG'] = "1"
@@ -65,6 +63,8 @@ app.config['TOKEN_PASSWORD_SALT'] = TOKEN_PASSWORD_SALT
 admin = Admin(app, name="NZ ORCiD Hub", template_mode="bootstrap3")
 
 login_manager = flask_login.LoginManager()
+login_manager.login_view = "login"
+login_manager.login_message_category = "info"
 login_manager.init_app(app)
 
 if __name__ == "__main__":

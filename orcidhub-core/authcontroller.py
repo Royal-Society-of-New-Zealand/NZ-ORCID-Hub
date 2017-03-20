@@ -6,7 +6,7 @@ from config import client_id, client_secret, authorization_base_url, \
     NEW_CREDENTIALS, NOTE_ORCID, CRED_TYPE_PREMIUM, APP_NAME, APP_DESCRIPTION, APP_URL
 import json
 from application import app, db, mail
-from models import User, Role, Organisation
+from models import User, Role, Organisation, UserOrg
 from urllib.parse import quote
 from flask_login import login_user, current_user
 from registrationForm import OrgRegistrationForm
@@ -26,11 +26,14 @@ def login():
     """
     Main landing page.
     """
-    return render_template("index.html")
+    _next = request.args.get('next')
+    return render_template("index.html", _next=_next)
 
 
 @app.route("/Tuakiri/login")
 def shib_login():
+
+    _next = request.args.get('_next')
     token = request.headers.get("Auedupersonsharedtoken")
     last_name = request.headers['Sn']
     first_name = request.headers['Givenname']
@@ -45,19 +48,26 @@ def shib_login():
 
     try:
         user = User.get(User.email == email)
-        if not user.organisation and org:
-            user.organisation = org
+        if org is not None and org not in user.organisations:
+            UserOrg.create(user=user, org=org)
+
+            # TODO: need to find out a simple way of tracking
+            # the organization user is logged in from:
+            if org != user.organisation:
+                user.organisation = org
 
         # Add Shibboleth meta data if they are missing
         if not user.edu_person_shared_token:
             user.edu_person_shared_token = token
-        if (not user.name or (user.organisation and user.name == user.organisation.name)) and name:
+        if not user.name or org is not None and user.name == org.name and name:
             user.name = name
         if not user.first_name and first_name:
             user.firts_name = first_name
         if not user.last_name and last_name:
             user.last_name = last_name
-        # TODO: keep login autiting (last_loggedin_at... etc)
+        if not user.confirmed:
+            user.confirmed = True
+        # TODO: keep login auditing (last_loggedin_at... etc)
 
     except User.DoesNotExist:
         user = User.create(
@@ -73,8 +83,9 @@ def shib_login():
     user.save()
     login_user(user)
 
-    # TODO: redirect user according to the role
-    if user.is_superuser:
+    if _next:
+        return redirect(_next)
+    elif user.is_superuser:
         return redirect(url_for("invite_organisation"))
     elif org and org.confirmed:
         return redirect(url_for("link"))
@@ -144,6 +155,10 @@ def profile():
     """Fetching a protected resource using an OAuth 2 token.
     """
     user = current_user
+    if user.orcid is None:
+        flash("You need to link your ORCiD with your account", "warning")
+        return redirect(url_for("link"))
+
     client = OAuth2Session(client_id, token={"access_token": user.access_token})
 
     headers = {'Accept': 'application/json'}
@@ -200,6 +215,7 @@ def invite_organisation():
                     user = User(
                         name=form.orgName.data,
                         email=form.orgEmailid.data,
+                        confirmed=True,  # In order to let the user in...
                         roles=Role.ADMIN,
                         organisation=org)
                 user.save()
@@ -222,15 +238,17 @@ def invite_organisation():
 
 
 @app.route("/confirm/organisation/<token>", methods=["GET", "POST"])
+@login_required
 def confirm_organisation(token):
     clientSecret_url = None
     email = confirm_token(token)
+    user = current_user
+
     if not email:
+        app.error("token '%s'", token)
         app.login_manager.unauthorized()
-    try:
-        user = User.get(email=email)
-    except User.DoesNotExist:
-        flash("User for whom the token was created desn't exist...", "danger")
+    if user.email != email:
+        flash("The invitation to on-board the organisation wasn't sent to your email address...", "danger")
         return redirect(url_for("login"))
 
     # TODO: support for mutliple orgs and admins
