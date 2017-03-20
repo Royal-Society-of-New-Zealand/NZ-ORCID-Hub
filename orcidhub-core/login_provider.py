@@ -23,6 +23,9 @@ def roles_required(*roles):
 def load_user(user_id):
     """Given *user_id*, return the associated User object.
 
-    :param unicode user_id: user_id (email) user to retrieve
+    :param unicode user_id: user_id (DB user record PK) user to retrieve
     """
-    return User.get(id=user_id)
+    try:
+        return User.get(id=user_id)
+    except User.DoesNotExist:
+        return None
