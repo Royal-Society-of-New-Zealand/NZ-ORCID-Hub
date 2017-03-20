@@ -86,6 +86,7 @@ class User(BaseModel, UserMixin):
 
     # TODO: many-to-many
     # NB! depricated!
+    # TODO: we still need to rememeber the rognanistiaon that last authenticated the user
     organisation = ForeignKeyField(Organisation, related_name="members", on_delete="CASCADE", null=True)
 
     @property
@@ -111,6 +112,8 @@ class User(BaseModel, UserMixin):
 
     @property
     def is_active(self):
+        # TODO: confirmed - user that email is cunfimed either by IdP or by confirmation email
+        # ins't the same as "is active"
         return self.confirmed
 
     def has_role(self, role):

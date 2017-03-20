@@ -13,26 +13,7 @@
       <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
       <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap-theme.min.css" integrity="sha384-rHyoN1iRsVXV4nD0JutlnGaslCJuC7uwjduW9SVrLvRYooPp2bWYgmgJQIXwl/Sp" crossorigin="anonymous">
       <link href="/static/css/sticky-footer.css" rel="stylesheet">
-      <style>
-      .navbar-login
-      {
-          width: 305px;
-          padding: 10px;
-          padding-bottom: 0px;
-      }
-
-      .navbar-login-session
-      {
-          padding: 10px;
-          padding-bottom: 0px;
-          padding-top: 0px;
-      }
-
-      .icon-size
-      {
-          font-size: 87px;
-      }
-      </style>
+      <link href="/static/css/style.css" rel="stylesheet">
     {% endblock %}
   </head>
   <body>
@@ -54,7 +35,9 @@
             <ul class="nav navbar-nav">
               <li id="index"><a href="#">Home</a></li>
               <li id="about"><a href="#">About</a></li>
-              <li id="profile"><a href="{{ url_for('profile') }}"data-toggle="tooltip" title="Affiliate yourself with ORCID HUB or view your ORCiD">Your ORDiD</a></li>
+              {% if current_user.organisation %}
+                <li id="profile"><a href="{{ url_for('profile') }}"data-toggle="tooltip" title="Affiliate yourself with ORCID HUB or view your ORCiD">Your ORDiD</a></li>
+              {% endif %}
               {% if current_user.has_role("ADMIN") %}
                 <li id="researcher"><a href="/Tuakiri/register/researcher">Register Researcher</a></li>
               {% elif current_user.has_role("SUPERUSER") %}
@@ -117,7 +100,9 @@
       {% endif %}
     {% endwith %}
     <div id="content">
-      {% block content %}{% endblock %}
+      <div class="container">
+        {% block content %}{% endblock %}
+      </div>
     </div>
 
     <!--  Footer Details -->

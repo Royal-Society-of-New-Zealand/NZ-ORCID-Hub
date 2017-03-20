@@ -37,8 +37,8 @@ db = PostgresqlDatabase(
     password=config.DB_PASSWORD,
     host=config.DB_HOSTNAME)
 
-app.config['DEBUG_TB_INTERCEPT_REDIRECTS'] = is_dev_env
-app.config['DEBUG_TB_PROFILER_ENABLED'] = is_dev_env
+app.config['DEBUG_TB_INTERCEPT_REDIRECTS'] = False
+app.config['DEBUG_TB_PROFILER_ENABLED'] = True
 app.config['SQLALCHEMY_DATABASE_URI'] = SQLALCHEMY_DATABASE_URI
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = True
 os.environ['DEBUG'] = "1"
@@ -66,6 +66,8 @@ app.config['TOKEN_PASSWORD_SALT'] = TOKEN_PASSWORD_SALT
 admin = Admin(app, name="NZ ORCiD Hub", template_mode="bootstrap3")
 
 login_manager = flask_login.LoginManager()
+login_manager.login_view = "login"
+login_manager.login_message_category = "info"
 login_manager.init_app(app)
 
 if app.debug:
