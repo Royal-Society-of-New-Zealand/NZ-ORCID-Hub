@@ -84,6 +84,10 @@ class User(BaseModel, UserMixin):
     # Role bit-map:
     roles = SmallIntegerField(default=0)
 
+    # TODO: many-to-many
+    # NB! depricated!
+    organisation = ForeignKeyField(Organisation, related_name="members", on_delete="CASCADE", null=True)
+
     @property
     def organisations(self):
         """
