@@ -1,27 +1,32 @@
 {% extends "base.html" %}
 
 {% block content %}
-  <h1>Organisation Confirmation Form</h1>
-  <form action="" method="post" name="confirm">
-      {{ form.hidden_tag() }}
+<h1>Organisation Confirmation Form</h1>
+<form action="" method="post" name="confirm">
+    {{ form.hidden_tag() }}
 
-      <div class="form-group">
+    <div class="form-group">
         <label for="org_name">Organisation Name:</label>
         {{ form.orgName(size=50, id="org_name", class="form-control") }}
-      </div>
-      <div class="form-group">
+    </div>
+    <div class="form-group">
         <label for="org_email">Organisation Email:</label>
         {{ form.orgEmailid(size=50, id="org_email", class="form-control") }}
-      </div>
-      <div class="form-group">
+    </div>
+    <p>
+        <a id="connect-orcid-button" class="btn btn-default" href="{{clientSecret_url}}" role="button">
+            <img id="orcid-id-logo" src="https://orcid.org/sites/default/files/images/orcid_24x24.png" width='24'
+                 height='24' alt="ORCID logo"/>&nbsp;Take me to ORCiD to obtain Client iD and Client Secret </a>
+    </p>
+    <div class="form-group">
         <label for="org_id">Orcid Client ID:</label>
         {{ form.orgOricdClientId(size=50, id="org_id", class="form-control") }}
-      </div>
-      <div class="form-group">
+    </div>
+    <div class="form-group">
         <label for="org_secret">Orcid Client Secret:</label>
-      {{ form.orgOrcidClientSecret(size=50, id="org_secret", class="form-control") }}
-      </div>
+        {{ form.orgOrcidClientSecret(size=50, id="org_secret", class="form-control") }}
+    </div>
 
-      <button type="submit" class="btn btn-default" value="Confirmation">Confirmation</button>
-   </form>
+    <button type="submit" class="btn btn-default" value="Confirmation">Confirmation</button>
+</form>
 {% endblock %}

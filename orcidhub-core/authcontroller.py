@@ -2,7 +2,8 @@ from requests_oauthlib import OAuth2Session
 from flask import request, redirect, session, url_for, render_template, flash
 from werkzeug.urls import iri_to_uri
 from config import client_id, client_secret, authorization_base_url, \
-    token_url, scope, redirect_uri
+    token_url, scope, redirect_uri, MEMBER_AIP_FORM_BASE_URL_SANDBOX, \
+    NEW_CREDENTIALS, NOTE_ORCID, CRED_TYPE_PREMIUM, APP_NAME, APP_DESCRIPTION, APP_URL
 import json
 from application import app, db, mail
 from models import User, Role, Organisation
@@ -16,6 +17,7 @@ from flask_login import login_required, logout_user
 from login_provider import roles_required
 from os import environ
 from urllib.parse import urlencode
+
 
 @app.route("/index")
 @app.route("/login")
@@ -81,6 +83,7 @@ def shib_login():
 
     return redirect(url_for("login"))
 
+
 @app.route("/link")
 @login_required
 def link():
@@ -96,11 +99,9 @@ def link():
             current_user.organisation.name, current_user.orcid), "warning")
         return redirect(url_for("profile"))
 
-    orcid_url = iri_to_uri(authorization_url) + \
-        urlencode(dict(
-            family_names=current_user.last_name,
-            given_names=current_user.first_name,
-            email=current_user.email))
+    orcid_url = iri_to_uri(authorization_url) + urlencode(dict(
+        family_names=current_user.last_name, given_names=current_user.first_name, email=current_user.email))
+
     return render_template("linking.html", orcid_url=orcid_url)
 
 
@@ -210,7 +211,7 @@ def invite_organisation():
                     # TODO: do it with templates
                     msg.body = "Your organisation is just one step behind to get onboarded" \
                                " please click on following link to get onboarded " \
-                               "https://"+environ.get("ENV", "dev")+".orcidhub.org.nz" + \
+                               "https://" + environ.get("ENV", "dev") + ".orcidhub.org.nz" + \
                                url_for("confirm_organisation", token=token)
                     mail.send(msg)
                     flash(
@@ -256,7 +257,7 @@ def confirm_organisation(token):
                 with app.app_context():
                     msg = Message("Welcome to OrcidhHub", recipients=[email])
                     msg.body = "Congratulations your emailid has been confirmed and " \
-                        "organisation onboarded successfully."
+                               "organisation onboarded successfully."
                     mail.send(msg)
                     flash("Your Onboarding is Completed!!!", "success")
                 return redirect(url_for("login"))
@@ -266,7 +267,14 @@ def confirm_organisation(token):
         form.orgEmailid.data = email
         form.orgName.data = user.organisation.name
 
-    return render_template('orgconfirmation.html', form=form)
+        clientSecret_url = iri_to_uri(MEMBER_AIP_FORM_BASE_URL_SANDBOX) + "?" + urlencode(dict(
+            new_existing=NEW_CREDENTIALS, note=NOTE_ORCID + " " + user.organisation.name,
+            contact_email=email, contact_name=user.name, org_name=user.organisation.name,
+            cred_type=CRED_TYPE_PREMIUM, app_name=APP_NAME + " at " + user.organisation.name,
+            app_description=APP_DESCRIPTION + " at " + user.organisation.name,
+            app_url=APP_URL, redirect_uri_1=redirect_uri))
+
+    return render_template('orgconfirmation.html', clientSecret_url=clientSecret_url, form=form)
 
 
 @app.after_request
@@ -304,6 +312,7 @@ def uoa_slo():
 You have to close all open browser tabs and windows in order
 in order to complete the log-out.""", "warning")
     return render_template("uoa-slo.html")
+
 
 # NB! Disable for the production!!!
 @app.route("/reset_db")
