@@ -223,6 +223,7 @@ def invite_organisation():
 
 @app.route("/confirm/organisation/<token>", methods=["GET", "POST"])
 def confirm_organisation(token):
+    clientSecret_url = None
     email = confirm_token(token)
     if not email:
         app.login_manager.unauthorized()
@@ -266,6 +267,10 @@ def confirm_organisation(token):
 
         form.orgEmailid.data = email
         form.orgName.data = user.organisation.name
+
+        flash("""If you currently don't know Client id and Client Secret,
+        Please request those by clicking on link 'Take me to ORCiD to obtain Client iD and Client Secret'
+        and come back to this same place once you have them within 15 days""", "warning")
 
         clientSecret_url = iri_to_uri(MEMBER_AIP_FORM_BASE_URL_SANDBOX) + "?" + urlencode(dict(
             new_existing=NEW_CREDENTIALS, note=NOTE_ORCID + " " + user.organisation.name,
