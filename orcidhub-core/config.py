@@ -32,3 +32,12 @@ MAIL_SERVER = environ.get("MAIL_SERVER", "email-smtp.us-east-1.amazonaws.com")
 
 TOKEN_PASSWORD_SALT = environ.get("TOKEN_PASSWORD_SALT")
 TOKEN_SECRET_KEY = environ.get("TOKEN_SECRET_KEY")
+
+MEMBER_API_FORM_BASE_URL = environ.get("MEMBER_API_FORM_BASE_URL",
+                                       "https://orcid.org/content/register-client-application-sandbox")
+NEW_CREDENTIALS = 'New_Credentials'
+NOTE_ORCID = 'ORCID Hub integration for'
+CRED_TYPE_PREMIUM = 2
+APP_NAME = 'ORCID HUB'
+APP_DESCRIPTION = 'We are having an ORCID integration through ORCID HUB New Zealand'
+APP_URL = "https://" + environ.get("ENV", "dev") + ".orcidhub.org.nz"
