@@ -20,7 +20,7 @@ before_install:
 
 install:
   - pip install -r orcidhub-core/requirements.txt
-  - pip install flake8 pep257 pytest coverage coveralls
+  - pip install flake8 pep257 pytest pytest-cov coveralls
 
 script:
   - flake8 orcidhub-core
