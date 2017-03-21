@@ -48,13 +48,6 @@ def shib_login():
 
     try:
         user = User.get(User.email == email)
-        if org is not None and org not in user.organisations:
-            UserOrg.create(user=user, org=org)
-
-            # TODO: need to find out a simple way of tracking
-            # the organization user is logged in from:
-            if org != user.organisation:
-                user.organisation = org
 
         # Add Shibboleth meta data if they are missing
         if not user.edu_person_shared_token:
@@ -77,10 +70,18 @@ def shib_login():
             last_name=last_name,
             confirmed=True,
             roles=Role.RESEARCHER,
-            organisation=org,
             edu_person_shared_token=token)
 
+    if org is not None and org not in user.organisations:
+        UserOrg.create(user=user, org=org)
+
+        # TODO: need to find out a simple way of tracking
+        # the organization user is logged in from:
+    if org != user.organisation:
+        user.organisation = org
+
     user.save()
+
     login_user(user)
 
     if _next:
@@ -344,7 +345,7 @@ def reset_db():
     """
     Resets the DB for testing cycle
     """
-    db.execute_sql("DELETE FROM \"user\" WHERE name !~ 'Royal' AND name != 'The Root' RETURNING id")
+    db.execute_sql("DELETE FROM \"user\" WHERE name !~ 'Royal' AND email !~ 'root'")
     db.execute_sql("DELETE FROM organisation WHERE name !~ 'Royal'")
     db.commit()
     return redirect(url_for("logout"))
