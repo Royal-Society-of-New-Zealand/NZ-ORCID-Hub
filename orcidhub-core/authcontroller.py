@@ -344,7 +344,7 @@ def reset_db():
     """
     Resets the DB for testing cycle
     """
-    db.session.execute("DELETE FROM user WHERE name NOT LIKE '%Royal%'")
-    db.session.execute("DELETE FROM organisation WHERE name NOT LIKE '%Royal%'")
-    db.session.commit()
+    db.execute_sql("DELETE FROM \"user\" WHERE name !~ 'Royal' AND name != 'The Root' RETURNING id")
+    db.execute_sql("DELETE FROM organisation WHERE name !~ 'Royal'")
+    db.commit()
     return redirect(url_for("logout"))
