@@ -1,0 +1,20 @@
+FROM orcidhub/app
+
+LABEL maintainer="The University of Auckland" \
+	version="?" \
+	description="NZ ORCiD Hub Application Image with Development support"
+
+RUN yum -y update \ 
+    && yum -y install  install https://download.postgresql.org/pub/repos/yum/9.6/redhat/rhel-7-x86_64/pgdg-redhat96-9.6-3.noarch.rpm \
+    && yum -y install \
+        postgresql96 \
+	python36u-pip \
+    && pip3.6 install -U flake8_docstrings pytest-cov coveralls \
+    && cd /var/lib/rpm \
+    && rm -rf __db* \
+    && rpm --rebuilddb \
+    && yum -y clean all \
+    && rm -rf $HOME/.pip/cache \
+    && rm -rf /var/cache/*/* /anaconda-post.log
+
+ENV DEBUG=True

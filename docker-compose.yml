@@ -16,7 +16,7 @@ services:
   app:
     depends_on:
       - db
-    image: orcidhub/app
+    image: orcidhub/app-dev
     mem_limit: 424288000
     environment:
       - ENV
