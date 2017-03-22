@@ -1,3 +1,11 @@
+# -*- coding: utf-8 -*-
+
+"""Authentication views.
+
+Collection of applicion views involved in organisation on-boarding and
+user (reseaser) affiliations.
+"""
+
 from requests_oauthlib import OAuth2Session
 from flask import request, redirect, session, url_for, render_template, flash
 from werkzeug.urls import iri_to_uri
@@ -23,16 +31,36 @@ from urllib.parse import urlencode
 @app.route("/login")
 @app.route("/")
 def login():
-    """
-    Main landing page.
-    """
+    """Main landing page."""
     _next = request.args.get('next')
     return render_template("index.html", _next=_next)
 
 
 @app.route("/Tuakiri/login")
 def shib_login():
+    """Shibboleth authenitcation handler.
 
+    The (Apache) location should requier authentication using Shibboleth, e.g.,
+
+    <Location /Tuakiri>
+        AuthType shibboleth
+        ShibRequireSession On
+        require valid-user
+        ShibUseHeaders On
+    </Location>
+
+
+    Flow:
+        * recieve redicected request from SSO with authentication data in HTTP headers
+        * process headeers
+        * if the organisation isn't on-boarded, reject further access and redirect to the main loging page;
+        * if the user isn't registered add the user with data received from Shibboleth
+        * if the request has returning destination (next), redirect the user to it;
+        * else choose the next view based on the role of the user:
+            ** for a researcher, affiliation;
+            ** for super user, the on-boarding of an organisation;
+            ** for organisation administrator or technical contact, the completion of the on-boarding.
+    """
     _next = request.args.get('_next')
     token = request.headers.get("Auedupersonsharedtoken")
     last_name = request.headers['Sn']
@@ -42,6 +70,7 @@ def shib_login():
     name = request.headers.get('Displayname')
 
     try:
+        # TODO: need a separate field for org name comimg from Tuakiri
         org = Organisation.get(name=shib_org_name)
     except Organisation.DoesNotExist:
         org = None
@@ -99,13 +128,14 @@ def shib_login():
 @app.route("/link")
 @login_required
 def link():
-    """
-    Links the user's account with ORCiD (i.e. affiliates user with his/her org on ORCID)
-    """
+    """Link the user's account with ORCiD (i.e. affiliates user with his/her org on ORCID)."""
+    # TODO: handle organisation that are not on-boarded
     client = OAuth2Session(client_id, scope=scope, redirect_uri=redirect_uri)
     authorization_url, state = client.authorization_url(authorization_base_url)
     session['oauth_state'] = state
     # Check if user details are already in database
+    # TODO: re-affiliation after revoking access?
+    # TODO: affiliation with multiple orgs should lookup UserOrg
     if current_user.orcid:
         flash("You have already affilated '%s' with your ORCiD %s" % (
             current_user.organisation.name, current_user.orcid), "warning")
@@ -121,7 +151,8 @@ def link():
 @app.route("/auth", methods=["GET"])
 @login_required
 def orcid_callback():
-    """ Step 3: Retrieving an access token.
+    """Retrieve an access token.
+
     The user has been redirected back from the provider to your registered
     callback URL. With this redirection comes an authorization code included
     in the redirect URL. We will use that to obtain an access token.
@@ -137,6 +168,7 @@ def orcid_callback():
     app.logger.info("* TOKEN: %s", token)
     orcid = token['orcid']
     name = token["name"]
+    # TODO: should be linked to the affiliated org
     access_token = token["access_token"]
     user = current_user
     user.orcid = orcid
@@ -153,8 +185,7 @@ def orcid_callback():
 @app.route("/profile", methods=["GET"])
 @login_required
 def profile():
-    """Fetching a protected resource using an OAuth 2 token.
-    """
+    """Fetch a protected resource using an OAuth 2 token."""
     user = current_user
     if user.orcid is None:
         flash("You need to link your ORCiD with your account", "warning")
@@ -171,9 +202,10 @@ def profile():
         data=json.loads(resp.text))
 
 
-@app.route("/invite/user", methods=["GET"])  # /invite/user
+@app.route("/invite/user", methods=["GET"])
 @roles_required(Role.SUPERUSER, Role.ADMIN)
 def invite_user():
+    """Invite a researcher to join the hub."""
     # For now on boarding of researcher is not supported
     return "Work in Progress!!!"
 
@@ -185,6 +217,15 @@ def invite_user():
 @app.route("/invite/organisation", methods=["GET", "POST"])
 @roles_required(Role.SUPERUSER)
 def invite_organisation():
+    """Invite an organisation to register.
+
+    Flow:
+        * Hub administrort (super user) invokes the page,
+        * Fills in the form with the organisation and organisation technica contatct data (including an email address);
+        * Submits the form;
+        * A secure registration token gets ceated;
+        * An email message with confirmation link gets created and sent off to the technical contact.
+    """
     form = OrgRegistrationForm()
     if request.method == "POST":
         if not form.validate():
@@ -241,6 +282,10 @@ def invite_organisation():
 @app.route("/confirm/organisation/<token>", methods=["GET", "POST"])
 @login_required
 def confirm_organisation(token):
+    """Registration confirmations.
+
+    TODO: expand the spect as soon as the reqirements get sorted out.
+    """
     clientSecret_url = None
     email = confirm_token(token)
     user = current_user
@@ -303,9 +348,7 @@ def confirm_organisation(token):
 
 @app.after_request
 def remove_if_invalid(response):
-    """
-    Removes stale session...
-    """
+    """Remove a stale session and session cookie."""
     if "__invalidate__" in session:
         response.delete_cookie(app.session_cookie_name)
         session.clear()
@@ -314,6 +357,12 @@ def remove_if_invalid(response):
 
 @app.route("/logout")
 def logout():
+    """Log out a logged user.
+
+    Note: if the user has logged in via the University of Auckland SSO,
+    show the message about the log out procedure and the linke to the instruction
+    about SSO at the university.
+    """
     org_name = session.get("shib_O")
     try:
         logout_user()
@@ -329,9 +378,7 @@ def logout():
 
 @app.route("/uoa-slo")
 def uoa_slo():
-    """
-    Shows the logout info for UoA users.
-    """
+    """Show the logout info for UoA users."""
     flash("""You had logged in from 'The University of Auckland'.
 You have to close all open browser tabs and windows in order
 in order to complete the log-out.""", "warning")
@@ -342,9 +389,7 @@ in order to complete the log-out.""", "warning")
 @app.route("/reset_db")
 @login_required
 def reset_db():
-    """
-    Resets the DB for testing cycle
-    """
+    """Reset the DB for a new testing cycle."""
     db.execute_sql("DELETE FROM \"user\" WHERE name !~ 'Royal' AND email !~ 'root'")
     db.execute_sql("DELETE FROM organisation WHERE name !~ 'Royal'")
     db.commit()
