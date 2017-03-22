@@ -4,8 +4,8 @@ services:
 
 language: python
 cache: pip
-python:
-  - '3.6'
+#python:
+#  - '3.6'
 
 env:
   - ENV=dev
@@ -31,16 +31,16 @@ script:
   - docker-compose exec db psql -U postgres -c "SELECT 1" && echo "DB IS RUNNING"
   - docker-compose exec db psql -U orcidhub -d orcidhub -c "SELECT 1" && echo "DB orcidhub IS RUNNING"
   - docker-compose exec app curl -k -s https://localhost/pyinfo -o /dev/null && echo "WSGI is working..."
-  - docker-compose exec app bash -c "cd /var/www/orcidhub; pytest -s -v --cov ."
+  - docker-compose exec app pytest -s -v --cov .
   # - docker-compose exec app pip3.6 install -U -r /var/www/orcidhub/requirements.txt
   # - docker-compose exec app python3.6 /var/www/orcidhub/initializedb.py
   # - docker-compose exec app pip3.6 install -U pytest pytest-cov coveralls
   # - docker-compose exec app bash -c "cd /var/www/orcidhub; pytest -s -v --cov ."
-  - cd orcidhub-core; pytest -s -v --cov .
+  # - cd orcidhub-core; pytest -s -v --cov .
 
 after_success:
   #- coveralls
-  - docker-compose exec app bash -c "cd /var/www/orcidhub; coveralls"
+  - docker-compose exec app coveralls
   - eval "$(ssh-agent -s)"
   - openssl rsa -in .travis/.deploy.key -out .travis/deploy.key -passin env:DEPLOY_KEY_PASSPHRASE
   - chmod 400 .travis/deploy.key

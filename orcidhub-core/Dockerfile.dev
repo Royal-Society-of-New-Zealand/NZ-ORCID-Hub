@@ -9,7 +9,8 @@ RUN yum -y update \
     && yum -y install \
         postgresql96 \
 	python36u-pip \
-    && pip3.6 install -U flake8_docstrings pytest-cov coveralls \
+	git \
+    && pip3.6 install -U flake8_docstrings pytest-cov coveralls pyyaml \
     && cd /var/lib/rpm \
     && rm -rf __db* \
     && rpm --rebuilddb \
@@ -18,3 +19,4 @@ RUN yum -y update \
     && rm -rf /var/cache/*/* /anaconda-post.log
 
 ENV DEBUG=True
+WORKDIR /src/orcidhub-core
