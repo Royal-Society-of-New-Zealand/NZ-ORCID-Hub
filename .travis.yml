@@ -31,6 +31,7 @@ script:
   - docker-compose exec db psql -U postgres -c "SELECT 1" && echo "DB IS RUNNING"
   - docker-compose exec db psql -U orcidhub -d orcidhub -c "SELECT 1" && echo "DB orcidhub IS RUNNING"
   - docker-compose exec app curl -k -s https://localhost/pyinfo -o /dev/null && echo "WSGI is working..."
+  - docker-compose exec app find -name '__pycache__' -exec rm -rf {} \;
   - docker-compose exec app pytest -s -v --cov .
   # - docker-compose exec app pip3.6 install -U -r /var/www/orcidhub/requirements.txt
   # - docker-compose exec app python3.6 /var/www/orcidhub/initializedb.py
