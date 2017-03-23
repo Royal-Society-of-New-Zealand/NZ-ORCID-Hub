@@ -3,6 +3,7 @@ from application import app
 
 
 def generate_confirmation_token(email):
+    """Generate Organisation registration confirmation token."""
     serializer = URLSafeTimedSerializer(app.config['TOKEN_SECRET_KEY'])
     return serializer.dumps(email, salt=app.config['TOKEN_PASSWORD_SALT'])
 

@@ -1,6 +1,4 @@
 # pip install -r requirements.txt
-Flask
-Flask-Script
 juggernaut
 requests
 requests_oauthlib
