@@ -1,8 +1,8 @@
 import os
 from flask import Flask
-from peewee import PostgresqlDatabase
+from playhouse.db_url import connect
 import config
-from config import SQLALCHEMY_DATABASE_URI, MAIL_USERNAME, MAIL_PASSWORD, TOKEN_PASSWORD_SALT, \
+from config import MAIL_USERNAME, MAIL_PASSWORD, TOKEN_PASSWORD_SALT, \
     TOKEN_SECRET_KEY, MAIL_DEFAULT_SENDER, MAIL_SERVER
 from flask_mail import Mail
 import flask_login
@@ -30,16 +30,11 @@ app.config['SECRET_KEY'] = app.secret_key
 os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
 os.environ['DEBUG'] = "1"
 
-db = PostgresqlDatabase(
-    config.DB_NAME,
-    user=config.DB_USERNAME,
-    password=config.DB_PASSWORD,
-    host=config.DB_HOSTNAME)
+db = connect(config.DATABASE_URL)
 
 app.config['DEBUG_TB_INTERCEPT_REDIRECTS'] = False
 app.config['DEBUG_TB_PROFILER_ENABLED'] = True
-app.config['SQLALCHEMY_DATABASE_URI'] = SQLALCHEMY_DATABASE_URI
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = True
+app.config["DATABASE_URL"] = config.DATABASE_URL
 os.environ['DEBUG'] = "1"
 app.debug = True
 app.config['SECRET_KEY'] = app.secret_key

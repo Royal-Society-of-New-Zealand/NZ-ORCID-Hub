@@ -13,7 +13,7 @@ from config import client_id, client_secret, authorization_base_url, \
     token_url, scope, redirect_uri, MEMBER_API_FORM_BASE_URL, \
     NEW_CREDENTIALS, NOTE_ORCID, CRED_TYPE_PREMIUM, APP_NAME, APP_DESCRIPTION, APP_URL
 import json
-from application import app, db, mail
+from application import app, mail
 from models import User, Role, Organisation, UserOrg
 from urllib.parse import quote
 from flask_login import login_user, current_user
@@ -390,7 +390,6 @@ in order to complete the log-out.""", "warning")
 @login_required
 def reset_db():
     """Reset the DB for a new testing cycle."""
-    db.execute_sql("DELETE FROM \"user\" WHERE name !~ 'Royal' AND email !~ 'root'")
-    db.execute_sql("DELETE FROM organisation WHERE name !~ 'Royal'")
-    db.commit()
+    User.delete().where(~(User.name ** "royal" | User.name ** "%root%")).execute()
+    Organisation.delete().where(~(Organisation.name % "%Royal%")).execute()
     return redirect(url_for("logout"))

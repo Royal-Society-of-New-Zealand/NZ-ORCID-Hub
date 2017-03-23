@@ -8,6 +8,7 @@ from flask_login import login_user
 import pytest
 from unittest.mock import patch, MagicMock
 import time
+from flask import url_for
 
 
 fake_time = time.time()
@@ -133,3 +134,21 @@ def test_profile(request_ctx):
         rv = ctx.app.full_dispatch_request()
         assert rv.status_code == 200
         assert b"TEST1234567890" in rv.data
+
+
+def test_profile_wo_orcid(request_ctx):
+    """Test a user profile that doesn't hava an ORCID."""
+    with request_ctx("/profile") as ctx:
+        org = Organisation(name="THE ORGANISATION", confirmed=True)
+        org.save()
+        test_user = User(
+            email="test123@test.test.net",
+            username="test123",
+            organisation=org,
+            orcid=None,
+            confirmed=True)
+        login_user(test_user, remember=True)
+
+        rv = ctx.app.full_dispatch_request()
+        assert rv.status_code == 302
+        assert rv.location == url_for("link")

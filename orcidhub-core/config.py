@@ -1,4 +1,28 @@
+# -*- coding: utf-8 -*-
+
+"""Application configuration."""
+
 from os import environ
+
+authorization_base_url = 'https://sandbox.orcid.org/oauth/authorize'
+token_url = 'https://pub.sandbox.orcid.org/oauth/token'
+scope = ['/authenticate']
+
+# Application redirect URL:
+redirect_uri = "https://" + environ.get("ENV", "dev") + ".orcidhub.org.nz/auth"
+
+# Database connection url
+POSTGRES_PASSWORD = environ.get("POSTGRES_PASSWORD") or environ.get("PGPASSWORD") or "p455w0rd"
+
+DATABASE_URL = environ.get("DATABASE_URL")
+
+DB_NAME = environ.get("PGDATABASE", "orcidhub")
+DB_USERNAME = environ.get("PGUSER", "orcidhub")
+DB_PASSWORD = POSTGRES_PASSWORD
+DB_HOSTNAME = environ.get("PGHOST", "db")
+
+if not DATABASE_URL:
+    from os import environ
 
 # Orcid API client ID and secret
 client_id = environ.get("ORCID_CLIENT_ID", "APP-TF7LKIE084PYTQ59")
@@ -12,18 +36,21 @@ scope = ['/authenticate']
 # Application redirect URL:
 redirect_uri = "https://" + environ.get("ENV", "dev") + ".orcidhub.org.nz/auth"
 
-# Postgresql connection url
-POSTGRES_PASSWORD = environ.get("POSTGRES_PASSWORD")
-SQLALCHEMY_DATABASE_URI = "postgresql://orcidhub"
-if POSTGRES_PASSWORD:
-    SQLALCHEMY_DATABASE_URI += ':' + POSTGRES_PASSWORD
-SQLALCHEMY_DATABASE_URI += "@" + environ.get("PGHOST", "db") + ":5432/orcidhub"
-SQLALCHEMY_MIGRATE_REPO = 'db_repository'
+# Database connection url
+POSTGRES_PASSWORD = environ.get("POSTGRES_PASSWORD") or environ.get("PGPASSWORD") or "p455w0rd"
+
+DATABASE_URL = environ.get("DATABASE_URL")
 
 DB_NAME = environ.get("PGDATABASE", "orcidhub")
 DB_USERNAME = environ.get("PGUSER", "orcidhub")
-DB_PASSWORD = environ.get("PGPASSWORD", environ.get("POSTGRES_PASSWORD", "p455w0rd"))
+DB_PASSWORD = POSTGRES_PASSWORD
 DB_HOSTNAME = environ.get("PGHOST", "db")
+
+if not DATABASE_URL:
+    DATABASE_URL = "postgresql://" + DB_NAME
+    if POSTGRES_PASSWORD:
+        DATABASE_URL += ':' + POSTGRES_PASSWORD
+    DATABASE_URL += "@" + DB_HOSTNAME + ":5432/" + DB_NAME
 
 MAIL_USERNAME = environ.get("MAIL_USERNAME", "AKIAICSRSUE3LNBSIBVQ")
 MAIL_PASSWORD = environ.get("MAIL_PASSWORD")

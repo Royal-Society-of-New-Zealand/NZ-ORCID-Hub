@@ -1,10 +1,16 @@
-from models import User, Organisation, UserOrg
+# -*- coding: utf-8 -*-
+
+"""Tests for core functions."""
+
+from models import User, Organisation, UserOrg, Role
 from flask_login import login_user, current_user
+from flask import url_for
 import pprint
 import pytest
 
 
 def test_index(client):
+    """Test the landing page."""
     rv = client.get("/")
     assert b"<!DOCTYPE html>" in rv.data
     # assert b"Home" in rv.data
@@ -13,10 +19,8 @@ def test_index(client):
 
 
 def get_response(request_ctx):
-    """
-    Return response within the request context
-    It should be used with the request context.
-    """
+    """Return response within the request context.  It should be used with the request context."""
+    # TODO: it can be replace with a sinble line: rv = ctx.app.full_dispatch_request()
     app = request_ctx.app
     # call the before funcs
     rv = app.preprocess_request()
@@ -34,6 +38,7 @@ def get_response(request_ctx):
 
 
 def test_login(request_ctx):
+    """Test login function."""
     with request_ctx("/") as ctx:
         test_user = User(
             name="TEST USER",
@@ -49,16 +54,14 @@ def test_login(request_ctx):
 
 
 @pytest.mark.parametrize("url", [
-    # "/admin",
     "/link",
     "/auth",
-    # "/logout",
     "/pyinfo",
     "/reset_db",
-    # "/uoa-slo",
     "/invite/organisation",
     "/invite/user"])
 def test_access(url, client):
+    """Test access to the app for unauthorized user."""
     rv = client.get(url)
     assert rv.status_code == 302
     assert "Location" in rv.headers, pprint.pformat(rv.headers, indent=4)
@@ -68,33 +71,12 @@ def test_access(url, client):
     assert b"<!DOCTYPE html>" in rv.data, "Expected HTML content"
     assert b"Please log in to access this page." in rv.data
 
-    """
-    def test_ValidLogin(self):
-        with self.client.session_transaction() as sess:
-            sess['Auedupersonsharedtoken'] = "abc"
-            sess['email'] = "admin@orcidhub.com"
-            resp = self.client.get('/Tuakiri/login',
-                                environ_base={'HTTP_SN': "surname_Test", 'HTTP_GIVENNAME': "givenName_Test",
-                                              'HTTP_MAIL': "admin@orcidhub.com", 'HTTP_AUEDUPERSONSHAREDTOKEN': "abc",
-                                              'HTTP_DISPLAYNAME': "ADMIN", 'HTTP_O': "Org_Test"})
-            assert b"Affiliate yourself with ORCID HUB" in resp.data
-
-    def test_InvalidLogin(self):
-        with self.client.session_transaction() as sess:
-            sess['Auedupersonsharedtoken'] = "abc"
-            sess['email'] = "admin@orcidhub.com"
-            resp = self.client.get('/Tuakiri/login',
-                                environ_base={'HTTP_SN': "surname_Test", 'HTTP_GIVENNAME': "givenName_Test",
-                                              'HTTP_MAIL': "admin@orcidhub.com"})
-            assert b"<!DOCTYPE html>" in resp.data
-            assert b"Home" in resp.data
-            assert b"Royal Society of New Zealand" in resp.data, \
-                "'Royal Society of New Zealand' should be present on the index page. """
-
 
 def test_tuakiri_login(client):
     """
-    After getting logged in a new user entry shoulg be created
+    Test logging attempt via Shibboleth.
+
+    After getting logged in a new user entry shoulg be created.
     """
     rv = client.get("/Tuakiri/login",
                     headers={
@@ -118,11 +100,12 @@ def test_tuakiri_login(client):
 
 def test_tuakiri_login_wo_org(client):
     """
+    Test logging attempt via Shibboleth.
+
     If a user logs in from an organisation that isn't
     onboared, the user should be informed about that and
     redirected to the login page.
     """
-
     rv = client.get("/Tuakiri/login",
                     headers={
                         "Auedupersonsharedtoken": "ABC999",
@@ -140,11 +123,12 @@ def test_tuakiri_login_wo_org(client):
 
 def test_tuakiri_login_with_org(client):
     """
+    Test logging attempt via Shibboleth.
+
     If a user logs in from an organisation that isn't
     onboared, the user should be informed about that and
     redirected to the login page.
     """
-
     org = Organisation(name="THE ORGANISATION")
     org.save()
 
@@ -165,3 +149,34 @@ def test_tuakiri_login_with_org(client):
     assert b"Your organisation (INCOGNITO) is not onboarded" not in rv.data
     uo = UserOrg.get(user=u, org=org)
     assert not uo.is_admin
+
+
+def test_reset_db(request_ctx):
+    """Test reset_db function for 'testing' cycle reset."""
+    with request_ctx("/reset_db") as ctx:
+        org = Organisation(name="THE ORGANISATION")
+        org.save()
+        u = User(
+            email="test123@test.test.net",
+            name="TEST USER",
+            username="test123",
+            roles=Role.SUPERUSER,
+            orcid=None,
+            confirmed=True)
+        u.save()
+        root = User(
+            email="root@test.test.net",
+            name="The root",
+            username="root",
+            roles=Role.SUPERUSER,
+            orcid=None,
+            confirmed=True)
+        root.save()
+        assert User.select().count() == 2
+        assert Organisation.select().count() == 1
+        login_user(u, remember=True)
+        rv = ctx.app.full_dispatch_request()
+        assert User.select().count() == 1
+        assert Organisation.select().count() == 0
+        assert rv.status_code == 302
+        assert rv.location == url_for("logout")
