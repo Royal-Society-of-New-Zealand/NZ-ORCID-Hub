@@ -16,7 +16,6 @@ before_install:
   - openssl rsa -in .keys/.${ENV}-server.key -out .keys/${ENV}-server.key -passin env:SERVER_KEY_PASSPHRASE
   - openssl rsa -in .keys/.${ENV}-sp.key -out .keys/${ENV}-sp.key -passin env:SERVER_KEY_PASSPHRASE
 
-script:
   - docker-compose up -d
   - wait_pg_up() { until docker-compose exec db psql -U postgres -l; do echo "Waiting for postgres to start..."; sleep 1; done }
   - wait_pg_down() { while docker-compose exec db psql -U postgres -l; do echo "Waiting for postgres to stop..."; sleep 1; done }
