@@ -1,7 +1,10 @@
 from peewee import Model, CharField, BooleanField, SmallIntegerField, ForeignKeyField, TextField, CompositeKey
 from peewee import drop_model_tables, OperationalError
 from application import db
-from enum import IntFlag
+try:
+    from enum import IntFlag
+except ImportError:
+    from enum import IntEnum as IntFlag
 from flask_login import UserMixin
 
 
@@ -141,9 +144,7 @@ class User(BaseModel, UserMixin):
 
 
 class UserOrg(BaseModel):
-    """
-    Linking object for many-to-many relationship
-    """
+    """Linking object for many-to-many relationship."""
     user = ForeignKeyField(User, on_delete="CASCADE")
     org = ForeignKeyField(Organisation, index=True,
                           on_delete="CASCADE", verbose_name="Organisation")
@@ -160,9 +161,7 @@ class UserOrg(BaseModel):
 
 
 def create_tables():
-    """
-    Create all DB tables
-    """
+    """Create all DB tables."""
     try:
         db.connect()
     except OperationalError:

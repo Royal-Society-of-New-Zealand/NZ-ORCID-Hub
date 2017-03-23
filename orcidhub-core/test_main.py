@@ -7,6 +7,8 @@ from flask_login import login_user, current_user
 from flask import url_for
 import pprint
 import pytest
+import tokenGeneration
+import login_provider
 
 
 def test_index(client):
@@ -180,3 +182,53 @@ def test_reset_db(request_ctx):
         assert Organisation.select().count() == 0
         assert rv.status_code == 302
         assert rv.location == url_for("logout")
+
+
+def test_confirmation_token(app):
+    """Test generate_confirmation_token and confirm_token"""
+    app.config['TOKEN_SECRET_KEY'] = "SECRET"
+    app.config['TOKEN_PASSWORD_SALT'] = "SALT"
+    token = tokenGeneration.generate_confirmation_token("TEST@ORGANISATION.COM")
+    assert tokenGeneration.confirm_token(token) == "TEST@ORGANISATION.COM"
+
+    app.config['TOKEN_SECRET_KEY'] = "SECRET"
+    app.config['TOKEN_PASSWORD_SALT'] = "COMPROMISED SALT"
+    assert tokenGeneration.confirm_token(token) is False
+
+    app.config['TOKEN_SECRET_KEY'] = "COMPROMISED SECRET"
+    app.config['TOKEN_PASSWORD_SALT'] = "SALT"
+    assert tokenGeneration.confirm_token(token) is False
+
+    app.config['TOKEN_SECRET_KEY'] = "COMPROMISED SECRET"
+    app.config['TOKEN_PASSWORD_SALT'] = "COMPROMISED SALT"
+    assert tokenGeneration.confirm_token(token) is False
+
+    app.config['TOKEN_SECRET_KEY'] = "COMPROMISED"
+    app.config['TOKEN_PASSWORD_SALT'] = "COMPROMISED"
+    assert tokenGeneration.confirm_token(token, 0) is False, "Expired token shoud be rejected"
+
+def test_login_provider_load_user(request_ctx):
+
+    u = User(
+        email="test123@test.test.net",
+        name="TEST USER",
+        username="test123",
+        roles=Role.RESEARCHER,
+        orcid=None,
+        confirmed=True)
+    u.save()
+
+    user = login_provider.load_user(u.id)
+    assert user == u
+    assert login_provider.load_user(9999999) is None
+
+    with request_ctx("/"):
+
+        login_user(u)
+        rv = login_provider.roles_required(Role.RESEARCHER)(lambda: "SUCCESS")()
+        assert rv == "SUCCESS"
+
+        rv = login_provider.roles_required(Role.SUPERUSER)(lambda: "SUCCESS")()
+        assert rv != "SUCCESS"
+        assert rv.status_code == 302
+        assert rv.location.startswith("/")
