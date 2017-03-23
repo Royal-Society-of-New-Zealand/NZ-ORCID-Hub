@@ -179,4 +179,4 @@ def test_reset_db(request_ctx):
         assert User.select().count() == 1
         assert Organisation.select().count() == 0
         assert rv.status_code == 302
-        assert rv.colation == url_for("login")
+        assert rv.location == url_for("logout")
