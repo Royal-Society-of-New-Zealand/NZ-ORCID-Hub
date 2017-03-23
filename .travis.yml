@@ -4,8 +4,6 @@ services:
 
 language: python
 cache: pip
-#python:
-#  - '3.6'
 
 env:
   - ENV=dev
@@ -18,12 +16,6 @@ before_install:
   - openssl rsa -in .keys/.${ENV}-server.key -out .keys/${ENV}-server.key -passin env:SERVER_KEY_PASSPHRASE
   - openssl rsa -in .keys/.${ENV}-sp.key -out .keys/${ENV}-sp.key -passin env:SERVER_KEY_PASSPHRASE
 
-#install:
-  # - pip install -r orcidhub-core/requirements.txt
-  # - pip install  pytest-cov coveralls
-
-script:
-  #- flake8 orcidhub-core
   - docker-compose up -d
   - wait_pg_up() { until docker-compose exec db psql -U postgres -l; do echo "Waiting for postgres to start..."; sleep 1; done }
   - wait_pg_down() { while docker-compose exec db psql -U postgres -l; do echo "Waiting for postgres to stop..."; sleep 1; done }
@@ -33,14 +25,8 @@ script:
   - docker-compose exec app curl -k -s https://localhost/pyinfo -o /dev/null && echo "WSGI is working..."
   - docker-compose exec app find -name '__pycache__' -exec rm -rf {} \;
   - docker-compose exec app pytest -s -v --cov .
-  # - docker-compose exec app pip3.6 install -U -r /var/www/orcidhub/requirements.txt
-  # - docker-compose exec app python3.6 /var/www/orcidhub/initializedb.py
-  # - docker-compose exec app pip3.6 install -U pytest pytest-cov coveralls
-  # - docker-compose exec app bash -c "cd /var/www/orcidhub; pytest -s -v --cov ."
-  # - cd orcidhub-core; pytest -s -v --cov .
 
 after_success:
-  #- coveralls
   - docker-compose exec app coveralls
   - eval "$(ssh-agent -s)"
   - openssl rsa -in .travis/.deploy.key -out .travis/deploy.key -passin env:DEPLOY_KEY_PASSPHRASE
