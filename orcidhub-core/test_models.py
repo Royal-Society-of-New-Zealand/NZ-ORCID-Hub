@@ -1,7 +1,7 @@
 import pytest
 from peewee import SqliteDatabase
 from itertools import product
-from models import User, Organisation, UserOrg, Role
+from models import User, Organisation, UserOrg, Role, drop_talbes, create_tables
 from playhouse.test_utils import test_database
 
 @pytest.fixture
@@ -23,7 +23,7 @@ def test_db():
 
 
 @pytest.fixture
-def test_models(test_db, scope="session"):
+def test_models(test_db):
 
     Organisation.insert_many((dict(
         name="Organisation #%d" % i,
@@ -87,3 +87,65 @@ def test_user_org_link(test_models):
     assert Organisation.get(id=1).admins.count() == 1
     assert Organisation.get(id=5).users.count() > 0
     assert Organisation.get(id=5).admins.count() > 0
+
+
+def test_roles(test_models):
+    assert Role.RESEARCHER == "RESEARCHER"
+    assert Role.RESEARCHER == Role["RESEARCHER"]
+    assert Role.RESEARCHER != "ADMIN"
+    assert Role.RESEARCHER != Role["ADMIN"]
+    assert hash(Role.RESEARCHER) == hash("RESEARCHER")
+
+
+def test_user_roles(test_models):
+    user = User(
+        name="Test User ABC123",
+        first_name="ABC",
+        last_name="123",
+        email="user_abc_123@org.org.nz",
+        edu_person_shared_token="EDU PERSON SHARED TOKEN ABC123",
+        confirmed=True,
+        roles=Role.ADMIN|Role.RESEARCHER)
+
+    assert user.has_role(Role.ADMIN)
+    assert user.has_role("ADMIN")
+    assert user.has_role(Role.RESEARCHER)
+    assert user.has_role("RESEARCHER")
+    assert user.has_role(Role.RESEARCHER|Role.ADMIN)
+    assert user.has_role(4)
+    assert user.has_role(2)
+
+    assert not user.has_role(Role.SUPERUSER)
+    assert not user.has_role("SUPERUSER")
+    assert not user.has_role(1)
+
+    assert not user.has_role("NOT A ROLE")
+    assert not user.has_role(~(1|2|4|8|16))
+
+
+def test_admin_is_admin(test_models):
+    user = User(
+        name="Test User ABC123",
+        first_name="ABC",
+        last_name="123",
+        email="user_abc_123@org.org.nz",
+        edu_person_shared_token="EDU PERSON SHARED TOKEN ABC123",
+        confirmed=True,
+        roles=Role.ADMIN|Role.RESEARCHER)
+
+    assert user.is_admin
+
+
+def test_drop_tables(test_models):
+    drop_talbes()
+    assert not User.table_exists()
+    assert not Organisation.table_exists()
+    assert not UserOrg.table_exists()
+
+
+def test_create_tables(test_models):
+    drop_talbes()
+    create_tables()
+    assert User.table_exists()
+    assert Organisation.table_exists()
+    assert UserOrg.table_exists()

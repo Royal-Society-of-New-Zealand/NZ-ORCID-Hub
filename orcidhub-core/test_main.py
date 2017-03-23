@@ -8,6 +8,7 @@ from flask import url_for
 import pprint
 import pytest
 import tokenGeneration
+import login_provider
 
 
 def test_index(client):
@@ -205,3 +206,29 @@ def test_confirmation_token(app):
     app.config['TOKEN_SECRET_KEY'] = "COMPROMISED"
     app.config['TOKEN_PASSWORD_SALT'] = "COMPROMISED"
     assert tokenGeneration.confirm_token(token, 0) is False, "Expired token shoud be rejected"
+
+def test_login_provider_load_user(request_ctx):
+
+    u = User(
+        email="test123@test.test.net",
+        name="TEST USER",
+        username="test123",
+        roles=Role.RESEARCHER,
+        orcid=None,
+        confirmed=True)
+    u.save()
+
+    user = login_provider.load_user(u.id)
+    assert user == u
+    assert login_provider.load_user(9999999) is None
+
+    with request_ctx("/"):
+
+        login_user(u)
+        rv = login_provider.roles_required(Role.RESEARCHER)(lambda: "SUCCESS")()
+        assert rv == "SUCCESS"
+
+        rv = login_provider.roles_required(Role.SUPERUSER)(lambda: "SUCCESS")()
+        assert rv != "SUCCESS"
+        assert rv.status_code == 302
+        assert rv.location.startswith("/")
