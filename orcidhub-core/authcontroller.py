@@ -10,7 +10,7 @@ from requests_oauthlib import OAuth2Session
 from flask import request, redirect, session, url_for, render_template, flash
 from werkzeug.urls import iri_to_uri
 from config import client_id, client_secret, authorization_base_url, \
-    token_url, scope, redirect_uri, MEMBER_API_FORM_BASE_URL, \
+    token_url, scope_read_limited, scope_activities_update, redirect_uri, MEMBER_API_FORM_BASE_URL, \
     NEW_CREDENTIALS, NOTE_ORCID, CRED_TYPE_PREMIUM, APP_NAME, APP_DESCRIPTION, APP_URL
 import json
 from application import app, mail
@@ -89,7 +89,7 @@ def shib_login():
             user.last_name = last_name
         if not user.confirmed:
             user.confirmed = True
-        # TODO: keep login auditing (last_loggedin_at... etc)
+            # TODO: keep login auditing (last_loggedin_at... etc)
 
     except User.DoesNotExist:
         user = User.create(
@@ -130,21 +130,36 @@ def shib_login():
 def link():
     """Link the user's account with ORCiD (i.e. affiliates user with his/her org on ORCID)."""
     # TODO: handle organisation that are not on-boarded
-    client = OAuth2Session(client_id, scope=scope, redirect_uri=redirect_uri)
+    client = OAuth2Session(client_id, scope=scope_read_limited, redirect_uri=redirect_uri)
     authorization_url, state = client.authorization_url(authorization_base_url)
     session['oauth_state'] = state
-    # Check if user details are already in database
-    # TODO: re-affiliation after revoking access?
-    # TODO: affiliation with multiple orgs should lookup UserOrg
-    if current_user.orcid:
-        flash("You have already affilated '%s' with your ORCiD %s" % (
-            current_user.organisation.name, current_user.orcid), "warning")
-        return redirect(url_for("profile"))
+
+    client_write = OAuth2Session(client_id, scope=scope_activities_update, redirect_uri=redirect_uri)
+    authorization_url_write, state = client_write.authorization_url(authorization_base_url)
 
     orcid_url = iri_to_uri(authorization_url) + urlencode(dict(
         family_names=current_user.last_name, given_names=current_user.first_name, email=current_user.email))
 
-    return render_template("linking.html", orcid_url=orcid_url)
+    orcid_url_write = iri_to_uri(authorization_url_write) + urlencode(dict(
+        family_names=current_user.last_name, given_names=current_user.first_name, email=current_user.email))
+
+    # Check if user details are already in database
+    # TODO: re-affiliation after revoking access?
+    # TODO: affiliation with multiple orgs should lookup UserOrg
+    if current_user.access_token and current_user.access_token_write:
+        flash("You have already given read and write permissions to '%s' and your ORCiD %s" % (
+            current_user.organisation.name, current_user.orcid), "warning")
+        return redirect(url_for("profile"))
+    elif current_user.access_token:
+        flash("You have already given read permissions to '%s' and your ORCiD %s" % (
+            current_user.organisation.name, current_user.orcid), "warning")
+        return render_template("linking.html", orcid_url_write=orcid_url_write)
+    elif current_user.access_token_write:
+        flash("You have already given write permissions to '%s' and your ORCiD %s" % (
+            current_user.organisation.name, current_user.orcid), "warning")
+        return render_template("linking.html", orcid_url=orcid_url)
+
+    return render_template("linking.html", orcid_url=orcid_url, orcid_url_write=orcid_url_write)
 
 
 # Step 2: User authorization, this happens on the provider.
@@ -168,13 +183,21 @@ def orcid_callback():
     app.logger.info("* TOKEN: %s", token)
     orcid = token['orcid']
     name = token["name"]
+    access_token = None
+    access_token_write = None
     # TODO: should be linked to the affiliated org
-    access_token = token["access_token"]
+    if token["scope"] == scope_read_limited:
+        access_token = token["access_token"]
+    elif token["scope"] == scope_activities_update:
+        access_token_write = token["access_token"]
     user = current_user
     user.orcid = orcid
     if not user.name and name:
         user.name = name
-    user.access_token = access_token
+    if access_token:
+        user.access_token = access_token
+    if access_token_write:
+        user.access_token_write = access_token_write
     user.save()
 
     flash("Your account was linked to ORCiD %s" % orcid, "success")
@@ -190,12 +213,17 @@ def profile():
     if user.orcid is None:
         flash("You need to link your ORCiD with your account", "warning")
         return redirect(url_for("link"))
+    access_token = None
+    if user.access_token:
+        access_token = user.access_token
+    elif user.access_token_write:
+        access_token = user.access_token_write
 
-    client = OAuth2Session(client_id, token={"access_token": user.access_token})
+    client = OAuth2Session(client_id, token={"access_token": access_token})
 
-    headers = {'Accept': 'application/json'}
-    resp = client.get("https://api.sandbox.orcid.org/v1.2/" +
-                      user.orcid + "/orcid-works", headers=headers)
+    headers = {'Accept': 'application/vnd.orcid+json'}
+    resp = client.get("https://api.sandbox.orcid.org/v2.0/" +
+                      user.orcid + "/works", headers=headers)
     return render_template(
         "profile.html",
         user=user,

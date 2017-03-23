@@ -1,11 +1,11 @@
 from peewee import Model, CharField, BooleanField, SmallIntegerField, ForeignKeyField, TextField, CompositeKey
 from peewee import drop_model_tables, OperationalError
 from application import db
-from enum import IntFlag
+from enum import IntEnum
 from flask_login import UserMixin
 
 
-class Role(IntFlag):
+class Role(IntEnum):
     """
     Enum used to represent user role.
     The model provide multi role support
@@ -28,7 +28,6 @@ class Role(IntFlag):
 
 
 class BaseModel(Model):
-
     class Meta:
         database = db
 
@@ -78,6 +77,7 @@ class User(BaseModel, UserMixin):
     orcid = CharField(max_length=120, unique=True,
                       verbose_name="ORCID", null=True)
     access_token = CharField(max_length=120, unique=True, null=True)
+    access_token_write = CharField(max_length=120, unique=True, null=True)
     token_type = TextField(null=True)
     refresh_token = TextField(null=True)
     confirmed = BooleanField(default=False)
@@ -150,6 +150,7 @@ class UserOrg(BaseModel):
 
     is_admin = BooleanField(
         default=False, help_text="User is an administrator for the organisation")
+
     # TODO: the access token should be either here or in a saparate list
     # access_token = CharField(max_length=120, unique=True, null=True)
 
@@ -171,7 +172,7 @@ def create_tables():
     db.create_tables(models)
 
 
-def drop_talbes():
+def drop_tables():
     """
     Drop all model tables
     """
