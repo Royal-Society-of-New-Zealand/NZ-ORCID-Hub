@@ -1,5 +1,5 @@
 import pytest
-from peewee import SqliteDatabase
+from peewee import SqliteDatabase, OperationalError
 from itertools import product
 from models import User, Organisation, UserOrg, Role, drop_talbes, create_tables
 from playhouse.test_utils import test_database
@@ -16,8 +16,11 @@ def test_db():
         asser modls.User.count() == 1
     """
     _db = SqliteDatabase(":memory:")
-    with test_database(_db, (Organisation, User, UserOrg,)) as _test_db:
-        yield _test_db
+    try:
+        with test_database(_db, (Organisation, User, UserOrg,)) as _test_db:
+                yield _test_db
+    except OperationalError:
+        pass  # workaround for deletion of non-existing tables
 
     return
 

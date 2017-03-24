@@ -171,9 +171,10 @@ def create_tables():
 
 
 def drop_talbes():
-    """
-    Drop all model tables
-    """
-    models = (m for m in globals().values() if isinstance(
-        m, type) and issubclass(m, BaseModel))
-    drop_model_tables(models, fail_silently=True, cascade=True)
+    """Drop all model tables."""
+    for m in (Organisation, User, UserOrg):
+        if m.table_exists():
+            try:
+                m.drop_table(fail_silently=True, cascade=db.drop_cascade)
+            except peewee.OperationalError:
+                pass
