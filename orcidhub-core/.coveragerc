@@ -1,0 +1,10 @@
+[run]
+omit =
+    tests_*.py
+    main.py
+    monitor.py
+    pyinfo.py
+    initializedb.py
+    conftest.py
+    config.py
+    create.py
