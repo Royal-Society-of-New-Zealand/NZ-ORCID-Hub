@@ -42,6 +42,25 @@ admin.add_view(AppModelView(Organisation))
 
 HEADERS = {"Authorization": "Bearer fc38a9f5-85c2-4003-9e60-2c215b90f2a1", "Accept": "application/json"}
 
+
+@app.template_filter('emp_years')
+def emp_years(entry):
+    """Show an interval of employment in years."""
+    val = ""
+    if entry.get("start-date") is None or entry["start-date"]["year"]["value"] is None:
+        val="unknown"
+    else:
+        val=entry["start-date"]["year"]["value"]
+
+    val += "-"
+
+    if entry.get("end-date") is None or entry["end-date"]["year"]["value"] is None:
+        val += "present"
+    else:
+        val += entry["end-date"]["year"]["value"]
+    return val
+
+
 @app.route("/emp/<int:user_id>/<string:put_code>")
 @app.route("/emp/<int:user_id>")
 @login_required
@@ -68,7 +87,7 @@ def employment_list(user_id):
     # TODO: retrieve and tranform for presentation (order, etc)
     ###resp = requests.get(ORCID_API_BASE + u.orcid + "/employments", headers=HEADERS)
     ####data = resp.json()
-    data == json.loads("""
+    data = json.loads("""
 {
   "last-modified-date": {
     "value": 1490330451228

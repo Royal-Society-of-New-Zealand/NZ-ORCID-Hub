@@ -24,7 +24,7 @@
                 <td>{{r["organization"]["address"].get("country")}}</td>
                 <td>{{r["department-name"]}}</td>
                 <td>{{r["role-title"]}}</td>
-                <td>{{r["start-date"]["year"]["value"]}}-{{r["end-date"]["year"]["value"] or "present"}}</td>
+                <td>{{r|emp_years}}</td>
             </tr>
             {% endfor %}
         </tbody>
