@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="table-responsive">          
+    <table class="table">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Institution/employer</th>
+                <th>City</th>
+                <th>State/region</th>
+                <th>Country</th>
+                <th>Department</th>
+                <th>Department</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for r in data.get("employment-summary", []) %}
+            <tr>
+                <td></td>
+                <td>{{r["organization"]["name"]}}</td>
+                <td>{{r["organization"]["address"].get("city")}}</td>
+                <td>{{r["organization"]["address"].get("region")}}</td>
+                <td>{{r["organization"]["address"].get("country")}}</td>
+                <td>{{r["department-name"]}}</td>
+                <td>{{r["role-title"]}}</td>
+                <td>{{r["start-date"]["year"]["value"]}}-{{r["end-date"]["year"]["value"] or "present"}}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

@@ -12,6 +12,7 @@ flask-admin
 python-slugify
 flask-script
 wtf-peewee
+pycountry
 
 # For testing (should be disabled in the production):
 flask-debugtoolbar

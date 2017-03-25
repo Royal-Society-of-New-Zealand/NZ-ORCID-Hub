@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% macro render_field(f) %}
+<div class="form-group">
+  <label for="{{ f.id }}">{{ f.label }}{% if f.flags.required %}&nbsp;*{% endif %}</label>
+  {{ f(class="form-control", id=f.id, placeholder=f.label.text, **kwargs)|safe }}
+  {% if f.errors %}
+    <ul class=errors>
+      {% for error in f.errors %}
+        <li>{{ error }}</li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+</div>
+{% endmacro %}
+
+{% block content %}
+  <form method="POST">
+    <div class="row">
+      <div class="col-md-9 col-sm-8 col-xs-12">
+        <h1>Employment</h1>
+      </div>
+    </div>
+    <div class="row">
+      <div class="col-md-6 col-sm-6 col-xs-12">
+        {{ form.hidden_tag() }}
+        {{ render_field(form.employer) }}
+        {{ render_field(form.city) }}
+        {{ render_field(form.state) }}
+        {{ render_field(form.country) }}
+      </div>
+      <div class="col-md-6 col-sm-6 col-xs-12">
+        {{ render_field(form.department) }}
+        {{ render_field(form.role) }}
+        {{ render_field(form.start_date) }}
+        {{ render_field(form.end_date) }}
+        <button type="submit" class="btn btn-primary" value="Save">Save...</button>
+      </div>
+    </div>
+  </form>
+{% endblock %}
