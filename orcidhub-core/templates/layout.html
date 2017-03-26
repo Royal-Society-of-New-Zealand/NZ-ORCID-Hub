@@ -16,6 +16,10 @@
           integrity="sha384-rHyoN1iRsVXV4nD0JutlnGaslCJuC7uwjduW9SVrLvRYooPp2bWYgmgJQIXwl/Sp" crossorigin="anonymous">
     <link href="/static/css/sticky-footer.css" rel="stylesheet">
     <link href="/static/css/style.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.3.7/css/bootstrap-theme.css"
+          integrity="sha256-xOpS+e/dER8z72w+qryCieOGysQI8cELAVt3MHG0phY=" crossorigin="anonymous" />
+
+    <link rel="stylesheet" href="http://code.jquery.com/ui/1.11.4/themes/smoothness/jquery-ui.css">
     {% endblock %}
 </head>
 <body>
@@ -43,6 +47,7 @@
                 {% endif %}
                 {% if current_user.has_role("ADMIN") %}
                 <li id="researcher"><a href="/Tuakiri/register/researcher">Register Researcher</a></li>
+                <li id="viewMembers"><a href="/viewmembers">View Members</a></li>
                 {% elif current_user.has_role("SUPERUSER") %}
                 <li id="registerOrganisation"><a href="{{ url_for('invite_organisation') }}">Register Organisation</a>
                 </li>
@@ -135,5 +140,13 @@ $(document).ready(function(){
 });
 
 </script>
+	<script src="http://code.jquery.com/jquery-1.10.2.js"></script>
+	<script src="http://code.jquery.com/ui/1.11.4/jquery-ui.js"></script>
+	<script>
+	$(function() {
+		$( ".dtpick" ).datepicker();
+	});
+	</script>
+
 </body>
 </html>

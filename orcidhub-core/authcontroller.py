@@ -20,11 +20,12 @@ from flask_login import login_user, current_user
 from registrationForm import OrgRegistrationForm
 from flask_mail import Message
 from tokenGeneration import generate_confirmation_token, confirm_token
-from registrationForm import OrgConfirmationForm
+from registrationForm import OrgConfirmationForm, EmploymentDetailsForm
 from flask_login import login_required, logout_user
 from login_provider import roles_required
 from os import environ
 from urllib.parse import urlencode
+from datetime import datetime
 
 
 @app.route("/index")
@@ -74,6 +75,8 @@ def shib_login():
         org = Organisation.get(name=shib_org_name)
     except Organisation.DoesNotExist:
         org = None
+        # flash("Your organisation (%s) is not onboarded properly, Contact Orcid Hub Admin" % shib_org_name, "danger")
+        # return render_template("index.html", _next=_next)
 
     try:
         user = User.get(User.email == email)
@@ -421,3 +424,228 @@ def reset_db():
     User.delete().where(~(User.name ** "royal" | User.name ** "%root%")).execute()
     Organisation.delete().where(~(Organisation.name % "%Royal%")).execute()
     return redirect(url_for("logout"))
+
+
+@app.route("/viewmembers")
+@roles_required(Role.ADMIN)
+def viewmembers():
+    user = current_user
+    users = user.organisation.users
+    return render_template("viewMembers.html", orgnisationname=user.organisation.name, users=users)
+
+
+@app.route("/addempdetails/", methods=["GET", "POST"])
+@roles_required(Role.ADMIN)
+def add_emp_details():
+    userEmail = request.args.get("email")
+    organisationId = request.args.get("organisationid")
+    form = EmploymentDetailsForm()
+    if request.method == 'GET':
+        return render_template("addEmploymentDetails.html", form=form)
+    elif request.method == 'POST':
+        user = User.get(email=userEmail, organisation_id=organisationId)
+
+        if user.orcid is None:
+            flash("The user didnt gave the permission to update his record.", "warning")
+            return redirect(url_for("link"))
+
+        client = OAuth2Session(user.organisation.orcid_client_id, token={"access_token": user.access_token_write})
+
+        headers = {'Accept': 'application/vnd.orcid+json', 'Content-type': 'application/vnd.orcid+json'}
+        # TODO: Ask if source name should be orcidhub or organisation to which user belong
+        s = """{
+            "department-name": \"""" + form.department.data + """\",
+            "start-date": {
+                "month": {
+                    "value": \"""" + str(form.start_date.data.month).zfill(2) + """\"
+                },
+                "day": {
+                    "value": \"""" + str(form.start_date.data.day).zfill(2) + """\"
+                },
+                "year": {
+                    "value": \"""" + str(form.start_date.data.year) + """\"
+                }
+            },
+            "last-modified-date": {
+                "value": 1484868942895
+            },
+            "created-date": {
+                "value": 1484600561798
+            },
+            "visibility": "PUBLIC",
+            "source": {
+                "source-orcid": null,
+                "source-name": {
+                    "value": \"""" + user.organisation.name + """\"
+                },
+                "source-client-id": {
+                    "path": \"""" + client_id + """\",
+                    "host": "sandbox.orcid.org",
+                    "uri": "http://sandbox.orcid.org/client/""" + client_id + """\"
+                }
+            },
+            "path": "",
+            "organization": {
+                "disambiguated-organization": null,
+                "name": \"""" + form.institution.data + """\",
+                "address": {
+                    "city": \"""" + form.city.data + """\",
+                    "region": \"""" + form.state.data + """\",
+                    "country": \"""" + form.country.data + """\"
+                }
+            },
+            "end-date": {
+                "month": {
+                    "value": \"""" + str(form.end_date.data.month).zfill(2) + """\"
+                },
+                "day": {
+                    "value": \"""" + str(form.end_date.data.day).zfill(2) + """\"
+                },
+                "year": {
+                    "value": \"""" + str(form.end_date.data.year) + """\"
+                }
+            },
+            "role-title": \"""" + form.role.data + """\"
+        }"""
+
+        jsondata = json.loads(s)
+        print(jsondata)
+        resp = client.post('https://api.sandbox.orcid.org/v2.0/' + user.orcid + '/employment',
+                           headers=headers, json=jsondata)
+        if (resp.status_code == 200 or resp.status_code == 201):
+            flash("""Employment Details has been added successfully!!""", "success")
+        return render_template("addEmploymentDetails.html", form=form)
+
+
+@app.route("/viewempdetails")
+@roles_required(Role.ADMIN)
+def view_emp_details():
+    userEmail = request.args.get("email")
+    organisationId = request.args.get("organisationid")
+    user = User.get(email=userEmail, organisation_id=organisationId)
+    if user.orcid is None:
+        flash("You need to link your ORCiD with your account", "warning")
+        return redirect(url_for("link"))
+
+    client = OAuth2Session(client_id, token={"access_token": user.access_token})
+
+    headers = {'Accept': 'application/vnd.orcid+json'}
+    resp = client.get('https://api.sandbox.orcid.org/v2.0/' + user.orcid + '/employments', headers=headers)
+
+    data = json.loads(resp.text)
+    return render_template("viewEmpDetails.html", empdetails=data['employment-summary'],
+                           userEmail=userEmail, organisationId=organisationId)
+
+
+@app.route("/editempdetails", methods=['GET', 'POST'])
+@roles_required(Role.ADMIN)
+def edit_emp_details():
+    userEmail = request.args.get("email")
+    organisationId = request.args.get("organisationId")
+    putcode = request.args.get("putcode")
+    user = User.get(email=userEmail, organisation_id=int(organisationId))
+    dataToUpdate = ""
+    form = EmploymentDetailsForm()
+    if user.orcid is None:
+        flash("The member has not given read and update permissions", "warning")
+        return redirect(url_for("link"))
+    if request.method == 'GET':
+        client = OAuth2Session(client_id, token={"access_token": user.access_token})
+
+        headers = {'Accept': 'application/vnd.orcid+json'}
+        resp = client.get('https://api.sandbox.orcid.org/v2.0/' + user.orcid + '/employments', headers=headers)
+        data = json.loads(resp.text)['employment-summary']
+
+        dataToUpdate = ""
+        for empdetail in data:
+            if empdetail['put-code'] == int(putcode):
+                dataToUpdate = empdetail
+                break
+
+        start_date = datetime(int(dataToUpdate['start-date']['year']['value']),
+                              int(dataToUpdate['start-date']['month']['value']),
+                              int(dataToUpdate['start-date']['day']['value']))
+
+        end_date = datetime(int(dataToUpdate['end-date']['year']['value']),
+                            int(dataToUpdate['end-date']['month']['value']),
+                            int(dataToUpdate['end-date']['day']['value']))
+
+        department = dataToUpdate['department-name']
+        role = dataToUpdate['role-title']
+        institution = dataToUpdate['organization']['name']
+        city = dataToUpdate['organization']['address']['city']
+        regionName = dataToUpdate['organization']['address']['region']
+        country = dataToUpdate['organization']['address']['country']
+        form = EmploymentDetailsForm(state=regionName, country=country, city=city, institution=institution,
+                                     role=role, start_date=start_date, end_date=end_date, department=department)
+        return render_template("addEmploymentDetails.html", form=form)
+    elif request.method == 'POST':
+        dataToUpdate = """{
+                    "department-name": \"""" + form.department.data + """\",
+                    "put-code": """ + putcode + """,
+                    "start-date": {
+                        "month": {
+                            "value": \"""" + str(form.start_date.data.month).zfill(2) + """\"
+                        },
+                        "day": {
+                            "value": \"""" + str(form.start_date.data.day).zfill(2) + """\"
+                        },
+                        "year": {
+                            "value": \"""" + str(form.start_date.data.year) + """\"
+                        }
+                    },
+                    "last-modified-date": {
+                        "value": 1484868942895
+                    },
+                    "created-date": {
+                        "value": 1484600561798
+                    },
+                    "visibility": "PUBLIC",
+                    "source": {
+                        "source-orcid": null,
+                        "source-name": {
+                            "value": \"""" + user.organisation.name + """\"
+                        },
+                        "source-client-id": {
+                            "path": \"""" + client_id + """\",
+                            "host": "sandbox.orcid.org",
+                            "uri": "http://sandbox.orcid.org/client/""" + client_id + """\"
+                        }
+                    },
+                    "path": "",
+                    "organization": {
+                        "disambiguated-organization": null,
+                        "name": \"""" + form.institution.data + """\",
+                        "address": {
+                            "city": \"""" + form.city.data + """\",
+                            "region": \"""" + form.state.data + """\",
+                            "country": \"""" + form.country.data + """\"
+                        }
+                    },
+                    "end-date": {
+                        "month": {
+                            "value": \"""" + str(form.end_date.data.month).zfill(2) + """\"
+                        },
+                        "day": {
+                            "value": \"""" + str(form.end_date.data.day).zfill(2) + """\"
+                        },
+                        "year": {
+                            "value": \"""" + str(form.end_date.data.year) + """\"
+                        }
+                    },
+                    "role-title": \"""" + form.role.data + """\"
+                }"""
+
+        jsondata = json.loads(dataToUpdate)
+
+        if user.orcid is None:
+            flash("You need to link your ORCiD with your account", "warning")
+            return redirect(url_for("link"))
+
+        client = OAuth2Session(user.organisation.orcid_client_id, token={"access_token": user.access_token_write})
+        headers = {'Accept': 'application/vnd.orcid+json', 'Content-type': 'application/vnd.orcid+json'}
+        resp = client.put('https://api.sandbox.orcid.org/v2.0/' + user.orcid + '/employment/' + putcode,
+                          headers=headers, json=jsondata)
+        if (resp.status_code == 200 or resp.status_code == 201):
+            flash("""Employment Details has been updated successfully!!""", "success")
+        return redirect(url_for("viewmembers"))
