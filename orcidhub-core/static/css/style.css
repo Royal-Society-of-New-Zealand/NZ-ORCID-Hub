@@ -14,3 +14,20 @@
 {
     font-size: 87px;
 }
+/* fix trash icon inside table column */
+.model-list form.icon {
+    display: inline;
+}
+
+.model-list form.icon button {
+    border: none;
+    background: transparent;
+    text-decoration: none;
+    padding: 0;
+    line-height: normal;
+}
+
+.model-list a.icon:first-child {
+    margin-left: 10px;
+}
+
