@@ -1,4 +1,5 @@
-from peewee import Model, CharField, BooleanField, SmallIntegerField, ForeignKeyField, TextField, CompositeKey
+from peewee import Model, CharField, BooleanField, SmallIntegerField, ForeignKeyField, TextField, CompositeKey, \
+    DateTimeField, datetime, PrimaryKeyField
 from peewee import drop_model_tables, OperationalError
 from application import db
 from enum import IntEnum
@@ -160,6 +161,36 @@ class UserOrg(BaseModel):
         primary_key = CompositeKey("user", "org")
 
 
+class OrcidToken(BaseModel):
+    """
+    For Keeping Orcid token in the table.
+    """
+    id = PrimaryKeyField()
+    user = ForeignKeyField(User)
+    org = ForeignKeyField(Organisation, index=True, verbose_name="Organisation")
+    scope = TextField(null=True)
+    access_token = CharField(max_length=36, unique=True, null=True)
+    issue_time = DateTimeField(default=datetime.datetime.now)
+    refresh_token = CharField(max_length=36, unique=True, null=True)
+    expires_in = SmallIntegerField(default=0)
+
+
+class User_Organisation_affiliation(BaseModel):
+    """
+    For Keeping the information about the affiliation
+    """
+    id = PrimaryKeyField()
+    user = ForeignKeyField(User)
+    organisation = ForeignKeyField(Organisation, index=True, verbose_name="Organisation")
+    start_date = DateTimeField(null=True)
+    end_date = DateTimeField(null=True)
+    department_name = TextField(null=True)
+    department_city = TextField(null=True)
+    role_title = TextField(null=True)
+    put_code = SmallIntegerField(default=0)
+    path = TextField(null=True)
+
+
 def create_tables():
     """
     Create all DB tables
@@ -168,7 +199,7 @@ def create_tables():
         db.connect()
     except OperationalError:
         pass
-    models = (Organisation, User, UserOrg)
+    models = (Organisation, User, UserOrg, OrcidToken, User_Organisation_affiliation)
     db.create_tables(models)
 
 

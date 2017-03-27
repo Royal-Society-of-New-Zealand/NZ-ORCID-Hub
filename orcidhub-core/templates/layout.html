@@ -43,7 +43,7 @@
                 <li id="about"><a href="#">About</a></li>
                 {% if current_user.organisation %}
                 <li id="profile"><a href="{{ url_for('link') }}" data-toggle="tooltip"
-                                    title="Affiliate yourself with ORCID HUB or view your ORCiD">Your ORCiD</a></li>
+                                    title="Affiliate yourself with ORCID HUB or view your ORCiD">ORCiD Permissions</a></li>
                 {% endif %}
                 {% if current_user.has_role("ADMIN") %}
                 <li id="researcher"><a href="/Tuakiri/register/researcher">Register Researcher</a></li>
