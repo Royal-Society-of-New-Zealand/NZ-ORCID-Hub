@@ -1,7 +1,7 @@
 import pytest
 from peewee import SqliteDatabase
 from itertools import product
-from models import User, Organisation, UserOrg, Role
+from models import User, Organisation, UserOrg, Role, OrcidToken
 from playhouse.test_utils import test_database
 
 @pytest.fixture
@@ -16,7 +16,7 @@ def test_db():
         asser modls.User.count() == 1
     """
     _db = SqliteDatabase(":memory:")
-    with test_database(_db, (Organisation, User, UserOrg,)) as _test_db:
+    with test_database(_db, (Organisation, User, UserOrg, OrcidToken)) as _test_db:
         yield _test_db
 
     return

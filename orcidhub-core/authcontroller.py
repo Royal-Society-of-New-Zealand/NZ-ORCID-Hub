@@ -14,7 +14,7 @@ from config import authorization_base_url, \
     NEW_CREDENTIALS, NOTE_ORCID, CRED_TYPE_PREMIUM, APP_NAME, APP_DESCRIPTION, APP_URL
 import json
 from application import app, mail
-from models import User, Role, Organisation, UserOrg
+from models import User, Role, Organisation, UserOrg, User_Organisation_affiliation, OrcidToken
 from urllib.parse import quote
 from flask_login import login_user, current_user
 from registrationForm import OrgRegistrationForm
@@ -151,15 +151,28 @@ def link():
     # Check if user details are already in database
     # TODO: re-affiliation after revoking access?
     # TODO: affiliation with multiple orgs should lookup UserOrg
-    if current_user.access_token and current_user.access_token_write:
+
+    user = User.get(email=current_user.email, organisation=current_user.organisation)
+    orcidTokenRead = None
+    orcidTokenWrite = None
+    try:
+        orcidTokenRead = OrcidToken.get(user=user, org=user.organisation, scope=scope_read_limited)
+    except:
+        pass
+    try:
+        orcidTokenWrite = OrcidToken.get(user=user, org=user.organisation, scope=scope_activities_update)
+    except:
+        pass
+
+    if ((orcidTokenRead is not None) and (orcidTokenWrite is not None)):
         flash("You have already given read and write permissions to '%s' and your ORCiD %s" % (
             current_user.organisation.name, current_user.orcid), "warning")
         return redirect(url_for("profile"))
-    elif current_user.access_token:
+    elif orcidTokenRead:
         flash("You have already given read permissions to '%s' and your ORCiD %s" % (
             current_user.organisation.name, current_user.orcid), "warning")
         return render_template("linking.html", orcid_url_write=orcid_url_write)
-    elif current_user.access_token_write:
+    elif orcidTokenWrite:
         flash("You have already given write permissions to '%s' and your ORCiD %s" % (
             current_user.organisation.name, current_user.orcid), "warning")
         return render_template("linking.html", orcid_url=orcid_url)
@@ -188,21 +201,19 @@ def orcid_callback():
     app.logger.info("* TOKEN: %s", token)
     orcid = token['orcid']
     name = token["name"]
-    access_token = None
-    access_token_write = None
+
     # TODO: should be linked to the affiliated org
-    if token["scope"] == scope_read_limited:
-        access_token = token["access_token"]
-    elif token["scope"] == scope_activities_update:
-        access_token_write = token["access_token"]
+
     user = current_user
     user.orcid = orcid
     if not user.name and name:
         user.name = name
-    if access_token:
-        user.access_token = access_token
-    if access_token_write:
-        user.access_token_write = access_token_write
+
+    orciduser = User.get(email=user.email, organisation=user.organisation)
+
+    orcidToken = OrcidToken.create(user=orciduser, org=orciduser.organisation, scope=token["scope"][0],
+                                   access_token=token["access_token"], refresh_token=token["refresh_token"], )
+    orcidToken.save()
     user.save()
 
     flash("Your account was linked to ORCiD %s" % orcid, "success")
@@ -214,17 +225,17 @@ def orcid_callback():
 @login_required
 def profile():
     """Fetch a protected resource using an OAuth 2 token."""
-    user = current_user
-    if user.orcid is None:
+
+    user = User.get(email=current_user.email, organisation=current_user.organisation)
+
+    orcidTokenRead = None
+    try:
+        orcidTokenRead = OrcidToken.get(user=user, org=user.organisation, scope=scope_read_limited)
+    except:
         flash("You need to link your ORCiD with your account", "warning")
         return redirect(url_for("link"))
-    access_token = None
-    if user.access_token:
-        access_token = user.access_token
-    elif user.access_token_write:
-        access_token = user.access_token_write
 
-    client = OAuth2Session(user.organisation.orcid_client_id, token={"access_token": access_token})
+    client = OAuth2Session(user.organisation.orcid_client_id, token={"access_token": orcidTokenRead.access_token})
 
     headers = {'Accept': 'application/vnd.orcid+json'}
     resp = client.get("https://api.sandbox.orcid.org/v2.0/" +
@@ -442,16 +453,19 @@ def add_emp_details():
     userEmail = request.args.get("email")
     organisationId = request.args.get("organisationid")
     form = EmploymentDetailsForm()
-
+    orcidToken = None
     user = User.get(email=userEmail, organisation_id=organisationId)
-    if user.orcid is None:
+
+    try:
+        orcidToken = OrcidToken.get(user=user, org=user.organisation, scope=scope_activities_update)
+    except:
         flash("User didnt gave permission to Add records", "warning")
         return redirect(url_for("viewmembers"))
 
     if request.method == 'GET':
         return render_template("addEmploymentDetails.html", form=form)
     elif request.method == 'POST':
-        client = OAuth2Session(user.organisation.orcid_client_id, token={"access_token": user.access_token_write})
+        client = OAuth2Session(user.organisation.orcid_client_id, token={"access_token": orcidToken.access_token})
 
         headers = {'Accept': 'application/vnd.orcid+json', 'Content-type': 'application/vnd.orcid+json'}
         s = """{
@@ -514,6 +528,20 @@ def add_emp_details():
         resp = client.post('https://api.sandbox.orcid.org/v2.0/' + user.orcid + '/employment',
                            headers=headers, json=jsondata)
         if (resp.status_code == 200 or resp.status_code == 201):
+            affiliation = User_Organisation_affiliation.create(user=user, organisation=user.organisation,
+                                                               start_date=datetime(int(form.start_date.data.year),
+                                                                                   int(form.start_date.data.month),
+                                                                                   int(form.start_date.data.day)),
+                                                               end_date=datetime(int(form.end_date.data.year),
+                                                                                 int(form.end_date.data.month),
+                                                                                 int(form.end_date.data.day)),
+                                                               department_name=form.department.data,
+                                                               department_city=form.city.data,
+                                                               role_title=form.role.data,
+                                                               put_code=int(
+                                                                   resp.headers['Location'].rsplit('/', 1)[-1]),
+                                                               path=resp.headers['Location'])
+            affiliation.save()
             flash("""Employment Details has been added successfully!!""", "success")
         return render_template("addEmploymentDetails.html", form=form)
 
@@ -524,11 +552,15 @@ def view_emp_details():
     userEmail = request.args.get("email")
     organisationId = request.args.get("organisationid")
     user = User.get(email=userEmail, organisation_id=organisationId)
-    if user.orcid is None:
+
+    orcidToken = None
+    try:
+        orcidToken = OrcidToken.get(user=user, org=user.organisation, scope=scope_read_limited)
+    except:
         flash("User didnt gave permission to update his/her records", "warning")
         return redirect(url_for("viewmembers"))
 
-    client = OAuth2Session(user.organisation.orcid_client_id, token={"access_token": user.access_token})
+    client = OAuth2Session(user.organisation.orcid_client_id, token={"access_token": orcidToken.access_token})
 
     headers = {'Accept': 'application/vnd.orcid+json'}
     resp = client.get('https://api.sandbox.orcid.org/v2.0/' + user.orcid + '/employments', headers=headers)
@@ -547,11 +579,15 @@ def edit_emp_details():
     user = User.get(email=userEmail, organisation_id=int(organisationId))
     dataToUpdate = ""
     form = EmploymentDetailsForm()
-    if user.orcid is None:
-        flash("The member has not given read and update permissions", "warning")
-        return redirect(url_for("link"))
     if request.method == 'GET':
-        client = OAuth2Session(user.organisation.orcid_client_id, token={"access_token": user.access_token})
+        orcidToken = None
+        try:
+            orcidToken = OrcidToken.get(user=user, org=user.organisation, scope=scope_read_limited)
+        except:
+            flash("The member has not given read and update permissions", "warning")
+            return redirect(url_for("link"))
+
+        client = OAuth2Session(user.organisation.orcid_client_id, token={"access_token": orcidToken.access_token})
 
         headers = {'Accept': 'application/vnd.orcid+json'}
         resp = client.get('https://api.sandbox.orcid.org/v2.0/' + user.orcid + '/employments', headers=headers)
@@ -639,14 +675,27 @@ def edit_emp_details():
 
         jsondata = json.loads(dataToUpdate)
 
-        if user.orcid is None:
+        orcidToken = None
+        try:
+            orcidToken = OrcidToken.get(user=user, org=user.organisation, scope=scope_activities_update)
+        except:
             flash("You need to link your ORCiD with your account", "warning")
             return redirect(url_for("link"))
 
-        client = OAuth2Session(user.organisation.orcid_client_id, token={"access_token": user.access_token_write})
+        client = OAuth2Session(user.organisation.orcid_client_id, token={"access_token": orcidToken.access_token})
         headers = {'Accept': 'application/vnd.orcid+json', 'Content-type': 'application/vnd.orcid+json'}
         resp = client.put('https://api.sandbox.orcid.org/v2.0/' + user.orcid + '/employment/' + putcode,
                           headers=headers, json=jsondata)
         if (resp.status_code == 200 or resp.status_code == 201):
+            affiliation = User_Organisation_affiliation.get(user=user, organisation=user.organisation, put_code=putcode)
+
+            affiliation.start_date = datetime(int(form.start_date.data.year), int(form.start_date.data.month),
+                                              int(form.start_date.data.day))
+            affiliation.end_date = datetime(int(form.end_date.data.year), int(form.end_date.data.month),
+                                            int(form.end_date.data.day))
+            affiliation.department_name = form.department.data
+            affiliation.department_city = form.city.data
+            affiliation.role_title = form.role.data
+            affiliation.save()
             flash("""Employment Details has been updated successfully!!""", "success")
         return redirect(url_for("viewmembers"))

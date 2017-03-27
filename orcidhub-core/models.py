@@ -77,10 +77,6 @@ class User(BaseModel, UserMixin):
     # ORCiD:
     orcid = CharField(max_length=120, unique=True,
                       verbose_name="ORCID", null=True)
-    access_token = CharField(max_length=120, unique=True, null=True)
-    access_token_write = CharField(max_length=120, unique=True, null=True)
-    token_type = TextField(null=True)
-    refresh_token = TextField(null=True)
     confirmed = BooleanField(default=False)
     # Role bit-map:
     roles = SmallIntegerField(default=0)
