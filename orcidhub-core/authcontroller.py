@@ -9,7 +9,7 @@ user (reseaser) affiliations.
 from requests_oauthlib import OAuth2Session
 from flask import request, redirect, session, url_for, render_template, flash
 from werkzeug.urls import iri_to_uri
-from config import client_id, client_secret, authorization_base_url, \
+from config import authorization_base_url, \
     token_url, scope_read_limited, scope_activities_update, redirect_uri, MEMBER_API_FORM_BASE_URL, \
     NEW_CREDENTIALS, NOTE_ORCID, CRED_TYPE_PREMIUM, APP_NAME, APP_DESCRIPTION, APP_URL
 import json
@@ -133,11 +133,13 @@ def shib_login():
 def link():
     """Link the user's account with ORCiD (i.e. affiliates user with his/her org on ORCID)."""
     # TODO: handle organisation that are not on-boarded
-    client = OAuth2Session(client_id, scope=scope_read_limited, redirect_uri=redirect_uri)
+    client = OAuth2Session(current_user.organisation.orcid_client_id, scope=scope_read_limited,
+                           redirect_uri=redirect_uri)
     authorization_url, state = client.authorization_url(authorization_base_url)
     session['oauth_state'] = state
 
-    client_write = OAuth2Session(client_id, scope=scope_activities_update, redirect_uri=redirect_uri)
+    client_write = OAuth2Session(current_user.organisation.orcid_client_id, scope=scope_activities_update,
+                                 redirect_uri=redirect_uri)
     authorization_url_write, state = client_write.authorization_url(authorization_base_url)
 
     orcid_url = iri_to_uri(authorization_url) + urlencode(dict(
@@ -175,8 +177,8 @@ def orcid_callback():
     callback URL. With this redirection comes an authorization code included
     in the redirect URL. We will use that to obtain an access token.
     """
-    client = OAuth2Session(client_id)
-    token = client.fetch_token(token_url, client_secret=client_secret,
+    client = OAuth2Session(current_user.organisation.orcid_client_id)
+    token = client.fetch_token(token_url, client_secret=current_user.organisation.orcid_secret,
                                authorization_response=request.url)
     # #print(token)
     # At this point you can fetch protected resources but lets save
@@ -222,7 +224,7 @@ def profile():
     elif user.access_token_write:
         access_token = user.access_token_write
 
-    client = OAuth2Session(client_id, token={"access_token": access_token})
+    client = OAuth2Session(user.organisation.orcid_client_id, token={"access_token": access_token})
 
     headers = {'Accept': 'application/vnd.orcid+json'}
     resp = client.get("https://api.sandbox.orcid.org/v2.0/" +
@@ -282,7 +284,7 @@ def invite_organisation():
 
                 try:
                     user = User.get(email=email)
-                    user.roles |= Role.ADMIN
+                    user.roles = Role.ADMIN
                     user.organisation = org
                 except User.DoesNotExist:
                     user = User(
@@ -440,19 +442,18 @@ def add_emp_details():
     userEmail = request.args.get("email")
     organisationId = request.args.get("organisationid")
     form = EmploymentDetailsForm()
+
+    user = User.get(email=userEmail, organisation_id=organisationId)
+    if user.orcid is None:
+        flash("User didnt gave permission to Add records", "warning")
+        return redirect(url_for("viewmembers"))
+
     if request.method == 'GET':
         return render_template("addEmploymentDetails.html", form=form)
     elif request.method == 'POST':
-        user = User.get(email=userEmail, organisation_id=organisationId)
-
-        if user.orcid is None:
-            flash("The user didnt gave the permission to update his record.", "warning")
-            return redirect(url_for("link"))
-
         client = OAuth2Session(user.organisation.orcid_client_id, token={"access_token": user.access_token_write})
 
         headers = {'Accept': 'application/vnd.orcid+json', 'Content-type': 'application/vnd.orcid+json'}
-        # TODO: Ask if source name should be orcidhub or organisation to which user belong
         s = """{
             "department-name": \"""" + form.department.data + """\",
             "start-date": {
@@ -479,9 +480,9 @@ def add_emp_details():
                     "value": \"""" + user.organisation.name + """\"
                 },
                 "source-client-id": {
-                    "path": \"""" + client_id + """\",
+                    "path": \"""" + user.organisation.orcid_client_id + """\",
                     "host": "sandbox.orcid.org",
-                    "uri": "http://sandbox.orcid.org/client/""" + client_id + """\"
+                    "uri": "http://sandbox.orcid.org/client/""" + user.organisation.orcid_client_id + """\"
                 }
             },
             "path": "",
@@ -524,10 +525,10 @@ def view_emp_details():
     organisationId = request.args.get("organisationid")
     user = User.get(email=userEmail, organisation_id=organisationId)
     if user.orcid is None:
-        flash("You need to link your ORCiD with your account", "warning")
-        return redirect(url_for("link"))
+        flash("User didnt gave permission to update his/her records", "warning")
+        return redirect(url_for("viewmembers"))
 
-    client = OAuth2Session(client_id, token={"access_token": user.access_token})
+    client = OAuth2Session(user.organisation.orcid_client_id, token={"access_token": user.access_token})
 
     headers = {'Accept': 'application/vnd.orcid+json'}
     resp = client.get('https://api.sandbox.orcid.org/v2.0/' + user.orcid + '/employments', headers=headers)
@@ -550,7 +551,7 @@ def edit_emp_details():
         flash("The member has not given read and update permissions", "warning")
         return redirect(url_for("link"))
     if request.method == 'GET':
-        client = OAuth2Session(client_id, token={"access_token": user.access_token})
+        client = OAuth2Session(user.organisation.orcid_client_id, token={"access_token": user.access_token})
 
         headers = {'Accept': 'application/vnd.orcid+json'}
         resp = client.get('https://api.sandbox.orcid.org/v2.0/' + user.orcid + '/employments', headers=headers)
@@ -607,9 +608,9 @@ def edit_emp_details():
                             "value": \"""" + user.organisation.name + """\"
                         },
                         "source-client-id": {
-                            "path": \"""" + client_id + """\",
+                            "path": \"""" + user.organisation.orcid_client_id + """\",
                             "host": "sandbox.orcid.org",
-                            "uri": "http://sandbox.orcid.org/client/""" + client_id + """\"
+                            "uri": "http://sandbox.orcid.org/client/""" + user.organisation.orcid_client_id + """\"
                         }
                     },
                     "path": "",
