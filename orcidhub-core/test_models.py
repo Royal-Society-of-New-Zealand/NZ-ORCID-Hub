@@ -1,7 +1,7 @@
 import pytest
 from peewee import SqliteDatabase
 from itertools import product
-from models import User, Organisation, UserOrg, Role, OrcidToken
+from models import User, Organisation, UserOrg, Role, OrcidToken, User_Organisation_affiliation
 from playhouse.test_utils import test_database
 
 @pytest.fixture
@@ -16,7 +16,7 @@ def test_db():
         asser modls.User.count() == 1
     """
     _db = SqliteDatabase(":memory:")
-    with test_database(_db, (Organisation, User, UserOrg, OrcidToken)) as _test_db:
+    with test_database(_db, (Organisation, User, UserOrg, OrcidToken, User_Organisation_affiliation)) as _test_db:
         yield _test_db
 
     return
@@ -54,6 +54,23 @@ def test_models(test_db, scope="session"):
         user=43,
         org=o) for o in range(1, 11))).execute()
 
+    OrcidToken.insert_many((dict(
+        user=User.get(id=1),
+        org=Organisation.get(id=1),
+        scope="/read-limited",
+        access_token="Test_%d" % i)
+        for i in range(60))).execute()
+
+    User_Organisation_affiliation.insert_many((dict(
+        user=User.get(id=1),
+        organisation=Organisation.get(id=1),
+        department_name="Test_%d" % i,
+        department_city="Test_%d" % i,
+        role_title="Test_%d" % i,
+        path="Test_%d" % i,
+        put_code="%d" % i)
+        for i in range(30))).execute()
+
     yield test_db
 
 
@@ -78,6 +95,13 @@ def test_org_count(test_models):
 def test_user_count(test_models):
     assert User.select().count() == 60
 
+
+def test_orcidtoken_count(test_models):
+    assert OrcidToken.select().count() == 60
+
+
+def test_user_oganisation_affiliation_count(test_models):
+    assert User_Organisation_affiliation.select().count() == 30
 
 def test_user_org_link(test_models):
     assert User.get(id=43).admin_for.count() == 10
