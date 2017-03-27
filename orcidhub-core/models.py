@@ -2,11 +2,14 @@ from peewee import Model, CharField, BooleanField, SmallIntegerField, ForeignKey
     DateTimeField, datetime, PrimaryKeyField
 from peewee import drop_model_tables, OperationalError
 from application import db
-from enum import IntEnum
+try:
+    from enum import IntFlag
+except ImportError:
+    from enum import IntEnum as IntFlag
 from flask_login import UserMixin
 
 
-class Role(IntEnum):
+class Role(IntFlag):
     """
     Enum used to represent user role.
     The model provide multi role support
@@ -138,9 +141,7 @@ class User(BaseModel, UserMixin):
 
 
 class UserOrg(BaseModel):
-    """
-    Linking object for many-to-many relationship
-    """
+    """Linking object for many-to-many relationship."""
     user = ForeignKeyField(User, on_delete="CASCADE")
     org = ForeignKeyField(Organisation, index=True,
                           on_delete="CASCADE", verbose_name="Organisation")
@@ -188,9 +189,7 @@ class User_Organisation_affiliation(BaseModel):
 
 
 def create_tables():
-    """
-    Create all DB tables
-    """
+    """Create all DB tables."""
     try:
         db.connect()
     except OperationalError:
@@ -200,9 +199,10 @@ def create_tables():
 
 
 def drop_tables():
-    """
-    Drop all model tables
-    """
-    models = (m for m in globals().values() if isinstance(
-        m, type) and issubclass(m, BaseModel))
-    drop_model_tables(models, fail_silently=True, cascade=True)
+    """Drop all model tables."""
+    for m in (Organisation, User, UserOrg, OrcidToken, User_Organisation_affiliation):
+        if m.table_exists():
+            try:
+                m.drop_table(fail_silently=True, cascade=db.drop_cascade)
+            except peewee.OperationalError:
+                pass
