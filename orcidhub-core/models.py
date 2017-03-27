@@ -6,6 +6,30 @@ try:
 except ImportError:
     from enum import IntEnum as IntFlag
 from flask_login import UserMixin
+from collections import namedtuple
+
+
+class PartialDate(namedtuple("PartialDate", ["year", "month", "day"])):
+    """Partial date (without month day or both moth and month day."""
+
+    def as_orcid_dict(self):
+        """Return ORCID dictionry representation of the partial date."""
+        return dict(((f, None if v is None  else {"value": v}) for (f, v) in zip(self._fields, self)))
+
+    @classmethod
+    def create(cls, dict_value):
+        """Create a partial date form ORCID dictionary representation.
+
+        >>> PartialDate.create({"year": {"value": "2003"}}).as_orcid_dict()
+        {'year': {'value': '2003'}, 'month': None, 'day': None}
+
+        >>> PartialDate.create({"year": {"value": "2003"}}).year
+        '2003'
+        """
+        return cls(**{k: v.get("value") if v else None for k, v in dict_value.items()})
+
+
+PartialDate.__new__.__defaults__ = (None,) * len(PartialDate._fields)
 
 
 class Role(IntFlag):

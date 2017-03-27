@@ -1,7 +1,7 @@
 import pytest
 from peewee import SqliteDatabase, OperationalError
 from itertools import product
-from models import User, Organisation, UserOrg, Role, drop_talbes, create_tables
+from models import PartialDate, User, Organisation, UserOrg, Role, drop_talbes, create_tables
 from playhouse.test_utils import test_database
 
 @pytest.fixture
@@ -152,3 +152,12 @@ def test_create_tables(test_models):
     assert User.table_exists()
     assert Organisation.table_exists()
     assert UserOrg.table_exists()
+
+
+def test_partial_date():
+    pd = PartialDate.create({"year": {"value": "2003"}})
+    assert pd.as_orcid_dict() == {'year': {'value': '2003'}, 'month': None, 'day': None}
+    assert pd.year == '2003'
+    pd = PartialDate.create({"year": {"value": "2003"}, "month": {"value": 7}, "day": {"value": 31}})
+    assert pd.as_orcid_dict() == {'year': {'value': '2003'}, 'month': {"value": 7}, 'day': {"value": 31}}
+    assert pd.year == '2003' and pd.month == 7 and pd.day == 31
