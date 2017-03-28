@@ -1,5 +1,10 @@
-from peewee import Model, CharField, BooleanField, SmallIntegerField, ForeignKeyField, TextField, CompositeKey
-from peewee import drop_model_tables, OperationalError
+# -*- coding: utf-8 -*-
+
+"""Application models."""
+
+from peewee import (
+    Model, CharField, BooleanField, SmallIntegerField,
+    ForeignKeyField, TextField, CompositeKey, Field, OperationalError)
 from application import db
 try:
     from enum import IntFlag
@@ -7,6 +12,7 @@ except ImportError:
     from enum import IntEnum as IntFlag
 from flask_login import UserMixin
 from collections import namedtuple
+from itertools import zip_longest
 
 
 class PartialDate(namedtuple("PartialDate", ["year", "month", "day"])):
@@ -14,7 +20,7 @@ class PartialDate(namedtuple("PartialDate", ["year", "month", "day"])):
 
     def as_orcid_dict(self):
         """Return ORCID dictionry representation of the partial date."""
-        return dict(((f, None if v is None  else {"value": v}) for (f, v) in zip(self._fields, self)))
+        return dict(((f, None if v is None else {"value": v}) for (f, v) in zip(self._fields, self)))
 
     @classmethod
     def create(cls, dict_value):
@@ -26,10 +32,37 @@ class PartialDate(namedtuple("PartialDate", ["year", "month", "day"])):
         >>> PartialDate.create({"year": {"value": "2003"}}).year
         '2003'
         """
+        if dict_value is None:
+            return None
         return cls(**{k: v.get("value") if v else None for k, v in dict_value.items()})
 
 
 PartialDate.__new__.__defaults__ = (None,) * len(PartialDate._fields)
+
+class PartialDateField(Field):
+    """Partial date custom DB data field mapped to varchar(10)."""
+
+    db_field = 'varchar(10)'
+
+    def db_value(self, value):
+        """Convert into partial ISO date textual representation: YYYY, YYYY-MM, or YYYY-MM-DD."""
+        if value is None or not value.year:
+            return None
+        else:
+            res = "%04d" % int(value.year)
+            if value.month:
+                res += "-%02d" % int(value.month)
+            else:
+                return res
+            return res + "-%02d" % int(value.day) if value.day else res
+
+    def python_value(self, value):
+        """Parse partial ISO date textual representation."""
+        if value is None:
+            return None
+
+        parts = value.split("-")
+        return PartialDate(**dict(zip_longest(("year", "month", "day",), parts)))
 
 
 class Role(IntFlag):
@@ -200,5 +233,5 @@ def drop_talbes():
         if m.table_exists():
             try:
                 m.drop_table(fail_silently=True, cascade=db.drop_cascade)
-            except peewee.OperationalError:
+            except OperationalError:
                 pass
