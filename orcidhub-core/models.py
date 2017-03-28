@@ -22,7 +22,9 @@ class PartialDate(namedtuple("PartialDate", ["year", "month", "day"])):
 
     def as_orcid_dict(self):
         """Return ORCID dictionry representation of the partial date."""
-        return dict(((f, None if v is None else {"value": v}) for (f, v) in zip(self._fields, self)))
+        return dict(
+            ((f, None if v is None else {"value": ("%04d" if f == "year" else "%02d") % v})
+                for (f, v) in zip(self._fields, self)))
 
     @classmethod
     def create(cls, dict_value):
