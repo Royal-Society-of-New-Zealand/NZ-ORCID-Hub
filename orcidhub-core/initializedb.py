@@ -1,7 +1,7 @@
 import models
 from models import Organisation, User, Role
 
-models.drop_talbes()
+models.drop_tables()
 models.create_tables()
 
 org0 = Organisation(

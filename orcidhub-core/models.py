@@ -4,7 +4,9 @@
 
 from peewee import (
     Model, CharField, BooleanField, SmallIntegerField,
-    ForeignKeyField, TextField, CompositeKey, Field, OperationalError)
+    ForeignKeyField, TextField, CompositeKey, Field, OperationalError,
+    DateTimeField, datetime)
+
 from application import db
 try:
     from enum import IntFlag
@@ -46,6 +48,7 @@ class PartialDateField(Field):
 
     def db_value(self, value):
         """Convert into partial ISO date textual representation: YYYY, YYYY-MM, or YYYY-MM-DD."""
+
         if value is None or not value.year:
             return None
         else:
@@ -88,7 +91,6 @@ class Role(IntFlag):
 
 
 class BaseModel(Model):
-
     class Meta:
         database = db
 
@@ -135,11 +137,7 @@ class User(BaseModel, UserMixin):
     edu_person_shared_token = CharField(
         max_length=120, unique=True, verbose_name="EDU Person Shared Token", null=True)
     # ORCiD:
-    orcid = CharField(max_length=120, unique=True,
-                      verbose_name="ORCID", null=True)
-    access_token = CharField(max_length=120, unique=True, null=True)
-    token_type = TextField(null=True)
-    refresh_token = TextField(null=True)
+    orcid = CharField(max_length=120, unique=True, verbose_name="ORCID", null=True)
     confirmed = BooleanField(default=False)
     # Role bit-map:
     roles = SmallIntegerField(default=0)
@@ -208,6 +206,7 @@ class UserOrg(BaseModel):
 
     is_admin = BooleanField(
         default=False, help_text="User is an administrator for the organisation")
+
     # TODO: the access token should be either here or in a saparate list
     # access_token = CharField(max_length=120, unique=True, null=True)
 
@@ -217,19 +216,47 @@ class UserOrg(BaseModel):
         primary_key = CompositeKey("user", "org")
 
 
+class OrcidToken(BaseModel):
+    """
+    For Keeping Orcid token in the table.
+    """
+    user = ForeignKeyField(User)
+    org = ForeignKeyField(Organisation, index=True, verbose_name="Organisation")
+    scope = TextField(null=True)
+    access_token = CharField(max_length=36, unique=True, null=True)
+    issue_time = DateTimeField(default=datetime.datetime.now)
+    refresh_token = CharField(max_length=36, unique=True, null=True)
+    expires_in = SmallIntegerField(default=0)
+
+
+class User_Organisation_affiliation(BaseModel):
+    """
+    For Keeping the information about the affiliation
+    """
+    user = ForeignKeyField(User)
+    organisation = ForeignKeyField(Organisation, index=True, verbose_name="Organisation")
+    start_date = PartialDateField(null=True)
+    end_date = PartialDateField(null=True)
+    department_name = TextField(null=True)
+    department_city = TextField(null=True)
+    role_title = TextField(null=True)
+    put_code = SmallIntegerField(default=0, null=True)
+    path = TextField(null=True)
+
+
 def create_tables():
     """Create all DB tables."""
     try:
         db.connect()
     except OperationalError:
         pass
-    models = (Organisation, User, UserOrg)
+    models = (Organisation, User, UserOrg, OrcidToken, User_Organisation_affiliation)
     db.create_tables(models)
 
 
-def drop_talbes():
+def drop_tables():
     """Drop all model tables."""
-    for m in (Organisation, User, UserOrg):
+    for m in (Organisation, User, UserOrg, OrcidToken, User_Organisation_affiliation):
         if m.table_exists():
             try:
                 m.drop_table(fail_silently=True, cascade=db.drop_cascade)

@@ -34,7 +34,8 @@ client_secret = environ.get("ORCID_CLIENT_SECRET")
 # Change the URL as per the enviornment
 authorization_base_url = 'https://sandbox.orcid.org/oauth/authorize'
 token_url = 'https://pub.sandbox.orcid.org/oauth/token'
-scope = ['/authenticate']
+scope_read_limited = ['/read-limited']
+scope_activities_update = ['/activities/update']
 
 # Application redirect URL:
 redirect_uri = "https://" + environ.get("ENV", "dev") + ".orcidhub.org.nz/auth"

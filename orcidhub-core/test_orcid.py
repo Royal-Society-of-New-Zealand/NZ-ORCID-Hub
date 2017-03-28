@@ -3,13 +3,12 @@
 """Tests related to ORCID affilation."""
 
 import requests_oauthlib
-from models import User, Organisation, UserOrg
+from models import User, Organisation, UserOrg, OrcidToken
 from flask_login import login_user
 import pytest
 from unittest.mock import patch, MagicMock
 import time
 from flask import url_for
-
 
 fake_time = time.time()
 
@@ -26,6 +25,7 @@ def test_link(request_ctx):
             username="test123",
             organisation=org,
             confirmed=True)
+        test_user.save()
         login_user(test_user, remember=True)
 
         rv = ctx.app.full_dispatch_request()
@@ -39,11 +39,15 @@ def test_link(request_ctx):
 def test_link_with_unconfirmed_org(request_ctx):
     """Test a user affiliation initialization if the user Organisation isn't registered yet."""
     with request_ctx("/link") as ctx:
+        org = Organisation(name="THE ORGANISATION", confirmed=False, orcid_client_id="Test Client id")
+        org.save()
         test_user = User(
             name="TEST USER",
             email="test@test.test.net",
             username="test42",
-            confirmed=True)
+            confirmed=True,
+            organisation=org)
+        test_user.save()
         login_user(test_user, remember=True)
 
         rv = ctx.app.full_dispatch_request()
@@ -58,7 +62,7 @@ def test_link_with_unconfirmed_org(request_ctx):
 def test_link_already_affiliated(request_ctx):
     """Test a user affiliation initialization if the uerer is already affilated."""
     with request_ctx("/link") as ctx:
-        org = Organisation(name="THE ORGANISATION", confirmed=True)
+        org = Organisation(name="THE ORGANISATION", confirmed=True, orcid_client_id="ABC123")
         org.save()
         test_user = User(
             email="test123@test.test.net",
@@ -68,6 +72,20 @@ def test_link_already_affiliated(request_ctx):
             orcid="ABC123",
             confirmed=True)
         test_user.save()
+        orcidtoken = OrcidToken(
+            user=test_user,
+            org=org,
+            scope="/read-limited",
+            access_token="ABC1234"
+        )
+        orcidtokenWrite = OrcidToken(
+            user=test_user,
+            org=org,
+            scope="/activities/update",
+            access_token="ABC234"
+        )
+        orcidtoken.save()
+        orcidtokenWrite.save()
         login_user(test_user, remember=True)
         uo = UserOrg(user=test_user, org=org)
         uo.save()
@@ -81,12 +99,15 @@ def test_link_already_affiliated(request_ctx):
 @patch.object(requests_oauthlib.OAuth2Session, "fetch_token", lambda self, *args, **kwargs: dict(
     name="NEW TEST",
     access_token="ABC123",
-    orcid="ABC-123-456-789"))
+    orcid="ABC-123-456-789",
+    scope=['/read-limited'],
+    refresh_token="ABC1235"))
 def test_link_orcid_auth_callback(name, request_ctx):
     """Test ORCID callback - the user authorized the organisation access to the ORCID profile."""
     with request_ctx("/auth") as ctx:
         org = Organisation(name="THE ORGANISATION", confirmed=True)
         org.save()
+
         test_user = User(
             name=name,
             email="test123@test.test.net",
@@ -94,6 +115,14 @@ def test_link_orcid_auth_callback(name, request_ctx):
             organisation=org,
             orcid="ABC123",
             confirmed=True)
+        test_user.save()
+        orcidtoken = OrcidToken(
+            user=test_user,
+            org=org,
+            scope="/read-limited",
+            access_token="ABC1234"
+        )
+        orcidtoken.save()
         login_user(test_user, remember=True)
 
         rv = ctx.app.full_dispatch_request()
@@ -101,8 +130,9 @@ def test_link_orcid_auth_callback(name, request_ctx):
         assert "profile" in rv.location, "redirection to 'profile' showing the ORCID"
 
         u = User.get(username="test123")
+        orcidtoken = OrcidToken.get(user=u)
         assert u.orcid == "ABC-123-456-789"
-        assert u.access_token == "ABC123"
+        assert orcidtoken.access_token == "ABC1234"
         if name:
             assert u.name == name, "The user name should be changed"
         else:
@@ -129,6 +159,13 @@ def test_profile(request_ctx):
             organisation=org,
             orcid="ABC123",
             confirmed=True)
+        test_user.save()
+        orcidtoken = OrcidToken(
+            user=test_user,
+            org=org,
+            scope="/read-limited",
+            access_token="ABC1234")
+        orcidtoken.save()
         login_user(test_user, remember=True)
 
         rv = ctx.app.full_dispatch_request()
@@ -147,6 +184,7 @@ def test_profile_wo_orcid(request_ctx):
             organisation=org,
             orcid=None,
             confirmed=True)
+        test_user.save()
         login_user(test_user, remember=True)
 
         rv = ctx.app.full_dispatch_request()
