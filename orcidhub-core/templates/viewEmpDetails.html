@@ -1,0 +1,34 @@
+{% extends "layout.html" %}
+{% block content %}
+
+<h1>Employment Details for {{ userName }}</h1>
+
+<div class="panel-group" id="accordion">
+
+
+    {% for empdetail in empdetails %}
+    <div class="panel panel-primary">
+        <div class="panel-heading">
+            <h4 class="panel-title">
+                <a class="accordion-toggle" data-toggle="collapse" data-parent="#accordion" href="#collapse{{ empdetail['put-code'] }}">
+                    {{ empdetail['put-code'] }}
+                </a>
+            </h4>
+        </div>
+        <div id="collapse{{ empdetail['put-code'] }}" class="panel-collapse collapse in">
+            <div class="panel-body">
+                <center>
+                    <p> Department Name: {{empdetail['department-name'] }} </p>
+                    <p>Start Date: {{empdetail['start-date']['year']['value'] }}/{{empdetail['start-date']['month']['value'] }}/{{empdetail['start-date']['day']['value'] }}</p>
+                    <p>End Date: {{empdetail['end-date']['year']['value'] }}/{{empdetail['end-date']['month']['value'] }}/{{empdetail['end-date']['day']['value'] }}</p>
+                    <p>Role Title: {{empdetail['role-title'] }}</p>
+                    <a role="button" class="btn btn-info" href="/editempdetails?putcode={{ empdetail['put-code'] }}&email={{ userEmail }}&organisationId={{ organisationId }}">Edit Detail</a>
+                </center>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+{% endblock %}
+
