@@ -5,11 +5,14 @@
 from flask_wtf import FlaskForm
 from wtforms import StringField, SelectField, validators, Field
 from wtforms.widgets import HTMLString, html_params
-from wtforms.utils import unset_value
 from pycountry import countries
 from datetime import date
 from models import PartialDate as PD
 
+# Order the countly list by the name and add a default (Null) value
+country_choices = [(c.alpha_2, c.name) for c in countries]
+country_choices.sort(key=lambda e: e[1])
+country_choices.insert(0, ("", "Country"))
 
 class PartialDate:
     """Widget for a partical date with 3 selectors (year, month, day)."""
@@ -81,10 +84,10 @@ class PartialDateField(Field):
 class EmploymentForm(FlaskForm):
     """User/researcher employment detail form."""
 
-    employer = StringField("Institution/employer", [validators.required()])
+    name = StringField("Institution/employer", [validators.required()])
     city = StringField("City", [validators.required()])
     state = StringField("State/region")
-    country = SelectField("Country", [validators.required()], choices=[(c.alpha_2, c.name) for c in countries])
+    country = SelectField("Country", [validators.required()], choices=country_choices)
     department = StringField("Department")
     role = StringField("Role/title")
     # TODO: Change to partial date (with dropdowns) widgets

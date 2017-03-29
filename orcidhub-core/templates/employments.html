@@ -3,7 +3,7 @@
   <div class="table-responsive">          
     <table class="table table-striped table-bordered table-hover model-list">
       <thead>
-        <tr>
+        <tr class="info">
           <th class="list-checkbox-column">
             <input type="checkbox" name="rowtoggle" class="action-rowtoggle" title="Select all records">
           </th>
@@ -32,9 +32,8 @@
               <a class="icon" href="{{url_for('employment', user_id=user_id, put_code=r['put-code']) }}?url={{url_for('employment_list', user_id=user_id)}}" title="Edit Record">
                 <span class="fa fa-pencil glyphicon glyphicon-pencil"></span>
               </a>
-              <form class="icon" method="POST" action="delete/">
-                <input id="put-code" name="put-code" type="hidden" value="{{r['put-code']}}">
-                <input id="url" name="url" type="hidden" value="?sort=5&amp;desc=1">
+              <form class="icon" method="POST" action="{{url_for('delete_employment', user_id=user_id, put_code=r['put-code'])}}">
+                <input id="put-code" name="put_code" type="hidden" value="{{r['put-code']}}">
                 <button onclick="return safeConfirm('Are you sure you want to delete this record?');" title="Delete record">
                   <span class="fa fa-trash glyphicon glyphicon-trash"></span>
                 </button>
@@ -52,5 +51,6 @@
         {% endfor %}
       </tbody>
     </table>
+    <a role="button" class="btn btn-primary pull-right" href="{{url_for('employment', user_id=user_id)}}">New...</a>
   </div>
 {% endblock %}

@@ -20,6 +20,7 @@
 }
 
 .model-list form.icon button {
+    color: #337ab7;
     border: none;
     background: transparent;
     text-decoration: none;
@@ -30,4 +31,3 @@
 .model-list a.icon:first-child {
     margin-left: 10px;
 }
-

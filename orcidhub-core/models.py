@@ -107,6 +107,7 @@ class Organisation(BaseModel):
     orcid_client_id = CharField(max_length=80, unique=True, null=True)
     orcid_secret = CharField(max_length=80, unique=True, null=True)
     confirmed = BooleanField(default=False)
+    country = CharField(null=True)
 
     @property
     def users(self):
@@ -237,6 +238,7 @@ class User_Organisation_affiliation(BaseModel):
     """
     user = ForeignKeyField(User)
     organisation = ForeignKeyField(Organisation, index=True, verbose_name="Organisation")
+    name = TextField(null=True, verbose_name="Institution/employer")
     start_date = PartialDateField(null=True)
     end_date = PartialDateField(null=True)
     department_name = TextField(null=True)

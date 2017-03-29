@@ -9,9 +9,9 @@ from application import app, admin
 from flask_admin.contrib.peewee import ModelView
 from models import User, Organisation, Role, OrcidToken, User_Organisation_affiliation, PartialDate as PD
 from flask_login import login_required, current_user
+from login_provider import roles_required
 from forms import EmploymentForm
 from config import ORCID_API_BASE, scope_activities_update, scope_read_limited
-import requests
 from collections import namedtuple
 import time
 from requests_oauthlib import OAuth2Session
@@ -27,6 +27,7 @@ class AppModelView(ModelView):
     """ModelView customization."""
 
     def is_accessible(self):
+        """Verify if the view is accessible for the current user."""
         if not current_user.is_active or not current_user.is_authenticated:
             return False
 
@@ -36,7 +37,7 @@ class AppModelView(ModelView):
         return False
 
     def inaccessible_callback(self, name, **kwargs):
-        # redirect to login page if user doesn't have access
+        """Handle access denial. Redirect to login page if user doesn't have access."""
         return redirect(url_for('login', next=request.url))
 
 
@@ -46,7 +47,7 @@ admin.add_view(AppModelView(Organisation))
 HEADERS = {"Authorization": "Bearer fc38a9f5-85c2-4003-9e60-2c215b90f2a1", "Accept": "application/json"}
 EmpRecord = namedtuple(
     "EmpRecord",
-    ["employer", "city", "state", "country", "department", "role", "start_date", "end_date"])
+    ["name", "city", "state", "country", "department", "role", "start_date", "end_date"])
 
 
 @app.template_filter('emp_years')
@@ -67,13 +68,43 @@ def emp_years(entry):
     return val
 
 
-@app.route("/<int:user_id>/emp/<string:put_code>/edit", methods=["GET", "POST"])
-@app.route("/<int:user_id>/emp/new", methods=["GET", "POST"])
-@login_required
-def employment(user_id, put_code=None):
+@app.route("/<int:user_id>/emp/<int:put_code>/delete", methods=["POST"])
+@roles_required(Role.ADMIN)
+def delete_employment(user_id, put_code=None):
+    """Delete an employment record."""
+    _url = request.args.get('url') or request.referrer or url_for("employment_list", user_id=user_id)
+    if put_code is None and "put_code" in request.form:
+        put_code = request.form.get("put_code")
     user = User.get(id=user_id)
     if not user.orcid:
         flash("The user does't have ORDID", "error")
+        return redirect(_url)
+
+    orcidToken = None
+
+    try:
+        orcidToken = OrcidToken.get(user=user, org=user.organisation, scope=scope_activities_update)
+    except:
+        flash("The user hasn't authorized you to Add records", "warning")
+        return redirect(_url)
+    client = OAuth2Session(user.organisation.orcid_client_id, token={"access_token": orcidToken.access_token})
+    url = ORCID_API_BASE + user.orcid + "/employment/%d" % put_code
+    resp = client.delete(url)
+    if resp.status_code == 204:
+        flash("Employment record successfully deleted.", "success")
+    return redirect(_url)
+
+
+@app.route("/<int:user_id>/emp/<int:put_code>/edit", methods=["GET", "POST"])
+@app.route("/<int:user_id>/emp/new", methods=["GET", "POST"])
+@roles_required(Role.ADMIN)
+def employment(user_id, put_code=None):
+    """Create a new or edit an existing employment record."""
+    _url = request.args.get('url') or url_for("employment_list", user_id=user_id)
+    user = User.get(id=user_id)
+    if not user.orcid:
+        flash("The user does't have ORDID", "error")
+        return redirect(_url)
 
     orcidToken = None
 
@@ -87,11 +118,11 @@ def employment(user_id, put_code=None):
 
     # TODO: handle "new"...
     if put_code is not None:
-        resp = client.get(ORCID_API_BASE + user.orcid + "/employment/" + put_code, headers=headers)
+        resp = client.get(ORCID_API_BASE + user.orcid + "/employment/%d" % put_code, headers=headers)
         _data = resp.json()
 
         data = EmpRecord(
-            employer=_data.get("organization").get("name"),
+            name=_data.get("organization").get("name"),
             city=_data.get("organization").get("address").get("city", ""),
             state=_data.get("organization").get("address").get("region", ""),
             country=_data.get("organization").get("address").get("country", ""),
@@ -103,12 +134,17 @@ def employment(user_id, put_code=None):
         data = None
 
     form = EmploymentForm(request.form, obj=data)
+    # TODO: prefill the form from the organisation data
+    if not form.name.data:
+        form.name.data = current_user.organisation.name
+    if not form.country.data or form.country.data == "None":
+        form.country.data = current_user.organisation.country
+
     if request.method == "POST" and form.validate():
-        _url = request.args.get('url') or url_for("employment_list", user_id=user_id)
-        # TODO: Update ORCID
-        # TODO: Redirect to the list
         # TODO: Audit trail
         # TODO: Utilise generted client code
+        # TODO: If it's guarantee that the record will be editited solely by a sigle token we can
+        # cache the record in the local DB
         payload = {
             "department-name": form.department.data,
             "start-date": form.start_date.data.as_orcid_dict(),
@@ -134,7 +170,7 @@ def employment(user_id, put_code=None):
             "path": "",
             "organization": {
                 "disambiguated-organization": None,
-                "name": form.employer.data,
+                "name": form.name.data,
                 "address": {
                     "city": form.city.data,
                     "region": form.state.data,
@@ -143,32 +179,47 @@ def employment(user_id, put_code=None):
             },
             "role-title": form.role.data
         }
-        resp = client.post('https://api.sandbox.orcid.org/v2.0/' + user.orcid + '/employment',
-                           headers=headers, json=payload)
+        if put_code:
+            payload["put-code"] = put_code
+
+        if current_user.organisation.name != form.name.data:
+            payload["organization"]["disambiguated-organization"] = {
+                "disambiguated-organization-identifier": current_user.organisation.name,
+                "disambiguation-source": current_user.organisation.name
+            }
+
+        url = ORCID_API_BASE + user.orcid + "/employment"
+        if put_code:
+            url += "/%d" % put_code
+        if put_code:
+            resp = client.put(url, headers=headers, json=payload)
+        else:
+            resp = client.post(url, headers=headers, json=payload)
         if (resp.status_code == 200 or resp.status_code == 201):
-            affiliation = User_Organisation_affiliation.create(
-                user=user,
-                organisation=user.organisation,
-                start_date=form.start_date.data,
-                end_date=form.end_date.data,
-                department_name=form.department.data,
-                department_city=form.city.data,
-                role_title=form.role.data,
-                put_code=int(resp.headers['Location'].rsplit('/', 1)[-1]),
-                path=resp.headers['Location'])
+            affiliation, _ = User_Organisation_affiliation.get_or_create(
+                user=user, organisation=user.organisation, put_code=put_code)
+            form.populate_obj(affiliation)
+            if put_code:
+                affiliation.put_code = put_code
+            else:
+                affiliation.path = resp.headers['Location']
+                affiliation.put_code = int(resp.headers['Location'].rsplit('/', 1)[-1])
             affiliation.save()
-            flash("""Employment Details has been added successfully!!""", "success")
+            if put_code:
+                flash("Employment Details has been updated successfully!", "success")
+            else:
+                flash("Employment Details has been added successfully!", "success")
             return redirect(_url)
         else:
             flash([resp.json(), payload])
-    return render_template("employment.html", form=form)
+    return render_template("employment.html", form=form, _url=_url)
 
 
 @app.route("/<int:user_id>/emp/list")
 @app.route("/<int:user_id>/emp")
 @login_required
 def employment_list(user_id):
-
+    """Show all user employment list."""
     user = User.get(id=user_id)
     if not user.orcid:
         flash("The user does't have ORDID", "error")
@@ -186,11 +237,7 @@ def employment_list(user_id):
     resp = client.get('https://api.sandbox.orcid.org/v2.0/' + user.orcid + '/employments', headers=headers)
     # TODO: Organisation has read token
     # TODO: Organisation has access to the employment records
-
     # TODO: retrieve and tranform for presentation (order, etc)
-    ## resp = requests.get(ORCID_API_BASE + user.orcid + "/employments", headers=HEADERS)
     data = resp.json()
     # TODO: transform data for presentation:
-    # for r in data["employment-summary"]:
-    #    pass
     return render_template("employments.html", data=data, user_id=user_id)
