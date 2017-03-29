@@ -16,6 +16,8 @@ from collections import namedtuple
 import time
 from requests_oauthlib import OAuth2Session
 
+HEADERS = {'Accept': 'application/vnd.orcid+json', 'Content-type': 'application/vnd.orcid+json'}
+
 @app.route('/pyinfo')
 @login_required
 def pyinfo():
@@ -44,7 +46,6 @@ class AppModelView(ModelView):
 admin.add_view(AppModelView(User))
 admin.add_view(AppModelView(Organisation))
 
-HEADERS = {"Authorization": "Bearer fc38a9f5-85c2-4003-9e60-2c215b90f2a1", "Accept": "application/json"}
 EmpRecord = namedtuple(
     "EmpRecord",
     ["name", "city", "state", "country", "department", "role", "start_date", "end_date"])
@@ -89,9 +90,12 @@ def delete_employment(user_id, put_code=None):
         return redirect(_url)
     client = OAuth2Session(user.organisation.orcid_client_id, token={"access_token": orcidToken.access_token})
     url = ORCID_API_BASE + user.orcid + "/employment/%d" % put_code
-    resp = client.delete(url)
+    resp = client.delete(url, headers=HEADERS)
     if resp.status_code == 204:
         flash("Employment record successfully deleted.", "success")
+    else:
+        message = resp.json().get("user-message") or resp.state
+        flash("Failed to delete the entry: %s" % message, "danger")
     return redirect(_url)
 
 
@@ -118,7 +122,7 @@ def employment(user_id, put_code=None):
 
     # TODO: handle "new"...
     if put_code is not None:
-        resp = client.get(ORCID_API_BASE + user.orcid + "/employment/%d" % put_code, headers=headers)
+        resp = client.get(ORCID_API_BASE + user.orcid + "/employment/%d" % put_code, headers=HEADERS)
         _data = resp.json()
 
         data = EmpRecord(
@@ -192,9 +196,9 @@ def employment(user_id, put_code=None):
         if put_code:
             url += "/%d" % put_code
         if put_code:
-            resp = client.put(url, headers=headers, json=payload)
+            resp = client.put(url, headers=HEADERS, json=payload)
         else:
-            resp = client.post(url, headers=headers, json=payload)
+            resp = client.post(url, headers=HEADERS, json=payload)
         if (resp.status_code == 200 or resp.status_code == 201):
             affiliation, _ = User_Organisation_affiliation.get_or_create(
                 user=user, organisation=user.organisation, put_code=put_code)
@@ -211,7 +215,8 @@ def employment(user_id, put_code=None):
                 flash("Employment Details has been added successfully!", "success")
             return redirect(_url)
         else:
-            flash([resp.json(), payload])
+            message = resp.json().get("user-message") or resp.state
+            flash("Failed to update the entry: %s. You don't have required permission to edit the record." % message, "danger")
     return render_template("employment.html", form=form, _url=_url)
 
 
@@ -233,8 +238,7 @@ def employment_list(user_id):
 
     client = OAuth2Session(user.organisation.orcid_client_id, token={"access_token": orcidToken.access_token})
 
-    headers = {'Accept': 'application/vnd.orcid+json'}
-    resp = client.get('https://api.sandbox.orcid.org/v2.0/' + user.orcid + '/employments', headers=headers)
+    resp = client.get('https://api.sandbox.orcid.org/v2.0/' + user.orcid + '/employments', headers=HEADERS)
     # TODO: Organisation has read token
     # TODO: Organisation has access to the employment records
     # TODO: retrieve and tranform for presentation (order, etc)
