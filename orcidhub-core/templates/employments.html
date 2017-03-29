@@ -40,7 +40,12 @@
               </form>
             </td>
 
-            <td>{{r["organization"]["name"]}}</td>
+            <td>
+              {{r["organization"]["name"]}}<br/>
+                  <span class="small">
+                    Source: {{r["source"]["source-name"]["value"]}}
+                </span>
+            </td>
             <td>{{r["organization"]["address"].get("city")|default("", True)}}</td>
             <td>{{r["organization"]["address"].get("region", "")|default("", True)}}</td>
             <td>{{r["organization"]["address"].get("country", "")}}</td>
