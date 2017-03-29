@@ -34,11 +34,11 @@ class PartialDate(namedtuple("PartialDate", ["year", "month", "day"])):
         {'year': {'value': '2003'}, 'month': None, 'day': None}
 
         >>> PartialDate.create({"year": {"value": "2003"}}).year
-        '2003'
+        2003
         """
         if dict_value is None:
             return None
-        return cls(**{k: v.get("value") if v else None for k, v in dict_value.items()})
+        return cls(**{k: int(v.get("value")) if v else None for k, v in dict_value.items()})
 
 
 PartialDate.__new__.__defaults__ = (None,) * len(PartialDate._fields)
