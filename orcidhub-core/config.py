@@ -3,10 +3,13 @@
 """Application configuration."""
 
 from os import environ
+ENV = environ.get("ENV", "dev")
 
 authorization_base_url = 'https://sandbox.orcid.org/oauth/authorize'
 token_url = 'https://pub.sandbox.orcid.org/oauth/token'
 scope = ['/authenticate']
+
+ORCID_API_BASE = "https://api.sandbox.orcid.org/v2.0/" if ENV != "prod" else "https://api.orcid.org/v2.0/"
 
 # Application redirect URL:
 redirect_uri = "https://" + environ.get("ENV", "dev") + ".orcidhub.org.nz/auth"
