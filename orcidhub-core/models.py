@@ -1,11 +1,75 @@
-from peewee import Model, CharField, BooleanField, SmallIntegerField, ForeignKeyField, TextField, CompositeKey
-from peewee import drop_model_tables, OperationalError
+# -*- coding: utf-8 -*-
+
+"""Application models."""
+
+from peewee import (
+    Model, CharField, BooleanField, SmallIntegerField,
+    ForeignKeyField, TextField, CompositeKey, Field, OperationalError,
+    DateTimeField, datetime)
+
 from application import db
 try:
     from enum import IntFlag
 except ImportError:
     from enum import IntEnum as IntFlag
 from flask_login import UserMixin
+from collections import namedtuple
+from itertools import zip_longest
+
+
+class PartialDate(namedtuple("PartialDate", ["year", "month", "day"])):
+    """Partial date (without month day or both moth and month day."""
+
+    def as_orcid_dict(self):
+        """Return ORCID dictionry representation of the partial date."""
+        if self.year is None and self.month is None and self.day is None:
+            return None
+        return dict(
+            ((f, None if v is None else {"value": ("%04d" if f == "year" else "%02d") % v})
+                for (f, v) in zip(self._fields, self)))
+
+    @classmethod
+    def create(cls, dict_value):
+        """Create a partial date form ORCID dictionary representation.
+
+        >>> PartialDate.create({"year": {"value": "2003"}}).as_orcid_dict()
+        {'year': {'value': '2003'}, 'month': None, 'day': None}
+
+        >>> PartialDate.create({"year": {"value": "2003"}}).year
+        2003
+        """
+        if dict_value is None:
+            return None
+        return cls(**{k: int(v.get("value")) if v else None for k, v in dict_value.items()})
+
+
+PartialDate.__new__.__defaults__ = (None,) * len(PartialDate._fields)
+
+class PartialDateField(Field):
+    """Partial date custom DB data field mapped to varchar(10)."""
+
+    db_field = 'varchar(10)'
+
+    def db_value(self, value):
+        """Convert into partial ISO date textual representation: YYYY, YYYY-MM, or YYYY-MM-DD."""
+
+        if value is None or not value.year:
+            return None
+        else:
+            res = "%04d" % int(value.year)
+            if value.month:
+                res += "-%02d" % int(value.month)
+            else:
+                return res
+            return res + "-%02d" % int(value.day) if value.day else res
+
+    def python_value(self, value):
+        """Parse partial ISO date textual representation."""
+        if value is None:
+            return None
+
+        parts = value.split("-")
+        return PartialDate(**dict(zip_longest(("year", "month", "day",), parts)))
 
 
 class Role(IntFlag):
@@ -31,7 +95,6 @@ class Role(IntFlag):
 
 
 class BaseModel(Model):
-
     class Meta:
         database = db
 
@@ -46,6 +109,7 @@ class Organisation(BaseModel):
     orcid_client_id = CharField(max_length=80, unique=True, null=True)
     orcid_secret = CharField(max_length=80, unique=True, null=True)
     confirmed = BooleanField(default=False)
+    country = CharField(null=True)
 
     @property
     def users(self):
@@ -78,11 +142,7 @@ class User(BaseModel, UserMixin):
     edu_person_shared_token = CharField(
         max_length=120, unique=True, verbose_name="EDU Person Shared Token", null=True)
     # ORCiD:
-    orcid = CharField(max_length=120, unique=True,
-                      verbose_name="ORCID", null=True)
-    access_token = CharField(max_length=120, unique=True, null=True)
-    token_type = TextField(null=True)
-    refresh_token = TextField(null=True)
+    orcid = CharField(max_length=120, unique=True, verbose_name="ORCID", null=True)
     confirmed = BooleanField(default=False)
     # Role bit-map:
     roles = SmallIntegerField(default=0)
@@ -151,6 +211,7 @@ class UserOrg(BaseModel):
 
     is_admin = BooleanField(
         default=False, help_text="User is an administrator for the organisation")
+
     # TODO: the access token should be either here or in a saparate list
     # access_token = CharField(max_length=120, unique=True, null=True)
 
@@ -160,21 +221,50 @@ class UserOrg(BaseModel):
         primary_key = CompositeKey("user", "org")
 
 
+class OrcidToken(BaseModel):
+    """
+    For Keeping Orcid token in the table.
+    """
+    user = ForeignKeyField(User)
+    org = ForeignKeyField(Organisation, index=True, verbose_name="Organisation")
+    scope = TextField(null=True)
+    access_token = CharField(max_length=36, unique=True, null=True)
+    issue_time = DateTimeField(default=datetime.datetime.now)
+    refresh_token = CharField(max_length=36, unique=True, null=True)
+    expires_in = SmallIntegerField(default=0)
+
+
+class User_Organisation_affiliation(BaseModel):
+    """
+    For Keeping the information about the affiliation
+    """
+    user = ForeignKeyField(User)
+    organisation = ForeignKeyField(Organisation, index=True, verbose_name="Organisation")
+    name = TextField(null=True, verbose_name="Institution/employer")
+    start_date = PartialDateField(null=True)
+    end_date = PartialDateField(null=True)
+    department_name = TextField(null=True)
+    department_city = TextField(null=True)
+    role_title = TextField(null=True)
+    put_code = SmallIntegerField(default=0, null=True)
+    path = TextField(null=True)
+
+
 def create_tables():
     """Create all DB tables."""
     try:
         db.connect()
     except OperationalError:
         pass
-    models = (Organisation, User, UserOrg)
+    models = (Organisation, User, UserOrg, OrcidToken, User_Organisation_affiliation)
     db.create_tables(models)
 
 
-def drop_talbes():
+def drop_tables():
     """Drop all model tables."""
-    for m in (Organisation, User, UserOrg):
+    for m in (Organisation, User, UserOrg, OrcidToken, User_Organisation_affiliation):
         if m.table_exists():
             try:
                 m.drop_table(fail_silently=True, cascade=db.drop_cascade)
-            except peewee.OperationalError:
+            except OperationalError:
                 pass

@@ -1,8 +1,12 @@
 import pytest
-from peewee import SqliteDatabase, OperationalError
+from peewee import SqliteDatabase, OperationalError, Model
 from itertools import product
-from models import User, Organisation, UserOrg, Role, drop_talbes, create_tables
+from models import (
+    PartialDate, User, Organisation, UserOrg, Role, drop_tables,
+    create_tables, OrcidToken, User_Organisation_affiliation,
+    PartialDateField)
 from playhouse.test_utils import test_database
+
 
 @pytest.fixture
 def test_db():
@@ -17,8 +21,8 @@ def test_db():
     """
     _db = SqliteDatabase(":memory:")
     try:
-        with test_database(_db, (Organisation, User, UserOrg,)) as _test_db:
-                yield _test_db
+        with test_database(_db, (Organisation, User, UserOrg, OrcidToken, User_Organisation_affiliation)) as _test_db:
+            yield _test_db
     except OperationalError:
         pass  # workaround for deletion of non-existing tables
 
@@ -57,6 +61,23 @@ def test_models(test_db):
         user=43,
         org=o) for o in range(1, 11))).execute()
 
+    OrcidToken.insert_many((dict(
+        user=User.get(id=1),
+        org=Organisation.get(id=1),
+        scope="/read-limited",
+        access_token="Test_%d" % i)
+        for i in range(60))).execute()
+
+    User_Organisation_affiliation.insert_many((dict(
+        user=User.get(id=1),
+        organisation=Organisation.get(id=1),
+        department_name="Test_%d" % i,
+        department_city="Test_%d" % i,
+        role_title="Test_%d" % i,
+        path="Test_%d" % i,
+        put_code="%d" % i)
+        for i in range(30))).execute()
+
     yield test_db
 
 
@@ -81,6 +102,13 @@ def test_org_count(test_models):
 def test_user_count(test_models):
     assert User.select().count() == 60
 
+
+def test_orcidtoken_count(test_models):
+    assert OrcidToken.select().count() == 60
+
+
+def test_user_oganisation_affiliation_count(test_models):
+    assert User_Organisation_affiliation.select().count() == 30
 
 def test_user_org_link(test_models):
     assert User.get(id=43).admin_for.count() == 10
@@ -108,13 +136,13 @@ def test_user_roles(test_models):
         email="user_abc_123@org.org.nz",
         edu_person_shared_token="EDU PERSON SHARED TOKEN ABC123",
         confirmed=True,
-        roles=Role.ADMIN|Role.RESEARCHER)
+        roles=Role.ADMIN | Role.RESEARCHER)
 
     assert user.has_role(Role.ADMIN)
     assert user.has_role("ADMIN")
     assert user.has_role(Role.RESEARCHER)
     assert user.has_role("RESEARCHER")
-    assert user.has_role(Role.RESEARCHER|Role.ADMIN)
+    assert user.has_role(Role.RESEARCHER | Role.ADMIN)
     assert user.has_role(4)
     assert user.has_role(2)
 
@@ -123,7 +151,7 @@ def test_user_roles(test_models):
     assert not user.has_role(1)
 
     assert not user.has_role("NOT A ROLE")
-    assert not user.has_role(~(1|2|4|8|16))
+    assert not user.has_role(~(1 | 2 | 4 | 8 | 16))
 
 
 def test_admin_is_admin(test_models):
@@ -134,21 +162,51 @@ def test_admin_is_admin(test_models):
         email="user_abc_123@org.org.nz",
         edu_person_shared_token="EDU PERSON SHARED TOKEN ABC123",
         confirmed=True,
-        roles=Role.ADMIN|Role.RESEARCHER)
+        roles=Role.ADMIN | Role.RESEARCHER)
 
     assert user.is_admin
 
 
 def test_drop_tables(test_models):
-    drop_talbes()
+    drop_tables()
     assert not User.table_exists()
     assert not Organisation.table_exists()
     assert not UserOrg.table_exists()
 
 
 def test_create_tables(test_models):
-    drop_talbes()
+    drop_tables()
     create_tables()
     assert User.table_exists()
     assert Organisation.table_exists()
     assert UserOrg.table_exists()
+
+
+def test_partial_date():
+    pd = PartialDate.create({"year": {"value": "2003"}})
+    assert pd.as_orcid_dict() == {'year': {'value': '2003'}, 'month': None, 'day': None}
+    assert pd.year == 2003
+    pd = PartialDate.create({"year": {"value": "2003"}, "month": {"value": '07'}, "day": {"value": '31'}})
+    assert pd.as_orcid_dict() == {'year': {'value': '2003'}, 'month': {"value": '07'}, 'day': {"value": '31'}}
+    assert pd.year == 2003 and pd.month == 7 and pd.day == 31
+    assert PartialDate().as_orcid_dict() is None
+
+
+def test_pd_field():
+
+    db = SqliteDatabase(":memory:")
+
+    class TestModel(Model):
+        pf = PartialDateField()
+
+        class Meta:
+            database = db
+
+    TestModel.create_table()
+    TestModel(pf=PartialDate(1997)).save()
+    TestModel(pf=PartialDate(1996, 4)).save()
+    TestModel(pf=PartialDate(1995, 5, 13)).save()
+    res = [r[0] for r in db.execute_sql("SELECT pf FROM testmodel").fetchall()]
+    assert '1995-05-13' in res
+    assert '1996-04' in res
+    assert '1997' in res

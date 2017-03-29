@@ -3,9 +3,11 @@
 """Py.test configuration and fixtures for testing."""
 
 import sys, os
+
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import config
+# flake8: noqa
 config.DATABASE_URL = os.environ.get("DATABASE_URL") or "sqlite:///:memory:"
 
 from application import app as _app
@@ -25,11 +27,12 @@ def app():
     _app.config['TESTING'] = True
     _app.db = _db = SqliteDatabase(":memory:")
 
-    with test_database(_db, (Organisation, User, UserOrg,)):  # noqa: F405
+    with test_database(_db, (Organisation, User, UserOrg, OrcidToken, User_Organisation_affiliation)):  # noqa: F405
         yield _app
 
     ctx.pop()
     return
+
 
 @pytest.fixture
 def client(app):
@@ -41,6 +44,7 @@ def client(app):
 @pytest.fixture
 def request_ctx(app):
     """Request context creator."""
+
     def make_ctx(*args, **kwargs):
         return app.test_request_context(*args, **kwargs)
 
