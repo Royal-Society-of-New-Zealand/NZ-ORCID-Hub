@@ -189,6 +189,7 @@ def test_partial_date():
     pd = PartialDate.create({"year": {"value": "2003"}, "month": {"value": '07'}, "day": {"value": '31'}})
     assert pd.as_orcid_dict() == {'year': {'value': '2003'}, 'month': {"value": '07'}, 'day': {"value": '31'}}
     assert pd.year == 2003 and pd.month == 7 and pd.day == 31
+    assert PartialDate().as_orcid_dict() is None
 
 
 def test_pd_field():
