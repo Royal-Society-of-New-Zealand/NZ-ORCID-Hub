@@ -118,7 +118,6 @@ def employment(user_id, put_code=None):
         flash("The user hasn't authorized you to Add records", "warning")
         return redirect(_url)
     client = OAuth2Session(user.organisation.orcid_client_id, token={"access_token": orcidToken.access_token})
-    headers = {'Accept': 'application/vnd.orcid+json', 'Content-type': 'application/vnd.orcid+json'}
 
     # TODO: handle "new"...
     if put_code is not None:
@@ -216,7 +215,10 @@ def employment(user_id, put_code=None):
             return redirect(_url)
         else:
             message = resp.json().get("user-message") or resp.state
-            flash("Failed to update the entry: %s. You don't have required permission to edit the record." % message, "danger")
+            flash(
+                "Failed to update the entry: %s. You don't have required permission to edit the record." %
+                message, "danger")
+
     return render_template("employment.html", form=form, _url=_url)
 
 
