@@ -61,6 +61,14 @@ def test_partial_date_field_with_data(test_form):
     assert '<option value="">Month</option><option selected value="1">01</option><option value="2">' in pdf1
 
 
+def test_partial_date_field_errors(test_form):
+
+    tf = test_form(DummyPostData({"pdf1:year": "ERROR", "pdf1:month": "ERROR", "pdf1:day": "ERROR"}))
+    pdf1 = tf.pdf1()
+
+    assert len(tf.pdf1.process_errors) > 0
+
+
 def test_partial_date_field_with_obj(test_form):
 
     tf = test_form(None, obj=MagicMock(pdf1=PD(2017, 1, 13)))

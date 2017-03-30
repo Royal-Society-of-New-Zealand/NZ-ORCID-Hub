@@ -51,7 +51,7 @@ class PartialDateField(Field):
     db_field = 'varchar(10)'
 
     def db_value(self, value):
-        """Convert into partial ISO date textual representation: YYYY, YYYY-MM, or YYYY-MM-DD."""
+        """Convert into partial ISO date textual representation: YYYY-**-**, YYYY-MM-**, or YYYY-MM-DD."""
 
         if value is None or not value.year:
             return None
@@ -60,15 +60,15 @@ class PartialDateField(Field):
             if value.month:
                 res += "-%02d" % int(value.month)
             else:
-                return res
-            return res + "-%02d" % int(value.day) if value.day else res
+                return res + "-**-**"
+            return res + "-%02d" % int(value.day) if value.day else res + "-**"
 
     def python_value(self, value):
         """Parse partial ISO date textual representation."""
         if value is None:
             return None
 
-        parts = value.split("-")
+        parts = [p for p in value.split("-") if "*" not in p]
         return PartialDate(**dict(zip_longest(("year", "month", "day",), parts)))
 
 

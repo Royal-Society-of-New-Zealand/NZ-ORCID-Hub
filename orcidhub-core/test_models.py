@@ -197,16 +197,20 @@ def test_pd_field():
     db = SqliteDatabase(":memory:")
 
     class TestModel(Model):
-        pf = PartialDateField()
+        pf = PartialDateField(null=True)
 
         class Meta:
             database = db
 
     TestModel.create_table()
+    TestModel(pf=PartialDate()).save()
+    TestModel(pf=None).save()
+    res = [r[0] for r in db.execute_sql("SELECT pf FROM testmodel").fetchall()]
+    assert res[0] is None and res[1] is None
     TestModel(pf=PartialDate(1997)).save()
     TestModel(pf=PartialDate(1996, 4)).save()
     TestModel(pf=PartialDate(1995, 5, 13)).save()
     res = [r[0] for r in db.execute_sql("SELECT pf FROM testmodel").fetchall()]
     assert '1995-05-13' in res
-    assert '1996-04' in res
-    assert '1997' in res
+    assert '1996-04-**' in res
+    assert '1997-**-**' in res

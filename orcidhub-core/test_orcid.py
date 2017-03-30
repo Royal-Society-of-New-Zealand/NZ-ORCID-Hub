@@ -143,6 +143,10 @@ def make_fake_response(text, *args, **kwargs):
     """Mock out the response object returned by requests_oauthlib.OAuth2Session.get(...)."""
     mm = MagicMock(name="response")
     mm.text = text
+    if "json" in kwargs:
+        mm.json.return_value = kwargs["json"]
+    if "status_code" in kwargs:
+        mm.status_code = kwargs["status_code"]
     return mm
 
 
