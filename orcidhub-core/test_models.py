@@ -153,6 +153,8 @@ def test_user_roles(test_models):
     assert not user.has_role("NOT A ROLE")
     assert not user.has_role(~(1 | 2 | 4 | 8 | 16))
 
+    assert not user.has_role(1.1234)
+
 
 def test_admin_is_admin(test_models):
     user = User(
