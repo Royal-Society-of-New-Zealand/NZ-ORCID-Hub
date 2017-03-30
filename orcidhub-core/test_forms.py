@@ -64,9 +64,28 @@ def test_partial_date_field_with_data(test_form):
 def test_partial_date_field_errors(test_form):
 
     tf = test_form(DummyPostData({"pdf1:year": "ERROR", "pdf1:month": "ERROR", "pdf1:day": "ERROR"}))
-    pdf1 = tf.pdf1()
-
     assert len(tf.pdf1.process_errors) > 0
+
+
+def test_partial_date_field_with_filter(test_form):
+
+    test_form.pdf = PartialDateField("f", filters=[lambda pd: PD(pd.year+1, pd.month+1, pd.day+1)])
+
+    tf = test_form(DummyPostData({"pdf:year": "2012", "pdf:month": "4", "pdf:day": "12"}))
+    pdf = tf.pdf()
+
+    assert '<option selected value="13">' in pdf
+    assert '<option selected value="2013">' in pdf
+    assert '<option selected value="5">' in pdf
+    assert len(tf.pdf1.process_errors) == 0
+
+    def failing_filter(*args, **kwargs):
+        raise ValueError("ERROR!!!")
+
+    test_form.pdf = PartialDateField("f", filters=[failing_filter])
+    tf = test_form(DummyPostData({"pdf:year": "2012", "pdf:month": "4", "pdf:day": "12"}))
+    assert len(tf.pdf.process_errors) > 0
+    assert "ERROR!!!" in tf.pdf.process_errors
 
 
 def test_partial_date_field_with_obj(test_form):
