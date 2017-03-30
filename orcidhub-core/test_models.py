@@ -190,6 +190,8 @@ def test_partial_date():
     assert pd.as_orcid_dict() == {'year': {'value': '2003'}, 'month': {"value": '07'}, 'day': {"value": '31'}}
     assert pd.year == 2003 and pd.month == 7 and pd.day == 31
     assert PartialDate().as_orcid_dict() is None
+    assert PartialDate.create(None) is None
+    assert PartialDate.create({}) is None
 
 
 def test_pd_field():
@@ -214,3 +216,10 @@ def test_pd_field():
     assert '1995-05-13' in res
     assert '1996-04-**' in res
     assert '1997-**-**' in res
+
+    res = [r.pf for r in TestModel.select().order_by(TestModel.pf)]
+    assert res[0] is None
+    assert res[1] is None
+    assert res[2] == PartialDate(1995, 5, 13)
+    assert res[3] == PartialDate(1996, 4)
+    assert res[4] == PartialDate(1997)

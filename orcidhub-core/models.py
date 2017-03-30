@@ -38,7 +38,7 @@ class PartialDate(namedtuple("PartialDate", ["year", "month", "day"])):
         >>> PartialDate.create({"year": {"value": "2003"}}).year
         2003
         """
-        if dict_value is None:
+        if dict_value is None or dict_value == {}:
             return None
         return cls(**{k: int(v.get("value")) if v else None for k, v in dict_value.items()})
 
@@ -68,7 +68,7 @@ class PartialDateField(Field):
         if value is None:
             return None
 
-        parts = [p for p in value.split("-") if "*" not in p]
+        parts = [int(p) for p in value.split("-") if "*" not in p]
         return PartialDate(**dict(zip_longest(("year", "month", "day",), parts)))
 
 
