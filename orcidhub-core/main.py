@@ -18,10 +18,11 @@ def before_request():
 
 @app.after_request
 def after_request(response):
-    try:
-        db.close()
-    except OperationalError:
-        pass
+    if db is not None:
+        try:
+            db.close()
+        except OperationalError:
+            pass
     return response
 
 
@@ -33,4 +34,4 @@ if __name__ == "__main__":
     os.environ['DEBUG'] = "1"
     os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
     app.secret_key = os.urandom(24)
-    app.run(debug=True, port=5000)
+    app.run(debug=True, port=8000)

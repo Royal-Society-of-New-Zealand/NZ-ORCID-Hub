@@ -11,9 +11,6 @@ scope = ['/authenticate']
 
 ORCID_API_BASE = "https://api.sandbox.orcid.org/v2.0/" if ENV != "prod" else "https://api.orcid.org/v2.0/"
 
-# Application redirect URL:
-redirect_uri = "https://" + environ.get("ENV", "dev") + ".orcidhub.org.nz/auth"
-
 # Database connection url
 POSTGRES_PASSWORD = environ.get("POSTGRES_PASSWORD") or environ.get("PGPASSWORD") or "p455w0rd"
 
@@ -36,9 +33,6 @@ authorization_base_url = 'https://sandbox.orcid.org/oauth/authorize'
 token_url = 'https://pub.sandbox.orcid.org/oauth/token'
 scope_read_limited = ['/read-limited']
 scope_activities_update = ['/activities/update']
-
-# Application redirect URL:
-redirect_uri = "https://" + environ.get("ENV", "dev") + ".orcidhub.org.nz/auth"
 
 # Database connection url
 POSTGRES_PASSWORD = environ.get("POSTGRES_PASSWORD") or environ.get("PGPASSWORD") or "p455w0rd"
@@ -72,3 +66,6 @@ CRED_TYPE_PREMIUM = 2
 APP_NAME = 'ORCID HUB'
 APP_DESCRIPTION = 'We are having an ORCID integration through ORCID HUB New Zealand'
 APP_URL = "https://" + environ.get("ENV", "dev") + ".orcidhub.org.nz"
+
+# External Shibboleth SP login URL (e.g., https://test.orcidhub.org.nz/Tuakiri/login)
+EXTERNAL_SP = environ.get("EXTERNAL_SP")

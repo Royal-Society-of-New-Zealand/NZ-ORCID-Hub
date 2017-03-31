@@ -7,15 +7,15 @@ user (reseaser) affiliations.
 """
 
 from requests_oauthlib import OAuth2Session
-from flask import request, redirect, session, url_for, render_template, flash
+from flask import request, redirect, session, url_for, render_template, flash, abort
 from werkzeug.urls import iri_to_uri
 from config import authorization_base_url, \
-    token_url, scope_read_limited, scope_activities_update, redirect_uri, MEMBER_API_FORM_BASE_URL, \
-    NEW_CREDENTIALS, NOTE_ORCID, CRED_TYPE_PREMIUM, APP_NAME, APP_DESCRIPTION, APP_URL
+    token_url, scope_read_limited, scope_activities_update, MEMBER_API_FORM_BASE_URL, \
+    NEW_CREDENTIALS, NOTE_ORCID, CRED_TYPE_PREMIUM, APP_NAME, APP_DESCRIPTION, APP_URL, EXTERNAL_SP
 import json
 from application import app, mail
 from models import User, Role, Organisation, UserOrg, OrcidToken
-from urllib.parse import quote
+from urllib.parse import quote, urlencode, urlparse
 from flask_login import login_user, current_user
 from registrationForm import OrgRegistrationForm
 from flask_mail import Message
@@ -23,8 +23,9 @@ from tokenGeneration import generate_confirmation_token, confirm_token
 from registrationForm import OrgConfirmationForm
 from flask_login import login_required, logout_user
 from login_provider import roles_required
-from os import environ
-from urllib.parse import urlencode
+import base64
+import zlib
+import pickle
 
 
 @app.route("/index")
@@ -33,7 +34,33 @@ from urllib.parse import urlencode
 def login():
     """Main landing page."""
     _next = request.args.get('next')
-    return render_template("index.html", _next=_next)
+    if EXTERNAL_SP:
+        _next = url_for("shib_login", _next=_next, _external=True)
+        shib_login_url = EXTERNAL_SP
+        shib_login_url += ('&' if urlparse(EXTERNAL_SP).query else '?')
+        shib_login_url += urlencode(dict(_next=_next))
+    else:
+        shib_login_url = url_for("shib_login", _next=_next)
+
+    return render_template("index.html", ship_login_url=shib_login_url)
+
+
+@app.route("/Tuakiri/SP")
+def shib_sp():
+    """Remote Shibboleth authenitication handler.
+
+    All it does passes all response headers to the original calller."""
+    _next = request.args.get('_next')
+    if _next:
+        # TODO: make it secret!
+        data = {k: v for k, v in request.headers.items() if k in
+                ["Auedupersonsharedtoken", 'Sn', 'Givenname', 'Mail', 'O', 'Displayname']}
+        data = base64.b64encode(zlib.compress(pickle.dumps(data)))
+        _next += ('&' if urlparse(_next).query else '?') + \
+            urlencode(dict(data=data))
+        resp = redirect(_next)
+        return resp
+    abort(403)
 
 
 @app.route("/Tuakiri/login")
@@ -62,12 +89,23 @@ def shib_login():
             ** for organisation administrator or technical contact, the completion of the on-boarding.
     """
     _next = request.args.get('_next')
-    token = request.headers.get("Auedupersonsharedtoken")
-    last_name = request.headers['Sn']
-    first_name = request.headers['Givenname']
-    email = request.headers['Mail']
-    session["shib_O"] = shib_org_name = request.headers['O']
-    name = request.headers.get('Displayname')
+    data = request.args.get('data')
+    # TODO: make it secret
+    if data:
+        data = pickle.loads(zlib.decompress(base64.b64decode(data)))
+        token = data.get("Auedupersonsharedtoken")
+        last_name = data['Sn']
+        first_name = data['Givenname']
+        email = data['Mail']
+        session["shib_O"] = shib_org_name = data['O']
+        name = data.get('Displayname')
+    else:
+        token = request.headers.get("Auedupersonsharedtoken")
+        last_name = request.headers['Sn']
+        first_name = request.headers['Givenname']
+        email = request.headers['Mail']
+        session["shib_O"] = shib_org_name = request.headers['O']
+        name = request.headers.get('Displayname')
 
     try:
         # TODO: need a separate field for org name comimg from Tuakiri
@@ -122,7 +160,8 @@ def shib_login():
     elif org and org.confirmed:
         return redirect(url_for("link"))
     else:
-        flash("Your organisation (%s) is not onboarded" % shib_org_name, "danger")
+        flash("Your organisation (%s) is not onboarded" %
+              shib_org_name, "danger")
 
     return redirect(url_for("login"))
 
@@ -132,6 +171,7 @@ def shib_login():
 def link():
     """Link the user's account with ORCiD (i.e. affiliates user with his/her org on ORCID)."""
     # TODO: handle organisation that are not on-boarded
+    redirect_uri = url_for("orcid_callback", _external=True)
     client = OAuth2Session(current_user.organisation.orcid_client_id, scope=scope_read_limited,
                            redirect_uri=redirect_uri)
     authorization_url, state = client.authorization_url(authorization_base_url)
@@ -139,7 +179,8 @@ def link():
 
     client_write = OAuth2Session(current_user.organisation.orcid_client_id, scope=scope_activities_update,
                                  redirect_uri=redirect_uri)
-    authorization_url_write, state = client_write.authorization_url(authorization_base_url)
+    authorization_url_write, state = client_write.authorization_url(
+        authorization_base_url)
 
     orcid_url = iri_to_uri(authorization_url) + urlencode(dict(
         family_names=current_user.last_name, given_names=current_user.first_name, email=current_user.email))
@@ -151,15 +192,18 @@ def link():
     # TODO: re-affiliation after revoking access?
     # TODO: affiliation with multiple orgs should lookup UserOrg
 
-    user = User.get(email=current_user.email, organisation=current_user.organisation)
+    user = User.get(email=current_user.email,
+                    organisation=current_user.organisation)
     orcidTokenRead = None
     orcidTokenWrite = None
     try:
-        orcidTokenRead = OrcidToken.get(user=user, org=user.organisation, scope=scope_read_limited)
+        orcidTokenRead = OrcidToken.get(
+            user=user, org=user.organisation, scope=scope_read_limited)
     except:
         pass
     try:
-        orcidTokenWrite = OrcidToken.get(user=user, org=user.organisation, scope=scope_activities_update)
+        orcidTokenWrite = OrcidToken.get(
+            user=user, org=user.organisation, scope=scope_activities_update)
     except:
         pass
 
@@ -225,16 +269,19 @@ def orcid_callback():
 def profile():
     """Fetch a protected resource using an OAuth 2 token."""
 
-    user = User.get(email=current_user.email, organisation=current_user.organisation)
+    user = User.get(email=current_user.email,
+                    organisation=current_user.organisation)
 
     orcidTokenRead = None
     try:
-        orcidTokenRead = OrcidToken.get(user=user, org=user.organisation, scope=scope_read_limited)
+        orcidTokenRead = OrcidToken.get(
+            user=user, org=user.organisation, scope=scope_read_limited)
     except:
         flash("You need to link your ORCiD with your account", "warning")
         return redirect(url_for("link"))
 
-    client = OAuth2Session(user.organisation.orcid_client_id, token={"access_token": orcidTokenRead.access_token})
+    client = OAuth2Session(user.organisation.orcid_client_id, token={
+                           "access_token": orcidTokenRead.access_token})
 
     headers = {'Accept': 'application/vnd.orcid+json'}
     resp = client.get("https://api.sandbox.orcid.org/v2.0/" +
@@ -256,7 +303,8 @@ def invite_user():
 # TODO: user can be admin for multiple org and org can have multiple admins:
 # TODO: user shoud be assigned exclicitly organization
 # TODO: OrgAdmin ...
-# TODO: gracefully handle all exceptions (repeated infitation, user is already an admin for the organization etc.)
+# TODO: gracefully handle all exceptions (repeated infitation, user is
+# already an admin for the organization etc.)
 @app.route("/invite/organisation", methods=["GET", "POST"])
 @roles_required(Role.SUPERUSER)
 def invite_organisation():
@@ -278,7 +326,8 @@ def invite_organisation():
             org_name = form.orgName.data
             try:
                 User.get(User.email == form.orgEmailid.data)
-                flash("This Email address is already an Admin for one of the organisation", "warning")
+                flash(
+                    "This Email address is already an Admin for one of the organisation", "warning")
             except User.DoesNotExist:
                 pass
             finally:
@@ -304,16 +353,17 @@ def invite_organisation():
                         roles=Role.ADMIN,
                         organisation=org)
                 user.save()
-                # Note: Using app context due to issue: https://github.com/mattupstate/flask-mail/issues/63
+                # Note: Using app context due to issue:
+                # https://github.com/mattupstate/flask-mail/issues/63
                 with app.app_context():
                     msg = Message("Welcome to OrcidhHub",
                                   recipients=[str(form.orgEmailid.data)])
                     token = generate_confirmation_token(form.orgEmailid.data)
                     # TODO: do it with templates
                     msg.body = "Your organisation is just one step behind to get onboarded" \
-                               " please click on following link to get onboarded " \
-                               "https://" + environ.get("ENV", "dev") + ".orcidhub.org.nz" + \
-                               url_for("confirm_organisation", token=token)
+                               " please click on following link to get onboarded " + \
+                               url_for("confirm_organisation",
+                                       token=token, _external=True)
                     mail.send(msg)
                     flash(
                         "Organisation Onboarded Successfully!!! Email Communication has been sent to Admin",
@@ -379,6 +429,7 @@ def confirm_organisation(token):
         Please request those by clicking on link 'Take me to ORCiD to obtain Client iD and Client Secret'
         and come back to this same place once you have them within 15 days""", "warning")
 
+        redirect_uri = url_for("orcid_callback", _external=True)
         clientSecret_url = iri_to_uri(MEMBER_API_FORM_BASE_URL) + "?" + urlencode(dict(
             new_existing=NEW_CREDENTIALS, note=NOTE_ORCID + " " + user.organisation.name,
             contact_email=email, contact_name=user.name, org_name=user.organisation.name,
@@ -414,9 +465,15 @@ def logout():
 
     session.clear()
     session["__invalidate__"] = True
+
+    if EXTERNAL_SP:
+        sp_url = urlparse(EXTERNAL_SP)
+        sso_url_base = sp_url.scheme + "://" + sp_url.netloc
+    else:
+        sso_url_base = ''
     return redirect(
-        "/Shibboleth.sso/Logout?return=" +
-        quote(url_for("uoa_slo" if org_name and org_name == "University of Auckland" else "login")))
+        sso_url_base + "/Shibboleth.sso/Logout?return=" +
+        quote(url_for("uoa_slo" if org_name and org_name == "University of Auckland" else "login", _external=True)))
 
 
 @app.route("/uoa-slo")
