@@ -68,4 +68,4 @@ APP_DESCRIPTION = 'We are having an ORCID integration through ORCID HUB New Zeal
 APP_URL = "https://" + environ.get("ENV", "dev") + ".orcidhub.org.nz"
 
 # External Shibboleth SP login URL (e.g., https://test.orcidhub.org.nz/Tuakiri/login)
-EXTERNAL_SP = environ.get("EXTERNAL_SP")
+EXTERNAL_SP = environ.get("EXTERNAL_SP", "https://dev.orcidhub.org.nz/Tuakiri/SP")

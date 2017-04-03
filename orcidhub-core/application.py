@@ -67,6 +67,7 @@ if __name__ == "__main__":
     # This allows us to use a plain HTTP callback
     # flake8: noqa
     from authcontroller import *
+    from views import *
 
     os.environ['DEBUG'] = "1"
     os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
