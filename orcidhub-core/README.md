@@ -1,3 +1,17 @@
+- [Application Docker Image](#application-docker-image)
+  * [Usage](#usage)
+  * [Environment Variables](#environment-variables)
+    + [ENV](#env)
+    + [SHIB_SP_DOMAINNAME](#shib-sp-domainname)
+    + [SHIB_IDP_DOMAINNAME](#shib-idp-domainname)
+    + [SHIB_SSO_DS_URL](#shib-sso-ds-url)
+    + [SHIB_METADATA_PROVIDER_URI](#shib-metadata-provider-uri)
+    + [SHIB_METADATA_CERT_FILE](#shib-metadata-cert-file)
+    + [ORCID_CLIENT_ID and ORCID_CLIENT_SECRET](#orcid-client-id-and-orcid-client-secret)
+- [Steps to execute this application](#steps-to-execute-this-application)
+- [Development Environment](#development-environment)
+
+
 ## Application Docker Image
 
 Application Docker Image ([orcidhub/app](https://hub.docker.com/r/orcidhub/app/)) is packaged with:
