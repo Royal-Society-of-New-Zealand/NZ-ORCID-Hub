@@ -10,7 +10,7 @@ Application Docker Image ([orcidhub/app](https://hub.docker.com/r/orcidhub/app/)
 
 ### Usage 
 
-1. run container: `docker run --name app orcidhub/app`
+1. run application containers: `docker-compose up -d`
 1. find container IP address: `docker inspect --format '{{.NetworkSettings.IPAddress}}' app`
 1. verify it's running: `http $(docker inspect --format '{{.NetworkSettings.IPAddress}}' app)`
 
@@ -79,7 +79,8 @@ either directly invoking it with `python application.py` or using Flask CLI
 ```
 export EXTERNAL_SP=https://dev.orcidhub.org.nz/Tuakiri/SP
 export DATABASE_URL=sqlite:///data.db
-export export FLASK_APP=/path/to/main.py
+export FLASK_APP=/path/to/main.py
+export PYTHONPATH=$(dirname /path/to/main.py)  ## flask run has problems with setting up search paths
 export FLASK_DEBUG=1
 flask run
 ```
