@@ -10,12 +10,11 @@ from flask_admin.contrib.peewee import ModelView
 from models import User, Organisation, Role, OrcidToken, User_Organisation_affiliation, PartialDate as PD
 from flask_login import login_required, current_user
 from login_provider import roles_required
-from forms import EmploymentForm
+from forms import EmploymentForm, BitmapMultipleValueField
 from config import ORCID_API_BASE, scope_activities_update, scope_read_limited
 from collections import namedtuple
 import time
 from requests_oauthlib import OAuth2Session
-import wtforms
 
 HEADERS = {'Accept': 'application/vnd.orcid+json', 'Content-type': 'application/vnd.orcid+json'}
 
@@ -47,7 +46,7 @@ class UserAdmin(AppModelView):
     """User model view."""
     column_exclude_list = ("password", "username",)
     column_formatters = dict(roles=lambda v, c, m, p: Role(m.roles).name)
-    form_overrides = dict(roles=wtforms.SelectField)
+    form_overrides = dict(roles=BitmapMultipleValueField)
     form_args = dict(
         roles=dict(
             choices=[
