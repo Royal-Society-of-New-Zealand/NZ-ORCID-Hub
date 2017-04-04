@@ -27,7 +27,6 @@ import base64
 import zlib
 import pickle
 import secrets
-from werkzeug.contrib.cache import SimpleCache
 from tempfile import gettempdir
 from os import path, remove
 import requests

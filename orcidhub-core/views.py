@@ -15,6 +15,7 @@ from config import ORCID_API_BASE, scope_activities_update, scope_read_limited
 from collections import namedtuple
 import time
 from requests_oauthlib import OAuth2Session
+import wtforms
 
 HEADERS = {'Accept': 'application/vnd.orcid+json', 'Content-type': 'application/vnd.orcid+json'}
 
@@ -44,13 +45,25 @@ class AppModelView(ModelView):
 
 class UserAdmin(AppModelView):
     """User model view."""
-    column_exclude_list = ("password",)
+    column_exclude_list = ("password", "username",)
+    column_formatters = dict(roles=lambda v, c, m, p: Role(m.roles).name)
+    form_overrides = dict(roles=wtforms.SelectField)
+    form_args = dict(
+        roles=dict(
+            choices=[
+                (1, "Superuser"),
+                (2, "Administratro"),
+                (4, "Researcher"),
+                (8, "Technical Contact"),
+            ])
+    )
 
     jax_refs = {
         "organisation": {
             "fields": (Organisation.name, "name")
         }
     }
+
 
 admin.add_view(UserAdmin(User))
 admin.add_view(AppModelView(Organisation))
