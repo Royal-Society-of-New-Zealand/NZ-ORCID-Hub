@@ -42,8 +42,17 @@ class AppModelView(ModelView):
         """Handle access denial. Redirect to login page if user doesn't have access."""
         return redirect(url_for('login', next=request.url))
 
+class UserAdmin(AppModelView):
+    """User model view."""
+    column_exclude_list = ("password",)
 
-admin.add_view(AppModelView(User))
+    jax_refs = {
+        "organisation": {
+            "fields": (Organisation.name, "name")
+        }
+    }
+
+admin.add_view(UserAdmin(User))
 admin.add_view(AppModelView(Organisation))
 
 EmpRecord = namedtuple(

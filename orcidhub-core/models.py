@@ -129,6 +129,9 @@ class Organisation(BaseModel):
             self.userorg_set.where(self.userorg_set.c.is_admin).alias("sq"),
             on=(self.userorg_set.c.user_id == User.id))
 
+    def __repr__(self):
+        return self.name
+
 
 class User(BaseModel, UserMixin):
     """
