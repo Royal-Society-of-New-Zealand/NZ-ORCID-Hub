@@ -20,11 +20,8 @@ def test_db():
         asser modls.User.count() == 1
     """
     _db = SqliteDatabase(":memory:")
-    try:
-        with test_database(_db, (Organisation, User, UserOrg, OrcidToken, User_Organisation_affiliation)) as _test_db:
-            yield _test_db
-    except OperationalError:
-        pass  # workaround for deletion of non-existing tables
+    with test_database(_db, (Organisation, User, UserOrg, OrcidToken, User_Organisation_affiliation), fail_silently=True) as _test_db:
+        yield _test_db
 
     return
 

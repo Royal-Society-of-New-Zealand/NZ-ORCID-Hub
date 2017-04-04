@@ -1,9 +1,22 @@
+- [Application Docker Image](#application-docker-image)
+  * [Usage](#usage)
+  * [Environment Variables](#environment-variables)
+    + [ENV](#env)
+    + [SHIB_SP_DOMAINNAME](#shib-sp-domainname)
+    + [SHIB_IDP_DOMAINNAME](#shib-idp-domainname)
+    + [SHIB_SSO_DS_URL](#shib-sso-ds-url)
+    + [SHIB_METADATA_PROVIDER_URI](#shib-metadata-provider-uri)
+    + [SHIB_METADATA_CERT_FILE](#shib-metadata-cert-file)
+    + [ORCID_CLIENT_ID and ORCID_CLIENT_SECRET](#orcid-client-id-and-orcid-client-secret)
+- [Steps to execute this application](#steps-to-execute-this-application)
+- [Development Environment](#development-environment)
+
+
 ## Application Docker Image
 
 Application Docker Image ([orcidhub/app](https://hub.docker.com/r/orcidhub/app/)) is packaged with:
  - CentOS 7
  - Apache 2.4
- - PostreSQL 9.2 Client
  - Python 3.6
  - mod_wsgi (Pythgon/WSGI Apache module)
  - psycopg2 (native PostgreSQL Python DB-API 2.0 driver)
@@ -11,9 +24,9 @@ Application Docker Image ([orcidhub/app](https://hub.docker.com/r/orcidhub/app/)
 
 ### Usage 
 
-1. run container: `docker run --name app orcidhub/app`
+1. run application containers: `docker-compose up -d`
 1. find container IP address: `docker inspect --format '{{.NetworkSettings.IPAddress}}' app`
-1. verify it's running: `curl $(docker inspect --format '{{.NetworkSettings.IPAddress}}' app)`
+1. verify it's running: `http $(docker inspect --format '{{.NetworkSettings.IPAddress}}' app)`
 
 ### Environment Variables
 
@@ -63,3 +76,25 @@ d) Run initializedb.py to create table in postgres
 
 Run application.py
 Open link https://test.orcidhub.org.nz/index
+
+## Development Environment
+
+It is possible to run the application as stand-alone Python Flask application using another remote
+application instance for Tuakiri user authentication. For example, if the remote 
+(another application instance) url is https://dev.orcidhub.org.nz, all you need is to set up 
+environment varliable `export EXTERNAL_SP=https://dev.orcidhub.org.nz/Tuakiri/SP`.
+
+In order to siplify the development environemt you can user Sqlite3 DB for the backend. 
+To set up the database use environment variable DATABASE_URL, e.g., 
+`export DATABASE_URL=sqlite:///data.db` and run application
+either directly invoking it with `python application.py` or using Flask CLI 
+(http://flask.pocoo.org/docs/0.12/cli/):
+
+```
+export EXTERNAL_SP=https://dev.orcidhub.org.nz/Tuakiri/SP
+export DATABASE_URL=sqlite:///data.db
+export FLASK_APP=/path/to/main.py
+export PYTHONPATH=$(dirname /path/to/main.py)  ## flask run has problems with setting up search paths
+export FLASK_DEBUG=1
+flask run
+```

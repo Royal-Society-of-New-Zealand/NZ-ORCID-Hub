@@ -15,7 +15,7 @@ from config import authorization_base_url, \
 import json
 from application import app, mail
 from models import User, Role, Organisation, UserOrg, OrcidToken
-from urllib.parse import quote, urlencode, urlparse
+from urllib.parse import quote, unquote, urlencode, urlparse
 from flask_login import login_user, current_user
 from registrationForm import OrgRegistrationForm
 from flask_mail import Message
@@ -26,6 +26,11 @@ from login_provider import roles_required
 import base64
 import zlib
 import pickle
+import secrets
+from werkzeug.contrib.cache import SimpleCache
+from tempfile import gettempdir
+from os import path, remove
+import requests
 
 
 @app.route("/index")
@@ -35,10 +40,11 @@ def login():
     """Main landing page."""
     _next = request.args.get('next')
     if EXTERNAL_SP:
+        session["auth_secret"] = secret_token = secrets.token_urlsafe()
         _next = url_for("shib_login", _next=_next, _external=True)
         shib_login_url = EXTERNAL_SP
         shib_login_url += ('&' if urlparse(EXTERNAL_SP).query else '?')
-        shib_login_url += urlencode(dict(_next=_next))
+        shib_login_url += urlencode(dict(_next=_next, key=secret_token))
     else:
         shib_login_url = url_for("shib_login", _next=_next)
 
@@ -51,16 +57,34 @@ def shib_sp():
 
     All it does passes all response headers to the original calller."""
     _next = request.args.get('_next')
+    _key = request.args.get("key")
     if _next:
-        # TODO: make it secret!
         data = {k: v for k, v in request.headers.items() if k in
                 ["Auedupersonsharedtoken", 'Sn', 'Givenname', 'Mail', 'O', 'Displayname']}
         data = base64.b64encode(zlib.compress(pickle.dumps(data)))
         _next += ('&' if urlparse(_next).query else '?') + \
             urlencode(dict(data=data))
+
         resp = redirect(_next)
+        with open(path.join(gettempdir(), _key), 'wb') as kf:
+            kf.write(data)
+
         return resp
     abort(403)
+
+
+@app.route("/sp/attributes/<string:key>")
+def get_attributes(key):
+    """Retrieve SAML attributes."""
+    data = ''
+    data_filename = path.join(gettempdir(), key)
+    try:
+        with open(data_filename, 'rb') as kf:
+            data = kf.read()
+        remove(data_filename)
+    except Exception as ex:
+        abort(403, ex)
+    return data
 
 
 @app.route("/Tuakiri/login")
@@ -91,7 +115,10 @@ def shib_login():
     _next = request.args.get('_next')
     data = request.args.get('data')
     # TODO: make it secret
-    if data:
+    if EXTERNAL_SP:
+        sp_url = urlparse(EXTERNAL_SP)
+        attr_url = sp_url.scheme + "://" + sp_url.netloc + "/sp/attributes/" + session.get("auth_secret")
+        data = requests.get(attr_url, verify=False).text
         data = pickle.loads(zlib.decompress(base64.b64decode(data)))
         token = data.get("Auedupersonsharedtoken")
         last_name = data['Sn']
@@ -172,6 +199,10 @@ def link():
     """Link the user's account with ORCiD (i.e. affiliates user with his/her org on ORCID)."""
     # TODO: handle organisation that are not on-boarded
     redirect_uri = url_for("orcid_callback", _external=True)
+    if EXTERNAL_SP:
+        sp_url = urlparse(EXTERNAL_SP)
+        redirect_uri = sp_url.scheme + "://" + sp_url.netloc + "/auth/" + quote(redirect_uri)
+
     client = OAuth2Session(current_user.organisation.orcid_client_id, scope=scope_read_limited,
                            redirect_uri=redirect_uri)
     authorization_url, state = client.authorization_url(authorization_base_url)
@@ -221,6 +252,12 @@ def link():
         return render_template("linking.html", orcid_url=orcid_url)
 
     return render_template("linking.html", orcid_url=orcid_url, orcid_url_write=orcid_url_write)
+
+
+@app.route("/auth/<path:url>", methods=["GET"])
+def orcid_callback_proxy(url):
+    url = unquote(url)
+    return redirect(url + '?' + urlencode(request.args))
 
 
 # Step 2: User authorization, this happens on the provider.

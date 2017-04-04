@@ -2,7 +2,7 @@
 
 {% macro render_field(f) %}
 <div class="form-group">
-  <label for="{{ f.id }}">{{ f.label }}{% if f.flags.required %}&nbsp;*{% endif %}</label>
+  <label for="{{ f.id }}">{{ f.label }}{% if f.flags.required %}&nbsp;<strong style="color: red">*</strong>{% endif %}</label>
   {{ f(class="form-control", id=f.id, placeholder=f.label.text, **kwargs)|safe }}
   {% if f.errors %}
     <ul class=errors>
