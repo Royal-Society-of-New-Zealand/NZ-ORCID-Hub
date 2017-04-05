@@ -13,7 +13,6 @@ from login_provider import roles_required
 from forms import EmploymentForm
 from config import ORCID_API_BASE, scope_activities_update, scope_read_limited
 from collections import namedtuple
-import time
 from requests_oauthlib import OAuth2Session
 
 HEADERS = {'Accept': 'application/vnd.orcid+json', 'Content-type': 'application/vnd.orcid+json'}
@@ -174,12 +173,6 @@ def employment(user_id, put_code=None):
             "department-name": form.department.data,
             "start-date": form.start_date.data.as_orcid_dict(),
             "end-date": form.end_date.data.as_orcid_dict(),
-            "last-modified-date": {
-                "value": int(time.time())
-            },
-            "created-date": {
-                "value": int(time.time())
-            },
             "visibility": "PUBLIC",
             "source": {
                 "source-orcid": None,
