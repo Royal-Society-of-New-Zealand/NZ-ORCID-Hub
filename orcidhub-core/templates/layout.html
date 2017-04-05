@@ -19,7 +19,6 @@
       <link href="/static/css/style.css" rel="stylesheet">
       <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.3.7/css/bootstrap-theme.css"
                              integrity="sha256-xOpS+e/dER8z72w+qryCieOGysQI8cELAVt3MHG0phY=" crossorigin="anonymous" />
-      <link rel="stylesheet" href="http://code.jquery.com/ui/1.11.4/themes/smoothness/jquery-ui.css">
     {% endblock %}
   </head>
   <body>
@@ -59,7 +58,6 @@
 $(document).ready(function(){
   $('[data-toggle="tooltip"]').tooltip(); 
   $("#{{request.endpoint}}").addClass("active");
-  $(".dtpick" ).datepicker();
 });
 // Catch exception when closing dialog with <esc> key
 // and prevent accidental deletions.
@@ -78,7 +76,5 @@ function safeConfirm(msg) {
   }
 }
     </script>
-    <script src="http://code.jquery.com/jquery-1.10.2.js"></script>
-    <script src="http://code.jquery.com/ui/1.11.4/jquery-ui.js"></script>
   </body>
 </html>
