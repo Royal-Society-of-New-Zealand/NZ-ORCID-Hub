@@ -13,6 +13,7 @@ from login_provider import roles_required
 from forms import EmploymentForm
 from config import ORCID_API_BASE, scope_activities_update, scope_read_limited
 from collections import namedtuple
+
 from requests_oauthlib import OAuth2Session
 
 HEADERS = {'Accept': 'application/vnd.orcid+json', 'Content-type': 'application/vnd.orcid+json'}
@@ -169,8 +170,18 @@ def employment(user_id, put_code=None):
         # TODO: Utilise generted client code
         # TODO: If it's guarantee that the record will be editited solely by a sigle token we can
         # cache the record in the local DB
+        emp_department_name = None
+        emp_region = None
+        emp_role = None
+        if form.department.data:
+            emp_department_name = form.department.data
+        if form.state.data:
+            emp_region = form.state.data
+        if form.role.data:
+            emp_role = form.role.data
+
         payload = {
-            "department-name": form.department.data,
+            "department-name": emp_department_name,
             "start-date": form.start_date.data.as_orcid_dict(),
             "end-date": form.end_date.data.as_orcid_dict(),
             "visibility": "PUBLIC",
@@ -191,11 +202,11 @@ def employment(user_id, put_code=None):
                 "name": form.name.data,
                 "address": {
                     "city": form.city.data,
-                    "region": form.state.data,
+                    "region": emp_region,
                     "country": form.country.data
                 }
             },
-            "role-title": form.role.data
+            "role-title": emp_role
         }
         if put_code:
             payload["put-code"] = put_code
@@ -231,7 +242,7 @@ def employment(user_id, put_code=None):
         else:
             message = resp.json().get("user-message") or resp.state
             flash(
-                "Failed to update the entry: %s. You don't have required permission to edit the record." %
+                "Failed to update the entry: %s." %
                 message, "danger")
 
     return render_template("employment.html", form=form, _url=_url)
