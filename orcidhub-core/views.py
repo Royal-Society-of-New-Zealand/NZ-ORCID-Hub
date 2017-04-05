@@ -44,18 +44,17 @@ class AppModelView(ModelView):
 
 class UserAdmin(AppModelView):
     """User model view."""
+    roles = {
+        1: "Superuser",
+        2: "Administratro",
+        4: "Researcher",
+        8: "Technical Contact"
+    }
+
     column_exclude_list = ("password", "username",)
-    column_formatters = dict(roles=lambda v, c, m, p: Role(m.roles).name)
+    column_formatters = dict(roles=lambda v, c, m, p: ", ".join(n for r, n in v.roles.items() if r & m.roles))
     form_overrides = dict(roles=BitmapMultipleValueField)
-    form_args = dict(
-        roles=dict(
-            choices=[
-                (1, "Superuser"),
-                (2, "Administratro"),
-                (4, "Researcher"),
-                (8, "Technical Contact"),
-            ])
-    )
+    form_args = dict(roles=dict(choices=roles.items()))
 
     jax_refs = {
         "organisation": {
