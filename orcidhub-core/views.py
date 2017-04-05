@@ -16,6 +16,9 @@ from collections import namedtuple
 
 from requests_oauthlib import OAuth2Session
 
+# import swagger_client
+# from swagger_client.rest import ApiException
+
 HEADERS = {'Accept': 'application/vnd.orcid+json', 'Content-type': 'application/vnd.orcid+json'}
 
 
@@ -170,21 +173,10 @@ def employment(user_id, put_code=None):
         # TODO: Utilise generted client code
         # TODO: If it's guarantee that the record will be editited solely by a sigle token we can
         # cache the record in the local DB
-        emp_department_name = None
-        emp_region = None
-        emp_role = None
-        if form.department.data:
-            emp_department_name = form.department.data
-        if form.state.data:
-            emp_region = form.state.data
-        if form.role.data:
-            emp_role = form.role.data
 
         payload = {
-            "department-name": emp_department_name,
             "start-date": form.start_date.data.as_orcid_dict(),
             "end-date": form.end_date.data.as_orcid_dict(),
-            "visibility": "PUBLIC",
             "source": {
                 "source-orcid": None,
                 "source-name": {
@@ -202,12 +194,20 @@ def employment(user_id, put_code=None):
                 "name": form.name.data,
                 "address": {
                     "city": form.city.data,
-                    "region": emp_region,
                     "country": form.country.data
                 }
-            },
-            "role-title": emp_role
+            }
         }
+
+        if form.department.data:
+            payload["department-name"] = form.department.data
+
+        if form.state.data:
+            payload["organization"]["address"]["region"] = form.state.data
+
+        if form.role.data:
+            payload["role-title"] = form.role.data
+
         if put_code:
             payload["put-code"] = put_code
 
