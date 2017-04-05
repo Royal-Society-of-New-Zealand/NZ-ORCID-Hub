@@ -18,6 +18,7 @@ from requests_oauthlib import OAuth2Session
 
 HEADERS = {'Accept': 'application/vnd.orcid+json', 'Content-type': 'application/vnd.orcid+json'}
 
+
 @app.route('/pyinfo')
 @login_required
 def pyinfo():
@@ -43,7 +44,18 @@ class AppModelView(ModelView):
         return redirect(url_for('login', next=request.url))
 
 
-admin.add_view(AppModelView(User))
+class UserAdmin(AppModelView):
+    """User model view."""
+    column_exclude_list = ("password",)
+
+    jax_refs = {
+        "organisation": {
+            "fields": (Organisation.name, "name")
+        }
+    }
+
+
+admin.add_view(UserAdmin(User))
 admin.add_view(AppModelView(Organisation))
 
 EmpRecord = namedtuple(
@@ -76,7 +88,11 @@ def delete_employment(user_id, put_code=None):
     _url = request.args.get('url') or request.referrer or url_for("employment_list", user_id=user_id)
     if put_code is None and "put_code" in request.form:
         put_code = request.form.get("put_code")
-    user = User.get(id=user_id)
+    try:
+        user = User.get(id=user_id, organisation_id=current_user.organisation_id)
+    except:
+        flash("ORCID HUB doent have data related to this researcher", "warning")
+        return redirect(url_for("viewmembers"))
     if not user.orcid:
         flash("The user does't have ORDID", "error")
         return redirect(_url)
@@ -105,7 +121,13 @@ def delete_employment(user_id, put_code=None):
 def employment(user_id, put_code=None):
     """Create a new or edit an existing employment record."""
     _url = request.args.get('url') or url_for("employment_list", user_id=user_id)
-    user = User.get(id=user_id)
+
+    try:
+        user = User.get(id=user_id, organisation_id=current_user.organisation_id)
+    except:
+        flash("ORCID HUB doent have data related to this researcher", "warning")
+        return redirect(url_for("viewmembers"))
+
     if not user.orcid:
         flash("The user does't have ORDID", "error")
         return redirect(_url)
@@ -227,9 +249,15 @@ def employment(user_id, put_code=None):
 @login_required
 def employment_list(user_id):
     """Show all user employment list."""
-    user = User.get(id=user_id)
+    try:
+        user = User.get(id=user_id, organisation_id=current_user.organisation_id)
+    except:
+        flash("ORCID HUB doent have data related to this researcher", "warning")
+        return redirect(url_for("viewmembers"))
+
     if not user.orcid:
-        flash("The user does't have ORDID", "error")
+        flash("The user does't have ORDID linked to Hub", "error")
+        return redirect(url_for("viewmembers"))
 
     orcidToken = None
     try:
