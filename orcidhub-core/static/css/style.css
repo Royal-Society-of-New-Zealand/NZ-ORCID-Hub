@@ -1,33 +1,41 @@
 .navbar-login
 {
-    width: 305px;
-    padding: 10px;
-    padding-bottom: 0px;
+	width: 305px;
+	padding: 10px;
+	padding-bottom: 0px;
 }
 .navbar-login-session
 {
-    padding: 10px;
-    padding-bottom: 0px;
-    padding-top: 0px;
+	padding: 10px;
+	padding-bottom: 0px;
+	padding-top: 0px;
 }
 .icon-size
 {
-    font-size: 87px;
+	font-size: 87px;
 }
 /* fix trash icon inside table column */
 .model-list form.icon {
-    display: inline;
+	display: inline;
 }
 
 .model-list form.icon button {
-    color: #337ab7;
-    border: none;
-    background: transparent;
-    text-decoration: none;
-    padding: 0;
-    line-height: normal;
+	color: #337ab7;
+	border: none;
+	background: transparent;
+	text-decoration: none;
+	padding: 0;
+	line-height: normal;
 }
 
 .model-list a.icon:first-child {
-    margin-left: 10px;
+	margin-left: 10px;
+}
+
+.col-orcid {
+	word-break: break-all;
+	-webkit-hyphens:none;
+	-moz-hyphens: none; 
+	hyphens: none;
+	white-space: nowrap;
 }

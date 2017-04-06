@@ -51,8 +51,10 @@ class UserAdmin(AppModelView):
         8: "Technical Contact"
     }
 
-    column_exclude_list = ("password", "username",)
-    column_formatters = dict(roles=lambda v, c, m, p: ", ".join(n for r, n in v.roles.items() if r & m.roles))
+    column_exclude_list = ("password", "username", "first_name", "last_name", "edu_person_shared_token",)
+    column_formatters = dict(
+        roles=lambda v, c, m, p: ", ".join(n for r, n in v.roles.items() if r & m.roles),
+        orcid=lambda v, c, m, p: m.orcid.replace('-', '\u2011') if m.orcid else '')
     form_overrides = dict(roles=BitmapMultipleValueField)
     form_args = dict(roles=dict(choices=roles.items()))
 
@@ -62,9 +64,13 @@ class UserAdmin(AppModelView):
         }
     }
 
+class OrganisationAdmin(AppModelView):
+    """Organisation model view."""
+    column_exclude_list = ("orcid_client_id", "orcid_secret", "tuakiri_name",)
+
 
 admin.add_view(UserAdmin(User))
-admin.add_view(AppModelView(Organisation))
+admin.add_view(OrganisationAdmin(Organisation))
 
 EmpRecord = namedtuple(
     "EmpRecord",
