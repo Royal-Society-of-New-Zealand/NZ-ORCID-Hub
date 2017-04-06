@@ -16,8 +16,8 @@ from collections import namedtuple
 
 from requests_oauthlib import OAuth2Session
 
-# import swagger_client
-# from swagger_client.rest import ApiException
+import swagger_client
+from swagger_client.rest import ApiException
 
 HEADERS = {'Accept': 'application/vnd.orcid+json', 'Content-type': 'application/vnd.orcid+json'}
 
@@ -107,14 +107,16 @@ def delete_employment(user_id, put_code=None):
     except:
         flash("The user hasn't authorized you to Add records", "warning")
         return redirect(_url)
-    client = OAuth2Session(user.organisation.orcid_client_id, token={"access_token": orcidToken.access_token})
-    url = ORCID_API_BASE + user.orcid + "/employment/%d" % put_code
-    resp = client.delete(url, headers=HEADERS)
-    if resp.status_code == 204:
+
+    swagger_client.configuration.access_token = orcidToken.access_token
+    api_instance = swagger_client.MemberAPIV20Api()
+
+    try:
+        # Delete an Employment
+        api_instance.delete_employment(user.orcid, put_code)
         flash("Employment record successfully deleted.", "success")
-    else:
-        message = resp.json().get("user-message") or resp.state
-        flash("Failed to delete the entry: %s" % message, "danger")
+    except ApiException as e:
+        flash("Failed to delete the entry: %s" % e.body, "danger")
     return redirect(_url)
 
 
