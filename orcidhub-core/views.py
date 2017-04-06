@@ -10,7 +10,7 @@ from flask_admin.contrib.peewee import ModelView
 from models import User, Organisation, Role, OrcidToken, User_Organisation_affiliation, PartialDate as PD
 from flask_login import login_required, current_user
 from login_provider import roles_required
-from forms import EmploymentForm
+from forms import EmploymentForm, BitmapMultipleValueField
 from config import ORCID_API_BASE, scope_activities_update, scope_read_limited
 from collections import namedtuple
 import time
@@ -44,13 +44,24 @@ class AppModelView(ModelView):
 
 class UserAdmin(AppModelView):
     """User model view."""
-    column_exclude_list = ("password",)
+    roles = {
+        1: "Superuser",
+        2: "Administratro",
+        4: "Researcher",
+        8: "Technical Contact"
+    }
+
+    column_exclude_list = ("password", "username",)
+    column_formatters = dict(roles=lambda v, c, m, p: ", ".join(n for r, n in v.roles.items() if r & m.roles))
+    form_overrides = dict(roles=BitmapMultipleValueField)
+    form_args = dict(roles=dict(choices=roles.items()))
 
     jax_refs = {
         "organisation": {
             "fields": (Organisation.name, "name")
         }
     }
+
 
 admin.add_view(UserAdmin(User))
 admin.add_view(AppModelView(Organisation))

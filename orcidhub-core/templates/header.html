@@ -1,0 +1,84 @@
+<!-- Header Details -->
+<header>
+  {% block header %}
+    <div class="lead">
+      <img src="/static/images/background.png" class="img-responsive"
+                                               alt="Cinque Terre" width="100%" height="100">
+    </div>
+  {% endblock %}
+  {% if current_user.is_authenticated %}
+    <nav class="navbar navbar-inverse">
+      <div class="container-fluid">
+        <div class="navbar-header">
+          <a class="navbar-brand" href="{{ url_for('login') }}">NZ ORCiD Hub</a>
+        </div>
+        <ul class="nav navbar-nav">
+          <!-- li id="index"><a href="#">Home</a></li -->
+          <li id="about"><a href="#">About</a></li>
+          {% if current_user.organisation %}
+            <li id="profile"><a href="{{ url_for('link') }}" data-toggle="tooltip"
+                                                             title="Affiliate yourself with ORCID HUB or view your ORCiD">ORCiD Permissions</a></li>
+          {% endif %}
+          {% if current_user.has_role("ADMIN") %}
+            <li id="researcher"><a href="/Tuakiri/register/researcher">Register Researcher</a></li>
+            <li id="viewmembers"><a href="/viewmembers">View Members</a></li>
+          {% elif current_user.has_role("SUPERUSER") %}
+            <li id="registerOrganisation"><a href="{{ url_for('invite_organisation') }}">Register Organisation</a>
+            </li>
+          {% endif %}
+          {% if current_user.is_superuser %}
+            <li class="dropdown">
+              <a class="dropdown-toggle" data-toggle="dropdown" href="#">Admin
+                <span class="caret"></span></a>
+              <ul class="dropdown-menu">
+                <li id="user.index_view"><a href="{{ url_for('user.index_view')}}">Users</a></li>
+                <li id="organisation.index_view"><a href="{{ url_for('organisation.index_view')}}">Organisations</a></li>
+              </ul>
+            </li>
+          {% endif %}
+        </ul>
+        <ul class="nav navbar-nav navbar-right">
+
+          <li class="dropdown">
+            <a href="#" class="dropdown-toggle" data-toggle="dropdown">
+              <span class="glyphicon glyphicon-user"></span>
+              <strong>{{ current_user.name }}</strong>
+              <span class="glyphicon glyphicon-chevron-down"></span>
+            </a>
+            <ul class="dropdown-menu">
+              <li>
+                <div class="navbar-login">
+                  <div class="row">
+                    <div class="col-lg-4">
+                      <p class="text-center">
+                      <span class="glyphicon glyphicon-user icon-size"></span>
+                      </p>
+                    </div>
+                    <div class="col-lg-8">
+                      <p class="text-left"><strong>{{ current_user.name }}</strong></p>
+                      <p class="text-left small">{{ current_user.email }}</p>
+                      <p class="text-left">
+                      <a href="{{ url_for('profile')}}" class="btn btn-primary btn-block btn-sm">Profile</a>
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </li>
+              <li class="divider navbar-login-session-bg"></li>
+              <li><a href="#">Account Settings <span class="glyphicon glyphicon-cog pull-right"></span></a>
+              </li>
+              <li class="divider"></li>
+              <li><a href="#">User stats <span class="glyphicon glyphicon-stats pull-right"></span></a></li>
+              <li class="divider"></li>
+              <li><a href="{{url_for('logout')}}">Log Out<span
+                     class="glyphicon glyphicon-log-out pull-right"></span></a></li>
+            </ul>
+          </li>
+
+          <li><a href="{{url_for('logout')}}"><span class="glyphicon glyphicon-log-out"></span> Log Out</a></li>
+        </ul>
+        <!-- button class="btn btn-danger navbar-btn">Button</button -->
+      </div>
+    </nav>
+  {% endif %}
+</header>

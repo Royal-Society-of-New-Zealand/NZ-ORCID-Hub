@@ -27,7 +27,6 @@ import base64
 import zlib
 import pickle
 import secrets
-from werkzeug.contrib.cache import SimpleCache
 from tempfile import gettempdir
 from os import path, remove
 import requests
@@ -62,8 +61,6 @@ def shib_sp():
         data = {k: v for k, v in request.headers.items() if k in
                 ["Auedupersonsharedtoken", 'Sn', 'Givenname', 'Mail', 'O', 'Displayname']}
         data = base64.b64encode(zlib.compress(pickle.dumps(data)))
-        _next += ('&' if urlparse(_next).query else '?') + \
-            urlencode(dict(data=data))
 
         resp = redirect(_next)
         with open(path.join(gettempdir(), _key), 'wb') as kf:
