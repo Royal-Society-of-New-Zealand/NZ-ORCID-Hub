@@ -13,7 +13,6 @@
           <a class="navbar-brand" href="{{ url_for('login') }}">NZ ORCiD Hub</a>
         </div>
         <ul class="nav navbar-nav">
-          <!-- li id="index"><a href="#">Home</a></li -->
           <li id="about"><a href="#">About</a></li>
           {% if current_user.organisation %}
             <li id="profile"><a href="{{ url_for('link') }}" data-toggle="tooltip"
@@ -41,7 +40,7 @@
 
           <li class="dropdown">
             <a href="#" class="dropdown-toggle" data-toggle="dropdown">
-              <span class="glyphicon glyphicon-user"></span>
+              <img src="{{ current_user.avatar(20) }}">
               <strong>{{ current_user.name }}</strong>
               <span class="glyphicon glyphicon-chevron-down"></span>
             </a>
@@ -51,14 +50,17 @@
                   <div class="row">
                     <div class="col-lg-4">
                       <p class="text-center">
-                      <span class="glyphicon glyphicon-user icon-size"></span>
+                      <!-- span class="glyphicon glyphicon-user icon-size"></span -->
+                      <a href={{current_user.gravatar_profile_url}}>
+                        <img src="{{ current_user.avatar(100) }}">
+                      </a>
                       </p>
                     </div>
                     <div class="col-lg-8">
                       <p class="text-left"><strong>{{ current_user.name }}</strong></p>
                       <p class="text-left small">{{ current_user.email }}</p>
                       <p class="text-left">
-                      <a href="{{ url_for('profile')}}" class="btn btn-primary btn-block btn-sm">Profile</a>
+                      <a href="{{url_for('profile')}}" class="btn btn-primary btn-block btn-sm">Profile</a>
                       </p>
                     </div>
                   </div>
