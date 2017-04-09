@@ -59,7 +59,7 @@ def shib_sp():
     _key = request.args.get("key")
     if _next:
         data = {k: v for k, v in request.headers.items() if k in
-                ["Auedupersonsharedtoken", 'Sn', 'Givenname', 'Mail', 'O', 'Displayname']}
+                ["Auedupersonsharedtoken", 'Sn', 'Givenname', 'Mail', 'O', 'Displayname', 'unscoped-affiliation']}
         data = base64.b64encode(zlib.compress(pickle.dumps(data)))
 
         resp = redirect(_next)
