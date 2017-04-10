@@ -54,7 +54,6 @@ class PartialDateField(Field):
 
     def db_value(self, value):
         """Convert into partial ISO date textual representation: YYYY-**-**, YYYY-MM-**, or YYYY-MM-DD."""
-
         if value is None or not value.year:
             return None
         else:
@@ -77,9 +76,10 @@ class PartialDateField(Field):
 class Role(IntFlag):
     """
     Enum used to represent user role.
-    The model provide multi role support
-    representing role sets as bitmaps.
+
+    The model provide multi role support representing role sets as bitmaps.
     """
+
     NONE = 0  # NONE
     SUPERUSER = 1  # SuperUser
     ADMIN = 2  # Admin
@@ -105,6 +105,7 @@ class Organisation(BaseModel):
     """
     Research oranisation
     """
+
     name = CharField(max_length=100, unique=True)
     email = CharField(max_length=80, unique=True, null=True)
     tuakiri_name = CharField(max_length=80, unique=True, null=True)
@@ -137,9 +138,9 @@ class Organisation(BaseModel):
 
 class User(BaseModel, UserMixin):
     """
-    ORCiD Hub user (incling researchers, organisation administrators,
-    hub administrators, etc.)
+    ORCiD Hub user (incling researchers, organisation administrators, hub administrators, etc.)
     """
+
     name = CharField(max_length=64, null=True)
     first_name = CharField(null=True, verbose_name="Firs Name")
     last_name = CharField(null=True, verbose_name="Last Name")
@@ -186,6 +187,7 @@ class User(BaseModel, UserMixin):
 
     def has_role(self, role):
         """Returns `True` if the user identifies with the specified role.
+
         :param role: A role name, `Role` instance, or integer value"""
         if isinstance(role, Role):
             return role & Role(self.roles)
@@ -220,8 +222,10 @@ class User(BaseModel, UserMixin):
         """Return Gravatar service user profile URL."""
         return "https://www.gravatar.com/" + md5(self.email.lower().encode()).hexdigest()
 
+
 class UserOrg(BaseModel):
     """Linking object for many-to-many relationship."""
+
     user = ForeignKeyField(User, on_delete="CASCADE")
     org = ForeignKeyField(Organisation, index=True,
                           on_delete="CASCADE", verbose_name="Organisation")
@@ -242,6 +246,7 @@ class OrcidToken(BaseModel):
     """
     For Keeping Orcid token in the table.
     """
+
     user = ForeignKeyField(User)
     org = ForeignKeyField(Organisation, index=True, verbose_name="Organisation")
     scope = TextField(null=True)
@@ -255,6 +260,7 @@ class User_Organisation_affiliation(BaseModel):
     """
     For Keeping the information about the affiliation
     """
+
     user = ForeignKeyField(User)
     organisation = ForeignKeyField(Organisation, index=True, verbose_name="Organisation")
     name = TextField(null=True, verbose_name="Institution/employer")

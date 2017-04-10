@@ -104,7 +104,7 @@ def delete_employment(user_id, put_code=None):
         put_code = request.form.get("put_code")
     user = User.get(id=user_id)
     if not user.orcid:
-        flash("The user does't have ORDID", "error")
+        flash("The user does't have ORDID", "danger")
         return redirect(_url)
 
     orcidToken = None
@@ -133,7 +133,7 @@ def employment(user_id, put_code=None):
     _url = request.args.get('url') or url_for("employment_list", user_id=user_id)
     user = User.get(id=user_id)
     if not user.orcid:
-        flash("The user does't have ORDID", "error")
+        flash("The user does't have ORDID", "danger")
         return redirect(_url)
 
     orcidToken = None
@@ -255,7 +255,7 @@ def employment_list(user_id):
     """Show all user employment list."""
     user = User.get(id=user_id)
     if not user.orcid:
-        flash("The user does't have ORDID", "error")
+        flash("The user does't have ORDID", "danger")
 
     orcidToken = None
     try:
