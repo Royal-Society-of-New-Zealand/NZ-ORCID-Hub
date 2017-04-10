@@ -94,7 +94,17 @@ either directly invoking it with `python application.py` or using Flask CLI
 export EXTERNAL_SP=https://dev.orcidhub.org.nz/Tuakiri/SP
 export DATABASE_URL=sqlite:///data.db
 export FLASK_APP=/path/to/main.py
-export PYTHONPATH=$(dirname /path/to/main.py)  ## flask run has problems with setting up search paths
+export PYTHONPATH=$(dirname $FLASK_APP)  ## flask run has problems with setting up search paths
 export FLASK_DEBUG=1
 flask run
+```
+
+You can add these setting to you virtual environment activation script, e.g. (assuming it's located in the root directory):
+
+```
+export FLASK_APP=$(dirname $VIRTUAL_ENV)/orcidhub-core/main.py
+export PYTHONPATH=$(dirname $FLASK_APP)
+export EXTERNAL_SP=https://dev.orcidhub.org.nz/Tuakiri/SP
+export DATABASE_URL=sqlite:///data.db
+export FLASK_DEBUG=1
 ```
