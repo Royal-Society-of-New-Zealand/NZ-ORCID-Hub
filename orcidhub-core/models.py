@@ -8,6 +8,7 @@ from peewee import (
     DateTimeField, datetime)
 
 from application import db
+
 try:
     from enum import IntFlag
 except ImportError:
@@ -26,7 +27,7 @@ class PartialDate(namedtuple("PartialDate", ["year", "month", "day"])):
             return None
         return dict(
             ((f, None if v is None else {"value": ("%04d" if f == "year" else "%02d") % v})
-                for (f, v) in zip(self._fields, self)))
+             for (f, v) in zip(self._fields, self)))
 
     @classmethod
     def create(cls, dict_value):
@@ -42,8 +43,12 @@ class PartialDate(namedtuple("PartialDate", ["year", "month", "day"])):
             return None
         return cls(**{k: int(v.get("value")) if v else None for k, v in dict_value.items()})
 
+    def as_datetime(self):
+        return datetime.datetime(self.year, self.month, self.day)
+
 
 PartialDate.__new__.__defaults__ = (None,) * len(PartialDate._fields)
+
 
 class PartialDateField(Field):
     """Partial date custom DB data field mapped to varchar(10)."""
@@ -129,6 +134,9 @@ class Organisation(BaseModel):
             self.userorg_set.where(self.userorg_set.c.is_admin).alias("sq"),
             on=(self.userorg_set.c.user_id == User.id))
 
+    def __repr__(self):
+        return self.name
+
 
 class User(BaseModel, UserMixin):
     """
@@ -146,6 +154,7 @@ class User(BaseModel, UserMixin):
     confirmed = BooleanField(default=False)
     # Role bit-map:
     roles = SmallIntegerField(default=0)
+    edu_person_affiliation = TextField(null=True, verbose_name="EDU Person Affiliations")
 
     # TODO: many-to-many
     # NB! depricated!
