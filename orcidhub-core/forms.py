@@ -3,7 +3,7 @@
 """Application forms."""
 
 from flask_wtf import FlaskForm
-from wtforms import StringField, SelectField, validators, Field
+from wtforms import StringField, SelectField, SelectMultipleField, validators, Field
 from wtforms.widgets import HTMLString, html_params
 from pycountry import countries
 from datetime import date
@@ -79,6 +79,40 @@ class PartialDateField(Field):
                 self.data = filter(self.data)
         except ValueError as e:
             self.process_errors.append(e.args[0])
+
+
+class BitmapMultipleValueField(SelectMultipleField):
+    """
+    No different from a normal multi select field, except this one can take (and
+    validate) multiple choices and value (by defualt) can be a bitmap of
+    selected choices (the choice value should be an integer).
+    """
+    bitmap_value = True
+
+    def process_data(self, value):
+        try:
+            if self.bitmap_value:
+                self.data = [self.coerce(v) for (v, _) in self.choices if v & value]
+            else:
+                self.data = [self.coerce(v) for v in value]
+        except (ValueError, TypeError):
+            self.data = None
+
+    def process_formdata(self, valuelist):
+        try:
+            if self.bitmap_value:
+                self.data = sum(int(self.coerce(x)) for x in valuelist)
+            else:
+                self.data = [self.coerce(x) for x in valuelist]
+        except ValueError:
+            raise ValueError(self.gettext('Invalid choice(s): one or more data inputs could not be coerced'))
+
+    def pre_validate(self, form):
+        if self.data and not self.bitmap_value:
+            values = list(c[0] for c in self.choices)
+            for d in self.data:
+                if d not in values:
+                    raise ValueError(self.gettext("'%(value)s' is not a valid choice for this field") % dict(value=d))
 
 
 class EmploymentForm(FlaskForm):

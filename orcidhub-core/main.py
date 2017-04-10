@@ -1,3 +1,11 @@
+# -*- coding: utf-8 -*-
+
+"""Application module gluing script.
+
+Simple solution to overcome circular import problem:
+http://charlesleifer.com/blog/structuring-flask-apps-a-how-to-for-those-coming-from-django/
+"""
+
 from application import app, db
 import models  # noqa: F401
 from views import *  # noqa: F401, F403

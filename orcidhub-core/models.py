@@ -16,6 +16,8 @@ except ImportError:
 from flask_login import UserMixin
 from collections import namedtuple
 from itertools import zip_longest
+from urllib.parse import urlencode
+from hashlib import md5
 
 
 class PartialDate(namedtuple("PartialDate", ["year", "month", "day"])):
@@ -211,6 +213,18 @@ class User(BaseModel, UserMixin):
     def is_admin(self):
         return self.roles & Role.ADMIN
 
+    def avatar(self, size=40, default="identicon"):
+        """Return Gravatar service user avatar URL."""
+        # TODO: default gravatar image
+        # default = "https://www.example.com/default.jpg"
+        gravatar_url = "https://www.gravatar.com/avatar/" + md5(self.email.lower().encode()).hexdigest() + "?"
+        gravatar_url += urlencode({'d': default, 's': str(size)})
+        return gravatar_url
+
+    @property
+    def gravatar_profile_url(self):
+        """Return Gravatar service user profile URL."""
+        return "https://www.gravatar.com/" + md5(self.email.lower().encode()).hexdigest()
 
 class UserOrg(BaseModel):
     """Linking object for many-to-many relationship."""

@@ -10,8 +10,8 @@ from flask_admin.contrib.peewee import ModelView
 from models import User, Organisation, Role, OrcidToken, User_Organisation_affiliation, PartialDate as PD
 from flask_login import login_required, current_user
 from login_provider import roles_required
-from forms import EmploymentForm
-from config import scope_activities_update, scope_read_limited
+from forms import EmploymentForm, BitmapMultipleValueField
+from config import ORCID_API_BASE, scope_activities_update, scope_read_limited
 from collections import namedtuple
 
 import swagger_client
@@ -44,10 +44,21 @@ class AppModelView(ModelView):
         """Handle access denial. Redirect to login page if user doesn't have access."""
         return redirect(url_for('login', next=request.url))
 
-
 class UserAdmin(AppModelView):
     """User model view."""
-    column_exclude_list = ("password",)
+    roles = {
+        1: "Superuser",
+        2: "Administratro",
+        4: "Researcher",
+        8: "Technical Contact"
+    }
+
+    column_exclude_list = ("password", "username", "first_name", "last_name", "edu_person_shared_token",)
+    column_formatters = dict(
+        roles=lambda v, c, m, p: ", ".join(n for r, n in v.roles.items() if r & m.roles),
+        orcid=lambda v, c, m, p: m.orcid.replace('-', '\u2011') if m.orcid else '')
+    form_overrides = dict(roles=BitmapMultipleValueField)
+    form_args = dict(roles=dict(choices=roles.items()))
 
     jax_refs = {
         "organisation": {
@@ -55,9 +66,13 @@ class UserAdmin(AppModelView):
         }
     }
 
+class OrganisationAdmin(AppModelView):
+    """Organisation model view."""
+    column_exclude_list = ("orcid_client_id", "orcid_secret", "tuakiri_name",)
 
 admin.add_view(UserAdmin(User))
-admin.add_view(AppModelView(Organisation))
+admin.add_view(OrganisationAdmin(Organisation))
+
 
 EmpRecord = namedtuple(
     "EmpRecord",
