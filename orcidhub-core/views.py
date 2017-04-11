@@ -11,7 +11,7 @@ from models import User, Organisation, Role, OrcidToken, User_Organisation_affil
 from flask_login import login_required, current_user
 from login_provider import roles_required
 from forms import EmploymentForm, BitmapMultipleValueField
-from config import ORCID_API_BASE, scope_activities_update, scope_read_limited
+from config import scope_activities_update, scope_read_limited
 from collections import namedtuple
 
 import swagger_client
@@ -44,6 +44,7 @@ class AppModelView(ModelView):
         """Handle access denial. Redirect to login page if user doesn't have access."""
         return redirect(url_for('login', next=request.url))
 
+
 class UserAdmin(AppModelView):
     """User model view."""
     roles = {
@@ -66,13 +67,14 @@ class UserAdmin(AppModelView):
         }
     }
 
+
 class OrganisationAdmin(AppModelView):
     """Organisation model view."""
     column_exclude_list = ("orcid_client_id", "orcid_secret", "tuakiri_name",)
 
+
 admin.add_view(UserAdmin(User))
 admin.add_view(OrganisationAdmin(Organisation))
-
 
 EmpRecord = namedtuple(
     "EmpRecord",
@@ -193,18 +195,18 @@ def employment(user_id, put_code=None):
         # TODO: If it's guarantee that the record will be editited solely by a sigle token we can
         # cache the record in the local DB
 
-        employment = swagger_client.Employment(department_name=form.department.data,
-                                               start_date=form.start_date.data.as_datetime,
-                                               end_date=form.end_date.data.as_datetime, role_title=form.role.data,
-                                               path="")
+        employment = swagger_client.Employment(start_date=form.start_date.data.as_orcid_dict(),
+                                               end_date=form.end_date.data.as_orcid_dict(), path="",
+                                               department_name=form.department.data, role_title=form.role.data)
 
         source_clientid = swagger_client.SourceClientId(host='sandbox.orcid.org',
                                                         path=current_user.organisation.orcid_client_id,
-                                                        uri="http://sandbox.orcid.org/client/" + user.organisation.orcid_client_id)
+                                                        uri="http://sandbox.orcid.org/client/" +
+                                                            user.organisation.orcid_client_id)
         employment.source = swagger_client.Source(source_orcid=None, source_client_id=source_clientid,
                                                   source_name=current_user.organisation.name)
 
-        organisation_address = swagger_client.OrganizationAddress(city=form.city.data, region=form.region.data,
+        organisation_address = swagger_client.OrganizationAddress(city=form.city.data, region=form.state.data,
                                                                   country=form.country.data)
 
         employment.organization = swagger_client.Organization(name=form.name.data, address=organisation_address,
@@ -221,7 +223,8 @@ def employment(user_id, put_code=None):
                 api_response = api_instance.create_employment(user.orcid, body=employment)
 
             affiliation, _ = User_Organisation_affiliation.get_or_create(
-                user=user, organisation=user.organisation, put_code=put_code)
+                user=user, organisation=user.organisation, put_code=put_code, department_name=form.department.data,
+                department_city=form.city.data, role_title=form.role.data)
             form.populate_obj(affiliation)
             if put_code:
                 affiliation.put_code = put_code
@@ -239,7 +242,7 @@ def employment(user_id, put_code=None):
         except ApiException as e:
             # message = resp.json().get("user-message") or resp.state
             flash(
-                "Failed to update the entry: %s.", "danger")
+                "Failed to update the entry: %s." % e.body, "danger")
 
     return render_template("employment.html", form=form, _url=_url)
 
