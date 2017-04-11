@@ -273,3 +273,30 @@ def employment_list(user_id):
     data = resp.json()
     # TODO: transform data for presentation:
     return render_template("employments.html", data=data, user_id=user_id)
+
+
+@app.route("/<int:user_id>/edu/list")
+@app.route("/<int:user_id>/edu")
+@login_required
+def edu_list(user_id):
+    """Show all user education list."""
+    user = User.get(id=user_id)
+    if not user.orcid:
+        flash("The user hasn't yet linked their ORCID record", "danger")
+
+    orcidToken = None
+    try:
+        orcidToken = OrcidToken.get(user=user, org=user.organisation, scope=scope_read_limited)
+    except:
+        flash("User didnt gave permission to update his/her records", "warning")
+        return redirect(url_for("viewmembers"))
+
+    client = OAuth2Session(user.organisation.orcid_client_id, token={"access_token": orcidToken.access_token})
+
+    resp = client.get('https://api.sandbox.orcid.org/v2.0/' + user.orcid + '/educations', headers=HEADERS)
+    # TODO: Organisation has read token
+    # TODO: Organisation has access to the employment records
+    # TODO: retrieve and tranform for presentation (order, etc)
+    data = resp.json()
+    # TODO: transform data for presentation:
+    return render_template("educations.html", data=data, user_id=user_id)
