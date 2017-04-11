@@ -117,6 +117,7 @@ class Organisation(BaseModel):
     orcid_secret = CharField(max_length=80, unique=True, null=True)
     confirmed = BooleanField(default=False)
     country = CharField(null=True)
+    city = CharField(null=True)
 
     @property
     def users(self):

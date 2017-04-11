@@ -474,6 +474,8 @@ def confirm_organisation(token):
                 organisation.confirmed = True
                 organisation.orcid_client_id = form.orgOricdClientId.data
                 organisation.orcid_secret = form.orgOrcidClientSecret.data
+                organisation.country = form.country.data
+                organisation.city = form.city.data
                 organisation.save()
 
                 # Update Orcid User
