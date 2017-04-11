@@ -285,15 +285,26 @@ def orcid_callback():
     callback URL. With this redirection comes an authorization code included
     in the redirect URL. We will use that to obtain an access token.
     """
+    # error=access_denied&error_description=User%20denied%20access&state=bd95UVMdcleJWr9SRJIDRxUXvkpvYVfamily_names=User
+    if "error" in request.args:
+        error = request.args["error"]
+        error_description = request.args.get("error_description")
+        if error == "access_denied":
+            flash(
+                "You have denied the access to your profile. ORCiD Hub requires at least read access to your profile.",
+                "danger")
+        else:
+            flash("Error occured while attempting to authorize '%s': %s"
+                  % (current_user.organisation.name, error_description), "danger")
+        return redirect(url_for("link"))
+
     client = OAuth2Session(current_user.organisation.orcid_client_id)
     token = client.fetch_token(token_url, client_secret=current_user.organisation.orcid_secret,
                                authorization_response=request.url)
-    # #print(token)
     # At this point you can fetch protected resources but lets save
     # the token and show how this is done from a persisted token
     # in /profile.
     session['oauth_token'] = token
-    app.logger.info("* TOKEN: %s", token)
     orcid = token['orcid']
     name = token["name"]
 

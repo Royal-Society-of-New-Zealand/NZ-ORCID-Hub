@@ -112,7 +112,7 @@ def delete_employment(user_id, put_code=None):
         flash("ORCID HUB doent have data related to this researcher", "warning")
         return redirect(url_for("viewmembers"))
     if not user.orcid:
-        flash("The user does't have ORDID", "error")
+        flash("The user hasn't yet linked their ORCID record", "danger")
         return redirect(_url)
 
     orcidToken = None
@@ -149,7 +149,7 @@ def employment(user_id, put_code=None):
         return redirect(url_for("viewmembers"))
 
     if not user.orcid:
-        flash("The user does't have ORDID", "error")
+        flash("The user hasn't yet linked their ORCID record", "danger")
         return redirect(_url)
 
     orcidToken = None
@@ -259,7 +259,7 @@ def employment_list(user_id):
         return redirect(url_for("viewmembers"))
 
     if not user.orcid:
-        flash("The user does't have ORDID linked to Hub", "error")
+        flash("The user hasn't yet linked their ORCID record", "danger")
         return redirect(url_for("viewmembers"))
 
     orcidToken = None
