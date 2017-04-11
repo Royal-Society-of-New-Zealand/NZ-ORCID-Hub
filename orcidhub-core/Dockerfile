@@ -26,6 +26,11 @@ RUN yum -y update \
 	python36u-pip \
     && pip3.6 install mod_wsgi psycopg2 \
     && pip3.6 install -r /requirements.txt \
+    && wget http://repo1.maven.org/maven2/io/swagger/swagger-codegen-cli/2.2.2/swagger-codegen-cli-2.2.2.jar -O swagger-codegen-cli.jar \
+    && java -jar swagger-codegen-cli.jar generate -l python -i https://api.sandbox.orcid.org/resources/swagger.json -o orcid \
+    && sed -i '597 s#return parse(string)#return datetime.fromtimestamp(float(string)/1000)#' orcid/swagger_client/api_client.py \
+    && sed -i '596 s#from dateutil.parser import parse#from datetime import datetime#' orcid/swagger_client/api_client.py \
+    && python3.6 orcid/setup.py install \
     && rm -f /requirements.txt \
     && /usr/bin/mod_wsgi-express module-config >/etc/httpd/conf.modules.d/10-wsgi.conf \
     && [ -d /var/run/lock ] || mkdir -p /var/run/lock \
