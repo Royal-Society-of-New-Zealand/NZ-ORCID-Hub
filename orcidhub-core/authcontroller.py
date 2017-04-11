@@ -376,6 +376,7 @@ def invite_organisation():
         else:
             email = form.orgEmailid.data
             org_name = form.orgName.data
+            tech_contact = bool(request.form.get('tech_contact'))
             try:
                 User.get(User.email == form.orgEmailid.data)
                 flash(
@@ -388,7 +389,8 @@ def invite_organisation():
                 try:
                     org = Organisation.get(name=org_name)
                     # TODO: fix it!
-                    org.email = email
+                    if tech_contact:
+                        org.email = email
                 except Organisation.DoesNotExist:
                     org = Organisation(name=org_name, email=email)
                 org.save()
@@ -397,13 +399,15 @@ def invite_organisation():
                     user = User.get(email=email)
                     user.roles = Role.ADMIN
                     user.organisation = org
+                    user.tech_contact = tech_contact
                 except User.DoesNotExist:
                     user = User(
                         name=form.orgName.data,
                         email=form.orgEmailid.data,
                         confirmed=True,  # In order to let the user in...
                         roles=Role.ADMIN,
-                        organisation=org)
+                        organisation=org,
+                        tech_contact=tech_contact)
                 user.save()
                 # Note: Using app context due to issue:
                 # https://github.com/mattupstate/flask-mail/issues/63
@@ -441,6 +445,17 @@ def confirm_organisation(token):
     if user.email != email:
         flash("The invitation to on-board the organisation wasn't sent to your email address...", "danger")
         return redirect(url_for("login"))
+
+    user = User.get(email=current_user.email, organisation=current_user.organisation)
+    if not user.tech_contact:
+        user.confirmed = True
+        user.save()
+        with app.app_context():
+            msg = Message("Welcome to OrcidhHub", recipients=[email])
+            msg.body = "Congratulations your emailid has been confirmed as an Admin for " + str(user.organisation)
+            mail.send(msg)
+            flash("Your Onboarding is Completed!!!", "success")
+        return redirect(url_for("viewmembers"))
 
     # TODO: support for mutliple orgs and admins
     # TODO: admin role asigning to an exiting user

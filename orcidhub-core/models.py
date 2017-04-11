@@ -157,6 +157,7 @@ class User(BaseModel, UserMixin):
     # Role bit-map:
     roles = SmallIntegerField(default=0)
     edu_person_affiliation = TextField(null=True, verbose_name="EDU Person Affiliations")
+    tech_contact = BooleanField(default=False)
 
     # TODO: many-to-many
     # NB! depricated!
