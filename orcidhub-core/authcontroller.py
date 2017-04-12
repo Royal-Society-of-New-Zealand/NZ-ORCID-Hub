@@ -16,7 +16,7 @@ from config import authorization_base_url, EDU_PERSON_AFFILIATION_EMPLOYMENT_LIS
     NEW_CREDENTIALS, NOTE_ORCID, CRED_TYPE_PREMIUM, APP_NAME, APP_DESCRIPTION, APP_URL, EXTERNAL_SP
 import json
 from application import app, mail
-from models import User, Role, Organisation, UserOrg, OrcidToken, User_Organisation_affiliation
+from models import User, Role, Organisation, UserOrg, OrcidToken
 from urllib.parse import quote, unquote, urlencode, urlparse
 from flask_login import login_user, current_user
 from registrationForm import OrgRegistrationForm
@@ -342,17 +342,17 @@ def orcid_callback():
             organisation_address = swagger_client.OrganizationAddress(city=orciduser.organisation.city,
                                                                       country=orciduser.organisation.country)
 
+            disambiguated_organization_details = swagger_client.DisambiguatedOrganization(
+                disambiguated_organization_identifier=orciduser.organisation.disambiguation_org_id,
+                disambiguation_source=orciduser.organisation.disambiguation_org_source)
+
             employment.organization = swagger_client.Organization(name=orciduser.organisation.name,
                                                                   address=organisation_address,
-                                                                  disambiguated_organization=None)
+                                                                  disambiguated_organization=disambiguated_organization_details)
 
-            swagger_client.DisambiguatedOrganization(disambiguated_organization_identifier=orciduser.organisation.name,
-                                                     disambiguation_source=orciduser.organisation.name)
             try:
                 api_response = api_instance.create_employment(user.orcid, body=employment)
-                affiliation, _ = User_Organisation_affiliation.get_or_create(
-                    user=orciduser, organisation=orciduser.organisation, put_code="",
-                    department_city=orciduser.organisation.city)
+                # TO Do: Save the put code in db table
                 flash("Your ORCID account was updated with employment affiliation from %s" % orciduser.organisation,
                       "success")
 
@@ -370,18 +370,17 @@ def orcid_callback():
             organisation_address = swagger_client.OrganizationAddress(city=orciduser.organisation.city,
                                                                       country=orciduser.organisation.country)
 
+            disambiguated_organization_details = swagger_client.DisambiguatedOrganization(
+                disambiguated_organization_identifier=orciduser.organisation.name,
+                disambiguation_source=orciduser.organisation.name)
+
             education.organization = swagger_client.Organization(name=orciduser.organisation.name,
                                                                  address=organisation_address,
-                                                                 disambiguated_organization=None)
-
-            swagger_client.DisambiguatedOrganization(disambiguated_organization_identifier=orciduser.organisation.name,
-                                                     disambiguation_source=orciduser.organisation.name)
+                                                                 disambiguated_organization=disambiguated_organization_details)
 
             try:
                 api_response = api_instance.create_education(user.orcid, body=education)
-                affiliation, _ = User_Organisation_affiliation.get_or_create(
-                    user=orciduser, organisation=orciduser.organisation, put_code="",
-                    department_city=orciduser.organisation.city)
+                # TO Do: Save the put code in db table
                 flash("Your ORCID account was updated with education affiliation from %s" % orciduser.organisation,
                       "success")
 
@@ -553,6 +552,8 @@ def confirm_organisation(token):
                 organisation.orcid_secret = form.orgOrcidClientSecret.data
                 organisation.country = form.country.data
                 organisation.city = form.city.data
+                organisation.disambiguation_org_id = form.disambiguation_org_id.data
+                organisation.disambiguation_org_source = form.disambiguation_org_source.data
                 organisation.save()
 
                 # Update Orcid User

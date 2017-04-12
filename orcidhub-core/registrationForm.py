@@ -28,6 +28,8 @@ class OrgConfirmationForm(FlaskForm):
                                        validators=[DataRequired()])
     country = SelectField("Country", [validators.required()], choices=country_choices)
     city = StringField("City", [validators.required()])
+    disambiguation_org_id = StringField("Disambiguation ORG Id", [validators.required()])
+    disambiguation_org_source = StringField("Disambiguation ORG Source", [validators.required()])
 
 
 class EmploymentDetailsForm(FlaskForm):

@@ -119,6 +119,8 @@ class Organisation(BaseModel):
     confirmed = BooleanField(default=False)
     country = CharField(null=True)
     city = CharField(null=True)
+    disambiguation_org_id = CharField(null=True)
+    disambiguation_org_source = CharField(null=True)
 
     @property
     def users(self):
