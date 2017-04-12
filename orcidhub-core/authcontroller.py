@@ -9,13 +9,14 @@ user (reseaser) affiliations.
 from requests_oauthlib import OAuth2Session
 from flask import request, redirect, session, url_for, render_template, flash, abort
 from werkzeug.urls import iri_to_uri
-from config import authorization_base_url, EDU_PERSON_AFFILIATION_EMPLOYMENT, EDU_PERSON_AFFILIATION_EDUCATION, \
-    token_url, \
-    scope_read_limited, scope_activities_update, MEMBER_API_FORM_BASE_URL, EDU_PERSON_AFFILIATION_MEMBER, \
+from config import authorization_base_url, EDU_PERSON_AFFILIATION_EMPLOYMENT_LIST, \
+    EDU_PERSON_AFFILIATION_EDUCATION_LIST, token_url, EDU_PERSON_AFFILIATION_EMPLOYMENT, \
+    EDU_PERSON_AFFILIATION_EDUCATION, EDU_PERSON_AFFILIATION_MEMBER, scope_read_limited, \
+    scope_activities_update, MEMBER_API_FORM_BASE_URL, EDU_PERSON_AFFILIATION_MEMBER_LIST, \
     NEW_CREDENTIALS, NOTE_ORCID, CRED_TYPE_PREMIUM, APP_NAME, APP_DESCRIPTION, APP_URL, EXTERNAL_SP
 import json
 from application import app, mail
-from models import User, Role, Organisation, UserOrg, OrcidToken
+from models import User, Role, Organisation, UserOrg, OrcidToken, User_Organisation_affiliation
 from urllib.parse import quote, unquote, urlencode, urlparse
 from flask_login import login_user, current_user
 from registrationForm import OrgRegistrationForm
@@ -31,6 +32,8 @@ import secrets
 from tempfile import gettempdir
 from os import path, remove
 import requests
+import swagger_client
+from swagger_client.rest import ApiException
 
 
 @app.route("/index")
@@ -134,12 +137,12 @@ def shib_login():
         eduPersonAffiliation = request.headers.get('Unscoped-Affiliation')
 
     if eduPersonAffiliation:
-        if any(epa in eduPersonAffiliation for epa in EDU_PERSON_AFFILIATION_EMPLOYMENT):
-            eduPersonAffiliation = "employment"
-        elif any(epa in eduPersonAffiliation for epa in EDU_PERSON_AFFILIATION_EDUCATION):
-            eduPersonAffiliation = "education"
-        elif any(epa in eduPersonAffiliation for epa in EDU_PERSON_AFFILIATION_MEMBER):
-            eduPersonAffiliation == "member"
+        if any(epa in eduPersonAffiliation for epa in EDU_PERSON_AFFILIATION_EMPLOYMENT_LIST):
+            eduPersonAffiliation = EDU_PERSON_AFFILIATION_EMPLOYMENT
+        elif any(epa in eduPersonAffiliation for epa in EDU_PERSON_AFFILIATION_EDUCATION_LIST):
+            eduPersonAffiliation = EDU_PERSON_AFFILIATION_EDUCATION
+        elif any(epa in eduPersonAffiliation for epa in EDU_PERSON_AFFILIATION_MEMBER_LIST):
+            eduPersonAffiliation = EDU_PERSON_AFFILIATION_MEMBER
     else:
         flash(
             "The value of eduPersonAffiliation was not supplied from your identity provider,"
@@ -321,6 +324,69 @@ def orcid_callback():
                                    access_token=token["access_token"], refresh_token=token["refresh_token"], )
     orcidToken.save()
     user.save()
+
+    if token["scope"] == scope_activities_update:
+        swagger_client.configuration.access_token = orcidToken.access_token
+        api_instance = swagger_client.MemberAPIV20Api()
+
+        if orciduser.edu_person_affiliation == EDU_PERSON_AFFILIATION_EMPLOYMENT:
+            employment = swagger_client.Employment()
+
+            source_clientid = swagger_client.SourceClientId(host='sandbox.orcid.org',
+                                                            path=orciduser.organisation.orcid_client_id,
+                                                            uri="http://sandbox.orcid.org/client/" +
+                                                                orciduser.organisation.orcid_client_id)
+            employment.source = swagger_client.Source(source_orcid=None, source_client_id=source_clientid,
+                                                      source_name=orciduser.organisation.name)
+
+            organisation_address = swagger_client.OrganizationAddress(city=orciduser.organisation.city,
+                                                                      country=orciduser.organisation.country)
+
+            employment.organization = swagger_client.Organization(name=orciduser.organisation.name,
+                                                                  address=organisation_address,
+                                                                  disambiguated_organization=None)
+
+            swagger_client.DisambiguatedOrganization(disambiguated_organization_identifier=orciduser.organisation.name,
+                                                     disambiguation_source=orciduser.organisation.name)
+            try:
+                api_response = api_instance.create_employment(user.orcid, body=employment)
+                affiliation, _ = User_Organisation_affiliation.get_or_create(
+                    user=orciduser, organisation=orciduser.organisation, put_code="",
+                    department_city=orciduser.organisation.city)
+                flash("Your ORCID account was updated with employment affiliation from %s" % orciduser.organisation,
+                      "success")
+
+            except ApiException as e:
+                flash("Failed to update the entry: %s." % e.body, "danger")
+        elif orciduser.edu_person_affiliation == EDU_PERSON_AFFILIATION_EDUCATION:
+            education = swagger_client.Education()
+            source_clientid = swagger_client.SourceClientId(host='sandbox.orcid.org',
+                                                            path=orciduser.organisation.orcid_client_id,
+                                                            uri="http://sandbox.orcid.org/client/" +
+                                                                orciduser.organisation.orcid_client_id)
+            education.source = swagger_client.Source(source_orcid=None, source_client_id=source_clientid,
+                                                     source_name=orciduser.organisation.name)
+
+            organisation_address = swagger_client.OrganizationAddress(city=orciduser.organisation.city,
+                                                                      country=orciduser.organisation.country)
+
+            education.organization = swagger_client.Organization(name=orciduser.organisation.name,
+                                                                 address=organisation_address,
+                                                                 disambiguated_organization=None)
+
+            swagger_client.DisambiguatedOrganization(disambiguated_organization_identifier=orciduser.organisation.name,
+                                                     disambiguation_source=orciduser.organisation.name)
+
+            try:
+                api_response = api_instance.create_education(user.orcid, body=education)
+                affiliation, _ = User_Organisation_affiliation.get_or_create(
+                    user=orciduser, organisation=orciduser.organisation, put_code="",
+                    department_city=orciduser.organisation.city)
+                flash("Your ORCID account was updated with education affiliation from %s" % orciduser.organisation,
+                      "success")
+
+            except ApiException as e:
+                flash("Failed to update the entry: %s." % e.body, "danger")
 
     flash("Your account was linked to ORCiD %s" % orcid, "success")
 
