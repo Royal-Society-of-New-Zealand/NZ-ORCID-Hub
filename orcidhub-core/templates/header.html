@@ -1,9 +1,8 @@
 <!-- Header Details -->
 <header>
   {% block header %}
-    <div class="lead">
-      <img src="/static/images/banner.svg" class="img-responsive"
-                                           alt="Cinque Terre" width="100%">
+    <div class="lead banner">
+      <div><img src="/static/images/banner.svg" alt="Cinque Terre" width="100%"></div>
     </div>
   {% endblock %}
   {% if current_user.is_authenticated %}

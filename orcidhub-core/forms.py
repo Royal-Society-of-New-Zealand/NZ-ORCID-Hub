@@ -124,7 +124,19 @@ class EmploymentForm(FlaskForm):
     state = StringField("State/region", filters=[lambda x: x or None])
     country = SelectField("Country", [validators.required()], choices=country_choices)
     department = StringField("Department", filters=[lambda x: x or None])
+    role = StringField("Role/title")
+    start_date = PartialDateField("Start date")
+    end_date = PartialDateField("End date (leave blank if current)")
+
+
+class EducationForm(FlaskForm):
+    """User/researcher education detail form."""
+
+    name = StringField("Institution", [validators.required()])
+    city = StringField("City", [validators.required()])
+    state = StringField("State/region")
+    country = SelectField("Country", [validators.required()], choices=country_choices)
     role = StringField("Role/title", filters=[lambda x: x or None])
-    # TODO: Change to partial date (with dropdowns) widgets
+    department = StringField("Department", filters=[lambda x: x or None])
     start_date = PartialDateField("Start date")
     end_date = PartialDateField("End date (leave blank if current)")
