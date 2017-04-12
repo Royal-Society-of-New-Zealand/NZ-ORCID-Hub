@@ -51,7 +51,7 @@
             <td>{{r["organization"]["address"].get("country", "")}}</td>
             <td>{{r.get("department-name", "")|default("", True)}}</td>
             <td>{{r.get("role-title", "")|default("", True)}}</td>
-            <td>{{r|emp_years}}</td>
+            <td>{{r|year_range}}</td>
           </tr>
         {% endfor %}
       </tbody>
