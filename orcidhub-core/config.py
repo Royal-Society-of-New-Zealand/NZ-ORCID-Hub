@@ -70,9 +70,5 @@ APP_URL = "https://" + environ.get("ENV", "dev") + ".orcidhub.org.nz"
 # External Shibboleth SP login URL (e.g., https://test.orcidhub.org.nz/Tuakiri/login)
 EXTERNAL_SP = environ.get("EXTERNAL_SP")
 
-EDU_PERSON_AFFILIATION_EMPLOYMENT_LIST = ['faculty', 'staff', 'employee', 'library%']
 EDU_PERSON_AFFILIATION_EMPLOYMENT = "employment"
-EDU_PERSON_AFFILIATION_EDUCATION_LIST = ['student', 'alum']
 EDU_PERSON_AFFILIATION_EDUCATION = "education"
-EDU_PERSON_AFFILIATION_MEMBER_LIST = ['member', 'affiliate']
-EDU_PERSON_AFFILIATION_MEMBER = "member"
