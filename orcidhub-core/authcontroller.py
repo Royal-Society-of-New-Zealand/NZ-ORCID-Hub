@@ -10,7 +10,7 @@ from requests_oauthlib import OAuth2Session
 from flask import request, redirect, session, url_for, render_template, flash, abort
 from werkzeug.urls import iri_to_uri
 from config import authorization_base_url, token_url, EDU_PERSON_AFFILIATION_EMPLOYMENT, \
-    EDU_PERSON_AFFILIATION_EDUCATION, scope_read_limited, scope_activities_update, MEMBER_API_FORM_BASE_URL, \
+    EDU_PERSON_AFFILIATION_EDUCATION, scope_activities_update, MEMBER_API_FORM_BASE_URL, \
     NEW_CREDENTIALS, NOTE_ORCID, CRED_TYPE_PREMIUM, APP_NAME, APP_DESCRIPTION, APP_URL, EXTERNAL_SP
 import json
 from application import app, mail
@@ -217,18 +217,11 @@ def link():
         sp_url = urlparse(EXTERNAL_SP)
         redirect_uri = sp_url.scheme + "://" + sp_url.netloc + "/auth/" + quote(redirect_uri)
 
-    client = OAuth2Session(current_user.organisation.orcid_client_id, scope=scope_read_limited,
-                           redirect_uri=redirect_uri)
-    authorization_url, state = client.authorization_url(authorization_base_url)
-    session['oauth_state'] = state
-
     client_write = OAuth2Session(current_user.organisation.orcid_client_id, scope=scope_activities_update,
                                  redirect_uri=redirect_uri)
     authorization_url_write, state = client_write.authorization_url(
         authorization_base_url)
-
-    orcid_url = iri_to_uri(authorization_url) + urlencode(dict(
-        family_names=current_user.last_name, given_names=current_user.first_name, email=current_user.email))
+    session['oauth_state'] = state
 
     orcid_url_write = iri_to_uri(authorization_url_write) + urlencode(dict(
         family_names=current_user.last_name, given_names=current_user.first_name, email=current_user.email))
@@ -239,33 +232,19 @@ def link():
 
     user = User.get(email=current_user.email,
                     organisation=current_user.organisation)
-    orcidTokenRead = None
     orcidTokenWrite = None
-    try:
-        orcidTokenRead = OrcidToken.get(
-            user=user, org=user.organisation, scope=scope_read_limited)
-    except:
-        pass
     try:
         orcidTokenWrite = OrcidToken.get(
             user=user, org=user.organisation, scope=scope_activities_update)
     except:
         pass
 
-    if ((orcidTokenRead is not None) and (orcidTokenWrite is not None)):
-        flash("You have already given read and write permissions to '%s' and your ORCiD %s" % (
-            current_user.organisation.name, current_user.orcid), "warning")
-        return redirect(url_for("profile"))
-    elif orcidTokenRead:
-        flash("You have already given read permissions to '%s' and your ORCiD %s" % (
-            current_user.organisation.name, current_user.orcid), "warning")
-        return render_template("linking.html", orcid_url_write=orcid_url_write)
-    elif orcidTokenWrite:
+    if orcidTokenWrite is not None:
         flash("You have already given write permissions to '%s' and your ORCiD %s" % (
             current_user.organisation.name, current_user.orcid), "warning")
-        return render_template("linking.html", orcid_url=orcid_url)
+        return redirect(url_for("profile"))
 
-    return render_template("linking.html", orcid_url=orcid_url, orcid_url_write=orcid_url_write)
+    return render_template("linking.html", orcid_url_write=orcid_url_write)
 
 
 @app.route("/auth/<path:url>", methods=["GET"])
@@ -388,7 +367,7 @@ def profile():
     orcidTokenRead = None
     try:
         orcidTokenRead = OrcidToken.get(
-            user=user, org=user.organisation, scope=scope_read_limited)
+            user=user, org=user.organisation, scope=scope_activities_update)
     except:
         return redirect(url_for("link"))
 
