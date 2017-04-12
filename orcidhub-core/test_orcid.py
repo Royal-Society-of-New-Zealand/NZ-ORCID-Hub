@@ -167,7 +167,7 @@ def test_profile(request_ctx):
         orcidtoken = OrcidToken(
             user=test_user,
             org=org,
-            scope="/read-limited",
+            scope="/activities/update",
             access_token="ABC1234")
         orcidtoken.save()
         login_user(test_user, remember=True)

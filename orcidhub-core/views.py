@@ -11,7 +11,7 @@ from models import User, Organisation, Role, OrcidToken, User_Organisation_affil
 from flask_login import login_required, current_user
 from login_provider import roles_required
 from forms import EmploymentForm, BitmapMultipleValueField
-from config import scope_activities_update, scope_read_limited
+from config import scope_activities_update
 from collections import namedtuple
 
 import swagger_client
@@ -264,7 +264,7 @@ def employment_list(user_id):
 
     orcidToken = None
     try:
-        orcidToken = OrcidToken.get(user=user, org=user.organisation, scope=scope_read_limited)
+        orcidToken = OrcidToken.get(user=user, org=user.organisation, scope=scope_activities_update)
     except:
         flash("User didnt gave permission to update his/her records", "warning")
         return redirect(url_for("viewmembers"))
