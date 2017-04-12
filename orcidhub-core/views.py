@@ -81,7 +81,7 @@ EmpRecord = namedtuple(
     ["name", "city", "state", "country", "department", "role", "start_date", "end_date"])
 
 
-@app.template_filter('emp_years')
+@app.template_filter('year_range')
 def emp_years(entry):
     """Show an interval of employment in years."""
     val = ""
@@ -135,11 +135,11 @@ def delete_employment(user_id, put_code=None):
     return redirect(_url)
 
 
-@app.route("/<int:user_id>/emp/<int:put_code>/edit", methods=["GET", "POST"])
-@app.route("/<int:user_id>/emp/new", methods=["GET", "POST"])
+@app.route("/<int:user_id>/edu/<int:put_code>/edit", methods=["GET", "POST"])
+@app.route("/<int:user_id>/edu/new", methods=["GET", "POST"])
 @roles_required(Role.ADMIN)
-def employment(user_id, put_code=None):
-    """Create a new or edit an existing employment record."""
+def edu(user_id, put_code=None):
+    """Create a new or edit an existing education record."""
     _url = request.args.get('url') or url_for("employment_list", user_id=user_id)
 
     try:

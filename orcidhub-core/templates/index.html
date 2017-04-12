@@ -4,9 +4,23 @@
     <div class="jumbotron">
       <h2 class="display-2">Welcome to NZ ORCiD Hub</h2>
       <p>Cras justo odio, dapibus ac facilisis in, egestas eget quam. Fusce dapibus, tellus ac cursus commodo, tortor mauris condimentum nibh, ut fermentum massa justo sit amet risus.</p>
-      <div class="center-block">
+      <!-- div class="center-block">
           <a class="btn btn-primary" href="{{ship_login_url}}" role="button">Login via Tuakiri</a>
-        <a class="btn btn-success" href="#" role="button">Login via ORCiD</a>
+          <a class="btn btn-success" href="#" role="button">Login via ORCiD</a>
+      </div -->
+      <div class="login-blocks">
+          <a href="{{ship_login_url}}">
+            <div class="tuakiri">
+                <img src="/static/images/TUAKIRI-logo.png">
+                    <button type="button" class="login-button">Login via Tuakiri</button>
+            </div>
+          </a>
+          <a href="#">
+            <div class="orcid">
+                <img src="/static/images/orcid-logo.png">
+                <button type="button" class="login-button">Login via <span style="color: #696969">ORC</span>iD</button>
+            </div>
+          </a>
       </div>
     </div>
   </div>

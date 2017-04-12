@@ -39,3 +39,77 @@
 	hyphens: none;
 	white-space: nowrap;
 }
+
+.banner {
+	display: flex;
+	justify-content: flex-end;
+	align-items: center;
+	width: 100%;
+	background-color: black;
+}
+
+.banner img {
+    min-height: 50px;
+    max-height: 100px;
+    height: 10vh;
+    width: auto;
+}
+
+.login-blocks {
+	display: flex;
+	justify-content: space-around;
+	align-content: center;
+	flex-wrap: wrap;
+}
+
+.login-blocks div {
+	width: 35vw;
+	min-width: 60px;
+	max-width: 170px;
+	height: 35vw;
+	min-height: 60px;
+	max-height: 160px;
+	padding-bottom: 20px;
+
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: space-around;
+
+}
+.login-blocks a:hover {
+	text-decoration: none;
+}
+
+.login-blocks div img {
+	padding-top: 10px;
+	width: 90%;
+	min-width: 60px;
+	max-width: 130px;
+	height: auto;
+}
+
+.login-blocks .login-button {
+	border-radius: 43px;
+	border: 2px white solid;
+	color: white;
+	background-color: rgba(0,0,0,0);
+	font-size: 1.0em;
+	padding: 8px;
+}
+
+.login-blocks .tuakiri {
+	padding-top: 8px;
+	background-color: #00bce9;
+	border: 2px #0091b4 solid;
+}
+
+.login-blocks .orcid {
+	background-color: white;
+	border: 2px #d0ea8f solid;
+}
+
+.orcid .login-button {
+	border: 2px #d0ea8f solid;
+	color: #9fc636;
+}
