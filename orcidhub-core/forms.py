@@ -14,6 +14,7 @@ country_choices = [(c.alpha_2, c.name) for c in countries]
 country_choices.sort(key=lambda e: e[1])
 country_choices.insert(0, ("", "Country"))
 
+
 class PartialDate:
     """Widget for a partical date with 3 selectors (year, month, day)."""
 
@@ -120,10 +121,10 @@ class EmploymentForm(FlaskForm):
 
     name = StringField("Institution/employer", [validators.required()])
     city = StringField("City", [validators.required()])
-    state = StringField("State/region")
+    state = StringField("State/region", filters=[lambda x: x or None])
     country = SelectField("Country", [validators.required()], choices=country_choices)
-    department = StringField("Department")
-    role = StringField("Role/title")
+    department = StringField("Department", filters=[lambda x: x or None])
+    role = StringField("Role/title", filters=[lambda x: x or None])
     # TODO: Change to partial date (with dropdowns) widgets
     start_date = PartialDateField("Start date")
     end_date = PartialDateField("End date (leave blank if current)")
