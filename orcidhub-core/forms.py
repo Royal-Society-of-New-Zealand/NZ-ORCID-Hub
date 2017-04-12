@@ -136,7 +136,6 @@ class EducationForm(FlaskForm):
     city = StringField("City", [validators.required()])
     state = StringField("State/region")
     country = SelectField("Country", [validators.required()], choices=country_choices)
-    department = StringField("Department")
     role = StringField("Role/title", filters=[lambda x: x or None])
     department = StringField("Department", filters=[lambda x: x or None])
     start_date = PartialDateField("Start date")
