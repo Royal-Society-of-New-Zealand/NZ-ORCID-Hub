@@ -67,6 +67,7 @@ login_manager.init_app(app)
 if __name__ == "__main__":
     # flake8: noqa
     from authcontroller import *
+    from views import *
 
     os.environ['DEBUG'] = "1"
     # This allows us to use a plain HTTP callback

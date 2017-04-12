@@ -65,6 +65,7 @@
                       <div class="col-lg-8">
                         <p class="text-left"><strong>{{ current_user.name }}</strong></p>
                         <p class="text-left small">{{ current_user.email }}</p>
+			            <p class="text-left small">Edu Person Affiliation: {{current_user.edu_person_affiliation }}</p>
                         <p class="text-left">
                         <a href="{{url_for('profile')}}" class="btn btn-primary btn-block btn-sm">Profile</a>
                         </p>

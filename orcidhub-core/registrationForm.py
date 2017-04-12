@@ -4,6 +4,13 @@ from wtforms.fields.core import SelectField
 from wtforms.validators import DataRequired
 from wtforms.validators import Email
 from wtforms.fields.html5 import EmailField, DateField
+from wtforms import validators
+from pycountry import countries
+
+# Order the countly list by the name and add a default (Null) value
+country_choices = [(c.alpha_2, c.name) for c in countries]
+country_choices.sort(key=lambda e: e[1])
+country_choices.insert(0, ("", "Country"))
 
 
 class OrgRegistrationForm(FlaskForm):
@@ -19,6 +26,10 @@ class OrgConfirmationForm(FlaskForm):
     orgOricdClientId = StringField('Organisation Orcid Client Id: ', validators=[DataRequired()])
     orgOrcidClientSecret = StringField('Organisation Orcid Client Secret: ',
                                        validators=[DataRequired()])
+    country = SelectField("Country", [validators.required()], choices=country_choices)
+    city = StringField("City", [validators.required()])
+    disambiguation_org_id = StringField("Disambiguation ORG Id", [validators.required()])
+    disambiguation_org_source = StringField("Disambiguation ORG Source", [validators.required()])
 
 
 class EmploymentDetailsForm(FlaskForm):
