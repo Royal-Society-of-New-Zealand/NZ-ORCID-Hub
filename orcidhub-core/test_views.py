@@ -61,13 +61,13 @@ def test_pyinfo(request_ctx):
         assert bytes(sys.version, encoding="utf-8") in rv.data
 
 
-def test_emp_years():
+def test_year_range():
     """Test Jinja2 filter."""
 
-    assert views.emp_years({"start-date": None, "end-date": None}) == "unknown-present"
-    assert views.emp_years({
-        "start-date": {"year": {"value": "1998"}, "whatever": "..."},
-        "end-date": None}) == "1998-present"
-    assert views.emp_years({
-        "start-date": {"year": {"value": "1998"}, "whatever": "..."},
-        "end-date": {"year": {"value": "2001"}, "whatever": "..."}}) == "1998-2001"
+    assert views.year_range({"start_date": None, "end_date": None}) == "unknown-present"
+    assert views.year_range({
+        "start_date": {"year": {"value": "1998"}, "whatever": "..."},
+        "end_date": None}) == "1998-present"
+    assert views.year_range({
+        "start_date": {"year": {"value": "1998"}, "whatever": "..."},
+        "end_date": {"year": {"value": "2001"}, "whatever": "..."}}) == "1998-2001"
