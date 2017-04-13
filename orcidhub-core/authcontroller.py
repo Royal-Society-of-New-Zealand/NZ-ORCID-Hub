@@ -147,7 +147,7 @@ def shib_login():
 
     try:
         # TODO: need a separate field for org name comimg from Tuakiri
-        org = Organisation.get(name=shib_org_name)
+        org, _ = Organisation.get_or_create(name=shib_org_name)
     except Organisation.DoesNotExist:
         org = None
         # flash("Your organisation (%s) is not onboarded properly, Contact Orcid Hub Admin" % shib_org_name, "danger")
