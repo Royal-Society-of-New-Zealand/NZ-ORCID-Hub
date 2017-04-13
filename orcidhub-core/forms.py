@@ -124,7 +124,7 @@ class EmploymentForm(FlaskForm):
     state = StringField("State/region", filters=[lambda x: x or None])
     country = SelectField("Country", [validators.required()], choices=country_choices)
     department = StringField("Department", filters=[lambda x: x or None])
-    role = StringField("Role/title")
+    role = StringField("Role/title", filters=[lambda x: x or None])
     start_date = PartialDateField("Start date")
     end_date = PartialDateField("End date (leave blank if current)")
 
