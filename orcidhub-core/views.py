@@ -82,20 +82,20 @@ EmpRecord = namedtuple(
 
 
 @app.template_filter('year_range')
-def emp_years(entry):
+def year_range(entry):
     """Show an interval of employment in years."""
     val = ""
-    if entry.get("start-date") is None or entry["start-date"]["year"]["value"] is None:
+    if entry.get("start_date") is None or entry["start_date"]["year"]["value"] is None:
         val = "unknown"
     else:
-        val = entry["start-date"]["year"]["value"]
+        val = entry["start_date"]["year"]["value"]
 
     val += "-"
 
-    if entry.get("end-date") is None or entry["end-date"]["year"]["value"] is None:
+    if entry.get("end_date") is None or entry["end_date"]["year"]["value"] is None:
         val += "present"
     else:
-        val += entry["end-date"]["year"]["value"]
+        val += entry["end_date"]["year"]["value"]
     return val
 
 
@@ -135,11 +135,11 @@ def delete_employment(user_id, put_code=None):
     return redirect(_url)
 
 
-@app.route("/<int:user_id>/edu/<int:put_code>/edit", methods=["GET", "POST"])
-@app.route("/<int:user_id>/edu/new", methods=["GET", "POST"])
+@app.route("/<int:user_id>/emp/<int:put_code>/edit", methods=["GET", "POST"])
+@app.route("/<int:user_id>/emp/new", methods=["GET", "POST"])
 @roles_required(Role.ADMIN)
-def edu(user_id, put_code=None):
-    """Create a new or edit an existing education record."""
+def employment(user_id, put_code=None):
+    """Create a new or edit an existing employment record."""
     _url = request.args.get('url') or url_for("employment_list", user_id=user_id)
 
     try:

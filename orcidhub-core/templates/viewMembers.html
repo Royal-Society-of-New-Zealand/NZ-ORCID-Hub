@@ -22,7 +22,6 @@
             <td> <!--a role="button" class="btn btn-info" href="/addempdetails?email={{ user.email }}&organisationid={{ user.organisation_id }}">Add</a>
             <a role="button" class="btn btn-info" href="/viewempdetails?email={{ user.email }}&organisationid={{ user.organisation_id }}">Update</a> </td -->
           <a role="button" class="btn btn-info" href="{{ url_for('employment_list', user_id=user.id) }}">Employment</a> 
-          <a role="button" class="btn btn-info" href="{{ url_for('edu_list', user_id=user.id) }}">Education</a> 
           </td>
           </tr>
         {% endfor %}
