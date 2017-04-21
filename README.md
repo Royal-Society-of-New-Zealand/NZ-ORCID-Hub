@@ -105,7 +105,7 @@ flask run
 You can add these setting to you virtual environment activation script, e.g. (assuming it's located in the root directory):
 
 ```
-export FLASK_APP=$(dirname $VIRTUAL_ENV)/orcidhub-core/main.py
+export FLASK_APP=$(dirname $VIRTUAL_ENV)/main.py
 export PYTHONPATH=$(dirname $FLASK_APP)
 export EXTERNAL_SP=https://dev.orcidhub.org.nz/Tuakiri/SP
 export DATABASE_URL=sqlite:///data.db
