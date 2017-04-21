@@ -1,12 +1,14 @@
 # -*- coding: utf-8 -*-
-
 """Application forms."""
 
-from flask_wtf import FlaskForm
-from wtforms import StringField, SelectField, SelectMultipleField, validators, Field
-from wtforms.widgets import HTMLString, html_params
-from pycountry import countries
 from datetime import date
+
+from flask_wtf import FlaskForm
+from pycountry import countries
+from wtforms import (Field, SelectField, SelectMultipleField, StringField,
+                     validators)
+from wtforms.widgets import HTMLString, html_params
+
 from models import PartialDate as PD
 
 # Order the countly list by the name and add a default (Null) value
@@ -23,7 +25,10 @@ class PartialDate:
     def __call__(self, field, **kwargs):
         """Render widget."""
         kwargs.setdefault('id', field.id)
-        html = ["<!-- data: %r -->" % (field.data,), '<div %s>' % html_params(name=field.name, **kwargs)]
+        html = [
+            "<!-- data: %r -->" % (field.data, ),
+            '<div %s>' % html_params(name=field.name, **kwargs)
+        ]
         html.extend(self.render_select("year", field))
         html.extend(self.render_select("month", field))
         html.extend(self.render_select("day", field))
@@ -39,10 +44,14 @@ class PartialDate:
         except:
             current_value = None
         # TODO: localization
-        yield "<option %s>%s</option>" % (html_params(value="", selected=(current_value is None)), part.capitalize())
+        yield "<option %s>%s</option>" % (html_params(
+            value="", selected=(current_value is None)), part.capitalize())
         option_format = "<option %s>%04d</option>" if part == "year" else "<option %s>%02d</option>"
-        for v in range(cls.__current_year, 1912, -1) if part == "year" else range(1, 13 if part == "month" else 32):
-            yield option_format % (html_params(value=v, selected=(v == current_value)), v)
+        for v in range(cls.__current_year, 1912,
+                       -1) if part == "year" else range(
+                           1, 13 if part == "month" else 32):
+            yield option_format % (html_params(
+                value=v, selected=(v == current_value)), v)
         yield "</select>"
 
 
@@ -63,7 +72,7 @@ class PartialDateField(Field):
 
         if formdata is not None:
             new_data = {}
-            for f in ("year", "month", "day",):
+            for f in ("year", "month", "day", ):
                 try:
                     if (self.name + ":" + f) in formdata:
                         raw_val = formdata.get(self.name + ":" + f)
@@ -93,7 +102,9 @@ class BitmapMultipleValueField(SelectMultipleField):
     def process_data(self, value):
         try:
             if self.bitmap_value:
-                self.data = [self.coerce(v) for (v, _) in self.choices if v & value]
+                self.data = [
+                    self.coerce(v) for (v, _) in self.choices if v & value
+                ]
             else:
                 self.data = [self.coerce(v) for v in value]
         except (ValueError, TypeError):
@@ -106,14 +117,20 @@ class BitmapMultipleValueField(SelectMultipleField):
             else:
                 self.data = [self.coerce(x) for x in valuelist]
         except ValueError:
-            raise ValueError(self.gettext('Invalid choice(s): one or more data inputs could not be coerced'))
+            raise ValueError(
+                self.gettext(
+                    'Invalid choice(s): one or more data inputs could not be coerced'
+                ))
 
     def pre_validate(self, form):
         if self.data and not self.bitmap_value:
             values = list(c[0] for c in self.choices)
             for d in self.data:
                 if d not in values:
-                    raise ValueError(self.gettext("'%(value)s' is not a valid choice for this field") % dict(value=d))
+                    raise ValueError(
+                        self.gettext(
+                            "'%(value)s' is not a valid choice for this field")
+                        % dict(value=d))
 
 
 class EmploymentForm(FlaskForm):
@@ -122,7 +139,8 @@ class EmploymentForm(FlaskForm):
     name = StringField("Institution/employer", [validators.required()])
     city = StringField("City", [validators.required()])
     state = StringField("State/region", filters=[lambda x: x or None])
-    country = SelectField("Country", [validators.required()], choices=country_choices)
+    country = SelectField(
+        "Country", [validators.required()], choices=country_choices)
     department = StringField("Department", filters=[lambda x: x or None])
     role = StringField("Role/title", filters=[lambda x: x or None])
     start_date = PartialDateField("Start date")
@@ -135,7 +153,8 @@ class EducationForm(FlaskForm):
     name = StringField("Institution", [validators.required()])
     city = StringField("City", [validators.required()])
     state = StringField("State/region")
-    country = SelectField("Country", [validators.required()], choices=country_choices)
+    country = SelectField(
+        "Country", [validators.required()], choices=country_choices)
     role = StringField("Role/title", filters=[lambda x: x or None])
     department = StringField("Department", filters=[lambda x: x or None])
     start_date = PartialDateField("Start date")

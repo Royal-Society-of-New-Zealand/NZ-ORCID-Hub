@@ -1,21 +1,22 @@
 # -*- coding: utf-8 -*-
-
 """Py.test configuration and fixtures for testing."""
 
-import sys, os
+import os
+import sys
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-
-import config
-# flake8: noqa
-config.DATABASE_URL = os.environ.get("DATABASE_URL") or "sqlite:///:memory:"
-
-from application import app as _app
-from views import *  # noqa: F401, F403
-from authcontroller import *  # noqa: F401, F403
 import pytest
 from peewee import SqliteDatabase
 from playhouse.test_utils import test_database
+
+import config
+from application import app as _app
+from authcontroller import *  # noqa: F401, F403
+from views import *  # noqa: F401, F403
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+# flake8: noqa
+config.DATABASE_URL = os.environ.get("DATABASE_URL") or "sqlite:///:memory:"
 
 
 @pytest.yield_fixture
@@ -27,7 +28,8 @@ def app():
     _app.config['TESTING'] = True
     _app.db = _db = SqliteDatabase(":memory:")
 
-    with test_database(_db, (Organisation, User, UserOrg, OrcidToken, User_Organisation_affiliation)):  # noqa: F405
+    with test_database(_db, (Organisation, User, UserOrg, OrcidToken,
+                             User_Organisation_affiliation)):  # noqa: F405
         yield _app
 
     ctx.pop()

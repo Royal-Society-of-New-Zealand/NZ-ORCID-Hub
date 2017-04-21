@@ -1,6 +1,10 @@
-import os, signal, threading
-import inotify.adapters
 import logging
+import os
+import signal
+import threading
+
+import inotify.adapters
+
 
 def _monitor(path):
 
@@ -16,11 +20,12 @@ def _monitor(path):
                         os.getpid(), path, filename)
                     os.kill(os.getpid(), signal.SIGKILL)
 
+
 def start(path):
 
     logging.basicConfig(level=logging.INFO)
     logging.info("** monitoring: %s", path)
-    t = threading.Thread(target=_monitor, args=(path,))
+    t = threading.Thread(target=_monitor, args=(path, ))
     t.setDaemon(True)
     t.start()
 

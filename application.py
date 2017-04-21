@@ -1,28 +1,29 @@
-import os
-from flask import Flask
-from playhouse.db_url import connect
-import config
-from config import MAIL_USERNAME, MAIL_PASSWORD, TOKEN_PASSWORD_SALT, \
-    TOKEN_SECRET_KEY, MAIL_DEFAULT_SENDER, MAIL_SERVER
-from flask_mail import Mail
-import flask_login
-from flask_debugtoolbar import DebugToolbarExtension
 import logging
+import os
 from logging.handlers import RotatingFileHandler
+
+import flask_login
+from flask import Flask
 from flask_admin import Admin
+from flask_debugtoolbar import DebugToolbarExtension
+from flask_mail import Mail
+from playhouse.db_url import connect
+
+import config
+from config import (MAIL_DEFAULT_SENDER, MAIL_PASSWORD, MAIL_SERVER,
+                    MAIL_USERNAME, TOKEN_PASSWORD_SALT, TOKEN_SECRET_KEY)
 
 app = Flask(__name__)
 
 if os.path.exists("/var/log/orcidhub"):
     handler = RotatingFileHandler(
-        '/var/log/orcidhub/orcidhub.log',
-        maxBytes=10000, backupCount=10)
+        '/var/log/orcidhub/orcidhub.log', maxBytes=10000, backupCount=10)
     handler.setLevel(logging.INFO)
     app.logger.addHandler(handler)
 
 app.secret_key = ")Xq/4vc'K%wesQ$n'n;?+y@^rY\/u8!sk{?D7Y>.V`t_/y'wn>7~cZ$(Q.$n)d_j"
 # NB! Disable in production
-is_dev_env = (os.environ.get("ENV") in ("test",))
+is_dev_env = (os.environ.get("ENV") in ("test", ))
 app.config['TESTING'] = True
 app.config['DEBUG_TB_INTERCEPT_REDIRECTS'] = False
 app.debug = True
@@ -57,7 +58,11 @@ app.config['TOKEN_SECRET_KEY'] = TOKEN_SECRET_KEY
 app.config['TOKEN_PASSWORD_SALT'] = TOKEN_PASSWORD_SALT
 
 #admin = Admin(app, name="NZ ORCiD Hub", template_mode="bootstrap3", base_template="layout.html")
-admin = Admin(app, name="NZ ORCiD Hub", template_mode="bootstrap3", base_template="admin/master.html")
+admin = Admin(
+    app,
+    name="NZ ORCiD Hub",
+    template_mode="bootstrap3",
+    base_template="admin/master.html")
 
 login_manager = flask_login.LoginManager()
 login_manager.login_view = "login"

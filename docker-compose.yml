@@ -9,7 +9,7 @@ services:
     domainname: orcidhub.org.nz
     hostname: db
     volumes:
-      - ./orcidhub-core/conf/init-user-db.sh:/docker-entrypoint-initdb.d/init-user-db.sh
+      - ./conf/init-user-db.sh:/docker-entrypoint-initdb.d/init-user-db.sh
     restart: always
 
 
@@ -37,14 +37,14 @@ services:
       - "${EXTERNAL_SSL_PORT:-443}:443"
     volumes:
       - .:/src
-      - ./orcidhub-core:/var/www/orcidhub/
-      - ./orcidhub-core/run-app:/usr/local/bin/run-app
-      - ./orcidhub-core/app.conf:/etc/httpd/conf.d/ZZ-app.conf
-      - ./orcidhub-core/conf/attribute-map.xml:/etc/shibboleth/attribute-map.xml
-      - ./orcidhub-core/tuakiri-test-metadata-cert.pem:/etc/shibboleth/tuakiri-test-metadata-cert.pem
+      - .:/var/www/orcidhub/
+      - ./run-app:/usr/local/bin/run-app
+      - ./app.conf:/etc/httpd/conf.d/ZZ-app.conf
+      - ./conf/attribute-map.xml:/etc/shibboleth/attribute-map.xml
+      - ./tuakiri-test-metadata-cert.pem:/etc/shibboleth/tuakiri-test-metadata-cert.pem
       - ./.keys/${ENV:-dev}-sp.key:/etc/shibboleth/sp-key.pem
       - ./.keys/${ENV:-dev}-sp.crt:/etc/shibboleth/sp-cert.pem
       - ./.keys:/.keys
-      - ./orcidhub-core/conf:/conf
+      - ./conf:/conf
     restart: always
 

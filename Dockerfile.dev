@@ -19,4 +19,4 @@ RUN yum -y update \
     && rm -rf /var/cache/*/* /anaconda-post.log
 
 ENV DEBUG=True
-WORKDIR /src/orcidhub-core
+WORKDIR /src

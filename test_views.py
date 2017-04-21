@@ -1,11 +1,12 @@
 # -*- coding: utf-8 -*-
-
 """Tests for core functions."""
 
-from models import User, Role
-from flask_login import login_user
-import views
 import sys
+
+from flask_login import login_user
+
+import views
+from models import Role, User
 
 
 def test_admin_view_access(request_ctx):
@@ -64,10 +65,30 @@ def test_pyinfo(request_ctx):
 def test_year_range():
     """Test Jinja2 filter."""
 
-    assert views.year_range({"start_date": None, "end_date": None}) == "unknown-present"
     assert views.year_range({
-        "start_date": {"year": {"value": "1998"}, "whatever": "..."},
-        "end_date": None}) == "1998-present"
+        "start_date": None,
+        "end_date": None
+    }) == "unknown-present"
     assert views.year_range({
-        "start_date": {"year": {"value": "1998"}, "whatever": "..."},
-        "end_date": {"year": {"value": "2001"}, "whatever": "..."}}) == "1998-2001"
+        "start_date": {
+            "year": {
+                "value": "1998"
+            },
+            "whatever": "..."
+        },
+        "end_date": None
+    }) == "1998-present"
+    assert views.year_range({
+        "start_date": {
+            "year": {
+                "value": "1998"
+            },
+            "whatever": "..."
+        },
+        "end_date": {
+            "year": {
+                "value": "2001"
+            },
+            "whatever": "..."
+        }
+    }) == "1998-2001"
