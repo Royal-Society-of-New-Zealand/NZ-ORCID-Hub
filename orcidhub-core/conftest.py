@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-
 """Py.test configuration and fixtures for testing."""
 
 import os
@@ -20,7 +19,6 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 config.DATABASE_URL = os.environ.get("DATABASE_URL") or "sqlite:///:memory:"
 
 
-
 @pytest.yield_fixture
 def app():
     """Session-wide test `Flask` application."""
@@ -30,7 +28,8 @@ def app():
     _app.config['TESTING'] = True
     _app.db = _db = SqliteDatabase(":memory:")
 
-    with test_database(_db, (Organisation, User, UserOrg, OrcidToken, User_Organisation_affiliation)):  # noqa: F405
+    with test_database(_db, (Organisation, User, UserOrg, OrcidToken,
+                             User_Organisation_affiliation)):  # noqa: F405
         yield _app
 
     ctx.pop()

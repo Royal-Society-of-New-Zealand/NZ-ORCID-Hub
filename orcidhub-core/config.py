@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-
 """Application configuration."""
 
 from os import environ
@@ -13,7 +12,8 @@ scope = ['/authenticate']
 ORCID_API_BASE = "https://api.sandbox.orcid.org/v2.0/" if ENV != "prod" else "https://api.orcid.org/v2.0/"
 
 # Database connection url
-POSTGRES_PASSWORD = environ.get("POSTGRES_PASSWORD") or environ.get("PGPASSWORD") or "p455w0rd"
+POSTGRES_PASSWORD = environ.get("POSTGRES_PASSWORD") or environ.get(
+    "PGPASSWORD") or "p455w0rd"
 
 DATABASE_URL = environ.get("DATABASE_URL")
 
@@ -36,7 +36,8 @@ scope_read_limited = ['/read-limited']
 scope_activities_update = ['/activities/update']
 
 # Database connection url
-POSTGRES_PASSWORD = environ.get("POSTGRES_PASSWORD") or environ.get("PGPASSWORD") or "p455w0rd"
+POSTGRES_PASSWORD = environ.get("POSTGRES_PASSWORD") or environ.get(
+    "PGPASSWORD") or "p455w0rd"
 
 DATABASE_URL = environ.get("DATABASE_URL")
 
@@ -53,14 +54,16 @@ if not DATABASE_URL:
 
 MAIL_USERNAME = environ.get("MAIL_USERNAME", "AKIAICSRSUE3LNBSIBVQ")
 MAIL_PASSWORD = environ.get("MAIL_PASSWORD")
-MAIL_DEFAULT_SENDER = environ.get("MAIL_DEFAULT_SENDER", "no-reply@orcidhub.org.nz")
+MAIL_DEFAULT_SENDER = environ.get("MAIL_DEFAULT_SENDER",
+                                  "no-reply@orcidhub.org.nz")
 MAIL_SERVER = environ.get("MAIL_SERVER", "email-smtp.us-east-1.amazonaws.com")
 
 TOKEN_PASSWORD_SALT = environ.get("TOKEN_PASSWORD_SALT")
 TOKEN_SECRET_KEY = environ.get("TOKEN_SECRET_KEY")
 
-MEMBER_API_FORM_BASE_URL = environ.get("MEMBER_API_FORM_BASE_URL",
-                                       "https://orcid.org/content/register-client-application-sandbox")
+MEMBER_API_FORM_BASE_URL = environ.get(
+    "MEMBER_API_FORM_BASE_URL",
+    "https://orcid.org/content/register-client-application-sandbox")
 NEW_CREDENTIALS = 'New_Credentials'
 NOTE_ORCID = 'ORCID Hub integration for'
 CRED_TYPE_PREMIUM = 2

@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-
 """Tests for core functions."""
 
 import pprint
@@ -58,12 +57,9 @@ def test_login(request_ctx):
 
 
 @pytest.mark.parametrize("url", [
-    "/link",
-    "/auth",
-    "/pyinfo",
-    "/reset_db",
-    "/invite/organisation",
-    "/invite/user"])
+    "/link", "/auth", "/pyinfo", "/reset_db", "/invite/organisation",
+    "/invite/user"
+])
 def test_access(url, client):
     """Test access to the app for unauthorized user."""
     rv = client.get(url)
@@ -82,14 +78,16 @@ def test_tuakiri_login(client):
 
     After getting logged in a new user entry shoulg be created.
     """
-    rv = client.get("/Tuakiri/login",
-                    headers={
-                        "Auedupersonsharedtoken": "ABC123",
-                        "Sn": "LAST NAME/SURNAME/FAMILY NAME",
-                        'Givenname': "FIRST NAME/GIVEN NAME",
-                        "Mail": "user@test.test.net",
-                        "O": "ORGANISATION 123",
-                        "Displayname": "TEST USER FROM 123"})
+    rv = client.get(
+        "/Tuakiri/login",
+        headers={
+            "Auedupersonsharedtoken": "ABC123",
+            "Sn": "LAST NAME/SURNAME/FAMILY NAME",
+            'Givenname': "FIRST NAME/GIVEN NAME",
+            "Mail": "user@test.test.net",
+            "O": "ORGANISATION 123",
+            "Displayname": "TEST USER FROM 123"
+        })
 
     assert rv.status_code == 302
     u = User.get(email="user@test.test.net")
@@ -110,15 +108,17 @@ def test_tuakiri_login_wo_org(client):
     onboared, the user should be informed about that and
     redirected to the login page.
     """
-    rv = client.get("/Tuakiri/login",
-                    headers={
-                        "Auedupersonsharedtoken": "ABC999",
-                        "Sn": "LAST NAME/SURNAME/FAMILY NAME",
-                        'Givenname': "FIRST NAME/GIVEN NAME",
-                        "Mail": "user@test.test.net",
-                        "O": "INCOGNITO",
-                        "Displayname": "TEST USER FROM UNKNOWN"},
-                    follow_redirects=True)
+    rv = client.get(
+        "/Tuakiri/login",
+        headers={
+            "Auedupersonsharedtoken": "ABC999",
+            "Sn": "LAST NAME/SURNAME/FAMILY NAME",
+            'Givenname': "FIRST NAME/GIVEN NAME",
+            "Mail": "user@test.test.net",
+            "O": "INCOGNITO",
+            "Displayname": "TEST USER FROM UNKNOWN"
+        },
+        follow_redirects=True)
 
     u = User.get(email="user@test.test.net")
     assert u.edu_person_shared_token == "ABC999"
@@ -136,15 +136,17 @@ def test_tuakiri_login_with_org(client):
     org = Organisation(name="THE ORGANISATION")
     org.save()
 
-    rv = client.get("/Tuakiri/login",
-                    headers={
-                        "Auedupersonsharedtoken": "ABC111",
-                        "Sn": "LAST NAME/SURNAME/FAMILY NAME",
-                        'Givenname': "FIRST NAME/GIVEN NAME",
-                        "Mail": "user111@test.test.net",
-                        "O": "THE ORGANISATION",
-                        "Displayname": "TEST USER FROM THE ORGANISATION"},
-                    follow_redirects=True)
+    rv = client.get(
+        "/Tuakiri/login",
+        headers={
+            "Auedupersonsharedtoken": "ABC111",
+            "Sn": "LAST NAME/SURNAME/FAMILY NAME",
+            'Givenname': "FIRST NAME/GIVEN NAME",
+            "Mail": "user111@test.test.net",
+            "O": "THE ORGANISATION",
+            "Displayname": "TEST USER FROM THE ORGANISATION"
+        },
+        follow_redirects=True)
 
     u = User.get(email="user111@test.test.net")
     assert u.organisation == org
@@ -190,7 +192,8 @@ def test_confirmation_token(app):
     """Test generate_confirmation_token and confirm_token"""
     app.config['TOKEN_SECRET_KEY'] = "SECRET"
     app.config['TOKEN_PASSWORD_SALT'] = "SALT"
-    token = tokenGeneration.generate_confirmation_token("TEST@ORGANISATION.COM")
+    token = tokenGeneration.generate_confirmation_token(
+        "TEST@ORGANISATION.COM")
     assert tokenGeneration.confirm_token(token) == "TEST@ORGANISATION.COM"
 
     app.config['TOKEN_SECRET_KEY'] = "SECRET"
@@ -207,7 +210,9 @@ def test_confirmation_token(app):
 
     app.config['TOKEN_SECRET_KEY'] = "COMPROMISED"
     app.config['TOKEN_PASSWORD_SALT'] = "COMPROMISED"
-    assert tokenGeneration.confirm_token(token, 0) is False, "Expired token shoud be rejected"
+    assert tokenGeneration.confirm_token(
+        token, 0) is False, "Expired token shoud be rejected"
+
 
 def test_login_provider_load_user(request_ctx):
 
@@ -227,7 +232,8 @@ def test_login_provider_load_user(request_ctx):
     with request_ctx("/"):
 
         login_user(u)
-        rv = login_provider.roles_required(Role.RESEARCHER)(lambda: "SUCCESS")()
+        rv = login_provider.roles_required(
+            Role.RESEARCHER)(lambda: "SUCCESS")()
         assert rv == "SUCCESS"
 
         rv = login_provider.roles_required(Role.SUPERUSER)(lambda: "SUCCESS")()

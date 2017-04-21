@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-
 """Tests related to ORCID affilation."""
 
 import time
@@ -15,7 +14,8 @@ from models import OrcidToken, Organisation, User, UserOrg
 fake_time = time.time()
 
 
-@patch.object(requests_oauthlib.OAuth2Session, "authorization_url", lambda self, base_url: ("URL_123", None))
+@patch.object(requests_oauthlib.OAuth2Session, "authorization_url",
+              lambda self, base_url: ("URL_123", None))
 def test_link(request_ctx):
     """Test a user affiliation initialization."""
     with request_ctx("/link") as ctx:
@@ -37,11 +37,15 @@ def test_link(request_ctx):
         assert b"URL_123" in rv.data, "Expected to have ORCiD authorization link on the page"
 
 
-@patch.object(requests_oauthlib.OAuth2Session, "authorization_url", lambda self, base_url: ("URL_123", None))
+@patch.object(requests_oauthlib.OAuth2Session, "authorization_url",
+              lambda self, base_url: ("URL_123", None))
 def test_link_with_unconfirmed_org(request_ctx):
     """Test a user affiliation initialization if the user Organisation isn't registered yet."""
     with request_ctx("/link") as ctx:
-        org = Organisation(name="THE ORGANISATION", confirmed=False, orcid_client_id="Test Client id")
+        org = Organisation(
+            name="THE ORGANISATION",
+            confirmed=False,
+            orcid_client_id="Test Client id")
         org.save()
         test_user = User(
             name="TEST USER",
@@ -60,11 +64,13 @@ def test_link_with_unconfirmed_org(request_ctx):
         assert b"URL_123" in rv.data, "Expected to have ORCiD authorization link on the page"
 
 
-@patch.object(requests_oauthlib.OAuth2Session, "authorization_url", lambda self, base_url: ("URL_123", None))
+@patch.object(requests_oauthlib.OAuth2Session, "authorization_url",
+              lambda self, base_url: ("URL_123", None))
 def test_link_already_affiliated(request_ctx):
     """Test a user affiliation initialization if the uerer is already affilated."""
     with request_ctx("/link") as ctx:
-        org = Organisation(name="THE ORGANISATION", confirmed=True, orcid_client_id="ABC123")
+        org = Organisation(
+            name="THE ORGANISATION", confirmed=True, orcid_client_id="ABC123")
         org.save()
         test_user = User(
             email="test123@test.test.net",
@@ -78,14 +84,12 @@ def test_link_already_affiliated(request_ctx):
             user=test_user,
             org=org,
             scope="/read-limited",
-            access_token="ABC1234"
-        )
+            access_token="ABC1234")
         orcidtokenWrite = OrcidToken(
             user=test_user,
             org=org,
             scope="/activities/update",
-            access_token="ABC234"
-        )
+            access_token="ABC234")
         orcidtoken.save()
         orcidtokenWrite.save()
         login_user(test_user, remember=True)
@@ -122,8 +126,7 @@ def test_link_orcid_auth_callback(name, request_ctx):
             user=test_user,
             org=org,
             scope="/read-limited",
-            access_token="ABC1234"
-        )
+            access_token="ABC1234")
         orcidtoken.save()
         login_user(test_user, remember=True)
 
@@ -152,8 +155,10 @@ def make_fake_response(text, *args, **kwargs):
     return mm
 
 
-@patch.object(requests_oauthlib.OAuth2Session, "get",
-              lambda self, *args, **kwargs: make_fake_response('{"test": "TEST1234567890"}'))
+@patch.object(
+    requests_oauthlib.OAuth2Session, "get",
+    lambda self, *args, **kwargs: make_fake_response('{"test": "TEST1234567890"}')
+)
 def test_profile(request_ctx):
     """Test an affilated user profile and ORCID data retrieval."""
     with request_ctx("/profile") as ctx:

@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-
 """Application module gluing script.
 
 Simple solution to overcome circular import problem:

@@ -21,8 +21,10 @@ def test_db():
         asser modls.User.count() == 1
     """
     _db = SqliteDatabase(":memory:")
-    with test_database(_db, (Organisation, User, UserOrg, OrcidToken,
-                             User_Organisation_affiliation), fail_silently=True) as _test_db:
+    with test_database(
+            _db, (Organisation, User, UserOrg, OrcidToken,
+                  User_Organisation_affiliation),
+            fail_silently=True) as _test_db:
         yield _test_db
 
     return
@@ -37,8 +39,7 @@ def test_models(test_db):
         tuakiri_name="Organisation #%d" % i,
         orcid_client_id="client-%d" % i,
         orcid_secret="secret-%d" % i,
-        confirmed=(i % 2 == 0))
-        for i in range(10))).execute()
+        confirmed=(i % 2 == 0)) for i in range(10))).execute()
 
     User.insert_many((dict(
         name="Test User #%d" % i,
@@ -47,25 +48,21 @@ def test_models(test_db):
         email="user%d@org%d.org.nz" % (i, i * 4 % 10),
         edu_person_shared_token="EDU PERSON SHARED TOKEN #%d" % i,
         confirmed=(i % 3 != 0),
-        roles=Role.SUPERUSER if i % 42 == 0 else Role.ADMIN if i % 13 == 0 else Role.RESEARCHER)
-        for i in range(60))).execute()
+        roles=Role.SUPERUSER if i % 42 == 0 else Role.ADMIN
+        if i % 13 == 0 else Role.RESEARCHER) for i in range(60))).execute()
 
-    UserOrg.insert_many((dict(
-        is_admin=((u + o) % 23 == 0),
-        user=u,
-        org=o) for (u, o) in product(range(2, 60, 4), range(2, 10)))).execute()
+    UserOrg.insert_many(
+        (dict(is_admin=((u + o) % 23 == 0), user=u, org=o)
+         for (u, o) in product(range(2, 60, 4), range(2, 10)))).execute()
 
-    UserOrg.insert_many((dict(
-        is_admin=True,
-        user=43,
-        org=o) for o in range(1, 11))).execute()
+    UserOrg.insert_many((dict(is_admin=True, user=43, org=o)
+                         for o in range(1, 11))).execute()
 
     OrcidToken.insert_many((dict(
         user=User.get(id=1),
         org=Organisation.get(id=1),
         scope="/read-limited",
-        access_token="Test_%d" % i)
-        for i in range(60))).execute()
+        access_token="Test_%d" % i) for i in range(60))).execute()
 
     User_Organisation_affiliation.insert_many((dict(
         user=User.get(id=1),
@@ -74,8 +71,7 @@ def test_models(test_db):
         department_city="Test_%d" % i,
         role_title="Test_%d" % i,
         path="Test_%d" % i,
-        put_code="%d" % i)
-        for i in range(30))).execute()
+        put_code="%d" % i) for i in range(30))).execute()
 
     yield test_db
 
@@ -108,6 +104,7 @@ def test_orcidtoken_count(test_models):
 
 def test_user_oganisation_affiliation_count(test_models):
     assert User_Organisation_affiliation.select().count() == 30
+
 
 def test_user_org_link(test_models):
     assert User.get(id=43).admin_for.count() == 10
@@ -185,10 +182,36 @@ def test_create_tables(test_models):
 
 def test_partial_date():
     pd = PartialDate.create({"year": {"value": "2003"}})
-    assert pd.as_orcid_dict() == {'year': {'value': '2003'}, 'month': None, 'day': None}
+    assert pd.as_orcid_dict() == {
+        'year': {
+            'value': '2003'
+        },
+        'month': None,
+        'day': None
+    }
     assert pd.year == 2003
-    pd = PartialDate.create({"year": {"value": "2003"}, "month": {"value": '07'}, "day": {"value": '31'}})
-    assert pd.as_orcid_dict() == {'year': {'value': '2003'}, 'month': {"value": '07'}, 'day': {"value": '31'}}
+    pd = PartialDate.create({
+        "year": {
+            "value": "2003"
+        },
+        "month": {
+            "value": '07'
+        },
+        "day": {
+            "value": '31'
+        }
+    })
+    assert pd.as_orcid_dict() == {
+        'year': {
+            'value': '2003'
+        },
+        'month': {
+            "value": '07'
+        },
+        'day': {
+            "value": '31'
+        }
+    }
     assert pd.year == 2003 and pd.month == 7 and pd.day == 31
     assert PartialDate().as_orcid_dict() is None
     assert PartialDate.create(None) is None

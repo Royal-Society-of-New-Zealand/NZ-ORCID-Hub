@@ -19,6 +19,7 @@ def roles_required(*roles):
                 return login_manager.unauthorized()
 
         return decorated_view
+
     return wrapper
 
 
