@@ -320,7 +320,7 @@ def orcid_callback():
 
     if token["scope"] == scope_activities_update:
         swagger_client.configuration.access_token = orcidToken.access_token
-        api_instance = swagger_client.MemberAPIV20Api()
+        # api_instance = swagger_client.MemberAPIV20Api()
 
         source_clientid = swagger_client.SourceClientId(
             host='sandbox.orcid.org',
