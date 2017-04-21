@@ -27,7 +27,7 @@ script:
   - docker-compose exec db psql -U orcidhub -d orcidhub -c "SELECT 1" && echo "DB orcidhub IS RUNNING"
   - docker-compose exec app curl -k -s https://localhost/pyinfo -o /dev/null && echo "WSGI is working..."
   - docker-compose exec app find -name '__pycache__' -exec rm -rf {} \;
-  - docker-compose exec app pytest --ignore=venv -s -v --cov .
+  - docker-compose exec app DATABASE_URL="sqlite:///:memory:" pytest --ignore=venv -s -v --cov .
 
 after_success:
   - docker-compose exec app coveralls
