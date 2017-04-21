@@ -1,15 +1,15 @@
 #!/bin/bash
 DOMAIN="$1"
 if [ -z "$DOMAIN" ]; then
-    echo "Usage: $(basename $0) <domain>"
-    exit 11
+  echo "Usage: $(basename $0) <domain>"
+  exit 11
 fi
 
 fail_if_error() {
   [ $1 != 0 ] && {
-    exit 10
-    unset PASSPHRASE
-  }
+  exit 10
+  unset PASSPHRASE
+}
 }
 
 export PASSPHRASE=$(head -c 64 /dev/urandom  | base64)
@@ -48,13 +48,13 @@ openssl genrsa -des3 -out $DOMAIN.key -passout env:PASSPHRASE 2048
 fail_if_error $?
 
 openssl req \
-    -reqexts ext \
-    -new \
-    -batch \
-    -config $SSLCNF \
-    -key $DOMAIN.key \
-    -out $DOMAIN.csr \
-    -passin env:PASSPHRASE 
+  -reqexts ext \
+  -new \
+  -batch \
+  -config $SSLCNF \
+  -key $DOMAIN.key \
+  -out $DOMAIN.csr \
+  -passin env:PASSPHRASE 
 fail_if_error $?
 cp $DOMAIN.key $DOMAIN.key.org
 fail_if_error $?
