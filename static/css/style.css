@@ -46,13 +46,15 @@
 	align-items: center;
 	width: 100%;
 	background-color: black;
+	background-position: right top;
+	background-size: auto 127px;
 }
 
 .banner img {
-    min-height: 50px;
-    max-height: 100px;
-    height: 10vh;
-    width: auto;
+	min-height: 50px;
+	max-height: 127px;
+	height: 12vh;
+	width: auto;
 }
 
 .login-blocks {
@@ -112,4 +114,46 @@
 .orcid .login-button {
 	border: 2px #d0ea8f solid;
 	color: #9fc636;
+}
+
+footer {
+	width:100%;
+	/*background-color:#50748a;*/
+	background-color:#000;
+	text-align:right;
+	height:120px;
+	color:#fff;
+	position:absolute;
+	bottom:0;
+	left:0;
+}
+footer .container {
+	padding-top:20px;
+}
+
+footer a {
+	color:#fff;
+}
+footer a:hover {
+	color:#fff;
+}
+footer p {
+	padding-left:0px !important;
+	padding-right:0px !important;
+}
+footer p.copyright {
+	padding-left:20px !important;
+	float:right;
+	text-align:right;
+	color:#fff;
+}
+footer p.contact {
+	padding-right:20px !important;
+	float:left;
+	text-align:left;
+	color:#fff;
+}
+footer section {
+	max-width:950px;
+	margin:0px auto;
 }

@@ -313,6 +313,7 @@ def create_tables():
 
 def drop_tables():
     """Drop all model tables."""
+
     for m in (Organisation, User, UserOrg, OrcidToken,
               User_Organisation_affiliation):
         if m.table_exists():
