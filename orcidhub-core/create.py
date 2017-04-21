@@ -1,8 +1,9 @@
-from migrate.versioning import api
-from config import SQLALCHEMY_DATABASE_URI
-from config import SQLALCHEMY_MIGRATE_REPO
-from authcontroller import db
 import os.path
+
+from migrate.versioning import api
+
+from authcontroller import db
+from config import SQLALCHEMY_DATABASE_URI, SQLALCHEMY_MIGRATE_REPO
 
 db.create_all()
 if not os.path.exists(SQLALCHEMY_MIGRATE_REPO):

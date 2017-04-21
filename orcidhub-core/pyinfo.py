@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 # -*-coding: utf-8 -*-
 
-import platform
-import os
-import sys
 import cgi
+import os
+import platform
 import socket
+import sys
 
 optional_modules_list = [
     'Cookie', 'mod_wsgi', 'psycopg2', 'zlib', 'gzip',

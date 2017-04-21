@@ -2,10 +2,12 @@
 
 """Tests for core functions."""
 
-from models import User, Role
-from flask_login import login_user
-import views
 import sys
+
+from flask_login import login_user
+
+import views
+from models import Role, User
 
 
 def test_admin_view_access(request_ctx):

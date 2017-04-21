@@ -2,13 +2,15 @@
 
 """Tests for core functions."""
 
-from models import User, Organisation, UserOrg, Role
-from flask_login import login_user, current_user
-from flask import url_for
 import pprint
+
 import pytest
-import tokenGeneration
+from flask import url_for
+from flask_login import current_user, login_user
+
 import login_provider
+import tokenGeneration
+from models import Organisation, Role, User, UserOrg
 
 
 def test_index(client):

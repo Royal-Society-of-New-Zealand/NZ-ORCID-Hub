@@ -2,19 +2,22 @@
 
 """Application views."""
 
-# NB! Should be disabled in production
-from pyinfo import info
-from flask import render_template, redirect, url_for, request, flash
-from application import app, admin
-from flask_admin.contrib.peewee import ModelView
-from models import User, Organisation, Role, OrcidToken, User_Organisation_affiliation, PartialDate as PD
-from flask_login import login_required, current_user
-from login_provider import roles_required
-from forms import EmploymentForm, BitmapMultipleValueField
-from config import scope_activities_update
 from collections import namedtuple
 
+from flask import flash, redirect, render_template, request, url_for
+from flask_admin.contrib.peewee import ModelView
+from flask_login import current_user, login_required
+
 import swagger_client
+from application import admin, app
+from config import scope_activities_update
+from forms import BitmapMultipleValueField, EmploymentForm
+from login_provider import roles_required
+from models import PartialDate as PD
+from models import (OrcidToken, Organisation, Role, User,
+                    User_Organisation_affiliation)
+# NB! Should be disabled in production
+from pyinfo import info
 from swagger_client.rest import ApiException
 
 HEADERS = {'Accept': 'application/vnd.orcid+json', 'Content-type': 'application/vnd.orcid+json'}

@@ -2,11 +2,14 @@
 
 """Application forms."""
 
-from flask_wtf import FlaskForm
-from wtforms import StringField, SelectField, SelectMultipleField, validators, Field
-from wtforms.widgets import HTMLString, html_params
-from pycountry import countries
 from datetime import date
+
+from flask_wtf import FlaskForm
+from pycountry import countries
+from wtforms import (Field, SelectField, SelectMultipleField, StringField,
+                     validators)
+from wtforms.widgets import HTMLString, html_params
+
 from models import PartialDate as PD
 
 # Order the countly list by the name and add a default (Null) value

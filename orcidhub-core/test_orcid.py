@@ -2,13 +2,15 @@
 
 """Tests related to ORCID affilation."""
 
-import requests_oauthlib
-from models import User, Organisation, UserOrg, OrcidToken
-from flask_login import login_user
-import pytest
-from unittest.mock import patch, MagicMock
 import time
+from unittest.mock import MagicMock, patch
+
+import pytest
+import requests_oauthlib
 from flask import url_for
+from flask_login import login_user
+
+from models import OrcidToken, Organisation, User, UserOrg
 
 fake_time = time.time()
 

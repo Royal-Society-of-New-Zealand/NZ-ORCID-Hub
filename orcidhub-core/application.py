@@ -1,15 +1,17 @@
-import os
-from flask import Flask
-from playhouse.db_url import connect
-import config
-from config import MAIL_USERNAME, MAIL_PASSWORD, TOKEN_PASSWORD_SALT, \
-    TOKEN_SECRET_KEY, MAIL_DEFAULT_SENDER, MAIL_SERVER
-from flask_mail import Mail
-import flask_login
-from flask_debugtoolbar import DebugToolbarExtension
 import logging
+import os
 from logging.handlers import RotatingFileHandler
+
+import flask_login
+from flask import Flask
 from flask_admin import Admin
+from flask_debugtoolbar import DebugToolbarExtension
+from flask_mail import Mail
+from playhouse.db_url import connect
+
+import config
+from config import (MAIL_DEFAULT_SENDER, MAIL_PASSWORD, MAIL_SERVER,
+                    MAIL_USERNAME, TOKEN_PASSWORD_SALT, TOKEN_SECRET_KEY)
 
 app = Flask(__name__)
 

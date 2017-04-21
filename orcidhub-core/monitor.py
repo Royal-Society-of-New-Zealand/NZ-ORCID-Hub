@@ -1,6 +1,10 @@
-import os, signal, threading
-import inotify.adapters
 import logging
+import os
+import signal
+import threading
+
+import inotify.adapters
+
 
 def _monitor(path):
 

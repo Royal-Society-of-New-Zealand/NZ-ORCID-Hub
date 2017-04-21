@@ -1,5 +1,5 @@
 import models
-from models import Organisation, User, Role
+from models import Organisation, Role, User
 
 models.drop_tables()
 models.create_tables()

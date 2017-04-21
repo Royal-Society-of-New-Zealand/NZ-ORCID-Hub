@@ -2,10 +2,15 @@
 
 """Application models."""
 
-from peewee import (
-    Model, CharField, BooleanField, SmallIntegerField,
-    ForeignKeyField, TextField, CompositeKey, Field, OperationalError,
-    DateTimeField, datetime)
+from collections import namedtuple
+from hashlib import md5
+from itertools import zip_longest
+from urllib.parse import urlencode
+
+from flask_login import UserMixin
+from peewee import (BooleanField, CharField, CompositeKey, DateTimeField,
+                    Field, ForeignKeyField, Model, OperationalError,
+                    SmallIntegerField, TextField, datetime)
 
 from application import db
 
@@ -13,11 +18,6 @@ try:
     from enum import IntFlag
 except ImportError:
     from enum import IntEnum as IntFlag
-from flask_login import UserMixin
-from collections import namedtuple
-from itertools import zip_longest
-from urllib.parse import urlencode
-from hashlib import md5
 
 
 class PartialDate(namedtuple("PartialDate", ["year", "month", "day"])):

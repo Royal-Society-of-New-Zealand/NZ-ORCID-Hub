@@ -1,11 +1,12 @@
-import pytest
-from peewee import SqliteDatabase, Model
 from itertools import product
-from models import (
-    PartialDate, User, Organisation, UserOrg, Role, drop_tables,
-    create_tables, OrcidToken, User_Organisation_affiliation,
-    PartialDateField)
+
+import pytest
+from peewee import Model, SqliteDatabase
 from playhouse.test_utils import test_database
+
+from models import (OrcidToken, Organisation, PartialDate, PartialDateField,
+                    Role, User, User_Organisation_affiliation, UserOrg,
+                    create_tables, drop_tables)
 
 
 @pytest.fixture

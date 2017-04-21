@@ -3,6 +3,7 @@
 """Application configuration."""
 
 from os import environ
+
 ENV = environ.get("ENV", "dev")
 
 authorization_base_url = 'https://sandbox.orcid.org/oauth/authorize'

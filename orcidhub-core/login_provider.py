@@ -1,7 +1,10 @@
-from application import login_manager
 from functools import wraps
+
 from flask_login import current_user
+
+from application import login_manager
 from models import User
+
 
 def roles_required(*roles):
     def wrapper(fn):

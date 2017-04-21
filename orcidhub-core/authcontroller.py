@@ -6,32 +6,35 @@ Collection of applicion views involved in organisation on-boarding and
 user (reseaser) affiliations.
 """
 
-from requests_oauthlib import OAuth2Session
-from flask import request, redirect, session, url_for, render_template, flash, abort
-from werkzeug.urls import iri_to_uri
-from config import authorization_base_url, token_url, EDU_PERSON_AFFILIATION_EMPLOYMENT, \
-    EDU_PERSON_AFFILIATION_EDUCATION, scope_activities_update, MEMBER_API_FORM_BASE_URL, \
-    NEW_CREDENTIALS, NOTE_ORCID, CRED_TYPE_PREMIUM, APP_NAME, APP_DESCRIPTION, APP_URL, EXTERNAL_SP
-import json
-from application import app, mail
-from models import User, Role, Organisation, UserOrg, OrcidToken
-from urllib.parse import quote, unquote, urlencode, urlparse
-from flask_login import login_user, current_user
-from registrationForm import OrgRegistrationForm
-from flask_mail import Message
-from tokenGeneration import generate_confirmation_token, confirm_token
-from registrationForm import OrgConfirmationForm
-from flask_login import login_required, logout_user
-from login_provider import roles_required
 import base64
-import zlib
+import json
 import pickle
-import secrets
-from tempfile import gettempdir
+import zlib
 from os import path, remove
+from tempfile import gettempdir
+from urllib.parse import quote, unquote, urlencode, urlparse
+
 import requests
+from flask import (abort, flash, redirect, render_template, request, session,
+                   url_for)
+from flask_login import current_user, login_required, login_user, logout_user
+from flask_mail import Message
+from requests_oauthlib import OAuth2Session
+from werkzeug.urls import iri_to_uri
+
+import secrets
 import swagger_client
+from application import app, mail
+from config import (APP_DESCRIPTION, APP_NAME, APP_URL, CRED_TYPE_PREMIUM,
+                    EDU_PERSON_AFFILIATION_EDUCATION,
+                    EDU_PERSON_AFFILIATION_EMPLOYMENT, EXTERNAL_SP,
+                    MEMBER_API_FORM_BASE_URL, NEW_CREDENTIALS, NOTE_ORCID,
+                    authorization_base_url, scope_activities_update, token_url)
+from login_provider import roles_required
+from models import OrcidToken, Organisation, Role, User, UserOrg
+from registrationForm import OrgConfirmationForm, OrgRegistrationForm
 from swagger_client.rest import ApiException
+from tokenGeneration import confirm_token, generate_confirmation_token
 
 
 @app.route("/index")

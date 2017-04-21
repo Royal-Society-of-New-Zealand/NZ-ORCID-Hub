@@ -2,11 +2,13 @@
 
 """Tests for forms and WTForms extensions."""
 
-import pytest
-from models import PartialDate as PD
-from forms import PartialDate, PartialDateField
-from wtforms import Form
 from unittest.mock import MagicMock
+
+import pytest
+from wtforms import Form
+
+from forms import PartialDate, PartialDateField
+from models import PartialDate as PD
 
 
 def test_partial_date_widget():
