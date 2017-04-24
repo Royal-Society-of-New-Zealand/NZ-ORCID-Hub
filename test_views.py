@@ -35,10 +35,7 @@ def test_admin_view_access_fail(client, request_ctx):
 
     with request_ctx("/admin/user/") as ctx:
         test_user = User(
-            name="TEST USER",
-            email="test@test.test.net",
-            username="test42",
-            confirmed=True)
+            name="TEST USER", email="test@test.test.net", username="test42", confirmed=True)
         login_user(test_user, remember=True)
 
         rv = ctx.app.full_dispatch_request()
@@ -51,10 +48,7 @@ def test_pyinfo(request_ctx):
 
     with request_ctx("/pyinfo") as ctx:
         test_user = User(
-            name="TEST USER",
-            email="test@test.test.net",
-            username="test42",
-            confirmed=True)
+            name="TEST USER", email="test@test.test.net", username="test42", confirmed=True)
         login_user(test_user, remember=True)
 
         rv = ctx.app.full_dispatch_request()
@@ -65,10 +59,7 @@ def test_pyinfo(request_ctx):
 def test_year_range():
     """Test Jinja2 filter."""
 
-    assert views.year_range({
-        "start_date": None,
-        "end_date": None
-    }) == "unknown-present"
+    assert views.year_range({"start_date": None, "end_date": None}) == "unknown-present"
     assert views.year_range({
         "start_date": {
             "year": {

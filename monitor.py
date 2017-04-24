@@ -15,9 +15,8 @@ def _monitor(path):
             if event is not None:
                 (header, type_names, watch_path, filename) = event
                 if 'IN_CLOSE_WRITE' in type_names and filename.endswith(b".py"):
-                    logging.info(
-                        "monitor (pid=%d): %s/%s changed, restarting!",
-                        os.getpid(), path, filename)
+                    logging.info("monitor (pid=%d): %s/%s changed, restarting!",
+                                 os.getpid(), path, filename)
                     os.kill(os.getpid(), signal.SIGKILL)
 
 

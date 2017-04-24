@@ -22,8 +22,5 @@ super_user = User(
 super_user.save()
 
 super_user = User(
-    name="The Root",
-    email="root@mailinator.com",
-    confirmed=True,
-    roles=Role.SUPERUSER)
+    name="The Root", email="root@mailinator.com", confirmed=True, roles=Role.SUPERUSER)
 super_user.save()

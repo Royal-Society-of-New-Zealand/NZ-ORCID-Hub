@@ -7,9 +7,8 @@ from itertools import zip_longest
 from urllib.parse import urlencode
 
 from flask_login import UserMixin
-from peewee import (BooleanField, CharField, CompositeKey, DateTimeField,
-                    Field, ForeignKeyField, Model, OperationalError,
-                    SmallIntegerField, TextField, datetime)
+from peewee import (BooleanField, CharField, CompositeKey, DateTimeField, Field, ForeignKeyField,
+                    Model, OperationalError, SmallIntegerField, TextField, datetime)
 
 from application import db
 
@@ -42,10 +41,7 @@ class PartialDate(namedtuple("PartialDate", ["year", "month", "day"])):
         """
         if dict_value is None or dict_value == {}:
             return None
-        return cls(**{
-            k: int(v.get("value")) if v else None
-            for k, v in dict_value.items()
-        })
+        return cls(**{k: int(v.get("value")) if v else None for k, v in dict_value.items()})
 
     def as_datetime(self):
         return datetime.datetime(self.year, self.month, self.day)
@@ -77,8 +73,7 @@ class PartialDateField(Field):
             return None
 
         parts = [int(p) for p in value.split("-") if "*" not in p]
-        return PartialDate(
-            **dict(zip_longest(("year", "month", "day", ), parts)))
+        return PartialDate(**dict(zip_longest(("year", "month", "day", ), parts)))
 
 
 class Role(IntFlag):
@@ -97,8 +92,7 @@ class Role(IntFlag):
     def __eq__(self, other):
         if isinstance(other, Role):
             return self.value == other.value
-        return (self.name == other or
-                self.name == getattr(other, 'name', None))
+        return (self.name == other or self.name == getattr(other, 'name', None))
 
     def __hash__(self):
         return hash(self.name)
@@ -131,8 +125,7 @@ class Organisation(BaseModel):
         Organisation's users (query)
         """
         return User.select().join(
-            self.userorg_set.alias("sq"),
-            on=(self.userorg_set.c.user_id == User.id))
+            self.userorg_set.alias("sq"), on=(self.userorg_set.c.user_id == User.id))
 
     @property
     def admins(self):
@@ -157,18 +150,13 @@ class User(BaseModel, UserMixin):
     last_name = CharField(null=True, verbose_name="Last Name")
     email = CharField(max_length=120, unique=True, null=True)
     edu_person_shared_token = CharField(
-        max_length=120,
-        unique=True,
-        verbose_name="EDU Person Shared Token",
-        null=True)
+        max_length=120, unique=True, verbose_name="EDU Person Shared Token", null=True)
     # ORCiD:
-    orcid = CharField(
-        max_length=120, unique=True, verbose_name="ORCID", null=True)
+    orcid = CharField(max_length=120, unique=True, verbose_name="ORCID", null=True)
     confirmed = BooleanField(default=False)
     # Role bit-map:
     roles = SmallIntegerField(default=0)
-    edu_person_affiliation = TextField(
-        null=True, verbose_name="EDU Person Affiliations")
+    edu_person_affiliation = TextField(null=True, verbose_name="EDU Person Affiliations")
     tech_contact = BooleanField(default=False)
 
     # TODO: many-to-many
@@ -183,8 +171,7 @@ class User(BaseModel, UserMixin):
         All linked to the user organisation query
         """
         return Organisation.select().join(
-            self.userorg_set.alias("sq"),
-            on=Organisation.id == self.userorg_set.c.org_id)
+            self.userorg_set.alias("sq"), on=Organisation.id == self.userorg_set.c.org_id)
 
     @property
     def admin_for(self):
@@ -240,8 +227,7 @@ class User(BaseModel, UserMixin):
     @property
     def gravatar_profile_url(self):
         """Return Gravatar service user profile URL."""
-        return "https://www.gravatar.com/" + md5(
-            self.email.lower().encode()).hexdigest()
+        return "https://www.gravatar.com/" + md5(self.email.lower().encode()).hexdigest()
 
 
 class UserOrg(BaseModel):
@@ -249,14 +235,10 @@ class UserOrg(BaseModel):
 
     user = ForeignKeyField(User, on_delete="CASCADE")
     org = ForeignKeyField(
-        Organisation,
-        index=True,
-        on_delete="CASCADE",
-        verbose_name="Organisation")
+        Organisation, index=True, on_delete="CASCADE", verbose_name="Organisation")
 
     is_admin = BooleanField(
-        default=False,
-        help_text="User is an administrator for the organisation")
+        default=False, help_text="User is an administrator for the organisation")
 
     # TODO: the access token should be either here or in a saparate list
     # access_token = CharField(max_length=120, unique=True, null=True)
@@ -273,8 +255,7 @@ class OrcidToken(BaseModel):
     """
 
     user = ForeignKeyField(User)
-    org = ForeignKeyField(
-        Organisation, index=True, verbose_name="Organisation")
+    org = ForeignKeyField(Organisation, index=True, verbose_name="Organisation")
     scope = TextField(null=True)
     access_token = CharField(max_length=36, unique=True, null=True)
     issue_time = DateTimeField(default=datetime.datetime.now)
@@ -288,8 +269,7 @@ class User_Organisation_affiliation(BaseModel):
     """
 
     user = ForeignKeyField(User)
-    organisation = ForeignKeyField(
-        Organisation, index=True, verbose_name="Organisation")
+    organisation = ForeignKeyField(Organisation, index=True, verbose_name="Organisation")
     name = TextField(null=True, verbose_name="Institution/employer")
     start_date = PartialDateField(null=True)
     end_date = PartialDateField(null=True)
@@ -306,16 +286,14 @@ def create_tables():
         db.connect()
     except OperationalError:
         pass
-    models = (Organisation, User, UserOrg, OrcidToken,
-              User_Organisation_affiliation)
+    models = (Organisation, User, UserOrg, OrcidToken, User_Organisation_affiliation)
     db.create_tables(models)
 
 
 def drop_tables():
     """Drop all model tables."""
 
-    for m in (Organisation, User, UserOrg, OrcidToken,
-              User_Organisation_affiliation):
+    for m in (Organisation, User, UserOrg, OrcidToken, User_Organisation_affiliation):
         if m.table_exists():
             try:
                 m.drop_table(fail_silently=True, cascade=db.drop_cascade)
