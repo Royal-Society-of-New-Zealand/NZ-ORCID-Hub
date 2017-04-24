@@ -14,7 +14,6 @@ from application import app as _app
 from authcontroller import *  # noqa: F401, F403
 from views import *  # noqa: F401, F403
 
-
 # flake8: noqa
 config.DATABASE_URL = os.environ.get("DATABASE_URL") or "sqlite:///:memory:"
 os.environ["DATABASE_URL"] = config.DATABASE_URL

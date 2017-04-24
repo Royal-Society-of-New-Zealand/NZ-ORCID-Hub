@@ -44,10 +44,7 @@ def test_login(request_ctx):
     """Test login function."""
     with request_ctx("/") as ctx:
         test_user = User(
-            name="TEST USER",
-            email="test@test.test.net",
-            username="test42",
-            confirmed=True)
+            name="TEST USER", email="test@test.test.net", username="test42", confirmed=True)
         login_user(test_user, remember=True)
 
         rv = get_response(ctx)
@@ -56,10 +53,8 @@ def test_login(request_ctx):
         assert b"test@test.test.net" in rv.data, "Expected to have the user email on the page"
 
 
-@pytest.mark.parametrize("url", [
-    "/link", "/auth", "/pyinfo", "/reset_db", "/invite/organisation",
-    "/invite/user"
-])
+@pytest.mark.parametrize(
+    "url", ["/link", "/auth", "/pyinfo", "/reset_db", "/invite/organisation", "/invite/user"])
 def test_access(url, client):
     """Test access to the app for unauthorized user."""
     rv = client.get(url)
@@ -192,8 +187,7 @@ def test_confirmation_token(app):
     """Test generate_confirmation_token and confirm_token"""
     app.config['TOKEN_SECRET_KEY'] = "SECRET"
     app.config['TOKEN_PASSWORD_SALT'] = "SALT"
-    token = tokenGeneration.generate_confirmation_token(
-        "TEST@ORGANISATION.COM")
+    token = tokenGeneration.generate_confirmation_token("TEST@ORGANISATION.COM")
     assert tokenGeneration.confirm_token(token) == "TEST@ORGANISATION.COM"
 
     app.config['TOKEN_SECRET_KEY'] = "SECRET"
@@ -210,8 +204,7 @@ def test_confirmation_token(app):
 
     app.config['TOKEN_SECRET_KEY'] = "COMPROMISED"
     app.config['TOKEN_PASSWORD_SALT'] = "COMPROMISED"
-    assert tokenGeneration.confirm_token(
-        token, 0) is False, "Expired token shoud be rejected"
+    assert tokenGeneration.confirm_token(token, 0) is False, "Expired token shoud be rejected"
 
 
 def test_login_provider_load_user(request_ctx):
@@ -232,8 +225,7 @@ def test_login_provider_load_user(request_ctx):
     with request_ctx("/"):
 
         login_user(u)
-        rv = login_provider.roles_required(
-            Role.RESEARCHER)(lambda: "SUCCESS")()
+        rv = login_provider.roles_required(Role.RESEARCHER)(lambda: "SUCCESS")()
         assert rv == "SUCCESS"
 
         rv = login_provider.roles_required(Role.SUPERUSER)(lambda: "SUCCESS")()

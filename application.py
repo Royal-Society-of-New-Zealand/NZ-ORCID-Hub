@@ -10,14 +10,13 @@ from flask_mail import Mail
 from playhouse.db_url import connect
 
 import config
-from config import (MAIL_DEFAULT_SENDER, MAIL_PASSWORD, MAIL_SERVER,
-                    MAIL_USERNAME, TOKEN_PASSWORD_SALT, TOKEN_SECRET_KEY)
+from config import (MAIL_DEFAULT_SENDER, MAIL_PASSWORD, MAIL_SERVER, MAIL_USERNAME,
+                    TOKEN_PASSWORD_SALT, TOKEN_SECRET_KEY)
 
 app = Flask(__name__)
 
 if os.path.exists("/var/log/orcidhub"):
-    handler = RotatingFileHandler(
-        '/var/log/orcidhub/orcidhub.log', maxBytes=10000, backupCount=10)
+    handler = RotatingFileHandler('/var/log/orcidhub/orcidhub.log', maxBytes=10000, backupCount=10)
     handler.setLevel(logging.INFO)
     app.logger.addHandler(handler)
 
@@ -59,10 +58,7 @@ app.config['TOKEN_PASSWORD_SALT'] = TOKEN_PASSWORD_SALT
 
 #admin = Admin(app, name="NZ ORCiD Hub", template_mode="bootstrap3", base_template="layout.html")
 admin = Admin(
-    app,
-    name="NZ ORCiD Hub",
-    template_mode="bootstrap3",
-    base_template="admin/master.html")
+    app, name="NZ ORCiD Hub", template_mode="bootstrap3", base_template="admin/master.html")
 
 login_manager = flask_login.LoginManager()
 login_manager.login_view = "login"

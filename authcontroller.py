@@ -14,8 +14,7 @@ from tempfile import gettempdir
 from urllib.parse import quote, unquote, urlencode, urlparse
 
 import requests
-from flask import (abort, flash, redirect, render_template, request, session,
-                   url_for)
+from flask import (abort, flash, redirect, render_template, request, session, url_for)
 from flask_login import current_user, login_required, login_user, logout_user
 from flask_mail import Message
 from requests_oauthlib import OAuth2Session
@@ -25,9 +24,8 @@ import secrets
 import swagger_client
 from application import app, mail
 from config import (APP_DESCRIPTION, APP_NAME, APP_URL, CRED_TYPE_PREMIUM,
-                    EDU_PERSON_AFFILIATION_EDUCATION,
-                    EDU_PERSON_AFFILIATION_EMPLOYMENT, EXTERNAL_SP,
-                    MEMBER_API_FORM_BASE_URL, NEW_CREDENTIALS, NOTE_ORCID,
+                    EDU_PERSON_AFFILIATION_EDUCATION, EDU_PERSON_AFFILIATION_EMPLOYMENT,
+                    EXTERNAL_SP, MEMBER_API_FORM_BASE_URL, NEW_CREDENTIALS, NOTE_ORCID,
                     authorization_base_url, scope_activities_update, token_url)
 from login_provider import roles_required
 from models import OrcidToken, Organisation, Role, User, UserOrg
@@ -138,8 +136,7 @@ def shib_login():
         eduPersonAffiliation = request.headers.get('Unscoped-Affiliation')
 
     if eduPersonAffiliation:
-        if any(epa in eduPersonAffiliation
-               for epa in ['faculty', 'staff', 'employee']):
+        if any(epa in eduPersonAffiliation for epa in ['faculty', 'staff', 'employee']):
             eduPersonAffiliation = EDU_PERSON_AFFILIATION_EMPLOYMENT
         elif any(epa in eduPersonAffiliation for epa in ['student', 'alum']):
             eduPersonAffiliation = EDU_PERSON_AFFILIATION_EDUCATION
@@ -205,8 +202,7 @@ def shib_login():
     elif org and org.confirmed:
         return redirect(url_for("link"))
     else:
-        flash("Your organisation (%s) is not onboarded" % shib_org_name,
-              "danger")
+        flash("Your organisation (%s) is not onboarded" % shib_org_name, "danger")
 
     return redirect(url_for("login"))
 
@@ -219,15 +215,13 @@ def link():
     redirect_uri = url_for("orcid_callback", _external=True)
     if EXTERNAL_SP:
         sp_url = urlparse(EXTERNAL_SP)
-        redirect_uri = sp_url.scheme + "://" + sp_url.netloc + "/auth/" + quote(
-            redirect_uri)
+        redirect_uri = sp_url.scheme + "://" + sp_url.netloc + "/auth/" + quote(redirect_uri)
 
     client_write = OAuth2Session(
         current_user.organisation.orcid_client_id,
         scope=scope_activities_update,
         redirect_uri=redirect_uri)
-    authorization_url_write, state = client_write.authorization_url(
-        authorization_base_url)
+    authorization_url_write, state = client_write.authorization_url(authorization_base_url)
     session['oauth_state'] = state
 
     orcid_url_write = iri_to_uri(authorization_url_write) + urlencode(
@@ -240,8 +234,7 @@ def link():
     # TODO: re-affiliation after revoking access?
     # TODO: affiliation with multiple orgs should lookup UserOrg
 
-    user = User.get(
-        email=current_user.email, organisation=current_user.organisation)
+    user = User.get(email=current_user.email, organisation=current_user.organisation)
     orcidTokenWrite = None
     try:
         orcidTokenWrite = OrcidToken.get(
@@ -250,9 +243,8 @@ def link():
         pass
 
     if orcidTokenWrite is not None:
-        flash(
-            "You have already given write permissions to '%s' and your ORCiD %s"
-            % (current_user.organisation.name, current_user.orcid), "warning")
+        flash("You have already given write permissions to '%s' and your ORCiD %s" %
+              (current_user.organisation.name, current_user.orcid), "warning")
         return redirect(url_for("profile"))
 
     return render_template("linking.html", orcid_url_write=orcid_url_write)
@@ -284,8 +276,7 @@ def orcid_callback():
                 "danger")
         else:
             flash("Error occured while attempting to authorize '%s': %s" %
-                  (current_user.organisation.name,
-                   error_description), "danger")
+                  (current_user.organisation.name, error_description), "danger")
         return redirect(url_for("link"))
 
     client = OAuth2Session(current_user.organisation.orcid_client_id)
@@ -325,12 +316,10 @@ def orcid_callback():
         source_clientid = swagger_client.SourceClientId(
             host='sandbox.orcid.org',
             path=orciduser.organisation.orcid_client_id,
-            uri="http://sandbox.orcid.org/client/" +
-            orciduser.organisation.orcid_client_id)
+            uri="http://sandbox.orcid.org/client/" + orciduser.organisation.orcid_client_id)
 
         organisation_address = swagger_client.OrganizationAddress(
-            city=orciduser.organisation.city,
-            country=orciduser.organisation.country)
+            city=orciduser.organisation.city, country=orciduser.organisation.country)
 
         disambiguated_organization_details = swagger_client.DisambiguatedOrganization(
             disambiguated_organization_identifier=orciduser.organisation.disambiguation_org_id,
@@ -352,9 +341,8 @@ def orcid_callback():
             try:
                 # TODO: api_response = api_instance.create_employment(user.orcid, body=employment)
                 # TODO: Save the put code in db table
-                flash(
-                    "Your ORCID account was updated with employment affiliation from %s"
-                    % orciduser.organisation, "success")
+                flash("Your ORCID account was updated with employment affiliation from %s" %
+                      orciduser.organisation, "success")
 
             except ApiException as e:
                 flash("Failed to update the entry: %s." % e.body, "danger")
@@ -374,9 +362,8 @@ def orcid_callback():
             try:
                 # api_response = api_instance.create_education(user.orcid, body=education)
                 # TODO: Save the put code in db table
-                flash(
-                    "Your ORCID account was updated with education affiliation from %s"
-                    % orciduser.organisation, "success")
+                flash("Your ORCID account was updated with education affiliation from %s" %
+                      orciduser.organisation, "success")
 
             except ApiException as e:
                 flash("Failed to update the entry: %s." % e.body, "danger")
@@ -389,8 +376,7 @@ def orcid_callback():
 def profile():
     """Fetch a protected resource using an OAuth 2 token."""
 
-    user = User.get(
-        email=current_user.email, organisation=current_user.organisation)
+    user = User.get(email=current_user.email, organisation=current_user.organisation)
 
     orcidTokenRead = None
     try:
@@ -400,15 +386,12 @@ def profile():
         return redirect(url_for("link"))
 
     client = OAuth2Session(
-        user.organisation.orcid_client_id,
-        token={"access_token": orcidTokenRead.access_token})
+        user.organisation.orcid_client_id, token={"access_token": orcidTokenRead.access_token})
 
     headers = {'Accept': 'application/vnd.orcid+json'}
     resp = client.get(
-        "https://api.sandbox.orcid.org/v2.0/" + user.orcid + "/works",
-        headers=headers)
-    return render_template(
-        "profile.html", user=user, data=json.loads(resp.text))
+        "https://api.sandbox.orcid.org/v2.0/" + user.orcid + "/works", headers=headers)
+    return render_template("profile.html", user=user, data=json.loads(resp.text))
 
 
 @app.route("/invite/user", methods=["GET"])
@@ -446,9 +429,8 @@ def invite_organisation():
             tech_contact = bool(request.form.get('tech_contact'))
             try:
                 User.get(User.email == form.orgEmailid.data)
-                flash(
-                    "This Email address is already an Admin for one of the organisation",
-                    "warning")
+                flash("This Email address is already an Admin for one of the organisation",
+                      "warning")
             except User.DoesNotExist:
                 pass
             finally:
@@ -480,9 +462,7 @@ def invite_organisation():
                 # Note: Using app context due to issue:
                 # https://github.com/mattupstate/flask-mail/issues/63
                 with app.app_context():
-                    msg = Message(
-                        "Welcome to OrcidhHub",
-                        recipients=[str(form.orgEmailid.data)])
+                    msg = Message("Welcome to OrcidhHub", recipients=[str(form.orgEmailid.data)])
                     token = generate_confirmation_token(form.orgEmailid.data)
                     # TODO: do it with templates
                     msg.body = "Your organisation is just one step behind to get onboarded" \
@@ -512,13 +492,11 @@ def confirm_organisation(token):
         app.error("token '%s'", token)
         app.login_manager.unauthorized()
     if user.email != email:
-        flash(
-            "The invitation to on-board the organisation wasn't sent to your email address...",
-            "danger")
+        flash("The invitation to on-board the organisation wasn't sent to your email address...",
+              "danger")
         return redirect(url_for("login"))
 
-    user = User.get(
-        email=current_user.email, organisation=current_user.organisation)
+    user = User.get(email=current_user.email, organisation=current_user.organisation)
     if not user.tech_contact:
         user.confirmed = True
         user.save()
@@ -571,27 +549,23 @@ def confirm_organisation(token):
 
         flash("""If you currently don't know Client id and Client Secret,
         Please request those by clicking on link 'Take me to ORCiD to obtain Client iD and Client Secret'
-        and come back to this same place once you have them within 15 days""",
-              "warning")
+        and come back to this same place once you have them within 15 days""", "warning")
 
         redirect_uri = url_for("orcid_callback", _external=True)
-        clientSecret_url = iri_to_uri(
-            MEMBER_API_FORM_BASE_URL) + "?" + urlencode(
-                dict(
-                    new_existing=NEW_CREDENTIALS,
-                    note=NOTE_ORCID + " " + user.organisation.name,
-                    contact_email=email,
-                    contact_name=user.name,
-                    org_name=user.organisation.name,
-                    cred_type=CRED_TYPE_PREMIUM,
-                    app_name=APP_NAME + " at " + user.organisation.name,
-                    app_description=APP_DESCRIPTION + " at " +
-                    user.organisation.name,
-                    app_url=APP_URL,
-                    redirect_uri_1=redirect_uri))
+        clientSecret_url = iri_to_uri(MEMBER_API_FORM_BASE_URL) + "?" + urlencode(
+            dict(
+                new_existing=NEW_CREDENTIALS,
+                note=NOTE_ORCID + " " + user.organisation.name,
+                contact_email=email,
+                contact_name=user.name,
+                org_name=user.organisation.name,
+                cred_type=CRED_TYPE_PREMIUM,
+                app_name=APP_NAME + " at " + user.organisation.name,
+                app_description=APP_DESCRIPTION + " at " + user.organisation.name,
+                app_url=APP_URL,
+                redirect_uri_1=redirect_uri))
 
-    return render_template(
-        'orgconfirmation.html', clientSecret_url=clientSecret_url, form=form)
+    return render_template('orgconfirmation.html', clientSecret_url=clientSecret_url, form=form)
 
 
 @app.after_request
@@ -627,8 +601,7 @@ def logout():
         sso_url_base = ''
     return redirect(sso_url_base + "/Shibboleth.sso/Logout?return=" + quote(
         url_for(
-            "uoa_slo"
-            if org_name and org_name == "University of Auckland" else "login",
+            "uoa_slo" if org_name and org_name == "University of Auckland" else "login",
             _external=True)))
 
 
@@ -657,7 +630,4 @@ def viewmembers():
     """View the list of users (researchers)."""
     user = current_user
     users = user.organisation.users
-    return render_template(
-        "viewMembers.html",
-        orgnisationname=user.organisation.name,
-        users=users)
+    return render_template("viewMembers.html", orgnisationname=user.organisation.name, users=users)

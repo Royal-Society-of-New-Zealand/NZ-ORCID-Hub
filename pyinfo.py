@@ -8,11 +8,10 @@ import socket
 import sys
 
 optional_modules_list = [
-    'Cookie', 'mod_wsgi', 'psycopg2', 'zlib', 'gzip', 'bz2', 'zipfile',
-    'tarfile', 'ldap', 'socket', 'audioop', 'curses', 'imageop', 'aifc',
-    'sunau', 'wave', 'chunk', 'colorsys', 'rgbimg', 'imghdr', 'sndhdr',
-    'ossaudiodev', 'sunaudiodev', 'adodbapi', 'cx_Oracle', 'ibm_db', 'mxODBC',
-    'MySQLdb', 'pgdb', 'PyDO', 'sapdbapi', 'sqlite3'
+    'Cookie', 'mod_wsgi', 'psycopg2', 'zlib', 'gzip', 'bz2', 'zipfile', 'tarfile', 'ldap',
+    'socket', 'audioop', 'curses', 'imageop', 'aifc', 'sunau', 'wave', 'chunk', 'colorsys',
+    'rgbimg', 'imghdr', 'sndhdr', 'ossaudiodev', 'sunaudiodev', 'adodbapi', 'cx_Oracle', 'ibm_db',
+    'mxODBC', 'MySQLdb', 'pgdb', 'PyDO', 'sapdbapi', 'sqlite3'
 ]
 
 
@@ -44,8 +43,7 @@ def get_system_info():
     distname = platform.linux_distribution()[0]
     version = platform.linux_distribution()[1]
     if distname != '' and version != '':
-        os_version = '%s %s (%s %s)' % (platform.system(), platform.release(),
-                                        distname, version)
+        os_version = '%s %s (%s %s)' % (platform.system(), platform.release(), distname, version)
     else:
         os_version = '%s %s' % (platform.system(), platform.release())
     system_info.append(('OS Version', os_version))
@@ -80,24 +78,21 @@ def get_system_info():
 def get_py_internals():
     py_internals = []
     if hasattr(sys, 'builtin_module_names'):
-        py_internals.append(('Built-in Modules',
-                             ', '.join(sys.builtin_module_names)))
+        py_internals.append(('Built-in Modules', ', '.join(sys.builtin_module_names)))
     py_internals.append(('Byte Order', sys.byteorder + ' endian'))
 
     if hasattr(sys, 'getcheckinterval'):
         py_internals.append(('Check Interval', sys.getcheckinterval()))
 
     if hasattr(sys, 'getfilesystemencoding'):
-        py_internals.append(('File System Encoding',
-                             sys.getfilesystemencoding()))
+        py_internals.append(('File System Encoding', sys.getfilesystemencoding()))
 
     max_integer_size = str(sys.maxsize) + ' (%s)' % \
                                           hex(sys.maxsize).upper()
     py_internals.append(('Maximum Integer Size', max_integer_size))
 
     if hasattr(sys, 'getrecursionlimit'):
-        py_internals.append(('Maximum Recursion Depth',
-                             sys.getrecursionlimit()))
+        py_internals.append(('Maximum Recursion Depth', sys.getrecursionlimit()))
 
     if hasattr(sys, 'tracebacklimit'):
         traceback_limit = sys.tracebacklimit
@@ -126,8 +121,7 @@ def get_os_internals():
         os_internals.append(("User ID", os.getuid()))
 
     if hasattr(os, 'getgroups'):
-        os_internals.append(("Group Membership",
-                             ', '.join(map(str, os.getgroups()))))
+        os_internals.append(("Group Membership", ', '.join(map(str, os.getgroups()))))
 
     if hasattr(os, 'linesep'):
         os_internals.append(("Line Seperator", repr(os.linesep)[1:-1]))
@@ -136,9 +130,8 @@ def get_os_internals():
         os_internals.append(("Path Seperator", os.pathsep))
 
     if hasattr(os, 'getloadavg'):
-        os_internals.append(
-            ("Load Avarage",
-             ', '.join(map(lambda x: str(round(x, 2)), os.getloadavg()))))
+        os_internals.append(("Load Avarage",
+                             ', '.join(map(lambda x: str(round(x, 2)), os.getloadavg()))))
 
     return os_internals
 
@@ -178,8 +171,7 @@ def get_socket_info():
     socket_info.append(('Hostname (fully qualified)',
                         socket.gethostbyaddr(socket.gethostname())[0]))
     try:
-        socket_info.append(('IP Address',
-                            socket.gethostbyname(socket.gethostname())))
+        socket_info.append(('IP Address', socket.gethostbyname(socket.gethostname())))
     except:
         pass
     socket_info.append(('IPv6 Support', getattr(socket, 'has_ipv6', False)))
@@ -190,19 +182,16 @@ def get_socket_info():
 def get_multimedia_info():
     multimedia_info = []
     multimedia_info.append(('AIFF Support', is_imported('aifc')))
-    multimedia_info.append(('Color System Conversion Support',
-                            is_imported('colorsys')))
+    multimedia_info.append(('Color System Conversion Support', is_imported('colorsys')))
     multimedia_info.append(('curses Support', is_imported('curses')))
     multimedia_info.append(('IFF Chunk Support', is_imported('chunk')))
     multimedia_info.append(('Image Header Support', is_imported('imghdr')))
-    multimedia_info.append(('OSS Audio Device Support',
-                            is_imported('ossaudiodev')))
+    multimedia_info.append(('OSS Audio Device Support', is_imported('ossaudiodev')))
     multimedia_info.append(('Raw Audio Support', is_imported('audioop')))
     multimedia_info.append(('Raw Image Support', is_imported('imageop')))
     multimedia_info.append(('SGI RGB Support', is_imported('rgbimg')))
     multimedia_info.append(('Sound Header Support', is_imported('sndhdr')))
-    multimedia_info.append(('Sun Audio Device Support',
-                            is_imported('sunaudiodev')))
+    multimedia_info.append(('Sun Audio Device Support', is_imported('sunaudiodev')))
     multimedia_info.append(('Sun AU Support', is_imported('sunau')))
     multimedia_info.append(('Wave Support', is_imported('wave')))
     return multimedia_info

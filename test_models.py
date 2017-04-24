@@ -4,9 +4,8 @@ import pytest
 from peewee import Model, SqliteDatabase
 from playhouse.test_utils import test_database
 
-from models import (OrcidToken, Organisation, PartialDate, PartialDateField,
-                    Role, User, User_Organisation_affiliation, UserOrg,
-                    create_tables, drop_tables)
+from models import (OrcidToken, Organisation, PartialDate, PartialDateField, Role, User,
+                    User_Organisation_affiliation, UserOrg, create_tables, drop_tables)
 
 
 @pytest.fixture
@@ -22,8 +21,7 @@ def test_db():
     """
     _db = SqliteDatabase(":memory:")
     with test_database(
-            _db, (Organisation, User, UserOrg, OrcidToken,
-                  User_Organisation_affiliation),
+            _db, (Organisation, User, UserOrg, OrcidToken, User_Organisation_affiliation),
             fail_silently=True) as _test_db:
         yield _test_db
 
@@ -48,15 +46,13 @@ def test_models(test_db):
         email="user%d@org%d.org.nz" % (i, i * 4 % 10),
         edu_person_shared_token="EDU PERSON SHARED TOKEN #%d" % i,
         confirmed=(i % 3 != 0),
-        roles=Role.SUPERUSER if i % 42 == 0 else Role.ADMIN
-        if i % 13 == 0 else Role.RESEARCHER) for i in range(60))).execute()
+        roles=Role.SUPERUSER if i % 42 == 0 else Role.ADMIN if i % 13 == 0 else Role.RESEARCHER)
+                      for i in range(60))).execute()
 
-    UserOrg.insert_many(
-        (dict(is_admin=((u + o) % 23 == 0), user=u, org=o)
-         for (u, o) in product(range(2, 60, 4), range(2, 10)))).execute()
+    UserOrg.insert_many((dict(is_admin=((u + o) % 23 == 0), user=u, org=o)
+                         for (u, o) in product(range(2, 60, 4), range(2, 10)))).execute()
 
-    UserOrg.insert_many((dict(is_admin=True, user=43, org=o)
-                         for o in range(1, 11))).execute()
+    UserOrg.insert_many((dict(is_admin=True, user=43, org=o) for o in range(1, 11))).execute()
 
     OrcidToken.insert_many((dict(
         user=User.get(id=1),
@@ -182,13 +178,7 @@ def test_create_tables(test_models):
 
 def test_partial_date():
     pd = PartialDate.create({"year": {"value": "2003"}})
-    assert pd.as_orcid_dict() == {
-        'year': {
-            'value': '2003'
-        },
-        'month': None,
-        'day': None
-    }
+    assert pd.as_orcid_dict() == {'year': {'value': '2003'}, 'month': None, 'day': None}
     assert pd.year == 2003
     pd = PartialDate.create({
         "year": {

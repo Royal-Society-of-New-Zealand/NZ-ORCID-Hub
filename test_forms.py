@@ -11,8 +11,7 @@ from models import PartialDate as PD
 
 
 def test_partial_date_widget():
-    assert '<option selected value="1995">1995</option>' in PartialDate()(
-        MagicMock(data=PD(1995)))
+    assert '<option selected value="1995">1995</option>' in PartialDate()(MagicMock(data=PD(1995)))
 
     field = MagicMock(label="LABEL", id="ID", data=PD(2017, 5, 13))
     field.name = "NAME"
@@ -57,12 +56,7 @@ class DummyPostData(dict):
 
 def test_partial_date_field_with_data(test_form):
 
-    tf = test_form(
-        DummyPostData({
-            "pdf1:year": "2000",
-            "pdf1:month": "1",
-            "pdf1:day": "31"
-        }))
+    tf = test_form(DummyPostData({"pdf1:year": "2000", "pdf1:month": "1", "pdf1:day": "31"}))
     pdf1 = tf.pdf1()
 
     assert '<option selected value="31">' in pdf1
@@ -86,12 +80,7 @@ def test_partial_date_field_with_filter(test_form):
     test_form.pdf = PartialDateField(
         "f", filters=[lambda pd: PD(pd.year + 1, pd.month + 1, pd.day + 1)])
 
-    tf = test_form(
-        DummyPostData({
-            "pdf:year": "2012",
-            "pdf:month": "4",
-            "pdf:day": "12"
-        }))
+    tf = test_form(DummyPostData({"pdf:year": "2012", "pdf:month": "4", "pdf:day": "12"}))
     pdf = tf.pdf()
 
     assert '<option selected value="13">' in pdf
@@ -103,12 +92,7 @@ def test_partial_date_field_with_filter(test_form):
         raise ValueError("ERROR!!!")
 
     test_form.pdf = PartialDateField("f", filters=[failing_filter])
-    tf = test_form(
-        DummyPostData({
-            "pdf:year": "2012",
-            "pdf:month": "4",
-            "pdf:day": "12"
-        }))
+    tf = test_form(DummyPostData({"pdf:year": "2012", "pdf:month": "4", "pdf:day": "12"}))
     assert len(tf.pdf.process_errors) > 0
     assert "ERROR!!!" in tf.pdf.process_errors
 
@@ -132,10 +116,7 @@ def test_partial_date_field_with_obj(test_form):
 
 def test_partial_date_field_with_data_and_obj(test_form):
 
-    tf = test_form(
-        DummyPostData({
-            "pdf1:year": "2000"
-        }), MagicMock(pdf1=PD(2017, 1, 13)))
+    tf = test_form(DummyPostData({"pdf1:year": "2000"}), MagicMock(pdf1=PD(2017, 1, 13)))
     pdf1 = tf.pdf1()
 
     assert '<option selected value="13">' in pdf1
