@@ -48,7 +48,7 @@ class AppModelView(ModelView):
 
 class UserAdmin(AppModelView):
     """User model view."""
-    roles = {1: "Superuser", 2: "Administratro", 4: "Researcher", 8: "Technical Contact"}
+    roles = {1: "Superuser", 2: "Administrator", 4: "Researcher", 8: "Technical Contact"}
 
     column_exclude_list = ("password", "username", "first_name", "last_name",
                            "edu_person_shared_token", )
