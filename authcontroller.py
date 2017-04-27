@@ -140,7 +140,10 @@ def shib_login():
         eduPersonAffiliation = request.headers.get('Unscoped-Affiliation')
 
     if eduPersonAffiliation:
-        if any(epa in eduPersonAffiliation for epa in ['faculty', 'staff', 'employee']):
+        if any(epa in eduPersonAffiliation for epa in ['faculty', 'staff', 'employee']) \
+                and any(epa in eduPersonAffiliation for epa in ['student', 'alum']):
+            eduPersonAffiliation = EDU_PERSON_AFFILIATION_EMPLOYMENT + " and " + EDU_PERSON_AFFILIATION_EDUCATION
+        elif any(epa in eduPersonAffiliation for epa in ['faculty', 'staff', 'employee']):
             eduPersonAffiliation = EDU_PERSON_AFFILIATION_EMPLOYMENT
         elif any(epa in eduPersonAffiliation for epa in ['student', 'alum']):
             eduPersonAffiliation = EDU_PERSON_AFFILIATION_EDUCATION
@@ -167,7 +170,7 @@ def shib_login():
         if not user.name or org is not None and user.name == org.name and name:
             user.name = name
         if not user.first_name and first_name:
-            user.firts_name = first_name
+            user.first_name = first_name
         if not user.last_name and last_name:
             user.last_name = last_name
         if not user.confirmed:
@@ -315,7 +318,7 @@ def orcid_callback():
 
     if token["scope"] == scope_activities_update:
         swagger_client.configuration.access_token = orcidToken.access_token
-        # api_instance = swagger_client.MemberAPIV20Api()
+        api_instance = swagger_client.MemberAPIV20Api()
 
         source_clientid = swagger_client.SourceClientId(
             host='sandbox.orcid.org',
@@ -329,48 +332,56 @@ def orcid_callback():
             disambiguated_organization_identifier=orciduser.organisation.disambiguation_org_id,
             disambiguation_source=orciduser.organisation.disambiguation_org_source)
 
-        if orciduser.edu_person_affiliation == EDU_PERSON_AFFILIATION_EMPLOYMENT:
-            employment = swagger_client.Employment()
+        if orciduser.edu_person_affiliation is not None:
 
-            employment.source = swagger_client.Source(
-                source_orcid=None,
-                source_client_id=source_clientid,
-                source_name=orciduser.organisation.name)
+            if orciduser.edu_person_affiliation == EDU_PERSON_AFFILIATION_EMPLOYMENT \
+                    or orciduser.edu_person_affiliation == EDU_PERSON_AFFILIATION_EMPLOYMENT + " and " + EDU_PERSON_AFFILIATION_EDUCATION:
+                employment = swagger_client.Employment()
 
-            employment.organization = swagger_client.Organization(
-                name=orciduser.organisation.name,
-                address=organisation_address,
-                disambiguated_organization=disambiguated_organization_details)
+                employment.source = swagger_client.Source(
+                    source_orcid=None,
+                    source_client_id=source_clientid,
+                    source_name=orciduser.organisation.name)
 
-            try:
-                # TODO: api_response = api_instance.create_employment(user.orcid, body=employment)
-                # TODO: Save the put code in db table
-                flash("Your ORCID account was updated with employment affiliation from %s" %
-                      orciduser.organisation, "success")
+                employment.organization = swagger_client.Organization(
+                    name=orciduser.organisation.name,
+                    address=organisation_address,
+                    disambiguated_organization=disambiguated_organization_details)
 
-            except ApiException as e:
-                flash("Failed to update the entry: %s." % e.body, "danger")
-        elif orciduser.edu_person_affiliation == EDU_PERSON_AFFILIATION_EDUCATION:
-            education = swagger_client.Education()
+                try:
+                    api_response = api_instance.create_employment(user.orcid, body=employment)
+                    # TODO: Save the put code in db table
+                    flash("Your ORCID account was updated with employment affiliation from %s" %
+                          orciduser.organisation, "success")
 
-            education.source = swagger_client.Source(
-                source_orcid=None,
-                source_client_id=source_clientid,
-                source_name=orciduser.organisation.name)
+                except ApiException as e:
+                    flash("Failed to update the entry: %s." % e.body, "danger")
+            if orciduser.edu_person_affiliation == EDU_PERSON_AFFILIATION_EDUCATION \
+                    or orciduser.edu_person_affiliation == EDU_PERSON_AFFILIATION_EMPLOYMENT + " and " + EDU_PERSON_AFFILIATION_EDUCATION:
+                education = swagger_client.Education()
 
-            education.organization = swagger_client.Organization(
-                name=orciduser.organisation.name,
-                address=organisation_address,
-                disambiguated_organization=disambiguated_organization_details)
+                education.source = swagger_client.Source(
+                    source_orcid=None,
+                    source_client_id=source_clientid,
+                    source_name=orciduser.organisation.name)
 
-            try:
-                # api_response = api_instance.create_education(user.orcid, body=education)
-                # TODO: Save the put code in db table
-                flash("Your ORCID account was updated with education affiliation from %s" %
-                      orciduser.organisation, "success")
+                education.organization = swagger_client.Organization(
+                    name=orciduser.organisation.name,
+                    address=organisation_address,
+                    disambiguated_organization=disambiguated_organization_details)
 
-            except ApiException as e:
-                flash("Failed to update the entry: %s." % e.body, "danger")
+                try:
+                    api_response = api_instance.create_education(user.orcid, body=education)
+                    # TODO: Save the put code in db table
+                    flash("Your ORCID account was updated with education affiliation from %s" %
+                          orciduser.organisation, "success")
+
+                except ApiException as e:
+                    flash("Failed to update the entry: %s." % e.body, "danger")
+        else:
+            flash("ORCID Hub was not able to automatically write an affiliation with %s, "
+                  "As your nature of affiliation with your organisation is neither Employment nor Education"
+                  % orciduser.organisation, "danger")
 
     return redirect(url_for("profile"))
 

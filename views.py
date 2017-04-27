@@ -17,6 +17,8 @@ from models import (OrcidToken, Organisation, Role, User, User_Organisation_affi
 # NB! Should be disabled in production
 from pyinfo import info
 from swagger_client.rest import ApiException
+from requests_oauthlib import OAuth2Session
+import json
 
 HEADERS = {'Accept': 'application/vnd.orcid+json', 'Content-type': 'application/vnd.orcid+json'}
 
@@ -51,7 +53,7 @@ class UserAdmin(AppModelView):
     roles = {1: "Superuser", 2: "Administrator", 4: "Researcher", 8: "Technical Contact"}
 
     column_exclude_list = ("password", "username", "first_name", "last_name",
-                           "edu_person_shared_token", )
+                           "edu_person_shared_token",)
     column_formatters = dict(
         roles=lambda v, c, m, p: ", ".join(n for r, n in v.roles.items() if r & m.roles),
         orcid=lambda v, c, m, p: m.orcid.replace('-', '\u2011') if m.orcid else '')
@@ -63,7 +65,7 @@ class UserAdmin(AppModelView):
 
 class OrganisationAdmin(AppModelView):
     """Organisation model view."""
-    column_exclude_list = ("orcid_client_id", "orcid_secret", "tuakiri_name", )
+    column_exclude_list = ("orcid_client_id", "orcid_secret", "tuakiri_name",)
 
 
 admin.add_view(UserAdmin(User))
@@ -219,7 +221,24 @@ def employment(user_id, put_code=None):
                 disambiguation_source=current_user.organisation.name)
         try:
             if put_code:
-                api_instance.update_employment(user.orcid, put_code, body=employment)
+                # TODO: We can uncomment the below swagger employment update call,
+                # Once the bug fix (in update employment functionality) related to put code is done from ORCID side
+                # api_instance.update_employment(user.orcid, put_code, body=employment)
+                try:
+                    client = OAuth2Session(user.organisation.orcid_client_id, token={
+                        "access_token": swagger_client.configuration.access_token})
+
+                    headers = {'Accept': 'application/vnd.orcid+json', 'Content-type': 'application/vnd.orcid+json'}
+                    data = employment.to_dict()
+                    data['put-code'] = int(put_code)
+                    temp = json.dumps(data).replace('_', '-')
+                    data = json.loads(temp)
+                    resp = client.put(
+                        url="https://api.sandbox.orcid.org/v2.0/" + user.orcid + "/employment/" + str(put_code),
+                        json=data, headers=headers)
+                    print(resp)
+                except:
+                    pass
             else:
                 api_response = api_instance.create_employment(user.orcid, body=employment)
 
