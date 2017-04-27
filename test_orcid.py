@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """Tests related to ORCID affilation."""
 
+import json
 import time
 from unittest.mock import MagicMock, patch
 
@@ -138,6 +139,8 @@ def make_fake_response(text, *args, **kwargs):
     mm.text = text
     if "json" in kwargs:
         mm.json.return_value = kwargs["json"]
+    else:
+        mm.json.return_value = json.loads(text)
     if "status_code" in kwargs:
         mm.status_code = kwargs["status_code"]
     return mm

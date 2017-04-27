@@ -26,12 +26,16 @@ from application import app, mail
 from config import (APP_DESCRIPTION, APP_NAME, APP_URL, CRED_TYPE_PREMIUM,
                     EDU_PERSON_AFFILIATION_EDUCATION, EDU_PERSON_AFFILIATION_EMPLOYMENT,
                     EXTERNAL_SP, MEMBER_API_FORM_BASE_URL, NEW_CREDENTIALS, NOTE_ORCID,
+                    ORCID_API_BASE,
                     authorization_base_url, scope_activities_update, token_url)
 from login_provider import roles_required
 from models import OrcidToken, Organisation, Role, User, UserOrg
 from registrationForm import OrgConfirmationForm, OrgRegistrationForm
 from swagger_client.rest import ApiException
 from tokenGeneration import confirm_token, generate_confirmation_token
+
+
+HEADERS = {'Accept': 'application/vnd.orcid+json', 'Content-type': 'application/vnd.orcid+json'}
 
 
 @app.route("/index")
@@ -136,7 +140,10 @@ def shib_login():
         eduPersonAffiliation = request.headers.get('Unscoped-Affiliation')
 
     if eduPersonAffiliation:
-        if any(epa in eduPersonAffiliation for epa in ['faculty', 'staff', 'employee']):
+        if any(epa in eduPersonAffiliation for epa in ['faculty', 'staff', 'employee']) \
+                and any(epa in eduPersonAffiliation for epa in ['student', 'alum']):
+            eduPersonAffiliation = EDU_PERSON_AFFILIATION_EMPLOYMENT + " and " + EDU_PERSON_AFFILIATION_EDUCATION
+        elif any(epa in eduPersonAffiliation for epa in ['faculty', 'staff', 'employee']):
             eduPersonAffiliation = EDU_PERSON_AFFILIATION_EMPLOYMENT
         elif any(epa in eduPersonAffiliation for epa in ['student', 'alum']):
             eduPersonAffiliation = EDU_PERSON_AFFILIATION_EDUCATION
@@ -163,11 +170,9 @@ def shib_login():
         if not user.name or org is not None and user.name == org.name and name:
             user.name = name
         if not user.first_name and first_name:
-            user.firts_name = first_name
+            user.first_name = first_name
         if not user.last_name and last_name:
             user.last_name = last_name
-        if not user.confirmed:
-            user.confirmed = True
         if eduPersonAffiliation:
             user.edu_person_affiliation = eduPersonAffiliation
             # TODO: keep login auditing (last_loggedin_at... etc)
@@ -178,7 +183,6 @@ def shib_login():
             name=name,
             first_name=first_name,
             last_name=last_name,
-            confirmed=True,
             roles=Role.RESEARCHER,
             edu_person_shared_token=token,
             edu_person_affiliation=eduPersonAffiliation)
@@ -190,6 +194,10 @@ def shib_login():
         # the organization user is logged in from:
     if org != user.organisation:
         user.organisation = org
+
+    if not user.confirmed:
+        if org and org.confirmed:
+            user.confirmed = True
 
     user.save()
 
@@ -311,7 +319,7 @@ def orcid_callback():
 
     if token["scope"] == scope_activities_update:
         swagger_client.configuration.access_token = orcidToken.access_token
-        # api_instance = swagger_client.MemberAPIV20Api()
+        api_instance = swagger_client.MemberAPIV20Api()
 
         source_clientid = swagger_client.SourceClientId(
             host='sandbox.orcid.org',
@@ -325,48 +333,56 @@ def orcid_callback():
             disambiguated_organization_identifier=orciduser.organisation.disambiguation_org_id,
             disambiguation_source=orciduser.organisation.disambiguation_org_source)
 
-        if orciduser.edu_person_affiliation == EDU_PERSON_AFFILIATION_EMPLOYMENT:
-            employment = swagger_client.Employment()
+        if orciduser.edu_person_affiliation is not None:
 
-            employment.source = swagger_client.Source(
-                source_orcid=None,
-                source_client_id=source_clientid,
-                source_name=orciduser.organisation.name)
+            if orciduser.edu_person_affiliation == EDU_PERSON_AFFILIATION_EMPLOYMENT \
+                    or orciduser.edu_person_affiliation == EDU_PERSON_AFFILIATION_EMPLOYMENT + " and " + EDU_PERSON_AFFILIATION_EDUCATION:
+                employment = swagger_client.Employment()
 
-            employment.organization = swagger_client.Organization(
-                name=orciduser.organisation.name,
-                address=organisation_address,
-                disambiguated_organization=disambiguated_organization_details)
+                employment.source = swagger_client.Source(
+                    source_orcid=None,
+                    source_client_id=source_clientid,
+                    source_name=orciduser.organisation.name)
 
-            try:
-                # TODO: api_response = api_instance.create_employment(user.orcid, body=employment)
-                # TODO: Save the put code in db table
-                flash("Your ORCID account was updated with employment affiliation from %s" %
-                      orciduser.organisation, "success")
+                employment.organization = swagger_client.Organization(
+                    name=orciduser.organisation.name,
+                    address=organisation_address,
+                    disambiguated_organization=disambiguated_organization_details)
 
-            except ApiException as e:
-                flash("Failed to update the entry: %s." % e.body, "danger")
-        elif orciduser.edu_person_affiliation == EDU_PERSON_AFFILIATION_EDUCATION:
-            education = swagger_client.Education()
+                try:
+                    api_response = api_instance.create_employment(user.orcid, body=employment)
+                    # TODO: Save the put code in db table
+                    flash("Your ORCID account was updated with employment affiliation from %s" %
+                          orciduser.organisation, "success")
 
-            education.source = swagger_client.Source(
-                source_orcid=None,
-                source_client_id=source_clientid,
-                source_name=orciduser.organisation.name)
+                except ApiException as e:
+                    flash("Failed to update the entry: %s." % e.body, "danger")
+            if orciduser.edu_person_affiliation == EDU_PERSON_AFFILIATION_EDUCATION \
+                    or orciduser.edu_person_affiliation == EDU_PERSON_AFFILIATION_EMPLOYMENT + " and " + EDU_PERSON_AFFILIATION_EDUCATION:
+                education = swagger_client.Education()
 
-            education.organization = swagger_client.Organization(
-                name=orciduser.organisation.name,
-                address=organisation_address,
-                disambiguated_organization=disambiguated_organization_details)
+                education.source = swagger_client.Source(
+                    source_orcid=None,
+                    source_client_id=source_clientid,
+                    source_name=orciduser.organisation.name)
 
-            try:
-                # api_response = api_instance.create_education(user.orcid, body=education)
-                # TODO: Save the put code in db table
-                flash("Your ORCID account was updated with education affiliation from %s" %
-                      orciduser.organisation, "success")
+                education.organization = swagger_client.Organization(
+                    name=orciduser.organisation.name,
+                    address=organisation_address,
+                    disambiguated_organization=disambiguated_organization_details)
 
-            except ApiException as e:
-                flash("Failed to update the entry: %s." % e.body, "danger")
+                try:
+                    api_response = api_instance.create_education(user.orcid, body=education)
+                    # TODO: Save the put code in db table
+                    flash("Your ORCID account was updated with education affiliation from %s" %
+                          orciduser.organisation, "success")
+
+                except ApiException as e:
+                    flash("Failed to update the entry: %s." % e.body, "danger")
+        else:
+            flash("ORCID Hub was not able to automatically write an affiliation with %s, "
+                  "As your nature of affiliation with your organisation is neither Employment nor Education"
+                  % orciduser.organisation, "danger")
 
     return redirect(url_for("profile"))
 
@@ -375,23 +391,23 @@ def orcid_callback():
 @login_required
 def profile():
     """Fetch a protected resource using an OAuth 2 token."""
-
     user = User.get(email=current_user.email, organisation=current_user.organisation)
 
-    orcidTokenRead = None
     try:
         orcidTokenRead = OrcidToken.get(
             user=user, org=user.organisation, scope=scope_activities_update)
     except:
         return redirect(url_for("link"))
-
-    client = OAuth2Session(
-        user.organisation.orcid_client_id, token={"access_token": orcidTokenRead.access_token})
-
-    headers = {'Accept': 'application/vnd.orcid+json'}
-    resp = client.get(
-        "https://api.sandbox.orcid.org/v2.0/" + user.orcid + "/works", headers=headers)
-    return render_template("profile.html", user=user, data=json.loads(resp.text))
+    else:
+        client = OAuth2Session(
+            user.organisation.orcid_client_id, token={"access_token": orcidTokenRead.access_token})
+        base_url = ORCID_API_BASE + user.orcid
+        # TODO: utilize asyncio/aiohttp to run it concurrently
+        person = client.get(base_url + "/person", headers=HEADERS).json()
+        employments = client.get(base_url + "/employments", headers=HEADERS).json()
+        educations = client.get(base_url + "/educations", headers=HEADERS).json()
+        return render_template("profile.html", user=user, person=person,
+                               employments=employments, educations=educations)
 
 
 @app.route("/invite/user", methods=["GET"])
@@ -450,6 +466,7 @@ def invite_organisation():
                     user.roles = Role.ADMIN
                     user.organisation = org
                     user.tech_contact = tech_contact
+                    user.confirmed = True
                 except User.DoesNotExist:
                     user = User(
                         name=form.orgName.data,
@@ -498,7 +515,6 @@ def confirm_organisation(token):
 
     user = User.get(email=current_user.email, organisation=current_user.organisation)
     if not user.tech_contact:
-        user.confirmed = True
         user.save()
         with app.app_context():
             msg = Message("Welcome to OrcidhHub", recipients=[email])
@@ -532,7 +548,6 @@ def confirm_organisation(token):
                 organisation.save()
 
                 # Update Orcid User
-                user.confirmed = True
                 user.save()
                 with app.app_context():
                     msg = Message("Welcome to OrcidhHub", recipients=[email])
@@ -619,7 +634,7 @@ in order to complete the log-out.""", "warning")
 @login_required
 def reset_db():
     """Reset the DB for a new testing cycle."""
-    User.delete().where(~(User.name**"royal" | User.name**"%root%")).execute()
+    User.delete().where(~(User.name ** "royal" | User.name ** "%root%")).execute()
     Organisation.delete().where(~(Organisation.name % "%Royal%")).execute()
     return redirect(url_for("logout"))
 

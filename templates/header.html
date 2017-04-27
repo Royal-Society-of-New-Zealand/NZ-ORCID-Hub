@@ -4,7 +4,7 @@
     <div class="lead banner" style="background-image:url(/static/images/banner.svg); background-position: right top; background-size: auto 127px; background-repeat: no repeat; height: 127px; background-color: #000;">
     </div>
   {% endblock %}
-  {% if current_user.is_authenticated %}
+  {% if current_user.confirmed %}
     <nav class="navbar navbar-default">
       <div class="container-fluid">
         <div class="navbar-header">
