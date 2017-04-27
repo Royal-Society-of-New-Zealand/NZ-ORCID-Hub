@@ -26,12 +26,16 @@ from application import app, mail
 from config import (APP_DESCRIPTION, APP_NAME, APP_URL, CRED_TYPE_PREMIUM,
                     EDU_PERSON_AFFILIATION_EDUCATION, EDU_PERSON_AFFILIATION_EMPLOYMENT,
                     EXTERNAL_SP, MEMBER_API_FORM_BASE_URL, NEW_CREDENTIALS, NOTE_ORCID,
+                    ORCID_API_BASE,
                     authorization_base_url, scope_activities_update, token_url)
 from login_provider import roles_required
 from models import OrcidToken, Organisation, Role, User, UserOrg
 from registrationForm import OrgConfirmationForm, OrgRegistrationForm
 from swagger_client.rest import ApiException
 from tokenGeneration import confirm_token, generate_confirmation_token
+
+
+HEADERS = {'Accept': 'application/vnd.orcid+json', 'Content-type': 'application/vnd.orcid+json'}
 
 
 @app.route("/index")
@@ -387,23 +391,23 @@ def orcid_callback():
 @login_required
 def profile():
     """Fetch a protected resource using an OAuth 2 token."""
-
     user = User.get(email=current_user.email, organisation=current_user.organisation)
 
-    orcidTokenRead = None
     try:
         orcidTokenRead = OrcidToken.get(
             user=user, org=user.organisation, scope=scope_activities_update)
     except:
         return redirect(url_for("link"))
-
-    client = OAuth2Session(
-        user.organisation.orcid_client_id, token={"access_token": orcidTokenRead.access_token})
-
-    headers = {'Accept': 'application/vnd.orcid+json'}
-    resp = client.get(
-        "https://api.sandbox.orcid.org/v2.0/" + user.orcid + "/works", headers=headers)
-    return render_template("profile.html", user=user, data=json.loads(resp.text))
+    else:
+        client = OAuth2Session(
+            user.organisation.orcid_client_id, token={"access_token": orcidTokenRead.access_token})
+        base_url = ORCID_API_BASE + user.orcid
+        # TODO: utilize asyncio/aiohttp to run it concurrently
+        person = client.get(base_url + "/person", headers=HEADERS).json()
+        employments = client.get(base_url + "/employments", headers=HEADERS).json()
+        educations = client.get(base_url + "/educations", headers=HEADERS).json()
+        return render_template("profile.html", user=user, person=person,
+                               employments=employments, educations=educations)
 
 
 @app.route("/invite/user", methods=["GET"])

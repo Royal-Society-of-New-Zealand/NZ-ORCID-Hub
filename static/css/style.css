@@ -106,9 +106,18 @@
 	border: 2px #0091b4 solid;
 }
 
+.login-blocks .tuakiri:hover {
+	border: 2px #163956 solid;
+}
+
+
 .login-blocks .orcid {
 	background-color: white;
 	border: 2px #d0ea8f solid;
+}
+
+.login-blocks .orcid:hover {
+	border: 2px #b2ce6d solid;
 }
 
 .orcid .login-button {

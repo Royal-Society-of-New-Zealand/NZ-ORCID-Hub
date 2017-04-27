@@ -64,6 +64,7 @@ chmod 400 /etc/pki/tls/private/server.key
 cp /.keys/${ENV}-server.crt /etc/pki/tls/certs/server.crt
 chown root /etc/pki/tls/certs/server.crt
 cp /.keys/CA.crt /etc/pki/tls/certs/CA.crt
+chown root /etc/pki/tls/certs/CA.crt
 
 echo "Rendering Shibboleth configuration template ..."
 /conf/render_template /conf/templates/shibboleth2.xml >/etc/shibboleth/shibboleth2.xml
