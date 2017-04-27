@@ -91,9 +91,6 @@ def test_tuakiri_login(client):
     assert u.last_name == "LAST NAME/SURNAME/FAMILY NAME"
     assert u.edu_person_shared_token == "ABC123"
 
-    assert current_user.name == "TEST USER FROM 123"
-    assert current_user.edu_person_shared_token == "ABC123"
-
 
 def test_tuakiri_login_wo_org(client):
     """

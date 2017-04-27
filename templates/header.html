@@ -5,7 +5,7 @@
       <div><img src="/static/images/banner.svg" alt="Cinque Terre" width="100%"></div>
     </div>
   {% endblock %}
-  {% if current_user.is_authenticated %}
+  {% if current_user.confirmed %}
     <nav class="navbar navbar-default">
       <div class="container-fluid">
         <div class="navbar-header">
