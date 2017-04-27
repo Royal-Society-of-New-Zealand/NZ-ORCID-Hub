@@ -169,8 +169,6 @@ def shib_login():
             user.first_name = first_name
         if not user.last_name and last_name:
             user.last_name = last_name
-        if not user.confirmed:
-            user.confirmed = True
         if eduPersonAffiliation:
             user.edu_person_affiliation = eduPersonAffiliation
             # TODO: keep login auditing (last_loggedin_at... etc)
@@ -181,7 +179,6 @@ def shib_login():
             name=name,
             first_name=first_name,
             last_name=last_name,
-            confirmed=True,
             roles=Role.RESEARCHER,
             edu_person_shared_token=token,
             edu_person_affiliation=eduPersonAffiliation)
@@ -193,6 +190,10 @@ def shib_login():
         # the organization user is logged in from:
     if org != user.organisation:
         user.organisation = org
+
+    if not user.confirmed:
+        if org and org.confirmed:
+            user.confirmed = True
 
     user.save()
 
@@ -461,6 +462,7 @@ def invite_organisation():
                     user.roles = Role.ADMIN
                     user.organisation = org
                     user.tech_contact = tech_contact
+                    user.confirmed = True
                 except User.DoesNotExist:
                     user = User(
                         name=form.orgName.data,
@@ -509,7 +511,6 @@ def confirm_organisation(token):
 
     user = User.get(email=current_user.email, organisation=current_user.organisation)
     if not user.tech_contact:
-        user.confirmed = True
         user.save()
         with app.app_context():
             msg = Message("Welcome to OrcidhHub", recipients=[email])
@@ -543,7 +544,6 @@ def confirm_organisation(token):
                 organisation.save()
 
                 # Update Orcid User
-                user.confirmed = True
                 user.save()
                 with app.app_context():
                     msg = Message("Welcome to OrcidhHub", recipients=[email])
@@ -630,7 +630,7 @@ in order to complete the log-out.""", "warning")
 @login_required
 def reset_db():
     """Reset the DB for a new testing cycle."""
-    User.delete().where(~(User.name**"royal" | User.name**"%root%")).execute()
+    User.delete().where(~(User.name ** "royal" | User.name ** "%root%")).execute()
     Organisation.delete().where(~(Organisation.name % "%Royal%")).execute()
     return redirect(url_for("logout"))
 
