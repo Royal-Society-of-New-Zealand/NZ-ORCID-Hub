@@ -6,7 +6,6 @@ user (reseaser) affiliations.
 """
 
 import base64
-import json
 import pickle
 import zlib
 from os import path, remove
@@ -33,7 +32,6 @@ from models import OrcidToken, Organisation, Role, User, UserOrg
 from registrationForm import OrgConfirmationForm, OrgRegistrationForm
 from swagger_client.rest import ApiException
 from tokenGeneration import confirm_token, generate_confirmation_token
-
 
 HEADERS = {'Accept': 'application/vnd.orcid+json', 'Content-type': 'application/vnd.orcid+json'}
 
@@ -251,8 +249,6 @@ def link():
         pass
 
     if orcidTokenWrite is not None:
-        flash("You have already given write permissions to '%s' and your ORCiD %s" %
-              (current_user.organisation.name, current_user.orcid), "warning")
         return redirect(url_for("profile"))
 
     return render_template("linking.html", orcid_url_write=orcid_url_write)
@@ -403,11 +399,16 @@ def profile():
             user.organisation.orcid_client_id, token={"access_token": orcidTokenRead.access_token})
         base_url = ORCID_API_BASE + user.orcid
         # TODO: utilize asyncio/aiohttp to run it concurrently
-        person = client.get(base_url + "/person", headers=HEADERS).json()
-        employments = client.get(base_url + "/employments", headers=HEADERS).json()
-        educations = client.get(base_url + "/educations", headers=HEADERS).json()
-        return render_template("profile.html", user=user, person=person,
-                               employments=employments, educations=educations)
+        resp_person = client.get(base_url + "/person", headers=HEADERS)
+        if resp_person.status_code == 401:
+            orcidTokenRead.delete_instance()
+            return redirect(url_for("link"))
+        else:
+            person = resp_person.json()
+            employments = client.get(base_url + "/employments", headers=HEADERS).json()
+            educations = client.get(base_url + "/educations", headers=HEADERS).json()
+            return render_template("profile.html", user=user, person=person,
+                                   employments=employments, educations=educations)
 
 
 @app.route("/invite/user", methods=["GET"])
