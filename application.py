@@ -13,7 +13,11 @@ import config
 from config import (MAIL_DEFAULT_SENDER, MAIL_PASSWORD, MAIL_SERVER, MAIL_USERNAME,
                     TOKEN_PASSWORD_SALT, TOKEN_SECRET_KEY)
 
+from onelogin.saml2.auth import OneLogin_Saml2_Auth
+from onelogin.saml2.utils import OneLogin_Saml2_Utils
+
 app = Flask(__name__)
+app.config['SAML_PATH'] = os.path.join(os.path.dirname(__file__), "SAML")
 
 if os.path.exists("/var/log/orcidhub"):
     handler = RotatingFileHandler('/var/log/orcidhub/orcidhub.log', maxBytes=10000, backupCount=10)

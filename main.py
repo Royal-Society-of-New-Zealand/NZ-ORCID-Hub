@@ -15,6 +15,7 @@ import models  # noqa: F401
 from application import app, db
 from authcontroller import *  # noqa: F401, F403
 from views import *  # noqa: F401, F403
+from saml import *  # noqa: F401, F403
 
 
 # TODO: connection should be managed explicitely
