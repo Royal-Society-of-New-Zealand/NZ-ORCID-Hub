@@ -305,6 +305,10 @@ def employment_list(user_id):
     # TODO: Organisation has read token
     # TODO: Organisation has access to the employment records
     # TODO: retrieve and tranform for presentation (order, etc)
-    data = api_response.to_dict()
+    try:
+        data = api_response.to_dict()
+    except:
+        flash("User didn't gave permission to update his/her records", "warning")
+        return redirect(url_for("viewmembers"))
     # TODO: transform data for presentation:
     return render_template("employments.html", data=data, user_id=user_id)
