@@ -15,6 +15,7 @@ import models  # noqa: F401
 from application import app, db
 from authcontroller import *  # noqa: F401, F403
 from views import *  # noqa: F401, F403
+import initializedb
 
 
 # TODO: connection should be managed explicitely
@@ -34,6 +35,12 @@ def after_request(response):
         except OperationalError:
             pass
     return response
+
+
+@app.cli.command()
+def initdb():
+    """Initialize the database."""
+    initializedb.initdb()
 
 
 if app.debug:
