@@ -29,7 +29,7 @@ def app():
     _app.db = _db = SqliteDatabase(":memory:")
 
     with test_database(_db, (Organisation, User, UserOrg, OrcidToken,
-                             User_Organisation_affiliation)):  # noqa: F405
+                             UserOrgAffiliation)):  # noqa: F405
         yield _app
 
     ctx.pop()

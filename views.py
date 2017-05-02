@@ -13,7 +13,7 @@ from config import SCOPE_ACTIVITIES_UPDATE
 from forms import BitmapMultipleValueField, EmploymentForm
 from login_provider import roles_required
 from models import PartialDate as PD
-from models import (OrcidToken, Organisation, Role, User, User_Organisation_affiliation)
+from models import (OrcidToken, Organisation, Role, User, UserOrgAffiliation)
 # NB! Should be disabled in production
 from pyinfo import info
 from swagger_client.rest import ApiException
@@ -242,7 +242,7 @@ def employment(user_id, put_code=None):
             else:
                 api_response = api_instance.create_employment(user.orcid, body=employment)
 
-            affiliation, _ = User_Organisation_affiliation.get_or_create(
+            affiliation, _ = UserOrgAffiliation.get_or_create(
                 user=user,
                 organisation=user.organisation,
                 put_code=put_code,

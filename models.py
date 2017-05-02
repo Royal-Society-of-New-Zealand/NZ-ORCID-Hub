@@ -11,6 +11,7 @@ from peewee import (BooleanField, CharField, CompositeKey, DateTimeField, Field,
                     Model, OperationalError, SmallIntegerField, TextField, datetime)
 
 from application import db
+from config import DEFAULT_COUNTRY
 
 try:
     from enum import IntFlag
@@ -129,9 +130,7 @@ class Organisation(BaseModel):
 
     @property
     def admins(self):
-        """
-        Organisation's adminstrators (query)
-        """
+        """Organisation's adminstrators (query)."""
         return User.select().join(
             self.userorg_set.where(self.userorg_set.c.is_admin).alias("sq"),
             on=(self.userorg_set.c.user_id == User.id))
@@ -140,9 +139,38 @@ class Organisation(BaseModel):
         return self.name
 
 
+class OrganisationInfo(BaseModel):
+    """Preloaded organisation data."""
+
+    name = CharField(max_length=100, unique=True, verbose_name="Organisation")
+    title = CharField(null=True, verbose_name="Contact person tile")
+    first_name = CharField(null=True, verbose_name="Contact person's first name")
+    last_name = CharField(null=True, verbose_name="Contact person's last name")
+    role = CharField(null=True, verbose_name="Contact person's role")
+    email = CharField(null=True, verbose_name="Contact peson's email")
+    phone = CharField(null=True, verbose_name="Contact peson's phone")
+    is_public = BooleanField(
+        null=True, default=False, verbose_name="Permission to post contact information to WEB")
+    country = CharField(null=True, verbose_name="Country Code", default=DEFAULT_COUNTRY)
+    city = CharField(null=True, verbose_name="City of home campus")
+    disambiguation_org_id = CharField(
+        null=True, verbose_name="common:disambiguated-organization-identifier")
+    disambiguation_source = CharField(null=True, verbose_name="common:disambiguation-source")
+
+    def __repr__(self):
+        """String representation of the model."""
+        return self.name
+
+    class Meta:
+        db_table = "organisation_info"
+        table_alias = "oi"
+
+
 class User(BaseModel, UserMixin):
     """
-    ORCiD Hub user (incling researchers, organisation administrators, hub administrators, etc.)
+    ORCiD Hub user.
+
+    It's a gneric user including researchers, organisation administrators, hub administrators, etc.
     """
 
     name = CharField(max_length=64, null=True)
@@ -263,10 +291,8 @@ class OrcidToken(BaseModel):
     expires_in = SmallIntegerField(default=0)
 
 
-class User_Organisation_affiliation(BaseModel):
-    """
-    For Keeping the information about the affiliation
-    """
+class UserOrgAffiliation(BaseModel):
+    """For Keeping the information about the affiliation."""
 
     user = ForeignKeyField(User)
     organisation = ForeignKeyField(Organisation, index=True, verbose_name="Organisation")
@@ -279,6 +305,10 @@ class User_Organisation_affiliation(BaseModel):
     put_code = SmallIntegerField(default=0, null=True)
     path = TextField(null=True)
 
+    class Meta:
+        db_table = "user_organisation_affiliation"
+        table_alias = "oua"
+
 
 def create_tables():
     """Create all DB tables."""
@@ -286,14 +316,14 @@ def create_tables():
         db.connect()
     except OperationalError:
         pass
-    models = (Organisation, User, UserOrg, OrcidToken, User_Organisation_affiliation)
+    models = (Organisation, User, UserOrg, OrcidToken, UserOrgAffiliation)
     db.create_tables(models)
 
 
 def drop_tables():
     """Drop all model tables."""
 
-    for m in (Organisation, User, UserOrg, OrcidToken, User_Organisation_affiliation):
+    for m in (Organisation, User, UserOrg, OrcidToken, UserOrgAffiliation):
         if m.table_exists():
             try:
                 m.drop_table(fail_silently=True, cascade=db.drop_cascade)

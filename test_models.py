@@ -5,7 +5,7 @@ from peewee import Model, SqliteDatabase
 from playhouse.test_utils import test_database
 
 from models import (OrcidToken, Organisation, PartialDate, PartialDateField, Role, User,
-                    User_Organisation_affiliation, UserOrg, create_tables, drop_tables)
+                    UserOrgAffiliation, UserOrg, create_tables, drop_tables)
 
 
 @pytest.fixture
@@ -21,7 +21,7 @@ def test_db():
     """
     _db = SqliteDatabase(":memory:")
     with test_database(
-            _db, (Organisation, User, UserOrg, OrcidToken, User_Organisation_affiliation),
+            _db, (Organisation, User, UserOrg, OrcidToken, UserOrgAffiliation),
             fail_silently=True) as _test_db:
         yield _test_db
 
@@ -60,7 +60,7 @@ def test_models(test_db):
         scope="/read-limited",
         access_token="Test_%d" % i) for i in range(60))).execute()
 
-    User_Organisation_affiliation.insert_many((dict(
+    UserOrgAffiliation.insert_many((dict(
         user=User.get(id=1),
         organisation=Organisation.get(id=1),
         department_name="Test_%d" % i,
@@ -99,7 +99,7 @@ def test_orcidtoken_count(test_models):
 
 
 def test_user_oganisation_affiliation_count(test_models):
-    assert User_Organisation_affiliation.select().count() == 30
+    assert UserOrgAffiliation.select().count() == 30
 
 
 def test_user_org_link(test_models):
