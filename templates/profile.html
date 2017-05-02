@@ -2,7 +2,7 @@
 {% block content %}
   <div class="container">
     <p>
-    <strong>{{ user.name}}</strong>, your ORCiD <a href="{{orcid_url}}">{{orcid_url}}</a>
+    <strong>{{ user.name}}</strong>, your ORCID iD <a href="{{orcid_url}}">{{orcid_url}}</a>
     is now linked with <strong>{{ user.organisation.name }}</strong>.
     </p>
     {% if person.get("biography") and person["biography"].get("content") %}
