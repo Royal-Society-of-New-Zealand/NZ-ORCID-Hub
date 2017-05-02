@@ -5,7 +5,7 @@ from peewee import Model, SqliteDatabase
 from playhouse.test_utils import test_database
 
 from models import (OrcidToken, Organisation, PartialDate, PartialDateField, Role, User,
-                    UserOrgAffiliation, UserOrg, create_tables, drop_tables)
+                    UserOrgAffiliation, UserOrg, OrgInfo, create_tables, drop_tables)
 
 
 @pytest.fixture
@@ -237,3 +237,15 @@ def test_pd_field():
     assert res[2] == PartialDate(1995, 5, 13)
     assert res[3] == PartialDate(1996, 4)
     assert res[4] == PartialDate(1997)
+
+
+def test_load_org_info_from_csv(test_models):
+    # flake8: noqa
+    OrgInfo.load_from_csv(
+        """Organisation,Title,First Name,Last Name,Role,Email,Phone,Permission to post to web,Country Code,City of home campus,common:disambiguated-organization-identifier,common:disambiguation-source
+Organisation_0,Title_0,First Name_0,Last Name_0,Role_0,Email_0,Phone_0,Permission to post to web_0,Country Code_0,City of home campus_0,common:disambiguated-organization-identifier_0,common:disambiguation-source
+Organisation_1,Title_1,First Name_1,Last Name_1,Role_1,Email_1,Phone_1,yes,Country Code_1,City of home campus_1,common:disambiguated-organization-identifier_1,common:disambiguation-source
+""")
+    assert OrgInfo.select().count() == 2
+    oi = OrgInfo.get(name="Organisation_1")
+    assert oi.is_public

@@ -331,7 +331,8 @@ def orcid_callback():
         if orciduser.edu_person_affiliation is not None:
 
             if orciduser.edu_person_affiliation == EDU_PERSON_AFFILIATION_EMPLOYMENT \
-                    or orciduser.edu_person_affiliation == EDU_PERSON_AFFILIATION_EMPLOYMENT + " and " + EDU_PERSON_AFFILIATION_EDUCATION:
+                    or orciduser.edu_person_affiliation == EDU_PERSON_AFFILIATION_EMPLOYMENT + \
+                    " and " + EDU_PERSON_AFFILIATION_EDUCATION:
                 employment = swagger_client.Employment()
 
                 employment.source = swagger_client.Source(
@@ -345,7 +346,7 @@ def orcid_callback():
                     disambiguated_organization=disambiguated_organization_details)
 
                 try:
-                    api_response = api_instance.create_employment(user.orcid, body=employment)
+                    api_instance.create_employment(user.orcid, body=employment)
                     # TODO: Save the put code in db table
                     flash("Your ORCID account was updated with employment affiliation from %s" %
                           orciduser.organisation, "success")
@@ -353,7 +354,8 @@ def orcid_callback():
                 except ApiException as e:
                     flash("Failed to update the entry: %s." % e.body, "danger")
             if orciduser.edu_person_affiliation == EDU_PERSON_AFFILIATION_EDUCATION \
-                    or orciduser.edu_person_affiliation == EDU_PERSON_AFFILIATION_EMPLOYMENT + " and " + EDU_PERSON_AFFILIATION_EDUCATION:
+                    or orciduser.edu_person_affiliation == EDU_PERSON_AFFILIATION_EMPLOYMENT + \
+                    " and " + EDU_PERSON_AFFILIATION_EDUCATION:
                 education = swagger_client.Education()
 
                 education.source = swagger_client.Source(
@@ -367,7 +369,7 @@ def orcid_callback():
                     disambiguated_organization=disambiguated_organization_details)
 
                 try:
-                    api_response = api_instance.create_education(user.orcid, body=education)
+                    api_instance.create_education(user.orcid, body=education)
                     # TODO: Save the put code in db table
                     flash("Your ORCID account was updated with education affiliation from %s" %
                           orciduser.organisation, "success")
@@ -375,9 +377,10 @@ def orcid_callback():
                 except ApiException as e:
                     flash("Failed to update the entry: %s." % e.body, "danger")
         else:
-            flash("ORCID Hub was not able to automatically write an affiliation with %s, "
-                  "As your nature of affiliation with your organisation is neither Employment nor Education"
-                  % orciduser.organisation, "danger")
+            flash(
+                "ORCID Hub was not able to automatically write an affiliation with %s, "
+                "As your nature of affiliation with your organisation is neither Employment nor Education"
+                % orciduser.organisation, "danger")
 
     return redirect(url_for("profile"))
 
@@ -406,8 +409,12 @@ def profile():
             person = resp_person.json()
             employments = client.get(base_url + "/employments", headers=HEADERS).json()
             educations = client.get(base_url + "/educations", headers=HEADERS).json()
-            return render_template("profile.html", user=user, person=person,
-                                   employments=employments, educations=educations)
+            return render_template(
+                "profile.html",
+                user=user,
+                person=person,
+                employments=employments,
+                educations=educations)
 
 
 @app.route("/invite/user", methods=["GET"])
@@ -634,7 +641,7 @@ in order to complete the log-out.""", "warning")
 @login_required
 def reset_db():
     """Reset the DB for a new testing cycle."""
-    User.delete().where(~(User.name ** "royal" | User.name ** "%root%")).execute()
+    User.delete().where(~(User.name**"royal" | User.name**"%root%")).execute()
     Organisation.delete().where(~(Organisation.name % "%Royal%")).execute()
     return redirect(url_for("logout"))
 

@@ -5,7 +5,7 @@ import pprint
 
 import pytest
 from flask import url_for
-from flask_login import current_user, login_user
+from flask_login import login_user
 
 import login_provider
 import tokenGeneration

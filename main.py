@@ -10,7 +10,6 @@ import os
 # NB! Should be disabled in production
 from flask_debugtoolbar import DebugToolbarExtension
 from peewee import OperationalError
-import click
 
 import models  # noqa: F401
 from application import app, db

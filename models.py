@@ -172,7 +172,7 @@ class OrgInfo(BaseModel):
         """Load data from CSV file or a string."""
         if isinstance(source, str):
             if '\n' in source:
-                source = StringIO.StringIO(source)
+                source = StringIO(source)
             else:
                 source = open(source)
         reader = csv.reader(source)
@@ -353,7 +353,7 @@ def create_tables():
 def drop_tables():
     """Drop all model tables."""
 
-    for m in (Organisation, User, UserOrg, OrcidToken, UserOrgAffiliation):
+    for m in (Organisation, User, UserOrg, OrcidToken, UserOrgAffiliation, OrgInfo):
         if m.table_exists():
             try:
                 m.drop_table(fail_silently=True, cascade=db.drop_cascade)
