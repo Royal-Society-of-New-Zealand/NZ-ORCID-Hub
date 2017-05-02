@@ -25,8 +25,7 @@ from application import app, mail
 from config import (APP_DESCRIPTION, APP_NAME, APP_URL, CRED_TYPE_PREMIUM,
                     EDU_PERSON_AFFILIATION_EDUCATION, EDU_PERSON_AFFILIATION_EMPLOYMENT,
                     EXTERNAL_SP, MEMBER_API_FORM_BASE_URL, NEW_CREDENTIALS, NOTE_ORCID,
-                    ORCID_API_BASE,
-                    authorization_base_url, scope_activities_update, token_url)
+                    ORCID_API_BASE, AUTHORIZATION_BASE_URL, SCOPE_ACTIVITIES_UPDATE, TOKEN_URL)
 from login_provider import roles_required
 from models import OrcidToken, Organisation, Role, User, UserOrg
 from registrationForm import OrgConfirmationForm, OrgRegistrationForm
@@ -225,9 +224,9 @@ def link():
 
     client_write = OAuth2Session(
         current_user.organisation.orcid_client_id,
-        scope=scope_activities_update,
+        scope=SCOPE_ACTIVITIES_UPDATE,
         redirect_uri=redirect_uri)
-    authorization_url_write, state = client_write.authorization_url(authorization_base_url)
+    authorization_url_write, state = client_write.authorization_url(AUTHORIZATION_BASE_URL)
     session['oauth_state'] = state
 
     orcid_url_write = iri_to_uri(authorization_url_write) + urlencode(
@@ -244,7 +243,7 @@ def link():
     orcidTokenWrite = None
     try:
         orcidTokenWrite = OrcidToken.get(
-            user=user, org=user.organisation, scope=scope_activities_update)
+            user=user, org=user.organisation, scope=SCOPE_ACTIVITIES_UPDATE)
     except:
         pass
 
@@ -285,7 +284,7 @@ def orcid_callback():
 
     client = OAuth2Session(current_user.organisation.orcid_client_id)
     token = client.fetch_token(
-        token_url,
+        TOKEN_URL,
         client_secret=current_user.organisation.orcid_secret,
         authorization_response=request.url)
     # At this point you can fetch protected resources but lets save
@@ -313,7 +312,7 @@ def orcid_callback():
     orcidToken.save()
     user.save()
 
-    if token["scope"] == scope_activities_update:
+    if token["scope"] == SCOPE_ACTIVITIES_UPDATE:
         swagger_client.configuration.access_token = orcidToken.access_token
         api_instance = swagger_client.MemberAPIV20Api()
 
@@ -391,7 +390,7 @@ def profile():
 
     try:
         orcidTokenRead = OrcidToken.get(
-            user=user, org=user.organisation, scope=scope_activities_update)
+            user=user, org=user.organisation, scope=SCOPE_ACTIVITIES_UPDATE)
     except:
         return redirect(url_for("link"))
     else:
