@@ -14,14 +14,14 @@
             <span class="icon-bar"></span>
             <span class="icon-bar"></span>
           </button>
-          <a class="navbar-brand" href="{{ url_for('login') }}">NZ ORCiD Hub</a>
+          <a class="navbar-brand" href="{{ url_for('login') }}">NZ ORCID Hub</a>
         </div>
         <div class="collapse navbar-collapse" id="navbar-collapse-1">
           <ul class="nav navbar-nav">
             <li id="about"><a href="#">About</a></li>
             {% if current_user.organisation %}
               <li id="profile"><a href="{{ url_for('link') }}" data-toggle="tooltip"
-                                                               title="Affiliate yourself using the NZ ORCID HUB or view your ORCiD">ORCID Permissions</a></li>
+                                                               title="Affiliate yourself using the NZ ORCID HUB or view your ORCID iD">ORCID Permissions</a></li>
             {% endif %}
             {% if current_user.has_role("ADMIN") %}
               <li id="researcher"><a href="/Tuakiri/register/researcher">Register Researcher</a></li>
