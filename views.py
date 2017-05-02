@@ -9,7 +9,7 @@ from flask_login import current_user, login_required
 
 import swagger_client
 from application import admin, app
-from config import scope_activities_update
+from config import SCOPE_ACTIVITIES_UPDATE
 from forms import BitmapMultipleValueField, EmploymentForm
 from login_provider import roles_required
 from models import PartialDate as PD
@@ -115,7 +115,7 @@ def delete_employment(user_id, put_code=None):
 
     try:
         orcidToken = OrcidToken.get(
-            user=user, org=user.organisation, scope=scope_activities_update)
+            user=user, org=user.organisation, scope=SCOPE_ACTIVITIES_UPDATE)
     except:
         flash("The user hasn't authorized you to Add records", "warning")
         return redirect(_url)
@@ -153,7 +153,7 @@ def employment(user_id, put_code=None):
 
     try:
         orcidToken = OrcidToken.get(
-            user=user, org=user.organisation, scope=scope_activities_update)
+            user=user, org=user.organisation, scope=SCOPE_ACTIVITIES_UPDATE)
     except:
         flash("The user hasn't authorized you to Add records", "warning")
         return redirect(_url)
@@ -287,7 +287,7 @@ def employment_list(user_id):
     orcidToken = None
     try:
         orcidToken = OrcidToken.get(
-            user=user, org=user.organisation, scope=scope_activities_update)
+            user=user, org=user.organisation, scope=SCOPE_ACTIVITIES_UPDATE)
     except:
         flash("User didnt gave permission to update his/her records", "warning")
         return redirect(url_for("viewmembers"))

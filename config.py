@@ -5,10 +5,6 @@ from os import environ
 
 ENV = environ.get("ENV", "dev")
 
-authorization_base_url = 'https://sandbox.orcid.org/oauth/authorize'
-token_url = 'https://pub.sandbox.orcid.org/oauth/token'
-scope = ['/authenticate']
-
 ORCID_API_BASE = "https://api.sandbox.orcid.org/v2.0/" if ENV != "prod" else "https://api.orcid.org/v2.0/"
 
 # Database connection url
@@ -29,10 +25,9 @@ client_id = environ.get("ORCID_CLIENT_ID", "APP-TF7LKIE084PYTQ59")
 client_secret = environ.get("ORCID_CLIENT_SECRET")
 
 # Change the URL as per the enviornment
-authorization_base_url = 'https://sandbox.orcid.org/oauth/authorize'
-token_url = 'https://pub.sandbox.orcid.org/oauth/token'
-scope_read_limited = ['/read-limited']
-scope_activities_update = ['/activities/update']
+AUTHORIZATION_BASE_URL = 'https://sandbox.orcid.org/oauth/authorize'
+TOKEN_URL = 'https://sandbox.orcid.org/oauth/token'
+SCOPE_ACTIVITIES_UPDATE = ['/activities/update']
 
 # Database connection url
 POSTGRES_PASSWORD = environ.get("POSTGRES_PASSWORD") or environ.get("PGPASSWORD") or "p455w0rd"
