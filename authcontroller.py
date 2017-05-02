@@ -216,7 +216,7 @@ def shib_login():
 @app.route("/link")
 @login_required
 def link():
-    """Link the user's account with ORCiD (i.e. affiliates user with his/her org on ORCID)."""
+    """Link the user's account with ORCID (i.e. affiliates user with his/her org on ORCID)."""
     # TODO: handle organisation that are not on-boarded
     redirect_uri = url_for("orcid_callback", _external=True)
     if EXTERNAL_SP:
@@ -276,7 +276,7 @@ def orcid_callback():
         error_description = request.args.get("error_description")
         if error == "access_denied":
             flash(
-                "You have denied the access to your profile. ORCiD Hub requires at least read access to your profile.",
+                "You have denied the access to your profile. ORCID Hub requires at least read access to your profile.",
                 "danger")
         else:
             flash("Error occured while attempting to authorize '%s': %s" %
@@ -480,7 +480,7 @@ def invite_organisation():
                 # Note: Using app context due to issue:
                 # https://github.com/mattupstate/flask-mail/issues/63
                 with app.app_context():
-                    msg = Message("Welcome to OrcidhHub", recipients=[str(form.orgEmailid.data)])
+                    msg = Message("Welcome to ORCID Hub", recipients=[str(form.orgEmailid.data)])
                     token = generate_confirmation_token(form.orgEmailid.data)
                     # TODO: do it with templates
                     msg.body = "Your organisation is just one step behind to get onboarded" \
@@ -518,7 +518,7 @@ def confirm_organisation(token):
     if not user.tech_contact:
         user.save()
         with app.app_context():
-            msg = Message("Welcome to OrcidhHub", recipients=[email])
+            msg = Message("Welcome to ORCID Hub", recipients=[email])
             msg.body = "Congratulations your emailid has been confirmed as an Admin for " + str(
                 user.organisation)
             mail.send(msg)
@@ -564,7 +564,7 @@ def confirm_organisation(token):
         form.orgName.data = user.organisation.name
 
         flash("""If you currently don't know Client id and Client Secret,
-        Please request those by clicking on link 'Take me to ORCiD to obtain Client iD and Client Secret'
+        Please request those by clicking on link 'Take me to ORCID to obtain Client iD and Client Secret'
         and come back to this same place once you have them within 15 days""", "warning")
 
         redirect_uri = url_for("orcid_callback", _external=True)
