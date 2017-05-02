@@ -195,6 +195,8 @@ class OrgInfo(BaseModel):
             oi.disambiguation_source = row[11]
             oi.save()
 
+        return reader.line_num - 1
+
 
 class User(BaseModel, UserMixin):
     """
