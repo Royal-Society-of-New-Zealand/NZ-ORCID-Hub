@@ -312,3 +312,10 @@ def employment_list(user_id):
         return redirect(url_for("viewmembers"))
     # TODO: transform data for presentation:
     return render_template("employments.html", data=data, user_id=user_id)
+
+
+@app.route("/load/org")
+@roles_required(Role.SUPERUSER)
+def load_org():
+    """Preload organisation data."""
+    pass  #TODO: ...

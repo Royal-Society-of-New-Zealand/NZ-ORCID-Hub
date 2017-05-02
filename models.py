@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 """Application models."""
 
+import csv
+from io import StringIO
 from collections import namedtuple
 from hashlib import md5
 from itertools import zip_longest
@@ -139,7 +141,7 @@ class Organisation(BaseModel):
         return self.name
 
 
-class OrganisationInfo(BaseModel):
+class OrgInfo(BaseModel):
     """Preloaded organisation data."""
 
     name = CharField(max_length=100, unique=True, verbose_name="Organisation")
@@ -162,8 +164,36 @@ class OrganisationInfo(BaseModel):
         return self.name
 
     class Meta:
-        db_table = "organisation_info"
+        db_table = "org_info"
         table_alias = "oi"
+
+    @staticmethod
+    def load_from_csv(source):
+        """Load data from CSV file or a string."""
+        if isinstance(source, str):
+            if '\n' in source:
+                source = StringIO.StringIO(source)
+            else:
+                source = open(source)
+        reader = csv.reader(source)
+        header = next(reader)
+        assert len(header) == 12, "Wrong number of fields. Expected 12 fields."
+        for row in reader:
+            name = row[0]
+            oi, _ = OrgInfo.get_or_create(name=name)
+
+            oi.title = row[1]
+            oi.first_name = row[2]
+            oi.last_name = row[3]
+            oi.role = row[4]
+            oi.email = row[5]
+            oi.phone = row[6]
+            oi.is_public = row[7] and row[7].upper() == "YES"
+            oi.country = row[8]
+            oi.city = row[9]
+            oi.disambiguation_org_id = row[10]
+            oi.disambiguation_source = row[11]
+            oi.save()
 
 
 class User(BaseModel, UserMixin):
@@ -316,7 +346,7 @@ def create_tables():
         db.connect()
     except OperationalError:
         pass
-    models = (Organisation, User, UserOrg, OrcidToken, UserOrgAffiliation)
+    models = (Organisation, User, UserOrg, OrcidToken, UserOrgAffiliation, OrgInfo)
     db.create_tables(models)
 
 
