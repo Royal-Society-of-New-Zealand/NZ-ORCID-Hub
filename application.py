@@ -10,8 +10,8 @@ from flask_mail import Mail
 from playhouse.db_url import connect
 
 import config
-from config import (MAIL_DEFAULT_SENDER, MAIL_PASSWORD, MAIL_SERVER, MAIL_USERNAME,
-                    TOKEN_PASSWORD_SALT, TOKEN_SECRET_KEY)
+from config import (MAIL_DEFAULT_SENDER, MAIL_PASSWORD, MAIL_SERVER,
+                    MAIL_USERNAME, TOKEN_PASSWORD_SALT, TOKEN_SECRET_KEY)
 
 app = Flask(__name__)
 

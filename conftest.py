@@ -3,7 +3,6 @@
 
 import os
 import sys
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import pytest
 from peewee import SqliteDatabase
@@ -13,6 +12,10 @@ import config
 from application import app as _app
 from authcontroller import *  # noqa: F401, F403
 from views import *  # noqa: F401, F403
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+
 
 # flake8: noqa
 config.DATABASE_URL = os.environ.get("DATABASE_URL") or "sqlite:///:memory:"
