@@ -22,23 +22,21 @@ if os.path.exists("/var/log/orcidhub"):
 
 app.secret_key = ")Xq/4vc'K%wesQ$n'n;?+y@^rY\/u8!sk{?D7Y>.V`t_/y'wn>7~cZ$(Q.$n)d_j"
 # NB! Disable in production
-is_dev_env = (os.environ.get("ENV") in ("test", ))
+app.debug = is_dev_env = (os.environ.get("ENV") in ("test", ))
 app.config['TESTING'] = True
-app.config['DEBUG_TB_INTERCEPT_REDIRECTS'] = False
-app.debug = True
 app.config['SECRET_KEY'] = app.secret_key
 os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
-os.environ['DEBUG'] = "1"
 
 db = connect(config.DATABASE_URL)
 
-app.config['DEBUG_TB_INTERCEPT_REDIRECTS'] = False
-app.config['DEBUG_TB_PROFILER_ENABLED'] = True
-app.config["DATABASE_URL"] = config.DATABASE_URL
-os.environ['DEBUG'] = "1"
-app.debug = True
+if app.debug:
+    app.config['DEBUG_TB_INTERCEPT_REDIRECTS'] = False
+    app.config['DEBUG_TB_PROFILER_ENABLED'] = True
+    os.environ['DEBUG'] = "1"
+
 app.config['SECRET_KEY'] = app.secret_key
 os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
+app.config["DATABASE_URL"] = config.DATABASE_URL
 
 # add mail server config
 app.config['MAIL_SERVER'] = MAIL_SERVER
