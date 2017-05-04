@@ -4,9 +4,8 @@ import pytest
 from peewee import Model, SqliteDatabase
 from playhouse.test_utils import test_database
 
-from models import (OrcidToken, Organisation, OrgInfo, PartialDate,
-                    PartialDateField, Role, User, UserOrg, UserOrgAffiliation,
-                    create_tables, drop_tables)
+from models import (OrcidToken, Organisation, OrgInfo, PartialDate, PartialDateField, Role, User,
+                    UserOrg, UserOrgAffiliation, create_tables, drop_tables)
 
 
 @pytest.fixture

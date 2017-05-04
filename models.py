@@ -10,9 +10,8 @@ from itertools import zip_longest
 from urllib.parse import urlencode
 
 from flask_login import UserMixin
-from peewee import (BooleanField, CharField, CompositeKey, DateTimeField,
-                    Field, ForeignKeyField, Model, OperationalError,
-                    SmallIntegerField, TextField, datetime)
+from peewee import (BooleanField, CharField, CompositeKey, DateTimeField, Field, ForeignKeyField,
+                    Model, OperationalError, SmallIntegerField, TextField, datetime)
 
 from application import db
 from config import DEFAULT_COUNTRY
