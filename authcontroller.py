@@ -13,8 +13,7 @@ from tempfile import gettempdir
 from urllib.parse import quote, unquote, urlencode, urlparse
 
 import requests
-from flask import (abort, flash, redirect, render_template, request, session,
-                   url_for)
+from flask import (abort, flash, redirect, render_template, request, session, url_for)
 from flask_login import current_user, login_required, login_user, logout_user
 from flask_mail import Message
 from requests_oauthlib import OAuth2Session
@@ -23,10 +22,9 @@ from werkzeug.urls import iri_to_uri
 import secrets
 import swagger_client
 from application import app, mail
-from config import (APP_DESCRIPTION, APP_NAME, APP_URL, AUTHORIZATION_BASE_URL,
-                    CRED_TYPE_PREMIUM, EDU_PERSON_AFFILIATION_EDUCATION,
-                    EDU_PERSON_AFFILIATION_EMPLOYMENT, EXTERNAL_SP,
-                    MEMBER_API_FORM_BASE_URL, NEW_CREDENTIALS, NOTE_ORCID,
+from config import (APP_DESCRIPTION, APP_NAME, APP_URL, AUTHORIZATION_BASE_URL, CRED_TYPE_PREMIUM,
+                    EDU_PERSON_AFFILIATION_EDUCATION, EDU_PERSON_AFFILIATION_EMPLOYMENT,
+                    EXTERNAL_SP, MEMBER_API_FORM_BASE_URL, NEW_CREDENTIALS, NOTE_ORCID,
                     ORCID_API_BASE, SCOPE_ACTIVITIES_UPDATE, TOKEN_URL)
 from login_provider import roles_required
 from models import OrcidToken, Organisation, Role, User, UserOrg

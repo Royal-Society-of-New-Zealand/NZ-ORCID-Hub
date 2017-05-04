@@ -15,8 +15,7 @@ from config import SCOPE_ACTIVITIES_UPDATE
 from forms import BitmapMultipleValueField, EmploymentForm, OrgInfoForm
 from login_provider import roles_required
 from models import PartialDate as PD
-from models import (OrcidToken, Organisation, OrgInfo, Role, User,
-                    UserOrgAffiliation)
+from models import (OrcidToken, Organisation, OrgInfo, Role, User, UserOrgAffiliation)
 # NB! Should be disabled in production
 from pyinfo import info
 from swagger_client.rest import ApiException
