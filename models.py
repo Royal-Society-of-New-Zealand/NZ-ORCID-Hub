@@ -183,22 +183,23 @@ class OrgInfo(BaseModel):
             "Wrong number of fields. Expected at least 3 fields " \
             "(name, disambiguated organisation ID, and disambiguation source). " \
             "Read header: %s" % header
-        header_rex = [
+        header_rexs = [
             re.compile(ex, re.I)
-            for ex in ("organisation|name", "title", "first\w*(name)?", "last\w*(name)?", "role",
-                       "email", "phone", "public|permission to post to web", "country\s*(code)?",
+            for ex in ("organisation|name", "title", r"first\s*(name)?", r"last\s*(name)?", "role",
+                       "email", "phone", "public|permission to post to web", r"country\s*(code)?",
                        "city", "(common:)?disambiguated.*identifier",
                        "(common:)?disambiguation.*source")
         ]
 
-        def index(column):
-            for i, rex in enumerate(header_rex):
+        def index(rex):
+            """Return first header column index matching the given regex."""
+            for i, column in enumerate(header):
                 if rex.match(column):
                     return i
             else:
                 return None
 
-        idxs = [index(c) for c in header]
+        idxs = [index(rex) for rex in header_rexs]
 
         def val(row, i):
             if idxs[i] is None:
