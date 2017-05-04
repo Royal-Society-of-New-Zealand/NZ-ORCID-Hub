@@ -4,6 +4,7 @@
 from datetime import date
 
 from flask_wtf import FlaskForm
+from flask_wtf.file import FileAllowed, FileField, FileRequired
 from pycountry import countries
 from wtforms import (Field, SelectField, SelectMultipleField, StringField, validators)
 from wtforms.widgets import HTMLString, html_params
@@ -149,3 +150,9 @@ class EducationForm(FlaskForm):
     department = StringField("Department", filters=[lambda x: x or None])
     start_date = PartialDateField("Start date")
     end_date = PartialDateField("End date (leave blank if current)")
+
+
+class OrgInfoForm(FlaskForm):
+    """Organisation info pre-loading form."""
+
+    org_info = FileField(validators=[FileRequired(), FileAllowed(["csv"], 'CSV files only!')])

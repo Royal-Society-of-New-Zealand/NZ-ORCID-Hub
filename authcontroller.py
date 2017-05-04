@@ -22,10 +22,10 @@ from werkzeug.urls import iri_to_uri
 import secrets
 import swagger_client
 from application import app, mail
-from config import (APP_DESCRIPTION, APP_NAME, APP_URL, CRED_TYPE_PREMIUM,
+from config import (APP_DESCRIPTION, APP_NAME, APP_URL, AUTHORIZATION_BASE_URL, CRED_TYPE_PREMIUM,
                     EDU_PERSON_AFFILIATION_EDUCATION, EDU_PERSON_AFFILIATION_EMPLOYMENT,
                     EXTERNAL_SP, MEMBER_API_FORM_BASE_URL, NEW_CREDENTIALS, NOTE_ORCID,
-                    ORCID_API_BASE, AUTHORIZATION_BASE_URL, SCOPE_ACTIVITIES_UPDATE, TOKEN_URL)
+                    ORCID_API_BASE, SCOPE_ACTIVITIES_UPDATE, TOKEN_URL)
 from login_provider import roles_required
 from models import OrcidToken, Organisation, Role, User, UserOrg
 from registrationForm import OrgConfirmationForm, OrgRegistrationForm

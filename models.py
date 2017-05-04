@@ -2,9 +2,10 @@
 """Application models."""
 
 import csv
-from io import StringIO
+import re
 from collections import namedtuple
 from hashlib import md5
+from io import StringIO
 from itertools import zip_longest
 from urllib.parse import urlencode
 
@@ -177,22 +178,50 @@ class OrgInfo(BaseModel):
                 source = open(source)
         reader = csv.reader(source)
         header = next(reader)
-        assert len(header) == 12, "Wrong number of fields. Expected 12 fields."
+
+        assert len(header) >= 3, \
+            "Wrong number of fields. Expected at least 3 fields " \
+            "(name, disambiguated organisation ID, and disambiguation source). " \
+            "Read header: %s" % header
+        header_rexs = [
+            re.compile(ex, re.I)
+            for ex in ("organisation|name", "title", r"first\s*(name)?", r"last\s*(name)?", "role",
+                       "email", "phone", "public|permission to post to web", r"country\s*(code)?",
+                       "city", "(common:)?disambiguated.*identifier",
+                       "(common:)?disambiguation.*source")
+        ]
+
+        def index(rex):
+            """Return first header column index matching the given regex."""
+            for i, column in enumerate(header):
+                if rex.match(column):
+                    return i
+            else:
+                return None
+
+        idxs = [index(rex) for rex in header_rexs]
+
+        def val(row, i):
+            if idxs[i] is None:
+                return None
+            else:
+                return row[idxs[i]]
+
         for row in reader:
-            name = row[0]
+            name = val(row, 0)
             oi, _ = OrgInfo.get_or_create(name=name)
 
-            oi.title = row[1]
-            oi.first_name = row[2]
-            oi.last_name = row[3]
-            oi.role = row[4]
-            oi.email = row[5]
-            oi.phone = row[6]
-            oi.is_public = row[7] and row[7].upper() == "YES"
-            oi.country = row[8]
-            oi.city = row[9]
-            oi.disambiguation_org_id = row[10]
-            oi.disambiguation_source = row[11]
+            oi.title = val(row, 1)
+            oi.first_name = val(row, 2)
+            oi.last_name = val(row, 3)
+            oi.role = val(row, 4)
+            oi.email = val(row, 5)
+            oi.phone = val(row, 6)
+            oi.is_public = val(row, 7) and val(row, 7).upper() == "YES"
+            oi.country = val(row, 8)
+            oi.city = val(row, 9)
+            oi.disambiguation_org_id = val(row, 10)
+            oi.disambiguation_source = val(row, 11)
             oi.save()
 
         return reader.line_num - 1

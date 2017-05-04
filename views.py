@@ -1,24 +1,24 @@
 # -*- coding: utf-8 -*-
 """Application views."""
 
+import json
 from collections import namedtuple
 
 from flask import flash, redirect, render_template, request, url_for
 from flask_admin.contrib.peewee import ModelView
 from flask_login import current_user, login_required
+from requests_oauthlib import OAuth2Session
 
 import swagger_client
 from application import admin, app
 from config import SCOPE_ACTIVITIES_UPDATE
-from forms import BitmapMultipleValueField, EmploymentForm
+from forms import BitmapMultipleValueField, EmploymentForm, OrgInfoForm
 from login_provider import roles_required
 from models import PartialDate as PD
-from models import (OrcidToken, Organisation, Role, User, UserOrgAffiliation)
+from models import (OrcidToken, Organisation, OrgInfo, Role, User, UserOrgAffiliation)
 # NB! Should be disabled in production
 from pyinfo import info
 from swagger_client.rest import ApiException
-from requests_oauthlib import OAuth2Session
-import json
 
 HEADERS = {'Accept': 'application/vnd.orcid+json', 'Content-type': 'application/vnd.orcid+json'}
 
@@ -70,6 +70,7 @@ class OrganisationAdmin(AppModelView):
 
 admin.add_view(UserAdmin(User))
 admin.add_view(OrganisationAdmin(Organisation))
+admin.add_view(AppModelView(OrgInfo))
 
 EmpRecord = namedtuple("EmpRecord", [
     "name", "city", "state", "country", "department", "role", "start_date", "end_date"
@@ -320,8 +321,17 @@ def employment_list(user_id):
     return render_template("employments.html", data=data, user_id=user_id)
 
 
-@app.route("/load/org")
+@app.route("/load/org", methods=["GET", "POST"])
 @roles_required(Role.SUPERUSER)
 def load_org():
     """Preload organisation data."""
-    pass  # TODO: ...
+
+    form = OrgInfoForm()
+    if form.validate_on_submit():
+        data = request.files[form.org_info.name].read().decode("utf-8")
+        row_count = OrgInfo.load_from_csv(data)
+
+        flash("Successfully loaded %d rows." % row_count, "success")
+        return redirect(url_for("orginfo.index_view"))
+
+    return render_template("orginfo.html", form=form)
