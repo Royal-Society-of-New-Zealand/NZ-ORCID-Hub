@@ -8,6 +8,7 @@ user (reseaser) affiliations.
 import base64
 import pickle
 import zlib
+import json
 from os import path, remove
 from tempfile import gettempdir
 from urllib.parse import quote, unquote, urlencode, urlparse
@@ -27,7 +28,7 @@ from config import (APP_DESCRIPTION, APP_NAME, APP_URL, AUTHORIZATION_BASE_URL, 
                     EXTERNAL_SP, MEMBER_API_FORM_BASE_URL, NEW_CREDENTIALS, NOTE_ORCID,
                     ORCID_API_BASE, SCOPE_ACTIVITIES_UPDATE, TOKEN_URL)
 from login_provider import roles_required
-from models import OrcidToken, Organisation, Role, User, UserOrg
+from models import OrcidToken, Organisation, Role, User, UserOrg, OrgInfo
 from registrationForm import OrgConfirmationForm, OrgRegistrationForm
 from swagger_client.rest import ApiException
 from tokenGeneration import confirm_token, generate_confirmation_token
@@ -331,8 +332,8 @@ def orcid_callback():
         if orciduser.edu_person_affiliation is not None:
 
             if orciduser.edu_person_affiliation == EDU_PERSON_AFFILIATION_EMPLOYMENT \
-                    or orciduser.edu_person_affiliation == EDU_PERSON_AFFILIATION_EMPLOYMENT + \
-                    " and " + EDU_PERSON_AFFILIATION_EDUCATION:
+                    or orciduser.edu_person_affiliation == EDU_PERSON_AFFILIATION_EMPLOYMENT \
+                            + " and " + EDU_PERSON_AFFILIATION_EDUCATION:
                 employment = swagger_client.Employment()
 
                 employment.source = swagger_client.Source(
@@ -353,9 +354,11 @@ def orcid_callback():
 
                 except ApiException as e:
                     flash("Failed to update the entry: %s." % e.body, "danger")
+
             if orciduser.edu_person_affiliation == EDU_PERSON_AFFILIATION_EDUCATION \
-                    or orciduser.edu_person_affiliation == EDU_PERSON_AFFILIATION_EMPLOYMENT + \
-                    " and " + EDU_PERSON_AFFILIATION_EDUCATION:
+                    or orciduser.edu_person_affiliation == EDU_PERSON_AFFILIATION_EMPLOYMENT \
+                            + " and " + EDU_PERSON_AFFILIATION_EDUCATION:
+
                 education = swagger_client.Education()
 
                 education.source = swagger_client.Source(
@@ -497,8 +500,16 @@ def invite_organisation():
                     flash(
                         "Organisation Onboarded Successfully!!! Email Communication has been sent to Admin",
                         "success")
+    elif request.method == 'GET':
+        orgInfoData = OrgInfo.select()
+        orgNames = []
+        orgEmailIds = []
+        for o in orgInfoData:
+            orgNames.append(o.name)
+            orgEmailIds.append(o.email)
+        orgData = {"Organisations": orgNames, "EmailIds": orgEmailIds}
 
-    return render_template('registration.html', form=form)
+    return render_template('registration.html', form=form, orgData=json.dumps(orgData))
 
 
 @app.route("/confirm/organisation/<token>", methods=["GET", "POST"])
@@ -587,6 +598,11 @@ def confirm_organisation(token):
                 app_url=APP_URL,
                 redirect_uri_1=redirect_uri))
 
+        orgInfo = OrgInfo.get(email=email)
+        form.city.data = orgInfo.city
+        form.disambiguation_org_id.data = orgInfo.disambiguation_org_id
+        form.disambiguation_org_source.data = orgInfo.disambiguation_source
+
     return render_template('orgconfirmation.html', clientSecret_url=clientSecret_url, form=form)
 
 
@@ -641,7 +657,7 @@ in order to complete the log-out.""", "warning")
 @login_required
 def reset_db():
     """Reset the DB for a new testing cycle."""
-    User.delete().where(~(User.name**"royal" | User.name**"%root%")).execute()
+    User.delete().where(~(User.name ** "%nzorcidhub%" | User.name ** "%root%")).execute()
     Organisation.delete().where(~(Organisation.name % "%Royal%")).execute()
     return redirect(url_for("logout"))
 

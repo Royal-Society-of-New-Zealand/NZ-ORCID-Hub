@@ -13,11 +13,13 @@
         <label for="org_email">Organisation Email:</label>
         {{ form.orgEmailid(size=50, id="org_email", class="form-control") }}
     </div>
+    <div class="form-group">
     <p>
         <a id="connect-orcid-button" class="btn btn-default" href="{{clientSecret_url}}" role="button">
             <img id="orcid-id-logo" src="https://orcid.org/sites/default/files/images/orcid_24x24.png" width='24'
                  height='24' alt="ORCID logo"/>&nbsp;Take me to ORCID to obtain Client ID and Client Secret </a>
     </p>
+    </div>
     <div class="form-group">
         <label for="org_id">Orcid Client ID:</label>
         {{ form.orgOricdClientId(size=50, id="org_id", class="form-control") }}
@@ -28,7 +30,7 @@
     </div>
     <div class="form-group">
         <label for="org_name">Country:</label>
-        {{ form.country }}
+        {{ form.country(style="width:300px") }}
     </div>
     <div class="form-group">
         <label for="org_name">City:</label>
