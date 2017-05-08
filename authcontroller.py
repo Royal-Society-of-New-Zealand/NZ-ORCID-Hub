@@ -501,15 +501,9 @@ def invite_organisation():
                         "Organisation Onboarded Successfully!!! Email Communication has been sent to Admin",
                         "success")
     elif request.method == 'GET':
-        orgInfoData = OrgInfo.select()
-        orgNames = []
-        orgEmailIds = []
-        for o in orgInfoData:
-            orgNames.append(o.name)
-            orgEmailIds.append(o.email)
-        orgData = {"Organisations": orgNames, "EmailIds": orgEmailIds}
+        orgNames, orgEmailIds = list(zip(*OrgInfo.select(OrgInfo.name, OrgInfo.email).tuples()))
 
-    return render_template('registration.html', form=form, orgData=json.dumps(orgData))
+    return render_template('registration.html', form=form, orgEmailIds=orgEmailIds, orgNames=orgNames)
 
 
 @app.route("/confirm/organisation/<token>", methods=["GET", "POST"])

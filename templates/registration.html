@@ -28,12 +28,13 @@
 
   <script>
   $( function() {
-    var availableInfo = {{orgData | safe}};
+    var orgEmailIds = {{orgEmailIds | tojson(indent=4)}};
+    var orgNames = {{orgNames | tojson(indent=4)}}
     $( "#org_email" ).autocomplete({
-      source: availableInfo['EmailIds']
+      source: orgEmailIds
     });
     $( "#org_name" ).autocomplete({
-      source: availableInfo['Organisations']
+      source: orgNames
     });
   } );
   </script>
