@@ -13,7 +13,7 @@ body {
   /* Set the fixed height of the footer here */
   height: 120px;
   background-color: #000;
-  position: relative;
+  position: fixed;
 
 }
 
