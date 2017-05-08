@@ -138,10 +138,10 @@ def shib_login():
         eduPersonAffiliation = request.headers.get('Unscoped-Affiliation')
 
     if eduPersonAffiliation:
-        if any(epa in eduPersonAffiliation for epa in ['faculty', 'staff', 'employee']) \
+        if any(epa in eduPersonAffiliation for epa in ['faculty', 'staff']) \
                 and any(epa in eduPersonAffiliation for epa in ['student', 'alum']):
             eduPersonAffiliation = EDU_PERSON_AFFILIATION_EMPLOYMENT + " and " + EDU_PERSON_AFFILIATION_EDUCATION
-        elif any(epa in eduPersonAffiliation for epa in ['faculty', 'staff', 'employee']):
+        elif any(epa in eduPersonAffiliation for epa in ['faculty', 'staff']):
             eduPersonAffiliation = EDU_PERSON_AFFILIATION_EMPLOYMENT
         elif any(epa in eduPersonAffiliation for epa in ['student', 'alum']):
             eduPersonAffiliation = EDU_PERSON_AFFILIATION_EDUCATION
@@ -492,13 +492,13 @@ def invite_organisation():
                     msg = Message("Welcome to ORCID Hub", recipients=[str(form.orgEmailid.data)])
                     token = generate_confirmation_token(form.orgEmailid.data)
                     # TODO: do it with templates
-                    msg.body = "Your organisation is just one step behind to get onboarded" \
-                               " please click on following link to get onboarded " + \
+                    msg.body = "Your organisation is just one step from being onboarded onto the NZ ORCID Hub" \
+                               " please click on the link below to confirm your role as Tech Contact " + \
                                url_for("confirm_organisation",
                                        token=token, _external=True)
                     mail.send(msg)
                     flash(
-                        "Organisation Onboarded Successfully!!! Email Communication has been sent to Admin",
+                        "Organisation Onboarded Successfully!!! Welcome to the NZ ORCID Hub.  A notice has been sent to the Hub Admin",
                         "success")
     elif request.method == 'GET':
         orgNames, orgEmailIds = list(zip(*OrgInfo.select(OrgInfo.name, OrgInfo.email).tuples()))
@@ -521,7 +521,7 @@ def confirm_organisation(token):
         app.error("token '%s'", token)
         app.login_manager.unauthorized()
     if user.email != email:
-        flash("The invitation to on-board the organisation wasn't sent to your email address...",
+        flash("This invitation to onboard the organisation wasn't sent to your email address...",
               "danger")
         return redirect(url_for("login"))
 
@@ -530,7 +530,7 @@ def confirm_organisation(token):
         user.save()
         with app.app_context():
             msg = Message("Welcome to ORCID Hub", recipients=[email])
-            msg.body = "Congratulations your emailid has been confirmed as an Admin for " + str(
+            msg.body = "Congratulations you have been confirmed as an Organisation Admin for " + str(
                 user.organisation)
             mail.send(msg)
             flash("Your Onboarding is Completed!!!", "success")
@@ -575,8 +575,8 @@ def confirm_organisation(token):
         form.orgName.data = user.organisation.name
 
         flash("""If you currently don't know Client id and Client Secret,
-        Please request those by clicking on link 'Take me to ORCID to obtain Client iD and Client Secret'
-        and come back to this same place once you have them within 15 days""", "warning")
+        Please request these from ORCID by clicking on link 'Take me to ORCID to obtain Client iD and Client Secret'
+        and come back to this form once you have them.""", "warning")
 
         redirect_uri = url_for("orcid_callback", _external=True)
         clientSecret_url = iri_to_uri(MEMBER_API_FORM_BASE_URL) + "?" + urlencode(
