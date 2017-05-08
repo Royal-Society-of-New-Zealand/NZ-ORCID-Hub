@@ -4,6 +4,7 @@ from wtforms import StringField, validators
 from wtforms.fields.core import SelectField
 from wtforms.fields.html5 import DateField, EmailField
 from wtforms.validators import DataRequired, Email
+from config import DEFAULT_COUNTRY
 
 # Order the countly list by the name and add a default (Null) value
 country_choices = [(c.alpha_2, c.name) for c in countries]
@@ -22,7 +23,7 @@ class OrgConfirmationForm(FlaskForm):
     orgOricdClientId = StringField('Organisation Orcid Client Id: ', validators=[DataRequired()])
     orgOrcidClientSecret = StringField(
         'Organisation Orcid Client Secret: ', validators=[DataRequired()])
-    country = SelectField("Country", [validators.required()], choices=country_choices, default="NZ")
+    country = SelectField("Country", [validators.required()], choices=country_choices, default=DEFAULT_COUNTRY)
     city = StringField("City", [validators.required()])
     disambiguation_org_id = StringField("Disambiguation ORG Id", [validators.required()])
     disambiguation_org_source = StringField("Disambiguation ORG Source", [validators.required()])
