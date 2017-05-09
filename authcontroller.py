@@ -500,10 +500,9 @@ def invite_organisation():
                     flash(
                         "Organisation Onboarded Successfully!!! Welcome to the NZ ORCID Hub.  A notice has been sent to the Hub Admin",
                         "success")
-    elif request.method == 'GET':
-        orgNames, orgEmailIds = list(zip(*OrgInfo.select(OrgInfo.name, OrgInfo.email).tuples()))
 
-    return render_template('registration.html', form=form, orgEmailIds=orgEmailIds, orgNames=orgNames)
+    return render_template('registration.html', form=form,
+        org_info={r.name: r.email for r in OrgInfo.select(OrgInfo.name, OrgInfo.email)})
 
 
 @app.route("/confirm/organisation/<token>", methods=["GET", "POST"])
