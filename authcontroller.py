@@ -501,8 +501,11 @@ def invite_organisation():
                         "Organisation Onboarded Successfully!!! Welcome to the NZ ORCID Hub.  A notice has been sent to the Hub Admin",
                         "success")
 
-    return render_template('registration.html', form=form,
-        org_info={r.name: r.email for r in OrgInfo.select(OrgInfo.name, OrgInfo.email)})
+    return render_template(
+        'registration.html',
+        form=form,
+        org_info={r.name: r.email
+                  for r in OrgInfo.select(OrgInfo.name, OrgInfo.email)})
 
 
 @app.route("/confirm/organisation/<token>", methods=["GET", "POST"])
@@ -590,13 +593,15 @@ def confirm_organisation(token):
                 app_description=APP_DESCRIPTION + " at " + user.organisation.name,
                 app_url=APP_URL,
                 redirect_uri_1=redirect_uri))
+
         try:
             orgInfo = OrgInfo.get(email=email)
-            form.city.data = orgInfo.city
-            form.disambiguation_org_id.data = orgInfo.disambiguation_org_id
-            form.disambiguation_org_source.data = orgInfo.disambiguation_source
-        except:
+        except OrgInfo.DoesNotExist:
             pass
+
+        form.city.data = orgInfo.city
+        form.disambiguation_org_id.data = orgInfo.disambiguation_org_id
+        form.disambiguation_org_source.data = orgInfo.disambiguation_source
 
     return render_template('orgconfirmation.html', clientSecret_url=clientSecret_url, form=form)
 
@@ -652,7 +657,7 @@ in order to complete the log-out.""", "warning")
 @login_required
 def reset_db():
     """Reset the DB for a new testing cycle."""
-    User.delete().where(~(User.name ** "%nzorcidhub%" | User.name ** "%root%")).execute()
+    User.delete().where(~(User.name**"%nzorcidhub%" | User.name**"%root%")).execute()
     Organisation.delete().where(~(Organisation.name % "%Royal%")).execute()
     return redirect(url_for("logout"))
 
