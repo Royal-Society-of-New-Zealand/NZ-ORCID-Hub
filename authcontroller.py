@@ -590,11 +590,13 @@ def confirm_organisation(token):
                 app_description=APP_DESCRIPTION + " at " + user.organisation.name,
                 app_url=APP_URL,
                 redirect_uri_1=redirect_uri))
-
-        orgInfo = OrgInfo.get(email=email)
-        form.city.data = orgInfo.city
-        form.disambiguation_org_id.data = orgInfo.disambiguation_org_id
-        form.disambiguation_org_source.data = orgInfo.disambiguation_source
+        try:
+            orgInfo = OrgInfo.get(email=email)
+            form.city.data = orgInfo.city
+            form.disambiguation_org_id.data = orgInfo.disambiguation_org_id
+            form.disambiguation_org_source.data = orgInfo.disambiguation_source
+        except:
+            pass
 
     return render_template('orgconfirmation.html', clientSecret_url=clientSecret_url, form=form)
 
