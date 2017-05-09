@@ -113,7 +113,7 @@ class Organisation(BaseModel):
     """
 
     name = CharField(max_length=100, unique=True)
-    email = CharField(max_length=80, unique=True, null=True)
+    email = CharField(max_length=80, null=True)
     tuakiri_name = CharField(max_length=80, unique=True, null=True)
     orcid_client_id = CharField(max_length=80, unique=True, null=True)
     orcid_secret = CharField(max_length=80, unique=True, null=True)
