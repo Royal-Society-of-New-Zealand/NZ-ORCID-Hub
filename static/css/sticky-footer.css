@@ -11,9 +11,9 @@ body {
   bottom: 0;
   width: 100%;
   /* Set the fixed height of the footer here */
-  height: 120px;
+  height: auto;
   background-color: #000;
-  position: relative;
+  position: fixed;
 
 }
 
