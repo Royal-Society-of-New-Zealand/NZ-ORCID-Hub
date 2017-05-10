@@ -26,7 +26,8 @@
             {% if current_user.has_role("ADMIN") %}
               <li id="researcher"><a href="/Tuakiri/register/researcher">Register Researcher</a></li>
               <li id="viewmembers"><a href="/viewmembers">View Members</a></li>
-            {% elif current_user.has_role("SUPERUSER") %}
+            {% endif %}
+            {% if current_user.has_role("SUPERUSER") %}
               <li id="registerOrganisation"><a href="{{ url_for('invite_organisation') }}">Register Organisation</a>
               </li>
             {% endif %}
