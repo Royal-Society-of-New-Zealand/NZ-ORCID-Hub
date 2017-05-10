@@ -1,0 +1,26 @@
+{% extends "layout.html" %}
+{% block content %}
+  <div class="container">
+    <div class="jumbotron">
+      <h2 class="display-2">Welcome To The NZ ORCID Hub</h2>
+      <p>A service provided to link New Zealand's researchers with their organisations and funders in ORCID.<br>Please select your preferred service below:</p>
+        <div class="login-blocks">
+          <a href="{{ship_login_url}}">
+            <div class="tuakiri">
+              <img src="/static/images/TUAKIRI-logo.png">
+              <button type="button" class="login-button">Login via Tuakiri</button>
+            </div>
+          </a>
+          <a href="#">
+            <div class="orcid">
+              <img src="/static/images/orcid-logo.png">
+              <button type="button" class="login-button">Login via <span style="color: #696969">ORC</span>iD</button>
+            </div>
+          </a>
+        </div>
+        <p><br><i>NB: If available a Tuakiri login will, with your permission, automatically 
+          add your staff or student relationship to your ORCID record.</i></p>
+  </div>
+  </div>
+{% endblock %}
+{% block scripts %}{% endblock %}

@@ -8,7 +8,6 @@ user (reseaser) affiliations.
 import base64
 import pickle
 import zlib
-import json
 from os import path, remove
 from tempfile import gettempdir
 from urllib.parse import quote, unquote, urlencode, urlparse
@@ -331,9 +330,10 @@ def orcid_callback():
 
         if orciduser.edu_person_affiliation is not None:
 
-            if orciduser.edu_person_affiliation == EDU_PERSON_AFFILIATION_EMPLOYMENT \
-                    or orciduser.edu_person_affiliation == EDU_PERSON_AFFILIATION_EMPLOYMENT \
-                            + " and " + EDU_PERSON_AFFILIATION_EDUCATION:
+            # TODO: denormilize model!!!
+            if (orciduser.edu_person_affiliation == EDU_PERSON_AFFILIATION_EMPLOYMENT or
+                    orciduser.edu_person_affiliation == EDU_PERSON_AFFILIATION_EMPLOYMENT + " and " +
+                    EDU_PERSON_AFFILIATION_EDUCATION):
                 employment = swagger_client.Employment()
 
                 employment.source = swagger_client.Source(
@@ -355,9 +355,10 @@ def orcid_callback():
                 except ApiException as e:
                     flash("Failed to update the entry: %s." % e.body, "danger")
 
-            if orciduser.edu_person_affiliation == EDU_PERSON_AFFILIATION_EDUCATION \
-                    or orciduser.edu_person_affiliation == EDU_PERSON_AFFILIATION_EMPLOYMENT \
-                            + " and " + EDU_PERSON_AFFILIATION_EDUCATION:
+            # TODO: denormilize model!!!
+            if (orciduser.edu_person_affiliation == EDU_PERSON_AFFILIATION_EDUCATION or
+                    orciduser.edu_person_affiliation == EDU_PERSON_AFFILIATION_EMPLOYMENT + " and " +
+                    EDU_PERSON_AFFILIATION_EDUCATION):
 
                 education = swagger_client.Education()
 
@@ -497,9 +498,9 @@ def invite_organisation():
                                url_for("confirm_organisation",
                                        token=token, _external=True)
                     mail.send(msg)
-                    flash(
-                        "Organisation Onboarded Successfully!!! Welcome to the NZ ORCID Hub.  A notice has been sent to the Hub Admin",
-                        "success")
+                    flash("Organisation Onboarded Successfully!!! "
+                          "Welcome to the NZ ORCID Hub.  A notice has been sent to the Hub Admin",
+                          "success")
 
     return render_template(
         'registration.html',
