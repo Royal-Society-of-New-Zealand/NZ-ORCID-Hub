@@ -156,3 +156,9 @@ class OrgInfoForm(FlaskForm):
     """Organisation info pre-loading form."""
 
     org_info = FileField(validators=[FileRequired(), FileAllowed(["csv"], 'CSV files only!')])
+
+
+class OnboardingTokenForm(FlaskForm):
+    """Form for requesting missing onboarding token."""
+
+    token = StringField("Token", [validators.required()])

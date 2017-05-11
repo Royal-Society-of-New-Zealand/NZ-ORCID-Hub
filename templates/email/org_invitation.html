@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html>
   <head>
@@ -9,8 +8,14 @@
   </head>
   <body>
     <div style="font-family: Arial, Verdana, Georgia, and Times New Roman;">
-      <img src="{{url_for('static', filename='images/banner.svg', _external=True)}}" alt="NZ ORCID Hub" style="with:100%;" />
-      <img src="https://test.orcidhub.org.nz/static/images/banner.png" title="NZ ORCID Hub" alt="NZ ORCID Hub" style="with:100%; display:block;" />
+      <table style="vertical-align: middle; background-color: black; color: white; width: 100%;">
+        <tr>
+          <td>&nbsp;</td>
+          <td align="right">
+            <img src="{{url_for('static', filename='images/banner-small.png', _external=True)}}" title="NZ ORCID Hub" alt="NZ ORCID Hub" style="display:block;" />
+          </td>
+        </tr>
+      </table>
       <h2 class="display-2">Welcome To The NZ ORCID Hub</h2>
       <p>A service provided to link New Zealand's researchers with their organisations and funders in ORCID.</p>
       <p>Your organisation is just one step from being onboarded onto the NZ ORCID Hub
