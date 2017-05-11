@@ -1,7 +1,7 @@
 <!-- Header Details -->
 <header>
   {% block header %}
-    <div class="lead banner" style="background-image:url(/static/images/banner.svg); background-position: right top; background-size: auto 127px; background-repeat: no-repeat; height: 127px; background-color: #000;">
+    <div class="lead banner" style="background-image:url({{url_for('static', filename='images/banner.svg')}}); background-position: right top; background-size: auto 127px; background-repeat: no-repeat; height: 127px; background-color: #000;">
     </div>
   {% endblock %}
   {% if current_user.confirmed %}
@@ -26,7 +26,8 @@
             {% if current_user.has_role("ADMIN") %}
               <li id="researcher"><a href="/Tuakiri/register/researcher">Register Researcher</a></li>
               <li id="viewmembers"><a href="/viewmembers">View Members</a></li>
-            {% elif current_user.has_role("SUPERUSER") %}
+            {% endif %}
+            {% if current_user.has_role("SUPERUSER") %}
               <li id="registerOrganisation"><a href="{{ url_for('invite_organisation') }}">Register Organisation</a>
               </li>
             {% endif %}

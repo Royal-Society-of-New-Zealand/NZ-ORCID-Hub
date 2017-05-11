@@ -150,8 +150,8 @@ class OrgInfo(BaseModel):
     first_name = CharField(null=True, verbose_name="Contact person's first name")
     last_name = CharField(null=True, verbose_name="Contact person's last name")
     role = CharField(null=True, verbose_name="Contact person's role")
-    email = CharField(null=True, verbose_name="Contact peson's email")
-    phone = CharField(null=True, verbose_name="Contact peson's phone")
+    email = CharField(null=True, verbose_name="Contact person's email")
+    phone = CharField(null=True, verbose_name="Contact person's phone")
     is_public = BooleanField(
         null=True, default=False, verbose_name="Permission to post contact information to WEB")
     country = CharField(null=True, verbose_name="Country Code", default=DEFAULT_COUNTRY)
@@ -162,7 +162,7 @@ class OrgInfo(BaseModel):
 
     def __repr__(self):
         """String representation of the model."""
-        return self.name
+        return self.name or self.disambiguation_org_id or super().__repr__()
 
     class Meta:
         db_table = "org_info"
