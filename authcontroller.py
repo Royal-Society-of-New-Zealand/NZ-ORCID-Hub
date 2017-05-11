@@ -599,10 +599,10 @@ def confirm_organisation(token=None):
             orgInfo = OrgInfo.get(email=email)
         except OrgInfo.DoesNotExist:
             pass
-
-        form.city.data = orgInfo.city
-        form.disambiguation_org_id.data = orgInfo.disambiguation_org_id
-        form.disambiguation_org_source.data = orgInfo.disambiguation_source
+        else:
+            form.city.data = orgInfo.city
+            form.disambiguation_org_id.data = orgInfo.disambiguation_org_id
+            form.disambiguation_org_source.data = orgInfo.disambiguation_source
 
     return render_template('orgconfirmation.html', clientSecret_url=clientSecret_url, form=form)
 
