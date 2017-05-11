@@ -1,7 +1,7 @@
 <!-- Header Details -->
 <header>
   {% block header %}
-    <div class="lead banner" style="background-image:url(/static/images/banner.svg); background-position: right top; background-size: auto 127px; background-repeat: no-repeat; height: 127px; background-color: #000;">
+    <div class="lead banner" style="background-image:url({{url_for('static', filename='images/banner.svg')}}); background-position: right top; background-size: auto 127px; background-repeat: no-repeat; height: 127px; background-color: #000;">
     </div>
   {% endblock %}
   {% if current_user.confirmed %}

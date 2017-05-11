@@ -23,7 +23,8 @@ class OrgConfirmationForm(FlaskForm):
     orgOricdClientId = StringField('Organisation Orcid Client Id: ', validators=[DataRequired()])
     orgOrcidClientSecret = StringField(
         'Organisation Orcid Client Secret: ', validators=[DataRequired()])
-    country = SelectField("Country", [validators.required()], choices=country_choices, default=DEFAULT_COUNTRY)
+    country = SelectField(
+        "Country", [validators.required()], choices=country_choices, default=DEFAULT_COUNTRY)
     city = StringField("City", [validators.required()])
     disambiguation_org_id = StringField("Disambiguation ORG Id", [validators.required()])
     disambiguation_org_source = StringField("Disambiguation ORG Source", [validators.required()])

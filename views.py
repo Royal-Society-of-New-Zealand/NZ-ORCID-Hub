@@ -2,9 +2,10 @@
 """Application views."""
 
 import json
+import os
 from collections import namedtuple
 
-from flask import flash, redirect, render_template, request, url_for
+from flask import (flash, redirect, render_template, request, send_from_directory, url_for)
 from flask_admin.contrib.peewee import ModelView
 from flask_login import current_user, login_required
 from requests_oauthlib import OAuth2Session
@@ -21,6 +22,12 @@ from pyinfo import info
 from swagger_client.rest import ApiException
 
 HEADERS = {'Accept': 'application/vnd.orcid+json', 'Content-type': 'application/vnd.orcid+json'}
+
+
+@app.route("/favicon.ico")
+def favicon():
+    return send_from_directory(
+        os.path.join(app.root_path, "static"), "favicon.ico", mimetype="image/vnd.microsoft.icon")
 
 
 @app.route('/pyinfo')
@@ -57,19 +64,31 @@ class UserAdmin(AppModelView):
     column_formatters = dict(
         roles=lambda v, c, m, p: ", ".join(n for r, n in v.roles.items() if r & m.roles),
         orcid=lambda v, c, m, p: m.orcid.replace('-', '\u2011') if m.orcid else '')
+    column_filters = ("name", )
     form_overrides = dict(roles=BitmapMultipleValueField)
     form_args = dict(roles=dict(choices=roles.items()))
 
-    jax_refs = {"organisation": {"fields": (Organisation.name, "name")}}
+    form_ajax_refs = {"organisation": {"fields": (Organisation.name, "name")}}
+    can_export = True
 
 
 class OrganisationAdmin(AppModelView):
     """Organisation model view."""
     column_exclude_list = ("orcid_client_id", "orcid_secret", "tuakiri_name", )
+    column_filters = ("name", )
+
+
+class OrcidTokenAdmin(AppModelView):
+    """ORCID token model view."""
+
+    can_export = True
+    can_create = False
+    can_edit = False
 
 
 admin.add_view(UserAdmin(User))
 admin.add_view(OrganisationAdmin(Organisation))
+admin.add_view(OrcidTokenAdmin(OrcidToken))
 admin.add_view(AppModelView(OrgInfo))
 
 EmpRecord = namedtuple("EmpRecord", [

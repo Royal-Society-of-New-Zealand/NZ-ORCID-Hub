@@ -8,7 +8,6 @@ user (reseaser) affiliations.
 import base64
 import pickle
 import zlib
-import json
 from os import path, remove
 from tempfile import gettempdir
 from urllib.parse import quote, unquote, urlencode, urlparse
@@ -22,6 +21,7 @@ from werkzeug.urls import iri_to_uri
 
 import secrets
 import swagger_client
+import utils
 from application import app, mail
 from config import (APP_DESCRIPTION, APP_NAME, APP_URL, AUTHORIZATION_BASE_URL, CRED_TYPE_PREMIUM,
                     EDU_PERSON_AFFILIATION_EDUCATION, EDU_PERSON_AFFILIATION_EMPLOYMENT,
@@ -331,9 +331,10 @@ def orcid_callback():
 
         if orciduser.edu_person_affiliation is not None:
 
-            if orciduser.edu_person_affiliation == EDU_PERSON_AFFILIATION_EMPLOYMENT \
-                    or orciduser.edu_person_affiliation == EDU_PERSON_AFFILIATION_EMPLOYMENT \
-                            + " and " + EDU_PERSON_AFFILIATION_EDUCATION:
+            # TODO: denormilize model!!!
+            if (orciduser.edu_person_affiliation == EDU_PERSON_AFFILIATION_EMPLOYMENT or
+                    orciduser.edu_person_affiliation == EDU_PERSON_AFFILIATION_EMPLOYMENT + " and " +
+                    EDU_PERSON_AFFILIATION_EDUCATION):
                 employment = swagger_client.Employment()
 
                 employment.source = swagger_client.Source(
@@ -355,9 +356,10 @@ def orcid_callback():
                 except ApiException as e:
                     flash("Failed to update the entry: %s." % e.body, "danger")
 
-            if orciduser.edu_person_affiliation == EDU_PERSON_AFFILIATION_EDUCATION \
-                    or orciduser.edu_person_affiliation == EDU_PERSON_AFFILIATION_EMPLOYMENT \
-                            + " and " + EDU_PERSON_AFFILIATION_EDUCATION:
+            # TODO: denormilize model!!!
+            if (orciduser.edu_person_affiliation == EDU_PERSON_AFFILIATION_EDUCATION or
+                    orciduser.edu_person_affiliation == EDU_PERSON_AFFILIATION_EMPLOYMENT + " and " +
+                    EDU_PERSON_AFFILIATION_EDUCATION):
 
                 education = swagger_client.Education()
 
@@ -489,25 +491,27 @@ def invite_organisation():
                 # Note: Using app context due to issue:
                 # https://github.com/mattupstate/flask-mail/issues/63
                 with app.app_context():
-                    msg = Message("Welcome to ORCID Hub", recipients=[str(form.orgEmailid.data)])
                     token = generate_confirmation_token(form.orgEmailid.data)
-                    # TODO: do it with templates
-                    msg.body = "Your organisation is just one step from being onboarded onto the NZ ORCID Hub" \
-                               " please click on the link below to confirm your role as Tech Contact " + \
-                               url_for("confirm_organisation",
-                                       token=token, _external=True)
-                    mail.send(msg)
-                    flash(
-                        "Organisation Onboarded Successfully!!! Welcome to the NZ ORCID Hub.  A notice has been sent to the Hub Admin",
-                        "success")
+                    utils.send_email(
+                        "email/org_invitation.html",
+                        recipient=(form.orgName.data, form.orgEmailid.data),
+                        token=token,
+                        org_name=form.orgName.data)
+                    flash("Organisation Onboarded Successfully!!! "
+                          "Welcome to the NZ ORCID Hub.  A notice has been sent to the Hub Admin",
+                          "success")
 
-    return render_template('registration.html', form=form,
-        org_info={r.name: r.email for r in OrgInfo.select(OrgInfo.name, OrgInfo.email)})
+    return render_template(
+        'registration.html',
+        form=form,
+        org_info={r.name: r.email
+                  for r in OrgInfo.select(OrgInfo.name, OrgInfo.email)})
 
 
+@app.route("/confirm/organisation", methods=["GET", "POST"])
 @app.route("/confirm/organisation/<token>", methods=["GET", "POST"])
 @login_required
-def confirm_organisation(token):
+def confirm_organisation(token=None):
     """Registration confirmations.
 
     TODO: expand the spect as soon as the reqirements get sorted out.
@@ -590,13 +594,15 @@ def confirm_organisation(token):
                 app_description=APP_DESCRIPTION + " at " + user.organisation.name,
                 app_url=APP_URL,
                 redirect_uri_1=redirect_uri))
+
         try:
             orgInfo = OrgInfo.get(email=email)
-            form.city.data = orgInfo.city
-            form.disambiguation_org_id.data = orgInfo.disambiguation_org_id
-            form.disambiguation_org_source.data = orgInfo.disambiguation_source
-        except:
+        except OrgInfo.DoesNotExist:
             pass
+
+        form.city.data = orgInfo.city
+        form.disambiguation_org_id.data = orgInfo.disambiguation_org_id
+        form.disambiguation_org_source.data = orgInfo.disambiguation_source
 
     return render_template('orgconfirmation.html', clientSecret_url=clientSecret_url, form=form)
 
@@ -652,7 +658,7 @@ in order to complete the log-out.""", "warning")
 @login_required
 def reset_db():
     """Reset the DB for a new testing cycle."""
-    User.delete().where(~(User.name ** "%nzorcidhub%" | User.name ** "%root%")).execute()
+    User.delete().where(~(User.name**"%nzorcidhub%" | User.name**"%root%")).execute()
     Organisation.delete().where(~(Organisation.name % "%Royal%")).execute()
     return redirect(url_for("logout"))
 
