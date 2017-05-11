@@ -1,51 +1,41 @@
+
 <!DOCTYPE html>
-<html lang="en">
+<html>
   <head>
-    {% block head %}
-      <title>{% block title %}New Zealand ORCID Hub{% endblock %}</title>
-      <meta charset="utf-8">
-      <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
-      <meta name="description" content="NZ ORCID Hub"/>
-      <meta name="author" content="">
-      <link rel="icon" href="{{url_for('static', filename='favicon.ico', _external=True)}}">
-      <meta name="keywords" content="ORCID HUB,New Zealand,NZ,orcid"/>
-      <meta name="viewport" content="width=device-width, initial-scale=1">
-      <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css"
-                             integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
-      <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap-theme.min.css"
-                             integrity="sha384-rHyoN1iRsVXV4nD0JutlnGaslCJuC7uwjduW9SVrLvRYooPp2bWYgmgJQIXwl/Sp" crossorigin="anonymous">
-      <link href="{{url_for('static', filename='css/style.css', _external=True)}}" rel="stylesheet">
-    {% endblock %}
+    <meta charset="utf-8">
+    <title>{{subject}}</title>
+    <meta name="keywords" content="ORCID HUB,New Zealand,NZ,orcid"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
   </head>
   <body>
-    <div class="lead banner" 
-         style="background-image:url({{url_for('static', filename='images/banner.svg', _external=True)}}); background-position: right top; background-size: auto 127px; background-repeat: no-repeat; height: 127px; background-color: #000;">
-    </div>
-    <div class="container">
-      <div class="jumbotron">
-        <h2 class="display-2">Welcome To The NZ ORCID Hub</h2>
-        <p>A service provided to link New Zealand's researchers with their organisations and funders in ORCID.</p>
-        <p>Your organisation is just one step from being onboarded onto the NZ ORCID Hub
-        please click on the link below to confirm your role as Tech Contact:
-        <a href="{{ url_for('confirm_organisation', token=token, _external=True) }}">Onboard {{org_name}}</a> 
-        or copy and paste the affiliation token <strong>{{ token }}</strong> to <a href="{{ url_for('confirm_organisation', token=token, _external=True) }}">Onboard {{org_name}}</a>
-      </div>
+    <div style="font-family: Arial, Verdana, Georgia, and Times New Roman;">
+      <img src="{{url_for('static', filename='images/banner.svg', _external=True)}}" alt="NZ ORCID Hub" style="with:100%;" />
+      <img src="https://test.orcidhub.org.nz/static/images/banner.png" title="NZ ORCID Hub" alt="NZ ORCID Hub" style="with:100%; display:block;" />
+      <h2 class="display-2">Welcome To The NZ ORCID Hub</h2>
+      <p>A service provided to link New Zealand's researchers with their organisations and funders in ORCID.</p>
+      <p>Your organisation is just one step from being onboarded onto the NZ ORCID Hub
+      please click on the link below to confirm your role as Tech Contact:
+      <a href="{{ url_for('confirm_organisation', token=token, _external=True) }}">Onboard {{org_name}}</a> 
+      or copy and paste the affiliation token <strong>{{ token }}</strong> to <a href="{{ url_for('confirm_organisation', token=token, _external=True) }}">Onboard {{org_name}}</a>
       <hr>
-      <details>This email was sent to {{recipient["email"]}}</details>
+      <p>This email was sent to {{recipient["email"]}}</p>
+      <!--  Footer Details -->
+      <table style="vertical-align: top; background-color: black; color: white; width: 100%; margin-top: 25px;">
+        <tr>
+          <td>
+            <p style="vertical-align: top; padding-left: 15px;">
+            Contact details for the NZ ORCID Hub<br>
+            Phone: (04) 472 7421<br>
+            PO Box 598, Wellington 6140<br>
+            <b><a style="text-decoration: none; color: white;"
+                  href="mailto:orcid@royalsociety.org.nz">orcid@royalsociety.org.nz</a></b>
+            </p>
+          </td>
+          <td style="vertical-align: top;">
+            <p style="padding-right: 15px; text-align:right;">CC-BY-NC 2017 Royal Society of New Zealand</p>
+          </td>
+        </tr>
+      </table>
     </div>
-    <!--  Footer Details -->
-    <footer class="footer">
-      <div class="container">
-        <section>
-          <p class="contact">
-          Contact details for the NZ ORCID Hub<br>
-          Phone: (04) 472 7421<br>
-          PO Box 598, Wellington 6140<br>
-          <b><a href="mailto:orcid@royalsociety.org.nz">orcid@royalsociety.org.nz</a></b>
-          </p>
-          <p class="copyright">CC-BY-NC 2017 Royal Society of New Zealand</p>
-        </section>
-      </div>
-    </footer>
   </body>
 </html>
