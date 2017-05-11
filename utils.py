@@ -43,7 +43,7 @@ def send_email(template, recipient, sender=(APP_NAME, MAIL_DEFAULT_SENDER), subj
     """
     if flask.current_app:
         # use the app's env if it's available, so that url_for may be used
-        jinja_env = flask.jinja_env
+        jinja_env = flask.current_app.jinja_env
     else:
         path = os.path.join(os.path.dirname(__file__), "templates")
         loader = jinja2.FileSystemLoader(path)

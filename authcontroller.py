@@ -21,6 +21,7 @@ from werkzeug.urls import iri_to_uri
 
 import secrets
 import swagger_client
+import utils
 from application import app, mail
 from config import (APP_DESCRIPTION, APP_NAME, APP_URL, AUTHORIZATION_BASE_URL, CRED_TYPE_PREMIUM,
                     EDU_PERSON_AFFILIATION_EDUCATION, EDU_PERSON_AFFILIATION_EMPLOYMENT,
@@ -490,14 +491,12 @@ def invite_organisation():
                 # Note: Using app context due to issue:
                 # https://github.com/mattupstate/flask-mail/issues/63
                 with app.app_context():
-                    msg = Message("Welcome to ORCID Hub", recipients=[str(form.orgEmailid.data)])
                     token = generate_confirmation_token(form.orgEmailid.data)
-                    # TODO: do it with templates
-                    msg.body = "Your organisation is just one step from being onboarded onto the NZ ORCID Hub" \
-                               " please click on the link below to confirm your role as Tech Contact " + \
-                               url_for("confirm_organisation",
-                                       token=token, _external=True)
-                    mail.send(msg)
+                    utils.send_email(
+                        "email/org_invitation.html",
+                        recipient=(form.orgName.data, form.orgEmailid.data),
+                        token=token,
+                        org_name=form.orgName.data)
                     flash("Organisation Onboarded Successfully!!! "
                           "Welcome to the NZ ORCID Hub.  A notice has been sent to the Hub Admin",
                           "success")
@@ -509,9 +508,10 @@ def invite_organisation():
                   for r in OrgInfo.select(OrgInfo.name, OrgInfo.email)})
 
 
+@app.route("/confirm/organisation", methods=["GET", "POST"])
 @app.route("/confirm/organisation/<token>", methods=["GET", "POST"])
 @login_required
-def confirm_organisation(token):
+def confirm_organisation(token=None):
     """Registration confirmations.
 
     TODO: expand the spect as soon as the reqirements get sorted out.
