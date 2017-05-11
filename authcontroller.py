@@ -27,6 +27,7 @@ from config import (APP_DESCRIPTION, APP_NAME, APP_URL, AUTHORIZATION_BASE_URL, 
                     EDU_PERSON_AFFILIATION_EDUCATION, EDU_PERSON_AFFILIATION_EMPLOYMENT,
                     EXTERNAL_SP, MEMBER_API_FORM_BASE_URL, NEW_CREDENTIALS, NOTE_ORCID,
                     ORCID_API_BASE, SCOPE_ACTIVITIES_UPDATE, TOKEN_URL)
+from forms import OnboardingTokenForm
 from login_provider import roles_required
 from models import OrcidToken, Organisation, Role, User, UserOrg, OrgInfo
 from registrationForm import OrgConfirmationForm, OrgRegistrationForm
@@ -516,6 +517,13 @@ def confirm_organisation(token=None):
 
     TODO: expand the spect as soon as the reqirements get sorted out.
     """
+    if token is None:
+        form = OnboardingTokenForm()
+        if form.validate_on_submit():
+            return redirect(url_for("confirm_organisation", token=form.token.data))
+
+        return render_template("missing_onboarding_token.html", form=form)
+
     clientSecret_url = None
     email = confirm_token(token)
     user = current_user
