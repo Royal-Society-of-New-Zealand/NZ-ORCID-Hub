@@ -26,6 +26,7 @@ HEADERS = {'Accept': 'application/vnd.orcid+json', 'Content-type': 'application/
 
 @app.route("/favicon.ico")
 def favicon():
+    """Support for the 'favicon' legacy: faveicon location in the root directory."""
     return send_from_directory(
         os.path.join(app.root_path, "static"), "favicon.ico", mimetype="image/vnd.microsoft.icon")
 
@@ -78,6 +79,12 @@ class OrganisationAdmin(AppModelView):
     column_filters = ("name", )
 
 
+class OrgInfoAdmin(AppModelView):
+    """OrgInfo model view."""
+
+    can_export = True
+
+
 class OrcidTokenAdmin(AppModelView):
     """ORCID token model view."""
 
@@ -89,7 +96,7 @@ class OrcidTokenAdmin(AppModelView):
 admin.add_view(UserAdmin(User))
 admin.add_view(OrganisationAdmin(Organisation))
 admin.add_view(OrcidTokenAdmin(OrcidToken))
-admin.add_view(AppModelView(OrgInfo))
+admin.add_view(OrgInfoAdmin(OrgInfo))
 
 EmpRecord = namedtuple("EmpRecord", [
     "name", "city", "state", "country", "department", "role", "start_date", "end_date"
@@ -201,7 +208,6 @@ def employment(user_id, put_code=None):
         data = None
 
     form = EmploymentForm(request.form, obj=data)
-    # TODO: prefill the form from the organisation data
     if not form.name.data:
         form.name.data = current_user.organisation.name
     if not form.country.data or form.country.data == "None":
@@ -209,7 +215,6 @@ def employment(user_id, put_code=None):
 
     if request.method == "POST" and form.validate():
         # TODO: Audit trail
-        # TODO: Utilise generted client code
         # TODO: If it's guarantee that the record will be editited solely by a sigle token we can
         # cache the record in the local DB
 

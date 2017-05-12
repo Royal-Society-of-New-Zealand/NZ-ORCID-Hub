@@ -4,7 +4,6 @@
     <meta charset="utf-8">
     <title>{{subject}}</title>
     <meta name="keywords" content="ORCID HUB,New Zealand,NZ,orcid"/>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
   </head>
   <body>
     <div style="font-family: Arial, Verdana, Georgia, and Times New Roman;">
@@ -17,11 +16,10 @@
         </tr>
       </table>
       <h2 class="display-2">Welcome To The NZ ORCID Hub</h2>
-      <p>A service provided to link New Zealand's researchers with their organisations and funders in ORCID.</p>
-      <p>Your organisation is just one step from being onboarded onto the NZ ORCID Hub
+      <p>Congratulations! Your organisation is just one step from being onboarded onto the NZ ORCID Hub
       please click on the link below to confirm your role as Tech Contact:
       <a href="{{ url_for('confirm_organisation', token=token, _external=True) }}">Onboard {{org_name}}</a> 
-      or copy and paste the affiliation token <strong>{{ token }}</strong> to <a href="{{ url_for('confirm_organisation', token=token, _external=True) }}">Onboard {{org_name}}</a>
+      or copy and paste the affiliation token <strong>{{ token }}</strong> to <a href="{{ url_for('confirm_organisation', _external=True) }}">Onboard {{org_name}}</a>
       <hr>
       <p>This email was sent to {{recipient["email"]}}</p>
       <!--  Footer Details -->
