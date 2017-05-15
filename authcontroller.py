@@ -26,7 +26,7 @@ from application import app, mail
 from config import (APP_DESCRIPTION, APP_NAME, APP_URL, AUTHORIZATION_BASE_URL, CRED_TYPE_PREMIUM,
                     EDU_PERSON_AFFILIATION_EDUCATION, EDU_PERSON_AFFILIATION_EMPLOYMENT,
                     EXTERNAL_SP, MEMBER_API_FORM_BASE_URL, NEW_CREDENTIALS, NOTE_ORCID,
-                    ORCID_API_BASE, SCOPE_ACTIVITIES_UPDATE, TOKEN_URL)
+                    ORCID_API_BASE, SCOPE_ACTIVITIES_UPDATE, TOKEN_URL, ORCID_BASE_URL)
 from forms import OnboardingTokenForm
 from login_provider import roles_required
 from models import OrcidToken, Organisation, Role, User, UserOrg, OrgInfo
@@ -412,15 +412,10 @@ def profile():
             orcidTokenRead.delete_instance()
             return redirect(url_for("link"))
         else:
-            person = resp_person.json()
-            employments = client.get(base_url + "/employments", headers=HEADERS).json()
-            educations = client.get(base_url + "/educations", headers=HEADERS).json()
             return render_template(
                 "profile.html",
                 user=user,
-                person=person,
-                employments=employments,
-                educations=educations)
+                profile_url=ORCID_BASE_URL)
 
 
 @app.route("/invite/user", methods=["GET"])
