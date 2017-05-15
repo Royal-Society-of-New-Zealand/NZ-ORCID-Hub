@@ -111,3 +111,10 @@ export EXTERNAL_SP=https://dev.orcidhub.org.nz/Tuakiri/SP
 export DATABASE_URL=sqlite:///data.db
 export FLASK_DEBUG=1
 ```
+
+To connect to the PostgreSQL node:
+
+```
+export DB_HOSTNAME=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' $(docker-compose ps -q db))
+export DATABASE_URL=postgresql://orcidhub:p455w0rd@${DB_HOSTNAME}:5432/orcidhub
+```

@@ -247,6 +247,7 @@ class User(BaseModel, UserMixin):
     roles = SmallIntegerField(default=0)
     edu_person_affiliation = TextField(null=True, verbose_name="EDU Person Affiliations")
     tech_contact = BooleanField(default=False)
+    is_locked = BooleanField(default=False)
 
     # TODO: many-to-many
     # NB! depricated!
