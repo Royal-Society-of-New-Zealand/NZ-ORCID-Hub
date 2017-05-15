@@ -167,7 +167,7 @@ def test_profile(request_ctx):
 
         rv = ctx.app.full_dispatch_request()
         assert rv.status_code == 200
-        assert b"TEST1234567890" in rv.data
+        assert b"ABC123" in rv.data
 
 
 def test_profile_wo_orcid(request_ctx):
