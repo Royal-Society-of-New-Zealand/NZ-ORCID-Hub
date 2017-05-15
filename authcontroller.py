@@ -305,17 +305,15 @@ def orcid_callback():
 
     orciduser = User.get(email=user.email, organisation=user.organisation)
 
-    orcidToken = OrcidToken.create(
-        user=orciduser,
-        org=orciduser.organisation,
-        scope=token["scope"][0],
-        access_token=token["access_token"],
-        refresh_token=token["refresh_token"], )
-    orcidToken.save()
+    orcid_token, orcid_token_found = OrcidToken.get_or_create(user=orciduser, org=orciduser.organisation,
+                                                              scope=token["scope"][0])
+    orcid_token.access_token = token["access_token"]
+    orcid_token.refresh_token = token["refresh_token"]
+    orcid_token.save()
     user.save()
 
-    if token["scope"] == SCOPE_ACTIVITIES_UPDATE:
-        swagger_client.configuration.access_token = orcidToken.access_token
+    if token["scope"] == SCOPE_ACTIVITIES_UPDATE and orcid_token_found:
+        swagger_client.configuration.access_token = orcid_token.access_token
         api_instance = swagger_client.MemberAPIV20Api()
 
         source_clientid = swagger_client.SourceClientId(
