@@ -1,5 +1,6 @@
 from functools import wraps
 
+from flask import flash
 from flask_login import current_user
 
 from application import login_manager
@@ -30,6 +31,10 @@ def load_user(user_id):
     :param unicode user_id: user_id (DB user record PK) user to retrieve
     """
     try:
-        return User.get(id=user_id)
+        u = User.get(id=user_id)
+        if u.is_locked:
+            flash("Your account was locked out. Please contact your administrator.", "danger")
+            return None
+        return u
     except User.DoesNotExist:
         return None
