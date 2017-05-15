@@ -9,9 +9,7 @@ from flask_debugtoolbar import DebugToolbarExtension
 from flask_mail import Mail
 from playhouse.db_url import connect
 
-import config
-from config import (MAIL_DEFAULT_SENDER, MAIL_PASSWORD, MAIL_SERVER, MAIL_USERNAME,
-                    TOKEN_PASSWORD_SALT, TOKEN_SECRET_KEY)
+from config import *  # noqa: F401, F403
 
 app = Flask(__name__)
 
@@ -23,36 +21,27 @@ if os.path.exists("/var/log/orcidhub"):
 app.secret_key = ")Xq/4vc'K%wRe&sQ$n'n;?+y@^rY\/u8!sk{?D7Y>.V`t_/y'wn>7~cZ$(Q.$n)d_j"
 # NB! Disable in production
 app.debug = is_dev_env = (os.environ.get("ENV") in ("dev0", ))
+
+app.config.from_object(__name__)
 app.config['TESTING'] = True
 app.config['SECRET_KEY'] = app.secret_key
 os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
 
-db = connect(config.DATABASE_URL)
+db = connect(DATABASE_URL)
 
 if app.debug:
     app.config['DEBUG_TB_INTERCEPT_REDIRECTS'] = False
     app.config['DEBUG_TB_PROFILER_ENABLED'] = True
     os.environ['DEBUG'] = "1"
 
-app.config['SECRET_KEY'] = app.secret_key
-os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
-app.config["DATABASE_URL"] = config.DATABASE_URL
-
 # add mail server config
-app.config['MAIL_SERVER'] = MAIL_SERVER
 app.config['MAIL_PORT'] = 587
 app.config['MAIL_USE_SSL'] = False
 app.config['MAIL_USE_TLS'] = True
-app.config['MAIL_USERNAME'] = MAIL_USERNAME
-app.config['MAIL_DEFAULT_SENDER'] = MAIL_DEFAULT_SENDER
-app.config['MAIL_PASSWORD'] = MAIL_PASSWORD
 app.config['MAIL_SUPPRESS_SEND'] = False
 mail = Mail()
 mail.init_app(app)
 
-# Secret key and salt for token generation
-app.config['TOKEN_SECRET_KEY'] = TOKEN_SECRET_KEY
-app.config['TOKEN_PASSWORD_SALT'] = TOKEN_PASSWORD_SALT
 
 #admin = Admin(app, name="NZ ORCiD Hub", template_mode="bootstrap3", base_template="layout.html")
 admin = Admin(
