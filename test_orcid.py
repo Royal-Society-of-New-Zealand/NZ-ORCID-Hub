@@ -115,7 +115,7 @@ def test_link_orcid_auth_callback(name, request_ctx):
             confirmed=True)
         test_user.save()
         orcidtoken = OrcidToken(
-            user=test_user, org=org, scope="/read-limited", access_token="ABC1234")
+            user=test_user, org=org, scope="/activities/update", access_token="ABC1234")
         orcidtoken.save()
         login_user(test_user, remember=True)
 
