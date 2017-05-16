@@ -26,7 +26,7 @@ from application import app, mail
 from config import (APP_DESCRIPTION, APP_NAME, APP_URL, AUTHORIZATION_BASE_URL, CRED_TYPE_PREMIUM,
                     EDU_PERSON_AFFILIATION_EDUCATION, EDU_PERSON_AFFILIATION_EMPLOYMENT,
                     EXTERNAL_SP, MEMBER_API_FORM_BASE_URL, NEW_CREDENTIALS, NOTE_ORCID,
-                    ORCID_API_BASE, SCOPE_ACTIVITIES_UPDATE, TOKEN_URL)
+                    ORCID_API_BASE, SCOPE_ACTIVITIES_UPDATE, TOKEN_URL, ORCID_BASE_URL)
 from forms import OnboardingTokenForm
 from login_provider import roles_required
 from models import OrcidToken, Organisation, Role, User, UserOrg, OrgInfo
@@ -305,17 +305,15 @@ def orcid_callback():
 
     orciduser = User.get(email=user.email, organisation=user.organisation)
 
-    orcidToken = OrcidToken.create(
-        user=orciduser,
-        org=orciduser.organisation,
-        scope=token["scope"][0],
-        access_token=token["access_token"],
-        refresh_token=token["refresh_token"], )
-    orcidToken.save()
+    orcid_token, orcid_token_found = OrcidToken.get_or_create(user=orciduser, org=orciduser.organisation,
+                                                              scope=token["scope"][0])
+    orcid_token.access_token = token["access_token"]
+    orcid_token.refresh_token = token["refresh_token"]
+    orcid_token.save()
     user.save()
 
-    if token["scope"] == SCOPE_ACTIVITIES_UPDATE:
-        swagger_client.configuration.access_token = orcidToken.access_token
+    if token["scope"] == SCOPE_ACTIVITIES_UPDATE and orcid_token_found:
+        swagger_client.configuration.access_token = orcid_token.access_token
         api_instance = swagger_client.MemberAPIV20Api()
 
         source_clientid = swagger_client.SourceClientId(
@@ -412,15 +410,10 @@ def profile():
             orcidTokenRead.delete_instance()
             return redirect(url_for("link"))
         else:
-            person = resp_person.json()
-            employments = client.get(base_url + "/employments", headers=HEADERS).json()
-            educations = client.get(base_url + "/educations", headers=HEADERS).json()
             return render_template(
                 "profile.html",
                 user=user,
-                person=person,
-                employments=employments,
-                educations=educations)
+                profile_url=ORCID_BASE_URL)
 
 
 @app.route("/invite/user", methods=["GET"])

@@ -1,33 +1,20 @@
 {% extends "layout.html" %}
 {% block content %}
-  <div class="container">
+  <div class="jumbotron">
     <p>
-    <strong>{{ user.name}}</strong>, your ORCID iD <a href="{{orcid_url}}">{{orcid_url}}</a>
-    is now linked with <strong>{{ user.organisation.name }}</strong>.
-    </p>
-    {% if person.get("biography") and person["biography"].get("content") %}
-      <div class="row">
-        <h2>Biography</h2>
-        <div class="col-lg-12" style="white-space: pre-wrap">{{person["biography"].get("content")|safe}}
-          <pre>{{person|tojson(indent=4)}}</pre>
-        </div>
-      </div>
-    {% endif %}
-    {% if educations %}
-      <div class="row">
-        <h2>Education Summary</h2>
-        <div class="col-lg-12">
-          <pre>{{educations|tojson(indent=4)}}</pre>
-        </div>
-      </div>
-    {% endif %}
-    {% if employments %}
-      <div class="row">
-        <h2>Employment Summary</h2>
-        <div class="col-lg-12">
-          <pre>{{employments|tojson(indent=4)}}</pre>
-        </div>
-      </div>
-    {% endif %}
+    <strong>Welcome {{ user.name}}</strong>,</p>
+    <div class="text-center">
+    <div class="body-message">
+        <h3>Your ORCID iD is <a href={{profile_url + user.orcid}}><span>{{profile_url + user.orcid}}</span></a></h3>
+        <p>Your ORCID iD is now linked with <strong>{{ user.organisation.name }}</strong>.</p>
+        <p>You can start using your ORCID iD on manuscript submissions and grant applications immediately</p>
+        <button class="connect-orcid-button" onclick="location.href='{{profile_url}}'" style="height: 50px;width: auto;">
+            <img class="orcid-id-logo" src="https://orcid.org/sites/default/files/images/orcid_24x24.png" width="24" height="24" alt="ORCID logo" /> Manage ORCID Record
+        </button>
+        <button class="connect-orcid-button" onclick="location.href='https://groups.google.com/a/aucklanduni.ac.nz/forum/#!forum/nz-orcid-hub-gg'" style="height: 50px;width: auto;">
+            <img class="orcid-id-logo" src="https://orcid.org/sites/default/files/images/orcid_24x24.png" width="24" height="24" alt="ORCID logo" /> Help &amp; Support
+        </button>
+    </div>
+</div>
   </div>
 {% endblock %}
