@@ -114,7 +114,7 @@ def shib_login():
             ** for organisation administrator or technical contact, the completion of the on-boarding.
     """
     _next = request.args.get('_next')
-    data = request.args.get('data')
+
     # TODO: make it secret
     if EXTERNAL_SP:
         sp_url = urlparse(EXTERNAL_SP)
@@ -122,21 +122,16 @@ def shib_login():
             "auth_secret")
         data = requests.get(attr_url, verify=False).text
         data = pickle.loads(zlib.decompress(base64.b64decode(data)))
-        token = data.get("Auedupersonsharedtoken")
-        last_name = data['Sn']
-        first_name = data['Givenname']
-        email = data['Mail']
-        session["shib_O"] = shib_org_name = data['O']
-        name = data.get('Displayname')
-        eduPersonAffiliation = data.get('Unscoped-Affiliation')
     else:
-        token = request.headers.get("Auedupersonsharedtoken")
-        last_name = request.headers['Sn']
-        first_name = request.headers['Givenname']
-        email = request.headers['Mail']
-        session["shib_O"] = shib_org_name = request.headers['O']
-        name = request.headers.get('Displayname')
-        eduPersonAffiliation = request.headers.get('Unscoped-Affiliation')
+        data = request.headers
+
+    token = data.get("Auedupersonsharedtoken")
+    last_name = data['Sn']
+    first_name = data['Givenname']
+    email = data['Mail']
+    session["shib_O"] = shib_org_name = data['O']
+    name = data.get('Displayname')
+    eduPersonAffiliation = data.get('Unscoped-Affiliation')
 
     if eduPersonAffiliation:
         if any(epa in eduPersonAffiliation for epa in ['faculty', 'staff']) \
@@ -152,13 +147,17 @@ def shib_login():
             " So we are not able to determine the nature of affiliation you have with your organisation",
             "danger")
 
-    try:
-        # TODO: need a separate field for org name comimg from Tuakiri
-        org, _ = Organisation.get_or_create(name=shib_org_name)
-    except Organisation.DoesNotExist:
-        org = None
-        # flash("Your organisation (%s) is not onboarded properly, Contact Orcid Hub Admin" % shib_org_name, "danger")
-        # return render_template("index.html", _next=_next)
+    org, created = Organisation.get_or_create(tuakiri_name=shib_org_name)
+    if created:
+        # try to get the official organisation name:
+        try:
+            org_info = OrgInfo.get(tuakiri_name=shib_org_name)
+            print(org_info)
+        except OrgInfo.DoesNotExist:
+            pass
+        else:
+            org.name = org_info.name
+            org.save()
 
     try:
         user = User.get(User.email == email)
