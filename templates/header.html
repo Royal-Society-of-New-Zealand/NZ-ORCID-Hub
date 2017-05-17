@@ -5,7 +5,7 @@
          style="background-image:url({{url_for('static', filename='images/banner.svg')}}); background-position: right top; background-size: auto 127px; background-repeat: no-repeat; height: 127px; background-color: #000;">
     </div>
     {% endblock %}
-    {% if current_user.confirmed and (current_user.organisation.confirmed or current_user.has_role("SUPERUSER")) %}
+    {% if current_user.confirmed %}
     <nav class="navbar navbar-default">
         <div class="container-fluid">
             <div class="navbar-header">
@@ -21,17 +21,17 @@
             <div class="collapse navbar-collapse" id="navbar-collapse-1">
                 <ul class="nav navbar-nav">
                     <li id="about"><a href="#">About</a></li>
-                    {% if current_user.organisation %}
+                    {% if current_user.organisation.confirmed or current_user.has_role("SUPERUSER") %}
                     <li id="profile"><a href="{{ url_for('link') }}" data-toggle="tooltip"
                                         title="Affiliate yourself using the NZ ORCID HUB or view your ORCID iD">ORCID
                         Permissions</a></li>
-                    {% endif %}
                     {% if current_user.has_role("ADMIN") %}
                     <li id="researcher"><a href="#">Register Researcher</a></li>
                     <li id="viewmembers"><a href="/viewmembers">View Members</a></li>
-                        {% if current_user.tech_contact %}
-                            <li id="updateorginfo"><a href="/updateorginfo">Update Org Info</a></li>
-                        {% endif %}
+                    {% if current_user.tech_contact %}
+                    <li id="updateorginfo"><a href="/updateorginfo">Update Org Info</a></li>
+                    {% endif %}
+                    {% endif %}
                     {% endif %}
                     {% if current_user.has_role("SUPERUSER") %}
                     <li id="registerOrganisation"><a href="{{ url_for('invite_organisation') }}">Register
@@ -79,8 +79,10 @@
                                             <p class="text-left small">Edu Person Affiliation:
                                                 {{current_user.edu_person_affiliation }}</p>
                                             <p class="text-left">
+                                                {% if current_user.organisation.confirmed %}
                                                 <a href="{{url_for('profile')}}"
                                                    class="btn btn-primary btn-block btn-sm">Profile</a>
+                                                {% endif %}
                                             </p>
                                         </div>
                                     </div>
