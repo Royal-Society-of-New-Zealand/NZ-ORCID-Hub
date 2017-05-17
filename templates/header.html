@@ -1,96 +1,110 @@
 <!-- Header Details -->
 <header>
-  {% block header %}
-    <div class="lead banner" style="background-image:url({{url_for('static', filename='images/banner.svg')}}); background-position: right top; background-size: auto 127px; background-repeat: no-repeat; height: 127px; background-color: #000;">
+    {% block header %}
+    <div class="lead banner"
+         style="background-image:url({{url_for('static', filename='images/banner.svg')}}); background-position: right top; background-size: auto 127px; background-repeat: no-repeat; height: 127px; background-color: #000;">
     </div>
-  {% endblock %}
-  {% if current_user.confirmed %}
+    {% endblock %}
+    {% if current_user.confirmed and (current_user.organisation.confirmed or current_user.has_role("SUPERUSER")) %}
     <nav class="navbar navbar-default">
-      <div class="container-fluid">
-        <div class="navbar-header">
-          <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar-collapse-1" aria-expanded="false">
-            <span class="sr-only">Toggle navigation</span>
-            <span class="icon-bar"></span>
-            <span class="icon-bar"></span>
-            <span class="icon-bar"></span>
-          </button>
-          <a class="navbar-brand" href="{{ url_for('login') }}">NZ ORCID Hub</a>
-        </div>
-        <div class="collapse navbar-collapse" id="navbar-collapse-1">
-          <ul class="nav navbar-nav">
-            <li id="about"><a href="#">About</a></li>
-            {% if current_user.organisation %}
-              <li id="profile"><a href="{{ url_for('link') }}" data-toggle="tooltip"
-                                                               title="Affiliate yourself using the NZ ORCID HUB or view your ORCID iD">ORCID Permissions</a></li>
-            {% endif %}
-            {% if current_user.has_role("ADMIN") %}
-              <li id="researcher"><a href="#">Register Researcher</a></li>
-              <li id="viewmembers"><a href="/viewmembers">View Members</a></li>
-            {% endif %}
-            {% if current_user.has_role("SUPERUSER") %}
-              <li id="registerOrganisation"><a href="{{ url_for('invite_organisation') }}">Register Organisation</a>
-              </li>
-            {% endif %}
-            {% if current_user.is_superuser %}
-              <li class="dropdown">
-                <a class="dropdown-toggle" data-toggle="dropdown" href="#">Admin
-                  <span class="caret"></span></a>
-                <ul class="dropdown-menu">
-                  <li id="user.index_view"><a href="{{ url_for('user.index_view')}}">Users</a></li>
-                  <li id="organisation.index_view"><a href="{{ url_for('organisation.index_view')}}">Organisations</a></li>
-                  <li id="load_org"><a href="{{ url_for('load_org')}}">Upload Organisation Info</a></li>
-                  <li id="orginfo.index_view"><a href="{{ url_for('orginfo.index_view')}}">View Organisation Info</a></li>
+        <div class="container-fluid">
+            <div class="navbar-header">
+                <button type="button" class="navbar-toggle collapsed" data-toggle="collapse"
+                        data-target="#navbar-collapse-1" aria-expanded="false">
+                    <span class="sr-only">Toggle navigation</span>
+                    <span class="icon-bar"></span>
+                    <span class="icon-bar"></span>
+                    <span class="icon-bar"></span>
+                </button>
+                <a class="navbar-brand" href="{{ url_for('login') }}">NZ ORCID Hub</a>
+            </div>
+            <div class="collapse navbar-collapse" id="navbar-collapse-1">
+                <ul class="nav navbar-nav">
+                    <li id="about"><a href="#">About</a></li>
+                    {% if current_user.organisation %}
+                    <li id="profile"><a href="{{ url_for('link') }}" data-toggle="tooltip"
+                                        title="Affiliate yourself using the NZ ORCID HUB or view your ORCID iD">ORCID
+                        Permissions</a></li>
+                    {% endif %}
+                    {% if current_user.has_role("ADMIN") %}
+                    <li id="researcher"><a href="#">Register Researcher</a></li>
+                    <li id="viewmembers"><a href="/viewmembers">View Members</a></li>
+                        {% if current_user.tech_contact %}
+                            <li id="updateorginfo"><a href="/updateorginfo">Update Org Info</a></li>
+                        {% endif %}
+                    {% endif %}
+                    {% if current_user.has_role("SUPERUSER") %}
+                    <li id="registerOrganisation"><a href="{{ url_for('invite_organisation') }}">Register
+                        Organisation</a>
+                    </li>
+                    {% endif %}
+                    {% if current_user.is_superuser %}
+                    <li class="dropdown">
+                        <a class="dropdown-toggle" data-toggle="dropdown" href="#">Admin
+                            <span class="caret"></span></a>
+                        <ul class="dropdown-menu">
+                            <li id="user.index_view"><a href="{{ url_for('user.index_view')}}">Users</a></li>
+                            <li id="organisation.index_view"><a href="{{ url_for('organisation.index_view')}}">Organisations</a>
+                            </li>
+                            <li id="load_org"><a href="{{ url_for('load_org')}}">Upload Organisation Info</a></li>
+                            <li id="orginfo.index_view"><a href="{{ url_for('orginfo.index_view')}}">View Organisation
+                                Info</a></li>
+                        </ul>
+                    </li>
+                    {% endif %}
                 </ul>
-              </li>
-            {% endif %}
-          </ul>
-          <ul class="nav navbar-nav navbar-right">
+                <ul class="nav navbar-nav navbar-right">
 
-            <li class="dropdown">
-              <a href="#" class="dropdown-toggle" data-toggle="dropdown">
-                <img src="{{ current_user.avatar(20) }}">
-                <strong>{{ current_user.name }}</strong>
-                <span class="glyphicon glyphicon-chevron-down"></span>
-              </a>
-              <ul class="dropdown-menu">
-                <li>
-                  <div class="navbar-login">
-                    <div class="row">
-                      <div class="col-lg-4">
-                        <p class="text-center">
-                        <!-- span class="glyphicon glyphicon-user icon-size"></span -->
-                        <a href={{current_user.gravatar_profile_url}}>
-                          <img src="{{ current_user.avatar(100) }}">
+                    <li class="dropdown">
+                        <a href="#" class="dropdown-toggle" data-toggle="dropdown">
+                            <img src="{{ current_user.avatar(20) }}">
+                            <strong>{{ current_user.name }}</strong>
+                            <span class="glyphicon glyphicon-chevron-down"></span>
                         </a>
-                        </p>
-                      </div>
-                      <div class="col-lg-8">
-                        <p class="text-left"><strong>{{ current_user.name }}</strong></p>
-                        <p class="text-left small">{{ current_user.email }}</p>
-			            <p class="text-left small">Edu Person Affiliation: {{current_user.edu_person_affiliation }}</p>
-                        <p class="text-left">
-                        <a href="{{url_for('profile')}}" class="btn btn-primary btn-block btn-sm">Profile</a>
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </li>
-                <li class="divider navbar-login-session-bg"></li>
-                <li><a href="#">Account Settings <span class="glyphicon glyphicon-cog pull-right"></span></a>
-                </li>
-                <li class="divider"></li>
-                <li><a href="#">User stats <span class="glyphicon glyphicon-stats pull-right"></span></a></li>
-                <li class="divider"></li>
-                <li><a href="{{url_for('logout')}}">Log Out<span
-                       class="glyphicon glyphicon-log-out pull-right"></span></a></li>
-              </ul>
-            </li>
+                        <ul class="dropdown-menu">
+                            <li>
+                                <div class="navbar-login">
+                                    <div class="row">
+                                        <div class="col-lg-4">
+                                            <p class="text-center">
+                                                <!-- span class="glyphicon glyphicon-user icon-size"></span -->
+                                                <a href={{current_user.gravatar_profile_url}}>
+                                                    <img src="{{ current_user.avatar(100) }}">
+                                                </a>
+                                            </p>
+                                        </div>
+                                        <div class="col-lg-8">
+                                            <p class="text-left"><strong>{{ current_user.name }}</strong></p>
+                                            <p class="text-left small">{{ current_user.email }}</p>
+                                            <p class="text-left small">Edu Person Affiliation:
+                                                {{current_user.edu_person_affiliation }}</p>
+                                            <p class="text-left">
+                                                <a href="{{url_for('profile')}}"
+                                                   class="btn btn-primary btn-block btn-sm">Profile</a>
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </li>
+                            <li class="divider navbar-login-session-bg"></li>
+                            <li><a href="#">Account Settings <span
+                                    class="glyphicon glyphicon-cog pull-right"></span></a>
+                            </li>
+                            <li class="divider"></li>
+                            <li><a href="#">User stats <span class="glyphicon glyphicon-stats pull-right"></span></a>
+                            </li>
+                            <li class="divider"></li>
+                            <li><a href="{{url_for('logout')}}">Log Out<span
+                                    class="glyphicon glyphicon-log-out pull-right"></span></a></li>
+                        </ul>
+                    </li>
 
-            <li><a href="{{url_for('logout')}}"><span class="glyphicon glyphicon-log-out"></span> Log Out</a></li>
-          </ul>
-          <!-- button class="btn btn-danger navbar-btn">Button</button -->
+                    <li><a href="{{url_for('logout')}}"><span class="glyphicon glyphicon-log-out"></span> Log Out</a>
+                    </li>
+                </ul>
+                <!-- button class="btn btn-danger navbar-btn">Button</button -->
+            </div>
         </div>
-      </div>
     </nav>
-  {% endif %}
+    {% endif %}
 </header>

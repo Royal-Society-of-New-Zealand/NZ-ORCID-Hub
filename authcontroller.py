@@ -208,6 +208,8 @@ def shib_login():
         return redirect(url_for("invite_organisation"))
     elif org and org.confirmed:
         return redirect(url_for("link"))
+    elif org and org.isEmailConfirmed and (not org.confirmed) and user.tech_contact:
+        return redirect(url_for("update_org_Info"))
     else:
         flash("Your organisation (%s) is not onboarded" % shib_org_name, "danger")
 
@@ -537,7 +539,8 @@ def confirm_organisation(token=None):
             msg.body = "Congratulations you have been confirmed as an Organisation Admin for " + str(
                 user.organisation)
             mail.send(msg)
-            flash("Your Onboarding is Completed!!!", "success")
+            flash("Your Registration is Completed, Now it is the responsibility of your "
+                  "organisational Technical Contact to onboard your organisation", "success")
         return redirect(url_for("viewmembers"))
 
     # TODO: support for mutliple orgs and admins
@@ -561,6 +564,7 @@ def confirm_organisation(token=None):
                 organisation.city = form.city.data
                 organisation.disambiguation_org_id = form.disambiguation_org_id.data
                 organisation.disambiguation_org_source = form.disambiguation_org_source.data
+                organisation.isEmailConfirmed = True
                 organisation.save()
 
                 # Update Orcid User
@@ -574,6 +578,14 @@ def confirm_organisation(token=None):
                 return redirect(url_for("login"))
 
     elif request.method == 'GET':
+
+        organisation = Organisation.get(email=email)
+        if organisation is not None and not organisation.isEmailConfirmed:
+            organisation.isEmailConfirmed = True
+            organisation.save()
+        elif organisation is not None and organisation.isEmailConfirmed:
+            flash("""Your email link has expired. However, you should be able to login directly!""", "warning")
+            return redirect(url_for("login"))
 
         form.orgEmailid.data = email
         form.orgName.data = user.organisation.name
@@ -601,9 +613,11 @@ def confirm_organisation(token=None):
         except OrgInfo.DoesNotExist:
             pass
         else:
-            form.city.data = orgInfo.city
-            form.disambiguation_org_id.data = orgInfo.disambiguation_org_id
-            form.disambiguation_org_source.data = orgInfo.disambiguation_source
+            form.city.data = organisation.city = orgInfo.city
+            form.disambiguation_org_id.data = organisation.disambiguation_org_id = orgInfo.disambiguation_org_id
+            form.disambiguation_org_source.data = organisation.disambiguation_org_source = orgInfo.disambiguation_source
+            organisation.country = form.country.data
+            organisation.save()
 
     return render_template('orgconfirmation.html', clientSecret_url=clientSecret_url, form=form)
 
@@ -671,3 +685,61 @@ def viewmembers():
     user = current_user
     users = user.organisation.users
     return render_template("viewMembers.html", orgnisationname=user.organisation.name, users=users)
+
+
+@app.route("/updateorginfo", methods=["GET", "POST"])
+@roles_required(Role.ADMIN)
+def update_org_Info():
+    email = current_user.email
+    user = User.get(email=current_user.email, organisation=current_user.organisation)
+    form = OrgConfirmationForm()
+    redirect_uri = url_for("orcid_callback", _external=True)
+    clientSecret_url = iri_to_uri(MEMBER_API_FORM_BASE_URL) + "?" + urlencode(
+        dict(
+            new_existing=NEW_CREDENTIALS,
+            note=NOTE_ORCID + " " + user.organisation.name,
+            contact_email=email,
+            contact_name=user.name,
+            org_name=user.organisation.name,
+            cred_type=CRED_TYPE_PREMIUM,
+            app_name=APP_NAME + " at " + user.organisation.name,
+            app_description=APP_DESCRIPTION + " at " + user.organisation.name,
+            app_url=APP_URL,
+            redirect_uri_1=redirect_uri))
+
+    organisation = Organisation.get(email=email)
+    if request.method == 'POST':
+        if not form.validate():
+            flash('Please fill in all fields and try again!', "danger")
+        else:
+            organisation = Organisation.get(email=email)
+            if (not (user is None) and (not (organisation is None))):
+                # Update Organisation
+                organisation.confirmed = True
+                organisation.orcid_client_id = form.orgOricdClientId.data
+                organisation.orcid_secret = form.orgOrcidClientSecret.data
+                organisation.country = form.country.data
+                organisation.city = form.city.data
+                organisation.disambiguation_org_id = form.disambiguation_org_id.data
+                organisation.disambiguation_org_source = form.disambiguation_org_source.data
+                organisation.save()
+
+                flash("Organisation information updated successfully!!!", "success")
+            return redirect(url_for("update_org_Info"))
+
+    elif request.method == 'GET':
+
+        form.orgName.data = user.organisation.name
+        form.orgEmailid.data = user.organisation.email
+
+        form.city.data = user.organisation.city
+        form.country.data = user.organisation.country
+        form.disambiguation_org_id.data = user.organisation.disambiguation_org_id
+        form.disambiguation_org_source.data = user.organisation.disambiguation_org_source
+        form.orgOricdClientId.data = user.organisation.orcid_client_id
+        form.orgOrcidClientSecret.data = user.organisation.orcid_secret
+
+        form.orgName.render_kw = {'readonly': True}
+        form.orgEmailid.render_kw = {'readonly': True}
+
+    return render_template('orgconfirmation.html', clientSecret_url=clientSecret_url, form=form)
