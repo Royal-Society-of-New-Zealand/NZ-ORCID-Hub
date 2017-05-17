@@ -255,6 +255,9 @@ class User(BaseModel, UserMixin):
     organisation = ForeignKeyField(
         Organisation, related_name="members", on_delete="CASCADE", null=True)
 
+    def __repr__(self):
+        return self.name or self.email or self.orcid or super().__repr__()
+
     @property
     def organisations(self):
         """

@@ -83,6 +83,7 @@ class OrgInfoAdmin(AppModelView):
     """OrgInfo model view."""
 
     can_export = True
+    column_filters = ("name", )
 
 
 class OrcidTokenAdmin(AppModelView):
@@ -304,7 +305,20 @@ def employment(user_id, put_code=None):
 @app.route("/<int:user_id>/emp")
 @login_required
 def employment_list(user_id):
-    """Show all user employment list."""
+    return show_record_section(user_id, "EMP")
+
+
+@app.route("/<int:user_id>/edu/list")
+@app.route("/<int:user_id>/edu")
+@login_required
+def edu_list(user_id):
+    return show_record_section(user_id, "EDU")
+
+
+def show_record_section(user_id, section_type="EMP"):
+    """Show all user profile section list."""
+
+    section_type = section_type.upper()[:3]  # normalize the section type
     try:
         user = User.get(id=user_id, organisation_id=current_user.organisation_id)
     except:
@@ -318,17 +332,20 @@ def employment_list(user_id):
     orcidToken = None
     try:
         orcidToken = OrcidToken.get(
-            user=user, org=user.organisation, scope=SCOPE_ACTIVITIES_UPDATE)
+            user=user, org=current_user.organisation, scope=SCOPE_ACTIVITIES_UPDATE)
     except:
-        flash("User didnt gave permission to update his/her records", "warning")
+        flash("User didn't give permissions to update his/her records", "warning")
         return redirect(url_for("viewmembers"))
 
     swagger_client.configuration.access_token = orcidToken.access_token
     # create an instance of the API class
     api_instance = swagger_client.MemberAPIV20Api()
     try:
-        # Fetch all employments
-        api_response = api_instance.view_employments(user.orcid)
+        # Fetch all entries
+        if section_type == "EMP":
+            api_response = api_instance.view_employments(user.orcid)
+        elif section_type == "EDU":
+            api_response = api_instance.view_educations(user.orcid)
         print(api_response)
     except ApiException as e:
         print("Exception when calling MemberAPIV20Api->view_employments: %s\n" % e.body)
@@ -339,10 +356,13 @@ def employment_list(user_id):
     try:
         data = api_response.to_dict()
     except:
-        flash("User didn't gave permission to update his/her records", "warning")
+        flash("User didn't give permissions to update his/her records", "warning")
         return redirect(url_for("viewmembers"))
     # TODO: transform data for presentation:
-    return render_template("employments.html", data=data, user_id=user_id)
+    if section_type == "EMP":
+        return render_template("employments.html", data=data, user_id=user_id)
+    elif section_type == "EDU":
+        return render_template("educations.html", data=data, user_id=user_id)
 
 
 @app.route("/load/org", methods=["GET", "POST"])
