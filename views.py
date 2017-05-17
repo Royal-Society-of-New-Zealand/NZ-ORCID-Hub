@@ -91,7 +91,6 @@ class OrcidTokenAdmin(AppModelView):
 
     can_export = True
     can_create = False
-    can_edit = False
 
 
 admin.add_view(UserAdmin(User))
