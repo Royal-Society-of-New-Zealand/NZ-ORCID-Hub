@@ -213,7 +213,8 @@ class OrgInfo(BaseModel):
             if idxs[i] is None:
                 return None
             else:
-                return row[idxs[i]]
+                v = row[idxs[i]].strip()
+                return None if v == '' else v
 
         for row in reader:
             name = val(row, 0)
