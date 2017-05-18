@@ -147,8 +147,11 @@ def shib_login():
             " So we are not able to determine the nature of affiliation you have with your organisation",
             "danger")
 
-    org, created = Organisation.get_or_create(tuakiri_name=shib_org_name)
-    if created:
+    try:
+        org = Organisation.get(Organisation.tuakiri_name == shib_org_name or
+                               Organisation.name == shib_org_name)
+    except Organisation.DoesNotExist:
+        org = Organisation(tuakiri_name=shib_org_name)
         # try to get the official organisation name:
         try:
             org_info = OrgInfo.get(tuakiri_name=shib_org_name)
