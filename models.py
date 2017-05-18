@@ -112,7 +112,7 @@ class Organisation(BaseModel):
     Research oranisation
     """
 
-    name = CharField(max_length=100, unique=True)
+    name = CharField(max_length=100, unique=True, null=True)
     email = CharField(max_length=80, null=True)
     tuakiri_name = CharField(max_length=80, unique=True, null=True)
     orcid_client_id = CharField(max_length=80, unique=True, null=True)
@@ -140,13 +140,21 @@ class Organisation(BaseModel):
             on=(self.userorg_set.c.user_id == User.id))
 
     def __repr__(self):
-        return self.name
+        return self.name or self.tuakiri_name
+
+    def save(self, *args, **kwargs):
+        """Handle data saving."""
+        if self.name is None:
+            self.name = self.tuakiri_name
+
+        super().save(*args, **kwargs)
 
 
 class OrgInfo(BaseModel):
     """Preloaded organisation data."""
 
     name = CharField(max_length=100, unique=True, verbose_name="Organisation")
+    tuakiri_name = CharField(max_length=100, unique=True, null=True, verbose_name="TUAKIRI Name")
     title = CharField(null=True, verbose_name="Contact person tile")
     first_name = CharField(null=True, verbose_name="Contact person's first name")
     last_name = CharField(null=True, verbose_name="Contact person's last name")
@@ -189,7 +197,7 @@ class OrgInfo(BaseModel):
             for ex in ("organisation|name", "title", r"first\s*(name)?", r"last\s*(name)?", "role",
                        "email", "phone", "public|permission to post to web", r"country\s*(code)?",
                        "city", "(common:)?disambiguated.*identifier",
-                       "(common:)?disambiguation.*source")
+                       "(common:)?disambiguation.*source", r"tuakiri\s*(name)?")
         ]
 
         def index(rex):
@@ -206,7 +214,8 @@ class OrgInfo(BaseModel):
             if idxs[i] is None:
                 return None
             else:
-                return row[idxs[i]]
+                v = row[idxs[i]].strip()
+                return None if v == '' else v
 
         for row in reader:
             name = val(row, 0)
@@ -219,10 +228,12 @@ class OrgInfo(BaseModel):
             oi.email = val(row, 5)
             oi.phone = val(row, 6)
             oi.is_public = val(row, 7) and val(row, 7).upper() == "YES"
-            oi.country = val(row, 8)
+            oi.country = val(row, 8) or DEFAULT_COUNTRY
             oi.city = val(row, 9)
             oi.disambiguation_org_id = val(row, 10)
             oi.disambiguation_source = val(row, 11)
+            oi.tuakiri_name = val(row, 12)
+
             oi.save()
 
         return reader.line_num - 1
@@ -255,6 +266,9 @@ class User(BaseModel, UserMixin):
     # TODO: we still need to rememeber the rognanistiaon that last authenticated the user
     organisation = ForeignKeyField(
         Organisation, related_name="members", on_delete="CASCADE", null=True)
+
+    def __repr__(self):
+        return self.name or self.email or self.orcid or super().__repr__()
 
     @property
     def organisations(self):

@@ -114,7 +114,7 @@ def shib_login():
             ** for organisation administrator or technical contact, the completion of the on-boarding.
     """
     _next = request.args.get('_next')
-    data = request.args.get('data')
+
     # TODO: make it secret
     if EXTERNAL_SP:
         sp_url = urlparse(EXTERNAL_SP)
@@ -122,21 +122,16 @@ def shib_login():
             "auth_secret")
         data = requests.get(attr_url, verify=False).text
         data = pickle.loads(zlib.decompress(base64.b64decode(data)))
-        token = data.get("Auedupersonsharedtoken")
-        last_name = data['Sn']
-        first_name = data['Givenname']
-        email = data['Mail']
-        session["shib_O"] = shib_org_name = data['O']
-        name = data.get('Displayname')
-        eduPersonAffiliation = data.get('Unscoped-Affiliation')
     else:
-        token = request.headers.get("Auedupersonsharedtoken")
-        last_name = request.headers['Sn']
-        first_name = request.headers['Givenname']
-        email = request.headers['Mail']
-        session["shib_O"] = shib_org_name = request.headers['O']
-        name = request.headers.get('Displayname')
-        eduPersonAffiliation = request.headers.get('Unscoped-Affiliation')
+        data = request.headers
+
+    token = data.get("Auedupersonsharedtoken")
+    last_name = data['Sn']
+    first_name = data['Givenname']
+    email = data['Mail']
+    session["shib_O"] = shib_org_name = data['O']
+    name = data.get('Displayname')
+    eduPersonAffiliation = data.get('Unscoped-Affiliation')
 
     if eduPersonAffiliation:
         if any(epa in eduPersonAffiliation for epa in ['faculty', 'staff']) \
@@ -153,12 +148,18 @@ def shib_login():
             "danger")
 
     try:
-        # TODO: need a separate field for org name comimg from Tuakiri
-        org, _ = Organisation.get_or_create(name=shib_org_name)
+        org = Organisation.get(Organisation.tuakiri_name == shib_org_name or
+                               Organisation.name == shib_org_name)
     except Organisation.DoesNotExist:
-        org = None
-        # flash("Your organisation (%s) is not onboarded properly, Contact Orcid Hub Admin" % shib_org_name, "danger")
-        # return render_template("index.html", _next=_next)
+        org = Organisation(tuakiri_name=shib_org_name)
+        # try to get the official organisation name:
+        try:
+            org_info = OrgInfo.get(tuakiri_name=shib_org_name)
+        except OrgInfo.DoesNotExist:
+            org.name = shib_org_name
+        else:
+            org.name = org_info.name
+        org.save()
 
     try:
         user = User.get(User.email == email)
@@ -307,8 +308,8 @@ def orcid_callback():
 
     orciduser = User.get(email=user.email, organisation=user.organisation)
 
-    orcid_token, orcid_token_found = OrcidToken.get_or_create(user=orciduser, org=orciduser.organisation,
-                                                              scope=token["scope"][0])
+    orcid_token, orcid_token_found = OrcidToken.get_or_create(
+        user=orciduser, org=orciduser.organisation, scope=token["scope"][0])
     orcid_token.access_token = token["access_token"]
     orcid_token.refresh_token = token["refresh_token"]
     orcid_token.save()
@@ -334,8 +335,8 @@ def orcid_callback():
 
             # TODO: denormilize model!!!
             if (orciduser.edu_person_affiliation == EDU_PERSON_AFFILIATION_EMPLOYMENT or
-                    orciduser.edu_person_affiliation == EDU_PERSON_AFFILIATION_EMPLOYMENT + " and " +
-                    EDU_PERSON_AFFILIATION_EDUCATION):
+                    orciduser.edu_person_affiliation == EDU_PERSON_AFFILIATION_EMPLOYMENT + " and "
+                    + EDU_PERSON_AFFILIATION_EDUCATION):
                 employment = swagger_client.Employment()
 
                 employment.source = swagger_client.Source(
@@ -359,8 +360,8 @@ def orcid_callback():
 
             # TODO: denormilize model!!!
             if (orciduser.edu_person_affiliation == EDU_PERSON_AFFILIATION_EDUCATION or
-                    orciduser.edu_person_affiliation == EDU_PERSON_AFFILIATION_EMPLOYMENT + " and " +
-                    EDU_PERSON_AFFILIATION_EDUCATION):
+                    orciduser.edu_person_affiliation == EDU_PERSON_AFFILIATION_EMPLOYMENT + " and "
+                    + EDU_PERSON_AFFILIATION_EDUCATION):
 
                 education = swagger_client.Education()
 
@@ -412,10 +413,7 @@ def profile():
             orcidTokenRead.delete_instance()
             return redirect(url_for("link"))
         else:
-            return render_template(
-                "profile.html",
-                user=user,
-                profile_url=ORCID_BASE_URL)
+            return render_template("profile.html", user=user, profile_url=ORCID_BASE_URL)
 
 
 @app.route("/invite/user", methods=["GET"])

@@ -30,8 +30,8 @@ def app():
     _app.config['TESTING'] = True
     _app.db = _db = SqliteDatabase(":memory:")
 
-    with test_database(_db, (Organisation, User, UserOrg, OrcidToken,
-                             UserOrgAffiliation)):  # noqa: F405
+    with test_database(_db, (Organisation, User, UserOrg, OrcidToken, UserOrgAffiliation,
+                             OrgInfo)):  # noqa: F405
         yield _app
 
     ctx.pop()
