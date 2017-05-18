@@ -153,8 +153,7 @@ class OrgInfo(BaseModel):
     """Preloaded organisation data."""
 
     name = CharField(max_length=100, unique=True, verbose_name="Organisation")
-    tuakiri_name = CharField(max_length=100, unique=True, null=True,
-                             verbose_name="TUAKIRI Name")
+    tuakiri_name = CharField(max_length=100, unique=True, null=True, verbose_name="TUAKIRI Name")
     title = CharField(null=True, verbose_name="Contact person tile")
     first_name = CharField(null=True, verbose_name="Contact person's first name")
     last_name = CharField(null=True, verbose_name="Contact person's last name")

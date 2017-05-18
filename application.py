@@ -42,7 +42,6 @@ app.config['MAIL_SUPPRESS_SEND'] = False
 mail = Mail()
 mail.init_app(app)
 
-
 #admin = Admin(app, name="NZ ORCiD Hub", template_mode="bootstrap3", base_template="layout.html")
 admin = Admin(
     app, name="NZ ORCiD Hub", template_mode="bootstrap3", base_template="admin/master.html")
