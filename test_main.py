@@ -125,7 +125,7 @@ def test_tuakiri_login_with_org(client):
     onboared, the user should be informed about that and
     redirected to the login page.
     """
-    org = Organisation(name="THE ORGANISATION")
+    org = Organisation(tuakiri_name="THE ORGANISATION")
     org.save()
 
     rv = client.get(
