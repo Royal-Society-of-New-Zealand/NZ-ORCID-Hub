@@ -122,7 +122,7 @@ class Organisation(BaseModel):
     city = CharField(null=True)
     disambiguation_org_id = CharField(null=True)
     disambiguation_org_source = CharField(null=True)
-    isEmailConfirmed = BooleanField(default=False)
+    is_email_confirmed = BooleanField(default=False)
 
     @property
     def users(self):

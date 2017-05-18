@@ -209,7 +209,7 @@ def shib_login():
         return redirect(url_for("invite_organisation"))
     elif org and org.confirmed:
         return redirect(url_for("link"))
-    elif org and org.isEmailConfirmed and (not org.confirmed) and user.tech_contact:
+    elif org and org.is_email_confirmed and (not org.confirmed) and user.tech_contact:
         return redirect(url_for("update_org_Info"))
     else:
         flash("Your organisation (%s) is not onboarded" % shib_org_name, "danger")
@@ -560,7 +560,7 @@ def confirm_organisation(token=None):
                 organisation.city = form.city.data
                 organisation.disambiguation_org_id = form.disambiguation_org_id.data
                 organisation.disambiguation_org_source = form.disambiguation_org_source.data
-                organisation.isEmailConfirmed = True
+                organisation.is_email_confirmed = True
 
                 headers = {'Accept': 'application/json'}
                 data = [
@@ -591,10 +591,10 @@ def confirm_organisation(token=None):
     elif request.method == 'GET':
 
         organisation = Organisation.get(email=email)
-        if organisation is not None and not organisation.isEmailConfirmed:
-            organisation.isEmailConfirmed = True
+        if organisation is not None and not organisation.is_email_confirmed:
+            organisation.is_email_confirmed = True
             organisation.save()
-        elif organisation is not None and organisation.isEmailConfirmed:
+        elif organisation is not None and organisation.is_email_confirmed:
             flash("""Your email link has expired. However, you should be able to login directly!""", "warning")
             return redirect(url_for("login"))
 
@@ -621,14 +621,14 @@ def confirm_organisation(token=None):
 
         try:
             orgInfo = OrgInfo.get(email=email)
-        except OrgInfo.DoesNotExist:
-            pass
-        else:
             form.city.data = organisation.city = orgInfo.city
             form.disambiguation_org_id.data = organisation.disambiguation_org_id = orgInfo.disambiguation_org_id
             form.disambiguation_org_source.data = organisation.disambiguation_org_source = orgInfo.disambiguation_source
-            organisation.country = form.country.data
-            organisation.save()
+
+        except OrgInfo.DoesNotExist:
+            pass
+        organisation.country = form.country.data
+        organisation.save()
 
     return render_template('orgconfirmation.html', clientSecret_url=clientSecret_url, form=form)
 
