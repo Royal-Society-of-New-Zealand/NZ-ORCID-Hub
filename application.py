@@ -27,7 +27,7 @@ app.config['TESTING'] = True
 app.config['SECRET_KEY'] = app.secret_key
 os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
 
-db = connect(DATABASE_URL)
+db = connect(DATABASE_URL, autorollback=True)
 
 if app.debug:
     app.config['DEBUG_TB_INTERCEPT_REDIRECTS'] = False
