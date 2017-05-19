@@ -12,11 +12,11 @@ def initdb():
         name="The University of Auckland", email="root@mailinator.com", confirmed=True, roles=Role.SUPERUSER)
     super_user.save()
 
-    org1 = Organisation(
+    org = Organisation(
         name="The University of Auckland",
         email="root@mailinator.com",
         tuakiri_name="University of Auckland")
-    org1.save()
+    org.save()
 
 if __name__ == "__main__":
     initdb()
