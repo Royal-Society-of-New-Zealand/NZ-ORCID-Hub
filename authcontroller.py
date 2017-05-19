@@ -5,6 +5,7 @@ Collection of applicion views involved in organisation on-boarding and
 user (reseaser) affiliations.
 """
 
+import jwt
 import base64
 import pickle
 import zlib
@@ -23,7 +24,7 @@ import secrets
 import swagger_client
 import utils
 from application import app, mail
-from config import (APP_DESCRIPTION, APP_NAME, APP_URL, AUTHORIZATION_BASE_URL, CRED_TYPE_PREMIUM,
+from config import (RAPID_CONNECT_LOGIN_URL, APP_DESCRIPTION, APP_NAME, APP_URL, AUTHORIZATION_BASE_URL, CRED_TYPE_PREMIUM, RAPID_CONNECT_SECRET,
                     EDU_PERSON_AFFILIATION_EDUCATION, EDU_PERSON_AFFILIATION_EMPLOYMENT,
                     EXTERNAL_SP, MEMBER_API_FORM_BASE_URL, NEW_CREDENTIALS, NOTE_ORCID,
                     ORCID_API_BASE, SCOPE_ACTIVITIES_UPDATE, TOKEN_URL, ORCID_BASE_URL)
@@ -43,7 +44,9 @@ HEADERS = {'Accept': 'application/vnd.orcid+json', 'Content-type': 'application/
 def login():
     """Main landing page."""
     _next = request.args.get('next')
-    if EXTERNAL_SP:
+    if RAPID_CONNECT_LOGIN_URL:
+        shib_login_url = RAPID_CONNECT_LOGIN_URL
+    elif EXTERNAL_SP:
         session["auth_secret"] = secret_token = secrets.token_urlsafe()
         _next = url_for("shib_login", _next=_next, _external=True)
         shib_login_url = EXTERNAL_SP
@@ -89,8 +92,9 @@ def get_attributes(key):
 
 
 @app.route("/Tuakiri/login")
-def shib_login():
-    """Shibboleth authenitcation handler.
+@app.route("/auth/jwt", methods=["POST"])
+def handle_login():
+    """Shibboleth and Rapid Connect authenitcation handler.
 
     The (Apache) location should requier authentication using Shibboleth, e.g.,
 
@@ -115,35 +119,45 @@ def shib_login():
     """
     _next = request.args.get('_next')
 
-    # TODO: make it secret
-    if EXTERNAL_SP:
-        sp_url = urlparse(EXTERNAL_SP)
-        attr_url = sp_url.scheme + "://" + sp_url.netloc + "/sp/attributes/" + session.get(
-            "auth_secret")
-        data = requests.get(attr_url, verify=False).text
-        data = pickle.loads(zlib.decompress(base64.b64decode(data)))
+    if request.method == "POST":
+        data = jwt.decode(request.form["assertion"], RAPID_CONNECT_SECRET, verify=False)['https://aaf.edu.au/attributes']
+        token = data.get("edupersonprincipalname")
+        last_name = data["surname"]
+        first_name = data["givenname"]
+        email = data["mail"]
+        session["shib_O"] = shib_org_name = "University of Auckland"
+        name = data.get("displayname")
+        edu_person_affiliation = data.get("edupersonscopedaffiliation")
     else:
-        data = request.headers
+        # TODO: make it secret
+        if EXTERNAL_SP:
+            sp_url = urlparse(EXTERNAL_SP)
+            attr_url = sp_url.scheme + "://" + sp_url.netloc + "/sp/attributes/" + session.get(
+                "auth_secret")
+            data = requests.get(attr_url, verify=False).text
+            data = pickle.loads(zlib.decompress(base64.b64decode(data)))
+        else:
+            data = request.headers
 
-    token = data.get("Auedupersonsharedtoken")
-    last_name = data['Sn']
-    first_name = data['Givenname']
-    email = data['Mail']
-    session["shib_O"] = shib_org_name = data['O']
-    name = data.get('Displayname')
-    eduPersonAffiliation = data.get('Unscoped-Affiliation')
+        token = data.get("Auedupersonsharedtoken")
+        last_name = data['Sn']
+        first_name = data['Givenname']
+        email = data['Mail']
+        session["shib_O"] = shib_org_name = data['O']
+        name = data.get('Displayname')
+        edu_person_affiliation = data.get('Unscoped-Affiliation')
 
-    if eduPersonAffiliation:
-        if any(epa in eduPersonAffiliation for epa in ['faculty', 'staff']) \
-                and any(epa in eduPersonAffiliation for epa in ['student', 'alum']):
-            eduPersonAffiliation = EDU_PERSON_AFFILIATION_EMPLOYMENT + " and " + EDU_PERSON_AFFILIATION_EDUCATION
-        elif any(epa in eduPersonAffiliation for epa in ['faculty', 'staff']):
-            eduPersonAffiliation = EDU_PERSON_AFFILIATION_EMPLOYMENT
-        elif any(epa in eduPersonAffiliation for epa in ['student', 'alum']):
-            eduPersonAffiliation = EDU_PERSON_AFFILIATION_EDUCATION
+    if edu_person_affiliation:
+        if any(epa in edu_person_affiliation for epa in ['faculty', 'staff']) \
+                and any(epa in edu_person_affiliation for epa in ['student', 'alum']):
+            edu_person_affiliation = EDU_PERSON_AFFILIATION_EMPLOYMENT + " and " + EDU_PERSON_AFFILIATION_EDUCATION
+        elif any(epa in edu_person_affiliation for epa in ['faculty', 'staff']):
+            edu_person_affiliation = EDU_PERSON_AFFILIATION_EMPLOYMENT
+        elif any(epa in edu_person_affiliation for epa in ['student', 'alum']):
+            edu_person_affiliation = EDU_PERSON_AFFILIATION_EDUCATION
     else:
         flash(
-            "The value of eduPersonAffiliation was not supplied from your identity provider,"
+            "The value of edu_person_affiliation was not supplied from your identity provider,"
             " So we are not able to determine the nature of affiliation you have with your organisation",
             "danger")
 
@@ -173,8 +187,8 @@ def shib_login():
             user.first_name = first_name
         if not user.last_name and last_name:
             user.last_name = last_name
-        if eduPersonAffiliation:
-            user.edu_person_affiliation = eduPersonAffiliation
+        if edu_person_affiliation:
+            user.edu_person_affiliation = edu_person_affiliation
             # TODO: keep login auditing (last_loggedin_at... etc)
 
     except User.DoesNotExist:
@@ -185,7 +199,7 @@ def shib_login():
             last_name=last_name,
             roles=Role.RESEARCHER,
             edu_person_shared_token=token,
-            edu_person_affiliation=eduPersonAffiliation)
+            edu_person_affiliation=edu_person_affiliation)
 
     if org is not None and org not in user.organisations:
         UserOrg.create(user=user, org=org)
@@ -262,6 +276,8 @@ def link():
 def orcid_callback_proxy(url):
     url = unquote(url)
     return redirect(url + '?' + urlencode(request.args))
+
+
 
 
 # Step 2: User authorization, this happens on the provider.
