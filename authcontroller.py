@@ -495,7 +495,8 @@ def invite_organisation():
                         "email/org_invitation.html",
                         recipient=(form.orgName.data, form.orgEmailid.data),
                         token=token,
-                        org_name=form.orgName.data)
+                        org_name=form.orgName.data,
+                        user=user)
                     flash("Organisation Onboarded Successfully!!! "
                           "Welcome to the NZ ORCID Hub.  A notice has been sent to the Hub Admin",
                           "success")
