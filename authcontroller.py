@@ -421,7 +421,7 @@ def profile():
 def invite_user():
     """Invite a researcher to join the hub."""
     # For now on boarding of researcher is not supported
-    return "Work in Progress!!!"
+    return "Work in Progress!"
 
 
 # TODO: user can be admin for multiple org and org can have multiple admins:
@@ -497,7 +497,7 @@ def invite_organisation():
                         token=token,
                         org_name=form.orgName.data,
                         user=user)
-                    flash("Organisation Onboarded Successfully!!! "
+                    flash("Organisation Onboarded Successfully! "
                           "Welcome to the NZ ORCID Hub.  A notice has been sent to the Hub Admin",
                           "success")
 
@@ -579,7 +579,7 @@ def confirm_organisation(token=None):
                 response = requests.post(TOKEN_URL, headers=headers, data=data)
 
                 if response.status_code == 401:
-                    flash("The Client id and Client Secret are not valid!!!", "danger")
+                    flash("The Client id and Client Secret are not valid!", "danger")
                 else:
                     organisation.confirmed = True
                     organisation.orcid_client_id = form.orgOricdClientId.data
@@ -590,7 +590,7 @@ def confirm_organisation(token=None):
                         msg.body = "Congratulations your emailid has been confirmed and " \
                                    "organisation onboarded successfully."
                         mail.send(msg)
-                        flash("Your Onboarding is Completed!!!", "success")
+                        flash("Your Onboarding is Completed!", "success")
 
                     organisation.save()
                     return redirect(url_for("link"))
@@ -747,12 +747,12 @@ def update_org_Info():
                 response = requests.post(TOKEN_URL, headers=headers, data=data)
 
                 if response.status_code == 401:
-                    flash("The Client id and Client Secret are not valid!!!", "danger")
+                    flash("The Client id and Client Secret are not valid!", "danger")
                 else:
                     organisation.confirmed = True
                     organisation.orcid_client_id = form.orgOricdClientId.data
                     organisation.orcid_secret = form.orgOrcidClientSecret.data
-                    flash("Organisation information updated successfully!!!", "success")
+                    flash("Organisation information updated successfully!", "success")
                     organisation.save()
                     return redirect(url_for("link"))
 
