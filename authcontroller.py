@@ -148,8 +148,8 @@ def shib_login():
             "danger")
 
     try:
-        org = Organisation.get(Organisation.tuakiri_name == shib_org_name or
-                               Organisation.name == shib_org_name)
+        org = Organisation.get((Organisation.tuakiri_name == shib_org_name)
+                               | (Organisation.name == shib_org_name))
     except Organisation.DoesNotExist:
         org = Organisation(tuakiri_name=shib_org_name)
         # try to get the official organisation name:
@@ -554,7 +554,14 @@ def confirm_organisation(token=None):
 
     # For now only GET method is implemented will need post method for organisation
     # to enter client secret and client key for orcid
-    organisation = Organisation.get(email=email)
+
+    try:
+        organisation = Organisation.get(email=email)
+    except Organisation.DoesNotExist:
+        flash('We are very sorry, Your organisation invitation was Cancelled, '
+              'Please Contact ORCID HUB Admin!', "danger")
+        return redirect(url_for("login"))
+
     if request.method == 'POST':
         if not form.validate():
             flash('Please fill in all fields and try again!', "danger")
@@ -596,7 +603,6 @@ def confirm_organisation(token=None):
                     return redirect(url_for("link"))
 
     elif request.method == 'GET':
-
         if organisation is not None and not organisation.is_email_confirmed:
             organisation.is_email_confirmed = True
             organisation.save()
@@ -612,7 +618,8 @@ def confirm_organisation(token=None):
         and come back to this form once you have them.""", "warning")
 
         try:
-            orgInfo = OrgInfo.get(email=email)
+            orgInfo = OrgInfo.get((OrgInfo.email == email) | (OrgInfo.tuakiri_name == user.organisation.name)
+                                  | (OrgInfo.name == user.organisation.name))
             form.city.data = organisation.city = orgInfo.city
             form.disambiguation_org_id.data = organisation.disambiguation_org_id = orgInfo.disambiguation_org_id
             form.disambiguation_org_source.data = organisation.disambiguation_org_source = orgInfo.disambiguation_source
