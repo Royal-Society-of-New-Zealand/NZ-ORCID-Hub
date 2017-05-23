@@ -149,14 +149,19 @@ def handle_login():
             "danger")
 
     try:
-        org = Organisation.get((Organisation.tuakiri_name == shib_org_name)
-                               | (Organisation.name == shib_org_name))
+        org = Organisation.get((Organisation.tuakiri_name == shib_org_name) | (
+            Organisation.name == shib_org_name))
     except Organisation.DoesNotExist:
         org = Organisation(tuakiri_name=shib_org_name)
         # try to get the official organisation name:
         try:
+<<<<<<< Updated upstream
             org_info = OrgInfo.get(OrgInfo.tuakiri_name == shib_org_name or
                                    OrgInfo.name == shib_org_name)
+=======
+            org_info = OrgInfo.get((OrgInfo.tuakiri_name == shib_org_name) | (
+                OrgInfo.name == shib_org_name))
+>>>>>>> Stashed changes
         except OrgInfo.DoesNotExist:
             org.name = shib_org_name
         else:
@@ -246,18 +251,16 @@ def link():
     # TODO: re-affiliation after revoking access?
     # TODO: affiliation with multiple orgs should lookup UserOrg
 
-    user = User.get(email=current_user.email, organisation=current_user.organisation)
-    orcidTokenWrite = None
     try:
-        orcidTokenWrite = OrcidToken.get(
-            user=user, org=user.organisation, scope=SCOPE_ACTIVITIES_UPDATE)
+        OrcidToken.get(
+            user=current_user, org=current_user.organisation, scope=SCOPE_ACTIVITIES_UPDATE)
+    except OrcidToken.DoesNotExist:
+        return render_template("linking.html", orcid_url_write=orcid_url_write)
     except:
+        # TODO: need to handle this
         pass
-
-    if orcidTokenWrite is not None:
+    else:
         return redirect(url_for("profile"))
-
-    return render_template("linking.html", orcid_url_write=orcid_url_write)
 
 
 @app.route("/auth/<path:url>", methods=["GET"])
@@ -308,6 +311,7 @@ def orcid_callback():
     if not user.name and name:
         user.name = name
 
+    # TODO: refactor this "user" and "orciduser" effectively are the same
     orciduser = User.get(email=user.email, organisation=user.organisation)
 
     orcid_token, orcid_token_found = OrcidToken.get_or_create(
@@ -322,8 +326,10 @@ def orcid_callback():
         api_instance = swagger_client.MemberAPIV20Api()
 
         source_clientid = swagger_client.SourceClientId(
+            # TODO: this shouldn't be hardcoded
             host='sandbox.orcid.org',
             path=orciduser.organisation.orcid_client_id,
+            # TODO: this shouldn't be hardcoded
             uri="http://sandbox.orcid.org/client/" + orciduser.organisation.orcid_client_id)
 
         organisation_address = swagger_client.OrganizationAddress(
@@ -403,8 +409,11 @@ def profile():
     try:
         orcidTokenRead = OrcidToken.get(
             user=user, org=user.organisation, scope=SCOPE_ACTIVITIES_UPDATE)
-    except:
+    except OrcidToken.DoesNotExist:
         return redirect(url_for("link"))
+    except:
+        # TODO: need to handle this
+        pass
     else:
         client = OAuth2Session(
             user.organisation.orcid_client_id, token={"access_token": orcidTokenRead.access_token})
@@ -537,6 +546,7 @@ def confirm_organisation(token=None):
               "danger")
         return redirect(url_for("login"))
 
+    # TODO: refactor this: user == current_user here no need to requery DB
     user = User.get(email=current_user.email, organisation=current_user.organisation)
     if not user.tech_contact:
         user.save()
@@ -622,8 +632,9 @@ def confirm_organisation(token=None):
         and come back to this form once you have them.""", "warning")
 
         try:
-            orgInfo = OrgInfo.get((OrgInfo.email == email) | (OrgInfo.tuakiri_name == user.organisation.name)
-                                  | (OrgInfo.name == user.organisation.name))
+            orgInfo = OrgInfo.get((OrgInfo.email == email) | (
+                OrgInfo.tuakiri_name == user.organisation.name) | (
+                    OrgInfo.name == user.organisation.name))
             form.city.data = organisation.city = orgInfo.city
             form.disambiguation_org_id.data = organisation.disambiguation_org_id = orgInfo.disambiguation_org_id
             form.disambiguation_org_source.data = organisation.disambiguation_org_source = orgInfo.disambiguation_source
