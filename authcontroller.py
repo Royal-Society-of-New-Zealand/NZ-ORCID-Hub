@@ -7,6 +7,7 @@ user (reseaser) affiliations.
 
 import base64
 import pickle
+import secrets
 import zlib
 from os import path, remove
 from tempfile import gettempdir
@@ -19,17 +20,16 @@ from flask_mail import Message
 from requests_oauthlib import OAuth2Session
 from werkzeug.urls import iri_to_uri
 
-import secrets
 import swagger_client
 import utils
 from application import app, mail
 from config import (APP_DESCRIPTION, APP_NAME, APP_URL, AUTHORIZATION_BASE_URL, CRED_TYPE_PREMIUM,
                     EDU_PERSON_AFFILIATION_EDUCATION, EDU_PERSON_AFFILIATION_EMPLOYMENT,
                     EXTERNAL_SP, MEMBER_API_FORM_BASE_URL, NEW_CREDENTIALS, NOTE_ORCID,
-                    ORCID_API_BASE, SCOPE_ACTIVITIES_UPDATE, TOKEN_URL, ORCID_BASE_URL)
+                    ORCID_API_BASE, ORCID_BASE_URL, SCOPE_ACTIVITIES_UPDATE, TOKEN_URL)
 from forms import OnboardingTokenForm
 from login_provider import roles_required
-from models import OrcidToken, Organisation, Role, User, UserOrg, OrgInfo
+from models import OrcidToken, Organisation, OrgInfo, Role, User, UserOrg
 from registrationForm import OrgConfirmationForm, OrgRegistrationForm
 from swagger_client.rest import ApiException
 from tokenGeneration import confirm_token, generate_confirmation_token
@@ -45,14 +45,14 @@ def login():
     _next = request.args.get('next')
     if EXTERNAL_SP:
         session["auth_secret"] = secret_token = secrets.token_urlsafe()
-        _next = url_for("shib_login", _next=_next, _external=True)
-        shib_login_url = EXTERNAL_SP
-        shib_login_url += ('&' if urlparse(EXTERNAL_SP).query else '?')
-        shib_login_url += urlencode(dict(_next=_next, key=secret_token))
+        _next = url_for("handle_login", _next=_next, _external=True)
+        login_url = EXTERNAL_SP
+        login_url += ('&' if urlparse(EXTERNAL_SP).query else '?')
+        login_url += urlencode(dict(_next=_next, key=secret_token))
     else:
-        shib_login_url = url_for("shib_login", _next=_next)
+        login_url = url_for("handle_login", _next=_next)
 
-    return render_template("index.html", ship_login_url=shib_login_url)
+    return render_template("index.html", login_url=login_url)
 
 
 @app.route("/Tuakiri/SP")
@@ -89,8 +89,9 @@ def get_attributes(key):
 
 
 @app.route("/Tuakiri/login")
-def shib_login():
-    """Shibboleth authenitcation handler.
+@app.route("/auth/jwt", methods=["POST"])
+def handle_login():
+    """Shibboleth and Rapid Connect authenitcation handler.
 
     The (Apache) location should requier authentication using Shibboleth, e.g.,
 
@@ -131,19 +132,19 @@ def shib_login():
     email = data['Mail']
     session["shib_O"] = shib_org_name = data['O']
     name = data.get('Displayname')
-    eduPersonAffiliation = data.get('Unscoped-Affiliation')
+    edu_person_affiliation = data.get('Unscoped-Affiliation')
 
-    if eduPersonAffiliation:
-        if any(epa in eduPersonAffiliation for epa in ['faculty', 'staff']) \
-                and any(epa in eduPersonAffiliation for epa in ['student', 'alum']):
-            eduPersonAffiliation = EDU_PERSON_AFFILIATION_EMPLOYMENT + " and " + EDU_PERSON_AFFILIATION_EDUCATION
-        elif any(epa in eduPersonAffiliation for epa in ['faculty', 'staff']):
-            eduPersonAffiliation = EDU_PERSON_AFFILIATION_EMPLOYMENT
-        elif any(epa in eduPersonAffiliation for epa in ['student', 'alum']):
-            eduPersonAffiliation = EDU_PERSON_AFFILIATION_EDUCATION
+    if edu_person_affiliation:
+        if any(epa in edu_person_affiliation for epa in ['faculty', 'staff']) \
+                and any(epa in edu_person_affiliation for epa in ['student', 'alum']):
+            edu_person_affiliation = EDU_PERSON_AFFILIATION_EMPLOYMENT + " and " + EDU_PERSON_AFFILIATION_EDUCATION
+        elif any(epa in edu_person_affiliation for epa in ['faculty', 'staff']):
+            edu_person_affiliation = EDU_PERSON_AFFILIATION_EMPLOYMENT
+        elif any(epa in edu_person_affiliation for epa in ['student', 'alum']):
+            edu_person_affiliation = EDU_PERSON_AFFILIATION_EDUCATION
     else:
         flash(
-            "The value of eduPersonAffiliation was not supplied from your identity provider,"
+            "The value of edu_person_affiliation was not supplied from your identity provider,"
             " So we are not able to determine the nature of affiliation you have with your organisation",
             "danger")
 
@@ -154,7 +155,8 @@ def shib_login():
         org = Organisation(tuakiri_name=shib_org_name)
         # try to get the official organisation name:
         try:
-            org_info = OrgInfo.get(tuakiri_name=shib_org_name)
+            org_info = OrgInfo.get(OrgInfo.tuakiri_name == shib_org_name or
+                                   OrgInfo.name == shib_org_name)
         except OrgInfo.DoesNotExist:
             org.name = shib_org_name
         else:
@@ -173,8 +175,8 @@ def shib_login():
             user.first_name = first_name
         if not user.last_name and last_name:
             user.last_name = last_name
-        if eduPersonAffiliation:
-            user.edu_person_affiliation = eduPersonAffiliation
+        if edu_person_affiliation:
+            user.edu_person_affiliation = edu_person_affiliation
             # TODO: keep login auditing (last_loggedin_at... etc)
 
     except User.DoesNotExist:
@@ -185,7 +187,7 @@ def shib_login():
             last_name=last_name,
             roles=Role.RESEARCHER,
             edu_person_shared_token=token,
-            edu_person_affiliation=eduPersonAffiliation)
+            edu_person_affiliation=edu_person_affiliation)
 
     if org is not None and org not in user.organisations:
         UserOrg.create(user=user, org=org)
@@ -607,7 +609,9 @@ def confirm_organisation(token=None):
             organisation.is_email_confirmed = True
             organisation.save()
         elif organisation is not None and organisation.is_email_confirmed:
-            flash("""Your email link has expired. However, you should be able to login directly!""", "warning")
+            flash(
+                """Your email link has expired. However, you should be able to login directly!""",
+                "warning")
             return redirect(url_for("login"))
 
         form.orgEmailid.data = email

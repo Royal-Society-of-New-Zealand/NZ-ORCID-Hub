@@ -37,21 +37,7 @@
       {% block content %}{% endblock %}
     </div>
     </div>
-
-    <!--  Footer Details -->
-    <footer class="footer">
-      <div class="container">
-        <section>
-          <p class="contact">
-          Contact details for the NZ ORCID Hub<br>
-          Phone: (04) 472 7421<br>
-          PO Box 598, Wellington 6140<br>
-          <b><a href="mailto:orcid@royalsociety.org.nz">orcid@royalsociety.org.nz</a></b>
-          </p>
-          <p class="copyright">CC-BY-NC 2017 Royal Society of New Zealand</p>
-        </section>
-      </div>
-    </footer>
+    {% include 'footer.html' %}
 
     {% block scripts %}
       <!-- javascript at the bottom for fast page loading -->
