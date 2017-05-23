@@ -523,7 +523,7 @@ def confirm_organisation(token=None):
 
         return render_template("missing_onboarding_token.html", form=form)
 
-    clientSecret_url = None
+    client_secret_url = None
     email = confirm_token(token)
     user = current_user
 
@@ -630,7 +630,7 @@ def confirm_organisation(token=None):
 
     organisation.save()
     redirect_uri = url_for("orcid_callback", _external=True)
-    clientSecret_url = iri_to_uri(MEMBER_API_FORM_BASE_URL) + "?" + urlencode(
+    client_secret_url = iri_to_uri(MEMBER_API_FORM_BASE_URL) + "?" + urlencode(
         dict(
             new_existing=NEW_CREDENTIALS,
             note=NOTE_ORCID + " " + user.organisation.name,
@@ -642,7 +642,7 @@ def confirm_organisation(token=None):
             app_description=APP_DESCRIPTION + " at " + user.organisation.name,
             app_url=APP_URL,
             redirect_uri_1=redirect_uri))
-    return render_template('orgconfirmation.html', clientSecret_url=clientSecret_url, form=form)
+    return render_template('orgconfirmation.html', client_secret_url=client_secret_url, form=form)
 
 
 @app.after_request
@@ -717,7 +717,7 @@ def update_org_Info():
     user = User.get(email=current_user.email, organisation=current_user.organisation)
     form = OrgConfirmationForm()
     redirect_uri = url_for("orcid_callback", _external=True)
-    clientSecret_url = iri_to_uri(MEMBER_API_FORM_BASE_URL) + "?" + urlencode(
+    client_secret_url = iri_to_uri(MEMBER_API_FORM_BASE_URL) + "?" + urlencode(
         dict(
             new_existing=NEW_CREDENTIALS,
             note=NOTE_ORCID + " " + user.organisation.name,
@@ -779,4 +779,4 @@ def update_org_Info():
         form.orgEmailid.render_kw = {'readonly': True}
 
     organisation.save()
-    return render_template('orgconfirmation.html', clientSecret_url=clientSecret_url, form=form)
+    return render_template('orgconfirmation.html', client_secret_url=client_secret_url, form=form)
