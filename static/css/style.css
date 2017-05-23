@@ -93,8 +93,8 @@
 
 .login-blocks .login-button {
 	border-radius: 43px;
-	border: 2px white solid;
-	color: white;
+	border: 2px #18c0e7 solid;
+	color: #18c0e7;
 	background-color: rgba(0,0,0,0);
 	font-size: 1.0em;
 	padding: 8px;
@@ -102,8 +102,8 @@
 
 .login-blocks .tuakiri {
 	padding-top: 8px;
-	background-color: #00bce9;
-	border: 2px #0091b4 solid;
+	background-color: rgba(0,0,0,0);
+	border: 2px #18c0e7 solid;
 }
 
 .login-blocks .tuakiri:hover {
