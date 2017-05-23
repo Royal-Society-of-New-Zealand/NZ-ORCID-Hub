@@ -1,9 +1,14 @@
 # -*- coding: utf-8 -*-
-"""Py.test configuration and fixtures for testing."""
+"""Py.test configuration and fixtures for testing.
+
+isort:skip_file
+"""
 
 # yapf: disable
 import os
 import sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# yapf: enable
 
 import pytest
 from peewee import SqliteDatabase
@@ -14,8 +19,6 @@ from application import app as _app
 from authcontroller import *  # noqa: F401, F403
 from views import *  # noqa: F401, F403
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-# yapf: enable
 
 # flake8: noqa
 config.DATABASE_URL = os.environ.get("DATABASE_URL") or "sqlite:///:memory:"
