@@ -31,7 +31,7 @@ from config import (RAPID_CONNECT_LOGIN_URL, APP_DESCRIPTION, APP_NAME, APP_URL,
                     ORCID_API_BASE, SCOPE_ACTIVITIES_UPDATE, TOKEN_URL, ORCID_BASE_URL)
 from forms import OnboardingTokenForm
 from login_provider import roles_required
-from models import OrcidToken, Organisation, Role, User, UserOrg, OrgInfo, IdentityProvider
+from models import OrcidToken, Organisation, Role, User, UserOrg, OrgInfo
 from registrationForm import OrgConfirmationForm, OrgRegistrationForm
 from swagger_client.rest import ApiException
 from tokenGeneration import confirm_token, generate_confirmation_token
@@ -45,34 +45,16 @@ HEADERS = {'Accept': 'application/vnd.orcid+json', 'Content-type': 'application/
 def login():
     """Main landing page."""
     _next = request.args.get('next')
-    if RAPID_CONNECT_LOGIN_URL:
-        login_url = url_for("select_idp")
-    elif EXTERNAL_SP:
+    if EXTERNAL_SP:
         session["auth_secret"] = secret_token = secrets.token_urlsafe()
-        _next = url_for("shib_login", _next=_next, _external=True)
+        _next = url_for("handle_login", _next=_next, _external=True)
         login_url = EXTERNAL_SP
         login_url += ('&' if urlparse(EXTERNAL_SP).query else '?')
         login_url += urlencode(dict(_next=_next, key=secret_token))
     else:
-        login_url = url_for("shib_login", _next=_next)
+        login_url = url_for("handle_login", _next=_next)
 
     return render_template("index.html", login_url=login_url)
-
-
-@app.route("/idp")
-def select_idp():
-    """Shows list of IdPs to user to log in."""
-    entity_id = request.args.get("entity_id")
-    if entity_id is not None:
-        session["entityId"] = entity_id
-        resp = redirect(RAPID_CONNECT_LOGIN_URL + "?entityID=" + entity_id)
-        resp.set_cookie("entity_id", value=entity_id)
-        return resp
-
-    last_entity_id = request.cookies.get("entity_id")
-    return render_template(
-        "idp.html", idps=IdentityProvider.select().order_by(IdentityProvider.display_name),
-        last_entity_id=last_entity_id)
 
 
 @app.route("/Tuakiri/SP")
@@ -136,36 +118,23 @@ def handle_login():
     """
     _next = request.args.get('_next')
 
-    if request.method == "POST":
-        data = jwt.decode(
-            request.form["assertion"], RAPID_CONNECT_SECRET,
-            verify=False)['https://aaf.edu.au/attributes']
-        token = data.get("edupersonprincipalname")
-        last_name = data["surname"]
-        first_name = data["givenname"]
-        email = data["mail"]
-        entity_id = session["entityId"]
-        shib_org_name = session["shib_O"] = IdentityProvider.get(entity_id=entity_id).display_name
-        name = data.get("displayname")
-        edu_person_affiliation = data.get("edupersonscopedaffiliation")
+    # TODO: make it secret
+    if EXTERNAL_SP:
+        sp_url = urlparse(EXTERNAL_SP)
+        attr_url = sp_url.scheme + "://" + sp_url.netloc + "/sp/attributes/" + session.get(
+            "auth_secret")
+        data = requests.get(attr_url, verify=False).text
+        data = pickle.loads(zlib.decompress(base64.b64decode(data)))
     else:
-        # TODO: make it secret
-        if EXTERNAL_SP:
-            sp_url = urlparse(EXTERNAL_SP)
-            attr_url = sp_url.scheme + "://" + sp_url.netloc + "/sp/attributes/" + session.get(
-                "auth_secret")
-            data = requests.get(attr_url, verify=False).text
-            data = pickle.loads(zlib.decompress(base64.b64decode(data)))
-        else:
-            data = request.headers
+        data = request.headers
 
-        token = data.get("Auedupersonsharedtoken")
-        last_name = data['Sn']
-        first_name = data['Givenname']
-        email = data['Mail']
-        session["shib_O"] = shib_org_name = data['O']
-        name = data.get('Displayname')
-        edu_person_affiliation = data.get('Unscoped-Affiliation')
+    token = data.get("Auedupersonsharedtoken")
+    last_name = data['Sn']
+    first_name = data['Givenname']
+    email = data['Mail']
+    session["shib_O"] = shib_org_name = data['O']
+    name = data.get('Displayname')
+    edu_person_affiliation = data.get('Unscoped-Affiliation')
 
     if edu_person_affiliation:
         if any(epa in edu_person_affiliation for epa in ['faculty', 'staff']) \
