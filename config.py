@@ -78,5 +78,5 @@ elif ENV == "test":
 else:
     GA_TRACKING_ID = "UA-99022483-3"
 
-RAPID_CONNECT_LOGIN_URL = "https://rapidconnect.staging.tuakiri.ac.nz/jwt/authnrequest/research/Qitgts5aGPJIsKSojDu6Lg?entityID=http://iam.test.auckland.ac.nz/idp"
+RAPID_CONNECT_LOGIN_URL = "https://rapidconnect.staging.tuakiri.ac.nz/jwt/authnrequest/research/Qitgts5aGPJIsKSojDu6Lg"
 RAPID_CONNECT_SECRET = "uutZhUJmzZJEeD87KLceE01c/bCLHHrV"

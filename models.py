@@ -16,6 +16,9 @@ from peewee import (BooleanField, CharField, CompositeKey, DateTimeField, Field,
 from application import db
 from config import DEFAULT_COUNTRY
 
+from xml.etree import ElementTree
+import requests
+
 try:
     from enum import IntFlag
 except ImportError:
@@ -385,6 +388,33 @@ class UserOrgAffiliation(BaseModel):
     class Meta:
         db_table = "user_organisation_affiliation"
         table_alias = "oua"
+
+
+class IdentityProvider(BaseModel):
+
+    entity_id = TextField(unique=True)
+    display_name = TextField(null=True)
+
+    @classmethod
+    def load_metadata(cls, url):
+        """Loads entities from the metat data file hosted remotely at :url:."""
+        ns = dict(
+                meta="urn:oasis:names:tc:SAML:2.0:metadata",
+                dsr="urn:oasis:names:tc:SAML:profiles:SSO:idp-discovery-protocol",
+                mdui="urn:oasis:names:tc:SAML:metadata:ui")
+        res = requests.get(url)
+        root = ElementTree.fromstring(res.content)
+
+        # TODO: make it atomic
+        for ed in root.findall("meta:EntityDescriptor", ns):
+            entity_id = ed.attrib.get("entityID")
+            identity_provider, _ = cls.get_or_create(entity_id=entity_id)
+            identity_provider.display_name = ed.find(".//mdui:DisplayName", ns).text
+            identity_provider.save()
+
+    class Meta:
+        db_table = "identity_provider"
+        table_alias = "ip"
 
 
 def create_tables():
