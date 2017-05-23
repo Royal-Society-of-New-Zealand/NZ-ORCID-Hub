@@ -148,8 +148,8 @@ def shib_login():
             "danger")
 
     try:
-        org = Organisation.get(Organisation.tuakiri_name == shib_org_name or
-                               Organisation.name == shib_org_name)
+        org = Organisation.get((Organisation.tuakiri_name == shib_org_name)
+                               | (Organisation.name == shib_org_name))
     except Organisation.DoesNotExist:
         org = Organisation(tuakiri_name=shib_org_name)
         # try to get the official organisation name:
@@ -421,7 +421,7 @@ def profile():
 def invite_user():
     """Invite a researcher to join the hub."""
     # For now on boarding of researcher is not supported
-    return "Work in Progress!!!"
+    return "Work in Progress!"
 
 
 # TODO: user can be admin for multiple org and org can have multiple admins:
@@ -451,8 +451,6 @@ def invite_organisation():
             tech_contact = bool(request.form.get('tech_contact'))
             try:
                 User.get(User.email == form.orgEmailid.data)
-                flash("This Email address is already an Admin for one of the organisation",
-                      "warning")
             except User.DoesNotExist:
                 pass
             finally:
@@ -465,6 +463,14 @@ def invite_organisation():
                         org.email = email
                 except Organisation.DoesNotExist:
                     org = Organisation(name=org_name, email=email)
+
+                try:
+                    org_info = OrgInfo.get(name=org.name)
+                except OrgInfo.DoesNotExist:
+                    pass
+                else:
+                    org.tuakiri_name = org_info.tuakiri_name
+
                 org.save()
 
                 try:
@@ -475,7 +481,6 @@ def invite_organisation():
                     user.confirmed = True
                 except User.DoesNotExist:
                     user = User(
-                        name=form.orgName.data,
                         email=form.orgEmailid.data,
                         confirmed=True,  # In order to let the user in...
                         roles=Role.ADMIN,
@@ -490,8 +495,9 @@ def invite_organisation():
                         "email/org_invitation.html",
                         recipient=(form.orgName.data, form.orgEmailid.data),
                         token=token,
-                        org_name=form.orgName.data)
-                    flash("Organisation Onboarded Successfully!!! "
+                        org_name=form.orgName.data,
+                        user=user)
+                    flash("Organisation Onboarded Successfully! "
                           "Welcome to the NZ ORCID Hub.  A notice has been sent to the Hub Admin",
                           "success")
 
@@ -517,7 +523,7 @@ def confirm_organisation(token=None):
 
         return render_template("missing_onboarding_token.html", form=form)
 
-    clientSecret_url = None
+    client_secret_url = None
     email = confirm_token(token)
     user = current_user
 
@@ -548,14 +554,21 @@ def confirm_organisation(token=None):
 
     # For now only GET method is implemented will need post method for organisation
     # to enter client secret and client key for orcid
+
+    try:
+        organisation = Organisation.get(email=email)
+    except Organisation.DoesNotExist:
+        flash('We are very sorry, Your organisation invitation was Cancelled, '
+              'Please Contact ORCID HUB Admin!', "danger")
+        return redirect(url_for("login"))
+
     if request.method == 'POST':
         if not form.validate():
             flash('Please fill in all fields and try again!', "danger")
         else:
-            organisation = Organisation.get(email=email)
+
             if (not (user is None) and (not (organisation is None))):
                 # Update Organisation
-                organisation.confirmed = True
                 organisation.country = form.country.data
                 organisation.city = form.city.data
                 organisation.disambiguation_org_id = form.disambiguation_org_id.data
@@ -573,8 +586,9 @@ def confirm_organisation(token=None):
                 response = requests.post(TOKEN_URL, headers=headers, data=data)
 
                 if response.status_code == 401:
-                    flash("The Client id and Client Secret are not valid!!!", "danger")
+                    flash("The Client id and Client Secret are not valid!", "danger")
                 else:
+                    organisation.confirmed = True
                     organisation.orcid_client_id = form.orgOricdClientId.data
                     organisation.orcid_secret = form.orgOrcidClientSecret.data
 
@@ -583,14 +597,12 @@ def confirm_organisation(token=None):
                         msg.body = "Congratulations your emailid has been confirmed and " \
                                    "organisation onboarded successfully."
                         mail.send(msg)
-                        flash("Your Onboarding is Completed!!!", "success")
+                        flash("Your Onboarding is Completed!", "success")
 
-                organisation.save()
-                return redirect(url_for("login"))
+                    organisation.save()
+                    return redirect(url_for("link"))
 
     elif request.method == 'GET':
-
-        organisation = Organisation.get(email=email)
         if organisation is not None and not organisation.is_email_confirmed:
             organisation.is_email_confirmed = True
             organisation.save()
@@ -605,22 +617,9 @@ def confirm_organisation(token=None):
         Please request these from ORCID by clicking on link 'Take me to ORCID to obtain Client iD and Client Secret'
         and come back to this form once you have them.""", "warning")
 
-        redirect_uri = url_for("orcid_callback", _external=True)
-        clientSecret_url = iri_to_uri(MEMBER_API_FORM_BASE_URL) + "?" + urlencode(
-            dict(
-                new_existing=NEW_CREDENTIALS,
-                note=NOTE_ORCID + " " + user.organisation.name,
-                contact_email=email,
-                contact_name=user.name,
-                org_name=user.organisation.name,
-                cred_type=CRED_TYPE_PREMIUM,
-                app_name=APP_NAME + " at " + user.organisation.name,
-                app_description=APP_DESCRIPTION + " at " + user.organisation.name,
-                app_url=APP_URL,
-                redirect_uri_1=redirect_uri))
-
         try:
-            orgInfo = OrgInfo.get(email=email)
+            orgInfo = OrgInfo.get((OrgInfo.email == email) | (OrgInfo.tuakiri_name == user.organisation.name)
+                                  | (OrgInfo.name == user.organisation.name))
             form.city.data = organisation.city = orgInfo.city
             form.disambiguation_org_id.data = organisation.disambiguation_org_id = orgInfo.disambiguation_org_id
             form.disambiguation_org_source.data = organisation.disambiguation_org_source = orgInfo.disambiguation_source
@@ -628,9 +627,22 @@ def confirm_organisation(token=None):
         except OrgInfo.DoesNotExist:
             pass
         organisation.country = form.country.data
-        organisation.save()
 
-    return render_template('orgconfirmation.html', clientSecret_url=clientSecret_url, form=form)
+    organisation.save()
+    redirect_uri = url_for("orcid_callback", _external=True)
+    client_secret_url = iri_to_uri(MEMBER_API_FORM_BASE_URL) + "?" + urlencode(
+        dict(
+            new_existing=NEW_CREDENTIALS,
+            note=NOTE_ORCID + " " + user.organisation.name,
+            contact_email=email,
+            contact_name=user.name,
+            org_name=user.organisation.name,
+            cred_type=CRED_TYPE_PREMIUM,
+            app_name=APP_NAME + " at " + user.organisation.name,
+            app_description=APP_DESCRIPTION + " at " + user.organisation.name,
+            app_url=APP_URL,
+            redirect_uri_1=redirect_uri))
+    return render_template('orgconfirmation.html', client_secret_url=client_secret_url, form=form)
 
 
 @app.after_request
@@ -705,7 +717,7 @@ def update_org_Info():
     user = User.get(email=current_user.email, organisation=current_user.organisation)
     form = OrgConfirmationForm()
     redirect_uri = url_for("orcid_callback", _external=True)
-    clientSecret_url = iri_to_uri(MEMBER_API_FORM_BASE_URL) + "?" + urlencode(
+    client_secret_url = iri_to_uri(MEMBER_API_FORM_BASE_URL) + "?" + urlencode(
         dict(
             new_existing=NEW_CREDENTIALS,
             note=NOTE_ORCID + " " + user.organisation.name,
@@ -726,7 +738,6 @@ def update_org_Info():
             organisation = Organisation.get(email=email)
             if (not (user is None) and (not (organisation is None))):
                 # Update Organisation
-                organisation.confirmed = True
                 organisation.country = form.country.data
                 organisation.city = form.city.data
                 organisation.disambiguation_org_id = form.disambiguation_org_id.data
@@ -743,13 +754,14 @@ def update_org_Info():
                 response = requests.post(TOKEN_URL, headers=headers, data=data)
 
                 if response.status_code == 401:
-                    flash("The Client id and Client Secret are not valid!!!", "danger")
+                    flash("The Client id and Client Secret are not valid!", "danger")
                 else:
+                    organisation.confirmed = True
                     organisation.orcid_client_id = form.orgOricdClientId.data
                     organisation.orcid_secret = form.orgOrcidClientSecret.data
-                    flash("Organisation information updated successfully!!!", "success")
-                organisation.save()
-            return redirect(url_for("update_org_Info"))
+                    flash("Organisation information updated successfully!", "success")
+                    organisation.save()
+                    return redirect(url_for("link"))
 
     elif request.method == 'GET':
 
@@ -766,4 +778,5 @@ def update_org_Info():
         form.orgName.render_kw = {'readonly': True}
         form.orgEmailid.render_kw = {'readonly': True}
 
-    return render_template('orgconfirmation.html', clientSecret_url=clientSecret_url, form=form)
+    organisation.save()
+    return render_template('orgconfirmation.html', client_secret_url=client_secret_url, form=form)
