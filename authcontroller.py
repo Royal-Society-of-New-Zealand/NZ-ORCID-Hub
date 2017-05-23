@@ -5,9 +5,9 @@ Collection of applicion views involved in organisation on-boarding and
 user (reseaser) affiliations.
 """
 
-import jwt
 import base64
 import pickle
+import secrets
 import zlib
 from os import path, remove
 from tempfile import gettempdir
@@ -20,18 +20,16 @@ from flask_mail import Message
 from requests_oauthlib import OAuth2Session
 from werkzeug.urls import iri_to_uri
 
-import secrets
 import swagger_client
 import utils
 from application import app, mail
-from config import (RAPID_CONNECT_LOGIN_URL, APP_DESCRIPTION, APP_NAME, APP_URL,
-                    AUTHORIZATION_BASE_URL, CRED_TYPE_PREMIUM, RAPID_CONNECT_SECRET,
+from config import (APP_DESCRIPTION, APP_NAME, APP_URL, AUTHORIZATION_BASE_URL, CRED_TYPE_PREMIUM,
                     EDU_PERSON_AFFILIATION_EDUCATION, EDU_PERSON_AFFILIATION_EMPLOYMENT,
                     EXTERNAL_SP, MEMBER_API_FORM_BASE_URL, NEW_CREDENTIALS, NOTE_ORCID,
-                    ORCID_API_BASE, SCOPE_ACTIVITIES_UPDATE, TOKEN_URL, ORCID_BASE_URL)
+                    ORCID_API_BASE, ORCID_BASE_URL, SCOPE_ACTIVITIES_UPDATE, TOKEN_URL)
 from forms import OnboardingTokenForm
 from login_provider import roles_required
-from models import OrcidToken, Organisation, Role, User, UserOrg, OrgInfo
+from models import OrcidToken, Organisation, OrgInfo, Role, User, UserOrg
 from registrationForm import OrgConfirmationForm, OrgRegistrationForm
 from swagger_client.rest import ApiException
 from tokenGeneration import confirm_token, generate_confirmation_token

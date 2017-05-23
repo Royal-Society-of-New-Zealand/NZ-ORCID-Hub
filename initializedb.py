@@ -9,7 +9,10 @@ def initdb():
     models.create_tables()
 
     super_user = User(
-        name="The University of Auckland", email="root@mailinator.com", confirmed=True, roles=Role.SUPERUSER)
+        name="The University of Auckland",
+        email="root@mailinator.com",
+        confirmed=True,
+        roles=Role.SUPERUSER)
     super_user.save()
 
     org = Organisation(
@@ -17,6 +20,7 @@ def initdb():
         email="root@mailinator.com",
         tuakiri_name="University of Auckland")
     org.save()
+
 
 if __name__ == "__main__":
     initdb()
