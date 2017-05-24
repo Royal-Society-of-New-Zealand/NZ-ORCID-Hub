@@ -2,7 +2,7 @@
 <html>
   <head>
     <meta charset="utf-8">
-    <title>{{subject}}</title>
+    <title>Welcome to the NZ ORCID Hub</title>
     <meta name="keywords" content="ORCID HUB,New Zealand,NZ,orcid"/>
   </head>
   <body>
@@ -15,18 +15,22 @@
           </td>
         </tr>
       </table>
-      <h2 class="display-2">Welcome To The NZ ORCID Hub</h2>
+      <h2 class="display-2">Welcome to the NZ ORCID Hub</h2>
       {% if user.tech_contact %}
-        <p>Congratulations! Your organisation is just one step from being onboarded onto the NZ ORCID Hub
-            please click on the link below to confirm your role as Technical Contact:
-            <a href="{{ url_for('confirm_organisation', token=token, _external=True) }}">Onboard {{org_name}}</a>
-            or copy and paste the affiliation token <strong>{{ token }}</strong> to <a href="{{ url_for('confirm_organisation', _external=True) }}">Onboard {{org_name}}</a>
+      <p>Welcome!</p>
+      <p>{{org_name}} is just one step from being onboarded onto the NZ ORCID Hub.</p>
+      <p>Please either click on the link below to confirm your role as this organisation's Technical Contact:<br>
       {% else %}
-        <p>Congratulations! You are one step from being onboarded onto the NZ ORCID Hub,
-        Please click on the link below to confirm your role as an Organisational Administrator for
-        <a href="{{ url_for('confirm_organisation', token=token, _external=True) }}"> {{org_name}}</a>
-        or copy and paste the affiliation token <strong>{{ token }}</strong> by going to <a href="{{ url_for('confirm_organisation', _external=True) }}"> this link</a>
+      <p>You are invited to be an Organisation Administrator for {{org_name}} on the NZ ORCID Hub.</p>
+      <p>To confirm your acceptance of this role, please either click on the link below:<br>
       {% endif %}
+        <a href="{{ url_for('confirm_organisation', token=token, _external=True) }}">{{ url_for('confirm_organisation', token=token, _external=True) }}</a><br>
+        <strong>OR</strong><br>
+        If that doesn't work, navigate to the following link and copy/paste your affiliation token when asked.<br>
+        Link: <a href="{{ url_for('confirm_organisation', _external=True) }}">{{ url_for('confirm_organisation', _external=True) }}</a>
+        Affiliation token: <strong>{{ token }}</strong></p>
+      <p>If you received this email in error, or you have questions about the responsibilities involved, please contact:
+        <a href="mailto:orcid@royalsociety.org.nz">orcid@royalsociety.org.nz</a></p>
       <hr>
       <p>This email was sent to {{recipient["email"]}}</p>
       <!--  Footer Details -->
@@ -42,7 +46,7 @@
             </p>
           </td>
           <td style="vertical-align: top;">
-            <p style="padding-right: 15px; text-align:right;">CC-BY-NC 2017 Royal Society of New Zealand</p>
+            <p class="copyright"><a href="https://creativecommons.org/licenses/by-nc/4.0/" target="_blank"><img src="/static/images/CC-BY-NC-icon-80x15.png" alt="CC-BY-NC"></a></p>
           </td>
         </tr>
       </table>

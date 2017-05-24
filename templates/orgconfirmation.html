@@ -17,15 +17,15 @@
     <p>
         <a id="connect-orcid-button" class="btn btn-default" href="{{client_secret_url}}" role="button">
             <img id="orcid-id-logo" src="https://orcid.org/sites/default/files/images/orcid_24x24.png" width='24'
-                 height='24' alt="ORCID logo"/>&nbsp;Take me to ORCID to obtain Client ID and Client Secret </a>
+                 height='24' alt="ORCID logo"/>&nbsp;Take me to ORCID to obtain my Client ID and Client Secret </a>
     </p>
     </div>
     <div class="form-group">
-        <label for="org_id">Orcid Client ID:</label>
+        <label for="org_id">ORCID Client ID:</label>
         {{ form.orgOricdClientId(size=50, id="org_id", class="form-control") }}
     </div>
     <div class="form-group">
-        <label for="org_secret">Orcid Client Secret:</label>
+        <label for="org_secret">ORCID Client Secret:</label>
         {{ form.orgOrcidClientSecret(size=50, id="org_secret", class="form-control") }}
     </div>
     <div class="form-group">
@@ -37,11 +37,11 @@
         {{ form.city(size=30, class="form-control", id="city") }}
     </div>
         <div class="form-group">
-        <label for="org_name">Disambiguation ORG Id:</label>
+        <label for="org_name" data-toggle="tooltip" title="The best id to use for your organisation, e.g. one of the following: RINGGOLD, FUNDREF, NZBN or EON">Organisation ID:</label>
         {{ form.disambiguation_org_id(size=30, class="form-control", id="disambiguation_org_id") }}
     </div>
         <div class="form-group">
-        <label for="org_name">Disambiguation ORG Source:</label>
+        <label for="org_name" data-toggle="tooltip" title="The source of your organisation's disambiguation id">Source of the Organisation ID:</label>
         {{ form.disambiguation_org_source(size=30, class="form-control", id="disambiguation_org_source") }}
     </div>
     <button type="submit" class="btn btn-default" value="Confirmation">Confirmation</button>
