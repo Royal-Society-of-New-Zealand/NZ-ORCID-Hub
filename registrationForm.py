@@ -4,6 +4,7 @@ from wtforms import StringField, validators
 from wtforms.fields.core import SelectField
 from wtforms.fields.html5 import DateField, EmailField
 from wtforms.validators import DataRequired, Email
+
 from config import DEFAULT_COUNTRY
 
 # Order the countly list by the name and add a default (Null) value

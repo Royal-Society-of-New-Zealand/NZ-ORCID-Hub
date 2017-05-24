@@ -1,5 +1,8 @@
 # -*- coding: utf-8 -*-
-"""Py.test configuration and fixtures for testing."""
+"""Py.test configuration and fixtures for testing.
+
+isort:skip_file
+"""
 
 # yapf: disable
 import os
@@ -15,6 +18,7 @@ import config
 from application import app as _app
 from authcontroller import *  # noqa: F401, F403
 from views import *  # noqa: F401, F403
+
 
 # flake8: noqa
 config.DATABASE_URL = os.environ.get("DATABASE_URL") or "sqlite:///:memory:"

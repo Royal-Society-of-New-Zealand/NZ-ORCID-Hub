@@ -7,6 +7,7 @@ user (reseaser) affiliations.
 
 import base64
 import pickle
+import secrets
 import zlib
 from os import path, remove
 from tempfile import gettempdir
@@ -17,19 +18,19 @@ from flask import (abort, flash, redirect, render_template, request, session, ur
 from flask_login import current_user, login_required, login_user, logout_user
 from flask_mail import Message
 from requests_oauthlib import OAuth2Session
+from oauthlib.oauth2 import rfc6749
 from werkzeug.urls import iri_to_uri
 
-import secrets
 import swagger_client
 import utils
 from application import app, mail
 from config import (APP_DESCRIPTION, APP_NAME, APP_URL, AUTHORIZATION_BASE_URL, CRED_TYPE_PREMIUM,
                     EDU_PERSON_AFFILIATION_EDUCATION, EDU_PERSON_AFFILIATION_EMPLOYMENT,
                     EXTERNAL_SP, MEMBER_API_FORM_BASE_URL, NEW_CREDENTIALS, NOTE_ORCID,
-                    ORCID_API_BASE, SCOPE_ACTIVITIES_UPDATE, TOKEN_URL, ORCID_BASE_URL)
+                    ORCID_API_BASE, ORCID_BASE_URL, SCOPE_ACTIVITIES_UPDATE, TOKEN_URL)
 from forms import OnboardingTokenForm
 from login_provider import roles_required
-from models import OrcidToken, Organisation, Role, User, UserOrg, OrgInfo
+from models import OrcidToken, Organisation, OrgInfo, Role, User, UserOrg
 from registrationForm import OrgConfirmationForm, OrgRegistrationForm
 from swagger_client.rest import ApiException
 from tokenGeneration import confirm_token, generate_confirmation_token
@@ -45,14 +46,14 @@ def login():
     _next = request.args.get('next')
     if EXTERNAL_SP:
         session["auth_secret"] = secret_token = secrets.token_urlsafe()
-        _next = url_for("shib_login", _next=_next, _external=True)
-        shib_login_url = EXTERNAL_SP
-        shib_login_url += ('&' if urlparse(EXTERNAL_SP).query else '?')
-        shib_login_url += urlencode(dict(_next=_next, key=secret_token))
+        _next = url_for("handle_login", _next=_next, _external=True)
+        login_url = EXTERNAL_SP
+        login_url += ('&' if urlparse(EXTERNAL_SP).query else '?')
+        login_url += urlencode(dict(_next=_next, key=secret_token))
     else:
-        shib_login_url = url_for("shib_login", _next=_next)
+        login_url = url_for("handle_login", _next=_next)
 
-    return render_template("index.html", ship_login_url=shib_login_url)
+    return render_template("index.html", login_url=login_url)
 
 
 @app.route("/Tuakiri/SP")
@@ -89,8 +90,9 @@ def get_attributes(key):
 
 
 @app.route("/Tuakiri/login")
-def shib_login():
-    """Shibboleth authenitcation handler.
+@app.route("/auth/jwt", methods=["POST"])
+def handle_login():
+    """Shibboleth and Rapid Connect authenitcation handler.
 
     The (Apache) location should requier authentication using Shibboleth, e.g.,
 
@@ -131,30 +133,31 @@ def shib_login():
     email = data['Mail']
     session["shib_O"] = shib_org_name = data['O']
     name = data.get('Displayname')
-    eduPersonAffiliation = data.get('Unscoped-Affiliation')
+    edu_person_affiliation = data.get('Unscoped-Affiliation')
 
-    if eduPersonAffiliation:
-        if any(epa in eduPersonAffiliation for epa in ['faculty', 'staff']) \
-                and any(epa in eduPersonAffiliation for epa in ['student', 'alum']):
-            eduPersonAffiliation = EDU_PERSON_AFFILIATION_EMPLOYMENT + " and " + EDU_PERSON_AFFILIATION_EDUCATION
-        elif any(epa in eduPersonAffiliation for epa in ['faculty', 'staff']):
-            eduPersonAffiliation = EDU_PERSON_AFFILIATION_EMPLOYMENT
-        elif any(epa in eduPersonAffiliation for epa in ['student', 'alum']):
-            eduPersonAffiliation = EDU_PERSON_AFFILIATION_EDUCATION
+    if edu_person_affiliation:
+        if any(epa in edu_person_affiliation for epa in ['faculty', 'staff']) \
+                and any(epa in edu_person_affiliation for epa in ['student', 'alum']):
+            edu_person_affiliation = EDU_PERSON_AFFILIATION_EMPLOYMENT + " and " + EDU_PERSON_AFFILIATION_EDUCATION
+        elif any(epa in edu_person_affiliation for epa in ['faculty', 'staff']):
+            edu_person_affiliation = EDU_PERSON_AFFILIATION_EMPLOYMENT
+        elif any(epa in edu_person_affiliation for epa in ['student', 'alum']):
+            edu_person_affiliation = EDU_PERSON_AFFILIATION_EDUCATION
     else:
         flash(
-            "The value of eduPersonAffiliation was not supplied from your identity provider,"
+            "The value of edu_person_affiliation was not supplied from your identity provider,"
             " So we are not able to determine the nature of affiliation you have with your organisation",
             "danger")
 
     try:
-        org = Organisation.get(Organisation.tuakiri_name == shib_org_name or
-                               Organisation.name == shib_org_name)
+        org = Organisation.get((Organisation.tuakiri_name == shib_org_name) | (
+            Organisation.name == shib_org_name))
     except Organisation.DoesNotExist:
         org = Organisation(tuakiri_name=shib_org_name)
         # try to get the official organisation name:
         try:
-            org_info = OrgInfo.get(tuakiri_name=shib_org_name)
+            org_info = OrgInfo.get(OrgInfo.tuakiri_name == shib_org_name or
+                                   OrgInfo.name == shib_org_name)
         except OrgInfo.DoesNotExist:
             org.name = shib_org_name
         else:
@@ -173,8 +176,8 @@ def shib_login():
             user.first_name = first_name
         if not user.last_name and last_name:
             user.last_name = last_name
-        if eduPersonAffiliation:
-            user.edu_person_affiliation = eduPersonAffiliation
+        if edu_person_affiliation:
+            user.edu_person_affiliation = edu_person_affiliation
             # TODO: keep login auditing (last_loggedin_at... etc)
 
     except User.DoesNotExist:
@@ -185,7 +188,7 @@ def shib_login():
             last_name=last_name,
             roles=Role.RESEARCHER,
             edu_person_shared_token=token,
-            edu_person_affiliation=eduPersonAffiliation)
+            edu_person_affiliation=edu_person_affiliation)
 
     if org is not None and org not in user.organisations:
         UserOrg.create(user=user, org=org)
@@ -210,7 +213,7 @@ def shib_login():
     elif org and org.confirmed:
         return redirect(url_for("link"))
     elif org and org.is_email_confirmed and (not org.confirmed) and user.tech_contact:
-        return redirect(url_for("update_org_Info"))
+        return redirect(url_for("update_org_info"))
     else:
         flash("Your organisation (%s) is not onboarded" % shib_org_name, "danger")
 
@@ -288,10 +291,18 @@ def orcid_callback():
         return redirect(url_for("link"))
 
     client = OAuth2Session(current_user.organisation.orcid_client_id)
-    token = client.fetch_token(
-        TOKEN_URL,
-        client_secret=current_user.organisation.orcid_secret,
-        authorization_response=request.url)
+    try:
+        token = client.fetch_token(
+            TOKEN_URL,
+            client_secret=current_user.organisation.orcid_secret,
+            authorization_response=request.url)
+    except rfc6749.errors.MissingCodeError:
+        flash("%s cannot be invoked directly..." % request.url, "danger")
+        return redirect(url_for("login"))
+    except rfc6749.errors.MissingTokenError:
+        flash("Missing token.", "danger")
+        return redirect(url_for("login"))
+
     # At this point you can fetch protected resources but lets save
     # the token and show how this is done from a persisted token
     # in /profile.
@@ -421,7 +432,7 @@ def profile():
 def invite_user():
     """Invite a researcher to join the hub."""
     # For now on boarding of researcher is not supported
-    return "Work in Progress!!!"
+    return "Work in Progress!"
 
 
 # TODO: user can be admin for multiple org and org can have multiple admins:
@@ -451,8 +462,6 @@ def invite_organisation():
             tech_contact = bool(request.form.get('tech_contact'))
             try:
                 User.get(User.email == form.orgEmailid.data)
-                flash("This Email address is already an Admin for one of the organisation",
-                      "warning")
             except User.DoesNotExist:
                 pass
             finally:
@@ -465,6 +474,14 @@ def invite_organisation():
                         org.email = email
                 except Organisation.DoesNotExist:
                     org = Organisation(name=org_name, email=email)
+
+                try:
+                    org_info = OrgInfo.get(name=org.name)
+                except OrgInfo.DoesNotExist:
+                    pass
+                else:
+                    org.tuakiri_name = org_info.tuakiri_name
+
                 org.save()
 
                 try:
@@ -475,7 +492,6 @@ def invite_organisation():
                     user.confirmed = True
                 except User.DoesNotExist:
                     user = User(
-                        name=form.orgName.data,
                         email=form.orgEmailid.data,
                         confirmed=True,  # In order to let the user in...
                         roles=Role.ADMIN,
@@ -490,8 +506,9 @@ def invite_organisation():
                         "email/org_invitation.html",
                         recipient=(form.orgName.data, form.orgEmailid.data),
                         token=token,
-                        org_name=form.orgName.data)
-                    flash("Organisation Onboarded Successfully!!! "
+                        org_name=form.orgName.data,
+                        user=user)
+                    flash("Organisation Onboarded Successfully! "
                           "Welcome to the NZ ORCID Hub.  A notice has been sent to the Hub Admin",
                           "success")
 
@@ -517,7 +534,7 @@ def confirm_organisation(token=None):
 
         return render_template("missing_onboarding_token.html", form=form)
 
-    clientSecret_url = None
+    client_secret_url = None
     email = confirm_token(token)
     user = current_user
 
@@ -548,14 +565,21 @@ def confirm_organisation(token=None):
 
     # For now only GET method is implemented will need post method for organisation
     # to enter client secret and client key for orcid
+
+    try:
+        organisation = Organisation.get(email=email)
+    except Organisation.DoesNotExist:
+        flash('We are very sorry, Your organisation invitation was Cancelled, '
+              'Please Contact ORCID HUB Admin!', "danger")
+        return redirect(url_for("login"))
+
     if request.method == 'POST':
         if not form.validate():
             flash('Please fill in all fields and try again!', "danger")
         else:
-            organisation = Organisation.get(email=email)
+
             if (not (user is None) and (not (organisation is None))):
                 # Update Organisation
-                organisation.confirmed = True
                 organisation.country = form.country.data
                 organisation.city = form.city.data
                 organisation.disambiguation_org_id = form.disambiguation_org_id.data
@@ -573,8 +597,9 @@ def confirm_organisation(token=None):
                 response = requests.post(TOKEN_URL, headers=headers, data=data)
 
                 if response.status_code == 401:
-                    flash("The Client id and Client Secret are not valid!!!", "danger")
+                    flash("The Client id and Client Secret are not valid!", "danger")
                 else:
+                    organisation.confirmed = True
                     organisation.orcid_client_id = form.orgOricdClientId.data
                     organisation.orcid_secret = form.orgOrcidClientSecret.data
 
@@ -583,19 +608,19 @@ def confirm_organisation(token=None):
                         msg.body = "Congratulations your emailid has been confirmed and " \
                                    "organisation onboarded successfully."
                         mail.send(msg)
-                        flash("Your Onboarding is Completed!!!", "success")
+                        flash("Your Onboarding is Completed!", "success")
 
-                organisation.save()
-                return redirect(url_for("login"))
+                    organisation.save()
+                    return redirect(url_for("link"))
 
     elif request.method == 'GET':
-
-        organisation = Organisation.get(email=email)
         if organisation is not None and not organisation.is_email_confirmed:
             organisation.is_email_confirmed = True
             organisation.save()
         elif organisation is not None and organisation.is_email_confirmed:
-            flash("""Your email link has expired. However, you should be able to login directly!""", "warning")
+            flash(
+                """Your email link has expired. However, you should be able to login directly!""",
+                "warning")
             return redirect(url_for("login"))
 
         form.orgEmailid.data = email
@@ -605,22 +630,10 @@ def confirm_organisation(token=None):
         Please request these from ORCID by clicking on link 'Take me to ORCID to obtain Client iD and Client Secret'
         and come back to this form once you have them.""", "warning")
 
-        redirect_uri = url_for("orcid_callback", _external=True)
-        clientSecret_url = iri_to_uri(MEMBER_API_FORM_BASE_URL) + "?" + urlencode(
-            dict(
-                new_existing=NEW_CREDENTIALS,
-                note=NOTE_ORCID + " " + user.organisation.name,
-                contact_email=email,
-                contact_name=user.name,
-                org_name=user.organisation.name,
-                cred_type=CRED_TYPE_PREMIUM,
-                app_name=APP_NAME + " at " + user.organisation.name,
-                app_description=APP_DESCRIPTION + " at " + user.organisation.name,
-                app_url=APP_URL,
-                redirect_uri_1=redirect_uri))
-
         try:
-            orgInfo = OrgInfo.get(email=email)
+            orgInfo = OrgInfo.get((OrgInfo.email == email) | (
+                OrgInfo.tuakiri_name == user.organisation.name) | (
+                    OrgInfo.name == user.organisation.name))
             form.city.data = organisation.city = orgInfo.city
             form.disambiguation_org_id.data = organisation.disambiguation_org_id = orgInfo.disambiguation_org_id
             form.disambiguation_org_source.data = organisation.disambiguation_org_source = orgInfo.disambiguation_source
@@ -628,9 +641,22 @@ def confirm_organisation(token=None):
         except OrgInfo.DoesNotExist:
             pass
         organisation.country = form.country.data
-        organisation.save()
 
-    return render_template('orgconfirmation.html', clientSecret_url=clientSecret_url, form=form)
+    organisation.save()
+    redirect_uri = url_for("orcid_callback", _external=True)
+    client_secret_url = iri_to_uri(MEMBER_API_FORM_BASE_URL) + "?" + urlencode(
+        dict(
+            new_existing=NEW_CREDENTIALS,
+            note=NOTE_ORCID + " " + user.organisation.name,
+            contact_email=email,
+            contact_name=user.name,
+            org_name=user.organisation.name,
+            cred_type=CRED_TYPE_PREMIUM,
+            app_name=APP_NAME + " at " + user.organisation.name,
+            app_description=APP_DESCRIPTION + " at " + user.organisation.name,
+            app_url=APP_URL,
+            redirect_uri_1=redirect_uri))
+    return render_template('orgconfirmation.html', client_secret_url=client_secret_url, form=form)
 
 
 @app.after_request
@@ -700,12 +726,12 @@ def viewmembers():
 
 @app.route("/updateorginfo", methods=["GET", "POST"])
 @roles_required(Role.ADMIN)
-def update_org_Info():
+def update_org_info():
     email = current_user.email
     user = User.get(email=current_user.email, organisation=current_user.organisation)
     form = OrgConfirmationForm()
     redirect_uri = url_for("orcid_callback", _external=True)
-    clientSecret_url = iri_to_uri(MEMBER_API_FORM_BASE_URL) + "?" + urlencode(
+    client_secret_url = iri_to_uri(MEMBER_API_FORM_BASE_URL) + "?" + urlencode(
         dict(
             new_existing=NEW_CREDENTIALS,
             note=NOTE_ORCID + " " + user.organisation.name,
@@ -718,7 +744,11 @@ def update_org_Info():
             app_url=APP_URL,
             redirect_uri_1=redirect_uri))
 
-    organisation = Organisation.get(email=email)
+    try:
+        organisation = Organisation.get(email=email)
+    except Organisation.DoesNotExist:
+        flash("It appears that you are not the technical contact for your organisaton.", "danger")
+        return redirect(url_for("login"))
     if request.method == 'POST':
         if not form.validate():
             flash('Please fill in all fields and try again!', "danger")
@@ -726,7 +756,6 @@ def update_org_Info():
             organisation = Organisation.get(email=email)
             if (not (user is None) and (not (organisation is None))):
                 # Update Organisation
-                organisation.confirmed = True
                 organisation.country = form.country.data
                 organisation.city = form.city.data
                 organisation.disambiguation_org_id = form.disambiguation_org_id.data
@@ -743,13 +772,14 @@ def update_org_Info():
                 response = requests.post(TOKEN_URL, headers=headers, data=data)
 
                 if response.status_code == 401:
-                    flash("The Client id and Client Secret are not valid!!!", "danger")
+                    flash("The Client id and Client Secret are not valid!", "danger")
                 else:
+                    organisation.confirmed = True
                     organisation.orcid_client_id = form.orgOricdClientId.data
                     organisation.orcid_secret = form.orgOrcidClientSecret.data
-                    flash("Organisation information updated successfully!!!", "success")
-                organisation.save()
-            return redirect(url_for("update_org_Info"))
+                    flash("Organisation information updated successfully!", "success")
+                    organisation.save()
+                    return redirect(url_for("link"))
 
     elif request.method == 'GET':
 
@@ -766,4 +796,5 @@ def update_org_Info():
         form.orgName.render_kw = {'readonly': True}
         form.orgEmailid.render_kw = {'readonly': True}
 
-    return render_template('orgconfirmation.html', clientSecret_url=clientSecret_url, form=form)
+    organisation.save()
+    return render_template('orgconfirmation.html', client_secret_url=client_secret_url, form=form)
