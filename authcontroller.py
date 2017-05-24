@@ -760,7 +760,10 @@ def update_org_Info():
                 response = requests.post(TOKEN_URL, headers=headers, data=data)
 
                 if response.status_code == 401:
-                    flash("The Client id and Client Secret are not valid!", "danger")
+                    flash(
+                        "Something is wrong! The Client id and Client Secret are not valid!"
+                        "\n Please recheck and contact Hub support if this error continues",
+                        "danger")
                 else:
                     organisation.confirmed = True
                     organisation.orcid_client_id = form.orgOricdClientId.data
