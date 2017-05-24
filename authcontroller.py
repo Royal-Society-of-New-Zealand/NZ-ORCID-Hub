@@ -213,7 +213,7 @@ def handle_login():
     elif org and org.confirmed:
         return redirect(url_for("link"))
     elif org and org.is_email_confirmed and (not org.confirmed) and user.tech_contact:
-        return redirect(url_for("update_org_Info"))
+        return redirect(url_for("update_org_info"))
     else:
         flash("Your organisation (%s) is not onboarded" % shib_org_name, "danger")
 
