@@ -20,7 +20,7 @@
             </div>
             <div class="collapse navbar-collapse" id="navbar-collapse-1">
                 <ul class="nav navbar-nav">
-                    <li id="about"><a href="#">About</a></li>
+                    <li id="about"><a href="{{ url_for('about') }}">About</a></li>
                     {% if current_user.organisation.confirmed or current_user.has_role("SUPERUSER") %}
                     <li id="profile"><a href="{{ url_for('link') }}" data-toggle="tooltip"
                                         title="Affiliate yourself using the NZ ORCID HUB or view your ORCID iD">ORCID

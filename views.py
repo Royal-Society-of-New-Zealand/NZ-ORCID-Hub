@@ -38,6 +38,12 @@ def pyinfo():
     return render_template('pyinfo.html', **info)
 
 
+@app.route('/about')
+def about():
+    """Show 'about' page."""
+    return render_template("about.html")
+
+
 class AppModelView(ModelView):
     """ModelView customization."""
 
