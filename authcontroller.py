@@ -282,7 +282,7 @@ def orcid_callback():
         error_description = request.args.get("error_description")
         if error == "access_denied":
             flash(
-                "You have denied the access to your profile. ORCID Hub requires at least read access to your profile.",
+                "You have denied the Hub access to your ORCID record. The Hub needs at least read access to your profile to be useful.",
                 "danger")
         else:
             flash("Error occured while attempting to authorize '%s': %s" %
@@ -354,7 +354,7 @@ def orcid_callback():
                 try:
                     api_instance.create_employment(user.orcid, body=employment)
                     # TODO: Save the put code in db table
-                    flash("Your ORCID account was updated with employment affiliation from %s" %
+                    flash("Your ORCID record was updated with an employment affiliation from %s" %
                           orciduser.organisation, "success")
 
                 except ApiException as e:
@@ -380,15 +380,16 @@ def orcid_callback():
                 try:
                     api_instance.create_education(user.orcid, body=education)
                     # TODO: Save the put code in db table
-                    flash("Your ORCID account was updated with education affiliation from %s" %
+                    flash("Your ORCID record was updated with an education affiliation from %s" %
                           orciduser.organisation, "success")
 
                 except ApiException as e:
                     flash("Failed to update the entry: %s." % e.body, "danger")
         else:
             flash(
-                "ORCID Hub was not able to automatically write an affiliation with %s, "
-                "As your nature of affiliation with your organisation is neither Employment nor Education"
+                "The ORCID Hub was not able to automatically write an affiliation with %s, "
+                "as the nature of the affiliation with your organisation does not appear to include either Employment or Education.\n"
+                "Please contact one of your Organisaiton Administrator if you believe this is an error."
                 % orciduser.organisation, "danger")
 
     return redirect(url_for("profile"))
@@ -541,12 +542,12 @@ def confirm_organisation(token=None):
     if not user.tech_contact:
         user.save()
         with app.app_context():
-            msg = Message("Welcome to ORCID Hub", recipients=[email])
-            msg.body = "Congratulations you have been confirmed as an Organisation Admin for " + str(
+            msg = Message("Welcome to the NZ ORCID Hub", recipients=[email])
+            msg.body = "Congratulations you are confirmed as an Organisation Admin for " + str(
                 user.organisation)
             mail.send(msg)
-            flash("Your Registration is Completed, Now it is the responsibility of your "
-                  "organisational Technical Contact to onboard your organisation", "success")
+            flash("Your registration is completed; however, if they've not yet done so it is the responsibility of your "
+                  "Technical Contact to complete onboarding by entering your organisation's ORCID API credentials.", "success")
         return redirect(url_for("viewmembers"))
 
     # TODO: support for mutliple orgs and admins
@@ -560,8 +561,8 @@ def confirm_organisation(token=None):
     try:
         organisation = Organisation.get(email=email)
     except Organisation.DoesNotExist:
-        flash('We are very sorry, Your organisation invitation was Cancelled, '
-              'Please Contact ORCID HUB Admin!', "danger")
+        flash('We are very sorry, your organisation invitation has been cancelled, '
+              'please contact ORCID HUB Admin!', "danger")
         return redirect(url_for("login"))
 
     if request.method == 'POST':
@@ -588,16 +589,17 @@ def confirm_organisation(token=None):
                 response = requests.post(TOKEN_URL, headers=headers, data=data)
 
                 if response.status_code == 401:
-                    flash("The Client id and Client Secret are not valid!", "danger")
+                    flash("Something is wrong! The Client id and Client Secret are not valid!\n Please recheck and contact Hub support if this error continues", "danger")
                 else:
                     organisation.confirmed = True
                     organisation.orcid_client_id = form.orgOricdClientId.data
                     organisation.orcid_secret = form.orgOrcidClientSecret.data
 
                     with app.app_context():
-                        msg = Message("Welcome to OrcidhHub", recipients=[email])
-                        msg.body = "Congratulations your emailid has been confirmed and " \
-                                   "organisation onboarded successfully."
+                        msg = Message("Welcome to the NZ ORCID Hub - Success", recipients=[email])
+                        msg.body = "Congratulations! Your identity has been confirmed and " \
+                                   "your organisation onboarded successfully.\n" \
+                                   "Any researcher from your organisation can now use the Hub"
                         mail.send(msg)
                         flash("Your Onboarding is Completed!", "success")
 
