@@ -18,6 +18,7 @@ from flask import (abort, flash, redirect, render_template, request, session, ur
 from flask_login import current_user, login_required, login_user, logout_user
 from flask_mail import Message
 from requests_oauthlib import OAuth2Session
+from oauthlib.oauth2 import rfc6749
 from werkzeug.urls import iri_to_uri
 
 import swagger_client
@@ -149,8 +150,8 @@ def handle_login():
             "danger")
 
     try:
-        org = Organisation.get((Organisation.tuakiri_name == shib_org_name)
-                               | (Organisation.name == shib_org_name))
+        org = Organisation.get((Organisation.tuakiri_name == shib_org_name) | (
+            Organisation.name == shib_org_name))
     except Organisation.DoesNotExist:
         org = Organisation(tuakiri_name=shib_org_name)
         # try to get the official organisation name:
@@ -290,10 +291,18 @@ def orcid_callback():
         return redirect(url_for("link"))
 
     client = OAuth2Session(current_user.organisation.orcid_client_id)
-    token = client.fetch_token(
-        TOKEN_URL,
-        client_secret=current_user.organisation.orcid_secret,
-        authorization_response=request.url)
+    try:
+        token = client.fetch_token(
+            TOKEN_URL,
+            client_secret=current_user.organisation.orcid_secret,
+            authorization_response=request.url)
+    except rfc6749.errors.MissingCodeError:
+        flash("%s cannot be invoked directly..." % request.url, "danger")
+        return redirect(url_for("login"))
+    except rfc6749.errors.MissingTokenError:
+        flash("Missing token.", "danger")
+        return redirect(url_for("login"))
+
     # At this point you can fetch protected resources but lets save
     # the token and show how this is done from a persisted token
     # in /profile.
@@ -622,8 +631,9 @@ def confirm_organisation(token=None):
         and come back to this form once you have them.""", "warning")
 
         try:
-            orgInfo = OrgInfo.get((OrgInfo.email == email) | (OrgInfo.tuakiri_name == user.organisation.name)
-                                  | (OrgInfo.name == user.organisation.name))
+            orgInfo = OrgInfo.get((OrgInfo.email == email) | (
+                OrgInfo.tuakiri_name == user.organisation.name) | (
+                    OrgInfo.name == user.organisation.name))
             form.city.data = organisation.city = orgInfo.city
             form.disambiguation_org_id.data = organisation.disambiguation_org_id = orgInfo.disambiguation_org_id
             form.disambiguation_org_source.data = organisation.disambiguation_org_source = orgInfo.disambiguation_source
@@ -716,7 +726,7 @@ def viewmembers():
 
 @app.route("/updateorginfo", methods=["GET", "POST"])
 @roles_required(Role.ADMIN)
-def update_org_Info():
+def update_org_info():
     email = current_user.email
     user = User.get(email=current_user.email, organisation=current_user.organisation)
     form = OrgConfirmationForm()
@@ -734,7 +744,11 @@ def update_org_Info():
             app_url=APP_URL,
             redirect_uri_1=redirect_uri))
 
-    organisation = Organisation.get(email=email)
+    try:
+        organisation = Organisation.get(email=email)
+    except Organisation.DoesNotExist:
+        flash("It appears that you are not the technical contact for your organisaton.", "danger")
+        return redirect(url_for("login"))
     if request.method == 'POST':
         if not form.validate():
             flash('Please fill in all fields and try again!', "danger")
