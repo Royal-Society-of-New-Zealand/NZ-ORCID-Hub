@@ -757,9 +757,13 @@ def reset_db():
 @roles_required(Role.ADMIN)
 def viewmembers():
     """View the list of users (researchers)."""
-    user = current_user
-    users = user.organisation.users
-    return render_template("viewMembers.html", orgnisationname=user.organisation.name, users=users)
+    try:
+        users = current_user.organisation.users
+    except:
+        flash("There are no users registered in your organisation.", "danger")
+        return redirect(url_for("login"))
+
+    return render_template("viewMembers.html", orgnisationname=current_user.organisation.name, users=users)
 
 
 @app.route("/updateorginfo", methods=["GET", "POST"])
