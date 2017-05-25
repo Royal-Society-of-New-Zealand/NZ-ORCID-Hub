@@ -11,3 +11,9 @@
   {% endif %}
 </div>
 {% endmacro %}
+
+{% macro orcid_url(user, full_url=False, target="_blank") -%}
+{%- if user.orcid -%}
+<a href="{{user|orcid}}" target="{{target}}">{{user|orcid if full_url else user.orcid}}</a>
+{%- else %}&nbsp;{% endif -%}
+{%- endmacro %}

@@ -1,4 +1,5 @@
 {% extends "layout.html" %}
+{% from "macros.html" import orcid_url %}
 {% block content %}
 
   <h1>Members in {{ orgnisationname }}</h1>
@@ -18,7 +19,7 @@
           <tr class="active">
             <td> {% if user.first_name %}{{ user.first_name}} {% endif %} {% if user.last_name %}{{ user.last_name}} {% endif %} </td>
             <td>{{ user.email|default("", True) }}</td>
-            <td>{{ user.orcid|default("", True) }}</td>
+            <td>{{ orcid_url(user) }}</td>
             <td>
               {% if user.orcid %}
                 <a role="button" class="btn btn-info" href="{{ url_for('employment_list', user_id=user.id) }}">Employment</a> 
