@@ -1,4 +1,5 @@
 <!-- Header Details -->
+{% from "macros.html" import orcid_url %}
 <header>
     {% block header %}
     <div class="lead banner"
@@ -55,6 +56,7 @@
                     {% endif %}
                 </ul>
                 <ul class="nav navbar-nav navbar-right">
+                  <li>{{orcid_url(current_user)}}</li>
 
                     <li class="dropdown">
                         <a href="#" class="dropdown-toggle" data-toggle="dropdown">

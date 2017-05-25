@@ -284,9 +284,8 @@ def orcid_callback():
         error = request.args["error"]
         error_description = request.args.get("error_description")
         if error == "access_denied":
-            flash(
-                "You have denied the Hub access to your ORCID record. The Hub needs at least read access to your profile to be useful.",
-                "danger")
+            flash("You have denied the Hub access to your ORCID record."
+                  " The Hub needs at least read access to your profile to be useful.", "danger")
         else:
             flash("Error occured while attempting to authorize '%s': %s" %
                   (current_user.organisation.name, error_description), "danger")
@@ -407,7 +406,8 @@ def orcid_callback():
         else:
             flash(
                 "The ORCID Hub was not able to automatically write an affiliation with %s, "
-                "as the nature of the affiliation with your organisation does not appear to include either Employment or Education.\n"
+                "as the nature of the affiliation with your organisation does not appear to include either "
+                "Employment or Education.\n"
                 "Please contact one of your Organisaiton Administrator if you believe this is an error."
                 % orciduser.organisation, "danger")
 
@@ -578,8 +578,10 @@ def confirm_organisation(token=None):
             msg.body = "Congratulations you are confirmed as an Organisation Admin for " + str(
                 user.organisation)
             mail.send(msg)
-            flash("Your registration is completed; however, if they've not yet done so it is the responsibility of your "
-                  "Technical Contact to complete onboarding by entering your organisation's ORCID API credentials.", "success")
+            flash(
+                "Your registration is completed; however, if they've not yet done so it is the responsibility of your "
+                "Technical Contact to complete onboarding by entering your organisation's ORCID API credentials.",
+                "success")
         return redirect(url_for("viewmembers"))
 
     # TODO: support for mutliple orgs and admins
@@ -621,7 +623,9 @@ def confirm_organisation(token=None):
                 response = requests.post(TOKEN_URL, headers=headers, data=data)
 
                 if response.status_code == 401:
-                    flash("Something is wrong! The Client id and Client Secret are not valid!\n Please recheck and contact Hub support if this error continues", "danger")
+                    flash("Something is wrong! The Client id and Client Secret are not valid!\n"
+                          "Please recheck and contact Hub support if this error continues",
+                          "danger")
                 else:
                     organisation.confirmed = True
                     organisation.orcid_client_id = form.orgOricdClientId.data
@@ -806,10 +810,9 @@ def update_org_info():
                 response = requests.post(TOKEN_URL, headers=headers, data=data)
 
                 if response.status_code == 401:
-                    flash(
-                        "Something is wrong! The Client id and Client Secret are not valid!"
-                        "\n Please recheck and contact Hub support if this error continues",
-                        "danger")
+                    flash("Something is wrong! The Client id and Client Secret are not valid!"
+                          "\n Please recheck and contact Hub support if this error continues",
+                          "danger")
                 else:
                     organisation.confirmed = True
                     organisation.orcid_client_id = form.orgOricdClientId.data
