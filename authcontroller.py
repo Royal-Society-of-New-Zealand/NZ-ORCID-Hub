@@ -761,7 +761,7 @@ def viewmembers():
         users = current_user.organisation.users
     except NoneType:
         flash("There are no users registered in your organisation.", "danger")
-        return redirect(url_for("login")
+        return redirect(url_for("login"))
 
     return render_template("viewMembers.html", orgnisationname=current_user.organisation.name, users=users)
 
