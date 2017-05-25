@@ -165,3 +165,8 @@ footer section {
 	max-width:950px;
 	margin:0px auto;
 }
+
+a.orcid:hover {
+    color: #A6CE39;
+    text-decoration: none;
+}
