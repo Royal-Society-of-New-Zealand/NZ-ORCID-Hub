@@ -15,7 +15,7 @@
         </tr>
       </thead>
       <tbody>
-        {% for user in users %}
+        {% for user in users or [] %}
           <tr class="active">
             <td> {% if user.first_name %}{{ user.first_name}} {% endif %} {% if user.last_name %}{{ user.last_name}} {% endif %} </td>
             <td>{{ user.email|default("", True) }}</td>
