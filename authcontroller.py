@@ -759,7 +759,7 @@ def viewmembers():
     """View the list of users (researchers)."""
     try:
         users = current_user.organisation.users
-    except NoneType:
+    except:
         flash("There are no users registered in your organisation.", "danger")
         return redirect(url_for("login"))
 
