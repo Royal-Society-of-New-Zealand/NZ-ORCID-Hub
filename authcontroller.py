@@ -17,12 +17,13 @@ import requests
 from flask import (abort, flash, redirect, render_template, request, session, url_for)
 from flask_login import current_user, login_required, login_user, logout_user
 from flask_mail import Message
+from oauthlib.oauth2 import rfc6749
 from requests_oauthlib import OAuth2Session
 from werkzeug.urls import iri_to_uri
 
 import swagger_client
 import utils
-from application import app, mail
+from application import app, db, mail
 from config import (APP_DESCRIPTION, APP_NAME, APP_URL, AUTHORIZATION_BASE_URL, CRED_TYPE_PREMIUM,
                     EDU_PERSON_AFFILIATION_EDUCATION, EDU_PERSON_AFFILIATION_EMPLOYMENT,
                     EXTERNAL_SP, MEMBER_API_FORM_BASE_URL, NEW_CREDENTIALS, NOTE_ORCID,
@@ -149,19 +150,22 @@ def handle_login():
             "danger")
 
     try:
-        org = Organisation.get((Organisation.tuakiri_name == shib_org_name)
-                               | (Organisation.name == shib_org_name))
+        org = Organisation.get((Organisation.tuakiri_name == shib_org_name) | (
+            Organisation.name == shib_org_name))
     except Organisation.DoesNotExist:
         org = Organisation(tuakiri_name=shib_org_name)
         # try to get the official organisation name:
         try:
-            org_info = OrgInfo.get(OrgInfo.tuakiri_name == shib_org_name or
-                                   OrgInfo.name == shib_org_name)
+            org_info = OrgInfo.get((OrgInfo.tuakiri_name == shib_org_name) | (
+                OrgInfo.name == shib_org_name))
         except OrgInfo.DoesNotExist:
             org.name = shib_org_name
         else:
             org.name = org_info.name
-        org.save()
+        try:
+            org.save()
+        except Exception as ex:
+            flash("Failed to save organisation data: %s" % str(ex))
 
     try:
         user = User.get(User.email == email)
@@ -201,7 +205,10 @@ def handle_login():
         if org and org.confirmed:
             user.confirmed = True
 
-    user.save()
+    try:
+        user.save()
+    except Exception as ex:
+        flash("Failed to save user data: %s" % str(ex))
 
     login_user(user)
 
@@ -212,7 +219,7 @@ def handle_login():
     elif org and org.confirmed:
         return redirect(url_for("link"))
     elif org and org.is_email_confirmed and (not org.confirmed) and user.tech_contact:
-        return redirect(url_for("update_org_Info"))
+        return redirect(url_for("update_org_info"))
     else:
         flash("Your organisation (%s) is not onboarded" % shib_org_name, "danger")
 
@@ -246,18 +253,14 @@ def link():
     # TODO: re-affiliation after revoking access?
     # TODO: affiliation with multiple orgs should lookup UserOrg
 
-    user = User.get(email=current_user.email, organisation=current_user.organisation)
-    orcidTokenWrite = None
     try:
-        orcidTokenWrite = OrcidToken.get(
-            user=user, org=user.organisation, scope=SCOPE_ACTIVITIES_UPDATE)
-    except:
-        pass
-
-    if orcidTokenWrite is not None:
-        return redirect(url_for("profile"))
-
-    return render_template("linking.html", orcid_url_write=orcid_url_write)
+        OrcidToken.get(
+            user_id=current_user.id, org=current_user.organisation, scope=SCOPE_ACTIVITIES_UPDATE)
+    except OrcidToken.DoesNotExist:
+        return render_template("linking.html", orcid_url_write=orcid_url_write)
+    except Exception as ex:
+        flash("Unhandled Exception occured: %s" % str(ex))
+    return redirect(url_for("profile"))
 
 
 @app.route("/auth/<path:url>", methods=["GET"])
@@ -290,10 +293,18 @@ def orcid_callback():
         return redirect(url_for("link"))
 
     client = OAuth2Session(current_user.organisation.orcid_client_id)
-    token = client.fetch_token(
-        TOKEN_URL,
-        client_secret=current_user.organisation.orcid_secret,
-        authorization_response=request.url)
+    try:
+        token = client.fetch_token(
+            TOKEN_URL,
+            client_secret=current_user.organisation.orcid_secret,
+            authorization_response=request.url)
+    except rfc6749.errors.MissingCodeError:
+        flash("%s cannot be invoked directly..." % request.url, "danger")
+        return redirect(url_for("login"))
+    except rfc6749.errors.MissingTokenError:
+        flash("Missing token.", "danger")
+        return redirect(url_for("login"))
+
     # At this point you can fetch protected resources but lets save
     # the token and show how this is done from a persisted token
     # in /profile.
@@ -308,22 +319,30 @@ def orcid_callback():
     if not user.name and name:
         user.name = name
 
+    # TODO: refactor this "user" and "orciduser" effectively are the same
     orciduser = User.get(email=user.email, organisation=user.organisation)
 
     orcid_token, orcid_token_found = OrcidToken.get_or_create(
         user=orciduser, org=orciduser.organisation, scope=token["scope"][0])
     orcid_token.access_token = token["access_token"]
     orcid_token.refresh_token = token["refresh_token"]
-    orcid_token.save()
-    user.save()
+    with db.atomic():
+        try:
+            orcid_token.save()
+            user.save()
+        except Exception as ex:
+            db.rollback()
+            flash("Failed to save data: %s" % str(ex))
 
     if token["scope"] == SCOPE_ACTIVITIES_UPDATE and orcid_token_found:
         swagger_client.configuration.access_token = orcid_token.access_token
         api_instance = swagger_client.MemberAPIV20Api()
 
         source_clientid = swagger_client.SourceClientId(
+            # TODO: this shouldn't be hardcoded
             host='sandbox.orcid.org',
             path=orciduser.organisation.orcid_client_id,
+            # TODO: this shouldn't be hardcoded
             uri="http://sandbox.orcid.org/client/" + orciduser.organisation.orcid_client_id)
 
         organisation_address = swagger_client.OrganizationAddress(
@@ -404,8 +423,11 @@ def profile():
     try:
         orcidTokenRead = OrcidToken.get(
             user=user, org=user.organisation, scope=SCOPE_ACTIVITIES_UPDATE)
-    except:
+    except OrcidToken.DoesNotExist:
         return redirect(url_for("link"))
+    except:
+        # TODO: need to handle this
+        pass
     else:
         client = OAuth2Session(
             user.organisation.orcid_client_id, token={"access_token": orcidTokenRead.access_token})
@@ -474,7 +496,10 @@ def invite_organisation():
                 else:
                     org.tuakiri_name = org_info.tuakiri_name
 
-                org.save()
+                try:
+                    org.save()
+                except Exception as ex:
+                    flash("Failed to save organisation data: %s" % str(ex))
 
                 try:
                     user = User.get(email=email)
@@ -489,7 +514,10 @@ def invite_organisation():
                         roles=Role.ADMIN,
                         organisation=org,
                         tech_contact=tech_contact)
-                user.save()
+                try:
+                    user.save()
+                except Exception as ex:
+                    flash("Failed to save user data: %s" % str(ex))
                 # Note: Using app context due to issue:
                 # https://github.com/mattupstate/flask-mail/issues/63
                 with app.app_context():
@@ -538,9 +566,13 @@ def confirm_organisation(token=None):
               "danger")
         return redirect(url_for("login"))
 
+    # TODO: refactor this: user == current_user here no need to requery DB
     user = User.get(email=current_user.email, organisation=current_user.organisation)
     if not user.tech_contact:
-        user.save()
+        try:
+            user.save()
+        except Exception as ex:
+            flash("Failed to save user data: %s" % str(ex))
         with app.app_context():
             msg = Message("Welcome to the NZ ORCID Hub", recipients=[email])
             msg.body = "Congratulations you are confirmed as an Organisation Admin for " + str(
@@ -603,13 +635,19 @@ def confirm_organisation(token=None):
                         mail.send(msg)
                         flash("Your Onboarding is Completed!", "success")
 
-                    organisation.save()
+                    try:
+                        organisation.save()
+                    except Exception as ex:
+                        flash("Failed to save organisation data: %s" % str(ex))
                     return redirect(url_for("link"))
 
     elif request.method == 'GET':
         if organisation is not None and not organisation.is_email_confirmed:
             organisation.is_email_confirmed = True
-            organisation.save()
+            try:
+                organisation.save()
+            except Exception as ex:
+                flash("Failed to save organisation data: %s" % str(ex))
         elif organisation is not None and organisation.is_email_confirmed:
             flash(
                 """Your email link has expired. However, you should be able to login directly!""",
@@ -624,8 +662,9 @@ def confirm_organisation(token=None):
         and come back to this form once you have them.""", "warning")
 
         try:
-            orgInfo = OrgInfo.get((OrgInfo.email == email) | (OrgInfo.tuakiri_name == user.organisation.name)
-                                  | (OrgInfo.name == user.organisation.name))
+            orgInfo = OrgInfo.get((OrgInfo.email == email) | (
+                OrgInfo.tuakiri_name == user.organisation.name) | (
+                    OrgInfo.name == user.organisation.name))
             form.city.data = organisation.city = orgInfo.city
             form.disambiguation_org_id.data = organisation.disambiguation_org_id = orgInfo.disambiguation_org_id
             form.disambiguation_org_source.data = organisation.disambiguation_org_source = orgInfo.disambiguation_source
@@ -634,7 +673,10 @@ def confirm_organisation(token=None):
             pass
         organisation.country = form.country.data
 
-    organisation.save()
+    try:
+        organisation.save()
+    except Exception as ex:
+        flash("Failed to save organisation data: %s" % str(ex))
     redirect_uri = url_for("orcid_callback", _external=True)
     client_secret_url = iri_to_uri(MEMBER_API_FORM_BASE_URL) + "?" + urlencode(
         dict(
@@ -718,7 +760,7 @@ def viewmembers():
 
 @app.route("/updateorginfo", methods=["GET", "POST"])
 @roles_required(Role.ADMIN)
-def update_org_Info():
+def update_org_info():
     email = current_user.email
     user = User.get(email=current_user.email, organisation=current_user.organisation)
     form = OrgConfirmationForm()
@@ -736,7 +778,11 @@ def update_org_Info():
             app_url=APP_URL,
             redirect_uri_1=redirect_uri))
 
-    organisation = Organisation.get(email=email)
+    try:
+        organisation = Organisation.get(email=email)
+    except Organisation.DoesNotExist:
+        flash("It appears that you are not the technical contact for your organisaton.", "danger")
+        return redirect(url_for("login"))
     if request.method == 'POST':
         if not form.validate():
             flash('Please fill in all fields and try again!', "danger")
@@ -769,7 +815,10 @@ def update_org_Info():
                     organisation.orcid_client_id = form.orgOricdClientId.data
                     organisation.orcid_secret = form.orgOrcidClientSecret.data
                     flash("Organisation information updated successfully!", "success")
-                    organisation.save()
+                    try:
+                        organisation.save()
+                    except Exception as ex:
+                        flash("Failed to save organisation data: %s" % str(ex))
                     return redirect(url_for("link"))
 
     elif request.method == 'GET':
@@ -787,5 +836,8 @@ def update_org_Info():
         form.orgName.render_kw = {'readonly': True}
         form.orgEmailid.render_kw = {'readonly': True}
 
-    organisation.save()
+    try:
+        organisation.save()
+    except Exception as ex:
+        flash("Failed to save organisation data: %s" % str(ex))
     return render_template('orgconfirmation.html', client_secret_url=client_secret_url, form=form)
