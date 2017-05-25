@@ -68,7 +68,7 @@ def send_email(template, recipient, sender=(APP_NAME, MAIL_DEFAULT_SENDER), subj
     rendered = template.make_module(vars=kwargs)
 
     if subject is None:
-        subject = getattr(rendered, "subject", "Welcome to ORCID Hub")
+        subject = getattr(rendered, "subject", "Welcome to the NZ ORCID Hub")
 
     with app.app_context():
         msg = Message(subject=subject)
