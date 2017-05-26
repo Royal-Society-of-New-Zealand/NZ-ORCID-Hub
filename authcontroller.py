@@ -818,10 +818,20 @@ def update_org_info():
                           "\n Please recheck and contact Hub support if this error continues",
                           "danger")
                 else:
-                    organisation.confirmed = True
+
                     organisation.orcid_client_id = form.orgOricdClientId.data
                     organisation.orcid_secret = form.orgOrcidClientSecret.data
-                    flash("Organisation information updated successfully!", "success")
+                    if not organisation.confirmed:
+                        organisation.confirmed = True
+                        with app.app_context():
+                            msg = Message("Welcome to the NZ ORCID Hub - Success", recipients=[email])
+                            msg.body = "Congratulations! Your identity has been confirmed and " \
+                                       "your organisation onboarded successfully.\n" \
+                                       "Any researcher from your organisation can now use the Hub"
+                            mail.send(msg)
+                        flash("Your Onboarding is Completed!", "success")
+                    else:
+                        flash("Organisation information updated successfully!", "success")
                     try:
                         organisation.save()
                     except Exception as ex:
