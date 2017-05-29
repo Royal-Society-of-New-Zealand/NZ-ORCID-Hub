@@ -127,13 +127,13 @@ def handle_login():
     else:
         data = request.headers
 
-    token = data.get("Auedupersonsharedtoken")
-    last_name = data['Sn']
-    first_name = data['Givenname']
-    email = data['Mail']
-    session["shib_O"] = shib_org_name = data['O']
-    name = data.get('Displayname')
-    edu_person_affiliation = data.get('Unscoped-Affiliation')
+    token = data.get("Auedupersonsharedtoken").encode("latin-1").decode("utf-8")
+    last_name = data['Sn'].encode("latin-1").decode("utf-8")
+    first_name = data['Givenname'].encode("latin-1").decode("utf-8")
+    email = data['Mail'].encode("latin-1").decode("utf-8")
+    session["shib_O"] = shib_org_name = data['O'].encode("latin-1").decode("utf-8")
+    name = data.get('Displayname').encode("latin-1").decode("utf-8")
+    edu_person_affiliation = data.get('Unscoped-Affiliation').encode("latin-1").decode("utf-8")
 
     if edu_person_affiliation:
         if any(epa in edu_person_affiliation for epa in ['faculty', 'staff']) \
