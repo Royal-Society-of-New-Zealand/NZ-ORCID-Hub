@@ -126,13 +126,16 @@ def handle_login():
     else:
         data = request.headers
 
-    token = data.get("Auedupersonsharedtoken")
-    last_name = data["Sn"]
-    first_name = data["Givenname"]
-    email = data["Mail"]
-    session["shib_O"] = shib_org_name = data['O']
-    name = data.get("Displayname")
-    unscoped_affiliation = set(a.strip() for a in data.get("Unscoped-Affiliation", '').split(','))
+    token = data.get("Auedupersonsharedtoken").encode("latin-1").decode("utf-8")
+    last_name = data['Sn'].encode("latin-1").decode("utf-8")
+    first_name = data['Givenname'].encode("latin-1").decode("utf-8")
+    email = data['Mail'].encode("latin-1").decode("utf-8")
+    session["shib_O"] = shib_org_name = data['O'].encode("latin-1").decode("utf-8")
+    name = data.get('Displayname').encode("latin-1").decode("utf-8")
+    edu_person_affiliation = data.get('Unscoped-Affiliation')
+    unscoped_affiliation = set(
+        a.strip()
+        for a in data.get("Unscoped-Affiliation", '').encode("latin-1").decode("utf-8").split(','))
 
     if unscoped_affiliation:
         edu_person_affiliation = Affiliation.NONE
@@ -792,10 +795,21 @@ def update_org_info():
                           "\n Please recheck and contact Hub support if this error continues",
                           "danger")
                 else:
-                    organisation.confirmed = True
+
                     organisation.orcid_client_id = form.orgOricdClientId.data
                     organisation.orcid_secret = form.orgOrcidClientSecret.data
-                    flash("Organisation information updated successfully!", "success")
+                    if not organisation.confirmed:
+                        organisation.confirmed = True
+                        with app.app_context():
+                            msg = Message(
+                                "Welcome to the NZ ORCID Hub - Success", recipients=[email])
+                            msg.body = "Congratulations! Your identity has been confirmed and " \
+                                       "your organisation onboarded successfully.\n" \
+                                       "Any researcher from your organisation can now use the Hub"
+                            mail.send(msg)
+                        flash("Your Onboarding is Completed!", "success")
+                    else:
+                        flash("Organisation information updated successfully!", "success")
                     try:
                         organisation.save()
                     except Exception as ex:
