@@ -1,11 +1,11 @@
 from itertools import product
 
+import pytest
 from peewee import Model, SqliteDatabase
 from playhouse.test_utils import test_database
 
-import pytest
-from models import (OrcidToken, Organisation, OrgInfo, PartialDate, PartialDateField, Role, User,
-                    UserOrg, UserOrgAffiliation, create_tables, drop_tables)
+from models import (Affiliation, OrcidToken, Organisation, OrgInfo, PartialDate, PartialDateField,
+                    Role, User, UserOrg, UserOrgAffiliation, create_tables, drop_tables)
 
 
 @pytest.fixture
@@ -249,3 +249,11 @@ Organisation_1,Title_1,First Name_1,Last Name_1,Role_1,Email_1,Phone_1,yes,Count
     assert OrgInfo.select().count() == 2
     oi = OrgInfo.get(name="Organisation_1")
     assert oi.is_public
+
+
+def test_affiliations(test_models):
+    assert Affiliation.EDU == "EDU"
+    assert Affiliation.EMP == "EMP"
+    assert Affiliation.EMP == Affiliation["EMP"]
+    assert hash(Affiliation.EMP) == hash("EMP")
+    assert str(Affiliation.EDU | Affiliation.EMP) == "Education, Employment"

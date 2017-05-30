@@ -112,7 +112,6 @@ class Affiliation(IntFlag):
     NONE = 0  # NONE
     EDU = 1  # Education
     EMP = 2  # Employment
-    ANY = 255  # ANY
 
     def __eq__(self, other):
         if isinstance(other, Affiliation):
@@ -121,6 +120,12 @@ class Affiliation(IntFlag):
 
     def __hash__(self):
         return hash(self.name)
+
+    def __str__(self):
+        return ", ".join({
+            self.EDU: "Education",
+            self.EMP: "Employment"
+        }[a] for a in Affiliation if a & self)
 
 
 class BaseModel(Model):
@@ -278,7 +283,6 @@ class User(BaseModel, UserMixin):
     confirmed = BooleanField(default=False)
     # Role bit-map:
     roles = SmallIntegerField(default=0)
-    edu_person_affiliation = TextField(null=True, verbose_name="EDU Person Affiliations")
 
     tech_contact = BooleanField(default=False)
     is_locked = BooleanField(default=False)
@@ -362,7 +366,7 @@ class User(BaseModel, UserMixin):
         try:
             user_org = UserOrg.get(user=self, org=self.organisation)
             return Affiliation(user_org.affiliations)
-        except User.DoesNotExist:
+        except UserOrg.DoesNotExist:
             return Affiliation.NONE
 
 
@@ -377,9 +381,9 @@ class UserOrg(BaseModel):
         default=False, help_text="User is an administrator for the organisation")
 
     # Affiliation bit-map:
-    affiliations = SmallIntegerField(default=0)
+    affiliations = SmallIntegerField(default=0, null=True, verbose_name="EDU Person Affiliations")
 
-    # TODO: the access token should be either here or in a saparate list
+    # TODO: the access token should be either here or in a separate list
     # access_token = CharField(max_length=120, unique=True, null=True)
 
     class Meta:

@@ -3,11 +3,11 @@
 
 import pprint
 
+import pytest
 from flask import url_for
 from flask_login import login_user
 
 import login_provider
-import pytest
 import tokenGeneration
 from models import Organisation, Role, User, UserOrg
 
