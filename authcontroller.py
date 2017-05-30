@@ -25,12 +25,11 @@ import swagger_client
 import utils
 from application import app, db, mail
 from config import (APP_DESCRIPTION, APP_NAME, APP_URL, AUTHORIZATION_BASE_URL, CRED_TYPE_PREMIUM,
-                    EDU_PERSON_AFFILIATION_EDUCATION, EDU_PERSON_AFFILIATION_EMPLOYMENT,
                     EXTERNAL_SP, MEMBER_API_FORM_BASE_URL, NEW_CREDENTIALS, NOTE_ORCID,
                     ORCID_API_BASE, ORCID_BASE_URL, SCOPE_ACTIVITIES_UPDATE, TOKEN_URL)
 from forms import OnboardingTokenForm
 from login_provider import roles_required
-from models import OrcidToken, Organisation, OrgInfo, Role, User, UserOrg
+from models import (Affiliation, OrcidToken, Organisation, OrgInfo, Role, User, UserOrg)
 from registrationForm import OrgConfirmationForm, OrgRegistrationForm
 from swagger_client.rest import ApiException
 from tokenGeneration import confirm_token, generate_confirmation_token
@@ -133,19 +132,19 @@ def handle_login():
     email = data['Mail'].encode("latin-1").decode("utf-8")
     session["shib_O"] = shib_org_name = data['O'].encode("latin-1").decode("utf-8")
     name = data.get('Displayname').encode("latin-1").decode("utf-8")
-    edu_person_affiliation = data.get('Unscoped-Affiliation').encode("latin-1").decode("utf-8")
+    unscoped_affiliation = set(
+        a.strip()
+        for a in data.get("Unscoped-Affiliation", '').encode("latin-1").decode("utf-8").split(','))
 
-    if edu_person_affiliation:
-        if any(epa in edu_person_affiliation for epa in ['faculty', 'staff']) \
-                and any(epa in edu_person_affiliation for epa in ['student', 'alum']):
-            edu_person_affiliation = EDU_PERSON_AFFILIATION_EMPLOYMENT + " and " + EDU_PERSON_AFFILIATION_EDUCATION
-        elif any(epa in edu_person_affiliation for epa in ['faculty', 'staff']):
-            edu_person_affiliation = EDU_PERSON_AFFILIATION_EMPLOYMENT
-        elif any(epa in edu_person_affiliation for epa in ['student', 'alum']):
-            edu_person_affiliation = EDU_PERSON_AFFILIATION_EDUCATION
+    if unscoped_affiliation:
+        edu_person_affiliation = Affiliation.NONE
+        if unscoped_affiliation & {"faculty", "staff"}:
+            edu_person_affiliation |= Affiliation.EMP
+        elif unscoped_affiliation & {"student", "alum"}:
+            edu_person_affiliation |= Affiliation.EDU
     else:
         flash(
-            "The value of edu_person_affiliation was not supplied from your identity provider,"
+            "The value of 'Unscoped-Affiliation' was not supplied from your identity provider,"
             " So we are not able to determine the nature of affiliation you have with your organisation",
             "danger")
 
@@ -179,9 +178,6 @@ def handle_login():
             user.first_name = first_name
         if not user.last_name and last_name:
             user.last_name = last_name
-        if edu_person_affiliation:
-            user.edu_person_affiliation = edu_person_affiliation
-            # TODO: keep login auditing (last_loggedin_at... etc)
 
     except User.DoesNotExist:
         user = User.create(
@@ -190,16 +186,17 @@ def handle_login():
             first_name=first_name,
             last_name=last_name,
             roles=Role.RESEARCHER,
-            edu_person_shared_token=token,
-            edu_person_affiliation=edu_person_affiliation)
+            edu_person_shared_token=token)
 
-    if org is not None and org not in user.organisations:
-        UserOrg.create(user=user, org=org)
-
-        # TODO: need to find out a simple way of tracking
-        # the organization user is logged in from:
+    # TODO: need to find out a simple way of tracking
+    # the organization user is logged in from:
     if org != user.organisation:
         user.organisation = org
+
+    if org:
+        user_org, _ = UserOrg.get_or_create(user=user, org=org)
+        user_org.affiliations = edu_person_affiliation
+        user_org.save()
 
     if not user.confirmed:
         if org and org.confirmed:
@@ -351,59 +348,38 @@ def orcid_callback():
             disambiguated_organization_identifier=orciduser.organisation.disambiguation_org_id,
             disambiguation_source=orciduser.organisation.disambiguation_org_source)
 
-        if orciduser.edu_person_affiliation is not None:
+        for a in Affiliation:
 
-            # TODO: denormilize model!!!
-            if (orciduser.edu_person_affiliation == EDU_PERSON_AFFILIATION_EMPLOYMENT or
-                    orciduser.edu_person_affiliation == EDU_PERSON_AFFILIATION_EMPLOYMENT + " and "
-                    + EDU_PERSON_AFFILIATION_EDUCATION):
-                employment = swagger_client.Employment()
+            if not a & orciduser.affiliations:
+                continue
 
-                employment.source = swagger_client.Source(
-                    source_orcid=None,
-                    source_client_id=source_clientid,
-                    source_name=orciduser.organisation.name)
+            if a == Affiliation.EMP:
+                rec = swagger_client.rec()
+            elif a == Affiliation.EDU:
+                rec = swagger_client.rec()
+            else:
+                continue
 
-                employment.organization = swagger_client.Organization(
-                    name=orciduser.organisation.name,
-                    address=organisation_address,
-                    disambiguated_organization=disambiguated_organization_details)
+            rec.source = swagger_client.Source(
+                source_orcid=None,
+                source_client_id=source_clientid,
+                source_name=orciduser.organisation.name)
 
-                try:
-                    api_instance.create_employment(user.orcid, body=employment)
-                    # TODO: Save the put code in db table
-                    flash("Your ORCID record was updated with an employment affiliation from %s" %
-                          orciduser.organisation, "success")
+            rec.organization = swagger_client.Organization(
+                name=orciduser.organisation.name,
+                address=organisation_address,
+                disambiguated_organization=disambiguated_organization_details)
 
-                except ApiException as e:
-                    flash("Failed to update the entry: %s." % e.body, "danger")
+            try:
+                api_instance.create_rec(user.orcid, body=rec)
+                # TODO: Save the put code in db table
+                flash("Your ORCID record was updated with an rec affiliation from %s" %
+                      orciduser.organisation, "success")
 
-            # TODO: denormilize model!!!
-            if (orciduser.edu_person_affiliation == EDU_PERSON_AFFILIATION_EDUCATION or
-                    orciduser.edu_person_affiliation == EDU_PERSON_AFFILIATION_EMPLOYMENT + " and "
-                    + EDU_PERSON_AFFILIATION_EDUCATION):
+            except ApiException as e:
+                flash("Failed to update the entry: %s." % e.body, "danger")
 
-                education = swagger_client.Education()
-
-                education.source = swagger_client.Source(
-                    source_orcid=None,
-                    source_client_id=source_clientid,
-                    source_name=orciduser.organisation.name)
-
-                education.organization = swagger_client.Organization(
-                    name=orciduser.organisation.name,
-                    address=organisation_address,
-                    disambiguated_organization=disambiguated_organization_details)
-
-                try:
-                    api_instance.create_education(user.orcid, body=education)
-                    # TODO: Save the put code in db table
-                    flash("Your ORCID record was updated with an education affiliation from %s" %
-                          orciduser.organisation, "success")
-
-                except ApiException as e:
-                    flash("Failed to update the entry: %s." % e.body, "danger")
-        else:
+        if not orciduser.affiliations:
             flash(
                 "The ORCID Hub was not able to automatically write an affiliation with %s, "
                 "as the nature of the affiliation with your organisation does not appear to include either "
@@ -763,7 +739,8 @@ def viewmembers():
         flash("There are no users registered in your organisation.", "danger")
         return redirect(url_for("login"))
 
-    return render_template("viewMembers.html", orgnisationname=current_user.organisation.name, users=users)
+    return render_template(
+        "viewMembers.html", orgnisationname=current_user.organisation.name, users=users)
 
 
 @app.route("/updateorginfo", methods=["GET", "POST"])
@@ -824,7 +801,8 @@ def update_org_info():
                     if not organisation.confirmed:
                         organisation.confirmed = True
                         with app.app_context():
-                            msg = Message("Welcome to the NZ ORCID Hub - Success", recipients=[email])
+                            msg = Message(
+                                "Welcome to the NZ ORCID Hub - Success", recipients=[email])
                             msg.body = "Congratulations! Your identity has been confirmed and " \
                                        "your organisation onboarded successfully.\n" \
                                        "Any researcher from your organisation can now use the Hub"

@@ -102,6 +102,32 @@ class Role(IntFlag):
         return hash(self.name)
 
 
+class Affiliation(IntFlag):
+    """
+    Enum used to represent user affiliation (type) to the organisation.
+
+    The model provide multiple affiliations support representing role sets as bitmaps.
+    """
+
+    NONE = 0  # NONE
+    EDU = 1  # Education
+    EMP = 2  # Employment
+
+    def __eq__(self, other):
+        if isinstance(other, Affiliation):
+            return self.value == other.value
+        return (self.name == other or self.name == getattr(other, 'name', None))
+
+    def __hash__(self):
+        return hash(self.name)
+
+    def __str__(self):
+        return ", ".join({
+            self.EDU: "Education",
+            self.EMP: "Employment"
+        }[a] for a in Affiliation if a & self)
+
+
 class BaseModel(Model):
     class Meta:
         database = db
@@ -257,7 +283,7 @@ class User(BaseModel, UserMixin):
     confirmed = BooleanField(default=False)
     # Role bit-map:
     roles = SmallIntegerField(default=0)
-    edu_person_affiliation = TextField(null=True, verbose_name="EDU Person Affiliations")
+
     tech_contact = BooleanField(default=False)
     is_locked = BooleanField(default=False)
 
@@ -334,6 +360,15 @@ class User(BaseModel, UserMixin):
         """Return Gravatar service user profile URL."""
         return "https://www.gravatar.com/" + md5(self.email.lower().encode()).hexdigest()
 
+    @property
+    def affiliations(self):
+        """Return affiliations with the current organisation."""
+        try:
+            user_org = UserOrg.get(user=self, org=self.organisation)
+            return Affiliation(user_org.affiliations)
+        except UserOrg.DoesNotExist:
+            return Affiliation.NONE
+
 
 class UserOrg(BaseModel):
     """Linking object for many-to-many relationship."""
@@ -345,7 +380,10 @@ class UserOrg(BaseModel):
     is_admin = BooleanField(
         default=False, help_text="User is an administrator for the organisation")
 
-    # TODO: the access token should be either here or in a saparate list
+    # Affiliation bit-map:
+    affiliations = SmallIntegerField(default=0, null=True, verbose_name="EDU Person Affiliations")
+
+    # TODO: the access token should be either here or in a separate list
     # access_token = CharField(max_length=120, unique=True, null=True)
 
     class Meta:
