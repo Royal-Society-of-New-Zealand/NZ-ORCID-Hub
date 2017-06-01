@@ -348,15 +348,16 @@ def orcid_callback():
             disambiguated_organization_identifier=orciduser.organisation.disambiguation_org_id,
             disambiguation_source=orciduser.organisation.disambiguation_org_source)
 
+        # TODO: need to check if the entry doesn't exist already:
         for a in Affiliation:
 
             if not a & orciduser.affiliations:
                 continue
 
             if a == Affiliation.EMP:
-                rec = swagger_client.rec()
+                rec = swagger_client.Employment()
             elif a == Affiliation.EDU:
-                rec = swagger_client.rec()
+                rec = swagger_client.Education()
             else:
                 continue
 
@@ -371,9 +372,14 @@ def orcid_callback():
                 disambiguated_organization=disambiguated_organization_details)
 
             try:
-                api_instance.create_rec(user.orcid, body=rec)
-                # TODO: Save the put code in db table
-                flash("Your ORCID record was updated with an rec affiliation from %s" %
+                if a == Affiliation.EMP:
+                    api_instance.create_employment(user.orcid, body=rec)
+                elif a == Affiliation.EDU:
+                    api_instance.create_education(user.orcid, body=rec)
+                else:
+                    continue
+                # TODO: Save the put-code in db table
+                flash("Your ORCID record was updated with an affiliation entry to '%s'" %
                       orciduser.organisation, "success")
 
             except ApiException as e:
