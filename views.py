@@ -12,8 +12,8 @@ from requests_oauthlib import OAuth2Session
 
 import swagger_client
 from application import admin, app
-from config import SCOPE_ACTIVITIES_UPDATE
-from forms import BitmapMultipleValueField, RecordForm, OrgInfoForm
+from config import ORCID_BASE_URL, SCOPE_ACTIVITIES_UPDATE
+from forms import BitmapMultipleValueField, EmploymentForm, OrgInfoForm
 from login_provider import roles_required
 from models import PartialDate as PD
 from models import (OrcidToken, Organisation, OrgInfo, Role, User, UserOrgAffiliation)
@@ -36,6 +36,12 @@ def favicon():
 def pyinfo():
     """Show Python and runtime environment and settings."""
     return render_template('pyinfo.html', **info)
+
+
+@app.route('/about')
+def about():
+    """Show 'about' page."""
+    return render_template("about.html")
 
 
 class AppModelView(ModelView):
@@ -120,6 +126,12 @@ def year_range(entry):
     else:
         val += entry["end_date"]["year"]["value"]
     return val
+
+
+@app.template_filter('orcid')
+def user_orcid_id_url(user):
+    """Render user ORCID Id URL."""
+    return ORCID_BASE_URL + user.orcid if user.orcid else ''
 
 
 @app.route("/<int:user_id>/emp/<int:put_code>/delete", methods=["POST"])
