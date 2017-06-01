@@ -215,7 +215,7 @@ def handle_login():
         return redirect(url_for("invite_organisation"))
     elif org and org.confirmed:
         return redirect(url_for("link"))
-    elif org and org.is_email_confirmed and (not org.confirmed) and user.tech_contact:
+    elif org and org.is_email_confirmed and (not org.confirmed) and user.is_tech_contact_of(org):
         return redirect(url_for("update_org_info"))
     else:
         flash("Your organisation (%s) is not onboarded" % shib_org_name, "danger")
@@ -485,21 +485,37 @@ def invite_organisation():
 
                 try:
                     user = User.get(email=email)
-                    user.roles = Role.ADMIN
+                    user.roles |= Role.ADMIN
                     user.organisation = org
-                    user.tech_contact = tech_contact
                     user.confirmed = True
                 except User.DoesNotExist:
                     user = User(
                         email=form.orgEmailid.data,
                         confirmed=True,  # In order to let the user in...
                         roles=Role.ADMIN,
-                        organisation=org,
-                        tech_contact=tech_contact)
+                        organisation=org)
                 try:
                     user.save()
                 except Exception as ex:
                     flash("Failed to save user data: %s" % str(ex))
+
+                if tech_contact:
+                    org.tech_contact = user
+                    try:
+                        org.save()
+                    except Exception as ex:
+                        flash(
+                            "Failed to assign the user as the technical contact to the organisation: %s"
+                            % str(ex))
+
+                user_org, _ = UserOrg.get_or_create(user=user, org=org)
+                user_org.is_admin = True
+                try:
+                    user_org.save()
+                except Exception as ex:
+                    flash("Failed to assign the user as an administrator to the organisation: %s" %
+                          str(ex))
+
                 # Note: Using app context due to issue:
                 # https://github.com/mattupstate/flask-mail/issues/63
                 with app.app_context():
@@ -770,7 +786,7 @@ def update_org_info():
             redirect_uri_1=redirect_uri))
 
     try:
-        organisation = Organisation.get(email=email)
+        organisation = Organisation.get(tech_contact_id=current_user.id)
     except Organisation.DoesNotExist:
         flash("It appears that you are not the technical contact for your organisaton.", "danger")
         return redirect(url_for("login"))
