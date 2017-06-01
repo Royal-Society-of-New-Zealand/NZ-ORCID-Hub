@@ -10,7 +10,7 @@ import requests_oauthlib
 from flask import url_for
 from flask_login import login_user
 
-from models import OrcidToken, Organisation, User, UserOrg
+from models import Affiliation, OrcidToken, Organisation, User, UserOrg
 
 fake_time = time.time()
 
@@ -131,6 +131,51 @@ def test_link_orcid_auth_callback(name, request_ctx):
             assert u.name == name, "The user name should be changed"
         else:
             assert u.name == "NEW TEST", "the user name should be set from record coming from ORCID"
+
+
+@pytest.mark.parametrize("name", ["TEST USER", None])
+@patch.object(requests_oauthlib.OAuth2Session, "fetch_token", lambda self, *args, **kwargs: dict(
+    name="NEW TEST",
+    access_token="ABC123",
+    orcid="ABC-123-456-789",
+    scope=['/activities/update'],
+    refresh_token="ABC1235"))
+def test_link_orcid_auth_callback_with_affiliation(name, request_ctx):
+    """Test ORCID callback - the user authorized the organisation access to the ORCID profile."""
+    with patch("swagger_client.MemberAPIV20Api") as m, \
+         patch("swagger_client.SourceClientId"), \
+         request_ctx("/auth") as ctx:
+        org = Organisation.create(
+            name="THE ORGANISATION",
+            confirmed=True,
+            orcid_client_id="CLIENT ID",
+            city="CITY",
+            country="COUNTRY",
+            disambiguation_org_id="ID",
+            disambiguation_org_source="SOURCE")
+
+        test_user = User.create(
+            name=name,
+            email="test123@test.test.net",
+            username="test123",
+            organisation=org,
+            orcid="ABC123",
+            confirmed=True)
+
+        user_org = UserOrg.create(
+            user=test_user, org=org, affiliations=Affiliation.EMP | Affiliation.EDU)
+
+        login_user(test_user, remember=True)
+
+        api_mock = m.return_value
+        rv = ctx.app.full_dispatch_request()
+        assert test_user.orcid == "ABC-123-456-789"
+
+        orcid_token = OrcidToken.get(user=test_user, org=org)
+        assert orcid_token.access_token == "ABC123"
+
+        api_mock.create_employment.assert_called_once()
+        api_mock.create_education.assert_called_once()
 
 
 def make_fake_response(text, *args, **kwargs):

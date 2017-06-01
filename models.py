@@ -313,9 +313,6 @@ class User(BaseModel, UserMixin):
             self.userorg_set.where(self.userorg_set.c.is_admin).alias("sq"),
             on=Organisation.id == self.userorg_set.c.org_id)
 
-    username = CharField(max_length=64, unique=True, null=True)
-    password = TextField(null=True)
-
     @property
     def is_active(self):
         # TODO: confirmed - user that email is cunfimed either by IdP or by confirmation email
