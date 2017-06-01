@@ -71,7 +71,7 @@ class UserAdmin(AppModelView):
     column_formatters = dict(
         roles=lambda v, c, m, p: ", ".join(n for r, n in v.roles.items() if r & m.roles),
         orcid=lambda v, c, m, p: m.orcid.replace('-', '\u2011') if m.orcid else '')
-    column_filters = ("name", )
+    column_filters = ("name",)
     form_overrides = dict(roles=BitmapMultipleValueField)
     form_args = dict(roles=dict(choices=roles.items()))
 
@@ -104,9 +104,10 @@ admin.add_view(OrganisationAdmin(Organisation))
 admin.add_view(OrcidTokenAdmin(OrcidToken))
 admin.add_view(OrgInfoAdmin(OrgInfo))
 
-EmpRecord = namedtuple("EmpRecord", [
+SectionRecord = namedtuple("SectionRecord", [
     "name", "city", "state", "country", "department", "role", "start_date", "end_date"
 ])
+SectionRecord.__new__.__defaults__ = (None, ) * len(SectionRecord._fields)
 
 
 @app.template_filter('year_range')
@@ -150,16 +151,16 @@ def delete_employment(user_id, put_code=None):
         flash("The user hasn't yet linked their ORCID record", "danger")
         return redirect(_url)
 
-    orcidToken = None
+    orcid_token = None
 
     try:
-        orcidToken = OrcidToken.get(
+        orcid_token = OrcidToken.get(
             user=user, org=user.organisation, scope=SCOPE_ACTIVITIES_UPDATE)
     except:
         flash("The user hasn't authorized you to Add records", "warning")
         return redirect(_url)
 
-    swagger_client.configuration.access_token = orcidToken.access_token
+    swagger_client.configuration.access_token = orcid_token.access_token
     api_instance = swagger_client.MemberAPIV20Api()
 
     try:
@@ -171,41 +172,64 @@ def delete_employment(user_id, put_code=None):
     return redirect(_url)
 
 
+@app.route("/<int:user_id>/edu/<int:put_code>/edit", methods=["GET", "POST"])
+@app.route("/<int:user_id>/edu/new", methods=["GET", "POST"])
+@roles_required(Role.ADMIN)
+def education(user_id, put_code=None):
+    """Create a new or edit an existing employment record."""
+
+    return edit_section_record(user_id, put_code, "EDU")
+
+
 @app.route("/<int:user_id>/emp/<int:put_code>/edit", methods=["GET", "POST"])
 @app.route("/<int:user_id>/emp/new", methods=["GET", "POST"])
 @roles_required(Role.ADMIN)
 def employment(user_id, put_code=None):
     """Create a new or edit an existing employment record."""
-    _url = request.args.get('url') or url_for("employment_list", user_id=user_id)
 
+    return edit_section_record(user_id, put_code, "EMP")
+
+
+def edit_section_record(user_id, put_code=None, section_type="EMP"):
+    """Create a new or edit an existing profile section record."""
+
+    section_type = section_type.upper()[:3]
+    _url = (request.args.get('url') or url_for("employment_list", user_id=user_id)
+            if section_type == "EMP" else url_for("edu_list", user_id=user_id))
+
+    org = current_user.organisation
     try:
-        user = User.get(id=user_id, organisation_id=current_user.organisation_id)
-    except:
+        # TODO: multiple orginisation support
+        user = User.get(id=user_id, organisation=org.id)
+    except User.DoesNotExist:
         flash("ORCID HUB doent have data related to this researcher", "warning")
-        return redirect(url_for("viewmembers"))
+        return redirect(_url)
 
     if not user.orcid:
         flash("The user hasn't yet linked their ORCID record", "danger")
         return redirect(_url)
 
-    orcidToken = None
-
+    orcid_token = None
     try:
-        orcidToken = OrcidToken.get(
-            user=user, org=user.organisation, scope=SCOPE_ACTIVITIES_UPDATE)
+        orcid_token = OrcidToken.get(
+            user=user, org=org, scope=SCOPE_ACTIVITIES_UPDATE)
     except:
         flash("The user hasn't authorized you to Add records", "warning")
         return redirect(_url)
-    swagger_client.configuration.access_token = orcidToken.access_token
+    swagger_client.configuration.access_token = orcid_token.access_token
     api_instance = swagger_client.MemberAPIV20Api()
 
     # TODO: handle "new"...
     if put_code is not None:
         try:
             # Fetch an Employment
-            api_response = api_instance.view_employment(user.orcid, put_code)
+            if section_type == "EMP":
+                api_response = api_instance.view_employment(user.orcid, put_code)
+            elif section_type == "EDU":
+                api_response = api_instance.view_education(user.orcid, put_code)
+
             _data = api_response.to_dict()
-            data = EmpRecord(
+            data = SectionRecord(
                 name=_data.get("organization").get("name"),
                 city=_data.get("organization").get("address").get("city", ""),
                 state=_data.get("organization").get("address").get("region", ""),
@@ -217,81 +241,95 @@ def employment(user_id, put_code=None):
         except ApiException as e:
             print("Exception when calling MemberAPIV20Api->view_employment: %s\n" % e.body)
     else:
-        data = None
+        data = SectionRecord(name=org.name, city=org.city, country=org.country)
 
-    form = EmploymentForm(request.form, obj=data)
+    form = RecordForm(request.form, obj=data)
     if not form.name.data:
-        form.name.data = current_user.organisation.name
+        form.name.data = org.name
     if not form.country.data or form.country.data == "None":
-        form.country.data = current_user.organisation.country
+        form.country.data = org.country
 
-    if request.method == "POST" and form.validate():
+    if form.validate_on_submit():
         # TODO: Audit trail
         # TODO: If it's guarantee that the record will be editited solely by a sigle token we can
         # cache the record in the local DB
 
-        employment = swagger_client.Employment(
-            start_date=form.start_date.data.as_orcid_dict(),
-            end_date=form.end_date.data.as_orcid_dict(),
-            path="",
-            department_name=form.department.data,
-            role_title=form.role.data)
+        rec = swagger_client.Employment() if section_type == "EMP" else swagger_client.Education()
+        rec.start_date = form.start_date.data.as_orcid_dict()
+        rec.end_date = form.end_date.data.as_orcid_dict()
+        rec.path = ""
+        rec.department_name = form.department.data
+        rec.role_title = form.role.data
 
+        # TODO: adjust literals to the environment
         source_clientid = swagger_client.SourceClientId(
             host='sandbox.orcid.org',
-            path=current_user.organisation.orcid_client_id,
-            uri="http://sandbox.orcid.org/client/" + user.organisation.orcid_client_id)
-        employment.source = swagger_client.Source(
+            path=org.orcid_client_id,
+            uri="http://sandbox.orcid.org/client/" + org.orcid_client_id)
+        rec.source = swagger_client.Source(
             source_orcid=None,
             source_client_id=source_clientid,
-            source_name=current_user.organisation.name)
+            source_name=org.name)
 
         organisation_address = swagger_client.OrganizationAddress(
             city=form.city.data, region=form.state.data, country=form.country.data)
 
-        employment.organization = swagger_client.Organization(
+        rec.organization = swagger_client.Organization(
             name=form.name.data, address=organisation_address, disambiguated_organization=None)
 
-        if current_user.organisation.name != form.name.data:
+        if org.name != form.name.data:
             swagger_client.DisambiguatedOrganization(
-                disambiguated_organization_identifier=current_user.organisation.name,
-                disambiguation_source=current_user.organisation.name)
+                disambiguated_organization_identifier=org.name,
+                disambiguation_source=org.name)
         try:
             if put_code:
                 # TODO: We can uncomment the below swagger employment update call,
                 # Once the bug fix (in update employment functionality) related to put code is done from ORCID side
                 # api_instance.update_employment(user.orcid, put_code, body=employment)
-                try:
-                    client = OAuth2Session(
-                        user.organisation.orcid_client_id,
-                        token={"access_token": swagger_client.configuration.access_token})
+                # try:
+                client = OAuth2Session(
+                    org.orcid_client_id,
+                    token={"access_token": swagger_client.configuration.access_token})
 
-                    headers = {
-                        'Accept': 'application/vnd.orcid+json',
-                        'Content-type': 'application/vnd.orcid+json'
-                    }
-                    data = employment.to_dict()
-                    data['put-code'] = int(put_code)
-                    temp = json.dumps(data).replace('_', '-')
-                    data = json.loads(temp)
-                    resp = client.put(
-                        url="https://api.sandbox.orcid.org/v2.0/" + user.orcid + "/employment/" +
-                        str(put_code),
-                        json=data,
-                        headers=headers)
-                    print(resp)
-                except:
-                    pass
+                headers = {
+                    'Accept': 'application/vnd.orcid+json',
+                    'Content-type': 'application/vnd.orcid+json'
+                }
+                data = rec.to_dict()
+                data['put-code'] = int(put_code)
+                temp = json.dumps(data).replace('_', '-')
+                data = json.loads(temp)
+                apitype = ""
+                if section_type == "EMP":
+                    apitype = "employment"
+                else:
+                    apitype = "education"
+                resp = client.put(
+                    url="https://api.sandbox.orcid.org/v2.0/" + user.orcid +
+                        "/" + apitype + "/" + str(put_code),
+                    json=data,
+                    headers=headers)
+                if resp.status_code == 200:
+                    flash("Record details has been u" "pdated successfully!", "success")
+                else:
+                    flash("You are not authorised to update this record!", "danger")
+                    return redirect(_url)
             else:
-                api_response = api_instance.create_employment(user.orcid, body=employment)
+                if section_type == "EMP":
+                    api_response = api_instance.create_employment(user.orcid, body=rec)
+                else:
+                    api_response = api_instance.create_education(user.orcid, body=rec)
+
+                flash("Record details has been added successfully!", "success")
 
             affiliation, _ = UserOrgAffiliation.get_or_create(
                 user=user,
-                organisation=user.organisation,
+                organisation=org,
                 put_code=put_code,
                 department_name=form.department.data,
                 department_city=form.city.data,
                 role_title=form.role.data)
+
             form.populate_obj(affiliation)
             if put_code:
                 affiliation.put_code = put_code
@@ -300,16 +338,13 @@ def employment(user_id, put_code=None):
                 # affiliation.path = resp.headers['Location']
                 # affiliation.put_code = int(resp.headers['Location'].rsplit('/', 1)[-1])
             affiliation.save()
-            if put_code:
-                flash("Employment Details has been u" "pdated successfully!", "success")
-            else:
-                flash("Employment Details has been added successfully!", "success")
             return redirect(_url)
         except ApiException as e:
             # message = resp.json().get("user-message") or resp.state
             flash("Failed to update the entry: %s." % e.body, "danger")
 
-    return render_template("employment.html", form=form, _url=_url)
+    return render_template(
+        "employment.html" if section_type == "EMP" else "education.html", form=form, _url=_url)
 
 
 @app.route("/<int:user_id>/emp/list")
@@ -340,15 +375,15 @@ def show_record_section(user_id, section_type="EMP"):
         flash("The user hasn't yet linked their ORCID record", "danger")
         return redirect(url_for("viewmembers"))
 
-    orcidToken = None
+    orcid_token = None
     try:
-        orcidToken = OrcidToken.get(
+        orcid_token = OrcidToken.get(
             user=user, org=current_user.organisation, scope=SCOPE_ACTIVITIES_UPDATE)
     except:
         flash("User didn't give permissions to update his/her records", "warning")
         return redirect(url_for("viewmembers"))
 
-    swagger_client.configuration.access_token = orcidToken.access_token
+    swagger_client.configuration.access_token = orcid_token.access_token
     # create an instance of the API class
     api_instance = swagger_client.MemberAPIV20Api()
     try:
