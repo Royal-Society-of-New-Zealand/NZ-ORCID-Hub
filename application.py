@@ -8,6 +8,7 @@ from flask_admin import Admin
 from flask_debugtoolbar import DebugToolbarExtension
 from flask_mail import Mail
 from playhouse.db_url import connect
+from raven.contrib.flask import Sentry
 
 from config import *  # noqa: F401, F403
 
@@ -45,6 +46,9 @@ mail.init_app(app)
 #admin = Admin(app, name="NZ ORCiD Hub", template_mode="bootstrap3", base_template="layout.html")
 admin = Admin(
     app, name="NZ ORCiD Hub", template_mode="bootstrap3", base_template="admin/master.html")
+
+# https://sentry.io/orcid-hub/nz-orcid-hub-dev/getting-started/python-flask/
+sentry = Sentry(app, dsn=SENTRY_DSN)
 
 login_manager = flask_login.LoginManager()
 login_manager.login_view = "login"
