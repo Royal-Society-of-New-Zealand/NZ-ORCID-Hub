@@ -1,105 +1,105 @@
 <!-- Header Details -->
 {% from "macros.html" import orcid_url %}
 <header>
-    {% block header %}
+  {% block header %}
     <div class="lead banner"
          style="background-image:url({{url_for('static', filename='images/banner.svg')}}); background-position: right top; background-size: auto 127px; background-repeat: no-repeat; height: 127px; background-color: #000;">
     </div>
-    {% endblock %}
-    {% if current_user.confirmed %}
+  {% endblock %}
+  {% if current_user.confirmed %}
     <nav class="navbar navbar-default">
-        <div class="container-fluid">
-            <div class="navbar-header">
-                <button type="button" class="navbar-toggle collapsed" data-toggle="collapse"
-                        data-target="#navbar-collapse-1" aria-expanded="false">
-                    <span class="sr-only">Toggle navigation</span>
-                    <span class="icon-bar"></span>
-                    <span class="icon-bar"></span>
-                    <span class="icon-bar"></span>
-                </button>
-                <a class="navbar-brand" href="{{ url_for('login') }}">NZ ORCID Hub</a>
-            </div>
-            <div class="collapse navbar-collapse" id="navbar-collapse-1">
-                <ul class="nav navbar-nav">
-                    <li id="about"><a href="{{ url_for('about') }}">About</a></li>
-                    {% if current_user.organisation.confirmed or current_user.has_role("SUPERUSER") %}
-                    <li id="profile"><a href="{{ url_for('link') }}" data-toggle="tooltip"
-                                        title="Affiliate yourself using the NZ ORCID HUB or view your ORCID iD">ORCID
-                        Permissions</a></li>
-                    {% if current_user.has_role("ADMIN") %}
-                    <li id="researcher"><a href="#">Register Researcher(s)</a></li>
-                    <li id="viewmembers"><a href="/viewmembers">View Researchers</a></li>
-                    {% if current_user.tech_contact %}
-                    <li id="updateorginfo"><a href="/updateorginfo">Review Org. Info</a></li>
-                    {% endif %}
-                    {% endif %}
-                    {% endif %}
-                    {% if current_user.has_role("SUPERUSER") %}
-                    <li id="registerOrganisation"><a href="{{ url_for('invite_organisation') }}">Register
-                        Organisation</a>
-                    </li>
-                    {% endif %}
-                    {% if current_user.is_superuser %}
-                    <li class="dropdown">
-                        <a class="dropdown-toggle" data-toggle="dropdown" href="#">Admin
-                            <span class="caret"></span></a>
-                        <ul class="dropdown-menu">
-                            <li id="user.index_view"><a href="{{ url_for('user.index_view')}}">Users</a></li>
-                            <li id="organisation.index_view"><a href="{{ url_for('organisation.index_view')}}">Organisations</a>
-                            </li>
-                            <li id="orcidtoken.index_view"><a href="{{ url_for('orcidtoken.index_view')}}">ORCID Tokens</a></li>
-                            <li id="load_org"><a href="{{ url_for('load_org')}}">Upload Organisation Info</a></li>
-                            <li id="orginfo.index_view"><a href="{{ url_for('orginfo.index_view')}}">View Organisation
-                                Info</a></li>
-                        </ul>
-                    </li>
-                    {% endif %}
-                </ul>
-                <ul class="nav navbar-nav navbar-right">
-                  <li>{{orcid_url(current_user)}}</li>
-
-                    <li class="dropdown">
-                        <a href="#" class="dropdown-toggle" data-toggle="dropdown">
-                            <img src="{{ current_user.avatar(20) }}">
-                            <strong>{{ current_user.name }}</strong>
-                            <span class="glyphicon glyphicon-chevron-down"></span>
-                        </a>
-                        <ul class="dropdown-menu">
-                            <li>
-                                <div class="navbar-login">
-                                    <div class="row">
-                                        <div class="col-lg-4">
-                                            <p class="text-center">
-                                                <!-- span class="glyphicon glyphicon-user icon-size"></span -->
-                                                <a href={{current_user.gravatar_profile_url}}>
-                                                    <img src="{{ current_user.avatar(100) }}">
-                                                </a>
-                                            </p>
-                                        </div>
-                                        <div class="col-lg-8">
-                                            <p class="text-left"><strong>{{ current_user.name }}</strong></p>
-                                            <p class="text-left small">{{ current_user.email }}</p>
-                                            <p class="text-left small">Edu Person Affiliation:
-                                                {{ current_user.affiliations }}</p>
-                                            <p class="text-left">
-                                                {% if current_user.organisation.confirmed %}
-                                                <a href="{{url_for('profile')}}"
-                                                   class="btn btn-primary btn-block btn-sm">Profile</a>
-                                                {% endif %}
-                                            </p>
-                                        </div>
-                                    </div>
-                                </div>
-                            </li>
-                        </ul>
-                    </li>
-
-                    <li><a href="{{url_for('logout')}}"><span class="glyphicon glyphicon-log-out"></span> Log Out</a>
-                    </li>
-                </ul>
-                <!-- button class="btn btn-danger navbar-btn">Button</button -->
-            </div>
+      <div class="container-fluid">
+        <div class="navbar-header">
+          <button type="button" class="navbar-toggle collapsed" data-toggle="collapse"
+                                                                data-target="#navbar-collapse-1" aria-expanded="false">
+            <span class="sr-only">Toggle navigation</span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+          </button>
+          <a class="navbar-brand" href="{{ url_for('login') }}">NZ ORCID Hub</a>
         </div>
+        <div class="collapse navbar-collapse" id="navbar-collapse-1">
+          <ul class="nav navbar-nav">
+            <li id="about"><a href="{{ url_for('about') }}">About</a></li>
+            {% if current_user.organisation.confirmed or current_user.has_role("SUPERUSER") %}
+              <li id="profile"><a href="{{ url_for('link') }}" data-toggle="tooltip"
+                                                               title="Affiliate yourself using the NZ ORCID HUB or view your ORCID iD">ORCID
+                                                               Permissions</a></li>
+              {% if current_user.has_role("ADMIN") %}
+                <li id="researcher"><a href="#">Register Researcher(s)</a></li>
+                <li id="viewmembers"><a href="/viewmembers">View Researchers</a></li>
+                {% if current_user.is_tech_contact_for(current_user.organisation) %}
+                  <li id="updateorginfo"><a href="/updateorginfo">Review Org. Info</a></li>
+                {% endif %}
+              {% endif %}
+            {% endif %}
+            {% if current_user.has_role("SUPERUSER") %}
+              <li id="registerOrganisation"><a href="{{ url_for('invite_organisation') }}">Register
+                  Organisation</a>
+              </li>
+            {% endif %}
+            {% if current_user.is_superuser %}
+              <li class="dropdown">
+                <a class="dropdown-toggle" data-toggle="dropdown" href="#">Admin
+                  <span class="caret"></span></a>
+                <ul class="dropdown-menu">
+                  <li id="user.index_view"><a href="{{ url_for('user.index_view')}}">Users</a></li>
+                  <li id="organisation.index_view"><a href="{{ url_for('organisation.index_view')}}">Organisations</a>
+                  </li>
+                  <li id="orcidtoken.index_view"><a href="{{ url_for('orcidtoken.index_view')}}">ORCID Tokens</a></li>
+                  <li id="load_org"><a href="{{ url_for('load_org')}}">Upload Organisation Info</a></li>
+                  <li id="orginfo.index_view"><a href="{{ url_for('orginfo.index_view')}}">View Organisation
+                      Info</a></li>
+                </ul>
+              </li>
+            {% endif %}
+          </ul>
+          <ul class="nav navbar-nav navbar-right">
+            <li>{{orcid_url(current_user)}}</li>
+
+            <li class="dropdown">
+              <a href="#" class="dropdown-toggle" data-toggle="dropdown">
+                <img src="{{ current_user.avatar(20) }}">
+                <strong>{{ current_user.name }}</strong>
+                <span class="glyphicon glyphicon-chevron-down"></span>
+              </a>
+              <ul class="dropdown-menu">
+                <li>
+                  <div class="navbar-login">
+                    <div class="row">
+                      <div class="col-lg-4">
+                        <p class="text-center">
+                        <!-- span class="glyphicon glyphicon-user icon-size"></span -->
+                        <a href={{current_user.gravatar_profile_url}}>
+                          <img src="{{ current_user.avatar(100) }}">
+                        </a>
+                        </p>
+                      </div>
+                      <div class="col-lg-8">
+                        <p class="text-left"><strong>{{ current_user.name }}</strong></p>
+                        <p class="text-left small">{{ current_user.email }}</p>
+                        <p class="text-left small">Edu Person Affiliation:
+                        {{ current_user.affiliations }}</p>
+                        <p class="text-left">
+                        {% if current_user.organisation.confirmed %}
+                          <a href="{{url_for('profile')}}"
+                             class="btn btn-primary btn-block btn-sm">Profile</a>
+                        {% endif %}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </li>
+              </ul>
+            </li>
+
+            <li><a href="{{url_for('logout')}}"><span class="glyphicon glyphicon-log-out"></span> Log Out</a>
+            </li>
+          </ul>
+          <!-- button class="btn btn-danger navbar-btn">Button</button -->
+        </div>
+      </div>
     </nav>
-    {% endif %}
+  {% endif %}
 </header>
