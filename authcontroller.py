@@ -786,7 +786,7 @@ def update_org_info():
             redirect_uri_1=redirect_uri))
 
     try:
-        organisation = Organisation.get(tech_contact=current_user)
+        organisation = Organisation.get(tech_contact_id=current_user.id)
     except Organisation.DoesNotExist:
         flash("It appears that you are not the technical contact for your organisaton.", "danger")
         return redirect(url_for("login"))
