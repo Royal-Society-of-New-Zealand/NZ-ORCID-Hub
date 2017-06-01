@@ -432,14 +432,18 @@ def edit_section_record(user_id, put_code=None, section_type="EMP"):
                         "/" + apitype + "/" + str(put_code),
                     json=data,
                     headers=headers)
-                print(resp)
-                # except:
-                #     pass
+                if resp.status_code == 200:
+                    flash("Record details has been u" "pdated successfully!", "success")
+                else:
+                    flash("You are not authorised to update this record!", "danger")
+                    return redirect(_url)
             else:
                 if section_type == "EMP":
                     api_response = api_instance.create_employment(user.orcid, body=rec)
                 else:
                     api_response = api_instance.create_education(user.orcid, body=rec)
+
+                flash("Record details has been added successfully!", "success")
 
             affiliation, _ = UserOrgAffiliation.get_or_create(
                 user=user,
@@ -457,11 +461,6 @@ def edit_section_record(user_id, put_code=None, section_type="EMP"):
                 # affiliation.path = resp.headers['Location']
                 # affiliation.put_code = int(resp.headers['Location'].rsplit('/', 1)[-1])
             affiliation.save()
-
-            if put_code:
-                flash("Record details has been u" "pdated successfully!", "success")
-            else:
-                flash("Record details has been added successfully!", "success")
             return redirect(_url)
         except ApiException as e:
             # message = resp.json().get("user-message") or resp.state
