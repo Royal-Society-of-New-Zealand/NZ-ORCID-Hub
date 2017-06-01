@@ -65,7 +65,7 @@ class UserAdmin(AppModelView):
     column_formatters = dict(
         roles=lambda v, c, m, p: ", ".join(n for r, n in v.roles.items() if r & m.roles),
         orcid=lambda v, c, m, p: m.orcid.replace('-', '\u2011') if m.orcid else '')
-    column_filters = ("name", )
+    column_filters = ("name",)
     form_overrides = dict(roles=BitmapMultipleValueField)
     form_args = dict(roles=dict(choices=roles.items()))
 
@@ -323,7 +323,7 @@ def edit_section_record(user_id, put_code=None, section_type="EMP"):
     org = current_user.organisation
     try:
         # TODO: multiple orginisation support
-        user = User.get(id=user_id, organisationd_id=org.id)
+        user = User.get(id=user_id, organisation=org.id)
     except User.DoesNotExist:
         flash("ORCID HUB doent have data related to this researcher", "warning")
         return redirect(_url)
@@ -349,7 +349,7 @@ def edit_section_record(user_id, put_code=None, section_type="EMP"):
             if section_type == "EMP":
                 api_response = api_instance.view_employment(user.orcid, put_code)
             elif section_type == "EDU":
-                api_response = api_instance.view_educations(user.orcid, put_code)
+                api_response = api_instance.view_education(user.orcid, put_code)
 
             _data = api_response.to_dict()
             data = SectionRecord(
@@ -422,16 +422,24 @@ def edit_section_record(user_id, put_code=None, section_type="EMP"):
                 data['put-code'] = int(put_code)
                 temp = json.dumps(data).replace('_', '-')
                 data = json.loads(temp)
+                apitype = ""
+                if section_type == "EMP":
+                    apitype = "employment"
+                else:
+                    apitype = "education"
                 resp = client.put(
                     url="https://api.sandbox.orcid.org/v2.0/" + user.orcid +
-                    "/employment/" if section_type == "EMP" else "/education/" + str(put_code),
+                        "/" + apitype + "/" + str(put_code),
                     json=data,
                     headers=headers)
                 print(resp)
                 # except:
                 #     pass
             else:
-                api_response = api_instance.create_employment(user.orcid, body=rec)
+                if section_type == "EMP":
+                    api_response = api_instance.create_employment(user.orcid, body=rec)
+                else:
+                    api_response = api_instance.create_education(user.orcid, body=rec)
 
             affiliation, _ = UserOrgAffiliation.get_or_create(
                 user=user,

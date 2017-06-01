@@ -29,7 +29,7 @@
               <input type="checkbox" name="rowid" class="action-checkbox" value="1" title="Select record">
             </td>
             <td class="list-buttons-column">
-              <a class="icon" href="{{url_for('employment', user_id=user_id, put_code=r['put_code']) }}?url={{url_for('edu_list', user_id=user_id)}}" title="Edit Record">
+              <a class="icon" href="{{url_for('education', user_id=user_id, put_code=r['put_code']) }}?url={{url_for('edu_list', user_id=user_id)}}" title="Edit Record">
                 <span class="fa fa-pencil glyphicon glyphicon-pencil"></span>
               </a>
               <form class="icon" method="POST" action="{{url_for('delete_employment', user_id=user_id, put_code=r['put_code'])}}">
@@ -56,6 +56,6 @@
         {% endfor %}
       </tbody>
     </table>
-    <a role="button" class="btn btn-primary pull-right" href="{{url_for('employment', user_id=user_id)}}">New...</a>
+    <a role="button" class="btn btn-primary pull-right" href="{{url_for('education', user_id=user_id)}}">New...</a>
   </div>
 {% endblock %}
