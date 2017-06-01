@@ -376,7 +376,7 @@ class User(BaseModel, UserMixin):
         except UserOrg.DoesNotExist:
             return Affiliation.NONE
 
-    def is_tech_contact_for(self, org):
+    def is_tech_contact_of(self, org):
         """Indicats if the user is the technical contact of the organisation."""
         return org and org.tech_contact and org.tech_contact_id == self.id
 

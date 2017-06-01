@@ -215,7 +215,7 @@ def handle_login():
         return redirect(url_for("invite_organisation"))
     elif org and org.confirmed:
         return redirect(url_for("link"))
-    elif org and org.is_email_confirmed and (not org.confirmed) and user.is_tech_contact_for(org):
+    elif org and org.is_email_confirmed and (not org.confirmed) and user.is_tech_contact_of(org):
         return redirect(url_for("update_org_info"))
     else:
         flash("Your organisation (%s) is not onboarded" % shib_org_name, "danger")
@@ -786,7 +786,7 @@ def update_org_info():
             redirect_uri_1=redirect_uri))
 
     try:
-        organisation = Organisation.get(email=email)
+        organisation = Organisation.get(tech_contact=current_user)
     except Organisation.DoesNotExist:
         flash("It appears that you are not the technical contact for your organisaton.", "danger")
         return redirect(url_for("login"))
