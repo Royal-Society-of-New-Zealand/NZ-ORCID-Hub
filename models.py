@@ -10,8 +10,9 @@ from itertools import zip_longest
 from urllib.parse import urlencode
 
 from flask_login import UserMixin
-from peewee import (BooleanField, CharField, CompositeKey, DateTimeField, Field, ForeignKeyField,
-                    Model, OperationalError, SmallIntegerField, TextField, datetime)
+from peewee import (BooleanField, CharField, CompositeKey, DateTimeField, DeferredRelation, Field,
+                    ForeignKeyField, Model, OperationalError, SmallIntegerField, TextField,
+                    datetime)
 
 from application import db
 from config import DEFAULT_COUNTRY
@@ -133,6 +134,9 @@ class BaseModel(Model):
         database = db
 
 
+DeferredUser = DeferredRelation()
+
+
 class Organisation(BaseModel):
     """
     Research oranisation
@@ -149,6 +153,12 @@ class Organisation(BaseModel):
     disambiguation_org_id = CharField(null=True)
     disambiguation_org_source = CharField(null=True)
     is_email_confirmed = BooleanField(default=False)
+    tech_contact = ForeignKeyField(
+        DeferredUser,
+        related_name="tech_contact_for",
+        on_delete="SET NULL",
+        null=True,
+        help_text="Organisation technical contact")
 
     @property
     def users(self):
@@ -284,7 +294,7 @@ class User(BaseModel, UserMixin):
     # Role bit-map:
     roles = SmallIntegerField(default=0)
 
-    tech_contact = BooleanField(default=False)
+    #tech_contact = BooleanField(default=False)
     is_locked = BooleanField(default=False)
 
     # TODO: many-to-many
@@ -365,6 +375,13 @@ class User(BaseModel, UserMixin):
             return Affiliation(user_org.affiliations)
         except UserOrg.DoesNotExist:
             return Affiliation.NONE
+
+    def is_tech_contact_for(self, org):
+        """Indicats if the user is the technical contact of the organisation."""
+        return org and org.tech_contact and org.tech_contact_id == self.id
+
+
+DeferredUser.set_model(User)
 
 
 class UserOrg(BaseModel):

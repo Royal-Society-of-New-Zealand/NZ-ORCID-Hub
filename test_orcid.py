@@ -23,11 +23,7 @@ def test_link(request_ctx):
         org = Organisation(name="THE ORGANISATION", confirmed=True)
         org.save()
         test_user = User(
-            name="TEST USER 123",
-            email="test123@test.test.net",
-            username="test123",
-            organisation=org,
-            confirmed=True)
+            name="TEST USER 123", email="test123@test.test.net", organisation=org, confirmed=True)
         test_user.save()
         login_user(test_user, remember=True)
 
@@ -47,11 +43,7 @@ def test_link_with_unconfirmed_org(request_ctx):
             name="THE ORGANISATION", confirmed=False, orcid_client_id="Test Client id")
         org.save()
         test_user = User(
-            name="TEST USER",
-            email="test@test.test.net",
-            username="test42",
-            confirmed=True,
-            organisation=org)
+            name="TEST USER", email="test@test.test.net", confirmed=True, organisation=org)
         test_user.save()
         login_user(test_user, remember=True)
 
@@ -73,7 +65,6 @@ def test_link_already_affiliated(request_ctx):
         test_user = User(
             email="test123@test.test.net",
             name="TEST USER",
-            username="test123",
             organisation=org,
             orcid="ABC123",
             confirmed=True)
@@ -106,24 +97,21 @@ def test_link_orcid_auth_callback(name, request_ctx):
         org = Organisation(name="THE ORGANISATION", confirmed=True)
         org.save()
 
-        test_user = User(
+        test_user = User.create(
             name=name,
             email="test123@test.test.net",
-            username="test123",
             organisation=org,
             orcid="ABC123",
             confirmed=True)
-        test_user.save()
-        orcidtoken = OrcidToken(
+        orcidtoken = OrcidToken.create(
             user=test_user, org=org, scope="/activities/update", access_token="ABC1234")
-        orcidtoken.save()
         login_user(test_user, remember=True)
 
         rv = ctx.app.full_dispatch_request()
         assert rv.status_code == 302, "If the user is already affiliated, the user should be redirected ..."
         assert "profile" in rv.location, "redirection to 'profile' showing the ORCID"
 
-        u = User.get(username="test123")
+        u = User.get(id=test_user.id)
         orcidtoken = OrcidToken.get(user=u)
         assert u.orcid == "ABC-123-456-789"
         assert orcidtoken.access_token == "ABC1234"
@@ -157,7 +145,6 @@ def test_link_orcid_auth_callback_with_affiliation(name, request_ctx):
         test_user = User.create(
             name=name,
             email="test123@test.test.net",
-            username="test123",
             organisation=org,
             orcid="ABC123",
             confirmed=True)
@@ -199,11 +186,7 @@ def test_profile(request_ctx):
         org = Organisation(name="THE ORGANISATION", confirmed=True)
         org.save()
         test_user = User(
-            email="test123@test.test.net",
-            username="test123",
-            organisation=org,
-            orcid="ABC123",
-            confirmed=True)
+            email="test123@test.test.net", organisation=org, orcid="ABC123", confirmed=True)
         test_user.save()
         orcidtoken = OrcidToken(
             user=test_user, org=org, scope="/activities/update", access_token="ABC1234")
@@ -221,11 +204,7 @@ def test_profile_wo_orcid(request_ctx):
         org = Organisation(name="THE ORGANISATION", confirmed=True)
         org.save()
         test_user = User(
-            email="test123@test.test.net",
-            username="test123",
-            organisation=org,
-            orcid=None,
-            confirmed=True)
+            email="test123@test.test.net", organisation=org, orcid=None, confirmed=True)
         test_user.save()
         login_user(test_user, remember=True)
 
