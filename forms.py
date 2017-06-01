@@ -126,7 +126,7 @@ class BitmapMultipleValueField(SelectMultipleField):
                             value=d))
 
 
-class EmploymentForm(FlaskForm):
+class RecordForm(FlaskForm):
     """User/researcher employment detail form."""
 
     name = StringField("Institution/employer", [validators.required()])
@@ -139,17 +139,16 @@ class EmploymentForm(FlaskForm):
     end_date = PartialDateField("End date (leave blank if current)")
 
 
-class EducationForm(FlaskForm):
+class EmploymentForm(RecordForm):
+    """User/researcher employment detail form."""
+
+    pass
+
+
+class EducationForm(RecordForm):
     """User/researcher education detail form."""
 
     name = StringField("Institution", [validators.required()])
-    city = StringField("City", [validators.required()])
-    state = StringField("State/region")
-    country = SelectField("Country", [validators.required()], choices=country_choices)
-    role = StringField("Role/title", filters=[lambda x: x or None])
-    department = StringField("Department", filters=[lambda x: x or None])
-    start_date = PartialDateField("Start date")
-    end_date = PartialDateField("End date (leave blank if current)")
 
 
 class OrgInfoForm(FlaskForm):
