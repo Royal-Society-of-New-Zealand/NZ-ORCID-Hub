@@ -566,7 +566,7 @@ def confirm_organisation(token=None):
 
     # TODO: refactor this: user == current_user here no need to requery DB
     user = User.get(email=current_user.email, organisation=current_user.organisation)
-    if not user.tech_contact:
+    if not user.is_tech_contact_of():
         try:
             user.save()
         except Exception as ex:

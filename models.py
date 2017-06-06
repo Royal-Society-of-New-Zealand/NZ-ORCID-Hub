@@ -376,8 +376,10 @@ class User(BaseModel, UserMixin):
         except UserOrg.DoesNotExist:
             return Affiliation.NONE
 
-    def is_tech_contact_of(self, org):
+    def is_tech_contact_of(self, org=None):
         """Indicats if the user is the technical contact of the organisation."""
+        if org is None:
+            org = self.organisation
         return org and org.tech_contact and org.tech_contact_id == self.id
 
 
@@ -422,8 +424,6 @@ class OrcidToken(BaseModel):
 
 class UserOrgAffiliation(BaseModel):
     """For Keeping the information about the affiliation."""
-
-    user = ForeignKeyField(User)
     organisation = ForeignKeyField(Organisation, index=True, verbose_name="Organisation")
     name = TextField(null=True, verbose_name="Institution/employer")
     start_date = PartialDateField(null=True)
