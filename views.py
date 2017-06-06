@@ -6,6 +6,7 @@ import os
 from collections import namedtuple
 
 from flask import (flash, redirect, render_template, request, send_from_directory, url_for)
+from flask_admin.form import SecureForm
 from flask_admin.contrib.peewee import ModelView
 from flask_login import current_user, login_required
 from requests_oauthlib import OAuth2Session
@@ -46,6 +47,8 @@ def about():
 
 class AppModelView(ModelView):
     """ModelView customization."""
+
+    form_base_class = SecureForm
 
     def is_accessible(self):
         """Verify if the view is accessible for the current user."""
