@@ -134,7 +134,7 @@ def handle_login():
     name = data.get('Displayname').encode("latin-1").decode("utf-8")
     unscoped_affiliation = set(
         a.strip()
-        for a in data.get("Unscoped-Affiliation", '').encode("latin-1").decode("utf-8").split(','))
+        for a in data.get("Unscoped-Affiliation", '').encode("latin-1").decode("utf-8").split(';'))
 
     if unscoped_affiliation:
         edu_person_affiliation = Affiliation.NONE
@@ -566,7 +566,7 @@ def confirm_organisation(token=None):
 
     # TODO: refactor this: user == current_user here no need to requery DB
     user = User.get(email=current_user.email, organisation=current_user.organisation)
-    if not user.tech_contact:
+    if not user.is_tech_contact_of():
         try:
             user.save()
         except Exception as ex:
