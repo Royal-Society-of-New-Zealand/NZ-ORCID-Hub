@@ -1,8 +1,8 @@
 version: '2.1'
 services:
   db:
-    image: postgres:9.6.2
-    mem_limit: 524288000
+    image: postgres:9.6.3
+    ##mem_limit: 524288000
     environment:
       - POSTGRES_PASSWORD
       - PGPASSWORD
@@ -14,12 +14,11 @@ services:
       - ./backup:/backup
     restart: always
 
-
   app:
     depends_on:
       - db
     image: orcidhub/app-dev
-    mem_limit: 424288000
+    ##mem_limit: 424288000
     environment:
       - ENV
       - POSTGRES_PASSWORD
