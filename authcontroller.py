@@ -134,7 +134,7 @@ def handle_login():
     name = data.get('Displayname').encode("latin-1").decode("utf-8")
     unscoped_affiliation = set(
         a.strip()
-        for a in data.get("Unscoped-Affiliation", '').encode("latin-1").decode("utf-8").split(','))
+        for a in data.get("Unscoped-Affiliation", '').encode("latin-1").decode("utf-8").split(';'))
 
     if unscoped_affiliation:
         edu_person_affiliation = Affiliation.NONE

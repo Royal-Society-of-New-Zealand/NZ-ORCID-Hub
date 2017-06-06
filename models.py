@@ -424,6 +424,7 @@ class OrcidToken(BaseModel):
 
 class UserOrgAffiliation(BaseModel):
     """For Keeping the information about the affiliation."""
+    user = ForeignKeyField(User)
     organisation = ForeignKeyField(Organisation, index=True, verbose_name="Organisation")
     name = TextField(null=True, verbose_name="Institution/employer")
     start_date = PartialDateField(null=True)

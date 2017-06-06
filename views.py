@@ -14,7 +14,7 @@ from requests_oauthlib import OAuth2Session
 import swagger_client
 from application import admin, app
 from config import ORCID_BASE_URL, SCOPE_ACTIVITIES_UPDATE
-from forms import BitmapMultipleValueField, EmploymentForm, OrgInfoForm
+from forms import BitmapMultipleValueField, RecordForm, OrgInfoForm
 from login_provider import roles_required
 from models import PartialDate as PD
 from models import (OrcidToken, Organisation, OrgInfo, Role, User, UserOrgAffiliation)
