@@ -8,19 +8,6 @@ ENV = environ.get("ENV", "dev")
 ORCID_API_BASE = "https://api.sandbox.orcid.org/v2.0/" if ENV != "prod" else "https://api.orcid.org/v2.0/"
 ORCID_BASE_URL = "https://sandbox.orcid.org/" if ENV != "prod" else "https://orcid.org/"
 
-# Database connection url
-POSTGRES_PASSWORD = environ.get("POSTGRES_PASSWORD") or environ.get("PGPASSWORD") or "p455w0rd"
-
-DATABASE_URL = environ.get("DATABASE_URL")
-
-DB_NAME = environ.get("PGDATABASE", "orcidhub")
-DB_USERNAME = environ.get("PGUSER", "orcidhub")
-DB_PASSWORD = POSTGRES_PASSWORD
-DB_HOSTNAME = environ.get("PGHOST", "db")
-
-if not DATABASE_URL:
-    from os import environ
-
 # Orcid API client ID and secret
 client_id = environ.get("ORCID_CLIENT_ID", "APP-TF7LKIE084PYTQ59")
 client_secret = environ.get("ORCID_CLIENT_SECRET")
@@ -31,16 +18,15 @@ TOKEN_URL = 'https://sandbox.orcid.org/oauth/token'
 SCOPE_ACTIVITIES_UPDATE = ['/activities/update']
 
 # Database connection url
-POSTGRES_PASSWORD = environ.get("POSTGRES_PASSWORD") or environ.get("PGPASSWORD") or "p455w0rd"
-
 DATABASE_URL = environ.get("DATABASE_URL")
-
-DB_NAME = environ.get("PGDATABASE", "orcidhub")
-DB_USERNAME = environ.get("PGUSER", "orcidhub")
-DB_PASSWORD = POSTGRES_PASSWORD
-DB_HOSTNAME = environ.get("PGHOST", "db")
+BACKUP_DATABASE_URL = environ.get("BACKUP_DATABASE_URL")
 
 if not DATABASE_URL:
+    POSTGRES_PASSWORD = environ.get("POSTGRES_PASSWORD") or environ.get("PGPASSWORD") or "p455w0rd"
+    DB_NAME = environ.get("PGDATABASE", "orcidhub")
+    DB_USERNAME = environ.get("PGUSER", "orcidhub")
+    DB_PASSWORD = POSTGRES_PASSWORD
+    DB_HOSTNAME = environ.get("PGHOST", "db")
     DATABASE_URL = "postgresql://" + DB_NAME
     if POSTGRES_PASSWORD:
         DATABASE_URL += ':' + POSTGRES_PASSWORD

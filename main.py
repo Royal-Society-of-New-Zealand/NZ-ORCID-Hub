@@ -25,7 +25,8 @@ def before_request():
     try:
         db.connect()
     except OperationalError:
-        pass
+        db = backup_db
+        db.connect()
 
 
 @app.after_request
