@@ -134,13 +134,13 @@ def handle_login():
     name = data.get('Displayname').encode("latin-1").decode("utf-8")
     unscoped_affiliation = set(
         a.strip()
-        for a in data.get("Unscoped-Affiliation", '').encode("latin-1").decode("utf-8").split(';'))
+        for a in data.get("Unscoped-Affiliation", '').encode("latin-1").decode("utf-8").replace(',', ';').split(';'))
 
     if unscoped_affiliation:
         edu_person_affiliation = Affiliation.NONE
         if unscoped_affiliation & {"faculty", "staff"}:
             edu_person_affiliation |= Affiliation.EMP
-        elif unscoped_affiliation & {"student", "alum"}:
+        if unscoped_affiliation & {"student", "alum"}:
             edu_person_affiliation |= Affiliation.EDU
     else:
         flash(
@@ -374,13 +374,15 @@ def orcid_callback():
             try:
                 if a == Affiliation.EMP:
                     api_instance.create_employment(user.orcid, body=rec)
+                    flash("Your ORCID employment record was updated with an affiliation entry from '%s'" %
+                          orciduser.organisation, "success")
                 elif a == Affiliation.EDU:
                     api_instance.create_education(user.orcid, body=rec)
+                    flash("Your ORCID education record was updated with an affiliation entry from '%s'" %
+                          orciduser.organisation, "success")
                 else:
                     continue
                 # TODO: Save the put-code in db table
-                flash("Your ORCID record was updated with an affiliation entry to '%s'" %
-                      orciduser.organisation, "success")
 
             except ApiException as e:
                 flash("Failed to update the entry: %s." % e.body, "danger")
