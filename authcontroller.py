@@ -129,18 +129,18 @@ def handle_login():
     token = data.get("Auedupersonsharedtoken").encode("latin-1").decode("utf-8")
     last_name = data['Sn'].encode("latin-1").decode("utf-8")
     first_name = data['Givenname'].encode("latin-1").decode("utf-8")
-    email = data['Mail'].encode("latin-1").decode("utf-8")
+    email = data['Mail'].encode("latin-1").decode("utf-8").lower()
     session["shib_O"] = shib_org_name = data['O'].encode("latin-1").decode("utf-8")
     name = data.get('Displayname').encode("latin-1").decode("utf-8")
     unscoped_affiliation = set(
         a.strip()
-        for a in data.get("Unscoped-Affiliation", '').encode("latin-1").decode("utf-8").split(';'))
+        for a in data.get("Unscoped-Affiliation", '').encode("latin-1").decode("utf-8").replace(',', ';').split(';'))
 
     if unscoped_affiliation:
         edu_person_affiliation = Affiliation.NONE
         if unscoped_affiliation & {"faculty", "staff"}:
             edu_person_affiliation |= Affiliation.EMP
-        elif unscoped_affiliation & {"student", "alum"}:
+        if unscoped_affiliation & {"student", "alum"}:
             edu_person_affiliation |= Affiliation.EDU
     else:
         flash(
@@ -199,7 +199,6 @@ def handle_login():
         user_org.save()
 
     if not user.confirmed:
-        if org and org.confirmed:
             user.confirmed = True
 
     try:
@@ -374,13 +373,15 @@ def orcid_callback():
             try:
                 if a == Affiliation.EMP:
                     api_instance.create_employment(user.orcid, body=rec)
+                    flash("Your ORCID employment record was updated with an affiliation entry from '%s'" %
+                          orciduser.organisation, "success")
                 elif a == Affiliation.EDU:
                     api_instance.create_education(user.orcid, body=rec)
+                    flash("Your ORCID education record was updated with an affiliation entry from '%s'" %
+                          orciduser.organisation, "success")
                 else:
                     continue
                 # TODO: Save the put-code in db table
-                flash("Your ORCID record was updated with an affiliation entry to '%s'" %
-                      orciduser.organisation, "success")
 
             except ApiException as e:
                 flash("Failed to update the entry: %s." % e.body, "danger")
@@ -453,11 +454,11 @@ def invite_organisation():
         if not form.validate():
             flash("Please fill in all fields and try again.", "danger")
         else:
-            email = form.orgEmailid.data
+            email = form.orgEmailid.data.lower()
             org_name = form.orgName.data
             tech_contact = bool(request.form.get('tech_contact'))
             try:
-                User.get(User.email == form.orgEmailid.data)
+                User.get(User.email == form.orgEmailid.data.lower())
             except User.DoesNotExist:
                 pass
             finally:
@@ -490,7 +491,7 @@ def invite_organisation():
                     user.confirmed = True
                 except User.DoesNotExist:
                     user = User(
-                        email=form.orgEmailid.data,
+                        email=form.orgEmailid.data.lower(),
                         confirmed=True,  # In order to let the user in...
                         roles=Role.ADMIN,
                         organisation=org)
@@ -519,10 +520,10 @@ def invite_organisation():
                 # Note: Using app context due to issue:
                 # https://github.com/mattupstate/flask-mail/issues/63
                 with app.app_context():
-                    token = generate_confirmation_token(form.orgEmailid.data)
+                    token = generate_confirmation_token(form.orgEmailid.data.lower())
                     utils.send_email(
                         "email/org_invitation.html",
-                        recipient=(form.orgName.data, form.orgEmailid.data),
+                        recipient=(form.orgName.data, form.orgEmailid.data.lower()),
                         token=token,
                         org_name=form.orgName.data,
                         user=user)
