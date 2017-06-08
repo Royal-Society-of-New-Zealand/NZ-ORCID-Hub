@@ -48,5 +48,4 @@ services:
       - ./.keys/${ENV:-dev}-sp.crt:/etc/shibboleth/sp-cert.pem
       - ./.keys:/.keys
       - ./conf:/conf
-    user: "${USER_UID:-500}:${USER_GID:-500}"
     restart: always
