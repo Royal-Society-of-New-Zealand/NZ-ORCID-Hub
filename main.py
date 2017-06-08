@@ -22,7 +22,10 @@ from views import *  # noqa: F401, F403
 # TODO: connection should be managed explicitely
 @app.before_request
 def before_request():
-    db.connect()
+    try:
+        db.open()
+    except OperationalError:
+        pass
 
 
 @app.after_request
