@@ -23,7 +23,7 @@ from views import *  # noqa: F401, F403
 @app.before_request
 def before_request():
     try:
-        db.open()
+        db.connect()
     except OperationalError:
         pass
 
