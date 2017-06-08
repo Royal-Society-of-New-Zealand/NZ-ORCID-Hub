@@ -6,7 +6,7 @@ language: python
 cache: pip
 
 env:
-  - ENV=dev PGPORT=54321
+  - ENV=dev PGPORT=54321 USER_UID=$(id -u) USER_GID=$(id -g)
 
 before_install:
   - sudo rm /usr/local/bin/docker-compose
