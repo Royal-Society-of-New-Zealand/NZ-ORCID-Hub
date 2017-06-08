@@ -8,7 +8,7 @@ services:
     domainname: orcidhub.org.nz
     hostname: db
     ports:
-      - "5432:5432"
+      - "${PGPORT:-5432}:5432"
     volumes:
       - /etc/passwd:/etc/passwd:ro
       - ./conf/init-user-db.sh:/docker-entrypoint-initdb.d/init-user-db.sh
