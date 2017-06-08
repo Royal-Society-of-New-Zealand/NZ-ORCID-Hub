@@ -22,6 +22,7 @@ install:
   - docker-compose up -d
 
 script:
+  - docker-compose logs db
   - wait_pg_up() { until docker-compose exec db psql -U postgres -l; do echo "Waiting for postgres to start..."; sleep 1; done }
   - wait_pg_down() { while docker-compose exec db psql -U postgres -l; do echo "Waiting for postgres to stop..."; sleep 1; done }
   - sleep 5 ; wait_pg_up
