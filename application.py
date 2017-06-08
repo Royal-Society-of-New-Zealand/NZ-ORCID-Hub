@@ -7,7 +7,7 @@ from flask import Flask
 from flask_admin import Admin
 from flask_debugtoolbar import DebugToolbarExtension
 from flask_mail import Mail
-from playhouse.db_url import connect
+from playhouse import db_url
 
 from config import *  # noqa: F401, F403
 
@@ -27,8 +27,8 @@ app.config['TESTING'] = True
 app.config['SECRET_KEY'] = app.secret_key
 os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
 
-db = connect(DATABASE_URL, autorollback=True, connect_timeout=3)
-backup_db = connect(BACKUP_DATABASE_URL, autorollback=True, connect_timeout=3)
+db = db_url.connect(DATABASE_URL, autorollback=True, connect_timeout=3)
+backup_db = db_url.connect(BACKUP_DATABASE_URL, autorollback=True, connect_timeout=3)
 
 if app.debug:
     app.config['DEBUG_TB_INTERCEPT_REDIRECTS'] = False
