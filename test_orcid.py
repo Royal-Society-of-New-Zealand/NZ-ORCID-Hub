@@ -130,9 +130,8 @@ def test_link_orcid_auth_callback(name, request_ctx):
     refresh_token="ABC1235"))
 def test_link_orcid_auth_callback_with_affiliation(name, request_ctx):
     """Test ORCID callback - the user authorized the organisation access to the ORCID profile."""
-    with patch("swagger_client.MemberAPIV20Api") as m, \
-         patch("swagger_client.SourceClientId"), \
-         request_ctx("/auth") as ctx:
+    with patch("swagger_client.MemberAPIV20Api") as m, patch(
+            "swagger_client.SourceClientId"), request_ctx("/auth") as ctx:
         org = Organisation.create(
             name="THE ORGANISATION",
             confirmed=True,
@@ -149,13 +148,12 @@ def test_link_orcid_auth_callback_with_affiliation(name, request_ctx):
             orcid="ABC123",
             confirmed=True)
 
-        user_org = UserOrg.create(
-            user=test_user, org=org, affiliations=Affiliation.EMP | Affiliation.EDU)
+        UserOrg.create(user=test_user, org=org, affiliations=Affiliation.EMP | Affiliation.EDU)
 
         login_user(test_user, remember=True)
 
         api_mock = m.return_value
-        rv = ctx.app.full_dispatch_request()
+        ctx.app.full_dispatch_request()
         assert test_user.orcid == "ABC-123-456-789"
 
         orcid_token = OrcidToken.get(user=test_user, org=org)

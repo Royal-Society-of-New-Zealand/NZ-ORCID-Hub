@@ -17,8 +17,8 @@ before_install:
   - openssl rsa -in .keys/.${ENV}-sp.key -out .keys/${ENV}-sp.key -passin env:SERVER_KEY_PASSPHRASE
 
 install:
-  - mkdir pgdata
-  - mkdir backup
+  #- mkdir pgdata
+  #- mkdir backup
   - docker-compose up -d
   - sleep 3
   - docker-compose logs db

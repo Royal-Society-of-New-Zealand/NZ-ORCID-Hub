@@ -27,7 +27,11 @@ app.config['TESTING'] = True
 app.config['SECRET_KEY'] = app.secret_key
 os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
 
-db = db_url.connect(DATABASE_URL, autorollback=True, connect_timeout=3)
+# TODO: implment connection factory
+if DATABASE_URL.startswith("sqlite"):
+    db = db_url.connect(DATABASE_URL, autorollback=True)
+else:
+    db = db_url.connect(DATABASE_URL, autorollback=True, connect_timeout=3)
 ## backup_db = db_url.connect(BACKUP_DATABASE_URL, autorollback=True, connect_timeout=3)
 
 if app.debug:

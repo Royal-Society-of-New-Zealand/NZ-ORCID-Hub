@@ -6,15 +6,15 @@ import os
 from collections import namedtuple
 
 from flask import (flash, redirect, render_template, request, send_from_directory, url_for)
-from flask_admin.form import SecureForm
 from flask_admin.contrib.peewee import ModelView
+from flask_admin.form import SecureForm
 from flask_login import current_user, login_required
 from requests_oauthlib import OAuth2Session
 
 import swagger_client
 from application import admin, app
 from config import ORCID_BASE_URL, SCOPE_ACTIVITIES_UPDATE
-from forms import BitmapMultipleValueField, RecordForm, OrgInfoForm
+from forms import BitmapMultipleValueField, OrgInfoForm, RecordForm
 from login_provider import roles_required
 from models import PartialDate as PD
 from models import (OrcidToken, Organisation, OrgInfo, Role, User, UserOrgAffiliation)
@@ -74,7 +74,7 @@ class UserAdmin(AppModelView):
     column_formatters = dict(
         roles=lambda v, c, m, p: ", ".join(n for r, n in v.roles.items() if r & m.roles),
         orcid=lambda v, c, m, p: m.orcid.replace('-', '\u2011') if m.orcid else '')
-    column_filters = ("name",)
+    column_filters = ("name", )
     form_overrides = dict(roles=BitmapMultipleValueField)
     form_args = dict(roles=dict(choices=roles.items()))
 
@@ -214,8 +214,7 @@ def edit_section_record(user_id, put_code=None, section_type="EMP"):
 
     orcid_token = None
     try:
-        orcid_token = OrcidToken.get(
-            user=user, org=org, scope=SCOPE_ACTIVITIES_UPDATE)
+        orcid_token = OrcidToken.get(user=user, org=org, scope=SCOPE_ACTIVITIES_UPDATE)
     except:
         flash("The user hasn't authorized you to Add records", "warning")
         return redirect(_url)
@@ -270,9 +269,7 @@ def edit_section_record(user_id, put_code=None, section_type="EMP"):
             path=org.orcid_client_id,
             uri="http://sandbox.orcid.org/client/" + org.orcid_client_id)
         rec.source = swagger_client.Source(
-            source_orcid=None,
-            source_client_id=source_clientid,
-            source_name=org.name)
+            source_orcid=None, source_client_id=source_clientid, source_name=org.name)
 
         organisation_address = swagger_client.OrganizationAddress(
             city=form.city.data, region=form.state.data, country=form.country.data)
@@ -282,8 +279,7 @@ def edit_section_record(user_id, put_code=None, section_type="EMP"):
 
         if org.name != form.name.data:
             swagger_client.DisambiguatedOrganization(
-                disambiguated_organization_identifier=org.name,
-                disambiguation_source=org.name)
+                disambiguated_organization_identifier=org.name, disambiguation_source=org.name)
         try:
             if put_code:
                 # TODO: We can uncomment the below swagger employment update call,
@@ -308,8 +304,8 @@ def edit_section_record(user_id, put_code=None, section_type="EMP"):
                 else:
                     apitype = "education"
                 resp = client.put(
-                    url="https://api.sandbox.orcid.org/v2.0/" + user.orcid +
-                        "/" + apitype + "/" + str(put_code),
+                    url="https://api.sandbox.orcid.org/v2.0/" + user.orcid + "/" + apitype + "/" +
+                    str(put_code),
                     json=data,
                     headers=headers)
                 if resp.status_code == 200:
