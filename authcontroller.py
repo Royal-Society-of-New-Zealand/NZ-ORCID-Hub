@@ -468,11 +468,8 @@ def invite_organisation():
                 # TODO: user OrgAdmin
                 try:
                     org = Organisation.get(name=org_name)
-                    # TODO: fix it!
-                    if tech_contact:
-                        org.email = email
                 except Organisation.DoesNotExist:
-                    org = Organisation(name=org_name, email=email)
+                    org = Organisation(name=org_name)
 
                 try:
                     org_info = OrgInfo.get(name=org.name)
@@ -594,7 +591,7 @@ def confirm_organisation(token=None):
     # to enter client secret and client key for orcid
 
     try:
-        organisation = Organisation.get(email=email)
+        organisation = Organisation.get(name=current_user.organisation.name)
     except Organisation.DoesNotExist:
         flash('We are very sorry, your organisation invitation has been cancelled, '
               'please contact ORCID HUB Admin!', "danger")
@@ -797,7 +794,7 @@ def update_org_info():
         if not form.validate():
             flash('Please fill in all fields and try again!', "danger")
         else:
-            organisation = Organisation.get(email=email)
+            organisation = Organisation.get(tech_contact_id=current_user.id)
             if (not (user is None) and (not (organisation is None))):
                 # Update Organisation
                 organisation.country = form.country.data
@@ -844,7 +841,7 @@ def update_org_info():
     elif request.method == 'GET':
 
         form.orgName.data = user.organisation.name
-        form.orgEmailid.data = user.organisation.email
+        form.orgEmailid.data = user.email
 
         form.city.data = user.organisation.city
         form.country.data = user.organisation.country
