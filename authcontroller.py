@@ -14,7 +14,7 @@ from tempfile import gettempdir
 from urllib.parse import quote, unquote, urlencode, urlparse
 
 import requests
-from flask import (abort, flash, redirect, render_template, request, session, url_for)
+from flask import (abort, flash, redirect, render_template, request, session, url_for, Response)
 from flask_login import current_user, login_required, login_user, logout_user
 from flask_mail import Message
 from oauthlib.oauth2 import rfc6749
@@ -861,3 +861,18 @@ def update_org_info():
     except Exception as ex:
         flash("Failed to save organisation data: %s" % str(ex))
     return render_template('orgconfirmation.html', client_secret_url=client_secret_url, form=form)
+
+
+@app.route("/exportmembers")
+@roles_required(Role.ADMIN)
+def exportmembers():
+    """View the list of users (researchers)."""
+    user = current_user
+    users = user.organisation.distinct_users_by_orcid
+    return Response(generateRow(users), mimetype='text/csv',
+                    headers={"Content-Disposition": "attachment; filename=ResearchersData.csv"})
+
+
+def generateRow(users):
+    for u in users:
+        yield ','.join([u.first_name, u.last_name, u.email, u.orcid]) + '\n'
