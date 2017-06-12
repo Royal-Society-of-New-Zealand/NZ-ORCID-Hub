@@ -68,7 +68,7 @@ def shib_sp():
     """Remote Shibboleth authenitication handler.
 
     All it does passes all response headers to the original calller."""
-    _next = get_next_url()
+    _next = request.args.get('_next')
     _key = request.args.get("key")
     if _next:
         data = {k: v for k, v in request.headers.items()}
