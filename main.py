@@ -19,25 +19,6 @@ from authcontroller import *  # noqa: F401, F403
 from views import *  # noqa: F401, F403
 
 
-# TODO: connection should be managed explicitely
-@app.before_request
-def before_request():
-    try:
-        db.connect()
-    except OperationalError:
-        pass
-
-
-@app.after_request
-def after_request(response):
-    if db is not None:
-        try:
-            db.close()
-        except OperationalError:
-            pass
-    return response
-
-
 @app.cli.command()
 def initdb():
     """Initialize the database."""
@@ -62,6 +43,4 @@ if __name__ == "__main__":
     os.environ["ENV"] = "dev0"
     app.debug = True
     app.secret_key = os.urandom(24)
-    if app.debug:
-        toolbar = DebugToolbarExtension(app)
     app.run(debug=True, port=8000)
