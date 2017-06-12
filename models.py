@@ -289,7 +289,7 @@ class User(BaseModel, UserMixin):
     edu_person_shared_token = CharField(
         max_length=120, unique=True, verbose_name="EDU Person Shared Token", null=True)
     # ORCiD:
-    orcid = CharField(max_length=120, unique=True, verbose_name="ORCID", null=True)
+    orcid = CharField(max_length=120, verbose_name="ORCID", null=True)
     confirmed = BooleanField(default=False)
     # Role bit-map:
     roles = SmallIntegerField(default=0)
