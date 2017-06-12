@@ -37,12 +37,20 @@ from tokenGeneration import confirm_token, generate_confirmation_token
 HEADERS = {'Accept': 'application/vnd.orcid+json', 'Content-type': 'application/vnd.orcid+json'}
 
 
+def get_next_url():
+    """Retienves and sanitizes next/return URL."""
+    _next = request.args.get('next')
+    if _next and not ("orcidhub.org.nz" in _next or _next.startswith("/")):
+        return None
+    return _next
+
+
 @app.route("/index")
 @app.route("/login")
 @app.route("/")
 def login():
     """Main landing page."""
-    _next = request.args.get('next')
+    _next = get_next_url()
     if EXTERNAL_SP:
         session["auth_secret"] = secret_token = secrets.token_urlsafe()
         _next = url_for("handle_login", _next=_next, _external=True)
@@ -60,7 +68,7 @@ def shib_sp():
     """Remote Shibboleth authenitication handler.
 
     All it does passes all response headers to the original calller."""
-    _next = request.args.get('_next')
+    _next = get_next_url()
     _key = request.args.get("key")
     if _next:
         data = {k: v for k, v in request.headers.items()}
