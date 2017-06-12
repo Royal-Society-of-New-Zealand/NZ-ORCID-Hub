@@ -38,7 +38,7 @@ HEADERS = {'Accept': 'application/vnd.orcid+json', 'Content-type': 'application/
 
 
 def get_next_url():
-    """Retienves and sanitizes next/return URL."""
+    """Retrieves and sanitizes next/return URL."""
     _next = request.args.get('next')
     if _next and not ("orcidhub.org.nz" in _next or _next.startswith("/")):
         return None
