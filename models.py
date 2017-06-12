@@ -188,14 +188,6 @@ class Organisation(BaseModel):
 
         super().save(*args, **kwargs)
 
-    @property
-    def distinct_users_by_orcid(self):
-        """
-        Organisation's users (query)
-        """
-        return User.select().distinct(User.orcid).join(
-            self.userorg_set.alias("sq"), on=(self.userorg_set.c.user_id == User.id))
-
 
 class OrgInfo(BaseModel):
     """Preloaded organisation data."""

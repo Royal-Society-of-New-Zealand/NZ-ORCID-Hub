@@ -864,12 +864,17 @@ def update_org_info():
 @roles_required(Role.ADMIN)
 def exportmembers():
     """View the list of users (researchers)."""
-    user = current_user
-    users = user.organisation.distinct_users_by_orcid
-    return Response(generateRow(users), mimetype='text/csv',
-                    headers={"Content-Disposition": "attachment; filename=ResearchersData.csv"})
+    try:
+        users = current_user.organisation.users
+        return Response(generateRow(users), mimetype='text/csv',
+                        headers={"Content-Disposition": "attachment; filename=ResearchersData.csv"})
+    except:
+        flash("There are no users registered in your organisation.", "warning")
+    return redirect(url_for("viewmembers"))
 
 
 def generateRow(users):
+    yield "First Name, Last Name, Email, ORCID ID \n"
     for u in users:
-        yield ','.join([u.first_name, u.last_name, u.email, u.orcid]) + '\n'
+        """ ORCID ID might be NULL, Hence adding a check """
+        yield ','.join([u.first_name, u.last_name, u.email, str(u.orcid or "")]) + '\n'
