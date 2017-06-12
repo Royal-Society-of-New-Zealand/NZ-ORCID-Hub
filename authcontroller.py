@@ -132,9 +132,9 @@ def handle_login():
     email = data['Mail'].encode("latin-1").decode("utf-8").lower()
     session["shib_O"] = shib_org_name = data['O'].encode("latin-1").decode("utf-8")
     name = data.get('Displayname').encode("latin-1").decode("utf-8")
-    unscoped_affiliation = set(
-        a.strip()
-        for a in data.get("Unscoped-Affiliation", '').encode("latin-1").decode("utf-8").replace(',', ';').split(';'))
+    unscoped_affiliation = set(a.strip()
+                               for a in data.get("Unscoped-Affiliation", '').encode("latin-1")
+                               .decode("utf-8").replace(',', ';').split(';'))
 
     if unscoped_affiliation:
         edu_person_affiliation = Affiliation.NONE
@@ -199,7 +199,7 @@ def handle_login():
         user_org.save()
 
     if not user.confirmed:
-            user.confirmed = True
+        user.confirmed = True
 
     try:
         user.save()
@@ -373,12 +373,14 @@ def orcid_callback():
             try:
                 if a == Affiliation.EMP:
                     api_instance.create_employment(user.orcid, body=rec)
-                    flash("Your ORCID employment record was updated with an affiliation entry from '%s'" %
-                          orciduser.organisation, "success")
+                    flash(
+                        "Your ORCID employment record was updated with an affiliation entry from '%s'"
+                        % orciduser.organisation, "success")
                 elif a == Affiliation.EDU:
                     api_instance.create_education(user.orcid, body=rec)
-                    flash("Your ORCID education record was updated with an affiliation entry from '%s'" %
-                          orciduser.organisation, "success")
+                    flash(
+                        "Your ORCID education record was updated with an affiliation entry from '%s'"
+                        % orciduser.organisation, "success")
                 else:
                     continue
                 # TODO: Save the put-code in db table

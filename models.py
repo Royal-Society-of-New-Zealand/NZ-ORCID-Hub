@@ -294,7 +294,6 @@ class User(BaseModel, UserMixin):
     # Role bit-map:
     roles = SmallIntegerField(default=0)
 
-    #tech_contact = BooleanField(default=False)
     is_locked = BooleanField(default=False)
 
     # TODO: many-to-many

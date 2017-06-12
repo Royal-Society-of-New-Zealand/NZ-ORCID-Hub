@@ -1,27 +1,28 @@
 version: '2.1'
 services:
   db:
-    image: postgres:9.6.2
-    mem_limit: 524288000
+    image: postgres:9.6.3
     environment:
       - POSTGRES_PASSWORD
       - PGPASSWORD
     domainname: orcidhub.org.nz
     hostname: db
+    ports:
+      - "${PGPORT:-5432}:5432"
     volumes:
+      - /etc/passwd:/etc/passwd:ro
       - ./conf/init-user-db.sh:/docker-entrypoint-initdb.d/init-user-db.sh
+      - ./pgdata:/var/lib/postgresql/data
+      - ./backup:/backup
+    user: "${USER_UID:-500}:${USER_GID:-500}"
     restart: always
-
 
   app:
     depends_on:
       - db
     image: orcidhub/app-dev
-    mem_limit: 424288000
     environment:
       - ENV
-      - POSTGRES_PASSWORD
-      - PGPASSWORD
       - ORCID_CLIENT_ID=APP-TF7LKIE084PYTQ59
       - ORCID_CLIENT_SECRET
       - TOKEN_PASSWORD_SALT
@@ -30,6 +31,7 @@ services:
       - MAIL_USERNAME
       - MAIL_PASSWORD
       - MAIL_SERVER
+      - BACKUP_DATABASE_URL
     domainname: orcidhub.org.nz
     hostname: app
     ports:
@@ -47,4 +49,3 @@ services:
       - ./.keys:/.keys
       - ./conf:/conf
     restart: always
-
