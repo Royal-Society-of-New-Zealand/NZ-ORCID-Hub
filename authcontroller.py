@@ -699,8 +699,8 @@ def confirm_organisation(token=None):
             contact_name=user.name,
             org_name=user.organisation.name,
             cred_type=CRED_TYPE_PREMIUM,
-            app_name=APP_NAME + " at " + user.organisation.name,
-            app_description=APP_DESCRIPTION + " at " + user.organisation.name,
+            app_name=APP_NAME + " for " + user.organisation.name,
+            app_description=APP_DESCRIPTION + user.organisation.name + "and its researchers",
             app_url=APP_URL,
             redirect_uri_1=redirect_uri))
     return render_template('orgconfirmation.html', client_secret_url=client_secret_url, form=form)
