@@ -32,6 +32,7 @@ services:
       - MAIL_PASSWORD
       - MAIL_SERVER
       - BACKUP_DATABASE_URL
+      - SECRET_KEY
     domainname: orcidhub.org.nz
     hostname: app
     ports:
