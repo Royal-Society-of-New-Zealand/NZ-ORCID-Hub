@@ -170,3 +170,8 @@ a.orcid:hover {
     color: #A6CE39;
     text-decoration: none;
 }
+
+input[type=checkbox], input[type=radio] {
+    width:20px;
+    height:20px;
+}
