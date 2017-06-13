@@ -18,7 +18,7 @@ before_install:
 
 install:
   - gen-keys/genkey.sh $DOMAIN
-  - for t sp server; do cp $DOMAIN.key .keys/${ENV}-$t.key; cp $DOMAIN.crt .keys/${ENV}-$t.crt; done
+  - for t in sp server; do cp $DOMAIN.key .keys/${ENV}-$t.key; cp $DOMAIN.crt .keys/${ENV}-$t.crt; done
   - mkdir pgdata
   - mkdir backup
   - docker-compose up -d
