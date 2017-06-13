@@ -17,8 +17,8 @@ def initdb():
 
     org = Organisation(
         name="The University of Auckland",
-        email="root@mailinator.com",
-        tuakiri_name="University of Auckland")
+        tuakiri_name="University of Auckland",
+        confirmed=True)
     org.save()
 
 
