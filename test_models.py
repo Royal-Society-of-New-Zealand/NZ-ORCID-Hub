@@ -33,7 +33,6 @@ def test_models(test_db):
 
     Organisation.insert_many((dict(
         name="Organisation #%d" % i,
-        email="admin@org%d.org.nz" % i,
         tuakiri_name="Organisation #%d" % i,
         orcid_client_id="client-%d" % i,
         orcid_secret="secret-%d" % i,

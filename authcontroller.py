@@ -14,7 +14,7 @@ from tempfile import gettempdir
 from urllib.parse import quote, unquote, urlencode, urlparse
 
 import requests
-from flask import (abort, flash, redirect, render_template, request, session, url_for)
+from flask import (abort, flash, redirect, render_template, request, session, url_for, Response)
 from flask_login import current_user, login_required, login_user, logout_user
 from flask_mail import Message
 from oauthlib.oauth2 import rfc6749
@@ -468,11 +468,8 @@ def invite_organisation():
                 # TODO: user OrgAdmin
                 try:
                     org = Organisation.get(name=org_name)
-                    # TODO: fix it!
-                    if tech_contact:
-                        org.email = email
                 except Organisation.DoesNotExist:
-                    org = Organisation(name=org_name, email=email)
+                    org = Organisation(name=org_name)
 
                 try:
                     org_info = OrgInfo.get(name=org.name)
@@ -594,7 +591,7 @@ def confirm_organisation(token=None):
     # to enter client secret and client key for orcid
 
     try:
-        organisation = Organisation.get(email=email)
+        organisation = Organisation.get(name=current_user.organisation.name)
     except Organisation.DoesNotExist:
         flash('We are very sorry, your organisation invitation has been cancelled, '
               'please contact ORCID HUB Admin!', "danger")
@@ -691,8 +688,8 @@ def confirm_organisation(token=None):
             contact_name=user.name,
             org_name=user.organisation.name,
             cred_type=CRED_TYPE_PREMIUM,
-            app_name=APP_NAME + " at " + user.organisation.name,
-            app_description=APP_DESCRIPTION + " at " + user.organisation.name,
+            app_name=APP_NAME + " for " + user.organisation.name,
+            app_description=APP_DESCRIPTION + user.organisation.name + "and its researchers",
             app_url=APP_URL,
             redirect_uri_1=redirect_uri))
     return render_template('orgconfirmation.html', client_secret_url=client_secret_url, form=form)
@@ -797,7 +794,7 @@ def update_org_info():
         if not form.validate():
             flash('Please fill in all fields and try again!', "danger")
         else:
-            organisation = Organisation.get(email=email)
+            organisation = Organisation.get(tech_contact_id=current_user.id)
             if (not (user is None) and (not (organisation is None))):
                 # Update Organisation
                 organisation.country = form.country.data
@@ -844,7 +841,7 @@ def update_org_info():
     elif request.method == 'GET':
 
         form.orgName.data = user.organisation.name
-        form.orgEmailid.data = user.organisation.email
+        form.orgEmailid.data = user.email
 
         form.city.data = user.organisation.city
         form.country.data = user.organisation.country
@@ -861,3 +858,23 @@ def update_org_info():
     except Exception as ex:
         flash("Failed to save organisation data: %s" % str(ex))
     return render_template('orgconfirmation.html', client_secret_url=client_secret_url, form=form)
+
+
+@app.route("/exportmembers")
+@roles_required(Role.ADMIN)
+def exportmembers():
+    """View the list of users (researchers)."""
+    try:
+        users = current_user.organisation.users
+        return Response(generateRow(users), mimetype='text/csv',
+                        headers={"Content-Disposition": "attachment; filename=ResearchersData.csv"})
+    except:
+        flash("There are no users registered in your organisation.", "warning")
+    return redirect(url_for("viewmembers"))
+
+
+def generateRow(users):
+    yield "First Name, Last Name, Email, ORCID ID \n"
+    for u in users:
+        """ ORCID ID might be NULL, Hence adding a check """
+        yield ','.join([u.first_name, u.last_name, u.email, str(u.orcid or "")]) + '\n'
