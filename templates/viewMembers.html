@@ -10,6 +10,7 @@
         <tr class="info">
           <th>Name</th>
           <th>Email</th>
+          <th>Eppn</th>
           <th>ORCID iD</th>
           <th>&nbsp;</th>
         </tr>
@@ -19,6 +20,7 @@
           <tr class="active">
             <td> {% if user.first_name %}{{ user.first_name}} {% endif %} {% if user.last_name %}{{ user.last_name}} {% endif %} </td>
             <td>{{ user.email|default("", True) }}</td>
+            <td>{{ user.eppn|default("", True) }}</td>
             <td>{{ orcid_url(user) }}</td>
             <td>
               {% if user.orcid %}
