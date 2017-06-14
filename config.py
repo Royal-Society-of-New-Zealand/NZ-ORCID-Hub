@@ -1,12 +1,14 @@
 # -*- coding: utf-8 -*-
 """Application configuration."""
 
-from os import environ
+from os import environ, urandom
 
 ENV = environ.get("ENV", "dev")
 
 ORCID_API_BASE = "https://api.sandbox.orcid.org/v2.0/" if ENV != "prod" else "https://api.orcid.org/v2.0/"
 ORCID_BASE_URL = "https://sandbox.orcid.org/" if ENV != "prod" else "https://orcid.org/"
+
+SECRET_KEY = environ.get("SECRET_KEY", urandom(42).hex())
 
 # Orcid API client ID and secret
 client_id = environ.get("ORCID_CLIENT_ID", "APP-TF7LKIE084PYTQ59")
@@ -47,7 +49,7 @@ NOTE_ORCID = 'An NZ ORCID Hub integration for'
 CRED_TYPE_PREMIUM = 2
 APP_NAME = 'NZ ORCID HUB'
 APP_DESCRIPTION = 'This is an ORCID integration through the NZ ORCID HUB connecting '
-APP_URL = "https://" + environ.get("ENV", "dev") + ".orcidhub.org.nz"
+APP_URL = "https://" + (ENV + ".orcidhub.org.nz" if ENV != "prod" else "orcidhub.org.nz")
 
 # External Shibboleth SP login URL (e.g., https://test.orcidhub.org.nz/Tuakiri/login)
 EXTERNAL_SP = environ.get("EXTERNAL_SP")

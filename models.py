@@ -8,6 +8,7 @@ from hashlib import md5
 from io import StringIO
 from itertools import zip_longest
 from urllib.parse import urlencode
+from pycountry import countries
 
 from flask_login import UserMixin
 from peewee import (BooleanField, CharField, CompositeKey, DateTimeField, DeferredRelation, Field,
@@ -141,14 +142,16 @@ class Organisation(BaseModel):
     """
     Research oranisation
     """
+    country_choices = [(c.alpha_2, c.name) for c in countries]
+    country_choices.sort(key=lambda e: e[1])
+    country_choices.insert(0, ("", "Country"))
 
     name = CharField(max_length=100, unique=True, null=True)
-    email = CharField(max_length=80, null=True)
     tuakiri_name = CharField(max_length=80, unique=True, null=True)
     orcid_client_id = CharField(max_length=80, unique=True, null=True)
     orcid_secret = CharField(max_length=80, unique=True, null=True)
     confirmed = BooleanField(default=False)
-    country = CharField(null=True)
+    country = CharField(null=True, choices=country_choices, default=DEFAULT_COUNTRY)
     city = CharField(null=True)
     disambiguation_org_id = CharField(null=True)
     disambiguation_org_source = CharField(null=True)
@@ -286,6 +289,7 @@ class User(BaseModel, UserMixin):
     first_name = CharField(null=True, verbose_name="Firs Name")
     last_name = CharField(null=True, verbose_name="Last Name")
     email = CharField(max_length=120, unique=True, null=True)
+    eppn = CharField(max_length=120, unique=True, null=True)
     edu_person_shared_token = CharField(
         max_length=120, unique=True, verbose_name="EDU Person Shared Token", null=True)
     # ORCiD:
