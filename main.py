@@ -10,11 +10,10 @@ import os
 import click
 # NB! Should be disabled in production
 from flask_debugtoolbar import DebugToolbarExtension
-from peewee import OperationalError
 
 import initializedb
 import models  # noqa: F401
-from application import app, db
+from application import app
 from authcontroller import *  # noqa: F401, F403
 from views import *  # noqa: F401, F403
 

@@ -10,6 +10,7 @@ from flask_mail import Mail
 from playhouse import db_url
 
 from config import *  # noqa: F401, F403
+from failover import PgDbWithFailover
 
 app = Flask(__name__)
 
@@ -28,11 +29,11 @@ app.config['SECRET_KEY'] = app.secret_key
 os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
 
 # TODO: implment connection factory
+db_url.register_database(PgDbWithFailover, "pg+failover", "postgres+failover")
 if DATABASE_URL.startswith("sqlite"):
     db = db_url.connect(DATABASE_URL, autorollback=True)
 else:
     db = db_url.connect(DATABASE_URL, autorollback=True, connect_timeout=3)
-## backup_db = db_url.connect(BACKUP_DATABASE_URL, autorollback=True, connect_timeout=3)
 
 if app.debug:
     app.config['DEBUG_TB_INTERCEPT_REDIRECTS'] = False
