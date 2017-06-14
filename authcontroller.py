@@ -140,6 +140,7 @@ def handle_login():
     email = data['Mail'].encode("latin-1").decode("utf-8").lower()
     session["shib_O"] = shib_org_name = data['O'].encode("latin-1").decode("utf-8")
     name = data.get('Displayname').encode("latin-1").decode("utf-8")
+    eppn = data.get('Eppn').encode("latin-1").decode("utf-8")
     unscoped_affiliation = set(a.strip()
                                for a in data.get("Unscoped-Affiliation", '').encode("latin-1")
                                .decode("utf-8").replace(',', ';').split(';'))
@@ -186,10 +187,13 @@ def handle_login():
             user.first_name = first_name
         if not user.last_name and last_name:
             user.last_name = last_name
+        if not user.eppn and eppn:
+            user.eppn = eppn
 
     except User.DoesNotExist:
         user = User.create(
             email=email,
+            eppn=eppn,
             name=name,
             first_name=first_name,
             last_name=last_name,
@@ -882,7 +886,7 @@ def exportmembers():
 
 
 def generateRow(users):
-    yield "First Name, Last Name, Email, ORCID ID \n"
+    yield "First Name, Last Name, Email, Eppn, ORCID ID \n"
     for u in users:
         """ ORCID ID might be NULL, Hence adding a check """
-        yield ','.join([u.first_name, u.last_name, u.email, str(u.orcid or "")]) + '\n'
+        yield ','.join([u.first_name, u.last_name, u.email, str(u.eppn or ""), str(u.orcid or "")]) + '\n'

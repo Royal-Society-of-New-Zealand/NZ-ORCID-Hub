@@ -289,6 +289,7 @@ class User(BaseModel, UserMixin):
     first_name = CharField(null=True, verbose_name="Firs Name")
     last_name = CharField(null=True, verbose_name="Last Name")
     email = CharField(max_length=120, unique=True, null=True)
+    eppn = CharField(max_length=120, unique=True, null=True)
     edu_person_shared_token = CharField(
         max_length=120, unique=True, verbose_name="EDU Person Shared Token", null=True)
     # ORCiD:
