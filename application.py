@@ -18,14 +18,13 @@ if os.path.exists("/var/log/orcidhub"):
     handler.setLevel(logging.INFO)
     app.logger.addHandler(handler)
 
-app.secret_key = ")Xq/4vc'K%wRe&sQ$n'n;?+y@^rY\/u8!sk{?D7Y>.V`t_/y'wn>7~cZ$(Q.$n)d_j"
 # NB! Disable in production
 app.debug = is_dev_env = (os.environ.get("ENV") in ("dev0", ))
 
 app.config.from_object(__name__)
-app.config['TESTING'] = True
-app.config['SECRET_KEY'] = app.secret_key
-os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
+if app.debug:
+    app.config['TESTING'] = True
+    os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
 
 # TODO: implment connection factory
 if DATABASE_URL.startswith("sqlite"):
