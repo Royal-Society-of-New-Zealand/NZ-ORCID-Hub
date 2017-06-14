@@ -15,6 +15,7 @@ EOF
 
 cat >>/var/lib/postgresql/data/_recovery.conf <<EOF
 # rename this file to recovery.conf and change master DB server IP address:
+standby_mode = 'on'
 restore_command = 'test -f /archive/%f.bz2 && bzip2 -c -d /archive/%f.bz2 >%p'
 primary_conninfo = 'host=MASTER_SERVER_IP port=5432 user=postgres'
 EOF
