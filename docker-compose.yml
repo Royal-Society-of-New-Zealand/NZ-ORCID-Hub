@@ -14,6 +14,7 @@ services:
       - ./conf/init-user-db.sh:/docker-entrypoint-initdb.d/init-user-db.sh
       - ./pgdata:/var/lib/postgresql/data
       - ./backup:/backup
+      - ./archive:/archive
     user: "${USER_UID:-500}:${USER_GID:-500}"
     restart: always
 
