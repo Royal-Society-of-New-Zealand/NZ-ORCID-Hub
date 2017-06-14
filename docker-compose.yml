@@ -32,7 +32,7 @@ services:
       - MAIL_USERNAME
       - MAIL_PASSWORD
       - MAIL_SERVER
-      - BACKUP_DATABASE_URL
+      - DATABASE_URL
     domainname: orcidhub.org.nz
     hostname: app
     ports:
