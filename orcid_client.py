@@ -22,7 +22,7 @@ class HubRESTClientObject(rest.RESTClientObject):
                 **kwargs):
 
         OrcidApiCall.create(
-            user=current_user, method=method, url=url, query_params=query_params, body=body)
+            user_id=current_user.id, method=method, url=url, query_params=query_params, body=body)
         print(url)
         super().request(method, url, query_params, headers, body, post_params, _preload_contente,
                         _request_timeout, **kwargs)
