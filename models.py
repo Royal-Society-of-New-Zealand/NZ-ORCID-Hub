@@ -462,14 +462,14 @@ def create_tables():
         db.connect()
     except OperationalError:
         pass
-    models = (Organisation, User, UserOrg, OrcidToken, UserOrgAffiliation, OrgInfo)
+    models = (Organisation, User, UserOrg, OrcidToken, UserOrgAffiliation, OrgInfo, OrcidApiCall)
     db.create_tables(models)
 
 
 def drop_tables():
     """Drop all model tables."""
 
-    for m in (Organisation, User, UserOrg, OrcidToken, UserOrgAffiliation, OrgInfo):
+    for m in (Organisation, User, UserOrg, OrcidToken, UserOrgAffiliation, OrgInfo, OrcidApiCall):
         if m.table_exists():
             try:
                 m.drop_table(fail_silently=True, cascade=db.drop_cascade)

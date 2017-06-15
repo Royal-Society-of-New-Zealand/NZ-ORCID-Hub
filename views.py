@@ -17,7 +17,8 @@ from config import ORCID_BASE_URL, SCOPE_ACTIVITIES_UPDATE
 from forms import BitmapMultipleValueField, OrgInfoForm, RecordForm
 from login_provider import roles_required
 from models import PartialDate as PD
-from models import (OrcidToken, Organisation, OrgInfo, Role, User, UserOrgAffiliation)
+from models import (OrcidApiCall, OrcidToken, Organisation, OrgInfo, Role, User,
+                    UserOrgAffiliation)
 # NB! Should be disabled in production
 from pyinfo import info
 from swagger_client.rest import ApiException
@@ -102,10 +103,19 @@ class OrcidTokenAdmin(AppModelView):
     can_create = False
 
 
+class OrcidApiCallAmin(AppModelView):
+    """ORCID API calls."""
+
+    can_export = True
+    can_edit = False
+    can_create = False
+
+
 admin.add_view(UserAdmin(User))
 admin.add_view(OrganisationAdmin(Organisation))
 admin.add_view(OrcidTokenAdmin(OrcidToken))
 admin.add_view(OrgInfoAdmin(OrgInfo))
+admin.add_view(OrcidApiCallAmin(OrcidApiCall))
 
 SectionRecord = namedtuple("SectionRecord", [
     "name", "city", "state", "country", "department", "role", "start_date", "end_date"
