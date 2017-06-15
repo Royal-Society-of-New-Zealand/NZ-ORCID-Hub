@@ -4,7 +4,7 @@
 isort:skip_file
 """
 
-# yapf: disable
+from flask_login import current_user, login_required
 from models import OrcidApiCall
 from swagger_client import rest
 
@@ -28,5 +28,6 @@ class HubRESTClientObject(rest.RESTClientObject):
                         _request_timeout, **kwargs)
 
 
+# yapf: disable
 from swagger_client import *  # noqa: F401, F403
 api_client.RESTClientObject = HubRESTClientObject
