@@ -34,10 +34,19 @@ if not DATABASE_URL:
         DATABASE_URL += ':' + POSTGRES_PASSWORD
     DATABASE_URL += "@" + DB_HOSTNAME + ":5432/" + DB_NAME
 
-MAIL_USERNAME = environ.get("MAIL_USERNAME", "AKIAICSRSUE3LNBSIBVQ")
-MAIL_PASSWORD = environ.get("MAIL_PASSWORD")
+# NB! Disable in production
+DEBUG = is_dev_env = '1' if (os.environ.get("ENV") in ("dev0", )) else None
+if DEBUG:
+    TESTING = True
+    DEBUG_TB_INTERCEPT_REDIRECTS = False
+    DEBUG_TB_PROFILER_ENABLED = True
+    OAUTHLIB_INSECURE_TRANSPORT = '1'
+
+# add mail server config
+MAIL_PORT = 25
+MAIL_SUPPRESS_SEND = False
 MAIL_DEFAULT_SENDER = environ.get("MAIL_DEFAULT_SENDER", "no-reply@orcidhub.org.nz")
-MAIL_SERVER = environ.get("MAIL_SERVER", "email-smtp.us-east-1.amazonaws.com")
+MAIL_SERVER = environ.get("MAIL_SERVER", "gateway")
 
 TOKEN_PASSWORD_SALT = environ.get("TOKEN_PASSWORD_SALT")
 TOKEN_SECRET_KEY = environ.get("TOKEN_SECRET_KEY")
