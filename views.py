@@ -11,7 +11,7 @@ from flask_admin.form import SecureForm
 from flask_login import current_user, login_required
 from requests_oauthlib import OAuth2Session
 
-import swagger_client
+import orcid_client
 from application import admin, app
 from config import ORCID_BASE_URL, SCOPE_ACTIVITIES_UPDATE
 from forms import BitmapMultipleValueField, OrgInfoForm, RecordForm
@@ -163,8 +163,8 @@ def delete_employment(user_id, put_code=None):
         flash("The user hasn't authorized you to Add records", "warning")
         return redirect(_url)
 
-    swagger_client.configuration.access_token = orcid_token.access_token
-    api_instance = swagger_client.MemberAPIV20Api()
+    orcid_client.configuration.access_token = orcid_token.access_token
+    api_instance = orcid_client.MemberAPIV20Api()
 
     try:
         # Delete an Employment
@@ -218,8 +218,8 @@ def edit_section_record(user_id, put_code=None, section_type="EMP"):
     except:
         flash("The user hasn't authorized you to Add records", "warning")
         return redirect(_url)
-    swagger_client.configuration.access_token = orcid_token.access_token
-    api_instance = swagger_client.MemberAPIV20Api()
+    orcid_client.configuration.access_token = orcid_token.access_token
+    api_instance = orcid_client.MemberAPIV20Api()
 
     # TODO: handle "new"...
     if put_code is not None:
@@ -256,7 +256,7 @@ def edit_section_record(user_id, put_code=None, section_type="EMP"):
         # TODO: If it's guarantee that the record will be editited solely by a sigle token we can
         # cache the record in the local DB
 
-        rec = swagger_client.Employment() if section_type == "EMP" else swagger_client.Education()
+        rec = orcid_client.Employment() if section_type == "EMP" else orcid_client.Education()
         rec.start_date = form.start_date.data.as_orcid_dict()
         rec.end_date = form.end_date.data.as_orcid_dict()
         rec.path = ""
@@ -264,21 +264,21 @@ def edit_section_record(user_id, put_code=None, section_type="EMP"):
         rec.role_title = form.role.data
 
         # TODO: adjust literals to the environment
-        source_clientid = swagger_client.SourceClientId(
+        source_clientid = orcid_client.SourceClientId(
             host='sandbox.orcid.org',
             path=org.orcid_client_id,
             uri="http://sandbox.orcid.org/client/" + org.orcid_client_id)
-        rec.source = swagger_client.Source(
+        rec.source = orcid_client.Source(
             source_orcid=None, source_client_id=source_clientid, source_name=org.name)
 
-        organisation_address = swagger_client.OrganizationAddress(
+        organisation_address = orcid_client.OrganizationAddress(
             city=form.city.data, region=form.state.data, country=form.country.data)
 
-        rec.organization = swagger_client.Organization(
+        rec.organization = orcid_client.Organization(
             name=form.name.data, address=organisation_address, disambiguated_organization=None)
 
         if org.name != form.name.data:
-            swagger_client.DisambiguatedOrganization(
+            orcid_client.DisambiguatedOrganization(
                 disambiguated_organization_identifier=org.name, disambiguation_source=org.name)
         try:
             if put_code:
@@ -288,7 +288,7 @@ def edit_section_record(user_id, put_code=None, section_type="EMP"):
                 # try:
                 client = OAuth2Session(
                     org.orcid_client_id,
-                    token={"access_token": swagger_client.configuration.access_token})
+                    token={"access_token": orcid_client.configuration.access_token})
 
                 headers = {
                     'Accept': 'application/vnd.orcid+json',
@@ -382,9 +382,9 @@ def show_record_section(user_id, section_type="EMP"):
         flash("User didn't give permissions to update his/her records", "warning")
         return redirect(url_for("viewmembers"))
 
-    swagger_client.configuration.access_token = orcid_token.access_token
+    orcid_client.configuration.access_token = orcid_token.access_token
     # create an instance of the API class
-    api_instance = swagger_client.MemberAPIV20Api()
+    api_instance = orcid_client.MemberAPIV20Api()
     try:
         # Fetch all entries
         if section_type == "EMP":

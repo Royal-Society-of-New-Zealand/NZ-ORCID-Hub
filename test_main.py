@@ -113,7 +113,6 @@ def test_tuakiri_login_wo_org(client):
             "Displayname": "TEST USER FROM UNKNOWN",
             "Unscoped-Affiliation": "staff",
             "Eppn": "user@test.test.net"
-
         },
         follow_redirects=True)
 

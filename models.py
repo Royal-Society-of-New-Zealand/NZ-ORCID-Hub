@@ -8,12 +8,12 @@ from hashlib import md5
 from io import StringIO
 from itertools import zip_longest
 from urllib.parse import urlencode
-from pycountry import countries
 
 from flask_login import UserMixin
 from peewee import (BooleanField, CharField, CompositeKey, DateTimeField, DeferredRelation, Field,
                     ForeignKeyField, Model, OperationalError, SmallIntegerField, TextField,
                     datetime)
+from pycountry import countries
 
 from application import db
 from config import DEFAULT_COUNTRY
@@ -441,6 +441,19 @@ class UserOrgAffiliation(BaseModel):
     class Meta:
         db_table = "user_organisation_affiliation"
         table_alias = "oua"
+
+
+class OrcidApiCall(BaseModel):
+    """ORCID API call audit entry."""
+    call_datetime = DateTimeField(default=datetime.datetime.now)
+    user = ForeignKeyField(User)
+    method = TextField()
+    url = TextField()
+    query_params = TextField(null=True)
+    body = TextField(null=True)
+
+    class Meta:
+        db_table = "orcid_api_call"
 
 
 def create_tables():
