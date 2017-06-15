@@ -23,14 +23,26 @@ class HubRESTClientObject(rest.RESTClientObject):
 
         try:
             OrcidApiCall.create(
-                user_id=current_user.id, method=method, url=url, query_params=query_params, body=body)
+                user_id=current_user.id,
+                method=method,
+                url=url,
+                query_params=query_params,
+                body=body)
         except Exception as ex:
             # TODO: log the failure
             pass
-        super().request(method, url, query_params, headers, body, post_params, _preload_content,
-                        _request_timeout, **kwargs)
+        return super().request(
+            method=method,
+            url=url,
+            query_params=query_params,
+            headers=headers,
+            body=body,
+            post_params=post_params,
+            _preload_content=_preload_content,
+            _request_timeout=_request_timeout,
+            **kwargs)
 
 
 # yapf: disable
-from swagger_client import *  # noqa: F401, F403
-api_client.RESTClientObject = HubRESTClientObject
+from swagger_client import *  # noqa: F401, F403, F405
+api_client.RESTClientObject = HubRESTClientObject  # noqa: F405
