@@ -4,7 +4,7 @@
 isort:skip_file
 """
 
-from flask_login import current_user, login_required
+from flask_login import current_user
 from models import OrcidApiCall
 from swagger_client import rest
 
