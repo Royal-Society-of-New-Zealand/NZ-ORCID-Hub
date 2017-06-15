@@ -41,6 +41,7 @@ if DEBUG:
     DEBUG_TB_INTERCEPT_REDIRECTS = False
     DEBUG_TB_PROFILER_ENABLED = True
     OAUTHLIB_INSECURE_TRANSPORT = '1'
+    MAIL_DEBUG = '1'
 
 # add mail server config
 MAIL_PORT = 25
