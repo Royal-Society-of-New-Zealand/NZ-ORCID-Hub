@@ -35,7 +35,7 @@ if not DATABASE_URL:
     DATABASE_URL += "@" + DB_HOSTNAME + ":5432/" + DB_NAME
 
 # NB! Disable in production
-DEBUG = is_dev_env = '1' if (os.environ.get("ENV") in ("dev0", )) else None
+DEBUG = is_dev_env = '1' if (environ.get("ENV") in ("dev0", )) else None
 if DEBUG:
     TESTING = True
     DEBUG_TB_INTERCEPT_REDIRECTS = False
