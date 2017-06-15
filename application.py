@@ -10,6 +10,7 @@ from flask_mail import Mail
 from playhouse import db_url
 
 from config import *  # noqa: F401, F403
+from failover import PgDbWithFailover
 
 app = Flask(__name__)
 
@@ -22,6 +23,7 @@ if os.path.exists("/var/log/orcidhub"):
 app.config.from_object(__name__)
 
 # TODO: implment connection factory
+db_url.register_database(PgDbWithFailover, "pg+failover", "postgres+failover")
 if DATABASE_URL.startswith("sqlite"):
     db = db_url.connect(DATABASE_URL, autorollback=True)
 else:
