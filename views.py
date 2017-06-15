@@ -108,7 +108,9 @@ class OrcidApiCallAmin(AppModelView):
 
     can_export = True
     can_edit = False
+    can_delete = False
     can_create = False
+    column_filters = ("url", )
 
 
 admin.add_view(UserAdmin(User))
