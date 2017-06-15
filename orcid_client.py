@@ -29,4 +29,4 @@ class HubRESTClientObject(rest.RESTClientObject):
 
 
 from swagger_client import *  # noqa: F401, F403
-RESTClientObject = HubRESTClientObject
+api_client.RESTClientObject = HubRESTClientObject
