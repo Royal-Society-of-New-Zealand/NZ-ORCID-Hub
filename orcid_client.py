@@ -21,10 +21,13 @@ class HubRESTClientObject(rest.RESTClientObject):
                 _request_timeout=None,
                 **kwargs):
 
-        OrcidApiCall.create(
-            user_id=current_user.id, method=method, url=url, query_params=query_params, body=body)
-        print(url)
-        super().request(method, url, query_params, headers, body, post_params, _preload_contente,
+        try:
+            OrcidApiCall.create(
+                user_id=current_user.id, method=method, url=url, query_params=query_params, body=body)
+        except Exception as ex:
+            # TODO: log the failure
+            pass
+        super().request(method, url, query_params, headers, body, post_params, _preload_content,
                         _request_timeout, **kwargs)
 
 
