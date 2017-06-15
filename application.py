@@ -10,6 +10,7 @@ from flask_mail import Mail
 from playhouse import db_url
 
 from config import *  # noqa: F401, F403
+from failover import PgDbWithFailover
 
 app = Flask(__name__)
 
@@ -18,31 +19,16 @@ if os.path.exists("/var/log/orcidhub"):
     handler.setLevel(logging.INFO)
     app.logger.addHandler(handler)
 
-# NB! Disable in production
-app.debug = is_dev_env = (os.environ.get("ENV") in ("dev0", ))
 
 app.config.from_object(__name__)
-if app.debug:
-    app.config['TESTING'] = True
-    os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
 
 # TODO: implment connection factory
+db_url.register_database(PgDbWithFailover, "pg+failover", "postgres+failover")
 if DATABASE_URL.startswith("sqlite"):
     db = db_url.connect(DATABASE_URL, autorollback=True)
 else:
     db = db_url.connect(DATABASE_URL, autorollback=True, connect_timeout=3)
-## backup_db = db_url.connect(BACKUP_DATABASE_URL, autorollback=True, connect_timeout=3)
 
-if app.debug:
-    app.config['DEBUG_TB_INTERCEPT_REDIRECTS'] = False
-    app.config['DEBUG_TB_PROFILER_ENABLED'] = True
-    os.environ['DEBUG'] = "1"
-
-# add mail server config
-app.config['MAIL_PORT'] = 587
-app.config['MAIL_USE_SSL'] = False
-app.config['MAIL_USE_TLS'] = True
-app.config['MAIL_SUPPRESS_SEND'] = False
 mail = Mail()
 mail.init_app(app)
 
