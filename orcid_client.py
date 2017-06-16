@@ -13,6 +13,7 @@ from urllib.parse import urlparse
 url = urlparse(ORCID_API_BASE)
 configuration.host = url.scheme + "://" + url.hostname
 
+
 class HubRESTClientObject(rest.RESTClientObject):
     def request(self,
                 method,

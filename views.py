@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 """Application views."""
 
-import json
 import os
 from collections import namedtuple
 
@@ -9,7 +8,6 @@ from flask import (flash, redirect, render_template, request, send_from_director
 from flask_admin.contrib.peewee import ModelView
 from flask_admin.form import SecureForm
 from flask_login import current_user, login_required
-from requests_oauthlib import OAuth2Session
 
 import orcid_client
 from application import admin, app
