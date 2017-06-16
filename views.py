@@ -232,7 +232,7 @@ def edit_section_record(user_id, put_code=None, section_type="EMP"):
     api_instance = orcid_client.MemberAPIV20Api()
 
     # TODO: handle "new"...
-    if put_code is not None:
+    if put_code:
         try:
             # Fetch an Employment
             if section_type == "EMP":
