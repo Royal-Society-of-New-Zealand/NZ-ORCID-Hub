@@ -415,24 +415,25 @@ def orcid_callback():
 @login_required
 def profile():
     """Fetch a protected resource using an OAuth 2 token."""
-    user = User.get(email=current_user.email, organisation=current_user.organisation)
+    user = current_user
 
     try:
-        orcidTokenRead = OrcidToken.get(
-            user=user, org=user.organisation, scope=SCOPE_ACTIVITIES_UPDATE)
+        orcid_token = OrcidToken.get(
+            user_id=user.id, org=user.organisation, scope=SCOPE_ACTIVITIES_UPDATE)
     except OrcidToken.DoesNotExist:
         return redirect(url_for("link"))
-    except:
+    except Exception as ex:
         # TODO: need to handle this
-        pass
+        flash("Unhandled Exception occured: %s" % ex, "danger")
+        return redirect(url_for("login"))
     else:
         client = OAuth2Session(
-            user.organisation.orcid_client_id, token={"access_token": orcidTokenRead.access_token})
+            user.organisation.orcid_client_id, token={"access_token": orcid_token.access_token})
         base_url = ORCID_API_BASE + user.orcid
         # TODO: utilize asyncio/aiohttp to run it concurrently
         resp_person = client.get(base_url + "/person", headers=HEADERS)
         if resp_person.status_code == 401:
-            orcidTokenRead.delete_instance()
+            orcid_token.delete_instance()
             return redirect(url_for("link"))
         else:
             return render_template("profile.html", user=user, profile_url=ORCID_BASE_URL)

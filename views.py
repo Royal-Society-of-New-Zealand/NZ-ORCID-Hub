@@ -409,17 +409,18 @@ def show_record_section(user_id, section_type="EMP"):
             api_response = api_instance.view_employments(user.orcid)
         elif section_type == "EDU":
             api_response = api_instance.view_educations(user.orcid)
-        print(api_response)
-    except ApiException as e:
-        print("Exception when calling MemberAPIV20Api->view_employments: %s\n" % e.body)
+    except ApiException as ex:
+        flash("Exception when calling MemberAPIV20Api->view_employments: %s\n" % ex, "danger")
+        return redirect(url_for("viewmembers"))
 
     # TODO: Organisation has read token
     # TODO: Organisation has access to the employment records
     # TODO: retrieve and tranform for presentation (order, etc)
     try:
         data = api_response.to_dict()
-    except:
+    except Exception as ex:
         flash("User didn't give permissions to update his/her records", "warning")
+        flash("Unhandled exception occured while retrieving ORCID data: %s" % ex, "danger")
         return redirect(url_for("viewmembers"))
     # TODO: transform data for presentation:
     if section_type == "EMP":
