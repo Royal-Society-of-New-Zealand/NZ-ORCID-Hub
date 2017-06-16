@@ -19,7 +19,6 @@ if os.path.exists("/var/log/orcidhub"):
     handler.setLevel(logging.INFO)
     app.logger.addHandler(handler)
 
-
 app.config.from_object(__name__)
 
 # TODO: implment connection factory

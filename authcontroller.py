@@ -14,14 +14,14 @@ from tempfile import gettempdir
 from urllib.parse import quote, unquote, urlencode, urlparse
 
 import requests
-from flask import (abort, flash, redirect, render_template, request, session, url_for, Response)
+from flask import (Response, abort, flash, redirect, render_template, request, session, url_for)
 from flask_login import current_user, login_required, login_user, logout_user
 from flask_mail import Message
 from oauthlib.oauth2 import rfc6749
 from requests_oauthlib import OAuth2Session
 from werkzeug.urls import iri_to_uri
 
-import swagger_client
+import orcid_client
 import utils
 from application import app, db, mail
 from config import (APP_DESCRIPTION, APP_NAME, APP_URL, AUTHORIZATION_BASE_URL, CRED_TYPE_PREMIUM,
@@ -30,8 +30,8 @@ from config import (APP_DESCRIPTION, APP_NAME, APP_URL, AUTHORIZATION_BASE_URL, 
 from forms import OnboardingTokenForm
 from login_provider import roles_required
 from models import (Affiliation, OrcidToken, Organisation, OrgInfo, Role, User, UserOrg)
-from registrationForm import OrgConfirmationForm, OrgRegistrationForm
 from swagger_client.rest import ApiException
+from registrationForm import OrgConfirmationForm, OrgRegistrationForm
 from tokenGeneration import confirm_token, generate_confirmation_token
 
 HEADERS = {'Accept': 'application/vnd.orcid+json', 'Content-type': 'application/vnd.orcid+json'}
@@ -342,20 +342,20 @@ def orcid_callback():
             flash("Failed to save data: %s" % str(ex))
 
     if token["scope"] == SCOPE_ACTIVITIES_UPDATE and orcid_token_found:
-        swagger_client.configuration.access_token = orcid_token.access_token
-        api_instance = swagger_client.MemberAPIV20Api()
+        orcid_client.configuration.access_token = orcid_token.access_token
+        api_instance = orcid_client.MemberAPIV20Api()
 
-        source_clientid = swagger_client.SourceClientId(
+        source_clientid = orcid_client.SourceClientId(
             # TODO: this shouldn't be hardcoded
             host='sandbox.orcid.org',
             path=orciduser.organisation.orcid_client_id,
             # TODO: this shouldn't be hardcoded
             uri="http://sandbox.orcid.org/client/" + orciduser.organisation.orcid_client_id)
 
-        organisation_address = swagger_client.OrganizationAddress(
+        organisation_address = orcid_client.OrganizationAddress(
             city=orciduser.organisation.city, country=orciduser.organisation.country)
 
-        disambiguated_organization_details = swagger_client.DisambiguatedOrganization(
+        disambiguated_organization_details = orcid_client.DisambiguatedOrganization(
             disambiguated_organization_identifier=orciduser.organisation.disambiguation_org_id,
             disambiguation_source=orciduser.organisation.disambiguation_org_source)
 
@@ -366,18 +366,18 @@ def orcid_callback():
                 continue
 
             if a == Affiliation.EMP:
-                rec = swagger_client.Employment()
+                rec = orcid_client.Employment()
             elif a == Affiliation.EDU:
-                rec = swagger_client.Education()
+                rec = orcid_client.Education()
             else:
                 continue
 
-            rec.source = swagger_client.Source(
+            rec.source = orcid_client.Source(
                 source_orcid=None,
                 source_client_id=source_clientid,
                 source_name=orciduser.organisation.name)
 
-            rec.organization = swagger_client.Organization(
+            rec.organization = orcid_client.Organization(
                 name=orciduser.organisation.name,
                 address=organisation_address,
                 disambiguated_organization=disambiguated_organization_details)
@@ -415,24 +415,25 @@ def orcid_callback():
 @login_required
 def profile():
     """Fetch a protected resource using an OAuth 2 token."""
-    user = User.get(email=current_user.email, organisation=current_user.organisation)
+    user = current_user
 
     try:
-        orcidTokenRead = OrcidToken.get(
-            user=user, org=user.organisation, scope=SCOPE_ACTIVITIES_UPDATE)
+        orcid_token = OrcidToken.get(
+            user_id=user.id, org=user.organisation, scope=SCOPE_ACTIVITIES_UPDATE)
     except OrcidToken.DoesNotExist:
         return redirect(url_for("link"))
-    except:
+    except Exception as ex:
         # TODO: need to handle this
-        pass
+        flash("Unhandled Exception occured: %s" % ex, "danger")
+        return redirect(url_for("login"))
     else:
         client = OAuth2Session(
-            user.organisation.orcid_client_id, token={"access_token": orcidTokenRead.access_token})
+            user.organisation.orcid_client_id, token={"access_token": orcid_token.access_token})
         base_url = ORCID_API_BASE + user.orcid
         # TODO: utilize asyncio/aiohttp to run it concurrently
         resp_person = client.get(base_url + "/person", headers=HEADERS)
         if resp_person.status_code == 401:
-            orcidTokenRead.delete_instance()
+            orcid_token.delete_instance()
             return redirect(url_for("link"))
         else:
             return render_template("profile.html", user=user, profile_url=ORCID_BASE_URL)
@@ -878,8 +879,10 @@ def exportmembers():
     """View the list of users (researchers)."""
     try:
         users = current_user.organisation.users
-        return Response(generateRow(users), mimetype='text/csv',
-                        headers={"Content-Disposition": "attachment; filename=ResearchersData.csv"})
+        return Response(
+            generateRow(users),
+            mimetype='text/csv',
+            headers={"Content-Disposition": "attachment; filename=ResearchersData.csv"})
     except:
         flash("There are no users registered in your organisation.", "warning")
     return redirect(url_for("viewmembers"))

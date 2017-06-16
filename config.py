@@ -35,12 +35,13 @@ if not DATABASE_URL:
     DATABASE_URL += "@" + DB_HOSTNAME + ":5432/" + DB_NAME
 
 # NB! Disable in production
-if environ.get("ENV") in ("dev0", ):
+if ENV in ("dev0", ):
     DEBUG = '1'
     TESTING = True
     DEBUG_TB_INTERCEPT_REDIRECTS = False
     DEBUG_TB_PROFILER_ENABLED = True
     OAUTHLIB_INSECURE_TRANSPORT = '1'
+    environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
     MAIL_DEBUG = '1'
 
 # add mail server config

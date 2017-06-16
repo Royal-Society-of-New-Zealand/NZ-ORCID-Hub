@@ -16,9 +16,7 @@ def initdb():
     super_user.save()
 
     org = Organisation(
-        name="The University of Auckland",
-        tuakiri_name="University of Auckland",
-        confirmed=True)
+        name="The University of Auckland", tuakiri_name="University of Auckland", confirmed=True)
     org.save()
 
 
