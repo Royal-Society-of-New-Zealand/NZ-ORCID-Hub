@@ -294,7 +294,7 @@ def edit_section_record(user_id, put_code=None, section_type="EMP"):
                 disambiguated_organization_identifier=org.name, disambiguation_source=org.name)
         try:
             if put_code:
-                rec.put_code = put_code
+                rec.put_code = int(put_code)
                 if section_type == "EMP":
                     api_response = api_instance.update_employment(user.orcid, put_code, body=rec)
                 else:
