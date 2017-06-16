@@ -296,9 +296,9 @@ def edit_section_record(user_id, put_code=None, section_type="EMP"):
             if put_code:
                 rec.put_code = put_code
                 if section_type == "EMP":
-                    api_response = api_instance.update_employment(user.orcid, body=rec)
+                    api_response = api_instance.update_employment(user.orcid, put_code, body=rec)
                 else:
-                    api_response = api_instance.update_education(user.orcid, body=rec)
+                    api_response = api_instance.update_education(user.orcid, put_code, body=rec)
                 # # TODO: We can uncomment the below swagger employment update call,
                 # # Once the bug fix (in update employment functionality) related to put code is done from ORCID side
                 # # api_instance.update_employment(user.orcid, put_code, body=employment)
