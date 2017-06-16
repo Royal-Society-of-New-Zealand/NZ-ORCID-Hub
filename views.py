@@ -299,38 +299,6 @@ def edit_section_record(user_id, put_code=None, section_type="EMP"):
                     api_response = api_instance.update_employment(user.orcid, put_code, body=rec)
                 else:
                     api_response = api_instance.update_education(user.orcid, put_code, body=rec)
-                # # TODO: We can uncomment the below swagger employment update call,
-                # # Once the bug fix (in update employment functionality) related to put code is done from ORCID side
-                # # api_instance.update_employment(user.orcid, put_code, body=employment)
-                # # try:
-                # client = OAuth2Session(
-                #     org.orcid_client_id,
-                #     token={"access_token": orcid_client.configuration.access_token})
-
-                # headers = {
-                #     'Accept': 'application/vnd.orcid+json',
-                #     'Content-type': 'application/vnd.orcid+json'
-                # }
-                # data = rec.to_dict()
-                # data['put-code'] = int(put_code)
-                # temp = json.dumps(data).replace('_', '-')
-                # data = json.loads(temp)
-                # apitype = ""
-                # if section_type == "EMP":
-                #     apitype = "employment"
-                # else:
-                #     apitype = "education"
-                # resp = client.put(
-                #     url="https://api.sandbox.orcid.org/v2.0/" + user.orcid + "/" + apitype + "/" +
-                #     str(put_code),
-                #     json=data,
-                #     headers=headers)
-                # if resp.status_code == 200:
-                #     flash("Record details has been u" "pdated successfully!", "success")
-                # else:
-                #     flash("You are not authorised to update this record!", "danger")
-                #     return redirect(_url)
-                print(api_response)
             else:
                 if section_type == "EMP":
                     api_response = api_instance.create_employment(user.orcid, body=rec)

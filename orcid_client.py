@@ -4,10 +4,14 @@
 isort:skip_file
 """
 
+from config import ORCID_API_BASE
 from flask_login import current_user
 from models import OrcidApiCall
-from swagger_client import rest
+from swagger_client import configuration, rest
+from urllib.parse import urlparse
 
+url = urlparse(ORCID_API_BASE)
+configuration.host = url.scheme + "://" + url.hostname
 
 class HubRESTClientObject(rest.RESTClientObject):
     def request(self,
