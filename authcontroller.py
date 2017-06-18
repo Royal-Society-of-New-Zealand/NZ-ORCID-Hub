@@ -449,7 +449,9 @@ def profile():
             orcid_token.delete_instance()
             return redirect(url_for("link"))
         else:
-            return render_template("profile.html", user=user, profile_url=ORCID_BASE_URL)
+            users = User.select().where(User.orcid == user.orcid)
+            users_orcid = OrcidToken.select().where(OrcidToken.user.in_(users))
+            return render_template("profile.html", user=user, users_orcid=users_orcid, profile_url=ORCID_BASE_URL)
 
 
 @app.route("/invite/user", methods=["GET"])

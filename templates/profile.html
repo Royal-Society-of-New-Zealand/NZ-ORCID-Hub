@@ -6,8 +6,29 @@
     <div class="text-center">
     <div class="body-message">
         <h3>Your ORCID iD is <a href={{profile_url + user.orcid}}><span>{{profile_url + user.orcid}}</span></a></h3>
-        <p>Your ORCID iD is now linked with <strong>{{ user.organisation.name }}</strong>.</p>
-        <p>You can start using your ORCID iD on manuscript submissions and grant applications immediately</p>
+        <p>You are currently logged in through <strong>{{ user.organisation.name }}</strong>.</p>
+
+        <p>The ORCID permissions you've given through the Hub are:</p>
+        <div class="table-responsive">
+            <table class="table" border="1">
+              <thead>
+                <tr class="info">
+                  <th style="text-align: center;">Organisation</th>
+                  <th style="text-align: center;">Email</th>
+                  <th style="text-align: center;">Permission</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for user_orcid_data in users_orcid or [] %}
+                          <tr class="active">
+                            <td> {% if user_orcid_data.user.organisation %}{{ user_orcid_data.user.organisation}} {% endif %} </td>
+                            <td> {% if user_orcid_data.user.email %}{{ user_orcid_data.user.email}} {% endif %} </td>
+                            <td> {% if user_orcid_data.scope %}{{ user_orcid_data.scope}} {% endif %} </td>
+                          </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+        </div>
         <button class="connect-orcid-button" onclick="location.href='{{profile_url}}'" style="height: 50px;width: auto;">
             <img class="orcid-id-logo" src="https://orcid.org/sites/default/files/images/orcid_24x24.png" width="24" height="24" alt="ORCID logo" /> Manage ORCID Record
         </button>
