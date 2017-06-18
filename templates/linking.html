@@ -4,10 +4,18 @@
     <p>Hi <strong>{{current_user.name}},</strong>
         (Organisation: <strong>{{current_user.organisation.name}}</strong>)
     </p>
-    <p>
-        <a id="connect-orcid-button_write_permission" class="btn btn-default" href="{{orcid_url_write}}" role="button">
-            <img id="orcid-id-logo_write_permission" src="https://orcid.org/sites/default/files/images/orcid_24x24.png"
-                 width='24' height='24' alt="ORCID logo"/>&nbsp;Give Your Organisation Permission To Access Your ORCID Record</a>
-    </p>
+    {% if error=='access_denied' %}
+        <p>The Hub is requesting write access in order to affirm your relationship with {{current_user.organisation.name}} in your ORCID record.</p>
+        <p>If you'd like to grant this access, click <a id="connect-orcid-button_write_permission_error" class="btn btn-default" href="{{orcid_url_write}}" role="button">here</a> to try again.</p>
+        <p>If you only wish to make {{current_user.organisation.name}} a trusted-party, i.e., able to read from but not write to your record, click <a id="connect-orcid-button_read_permission" class="btn btn-default" href="{{orcid_url_read_limited}}" role="button">here</a>.</p>
+        <p>If you don't want to give {{current_user.organisation.name}} any permission to your ORCID record, simply log out of the hub.</p>
+    {% else %}
+        <p>
+            <a id="connect-orcid-button_write_permission" class="btn btn-default" href="{{orcid_url_write}}" role="button">
+                <img id="orcid-id-logo_write_permission" src="https://orcid.org/sites/default/files/images/orcid_24x24.png"
+                     width='24' height='24' alt="ORCID logo"/>&nbsp;Give Your Organisation Permission To Access Your ORCID Record</a>
+        </p>
+    {% endif %}
+
 </div>
 {% endblock %}
