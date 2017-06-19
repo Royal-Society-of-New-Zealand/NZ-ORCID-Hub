@@ -18,6 +18,8 @@ client_secret = environ.get("ORCID_CLIENT_SECRET")
 AUTHORIZATION_BASE_URL = 'https://sandbox.orcid.org/oauth/authorize'
 TOKEN_URL = 'https://sandbox.orcid.org/oauth/token'
 SCOPE_ACTIVITIES_UPDATE = ['/activities/update']
+SCOPE_READ_LIMITED = ['/read-limited']
+SCOPE_AUTHENTICATE = ['/authenticate']
 
 # Database connection url
 DATABASE_URL = environ.get("DATABASE_URL")

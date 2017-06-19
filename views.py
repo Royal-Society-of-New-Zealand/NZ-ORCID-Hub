@@ -170,7 +170,7 @@ def delete_employment(user_id, put_code=None):
         orcid_token = OrcidToken.get(
             user=user, org=user.organisation, scope=SCOPE_ACTIVITIES_UPDATE)
     except:
-        flash("The user hasn't authorized you to Add records", "warning")
+        flash("The user hasn't authorized you to delete records", "warning")
         return redirect(_url)
 
     orcid_client.configuration.access_token = orcid_token.access_token
@@ -361,7 +361,7 @@ def show_record_section(user_id, section_type="EMP"):
     orcid_token = None
     try:
         orcid_token = OrcidToken.get(
-            user=user, org=current_user.organisation, scope=SCOPE_ACTIVITIES_UPDATE)
+            user=user, org=current_user.organisation)
     except:
         flash("User didn't give permissions to update his/her records", "warning")
         return redirect(url_for("viewmembers"))
