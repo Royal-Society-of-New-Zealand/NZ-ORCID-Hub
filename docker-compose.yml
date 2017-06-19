@@ -34,6 +34,8 @@ services:
       - MAIL_SERVER
       - DATABASE_URL
       - SECRET_KEY
+      #- LANG=${LANG:-en_NZ.UTF-8}
+      #- LC_ALL=${LC_ALL:-en_NZ.UTF-8}
     domainname: orcidhub.org.nz
     hostname: app
     ports:
@@ -46,6 +48,7 @@ services:
       - ./app.conf:/etc/httpd/conf.d/ZZ-app.conf
       - ./conf/attribute-map.xml:/etc/shibboleth/attribute-map.xml
       - ./tuakiri-test-metadata-cert.pem:/etc/shibboleth/tuakiri-test-metadata-cert.pem
+      - ./tuakiri-metadata-cert.pem:/etc/shibboleth/tuakiri-metadata-cert.pem
       - ./.keys/${ENV:-dev}-sp.key:/etc/shibboleth/sp-key.pem
       - ./.keys/${ENV:-dev}-sp.crt:/etc/shibboleth/sp-cert.pem
       - ./.keys:/.keys
