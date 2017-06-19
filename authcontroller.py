@@ -25,8 +25,8 @@ import orcid_client
 import utils
 from application import app, db, mail
 from config import (APP_DESCRIPTION, APP_NAME, APP_URL, AUTHORIZATION_BASE_URL, CRED_TYPE_PREMIUM,
-                    EXTERNAL_SP, MEMBER_API_FORM_BASE_URL, NEW_CREDENTIALS, NOTE_ORCID,
-                    ORCID_API_BASE, ORCID_BASE_URL, SCOPE_ACTIVITIES_UPDATE, TOKEN_URL)
+                    EXTERNAL_SP, MEMBER_API_FORM_BASE_URL, NEW_CREDENTIALS, NOTE_ORCID, ORCID_API_BASE,
+                    ORCID_BASE_URL, SCOPE_ACTIVITIES_UPDATE, TOKEN_URL, SCOPE_READ_LIMITED, SCOPE_AUTHENTICATE)
 from forms import OnboardingTokenForm
 from login_provider import roles_required
 from models import (Affiliation, OrcidToken, Organisation, OrgInfo, Role, User, UserOrg)
@@ -263,8 +263,28 @@ def link():
 
     try:
         OrcidToken.get(
-            user_id=current_user.id, org=current_user.organisation, scope=SCOPE_ACTIVITIES_UPDATE)
+            user_id=current_user.id, org=current_user.organisation)
     except OrcidToken.DoesNotExist:
+        if "error" in request.args:
+            error = request.args["error"]
+            if error == "access_denied":
+                client_write.scope = SCOPE_READ_LIMITED
+                authorization_url_read, state = client_write.authorization_url(AUTHORIZATION_BASE_URL)
+                orcid_url_read = iri_to_uri(authorization_url_read) + urlencode(
+                    dict(
+                        family_names=current_user.last_name,
+                        given_names=current_user.first_name,
+                        email=current_user.email))
+                client_write.scope = SCOPE_AUTHENTICATE
+                authorization_url_authenticate, state = client_write.authorization_url(AUTHORIZATION_BASE_URL)
+                orcid_url_authenticate = iri_to_uri(authorization_url_authenticate) + urlencode(
+                    dict(
+                        family_names=current_user.last_name,
+                        given_names=current_user.first_name,
+                        email=current_user.email))
+                return render_template("linking.html", orcid_url_write=orcid_url_write,
+                                       orcid_url_read_limited=orcid_url_read,
+                                       orcid_url_authenticate=orcid_url_authenticate, error=error)
         return render_template("linking.html", orcid_url_write=orcid_url_write)
     except Exception as ex:
         flash("Unhandled Exception occured: %s" % str(ex))
@@ -297,7 +317,7 @@ def orcid_callback():
         else:
             flash("Error occured while attempting to authorize '%s': %s" %
                   (current_user.organisation.name, error_description), "danger")
-        return redirect(url_for("link"))
+        return redirect(url_for("link") + '?' + 'error=' + error)
 
     client = OAuth2Session(current_user.organisation.orcid_client_id)
     try:
@@ -419,9 +439,10 @@ def profile():
 
     try:
         orcid_token = OrcidToken.get(
-            user_id=user.id, org=user.organisation, scope=SCOPE_ACTIVITIES_UPDATE)
+            user_id=user.id, org=user.organisation)
     except OrcidToken.DoesNotExist:
         return redirect(url_for("link"))
+
     except Exception as ex:
         # TODO: need to handle this
         flash("Unhandled Exception occured: %s" % ex, "danger")
@@ -436,7 +457,9 @@ def profile():
             orcid_token.delete_instance()
             return redirect(url_for("link"))
         else:
-            return render_template("profile.html", user=user, profile_url=ORCID_BASE_URL)
+            users = User.select().where(User.orcid == user.orcid)
+            users_orcid = OrcidToken.select().where(OrcidToken.user.in_(users))
+            return render_template("profile.html", user=user, users_orcid=users_orcid, profile_url=ORCID_BASE_URL)
 
 
 @app.route("/invite/user", methods=["GET"])
