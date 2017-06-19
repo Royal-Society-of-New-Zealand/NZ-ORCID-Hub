@@ -24,14 +24,12 @@ services:
     image: orcidhub/app-dev
     environment:
       - ENV
+      - SHIB_SP_DOMAINNAME
       - ORCID_CLIENT_ID=APP-TF7LKIE084PYTQ59
       - ORCID_CLIENT_SECRET
       - TOKEN_PASSWORD_SALT
       - MAIL_DEFAULT_SENDER
       - TOKEN_SECRET_KEY
-      - MAIL_USERNAME
-      - MAIL_PASSWORD
-      - MAIL_SERVER
       - DATABASE_URL
       - SECRET_KEY
       #- LANG=${LANG:-en_NZ.UTF-8}
