@@ -889,7 +889,7 @@ def exportmembers():
 
 
 def generateRow(users):
-    yield "Email, Eppn, ORCID ID \n"
+    yield "Email,Eppn,ORCID ID\n"
     for u in users:
         """ ORCID ID might be NULL, Hence adding a check """
         yield ','.join([u.email, str(u.eppn or ""), str(u.orcid or "")]) + '\n'
