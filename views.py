@@ -255,7 +255,7 @@ def edit_section_record(user_id, put_code=None, section_type="EMP"):
     else:
         data = SectionRecord(name=org.name, city=org.city, country=org.country)
 
-    form = RecordForm(request.form, obj=data)
+    form = RecordForm.create_form(request.form, obj=data, form_type=section_type)
     if not form.name.data:
         form.name.data = org.name
     if not form.country.data or form.country.data == "None":
