@@ -2,6 +2,7 @@
 """Application views."""
 
 import os
+from urllib.parse import urlparse
 from collections import namedtuple
 
 from flask import (flash, redirect, render_template, request, send_from_directory, url_for)
@@ -273,11 +274,11 @@ def edit_section_record(user_id, put_code=None, section_type="EMP"):
         rec.department_name = form.department.data
         rec.role_title = form.role.data
 
-        # TODO: adjust literals to the environment
+        url = urlparse(ORCID_BASE_URL)
         source_clientid = orcid_client.SourceClientId(
-            host='sandbox.orcid.org',
+            host=url.hostname,
             path=org.orcid_client_id,
-            uri="http://sandbox.orcid.org/client/" + org.orcid_client_id)
+            uri="http://" + url.hostname + "/client/" + org.orcid_client_id)
         rec.source = orcid_client.Source(
             source_orcid=None, source_client_id=source_clientid, source_name=org.name)
 
