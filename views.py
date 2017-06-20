@@ -29,7 +29,7 @@ HEADERS = {'Accept': 'application/vnd.orcid+json', 'Content-type': 'application/
 def favicon():
     """Support for the 'favicon' legacy: faveicon location in the root directory."""
     return send_from_directory(
-        os.path.join(app.root_path, "static"), "favicon.ico", mimetype="image/vnd.microsoft.icon")
+        os.path.join(app.root_path, "static", "images"), "favicon.ico", mimetype="image/vnd.microsoft.icon")
 
 
 @app.route('/pyinfo')
@@ -256,7 +256,7 @@ def edit_section_record(user_id, put_code=None, section_type="EMP"):
     else:
         data = SectionRecord(name=org.name, city=org.city, country=org.country)
 
-    form = RecordForm(request.form, obj=data)
+    form = RecordForm.create_form(request.form, obj=data, form_type=section_type)
     if not form.name.data:
         form.name.data = org.name
     if not form.country.data or form.country.data == "None":
