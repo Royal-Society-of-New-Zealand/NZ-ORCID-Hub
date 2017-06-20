@@ -15,8 +15,9 @@ client_id = environ.get("ORCID_CLIENT_ID", "APP-TF7LKIE084PYTQ59")
 client_secret = environ.get("ORCID_CLIENT_SECRET")
 
 # Change the URL as per the enviornment
-AUTHORIZATION_BASE_URL = 'https://sandbox.orcid.org/oauth/authorize'
-TOKEN_URL = 'https://sandbox.orcid.org/oauth/token'
+AUTHORIZATION_BASE_URL = 'https://sandbox.orcid.org/oauth/authorize' \
+    if ENV != "prod" else "https://orcid.org/oauth/authorize"
+TOKEN_URL = 'https://sandbox.orcid.org/oauth/token' if ENV != "prod" else "https://orcid.org/oauth/token"
 SCOPE_ACTIVITIES_UPDATE = ['/activities/update']
 SCOPE_READ_LIMITED = ['/read-limited']
 SCOPE_AUTHENTICATE = ['/authenticate']
@@ -57,8 +58,9 @@ MAIL_SERVER = environ.get("MAIL_SERVER", "gateway")
 TOKEN_PASSWORD_SALT = environ.get("TOKEN_PASSWORD_SALT")
 TOKEN_SECRET_KEY = environ.get("TOKEN_SECRET_KEY")
 
-MEMBER_API_FORM_BASE_URL = environ.get(
-    "MEMBER_API_FORM_BASE_URL", "https://orcid.org/content/register-client-application-sandbox")
+MEMBER_API_FORM_BASE_URL = "https://orcid.org/content/register-client-application-sandbox" \
+    if ENV != "prod" else "https://orcid.org/content/register-client-application-production-trusted-party"
+
 NEW_CREDENTIALS = 'New_Credentials'
 NOTE_ORCID = 'An NZ ORCID Hub integration for'
 CRED_TYPE_PREMIUM = 2
