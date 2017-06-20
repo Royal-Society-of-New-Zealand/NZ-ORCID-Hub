@@ -1,0 +1,80 @@
+.navbar-login
+{
+	width: 305px;
+	padding: 10px;
+	padding-bottom: 0px;
+}
+.navbar-login-session
+{
+	padding: 10px;
+	padding-bottom: 0px;
+	padding-top: 0px;
+}
+.icon-size
+{
+	font-size: 87px;
+}
+/* fix trash icon inside table column */
+.model-list form.icon {
+	display: inline;
+}
+
+.model-list form.icon button {
+	color: #337ab7;
+	border: none;
+	background: transparent;
+	text-decoration: none;
+	padding: 0;
+	line-height: normal;
+}
+
+.model-list a.icon:first-child {
+	margin-left: 10px;
+}
+
+.col-orcid {
+	word-break: break-all;
+	-webkit-hyphens:none;
+	-moz-hyphens: none; 
+	hyphens: none;
+	white-space: nowrap;
+}
+
+.banner {
+	display: flex;
+	justify-content: flex-end;
+	align-items: center;
+	width: 100%;
+	background-color: black;
+}
+
+.banner img {
+    min-height: 50px;
+    max-height: 80px;
+    height: 10vh;
+    width: auto;
+}
+
+.login-blocks {
+	display: flex;
+	justify-content: space-around;
+	align-content: center;
+}
+
+.login-blocks div {
+	width: 40vw;
+	min-width: 40px;
+	max-width: 80px;
+	height: 40vw;
+	min-height: 40px;
+	max-height: 80px;
+}
+
+.login-blocks .tuakiri {
+	background-color: #00bce9;
+
+}
+
+.login-blocks .orcid {
+	border: 1px #d0ea8f solid;
+}

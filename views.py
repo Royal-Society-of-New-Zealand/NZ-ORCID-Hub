@@ -28,7 +28,7 @@ HEADERS = {'Accept': 'application/vnd.orcid+json', 'Content-type': 'application/
 def favicon():
     """Support for the 'favicon' legacy: faveicon location in the root directory."""
     return send_from_directory(
-        os.path.join(app.root_path, "static"), "favicon.ico", mimetype="image/vnd.microsoft.icon")
+        os.path.join(app.root_path, "static", "images"), "favicon.ico", mimetype="image/vnd.microsoft.icon")
 
 
 @app.route('/pyinfo')
