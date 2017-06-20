@@ -365,12 +365,11 @@ def orcid_callback():
         orcid_client.configuration.access_token = orcid_token.access_token
         api_instance = orcid_client.MemberAPIV20Api()
 
+        url = urlparse(ORCID_BASE_URL)
         source_clientid = orcid_client.SourceClientId(
-            # TODO: this shouldn't be hardcoded
-            host='sandbox.orcid.org',
+            host=url.hostname,
             path=orciduser.organisation.orcid_client_id,
-            # TODO: this shouldn't be hardcoded
-            uri="http://sandbox.orcid.org/client/" + orciduser.organisation.orcid_client_id)
+            uri="http://" + url.hostname + "/client/" + orciduser.organisation.orcid_client_id)
 
         organisation_address = orcid_client.OrganizationAddress(
             city=orciduser.organisation.city, country=orciduser.organisation.country)
