@@ -62,7 +62,7 @@
 
             <li class="dropdown">
               <a href="#" class="dropdown-toggle" data-toggle="dropdown">
-                <img src="{{ current_user.avatar(20) }}">
+                <img alt="GRAVATAR" src="{{ current_user.avatar(20) }}">
                 <strong>{{ current_user.name }}</strong>
                 <span class="glyphicon glyphicon-chevron-down"></span>
               </a>
@@ -74,7 +74,7 @@
                         <p class="text-center">
                         <!-- span class="glyphicon glyphicon-user icon-size"></span -->
                         <a href={{current_user.gravatar_profile_url}}>
-                          <img src="{{ current_user.avatar(100) }}">
+                          <img alt="GRAVATAR100" src="{{ current_user.avatar(100) }}">
                         </a>
                         </p>
                       </div>

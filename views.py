@@ -2,6 +2,7 @@
 """Application views."""
 
 import os
+from urllib.parse import urlparse
 from collections import namedtuple
 
 from flask import (flash, redirect, render_template, request, send_from_directory, url_for)
@@ -28,7 +29,7 @@ HEADERS = {'Accept': 'application/vnd.orcid+json', 'Content-type': 'application/
 def favicon():
     """Support for the 'favicon' legacy: faveicon location in the root directory."""
     return send_from_directory(
-        os.path.join(app.root_path, "static"), "favicon.ico", mimetype="image/vnd.microsoft.icon")
+        os.path.join(app.root_path, "static", "images"), "favicon.ico", mimetype="image/vnd.microsoft.icon")
 
 
 @app.route('/pyinfo')
@@ -255,7 +256,7 @@ def edit_section_record(user_id, put_code=None, section_type="EMP"):
     else:
         data = SectionRecord(name=org.name, city=org.city, country=org.country)
 
-    form = RecordForm(request.form, obj=data)
+    form = RecordForm.create_form(request.form, obj=data, form_type=section_type)
     if not form.name.data:
         form.name.data = org.name
     if not form.country.data or form.country.data == "None":
@@ -273,11 +274,11 @@ def edit_section_record(user_id, put_code=None, section_type="EMP"):
         rec.department_name = form.department.data
         rec.role_title = form.role.data
 
-        # TODO: adjust literals to the environment
+        url = urlparse(ORCID_BASE_URL)
         source_clientid = orcid_client.SourceClientId(
-            host='sandbox.orcid.org',
+            host=url.hostname,
             path=org.orcid_client_id,
-            uri="http://sandbox.orcid.org/client/" + org.orcid_client_id)
+            uri="http://" + url.hostname + "/client/" + org.orcid_client_id)
         rec.source = orcid_client.Source(
             source_orcid=None, source_client_id=source_clientid, source_name=org.name)
 

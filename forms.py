@@ -27,7 +27,7 @@ class PartialDate:
         kwargs.setdefault('id', field.id)
         html = [
             "<!-- data: %r -->" % (field.data, ),
-            '<div %s>' % html_params(name=field.name, **kwargs)
+            '<div %s>' % html_params(**kwargs)
         ]
         html.extend(self.render_select("year", field))
         html.extend(self.render_select("month", field))
@@ -138,17 +138,14 @@ class RecordForm(FlaskForm):
     start_date = PartialDateField("Start date")
     end_date = PartialDateField("End date (leave blank if current)")
 
-
-class EmploymentForm(RecordForm):
-    """User/researcher employment detail form."""
-
-    pass
-
-
-class EducationForm(RecordForm):
-    """User/researcher education detail form."""
-
-    name = StringField("Institution", [validators.required()])
+    @classmethod
+    def create_form(cls, *args, form_type=None, **kwargs):
+        form = cls(*args, **kwargs)
+        if form_type == "EDU":
+            print(dir(form.name))
+            form.name.name = "Institution"
+            form.name.label.text = "Institution"
+        return form
 
 
 class OrgInfoForm(FlaskForm):
