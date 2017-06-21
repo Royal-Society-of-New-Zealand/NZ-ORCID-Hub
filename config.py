@@ -65,7 +65,7 @@ NEW_CREDENTIALS = 'New_Credentials'
 NOTE_ORCID = 'An NZ ORCID Hub integration for'
 CRED_TYPE_PREMIUM = 2
 APP_NAME = 'NZ ORCID HUB'
-APP_DESCRIPTION = 'This is an ORCID integration through the NZ ORCID HUB connecting '
+APP_DESCRIPTION = 'This is an ORCID integration through the NZ ORCID HUB connecting'
 APP_URL = "https://" + (ENV + ".orcidhub.org.nz" if ENV != "prod" else "orcidhub.org.nz")
 
 # External Shibboleth SP login URL (e.g., https://test.orcidhub.org.nz/Tuakiri/login)
