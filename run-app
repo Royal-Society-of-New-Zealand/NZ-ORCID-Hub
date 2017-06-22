@@ -1,10 +1,5 @@
 #!/bin/bash
 
-# Set up the configuration:
-if [ -z "$ORCID_CLIENT_ID" ] || [ -z "$ORCID_CLIENT_SECRET" ] ; then
-  echo "Missing Orcid API client ID (\$ORCID_CLIENT_ID) and/or secret (\$ORCID_CLIENT_SECRET)"
-  exit 78 # /* configuration error */
-fi
 ## Runtime environment name:
 ENV=${ENV:-test}
 echo "Runtime Environment: $ENV"
