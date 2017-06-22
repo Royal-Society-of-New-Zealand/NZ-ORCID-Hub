@@ -26,13 +26,15 @@ class HubRESTClientObject(rest.RESTClientObject):
                 _request_timeout=None,
                 **kwargs):
 
+        put_code = body.get("put-code") if body else None
         try:
             OrcidApiCall.create(
                 user_id=current_user.id,
                 method=method,
                 url=url,
                 query_params=query_params,
-                body=body)
+                body=body,
+                put_code=put_code)
         except Exception as ex:
             # TODO: log the failure
             pass
@@ -51,3 +53,4 @@ class HubRESTClientObject(rest.RESTClientObject):
 # yapf: disable
 from swagger_client import *  # noqa: F401, F403, F405
 api_client.RESTClientObject = HubRESTClientObject  # noqa: F405
+apis.member_apiv20_api.ApiClient = HubApiClient  # noqa: F405
