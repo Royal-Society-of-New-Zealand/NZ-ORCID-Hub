@@ -15,11 +15,23 @@
         <p>If you don't want to give {{current_user.organisation.name}} any permission to your ORCID record, simply log out of the hub.</p>
     {% else %}
         <p>
-            <a id="connect-orcid-button_write_permission" class="btn btn-default" href="{{orcid_url_write}}" role="button">
+            <a id="connect-orcid-button_write_permission" class="btn btn-default" role="button" onclick="logoutOrcid()">
                 <img id="orcid-id-logo_write_permission" src="https://orcid.org/sites/default/files/images/orcid_24x24.png"
                      width='24' height='24' alt="ORCID logo"/>&nbsp;Give Your Organisation Permission To Access Your ORCID Record</a>
         </p>
     {% endif %}
-
+    <script>
+    function logoutOrcid() {
+        $.ajax({
+            url: 'https://sandbox.orcid.org/userStatus.json?logUserOut=true',
+            dataType: 'jsonp',
+            success: function(result,status,xhr) {
+                window.location="{{orcid_url_write}}"
+            },
+            error: function (xhr, status, error) {
+                alert(status);
+            }
+        });}
+    </script>
 </div>
 {% endblock %}
