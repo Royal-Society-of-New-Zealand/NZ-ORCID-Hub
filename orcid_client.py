@@ -53,4 +53,3 @@ class HubRESTClientObject(rest.RESTClientObject):
 # yapf: disable
 from swagger_client import *  # noqa: F401, F403, F405
 api_client.RESTClientObject = HubRESTClientObject  # noqa: F405
-apis.member_apiv20_api.ApiClient = HubApiClient  # noqa: F405
