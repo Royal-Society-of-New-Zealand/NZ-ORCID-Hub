@@ -26,13 +26,15 @@ class HubRESTClientObject(rest.RESTClientObject):
                 _request_timeout=None,
                 **kwargs):
 
+        put_code = body.get("put-code") if body else None
         try:
             OrcidApiCall.create(
                 user_id=current_user.id,
                 method=method,
                 url=url,
                 query_params=query_params,
-                body=body)
+                body=body,
+                put_code=put_code)
         except Exception as ex:
             # TODO: log the failure
             pass

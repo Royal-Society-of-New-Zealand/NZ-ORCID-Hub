@@ -10,8 +10,9 @@ from itertools import zip_longest
 from urllib.parse import urlencode
 
 from flask_login import UserMixin
-from peewee import (BooleanField, CharField, CompositeKey, DateTimeField, DeferredRelation, Field,
-                    ForeignKeyField, Model, OperationalError, SmallIntegerField, TextField,
+from peewee import (BooleanField, CharField, CompositeKey, DateTimeField,
+                    DeferredRelation, Field, ForeignKeyField, IntegerField,
+                    Model, OperationalError, SmallIntegerField, TextField,
                     datetime)
 from pycountry import countries
 
@@ -451,6 +452,7 @@ class OrcidApiCall(BaseModel):
     url = TextField()
     query_params = TextField(null=True)
     body = TextField(null=True)
+    put_code = IntegerField(null=True)
 
     class Meta:
         db_table = "orcid_api_call"

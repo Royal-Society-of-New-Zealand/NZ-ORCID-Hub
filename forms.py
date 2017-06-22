@@ -6,7 +6,8 @@ from datetime import date
 from flask_wtf import FlaskForm
 from flask_wtf.file import FileAllowed, FileField, FileRequired
 from pycountry import countries
-from wtforms import (Field, SelectField, SelectMultipleField, StringField, validators)
+from wtforms import (Field, SelectField, SelectMultipleField, StringField,
+                     validators)
 from wtforms.widgets import HTMLString, html_params
 
 from models import PartialDate as PD
@@ -25,10 +26,7 @@ class PartialDate:
     def __call__(self, field, **kwargs):
         """Render widget."""
         kwargs.setdefault('id', field.id)
-        html = [
-            "<!-- data: %r -->" % (field.data, ),
-            '<div %s>' % html_params(**kwargs)
-        ]
+        html = ["<!-- data: %r -->" % (field.data, ), '<div %s>' % html_params(**kwargs)]
         html.extend(self.render_select("year", field))
         html.extend(self.render_select("month", field))
         html.extend(self.render_select("day", field))

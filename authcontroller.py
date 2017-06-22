@@ -14,7 +14,8 @@ from tempfile import gettempdir
 from urllib.parse import quote, unquote, urlencode, urlparse
 
 import requests
-from flask import (Response, abort, flash, redirect, render_template, request, session, url_for)
+from flask import (Response, abort, flash, redirect, render_template, request,
+                   session, url_for)
 from flask_login import current_user, login_required, login_user, logout_user
 from flask_mail import Message
 from oauthlib.oauth2 import rfc6749
@@ -24,14 +25,17 @@ from werkzeug.urls import iri_to_uri
 import orcid_client
 import utils
 from application import app, db, mail
-from config import (APP_DESCRIPTION, APP_NAME, APP_URL, AUTHORIZATION_BASE_URL, CRED_TYPE_PREMIUM,
-                    EXTERNAL_SP, MEMBER_API_FORM_BASE_URL, NEW_CREDENTIALS, NOTE_ORCID, ORCID_API_BASE,
-                    ORCID_BASE_URL, SCOPE_ACTIVITIES_UPDATE, TOKEN_URL, SCOPE_READ_LIMITED, SCOPE_AUTHENTICATE)
+from config import (APP_DESCRIPTION, APP_NAME, APP_URL, AUTHORIZATION_BASE_URL,
+                    CRED_TYPE_PREMIUM, EXTERNAL_SP, MEMBER_API_FORM_BASE_URL,
+                    NEW_CREDENTIALS, NOTE_ORCID, ORCID_API_BASE,
+                    ORCID_BASE_URL, SCOPE_ACTIVITIES_UPDATE,
+                    SCOPE_AUTHENTICATE, SCOPE_READ_LIMITED, TOKEN_URL)
 from forms import OnboardingTokenForm
 from login_provider import roles_required
-from models import (Affiliation, OrcidToken, Organisation, OrgInfo, Role, User, UserOrg)
-from swagger_client.rest import ApiException
+from models import (Affiliation, OrcidToken, Organisation, OrgInfo, Role, User,
+                    UserOrg)
 from registrationForm import OrgConfirmationForm, OrgRegistrationForm
+from swagger_client.rest import ApiException
 from tokenGeneration import confirm_token, generate_confirmation_token
 
 HEADERS = {'Accept': 'application/vnd.orcid+json', 'Content-type': 'application/vnd.orcid+json'}
@@ -262,29 +266,33 @@ def link():
     # TODO: affiliation with multiple orgs should lookup UserOrg
 
     try:
-        OrcidToken.get(
-            user_id=current_user.id, org=current_user.organisation)
+        OrcidToken.get(user_id=current_user.id, org=current_user.organisation)
     except OrcidToken.DoesNotExist:
         if "error" in request.args:
             error = request.args["error"]
             if error == "access_denied":
                 client_write.scope = SCOPE_READ_LIMITED
-                authorization_url_read, state = client_write.authorization_url(AUTHORIZATION_BASE_URL)
+                authorization_url_read, state = client_write.authorization_url(
+                    AUTHORIZATION_BASE_URL)
                 orcid_url_read = iri_to_uri(authorization_url_read) + urlencode(
                     dict(
                         family_names=current_user.last_name,
                         given_names=current_user.first_name,
                         email=current_user.email))
                 client_write.scope = SCOPE_AUTHENTICATE
-                authorization_url_authenticate, state = client_write.authorization_url(AUTHORIZATION_BASE_URL)
+                authorization_url_authenticate, state = client_write.authorization_url(
+                    AUTHORIZATION_BASE_URL)
                 orcid_url_authenticate = iri_to_uri(authorization_url_authenticate) + urlencode(
                     dict(
                         family_names=current_user.last_name,
                         given_names=current_user.first_name,
                         email=current_user.email))
-                return render_template("linking.html", orcid_url_write=orcid_url_write,
-                                       orcid_url_read_limited=orcid_url_read,
-                                       orcid_url_authenticate=orcid_url_authenticate, error=error)
+                return render_template(
+                    "linking.html",
+                    orcid_url_write=orcid_url_write,
+                    orcid_url_read_limited=orcid_url_read,
+                    orcid_url_authenticate=orcid_url_authenticate,
+                    error=error)
         return render_template("linking.html", orcid_url_write=orcid_url_write)
     except Exception as ex:
         flash("Unhandled Exception occured: %s" % str(ex))
@@ -437,8 +445,7 @@ def profile():
     user = current_user
 
     try:
-        orcid_token = OrcidToken.get(
-            user_id=user.id, org=user.organisation)
+        orcid_token = OrcidToken.get(user_id=user.id, org=user.organisation)
     except OrcidToken.DoesNotExist:
         return redirect(url_for("link"))
 
@@ -458,7 +465,8 @@ def profile():
         else:
             users = User.select().where(User.orcid == user.orcid)
             users_orcid = OrcidToken.select().where(OrcidToken.user.in_(users))
-            return render_template("profile.html", user=user, users_orcid=users_orcid, profile_url=ORCID_BASE_URL)
+            return render_template(
+                "profile.html", user=user, users_orcid=users_orcid, profile_url=ORCID_BASE_URL)
 
 
 @app.route("/invite/user", methods=["GET"])

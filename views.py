@@ -2,10 +2,11 @@
 """Application views."""
 
 import os
-from urllib.parse import urlparse
 from collections import namedtuple
+from urllib.parse import urlparse
 
-from flask import (flash, redirect, render_template, request, send_from_directory, url_for)
+from flask import (flash, redirect, render_template, request,
+                   send_from_directory, url_for)
 from flask_admin.contrib.peewee import ModelView
 from flask_admin.form import SecureForm
 from flask_login import current_user, login_required
@@ -15,9 +16,9 @@ from application import admin, app
 from config import ORCID_BASE_URL, SCOPE_ACTIVITIES_UPDATE
 from forms import BitmapMultipleValueField, OrgInfoForm, RecordForm
 from login_provider import roles_required
-from models import PartialDate as PD, db
-from models import (OrcidApiCall, OrcidToken, Organisation, OrgInfo, Role, User,
-                    UserOrgAffiliation)
+from models import PartialDate as PD
+from models import (OrcidApiCall, OrcidToken, Organisation, OrgInfo, Role,
+                    User, UserOrgAffiliation, db)
 # NB! Should be disabled in production
 from pyinfo import info
 from swagger_client.rest import ApiException
@@ -29,7 +30,9 @@ HEADERS = {'Accept': 'application/vnd.orcid+json', 'Content-type': 'application/
 def favicon():
     """Support for the 'favicon' legacy: faveicon location in the root directory."""
     return send_from_directory(
-        os.path.join(app.root_path, "static", "images"), "favicon.ico", mimetype="image/vnd.microsoft.icon")
+        os.path.join(app.root_path, "static", "images"),
+        "favicon.ico",
+        mimetype="image/vnd.microsoft.icon")
 
 
 @app.route('/pyinfo')
@@ -361,8 +364,7 @@ def show_record_section(user_id, section_type="EMP"):
 
     orcid_token = None
     try:
-        orcid_token = OrcidToken.get(
-            user=user, org=current_user.organisation)
+        orcid_token = OrcidToken.get(user=user, org=current_user.organisation)
     except:
         flash("User didn't give permissions to update his/her records", "warning")
         return redirect(url_for("viewmembers"))
