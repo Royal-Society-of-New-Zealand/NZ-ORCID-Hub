@@ -293,7 +293,7 @@ def link():
                     orcid_url_read_limited=orcid_url_read,
                     orcid_url_authenticate=orcid_url_authenticate,
                     error=error)
-        return render_template("linking.html", orcid_url_write=orcid_url_write)
+        return render_template("linking.html", orcid_url_write=orcid_url_write, orcid_base_url=ORCID_BASE_URL)
     except Exception as ex:
         flash("Unhandled Exception occured: %s" % str(ex))
     return redirect(url_for("profile"))
