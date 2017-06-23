@@ -23,7 +23,7 @@
     <script>
     function logoutOrcid() {
         $.ajax({
-            url: 'https://sandbox.orcid.org/userStatus.json?logUserOut=true',
+            url: "{{orcid_base_url}}" + "userStatus.json?logUserOut=true",
             dataType: 'jsonp',
             success: function(result,status,xhr) {
                 window.location="{{orcid_url_write}}"
