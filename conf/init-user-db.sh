@@ -18,7 +18,7 @@ cat >>/var/lib/postgresql/data/_recovery.conf <<EOF
 standby_mode = 'on'
 restore_command = 'test -f /archive/%f.bz2 && bzip2 -c -d /archive/%f.bz2 >%p'
 primary_conninfo = 'host=MASTER_SERVER_IP port=5432 user=postgres'
-trigger_file = '/var/lib/postgresql/data/failover_trigger.00'
+trigger_file = '/tmp/pg_failover_trigger.00'
 EOF
 
 cat >>/var/lib/postgresql/data/pg_hba.conf <<EOF
