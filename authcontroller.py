@@ -101,7 +101,6 @@ def get_attributes(key):
 
 
 @app.route("/Tuakiri/login")
-@app.route("/auth/jwt", methods=["POST"])
 def handle_login():
     """Shibboleth and Rapid Connect authenitcation handler.
 
@@ -148,6 +147,7 @@ def handle_login():
     unscoped_affiliation = set(a.strip()
                                for a in data.get("Unscoped-Affiliation", '').encode("latin-1")
                                .decode("utf-8").replace(',', ';').split(';'))
+
 
     if unscoped_affiliation:
         edu_person_affiliation = Affiliation.NONE
@@ -223,6 +223,7 @@ def handle_login():
         flash("Failed to save user data: %s" % str(ex))
 
     login_user(user)
+    app.logger.info("User %r from %r logged in.", user, org)
 
     if _next:
         return redirect(_next)
@@ -315,7 +316,6 @@ def orcid_callback():
     callback URL. With this redirection comes an authorization code included
     in the redirect URL. We will use that to obtain an access token.
     """
-    # error=access_denied&error_description=User%20denied%20access&state=bd95UVMdcleJWr9SRJIDRxUXvkpvYVfamily_names=User
     if "error" in request.args:
         error = request.args["error"]
         error_description = request.args.get("error_description")
@@ -347,8 +347,6 @@ def orcid_callback():
     orcid = token['orcid']
     name = token["name"]
 
-    # TODO: should be linked to the affiliated org
-
     user = current_user
     user.orcid = orcid
     if not user.name and name:
@@ -357,8 +355,9 @@ def orcid_callback():
     # TODO: refactor this "user" and "orciduser" effectively are the same
     orciduser = User.get(email=user.email, organisation=user.organisation)
 
+    scope = token["scope"]
     orcid_token, orcid_token_found = OrcidToken.get_or_create(
-        user=orciduser, org=orciduser.organisation, scope=token["scope"][0])
+        user=orciduser, org=orciduser.organisation, scope=scope[0])
     orcid_token.access_token = token["access_token"]
     orcid_token.refresh_token = token["refresh_token"]
     with db.atomic():
@@ -369,7 +368,10 @@ def orcid_callback():
             db.rollback()
             flash("Failed to save data: %s" % str(ex))
 
-    if token["scope"] == SCOPE_ACTIVITIES_UPDATE and orcid_token_found:
+    app.logger.info(
+        "User %r authorized %r to have %r access to the profile.",
+        user, user.organisation, scope)
+    if scope == SCOPE_ACTIVITIES_UPDATE and orcid_token_found:
         orcid_client.configuration.access_token = orcid_token.access_token
         api_instance = orcid_client.MemberAPIV20Api()
 
@@ -507,8 +509,6 @@ def invite_organisation():
             except User.DoesNotExist:
                 pass
             finally:
-                # TODO: organisation can have mutiple admins:
-                # TODO: user OrgAdmin
                 try:
                     org = Organisation.get(name=org_name)
                 except Organisation.DoesNotExist:

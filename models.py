@@ -308,6 +308,8 @@ class User(BaseModel, UserMixin):
         Organisation, related_name="members", on_delete="CASCADE", null=True)
 
     def __repr__(self):
+        if self.name and (self.eppn or self.email):
+            return "%s (%s)" % (self.name, self.email or self.eppn)
         return self.name or self.email or self.orcid or super().__repr__()
 
     @property
