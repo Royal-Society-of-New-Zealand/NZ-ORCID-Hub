@@ -47,7 +47,7 @@ if ENV in ("dev0", ):
     OAUTHLIB_INSECURE_TRANSPORT = '1'
     environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
     TEMPLATES_AUTO_RELOAD = True
-    EXPLAIN_TEMPLATE_LOADING = True
+    # EXPLAIN_TEMPLATE_LOADING = True
 
 # add mail server config
 MAIL_PORT = 25
@@ -79,3 +79,5 @@ elif ENV == "test":
     GA_TRACKING_ID = "UA-99022483-2"
 else:
     GA_TRACKING_ID = "UA-99022483-3"
+
+SENTRY_DSN = "https://bb596bd75ad4490c80ee0a7c22943a94:a53ff6a9eb5b439e87d8553f162a6658@sentry.io/172044"

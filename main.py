@@ -8,14 +8,20 @@ http://charlesleifer.com/blog/structuring-flask-apps-a-how-to-for-those-coming-f
 import os
 
 import click
-# NB! Should be disabled in production
 from flask_debugtoolbar import DebugToolbarExtension
+import logging
 
 import initializedb
 import models  # noqa: F401
 from application import app
 from authcontroller import *  # noqa: F401, F403
 from views import *  # noqa: F401, F403
+
+
+@app.before_first_request
+def setup_logging():
+    #app.logger.addHandler(logging.StreamHandler())
+    app.logger.setLevel(logging.INFO)
 
 
 @app.cli.command()
