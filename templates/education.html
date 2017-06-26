@@ -1,24 +1,11 @@
 {% extends "base.html" %}
-
-{% macro render_field(f) %}
-<div class="form-group">
-  <label for="{{ f.id }}">{{ f.label }}{% if f.flags.required %}&nbsp;<strong style="color: red">*</strong>{% endif %}</label>
-  {{ f(class="form-control", id=f.id, placeholder=f.label.text, **kwargs)|safe }}
-  {% if f.errors %}
-    <ul class=errors>
-      {% for error in f.errors %}
-        <li>{{ error }}</li>
-      {% endfor %}
-    </ul>
-  {% endif %}
-</div>
-{% endmacro %}
+{% from "macros.html" import render_field %}
 
 {% block content %}
   <form method="POST">
     <div class="row">
       <div class="col-md-9 col-sm-8 col-xs-12">
-        <h1>Employment</h1>
+        <h1>Education</h1>
       </div>
     </div>
     <div class="row">

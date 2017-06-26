@@ -3,17 +3,17 @@
   <div class="container">
     <section>
       {% if request.endpoint in ("login", "about", ) %}
-      <p class="contact">
-      Contact details for the NZ ORCID Hub<br>
-      Phone: +64 (04) 472 7421<br>
-      PO Box 598, Wellington 6140<br>
-      New Zealand<br>
-      <b><a href="mailto:orcid@royalsociety.org.nz">orcid@royalsociety.org.nz</a></b>
-      </p>
-      <p class="copyright">&copy; 2017 Royal Society of New Zealand<br/><a href="https://creativecommons.org/licenses/by-nc/4.0/" target="_blank"><img src="{{url_for('static', filename='images/CC-BY-NC-icon-88x31.png')}}" alt="CC-BY-NC"></a></p>
+        <p class="contact">
+        Contact details for the NZ ORCID Hub<br>
+        Phone: +64 (04) 472 7421<br>
+        PO Box 598, Wellington 6140<br>
+        New Zealand<br>
+        <b><a href="mailto:orcid@royalsociety.org.nz">orcid@royalsociety.org.nz</a></b>
+        </p>
+        <p class="copyright">&copy; 2017 Royal Society of New Zealand<br/><a href="https://creativecommons.org/licenses/by-nc/4.0/" target="_blank"><img src="{{url_for('static', filename='images/CC-BY-NC-icon-88x31.png')}}" alt="CC-BY-NC"></a></p>
       {% else %}
-      <p class="contact">&copy; 2017 Royal Society of New Zealand</p>
-      <p class="copyright"><a href="https://creativecommons.org/licenses/by-nc/4.0/" target="_blank"><img src="{{url_for('static', filename='images/CC-BY-NC-icon-80x15.png')}}" alt="CC-BY-NC"></a></p>
+        <p class="contact">&copy; 2017 Royal Society of New Zealand</p>
+        <p class="copyright"><a href="https://creativecommons.org/licenses/by-nc/4.0/" target="_blank"><img src="{{url_for('static', filename='images/CC-BY-NC-icon-80x15.png')}}" alt="CC-BY-NC"></a></p>
       {% endif %}
     </section>
   </div>

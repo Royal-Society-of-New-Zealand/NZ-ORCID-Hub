@@ -16,40 +16,40 @@
         </tr>
       </table>
       <h2 class="display-2">Welcome to the NZ ORCID Hub</h2>
-      {% if user.tech_contact %}
-      <p>Welcome!</p>
-      <p>{{org_name}} is just one step from being onboarded onto the NZ ORCID Hub.</p>
-      <p>Please either click on the link below to confirm your role as this organisation's Technical Contact:<br>
+      {% if user.is_tech_contact_of(user.organisation) %}
+        <p>Welcome!</p>
+        <p>{{org_name}} is just one step from being onboarded onto the NZ ORCID Hub.</p>
+        <p>Please either click on the link below to confirm your role as this organisation's Technical Contact:<br>
       {% else %}
-      <p>You are invited to be an Organisation Administrator for {{org_name}} on the NZ ORCID Hub.</p>
-      <p>To confirm your acceptance of this role, please either click on the link below:<br>
+        <p>You are invited to be an Organisation Administrator for {{org_name}} on the NZ ORCID Hub.</p>
+        <p>To confirm your acceptance of this role, please either click on the link below:<br>
       {% endif %}
-        <a href="{{ url_for('confirm_organisation', token=token, _external=True) }}">{{ url_for('confirm_organisation', token=token, _external=True) }}</a><br>
-        <strong>OR</strong><br>
-        If that doesn't work, navigate to the following link and copy/paste your affiliation token when asked.<br>
-        Link: <a href="{{ url_for('confirm_organisation', _external=True) }}">{{ url_for('confirm_organisation', _external=True) }}</a>
-        Affiliation token: <strong>{{ token }}</strong></p>
-      <p>If you received this email in error, or you have questions about the responsibilities involved, please contact:
+      <a href="{{ url_for('confirm_organisation', token=token, _external=True) }}">{{ url_for('confirm_organisation', token=token, _external=True) }}</a><br>
+      <strong>OR</strong><br>
+      If that doesn't work, navigate to the following link and copy/paste your affiliation token when asked.<br>
+      Link: <a href="{{ url_for('confirm_organisation', _external=True) }}">{{ url_for('confirm_organisation', _external=True) }}</a>
+      Affiliation token: <strong>{{ token }}</strong></p>
+        <p>If you received this email in error, or you have questions about the responsibilities involved, please contact:
         <a href="mailto:orcid@royalsociety.org.nz">orcid@royalsociety.org.nz</a></p>
-      <hr>
-      <p>This email was sent to {{recipient["email"]}}</p>
-      <!--  Footer Details -->
-      <table style="vertical-align: top; background-color: black; color: white; width: 100%; margin-top: 25px;">
-        <tr>
-          <td>
-            <p style="vertical-align: top; padding-left: 15px;">
-            Contact details for the NZ ORCID Hub<br>
-            Phone: (04) 472 7421<br>
-            PO Box 598, Wellington 6140<br>
-            <b><a style="text-decoration: none; color: white;"
-                  href="mailto:orcid@royalsociety.org.nz">orcid@royalsociety.org.nz</a></b>
-            </p>
-          </td>
-          <td style="vertical-align: top;">
-            <p class="copyright"><a href="https://creativecommons.org/licenses/by-nc/4.0/" target="_blank"><img src="{{url_for('static', filename='images/CC-BY-NC-icon-80x15.png', _external=True)}}" alt="CC-BY-NC"/></a></p>
-          </td>
-        </tr>
-      </table>
+        <hr>
+        <p>This email was sent to {{recipient["email"]}}</p>
+        <!--  Footer Details -->
+        <table style="vertical-align: top; background-color: black; color: white; width: 100%; margin-top: 25px;">
+          <tr>
+            <td>
+              <p style="vertical-align: top; padding-left: 15px;">
+              Contact details for the NZ ORCID Hub<br>
+              Phone: (04) 472 7421<br>
+              PO Box 598, Wellington 6140<br>
+              <b><a style="text-decoration: none; color: white;"
+                    href="mailto:orcid@royalsociety.org.nz">orcid@royalsociety.org.nz</a></b>
+              </p>
+            </td>
+            <td style="vertical-align: top;">
+              <p class="copyright"><a href="https://creativecommons.org/licenses/by-nc/4.0/" target="_blank"><img src="{{url_for('static', filename='images/CC-BY-NC-icon-80x15.png', _external=True)}}" alt="CC-BY-NC"/></a></p>
+            </td>
+          </tr>
+        </table>
     </div>
   </body>
 </html>

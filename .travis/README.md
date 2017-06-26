@@ -8,8 +8,13 @@ The private is encrypted.
 1. git **post-update** hook updated the site and restarts **docker-compose**:
 ```
 #!/bin/sh
-git --work-tree=$HOME/site --git-dir=$HOME/repo.git checkout -f
-cd $HOME/site
+for r in "$@"; do
+  case $r in
+  refs/heads/*) git --work-tree=$HOME --git-dir=$HOME/repo.git checkout -f $(git rev-parse --symbolic --abbrev-ref $r)
+  esac
+done
+
+cd $HOME
 docker-compose restart
 docker-compose logs
 ```

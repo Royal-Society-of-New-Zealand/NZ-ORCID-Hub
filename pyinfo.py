@@ -7,6 +7,8 @@ import platform
 import socket
 import sys
 
+from application import app
+
 optional_modules_list = [
     'Cookie', 'mod_wsgi', 'psycopg2', 'zlib', 'gzip', 'bz2', 'zipfile', 'tarfile', 'ldap',
     'socket', 'audioop', 'curses', 'imageop', 'aifc', 'sunau', 'wave', 'chunk', 'colorsys',
@@ -34,6 +36,7 @@ def _info():
     info['compression_info'] = get_compression_info()
     info['socket_info'] = get_socket_info()
     info['multimedia_info'] = get_multimedia_info()
+    info["app_config"] = app.config
     return info
 
 

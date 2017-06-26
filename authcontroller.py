@@ -14,23 +14,26 @@ from tempfile import gettempdir
 from urllib.parse import quote, unquote, urlencode, urlparse
 
 import requests
-from flask import (abort, flash, redirect, render_template, request, session, url_for)
+from flask import (Response, abort, flash, redirect, render_template, request,
+                   session, url_for)
 from flask_login import current_user, login_required, login_user, logout_user
 from flask_mail import Message
 from oauthlib.oauth2 import rfc6749
 from requests_oauthlib import OAuth2Session
 from werkzeug.urls import iri_to_uri
 
-import swagger_client
+import orcid_client
 import utils
 from application import app, db, mail
-from config import (APP_DESCRIPTION, APP_NAME, APP_URL, AUTHORIZATION_BASE_URL, CRED_TYPE_PREMIUM,
-                    EDU_PERSON_AFFILIATION_EDUCATION, EDU_PERSON_AFFILIATION_EMPLOYMENT,
-                    EXTERNAL_SP, MEMBER_API_FORM_BASE_URL, NEW_CREDENTIALS, NOTE_ORCID,
-                    ORCID_API_BASE, ORCID_BASE_URL, SCOPE_ACTIVITIES_UPDATE, TOKEN_URL)
+from config import (APP_DESCRIPTION, APP_NAME, APP_URL, AUTHORIZATION_BASE_URL,
+                    CRED_TYPE_PREMIUM, EXTERNAL_SP, MEMBER_API_FORM_BASE_URL,
+                    NEW_CREDENTIALS, NOTE_ORCID, ORCID_API_BASE,
+                    ORCID_BASE_URL, SCOPE_ACTIVITIES_UPDATE,
+                    SCOPE_AUTHENTICATE, SCOPE_READ_LIMITED, TOKEN_URL)
 from forms import OnboardingTokenForm
 from login_provider import roles_required
-from models import OrcidToken, Organisation, OrgInfo, Role, User, UserOrg
+from models import (Affiliation, OrcidToken, Organisation, OrgInfo, Role, User,
+                    UserOrg)
 from registrationForm import OrgConfirmationForm, OrgRegistrationForm
 from swagger_client.rest import ApiException
 from tokenGeneration import confirm_token, generate_confirmation_token
@@ -38,12 +41,20 @@ from tokenGeneration import confirm_token, generate_confirmation_token
 HEADERS = {'Accept': 'application/vnd.orcid+json', 'Content-type': 'application/vnd.orcid+json'}
 
 
+def get_next_url():
+    """Retrieves and sanitizes next/return URL."""
+    _next = request.args.get('next')
+    if _next and not ("orcidhub.org.nz" in _next or _next.startswith("/")):
+        return None
+    return _next
+
+
 @app.route("/index")
 @app.route("/login")
 @app.route("/")
 def login():
     """Main landing page."""
-    _next = request.args.get('next')
+    _next = get_next_url()
     if EXTERNAL_SP:
         session["auth_secret"] = secret_token = secrets.token_urlsafe()
         _next = url_for("handle_login", _next=_next, _external=True)
@@ -90,7 +101,6 @@ def get_attributes(key):
 
 
 @app.route("/Tuakiri/login")
-@app.route("/auth/jwt", methods=["POST"])
 def handle_login():
     """Shibboleth and Rapid Connect authenitcation handler.
 
@@ -127,25 +137,27 @@ def handle_login():
     else:
         data = request.headers
 
-    token = data.get("Auedupersonsharedtoken")
-    last_name = data['Sn']
-    first_name = data['Givenname']
-    email = data['Mail']
-    session["shib_O"] = shib_org_name = data['O']
-    name = data.get('Displayname')
-    edu_person_affiliation = data.get('Unscoped-Affiliation')
+    token = data.get("Auedupersonsharedtoken").encode("latin-1").decode("utf-8")
+    last_name = data['Sn'].encode("latin-1").decode("utf-8")
+    first_name = data['Givenname'].encode("latin-1").decode("utf-8")
+    email = data['Mail'].encode("latin-1").decode("utf-8").lower()
+    session["shib_O"] = shib_org_name = data['O'].encode("latin-1").decode("utf-8")
+    name = data.get('Displayname').encode("latin-1").decode("utf-8")
+    eppn = data.get('Eppn').encode("latin-1").decode("utf-8")
+    unscoped_affiliation = set(a.strip()
+                               for a in data.get("Unscoped-Affiliation", '').encode("latin-1")
+                               .decode("utf-8").replace(',', ';').split(';'))
 
-    if edu_person_affiliation:
-        if any(epa in edu_person_affiliation for epa in ['faculty', 'staff']) \
-                and any(epa in edu_person_affiliation for epa in ['student', 'alum']):
-            edu_person_affiliation = EDU_PERSON_AFFILIATION_EMPLOYMENT + " and " + EDU_PERSON_AFFILIATION_EDUCATION
-        elif any(epa in edu_person_affiliation for epa in ['faculty', 'staff']):
-            edu_person_affiliation = EDU_PERSON_AFFILIATION_EMPLOYMENT
-        elif any(epa in edu_person_affiliation for epa in ['student', 'alum']):
-            edu_person_affiliation = EDU_PERSON_AFFILIATION_EDUCATION
+
+    if unscoped_affiliation:
+        edu_person_affiliation = Affiliation.NONE
+        if unscoped_affiliation & {"faculty", "staff"}:
+            edu_person_affiliation |= Affiliation.EMP
+        if unscoped_affiliation & {"student", "alum"}:
+            edu_person_affiliation |= Affiliation.EDU
     else:
         flash(
-            "The value of edu_person_affiliation was not supplied from your identity provider,"
+            "The value of 'Unscoped-Affiliation' was not supplied from your identity provider,"
             " So we are not able to determine the nature of affiliation you have with your organisation",
             "danger")
 
@@ -179,31 +191,31 @@ def handle_login():
             user.first_name = first_name
         if not user.last_name and last_name:
             user.last_name = last_name
-        if edu_person_affiliation:
-            user.edu_person_affiliation = edu_person_affiliation
-            # TODO: keep login auditing (last_loggedin_at... etc)
+        if not user.eppn and eppn:
+            user.eppn = eppn
 
     except User.DoesNotExist:
         user = User.create(
             email=email,
+            eppn=eppn,
             name=name,
             first_name=first_name,
             last_name=last_name,
             roles=Role.RESEARCHER,
-            edu_person_shared_token=token,
-            edu_person_affiliation=edu_person_affiliation)
+            edu_person_shared_token=token)
 
-    if org is not None and org not in user.organisations:
-        UserOrg.create(user=user, org=org)
-
-        # TODO: need to find out a simple way of tracking
-        # the organization user is logged in from:
+    # TODO: need to find out a simple way of tracking
+    # the organization user is logged in from:
     if org != user.organisation:
         user.organisation = org
 
+    if org:
+        user_org, _ = UserOrg.get_or_create(user=user, org=org)
+        user_org.affiliations = edu_person_affiliation
+        user_org.save()
+
     if not user.confirmed:
-        if org and org.confirmed:
-            user.confirmed = True
+        user.confirmed = True
 
     try:
         user.save()
@@ -211,6 +223,7 @@ def handle_login():
         flash("Failed to save user data: %s" % str(ex))
 
     login_user(user)
+    app.logger.info("User %r from %r logged in.", user, org)
 
     if _next:
         return redirect(_next)
@@ -218,7 +231,7 @@ def handle_login():
         return redirect(url_for("invite_organisation"))
     elif org and org.confirmed:
         return redirect(url_for("link"))
-    elif org and org.is_email_confirmed and (not org.confirmed) and user.tech_contact:
+    elif org and org.is_email_confirmed and (not org.confirmed) and user.is_tech_contact_of(org):
         return redirect(url_for("update_org_info"))
     else:
         flash("Your organisation (%s) is not onboarded" % shib_org_name, "danger")
@@ -254,10 +267,34 @@ def link():
     # TODO: affiliation with multiple orgs should lookup UserOrg
 
     try:
-        OrcidToken.get(
-            user_id=current_user.id, org=current_user.organisation, scope=SCOPE_ACTIVITIES_UPDATE)
+        OrcidToken.get(user_id=current_user.id, org=current_user.organisation)
     except OrcidToken.DoesNotExist:
-        return render_template("linking.html", orcid_url_write=orcid_url_write)
+        if "error" in request.args:
+            error = request.args["error"]
+            if error == "access_denied":
+                client_write.scope = SCOPE_READ_LIMITED
+                authorization_url_read, state = client_write.authorization_url(
+                    AUTHORIZATION_BASE_URL)
+                orcid_url_read = iri_to_uri(authorization_url_read) + urlencode(
+                    dict(
+                        family_names=current_user.last_name,
+                        given_names=current_user.first_name,
+                        email=current_user.email))
+                client_write.scope = SCOPE_AUTHENTICATE
+                authorization_url_authenticate, state = client_write.authorization_url(
+                    AUTHORIZATION_BASE_URL)
+                orcid_url_authenticate = iri_to_uri(authorization_url_authenticate) + urlencode(
+                    dict(
+                        family_names=current_user.last_name,
+                        given_names=current_user.first_name,
+                        email=current_user.email))
+                return render_template(
+                    "linking.html",
+                    orcid_url_write=orcid_url_write,
+                    orcid_url_read_limited=orcid_url_read,
+                    orcid_url_authenticate=orcid_url_authenticate,
+                    error=error)
+        return render_template("linking.html", orcid_url_write=orcid_url_write, orcid_base_url=ORCID_BASE_URL)
     except Exception as ex:
         flash("Unhandled Exception occured: %s" % str(ex))
     return redirect(url_for("profile"))
@@ -279,7 +316,6 @@ def orcid_callback():
     callback URL. With this redirection comes an authorization code included
     in the redirect URL. We will use that to obtain an access token.
     """
-    # error=access_denied&error_description=User%20denied%20access&state=bd95UVMdcleJWr9SRJIDRxUXvkpvYVfamily_names=User
     if "error" in request.args:
         error = request.args["error"]
         error_description = request.args.get("error_description")
@@ -289,7 +325,7 @@ def orcid_callback():
         else:
             flash("Error occured while attempting to authorize '%s': %s" %
                   (current_user.organisation.name, error_description), "danger")
-        return redirect(url_for("link"))
+        return redirect(url_for("link") + '?' + 'error=' + error)
 
     client = OAuth2Session(current_user.organisation.orcid_client_id)
     try:
@@ -311,8 +347,6 @@ def orcid_callback():
     orcid = token['orcid']
     name = token["name"]
 
-    # TODO: should be linked to the affiliated org
-
     user = current_user
     user.orcid = orcid
     if not user.name and name:
@@ -321,8 +355,9 @@ def orcid_callback():
     # TODO: refactor this "user" and "orciduser" effectively are the same
     orciduser = User.get(email=user.email, organisation=user.organisation)
 
+    scope = token["scope"]
     orcid_token, orcid_token_found = OrcidToken.get_or_create(
-        user=orciduser, org=orciduser.organisation, scope=token["scope"][0])
+        user=orciduser, org=orciduser.organisation, scope=scope[0])
     orcid_token.access_token = token["access_token"]
     orcid_token.refresh_token = token["refresh_token"]
     with db.atomic():
@@ -333,77 +368,68 @@ def orcid_callback():
             db.rollback()
             flash("Failed to save data: %s" % str(ex))
 
-    if token["scope"] == SCOPE_ACTIVITIES_UPDATE and orcid_token_found:
-        swagger_client.configuration.access_token = orcid_token.access_token
-        api_instance = swagger_client.MemberAPIV20Api()
+    app.logger.info(
+        "User %r authorized %r to have %r access to the profile.",
+        user, user.organisation, scope)
+    if scope == SCOPE_ACTIVITIES_UPDATE and orcid_token_found:
+        orcid_client.configuration.access_token = orcid_token.access_token
+        api_instance = orcid_client.MemberAPIV20Api()
 
-        source_clientid = swagger_client.SourceClientId(
-            # TODO: this shouldn't be hardcoded
-            host='sandbox.orcid.org',
+        url = urlparse(ORCID_BASE_URL)
+        source_clientid = orcid_client.SourceClientId(
+            host=url.hostname,
             path=orciduser.organisation.orcid_client_id,
-            # TODO: this shouldn't be hardcoded
-            uri="http://sandbox.orcid.org/client/" + orciduser.organisation.orcid_client_id)
+            uri="http://" + url.hostname + "/client/" + orciduser.organisation.orcid_client_id)
 
-        organisation_address = swagger_client.OrganizationAddress(
+        organisation_address = orcid_client.OrganizationAddress(
             city=orciduser.organisation.city, country=orciduser.organisation.country)
 
-        disambiguated_organization_details = swagger_client.DisambiguatedOrganization(
+        disambiguated_organization_details = orcid_client.DisambiguatedOrganization(
             disambiguated_organization_identifier=orciduser.organisation.disambiguation_org_id,
             disambiguation_source=orciduser.organisation.disambiguation_org_source)
 
-        if orciduser.edu_person_affiliation is not None:
+        # TODO: need to check if the entry doesn't exist already:
+        for a in Affiliation:
 
-            # TODO: denormilize model!!!
-            if (orciduser.edu_person_affiliation == EDU_PERSON_AFFILIATION_EMPLOYMENT or
-                    orciduser.edu_person_affiliation == EDU_PERSON_AFFILIATION_EMPLOYMENT + " and "
-                    + EDU_PERSON_AFFILIATION_EDUCATION):
-                employment = swagger_client.Employment()
+            if not a & orciduser.affiliations:
+                continue
 
-                employment.source = swagger_client.Source(
-                    source_orcid=None,
-                    source_client_id=source_clientid,
-                    source_name=orciduser.organisation.name)
+            if a == Affiliation.EMP:
+                rec = orcid_client.Employment()
+            elif a == Affiliation.EDU:
+                rec = orcid_client.Education()
+            else:
+                continue
 
-                employment.organization = swagger_client.Organization(
-                    name=orciduser.organisation.name,
-                    address=organisation_address,
-                    disambiguated_organization=disambiguated_organization_details)
+            rec.source = orcid_client.Source(
+                source_orcid=None,
+                source_client_id=source_clientid,
+                source_name=orciduser.organisation.name)
 
-                try:
-                    api_instance.create_employment(user.orcid, body=employment)
-                    # TODO: Save the put code in db table
-                    flash("Your ORCID record was updated with an employment affiliation from %s" %
-                          orciduser.organisation, "success")
+            rec.organization = orcid_client.Organization(
+                name=orciduser.organisation.name,
+                address=organisation_address,
+                disambiguated_organization=disambiguated_organization_details)
 
-                except ApiException as e:
-                    flash("Failed to update the entry: %s." % e.body, "danger")
+            try:
+                if a == Affiliation.EMP:
+                    api_instance.create_employment(user.orcid, body=rec)
+                    flash(
+                        "Your ORCID employment record was updated with an affiliation entry from '%s'"
+                        % orciduser.organisation, "success")
+                elif a == Affiliation.EDU:
+                    api_instance.create_education(user.orcid, body=rec)
+                    flash(
+                        "Your ORCID education record was updated with an affiliation entry from '%s'"
+                        % orciduser.organisation, "success")
+                else:
+                    continue
+                # TODO: Save the put-code in db table
 
-            # TODO: denormilize model!!!
-            if (orciduser.edu_person_affiliation == EDU_PERSON_AFFILIATION_EDUCATION or
-                    orciduser.edu_person_affiliation == EDU_PERSON_AFFILIATION_EMPLOYMENT + " and "
-                    + EDU_PERSON_AFFILIATION_EDUCATION):
+            except ApiException as e:
+                flash("Failed to update the entry: %s." % e.body, "danger")
 
-                education = swagger_client.Education()
-
-                education.source = swagger_client.Source(
-                    source_orcid=None,
-                    source_client_id=source_clientid,
-                    source_name=orciduser.organisation.name)
-
-                education.organization = swagger_client.Organization(
-                    name=orciduser.organisation.name,
-                    address=organisation_address,
-                    disambiguated_organization=disambiguated_organization_details)
-
-                try:
-                    api_instance.create_education(user.orcid, body=education)
-                    # TODO: Save the put code in db table
-                    flash("Your ORCID record was updated with an education affiliation from %s" %
-                          orciduser.organisation, "success")
-
-                except ApiException as e:
-                    flash("Failed to update the entry: %s." % e.body, "danger")
-        else:
+        if not orciduser.affiliations:
             flash(
                 "The ORCID Hub was not able to automatically write an affiliation with %s, "
                 "as the nature of the affiliation with your organisation does not appear to include either "
@@ -418,27 +444,31 @@ def orcid_callback():
 @login_required
 def profile():
     """Fetch a protected resource using an OAuth 2 token."""
-    user = User.get(email=current_user.email, organisation=current_user.organisation)
+    user = current_user
 
     try:
-        orcidTokenRead = OrcidToken.get(
-            user=user, org=user.organisation, scope=SCOPE_ACTIVITIES_UPDATE)
+        orcid_token = OrcidToken.get(user_id=user.id, org=user.organisation)
     except OrcidToken.DoesNotExist:
         return redirect(url_for("link"))
-    except:
+
+    except Exception as ex:
         # TODO: need to handle this
-        pass
+        flash("Unhandled Exception occured: %s" % ex, "danger")
+        return redirect(url_for("login"))
     else:
         client = OAuth2Session(
-            user.organisation.orcid_client_id, token={"access_token": orcidTokenRead.access_token})
+            user.organisation.orcid_client_id, token={"access_token": orcid_token.access_token})
         base_url = ORCID_API_BASE + user.orcid
         # TODO: utilize asyncio/aiohttp to run it concurrently
         resp_person = client.get(base_url + "/person", headers=HEADERS)
         if resp_person.status_code == 401:
-            orcidTokenRead.delete_instance()
+            orcid_token.delete_instance()
             return redirect(url_for("link"))
         else:
-            return render_template("profile.html", user=user, profile_url=ORCID_BASE_URL)
+            users = User.select().where(User.orcid == user.orcid)
+            users_orcid = OrcidToken.select().where(OrcidToken.user.in_(users))
+            return render_template(
+                "profile.html", user=user, users_orcid=users_orcid, profile_url=ORCID_BASE_URL)
 
 
 @app.route("/invite/user", methods=["GET"])
@@ -471,23 +501,18 @@ def invite_organisation():
         if not form.validate():
             flash("Please fill in all fields and try again.", "danger")
         else:
-            email = form.orgEmailid.data
+            email = form.orgEmailid.data.lower()
             org_name = form.orgName.data
             tech_contact = bool(request.form.get('tech_contact'))
             try:
-                User.get(User.email == form.orgEmailid.data)
+                User.get(User.email == form.orgEmailid.data.lower())
             except User.DoesNotExist:
                 pass
             finally:
-                # TODO: organisation can have mutiple admins:
-                # TODO: user OrgAdmin
                 try:
                     org = Organisation.get(name=org_name)
-                    # TODO: fix it!
-                    if tech_contact:
-                        org.email = email
                 except Organisation.DoesNotExist:
-                    org = Organisation(name=org_name, email=email)
+                    org = Organisation(name=org_name)
 
                 try:
                     org_info = OrgInfo.get(name=org.name)
@@ -503,28 +528,44 @@ def invite_organisation():
 
                 try:
                     user = User.get(email=email)
-                    user.roles = Role.ADMIN
+                    user.roles |= Role.ADMIN
                     user.organisation = org
-                    user.tech_contact = tech_contact
                     user.confirmed = True
                 except User.DoesNotExist:
                     user = User(
-                        email=form.orgEmailid.data,
+                        email=form.orgEmailid.data.lower(),
                         confirmed=True,  # In order to let the user in...
                         roles=Role.ADMIN,
-                        organisation=org,
-                        tech_contact=tech_contact)
+                        organisation=org)
                 try:
                     user.save()
                 except Exception as ex:
                     flash("Failed to save user data: %s" % str(ex))
+
+                if tech_contact:
+                    org.tech_contact = user
+                    try:
+                        org.save()
+                    except Exception as ex:
+                        flash(
+                            "Failed to assign the user as the technical contact to the organisation: %s"
+                            % str(ex))
+
+                user_org, _ = UserOrg.get_or_create(user=user, org=org)
+                user_org.is_admin = True
+                try:
+                    user_org.save()
+                except Exception as ex:
+                    flash("Failed to assign the user as an administrator to the organisation: %s" %
+                          str(ex))
+
                 # Note: Using app context due to issue:
                 # https://github.com/mattupstate/flask-mail/issues/63
                 with app.app_context():
-                    token = generate_confirmation_token(form.orgEmailid.data)
+                    token = generate_confirmation_token(form.orgEmailid.data.lower())
                     utils.send_email(
                         "email/org_invitation.html",
-                        recipient=(form.orgName.data, form.orgEmailid.data),
+                        recipient=(form.orgName.data, form.orgEmailid.data.lower()),
                         token=token,
                         org_name=form.orgName.data,
                         user=user)
@@ -568,7 +609,7 @@ def confirm_organisation(token=None):
 
     # TODO: refactor this: user == current_user here no need to requery DB
     user = User.get(email=current_user.email, organisation=current_user.organisation)
-    if not user.tech_contact:
+    if not user.is_tech_contact_of():
         try:
             user.save()
         except Exception as ex:
@@ -593,7 +634,7 @@ def confirm_organisation(token=None):
     # to enter client secret and client key for orcid
 
     try:
-        organisation = Organisation.get(email=email)
+        organisation = Organisation.get(name=current_user.organisation.name)
     except Organisation.DoesNotExist:
         flash('We are very sorry, your organisation invitation has been cancelled, '
               'please contact ORCID HUB Admin!', "danger")
@@ -690,8 +731,8 @@ def confirm_organisation(token=None):
             contact_name=user.name,
             org_name=user.organisation.name,
             cred_type=CRED_TYPE_PREMIUM,
-            app_name=APP_NAME + " at " + user.organisation.name,
-            app_description=APP_DESCRIPTION + " at " + user.organisation.name,
+            app_name=APP_NAME + " for " + user.organisation.name,
+            app_description=APP_DESCRIPTION + user.organisation.name + "and its researchers",
             app_url=APP_URL,
             redirect_uri_1=redirect_uri))
     return render_template('orgconfirmation.html', client_secret_url=client_secret_url, form=form)
@@ -763,7 +804,8 @@ def viewmembers():
         flash("There are no users registered in your organisation.", "danger")
         return redirect(url_for("login"))
 
-    return render_template("viewMembers.html", orgnisationname=current_user.organisation.name, users=users)
+    return render_template(
+        "viewMembers.html", orgnisationname=current_user.organisation.name, users=users)
 
 
 @app.route("/updateorginfo", methods=["GET", "POST"])
@@ -787,7 +829,7 @@ def update_org_info():
             redirect_uri_1=redirect_uri))
 
     try:
-        organisation = Organisation.get(email=email)
+        organisation = Organisation.get(tech_contact_id=current_user.id)
     except Organisation.DoesNotExist:
         flash("It appears that you are not the technical contact for your organisaton.", "danger")
         return redirect(url_for("login"))
@@ -795,7 +837,7 @@ def update_org_info():
         if not form.validate():
             flash('Please fill in all fields and try again!', "danger")
         else:
-            organisation = Organisation.get(email=email)
+            organisation = Organisation.get(tech_contact_id=current_user.id)
             if (not (user is None) and (not (organisation is None))):
                 # Update Organisation
                 organisation.country = form.country.data
@@ -818,10 +860,21 @@ def update_org_info():
                           "\n Please recheck and contact Hub support if this error continues",
                           "danger")
                 else:
-                    organisation.confirmed = True
+
                     organisation.orcid_client_id = form.orgOricdClientId.data
                     organisation.orcid_secret = form.orgOrcidClientSecret.data
-                    flash("Organisation information updated successfully!", "success")
+                    if not organisation.confirmed:
+                        organisation.confirmed = True
+                        with app.app_context():
+                            msg = Message(
+                                "Welcome to the NZ ORCID Hub - Success", recipients=[email])
+                            msg.body = "Congratulations! Your identity has been confirmed and " \
+                                       "your organisation onboarded successfully.\n" \
+                                       "Any researcher from your organisation can now use the Hub"
+                            mail.send(msg)
+                        flash("Your Onboarding is Completed!", "success")
+                    else:
+                        flash("Organisation information updated successfully!", "success")
                     try:
                         organisation.save()
                     except Exception as ex:
@@ -831,7 +884,7 @@ def update_org_info():
     elif request.method == 'GET':
 
         form.orgName.data = user.organisation.name
-        form.orgEmailid.data = user.organisation.email
+        form.orgEmailid.data = user.email
 
         form.city.data = user.organisation.city
         form.country.data = user.organisation.country
@@ -848,3 +901,25 @@ def update_org_info():
     except Exception as ex:
         flash("Failed to save organisation data: %s" % str(ex))
     return render_template('orgconfirmation.html', client_secret_url=client_secret_url, form=form)
+
+
+@app.route("/exportmembers")
+@roles_required(Role.ADMIN)
+def exportmembers():
+    """View the list of users (researchers)."""
+    try:
+        users = current_user.organisation.users
+        return Response(
+            generateRow(users),
+            mimetype='text/csv',
+            headers={"Content-Disposition": "attachment; filename=ResearchersData.csv"})
+    except:
+        flash("There are no users registered in your organisation.", "warning")
+    return redirect(url_for("viewmembers"))
+
+
+def generateRow(users):
+    yield "Email,Eppn,ORCID ID\n"
+    for u in users:
+        """ ORCID ID might be NULL, Hence adding a check """
+        yield ','.join([u.email, str(u.eppn or ""), str(u.orcid or "")]) + '\n'

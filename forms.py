@@ -6,7 +6,8 @@ from datetime import date
 from flask_wtf import FlaskForm
 from flask_wtf.file import FileAllowed, FileField, FileRequired
 from pycountry import countries
-from wtforms import (Field, SelectField, SelectMultipleField, StringField, validators)
+from wtforms import (Field, SelectField, SelectMultipleField, StringField,
+                     validators)
 from wtforms.widgets import HTMLString, html_params
 
 from models import PartialDate as PD
@@ -25,10 +26,7 @@ class PartialDate:
     def __call__(self, field, **kwargs):
         """Render widget."""
         kwargs.setdefault('id', field.id)
-        html = [
-            "<!-- data: %r -->" % (field.data, ),
-            '<div %s>' % html_params(name=field.name, **kwargs)
-        ]
+        html = ["<!-- data: %r -->" % (field.data, ), '<div %s>' % html_params(**kwargs)]
         html.extend(self.render_select("year", field))
         html.extend(self.render_select("month", field))
         html.extend(self.render_select("day", field))
@@ -126,7 +124,7 @@ class BitmapMultipleValueField(SelectMultipleField):
                             value=d))
 
 
-class EmploymentForm(FlaskForm):
+class RecordForm(FlaskForm):
     """User/researcher employment detail form."""
 
     name = StringField("Institution/employer", [validators.required()])
@@ -138,18 +136,14 @@ class EmploymentForm(FlaskForm):
     start_date = PartialDateField("Start date")
     end_date = PartialDateField("End date (leave blank if current)")
 
-
-class EducationForm(FlaskForm):
-    """User/researcher education detail form."""
-
-    name = StringField("Institution", [validators.required()])
-    city = StringField("City", [validators.required()])
-    state = StringField("State/region")
-    country = SelectField("Country", [validators.required()], choices=country_choices)
-    role = StringField("Role/title", filters=[lambda x: x or None])
-    department = StringField("Department", filters=[lambda x: x or None])
-    start_date = PartialDateField("Start date")
-    end_date = PartialDateField("End date (leave blank if current)")
+    @classmethod
+    def create_form(cls, *args, form_type=None, **kwargs):
+        form = cls(*args, **kwargs)
+        if form_type == "EDU":
+            print(dir(form.name))
+            form.name.name = "Institution"
+            form.name.label.text = "Institution"
+        return form
 
 
 class OrgInfoForm(FlaskForm):

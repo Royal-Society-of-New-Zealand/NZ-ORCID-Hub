@@ -1,7 +1,7 @@
 {% macro render_field(f) %}
 <div class="form-group">
-  <label for="{{ f.id }}">{{ f.label }}{% if f.flags.required %}&nbsp;<strong style="color: red">*</strong>{% endif %}</label>
-  {{ f(class="form-control", id=f.id, placeholder=f.label.text, **kwargs)|safe }}
+  {{ f.label }}{% if f.flags.required %}&nbsp;<strong style="color: red">*</strong>{% endif %}
+  {{ f(class="form-control", id=f.id, placeholder=f.label.text, **kwargs) if f.type in ("email", "number", "password", "search", "tel", "text", "url") else f(class="form-control", id=f.id, **kwargs) | safe }}
   {% if f.errors %}
     <ul class=errors>
       {% for error in f.errors %}
@@ -18,3 +18,5 @@
   <img alt="ORCID iD" src="{{url_for('static', filename='images/orcid_16x16.gif')}}" style="width:16px; height:16px; margin-right:4px">{{user|orcid if full_url else config.ORCID_BASE_URL.split('/', 2)[2] + user.orcid}}</a>
 {%- else %}&nbsp;{% endif -%}
 {%- endmacro %}
+
+{% macro image(filename) -%}{{url_for('static', filename='images/' + filename)}}{%- endmacro -%}

@@ -8,34 +8,20 @@ http://charlesleifer.com/blog/structuring-flask-apps-a-how-to-for-those-coming-f
 import os
 
 import click
-# NB! Should be disabled in production
 from flask_debugtoolbar import DebugToolbarExtension
-from peewee import OperationalError
+import logging
 
 import initializedb
 import models  # noqa: F401
-from application import app, db
+from application import app
 from authcontroller import *  # noqa: F401, F403
 from views import *  # noqa: F401, F403
 
 
-# TODO: connection should be managed explicitely
-@app.before_request
-def before_request():
-    try:
-        db.connect()
-    except OperationalError:
-        pass
-
-
-@app.after_request
-def after_request(response):
-    if db is not None:
-        try:
-            db.close()
-        except OperationalError:
-            pass
-    return response
+@app.before_first_request
+def setup_logging():
+    #app.logger.addHandler(logging.StreamHandler())
+    app.logger.setLevel(logging.INFO)
 
 
 @app.cli.command()
@@ -62,6 +48,4 @@ if __name__ == "__main__":
     os.environ["ENV"] = "dev0"
     app.debug = True
     app.secret_key = os.urandom(24)
-    if app.debug:
-        toolbar = DebugToolbarExtension(app)
     app.run(debug=True, port=8000)

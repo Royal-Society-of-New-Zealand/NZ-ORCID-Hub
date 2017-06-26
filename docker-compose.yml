@@ -1,35 +1,36 @@
 version: '2.1'
 services:
   db:
-    image: postgres:9.6.2
-    mem_limit: 524288000
+    image: postgres:9.6.3
     environment:
       - POSTGRES_PASSWORD
       - PGPASSWORD
     domainname: orcidhub.org.nz
     hostname: db
+    ports:
+      - "${PGPORT:-5432}:5432"
     volumes:
+      - /etc/passwd:/etc/passwd:ro
       - ./conf/init-user-db.sh:/docker-entrypoint-initdb.d/init-user-db.sh
+      - ./pgdata:/var/lib/postgresql/data
+      - ./backup:/backup
+      - ./archive:/archive
+      - ${HOME}:${HOME}
+    user: "${USER_UID:-500}:${USER_GID:-500}"
     restart: always
-
 
   app:
     depends_on:
       - db
     image: orcidhub/app-dev
-    mem_limit: 424288000
     environment:
       - ENV
-      - POSTGRES_PASSWORD
-      - PGPASSWORD
-      - ORCID_CLIENT_ID=APP-TF7LKIE084PYTQ59
-      - ORCID_CLIENT_SECRET
+      - SHIB_SP_DOMAINNAME
       - TOKEN_PASSWORD_SALT
       - MAIL_DEFAULT_SENDER
       - TOKEN_SECRET_KEY
-      - MAIL_USERNAME
-      - MAIL_PASSWORD
-      - MAIL_SERVER
+      - DATABASE_URL
+      - SECRET_KEY
     domainname: orcidhub.org.nz
     hostname: app
     ports:
@@ -42,9 +43,9 @@ services:
       - ./app.conf:/etc/httpd/conf.d/ZZ-app.conf
       - ./conf/attribute-map.xml:/etc/shibboleth/attribute-map.xml
       - ./tuakiri-test-metadata-cert.pem:/etc/shibboleth/tuakiri-test-metadata-cert.pem
+      - ./tuakiri-metadata-cert.pem:/etc/shibboleth/tuakiri-metadata-cert.pem
       - ./.keys/${ENV:-dev}-sp.key:/etc/shibboleth/sp-key.pem
       - ./.keys/${ENV:-dev}-sp.crt:/etc/shibboleth/sp-cert.pem
       - ./.keys:/.keys
       - ./conf:/conf
     restart: always
-

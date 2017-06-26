@@ -7,39 +7,22 @@ from flask import Flask
 from flask_admin import Admin
 from flask_debugtoolbar import DebugToolbarExtension
 from flask_mail import Mail
-from playhouse.db_url import connect
-from raven.contrib.flask import Sentry
+from playhouse import db_url
+##from raven.contrib.flask import Sentry
 
 from config import *  # noqa: F401, F403
+from failover import PgDbWithFailover
 
 app = Flask(__name__)
-
-if os.path.exists("/var/log/orcidhub"):
-    handler = RotatingFileHandler('/var/log/orcidhub/orcidhub.log', maxBytes=10000, backupCount=10)
-    handler.setLevel(logging.INFO)
-    app.logger.addHandler(handler)
-
-app.secret_key = ")Xq/4vc'K%wRe&sQ$n'n;?+y@^rY\/u8!sk{?D7Y>.V`t_/y'wn>7~cZ$(Q.$n)d_j"
-# NB! Disable in production
-app.debug = is_dev_env = (os.environ.get("ENV") in ("dev0", ))
-
 app.config.from_object(__name__)
-app.config['TESTING'] = True
-app.config['SECRET_KEY'] = app.secret_key
-os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
 
-db = connect(DATABASE_URL, autorollback=True)
+# TODO: implment connection factory
+db_url.register_database(PgDbWithFailover, "pg+failover", "postgres+failover")
+if DATABASE_URL.startswith("sqlite"):
+    db = db_url.connect(DATABASE_URL, autorollback=True)
+else:
+    db = db_url.connect(DATABASE_URL, autorollback=True, connect_timeout=3)
 
-if app.debug:
-    app.config['DEBUG_TB_INTERCEPT_REDIRECTS'] = False
-    app.config['DEBUG_TB_PROFILER_ENABLED'] = True
-    os.environ['DEBUG'] = "1"
-
-# add mail server config
-app.config['MAIL_PORT'] = 587
-app.config['MAIL_USE_SSL'] = False
-app.config['MAIL_USE_TLS'] = True
-app.config['MAIL_SUPPRESS_SEND'] = False
 mail = Mail()
 mail.init_app(app)
 
@@ -48,7 +31,7 @@ admin = Admin(
     app, name="NZ ORCiD Hub", template_mode="bootstrap3", base_template="admin/master.html")
 
 # https://sentry.io/orcid-hub/nz-orcid-hub-dev/getting-started/python-flask/
-sentry = Sentry(app, dsn=SENTRY_DSN)
+# sentry = Sentry(app, dsn=SENTRY_DSN)
 
 login_manager = flask_login.LoginManager()
 login_manager.login_view = "login"

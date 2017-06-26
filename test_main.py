@@ -81,7 +81,9 @@ def test_tuakiri_login(client):
             'Givenname': "FIRST NAME/GIVEN NAME",
             "Mail": "user@test.test.net",
             "O": "ORGANISATION 123",
-            "Displayname": "TEST USER FROM 123"
+            "Displayname": "TEST USER FROM 123",
+            "Unscoped-Affiliation": "staff",
+            "Eppn": "user@test.test.net"
         })
 
     assert rv.status_code == 302
@@ -108,7 +110,9 @@ def test_tuakiri_login_wo_org(client):
             'Givenname': "FIRST NAME/GIVEN NAME",
             "Mail": "user@test.test.net",
             "O": "INCOGNITO",
-            "Displayname": "TEST USER FROM UNKNOWN"
+            "Displayname": "TEST USER FROM UNKNOWN",
+            "Unscoped-Affiliation": "staff",
+            "Eppn": "user@test.test.net"
         },
         follow_redirects=True)
 
@@ -136,7 +140,9 @@ def test_tuakiri_login_with_org(client):
             'Givenname': "FIRST NAME/GIVEN NAME",
             "Mail": "user111@test.test.net",
             "O": "THE ORGANISATION",
-            "Displayname": "TEST USER FROM THE ORGANISATION"
+            "Displayname": "TEST USER FROM THE ORGANISATION",
+            "Unscoped-Affiliation": "staff",
+            "Eppn": "user@test.test.net"
         },
         follow_redirects=True)
 

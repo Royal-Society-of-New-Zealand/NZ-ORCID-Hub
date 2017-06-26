@@ -91,13 +91,16 @@
 	height: auto;
 }
 
-.login-blocks .login-button {
+div.login-button {
 	border-radius: 43px;
 	border: 2px #18c0e7 solid;
 	color: #18c0e7;
 	background-color: rgba(0,0,0,0);
 	font-size: 1.0em;
 	padding: 8px;
+	max-width: 121.5px;
+	min-height: initial;
+	max-height: 40px;
 }
 
 .login-blocks .tuakiri {
@@ -169,4 +172,13 @@ footer section {
 a.orcid:hover {
     color: #A6CE39;
     text-decoration: none;
+}
+
+input[type=checkbox], input[type=radio] {
+    width:20px;
+    height:20px;
+}
+
+table.permissions, table.permissions th, table.permissions td, table.users, table.users th, table.users td {
+    border: 1px solid gray;
 }

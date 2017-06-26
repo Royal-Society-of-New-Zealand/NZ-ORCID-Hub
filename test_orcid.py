@@ -10,7 +10,7 @@ import requests_oauthlib
 from flask import url_for
 from flask_login import login_user
 
-from models import OrcidToken, Organisation, User, UserOrg
+from models import Affiliation, OrcidToken, Organisation, User, UserOrg
 
 fake_time = time.time()
 
@@ -23,11 +23,7 @@ def test_link(request_ctx):
         org = Organisation(name="THE ORGANISATION", confirmed=True)
         org.save()
         test_user = User(
-            name="TEST USER 123",
-            email="test123@test.test.net",
-            username="test123",
-            organisation=org,
-            confirmed=True)
+            name="TEST USER 123", email="test123@test.test.net", organisation=org, confirmed=True)
         test_user.save()
         login_user(test_user, remember=True)
 
@@ -47,11 +43,7 @@ def test_link_with_unconfirmed_org(request_ctx):
             name="THE ORGANISATION", confirmed=False, orcid_client_id="Test Client id")
         org.save()
         test_user = User(
-            name="TEST USER",
-            email="test@test.test.net",
-            username="test42",
-            confirmed=True,
-            organisation=org)
+            name="TEST USER", email="test@test.test.net", confirmed=True, organisation=org)
         test_user.save()
         login_user(test_user, remember=True)
 
@@ -73,7 +65,6 @@ def test_link_already_affiliated(request_ctx):
         test_user = User(
             email="test123@test.test.net",
             name="TEST USER",
-            username="test123",
             organisation=org,
             orcid="ABC123",
             confirmed=True)
@@ -106,24 +97,21 @@ def test_link_orcid_auth_callback(name, request_ctx):
         org = Organisation(name="THE ORGANISATION", confirmed=True)
         org.save()
 
-        test_user = User(
+        test_user = User.create(
             name=name,
             email="test123@test.test.net",
-            username="test123",
             organisation=org,
             orcid="ABC123",
             confirmed=True)
-        test_user.save()
-        orcidtoken = OrcidToken(
+        orcidtoken = OrcidToken.create(
             user=test_user, org=org, scope="/activities/update", access_token="ABC1234")
-        orcidtoken.save()
         login_user(test_user, remember=True)
 
         rv = ctx.app.full_dispatch_request()
         assert rv.status_code == 302, "If the user is already affiliated, the user should be redirected ..."
         assert "profile" in rv.location, "redirection to 'profile' showing the ORCID"
 
-        u = User.get(username="test123")
+        u = User.get(id=test_user.id)
         orcidtoken = OrcidToken.get(user=u)
         assert u.orcid == "ABC-123-456-789"
         assert orcidtoken.access_token == "ABC1234"
@@ -131,6 +119,48 @@ def test_link_orcid_auth_callback(name, request_ctx):
             assert u.name == name, "The user name should be changed"
         else:
             assert u.name == "NEW TEST", "the user name should be set from record coming from ORCID"
+
+
+@pytest.mark.parametrize("name", ["TEST USER", None])
+@patch.object(requests_oauthlib.OAuth2Session, "fetch_token", lambda self, *args, **kwargs: dict(
+    name="NEW TEST",
+    access_token="ABC123",
+    orcid="ABC-123-456-789",
+    scope=['/activities/update'],
+    refresh_token="ABC1235"))
+def test_link_orcid_auth_callback_with_affiliation(name, request_ctx):
+    """Test ORCID callback - the user authorized the organisation access to the ORCID profile."""
+    with patch("orcid_client.MemberAPIV20Api") as m, patch(
+            "swagger_client.SourceClientId"), request_ctx("/auth") as ctx:
+        org = Organisation.create(
+            name="THE ORGANISATION",
+            confirmed=True,
+            orcid_client_id="CLIENT ID",
+            city="CITY",
+            country="COUNTRY",
+            disambiguation_org_id="ID",
+            disambiguation_org_source="SOURCE")
+
+        test_user = User.create(
+            name=name,
+            email="test123@test.test.net",
+            organisation=org,
+            orcid="ABC123",
+            confirmed=True)
+
+        UserOrg.create(user=test_user, org=org, affiliations=Affiliation.EMP | Affiliation.EDU)
+
+        login_user(test_user, remember=True)
+
+        api_mock = m.return_value
+        ctx.app.full_dispatch_request()
+        assert test_user.orcid == "ABC-123-456-789"
+
+        orcid_token = OrcidToken.get(user=test_user, org=org)
+        assert orcid_token.access_token == "ABC123"
+
+        api_mock.create_employment.assert_called_once()
+        api_mock.create_education.assert_called_once()
 
 
 def make_fake_response(text, *args, **kwargs):
@@ -154,11 +184,7 @@ def test_profile(request_ctx):
         org = Organisation(name="THE ORGANISATION", confirmed=True)
         org.save()
         test_user = User(
-            email="test123@test.test.net",
-            username="test123",
-            organisation=org,
-            orcid="ABC123",
-            confirmed=True)
+            email="test123@test.test.net", organisation=org, orcid="ABC123", confirmed=True)
         test_user.save()
         orcidtoken = OrcidToken(
             user=test_user, org=org, scope="/activities/update", access_token="ABC1234")
@@ -176,11 +202,7 @@ def test_profile_wo_orcid(request_ctx):
         org = Organisation(name="THE ORGANISATION", confirmed=True)
         org.save()
         test_user = User(
-            email="test123@test.test.net",
-            username="test123",
-            organisation=org,
-            orcid=None,
-            confirmed=True)
+            email="test123@test.test.net", organisation=org, orcid=None, confirmed=True)
         test_user.save()
         login_user(test_user, remember=True)
 

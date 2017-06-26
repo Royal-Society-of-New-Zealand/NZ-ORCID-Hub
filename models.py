@@ -10,8 +10,11 @@ from itertools import zip_longest
 from urllib.parse import urlencode
 
 from flask_login import UserMixin
-from peewee import (BooleanField, CharField, CompositeKey, DateTimeField, Field, ForeignKeyField,
-                    Model, OperationalError, SmallIntegerField, TextField, datetime)
+from peewee import (BooleanField, CharField, CompositeKey, DateTimeField,
+                    DeferredRelation, Field, ForeignKeyField, IntegerField,
+                    Model, OperationalError, SmallIntegerField, TextField,
+                    datetime)
+from pycountry import countries
 
 from application import db
 from config import DEFAULT_COUNTRY
@@ -102,27 +105,64 @@ class Role(IntFlag):
         return hash(self.name)
 
 
+class Affiliation(IntFlag):
+    """
+    Enum used to represent user affiliation (type) to the organisation.
+
+    The model provide multiple affiliations support representing role sets as bitmaps.
+    """
+
+    NONE = 0  # NONE
+    EDU = 1  # Education
+    EMP = 2  # Employment
+
+    def __eq__(self, other):
+        if isinstance(other, Affiliation):
+            return self.value == other.value
+        return (self.name == other or self.name == getattr(other, 'name', None))
+
+    def __hash__(self):
+        return hash(self.name)
+
+    def __str__(self):
+        return ", ".join({
+            self.EDU: "Education",
+            self.EMP: "Employment"
+        }[a] for a in Affiliation if a & self)
+
+
 class BaseModel(Model):
     class Meta:
         database = db
+
+
+DeferredUser = DeferredRelation()
 
 
 class Organisation(BaseModel):
     """
     Research oranisation
     """
+    country_choices = [(c.alpha_2, c.name) for c in countries]
+    country_choices.sort(key=lambda e: e[1])
+    country_choices.insert(0, ("", "Country"))
 
     name = CharField(max_length=100, unique=True, null=True)
-    email = CharField(max_length=80, null=True)
     tuakiri_name = CharField(max_length=80, unique=True, null=True)
     orcid_client_id = CharField(max_length=80, unique=True, null=True)
     orcid_secret = CharField(max_length=80, unique=True, null=True)
     confirmed = BooleanField(default=False)
-    country = CharField(null=True)
+    country = CharField(null=True, choices=country_choices, default=DEFAULT_COUNTRY)
     city = CharField(null=True)
     disambiguation_org_id = CharField(null=True)
     disambiguation_org_source = CharField(null=True)
     is_email_confirmed = BooleanField(default=False)
+    tech_contact = ForeignKeyField(
+        DeferredUser,
+        related_name="tech_contact_for",
+        on_delete="SET NULL",
+        null=True,
+        help_text="Organisation technical contact")
 
     @property
     def users(self):
@@ -250,15 +290,15 @@ class User(BaseModel, UserMixin):
     first_name = CharField(null=True, verbose_name="Firs Name")
     last_name = CharField(null=True, verbose_name="Last Name")
     email = CharField(max_length=120, unique=True, null=True)
+    eppn = CharField(max_length=120, unique=True, null=True)
     edu_person_shared_token = CharField(
         max_length=120, unique=True, verbose_name="EDU Person Shared Token", null=True)
     # ORCiD:
-    orcid = CharField(max_length=120, unique=True, verbose_name="ORCID", null=True)
+    orcid = CharField(max_length=120, verbose_name="ORCID", null=True)
     confirmed = BooleanField(default=False)
     # Role bit-map:
     roles = SmallIntegerField(default=0)
-    edu_person_affiliation = TextField(null=True, verbose_name="EDU Person Affiliations")
-    tech_contact = BooleanField(default=False)
+
     is_locked = BooleanField(default=False)
 
     # TODO: many-to-many
@@ -268,6 +308,8 @@ class User(BaseModel, UserMixin):
         Organisation, related_name="members", on_delete="CASCADE", null=True)
 
     def __repr__(self):
+        if self.name and (self.eppn or self.email):
+            return "%s (%s)" % (self.name, self.email or self.eppn)
         return self.name or self.email or self.orcid or super().__repr__()
 
     @property
@@ -286,9 +328,6 @@ class User(BaseModel, UserMixin):
         return Organisation.select().join(
             self.userorg_set.where(self.userorg_set.c.is_admin).alias("sq"),
             on=Organisation.id == self.userorg_set.c.org_id)
-
-    username = CharField(max_length=64, unique=True, null=True)
-    password = TextField(null=True)
 
     @property
     def is_active(self):
@@ -334,6 +373,24 @@ class User(BaseModel, UserMixin):
         """Return Gravatar service user profile URL."""
         return "https://www.gravatar.com/" + md5(self.email.lower().encode()).hexdigest()
 
+    @property
+    def affiliations(self):
+        """Return affiliations with the current organisation."""
+        try:
+            user_org = UserOrg.get(user=self, org=self.organisation)
+            return Affiliation(user_org.affiliations)
+        except UserOrg.DoesNotExist:
+            return Affiliation.NONE
+
+    def is_tech_contact_of(self, org=None):
+        """Indicats if the user is the technical contact of the organisation."""
+        if org is None:
+            org = self.organisation
+        return org and org.tech_contact and org.tech_contact_id == self.id
+
+
+DeferredUser.set_model(User)
+
 
 class UserOrg(BaseModel):
     """Linking object for many-to-many relationship."""
@@ -345,7 +402,10 @@ class UserOrg(BaseModel):
     is_admin = BooleanField(
         default=False, help_text="User is an administrator for the organisation")
 
-    # TODO: the access token should be either here or in a saparate list
+    # Affiliation bit-map:
+    affiliations = SmallIntegerField(default=0, null=True, verbose_name="EDU Person Affiliations")
+
+    # TODO: the access token should be either here or in a separate list
     # access_token = CharField(max_length=120, unique=True, null=True)
 
     class Meta:
@@ -370,7 +430,6 @@ class OrcidToken(BaseModel):
 
 class UserOrgAffiliation(BaseModel):
     """For Keeping the information about the affiliation."""
-
     user = ForeignKeyField(User)
     organisation = ForeignKeyField(Organisation, index=True, verbose_name="Organisation")
     name = TextField(null=True, verbose_name="Institution/employer")
@@ -387,20 +446,34 @@ class UserOrgAffiliation(BaseModel):
         table_alias = "oua"
 
 
+class OrcidApiCall(BaseModel):
+    """ORCID API call audit entry."""
+    call_datetime = DateTimeField(default=datetime.datetime.now)
+    user = ForeignKeyField(User)
+    method = TextField()
+    url = TextField()
+    query_params = TextField(null=True)
+    body = TextField(null=True)
+    put_code = IntegerField(null=True)
+
+    class Meta:
+        db_table = "orcid_api_call"
+
+
 def create_tables():
     """Create all DB tables."""
     try:
         db.connect()
     except OperationalError:
         pass
-    models = (Organisation, User, UserOrg, OrcidToken, UserOrgAffiliation, OrgInfo)
+    models = (Organisation, User, UserOrg, OrcidToken, UserOrgAffiliation, OrgInfo, OrcidApiCall)
     db.create_tables(models)
 
 
 def drop_tables():
     """Drop all model tables."""
 
-    for m in (Organisation, User, UserOrg, OrcidToken, UserOrgAffiliation, OrgInfo):
+    for m in (Organisation, User, UserOrg, OrcidToken, UserOrgAffiliation, OrgInfo, OrcidApiCall):
         if m.table_exists():
             try:
                 m.drop_table(fail_silently=True, cascade=db.drop_cascade)

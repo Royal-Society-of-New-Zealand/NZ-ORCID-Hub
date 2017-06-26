@@ -13,17 +13,13 @@
       {{ form.orgEmailid(size=30, class="form-control", id="org_email", autocomplete="on") }}
     </div>
     <div class="checkbox">
-      <label><input type="checkbox" id="tech_contact" name="tech_contact">Technical Contact:</label>
+      <label><input type="checkbox" id="tech_contact" name="tech_contact" style="width: 15px; height: 15px;">Technical Contact</label>
     </div>
     <button type="submit" class="btn btn-default" value="Onboard Organisation">Onboard Organisation</button>
   </form>
 {% endblock %}
 {% block footer %}
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.js"></script>
-  <script  src="https://code.jquery.com/ui/1.12.1/jquery-ui.min.js"
-           integrity="sha256-VazP97ZCwtekAsvgPBSUwPFKdrwD3unUfSGVYrahUqU="
-           crossorigin="anonymous"></script>
-
+  {{ super() }}
   <script>
 $( function() {
   var orgInfo = {{ org_info | tojson }};
