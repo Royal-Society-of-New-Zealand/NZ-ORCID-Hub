@@ -431,6 +431,7 @@ def orcid_callback():
                 "Please contact one of your Organisaiton Administrator if you believe this is an error."
                 % orciduser.organisation, "danger")
 
+    session['Should_not_logout_from_ORCID'] = True
     return redirect(url_for("profile"))
 
 

@@ -2,20 +2,19 @@
 {% block content %}
   <div class="jumbotron">
     <p>
-    <strong>Welcome {{ user.name}}</strong>,</p>
+    <strong>Kia ora {{ user.name}}</strong>,</p>
     <div class="text-center">
     <div class="body-message">
-        <h3>Your ORCID iD is <a href={{profile_url + user.orcid}}><span>{{profile_url + user.orcid}}</span></a></h3>
-        <p>You are currently logged in through <strong>{{ user.organisation.name }}</strong>.</p>
+        <p>You are logged into the New Zealand ORCID hub through <strong>{{ user.organisation.name }}</strong>.</p>
 
-        <p>The ORCID permissions you've given through the Hub are:</p>
+        <p>You have given these permissions to connect to your ORCID record.</p>
         <div class="table-responsive">
             <table class="table permissions">
               <thead>
                 <tr class="info">
-                  <th style="text-align: center;">Organisation</th>
-                  <th style="text-align: center;">Email</th>
-                  <th style="text-align: center;">Permission</th>
+                  <th style="text-align: center;">organisation</th>
+                  <th style="text-align: center;">your email</th>
+                  <th style="text-align: center;">ORCID Permission</th>
                 </tr>
               </thead>
               <tbody>
@@ -29,13 +28,45 @@
               </tbody>
             </table>
         </div>
-        <button class="connect-orcid-button" onclick="location.href='{{profile_url}}'" style="height: 50px;width: auto;">
+        {% if session['Should_not_logout_from_ORCID'] %}
+        <p class="text-center">To manage your ORCID permissions, log into the settings page of your ORCID record here:<a href= '{{ profile_url + "account"}}' ><span>{{ profile_url + 'account' }}</span></a> and review the "Trusted organisations" listed.</p>
+        <button class="connect-orcid-button" onclick="location.href='{{profile_url + 'signin'}}'" style="height: 50px;width: auto;">
             <img class="orcid-id-logo" src="https://orcid.org/sites/default/files/images/orcid_24x24.png" width="24" height="24" alt="ORCID logo" /> Manage ORCID Record
         </button>
+        {% else %}
+        <p class="text-center">To manage your ORCID permissions, log into the settings page of your ORCID record here:<a onclick=logoutOrcidAccount()><span>{{ profile_url + 'account' }}</span></a> and review the "Trusted organisations" listed.</p>
+        <button class="connect-orcid-button" onclick="logoutOrcid()" style="height: 50px;width: auto;">
+            <img class="orcid-id-logo" src="https://orcid.org/sites/default/files/images/orcid_24x24.png" width="24" height="24" alt="ORCID logo" /> Manage my ORCID Record
+        </button>
+        {% endif %}
         <button class="connect-orcidhub-google-group-button" onclick="location.href='https://groups.google.com/a/aucklanduni.ac.nz/forum/#!forum/nz-orcid-hub-gg'" style="height: 50px;width: auto;">
             <img class="orcidHub-id-logo" src="{{url_for('static', filename='images/logo.png')}}" width="24" height="24" alt="ORCIDHUB logo" /> Help &amp; Support
         </button>
     </div>
 </div>
+      <script>
+        function logoutOrcid() {
+            $.ajax({
+                url: "{{profile_url}}" + "userStatus.json?logUserOut=true",
+                dataType: 'jsonp',
+                success: function(result,status,xhr) {
+                    window.location='{{profile_url + "signin"}}'
+                },
+                error: function (xhr, status, error) {
+                    alert(status);
+                }
+            });}
+        function logoutOrcidAccount() {
+            $.ajax({
+                url: "{{profile_url}}" + "userStatus.json?logUserOut=true",
+                dataType: 'jsonp',
+                success: function(result,status,xhr) {
+                    window.location='{{ profile_url + "account"}}'
+                },
+                error: function (xhr, status, error) {
+                    alert(status);
+                }
+            });}
+    </script>
   </div>
 {% endblock %}
