@@ -8,7 +8,7 @@ from flask import url_for
 from flask_login import login_user
 
 import login_provider
-import tokenGeneration
+import utils
 from models import Organisation, Role, User, UserOrg
 
 
@@ -190,24 +190,24 @@ def test_confirmation_token(app):
     """Test generate_confirmation_token and confirm_token"""
     app.config['TOKEN_SECRET_KEY'] = "SECRET"
     app.config['TOKEN_PASSWORD_SALT'] = "SALT"
-    token = tokenGeneration.generate_confirmation_token("TEST@ORGANISATION.COM")
-    assert tokenGeneration.confirm_token(token) == "TEST@ORGANISATION.COM"
+    token = utils.generate_confirmation_token("TEST@ORGANISATION.COM")
+    assert utils.confirm_token(token) == "TEST@ORGANISATION.COM"
 
     app.config['TOKEN_SECRET_KEY'] = "SECRET"
     app.config['TOKEN_PASSWORD_SALT'] = "COMPROMISED SALT"
-    assert tokenGeneration.confirm_token(token) is False
+    assert utils.confirm_token(token) is False
 
     app.config['TOKEN_SECRET_KEY'] = "COMPROMISED SECRET"
     app.config['TOKEN_PASSWORD_SALT'] = "SALT"
-    assert tokenGeneration.confirm_token(token) is False
+    assert utils.confirm_token(token) is False
 
     app.config['TOKEN_SECRET_KEY'] = "COMPROMISED SECRET"
     app.config['TOKEN_PASSWORD_SALT'] = "COMPROMISED SALT"
-    assert tokenGeneration.confirm_token(token) is False
+    assert utils.confirm_token(token) is False
 
     app.config['TOKEN_SECRET_KEY'] = "COMPROMISED"
     app.config['TOKEN_PASSWORD_SALT'] = "COMPROMISED"
-    assert tokenGeneration.confirm_token(token, 0) is False, "Expired token shoud be rejected"
+    assert utils.confirm_token(token, 0) is False, "Expired token shoud be rejected"
 
 
 def test_login_provider_load_user(request_ctx):

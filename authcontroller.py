@@ -14,8 +14,7 @@ from tempfile import gettempdir
 from urllib.parse import quote, unquote, urlencode, urlparse
 
 import requests
-from flask import (Response, abort, flash, redirect, render_template, request,
-                   session, url_for)
+from flask import (Response, abort, flash, redirect, render_template, request, session, url_for)
 from flask_login import current_user, login_required, login_user, logout_user
 from flask_mail import Message
 from oauthlib.oauth2 import rfc6749
@@ -23,20 +22,16 @@ from requests_oauthlib import OAuth2Session
 from werkzeug.urls import iri_to_uri
 
 import orcid_client
-import utils
 from application import app, db, mail
-from config import (APP_DESCRIPTION, APP_NAME, APP_URL, AUTHORIZATION_BASE_URL,
-                    CRED_TYPE_PREMIUM, EXTERNAL_SP, MEMBER_API_FORM_BASE_URL,
-                    NEW_CREDENTIALS, NOTE_ORCID, ORCID_API_BASE,
-                    ORCID_BASE_URL, SCOPE_ACTIVITIES_UPDATE,
-                    SCOPE_AUTHENTICATE, SCOPE_READ_LIMITED, TOKEN_URL)
-from forms import OnboardingTokenForm
+from config import (APP_DESCRIPTION, APP_NAME, APP_URL, AUTHORIZATION_BASE_URL, CRED_TYPE_PREMIUM,
+                    EXTERNAL_SP, MEMBER_API_FORM_BASE_URL, NEW_CREDENTIALS, NOTE_ORCID,
+                    ORCID_API_BASE, ORCID_BASE_URL, SCOPE_ACTIVITIES_UPDATE, SCOPE_AUTHENTICATE,
+                    SCOPE_READ_LIMITED, TOKEN_URL)
+from forms import OnboardingTokenForm, OrgConfirmationForm
 from login_provider import roles_required
-from models import (Affiliation, OrcidToken, Organisation, OrgInfo, Role, User,
-                    UserOrg)
-from registrationForm import OrgConfirmationForm, OrgRegistrationForm
+from models import (Affiliation, OrcidToken, Organisation, OrgInfo, Role, User, UserOrg)
 from swagger_client.rest import ApiException
-from tokenGeneration import confirm_token, generate_confirmation_token
+from utils import confirm_token
 
 HEADERS = {'Accept': 'application/vnd.orcid+json', 'Content-type': 'application/vnd.orcid+json'}
 
@@ -293,7 +288,8 @@ def link():
                     orcid_url_read_limited=orcid_url_read,
                     orcid_url_authenticate=orcid_url_authenticate,
                     error=error)
-        return render_template("linking.html", orcid_url_write=orcid_url_write, orcid_base_url=ORCID_BASE_URL)
+        return render_template(
+            "linking.html", orcid_url_write=orcid_url_write, orcid_base_url=ORCID_BASE_URL)
     except Exception as ex:
         flash("Unhandled Exception occured: %s" % str(ex))
     return redirect(url_for("profile"))
@@ -367,9 +363,8 @@ def orcid_callback():
             db.rollback()
             flash("Failed to save data: %s" % str(ex))
 
-    app.logger.info(
-        "User %r authorized %r to have %r access to the profile.",
-        user, user.organisation, scope)
+    app.logger.info("User %r authorized %r to have %r access to the profile.", user,
+                    user.organisation, scope)
     if scope == SCOPE_ACTIVITIES_UPDATE and orcid_token_found:
         orcid_client.configuration.access_token = orcid_token.access_token
         api_instance = orcid_client.MemberAPIV20Api()
@@ -477,107 +472,6 @@ def invite_user():
     """Invite a researcher to join the hub."""
     # For now on boarding of researcher is not supported
     return "Work in Progress!"
-
-
-# TODO: user can be admin for multiple org and org can have multiple admins:
-# TODO: user shoud be assigned exclicitly organization
-# TODO: OrgAdmin ...
-# TODO: gracefully handle all exceptions (repeated infitation, user is
-# already an admin for the organization etc.)
-@app.route("/invite/organisation", methods=["GET", "POST"])
-@roles_required(Role.SUPERUSER)
-def invite_organisation():
-    """Invite an organisation to register.
-
-    Flow:
-        * Hub administrort (super user) invokes the page,
-        * Fills in the form with the organisation and organisation technica contatct data (including an email address);
-        * Submits the form;
-        * A secure registration token gets ceated;
-        * An email message with confirmation link gets created and sent off to the technical contact.
-    """
-    form = OrgRegistrationForm()
-    if request.method == "POST":
-        if not form.validate():
-            flash("Please fill in all fields and try again.", "danger")
-        else:
-            email = form.orgEmailid.data.lower()
-            org_name = form.orgName.data
-            tech_contact = bool(request.form.get('tech_contact'))
-            try:
-                User.get(User.email == form.orgEmailid.data.lower())
-            except User.DoesNotExist:
-                pass
-            finally:
-                try:
-                    org = Organisation.get(name=org_name)
-                except Organisation.DoesNotExist:
-                    org = Organisation(name=org_name)
-
-                try:
-                    org_info = OrgInfo.get(name=org.name)
-                except OrgInfo.DoesNotExist:
-                    pass
-                else:
-                    org.tuakiri_name = org_info.tuakiri_name
-
-                try:
-                    org.save()
-                except Exception as ex:
-                    flash("Failed to save organisation data: %s" % str(ex))
-
-                try:
-                    user = User.get(email=email)
-                    user.roles |= Role.ADMIN
-                    user.organisation = org
-                    user.confirmed = True
-                except User.DoesNotExist:
-                    user = User(
-                        email=form.orgEmailid.data.lower(),
-                        confirmed=True,  # In order to let the user in...
-                        roles=Role.ADMIN,
-                        organisation=org)
-                try:
-                    user.save()
-                except Exception as ex:
-                    flash("Failed to save user data: %s" % str(ex))
-
-                if tech_contact:
-                    org.tech_contact = user
-                    try:
-                        org.save()
-                    except Exception as ex:
-                        flash(
-                            "Failed to assign the user as the technical contact to the organisation: %s"
-                            % str(ex))
-
-                user_org, _ = UserOrg.get_or_create(user=user, org=org)
-                user_org.is_admin = True
-                try:
-                    user_org.save()
-                except Exception as ex:
-                    flash("Failed to assign the user as an administrator to the organisation: %s" %
-                          str(ex))
-
-                # Note: Using app context due to issue:
-                # https://github.com/mattupstate/flask-mail/issues/63
-                with app.app_context():
-                    token = generate_confirmation_token(form.orgEmailid.data.lower())
-                    utils.send_email(
-                        "email/org_invitation.html",
-                        recipient=(form.orgName.data, form.orgEmailid.data.lower()),
-                        token=token,
-                        org_name=form.orgName.data,
-                        user=user)
-                    flash("Organisation Onboarded Successfully! "
-                          "Welcome to the NZ ORCID Hub.  A notice has been sent to the Hub Admin",
-                          "success")
-
-    return render_template(
-        'registration.html',
-        form=form,
-        org_info={r.name: r.email
-                  for r in OrgInfo.select(OrgInfo.name, OrgInfo.email)})
 
 
 @app.route("/confirm/organisation", methods=["GET", "POST"])
@@ -833,9 +727,9 @@ def update_org_info():
     except Organisation.DoesNotExist:
         flash("It appears that you are not the technical contact for your organisaton.", "danger")
         return redirect(url_for("login"))
-    if request.method == 'POST':
+    if request.method == "POST":
         if not form.validate():
-            flash('Please fill in all fields and try again!', "danger")
+            flash("Please fill in all fields and try again!", "danger")
         else:
             organisation = Organisation.get(tech_contact_id=current_user.id)
             if (not (user is None) and (not (organisation is None))):
@@ -845,12 +739,12 @@ def update_org_info():
                 organisation.disambiguation_org_id = form.disambiguation_org_id.data
                 organisation.disambiguation_org_source = form.disambiguation_org_source.data
 
-                headers = {'Accept': 'application/json'}
+                headers = {"Accept": "application/json"}
                 data = [
-                    ('client_id', form.orgOricdClientId.data),
-                    ('client_secret', form.orgOrcidClientSecret.data),
-                    ('scope', '/read-public'),
-                    ('grant_type', 'client_credentials'),
+                    ("client_id", form.orgOricdClientId.data),
+                    ("client_secret", form.orgOrcidClientSecret.data),
+                    ("scope", "/read-public"),
+                    ("grant_type", "client_credentials"),
                 ]
 
                 response = requests.post(TOKEN_URL, headers=headers, data=data)
