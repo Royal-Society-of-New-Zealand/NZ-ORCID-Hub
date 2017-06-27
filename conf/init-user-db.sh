@@ -33,5 +33,9 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" <<-EOSQL
     CREATE USER orcidhub WITH PASSWORD '${POSTGRES_PASSWORD}';
     CREATE DATABASE orcidhub;
     GRANT ALL PRIVILEGES ON DATABASE orcidhub TO orcidhub;
+
+    CREATE OR REPLACE FUNCTION promote_standby() RETURNS VOID
+    SECURITY DEFINER LANGUAGE SQL AS $$COPY (SELECT 1) TO '/tmp/pg_failover_trigger.00'$$;
+    GRANT EXECUTE ON FUNCTION promote_standby() TO orcidhub;
 EOSQL
 

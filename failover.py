@@ -23,7 +23,8 @@ class PgDbWithFailover(PostgresqlDatabase):
             if "could not connect to server" in ex.args[0]:
                 kwargs["host"] = self.failover_host
                 conn = super()._connect(database, encoding=encoding, **kwargs)
-                conn.raw_sql("COPY (SELECT 1) TO '/tmp/pg_failover_trigger.00';")
+                with conn.cursor() as cr:
+                    cr.execute("SELECT promote_standby();")
                 self.connect_kwargs[
                     "host"], self.failover_host = self.failover_host, self.connect_kwargs["host"]
                 return conn

@@ -8,7 +8,7 @@ from flask_admin import Admin
 from flask_debugtoolbar import DebugToolbarExtension
 from flask_mail import Mail
 from playhouse import db_url
-##from raven.contrib.flask import Sentry
+# from raven.contrib.flask import Sentry
 
 from config import *  # noqa: F401, F403
 from failover import PgDbWithFailover
@@ -26,7 +26,7 @@ else:
 mail = Mail()
 mail.init_app(app)
 
-#admin = Admin(app, name="NZ ORCiD Hub", template_mode="bootstrap3", base_template="layout.html")
+# admin = Admin(app, name="NZ ORCiD Hub", template_mode="bootstrap3", base_template="layout.html")
 admin = Admin(
     app, name="NZ ORCiD Hub", template_mode="bootstrap3", base_template="admin/master.html")
 
