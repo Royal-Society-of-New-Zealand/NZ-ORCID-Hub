@@ -148,7 +148,6 @@ def handle_login():
                                for a in data.get("Unscoped-Affiliation", '').encode("latin-1")
                                .decode("utf-8").replace(',', ';').split(';'))
 
-
     if unscoped_affiliation:
         edu_person_affiliation = Affiliation.NONE
         if unscoped_affiliation & {"faculty", "staff"}:
@@ -437,6 +436,7 @@ def orcid_callback():
                 "Please contact one of your Organisaiton Administrator if you believe this is an error."
                 % orciduser.organisation, "danger")
 
+    session['Should_not_logout_from_ORCID'] = True
     return redirect(url_for("profile"))
 
 
