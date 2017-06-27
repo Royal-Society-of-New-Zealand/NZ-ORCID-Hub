@@ -111,7 +111,7 @@ class OrgInfoAdmin(AppModelView):
             except Exception as ex:
                 flash("Failed to send an invitation to %s: %s" % (oi.email, ex))
 
-        flash("Successfully sent %d invitations." % count)
+        flash("%d invitations were sent successfully." % count)
 
 
 class OrcidTokenAdmin(AppModelView):
