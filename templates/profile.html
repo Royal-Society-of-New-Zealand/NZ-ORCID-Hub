@@ -30,7 +30,7 @@
         </div>
         {% if session['Should_not_logout_from_ORCID'] %}
         <p class="text-center">To manage your ORCID permissions, log into the settings page of your ORCID record here:<a href= '{{ profile_url + "account"}}' ><span>{{ profile_url + 'account' }}</span></a> and review the "Trusted organisations" listed.</p>
-        <button class="connect-orcid-button" onclick="location.href='{{profile_url + 'signinf'}}'" style="height: 50px;width: auto;">
+        <button class="connect-orcid-button" onclick="location.href='{{profile_url + 'signin'}}'" style="height: 50px;width: auto;">
             <img class="orcid-id-logo" src="https://orcid.org/sites/default/files/images/orcid_24x24.png" width="24" height="24" alt="ORCID logo" /> Manage ORCID Record
         </button>
         {% else %}
