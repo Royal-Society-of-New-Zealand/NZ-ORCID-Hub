@@ -428,7 +428,7 @@ def orcid_callback():
                 "The ORCID Hub was not able to automatically write an affiliation with %s, "
                 "as the nature of the affiliation with your organisation does not appear to include either "
                 "Employment or Education.\n"
-                "Please contact one of your Organisaiton Administrator if you believe this is an error."
+                "Please contact your Organisation Administrator(s) if you believe this is an error."
                 % orciduser.organisation, "danger")
 
     session['Should_not_logout_from_ORCID'] = True
