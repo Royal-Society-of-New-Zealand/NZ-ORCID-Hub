@@ -717,7 +717,7 @@ def update_org_info():
             contact_name=user.name,
             org_name=user.organisation.name,
             cred_type=CRED_TYPE_PREMIUM,
-            app_name=APP_NAME + " at " + user.organisation.name,
+            app_name=user.organisation.name,
             app_description=APP_DESCRIPTION + " at " + user.organisation.name,
             app_url=APP_URL,
             redirect_uri_1=redirect_uri))
