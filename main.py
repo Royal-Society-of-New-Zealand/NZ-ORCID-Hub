@@ -5,11 +5,11 @@ Simple solution to overcome circular import problem:
 http://charlesleifer.com/blog/structuring-flask-apps-a-how-to-for-those-coming-from-django/
 """
 
+import logging
 import os
 
 import click
 from flask_debugtoolbar import DebugToolbarExtension
-import logging
 
 import initializedb
 import models  # noqa: F401
@@ -20,7 +20,6 @@ from views import *  # noqa: F401, F403
 
 @app.before_first_request
 def setup_logging():
-    #app.logger.addHandler(logging.StreamHandler())
     app.logger.setLevel(logging.INFO)
 
 

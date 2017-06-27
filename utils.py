@@ -10,10 +10,13 @@ import jinja2.ext
 from flask_mail import Message
 
 from application import app, mail
-from config import APP_NAME, MAIL_DEFAULT_SENDER
+from itsdangerous import URLSafeTimedSerializer
 
 
-def send_email(template, recipient, sender=(APP_NAME, MAIL_DEFAULT_SENDER), subject=None,
+def send_email(template,
+               recipient,
+               sender=(app.config.get("APP_NAME"), app.config.get("MAIL_DEFAULT_SENDER")),
+               subject=None,
                **kwargs):
     """
     Send an email, acquiring its payload by rendering a jinja2 template
@@ -142,3 +145,20 @@ class RewrapExtension(jinja2.ext.Extension):
         # under the assumption that there will be a newline immediately after
         # the endrewrap block, don't put a newline on the end.
         return '\n'.join(new_lines)
+
+
+def generate_confirmation_token(email):
+    """Generate Organisation registration confirmation token."""
+    serializer = URLSafeTimedSerializer(app.config['TOKEN_SECRET_KEY'])
+    return serializer.dumps(email, salt=app.config['TOKEN_PASSWORD_SALT'])
+
+
+# Token Expiry after 15 days.
+def confirm_token(token, expiration=1300000):
+    """Genearate confirmaatin token."""
+    serializer = URLSafeTimedSerializer(app.config['TOKEN_SECRET_KEY'])
+    try:
+        email = serializer.loads(token, salt=app.config['TOKEN_PASSWORD_SALT'], max_age=expiration)
+    except:
+        return False
+    return email

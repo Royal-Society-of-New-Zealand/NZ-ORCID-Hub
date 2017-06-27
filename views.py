@@ -5,46 +5,48 @@ import os
 from collections import namedtuple
 from urllib.parse import urlparse
 
-from flask import (flash, redirect, render_template, request,
-                   send_from_directory, url_for)
+from flask import (flash, redirect, render_template, request, send_from_directory, url_for)
+from flask_admin.actions import action
 from flask_admin.contrib.peewee import ModelView
 from flask_admin.form import SecureForm
 from flask_login import current_user, login_required
 
 import orcid_client
+import utils
 from application import admin, app
 from config import ORCID_BASE_URL, SCOPE_ACTIVITIES_UPDATE
-from forms import BitmapMultipleValueField, OrgInfoForm, RecordForm
+from forms import (BitmapMultipleValueField, OrgInfoForm, OrgRegistrationForm, RecordForm)
 from login_provider import roles_required
 from models import PartialDate as PD
-from models import (OrcidApiCall, OrcidToken, Organisation, OrgInfo, Role,
-                    User, UserOrgAffiliation, db)
+from models import (OrcidApiCall, OrcidToken, Organisation, OrgInfo, Role, User, UserOrg,
+                    UserOrgAffiliation, db)
 # NB! Should be disabled in production
 from pyinfo import info
 from swagger_client.rest import ApiException
+from utils import generate_confirmation_token
 
-HEADERS = {'Accept': 'application/vnd.orcid+json', 'Content-type': 'application/vnd.orcid+json'}
+HEADERS = {"Accept": "application/vnd.orcid+json", "Content-type": "application/vnd.orcid+json"}
 
 
 @app.route("/favicon.ico")
 def favicon():
-    """Support for the 'favicon' legacy: faveicon location in the root directory."""
+    """Support for the "favicon" legacy: faveicon location in the root directory."""
     return send_from_directory(
         os.path.join(app.root_path, "static", "images"),
         "favicon.ico",
         mimetype="image/vnd.microsoft.icon")
 
 
-@app.route('/pyinfo')
+@app.route("/pyinfo")
 @login_required
 def pyinfo():
     """Show Python and runtime environment and settings."""
-    return render_template('pyinfo.html', **info)
+    return render_template("pyinfo.html", **info)
 
 
-@app.route('/about')
+@app.route("/about")
 def about():
-    """Show 'about' page."""
+    """Show "about" page."""
     return render_template("about.html")
 
 
@@ -64,8 +66,8 @@ class AppModelView(ModelView):
         return False
 
     def inaccessible_callback(self, name, **kwargs):
-        """Handle access denial. Redirect to login page if user doesn't have access."""
-        return redirect(url_for('login', next=request.url))
+        """Handle access denial. Redirect to login page if user doesn"t have access."""
+        return redirect(url_for("login", next=request.url))
 
 
 class UserAdmin(AppModelView):
@@ -76,7 +78,7 @@ class UserAdmin(AppModelView):
                            "edu_person_shared_token", )
     column_formatters = dict(
         roles=lambda v, c, m, p: ", ".join(n for r, n in v.roles.items() if r & m.roles),
-        orcid=lambda v, c, m, p: m.orcid.replace('-', '\u2011') if m.orcid else '')
+        orcid=lambda v, c, m, p: m.orcid.replace("-", "\u2011") if m.orcid else "")
     column_filters = ("name", )
     form_overrides = dict(roles=BitmapMultipleValueField)
     form_args = dict(roles=dict(choices=roles.items()))
@@ -96,6 +98,20 @@ class OrgInfoAdmin(AppModelView):
 
     can_export = True
     column_filters = ("name", )
+
+    @action("invite", "Register Organisation",
+            "Are you sure you want to register selected organisations?")
+    def action_invite(self, ids):
+        """Batch registraion of organisatons."""
+        count = 0
+        for oi in OrgInfo.select(OrgInfo.name, OrgInfo.email).where(OrgInfo.id.in_(ids)):
+            try:
+                register_org(oi.name, oi.email)
+                count += 1
+            except Exception as ex:
+                flash("Failed to send an invitation to %s: %s" % (oi.email, ex))
+
+        flash("Successfully sent %d invitations." % count)
 
 
 class OrcidTokenAdmin(AppModelView):
@@ -127,7 +143,7 @@ SectionRecord = namedtuple("SectionRecord", [
 SectionRecord.__new__.__defaults__ = (None, ) * len(SectionRecord._fields)
 
 
-@app.template_filter('year_range')
+@app.template_filter("year_range")
 def year_range(entry):
     """Show an interval of employment in years."""
     val = ""
@@ -145,17 +161,17 @@ def year_range(entry):
     return val
 
 
-@app.template_filter('orcid')
+@app.template_filter("orcid")
 def user_orcid_id_url(user):
     """Render user ORCID Id URL."""
-    return ORCID_BASE_URL + user.orcid if user.orcid else ''
+    return ORCID_BASE_URL + user.orcid if user.orcid else ""
 
 
 @app.route("/<int:user_id>/emp/<int:put_code>/delete", methods=["POST"])
 @roles_required(Role.ADMIN)
 def delete_employment(user_id, put_code=None):
     """Delete an employment record."""
-    _url = request.args.get('url') or request.referrer or url_for(
+    _url = request.args.get("url") or request.referrer or url_for(
         "employment_list", user_id=user_id)
     if put_code is None and "put_code" in request.form:
         put_code = request.form.get("put_code")
@@ -211,7 +227,7 @@ def edit_section_record(user_id, put_code=None, section_type="EMP"):
     """Create a new or edit an existing profile section record."""
 
     section_type = section_type.upper()[:3]
-    _url = (request.args.get('url') or url_for("employment_list", user_id=user_id)
+    _url = (request.args.get("url") or url_for("employment_list", user_id=user_id)
             if section_type == "EMP" else url_for("edu_list", user_id=user_id))
 
     org = current_user.organisation
@@ -267,7 +283,7 @@ def edit_section_record(user_id, put_code=None, section_type="EMP"):
 
     if form.validate_on_submit():
         # TODO: Audit trail
-        # TODO: If it's guarantee that the record will be editited solely by a sigle token we can
+        # TODO: If it"s guarantee that the record will be editited solely by a sigle token we can
         # cache the record in the local DB
 
         rec = orcid_client.Employment() if section_type == "EMP" else orcid_client.Education()
@@ -322,8 +338,8 @@ def edit_section_record(user_id, put_code=None, section_type="EMP"):
                 affiliation.put_code = put_code
             else:
                 pass
-                # affiliation.path = resp.headers['Location']
-                # affiliation.put_code = int(resp.headers['Location'].rsplit('/', 1)[-1])
+                # affiliation.path = resp.headers["Location"]
+                # affiliation.put_code = int(resp.headers["Location"].rsplit("/", 1)[-1])
             affiliation.save()
             return redirect(_url)
         except ApiException as e:
@@ -421,11 +437,121 @@ def orcid_api_rep():
 
     data = db.execute_sql("""
     WITH rd AS (
-        SELECT date_trunc('minute', call_datetime) AS d, count(*) AS c
+        SELECT date_trunc("minute", call_datetime) AS d, count(*) AS c
         FROM orcid_api_call
-        GROUP BY date_trunc('minute', call_datetime))
-    SELECT date_trunc('day', d) AS d, max(c) AS c
-    FROM rd GROUP BY DATE_TRUNC('day', d) ORDER BY 1
+        GROUP BY date_trunc("minute", call_datetime))
+    SELECT date_trunc("day", d) AS d, max(c) AS c
+    FROM rd GROUP BY DATE_TRUNC("day", d) ORDER BY 1
     """).fetchall()
 
     return render_template("orcid_api_call_report.html", data=data)
+
+
+def register_org(org_name, email, tech_contact=True):
+    """Register research organisaion."""
+
+    email = email.lower()
+    try:
+        User.get(User.email == email)
+    except User.DoesNotExist:
+        pass
+    finally:
+        try:
+            org = Organisation.get(name=org_name)
+        except Organisation.DoesNotExist:
+            org = Organisation(name=org_name)
+
+        try:
+            org_info = OrgInfo.get(name=org.name)
+        except OrgInfo.DoesNotExist:
+            pass
+        else:
+            org.tuakiri_name = org_info.tuakiri_name
+
+        try:
+            org.save()
+        except Exception as ex:
+            raise Exception("Failed to save organisation data: %s" % str(ex), ex)
+
+        try:
+            user = User.get(email=email)
+            user.roles |= Role.ADMIN
+            user.organisation = org
+            user.confirmed = True
+        except User.DoesNotExist:
+            user = User(
+                email=email,
+                confirmed=True,  # In order to let the user in...
+                roles=Role.ADMIN,
+                organisation=org)
+        try:
+            user.save()
+        except Exception as ex:
+            raise Exception("Failed to save user data: %s" % str(ex), ex)
+
+        if tech_contact:
+            org.tech_contact = user
+            try:
+                org.save()
+            except Exception as ex:
+                raise Exception(
+                    "Failed to assign the user as the technical contact to the organisation: %s" %
+                    str(ex), ex)
+
+        user_org, _ = UserOrg.get_or_create(user=user, org=org)
+        user_org.is_admin = True
+        try:
+            user_org.save()
+        except Exception as ex:
+            raise Exception(
+                "Failed to assign the user as an administrator to the organisation: %s" % str(ex),
+                ex)
+
+        # Note: Using app context due to issue:
+        # https://github.com/mattupstate/flask-mail/issues/63
+        with app.app_context():
+            token = generate_confirmation_token(email)
+            utils.send_email(
+                "email/org_invitation.html",
+                recipient=(org_name, email),
+                token=token,
+                org_name=org_name,
+                user=user)
+
+
+# TODO: user can be admin for multiple org and org can have multiple admins:
+# TODO: user shoud be assigned exclicitly organization
+# TODO: OrgAdmin ...
+# TODO: gracefully handle all exceptions (repeated infitation, user is
+# already an admin for the organization etc.)
+@app.route("/invite/organisation", methods=["GET", "POST"])
+@roles_required(Role.SUPERUSER)
+def invite_organisation():
+    """Invite an organisation to register.
+
+    Flow:
+        * Hub administrort (super user) invokes the page,
+        * Fills in the form with the organisation and organisation technica contatct data (including an email address);
+        * Submits the form;
+        * A secure registration token gets ceated;
+        * An email message with confirmation link gets created and sent off to the technical contact.
+    """
+    form = OrgRegistrationForm()
+    if request.method == "POST":
+        if not form.validate():
+            flash("Please fill in all fields and try again.", "danger")
+        else:
+            try:
+                register_org(form.orgName.data,
+                             form.orgEmailid.data.lower(), request.form.get("tech_contact"))
+                flash("Organisation Onboarded Successfully! "
+                      "Welcome to the NZ ORCID Hub.  A notice has been sent to the Hub Admin",
+                      "success")
+            except Exception as ex:
+                flash(str(ex), "danger")
+
+    return render_template(
+        "registration.html",
+        form=form,
+        org_info={r.name: r.email
+                  for r in OrgInfo.select(OrgInfo.name, OrgInfo.email)})
