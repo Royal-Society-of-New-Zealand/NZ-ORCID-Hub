@@ -316,7 +316,7 @@ def orcid_callback():
         error_description = request.args.get("error_description")
         if error == "access_denied":
             flash("You have denied the Hub access to your ORCID record."
-                  " The Hub needs at least read access to your profile to be useful.", "danger")
+                  " At a minimum, the Hub needs to know your ORCID iD to be useful.", "danger")
         else:
             flash("Error occured while attempting to authorize '%s': %s" %
                   (current_user.organisation.name, error_description), "danger")
