@@ -10,7 +10,7 @@ archive_command = 'test ! -f /archive/%f.bz2 && bzip2 -c %p >/backup/%f.bz2 && m
 archive_timeout = 3600
 max_wal_senders = 5  # Sets the maximum number of simultaneously running WAL sender processes.
 
-#hot_standby = 'on'  # uncomment on "slave" DB server and create recovery.conf:
+#hot_standby = 'on'  # uncomment on "slave" DB server and create recovery.conf
 EOF
 
 cat >>/var/lib/postgresql/data/_recovery.conf <<EOF
@@ -29,13 +29,14 @@ host    replication     postgres        34.225.18.251/32            trust
 host    all             all             34.225.18.251/32            trust
 EOF
 
-psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" <<-EOSQL
-    CREATE USER orcidhub WITH PASSWORD '${POSTGRES_PASSWORD}';
-    CREATE DATABASE orcidhub;
-    GRANT ALL PRIVILEGES ON DATABASE orcidhub TO orcidhub;
+createdb -U "$POSTGRES_USER" orcidhub
 
-    CREATE OR REPLACE FUNCTION promote_standby() RETURNS VOID
-    SECURITY DEFINER LANGUAGE SQL AS $$COPY (SELECT 1) TO '/tmp/pg_failover_trigger.00'$$;
-    GRANT EXECUTE ON FUNCTION promote_standby() TO orcidhub;
+psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d orcidhub <<-EOSQL
+  CREATE USER orcidhub WITH PASSWORD '${POSTGRES_PASSWORD}';
+  GRANT ALL PRIVILEGES ON DATABASE orcidhub TO orcidhub;
+
+  CREATE OR REPLACE FUNCTION promote_standby() RETURNS VOID
+  SECURITY DEFINER LANGUAGE SQL AS 'COPY (SELECT 1) TO ''/tmp/pg_failover_trigger.00''';
+  GRANT EXECUTE ON FUNCTION promote_standby() TO orcidhub;
 EOSQL
 
