@@ -307,6 +307,34 @@ def orcid_callback_proxy(url):
     return redirect(url + '?' + urlencode(request.args))
 
 
+def is_emp_or_edu_record_present(access_token, affiliation_type, user):
+    orcid_client.configuration.access_token = access_token
+    # create an instance of the API class
+    api_instance = orcid_client.MemberAPIV20Api()
+    try:
+        api_response = None
+        affiliation_type_key = ""
+        # Fetch all entries
+        if affiliation_type == Affiliation.EMP:
+            api_response = api_instance.view_employments(user.orcid)
+            affiliation_type_key = "employment_summary"
+
+        elif affiliation_type == Affiliation.EDU:
+            api_response = api_instance.view_educations(user.orcid)
+            affiliation_type_key = "education_summary"
+
+        if api_response:
+            data = api_response.to_dict()
+            for r in data.get(affiliation_type_key, []):
+                if r["organization"]["name"] == user.organisation.name and user.organisation.name in \
+                        r["source"]["source_name"]["value"]:
+                    return True
+
+    except ApiException:
+        return False
+    return False
+
+
 # Step 2: User authorization, this happens on the provider.
 @app.route("/auth", methods=["GET"])
 @login_required
@@ -411,23 +439,25 @@ def orcid_callback():
                 address=organisation_address,
                 disambiguated_organization=disambiguated_organization_details)
 
-            try:
-                if a == Affiliation.EMP:
-                    api_instance.create_employment(user.orcid, body=rec)
-                    flash(
-                        "Your ORCID employment record was updated with an affiliation entry from '%s'"
-                        % orciduser.organisation, "success")
-                elif a == Affiliation.EDU:
-                    api_instance.create_education(user.orcid, body=rec)
-                    flash(
-                        "Your ORCID education record was updated with an affiliation entry from '%s'"
-                        % orciduser.organisation, "success")
-                else:
-                    continue
-                # TODO: Save the put-code in db table
+            if(not is_emp_or_edu_record_present(orcid_token.access_token, a, orciduser)):
+                try:
+                    if a == Affiliation.EMP:
 
-            except ApiException as e:
-                flash("Failed to update the entry: %s." % e.body, "danger")
+                        api_instance.create_employment(user.orcid, body=rec)
+                        flash(
+                            "Your ORCID employment record was updated with an affiliation entry from '%s'"
+                            % orciduser.organisation, "success")
+                    elif a == Affiliation.EDU:
+                        api_instance.create_education(user.orcid, body=rec)
+                        flash(
+                            "Your ORCID education record was updated with an affiliation entry from '%s'"
+                            % orciduser.organisation, "success")
+                    else:
+                        continue
+                    # TODO: Save the put-code in db table
+
+                except ApiException as e:
+                    flash("Failed to update the entry: %s." % e.body, "danger")
 
         if not orciduser.affiliations:
             flash(

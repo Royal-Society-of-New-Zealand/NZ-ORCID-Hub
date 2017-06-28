@@ -17,22 +17,22 @@
             <span class="icon-bar"></span>
             <span class="icon-bar"></span>
           </button>
-          <a class="navbar-brand" href="{{ url_for('login') }}">NZ ORCID Hub</a>
         </div>
         <div class="collapse navbar-collapse" id="navbar-collapse-1">
           <ul class="nav navbar-nav">
-            <li id="about"><a href="{{ url_for('about') }}">About</a></li>
+            <li id="login"><a href="{{ url_for('login') }}">hub home</a></li>
+            <li id="about"><a href="{{ url_for('about') }}">about the hub</a></li>
             {% if current_user.organisation.confirmed or current_user.has_role("SUPERUSER") %}
               <li id="profile"><a href="{{ url_for('link') }}" data-toggle="tooltip"
-                                                               title="Affiliate yourself using the NZ ORCID HUB or view your ORCID iD">ORCID
-                                                               Permissions</a></li>
+                                                               title="Affiliate yourself using the NZ ORCID HUB or view your ORCID iD">your ORCID
+                                                               hub connections</a></li>
               {% if current_user.has_role("ADMIN") %}
                 <!-- Functionality to be added post-launch
                 <li id="researcher"><a href="#">Register Researcher(s)</a></li>
                 -->
-                <li id="viewmembers"><a href="/viewmembers">View Researchers</a></li>
+                <li id="viewmembers"><a href="/viewmembers">ORCID IDs of researchers at your institution</a></li>
                 {% if current_user.is_tech_contact_of(current_user.organisation) %}
-                  <li id="updateorginfo"><a href="/updateorginfo">View Organisation Info</a></li>
+                  <li id="updateorginfo"><a href="/updateorginfo">view your organisation's ORCID information</a></li>
                 {% endif %}
               {% endif %}
             {% endif %}
@@ -96,7 +96,7 @@
               </ul>
             </li>
 
-            <li><a href="{{url_for('logout')}}"><span class="glyphicon glyphicon-log-out"></span> Log Out</a>
+            <li><a href="{{url_for('logout')}}"><span class="glyphicon glyphicon-log-out"></span> log out</a>
             </li>
           </ul>
           <!-- button class="btn btn-danger navbar-btn">Button</button -->

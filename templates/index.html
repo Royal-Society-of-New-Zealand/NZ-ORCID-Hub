@@ -2,12 +2,14 @@
 {% block content %}
   <div class="container">
     <div class="jumbotron">
-      <h2 class="display-2">Welcome to the NZ ORCID Hub</h2>
-      <p>A service provided to link New Zealand's researchers with their organisations and funders in ORCID.</p>
+      <h2 class="display-2">Welcome to the NZ ORCID hub</h2>
+      <p style="margin-left: 1em;">...Linking New Zealand organisations to ORCID.</p>
       <!-- div class="center-block">
         <a class="btn btn-primary" href="{{ship_login_url}}" role="button">Login via Tuakiri</a>
         <a class="btn btn-success" href="#" role="button">Login via ORCiD</a>
         </div -->
+      <div class="jumbotron" style="padding-top: 10px">
+        <p>Login below using Tuakiri to have your staff/student affiliation asserted in your ORCID record</p>
         <div class="login-blocks">
           <a href="{{login_url}}">
             <div class="tuakiri">
@@ -16,8 +18,7 @@
             </div>
           </a>
         </div>
-        <p><br><i>NB: A Tuakiri login will, with your permission, automatically
-          add your staff or student relationship to your ORCID record.</i></p>
+      </div>
     </div>
   </div>
 {% endblock %}
