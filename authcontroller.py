@@ -249,6 +249,10 @@ def link():
         sp_url = urlparse(EXTERNAL_SP)
         redirect_uri = sp_url.scheme + "://" + sp_url.netloc + "/auth/" + quote(redirect_uri)
 
+    if current_user.organisation and not current_user.organisation.confirmed:
+        flash("Your organisation (%s) is not onboarded" % current_user.organisation.tuakiri_name, "danger")
+        return redirect(url_for("login"))
+
     client_write = OAuth2Session(
         current_user.organisation.orcid_client_id,
         scope=SCOPE_ACTIVITIES_UPDATE,
