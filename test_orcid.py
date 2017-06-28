@@ -48,11 +48,7 @@ def test_link_with_unconfirmed_org(request_ctx):
         login_user(test_user, remember=True)
 
         rv = ctx.app.full_dispatch_request()
-        assert b"<!DOCTYPE html>" in rv.data, "Expected HTML content"
-        assert b"TEST USER" in rv.data, "Expected to have the user name on the page"
-        assert b"test@test.test.net" in rv.data, "Expected to have the user email on the page"
-        # TODO: it should fail!!!!
-        assert b"URL_123" in rv.data, "Expected to have ORCiD authorization link on the page"
+        assert rv.status_code == 302
 
 
 @patch.object(requests_oauthlib.OAuth2Session, "authorization_url",
