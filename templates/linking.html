@@ -1,18 +1,21 @@
 {% extends "layout.html" %}
 {% block content %}
 <div class="jumbotron">
-    <p>Hi <strong>{{current_user.name}},</strong>
-        (Organisation: <strong>{{current_user.organisation.name}}</strong>)
+    <p>kia ora <strong>{{current_user.name}}</strong>
+        Researcher from <strong>{{current_user.organisation.name}}</strong>.
     </p>
     {% if error=='access_denied' %}
-        <p>The Hub is requesting write access in order to affirm your relationship with {{current_user.organisation.name}} in your ORCID record.</p>
-        <p>If you'd like to grant this access, click <a id="connect-orcid-button_write_permission_error" class="btn btn-default" href="{{orcid_url_write}}" role="button"><img id="orcid-id-logo_write_permission_error" src="https://orcid.org/sites/default/files/images/orcid_24x24.png"
-                     width='24' height='24' alt="ORCID logo"/>&nbsp;here</a> to try again.</p>
-        <p>If you only wish to make {{current_user.organisation.name}} a trusted-party, i.e., able to read from but not write to your record, click <a id="connect-orcid-button_read_permission" class="btn btn-default" href="{{orcid_url_read_limited}}" role="button"><img id="orcid-id-logo_read_limited" src="https://orcid.org/sites/default/files/images/orcid_24x24.png"
-                     width='24' height='24' alt="ORCID logo"/>&nbsp;here</a>.</p>
-        <p>If you only want to let {{current_user.organisation.name}} know your ORCID iD and read your public content, click <a id="connect-orcid-button_authenticate" class="btn btn-default" href="{{orcid_url_authenticate}}" role="button"><img id="orcid-id-logo_authenticate" src="https://orcid.org/sites/default/files/images/orcid_24x24.png"
-                     width='24' height='24' alt="ORCID logo"/>&nbsp;here</a>.</p>
-        <p>If you don't want to give {{current_user.organisation.name}} any permission to your ORCID record, simply log out of the hub.</p>
+        <p>The NZ ORCID Hub would like to verify your employment/education in your ORCID record</p>
+        <div class="jumbotron">
+            <p>I would like {{current_user.organisation.name}} to connect to my ORCID record to assert my employment/education, click here to: <a id="connect-orcid-button_write_permission_error" class="btn btn-default" href="{{orcid_url_write}}" role="button"><img id="orcid-id-logo_write_permission_error" src="https://orcid.org/sites/default/files/images/orcid_24x24.png"
+                         width='24' height='24' alt="ORCID logo"/>&nbsp;grant&nbsp;write&nbsp;permission</a></p><hr>
+            <p>I would like {{current_user.organisation.name}} to read my ORCID record as an ORCID trusted party but not write to it, click here to: <a id="connect-orcid-button_read_permission" class="btn btn-default" href="{{orcid_url_read_limited}}" role="button"><img id="orcid-id-logo_read_limited" src="https://orcid.org/sites/default/files/images/orcid_24x24.png"
+                         width='24' height='24' alt="ORCID logo"/>&nbsp;grant&nbsp;read-limited&nbsp;permission</a></p><hr>
+            <p>I would like {{current_user.organisation.name}} to read my public ORCID record only, click here to: <a id="connect-orcid-button_authenticate" class="btn btn-default" href="{{orcid_url_authenticate}}" role="button"><img id="orcid-id-logo_authenticate" src="https://orcid.org/sites/default/files/images/orcid_24x24.png"
+                         width='24' height='24' alt="ORCID logo"/>&nbsp;authenticate&nbsp;your&nbsp;ORCID id</a></p><hr>
+            <p>I don't want {{current_user.organisation.name}} to have access to my ORCID record, click here to: <a id="logout-orcidhub-button" class="btn btn-default" href="{{url_for('logout')}}" role="button"><img id="orcidhub-id-logout" src="{{url_for('static', filename='images/logo.png')}}"
+                         width='24' height='24' alt="ORCIDHub logo"/>&nbsp;logout&nbsp;of&nbsp;ORCID Hub</a></p>
+        </div>
     {% else %}
         <p>
             <a id="connect-orcid-button_write_permission" class="btn btn-default" role="button" onclick="logoutOrcid()">
