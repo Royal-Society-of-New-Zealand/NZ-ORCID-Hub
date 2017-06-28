@@ -17,10 +17,10 @@
             <span class="icon-bar"></span>
             <span class="icon-bar"></span>
           </button>
-          <a class="navbar-brand" href="{{ url_for('login') }}">hub home</a>
         </div>
         <div class="collapse navbar-collapse" id="navbar-collapse-1">
           <ul class="nav navbar-nav">
+            <li id="login"><a href="{{ url_for('login') }}">hub home</a></li>
             <li id="about"><a href="{{ url_for('about') }}">about the hub</a></li>
             {% if current_user.organisation.confirmed or current_user.has_role("SUPERUSER") %}
               <li id="profile"><a href="{{ url_for('link') }}" data-toggle="tooltip"
