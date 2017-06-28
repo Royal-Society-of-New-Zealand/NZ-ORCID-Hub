@@ -344,7 +344,7 @@ def orcid_callback():
         error_description = request.args.get("error_description")
         if error == "access_denied":
             flash("You have denied the Hub access to your ORCID record."
-                  " The Hub needs at least read access to your profile to be useful.", "danger")
+                  " At a minimum, the Hub needs to know your ORCID iD to be useful.", "danger")
         else:
             flash("Error occured while attempting to authorize '%s': %s" %
                   (current_user.organisation.name, error_description), "danger")
@@ -458,7 +458,7 @@ def orcid_callback():
                 "The ORCID Hub was not able to automatically write an affiliation with %s, "
                 "as the nature of the affiliation with your organisation does not appear to include either "
                 "Employment or Education.\n"
-                "Please contact one of your Organisaiton Administrator if you believe this is an error."
+                "Please contact your Organisation Administrator(s) if you believe this is an error."
                 % orciduser.organisation, "danger")
 
     session['Should_not_logout_from_ORCID'] = True
@@ -747,7 +747,7 @@ def update_org_info():
             contact_name=user.name,
             org_name=user.organisation.name,
             cred_type=CRED_TYPE_PREMIUM,
-            app_name=APP_NAME + " at " + user.organisation.name,
+            app_name=user.organisation.name,
             app_description=APP_DESCRIPTION + " at " + user.organisation.name,
             app_url=APP_URL,
             redirect_uri_1=redirect_uri))
