@@ -153,8 +153,8 @@ def handle_login():
             flash(
                 "The ORCID Hub will not be able to automatically write an affiliation with %s, "
                 "as the nature of your affiliation does not appear to include staff or student."
-                "You are still welcome to give %s permission, or to let them know your ORCID iD.",
-              "danger")
+                "You are still welcome to give %s permission, or to let them know your ORCID iD." % (
+                str(shib_org_name), str(shib_org_name)), "danger")
     else:
         flash(
             "The value of 'Unscoped-Affiliation' was not supplied from your identity provider,"
