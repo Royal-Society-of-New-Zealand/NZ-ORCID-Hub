@@ -13,6 +13,8 @@ from playhouse import db_url
 from config import *  # noqa: F401, F403
 from failover import PgDbWithFailover
 
+##from raven.contrib.flask import Sentry
+
 app = Flask(__name__)
 app.config.from_object(__name__)
 
