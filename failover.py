@@ -3,7 +3,7 @@
 
 import logging
 
-from peewee import PostgresqlDatabase
+from peewee import PostgresqlDatabase, DatabaseError, InterfaceError
 from psycopg2 import OperationalError
 
 
@@ -13,6 +13,17 @@ class PgDbWithFailover(PostgresqlDatabase):
     def __init__(self, *args, failover_host=None, **kwargs):
         self.failover_host = failover_host
         super().__init__(*args, **kwargs)
+
+    def connect(self):
+        if not self._local.closed:
+            with self._conn_lock:
+                with self.exception_wrapper:
+                    try:
+                        self._close(self._local.conn)
+                    except:
+                        pass
+                    self._local.closed = True
+        super().connect()
 
     def _connect(self, database, encoding=None, **kwargs):
         try:
@@ -30,3 +41,10 @@ class PgDbWithFailover(PostgresqlDatabase):
                 return conn
             else:
                 raise ex
+
+    def execute_sql(self, sql, params=None, require_commit=True):
+        try:
+            return super().execute_sql(sql, params=params, require_commit=require_commit)
+        except (DatabaseError, InterfaceError) as ex:
+            self.connect()
+            return super().execute_sql(sql, params=params, require_commit=False)
