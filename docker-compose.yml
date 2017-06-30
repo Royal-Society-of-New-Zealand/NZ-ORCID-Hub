@@ -44,8 +44,6 @@ services:
       - ./conf/attribute-map.xml:/etc/shibboleth/attribute-map.xml
       - ./tuakiri-test-metadata-cert.pem:/etc/shibboleth/tuakiri-test-metadata-cert.pem
       - ./tuakiri-metadata-cert.pem:/etc/shibboleth/tuakiri-metadata-cert.pem
-      - ./.keys/${ENV:-dev}-sp.key:/etc/shibboleth/sp-key.pem
-      - ./.keys/${ENV:-dev}-sp.crt:/etc/shibboleth/sp-cert.pem
       - ./.keys:/.keys
       - ./conf:/conf
     restart: always
