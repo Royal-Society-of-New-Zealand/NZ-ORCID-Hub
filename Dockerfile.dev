@@ -18,5 +18,5 @@ RUN yum -y update \
     && rm -rf $HOME/.pip/cache \
     && rm -rf /var/cache/*/* /anaconda-post.log
 
-ENV DEBUG=True
+ENV DEBUG=1
 WORKDIR /src
