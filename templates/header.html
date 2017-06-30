@@ -17,10 +17,10 @@
             <span class="icon-bar"></span>
             <span class="icon-bar"></span>
           </button>
-          <a class="navbar-brand" href="{{ url_for('login') }}">hub home</a>
         </div>
         <div class="collapse navbar-collapse" id="navbar-collapse-1">
           <ul class="nav navbar-nav">
+            <li id="login"><a href="{{ url_for('login') }}">hub home</a></li>
             <li id="about"><a href="{{ url_for('about') }}">about the hub</a></li>
             {% if current_user.organisation.confirmed or current_user.has_role("SUPERUSER") %}
               <li id="profile"><a href="{{ url_for('link') }}" data-toggle="tooltip"
@@ -30,7 +30,7 @@
                 <!-- Functionality to be added post-launch
                 <li id="researcher"><a href="#">Register Researcher(s)</a></li>
                 -->
-                <li id="viewmembers"><a href="/viewmembers">ORCID IDs of researchers at your institution</a></li>
+                <li id="viewmembers"><a href="/viewmembers">ORCID iDs of researchers at your institution</a></li>
                 {% if current_user.is_tech_contact_of(current_user.organisation) %}
                   <li id="updateorginfo"><a href="/updateorginfo">view your organisation's ORCID information</a></li>
                 {% endif %}

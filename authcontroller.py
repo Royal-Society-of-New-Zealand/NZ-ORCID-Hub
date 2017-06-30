@@ -149,6 +149,12 @@ def handle_login():
             edu_person_affiliation |= Affiliation.EMP
         if unscoped_affiliation & {"student", "alum"}:
             edu_person_affiliation |= Affiliation.EDU
+        if not edu_person_affiliation:
+            flash(
+                "The ORCID Hub will not be able to automatically write an affiliation with %s, "
+                "as the nature of your affiliation does not appear to include staff or student."
+                "You are still welcome to give %s permission, or to let them know your ORCID iD." % (
+                str(shib_org_name), str(shib_org_name)), "danger")
     else:
         flash(
             "The value of 'Unscoped-Affiliation' was not supplied from your identity provider,"
@@ -242,6 +248,10 @@ def link():
     if EXTERNAL_SP:
         sp_url = urlparse(EXTERNAL_SP)
         redirect_uri = sp_url.scheme + "://" + sp_url.netloc + "/auth/" + quote(redirect_uri)
+
+    if current_user.organisation and not current_user.organisation.confirmed:
+        flash("Your organisation (%s) is not onboarded" % current_user.organisation.tuakiri_name, "danger")
+        return redirect(url_for("login"))
 
     client_write = OAuth2Session(
         current_user.organisation.orcid_client_id,
