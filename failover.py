@@ -31,7 +31,7 @@ class PgDbWithFailover(PostgresqlDatabase):
         except OperationalError as ex:
             logging.warning("Failingover to %s", self.failover_host)
 
-            if "could not connect to server" in ex.args[0]:
+            if "could not connect to server" in ex.args[0] or "could not translate host name" in ex.args[0]:
                 kwargs["host"] = self.failover_host
                 conn = super()._connect(database, encoding=encoding, **kwargs)
                 with conn.cursor() as cr:
