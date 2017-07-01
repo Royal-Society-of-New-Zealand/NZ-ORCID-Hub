@@ -454,6 +454,8 @@ class OrcidApiCall(BaseModel):
     query_params = TextField(null=True)
     body = TextField(null=True)
     put_code = IntegerField(null=True)
+    response = TextField(null=True)
+    response_time_ms = IntegerField(null=True)
 
     class Meta:
         db_table = "orcid_api_call"
