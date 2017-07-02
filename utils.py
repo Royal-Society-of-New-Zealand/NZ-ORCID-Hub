@@ -3,14 +3,15 @@
 
 import os
 import textwrap
+from urllib.parse import urlencode, urlparse
 
 import flask
 import jinja2
 import jinja2.ext
 from flask_mail import Message
+from itsdangerous import URLSafeTimedSerializer
 
 from application import app, mail
-from itsdangerous import URLSafeTimedSerializer
 
 
 def send_email(template,
@@ -162,3 +163,8 @@ def confirm_token(token, expiration=1300000):
     except:
         return False
     return email
+
+
+def append_qs(url, **qs):
+    """Appends new query strings to an arbitraty URL."""
+    return url + ('&' if urlparse(url).query else '?') + urlencode(qs)

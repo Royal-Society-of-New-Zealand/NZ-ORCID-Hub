@@ -36,6 +36,7 @@ def load_org_info(filename):
     row_count = models.OrgInfo.load_from_csv(filename)
     print("Loaded %d records" % row_count)
 
+
 if os.environ.get("ENV") == "dev0":
     # This allows us to use a plain HTTP callback
     os.environ['DEBUG'] = "1"

@@ -7,7 +7,7 @@ isort:skip_file
 from config import ORCID_API_BASE
 from flask_login import current_user
 from models import OrcidApiCall
-from swagger_client import configuration, rest, api_client, models
+from swagger_client import configuration, rest, api_client
 from time import time
 from urllib.parse import urlparse
 
@@ -16,20 +16,39 @@ configuration.host = url.scheme + "://" + url.hostname
 
 
 class OrcidApiClient(api_client.ApiClient):
-
-    def call_api(self, resource_path, method,
-                 path_params=None, query_params=None, header_params=None,
-                 body=None, post_params=None, files=None,
-                 response_type=None, auth_settings=None, callback=None,
-                 _return_http_data_only=None, collection_formats=None, _preload_content=True,
+    def call_api(self,
+                 resource_path,
+                 method,
+                 path_params=None,
+                 query_params=None,
+                 header_params=None,
+                 body=None,
+                 post_params=None,
+                 files=None,
+                 response_type=None,
+                 auth_settings=None,
+                 callback=None,
+                 _return_http_data_only=None,
+                 collection_formats=None,
+                 _preload_content=True,
                  _request_timeout=None):
         # Add here pre-processing...
-        res = super().call_api(resource_path, method,
-                 path_params=path_params, query_params=query_params, header_params=header_params,
-                 body=body, post_params=post_params, files=files,
-                 response_type=response_type, auth_settings=auth_settings, callback=callback,
-                 _return_http_data_only=_return_http_data_only, collection_formats=collection_formats, _preload_content=_preload_content,
-                 _request_timeout=_request_timeout)
+        res = super().call_api(
+            resource_path,
+            method,
+            path_params=path_params,
+            query_params=query_params,
+            header_params=header_params,
+            body=body,
+            post_params=post_params,
+            files=files,
+            response_type=response_type,
+            auth_settings=auth_settings,
+            callback=callback,
+            _return_http_data_only=_return_http_data_only,
+            collection_formats=collection_formats,
+            _preload_content=_preload_content,
+            _request_timeout=_request_timeout)
         # Add here post-processing...
         return res
 
