@@ -31,7 +31,7 @@ from forms import OnboardingTokenForm, OrgConfirmationForm
 from login_provider import roles_required
 from models import (Affiliation, OrcidToken, Organisation, OrgInfo, Role, User, UserOrg)
 from swagger_client.rest import ApiException
-from utils import confirm_token
+from utils import append_qs, confirm_token
 
 HEADERS = {'Accept': 'application/vnd.orcid+json', 'Content-type': 'application/vnd.orcid+json'}
 
@@ -53,9 +53,7 @@ def login():
     if EXTERNAL_SP:
         session["auth_secret"] = secret_token = secrets.token_urlsafe()
         _next = url_for("handle_login", _next=_next, _external=True)
-        login_url = EXTERNAL_SP
-        login_url += ('&' if urlparse(EXTERNAL_SP).query else '?')
-        login_url += urlencode(dict(_next=_next, key=secret_token))
+        login_url = append_qs(EXTERNAL_SP, _next=_next, key=secret_token)
     else:
         login_url = url_for("handle_login", _next=_next)
 
@@ -153,8 +151,8 @@ def handle_login():
             flash(
                 "The ORCID Hub will not be able to automatically write an affiliation with %s, "
                 "as the nature of your affiliation does not appear to include staff or student."
-                "You are still welcome to give %s permission, or to let them know your ORCID iD." % (
-                str(shib_org_name), str(shib_org_name)), "danger")
+                "You are still welcome to give %s permission, or to let them know your ORCID iD." %
+                (str(shib_org_name), str(shib_org_name)), "danger")
     else:
         flash(
             "The value of 'Unscoped-Affiliation' was not supplied from your identity provider,"
@@ -250,7 +248,8 @@ def link():
         redirect_uri = sp_url.scheme + "://" + sp_url.netloc + "/auth/" + quote(redirect_uri)
 
     if current_user.organisation and not current_user.organisation.confirmed:
-        flash("Your organisation (%s) is not onboarded" % current_user.organisation.tuakiri_name, "danger")
+        flash("Your organisation (%s) is not onboarded" % current_user.organisation.tuakiri_name,
+              "danger")
         return redirect(url_for("login"))
 
     client_write = OAuth2Session(
@@ -260,11 +259,11 @@ def link():
     authorization_url_write, state = client_write.authorization_url(AUTHORIZATION_BASE_URL)
     session['oauth_state'] = state
 
-    orcid_url_write = iri_to_uri(authorization_url_write) + urlencode(
-        dict(
-            family_names=current_user.last_name,
-            given_names=current_user.first_name,
-            email=current_user.email))
+    orcid_url_write = append_qs(
+        iri_to_uri(authorization_url_write),
+        family_names=current_user.last_name,
+        given_names=current_user.first_name,
+        email=current_user.email)
 
     # Check if user details are already in database
     # TODO: re-affiliation after revoking access?
@@ -279,19 +278,19 @@ def link():
                 client_write.scope = SCOPE_READ_LIMITED
                 authorization_url_read, state = client_write.authorization_url(
                     AUTHORIZATION_BASE_URL)
-                orcid_url_read = iri_to_uri(authorization_url_read) + urlencode(
-                    dict(
-                        family_names=current_user.last_name,
-                        given_names=current_user.first_name,
-                        email=current_user.email))
+                orcid_url_read = append_qs(
+                    iri_to_uri(authorization_url_read),
+                    family_names=current_user.last_name,
+                    given_names=current_user.first_name,
+                    email=current_user.email)
                 client_write.scope = SCOPE_AUTHENTICATE
                 authorization_url_authenticate, state = client_write.authorization_url(
                     AUTHORIZATION_BASE_URL)
-                orcid_url_authenticate = iri_to_uri(authorization_url_authenticate) + urlencode(
-                    dict(
-                        family_names=current_user.last_name,
-                        given_names=current_user.first_name,
-                        email=current_user.email))
+                orcid_url_authenticate = append_qs(
+                    iri_to_uri(authorization_url_authenticate),
+                    family_names=current_user.last_name,
+                    given_names=current_user.first_name,
+                    email=current_user.email)
                 return render_template(
                     "linking.html",
                     orcid_url_write=orcid_url_write,
@@ -443,7 +442,7 @@ def orcid_callback():
                 address=organisation_address,
                 disambiguated_organization=disambiguated_organization_details)
 
-            if(not is_emp_or_edu_record_present(orcid_token.access_token, a, orciduser)):
+            if (not is_emp_or_edu_record_present(orcid_token.access_token, a, orciduser)):
                 try:
                     if a == Affiliation.EMP:
 
@@ -657,18 +656,18 @@ def confirm_organisation(token=None):
     except Exception as ex:
         flash("Failed to save organisation data: %s" % str(ex))
     redirect_uri = url_for("orcid_callback", _external=True)
-    client_secret_url = iri_to_uri(MEMBER_API_FORM_BASE_URL) + "?" + urlencode(
-        dict(
-            new_existing=NEW_CREDENTIALS,
-            note=NOTE_ORCID + " " + user.organisation.name,
-            contact_email=email,
-            contact_name=user.name,
-            org_name=user.organisation.name,
-            cred_type=CRED_TYPE_PREMIUM,
-            app_name=APP_NAME + " for " + user.organisation.name,
-            app_description=APP_DESCRIPTION + user.organisation.name + "and its researchers",
-            app_url=APP_URL,
-            redirect_uri_1=redirect_uri))
+    client_secret_url = append_qs(
+        iri_to_uri(MEMBER_API_FORM_BASE_URL),
+        new_existing=NEW_CREDENTIALS,
+        note=NOTE_ORCID + " " + user.organisation.name,
+        contact_email=email,
+        contact_name=user.name,
+        org_name=user.organisation.name,
+        cred_type=CRED_TYPE_PREMIUM,
+        app_name=APP_NAME + " for " + user.organisation.name,
+        app_description=APP_DESCRIPTION + user.organisation.name + "and its researchers",
+        app_url=APP_URL,
+        redirect_uri_1=redirect_uri)
     return render_template('orgconfirmation.html', client_secret_url=client_secret_url, form=form)
 
 
@@ -749,18 +748,18 @@ def update_org_info():
     user = User.get(email=current_user.email, organisation=current_user.organisation)
     form = OrgConfirmationForm()
     redirect_uri = url_for("orcid_callback", _external=True)
-    client_secret_url = iri_to_uri(MEMBER_API_FORM_BASE_URL) + "?" + urlencode(
-        dict(
-            new_existing=NEW_CREDENTIALS,
-            note=NOTE_ORCID + " " + user.organisation.name,
-            contact_email=email,
-            contact_name=user.name,
-            org_name=user.organisation.name,
-            cred_type=CRED_TYPE_PREMIUM,
-            app_name=user.organisation.name,
-            app_description=APP_DESCRIPTION + " at " + user.organisation.name,
-            app_url=APP_URL,
-            redirect_uri_1=redirect_uri))
+    client_secret_url = append_qs(
+        iri_to_uri(MEMBER_API_FORM_BASE_URL),
+        new_existing=NEW_CREDENTIALS,
+        note=NOTE_ORCID + " " + user.organisation.name,
+        contact_email=email,
+        contact_name=user.name,
+        org_name=user.organisation.name,
+        cred_type=CRED_TYPE_PREMIUM,
+        app_name=user.organisation.name,
+        app_description=APP_DESCRIPTION + " at " + user.organisation.name,
+        app_url=APP_URL,
+        redirect_uri_1=redirect_uri)
 
     try:
         organisation = Organisation.get(tech_contact_id=current_user.id)
