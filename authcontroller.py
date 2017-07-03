@@ -140,6 +140,8 @@ def handle_login():
     unscoped_affiliation = set(a.strip()
                                for a in data.get("Unscoped-Affiliation", '').encode("latin-1")
                                .decode("utf-8").replace(',', ';').split(';'))
+    app.logger.info("User with email address %r is trying to login having affiliation as %r with %r", email,
+                    unscoped_affiliation, shib_org_name)
 
     if unscoped_affiliation:
         edu_person_affiliation = Affiliation.NONE
@@ -228,11 +230,14 @@ def handle_login():
     elif user.is_superuser:
         return redirect(url_for("invite_organisation"))
     elif org and org.confirmed:
+        app.logger.info("User %r organisation is onboarded", user)
         return redirect(url_for("link"))
     elif org and org.is_email_confirmed and (not org.confirmed) and user.is_tech_contact_of(org):
+        app.logger.info("User %r is org admin and organisation is not onboarded", user)
         return redirect(url_for("update_org_info"))
     else:
         flash("Your organisation (%s) is not onboarded" % shib_org_name, "danger")
+        app.logger.info("User %r organisation is not onboarded", user)
 
     return redirect(url_for("login"))
 
@@ -271,10 +276,16 @@ def link():
 
     try:
         OrcidToken.get(user_id=current_user.id, org=current_user.organisation)
+        app.logger.info("We have the %r ORCID token ", current_user)
     except OrcidToken.DoesNotExist:
+        app.logger.info("User %r orcid token does not exist in database, So showing the user orcid permission button",
+                        current_user)
         if "error" in request.args:
             error = request.args["error"]
             if error == "access_denied":
+                app.logger.info(
+                    "User %r has denied permissions to %r in the flow and will try to give permissions again",
+                    current_user.id, current_user.organisation)
                 client_write.scope = SCOPE_READ_LIMITED
                 authorization_url_read, state = client_write.authorization_url(
                     AUTHORIZATION_BASE_URL)
@@ -331,9 +342,15 @@ def is_emp_or_edu_record_present(access_token, affiliation_type, user):
             for r in data.get(affiliation_type_key, []):
                 if r["organization"]["name"] == user.organisation.name and user.organisation.name in \
                         r["source"]["source_name"]["value"]:
+                    app.logger.info("For %r there is %r present on ORCID profile", user, affiliation_type_key)
                     return True
 
-    except ApiException:
+    except ApiException as apiex:
+        app.logger.error("For %r while checking for employment and education records, Encountered Exception: %r", user,
+                         apiex)
+        return False
+    except Exception as e:
+        app.logger.error("Failed to retrive employment and education entries: %r.", str(e))
         return False
     return False
 
@@ -371,6 +388,10 @@ def orcid_callback():
     except rfc6749.errors.MissingTokenError:
         flash("Missing token.", "danger")
         return redirect(url_for("login"))
+    except Exception as ex:
+        flash("Something went wrong contact orcidhub support for issue: %s" % str(ex))
+        app.logger.error("For %r encountered exception: %r", current_user, ex)
+        return redirect(url_for("login"))
 
     # At this point you can fetch protected resources but lets save
     # the token and show how this is done from a persisted token
@@ -384,12 +405,9 @@ def orcid_callback():
     if not user.name and name:
         user.name = name
 
-    # TODO: refactor this "user" and "orciduser" effectively are the same
-    orciduser = User.get(email=user.email, organisation=user.organisation)
-
     scope = token["scope"]
     orcid_token, orcid_token_found = OrcidToken.get_or_create(
-        user=orciduser, org=orciduser.organisation, scope=scope[0])
+        user_id=user.id, org=user.organisation, scope=scope[0])
     orcid_token.access_token = token["access_token"]
     orcid_token.refresh_token = token["refresh_token"]
     with db.atomic():
@@ -400,8 +418,10 @@ def orcid_callback():
             db.rollback()
             flash("Failed to save data: %s" % str(ex))
 
-    app.logger.info("User %r authorized %r to have %r access to the profile.", user,
-                    user.organisation, scope)
+    app.logger.info(
+        "User %r authorized %r to have %r access to the profile "
+        "and now trying to update employment or education record",
+        user, user.organisation, scope)
     if scope == SCOPE_ACTIVITIES_UPDATE and orcid_token_found:
         orcid_client.configuration.access_token = orcid_token.access_token
         api_instance = orcid_client.MemberAPIV20Api()
@@ -409,20 +429,20 @@ def orcid_callback():
         url = urlparse(ORCID_BASE_URL)
         source_clientid = orcid_client.SourceClientId(
             host=url.hostname,
-            path=orciduser.organisation.orcid_client_id,
-            uri="http://" + url.hostname + "/client/" + orciduser.organisation.orcid_client_id)
+            path=user.organisation.orcid_client_id,
+            uri="http://" + url.hostname + "/client/" + user.organisation.orcid_client_id)
 
         organisation_address = orcid_client.OrganizationAddress(
-            city=orciduser.organisation.city, country=orciduser.organisation.country)
+            city=user.organisation.city, country=user.organisation.country)
 
         disambiguated_organization_details = orcid_client.DisambiguatedOrganization(
-            disambiguated_organization_identifier=orciduser.organisation.disambiguation_org_id,
-            disambiguation_source=orciduser.organisation.disambiguation_org_source)
+            disambiguated_organization_identifier=user.organisation.disambiguation_org_id,
+            disambiguation_source=user.organisation.disambiguation_org_source)
 
         # TODO: need to check if the entry doesn't exist already:
         for a in Affiliation:
 
-            if not a & orciduser.affiliations:
+            if not a & user.affiliations:
                 continue
 
             if a == Affiliation.EMP:
@@ -435,40 +455,48 @@ def orcid_callback():
             rec.source = orcid_client.Source(
                 source_orcid=None,
                 source_client_id=source_clientid,
-                source_name=orciduser.organisation.name)
+                source_name=user.organisation.name)
 
             rec.organization = orcid_client.Organization(
-                name=orciduser.organisation.name,
+                name=user.organisation.name,
                 address=organisation_address,
                 disambiguated_organization=disambiguated_organization_details)
 
-            if (not is_emp_or_edu_record_present(orcid_token.access_token, a, orciduser)):
+            if (not is_emp_or_edu_record_present(orcid_token.access_token, a, user)):
                 try:
                     if a == Affiliation.EMP:
 
                         api_instance.create_employment(user.orcid, body=rec)
                         flash(
                             "Your ORCID employment record was updated with an affiliation entry from '%s'"
-                            % orciduser.organisation, "success")
+                            % user.organisation, "success")
+                        app.logger.info("For %r the ORCID employment record was updated from %r", user,
+                                        user.organisation)
                     elif a == Affiliation.EDU:
                         api_instance.create_education(user.orcid, body=rec)
                         flash(
                             "Your ORCID education record was updated with an affiliation entry from '%s'"
-                            % orciduser.organisation, "success")
+                            % user.organisation, "success")
+                        app.logger.info("For %r the ORCID education record was updated from %r", user,
+                                        user.organisation)
                     else:
                         continue
                     # TODO: Save the put-code in db table
 
                 except ApiException as e:
                     flash("Failed to update the entry: %s." % e.body, "danger")
+                except Exception as ex:
+                    flash("Something went wrong contact orcidhub support!", "danger")
+                    app.logger.error("For %r encountered exception: %r", user, ex)
 
-        if not orciduser.affiliations:
+        if not user.affiliations:
             flash(
                 "The ORCID Hub was not able to automatically write an affiliation with %s, "
                 "as the nature of the affiliation with your organisation does not appear to include either "
                 "Employment or Education.\n"
                 "Please contact your Organisation Administrator(s) if you believe this is an error."
-                % orciduser.organisation, "danger")
+                % user.organisation, "danger")
+            app.logger.info("For %r the affiliation is unknown", user)
 
     session['Should_not_logout_from_ORCID'] = True
     return redirect(url_for("profile"))
@@ -479,10 +507,11 @@ def orcid_callback():
 def profile():
     """Fetch a protected resource using an OAuth 2 token."""
     user = current_user
-
+    app.logger.info("For %r trying to display profile by getting ORCID token", user)
     try:
         orcid_token = OrcidToken.get(user_id=user.id, org=user.organisation)
     except OrcidToken.DoesNotExist:
+        app.logger.info("For %r we dont have ocrditoken so redirecting back to link page", user)
         return redirect(url_for("link"))
 
     except Exception as ex:
@@ -495,12 +524,15 @@ def profile():
         base_url = ORCID_API_BASE + user.orcid
         # TODO: utilize asyncio/aiohttp to run it concurrently
         resp_person = client.get(base_url + "/person", headers=HEADERS)
+        app.logger.info("For %r logging response code %r, While fetching profile info", user, resp_person.status_code)
         if resp_person.status_code == 401:
             orcid_token.delete_instance()
+            app.logger.info("%r has removed his organisation from trusted list", user)
             return redirect(url_for("link"))
         else:
             users = User.select().where(User.orcid == user.orcid)
             users_orcid = OrcidToken.select().where(OrcidToken.user.in_(users))
+            app.logger.info("For %r everything is fine, So displaying profile page", user)
             return render_template(
                 "profile.html", user=user, users_orcid=users_orcid, profile_url=ORCID_BASE_URL)
 
