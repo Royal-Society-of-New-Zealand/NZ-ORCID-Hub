@@ -140,7 +140,7 @@ def handle_login():
     unscoped_affiliation = set(a.strip()
                                for a in data.get("Unscoped-Affiliation", '').encode("latin-1")
                                .decode("utf-8").replace(',', ';').split(';'))
-    app.logger.info("User with email address %r is trying to login having affilation as %r with %r", email,
+    app.logger.info("User with email address %r is trying to login having affiliation as %r with %r", email,
                     unscoped_affiliation, shib_org_name)
 
     if unscoped_affiliation:
