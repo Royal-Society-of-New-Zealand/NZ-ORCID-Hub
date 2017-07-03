@@ -18,8 +18,8 @@ from config import ORCID_BASE_URL, SCOPE_ACTIVITIES_UPDATE
 from forms import (BitmapMultipleValueField, OrgInfoForm, OrgRegistrationForm, RecordForm)
 from login_provider import roles_required
 from models import PartialDate as PD
-from models import (OrcidApiCall, OrcidToken, Organisation, OrgInfo, Role, User, UserOrg,
-                    UserOrgAffiliation, db)
+from models import (CharField, OrcidApiCall, OrcidToken, Organisation, OrgInfo, Role, TextField,
+                    User, UserOrg, UserOrgAffiliation, db)
 # NB! Should be disabled in production
 from pyinfo import info
 from swagger_client.rest import ApiException
@@ -55,6 +55,28 @@ class AppModelView(ModelView):
 
     form_base_class = SecureForm
 
+    def init_search(self):
+        if self.column_searchable_list:
+            for p in self.column_searchable_list:
+                if "." in p:
+                    m, p = p.split('.')
+                    m = getattr(self.model, m).rel_model
+                    p = getattr(m, p)
+
+                elif isinstance(p, str):
+                    p = getattr(self.model, p)
+
+                field_type = type(p)
+
+                # Check type
+                if (field_type != CharField and field_type != TextField):
+                    raise Exception('Can only search on text columns. ' +
+                                    'Failed to setup search for "%s"' % p)
+
+                self._search_fields.append(p)
+
+        return bool(self._search_fields)
+
     def is_accessible(self):
         """Verify if the view is accessible for the current user."""
         if not current_user.is_active or not current_user.is_authenticated:
@@ -79,7 +101,7 @@ class UserAdmin(AppModelView):
     column_formatters = dict(
         roles=lambda v, c, m, p: ", ".join(n for r, n in v.roles.items() if r & m.roles),
         orcid=lambda v, c, m, p: m.orcid.replace("-", "\u2011") if m.orcid else "")
-    column_filters = ("name", )
+    column_searchable_list = ("name", "orcid", "email", "eppn", "organisation.name", )
     form_overrides = dict(roles=BitmapMultipleValueField)
     form_args = dict(roles=dict(choices=roles.items()))
 
@@ -90,14 +112,14 @@ class UserAdmin(AppModelView):
 class OrganisationAdmin(AppModelView):
     """Organisation model view."""
     column_exclude_list = ("orcid_client_id", "orcid_secret", )
-    column_filters = ("name", )
+    column_searchable_list = ("name", "tuakiri_name", "city", )
 
 
 class OrgInfoAdmin(AppModelView):
     """OrgInfo model view."""
 
     can_export = True
-    column_filters = ("name", )
+    column_searchable_list = ("name", "tuakiri_name", "city", "first_name", "last_name", "email", )
 
     @action("invite", "Register Organisation",
             "Are you sure you want to register selected organisations?")
@@ -117,6 +139,8 @@ class OrgInfoAdmin(AppModelView):
 class OrcidTokenAdmin(AppModelView):
     """ORCID token model view."""
 
+    column_labels = dict(org="Organisation")
+    column_searchable_list = ("org.name", )
     can_export = True
     can_create = False
 
@@ -128,7 +152,7 @@ class OrcidApiCallAmin(AppModelView):
     can_edit = False
     can_delete = False
     can_create = False
-    column_filters = ("url", )
+    column_searchable_list = ("url", "body", "response", "user.name", )
 
 
 admin.add_view(UserAdmin(User))

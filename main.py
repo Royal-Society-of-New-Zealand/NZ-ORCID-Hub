@@ -45,6 +45,9 @@ if os.environ.get("ENV") == "dev0":
 
 if app.debug:
     toolbar = DebugToolbarExtension(app)
+    # logger = logging.getLogger('peewee')
+    # logger.setLevel(logging.DEBUG)
+    # logger.addHandler(logging.StreamHandler())
 
 if __name__ == "__main__":
     # This allows us to use a plain HTTP callback
