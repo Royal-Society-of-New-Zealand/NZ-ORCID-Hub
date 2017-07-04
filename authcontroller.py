@@ -130,18 +130,22 @@ def handle_login():
     else:
         data = request.headers
 
-    token = data.get("Auedupersonsharedtoken").encode("latin-1").decode("utf-8")
-    last_name = data['Sn'].encode("latin-1").decode("utf-8")
-    first_name = data['Givenname'].encode("latin-1").decode("utf-8")
-    email = data['Mail'].encode("latin-1").decode("utf-8").lower()
-    session["shib_O"] = shib_org_name = data['O'].encode("latin-1").decode("utf-8")
-    name = data.get('Displayname').encode("latin-1").decode("utf-8")
-    eppn = data.get('Eppn').encode("latin-1").decode("utf-8")
-    unscoped_affiliation = set(a.strip()
-                               for a in data.get("Unscoped-Affiliation", '').encode("latin-1")
-                               .decode("utf-8").replace(',', ';').split(';'))
-    app.logger.info("User with email address %r is trying to login having affiliation as %r with %r", email,
-                    unscoped_affiliation, shib_org_name)
+    try:
+        token = data.get("Auedupersonsharedtoken").encode("latin-1").decode("utf-8")
+        last_name = data['Sn'].encode("latin-1").decode("utf-8")
+        first_name = data['Givenname'].encode("latin-1").decode("utf-8")
+        email = data['Mail'].encode("latin-1").decode("utf-8").lower()
+        session["shib_O"] = shib_org_name = data['O'].encode("latin-1").decode("utf-8")
+        name = data.get('Displayname').encode("latin-1").decode("utf-8")
+        eppn = data.get('Eppn').encode("latin-1").decode("utf-8")
+        unscoped_affiliation = set(a.strip()
+                                   for a in data.get("Unscoped-Affiliation", '').encode("latin-1")
+                                   .decode("utf-8").replace(',', ';').split(';'))
+        app.logger.info("User with email address %r is trying to login having affiliation as %r with %r", email,
+                        unscoped_affiliation, shib_org_name)
+    except Exception as ex:
+        app.logger.error("Encountered exception: %r", ex)
+        abort(500)
 
     if unscoped_affiliation:
         edu_person_affiliation = Affiliation.NONE
@@ -894,3 +898,9 @@ def generateRow(users):
     for u in users:
         """ ORCID ID might be NULL, Hence adding a check """
         yield ','.join([u.email, str(u.eppn or ""), str(u.orcid or "")]) + '\n'
+
+
+@app.errorhandler(500)
+def internal_error(error):
+    app.logger.error("Exception 500 occured due to: %r", error)
+    return render_template("http500.html")
