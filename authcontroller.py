@@ -131,7 +131,6 @@ def handle_login():
         data = request.headers
 
     try:
-        token = data.get("Auedupersonsharedtoken").encode("latin-1").decode("utf-8")
         last_name = data['Sn'].encode("latin-1").decode("utf-8")
         first_name = data['Givenname'].encode("latin-1").decode("utf-8")
         email = data['Mail'].encode("latin-1").decode("utf-8").lower()
@@ -188,8 +187,6 @@ def handle_login():
         user = User.get(User.email == email)
 
         # Add Shibboleth meta data if they are missing
-        if not user.edu_person_shared_token:
-            user.edu_person_shared_token = token
         if not user.name or org is not None and user.name == org.name and name:
             user.name = name
         if not user.first_name and first_name:
@@ -206,8 +203,7 @@ def handle_login():
             name=name,
             first_name=first_name,
             last_name=last_name,
-            roles=Role.RESEARCHER,
-            edu_person_shared_token=token)
+            roles=Role.RESEARCHER)
 
     # TODO: need to find out a simple way of tracking
     # the organization user is logged in from:

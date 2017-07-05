@@ -91,7 +91,6 @@ def test_tuakiri_login(client):
     assert u.name == "TEST USER FROM 123", "Expected to have the user in the DB"
     assert u.first_name == "FIRST NAME/GIVEN NAME"
     assert u.last_name == "LAST NAME/SURNAME/FAMILY NAME"
-    assert u.edu_person_shared_token == "ABC123"
 
 
 def test_tuakiri_login_wo_org(client):
@@ -117,7 +116,6 @@ def test_tuakiri_login_wo_org(client):
         follow_redirects=True)
 
     u = User.get(email="user@test.test.net")
-    assert u.edu_person_shared_token == "ABC999"
     assert b"Your organisation (INCOGNITO) is not onboarded" in rv.data
 
 
@@ -149,10 +147,10 @@ def test_tuakiri_login_with_org(client):
     u = User.get(email="user111@test.test.net")
     assert u.organisation == org
     assert org in u.organisations
-    assert u.edu_person_shared_token == "ABC111"
     assert b"Your organisation (INCOGNITO) is not onboarded" not in rv.data
     uo = UserOrg.get(user=u, org=org)
     assert not uo.is_admin
+
 
 def test_confirmation_token(app):
     """Test generate_confirmation_token and confirm_token"""

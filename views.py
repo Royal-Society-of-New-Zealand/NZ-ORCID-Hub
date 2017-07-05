@@ -96,8 +96,7 @@ class UserAdmin(AppModelView):
     """User model view."""
     roles = {1: "Superuser", 2: "Administrator", 4: "Researcher", 8: "Technical Contact"}
 
-    column_exclude_list = ("password", "username", "first_name", "last_name",
-                           "edu_person_shared_token", )
+    column_exclude_list = ("password", "username", "first_name", "last_name", )
     column_formatters = dict(
         roles=lambda v, c, m, p: ", ".join(n for r, n in v.roles.items() if r & m.roles),
         orcid=lambda v, c, m, p: m.orcid.replace("-", "\u2011") if m.orcid else "")
