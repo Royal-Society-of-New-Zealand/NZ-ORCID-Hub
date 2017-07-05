@@ -43,7 +43,6 @@ def test_models(test_db):
         first_name="Test_%d" % i,
         last_name="User_%d" % i,
         email="user%d@org%d.org.nz" % (i, i * 4 % 10),
-        edu_person_shared_token="EDU PERSON SHARED TOKEN #%d" % i,
         confirmed=(i % 3 != 0),
         roles=Role.SUPERUSER if i % 42 == 0 else Role.ADMIN if i % 13 == 0 else Role.RESEARCHER)
                       for i in range(60))).execute()
@@ -125,7 +124,6 @@ def test_user_roles(test_models):
         first_name="ABC",
         last_name="123",
         email="user_abc_123@org.org.nz",
-        edu_person_shared_token="EDU PERSON SHARED TOKEN ABC123",
         confirmed=True,
         roles=Role.ADMIN | Role.RESEARCHER)
 
@@ -153,7 +151,6 @@ def test_admin_is_admin(test_models):
         first_name="ABC",
         last_name="123",
         email="user_abc_123@org.org.nz",
-        edu_person_shared_token="EDU PERSON SHARED TOKEN ABC123",
         confirmed=True,
         roles=Role.ADMIN | Role.RESEARCHER)
 
