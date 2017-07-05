@@ -40,6 +40,10 @@
 	white-space: nowrap;
 }
 
+.col-user_count {
+	text-align: right;
+}
+
 .banner {
 	display: flex;
 	justify-content: flex-end;

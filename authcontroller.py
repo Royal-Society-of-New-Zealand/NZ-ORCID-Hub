@@ -279,8 +279,9 @@ def link():
         OrcidToken.get(user_id=current_user.id, org=current_user.organisation)
         app.logger.info("We have the %r ORCID token ", current_user)
     except OrcidToken.DoesNotExist:
-        app.logger.info("User %r orcid token does not exist in database, So showing the user orcid permission button",
-                        current_user)
+        app.logger.info(
+            "User %r orcid token does not exist in database, So showing the user orcid permission button",
+            current_user)
         if "error" in request.args:
             error = request.args["error"]
             if error == "access_denied":
@@ -344,12 +345,14 @@ def is_emp_or_edu_record_present(access_token, affiliation_type, user):
             for r in data.get(affiliation_type_key, []):
                 if r["organization"]["name"] == user.organisation.name and user.organisation.name in \
                         r["source"]["source_name"]["value"]:
-                    app.logger.info("For %r there is %r present on ORCID profile", user, affiliation_type_key)
+                    app.logger.info("For %r there is %r present on ORCID profile", user,
+                                    affiliation_type_key)
                     return True
 
     except ApiException as apiex:
-        app.logger.error("For %r while checking for employment and education records, Encountered Exception: %r", user,
-                         apiex)
+        app.logger.error(
+            "For %r while checking for employment and education records, Encountered Exception: %r",
+            user, apiex)
         return False
     except Exception as e:
         app.logger.error("Failed to retrive employment and education entries: %r.", str(e))
@@ -429,10 +432,9 @@ def orcid_callback():
             flash("Failed to save data: %s" % str(ex))
             app.logger.error("Exception Occured: %r", str(ex))
 
-    app.logger.info(
-        "User %r authorized %r to have %r access to the profile "
-        "and now trying to update employment or education record",
-        user, user.organisation, scope)
+    app.logger.info("User %r authorized %r to have %r access to the profile "
+                    "and now trying to update employment or education record", user,
+                    user.organisation, scope)
     if scope == SCOPE_ACTIVITIES_UPDATE and orcid_token_found:
         orcid_client.configuration.access_token = orcid_token.access_token
         api_instance = orcid_client.MemberAPIV20Api()
@@ -481,15 +483,15 @@ def orcid_callback():
                         flash(
                             "Your ORCID employment record was updated with an affiliation entry from '%s'"
                             % user.organisation, "success")
-                        app.logger.info("For %r the ORCID employment record was updated from %r", user,
-                                        user.organisation)
+                        app.logger.info("For %r the ORCID employment record was updated from %r",
+                                        user, user.organisation)
                     elif a == Affiliation.EDU:
                         api_instance.create_education(user.orcid, body=rec)
                         flash(
                             "Your ORCID education record was updated with an affiliation entry from '%s'"
                             % user.organisation, "success")
-                        app.logger.info("For %r the ORCID education record was updated from %r", user,
-                                        user.organisation)
+                        app.logger.info("For %r the ORCID education record was updated from %r",
+                                        user, user.organisation)
                     else:
                         continue
                     # TODO: Save the put-code in db table
@@ -534,7 +536,8 @@ def profile():
         base_url = ORCID_API_BASE + user.orcid
         # TODO: utilize asyncio/aiohttp to run it concurrently
         resp_person = client.get(base_url + "/person", headers=HEADERS)
-        app.logger.info("For %r logging response code %r, While fetching profile info", user, resp_person.status_code)
+        app.logger.info("For %r logging response code %r, While fetching profile info", user,
+                        resp_person.status_code)
         if resp_person.status_code == 401:
             orcid_token.delete_instance()
             app.logger.info("%r has removed his organisation from trusted list", user)

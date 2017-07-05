@@ -135,10 +135,20 @@ class BaseModel(Model):
         database = db
 
 
+class AuditMixin(Model):
+
+    created_at = DateTimeField(default=datetime.datetime.now)
+    updated_at = DateTimeField(null=True)
+
+    def save(self, *args, **kwargs):
+        self.updated_at = datetime.datetime.now()
+        return super().save(*args, **kwargs)
+
+
 DeferredUser = DeferredRelation()
 
 
-class Organisation(BaseModel):
+class Organisation(BaseModel, AuditMixin):
     """
     Research oranisation
     """
@@ -278,7 +288,7 @@ class OrgInfo(BaseModel):
         return reader.line_num - 1
 
 
-class User(BaseModel, UserMixin):
+class User(BaseModel, UserMixin, AuditMixin):
     """
     ORCiD Hub user.
 
@@ -389,7 +399,7 @@ class User(BaseModel, UserMixin):
 DeferredUser.set_model(User)
 
 
-class UserOrg(BaseModel):
+class UserOrg(BaseModel, AuditMixin):
     """Linking object for many-to-many relationship."""
 
     user = ForeignKeyField(User, on_delete="CASCADE")
@@ -411,7 +421,7 @@ class UserOrg(BaseModel):
         primary_key = CompositeKey("user", "org")
 
 
-class OrcidToken(BaseModel):
+class OrcidToken(BaseModel, AuditMixin):
     """
     For Keeping Orcid token in the table.
     """
@@ -425,7 +435,7 @@ class OrcidToken(BaseModel):
     expires_in = SmallIntegerField(default=0)
 
 
-class UserOrgAffiliation(BaseModel):
+class UserOrgAffiliation(BaseModel, AuditMixin):
     """For Keeping the information about the affiliation."""
     user = ForeignKeyField(User)
     organisation = ForeignKeyField(Organisation, index=True, verbose_name="Organisation")
@@ -445,7 +455,7 @@ class UserOrgAffiliation(BaseModel):
 
 class OrcidApiCall(BaseModel):
     """ORCID API call audit entry."""
-    call_datetime = DateTimeField(default=datetime.datetime.now)
+    called_at = DateTimeField(default=datetime.datetime.now)
     user = ForeignKeyField(User)
     method = TextField()
     url = TextField()

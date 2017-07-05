@@ -3,13 +3,16 @@
 
 import os
 from collections import namedtuple
+from datetime import datetime
 from urllib.parse import urlparse
 
 from flask import (flash, redirect, render_template, request, send_from_directory, url_for, abort)
 from flask_admin.actions import action
 from flask_admin.contrib.peewee import ModelView
 from flask_admin.form import SecureForm
+from flask_admin.model import typefmt
 from flask_login import current_user, login_required
+from jinja2 import Markup
 
 import orcid_client
 import utils
@@ -38,7 +41,7 @@ def favicon():
 
 
 @app.route("/pyinfo")
-@login_required
+@roles_required(Role.SUPERUSER)
 def pyinfo():
     """Show Python and runtime environment and settings."""
     return render_template("pyinfo.html", **info)
@@ -54,6 +57,11 @@ class AppModelView(ModelView):
     """ModelView customization."""
 
     form_base_class = SecureForm
+    column_type_formatters = dict(typefmt.BASE_FORMATTERS)
+    column_type_formatters.update({
+        datetime:
+        lambda view, value: Markup(value.strftime("%Y‑%m‑%d&nbsp;%H:%M")),
+    })
 
     def init_search(self):
         if self.column_searchable_list:
