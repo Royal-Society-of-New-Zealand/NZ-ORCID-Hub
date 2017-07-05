@@ -17,6 +17,7 @@ from playhouse.test_utils import test_database
 import config
 from application import app as _app
 from authcontroller import *  # noqa: F401, F403
+from reports import *  # noqa: F401, F403
 from views import *  # noqa: F401, F403
 
 # flake8: noqa
