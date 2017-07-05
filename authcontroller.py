@@ -145,7 +145,7 @@ def handle_login():
                         unscoped_affiliation, shib_org_name)
     except Exception as ex:
         app.logger.error("Encountered exception: %r", ex)
-        abort(500)
+        abort(500, ex)
 
     if unscoped_affiliation:
         edu_person_affiliation = Affiliation.NONE
@@ -182,6 +182,7 @@ def handle_login():
             org.save()
         except Exception as ex:
             flash("Failed to save organisation data: %s" % str(ex))
+            app.logger.error("Exception Occured: %r", str(ex))
 
     try:
         user = User.get(User.email == email)
@@ -316,6 +317,7 @@ def link():
             "linking.html", orcid_url_write=orcid_url_write, orcid_base_url=ORCID_BASE_URL)
     except Exception as ex:
         flash("Unhandled Exception occured: %s" % str(ex))
+        app.logger.error("Exception Occured: %r", str(ex))
     return redirect(url_for("profile"))
 
 
@@ -429,6 +431,7 @@ def orcid_callback():
         except Exception as ex:
             db.rollback()
             flash("Failed to save data: %s" % str(ex))
+            app.logger.error("Exception Occured: %r", str(ex))
 
     app.logger.info(
         "User %r authorized %r to have %r access to the profile "
@@ -498,7 +501,6 @@ def orcid_callback():
                 except ApiException as e:
                     flash("Failed to update the entry: %s." % e.body, "danger")
                 except Exception as ex:
-                    flash("Something went wrong contact orcidhub support!", "danger")
                     app.logger.error("For %r encountered exception: %r", user, ex)
 
         if not user.affiliations:
@@ -580,6 +582,7 @@ def confirm_organisation(token=None):
         app.error("token '%s'", token)
         app.login_manager.unauthorized()
     if user.email != email:
+        app.logger.info("The invitation was send to %r and not to the email address: %r", email, user.email)
         flash("This invitation to onboard the organisation wasn't sent to your email address...",
               "danger")
         return redirect(url_for("login"))
@@ -589,7 +592,9 @@ def confirm_organisation(token=None):
     if not user.is_tech_contact_of():
         try:
             user.save()
+            app.logger.info("Onboarding is complete for user: %r", user)
         except Exception as ex:
+            app.logger.error("Exception occured: %r", str(ex))
             flash("Failed to save user data: %s" % str(ex))
         with app.app_context():
             msg = Message("Welcome to the NZ ORCID Hub", recipients=[email])
@@ -655,11 +660,13 @@ def confirm_organisation(token=None):
                                    "your organisation onboarded successfully.\n" \
                                    "Any researcher from your organisation can now use the Hub"
                         mail.send(msg)
+                        app.logger.info("For %r Onboarding is Completed!", current_user)
                         flash("Your Onboarding is Completed!", "success")
 
                     try:
                         organisation.save()
                     except Exception as ex:
+                        app.logger.error("Exception Occured: %r", str(ex))
                         flash("Failed to save organisation data: %s" % str(ex))
                     return redirect(url_for("link"))
 
@@ -670,6 +677,7 @@ def confirm_organisation(token=None):
                 organisation.save()
             except Exception as ex:
                 flash("Failed to save organisation data: %s" % str(ex))
+                app.logger.error("Exception Occured: %r", str(ex))
         elif organisation is not None and organisation.is_email_confirmed:
             flash(
                 """Your email link has expired. However, you should be able to login directly!""",
@@ -699,6 +707,7 @@ def confirm_organisation(token=None):
         organisation.save()
     except Exception as ex:
         flash("Failed to save organisation data: %s" % str(ex))
+        app.logger.error("Exception Occured: %r", str(ex))
     redirect_uri = url_for("orcid_callback", _external=True)
     client_secret_url = append_qs(
         iri_to_uri(MEMBER_API_FORM_BASE_URL),
@@ -759,16 +768,6 @@ def uoa_slo():
 You have to close all open browser tabs and windows in order
 in order to complete the log-out.""", "warning")
     return render_template("uoa-slo.html")
-
-
-# NB! Disable for the production!!!
-@app.route("/reset_db")
-@login_required
-def reset_db():
-    """Reset the DB for a new testing cycle."""
-    User.delete().where(~(User.name**"%nzorcidhub%" | User.name**"%root%")).execute()
-    Organisation.delete().where(~(Organisation.name % "%Royal%")).execute()
-    return redirect(url_for("logout"))
 
 
 @app.route("/viewmembers")
@@ -855,6 +854,7 @@ def update_org_info():
                     try:
                         organisation.save()
                     except Exception as ex:
+                        app.logger.error("Exception occured due to: %r", str(ex))
                         flash("Failed to save organisation data: %s" % str(ex))
                     return redirect(url_for("link"))
 
@@ -876,6 +876,7 @@ def update_org_info():
     try:
         organisation.save()
     except Exception as ex:
+        app.logger.error("Exception occured due to: %r", str(ex))
         flash("Failed to save organisation data: %s" % str(ex))
     return render_template('orgconfirmation.html', client_secret_url=client_secret_url, form=form)
 
@@ -904,5 +905,5 @@ def generateRow(users):
 
 @app.errorhandler(500)
 def internal_error(error):
-    app.logger.error("Exception 500 occured due to: %r", error)
-    return render_template("http500.html")
+    app.logger.error("Exception 500 occured due to: %r", error.description)
+    return render_template("http500.html", error_message=error.description)

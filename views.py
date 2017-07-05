@@ -5,7 +5,7 @@ import os
 from collections import namedtuple
 from urllib.parse import urlparse
 
-from flask import (flash, redirect, render_template, request, send_from_directory, url_for)
+from flask import (flash, redirect, render_template, request, send_from_directory, url_for, abort)
 from flask_admin.actions import action
 from flask_admin.contrib.peewee import ModelView
 from flask_admin.form import SecureForm
@@ -132,6 +132,7 @@ class OrgInfoAdmin(AppModelView):
                 count += 1
             except Exception as ex:
                 flash("Failed to send an invitation to %s: %s" % (oi.email, ex))
+                app.logger.error("Exception Occured: %r", str(ex))
 
         flash("%d invitations were sent successfully." % count)
 
@@ -223,9 +224,13 @@ def delete_employment(user_id, put_code=None):
     try:
         # Delete an Employment
         api_instance.delete_employment(user.orcid, put_code)
+        app.logger.info("For %r employment record was deleted by %r", user.orcid, current_user)
         flash("Employment record successfully deleted.", "success")
     except ApiException as e:
         flash("Failed to delete the entry: %s" % e.body, "danger")
+    except Exception as ex:
+        app.logger.error("For %r encountered exception: %r", user, ex)
+        abort(500, ex)
     return redirect(_url)
 
 
@@ -296,6 +301,9 @@ def edit_section_record(user_id, put_code=None, section_type="EMP"):
                 end_date=PD.create(_data.get("end_date")))
         except ApiException as e:
             print("Exception when calling MemberAPIV20Api->view_employment: %s\n" % e.body)
+        except Exception as ex:
+            app.logger.error("For %r encountered exception: %r", user, ex)
+            abort(500, ex)
     else:
         data = SectionRecord(name=org.name, city=org.city, country=org.country)
 
@@ -339,13 +347,17 @@ def edit_section_record(user_id, put_code=None, section_type="EMP"):
                 rec.put_code = int(put_code)
                 if section_type == "EMP":
                     api_response = api_instance.update_employment(user.orcid, put_code, body=rec)
+                    app.logger.info("For %r employment record updated by %r", user.orcid, current_user)
                 else:
                     api_response = api_instance.update_education(user.orcid, put_code, body=rec)
+                    app.logger.info("For %r education record updated by %r", user.orcid, current_user)
             else:
                 if section_type == "EMP":
                     api_response = api_instance.create_employment(user.orcid, body=rec)
+                    app.logger.info("For %r employment record created by %r", user.orcid, current_user)
                 else:
                     api_response = api_instance.create_education(user.orcid, body=rec)
+                    app.logger.info("For %r education record created by %r", user.orcid, current_user)
 
                 flash("Record details has been added successfully!", "success")
 
@@ -369,6 +381,10 @@ def edit_section_record(user_id, put_code=None, section_type="EMP"):
         except ApiException as e:
             # message = resp.json().get("user-message") or resp.state
             flash("Failed to update the entry: %s." % e.body, "danger")
+            app.logger.error("For %r Exception encountered: %r", user, e)
+        except Exception as ex:
+            app.logger.error("For %r encountered exception: %r", user, ex)
+            abort(500, ex)
 
     return render_template(
         "employment.html" if section_type == "EMP" else "education.html", form=form, _url=_url)
@@ -421,6 +437,9 @@ def show_record_section(user_id, section_type="EMP"):
     except ApiException as ex:
         flash("Exception when calling MemberAPIV20Api->view_employments: %s\n" % ex, "danger")
         return redirect(url_for("viewmembers"))
+    except Exception as ex:
+        app.logger.error("For %r encountered exception: %r", user, ex)
+        abort(500, ex)
 
     # TODO: Organisation has read token
     # TODO: Organisation has access to the employment records
@@ -430,6 +449,7 @@ def show_record_section(user_id, section_type="EMP"):
     except Exception as ex:
         flash("User didn't give permissions to update his/her records", "warning")
         flash("Unhandled exception occured while retrieving ORCID data: %s" % ex, "danger")
+        app.logger.error("For %r encountered exception: %r", user, ex)
         return redirect(url_for("viewmembers"))
     # TODO: transform data for presentation:
     if section_type == "EMP":
@@ -495,6 +515,7 @@ def register_org(org_name, email, tech_contact=True):
         try:
             org.save()
         except Exception as ex:
+            app.logger.error("Encountered exception: %r", ex)
             raise Exception("Failed to save organisation data: %s" % str(ex), ex)
 
         try:
@@ -511,6 +532,7 @@ def register_org(org_name, email, tech_contact=True):
         try:
             user.save()
         except Exception as ex:
+            app.logger.error("Encountered exception: %r", ex)
             raise Exception("Failed to save user data: %s" % str(ex), ex)
 
         if tech_contact:
@@ -518,6 +540,7 @@ def register_org(org_name, email, tech_contact=True):
             try:
                 org.save()
             except Exception as ex:
+                app.logger.error("Encountered exception: %r", ex)
                 raise Exception(
                     "Failed to assign the user as the technical contact to the organisation: %s" %
                     str(ex), ex)
@@ -527,6 +550,7 @@ def register_org(org_name, email, tech_contact=True):
         try:
             user_org.save()
         except Exception as ex:
+            app.logger.error("Encountered exception: %r", ex)
             raise Exception(
                 "Failed to assign the user as an administrator to the organisation: %s" % str(ex),
                 ex)
@@ -572,6 +596,7 @@ def invite_organisation():
                       "Welcome to the NZ ORCID Hub.  A notice has been sent to the Hub Admin",
                       "success")
             except Exception as ex:
+                app.logger.error("Encountered exception: %r", ex)
                 flash(str(ex), "danger")
 
     return render_template(
