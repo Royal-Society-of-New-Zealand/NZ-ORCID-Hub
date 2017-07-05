@@ -24,6 +24,7 @@ FROM (
 NATURAL JOIN organisation AS o
 ORDER BY o.name"""
 
+    print("$$$$$$", db,  db.connect_kwargs)
     cr = db.execute_sql(sql)
     columns = [c[0] for c in cr.description]
     Row = namedtuple("Row", columns)
