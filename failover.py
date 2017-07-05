@@ -3,7 +3,7 @@
 
 import logging
 
-from peewee import PostgresqlDatabase, DatabaseError, InterfaceError
+from peewee import DatabaseError, InterfaceError, PostgresqlDatabase
 from psycopg2 import OperationalError
 
 
