@@ -54,7 +54,7 @@ def test_login(request_ctx):
 
 
 @pytest.mark.parametrize(
-    "url", ["/link", "/auth", "/pyinfo", "/reset_db", "/invite/organisation", "/invite/user"])
+    "url", ["/link", "/auth", "/pyinfo", "/invite/organisation", "/invite/user"])
 def test_access(url, client):
     """Test access to the app for unauthorized user."""
     rv = client.get(url)
@@ -153,38 +153,6 @@ def test_tuakiri_login_with_org(client):
     assert b"Your organisation (INCOGNITO) is not onboarded" not in rv.data
     uo = UserOrg.get(user=u, org=org)
     assert not uo.is_admin
-
-
-def test_reset_db(request_ctx):
-    """Test reset_db function for 'testing' cycle reset."""
-    with request_ctx("/reset_db") as ctx:
-        org = Organisation(name="THE ORGANISATION")
-        org.save()
-        u = User(
-            email="test123@test.test.net",
-            name="TEST USER",
-            username="test123",
-            roles=Role.SUPERUSER,
-            orcid=None,
-            confirmed=True)
-        u.save()
-        root = User(
-            email="root@test.test.net",
-            name="The root",
-            username="root",
-            roles=Role.SUPERUSER,
-            orcid=None,
-            confirmed=True)
-        root.save()
-        assert User.select().count() == 2
-        assert Organisation.select().count() == 1
-        login_user(u, remember=True)
-        rv = ctx.app.full_dispatch_request()
-        assert User.select().count() == 1
-        assert Organisation.select().count() == 0
-        assert rv.status_code == 302
-        assert rv.location == url_for("logout")
-
 
 def test_confirmation_token(app):
     """Test generate_confirmation_token and confirm_token"""
