@@ -383,15 +383,17 @@ def orcid_callback():
     client = OAuth2Session(current_user.organisation.orcid_client_id)
 
     try:
+        state = request.args['state']
+        if state != session.get('oauth_state'):
+            flash("Retry giving permissions or if issue persist then, Please contact ORCIDHUB for support", "danger")
+            app.logger.error("For %r session state was %r, whereas state returned from ORCID is %r", current_user,
+                             session.get('oauth_state', 'empty'), state)
+            return redirect(url_for("login"))
+
         token = client.fetch_token(
             TOKEN_URL,
             client_secret=current_user.organisation.orcid_secret,
             authorization_response=request.url)
-        if not session.__contains__('oauth_state') or request.args['state'] != session['oauth_state']:
-            flash("Retry giving permissions or if issue persist then, Please contact ORCIDHUB for support", "danger")
-            app.logger.error("For %r session state was %r, whereas state returned from ORCID is %r", current_user,
-                             session.get('oauth_state', 'empty'), request.args['state'])
-            return redirect(url_for("login"))
     except rfc6749.errors.MissingCodeError:
         flash("%s cannot be invoked directly..." % request.url, "danger")
         return redirect(url_for("login"))
