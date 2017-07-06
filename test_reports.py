@@ -6,7 +6,7 @@ from flask_login import login_user
 from models import Organisation, Role, User, UserOrg
 
 
-def test_user_summary_report(request_ctx, app):
+def __test_admin_view_access(request_ctx):
     """Test if SUPERUSER can run reports."""
 
     with request_ctx("/user_summary") as ctx:

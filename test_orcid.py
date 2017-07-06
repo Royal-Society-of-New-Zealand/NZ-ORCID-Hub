@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 import requests_oauthlib
-from flask import url_for
+from flask import url_for, session
 from flask_login import login_user
 
 from models import Affiliation, OrcidToken, Organisation, User, UserOrg
@@ -89,7 +89,7 @@ def test_link_already_affiliated(request_ctx):
     refresh_token="ABC1235"))
 def test_link_orcid_auth_callback(name, request_ctx):
     """Test ORCID callback - the user authorized the organisation access to the ORCID profile."""
-    with request_ctx("/auth") as ctx:
+    with request_ctx("/auth?state=xyz") as ctx:
         org = Organisation(name="THE ORGANISATION", confirmed=True)
         org.save()
 
@@ -102,7 +102,7 @@ def test_link_orcid_auth_callback(name, request_ctx):
         orcidtoken = OrcidToken.create(
             user=test_user, org=org, scope="/activities/update", access_token="ABC1234")
         login_user(test_user, remember=True)
-
+        session['oauth_state'] = "xyz"
         rv = ctx.app.full_dispatch_request()
         assert rv.status_code == 302, "If the user is already affiliated, the user should be redirected ..."
         assert "profile" in rv.location, "redirection to 'profile' showing the ORCID"
@@ -127,7 +127,7 @@ def test_link_orcid_auth_callback(name, request_ctx):
 def test_link_orcid_auth_callback_with_affiliation(name, request_ctx):
     """Test ORCID callback - the user authorized the organisation access to the ORCID profile."""
     with patch("orcid_client.MemberAPIV20Api") as m, patch(
-            "swagger_client.SourceClientId"), request_ctx("/auth") as ctx:
+            "swagger_client.SourceClientId"), request_ctx("/auth?state=xyz") as ctx:
         org = Organisation.create(
             name="THE ORGANISATION",
             confirmed=True,
@@ -147,7 +147,7 @@ def test_link_orcid_auth_callback_with_affiliation(name, request_ctx):
         UserOrg.create(user=test_user, org=org, affiliations=Affiliation.EMP | Affiliation.EDU)
 
         login_user(test_user, remember=True)
-
+        session['oauth_state'] = "xyz"
         api_mock = m.return_value
         ctx.app.full_dispatch_request()
         assert test_user.orcid == "ABC-123-456-789"
