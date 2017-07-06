@@ -25,6 +25,7 @@ from reports import *  # noqa: F401, F403
 
 db = _app.db = _db = db_url.connect(_app.config["DATABASE_URL"], autorollback=True)
 
+
 @pytest.yield_fixture
 def app():
     """Session-wide test `Flask` application."""
@@ -33,8 +34,9 @@ def app():
     ctx.push()
     _app.config['TESTING'] = True
 
-    with test_database(_db, (Organisation, User, UserOrg, OrcidToken, UserOrgAffiliation,
-                             OrgInfo), fail_silently=True):  # noqa: F405
+    with test_database(
+            _db, (Organisation, User, UserOrg, OrcidToken, UserOrgAffiliation, OrgInfo),
+            fail_silently=True):  # noqa: F405
         _app.db = _db
         yield _app
 

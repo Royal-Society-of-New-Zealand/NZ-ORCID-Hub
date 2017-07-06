@@ -3,6 +3,7 @@
 
 import csv
 import re
+import uuid
 from collections import namedtuple
 from hashlib import md5
 from io import StringIO
@@ -394,6 +395,10 @@ class User(BaseModel, UserMixin, AuditMixin):
         if org is None:
             org = self.organisation
         return org and org.tech_contact and org.tech_contact_id == self.id
+
+    @property
+    def uuid(self):
+        return uuid.uuid5(uuid.NAMESPACE_URL, "mailto:" + (self.email or self.eppn))
 
 
 DeferredUser.set_model(User)
