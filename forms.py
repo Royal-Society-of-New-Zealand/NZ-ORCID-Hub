@@ -188,3 +188,8 @@ class EmploymentDetailsForm(FlaskForm):
     title = StringField('Title: ', validators=[DataRequired()])
     start_date = DateField('Start Date: ', format='%m/%d/%Y', validators=[DataRequired])
     end_date = DateField('End Date: ', format='%m/%d/%Y', validators=[DataRequired])
+
+
+class DateRangeForm(FlaskForm):
+    from_date = DateField('DatePicker', format='%Y-%m-%d')
+    to_date = DateField('DatePicker', format='%Y-%m-%d')
