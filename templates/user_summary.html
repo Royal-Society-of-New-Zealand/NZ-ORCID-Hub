@@ -16,7 +16,7 @@ function drawPieChart() {
     title: 'Connected users',
     width: 900,
     height: 500,
-    colors: ['#4060A5', '1EC7FE', '#e64522', '#0097BD', '#3a5876', '#cb2027'],
+    colors: ['#4060A5', '#1EC7FE', '#e64522', '#0097BD', '#3a5876', '#cb2027'],
     is3D: true
   };
   var chart = new google.visualization.PieChart(document.getElementById('piechart'));
@@ -25,6 +25,13 @@ function drawPieChart() {
   </script>
 {% endblock %}
 {% block content %}
+
+  <form method="GET">
+      <label for="from_date">From: </label>{{ form.from_date }}
+      <label for="from_to">To: </label>{{ form.to_date }}
+      <input type="submit" value="Select...">
+  </form>
+
   <table class="table table-striped table-bordered table-hover model-list">
     <thead>
       <tr>
