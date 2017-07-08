@@ -148,7 +148,7 @@ class RecordForm(FlaskForm):
         return form
 
 
-class OrgInfoForm(FlaskForm):
+class FileUploadForm(FlaskForm):
     """Organisation info pre-loading form."""
 
     org_info = FileField(validators=[FileRequired(), FileAllowed(["csv"], 'CSV files only!')])

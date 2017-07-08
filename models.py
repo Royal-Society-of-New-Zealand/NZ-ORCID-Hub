@@ -9,7 +9,7 @@ from io import StringIO
 from itertools import zip_longest
 from urllib.parse import urlencode
 
-from flask_login import UserMixin
+from flask_login import UserMixin, current_user
 from peewee import (BooleanField, CharField, CompositeKey, DateTimeField, DeferredRelation, Field,
                     ForeignKeyField, IntegerField, Model, OperationalError, SmallIntegerField,
                     TextField, datetime)
@@ -394,6 +394,62 @@ class User(BaseModel, UserMixin, AuditMixin):
         if org is None:
             org = self.organisation
         return org and org.tech_contact and org.tech_contact_id == self.id
+
+    @staticmethod
+    def load_from_csv(source):
+        """Load data from CSV file or a string."""
+        if isinstance(source, str):
+            if '\n' in source:
+                source = StringIO(source)
+            else:
+                source = open(source)
+        reader = csv.reader(source)
+        header = next(reader)
+
+        assert len(header) >= 4, \
+            "Wrong number of fields. Expected at least 4 fields " \
+            "(name, first Name, Last Name, and email). " \
+            "Read header: %s" % header
+        header_rexs = [
+            re.compile(ex, re.I)
+            for ex in ("name|Researcher\s*(name)?", r"first\s*(name)?", r"last\s*(name)?",
+                       "email", "affiliation")]
+
+        def index(rex):
+            """Return first header column index matching the given regex."""
+            for i, column in enumerate(header):
+                if rex.match(column):
+                    return i
+            else:
+                return None
+
+        idxs = [index(rex) for rex in header_rexs]
+
+        def val(row, i):
+            if idxs[i] is None:
+                return None
+            else:
+                v = row[idxs[i]].strip()
+                return None if v == '' else v
+
+        org = Organisation.get(name=current_user.organisation.name)
+        for row in reader:
+            email = val(row, 3)
+            user, _ = User.get_or_create(email=email)
+
+            user.name = val(row, 0)
+            user.first_name = val(row, 1)
+            user.last_name = val(row, 2)
+            user.roles = Role.RESEARCHER
+            user.email = val(row, 3)
+            user.organisation = org
+            user.save()
+            user_org, _ = UserOrg.get_or_create(user=user, org=org)
+            # TODO: Handle affiliation using regex
+            user_org.affiliations = val(row, 4)
+            user_org.save()
+
+        return reader.line_num - 1
 
 
 DeferredUser.set_model(User)
