@@ -13,10 +13,11 @@ from flask_admin.form import SecureForm
 from flask_admin.model import typefmt
 from flask_login import current_user, login_required
 from jinja2 import Markup
+from flask_mail import Message
 
 import orcid_client
 import utils
-from application import admin, app
+from application import admin, app, mail
 from config import ORCID_BASE_URL, SCOPE_ACTIVITIES_UPDATE
 from forms import (BitmapMultipleValueField, FileUploadForm, OrgRegistrationForm, RecordForm)
 from login_provider import roles_required
@@ -489,10 +490,22 @@ def load_researcher_info():
     form = FileUploadForm()
     if form.validate_on_submit():
         data = request.files[form.org_info.name].read().decode("utf-8")
-        row_count = User.load_from_csv(data)
+        users = User.load_from_csv(data)
 
-        flash("Successfully loaded %d rows." % row_count, "success")
-        return redirect(url_for("User.index_view"))
+        flash("Successfully loaded %d rows." % len(users), "success")
+        try:
+            for user in users:
+                token = generate_confirmation_token(user.email)
+                with app.app_context():
+                    msg = Message("Welcome to the NZ ORCID Hub", recipients=[user.email])
+                    msg.body = "your organisation has sent you an invite " + str(
+                        user.organisation) + " Token:" + str(token)
+                    print(" Token:" + str(token))
+                    mail.send(msg)
+        except Exception as ex:
+            flash("Exception occured while sending mails %r" % str(ex), "danger")
+
+        return redirect(url_for("viewmembers"))
 
     return render_template("fileUpload.html", form=form, form_title="Researcher")
 

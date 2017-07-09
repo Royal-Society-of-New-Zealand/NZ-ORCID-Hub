@@ -12,7 +12,7 @@ from wtforms.validators import DataRequired, Email
 from wtforms.widgets import HTMLString, html_params
 
 from config import DEFAULT_COUNTRY
-from models import PartialDate as PD
+from models import PartialDate as PD, Organisation
 
 # Order the countly list by the name and add a default (Null) value
 country_choices = [(c.alpha_2, c.name) for c in countries]
@@ -188,3 +188,12 @@ class EmploymentDetailsForm(FlaskForm):
     title = StringField('Title: ', validators=[DataRequired()])
     start_date = DateField('Start Date: ', format='%m/%d/%Y', validators=[DataRequired])
     end_date = DateField('End Date: ', format='%m/%d/%Y', validators=[DataRequired])
+
+
+class SelectOrganisation(FlaskForm):
+
+    org_info = [(r.id,r.name) for r in Organisation.select(Organisation.id, Organisation.name)]
+    org_info.sort(key=lambda e: e[1])
+    org_info.insert(0, ("", "Organisation"))
+    orgNames = SelectField("orgNames", [validators.required()], choices=org_info)
+

@@ -433,6 +433,7 @@ class User(BaseModel, UserMixin, AuditMixin):
                 return None if v == '' else v
 
         org = Organisation.get(name=current_user.organisation.name)
+        users = []
         for row in reader:
             email = val(row, 3)
             user, _ = User.get_or_create(email=email)
@@ -444,12 +445,17 @@ class User(BaseModel, UserMixin, AuditMixin):
             user.email = val(row, 3)
             user.organisation = org
             user.save()
+            users.append(user)
             user_org, _ = UserOrg.get_or_create(user=user, org=org)
             # TODO: Handle affiliation using regex
-            user_org.affiliations = val(row, 4)
+
+            if not val(row, 4):
+                user_org.affiliations = Affiliation.NONE
+            else:
+                user_org.affiliations = val(row, 4)
             user_org.save()
 
-        return reader.line_num - 1
+        return users
 
 
 DeferredUser.set_model(User)
