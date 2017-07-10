@@ -19,6 +19,10 @@ from pycountry import countries
 from application import db
 from config import DEFAULT_COUNTRY
 
+from os import environ
+
+ENV = environ.get("ENV", "test")
+
 try:
     from enum import IntFlag
 except ImportError:
@@ -159,8 +163,12 @@ class Organisation(BaseModel, AuditMixin):
 
     name = CharField(max_length=100, unique=True, null=True)
     tuakiri_name = CharField(max_length=80, unique=True, null=True)
-    orcid_client_id = CharField(max_length=80, unique=True, null=True)
-    orcid_secret = CharField(max_length=80, unique=True, null=True)
+    if ENV != "prod":
+        orcid_client_id = CharField(max_length=80, null=True)
+        orcid_secret = CharField(max_length=80, null=True)
+    else:
+        orcid_client_id = CharField(max_length=80, unique=True, null=True)
+        orcid_secret = CharField(max_length=80, unique=True, null=True)
     confirmed = BooleanField(default=False)
     country = CharField(null=True, choices=country_choices, default=DEFAULT_COUNTRY)
     city = CharField(null=True)
