@@ -140,8 +140,9 @@ def handle_login():
         unscoped_affiliation = set(a.strip()
                                    for a in data.get("Unscoped-Affiliation", '').encode("latin-1")
                                    .decode("utf-8").replace(',', ';').split(';'))
-        app.logger.info("User with email address %r is trying to login having affiliation as %r with %r", email,
-                        unscoped_affiliation, shib_org_name)
+        app.logger.info(
+            "User with email address %r is trying to login having affiliation as %r with %r",
+            email, unscoped_affiliation, shib_org_name)
     except Exception as ex:
         app.logger.error("Encountered exception: %r", ex)
         abort(500, ex)
@@ -386,9 +387,12 @@ def orcid_callback():
     try:
         state = request.args['state']
         if state != session.get('oauth_state'):
-            flash("Retry giving permissions or if issue persist then, Please contact ORCIDHUB for support", "danger")
-            app.logger.error("For %r session state was %r, whereas state returned from ORCID is %r", current_user,
-                             session.get('oauth_state', 'empty'), state)
+            flash(
+                "Retry giving permissions or if issue persist then, Please contact ORCIDHUB for support",
+                "danger")
+            app.logger.error(
+                "For %r session state was %r, whereas state returned from ORCID is %r",
+                current_user, session.get('oauth_state', 'empty'), state)
             return redirect(url_for("login"))
 
         token = client.fetch_token(
@@ -581,7 +585,8 @@ def confirm_organisation(token=None):
         app.error("token '%s'", token)
         app.login_manager.unauthorized()
     if user.email != email:
-        app.logger.info("The invitation was send to %r and not to the email address: %r", email, user.email)
+        app.logger.info("The invitation was send to %r and not to the email address: %r", email,
+                        user.email)
         flash("This invitation to onboard the organisation wasn't sent to your email address...",
               "danger")
         return redirect(url_for("login"))
