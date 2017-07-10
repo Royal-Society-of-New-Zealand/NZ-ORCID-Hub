@@ -6,7 +6,7 @@ from collections import namedtuple
 from datetime import datetime
 from urllib.parse import urlparse
 
-from flask import (flash, redirect, render_template, request, send_from_directory, url_for, abort)
+from flask import (abort, flash, redirect, render_template, request, send_from_directory, url_for)
 from flask_admin.actions import action
 from flask_admin.contrib.peewee import ModelView
 from flask_admin.form import SecureForm
@@ -354,17 +354,21 @@ def edit_section_record(user_id, put_code=None, section_type="EMP"):
                 rec.put_code = int(put_code)
                 if section_type == "EMP":
                     api_response = api_instance.update_employment(user.orcid, put_code, body=rec)
-                    app.logger.info("For %r employment record updated by %r", user.orcid, current_user)
+                    app.logger.info("For %r employment record updated by %r", user.orcid,
+                                    current_user)
                 else:
                     api_response = api_instance.update_education(user.orcid, put_code, body=rec)
-                    app.logger.info("For %r education record updated by %r", user.orcid, current_user)
+                    app.logger.info("For %r education record updated by %r", user.orcid,
+                                    current_user)
             else:
                 if section_type == "EMP":
                     api_response = api_instance.create_employment(user.orcid, body=rec)
-                    app.logger.info("For %r employment record created by %r", user.orcid, current_user)
+                    app.logger.info("For %r employment record created by %r", user.orcid,
+                                    current_user)
                 else:
                     api_response = api_instance.create_education(user.orcid, body=rec)
-                    app.logger.info("For %r education record created by %r", user.orcid, current_user)
+                    app.logger.info("For %r education record created by %r", user.orcid,
+                                    current_user)
 
                 flash("Record details has been added successfully!", "success")
 

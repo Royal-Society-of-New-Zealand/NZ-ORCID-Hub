@@ -70,6 +70,11 @@ def test_models(test_db):
     yield test_db
 
 
+def test_user_uuid():
+    u = User(email="test@gtest.com")
+    assert str(u.uuid) == "8428e5f6-38c6-530f-8339-9aeffb99e022"
+
+
 def test_user_org_link_user_constraint(test_models):
     org = Organisation.get(id=1)
     uo = UserOrg(user=999999, org=org)
