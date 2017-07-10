@@ -8,21 +8,22 @@ isort:skip_file
 import os
 import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# flake8: noqa
+import config
+config.DATABASE_URL = os.environ.get("DATABASE_URL") or "sqlite:///:memory:"
+os.environ["DATABASE_URL"] = config.DATABASE_URL
 # yapf: enable
 
 import pytest
-from peewee import SqliteDatabase
+from playhouse import db_url
 from playhouse.test_utils import test_database
 
-import config
 from application import app as _app
 from authcontroller import *  # noqa: F401, F403
-from reports import *  # noqa: F401, F403
 from views import *  # noqa: F401, F403
+from reports import *  # noqa: F401, F403
 
-# flake8: noqa
-config.DATABASE_URL = os.environ.get("DATABASE_URL") or "sqlite:///:memory:"
-os.environ["DATABASE_URL"] = config.DATABASE_URL
+db = _app.db = _db = db_url.connect(_app.config["DATABASE_URL"], autorollback=True)
 
 
 @pytest.yield_fixture
@@ -32,10 +33,11 @@ def app():
     ctx = _app.app_context()
     ctx.push()
     _app.config['TESTING'] = True
-    _app.db = _db = SqliteDatabase(":memory:")
 
-    with test_database(_db, (Organisation, User, UserOrg, OrcidToken, UserOrgAffiliation,
-                             OrgInfo)):  # noqa: F405
+    with test_database(
+            _db, (Organisation, User, UserOrg, OrcidToken, UserOrgAffiliation, OrgInfo),
+            fail_silently=True):  # noqa: F405
+        _app.db = _db
         yield _app
 
     ctx.pop()

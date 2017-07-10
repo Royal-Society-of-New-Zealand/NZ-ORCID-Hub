@@ -8,6 +8,8 @@ from urllib.parse import urlencode, urlparse
 import flask
 import jinja2
 import jinja2.ext
+import requests
+from flask_login import current_user
 from flask_mail import Message
 from itsdangerous import URLSafeTimedSerializer
 
@@ -168,3 +170,30 @@ def confirm_token(token, expiration=1300000):
 def append_qs(url, **qs):
     """Appends new query strings to an arbitraty URL."""
     return url + ('&' if urlparse(url).query else '?') + urlencode(qs)
+
+
+def track_event(category, action, label=None, value=0):
+    """Track application events with Google Analytics."""
+    GA_TRACKING_ID = app.config.get("GA_TRACKING_ID")
+    if not GA_TRACKING_ID:
+        return
+
+    data = {
+        "v": "1",  # API Version.
+        "tid": GA_TRACKING_ID,  # Tracking ID / Property ID.
+        # Anonymous Client Identifier. Ideally, this should be a UUID that
+        # is associated with particular user, device, or browser instance.
+        "cid": current_user.uuid,
+        "t": "event",  # Event hit type.
+        "ec": category,  # Event category.
+        "ea": action,  # Event action.
+        "el": label,  # Event label.
+        "ev": value,  # Event value, must be an integer
+    }
+
+    response = requests.post("http://www.google-analytics.com/collect", data=data)
+
+    # If the request fails, this will raise a RequestException. Depending
+    # on your application's needs, this may be a non-error and can be caught
+    # by the caller.
+    response.raise_for_status()
