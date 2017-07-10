@@ -260,7 +260,7 @@ def link():
 
     client_write = OAuth2Session(
         current_user.organisation.orcid_client_id,
-        scope=SCOPE_ACTIVITIES_UPDATE,
+        scope=SCOPE_ACTIVITIES_UPDATE + SCOPE_READ_LIMITED,
         redirect_uri=redirect_uri)
     authorization_url_write, state = client_write.authorization_url(AUTHORIZATION_BASE_URL)
     session['oauth_state'] = state
@@ -290,7 +290,7 @@ def link():
                     current_user.id, current_user.organisation)
                 client_write.scope = SCOPE_READ_LIMITED
                 authorization_url_read, state = client_write.authorization_url(
-                    AUTHORIZATION_BASE_URL)
+                    AUTHORIZATION_BASE_URL, state)
                 orcid_url_read = append_qs(
                     iri_to_uri(authorization_url_read),
                     family_names=current_user.last_name,
@@ -298,7 +298,7 @@ def link():
                     email=current_user.email)
                 client_write.scope = SCOPE_AUTHENTICATE
                 authorization_url_authenticate, state = client_write.authorization_url(
-                    AUTHORIZATION_BASE_URL)
+                    AUTHORIZATION_BASE_URL, state)
                 orcid_url_authenticate = append_qs(
                     iri_to_uri(authorization_url_authenticate),
                     family_names=current_user.last_name,
@@ -418,9 +418,18 @@ def orcid_callback():
     if not user.name and name:
         user.name = name
 
-    scope = token["scope"]
+    scope = ''
+    if len(token["scope"]) >= 1 and token["scope"][0] is not None:
+        scope = token["scope"][0]
+    else:
+        flash("Scope missing, contact orcidhub support", "danger")
+        app.logger.error("For %r encountered exception: Scope missing", current_user)
+        return redirect(url_for("login"))
+    if len(token["scope"]) >= 2 and token["scope"][1] is not None:
+        scope = scope + "," + token["scope"][1]
+
     orcid_token, orcid_token_found = OrcidToken.get_or_create(
-        user_id=user.id, org=user.organisation, scope=scope[0])
+        user_id=user.id, org=user.organisation, scope=scope)
     orcid_token.access_token = token["access_token"]
     orcid_token.refresh_token = token["refresh_token"]
     with db.atomic():
@@ -435,7 +444,7 @@ def orcid_callback():
     app.logger.info("User %r authorized %r to have %r access to the profile "
                     "and now trying to update employment or education record", user,
                     user.organisation, scope)
-    if scope == SCOPE_ACTIVITIES_UPDATE and orcid_token_found:
+    if scope == SCOPE_READ_LIMITED[0] + "," + SCOPE_ACTIVITIES_UPDATE[0] and orcid_token_found:
         orcid_client.configuration.access_token = orcid_token.access_token
         api_instance = orcid_client.MemberAPIV20Api()
 
