@@ -116,6 +116,7 @@ def test_tuakiri_login_wo_org(client):
 
     u = User.get(email="user@test.test.net")
     assert u is not None
+    assert u.eppn == "user@test.test.net"
     assert b"Your organisation (INCOGNITO) is not onboarded" in rv.data
 
 
