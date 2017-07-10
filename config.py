@@ -77,7 +77,9 @@ if ENV == "dev":
     GA_TRACKING_ID = "UA-99022483-1"
 elif ENV == "test":
     GA_TRACKING_ID = "UA-99022483-2"
-else:
+elif ENV == "dev0":
     GA_TRACKING_ID = "UA-99022483-3"
+else:
+    GA_TRACKING_ID = "UA-99022483-4"
 
 SENTRY_DSN = "https://bb596bd75ad4490c80ee0a7c22943a94:a53ff6a9eb5b439e87d8553f162a6658@sentry.io/172044"
