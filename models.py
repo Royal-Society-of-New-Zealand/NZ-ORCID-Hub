@@ -10,18 +10,13 @@ from io import StringIO
 from itertools import zip_longest
 from urllib.parse import urlencode
 
-from flask_login import UserMixin
+from application import db
+from config import DEFAULT_COUNTRY, ENV
+from flask_login import UserMixin, current_user
 from peewee import (BooleanField, CharField, CompositeKey, DateTimeField, DeferredRelation, Field,
                     ForeignKeyField, IntegerField, Model, OperationalError, SmallIntegerField,
                     TextField, datetime)
 from pycountry import countries
-
-from application import db
-from config import DEFAULT_COUNTRY
-
-from os import environ
-
-ENV = environ.get("ENV", "test")
 
 try:
     from enum import IntFlag
@@ -140,17 +135,24 @@ class BaseModel(Model):
         database = db
 
 
+DeferredUser = DeferredRelation()
+
+
 class AuditMixin(Model):
 
     created_at = DateTimeField(default=datetime.datetime.now)
     updated_at = DateTimeField(null=True)
+    created_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
+    updated_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
 
     def save(self, *args, **kwargs):
         self.updated_at = datetime.datetime.now()
+        if current_user:
+            if self.created_by:
+                self.updated_by = current_user
+            else:
+                self.created_by = current_user
         return super().save(*args, **kwargs)
-
-
-DeferredUser = DeferredRelation()
 
 
 class Organisation(BaseModel, AuditMixin):
@@ -480,6 +482,28 @@ class OrcidApiCall(BaseModel):
 
     class Meta:
         db_table = "orcid_api_call"
+
+
+class Task(AuditMixin, BaseModel):
+    """Batch processing task created form CSV file."""
+    org = ForeignKeyField(Organisation, index=True, verbose_name="Organisation")
+    completed_at = DateTimeField(default=datetime.datetime.now, null=True)
+    filename = TextField(null=True)
+
+
+class AffiliationRecord(BaseModel):
+    """Affiliation record loaded from CSV file for batch processing."""
+    identifier = TextField(help_text="User email, eppn, or ORCID Id")
+    affiliation_type = TextField(null=True, choices=("EDU", "EMP", ))
+    role = TextField(null=True, verbose_name="Role/title")
+    department = TextField(null=True)
+    start_date = PartialDateField(null=True)
+    end_date = PartialDateField(null=True)
+    city = TextField(null=True)
+    region = TextField(null=True, verbose_name="State/region")
+
+    processed_at = DateTimeField(null=True)
+    status = TextField(null=True, help_text="Record processing status.")
 
 
 def create_tables():

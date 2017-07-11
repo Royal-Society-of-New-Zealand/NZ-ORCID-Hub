@@ -4,10 +4,9 @@
 from unittest.mock import MagicMock
 
 import pytest
-from wtforms import Form
-
 from forms import PartialDate, PartialDateField
 from models import PartialDate as PD
+from wtforms import Form
 
 
 def test_partial_date_widget():

@@ -3,9 +3,8 @@
 
 import sys
 
-from flask_login import login_user
-
 import views
+from flask_login import login_user
 from models import Role, User
 
 

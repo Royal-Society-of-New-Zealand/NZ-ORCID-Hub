@@ -3,14 +3,13 @@ import os
 from logging.handlers import RotatingFileHandler
 
 import flask_login
+from config import *  # noqa: F401, F403
+from failover import PgDbWithFailover
 from flask import Flask
 from flask_admin import Admin
 from flask_debugtoolbar import DebugToolbarExtension
 from flask_mail import Mail
 from playhouse import db_url
-
-from config import *  # noqa: F401, F403
-from failover import PgDbWithFailover
 
 # from raven.contrib.flask import Sentry
 

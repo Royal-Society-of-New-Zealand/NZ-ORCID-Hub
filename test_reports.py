@@ -2,7 +2,6 @@
 """Tests for core functions."""
 
 from flask_login import login_user
-
 from models import Organisation, Role, User, UserOrg
 
 

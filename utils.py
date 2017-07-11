@@ -5,15 +5,15 @@ import os
 import textwrap
 from urllib.parse import urlencode, urlparse
 
-import flask
 import jinja2
 import jinja2.ext
 import requests
+
+import flask
+from application import app, mail
 from flask_login import current_user
 from flask_mail import Message
 from itsdangerous import URLSafeTimedSerializer
-
-from application import app, mail
 
 
 def send_email(template,
