@@ -8,6 +8,7 @@ from collections import namedtuple
 from hashlib import md5
 from io import StringIO
 from itertools import zip_longest
+from os import environ
 from urllib.parse import urlencode
 
 from application import db

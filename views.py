@@ -609,6 +609,9 @@ def invite_organisation():
                 flash("Organisation Onboarded Successfully! "
                       "Welcome to the NZ ORCID Hub.  A notice has been sent to the Hub Admin",
                       "success")
+                app.logger.info(
+                    "Organisation '%s' successfully invited. Invitation sent to '%s'." %
+                    (form.orgName.data, form.orgEmailid.data))
             except Exception as ex:
                 app.logger.error("Encountered exception: %r", ex)
                 flash(str(ex), "danger")
