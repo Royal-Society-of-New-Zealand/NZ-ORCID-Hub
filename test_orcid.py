@@ -68,7 +68,10 @@ def test_link_already_affiliated(request_ctx):
         orcidtoken = OrcidToken(
             user=test_user, org=org, scope="/read-limited", access_token="ABC1234")
         orcidtokenWrite = OrcidToken(
-            user=test_user, org=org, scope="/read-limited,/activities/update", access_token="ABC234")
+            user=test_user,
+            org=org,
+            scope="/read-limited,/activities/update",
+            access_token="ABC234")
         orcidtoken.save()
         orcidtokenWrite.save()
         login_user(test_user, remember=True)
@@ -100,7 +103,10 @@ def test_link_orcid_auth_callback(name, request_ctx):
             orcid="ABC123",
             confirmed=True)
         orcidtoken = OrcidToken.create(
-            user=test_user, org=org, scope="/read-limited,/activities/update", access_token="ABC1234")
+            user=test_user,
+            org=org,
+            scope="/read-limited,/activities/update",
+            access_token="ABC1234")
         login_user(test_user, remember=True)
         session['oauth_state'] = "xyz"
         rv = ctx.app.full_dispatch_request()
@@ -183,7 +189,10 @@ def test_profile(request_ctx):
             email="test123@test.test.net", organisation=org, orcid="ABC123", confirmed=True)
         test_user.save()
         orcidtoken = OrcidToken(
-            user=test_user, org=org, scope="/read-limited,/activities/update", access_token="ABC1234")
+            user=test_user,
+            org=org,
+            scope="/read-limited,/activities/update",
+            access_token="ABC1234")
         orcidtoken.save()
         login_user(test_user, remember=True)
 
