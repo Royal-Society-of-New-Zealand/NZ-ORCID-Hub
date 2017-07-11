@@ -8,6 +8,7 @@ from collections import namedtuple
 from hashlib import md5
 from io import StringIO
 from itertools import zip_longest
+from os import environ
 from urllib.parse import urlencode
 
 from flask_login import UserMixin
@@ -18,8 +19,6 @@ from pycountry import countries
 
 from application import db
 from config import DEFAULT_COUNTRY
-
-from os import environ
 
 ENV = environ.get("ENV", "test")
 
