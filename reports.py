@@ -3,13 +3,13 @@
 
 from collections import namedtuple
 
-from flask import render_template, request, url_for, redirect
+from flask import redirect, render_template, request, url_for
+from peewee import fn
 
 from application import app, db
 from forms import DateRangeForm
 from login_provider import roles_required
 from models import Role, User
-from peewee import fn
 
 
 @app.route("/user_summary")
@@ -19,11 +19,15 @@ def user_summary():
     form = DateRangeForm(request.args)
 
     if not (form.from_date.data and form.to_date.data):
-        date_range = User.select(fn.MIN(User.created_at).alias('from_date'), fn.MAX(User.created_at).alias('to_date')).first()
+        date_range = User.select(
+            fn.MIN(User.created_at).alias('from_date'),
+            fn.MAX(User.created_at).alias('to_date')).first()
         if date_range:
-            return redirect(url_for("user_summary",
-                from_date=date_range.from_date.date().isoformat(),
-                to_date=date_range.to_date.date().isoformat()))
+            return redirect(
+                url_for(
+                    "user_summary",
+                    from_date=date_range.from_date.date().isoformat(),
+                    to_date=date_range.to_date.date().isoformat()))
 
     sql = """
 SELECT st.*, o.name

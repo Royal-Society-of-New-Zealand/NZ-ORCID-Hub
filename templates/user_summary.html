@@ -9,7 +9,7 @@ function drawPieChart() {
   var data = google.visualization.arrayToDataTable([
       ['Users','Count'],
       ['Linked', {{total_linked_user_count}}],
-      ['Not-linked', {{total_user_count - total_linked_user_count}}],
+      ['Non-linked', {{total_user_count - total_linked_user_count}}],
   ]);
 
   var options = {
