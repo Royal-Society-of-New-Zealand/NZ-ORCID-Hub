@@ -220,7 +220,9 @@ def delete_employment(user_id, put_code=None):
 
     try:
         orcid_token = OrcidToken.get(
-            user=user, org=user.organisation, scope=SCOPE_READ_LIMITED[0] + "," + SCOPE_ACTIVITIES_UPDATE[0])
+            user=user,
+            org=user.organisation,
+            scope=SCOPE_READ_LIMITED[0] + "," + SCOPE_ACTIVITIES_UPDATE[0])
     except:
         flash("The user hasn't authorized you to delete records", "warning")
         return redirect(_url)
@@ -280,7 +282,8 @@ def edit_section_record(user_id, put_code=None, section_type="EMP"):
 
     orcid_token = None
     try:
-        orcid_token = OrcidToken.get(user=user, org=org, scope=SCOPE_READ_LIMITED[0] + "," + SCOPE_ACTIVITIES_UPDATE[0])
+        orcid_token = OrcidToken.get(
+            user=user, org=org, scope=SCOPE_READ_LIMITED[0] + "," + SCOPE_ACTIVITIES_UPDATE[0])
     except:
         flash("The user hasn't authorized you to Add records", "warning")
         return redirect(_url)
@@ -606,6 +609,9 @@ def invite_organisation():
                 flash("Organisation Onboarded Successfully! "
                       "Welcome to the NZ ORCID Hub.  A notice has been sent to the Hub Admin",
                       "success")
+                app.logger.info(
+                    "Organisation '%s' successfully invited. Invitation sent to '%s'." %
+                    (form.orgName.data, form.orgEmailid.data))
             except Exception as ex:
                 app.logger.error("Encountered exception: %r", ex)
                 flash(str(ex), "danger")
