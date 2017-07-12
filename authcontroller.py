@@ -7,31 +7,31 @@ user (reseaser) affiliations.
 
 import base64
 import pickle
+import secrets
 import zlib
 from os import path, remove
 from tempfile import gettempdir
 from urllib.parse import quote, unquote, urlencode, urlparse
 
 import requests
+from flask import (Response, abort, flash, redirect, render_template, request, session, url_for)
+from flask_login import current_user, login_required, login_user, logout_user
+from flask_mail import Message
 from oauthlib.oauth2 import rfc6749
+from requests_oauthlib import OAuth2Session
+from werkzeug.urls import iri_to_uri
 
 import orcid_client
-import secrets
 from application import app, db, mail
 from config import (APP_DESCRIPTION, APP_NAME, APP_URL, AUTHORIZATION_BASE_URL, CRED_TYPE_PREMIUM,
                     EXTERNAL_SP, MEMBER_API_FORM_BASE_URL, NEW_CREDENTIALS, NOTE_ORCID,
                     ORCID_API_BASE, ORCID_BASE_URL, SCOPE_ACTIVITIES_UPDATE, SCOPE_AUTHENTICATE,
                     SCOPE_READ_LIMITED, TOKEN_URL)
-from flask import (Response, abort, flash, redirect, render_template, request, session, url_for)
-from flask_login import current_user, login_required, login_user, logout_user
-from flask_mail import Message
 from forms import OnboardingTokenForm, OrgConfirmationForm
 from login_provider import roles_required
 from models import (Affiliation, OrcidToken, Organisation, OrgInfo, Role, User, UserOrg)
-from requests_oauthlib import OAuth2Session
 from swagger_client.rest import ApiException
 from utils import append_qs, confirm_token
-from werkzeug.urls import iri_to_uri
 
 HEADERS = {'Accept': 'application/vnd.orcid+json', 'Content-type': 'application/vnd.orcid+json'}
 

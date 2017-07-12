@@ -3,8 +3,9 @@
 
 from collections import namedtuple
 
-from application import app, db
 from flask import render_template
+
+from application import app, db
 from login_provider import roles_required
 from models import Role
 

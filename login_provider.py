@@ -1,8 +1,9 @@
 from functools import wraps
 
-from application import login_manager
 from flask import flash
 from flask_login import current_user
+
+from application import login_manager
 from models import User
 
 

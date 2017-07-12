@@ -6,18 +6,18 @@ from collections import namedtuple
 from datetime import datetime
 from urllib.parse import urlparse
 
-from jinja2 import Markup
-
-import orcid_client
-import utils
-from application import admin, app
-from config import ORCID_BASE_URL, SCOPE_ACTIVITIES_UPDATE, SCOPE_READ_LIMITED
 from flask import (abort, flash, redirect, render_template, request, send_from_directory, url_for)
 from flask_admin.actions import action
 from flask_admin.contrib.peewee import ModelView
 from flask_admin.form import SecureForm
 from flask_admin.model import typefmt
 from flask_login import current_user, login_required
+from jinja2 import Markup
+
+import orcid_client
+import utils
+from application import admin, app
+from config import ORCID_BASE_URL, SCOPE_ACTIVITIES_UPDATE, SCOPE_READ_LIMITED
 from forms import (BitmapMultipleValueField, OrgInfoForm, OrgRegistrationForm, RecordForm)
 from login_provider import roles_required
 from models import PartialDate as PD

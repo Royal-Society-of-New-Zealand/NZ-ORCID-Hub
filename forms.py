@@ -3,15 +3,16 @@
 
 from datetime import date
 
-from config import DEFAULT_COUNTRY
 from flask_wtf import FlaskForm
 from flask_wtf.file import FileAllowed, FileField, FileRequired
-from models import PartialDate as PD
 from pycountry import countries
 from wtforms import (Field, SelectField, SelectMultipleField, StringField, validators)
 from wtforms.fields.html5 import DateField, EmailField
 from wtforms.validators import DataRequired, Email
 from wtforms.widgets import HTMLString, html_params
+
+from config import DEFAULT_COUNTRY
+from models import PartialDate as PD
 
 # Order the countly list by the name and add a default (Null) value
 country_choices = [(c.alpha_2, c.name) for c in countries]

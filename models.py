@@ -10,13 +10,14 @@ from io import StringIO
 from itertools import zip_longest
 from urllib.parse import urlencode
 
-from application import db
-from config import DEFAULT_COUNTRY, ENV
 from flask_login import UserMixin, current_user
 from peewee import (BooleanField, CharField, CompositeKey, DateTimeField, DeferredRelation, Field,
                     ForeignKeyField, IntegerField, Model, OperationalError, SmallIntegerField,
                     TextField, datetime)
 from pycountry import countries
+
+from application import db
+from config import DEFAULT_COUNTRY, ENV
 
 try:
     from enum import IntFlag
@@ -131,23 +132,38 @@ class Affiliation(IntFlag):
 
 
 class BaseModel(Model):
+    @classmethod
+    def model_class_name(cls):
+        return cls._meta.name
+
     class Meta:
         database = db
 
 
-DeferredUser = DeferredRelation()
+class ModelDeferredRelation(DeferredRelation):
+    def set_model(self, rel_model):
+        # include model in the generated "related_name" to make it unique:
+        for model, field, name in self.fields:
+            if isinstance(field, ForeignKeyField) and not field._related_name:
+                field._related_name = "%s_%s_set" % (model.model_class_name(), name)
+
+        super().set_model(rel_model)
+
+
+DeferredUser = ModelDeferredRelation()
 
 
 class AuditMixin(Model):
 
     created_at = DateTimeField(default=datetime.datetime.now)
     updated_at = DateTimeField(null=True)
-    created_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
-    updated_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
+
+    # created_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
+    # updated_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
 
     def save(self, *args, **kwargs):
         self.updated_at = datetime.datetime.now()
-        if current_user:
+        if current_user and isinstance(current_user, User):
             if self.created_by:
                 self.updated_by = current_user
             else:
@@ -183,6 +199,8 @@ class Organisation(BaseModel, AuditMixin):
         on_delete="SET NULL",
         null=True,
         help_text="Organisation technical contact")
+    created_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
+    updated_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
 
     @property
     def users(self):
@@ -324,6 +342,8 @@ class User(BaseModel, UserMixin, AuditMixin):
     # TODO: we still need to rememeber the rognanistiaon that last authenticated the user
     organisation = ForeignKeyField(
         Organisation, related_name="members", on_delete="CASCADE", null=True)
+    created_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
+    updated_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
 
     def __repr__(self):
         if self.name and (self.eppn or self.email):
@@ -426,6 +446,8 @@ class UserOrg(BaseModel, AuditMixin):
 
     # Affiliation bit-map:
     affiliations = SmallIntegerField(default=0, null=True, verbose_name="EDU Person Affiliations")
+    created_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
+    updated_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
 
     # TODO: the access token should be either here or in a separate list
     # access_token = CharField(max_length=120, unique=True, null=True)
@@ -448,6 +470,8 @@ class OrcidToken(BaseModel, AuditMixin):
     issue_time = DateTimeField(default=datetime.datetime.now)
     refresh_token = CharField(max_length=36, unique=True, null=True)
     expires_in = SmallIntegerField(default=0)
+    created_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
+    updated_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
 
 
 class UserOrgAffiliation(BaseModel, AuditMixin):
@@ -462,6 +486,8 @@ class UserOrgAffiliation(BaseModel, AuditMixin):
     role_title = TextField(null=True)
     put_code = SmallIntegerField(default=0, null=True)
     path = TextField(null=True)
+    created_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
+    updated_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
 
     class Meta:
         db_table = "user_organisation_affiliation"
@@ -484,11 +510,13 @@ class OrcidApiCall(BaseModel):
         db_table = "orcid_api_call"
 
 
-class Task(AuditMixin, BaseModel):
+class Task(BaseModel, AuditMixin):
     """Batch processing task created form CSV file."""
     org = ForeignKeyField(Organisation, index=True, verbose_name="Organisation")
     completed_at = DateTimeField(default=datetime.datetime.now, null=True)
     filename = TextField(null=True)
+    created_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
+    updated_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
 
 
 class AffiliationRecord(BaseModel):
