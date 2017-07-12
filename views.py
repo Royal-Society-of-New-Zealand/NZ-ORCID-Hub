@@ -606,8 +606,8 @@ def invite_organisation():
             try:
                 register_org(form.orgName.data,
                              form.orgEmailid.data.lower(), request.form.get("tech_contact"))
-                flash("Organisation Onboarded Successfully! "
-                      "Welcome to the NZ ORCID Hub.  A notice has been sent to the Hub Admin",
+                flash("Organisation Invited Successfully! "
+                      "An email has been sent to the organisation contact",
                       "success")
                 app.logger.info(
                     "Organisation '%s' successfully invited. Invitation sent to '%s'." %
