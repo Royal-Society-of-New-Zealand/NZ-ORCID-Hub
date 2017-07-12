@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 import requests_oauthlib
-from flask import url_for, session
+from flask import session, url_for
 from flask_login import login_user
 
 from models import Affiliation, OrcidToken, Organisation, User, UserOrg
@@ -68,7 +68,10 @@ def test_link_already_affiliated(request_ctx):
         orcidtoken = OrcidToken(
             user=test_user, org=org, scope="/read-limited", access_token="ABC1234")
         orcidtokenWrite = OrcidToken(
-            user=test_user, org=org, scope="/activities/update", access_token="ABC234")
+            user=test_user,
+            org=org,
+            scope="/read-limited,/activities/update",
+            access_token="ABC234")
         orcidtoken.save()
         orcidtokenWrite.save()
         login_user(test_user, remember=True)
@@ -100,7 +103,10 @@ def test_link_orcid_auth_callback(name, request_ctx):
             orcid="ABC123",
             confirmed=True)
         orcidtoken = OrcidToken.create(
-            user=test_user, org=org, scope="/activities/update", access_token="ABC1234")
+            user=test_user,
+            org=org,
+            scope="/read-limited,/activities/update",
+            access_token="ABC1234")
         login_user(test_user, remember=True)
         session['oauth_state'] = "xyz"
         rv = ctx.app.full_dispatch_request()
@@ -122,7 +128,7 @@ def test_link_orcid_auth_callback(name, request_ctx):
     name="NEW TEST",
     access_token="ABC123",
     orcid="ABC-123-456-789",
-    scope=['/activities/update'],
+    scope=['/read-limited,/activities/update'],
     refresh_token="ABC1235"))
 def test_link_orcid_auth_callback_with_affiliation(name, request_ctx):
     """Test ORCID callback - the user authorized the organisation access to the ORCID profile."""
@@ -183,7 +189,10 @@ def test_profile(request_ctx):
             email="test123@test.test.net", organisation=org, orcid="ABC123", confirmed=True)
         test_user.save()
         orcidtoken = OrcidToken(
-            user=test_user, org=org, scope="/activities/update", access_token="ABC1234")
+            user=test_user,
+            org=org,
+            scope="/read-limited,/activities/update",
+            access_token="ABC1234")
         orcidtoken.save()
         login_user(test_user, remember=True)
 

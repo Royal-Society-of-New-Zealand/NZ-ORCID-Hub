@@ -93,7 +93,9 @@ $(document).ready(function(){
   })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
 
   ga('create', '{{config.GA_TRACKING_ID}}', 'auto');
+  ga('set', 'userid', '{{current_user.email}}');
   ga('send', 'pageview');
+  {% block ga_event %}<!-- Placeholder for Google Analytics events -->{% endblock %}
 });
       </script>
     {% endblock %}

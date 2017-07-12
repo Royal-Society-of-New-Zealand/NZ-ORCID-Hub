@@ -4,7 +4,6 @@
 import pprint
 
 import pytest
-from flask import url_for
 from flask_login import login_user
 
 import login_provider
@@ -53,8 +52,8 @@ def test_login(request_ctx):
         assert b"test@test.test.net" in rv.data, "Expected to have the user email on the page"
 
 
-@pytest.mark.parametrize(
-    "url", ["/link", "/auth", "/pyinfo", "/invite/organisation", "/invite/user"])
+@pytest.mark.parametrize("url",
+                         ["/link", "/auth", "/pyinfo", "/invite/organisation", "/invite/user"])
 def test_access(url, client):
     """Test access to the app for unauthorized user."""
     rv = client.get(url)
@@ -116,6 +115,8 @@ def test_tuakiri_login_wo_org(client):
         follow_redirects=True)
 
     u = User.get(email="user@test.test.net")
+    assert u is not None
+    assert u.eppn == "user@test.test.net"
     assert b"Your organisation (INCOGNITO) is not onboarded" in rv.data
 
 

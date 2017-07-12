@@ -48,7 +48,10 @@ def test_pyinfo(request_ctx):
 
     with request_ctx("/pyinfo") as ctx:
         test_user = User(
-            name="TEST USER", email="test@test.test.net", username="test42", confirmed=True,
+            name="TEST USER",
+            email="test@test.test.net",
+            username="test42",
+            confirmed=True,
             roles=Role.SUPERUSER)
         login_user(test_user, remember=True)
 

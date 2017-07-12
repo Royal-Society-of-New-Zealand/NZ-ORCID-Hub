@@ -6,7 +6,7 @@ from collections import namedtuple
 from datetime import datetime
 from urllib.parse import urlparse
 
-from flask import (flash, redirect, render_template, request, send_from_directory, url_for, abort)
+from flask import (abort, flash, redirect, render_template, request, send_from_directory, url_for)
 from flask_admin.actions import action
 from flask_admin.contrib.peewee import ModelView
 from flask_admin.form import SecureForm
@@ -17,8 +17,9 @@ from flask_mail import Message
 
 import orcid_client
 import utils
+
 from application import admin, app, mail
-from config import ORCID_BASE_URL, SCOPE_ACTIVITIES_UPDATE
+from config import ORCID_BASE_URL, SCOPE_ACTIVITIES_UPDATE, SCOPE_READ_LIMITED
 from forms import (BitmapMultipleValueField, FileUploadForm, OrgRegistrationForm, RecordForm)
 from login_provider import roles_required
 from models import PartialDate as PD
@@ -221,7 +222,9 @@ def delete_employment(user_id, put_code=None):
 
     try:
         orcid_token = OrcidToken.get(
-            user=user, org=user.organisation, scope=SCOPE_ACTIVITIES_UPDATE)
+            user=user,
+            org=user.organisation,
+            scope=SCOPE_READ_LIMITED[0] + "," + SCOPE_ACTIVITIES_UPDATE[0])
     except:
         flash("The user hasn't authorized you to delete records", "warning")
         return redirect(_url)
@@ -281,7 +284,8 @@ def edit_section_record(user_id, put_code=None, section_type="EMP"):
 
     orcid_token = None
     try:
-        orcid_token = OrcidToken.get(user=user, org=org, scope=SCOPE_ACTIVITIES_UPDATE)
+        orcid_token = OrcidToken.get(
+            user=user, org=org, scope=SCOPE_READ_LIMITED[0] + "," + SCOPE_ACTIVITIES_UPDATE[0])
     except:
         flash("The user hasn't authorized you to Add records", "warning")
         return redirect(_url)
@@ -355,17 +359,21 @@ def edit_section_record(user_id, put_code=None, section_type="EMP"):
                 rec.put_code = int(put_code)
                 if section_type == "EMP":
                     api_response = api_instance.update_employment(user.orcid, put_code, body=rec)
-                    app.logger.info("For %r employment record updated by %r", user.orcid, current_user)
+                    app.logger.info("For %r employment record updated by %r", user.orcid,
+                                    current_user)
                 else:
                     api_response = api_instance.update_education(user.orcid, put_code, body=rec)
-                    app.logger.info("For %r education record updated by %r", user.orcid, current_user)
+                    app.logger.info("For %r education record updated by %r", user.orcid,
+                                    current_user)
             else:
                 if section_type == "EMP":
                     api_response = api_instance.create_employment(user.orcid, body=rec)
-                    app.logger.info("For %r employment record created by %r", user.orcid, current_user)
+                    app.logger.info("For %r employment record created by %r", user.orcid,
+                                    current_user)
                 else:
                     api_response = api_instance.create_education(user.orcid, body=rec)
-                    app.logger.info("For %r education record created by %r", user.orcid, current_user)
+                    app.logger.info("For %r education record created by %r", user.orcid,
+                                    current_user)
 
                 flash("Record details has been added successfully!", "success")
 
@@ -628,9 +636,12 @@ def invite_organisation():
             try:
                 register_org(form.orgName.data,
                              form.orgEmailid.data.lower(), request.form.get("tech_contact"))
-                flash("Organisation Onboarded Successfully! "
-                      "Welcome to the NZ ORCID Hub.  A notice has been sent to the Hub Admin",
+                flash("Organisation Invited Successfully! "
+                      "An email has been sent to the organisation contact",
                       "success")
+                app.logger.info(
+                    "Organisation '%s' successfully invited. Invitation sent to '%s'." %
+                    (form.orgName.data, form.orgEmailid.data))
             except Exception as ex:
                 app.logger.error("Encountered exception: %r", ex)
                 flash(str(ex), "danger")

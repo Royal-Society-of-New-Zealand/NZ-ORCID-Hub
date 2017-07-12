@@ -3,10 +3,12 @@
 
 import csv
 import re
+import uuid
 from collections import namedtuple
 from hashlib import md5
 from io import StringIO
 from itertools import zip_longest
+from os import environ
 from urllib.parse import urlencode
 
 from flask_login import UserMixin, current_user
@@ -17,6 +19,8 @@ from pycountry import countries
 
 from application import db
 from config import DEFAULT_COUNTRY
+
+ENV = environ.get("ENV", "test")
 
 try:
     from enum import IntFlag
@@ -158,8 +162,12 @@ class Organisation(BaseModel, AuditMixin):
 
     name = CharField(max_length=100, unique=True, null=True)
     tuakiri_name = CharField(max_length=80, unique=True, null=True)
-    orcid_client_id = CharField(max_length=80, unique=True, null=True)
-    orcid_secret = CharField(max_length=80, unique=True, null=True)
+    if ENV != "prod":
+        orcid_client_id = CharField(max_length=80, null=True)
+        orcid_secret = CharField(max_length=80, null=True)
+    else:
+        orcid_client_id = CharField(max_length=80, unique=True, null=True)
+        orcid_secret = CharField(max_length=80, unique=True, null=True)
     confirmed = BooleanField(default=False)
     country = CharField(null=True, choices=country_choices, default=DEFAULT_COUNTRY)
     city = CharField(null=True)
@@ -395,6 +403,7 @@ class User(BaseModel, UserMixin, AuditMixin):
             org = self.organisation
         return org and org.tech_contact and org.tech_contact_id == self.id
 
+
     @staticmethod
     def load_from_csv(source):
         """Load data from CSV file or a string."""
@@ -456,6 +465,10 @@ class User(BaseModel, UserMixin, AuditMixin):
             user_org.save()
 
         return users
+
+    @property
+    def uuid(self):
+        return uuid.uuid5(uuid.NAMESPACE_URL, "mailto:" + (self.email or self.eppn))
 
 
 DeferredUser.set_model(User)
