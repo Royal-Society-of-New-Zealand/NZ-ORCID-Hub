@@ -921,36 +921,34 @@ def internal_error(error):
     app.logger.error("Exception 500 occured due to: %r", error.description)
     return render_template("http500.html", error_message=error.description)
 
-@app.route("/Orcid/login/", methods=["GET", "POST"])
-@app.route("/Orcid/login/<token>", methods=["GET", "POST"])
-def Orcid_login(token=None):
 
-
-    _next = request.args.get('_next')
+@app.route("/orcid/login/", methods=["GET", "POST"])
+@app.route("/orcid/login/<token>", methods=["GET", "POST"])
+def orcid_login(token=None):
 
     form = SelectOrganisation()
 
     if request.method == 'GET':
         return render_template("selectOrganisation.html", form=form)
-
     else:
-        extend_url="?"
+        extend_url = "?"
 
         if token is not None:
             email = confirm_token(token)
             extend_url = extend_url + "email=" + email + "&"
             session['email'] = email
-        extend_url =  extend_url + "orgName=" + form.orgNames.data
+        extend_url = extend_url + "orgName=" + form.orgNames.data
 
         flash("Welcome through orcid")
         redirect_uri = url_for("orcid_login_callback", _external=True)
         if EXTERNAL_SP:
             sp_url = urlparse(EXTERNAL_SP)
-            redirect_uri = sp_url.scheme + "://" + sp_url.netloc + "/auth/"+ quote(redirect_uri)+ extend_url
+            redirect_uri = sp_url.scheme + "://" + sp_url.netloc + "/auth/" + quote(redirect_uri) + extend_url
         else:
             redirect_uri = redirect_uri + extend_url
         organisation = Organisation.get(id=int(form.orgNames.data))
-        client_write = OAuth2Session(organisation.orcid_client_id, scope=SCOPE_AUTHENTICATE, redirect_uri=redirect_uri, )
+        client_write = OAuth2Session(organisation.orcid_client_id, scope=SCOPE_AUTHENTICATE,
+                                     redirect_uri=redirect_uri, )
 
         authorization_url_write, state = client_write.authorization_url(AUTHORIZATION_BASE_URL)
         session['oauth_state'] = state
@@ -963,14 +961,16 @@ def Orcid_login(token=None):
 
 @app.route("/Orcid/auth")
 def orcid_login_callback():
-
     try:
         state = request.args['state']
         email = request.args['email']
         orgName = request.args['orgName']
 
-        if state != session.get('oauth_state') and orgName!=session.get('orgName'):
-            flash("Something went wrong, Please retry giving permissions or if issue persist then, Please contact ORCIDHUB for support", "danger")
+        if state != session.get('oauth_state') and orgName != session.get('orgName'):
+            flash(
+                "Something went wrong, Please retry giving permissions or if issue persist then, "
+                "Please contact ORCIDHUB for support",
+                "danger")
 
             return redirect(url_for("login"))
         organisation = Organisation.get(id=orgName)
@@ -979,10 +979,10 @@ def orcid_login_callback():
             TOKEN_URL,
             client_secret=organisation.orcid_secret,
             authorization_response=request.url)
-        orcid_id=token['orcid']
-        user=None
+        orcid_id = token['orcid']
+        user = None
         if email is None:
-            user= User.get(orcid=orcid_id, organisation=organisation)
+            user = User.get(orcid=orcid_id, organisation=organisation)
 
         else:
             user = User.get(email=email, organisation=organisation)

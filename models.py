@@ -403,7 +403,6 @@ class User(BaseModel, UserMixin, AuditMixin):
             org = self.organisation
         return org and org.tech_contact and org.tech_contact_id == self.id
 
-
     @staticmethod
     def load_from_csv(source):
         """Load data from CSV file or a string."""
@@ -417,12 +416,12 @@ class User(BaseModel, UserMixin, AuditMixin):
 
         assert len(header) >= 4, \
             "Wrong number of fields. Expected at least 4 fields " \
-            "(name, first Name, Last Name, and email). " \
+            "(first Name, Last Name, affiliation and email). " \
             "Read header: %s" % header
         header_rexs = [
             re.compile(ex, re.I)
-            for ex in ("name|Researcher\s*(name)?", r"first\s*(name)?", r"last\s*(name)?",
-                       "email", "affiliation")]
+            for ex in (r"first\s*(name)?", r"last\s*(name)?",
+                       "email\s*(address)?", "affiliation|student/staff")]
 
         def index(rex):
             """Return first header column index matching the given regex."""
@@ -444,24 +443,28 @@ class User(BaseModel, UserMixin, AuditMixin):
         org = Organisation.get(name=current_user.organisation.name)
         users = []
         for row in reader:
-            email = val(row, 3)
+            email = val(row, 2).encode("latin-1").decode("utf-8").lower()
             user, _ = User.get_or_create(email=email)
 
-            user.name = val(row, 0)
-            user.first_name = val(row, 1)
-            user.last_name = val(row, 2)
+            user.first_name = val(row, 0).encode("latin-1").decode("utf-8")
+            user.last_name = val(row, 1).encode("latin-1").decode("utf-8")
             user.roles = Role.RESEARCHER
-            user.email = val(row, 3)
+            user.email = email
             user.organisation = org
             user.save()
             users.append(user)
-            user_org, _ = UserOrg.get_or_create(user=user, org=org)
-            # TODO: Handle affiliation using regex
+            user_org, user_org_created = UserOrg.get_or_create(user=user, org=org)
 
-            if not val(row, 4):
-                user_org.affiliations = Affiliation.NONE
-            else:
-                user_org.affiliations = val(row, 4)
+            if val(row, 3):
+                unscoped_affiliation = set(a.strip() for a in val(row, 3).encode("latin-1")
+                                           .decode("utf-8").lower().replace(',', ';').split(';'))
+
+                edu_person_affiliation = Affiliation.NONE
+                if unscoped_affiliation & {"faculty", "staff"}:
+                    edu_person_affiliation |= Affiliation.EMP
+                if unscoped_affiliation & {"student", "alum"}:
+                    edu_person_affiliation |= Affiliation.EDU
+                user_org.affiliations = edu_person_affiliation
             user_org.save()
 
         return users

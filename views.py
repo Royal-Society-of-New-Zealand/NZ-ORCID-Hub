@@ -13,12 +13,11 @@ from flask_admin.form import SecureForm
 from flask_admin.model import typefmt
 from flask_login import current_user, login_required
 from jinja2 import Markup
-from flask_mail import Message
 
 import orcid_client
 import utils
 
-from application import admin, app, mail
+from application import admin, app
 from config import ORCID_BASE_URL, SCOPE_ACTIVITIES_UPDATE, SCOPE_READ_LIMITED
 from forms import (BitmapMultipleValueField, FileUploadForm, OrgRegistrationForm, RecordForm)
 from login_provider import roles_required
@@ -503,13 +502,14 @@ def load_researcher_info():
         flash("Successfully loaded %d rows." % len(users), "success")
         try:
             for user in users:
-                token = generate_confirmation_token(user.email)
                 with app.app_context():
-                    msg = Message("Welcome to the NZ ORCID Hub", recipients=[user.email])
-                    msg.body = "your organisation has sent you an invite " + str(
-                        user.organisation) + " Token:" + str(token)
-                    print(" Token:" + str(token))
-                    mail.send(msg)
+                    token = generate_confirmation_token(user.email)
+                    utils.send_email(
+                        "email/researcher_invitation.html",
+                        recipient=(user.organisation.name, user.email),
+                        token=token,
+                        org_name=user.organisation.name,
+                        user=user)
         except Exception as ex:
             flash("Exception occured while sending mails %r" % str(ex), "danger")
 
