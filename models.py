@@ -441,7 +441,7 @@ class User(BaseModel, UserMixin, AuditMixin):
                 return None if v == '' else v
 
         org = Organisation.get(name=current_user.organisation.name)
-        users = []
+        users = {}
         for row in reader:
             email = val(row, 2).encode("latin-1").decode("utf-8").lower()
             user, _ = User.get_or_create(email=email)
@@ -452,7 +452,7 @@ class User(BaseModel, UserMixin, AuditMixin):
             user.email = email
             user.organisation = org
             user.save()
-            users.append(user)
+            users[user.email] = user
             user_org, user_org_created = UserOrg.get_or_create(user=user, org=org)
 
             if val(row, 3):

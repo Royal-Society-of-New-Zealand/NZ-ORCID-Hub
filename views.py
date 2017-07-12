@@ -501,7 +501,8 @@ def load_researcher_info():
 
         flash("Successfully loaded %d rows." % len(users), "success")
         try:
-            for user in users:
+            for u in users.keys():
+                user = users[u]
                 with app.app_context():
                     email_and_organisation = user.email + ";" + user.organisation.name
                     token = generate_confirmation_token(email_and_organisation)
