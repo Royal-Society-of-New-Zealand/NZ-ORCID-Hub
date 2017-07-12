@@ -503,7 +503,8 @@ def load_researcher_info():
         try:
             for user in users:
                 with app.app_context():
-                    token = generate_confirmation_token(user.email)
+                    email_and_organisation = user.email + ";" + user.organisation.name
+                    token = generate_confirmation_token(email_and_organisation)
                     utils.send_email(
                         "email/researcher_invitation.html",
                         recipient=(user.organisation.name, user.email),

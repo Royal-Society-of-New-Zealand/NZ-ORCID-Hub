@@ -928,42 +928,57 @@ def orcid_login(token=None):
 
     form = SelectOrganisation()
 
-    if request.method == 'GET':
-        return render_template("selectOrganisation.html", form=form)
-    else:
-        extend_url = "?"
-
-        if token is not None:
-            email = confirm_token(token)
-            extend_url = extend_url + "email=" + email + "&"
-            session['email'] = email
-        extend_url = extend_url + "orgName=" + form.orgNames.data
-
-        flash("Welcome through orcid")
-        redirect_uri = url_for("orcid_login_callback", _external=True)
-        if EXTERNAL_SP:
-            sp_url = urlparse(EXTERNAL_SP)
-            redirect_uri = sp_url.scheme + "://" + sp_url.netloc + "/auth/" + quote(redirect_uri) + extend_url
+    try:
+        if request.method == 'GET' and token is None:
+            return render_template("selectOrganisation.html", form=form)
         else:
-            redirect_uri = redirect_uri + extend_url
-        organisation = Organisation.get(id=int(form.orgNames.data))
-        client_write = OAuth2Session(organisation.orcid_client_id, scope=SCOPE_AUTHENTICATE,
-                                     redirect_uri=redirect_uri, )
+            extend_url = "?"
 
-        authorization_url_write, state = client_write.authorization_url(AUTHORIZATION_BASE_URL)
-        session['oauth_state'] = state
-        session['org_id'] = form.orgNames.data
+            if token is not None:
+                email_and_organisation = confirm_token(token)
+                email, org = email_and_organisation.split(';')
+                extend_url = extend_url + "email=" + email + "&" + "orgName=" + org
+                organisation = Organisation.get(name=org)
+                session['email'] = email
+                session['orgName'] = org
+            else:
+                if form.orgNames.data:
+                    organisation = Organisation.get(id=int(form.orgNames.data))
+                    extend_url = extend_url + "orgName=" + organisation.name
+                    session['orgName'] = organisation.name
+                else:
+                    flash("Please select organisation through which you want to login", "danger")
+                    return render_template("selectOrganisation.html", form=form)
 
-        orcid_url_write = append_qs(iri_to_uri(authorization_url_write))
+            redirect_uri = url_for("orcid_login_callback", _external=True)
+            if EXTERNAL_SP:
+                sp_url = urlparse(EXTERNAL_SP)
+                redirect_uri = sp_url.scheme + "://" + sp_url.netloc + "/auth/" + quote(redirect_uri) + extend_url
+            else:
+                redirect_uri = redirect_uri + extend_url
 
-        return redirect(orcid_url_write)
+            client_write = OAuth2Session(organisation.orcid_client_id, scope=SCOPE_AUTHENTICATE,
+                                         redirect_uri=redirect_uri, )
+
+            authorization_url_write, state = client_write.authorization_url(AUTHORIZATION_BASE_URL)
+            session['oauth_state'] = state
+
+            orcid_url_write = append_qs(iri_to_uri(authorization_url_write))
+
+            return redirect(orcid_url_write)
+    except Exception as ex:
+        flash("Something went wrong contact orcidhub support for issue: %s" % str(ex))
+        app.logger.error("Encountered exception: %r", ex)
+        return redirect(url_for("login"))
 
 
-@app.route("/Orcid/auth")
+@app.route("/orcid/auth")
 def orcid_login_callback():
     try:
         state = request.args['state']
-        email = request.args['email']
+        email = None
+        if session.get('email'):
+            email = request.args['email']
         orgName = request.args['orgName']
 
         if state != session.get('oauth_state') and orgName != session.get('orgName'):
@@ -973,7 +988,7 @@ def orcid_login_callback():
                 "danger")
 
             return redirect(url_for("login"))
-        organisation = Organisation.get(id=orgName)
+        organisation = Organisation.get(name=orgName)
         client = OAuth2Session(organisation.orcid_client_id)
         token = client.fetch_token(
             TOKEN_URL,
@@ -982,15 +997,24 @@ def orcid_login_callback():
         orcid_id = token['orcid']
         user = None
         if email is None:
-            user = User.get(orcid=orcid_id, organisation=organisation)
-
+            user_data = User.get(orcid=orcid_id)
+            user_org = UserOrg.get(user=user_data, org=organisation)
+            user = User.get(id=user_org.user)
         else:
-            user = User.get(email=email, organisation=organisation)
+            user_data = User.get(email=email)
+            user_org = UserOrg.get(user=user_data, org=organisation)
+            user = User.get(id=user_org.user)
             user.orcid = orcid_id
             user.confirmed = True
-            user.save()
+        if user is not None and user.name is None and token['name']:
+            user.name = token['name']
+        user.save()
+
         login_user(user)
     except User.DoesNotExist:
+        flash("You are not onboarded on ORCIDHUB...", "danger")
+        return redirect(url_for("login"))
+    except UserOrg.DoesNotExist:
         flash("You are not onboarded on ORCIDHUB...", "danger")
         return redirect(url_for("login"))
     except rfc6749.errors.MissingCodeError:
