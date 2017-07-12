@@ -62,6 +62,7 @@ class AppModelView(ModelView):
         datetime:
         lambda view, value: Markup(value.strftime("%Y‑%m‑%d&nbsp;%H:%M")),
     })
+    column_exclude_list = ("created_at", "updated_at", "created_by", "updated_by", )
 
     def init_search(self):
         if self.column_searchable_list:
@@ -148,7 +149,7 @@ class OrcidTokenAdmin(AppModelView):
     """ORCID token model view."""
 
     column_labels = dict(org="Organisation")
-    column_searchable_list = ("org.name", )
+    column_searchable_list = ("user.name", "user.email", "org.name", )
     can_export = True
     can_create = False
 
