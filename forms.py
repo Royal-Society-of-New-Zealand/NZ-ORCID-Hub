@@ -191,7 +191,8 @@ class EmploymentDetailsForm(FlaskForm):
 
 
 class SelectOrganisation(FlaskForm):
-    org_info = [(r.id, r.name) for r in Organisation.select(Organisation.id, Organisation.name)]
-    org_info.sort(key=lambda e: e[1])
-    org_info.insert(0, ("", ""))
-    orgNames = SelectField("orgNames", [validators.required()], choices=org_info)
+    orgNames = SelectField("orgNames", [validators.required()], )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.orgNames.choices = Organisation.select(Organisation.id, Organisation.name).order_by(Organisation.name).tuples()
