@@ -8,6 +8,7 @@ from collections import namedtuple
 from hashlib import md5
 from io import StringIO
 from itertools import zip_longest
+import logging
 from os import environ
 from urllib.parse import urlencode
 
@@ -522,8 +523,9 @@ class Task(BaseModel, AuditMixin):
 
 class AffiliationRecord(BaseModel):
     """Affiliation record loaded from CSV file for batch processing."""
+    task = ForeignKeyField(Task)
     identifier = TextField(help_text="User email, eppn, or ORCID Id")
-    affiliation_type = TextField(null=True, choices=("EDU", "EMP", ))
+    affiliation_type = TextField(null=True, choices=("EDU", "EMP", "student", "alum", "faculty", "staff", ))
     role = TextField(null=True, verbose_name="Role/title")
     department = TextField(null=True)
     start_date = PartialDateField(null=True)
@@ -534,6 +536,9 @@ class AffiliationRecord(BaseModel):
     processed_at = DateTimeField(null=True)
     status = TextField(null=True, help_text="Record processing status.")
 
+    class Meta:
+        db_table = "affiliation_record"
+
 
 def create_tables():
     """Create all DB tables."""
@@ -541,10 +546,19 @@ def create_tables():
         db.connect()
     except OperationalError:
         pass
-    models = (Organisation, User, UserOrg, OrcidToken, UserOrgAffiliation, OrgInfo, OrcidApiCall,
-              Task, AffiliationRecord)
-    db.create_tables(models)
-
+    logger = logging.getLogger('peewee')
+    if logger:
+        logger.setLevel(logging.DEBUG)
+        logger.addHandler(logging.StreamHandler())
+    Organisation.create_table()
+    User.create_table()
+    UserOrg.create_table()
+    OrcidToken.create_table()
+    UserOrgAffiliation.create_table()
+    OrgInfo.create_table()
+    OrcidApiCall.create_table()
+    Task.create_table()
+    AffiliationRecord.create_table()
 
 def drop_tables():
     """Drop all model tables."""
