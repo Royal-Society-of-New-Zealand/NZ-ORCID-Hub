@@ -4,8 +4,9 @@ import pytest
 from peewee import Model, SqliteDatabase
 from playhouse.test_utils import test_database
 
-from models import (Affiliation, OrcidToken, Organisation, OrgInfo, PartialDate, PartialDateField,
-                    Role, User, UserOrg, UserOrgAffiliation, create_tables, drop_tables)
+from models import (Affiliation, AffiliationRecord, OrcidToken, Organisation, OrgInfo, PartialDate,
+                    PartialDateField, Role, Task, User, UserOrg, UserOrgAffiliation, create_tables,
+                    drop_tables)
 
 
 @pytest.fixture
@@ -21,7 +22,8 @@ def test_db():
     """
     _db = SqliteDatabase(":memory:")
     with test_database(
-            _db, (Organisation, User, UserOrg, OrcidToken, UserOrgAffiliation),
+            _db, (Organisation, User, UserOrg, OrcidToken, UserOrgAffiliation, Task,
+                  AffiliationRecord),
             fail_silently=True) as _test_db:
         yield _test_db
 
@@ -207,6 +209,9 @@ def test_partial_date():
     assert PartialDate().as_orcid_dict() is None
     assert PartialDate.create(None) is None
     assert PartialDate.create({}) is None
+    assert PartialDate.create("1997") == PartialDate(year=1997, month=None, day=None)
+    assert PartialDate.create("1997-12") == PartialDate(year=1997, month=12, day=None)
+    assert PartialDate.create("1997-12-31") == PartialDate(year=1997, month=12, day=31)
 
 
 def test_pd_field():
@@ -258,3 +263,24 @@ def test_affiliations(test_models):
     assert Affiliation.EMP == Affiliation["EMP"]
     assert hash(Affiliation.EMP) == hash("EMP")
     assert str(Affiliation.EDU | Affiliation.EMP) == "Education, Employment"
+
+
+def test_load_task_from_csv(test_models):
+    org = Organisation.create(name="TEST0")
+    # flake8: noqa
+    row_count = Task.load_from_csv(
+        """First name	Last name	email address	Organisation	Campus/Department	City	Course or Job title	Start date	End date	Student/Staff
+FNA	LBA	aaa.lnb@test.com	TEST1	Research Funding	Wellington	Programme Manager - ORCID	2016-09		Staff
+FNA	LBA	aaa.lnb@test.com	TEST1	Research Funding	Wellington	Programme Manager - Insights and Evaluation	2014		Staff
+FNA	LBA	aaa.lnb@test.com	TEST0	External Affairs	Wellington	Senior Evaluation Officer	2011	2014	Staff
+FNA	LBA	aaa.lnb@test.com	TEST0	Policy and Evaluation	Wellington	Evaluation Officer	2005	2011	Staff
+FNA	LBA	aaa.lnb@test.com	TEST0	Marsden Fund	Wellington	Research Assessor	2001	2004	Staff
+FNB	LNB	b.b@test.com	TEST1	Communications and Outreach	Wellington	Projects and Events Coordinator	2013		Staff
+FNB	LNB	b.b@test.com	TEST0	Science and Education Group	Wellington	School Programmes Manager	2008	2013	Staff
+FNB	LNB	b.b@test.com	TEST0	Science and Education Group	Wellington	Project Manager	2000	2004	Staff
+FNB	LNB	b.b@test.com	TEST0	Science and Education Group	Wellington	Manager Special Programmes	2004	2008	Staff
+""",
+        filename="TEST.tsv",
+        org=org)
+    assert row_count == 9
+    assert AffiliationRecord.select().count() == row_count

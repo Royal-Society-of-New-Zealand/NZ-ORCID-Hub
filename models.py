@@ -8,8 +8,6 @@ from collections import namedtuple
 from hashlib import md5
 from io import StringIO
 from itertools import zip_longest
-import logging
-from os import environ
 from urllib.parse import urlencode
 
 from flask_login import UserMixin, current_user
@@ -39,8 +37,8 @@ class PartialDate(namedtuple("PartialDate", ["year", "month", "day"])):
         }) for (f, v) in zip(self._fields, self)))
 
     @classmethod
-    def create(cls, dict_value):
-        """Create a partial date form ORCID dictionary representation.
+    def create(cls, value):
+        """Create a partial date form ORCID dictionary representation or string.
 
         >>> PartialDate.create({"year": {"value": "2003"}}).as_orcid_dict()
         {'year': {'value': '2003'}, 'month': None, 'day': None}
@@ -48,9 +46,12 @@ class PartialDate(namedtuple("PartialDate", ["year", "month", "day"])):
         >>> PartialDate.create({"year": {"value": "2003"}}).year
         2003
         """
-        if dict_value is None or dict_value == {}:
+        if value is None or value == {}:
             return None
-        return cls(**{k: int(v.get("value")) if v else None for k, v in dict_value.items()})
+        if isinstance(value, str):
+            return cls(* [int(v) for v in value.split('-')])
+
+        return cls(**{k: int(v.get("value")) if v else None for k, v in value.items()})
 
     def as_datetime(self):
         return datetime.datetime(self.year, self.month, self.day)
@@ -257,8 +258,8 @@ class OrgInfo(BaseModel):
         db_table = "org_info"
         table_alias = "oi"
 
-    @staticmethod
-    def load_from_csv(source):
+    @classmethod
+    def load_from_csv(cls, source):
         """Load data from CSV file or a string."""
         if isinstance(source, str):
             if '\n' in source:
@@ -299,7 +300,7 @@ class OrgInfo(BaseModel):
 
         for row in reader:
             name = val(row, 0)
-            oi, _ = OrgInfo.get_or_create(name=name)
+            oi, _ = cls.get_or_create(name=name)
 
             oi.title = val(row, 1)
             oi.first_name = val(row, 2)
@@ -513,19 +514,99 @@ class OrcidApiCall(BaseModel):
 
 
 class Task(BaseModel, AuditMixin):
-    """Batch processing task created form CSV file."""
+    """Batch processing task created form CSV/TSV file."""
     org = ForeignKeyField(Organisation, index=True, verbose_name="Organisation")
     completed_at = DateTimeField(default=datetime.datetime.now, null=True)
     filename = TextField(null=True)
     created_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
     updated_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
 
+    @classmethod
+    def load_from_csv(cls, source, filename=None, org=None):
+        """Load data from CSV/TSV file or a string."""
+        if isinstance(source, str):
+            if '\n' in source:
+                source = StringIO(source)
+            else:
+                source = open(source)
+                if filename is None:
+                    filename = source
+        reader = csv.reader(source)
+        header = next(reader)
+        if filename is None:
+            filename = datetime.now().isoformat(timespec="seconds")
+
+        if len(header) == 1 and '\t' in header[0]:
+            source.seek(0)
+            reader = csv.reader(source, delimiter='\t')
+            header = next(reader)
+        else:
+            raise Exception("Expected CSV or TSV format file.")
+
+        assert len(header) >= 7, \
+            "Wrong number of fields. Expected at least 7 fields " \
+            "(first name, last name, email address, organisation, " \
+            "campus/department, city, course or job title, start date, end date, student/staff). " \
+            "Read header: %s" % header
+        header_rexs = [
+            re.compile(ex, re.I)
+            for ex in (r"first\s*(name)?", r"last\s*(name)?", "email|id|identifier",
+                       "organisation|^name", "campus|department", "city", "course|title|role",
+                       r"start\s*(date)?", r"end\s*(date)?",
+                       r"affiliation(s)?\s*(type)?|student|staff")
+        ]
+
+        def index(rex):
+            """Return first header column index matching the given regex."""
+            for i, column in enumerate(header):
+                if rex.match(column):
+                    return i
+            else:
+                return None
+
+        idxs = [index(rex) for rex in header_rexs]
+
+        if all(idx is None for idx in idxs):
+            raise Exception(f"Failed to map fields based on the header of the file: {header}")
+
+        if org is None:
+            org = current_user.organisation if current_user else None
+        task = cls.create(org=org, filename=filename)
+
+        def val(row, i):
+            if idxs[i] is None:
+                return None
+            else:
+                v = row[idxs[i]].strip()
+                return None if v == '' else v
+
+        for row in reader:
+            AffiliationRecord.create(
+                task=task,
+                first_name=val(row, 0),
+                last_name=val(row, 1),
+                identifier=val(row, 2),
+                organisation=val(row, 3),
+                department=val(row, 4),
+                city=val(row, 5),
+                region=val(row, 5),  # ???
+                role=val(row, 6),
+                start_date=PartialDate.create(val(row, 7)),
+                end_date=PartialDate.create(val(row, 8)),
+                affiliation_type=val(row, 9))
+
+        return reader.line_num - 1
+
 
 class AffiliationRecord(BaseModel):
     """Affiliation record loaded from CSV file for batch processing."""
     task = ForeignKeyField(Task)
+    first_name = TextField(null=True)
+    last_name = TextField(null=True)
     identifier = TextField(help_text="User email, eppn, or ORCID Id")
-    affiliation_type = TextField(null=True, choices=("EDU", "EMP", "student", "alum", "faculty", "staff", ))
+    organisation = TextField(null=True)
+    affiliation_type = TextField(
+        null=True, choices=("EDU", "EMP", "student", "alum", "faculty", "staff", ))
     role = TextField(null=True, verbose_name="Role/title")
     department = TextField(null=True)
     start_date = PartialDateField(null=True)
@@ -546,10 +627,7 @@ def create_tables():
         db.connect()
     except OperationalError:
         pass
-    logger = logging.getLogger('peewee')
-    if logger:
-        logger.setLevel(logging.DEBUG)
-        logger.addHandler(logging.StreamHandler())
+
     Organisation.create_table()
     User.create_table()
     UserOrg.create_table()
@@ -559,6 +637,7 @@ def create_tables():
     OrcidApiCall.create_table()
     Task.create_table()
     AffiliationRecord.create_table()
+
 
 def drop_tables():
     """Drop all model tables."""

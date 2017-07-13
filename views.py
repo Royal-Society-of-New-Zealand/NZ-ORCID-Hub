@@ -608,8 +608,7 @@ def invite_organisation():
                 register_org(form.orgName.data,
                              form.orgEmailid.data.lower(), request.form.get("tech_contact"))
                 flash("Organisation Invited Successfully! "
-                      "An email has been sent to the organisation contact",
-                      "success")
+                      "An email has been sent to the organisation contact", "success")
                 app.logger.info(
                     "Organisation '%s' successfully invited. Invitation sent to '%s'." %
                     (form.orgName.data, form.orgEmailid.data))
