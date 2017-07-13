@@ -16,9 +16,10 @@ from jinja2 import Markup
 
 import orcid_client
 import utils
+
 from application import admin, app
 from config import ORCID_BASE_URL, SCOPE_ACTIVITIES_UPDATE, SCOPE_READ_LIMITED
-from forms import (BitmapMultipleValueField, OrgInfoForm, OrgRegistrationForm, RecordForm)
+from forms import (BitmapMultipleValueField, FileUploadForm, OrgRegistrationForm, RecordForm)
 from login_provider import roles_required
 from models import PartialDate as PD
 from models import (CharField, OrcidApiCall, OrcidToken, Organisation, OrgInfo, Role, TextField,
@@ -477,7 +478,7 @@ def show_record_section(user_id, section_type="EMP"):
 def load_org():
     """Preload organisation data."""
 
-    form = OrgInfoForm()
+    form = FileUploadForm()
     if form.validate_on_submit():
         data = request.files[form.org_info.name].read().decode("utf-8")
         row_count = OrgInfo.load_from_csv(data)
@@ -485,7 +486,38 @@ def load_org():
         flash("Successfully loaded %d rows." % row_count, "success")
         return redirect(url_for("orginfo.index_view"))
 
-    return render_template("orginfo.html", form=form)
+    return render_template("fileUpload.html", form=form, form_title="Organisation")
+
+
+@app.route("/load/researcher", methods=["GET", "POST"])
+@roles_required(Role.ADMIN)
+def load_researcher_info():
+    """Preload organisation data."""
+
+    form = FileUploadForm()
+    if form.validate_on_submit():
+        data = request.files[form.org_info.name].read().decode("utf-8")
+        users = User.load_from_csv(data)
+
+        flash("Successfully loaded %d rows." % len(users), "success")
+        try:
+            for u in users.keys():
+                user = users[u]
+                with app.app_context():
+                    email_and_organisation = user.email + ";" + user.organisation.name
+                    token = generate_confirmation_token(email_and_organisation)
+                    utils.send_email(
+                        "email/researcher_invitation.html",
+                        recipient=(user.organisation.name, user.email),
+                        token=token,
+                        org_name=user.organisation.name,
+                        user=user)
+        except Exception as ex:
+            flash("Exception occured while sending mails %r" % str(ex), "danger")
+
+        return redirect(url_for("viewmembers"))
+
+    return render_template("fileUpload.html", form=form, form_title="Researcher")
 
 
 @app.route("/orcid_api_rep", methods=["GET", "POST"])

@@ -5,7 +5,7 @@
   <form method="POST" enctype="multipart/form-data">
     <div class="row">
       <div class="col-md-9 col-sm-8 col-xs-12">
-        <h1>Organisation Info Upload</h1>
+        <h1>{{ form_title }} Info Upload</h1>
         {{ form.hidden_tag() }}
         {{ render_field(form.org_info) }}
         <button type="submit" class="btn btn-primary" value="Save">Upload</button>

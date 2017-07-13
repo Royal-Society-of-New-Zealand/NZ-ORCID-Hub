@@ -11,7 +11,7 @@ from itertools import zip_longest
 from os import environ
 from urllib.parse import urlencode
 
-from flask_login import UserMixin
+from flask_login import UserMixin, current_user
 from peewee import (BooleanField, CharField, CompositeKey, DateTimeField, DeferredRelation, Field,
                     ForeignKeyField, IntegerField, Model, OperationalError, SmallIntegerField,
                     TextField, datetime)
@@ -402,6 +402,72 @@ class User(BaseModel, UserMixin, AuditMixin):
         if org is None:
             org = self.organisation
         return org and org.tech_contact and org.tech_contact_id == self.id
+
+    @staticmethod
+    def load_from_csv(source):
+        """Load data from CSV file or a string."""
+        if isinstance(source, str):
+            if '\n' in source:
+                source = StringIO(source)
+            else:
+                source = open(source)
+        reader = csv.reader(source)
+        header = next(reader)
+
+        assert len(header) >= 4, \
+            "Wrong number of fields. Expected at least 4 fields " \
+            "(first Name, Last Name, affiliation and email). " \
+            "Read header: %s" % header
+        header_rexs = [
+            re.compile(ex, re.I)
+            for ex in (r"first\s*(name)?", r"last\s*(name)?",
+                       "email\s*(address)?", "affiliation|student/staff")]
+
+        def index(rex):
+            """Return first header column index matching the given regex."""
+            for i, column in enumerate(header):
+                if rex.match(column):
+                    return i
+            else:
+                return None
+
+        idxs = [index(rex) for rex in header_rexs]
+
+        def val(row, i):
+            if idxs[i] is None:
+                return None
+            else:
+                v = row[idxs[i]].strip()
+                return None if v == '' else v
+
+        org = Organisation.get(name=current_user.organisation.name)
+        users = {}
+        for row in reader:
+            email = val(row, 2).encode("latin-1").decode("utf-8").lower()
+            user, _ = User.get_or_create(email=email)
+
+            user.first_name = val(row, 0).encode("latin-1").decode("utf-8")
+            user.last_name = val(row, 1).encode("latin-1").decode("utf-8")
+            user.roles = Role.RESEARCHER
+            user.email = email
+            user.organisation = org
+            user.save()
+            users[user.email] = user
+            user_org, user_org_created = UserOrg.get_or_create(user=user, org=org)
+
+            if val(row, 3):
+                unscoped_affiliation = set(a.strip() for a in val(row, 3).encode("latin-1")
+                                           .decode("utf-8").lower().replace(',', ';').split(';'))
+
+                edu_person_affiliation = Affiliation.NONE
+                if unscoped_affiliation & {"faculty", "staff"}:
+                    edu_person_affiliation |= Affiliation.EMP
+                if unscoped_affiliation & {"student", "alum"}:
+                    edu_person_affiliation |= Affiliation.EDU
+                user_org.affiliations = edu_person_affiliation
+            user_org.save()
+
+        return users
 
     @property
     def uuid(self):

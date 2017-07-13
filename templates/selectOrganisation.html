@@ -1,0 +1,24 @@
+{% extends "layout.html" %}
+{% block content %}
+  <div class="container">
+    <div class="jumbotron">
+      <h2 class="display-2">Welcome to the NZ ORCID hub</h2>
+      <p style="margin-left: 1em;">...Linking New Zealand organisations to ORCID.</p>
+      <!-- div class="center-block">
+        <a class="btn btn-primary" href="{{ship_login_url}}" role="button">Login via Tuakiri</a>
+        <a class="btn btn-success" href="#" role="button">Login via ORCiD</a>
+        </div -->
+      <div class="jumbotron" style="padding-top: 10px">
+        <p>Select your Organisation</p>
+        <form method="POST">
+          {{ form.hidden_tag() }}
+            <div class="form-group">
+            <label for="orgNames">Organisation:</label>
+            {{ form.orgNames(style="width:300px;height:30px") }}
+            </div>
+            <button type="submit" class="btn btn-default" value="Confirm Organisation">Confirm</button>
+        </form>
+      </div>
+    </div>
+  </div>
+{% endblock %}
