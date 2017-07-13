@@ -27,7 +27,7 @@ from config import (APP_DESCRIPTION, APP_NAME, APP_URL, AUTHORIZATION_BASE_URL, 
                     EXTERNAL_SP, MEMBER_API_FORM_BASE_URL, NEW_CREDENTIALS, NOTE_ORCID,
                     ORCID_API_BASE, ORCID_BASE_URL, SCOPE_ACTIVITIES_UPDATE, SCOPE_AUTHENTICATE,
                     SCOPE_READ_LIMITED, TOKEN_URL)
-from forms import OnboardingTokenForm, OrgConfirmationForm
+from forms import OnboardingTokenForm, OrgConfirmationForm, SelectOrganisation
 from login_provider import roles_required
 from models import (Affiliation, OrcidToken, Organisation, OrgInfo, Role, User, UserOrg)
 from swagger_client.rest import ApiException
@@ -924,3 +924,111 @@ def generateRow(users):
 def internal_error(error):
     app.logger.error("Exception 500 occured due to: %r", error.description)
     return render_template("http500.html", error_message=error.description)
+
+
+@app.route("/orcid/login/", methods=["GET", "POST"])
+@app.route("/orcid/login/<token>", methods=["GET", "POST"])
+def orcid_login(token=None):
+
+    form = SelectOrganisation()
+
+    try:
+        if request.method == 'GET' and token is None:
+            return render_template("selectOrganisation.html", form=form)
+        else:
+            extend_url = "?"
+
+            if token is not None:
+                email_and_organisation = confirm_token(token)
+                email, org = email_and_organisation.split(';')
+                extend_url = extend_url + "email=" + email + "&" + "orgName=" + org
+                organisation = Organisation.get(name=org)
+                session['email'] = email
+                session['orgName'] = org
+            else:
+                if form.orgNames.data:
+                    organisation = Organisation.get(id=int(form.orgNames.data))
+                    extend_url = extend_url + "orgName=" + organisation.name
+                    session['orgName'] = organisation.name
+                else:
+                    flash("Please select organisation through which you want to login", "danger")
+                    return render_template("selectOrganisation.html", form=form)
+
+            redirect_uri = url_for("orcid_login_callback", _external=True)
+            if EXTERNAL_SP:
+                sp_url = urlparse(EXTERNAL_SP)
+                redirect_uri = sp_url.scheme + "://" + sp_url.netloc + "/auth/" + quote(redirect_uri) + extend_url
+            else:
+                redirect_uri = redirect_uri + extend_url
+
+            client_write = OAuth2Session(organisation.orcid_client_id, scope=SCOPE_AUTHENTICATE,
+                                         redirect_uri=redirect_uri, )
+
+            authorization_url_write, state = client_write.authorization_url(AUTHORIZATION_BASE_URL)
+            session['oauth_state'] = state
+
+            orcid_url_write = append_qs(iri_to_uri(authorization_url_write))
+
+            return redirect(orcid_url_write)
+    except Exception as ex:
+        flash("Something went wrong contact orcidhub support for issue: %s" % str(ex))
+        app.logger.error("Encountered exception: %r", ex)
+        return redirect(url_for("login"))
+
+
+@app.route("/orcid/auth")
+def orcid_login_callback():
+    try:
+        state = request.args['state']
+        email = None
+        if session.get('email'):
+            email = request.args['email']
+        orgName = request.args['orgName']
+
+        if state != session.get('oauth_state') and orgName != session.get('orgName'):
+            flash(
+                "Something went wrong, Please retry giving permissions or if issue persist then, "
+                "Please contact ORCIDHUB for support",
+                "danger")
+
+            return redirect(url_for("login"))
+        organisation = Organisation.get(name=orgName)
+        client = OAuth2Session(organisation.orcid_client_id)
+        token = client.fetch_token(
+            TOKEN_URL,
+            client_secret=organisation.orcid_secret,
+            authorization_response=request.url)
+        orcid_id = token['orcid']
+        user = None
+        if email is None:
+            user_data = User.get(orcid=orcid_id)
+            user_org = UserOrg.get(user=user_data, org=organisation)
+            user = User.get(id=user_org.user)
+        else:
+            user_data = User.get(email=email)
+            user_org = UserOrg.get(user=user_data, org=organisation)
+            user = User.get(id=user_org.user)
+            user.orcid = orcid_id
+            user.confirmed = True
+        if user is not None and user.name is None and token['name']:
+            user.name = token['name']
+        user.save()
+
+        login_user(user)
+    except User.DoesNotExist:
+        flash("You are not onboarded on ORCIDHUB...", "danger")
+        return redirect(url_for("login"))
+    except UserOrg.DoesNotExist:
+        flash("You are not onboarded on ORCIDHUB...", "danger")
+        return redirect(url_for("login"))
+    except rfc6749.errors.MissingCodeError:
+        flash("%s cannot be invoked directly..." % request.url, "danger")
+        return redirect(url_for("login"))
+    except rfc6749.errors.MissingTokenError:
+        flash("Missing token.", "danger")
+        return redirect(url_for("login"))
+    except Exception as ex:
+        flash("Something went wrong contact orcidhub support for issue: %s" % str(ex))
+        app.logger.error("For %r encountered exception: %r", current_user, ex)
+        return redirect(url_for("login"))
+    return redirect(url_for("link"))
