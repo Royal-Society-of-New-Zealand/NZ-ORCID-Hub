@@ -13,17 +13,18 @@ from flask_admin.form import SecureForm
 from flask_admin.model import typefmt
 from flask_login import current_user, login_required
 from jinja2 import Markup
+from werkzeug import secure_filename
 
 import orcid_client
 import utils
-
 from application import admin, app
 from config import ORCID_BASE_URL, SCOPE_ACTIVITIES_UPDATE, SCOPE_READ_LIMITED
-from forms import (BitmapMultipleValueField, FileUploadForm, OrgRegistrationForm, RecordForm)
+from forms import (BitmapMultipleValueField, FileUploadForm, OrgRegistrationForm, PartialDateField,
+                   RecordForm)
 from login_provider import roles_required
 from models import PartialDate as PD
-from models import (CharField, OrcidApiCall, OrcidToken, Organisation, OrgInfo, Role, TextField,
-                    User, UserOrg, UserOrgAffiliation, db)
+from models import (AffiliationRecord, CharField, OrcidApiCall, OrcidToken, Organisation, OrgInfo,
+                    Role, Task, TextField, User, UserOrg, UserOrgAffiliation, db)
 # NB! Should be disabled in production
 from pyinfo import info
 from swagger_client.rest import ApiException
@@ -64,6 +65,7 @@ class AppModelView(ModelView):
         lambda view, value: Markup(value.strftime("%Y‑%m‑%d&nbsp;%H:%M")),
     })
     column_exclude_list = ("created_at", "updated_at", "created_by", "updated_by", )
+    form_overrides = dict(start_date=PartialDateField, end_date=PartialDateField)
 
     def init_search(self):
         if self.column_searchable_list:
@@ -100,6 +102,14 @@ class AppModelView(ModelView):
     def inaccessible_callback(self, name, **kwargs):
         """Handle access denial. Redirect to login page if user doesn"t have access."""
         return redirect(url_for("login", next=request.url))
+
+    def get_query(self):
+        query = super().get_query()
+        if request.args:
+            for f in self.model._meta.fields.values():
+                if f.db_column.endswith("_id") and f.db_column in request.args:
+                    query = query.where(f == int(request.args[f.db_column]))
+        return query
 
 
 class UserAdmin(AppModelView):
@@ -170,6 +180,8 @@ admin.add_view(OrganisationAdmin(Organisation))
 admin.add_view(OrcidTokenAdmin(OrcidToken))
 admin.add_view(OrgInfoAdmin(OrgInfo))
 admin.add_view(OrcidApiCallAmin(OrcidApiCall))
+admin.add_view(AppModelView(Task))
+admin.add_view(AppModelView(AffiliationRecord))
 
 SectionRecord = namedtuple("SectionRecord", [
     "name", "city", "state", "country", "department", "role", "start_date", "end_date"
@@ -481,7 +493,7 @@ def load_org():
 
     form = FileUploadForm()
     if form.validate_on_submit():
-        data = request.files[form.org_info.name].read().decode("utf-8")
+        data = request.files[form.file_.name].read().decode("utf-8")
         row_count = OrgInfo.load_from_csv(data)
 
         flash("Successfully loaded %d rows." % row_count, "success")
@@ -492,30 +504,16 @@ def load_org():
 
 @app.route("/load/researcher", methods=["GET", "POST"])
 @roles_required(Role.ADMIN)
-def load_researcher_info():
+def load_researcher_affiliations():
     """Preload organisation data."""
 
     form = FileUploadForm()
     if form.validate_on_submit():
-        data = request.files[form.org_info.name].read().decode("utf-8")
-        users = User.load_from_csv(data)
+        filename = secure_filename(form.file_.data.filename)
+        data = request.files[form.file_.name].read().decode("utf-8")
+        row_count = Task.load_from_csv(data, filename=filename)
 
-        flash("Successfully loaded %d rows." % len(users), "success")
-        try:
-            for u in users.keys():
-                user = users[u]
-                with app.app_context():
-                    email_and_organisation = user.email + ";" + user.organisation.name
-                    token = generate_confirmation_token(email_and_organisation)
-                    utils.send_email(
-                        "email/researcher_invitation.html",
-                        recipient=(user.organisation.name, user.email),
-                        token=token,
-                        org_name=user.organisation.name,
-                        user=user)
-        except Exception as ex:
-            flash("Exception occured while sending mails %r" % str(ex), "danger")
-
+        flash("Successfully loaded %d rows." % row_count, "success")
         return redirect(url_for("viewmembers"))
 
     return render_template("fileUpload.html", form=form, form_title="Researcher")

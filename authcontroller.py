@@ -953,12 +953,15 @@ def orcid_login(token=None):
             redirect_uri = url_for("orcid_login_callback", _external=True)
             if EXTERNAL_SP:
                 sp_url = urlparse(EXTERNAL_SP)
-                redirect_uri = sp_url.scheme + "://" + sp_url.netloc + "/auth/" + quote(redirect_uri) + extend_url
+                redirect_uri = sp_url.scheme + "://" + sp_url.netloc + "/auth/" + quote(
+                    redirect_uri) + extend_url
             else:
                 redirect_uri = redirect_uri + extend_url
 
-            client_write = OAuth2Session(organisation.orcid_client_id, scope=SCOPE_AUTHENTICATE,
-                                         redirect_uri=redirect_uri, )
+            client_write = OAuth2Session(
+                organisation.orcid_client_id,
+                scope=SCOPE_AUTHENTICATE,
+                redirect_uri=redirect_uri, )
 
             authorization_url_write, state = client_write.authorization_url(AUTHORIZATION_BASE_URL)
             session['oauth_state'] = state
@@ -984,16 +987,13 @@ def orcid_login_callback():
         if state != session.get('oauth_state') and orgName != session.get('orgName'):
             flash(
                 "Something went wrong, Please retry giving permissions or if issue persist then, "
-                "Please contact ORCIDHUB for support",
-                "danger")
+                "Please contact ORCIDHUB for support", "danger")
 
             return redirect(url_for("login"))
         organisation = Organisation.get(name=orgName)
         client = OAuth2Session(organisation.orcid_client_id)
         token = client.fetch_token(
-            TOKEN_URL,
-            client_secret=organisation.orcid_secret,
-            authorization_response=request.url)
+            TOKEN_URL, client_secret=organisation.orcid_secret, authorization_response=request.url)
         orcid_id = token['orcid']
         user = None
         if email is None:

@@ -56,6 +56,15 @@ class PartialDate(namedtuple("PartialDate", ["year", "month", "day"])):
     def as_datetime(self):
         return datetime.datetime(self.year, self.month, self.day)
 
+    def __repr__(self):
+        if self.year is None:
+            return None
+        else:
+            res = "%04d" % int(self.year)
+            if self.month:
+                res += "-%02d" % int(self.month)
+            return res + "-%02d" % int(self.day) if self.day else res
+
 
 PartialDate.__new__.__defaults__ = (None, ) * len(PartialDate._fields)
 
@@ -446,8 +455,9 @@ class User(BaseModel, UserMixin, AuditMixin):
             "Read header: %s" % header
         header_rexs = [
             re.compile(ex, re.I)
-            for ex in (r"first\s*(name)?", r"last\s*(name)?",
-                       "email\s*(address)?", "affiliation|student/staff")]
+            for ex in (r"first\s*(name)?", r"last\s*(name)?", "email\s*(address)?",
+                       "affiliation|student/staff")
+        ]
 
         def index(rex):
             """Return first header column index matching the given regex."""
@@ -482,7 +492,8 @@ class User(BaseModel, UserMixin, AuditMixin):
             user_org, user_org_created = UserOrg.get_or_create(user=user, org=org)
 
             if val(row, 3):
-                unscoped_affiliation = set(a.strip() for a in val(row, 3).encode("latin-1")
+                unscoped_affiliation = set(a.strip()
+                                           for a in val(row, 3).encode("latin-1")
                                            .decode("utf-8").lower().replace(',', ';').split(';'))
 
                 edu_person_affiliation = Affiliation.NONE
@@ -586,6 +597,9 @@ class Task(BaseModel, AuditMixin):
     filename = TextField(null=True)
     created_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
     updated_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
+
+    def __repr__(self):
+        return self.filename or f"Task #{self.id}"
 
     @classmethod
     def load_from_csv(cls, source, filename=None, org=None):
