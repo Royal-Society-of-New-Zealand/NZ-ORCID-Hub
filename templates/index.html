@@ -24,6 +24,18 @@
             </div>
           </a>
         </div>
+          <div class="onboarding-block">
+              {% if org_onboarded_info %}
+                  <p>List of On-boarded Organisations</p>
+                      <table>
+                          {% for v in org_onboarded_info.items() %}
+                          <tr>
+                            <td class="name">{{ v.0 }}</td>
+                          </tr>
+                          {% endfor %}
+                      </table>
+              {% endif %}
+        </div>
       </div>
     </div>
   </div>
