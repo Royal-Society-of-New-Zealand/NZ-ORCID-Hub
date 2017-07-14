@@ -226,6 +226,10 @@ class TaskAdmin(AppModelView):
 
 class AffiliationRecordAdmin(AppModelView):
     roles_required = Role.SUPERUSER | Role.ADMIN
+    list_template = "affiliation_record_list.html"
+    column_exclude_list = ("task", "organisation", )
+    column_searchable_list = ("first_name", "last_name", "identifier", "role", "department",
+                              "region", )
     can_edit = False
     can_create = False
     can_delete = False
@@ -268,6 +272,12 @@ def year_range(entry):
 def user_orcid_id_url(user):
     """Render user ORCID Id URL."""
     return ORCID_BASE_URL + user.orcid if user.orcid else ""
+
+
+@app.template_filter("isodate")
+def isodate(d, sep=' '):
+    """Render date into format YYYY-mm-dd HH:MM."""
+    return d.strftime("%Y‑%m‑%d" + sep + "%H:%M") if d and isinstance(d, (datetime, )) else d
 
 
 @app.route("/<int:user_id>/emp/<int:put_code>/delete", methods=["POST"])
