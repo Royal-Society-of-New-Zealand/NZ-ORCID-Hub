@@ -674,6 +674,7 @@ def register_org(org_name, email, tech_contact=True):
             utils.send_email(
                 "email/org_invitation.html",
                 recipient=(org_name, email),
+                cc_email=current_user.email,
                 token=token,
                 org_name=org_name,
                 user=user)
