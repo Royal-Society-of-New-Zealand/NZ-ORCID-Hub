@@ -26,7 +26,7 @@ from application import app, db, mail
 from config import (APP_DESCRIPTION, APP_NAME, APP_URL, AUTHORIZATION_BASE_URL, CRED_TYPE_PREMIUM,
                     EXTERNAL_SP, MEMBER_API_FORM_BASE_URL, NEW_CREDENTIALS, NOTE_ORCID,
                     ORCID_API_BASE, ORCID_BASE_URL, SCOPE_ACTIVITIES_UPDATE, SCOPE_AUTHENTICATE,
-                    SCOPE_READ_LIMITED, TOKEN_URL)
+                    SCOPE_READ_LIMITED, TOKEN_URL, NZ_ORCIDHUB_CLIENT_ID, NZ_ORCIDHUB_CLIENT_SECRET)
 from forms import OnboardingTokenForm, OrgConfirmationForm, SelectOrganisation
 from login_provider import roles_required
 from models import (Affiliation, OrcidToken, Organisation, OrgInfo, Role, User, UserOrg)
@@ -57,7 +57,11 @@ def login():
     else:
         login_url = url_for("handle_login", _next=_next)
 
-    return render_template("index.html", login_url=login_url)
+    org_onboarded_info = {r.name: r.tuakiri_name for r in
+                          Organisation.select(Organisation.name, Organisation.tuakiri_name).where(
+                              Organisation.confirmed.__eq__(True))}
+
+    return render_template("index.html", login_url=login_url, org_onboarded_info=org_onboarded_info)
 
 
 @app.route("/Tuakiri/SP")
@@ -319,6 +323,7 @@ def link():
     return redirect(url_for("profile"))
 
 
+@app.route("/orcid/auth/<path:url>", methods=["GET"])
 @app.route("/auth/<path:url>", methods=["GET"])
 def orcid_callback_proxy(url):
     url = unquote(url)
@@ -953,11 +958,11 @@ def orcid_login(token=None):
             redirect_uri = url_for("orcid_login_callback", _external=True)
             if EXTERNAL_SP:
                 sp_url = urlparse(EXTERNAL_SP)
-                redirect_uri = sp_url.scheme + "://" + sp_url.netloc + "/auth/" + quote(redirect_uri) + extend_url
+                redirect_uri = sp_url.scheme + "://" + sp_url.netloc + "/orcid/auth/" + quote(redirect_uri) + extend_url
             else:
                 redirect_uri = redirect_uri + extend_url
 
-            client_write = OAuth2Session(organisation.orcid_client_id, scope=SCOPE_AUTHENTICATE,
+            client_write = OAuth2Session(NZ_ORCIDHUB_CLIENT_ID, scope=SCOPE_AUTHENTICATE,
                                          redirect_uri=redirect_uri, )
 
             authorization_url_write, state = client_write.authorization_url(AUTHORIZATION_BASE_URL)
@@ -989,10 +994,10 @@ def orcid_login_callback():
 
             return redirect(url_for("login"))
         organisation = Organisation.get(name=orgName)
-        client = OAuth2Session(organisation.orcid_client_id)
+        client = OAuth2Session(NZ_ORCIDHUB_CLIENT_ID)
         token = client.fetch_token(
             TOKEN_URL,
-            client_secret=organisation.orcid_secret,
+            client_secret=NZ_ORCIDHUB_CLIENT_SECRET,
             authorization_response=request.url)
         orcid_id = token['orcid']
         user = None
