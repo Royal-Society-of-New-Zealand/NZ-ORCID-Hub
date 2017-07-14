@@ -17,6 +17,24 @@
               <div class="login-button">Login&nbsp;via&nbsp;Tuakiri</div>
             </div>
           </a>
+          <a href="{{url_for('orcid_login')}}">
+            <div class="orcid">
+              <img alt="Login via Orcid" src="{{image('orcid-logo.png')}}">
+              <div class="login-button">Login&nbsp;via&nbsp;Orcid</div>
+            </div>
+          </a>
+        </div>
+          <div class="onboarding-block" style="padding-top: 20px">
+              {% if org_onboarded_info %}
+                  <p>Organisations onboard the Hub so far:</p>
+                      <table>
+                          {% for v in org_onboarded_info.items() %}
+                          <tr>
+                            <td class="name">{{ v.0 }}</td>
+                          </tr>
+                          {% endfor %}
+                      </table>
+              {% endif %}
         </div>
       </div>
     </div>

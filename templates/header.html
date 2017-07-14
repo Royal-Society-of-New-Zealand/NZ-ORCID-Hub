@@ -33,6 +33,13 @@
                 <li id="viewmembers"><a href="/viewmembers">ORCID iDs of researchers at your institution</a></li>
                 {% if current_user.is_tech_contact_of(current_user.organisation) %}
                   <li id="updateorginfo"><a href="/updateorginfo">view your organisation's ORCID information</a></li>
+                  <li class="dropdown">
+                    <a class="dropdown-toggle" data-toggle="dropdown" href="#">More
+                      <span class="caret"></span></a>
+                    <ul class="dropdown-menu">
+                      <li id="load_researcher_info"><a href="{{ url_for('load_researcher_info')}}">Upload Researcher Info</a></li>
+                    </ul>
+                  </li>
                 {% endif %}
               {% endif %}
             {% endif %}
