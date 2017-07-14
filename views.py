@@ -23,8 +23,9 @@ from forms import (BitmapMultipleValueField, FileUploadForm, OrgRegistrationForm
                    RecordForm)
 from login_provider import roles_required
 from models import PartialDate as PD
-from models import (AffiliationRecord, CharField, OrcidApiCall, OrcidToken, Organisation, OrgInfo,
-                    Role, Task, TextField, User, UserOrg, UserOrgAffiliation, db)
+from models import AffiliationRecord  # noqa: F401
+from models import (CharField, OrcidApiCall, OrcidToken, Organisation, OrgInfo, Role, Task,
+                    TextField, User, UserOrg, UserOrgAffiliation, db)
 # NB! Should be disabled in production
 from pyinfo import info
 from swagger_client.rest import ApiException
@@ -58,6 +59,7 @@ def about():
 class AppModelView(ModelView):
     """ModelView customization."""
 
+    roles_required = Role.SUPERUSER
     form_base_class = SecureForm
     column_type_formatters = dict(typefmt.BASE_FORMATTERS)
     column_type_formatters.update({
@@ -66,6 +68,18 @@ class AppModelView(ModelView):
     })
     column_exclude_list = ("created_at", "updated_at", "created_by", "updated_by", )
     form_overrides = dict(start_date=PartialDateField, end_date=PartialDateField)
+
+    def __init__(self, model=None, *args, **kwargs):
+        """Picks the model based on the ModelView class name assuming it is ModelClass + "Admin"."""
+        if model is None:
+            if hasattr(self, "model"):
+                model = self.model
+            else:
+                model_class_name = self.__class__.__name__.replace("Admin", '')
+                model = globals().get(model_class_name)
+            if model is None:
+                raise Exception(f"Model class {model_class_name} doesn't exit.")
+        super().__init__(model, *args, **kwargs)
 
     def init_search(self):
         if self.column_searchable_list:
@@ -94,7 +108,7 @@ class AppModelView(ModelView):
         if not current_user.is_active or not current_user.is_authenticated:
             return False
 
-        if current_user.has_role(Role.SUPERUSER):
+        if current_user.has_role(self.roles_required):
             return True
 
         return False
@@ -104,12 +118,39 @@ class AppModelView(ModelView):
         return redirect(url_for("login", next=request.url))
 
     def get_query(self):
+        """Add URL query to the data select for foreign key and select data
+        that user has access to."""
         query = super().get_query()
-        if request.args:
+
+        if current_user and not current_user.has_role(Role.SUPERUSER) and current_user.has_role(
+                Role.ADMIN):
+            # Show only rows realted to the organisation the user is admin for.
+            # Skip this part for SUPERUSER.
+            db_columns = [c.db_column for c in self.model._meta.fields.values()]
+            if "org_id" in db_columns or "organisation_id" in db_columns:
+                admin_for_org_ids = [o.id for o in current_user.admin_for.select(Organisation.id)]
+                if "org_id" in db_columns:
+                    query.where(self.model.org_id << admin_for_org_ids)
+                else:
+                    query.where(self.model.organisation_id << admin_for_org_ids)
+
+        if request.args and any(a.endswith("_id") for a in request.args):
             for f in self.model._meta.fields.values():
                 if f.db_column.endswith("_id") and f.db_column in request.args:
                     query = query.where(f == int(request.args[f.db_column]))
         return query
+
+    def _get_list_extra_args(self):
+        """Workaournd for https://github.com/flask-admin/flask-admin/issues/1512."""
+        view_args = super()._get_list_extra_args()
+        extra_args = {
+            k: v
+            for k, v in request.args.items()
+            if k not in ('page', 'page_size', 'sort', 'desc',
+                         'search', ) and not k.startswith('flt')
+        }
+        view_args.extra_args = extra_args
+        return view_args
 
 
 class UserAdmin(AppModelView):
@@ -175,13 +216,29 @@ class OrcidApiCallAmin(AppModelView):
     column_searchable_list = ("url", "body", "response", "user.name", )
 
 
+class TaskAdmin(AppModelView):
+    roles_required = Role.SUPERUSER | Role.ADMIN
+    can_edit = False
+    can_create = False
+    can_delete = False
+    can_view_details = True
+
+
+class AffiliationRecordAdmin(AppModelView):
+    roles_required = Role.SUPERUSER | Role.ADMIN
+    can_edit = False
+    can_create = False
+    can_delete = False
+    can_view_details = True
+
+
 admin.add_view(UserAdmin(User))
 admin.add_view(OrganisationAdmin(Organisation))
 admin.add_view(OrcidTokenAdmin(OrcidToken))
 admin.add_view(OrgInfoAdmin(OrgInfo))
 admin.add_view(OrcidApiCallAmin(OrcidApiCall))
-admin.add_view(AppModelView(Task))
-admin.add_view(AppModelView(AffiliationRecord))
+admin.add_view(TaskAdmin(Task))
+admin.add_view(AffiliationRecordAdmin())
 
 SectionRecord = namedtuple("SectionRecord", [
     "name", "city", "state", "country", "department", "role", "start_date", "end_date"
@@ -511,10 +568,10 @@ def load_researcher_affiliations():
     if form.validate_on_submit():
         filename = secure_filename(form.file_.data.filename)
         data = request.files[form.file_.name].read().decode("utf-8")
-        row_count = Task.load_from_csv(data, filename=filename)
+        task = Task.load_from_csv(data, filename=filename)
 
-        flash("Successfully loaded %d rows." % row_count, "success")
-        return redirect(url_for("viewmembers"))
+        flash(f"Successfully loaded {task.record_count} rows.")
+        return redirect(url_for("affiliationrecord.index_view", task_id=task.id))
 
     return render_template("fileUpload.html", form=form, form_title="Researcher")
 

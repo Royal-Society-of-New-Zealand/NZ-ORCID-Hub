@@ -592,6 +592,7 @@ class OrcidApiCall(BaseModel):
 
 class Task(BaseModel, AuditMixin):
     """Batch processing task created form CSV/TSV file."""
+    __record_count = None
     org = ForeignKeyField(Organisation, index=True, verbose_name="Organisation")
     completed_at = DateTimeField(default=datetime.datetime.now, null=True)
     filename = TextField(null=True)
@@ -600,6 +601,12 @@ class Task(BaseModel, AuditMixin):
 
     def __repr__(self):
         return self.filename or f"Task #{self.id}"
+
+    @property
+    def record_count(self):
+        if self.__record_count is None:
+            self.__record_count = self.affiliationrecord_set.count()
+        return self.__record_count
 
     @classmethod
     def load_from_csv(cls, source, filename=None, org=None):
@@ -631,8 +638,8 @@ class Task(BaseModel, AuditMixin):
         header_rexs = [
             re.compile(ex, re.I)
             for ex in (r"first\s*(name)?", r"last\s*(name)?", "email|id|identifier",
-                       "organisation|^name", "campus|department", "city", "course|title|role",
-                       r"start\s*(date)?", r"end\s*(date)?",
+                       "organisation|^name", "campus|department", "city", "state|region",
+                       "course|title|role", r"start\s*(date)?", r"end\s*(date)?",
                        r"affiliation(s)?\s*(type)?|student|staff")
         ]
 
@@ -669,13 +676,14 @@ class Task(BaseModel, AuditMixin):
                 organisation=val(row, 3),
                 department=val(row, 4),
                 city=val(row, 5),
-                region=val(row, 5),  # ???
-                role=val(row, 6),
-                start_date=PartialDate.create(val(row, 7)),
-                end_date=PartialDate.create(val(row, 8)),
-                affiliation_type=val(row, 9))
+                region=val(row, 6),
+                role=val(row, 7),
+                start_date=PartialDate.create(val(row, 8)),
+                end_date=PartialDate.create(val(row, 9)),
+                affiliation_type=val(row, 10))
 
-        return reader.line_num - 1
+        task.__record_count = reader.line_num - 1
+        return task
 
 
 class AffiliationRecord(BaseModel):

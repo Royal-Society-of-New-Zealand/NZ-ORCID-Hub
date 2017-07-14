@@ -268,7 +268,7 @@ def test_affiliations(test_models):
 def test_load_task_from_csv(test_models):
     org = Organisation.create(name="TEST0")
     # flake8: noqa
-    row_count = Task.load_from_csv(
+    test = Task.load_from_csv(
         """First name	Last name	email address	Organisation	Campus/Department	City	Course or Job title	Start date	End date	Student/Staff
 FNA	LBA	aaa.lnb@test.com	TEST1	Research Funding	Wellington	Programme Manager - ORCID	2016-09		Staff
 FNA	LBA	aaa.lnb@test.com	TEST1	Research Funding	Wellington	Programme Manager - Insights and Evaluation	2014		Staff
@@ -282,5 +282,5 @@ FNB	LNB	b.b@test.com	TEST0	Science and Education Group	Wellington	Manager Specia
 """,
         filename="TEST.tsv",
         org=org)
-    assert row_count == 9
-    assert AffiliationRecord.select().count() == row_count
+    assert test.record_count == 9
+    assert AffiliationRecord.select().count() == test.record_count
