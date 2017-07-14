@@ -509,6 +509,7 @@ def load_researcher_info():
                     utils.send_email(
                         "email/researcher_invitation.html",
                         recipient=(user.organisation.name, user.email),
+                        cc_email=None,
                         token=token,
                         org_name=user.organisation.name,
                         user=user)
@@ -608,6 +609,7 @@ def register_org(org_name, email, tech_contact=True):
             utils.send_email(
                 "email/org_invitation.html",
                 recipient=(org_name, email),
+                cc_email=current_user.email,
                 token=token,
                 org_name=org_name,
                 user=user)
