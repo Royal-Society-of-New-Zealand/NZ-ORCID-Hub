@@ -12,7 +12,7 @@ from wtforms.validators import DataRequired, Email
 from wtforms.widgets import HTMLString, html_params
 
 from config import DEFAULT_COUNTRY
-from models import PartialDate as PD
+from models import PartialDate as PD, Organisation
 
 # Order the countly list by the name and add a default (Null) value
 country_choices = [(c.alpha_2, c.name) for c in countries]
@@ -148,7 +148,7 @@ class RecordForm(FlaskForm):
         return form
 
 
-class OrgInfoForm(FlaskForm):
+class FileUploadForm(FlaskForm):
     """Organisation info pre-loading form."""
 
     org_info = FileField(validators=[FileRequired(), FileAllowed(["csv"], 'CSV files only!')])
@@ -193,3 +193,10 @@ class EmploymentDetailsForm(FlaskForm):
 class DateRangeForm(FlaskForm):
     from_date = DateField('DatePicker', format='%Y-%m-%d')
     to_date = DateField('DatePicker', format='%Y-%m-%d')
+
+class SelectOrganisation(FlaskForm):
+    orgNames = SelectField("orgNames", [validators.required()], )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.orgNames.choices = Organisation.select(Organisation.id, Organisation.name).order_by(Organisation.name).tuples()

@@ -17,7 +17,7 @@ from application import app, mail
 
 
 def send_email(template,
-               recipient,
+               recipient, cc_email,
                sender=(app.config.get("APP_NAME"), app.config.get("MAIL_DEFAULT_SENDER")),
                subject=None,
                **kwargs):
@@ -80,6 +80,8 @@ def send_email(template,
         msg = Message(subject=subject)
         msg.add_recipient(recipient)
         msg.html = str(rendered)
+        if cc_email:
+            msg.cc.append(cc_email)
         # TODO: implement async sedning
         mail.send(msg)
 
