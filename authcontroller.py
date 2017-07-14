@@ -57,11 +57,14 @@ def login():
     else:
         login_url = url_for("handle_login", _next=_next)
 
-    org_onboarded_info = {r.name: r.tuakiri_name for r in
-                          Organisation.select(Organisation.name, Organisation.tuakiri_name).where(
-                              Organisation.confirmed.__eq__(True))}
+    org_onboarded_info = {
+        r.name: r.tuakiri_name
+        for r in Organisation.select(Organisation.name, Organisation.tuakiri_name).where(
+            Organisation.confirmed.__eq__(True))
+    }
 
-    return render_template("index.html", login_url=login_url, org_onboarded_info=org_onboarded_info)
+    return render_template(
+        "index.html", login_url=login_url, org_onboarded_info=org_onboarded_info)
 
 
 @app.route("/Tuakiri/SP")
