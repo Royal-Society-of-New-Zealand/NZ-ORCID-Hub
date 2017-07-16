@@ -8,35 +8,37 @@
         <a class="btn btn-primary" href="{{ship_login_url}}" role="button">Login via Tuakiri</a>
         <a class="btn btn-success" href="#" role="button">Login via ORCiD</a>
         </div -->
-      <div class="jumbotron" style="padding-top: 10px">
-        <p>Login below using Tuakiri to have your staff/student affiliation asserted in your ORCID record</p>
-        <div class="login-blocks">
-          <a href="{{login_url}}">
-            <div class="tuakiri">
-              <img alt="Login via Tuakiri" src="{{image('REANNZ_Tuakiri_service.png')}}">
-              <div class="login-button">Login&nbsp;via&nbsp;Tuakiri</div>
-            </div>
-          </a>
-          <!-- a href="{{url_for('orcid_login')}}">
-            <div class="orcid">
-              <img alt="Login via Orcid" src="{{image('orcid-logo.png')}}">
-              <div class="login-button">Login&nbsp;via&nbsp;Orcid</div>
-            </div>
-          </a -->
-        </div>
+        <div class="jumbotron" style="padding-top: 10px">
+          <p>Login below using Tuakiri to have your staff/student affiliation asserted in your ORCID record</p>
+          <div class="login-blocks">
+            <a href="{{login_url}}">
+              <div class="tuakiri">
+                <img alt="Login via Tuakiri" src="{{image('REANNZ_Tuakiri_service.png')}}">
+                <div class="login-button">Login&nbsp;via&nbsp;Tuakiri</div>
+              </div>
+            </a>
+            {% if config.ENV != "prod" %}
+              <a href="{{url_for('orcid_login')}}">
+                <div class="orcid">
+                  <img alt="Login via Orcid" src="{{image('orcid-logo.png')}}">
+                  <div class="login-button">Login&nbsp;via&nbsp;Orcid</div>
+                </div>
+              </a>
+            {% endif %}
+          </div>
           <div class="onboarding-block" style="padding-top: 20px">
-              {% if org_onboarded_info %}
-                  <p>Organisations onboard the Hub so far:</p>
-                      <table>
-                          {% for v in org_onboarded_info.items() %}
-                          <tr>
-                            <td class="name">{{ v.0 }}</td>
-                          </tr>
-                          {% endfor %}
-                      </table>
-              {% endif %}
+            {% if org_onboarded_info %}
+              <p>Organisations onboard the Hub so far:</p>
+              <table>
+                {% for v in org_onboarded_info.items() %}
+                  <tr>
+                    <td class="name">{{ v.0 }}</td>
+                  </tr>
+                {% endfor %}
+              </table>
+            {% endif %}
+          </div>
         </div>
-      </div>
-    </div>
+  </div>
   </div>
 {% endblock %}
