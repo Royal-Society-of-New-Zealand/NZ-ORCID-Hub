@@ -611,7 +611,8 @@ class OrcidApiCall(BaseModel):
 class Task(BaseModel, AuditMixin):
     """Batch processing task created form CSV/TSV file."""
     __record_count = None
-    org = ForeignKeyField(Organisation, index=True, verbose_name="Organisation")
+    org = ForeignKeyField(
+        Organisation, index=True, verbose_name="Organisation", on_delete="SET NULL")
     completed_at = DateTimeField(default=datetime.datetime.now, null=True)
     filename = TextField(null=True)
     created_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
@@ -679,7 +680,7 @@ class Task(BaseModel, AuditMixin):
         task = cls.create(org=org, filename=filename)
 
         def val(row, i):
-            if idxs[i] is None:
+            if idxs[i] is None or i > len(row):
                 return None
             else:
                 v = row[idxs[i]].strip()
