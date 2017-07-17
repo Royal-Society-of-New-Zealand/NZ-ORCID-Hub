@@ -82,6 +82,7 @@ def send_email(template,
         msg = Message(subject=subject)
         msg.add_recipient(recipient)
         msg.html = str(rendered)
+        msg.sender = sender
         if cc_email:
             msg.cc.append(cc_email)
         # TODO: implement async sedning
