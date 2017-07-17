@@ -9,6 +9,7 @@ import base64
 import pickle
 import secrets
 import zlib
+from datetime import datetime
 from os import path, remove
 from tempfile import gettempdir
 from urllib.parse import quote, unquote, urlencode, urlparse
@@ -29,7 +30,8 @@ from config import (APP_DESCRIPTION, APP_NAME, APP_URL, AUTHORIZATION_BASE_URL, 
                     SCOPE_READ_LIMITED, TOKEN_URL)
 from forms import OnboardingTokenForm, OrgConfirmationForm, SelectOrganisation
 from login_provider import roles_required
-from models import (Affiliation, OrcidToken, Organisation, OrgInfo, Role, User, UserOrg)
+from models import (Affiliation, OrcidToken, Organisation, OrgInfo, OrgInvitation, Role, User,
+                    UserOrg)
 from swagger_client.rest import ApiException
 from utils import append_qs, confirm_token
 
@@ -688,6 +690,14 @@ def confirm_organisation(token=None):
                     except Exception as ex:
                         app.logger.error("Exception Occured: %r", str(ex))
                         flash("Failed to save organisation data: %s" % str(ex))
+
+                    try:
+                        oi = OrgInvitation.get(token=token)
+                        oi.confirmed_at = datetime.now()
+                        oi.save()
+                    except OrgInvitation.DoesNotExist:
+                        pass
+
                     return redirect(url_for("link"))
 
     elif request.method == 'GET':

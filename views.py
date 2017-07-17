@@ -24,7 +24,7 @@ from forms import (BitmapMultipleValueField, FileUploadForm, OrgRegistrationForm
 from login_provider import roles_required
 from models import PartialDate as PD
 from models import AffiliationRecord  # noqa: F401
-from models import (CharField, OrcidApiCall, OrcidToken, Organisation, OrgInfo, Role, Task,
+from models import (CharField, OrcidApiCall, OrcidToken, Organisation, OrgInfo, OrgInvitation, Role, Task,
                     TextField, User, UserOrg, UserOrgAffiliation, db)
 # NB! Should be disabled in production
 from pyinfo import info
@@ -636,7 +636,7 @@ def register_org(org_name, email, tech_contact=True):
             user.organisation = org
             user.confirmed = True
         except User.DoesNotExist:
-            user = User(
+            user = User.create(
                 email=email,
                 confirmed=True,  # In order to let the user in...
                 roles=Role.ADMIN,
@@ -674,10 +674,14 @@ def register_org(org_name, email, tech_contact=True):
             utils.send_email(
                 "email/org_invitation.html",
                 recipient=(org_name, email),
-                cc_email=current_user.email,
+                reply_to=(current_user.name, current_user.email),
+                cc_email=(current_user.name, current_user.email),
                 token=token,
                 org_name=org_name,
                 user=user)
+
+        OrgInvitation.create(
+            inviter_id=current_user.id, invitee_id=user.id, email=user.email, org=org, token=token)
 
 
 # TODO: user can be admin for multiple org and org can have multiple admins:

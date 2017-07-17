@@ -196,6 +196,7 @@ class DateRangeForm(FlaskForm):
     from_date = DateField('DatePicker', format='%Y-%m-%d')
     to_date = DateField('DatePicker', format='%Y-%m-%d')
 
+
 class SelectOrganisation(FlaskForm):
     orgNames = SelectField(
         "orgNames",
