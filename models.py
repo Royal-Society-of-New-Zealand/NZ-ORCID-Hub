@@ -680,7 +680,7 @@ class Task(BaseModel, AuditMixin):
         task = cls.create(org=org, filename=filename)
 
         def val(row, i):
-            if idxs[i] is None or i > len(row):
+            if idxs[i] is None or idxs[i] > len(row):
                 return None
             else:
                 v = row[idxs[i]].strip()
