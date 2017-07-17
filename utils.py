@@ -14,6 +14,7 @@ from flask_mail import Message
 from itsdangerous import URLSafeTimedSerializer
 
 from application import app, mail
+from models import (AffiliationRecord, Task, User)
 
 
 def send_email(template,
@@ -205,3 +206,20 @@ def track_event(category, action, label=None, value=0):
     # on your application's needs, this may be a non-error and can be caught
     # by the caller.
     response.raise_for_status()
+
+
+def process_affiliation_records():
+    """Process uploaded affiliation records."""
+    tasks = (Task.select(Task, AffiliationRecord, User)
+            .join(AffiliationRecord, on=(Task.id == AffiliationRecord.task_id))
+            .join(User, on=((User.email == AffiliationRecord.identifier) | (User.eppn == AffiliationRecord.identifier) | (User.orcid == AffiliationRecord.identifier)))
+            .where(AffiliationRecord.processed_at >> None))
+    for t in tasks:
+        if t.affiliation_record.user.orcid is None:
+            # TODO: send an invitation
+            print("***", t, t.affiliation_record)
+            pass
+        else:
+            # TODO: update or create ORCID profile record
+            pass
+            print("***", t, ':', t.affiliation_record.user.orcid)

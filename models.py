@@ -680,18 +680,21 @@ class Task(BaseModel, AuditMixin):
         task = cls.create(org=org, filename=filename)
 
         def val(row, i):
-            if idxs[i] is None or idxs[i] > len(row):
+            if idxs[i] is None or idxs[i] >= len(row):
                 return None
             else:
                 v = row[idxs[i]].strip()
                 return None if v == '' else v
 
         for row in reader:
+            identifier = val(row, 2)
+            if len(row) == 0 or identifier is None:
+                continue
             AffiliationRecord.create(
                 task=task,
                 first_name=val(row, 0),
                 last_name=val(row, 1),
-                identifier=val(row, 2),
+                identifier=identifier,
                 organisation=val(row, 3),
                 department=val(row, 4),
                 city=val(row, 5),

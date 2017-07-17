@@ -17,6 +17,7 @@ from application import app
 from authcontroller import *  # noqa: F401, F403
 from reports import *  # noqa: F401, F403
 from views import *  # noqa: F401, F403
+from utils import process_affiliation_records
 
 
 @app.before_first_request
@@ -37,6 +38,12 @@ def load_org_info(filename):
     """Pre-loads organisation data."""
     row_count = models.OrgInfo.load_from_csv(filename)
     print("Loaded %d records" % row_count)
+
+
+@app.cli.command()
+def process():
+    """."""
+    process_affiliation_records()
 
 
 if os.environ.get("ENV") == "dev0":
