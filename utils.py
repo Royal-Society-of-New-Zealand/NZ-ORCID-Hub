@@ -69,6 +69,7 @@ def send_email(template,
 
     kwargs["sender"] = _jinja2_email(*sender)
     kwargs["recipient"] = _jinja2_email(*recipient)
+    kwargs["cc"] = _jinja2_email(*cc_email)
     if subject is not None:
         kwargs["subject"] = subject
 

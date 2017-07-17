@@ -608,12 +608,13 @@ def register_org(org_name, email, tech_contact=True):
             utils.send_email(
                 "email/org_invitation.html",
                 recipient=(org_name, email),
+                sender=(current_user.name, current_user.cc_email),
                 cc_email=(current_user.name, current_user.email),
                 token=token,
                 org_name=org_name,
                 user=user)
 
-        OrgInvitation.create(inviter=current_user, invitee=user, email=user.email, token=token)
+        OrgInvitation.create(inviter_id=current_user.id, invitee_id=user.id, email=user.email, token=token)
 
 
 # TODO: user can be admin for multiple org and org can have multiple admins:
