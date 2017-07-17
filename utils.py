@@ -17,8 +17,10 @@ from application import app, mail
 
 
 def send_email(template,
-               recipient, cc_email,
+               recipient,
+               cc_email,
                sender=(app.config.get("APP_NAME"), app.config.get("MAIL_DEFAULT_SENDER")),
+               reply_to=None,
                subject=None,
                **kwargs):
     """
@@ -70,6 +72,8 @@ def send_email(template,
     kwargs["recipient"] = _jinja2_email(*recipient)
     if subject is not None:
         kwargs["subject"] = subject
+    if reply_to is None:
+        reply_to = sender
 
     rendered = template.make_module(vars=kwargs)
 
@@ -79,7 +83,9 @@ def send_email(template,
     with app.app_context():
         msg = Message(subject=subject)
         msg.add_recipient(recipient)
+        msg.reply_to = reply_to
         msg.html = str(rendered)
+        msg.sender = sender
         if cc_email:
             msg.cc.append(cc_email)
         # TODO: implement async sedning
