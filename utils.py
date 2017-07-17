@@ -17,7 +17,8 @@ from application import app, mail
 
 
 def send_email(template,
-               recipient, cc_email,
+               recipient,
+               cc_email,
                sender=(app.config.get("APP_NAME"), app.config.get("MAIL_DEFAULT_SENDER")),
                subject=None,
                **kwargs):

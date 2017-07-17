@@ -9,6 +9,7 @@ import base64
 import pickle
 import secrets
 import zlib
+from datetime import datetime
 from os import path, remove
 from tempfile import gettempdir
 from urllib.parse import quote, unquote, urlencode, urlparse
@@ -29,7 +30,8 @@ from config import (APP_DESCRIPTION, APP_NAME, APP_URL, AUTHORIZATION_BASE_URL, 
                     SCOPE_READ_LIMITED, TOKEN_URL)
 from forms import OnboardingTokenForm, OrgConfirmationForm, SelectOrganisation
 from login_provider import roles_required
-from models import (Affiliation, OrcidToken, Organisation, OrgInfo, Role, User, UserOrg)
+from models import (Affiliation, OrcidToken, Organisation, OrgInfo, OrgInvitation, Role, User,
+                    UserOrg)
 from swagger_client.rest import ApiException
 from utils import append_qs, confirm_token
 
@@ -57,11 +59,14 @@ def login():
     else:
         login_url = url_for("handle_login", _next=_next)
 
-    org_onboarded_info = {r.name: r.tuakiri_name for r in
-                          Organisation.select(Organisation.name, Organisation.tuakiri_name).where(
-                              Organisation.confirmed.__eq__(True))}
+    org_onboarded_info = {
+        r.name: r.tuakiri_name
+        for r in Organisation.select(Organisation.name, Organisation.tuakiri_name).where(
+            Organisation.confirmed.__eq__(True))
+    }
 
-    return render_template("index.html", login_url=login_url, org_onboarded_info=org_onboarded_info)
+    return render_template(
+        "index.html", login_url=login_url, org_onboarded_info=org_onboarded_info)
 
 
 @app.route("/Tuakiri/SP")
@@ -685,6 +690,14 @@ def confirm_organisation(token=None):
                     except Exception as ex:
                         app.logger.error("Exception Occured: %r", str(ex))
                         flash("Failed to save organisation data: %s" % str(ex))
+
+                    try:
+                        oi = OrgInvitation.get(token=token)
+                        oi.confirmed_at = datetime.now()
+                        oi.save()
+                    except OrgInvitation.DoesNotExist:
+                        pass
+
                     return redirect(url_for("link"))
 
     elif request.method == 'GET':
@@ -957,12 +970,15 @@ def orcid_login(token=None):
             redirect_uri = url_for("orcid_login_callback", _external=True)
             if EXTERNAL_SP:
                 sp_url = urlparse(EXTERNAL_SP)
-                redirect_uri = sp_url.scheme + "://" + sp_url.netloc + "/auth/" + quote(redirect_uri) + extend_url
+                redirect_uri = sp_url.scheme + "://" + sp_url.netloc + "/auth/" + quote(
+                    redirect_uri) + extend_url
             else:
                 redirect_uri = redirect_uri + extend_url
 
-            client_write = OAuth2Session(organisation.orcid_client_id, scope=SCOPE_AUTHENTICATE,
-                                         redirect_uri=redirect_uri, )
+            client_write = OAuth2Session(
+                organisation.orcid_client_id,
+                scope=SCOPE_AUTHENTICATE,
+                redirect_uri=redirect_uri, )
 
             authorization_url_write, state = client_write.authorization_url(AUTHORIZATION_BASE_URL)
             session['oauth_state'] = state
@@ -988,16 +1004,13 @@ def orcid_login_callback():
         if state != session.get('oauth_state') and orgName != session.get('orgName'):
             flash(
                 "Something went wrong, Please retry giving permissions or if issue persist then, "
-                "Please contact ORCIDHUB for support",
-                "danger")
+                "Please contact ORCIDHUB for support", "danger")
 
             return redirect(url_for("login"))
         organisation = Organisation.get(name=orgName)
         client = OAuth2Session(organisation.orcid_client_id)
         token = client.fetch_token(
-            TOKEN_URL,
-            client_secret=organisation.orcid_secret,
-            authorization_response=request.url)
+            TOKEN_URL, client_secret=organisation.orcid_secret, authorization_response=request.url)
         orcid_id = token['orcid']
         user = None
         if email is None:
