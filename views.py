@@ -614,7 +614,8 @@ def register_org(org_name, email, tech_contact=True):
                 org_name=org_name,
                 user=user)
 
-        OrgInvitation.create(inviter_id=current_user.id, invitee_id=user.id, email=user.email, token=token)
+        OrgInvitation.create(
+            inviter_id=current_user.id, invitee_id=user.id, email=user.email, org=org, token=token)
 
 
 # TODO: user can be admin for multiple org and org can have multiple admins:
