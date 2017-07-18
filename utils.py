@@ -3,6 +3,7 @@
 
 import os
 import textwrap
+from os.path import splitext
 from urllib.parse import urlencode, urlparse
 
 import flask
@@ -16,7 +17,7 @@ from itsdangerous import URLSafeTimedSerializer
 from application import app, mail
 
 
-def send_email(template,
+def send_email(template_filename,
                recipient,
                cc_email,
                sender=(app.config.get("APP_NAME"), app.config.get("MAIL_DEFAULT_SENDER")),
@@ -25,9 +26,9 @@ def send_email(template,
                **kwargs):
     """
     Send an email, acquiring its payload by rendering a jinja2 template
-    :type template: :class:`str`
+    :type template_filename: :class:`str`
     :param subject: the subject of the email
-    :param template: name of the template file in ``templates/emails`` to use
+    :param template_filename: name of the template_filename file in ``templates/emails`` to use
     :type recipient: :class:`tuple` (:class:`str`, :class:`str`)
     :param recipient: 'To' (name, email)
     :type sender: :class:`tuple` (:class:`str`, :class:`str`)
@@ -66,7 +67,8 @@ def send_email(template,
             name = jinja_env.undefined(name='name', hint=hint)
         return {"name": name, "email": email}
 
-    template = jinja_env.get_template(template)
+    template = jinja_env.get_template(template_filename)
+    plain_template = jinja_env.get_template(splitext(template_filename)[0] + ".plain")
 
     kwargs["sender"] = _jinja2_email(*sender)
     kwargs["recipient"] = _jinja2_email(*recipient)
@@ -76,6 +78,7 @@ def send_email(template,
         reply_to = sender
 
     rendered = template.make_module(vars=kwargs)
+    plain_rendered = plain_template.make_module(vars=kwargs)
 
     if subject is None:
         subject = getattr(rendered, "subject", "Welcome to the NZ ORCID Hub")
@@ -85,6 +88,7 @@ def send_email(template,
         msg.add_recipient(recipient)
         msg.reply_to = reply_to
         msg.html = str(rendered)
+        msg.body = str(plain_rendered)
         msg.sender = sender
         if cc_email:
             msg.cc.append(cc_email)
