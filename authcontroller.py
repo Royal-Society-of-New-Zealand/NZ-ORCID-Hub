@@ -710,10 +710,8 @@ def confirm_organisation(token=None):
                 flash("Failed to save organisation data: %s" % str(ex))
                 app.logger.error("Exception Occured: %r", str(ex))
         elif organisation is not None and organisation.is_email_confirmed:
-            flash(
-                """Your email link has expired. However, you should be able to login directly!""",
-                "warning")
-            return redirect(url_for("login"))
+            flash("We have noted that you came on orcidhub through the email link, which is now unneccessary. "
+                  "You should be able to login on orcidhub directly by visiting our orcidhub's website", "warning")
 
         form.orgEmailid.data = email
         form.orgName.data = user.organisation.name
