@@ -3,16 +3,32 @@
 
 from collections import namedtuple
 
-from flask import render_template
+from flask import redirect, render_template, request, url_for
+from peewee import fn
 
 from application import app, db
+from forms import DateRangeForm
 from login_provider import roles_required
-from models import Role
+from models import Role, User
 
 
 @app.route("/user_summary")
 @roles_required(Role.SUPERUSER)
 def user_summary():
+
+    form = DateRangeForm(request.args)
+
+    if not (form.from_date.data and form.to_date.data):
+        date_range = User.select(
+            fn.MIN(User.created_at).alias('from_date'),
+            fn.MAX(User.created_at).alias('to_date')).first()
+        if date_range:
+            return redirect(
+                url_for(
+                    "user_summary",
+                    from_date=date_range.from_date.date().isoformat(),
+                    to_date=date_range.to_date.date().isoformat()))
+
     sql = """
 SELECT st.*, o.name
 FROM (
@@ -20,12 +36,12 @@ FROM (
     FROM organisation AS o
         LEFT JOIN user_org AS uo ON uo.org_id=o.id
         LEFT JOIN "user" AS u ON u.id=uo.user_id
+    WHERE u.created_at BETWEEN %s AND %s
     GROUP BY o.id) AS st
 NATURAL JOIN organisation AS o
 ORDER BY o.name"""
 
-    print("$$$$$$", db, db.connect_kwargs)
-    cr = db.execute_sql(sql)
+    cr = db.execute_sql(sql, (form.from_date.data, form.to_date.data, ))
     columns = [c[0] for c in cr.description]
     Row = namedtuple("Row", columns)
     rows = [Row(*r) for r in cr.fetchall()]
@@ -34,6 +50,7 @@ ORDER BY o.name"""
 
     return render_template(
         "user_summary.html",
+        form=form,
         rows=rows,
         total_user_count=total_user_count,
         total_linked_user_count=total_linked_user_count)

@@ -16,14 +16,13 @@ from jinja2 import Markup
 
 import orcid_client
 import utils
-
 from application import admin, app
 from config import ORCID_BASE_URL, SCOPE_ACTIVITIES_UPDATE, SCOPE_READ_LIMITED
 from forms import (BitmapMultipleValueField, FileUploadForm, OrgRegistrationForm, RecordForm)
 from login_provider import roles_required
 from models import PartialDate as PD
-from models import (CharField, OrcidApiCall, OrcidToken, Organisation, OrgInfo, Role, TextField,
-                    User, UserOrg, UserOrgAffiliation, db)
+from models import (CharField, OrcidApiCall, OrcidToken, Organisation, OrgInfo, OrgInvitation,
+                    Role, TextField, User, UserOrg, UserOrgAffiliation, db)
 # NB! Should be disabled in production
 from pyinfo import info
 from swagger_client.rest import ApiException
@@ -509,6 +508,7 @@ def load_researcher_info():
                     utils.send_email(
                         "email/researcher_invitation.html",
                         recipient=(user.organisation.name, user.email),
+                        cc_email=None,
                         token=token,
                         org_name=user.organisation.name,
                         user=user)
@@ -570,7 +570,7 @@ def register_org(org_name, email, tech_contact=True):
             user.organisation = org
             user.confirmed = True
         except User.DoesNotExist:
-            user = User(
+            user = User.create(
                 email=email,
                 confirmed=True,  # In order to let the user in...
                 roles=Role.ADMIN,
@@ -608,9 +608,14 @@ def register_org(org_name, email, tech_contact=True):
             utils.send_email(
                 "email/org_invitation.html",
                 recipient=(org_name, email),
+                reply_to=(current_user.name, current_user.email),
+                cc_email=(current_user.name, current_user.email),
                 token=token,
                 org_name=org_name,
                 user=user)
+
+        OrgInvitation.create(
+            inviter_id=current_user.id, invitee_id=user.id, email=user.email, org=org, token=token)
 
 
 # TODO: user can be admin for multiple org and org can have multiple admins:
@@ -639,8 +644,7 @@ def invite_organisation():
                 register_org(form.orgName.data,
                              form.orgEmailid.data.lower(), request.form.get("tech_contact"))
                 flash("Organisation Invited Successfully! "
-                      "An email has been sent to the organisation contact",
-                      "success")
+                      "An email has been sent to the organisation contact", "success")
                 app.logger.info(
                     "Organisation '%s' successfully invited. Invitation sent to '%s'." %
                     (form.orgName.data, form.orgEmailid.data))
