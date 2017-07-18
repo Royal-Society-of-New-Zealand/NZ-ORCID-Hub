@@ -12,9 +12,10 @@ import requests
 from flask_login import current_user
 from flask_mail import Message
 from itsdangerous import URLSafeTimedSerializer
+from peewee import JOIN
 
 from application import app, mail
-from models import (AffiliationRecord, Task, User)
+from models import AffiliationRecord, Organisation, Task, User
 
 
 def send_email(template,
@@ -210,12 +211,20 @@ def track_event(category, action, label=None, value=0):
 
 def process_affiliation_records():
     """Process uploaded affiliation records."""
-    tasks = (Task.select(Task, AffiliationRecord, User)
-            .join(AffiliationRecord, on=(Task.id == AffiliationRecord.task_id))
-            .join(User, on=((User.email == AffiliationRecord.identifier) | (User.eppn == AffiliationRecord.identifier) | (User.orcid == AffiliationRecord.identifier)))
-            .where(AffiliationRecord.processed_at >> None))
+    tasks = (Task.select(Task, AffiliationRecord, User, Organisation).where(
+        AffiliationRecord.processed_at >> None & AffiliationRecord.is_active).join(
+            AffiliationRecord, on=(Task.id == AffiliationRecord.task_id)).join(
+                User,
+                JOIN.LEFT_OUTER,
+                on=((User.email == AffiliationRecord.identifier) |
+                    (User.eppn == AffiliationRecord.identifier) |
+                    (User.orcid == AffiliationRecord.identifier))).join(
+                        Organisation,
+                        JOIN.LEFT_OUTER,
+                        on=(Organisation.name == AffiliationRecord.organisation)))
     for t in tasks:
-        if t.affiliation_record.user.orcid is None:
+
+        if not t.affiliation_record.user or t.affiliation_record.user.orcid is None:
             # TODO: send an invitation
             print("***", t, t.affiliation_record)
             pass

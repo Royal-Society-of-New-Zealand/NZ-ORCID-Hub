@@ -724,6 +724,8 @@ class AffiliationRecord(BaseModel):
     city = TextField(null=True)
     region = TextField(null=True, verbose_name="State/region")
 
+    is_active = BooleanField(
+        default=False, help_text="The record is marked for batch processing", null=True)
     processed_at = DateTimeField(null=True)
     status = TextField(null=True, help_text="Record processing status.")
 

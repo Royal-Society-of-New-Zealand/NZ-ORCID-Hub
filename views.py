@@ -235,6 +235,24 @@ class AffiliationRecordAdmin(AppModelView):
     can_delete = False
     can_view_details = True
 
+    @action("activate", "Activate for processing",
+            "Are you sure you want to activate the selected records for batch processing?")
+    def action_activate(self, ids):
+        """Batch registraion of users."""
+        count = 0
+        try:
+            with db.atomic():
+                for ar in self.model.select().where(self.model.id.in_(ids)):
+                    if not ar.is_active:
+                        ar.is_active = True
+                        ar.save()
+                        count += 1
+        except Exception as ex:
+            flash(f"Failed to activate the selected records: {ex}")
+            app.logger.error(f"Exception Occured: {ex}")
+
+        flash(f"{count} records were activated for batch processing.")
+
 
 admin.add_view(UserAdmin(User))
 admin.add_view(OrganisationAdmin(Organisation))
