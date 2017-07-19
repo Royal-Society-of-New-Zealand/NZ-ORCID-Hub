@@ -98,8 +98,7 @@ def send_email(template_filename,
         msg.add_recipient(recipient)
         msg.reply_to = reply_to
         msg.html = str(rendered)
-        if plain_rendered:
-            msg.body = str(plain_rendered)
+        msg.body = str(plain_rendered)
         msg.sender = sender
         if cc_email:
             msg.cc.append(cc_email)
