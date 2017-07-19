@@ -19,7 +19,7 @@
         <tbody>
         {% for r in data.get("education_summary", []) %}
         <tr>
-            {% if org_name in r["source"]["source_name"]["value"] %}
+            {% if org_client_id in r["source"]["source_client_id"]["path"] %}
             <td class="list-buttons-column">
                 <a class="icon"
                    href="{{url_for('education', user_id=user_id, put_code=r['put_code']) }}?url={{url_for('edu_list', user_id=user_id)}}"
