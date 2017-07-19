@@ -21,6 +21,7 @@ Affiliation token: **{{ token }}**
 If you received this email in error, or you have questions about the responsibilities involved, please contact:
 <orcid@royalsociety.org.nz>
 
+
 This email was sent to <{{recipient["email"]}}>
 Contact details for the NZ ORCID Hub
 Phone: (04) 472 7421

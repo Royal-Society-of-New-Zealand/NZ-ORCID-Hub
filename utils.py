@@ -66,7 +66,7 @@ def send_email(template_filename,
 
     def get_template(filename):
         try:
-            return jinja_env.get_template(template_filename)
+            return jinja_env.get_template(filename)
         except jinja2.exceptions.TemplateNotFound:
             return None
 
@@ -89,6 +89,7 @@ def send_email(template_filename,
     rendered = template.make_module(vars=kwargs)
     plain_rendered = plain_template.make_module(
         vars=kwargs) if plain_template else html2text(str(rendered))
+    print("***", str(plain_rendered))
 
     if subject is None:
         subject = getattr(rendered, "subject", "Welcome to the NZ ORCID Hub")
