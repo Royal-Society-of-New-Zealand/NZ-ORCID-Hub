@@ -10,9 +10,9 @@ ORCID_BASE_URL = "https://sandbox.orcid.org/" if ENV != "prod" else "https://orc
 
 SECRET_KEY = environ.get("SECRET_KEY", urandom(42).hex())
 
-# Orcid API client ID and secret
-client_id = environ.get("ORCID_CLIENT_ID", "APP-TF7LKIE084PYTQ59")
-client_secret = environ.get("ORCID_CLIENT_SECRET")
+# NZ ORCIDHUB API client ID and secret
+NZ_ORCIDHUB_CLIENT_ID = environ.get("NZ_ORCIDHUB_CLIENT_ID", "APP-42W3G8FS4OHGM562")
+NZ_ORCIDHUB_CLIENT_SECRET = environ.get("NZ_ORCIDHUB_CLIENT_SECRET")
 
 # Change the URL as per the enviornment
 AUTHORIZATION_BASE_URL = 'https://sandbox.orcid.org/oauth/authorize' \
