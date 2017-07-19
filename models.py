@@ -543,7 +543,7 @@ class UserOrgAffiliation(BaseModel, AuditMixin):
     department_name = TextField(null=True)
     department_city = TextField(null=True)
     role_title = TextField(null=True)
-    put_code = SmallIntegerField(default=0, null=True)
+    put_code = IntegerField(null=True)
     path = TextField(null=True)
 
     class Meta:
