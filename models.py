@@ -582,7 +582,7 @@ class UserOrgAffiliation(BaseModel, AuditMixin):
     department_name = TextField(null=True)
     department_city = TextField(null=True)
     role_title = TextField(null=True)
-    put_code = SmallIntegerField(default=0, null=True)
+    put_code = IntegerField(null=True)
     path = TextField(null=True)
     created_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
     updated_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
@@ -749,13 +749,14 @@ def create_tables():
     OrcidApiCall.create_table()
     Task.create_table()
     AffiliationRecord.create_table()
+    OrgInvitation.create_table()
 
 
 def drop_tables():
     """Drop all model tables."""
 
-    for m in (Organisation, User, UserOrg, OrcidToken, UserOrgAffiliation, OrgInfo, OrcidApiCall,
-              Task, AffiliationRecord):
+    for m in (Organisation, User, UserOrg, OrcidToken, UserOrgAffiliation, OrgInfo, OrgInvitation,
+              OrcidApiCall, Task, AffiliationRecord):
         if m.table_exists():
             try:
                 m.drop_table(fail_silently=True, cascade=db.drop_cascade)

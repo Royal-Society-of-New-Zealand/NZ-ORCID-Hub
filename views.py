@@ -566,9 +566,9 @@ def show_record_section(user_id, section_type="EMP"):
         return redirect(url_for("viewmembers"))
     # TODO: transform data for presentation:
     if section_type == "EMP":
-        return render_template("employments.html", data=data, user_id=user_id)
+        return render_template("employments.html", data=data, user_id=user_id, org_name=user.organisation.name)
     elif section_type == "EDU":
-        return render_template("educations.html", data=data, user_id=user_id)
+        return render_template("educations.html", data=data, user_id=user_id, org_name=user.organisation.name)
 
 
 @app.route("/load/org", methods=["GET", "POST"])
