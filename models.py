@@ -106,6 +106,7 @@ class Role(IntFlag):
     SUPERUSER = 1  # SuperUser
     ADMIN = 2  # Admin
     RESEARCHER = 4  # Researcher
+    TECHNICAL = 8  # Technical contact
     ANY = 255  # ANY
 
     def __eq__(self, other):

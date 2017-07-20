@@ -50,7 +50,7 @@ if ENV in ("dev0", ):
     # EXPLAIN_TEMPLATE_LOADING = True
 
 # add mail server config
-MAIL_PORT = 25
+MAIL_PORT = int(environ.get("MAIL_PORT", 25))
 MAIL_SUPPRESS_SEND = False
 MAIL_DEFAULT_SENDER = environ.get("MAIL_DEFAULT_SENDER", "no-reply@orcidhub.org.nz")
 MAIL_SERVER = environ.get("MAIL_SERVER", "gateway")
@@ -69,7 +69,8 @@ APP_DESCRIPTION = 'This is an ORCID integration through the NZ ORCID HUB connect
 APP_URL = "https://" + (ENV + ".orcidhub.org.nz" if ENV != "prod" else "orcidhub.org.nz")
 
 # External Shibboleth SP login URL (e.g., https://test.orcidhub.org.nz/Tuakiri/login)
-EXTERNAL_SP = environ.get("EXTERNAL_SP")
+if ENV != "prod":
+    EXTERNAL_SP = environ.get("EXTERNAL_SP")
 
 DEFAULT_COUNTRY = "NZ"
 
