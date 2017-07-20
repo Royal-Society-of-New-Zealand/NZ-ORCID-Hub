@@ -660,7 +660,8 @@ class Task(BaseModel, AuditMixin):
             for ex in (r"first\s*(name)?", r"last\s*(name)?", "email|id|identifier",
                        "organisation|^name", "campus|department", "city", "state|region",
                        "course|title|role", r"start\s*(date)?", r"end\s*(date)?",
-                       r"affiliation(s)?\s*(type)?|student|staff")
+                       r"affiliation(s)?\s*(type)?|student|staff", "country", r"disambiguat.*id",
+                       r"disambiguat.*source", r"put|code", )
         ]
 
         def index(rex):
@@ -703,7 +704,11 @@ class Task(BaseModel, AuditMixin):
                 role=val(row, 7),
                 start_date=PartialDate.create(val(row, 8)),
                 end_date=PartialDate.create(val(row, 9)),
-                affiliation_type=val(row, 10))
+                affiliation_type=val(row, 10),
+                country=val(row, 11),
+                disambiguated_id=val(row, 12),
+                disambiguated_source=val(row, 13),
+                put_code=val(row, 14))
 
         task.__record_count = reader.line_num - 1
         return task
@@ -712,18 +717,23 @@ class Task(BaseModel, AuditMixin):
 class AffiliationRecord(BaseModel):
     """Affiliation record loaded from CSV file for batch processing."""
     task = ForeignKeyField(Task)
+    put_code = IntegerField(null=True)
     first_name = TextField(null=True)
     last_name = TextField(null=True)
-    identifier = TextField(help_text="User email, eppn, or ORCID Id")
+    identifier = TextField(
+        help_text="User email, eppn, or ORCID Id", verbose_name="Email/Eppn/ORCID Id")
     organisation = TextField(null=True)
     affiliation_type = TextField(
         null=True, choices=("EDU", "EMP", "student", "alum", "faculty", "staff", ))
-    role = TextField(null=True, verbose_name="Role/title")
+    role = TextField(null=True, verbose_name="Role/Course")
     department = TextField(null=True)
     start_date = PartialDateField(null=True)
     end_date = PartialDateField(null=True)
     city = TextField(null=True)
-    region = TextField(null=True, verbose_name="State/region")
+    state = TextField(null=True, verbose_name="State/Region")
+    country = TextField(null=True, verbose_name="Country")
+    disambiguated_id = TextField(null=True, verbose_name="Disambiguated Organization Identifier")
+    disambiguated_source = TextField(null=True, verbose_name="Disambiguated Source")
 
     is_active = BooleanField(
         default=False, help_text="The record is marked for batch processing", null=True)
