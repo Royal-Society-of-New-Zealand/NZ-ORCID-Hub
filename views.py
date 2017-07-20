@@ -467,9 +467,11 @@ def show_record_section(user_id, section_type="EMP"):
         return redirect(url_for("viewmembers"))
     # TODO: transform data for presentation:
     if section_type == "EMP":
-        return render_template("employments.html", data=data, user_id=user_id, org_name=user.organisation.name)
+        return render_template("employments.html", data=data, user_id=user_id,
+                               org_client_id=user.organisation.orcid_client_id)
     elif section_type == "EDU":
-        return render_template("educations.html", data=data, user_id=user_id, org_name=user.organisation.name)
+        return render_template("educations.html", data=data, user_id=user_id,
+                               org_client_id=user.organisation.orcid_client_id)
 
 
 @app.route("/load/org", methods=["GET", "POST"])
@@ -582,8 +584,10 @@ def register_org(org_name, email, tech_contact=True):
             raise Exception("Failed to save user data: %s" % str(ex), ex)
 
         if tech_contact:
+            user.roles |= Role.TECHNICAL
             org.tech_contact = user
             try:
+                user.save()
                 org.save()
             except Exception as ex:
                 app.logger.error("Encountered exception: %r", ex)
