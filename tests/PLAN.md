@@ -29,3 +29,8 @@
 
 # User profile update (adding new entries, deletion and update of records) (__Org.Admin__)
 
+# Supporting Functionality
+
+ - Organisation information import (__Hub.Admin__);
+ - User Summary (__Hub.Admin__);
+ - Invitation Summary (__Hub.Admin__).
