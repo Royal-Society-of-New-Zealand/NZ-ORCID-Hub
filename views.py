@@ -582,8 +582,10 @@ def register_org(org_name, email, tech_contact=True):
             raise Exception("Failed to save user data: %s" % str(ex), ex)
 
         if tech_contact:
+            user.roles |= Role.TECHNICAL
             org.tech_contact = user
             try:
+                user.save()
                 org.save()
             except Exception as ex:
                 app.logger.error("Encountered exception: %r", ex)
