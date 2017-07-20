@@ -2,6 +2,7 @@
 """Application views."""
 
 import os
+import json
 from collections import namedtuple
 from datetime import datetime
 from urllib.parse import urlparse
@@ -236,7 +237,8 @@ def delete_employment(user_id, put_code=None):
         app.logger.info("For %r employment record was deleted by %r", user.orcid, current_user)
         flash("Employment record successfully deleted.", "success")
     except ApiException as e:
-        flash("Failed to delete the entry: %s" % e.body, "danger")
+        message = json.loads(e.body.replace("''", "\"")).get('user-messsage')
+        flash("Failed to delete the entry: %s" % message, "danger")
     except Exception as ex:
         app.logger.error("For %r encountered exception: %r", user, ex)
         abort(500, ex)
@@ -310,7 +312,8 @@ def edit_section_record(user_id, put_code=None, section_type="EMP"):
                 start_date=PD.create(_data.get("start_date")),
                 end_date=PD.create(_data.get("end_date")))
         except ApiException as e:
-            print("Exception when calling MemberAPIV20Api->view_employment: %s\n" % e.body)
+            message = json.loads(e.body.replace("''", "\"")).get('user-messsage')
+            print("Exception when calling MemberAPIV20Api->view_employment: %s\n" % message)
         except Exception as ex:
             app.logger.error("For %r encountered exception: %r", user, ex)
             abort(500, ex)
@@ -393,8 +396,8 @@ def edit_section_record(user_id, put_code=None, section_type="EMP"):
             affiliation.save()
             return redirect(_url)
         except ApiException as e:
-            # message = resp.json().get("user-message") or resp.state
-            flash("Failed to update the entry: %s." % e.body, "danger")
+            message = json.loads(e.body.replace("''", "\"")).get('user-messsage')
+            flash("Failed to update the entry: %s." % message, "danger")
             app.logger.error("For %r Exception encountered: %r", user, e)
         except Exception as ex:
             app.logger.error("For %r encountered exception: %r", user, ex)
@@ -449,7 +452,8 @@ def show_record_section(user_id, section_type="EMP"):
         elif section_type == "EDU":
             api_response = api_instance.view_educations(user.orcid)
     except ApiException as ex:
-        flash("Exception when calling MemberAPIV20Api->view_employments: %s\n" % ex, "danger")
+        message = json.loads(ex.body.replace("''", "\"")).get('user-messsage')
+        flash("Exception when calling MemberAPIV20Api->view_employments: %s\n" % message, "danger")
         return redirect(url_for("viewmembers"))
     except Exception as ex:
         app.logger.error("For %r encountered exception: %r", user, ex)
