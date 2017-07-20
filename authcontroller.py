@@ -26,8 +26,9 @@ import orcid_client
 from application import app, db, mail
 from config import (APP_DESCRIPTION, APP_NAME, APP_URL, AUTHORIZATION_BASE_URL, CRED_TYPE_PREMIUM,
                     EXTERNAL_SP, MEMBER_API_FORM_BASE_URL, NEW_CREDENTIALS, NOTE_ORCID,
-                    ORCID_API_BASE, ORCID_BASE_URL, SCOPE_ACTIVITIES_UPDATE, SCOPE_AUTHENTICATE,
-                    SCOPE_READ_LIMITED, TOKEN_URL, NZ_ORCIDHUB_CLIENT_ID, NZ_ORCIDHUB_CLIENT_SECRET)
+                    NZ_ORCIDHUB_CLIENT_ID, NZ_ORCIDHUB_CLIENT_SECRET, ORCID_API_BASE,
+                    ORCID_BASE_URL, SCOPE_ACTIVITIES_UPDATE, SCOPE_AUTHENTICATE,
+                    SCOPE_READ_LIMITED, TOKEN_URL)
 from forms import OnboardingTokenForm, OrgConfirmationForm, SelectOrganisation
 from login_provider import roles_required
 from models import (Affiliation, OrcidToken, Organisation, OrgInfo, OrgInvitation, Role, User,
@@ -710,8 +711,10 @@ def confirm_organisation(token=None):
                 flash("Failed to save organisation data: %s" % str(ex))
                 app.logger.error("Exception Occured: %r", str(ex))
         elif organisation is not None and organisation.is_email_confirmed:
-            flash("We have noted that you came on orcidhub through the email link, which is now unneccessary. "
-                  "You should be able to login on orcidhub directly by visiting our orcidhub's website", "warning")
+            flash(
+                "We have noted that you came on orcidhub through the email link, which is now unneccessary. "
+                "You should be able to login on orcidhub directly by visiting our orcidhub's website",
+                "warning")
 
         form.orgEmailid.data = email
         form.orgName.data = user.organisation.name
@@ -956,12 +959,15 @@ def orcid_login(token=None):
         redirect_uri = url_for("orcid_login_callback", _external=True)
         if EXTERNAL_SP:
             sp_url = urlparse(EXTERNAL_SP)
-            redirect_uri = sp_url.scheme + "://" + sp_url.netloc + "/orcid/auth/" + quote(redirect_uri) + extend_url
+            redirect_uri = sp_url.scheme + "://" + sp_url.netloc + "/orcid/auth/" + quote(
+                redirect_uri) + extend_url
         else:
             redirect_uri = redirect_uri + extend_url
 
-        client_write = OAuth2Session(NZ_ORCIDHUB_CLIENT_ID, scope=SCOPE_AUTHENTICATE,
-                                     redirect_uri=redirect_uri, )
+        client_write = OAuth2Session(
+            NZ_ORCIDHUB_CLIENT_ID,
+            scope=SCOPE_AUTHENTICATE,
+            redirect_uri=redirect_uri, )
 
         authorization_url_write, state = client_write.authorization_url(AUTHORIZATION_BASE_URL)
         session['oauth_state'] = state
@@ -1018,8 +1024,9 @@ def orcid_login_callback():
             user_data = User.get(orcid=orcid_id)
 
             if request.method == 'GET':
-                org_data = Organisation.select(Organisation.id, Organisation.name).where(
-                    Organisation.id << UserOrg.select(UserOrg.org).where(
+                org_data = Organisation.select(
+                    Organisation.id,
+                    Organisation.name).where(Organisation.id << UserOrg.select(UserOrg.org).where(
                         UserOrg.user << User.select().where(User.orcid == orcid_id))).tuples()
 
                 form.orgNames.choices = org_data
