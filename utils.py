@@ -3,6 +3,7 @@
 
 import os
 import textwrap
+from itertools import groupby
 from os.path import splitext
 from urllib.parse import urlencode, urlparse
 
@@ -224,7 +225,24 @@ def track_event(category, action, label=None, value=0):
     response.raise_for_status()
 
 
-def process_affiliation_records():
+def send_user_initation(email, first_name, last_name, organisation_name, *args, **kwargs):
+    """Send an invitation to join ORCID Hub logging in via ORCID."""
+    # TODO:
+    pass
+
+
+def create_or_update_affiliation(user, records, *args, **kwargs):
+    """Creates or updates affiliation record of a user.
+
+    1. Retries user edurcation and employment surramy from ORCID;
+    2. Match the recodrs with the summary;
+    3. If there is match update the record;
+    4. If no match create a new one."""
+    # TODO:
+    pass
+
+
+def process_affiliation_records(max_rows=20):
     """Process uploaded affiliation records."""
     tasks = (Task.select(Task, AffiliationRecord, User, Organisation).where(
         AffiliationRecord.processed_at >> None & AffiliationRecord.is_active).join(
@@ -236,14 +254,17 @@ def process_affiliation_records():
                     (User.orcid == AffiliationRecord.identifier))).join(
                         Organisation,
                         JOIN.LEFT_OUTER,
-                        on=(Organisation.name == AffiliationRecord.organisation)))
-    for t in tasks:
-
-        if not t.affiliation_record.user or t.affiliation_record.user.orcid is None:
+                        on=(Organisation.name == AffiliationRecord.organisation))
+        .limit(max_rows))
+    for user, tasks_by_user in groupby(tasks, lambda t: t.affiliation_record.user):
+        if user.id is None or user.orcid is None:  # TODO: or no authorization tokens
+            print("***", user)
             # TODO: send an invitation
-            print("***", t, t.affiliation_record)
-            pass
-        else:
-            # TODO: update or create ORCID profile record
-            pass
-            print("***", t, ':', t.affiliation_record.user.orcid)
+            # create a unique list/set of users to whom need to send the invitation:
+            invitation_set = []  # TODO: from tasks_by_user
+            for invitation in invitation_set:
+                send_user_initation(*invitation)
+        else:  # user exits and we have tokens
+            for task in tasks_by_user:
+                print("***", task, ':', user.orcid)
+                create_or_update_affiliation(user, task.affiliation_record)
