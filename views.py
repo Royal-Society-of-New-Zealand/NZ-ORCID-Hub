@@ -230,7 +230,7 @@ class AffiliationRecordAdmin(AppModelView):
     list_template = "affiliation_record_list.html"
     column_exclude_list = ("task", "organisation", )
     column_searchable_list = ("first_name", "last_name", "identifier", "role", "department",
-                              "region", )
+                              "state", )
     can_edit = False
     can_create = False
     can_delete = False
