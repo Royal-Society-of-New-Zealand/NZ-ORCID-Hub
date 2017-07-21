@@ -95,10 +95,12 @@ either directly invoking it with `python application.py` or using Flask CLI
 
 ```
 export EXTERNAL_SP=https://dev.orcidhub.org.nz/Tuakiri/SP
-export DATABASE_URL=sqlite:///data.db
+export DATABASE_URL=sqlite:///data.db  ## OR 'postgres://orcidhub:********@dev.orcidhub.org.nz:5432'
 export FLASK_APP=/path/to/main.py
 export PYTHONPATH=$(dirname $FLASK_APP)  ## flask run has problems with setting up search paths
 export FLASK_DEBUG=1
+export MAIL_SERVER=dev.orcidhub.org.nz
+export MAIL_PORT=2525
 flask run
 ```
 
@@ -108,13 +110,15 @@ You can add these setting to you virtual environment activation script, e.g. (as
 export FLASK_APP=$(dirname $VIRTUAL_ENV)/main.py
 export PYTHONPATH=$(dirname $FLASK_APP)
 export EXTERNAL_SP=https://dev.orcidhub.org.nz/Tuakiri/SP
-export DATABASE_URL=sqlite:///data.db
+export DATABASE_URL=sqlite:///data.db  ## OR 'postgres://orcidhub:********@dev.orcidhub.org.nz:5432'
 export FLASK_DEBUG=1
+export MAIL_SERVER=dev.orcidhub.org.nz
+export MAIL_PORT=2525
 ```
 
 To connect to the PostgreSQL node:
 
 ```
 export DB_HOSTNAME=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' $(docker-compose ps -q db))
-export DATABASE_URL=postgresql://orcidhub:p455w0rd@${DB_HOSTNAME}:5432/orcidhub
+export DATABASE_URL=postgresql://orcidhub:*********@${DB_HOSTNAME}:5432/orcidhub
 ```
