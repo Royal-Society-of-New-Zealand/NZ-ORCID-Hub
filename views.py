@@ -16,7 +16,6 @@ from jinja2 import Markup
 
 import orcid_client
 import utils
-
 from application import admin, app
 from config import ORCID_BASE_URL, SCOPE_ACTIVITIES_UPDATE, SCOPE_READ_LIMITED
 from forms import (BitmapMultipleValueField, FileUploadForm, OrgRegistrationForm, RecordForm)
@@ -605,6 +604,7 @@ def register_org(org_name, email, tech_contact=True):
         # Note: Using app context due to issue:
         # https://github.com/mattupstate/flask-mail/issues/63
         with app.app_context():
+            app.logger.info(f"Ready to send an ivitation to '{org_name} <{email}>.")
             token = generate_confirmation_token(email)
             utils.send_email(
                 "email/org_invitation.html",
@@ -641,8 +641,7 @@ def invite_organisation():
                 register_org(form.orgName.data,
                              form.orgEmailid.data.lower(), request.form.get("tech_contact"))
                 flash("Organisation Invited Successfully! "
-                      "An email has been sent to the organisation contact",
-                      "success")
+                      "An email has been sent to the organisation contact", "success")
                 app.logger.info(
                     "Organisation '%s' successfully invited. Invitation sent to '%s'." %
                     (form.orgName.data, form.orgEmailid.data))

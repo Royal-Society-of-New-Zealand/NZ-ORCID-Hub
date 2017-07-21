@@ -50,7 +50,7 @@ if ENV in ("dev0", ):
     # EXPLAIN_TEMPLATE_LOADING = True
 
 # add mail server config
-MAIL_PORT = 25
+MAIL_PORT = int(environ.get("MAIL_PORT", 25))
 MAIL_SUPPRESS_SEND = False
 MAIL_DEFAULT_SENDER = environ.get("MAIL_DEFAULT_SENDER", "no-reply@orcidhub.org.nz")
 MAIL_SERVER = environ.get("MAIL_SERVER", "gateway")

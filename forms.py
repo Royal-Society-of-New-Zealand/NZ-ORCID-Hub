@@ -8,11 +8,12 @@ from flask_wtf.file import FileAllowed, FileField, FileRequired
 from pycountry import countries
 from wtforms import (Field, SelectField, SelectMultipleField, StringField, validators)
 from wtforms.fields.html5 import DateField, EmailField
-from wtforms.validators import DataRequired, Email
+from wtforms.validators import UUID, DataRequired, Email, Regexp
 from wtforms.widgets import HTMLString, html_params
 
 from config import DEFAULT_COUNTRY
-from models import PartialDate as PD, Organisation
+from models import PartialDate as PD
+from models import Organisation
 
 # Order the countly list by the name and add a default (Null) value
 country_choices = [(c.alpha_2, c.name) for c in countries]
@@ -168,9 +169,23 @@ class OrgRegistrationForm(FlaskForm):
 class OrgConfirmationForm(FlaskForm):
     orgName = StringField('Organisation Name: ', validators=[DataRequired()])
     orgEmailid = EmailField('Organisation EmailId: ', validators=[DataRequired(), Email()])
-    orgOricdClientId = StringField('Organisation Orcid Client Id: ', validators=[DataRequired()])
+    orgOricdClientId = StringField(
+        'Organisation Orcid Client Id: ',
+        validators=[
+            DataRequired(),
+            Regexp(r"\S+", message="The value shouldn't contain any spaces"),
+            Regexp(
+                r"APP-[A-Z0-9]+",
+                message=("The Cient ID should match patter "
+                         "'APP-(15 digits or uppercase characters), "
+                         "for example, 'APP-FDFN3F52J3M4L34S'.")),
+        ])
     orgOrcidClientSecret = StringField(
-        'Organisation Orcid Client Secret: ', validators=[DataRequired()])
+        'Organisation Orcid Client Secret: ',
+        validators=[
+            DataRequired(), Regexp(r"\S+", message="The value shouldn't contain any spaces"), UUID(
+                message="The secret should be a valid UUID")
+        ])
     country = SelectField(
         "Country", [validators.required()], choices=country_choices, default=DEFAULT_COUNTRY)
     city = StringField("City", [validators.required()])
@@ -194,9 +209,13 @@ class DateRangeForm(FlaskForm):
     from_date = DateField('DatePicker', format='%Y-%m-%d')
     to_date = DateField('DatePicker', format='%Y-%m-%d')
 
+
 class SelectOrganisation(FlaskForm):
-    orgNames = SelectField("orgNames", [validators.required()], )
+    orgNames = SelectField(
+        "orgNames",
+        [validators.required()], )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.orgNames.choices = Organisation.select(Organisation.id, Organisation.name).order_by(Organisation.name).tuples()
+        self.orgNames.choices = Organisation.select(
+            Organisation.id, Organisation.name).order_by(Organisation.name).tuples()

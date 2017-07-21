@@ -420,8 +420,9 @@ class User(BaseModel, UserMixin, AuditMixin):
             "Read header: %s" % header
         header_rexs = [
             re.compile(ex, re.I)
-            for ex in (r"first\s*(name)?", r"last\s*(name)?",
-                       "email\s*(address)?", "affiliation|student/staff")]
+            for ex in (r"first\s*(name)?", r"last\s*(name)?", "email\s*(address)?",
+                       "affiliation|student/staff")
+        ]
 
         def index(rex):
             """Return first header column index matching the given regex."""
@@ -456,7 +457,8 @@ class User(BaseModel, UserMixin, AuditMixin):
             user_org, user_org_created = UserOrg.get_or_create(user=user, org=org)
 
             if val(row, 3):
-                unscoped_affiliation = set(a.strip() for a in val(row, 3).encode("latin-1")
+                unscoped_affiliation = set(a.strip()
+                                           for a in val(row, 3).encode("latin-1")
                                            .decode("utf-8").lower().replace(',', ';').split(';'))
 
                 edu_person_affiliation = Affiliation.NONE
