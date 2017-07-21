@@ -5,6 +5,7 @@ import csv
 import re
 import uuid
 from collections import namedtuple
+from datetime import datetime
 from hashlib import md5
 from io import StringIO
 from itertools import zip_longest
@@ -13,7 +14,7 @@ from urllib.parse import urlencode
 from flask_login import UserMixin, current_user
 from peewee import (BooleanField, CharField, CompositeKey, DateTimeField, DeferredRelation, Field,
                     ForeignKeyField, IntegerField, Model, OperationalError, SmallIntegerField,
-                    TextField, datetime)
+                    TextField)
 from pycountry import countries
 
 from application import db
@@ -54,7 +55,7 @@ class PartialDate(namedtuple("PartialDate", ["year", "month", "day"])):
         return cls(**{k: int(v.get("value")) if v else None for k, v in value.items()})
 
     def as_datetime(self):
-        return datetime.datetime(self.year, self.month, self.day)
+        return datetime(self.year, self.month, self.day)
 
     def __repr__(self):
         if self.year is None:
@@ -168,14 +169,14 @@ DeferredUser = ModelDeferredRelation()
 
 class AuditMixin(Model):
 
-    created_at = DateTimeField(default=datetime.datetime.now)
+    created_at = DateTimeField(default=datetime.now)
     updated_at = DateTimeField(null=True)
 
     # created_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
     # updated_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
 
     def save(self, *args, **kwargs):
-        self.updated_at = datetime.datetime.now()
+        self.updated_at = datetime.now()
         if current_user and isinstance(current_user, User):
             if self.created_by:
                 self.updated_by = current_user
@@ -566,7 +567,7 @@ class OrcidToken(BaseModel, AuditMixin):
     org = ForeignKeyField(Organisation, index=True, verbose_name="Organisation")
     scope = TextField(null=True)
     access_token = CharField(max_length=36, unique=True, null=True)
-    issue_time = DateTimeField(default=datetime.datetime.now)
+    issue_time = DateTimeField(default=datetime.now)
     refresh_token = CharField(max_length=36, unique=True, null=True)
     expires_in = SmallIntegerField(default=0)
     created_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
@@ -595,7 +596,7 @@ class UserOrgAffiliation(BaseModel, AuditMixin):
 
 class OrcidApiCall(BaseModel):
     """ORCID API call audit entry."""
-    called_at = DateTimeField(default=datetime.datetime.now)
+    called_at = DateTimeField(default=datetime.now)
     user = ForeignKeyField(User)
     method = TextField()
     url = TextField()
@@ -614,7 +615,7 @@ class Task(BaseModel, AuditMixin):
     __record_count = None
     org = ForeignKeyField(
         Organisation, index=True, verbose_name="Organisation", on_delete="SET NULL")
-    completed_at = DateTimeField(default=datetime.datetime.now, null=True)
+    completed_at = DateTimeField(default=datetime.now, null=True)
     filename = TextField(null=True)
     created_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
     updated_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
@@ -641,7 +642,10 @@ class Task(BaseModel, AuditMixin):
         reader = csv.reader(source)
         header = next(reader)
         if filename is None:
-            filename = datetime.now().isoformat(timespec="seconds")
+            if hasattr(source, "name"):
+                filename = source.name
+            else:
+                filename = datetime.now().isoformat(timespec="seconds")
 
         if len(header) == 1 and '\t' in header[0]:
             source.seek(0)

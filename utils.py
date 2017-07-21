@@ -254,8 +254,7 @@ def process_affiliation_records(max_rows=20):
                     (User.orcid == AffiliationRecord.identifier))).join(
                         Organisation,
                         JOIN.LEFT_OUTER,
-                        on=(Organisation.name == AffiliationRecord.organisation))
-        .limit(max_rows))
+                        on=(Organisation.name == AffiliationRecord.organisation)).limit(max_rows))
     for user, tasks_by_user in groupby(tasks, lambda t: t.affiliation_record.user):
         if user.id is None or user.orcid is None:  # TODO: or no authorization tokens
             print("***", user)
