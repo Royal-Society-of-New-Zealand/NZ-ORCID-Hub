@@ -97,6 +97,7 @@ class Role(IntFlag):
     SUPERUSER = 1  # SuperUser
     ADMIN = 2  # Admin
     RESEARCHER = 4  # Researcher
+    TECHNICAL = 8  # Technical contact
     ANY = 255  # ANY
 
     def __eq__(self, other):
@@ -420,8 +421,9 @@ class User(BaseModel, UserMixin, AuditMixin):
             "Read header: %s" % header
         header_rexs = [
             re.compile(ex, re.I)
-            for ex in (r"first\s*(name)?", r"last\s*(name)?",
-                       "email\s*(address)?", "affiliation|student/staff")]
+            for ex in (r"first\s*(name)?", r"last\s*(name)?", "email\s*(address)?",
+                       "affiliation|student/staff")
+        ]
 
         def index(rex):
             """Return first header column index matching the given regex."""
@@ -456,7 +458,8 @@ class User(BaseModel, UserMixin, AuditMixin):
             user_org, user_org_created = UserOrg.get_or_create(user=user, org=org)
 
             if val(row, 3):
-                unscoped_affiliation = set(a.strip() for a in val(row, 3).encode("latin-1")
+                unscoped_affiliation = set(a.strip()
+                                           for a in val(row, 3).encode("latin-1")
                                            .decode("utf-8").lower().replace(',', ';').split(';'))
 
                 edu_person_affiliation = Affiliation.NONE
@@ -475,6 +478,24 @@ class User(BaseModel, UserMixin, AuditMixin):
 
 
 DeferredUser.set_model(User)
+
+
+class OrgInvitation(BaseModel, AuditMixin):
+    """Organisation invitation to on-board the Hub."""
+
+    invitee = ForeignKeyField(User, on_delete="SET NULL", related_name="received_org_invitations")
+    inviter = ForeignKeyField(User, on_delete="SET NULL", related_name="sent_org_invitations")
+    org = ForeignKeyField(Organisation, on_delete="SET NULL", verbose_name="Organisation")
+    email = TextField(help_text="The email address the invitation was sent to.")
+    token = TextField(unique=True)
+    confirmed_at = DateTimeField(null=True)
+
+    @property
+    def sent_at(self):
+        return self.created_at
+
+    class Meta:
+        db_table = "org_invitation"
 
 
 class UserOrg(BaseModel, AuditMixin):
@@ -553,14 +574,16 @@ def create_tables():
         db.connect()
     except OperationalError:
         pass
-    models = (Organisation, User, UserOrg, OrcidToken, UserOrgAffiliation, OrgInfo, OrcidApiCall)
+    models = (Organisation, User, UserOrg, OrcidToken, UserOrgAffiliation, OrgInfo, OrcidApiCall,
+              OrgInvitation)
     db.create_tables(models)
 
 
 def drop_tables():
     """Drop all model tables."""
 
-    for m in (Organisation, User, UserOrg, OrcidToken, UserOrgAffiliation, OrgInfo, OrcidApiCall):
+    for m in (Organisation, User, UserOrg, OrcidToken, UserOrgAffiliation, OrgInfo, OrcidApiCall,
+              OrgInvitation):
         if m.table_exists():
             try:
                 m.drop_table(fail_silently=True, cascade=db.drop_cascade)

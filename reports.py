@@ -9,7 +9,7 @@ from peewee import fn
 from application import app, db
 from forms import DateRangeForm
 from login_provider import roles_required
-from models import Role, User
+from models import OrgInvitation, Role, User
 
 
 @app.route("/user_summary")
@@ -54,3 +54,19 @@ ORDER BY o.name"""
         rows=rows,
         total_user_count=total_user_count,
         total_linked_user_count=total_linked_user_count)
+
+
+@app.route("/org_invitatin_summary")
+@roles_required(Role.SUPERUSER)
+def org_invitation_summary():
+
+    summary = OrgInvitation.select(
+        fn.COUNT(OrgInvitation.id).alias("total"),
+        fn.COUNT(OrgInvitation.confirmed_at).alias("confirmed")).first()
+    unconfirmed_invitations = OrgInvitation.select().where(
+        OrgInvitation.confirmed_at >> None).order_by(OrgInvitation.created_at)
+
+    return render_template(
+        "org_invitation_summary.html",
+        summary=summary,
+        unconfirmed_invitations=unconfirmed_invitations)
