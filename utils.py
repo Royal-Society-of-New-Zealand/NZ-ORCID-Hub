@@ -3,6 +3,7 @@
 
 import os
 import textwrap
+from os.path import splitext
 from urllib.parse import urlencode, urlparse
 
 import flask
@@ -11,22 +12,24 @@ import jinja2.ext
 import requests
 from flask_login import current_user
 from flask_mail import Message
+from html2text import html2text
 from itsdangerous import URLSafeTimedSerializer
 
 from application import app, mail
 
 
-def send_email(template,
+def send_email(template_filename,
                recipient,
                cc_email,
                sender=(app.config.get("APP_NAME"), app.config.get("MAIL_DEFAULT_SENDER")),
+               reply_to=None,
                subject=None,
                **kwargs):
     """
     Send an email, acquiring its payload by rendering a jinja2 template
-    :type template: :class:`str`
+    :type template_filename: :class:`str`
     :param subject: the subject of the email
-    :param template: name of the template file in ``templates/emails`` to use
+    :param template_filename: name of the template_filename file in ``templates/emails`` to use
     :type recipient: :class:`tuple` (:class:`str`, :class:`str`)
     :param recipient: 'To' (name, email)
     :type sender: :class:`tuple` (:class:`str`, :class:`str`)
@@ -48,6 +51,8 @@ def send_email(template,
       Note that ``{{ variables }}`` in manually wrapped text can cause
       problems!
     """
+    if not template_filename.endswith(".html"):
+        template_filename += ".html"
     if flask.current_app:
         # use the app's env if it's available, so that url_for may be used
         jinja_env = flask.current_app.jinja_env
@@ -59,20 +64,32 @@ def send_email(template,
 
     jinja_env = jinja_env.overlay(autoescape=False, extensions=[RewrapExtension])
 
+    def get_template(filename):
+        try:
+            return jinja_env.get_template(filename)
+        except jinja2.exceptions.TemplateNotFound:
+            return None
+
     def _jinja2_email(name, email):
         if name is None:
             hint = 'name was not set for email {0}'.format(email)
             name = jinja_env.undefined(name='name', hint=hint)
         return {"name": name, "email": email}
 
-    template = jinja_env.get_template(template)
+    template = get_template(template_filename)
+    plain_template = get_template(splitext(template_filename)[0] + ".plain")
 
     kwargs["sender"] = _jinja2_email(*sender)
     kwargs["recipient"] = _jinja2_email(*recipient)
     if subject is not None:
         kwargs["subject"] = subject
+    if reply_to is None:
+        reply_to = sender
 
     rendered = template.make_module(vars=kwargs)
+    plain_rendered = plain_template.make_module(
+        vars=kwargs) if plain_template else html2text(str(rendered))
+    print("***", str(plain_rendered))
 
     if subject is None:
         subject = getattr(rendered, "subject", "Welcome to the NZ ORCID Hub")
@@ -80,7 +97,10 @@ def send_email(template,
     with app.app_context():
         msg = Message(subject=subject)
         msg.add_recipient(recipient)
+        msg.reply_to = reply_to
         msg.html = str(rendered)
+        msg.body = str(plain_rendered)
+        msg.sender = sender
         if cc_email:
             msg.cc.append(cc_email)
         # TODO: implement async sedning

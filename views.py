@@ -2,6 +2,7 @@
 """Application views."""
 
 import os
+import json
 from collections import namedtuple
 from datetime import datetime
 from urllib.parse import urlparse
@@ -21,8 +22,8 @@ from config import ORCID_BASE_URL, SCOPE_ACTIVITIES_UPDATE, SCOPE_READ_LIMITED
 from forms import (BitmapMultipleValueField, FileUploadForm, OrgRegistrationForm, RecordForm)
 from login_provider import roles_required
 from models import PartialDate as PD
-from models import (CharField, OrcidApiCall, OrcidToken, Organisation, OrgInfo, Role, TextField,
-                    User, UserOrg, UserOrgAffiliation, db)
+from models import (CharField, OrcidApiCall, OrcidToken, Organisation, OrgInfo, OrgInvitation,
+                    Role, TextField, User, UserOrg, UserOrgAffiliation, db)
 # NB! Should be disabled in production
 from pyinfo import info
 from swagger_client.rest import ApiException
@@ -236,7 +237,8 @@ def delete_employment(user_id, put_code=None):
         app.logger.info("For %r employment record was deleted by %r", user.orcid, current_user)
         flash("Employment record successfully deleted.", "success")
     except ApiException as e:
-        flash("Failed to delete the entry: %s" % e.body, "danger")
+        message = json.loads(e.body.replace("''", "\"")).get('user-messsage')
+        flash("Failed to delete the entry: %s" % message, "danger")
     except Exception as ex:
         app.logger.error("For %r encountered exception: %r", user, ex)
         abort(500, ex)
@@ -310,7 +312,8 @@ def edit_section_record(user_id, put_code=None, section_type="EMP"):
                 start_date=PD.create(_data.get("start_date")),
                 end_date=PD.create(_data.get("end_date")))
         except ApiException as e:
-            print("Exception when calling MemberAPIV20Api->view_employment: %s\n" % e.body)
+            message = json.loads(e.body.replace("''", "\"")).get('user-messsage')
+            print("Exception when calling MemberAPIV20Api->view_employment: %s\n" % message)
         except Exception as ex:
             app.logger.error("For %r encountered exception: %r", user, ex)
             abort(500, ex)
@@ -393,8 +396,8 @@ def edit_section_record(user_id, put_code=None, section_type="EMP"):
             affiliation.save()
             return redirect(_url)
         except ApiException as e:
-            # message = resp.json().get("user-message") or resp.state
-            flash("Failed to update the entry: %s." % e.body, "danger")
+            message = json.loads(e.body.replace("''", "\"")).get('user-messsage')
+            flash("Failed to update the entry: %s." % message, "danger")
             app.logger.error("For %r Exception encountered: %r", user, e)
         except Exception as ex:
             app.logger.error("For %r encountered exception: %r", user, ex)
@@ -449,7 +452,8 @@ def show_record_section(user_id, section_type="EMP"):
         elif section_type == "EDU":
             api_response = api_instance.view_educations(user.orcid)
     except ApiException as ex:
-        flash("Exception when calling MemberAPIV20Api->view_employments: %s\n" % ex, "danger")
+        message = json.loads(ex.body.replace("''", "\"")).get('user-messsage')
+        flash("Exception when calling MemberAPIV20Api->view_employments: %s\n" % message, "danger")
         return redirect(url_for("viewmembers"))
     except Exception as ex:
         app.logger.error("For %r encountered exception: %r", user, ex)
@@ -467,9 +471,11 @@ def show_record_section(user_id, section_type="EMP"):
         return redirect(url_for("viewmembers"))
     # TODO: transform data for presentation:
     if section_type == "EMP":
-        return render_template("employments.html", data=data, user_id=user_id)
+        return render_template("employments.html", data=data, user_id=user_id,
+                               org_client_id=user.organisation.orcid_client_id)
     elif section_type == "EDU":
-        return render_template("educations.html", data=data, user_id=user_id)
+        return render_template("educations.html", data=data, user_id=user_id,
+                               org_client_id=user.organisation.orcid_client_id)
 
 
 @app.route("/load/org", methods=["GET", "POST"])
@@ -570,7 +576,7 @@ def register_org(org_name, email, tech_contact=True):
             user.organisation = org
             user.confirmed = True
         except User.DoesNotExist:
-            user = User(
+            user = User.create(
                 email=email,
                 confirmed=True,  # In order to let the user in...
                 roles=Role.ADMIN,
@@ -582,8 +588,10 @@ def register_org(org_name, email, tech_contact=True):
             raise Exception("Failed to save user data: %s" % str(ex), ex)
 
         if tech_contact:
+            user.roles |= Role.TECHNICAL
             org.tech_contact = user
             try:
+                user.save()
                 org.save()
             except Exception as ex:
                 app.logger.error("Encountered exception: %r", ex)
@@ -609,10 +617,14 @@ def register_org(org_name, email, tech_contact=True):
             utils.send_email(
                 "email/org_invitation.html",
                 recipient=(org_name, email),
-                cc_email=current_user.email,
+                reply_to=(current_user.name, current_user.email),
+                cc_email=(current_user.name, current_user.email),
                 token=token,
                 org_name=org_name,
                 user=user)
+
+        OrgInvitation.create(
+            inviter_id=current_user.id, invitee_id=user.id, email=user.email, org=org, token=token)
 
 
 # TODO: user can be admin for multiple org and org can have multiple admins:
