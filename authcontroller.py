@@ -675,10 +675,11 @@ def confirm_organisation(token=None):
                           "danger")
                 else:
                     organisation.confirmed = True
-                    organisation.orcid_client_id = form.orgOricdClientId.data
-                    organisation.orcid_secret = form.orgOrcidClientSecret.data
+                    organisation.orcid_client_id = form.orgOricdClientId.data.strip()
+                    organisation.orcid_secret = form.orgOrcidClientSecret.data.strip()
 
                     with app.app_context():
+                        # TODO: shouldn't it be also 'nicified'?
                         msg = Message("Welcome to the NZ ORCID Hub - Success", recipients=[email])
                         msg.body = "Congratulations! Your identity has been confirmed and " \
                                    "your organisation onboarded successfully.\n" \

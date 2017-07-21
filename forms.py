@@ -173,18 +173,18 @@ class OrgConfirmationForm(FlaskForm):
         'Organisation Orcid Client Id: ',
         validators=[
             DataRequired(),
-            Regexp(r"\S+", message="The value shouldn't contain any spaces"),
+            Regexp(r"^\S+$", message="The value shouldn't contain any spaces"),
             Regexp(
-                r"APP-[A-Z0-9]+",
+                r"^APP-[A-Z0-9]+$",
                 message=("The Cient ID should match patter "
-                         "'APP-(15 digits or uppercase characters), "
+                         "'APP-(sequence of digits or uppercase characters), "
                          "for example, 'APP-FDFN3F52J3M4L34S'.")),
         ])
     orgOrcidClientSecret = StringField(
         'Organisation Orcid Client Secret: ',
         validators=[
-            DataRequired(), Regexp(r"\S+", message="The value shouldn't contain any spaces"), UUID(
-                message="The secret should be a valid UUID")
+            DataRequired(), Regexp(r"^\S+$", message="The value shouldn't contain any spaces"),
+            UUID(message="The secret should be a valid UUID")
         ])
     country = SelectField(
         "Country", [validators.required()], choices=country_choices, default=DEFAULT_COUNTRY)
