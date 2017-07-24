@@ -573,14 +573,6 @@ def profile():
                 "profile.html", user=user, users_orcid=users_orcid, profile_url=ORCID_BASE_URL)
 
 
-@app.route("/invite/user", methods=["GET"])
-@roles_required(Role.SUPERUSER, Role.ADMIN)
-def invite_user():
-    """Invite a researcher to join the hub."""
-    # For now on boarding of researcher is not supported
-    return "Work in Progress!"
-
-
 @app.route("/confirm/organisation", methods=["GET", "POST"])
 @app.route("/confirm/organisation/<token>", methods=["GET", "POST"])
 @login_required

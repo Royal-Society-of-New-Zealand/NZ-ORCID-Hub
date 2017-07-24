@@ -19,7 +19,8 @@ import orcid_client
 import utils
 from application import admin, app
 from config import ORCID_BASE_URL, SCOPE_ACTIVITIES_UPDATE, SCOPE_READ_LIMITED
-from forms import (BitmapMultipleValueField, FileUploadForm, OrgRegistrationForm, RecordForm)
+from forms import (BitmapMultipleValueField, FileUploadForm, OrgRegistrationForm, RecordForm,
+                   UserInvitationForm)
 from login_provider import roles_required
 from models import PartialDate as PD
 from models import (CharField, OrcidApiCall, OrcidToken, Organisation, OrgInfo, OrgInvitation,
@@ -672,3 +673,22 @@ def invite_organisation():
         form=form,
         org_info={r.name: r.email
                   for r in OrgInfo.select(OrgInfo.name, OrgInfo.email)})
+
+
+@app.route("/invite/user", methods=["GET", "POST"])
+@roles_required(Role.SUPERUSER, Role.ADMIN)
+def invite_user():
+    """Invite a researcher to join the hub."""
+    form = UserInvitationForm()
+    if request.method == "GET":
+        org = current_user.organisation
+        form.organisation.data = org.name
+        form.disambiguation_org_id.data = org.disambiguation_org_id
+        form.disambiguation_org_source.data = org.disambiguation_org_source
+        form.city.data = org.city
+        form.state.data = org.state
+        form.country.data = org.country
+
+    if form.validate_on_submit():
+        pass
+    return render_template("user_invitation.html", form=form)
