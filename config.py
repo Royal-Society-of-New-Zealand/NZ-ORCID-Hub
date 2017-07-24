@@ -69,8 +69,7 @@ APP_DESCRIPTION = 'This is an ORCID integration through the NZ ORCID HUB connect
 APP_URL = "https://" + (ENV + ".orcidhub.org.nz" if ENV != "prod" else "orcidhub.org.nz")
 
 # External Shibboleth SP login URL (e.g., https://test.orcidhub.org.nz/Tuakiri/login)
-if ENV != "prod":
-    EXTERNAL_SP = environ.get("EXTERNAL_SP")
+EXTERNAL_SP = environ.get("EXTERNAL_SP")
 
 DEFAULT_COUNTRY = "NZ"
 
