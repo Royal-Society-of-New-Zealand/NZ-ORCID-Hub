@@ -26,6 +26,11 @@ except ImportError:
     from enum import IntEnum as IntFlag
 
 
+class ModelException(Exception):
+    """Applicaton model exception."""
+    pass
+
+
 class PartialDate(namedtuple("PartialDate", ["year", "month", "day"])):
     """Partial date (without month day or both moth and month day."""
 
@@ -46,11 +51,23 @@ class PartialDate(namedtuple("PartialDate", ["year", "month", "day"])):
 
         >>> PartialDate.create({"year": {"value": "2003"}}).year
         2003
+
+        >>> PartialDate.create("2003").year
+        2003
+
+        >>> PartialDate.create("2003-03")
+        2003-03
+
+        >>> PartialDate.create("2003-07-14")
+        2003-07-13
         """
         if value is None or value == {}:
             return None
         if isinstance(value, str):
-            return cls(* [int(v) for v in value.split('-')])
+            try:
+                return cls(* [int(v) for v in value.split('-')])
+            except Exception as ex:
+                raise ModelException(f"Wrong partial date value '{value}': {ex}")
 
         return cls(**{k: int(v.get("value")) if v else None for k, v in value.items()})
 
@@ -694,8 +711,11 @@ class Task(BaseModel, AuditMixin):
 
         for row in reader:
             identifier = val(row, 2)
-            if len(row) == 0 or identifier is None:
+            if len(row) == 0:
                 continue
+            if identifier is None:
+                raise ModelException(
+                    f"Missing user identifier (email address, eppn, or ORCID iD): {row}")
             AffiliationRecord.create(
                 task=task,
                 first_name=val(row, 0),

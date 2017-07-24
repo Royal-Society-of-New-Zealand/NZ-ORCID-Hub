@@ -4,9 +4,9 @@ import pytest
 from peewee import Model, SqliteDatabase
 from playhouse.test_utils import test_database
 
-from models import (Affiliation, AffiliationRecord, OrcidToken, Organisation, OrgInfo, PartialDate,
-                    PartialDateField, Role, Task, User, UserOrg, UserOrgAffiliation, create_tables,
-                    drop_tables)
+from models import (Affiliation, AffiliationRecord, ModelException, OrcidToken, Organisation,
+                    OrgInfo, PartialDate, PartialDateField, Role, Task, User, UserOrg,
+                    UserOrgAffiliation, create_tables, drop_tables)
 
 
 @pytest.fixture
@@ -212,6 +212,9 @@ def test_partial_date():
     assert PartialDate.create("1997") == PartialDate(year=1997, month=None, day=None)
     assert PartialDate.create("1997-12") == PartialDate(year=1997, month=12, day=None)
     assert PartialDate.create("1997-12-31") == PartialDate(year=1997, month=12, day=31)
+
+    with pytest.raises(ModelException):
+        PartialDate.create("ABC")
 
 
 def test_pd_field():
