@@ -6,7 +6,8 @@ from datetime import date
 from flask_wtf import FlaskForm
 from flask_wtf.file import FileAllowed, FileField, FileRequired
 from pycountry import countries
-from wtforms import (Field, SelectField, SelectMultipleField, StringField, validators)
+from wtforms import (BooleanField, Field, SelectField, SelectMultipleField, StringField,
+                     validators)
 from wtforms.fields.html5 import DateField, EmailField
 from wtforms.validators import UUID, DataRequired, Email, Regexp
 from wtforms.widgets import HTMLString, html_params
@@ -14,11 +15,6 @@ from wtforms.widgets import HTMLString, html_params
 from config import DEFAULT_COUNTRY
 from models import PartialDate as PD
 from models import Organisation
-
-# Order the countly list by the name and add a default (Null) value
-country_choices = [(c.alpha_2, c.name) for c in countries]
-country_choices.sort(key=lambda e: e[1])
-country_choices.insert(0, ("", "Country"))
 
 
 class PartialDate:
@@ -90,6 +86,19 @@ class PartialDateField(Field):
             self.process_errors.append(e.args[0])
 
 
+class CountrySelectField(SelectField):
+
+    # Order the countly list by the name and add a default (Null) value
+    country_choices = [(c.alpha_2, c.name) for c in countries]
+    country_choices.sort(key=lambda e: e[1])
+    country_choices.insert(0, ("", "Country"))
+
+    def __init__(self, *args, **kwargs):
+        if len(args) == 0 and "label" not in kwargs:
+            kwargs["label"] = "Country"
+        super().__init__(*args, choices=self.country_choices, **kwargs)
+
+
 class BitmapMultipleValueField(SelectMultipleField):
     """
     No different from a normal multi select field, except this one can take (and
@@ -133,7 +142,7 @@ class RecordForm(FlaskForm):
     name = StringField("Institution/employer", [validators.required()])
     city = StringField("City", [validators.required()])
     state = StringField("State/region", filters=[lambda x: x or None])
-    country = SelectField("Country", [validators.required()], choices=country_choices)
+    country = CountrySelectField("Country", [validators.required()])
     department = StringField("Department", filters=[lambda x: x or None])
     role = StringField("Role/title", filters=[lambda x: x or None])
     start_date = PartialDateField("Start date")
@@ -186,11 +195,26 @@ class OrgConfirmationForm(FlaskForm):
             DataRequired(), Regexp(r"^\S+$", message="The value shouldn't contain any spaces"),
             UUID(message="The secret should be a valid UUID")
         ])
-    country = SelectField(
-        "Country", [validators.required()], choices=country_choices, default=DEFAULT_COUNTRY)
+    country = CountrySelectField("Country", [validators.required()], default=DEFAULT_COUNTRY)
     city = StringField("City", [validators.required()])
     disambiguation_org_id = StringField("Disambiguation ORG Id", [validators.required()])
     disambiguation_org_source = StringField("Disambiguation ORG Source", [validators.required()])
+
+
+class UserInvitationForm(FlaskForm):
+    first_name = StringField("First Name", [validators.required()])
+    last_name = StringField("Last Name", [validators.required()])
+    email_address = EmailField("Email Address", [validators.required(), Email()])
+    department = StringField("Campus/Department")
+    city = StringField("City", [validators.required()])
+    country = CountrySelectField("Country", [validators.required()], default=DEFAULT_COUNTRY)
+    course_or_role = StringField("Course or Job title")
+    start_date = DateField('Start Date: ', format='%m/%d/%Y', validators=[DataRequired])
+    end_date = DateField('End Date: ', format='%m/%d/%Y', validators=[DataRequired])
+    is_student = BooleanField("Student")
+    is_employee = BooleanField("Staff")
+    disambiguation_org_id = StringField("Disambiguation ORG Id")
+    disambiguation_org_source = StringField("Disambiguation ORG Source")
 
 
 class EmploymentDetailsForm(FlaskForm):
