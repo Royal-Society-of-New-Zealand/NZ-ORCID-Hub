@@ -74,9 +74,9 @@ class PartialDate(namedtuple("PartialDate", ["year", "month", "day"])):
     def as_datetime(self):
         return datetime(self.year, self.month, self.day)
 
-    def __repr__(self):
+    def __str__(self):
         if self.year is None:
-            return None
+            return ''
         else:
             res = "%04d" % int(self.year)
             if self.month:
