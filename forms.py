@@ -172,13 +172,13 @@ class OnboardingTokenForm(FlaskForm):
 
 
 class OrgRegistrationForm(FlaskForm):
-    orgName = StringField('Organisation Name: ', validators=[DataRequired()])
-    orgEmailid = EmailField('Organisation EmailId: ', validators=[DataRequired(), Email()])
+    orgName = StringField('Organisation Name', validators=[DataRequired()])
+    orgEmailid = EmailField('Organisation EmailId', validators=[DataRequired(), Email()])
 
 
 class OrgConfirmationForm(FlaskForm):
-    orgName = StringField('Organisation Name: ', validators=[DataRequired()])
-    orgEmailid = EmailField('Organisation EmailId: ', validators=[DataRequired(), Email()])
+    orgName = StringField('Organisation Name', validators=[DataRequired()])
+    orgEmailid = EmailField('Organisation EmailId', validators=[DataRequired(), Email()])
     orgOricdClientId = StringField(
         'Organisation Orcid Client Id: ',
         validators=[
