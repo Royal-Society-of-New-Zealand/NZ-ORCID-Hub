@@ -18,6 +18,7 @@ from itsdangerous import URLSafeTimedSerializer
 from peewee import JOIN
 
 from application import app, mail
+from config import ENV
 from models import (Affiliation, AffiliationRecord, Organisation, Role, Task, User, UserOrg)
 
 
@@ -225,6 +226,14 @@ def track_event(category, action, label=None, value=0):
     response.raise_for_status()
 
 
+def set_server_name():
+    """Set the server name for batch processes."""
+
+    if not app.config.get("SERVER_NAME"):
+        app.config[
+            "SERVER_NAME"] = "orcidhub.org.nz" if ENV == "prod" else ENV + ".orcidhub.org.nz"
+
+
 def send_user_initation(org, email, first_name, last_name, affiliation_types):
     """Send an invitation to join ORCID Hub logging in via ORCID."""
     print("*****", org, email, first_name, last_name, affiliation_types)
@@ -277,6 +286,8 @@ def create_or_update_affiliation(user, records, *args, **kwargs):
 
 def process_affiliation_records(max_rows=20):
     """Process uploaded affiliation records."""
+    set_server_name()
+
     tasks = (Task.select(Task, AffiliationRecord, User, Organisation).where(
         AffiliationRecord.processed_at.is_null() & AffiliationRecord.is_active).join(
             AffiliationRecord, on=(Task.id == AffiliationRecord.task_id)).join(
