@@ -178,11 +178,6 @@ a.orcid:hover {
     text-decoration: none;
 }
 
-input[type=checkbox], input[type=radio] {
-    width:20px;
-    height:20px;
-}
-
 table.permissions, table.permissions th, table.permissions td, table.users, table.users th, table.users td {
     border: 1px solid gray;
 }

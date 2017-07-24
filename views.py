@@ -20,8 +20,8 @@ import orcid_client
 import utils
 from application import admin, app
 from config import ORCID_BASE_URL, SCOPE_ACTIVITIES_UPDATE, SCOPE_READ_LIMITED
-from forms import (BitmapMultipleValueField, FileUploadForm, OrgRegistrationForm, PartialDateField, RecordForm,
-                   UserInvitationForm)
+from forms import (BitmapMultipleValueField, FileUploadForm, OrgRegistrationForm, PartialDateField,
+                   RecordForm, UserInvitationForm)
 from login_provider import roles_required
 from models import PartialDate as PD
 from models import AffiliationRecord  # noqa: F401
@@ -735,21 +735,16 @@ def invite_organisation():
         * An email message with confirmation link gets created and sent off to the technical contact.
     """
     form = OrgRegistrationForm()
-    if request.method == "POST":
-        if not form.validate():
-            flash("Please fill in all fields and try again.", "danger")
-        else:
-            try:
-                register_org(form.orgName.data,
-                             form.orgEmailid.data.lower(), request.form.get("tech_contact"))
-                flash("Organisation Invited Successfully! "
-                      "An email has been sent to the organisation contact", "success")
-                app.logger.info(
-                    "Organisation '%s' successfully invited. Invitation sent to '%s'." %
-                    (form.orgName.data, form.orgEmailid.data))
-            except Exception as ex:
-                app.logger.error("Encountered exception: %r", ex)
-                flash(str(ex), "danger")
+    if form.validate_on_submit():
+        try:
+            register_org(form.org_name.data, form.org_email.data.lower(), form.tech_contact.data)
+            flash("Organisation Invited Successfully! "
+                  "An email has been sent to the organisation contact", "success")
+            app.logger.info("Organisation '%s' successfully invited. Invitation sent to '%s'." %
+                            (form.org_name.data, form.org_email.data))
+        except Exception as ex:
+            app.logger.error("Encountered exception: %r", ex)
+            flash(str(ex), "danger")
 
     return render_template(
         "registration.html",

@@ -172,8 +172,9 @@ class OnboardingTokenForm(FlaskForm):
 
 
 class OrgRegistrationForm(FlaskForm):
-    orgName = StringField('Organisation Name: ', validators=[DataRequired()])
-    orgEmailid = EmailField('Organisation EmailId: ', validators=[DataRequired(), Email()])
+    org_name = StringField('Organisation Name', validators=[DataRequired()])
+    org_email = EmailField('Organisation Email', validators=[DataRequired(), Email()])
+    tech_contact = BooleanField("Technical Contact", default=False)
 
 
 class OrgConfirmationForm(FlaskForm):
