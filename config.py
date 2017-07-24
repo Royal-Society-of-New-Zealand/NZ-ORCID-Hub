@@ -62,7 +62,7 @@ MEMBER_API_FORM_BASE_URL = "https://orcid.org/content/register-client-applicatio
     if ENV != "prod" else "https://orcid.org/content/register-client-application-production-trusted-party"
 
 NEW_CREDENTIALS = 'New_Credentials'
-NOTE_ORCID = 'An NZ ORCID Hub integration for'
+NOTE_ORCID = 'An "NZ" ORCID Hub integration for'
 CRED_TYPE_PREMIUM = 2
 APP_NAME = 'NZ ORCID HUB'
 APP_DESCRIPTION = 'This is an ORCID integration through the NZ ORCID HUB connecting'
@@ -83,3 +83,5 @@ else:
     GA_TRACKING_ID = "UA-99022483-4"
 
 SENTRY_DSN = "https://bb596bd75ad4490c80ee0a7c22943a94:a53ff6a9eb5b439e87d8553f162a6658@sentry.io/172044"
+
+SERVER_NAME = environ.get("SERVER_NAME", "orsd")

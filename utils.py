@@ -3,6 +3,7 @@
 
 import os
 import textwrap
+from itertools import groupby
 from os.path import splitext
 from urllib.parse import urlencode, urlparse
 
@@ -14,8 +15,10 @@ from flask_login import current_user
 from flask_mail import Message
 from html2text import html2text
 from itsdangerous import URLSafeTimedSerializer
+from peewee import JOIN
 
 from application import app, mail
+from models import (Affiliation, AffiliationRecord, Organisation, Role, Task, User, UserOrg)
 
 
 def send_email(template_filename,
@@ -220,3 +223,84 @@ def track_event(category, action, label=None, value=0):
     # on your application's needs, this may be a non-error and can be caught
     # by the caller.
     response.raise_for_status()
+
+
+def send_user_initation(org, email, first_name, last_name, affiliation_types):
+    """Send an invitation to join ORCID Hub logging in via ORCID."""
+    print("*****", org, email, first_name, last_name, affiliation_types)
+    try:
+        email = email.lower()
+        user, _ = User.get_or_create(email=email)
+        user.first_name = first_name
+        user.last_name = last_name
+        user.roles = Role.RESEARCHER
+        user.email = email
+        user.organisation = org
+        with app.app_context():
+            email_and_organisation = email + ";" + org.name
+            token = generate_confirmation_token(email_and_organisation)
+            send_email(
+                "email/researcher_invitation.html",
+                recipient=(user.organisation.name, user.email),
+                cc_email=None,
+                token=token,
+                org_name=user.organisation.name,
+                user=user)
+
+        user.save()
+
+        user_org, user_org_created = UserOrg.get_or_create(user=user, org=org)
+
+        if affiliation_types & {"faculty", "staff"}:
+            user_org.affiliations |= Affiliation.EMP
+        if affiliation_types & {"student", "alum"}:
+            user_org.affiliations |= Affiliation.EDU
+
+        user_org.save()
+
+    except Exception as ex:
+        print("Exception occured while sending mails %r" % str(ex), "danger")
+
+    pass
+
+
+def create_or_update_affiliation(user, records, *args, **kwargs):
+    """Creates or updates affiliation record of a user.
+
+    1. Retries user edurcation and employment surramy from ORCID;
+    2. Match the recodrs with the summary;
+    3. If there is match update the record;
+    4. If no match create a new one."""
+    # TODO:
+    pass
+
+
+def process_affiliation_records(max_rows=20):
+    """Process uploaded affiliation records."""
+    tasks = (Task.select(Task, AffiliationRecord, User, Organisation).where(
+        AffiliationRecord.processed_at.is_null() & AffiliationRecord.is_active).join(
+            AffiliationRecord, on=(Task.id == AffiliationRecord.task_id)).join(
+                User,
+                JOIN.LEFT_OUTER,
+                on=((User.email == AffiliationRecord.identifier) |
+                    (User.eppn == AffiliationRecord.identifier) |
+                    (User.orcid == AffiliationRecord.identifier))).join(
+                        Organisation,
+                        JOIN.LEFT_OUTER,
+                        on=(Organisation.name == AffiliationRecord.organisation)).limit(max_rows))
+    for user, tasks_by_user in groupby(tasks, lambda t: t.affiliation_record.user):
+        if user.id is None or user.orcid is None:  # TODO: or no authorization tokens
+            invitation_dict = {
+                k: set(t.affiliation_record.affiliation_type.lower() for t in tasks)
+                for k, tasks in groupby(
+                    tasks_by_user,
+                    lambda t: (t.org, t.affiliation_record.identifier, t.affiliation_record.first_name, t.affiliation_record.last_name)  # noqa: E501
+                )
+            }
+
+            for invitation, affiliations in invitation_dict.items():
+                send_user_initation(*invitation, affiliations)
+        else:  # user exits and we have tokens
+            for task in tasks_by_user:
+                print("***", task, ':', user.orcid)
+                create_or_update_affiliation(user, task.affiliation_record)

@@ -161,7 +161,8 @@ class RecordForm(FlaskForm):
 class FileUploadForm(FlaskForm):
     """Organisation info pre-loading form."""
 
-    org_info = FileField(validators=[FileRequired(), FileAllowed(["csv"], 'CSV files only!')])
+    file_ = FileField(
+        validators=[FileRequired(), FileAllowed(["csv", "tsv"], 'CSV or TSV files only!')])
 
 
 class OnboardingTokenForm(FlaskForm):
