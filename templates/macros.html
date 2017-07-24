@@ -5,7 +5,7 @@
   {% if f.errors %}
     <ul class=errors>
       {% for error in f.errors %}
-        <li>{{ error }}</li>
+        <li style="color: red">{{ error }}</li>
       {% endfor %}
     </ul>
   {% endif %}
