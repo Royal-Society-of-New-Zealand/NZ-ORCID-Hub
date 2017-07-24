@@ -499,6 +499,38 @@ class OrgInvitation(BaseModel, AuditMixin):
         db_table = "org_invitation"
 
 
+class UserInvitation(BaseModel, AuditMixin):
+    """Organisation invitation to on-board the Hub."""
+
+    inviter = ForeignKeyField(User, on_delete="SET NULL", related_name="sent_user_invitations")
+    org = ForeignKeyField(Organisation, on_delete="SET NULL", verbose_name="Organisation")
+
+    email = TextField(help_text="The email address the invitation was sent to.")
+    first_name = TextField(verbose_name="First Name")
+    last_name = TextField(verbose_name="Last Name")
+    orcid = CharField(max_length=120, verbose_name="ORCID iD", null=True)
+    department = TextField(verbose_name="Campus/Department", null=True)
+    organisation = TextField(verbose_name="Organisation Name", null=True)
+    city = TextField(verbose_name="City")
+    state = TextField(verbose_name="State", null=True)
+    country = CharField(verbose_name="Country", max_length=2, null=True)
+    course_or_role = TextField(verbose_name="Course or Job title", null=True)
+    start_date = PartialDateField(verbose_name="Start date", null=True)
+    end_date = PartialDateField(verbose_name="End date (leave blank if current)", null=True)
+    affiliations = SmallIntegerField(verbose_name="User affiliations", null=True)
+    disambiguation_org_id = TextField(verbose_name="Disambiguation ORG Id", null=True)
+    disambiguation_org_source = TextField(verbose_name="Disambiguation ORG Source", null=True)
+    token = TextField(unique=True)
+    confirmed_at = DateTimeField(null=True)
+
+    @property
+    def sent_at(self):
+        return self.created_at
+
+    class Meta:
+        db_table = "user_invitation"
+
+
 class UserOrg(BaseModel, AuditMixin):
     """Linking object for many-to-many relationship."""
 

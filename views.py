@@ -690,5 +690,8 @@ def invite_user():
         form.country.data = org.country
 
     if form.validate_on_submit():
-        pass
+        pass  # TODO: handle a single inviation:
+        # 1. create token;
+        # 2. save the invitation parametes into DB (UserInvitaiton);
+        # 3. dispatch invitation email;
     return render_template("user_invitation.html", form=form)
