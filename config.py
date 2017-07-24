@@ -85,4 +85,4 @@ else:
 
 SENTRY_DSN = "https://bb596bd75ad4490c80ee0a7c22943a94:a53ff6a9eb5b439e87d8553f162a6658@sentry.io/172044"
 
-SERVER_NAME = environ.get("SERVER_NAME")
+SERVER_NAME = environ.get("SERVER_NAME", "orsd")

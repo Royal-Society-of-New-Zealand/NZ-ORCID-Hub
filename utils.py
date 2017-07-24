@@ -18,7 +18,7 @@ from itsdangerous import URLSafeTimedSerializer
 from peewee import JOIN
 
 from application import app, mail
-from models import AffiliationRecord, Organisation, Task, User, Role, UserOrg, Affiliation
+from models import (Affiliation, AffiliationRecord, Organisation, Role, Task, User, UserOrg)
 
 
 def send_email(template_filename,
@@ -225,11 +225,11 @@ def track_event(category, action, label=None, value=0):
     response.raise_for_status()
 
 
-def send_user_initation(email, first_name, last_name, organisation, affiliation_type):
+def send_user_initation(org, email, first_name, last_name, affiliation_types):
     """Send an invitation to join ORCID Hub logging in via ORCID."""
+    print("*****", org, email, first_name, last_name, affiliation_types)
     try:
         email = email.lower()
-        org = Organisation.get(name=organisation)
         user, _ = User.get_or_create(email=email)
         user.first_name = first_name
         user.last_name = last_name
@@ -237,7 +237,7 @@ def send_user_initation(email, first_name, last_name, organisation, affiliation_
         user.email = email
         user.organisation = org
         with app.app_context():
-            email_and_organisation = email + ";" + organisation
+            email_and_organisation = email + ";" + org.name
             token = generate_confirmation_token(email_and_organisation)
             send_email(
                 "email/researcher_invitation.html",
@@ -251,17 +251,11 @@ def send_user_initation(email, first_name, last_name, organisation, affiliation_
 
         user_org, user_org_created = UserOrg.get_or_create(user=user, org=org)
 
-        if affiliation_type:
-            unscoped_affiliation = set(a.strip()
-                                       for a in affiliation_type.encode("latin-1")
-                                       .decode("utf-8").lower().replace(',', ';').split(';'))
+        if affiliation_types & {"faculty", "staff"}:
+            user_org.affiliations |= Affiliation.EMP
+        if affiliation_types & {"student", "alum"}:
+            user_org.affiliations |= Affiliation.EDU
 
-            edu_person_affiliation = Affiliation.NONE
-            if unscoped_affiliation & {"faculty", "staff"}:
-                edu_person_affiliation |= Affiliation.EMP
-            if unscoped_affiliation & {"student", "alum"}:
-                edu_person_affiliation |= Affiliation.EDU
-            user_org.affiliations = edu_person_affiliation
         user_org.save()
 
     except Exception as ex:
@@ -296,14 +290,16 @@ def process_affiliation_records(max_rows=20):
                         on=(Organisation.name == AffiliationRecord.organisation)).limit(max_rows))
     for user, tasks_by_user in groupby(tasks, lambda t: t.affiliation_record.user):
         if user.id is None or user.orcid is None:  # TODO: or no authorization tokens
-            invitation_set = set((t.affiliation_record.identifier, t.affiliation_record.first_name,
-                                  t.affiliation_record.last_name, t.affiliation_record.organisation,
-                                  t.affiliation_record.affiliation_type) for t in
-                                 tasks_by_user)
+            invitation_dict = {
+                k: set(t.affiliation_record.affiliation_type.lower() for t in tasks)
+                for k, tasks in groupby(
+                    tasks_by_user,
+                    lambda t: (t.org, t.affiliation_record.identifier, t.affiliation_record.first_name, t.affiliation_record.last_name)  # noqa: E501
+                )
+            }
 
-            for invitation in invitation_set:
-                send_user_initation(email=invitation[0], first_name=invitation[1], last_name=invitation[2],
-                                    organisation=invitation[3], affiliation_type=invitation[4])
+            for invitation, affiliations in invitation_dict.items():
+                send_user_initation(*invitation, affiliations)
         else:  # user exits and we have tokens
             for task in tasks_by_user:
                 print("***", task, ':', user.orcid)
