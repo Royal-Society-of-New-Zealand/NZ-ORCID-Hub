@@ -18,7 +18,7 @@ from itsdangerous import URLSafeTimedSerializer
 from peewee import JOIN
 
 from application import app, mail
-from models import AffiliationRecord, Organisation, Task, User
+from models import AffiliationRecord, Organisation, Task, User, Role, UserOrg, Affiliation
 
 
 def send_email(template_filename,
@@ -225,9 +225,48 @@ def track_event(category, action, label=None, value=0):
     response.raise_for_status()
 
 
-def send_user_initation(email, first_name, last_name, organisation_name, *args, **kwargs):
+def send_user_initation(email, first_name, last_name, organisation, affiliation_type):
     """Send an invitation to join ORCID Hub logging in via ORCID."""
-    # TODO:
+    try:
+        email = email.lower()
+        org = Organisation.get(name=organisation)
+        user, _ = User.get_or_create(email=email)
+        user.first_name = first_name
+        user.last_name = last_name
+        user.roles = Role.RESEARCHER
+        user.email = email
+        user.organisation = org
+        with app.app_context():
+            email_and_organisation = email + ";" + organisation
+            token = generate_confirmation_token(email_and_organisation)
+            send_email(
+                "email/researcher_invitation.html",
+                recipient=(user.organisation.name, user.email),
+                cc_email=None,
+                token=token,
+                org_name=user.organisation.name,
+                user=user)
+
+        user.save()
+
+        user_org, user_org_created = UserOrg.get_or_create(user=user, org=org)
+
+        if affiliation_type:
+            unscoped_affiliation = set(a.strip()
+                                       for a in affiliation_type.encode("latin-1")
+                                       .decode("utf-8").lower().replace(',', ';').split(';'))
+
+            edu_person_affiliation = Affiliation.NONE
+            if unscoped_affiliation & {"faculty", "staff"}:
+                edu_person_affiliation |= Affiliation.EMP
+            if unscoped_affiliation & {"student", "alum"}:
+                edu_person_affiliation |= Affiliation.EDU
+            user_org.affiliations = edu_person_affiliation
+        user_org.save()
+
+    except Exception as ex:
+        print("Exception occured while sending mails %r" % str(ex), "danger")
+
     pass
 
 
@@ -245,7 +284,7 @@ def create_or_update_affiliation(user, records, *args, **kwargs):
 def process_affiliation_records(max_rows=20):
     """Process uploaded affiliation records."""
     tasks = (Task.select(Task, AffiliationRecord, User, Organisation).where(
-        AffiliationRecord.processed_at >> None & AffiliationRecord.is_active).join(
+        AffiliationRecord.processed_at.is_null() & AffiliationRecord.is_active).join(
             AffiliationRecord, on=(Task.id == AffiliationRecord.task_id)).join(
                 User,
                 JOIN.LEFT_OUTER,
@@ -257,12 +296,14 @@ def process_affiliation_records(max_rows=20):
                         on=(Organisation.name == AffiliationRecord.organisation)).limit(max_rows))
     for user, tasks_by_user in groupby(tasks, lambda t: t.affiliation_record.user):
         if user.id is None or user.orcid is None:  # TODO: or no authorization tokens
-            print("***", user)
-            # TODO: send an invitation
-            # create a unique list/set of users to whom need to send the invitation:
-            invitation_set = []  # TODO: from tasks_by_user
+            invitation_set = set((t.affiliation_record.identifier, t.affiliation_record.first_name,
+                                  t.affiliation_record.last_name, t.affiliation_record.organisation,
+                                  t.affiliation_record.affiliation_type) for t in
+                                 tasks_by_user)
+
             for invitation in invitation_set:
-                send_user_initation(*invitation)
+                send_user_initation(email=invitation[0], first_name=invitation[1], last_name=invitation[2],
+                                    organisation=invitation[3], affiliation_type=invitation[4])
         else:  # user exits and we have tokens
             for task in tasks_by_user:
                 print("***", task, ':', user.orcid)
