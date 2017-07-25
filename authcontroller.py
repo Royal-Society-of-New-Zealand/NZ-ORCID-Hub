@@ -7,6 +7,7 @@ user (reseaser) affiliations.
 
 import base64
 import pickle
+import re
 import secrets
 import zlib
 from datetime import datetime
@@ -142,7 +143,8 @@ def handle_login():
     try:
         last_name = data['Sn'].encode("latin-1").decode("utf-8")
         first_name = data['Givenname'].encode("latin-1").decode("utf-8")
-        email = data['Mail'].encode("latin-1").decode("utf-8").lower()
+        email, *secondary_emails = re.split("[,; \t]",
+                                            data['Mail'].encode("latin-1").decode("utf-8").lower())
         session["shib_O"] = shib_org_name = data['O'].encode("latin-1").decode("utf-8")
         name = data.get('Displayname').encode("latin-1").decode("utf-8")
         eppn = data.get('Eppn').encode("latin-1").decode("utf-8")
@@ -152,6 +154,10 @@ def handle_login():
         app.logger.info(
             "User with email address %r is trying to login having affiliation as %r with %r",
             email, unscoped_affiliation, shib_org_name)
+        if secondary_emails:
+            app.logger.info(
+                f"the user has logged in with secondary email addresses: {secondary_emails}")
+
     except Exception as ex:
         app.logger.error("Encountered exception: %r", ex)
         abort(500, ex)
