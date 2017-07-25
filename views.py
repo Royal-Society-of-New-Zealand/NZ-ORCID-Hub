@@ -26,7 +26,7 @@ from login_provider import roles_required
 from models import PartialDate as PD
 from models import AffiliationRecord  # noqa: F401
 from models import (CharField, OrcidApiCall, OrcidToken, Organisation, OrgInfo, OrgInvitation,
-                    Role, Task, TextField, User, UserOrg, UserOrgAffiliation, db)
+                    Role, Task, TextField, Url, User, UserOrg, UserOrgAffiliation, db)
 # NB! Should be disabled in production
 from pyinfo import info
 from swagger_client.rest import ApiException
@@ -55,6 +55,15 @@ def pyinfo():
 def about():
     """Show "about" page."""
     return render_template("about.html")
+
+
+@app.route("/u/<short_id>")
+def short_url(short_id):
+    try:
+        u = Url.get(short_id=short_id)
+        return redirect(u.url)
+    except Url.DoesNotExist:
+        abort(404)
 
 
 class AppModelView(ModelView):
@@ -297,6 +306,13 @@ def user_orcid_id_url(user):
 def isodate(d, sep=' '):
     """Render date into format YYYY-mm-dd HH:MM."""
     return d.strftime("%Y‑%m‑%d" + sep + "%H:%M") if d and isinstance(d, (datetime, )) else d
+
+
+@app.template_filter("shorturl")
+def shorturl(url):
+    """Create and render short url"""
+    u = Url.shorten(url)
+    return url_for("short_url", short_id=u.short_id, _external=True)
 
 
 @app.route("/<int:user_id>/emp/<int:put_code>/delete", methods=["POST"])
