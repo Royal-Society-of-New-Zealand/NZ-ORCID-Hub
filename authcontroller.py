@@ -961,12 +961,12 @@ def orcid_login(token=None):
             scope=SCOPE_AUTHENTICATE,
             redirect_uri=redirect_uri, )
 
-        authorization_url_write, state = client_write.authorization_url(AUTHORIZATION_BASE_URL)
+        authorization_url, state = client_write.authorization_url(AUTHORIZATION_BASE_URL)
         session['oauth_state'] = state
 
-        orcid_url_write = append_qs(iri_to_uri(authorization_url_write))
+        orcid_authenticate_url = append_qs(iri_to_uri(authorization_url))
 
-        return redirect(orcid_url_write)
+        return redirect(orcid_authenticate_url)
     except Exception as ex:
         flash("Something went wrong contact orcidhub support for issue: %s" % str(ex))
         app.logger.error("Encountered exception: %r", ex)
@@ -988,9 +988,7 @@ def orcid_login_callback():
         if orcid_id is None:
             client = OAuth2Session(ORCID_CLIENT_ID)
             token = client.fetch_token(
-                TOKEN_URL,
-                client_secret=ORCID_CLIENT_SECRET,
-                authorization_response=request.url)
+                TOKEN_URL, client_secret=ORCID_CLIENT_SECRET, authorization_response=request.url)
             orcid_id = token['orcid']
             session['orcid_id'] = orcid_id
 
