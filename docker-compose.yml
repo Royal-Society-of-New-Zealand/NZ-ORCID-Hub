@@ -31,6 +31,8 @@ services:
       - TOKEN_SECRET_KEY
       - DATABASE_URL
       - SECRET_KEY
+      - ORCID_CLIENT_ID
+      - ORCID_CLIENT_SECRET
     domainname: orcidhub.org.nz
     hostname: app
     ports:

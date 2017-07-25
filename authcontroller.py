@@ -26,7 +26,7 @@ import orcid_client
 from application import app, db, mail
 from config import (APP_DESCRIPTION, APP_NAME, APP_URL, AUTHORIZATION_BASE_URL, CRED_TYPE_PREMIUM,
                     EXTERNAL_SP, MEMBER_API_FORM_BASE_URL, NEW_CREDENTIALS, NOTE_ORCID,
-                    ORCID_API_BASE, ORCID_BASE_URL, ORCIDHUB_CLIENT_ID, ORCIDHUB_CLIENT_SECRET,
+                    ORCID_API_BASE, ORCID_BASE_URL, ORCID_CLIENT_ID, ORCID_CLIENT_SECRET,
                     SCOPE_ACTIVITIES_UPDATE, SCOPE_AUTHENTICATE, SCOPE_READ_LIMITED, TOKEN_URL)
 from forms import OnboardingTokenForm, OrgConfirmationForm, SelectOrganisation
 from login_provider import roles_required
@@ -957,7 +957,7 @@ def orcid_login(token=None):
             redirect_uri = redirect_uri + extend_url
 
         client_write = OAuth2Session(
-            ORCIDHUB_CLIENT_ID,
+            ORCID_CLIENT_ID,
             scope=SCOPE_AUTHENTICATE,
             redirect_uri=redirect_uri, )
 
@@ -986,10 +986,10 @@ def orcid_login_callback():
         token = None
         orcid_id = session.get('orcid_id')
         if orcid_id is None:
-            client = OAuth2Session(ORCIDHUB_CLIENT_ID)
+            client = OAuth2Session(ORCID_CLIENT_ID)
             token = client.fetch_token(
                 TOKEN_URL,
-                client_secret=ORCIDHUB_CLIENT_SECRET,
+                client_secret=ORCID_CLIENT_SECRET,
                 authorization_response=request.url)
             orcid_id = token['orcid']
             session['orcid_id'] = orcid_id
