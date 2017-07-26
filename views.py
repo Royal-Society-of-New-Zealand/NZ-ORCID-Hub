@@ -25,12 +25,13 @@ from forms import (BitmapMultipleValueField, FileUploadForm, OrgRegistrationForm
 from login_provider import roles_required
 from models import PartialDate as PD
 from models import AffiliationRecord  # noqa: F401
-from models import (CharField, OrcidApiCall, OrcidToken, Organisation, OrgInfo, OrgInvitation,
-                    Role, Task, TextField, Url, User, UserOrg, UserOrgAffiliation, db)
+from models import (Affiliation, CharField, OrcidApiCall, OrcidToken, Organisation, OrgInfo,
+                    OrgInvitation, Role, Task, TextField, Url, User, UserOrg, UserOrgAffiliation,
+                    db)
 # NB! Should be disabled in production
 from pyinfo import info
 from swagger_client.rest import ApiException
-from utils import generate_confirmation_token
+from utils import generate_confirmation_token, send_user_initation
 
 HEADERS = {"Accept": "application/vnd.orcid+json", "Content-type": "application/vnd.orcid+json"}
 
@@ -774,8 +775,8 @@ def invite_organisation():
 def invite_user():
     """Invite a researcher to join the hub."""
     form = UserInvitationForm()
+    org = current_user.organisation
     if request.method == "GET":
-        org = current_user.organisation
         form.organisation.data = org.name
         form.disambiguation_org_id.data = org.disambiguation_org_id
         form.disambiguation_org_source.data = org.disambiguation_org_source
@@ -784,8 +785,16 @@ def invite_user():
         form.country.data = org.country
 
     if form.validate_on_submit():
-        pass  # TODO: handle a single inviation:
-        # 1. create token;
-        # 2. save the invitation parametes into DB (UserInvitaiton);
-        # 3. dispatch invitation email;
+        affiliations = 0
+        if form.is_student.data:
+            affiliations = Affiliation.EDU
+        if form.is_employee.data:
+            affiliations |= Affiliation.EMP
+        send_user_initation(
+            current_user,
+            org,
+            email=form.email_address.data,
+            affiliations=affiliations,
+            **{f.name: f.data
+               for f in form})
     return render_template("user_invitation.html", form=form)

@@ -19,12 +19,13 @@ from peewee import JOIN
 
 from application import app, mail
 from config import ENV
-from models import (Affiliation, AffiliationRecord, Organisation, Role, Task, User, UserOrg)
+from models import (Affiliation, AffiliationRecord, Organisation, Role, Task, User, UserInvitation,
+                    UserOrg)
 
 
 def send_email(template_filename,
                recipient,
-               cc_email,
+               cc_email=None,
                sender=(app.config.get("APP_NAME"), app.config.get("MAIL_DEFAULT_SENDER")),
                reply_to=None,
                subject=None,
@@ -234,9 +235,28 @@ def set_server_name():
             "SERVER_NAME"] = "orcidhub.org.nz" if ENV == "prod" else ENV + ".orcidhub.org.nz"
 
 
-def send_user_initation(org, email, first_name, last_name, affiliation_types):
+def send_user_initation(inviter,
+                        org,
+                        email,
+                        first_name,
+                        last_name,
+                        affiliation_types=None,
+                        orcid=None,
+                        department=None,
+                        organisation=None,
+                        city=None,
+                        state=None,
+                        country=None,
+                        course_or_role=None,
+                        start_date=None,
+                        end_date=None,
+                        affiliations=None,
+                        disambiguation_org_id=None,
+                        disambiguation_org_source=None,
+                        **kwargs):
     """Send an invitation to join ORCID Hub logging in via ORCID."""
     print("*****", org, email, first_name, last_name, affiliation_types)
+
     try:
         email = email.lower()
         user, _ = User.get_or_create(email=email)
@@ -251,7 +271,7 @@ def send_user_initation(org, email, first_name, last_name, affiliation_types):
             send_email(
                 "email/researcher_invitation.html",
                 recipient=(user.organisation.name, user.email),
-                cc_email=None,
+                reply_to=(inviter.name, inviter.email),
                 token=token,
                 org_name=user.organisation.name,
                 user=user)
@@ -260,14 +280,38 @@ def send_user_initation(org, email, first_name, last_name, affiliation_types):
 
         user_org, user_org_created = UserOrg.get_or_create(user=user, org=org)
 
-        if affiliation_types & {"faculty", "staff"}:
-            user_org.affiliations |= Affiliation.EMP
-        if affiliation_types & {"student", "alum"}:
-            user_org.affiliations |= Affiliation.EDU
+        if affiliations is None and affiliation_types:
+            affiliations = 0
+            if affiliation_types & {"faculty", "staff"}:
+                affiliations = Affiliation.EMP
+            if affiliation_types & {"student", "alum"}:
+                affiliations |= Affiliation.EDU
+        user_org.affiliations = affiliations
 
         user_org.save()
+        UserInvitation.create(
+            invitee_id=user.id,
+            inviter_id=inviter.id,
+            org=org,
+            email=email,
+            first_name=first_name,
+            last_name=last_name,
+            orcid=orcid,
+            department=department,
+            organisation=organisation,
+            city=city,
+            state=state,
+            country=country,
+            course_or_role=course_or_role,
+            start_date=start_date,
+            end_date=end_date,
+            affiliations=affiliations,
+            disambiguation_org_id=disambiguation_org_id,
+            disambiguation_org_source=disambiguation_org_source,
+            token=token)
 
     except Exception as ex:
+        raise ex
         print("Exception occured while sending mails %r" % str(ex), "danger")
 
     pass
@@ -301,11 +345,17 @@ def process_affiliation_records(max_rows=20):
                         on=(Organisation.name == AffiliationRecord.organisation)).limit(max_rows))
     for user, tasks_by_user in groupby(tasks, lambda t: t.affiliation_record.user):
         if user.id is None or user.orcid is None:  # TODO: or no authorization tokens
+            # maps invitation attributes to affiliation type set:
+            # - the user who uploaded the task;
+            # - the user organisation;
+            # - the invitee identifier (email address in this case);
+            # - the invitee first_name;
+            # - the invitee last_name
             invitation_dict = {
                 k: set(t.affiliation_record.affiliation_type.lower() for t in tasks)
                 for k, tasks in groupby(
                     tasks_by_user,
-                    lambda t: (t.org, t.affiliation_record.identifier, t.affiliation_record.first_name, t.affiliation_record.last_name)  # noqa: E501
+                    lambda t: (t.created_by, t.org, t.affiliation_record.identifier, t.affiliation_record.first_name, t.affiliation_record.last_name)  # noqa: E501
                 )
             }
 

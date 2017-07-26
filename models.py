@@ -539,8 +539,10 @@ DeferredUser.set_model(User)
 class OrgInvitation(BaseModel, AuditMixin):
     """Organisation invitation to on-board the Hub."""
 
-    invitee = ForeignKeyField(User, on_delete="SET NULL", related_name="received_org_invitations")
-    inviter = ForeignKeyField(User, on_delete="SET NULL", related_name="sent_org_invitations")
+    invitee = ForeignKeyField(
+        User, on_delete="SET NULL", null=True, related_name="received_org_invitations")
+    inviter = ForeignKeyField(
+        User, on_delete="SET NULL", null=True, related_name="sent_org_invitations")
     org = ForeignKeyField(Organisation, on_delete="SET NULL", verbose_name="Organisation")
     email = TextField(help_text="The email address the invitation was sent to.")
     token = TextField(unique=True)
@@ -557,8 +559,12 @@ class OrgInvitation(BaseModel, AuditMixin):
 class UserInvitation(BaseModel, AuditMixin):
     """Organisation invitation to on-board the Hub."""
 
-    inviter = ForeignKeyField(User, on_delete="SET NULL", related_name="sent_user_invitations")
-    org = ForeignKeyField(Organisation, on_delete="SET NULL", verbose_name="Organisation")
+    invitee = ForeignKeyField(
+        User, on_delete="SET NULL", null=True, related_name="received_user_invitations")
+    inviter = ForeignKeyField(
+        User, on_delete="SET NULL", null=True, related_name="sent_user_invitations")
+    org = ForeignKeyField(
+        Organisation, on_delete="SET NULL", null=True, verbose_name="Organisation")
 
     email = TextField(help_text="The email address the invitation was sent to.")
     first_name = TextField(verbose_name="First Name")

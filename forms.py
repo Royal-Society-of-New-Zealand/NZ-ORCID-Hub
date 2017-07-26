@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """Application forms."""
 
+import re
 from datetime import date
 
 from flask_wtf import FlaskForm
@@ -9,7 +10,7 @@ from pycountry import countries
 from wtforms import (BooleanField, Field, SelectField, SelectMultipleField, StringField,
                      validators)
 from wtforms.fields.html5 import DateField, EmailField
-from wtforms.validators import UUID, DataRequired, Email, Regexp
+from wtforms.validators import (UUID, DataRequired, Email, Regexp, ValidationError)
 from wtforms.widgets import HTMLString, html_params
 
 from config import DEFAULT_COUNTRY
@@ -205,14 +206,36 @@ class OrgConfirmationForm(FlaskForm):
     disambiguation_org_source = StringField("Disambiguation ORG Source", [validators.required()])
 
 
+def validate_orcid_id(form, field):
+    """Validates ORCID iD."""
+    if not field.data:
+        return
+
+    if not re.match(r"^\d{4}-?\d{4}-?\d{4}-?\d{4}$", field.data):
+        raise ValidationError(
+            "Invalid ORCID iD. It should be in the form of 'xxxx-xxxx-xxxx-xxxx' where x is a digit."
+        )
+    check = 0
+    for n in field.data:
+        if n == '-':
+            continue
+        check = (2 * check + int(10 if n == 'X' else n)) % 11
+    if check != 1:
+        raise ValidationError(
+            "Invalid ORCID iD checksum. Make sure you have entered correct ORCID iD.")
+
+
 class UserInvitationForm(FlaskForm):
     first_name = StringField("First Name", [validators.required()])
     last_name = StringField("Last Name", [validators.required()])
     email_address = EmailField("Email Address", [validators.required(), Email()])
+    orcid_id = StringField("ORCID iD", [
+        validate_orcid_id,
+    ])
     department = StringField("Campus/Department")
     organisation = StringField("Organisation Name")
     city = StringField("City", [validators.required()])
-    state = StringField("State")
+    state = StringField("State/Region")
     country = CountrySelectField("Country", [validators.required()], default=DEFAULT_COUNTRY)
     course_or_role = StringField("Course or Job title")
     start_date = PartialDateField("Start date")
