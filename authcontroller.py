@@ -400,8 +400,6 @@ def orcid_callback():
 
     client = OAuth2Session(current_user.organisation.orcid_client_id)
 
-    app.logger.info("*** headers:", request.headers)
-    app.logger.info("*** args:", request.args)
     try:
         state = request.args['state']
         if state != session.get('oauth_state'):
@@ -994,7 +992,9 @@ def orcid_login_callback():
         if "error" in request.args:
             error = request.args["error"]
             if error == "access_denied":
-                flash("You have just denied access while trying to Login via ORCID, Please try again", "warning")
+                flash(
+                    "You have just denied access while trying to Login via ORCID, Please try again",
+                    "warning")
                 return redirect(url_for("login"))
 
         token = None
