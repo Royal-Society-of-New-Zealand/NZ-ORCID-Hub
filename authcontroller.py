@@ -989,6 +989,12 @@ def orcid_login_callback():
                 "Something went wrong, Please retry giving permissions or if issue persist then, "
                 "Please contact ORCIDHUB for support", "danger")
 
+        if "error" in request.args:
+            error = request.args["error"]
+            if error == "access_denied":
+                flash("You have just denied access while trying to Login via ORCID, Please try again", "warning")
+                return redirect(url_for("login"))
+
         token = None
         orcid_id = session.get('orcid_id')
         if orcid_id is None:
