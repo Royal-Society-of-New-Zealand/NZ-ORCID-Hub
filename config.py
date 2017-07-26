@@ -62,7 +62,7 @@ MEMBER_API_FORM_BASE_URL = "https://orcid.org/content/register-client-applicatio
     if ENV != "prod" else "https://orcid.org/content/register-client-application-production-trusted-party"
 
 NEW_CREDENTIALS = 'New_Credentials'
-NOTE_ORCID = 'An "NZ" ORCID Hub integration for'
+NOTE_ORCID = 'An NZ ORCID Hub integration for'
 CRED_TYPE_PREMIUM = 2
 APP_NAME = 'NZ ORCID HUB'
 APP_DESCRIPTION = 'This is an ORCID integration through the NZ ORCID HUB connecting'

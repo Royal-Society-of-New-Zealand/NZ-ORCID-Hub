@@ -7,17 +7,17 @@ from itertools import groupby
 from os.path import splitext
 from urllib.parse import urlencode, urlparse
 
+import emails
 import flask
 import jinja2
 import jinja2.ext
 import requests
 from flask_login import current_user
-from flask_mail import Message
 from html2text import html2text
 from itsdangerous import URLSafeTimedSerializer
 from peewee import JOIN
 
-from application import app, mail
+from application import app
 from config import ENV
 from models import (Affiliation, AffiliationRecord, Organisation, Role, Task, User, UserInvitation,
                     UserOrg)
@@ -94,22 +94,24 @@ def send_email(template_filename,
     rendered = template.make_module(vars=kwargs)
     plain_rendered = plain_template.make_module(
         vars=kwargs) if plain_template else html2text(str(rendered))
-    print("***", str(plain_rendered))
 
     if subject is None:
         subject = getattr(rendered, "subject", "Welcome to the NZ ORCID Hub")
 
-    with app.app_context():
-        msg = Message(subject=subject)
-        msg.add_recipient(recipient)
-        msg.reply_to = reply_to
-        msg.html = str(rendered)
-        msg.body = str(plain_rendered)
-        msg.sender = sender
-        if cc_email:
-            msg.cc.append(cc_email)
-        # TODO: implement async sedning
-        mail.send(msg)
+    msg = emails.html(
+        subject=subject,
+        mail_from=(app.config.get("APP_NAME", "ORCID Hub"), app.config.get("MAIL_DEFAULT_SENDER")),
+        html=str(rendered),
+        text=str(plain_rendered))
+    dkip_key_path = os.path.join(app.root_path, ".keys", "dkim.key")
+    if os.path.exists(dkip_key_path):
+        msg.dkim(key=open(dkip_key_path), domain="orcidhub.org.nz", selector="default")
+    if cc_email:
+        msg.cc.append(cc_email)
+    msg.set_headers({"reply-to": reply_to})
+    msg.mail_to.append(recipient)
+
+    msg.send(smtp=dict(host=app.config["MAIL_SERVER"], port=app.config["MAIL_PORT"]))
 
 
 class RewrapExtension(jinja2.ext.Extension):
