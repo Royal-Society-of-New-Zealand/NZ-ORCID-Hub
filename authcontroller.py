@@ -400,6 +400,8 @@ def orcid_callback():
 
     client = OAuth2Session(current_user.organisation.orcid_client_id)
 
+    app.logger.info("*** headers:", request.headers)
+    app.logger.info("*** args:", request.args)
     try:
         state = request.args['state']
         if state != session.get('oauth_state'):
