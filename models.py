@@ -2,7 +2,9 @@
 """Application models."""
 
 import csv
+import random
 import re
+import string
 import uuid
 from collections import namedtuple
 from datetime import datetime
@@ -799,6 +801,29 @@ class AffiliationRecord(BaseModel):
 
     class Meta:
         db_table = "affiliation_record"
+
+
+class Url(BaseModel, AuditMixin):
+    """Shortened URLs."""
+
+    short_id = CharField(unique=True, max_length=5)
+    url = TextField()
+
+    @classmethod
+    def shorten(cls, url):
+        """Creates a shorten url or retrievs an exiting one."""
+        try:
+            u = cls.get(url=url)
+        except cls.DoesNotExist:
+            while True:
+                short_id = ''.join(
+                    random.choice(string.ascii_letters + string.digits) for _ in range(5))
+                try:
+                    cls.get(short_id=short_id)
+                except cls.DoesNotExist:
+                    u = cls.create(short_id=short_id, url=url)
+                    return u
+        return u
 
 
 def create_tables():
