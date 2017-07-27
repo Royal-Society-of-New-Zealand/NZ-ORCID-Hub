@@ -26,8 +26,8 @@ from login_provider import roles_required
 from models import PartialDate as PD
 from models import AffiliationRecord  # noqa: F401
 from models import (Affiliation, CharField, OrcidApiCall, OrcidToken, Organisation, OrgInfo,
-                    OrgInvitation, Role, Task, TextField, Url, User, UserInvitation, UserOrg, UserOrgAffiliation,
-                    db)
+                    OrgInvitation, Role, Task, TextField, Url, User, UserInvitation, UserOrg,
+                    UserOrgAffiliation, db)
 # NB! Should be disabled in production
 from pyinfo import info
 from swagger_client.rest import ApiException

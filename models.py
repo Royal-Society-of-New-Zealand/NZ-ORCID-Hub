@@ -196,7 +196,7 @@ class AuditMixin(Model):
 
     def save(self, *args, **kwargs):
         self.updated_at = datetime.now()
-        if current_user: ## and isinstance(current_user, User):
+        if current_user:  # and isinstance(current_user, User):
             if self.created_by:
                 self.updated_by_id = current_user.id
             else:
@@ -604,10 +604,10 @@ class UserOrg(BaseModel, AuditMixin):
 
     # Affiliation bit-map:
     affiliations = SmallIntegerField(default=0, null=True, verbose_name="EDU Person Affiliations")
-    created_by = ForeignKeyField(User, on_delete="SET NULL", null=True,
-            related_name="created_user_orgs")
-    updated_by = ForeignKeyField(User, on_delete="SET NULL", null=True,
-            related_name="updated_user_orgs")
+    created_by = ForeignKeyField(
+        User, on_delete="SET NULL", null=True, related_name="created_user_orgs")
+    updated_by = ForeignKeyField(
+        User, on_delete="SET NULL", null=True, related_name="updated_user_orgs")
 
     # TODO: the access token should be either here or in a separate list
     # access_token = CharField(max_length=120, unique=True, null=True)
@@ -677,10 +677,10 @@ class Task(BaseModel, AuditMixin):
         Organisation, index=True, verbose_name="Organisation", on_delete="SET NULL")
     completed_at = DateTimeField(default=datetime.now, null=True)
     filename = TextField(null=True)
-    created_by = ForeignKeyField(User, on_delete="SET NULL", null=True,
-            related_name="created_tasks")
-    updated_by = ForeignKeyField(User, on_delete="SET NULL", null=True,
-            related_name="updated_tasks")
+    created_by = ForeignKeyField(
+        User, on_delete="SET NULL", null=True, related_name="created_tasks")
+    updated_by = ForeignKeyField(
+        User, on_delete="SET NULL", null=True, related_name="updated_tasks")
 
     def __repr__(self):
         return self.filename or f"Task #{self.id}"
