@@ -14,20 +14,24 @@ from flask_admin.form import SecureForm
 from flask_admin.model import typefmt
 from flask_login import current_user, login_required
 from jinja2 import Markup
+from werkzeug import secure_filename
 
 import orcid_client
 import utils
 from application import admin, app
 from config import ORCID_BASE_URL, SCOPE_ACTIVITIES_UPDATE, SCOPE_READ_LIMITED
-from forms import (BitmapMultipleValueField, FileUploadForm, OrgRegistrationForm, RecordForm)
+from forms import (BitmapMultipleValueField, FileUploadForm, OrgRegistrationForm, PartialDateField,
+                   RecordForm, UserInvitationForm)
 from login_provider import roles_required
 from models import PartialDate as PD
-from models import (CharField, OrcidApiCall, OrcidToken, Organisation, OrgInfo, OrgInvitation,
-                    Role, TextField, User, UserOrg, UserOrgAffiliation, db)
+from models import AffiliationRecord  # noqa: F401
+from models import (Affiliation, CharField, OrcidApiCall, OrcidToken, Organisation, OrgInfo,
+                    OrgInvitation, Role, Task, TextField, Url, User, UserInvitation, UserOrg,
+                    UserOrgAffiliation, db)
 # NB! Should be disabled in production
 from pyinfo import info
 from swagger_client.rest import ApiException
-from utils import generate_confirmation_token
+from utils import generate_confirmation_token, send_user_initation
 
 HEADERS = {"Accept": "application/vnd.orcid+json", "Content-type": "application/vnd.orcid+json"}
 
@@ -54,15 +58,39 @@ def about():
     return render_template("about.html")
 
 
+@app.route("/u/<short_id>")
+def short_url(short_id):
+    try:
+        u = Url.get(short_id=short_id)
+        return redirect(u.url)
+    except Url.DoesNotExist:
+        abort(404)
+
+
 class AppModelView(ModelView):
     """ModelView customization."""
 
+    roles_required = Role.SUPERUSER
     form_base_class = SecureForm
     column_type_formatters = dict(typefmt.BASE_FORMATTERS)
     column_type_formatters.update({
         datetime:
         lambda view, value: Markup(value.strftime("%Y‑%m‑%d&nbsp;%H:%M")),
     })
+    column_exclude_list = ("created_at", "updated_at", "created_by", "updated_by", )
+    form_overrides = dict(start_date=PartialDateField, end_date=PartialDateField)
+
+    def __init__(self, model=None, *args, **kwargs):
+        """Picks the model based on the ModelView class name assuming it is ModelClass + "Admin"."""
+        if model is None:
+            if hasattr(self, "model"):
+                model = self.model
+            else:
+                model_class_name = self.__class__.__name__.replace("Admin", '')
+                model = globals().get(model_class_name)
+            if model is None:
+                raise Exception(f"Model class {model_class_name} doesn't exit.")
+        super().__init__(model, *args, **kwargs)
 
     def init_search(self):
         if self.column_searchable_list:
@@ -91,7 +119,7 @@ class AppModelView(ModelView):
         if not current_user.is_active or not current_user.is_authenticated:
             return False
 
-        if current_user.has_role(Role.SUPERUSER):
+        if current_user.has_role(self.roles_required):
             return True
 
         return False
@@ -99,6 +127,41 @@ class AppModelView(ModelView):
     def inaccessible_callback(self, name, **kwargs):
         """Handle access denial. Redirect to login page if user doesn"t have access."""
         return redirect(url_for("login", next=request.url))
+
+    def get_query(self):
+        """Add URL query to the data select for foreign key and select data
+        that user has access to."""
+        query = super().get_query()
+
+        if current_user and not current_user.has_role(Role.SUPERUSER) and current_user.has_role(
+                Role.ADMIN):
+            # Show only rows realted to the organisation the user is admin for.
+            # Skip this part for SUPERUSER.
+            db_columns = [c.db_column for c in self.model._meta.fields.values()]
+            if "org_id" in db_columns or "organisation_id" in db_columns:
+                admin_for_org_ids = [o.id for o in current_user.admin_for.select(Organisation.id)]
+                if "org_id" in db_columns:
+                    query.where(self.model.org_id << admin_for_org_ids)
+                else:
+                    query.where(self.model.organisation_id << admin_for_org_ids)
+
+        if request.args and any(a.endswith("_id") for a in request.args):
+            for f in self.model._meta.fields.values():
+                if f.db_column.endswith("_id") and f.db_column in request.args:
+                    query = query.where(f == int(request.args[f.db_column]))
+        return query
+
+    def _get_list_extra_args(self):
+        """Workaournd for https://github.com/flask-admin/flask-admin/issues/1512."""
+        view_args = super()._get_list_extra_args()
+        extra_args = {
+            k: v
+            for k, v in request.args.items()
+            if k not in ('page', 'page_size', 'sort', 'desc',
+                         'search', ) and not k.startswith('flt')
+        }
+        view_args.extra_args = extra_args
+        return view_args
 
 
 class UserAdmin(AppModelView):
@@ -149,7 +212,7 @@ class OrcidTokenAdmin(AppModelView):
     """ORCID token model view."""
 
     column_labels = dict(org="Organisation")
-    column_searchable_list = ("org.name", )
+    column_searchable_list = ("user.name", "user.email", "org.name", )
     can_export = True
     can_create = False
 
@@ -164,11 +227,52 @@ class OrcidApiCallAmin(AppModelView):
     column_searchable_list = ("url", "body", "response", "user.name", )
 
 
+class TaskAdmin(AppModelView):
+    roles_required = Role.SUPERUSER | Role.ADMIN
+    can_edit = False
+    can_create = False
+    can_delete = True
+    can_view_details = True
+
+
+class AffiliationRecordAdmin(AppModelView):
+    roles_required = Role.SUPERUSER | Role.ADMIN
+    list_template = "affiliation_record_list.html"
+    column_exclude_list = ("task", "organisation", )
+    column_searchable_list = ("first_name", "last_name", "identifier", "role", "department",
+                              "state", )
+    can_edit = False
+    can_create = False
+    can_delete = False
+    can_view_details = True
+
+    @action("activate", "Activate for processing",
+            "Are you sure you want to activate the selected records for batch processing?")
+    def action_activate(self, ids):
+        """Batch registraion of users."""
+        count = 0
+        try:
+            with db.atomic():
+                for ar in self.model.select().where(self.model.id.in_(ids)):
+                    if not ar.is_active:
+                        ar.is_active = True
+                        ar.save()
+                        count += 1
+        except Exception as ex:
+            flash(f"Failed to activate the selected records: {ex}")
+            app.logger.error(f"Exception Occured: {ex}")
+
+        flash(f"{count} records were activated for batch processing.")
+
+
 admin.add_view(UserAdmin(User))
 admin.add_view(OrganisationAdmin(Organisation))
 admin.add_view(OrcidTokenAdmin(OrcidToken))
 admin.add_view(OrgInfoAdmin(OrgInfo))
 admin.add_view(OrcidApiCallAmin(OrcidApiCall))
+admin.add_view(TaskAdmin(Task))
+admin.add_view(AffiliationRecordAdmin())
+admin.add_view(AppModelView(UserInvitation))
 
 SectionRecord = namedtuple("SectionRecord", [
     "name", "city", "state", "country", "department", "role", "start_date", "end_date"
@@ -198,6 +302,19 @@ def year_range(entry):
 def user_orcid_id_url(user):
     """Render user ORCID Id URL."""
     return ORCID_BASE_URL + user.orcid if user.orcid else ""
+
+
+@app.template_filter("isodate")
+def isodate(d, sep=' '):
+    """Render date into format YYYY-mm-dd HH:MM."""
+    return d.strftime("%Y‑%m‑%d" + sep + "%H:%M") if d and isinstance(d, (datetime, )) else d
+
+
+@app.template_filter("shorturl")
+def shorturl(url):
+    """Create and render short url"""
+    u = Url.shorten(url)
+    return url_for("short_url", short_id=u.short_id, _external=True)
 
 
 @app.route("/<int:user_id>/emp/<int:put_code>/delete", methods=["POST"])
@@ -491,7 +608,7 @@ def load_org():
 
     form = FileUploadForm()
     if form.validate_on_submit():
-        data = request.files[form.org_info.name].read().decode("utf-8")
+        data = request.files[form.file_.name].read().decode("utf-8")
         row_count = OrgInfo.load_from_csv(data)
 
         flash("Successfully loaded %d rows." % row_count, "success")
@@ -502,32 +619,17 @@ def load_org():
 
 @app.route("/load/researcher", methods=["GET", "POST"])
 @roles_required(Role.ADMIN)
-def load_researcher_info():
+def load_researcher_affiliations():
     """Preload organisation data."""
 
     form = FileUploadForm()
     if form.validate_on_submit():
-        data = request.files[form.org_info.name].read().decode("utf-8")
-        users = User.load_from_csv(data)
+        filename = secure_filename(form.file_.data.filename)
+        data = request.files[form.file_.name].read().decode("utf-8")
+        task = Task.load_from_csv(data, filename=filename)
 
-        flash("Successfully loaded %d rows." % len(users), "success")
-        try:
-            for u in users.keys():
-                user = users[u]
-                with app.app_context():
-                    email_and_organisation = user.email + ";" + user.organisation.name
-                    token = generate_confirmation_token(email_and_organisation)
-                    utils.send_email(
-                        "email/researcher_invitation.html",
-                        recipient=(user.organisation.name, user.email),
-                        cc_email=None,
-                        token=token,
-                        org_name=user.organisation.name,
-                        user=user)
-        except Exception as ex:
-            flash("Exception occured while sending mails %r" % str(ex), "danger")
-
-        return redirect(url_for("viewmembers"))
+        flash(f"Successfully loaded {task.record_count} rows.")
+        return redirect(url_for("affiliationrecord.index_view", task_id=task.id))
 
     return render_template("fileUpload.html", form=form, form_title="Researcher")
 
@@ -651,24 +753,49 @@ def invite_organisation():
         * An email message with confirmation link gets created and sent off to the technical contact.
     """
     form = OrgRegistrationForm()
-    if request.method == "POST":
-        if not form.validate():
-            flash("Please fill in all fields and try again.", "danger")
-        else:
-            try:
-                register_org(form.orgName.data,
-                             form.orgEmailid.data.lower(), request.form.get("tech_contact"))
-                flash("Organisation Invited Successfully! "
-                      "An email has been sent to the organisation contact", "success")
-                app.logger.info(
-                    "Organisation '%s' successfully invited. Invitation sent to '%s'." %
-                    (form.orgName.data, form.orgEmailid.data))
-            except Exception as ex:
-                app.logger.error("Encountered exception: %r", ex)
-                flash(str(ex), "danger")
+    if form.validate_on_submit():
+        try:
+            register_org(form.org_name.data, form.org_email.data.lower(), form.tech_contact.data)
+            flash("Organisation Invited Successfully! "
+                  "An email has been sent to the organisation contact", "success")
+            app.logger.info("Organisation '%s' successfully invited. Invitation sent to '%s'." %
+                            (form.org_name.data, form.org_email.data))
+        except Exception as ex:
+            app.logger.error("Encountered exception: %r", ex)
+            flash(str(ex), "danger")
 
     return render_template(
         "registration.html",
         form=form,
         org_info={r.name: r.email
                   for r in OrgInfo.select(OrgInfo.name, OrgInfo.email)})
+
+
+@app.route("/invite/user", methods=["GET", "POST"])
+@roles_required(Role.SUPERUSER, Role.ADMIN)
+def invite_user():
+    """Invite a researcher to join the hub."""
+    form = UserInvitationForm()
+    org = current_user.organisation
+    if request.method == "GET":
+        form.organisation.data = org.name
+        form.disambiguation_org_id.data = org.disambiguation_org_id
+        form.disambiguation_org_source.data = org.disambiguation_org_source
+        form.city.data = org.city
+        form.state.data = org.state
+        form.country.data = org.country
+
+    if form.validate_on_submit():
+        affiliations = 0
+        if form.is_student.data:
+            affiliations = Affiliation.EDU
+        if form.is_employee.data:
+            affiliations |= Affiliation.EMP
+        send_user_initation(
+            current_user,
+            org,
+            email=form.email_address.data,
+            affiliations=affiliations,
+            **{f.name: f.data
+               for f in form})
+    return render_template("user_invitation.html", form=form)

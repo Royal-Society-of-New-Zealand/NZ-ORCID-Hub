@@ -2,30 +2,35 @@
 """Application models."""
 
 import csv
+import random
 import re
+import string
 import uuid
 from collections import namedtuple
+from datetime import datetime
 from hashlib import md5
 from io import StringIO
 from itertools import zip_longest
-from os import environ
 from urllib.parse import urlencode
 
 from flask_login import UserMixin, current_user
 from peewee import (BooleanField, CharField, CompositeKey, DateTimeField, DeferredRelation, Field,
                     ForeignKeyField, IntegerField, Model, OperationalError, SmallIntegerField,
-                    TextField, datetime)
+                    TextField)
 from pycountry import countries
 
 from application import db
-from config import DEFAULT_COUNTRY
-
-ENV = environ.get("ENV", "test")
+from config import DEFAULT_COUNTRY, ENV
 
 try:
     from enum import IntFlag
 except ImportError:
     from enum import IntEnum as IntFlag
+
+
+class ModelException(Exception):
+    """Applicaton model exception."""
+    pass
 
 
 class PartialDate(namedtuple("PartialDate", ["year", "month", "day"])):
@@ -40,21 +45,45 @@ class PartialDate(namedtuple("PartialDate", ["year", "month", "day"])):
         }) for (f, v) in zip(self._fields, self)))
 
     @classmethod
-    def create(cls, dict_value):
-        """Create a partial date form ORCID dictionary representation.
+    def create(cls, value):
+        """Create a partial date form ORCID dictionary representation or string.
 
         >>> PartialDate.create({"year": {"value": "2003"}}).as_orcid_dict()
         {'year': {'value': '2003'}, 'month': None, 'day': None}
 
         >>> PartialDate.create({"year": {"value": "2003"}}).year
         2003
+
+        >>> PartialDate.create("2003").year
+        2003
+
+        >>> PartialDate.create("2003-03")
+        2003-03
+
+        >>> PartialDate.create("2003-07-14")
+        2003-07-13
         """
-        if dict_value is None or dict_value == {}:
+        if value is None or value == {}:
             return None
-        return cls(**{k: int(v.get("value")) if v else None for k, v in dict_value.items()})
+        if isinstance(value, str):
+            try:
+                return cls(* [int(v) for v in value.split('-')])
+            except Exception as ex:
+                raise ModelException(f"Wrong partial date value '{value}': {ex}")
+
+        return cls(**{k: int(v.get("value")) if v else None for k, v in value.items()})
 
     def as_datetime(self):
-        return datetime.datetime(self.year, self.month, self.day)
+        return datetime(self.year, self.month, self.day)
+
+    def __str__(self):
+        if self.year is None:
+            return ''
+        else:
+            res = "%04d" % int(self.year)
+            if self.month:
+                res += "-%02d" % int(self.month)
+            return res + "-%02d" % int(self.day) if self.day else res
 
 
 PartialDate.__new__.__defaults__ = (None, ) * len(PartialDate._fields)
@@ -136,21 +165,43 @@ class Affiliation(IntFlag):
 
 
 class BaseModel(Model):
+    @classmethod
+    def model_class_name(cls):
+        return cls._meta.name
+
     class Meta:
         database = db
 
 
+class ModelDeferredRelation(DeferredRelation):
+    def set_model(self, rel_model):
+        # include model in the generated "related_name" to make it unique:
+        for model, field, name in self.fields:
+            if isinstance(field, ForeignKeyField) and not field._related_name:
+                field._related_name = "%s_%s_set" % (model.model_class_name(), name)
+
+        super().set_model(rel_model)
+
+
+DeferredUser = ModelDeferredRelation()
+
+
 class AuditMixin(Model):
 
-    created_at = DateTimeField(default=datetime.datetime.now)
+    created_at = DateTimeField(default=datetime.now)
     updated_at = DateTimeField(null=True)
 
+    # created_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
+    # updated_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
+
     def save(self, *args, **kwargs):
-        self.updated_at = datetime.datetime.now()
+        self.updated_at = datetime.now()
+        if current_user and hasattr(current_user, "id"):
+            if self.created_by:
+                self.updated_by_id = current_user.id
+            else:
+                self.created_by_id = current_user.id
         return super().save(*args, **kwargs)
-
-
-DeferredUser = DeferredRelation()
 
 
 class Organisation(BaseModel, AuditMixin):
@@ -170,8 +221,9 @@ class Organisation(BaseModel, AuditMixin):
         orcid_client_id = CharField(max_length=80, unique=True, null=True)
         orcid_secret = CharField(max_length=80, unique=True, null=True)
     confirmed = BooleanField(default=False)
-    country = CharField(null=True, choices=country_choices, default=DEFAULT_COUNTRY)
     city = CharField(null=True)
+    state = CharField(null=True, verbose_name="State/Region", max_length=100)
+    country = CharField(null=True, choices=country_choices, default=DEFAULT_COUNTRY)
     disambiguation_org_id = CharField(null=True)
     disambiguation_org_source = CharField(null=True)
     is_email_confirmed = BooleanField(default=False)
@@ -181,6 +233,8 @@ class Organisation(BaseModel, AuditMixin):
         on_delete="SET NULL",
         null=True,
         help_text="Organisation technical contact")
+    created_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
+    updated_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
 
     @property
     def users(self):
@@ -235,8 +289,8 @@ class OrgInfo(BaseModel):
         db_table = "org_info"
         table_alias = "oi"
 
-    @staticmethod
-    def load_from_csv(source):
+    @classmethod
+    def load_from_csv(cls, source):
         """Load data from CSV file or a string."""
         if isinstance(source, str):
             if '\n' in source:
@@ -277,7 +331,7 @@ class OrgInfo(BaseModel):
 
         for row in reader:
             name = val(row, 0)
-            oi, _ = OrgInfo.get_or_create(name=name)
+            oi, _ = cls.get_or_create(name=name)
 
             oi.title = val(row, 1)
             oi.first_name = val(row, 2)
@@ -322,6 +376,8 @@ class User(BaseModel, UserMixin, AuditMixin):
     # TODO: we still need to rememeber the rognanistiaon that last authenticated the user
     organisation = ForeignKeyField(
         Organisation, related_name="members", on_delete="CASCADE", null=True)
+    created_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
+    updated_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
 
     def __repr__(self):
         if self.name and (self.eppn or self.email):
@@ -483,8 +539,10 @@ DeferredUser.set_model(User)
 class OrgInvitation(BaseModel, AuditMixin):
     """Organisation invitation to on-board the Hub."""
 
-    invitee = ForeignKeyField(User, on_delete="SET NULL", related_name="received_org_invitations")
-    inviter = ForeignKeyField(User, on_delete="SET NULL", related_name="sent_org_invitations")
+    invitee = ForeignKeyField(
+        User, on_delete="SET NULL", null=True, related_name="received_org_invitations")
+    inviter = ForeignKeyField(
+        User, on_delete="SET NULL", null=True, related_name="sent_org_invitations")
     org = ForeignKeyField(Organisation, on_delete="SET NULL", verbose_name="Organisation")
     email = TextField(help_text="The email address the invitation was sent to.")
     token = TextField(unique=True)
@@ -496,6 +554,42 @@ class OrgInvitation(BaseModel, AuditMixin):
 
     class Meta:
         db_table = "org_invitation"
+
+
+class UserInvitation(BaseModel, AuditMixin):
+    """Organisation invitation to on-board the Hub."""
+
+    invitee = ForeignKeyField(
+        User, on_delete="SET NULL", null=True, related_name="received_user_invitations")
+    inviter = ForeignKeyField(
+        User, on_delete="SET NULL", null=True, related_name="sent_user_invitations")
+    org = ForeignKeyField(
+        Organisation, on_delete="SET NULL", null=True, verbose_name="Organisation")
+
+    email = TextField(help_text="The email address the invitation was sent to.")
+    first_name = TextField(verbose_name="First Name")
+    last_name = TextField(verbose_name="Last Name")
+    orcid = CharField(max_length=120, verbose_name="ORCID iD", null=True)
+    department = TextField(verbose_name="Campus/Department", null=True)
+    organisation = TextField(verbose_name="Organisation Name", null=True)
+    city = TextField(verbose_name="City", null=True)
+    state = TextField(verbose_name="State", null=True)
+    country = CharField(verbose_name="Country", max_length=2, null=True)
+    course_or_role = TextField(verbose_name="Course or Job title", null=True)
+    start_date = PartialDateField(verbose_name="Start date", null=True)
+    end_date = PartialDateField(verbose_name="End date (leave blank if current)", null=True)
+    affiliations = SmallIntegerField(verbose_name="User affiliations", null=True)
+    disambiguation_org_id = TextField(verbose_name="Disambiguation ORG Id", null=True)
+    disambiguation_org_source = TextField(verbose_name="Disambiguation ORG Source", null=True)
+    token = TextField(unique=True)
+    confirmed_at = DateTimeField(null=True)
+
+    @property
+    def sent_at(self):
+        return self.created_at
+
+    class Meta:
+        db_table = "user_invitation"
 
 
 class UserOrg(BaseModel, AuditMixin):
@@ -510,6 +604,10 @@ class UserOrg(BaseModel, AuditMixin):
 
     # Affiliation bit-map:
     affiliations = SmallIntegerField(default=0, null=True, verbose_name="EDU Person Affiliations")
+    created_by = ForeignKeyField(
+        User, on_delete="SET NULL", null=True, related_name="created_user_orgs")
+    updated_by = ForeignKeyField(
+        User, on_delete="SET NULL", null=True, related_name="updated_user_orgs")
 
     # TODO: the access token should be either here or in a separate list
     # access_token = CharField(max_length=120, unique=True, null=True)
@@ -529,9 +627,11 @@ class OrcidToken(BaseModel, AuditMixin):
     org = ForeignKeyField(Organisation, index=True, verbose_name="Organisation")
     scope = TextField(null=True)
     access_token = CharField(max_length=36, unique=True, null=True)
-    issue_time = DateTimeField(default=datetime.datetime.now)
+    issue_time = DateTimeField(default=datetime.now)
     refresh_token = CharField(max_length=36, unique=True, null=True)
     expires_in = SmallIntegerField(default=0)
+    created_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
+    updated_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
 
 
 class UserOrgAffiliation(BaseModel, AuditMixin):
@@ -546,6 +646,8 @@ class UserOrgAffiliation(BaseModel, AuditMixin):
     role_title = TextField(null=True)
     put_code = IntegerField(null=True)
     path = TextField(null=True)
+    created_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
+    updated_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
 
     class Meta:
         db_table = "user_organisation_affiliation"
@@ -554,7 +656,7 @@ class UserOrgAffiliation(BaseModel, AuditMixin):
 
 class OrcidApiCall(BaseModel):
     """ORCID API call audit entry."""
-    called_at = DateTimeField(default=datetime.datetime.now)
+    called_at = DateTimeField(default=datetime.now)
     user = ForeignKeyField(User)
     method = TextField()
     url = TextField()
@@ -568,22 +670,200 @@ class OrcidApiCall(BaseModel):
         db_table = "orcid_api_call"
 
 
+class Task(BaseModel, AuditMixin):
+    """Batch processing task created form CSV/TSV file."""
+    __record_count = None
+    org = ForeignKeyField(
+        Organisation, index=True, verbose_name="Organisation", on_delete="SET NULL")
+    completed_at = DateTimeField(default=datetime.now, null=True)
+    filename = TextField(null=True)
+    created_by = ForeignKeyField(
+        User, on_delete="SET NULL", null=True, related_name="created_tasks")
+    updated_by = ForeignKeyField(
+        User, on_delete="SET NULL", null=True, related_name="updated_tasks")
+
+    def __repr__(self):
+        return self.filename or f"Task #{self.id}"
+
+    @property
+    def record_count(self):
+        if self.__record_count is None:
+            self.__record_count = self.affiliationrecord_set.count()
+        return self.__record_count
+
+    @classmethod
+    def load_from_csv(cls, source, filename=None, org=None):
+        """Load data from CSV/TSV file or a string."""
+        if isinstance(source, str):
+            if '\n' in source:
+                source = StringIO(source)
+            else:
+                source = open(source)
+                if filename is None:
+                    filename = source
+        reader = csv.reader(source)
+        header = next(reader)
+        if filename is None:
+            if hasattr(source, "name"):
+                filename = source.name
+            else:
+                filename = datetime.now().isoformat(timespec="seconds")
+
+        if len(header) == 1 and '\t' in header[0]:
+            source.seek(0)
+            reader = csv.reader(source, delimiter='\t')
+            header = next(reader)
+        else:
+            raise Exception("Expected CSV or TSV format file.")
+
+        assert len(header) >= 7, \
+            "Wrong number of fields. Expected at least 7 fields " \
+            "(first name, last name, email address, organisation, " \
+            "campus/department, city, course or job title, start date, end date, student/staff). " \
+            "Read header: %s" % header
+        header_rexs = [
+            re.compile(ex, re.I)
+            for ex in (r"first\s*(name)?", r"last\s*(name)?", "email|id|identifier",
+                       "organisation|^name", "campus|department", "city", "state|region",
+                       "course|title|role", r"start\s*(date)?", r"end\s*(date)?",
+                       r"affiliation(s)?\s*(type)?|student|staff", "country", r"disambiguat.*id",
+                       r"disambiguat.*source", r"put|code", )
+        ]
+
+        def index(rex):
+            """Return first header column index matching the given regex."""
+            for i, column in enumerate(header):
+                if rex.match(column):
+                    return i
+            else:
+                return None
+
+        idxs = [index(rex) for rex in header_rexs]
+
+        if all(idx is None for idx in idxs):
+            raise Exception(f"Failed to map fields based on the header of the file: {header}")
+
+        if org is None:
+            org = current_user.organisation if current_user else None
+        task = cls.create(org=org, filename=filename)
+
+        def val(row, i):
+            if idxs[i] is None or idxs[i] >= len(row):
+                return None
+            else:
+                v = row[idxs[i]].strip()
+                return None if v == '' else v
+
+        for row in reader:
+            identifier = val(row, 2)
+            if len(row) == 0:
+                continue
+            if identifier is None:
+                raise ModelException(
+                    f"Missing user identifier (email address, eppn, or ORCID iD): {row}")
+            AffiliationRecord.create(
+                task=task,
+                first_name=val(row, 0),
+                last_name=val(row, 1),
+                identifier=identifier,
+                organisation=val(row, 3),
+                department=val(row, 4),
+                city=val(row, 5),
+                region=val(row, 6),
+                role=val(row, 7),
+                start_date=PartialDate.create(val(row, 8)),
+                end_date=PartialDate.create(val(row, 9)),
+                affiliation_type=val(row, 10),
+                country=val(row, 11),
+                disambiguated_id=val(row, 12),
+                disambiguated_source=val(row, 13),
+                put_code=val(row, 14))
+
+        task.__record_count = reader.line_num - 1
+        return task
+
+    class Meta:
+        table_alias = "t"
+
+
+class AffiliationRecord(BaseModel):
+    """Affiliation record loaded from CSV file for batch processing."""
+    task = ForeignKeyField(Task)
+    put_code = IntegerField(null=True)
+    first_name = TextField(null=True)
+    last_name = TextField(null=True)
+    identifier = TextField(
+        help_text="User email, eppn, or ORCID Id", verbose_name="Email/Eppn/ORCID Id")
+    organisation = TextField(null=True)
+    affiliation_type = TextField(
+        null=True, choices=("EDU", "EMP", "student", "alum", "faculty", "staff", ))
+    role = TextField(null=True, verbose_name="Role/Course")
+    department = TextField(null=True)
+    start_date = PartialDateField(null=True)
+    end_date = PartialDateField(null=True)
+    city = TextField(null=True)
+    state = TextField(null=True, verbose_name="State/Region")
+    country = TextField(null=True, verbose_name="Country")
+    disambiguated_id = TextField(null=True, verbose_name="Disambiguated Organization Identifier")
+    disambiguated_source = TextField(null=True, verbose_name="Disambiguated Source")
+
+    is_active = BooleanField(
+        default=False, help_text="The record is marked for batch processing", null=True)
+    processed_at = DateTimeField(null=True)
+    status = TextField(null=True, help_text="Record processing status.")
+
+    class Meta:
+        db_table = "affiliation_record"
+        table_alias = "ar"
+
+
+class Url(BaseModel, AuditMixin):
+    """Shortened URLs."""
+
+    short_id = CharField(unique=True, max_length=5)
+    url = TextField()
+
+    @classmethod
+    def shorten(cls, url):
+        """Creates a shorten url or retrievs an exiting one."""
+        try:
+            u = cls.get(url=url)
+        except cls.DoesNotExist:
+            while True:
+                short_id = ''.join(
+                    random.choice(string.ascii_letters + string.digits) for _ in range(5))
+                try:
+                    cls.get(short_id=short_id)
+                except cls.DoesNotExist:
+                    u = cls.create(short_id=short_id, url=url)
+                    return u
+        return u
+
+
 def create_tables():
     """Create all DB tables."""
     try:
         db.connect()
     except OperationalError:
         pass
-    models = (Organisation, User, UserOrg, OrcidToken, UserOrgAffiliation, OrgInfo, OrcidApiCall,
-              OrgInvitation)
-    db.create_tables(models)
+
+    Organisation.create_table()
+    User.create_table()
+    UserOrg.create_table()
+    OrcidToken.create_table()
+    UserOrgAffiliation.create_table()
+    OrgInfo.create_table()
+    OrcidApiCall.create_table()
+    Task.create_table()
+    AffiliationRecord.create_table()
+    OrgInvitation.create_table()
 
 
 def drop_tables():
     """Drop all model tables."""
 
-    for m in (Organisation, User, UserOrg, OrcidToken, UserOrgAffiliation, OrgInfo, OrcidApiCall,
-              OrgInvitation):
+    for m in (Organisation, User, UserOrg, OrcidToken, UserOrgAffiliation, OrgInfo, OrgInvitation,
+              OrcidApiCall, Task, AffiliationRecord):
         if m.table_exists():
             try:
                 m.drop_table(fail_silently=True, cascade=db.drop_cascade)
