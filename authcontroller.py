@@ -939,12 +939,14 @@ def orcid_login(token=None):
 
     try:
         extend_url = "?"
+        email = None
 
         if token is not None:
             email_and_organisation = confirm_token(token)
             email, org = email_and_organisation.split(';')
             extend_url = extend_url + "email=" + email + "&" + "orgName=" + org
             organisation = Organisation.get(name=org)
+            user = User.get(email=email)
             session['email'] = email
             session['orgName'] = organisation.name
 
@@ -964,11 +966,15 @@ def orcid_login(token=None):
         authorization_url_write, state = client_write.authorization_url(AUTHORIZATION_BASE_URL)
         session['oauth_state'] = state
 
-        orcid_url_write = append_qs(iri_to_uri(authorization_url_write))
+        if email and user.first_name and user.last_name:
+            orcid_url_write = append_qs(iri_to_uri(authorization_url_write), family_names=user.last_name,
+                                        given_names=user.first_name, email=email)
+        else:
+            orcid_url_write = append_qs(iri_to_uri(authorization_url_write))
 
         return redirect(orcid_url_write)
     except Exception as ex:
-        flash("Something went wrong contact orcidhub support for issue: %s" % str(ex))
+        flash("Something went wrong contact orcidhub support!", "danger")
         app.logger.error("Encountered exception: %r", ex)
         return redirect(url_for("login"))
 
