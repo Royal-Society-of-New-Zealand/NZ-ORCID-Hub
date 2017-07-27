@@ -196,7 +196,7 @@ class AuditMixin(Model):
 
     def save(self, *args, **kwargs):
         self.updated_at = datetime.now()
-        if current_user:  # and isinstance(current_user, User):
+        if current_user and hasattr(current_user, "id"):
             if self.created_by:
                 self.updated_by_id = current_user.id
             else:
