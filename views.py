@@ -64,6 +64,20 @@ class AppModelView(ModelView):
         lambda view, value: Markup(value.strftime("%Y‑%m‑%d&nbsp;%H:%M")),
     })
 
+    def get_pk_value(self, model):
+        """Fix for composite keys."""
+        if self.model._meta.composite_key:
+            return tuple([
+                model._data[field_name]
+                for field_name in self.model._meta.primary_key.field_names])
+        return super().get_pk_value(model)
+
+    def get_one(self, id):
+        """Fix for composite keys."""
+        if self.model._meta.composite_key:
+            return self.model.get(**dict(zip(self.model._meta.primary_key.field_names, id)))
+        return super().get_one(id)
+
     def init_search(self):
         if self.column_searchable_list:
             for p in self.column_searchable_list:
@@ -169,6 +183,8 @@ admin.add_view(OrganisationAdmin(Organisation))
 admin.add_view(OrcidTokenAdmin(OrcidToken))
 admin.add_view(OrgInfoAdmin(OrgInfo))
 admin.add_view(OrcidApiCallAmin(OrcidApiCall))
+
+admin.add_view(AppModelView(UserOrg))
 
 SectionRecord = namedtuple("SectionRecord", [
     "name", "city", "state", "country", "department", "role", "start_date", "end_date"

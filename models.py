@@ -17,7 +17,7 @@ from peewee import (BooleanField, CharField, CompositeKey, DateTimeField, Deferr
                     TextField, datetime)
 from pycountry import countries
 
-from application import db
+from application import db, app
 from config import DEFAULT_COUNTRY
 
 ENV = environ.get("ENV", "test")
@@ -136,6 +136,10 @@ class Affiliation(IntFlag):
 
 
 class BaseModel(Model):
+    def field_is_updated(self, field_name):
+        """Test if field is 'dirty'."""
+        return any(field_name == f.name for f in self.dirty_fields)
+
     class Meta:
         database = db
 
@@ -146,7 +150,8 @@ class AuditMixin(Model):
     updated_at = DateTimeField(null=True)
 
     def save(self, *args, **kwargs):
-        self.updated_at = datetime.datetime.now()
+        if self.is_dirty:
+            self.updated_at = datetime.datetime.now()
         return super().save(*args, **kwargs)
 
 
@@ -202,8 +207,17 @@ class Organisation(BaseModel, AuditMixin):
 
     def save(self, *args, **kwargs):
         """Handle data saving."""
-        if self.name is None:
-            self.name = self.tuakiri_name
+        if self.is_dirty:
+            if self.name is None:
+                self.name = self.tuakiri_name
+
+        # if self.field_is_updated("tech_contact"):
+        #     if self.is_admin or UserOrg.select().where((UserOrg.user_id == self.user_id) & UserOrg.is_admin).exists():  # noqa: E125
+        #         self.user.roles |= Role.ADMIN
+        #         app.logger.info(f"Added ADMIN role to user {self.user}")
+        #     else:
+        #         self.user.roles &= ~Role.ADMIN
+        #         app.logger.info(f"Revoked ADMIN role from user {self.user}")
 
         super().save(*args, **kwargs)
 
@@ -327,6 +341,34 @@ class User(BaseModel, UserMixin, AuditMixin):
         if self.name and (self.eppn or self.email):
             return "%s (%s)" % (self.name, self.email or self.eppn)
         return self.name or self.email or self.orcid or super().__repr__()
+
+    def save(self, *args, **kwargs):
+        """Consolidate user roles with the linke organisations before saving data."""
+        if self.field_is_updated("roles"):
+            # remove ADMIN role, if user is not linked to any organisation with admin rights:
+            if self.is_admin != UserOrg.select().where(
+                (UserOrg.user_id == self.id) & UserOrg.is_admin).exists():  # noqa: E125
+                if self.is_admin:
+                    self.roles &= ~Role.ADMIN
+                    app.logger.warning(f"ADMIN role revoked from {self}. "
+                            "There is no organisation the user is an administrator for.")
+                else:
+                    self.roles |= Role.ADMIN
+                    app.logger.warning(f"ADMIN role was addeed to {self}. "
+                            "There is an organisation the user is an administrator for.")
+
+            # remove TECHNICAL role, if user is not actually a technical contact of any organisation:
+            if self.has_role(Role.TECHNICAL) != Organisation.select().where(
+                    Organisation.tech_contact_id == self.id).exists():
+                if self.has_role(Role.TECHNICAL):
+                    self.roles &= ~Role.TECHNICAL
+                    app.logger.warning(f"TECHNICAL role revoked from {self}. "
+                            "There is no organisation the user is the technical contact for.")
+                else:
+                    self.roles |= Role.TECHNICAL
+                    app.logger.warning(f"TECHNICAL role was added to {self}. "
+                            "There is an organisation the user is the technical contact for.")
+        return super().save(*args, **kwargs)
 
     @property
     def organisations(self):
@@ -513,6 +555,20 @@ class UserOrg(BaseModel, AuditMixin):
 
     # TODO: the access token should be either here or in a separate list
     # access_token = CharField(max_length=120, unique=True, null=True)
+
+
+    def save(self, *args, **kwargs):
+        """Consolidate user roles with the linke organisations before saving data."""
+        if self.is_dirty and (self.is_admin != self.user.is_admin):
+            if self.is_admin or UserOrg.select().where((UserOrg.user_id == self.user_id) & UserOrg.is_admin).exists():  # noqa: E125
+                self.user.roles |= Role.ADMIN
+                app.logger.info(f"Added ADMIN role to user {self.user}")
+            else:
+                self.user.roles &= ~Role.ADMIN
+                app.logger.info(f"Revoked ADMIN role from user {self.user}")
+            super(User, self.user).save()
+
+        return super().save(*args, **kwargs)
 
     class Meta:
         db_table = "user_org"
