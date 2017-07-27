@@ -196,11 +196,11 @@ class AuditMixin(Model):
 
     def save(self, *args, **kwargs):
         self.updated_at = datetime.now()
-        if current_user and isinstance(current_user, User):
+        if current_user: ## and isinstance(current_user, User):
             if self.created_by:
-                self.updated_by = current_user
+                self.updated_by_id = current_user.id
             else:
-                self.created_by = current_user
+                self.created_by_id = current_user.id
         return super().save(*args, **kwargs)
 
 
@@ -572,7 +572,7 @@ class UserInvitation(BaseModel, AuditMixin):
     orcid = CharField(max_length=120, verbose_name="ORCID iD", null=True)
     department = TextField(verbose_name="Campus/Department", null=True)
     organisation = TextField(verbose_name="Organisation Name", null=True)
-    city = TextField(verbose_name="City")
+    city = TextField(verbose_name="City", null=True)
     state = TextField(verbose_name="State", null=True)
     country = CharField(verbose_name="Country", max_length=2, null=True)
     course_or_role = TextField(verbose_name="Course or Job title", null=True)
@@ -604,8 +604,10 @@ class UserOrg(BaseModel, AuditMixin):
 
     # Affiliation bit-map:
     affiliations = SmallIntegerField(default=0, null=True, verbose_name="EDU Person Affiliations")
-    created_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
-    updated_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
+    created_by = ForeignKeyField(User, on_delete="SET NULL", null=True,
+            related_name="created_user_orgs")
+    updated_by = ForeignKeyField(User, on_delete="SET NULL", null=True,
+            related_name="updated_user_orgs")
 
     # TODO: the access token should be either here or in a separate list
     # access_token = CharField(max_length=120, unique=True, null=True)
@@ -675,8 +677,10 @@ class Task(BaseModel, AuditMixin):
         Organisation, index=True, verbose_name="Organisation", on_delete="SET NULL")
     completed_at = DateTimeField(default=datetime.now, null=True)
     filename = TextField(null=True)
-    created_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
-    updated_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
+    created_by = ForeignKeyField(User, on_delete="SET NULL", null=True,
+            related_name="created_tasks")
+    updated_by = ForeignKeyField(User, on_delete="SET NULL", null=True,
+            related_name="updated_tasks")
 
     def __repr__(self):
         return self.filename or f"Task #{self.id}"
@@ -778,6 +782,9 @@ class Task(BaseModel, AuditMixin):
         task.__record_count = reader.line_num - 1
         return task
 
+    class Meta:
+        table_alias = "t"
+
 
 class AffiliationRecord(BaseModel):
     """Affiliation record loaded from CSV file for batch processing."""
@@ -807,6 +814,7 @@ class AffiliationRecord(BaseModel):
 
     class Meta:
         db_table = "affiliation_record"
+        table_alias = "ar"
 
 
 class Url(BaseModel, AuditMixin):

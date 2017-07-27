@@ -257,7 +257,7 @@ def send_user_initation(inviter,
                         disambiguation_org_source=None,
                         **kwargs):
     """Send an invitation to join ORCID Hub logging in via ORCID."""
-    print("*****", org, email, first_name, last_name, affiliation_types)
+    print("*****", inviter, org, email, first_name, last_name, affiliation_types)
 
     try:
         email = email.lower()

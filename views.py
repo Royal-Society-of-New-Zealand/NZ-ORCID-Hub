@@ -26,7 +26,7 @@ from login_provider import roles_required
 from models import PartialDate as PD
 from models import AffiliationRecord  # noqa: F401
 from models import (Affiliation, CharField, OrcidApiCall, OrcidToken, Organisation, OrgInfo,
-                    OrgInvitation, Role, Task, TextField, Url, User, UserOrg, UserOrgAffiliation,
+                    OrgInvitation, Role, Task, TextField, Url, User, UserInvitation, UserOrg, UserOrgAffiliation,
                     db)
 # NB! Should be disabled in production
 from pyinfo import info
@@ -231,7 +231,7 @@ class TaskAdmin(AppModelView):
     roles_required = Role.SUPERUSER | Role.ADMIN
     can_edit = False
     can_create = False
-    can_delete = False
+    can_delete = True
     can_view_details = True
 
 
@@ -272,6 +272,7 @@ admin.add_view(OrgInfoAdmin(OrgInfo))
 admin.add_view(OrcidApiCallAmin(OrcidApiCall))
 admin.add_view(TaskAdmin(Task))
 admin.add_view(AffiliationRecordAdmin())
+admin.add_view(AppModelView(UserInvitation))
 
 SectionRecord = namedtuple("SectionRecord", [
     "name", "city", "state", "country", "department", "role", "start_date", "end_date"

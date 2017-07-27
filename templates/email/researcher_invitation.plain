@@ -2,7 +2,7 @@ Welcome to the NZ ORCID Hub
 ===========================
 
 Welcome!
-{{org_name}} has sent you an invite for NZ ORCID Hub onboarding.
+{{org_name}} has sent you an invite to get you affiliated...
 Please click on the link below to login on ORCIDHUB via ORCID: <{{ url_for('orcid_login', token=token, _external=True) | shorturl }}>
 If you received this email in error, or you have questions about the responsibilities involved, please contact:
 <orcid@royalsociety.org.nz>
