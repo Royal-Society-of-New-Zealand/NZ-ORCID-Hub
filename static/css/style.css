@@ -178,9 +178,10 @@ a.orcid:hover {
     text-decoration: none;
 }
 
-input[type=checkbox], input[type=radio] {
-    width:20px;
-    height:20px;
+input[type=checkbox].form-control, input[type=radio].form-control {
+    max-width: 20px;
+    min-height: 14px;
+    margin: initial;
 }
 
 table.permissions, table.permissions th, table.permissions td, table.users, table.users th, table.users td {

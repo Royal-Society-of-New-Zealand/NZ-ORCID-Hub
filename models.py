@@ -17,7 +17,7 @@ from peewee import (BooleanField, CharField, CompositeKey, DateTimeField, Deferr
                     TextField, datetime)
 from pycountry import countries
 
-from application import db, app
+from application import app, db
 from config import DEFAULT_COUNTRY
 
 ENV = environ.get("ENV", "test")
@@ -150,7 +150,7 @@ class AuditMixin(Model):
     updated_at = DateTimeField(null=True)
 
     def save(self, *args, **kwargs):
-        if self.is_dirty:
+        if self.is_dirty():
             self.updated_at = datetime.datetime.now()
         return super().save(*args, **kwargs)
 
@@ -207,17 +207,16 @@ class Organisation(BaseModel, AuditMixin):
 
     def save(self, *args, **kwargs):
         """Handle data saving."""
-        if self.is_dirty:
+        if self.is_dirty():
+
             if self.name is None:
                 self.name = self.tuakiri_name
 
-        # if self.field_is_updated("tech_contact"):
-        #     if self.is_admin or UserOrg.select().where((UserOrg.user_id == self.user_id) & UserOrg.is_admin).exists():  # noqa: E125
-        #         self.user.roles |= Role.ADMIN
-        #         app.logger.info(f"Added ADMIN role to user {self.user}")
-        #     else:
-        #         self.user.roles &= ~Role.ADMIN
-        #         app.logger.info(f"Revoked ADMIN role from user {self.user}")
+            if self.field_is_updated("tech_contact"):
+                if not self.tech_contact.has_role(Role.TECHNICAL):
+                    self.tech_contact.roles |= Role.TECHNICAL
+                    super(User, self.tech_contact).save()
+                    app.logger.info(f"Added TECHNICAL role to user {self.tech_contact}")
 
         super().save(*args, **kwargs)
 
@@ -344,30 +343,31 @@ class User(BaseModel, UserMixin, AuditMixin):
 
     def save(self, *args, **kwargs):
         """Consolidate user roles with the linke organisations before saving data."""
-        if self.field_is_updated("roles"):
-            # remove ADMIN role, if user is not linked to any organisation with admin rights:
+        if self.id and self.field_is_updated("roles"):
             if self.is_admin != UserOrg.select().where(
                 (UserOrg.user_id == self.id) & UserOrg.is_admin).exists():  # noqa: E125
                 if self.is_admin:
                     self.roles &= ~Role.ADMIN
-                    app.logger.warning(f"ADMIN role revoked from {self}. "
-                            "There is no organisation the user is an administrator for.")
+                    app.logger.warning(
+                        f"ADMIN role revoked from {self}. "
+                        "There is no organisation the user is an administrator for.")
                 else:
                     self.roles |= Role.ADMIN
-                    app.logger.warning(f"ADMIN role was addeed to {self}. "
-                            "There is an organisation the user is an administrator for.")
-
-            # remove TECHNICAL role, if user is not actually a technical contact of any organisation:
+                    app.logger.warning(
+                        f"ADMIN role was addeed to {self}. "
+                        "There is an organisation the user is an administrator for.")
             if self.has_role(Role.TECHNICAL) != Organisation.select().where(
                     Organisation.tech_contact_id == self.id).exists():
                 if self.has_role(Role.TECHNICAL):
                     self.roles &= ~Role.TECHNICAL
-                    app.logger.warning(f"TECHNICAL role revoked from {self}. "
-                            "There is no organisation the user is the technical contact for.")
+                    app.logger.warning(
+                        f"TECHNICAL role revoked from {self}. "
+                        "There is no organisation the user is the technical contact for.")
                 else:
                     self.roles |= Role.TECHNICAL
-                    app.logger.warning(f"TECHNICAL role was added to {self}. "
-                            "There is an organisation the user is the technical contact for.")
+                    app.logger.warning(
+                        f"TECHNICAL role was added to {self}. "
+                        "There is an organisation the user is the technical contact for.")
         return super().save(*args, **kwargs)
 
     @property
@@ -398,14 +398,14 @@ class User(BaseModel, UserMixin, AuditMixin):
 
         :param role: A role name, `Role` instance, or integer value"""
         if isinstance(role, Role):
-            return role & Role(self.roles)
+            return bool(role & Role(self.roles))
         elif isinstance(role, str):
             try:
-                return Role[role.upper()] & Role(self.roles)
+                return bool(Role[role.upper()] & Role(self.roles))
             except:
                 False
         elif type(role) is int:
-            return role & self.roles
+            return bool(role & self.roles)
         else:
             return False
 
@@ -415,7 +415,7 @@ class User(BaseModel, UserMixin, AuditMixin):
 
     @property
     def is_admin(self):
-        return self.roles & Role.ADMIN
+        return bool(self.roles & Role.ADMIN)
 
     def avatar(self, size=40, default="identicon"):
         """Return Gravatar service user avatar URL."""
@@ -556,11 +556,11 @@ class UserOrg(BaseModel, AuditMixin):
     # TODO: the access token should be either here or in a separate list
     # access_token = CharField(max_length=120, unique=True, null=True)
 
-
     def save(self, *args, **kwargs):
         """Consolidate user roles with the linke organisations before saving data."""
-        if self.is_dirty and (self.is_admin != self.user.is_admin):
-            if self.is_admin or UserOrg.select().where((UserOrg.user_id == self.user_id) & UserOrg.is_admin).exists():  # noqa: E125
+        if self.is_dirty() and (self.is_admin != self.user.is_admin):
+            if self.is_admin or UserOrg.select().where((UserOrg.user_id == self.user_id) & (
+                    UserOrg.org_id != self.org_id) & UserOrg.is_admin).exists():  # noqa: E125
                 self.user.roles |= Role.ADMIN
                 app.logger.info(f"Added ADMIN role to user {self.user}")
             else:
