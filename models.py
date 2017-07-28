@@ -915,13 +915,14 @@ def create_tables():
     AffiliationRecord.create_table()
     OrgInvitation.create_table()
     Url.create_table()
+    UserInvitation.create_table()
 
 
 def drop_tables():
     """Drop all model tables."""
 
     for m in (Organisation, User, UserOrg, OrcidToken, UserOrgAffiliation, OrgInfo, OrgInvitation,
-              OrcidApiCall, Task, AffiliationRecord, Url):
+              OrcidApiCall, Task, AffiliationRecord, Url, UserInvitation):
         if m.table_exists():
             try:
                 m.drop_table(fail_silently=True, cascade=db.drop_cascade)
