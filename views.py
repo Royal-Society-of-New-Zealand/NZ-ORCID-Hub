@@ -326,7 +326,6 @@ class AffiliationRecordAdmin(AppModelView):
             app.logger.error(f"Exception Occured: {ex}")
 
         flash(f"{count} records were activated for batch processing.")
->>>>>>> master
 
 
 admin.add_view(UserAdmin(User))
