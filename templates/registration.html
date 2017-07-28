@@ -7,7 +7,28 @@
     {{ form.hidden_tag() }}
     {{ render_field(form.org_name) }}
     {{ render_field(form.org_email, autocomplete="on") }}
-    {{ render_field(form.tech_contact) }}
+    <div class="row">
+      <div class="col-md-6 col-sm-6 col-xs-12">
+        {{ render_field(form.tech_contact) }}
+      </div>
+      <div class="col-md-6 col-sm-6 col-xs-12">
+        {{ render_field(form.via_orcid, data_toggle="collapse", data_target="#user-details") }}
+      </div>
+    </div>
+    <div class="{{'row' if form.via_orcid.data else 'row collapse'}}" id="user-details">
+      <div class="col-md-6 col-sm-6 col-xs-12">
+        {{ render_field(form.first_name) }}
+        {{ render_field(form.last_name) }}
+        {{ render_field(form.orcid_id) }}
+        {{ render_field(form.disambiguation_org_id) }}
+      </div>
+      <div class="col-md-6 col-sm-6 col-xs-12">
+        {{ render_field(form.city) }}
+        {{ render_field(form.state) }}
+        {{ render_field(form.country) }}
+        {{ render_field(form.disambiguation_org_source) }}
+      </div>
+    </div>
     <button type="submit" class="btn btn-default" value="Onboard Organisation">Onboard Organisation</button>
   </form>
 {% endblock %}
@@ -23,6 +44,12 @@ $( function() {
       $("#org_email").focus();
     }
   });
+  /* $("#via_orcid").change(function() { */
+  /*   if(this.checked) { */
+  /*       //Do stuff */
+  /*   } */
+  /* }); */
 });
   </script>
 {% endblock %}
+

@@ -41,7 +41,7 @@ HEADERS = {'Accept': 'application/vnd.orcid+json', 'Content-type': 'application/
 
 def get_next_url():
     """Retrieves and sanitizes next/return URL."""
-    _next = request.args.get('next')
+    _next = request.args.get('next') or request.args.get('_next')
     if _next and not ("orcidhub.org.nz" in _next or _next.startswith("/")):
         return None
     return _next
@@ -75,7 +75,7 @@ def shib_sp():
     """Remote Shibboleth authenitication handler.
 
     All it does passes all response headers to the original calller."""
-    _next = request.args.get('_next')
+    _next = get_next_url()
     _key = request.args.get("key")
     if _next:
         data = {k: v for k, v in request.headers.items()}
@@ -128,7 +128,7 @@ def handle_login():
             ** for super user, the on-boarding of an organisation;
             ** for organisation administrator or technical contact, the completion of the on-boarding.
     """
-    _next = request.args.get('_next')
+    _next = get_next_url()
 
     # TODO: make it secret
     if EXTERNAL_SP:
@@ -943,6 +943,7 @@ def internal_error(error):
 @app.route("/orcid/login/<token>", methods=["GET", "POST"])
 def orcid_login(token=None):
 
+    _next = get_next_url()
     try:
         extend_url = "?"
         email = None
@@ -956,7 +957,7 @@ def orcid_login(token=None):
             session['email'] = email
             session['orgName'] = organisation.name
 
-        redirect_uri = url_for("orcid_login_callback", _external=True)
+        redirect_uri = url_for("orcid_login_callback", _next=_next, _external=bool(EXTERNAL_SP))
         if EXTERNAL_SP:
             sp_url = urlparse(EXTERNAL_SP)
             redirect_uri = sp_url.scheme + "://" + sp_url.netloc + "/orcid/auth/" + quote(
@@ -990,6 +991,7 @@ def orcid_login(token=None):
 
 @app.route("/orcid/auth", methods=["GET", "POST"])
 def orcid_login_callback():
+    _next = get_next_url()
     try:
         state = request.args['state']
 
@@ -1075,4 +1077,4 @@ def orcid_login_callback():
         flash("Something went wrong contact orcidhub support for issue: %s" % str(ex))
         app.logger.error("For %r encountered exception: %r", current_user, ex)
         return redirect(url_for("login"))
-    return redirect(url_for("link"))
+    return redirect(_next or url_for("link"))

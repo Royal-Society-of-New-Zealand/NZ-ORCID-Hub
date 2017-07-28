@@ -10,12 +10,31 @@ from pycountry import countries
 from wtforms import (BooleanField, Field, SelectField, SelectMultipleField, StringField,
                      validators)
 from wtforms.fields.html5 import DateField, EmailField
-from wtforms.validators import (UUID, DataRequired, Email, Regexp, ValidationError)
+from wtforms.validators import (UUID, DataRequired, Email, Regexp, Required, ValidationError)
 from wtforms.widgets import HTMLString, html_params
 
 from config import DEFAULT_COUNTRY
 from models import PartialDate as PD
 from models import Organisation
+
+
+def validate_orcid_id(form, field):
+    """Validates ORCID iD."""
+    if not field.data:
+        return
+
+    if not re.match(r"^\d{4}-?\d{4}-?\d{4}-?\d{4}$", field.data):
+        raise ValidationError(
+            "Invalid ORCID iD. It should be in the form of 'xxxx-xxxx-xxxx-xxxx' where x is a digit."
+        )
+    check = 0
+    for n in field.data:
+        if n == '-':
+            continue
+        check = (2 * check + int(10 if n == 'X' else n)) % 11
+    if check != 1:
+        raise ValidationError(
+            "Invalid ORCID iD checksum. Make sure you have entered correct ORCID iD.")
 
 
 class PartialDate:
@@ -172,12 +191,52 @@ class OnboardingTokenForm(FlaskForm):
     token = StringField("Token", [validators.required()])
 
 
+class RequiredIf(Required):
+    """A validator which makes a field required if
+    another field is set and has a truthy value."""
+
+    def __init__(self, other_field_name, *args, **kwargs):
+        self.other_field_name = other_field_name
+        super().__init__(*args, **kwargs)
+
+    def __call__(self, form, field):
+        other_field = form._fields.get(self.other_field_name)
+        if other_field is None:
+            raise Exception(f'no field named "{self.other_field_name}" in form')
+        if bool(other_field.data):
+            super().__call__(form, field)
+
+
 class OrgRegistrationForm(FlaskForm):
     """Organisation registration/invitation form."""
 
     org_name = StringField('Organisation Name', validators=[DataRequired()])
     org_email = EmailField('Organisation Email', validators=[DataRequired(), Email()])
     tech_contact = BooleanField("Technical Contact", default=False)
+    via_orcid = BooleanField("ORCID Authentication", default=False)
+    first_name = StringField(
+        "First Name", validators=[
+            RequiredIf("via_orcid"),
+        ])
+    last_name = StringField(
+        "Last Name", validators=[
+            RequiredIf("via_orcid"),
+        ])
+    orcid_id = StringField("ORCID iD", [
+        validate_orcid_id,
+    ])
+    city = StringField(
+        "City", validators=[
+            RequiredIf("via_orcid"),
+        ])
+    state = StringField("State/Region")
+    country = CountrySelectField(
+        "Country", default=DEFAULT_COUNTRY, validators=[
+            RequiredIf("via_orcid"),
+        ])
+    course_or_role = StringField("Course or Job title")
+    disambiguation_org_id = StringField("Disambiguation Id")
+    disambiguation_org_source = StringField("Disambiguation Source")
 
 
 class OrgConfirmationForm(FlaskForm):
@@ -202,27 +261,8 @@ class OrgConfirmationForm(FlaskForm):
         ])
     country = CountrySelectField("Country", [validators.required()], default=DEFAULT_COUNTRY)
     city = StringField("City", [validators.required()])
-    disambiguation_org_id = StringField("Disambiguation ORG Id", [validators.required()])
-    disambiguation_org_source = StringField("Disambiguation ORG Source", [validators.required()])
-
-
-def validate_orcid_id(form, field):
-    """Validates ORCID iD."""
-    if not field.data:
-        return
-
-    if not re.match(r"^\d{4}-?\d{4}-?\d{4}-?\d{4}$", field.data):
-        raise ValidationError(
-            "Invalid ORCID iD. It should be in the form of 'xxxx-xxxx-xxxx-xxxx' where x is a digit."
-        )
-    check = 0
-    for n in field.data:
-        if n == '-':
-            continue
-        check = (2 * check + int(10 if n == 'X' else n)) % 11
-    if check != 1:
-        raise ValidationError(
-            "Invalid ORCID iD checksum. Make sure you have entered correct ORCID iD.")
+    disambiguation_org_id = StringField("Disambiguation Id", [validators.required()])
+    disambiguation_org_source = StringField("Disambiguation Source", [validators.required()])
 
 
 class UserInvitationForm(FlaskForm):
@@ -242,8 +282,8 @@ class UserInvitationForm(FlaskForm):
     end_date = PartialDateField("End date (leave blank if current)")
     is_student = BooleanField("Student")
     is_employee = BooleanField("Staff")
-    disambiguation_org_id = StringField("Disambiguation ORG Id")
-    disambiguation_org_source = StringField("Disambiguation ORG Source")
+    disambiguation_org_id = StringField("Disambiguation Id")
+    disambiguation_org_source = StringField("Disambiguation Source")
 
 
 class EmploymentDetailsForm(FlaskForm):
