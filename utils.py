@@ -20,7 +20,7 @@ from peewee import JOIN
 from application import app
 from config import ENV
 from models import (Affiliation, AffiliationRecord, Organisation, Role, Task, User, UserInvitation,
-                    UserOrg)
+                    UserOrg, OrcidToken)
 
 
 def send_email(template_filename,
@@ -264,7 +264,7 @@ def send_user_initation(inviter,
         user, _ = User.get_or_create(email=email)
         user.first_name = first_name
         user.last_name = last_name
-        user.roles = Role.RESEARCHER
+        user.roles |= Role.RESEARCHER
         user.email = email
         user.organisation = org
         with app.app_context():
@@ -345,8 +345,10 @@ def process_affiliation_records(max_rows=20):
                         Organisation,
                         JOIN.LEFT_OUTER,
                         on=(Organisation.name == AffiliationRecord.organisation)).limit(max_rows))
-    for user, tasks_by_user in groupby(tasks, lambda t: t.affiliation_record.user):
-        if user.id is None or user.orcid is None:  # TODO: or no authorization tokens
+    for (org_id, user), tasks_by_user in groupby(tasks, lambda t: (t.org_id, t.affiliation_record.user, )):
+        if (user.id is None or user.orcid is None or OrcidToken.select().where(
+                        (OrcidToken.user_id == user.id) & (OrcidToken.org_id == org_id) & (
+                OrcidToken.scope.contains("/activities/update"))).exists()):
             # maps invitation attributes to affiliation type set:
             # - the user who uploaded the task;
             # - the user organisation;
