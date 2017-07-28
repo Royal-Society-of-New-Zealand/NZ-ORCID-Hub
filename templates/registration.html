@@ -40,15 +40,19 @@ $( function() {
   $( "#org_name" ).autocomplete({
     source: Object.keys(orgInfo),
     select: function(event, ui) {
-      $("#org_email").val(orgInfo[ui.item.value]);
+      var oi = orgInfo[ui.item.value];
+      $("#org_email").val(oi.email);
+      $("#first_name").val(oi.first_name);
+      $("#last_name").val(oi.last_name);
+      if (oi.country) {
+        $("#country").val(oi.country);
+      }
+      $("#city").val(oi.city);
+      $("#disambiguation_org_id").val(oi.disambiguation_org_id);
+      $("#disambiguation_org_source").val(oi.disambiguation_source);
       $("#org_email").focus();
     }
   });
-  /* $("#via_orcid").change(function() { */
-  /*   if(this.checked) { */
-  /*       //Do stuff */
-  /*   } */
-  /* }); */
 });
   </script>
 {% endblock %}

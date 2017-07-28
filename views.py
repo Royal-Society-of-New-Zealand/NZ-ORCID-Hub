@@ -794,11 +794,6 @@ def invite_organisation():
     if form.validate_on_submit():
         try:
             register_org(**{f.name: f.data for f in form})
-            # form.org_name.data, form.org_email.data.lower(), form.tech_contact.data,
-            # via_orcid=form.via_orcid.data,
-            #       city=form.city.data,
-            #       state=form.state.data,
-            #       kk)
             flash("Organisation Invited Successfully! "
                   "An email has been sent to the organisation contact", "success")
             app.logger.info("Organisation '%s' successfully invited. Invitation sent to '%s'." %
@@ -808,10 +803,8 @@ def invite_organisation():
             flash(str(ex), "danger")
 
     return render_template(
-        "registration.html",
-        form=form,
-        org_info={r.name: r.email
-                  for r in OrgInfo.select(OrgInfo.name, OrgInfo.email)})
+        "registration.html", form=form, org_info={r.name: r.to_dict()
+                                                  for r in OrgInfo.select()})
 
 
 @app.route("/invite/user", methods=["GET", "POST"])

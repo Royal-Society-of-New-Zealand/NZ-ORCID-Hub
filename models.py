@@ -17,6 +17,7 @@ from flask_login import UserMixin, current_user
 from peewee import (BooleanField, CharField, CompositeKey, DateTimeField, DeferredRelation, Field,
                     ForeignKeyField, IntegerField, Model, OperationalError, SmallIntegerField,
                     TextField)
+from playhouse.shortcuts import model_to_dict
 from pycountry import countries
 
 from application import db
@@ -168,6 +169,9 @@ class BaseModel(Model):
     @classmethod
     def model_class_name(cls):
         return cls._meta.name
+
+    def to_dict(self):
+        return model_to_dict(self)
 
     class Meta:
         database = db
