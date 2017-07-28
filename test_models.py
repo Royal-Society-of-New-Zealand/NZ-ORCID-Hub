@@ -258,3 +258,11 @@ def test_affiliations(test_models):
     assert Affiliation.EMP == Affiliation["EMP"]
     assert hash(Affiliation.EMP) == hash("EMP")
     assert str(Affiliation.EDU | Affiliation.EMP) == "Education, Employment"
+
+
+def test_field_is_updated(test_db):
+    u = User.create(email="test@test.com", name="TESTER")
+    u.save()
+    assert not u.field_is_updated("name")
+    u.name = "NEW VALUE"
+    assert u.field_is_updated("name")
