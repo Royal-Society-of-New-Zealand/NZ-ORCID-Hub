@@ -226,7 +226,7 @@ class UserAdmin(AppModelView):
 
 class OrganisationAdmin(AppModelView):
     """Organisation model view."""
-    column_exclude_list = ("orcid_client_id", "orcid_secret", )
+    column_exclude_list = ("orcid_client_id", "orcid_secret", "created_at")
     column_searchable_list = ("name", "tuakiri_name", "city", )
 
     def update_model(self, form, model):
@@ -787,7 +787,7 @@ def register_org(org_name, email, tech_contact=True):
         # Note: Using app context due to issue:
         # https://github.com/mattupstate/flask-mail/issues/63
         with app.app_context():
-            app.logger.info(f"Ready to send an ivitation to '{org_name} <{email}>.")
+            app.logger.info(f"Ready to send an ivitation to '{org_name}' <{email}>.")
             token = generate_confirmation_token(email)
             utils.send_email(
                 "email/org_invitation.html",
@@ -797,6 +797,13 @@ def register_org(org_name, email, tech_contact=True):
                 token=token,
                 org_name=org_name,
                 user=user)
+
+        org.is_email_sent = True
+        try:
+            org.save()
+        except Exception as ex:
+            app.logger.error("Encountered exception: %r", ex)
+            raise Exception("Failed to save organisation data: %s" % str(ex), ex)
 
         OrgInvitation.create(
             inviter_id=current_user.id, invitee_id=user.id, email=user.email, org=org, token=token)
