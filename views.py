@@ -71,6 +71,7 @@ class AppModelView(ModelView):
     """ModelView customization."""
 
     roles_required = Role.SUPERUSER
+    export_types = ["csv", "xls", "tsv", "yaml", "json", "xlsx", "ods", "html", ]
     form_base_class = SecureForm
     column_type_formatters = dict(typefmt.BASE_FORMATTERS)
     column_type_formatters.update({
