@@ -271,7 +271,7 @@ class Organisation(BaseModel, AuditMixin):
             if self.field_is_updated("tech_contact"):
                 if not self.tech_contact.has_role(Role.TECHNICAL):
                     self.tech_contact.roles |= Role.TECHNICAL
-                    super(User, self.tech_contact).save()
+                    self.tech_contact.save()
                     app.logger.info(f"Added TECHNICAL role to user {self.tech_contact}")
 
         super().save(*args, **kwargs)
@@ -398,35 +398,6 @@ class User(BaseModel, UserMixin, AuditMixin):
         if self.name and (self.eppn or self.email):
             return "%s (%s)" % (self.name, self.email or self.eppn)
         return self.name or self.email or self.orcid or super().__repr__()
-
-    def save(self, *args, **kwargs):
-        """Consolidate user roles with the linke organisations before saving data."""
-        if self.id and self.field_is_updated("roles"):
-            if self.is_admin != UserOrg.select().where(
-                (UserOrg.user_id == self.id) & UserOrg.is_admin).exists():  # noqa: E125
-                if self.is_admin:
-                    self.roles &= ~Role.ADMIN
-                    app.logger.warning(
-                        f"ADMIN role revoked from {self}. "
-                        "There is no organisation the user is an administrator for.")
-                else:
-                    self.roles |= Role.ADMIN
-                    app.logger.warning(
-                        f"ADMIN role was addeed to {self}. "
-                        "There is an organisation the user is an administrator for.")
-            if self.has_role(Role.TECHNICAL) != Organisation.select().where(
-                    Organisation.tech_contact_id == self.id).exists():
-                if self.has_role(Role.TECHNICAL):
-                    self.roles &= ~Role.TECHNICAL
-                    app.logger.warning(
-                        f"TECHNICAL role revoked from {self}. "
-                        "There is no organisation the user is the technical contact for.")
-                else:
-                    self.roles |= Role.TECHNICAL
-                    app.logger.warning(
-                        f"TECHNICAL role was added to {self}. "
-                        "There is an organisation the user is the technical contact for.")
-        return super().save(*args, **kwargs)
 
     @property
     def organisations(self):
@@ -666,7 +637,7 @@ class UserOrg(BaseModel, AuditMixin):
             else:
                 self.user.roles &= ~Role.ADMIN
                 app.logger.info(f"Revoked ADMIN role from user {self.user}")
-            super(User, self.user).save()
+            self.user.save()
 
         return super().save(*args, **kwargs)
 
