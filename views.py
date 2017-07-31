@@ -847,12 +847,13 @@ def register_org(org_name,
             user_org = UserOrg.create(user=user, org=org, is_admin=True)
 
         app.logger.info(f"Ready to send an ivitation to '{org_name} <{email}>'.")
-        token = generate_confirmation_token(email)
+        token = generate_confirmation_token(email=email, org_name=org_name)
         # TODO: for via_orcid constact direct link to ORCID with callback like to HUB
         if via_orcid:
             short_id = Url.shorten(
                 url_for(
                     "orcid_login",
+                    token=token,
                     _next=url_for(
                         "confirm_organisation",
                         token=  # noqa: E251

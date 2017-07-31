@@ -180,10 +180,14 @@ class RewrapExtension(jinja2.ext.Extension):
         return '\n'.join(new_lines)
 
 
-def generate_confirmation_token(email):
+def generate_confirmation_token(*args, **kwargs):
     """Generate Organisation registration confirmation token."""
     serializer = URLSafeTimedSerializer(app.config['TOKEN_SECRET_KEY'])
-    return serializer.dumps(email, salt=app.config['TOKEN_PASSWORD_SALT'])
+    salt = app.config['TOKEN_PASSWORD_SALT']
+    if len(kwargs) == 0:
+        return serializer.dumps(args[0] if len(args) == 1 else args, salt=salt)
+    else:
+        return serializer.dumps(kwargs.values()[0] if len(kwargs) == 1 else kwargs, salt=salt)
 
 
 # Token Expiry after 15 days.
@@ -191,10 +195,10 @@ def confirm_token(token, expiration=1300000):
     """Genearate confirmaatin token."""
     serializer = URLSafeTimedSerializer(app.config['TOKEN_SECRET_KEY'])
     try:
-        email = serializer.loads(token, salt=app.config['TOKEN_PASSWORD_SALT'], max_age=expiration)
+        data = serializer.loads(token, salt=app.config['TOKEN_PASSWORD_SALT'], max_age=expiration)
     except:
         return False
-    return email
+    return data
 
 
 def append_qs(url, **qs):
@@ -268,8 +272,7 @@ def send_user_initation(inviter,
         user.email = email
         user.organisation = org
         with app.app_context():
-            email_and_organisation = email + ";" + org.name
-            token = generate_confirmation_token(email_and_organisation)
+            token = generate_confirmation_token(email=email, org_name=org.name)
             send_email(
                 "email/researcher_invitation.html",
                 recipient=(user.organisation.name, user.email),
@@ -315,8 +318,6 @@ def send_user_initation(inviter,
     except Exception as ex:
         raise ex
         print("Exception occured while sending mails %r" % str(ex), "danger")
-
-    pass
 
 
 def create_or_update_affiliation(user, records, *args, **kwargs):

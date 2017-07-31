@@ -915,16 +915,18 @@ def orcid_login(token=None):
                 url_for("orcid_login_callback", _next=_next))
         else:
             redirect_uri = url_for("orcid_login_callback", _next=_next, _external=True)
-        print("*** redirect_uri", redirect_uri)
 
         if token is not None:
-            email_and_organisation = confirm_token(token)
-            email, org = email_and_organisation.split(';')
-            organisation = Organisation.get(name=org)
+            data = confirm_token(token)
+            if isinstance(data, str):
+                email = data
+            else:
+                email, org_name = data["email"], data["org_name"]
+            organisation = Organisation.get(name=org_name)
             user = User.get(email=email)
             session['email'] = email
             session['orgName'] = organisation.name
-            redirect_uri = append_qs(redirect_uri, email=email, orgName=org)
+            redirect_uri = append_qs(redirect_uri, email=email, orgName=org_name)
 
         client_write = OAuth2Session(
             ORCID_CLIENT_ID,
