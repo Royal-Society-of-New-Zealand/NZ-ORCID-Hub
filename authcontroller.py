@@ -947,7 +947,7 @@ def orcid_login(token=None):
     try:
         email = None
 
-        redirect_uri = url_for("orcid_login_callback", _next=_next, _external=True))
+        redirect_uri = url_for("orcid_login_callback", _next=_next, _external=True)
         if EXTERNAL_SP:
             sp_url = urlparse(EXTERNAL_SP)
             redirect_uri = sp_url.scheme + "://" + sp_url.netloc + "/orcid/auth/" + quote(
