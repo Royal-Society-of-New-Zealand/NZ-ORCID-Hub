@@ -265,6 +265,23 @@ class AffiliationRecordAdmin(AppModelView):
         flash(f"{count} records were activated for batch processing.")
 
 
+class ViewMembersAdmin(AppModelView):
+    roles_required = Role.SUPERUSER | Role.ADMIN
+    list_template = "viewMembers.html"
+    column_list = ("email", "orcid")
+    column_searchable_list = ("email", "orcid")
+    column_export_list = ("email", "eppn", "orcid")
+    model = User
+    can_edit = False
+    can_create = False
+    can_delete = False
+    can_view_details = False
+    can_export = True
+
+    def get_query(self):
+        query = current_user.organisation.users
+        return query
+
 admin.add_view(UserAdmin(User))
 admin.add_view(OrganisationAdmin(Organisation))
 admin.add_view(OrcidTokenAdmin(OrcidToken))
@@ -273,6 +290,7 @@ admin.add_view(OrcidApiCallAmin(OrcidApiCall))
 admin.add_view(TaskAdmin(Task))
 admin.add_view(AffiliationRecordAdmin())
 admin.add_view(AppModelView(UserInvitation))
+admin.add_view(ViewMembersAdmin(name="viewmembers", endpoint="viewmembers"))
 
 SectionRecord = namedtuple("SectionRecord", [
     "name", "city", "state", "country", "department", "role", "start_date", "end_date"
@@ -329,7 +347,7 @@ def delete_employment(user_id, put_code=None):
         user = User.get(id=user_id, organisation_id=current_user.organisation_id)
     except:
         flash("ORCID HUB doent have data related to this researcher", "warning")
-        return redirect(url_for("viewmembers"))
+        return redirect(url_for('viewmembers.index_view'))
     if not user.orcid:
         flash("The user hasn't yet linked their ORCID record", "danger")
         return redirect(_url)
@@ -546,18 +564,18 @@ def show_record_section(user_id, section_type="EMP"):
         user = User.get(id=user_id, organisation_id=current_user.organisation_id)
     except:
         flash("ORCID HUB doent have data related to this researcher", "warning")
-        return redirect(url_for("viewmembers"))
+        return redirect(url_for('viewmembers.index_view'))
 
     if not user.orcid:
         flash("The user hasn't yet linked their ORCID record", "danger")
-        return redirect(url_for("viewmembers"))
+        return redirect(url_for('viewmembers.index_view'))
 
     orcid_token = None
     try:
         orcid_token = OrcidToken.get(user=user, org=current_user.organisation)
     except:
         flash("User didn't give permissions to update his/her records", "warning")
-        return redirect(url_for("viewmembers"))
+        return redirect(url_for('viewmembers.index_view'))
 
     orcid_client.configuration.access_token = orcid_token.access_token
     # create an instance of the API class
@@ -570,8 +588,11 @@ def show_record_section(user_id, section_type="EMP"):
             api_response = api_instance.view_educations(user.orcid)
     except ApiException as ex:
         message = json.loads(ex.body.replace("''", "\"")).get('user-messsage')
-        flash("Exception when calling MemberAPIV20Api->view_employments: %s\n" % message, "danger")
-        return redirect(url_for("viewmembers"))
+        if ex.status == 401:
+            flash("User has revoked the permissions to update his/her records", "warning")
+        else:
+            flash("Exception when calling MemberAPIV20Api->view_employments: %s\n" % message, "danger")
+        return redirect(url_for('viewmembers.index_view'))
     except Exception as ex:
         app.logger.error("For %r encountered exception: %r", user, ex)
         abort(500, ex)
@@ -585,7 +606,7 @@ def show_record_section(user_id, section_type="EMP"):
         flash("User didn't give permissions to update his/her records", "warning")
         flash("Unhandled exception occured while retrieving ORCID data: %s" % ex, "danger")
         app.logger.error("For %r encountered exception: %r", user, ex)
-        return redirect(url_for("viewmembers"))
+        return redirect(url_for('viewmembers.index_view'))
     # TODO: transform data for presentation:
     if section_type == "EMP":
         return render_template(
