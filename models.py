@@ -201,7 +201,7 @@ class AuditMixin(Model):
 
     def save(self, *args, **kwargs):
         if self.is_dirty():
-            self.updated_at = datetime.datetime.now()
+            self.updated_at = datetime.now()
             if current_user and hasattr(current_user, "id"):
                 if hasattr(self, "created_by") and self.created_by and hasattr(self, "updated_by"):
                     self.updated_by_id = current_user.id
