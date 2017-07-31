@@ -92,6 +92,20 @@ class AppModelView(ModelView):
                 raise Exception(f"Model class {model_class_name} doesn't exit.")
         super().__init__(model, *args, **kwargs)
 
+    def get_pk_value(self, model):
+        """Fix for composite keys."""
+        if self.model._meta.composite_key:
+            return tuple([
+                model._data[field_name] for field_name in self.model._meta.primary_key.field_names
+            ])
+        return super().get_pk_value(model)
+
+    def get_one(self, id):
+        """Fix for composite keys."""
+        if self.model._meta.composite_key:
+            return self.model.get(**dict(zip(self.model._meta.primary_key.field_names, id)))
+        return super().get_one(id)
+
     def init_search(self):
         if self.column_searchable_list:
             for p in self.column_searchable_list:
@@ -179,11 +193,54 @@ class UserAdmin(AppModelView):
     form_ajax_refs = {"organisation": {"fields": (Organisation.name, "name")}}
     can_export = True
 
+    def update_model(self, form, model):
+        """Added prevalidation of the form."""
+        if form.roles.data != model.roles:
+            if bool(form.roles.data & Role.ADMIN) != UserOrg.select().where(
+                (UserOrg.user_id == model.id) & UserOrg.is_admin).exists():  # noqa: E125
+                if form.roles.data & Role.ADMIN:
+                    flash(f"Cannot add ADMIN role to {model} "
+                          "since there is no organisation the user is an administrator for.",
+                          "danger")
+                else:
+                    flash(f"Cannot revoke ADMIN role from {model} "
+                          "since there is an organisation the user is an administrator for.",
+                          "danger")
+                form.roles.data = model.roles
+                return False
+            if bool(form.roles.data & Role.TECHNICAL) != Organisation.select().where(
+                    Organisation.tech_contact_id == model.id).exists():
+                if model.has_role(Role.TECHNICAL):
+                    flash(f"Cannot revoke TECHNICAL role from {model} "
+                          "since there is an organisation the user is the technical contact for.",
+                          "danger")
+                else:
+                    flash(f"Cannot add TECHNICAL role to {model} "
+                          "since there is no organisation the user is the technical contact for.",
+                          "danger")
+                form.roles.data = model.roles
+                return False
+
+        return super().update_model(form, model)
+
 
 class OrganisationAdmin(AppModelView):
     """Organisation model view."""
-    column_exclude_list = ("orcid_client_id", "orcid_secret", )
+    column_exclude_list = ("orcid_client_id", "orcid_secret", "created_at")
     column_searchable_list = ("name", "tuakiri_name", "city", )
+
+    def update_model(self, form, model):
+        """Handle change of the technical contact."""
+        # Technical contact changed:
+        if form.tech_contact.data.id != model.tech_contact_id:
+            # Revoke the TECHNICAL role if thre is no org the user is tech.contact for.
+            if model.tech_contact.has_role(Role.TECHNICAL) and not Organisation.select().where(
+                    Organisation.tech_contact_id == model.tech_contact_id).exists():
+                app.logger.info(r"Revoked TECHNICAL from {model.tech_contact}")
+                model.tech_contact.roles &= ~Role.TECHNICAL
+                super(User, model.tech_contact).save()
+
+        return super().update_model(form, model)
 
 
 class OrgInfoAdmin(AppModelView):
@@ -237,6 +294,12 @@ class OrcidApiCallAmin(AppModelView):
     column_searchable_list = ("url", "body", "response", "user.name", )
 
 
+class UserOrgAmin(AppModelView):
+    """User Organisations."""
+
+    column_searchable_list = ("user.email", "org.name", )
+
+
 class TaskAdmin(AppModelView):
     roles_required = Role.SUPERUSER | Role.ADMIN
     can_edit = False
@@ -275,6 +338,23 @@ class AffiliationRecordAdmin(AppModelView):
         flash(f"{count} records were activated for batch processing.")
 
 
+class ViewMembersAdmin(AppModelView):
+    roles_required = Role.SUPERUSER | Role.ADMIN
+    list_template = "viewMembers.html"
+    column_list = ("email", "orcid")
+    column_searchable_list = ("email", "orcid")
+    column_export_list = ("email", "eppn", "orcid")
+    model = User
+    can_edit = False
+    can_create = False
+    can_delete = False
+    can_view_details = False
+    can_export = True
+
+    def get_query(self):
+        query = current_user.organisation.users
+        return query
+
 admin.add_view(UserAdmin(User))
 admin.add_view(OrganisationAdmin(Organisation))
 admin.add_view(OrcidTokenAdmin(OrcidToken))
@@ -283,6 +363,9 @@ admin.add_view(OrcidApiCallAmin(OrcidApiCall))
 admin.add_view(TaskAdmin(Task))
 admin.add_view(AffiliationRecordAdmin())
 admin.add_view(AppModelView(UserInvitation))
+admin.add_view(ViewMembersAdmin(name="viewmembers", endpoint="viewmembers"))
+
+admin.add_view(UserOrgAmin(UserOrg))
 
 SectionRecord = namedtuple("SectionRecord", [
     "name", "city", "state", "country", "department", "role", "start_date", "end_date"
@@ -339,7 +422,7 @@ def delete_employment(user_id, put_code=None):
         user = User.get(id=user_id, organisation_id=current_user.organisation_id)
     except:
         flash("ORCID HUB doent have data related to this researcher", "warning")
-        return redirect(url_for("viewmembers"))
+        return redirect(url_for('viewmembers.index_view'))
     if not user.orcid:
         flash("The user hasn't yet linked their ORCID record", "danger")
         return redirect(_url)
@@ -556,18 +639,18 @@ def show_record_section(user_id, section_type="EMP"):
         user = User.get(id=user_id, organisation_id=current_user.organisation_id)
     except:
         flash("ORCID HUB doent have data related to this researcher", "warning")
-        return redirect(url_for("viewmembers"))
+        return redirect(url_for('viewmembers.index_view'))
 
     if not user.orcid:
         flash("The user hasn't yet linked their ORCID record", "danger")
-        return redirect(url_for("viewmembers"))
+        return redirect(url_for('viewmembers.index_view'))
 
     orcid_token = None
     try:
         orcid_token = OrcidToken.get(user=user, org=current_user.organisation)
     except:
         flash("User didn't give permissions to update his/her records", "warning")
-        return redirect(url_for("viewmembers"))
+        return redirect(url_for('viewmembers.index_view'))
 
     orcid_client.configuration.access_token = orcid_token.access_token
     # create an instance of the API class
@@ -580,8 +663,11 @@ def show_record_section(user_id, section_type="EMP"):
             api_response = api_instance.view_educations(user.orcid)
     except ApiException as ex:
         message = json.loads(ex.body.replace("''", "\"")).get('user-messsage')
-        flash("Exception when calling MemberAPIV20Api->view_employments: %s\n" % message, "danger")
-        return redirect(url_for("viewmembers"))
+        if ex.status == 401:
+            flash("User has revoked the permissions to update his/her records", "warning")
+        else:
+            flash("Exception when calling MemberAPIV20Api->view_employments: %s\n" % message, "danger")
+        return redirect(url_for('viewmembers.index_view'))
     except Exception as ex:
         app.logger.error("For %r encountered exception: %r", user, ex)
         abort(500, ex)
@@ -595,7 +681,7 @@ def show_record_section(user_id, section_type="EMP"):
         flash("User didn't give permissions to update his/her records", "warning")
         flash("Unhandled exception occured while retrieving ORCID data: %s" % ex, "danger")
         app.logger.error("For %r encountered exception: %r", user, ex)
-        return redirect(url_for("viewmembers"))
+        return redirect(url_for('viewmembers.index_view'))
     # TODO: transform data for presentation:
     if section_type == "EMP":
         return render_template(
@@ -710,16 +796,15 @@ def register_org(org_name,
 
         try:
             user = User.get(email=email)
-            user.roles |= Role.ADMIN
             user.organisation = org
             user.confirmed = True
         except User.DoesNotExist:
             user = User.create(
                 email=email,
                 confirmed=True,  # In order to let the user in...
-                roles=Role.ADMIN,
                 organisation=org)
 
+        user.roles |= Role.ADMIN
         if via_orcid:
             if not user.orcid and orcid_id:
                 user.orcid = orcid_id
@@ -738,25 +823,28 @@ def register_org(org_name,
             user.roles |= Role.TECHNICAL
             org.tech_contact = user
             try:
-                super(User, user).save()
-                super(Organisation, org).save()
+                user.save()
+                org.save()
             except Exception as ex:
                 app.logger.error("Encountered exception: %r", ex)
                 raise Exception(
                     "Failed to assign the user as the technical contact to the organisation: %s" %
                     str(ex), ex)
 
-        user_org, _ = UserOrg.get_or_create(user=user, org=org)
-        user_org.is_admin = True
         try:
-            super(UserOrg, user_org).save()
-        except Exception as ex:
-            app.logger.error("Encountered exception: %r", ex)
-            raise Exception(
-                "Failed to assign the user as an administrator to the organisation: %s" % str(ex),
-                ex)
+            user_org = UserOrg.get(user=user, org=org)
+            user_org.is_admin = True
+            try:
+                user_org.save()
+            except Exception as ex:
+                app.logger.error("Encountered exception: %r", ex)
+                raise Exception(
+                    "Failed to assign the user as an administrator to the organisation: %s" %
+                    str(ex), ex)
+        except UserOrg.DoesNotExist:
+            user_org = UserOrg.create(user=user, org=org, is_admin=True)
 
-        app.logger.info(f"Ready to send an ivitation to '{org_name} <{email}>.")
+        app.logger.info(f"Ready to send an ivitation to '{org_name} <{email}>'.")
         token = generate_confirmation_token(email)
         # TODO: for via_orcid constact direct link to ORCID with callback like to HUB
         if via_orcid:
@@ -778,6 +866,13 @@ def register_org(org_name,
             invitation_url=url_for("short_url", short_id=short_id, _external=True),
             org_name=org_name,
             user=user)
+
+        org.is_email_sent = True
+        try:
+            org.save()
+        except Exception as ex:
+            app.logger.error("Encountered exception: %r", ex)
+            raise Exception("Failed to save organisation data: %s" % str(ex), ex)
 
         OrgInvitation.create(
             inviter_id=current_user.id, invitee_id=user.id, email=user.email, org=org, token=token)

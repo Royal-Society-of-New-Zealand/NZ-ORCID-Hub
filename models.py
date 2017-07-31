@@ -20,7 +20,7 @@ from peewee import (BooleanField, CharField, CompositeKey, DateTimeField, Deferr
 from playhouse.shortcuts import model_to_dict
 from pycountry import countries
 
-from application import db
+from application import app, db
 from config import DEFAULT_COUNTRY, ENV
 
 try:
@@ -166,6 +166,11 @@ class Affiliation(IntFlag):
 
 
 class BaseModel(Model):
+
+    def field_is_updated(self, field_name):
+        """Test if field is 'dirty'."""
+        return any(field_name == f.name for f in self.dirty_fields)
+
     @classmethod
     def model_class_name(cls):
         return cls._meta.name
@@ -199,12 +204,13 @@ class AuditMixin(Model):
     # updated_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
 
     def save(self, *args, **kwargs):
-        self.updated_at = datetime.now()
-        if current_user and hasattr(current_user, "id"):
-            if hasattr(self, "created_by") and self.created_by and hasattr(self, "updated_by"):
-                self.updated_by_id = current_user.id
-            elif hasattr(self, "created_by"):
-                self.created_by_id = current_user.id
+        if self.is_dirty():
+            self.updated_at = datetime.now()
+            if current_user and hasattr(current_user, "id"):
+                if hasattr(self, "created_by") and self.created_by and hasattr(self, "updated_by"):
+                    self.updated_by_id = current_user.id
+                elif hasattr(self, "created_by"):
+                    self.created_by_id = current_user.id
         return super().save(*args, **kwargs)
 
 
@@ -231,6 +237,7 @@ class Organisation(BaseModel, AuditMixin):
     disambiguation_org_id = CharField(null=True)
     disambiguation_org_source = CharField(null=True)
     is_email_confirmed = BooleanField(default=False)
+    is_email_sent = BooleanField(default=False)
     tech_contact = ForeignKeyField(
         DeferredUser,
         related_name="tech_contact_for",
@@ -260,8 +267,16 @@ class Organisation(BaseModel, AuditMixin):
 
     def save(self, *args, **kwargs):
         """Handle data saving."""
-        if self.name is None:
-            self.name = self.tuakiri_name
+        if self.is_dirty():
+
+            if self.name is None:
+                self.name = self.tuakiri_name
+
+            if self.field_is_updated("tech_contact"):
+                if not self.tech_contact.has_role(Role.TECHNICAL):
+                    self.tech_contact.roles |= Role.TECHNICAL
+                    self.tech_contact.save()
+                    app.logger.info(f"Added TECHNICAL role to user {self.tech_contact}")
 
         super().save(*args, **kwargs)
 
@@ -416,14 +431,14 @@ class User(BaseModel, UserMixin, AuditMixin):
 
         :param role: A role name, `Role` instance, or integer value"""
         if isinstance(role, Role):
-            return role & Role(self.roles)
+            return bool(role & Role(self.roles))
         elif isinstance(role, str):
             try:
-                return Role[role.upper()] & Role(self.roles)
+                return bool(Role[role.upper()] & Role(self.roles))
             except:
                 False
         elif type(role) is int:
-            return role & self.roles
+            return bool(role & self.roles)
         else:
             return False
 
@@ -433,7 +448,7 @@ class User(BaseModel, UserMixin, AuditMixin):
 
     @property
     def is_admin(self):
-        return self.roles & Role.ADMIN
+        return bool(self.roles & Role.ADMIN)
 
     def avatar(self, size=40, default="identicon"):
         """Return Gravatar service user avatar URL."""
@@ -615,6 +630,20 @@ class UserOrg(BaseModel, AuditMixin):
 
     # TODO: the access token should be either here or in a separate list
     # access_token = CharField(max_length=120, unique=True, null=True)
+
+    def save(self, *args, **kwargs):
+        """Consolidate user roles with the linke organisations before saving data."""
+        if self.is_dirty() and (self.is_admin != self.user.is_admin):
+            if self.is_admin or UserOrg.select().where((UserOrg.user_id == self.user_id) & (
+                    UserOrg.org_id != self.org_id) & UserOrg.is_admin).exists():  # noqa: E125
+                self.user.roles |= Role.ADMIN
+                app.logger.info(f"Added ADMIN role to user {self.user}")
+            else:
+                self.user.roles &= ~Role.ADMIN
+                app.logger.info(f"Revoked ADMIN role from user {self.user}")
+            self.user.save()
+
+        return super().save(*args, **kwargs)
 
     class Meta:
         db_table = "user_org"
@@ -862,13 +891,14 @@ def create_tables():
     AffiliationRecord.create_table()
     OrgInvitation.create_table()
     Url.create_table()
+    UserInvitation.create_table()
 
 
 def drop_tables():
     """Drop all model tables."""
 
     for m in (Organisation, User, UserOrg, OrcidToken, UserOrgAffiliation, OrgInfo, OrgInvitation,
-              OrcidApiCall, Task, AffiliationRecord, Url):
+              OrcidApiCall, Task, AffiliationRecord, Url, UserInvitation):
         if m.table_exists():
             try:
                 m.drop_table(fail_silently=True, cascade=db.drop_cascade)

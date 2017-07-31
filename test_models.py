@@ -268,6 +268,14 @@ def test_affiliations(test_models):
     assert str(Affiliation.EDU | Affiliation.EMP) == "Education, Employment"
 
 
+def test_field_is_updated(test_db):
+    u = User.create(email="test@test.com", name="TESTER")
+    u.save()
+    assert not u.field_is_updated("name")
+    u.name = "NEW VALUE"
+    assert u.field_is_updated("name")
+
+
 def test_load_task_from_csv(test_models):
     org = Organisation.create(name="TEST0")
     # flake8: noqa

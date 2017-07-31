@@ -626,16 +626,11 @@ def confirm_organisation(token=None):
                 "Your registration is completed; however, if they've not yet done so it is the responsibility of your "
                 "Technical Contact to complete onboarding by entering your organisation's ORCID API credentials.",
                 "success")
-        return redirect(url_for("viewmembers"))
+        return redirect(url_for('viewmembers.index_view'))
 
     # TODO: support for mutliple orgs and admins
     # TODO: admin role asigning to an exiting user
-    # TODO: support for org not participating in Tuakiri
     form = OrgConfirmationForm()
-
-    # For now only GET method is implemented will need post method for organisation
-    # to enter client secret and client key for orcid
-
     try:
         organisation = Organisation.get(name=current_user.organisation.name)
     except Organisation.DoesNotExist:
@@ -643,62 +638,58 @@ def confirm_organisation(token=None):
               'please contact ORCID HUB Admin!', "danger")
         return redirect(url_for("login"))
 
-    if request.method == 'POST':
-        if not form.validate():
-            flash('Please fill in all fields and try again!', "danger")
-        else:
+    if form.validate_on_submit():
+        if not (user is  None or organisation is None):
+            # Update Organisation
+            organisation.country = form.country.data
+            organisation.city = form.city.data
+            organisation.disambiguation_org_id = form.disambiguation_org_id.data
+            organisation.disambiguation_org_source = form.disambiguation_org_source.data
+            organisation.is_email_confirmed = True
 
-            if (not (user is None) and (not (organisation is None))):
-                # Update Organisation
-                organisation.country = form.country.data
-                organisation.city = form.city.data
-                organisation.disambiguation_org_id = form.disambiguation_org_id.data
-                organisation.disambiguation_org_source = form.disambiguation_org_source.data
-                organisation.is_email_confirmed = True
+            headers = {'Accept': 'application/json'}
+            data = [
+                ('client_id', form.orgOricdClientId.data),
+                ('client_secret', form.orgOrcidClientSecret.data),
+                ('scope', '/read-public'),
+                ('grant_type', 'client_credentials'),
+            ]
 
-                headers = {'Accept': 'application/json'}
-                data = [
-                    ('client_id', form.orgOricdClientId.data),
-                    ('client_secret', form.orgOrcidClientSecret.data),
-                    ('scope', '/read-public'),
-                    ('grant_type', 'client_credentials'),
-                ]
+            response = requests.post(TOKEN_URL, headers=headers, data=data)
 
-                response = requests.post(TOKEN_URL, headers=headers, data=data)
+            if response.status_code == 401:
+                flash("Something is wrong! The Client id and Client Secret are not valid!\n"
+                        "Please recheck and contact Hub support if this error continues",
+                        "danger")
+            else:
+                organisation.confirmed = True
+                organisation.orcid_client_id = form.orgOricdClientId.data.strip()
+                organisation.orcid_secret = form.orgOrcidClientSecret.data.strip()
 
-                if response.status_code == 401:
-                    flash("Something is wrong! The Client id and Client Secret are not valid!\n"
-                          "Please recheck and contact Hub support if this error continues",
-                          "danger")
-                else:
-                    organisation.confirmed = True
-                    organisation.orcid_client_id = form.orgOricdClientId.data.strip()
-                    organisation.orcid_secret = form.orgOrcidClientSecret.data.strip()
+                with app.app_context():
+                    # TODO: shouldn't it be also 'nicified'?
+                    msg = Message("Welcome to the NZ ORCID Hub - Success", recipients=[email])
+                    msg.body = "Congratulations! Your identity has been confirmed and " \
+                                "your organisation onboarded successfully.\n" \
+                                "Any researcher from your organisation can now use the Hub"
+                    mail.send(msg)
+                    app.logger.info("For %r Onboarding is Completed!", current_user)
+                    flash("Your Onboarding is Completed!", "success")
 
-                    with app.app_context():
-                        # TODO: shouldn't it be also 'nicified'?
-                        msg = Message("Welcome to the NZ ORCID Hub - Success", recipients=[email])
-                        msg.body = "Congratulations! Your identity has been confirmed and " \
-                                   "your organisation onboarded successfully.\n" \
-                                   "Any researcher from your organisation can now use the Hub"
-                        mail.send(msg)
-                        app.logger.info("For %r Onboarding is Completed!", current_user)
-                        flash("Your Onboarding is Completed!", "success")
+                try:
+                    organisation.save()
+                except Exception as ex:
+                    app.logger.error("Exception Occured: %r", str(ex))
+                    flash("Failed to save organisation data: %s" % str(ex))
 
-                    try:
-                        organisation.save()
-                    except Exception as ex:
-                        app.logger.error("Exception Occured: %r", str(ex))
-                        flash("Failed to save organisation data: %s" % str(ex))
+                try:
+                    oi = OrgInvitation.get(token=token)
+                    oi.confirmed_at = datetime.now()
+                    oi.save()
+                except OrgInvitation.DoesNotExist:
+                    pass
 
-                    try:
-                        oi = OrgInvitation.get(token=token)
-                        oi.confirmed_at = datetime.now()
-                        oi.save()
-                    except OrgInvitation.DoesNotExist:
-                        pass
-
-                    return redirect(url_for("link"))
+                return redirect(url_for("link"))
 
     elif request.method == 'GET':
         if organisation is not None and not organisation.is_email_confirmed:
@@ -800,20 +791,6 @@ in order to complete the log-out.""", "warning")
     return render_template("uoa-slo.html")
 
 
-@app.route("/viewmembers")
-@roles_required(Role.ADMIN)
-def viewmembers():
-    """View the list of users (researchers)."""
-    try:
-        users = current_user.organisation.users
-    except:
-        flash("There are no users registered in your organisation.", "danger")
-        return redirect(url_for("login"))
-
-    return render_template(
-        "viewMembers.html", orgnisationname=current_user.organisation.name, users=users)
-
-
 @app.route("/updateorginfo", methods=["GET", "POST"])
 @roles_required(Role.ADMIN)
 def update_org_info():
@@ -909,21 +886,6 @@ def update_org_info():
         app.logger.error("Exception occured due to: %r", str(ex))
         flash("Failed to save organisation data: %s" % str(ex))
     return render_template('orgconfirmation.html', client_secret_url=client_secret_url, form=form)
-
-
-@app.route("/exportmembers")
-@roles_required(Role.ADMIN)
-def exportmembers():
-    """View the list of users (researchers)."""
-    try:
-        users = current_user.organisation.users
-        return Response(
-            generateRow(users),
-            mimetype='text/csv',
-            headers={"Content-Disposition": "attachment; filename=ResearchersData.csv"})
-    except:
-        flash("There are no users registered in your organisation.", "warning")
-    return redirect(url_for("viewmembers"))
 
 
 def generateRow(users):
