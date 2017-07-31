@@ -106,11 +106,18 @@ class BitmapMultipleValueField(SelectMultipleField):
     validate) multiple choices and value (by defualt) can be a bitmap of
     selected choices (the choice value should be an integer).
     """
-    bitmap_value = True
+    is_bitmap_value = True
+
+    def iter_choices(self):
+        if self.is_bitmap_value and type(self.data) is int:
+            for value, label in self.choices:
+                yield (value, label, bool(self.data & value))
+        else:
+            yield from super().iter_choices()
 
     def process_data(self, value):
         try:
-            if self.bitmap_value:
+            if self.is_bitmap_value:
                 self.data = [self.coerce(v) for (v, _) in self.choices if v & value]
             else:
                 self.data = [self.coerce(v) for v in value]
@@ -119,7 +126,7 @@ class BitmapMultipleValueField(SelectMultipleField):
 
     def process_formdata(self, valuelist):
         try:
-            if self.bitmap_value:
+            if self.is_bitmap_value:
                 self.data = sum(int(self.coerce(x)) for x in valuelist)
             else:
                 self.data = [self.coerce(x) for x in valuelist]
@@ -128,7 +135,7 @@ class BitmapMultipleValueField(SelectMultipleField):
                 self.gettext('Invalid choice(s): one or more data inputs could not be coerced'))
 
     def pre_validate(self, form):
-        if self.data and not self.bitmap_value:
+        if self.data and not self.is_bitmap_value:
             values = list(c[0] for c in self.choices)
             for d in self.data:
                 if d not in values:

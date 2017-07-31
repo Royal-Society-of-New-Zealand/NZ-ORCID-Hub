@@ -92,6 +92,20 @@ class AppModelView(ModelView):
                 raise Exception(f"Model class {model_class_name} doesn't exit.")
         super().__init__(model, *args, **kwargs)
 
+    def get_pk_value(self, model):
+        """Fix for composite keys."""
+        if self.model._meta.composite_key:
+            return tuple([
+                model._data[field_name] for field_name in self.model._meta.primary_key.field_names
+            ])
+        return super().get_pk_value(model)
+
+    def get_one(self, id):
+        """Fix for composite keys."""
+        if self.model._meta.composite_key:
+            return self.model.get(**dict(zip(self.model._meta.primary_key.field_names, id)))
+        return super().get_one(id)
+
     def init_search(self):
         if self.column_searchable_list:
             for p in self.column_searchable_list:
@@ -179,11 +193,54 @@ class UserAdmin(AppModelView):
     form_ajax_refs = {"organisation": {"fields": (Organisation.name, "name")}}
     can_export = True
 
+    def update_model(self, form, model):
+        """Added prevalidation of the form."""
+        if form.roles.data != model.roles:
+            if bool(form.roles.data & Role.ADMIN) != UserOrg.select().where(
+                (UserOrg.user_id == model.id) & UserOrg.is_admin).exists():  # noqa: E125
+                if form.roles.data & Role.ADMIN:
+                    flash(f"Cannot add ADMIN role to {model} "
+                          "since there is no organisation the user is an administrator for.",
+                          "danger")
+                else:
+                    flash(f"Cannot revoke ADMIN role from {model} "
+                          "since there is an organisation the user is an administrator for.",
+                          "danger")
+                form.roles.data = model.roles
+                return False
+            if bool(form.roles.data & Role.TECHNICAL) != Organisation.select().where(
+                    Organisation.tech_contact_id == model.id).exists():
+                if model.has_role(Role.TECHNICAL):
+                    flash(f"Cannot revoke TECHNICAL role from {model} "
+                          "since there is an organisation the user is the technical contact for.",
+                          "danger")
+                else:
+                    flash(f"Cannot add TECHNICAL role to {model} "
+                          "since there is no organisation the user is the technical contact for.",
+                          "danger")
+                form.roles.data = model.roles
+                return False
+
+        return super().update_model(form, model)
+
 
 class OrganisationAdmin(AppModelView):
     """Organisation model view."""
     column_exclude_list = ("orcid_client_id", "orcid_secret", )
     column_searchable_list = ("name", "tuakiri_name", "city", )
+
+    def update_model(self, form, model):
+        """Handle change of the technical contact."""
+        # Technical contact changed:
+        if form.tech_contact.data.id != model.tech_contact_id:
+            # Revoke the TECHNICAL role if thre is no org the user is tech.contact for.
+            if model.tech_contact.has_role(Role.TECHNICAL) and not Organisation.select().where(
+                    Organisation.tech_contact_id == model.tech_contact_id).exists():
+                app.logger.info(r"Revoked TECHNICAL from {model.tech_contact}")
+                model.tech_contact.roles &= ~Role.TECHNICAL
+                super(User, model.tech_contact).save()
+
+        return super().update_model(form, model)
 
 
 class OrgInfoAdmin(AppModelView):
@@ -225,6 +282,12 @@ class OrcidApiCallAmin(AppModelView):
     can_delete = False
     can_create = False
     column_searchable_list = ("url", "body", "response", "user.name", )
+
+
+class UserOrgAmin(AppModelView):
+    """User Organisations."""
+
+    column_searchable_list = ("user.email", "org.name", )
 
 
 class TaskAdmin(AppModelView):
@@ -291,6 +354,8 @@ admin.add_view(TaskAdmin(Task))
 admin.add_view(AffiliationRecordAdmin())
 admin.add_view(AppModelView(UserInvitation))
 admin.add_view(ViewMembersAdmin(name="viewmembers", endpoint="viewmembers"))
+
+admin.add_view(UserOrgAmin(UserOrg))
 
 SectionRecord = namedtuple("SectionRecord", [
     "name", "city", "state", "country", "department", "role", "start_date", "end_date"
@@ -701,42 +766,44 @@ def register_org(org_name, email, tech_contact=True):
 
         try:
             user = User.get(email=email)
-            user.roles |= Role.ADMIN
             user.organisation = org
             user.confirmed = True
         except User.DoesNotExist:
             user = User.create(
                 email=email,
                 confirmed=True,  # In order to let the user in...
-                roles=Role.ADMIN,
                 organisation=org)
-        try:
-            user.save()
-        except Exception as ex:
-            app.logger.error("Encountered exception: %r", ex)
-            raise Exception("Failed to save user data: %s" % str(ex), ex)
+        user.roles |= Role.ADMIN
 
         if tech_contact:
             user.roles |= Role.TECHNICAL
             org.tech_contact = user
             try:
-                user.save()
-                org.save()
+                super(Organisation, org).save()
             except Exception as ex:
                 app.logger.error("Encountered exception: %r", ex)
                 raise Exception(
                     "Failed to assign the user as the technical contact to the organisation: %s" %
                     str(ex), ex)
 
-        user_org, _ = UserOrg.get_or_create(user=user, org=org)
-        user_org.is_admin = True
         try:
-            user_org.save()
+            super(User, user).save()
         except Exception as ex:
             app.logger.error("Encountered exception: %r", ex)
-            raise Exception(
-                "Failed to assign the user as an administrator to the organisation: %s" % str(ex),
-                ex)
+            raise Exception("Failed to save user data: %s" % str(ex), ex)
+
+        try:
+            user_org = UserOrg.get(user=user, org=org)
+            user_org.is_admin = True
+            try:
+                user_org.save()
+            except Exception as ex:
+                app.logger.error("Encountered exception: %r", ex)
+                raise Exception(
+                    "Failed to assign the user as an administrator to the organisation: %s" %
+                    str(ex), ex)
+        except UserOrg.DoesNotExist:
+            user_org = UserOrg.create(user=user, org=org, is_admin=True)
 
         # Note: Using app context due to issue:
         # https://github.com/mattupstate/flask-mail/issues/63
