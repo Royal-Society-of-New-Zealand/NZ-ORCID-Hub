@@ -626,7 +626,7 @@ def confirm_organisation(token=None):
                 "Your registration is completed; however, if they've not yet done so it is the responsibility of your "
                 "Technical Contact to complete onboarding by entering your organisation's ORCID API credentials.",
                 "success")
-        return redirect(url_for("viewmembers"))
+        return redirect(url_for('viewmembers.index_view'))
 
     # TODO: support for mutliple orgs and admins
     # TODO: admin role asigning to an exiting user
@@ -791,20 +791,6 @@ in order to complete the log-out.""", "warning")
     return render_template("uoa-slo.html")
 
 
-@app.route("/viewmembers")
-@roles_required(Role.ADMIN)
-def viewmembers():
-    """View the list of users (researchers)."""
-    try:
-        users = current_user.organisation.users
-    except:
-        flash("There are no users registered in your organisation.", "danger")
-        return redirect(url_for("login"))
-
-    return render_template(
-        "viewMembers.html", orgnisationname=current_user.organisation.name, users=users)
-
-
 @app.route("/updateorginfo", methods=["GET", "POST"])
 @roles_required(Role.ADMIN)
 def update_org_info():
@@ -900,21 +886,6 @@ def update_org_info():
         app.logger.error("Exception occured due to: %r", str(ex))
         flash("Failed to save organisation data: %s" % str(ex))
     return render_template('orgconfirmation.html', client_secret_url=client_secret_url, form=form)
-
-
-@app.route("/exportmembers")
-@roles_required(Role.ADMIN)
-def exportmembers():
-    """View the list of users (researchers)."""
-    try:
-        users = current_user.organisation.users
-        return Response(
-            generateRow(users),
-            mimetype='text/csv',
-            headers={"Content-Disposition": "attachment; filename=ResearchersData.csv"})
-    except:
-        flash("There are no users registered in your organisation.", "warning")
-    return redirect(url_for("viewmembers"))
 
 
 def generateRow(users):
