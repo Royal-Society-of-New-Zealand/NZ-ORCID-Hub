@@ -1,24 +1,21 @@
 # -*- coding: utf-8 -*-
 """Application forms."""
 
+import re
 from datetime import date
 
 from flask_wtf import FlaskForm
 from flask_wtf.file import FileAllowed, FileField, FileRequired
 from pycountry import countries
-from wtforms import (Field, SelectField, SelectMultipleField, StringField, validators)
+from wtforms import (BooleanField, Field, SelectField, SelectMultipleField, StringField,
+                     validators)
 from wtforms.fields.html5 import DateField, EmailField
-from wtforms.validators import UUID, DataRequired, Email, Regexp
+from wtforms.validators import (UUID, DataRequired, Email, Regexp, ValidationError)
 from wtforms.widgets import HTMLString, html_params
 
 from config import DEFAULT_COUNTRY
 from models import PartialDate as PD
 from models import Organisation
-
-# Order the countly list by the name and add a default (Null) value
-country_choices = [(c.alpha_2, c.name) for c in countries]
-country_choices.sort(key=lambda e: e[1])
-country_choices.insert(0, ("", "Country"))
 
 
 class PartialDate:
@@ -90,17 +87,37 @@ class PartialDateField(Field):
             self.process_errors.append(e.args[0])
 
 
+class CountrySelectField(SelectField):
+
+    # Order the countly list by the name and add a default (Null) value
+    country_choices = [(c.alpha_2, c.name) for c in countries]
+    country_choices.sort(key=lambda e: e[1])
+    country_choices.insert(0, ("", "Country"))
+
+    def __init__(self, *args, **kwargs):
+        if len(args) == 0 and "label" not in kwargs:
+            kwargs["label"] = "Country"
+        super().__init__(*args, choices=self.country_choices, **kwargs)
+
+
 class BitmapMultipleValueField(SelectMultipleField):
     """
     No different from a normal multi select field, except this one can take (and
     validate) multiple choices and value (by defualt) can be a bitmap of
     selected choices (the choice value should be an integer).
     """
-    bitmap_value = True
+    is_bitmap_value = True
+
+    def iter_choices(self):
+        if self.is_bitmap_value and type(self.data) is int:
+            for value, label in self.choices:
+                yield (value, label, bool(self.data & value))
+        else:
+            yield from super().iter_choices()
 
     def process_data(self, value):
         try:
-            if self.bitmap_value:
+            if self.is_bitmap_value:
                 self.data = [self.coerce(v) for (v, _) in self.choices if v & value]
             else:
                 self.data = [self.coerce(v) for v in value]
@@ -109,7 +126,7 @@ class BitmapMultipleValueField(SelectMultipleField):
 
     def process_formdata(self, valuelist):
         try:
-            if self.bitmap_value:
+            if self.is_bitmap_value:
                 self.data = sum(int(self.coerce(x)) for x in valuelist)
             else:
                 self.data = [self.coerce(x) for x in valuelist]
@@ -118,7 +135,7 @@ class BitmapMultipleValueField(SelectMultipleField):
                 self.gettext('Invalid choice(s): one or more data inputs could not be coerced'))
 
     def pre_validate(self, form):
-        if self.data and not self.bitmap_value:
+        if self.data and not self.is_bitmap_value:
             values = list(c[0] for c in self.choices)
             for d in self.data:
                 if d not in values:
@@ -133,7 +150,7 @@ class RecordForm(FlaskForm):
     name = StringField("Institution/employer", [validators.required()])
     city = StringField("City", [validators.required()])
     state = StringField("State/region", filters=[lambda x: x or None])
-    country = SelectField("Country", [validators.required()], choices=country_choices)
+    country = CountrySelectField("Country", [validators.required()])
     department = StringField("Department", filters=[lambda x: x or None])
     role = StringField("Role/title", filters=[lambda x: x or None])
     start_date = PartialDateField("Start date")
@@ -152,7 +169,8 @@ class RecordForm(FlaskForm):
 class FileUploadForm(FlaskForm):
     """Organisation info pre-loading form."""
 
-    org_info = FileField(validators=[FileRequired(), FileAllowed(["csv"], 'CSV files only!')])
+    file_ = FileField(
+        validators=[FileRequired(), FileAllowed(["csv", "tsv"], 'CSV or TSV files only!')])
 
 
 class OnboardingTokenForm(FlaskForm):
@@ -162,13 +180,16 @@ class OnboardingTokenForm(FlaskForm):
 
 
 class OrgRegistrationForm(FlaskForm):
-    orgName = StringField('Organisation Name: ', validators=[DataRequired()])
-    orgEmailid = EmailField('Organisation EmailId: ', validators=[DataRequired(), Email()])
+    """Organisation registration/invitation form."""
+
+    org_name = StringField('Organisation Name', validators=[DataRequired()])
+    org_email = EmailField('Organisation Email', validators=[DataRequired(), Email()])
+    tech_contact = BooleanField("Technical Contact", default=False)
 
 
 class OrgConfirmationForm(FlaskForm):
-    orgName = StringField('Organisation Name: ', validators=[DataRequired()])
-    orgEmailid = EmailField('Organisation EmailId: ', validators=[DataRequired(), Email()])
+    orgName = StringField('Organisation Name', validators=[DataRequired()])
+    orgEmailid = EmailField('Organisation EmailId', validators=[DataRequired(), Email()])
     orgOricdClientId = StringField(
         'Organisation Orcid Client Id: ',
         validators=[
@@ -186,11 +207,50 @@ class OrgConfirmationForm(FlaskForm):
             DataRequired(), Regexp(r"^\S+$", message="The value shouldn't contain any spaces"),
             UUID(message="The secret should be a valid UUID")
         ])
-    country = SelectField(
-        "Country", [validators.required()], choices=country_choices, default=DEFAULT_COUNTRY)
+    country = CountrySelectField("Country", [validators.required()], default=DEFAULT_COUNTRY)
     city = StringField("City", [validators.required()])
     disambiguation_org_id = StringField("Disambiguation ORG Id", [validators.required()])
     disambiguation_org_source = StringField("Disambiguation ORG Source", [validators.required()])
+
+
+def validate_orcid_id(form, field):
+    """Validates ORCID iD."""
+    if not field.data:
+        return
+
+    if not re.match(r"^\d{4}-?\d{4}-?\d{4}-?\d{4}$", field.data):
+        raise ValidationError(
+            "Invalid ORCID iD. It should be in the form of 'xxxx-xxxx-xxxx-xxxx' where x is a digit."
+        )
+    check = 0
+    for n in field.data:
+        if n == '-':
+            continue
+        check = (2 * check + int(10 if n == 'X' else n)) % 11
+    if check != 1:
+        raise ValidationError(
+            "Invalid ORCID iD checksum. Make sure you have entered correct ORCID iD.")
+
+
+class UserInvitationForm(FlaskForm):
+    first_name = StringField("First Name", [validators.required()])
+    last_name = StringField("Last Name", [validators.required()])
+    email_address = EmailField("Email Address", [validators.required(), Email()])
+    orcid_id = StringField("ORCID iD", [
+        validate_orcid_id,
+    ])
+    department = StringField("Campus/Department")
+    organisation = StringField("Organisation Name")
+    city = StringField("City", [validators.required()])
+    state = StringField("State/Region")
+    country = CountrySelectField("Country", [validators.required()], default=DEFAULT_COUNTRY)
+    course_or_role = StringField("Course or Job title")
+    start_date = PartialDateField("Start date")
+    end_date = PartialDateField("End date (leave blank if current)")
+    is_student = BooleanField("Student")
+    is_employee = BooleanField("Staff")
+    disambiguation_org_id = StringField("Disambiguation ORG Id")
+    disambiguation_org_source = StringField("Disambiguation ORG Source")
 
 
 class EmploymentDetailsForm(FlaskForm):

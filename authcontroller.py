@@ -7,6 +7,7 @@ user (reseaser) affiliations.
 
 import base64
 import pickle
+import re
 import secrets
 import zlib
 from datetime import datetime
@@ -26,9 +27,8 @@ import orcid_client
 from application import app, db, mail
 from config import (APP_DESCRIPTION, APP_NAME, APP_URL, AUTHORIZATION_BASE_URL, CRED_TYPE_PREMIUM,
                     EXTERNAL_SP, MEMBER_API_FORM_BASE_URL, NEW_CREDENTIALS, NOTE_ORCID,
-                    NZ_ORCIDHUB_CLIENT_ID, NZ_ORCIDHUB_CLIENT_SECRET, ORCID_API_BASE,
-                    ORCID_BASE_URL, SCOPE_ACTIVITIES_UPDATE, SCOPE_AUTHENTICATE,
-                    SCOPE_READ_LIMITED, TOKEN_URL)
+                    ORCID_API_BASE, ORCID_BASE_URL, ORCID_CLIENT_ID, ORCID_CLIENT_SECRET,
+                    SCOPE_ACTIVITIES_UPDATE, SCOPE_AUTHENTICATE, SCOPE_READ_LIMITED, TOKEN_URL)
 from forms import OnboardingTokenForm, OrgConfirmationForm, SelectOrganisation
 from login_provider import roles_required
 from models import (Affiliation, OrcidToken, Organisation, OrgInfo, OrgInvitation, Role, User,
@@ -143,7 +143,8 @@ def handle_login():
     try:
         last_name = data['Sn'].encode("latin-1").decode("utf-8")
         first_name = data['Givenname'].encode("latin-1").decode("utf-8")
-        email = data['Mail'].encode("latin-1").decode("utf-8").lower()
+        email, *secondary_emails = re.split("[,; \t]",
+                                            data['Mail'].encode("latin-1").decode("utf-8").lower())
         session["shib_O"] = shib_org_name = data['O'].encode("latin-1").decode("utf-8")
         name = data.get('Displayname').encode("latin-1").decode("utf-8")
         eppn = data.get('Eppn').encode("latin-1").decode("utf-8")
@@ -153,6 +154,10 @@ def handle_login():
         app.logger.info(
             "User with email address %r is trying to login having affiliation as %r with %r",
             email, unscoped_affiliation, shib_org_name)
+        if secondary_emails:
+            app.logger.info(
+                f"the user has logged in with secondary email addresses: {secondary_emails}")
+
     except Exception as ex:
         app.logger.error("Encountered exception: %r", ex)
         abort(500, ex)
@@ -574,14 +579,6 @@ def profile():
                 "profile.html", user=user, users_orcid=users_orcid, profile_url=ORCID_BASE_URL)
 
 
-@app.route("/invite/user", methods=["GET"])
-@roles_required(Role.SUPERUSER, Role.ADMIN)
-def invite_user():
-    """Invite a researcher to join the hub."""
-    # For now on boarding of researcher is not supported
-    return "Work in Progress!"
-
-
 @app.route("/confirm/organisation", methods=["GET", "POST"])
 @app.route("/confirm/organisation/<token>", methods=["GET", "POST"])
 @login_required
@@ -938,8 +935,8 @@ def generateRow(users):
 
 @app.errorhandler(500)
 def internal_error(error):
-    app.logger.error("Exception 500 occured due to: %r", error.description)
-    return render_template("http500.html", error_message=error.description)
+    app.logger.error("Exception 500 occured due to: %r", error)
+    return render_template("http500.html", error_message=str(error))
 
 
 @app.route("/orcid/login/", methods=["GET", "POST"])
@@ -948,12 +945,14 @@ def orcid_login(token=None):
 
     try:
         extend_url = "?"
+        email = None
 
         if token is not None:
             email_and_organisation = confirm_token(token)
             email, org = email_and_organisation.split(';')
             extend_url = extend_url + "email=" + email + "&" + "orgName=" + org
             organisation = Organisation.get(name=org)
+            user = User.get(email=email)
             session['email'] = email
             session['orgName'] = organisation.name
 
@@ -966,18 +965,25 @@ def orcid_login(token=None):
             redirect_uri = redirect_uri + extend_url
 
         client_write = OAuth2Session(
-            NZ_ORCIDHUB_CLIENT_ID,
+            ORCID_CLIENT_ID,
             scope=SCOPE_AUTHENTICATE,
             redirect_uri=redirect_uri, )
 
-        authorization_url_write, state = client_write.authorization_url(AUTHORIZATION_BASE_URL)
+        authorization_url, state = client_write.authorization_url(AUTHORIZATION_BASE_URL)
         session['oauth_state'] = state
 
-        orcid_url_write = append_qs(iri_to_uri(authorization_url_write))
+        if email and user.first_name and user.last_name:
+            orcid_authenticate_url = append_qs(
+                iri_to_uri(authorization_url),
+                family_names=user.last_name,
+                given_names=user.first_name,
+                email=email)
+        else:
+            orcid_authenticate_url = append_qs(iri_to_uri(authorization_url))
 
-        return redirect(orcid_url_write)
+        return redirect(orcid_authenticate_url)
     except Exception as ex:
-        flash("Something went wrong contact orcidhub support for issue: %s" % str(ex))
+        flash("Something went wrong contact orcidhub support!", "danger")
         app.logger.error("Encountered exception: %r", ex)
         return redirect(url_for("login"))
 
@@ -992,14 +998,20 @@ def orcid_login_callback():
                 "Something went wrong, Please retry giving permissions or if issue persist then, "
                 "Please contact ORCIDHUB for support", "danger")
 
+        if "error" in request.args:
+            error = request.args["error"]
+            if error == "access_denied":
+                flash(
+                    "You have just denied access while trying to Login via ORCID, Please try again",
+                    "warning")
+                return redirect(url_for("login"))
+
         token = None
         orcid_id = session.get('orcid_id')
         if orcid_id is None:
-            client = OAuth2Session(NZ_ORCIDHUB_CLIENT_ID)
+            client = OAuth2Session(ORCID_CLIENT_ID)
             token = client.fetch_token(
-                TOKEN_URL,
-                client_secret=NZ_ORCIDHUB_CLIENT_SECRET,
-                authorization_response=request.url)
+                TOKEN_URL, client_secret=ORCID_CLIENT_SECRET, authorization_response=request.url)
             orcid_id = token['orcid']
             session['orcid_id'] = orcid_id
 
