@@ -355,6 +355,7 @@ class ViewMembersAdmin(AppModelView):
         query = current_user.organisation.users
         return query
 
+
 admin.add_view(UserAdmin(User))
 admin.add_view(OrganisationAdmin(Organisation))
 admin.add_view(OrcidTokenAdmin(OrcidToken))
@@ -666,7 +667,8 @@ def show_record_section(user_id, section_type="EMP"):
         if ex.status == 401:
             flash("User has revoked the permissions to update his/her records", "warning")
         else:
-            flash("Exception when calling MemberAPIV20Api->view_employments: %s\n" % message, "danger")
+            flash("Exception when calling MemberAPIV20Api->view_employments: %s\n" % message,
+                  "danger")
         return redirect(url_for('viewmembers.index_view'))
     except Exception as ex:
         app.logger.error("For %r encountered exception: %r", user, ex)

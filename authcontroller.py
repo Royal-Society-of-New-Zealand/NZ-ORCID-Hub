@@ -16,7 +16,7 @@ from tempfile import gettempdir
 from urllib.parse import quote, unquote, urlencode, urlparse
 
 import requests
-from flask import (Response, abort, flash, redirect, render_template, request, session, url_for)
+from flask import (abort, flash, redirect, render_template, request, session, url_for)
 from flask_login import current_user, login_required, login_user, logout_user
 from flask_mail import Message
 from oauthlib.oauth2 import rfc6749
@@ -41,10 +41,11 @@ HEADERS = {'Accept': 'application/vnd.orcid+json', 'Content-type': 'application/
 
 def get_next_url():
     """Retrieves and sanitizes next/return URL."""
-    _next = request.args.get("_next") or request.args.get("next")
-    if _next and not ("orcidhub.org.nz" in _next or _next.startswith("/")):
-        return None
-    return _next
+    _next = request.args.get("next") or request.args.get("_next")
+
+    if _next and ("orcidhub.org.nz" in _next or _next.startswith("/") or "127.0" in _next):
+        return _next
+    return None
 
 
 @app.route("/index")
@@ -639,7 +640,7 @@ def confirm_organisation(token=None):
         return redirect(url_for("login"))
 
     if form.validate_on_submit():
-        if not (user is  None or organisation is None):
+        if not (user is None or organisation is None):
             # Update Organisation
             organisation.country = form.country.data
             organisation.city = form.city.data
@@ -659,8 +660,7 @@ def confirm_organisation(token=None):
 
             if response.status_code == 401:
                 flash("Something is wrong! The Client id and Client Secret are not valid!\n"
-                        "Please recheck and contact Hub support if this error continues",
-                        "danger")
+                      "Please recheck and contact Hub support if this error continues", "danger")
             else:
                 organisation.confirmed = True
                 organisation.orcid_client_id = form.orgOricdClientId.data.strip()
@@ -669,9 +669,9 @@ def confirm_organisation(token=None):
                 with app.app_context():
                     # TODO: shouldn't it be also 'nicified'?
                     msg = Message("Welcome to the NZ ORCID Hub - Success", recipients=[email])
-                    msg.body = "Congratulations! Your identity has been confirmed and " \
-                                "your organisation onboarded successfully.\n" \
-                                "Any researcher from your organisation can now use the Hub"
+                    msg.body = ("Congratulations! Your identity has been confirmed and "
+                                "your organisation onboarded successfully.\n"
+                                "Any researcher from your organisation can now use the Hub")
                     mail.send(msg)
                     app.logger.info("For %r Onboarding is Completed!", current_user)
                     flash("Your Onboarding is Completed!", "success")
