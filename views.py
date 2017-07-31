@@ -197,9 +197,19 @@ class OrgInfoAdmin(AppModelView):
     def action_invite(self, ids):
         """Batch registraion of organisatons."""
         count = 0
-        for oi in OrgInfo.select(OrgInfo.name, OrgInfo.email).where(OrgInfo.id.in_(ids)):
+        for oi in OrgInfo.select().where(OrgInfo.id.in_(ids)):
             try:
-                register_org(oi.name, oi.email)
+                register_org(
+                    email=oi.name,
+                    tech_contact=True,
+                    via_orcid=(False if oi.tuakiri_name else True),
+                    first_name=oi.first_name,
+                    last_name=oi.last_name,
+                    city=oi.city,
+                    country=oi.country,
+                    course_or_role=oi.role,
+                    disambiguation_org_id=oi.disambiguation_org_id,
+                    disambiguation_org_source=oi.disambiguation_source)
                 count += 1
             except Exception as ex:
                 flash("Failed to send an invitation to %s: %s" % (oi.email, ex))
@@ -728,8 +738,8 @@ def register_org(org_name,
             user.roles |= Role.TECHNICAL
             org.tech_contact = user
             try:
-                user.save()
-                org.save()
+                super(User, user).save()
+                super(Organisation, org).save()
             except Exception as ex:
                 app.logger.error("Encountered exception: %r", ex)
                 raise Exception(
@@ -739,7 +749,7 @@ def register_org(org_name,
         user_org, _ = UserOrg.get_or_create(user=user, org=org)
         user_org.is_admin = True
         try:
-            user_org.save()
+            super(UserOrg, user_org).save()
         except Exception as ex:
             app.logger.error("Encountered exception: %r", ex)
             raise Exception(

@@ -41,7 +41,7 @@ HEADERS = {'Accept': 'application/vnd.orcid+json', 'Content-type': 'application/
 
 def get_next_url():
     """Retrieves and sanitizes next/return URL."""
-    _next = request.args.get('next') or request.args.get('_next')
+    _next = request.args.get("_next") or request.args.get("next")
     if _next and not ("orcidhub.org.nz" in _next or _next.startswith("/")):
         return None
     return _next
@@ -947,11 +947,13 @@ def orcid_login(token=None):
     try:
         email = None
 
-        redirect_uri = url_for("orcid_login_callback", _next=_next, _external=True)
         if EXTERNAL_SP:
             sp_url = urlparse(EXTERNAL_SP)
             redirect_uri = sp_url.scheme + "://" + sp_url.netloc + "/orcid/auth/" + quote(
-                redirect_uri)
+                url_for("orcid_login_callback", _next=_next))
+        else:
+            redirect_uri = url_for("orcid_login_callback", _next=_next, _external=True)
+        print("*** redirect_uri", redirect_uri)
 
         if token is not None:
             email_and_organisation = confirm_token(token)
@@ -960,7 +962,7 @@ def orcid_login(token=None):
             user = User.get(email=email)
             session['email'] = email
             session['orgName'] = organisation.name
-            redirect_uri = append_qs(email=email, orgName=org)
+            redirect_uri = append_qs(redirect_uri, email=email, orgName=org)
 
         client_write = OAuth2Session(
             ORCID_CLIENT_ID,
@@ -970,16 +972,17 @@ def orcid_login(token=None):
         authorization_url, state = client_write.authorization_url(AUTHORIZATION_BASE_URL)
         session['oauth_state'] = state
 
-        if email and user.first_name and user.last_name:
+        orcid_authenticate_url = iri_to_uri(authorization_url)
+        if email or user.first_name or user.last_name:
             orcid_authenticate_url = append_qs(
-                iri_to_uri(authorization_url),
+                orcid_authenticate_url,
                 family_names=user.last_name,
                 given_names=user.first_name,
                 email=email)
-        else:
-            orcid_authenticate_url = append_qs(iri_to_uri(authorization_url))
 
+        print("***", orcid_authenticate_url)
         return redirect(orcid_authenticate_url)
+
     except Exception as ex:
         flash("Something went wrong contact orcidhub support!", "danger")
         app.logger.error("Encountered exception: %r", ex)
@@ -987,7 +990,7 @@ def orcid_login(token=None):
 
 
 @app.route("/orcid/auth", methods=["GET", "POST"])
-def orcid_login_callback():
+def orcid_login_callback(url):
     _next = get_next_url()
     try:
         state = request.args['state']
