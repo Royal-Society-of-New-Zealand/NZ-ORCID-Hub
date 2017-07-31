@@ -945,25 +945,22 @@ def orcid_login(token=None):
 
     _next = get_next_url()
     try:
-        extend_url = "?"
         email = None
+
+        redirect_uri = url_for("orcid_login_callback", _next=_next, _external=True))
+        if EXTERNAL_SP:
+            sp_url = urlparse(EXTERNAL_SP)
+            redirect_uri = sp_url.scheme + "://" + sp_url.netloc + "/orcid/auth/" + quote(
+                redirect_uri)
 
         if token is not None:
             email_and_organisation = confirm_token(token)
             email, org = email_and_organisation.split(';')
-            extend_url = extend_url + "email=" + email + "&" + "orgName=" + org
             organisation = Organisation.get(name=org)
             user = User.get(email=email)
             session['email'] = email
             session['orgName'] = organisation.name
-
-        redirect_uri = url_for("orcid_login_callback", _next=_next, _external=bool(EXTERNAL_SP))
-        if EXTERNAL_SP:
-            sp_url = urlparse(EXTERNAL_SP)
-            redirect_uri = sp_url.scheme + "://" + sp_url.netloc + "/orcid/auth/" + quote(
-                redirect_uri) + extend_url
-        else:
-            redirect_uri = redirect_uri + extend_url
+            redirect_uri = append_qs(email=email, orgName=org)
 
         client_write = OAuth2Session(
             ORCID_CLIENT_ID,
