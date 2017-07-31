@@ -11,8 +11,8 @@ ORCID_BASE_URL = "https://sandbox.orcid.org/" if ENV != "prod" else "https://orc
 SECRET_KEY = environ.get("SECRET_KEY", urandom(42).hex())
 
 # NZ ORCIDHUB API client ID and secret
-NZ_ORCIDHUB_CLIENT_ID = environ.get("NZ_ORCIDHUB_CLIENT_ID", "APP-42W3G8FS4OHGM562")
-NZ_ORCIDHUB_CLIENT_SECRET = environ.get("NZ_ORCIDHUB_CLIENT_SECRET")
+ORCID_CLIENT_ID = environ.get("ORCID_CLIENT_ID", "APP-42W3G8FS4OHGM562")
+ORCID_CLIENT_SECRET = environ.get("ORCID_CLIENT_SECRET")
 
 # Change the URL as per the enviornment
 AUTHORIZATION_BASE_URL = 'https://sandbox.orcid.org/oauth/authorize' \
@@ -69,7 +69,7 @@ APP_DESCRIPTION = 'This is an ORCID integration through the NZ ORCID HUB connect
 APP_URL = "https://" + (ENV + ".orcidhub.org.nz" if ENV != "prod" else "orcidhub.org.nz")
 
 # External Shibboleth SP login URL (e.g., https://test.orcidhub.org.nz/Tuakiri/login)
-EXTERNAL_SP = environ.get("EXTERNAL_SP")
+EXTERNAL_SP = environ.get("EXTERNAL_SP") if ENV != "prod" else None
 
 DEFAULT_COUNTRY = "NZ"
 
@@ -81,5 +81,3 @@ elif ENV == "dev0":
     GA_TRACKING_ID = "UA-99022483-3"
 else:
     GA_TRACKING_ID = "UA-99022483-4"
-
-SENTRY_DSN = "https://bb596bd75ad4490c80ee0a7c22943a94:a53ff6a9eb5b439e87d8553f162a6658@sentry.io/172044"
