@@ -903,30 +903,31 @@ def internal_error(error):
 
 @app.route("/orcid/login/", methods=["GET", "POST"])
 @app.route("/orcid/login/<token>", methods=["GET", "POST"])
-def orcid_login(token=None):
+def orcid_login(invitation_token=None):
 
     _next = get_next_url()
+    if EXTERNAL_SP:
+        sp_url = urlparse(EXTERNAL_SP)
+        redirect_uri = sp_url.scheme + "://" + sp_url.netloc + "/orcid/auth/" + quote(
+            url_for("orcid_login_callback", _next=_next))
+    else:
+        redirect_uri = url_for("orcid_login_callback", _next=_next, _external=True)
+
     try:
-        email = None
-
-        if EXTERNAL_SP:
-            sp_url = urlparse(EXTERNAL_SP)
-            redirect_uri = sp_url.scheme + "://" + sp_url.netloc + "/orcid/auth/" + quote(
-                url_for("orcid_login_callback", _next=_next))
-        else:
-            redirect_uri = url_for("orcid_login_callback", _next=_next, _external=True)
-
-        if token is not None:
-            data = confirm_token(token)
+        if invitation_token is not None:
+            data = confirm_token(invitation_token)
             if isinstance(data, str):
                 email = data
+                org_name = None
             else:
-                email, org_name = data["email"], data["org_name"]
-            organisation = Organisation.get(name=org_name)
+                email, org_name = data.get("email"), data.get("org_name")
+            # organisation = Organisation.get(name=org_name)
             user = User.get(email=email)
-            session['email'] = email
-            session['orgName'] = organisation.name
-            redirect_uri = append_qs(redirect_uri, email=email, orgName=org_name)
+            if not org_name:
+                org_name = user.organisation.name
+            # session['email'] = email
+            # session['orgName'] = organisation.name
+            redirect_uri = append_qs(redirect_uri, email=email, org_name=org_name)
 
         client_write = OAuth2Session(
             ORCID_CLIENT_ID,
@@ -937,7 +938,7 @@ def orcid_login(token=None):
         session['oauth_state'] = state
 
         orcid_authenticate_url = iri_to_uri(authorization_url)
-        if email or user.first_name or user.last_name:
+        if invitation_token:
             orcid_authenticate_url = append_qs(
                 orcid_authenticate_url,
                 family_names=user.last_name,
@@ -954,26 +955,29 @@ def orcid_login(token=None):
 
 
 @app.route("/orcid/auth", methods=["GET", "POST"])
-def orcid_login_callback(url):
+def orcid_login_callback():
     _next = get_next_url()
+    # email=email, org_name=org_name)
+    state = request.args.get("state")
+    if not state or state != session.get("oauth_state"):
+        flash(
+            "Something went wrong, Please retry giving permissions or if issue persist then, "
+            "Please contact ORCIDHUB for support", "danger")
+        return redirect(url_for("login"))
+
+    error = request.args.get("error")
+    if error == "access_denied":
+        flash(
+            "You have just denied access while trying to Login via ORCID, Please try again",
+            "warning")
+        return redirect(url_for("login"))
+
     try:
-        state = request.args['state']
-
-        if state != session.get('oauth_state'):
-            flash(
-                "Something went wrong, Please retry giving permissions or if issue persist then, "
-                "Please contact ORCIDHUB for support", "danger")
-
-        if "error" in request.args:
-            error = request.args["error"]
-            if error == "access_denied":
-                flash(
-                    "You have just denied access while trying to Login via ORCID, Please try again",
-                    "warning")
-                return redirect(url_for("login"))
-
         token = None
-        orcid_id = session.get('orcid_id')
+        if request.method == "POST":
+            app.logger.info("*****", request.get_json())
+
+        orcid_id = session.get("orcid_id")
         if orcid_id is None:
             client = OAuth2Session(ORCID_CLIENT_ID)
             token = client.fetch_token(
@@ -996,35 +1000,6 @@ def orcid_login_callback(url):
 
             login_user(user)
             return redirect(url_for("link"))
-        else:
-            form = SelectOrganisation()
-
-            user_data = User.get(orcid=orcid_id)
-
-            if request.method == 'GET':
-                org_data = Organisation.select(
-                    Organisation.id,
-                    Organisation.name).where(Organisation.id << UserOrg.select(UserOrg.org).where(
-                        UserOrg.user << User.select().where(User.orcid == orcid_id))).tuples()
-
-                form.orgNames.choices = org_data
-
-                if len(org_data) == 1:
-                    login_user(user_data)
-                    return redirect(url_for("link"))
-
-                return render_template("selectOrganisation.html", form=form)
-            elif request.method == 'POST':
-                if form.orgNames.data:
-                    organisation = Organisation.get(id=int(form.orgNames.data))
-                    user_data = User.get(orcid=orcid_id, organisation=organisation)
-                    login_user(user_data)
-                    return redirect(url_for("link"))
-
-                else:
-                    flash("Please select organisation through which you want to login", "danger")
-                    return render_template("selectOrganisation.html", form=form)
-
     except User.DoesNotExist:
         flash("You are not onboarded on ORCIDHUB...", "danger")
         return redirect(url_for("login"))
@@ -1042,3 +1017,39 @@ def orcid_login_callback(url):
         app.logger.error("For %r encountered exception: %r", current_user, ex)
         return redirect(url_for("login"))
     return redirect(_next or url_for("link"))
+
+
+@app.route("/select/org/<org_id>")
+@login_required
+def select_org(org_id):
+    pass
+
+    # else:
+    #     form = SelectOrganisation()
+
+    #     user_data = User.get(orcid=orcid_id)
+
+    #     if request.method == 'GET':
+    #         org_data = Organisation.select(
+    #             Organisation.id,
+    #             Organisation.name).where(Organisation.id << UserOrg.select(UserOrg.org).where(
+    #                 UserOrg.user << User.select().where(User.orcid == orcid_id))).tuples()
+
+    #         form.orgNames.choices = org_data
+
+    #         if len(org_data) == 1:
+    #             login_user(user_data)
+    #             return redirect(url_for("link"))
+
+    #         return render_template("selectOrganisation.html", form=form)
+    #     elif request.method == 'POST':
+    #         if form.orgNames.data:
+    #             organisation = Organisation.get(id=int(form.orgNames.data))
+    #             user_data = User.get(orcid=orcid_id, organisation=organisation)
+    #             login_user(user_data)
+    #             return redirect(url_for("link"))
+
+    #         else:
+    #             flash("Please select organisation through which you want to login", "danger")
+    #             return render_template("selectOrganisation.html", form=form)
+
