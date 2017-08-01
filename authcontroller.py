@@ -335,8 +335,8 @@ def link():
     return redirect(url_for("profile"))
 
 
-@app.route("/orcid/auth/<path:url>", methods=["GET"])
-@app.route("/auth/<path:url>", methods=["GET"])
+@app.route("/orcid/auth/<path:url>")
+@app.route("/auth/<path:url>")
 def orcid_callback_proxy(url):
     url = unquote(url)
     return redirect(url + '?' + urlencode(request.args))
