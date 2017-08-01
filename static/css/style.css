@@ -19,7 +19,7 @@
 	display: inline;
 }
 
-.model-list form.icon button {
+.model-list form.icon button, .model-list a.icon, span.icon {
 	color: #337ab7;
 	border: none;
 	background: transparent;
