@@ -10,7 +10,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 # flake8: noqa
 import config
-config.DATABASE_URL = os.environ.get("DATABASE_URL") or "sqlite:///:memory:"
+config.DATABASE_URL = os.environ.get("TEST_DATABASE_URL") or "sqlite:///:memory:"
 os.environ["DATABASE_URL"] = config.DATABASE_URL
 # yapf: enable
 
