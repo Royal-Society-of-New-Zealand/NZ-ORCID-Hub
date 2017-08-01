@@ -921,12 +921,9 @@ def orcid_login(invitation_token=None):
                 org_name = None
             else:
                 email, org_name = data.get("email"), data.get("org_name")
-            # organisation = Organisation.get(name=org_name)
             user = User.get(email=email)
             if not org_name:
                 org_name = user.organisation.name
-            # session['email'] = email
-            # session['orgName'] = organisation.name
             redirect_uri = append_qs(redirect_uri, email=email, org_name=org_name)
 
         client_write = OAuth2Session(
@@ -954,7 +951,7 @@ def orcid_login(invitation_token=None):
         return redirect(url_for("login"))
 
 
-@app.route("/orcid/auth", methods=["GET", "POST"])
+@app.route("/orcid/auth")
 def orcid_login_callback():
     _next = get_next_url()
     # email=email, org_name=org_name)
@@ -973,33 +970,31 @@ def orcid_login_callback():
         return redirect(url_for("login"))
 
     try:
-        token = None
-        if request.method == "POST":
-            app.logger.info("*****", request.get_json())
+        client = OAuth2Session(ORCID_CLIENT_ID)
+        token = client.fetch_token(
+            TOKEN_URL, client_secret=ORCID_CLIENT_SECRET, authorization_response=request.url)
+        orcid_id = token['orcid']
+        try:
+            user = User.get(orcid=orcid_id)
 
-        orcid_id = session.get("orcid_id")
-        if orcid_id is None:
-            client = OAuth2Session(ORCID_CLIENT_ID)
-            token = client.fetch_token(
-                TOKEN_URL, client_secret=ORCID_CLIENT_SECRET, authorization_response=request.url)
-            orcid_id = token['orcid']
-            session['orcid_id'] = orcid_id
+        except User.DoesNotExist:
+            email = request.args.get("email")
+            if email is None:
+                flash(f"The account with ORCID iD {orcid_id} doesn't exist.", "danger")
+                return redirect(url_for("login"))
 
-        email = None
-        if session.get('email') and session.get('orgName'):
-            email = request.args['email']
-            orgName = request.args['orgName']
             user = User.get(email=email)
-            organisation = Organisation.get(name=orgName)
-            UserOrg.get(user=user, org=organisation)
-            user.orcid = orcid_id
-            user.confirmed = True
-            if user.name is None and token['name']:
-                user.name = token['name']
-            user.save()
 
-            login_user(user)
-            return redirect(url_for("link"))
+        if not user.orcid:
+            user.orcid = orcid_id
+        if not user.name and token['name']:
+            user.name = token['name']
+        user.confirmed = True
+        user.save()
+
+        login_user(user)
+        return redirect(_next or url_for("link"))
+
     except User.DoesNotExist:
         flash("You are not onboarded on ORCIDHUB...", "danger")
         return redirect(url_for("login"))
@@ -1016,7 +1011,6 @@ def orcid_login_callback():
         flash("Something went wrong contact orcidhub support for issue: %s" % str(ex))
         app.logger.error("For %r encountered exception: %r", current_user, ex)
         return redirect(url_for("login"))
-    return redirect(_next or url_for("link"))
 
 
 @app.route("/select/org/<org_id>")
