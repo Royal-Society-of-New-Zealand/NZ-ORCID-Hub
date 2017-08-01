@@ -29,7 +29,7 @@ from config import (APP_DESCRIPTION, APP_NAME, APP_URL, AUTHORIZATION_BASE_URL, 
                     EXTERNAL_SP, MEMBER_API_FORM_BASE_URL, NEW_CREDENTIALS, NOTE_ORCID,
                     ORCID_API_BASE, ORCID_BASE_URL, ORCID_CLIENT_ID, ORCID_CLIENT_SECRET,
                     SCOPE_ACTIVITIES_UPDATE, SCOPE_AUTHENTICATE, SCOPE_READ_LIMITED, TOKEN_URL)
-from forms import OnboardingTokenForm, OrgConfirmationForm, SelectOrganisation
+from forms import OnboardingTokenForm, OrgConfirmationForm
 from login_provider import roles_required
 from models import (Affiliation, OrcidToken, Organisation, OrgInfo, OrgInvitation, Role, User,
                     UserOrg)
@@ -902,7 +902,7 @@ def internal_error(error):
 
 
 @app.route("/orcid/login/", methods=["GET", "POST"])
-@app.route("/orcid/login/<token>", methods=["GET", "POST"])
+@app.route("/orcid/login/<invitation_token>", methods=["GET", "POST"])
 def orcid_login(invitation_token=None):
 
     _next = get_next_url()
@@ -942,7 +942,6 @@ def orcid_login(invitation_token=None):
                 given_names=user.first_name,
                 email=email)
 
-        print("***", orcid_authenticate_url)
         return redirect(orcid_authenticate_url)
 
     except Exception as ex:
@@ -954,19 +953,17 @@ def orcid_login(invitation_token=None):
 @app.route("/orcid/auth")
 def orcid_login_callback():
     _next = get_next_url()
-    # email=email, org_name=org_name)
+
     state = request.args.get("state")
     if not state or state != session.get("oauth_state"):
-        flash(
-            "Something went wrong, Please retry giving permissions or if issue persist then, "
-            "Please contact ORCIDHUB for support", "danger")
+        flash("Something went wrong, Please retry giving permissions or if issue persist then, "
+              "Please contact ORCIDHUB for support", "danger")
         return redirect(url_for("login"))
 
     error = request.args.get("error")
     if error == "access_denied":
-        flash(
-            "You have just denied access while trying to Login via ORCID, Please try again",
-            "warning")
+        flash("You have just denied access while trying to Login via ORCID, Please try again",
+              "warning")
         return redirect(url_for("login"))
 
     try:
@@ -989,7 +986,8 @@ def orcid_login_callback():
             user.orcid = orcid_id
         if not user.name and token['name']:
             user.name = token['name']
-        user.confirmed = True
+        if not user.confirmed:
+            user.confirmed = True
         user.save()
 
         login_user(user)
@@ -1046,4 +1044,3 @@ def select_org(org_id):
     #         else:
     #             flash("Please select organisation through which you want to login", "danger")
     #             return render_template("selectOrganisation.html", form=form)
-
