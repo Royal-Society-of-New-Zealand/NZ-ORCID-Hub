@@ -20,29 +20,38 @@
         </div>
         <div class="collapse navbar-collapse" id="navbar-collapse-1">
           <ul class="nav navbar-nav">
-            <li id="login"><a href="{{ url_for('login') }}">hub home</a></li>
-            <li id="about"><a href="{{ url_for('about') }}">about the hub</a></li>
+
+            <li id="login"><a href="{{ url_for('login') }}">
+                  <span data-toggle="tooltip" data-placement="bottom" title="HUB Home" class="fa fa-home glyphicon glyphicon-home"
+                                                                                                                style="font-size: large;" aria-hidden="true"></span></a></li>
+            <li id="about"><a href="{{ url_for('about') }}">
+                <span data-toggle="tooltip" data-placement="bottom" title="About HUB">About</span>
+            </a></li>
             {% if current_user.organisation.confirmed or current_user.has_role("SUPERUSER") %}
-              <li id="profile"><a href="{{ url_for('link') }}" data-toggle="tooltip"
-                                                               title="Affiliate yourself using the NZ ORCID HUB or view your ORCID iD">your ORCID
-                                                               hub connections</a></li>
+              <li id="profile"><a href="{{ url_for('link') }}">
+                  <span data-toggle="tooltip" data-placement="bottom"
+                        title="Affiliate yourself using the NZ ORCID HUB or view your ORCID iD">Your ORCID</span></a></li>
               {% if current_user.has_role("ADMIN") %}
                 <!-- Functionality to be added post-launch
                   <li id="researcher"><a href="#">Register Researcher(s)</a></li>
                 -->
-              <li class="dropdown">
+                <li class="dropdown">
                   <a class="dropdown-toggle" data-toggle="dropdown" href="#">More
-                      <span class="caret"></span></a>
+                    <span class="caret"></span></a>
                   <ul class="dropdown-menu">
-                      <li id="load_researcher_affiliations"><a href="{{ url_for('load_researcher_affiliations')}}">Upload
-                          Researchers Info</a></li>
-                      <li id="invite_user"><a href="{{ url_for('invite_user') }}" data-toggle="tooltip"
-                                              title="Invite a new researcher">Invite Researcher</a></li>
+                    <li id="load_researcher_affiliations"><a href="{{ url_for('load_researcher_affiliations')}}">Upload
+                        Researchers Info</a></li>
+                    <li id="invite_user"><a href="{{ url_for('invite_user') }}" data-toggle="tooltip"
+                                                                                title="Invite a new researcher">Invite Researcher</a></li>
                   </ul>
-              </li>
-                <li id="viewmembers"><a href="{{ url_for('viewmembers.index_view')}}">ORCID iDs of researchers at your institution</a></li>
+                </li>
+                <li id="viewmembers"><a href="{{ url_for('viewmembers.index_view')}}">
+                    <span data-toggle="tooltip" data-placement="bottom" title="ORCID iDs of researchers at your institution">
+                      Researchers
+                    </span> </a></li>
                 {% if current_user.is_tech_contact_of(current_user.organisation) %}
-                  <li id="updateorginfo"><a href="/updateorginfo">view your organisation's ORCID information</a></li>
+                  <li id="updateorginfo"><a href="/updateorginfo">
+                      <span data-toggle="tooltip" data-placement="bottom" title="View your organisation's ORCID information">Your Organisation</span></a></li>
                 {% endif %}
               {% endif %}
             {% endif %}

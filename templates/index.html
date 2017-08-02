@@ -18,7 +18,7 @@
               </div>
             </a>
             {% if config.ENV == "dev" %}
-              <a href="{{url_for('orcid_login')}}">
+              <a href="{{orcid_login_url}}">
                 <div class="orcid">
                   <img alt="Login via Orcid" src="{{image('orcid-logo.png')}}">
                   <div class="login-button">Login&nbsp;via&nbsp;Orcid</div>

@@ -689,7 +689,7 @@ class UserOrgAffiliation(BaseModel, AuditMixin):
 class OrcidApiCall(BaseModel):
     """ORCID API call audit entry."""
     called_at = DateTimeField(default=datetime.now)
-    user = ForeignKeyField(User)
+    user = ForeignKeyField(User, null=True)
     method = TextField()
     url = TextField()
     query_params = TextField(null=True)

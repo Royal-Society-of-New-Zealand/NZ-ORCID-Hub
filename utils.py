@@ -182,8 +182,8 @@ class RewrapExtension(jinja2.ext.Extension):
 
 def generate_confirmation_token(*args, **kwargs):
     """Generate Organisation registration confirmation token."""
-    serializer = URLSafeTimedSerializer(app.config['TOKEN_SECRET_KEY'])
-    salt = app.config['TOKEN_PASSWORD_SALT']
+    serializer = URLSafeTimedSerializer(app.config["SECRET_KEY"])
+    salt = app.config["SALT"]
     if len(kwargs) == 0:
         return serializer.dumps(args[0] if len(args) == 1 else args, salt=salt)
     else:
@@ -193,9 +193,9 @@ def generate_confirmation_token(*args, **kwargs):
 # Token Expiry after 15 days.
 def confirm_token(token, expiration=1300000):
     """Genearate confirmaatin token."""
-    serializer = URLSafeTimedSerializer(app.config['TOKEN_SECRET_KEY'])
+    serializer = URLSafeTimedSerializer(app.config["SECRET_KEY"])
     try:
-        data = serializer.loads(token, salt=app.config['TOKEN_PASSWORD_SALT'], max_age=expiration)
+        data = serializer.loads(token, salt=app.config["SALT"], max_age=expiration)
     except:
         return False
     return data
