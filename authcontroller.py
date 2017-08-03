@@ -1092,11 +1092,9 @@ def select_org(org_id):
     org_id = int(org_id)
     _next = get_next_url() or request.referrer or url_for("login")
     try:
-        UserOrg.get(user_id=current_user.id, org_id=org_id)
-        user = User.get(id=current_user.id)
-        user.organisation_id = org_id
-        user.save()
-        login_user(user)
+        uo = UserOrg.get(user_id=current_user.id, org_id=org_id)
+        current_user.organisation_id = uo.org_id
+        current_user.save()
     except UserOrg.DoesNotExist:
 
         flash("Your are not related to this organisation.", "danger")
