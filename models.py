@@ -165,7 +165,6 @@ class Affiliation(IntFlag):
 
 
 class BaseModel(Model):
-
     def field_is_updated(self, field_name):
         """Test if field is 'dirty'."""
         return any(field_name == f.name for f in self.dirty_fields)

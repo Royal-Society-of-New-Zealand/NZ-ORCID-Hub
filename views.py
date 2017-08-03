@@ -343,8 +343,8 @@ class ViewMembersAdmin(AppModelView):
     can_export = True
 
     def get_query(self):
-        query = current_user.organisation.users
-        return query
+        return current_user.organisation.users
+
 
 admin.add_view(UserAdmin(User))
 admin.add_view(OrganisationAdmin(Organisation))
@@ -624,23 +624,25 @@ def edu_list(user_id):
 def show_record_section(user_id, section_type="EMP"):
     """Show all user profile section list."""
 
+    _url = request.args.get("url") or request.referrer or url_for("viewmembers.index_view")
+
     section_type = section_type.upper()[:3]  # normalize the section type
     try:
         user = User.get(id=user_id, organisation_id=current_user.organisation_id)
     except:
         flash("ORCID HUB doent have data related to this researcher", "warning")
-        return redirect(url_for('viewmembers.index_view'))
+        return redirect(_url)
 
     if not user.orcid:
         flash("The user hasn't yet linked their ORCID record", "danger")
-        return redirect(url_for('viewmembers.index_view'))
+        return redirect(_url)
 
     orcid_token = None
     try:
         orcid_token = OrcidToken.get(user=user, org=current_user.organisation)
     except:
         flash("User didn't give permissions to update his/her records", "warning")
-        return redirect(url_for('viewmembers.index_view'))
+        return redirect(_url)
 
     orcid_client.configuration.access_token = orcid_token.access_token
     # create an instance of the API class
@@ -656,8 +658,9 @@ def show_record_section(user_id, section_type="EMP"):
         if ex.status == 401:
             flash("User has revoked the permissions to update his/her records", "warning")
         else:
-            flash("Exception when calling MemberAPIV20Api->view_employments: %s\n" % message, "danger")
-        return redirect(url_for('viewmembers.index_view'))
+            flash("Exception when calling MemberAPIV20Api->view_employments: %s\n" % message,
+                  "danger")
+        return redirect(_url)
     except Exception as ex:
         app.logger.error("For %r encountered exception: %r", user, ex)
         abort(500, ex)
@@ -671,17 +674,19 @@ def show_record_section(user_id, section_type="EMP"):
         flash("User didn't give permissions to update his/her records", "warning")
         flash("Unhandled exception occured while retrieving ORCID data: %s" % ex, "danger")
         app.logger.error("For %r encountered exception: %r", user, ex)
-        return redirect(url_for('viewmembers.index_view'))
+        return redirect(_url)
     # TODO: transform data for presentation:
     if section_type == "EMP":
         return render_template(
             "employments.html",
+            url=_url,
             data=data,
             user_id=user_id,
             org_client_id=user.organisation.orcid_client_id)
     elif section_type == "EDU":
         return render_template(
             "educations.html",
+            url=_url,
             data=data,
             user_id=user_id,
             org_client_id=user.organisation.orcid_client_id)
