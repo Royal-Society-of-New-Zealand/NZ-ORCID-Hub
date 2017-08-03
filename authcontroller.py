@@ -776,7 +776,7 @@ def logout():
     session.clear()
     session["__invalidate__"] = True
 
-    if org_name or auth_secret:
+    if org_name or org_name:
         if EXTERNAL_SP:
             sp_url = urlparse(EXTERNAL_SP)
             sso_url_base = sp_url.scheme + "://" + sp_url.netloc
@@ -786,7 +786,7 @@ def logout():
             url_for(
                 "uoa_slo" if org_name and org_name == "University of Auckland" else "login",
                 _external=True)))
-    return redirect(url_for("login"))
+    return redirect(url_for("login", logout=True))
 
 
 @app.route("/uoa-slo")

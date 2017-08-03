@@ -98,6 +98,9 @@ $(document).ready(function(){
   ga("send", "pageview");
   {% block ga_event %}<!-- Placeholder for Google Analytics events -->{% endblock %}
 });
+{% if request.args.get("logout") %}
+  $.ajax({url: '{{config.ORCID_BASE_URL}}' + 'userStatus.json?logUserOut=true', dataType: 'jsonp'});
+{% endif %}
       </script>
     {% endblock %}
   </body>
