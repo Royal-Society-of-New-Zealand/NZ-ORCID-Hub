@@ -59,9 +59,6 @@ MAIL_SUPPRESS_SEND = False
 MAIL_DEFAULT_SENDER = environ.get("MAIL_DEFAULT_SENDER", "no-reply@orcidhub.org.nz")
 MAIL_SERVER = environ.get("MAIL_SERVER", "gateway")
 
-TOKEN_PASSWORD_SALT = environ.get("TOKEN_PASSWORD_SALT")
-TOKEN_SECRET_KEY = environ.get("TOKEN_SECRET_KEY")
-
 MEMBER_API_FORM_BASE_URL = "https://orcid.org/content/register-client-application-sandbox" \
     if ENV != "prod" else "https://orcid.org/content/register-client-application-production-trusted-party"
 
