@@ -350,7 +350,7 @@ def process_affiliation_records(max_rows=20):
          user), tasks_by_user in groupby(tasks, lambda t: (t.org_id, t.affiliation_record.user, )):
         if (user.id is None or user.orcid is None or OrcidToken.select().where(
             (OrcidToken.user_id == user.id) & (OrcidToken.org_id == org_id) &
-            (OrcidToken.scope.contains("/activities/update"))).exists()):  # noqa: E129
+            (OrcidToken.scope.contains("/activities/update"))).exists()):  # noqa: E127, E129
             # maps invitation attributes to affiliation type set:
             # - the user who uploaded the task;
             # - the user organisation;
