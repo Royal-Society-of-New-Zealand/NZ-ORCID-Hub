@@ -1092,9 +1092,9 @@ def select_org(org_id):
     org_id = int(org_id)
     _next = get_next_url() or request.referrer or url_for("login")
     try:
-        org = UserOrg.get(user_id=current_user.id, org_id=org_id)
+        UserOrg.get(user_id=current_user.id, org_id=org_id)
         user = User.get(id=current_user.id)
-        user.organisation_id = org.id
+        user.organisation_id = org_id
         user.save()
         login_user(user)
     except UserOrg.DoesNotExist:
