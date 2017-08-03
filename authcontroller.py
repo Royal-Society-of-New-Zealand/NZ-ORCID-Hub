@@ -259,7 +259,7 @@ def handle_login():
         app.logger.info("User %r is org admin and organisation is not onboarded", user)
         return redirect(url_for("update_org_info"))
     else:
-        flash("Your organisation (%s) is not onboarded" % shib_org_name, "danger")
+        flash(f"Your organisation ({shib_org_name}) is not onboarded", "danger")
         app.logger.info("User %r organisation is not onboarded", user)
 
     return redirect(url_for("login"))
@@ -276,8 +276,7 @@ def link():
         redirect_uri = sp_url.scheme + "://" + sp_url.netloc + "/auth/" + quote(redirect_uri)
 
     if current_user.organisation and not current_user.organisation.confirmed:
-        flash("Your organisation (%s) is not onboarded" % current_user.organisation.tuakiri_name,
-              "danger")
+        flash(f"Your organisation ({current_user.organisation.name}) is not onboarded", "danger")
         return redirect(url_for("login"))
 
     client_write = OAuth2Session(
@@ -948,7 +947,6 @@ def orcid_login(invitation_token=None):
                 )
                 return redirect(url_for("login"))
 
-            # redirect_uri = append_qs(redirect_uri, email=email, org_name=org_name)
             redirect_uri = append_qs(redirect_uri, invitation_token=invitation_token)
             if user.is_tech_contact_of(org):
                 scope += SCOPE_READ_LIMITED
@@ -976,9 +974,11 @@ def orcid_login(invitation_token=None):
 
 @app.route("/orcid/auth")
 def orcid_login_callback():
+    # TODO: merge with /auth
     _next = get_next_url()
 
     state = request.args.get("state")
+    invitation_token = request.args.get("invitation_token")
     if not state or state != session.get("oauth_state"):
         flash("Something went wrong, Please retry giving permissions or if issue persist then, "
               "Please contact ORCIDHUB for support", "danger")
@@ -994,7 +994,6 @@ def orcid_login_callback():
         client = OAuth2Session(ORCID_CLIENT_ID)
         token = client.fetch_token(
             TOKEN_URL, client_secret=ORCID_CLIENT_SECRET, authorization_response=request.url)
-        print("***", token)
         orcid_id = token['orcid']
         if not orcid_id:
             app.logger.error(f"Missing ORCID iD: {token}")
@@ -1027,7 +1026,7 @@ def orcid_login_callback():
             app.logger.error(
                 f"User '{user}' attempted to affiliate with non-existing organisation {org_name}")
             return redirect(url_for("login"))
-        if user.is_tech_contact_of(org):
+        if user.is_tech_contact_of(org) and invitation_token:
             access_token = token.get("access_token")
             if not access_token:
                 app.logger.error(f"Missing access token: {token}")
@@ -1095,7 +1094,7 @@ def select_org(org_id):
     try:
         org = UserOrg.get(user_id=current_user.id, org_id=org_id)
         user = User.get(id=current_user.id)
-        user.organisation_id = org_id
+        user.organisation_id = org.id
         user.save()
         login_user(user)
     except UserOrg.DoesNotExist:
