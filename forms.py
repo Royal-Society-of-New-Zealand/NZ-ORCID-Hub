@@ -150,9 +150,8 @@ class RecordForm(FlaskForm):
     def create_form(cls, *args, form_type=None, **kwargs):
         form = cls(*args, **kwargs)
         if form_type == "EDU":
-            print(dir(form.name))
-            form.name.name = "Institution"
-            form.name.label.text = "Institution"
+            form.name.name = form.name.label.text = "Institution"
+            form.role.name = form.role.label.text = "Course/Degree"
         return form
 
 

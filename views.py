@@ -468,8 +468,7 @@ def edit_section_record(user_id, put_code=None, section_type="EMP"):
             app.logger.error("For %r encountered exception: %r", user, ex)
             abort(500, ex)
 
-    return render_template(
-        "employment.html" if section_type == "EMP" else "education.html", form=form, _url=_url)
+    return render_template("profile_entry.html", section_type=section_type, form=form, _url=_url)
 
 
 @app.route("/<int:user_id>/emp/list")
