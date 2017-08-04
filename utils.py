@@ -1,8 +1,10 @@
 # -*- coding: utf-8 -*-
 """Various utilities."""
 
+import logging
 import os
 import textwrap
+from datetime import datetime
 from itertools import groupby
 from os.path import splitext
 from urllib.parse import urlencode, urlparse
@@ -21,6 +23,10 @@ from application import app
 from config import ENV
 from models import (Affiliation, AffiliationRecord, OrcidToken, Organisation, Role, Task, User,
                     UserInvitation, UserOrg)
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+logger.addHandler(logging.StreamHandler())
 
 
 def send_email(template_filename,
@@ -260,77 +266,74 @@ def send_user_initation(inviter,
                         disambiguation_org_id=None,
                         disambiguation_org_source=None,
                         **kwargs):
+    """Send an invitation to join ORCID Hub logging in via ORCID."""
 
     try:
-        email_has_been_sent = False
-        for affiliation_records in AffiliationRecord.select().where(AffiliationRecord.identifier == email,
-                                                                    AffiliationRecord.first_name == first_name,
-                                                                    AffiliationRecord.last_name == last_name):
-            if affiliation_records.status is not None and 'email sent' in affiliation_records.status:
-                email_has_been_sent = True
-            else:
-                affiliation_records.status = 'email sent'
-                affiliation_records.save()
+        logger.info(f"*** Sending an invitation to '{first_name} {last_name} <{email}>' "
+                    f"submitted by {inviter} of {org} for affiliations: {affiliation_types}")
 
-        if not email_has_been_sent:
-            """Send an invitation to join ORCID Hub logging in via ORCID."""
-            print("*****", inviter, org, email, first_name, last_name, affiliation_types)
+        email = email.lower()
+        user, _ = User.get_or_create(email=email)
+        user.first_name = first_name
+        user.last_name = last_name
+        user.roles |= Role.RESEARCHER
+        user.email = email
+        user.organisation = org
+        with app.app_context():
+            email_and_organisation = email + ";" + org.name
+            token = generate_confirmation_token(email_and_organisation)
+            send_email(
+                "email/researcher_invitation.html",
+                recipient=(user.organisation.name, user.email),
+                reply_to=(inviter.name, inviter.email),
+                token=token,
+                org_name=user.organisation.name,
+                user=user)
 
-            email = email.lower()
-            user, _ = User.get_or_create(email=email)
-            user.first_name = first_name
-            user.last_name = last_name
-            user.roles |= Role.RESEARCHER
-            user.email = email
-            user.organisation = org
-            with app.app_context():
-                email_and_organisation = email + ";" + org.name
-                token = generate_confirmation_token(email_and_organisation)
-                send_email(
-                    "email/researcher_invitation.html",
-                    recipient=(user.organisation.name, user.email),
-                    reply_to=(inviter.name, inviter.email),
-                    token=token,
-                    org_name=user.organisation.name,
-                    user=user)
+        user.save()
 
-            user.save()
+        user_org, user_org_created = UserOrg.get_or_create(user=user, org=org)
 
-            user_org, user_org_created = UserOrg.get_or_create(user=user, org=org)
+        if affiliations is None and affiliation_types:
+            affiliations = 0
+            if affiliation_types & {"faculty", "staff"}:
+                affiliations = Affiliation.EMP
+            if affiliation_types & {"student", "alum"}:
+                affiliations |= Affiliation.EDU
+        user_org.affiliations = affiliations
 
-            if affiliations is None and affiliation_types:
-                affiliations = 0
-                if affiliation_types & {"faculty", "staff"}:
-                    affiliations = Affiliation.EMP
-                if affiliation_types & {"student", "alum"}:
-                    affiliations |= Affiliation.EDU
-            user_org.affiliations = affiliations
+        user_org.save()
+        UserInvitation.create(
+            invitee_id=user.id,
+            inviter_id=inviter.id,
+            org=org,
+            email=email,
+            first_name=first_name,
+            last_name=last_name,
+            orcid=orcid,
+            department=department,
+            organisation=organisation,
+            city=city,
+            state=state,
+            country=country,
+            course_or_role=course_or_role,
+            start_date=start_date,
+            end_date=end_date,
+            affiliations=affiliations,
+            disambiguation_org_id=disambiguation_org_id,
+            disambiguation_org_source=disambiguation_org_source,
+            token=token)
 
-            user_org.save()
-            UserInvitation.create(
-                invitee_id=user.id,
-                inviter_id=inviter.id,
-                org=org,
-                email=email,
-                first_name=first_name,
-                last_name=last_name,
-                orcid=orcid,
-                department=department,
-                organisation=organisation,
-                city=city,
-                state=state,
-                country=country,
-                course_or_role=course_or_role,
-                start_date=start_date,
-                end_date=end_date,
-                affiliations=affiliations,
-                disambiguation_org_id=disambiguation_org_id,
-                disambiguation_org_source=disambiguation_org_source,
-                token=token)
+        state = "The invitation sent at " + datetime.now().isoformat(timespec="seconds")
+        (AffiliationRecord.update(state=AffiliationRecord.state + "\n" + state).where(
+            AffiliationRecord.state.is_null(False),
+            AffiliationRecord.identifier == email).execute())
+        (AffiliationRecord.update(state=state).where(
+            AffiliationRecord.state.is_null(), AffiliationRecord.identifier == email).execute())
 
     except Exception as ex:
+        logger.error(f"Exception occured while sending mails {ex}")
         raise ex
-        print("Exception occured while sending mails %r" % str(ex), "danger")
 
 
 def create_or_update_affiliation(user, records, *args, **kwargs):
@@ -347,36 +350,51 @@ def create_or_update_affiliation(user, records, *args, **kwargs):
 def process_affiliation_records(max_rows=20):
     """Process uploaded affiliation records."""
     set_server_name()
-
-    tasks = (Task.select(Task, AffiliationRecord, User, Organisation).where(
-        AffiliationRecord.processed_at.is_null() & AffiliationRecord.is_active).join(
-            AffiliationRecord, on=(Task.id == AffiliationRecord.task_id)).join(
-                User,
+    # TODO: optimize removing redudnt fields
+    # TODO: perhaps it should be broken into 2 queries
+    tasks = (
+        Task.select(Task, AffiliationRecord, User, UserInvitation.id.alias("invitation_id"))
+        .where(AffiliationRecord.processed_at.is_null(), AffiliationRecord.is_active, (
+            (User.id.is_null(False) & User.orcid.is_null(False) & OrcidToken.id.is_null(False)) | (
+                (User.id.is_null() | User.orcid.is_null() | OrcidToken.id.is_null()) &
+                UserInvitation.id.is_null() &
+                (AffiliationRecord.state.is_null() |
+                 AffiliationRecord.state.contains("sent").__invert__())))).join(
+                     AffiliationRecord, on=(Task.id == AffiliationRecord.task_id)).join(
+                         User,
+                         JOIN.LEFT_OUTER,
+                         on=((User.email == AffiliationRecord.identifier) |
+                             (User.eppn == AffiliationRecord.identifier) |
+                             (User.orcid == AffiliationRecord.identifier))).join(
+                                 Organisation,
+                                 JOIN.LEFT_OUTER,
+                                 on=(Organisation.name == AffiliationRecord.organisation))
+        .join(
+            UserInvitation,
+            JOIN.LEFT_OUTER,
+            on=(UserInvitation.email == AffiliationRecord.identifier)).join(
+                OrcidToken,
                 JOIN.LEFT_OUTER,
-                on=((User.email == AffiliationRecord.identifier) |
-                    (User.eppn == AffiliationRecord.identifier) |
-                    (User.orcid == AffiliationRecord.identifier))).join(
-                        Organisation,
-                        JOIN.LEFT_OUTER,
-                        on=(Organisation.name == AffiliationRecord.organisation)).limit(max_rows))
+                on=((OrcidToken.user_id == User.id) & (OrcidToken.org_id == Organisation.id) &
+                    (OrcidToken.scope.contains("/activities/update")))).limit(max_rows))
     for (org_id,
          user), tasks_by_user in groupby(tasks, lambda t: (t.org_id, t.affiliation_record.user, )):
         if (user.id is None or user.orcid is None or OrcidToken.select().where(
             (OrcidToken.user_id == user.id) & (OrcidToken.org_id == org_id) &
             (OrcidToken.scope.contains("/activities/update"))).exists()):  # noqa: E127, E129
+
             # maps invitation attributes to affiliation type set:
             # - the user who uploaded the task;
             # - the user organisation;
             # - the invitee identifier (email address in this case);
             # - the invitee first_name;
             # - the invitee last_name
-
             invitation_dict = {
                 k: set(t.affiliation_record.affiliation_type.lower() for t in tasks)
                 for k, tasks in groupby(
                     tasks_by_user,
                     lambda t: (t.created_by, t.org, t.affiliation_record.identifier, t.affiliation_record.first_name, t.affiliation_record.last_name)  # noqa: E501
-                )
+                )  # noqa: E501
             }
             for invitation, affiliations in invitation_dict.items():
                 send_user_initation(*invitation, affiliations)
