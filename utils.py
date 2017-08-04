@@ -260,60 +260,73 @@ def send_user_initation(inviter,
                         disambiguation_org_id=None,
                         disambiguation_org_source=None,
                         **kwargs):
-    """Send an invitation to join ORCID Hub logging in via ORCID."""
-    print("*****", inviter, org, email, first_name, last_name, affiliation_types)
 
     try:
-        email = email.lower()
-        user, _ = User.get_or_create(email=email)
-        user.first_name = first_name
-        user.last_name = last_name
-        user.roles |= Role.RESEARCHER
-        user.email = email
-        user.organisation = org
-        with app.app_context():
-            token = generate_confirmation_token(email=email, org_name=org.name)
-            send_email(
-                "email/researcher_invitation.html",
-                recipient=(user.organisation.name, user.email),
-                reply_to=(inviter.name, inviter.email),
-                token=token,
-                org_name=user.organisation.name,
-                user=user)
+        email_has_been_sent = False
+        for affiliation_records in AffiliationRecord.select().where(AffiliationRecord.identifier == email,
+                                                                    AffiliationRecord.first_name == first_name,
+                                                                    AffiliationRecord.last_name == last_name):
+            if affiliation_records.status is not None and 'email sent' in affiliation_records.status:
+                email_has_been_sent = True
+            else:
+                affiliation_records.status = 'email sent'
+                affiliation_records.save()
 
-        user.save()
+        if not email_has_been_sent:
+            """Send an invitation to join ORCID Hub logging in via ORCID."""
+            print("*****", inviter, org, email, first_name, last_name, affiliation_types)
 
-        user_org, user_org_created = UserOrg.get_or_create(user=user, org=org)
+            email = email.lower()
+            user, _ = User.get_or_create(email=email)
+            user.first_name = first_name
+            user.last_name = last_name
+            user.roles |= Role.RESEARCHER
+            user.email = email
+            user.organisation = org
+            with app.app_context():
+                email_and_organisation = email + ";" + org.name
+                token = generate_confirmation_token(email_and_organisation)
+                send_email(
+                    "email/researcher_invitation.html",
+                    recipient=(user.organisation.name, user.email),
+                    reply_to=(inviter.name, inviter.email),
+                    token=token,
+                    org_name=user.organisation.name,
+                    user=user)
 
-        if affiliations is None and affiliation_types:
-            affiliations = 0
-            if affiliation_types & {"faculty", "staff"}:
-                affiliations = Affiliation.EMP
-            if affiliation_types & {"student", "alum"}:
-                affiliations |= Affiliation.EDU
-        user_org.affiliations = affiliations
+            user.save()
 
-        user_org.save()
-        UserInvitation.create(
-            invitee_id=user.id,
-            inviter_id=inviter.id,
-            org=org,
-            email=email,
-            first_name=first_name,
-            last_name=last_name,
-            orcid=orcid,
-            department=department,
-            organisation=organisation,
-            city=city,
-            state=state,
-            country=country,
-            course_or_role=course_or_role,
-            start_date=start_date,
-            end_date=end_date,
-            affiliations=affiliations,
-            disambiguation_org_id=disambiguation_org_id,
-            disambiguation_org_source=disambiguation_org_source,
-            token=token)
+            user_org, user_org_created = UserOrg.get_or_create(user=user, org=org)
+
+            if affiliations is None and affiliation_types:
+                affiliations = 0
+                if affiliation_types & {"faculty", "staff"}:
+                    affiliations = Affiliation.EMP
+                if affiliation_types & {"student", "alum"}:
+                    affiliations |= Affiliation.EDU
+            user_org.affiliations = affiliations
+
+            user_org.save()
+            UserInvitation.create(
+                invitee_id=user.id,
+                inviter_id=inviter.id,
+                org=org,
+                email=email,
+                first_name=first_name,
+                last_name=last_name,
+                orcid=orcid,
+                department=department,
+                organisation=organisation,
+                city=city,
+                state=state,
+                country=country,
+                course_or_role=course_or_role,
+                start_date=start_date,
+                end_date=end_date,
+                affiliations=affiliations,
+                disambiguation_org_id=disambiguation_org_id,
+                disambiguation_org_source=disambiguation_org_source,
+                token=token)
 
     except Exception as ex:
         raise ex
@@ -357,6 +370,7 @@ def process_affiliation_records(max_rows=20):
             # - the invitee identifier (email address in this case);
             # - the invitee first_name;
             # - the invitee last_name
+
             invitation_dict = {
                 k: set(t.affiliation_record.affiliation_type.lower() for t in tasks)
                 for k, tasks in groupby(
@@ -364,7 +378,6 @@ def process_affiliation_records(max_rows=20):
                     lambda t: (t.created_by, t.org, t.affiliation_record.identifier, t.affiliation_record.first_name, t.affiliation_record.last_name)  # noqa: E501
                 )
             }
-
             for invitation, affiliations in invitation_dict.items():
                 send_user_initation(*invitation, affiliations)
         else:  # user exits and we have tokens
