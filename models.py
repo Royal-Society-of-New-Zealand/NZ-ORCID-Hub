@@ -584,7 +584,7 @@ class UserInvitation(BaseModel, AuditMixin):
     org = ForeignKeyField(
         Organisation, on_delete="SET NULL", null=True, verbose_name="Organisation")
 
-    email = TextField(help_text="The email address the invitation was sent to.")
+    email = TextField(index=True, help_text="The email address the invitation was sent to.")
     first_name = TextField(verbose_name="First Name")
     last_name = TextField(verbose_name="Last Name")
     orcid = CharField(max_length=120, verbose_name="ORCID iD", null=True)
@@ -825,8 +825,8 @@ class AffiliationRecord(BaseModel):
     first_name = TextField(null=True)
     last_name = TextField(null=True)
     identifier = TextField(
-        help_text="User email, eppn, or ORCID Id", verbose_name="Email/Eppn/ORCID Id")
-    organisation = TextField(null=True)
+        index=True, help_text="User email, eppn, or ORCID Id", verbose_name="Email/Eppn/ORCID Id")
+    organisation = TextField(null=True, index=True)
     affiliation_type = TextField(
         null=True, choices=("EDU", "EMP", "student", "alum", "faculty", "staff", ))
     role = TextField(null=True, verbose_name="Role/Course")
