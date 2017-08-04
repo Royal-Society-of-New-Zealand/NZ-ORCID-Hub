@@ -585,14 +585,14 @@ def profile():
 
 
 @app.route("/confirm/organisation", methods=["GET", "POST"])
-@app.route("/confirm/organisation/<token>", methods=["GET", "POST"])
+@app.route("/confirm/organisation/<invitation_token>", methods=["GET", "POST"])
 @login_required
-def confirm_organisation(token=None):
+def confirm_organisation(invitation_token=None):
     """Registration confirmations.
 
     TODO: expand the spect as soon as the reqirements get sorted out.
     """
-    if token is None:
+    if invitation_token is None:
         form = OnboardingTokenForm()
         if form.validate_on_submit():
             return redirect(url_for("confirm_organisation", token=form.token.data))
@@ -600,11 +600,11 @@ def confirm_organisation(token=None):
         return render_template("missing_onboarding_token.html", form=form)
 
     client_secret_url = None
-    email = confirm_token(token)
+    email = confirm_token(invitation_token)
     user = current_user
 
     if not email:
-        app.error("token '%s'", token)
+        app.error("token '%s'", invitation_token)
         app.login_manager.unauthorized()
     if user.email != email:
         app.logger.info("The invitation was send to %r and not to the email address: %r", email,
@@ -687,7 +687,7 @@ def confirm_organisation(token=None):
                     flash("Failed to save organisation data: %s" % str(ex))
 
                 try:
-                    oi = OrgInvitation.get(token=token)
+                    oi = OrgInvitation.get(token=invitation_token)
                     oi.confirmed_at = datetime.now()
                     oi.save()
                 except OrgInvitation.DoesNotExist:

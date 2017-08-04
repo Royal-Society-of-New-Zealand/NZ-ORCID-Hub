@@ -843,8 +843,8 @@ def register_org(org_name,
             except Exception as ex:
                 app.logger.error("Encountered exception: %r", ex)
                 raise Exception(
-                    "Failed to assign the user as the technical contact to the organisation: %s" %
-                    str(ex), ex)
+                    f"Failed to assign the user as the technical contact to the organisation: {ex}",
+                    ex)
 
         try:
             user_org = UserOrg.get(user=user, org=org)
@@ -854,8 +854,7 @@ def register_org(org_name,
             except Exception as ex:
                 app.logger.error("Encountered exception: %r", ex)
                 raise Exception(
-                    "Failed to assign the user as an administrator to the organisation: %s" %
-                    str(ex), ex)
+                    f"Failed to assign the user as an administrator to the organisation: {ex}", ex)
         except UserOrg.DoesNotExist:
             user_org = UserOrg.create(user=user, org=org, is_admin=True)
 
@@ -866,10 +865,10 @@ def register_org(org_name,
             short_id = Url.shorten(
                 url_for(
                     "orcid_login",
-                    token=token,
+                    invitation_token=token,
                     _next=url_for(
                         "confirm_organisation",
-                        token=  # noqa: E251
+                        invitation_token=  # noqa: E251
                         token))).short_id  # noqa: E251
         else:
             short_id = Url.shorten(url_for("confirm_organisation", token=token)).short_id

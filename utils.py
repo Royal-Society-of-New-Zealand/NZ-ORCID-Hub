@@ -263,9 +263,9 @@ def send_user_initation(inviter,
 
     try:
         email_has_been_sent = False
-        for affiliation_records in AffiliationRecord.select().where(AffiliationRecord.identifier == email,
-                                                                    AffiliationRecord.first_name == first_name,
-                                                                    AffiliationRecord.last_name == last_name):
+        for affiliation_records in AffiliationRecord.select().where(
+                AffiliationRecord.identifier == email, AffiliationRecord.first_name == first_name,
+                AffiliationRecord.last_name == last_name):
             if affiliation_records.status is not None and 'email sent' in affiliation_records.status:
                 email_has_been_sent = True
             else:
