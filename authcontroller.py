@@ -6,6 +6,7 @@ user (reseaser) affiliations.
 """
 
 import base64
+import json
 import pickle
 import re
 import secrets
@@ -29,7 +30,7 @@ from config import (APP_DESCRIPTION, APP_NAME, APP_URL, AUTHORIZATION_BASE_URL, 
                     EXTERNAL_SP, MEMBER_API_FORM_BASE_URL, NEW_CREDENTIALS, NOTE_ORCID,
                     ORCID_API_BASE, ORCID_BASE_URL, ORCID_CLIENT_ID, ORCID_CLIENT_SECRET,
                     SCOPE_ACTIVITIES_UPDATE, SCOPE_AUTHENTICATE, SCOPE_READ_LIMITED, TOKEN_URL)
-from forms import OnboardingTokenForm, OrgConfirmationForm, SelectOrganisation
+from forms import OnboardingTokenForm, OrgConfirmationForm
 from login_provider import roles_required
 from models import (Affiliation, OrcidToken, Organisation, OrgInfo, OrgInvitation, Role, User,
                     UserOrg)
@@ -41,10 +42,11 @@ HEADERS = {'Accept': 'application/vnd.orcid+json', 'Content-type': 'application/
 
 def get_next_url():
     """Retrieves and sanitizes next/return URL."""
-    _next = request.args.get('next')
-    if _next and not ("orcidhub.org.nz" in _next or _next.startswith("/")):
-        return None
-    return _next
+    _next = request.args.get("next") or request.args.get("_next")
+
+    if _next and ("orcidhub.org.nz" in _next or _next.startswith("/") or "127.0" in _next):
+        return _next
+    return None
 
 
 @app.route("/index")
@@ -53,6 +55,7 @@ def get_next_url():
 def login():
     """Main landing page."""
     _next = get_next_url()
+    orcid_login_url = url_for("orcid_login", next=_next)
     if EXTERNAL_SP:
         session["auth_secret"] = secret_token = secrets.token_urlsafe()
         _next = url_for("handle_login", _next=_next, _external=True)
@@ -67,7 +70,10 @@ def login():
     }
 
     return render_template(
-        "index.html", login_url=login_url, org_onboarded_info=org_onboarded_info)
+        "index.html",
+        login_url=login_url,
+        orcid_login_url=orcid_login_url,
+        org_onboarded_info=org_onboarded_info)
 
 
 @app.route("/Tuakiri/SP")
@@ -75,7 +81,7 @@ def shib_sp():
     """Remote Shibboleth authenitication handler.
 
     All it does passes all response headers to the original calller."""
-    _next = request.args.get('_next')
+    _next = get_next_url()
     _key = request.args.get("key")
     if _next:
         data = {k: v for k, v in request.headers.items()}
@@ -128,7 +134,7 @@ def handle_login():
             ** for super user, the on-boarding of an organisation;
             ** for organisation administrator or technical contact, the completion of the on-boarding.
     """
-    _next = request.args.get('_next')
+    _next = get_next_url()
 
     # TODO: make it secret
     if EXTERNAL_SP:
@@ -253,7 +259,7 @@ def handle_login():
         app.logger.info("User %r is org admin and organisation is not onboarded", user)
         return redirect(url_for("update_org_info"))
     else:
-        flash("Your organisation (%s) is not onboarded" % shib_org_name, "danger")
+        flash(f"Your organisation ({shib_org_name}) is not onboarded", "danger")
         app.logger.info("User %r organisation is not onboarded", user)
 
     return redirect(url_for("login"))
@@ -270,8 +276,7 @@ def link():
         redirect_uri = sp_url.scheme + "://" + sp_url.netloc + "/auth/" + quote(redirect_uri)
 
     if current_user.organisation and not current_user.organisation.confirmed:
-        flash("Your organisation (%s) is not onboarded" % current_user.organisation.tuakiri_name,
-              "danger")
+        flash(f"Your organisation ({current_user.organisation.name}) is not onboarded", "danger")
         return redirect(url_for("login"))
 
     client_write = OAuth2Session(
@@ -334,8 +339,8 @@ def link():
     return redirect(url_for("profile"))
 
 
-@app.route("/orcid/auth/<path:url>", methods=["GET"])
-@app.route("/auth/<path:url>", methods=["GET"])
+@app.route("/orcid/auth/<path:url>")
+@app.route("/auth/<path:url>")
 def orcid_callback_proxy(url):
     url = unquote(url)
     return redirect(url + '?' + urlencode(request.args))
@@ -762,6 +767,7 @@ def logout():
     about SSO at the university.
     """
     org_name = session.get("shib_O")
+    auth_secret = session.get("auth_secret")
     try:
         logout_user()
     except Exception as ex:
@@ -770,15 +776,17 @@ def logout():
     session.clear()
     session["__invalidate__"] = True
 
-    if EXTERNAL_SP:
-        sp_url = urlparse(EXTERNAL_SP)
-        sso_url_base = sp_url.scheme + "://" + sp_url.netloc
-    else:
-        sso_url_base = ''
-    return redirect(sso_url_base + "/Shibboleth.sso/Logout?return=" + quote(
-        url_for(
-            "uoa_slo" if org_name and org_name == "University of Auckland" else "login",
-            _external=True)))
+    if org_name or org_name:
+        if EXTERNAL_SP:
+            sp_url = urlparse(EXTERNAL_SP)
+            sso_url_base = sp_url.scheme + "://" + sp_url.netloc
+        else:
+            sso_url_base = ''
+        return redirect(sso_url_base + "/Shibboleth.sso/Logout?return=" + quote(
+            url_for(
+                "uoa_slo" if org_name and org_name == "University of Auckland" else "login",
+                _external=True)))
+    return redirect(url_for("login", logout=True))
 
 
 @app.route("/uoa-slo")
@@ -890,7 +898,7 @@ def update_org_info():
 def generateRow(users):
     yield "Email,Eppn,ORCID ID\n"
     for u in users:
-        """ ORCID ID might be NULL, Hence adding a check """
+        # ORCID ID might be NULL, Hence adding a check
         yield ','.join([u.email, str(u.eppn or ""), str(u.orcid or "")]) + '\n'
 
 
@@ -900,125 +908,165 @@ def internal_error(error):
     return render_template("http500.html", error_message=str(error))
 
 
-@app.route("/orcid/login/", methods=["GET", "POST"])
-@app.route("/orcid/login/<token>", methods=["GET", "POST"])
-def orcid_login(token=None):
+@app.route("/orcid/login/")
+@app.route("/orcid/login/<invitation_token>")
+def orcid_login(invitation_token=None):
+    """Authentication vi ORCID.
+
+    If an invitain token is presented, perform affiliation of the user or on-boarding
+    of the onboarding of the organisation, if the user is the technical conatact of
+    the organisation. For technical contacts the email should be made available for
+    READ LIMITED scope."""
+
+    _next = get_next_url()
+    if EXTERNAL_SP:
+        sp_url = urlparse(EXTERNAL_SP)
+        redirect_uri = sp_url.scheme + "://" + sp_url.netloc + "/orcid/auth/" + quote(
+            url_for("orcid_login_callback", _next=_next, _external=True))
+    else:
+        redirect_uri = url_for("orcid_login_callback", _next=_next, _external=True)
 
     try:
-        extend_url = "?"
-        email = None
-
-        if token is not None:
-            email_and_organisation = confirm_token(token)
-            email, org = email_and_organisation.split(';')
-            extend_url = extend_url + "email=" + email + "&" + "orgName=" + org
-            organisation = Organisation.get(name=org)
+        scope = SCOPE_AUTHENTICATE
+        if invitation_token:
+            data = confirm_token(invitation_token)
+            if isinstance(data, str):
+                email = data
+                org_name = None
+            else:
+                email, org_name = data.get("email"), data.get("org_name")
             user = User.get(email=email)
-            session['email'] = email
-            session['orgName'] = organisation.name
+            if not org_name:
+                org_name = user.organisation.name
+            try:
+                org = Organisation.get(name=org_name)
+            except Organisation.DoesNotExist:
+                flash("Organisation '{org_name}' doesn't exist!", "danger")
+                app.logger.error(
+                    f"User '{user}' attempted to affiliate with non-existing organisation {org_name}"
+                )
+                return redirect(url_for("login"))
 
-        redirect_uri = url_for("orcid_login_callback", _external=True)
-        if EXTERNAL_SP:
-            sp_url = urlparse(EXTERNAL_SP)
-            redirect_uri = sp_url.scheme + "://" + sp_url.netloc + "/orcid/auth/" + quote(
-                redirect_uri) + extend_url
-        else:
-            redirect_uri = redirect_uri + extend_url
+            redirect_uri = append_qs(redirect_uri, invitation_token=invitation_token)
+            if user.is_tech_contact_of(org):
+                scope += SCOPE_READ_LIMITED
 
-        client_write = OAuth2Session(
-            ORCID_CLIENT_ID,
-            scope=SCOPE_AUTHENTICATE,
-            redirect_uri=redirect_uri, )
+        client_write = OAuth2Session(ORCID_CLIENT_ID, scope=scope, redirect_uri=redirect_uri)
 
         authorization_url, state = client_write.authorization_url(AUTHORIZATION_BASE_URL)
         session['oauth_state'] = state
 
-        if email and user.first_name and user.last_name:
+        orcid_authenticate_url = iri_to_uri(authorization_url)
+        if invitation_token:
             orcid_authenticate_url = append_qs(
-                iri_to_uri(authorization_url),
+                orcid_authenticate_url,
                 family_names=user.last_name,
                 given_names=user.first_name,
                 email=email)
-        else:
-            orcid_authenticate_url = append_qs(iri_to_uri(authorization_url))
 
         return redirect(orcid_authenticate_url)
+
     except Exception as ex:
         flash("Something went wrong contact orcidhub support!", "danger")
         app.logger.error("Encountered exception: %r", ex)
         return redirect(url_for("login"))
 
 
-@app.route("/orcid/auth", methods=["GET", "POST"])
+@app.route("/orcid/auth")
 def orcid_login_callback():
+    # TODO: merge with /auth
+    _next = get_next_url()
+
+    state = request.args.get("state")
+    invitation_token = request.args.get("invitation_token")
+    if not state or state != session.get("oauth_state"):
+        flash("Something went wrong, Please retry giving permissions or if issue persist then, "
+              "Please contact ORCIDHUB for support", "danger")
+        return redirect(url_for("login"))
+
+    error = request.args.get("error")
+    if error == "access_denied":
+        flash("You have just denied access while trying to Login via ORCID, Please try again",
+              "warning")
+        return redirect(url_for("login"))
+
     try:
-        state = request.args['state']
+        client = OAuth2Session(ORCID_CLIENT_ID)
+        token = client.fetch_token(
+            TOKEN_URL, client_secret=ORCID_CLIENT_SECRET, authorization_response=request.url)
+        orcid_id = token['orcid']
+        if not orcid_id:
+            app.logger.error(f"Missing ORCID iD: {token}")
+            abort(401, "Missing ORCID iD.")
+        try:
+            user = User.get(orcid=orcid_id)
 
-        if state != session.get('oauth_state'):
-            flash(
-                "Something went wrong, Please retry giving permissions or if issue persist then, "
-                "Please contact ORCIDHUB for support", "danger")
-
-        if "error" in request.args:
-            error = request.args["error"]
-            if error == "access_denied":
-                flash(
-                    "You have just denied access while trying to Login via ORCID, Please try again",
-                    "warning")
+        except User.DoesNotExist:
+            email = request.args.get("email")
+            if email is None:
+                flash(f"The account with ORCID iD {orcid_id} doesn't exist.", "danger")
                 return redirect(url_for("login"))
-
-        token = None
-        orcid_id = session.get('orcid_id')
-        if orcid_id is None:
-            client = OAuth2Session(ORCID_CLIENT_ID)
-            token = client.fetch_token(
-                TOKEN_URL, client_secret=ORCID_CLIENT_SECRET, authorization_response=request.url)
-            orcid_id = token['orcid']
-            session['orcid_id'] = orcid_id
-
-        email = None
-        if session.get('email') and session.get('orgName'):
-            email = request.args['email']
-            orgName = request.args['orgName']
             user = User.get(email=email)
-            organisation = Organisation.get(name=orgName)
-            UserOrg.get(user=user, org=organisation)
+
+        if not user.orcid:
             user.orcid = orcid_id
+        if not user.name and token['name']:
+            user.name = token['name']
+        if not user.confirmed:
             user.confirmed = True
-            if user.name is None and token['name']:
-                user.name = token['name']
-            user.save()
+        user.save()
+        login_user(user)
 
-            login_user(user)
-            return redirect(url_for("link"))
-        else:
-            form = SelectOrganisation()
+        # User is a technical conatct. We should verify email address
+        org_name = request.args.get("org_name")
+        try:
+            org = Organisation.get(name=org_name) if org_name else user.organisation
+        except Organisation.DoesNotExist:
+            flash("Organisation '{org_name}' doesn't exist!", "danger")
+            app.logger.error(
+                f"User '{user}' attempted to affiliate with non-existing organisation {org_name}")
+            return redirect(url_for("login"))
+        if user.is_tech_contact_of(org) and invitation_token:
+            access_token = token.get("access_token")
+            if not access_token:
+                app.logger.error(f"Missing access token: {token}")
+                abort(401, "Missing ORCID API access token.")
 
-            user_data = User.get(orcid=orcid_id)
-
-            if request.method == 'GET':
-                org_data = Organisation.select(
-                    Organisation.id,
-                    Organisation.name).where(Organisation.id << UserOrg.select(UserOrg.org).where(
-                        UserOrg.user << User.select().where(User.orcid == orcid_id))).tuples()
-
-                form.orgNames.choices = org_data
-
-                if len(org_data) == 1:
-                    login_user(user_data)
-                    return redirect(url_for("link"))
-
-                return render_template("selectOrganisation.html", form=form)
-            elif request.method == 'POST':
-                if form.orgNames.data:
-                    organisation = Organisation.get(id=int(form.orgNames.data))
-                    user_data = User.get(orcid=orcid_id, organisation=organisation)
-                    login_user(user_data)
-                    return redirect(url_for("link"))
-
+            orcid_client.configuration.access_token = access_token
+            api_instance = orcid_client.MemberAPIV20Api()
+            try:
+                # NB! need to add _preload_content=False to get raw response
+                api_response = api_instance.view_emails(user.orcid, _preload_content=False)
+            except ApiException as ex:
+                message = json.loads(ex.body.replace("''", "\"")).get('user-messsage')
+                if ex.status == 401:
+                    flash("User has revoked the permissions to update his/her records", "warning")
                 else:
-                    flash("Please select organisation through which you want to login", "danger")
-                    return render_template("selectOrganisation.html", form=form)
+                    flash(
+                        "Exception when calling MemberAPIV20Api->view_employments: %s\n" % message,
+                        "danger")
+                    flash(
+                        f"Cannot verify your email address. Please, change the access level to your "
+                        "organisation email address '{email}' to 'trusted parties'.")
+                    abort(401)
+            data = json.loads(api_response)
+            if data and data.get("email") and any(
+                    e.get("email") == email for e in data.get("email")):
+                return redirect(_next or url_for("update_org_info"))
+            else:
+                logout_user()
+                flash(f"Cannot verify your email address. Please, change the access level to your "
+                      "organisation email address '{email}' to 'trusted parties'.")
+                abort(401)
+
+        if _next:
+            return redirect(_next)
+        else:
+            try:
+                OrcidToken.get(user=user, org=org)
+            except OrcidToken.DoesNotExist:
+                return redirect(url_for("link"))
+        return redirect(url_for("profile"))
 
     except User.DoesNotExist:
         flash("You are not onboarded on ORCIDHUB...", "danger")
@@ -1033,7 +1081,21 @@ def orcid_login_callback():
         flash("Missing token.", "danger")
         return redirect(url_for("login"))
     except Exception as ex:
-        flash("Something went wrong contact orcidhub support for issue: %s" % str(ex))
-        app.logger.error("For %r encountered exception: %r", current_user, ex)
+        flash(f"Something went wrong contact orcidhub support for issue: {ex}", "danger")
+        app.logger.error(f"For {current_user} encountered exception: {ex}")
         return redirect(url_for("login"))
-    return redirect(url_for("link"))
+
+
+@app.route("/select/org/<int:org_id>")
+@login_required
+def select_org(org_id):
+    org_id = int(org_id)
+    _next = get_next_url() or request.referrer or url_for("login")
+    try:
+        uo = UserOrg.get(user_id=current_user.id, org_id=org_id)
+        current_user.organisation_id = uo.org_id
+        current_user.save()
+    except UserOrg.DoesNotExist:
+
+        flash("Your are not related to this organisation.", "danger")
+    return redirect(_next)

@@ -180,21 +180,25 @@ class RewrapExtension(jinja2.ext.Extension):
         return '\n'.join(new_lines)
 
 
-def generate_confirmation_token(email):
+def generate_confirmation_token(*args, **kwargs):
     """Generate Organisation registration confirmation token."""
-    serializer = URLSafeTimedSerializer(app.config['TOKEN_SECRET_KEY'])
-    return serializer.dumps(email, salt=app.config['TOKEN_PASSWORD_SALT'])
+    serializer = URLSafeTimedSerializer(app.config["SECRET_KEY"])
+    salt = app.config["SALT"]
+    if len(kwargs) == 0:
+        return serializer.dumps(args[0] if len(args) == 1 else args, salt=salt)
+    else:
+        return serializer.dumps(kwargs.values()[0] if len(kwargs) == 1 else kwargs, salt=salt)
 
 
 # Token Expiry after 15 days.
 def confirm_token(token, expiration=1300000):
     """Genearate confirmaatin token."""
-    serializer = URLSafeTimedSerializer(app.config['TOKEN_SECRET_KEY'])
+    serializer = URLSafeTimedSerializer(app.config["SECRET_KEY"])
     try:
-        email = serializer.loads(token, salt=app.config['TOKEN_PASSWORD_SALT'], max_age=expiration)
+        data = serializer.loads(token, salt=app.config["SALT"], max_age=expiration)
     except:
         return False
-    return email
+    return data
 
 
 def append_qs(url, **qs):
@@ -258,7 +262,6 @@ def send_user_initation(inviter,
                         **kwargs):
 
     try:
-
         email_has_been_sent = False
         for affiliation_records in AffiliationRecord.select().where(AffiliationRecord.identifier == email,
                                                                     AffiliationRecord.first_name == first_name,
@@ -329,8 +332,6 @@ def send_user_initation(inviter,
         raise ex
         print("Exception occured while sending mails %r" % str(ex), "danger")
 
-    pass
-
 
 def create_or_update_affiliation(user, records, *args, **kwargs):
     """Creates or updates affiliation record of a user.
@@ -362,7 +363,7 @@ def process_affiliation_records(max_rows=20):
          user), tasks_by_user in groupby(tasks, lambda t: (t.org_id, t.affiliation_record.user, )):
         if (user.id is None or user.orcid is None or OrcidToken.select().where(
             (OrcidToken.user_id == user.id) & (OrcidToken.org_id == org_id) &
-            (OrcidToken.scope.contains("/activities/update"))).exists()):  # noqa: E127
+            (OrcidToken.scope.contains("/activities/update"))).exists()):  # noqa: E127, E129
             # maps invitation attributes to affiliation type set:
             # - the user who uploaded the task;
             # - the user organisation;

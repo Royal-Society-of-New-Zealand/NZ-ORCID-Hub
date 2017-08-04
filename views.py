@@ -71,7 +71,16 @@ class AppModelView(ModelView):
     """ModelView customization."""
 
     roles_required = Role.SUPERUSER
-    export_types = ["csv", "xls", "tsv", "yaml", "json", "xlsx", "ods", "html", ]
+    export_types = [
+        "csv",
+        "xls",
+        "tsv",
+        "yaml",
+        "json",
+        "xlsx",
+        "ods",
+        "html",
+    ]
     form_base_class = SecureForm
     column_type_formatters = dict(typefmt.BASE_FORMATTERS)
     column_type_formatters.update({
@@ -235,8 +244,9 @@ class OrganisationAdmin(AppModelView):
         # Technical contact changed:
         if form.tech_contact.data.id != model.tech_contact_id:
             # Revoke the TECHNICAL role if thre is no org the user is tech.contact for.
-            if model.tech_contact.has_role(Role.TECHNICAL) and not Organisation.select().where(
-                    Organisation.tech_contact_id == model.tech_contact_id).exists():
+            if model.tech_contact and model.tech_contact.has_role(
+                    Role.TECHNICAL) and not Organisation.select().where(
+                        Organisation.tech_contact_id == model.tech_contact_id).exists():
                 app.logger.info(r"Revoked TECHNICAL from {model.tech_contact}")
                 model.tech_contact.roles &= ~Role.TECHNICAL
                 super(User, model.tech_contact).save()
@@ -255,9 +265,19 @@ class OrgInfoAdmin(AppModelView):
     def action_invite(self, ids):
         """Batch registraion of organisatons."""
         count = 0
-        for oi in OrgInfo.select(OrgInfo.name, OrgInfo.email).where(OrgInfo.id.in_(ids)):
+        for oi in OrgInfo.select().where(OrgInfo.id.in_(ids)):
             try:
-                register_org(oi.name, oi.email)
+                register_org(
+                    email=oi.name,
+                    tech_contact=True,
+                    via_orcid=(False if oi.tuakiri_name else True),
+                    first_name=oi.first_name,
+                    last_name=oi.last_name,
+                    city=oi.city,
+                    country=oi.country,
+                    course_or_role=oi.role,
+                    disambiguation_org_id=oi.disambiguation_org_id,
+                    disambiguation_org_source=oi.disambiguation_source)
                 count += 1
             except Exception as ex:
                 flash("Failed to send an invitation to %s: %s" % (oi.email, ex))
@@ -742,10 +762,24 @@ def orcid_api_rep():
     return render_template("orcid_api_call_report.html", data=data)
 
 
-def register_org(org_name, email, tech_contact=True):
+def register_org(org_name,
+                 email=None,
+                 org_email=None,
+                 tech_contact=True,
+                 via_orcid=False,
+                 first_name=None,
+                 last_name=None,
+                 orcid_id=None,
+                 city=None,
+                 state=None,
+                 country=None,
+                 course_or_role=None,
+                 disambiguation_org_id=None,
+                 disambiguation_org_source=None,
+                 **kwargs):
     """Register research organisaion."""
 
-    email = email.lower()
+    email = (email or org_email).lower()
     try:
         User.get(User.email == email)
     except User.DoesNotExist:
@@ -755,6 +789,12 @@ def register_org(org_name, email, tech_contact=True):
             org = Organisation.get(name=org_name)
         except Organisation.DoesNotExist:
             org = Organisation(name=org_name)
+            if via_orcid:
+                org.state = state
+                org.city = city
+                org.country = country
+                org.disambiguation_org_id = disambiguation_org_id
+                org.disambiguation_org_source = disambiguation_org_source
 
         try:
             org_info = OrgInfo.get(name=org.name)
@@ -778,24 +818,33 @@ def register_org(org_name, email, tech_contact=True):
                 email=email,
                 confirmed=True,  # In order to let the user in...
                 organisation=org)
+
         user.roles |= Role.ADMIN
+        if via_orcid:
+            if not user.orcid and orcid_id:
+                user.orcid = orcid_id
+            if not user.first_name and first_name:
+                user.first_name = first_name
+            if not user.last_name and last_name:
+                user.last_name = last_name
+
+        try:
+            user.save()
+        except Exception as ex:
+            app.logger.error("Encountered exception: %r", ex)
+            raise Exception("Failed to save user data: %s" % str(ex), ex)
 
         if tech_contact:
             user.roles |= Role.TECHNICAL
             org.tech_contact = user
             try:
-                super(Organisation, org).save()
+                user.save()
+                org.save()
             except Exception as ex:
                 app.logger.error("Encountered exception: %r", ex)
                 raise Exception(
                     "Failed to assign the user as the technical contact to the organisation: %s" %
                     str(ex), ex)
-
-        try:
-            super(User, user).save()
-        except Exception as ex:
-            app.logger.error("Encountered exception: %r", ex)
-            raise Exception("Failed to save user data: %s" % str(ex), ex)
 
         try:
             user_org = UserOrg.get(user=user, org=org)
@@ -810,19 +859,29 @@ def register_org(org_name, email, tech_contact=True):
         except UserOrg.DoesNotExist:
             user_org = UserOrg.create(user=user, org=org, is_admin=True)
 
-        # Note: Using app context due to issue:
-        # https://github.com/mattupstate/flask-mail/issues/63
-        with app.app_context():
-            app.logger.info(f"Ready to send an ivitation to '{org_name}' <{email}>.")
-            token = generate_confirmation_token(email)
-            utils.send_email(
-                "email/org_invitation.html",
-                recipient=(org_name, email),
-                reply_to=(current_user.name, current_user.email),
-                cc_email=(current_user.name, current_user.email),
-                token=token,
-                org_name=org_name,
-                user=user)
+        app.logger.info(f"Ready to send an ivitation to '{org_name} <{email}>'.")
+        token = generate_confirmation_token(email=email, org_name=org_name)
+        # TODO: for via_orcid constact direct link to ORCID with callback like to HUB
+        if via_orcid:
+            short_id = Url.shorten(
+                url_for(
+                    "orcid_login",
+                    token=token,
+                    _next=url_for(
+                        "confirm_organisation",
+                        token=  # noqa: E251
+                        token))).short_id  # noqa: E251
+        else:
+            short_id = Url.shorten(url_for("confirm_organisation", token=token)).short_id
+
+        utils.send_email(
+            "email/org_invitation.html",
+            recipient=(org_name, email),
+            reply_to=(current_user.name, current_user.email),
+            cc_email=(current_user.name, current_user.email),
+            invitation_url=url_for("short_url", short_id=short_id, _external=True),
+            org_name=org_name,
+            user=user)
 
         org.is_email_sent = True
         try:
@@ -855,7 +914,7 @@ def invite_organisation():
     form = OrgRegistrationForm()
     if form.validate_on_submit():
         try:
-            register_org(form.org_name.data, form.org_email.data.lower(), form.tech_contact.data)
+            register_org(**{f.name: f.data for f in form})
             flash("Organisation Invited Successfully! "
                   "An email has been sent to the organisation contact", "success")
             app.logger.info("Organisation '%s' successfully invited. Invitation sent to '%s'." %
@@ -865,10 +924,8 @@ def invite_organisation():
             flash(str(ex), "danger")
 
     return render_template(
-        "registration.html",
-        form=form,
-        org_info={r.name: r.email
-                  for r in OrgInfo.select(OrgInfo.name, OrgInfo.email)})
+        "registration.html", form=form, org_info={r.name: r.to_dict()
+                                                  for r in OrgInfo.select()})
 
 
 @app.route("/invite/user", methods=["GET", "POST"])

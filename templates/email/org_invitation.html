@@ -24,7 +24,7 @@
         <p>You are invited to be an Organisation Administrator for {{org_name}} on the NZ ORCID Hub.</p>
         <p>To confirm your acceptance of this role, please either click on the link below:<br>
       {% endif %}
-      <a href="{{ url_for('confirm_organisation', token=token, _external=True) }}">{{ url_for('confirm_organisation', token=token, _external=True) | shorturl }}</a><br>
+      <a href="{{ invitation_url }}">{{ invitation_url }}</a><br>
       <p>If you received this email in error, or you have questions about the responsibilities involved, please contact:
       <a href="mailto:orcid@royalsociety.org.nz">orcid@royalsociety.org.nz</a></p>
       <hr>

@@ -187,3 +187,9 @@ input[type=checkbox].form-control, input[type=radio].form-control {
 table.permissions, table.permissions th, table.permissions td, table.users, table.users th, table.users td {
     border: 1px solid gray;
 }
+
+/* Tooltip */
+.tooltip > .tooltip-inner {
+    /* border: 3px solid gray; */
+    font-size: 1.1em;
+}
