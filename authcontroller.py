@@ -776,7 +776,7 @@ def logout():
     session.clear()
     session["__invalidate__"] = True
 
-    if org_name or org_name:
+    if org_name or auth_secret:
         if EXTERNAL_SP:
             sp_url = urlparse(EXTERNAL_SP)
             sso_url_base = sp_url.scheme + "://" + sp_url.netloc
