@@ -8,7 +8,9 @@ from datetime import datetime
 from itertools import groupby
 from os.path import splitext
 from urllib.parse import urlencode, urlparse
+from swagger_client.rest import ApiException
 
+import orcid_client
 import emails
 import flask
 import jinja2
@@ -20,7 +22,7 @@ from itsdangerous import URLSafeTimedSerializer
 from peewee import JOIN
 
 from application import app
-from config import ENV, EXTERNAL_SP
+from config import ENV, EXTERNAL_SP, ORCID_BASE_URL
 from models import (Affiliation, AffiliationRecord, OrcidToken, Organisation, Role, Task, User,
                     UserInvitation, UserOrg)
 
@@ -289,7 +291,7 @@ def send_user_initation(inviter,
                 "email/researcher_invitation.html",
                 recipient=(user.organisation.name, user.email),
                 reply_to=(inviter.name, inviter.email),
-                token=token,
+                invitation_token=token,
                 org_name=user.organisation.name,
                 user=user)
 
@@ -347,7 +349,70 @@ def create_or_update_affiliation(user, records, *args, **kwargs):
     3. If there is match update the record;
     4. If no match create a new one."""
     # TODO:
-    pass
+    for user_record in OrcidToken.select().where(
+                            (OrcidToken.user_id == user.id) & (OrcidToken.org_id == user.organisation.id) & (
+            OrcidToken.scope.contains("/activities/update"))):
+
+        orcid_client.configuration.access_token = user_record.access_token
+        api_instance = orcid_client.MemberAPIV20Api()
+
+        url = urlparse(ORCID_BASE_URL)
+        source_clientid = orcid_client.SourceClientId(
+            host=url.hostname,
+            path=user.organisation.orcid_client_id,
+            uri="http://" + url.hostname + "/client/" + user.organisation.orcid_client_id)
+
+        for task_by_user in records:
+            affiliation_record = task_by_user.affiliation_record
+
+            organisation_address = orcid_client.OrganizationAddress(
+                city=affiliation_record.city, country=user.organisation.country)
+
+            disambiguated_organization_details = orcid_client.DisambiguatedOrganization(
+                disambiguated_organization_identifier=user.organisation.disambiguation_org_id,
+                disambiguation_source=user.organisation.disambiguation_org_source)
+
+            # TODO: need to check if the entry doesn't exist already:
+            for a in Affiliation:
+
+                if not a & user.affiliations:
+                    continue
+
+                if a == Affiliation.EMP:
+                    rec = orcid_client.Employment()
+                elif a == Affiliation.EDU:
+                    rec = orcid_client.Education()
+                else:
+                    continue
+
+                rec.source = orcid_client.Source(
+                    source_orcid=None,
+                    source_client_id=source_clientid,
+                    source_name=user.organisation.name)
+
+                rec.organization = orcid_client.Organization(
+                    name=user.organisation.name,
+                    address=organisation_address,
+                    disambiguated_organization=disambiguated_organization_details)
+                try:
+                    if a == Affiliation.EMP:
+
+                        api_instance.create_employment(user.orcid, body=rec)
+                        app.logger.info("For %r the ORCID employment record was updated from %r",
+                                        user, user.organisation)
+                    elif a == Affiliation.EDU:
+                        api_instance.create_education(user.orcid, body=rec)
+
+                        app.logger.info("For %r the ORCID education record was updated from %r",
+                                        user, user.organisation)
+                    else:
+                        continue
+                        # TODO: Save the put-code in db table
+
+                except ApiException as e:
+                    app.logger.error("For %r encountered exception: %r", user, e)
+                except Exception as ex:
+                    app.logger.error("For %r encountered exception: %r", user, ex)
 
 
 def process_affiliation_records(max_rows=20):
@@ -356,7 +421,7 @@ def process_affiliation_records(max_rows=20):
     # TODO: optimize removing redudnt fields
     # TODO: perhaps it should be broken into 2 queries
     tasks = (
-        Task.select(Task, AffiliationRecord, User, UserInvitation.id.alias("invitation_id"))
+        Task.select(Task, AffiliationRecord, User, UserInvitation.id.alias("invitation_id"), OrcidToken)
         .where(AffiliationRecord.processed_at.is_null(), AffiliationRecord.is_active, (
             (User.id.is_null(False) & User.orcid.is_null(False) & OrcidToken.id.is_null(False)) | (
                 (User.id.is_null() | User.orcid.is_null() | OrcidToken.id.is_null()) &
@@ -371,7 +436,7 @@ def process_affiliation_records(max_rows=20):
                              (User.orcid == AffiliationRecord.identifier))).join(
                                  Organisation,
                                  JOIN.LEFT_OUTER,
-                                 on=(Organisation.name == AffiliationRecord.organisation))
+                                 on=(Organisation.id == Task.org_id))
         .join(
             UserInvitation,
             JOIN.LEFT_OUTER,
@@ -382,7 +447,7 @@ def process_affiliation_records(max_rows=20):
                     (OrcidToken.scope.contains("/activities/update")))).limit(max_rows))
     for (org_id,
          user), tasks_by_user in groupby(tasks, lambda t: (t.org_id, t.affiliation_record.user, )):
-        if (user.id is None or user.orcid is None or OrcidToken.select().where(
+        if (user.id is None or user.orcid is None or not OrcidToken.select().where(
             (OrcidToken.user_id == user.id) & (OrcidToken.org_id == org_id) &
             (OrcidToken.scope.contains("/activities/update"))).exists()):  # noqa: E127, E129
 
@@ -402,6 +467,4 @@ def process_affiliation_records(max_rows=20):
             for invitation, affiliations in invitation_dict.items():
                 send_user_initation(*invitation, affiliations)
         else:  # user exits and we have tokens
-            for task in tasks_by_user:
-                print("***", task, ':', user.orcid)
-                create_or_update_affiliation(user, task.affiliation_record)
+            create_or_update_affiliation(user, tasks_by_user)
