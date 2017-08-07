@@ -947,14 +947,14 @@ def orcid_login(invitation_token=None):
                 )
                 return redirect(url_for("login"))
 
-            redirect_uri = append_qs(redirect_uri, invitation_token=invitation_token)
             if user.is_tech_contact_of(org):
                 scope += SCOPE_READ_LIMITED
 
         client_write = OAuth2Session(ORCID_CLIENT_ID, scope=scope, redirect_uri=redirect_uri)
 
         authorization_url, state = client_write.authorization_url(AUTHORIZATION_BASE_URL)
-        session['oauth_state'] = state
+        # if the inviation token is preset use it as OAuth state
+        session['oauth_state'] = invitation_token or state
 
         orcid_authenticate_url = iri_to_uri(authorization_url)
         if invitation_token:
