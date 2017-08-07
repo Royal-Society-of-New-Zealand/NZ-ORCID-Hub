@@ -22,7 +22,7 @@ from itsdangerous import URLSafeTimedSerializer
 from peewee import JOIN
 
 from application import app
-from config import ENV, EXTERNAL_SP, ORCID_BASE_URL
+from config import ENV, EXTERNAL_SP, ORCID_BASE_URL, SCOPE_READ_LIMITED, SCOPE_ACTIVITIES_UPDATE
 from models import (Affiliation, AffiliationRecord, OrcidToken, Organisation, Role, Task, User,
                     UserInvitation, UserOrg)
 
@@ -341,7 +341,7 @@ def send_user_initation(inviter,
         raise ex
 
 
-def create_or_update_affiliation(user, records, *args, **kwargs):
+def create_or_update_affiliation(user, org_id, records, *args, **kwargs):
     """Creates or updates affiliation record of a user.
 
     1. Retries user edurcation and employment surramy from ORCID;
@@ -349,70 +349,79 @@ def create_or_update_affiliation(user, records, *args, **kwargs):
     3. If there is match update the record;
     4. If no match create a new one."""
     # TODO:
-    for user_record in OrcidToken.select().where(
-                            (OrcidToken.user_id == user.id) & (OrcidToken.org_id == user.organisation.id) & (
-            OrcidToken.scope.contains("/activities/update"))):
+    orcid_token = None
+    try:
+        org = Organisation.get(id=org_id)
+        orcid_token = OrcidToken.get(
+            user=user,
+            org=org,
+            scope=SCOPE_READ_LIMITED[0] + "," + SCOPE_ACTIVITIES_UPDATE[0])
+    except Exception as ex:
+        logger.error(f"Exception occured while retriving ORCID Token {ex}")
+        return None
 
-        orcid_client.configuration.access_token = user_record.access_token
-        api_instance = orcid_client.MemberAPIV20Api()
+    orcid_client.configuration.access_token = orcid_token.access_token
+    api_instance = orcid_client.MemberAPIV20Api()
 
-        url = urlparse(ORCID_BASE_URL)
-        source_clientid = orcid_client.SourceClientId(
-            host=url.hostname,
-            path=user.organisation.orcid_client_id,
-            uri="http://" + url.hostname + "/client/" + user.organisation.orcid_client_id)
+    url = urlparse(ORCID_BASE_URL)
+    source_clientid = orcid_client.SourceClientId(
+        host=url.hostname,
+        path=org.orcid_client_id,
+        uri="http://" + url.hostname + "/client/" + org.orcid_client_id)
 
-        for task_by_user in records:
-            affiliation_record = task_by_user.affiliation_record
+    for task_by_user in records:
+        affiliation_record = task_by_user.affiliation_record
 
-            organisation_address = orcid_client.OrganizationAddress(
-                city=affiliation_record.city, country=user.organisation.country)
+        organisation_address = orcid_client.OrganizationAddress(
+            city=affiliation_record.city, country=org.country)
 
-            disambiguated_organization_details = orcid_client.DisambiguatedOrganization(
-                disambiguated_organization_identifier=user.organisation.disambiguation_org_id,
-                disambiguation_source=user.organisation.disambiguation_org_source)
+        disambiguated_organization_details = orcid_client.DisambiguatedOrganization(
+            disambiguated_organization_identifier=org.disambiguation_org_id,
+            disambiguation_source=org.disambiguation_org_source)
 
-            # TODO: need to check if the entry doesn't exist already:
-            for a in Affiliation:
+        # TODO: need to check if the entry doesn't exist already:
 
-                if not a & user.affiliations:
-                    continue
+        a = Affiliation.EMP
+        rec = orcid_client.Employment()
 
-                if a == Affiliation.EMP:
-                    rec = orcid_client.Employment()
-                elif a == Affiliation.EDU:
-                    rec = orcid_client.Education()
-                else:
-                    continue
+        rec.source = orcid_client.Source(
+            source_orcid=None,
+            source_client_id=source_clientid,
+            source_name=org.name)
 
-                rec.source = orcid_client.Source(
-                    source_orcid=None,
-                    source_client_id=source_clientid,
-                    source_name=user.organisation.name)
+        rec.organization = orcid_client.Organization(
+            name=affiliation_record.organisation,
+            address=organisation_address,
+            disambiguated_organization=disambiguated_organization_details)
 
-                rec.organization = orcid_client.Organization(
-                    name=user.organisation.name,
-                    address=organisation_address,
-                    disambiguated_organization=disambiguated_organization_details)
-                try:
-                    if a == Affiliation.EMP:
+        rec.department_name = affiliation_record.department
+        rec.role_title = affiliation_record.role
+        if affiliation_record.start_date:
+            rec.start_date = affiliation_record.start_date.as_orcid_dict()
+        if affiliation_record.end_date:
+            rec.end_date = affiliation_record.end_date.as_orcid_dict()
 
-                        api_instance.create_employment(user.orcid, body=rec)
-                        app.logger.info("For %r the ORCID employment record was updated from %r",
-                                        user, user.organisation)
-                    elif a == Affiliation.EDU:
-                        api_instance.create_education(user.orcid, body=rec)
+        try:
+            if a == Affiliation.EMP:
 
-                        app.logger.info("For %r the ORCID education record was updated from %r",
-                                        user, user.organisation)
-                    else:
-                        continue
-                        # TODO: Save the put-code in db table
+                api_instance.create_employment(user.orcid, body=rec)
+                app.logger.info("For %r the ORCID employment record was updated from %r",
+                                user, org)
+            elif a == Affiliation.EDU:
+                api_instance.create_education(user.orcid, body=rec)
 
-                except ApiException as e:
-                    app.logger.error("For %r encountered exception: %r", user, e)
-                except Exception as ex:
-                    app.logger.error("For %r encountered exception: %r", user, ex)
+                app.logger.info("For %r the ORCID education record was updated from %r",
+                                user, org)
+            else:
+                continue
+                # TODO: Save the put-code in db table
+            task_by_user.affiliation_record.processed_at = datetime.now()
+            task_by_user.affiliation_record.save()
+
+        except ApiException as e:
+            app.logger.error("For %r encountered exception: %r", user, e)
+        except Exception as ex:
+            app.logger.error("For %r encountered exception: %r", user, ex)
 
 
 def process_affiliation_records(max_rows=20):
@@ -467,4 +476,4 @@ def process_affiliation_records(max_rows=20):
             for invitation, affiliations in invitation_dict.items():
                 send_user_initation(*invitation, affiliations)
         else:  # user exits and we have tokens
-            create_or_update_affiliation(user, tasks_by_user)
+            create_or_update_affiliation(user, org_id, tasks_by_user)
