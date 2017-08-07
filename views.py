@@ -866,13 +866,12 @@ def register_org(org_name,
             short_id = Url.shorten(
                 url_for(
                     "orcid_login",
-                    token=token,
+                    invitation_token=token,
                     _next=url_for(
                         "confirm_organisation",
-                        token=  # noqa: E251
-                        token))).short_id  # noqa: E251
+                        invitation_token=token))).short_id  # noqa: E251
         else:
-            short_id = Url.shorten(url_for("confirm_organisation", token=token)).short_id
+            short_id = Url.shorten(url_for("confirm_organisation", invitation_token=token)).short_id
 
         utils.send_email(
             "email/org_invitation.html",
