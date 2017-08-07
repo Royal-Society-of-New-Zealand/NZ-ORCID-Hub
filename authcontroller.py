@@ -343,6 +343,8 @@ def link():
 @app.route("/auth/<path:url>")
 def orcid_callback_proxy(url):
     url = unquote(url)
+    app.logger.info("URL: ", url)
+    app.logger.info("ARGS: ", request.args)
     return redirect(append_qs(url, **request.args))
     # return redirect(url + '?' + urlencode(request.args))
 
