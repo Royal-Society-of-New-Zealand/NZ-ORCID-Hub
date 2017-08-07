@@ -343,7 +343,8 @@ def link():
 @app.route("/auth/<path:url>")
 def orcid_callback_proxy(url):
     url = unquote(url)
-    return redirect(url + '?' + urlencode(request.args))
+    return redirect(append_qs(url, **request.args))
+    # return redirect(url + '?' + urlencode(request.args))
 
 
 def is_emp_or_edu_record_present(access_token, affiliation_type, user):
@@ -952,9 +953,9 @@ def orcid_login(invitation_token=None):
 
         client_write = OAuth2Session(ORCID_CLIENT_ID, scope=scope, redirect_uri=redirect_uri)
 
-        authorization_url, state = client_write.authorization_url(AUTHORIZATION_BASE_URL)
+        authorization_url, state = client_write.authorization_url(AUTHORIZATION_BASE_URL, state=invitation_token)
         # if the inviation token is preset use it as OAuth state
-        session['oauth_state'] = invitation_token or state
+        session['oauth_state'] = state
 
         orcid_authenticate_url = iri_to_uri(authorization_url)
         if invitation_token:
