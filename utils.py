@@ -209,7 +209,7 @@ def confirm_token(token, expiration=1300000):
 
 def append_qs(url, **qs):
     """Appends new query strings to an arbitraty URL."""
-    return url + ('&' if urlparse(url).query else '?') + urlencode(qs)
+    return url + ('&' if urlparse(url).query else '?') + urlencode(qs, doseq=True)
 
 
 def track_event(category, action, label=None, value=0):
