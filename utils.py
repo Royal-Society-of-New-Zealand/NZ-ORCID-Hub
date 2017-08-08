@@ -8,9 +8,7 @@ from datetime import datetime
 from itertools import groupby
 from os.path import splitext
 from urllib.parse import urlencode, urlparse
-from swagger_client.rest import ApiException
 
-import orcid_client
 import emails
 import flask
 import jinja2
@@ -21,10 +19,12 @@ from html2text import html2text
 from itsdangerous import URLSafeTimedSerializer
 from peewee import JOIN
 
+import orcid_client
 from application import app
-from config import ENV, EXTERNAL_SP, ORCID_BASE_URL, SCOPE_READ_LIMITED, SCOPE_ACTIVITIES_UPDATE
+from config import (ENV, EXTERNAL_SP, ORCID_BASE_URL, SCOPE_ACTIVITIES_UPDATE, SCOPE_READ_LIMITED)
 from models import (Affiliation, AffiliationRecord, OrcidToken, Organisation, Role, Task, User,
                     UserInvitation, UserOrg)
+from swagger_client.rest import ApiException
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -353,9 +353,7 @@ def create_or_update_affiliation(user, org_id, records, *args, **kwargs):
     try:
         org = Organisation.get(id=org_id)
         orcid_token = OrcidToken.get(
-            user=user,
-            org=org,
-            scope=SCOPE_READ_LIMITED[0] + "," + SCOPE_ACTIVITIES_UPDATE[0])
+            user=user, org=org, scope=SCOPE_READ_LIMITED[0] + "," + SCOPE_ACTIVITIES_UPDATE[0])
     except Exception as ex:
         logger.error(f"Exception occured while retriving ORCID Token {ex}")
         return None
@@ -388,9 +386,7 @@ def create_or_update_affiliation(user, org_id, records, *args, **kwargs):
             rec = orcid_client.Education()
 
         rec.source = orcid_client.Source(
-            source_orcid=None,
-            source_client_id=source_clientid,
-            source_name=org.name)
+            source_orcid=None, source_client_id=source_clientid, source_name=org.name)
 
         rec.organization = orcid_client.Organization(
             name=affiliation_record.organisation,
@@ -409,13 +405,12 @@ def create_or_update_affiliation(user, org_id, records, *args, **kwargs):
             if a == Affiliation.EMP:
 
                 api_instance.create_employment(user.orcid, body=rec)
-                app.logger.info("For %r the ORCID employment record was updated from %r",
-                                user, org)
+                app.logger.info("For %r the ORCID employment record was updated from %r", user,
+                                org)
             elif a == Affiliation.EDU:
                 api_instance.create_education(user.orcid, body=rec)
 
-                app.logger.info("For %r the ORCID education record was updated from %r",
-                                user, org)
+                app.logger.info("For %r the ORCID education record was updated from %r", user, org)
             else:
                 app.logger.info("For %r not able to determine affiliaton type with %r",
                                 user, org)
@@ -436,7 +431,8 @@ def process_affiliation_records(max_rows=20):
     # TODO: optimize removing redudnt fields
     # TODO: perhaps it should be broken into 2 queries
     tasks = (
-        Task.select(Task, AffiliationRecord, User, UserInvitation.id.alias("invitation_id"), OrcidToken)
+        Task.select(Task, AffiliationRecord, User,
+                    UserInvitation.id.alias("invitation_id"), OrcidToken)
         .where(AffiliationRecord.processed_at.is_null(), AffiliationRecord.is_active, (
             (User.id.is_null(False) & User.orcid.is_null(False) & OrcidToken.id.is_null(False)) | (
                 (User.id.is_null() | User.orcid.is_null() | OrcidToken.id.is_null()) &
