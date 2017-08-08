@@ -937,7 +937,8 @@ def orcid_login(invitation_token=None):
             try:
                 org = Organisation.get(name=org_name)
 
-                client_id = org.orcid_client_id
+                if org.orcid_client_id:
+                    client_id = org.orcid_client_id
                 scope = SCOPE_ACTIVITIES_UPDATE + SCOPE_READ_LIMITED
 
                 redirect_uri = append_qs(redirect_uri, invitation_token=invitation_token)
@@ -996,8 +997,7 @@ def orcid_login_callback():
     try:
         orcid_client_id = ORCID_CLIENT_ID
         orcid_client_secret = ORCID_CLIENT_SECRET
-        email = None
-        org_name = None
+        email = org_name = None
 
         if invitation_token:
             data = confirm_token(invitation_token)
