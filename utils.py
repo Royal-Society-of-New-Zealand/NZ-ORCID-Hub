@@ -379,10 +379,13 @@ def create_or_update_affiliation(user, org_id, records, *args, **kwargs):
             disambiguated_organization_identifier=org.disambiguation_org_id,
             disambiguation_source=org.disambiguation_org_source)
 
-        # TODO: need to check if the entry doesn't exist already:
-
-        a = Affiliation.EMP
-        rec = orcid_client.Employment()
+        a = None
+        if affiliation_record.affiliation_type.lower() in {"faculty", "staff", "emp"}:
+            a = Affiliation.EMP
+            rec = orcid_client.Employment()
+        elif affiliation_record.affiliation_type.lower() in {"student", "alum", "edu"}:
+            a = Affiliation.EDU
+            rec = orcid_client.Education()
 
         rec.source = orcid_client.Source(
             source_orcid=None,
@@ -401,6 +404,7 @@ def create_or_update_affiliation(user, org_id, records, *args, **kwargs):
         if affiliation_record.end_date:
             rec.end_date = affiliation_record.end_date.as_orcid_dict()
 
+        # TODO: need to check if the entry doesn't exist already: if it does then only update
         try:
             if a == Affiliation.EMP:
 
@@ -413,6 +417,8 @@ def create_or_update_affiliation(user, org_id, records, *args, **kwargs):
                 app.logger.info("For %r the ORCID education record was updated from %r",
                                 user, org)
             else:
+                app.logger.info("For %r not able to determine affiliaton type with %r",
+                                user, org)
                 continue
                 # TODO: Save the put-code in db table
             task_by_user.affiliation_record.processed_at = datetime.now()
