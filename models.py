@@ -14,7 +14,7 @@ from itertools import zip_longest
 from urllib.parse import urlencode
 
 from flask_login import UserMixin, current_user
-from peewee import (BooleanField, CharField, CompositeKey, DateTimeField, DeferredRelation, Field,
+from peewee import (BooleanField, CharField, DateTimeField, DeferredRelation, Field,
                     ForeignKeyField, IntegerField, Model, OperationalError, SmallIntegerField,
                     TextField)
 from playhouse.shortcuts import model_to_dict
@@ -251,15 +251,12 @@ class Organisation(BaseModel, AuditMixin):
         """
         Organisation's users (query)
         """
-        return User.select().join(
-            self.userorg_set.alias("sq"), on=(self.userorg_set.c.user_id == User.id))
+        return User.select().join(UserOrg, on=(UserOrg.user_id == User.id))
 
     @property
     def admins(self):
         """Organisation's adminstrators (query)."""
-        return User.select().join(
-            self.userorg_set.where(self.userorg_set.c.is_admin).alias("sq"),
-            on=(self.userorg_set.c.user_id == User.id))
+        return self.users.where(UserOrg.is_admin)
 
     def __repr__(self):
         return self.name or self.tuakiri_name
@@ -408,16 +405,14 @@ class User(BaseModel, UserMixin, AuditMixin):
         All linked to the user organisation query
         """
         return Organisation.select().join(
-            self.userorg_set.alias("sq"), on=Organisation.id == self.userorg_set.c.org_id)
+            UserOrg, on=(UserOrg.org_id == Organisation.id)).where(UserOrg.user_id == self.id)
 
     @property
     def admin_for(self):
         """
         Organisations the user is admin for (query)
         """
-        return Organisation.select().join(
-            self.userorg_set.where(self.userorg_set.c.is_admin).alias("sq"),
-            on=Organisation.id == self.userorg_set.c.org_id)
+        return self.organisations.where(UserOrg.is_admin)
 
     @property
     def is_active(self):
@@ -613,7 +608,7 @@ class UserInvitation(BaseModel, AuditMixin):
 class UserOrg(BaseModel, AuditMixin):
     """Linking object for many-to-many relationship."""
 
-    user = ForeignKeyField(User, on_delete="CASCADE")
+    user = ForeignKeyField(User, on_delete="CASCADE", index=True)
     org = ForeignKeyField(
         Organisation, index=True, on_delete="CASCADE", verbose_name="Organisation")
 
@@ -647,7 +642,6 @@ class UserOrg(BaseModel, AuditMixin):
     class Meta:
         db_table = "user_org"
         table_alias = "oa"
-        primary_key = CompositeKey("user", "org")
 
 
 class OrcidToken(BaseModel, AuditMixin):
