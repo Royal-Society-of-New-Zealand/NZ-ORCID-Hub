@@ -14,7 +14,7 @@ import zlib
 from datetime import datetime
 from os import path, remove
 from tempfile import gettempdir
-from urllib.parse import quote, unquote, urlencode, urlparse, parse_qs
+from urllib.parse import quote, unquote, urlparse
 
 import requests
 from flask import (abort, flash, redirect, render_template, request, session, url_for)
@@ -32,7 +32,7 @@ from config import (APP_DESCRIPTION, APP_NAME, APP_URL, AUTHORIZATION_BASE_URL, 
                     SCOPE_ACTIVITIES_UPDATE, SCOPE_AUTHENTICATE, SCOPE_READ_LIMITED, TOKEN_URL)
 from forms import OnboardingTokenForm, OrgConfirmationForm
 from login_provider import roles_required
-from models import (Affiliation, OrcidToken, Organisation, OrgInfo, OrgInvitation, Role, User,
+from models import (Affiliation, OrcidToken, Organisation, OrgInfo, OrgInvitation, Role, Url, User,
                     UserOrg)
 from swagger_client.rest import ApiException
 from utils import append_qs, confirm_token
@@ -600,7 +600,11 @@ def confirm_organisation(invitation_token=None):
         return render_template("missing_onboarding_token.html", form=form)
 
     client_secret_url = None
-    email = confirm_token(invitation_token)
+    data = confirm_token(invitation_token)
+    if isinstance(data, str):
+        email, org_name = data.split(';') if ";" in data else data, None
+    else:
+        email, org_name = data.get("email"), data.get("org_name")
     user = current_user
 
     if not email:
@@ -611,6 +615,9 @@ def confirm_organisation(invitation_token=None):
                         user.email)
         flash("This invitation to onboard the organisation wasn't sent to your email address...",
               "danger")
+        return redirect(url_for("login"))
+    if org_name and user.organisation.name != org_name:
+        flash(f"Wrong onganisation name {org_name}")
         return redirect(url_for("login"))
 
     # TODO: refactor this: user == current_user here no need to requery DB
@@ -767,7 +774,6 @@ def logout():
     about SSO at the university.
     """
     org_name = session.get("shib_O")
-    auth_secret = session.get("auth_secret")
     try:
         logout_user()
     except Exception as ex:
@@ -776,7 +782,7 @@ def logout():
     session.clear()
     session["__invalidate__"] = True
 
-    if org_name or auth_secret:
+    if org_name:
         if EXTERNAL_SP:
             sp_url = urlparse(EXTERNAL_SP)
             sso_url_base = sp_url.scheme + "://" + sp_url.netloc
@@ -939,7 +945,9 @@ def orcid_login(invitation_token=None):
 
                 if org.orcid_client_id:
                     client_id = org.orcid_client_id
-                scope = SCOPE_ACTIVITIES_UPDATE + SCOPE_READ_LIMITED
+                    scope = SCOPE_ACTIVITIES_UPDATE + SCOPE_READ_LIMITED
+                else:
+                    scope += SCOPE_READ_LIMITED
 
                 redirect_uri = append_qs(redirect_uri, invitation_token=invitation_token)
             except Organisation.DoesNotExist:
@@ -951,7 +959,10 @@ def orcid_login(invitation_token=None):
 
         if EXTERNAL_SP:
             sp_url = urlparse(EXTERNAL_SP)
-            redirect_uri = sp_url.scheme + "://" + sp_url.netloc + "/orcid/auth/" + quote(redirect_uri)
+            u = Url.shorten(redirect_uri)
+            redirect_uri = url_for("short_url", short_id=u.short_id, _external=True)
+            redirect_uri = sp_url.scheme + "://" + sp_url.netloc + "/orcid/auth/" + quote(
+                redirect_uri)
 
         client_write = OAuth2Session(client_id, scope=scope, redirect_uri=redirect_uri)
 
@@ -1017,13 +1028,13 @@ def orcid_login_callback():
                     f"User '{user}' attempted to affiliate with non-existing organisation {org_name}"
                 )
                 return redirect(url_for("login"))
-            if not user.is_tech_contact_of(org):
+            if not user.is_tech_contact_of(org) and org.orcid_client_id and org.orcid_client_secret:
                 orcid_client_id = org.orcid_client_id
                 orcid_client_secret = org.orcid_secret
 
         client = OAuth2Session(orcid_client_id)
         token = client.fetch_token(
-                TOKEN_URL, client_secret=orcid_client_secret, authorization_response=request.url)
+            TOKEN_URL, client_secret=orcid_client_secret, authorization_response=request.url)
 
         orcid_id = token['orcid']
         if not orcid_id:
@@ -1055,6 +1066,7 @@ def orcid_login_callback():
             app.logger.error(
                 f"User '{user}' attempted to affiliate with non-existing organisation {org_name}")
             return redirect(url_for("login"))
+
         if user.is_tech_contact_of(org) and invitation_token:
             access_token = token.get("access_token")
             if not access_token:
@@ -1087,16 +1099,13 @@ def orcid_login_callback():
                 flash(f"Cannot verify your email address. Please, change the access level to your "
                       "organisation email address '{email}' to 'trusted parties'.")
                 abort(401)
+
         elif not user.is_tech_contact_of(org) and invitation_token:
-            scope = ''
-            if len(token["scope"]) >= 1 and token["scope"][0] is not None:
-                scope = token["scope"][0]
-            else:
+            scope = ",".join(token.get("scope", []))
+            if not scope:
                 flash("Scope missing, contact orcidhub support", "danger")
                 app.logger.error("For %r encountered exception: Scope missing", current_user)
                 return redirect(url_for("login"))
-            if len(token["scope"]) >= 2 and token["scope"][1] is not None:
-                scope = scope + "," + token["scope"][1]
 
             orcid_token, orcid_token_found = OrcidToken.get_or_create(
                 user_id=user.id, org=user.organisation, scope=scope)

@@ -62,6 +62,8 @@ def about():
 def short_url(short_id):
     try:
         u = Url.get(short_id=short_id)
+        if request.args:
+            return redirect(utils.append_qs(u.url, **request.args))
         return redirect(u.url)
     except Url.DoesNotExist:
         abort(404)
@@ -871,7 +873,8 @@ def register_org(org_name,
                         invitation_token=  # noqa: E251
                         token))).short_id  # noqa: E251
         else:
-            short_id = Url.shorten(url_for("confirm_organisation", invitation_token=token)).short_id
+            short_id = Url.shorten(
+                url_for("confirm_organisation", invitation_token=token)).short_id
 
         utils.send_email(
             "email/org_invitation.html",
