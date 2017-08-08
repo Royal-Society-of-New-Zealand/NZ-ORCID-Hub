@@ -172,7 +172,7 @@ def handle_login():
         edu_person_affiliation = Affiliation.NONE
         if unscoped_affiliation & {"faculty", "staff"}:
             edu_person_affiliation |= Affiliation.EMP
-        if unscoped_affiliation & {"student", "alum"}:
+        if unscoped_affiliation & {"student"}:
             edu_person_affiliation |= Affiliation.EDU
         if not edu_person_affiliation:
             flash(
