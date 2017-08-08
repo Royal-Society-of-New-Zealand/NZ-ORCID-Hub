@@ -1026,7 +1026,7 @@ def orcid_login_callback():
 
         client = OAuth2Session(orcid_client_id)
         token = client.fetch_token(
-                TOKEN_URL, client_secret=orcid_client_secret, authorization_response=request.url)
+            TOKEN_URL, client_secret=orcid_client_secret, authorization_response=request.url)
 
         orcid_id = token['orcid']
         if not orcid_id:
@@ -1140,15 +1140,15 @@ def orcid_login_callback():
         return redirect(url_for("login"))
 
 
-@app.route("/select/org/<int:user_org_id>")
+@app.route("/select/user_org/<int:user_org_id>")
 @login_required
-def select_org(user_org_id):
+def select_user_org(user_org_id):
     user_org_id = int(user_org_id)
     _next = get_next_url() or request.referrer or url_for("login")
     try:
         uo = UserOrg.get(id=user_org_id)
         if (uo.user.orcid == current_user.orcid or uo.user.email == current_user.email or
-            uo.user.eppn == current_user.eppn):
+                uo.user.eppn == current_user.eppn):
             current_user.organisation_id = uo.org_id
             current_user.save()
         else:

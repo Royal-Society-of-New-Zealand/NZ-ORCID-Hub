@@ -31,7 +31,7 @@
                   <li>
                     <p class="navbar-btn">
                     <select class="selectpicker" data-style="btn-primary" id="select-org" title="Current Organisation"
-                      onchange='location.href="/select/org/"+this.value'>
+                      onchange='location.href="/select/user_org/"+this.value'>
                       {% for uo in current_user.userorg_set %}
                         <option data-tokens="{{uo.id}}" value="{{uo.id}}" {{"selected" if current_user.organisation.id == uo.org_id else ''}}>{{uo.org.name}}</option>
                       {% endfor %}
