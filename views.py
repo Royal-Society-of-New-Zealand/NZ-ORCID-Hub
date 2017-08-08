@@ -871,7 +871,7 @@ def register_org(org_name,
                         invitation_token=  # noqa: E251
                         token))).short_id  # noqa: E251
         else:
-            short_id = Url.shorten(url_for("confirm_organisation", token=token)).short_id
+            short_id = Url.shorten(url_for("confirm_organisation", invitation_token=token)).short_id
 
         utils.send_email(
             "email/org_invitation.html",

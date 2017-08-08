@@ -923,11 +923,12 @@ def orcid_login(invitation_token=None):
 
     try:
         scope = SCOPE_AUTHENTICATE
+
+        client_id = ORCID_CLIENT_ID
         if invitation_token:
             data = confirm_token(invitation_token)
             if isinstance(data, str):
-                email = data
-                org_name = None
+                email, org_name = data.split(';')
             else:
                 email, org_name = data.get("email"), data.get("org_name")
             user = User.get(email=email)
@@ -935,6 +936,11 @@ def orcid_login(invitation_token=None):
                 org_name = user.organisation.name
             try:
                 org = Organisation.get(name=org_name)
+
+                client_id = org.orcid_client_id
+                scope = SCOPE_ACTIVITIES_UPDATE + SCOPE_READ_LIMITED
+
+                redirect_uri = append_qs(redirect_uri, invitation_token=invitation_token)
             except Organisation.DoesNotExist:
                 flash("Organisation '{org_name}' doesn't exist!", "danger")
                 app.logger.error(
@@ -942,16 +948,11 @@ def orcid_login(invitation_token=None):
                 )
                 return redirect(url_for("login"))
 
-            if user.is_tech_contact_of(org):
-                scope += SCOPE_READ_LIMITED
-            redirect_uri = append_qs(redirect_uri, invitation_token=invitation_token)
-            print("*** REDIRECT:", redirect_uri)
-
         if EXTERNAL_SP:
             sp_url = urlparse(EXTERNAL_SP)
             redirect_uri = sp_url.scheme + "://" + sp_url.netloc + "/orcid/auth/" + quote(redirect_uri)
 
-        client_write = OAuth2Session(ORCID_CLIENT_ID, scope=scope, redirect_uri=redirect_uri)
+        client_write = OAuth2Session(client_id, scope=scope, redirect_uri=redirect_uri)
 
         authorization_url, state = client_write.authorization_url(AUTHORIZATION_BASE_URL)
         # if the inviation token is preset use it as OAuth state
@@ -993,9 +994,37 @@ def orcid_login_callback():
         return redirect(url_for("login"))
 
     try:
-        client = OAuth2Session(ORCID_CLIENT_ID)
+        orcid_client_id = ORCID_CLIENT_ID
+        orcid_client_secret = ORCID_CLIENT_SECRET
+        email = None
+        org_name = None
+
+        if invitation_token:
+            data = confirm_token(invitation_token)
+            if isinstance(data, str):
+                email, org_name = data.split(';')
+            else:
+                email, org_name = data.get("email"), data.get("org_name")
+            user = User.get(email=email)
+
+            if not org_name:
+                org_name = user.organisation.name
+            try:
+                org = Organisation.get(name=org_name)
+            except Organisation.DoesNotExist:
+                flash("Organisation '{org_name}' doesn't exist!", "danger")
+                app.logger.error(
+                    f"User '{user}' attempted to affiliate with non-existing organisation {org_name}"
+                )
+                return redirect(url_for("login"))
+            if not user.is_tech_contact_of(org):
+                orcid_client_id = org.orcid_client_id
+                orcid_client_secret = org.orcid_secret
+
+        client = OAuth2Session(orcid_client_id)
         token = client.fetch_token(
-            TOKEN_URL, client_secret=ORCID_CLIENT_SECRET, authorization_response=request.url)
+                TOKEN_URL, client_secret=orcid_client_secret, authorization_response=request.url)
+
         orcid_id = token['orcid']
         if not orcid_id:
             app.logger.error(f"Missing ORCID iD: {token}")
@@ -1004,7 +1033,6 @@ def orcid_login_callback():
             user = User.get(orcid=orcid_id)
 
         except User.DoesNotExist:
-            email = request.args.get("email")
             if email is None:
                 flash(f"The account with ORCID iD {orcid_id} doesn't exist.", "danger")
                 return redirect(url_for("login"))
@@ -1020,7 +1048,6 @@ def orcid_login_callback():
         login_user(user)
 
         # User is a technical conatct. We should verify email address
-        org_name = request.args.get("org_name")
         try:
             org = Organisation.get(name=org_name) if org_name else user.organisation
         except Organisation.DoesNotExist:
@@ -1060,6 +1087,28 @@ def orcid_login_callback():
                 flash(f"Cannot verify your email address. Please, change the access level to your "
                       "organisation email address '{email}' to 'trusted parties'.")
                 abort(401)
+        elif not user.is_tech_contact_of(org) and invitation_token:
+            scope = ''
+            if len(token["scope"]) >= 1 and token["scope"][0] is not None:
+                scope = token["scope"][0]
+            else:
+                flash("Scope missing, contact orcidhub support", "danger")
+                app.logger.error("For %r encountered exception: Scope missing", current_user)
+                return redirect(url_for("login"))
+            if len(token["scope"]) >= 2 and token["scope"][1] is not None:
+                scope = scope + "," + token["scope"][1]
+
+            orcid_token, orcid_token_found = OrcidToken.get_or_create(
+                user_id=user.id, org=user.organisation, scope=scope)
+            orcid_token.access_token = token["access_token"]
+            orcid_token.refresh_token = token["refresh_token"]
+            with db.atomic():
+                try:
+                    orcid_token.save()
+                except Exception as ex:
+                    db.rollback()
+                    flash("Failed to save data: %s" % str(ex))
+                    app.logger.error("Exception Occured: %r", str(ex))
 
         if _next:
             return redirect(_next)
