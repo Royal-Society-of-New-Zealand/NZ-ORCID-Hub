@@ -14,7 +14,7 @@ import zlib
 from datetime import datetime
 from os import path, remove
 from tempfile import gettempdir
-from urllib.parse import quote, unquote, urlencode, urlparse
+from urllib.parse import quote, unquote, urlencode, urlparse, parse_qs
 
 import requests
 from flask import (abort, flash, redirect, render_template, request, session, url_for)
@@ -343,8 +343,6 @@ def link():
 @app.route("/auth/<path:url>")
 def orcid_callback_proxy(url):
     url = unquote(url)
-    app.logger.info(f"URL: {url}")
-    app.logger.info(f"ARGS: {request.args}")
     return redirect(append_qs(url, **request.args))
 
 
@@ -921,12 +919,7 @@ def orcid_login(invitation_token=None):
     READ LIMITED scope."""
 
     _next = get_next_url()
-    if EXTERNAL_SP:
-        sp_url = urlparse(EXTERNAL_SP)
-        redirect_uri = sp_url.scheme + "://" + sp_url.netloc + "/orcid/auth/" + quote(
-            url_for("orcid_login_callback", _next=_next, _external=True))
-    else:
-        redirect_uri = url_for("orcid_login_callback", _next=_next, _external=True)
+    redirect_uri = url_for("orcid_login_callback", _next=_next, _external=True)
 
     try:
         scope = SCOPE_AUTHENTICATE
@@ -951,10 +944,16 @@ def orcid_login(invitation_token=None):
 
             if user.is_tech_contact_of(org):
                 scope += SCOPE_READ_LIMITED
+            redirect_uri = append_qs(redirect_uri, invitation_token=invitation_token)
+            print("*** REDIRECT:", redirect_uri)
+
+        if EXTERNAL_SP:
+            sp_url = urlparse(EXTERNAL_SP)
+            redirect_uri = sp_url.scheme + "://" + sp_url.netloc + "/orcid/auth/" + quote(redirect_uri)
 
         client_write = OAuth2Session(ORCID_CLIENT_ID, scope=scope, redirect_uri=redirect_uri)
 
-        authorization_url, state = client_write.authorization_url(AUTHORIZATION_BASE_URL, state=invitation_token)
+        authorization_url, state = client_write.authorization_url(AUTHORIZATION_BASE_URL)
         # if the inviation token is preset use it as OAuth state
         session['oauth_state'] = state
 
@@ -981,6 +980,7 @@ def orcid_login_callback():
 
     state = request.args.get("state")
     invitation_token = request.args.get("invitation_token")
+
     if not state or state != session.get("oauth_state"):
         flash("Something went wrong, Please retry giving permissions or if issue persist then, "
               "Please contact ORCIDHUB for support", "danger")
