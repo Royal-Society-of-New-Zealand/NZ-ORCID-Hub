@@ -1140,16 +1140,19 @@ def orcid_login_callback():
         return redirect(url_for("login"))
 
 
-@app.route("/select/org/<int:org_id>")
+@app.route("/select/org/<int:user_org_id>")
 @login_required
-def select_org(org_id):
-    org_id = int(org_id)
+def select_org(user_org_id):
+    user_org_id = int(user_org_id)
     _next = get_next_url() or request.referrer or url_for("login")
     try:
-        uo = UserOrg.get(user_id=current_user.id, org_id=org_id)
-        current_user.organisation_id = uo.org_id
-        current_user.save()
+        uo = UserOrg.get(id=user_org_id)
+        if (uo.user.orcid == current_user.orcid or uo.user.email == current_user.email or
+            uo.user.eppn == current_user.eppn):
+            current_user.organisation_id = uo.org_id
+            current_user.save()
+        else:
+            flash("You are not permitted to switch to this organisation", "danger")
     except UserOrg.DoesNotExist:
-
         flash("Your are not related to this organisation.", "danger")
     return redirect(_next)
