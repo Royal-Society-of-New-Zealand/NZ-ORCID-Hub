@@ -1087,18 +1087,18 @@ def orcid_login_callback():
                         "Exception when calling MemberAPIV20Api->view_employments: %s\n" % message,
                         "danger")
                     flash(
-                        f"Cannot verify your email address. Please, change the access level to your "
-                        "organisation email address '{email}' to 'trusted parties'.")
-                    abort(401)
-            data = json.loads(api_response)
+                        f"Cannot verify your email address. Please, change the access level for your "
+                        f"organisation email address '{email}' to 'trusted parties'.", "danger")
+                    return redirect(url_for("login"))
+            data = json.loads(api_response.data)
             if data and data.get("email") and any(
                     e.get("email") == email for e in data.get("email")):
                 return redirect(_next or url_for("update_org_info"))
             else:
                 logout_user()
-                flash(f"Cannot verify your email address. Please, change the access level to your "
-                      "organisation email address '{email}' to 'trusted parties'.")
-                abort(401)
+                flash(f"Cannot verify your email address. Please, change the access level for your "
+                      f"organisation email address '{email}' to 'trusted parties'.", "danger")
+                return redirect(url_for("login"))
 
         elif not user.is_tech_contact_of(org) and invitation_token:
             scope = ",".join(token.get("scope", []))
@@ -1140,10 +1140,10 @@ def orcid_login_callback():
     except rfc6749.errors.MissingTokenError:
         flash("Missing token.", "danger")
         return redirect(url_for("login"))
-    except Exception as ex:
-        flash(f"Something went wrong contact orcidhub support for issue: {ex}", "danger")
-        app.logger.error(f"For {current_user} encountered exception: {ex}")
-        return redirect(url_for("login"))
+    # except Exception as ex:
+    #     flash(f"Something went wrong contact orcidhub support for issue: {ex}", "danger")
+    #     app.logger.error(f"For {current_user} encountered exception: {ex}")
+    #     return redirect(url_for("login"))
 
 
 @app.route("/select/org/<int:org_id>")
