@@ -868,10 +868,7 @@ def register_org(org_name,
                 url_for(
                     "orcid_login",
                     invitation_token=token,
-                    _next=url_for(
-                        "confirm_organisation",
-                        invitation_token=  # noqa: E251
-                        token))).short_id  # noqa: E251
+                    _next=url_for("confirm_organisation", invitation_token=token))).short_id
         else:
             short_id = Url.shorten(
                 url_for("confirm_organisation", invitation_token=token)).short_id
