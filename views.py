@@ -62,6 +62,8 @@ def about():
 def short_url(short_id):
     try:
         u = Url.get(short_id=short_id)
+        if request.args:
+            return redirect(utils.append_qs(u.url, **request.args))
         return redirect(u.url)
     except Url.DoesNotExist:
         abort(404)
@@ -843,8 +845,8 @@ def register_org(org_name,
             except Exception as ex:
                 app.logger.error("Encountered exception: %r", ex)
                 raise Exception(
-                    "Failed to assign the user as the technical contact to the organisation: %s" %
-                    str(ex), ex)
+                    f"Failed to assign the user as the technical contact to the organisation: {ex}",
+                    ex)
 
         try:
             user_org = UserOrg.get(user=user, org=org)
@@ -854,8 +856,7 @@ def register_org(org_name,
             except Exception as ex:
                 app.logger.error("Encountered exception: %r", ex)
                 raise Exception(
-                    "Failed to assign the user as an administrator to the organisation: %s" %
-                    str(ex), ex)
+                    f"Failed to assign the user as an administrator to the organisation: {ex}", ex)
         except UserOrg.DoesNotExist:
             user_org = UserOrg.create(user=user, org=org, is_admin=True)
 
