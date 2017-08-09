@@ -1028,7 +1028,7 @@ def orcid_login_callback():
                     f"User '{user}' attempted to affiliate with non-existing organisation {org_name}"
                 )
                 return redirect(url_for("login"))
-            if not user.is_tech_contact_of(org) and org.orcid_client_id and org.orcid_client_secret:
+            if not user.is_tech_contact_of(org) and org.orcid_client_id and org.orcid_secret:
                 orcid_client_id = org.orcid_client_id
                 orcid_client_secret = org.orcid_secret
 
