@@ -14,7 +14,7 @@ import zlib
 from datetime import datetime
 from os import path, remove
 from tempfile import gettempdir
-from urllib.parse import quote, unquote, urlencode, urlparse
+from urllib.parse import quote, unquote, urlparse
 
 import requests
 from flask import (abort, flash, redirect, render_template, request, session, url_for)
@@ -32,7 +32,7 @@ from config import (APP_DESCRIPTION, APP_NAME, APP_URL, AUTHORIZATION_BASE_URL, 
                     SCOPE_ACTIVITIES_UPDATE, SCOPE_AUTHENTICATE, SCOPE_READ_LIMITED, TOKEN_URL)
 from forms import OnboardingTokenForm, OrgConfirmationForm
 from login_provider import roles_required
-from models import (Affiliation, OrcidToken, Organisation, OrgInfo, OrgInvitation, Role, User,
+from models import (Affiliation, OrcidToken, Organisation, OrgInfo, OrgInvitation, Role, Url, User,
                     UserOrg)
 from swagger_client.rest import ApiException
 from utils import append_qs, confirm_token
@@ -343,7 +343,7 @@ def link():
 @app.route("/auth/<path:url>")
 def orcid_callback_proxy(url):
     url = unquote(url)
-    return redirect(url + '?' + urlencode(request.args))
+    return redirect(append_qs(url, **request.args))
 
 
 def is_emp_or_edu_record_present(access_token, affiliation_type, user):
@@ -585,14 +585,14 @@ def profile():
 
 
 @app.route("/confirm/organisation", methods=["GET", "POST"])
-@app.route("/confirm/organisation/<token>", methods=["GET", "POST"])
+@app.route("/confirm/organisation/<invitation_token>", methods=["GET", "POST"])
 @login_required
-def confirm_organisation(token=None):
+def confirm_organisation(invitation_token=None):
     """Registration confirmations.
 
     TODO: expand the spect as soon as the reqirements get sorted out.
     """
-    if token is None:
+    if invitation_token is None:
         form = OnboardingTokenForm()
         if form.validate_on_submit():
             return redirect(url_for("confirm_organisation", token=form.token.data))
@@ -600,17 +600,24 @@ def confirm_organisation(token=None):
         return render_template("missing_onboarding_token.html", form=form)
 
     client_secret_url = None
-    email = confirm_token(token)
+    data = confirm_token(invitation_token)
+    if isinstance(data, str):
+        email, org_name = data.split(';') if ";" in data else data, None
+    else:
+        email, org_name = data.get("email"), data.get("org_name")
     user = current_user
 
     if not email:
-        app.error("token '%s'", token)
+        app.error("token '%s'", invitation_token)
         app.login_manager.unauthorized()
     if user.email != email:
         app.logger.info("The invitation was send to %r and not to the email address: %r", email,
                         user.email)
         flash("This invitation to onboard the organisation wasn't sent to your email address...",
               "danger")
+        return redirect(url_for("login"))
+    if org_name and user.organisation.name != org_name:
+        flash(f"Wrong onganisation name {org_name}")
         return redirect(url_for("login"))
 
     # TODO: refactor this: user == current_user here no need to requery DB
@@ -687,7 +694,7 @@ def confirm_organisation(token=None):
                     flash("Failed to save organisation data: %s" % str(ex))
 
                 try:
-                    oi = OrgInvitation.get(token=token)
+                    oi = OrgInvitation.get(token=invitation_token)
                     oi.confirmed_at = datetime.now()
                     oi.save()
                 except OrgInvitation.DoesNotExist:
@@ -767,7 +774,6 @@ def logout():
     about SSO at the university.
     """
     org_name = session.get("shib_O")
-    auth_secret = session.get("auth_secret")
     try:
         logout_user()
     except Exception as ex:
@@ -776,7 +782,7 @@ def logout():
     session.clear()
     session["__invalidate__"] = True
 
-    if org_name or auth_secret:
+    if org_name:
         if EXTERNAL_SP:
             sp_url = urlparse(EXTERNAL_SP)
             sso_url_base = sp_url.scheme + "://" + sp_url.netloc
@@ -919,12 +925,7 @@ def orcid_login(invitation_token=None):
     READ LIMITED scope."""
 
     _next = get_next_url()
-    if EXTERNAL_SP:
-        sp_url = urlparse(EXTERNAL_SP)
-        redirect_uri = sp_url.scheme + "://" + sp_url.netloc + "/orcid/auth/" + quote(
-            url_for("orcid_login_callback", _next=_next, _external=True))
-    else:
-        redirect_uri = url_for("orcid_login_callback", _next=_next, _external=True)
+    redirect_uri = url_for("orcid_login_callback", _next=_next, _external=True)
 
     try:
         scope = SCOPE_AUTHENTICATE
@@ -942,11 +943,11 @@ def orcid_login(invitation_token=None):
             try:
                 org = Organisation.get(name=org_name)
 
-                if user.is_tech_contact_of(org):
-                    scope += SCOPE_READ_LIMITED
-                else:
-                    scope = SCOPE_ACTIVITIES_UPDATE + SCOPE_READ_LIMITED
+                if org.orcid_client_id:
                     client_id = org.orcid_client_id
+                    scope = SCOPE_ACTIVITIES_UPDATE + SCOPE_READ_LIMITED
+                else:
+                    scope += SCOPE_READ_LIMITED
 
                 redirect_uri = append_qs(redirect_uri, invitation_token=invitation_token)
             except Organisation.DoesNotExist:
@@ -956,9 +957,17 @@ def orcid_login(invitation_token=None):
                 )
                 return redirect(url_for("login"))
 
+        if EXTERNAL_SP:
+            sp_url = urlparse(EXTERNAL_SP)
+            u = Url.shorten(redirect_uri)
+            redirect_uri = url_for("short_url", short_id=u.short_id, _external=True)
+            redirect_uri = sp_url.scheme + "://" + sp_url.netloc + "/orcid/auth/" + quote(
+                redirect_uri)
+
         client_write = OAuth2Session(client_id, scope=scope, redirect_uri=redirect_uri)
 
         authorization_url, state = client_write.authorization_url(AUTHORIZATION_BASE_URL)
+        # if the inviation token is preset use it as OAuth state
         session['oauth_state'] = state
 
         orcid_authenticate_url = iri_to_uri(authorization_url)
@@ -999,8 +1008,7 @@ def orcid_login_callback():
     try:
         orcid_client_id = ORCID_CLIENT_ID
         orcid_client_secret = ORCID_CLIENT_SECRET
-        email = None
-        org_name = None
+        email = org_name = None
 
         if invitation_token:
             data = confirm_token(invitation_token)
@@ -1020,7 +1028,7 @@ def orcid_login_callback():
                     f"User '{user}' attempted to affiliate with non-existing organisation {org_name}"
                 )
                 return redirect(url_for("login"))
-            if not user.is_tech_contact_of(org):
+            if not user.is_tech_contact_of(org) and org.orcid_client_id and org.orcid_client_secret:
                 orcid_client_id = org.orcid_client_id
                 orcid_client_secret = org.orcid_secret
 
@@ -1058,6 +1066,7 @@ def orcid_login_callback():
             app.logger.error(
                 f"User '{user}' attempted to affiliate with non-existing organisation {org_name}")
             return redirect(url_for("login"))
+
         if user.is_tech_contact_of(org) and invitation_token:
             access_token = token.get("access_token")
             if not access_token:
@@ -1078,28 +1087,25 @@ def orcid_login_callback():
                         "Exception when calling MemberAPIV20Api->view_employments: %s\n" % message,
                         "danger")
                     flash(
-                        f"Cannot verify your email address. Please, change the access level to your "
-                        "organisation email address '{email}' to 'trusted parties'.")
-                    abort(401)
-            data = json.loads(api_response)
+                        f"Cannot verify your email address. Please, change the access level for your "
+                        f"organisation email address '{email}' to 'trusted parties'.", "danger")
+                    return redirect(url_for("login"))
+            data = json.loads(api_response.data)
             if data and data.get("email") and any(
                     e.get("email") == email for e in data.get("email")):
                 return redirect(_next or url_for("update_org_info"))
             else:
                 logout_user()
-                flash(f"Cannot verify your email address. Please, change the access level to your "
-                      "organisation email address '{email}' to 'trusted parties'.")
-                abort(401)
+                flash(f"Cannot verify your email address. Please, change the access level for your "
+                      f"organisation email address '{email}' to 'trusted parties'.", "danger")
+                return redirect(url_for("login"))
+
         elif not user.is_tech_contact_of(org) and invitation_token:
-            scope = ''
-            if len(token["scope"]) >= 1 and token["scope"][0] is not None:
-                scope = token["scope"][0]
-            else:
+            scope = ",".join(token.get("scope", []))
+            if not scope:
                 flash("Scope missing, contact orcidhub support", "danger")
                 app.logger.error("For %r encountered exception: Scope missing", current_user)
                 return redirect(url_for("login"))
-            if len(token["scope"]) >= 2 and token["scope"][1] is not None:
-                scope = scope + "," + token["scope"][1]
 
             orcid_token, orcid_token_found = OrcidToken.get_or_create(
                 user_id=user.id, org=user.organisation, scope=scope)
@@ -1134,10 +1140,10 @@ def orcid_login_callback():
     except rfc6749.errors.MissingTokenError:
         flash("Missing token.", "danger")
         return redirect(url_for("login"))
-    except Exception as ex:
-        flash(f"Something went wrong contact orcidhub support for issue: {ex}", "danger")
-        app.logger.error(f"For {current_user} encountered exception: {ex}")
-        return redirect(url_for("login"))
+    # except Exception as ex:
+    #     flash(f"Something went wrong contact orcidhub support for issue: {ex}", "danger")
+    #     app.logger.error(f"For {current_user} encountered exception: {ex}")
+    #     return redirect(url_for("login"))
 
 
 @app.route("/select/user_org/<int:user_org_id>")
