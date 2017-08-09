@@ -1000,7 +1000,7 @@ def orcid_login_callback():
                     f"User '{user}' attempted to affiliate with non-existing organisation {org_name}"
                 )
                 return redirect(url_for("login"))
-            if not user.is_tech_contact_of(org) and org.orcid_client_id and org.orcid_client_secret:
+            if not user.is_tech_contact_of(org) and org.orcid_client_id and org.orcid_secret:
                 orcid_client_id = org.orcid_client_id
                 orcid_client_secret = org.orcid_secret
 
@@ -1027,7 +1027,6 @@ def orcid_login_callback():
             user.name = token['name']
         if not user.confirmed:
             user.confirmed = True
-        user.save()
         login_user(user)
 
         # User is a technical conatct. We should verify email address
@@ -1065,6 +1064,7 @@ def orcid_login_callback():
             data = json.loads(api_response.data)
             if data and data.get("email") and any(
                     e.get("email") == email for e in data.get("email")):
+                user.save()
                 return redirect(_next or url_for("update_org_info"))
             else:
                 logout_user()
@@ -1086,6 +1086,7 @@ def orcid_login_callback():
             orcid_token.refresh_token = token["refresh_token"]
             with db.atomic():
                 try:
+                    user.save()
                     orcid_token.save()
                 except Exception as ex:
                     db.rollback()
@@ -1098,7 +1099,10 @@ def orcid_login_callback():
             try:
                 OrcidToken.get(user=user, org=org)
             except OrcidToken.DoesNotExist:
-                return redirect(url_for("link"))
+                if user.is_tech_contact_of(org):
+                    return redirect(_next or url_for("update_org_info"))
+                else:
+                    return redirect(url_for("link"))
         return redirect(url_for("profile"))
 
     except User.DoesNotExist:
