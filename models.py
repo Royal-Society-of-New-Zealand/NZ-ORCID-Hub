@@ -251,7 +251,8 @@ class Organisation(BaseModel, AuditMixin):
         """
         Organisation's users (query)
         """
-        return User.select().join(UserOrg, on=(UserOrg.user_id == User.id))
+        return User.select().join(
+            UserOrg, on=(UserOrg.user_id == User.id)).where(UserOrg.org == self)
 
     @property
     def admins(self):
@@ -610,7 +611,7 @@ class UserOrg(BaseModel, AuditMixin):
 
     user = ForeignKeyField(User, on_delete="CASCADE", index=True)
     org = ForeignKeyField(
-        Organisation, index=True, on_delete="CASCADE", verbose_name="Organisation")
+        Organisation, on_delete="CASCADE", index=True, verbose_name="Organisation")
 
     is_admin = BooleanField(
         default=False, help_text="User is an administrator for the organisation")
@@ -626,22 +627,28 @@ class UserOrg(BaseModel, AuditMixin):
     # access_token = CharField(max_length=120, unique=True, null=True)
 
     def save(self, *args, **kwargs):
-        """Consolidate user roles with the linke organisations before saving data."""
-        if self.is_dirty() and (self.is_admin != self.user.is_admin):
-            if self.is_admin or UserOrg.select().where((UserOrg.user_id == self.user_id) & (
-                    UserOrg.org_id != self.org_id) & UserOrg.is_admin).exists():  # noqa: E125
-                self.user.roles |= Role.ADMIN
-                app.logger.info(f"Added ADMIN role to user {self.user}")
-            else:
-                self.user.roles &= ~Role.ADMIN
-                app.logger.info(f"Revoked ADMIN role from user {self.user}")
-            self.user.save()
+        """Enforce foriegn key contraints and consolidate user
+        roles with the linke organisations before saving data."""
+        if self.is_dirty():
+            if self.field_is_updated("org"):
+                self.org  # just enforce re-querying
+            user = self.user
+            if self.is_admin != user.is_admin:
+                if self.is_admin or UserOrg.select().where((UserOrg.user_id == self.user_id) & (
+                        UserOrg.org_id != self.org_id) & UserOrg.is_admin).exists():  # noqa: E125
+                    user.roles |= Role.ADMIN
+                    app.logger.info(f"Added ADMIN role to user {user}")
+                else:
+                    user.roles &= ~Role.ADMIN
+                    app.logger.info(f"Revoked ADMIN role from user {user}")
+                user.save()
 
         return super().save(*args, **kwargs)
 
     class Meta:
         db_table = "user_org"
-        table_alias = "oa"
+        table_alias = "uo"
+        indexes = ((("user", "org"), True), )
 
 
 class OrcidToken(BaseModel, AuditMixin):
