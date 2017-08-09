@@ -10,6 +10,7 @@ import json
 import pickle
 import re
 import secrets
+import traceback
 import zlib
 from datetime import datetime
 from os import path, remove
@@ -165,7 +166,7 @@ def handle_login():
                 f"the user has logged in with secondary email addresses: {secondary_emails}")
 
     except Exception as ex:
-        app.logger.error("Encountered exception: %r", ex)
+        app.logger.exception()
         abort(500, ex)
 
     if unscoped_affiliation:
@@ -203,7 +204,7 @@ def handle_login():
             org.save()
         except Exception as ex:
             flash("Failed to save organisation data: %s" % str(ex))
-            app.logger.error("Exception Occured: %r", str(ex))
+            app.logger.exception()
 
     try:
         user = User.get(User.email == email)
@@ -244,6 +245,7 @@ def handle_login():
         user.save()
     except Exception as ex:
         flash("Failed to save user data: %s" % str(ex))
+        app.logger.exception()
 
     login_user(user)
     app.logger.info("User %r from %r logged in.", user, org)
@@ -335,7 +337,7 @@ def link():
             "linking.html", orcid_url_write=orcid_url_write, orcid_base_url=ORCID_BASE_URL)
     except Exception as ex:
         flash("Unhandled Exception occured: %s" % str(ex))
-        app.logger.error("Exception Occured: %r", str(ex))
+        app.logger.exception()
     return redirect(url_for("profile"))
 
 
@@ -377,7 +379,7 @@ def is_emp_or_edu_record_present(access_token, affiliation_type, user):
             user, apiex)
         return False
     except Exception as e:
-        app.logger.error("Failed to retrive employment and education entries: %r.", str(e))
+        app.logger.exception()
         return False
     return False
 
@@ -428,7 +430,7 @@ def orcid_callback():
         return redirect(url_for("login"))
     except Exception as ex:
         flash("Something went wrong contact orcidhub support for issue: %s" % str(ex))
-        app.logger.error("For %r encountered exception: %r", current_user, ex)
+        app.logger.exception(f"For {current_user} encountered exception")
         return redirect(url_for("login"))
 
     # At this point you can fetch protected resources but lets save
@@ -464,7 +466,7 @@ def orcid_callback():
         except Exception as ex:
             db.rollback()
             flash("Failed to save data: %s" % str(ex))
-            app.logger.error("Exception Occured: %r", str(ex))
+            app.logger.exception()
 
     app.logger.info("User %r authorized %r to have %r access to the profile "
                     "and now trying to update employment or education record", user,
@@ -562,6 +564,7 @@ def profile():
 
     except Exception as ex:
         # TODO: need to handle this
+        app.logger.exception()
         flash("Unhandled Exception occured: %s" % ex, "danger")
         return redirect(url_for("login"))
     else:
@@ -627,7 +630,7 @@ def confirm_organisation(invitation_token=None):
             user.save()
             app.logger.info("Onboarding is complete for user: %r", user)
         except Exception as ex:
-            app.logger.error("Exception occured: %r", str(ex))
+            app.logger.exception()
             flash("Failed to save user data: %s" % str(ex))
         with app.app_context():
             msg = Message("Welcome to the NZ ORCID Hub", recipients=[email])
@@ -690,7 +693,7 @@ def confirm_organisation(invitation_token=None):
                 try:
                     organisation.save()
                 except Exception as ex:
-                    app.logger.error("Exception Occured: %r", str(ex))
+                    app.logger.exception()
                     flash("Failed to save organisation data: %s" % str(ex))
 
                 try:
@@ -709,7 +712,7 @@ def confirm_organisation(invitation_token=None):
                 organisation.save()
             except Exception as ex:
                 flash("Failed to save organisation data: %s" % str(ex))
-                app.logger.error("Exception Occured: %r", str(ex))
+                app.logger.exception()
         elif organisation is not None and organisation.is_email_confirmed:
             flash(
                 "We have noted that you came on orcidhub through the email link, which is now unneccessary. "
@@ -739,7 +742,7 @@ def confirm_organisation(invitation_token=None):
         organisation.save()
     except Exception as ex:
         flash("Failed to save organisation data: %s" % str(ex))
-        app.logger.error("Exception Occured: %r", str(ex))
+        app.logger.exception()
     redirect_uri = url_for("orcid_callback", _external=True)
     client_secret_url = append_qs(
         iri_to_uri(MEMBER_API_FORM_BASE_URL),
@@ -777,7 +780,7 @@ def logout():
     try:
         logout_user()
     except Exception as ex:
-        app.logger.error("Failed to logout: %s", ex)
+        app.logger.exception()
 
     session.clear()
     session["__invalidate__"] = True
@@ -874,7 +877,7 @@ def update_org_info():
                     try:
                         organisation.save()
                     except Exception as ex:
-                        app.logger.error("Exception occured due to: %r", str(ex))
+                        app.logger.exception()
                         flash("Failed to save organisation data: %s" % str(ex))
                     return redirect(url_for("link"))
 
@@ -896,7 +899,7 @@ def update_org_info():
     try:
         organisation.save()
     except Exception as ex:
-        app.logger.error("Exception occured due to: %r", str(ex))
+        app.logger.exception()
         flash("Failed to save organisation data: %s" % str(ex))
     return render_template('orgconfirmation.html', client_secret_url=client_secret_url, form=form)
 
@@ -910,8 +913,9 @@ def generateRow(users):
 
 @app.errorhandler(500)
 def internal_error(error):
-    app.logger.error("Exception 500 occured due to: %r", error)
-    return render_template("http500.html", error_message=str(error))
+    app.logger.exception()
+    trace = traceback.format_exc()
+    return render_template("http500.html", error_message=str(error), trace=trace)
 
 
 @app.route("/orcid/login/")
@@ -982,7 +986,7 @@ def orcid_login(invitation_token=None):
 
     except Exception as ex:
         flash("Something went wrong contact orcidhub support!", "danger")
-        app.logger.error("Encountered exception: %r", ex)
+        app.logger.exception()
         return redirect(url_for("login"))
 
 
@@ -1096,8 +1100,9 @@ def orcid_login_callback():
                 return redirect(_next or url_for("update_org_info"))
             else:
                 logout_user()
-                flash(f"Cannot verify your email address. Please, change the access level for your "
-                      f"organisation email address '{email}' to 'trusted parties'.", "danger")
+                flash(
+                    f"Cannot verify your email address. Please, change the access level for your "
+                    f"organisation email address '{email}' to 'trusted parties'.", "danger")
                 return redirect(url_for("login"))
 
         elif not user.is_tech_contact_of(org) and invitation_token:
@@ -1117,7 +1122,7 @@ def orcid_login_callback():
                 except Exception as ex:
                     db.rollback()
                     flash("Failed to save data: %s" % str(ex))
-                    app.logger.error("Exception Occured: %r", str(ex))
+                    app.logger.exception()
 
         if _next:
             return redirect(_next)
@@ -1140,10 +1145,10 @@ def orcid_login_callback():
     except rfc6749.errors.MissingTokenError:
         flash("Missing token.", "danger")
         return redirect(url_for("login"))
-    # except Exception as ex:
-    #     flash(f"Something went wrong contact orcidhub support for issue: {ex}", "danger")
-    #     app.logger.error(f"For {current_user} encountered exception: {ex}")
-    #     return redirect(url_for("login"))
+    except Exception as ex:
+        flash(f"Something went wrong contact orcidhub support for issue: {ex}", "danger")
+        app.logger.exception()
+        return redirect(url_for("login"))
 
 
 @app.route("/select/user_org/<int:user_org_id>")
