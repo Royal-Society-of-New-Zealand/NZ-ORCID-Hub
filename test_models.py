@@ -79,14 +79,14 @@ def test_user_uuid():
 
 def test_user_org_link_user_constraint(test_models):
     org = Organisation.get(id=1)
-    uo = UserOrg(user=999999, org=org)
+    uo = UserOrg(user_id=999999, org=org)
     with pytest.raises(User.DoesNotExist):
         uo.save()
 
 
 def test_user_org_link_org_constraint(test_models):
     user = User.get(id=1)
-    uo = UserOrg(user=user, org=999999)
+    uo = UserOrg(user=user, org_id=999999)
     with pytest.raises(Organisation.DoesNotExist):
         uo.save()
 
