@@ -595,57 +595,6 @@ def confirm_organisation(invitation_token=None):
 
     TODO: expand the spect as soon as the reqirements get sorted out.
     """
-    if invitation_token is None:
-        form = OnboardingTokenForm()
-        if form.validate_on_submit():
-            return redirect(url_for("confirm_organisation", token=form.token.data))
-
-        return render_template("missing_onboarding_token.html", form=form)
-
-    client_secret_url = None
-    data = confirm_token(invitation_token)
-    if isinstance(data, str):
-        email, org_name = data.split(';') if ";" in data else data, None
-    else:
-        email, org_name = data.get("email"), data.get("org_name")
-    user = current_user
-
-    if not email:
-        app.error("token '%s'", invitation_token)
-        app.login_manager.unauthorized()
-    if user.email != email:
-        app.logger.info("The invitation was send to %r and not to the email address: %r", email,
-                        user.email)
-        flash("This invitation to onboard the organisation wasn't sent to your email address...",
-              "danger")
-        return redirect(url_for("login"))
-    if org_name and user.organisation.name != org_name:
-        flash(f"Wrong onganisation name {org_name}")
-        return redirect(url_for("login"))
-
-    # TODO: refactor this: user == current_user here no need to requery DB
-    user = User.get(email=current_user.email, organisation=current_user.organisation)
-    if not user.is_tech_contact_of():
-        try:
-            user.save()
-            app.logger.info("Onboarding is complete for user: %r", user)
-        except Exception as ex:
-            app.logger.exception()
-            flash("Failed to save user data: %s" % str(ex))
-        with app.app_context():
-            msg = Message("Welcome to the NZ ORCID Hub", recipients=[email])
-            msg.body = "Congratulations you are confirmed as an Organisation Admin for " + str(
-                user.organisation)
-            mail.send(msg)
-            flash(
-                "Your registration is completed; however, if they've not yet done so it is the responsibility of your "
-                "Technical Contact to complete onboarding by entering your organisation's ORCID API credentials.",
-                "success")
-        return redirect(url_for('viewmembers.index_view'))
-
-    # TODO: support for mutliple orgs and admins
-    # TODO: admin role asigning to an exiting user
-    form = OrgConfirmationForm()
     try:
         organisation = Organisation.get(name=current_user.organisation.name)
     except Organisation.DoesNotExist:
@@ -653,67 +602,42 @@ def confirm_organisation(invitation_token=None):
               'please contact ORCID HUB Admin!', "danger")
         return redirect(url_for("login"))
 
-    if form.validate_on_submit():
-        if not (user is None or organisation is None):
-            # Update Organisation
-            organisation.country = form.country.data
-            organisation.city = form.city.data
-            organisation.disambiguation_org_id = form.disambiguation_org_id.data
-            organisation.disambiguation_org_source = form.disambiguation_org_source.data
-            organisation.is_email_confirmed = True
+    if not current_user.is_tech_contact_of():
+        flash(f"You are not the technical contact of {organisation}", "danger")
+        return redirect(url_for('viewmembers.index_view'))
 
-            headers = {'Accept': 'application/json'}
-            data = [
-                ('client_id', form.orgOricdClientId.data),
-                ('client_secret', form.orgOrcidClientSecret.data),
-                ('scope', '/read-public'),
-                ('grant_type', 'client_credentials'),
-            ]
+    if invitation_token is None:
+        form = OnboardingTokenForm()
+        if form.validate_on_submit():
+            return redirect(url_for("confirm_organisation", token=form.token.data))
+        return render_template("missing_onboarding_token.html", form=form)
 
-            response = requests.post(TOKEN_URL, headers=headers, data=data)
+    data = confirm_token(invitation_token)
+    if isinstance(data, str):
+        email, org_name = data.split(';') if ";" in data else data, None
+    else:
+        email, org_name = data.get("email"), data.get("org_name")
+    user = current_user
 
-            if response.status_code == 401:
-                flash("Something is wrong! The Client id and Client Secret are not valid!\n"
-                      "Please recheck and contact Hub support if this error continues", "danger")
-            else:
-                organisation.confirmed = True
-                organisation.orcid_client_id = form.orgOricdClientId.data.strip()
-                organisation.orcid_secret = form.orgOrcidClientSecret.data.strip()
+    # validate the invitation token
+    if not email:
+        app.error(f"TOKEN {invitation_token} invalid")
+        app.login_manager.unauthorized()
+    if user.email != email:
+        app.logger.info(
+            f"The invitation was send to {email} and not to the email address {user.email}")
+        flash("This invitation to onboard the organisation wasn't sent to your email address...",
+              "danger")
+        return redirect(url_for("login"))
+    if org_name and user.organisation.name != org_name:
+        flash(f"Wrong onganisation name {org_name}")
+        return redirect(url_for("login"))
 
-                with app.app_context():
-                    # TODO: shouldn't it be also 'nicified'?
-                    msg = Message("Welcome to the NZ ORCID Hub - Success", recipients=[email])
-                    msg.body = ("Congratulations! Your identity has been confirmed and "
-                                "your organisation onboarded successfully.\n"
-                                "Any researcher from your organisation can now use the Hub")
-                    mail.send(msg)
-                    app.logger.info("For %r Onboarding is Completed!", current_user)
-                    flash("Your Onboarding is Completed!", "success")
-
-                try:
-                    organisation.save()
-                except Exception as ex:
-                    app.logger.exception()
-                    flash("Failed to save organisation data: %s" % str(ex))
-
-                try:
-                    oi = OrgInvitation.get(token=invitation_token)
-                    oi.confirmed_at = datetime.now()
-                    oi.save()
-                except OrgInvitation.DoesNotExist:
-                    pass
-
-                return redirect(url_for("link"))
-
-    elif request.method == 'GET':
-        if organisation is not None and not organisation.is_email_confirmed:
-            organisation.is_email_confirmed = True
-            try:
-                organisation.save()
-            except Exception as ex:
-                flash("Failed to save organisation data: %s" % str(ex))
-                app.logger.exception()
-        elif organisation is not None and organisation.is_email_confirmed:
+    # TODO: support for mutliple orgs and admins
+    # TODO: admin role asigning to an exiting user
+    form = OrgConfirmationForm()
+    if request.method == "GET":
+        if organisation.is_email_confirmed:
             flash(
                 "We have noted that you came on orcidhub through the email link, which is now unneccessary. "
                 "You should be able to login on orcidhub directly by visiting our orcidhub's website",
@@ -738,11 +662,6 @@ def confirm_organisation(invitation_token=None):
             pass
         organisation.country = form.country.data
 
-    try:
-        organisation.save()
-    except Exception as ex:
-        flash("Failed to save organisation data: %s" % str(ex))
-        app.logger.exception()
     redirect_uri = url_for("orcid_callback", _external=True)
     client_secret_url = append_qs(
         iri_to_uri(MEMBER_API_FORM_BASE_URL),
@@ -756,6 +675,58 @@ def confirm_organisation(invitation_token=None):
         app_description=APP_DESCRIPTION + user.organisation.name + "and its researchers",
         app_url=APP_URL,
         redirect_uri_1=redirect_uri)
+
+    if form.validate_on_submit():
+        organisation.country = form.country.data
+        organisation.city = form.city.data
+        organisation.disambiguation_org_id = form.disambiguation_org_id.data
+        organisation.disambiguation_org_source = form.disambiguation_org_source.data
+        organisation.is_email_confirmed = True
+
+        headers = {'Accept': 'application/json'}
+        data = [
+            ('client_id', form.orgOricdClientId.data),
+            ('client_secret', form.orgOrcidClientSecret.data),
+            ('scope', '/read-public'),
+            ('grant_type', 'client_credentials'),
+        ]
+
+        response = requests.post(TOKEN_URL, headers=headers, data=data)
+
+        if response.status_code == 401:
+            flash("Something is wrong! The Client id and Client Secret are not valid!\n"
+                  "Please recheck and contact Hub support if this error continues", "danger")
+        else:
+            organisation.confirmed = True
+            organisation.is_email_confirmed = True
+            organisation.orcid_client_id = form.orgOricdClientId.data.strip()
+            organisation.orcid_secret = form.orgOrcidClientSecret.data.strip()
+
+            with app.app_context():
+                # TODO: shouldn't it be also 'nicified'?
+                msg = Message("Welcome to the NZ ORCID Hub - Success", recipients=[email])
+                msg.body = ("Congratulations! Your identity has been confirmed and "
+                            "your organisation onboarded successfully.\n"
+                            "Any researcher from your organisation can now use the Hub")
+                mail.send(msg)
+                app.logger.info("For %r Onboarding is Completed!", current_user)
+                flash("Your Onboarding is Completed!", "success")
+
+            try:
+                organisation.save()
+            except Exception as ex:
+                app.logger.exception("Failed to save organisation data")
+                flash("Failed to save organisation data: %s" % str(ex))
+
+            try:
+                oi = OrgInvitation.get(token=invitation_token)
+                oi.confirmed_at = datetime.now()
+                oi.save()
+            except OrgInvitation.DoesNotExist:
+                pass
+
+            return redirect(url_for("link"))
+
     return render_template('orgconfirmation.html', client_secret_url=client_secret_url, form=form)
 
 
@@ -810,6 +781,17 @@ in order to complete the log-out.""", "warning")
 @app.route("/updateorginfo", methods=["GET", "POST"])
 @roles_required(Role.ADMIN)
 def update_org_info():
+    # TODO: refactor and merge with confirm organisation
+    try:
+        organisation = Organisation.get(tech_contact_id=current_user.id)
+    except Organisation.DoesNotExist:
+        flash("It appears that you are not the technical contact for your organisaton.", "danger")
+        return redirect(url_for("login"))
+
+    if current_user.is_tech_contact_of():
+        flash(f"You are not the technical contact of {organisation}", "danger")
+        return redirect(url_for("login"))
+
     email = current_user.email
     user = User.get(email=current_user.email, organisation=current_user.organisation)
     form = OrgConfirmationForm()
@@ -827,80 +809,66 @@ def update_org_info():
         app_url=APP_URL,
         redirect_uri_1=redirect_uri)
 
-    try:
-        organisation = Organisation.get(tech_contact_id=current_user.id)
-    except Organisation.DoesNotExist:
-        flash("It appears that you are not the technical contact for your organisaton.", "danger")
-        return redirect(url_for("login"))
-    if request.method == "POST":
-        if not form.validate():
-            flash("Please fill in all fields and try again!", "danger")
-        else:
-            organisation = Organisation.get(tech_contact_id=current_user.id)
-            if (not (user is None) and (not (organisation is None))):
-                # Update Organisation
-                organisation.country = form.country.data
-                organisation.city = form.city.data
-                organisation.disambiguation_org_id = form.disambiguation_org_id.data
-                organisation.disambiguation_org_source = form.disambiguation_org_source.data
-
-                headers = {"Accept": "application/json"}
-                data = [
-                    ("client_id", form.orgOricdClientId.data),
-                    ("client_secret", form.orgOrcidClientSecret.data),
-                    ("scope", "/read-public"),
-                    ("grant_type", "client_credentials"),
-                ]
-
-                response = requests.post(TOKEN_URL, headers=headers, data=data)
-
-                if response.status_code == 401:
-                    flash("Something is wrong! The Client id and Client Secret are not valid!"
-                          "\n Please recheck and contact Hub support if this error continues",
-                          "danger")
-                else:
-
-                    organisation.orcid_client_id = form.orgOricdClientId.data
-                    organisation.orcid_secret = form.orgOrcidClientSecret.data
-                    if not organisation.confirmed:
-                        organisation.confirmed = True
-                        with app.app_context():
-                            msg = Message(
-                                "Welcome to the NZ ORCID Hub - Success", recipients=[email])
-                            msg.body = "Congratulations! Your identity has been confirmed and " \
-                                       "your organisation onboarded successfully.\n" \
-                                       "Any researcher from your organisation can now use the Hub"
-                            mail.send(msg)
-                        flash("Your Onboarding is Completed!", "success")
-                    else:
-                        flash("Organisation information updated successfully!", "success")
-                    try:
-                        organisation.save()
-                    except Exception as ex:
-                        app.logger.exception()
-                        flash("Failed to save organisation data: %s" % str(ex))
-                    return redirect(url_for("link"))
-
-    elif request.method == 'GET':
-
+    if request.method == 'GET':
+        # TODO: consolidate form field names with the model!
         form.orgName.data = user.organisation.name
+        # TODO: consolidate form field names with the model!
         form.orgEmailid.data = user.email
 
         form.city.data = user.organisation.city
         form.country.data = user.organisation.country
         form.disambiguation_org_id.data = user.organisation.disambiguation_org_id
         form.disambiguation_org_source.data = user.organisation.disambiguation_org_source
+        # TODO: consolidate form field names with the model!
         form.orgOricdClientId.data = user.organisation.orcid_client_id
+        # TODO: consolidate form field names with the model!
         form.orgOrcidClientSecret.data = user.organisation.orcid_secret
-
+        # TODO: consolidate form field names with the model!
         form.orgName.render_kw = {'readonly': True}
+        # TODO: consolidate form field names with the model!
         form.orgEmailid.render_kw = {'readonly': True}
 
-    try:
-        organisation.save()
-    except Exception as ex:
-        app.logger.exception()
-        flash("Failed to save organisation data: %s" % str(ex))
+    if form.validate_on_submit():
+        # Update Organisation
+        organisation.country = form.country.data
+        organisation.city = form.city.data
+        organisation.disambiguation_org_id = form.disambiguation_org_id.data
+        organisation.disambiguation_org_source = form.disambiguation_org_source.data
+
+        headers = {"Accept": "application/json"}
+        data = [
+            ("client_id", form.orgOricdClientId.data),
+            ("client_secret", form.orgOrcidClientSecret.data),
+            ("scope", "/read-public"),
+            ("grant_type", "client_credentials"),
+        ]
+
+        response = requests.post(TOKEN_URL, headers=headers, data=data)
+
+        if response.status_code == 401:
+            flash("Something is wrong! The Client id and Client Secret are not valid!"
+                  "\n Please recheck and contact Hub support if this error continues", "danger")
+        else:
+            organisation.orcid_client_id = form.orgOricdClientId.data
+            organisation.orcid_secret = form.orgOrcidClientSecret.data
+            if not organisation.confirmed:
+                organisation.confirmed = True
+                with app.app_context():
+                    msg = Message("Welcome to the NZ ORCID Hub - Success", recipients=[email])
+                    msg.body = "Congratulations! Your identity has been confirmed and " \
+                               "your organisation onboarded successfully.\n" \
+                               "Any researcher from your organisation can now use the Hub"
+                    mail.send(msg)
+                flash("Your Onboarding is Completed!", "success")
+            else:
+                flash("Organisation information updated successfully!", "success")
+            try:
+                organisation.save()
+            except Exception as ex:
+                app.logger.exception()
+                flash("Failed to save organisation data: %s" % str(ex))
+            return redirect(url_for("link"))
+
     return render_template('orgconfirmation.html', client_secret_url=client_secret_url, form=form)
 
 
