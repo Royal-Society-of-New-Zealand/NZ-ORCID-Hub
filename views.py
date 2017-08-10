@@ -283,7 +283,7 @@ class OrgInfoAdmin(AppModelView):
                 count += 1
             except Exception as ex:
                 flash("Failed to send an invitation to %s: %s" % (oi.email, ex))
-                app.logger.error("Exception Occured: %r", str(ex))
+                app.logger.exception()
 
         flash("%d invitations were sent successfully." % count)
 
@@ -346,7 +346,7 @@ class AffiliationRecordAdmin(AppModelView):
                         count += 1
         except Exception as ex:
             flash(f"Failed to activate the selected records: {ex}")
-            app.logger.error(f"Exception Occured: {ex}")
+            app.logger.exception()
 
         flash(f"{count} records were activated for batch processing.")
 
@@ -538,7 +538,6 @@ def edit_section_record(user_id, put_code=None, section_type="EMP"):
             message = json.loads(e.body.replace("''", "\"")).get('user-messsage')
             print("Exception when calling MemberAPIV20Api->view_employment: %s\n" % message)
         except Exception as ex:
-            app.logger.error("For %r encountered exception: %r", user, ex)
             abort(500, ex)
     else:
         data = SectionRecord(name=org.name, city=org.city, country=org.country)
@@ -621,9 +620,8 @@ def edit_section_record(user_id, put_code=None, section_type="EMP"):
         except ApiException as e:
             message = json.loads(e.body.replace("''", "\"")).get('user-messsage')
             flash("Failed to update the entry: %s." % message, "danger")
-            app.logger.error("For %r Exception encountered: %r", user, e)
+            app.logger.exception(f"For {user} exception encountered")
         except Exception as ex:
-            app.logger.error("For %r encountered exception: %r", user, ex)
             abort(500, ex)
 
     return render_template("profile_entry.html", section_type=section_type, form=form, _url=_url)
@@ -684,7 +682,6 @@ def show_record_section(user_id, section_type="EMP"):
                   "danger")
         return redirect(_url)
     except Exception as ex:
-        app.logger.error("For %r encountered exception: %r", user, ex)
         abort(500, ex)
 
     # TODO: Organisation has read token
@@ -695,7 +692,7 @@ def show_record_section(user_id, section_type="EMP"):
     except Exception as ex:
         flash("User didn't give permissions to update his/her records", "warning")
         flash("Unhandled exception occured while retrieving ORCID data: %s" % ex, "danger")
-        app.logger.error("For %r encountered exception: %r", user, ex)
+        app.logger.exception(f"For {user} encountered exception")
         return redirect(_url)
     # TODO: transform data for presentation:
     if section_type == "EMP":
@@ -808,8 +805,8 @@ def register_org(org_name,
         try:
             org.save()
         except Exception as ex:
-            app.logger.error("Encountered exception: %r", ex)
-            raise Exception("Failed to save organisation data: %s" % str(ex), ex)
+            app.logger.exception("Failed to save organisation data")
+            raise
 
         try:
             user = User.get(email=email)
@@ -833,8 +830,8 @@ def register_org(org_name,
         try:
             user.save()
         except Exception as ex:
-            app.logger.error("Encountered exception: %r", ex)
-            raise Exception("Failed to save user data: %s" % str(ex), ex)
+            app.logger.exception("Failed to save user data")
+            raise
 
         if tech_contact:
             user.roles |= Role.TECHNICAL
@@ -843,20 +840,18 @@ def register_org(org_name,
                 user.save()
                 org.save()
             except Exception as ex:
-                app.logger.error("Encountered exception: %r", ex)
-                raise Exception(
-                    f"Failed to assign the user as the technical contact to the organisation: {ex}",
-                    ex)
-
+                app.logger.exception(
+                    "Failed to assign the user as the technical contact to the organisation")
+                raise
         try:
             user_org = UserOrg.get(user=user, org=org)
             user_org.is_admin = True
             try:
                 user_org.save()
             except Exception as ex:
-                app.logger.error("Encountered exception: %r", ex)
-                raise Exception(
-                    f"Failed to assign the user as an administrator to the organisation: {ex}", ex)
+                app.logger.exception(
+                    "Failed to assign the user as an administrator to the organisation")
+                raise
         except UserOrg.DoesNotExist:
             user_org = UserOrg.create(user=user, org=org, is_admin=True)
 
@@ -868,10 +863,9 @@ def register_org(org_name,
                 url_for(
                     "orcid_login",
                     invitation_token=token,
-                    _next=url_for("confirm_organisation", invitation_token=token))).short_id
+                    _next=url_for("onboard_org", invitation_token=token))).short_id
         else:
-            short_id = Url.shorten(
-                url_for("confirm_organisation", invitation_token=token)).short_id
+            short_id = Url.shorten(url_for("onboard_org", invitation_token=token)).short_id
 
         utils.send_email(
             "email/org_invitation.html",
@@ -886,8 +880,8 @@ def register_org(org_name,
         try:
             org.save()
         except Exception as ex:
-            app.logger.error("Encountered exception: %r", ex)
-            raise Exception("Failed to save organisation data: %s" % str(ex), ex)
+            app.logger.exception("Failed to save organisation data")
+            raise
 
         OrgInvitation.create(
             inviter_id=current_user.id, invitee_id=user.id, email=user.email, org=org, token=token)
@@ -919,7 +913,7 @@ def invite_organisation():
             app.logger.info("Organisation '%s' successfully invited. Invitation sent to '%s'." %
                             (form.org_name.data, form.org_email.data))
         except Exception as ex:
-            app.logger.error("Encountered exception: %r", ex)
+            app.logger.exception()
             flash(str(ex), "danger")
 
     return render_template(

@@ -246,9 +246,9 @@ class OrgRegistrationForm(FlaskForm):
 
 
 class OrgConfirmationForm(FlaskForm):
-    orgName = StringField('Organisation Name', validators=[DataRequired()])
-    orgEmailid = EmailField('Organisation EmailId', validators=[DataRequired(), Email()])
-    orgOricdClientId = StringField(
+    name = StringField('Organisation Name', validators=[DataRequired()])
+    email = EmailField('Organisation EmailId', validators=[DataRequired(), Email()])
+    orcid_client_id = StringField(
         'Organisation Orcid Client Id: ',
         validators=[
             DataRequired(),
@@ -259,7 +259,7 @@ class OrgConfirmationForm(FlaskForm):
                          "'APP-(sequence of digits or uppercase characters), "
                          "for example, 'APP-FDFN3F52J3M4L34S'.")),
         ])
-    orgOrcidClientSecret = StringField(
+    orcid_secret = StringField(
         'Organisation Orcid Client Secret: ',
         validators=[
             DataRequired(), Regexp(r"^\S+$", message="The value shouldn't contain any spaces"),
