@@ -401,6 +401,8 @@ def create_or_update_affiliation(user, org_id, records, *args, **kwargs):
             rec.end_date = affiliation_record.end_date.as_orcid_dict()
 
         # TODO: need to check if the entry doesn't exist already: if it does then only update
+        # TODO: handle 'update' cases when put-code is preset
+        # TODO: handle updates when entry is partial (missing role, time ranges, department etc....)
         try:
             if a == Affiliation.EMP:
 
@@ -415,7 +417,9 @@ def create_or_update_affiliation(user, org_id, records, *args, **kwargs):
                 app.logger.info("For %r not able to determine affiliaton type with %r",
                                 user, org)
                 continue
-                # TODO: Save the put-code in db table
+            # TODO: Save the put-code in db table
+            # TODO: update "status"
+            # TODO: handle exception cases and update "status" accordingly
             task_by_user.affiliation_record.processed_at = datetime.now()
             task_by_user.affiliation_record.save()
 
