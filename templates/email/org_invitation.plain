@@ -10,7 +10,7 @@ Please either click on the link below to confirm your role as this organisation'
 You are invited to be an Organisation Administrator for {{org_name}} on the NZ ORCID Hub.
 To confirm your acceptance of this role, please either click on the link below:
 {% endif %}
-<{{ url_for('confirm_organisation', token=token, _external=True) | shorturl }}>
+<{{ url_for('onboard_org', token=token, _external=True) | shorturl }}>
 
 If you received this email in error, or you have questions about the responsibilities involved, please contact:
 <orcid@royalsociety.org.nz>

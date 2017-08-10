@@ -412,8 +412,7 @@ def create_or_update_affiliation(user, org_id, records, *args, **kwargs):
 
                 app.logger.info("For %r the ORCID education record was updated from %r", user, org)
             else:
-                app.logger.info("For %r not able to determine affiliaton type with %r",
-                                user, org)
+                app.logger.info("For %r not able to determine affiliaton type with %r", user, org)
                 continue
                 # TODO: Save the put-code in db table
             task_by_user.affiliation_record.processed_at = datetime.now()
