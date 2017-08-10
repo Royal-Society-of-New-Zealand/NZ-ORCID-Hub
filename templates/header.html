@@ -64,7 +64,7 @@
                     {% endif %}
                   {% endif %}
                   {% if current_user.is_tech_contact_of(current_user.organisation) %}
-                    <li id="updateorginfo"><a href="/updateorginfo">
+                    <li id="onboard_org"><a href="{{ url_for('onboard_org')}}">
                         <span data-toggle="tooltip" data-placement="bottom" title="View your organisation's ORCID information">Your Organisation</span></a></li>
                   {% endif %}
                   {% if current_user.has_role("SUPERUSER") %}
