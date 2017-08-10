@@ -554,7 +554,7 @@ class OrgInvitation(BaseModel, AuditMixin):
     """Organisation invitation to on-board the Hub."""
 
     invitee = ForeignKeyField(
-        User, on_delete="SET NULL", null=True, related_name="received_org_invitations")
+        User, on_delete="CASCADE", null=True, related_name="received_org_invitations")
     inviter = ForeignKeyField(
         User, on_delete="SET NULL", null=True, related_name="sent_org_invitations")
     org = ForeignKeyField(Organisation, on_delete="SET NULL", verbose_name="Organisation")
@@ -574,11 +574,11 @@ class UserInvitation(BaseModel, AuditMixin):
     """Organisation invitation to on-board the Hub."""
 
     invitee = ForeignKeyField(
-        User, on_delete="SET NULL", null=True, related_name="received_user_invitations")
+        User, on_delete="CASCADE", null=True, related_name="received_user_invitations")
     inviter = ForeignKeyField(
         User, on_delete="SET NULL", null=True, related_name="sent_user_invitations")
     org = ForeignKeyField(
-        Organisation, on_delete="SET NULL", null=True, verbose_name="Organisation")
+        Organisation, on_delete="CASCADE", null=True, verbose_name="Organisation")
 
     email = TextField(index=True, help_text="The email address the invitation was sent to.")
     first_name = TextField(verbose_name="First Name")
