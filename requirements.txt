@@ -6,6 +6,7 @@ psycopg2
 peewee
 flask-login
 Flask-WTF
+emails
 flask_mail
 inotify
 flask-admin
