@@ -938,8 +938,8 @@ def generateRow(users):
 
 @app.errorhandler(500)
 def internal_error(error):
-    app.logger.error("Exception 500 occured due to: %r", error.description)
-    return render_template("http500.html", error_message=error.description)
+    app.logger.exception("Exception 500 occured.")
+    return render_template("http500.html", error_message=str(error))
 
 
 @app.route("/orcid/login/", methods=["GET", "POST"])
