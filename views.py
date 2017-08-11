@@ -864,15 +864,16 @@ def register_org(org_name,
                     "orcid_login",
                     invitation_token=token,
                     _next=url_for("onboard_org", invitation_token=token))).short_id
+            invitation_url = url_for("short_url", short_id=short_id, _external=True)
         else:
-            short_id = Url.shorten(url_for("onboard_org", invitation_token=token)).short_id
+            invitation_url = url_for("login", _external=True)
 
         utils.send_email(
             "email/org_invitation.html",
             recipient=(org_name, email),
             reply_to=(current_user.name, current_user.email),
             cc_email=(current_user.name, current_user.email),
-            invitation_url=url_for("short_url", short_id=short_id, _external=True),
+            invitation_url=invitation_url,
             org_name=org_name,
             user=user)
 
