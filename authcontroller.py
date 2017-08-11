@@ -207,7 +207,7 @@ def handle_login():
     if unscoped_affiliation:
         if unscoped_affiliation & {"faculty", "staff"}:
             edu_person_affiliation |= Affiliation.EMP
-        if unscoped_affiliation & {"student", "alum"}:
+        if unscoped_affiliation & {"student"}:
             edu_person_affiliation |= Affiliation.EDU
     else:
         app.logger.warning(f"The value of 'Unscoped-Affiliation' was not supplied for {user}")
@@ -522,8 +522,7 @@ def orcid_callback():
                 f"{user.organisation}, as the nature of the affiliation with your "
                 "organisation does not appear to include either Employment or Education.\n"
                 "Please contact your Organisation Administrator(s) if you believe this is an error "
-                "and try again.",
-                "warning")
+                "and try again.", "warning")
 
     session['Should_not_logout_from_ORCID'] = True
     return redirect(url_for("profile"))
