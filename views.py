@@ -863,7 +863,7 @@ def register_org(org_name,
                 url_for(
                     "orcid_login",
                     invitation_token=token,
-                    _next=url_for("onboard_org", invitation_token=token))).short_id
+                    _next=url_for("onboard_org"))).short_id
             invitation_url = url_for("short_url", short_id=short_id, _external=True)
         else:
             invitation_url = url_for("login", _external=True)
