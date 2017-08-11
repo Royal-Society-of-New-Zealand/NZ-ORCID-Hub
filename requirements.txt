@@ -15,6 +15,7 @@ flask-script
 wtf-peewee
 pycountry
 html2text
+tablib
 
 # For testing (should be disabled in the production):
 flask-debugtoolbar
