@@ -711,6 +711,17 @@ def show_record_section(user_id, section_type="EMP"):
             org_client_id=user.organisation.orcid_client_id)
 
 
+def read_uploaded_file(form):
+    """Read up the whole content and deconde it and return the whole content."""
+    raw = request.files[form.file_.name].read()
+    for encoding in "utf-8", "utf-8-sig", "utf-16":
+        try:
+            return raw.decode(encoding)
+        except UnicodeDecodeError:
+            continue
+    return raw.decode("latin-1")
+
+
 @app.route("/load/org", methods=["GET", "POST"])
 @roles_required(Role.SUPERUSER)
 def load_org():
@@ -718,8 +729,7 @@ def load_org():
 
     form = FileUploadForm()
     if form.validate_on_submit():
-        data = request.files[form.file_.name].read().decode("utf-8")
-        row_count = OrgInfo.load_from_csv(data)
+        row_count = OrgInfo.load_from_csv(read_uploaded_file(form))
 
         flash("Successfully loaded %d rows." % row_count, "success")
         return redirect(url_for("orginfo.index_view"))
@@ -735,8 +745,7 @@ def load_researcher_affiliations():
     form = FileUploadForm()
     if form.validate_on_submit():
         filename = secure_filename(form.file_.data.filename)
-        data = request.files[form.file_.name].read().decode("utf-8")
-        task = Task.load_from_csv(data, filename=filename)
+        task = Task.load_from_csv(read_uploaded_file(form), filename=filename)
 
         flash(f"Successfully loaded {task.record_count} rows.")
         return redirect(url_for("affiliationrecord.index_view", task_id=task.id))

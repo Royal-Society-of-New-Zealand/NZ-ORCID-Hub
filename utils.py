@@ -10,6 +10,7 @@ from os.path import splitext
 from urllib.parse import urlencode, urlparse
 
 import emails
+import json
 import flask
 import jinja2
 import jinja2.ext
@@ -405,22 +406,19 @@ def create_or_update_affiliation(user, org_id, records, *args, **kwargs):
         # TODO: handle updates when entry is partial (missing role, time ranges, department etc....)
         try:
             if a == Affiliation.EMP:
-
-                api_instance.create_employment(user.orcid, body=rec)
-                app.logger.info("For %r the ORCID employment record was updated from %r", user,
-                                org)
+                api_instance.create_employment(user.orcid, body=rec, _preload_content=False)
+                app.logger.info(f"For {user} the ORCID employment record was updated from {org}")
             elif a == Affiliation.EDU:
-                api_instance.create_education(user.orcid, body=rec)
-
-                app.logger.info("For %r the ORCID education record was updated from %r", user, org)
+                api_instance.create_education(user.orcid, body=rec, _preload_content=False)
+                app.logger.info(f"For {user} the ORCID education record was updated from {org}")
             else:
-                app.logger.info("For %r not able to determine affiliaton type with %r", user, org)
+                app.logger.info(f"For {user} not able to determine affiliaton type with {org}")
                 continue
             # TODO: Save the put-code in db table
             # TODO: update "status"
             # TODO: handle exception cases and update "status" accordingly
-            task_by_user.affiliation_record.processed_at = datetime.now()
-            task_by_user.affiliation_record.save()
+            affiliation_record.processed_at = datetime.now()
+            affiliation_record.save()
 
         except ApiException as e:
             app.logger.error("For %r encountered exception: %r", user, e)
