@@ -700,6 +700,10 @@ def confirm_organisation(token=None):
                         oi.save()
                     except OrgInvitation.DoesNotExist:
                         pass
+                    # Delete the "stale" invitations:
+                    OrgInvitation.delete().where(
+                            OrgInvitation.org == organisation,
+                            OrgInvitation.token != token).execute()
 
                     return redirect(url_for("link"))
 
