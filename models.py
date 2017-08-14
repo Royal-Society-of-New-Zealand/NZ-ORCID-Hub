@@ -535,7 +535,7 @@ class User(BaseModel, UserMixin, AuditMixin):
                 edu_person_affiliation = Affiliation.NONE
                 if unscoped_affiliation & {"faculty", "staff"}:
                     edu_person_affiliation |= Affiliation.EMP
-                if unscoped_affiliation & {"student", "alum"}:
+                if unscoped_affiliation & {"student"}:
                     edu_person_affiliation |= Affiliation.EDU
                 user_org.affiliations = edu_person_affiliation
             user_org.save()
