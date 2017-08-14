@@ -157,24 +157,6 @@ def handle_login():
         app.logger.error("Encountered exception: %r", ex)
         abort(500, ex)
 
-    if unscoped_affiliation:
-        edu_person_affiliation = Affiliation.NONE
-        if unscoped_affiliation & {"faculty", "staff"}:
-            edu_person_affiliation |= Affiliation.EMP
-        if unscoped_affiliation & {"student", "alum"}:
-            edu_person_affiliation |= Affiliation.EDU
-        if not edu_person_affiliation:
-            flash(
-                "The ORCID Hub will not be able to automatically write an affiliation with %s, "
-                "as the nature of your affiliation does not appear to include staff or student."
-                "You are still welcome to give %s permission, or to let them know your ORCID iD." %
-                (str(shib_org_name), str(shib_org_name)), "danger")
-    else:
-        flash(
-            "The value of 'Unscoped-Affiliation' was not supplied from your identity provider,"
-            " So we are not able to determine the nature of affiliation you have with your organisation",
-            "danger")
-
     try:
         org = Organisation.get((Organisation.tuakiri_name == shib_org_name) | (
             Organisation.name == shib_org_name))
@@ -220,6 +202,15 @@ def handle_login():
     # the organization user is logged in from:
     if org != user.organisation:
         user.organisation = org
+
+    edu_person_affiliation = Affiliation.NONE
+    if unscoped_affiliation:
+        if unscoped_affiliation & {"faculty", "staff"}:
+            edu_person_affiliation |= Affiliation.EMP
+        if unscoped_affiliation & {"student"}:
+            edu_person_affiliation |= Affiliation.EDU
+    else:
+        app.logger.warning(f"The value of 'Unscoped-Affiliation' was not supplied for {user}")
 
     if org:
         user_org, _ = UserOrg.get_or_create(user=user, org=org)
@@ -527,12 +518,11 @@ def orcid_callback():
 
         if not user.affiliations:
             flash(
-                "The ORCID Hub was not able to automatically write an affiliation with %s, "
-                "as the nature of the affiliation with your organisation does not appear to include either "
-                "Employment or Education.\n"
-                "Please contact your Organisation Administrator(s) if you believe this is an error."
-                % user.organisation, "danger")
-            app.logger.info("For %r the affiliation is unknown", user)
+                "The ORCID Hub was not able to automatically write an affiliation with "
+                f"{user.organisation}, as the nature of the affiliation with your "
+                "organisation does not appear to include either Employment or Education.\n"
+                "Please contact your Organisation Administrator(s) if you believe this is an error "
+                "and try again.", "warning")
 
     session['Should_not_logout_from_ORCID'] = True
     return redirect(url_for("profile"))
