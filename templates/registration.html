@@ -1,19 +1,33 @@
 {% extends "base.html" %}
+{% from "macros.html" import render_field %}
 
 {% block content %}
   <h1>Onboard Organisation</h1>
   <form method="POST">
     {{ form.hidden_tag() }}
-    <div class="form-group">
-      <label for="org_name">Organisation Name:</label>
-      {{ form.orgName(size=30, class="form-control", id="org_name") }}
+    {{ render_field(form.org_name) }}
+    {{ render_field(form.org_email, autocomplete="on") }}
+    <div class="row">
+      <div class="col-md-6 col-sm-6 col-xs-12">
+        {{ render_field(form.tech_contact) }}
+      </div>
+      <div class="col-md-6 col-sm-6 col-xs-12">
+        {{ render_field(form.via_orcid, data_toggle="collapse", data_target="#user-details") }}
+      </div>
     </div>
-    <div class="form-group">
-      <label for="org_email">Organisation Email:</label>
-      {{ form.orgEmailid(size=30, class="form-control", id="org_email", autocomplete="on") }}
-    </div>
-    <div class="checkbox">
-      <label><input type="checkbox" id="tech_contact" name="tech_contact" style="width: 15px; height: 15px;">Technical Contact</label>
+    <div class="{{'row' if form.via_orcid.data else 'row collapse'}}" id="user-details">
+      <div class="col-md-6 col-sm-6 col-xs-12">
+        {{ render_field(form.first_name) }}
+        {{ render_field(form.last_name) }}
+        {{ render_field(form.orcid_id) }}
+        {{ render_field(form.disambiguation_org_id) }}
+      </div>
+      <div class="col-md-6 col-sm-6 col-xs-12">
+        {{ render_field(form.city) }}
+        {{ render_field(form.state) }}
+        {{ render_field(form.country) }}
+        {{ render_field(form.disambiguation_org_source) }}
+      </div>
     </div>
     <button type="submit" class="btn btn-default" value="Onboard Organisation">Onboard Organisation</button>
   </form>
@@ -26,10 +40,20 @@ $( function() {
   $( "#org_name" ).autocomplete({
     source: Object.keys(orgInfo),
     select: function(event, ui) {
-      $("#org_email").val(orgInfo[ui.item.value]);
+      var oi = orgInfo[ui.item.value];
+      $("#org_email").val(oi.email);
+      $("#first_name").val(oi.first_name);
+      $("#last_name").val(oi.last_name);
+      if (oi.country) {
+        $("#country").val(oi.country);
+      }
+      $("#city").val(oi.city);
+      $("#disambiguation_org_id").val(oi.disambiguation_org_id);
+      $("#disambiguation_org_source").val(oi.disambiguation_source);
       $("#org_email").focus();
     }
   });
 });
   </script>
 {% endblock %}
+

@@ -19,6 +19,7 @@ from playhouse import db_url
 from playhouse.test_utils import test_database
 
 from application import app as _app
+from models import *  # noqa: F401, F403
 from authcontroller import *  # noqa: F401, F403
 from views import *  # noqa: F401, F403
 from reports import *  # noqa: F401, F403
@@ -35,7 +36,8 @@ def app():
     _app.config['TESTING'] = True
 
     with test_database(
-            _db, (Organisation, User, UserOrg, OrcidToken, UserOrgAffiliation, OrgInfo),
+            _db, (Organisation, User, UserOrg, OrcidToken, UserOrgAffiliation, OrgInfo, Task,
+                  AffiliationRecord),
             fail_silently=True):  # noqa: F405
         _app.db = _db
         yield _app

@@ -1,3 +1,5 @@
+import logging
+
 import models
 from models import Organisation, Role, User
 
@@ -6,6 +8,10 @@ def initdb():
     """Creates the database."""
 
     models.drop_tables()
+    logger = logging.getLogger("peewee")
+    if logger:
+        logger.setLevel(logging.DEBUG)
+        logger.addHandler(logging.StreamHandler())
     models.create_tables()
 
     super_user = User(

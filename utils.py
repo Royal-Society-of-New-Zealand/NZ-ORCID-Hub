@@ -1,26 +1,39 @@
 # -*- coding: utf-8 -*-
 """Various utilities."""
 
+import logging
 import os
 import textwrap
+from datetime import datetime
+from itertools import groupby
 from os.path import splitext
 from urllib.parse import urlencode, urlparse
 
+import emails
 import flask
 import jinja2
 import jinja2.ext
 import requests
 from flask_login import current_user
-from flask_mail import Message
 from html2text import html2text
 from itsdangerous import URLSafeTimedSerializer
+from peewee import JOIN
 
-from application import app, mail
+import orcid_client
+from application import app
+from config import (ENV, EXTERNAL_SP, ORCID_BASE_URL, SCOPE_ACTIVITIES_UPDATE, SCOPE_READ_LIMITED)
+from models import (Affiliation, AffiliationRecord, OrcidToken, Organisation, Role, Task, User,
+                    UserInvitation, UserOrg)
+from swagger_client.rest import ApiException
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+logger.addHandler(logging.StreamHandler())
 
 
 def send_email(template_filename,
                recipient,
-               cc_email,
+               cc_email=None,
                sender=(app.config.get("APP_NAME"), app.config.get("MAIL_DEFAULT_SENDER")),
                reply_to=None,
                subject=None,
@@ -89,22 +102,24 @@ def send_email(template_filename,
     rendered = template.make_module(vars=kwargs)
     plain_rendered = plain_template.make_module(
         vars=kwargs) if plain_template else html2text(str(rendered))
-    print("***", str(plain_rendered))
 
     if subject is None:
         subject = getattr(rendered, "subject", "Welcome to the NZ ORCID Hub")
 
-    with app.app_context():
-        msg = Message(subject=subject)
-        msg.add_recipient(recipient)
-        msg.reply_to = reply_to
-        msg.html = str(rendered)
-        msg.body = str(plain_rendered)
-        msg.sender = sender
-        if cc_email:
-            msg.cc.append(cc_email)
-        # TODO: implement async sedning
-        mail.send(msg)
+    msg = emails.html(
+        subject=subject,
+        mail_from=(app.config.get("APP_NAME", "ORCID Hub"), app.config.get("MAIL_DEFAULT_SENDER")),
+        html=str(rendered),
+        text=str(plain_rendered))
+    dkip_key_path = os.path.join(app.root_path, ".keys", "dkim.key")
+    if os.path.exists(dkip_key_path):
+        msg.dkim(key=open(dkip_key_path), domain="orcidhub.org.nz", selector="default")
+    if cc_email:
+        msg.cc.append(cc_email)
+    msg.set_headers({"reply-to": reply_to})
+    msg.mail_to.append(recipient)
+
+    msg.send(smtp=dict(host=app.config["MAIL_SERVER"], port=app.config["MAIL_PORT"]))
 
 
 class RewrapExtension(jinja2.ext.Extension):
@@ -173,26 +188,30 @@ class RewrapExtension(jinja2.ext.Extension):
         return '\n'.join(new_lines)
 
 
-def generate_confirmation_token(email):
+def generate_confirmation_token(*args, **kwargs):
     """Generate Organisation registration confirmation token."""
-    serializer = URLSafeTimedSerializer(app.config['TOKEN_SECRET_KEY'])
-    return serializer.dumps(email, salt=app.config['TOKEN_PASSWORD_SALT'])
+    serializer = URLSafeTimedSerializer(app.config["SECRET_KEY"])
+    salt = app.config["SALT"]
+    if len(kwargs) == 0:
+        return serializer.dumps(args[0] if len(args) == 1 else args, salt=salt)
+    else:
+        return serializer.dumps(kwargs.values()[0] if len(kwargs) == 1 else kwargs, salt=salt)
 
 
 # Token Expiry after 15 days.
 def confirm_token(token, expiration=1300000):
     """Genearate confirmaatin token."""
-    serializer = URLSafeTimedSerializer(app.config['TOKEN_SECRET_KEY'])
+    serializer = URLSafeTimedSerializer(app.config["SECRET_KEY"])
     try:
-        email = serializer.loads(token, salt=app.config['TOKEN_PASSWORD_SALT'], max_age=expiration)
+        data = serializer.loads(token, salt=app.config["SALT"], max_age=expiration)
     except:
         return False
-    return email
+    return data
 
 
 def append_qs(url, **qs):
     """Appends new query strings to an arbitraty URL."""
-    return url + ('&' if urlparse(url).query else '?') + urlencode(qs)
+    return url + ('&' if urlparse(url).query else '?') + urlencode(qs, doseq=True)
 
 
 def track_event(category, action, label=None, value=0):
@@ -220,3 +239,246 @@ def track_event(category, action, label=None, value=0):
     # on your application's needs, this may be a non-error and can be caught
     # by the caller.
     response.raise_for_status()
+
+
+def set_server_name():
+    """Set the server name for batch processes."""
+
+    if not app.config.get("SERVER_NAME"):
+        if EXTERNAL_SP:
+            app.config["SERVER_NAME"] = "127.0.0.1:5000"
+        else:
+            app.config[
+                "SERVER_NAME"] = "orcidhub.org.nz" if ENV == "prod" else ENV + ".orcidhub.org.nz"
+
+
+def send_user_initation(inviter,
+                        org,
+                        email,
+                        first_name,
+                        last_name,
+                        affiliation_types=None,
+                        orcid=None,
+                        department=None,
+                        organisation=None,
+                        city=None,
+                        state=None,
+                        country=None,
+                        course_or_role=None,
+                        start_date=None,
+                        end_date=None,
+                        affiliations=None,
+                        disambiguation_org_id=None,
+                        disambiguation_org_source=None,
+                        **kwargs):
+    """Send an invitation to join ORCID Hub logging in via ORCID."""
+
+    try:
+        logger.info(f"*** Sending an invitation to '{first_name} {last_name} <{email}>' "
+                    f"submitted by {inviter} of {org} for affiliations: {affiliation_types}")
+
+        email = email.lower()
+        user, _ = User.get_or_create(email=email)
+        user.first_name = first_name
+        user.last_name = last_name
+        user.roles |= Role.RESEARCHER
+        user.email = email
+        user.organisation = org
+        with app.app_context():
+            email_and_organisation = email + ";" + org.name
+            token = generate_confirmation_token(email_and_organisation)
+            send_email(
+                "email/researcher_invitation.html",
+                recipient=(user.organisation.name, user.email),
+                reply_to=(inviter.name, inviter.email),
+                invitation_token=token,
+                org_name=user.organisation.name,
+                user=user)
+
+        user.save()
+
+        user_org, user_org_created = UserOrg.get_or_create(user=user, org=org)
+
+        if affiliations is None and affiliation_types:
+            affiliations = 0
+            if affiliation_types & {"faculty", "staff"}:
+                affiliations = Affiliation.EMP
+            if affiliation_types & {"student", "alum"}:
+                affiliations |= Affiliation.EDU
+        user_org.affiliations = affiliations
+
+        user_org.save()
+        UserInvitation.create(
+            invitee_id=user.id,
+            inviter_id=inviter.id,
+            org=org,
+            email=email,
+            first_name=first_name,
+            last_name=last_name,
+            orcid=orcid,
+            department=department,
+            organisation=organisation,
+            city=city,
+            state=state,
+            country=country,
+            course_or_role=course_or_role,
+            start_date=start_date,
+            end_date=end_date,
+            affiliations=affiliations,
+            disambiguation_org_id=disambiguation_org_id,
+            disambiguation_org_source=disambiguation_org_source,
+            token=token)
+
+        state = "The invitation sent at " + datetime.now().isoformat(timespec="seconds")
+        (AffiliationRecord.update(state=AffiliationRecord.state + "\n" + state).where(
+            AffiliationRecord.state.is_null(False),
+            AffiliationRecord.identifier == email).execute())
+        (AffiliationRecord.update(state=state).where(
+            AffiliationRecord.state.is_null(), AffiliationRecord.identifier == email).execute())
+
+    except Exception as ex:
+        logger.error(f"Exception occured while sending mails {ex}")
+        raise ex
+
+
+def create_or_update_affiliation(user, org_id, records, *args, **kwargs):
+    """Creates or updates affiliation record of a user.
+
+    1. Retries user edurcation and employment surramy from ORCID;
+    2. Match the recodrs with the summary;
+    3. If there is match update the record;
+    4. If no match create a new one."""
+    # TODO:
+    orcid_token = None
+    try:
+        org = Organisation.get(id=org_id)
+        orcid_token = OrcidToken.get(
+            user=user, org=org, scope=SCOPE_READ_LIMITED[0] + "," + SCOPE_ACTIVITIES_UPDATE[0])
+    except Exception as ex:
+        logger.error(f"Exception occured while retriving ORCID Token {ex}")
+        return None
+
+    orcid_client.configuration.access_token = orcid_token.access_token
+    api_instance = orcid_client.MemberAPIV20Api()
+
+    url = urlparse(ORCID_BASE_URL)
+    source_clientid = orcid_client.SourceClientId(
+        host=url.hostname,
+        path=org.orcid_client_id,
+        uri="http://" + url.hostname + "/client/" + org.orcid_client_id)
+
+    for task_by_user in records:
+        affiliation_record = task_by_user.affiliation_record
+
+        organisation_address = orcid_client.OrganizationAddress(
+            city=affiliation_record.city, country=org.country)
+
+        disambiguated_organization_details = orcid_client.DisambiguatedOrganization(
+            disambiguated_organization_identifier=org.disambiguation_org_id,
+            disambiguation_source=org.disambiguation_org_source)
+
+        a = None
+        if affiliation_record.affiliation_type.lower() in {"faculty", "staff", "emp"}:
+            a = Affiliation.EMP
+            rec = orcid_client.Employment()
+        elif affiliation_record.affiliation_type.lower() in {"student", "alum", "edu"}:
+            a = Affiliation.EDU
+            rec = orcid_client.Education()
+
+        rec.source = orcid_client.Source(
+            source_orcid=None, source_client_id=source_clientid, source_name=org.name)
+
+        rec.organization = orcid_client.Organization(
+            name=affiliation_record.organisation,
+            address=organisation_address,
+            disambiguated_organization=disambiguated_organization_details)
+
+        rec.department_name = affiliation_record.department
+        rec.role_title = affiliation_record.role
+        if affiliation_record.start_date:
+            rec.start_date = affiliation_record.start_date.as_orcid_dict()
+        if affiliation_record.end_date:
+            rec.end_date = affiliation_record.end_date.as_orcid_dict()
+
+        # TODO: need to check if the entry doesn't exist already: if it does then only update
+        # TODO: handle 'update' cases when put-code is preset
+        # TODO: handle updates when entry is partial (missing role, time ranges, department etc....)
+        try:
+            if a == Affiliation.EMP:
+
+                api_instance.create_employment(user.orcid, body=rec)
+                app.logger.info("For %r the ORCID employment record was updated from %r", user,
+                                org)
+            elif a == Affiliation.EDU:
+                api_instance.create_education(user.orcid, body=rec)
+
+                app.logger.info("For %r the ORCID education record was updated from %r", user, org)
+            else:
+                app.logger.info("For %r not able to determine affiliaton type with %r", user, org)
+                continue
+            # TODO: Save the put-code in db table
+            # TODO: update "status"
+            # TODO: handle exception cases and update "status" accordingly
+            task_by_user.affiliation_record.processed_at = datetime.now()
+            task_by_user.affiliation_record.save()
+
+        except ApiException as e:
+            app.logger.error("For %r encountered exception: %r", user, e)
+        except Exception as ex:
+            app.logger.error("For %r encountered exception: %r", user, ex)
+
+
+def process_affiliation_records(max_rows=20):
+    """Process uploaded affiliation records."""
+    set_server_name()
+    # TODO: optimize removing redudnt fields
+    # TODO: perhaps it should be broken into 2 queries
+    tasks = (
+        Task.select(Task, AffiliationRecord, User,
+                    UserInvitation.id.alias("invitation_id"), OrcidToken)
+        .where(AffiliationRecord.processed_at.is_null(), AffiliationRecord.is_active, (
+            (User.id.is_null(False) & User.orcid.is_null(False) & OrcidToken.id.is_null(False)) | (
+                (User.id.is_null() | User.orcid.is_null() | OrcidToken.id.is_null()) &
+                UserInvitation.id.is_null() &
+                (AffiliationRecord.state.is_null() |
+                 AffiliationRecord.state.contains("sent").__invert__())))).join(
+                     AffiliationRecord, on=(Task.id == AffiliationRecord.task_id)).join(
+                         User,
+                         JOIN.LEFT_OUTER,
+                         on=((User.email == AffiliationRecord.identifier) |
+                             (User.eppn == AffiliationRecord.identifier) |
+                             (User.orcid == AffiliationRecord.identifier))).join(
+                                 Organisation,
+                                 JOIN.LEFT_OUTER,
+                                 on=(Organisation.id == Task.org_id))
+        .join(
+            UserInvitation,
+            JOIN.LEFT_OUTER,
+            on=(UserInvitation.email == AffiliationRecord.identifier)).join(
+                OrcidToken,
+                JOIN.LEFT_OUTER,
+                on=((OrcidToken.user_id == User.id) & (OrcidToken.org_id == Organisation.id) &
+                    (OrcidToken.scope.contains("/activities/update")))).limit(max_rows))
+    for (org_id,
+         user), tasks_by_user in groupby(tasks, lambda t: (t.org_id, t.affiliation_record.user, )):
+        if (user.id is None or user.orcid is None or not OrcidToken.select().where(
+            (OrcidToken.user_id == user.id) & (OrcidToken.org_id == org_id) &
+            (OrcidToken.scope.contains("/activities/update"))).exists()):  # noqa: E127, E129
+
+            # maps invitation attributes to affiliation type set:
+            # - the user who uploaded the task;
+            # - the user organisation;
+            # - the invitee identifier (email address in this case);
+            # - the invitee first_name;
+            # - the invitee last_name
+            invitation_dict = {
+                k: set(t.affiliation_record.affiliation_type.lower() for t in tasks)
+                for k, tasks in groupby(
+                    tasks_by_user,
+                    lambda t: (t.created_by, t.org, t.affiliation_record.identifier, t.affiliation_record.first_name, t.affiliation_record.last_name)  # noqa: E501
+                )  # noqa: E501
+            }
+            for invitation, affiliations in invitation_dict.items():
+                send_user_initation(*invitation, affiliations)
+        else:  # user exits and we have tokens
+            create_or_update_affiliation(user, org_id, tasks_by_user)
