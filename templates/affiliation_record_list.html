@@ -1,0 +1,43 @@
+{% extends 'admin/model/list.html' %}
+{% block body %}
+  {% if data %}
+    {% set task = data[0].task %}
+    <h1>{{task.filename}}</h1>
+    <table class="table table-hover table-bordered searchable">
+      <tbody>
+        <tr>
+          <td>
+            <b>Taks Filename</b>
+          </td>
+          <td>
+            {{task.filename}}
+          </td>
+        </tr>
+        <tr>
+          <td>
+            <b>Organisation</b>
+          </td>
+          <td>
+            {{task.org.name}}
+          </td>
+        </tr>
+        <tr>
+          <td>
+            <b>Completed At</b>
+          </td>
+          <td>
+            {{task.completed_at|isodate}}
+          </td>
+        </tr>
+        <tr>
+          <td>
+            <b>Submitted At</b>
+          </td>
+          <td>
+            {{task.created_at|isodate}}
+          </td>
+        </tr>
+      </tbody></table>
+    {% endif %}
+    {{ super() }}
+  {% endblock %}

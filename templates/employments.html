@@ -55,6 +55,9 @@
         {% endfor %}
         </tbody>
     </table>
+    {% if url %}
+      <a role="button" class="btn btn-danger pull-right" href="{{url}}">Cancel</a>
+    {% endif %}
     <a role="button" class="btn btn-primary pull-right" href="{{url_for('employment', user_id=user_id)}}">New...</a>
 </div>
 {% endblock %}

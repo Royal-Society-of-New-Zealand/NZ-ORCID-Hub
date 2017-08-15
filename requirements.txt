@@ -6,8 +6,8 @@ psycopg2
 peewee
 flask-login
 Flask-WTF
+flask_mail  # TODO: remove at some stage
 emails
-flask_mail
 inotify
 flask-admin
 python-slugify

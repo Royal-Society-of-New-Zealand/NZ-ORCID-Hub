@@ -6,8 +6,8 @@
   <form method="POST" name="confirm">
     {{ form.hidden_tag() }}
 
-    {{ render_field(form.orgName) }}
-    {{ render_field(form.orgEmailid) }}
+    {{ render_field(form.name) }}
+    {{ render_field(form.email) }}
     <div class="form-group">
       <p>
       <a id="connect-orcid-button" class="btn btn-default" href="{{client_secret_url}}" role="button">
@@ -15,8 +15,8 @@
                                 height='24' alt="ORCID logo"/>&nbsp;Take me to ORCID to obtain my Client ID and Client Secret </a>
       </p>
     </div>
-    {{ render_field(form.orgOricdClientId) }}
-    {{ render_field(form.orgOrcidClientSecret) }}
+    {{ render_field(form.orcid_client_id) }}
+    {{ render_field(form.orcid_secret) }}
     {{ render_field(form.country) }}
     {{ render_field(form.city) }}
     {{ render_field(form.disambiguation_org_id, **{"data-toggle": "tooltip", "title": "The best id to use for your organisation, e.g. one of the following: RINGGOLD, FUNDREF, NZBN or EON"}) }}
