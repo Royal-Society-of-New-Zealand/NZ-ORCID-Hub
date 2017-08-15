@@ -282,8 +282,8 @@ class OrgInfoAdmin(AppModelView):
                     disambiguation_org_source=oi.disambiguation_source)
                 count += 1
             except Exception as ex:
-                flash("Failed to send an invitation to %s: %s" % (oi.email, ex))
-                app.logger.exception()
+                flash(f"Failed to send an invitation to {oi.email}: {ex}")
+                app.logger.exception(f"Failed to send registration invitation to {oi.email}.")
 
         flash("%d invitations were sent successfully." % count)
 
@@ -346,7 +346,7 @@ class AffiliationRecordAdmin(AppModelView):
                         count += 1
         except Exception as ex:
             flash(f"Failed to activate the selected records: {ex}")
-            app.logger.exception()
+            app.logger.exception("Failed to activate the selected records")
 
         flash(f"{count} records were activated for batch processing.")
 
@@ -860,10 +860,8 @@ def register_org(org_name,
         # TODO: for via_orcid constact direct link to ORCID with callback like to HUB
         if via_orcid:
             short_id = Url.shorten(
-                url_for(
-                    "orcid_login",
-                    invitation_token=token,
-                    _next=url_for("onboard_org"))).short_id
+                url_for("orcid_login", invitation_token=token, _next=url_for(
+                    "onboard_org"))).short_id
             invitation_url = url_for("short_url", short_id=short_id, _external=True)
         else:
             invitation_url = url_for("login", _external=True)
@@ -907,15 +905,16 @@ def invite_organisation():
     """
     form = OrgRegistrationForm()
     if form.validate_on_submit():
+        params = {f.name: f.data for f in form}
         try:
-            register_org(**{f.name: f.data for f in form})
+            register_org(**params)
             flash("Organisation Invited Successfully! "
                   "An email has been sent to the organisation contact", "success")
             app.logger.info("Organisation '%s' successfully invited. Invitation sent to '%s'." %
                             (form.org_name.data, form.org_email.data))
         except Exception as ex:
-            app.logger.exception()
-            flash(str(ex), "danger")
+            app.logger.exception(f"Failed to send registration invitation with {params}.")
+            flash(f"Failed to send registration invitation: {ex}.", "danger")
 
     return render_template(
         "registration.html", form=form, org_info={r.name: r.to_dict()
