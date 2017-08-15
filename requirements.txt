@@ -6,7 +6,8 @@ psycopg2
 peewee
 flask-login
 Flask-WTF
-flask_mail
+flask_mail  # TODO: remove at some stage
+emails
 inotify
 flask-admin
 python-slugify
@@ -14,6 +15,7 @@ flask-script
 wtf-peewee
 pycountry
 html2text
+tablib
 
 # For testing (should be disabled in the production):
 flask-debugtoolbar

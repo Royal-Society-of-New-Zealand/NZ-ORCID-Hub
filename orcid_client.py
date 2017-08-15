@@ -10,28 +10,30 @@ from models import OrcidApiCall
 from swagger_client import configuration, rest, api_client
 from time import time
 from urllib.parse import urlparse
+from application import app
 
 url = urlparse(ORCID_API_BASE)
 configuration.host = url.scheme + "://" + url.hostname
 
 
 class OrcidApiClient(api_client.ApiClient):
-    def call_api(self,
-                 resource_path,
-                 method,
-                 path_params=None,
-                 query_params=None,
-                 header_params=None,
-                 body=None,
-                 post_params=None,
-                 files=None,
-                 response_type=None,
-                 auth_settings=None,
-                 callback=None,
-                 _return_http_data_only=None,
-                 collection_formats=None,
-                 _preload_content=True,
-                 _request_timeout=None):
+    def call_api(
+            self,
+            resource_path,
+            method,
+            path_params=None,
+            query_params=None,
+            header_params=None,
+            body=None,
+            post_params=None,
+            files=None,
+            response_type=None,
+            auth_settings=None,
+            callback=None,
+            _return_http_data_only=None,
+            collection_formats=None,
+            _preload_content=False,  # Always get back response
+            _request_timeout=None):
         # Add here pre-processing...
         res = super().call_api(
             resource_path,
@@ -69,15 +71,14 @@ class OrcidRESTClientObject(rest.RESTClientObject):
         put_code = body.get("put-code") if body else None
         try:
             oac = OrcidApiCall.create(
-                user_id=current_user.id,
+                user_id=current_user.id if current_user else None,
                 method=method,
                 url=url,
                 query_params=query_params,
                 body=body,
                 put_code=put_code)
         except Exception as ex:
-            # TODO: log the failure
-            pass
+            app.logger.errer(ex)
         res = super().request(
             method=method,
             url=url,
@@ -88,7 +89,6 @@ class OrcidRESTClientObject(rest.RESTClientObject):
             _preload_content=_preload_content,
             _request_timeout=_request_timeout,
             **kwargs)
-        print("*** STATUS:", res.status)
         if res and oac:
             oac.status = res.status
             oac.response_time_ms = round((time() - request_time) * 1000)

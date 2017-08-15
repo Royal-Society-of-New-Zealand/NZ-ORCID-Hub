@@ -45,11 +45,11 @@ if __name__ == "__main__":
     # flake8: noqa
     from authcontroller import *
     from views import *
+    from reports import *
 
     os.environ['DEBUG'] = "1"
     # This allows us to use a plain HTTP callback
     os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
-    app.secret_key = os.urandom(24)
     if app.debug:
         toolbar = DebugToolbarExtension(app)
     app.run(debug=True, port=5000)
