@@ -166,7 +166,7 @@ def handle_login():
                 f"the user has logged in with secondary email addresses: {secondary_emails}")
 
     except Exception as ex:
-        app.logger.exception()
+        app.logger.exception("Failed to login via TUAKIRI.")
         abort(500, ex)
 
     if unscoped_affiliation:
@@ -204,7 +204,7 @@ def handle_login():
             org.save()
         except Exception as ex:
             flash(f"Failed to save organisation data: {ex}")
-            app.logger.exception()
+            app.logger.exception(f"Failed to save organisation data: {ex}")
 
     try:
         user = User.get(User.email == email)
@@ -254,7 +254,7 @@ def handle_login():
         user.save()
     except Exception as ex:
         flash(f"Failed to save user data: {ex}")
-        app.logger.exception()
+        app.logger.exception(f"Failed to save user {user} data.")
 
     login_user(user)
     app.logger.info("User %r from %r logged in.", user, org)
@@ -346,7 +346,7 @@ def link():
             "linking.html", orcid_url_write=orcid_url_write, orcid_base_url=ORCID_BASE_URL)
     except Exception as ex:
         flash(f"Unhandled Exception occured: {ex}")
-        app.logger.exception()
+        app.logger.exception("Failed to initiate or link user account with ORCID.")
     return redirect(url_for("profile"))
 
 
@@ -384,11 +384,11 @@ def is_emp_or_edu_record_present(access_token, affiliation_type, user):
 
     except ApiException as apiex:
         app.logger.error(
-            "For %r while checking for employment and education records, Encountered Exception: %r",
-            user, apiex)
+            f"For {user} while checking for employment and education records, Encountered Exception: {apiex}"
+        )
         return False
-    except Exception as e:
-        app.logger.exception()
+    except Exception:
+        app.logger.exception("Failed to verify presence of employment or education record.")
         return False
     return False
 
@@ -475,7 +475,7 @@ def orcid_callback():
         except Exception as ex:
             db.rollback()
             flash(f"Failed to save data: {ex}")
-            app.logger.exception()
+            app.logger.exception("Failed to save ORCID token.")
 
     app.logger.info("User %r authorized %r to have %r access to the profile "
                     "and now trying to update employment or education record", user,
@@ -572,7 +572,7 @@ def profile():
 
     except Exception as ex:
         # TODO: need to handle this
-        app.logger.exception()
+        app.logger.exception("Failed to retrieve ORCID token form DB.")
         flash("Unhandled Exception occured: %s" % ex, "danger")
         return redirect(url_for("login"))
     else:
@@ -771,7 +771,7 @@ def generateRow(users):
 
 @app.errorhandler(500)
 def internal_error(error):
-    app.logger.exception()
+    app.logger.exception("Unhandle exception occured.")
     trace = traceback.format_exc()
     return render_template("http500.html", error_message=str(error), trace=trace)
 
@@ -844,7 +844,7 @@ def orcid_login(invitation_token=None):
 
     except Exception as ex:
         flash("Something went wrong contact orcidhub support!", "danger")
-        app.logger.exception()
+        app.logger.exception("Failed to login via ORCID.")
         return redirect(url_for("login"))
 
 
@@ -981,7 +981,7 @@ def orcid_login_callback():
                 except Exception as ex:
                     db.rollback()
                     flash(f"Failed to save data: {ex}")
-                    app.logger.exception()
+                    app.logger.exception("Failed to save token.")
 
         if _next:
             return redirect(_next)
@@ -1009,7 +1009,7 @@ def orcid_login_callback():
         return redirect(url_for("login"))
     except Exception as ex:
         flash(f"Something went wrong contact orcidhub support for issue: {ex}", "danger")
-        app.logger.exception()
+        app.logger.exception("Unhandled excetion occrured while handling ORCID call-back.")
         return redirect(url_for("login"))
 
 
