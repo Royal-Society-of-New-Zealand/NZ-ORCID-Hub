@@ -31,7 +31,7 @@ from config import (APP_DESCRIPTION, APP_NAME, APP_URL, AUTHORIZATION_BASE_URL, 
                     EXTERNAL_SP, MEMBER_API_FORM_BASE_URL, NEW_CREDENTIALS, NOTE_ORCID,
                     ORCID_API_BASE, ORCID_BASE_URL, ORCID_CLIENT_ID, ORCID_CLIENT_SECRET,
                     SCOPE_ACTIVITIES_UPDATE, SCOPE_AUTHENTICATE, SCOPE_READ_LIMITED, TOKEN_URL)
-from forms import OnboardingTokenForm, OrgConfirmationForm
+from forms import OrgConfirmationForm
 from login_provider import roles_required
 from models import (Affiliation, OrcidToken, Organisation, OrgInfo, OrgInvitation, Role, Url, User,
                     UserOrg)
@@ -203,7 +203,7 @@ def handle_login():
         try:
             org.save()
         except Exception as ex:
-            flash("Failed to save organisation data: %s" % str(ex))
+            flash(f"Failed to save organisation data: {ex}")
             app.logger.exception()
 
     try:
@@ -253,7 +253,7 @@ def handle_login():
     try:
         user.save()
     except Exception as ex:
-        flash("Failed to save user data: %s" % str(ex))
+        flash(f"Failed to save user data: {ex}")
         app.logger.exception()
 
     login_user(user)
@@ -345,7 +345,7 @@ def link():
         return render_template(
             "linking.html", orcid_url_write=orcid_url_write, orcid_base_url=ORCID_BASE_URL)
     except Exception as ex:
-        flash("Unhandled Exception occured: %s" % str(ex))
+        flash(f"Unhandled Exception occured: {ex}")
         app.logger.exception()
     return redirect(url_for("profile"))
 
@@ -438,7 +438,7 @@ def orcid_callback():
         flash("Missing token.", "danger")
         return redirect(url_for("login"))
     except Exception as ex:
-        flash("Something went wrong contact orcidhub support for issue: %s" % str(ex))
+        flash(f"Something went wrong contact orcidhub support for issue: {ex}")
         app.logger.exception(f"For {current_user} encountered exception")
         return redirect(url_for("login"))
 
@@ -474,7 +474,7 @@ def orcid_callback():
             user.save()
         except Exception as ex:
             db.rollback()
-            flash("Failed to save data: %s" % str(ex))
+            flash(f"Failed to save data: {ex}")
             app.logger.exception()
 
     app.logger.info("User %r authorized %r to have %r access to the profile "
@@ -541,10 +541,10 @@ def orcid_callback():
                         continue
                     # TODO: Save the put-code in db table
 
-                except ApiException as e:
-                    flash("Failed to update the entry: %s." % e.body, "danger")
+                except ApiException as ex:
+                    flash(f"Failed to update the entry: {ex.body}", "danger")
                 except Exception as ex:
-                    app.logger.error("For %r encountered exception: %r", user, ex)
+                    app.logger.error(f"For {user} encountered exception: {ex}")
 
         if not user.affiliations:
             flash(
@@ -563,11 +563,11 @@ def orcid_callback():
 def profile():
     """Fetch a protected resource using an OAuth 2 token."""
     user = current_user
-    app.logger.info("For %r trying to display profile by getting ORCID token", user)
+    app.logger.info(f"For {user} trying to display profile by getting ORCID token")
     try:
         orcid_token = OrcidToken.get(user_id=user.id, org=user.organisation)
     except OrcidToken.DoesNotExist:
-        app.logger.info("For %r we dont have ocrditoken so redirecting back to link page", user)
+        app.logger.info(f"For {user} we dont have ocrditoken so redirecting back to link page")
         return redirect(url_for("link"))
 
     except Exception as ex:
@@ -623,10 +623,9 @@ def onboard_org():
             return redirect(url_for("login"))
 
         if request.method == "GET":
-
             flash("""If you currently don't know Client id and Client Secret,
             Please request these from ORCID by clicking on link 'Take me to ORCID to obtain Client iD and Client Secret'
-            and come back to this form once you have them.""", "warning")
+            and come back to this form once you have them.""", "info")
 
             try:
                 oi = OrgInfo.get((OrgInfo.email == email) | (
@@ -640,7 +639,6 @@ def onboard_org():
                 pass
             except Organisation.DoesNotExist:
                 app.logger.exception("Failed to save organisation data")
-                flash(f"Failed to save organisation data: {ex}")
 
     else:
         form.name.render_kw = {'readonly': True}
@@ -698,10 +696,16 @@ def onboard_org():
                 flash(f"Failed to save organisation data: {ex}")
 
             try:
-                oi = OrgInvitation.get(email=email, org=organisation)
+                # Get the most recent invitation:
+                oi = (OrgInvitation.select().where(OrgInvitation.email == email,
+                                                   OrgInvitation.org == organisation)
+                      .order_by(OrgInvitation.id.desc()).first())
                 if not oi.confirmed_at:
                     oi.confirmed_at = datetime.now()
                     oi.save()
+                # Delete the "stale" invitations:
+                OrgInvitation.delete().where(OrgInvitation.id != oi.id,
+                                             OrgInvitation.org == organisation).execute()
             except OrgInvitation.DoesNotExist:
                 pass
 
@@ -731,7 +735,7 @@ def logout():
     try:
         logout_user()
     except Exception as ex:
-        app.logger.exception()
+        app.logger.exception("Failed to log out.")
 
     session.clear()
     session["__invalidate__"] = True
@@ -976,7 +980,7 @@ def orcid_login_callback():
                     orcid_token.save()
                 except Exception as ex:
                     db.rollback()
-                    flash("Failed to save data: %s" % str(ex))
+                    flash(f"Failed to save data: {ex}")
                     app.logger.exception()
 
         if _next:
