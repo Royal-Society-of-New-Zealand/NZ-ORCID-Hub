@@ -32,7 +32,6 @@ script:
   - docker-compose exec app env DATABASE_URL="sqlite:///:memory:" pytest --ignore=venv -s -v --cov .
 
 after_success:
-  - curl ifconfig.me
   - docker-compose exec app coveralls
   - eval "$(ssh-agent -s)"
   - openssl rsa -in .travis/.deploy.key -out .travis/deploy.key -passin env:DEPLOY_KEY_PASSPHRASE
