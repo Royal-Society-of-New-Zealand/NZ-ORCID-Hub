@@ -1,7 +1,7 @@
 FROM centos:centos7
 
 LABEL maintainer="The University of Auckland" \
-	version="?" \
+	version="1.0" \
 	description="NZ ORCiD Hub Application Image with Development support"
 
 ADD http://download.opensuse.org/repositories/security://shibboleth/CentOS_7/security:shibboleth.repo /etc/yum.repos.d/shibboleth.repo
@@ -29,6 +29,7 @@ RUN yum -y update \
 	python36u-pip \
     && pip3.6 install mod_wsgi psycopg2 \
     && pip3.6 install -r /requirements.txt \
+    && sed -i 's/"PUBLIC" ]/"PUBLIC", "PRIVATE" ]/g' /orcid/swagger.json \
     && java -jar swagger-codegen-cli.jar generate -l python -i /orcid/swagger.json -o orcid \
     && sed -i '597 s#return parse(string)#return datetime.fromtimestamp(float(string)/1000)#' orcid/swagger_client/api_client.py \
     && sed -i '596 s#from dateutil.parser import parse#from datetime import datetime#' orcid/swagger_client/api_client.py \
