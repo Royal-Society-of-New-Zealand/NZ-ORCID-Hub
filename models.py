@@ -829,7 +829,10 @@ class AffiliationRecord(BaseModel):
         index=True, help_text="User email, eppn, or ORCID Id", verbose_name="Email/Eppn/ORCID Id")
     organisation = TextField(null=True, index=True)
     affiliation_type = TextField(
-        null=True, choices=("EDU", "EMP", "student", "alum", "faculty", "staff", ))
+        null=True,
+        choices=[(v, v)
+                 for v in ("EDU", "EMP", "student", "alum", "faculty", "staff", "Student", "Alum",
+                           "Faculty", "Staff", )])
     role = TextField(null=True, verbose_name="Role/Course")
     department = TextField(null=True)
     start_date = PartialDateField(null=True)

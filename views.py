@@ -315,10 +315,10 @@ class UserOrgAmin(AppModelView):
 
 class TaskAdmin(AppModelView):
     roles_required = Role.SUPERUSER | Role.ADMIN
+    list_template = "view_tasks.html"
     can_edit = False
     can_create = False
     can_delete = True
-    can_view_details = True
 
 
 class AffiliationRecordAdmin(AppModelView):
@@ -327,7 +327,7 @@ class AffiliationRecordAdmin(AppModelView):
     column_exclude_list = ("task", "organisation", )
     column_searchable_list = ("first_name", "last_name", "identifier", "role", "department",
                               "state", )
-    can_edit = False
+    can_edit = True
     can_create = False
     can_delete = False
     can_view_details = True

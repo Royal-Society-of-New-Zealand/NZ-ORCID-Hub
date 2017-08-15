@@ -10,7 +10,6 @@ from os.path import splitext
 from urllib.parse import urlencode, urlparse
 
 import emails
-import json
 import flask
 import jinja2
 import jinja2.ext
@@ -330,12 +329,12 @@ def send_user_initation(inviter,
             disambiguation_org_source=disambiguation_org_source,
             token=token)
 
-        state = "The invitation sent at " + datetime.now().isoformat(timespec="seconds")
-        (AffiliationRecord.update(state=AffiliationRecord.state + "\n" + state).where(
-            AffiliationRecord.state.is_null(False),
+        status = "The invitation sent at " + datetime.now().isoformat(timespec="seconds")
+        (AffiliationRecord.update(status=AffiliationRecord.status + "\n" + status).where(
+            AffiliationRecord.status.is_null(False),
             AffiliationRecord.identifier == email).execute())
-        (AffiliationRecord.update(state=state).where(
-            AffiliationRecord.state.is_null(), AffiliationRecord.identifier == email).execute())
+        (AffiliationRecord.update(status=status).where(
+            AffiliationRecord.status.is_null(), AffiliationRecord.identifier == email).execute())
 
     except Exception as ex:
         logger.error(f"Exception occured while sending mails {ex}")
@@ -438,8 +437,8 @@ def process_affiliation_records(max_rows=20):
             (User.id.is_null(False) & User.orcid.is_null(False) & OrcidToken.id.is_null(False)) | (
                 (User.id.is_null() | User.orcid.is_null() | OrcidToken.id.is_null()) &
                 UserInvitation.id.is_null() &
-                (AffiliationRecord.state.is_null() |
-                 AffiliationRecord.state.contains("sent").__invert__())))).join(
+                (AffiliationRecord.status.is_null() |
+                 AffiliationRecord.status.contains("sent").__invert__())))).join(
                      AffiliationRecord, on=(Task.id == AffiliationRecord.task_id)).join(
                          User,
                          JOIN.LEFT_OUTER,
