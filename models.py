@@ -235,7 +235,6 @@ class Organisation(BaseModel, AuditMixin):
     country = CharField(null=True, choices=country_choices, default=DEFAULT_COUNTRY)
     disambiguation_org_id = CharField(null=True)
     disambiguation_org_source = CharField(null=True)
-    is_email_confirmed = BooleanField(default=False)
     is_email_sent = BooleanField(default=False)
     tech_contact = ForeignKeyField(
         DeferredUser,
@@ -535,7 +534,7 @@ class User(BaseModel, UserMixin, AuditMixin):
                 edu_person_affiliation = Affiliation.NONE
                 if unscoped_affiliation & {"faculty", "staff"}:
                     edu_person_affiliation |= Affiliation.EMP
-                if unscoped_affiliation & {"student", "alum"}:
+                if unscoped_affiliation & {"student"}:
                     edu_person_affiliation |= Affiliation.EDU
                 user_org.affiliations = edu_person_affiliation
             user_org.save()

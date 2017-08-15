@@ -1,5 +1,7 @@
 *.db
 tags
+tags.tmp
 backup*
 masterdb
 pgdata
+venv

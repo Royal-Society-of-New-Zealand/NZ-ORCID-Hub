@@ -6,7 +6,7 @@ cat >>$PGDATA/postgresql.conf <<EOF
 wal_level = logical  # Adds information necessary to support logical decoding
 wal_compression = on  # Compresses full-page writes written in WAL file.
 archive_mode = on  # Allows archiving of WAL files using archive_command.
-archive_command = 'test ! -f /archive/%f.bz2 && bzip2 -c %p >/backup/%f.bz2 && mv /backup/%f.bz2 /archive/'
+archive_command = 'test -f /archive/%f.bz2 || bzip2 -c %p >/backup/%f.bz2 && mv /backup/%f.bz2 /archive/'
 archive_timeout = 3600
 max_wal_senders = 5  # Sets the maximum number of simultaneously running WAL sender processes.
 

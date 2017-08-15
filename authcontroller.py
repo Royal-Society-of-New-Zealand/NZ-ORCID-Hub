@@ -31,7 +31,7 @@ from config import (APP_DESCRIPTION, APP_NAME, APP_URL, AUTHORIZATION_BASE_URL, 
                     EXTERNAL_SP, MEMBER_API_FORM_BASE_URL, NEW_CREDENTIALS, NOTE_ORCID,
                     ORCID_API_BASE, ORCID_BASE_URL, ORCID_CLIENT_ID, ORCID_CLIENT_SECRET,
                     SCOPE_ACTIVITIES_UPDATE, SCOPE_AUTHENTICATE, SCOPE_READ_LIMITED, TOKEN_URL)
-from forms import OnboardingTokenForm, OrgConfirmationForm
+from forms import OrgConfirmationForm
 from login_provider import roles_required
 from models import (Affiliation, OrcidToken, Organisation, OrgInfo, OrgInvitation, Role, Url, User,
                     UserOrg)
@@ -166,7 +166,7 @@ def handle_login():
                 f"the user has logged in with secondary email addresses: {secondary_emails}")
 
     except Exception as ex:
-        app.logger.exception()
+        app.logger.exception("Failed to login via TUAKIRI.")
         abort(500, ex)
 
     if unscoped_affiliation:
@@ -203,8 +203,8 @@ def handle_login():
         try:
             org.save()
         except Exception as ex:
-            flash("Failed to save organisation data: %s" % str(ex))
-            app.logger.exception()
+            flash(f"Failed to save organisation data: {ex}")
+            app.logger.exception(f"Failed to save organisation data: {ex}")
 
     try:
         user = User.get(User.email == email)
@@ -233,6 +233,15 @@ def handle_login():
     if org != user.organisation:
         user.organisation = org
 
+    edu_person_affiliation = Affiliation.NONE
+    if unscoped_affiliation:
+        if unscoped_affiliation & {"faculty", "staff"}:
+            edu_person_affiliation |= Affiliation.EMP
+        if unscoped_affiliation & {"student"}:
+            edu_person_affiliation |= Affiliation.EDU
+    else:
+        app.logger.warning(f"The value of 'Unscoped-Affiliation' was not supplied for {user}")
+
     if org:
         user_org, _ = UserOrg.get_or_create(user=user, org=org)
         user_org.affiliations = edu_person_affiliation
@@ -244,8 +253,8 @@ def handle_login():
     try:
         user.save()
     except Exception as ex:
-        flash("Failed to save user data: %s" % str(ex))
-        app.logger.exception()
+        flash(f"Failed to save user data: {ex}")
+        app.logger.exception(f"Failed to save user {user} data.")
 
     login_user(user)
     app.logger.info("User %r from %r logged in.", user, org)
@@ -257,7 +266,7 @@ def handle_login():
     elif org and org.confirmed:
         app.logger.info("User %r organisation is onboarded", user)
         return redirect(url_for("link"))
-    elif org and org.is_email_confirmed and (not org.confirmed) and user.is_tech_contact_of(org):
+    elif org and (not org.confirmed) and user.is_tech_contact_of(org):
         app.logger.info("User %r is org admin and organisation is not onboarded", user)
         return redirect(url_for("onboard_org"))
     else:
@@ -336,8 +345,8 @@ def link():
         return render_template(
             "linking.html", orcid_url_write=orcid_url_write, orcid_base_url=ORCID_BASE_URL)
     except Exception as ex:
-        flash("Unhandled Exception occured: %s" % str(ex))
-        app.logger.exception()
+        flash(f"Unhandled Exception occured: {ex}")
+        app.logger.exception("Failed to initiate or link user account with ORCID.")
     return redirect(url_for("profile"))
 
 
@@ -375,11 +384,11 @@ def is_emp_or_edu_record_present(access_token, affiliation_type, user):
 
     except ApiException as apiex:
         app.logger.error(
-            "For %r while checking for employment and education records, Encountered Exception: %r",
-            user, apiex)
+            f"For {user} while checking for employment and education records, Encountered Exception: {apiex}"
+        )
         return False
-    except Exception as e:
-        app.logger.exception()
+    except Exception:
+        app.logger.exception("Failed to verify presence of employment or education record.")
         return False
     return False
 
@@ -429,7 +438,7 @@ def orcid_callback():
         flash("Missing token.", "danger")
         return redirect(url_for("login"))
     except Exception as ex:
-        flash("Something went wrong contact orcidhub support for issue: %s" % str(ex))
+        flash(f"Something went wrong contact orcidhub support for issue: {ex}")
         app.logger.exception(f"For {current_user} encountered exception")
         return redirect(url_for("login"))
 
@@ -465,8 +474,8 @@ def orcid_callback():
             user.save()
         except Exception as ex:
             db.rollback()
-            flash("Failed to save data: %s" % str(ex))
-            app.logger.exception()
+            flash(f"Failed to save data: {ex}")
+            app.logger.exception("Failed to save ORCID token.")
 
     app.logger.info("User %r authorized %r to have %r access to the profile "
                     "and now trying to update employment or education record", user,
@@ -532,19 +541,18 @@ def orcid_callback():
                         continue
                     # TODO: Save the put-code in db table
 
-                except ApiException as e:
-                    flash("Failed to update the entry: %s." % e.body, "danger")
+                except ApiException as ex:
+                    flash(f"Failed to update the entry: {ex.body}", "danger")
                 except Exception as ex:
-                    app.logger.error("For %r encountered exception: %r", user, ex)
+                    app.logger.error(f"For {user} encountered exception: {ex}")
 
         if not user.affiliations:
             flash(
-                "The ORCID Hub was not able to automatically write an affiliation with %s, "
-                "as the nature of the affiliation with your organisation does not appear to include either "
-                "Employment or Education.\n"
-                "Please contact your Organisation Administrator(s) if you believe this is an error."
-                % user.organisation, "danger")
-            app.logger.info("For %r the affiliation is unknown", user)
+                "The ORCID Hub was not able to automatically write an affiliation with "
+                f"{user.organisation}, as the nature of the affiliation with your "
+                "organisation does not appear to include either Employment or Education.\n"
+                "Please contact your Organisation Administrator(s) if you believe this is an error "
+                "and try again.", "warning")
 
     session['Should_not_logout_from_ORCID'] = True
     return redirect(url_for("profile"))
@@ -555,16 +563,16 @@ def orcid_callback():
 def profile():
     """Fetch a protected resource using an OAuth 2 token."""
     user = current_user
-    app.logger.info("For %r trying to display profile by getting ORCID token", user)
+    app.logger.info(f"For {user} trying to display profile by getting ORCID token")
     try:
         orcid_token = OrcidToken.get(user_id=user.id, org=user.organisation)
     except OrcidToken.DoesNotExist:
-        app.logger.info("For %r we dont have ocrditoken so redirecting back to link page", user)
+        app.logger.info(f"For {user} we dont have ocrditoken so redirecting back to link page")
         return redirect(url_for("link"))
 
     except Exception as ex:
         # TODO: need to handle this
-        app.logger.exception()
+        app.logger.exception("Failed to retrieve ORCID token form DB.")
         flash("Unhandled Exception occured: %s" % ex, "danger")
         return redirect(url_for("login"))
     else:
@@ -588,9 +596,8 @@ def profile():
 
 
 @app.route("/confirm/organisation", methods=["GET", "POST"])
-@app.route("/confirm/organisation/<invitation_token>", methods=["GET", "POST"])
 @roles_required(Role.ADMIN, Role.TECHNICAL)
-def onboard_org(invitation_token=None):
+def onboard_org():
     """Registration confirmations.
 
     TODO: expand the spect as soon as the reqirements get sorted out.
@@ -607,44 +614,18 @@ def onboard_org(invitation_token=None):
     form.email.data = email
 
     if not organisation.confirmed:
-        if invitation_token is None:
-            # TODO: if the user came via TAKIRI pickup the most recent token from OrgInvitation
-            form = OnboardingTokenForm()
-            if form.validate_on_submit():
-                return redirect(url_for("onboard_org", token=form.token.data))
-            return render_template("missing_onboarding_token.html", form=form)
-
-        data = confirm_token(invitation_token)
-        if isinstance(data, str):
-            email, org_name = data.split(';') if ";" in data else data, None
-        else:
-            email, org_name = data.get("email"), data.get("org_name")
-
-        # validate the invitation token
-        if not email:
-            app.error(f"TOKEN {invitation_token} invalid")
-            app.login_manager.unauthorized()
-        if user.email != email:
-            app.logger.info(
-                f"The invitation was send to {email} and not to the email address {user.email}")
+        try:
+            OrgInvitation.get(email=email, org=organisation)
+        except OrgInvitation.DoesNotExist:
             flash(
                 "This invitation to onboard the organisation wasn't sent to your email address...",
                 "danger")
             return redirect(url_for("login"))
-        if org_name and user.organisation.name != org_name:
-            flash(f"Wrong onganisation name {org_name}")
-            return redirect(url_for("login"))
 
         if request.method == "GET":
-            if organisation.is_email_confirmed:
-                flash(
-                    "We have noted that you came on orcidhub through the email link, which is now unneccessary. "
-                    "You should be able to login on orcidhub directly by visiting our orcidhub's website",
-                    "warning")
-
             flash("""If you currently don't know Client id and Client Secret,
             Please request these from ORCID by clicking on link 'Take me to ORCID to obtain Client iD and Client Secret'
-            and come back to this form once you have them.""", "warning")
+            and come back to this form once you have them.""", "info")
 
             try:
                 oi = OrgInfo.get((OrgInfo.email == email) | (
@@ -653,9 +634,11 @@ def onboard_org(invitation_token=None):
                 form.city.data = organisation.city = oi.city
                 form.disambiguation_org_id.data = organisation.disambiguation_org_id = oi.disambiguation_org_id
                 form.disambiguation_org_source.data = organisation.disambiguation_org_source = oi.disambiguation_source
-
+                organisation.save()
             except OrgInfo.DoesNotExist:
                 pass
+            except Organisation.DoesNotExist:
+                app.logger.exception("Failed to save organisation data")
 
     else:
         form.name.render_kw = {'readonly': True}
@@ -691,7 +674,6 @@ def onboard_org(invitation_token=None):
                   "Please recheck and contact Hub support if this error continues", "danger")
         else:
 
-            organisation.is_email_confirmed = True
             if not organisation.confirmed:
                 organisation.confirmed = True
                 with app.app_context():
@@ -714,10 +696,16 @@ def onboard_org(invitation_token=None):
                 flash(f"Failed to save organisation data: {ex}")
 
             try:
-                oi = OrgInvitation.get(token=invitation_token)
+                # Get the most recent invitation:
+                oi = (OrgInvitation.select().where(OrgInvitation.email == email,
+                                                   OrgInvitation.org == organisation)
+                      .order_by(OrgInvitation.id.desc()).first())
                 if not oi.confirmed_at:
                     oi.confirmed_at = datetime.now()
                     oi.save()
+                # Delete the "stale" invitations:
+                OrgInvitation.delete().where(OrgInvitation.id != oi.id,
+                                             OrgInvitation.org == organisation).execute()
             except OrgInvitation.DoesNotExist:
                 pass
 
@@ -747,7 +735,7 @@ def logout():
     try:
         logout_user()
     except Exception as ex:
-        app.logger.exception()
+        app.logger.exception("Failed to log out.")
 
     session.clear()
     session["__invalidate__"] = True
@@ -783,7 +771,7 @@ def generateRow(users):
 
 @app.errorhandler(500)
 def internal_error(error):
-    app.logger.exception()
+    app.logger.exception("Unhandle exception occured.")
     trace = traceback.format_exc()
     return render_template("http500.html", error_message=str(error), trace=trace)
 
@@ -856,7 +844,7 @@ def orcid_login(invitation_token=None):
 
     except Exception as ex:
         flash("Something went wrong contact orcidhub support!", "danger")
-        app.logger.exception()
+        app.logger.exception("Failed to login via ORCID.")
         return redirect(url_for("login"))
 
 
@@ -992,8 +980,8 @@ def orcid_login_callback():
                     orcid_token.save()
                 except Exception as ex:
                     db.rollback()
-                    flash("Failed to save data: %s" % str(ex))
-                    app.logger.exception()
+                    flash(f"Failed to save data: {ex}")
+                    app.logger.exception("Failed to save token.")
 
         if _next:
             return redirect(_next)
@@ -1021,7 +1009,7 @@ def orcid_login_callback():
         return redirect(url_for("login"))
     except Exception as ex:
         flash(f"Something went wrong contact orcidhub support for issue: {ex}", "danger")
-        app.logger.exception()
+        app.logger.exception("Unhandled excetion occrured while handling ORCID call-back.")
         return redirect(url_for("login"))
 
 
