@@ -235,7 +235,6 @@ class Organisation(BaseModel, AuditMixin):
     country = CharField(null=True, choices=country_choices, default=DEFAULT_COUNTRY)
     disambiguation_org_id = CharField(null=True)
     disambiguation_org_source = CharField(null=True)
-    is_email_confirmed = BooleanField(default=False)
     is_email_sent = BooleanField(default=False)
     tech_contact = ForeignKeyField(
         DeferredUser,

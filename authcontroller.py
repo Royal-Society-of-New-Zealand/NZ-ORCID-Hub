@@ -266,7 +266,7 @@ def handle_login():
     elif org and org.confirmed:
         app.logger.info("User %r organisation is onboarded", user)
         return redirect(url_for("link"))
-    elif org and org.is_email_confirmed and (not org.confirmed) and user.is_tech_contact_of(org):
+    elif org and (not org.confirmed) and user.is_tech_contact_of(org):
         app.logger.info("User %r is org admin and organisation is not onboarded", user)
         return redirect(url_for("onboard_org"))
     else:
@@ -596,9 +596,8 @@ def profile():
 
 
 @app.route("/confirm/organisation", methods=["GET", "POST"])
-@app.route("/confirm/organisation/<invitation_token>", methods=["GET", "POST"])
 @roles_required(Role.ADMIN, Role.TECHNICAL)
-def onboard_org(invitation_token=None):
+def onboard_org():
     """Registration confirmations.
 
     TODO: expand the spect as soon as the reqirements get sorted out.
@@ -615,40 +614,15 @@ def onboard_org(invitation_token=None):
     form.email.data = email
 
     if not organisation.confirmed:
-        if invitation_token is None:
-            # TODO: if the user came via TAKIRI pickup the most recent token from OrgInvitation
-            form = OnboardingTokenForm()
-            if form.validate_on_submit():
-                return redirect(url_for("onboard_org", token=form.token.data))
-            return render_template("missing_onboarding_token.html", form=form)
-
-        data = confirm_token(invitation_token)
-        if isinstance(data, str):
-            email, org_name = data.split(';') if ";" in data else data, None
-        else:
-            email, org_name = data.get("email"), data.get("org_name")
-
-        # validate the invitation token
-        if not email:
-            app.error(f"TOKEN {invitation_token} invalid")
-            app.login_manager.unauthorized()
-        if user.email != email:
-            app.logger.info(
-                f"The invitation was send to {email} and not to the email address {user.email}")
+        try:
+            OrgInvitation.get(email=email, org=organisation)
+        except OrgInvitation.DoesNotExist:
             flash(
                 "This invitation to onboard the organisation wasn't sent to your email address...",
                 "danger")
             return redirect(url_for("login"))
-        if org_name and user.organisation.name != org_name:
-            flash(f"Wrong onganisation name {org_name}")
-            return redirect(url_for("login"))
 
         if request.method == "GET":
-            if organisation.is_email_confirmed:
-                flash(
-                    "We have noted that you came on orcidhub through the email link, which is now unneccessary. "
-                    "You should be able to login on orcidhub directly by visiting our orcidhub's website",
-                    "warning")
 
             flash("""If you currently don't know Client id and Client Secret,
             Please request these from ORCID by clicking on link 'Take me to ORCID to obtain Client iD and Client Secret'
@@ -661,9 +635,12 @@ def onboard_org(invitation_token=None):
                 form.city.data = organisation.city = oi.city
                 form.disambiguation_org_id.data = organisation.disambiguation_org_id = oi.disambiguation_org_id
                 form.disambiguation_org_source.data = organisation.disambiguation_org_source = oi.disambiguation_source
-
+                organisation.save()
             except OrgInfo.DoesNotExist:
                 pass
+            except Organisation.DoesNotExist:
+                app.logger.exception("Failed to save organisation data")
+                flash(f"Failed to save organisation data: {ex}")
 
     else:
         form.name.render_kw = {'readonly': True}
@@ -699,7 +676,6 @@ def onboard_org(invitation_token=None):
                   "Please recheck and contact Hub support if this error continues", "danger")
         else:
 
-            organisation.is_email_confirmed = True
             if not organisation.confirmed:
                 organisation.confirmed = True
                 with app.app_context():
@@ -722,7 +698,7 @@ def onboard_org(invitation_token=None):
                 flash(f"Failed to save organisation data: {ex}")
 
             try:
-                oi = OrgInvitation.get(token=invitation_token)
+                oi = OrgInvitation.get(email=email, org=organisation)
                 if not oi.confirmed_at:
                     oi.confirmed_at = datetime.now()
                     oi.save()
