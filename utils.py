@@ -509,12 +509,13 @@ def process_affiliation_records(max_rows=20):
         else:  # user exits and we have tokens
             create_or_update_affiliation(user, org_id, tasks_by_user)
         task_ids.add(task_id)
-    for task in Task.select(Task.id, Task.created_by,
-                            Task.filename).distinct().where(Task.id << task_ids):
-        # The task is completed:
+    for task in Task.select().where(Task.id << task_ids):
+        # The task is completed (all recores are processed):
         if not (AffiliationRecord.select().where(
                 AffiliationRecord.task_id == task.id,
                 AffiliationRecord.processed_at.is_null()).exists()):
+            task.completed_at = datetime.now()
+            task.save()
             with app.app_context():
                 export_url = flask.url_for(
                     "affiliationrecord.export", export_type="csv", task_id=task.id, _external=True)
