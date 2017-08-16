@@ -327,10 +327,25 @@ class AffiliationRecordAdmin(AppModelView):
     column_exclude_list = ("task", "organisation", )
     column_searchable_list = ("first_name", "last_name", "identifier", "role", "department",
                               "state", )
+    column_export_exclude_list = ("task", "is_active", )
     can_edit = True
     can_create = False
     can_delete = False
     can_view_details = True
+    can_export = True
+
+    def get_export_name(self, export_type='csv'):
+        """
+        :return: The exported csv file name.
+        """
+        task_id = request.args.get("task_id")
+        if task_id:
+            task = Task.get(id=task_id)
+            if task:
+                filename = os.path.splitext(task.filename)[0]
+                return "%s_%s.%s" % (filename, datetime.now().strftime("%Y-%m-%d_%H-%M-%S"),
+                                     export_type)
+        return super().get_export_name(export_type=export_type)
 
     @action("activate", "Activate for processing",
             "Are you sure you want to activate the selected records for batch processing?")
@@ -342,6 +357,24 @@ class AffiliationRecordAdmin(AppModelView):
                 for ar in self.model.select().where(self.model.id.in_(ids)):
                     if not ar.is_active:
                         ar.is_active = True
+                        ar.save()
+                        count += 1
+        except Exception as ex:
+            flash(f"Failed to activate the selected records: {ex}")
+            app.logger.exception("Failed to activate the selected records")
+
+        flash(f"{count} records were activated for batch processing.")
+
+    @action("reset", "Reset for processing",
+            "Are you sure you want to reset the selected records for batch processing?")
+    def action_reset(self, ids):
+        """Batch reset of users."""
+        count = 0
+        try:
+            with db.atomic():
+                for ar in self.model.select().where(self.model.id.in_(ids)):
+                    if ar.is_active and ar.processed_at:
+                        ar.processed_at = None
                         ar.save()
                         count += 1
         except Exception as ex:

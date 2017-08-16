@@ -745,7 +745,7 @@ class Task(BaseModel, AuditMixin):
             source.seek(0)
             reader = csv.reader(source, delimiter='\t')
             header = next(reader)
-        else:
+        if len(header) < 2:
             raise Exception("Expected CSV or TSV format file.")
 
         assert len(header) >= 7, \
@@ -846,6 +846,11 @@ class AffiliationRecord(BaseModel):
         default=False, help_text="The record is marked for batch processing", null=True)
     processed_at = DateTimeField(null=True)
     status = TextField(null=True, help_text="Record processing status.")
+
+    def add_status_line(self, line):
+        """Adds a text line to the status for logging processing progress."""
+        ts = datetime.now().isoformat(timespec="seconds")
+        self.status = (self.status + "\n" if self.status else '') + ts + ": " + line
 
     class Meta:
         db_table = "affiliation_record"
