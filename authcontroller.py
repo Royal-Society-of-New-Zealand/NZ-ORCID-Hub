@@ -18,8 +18,8 @@ from tempfile import gettempdir
 from urllib.parse import quote, unquote, urlparse
 
 import requests
-from flask import (abort, flash, redirect, render_template, request, session, url_for)
-from flask_login import current_user, login_required, login_user, logout_user, login_manager
+from flask import (abort, flash, redirect, render_template, request, session, url_for, current_app)
+from flask_login import current_user, login_required, login_user, logout_user
 from flask_mail import Message
 from oauthlib.oauth2 import rfc6749
 from requests_oauthlib import OAuth2Session
@@ -387,7 +387,7 @@ def orcid_callback():
     call_from_orcid = request.args.get("call_from_orcid")
     if not call_from_orcid == "True":
         if not current_user.is_authenticated:
-            return login_manager.unauthorized()
+            return current_app.login_manager.unauthorized()
     else:
         return orcid_login_callback(request)
 
