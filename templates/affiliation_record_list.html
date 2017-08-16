@@ -26,7 +26,11 @@
             <b>Completed At</b>
           </td>
           <td>
-            {{task.completed_at|isodate}}
+            {% if task.completed_at %}
+              {{task.completed_at|isodate}}
+            {% else %}
+                &nbsp;
+            {% endif %}
           </td>
         </tr>
         <tr>

@@ -707,7 +707,7 @@ class Task(BaseModel, AuditMixin):
     __record_count = None
     org = ForeignKeyField(
         Organisation, index=True, verbose_name="Organisation", on_delete="SET NULL")
-    completed_at = DateTimeField(default=datetime.now, null=True)
+    completed_at = DateTimeField(null=True)
     filename = TextField(null=True)
     created_by = ForeignKeyField(
         User, on_delete="SET NULL", null=True, related_name="created_tasks")
