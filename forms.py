@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 """Application forms."""
 
-import re
 from datetime import date
 
 from flask_wtf import FlaskForm
@@ -15,26 +14,17 @@ from wtforms.widgets import HTMLString, html_params
 
 from config import DEFAULT_COUNTRY
 from models import PartialDate as PD
-from models import Organisation
+from models import Organisation, validate_orcid_id
 
 
-def validate_orcid_id(form, field):
+def validate_orcid_id_field(form, field):
     """Validates ORCID iD."""
     if not field.data:
         return
-
-    if not re.match(r"^\d{4}-?\d{4}-?\d{4}-?\d{4}$", field.data):
-        raise ValidationError(
-            "Invalid ORCID iD. It should be in the form of 'xxxx-xxxx-xxxx-xxxx' where x is a digit."
-        )
-    check = 0
-    for n in field.data:
-        if n == '-':
-            continue
-        check = (2 * check + int(10 if n == 'X' else n)) % 11
-    if check != 1:
-        raise ValidationError(
-            "Invalid ORCID iD checksum. Make sure you have entered correct ORCID iD.")
+    try:
+        validate_orcid_id(field.date)
+    except ValueError as ex:
+        raise ValidationError(str(ex))
 
 
 class PartialDate:
@@ -229,7 +219,7 @@ class OrgRegistrationForm(FlaskForm):
             RequiredIf("via_orcid"),
         ])
     orcid_id = StringField("ORCID iD", [
-        validate_orcid_id,
+        validate_orcid_id_field,
     ])
     city = StringField(
         "City", validators=[
@@ -276,7 +266,7 @@ class UserInvitationForm(FlaskForm):
     last_name = StringField("Last Name", [validators.required()])
     email_address = EmailField("Email Address", [validators.required(), Email()])
     orcid_id = StringField("ORCID iD", [
-        validate_orcid_id,
+        validate_orcid_id_field,
     ])
     department = StringField("Campus/Department")
     organisation = StringField("Organisation Name")

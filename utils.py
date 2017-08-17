@@ -24,7 +24,6 @@ from application import app
 from config import (ENV, EXTERNAL_SP, ORCID_BASE_URL, SCOPE_ACTIVITIES_UPDATE, SCOPE_READ_LIMITED)
 from models import (Affiliation, AffiliationRecord, OrcidToken, Organisation, Role, Task, User,
                     UserInvitation, UserOrg)
-from swagger_client.rest import ApiException
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -329,12 +328,11 @@ def send_user_initation(inviter,
             disambiguation_org_source=disambiguation_org_source,
             token=token)
 
-        state = "The invitation sent at " + datetime.now().isoformat(timespec="seconds")
-        (AffiliationRecord.update(state=AffiliationRecord.state + "\n" + state).where(
-            AffiliationRecord.state.is_null(False),
-            AffiliationRecord.identifier == email).execute())
-        (AffiliationRecord.update(state=state).where(
-            AffiliationRecord.state.is_null(), AffiliationRecord.identifier == email).execute())
+        status = "The invitation sent at " + datetime.now().isoformat(timespec="seconds")
+        (AffiliationRecord.update(status=AffiliationRecord.status + "\n" + status).where(
+            AffiliationRecord.status.is_null(False), AffiliationRecord.email == email).execute())
+        (AffiliationRecord.update(status=status).where(AffiliationRecord.status.is_null(),
+                                                       AffiliationRecord.email == email).execute())
 
     except Exception as ex:
         logger.error(f"Exception occured while sending mails {ex}")
@@ -368,64 +366,95 @@ def create_or_update_affiliation(user, org_id, records, *args, **kwargs):
         uri="http://" + url.hostname + "/client/" + org.orcid_client_id)
 
     for task_by_user in records:
-        affiliation_record = task_by_user.affiliation_record
+        ar = task_by_user.affiliation_record
 
-        organisation_address = orcid_client.OrganizationAddress(
-            city=affiliation_record.city, country=org.country)
+        organisation_address = orcid_client.OrganizationAddress(city=ar.city, country=org.country)
 
         disambiguated_organization_details = orcid_client.DisambiguatedOrganization(
             disambiguated_organization_identifier=org.disambiguation_org_id,
             disambiguation_source=org.disambiguation_org_source)
 
-        a = None
-        if affiliation_record.affiliation_type.lower() in {"faculty", "staff", "emp"}:
-            a = Affiliation.EMP
+        at = ar.affiliation_type.lower()
+        if at in {"faculty", "staff", "emp"}:
             rec = orcid_client.Employment()
-        elif affiliation_record.affiliation_type.lower() in {"student", "alum", "edu"}:
-            a = Affiliation.EDU
+        elif at in {"student", "edu"}:
             rec = orcid_client.Education()
+        else:
+            logger.info(f"For {user} not able to determine affiliaton type with {org}")
+            ar.processed_at = datetime.now()
+            ar.add_status_line(
+                f"Unsupported affiliation type '{at}' for {user} affiliaton type with {org}")
+            ar.save()
+            continue
 
         rec.source = orcid_client.Source(
             source_orcid=None, source_client_id=source_clientid, source_name=org.name)
 
         rec.organization = orcid_client.Organization(
-            name=affiliation_record.organisation,
+            name=ar.organisation,
             address=organisation_address,
             disambiguated_organization=disambiguated_organization_details)
 
-        rec.department_name = affiliation_record.department
-        rec.role_title = affiliation_record.role
-        if affiliation_record.start_date:
-            rec.start_date = affiliation_record.start_date.as_orcid_dict()
-        if affiliation_record.end_date:
-            rec.end_date = affiliation_record.end_date.as_orcid_dict()
+        if ar.put_code:
+            rec.put_code = ar.put_code
+
+        rec.department_name = ar.department
+        rec.role_title = ar.role
+        if ar.start_date:
+            rec.start_date = ar.start_date.as_orcid_dict()
+        if ar.end_date:
+            rec.end_date = ar.end_date.as_orcid_dict()
 
         # TODO: need to check if the entry doesn't exist already: if it does then only update
         # TODO: handle 'update' cases when put-code is preset
         # TODO: handle updates when entry is partial (missing role, time ranges, department etc....)
         try:
-            if a == Affiliation.EMP:
+            if at in {"faculty", "staff", "emp"}:
+                if ar.put_code:
+                    api_call = api_instance.update_employment
+                else:
+                    api_call = api_instance.create_employment
+            elif at in {"student", "edu"}:
+                if ar.put_code:
+                    api_call = api_instance.update_education
+                else:
+                    api_call = api_instance.create_education
 
-                api_instance.create_employment(user.orcid, body=rec)
-                app.logger.info("For %r the ORCID employment record was updated from %r", user,
-                                org)
-            elif a == Affiliation.EDU:
-                api_instance.create_education(user.orcid, body=rec)
-
-                app.logger.info("For %r the ORCID education record was updated from %r", user, org)
+            params = dict(orcid=user.orcid, body=rec, _preload_content=False)
+            if ar.put_code:
+                params["put_code"] = ar.put_code
+            resp = api_call(**params)
+            logger.info(
+                f"For {user} the ORCID record was {'updated' if ar.put_code else 'created'} from {org}"
+            )
+            # retrieve the put-code from response Location header:
+            if resp.status == 201:
+                location = resp.headers.get("Location")
+                try:
+                    orcid, put_code = location.split("/")[-3::2]
+                    put_code = int(put_code)
+                except:
+                    logger.exception("Failed to get ORCID iD/put-code from the response.")
+                    ar.add_status_line("Failed to get ORCID iD/put-code from the response.")
+                else:
+                    ar.put_code = put_code
+                    if not ar.orcid:
+                        ar.orcid = orcid
+                    ar.add_status_line(f"Affiliation record was created: {location}")
+            elif resp.status == 200:
+                if not ar.orcid:
+                    ar.orcid = user.orcid
+                ar.add_status_line("Affiliation record was updated")
             else:
-                app.logger.info("For %r not able to determine affiliaton type with %r", user, org)
-                continue
-            # TODO: Save the put-code in db table
-            # TODO: update "status"
-            # TODO: handle exception cases and update "status" accordingly
-            task_by_user.affiliation_record.processed_at = datetime.now()
-            task_by_user.affiliation_record.save()
+                msg = f"Problem with adding a record to profile. Status Code: {resp.status}"
+                logger.error(msg)
+                ar.add_status_line(msg)
 
-        except ApiException as e:
-            app.logger.error("For %r encountered exception: %r", user, e)
-        except Exception as ex:
-            app.logger.error("For %r encountered exception: %r", user, ex)
+            ar.processed_at = datetime.now()
+            ar.save()
+
+        except:
+            logger.exception(f"For {user} encountered exception")
 
 
 def process_affiliation_records(max_rows=20):
@@ -433,6 +462,7 @@ def process_affiliation_records(max_rows=20):
     set_server_name()
     # TODO: optimize removing redudnt fields
     # TODO: perhaps it should be broken into 2 queries
+    task_ids = set()
     tasks = (
         Task.select(Task, AffiliationRecord, User,
                     UserInvitation.id.alias("invitation_id"), OrcidToken)
@@ -440,27 +470,25 @@ def process_affiliation_records(max_rows=20):
             (User.id.is_null(False) & User.orcid.is_null(False) & OrcidToken.id.is_null(False)) | (
                 (User.id.is_null() | User.orcid.is_null() | OrcidToken.id.is_null()) &
                 UserInvitation.id.is_null() &
-                (AffiliationRecord.state.is_null() |
-                 AffiliationRecord.state.contains("sent").__invert__())))).join(
+                (AffiliationRecord.status.is_null() |
+                 AffiliationRecord.status.contains("sent").__invert__())))).join(
                      AffiliationRecord, on=(Task.id == AffiliationRecord.task_id)).join(
                          User,
                          JOIN.LEFT_OUTER,
-                         on=((User.email == AffiliationRecord.identifier) |
-                             (User.eppn == AffiliationRecord.identifier) |
-                             (User.orcid == AffiliationRecord.identifier))).join(
+                         on=((User.email == AffiliationRecord.email) |
+                             (User.orcid == AffiliationRecord.orcid))).join(
                                  Organisation,
                                  JOIN.LEFT_OUTER,
                                  on=(Organisation.id == Task.org_id))
         .join(
-            UserInvitation,
-            JOIN.LEFT_OUTER,
-            on=(UserInvitation.email == AffiliationRecord.identifier)).join(
+            UserInvitation, JOIN.LEFT_OUTER,
+            on=(UserInvitation.email == AffiliationRecord.email)).join(
                 OrcidToken,
                 JOIN.LEFT_OUTER,
                 on=((OrcidToken.user_id == User.id) & (OrcidToken.org_id == Organisation.id) &
                     (OrcidToken.scope.contains("/activities/update")))).limit(max_rows))
-    for (org_id,
-         user), tasks_by_user in groupby(tasks, lambda t: (t.org_id, t.affiliation_record.user, )):
+    for (task_id, org_id, user), tasks_by_user in groupby(
+            tasks, lambda t: (t.id, t.org_id, t.affiliation_record.user, )):
         if (user.id is None or user.orcid is None or not OrcidToken.select().where(
             (OrcidToken.user_id == user.id) & (OrcidToken.org_id == org_id) &
             (OrcidToken.scope.contains("/activities/update"))).exists()):  # noqa: E127, E129
@@ -468,17 +496,34 @@ def process_affiliation_records(max_rows=20):
             # maps invitation attributes to affiliation type set:
             # - the user who uploaded the task;
             # - the user organisation;
-            # - the invitee identifier (email address in this case);
+            # - the invitee email;
             # - the invitee first_name;
             # - the invitee last_name
             invitation_dict = {
                 k: set(t.affiliation_record.affiliation_type.lower() for t in tasks)
                 for k, tasks in groupby(
                     tasks_by_user,
-                    lambda t: (t.created_by, t.org, t.affiliation_record.identifier, t.affiliation_record.first_name, t.affiliation_record.last_name)  # noqa: E501
+                    lambda t: (t.created_by, t.org, t.affiliation_record.email, t.affiliation_record.first_name, t.affiliation_record.last_name)  # noqa: E501
                 )  # noqa: E501
             }
             for invitation, affiliations in invitation_dict.items():
                 send_user_initation(*invitation, affiliations)
         else:  # user exits and we have tokens
             create_or_update_affiliation(user, org_id, tasks_by_user)
+        task_ids.add(task_id)
+    for task in Task.select().where(Task.id << task_ids):
+        # The task is completed (all recores are processed):
+        if not (AffiliationRecord.select().where(
+                AffiliationRecord.task_id == task.id,
+                AffiliationRecord.processed_at.is_null()).exists()):
+            task.completed_at = datetime.now()
+            task.save()
+            with app.app_context():
+                export_url = flask.url_for(
+                    "affiliationrecord.export", export_type="csv", task_id=task.id, _external=True)
+                send_email(
+                    "email/task_completed.html",
+                    subject="Affiliation Process Update",
+                    recipient=(task.created_by.name, task.created_by.email),
+                    export_url=export_url,
+                    filename=task.filename)

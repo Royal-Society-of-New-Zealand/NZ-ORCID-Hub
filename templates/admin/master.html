@@ -30,7 +30,7 @@ The extension based on the version v1.5.#}
   <script>
 $(document).ready(function(){
   $('[data-toggle="tooltip"]').tooltip(); 
-  $("#{{request.endpoint}}").addClass("active");
+  $("#{{request.endpoint.replace('.', '\\\\.')}}").addClass("active");
 });
   </script>
 {% endblock %}

@@ -8,10 +8,6 @@ from datetime import datetime
 from urllib.parse import urlparse
 
 from flask import (abort, flash, redirect, render_template, request, send_from_directory, url_for)
-from flask_admin.actions import action
-from flask_admin.contrib.peewee import ModelView
-from flask_admin.form import SecureForm
-from flask_admin.model import typefmt
 from flask_login import current_user, login_required
 from jinja2 import Markup
 from werkzeug import secure_filename
@@ -20,6 +16,10 @@ import orcid_client
 import utils
 from application import admin, app
 from config import ORCID_BASE_URL, SCOPE_ACTIVITIES_UPDATE, SCOPE_READ_LIMITED
+from flask_admin.actions import action
+from flask_admin.contrib.peewee import ModelView
+from flask_admin.form import SecureForm
+from flask_admin.model import typefmt
 from forms import (BitmapMultipleValueField, FileUploadForm, OrgRegistrationForm, PartialDateField,
                    RecordForm, UserInvitationForm)
 from login_provider import roles_required
@@ -129,10 +129,8 @@ class AppModelView(ModelView):
                 elif isinstance(p, str):
                     p = getattr(self.model, p)
 
-                field_type = type(p)
-
                 # Check type
-                if (field_type != CharField and field_type != TextField):
+                if not isinstance(p, (CharField, TextField, )):
                     raise Exception('Can only search on text columns. ' +
                                     'Failed to setup search for "%s"' % p)
 
@@ -315,22 +313,36 @@ class UserOrgAmin(AppModelView):
 
 class TaskAdmin(AppModelView):
     roles_required = Role.SUPERUSER | Role.ADMIN
+    list_template = "view_tasks.html"
     can_edit = False
     can_create = False
     can_delete = True
-    can_view_details = True
 
 
 class AffiliationRecordAdmin(AppModelView):
     roles_required = Role.SUPERUSER | Role.ADMIN
     list_template = "affiliation_record_list.html"
     column_exclude_list = ("task", "organisation", )
-    column_searchable_list = ("first_name", "last_name", "identifier", "role", "department",
-                              "state", )
-    can_edit = False
+    column_searchable_list = ("first_name", "last_name", "email", "role", "department", "state", )
+    column_export_exclude_list = ("task", "is_active", )
+    can_edit = True
     can_create = False
     can_delete = False
     can_view_details = True
+    can_export = True
+
+    def get_export_name(self, export_type='csv'):
+        """
+        :return: The exported csv file name.
+        """
+        task_id = request.args.get("task_id")
+        if task_id:
+            task = Task.get(id=task_id)
+            if task:
+                filename = os.path.splitext(task.filename)[0]
+                return "%s_%s.%s" % (filename, datetime.now().strftime("%Y-%m-%d_%H-%M-%S"),
+                                     export_type)
+        return super().get_export_name(export_type=export_type)
 
     @action("activate", "Activate for processing",
             "Are you sure you want to activate the selected records for batch processing?")
@@ -342,6 +354,24 @@ class AffiliationRecordAdmin(AppModelView):
                 for ar in self.model.select().where(self.model.id.in_(ids)):
                     if not ar.is_active:
                         ar.is_active = True
+                        ar.save()
+                        count += 1
+        except Exception as ex:
+            flash(f"Failed to activate the selected records: {ex}")
+            app.logger.exception("Failed to activate the selected records")
+
+        flash(f"{count} records were activated for batch processing.")
+
+    @action("reset", "Reset for processing",
+            "Are you sure you want to reset the selected records for batch processing?")
+    def action_reset(self, ids):
+        """Batch reset of users."""
+        count = 0
+        try:
+            with db.atomic():
+                for ar in self.model.select().where(self.model.id.in_(ids)):
+                    if ar.is_active and ar.processed_at:
+                        ar.processed_at = None
                         ar.save()
                         count += 1
         except Exception as ex:
@@ -711,6 +741,17 @@ def show_record_section(user_id, section_type="EMP"):
             org_client_id=user.organisation.orcid_client_id)
 
 
+def read_uploaded_file(form):
+    """Read up the whole content and deconde it and return the whole content."""
+    raw = request.files[form.file_.name].read()
+    for encoding in "utf-8", "utf-8-sig", "utf-16":
+        try:
+            return raw.decode(encoding)
+        except UnicodeDecodeError:
+            continue
+    return raw.decode("latin-1")
+
+
 @app.route("/load/org", methods=["GET", "POST"])
 @roles_required(Role.SUPERUSER)
 def load_org():
@@ -718,8 +759,7 @@ def load_org():
 
     form = FileUploadForm()
     if form.validate_on_submit():
-        data = request.files[form.file_.name].read().decode("utf-8")
-        row_count = OrgInfo.load_from_csv(data)
+        row_count = OrgInfo.load_from_csv(read_uploaded_file(form))
 
         flash("Successfully loaded %d rows." % row_count, "success")
         return redirect(url_for("orginfo.index_view"))
@@ -735,8 +775,7 @@ def load_researcher_affiliations():
     form = FileUploadForm()
     if form.validate_on_submit():
         filename = secure_filename(form.file_.data.filename)
-        data = request.files[form.file_.name].read().decode("utf-8")
-        task = Task.load_from_csv(data, filename=filename)
+        task = Task.load_from_csv(read_uploaded_file(form), filename=filename)
 
         flash(f"Successfully loaded {task.record_count} rows.")
         return redirect(url_for("affiliationrecord.index_view", task_id=task.id))

@@ -15,8 +15,8 @@ from urllib.parse import urlencode
 
 from flask_login import UserMixin, current_user
 from peewee import (BooleanField, CharField, DateTimeField, DeferredRelation, Field,
-                    ForeignKeyField, IntegerField, Model, OperationalError, SmallIntegerField,
-                    TextField)
+                    FixedCharField, ForeignKeyField, IntegerField, Model, OperationalError,
+                    SmallIntegerField, TextField)
 from playhouse.shortcuts import model_to_dict
 from pycountry import countries
 
@@ -32,6 +32,24 @@ except ImportError:
 class ModelException(Exception):
     """Applicaton model exception."""
     pass
+
+
+def validate_orcid_id(value):
+    """Validates ORCID iD."""
+    if not value:
+        return
+
+    if not re.match(r"^\d{4}-?\d{4}-?\d{4}-?\d{4}$", value):
+        raise ValueError(
+            "Invalid ORCID iD. It should be in the form of 'xxxx-xxxx-xxxx-xxxx' where x is a digit."
+        )
+    check = 0
+    for n in value:
+        if n == '-':
+            continue
+        check = (2 * check + int(10 if n == 'X' else n)) % 11
+    if check != 1:
+        raise ValueError("Invalid ORCID iD checksum. Make sure you have entered correct ORCID iD.")
 
 
 class PartialDate(namedtuple("PartialDate", ["year", "month", "day"])):
@@ -88,6 +106,20 @@ class PartialDate(namedtuple("PartialDate", ["year", "month", "day"])):
 
 
 PartialDate.__new__.__defaults__ = (None, ) * len(PartialDate._fields)
+
+
+class OrcidIdField(FixedCharField):
+    """ORCID iD value DB field."""
+
+    def __init__(self, *args, **kwargs):
+        if "verbose_name" not in kwargs:
+            kwargs["verbose_name"] = "ORCID iD"
+        super().__init__(*args, max_length=19, **kwargs)
+
+    # TODO: figure out where to place the value validation...
+    # def coerce(self, value):
+    #     validate_orcid_id(value)
+    #     return super().coerce(value)
 
 
 class PartialDateField(Field):
@@ -379,7 +411,7 @@ class User(BaseModel, UserMixin, AuditMixin):
     email = CharField(max_length=120, unique=True, null=True)
     eppn = CharField(max_length=120, unique=True, null=True)
     # ORCiD:
-    orcid = CharField(max_length=120, verbose_name="ORCID", null=True)
+    orcid = OrcidIdField(null=True)
     confirmed = BooleanField(default=False)
     # Role bit-map:
     roles = SmallIntegerField(default=0)
@@ -580,9 +612,9 @@ class UserInvitation(BaseModel, AuditMixin):
         Organisation, on_delete="CASCADE", null=True, verbose_name="Organisation")
 
     email = TextField(index=True, help_text="The email address the invitation was sent to.")
-    first_name = TextField(verbose_name="First Name")
-    last_name = TextField(verbose_name="Last Name")
-    orcid = CharField(max_length=120, verbose_name="ORCID iD", null=True)
+    first_name = TextField(null=True, verbose_name="First Name")
+    last_name = TextField(null=True, verbose_name="Last Name")
+    orcid = OrcidIdField(null=True)
     department = TextField(verbose_name="Campus/Department", null=True)
     organisation = TextField(verbose_name="Organisation Name", null=True)
     city = TextField(verbose_name="City", null=True)
@@ -707,7 +739,7 @@ class Task(BaseModel, AuditMixin):
     __record_count = None
     org = ForeignKeyField(
         Organisation, index=True, verbose_name="Organisation", on_delete="SET NULL")
-    completed_at = DateTimeField(default=datetime.now, null=True)
+    completed_at = DateTimeField(null=True)
     filename = TextField(null=True)
     created_by = ForeignKeyField(
         User, on_delete="SET NULL", null=True, related_name="created_tasks")
@@ -745,7 +777,7 @@ class Task(BaseModel, AuditMixin):
             source.seek(0)
             reader = csv.reader(source, delimiter='\t')
             header = next(reader)
-        else:
+        if len(header) < 2:
             raise Exception("Expected CSV or TSV format file.")
 
         assert len(header) >= 7, \
@@ -755,11 +787,11 @@ class Task(BaseModel, AuditMixin):
             "Read header: %s" % header
         header_rexs = [
             re.compile(ex, re.I)
-            for ex in (r"first\s*(name)?", r"last\s*(name)?", "email|id|identifier",
-                       "organisation|^name", "campus|department", "city", "state|region",
-                       "course|title|role", r"start\s*(date)?", r"end\s*(date)?",
+            for ex in (r"first\s*(name)?", r"last\s*(name)?", "email", "organisation|^name",
+                       "campus|department", "city", "state|region", "course|title|role",
+                       r"start\s*(date)?", r"end\s*(date)?",
                        r"affiliation(s)?\s*(type)?|student|staff", "country", r"disambiguat.*id",
-                       r"disambiguat.*source", r"put|code", )
+                       r"disambiguat.*source", r"put|code", "orcid")
         ]
 
         def index(rex):
@@ -787,17 +819,15 @@ class Task(BaseModel, AuditMixin):
                 return None if v == '' else v
 
         for row in reader:
-            identifier = val(row, 2)
             if len(row) == 0:
                 continue
-            if identifier is None:
-                raise ModelException(
-                    f"Missing user identifier (email address, eppn, or ORCID iD): {row}")
+            if not (val(row, 15) or val(row, 2)):
+                raise ModelException(f"Missing user identifier (email address or ORCID iD): {row}")
             AffiliationRecord.create(
                 task=task,
                 first_name=val(row, 0),
                 last_name=val(row, 1),
-                identifier=identifier,
+                email=val(row, 2).encode("latin-1").decode("utf-8").lower(),
                 organisation=val(row, 3),
                 department=val(row, 4),
                 city=val(row, 5),
@@ -809,9 +839,9 @@ class Task(BaseModel, AuditMixin):
                 country=val(row, 11),
                 disambiguated_id=val(row, 12),
                 disambiguated_source=val(row, 13),
-                put_code=val(row, 14))
+                put_code=val(row, 14),
+                orcid=val(row, 15))
 
-        task.__record_count = reader.line_num - 1
         return task
 
     class Meta:
@@ -822,13 +852,17 @@ class AffiliationRecord(BaseModel):
     """Affiliation record loaded from CSV file for batch processing."""
     task = ForeignKeyField(Task)
     put_code = IntegerField(null=True)
-    first_name = TextField(null=True)
-    last_name = TextField(null=True)
-    identifier = TextField(
-        index=True, help_text="User email, eppn, or ORCID Id", verbose_name="Email/Eppn/ORCID Id")
+    first_name = CharField(max_length=120, null=True)
+    last_name = CharField(max_length=120, null=True)
+    email = CharField(max_length=120, null=True)
+    orcid = OrcidIdField(null=True)
     organisation = TextField(null=True, index=True)
-    affiliation_type = TextField(
-        null=True, choices=("EDU", "EMP", "student", "alum", "faculty", "staff", ))
+    affiliation_type = CharField(
+        max_length=20,
+        null=True,
+        choices=[(v, v)
+                 for v in ("EDU", "EMP", "student", "alum", "faculty", "staff", "Student", "Alum",
+                           "Faculty", "Staff", )])
     role = TextField(null=True, verbose_name="Role/Course")
     department = TextField(null=True)
     start_date = PartialDateField(null=True)
@@ -843,6 +877,11 @@ class AffiliationRecord(BaseModel):
         default=False, help_text="The record is marked for batch processing", null=True)
     processed_at = DateTimeField(null=True)
     status = TextField(null=True, help_text="Record processing status.")
+
+    def add_status_line(self, line):
+        """Adds a text line to the status for logging processing progress."""
+        ts = datetime.now().isoformat(timespec="seconds")
+        self.status = (self.status + "\n" if self.status else '') + ts + ": " + line
 
     class Meta:
         db_table = "affiliation_record"
