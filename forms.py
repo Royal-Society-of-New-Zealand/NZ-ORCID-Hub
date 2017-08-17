@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 """Application forms."""
 
-import re
 from datetime import date
 
 from flask_wtf import FlaskForm
@@ -15,34 +14,17 @@ from wtforms.widgets import HTMLString, html_params
 
 from config import DEFAULT_COUNTRY
 from models import PartialDate as PD
-from models import Organisation
-
-form utils import validate_orcid_id
+from models import Organisation, validate_orcid_id
 
 
 def validate_orcid_id_field(form, field):
     """Validates ORCID iD."""
+    if not field.data:
+        return
     try:
         validate_orcid_id(field.date)
     except ValueError as ex:
         raise ValidationError(str(ex))
-    except:
-        app.logger.exception("Failed to validate ORCID iD.")
-    if not field.data:
-        return
-
-    if not re.match(r"^\d{4}-?\d{4}-?\d{4}-?\d{4}$", field.data):
-        raise ValidationError(
-            "Invalid ORCID iD. It should be in the form of 'xxxx-xxxx-xxxx-xxxx' where x is a digit."
-        )
-    check = 0
-    for n in field.data:
-        if n == '-':
-            continue
-        check = (2 * check + int(10 if n == 'X' else n)) % 11
-    if check != 1:
-        raise ValidationError(
-            "Invalid ORCID iD checksum. Make sure you have entered correct ORCID iD.")
 
 
 class PartialDate:

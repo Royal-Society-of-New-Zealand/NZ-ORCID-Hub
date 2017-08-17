@@ -8,10 +8,6 @@ from datetime import datetime
 from urllib.parse import urlparse
 
 from flask import (abort, flash, redirect, render_template, request, send_from_directory, url_for)
-from flask_admin.actions import action
-from flask_admin.contrib.peewee import ModelView
-from flask_admin.form import SecureForm
-from flask_admin.model import typefmt
 from flask_login import current_user, login_required
 from jinja2 import Markup
 from werkzeug import secure_filename
@@ -20,6 +16,10 @@ import orcid_client
 import utils
 from application import admin, app
 from config import ORCID_BASE_URL, SCOPE_ACTIVITIES_UPDATE, SCOPE_READ_LIMITED
+from flask_admin.actions import action
+from flask_admin.contrib.peewee import ModelView
+from flask_admin.form import SecureForm
+from flask_admin.model import typefmt
 from forms import (BitmapMultipleValueField, FileUploadForm, OrgRegistrationForm, PartialDateField,
                    RecordForm, UserInvitationForm)
 from login_provider import roles_required
@@ -129,10 +129,8 @@ class AppModelView(ModelView):
                 elif isinstance(p, str):
                     p = getattr(self.model, p)
 
-                field_type = type(p)
-
                 # Check type
-                if (field_type != CharField and field_type != TextField):
+                if not isinstance(p, (CharField, TextField, )):
                     raise Exception('Can only search on text columns. ' +
                                     'Failed to setup search for "%s"' % p)
 
@@ -325,8 +323,7 @@ class AffiliationRecordAdmin(AppModelView):
     roles_required = Role.SUPERUSER | Role.ADMIN
     list_template = "affiliation_record_list.html"
     column_exclude_list = ("task", "organisation", )
-    column_searchable_list = ("first_name", "last_name", "identifier", "role", "department",
-                              "state", )
+    column_searchable_list = ("first_name", "last_name", "email", "role", "department", "state", )
     column_export_exclude_list = ("task", "is_active", )
     can_edit = True
     can_create = False

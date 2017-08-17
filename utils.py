@@ -18,7 +18,6 @@ from flask_login import current_user
 from html2text import html2text
 from itsdangerous import URLSafeTimedSerializer
 from peewee import JOIN
-import re
 
 import orcid_client
 from application import app
@@ -31,31 +30,12 @@ logger.setLevel(logging.INFO)
 logger.addHandler(logging.StreamHandler())
 
 
-def validate_orcid_id(value):
-    """Validates ORCID iD."""
-    if not value:
-        return
-
-    if not re.match(r"^\d{4}-?\d{4}-?\d{4}-?\d{4}$", value):
-        raise ValueError(
-            "Invalid ORCID iD. It should be in the form of 'xxxx-xxxx-xxxx-xxxx' where x is a digit."
-        )
-    check = 0
-    for n in value:
-        if n == '-':
-            continue
-        check = (2 * check + int(10 if n == 'X' else n)) % 11
-    if check != 1:
-        raise ValueError(
-            "Invalid ORCID iD checksum. Make sure you have entered correct ORCID iD.")
-
-
 def send_email(template_filename,
                recipient,
                cc_email=None,
                sender=(app.config.get("APP_NAME"), app.config.get("MAIL_DEFAULT_SENDER")),
                reply_to=None,
-               ksubject=None,
+               subject=None,
                **kwargs):
     """
     Send an email, acquiring its payload by rendering a jinja2 template
@@ -350,10 +330,9 @@ def send_user_initation(inviter,
 
         status = "The invitation sent at " + datetime.now().isoformat(timespec="seconds")
         (AffiliationRecord.update(status=AffiliationRecord.status + "\n" + status).where(
-            AffiliationRecord.status.is_null(False),
-            AffiliationRecord.email == email).execute())
-        (AffiliationRecord.update(status=status).where(
-            AffiliationRecord.status.is_null(), AffiliationRecord.identifier == email).execute())
+            AffiliationRecord.status.is_null(False), AffiliationRecord.email == email).execute())
+        (AffiliationRecord.update(status=status).where(AffiliationRecord.status.is_null(),
+                                                       AffiliationRecord.email == email).execute())
 
     except Exception as ex:
         logger.error(f"Exception occured while sending mails {ex}")
@@ -452,14 +431,19 @@ def create_or_update_affiliation(user, org_id, records, *args, **kwargs):
             if resp.status == 201:
                 location = resp.headers.get("Location")
                 try:
-                    put_code = int(location.split("/")[-1])
+                    orcid, put_code = location.split("/")[-3::2]
+                    put_code = int(put_code)
                 except:
-                    logger.exception("Failed to get put-code from the response.")
-                    ar.add_status_line("Failed to get put-code from the response.")
+                    logger.exception("Failed to get ORCID iD/put-code from the response.")
+                    ar.add_status_line("Failed to get ORCID iD/put-code from the response.")
                 else:
                     ar.put_code = put_code
+                    if not ar.orcid:
+                        ar.orcid = orcid
                     ar.add_status_line(f"Affiliation record was created: {location}")
             elif resp.status == 200:
+                if not ar.orcid:
+                    ar.orcid = user.orcid
                 ar.add_status_line("Affiliation record was updated")
             else:
                 msg = f"Problem with adding a record to profile. Status Code: {resp.status}"
@@ -491,16 +475,14 @@ def process_affiliation_records(max_rows=20):
                      AffiliationRecord, on=(Task.id == AffiliationRecord.task_id)).join(
                          User,
                          JOIN.LEFT_OUTER,
-                         on=((User.email == AffiliationRecord.identifier) |
-                             (User.eppn == AffiliationRecord.identifier) |
-                             (User.orcid == AffiliationRecord.identifier))).join(
+                         on=((User.email == AffiliationRecord.email) |
+                             (User.orcid == AffiliationRecord.orcid))).join(
                                  Organisation,
                                  JOIN.LEFT_OUTER,
                                  on=(Organisation.id == Task.org_id))
         .join(
-            UserInvitation,
-            JOIN.LEFT_OUTER,
-            on=(UserInvitation.email == AffiliationRecord.identifier)).join(
+            UserInvitation, JOIN.LEFT_OUTER,
+            on=(UserInvitation.email == AffiliationRecord.email)).join(
                 OrcidToken,
                 JOIN.LEFT_OUTER,
                 on=((OrcidToken.user_id == User.id) & (OrcidToken.org_id == Organisation.id) &
@@ -514,14 +496,14 @@ def process_affiliation_records(max_rows=20):
             # maps invitation attributes to affiliation type set:
             # - the user who uploaded the task;
             # - the user organisation;
-            # - the invitee identifier (email address in this case);
+            # - the invitee email;
             # - the invitee first_name;
             # - the invitee last_name
             invitation_dict = {
                 k: set(t.affiliation_record.affiliation_type.lower() for t in tasks)
                 for k, tasks in groupby(
                     tasks_by_user,
-                    lambda t: (t.created_by, t.org, t.affiliation_record.identifier, t.affiliation_record.first_name, t.affiliation_record.last_name)  # noqa: E501
+                    lambda t: (t.created_by, t.org, t.affiliation_record.email, t.affiliation_record.first_name, t.affiliation_record.last_name)  # noqa: E501
                 )  # noqa: E501
             }
             for invitation, affiliations in invitation_dict.items():

@@ -15,14 +15,13 @@ from urllib.parse import urlencode
 
 from flask_login import UserMixin, current_user
 from peewee import (BooleanField, CharField, DateTimeField, DeferredRelation, Field,
-                    ForeignKeyField, FixedCharField, IntegerField, Model, OperationalError,
+                    FixedCharField, ForeignKeyField, IntegerField, Model, OperationalError,
                     SmallIntegerField, TextField)
 from playhouse.shortcuts import model_to_dict
 from pycountry import countries
 
 from application import app, db
 from config import DEFAULT_COUNTRY, ENV
-from utils import validate_orcid_id
 
 try:
     from enum import IntFlag
@@ -33,6 +32,24 @@ except ImportError:
 class ModelException(Exception):
     """Applicaton model exception."""
     pass
+
+
+def validate_orcid_id(value):
+    """Validates ORCID iD."""
+    if not value:
+        return
+
+    if not re.match(r"^\d{4}-?\d{4}-?\d{4}-?\d{4}$", value):
+        raise ValueError(
+            "Invalid ORCID iD. It should be in the form of 'xxxx-xxxx-xxxx-xxxx' where x is a digit."
+        )
+    check = 0
+    for n in value:
+        if n == '-':
+            continue
+        check = (2 * check + int(10 if n == 'X' else n)) % 11
+    if check != 1:
+        raise ValueError("Invalid ORCID iD checksum. Make sure you have entered correct ORCID iD.")
 
 
 class PartialDate(namedtuple("PartialDate", ["year", "month", "day"])):
@@ -97,11 +114,12 @@ class OrcidIdField(FixedCharField):
     def __init__(self, *args, **kwargs):
         if "verbose_name" not in kwargs:
             kwargs["verbose_name"] = "ORCID iD"
-        super(CharField, self).__init__(*args, max_length=19, **kwargs)
+        super().__init__(*args, max_length=19, **kwargs)
 
-    def coerce(self, value):
-        validate_orcid_id(value)
-        return super().coerce(value)
+    # TODO: figure out where to place the value validation...
+    # def coerce(self, value):
+    #     validate_orcid_id(value)
+    #     return super().coerce(value)
 
 
 class PartialDateField(Field):
@@ -594,8 +612,8 @@ class UserInvitation(BaseModel, AuditMixin):
         Organisation, on_delete="CASCADE", null=True, verbose_name="Organisation")
 
     email = TextField(index=True, help_text="The email address the invitation was sent to.")
-    first_name = TextField(verbose_name="First Name")
-    last_name = TextField(verbose_name="Last Name")
+    first_name = TextField(null=True, verbose_name="First Name")
+    last_name = TextField(null=True, verbose_name="Last Name")
     orcid = OrcidIdField(null=True)
     department = TextField(verbose_name="Campus/Department", null=True)
     organisation = TextField(verbose_name="Organisation Name", null=True)
@@ -769,11 +787,11 @@ class Task(BaseModel, AuditMixin):
             "Read header: %s" % header
         header_rexs = [
             re.compile(ex, re.I)
-            for ex in (r"first\s*(name)?", r"last\s*(name)?", "email",
-                       "organisation|^name", "campus|department", "city", "state|region",
-                       "course|title|role", r"start\s*(date)?", r"end\s*(date)?",
+            for ex in (r"first\s*(name)?", r"last\s*(name)?", "email", "organisation|^name",
+                       "campus|department", "city", "state|region", "course|title|role",
+                       r"start\s*(date)?", r"end\s*(date)?",
                        r"affiliation(s)?\s*(type)?|student|staff", "country", r"disambiguat.*id",
-                       r"disambiguat.*source", r"put|code", "orcid" )
+                       r"disambiguat.*source", r"put|code", "orcid")
         ]
 
         def index(rex):
@@ -803,9 +821,8 @@ class Task(BaseModel, AuditMixin):
         for row in reader:
             if len(row) == 0:
                 continue
-            if not(val(row, 15) or val(row, 2)):
-                raise ModelException(
-                    f"Missing user identifier (email address or ORCID iD): {row}")
+            if not (val(row, 15) or val(row, 2)):
+                raise ModelException(f"Missing user identifier (email address or ORCID iD): {row}")
             AffiliationRecord.create(
                 task=task,
                 first_name=val(row, 0),
@@ -841,7 +858,8 @@ class AffiliationRecord(BaseModel):
     orcid = OrcidIdField(null=True)
     organisation = TextField(null=True, index=True)
     affiliation_type = CharField(
-        max_length=20, null=True,
+        max_length=20,
+        null=True,
         choices=[(v, v)
                  for v in ("EDU", "EMP", "student", "alum", "faculty", "staff", "Student", "Alum",
                            "Faculty", "Staff", )])
