@@ -797,7 +797,7 @@ class Task(BaseModel, AuditMixin):
                 task=task,
                 first_name=val(row, 0),
                 last_name=val(row, 1),
-                identifier=identifier,
+                identifier=identifier.encode("latin-1").decode("utf-8").lower(),
                 organisation=val(row, 3),
                 department=val(row, 4),
                 city=val(row, 5),
