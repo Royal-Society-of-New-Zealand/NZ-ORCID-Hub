@@ -18,7 +18,7 @@ from tempfile import gettempdir
 from urllib.parse import quote, unquote, urlparse
 
 import requests
-from flask import (abort, flash, redirect, render_template, request, session, url_for)
+from flask import (abort, flash, redirect, render_template, request, session, url_for, current_app)
 from flask_login import current_user, login_required, login_user, logout_user
 from flask_mail import Message
 from oauthlib.oauth2 import rfc6749
@@ -168,24 +168,6 @@ def handle_login():
     except Exception as ex:
         app.logger.exception("Failed to login via TUAKIRI.")
         abort(500, ex)
-
-    if unscoped_affiliation:
-        edu_person_affiliation = Affiliation.NONE
-        if unscoped_affiliation & {"faculty", "staff"}:
-            edu_person_affiliation |= Affiliation.EMP
-        if unscoped_affiliation & {"student"}:
-            edu_person_affiliation |= Affiliation.EDU
-        if not edu_person_affiliation:
-            flash(
-                "The ORCID Hub will not be able to automatically write an affiliation with %s, "
-                "as the nature of your affiliation does not appear to include staff or student."
-                "You are still welcome to give %s permission, or to let them know your ORCID iD." %
-                (str(shib_org_name), str(shib_org_name)), "danger")
-    else:
-        flash(
-            "The value of 'Unscoped-Affiliation' was not supplied from your identity provider,"
-            " So we are not able to determine the nature of affiliation you have with your organisation",
-            "danger")
 
     try:
         org = Organisation.get((Organisation.tuakiri_name == shib_org_name) | (
@@ -395,7 +377,6 @@ def is_emp_or_edu_record_present(access_token, affiliation_type, user):
 
 # Step 2: User authorization, this happens on the provider.
 @app.route("/auth", methods=["GET"])
-@login_required
 def orcid_callback():
     """Retrieve an access token.
 
@@ -403,6 +384,13 @@ def orcid_callback():
     callback URL. With this redirection comes an authorization code included
     in the redirect URL. We will use that to obtain an access token.
     """
+    call_from_orcid_login = request.args.get("call_from_orcid_login")
+    if call_from_orcid_login != "True":
+        if not current_user.is_authenticated:
+            return current_app.login_manager.unauthorized()
+    else:
+        return orcid_login_callback(request)
+
     if "error" in request.args:
         error = request.args["error"]
         error_description = request.args.get("error_description")
@@ -787,7 +775,7 @@ def orcid_login(invitation_token=None):
     READ LIMITED scope."""
 
     _next = get_next_url()
-    redirect_uri = url_for("orcid_login_callback", _next=_next, _external=True)
+    redirect_uri = url_for("orcid_callback", _next=_next, _external=True)
 
     try:
         scope = SCOPE_AUTHENTICATE
@@ -823,8 +811,9 @@ def orcid_login(invitation_token=None):
             sp_url = urlparse(EXTERNAL_SP)
             u = Url.shorten(redirect_uri)
             redirect_uri = url_for("short_url", short_id=u.short_id, _external=True)
-            redirect_uri = sp_url.scheme + "://" + sp_url.netloc + "/orcid/auth/" + quote(
+            redirect_uri = sp_url.scheme + "://" + sp_url.netloc + "/auth/" + quote(
                 redirect_uri)
+        redirect_uri = append_qs(redirect_uri, call_from_orcid_login="True")
 
         client_write = OAuth2Session(client_id, scope=scope, redirect_uri=redirect_uri)
 
@@ -848,9 +837,7 @@ def orcid_login(invitation_token=None):
         return redirect(url_for("login"))
 
 
-@app.route("/orcid/auth")
-def orcid_login_callback():
-    # TODO: merge with /auth
+def orcid_login_callback(request):
     _next = get_next_url()
 
     state = request.args.get("state")
