@@ -384,8 +384,8 @@ def orcid_callback():
     callback URL. With this redirection comes an authorization code included
     in the redirect URL. We will use that to obtain an access token.
     """
-    call_from_orcid = request.args.get("call_from_orcid")
-    if not call_from_orcid == "True":
+    call_from_orcid_login = request.args.get("call_from_orcid_login")
+    if call_from_orcid_login != "True":
         if not current_user.is_authenticated:
             return current_app.login_manager.unauthorized()
     else:
@@ -799,7 +799,7 @@ def orcid_login(invitation_token=None):
                 else:
                     scope += SCOPE_READ_LIMITED
 
-                redirect_uri = append_qs(redirect_uri, invitation_token=invitation_token, call_from_orcid="True")
+                redirect_uri = append_qs(redirect_uri, invitation_token=invitation_token)
             except Organisation.DoesNotExist:
                 flash("Organisation '{org_name}' doesn't exist!", "danger")
                 app.logger.error(
@@ -813,6 +813,7 @@ def orcid_login(invitation_token=None):
             redirect_uri = url_for("short_url", short_id=u.short_id, _external=True)
             redirect_uri = sp_url.scheme + "://" + sp_url.netloc + "/auth/" + quote(
                 redirect_uri)
+        redirect_uri = append_qs(redirect_uri, call_from_orcid_login="True")
 
         client_write = OAuth2Session(client_id, scope=scope, redirect_uri=redirect_uri)
 
