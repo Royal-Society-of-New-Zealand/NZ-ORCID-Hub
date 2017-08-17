@@ -125,7 +125,7 @@ class OrcidIdField(FixedCharField):
 class PartialDateField(Field):
     """Partial date custom DB data field mapped to varchar(10)."""
 
-    db_field = 'varchar(10)'
+    db_field = "character(10)"
 
     def db_value(self, value):
         """Convert into partial ISO date textual representation: YYYY-**-**, YYYY-MM-**, or YYYY-MM-DD."""
