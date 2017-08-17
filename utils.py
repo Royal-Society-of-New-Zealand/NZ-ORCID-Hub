@@ -18,6 +18,7 @@ from flask_login import current_user
 from html2text import html2text
 from itsdangerous import URLSafeTimedSerializer
 from peewee import JOIN
+import re
 
 import orcid_client
 from application import app
@@ -30,12 +31,31 @@ logger.setLevel(logging.INFO)
 logger.addHandler(logging.StreamHandler())
 
 
+def validate_orcid_id(value):
+    """Validates ORCID iD."""
+    if not value:
+        return
+
+    if not re.match(r"^\d{4}-?\d{4}-?\d{4}-?\d{4}$", value):
+        raise ValueError(
+            "Invalid ORCID iD. It should be in the form of 'xxxx-xxxx-xxxx-xxxx' where x is a digit."
+        )
+    check = 0
+    for n in value:
+        if n == '-':
+            continue
+        check = (2 * check + int(10 if n == 'X' else n)) % 11
+    if check != 1:
+        raise ValueError(
+            "Invalid ORCID iD checksum. Make sure you have entered correct ORCID iD.")
+
+
 def send_email(template_filename,
                recipient,
                cc_email=None,
                sender=(app.config.get("APP_NAME"), app.config.get("MAIL_DEFAULT_SENDER")),
                reply_to=None,
-               subject=None,
+               ksubject=None,
                **kwargs):
     """
     Send an email, acquiring its payload by rendering a jinja2 template
@@ -331,7 +351,7 @@ def send_user_initation(inviter,
         status = "The invitation sent at " + datetime.now().isoformat(timespec="seconds")
         (AffiliationRecord.update(status=AffiliationRecord.status + "\n" + status).where(
             AffiliationRecord.status.is_null(False),
-            AffiliationRecord.identifier == email).execute())
+            AffiliationRecord.email == email).execute())
         (AffiliationRecord.update(status=status).where(
             AffiliationRecord.status.is_null(), AffiliationRecord.identifier == email).execute())
 

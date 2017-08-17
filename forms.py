@@ -17,9 +17,17 @@ from config import DEFAULT_COUNTRY
 from models import PartialDate as PD
 from models import Organisation
 
+form utils import validate_orcid_id
 
-def validate_orcid_id(form, field):
+
+def validate_orcid_id_field(form, field):
     """Validates ORCID iD."""
+    try:
+        validate_orcid_id(field.date)
+    except ValueError as ex:
+        raise ValidationError(str(ex))
+    except:
+        app.logger.exception("Failed to validate ORCID iD.")
     if not field.data:
         return
 
@@ -229,7 +237,7 @@ class OrgRegistrationForm(FlaskForm):
             RequiredIf("via_orcid"),
         ])
     orcid_id = StringField("ORCID iD", [
-        validate_orcid_id,
+        validate_orcid_id_field,
     ])
     city = StringField(
         "City", validators=[
@@ -276,7 +284,7 @@ class UserInvitationForm(FlaskForm):
     last_name = StringField("Last Name", [validators.required()])
     email_address = EmailField("Email Address", [validators.required(), Email()])
     orcid_id = StringField("ORCID iD", [
-        validate_orcid_id,
+        validate_orcid_id_field,
     ])
     department = StringField("Campus/Department")
     organisation = StringField("Organisation Name")

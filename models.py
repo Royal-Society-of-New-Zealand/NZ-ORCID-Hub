@@ -15,13 +15,14 @@ from urllib.parse import urlencode
 
 from flask_login import UserMixin, current_user
 from peewee import (BooleanField, CharField, DateTimeField, DeferredRelation, Field,
-                    ForeignKeyField, IntegerField, Model, OperationalError, SmallIntegerField,
-                    TextField)
+                    ForeignKeyField, FixedCharField, IntegerField, Model, OperationalError,
+                    SmallIntegerField, TextField)
 from playhouse.shortcuts import model_to_dict
 from pycountry import countries
 
 from application import app, db
 from config import DEFAULT_COUNTRY, ENV
+from utils import validate_orcid_id
 
 try:
     from enum import IntFlag
@@ -88,6 +89,19 @@ class PartialDate(namedtuple("PartialDate", ["year", "month", "day"])):
 
 
 PartialDate.__new__.__defaults__ = (None, ) * len(PartialDate._fields)
+
+
+class OrcidIdField(FixedCharField):
+    """ORCID iD value DB field."""
+
+    def __init__(self, *args, **kwargs):
+        if "verbose_name" not in kwargs:
+            kwargs["verbose_name"] = "ORCID iD"
+        super(CharField, self).__init__(*args, max_length=19, **kwargs)
+
+    def coerce(self, value):
+        validate_orcid_id(value)
+        return super().coerce(value)
 
 
 class PartialDateField(Field):
@@ -379,7 +393,7 @@ class User(BaseModel, UserMixin, AuditMixin):
     email = CharField(max_length=120, unique=True, null=True)
     eppn = CharField(max_length=120, unique=True, null=True)
     # ORCiD:
-    orcid = CharField(max_length=120, verbose_name="ORCID", null=True)
+    orcid = OrcidIdField(null=True)
     confirmed = BooleanField(default=False)
     # Role bit-map:
     roles = SmallIntegerField(default=0)
@@ -582,7 +596,7 @@ class UserInvitation(BaseModel, AuditMixin):
     email = TextField(index=True, help_text="The email address the invitation was sent to.")
     first_name = TextField(verbose_name="First Name")
     last_name = TextField(verbose_name="Last Name")
-    orcid = CharField(max_length=120, verbose_name="ORCID iD", null=True)
+    orcid = OrcidIdField(null=True)
     department = TextField(verbose_name="Campus/Department", null=True)
     organisation = TextField(verbose_name="Organisation Name", null=True)
     city = TextField(verbose_name="City", null=True)
@@ -755,11 +769,11 @@ class Task(BaseModel, AuditMixin):
             "Read header: %s" % header
         header_rexs = [
             re.compile(ex, re.I)
-            for ex in (r"first\s*(name)?", r"last\s*(name)?", "email|id|identifier",
+            for ex in (r"first\s*(name)?", r"last\s*(name)?", "email",
                        "organisation|^name", "campus|department", "city", "state|region",
                        "course|title|role", r"start\s*(date)?", r"end\s*(date)?",
                        r"affiliation(s)?\s*(type)?|student|staff", "country", r"disambiguat.*id",
-                       r"disambiguat.*source", r"put|code", )
+                       r"disambiguat.*source", r"put|code", "orcid" )
         ]
 
         def index(rex):
@@ -787,17 +801,16 @@ class Task(BaseModel, AuditMixin):
                 return None if v == '' else v
 
         for row in reader:
-            identifier = val(row, 2)
             if len(row) == 0:
                 continue
-            if identifier is None:
+            if not(val(row, 15) or val(row, 2)):
                 raise ModelException(
-                    f"Missing user identifier (email address, eppn, or ORCID iD): {row}")
+                    f"Missing user identifier (email address or ORCID iD): {row}")
             AffiliationRecord.create(
                 task=task,
                 first_name=val(row, 0),
                 last_name=val(row, 1),
-                identifier=identifier,
+                email=val(row, 2),
                 organisation=val(row, 3),
                 department=val(row, 4),
                 city=val(row, 5),
@@ -809,9 +822,9 @@ class Task(BaseModel, AuditMixin):
                 country=val(row, 11),
                 disambiguated_id=val(row, 12),
                 disambiguated_source=val(row, 13),
-                put_code=val(row, 14))
+                put_code=val(row, 14),
+                orcid=val(row, 15))
 
-        task.__record_count = reader.line_num - 1
         return task
 
     class Meta:
@@ -822,13 +835,13 @@ class AffiliationRecord(BaseModel):
     """Affiliation record loaded from CSV file for batch processing."""
     task = ForeignKeyField(Task)
     put_code = IntegerField(null=True)
-    first_name = TextField(null=True)
-    last_name = TextField(null=True)
-    identifier = TextField(
-        index=True, help_text="User email, eppn, or ORCID Id", verbose_name="Email/Eppn/ORCID Id")
+    first_name = CharField(max_length=120, null=True)
+    last_name = CharField(max_length=120, null=True)
+    email = CharField(max_length=120, null=True)
+    orcid = OrcidIdField(null=True)
     organisation = TextField(null=True, index=True)
-    affiliation_type = TextField(
-        null=True,
+    affiliation_type = CharField(
+        max_length=20, null=True,
         choices=[(v, v)
                  for v in ("EDU", "EMP", "student", "alum", "faculty", "staff", "Student", "Alum",
                            "Faculty", "Staff", )])
