@@ -159,20 +159,20 @@ class AppModelView(ModelView):
 
         if current_user and not current_user.has_role(Role.SUPERUSER) and current_user.has_role(
                 Role.ADMIN):
-            # Show only rows realted to the organisation the user is admin for.
+            # Show only rows realted to the curretn organisation the user is admin for.
             # Skip this part for SUPERUSER.
             db_columns = [c.db_column for c in self.model._meta.fields.values()]
             if "org_id" in db_columns or "organisation_id" in db_columns:
-                admin_for_org_ids = [o.id for o in current_user.admin_for.select(Organisation.id)]
                 if "org_id" in db_columns:
-                    query.where(self.model.org_id << admin_for_org_ids)
+                    query = query.where(self.model.org_id == current_user.organisation.id)
                 else:
-                    query.where(self.model.organisation_id << admin_for_org_ids)
+                    query = query.where(self.model.organisation_id == current_user.organisation.id)
 
         if request.args and any(a.endswith("_id") for a in request.args):
             for f in self.model._meta.fields.values():
                 if f.db_column.endswith("_id") and f.db_column in request.args:
                     query = query.where(f == int(request.args[f.db_column]))
+        print("***", query)
         return query
 
     def _get_list_extra_args(self):
@@ -330,6 +330,28 @@ class AffiliationRecordAdmin(AppModelView):
     can_delete = False
     can_view_details = True
     can_export = True
+
+    def is_accessible(self):
+        """Verify if the task view is accessible for the current user."""
+        if not super().is_accessible():
+            return False
+
+        task_id = request.args.get("task_id")
+        if not task_id:
+            flash("Cannot invoke the task view without task ID", "danger")
+            return False
+
+        try:
+            task = Task.get(id=task_id)
+            if task.org.id != current_user.organisation.id:
+                flash("Access denied! You cannot access this task.", "danger")
+                return False
+
+        except Task.DoesNotExist:
+            flash("The task deesn't exist.", "danger")
+            return False
+
+        return True
 
     def get_export_name(self, export_type='csv'):
         """
