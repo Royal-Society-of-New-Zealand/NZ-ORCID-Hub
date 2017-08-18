@@ -280,6 +280,7 @@ class UserInvitationForm(FlaskForm):
     is_employee = BooleanField("Staff")
     disambiguation_org_id = StringField("Disambiguation Id")
     disambiguation_org_source = StringField("Disambiguation Source")
+    resend = BooleanField("Resend")
 
 
 class EmploymentDetailsForm(FlaskForm):

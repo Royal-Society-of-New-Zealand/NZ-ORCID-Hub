@@ -18,7 +18,7 @@ from tempfile import gettempdir
 from urllib.parse import quote, unquote, urlparse
 
 import requests
-from flask import (abort, flash, redirect, render_template, request, session, url_for, current_app)
+from flask import (abort, current_app, flash, redirect, render_template, request, session, url_for)
 from flask_login import current_user, login_required, login_user, logout_user
 from flask_mail import Message
 from oauthlib.oauth2 import rfc6749
@@ -811,8 +811,7 @@ def orcid_login(invitation_token=None):
             sp_url = urlparse(EXTERNAL_SP)
             u = Url.shorten(redirect_uri)
             redirect_uri = url_for("short_url", short_id=u.short_id, _external=True)
-            redirect_uri = sp_url.scheme + "://" + sp_url.netloc + "/auth/" + quote(
-                redirect_uri)
+            redirect_uri = sp_url.scheme + "://" + sp_url.netloc + "/auth/" + quote(redirect_uri)
         redirect_uri = append_qs(redirect_uri, call_from_orcid_login="True")
 
         client_write = OAuth2Session(client_id, scope=scope, redirect_uri=redirect_uri)

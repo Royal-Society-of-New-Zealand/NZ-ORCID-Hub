@@ -29,7 +29,12 @@
         {{ render_field(form.country) }}
         {{ render_field(form.disambiguation_org_id) }}
         {{ render_field(form.disambiguation_org_source) }}
-        <button type="submit" class="btn btn-primary" value="Save">Invite...</button>
+        <div class="col-md-10 col-sm-10 col-xs-12">
+          <span class="pull-right">{{ render_field(form.resend) }}</span>
+        </div>
+        <div class="col-md-2 col-sm-2 col-xs-12">
+          <button type="submit" class="btn btn-primary" value="Save">Invite...</button>
+        </div>
       </div>
     </div>
   </form>
