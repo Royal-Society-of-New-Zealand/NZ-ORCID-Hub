@@ -1,47 +1,55 @@
 {% extends 'admin/model/list.html' %}
 {% block body %}
-  {% if data %}
-    {% set task = data[0].task %}
-    <h1>{{task.filename}}</h1>
-    <table class="table table-hover table-bordered searchable">
-      <tbody>
-        <tr>
-          <td>
-            <b>Taks Filename</b>
-          </td>
-          <td>
+{% if data %}
+{% set task = data[0].task %}
+<h1>{{task.filename}}</h1>
+<table class="table table-hover table-bordered searchable">
+    <tbody>
+    <tr>
+        <td>
+            <b>Task Filename</b>
+        </td>
+        <td>
             {{task.filename}}
-          </td>
-        </tr>
-        <tr>
-          <td>
+        </td>
+    </tr>
+    <tr>
+        <td>
             <b>Organisation</b>
-          </td>
-          <td>
+        </td>
+        <td>
             {{task.org.name}}
-          </td>
-        </tr>
-        <tr>
-          <td>
+        </td>
+    </tr>
+    <tr>
+        <td>
             <b>Completed At</b>
-          </td>
-          <td>
+        </td>
+        <td>
             {% if task.completed_at %}
-              {{task.completed_at|isodate}}
+            {{task.completed_at|isodate}}
             {% else %}
-                &nbsp;
+            &nbsp;
             {% endif %}
-          </td>
-        </tr>
-        <tr>
-          <td>
+        </td>
+    </tr>
+    <tr>
+        <td>
             <b>Submitted At</b>
-          </td>
-          <td>
+        </td>
+        <td>
             {{task.created_at|isodate}}
-          </td>
-        </tr>
-      </tbody></table>
-    {% endif %}
-    {{ super() }}
-  {% endblock %}
+        </td>
+    </tr>
+    </tbody>
+</table>
+{% endif %}
+<form class="icon" method="POST"
+      action="{{url_for('activate_all')}}">
+    <input id="task_id" name="task_id" type="hidden" value="{{task.id}}">
+    <button onclick="return safeConfirm('Are you sure you want to activate all records for processing?');"
+            title="Activiate Records" class="btn btn-info">Activiate all
+    </button>
+</form>
+{{ super() }}
+{% endblock %}
