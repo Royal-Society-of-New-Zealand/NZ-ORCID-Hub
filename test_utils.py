@@ -51,7 +51,9 @@ def test_track_event(request_ctx):
 
 def test_set_server_name(app):
     utils.set_server_name()
-    assert "127.0.0.1:5000" == app.config.get("SERVER_NAME")
+    server_name = app.config.get("SERVER_NAME")
+    utils.set_server_name()
+    assert server_name == app.config.get("SERVER_NAME")
     app.config["SERVER_NAME"] = "abc.orcidhub.org.nz"
     utils.set_server_name()
     assert "abc.orcidhub.org.nz" == app.config.get("SERVER_NAME")
