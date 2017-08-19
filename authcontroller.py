@@ -821,7 +821,7 @@ def orcid_login(invitation_token=None):
             redirect_uri = sp_url.scheme + "://" + sp_url.netloc + "/auth/" + quote(redirect_uri)
         # if the invitation token is missing perform only authentication (in the call back handler)
         if not invitation_token:
-            redirect_uri = append_qs(redirect_uri, login=1)
+            redirect_uri = append_qs(redirect_uri, login=0)
 
         client_write = OAuth2Session(client_id, scope=scope, redirect_uri=redirect_uri)
 

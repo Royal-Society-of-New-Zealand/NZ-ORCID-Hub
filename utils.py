@@ -307,7 +307,7 @@ def send_user_initation(inviter,
         user_org.affiliations = affiliations
 
         user_org.save()
-        UserInvitation.create(
+        ui = UserInvitation.create(
             invitee_id=user.id,
             inviter_id=inviter.id,
             org=org,
@@ -333,6 +333,7 @@ def send_user_initation(inviter,
             AffiliationRecord.status.is_null(False), AffiliationRecord.email == email).execute())
         (AffiliationRecord.update(status=status).where(AffiliationRecord.status.is_null(),
                                                        AffiliationRecord.email == email).execute())
+        return ui
 
     except Exception as ex:
         logger.error(f"Exception occured while sending mails {ex}")
@@ -463,10 +464,9 @@ def process_affiliation_records(max_rows=20):
     # TODO: optimize removing redudnt fields
     # TODO: perhaps it should be broken into 2 queries
     task_ids = set()
-    tasks = (
-        Task.select(Task, AffiliationRecord, User,
-                    UserInvitation.id.alias("invitation_id"), OrcidToken)
-        .where(AffiliationRecord.processed_at.is_null(), AffiliationRecord.is_active, (
+    tasks = (Task.select(
+        Task, AffiliationRecord, User, UserInvitation.id.alias("invitation_id"),
+        OrcidToken).where(AffiliationRecord.processed_at.is_null(), AffiliationRecord.is_active, (
             (User.id.is_null(False) & User.orcid.is_null(False) & OrcidToken.id.is_null(False)) | (
                 (User.id.is_null() | User.orcid.is_null() | OrcidToken.id.is_null()) &
                 UserInvitation.id.is_null() &
@@ -480,13 +480,14 @@ def process_affiliation_records(max_rows=20):
                                  Organisation,
                                  JOIN.LEFT_OUTER,
                                  on=(Organisation.id == Task.org_id))
-        .join(
-            UserInvitation, JOIN.LEFT_OUTER,
-            on=(UserInvitation.email == AffiliationRecord.email)).join(
-                OrcidToken,
-                JOIN.LEFT_OUTER,
-                on=((OrcidToken.user_id == User.id) & (OrcidToken.org_id == Organisation.id) &
-                    (OrcidToken.scope.contains("/activities/update")))).limit(max_rows))
+             .join(
+                 UserInvitation,
+                 JOIN.LEFT_OUTER,
+                 on=(UserInvitation.email == AffiliationRecord.email)).join(
+                     OrcidToken,
+                     JOIN.LEFT_OUTER,
+                     on=((OrcidToken.user_id == User.id) & (OrcidToken.org_id == Organisation.id) &
+                         (OrcidToken.scope.contains("/activities/update")))).limit(max_rows))
     for (task_id, org_id, user), tasks_by_user in groupby(
             tasks, lambda t: (t.id, t.org_id, t.affiliation_record.user, )):
         if (user.id is None or user.orcid is None or not OrcidToken.select().where(
