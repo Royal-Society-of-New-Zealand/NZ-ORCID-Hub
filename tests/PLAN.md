@@ -1,9 +1,16 @@
+# How to Use .env File
+1. Put your password in the file.
+2. Set a secret (AES 128 Bit).
+3. Run python Password.py with encode_password.py Method.
+4. Password is now encrypted in .env file for some safety.
+
+# Currently Implemented
+ - Login of a User;
+
 # Authentication via TUAKIRI (_Any Users_)
 
  - New user (creates an entry in user table, link to the organisation entry);
  - Returning user;
- - Returning user after update IdP (IAM) profile, e.g., preferred name, affiliation nature (staff, student, etc.);
- - Returning user after update IdP (IAM) profile: email address;
  - Entering invalid data (all kinds of corner cases);
 
 # Organisation on-boarding (organisation invitation to join the Hub) (_Hub Admin_)
@@ -34,3 +41,8 @@
  - Organisation information import (_Hub.Admin_);
  - User Summary (_Hub.Admin_);
  - Invitation Summary (_Hub.Admin_).
+
+
+# Testing To Be Added
+ - Returning user after update IdP (IAM) profile, e.g., preferred name, affiliation nature (staff, student, etc.);
+ - Returning user after update IdP (IAM) profile: email address;

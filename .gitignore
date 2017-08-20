@@ -101,3 +101,10 @@ CSR/
 *key.pem
 *cert.pem
 .idea/misc.xml
+.idea/
+
+# Testing
+log.html
+output.xml
+report.html
+selenium-*
