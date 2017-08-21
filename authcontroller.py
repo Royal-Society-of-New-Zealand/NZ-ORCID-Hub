@@ -383,9 +383,16 @@ def orcid_callback():
     The user has been redirected back from the provider to your registered
     callback URL. With this redirection comes an authorization code included
     in the redirect URL. We will use that to obtain an access token.
+
+
+    Call back gets called when:
+    - User authenticatest via ORCID;
+    - User authorises an orgainisation;
+    - Technical contact completes registration;
     """
-    call_from_orcid_login = request.args.get("call_from_orcid_login")
-    if call_from_orcid_login != "True":
+    login = request.args.get("login")
+    # invitation_token = request.args.get("invitation_token")
+    if login != "1":
         if not current_user.is_authenticated:
             return current_app.login_manager.unauthorized()
     else:
@@ -812,7 +819,8 @@ def orcid_login(invitation_token=None):
             u = Url.shorten(redirect_uri)
             redirect_uri = url_for("short_url", short_id=u.short_id, _external=True)
             redirect_uri = sp_url.scheme + "://" + sp_url.netloc + "/auth/" + quote(redirect_uri)
-        redirect_uri = append_qs(redirect_uri, call_from_orcid_login="True")
+        # if the invitation token is missing perform only authentication (in the call back handler)
+        redirect_uri = append_qs(redirect_uri, login="1")
 
         client_write = OAuth2Session(client_id, scope=scope, redirect_uri=redirect_uri)
 

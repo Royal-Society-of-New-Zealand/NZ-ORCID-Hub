@@ -159,15 +159,14 @@ class AppModelView(ModelView):
 
         if current_user and not current_user.has_role(Role.SUPERUSER) and current_user.has_role(
                 Role.ADMIN):
-            # Show only rows realted to the organisation the user is admin for.
+            # Show only rows realted to the curretn organisation the user is admin for.
             # Skip this part for SUPERUSER.
             db_columns = [c.db_column for c in self.model._meta.fields.values()]
             if "org_id" in db_columns or "organisation_id" in db_columns:
-                admin_for_org_ids = [o.id for o in current_user.admin_for.select(Organisation.id)]
                 if "org_id" in db_columns:
-                    query.where(self.model.org_id << admin_for_org_ids)
+                    query = query.where(self.model.org_id == current_user.organisation.id)
                 else:
-                    query.where(self.model.organisation_id << admin_for_org_ids)
+                    query = query.where(self.model.organisation_id == current_user.organisation.id)
 
         if request.args and any(a.endswith("_id") for a in request.args):
             for f in self.model._meta.fields.values():
@@ -331,6 +330,37 @@ class AffiliationRecordAdmin(AppModelView):
     can_view_details = True
     can_export = True
 
+    def is_accessible(self):
+        """Verify if the task view is accessible for the current user."""
+        if not super().is_accessible():
+            return False
+
+        if request.method == "POST":
+            # get the first ROWID:
+            rowid = int(request.form.get("rowid"))
+            task_id = AffiliationRecord.get(id=rowid).task_id
+        else:
+            task_id = request.args.get("task_id")
+            if not task_id:
+                _id = request.args.get("id")
+                if not _id:
+                    flash("Cannot invoke the task view without task ID", "danger")
+                    return False
+                else:
+                    task_id = AffiliationRecord.get(id=_id).task_id
+
+        try:
+            task = Task.get(id=task_id)
+            if task.org.id != current_user.organisation.id:
+                flash("Access denied! You cannot access this task.", "danger")
+                return False
+
+        except Task.DoesNotExist:
+            flash("The task deesn't exist.", "danger")
+            return False
+
+        return True
+
     def get_export_name(self, export_type='csv'):
         """
         :return: The exported csv file name.
@@ -348,37 +378,31 @@ class AffiliationRecordAdmin(AppModelView):
             "Are you sure you want to activate the selected records for batch processing?")
     def action_activate(self, ids):
         """Batch registraion of users."""
-        count = 0
         try:
-            with db.atomic():
-                for ar in self.model.select().where(self.model.id.in_(ids)):
-                    if not ar.is_active:
-                        ar.is_active = True
-                        ar.save()
-                        count += 1
+            count = self.model.update(is_active=True).where(
+                    self.model.is_active == False,
+                    self.model.id.in_(ids)).execute()
         except Exception as ex:
             flash(f"Failed to activate the selected records: {ex}")
             app.logger.exception("Failed to activate the selected records")
-
-        flash(f"{count} records were activated for batch processing.")
+        else:
+            flash(f"{count} records were activated for batch processing.")
 
     @action("reset", "Reset for processing",
             "Are you sure you want to reset the selected records for batch processing?")
     def action_reset(self, ids):
         """Batch reset of users."""
-        count = 0
         try:
-            with db.atomic():
-                for ar in self.model.select().where(self.model.id.in_(ids)):
-                    if ar.is_active and ar.processed_at:
-                        ar.processed_at = None
-                        ar.save()
-                        count += 1
+            count = self.model.update(processed_at=None).where(
+                    self.model.is_active,
+                    self.model.processed_at.is_null(False),
+                    self.model.id.in_(ids)).execute()
         except Exception as ex:
             flash(f"Failed to activate the selected records: {ex}")
             app.logger.exception("Failed to activate the selected records")
 
-        flash(f"{count} records were activated for batch processing.")
+        else:
+            flash(f"{count} records were activated for batch processing.")
 
 
 class ViewMembersAdmin(AppModelView):
@@ -451,6 +475,24 @@ def shorturl(url):
     """Create and render short url"""
     u = Url.shorten(url)
     return url_for("short_url", short_id=u.short_id, _external=True)
+
+
+@app.route("/activate_all", methods=["POST"])
+@roles_required(Role.SUPERUSER, Role.ADMIN, Role.TECHNICAL)
+def activate_all():
+    """Batch registraion of users."""
+    _url = request.args.get("url") or request.referrer
+    task_id = request.form.get('task_id')
+    try:
+        count = AffiliationRecord.update(is_active=True).where(
+                AffiliationRecord.task_id==task_id,
+                AffiliationRecord.is_active==False).execute()
+    except Exception as ex:
+        flash(f"Failed to activate the selected records: {ex}")
+        app.logger.exception("Failed to activate the selected records")
+    else:
+        flash(f"{count} records were activated for batch processing.")
+    return redirect(_url)
 
 
 @app.route("/<int:user_id>/emp/<int:put_code>/delete", methods=["POST"])
