@@ -475,6 +475,29 @@ def shorturl(url):
     return url_for("short_url", short_id=u.short_id, _external=True)
 
 
+@app.route("/activate_all", methods=["POST"])
+@roles_required(Role.SUPERUSER, Role.ADMIN, Role.TECHNICAL)
+def activate_all():
+    """Batch registraion of users."""
+    _url = request.args.get("url") or request.referrer
+    count = 0
+    task_id = request.form.get('task_id')
+    task = Task.get(id=task_id)
+    try:
+        with db.atomic():
+            for ar in AffiliationRecord.select().where(AffiliationRecord.task == task):
+                if not ar.is_active:
+                    ar.is_active = True
+                    ar.save()
+                    count += 1
+    except Exception as ex:
+        flash(f"Failed to activate the selected records: {ex}")
+        app.logger.exception("Failed to activate the selected records")
+
+    flash(f"{count} records were activated for batch processing.")
+    return redirect(_url)
+
+
 @app.route("/<int:user_id>/emp/<int:put_code>/delete", methods=["POST"])
 @roles_required(Role.ADMIN)
 def delete_employment(user_id, put_code=None):

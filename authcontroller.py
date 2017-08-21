@@ -392,7 +392,7 @@ def orcid_callback():
     """
     login = request.args.get("login")
     # invitation_token = request.args.get("invitation_token")
-    if login:
+    if login != "1":
         if not current_user.is_authenticated:
             return current_app.login_manager.unauthorized()
     else:
@@ -820,8 +820,7 @@ def orcid_login(invitation_token=None):
             redirect_uri = url_for("short_url", short_id=u.short_id, _external=True)
             redirect_uri = sp_url.scheme + "://" + sp_url.netloc + "/auth/" + quote(redirect_uri)
         # if the invitation token is missing perform only authentication (in the call back handler)
-        if not invitation_token:
-            redirect_uri = append_qs(redirect_uri, login=1)
+        redirect_uri = append_qs(redirect_uri, login="1")
 
         client_write = OAuth2Session(client_id, scope=scope, redirect_uri=redirect_uri)
 
