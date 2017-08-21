@@ -15,6 +15,7 @@ import zlib
 from datetime import datetime
 from os import path, remove
 from tempfile import gettempdir
+from time import time
 from urllib.parse import quote, unquote, urlparse
 
 import requests
@@ -34,7 +35,7 @@ from config import (APP_DESCRIPTION, APP_NAME, APP_URL, AUTHORIZATION_BASE_URL, 
 from forms import OrgConfirmationForm
 from login_provider import roles_required
 from models import (Affiliation, OrcidToken, Organisation, OrgInfo, OrgInvitation, Role, Url, User,
-                    UserOrg)
+                    UserOrg, OrcidApiCall)
 from swagger_client.rest import ApiException
 from utils import append_qs, confirm_token
 
@@ -422,10 +423,18 @@ def orcid_callback():
                 current_user, session.get('oauth_state', 'empty'), state)
             return redirect(url_for("login"))
 
+        oac = OrcidApiCall.create(user_id=current_user.id, method="GET", url=TOKEN_URL)
+        request_time = time()
+
         token = client.fetch_token(
             TOKEN_URL,
             client_secret=current_user.organisation.orcid_secret,
             authorization_response=request.url)
+        response_time = time()
+        oac.body = token
+        oac.response_time_ms = round((response_time - request_time) * 1000)
+        oac.save()
+
     except rfc6749.errors.MissingCodeError:
         flash("%s cannot be invoked directly..." % request.url, "danger")
         return redirect(url_for("login"))
@@ -836,6 +845,9 @@ def orcid_login(invitation_token=None):
                 given_names=user.first_name,
                 email=email)
 
+        oac = OrcidApiCall.create(user_id=None, method="GET", url=orcid_authenticate_url)
+        oac.save()
+
         return redirect(orcid_authenticate_url)
 
     except Exception as ex:
@@ -889,8 +901,15 @@ def orcid_login_callback(request):
                 orcid_client_secret = org.orcid_secret
 
         client = OAuth2Session(orcid_client_id)
+        oac = OrcidApiCall.create(user_id=None, method="GET", url=TOKEN_URL)
+        request_time = time()
+
         token = client.fetch_token(
             TOKEN_URL, client_secret=orcid_client_secret, authorization_response=request.url)
+        response_time = time()
+        oac.body = token
+        oac.response_time_ms = round((response_time - request_time) * 1000)
+        oac.save()
 
         orcid_id = token['orcid']
         if not orcid_id:
@@ -912,6 +931,8 @@ def orcid_login_callback(request):
         if not user.confirmed:
             user.confirmed = True
         login_user(user)
+        oac.user_id = current_user.id
+        oac.save()
 
         # User is a technical conatct. We should verify email address
         try:
