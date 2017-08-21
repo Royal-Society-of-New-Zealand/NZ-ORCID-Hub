@@ -336,6 +336,7 @@ class AffiliationRecordAdmin(AppModelView):
             return False
 
         if request.method == "POST":
+            # get the first ROWID:
             rowid = int(request.form.get("rowid"))
             task_id = AffiliationRecord.get(id=rowid).task_id
         else:
@@ -377,37 +378,31 @@ class AffiliationRecordAdmin(AppModelView):
             "Are you sure you want to activate the selected records for batch processing?")
     def action_activate(self, ids):
         """Batch registraion of users."""
-        count = 0
         try:
-            with db.atomic():
-                for ar in self.model.select().where(self.model.id.in_(ids)):
-                    if not ar.is_active:
-                        ar.is_active = True
-                        ar.save()
-                        count += 1
+            count = self.model.update(is_active=True).where(
+                    self.model.is_active == False,
+                    self.model.id.in_(ids)).execute()
         except Exception as ex:
             flash(f"Failed to activate the selected records: {ex}")
             app.logger.exception("Failed to activate the selected records")
-
-        flash(f"{count} records were activated for batch processing.")
+        else:
+            flash(f"{count} records were activated for batch processing.")
 
     @action("reset", "Reset for processing",
             "Are you sure you want to reset the selected records for batch processing?")
     def action_reset(self, ids):
         """Batch reset of users."""
-        count = 0
         try:
-            with db.atomic():
-                for ar in self.model.select().where(self.model.id.in_(ids)):
-                    if ar.is_active and ar.processed_at:
-                        ar.processed_at = None
-                        ar.save()
-                        count += 1
+            count = self.model.update(processed_at=None).where(
+                    self.model.is_active,
+                    self.model.processed_at.is_null(False),
+                    self.model.id.in_(ids)).execute()
         except Exception as ex:
             flash(f"Failed to activate the selected records: {ex}")
             app.logger.exception("Failed to activate the selected records")
 
-        flash(f"{count} records were activated for batch processing.")
+        else:
+            flash(f"{count} records were activated for batch processing.")
 
 
 class ViewMembersAdmin(AppModelView):
@@ -487,21 +482,16 @@ def shorturl(url):
 def activate_all():
     """Batch registraion of users."""
     _url = request.args.get("url") or request.referrer
-    count = 0
     task_id = request.form.get('task_id')
-    task = Task.get(id=task_id)
     try:
-        with db.atomic():
-            for ar in AffiliationRecord.select().where(AffiliationRecord.task == task):
-                if not ar.is_active:
-                    ar.is_active = True
-                    ar.save()
-                    count += 1
+        count = AffiliationRecord.update(is_active=True).where(
+                AffiliationRecord.task_id==task_id,
+                AffiliationRecord.is_active==False).execute()
     except Exception as ex:
         flash(f"Failed to activate the selected records: {ex}")
         app.logger.exception("Failed to activate the selected records")
-
-    flash(f"{count} records were activated for batch processing.")
+    else:
+        flash(f"{count} records were activated for batch processing.")
     return redirect(_url)
 
 
