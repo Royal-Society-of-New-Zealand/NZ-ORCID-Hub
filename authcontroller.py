@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """Authentication views.
 
-Collection of applicion views involved in organisation on-boarding and
-user (reseaser) affiliations.
+Collection of application views involved in organisation on-boarding and
+user (researcher/student) affiliations.
 """
 
 import base64
@@ -114,7 +114,7 @@ def get_attributes(key):
 def handle_login():
     """Shibboleth and Rapid Connect authenitcation handler.
 
-    The (Apache) location should requier authentication using Shibboleth, e.g.,
+    The (Apache) location should require authentication using Shibboleth, e.g.,
 
     <Location /Tuakiri>
         AuthType shibboleth
@@ -125,10 +125,10 @@ def handle_login():
 
 
     Flow:
-        * recieve redicected request from SSO with authentication data in HTTP headers
+        * recieve redirected request from SSO with authentication data in HTTP headers
         * process headeers
-        * if the organisation isn't on-boarded, reject further access and redirect to the main loging page;
         * if the user isn't registered add the user with data received from Shibboleth
+        * if the organisation isn't on-boarded, reject further access and redirect to the main login page;
         * if the request has returning destination (next), redirect the user to it;
         * else choose the next view based on the role of the user:
             ** for a researcher, affiliation;
@@ -300,7 +300,7 @@ def link():
             error = request.args["error"]
             if error == "access_denied":
                 app.logger.info(
-                    "User %r has denied permissions to %r in the flow and will try to give permissions again",
+                    "User %r has denied permissions to %r in the flow, trying to gain permissions again",
                     current_user.id, current_user.organisation)
                 client_write.scope = SCOPE_READ_LIMITED
                 authorization_url_read, state = client_write.authorization_url(
@@ -386,7 +386,7 @@ def orcid_callback():
 
 
     Call back gets called when:
-    - User authenticatest via ORCID;
+    - User authenticates via ORCID;
     - User authorises an orgainisation;
     - Technical contact completes registration;
     """
@@ -558,16 +558,16 @@ def orcid_callback():
 def profile():
     """Fetch a protected resource using an OAuth 2 token."""
     user = current_user
-    app.logger.info(f"For {user} trying to display profile by getting ORCID token")
+    app.logger.info(f"Testing for existance of an ORCID token for {user}")
     try:
         orcid_token = OrcidToken.get(user_id=user.id, org=user.organisation)
     except OrcidToken.DoesNotExist:
-        app.logger.info(f"For {user} we dont have ocrditoken so redirecting back to link page")
+        app.logger.info(f"We dont have an ORCID token for {user}. Redirecting back to the link page")
         return redirect(url_for("link"))
 
     except Exception as ex:
         # TODO: need to handle this
-        app.logger.exception("Failed to retrieve ORCID token form DB.")
+        app.logger.exception("Failed to retrieve ORCID token from DB.")
         flash("Unhandled Exception occured: %s" % ex, "danger")
         return redirect(url_for("login"))
     else:
@@ -580,7 +580,7 @@ def profile():
                         resp_person.status_code)
         if resp_person.status_code == 401:
             orcid_token.delete_instance()
-            app.logger.info("%r has removed his organisation from trusted list", user)
+            app.logger.info("%r has removed this organisation from their trusted list", user)
             return redirect(url_for("link"))
         else:
             users = User.select().where(User.orcid == user.orcid)
@@ -595,7 +595,7 @@ def profile():
 def onboard_org():
     """Registration confirmations.
 
-    TODO: expand the spect as soon as the reqirements get sorted out.
+    TODO: expand the spec as soon as the reqirements get sorted out.
     """
     user = User.get(id=current_user.id)
     email = user.email
@@ -676,7 +676,7 @@ def onboard_org():
                     msg = Message("Welcome to the NZ ORCID Hub - Success", recipients=[email])
                     msg.body = ("Congratulations! Your identity has been confirmed and "
                                 "your organisation onboarded successfully.\n"
-                                "Any researcher from your organisation can now use the Hub")
+                                "Individuals from your organisation can now use the Hub")
                     mail.send(msg)
                     app.logger.info("For %r Onboarding is Completed!", user)
                     flash("Your Onboarding is Completed!", "success")
@@ -774,11 +774,12 @@ def internal_error(error):
 @app.route("/orcid/login/")
 @app.route("/orcid/login/<invitation_token>")
 def orcid_login(invitation_token=None):
-    """Authentication vi ORCID.
+    """Authentication via ORCID.
+    Without invitation token, use "NZ ORCID Hub" App to authenticate ORCID iD of returning users.
 
-    If an invitain token is presented, perform affiliation of the user or on-boarding
-    of the onboarding of the organisation, if the user is the technical conatact of
-    the organisation. For technical contacts the email should be made available for
+    If an invitation token is presented, use the Org's App to initiate onboarding the technical contact of
+    the organisation, and once onboard to perform affiliation of the user to the organisation.
+    NB: for technical contacts, their ORCID record's email should be made available for
     READ LIMITED scope."""
 
     _next = get_next_url()
@@ -852,7 +853,7 @@ def orcid_login_callback(request):
 
     if not state or state != session.get("oauth_state"):
         flash("Something went wrong, Please retry giving permissions or if issue persist then, "
-              "Please contact ORCIDHUB for support", "danger")
+              "please contact ORCIDHUB for support", "danger")
         return redirect(url_for("login"))
 
     error = request.args.get("error")
@@ -901,7 +902,7 @@ def orcid_login_callback(request):
 
         except User.DoesNotExist:
             if email is None:
-                flash(f"The account with ORCID iD {orcid_id} doesn't exist.", "danger")
+                flash(f"No account having the ORCID iD {orcid_id} can be found. You'll need to link your ORCID iD via Tuakiri or be invited before trying again.", "danger")
                 return redirect(url_for("login"))
             user = User.get(email=email)
 
@@ -943,7 +944,7 @@ def orcid_login_callback(request):
                         "danger")
                     flash(
                         f"Cannot verify your email address. Please, change the access level for your "
-                        f"organisation email address '{email}' to 'trusted parties'.", "danger")
+                        f"organisation email address '{email}' to 'trusted parties' and try again.", "danger")
                     return redirect(url_for("login"))
             data = json.loads(api_response.data)
             if data and data.get("email") and any(
@@ -954,7 +955,7 @@ def orcid_login_callback(request):
                 logout_user()
                 flash(
                     f"Cannot verify your email address. Please, change the access level for your "
-                    f"organisation email address '{email}' to 'trusted parties'.", "danger")
+                    f"organisation email address '{email}' to 'trusted parties' and try again.", "danger")
                 return redirect(url_for("login"))
 
         elif not user.is_tech_contact_of(org) and invitation_token:
@@ -992,9 +993,6 @@ def orcid_login_callback(request):
     except User.DoesNotExist:
         flash("You are not onboarded on ORCIDHUB...", "danger")
         return redirect(url_for("login"))
-    except UserOrg.DoesNotExist:
-        flash("You are not onboarded on ORCIDHUB...", "danger")
-        return redirect(url_for("login"))
     except rfc6749.errors.MissingCodeError:
         flash("%s cannot be invoked directly..." % request.url, "danger")
         return redirect(url_for("login"))
@@ -1002,7 +1000,7 @@ def orcid_login_callback(request):
         flash("Missing token.", "danger")
         return redirect(url_for("login"))
     except Exception as ex:
-        flash(f"Something went wrong contact orcidhub support for issue: {ex}", "danger")
+        flash(f"Something went wrong. Please contact orcidhub support for issue: {ex}", "danger")
         app.logger.exception("Unhandled excetion occrured while handling ORCID call-back.")
         return redirect(url_for("login"))
 
