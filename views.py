@@ -172,7 +172,6 @@ class AppModelView(ModelView):
             for f in self.model._meta.fields.values():
                 if f.db_column.endswith("_id") and f.db_column in request.args:
                     query = query.where(f == int(request.args[f.db_column]))
-        print("***", query)
         return query
 
     def _get_list_extra_args(self):
@@ -336,10 +335,18 @@ class AffiliationRecordAdmin(AppModelView):
         if not super().is_accessible():
             return False
 
-        task_id = request.args.get("task_id")
-        if not task_id:
-            flash("Cannot invoke the task view without task ID", "danger")
-            return False
+        if request.method == "POST":
+            rowid = int(request.form.get("rowid"))
+            task_id = AffiliationRecord.get(id=rowid).task_id
+        else:
+            task_id = request.args.get("task_id")
+            if not task_id:
+                _id = request.args.get("id")
+                if not _id:
+                    flash("Cannot invoke the task view without task ID", "danger")
+                    return False
+                else:
+                    task_id = AffiliationRecord.get(id=_id).task_id
 
         try:
             task = Task.get(id=task_id)
