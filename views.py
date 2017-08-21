@@ -996,17 +996,33 @@ def invite_user():
         form.state.data = org.state
         form.country.data = org.country
 
-    if form.validate_on_submit():
+    while form.validate_on_submit():
+        resend = form.resend.data
+        email = form.email_address.data.lower()
         affiliations = 0
         if form.is_student.data:
             affiliations = Affiliation.EDU
         if form.is_employee.data:
             affiliations |= Affiliation.EMP
-        send_user_initation(
+        try:
+            ui = UserInvitation.get(org=org, email=email)
+            flash(
+                f"An invitation to affiliate with {org} had been already sent to {email} earlier "
+                f"at {isodate(ui.sent_at)}.", "warning" if resend else "danger")
+            if not form.resend.data:
+                break
+        except UserInvitation.DoesNotExist:
+            pass
+
+        ui = send_user_initation(
             current_user,
             org,
-            email=form.email_address.data,
+            email=email,
             affiliations=affiliations,
             **{f.name: f.data
                for f in form})
+        flash(f"An invitation to {ui.email} was {'resent' if resend else 'sent'} successfully.",
+              "success")
+        break
+
     return render_template("user_invitation.html", form=form)
