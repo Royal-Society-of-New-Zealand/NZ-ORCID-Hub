@@ -34,7 +34,7 @@ from config import (APP_DESCRIPTION, APP_NAME, APP_URL, AUTHORIZATION_BASE_URL, 
 from forms import OrgConfirmationForm
 from login_provider import roles_required
 from models import (Affiliation, OrcidToken, Organisation, OrgInfo, OrgInvitation, Role, Url, User,
-                    UserOrg)
+                    UserInvitation, UserOrg)
 from swagger_client.rest import ApiException
 from utils import append_qs, confirm_token
 
@@ -386,28 +386,20 @@ def orcid_callback():
 
 
     Call back gets called when:
-    - User authenticatest via ORCID;
-    - User authorises an orgainisation;
-    - Technical contact completes registration;
+    - User authenticatest via ORCID (uses AUTHENTICATION key);
+    - User authorises an orgainisation (uses org. key);
+    - User completes registration (uses org. key);
+    - Administrator completes reginstration (uses org. key);
+    - Technical contact completes organisation registration/on-boarding (uses AUTHENTICATION key);
     """
     login = request.args.get("login")
     # invitation_token = request.args.get("invitation_token")
+
     if login != "1":
         if not current_user.is_authenticated:
             return current_app.login_manager.unauthorized()
     else:
         return orcid_login_callback(request)
-
-    if "error" in request.args:
-        error = request.args["error"]
-        error_description = request.args.get("error_description")
-        if error == "access_denied":
-            flash("You have denied the Hub access to your ORCID record."
-                  " At a minimum, the Hub needs to know your ORCID iD to be useful.", "danger")
-        else:
-            flash("Error occured while attempting to authorize '%s': %s" %
-                  (current_user.organisation.name, error_description), "danger")
-        return redirect(url_for("link") + '?' + 'error=' + error)
 
     client = OAuth2Session(current_user.organisation.orcid_client_id)
 
@@ -976,6 +968,25 @@ def orcid_login_callback(request):
                     db.rollback()
                     flash(f"Failed to save data: {ex}")
                     app.logger.exception("Failed to save token.")
+
+            try:
+                ui = UserInvitation.get(token=invitation_token)
+                if ui.affiliations & (Affiliation.EMP | Affiliation.EDU):
+                    api = orcid_client.MemberAPI(org, user)
+                    params = ui._data.copy()
+                    params = ui._data.copy()
+                    for a in Affiliation:
+                        if a & ui.affiliations:
+                            params["affiliation"] = a
+                            api.create_or_update_affiliation(**params)
+                ui.confirmed_at = datetime.now()
+                ui.save()
+
+            except UserInvitation.DoesNotExist:
+                pass
+            except Exception as ex:
+                flash(f"Something went wrong: {ex}", "danger")
+                app.logger.exception("Failed to create affiliation record")
 
         if _next:
             return redirect(_next)

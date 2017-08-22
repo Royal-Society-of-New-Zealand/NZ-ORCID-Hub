@@ -380,8 +380,8 @@ class AffiliationRecordAdmin(AppModelView):
         """Batch registraion of users."""
         try:
             count = self.model.update(is_active=True).where(
-                    self.model.is_active == False,
-                    self.model.id.in_(ids)).execute()
+                self.model.is_active == False,  # noqa: E712
+                self.model.id.in_(ids)).execute()
         except Exception as ex:
             flash(f"Failed to activate the selected records: {ex}")
             app.logger.exception("Failed to activate the selected records")
@@ -394,9 +394,8 @@ class AffiliationRecordAdmin(AppModelView):
         """Batch reset of users."""
         try:
             count = self.model.update(processed_at=None).where(
-                    self.model.is_active,
-                    self.model.processed_at.is_null(False),
-                    self.model.id.in_(ids)).execute()
+                self.model.is_active,
+                self.model.processed_at.is_null(False), self.model.id.in_(ids)).execute()
         except Exception as ex:
             flash(f"Failed to activate the selected records: {ex}")
             app.logger.exception("Failed to activate the selected records")
@@ -484,9 +483,9 @@ def activate_all():
     _url = request.args.get("url") or request.referrer
     task_id = request.form.get('task_id')
     try:
-        count = AffiliationRecord.update(is_active=True).where(
-                AffiliationRecord.task_id==task_id,
-                AffiliationRecord.is_active==False).execute()
+        count = AffiliationRecord.update(
+            is_active=True).where(AffiliationRecord.task_id == task_id,
+                                  AffiliationRecord.is_active == False).execute()  # noqa: E712
     except Exception as ex:
         flash(f"Failed to activate the selected records: {ex}")
         app.logger.exception("Failed to activate the selected records")
