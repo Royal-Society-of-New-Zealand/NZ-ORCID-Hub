@@ -20,13 +20,13 @@
         {{ render_field(form.first_name) }}
         {{ render_field(form.last_name) }}
         {{ render_field(form.orcid_id) }}
-        {{ render_field(form.disambiguation_org_id) }}
+        {{ render_field(form.disambiguated_id) }}
       </div>
       <div class="col-md-6 col-sm-6 col-xs-12">
         {{ render_field(form.city) }}
         {{ render_field(form.state) }}
         {{ render_field(form.country) }}
-        {{ render_field(form.disambiguation_org_source) }}
+        {{ render_field(form.disambiguation_source) }}
       </div>
     </div>
     <button type="submit" class="btn btn-default" value="Onboard Organisation">Onboard Organisation</button>
@@ -48,8 +48,8 @@ $( function() {
         $("#country").val(oi.country);
       }
       $("#city").val(oi.city);
-      $("#disambiguation_org_id").val(oi.disambiguation_org_id);
-      $("#disambiguation_org_source").val(oi.disambiguation_source);
+      $("#disambiguated_id").val(oi.disambiguated_id);
+      $("#disambiguation_source").val(oi.disambiguation_source);
       $("#org_email").focus();
     }
   });
