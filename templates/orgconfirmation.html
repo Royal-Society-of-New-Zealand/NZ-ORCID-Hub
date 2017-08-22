@@ -19,8 +19,8 @@
     {{ render_field(form.orgOrcidClientSecret) }}
     {{ render_field(form.country) }}
     {{ render_field(form.city) }}
-    {{ render_field(form.disambiguation_org_id, **{"data-toggle": "tooltip", "title": "The best id to use for your organisation, e.g. one of the following: RINGGOLD, FUNDREF, NZBN or EON"}) }}
-    {{ render_field(form.disambiguation_org_source, **{"data-toggle": "tooltip", "title": "The source of your organisation's disambiguation ID"}) }}
+    {{ render_field(form.disambiguated_id, **{"data-toggle": "tooltip", "title": "The best id to use for your organisation, e.g. one of the following: RINGGOLD, FUNDREF, NZBN or EON"}) }}
+    {{ render_field(form.disambiguation_source, **{"data-toggle": "tooltip", "title": "The source of your organisation's disambiguated ID"}) }}
     <button type="submit" class="btn btn-default" value="Confirmation">Confirmation</button>
   </form>
 {% endblock %}

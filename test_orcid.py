@@ -140,8 +140,8 @@ def test_link_orcid_auth_callback_with_affiliation(name, request_ctx):
             orcid_client_id="CLIENT ID",
             city="CITY",
             country="COUNTRY",
-            disambiguation_org_id="ID",
-            disambiguation_org_source="SOURCE")
+            disambiguated_id="ID",
+            disambiguation_source="SOURCE")
 
         test_user = User.create(
             name=name,

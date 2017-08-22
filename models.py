@@ -177,8 +177,8 @@ class Organisation(BaseModel, AuditMixin):
     confirmed = BooleanField(default=False)
     country = CharField(null=True, choices=country_choices, default=DEFAULT_COUNTRY)
     city = CharField(null=True)
-    disambiguation_org_id = CharField(null=True)
-    disambiguation_org_source = CharField(null=True)
+    disambiguated_id = CharField(null=True)
+    disambiguation_source = CharField(null=True)
     is_email_confirmed = BooleanField(default=False)
     tech_contact = ForeignKeyField(
         DeferredUser,
@@ -236,13 +236,13 @@ class OrgInfo(BaseModel):
         null=True, default=False, verbose_name="Permission to post contact information to WEB")
     country = CharField(null=True, verbose_name="Country Code", default=DEFAULT_COUNTRY)
     city = CharField(null=True, verbose_name="City of home campus")
-    disambiguation_org_id = CharField(
+    disambiguated_id = CharField(
         null=True, verbose_name="common:disambiguated-organization-identifier")
     disambiguation_source = CharField(null=True, verbose_name="common:disambiguation-source")
 
     def __repr__(self):
         """String representation of the model."""
-        return self.name or self.disambiguation_org_id or super().__repr__()
+        return self.name or self.disambiguated_id or super().__repr__()
 
     class Meta:
         db_table = "org_info"
@@ -301,7 +301,7 @@ class OrgInfo(BaseModel):
             oi.is_public = val(row, 7) and val(row, 7).upper() == "YES"
             oi.country = val(row, 8) or DEFAULT_COUNTRY
             oi.city = val(row, 9)
-            oi.disambiguation_org_id = val(row, 10)
+            oi.disambiguated_id = val(row, 10)
             oi.disambiguation_source = val(row, 11)
             oi.tuakiri_name = val(row, 12)
 
