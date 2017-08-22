@@ -139,7 +139,7 @@ class MemberAPI(MemberAPIV20Api):
                                      city=None,
                                      state=None,
                                      country=None,
-                                     disambiguation_org_id=None,
+                                     disambiguated_id=None,
                                      disambiguation_source=None,
                                      start_date=None,
                                      end_date=None,
@@ -160,9 +160,8 @@ class MemberAPI(MemberAPIV20Api):
             city=city or self.org.city, country=country or self.org.country)
 
         disambiguated_organization_details = DisambiguatedOrganization(
-            disambiguated_organization_identifier=disambiguation_org_id or
-            self.org.disambiguation_org_id,
-            disambiguation_source=disambiguation_source or self.org.disambiguation_org_source)
+            disambiguated_organization_identifier=disambiguated_id or self.org.disambiguated_id,
+            disambiguation_source=disambiguation_source or self.org.disambiguation_source)
 
         if affiliation == Affiliation.EMP:
             rec = Employment()

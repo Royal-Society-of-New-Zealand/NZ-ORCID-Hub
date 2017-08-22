@@ -267,8 +267,8 @@ def send_user_initation(inviter,
                         start_date=None,
                         end_date=None,
                         affiliations=None,
-                        disambiguation_org_id=None,
-                        disambiguation_org_source=None,
+                        disambiguated_id=None,
+                        disambiguation_source=None,
                         **kwargs):
     """Send an invitation to join ORCID Hub logging in via ORCID."""
 
@@ -327,8 +327,8 @@ def send_user_initation(inviter,
             start_date=start_date,
             end_date=end_date,
             affiliations=affiliations,
-            disambiguation_org_id=disambiguation_org_id,
-            disambiguation_org_source=disambiguation_org_source,
+            disambiguated_id=disambiguated_id,
+            disambiguation_source=disambiguation_source,
             token=token)
 
         status = "The invitation sent at " + datetime.now().isoformat(timespec="seconds")
@@ -356,7 +356,6 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
 
     for task_by_user in records:
         ar = task_by_user.affiliation_record
-
         at = ar.affiliation_type.lower()
         if at in {"faculty", "staff", "emp"}:
             affiliation = Affiliation.EMP

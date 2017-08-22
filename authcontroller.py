@@ -481,8 +481,8 @@ def orcid_callback():
             city=user.organisation.city, country=user.organisation.country)
 
         disambiguated_organization_details = orcid_client.DisambiguatedOrganization(
-            disambiguated_organization_identifier=user.organisation.disambiguation_org_id,
-            disambiguation_source=user.organisation.disambiguation_org_source)
+            disambiguated_organization_identifier=user.organisation.disambiguated_id,
+            disambiguation_source=user.organisation.disambiguation_source)
 
         # TODO: need to check if the entry doesn't exist already:
         for a in Affiliation:
@@ -619,8 +619,8 @@ def onboard_org():
                     OrgInfo.tuakiri_name == user.organisation.name) | (
                         OrgInfo.name == user.organisation.name))
                 form.city.data = organisation.city = oi.city
-                form.disambiguation_org_id.data = organisation.disambiguation_org_id = oi.disambiguation_org_id
-                form.disambiguation_org_source.data = organisation.disambiguation_org_source = oi.disambiguation_source
+                form.disambiguated_id.data = organisation.disambiguated_id = oi.disambiguated_id
+                form.disambiguation_source.data = organisation.disambiguation_source = oi.disambiguation_source
                 organisation.save()
             except OrgInfo.DoesNotExist:
                 pass

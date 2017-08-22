@@ -275,8 +275,8 @@ class OrgInfoAdmin(AppModelView):
                     city=oi.city,
                     country=oi.country,
                     course_or_role=oi.role,
-                    disambiguation_org_id=oi.disambiguation_org_id,
-                    disambiguation_org_source=oi.disambiguation_source)
+                    disambiguated_id=oi.disambiguated_id,
+                    disambiguation_source=oi.disambiguation_source)
                 count += 1
             except Exception as ex:
                 flash(f"Failed to send an invitation to {oi.email}: {ex}")
@@ -853,8 +853,8 @@ def register_org(org_name,
                  state=None,
                  country=None,
                  course_or_role=None,
-                 disambiguation_org_id=None,
-                 disambiguation_org_source=None,
+                 disambiguated_id=None,
+                 disambiguation_source=None,
                  **kwargs):
     """Register research organisaion."""
 
@@ -872,8 +872,8 @@ def register_org(org_name,
                 org.state = state
                 org.city = city
                 org.country = country
-                org.disambiguation_org_id = disambiguation_org_id
-                org.disambiguation_org_source = disambiguation_org_source
+                org.disambiguated_id = disambiguated_id
+                org.disambiguation_source = disambiguation_source
 
         try:
             org_info = OrgInfo.get(name=org.name)
@@ -1009,8 +1009,8 @@ def invite_user():
     org = current_user.organisation
     if request.method == "GET":
         form.organisation.data = org.name
-        form.disambiguation_org_id.data = org.disambiguation_org_id
-        form.disambiguation_org_source.data = org.disambiguation_org_source
+        form.disambiguated_id.data = org.disambiguated_id
+        form.disambiguation_source.data = org.disambiguation_source
         form.city.data = org.city
         form.state.data = org.state
         form.country.data = org.country
