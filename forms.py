@@ -195,8 +195,8 @@ class OrgConfirmationForm(FlaskForm):
     country = SelectField(
         "Country", [validators.required()], choices=country_choices, default=DEFAULT_COUNTRY)
     city = StringField("City", [validators.required()])
-    disambiguation_org_id = StringField("Disambiguation ORG Id", [validators.required()])
-    disambiguation_org_source = StringField("Disambiguation ORG Source", [validators.required()])
+    disambiguated_id = StringField("Disambiguated ORG Id", [validators.required()])
+    disambiguation_source = StringField("Disambiguation Source", [validators.required()])
 
 
 class EmploymentDetailsForm(FlaskForm):

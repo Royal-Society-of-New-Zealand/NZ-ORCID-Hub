@@ -464,8 +464,8 @@ def orcid_callback():
             city=user.organisation.city, country=user.organisation.country)
 
         disambiguated_organization_details = orcid_client.DisambiguatedOrganization(
-            disambiguated_organization_identifier=user.organisation.disambiguation_org_id,
-            disambiguation_source=user.organisation.disambiguation_org_source)
+            disambiguated_organization_identifier=user.organisation.disambiguated_id,
+            disambiguation_source=user.organisation.disambiguation_source)
 
         # TODO: need to check if the entry doesn't exist already:
         for a in Affiliation:
@@ -645,8 +645,8 @@ def confirm_organisation(token=None):
                 # Update Organisation
                 organisation.country = form.country.data
                 organisation.city = form.city.data
-                organisation.disambiguation_org_id = form.disambiguation_org_id.data
-                organisation.disambiguation_org_source = form.disambiguation_org_source.data
+                organisation.disambiguated_id = form.disambiguated_id.data
+                organisation.disambiguation_source = form.disambiguation_source.data
                 organisation.is_email_confirmed = True
 
                 headers = {'Accept': 'application/json'}
@@ -723,8 +723,8 @@ def confirm_organisation(token=None):
                 OrgInfo.tuakiri_name == user.organisation.name) | (
                     OrgInfo.name == user.organisation.name))
             form.city.data = organisation.city = orgInfo.city
-            form.disambiguation_org_id.data = organisation.disambiguation_org_id = orgInfo.disambiguation_org_id
-            form.disambiguation_org_source.data = organisation.disambiguation_org_source = orgInfo.disambiguation_source
+            form.disambiguated_id.data = organisation.disambiguated_id = orgInfo.disambiguated_id
+            form.disambiguation_source.data = organisation.disambiguation_source = orgInfo.disambiguation_source
 
         except OrgInfo.DoesNotExist:
             pass
@@ -845,8 +845,8 @@ def update_org_info():
                 # Update Organisation
                 organisation.country = form.country.data
                 organisation.city = form.city.data
-                organisation.disambiguation_org_id = form.disambiguation_org_id.data
-                organisation.disambiguation_org_source = form.disambiguation_org_source.data
+                organisation.disambiguated_id = form.disambiguated_id.data
+                organisation.disambiguation_source = form.disambiguation_source.data
 
                 headers = {"Accept": "application/json"}
                 data = [
@@ -892,8 +892,8 @@ def update_org_info():
 
         form.city.data = user.organisation.city
         form.country.data = user.organisation.country
-        form.disambiguation_org_id.data = user.organisation.disambiguation_org_id
-        form.disambiguation_org_source.data = user.organisation.disambiguation_org_source
+        form.disambiguated_id.data = user.organisation.disambiguated_id
+        form.disambiguation_source.data = user.organisation.disambiguation_source
         form.orgOricdClientId.data = user.organisation.orcid_client_id
         form.orgOrcidClientSecret.data = user.organisation.orcid_secret
 
