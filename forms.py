@@ -231,8 +231,8 @@ class OrgRegistrationForm(FlaskForm):
             RequiredIf("via_orcid"),
         ])
     course_or_role = StringField("Course or Job title")
-    disambiguation_org_id = StringField("Disambiguation Id")
-    disambiguation_org_source = StringField("Disambiguation Source")
+    disambiguated_id = StringField("Disambiguated Id")
+    disambiguation_source = StringField("Disambiguation Source")
 
 
 class OrgConfirmationForm(FlaskForm):
@@ -257,8 +257,8 @@ class OrgConfirmationForm(FlaskForm):
         ])
     country = CountrySelectField("Country", [validators.required()], default=DEFAULT_COUNTRY)
     city = StringField("City", [validators.required()])
-    disambiguation_org_id = StringField("Disambiguation Id", [validators.required()])
-    disambiguation_org_source = StringField("Disambiguation Source", [validators.required()])
+    disambiguated_id = StringField("Disambiguated Id", [validators.required()])
+    disambiguation_source = StringField("Disambiguation Source", [validators.required()])
 
 
 class UserInvitationForm(FlaskForm):
@@ -278,8 +278,8 @@ class UserInvitationForm(FlaskForm):
     end_date = PartialDateField("End date (leave blank if current)")
     is_student = BooleanField("Student")
     is_employee = BooleanField("Staff")
-    disambiguation_org_id = StringField("Disambiguation Id")
-    disambiguation_org_source = StringField("Disambiguation Source")
+    disambiguated_id = StringField("Disambiguated Id")
+    disambiguation_source = StringField("Disambiguation Source")
     resend = BooleanField("Resend")
 
 
