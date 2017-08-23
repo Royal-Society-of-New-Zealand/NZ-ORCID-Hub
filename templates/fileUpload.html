@@ -2,17 +2,19 @@
 {% from "macros.html" import render_field %}
 
 {% block content %}
-  <form method="POST" enctype="multipart/form-data">
-    <div class="row">
-      <h1>{{ form_title }} Info Upload</h1>
-      <div class="col-md-12 col-sm-12 col-xs-12">
-        {{ form.hidden_tag() }}
-        {{ render_field(form.file_) }}
-        <span class="pull-right">
-          <button type="submit" class="btn btn-primary" value="Save">Upload</button>
-        </span>
+  <div class="row">
+    <div class="col-md-12 col-sm-12 col-xs-12">
+        <form method="POST" enctype="multipart/form-data">
+            <h1>{{ form_title }} Info Upload</h1>
+              {{ form.hidden_tag() }}
+              {{ render_field(form.file_) }}
+              <span class="pull-right">
+                <button type="submit" class="btn btn-primary" value="Save">Upload</button>
+              </span>
+        </form>
       </div>
     </div>
+    {% if request.endpoint == "load_researcher_affiliations" %}
     <div class="row">
       <div class="col-md-12 col-sm-12 col-xs-12">
       <p>Please format your affiliation data as a comma-separated or tab-separated text file, with the first row being the headers matching any of the following allowed fields:</p>
@@ -40,5 +42,5 @@
       <p>The minimum affiliation file should have: First; Last; email; and affiliation type.</p>
       </div>
     </div>
-  </form>
+  {% endif %}
 {% endblock %}
