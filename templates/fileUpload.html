@@ -4,11 +4,40 @@
 {% block content %}
   <form method="POST" enctype="multipart/form-data">
     <div class="row">
-      <div class="col-md-9 col-sm-8 col-xs-12">
-        <h1>{{ form_title }} Info Upload</h1>
+      <h1>{{ form_title }} Info Upload</h1>
+      <div class="col-md-12 col-sm-12 col-xs-12">
         {{ form.hidden_tag() }}
         {{ render_field(form.file_) }}
-        <button type="submit" class="btn btn-primary" value="Save">Upload</button>
+        <span class="pull-right">
+          <button type="submit" class="btn btn-primary" value="Save">Upload</button>
+        </span>
+      </div>
+    </div>
+    <div class="row">
+      <div class="col-md-12 col-sm-12 col-xs-12">
+      <p>Please format your affiliation data as a comma-separated or tab-separated text file, with the first row being the headers matching any of the following allowed fields:</p>
+      <ul>
+        <li>First name;</li>
+        <li>Last name;</li>
+        <li>Email;</li>
+        <li>ORCID iD,</li>
+        <li>Organisation;</li>
+        <li>Department;</li>
+        <li>City;</li>
+        <li>Region; </li>
+        <li>Course or Title;</li>
+        <li>Start data;</li>
+        <li>End date; </li>
+        <li>ffiliation type; </li>
+        <li>Country;</li>
+        <li>Disambiguation ID;</li>
+        <li>and Disambiguation Source.</li>
+      </ul>
+      <p>
+      The affiliation file must contain one or both of an email address or an ORCID iD for an individual who has already gone through the Hub. Dates must be given in ISO format, <strong>YYYY-MM-DD</strong> but partial dates are accepted, e.g, dates of: "2017", "2017-12", and "2017-12-15" are all valid.</p>
+      <p>
+      Where a field header or value is not provided, the value from your organisation will be used if it's available, e.g., City, Country, Disambiguation ID, and Disambiguation Source can be omitted where redundant.</p>
+      <p>The minimum affiliation file should have: First; Last; email; and affiliation type.</p>
       </div>
     </div>
   </form>
