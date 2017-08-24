@@ -22,8 +22,8 @@ from peewee import JOIN
 import orcid_client
 from application import app
 from config import (ENV, EXTERNAL_SP, ORCID_BASE_URL, SCOPE_ACTIVITIES_UPDATE, SCOPE_READ_LIMITED)
-from models import (Affiliation, AffiliationRecord, OrcidToken, Organisation, Role, Task, User,
-                    UserInvitation, UserOrg)
+from models import (AFFILIATION_TYPES, Affiliation, AffiliationRecord, OrcidToken, Organisation,
+                    Role, Task, User, UserInvitation, UserOrg)
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -383,8 +383,8 @@ def create_or_update_affiliation(user, org_id, records, *args, **kwargs):
         else:
             logger.info(f"For {user} not able to determine affiliaton type with {org}")
             ar.processed_at = datetime.now()
-            ar.add_status_line(
-                f"Unsupported affiliation type '{at}' for {user} affiliaton type with {org}")
+            ar.add_status_line(f"Unsupported affiliation type '{at}' allowed values are: " +
+                               ', '.join(at for at in AFFILIATION_TYPES))
             ar.save()
             continue
 

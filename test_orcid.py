@@ -5,11 +5,11 @@ import json
 import time
 from unittest.mock import MagicMock, patch
 
-import pytest
 import requests_oauthlib
 from flask import session, url_for
 from flask_login import login_user
 
+import pytest
 from models import Affiliation, OrcidToken, Organisation, User, UserOrg
 
 fake_time = time.time()
