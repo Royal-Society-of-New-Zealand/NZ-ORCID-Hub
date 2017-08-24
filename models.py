@@ -14,9 +14,10 @@ from itertools import zip_longest
 from urllib.parse import urlencode
 
 from flask_login import UserMixin, current_user
-from peewee import (BooleanField, CharField, DateTimeField, DeferredRelation, Field,
-                    FixedCharField, ForeignKeyField, IntegerField, Model, OperationalError,
-                    SmallIntegerField, TextField)
+from peewee import BooleanField as BF
+from peewee import (CharField, DateTimeField, DeferredRelation, Field, FixedCharField,
+                    ForeignKeyField, IntegerField, Model, OperationalError, SmallIntegerField,
+                    TextField)
 from playhouse.shortcuts import model_to_dict
 from pycountry import countries
 
@@ -127,6 +128,11 @@ class OrcidIdField(FixedCharField):
     # def coerce(self, value):
     #     validate_orcid_id(value)
     #     return super().coerce(value)
+
+
+class BooleanField(BF):
+    def NOT(self):
+        return self.__invert__()
 
 
 class PartialDateField(Field):

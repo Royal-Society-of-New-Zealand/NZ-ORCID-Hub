@@ -4,10 +4,12 @@
 isort:skip_file
 """
 
-from config import ORCID_API_BASE
+from config import ORCID_API_BASE, SCOPE_READ_LIMITED, SCOPE_ACTIVITIES_UPDATE, ORCID_BASE_URL
 from flask_login import current_user
-from models import OrcidApiCall
-from swagger_client import configuration, rest, api_client
+from models import OrcidApiCall, Affiliation, OrcidToken
+from swagger_client import (configuration, rest, api_client, apis, MemberAPIV20Api, SourceClientId,
+                            Source, OrganizationAddress, DisambiguatedOrganization, Employment,
+                            Education, Organization)
 from time import time
 from urllib.parse import urlparse
 from application import app
@@ -97,6 +99,134 @@ class OrcidRESTClientObject(rest.RESTClientObject):
             oac.save()
 
         return res
+
+
+class MemberAPI(MemberAPIV20Api):
+    """ORCID Mmeber API extension."""
+
+    def __init__(self, org, user, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.set_config(org, user)
+
+    def set_config(self, org, user):
+        """Set up clietn configuration."""
+        global configuration
+        self.org = org
+        self.user = user
+        self.orcid_token = None
+        try:
+            self.orcid_token = OrcidToken.get(
+                user=user, org=org, scope=SCOPE_READ_LIMITED[0] + "," + SCOPE_ACTIVITIES_UPDATE[0])
+        except Exception as ex:
+            app.logger.error(f"Exception occured while retriving ORCID Token {ex}")
+            return None
+
+        configuration.access_token = self.orcid_token.access_token
+
+        url = urlparse(ORCID_BASE_URL)
+        self.source_clientid = SourceClientId(
+            host=url.hostname,
+            path=org.orcid_client_id,
+            uri="http://" + url.hostname + "/client/" + org.orcid_client_id)
+
+        self.source = Source(
+            source_orcid=None, source_client_id=self.source_clientid, source_name=org.name)
+
+    def create_or_update_affiliation(self,
+                                     affiliation=None,
+                                     role=None,
+                                     department=None,
+                                     org_name=None,
+                                     city=None,
+                                     state=None,
+                                     country=None,
+                                     disambiguated_id=None,
+                                     disambiguation_source=None,
+                                     start_date=None,
+                                     end_date=None,
+                                     put_code=None,
+                                     *args,
+                                     **kwargs):
+        """Creates or updates affiliation record of a user.
+
+        Returns tuple (put-code, ORCID iD, created), where created is True if a new entry
+        was created, otherwise - False.
+        """
+        if not department:
+            department = None
+        if not role:
+            role = None
+        if not state:
+            state = None
+
+        if affiliation is None:
+            app.logger.warning("Missing affiliation value.")
+            raise Exception("Missing affiliation value.")
+
+        organisation_address = OrganizationAddress(
+            city=city or self.org.city, country=country or self.org.country)
+
+        disambiguated_organization_details = DisambiguatedOrganization(
+            disambiguated_organization_identifier=disambiguated_id or self.org.disambiguated_id,
+            disambiguation_source=disambiguation_source or self.org.disambiguation_source)
+
+        if affiliation == Affiliation.EMP:
+            rec = Employment()
+        elif affiliation == Affiliation.EDU:
+            rec = Education()
+        else:
+            app.logger.info(
+                f"For {self.user} not able to determine affiliaton type with {self.org}")
+            raise Exception(
+                f"Unsupported affiliation type '{affiliation}' for {self.user} affiliaton type with {self.org}"
+            )
+
+        rec.source = self.source
+        rec.organization = Organization(
+            name=org_name or self.org.name,
+            address=organisation_address,
+            disambiguated_organization=disambiguated_organization_details)
+
+        if put_code:
+            rec.put_code = put_code
+
+        rec.department_name = department
+        rec.role_title = role
+        if start_date:
+            rec.start_date = start_date.as_orcid_dict()
+        if end_date:
+            rec.end_date = end_date.as_orcid_dict()
+
+        try:
+            if affiliation == Affiliation.EDU:
+                api_call = self.update_employment if put_code else self.create_employment
+            else:
+                api_call = self.update_education if put_code else self.create_education
+
+            params = dict(orcid=self.user.orcid, body=rec, _preload_content=False)
+            if put_code:
+                params["put_code"] = put_code
+            resp = api_call(**params)
+            app.logger.info(
+                f"For {self.user} the ORCID record was {'updated' if put_code else 'created'} from {self.org}"
+            )
+            created = bool(put_code)
+            # retrieve the put-code from response Location header:
+            if resp.status == 201:
+                location = resp.headers.get("Location")
+                try:
+                    orcid, put_code = location.split("/")[-3::2]
+                    put_code = int(put_code)
+                except:
+                    app.logger.exception("Failed to get ORCID iD/put-code from the response.")
+                    raise Exception("Failed to get ORCID iD/put-code from the response.")
+            elif resp.status == 200:
+                orcid = self.user.orcid
+
+        except:
+            app.logger.exception(f"For {self.user} encountered exception")
+        else:
+            return (put_code, orcid, created)
 
 
 # yapf: disable
