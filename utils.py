@@ -447,6 +447,12 @@ def process_affiliation_records(max_rows=20):
                 AffiliationRecord.processed_at.is_null()).exists()):
             task.completed_at = datetime.now()
             task.save()
+            error_count = AffiliationRecord.select().where(
+                AffiliationRecord.task_id == task.id, AffiliationRecord.status**"%error%").count()
+            row_count = task.record_count
+            orcid_rec_count = task.affiliationrecord_set.select(
+                AffiliationRecord.orcid).distinct().count()
+
             with app.app_context():
                 export_url = flask.url_for(
                     "affiliationrecord.export", export_type="csv", task_id=task.id, _external=True)
@@ -454,5 +460,8 @@ def process_affiliation_records(max_rows=20):
                     "email/task_completed.html",
                     subject="Affiliation Process Update",
                     recipient=(task.created_by.name, task.created_by.email),
+                    error_count=error_count,
+                    row_count=row_count,
+                    orcid_rec_count=orcid_rec_count,
                     export_url=export_url,
                     filename=task.filename)
