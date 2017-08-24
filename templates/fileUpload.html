@@ -2,14 +2,45 @@
 {% from "macros.html" import render_field %}
 
 {% block content %}
-  <form method="POST" enctype="multipart/form-data">
-    <div class="row">
-      <div class="col-md-9 col-sm-8 col-xs-12">
-        <h1>{{ form_title }} Info Upload</h1>
-        {{ form.hidden_tag() }}
-        {{ render_field(form.file_) }}
-        <button type="submit" class="btn btn-primary" value="Save">Upload</button>
+  <div class="row">
+    <div class="col-md-12 col-sm-12 col-xs-12">
+        <form method="POST" enctype="multipart/form-data">
+            <h1>{{ form_title }} Info Upload</h1>
+              {{ form.hidden_tag() }}
+              {{ render_field(form.file_) }}
+              <span class="pull-right">
+                <button type="submit" class="btn btn-primary" value="Save">Upload</button>
+              </span>
+        </form>
       </div>
     </div>
-  </form>
+    {% if request.endpoint == "load_researcher_affiliations" %}
+    <div class="row">
+      <div class="col-md-12 col-sm-12 col-xs-12">
+      <p>Please format your affiliation data as a comma-separated or tab-separated text file, with the first row being the headers matching any of the following allowed fields:</p>
+      <ul>
+        <li>First name;</li>
+        <li>Last name;</li>
+        <li>Email;</li>
+        <li>ORCID iD,</li>
+        <li>Organisation;</li>
+        <li>Department;</li>
+        <li>City;</li>
+        <li>Region; </li>
+        <li>Course or Title;</li>
+        <li>Start date;</li>
+        <li>End date; </li>
+        <li>Affiliation type; </li>
+        <li>Country;</li>
+        <li>Disambiguation ID;</li>
+        <li>and Disambiguation Source.</li>
+      </ul>
+      <p>
+      The affiliation file must contain either an email address or, if an individual has already gone through the Hub, an ORCID iD.<br>Dates must be given in ISO format, <strong>YYYY-MM-DD</strong> but partial dates are accepted, e.g, dates of: "2017", "2017-12", and "2017-12-15" are all valid.</p>
+      <p>
+      Where a field header or value is not provided, the value from your organisation will be used if it's available, e.g., City, Country, Disambiguation ID, and Disambiguation Source can be omitted where redundant.</p>
+      <p>The minimum affiliation file should have: First name; Last name; Email; and Affiliation type.</p>
+      </div>
+    </div>
+  {% endif %}
 {% endblock %}

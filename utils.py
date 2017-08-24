@@ -22,8 +22,8 @@ from peewee import JOIN
 import orcid_client
 from application import app
 from config import (ENV, EXTERNAL_SP, ORCID_BASE_URL, SCOPE_ACTIVITIES_UPDATE, SCOPE_READ_LIMITED)
-from models import (Affiliation, AffiliationRecord, OrcidToken, Organisation, Role, Task, User,
-                    UserInvitation, UserOrg)
+from models import (AFFILIATION_TYPES, Affiliation, AffiliationRecord, OrcidToken, Organisation,
+                    Role, Task, User, UserInvitation, UserOrg)
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -267,8 +267,8 @@ def send_user_initation(inviter,
                         start_date=None,
                         end_date=None,
                         affiliations=None,
-                        disambiguation_org_id=None,
-                        disambiguation_org_source=None,
+                        disambiguated_id=None,
+                        disambiguation_source=None,
                         **kwargs):
     """Send an invitation to join ORCID Hub logging in via ORCID."""
 
@@ -324,8 +324,8 @@ def send_user_initation(inviter,
             start_date=start_date,
             end_date=end_date,
             affiliations=affiliations,
-            disambiguation_org_id=disambiguation_org_id,
-            disambiguation_org_source=disambiguation_org_source,
+            disambiguated_id=disambiguated_id,
+            disambiguation_source=disambiguation_source,
             token=token)
 
         status = "The invitation sent at " + datetime.now().isoformat(timespec="seconds")
@@ -372,8 +372,8 @@ def create_or_update_affiliation(user, org_id, records, *args, **kwargs):
         organisation_address = orcid_client.OrganizationAddress(city=ar.city, country=org.country)
 
         disambiguated_organization_details = orcid_client.DisambiguatedOrganization(
-            disambiguated_organization_identifier=org.disambiguation_org_id,
-            disambiguation_source=org.disambiguation_org_source)
+            disambiguated_organization_identifier=org.disambiguated_id,
+            disambiguation_source=org.disambiguation_source)
 
         at = ar.affiliation_type.lower()
         if at in {"faculty", "staff", "emp"}:
@@ -383,8 +383,8 @@ def create_or_update_affiliation(user, org_id, records, *args, **kwargs):
         else:
             logger.info(f"For {user} not able to determine affiliaton type with {org}")
             ar.processed_at = datetime.now()
-            ar.add_status_line(
-                f"Unsupported affiliation type '{at}' for {user} affiliaton type with {org}")
+            ar.add_status_line(f"Unsupported affiliation type '{at}' allowed values are: " +
+                               ', '.join(at for at in AFFILIATION_TYPES))
             ar.save()
             continue
 
@@ -465,21 +465,19 @@ def process_affiliation_records(max_rows=20):
     # TODO: perhaps it should be broken into 2 queries
     task_ids = set()
     tasks = (Task.select(
-        Task, AffiliationRecord, User, UserInvitation.id.alias("invitation_id"),
-        OrcidToken).where(AffiliationRecord.processed_at.is_null(), AffiliationRecord.is_active, (
-            (User.id.is_null(False) & User.orcid.is_null(False) & OrcidToken.id.is_null(False)) | (
-                (User.id.is_null() | User.orcid.is_null() | OrcidToken.id.is_null()) &
-                UserInvitation.id.is_null() &
-                (AffiliationRecord.status.is_null() |
-                 AffiliationRecord.status.contains("sent").__invert__())))).join(
-                     AffiliationRecord, on=(Task.id == AffiliationRecord.task_id)).join(
-                         User,
-                         JOIN.LEFT_OUTER,
-                         on=((User.email == AffiliationRecord.email) |
-                             (User.orcid == AffiliationRecord.orcid))).join(
-                                 Organisation,
-                                 JOIN.LEFT_OUTER,
-                                 on=(Organisation.id == Task.org_id))
+        Task, AffiliationRecord, User, UserInvitation.id.alias("invitation_id"), OrcidToken).where(
+            AffiliationRecord.processed_at.is_null(), AffiliationRecord.is_active,
+            ((User.id.is_null(False) & User.orcid.is_null(False) & OrcidToken.id.is_null(False)) |
+             ((User.id.is_null() | User.orcid.is_null() | OrcidToken.id.is_null()) &
+              UserInvitation.id.is_null() &
+              (AffiliationRecord.status.is_null()
+               | AffiliationRecord.status.contains("sent").__invert__())))).join(
+                   AffiliationRecord, on=(Task.id == AffiliationRecord.task_id)).join(
+                       User,
+                       JOIN.LEFT_OUTER,
+                       on=((User.email == AffiliationRecord.email) |
+                           (User.orcid == AffiliationRecord.orcid))).join(
+                               Organisation, JOIN.LEFT_OUTER, on=(Organisation.id == Task.org_id))
              .join(
                  UserInvitation,
                  JOIN.LEFT_OUTER,
@@ -488,8 +486,10 @@ def process_affiliation_records(max_rows=20):
                      JOIN.LEFT_OUTER,
                      on=((OrcidToken.user_id == User.id) & (OrcidToken.org_id == Organisation.id) &
                          (OrcidToken.scope.contains("/activities/update")))).limit(max_rows))
-    for (task_id, org_id, user), tasks_by_user in groupby(
-            tasks, lambda t: (t.id, t.org_id, t.affiliation_record.user, )):
+    for (task_id, org_id, user), tasks_by_user in groupby(tasks, lambda t: (
+            t.id,
+            t.org_id,
+            t.affiliation_record.user, )):
         if (user.id is None or user.orcid is None or not OrcidToken.select().where(
             (OrcidToken.user_id == user.id) & (OrcidToken.org_id == org_id) &
             (OrcidToken.scope.contains("/activities/update"))).exists()):  # noqa: E127, E129

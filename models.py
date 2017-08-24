@@ -23,6 +23,13 @@ from pycountry import countries
 from application import app, db
 from config import DEFAULT_COUNTRY, ENV
 
+EMAIL_REGEX = re.compile(r"[^@]+@[^@]+\.[^@]+")
+AFFILIATION_TYPES = (
+    "student",
+    "education",
+    "staff",
+    "employment", )
+
 try:
     from enum import IntFlag
 except ImportError:
@@ -145,7 +152,10 @@ class PartialDateField(Field):
             return None
 
         parts = [int(p) for p in value.split("-") if "*" not in p]
-        return PartialDate(**dict(zip_longest(("year", "month", "day", ), parts)))
+        return PartialDate(**dict(zip_longest((
+            "year",
+            "month",
+            "day", ), parts)))
 
 
 class Role(IntFlag):
@@ -265,8 +275,8 @@ class Organisation(BaseModel, AuditMixin):
     city = CharField(null=True)
     state = CharField(null=True, verbose_name="State/Region", max_length=100)
     country = CharField(null=True, choices=country_choices, default=DEFAULT_COUNTRY)
-    disambiguation_org_id = CharField(null=True)
-    disambiguation_org_source = CharField(null=True)
+    disambiguated_id = CharField(null=True)
+    disambiguation_source = CharField(null=True)
     is_email_sent = BooleanField(default=False)
     tech_contact = ForeignKeyField(
         DeferredUser,
@@ -324,13 +334,13 @@ class OrgInfo(BaseModel):
         null=True, default=False, verbose_name="Permission to post contact information to WEB")
     country = CharField(null=True, verbose_name="Country Code", default=DEFAULT_COUNTRY)
     city = CharField(null=True, verbose_name="City of home campus")
-    disambiguation_org_id = CharField(
+    disambiguated_id = CharField(
         null=True, verbose_name="common:disambiguated-organization-identifier")
     disambiguation_source = CharField(null=True, verbose_name="common:disambiguation-source")
 
     def __repr__(self):
         """String representation of the model."""
-        return self.name or self.disambiguation_org_id or super().__repr__()
+        return self.name or self.disambiguated_id or super().__repr__()
 
     class Meta:
         db_table = "org_info"
@@ -389,7 +399,7 @@ class OrgInfo(BaseModel):
             oi.is_public = val(row, 7) and val(row, 7).upper() == "YES"
             oi.country = val(row, 8) or DEFAULT_COUNTRY
             oi.city = val(row, 9)
-            oi.disambiguation_org_id = val(row, 10)
+            oi.disambiguated_id = val(row, 10)
             oi.disambiguation_source = val(row, 11)
             oi.tuakiri_name = val(row, 12)
 
@@ -624,8 +634,8 @@ class UserInvitation(BaseModel, AuditMixin):
     start_date = PartialDateField(verbose_name="Start date", null=True)
     end_date = PartialDateField(verbose_name="End date (leave blank if current)", null=True)
     affiliations = SmallIntegerField(verbose_name="User affiliations", null=True)
-    disambiguation_org_id = TextField(verbose_name="Disambiguation ORG Id", null=True)
-    disambiguation_org_source = TextField(verbose_name="Disambiguation ORG Source", null=True)
+    disambiguated_id = TextField(verbose_name="Disambiguation ORG Id", null=True)
+    disambiguation_source = TextField(verbose_name="Disambiguation ORG Source", null=True)
     token = TextField(unique=True)
     confirmed_at = DateTimeField(null=True)
 
@@ -784,7 +794,7 @@ class Task(BaseModel, AuditMixin):
             "Wrong number of fields. Expected at least 7 fields " \
             "(first name, last name, email address, organisation, " \
             "campus/department, city, course or job title, start date, end date, student/staff). " \
-            "Read header: %s" % header
+            f"Read header: {header}"
         header_rexs = [
             re.compile(ex, re.I)
             for ex in (r"first\s*(name)?", r"last\s*(name)?", "email", "organisation|^name",
@@ -809,7 +819,6 @@ class Task(BaseModel, AuditMixin):
 
         if org is None:
             org = current_user.organisation if current_user else None
-        task = cls.create(org=org, filename=filename)
 
         def val(row, i):
             if idxs[i] is None or idxs[i] >= len(row):
@@ -818,29 +827,59 @@ class Task(BaseModel, AuditMixin):
                 v = row[idxs[i]].strip()
                 return None if v == '' else v
 
-        for row in reader:
-            if len(row) == 0:
-                continue
-            if not (val(row, 15) or val(row, 2)):
-                raise ModelException(f"Missing user identifier (email address or ORCID iD): {row}")
-            AffiliationRecord.create(
-                task=task,
-                first_name=val(row, 0),
-                last_name=val(row, 1),
-                email=val(row, 2).encode("latin-1").decode("utf-8").lower(),
-                organisation=val(row, 3),
-                department=val(row, 4),
-                city=val(row, 5),
-                region=val(row, 6),
-                role=val(row, 7),
-                start_date=PartialDate.create(val(row, 8)),
-                end_date=PartialDate.create(val(row, 9)),
-                affiliation_type=val(row, 10),
-                country=val(row, 11),
-                disambiguated_id=val(row, 12),
-                disambiguated_source=val(row, 13),
-                put_code=val(row, 14),
-                orcid=val(row, 15))
+        with db.atomic():
+            try:
+                task = cls.create(org=org, filename=filename)
+                for row_no, row in enumerate(reader):
+                    if len(row) == 0:
+                        continue
+
+                    email = val(row, 2).lower()
+                    orcid = val(row, 15)
+
+                    if not (email or orcid):
+                        raise ModelException(
+                            f"Missing user identifier (email address or ORCID iD) in the row #{row_no+2}: {row}"
+                        )
+
+                    if orcid:
+                        try:
+                            validate_orcid_id(orcid)
+                        except Exception as ex:
+                            pass
+
+                    if not email or not EMAIL_REGEX.match(email):
+                        raise ValueError(
+                            f"Invalid email address '{email}'  in the row #{row_no+2}: {row}")
+
+                    affiliation_type = val(row, 10).lower()
+                    if not affiliation_type or affiliation_type not in AFFILIATION_TYPES:
+                        raise ValueError(
+                            f"Invalid affiliation type '{affiliation_type}' in the row #{row_no+2}: {row}. "
+                            f"Expected values: {', '.join(at for at in AFFILIATION_TYPES)}.")
+
+                    AffiliationRecord.create(
+                        task=task,
+                        first_name=val(row, 0),
+                        last_name=val(row, 1),
+                        email=email,
+                        organisation=val(row, 3),
+                        department=val(row, 4),
+                        city=val(row, 5),
+                        region=val(row, 6),
+                        role=val(row, 7),
+                        start_date=PartialDate.create(val(row, 8)),
+                        end_date=PartialDate.create(val(row, 9)),
+                        affiliation_type=affiliation_type,
+                        country=val(row, 11),
+                        disambiguated_id=val(row, 12),
+                        disambiguated_source=val(row, 13),
+                        put_code=val(row, 14),
+                        orcid=orcid)
+            except Exception as ex:
+                db.rollback()
+                app.logger.exception("Failed to laod affiliation file.")
+                raise
 
         return task
 
@@ -850,6 +889,7 @@ class Task(BaseModel, AuditMixin):
 
 class AffiliationRecord(BaseModel):
     """Affiliation record loaded from CSV file for batch processing."""
+
     task = ForeignKeyField(Task)
     put_code = IntegerField(null=True)
     first_name = CharField(max_length=120, null=True)
@@ -858,11 +898,7 @@ class AffiliationRecord(BaseModel):
     orcid = OrcidIdField(null=True)
     organisation = TextField(null=True, index=True)
     affiliation_type = CharField(
-        max_length=20,
-        null=True,
-        choices=[(v, v)
-                 for v in ("EDU", "EMP", "student", "alum", "faculty", "staff", "Student", "Alum",
-                           "Faculty", "Staff", )])
+        max_length=20, null=True, choices=[(v, v) for v in AFFILIATION_TYPES])
     role = TextField(null=True, verbose_name="Role/Course")
     department = TextField(null=True)
     start_date = PartialDateField(null=True)

@@ -41,7 +41,9 @@ FROM (
 NATURAL JOIN organisation AS o
 ORDER BY o.name"""
 
-    cr = db.execute_sql(sql, (form.from_date.data, form.to_date.data, ))
+    cr = db.execute_sql(sql, (
+        form.from_date.data,
+        form.to_date.data, ))
     columns = [c[0] for c in cr.description]
     Row = namedtuple("Row", columns)
     rows = [Row(*r) for r in cr.fetchall()]
