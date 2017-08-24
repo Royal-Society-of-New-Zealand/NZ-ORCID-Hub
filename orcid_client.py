@@ -152,6 +152,12 @@ class MemberAPI(MemberAPIV20Api):
         Returns tuple (put-code, ORCID iD, created), where created is True if a new entry
         was created, otherwise - False.
         """
+        if not department:
+            department = None
+        if not role:
+            role = None
+        if not state:
+            state = None
 
         if affiliation is None:
             app.logger.warning("Missing affiliation value.")
@@ -196,8 +202,6 @@ class MemberAPI(MemberAPIV20Api):
                 api_call = self.update_employment if put_code else self.create_employment
             else:
                 api_call = self.update_education if put_code else self.create_education
-
-            import pdb; pdb.set_trace()
 
             params = dict(orcid=self.user.orcid, body=rec, _preload_content=False)
             if put_code:
