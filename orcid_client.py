@@ -110,6 +110,7 @@ class MemberAPI(MemberAPIV20Api):
 
     def set_config(self, org, user):
         """Set up clietn configuration."""
+        global configuration
         self.org = org
         self.user = user
         self.orcid_token = None
@@ -165,7 +166,7 @@ class MemberAPI(MemberAPIV20Api):
 
         if affiliation == Affiliation.EMP:
             rec = Employment()
-        if affiliation == Affiliation.EDU:
+        elif affiliation == Affiliation.EDU:
             rec = Education()
         else:
             app.logger.info(
@@ -195,6 +196,8 @@ class MemberAPI(MemberAPIV20Api):
                 api_call = self.update_employment if put_code else self.create_employment
             else:
                 api_call = self.update_education if put_code else self.create_education
+
+            import pdb; pdb.set_trace()
 
             params = dict(orcid=self.user.orcid, body=rec, _preload_content=False)
             if put_code:
