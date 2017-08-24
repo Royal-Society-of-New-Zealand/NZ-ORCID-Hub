@@ -128,7 +128,7 @@ def test_tuakiri_login_with_org(client):
     onboared, the user should be informed about that and
     redirected to the login page.
     """
-    org = Organisation(tuakiri_name="THE ORGANISATION")
+    org = Organisation(tuakiri_name="THE ORGANISATION", confirmed=True)
     org.save()
 
     rv = client.get(
@@ -148,9 +148,37 @@ def test_tuakiri_login_with_org(client):
     u = User.get(email="user111@test.test.net")
     assert u.organisation == org
     assert org in u.organisations
-    assert b"Your organisation (INCOGNITO) is not onboarded" not in rv.data
+    assert b"Your organisation (THE ORGANISATION) is not onboarded" not in rv.data
     uo = UserOrg.get(user=u, org=org)
     assert not uo.is_admin
+
+
+def test_tuakiri_login_by_techical_contact_organisation_not_onboarded(client):
+    org = Organisation(name="Org112", tuakiri_name="Org112", confirmed=False, is_email_sent=True)
+    u = User(email="user1113@test.test.net", confirmed=True, roles=Role.TECHNICAL, organisation=org)
+    org.tech_contact = u
+    org.save()
+
+    UserOrg(user=u, org=org, is_admin=True)
+    rv = client.get(
+        "/Tuakiri/login",
+        headers={
+            "Auedupersonsharedtoken": "ABC11s1",
+            "Sn": "LAST NAME/SURNAME/FAMILY NAME",
+            'Givenname': "FIRST NAME/GIVEN NAME",
+            "Mail": "user1113@test.test.net",
+            "O": "Org112",
+            "Displayname": "TEST USER FROM THE Org112",
+            "Unscoped-Affiliation": "student",
+            "Eppn": "user11137@test.test.net"
+        },
+        follow_redirects=True)
+
+    assert u.organisation == org
+    assert not org.confirmed
+    assert u.is_tech_contact_of(org)
+    assert rv.status_code == 200
+    assert b"<!DOCTYPE html>" in rv.data, "Expected HTML content"
 
 
 def test_confirmation_token(app):
