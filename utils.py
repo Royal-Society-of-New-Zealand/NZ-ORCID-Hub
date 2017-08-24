@@ -465,21 +465,19 @@ def process_affiliation_records(max_rows=20):
     # TODO: perhaps it should be broken into 2 queries
     task_ids = set()
     tasks = (Task.select(
-        Task, AffiliationRecord, User, UserInvitation.id.alias("invitation_id"),
-        OrcidToken).where(AffiliationRecord.processed_at.is_null(), AffiliationRecord.is_active, (
-            (User.id.is_null(False) & User.orcid.is_null(False) & OrcidToken.id.is_null(False)) | (
-                (User.id.is_null() | User.orcid.is_null() | OrcidToken.id.is_null()) &
-                UserInvitation.id.is_null() &
-                (AffiliationRecord.status.is_null() |
-                 AffiliationRecord.status.contains("sent").__invert__())))).join(
-                     AffiliationRecord, on=(Task.id == AffiliationRecord.task_id)).join(
-                         User,
-                         JOIN.LEFT_OUTER,
-                         on=((User.email == AffiliationRecord.email) |
-                             (User.orcid == AffiliationRecord.orcid))).join(
-                                 Organisation,
-                                 JOIN.LEFT_OUTER,
-                                 on=(Organisation.id == Task.org_id))
+        Task, AffiliationRecord, User, UserInvitation.id.alias("invitation_id"), OrcidToken).where(
+            AffiliationRecord.processed_at.is_null(), AffiliationRecord.is_active,
+            ((User.id.is_null(False) & User.orcid.is_null(False) & OrcidToken.id.is_null(False)) |
+             ((User.id.is_null() | User.orcid.is_null() | OrcidToken.id.is_null()) &
+              UserInvitation.id.is_null() &
+              (AffiliationRecord.status.is_null()
+               | AffiliationRecord.status.contains("sent").__invert__())))).join(
+                   AffiliationRecord, on=(Task.id == AffiliationRecord.task_id)).join(
+                       User,
+                       JOIN.LEFT_OUTER,
+                       on=((User.email == AffiliationRecord.email) |
+                           (User.orcid == AffiliationRecord.orcid))).join(
+                               Organisation, JOIN.LEFT_OUTER, on=(Organisation.id == Task.org_id))
              .join(
                  UserInvitation,
                  JOIN.LEFT_OUTER,
@@ -488,8 +486,10 @@ def process_affiliation_records(max_rows=20):
                      JOIN.LEFT_OUTER,
                      on=((OrcidToken.user_id == User.id) & (OrcidToken.org_id == Organisation.id) &
                          (OrcidToken.scope.contains("/activities/update")))).limit(max_rows))
-    for (task_id, org_id, user), tasks_by_user in groupby(
-            tasks, lambda t: (t.id, t.org_id, t.affiliation_record.user, )):
+    for (task_id, org_id, user), tasks_by_user in groupby(tasks, lambda t: (
+            t.id,
+            t.org_id,
+            t.affiliation_record.user, )):
         if (user.id is None or user.orcid is None or not OrcidToken.select().where(
             (OrcidToken.user_id == user.id) & (OrcidToken.org_id == org_id) &
             (OrcidToken.scope.contains("/activities/update"))).exists()):  # noqa: E127, E129
@@ -519,6 +519,12 @@ def process_affiliation_records(max_rows=20):
                 AffiliationRecord.processed_at.is_null()).exists()):
             task.completed_at = datetime.now()
             task.save()
+            error_count = AffiliationRecord.select().where(
+                AffiliationRecord.task_id == task.id, AffiliationRecord.status**"%error%").count()
+            row_count = task.record_count
+            orcid_rec_count = task.affiliationrecord_set.select(
+                AffiliationRecord.orcid).distinct().count()
+
             with app.app_context():
                 export_url = flask.url_for(
                     "affiliationrecord.export", export_type="csv", task_id=task.id, _external=True)
@@ -526,5 +532,8 @@ def process_affiliation_records(max_rows=20):
                     "email/task_completed.html",
                     subject="Affiliation Process Update",
                     recipient=(task.created_by.name, task.created_by.email),
+                    error_count=error_count,
+                    row_count=row_count,
+                    orcid_rec_count=orcid_rec_count,
                     export_url=export_url,
                     filename=task.filename)

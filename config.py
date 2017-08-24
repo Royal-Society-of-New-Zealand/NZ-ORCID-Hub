@@ -9,8 +9,8 @@ ORCID_API_BASE = "https://api.sandbox.orcid.org/v2.0/" if ENV != "prod" else "ht
 ORCID_BASE_URL = "https://sandbox.orcid.org/" if ENV != "prod" else "https://orcid.org/"
 
 SECRET_KEY = environ.get("SECRET_KEY", urandom(42).hex())
-SALT = "secret-salt" if ENV.startswith("dev") else (environ.get("TOKEN_PASSWORD_SALT") or
-                                                    urandom(5).hex())
+SALT = "secret-salt" if ENV.startswith("dev") else (environ.get("TOKEN_PASSWORD_SALT")
+                                                    or urandom(5).hex())
 
 # NZ ORCIDHUB API client ID and secret
 ORCID_CLIENT_ID = environ.get("ORCID_CLIENT_ID", "APP-42W3G8FS4OHGM562")

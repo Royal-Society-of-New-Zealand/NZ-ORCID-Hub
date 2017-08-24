@@ -145,7 +145,10 @@ class PartialDateField(Field):
             return None
 
         parts = [int(p) for p in value.split("-") if "*" not in p]
-        return PartialDate(**dict(zip_longest(("year", "month", "day", ), parts)))
+        return PartialDate(**dict(zip_longest((
+            "year",
+            "month",
+            "day", ), parts)))
 
 
 class Role(IntFlag):
@@ -861,8 +864,17 @@ class AffiliationRecord(BaseModel):
         max_length=20,
         null=True,
         choices=[(v, v)
-                 for v in ("EDU", "EMP", "student", "alum", "faculty", "staff", "Student", "Alum",
-                           "Faculty", "Staff", )])
+                 for v in (
+                     "EDU",
+                     "EMP",
+                     "student",
+                     "alum",
+                     "faculty",
+                     "staff",
+                     "Student",
+                     "Alum",
+                     "Faculty",
+                     "Staff", )])
     role = TextField(null=True, verbose_name="Role/Course")
     department = TextField(null=True)
     start_date = PartialDateField(null=True)
