@@ -8,6 +8,10 @@ from datetime import datetime
 from urllib.parse import urlparse
 
 from flask import (abort, flash, redirect, render_template, request, send_from_directory, url_for)
+from flask_admin.actions import action
+from flask_admin.contrib.peewee import ModelView
+from flask_admin.form import SecureForm
+from flask_admin.model import typefmt
 from flask_login import current_user, login_required
 from jinja2 import Markup
 from werkzeug import secure_filename
@@ -16,10 +20,6 @@ import orcid_client
 import utils
 from application import admin, app
 from config import ORCID_BASE_URL, SCOPE_ACTIVITIES_UPDATE, SCOPE_READ_LIMITED
-from flask_admin.actions import action
-from flask_admin.contrib.peewee import ModelView
-from flask_admin.form import SecureForm
-from flask_admin.model import typefmt
 from forms import (BitmapMultipleValueField, FileUploadForm, OrgRegistrationForm, PartialDateField,
                    RecordForm, UserInvitationForm)
 from login_provider import roles_required
@@ -89,7 +89,11 @@ class AppModelView(ModelView):
         datetime:
         lambda view, value: Markup(value.strftime("%Y‑%m‑%d&nbsp;%H:%M")),
     })
-    column_exclude_list = ("created_at", "updated_at", "created_by", "updated_by", )
+    column_exclude_list = (
+        "created_at",
+        "updated_at",
+        "created_by",
+        "updated_by", )
     form_overrides = dict(start_date=PartialDateField, end_date=PartialDateField)
 
     def __init__(self, model=None, *args, **kwargs):
@@ -130,7 +134,9 @@ class AppModelView(ModelView):
                     p = getattr(self.model, p)
 
                 # Check type
-                if not isinstance(p, (CharField, TextField, )):
+                if not isinstance(p, (
+                        CharField,
+                        TextField, )):
                     raise Exception('Can only search on text columns. ' +
                                     'Failed to setup search for "%s"' % p)
 
@@ -180,8 +186,12 @@ class AppModelView(ModelView):
         extra_args = {
             k: v
             for k, v in request.args.items()
-            if k not in ('page', 'page_size', 'sort', 'desc',
-                         'search', ) and not k.startswith('flt')
+            if k not in (
+                'page',
+                'page_size',
+                'sort',
+                'desc',
+                'search', ) and not k.startswith('flt')
         }
         view_args.extra_args = extra_args
         return view_args
@@ -191,11 +201,20 @@ class UserAdmin(AppModelView):
     """User model view."""
     roles = {1: "Superuser", 2: "Administrator", 4: "Researcher", 8: "Technical Contact"}
 
-    column_exclude_list = ("password", "username", "first_name", "last_name", )
+    column_exclude_list = (
+        "password",
+        "username",
+        "first_name",
+        "last_name", )
     column_formatters = dict(
         roles=lambda v, c, m, p: ", ".join(n for r, n in v.roles.items() if r & m.roles),
         orcid=lambda v, c, m, p: m.orcid.replace("-", "\u2011") if m.orcid else "")
-    column_searchable_list = ("name", "orcid", "email", "eppn", "organisation.name", )
+    column_searchable_list = (
+        "name",
+        "orcid",
+        "email",
+        "eppn",
+        "organisation.name", )
     form_overrides = dict(roles=BitmapMultipleValueField)
     form_args = dict(roles=dict(choices=roles.items()))
 
@@ -236,7 +255,10 @@ class UserAdmin(AppModelView):
 class OrganisationAdmin(AppModelView):
     """Organisation model view."""
     column_exclude_list = ("orcid_client_id", "orcid_secret", "created_at")
-    column_searchable_list = ("name", "tuakiri_name", "city", )
+    column_searchable_list = (
+        "name",
+        "tuakiri_name",
+        "city", )
 
     def update_model(self, form, model):
         """Handle change of the technical contact."""
@@ -257,7 +279,13 @@ class OrgInfoAdmin(AppModelView):
     """OrgInfo model view."""
 
     can_export = True
-    column_searchable_list = ("name", "tuakiri_name", "city", "first_name", "last_name", "email", )
+    column_searchable_list = (
+        "name",
+        "tuakiri_name",
+        "city",
+        "first_name",
+        "last_name",
+        "email", )
 
     @action("invite", "Register Organisation",
             "Are you sure you want to register selected organisations?")
@@ -289,7 +317,10 @@ class OrcidTokenAdmin(AppModelView):
     """ORCID token model view."""
 
     column_labels = dict(org="Organisation")
-    column_searchable_list = ("user.name", "user.email", "org.name", )
+    column_searchable_list = (
+        "user.name",
+        "user.email",
+        "org.name", )
     can_export = True
     can_create = False
 
@@ -301,13 +332,19 @@ class OrcidApiCallAmin(AppModelView):
     can_edit = False
     can_delete = False
     can_create = False
-    column_searchable_list = ("url", "body", "response", "user.name", )
+    column_searchable_list = (
+        "url",
+        "body",
+        "response",
+        "user.name", )
 
 
 class UserOrgAmin(AppModelView):
     """User Organisations."""
 
-    column_searchable_list = ("user.email", "org.name", )
+    column_searchable_list = (
+        "user.email",
+        "org.name", )
 
 
 class TaskAdmin(AppModelView):
@@ -321,9 +358,19 @@ class TaskAdmin(AppModelView):
 class AffiliationRecordAdmin(AppModelView):
     roles_required = Role.SUPERUSER | Role.ADMIN
     list_template = "affiliation_record_list.html"
-    column_exclude_list = ("task", "organisation", )
-    column_searchable_list = ("first_name", "last_name", "email", "role", "department", "state", )
-    column_export_exclude_list = ("task", "is_active", )
+    column_exclude_list = (
+        "task",
+        "organisation", )
+    column_searchable_list = (
+        "first_name",
+        "last_name",
+        "email",
+        "role",
+        "department",
+        "state", )
+    column_export_exclude_list = (
+        "task",
+        "is_active", )
     can_edit = True
     can_create = False
     can_delete = False
