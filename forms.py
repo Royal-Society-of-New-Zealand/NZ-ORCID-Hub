@@ -77,7 +77,10 @@ class PartialDateField(Field):
 
         if formdata is not None:
             new_data = {}
-            for f in ("year", "month", "day", ):
+            for f in (
+                    "year",
+                    "month",
+                    "day", ):
                 try:
                     if (self.name + ":" + f) in formdata:
                         raw_val = formdata.get(self.name + ":" + f)
@@ -178,7 +181,8 @@ class FileUploadForm(FlaskForm):
     """Organisation info pre-loading form."""
 
     file_ = FileField(
-        validators=[FileRequired(), FileAllowed(["csv", "tsv"], 'CSV or TSV files only!')])
+        validators=[FileRequired(),
+                    FileAllowed(["csv", "tsv"], 'CSV or TSV files only!')])
 
 
 class OnboardingTokenForm(FlaskForm):
@@ -252,7 +256,8 @@ class OrgConfirmationForm(FlaskForm):
     orcid_secret = StringField(
         'Organisation Orcid Client Secret: ',
         validators=[
-            DataRequired(), Regexp(r"^\S+$", message="The value shouldn't contain any spaces"),
+            DataRequired(),
+            Regexp(r"^\S+$", message="The value shouldn't contain any spaces"),
             UUID(message="The secret should be a valid UUID")
         ])
     country = CountrySelectField("Country", [validators.required()], default=DEFAULT_COUNTRY)
