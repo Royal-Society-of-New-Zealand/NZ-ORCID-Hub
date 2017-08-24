@@ -3,10 +3,10 @@
 
 import pprint
 
-import pytest
 from flask_login import login_user
 
 import login_provider
+import pytest
 import utils
 from models import Organisation, Role, User, UserOrg
 
