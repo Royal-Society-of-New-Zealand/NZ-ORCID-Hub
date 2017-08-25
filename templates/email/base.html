@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Affiliation Process Update</title>
+    <meta name="keywords" content="ORCID HUB,New Zealand,NZ,orcid"/>
+  </head>
+  <body>
+    <div style="font-family: Arial, Verdana, Georgia, and Times New Roman; background-color: white; color: black;">
+      <table style="vertical-align: middle; background-color: black; color: white; width: 100%;">
+        <tr>
+          <td>&nbsp;</td>
+          <td align="right">
+            <img src="{{url_for('static', filename='images/banner-small.png', _external=True)}}" title="NZ ORCID Hub" alt="NZ ORCID Hub" style="display:block;" />
+          </td>
+        </tr>
+      </table>
+      {% block content %}{% endblock %}
+      <p>If you received this email in error, or you have questions about the responsibilities involved, please contact: <a href="mailto:orcid@royalsociety.org.nz">orcid@royalsociety.org.nz</a></p>
+      <hr>
+      <p>This email was sent to {{recipient["email"]}}</p>
+      <!--  Footer Details -->
+      <table style="vertical-align: top; background-color: black; color: white; width: 100%; margin-top: 25px;">
+        <tr>
+          <td>
+            <p style="vertical-align: top; padding-left: 15px;">
+            Contact details for the NZ ORCID Hub<br>
+            Phone: (04) 472 7421<br>
+            PO Box 598, Wellington 6140<br>
+            <b><a style="text-decoration: none; color: white;"
+                  href="mailto:orcid@royalsociety.org.nz">orcid@royalsociety.org.nz</a></b>
+            </p>
+          </td>
+          <td style="vertical-align: top;">
+            <p class="copyright"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank"><img src="{{url_for('static', filename='images/CC-BY-icon-80x15.png', _external=True)}}" alt="CC-BY"/></a></p>
+          </td>
+        </tr>
+      </table>
+    </div>
+  </body>
+</html>
