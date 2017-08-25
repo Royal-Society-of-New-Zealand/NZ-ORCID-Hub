@@ -8,6 +8,10 @@ from datetime import datetime
 from urllib.parse import urlparse
 
 from flask import (abort, flash, redirect, render_template, request, send_from_directory, url_for)
+from flask_admin.actions import action
+from flask_admin.contrib.peewee import ModelView
+from flask_admin.form import SecureForm
+from flask_admin.model import typefmt
 from flask_login import current_user, login_required
 from jinja2 import Markup
 from werkzeug import secure_filename
@@ -16,10 +20,6 @@ import orcid_client
 import utils
 from application import admin, app
 from config import ORCID_BASE_URL, SCOPE_ACTIVITIES_UPDATE, SCOPE_READ_LIMITED
-from flask_admin.actions import action
-from flask_admin.contrib.peewee import ModelView
-from flask_admin.form import SecureForm
-from flask_admin.model import typefmt
 from forms import (BitmapMultipleValueField, FileUploadForm, OrgRegistrationForm, PartialDateField,
                    RecordForm, UserInvitationForm)
 from login_provider import roles_required
@@ -89,7 +89,11 @@ class AppModelView(ModelView):
         datetime:
         lambda view, value: Markup(value.strftime("%Y‑%m‑%d&nbsp;%H:%M")),
     })
-    column_exclude_list = ("created_at", "updated_at", "created_by", "updated_by", )
+    column_exclude_list = (
+        "created_at",
+        "updated_at",
+        "created_by",
+        "updated_by", )
     form_overrides = dict(start_date=PartialDateField, end_date=PartialDateField)
 
     def __init__(self, model=None, *args, **kwargs):
@@ -130,7 +134,9 @@ class AppModelView(ModelView):
                     p = getattr(self.model, p)
 
                 # Check type
-                if not isinstance(p, (CharField, TextField, )):
+                if not isinstance(p, (
+                        CharField,
+                        TextField, )):
                     raise Exception('Can only search on text columns. ' +
                                     'Failed to setup search for "%s"' % p)
 
@@ -159,15 +165,14 @@ class AppModelView(ModelView):
 
         if current_user and not current_user.has_role(Role.SUPERUSER) and current_user.has_role(
                 Role.ADMIN):
-            # Show only rows realted to the organisation the user is admin for.
+            # Show only rows realted to the curretn organisation the user is admin for.
             # Skip this part for SUPERUSER.
             db_columns = [c.db_column for c in self.model._meta.fields.values()]
             if "org_id" in db_columns or "organisation_id" in db_columns:
-                admin_for_org_ids = [o.id for o in current_user.admin_for.select(Organisation.id)]
                 if "org_id" in db_columns:
-                    query.where(self.model.org_id << admin_for_org_ids)
+                    query = query.where(self.model.org_id == current_user.organisation.id)
                 else:
-                    query.where(self.model.organisation_id << admin_for_org_ids)
+                    query = query.where(self.model.organisation_id == current_user.organisation.id)
 
         if request.args and any(a.endswith("_id") for a in request.args):
             for f in self.model._meta.fields.values():
@@ -181,8 +186,12 @@ class AppModelView(ModelView):
         extra_args = {
             k: v
             for k, v in request.args.items()
-            if k not in ('page', 'page_size', 'sort', 'desc',
-                         'search', ) and not k.startswith('flt')
+            if k not in (
+                'page',
+                'page_size',
+                'sort',
+                'desc',
+                'search', ) and not k.startswith('flt')
         }
         view_args.extra_args = extra_args
         return view_args
@@ -192,11 +201,20 @@ class UserAdmin(AppModelView):
     """User model view."""
     roles = {1: "Superuser", 2: "Administrator", 4: "Researcher", 8: "Technical Contact"}
 
-    column_exclude_list = ("password", "username", "first_name", "last_name", )
+    column_exclude_list = (
+        "password",
+        "username",
+        "first_name",
+        "last_name", )
     column_formatters = dict(
         roles=lambda v, c, m, p: ", ".join(n for r, n in v.roles.items() if r & m.roles),
         orcid=lambda v, c, m, p: m.orcid.replace("-", "\u2011") if m.orcid else "")
-    column_searchable_list = ("name", "orcid", "email", "eppn", "organisation.name", )
+    column_searchable_list = (
+        "name",
+        "orcid",
+        "email",
+        "eppn",
+        "organisation.name", )
     form_overrides = dict(roles=BitmapMultipleValueField)
     form_args = dict(roles=dict(choices=roles.items()))
 
@@ -237,7 +255,10 @@ class UserAdmin(AppModelView):
 class OrganisationAdmin(AppModelView):
     """Organisation model view."""
     column_exclude_list = ("orcid_client_id", "orcid_secret", "created_at")
-    column_searchable_list = ("name", "tuakiri_name", "city", )
+    column_searchable_list = (
+        "name",
+        "tuakiri_name",
+        "city", )
 
     def update_model(self, form, model):
         """Handle change of the technical contact."""
@@ -258,7 +279,13 @@ class OrgInfoAdmin(AppModelView):
     """OrgInfo model view."""
 
     can_export = True
-    column_searchable_list = ("name", "tuakiri_name", "city", "first_name", "last_name", "email", )
+    column_searchable_list = (
+        "name",
+        "tuakiri_name",
+        "city",
+        "first_name",
+        "last_name",
+        "email", )
 
     @action("invite", "Register Organisation",
             "Are you sure you want to register selected organisations?")
@@ -276,8 +303,8 @@ class OrgInfoAdmin(AppModelView):
                     city=oi.city,
                     country=oi.country,
                     course_or_role=oi.role,
-                    disambiguation_org_id=oi.disambiguation_org_id,
-                    disambiguation_org_source=oi.disambiguation_source)
+                    disambiguated_id=oi.disambiguated_id,
+                    disambiguation_source=oi.disambiguation_source)
                 count += 1
             except Exception as ex:
                 flash(f"Failed to send an invitation to {oi.email}: {ex}")
@@ -290,7 +317,10 @@ class OrcidTokenAdmin(AppModelView):
     """ORCID token model view."""
 
     column_labels = dict(org="Organisation")
-    column_searchable_list = ("user.name", "user.email", "org.name", )
+    column_searchable_list = (
+        "user.name",
+        "user.email",
+        "org.name", )
     can_export = True
     can_create = False
 
@@ -302,13 +332,19 @@ class OrcidApiCallAmin(AppModelView):
     can_edit = False
     can_delete = False
     can_create = False
-    column_searchable_list = ("url", "body", "response", "user.name", )
+    column_searchable_list = (
+        "url",
+        "body",
+        "response",
+        "user.name", )
 
 
 class UserOrgAmin(AppModelView):
     """User Organisations."""
 
-    column_searchable_list = ("user.email", "org.name", )
+    column_searchable_list = (
+        "user.email",
+        "org.name", )
 
 
 class TaskAdmin(AppModelView):
@@ -322,14 +358,55 @@ class TaskAdmin(AppModelView):
 class AffiliationRecordAdmin(AppModelView):
     roles_required = Role.SUPERUSER | Role.ADMIN
     list_template = "affiliation_record_list.html"
-    column_exclude_list = ("task", "organisation", )
-    column_searchable_list = ("first_name", "last_name", "email", "role", "department", "state", )
-    column_export_exclude_list = ("task", "is_active", )
+    column_exclude_list = (
+        "task",
+        "organisation", )
+    column_searchable_list = (
+        "first_name",
+        "last_name",
+        "email",
+        "role",
+        "department",
+        "state", )
+    column_export_exclude_list = (
+        "task",
+        "is_active", )
     can_edit = True
     can_create = False
     can_delete = False
     can_view_details = True
     can_export = True
+
+    def is_accessible(self):
+        """Verify if the task view is accessible for the current user."""
+        if not super().is_accessible():
+            return False
+
+        if request.method == "POST":
+            # get the first ROWID:
+            rowid = int(request.form.get("rowid"))
+            task_id = AffiliationRecord.get(id=rowid).task_id
+        else:
+            task_id = request.args.get("task_id")
+            if not task_id:
+                _id = request.args.get("id")
+                if not _id:
+                    flash("Cannot invoke the task view without task ID", "danger")
+                    return False
+                else:
+                    task_id = AffiliationRecord.get(id=_id).task_id
+
+        try:
+            task = Task.get(id=task_id)
+            if task.org.id != current_user.organisation.id:
+                flash("Access denied! You cannot access this task.", "danger")
+                return False
+
+        except Task.DoesNotExist:
+            flash("The task deesn't exist.", "danger")
+            return False
+
+        return True
 
     def get_export_name(self, export_type='csv'):
         """
@@ -348,37 +425,30 @@ class AffiliationRecordAdmin(AppModelView):
             "Are you sure you want to activate the selected records for batch processing?")
     def action_activate(self, ids):
         """Batch registraion of users."""
-        count = 0
         try:
-            with db.atomic():
-                for ar in self.model.select().where(self.model.id.in_(ids)):
-                    if not ar.is_active:
-                        ar.is_active = True
-                        ar.save()
-                        count += 1
+            count = self.model.update(is_active=True).where(
+                self.model.is_active == False,  # noqa: E712
+                self.model.id.in_(ids)).execute()
         except Exception as ex:
             flash(f"Failed to activate the selected records: {ex}")
             app.logger.exception("Failed to activate the selected records")
-
-        flash(f"{count} records were activated for batch processing.")
+        else:
+            flash(f"{count} records were activated for batch processing.")
 
     @action("reset", "Reset for processing",
             "Are you sure you want to reset the selected records for batch processing?")
     def action_reset(self, ids):
         """Batch reset of users."""
-        count = 0
         try:
-            with db.atomic():
-                for ar in self.model.select().where(self.model.id.in_(ids)):
-                    if ar.is_active and ar.processed_at:
-                        ar.processed_at = None
-                        ar.save()
-                        count += 1
+            count = self.model.update(processed_at=None).where(
+                self.model.is_active,
+                self.model.processed_at.is_null(False), self.model.id.in_(ids)).execute()
         except Exception as ex:
             flash(f"Failed to activate the selected records: {ex}")
             app.logger.exception("Failed to activate the selected records")
 
-        flash(f"{count} records were activated for batch processing.")
+        else:
+            flash(f"{count} records were activated for batch processing.")
 
 
 class ViewMembersAdmin(AppModelView):
@@ -451,6 +521,24 @@ def shorturl(url):
     """Create and render short url"""
     u = Url.shorten(url)
     return url_for("short_url", short_id=u.short_id, _external=True)
+
+
+@app.route("/activate_all", methods=["POST"])
+@roles_required(Role.SUPERUSER, Role.ADMIN, Role.TECHNICAL)
+def activate_all():
+    """Batch registraion of users."""
+    _url = request.args.get("url") or request.referrer
+    task_id = request.form.get('task_id')
+    try:
+        count = AffiliationRecord.update(
+            is_active=True).where(AffiliationRecord.task_id == task_id,
+                                  AffiliationRecord.is_active == False).execute()  # noqa: E712
+    except Exception as ex:
+        flash(f"Failed to activate the selected records: {ex}")
+        app.logger.exception("Failed to activate the selected records")
+    else:
+        flash(f"{count} records were activated for batch processing.")
+    return redirect(_url)
 
 
 @app.route("/<int:user_id>/emp/<int:put_code>/delete", methods=["POST"])
@@ -812,8 +900,8 @@ def register_org(org_name,
                  state=None,
                  country=None,
                  course_or_role=None,
-                 disambiguation_org_id=None,
-                 disambiguation_org_source=None,
+                 disambiguated_id=None,
+                 disambiguation_source=None,
                  **kwargs):
     """Register research organisaion."""
 
@@ -831,8 +919,8 @@ def register_org(org_name,
                 org.state = state
                 org.city = city
                 org.country = country
-                org.disambiguation_org_id = disambiguation_org_id
-                org.disambiguation_org_source = disambiguation_org_source
+                org.disambiguated_id = disambiguated_id
+                org.disambiguation_source = disambiguation_source
 
         try:
             org_info = OrgInfo.get(name=org.name)
@@ -968,8 +1056,8 @@ def invite_user():
     org = current_user.organisation
     if request.method == "GET":
         form.organisation.data = org.name
-        form.disambiguation_org_id.data = org.disambiguation_org_id
-        form.disambiguation_org_source.data = org.disambiguation_org_source
+        form.disambiguated_id.data = org.disambiguated_id
+        form.disambiguation_source.data = org.disambiguation_source
         form.city.data = org.city
         form.state.data = org.state
         form.country.data = org.country

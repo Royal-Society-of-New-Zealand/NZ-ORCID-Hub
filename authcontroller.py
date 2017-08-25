@@ -34,7 +34,7 @@ from config import (APP_DESCRIPTION, APP_NAME, APP_URL, AUTHORIZATION_BASE_URL, 
 from forms import OrgConfirmationForm
 from login_provider import roles_required
 from models import (Affiliation, OrcidToken, Organisation, OrgInfo, OrgInvitation, Role, Url, User,
-                    UserOrg)
+                    UserInvitation, UserOrg)
 from swagger_client.rest import ApiException
 from utils import append_qs, confirm_token
 
@@ -383,24 +383,23 @@ def orcid_callback():
     The user has been redirected back from the provider to your registered
     callback URL. With this redirection comes an authorization code included
     in the redirect URL. We will use that to obtain an access token.
+
+
+    Call back gets called when:
+    - User authenticatest via ORCID (uses AUTHENTICATION key);
+    - User authorises an orgainisation (uses org. key);
+    - User completes registration (uses org. key);
+    - Administrator completes reginstration (uses org. key);
+    - Technical contact completes organisation registration/on-boarding (uses AUTHENTICATION key);
     """
-    call_from_orcid_login = request.args.get("call_from_orcid_login")
-    if call_from_orcid_login != "True":
+    login = request.args.get("login")
+    # invitation_token = request.args.get("invitation_token")
+
+    if login != "1":
         if not current_user.is_authenticated:
             return current_app.login_manager.unauthorized()
     else:
         return orcid_login_callback(request)
-
-    if "error" in request.args:
-        error = request.args["error"]
-        error_description = request.args.get("error_description")
-        if error == "access_denied":
-            flash("You have denied the Hub access to your ORCID record."
-                  " At a minimum, the Hub needs to know your ORCID iD to be useful.", "danger")
-        else:
-            flash("Error occured while attempting to authorize '%s': %s" %
-                  (current_user.organisation.name, error_description), "danger")
-        return redirect(url_for("link") + '?' + 'error=' + error)
 
     client = OAuth2Session(current_user.organisation.orcid_client_id)
 
@@ -482,8 +481,8 @@ def orcid_callback():
             city=user.organisation.city, country=user.organisation.country)
 
         disambiguated_organization_details = orcid_client.DisambiguatedOrganization(
-            disambiguated_organization_identifier=user.organisation.disambiguation_org_id,
-            disambiguation_source=user.organisation.disambiguation_org_source)
+            disambiguated_organization_identifier=user.organisation.disambiguated_id,
+            disambiguation_source=user.organisation.disambiguation_source)
 
         # TODO: need to check if the entry doesn't exist already:
         for a in Affiliation:
@@ -620,8 +619,8 @@ def onboard_org():
                     OrgInfo.tuakiri_name == user.organisation.name) | (
                         OrgInfo.name == user.organisation.name))
                 form.city.data = organisation.city = oi.city
-                form.disambiguation_org_id.data = organisation.disambiguation_org_id = oi.disambiguation_org_id
-                form.disambiguation_org_source.data = organisation.disambiguation_org_source = oi.disambiguation_source
+                form.disambiguated_id.data = organisation.disambiguated_id = oi.disambiguated_id
+                form.disambiguation_source.data = organisation.disambiguation_source = oi.disambiguation_source
                 organisation.save()
             except OrgInfo.DoesNotExist:
                 pass
@@ -812,7 +811,8 @@ def orcid_login(invitation_token=None):
             u = Url.shorten(redirect_uri)
             redirect_uri = url_for("short_url", short_id=u.short_id, _external=True)
             redirect_uri = sp_url.scheme + "://" + sp_url.netloc + "/auth/" + quote(redirect_uri)
-        redirect_uri = append_qs(redirect_uri, call_from_orcid_login="True")
+        # if the invitation token is missing perform only authentication (in the call back handler)
+        redirect_uri = append_qs(redirect_uri, login="1")
 
         client_write = OAuth2Session(client_id, scope=scope, redirect_uri=redirect_uri)
 
@@ -969,6 +969,24 @@ def orcid_login_callback(request):
                     flash(f"Failed to save data: {ex}")
                     app.logger.exception("Failed to save token.")
 
+            try:
+                ui = UserInvitation.get(token=invitation_token)
+                if ui.affiliations & (Affiliation.EMP | Affiliation.EDU):
+                    api = orcid_client.MemberAPI(org, user)
+                    params = {k: v for k, v in ui._data.items() if v != ""}
+                    for a in Affiliation:
+                        if a & ui.affiliations:
+                            params["affiliation"] = a
+                            api.create_or_update_affiliation(**params)
+                ui.confirmed_at = datetime.now()
+                ui.save()
+
+            except UserInvitation.DoesNotExist:
+                pass
+            except Exception as ex:
+                flash(f"Something went wrong: {ex}", "danger")
+                app.logger.exception("Failed to create affiliation record")
+
         if _next:
             return redirect(_next)
         else:
@@ -1006,8 +1024,8 @@ def select_user_org(user_org_id):
     _next = get_next_url() or request.referrer or url_for("login")
     try:
         uo = UserOrg.get(id=user_org_id)
-        if (uo.user.orcid == current_user.orcid or uo.user.email == current_user.email or
-                uo.user.eppn == current_user.eppn):
+        if (uo.user.orcid == current_user.orcid or uo.user.email == current_user.email
+                or uo.user.eppn == current_user.eppn):
             current_user.organisation_id = uo.org_id
             current_user.save()
         else:
