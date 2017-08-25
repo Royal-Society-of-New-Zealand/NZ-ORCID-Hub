@@ -898,6 +898,8 @@ class AffiliationRecord(BaseModel):
 
     task = ForeignKeyField(Task)
     put_code = IntegerField(null=True)
+    external_id = CharField(max_length=100, null=True, verbose_name="External ID",
+        help_text="Recorod identifier used in the data source system.")
     first_name = CharField(max_length=120, null=True)
     last_name = CharField(max_length=120, null=True)
     email = CharField(max_length=120, null=True)
