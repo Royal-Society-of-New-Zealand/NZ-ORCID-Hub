@@ -180,8 +180,8 @@ def test_show_record_section(request_ctx, test_db):
         orcid_secret="Client Secret",
         city="CITY",
         country="COUNTRY",
-        disambiguation_org_id="ID",
-        disambiguation_org_source="SOURCE")
+        disambiguated_id="ID",
+        disambiguation_source="SOURCE")
     org = Organisation.get(id=1)
     u = User.get_or_create(
         id=123,
