@@ -14,9 +14,10 @@ from itertools import zip_longest
 from urllib.parse import urlencode
 
 from flask_login import UserMixin, current_user
-from peewee import (BooleanField, CharField, DateTimeField, DeferredRelation, Field,
-                    FixedCharField, ForeignKeyField, IntegerField, Model, OperationalError,
-                    SmallIntegerField, TextField)
+from peewee import BooleanField as BF
+from peewee import (CharField, DateTimeField, DeferredRelation, Field, FixedCharField,
+                    ForeignKeyField, IntegerField, Model, OperationalError, SmallIntegerField,
+                    TextField)
 from playhouse.shortcuts import model_to_dict
 from pycountry import countries
 
@@ -127,6 +128,11 @@ class OrcidIdField(FixedCharField):
     # def coerce(self, value):
     #     validate_orcid_id(value)
     #     return super().coerce(value)
+
+
+class BooleanField(BF):
+    def NOT(self):
+        return self.__invert__()
 
 
 class PartialDateField(Field):
@@ -801,7 +807,7 @@ class Task(BaseModel, AuditMixin):
                        "campus|department", "city", "state|region", "course|title|role",
                        r"start\s*(date)?", r"end\s*(date)?",
                        r"affiliation(s)?\s*(type)?|student|staff", "country", r"disambiguat.*id",
-                       r"disambiguat.*source", r"put|code", "orcid")
+                       r"disambiguat.*source", r"put|code", "orcid", "external.*|.*identifier")
         ]
 
         def index(rex):
@@ -875,7 +881,8 @@ class Task(BaseModel, AuditMixin):
                         disambiguated_id=val(row, 12),
                         disambiguated_source=val(row, 13),
                         put_code=val(row, 14),
-                        orcid=orcid)
+                        orcid=orcid,
+                        external_id=val(row, 16))
             except Exception as ex:
                 db.rollback()
                 app.logger.exception("Failed to laod affiliation file.")
@@ -892,6 +899,8 @@ class AffiliationRecord(BaseModel):
 
     task = ForeignKeyField(Task)
     put_code = IntegerField(null=True)
+    external_id = CharField(max_length=100, null=True, verbose_name="External ID",
+        help_text="Record identifier used in the data source system.")
     first_name = CharField(max_length=120, null=True)
     last_name = CharField(max_length=120, null=True)
     email = CharField(max_length=120, null=True)

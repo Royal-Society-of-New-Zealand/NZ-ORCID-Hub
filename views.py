@@ -377,6 +377,8 @@ class AffiliationRecordAdmin(AppModelView):
     can_view_details = True
     can_export = True
 
+    form_widget_args = {"external_id": {"readonly": True}}
+
     def is_accessible(self):
         """Verify if the task view is accessible for the current user."""
         if not super().is_accessible():
