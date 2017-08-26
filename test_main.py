@@ -8,7 +8,7 @@ from flask_login import login_user
 import login_provider
 import pytest
 import utils
-from models import Organisation, Role, User, UserOrg
+from models import Organisation, Role, User, UserOrg, OrgInvitation, OrgInfo
 
 
 def test_index(client):
@@ -230,3 +230,66 @@ def test_login_provider_load_user(request_ctx):
         assert rv != "SUCCESS"
         assert rv.status_code == 302
         assert rv.location.startswith("/")
+
+
+def test_onboard_org(request_ctx):
+    Organisation.get_or_create(
+        id=1,
+        name="THE ORGANISATION",
+        tuakiri_name="THE ORGANISATION",
+        confirmed=False,
+        orcid_client_id="CLIENT ID",
+        orcid_secret="Client Secret",
+        city="CITY",
+        country="COUNTRY",
+        disambiguated_id="ID",
+        disambiguation_source="SOURCE",
+        is_email_sent=True)
+    org = Organisation.get(id=1)
+    User.get_or_create(
+        id=123,
+        email="test123@test.test.net",
+        name="TEST USER",
+        roles=Role.TECHNICAL,
+        orcid=123,
+        organisation_id=1,
+        confirmed=True,
+        organisation=org)
+    User.get_or_create(
+        id=124,
+        email="test1234@test.test.net",
+        name="TEST USER",
+        roles=Role.ADMIN,
+        orcid=1243,
+        organisation_id=1,
+        confirmed=True,
+        organisation=org)
+    org_info = OrgInfo.get_or_create(id=121,
+                                     name="THE ORGANISATION",
+                                     tuakiri_name="THE ORGANISATION"
+                                     )
+    org_info = OrgInfo.get(id=121)
+    u = User.get(id=123)
+    second_user = User.get(id=124)
+    org.tech_contact = u
+    org.tech_contact_id = u.id
+    org_info.save()
+    org.save()
+    u.save()
+    OrgInvitation.get_or_create(email=u.email, org=org, token="sdsddsd")
+    UserOrg(user=u, org=org, is_admin=True)
+    with request_ctx("/confirm/organisation") as ctx:
+        login_user(u)
+        u.save()
+        assert u.is_tech_contact_of(org)
+        rv = ctx.app.full_dispatch_request()
+        assert rv.status_code == 200
+        assert b"<!DOCTYPE html>" in rv.data, "Expected HTML content"
+        assert b"Take me to ORCID to obtain my Client ID and Client Secret" in rv.data,\
+            "Expected Button on the confirmation page"
+    with request_ctx("/confirm/organisation") as ctxx:
+        second_user.save()
+        login_user(second_user)
+        rv = ctxx.app.full_dispatch_request()
+        assert rv.status_code == 302
+        assert rv.location.startswith("/admin/viewmembers/")
