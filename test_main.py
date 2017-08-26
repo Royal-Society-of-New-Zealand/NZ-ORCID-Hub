@@ -276,7 +276,9 @@ def test_onboard_org(request_ctx):
     org_info.save()
     org.save()
     u.save()
-    OrgInvitation.get_or_create(email=u.email, org=org, token="sdsddsd")
+    OrgInvitation.get_or_create(id=111, email=u.email, org=org, token="sdsddsd")
+    org_invitation = OrgInvitation.get(id=111)
+    org_invitation.save()
     UserOrg(user=u, org=org, is_admin=True)
     with request_ctx("/confirm/organisation") as ctx:
         login_user(u)
