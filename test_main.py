@@ -295,3 +295,10 @@ def test_onboard_org(request_ctx):
         rv = ctxx.app.full_dispatch_request()
         assert rv.status_code == 302
         assert rv.location.startswith("/admin/viewmembers/")
+
+
+def test_logout(request_ctx):
+    with request_ctx("/logout") as ctxx:
+        rv = ctxx.app.full_dispatch_request()
+        assert rv.status_code == 302
+        assert rv.location.startswith("/?logout=True")
