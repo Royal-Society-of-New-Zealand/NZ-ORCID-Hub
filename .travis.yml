@@ -29,9 +29,6 @@ script:
   - docker-compose exec db psql -U orcidhub -d orcidhub -c "SELECT 1" && echo "DB orcidhub IS RUNNING"
   - docker-compose exec app curl -k -s https://localhost/pyinfo -o /dev/null && echo "WSGI is working..."
   - docker-compose exec app find -name '__pycache__' -exec rm -rf {} \;
-  - docker-compose exec app wget https://github.com/zaproxy/zaproxy/releases/download/2.6.0/ZAP_2.6.0_Linux.tar.gz
-  - docker-compose exec app tar -xzf ZAP_2.6.0_Linux.tar.gz -C /tmp
-  - docker-compose exec app pip install --upgrade git+https://github.com/Grunny/zap-cli.git
   - docker-compose exec app env ZAP_PATH="/tmp/ZAP_2.6.0" zap-cli --verbose --port 8099 --api-key 12345 quick-scan -s xss,sqli --self-contained -o '-config api.key=12345' --spider -r http://127.0.01:5000/
   - docker-compose exec app env DATABASE_URL="sqlite:///:memory:" pytest --ignore=venv -s -v --cov .
 
