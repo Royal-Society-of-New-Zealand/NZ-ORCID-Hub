@@ -15,6 +15,7 @@ import zlib
 from datetime import datetime
 from os import path, remove
 from tempfile import gettempdir
+from time import time
 from urllib.parse import quote, unquote, urlparse
 
 import requests
@@ -34,7 +35,7 @@ from config import (APP_DESCRIPTION, APP_NAME, APP_URL, AUTHORIZATION_BASE_URL, 
 from forms import OrgConfirmationForm
 from login_provider import roles_required
 from models import (Affiliation, OrcidToken, Organisation, OrgInfo, OrgInvitation, Role, Url, User,
-                    UserInvitation, UserOrg)
+                    UserOrg, OrcidAuthorizeCall, UserInvitation)
 from swagger_client.rest import ApiException
 from utils import append_qs, confirm_token
 
@@ -318,12 +319,19 @@ def link():
                     family_names=current_user.last_name,
                     given_names=current_user.first_name,
                     email=current_user.email)
+                oac, orcid_authorize_call_found = OrcidAuthorizeCall.get_or_create(user_id=current_user.id,
+                                                                                   method="GET", url=orcid_url_write,
+                                                                                   state=state)
+                oac.url = "Access_Denied Flow " + orcid_url_write + orcid_url_read + orcid_url_authenticate
+                oac.save()
                 return render_template(
                     "linking.html",
                     orcid_url_write=orcid_url_write,
                     orcid_url_read_limited=orcid_url_read,
                     orcid_url_authenticate=orcid_url_authenticate,
                     error=error)
+        oac = OrcidAuthorizeCall.create(user_id=current_user.id, method="GET", url=orcid_url_write, state=state)
+        oac.save()
         return render_template(
             "linking.html", orcid_url_write=orcid_url_write, orcid_base_url=ORCID_BASE_URL)
     except Exception as ex:
@@ -426,10 +434,18 @@ def orcid_callback():
                 f"whereas state returned from ORCID is {state}")
             return redirect(url_for("login"))
 
+        oac, orcid_authorize_call_found = OrcidAuthorizeCall.get_or_create(state=state)
+        request_time = time()
+
         token = client.fetch_token(
             TOKEN_URL,
             client_secret=current_user.organisation.orcid_secret,
             authorization_response=request.url)
+        response_time = time()
+        oac.token = token
+        oac.response_time_ms = round((response_time - request_time) * 1000)
+        oac.save()
+
     except rfc6749.errors.MissingCodeError:
         flash("%s cannot be invoked directly..." % request.url, "danger")
         return redirect(url_for("login"))
@@ -840,6 +856,9 @@ def orcid_login(invitation_token=None):
                 given_names=user.first_name,
                 email=email)
 
+        oac = OrcidAuthorizeCall.create(user_id=None, method="GET", url=orcid_authenticate_url, state=state)
+        oac.save()
+
         return redirect(orcid_authenticate_url)
 
     except Exception as ex:
@@ -893,8 +912,15 @@ def orcid_login_callback(request):
                 orcid_client_secret = org.orcid_secret
 
         client = OAuth2Session(orcid_client_id)
+        oac, orcid_authorize_call_found = OrcidAuthorizeCall.get_or_create(state=state)
+        request_time = time()
+
         token = client.fetch_token(
             TOKEN_URL, client_secret=orcid_client_secret, authorization_response=request.url)
+        response_time = time()
+        oac.token = token
+        oac.response_time_ms = round((response_time - request_time) * 1000)
+        oac.save()
 
         orcid_id = token['orcid']
         if not orcid_id:
@@ -916,6 +942,8 @@ def orcid_login_callback(request):
         if not user.confirmed:
             user.confirmed = True
         login_user(user)
+        oac.user_id = current_user.id
+        oac.save()
 
         # User is a technical conatct. We should verify email address
         try:
