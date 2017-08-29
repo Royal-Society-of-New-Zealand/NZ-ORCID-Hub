@@ -45,7 +45,7 @@ def get_next_url():
     """Retrieve and sanitize next/return URL."""
     _next = request.args.get("next") or request.args.get("_next")
 
-    if _next and ("orcidhub.org.nz" in _next or _next.startswith("/") or "127.0" in _next):
+    if _next and ("orcidhub.org.nz" in _next or _next.startswith("/") or "127.0" in _next or "c9users.io" in _next):
         return _next
     return None
 
