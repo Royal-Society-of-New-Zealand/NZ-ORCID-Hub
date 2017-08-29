@@ -50,6 +50,7 @@ def get_next_url():
     return None
 
 
+
 @app.route("/index")
 @app.route("/login")
 @app.route("/")
