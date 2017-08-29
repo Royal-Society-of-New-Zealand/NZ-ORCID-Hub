@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Swagger generated client 'monkey-patch' for logging API requests
+"""Swagger generated client 'monkey-patch' for logging API requests.
 
 isort:skip_file
 """
@@ -18,46 +18,9 @@ url = urlparse(ORCID_API_BASE)
 configuration.host = url.scheme + "://" + url.hostname
 
 
-class OrcidApiClient(api_client.ApiClient):
-    def call_api(
-            self,
-            resource_path,
-            method,
-            path_params=None,
-            query_params=None,
-            header_params=None,
-            body=None,
-            post_params=None,
-            files=None,
-            response_type=None,
-            auth_settings=None,
-            callback=None,
-            _return_http_data_only=None,
-            collection_formats=None,
-            _preload_content=False,  # Always get back response
-            _request_timeout=None):
-        # Add here pre-processing...
-        res = super().call_api(
-            resource_path,
-            method,
-            path_params=path_params,
-            query_params=query_params,
-            header_params=header_params,
-            body=body,
-            post_params=post_params,
-            files=files,
-            response_type=response_type,
-            auth_settings=auth_settings,
-            callback=callback,
-            _return_http_data_only=_return_http_data_only,
-            collection_formats=collection_formats,
-            _preload_content=_preload_content,
-            _request_timeout=_request_timeout)
-        # Add here post-processing...
-        return res
-
-
 class OrcidRESTClientObject(rest.RESTClientObject):
+    """REST Client with call logging."""
+
     def request(self,
                 method,
                 url,
@@ -68,7 +31,7 @@ class OrcidRESTClientObject(rest.RESTClientObject):
                 _preload_content=True,
                 _request_timeout=None,
                 **kwargs):
-
+        """Exectue REST API request and logs both request, response and the restponse time."""
         request_time = time()
         put_code = body.get("put-code") if body else None
         try:
@@ -105,6 +68,7 @@ class MemberAPI(MemberAPIV20Api):
     """ORCID Mmeber API extension."""
 
     def __init__(self, org, user, *args, **kwargs):
+        """Set up the configuration with the access token given to the org. by the user."""
         super().__init__(*args, **kwargs)
         self.set_config(org, user)
 
@@ -147,7 +111,7 @@ class MemberAPI(MemberAPIV20Api):
                                      put_code=None,
                                      *args,
                                      **kwargs):
-        """Creates or updates affiliation record of a user.
+        """Create or update affiliation record of a user.
 
         Returns tuple (put-code, ORCID iD, created), where created is True if a new entry
         was created, otherwise - False.
