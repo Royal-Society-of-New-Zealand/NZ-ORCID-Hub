@@ -764,15 +764,9 @@ in order to complete the log-out.""", "warning")
     return render_template("uoa-slo.html")
 
 
-def generate_row(users):
-    yield "Email,Eppn,ORCID ID\n"
-    for u in users:
-        # ORCID ID might be NULL, Hence adding a check
-        yield ','.join([u.email, str(u.eppn or ""), str(u.orcid or "")]) + '\n'
-
-
 @app.errorhandler(500)
 def internal_error(error):
+    """Handle internal error."""
     app.logger.exception("Unhandle exception occured.")
     trace = traceback.format_exc()
     return render_template("http500.html", error_message=str(error), trace=trace)
@@ -781,13 +775,13 @@ def internal_error(error):
 @app.route("/orcid/login/")
 @app.route("/orcid/login/<invitation_token>")
 def orcid_login(invitation_token=None):
-    """Authentication vi ORCID.
+    """Authenticate a user vi ORCID.
 
     If an invitain token is presented, perform affiliation of the user or on-boarding
     of the onboarding of the organisation, if the user is the technical conatact of
     the organisation. For technical contacts the email should be made available for
-    READ LIMITED scope."""
-
+    READ LIMITED scope.
+    """
     _next = get_next_url()
     redirect_uri = url_for("orcid_callback", _next=_next, _external=True)
 
@@ -852,6 +846,7 @@ def orcid_login(invitation_token=None):
 
 
 def orcid_login_callback(request):
+    """Handle call-back for user authenitcation via ORCID."""
     _next = get_next_url()
 
     state = request.args.get("state")
@@ -1035,6 +1030,7 @@ def orcid_login_callback(request):
 @app.route("/select/user_org/<int:user_org_id>")
 @login_required
 def select_user_org(user_org_id):
+    """Change the current organisation of the current user."""
     user_org_id = int(user_org_id)
     _next = get_next_url() or request.referrer or url_for("login")
     try:
