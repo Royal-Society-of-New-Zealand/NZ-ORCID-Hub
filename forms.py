@@ -13,16 +13,15 @@ from wtforms.validators import (UUID, DataRequired, Email, Regexp, Required, Val
 from wtforms.widgets import HTMLString, html_params
 
 from config import DEFAULT_COUNTRY
-from models import PartialDate as PD
-from models import Organisation, validate_orcid_id
+import models
 
 
 def validate_orcid_id_field(form, field):
-    """Validates ORCID iD."""
+    """Validate ORCID iD."""
     if not field.data:
         return
     try:
-        validate_orcid_id(field.date)
+        models.validate_orcid_id(field.date)
     except ValueError as ex:
         raise ValidationError(str(ex))
 
@@ -67,10 +66,9 @@ class PartialDateField(Field):
 
     def process(self, formdata, data=None):
         """Process incoming data, calling process_data."""
-
         self.process_errors = []
         if data is None:
-            data = self.default or PD()
+            data = self.default or models.PartialDate()
 
         # self.object_data = data
         self.data = data
@@ -91,7 +89,7 @@ class PartialDateField(Field):
                 except ValueError as e:
                     new_data[f] = None
                     self.process_errors.append(e.args[0])
-            self.data = PD(**new_data)
+            self.data = models.PartialDate(**new_data)
         try:
             for filter in self.filters:
                 self.data = filter(self.data)
@@ -100,6 +98,7 @@ class PartialDateField(Field):
 
 
 class CountrySelectField(SelectField):
+    """Country dropdown widget."""
 
     # Order the countly list by the name and add a default (Null) value
     country_choices = [(c.alpha_2, c.name) for c in countries]
@@ -107,20 +106,24 @@ class CountrySelectField(SelectField):
     country_choices.insert(0, ("", "Country"))
 
     def __init__(self, *args, **kwargs):
+        """Set up the value list."""
         if len(args) == 0 and "label" not in kwargs:
             kwargs["label"] = "Country"
         super().__init__(*args, choices=self.country_choices, **kwargs)
 
 
 class BitmapMultipleValueField(SelectMultipleField):
-    """
+    """Multiple value selection widget.
+
     No different from a normal multi select field, except this one can take (and
     validate) multiple choices and value (by defualt) can be a bitmap of
     selected choices (the choice value should be an integer).
     """
+
     is_bitmap_value = True
 
     def iter_choices(self):
+        """Iterate through the list of choces."""
         if self.is_bitmap_value and type(self.data) is int:
             for value, label in self.choices:
                 yield (value, label, bool(self.data & value))
@@ -128,6 +131,7 @@ class BitmapMultipleValueField(SelectMultipleField):
             yield from super().iter_choices()
 
     def process_data(self, value):
+        """Map selected value representation to the a list to internal domain value."""
         try:
             if self.is_bitmap_value:
                 self.data = [self.coerce(v) for (v, _) in self.choices if v & value]
@@ -137,6 +141,7 @@ class BitmapMultipleValueField(SelectMultipleField):
             self.data = None
 
     def process_formdata(self, valuelist):
+        """Map submitted value to the domain value."""
         try:
             if self.is_bitmap_value:
                 self.data = sum(int(self.coerce(x)) for x in valuelist)
@@ -147,6 +152,7 @@ class BitmapMultipleValueField(SelectMultipleField):
                 self.gettext('Invalid choice(s): one or more data inputs could not be coerced'))
 
     def pre_validate(self, form):
+        """Pre-validate if it's not bit-map."""
         if self.data and not self.is_bitmap_value:
             values = list(c[0] for c in self.choices)
             for d in self.data:
@@ -170,6 +176,7 @@ class RecordForm(FlaskForm):
 
     @classmethod
     def create_form(cls, *args, form_type=None, **kwargs):
+        """Adjust the form fields for specific record type."""
         form = cls(*args, **kwargs)
         if form_type == "EDU":
             form.name.name = form.name.label.text = "Institution"
@@ -192,14 +199,19 @@ class OnboardingTokenForm(FlaskForm):
 
 
 class RequiredIf(Required):
-    """A validator which makes a field required if
-    another field is set and has a truthy value."""
+    """Condition validator.
+
+    A validator which makes a field required if
+    another field is set and has a truthy value.
+    """
 
     def __init__(self, other_field_name, *args, **kwargs):
+        """Link the condtion field to the validator."""
         self.other_field_name = other_field_name
         super().__init__(*args, **kwargs)
 
     def __call__(self, form, field):
+        """Validate conditionally if the linked field has a value."""
         other_field = form._fields.get(self.other_field_name)
         if other_field is None:
             raise Exception(f'no field named "{self.other_field_name}" in form')
@@ -240,6 +252,8 @@ class OrgRegistrationForm(FlaskForm):
 
 
 class OrgConfirmationForm(FlaskForm):
+    """Registered organisation confirmation form."""
+
     name = StringField('Organisation Name', validators=[DataRequired()])
     email = EmailField('Organisation EmailId', validators=[DataRequired(), Email()])
     orcid_client_id = StringField(
@@ -267,6 +281,8 @@ class OrgConfirmationForm(FlaskForm):
 
 
 class UserInvitationForm(FlaskForm):
+    """Single user invitation form."""
+
     first_name = StringField("First Name", [validators.required()])
     last_name = StringField("Last Name", [validators.required()])
     email_address = EmailField("Email Address", [validators.required(), Email()])
@@ -288,29 +304,8 @@ class UserInvitationForm(FlaskForm):
     resend = BooleanField("Resend")
 
 
-class EmploymentDetailsForm(FlaskForm):
-    institution = StringField('Institution/Organisation: ', validators=[DataRequired()])
-    city = StringField('City: ', validators=[DataRequired()])
-    state = StringField('State/Region: ', validators=[DataRequired()])
-    country = SelectField('Country: ', choices=[('NZ', 'New Zealand'), ('Au', 'Australia')])
-    department = StringField('Department: ', validators=[DataRequired()])
-    role = StringField('Role: ', validators=[DataRequired()])
-    title = StringField('Title: ', validators=[DataRequired()])
-    start_date = DateField('Start Date: ', format='%m/%d/%Y', validators=[DataRequired])
-    end_date = DateField('End Date: ', format='%m/%d/%Y', validators=[DataRequired])
-
-
 class DateRangeForm(FlaskForm):
+    """Simple date range selection form with ISO dates."""
+
     from_date = DateField('DatePicker', format='%Y-%m-%d')
     to_date = DateField('DatePicker', format='%Y-%m-%d')
-
-
-class SelectOrganisation(FlaskForm):
-    orgNames = SelectField(
-        "orgNames",
-        [validators.required()], )
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.orgNames.choices = Organisation.select(
-            Organisation.id, Organisation.name).order_by(Organisation.name).tuples()
