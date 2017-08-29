@@ -42,7 +42,7 @@ HEADERS = {'Accept': 'application/vnd.orcid+json', 'Content-type': 'application/
 
 
 def get_next_url():
-    """Retrieves and sanitizes next/return URL."""
+    """Retrieve and sanitize next/return URL."""
     _next = request.args.get("next") or request.args.get("_next")
 
     if _next and ("orcidhub.org.nz" in _next or _next.startswith("/") or "127.0" in _next):
@@ -54,7 +54,7 @@ def get_next_url():
 @app.route("/login")
 @app.route("/")
 def login():
-    """Main landing page."""
+    """Show main landing page with login buttons."""
     _next = get_next_url()
     orcid_login_url = url_for("orcid_login", next=_next)
     if EXTERNAL_SP:
@@ -81,7 +81,8 @@ def login():
 def shib_sp():
     """Remote Shibboleth authenitication handler.
 
-    All it does passes all response headers to the original calller."""
+    All it does passes all response headers to the original calller.
+    """
     _next = get_next_url()
     _key = request.args.get("key")
     if _next:
@@ -335,11 +336,13 @@ def link():
 @app.route("/orcid/auth/<path:url>")
 @app.route("/auth/<path:url>")
 def orcid_callback_proxy(url):
+    """Redirect to the original invokator."""
     url = unquote(url)
     return redirect(append_qs(url, **request.args))
 
 
 def is_emp_or_edu_record_present(access_token, affiliation_type, user):
+    """Determine if there is already an affiliation record for the user."""
     orcid_client.configuration.access_token = access_token
     # create an instance of the API class
     api_instance = orcid_client.MemberAPIV20Api()
@@ -597,7 +600,7 @@ def profile():
 @app.route("/confirm/organisation", methods=["GET", "POST"])
 @roles_required(Role.ADMIN, Role.TECHNICAL)
 def onboard_org():
-    """Registration confirmations.
+    """Confirm and finalize registration.
 
     TODO: expand the spect as soon as the reqirements get sorted out.
     """
@@ -761,7 +764,7 @@ in order to complete the log-out.""", "warning")
     return render_template("uoa-slo.html")
 
 
-def generateRow(users):
+def generate_row(users):
     yield "Email,Eppn,ORCID ID\n"
     for u in users:
         # ORCID ID might be NULL, Hence adding a check
