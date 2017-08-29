@@ -23,7 +23,7 @@ from config import ORCID_BASE_URL, SCOPE_ACTIVITIES_UPDATE, SCOPE_READ_LIMITED
 from forms import (BitmapMultipleValueField, FileUploadForm, OrgRegistrationForm, PartialDateField,
                    RecordForm, UserInvitationForm)
 from login_provider import roles_required
-from models import PartialDate as PD
+from models import PartialDate
 from models import AffiliationRecord  # noqa: F401
 from models import (Affiliation, CharField, OrcidApiCall, OrcidToken, Organisation, OrgInfo,
                     OrgInvitation, Role, Task, TextField, Url, User, UserInvitation, UserOrg,
@@ -60,6 +60,7 @@ def about():
 
 @app.route("/u/<short_id>")
 def short_url(short_id):
+    """Redirect to the full URL."""
     try:
         u = Url.get(short_id=short_id)
         if request.args:
@@ -97,7 +98,7 @@ class AppModelView(ModelView):
     form_overrides = dict(start_date=PartialDateField, end_date=PartialDateField)
 
     def __init__(self, model=None, *args, **kwargs):
-        """Picks the model based on the ModelView class name assuming it is ModelClass + "Admin"."""
+        """Pick the model based on the ModelView class name assuming it is ModelClass + "Admin"."""
         if model is None:
             if hasattr(self, "model"):
                 model = self.model
@@ -109,7 +110,7 @@ class AppModelView(ModelView):
         super().__init__(model, *args, **kwargs)
 
     def get_pk_value(self, model):
-        """Fix for composite keys."""
+        """Get correct value for composite keys."""
         if self.model._meta.composite_key:
             return tuple([
                 model._data[field_name] for field_name in self.model._meta.primary_key.field_names
@@ -123,6 +124,7 @@ class AppModelView(ModelView):
         return super().get_one(id)
 
     def init_search(self):
+        """Include linked columns in the search if they are defined with 'liked_table.column'."""
         if self.column_searchable_list:
             for p in self.column_searchable_list:
                 if "." in p:
@@ -159,8 +161,7 @@ class AppModelView(ModelView):
         return redirect(url_for("login", next=request.url))
 
     def get_query(self):
-        """Add URL query to the data select for foreign key and select data
-        that user has access to."""
+        """Add URL query to the data select for foreign key and select data that user has access to."""
         query = super().get_query()
 
         if current_user and not current_user.has_role(Role.SUPERUSER) and current_user.has_role(
@@ -199,6 +200,7 @@ class AppModelView(ModelView):
 
 class UserAdmin(AppModelView):
     """User model view."""
+
     roles = {1: "Superuser", 2: "Administrator", 4: "Researcher", 8: "Technical Contact"}
 
     column_exclude_list = (
@@ -254,6 +256,7 @@ class UserAdmin(AppModelView):
 
 class OrganisationAdmin(AppModelView):
     """Organisation model view."""
+
     column_exclude_list = ("orcid_client_id", "orcid_secret", "created_at")
     column_searchable_list = (
         "name",
@@ -348,6 +351,8 @@ class UserOrgAmin(AppModelView):
 
 
 class TaskAdmin(AppModelView):
+    """Task model view."""
+
     roles_required = Role.SUPERUSER | Role.ADMIN
     list_template = "view_tasks.html"
     can_edit = False
@@ -356,6 +361,8 @@ class TaskAdmin(AppModelView):
 
 
 class AffiliationRecordAdmin(AppModelView):
+    """Affiliation record model view."""
+
     roles_required = Role.SUPERUSER | Role.ADMIN
     list_template = "affiliation_record_list.html"
     column_exclude_list = (
@@ -411,7 +418,8 @@ class AffiliationRecordAdmin(AppModelView):
         return True
 
     def get_export_name(self, export_type='csv'):
-        """
+        """Get export file name using the original imported file name.
+
         :return: The exported csv file name.
         """
         task_id = request.args.get("task_id")
@@ -454,6 +462,8 @@ class AffiliationRecordAdmin(AppModelView):
 
 
 class ViewMembersAdmin(AppModelView):
+    """Organisation member model (User beloging to the current org.admin oganisation) view."""
+
     roles_required = Role.SUPERUSER | Role.ADMIN
     list_template = "viewMembers.html"
     column_list = ("email", "orcid")
@@ -467,6 +477,7 @@ class ViewMembersAdmin(AppModelView):
     can_export = True
 
     def get_query(self):
+        """Get quiery for the user belonging to the organistation of the current user."""
         return current_user.organisation.users
 
 
@@ -520,7 +531,7 @@ def isodate(d, sep=' '):
 
 @app.template_filter("shorturl")
 def shorturl(url):
-    """Create and render short url"""
+    """Create and render short url."""
     u = Url.shorten(url)
     return url_for("short_url", short_id=u.short_id, _external=True)
 
@@ -593,7 +604,6 @@ def delete_employment(user_id, put_code=None):
 @roles_required(Role.ADMIN)
 def education(user_id, put_code=None):
     """Create a new or edit an existing employment record."""
-
     return edit_section_record(user_id, put_code, "EDU")
 
 
@@ -602,13 +612,11 @@ def education(user_id, put_code=None):
 @roles_required(Role.ADMIN)
 def employment(user_id, put_code=None):
     """Create a new or edit an existing employment record."""
-
     return edit_section_record(user_id, put_code, "EMP")
 
 
 def edit_section_record(user_id, put_code=None, section_type="EMP"):
     """Create a new or edit an existing profile section record."""
-
     section_type = section_type.upper()[:3]
     _url = (request.args.get("url") or url_for("employment_list", user_id=user_id)
             if section_type == "EMP" else url_for("edu_list", user_id=user_id))
@@ -652,8 +660,8 @@ def edit_section_record(user_id, put_code=None, section_type="EMP"):
                 country=_data.get("organization").get("address").get("country", ""),
                 department=_data.get("department_name", ""),
                 role=_data.get("role_title", ""),
-                start_date=PD.create(_data.get("start_date")),
-                end_date=PD.create(_data.get("end_date")))
+                start_date=PartialDate.create(_data.get("start_date")),
+                end_date=PartialDate.create(_data.get("end_date")))
         except ApiException as e:
             message = json.loads(e.body.replace("''", "\"")).get('user-messsage')
             print("Exception when calling MemberAPIV20Api->view_employment: %s\n" % message)
@@ -751,6 +759,7 @@ def edit_section_record(user_id, put_code=None, section_type="EMP"):
 @app.route("/<int:user_id>/emp")
 @login_required
 def employment_list(user_id):
+    """Show the employmen list of the selected user."""
     return show_record_section(user_id, "EMP")
 
 
@@ -758,12 +767,12 @@ def employment_list(user_id):
 @app.route("/<int:user_id>/edu")
 @login_required
 def edu_list(user_id):
+    """Show the education list of the selected user."""
     return show_record_section(user_id, "EDU")
 
 
 def show_record_section(user_id, section_type="EMP"):
     """Show all user profile section list."""
-
     _url = request.args.get("url") or request.referrer or url_for("viewmembers.index_view")
 
     section_type = section_type.upper()[:3]  # normalize the section type
@@ -846,7 +855,6 @@ def read_uploaded_file(form):
 @roles_required(Role.SUPERUSER)
 def load_org():
     """Preload organisation data."""
-
     form = FileUploadForm()
     if form.validate_on_submit():
         row_count = OrgInfo.load_from_csv(read_uploaded_file(form))
@@ -861,7 +869,6 @@ def load_org():
 @roles_required(Role.ADMIN)
 def load_researcher_affiliations():
     """Preload organisation data."""
-
     form = FileUploadForm()
     if form.validate_on_submit():
         filename = secure_filename(form.file_.data.filename)
@@ -877,7 +884,6 @@ def load_researcher_affiliations():
 @roles_required(Role.SUPERUSER)
 def orcid_api_rep():
     """Show ORCID API invocation report."""
-
     data = db.execute_sql("""
     WITH rd AS (
         SELECT date_trunc("minute", call_datetime) AS d, count(*) AS c
@@ -906,7 +912,6 @@ def register_org(org_name,
                  disambiguation_source=None,
                  **kwargs):
     """Register research organisaion."""
-
     email = (email or org_email).lower()
     try:
         User.get(User.email == email)
