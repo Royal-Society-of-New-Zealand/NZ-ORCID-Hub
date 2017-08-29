@@ -11,7 +11,6 @@ import os
 import click
 from flask_debugtoolbar import DebugToolbarExtension
 
-import initializedb
 import models  # noqa: F401
 from application import app
 from authcontroller import *  # noqa: F401, F403
@@ -22,14 +21,34 @@ from views import *  # noqa: F401, F403
 
 @app.before_first_request
 def setup_logging():
+    """Set-up logger to log to STDOUT (eventually conainer log)."""
     app.logger.addHandler(logging.StreamHandler())
     app.logger.setLevel(logging.INFO)
 
 
 @app.cli.command()
-def initdb():
+@click.option("-d", "--drop", is_flag=False)
+@click.option("-f", "--force", is_flag=False)
+def initdb(drop=False, force=False):
     """Initialize the database."""
-    initializedb.initdb()
+    if drop and force:
+        models.drop_tables()
+    logger = logging.getLogger("peewee")
+    if logger:
+        logger.setLevel(logging.DEBUG)
+        logger.addHandler(logging.StreamHandler())
+    models.create_tables()
+
+    super_user = models.User(
+        name="The University of Auckland",
+        email="root@mailinator.com",
+        confirmed=True,
+        roles=models.Role.SUPERUSER)
+    super_user.save()
+
+    org = models.Organisation(
+        name="The University of Auckland", tuakiri_name="University of Auckland", confirmed=True)
+    org.save()
 
 
 @app.cli.group()
