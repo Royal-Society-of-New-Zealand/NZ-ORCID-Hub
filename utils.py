@@ -293,7 +293,6 @@ def send_user_initation(inviter,
                 recipient=(user.organisation.name, user.email),
                 reply_to=(inviter.name, inviter.email),
                 invitation_url=invitation_url,
-                invitation_token=token,
                 org_name=user.organisation.name,
                 user=user)
 

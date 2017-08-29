@@ -402,6 +402,18 @@ def orcid_callback():
     else:
         return orcid_login_callback(request)
 
+    if "error" in request.args:
+        error = request.args["error"]
+        error_description = request.args.get("error_description")
+        if error == "access_denied":
+            flash("You have denied the Hub access to your ORCID record."
+                  " At a minimum, the Hub needs to know your ORCID iD to be useful.", "danger")
+        else:
+            flash(
+                f"Error occured while attempting to authorize '{current_user.organisation.name}': {error_description}",
+                "danger")
+        return redirect(url_for("link", error=error))
+
     client = OAuth2Session(current_user.organisation.orcid_client_id)
 
     try:
@@ -411,8 +423,8 @@ def orcid_callback():
                 "Retry giving permissions or if issue persist then, Please contact ORCIDHUB for support",
                 "danger")
             app.logger.error(
-                "For %r session state was %r, whereas state returned from ORCID is %r",
-                current_user, session.get('oauth_state', 'empty'), state)
+                f"For {current_user} session state was {session.get('oauth_state', 'empty')}, "
+                f"whereas state returned from ORCID is {state}")
             return redirect(url_for("login"))
 
         oac = OrcidApiCall.create(user_id=current_user.id, method="GET", url=TOKEN_URL)
