@@ -44,7 +44,7 @@ function drawPieChart() {
       </tr>
     </thead>
     <tbody>
-      {%- for r in rows %}
+      {%- for r in query %}
       <tr>
         <td class="col-name">{{r.name}}</td>
         <td class="col-user_count">{{r.linked_user_count}} / {{r.user_count}}

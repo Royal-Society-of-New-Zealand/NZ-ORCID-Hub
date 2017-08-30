@@ -37,8 +37,8 @@ def send_email(template_filename,
                reply_to=None,
                subject=None,
                **kwargs):
-    """
-    Send an email, acquiring its payload by rendering a jinja2 template
+    """Send an email, acquiring its payload by rendering a jinja2 template.
+
     :type template_filename: :class:`str`
     :param subject: the subject of the email
     :param template_filename: name of the template_filename file in ``templates/emails`` to use
@@ -122,8 +122,8 @@ def send_email(template_filename,
 
 
 class RewrapExtension(jinja2.ext.Extension):
-    """
-    The :mod:`jinja2` extension adds a ``{% rewrap %}...{% endrewrap %}`` block
+    """The :mod:`jinja2` extension adds a ``{% rewrap %}...{% endrewrap %}`` block.
+
     The contents in the rewrap block are modified as follows
     * whitespace at the start and end of lines is discarded
     * the contents are split into 'paragraphs' separated by blank lines
@@ -145,9 +145,10 @@ class RewrapExtension(jinja2.ext.Extension):
         {% rewrap 72 %}
     It defaults to 78.
     """
+
     tags = set(['rewrap'])
 
-    def parse(self, parser):
+    def parse(self, parser):  # noqa: D102
         # first token is 'rewrap'
         lineno = parser.stream.next().lineno
 
@@ -209,19 +210,19 @@ def confirm_token(token, expiration=1300000):
 
 
 def append_qs(url, **qs):
-    """Appends new query strings to an arbitraty URL."""
+    """Append new query strings to an arbitraty URL."""
     return url + ('&' if urlparse(url).query else '?') + urlencode(qs, doseq=True)
 
 
 def track_event(category, action, label=None, value=0):
     """Track application events with Google Analytics."""
-    GA_TRACKING_ID = app.config.get("GA_TRACKING_ID")
-    if not GA_TRACKING_ID:
+    ga_tracking_id = app.config.get("GA_TRACKING_ID")
+    if not ga_tracking_id:
         return
 
     data = {
         "v": "1",  # API Version.
-        "tid": GA_TRACKING_ID,  # Tracking ID / Property ID.
+        "tid": ga_tracking_id,  # Tracking ID / Property ID.
         # Anonymous Client Identifier. Ideally, this should be a UUID that
         # is associated with particular user, device, or browser instance.
         "cid": current_user.uuid,
@@ -242,7 +243,6 @@ def track_event(category, action, label=None, value=0):
 
 def set_server_name():
     """Set the server name for batch processes."""
-
     if not app.config.get("SERVER_NAME"):
         if EXTERNAL_SP:
             app.config["SERVER_NAME"] = "127.0.0.1:5000"
@@ -271,7 +271,6 @@ def send_user_initation(inviter,
                         disambiguation_source=None,
                         **kwargs):
     """Send an invitation to join ORCID Hub logging in via ORCID."""
-
     try:
         logger.info(f"*** Sending an invitation to '{first_name} {last_name} <{email}>' "
                     f"submitted by {inviter} of {org} for affiliations: {affiliation_types}")
@@ -343,13 +342,13 @@ def send_user_initation(inviter,
 
 
 def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
-    """Creates or updates affiliation record of a user.
+    """Create or update affiliation record of a user.
 
     1. Retries user edurcation and employment surramy from ORCID;
     2. Match the recodrs with the summary;
     3. If there is match update the record;
-    4. If no match create a new one."""
-
+    4. If no match create a new one.
+    """
     org = Organisation.get(id=org_id)
     api = orcid_client.MemberAPI(org, user)
 

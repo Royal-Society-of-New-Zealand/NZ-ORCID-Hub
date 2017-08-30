@@ -3,10 +3,10 @@
 
 import pprint
 
+import pytest
 from flask_login import login_user
 
 import login_provider
-import pytest
 import utils
 from models import Organisation, Role, User, UserOrg
 
@@ -154,7 +154,7 @@ def test_tuakiri_login_with_org(client):
 
 
 def test_confirmation_token(app):
-    """Test generate_confirmation_token and confirm_token"""
+    """Test generate_confirmation_token and confirm_token."""
     app.config['SECRET_KEY'] = "SECRET"
     app.config['SALT'] = "SALT"
     token = utils.generate_confirmation_token("TEST@ORGANISATION.COM")
@@ -177,8 +177,7 @@ def test_confirmation_token(app):
     assert utils.confirm_token(token, 0) is False, "Expired token shoud be rejected"
 
 
-def test_login_provider_load_user(request_ctx):
-
+def test_login_provider_load_user(request_ctx):  # noqa: D103
     u = User(
         email="test123@test.test.net",
         name="TEST USER",
