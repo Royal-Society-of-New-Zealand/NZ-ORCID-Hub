@@ -67,13 +67,13 @@ def test_link_already_affiliated(request_ctx):
         test_user.save()
         orcidtoken = OrcidToken(
             user=test_user, org=org, scope="/read-limited", access_token="ABC1234")
-        orcidtokenWrite = OrcidToken(
+        orcidtoken_write = OrcidToken(
             user=test_user,
             org=org,
             scope="/read-limited,/activities/update",
             access_token="ABC234")
         orcidtoken.save()
-        orcidtokenWrite.save()
+        orcidtoken_write.save()
         login_user(test_user, remember=True)
         uo = UserOrg(user=test_user, org=org)
         uo.save()
