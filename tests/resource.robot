@@ -7,7 +7,7 @@ Documentation     A resource file with reusable keywords and variables.
 Library           Selenium2Library
 
 *** Variables ***
-${SERVER}           test.orcidhub.org.nz
+${SERVER}           dev.orcidhub.org.nz
 ${BROWSER}          Chrome
 ${DELAY}            0.1
 ${LOGIN URL}        https://${SERVER}/Tuakiri/login
