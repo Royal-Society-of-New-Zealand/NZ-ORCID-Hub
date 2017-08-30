@@ -750,6 +750,20 @@ class OrcidApiCall(BaseModel):
         db_table = "orcid_api_call"
 
 
+class OrcidAuthorizeCall(BaseModel):
+    """ORCID Authorize call audit entry."""
+    called_at = DateTimeField(default=datetime.now)
+    user = ForeignKeyField(User, null=True)
+    method = TextField(null=True)
+    url = TextField(null=True)
+    token = TextField(null=True)
+    state = TextField(null=True)
+    response_time_ms = IntegerField(null=True)
+
+    class Meta:
+        db_table = "orcid_authorize_call"
+
+
 class Task(BaseModel, AuditMixin):
     """Batch processing task created form CSV/TSV file."""
     __record_count = None
@@ -973,6 +987,7 @@ def create_tables():
     UserOrgAffiliation.create_table()
     OrgInfo.create_table()
     OrcidApiCall.create_table()
+    OrcidAuthorizeCall.create_table()
     Task.create_table()
     AffiliationRecord.create_table()
     OrgInvitation.create_table()
@@ -984,7 +999,7 @@ def drop_tables():
     """Drop all model tables."""
 
     for m in (Organisation, User, UserOrg, OrcidToken, UserOrgAffiliation, OrgInfo, OrgInvitation,
-              OrcidApiCall, Task, AffiliationRecord, Url, UserInvitation):
+              OrcidApiCall, OrcidAuthorizeCall, Task, AffiliationRecord, Url, UserInvitation):
         if m.table_exists():
             try:
                 m.drop_table(fail_silently=True, cascade=db.drop_cascade)
