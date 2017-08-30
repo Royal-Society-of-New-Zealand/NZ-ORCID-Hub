@@ -14,6 +14,7 @@ from flask_admin.form import SecureForm
 from flask_admin.model import typefmt
 from flask_login import current_user, login_required
 from jinja2 import Markup
+from swagger_client.rest import ApiException
 from werkzeug import secure_filename
 
 import orcid_client
@@ -23,14 +24,12 @@ from config import ORCID_BASE_URL, SCOPE_ACTIVITIES_UPDATE, SCOPE_READ_LIMITED
 from forms import (BitmapMultipleValueField, FileUploadForm, OrgRegistrationForm, PartialDateField,
                    RecordForm, UserInvitationForm)
 from login_provider import roles_required
-from models import PartialDate
 from models import AffiliationRecord  # noqa: F401
 from models import (Affiliation, CharField, OrcidApiCall, OrcidToken, Organisation, OrgInfo,
-                    OrgInvitation, Role, Task, TextField, Url, User, UserInvitation, UserOrg,
-                    UserOrgAffiliation, db)
+                    OrgInvitation, PartialDate, Role, Task, TextField, Url, User, UserInvitation,
+                    UserOrg, UserOrgAffiliation, db)
 # NB! Should be disabled in production
 from pyinfo import info
-from swagger_client.rest import ApiException
 from utils import generate_confirmation_token, send_user_initation
 
 HEADERS = {"Accept": "application/vnd.orcid+json", "Content-type": "application/vnd.orcid+json"}

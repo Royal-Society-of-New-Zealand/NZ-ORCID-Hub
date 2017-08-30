@@ -24,6 +24,7 @@ from flask_login import current_user, login_required, login_user, logout_user
 from flask_mail import Message
 from oauthlib.oauth2 import rfc6749
 from requests_oauthlib import OAuth2Session
+from swagger_client.rest import ApiException
 from werkzeug.urls import iri_to_uri
 
 import orcid_client
@@ -34,9 +35,8 @@ from config import (APP_DESCRIPTION, APP_NAME, APP_URL, AUTHORIZATION_BASE_URL, 
                     SCOPE_ACTIVITIES_UPDATE, SCOPE_AUTHENTICATE, SCOPE_READ_LIMITED, TOKEN_URL)
 from forms import OrgConfirmationForm
 from login_provider import roles_required
-from models import (Affiliation, OrcidToken, Organisation, OrgInfo, OrgInvitation, Role, Url, User,
-                    UserOrg, OrcidAuthorizeCall, UserInvitation)
-from swagger_client.rest import ApiException
+from models import (Affiliation, OrcidAuthorizeCall, OrcidToken, Organisation, OrgInfo,
+                    OrgInvitation, Role, Url, User, UserInvitation, UserOrg)
 from utils import append_qs, confirm_token
 
 HEADERS = {'Accept': 'application/vnd.orcid+json', 'Content-type': 'application/vnd.orcid+json'}
@@ -46,7 +46,8 @@ def get_next_url():
     """Retrieve and sanitize next/return URL."""
     _next = request.args.get("next") or request.args.get("_next")
 
-    if _next and ("orcidhub.org.nz" in _next or _next.startswith("/") or "127.0" in _next or "c9users.io" in _next):
+    if _next and ("orcidhub.org.nz" in _next or _next.startswith("/") or "127.0" in _next
+                  or "c9users.io" in _next):
         return _next
     return None
 
@@ -320,9 +321,8 @@ def link():
                     family_names=current_user.last_name,
                     given_names=current_user.first_name,
                     email=current_user.email)
-                oac, orcid_authorize_call_found = OrcidAuthorizeCall.get_or_create(user_id=current_user.id,
-                                                                                   method="GET", url=orcid_url_write,
-                                                                                   state=state)
+                oac, orcid_authorize_call_found = OrcidAuthorizeCall.get_or_create(
+                    user_id=current_user.id, method="GET", url=orcid_url_write, state=state)
                 oac.url = "Access_Denied Flow " + orcid_url_write + orcid_url_read + orcid_url_authenticate
                 oac.save()
                 return render_template(
@@ -331,7 +331,8 @@ def link():
                     orcid_url_read_limited=orcid_url_read,
                     orcid_url_authenticate=orcid_url_authenticate,
                     error=error)
-        oac = OrcidAuthorizeCall.create(user_id=current_user.id, method="GET", url=orcid_url_write, state=state)
+        oac = OrcidAuthorizeCall.create(
+            user_id=current_user.id, method="GET", url=orcid_url_write, state=state)
         oac.save()
         return render_template(
             "linking.html", orcid_url_write=orcid_url_write, orcid_base_url=ORCID_BASE_URL)
@@ -853,7 +854,8 @@ def orcid_login(invitation_token=None):
                 given_names=user.first_name,
                 email=email)
 
-        oac = OrcidAuthorizeCall.create(user_id=None, method="GET", url=orcid_authenticate_url, state=state)
+        oac = OrcidAuthorizeCall.create(
+            user_id=None, method="GET", url=orcid_authenticate_url, state=state)
         oac.save()
 
         return redirect(orcid_authenticate_url)

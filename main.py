@@ -9,14 +9,13 @@ import logging
 import os
 
 import click
-from flask_debugtoolbar import DebugToolbarExtension
 
 import models  # noqa: F401
 from application import app
-from authcontroller import *  # noqa: F401, F403
-from reports import *  # noqa: F401, F403
+from authcontroller import *  # noqa: F401,F403
+from reports import *  # noqa: F401,F403
 from utils import process_affiliation_records
-from views import *  # noqa: F401, F403
+from views import *  # noqa: F401,F403
 
 
 @app.before_first_request
@@ -80,6 +79,7 @@ if os.environ.get("ENV") == "dev0":
     app.debug = True
 
 if app.debug:
+    from flask_debugtoolbar import DebugToolbarExtension
     toolbar = DebugToolbarExtension(app)
     # logger = logging.getLogger('peewee')
     # logger.setLevel(logging.DEBUG)
