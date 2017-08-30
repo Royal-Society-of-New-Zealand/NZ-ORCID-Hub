@@ -14,7 +14,7 @@ from itertools import zip_longest
 from urllib.parse import urlencode
 
 from flask_login import UserMixin, current_user
-from peewee import BooleanField as BF
+from peewee import BooleanField as BooleanField_
 from peewee import (CharField, DateTimeField, DeferredRelation, Field, FixedCharField,
                     ForeignKeyField, IntegerField, Model, OperationalError, SmallIntegerField,
                     TextField)
@@ -39,11 +39,12 @@ except ImportError:
 
 class ModelException(Exception):
     """Applicaton model exception."""
+
     pass
 
 
 def validate_orcid_id(value):
-    """Validates ORCID iD."""
+    """Validate ORCID iD (both format and the check-sum)."""
     if not value:
         return
 
@@ -101,9 +102,11 @@ class PartialDate(namedtuple("PartialDate", ["year", "month", "day"])):
         return cls(**{k: int(v.get("value")) if v else None for k, v in value.items()})
 
     def as_datetime(self):
+        """Get 'datetime' data representation."""
         return datetime(self.year, self.month, self.day)
 
     def __str__(self):
+        """Get string representation."""
         if self.year is None:
             return ''
         else:
@@ -120,6 +123,7 @@ class OrcidIdField(FixedCharField):
     """ORCID iD value DB field."""
 
     def __init__(self, *args, **kwargs):
+        """Initialize ORCID iD data field."""
         if "verbose_name" not in kwargs:
             kwargs["verbose_name"] = "ORCID iD"
         super().__init__(*args, max_length=19, **kwargs)
@@ -130,15 +134,18 @@ class OrcidIdField(FixedCharField):
     #     return super().coerce(value)
 
 
-class BooleanField(BF):
-    def NOT(self):
+class BooleanField(BooleanField_):
+    """BooleanField extension to support inversion in queries."""
+
+    def NOT(self):  # noqa: N802
+        """Negate logical value in SQL."""
         return self.__invert__()
 
 
 class PartialDateField(Field):
     """Partial date custom DB data field mapped to varchar(10)."""
 
-    db_field = 'varchar(10)'
+    db_field = "varchar(10)"
 
     def db_value(self, value):
         """Convert into partial ISO date textual representation: YYYY-**-**, YYYY-MM-**, or YYYY-MM-DD."""
@@ -214,24 +221,30 @@ class Affiliation(IntFlag):
 
 
 class BaseModel(Model):
+    """Encapsulate commont bits and pieces of the model classes."""
+
     def field_is_updated(self, field_name):
         """Test if field is 'dirty'."""
         return any(field_name == f.name for f in self.dirty_fields)
 
     @classmethod
     def model_class_name(cls):
+        """Get the class name of the model."""
         return cls._meta.name
 
     def to_dict(self):
+        """Get dictionary representation of the model."""
         return model_to_dict(self)
 
-    class Meta:
+    class Meta:  # noqa: D101
         database = db
 
 
 class ModelDeferredRelation(DeferredRelation):
+    """Fixed DefferedRelation to allow inheritance and mixins."""
+
     def set_model(self, rel_model):
-        # include model in the generated "related_name" to make it unique:
+        """Include model in the generated "related_name" to make it unique."""
         for model, field, name in self.fields:
             if isinstance(field, ForeignKeyField) and not field._related_name:
                 field._related_name = "%s_%s_set" % (model.model_class_name(), name)
@@ -243,6 +256,7 @@ DeferredUser = ModelDeferredRelation()
 
 
 class AuditMixin(Model):
+    """Mixing for getting data necessary for data change audit trail maintenace."""
 
     created_at = DateTimeField(default=datetime.now)
     updated_at = DateTimeField(null=True)
@@ -250,7 +264,7 @@ class AuditMixin(Model):
     # created_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
     # updated_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
 
-    def save(self, *args, **kwargs):
+    def save(self, *args, **kwargs):  # noqa: D102
         if self.is_dirty():
             self.updated_at = datetime.now()
             if current_user and hasattr(current_user, "id"):
@@ -262,9 +276,8 @@ class AuditMixin(Model):
 
 
 class Organisation(BaseModel, AuditMixin):
-    """
-    Research oranisation
-    """
+    """Research oranisation."""
+
     country_choices = [(c.alpha_2, c.name) for c in countries]
     country_choices.sort(key=lambda e: e[1])
     country_choices.insert(0, ("", "Country"))
@@ -295,22 +308,20 @@ class Organisation(BaseModel, AuditMixin):
 
     @property
     def users(self):
-        """
-        Organisation's users (query)
-        """
+        """Get organisation's user query."""
         return User.select().join(
             UserOrg, on=(UserOrg.user_id == User.id)).where(UserOrg.org == self)
 
     @property
     def admins(self):
-        """Organisation's adminstrators (query)."""
+        """Get organisation's adminstrator query."""
         return self.users.where(UserOrg.is_admin)
 
     def __repr__(self):
         return self.name or self.tuakiri_name
 
     def save(self, *args, **kwargs):
-        """Handle data saving."""
+        """Handle data consitency validation and saving."""
         if self.is_dirty():
 
             if self.name is None:
@@ -345,10 +356,9 @@ class OrgInfo(BaseModel):
     disambiguation_source = CharField(null=True, verbose_name="common:disambiguation-source")
 
     def __repr__(self):
-        """String representation of the model."""
         return self.name or self.disambiguated_id or super().__repr__()
 
-    class Meta:
+    class Meta:  # noqa: D101
         db_table = "org_info"
         table_alias = "oi"
 
@@ -449,29 +459,29 @@ class User(BaseModel, UserMixin, AuditMixin):
 
     @property
     def organisations(self):
-        """
-        All linked to the user organisation query
-        """
+        """Get all linked to the user organisation query."""
         return Organisation.select().join(
             UserOrg, on=(UserOrg.org_id == Organisation.id)).where(UserOrg.user_id == self.id)
 
     @property
     def admin_for(self):
-        """
-        Organisations the user is admin for (query)
-        """
+        """Get organisations the user is admin for (query)."""
         return self.organisations.where(UserOrg.is_admin)
 
     @property
     def is_active(self):
-        # TODO: confirmed - user that email is cunfimed either by IdP or by confirmation email
-        # ins't the same as "is active"
+        """Get 'is_active' based on confirmed for Flask-Login.
+
+        TODO: confirmed - user that email is cunfimed either by IdP or by confirmation email
+        ins't the same as "is active".
+        """
         return self.confirmed
 
     def has_role(self, role):
-        """Returns `True` if the user identifies with the specified role.
+        """Return `True` if the user identifies with the specified role.
 
-        :param role: A role name, `Role` instance, or integer value"""
+        :param role: A role name, `Role` instance, or integer value.
+        """
         if isinstance(role, Role):
             return bool(role & Role(self.roles))
         elif isinstance(role, str):
@@ -486,10 +496,12 @@ class User(BaseModel, UserMixin, AuditMixin):
 
     @property
     def is_superuser(self):
+        """Test if the user is a HUB admin."""
         return self.roles & Role.SUPERUSER
 
     @property
     def is_admin(self):
+        """Test if the user belongs to the organisation admin."""
         return bool(self.roles & Role.ADMIN)
 
     def avatar(self, size=40, default="identicon"):
@@ -591,6 +603,7 @@ class User(BaseModel, UserMixin, AuditMixin):
 
     @property
     def uuid(self):
+        """Generate UUID for the user basee on the the primary email."""
         return uuid.uuid5(uuid.NAMESPACE_URL, "mailto:" + (self.email or self.eppn))
 
 
@@ -611,9 +624,10 @@ class OrgInvitation(BaseModel, AuditMixin):
 
     @property
     def sent_at(self):
+        """Get the time the invitation was sent."""
         return self.created_at
 
-    class Meta:
+    class Meta:  # noqa: D101
         db_table = "org_invitation"
 
 
@@ -647,9 +661,10 @@ class UserInvitation(BaseModel, AuditMixin):
 
     @property
     def sent_at(self):
+        """Get the time the invitation was sent."""
         return self.created_at
 
-    class Meta:
+    class Meta:  # noqa: D101
         db_table = "user_invitation"
 
 
@@ -674,8 +689,11 @@ class UserOrg(BaseModel, AuditMixin):
     # access_token = CharField(max_length=120, unique=True, null=True)
 
     def save(self, *args, **kwargs):
-        """Enforce foriegn key contraints and consolidate user
-        roles with the linke organisations before saving data."""
+        """Enforce foriegn key contraints and consolidate user roles with the linked organisations.
+
+        Enforce foriegn key contraints and consolidate user roles with the linked organisations
+        before saving data.
+        """
         if self.is_dirty():
             if self.field_is_updated("org"):
                 self.org  # just enforce re-querying
@@ -692,16 +710,14 @@ class UserOrg(BaseModel, AuditMixin):
 
         return super().save(*args, **kwargs)
 
-    class Meta:
+    class Meta:  # noqa: D101
         db_table = "user_org"
         table_alias = "uo"
         indexes = ((("user", "org"), True), )
 
 
 class OrcidToken(BaseModel, AuditMixin):
-    """
-    For Keeping Orcid token in the table.
-    """
+    """For Keeping Orcid token in the table."""
 
     user = ForeignKeyField(User)
     org = ForeignKeyField(Organisation, index=True, verbose_name="Organisation")
@@ -716,6 +732,7 @@ class OrcidToken(BaseModel, AuditMixin):
 
 class UserOrgAffiliation(BaseModel, AuditMixin):
     """For Keeping the information about the affiliation."""
+
     user = ForeignKeyField(User)
     organisation = ForeignKeyField(Organisation, index=True, verbose_name="Organisation")
     name = TextField(null=True, verbose_name="Institution/employer")
@@ -729,13 +746,14 @@ class UserOrgAffiliation(BaseModel, AuditMixin):
     created_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
     updated_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
 
-    class Meta:
+    class Meta:  # noqa: D101
         db_table = "user_organisation_affiliation"
         table_alias = "oua"
 
 
 class OrcidApiCall(BaseModel):
     """ORCID API call audit entry."""
+
     called_at = DateTimeField(default=datetime.now)
     user = ForeignKeyField(User, null=True)
     method = TextField()
@@ -746,12 +764,28 @@ class OrcidApiCall(BaseModel):
     response = TextField(null=True)
     response_time_ms = IntegerField(null=True)
 
-    class Meta:
+    class Meta:  # noqa: D101
         db_table = "orcid_api_call"
+
+
+class OrcidAuthorizeCall(BaseModel):
+    """ORCID Authorize call audit entry."""
+
+    called_at = DateTimeField(default=datetime.now)
+    user = ForeignKeyField(User, null=True)
+    method = TextField(null=True)
+    url = TextField(null=True)
+    token = TextField(null=True)
+    state = TextField(null=True)
+    response_time_ms = IntegerField(null=True)
+
+    class Meta:  # noqa: D101
+        db_table = "orcid_authorize_call"
 
 
 class Task(BaseModel, AuditMixin):
     """Batch processing task created form CSV/TSV file."""
+
     __record_count = None
     org = ForeignKeyField(
         Organisation, index=True, verbose_name="Organisation", on_delete="SET NULL")
@@ -767,6 +801,7 @@ class Task(BaseModel, AuditMixin):
 
     @property
     def record_count(self):
+        """Get count of the loaded recoreds."""
         if self.__record_count is None:
             self.__record_count = self.affiliationrecord_set.count()
         return self.__record_count
@@ -890,7 +925,7 @@ class Task(BaseModel, AuditMixin):
 
         return task
 
-    class Meta:
+    class Meta:  # noqa: D101
         table_alias = "t"
 
 
@@ -927,11 +962,11 @@ class AffiliationRecord(BaseModel):
     status = TextField(null=True, help_text="Record processing status.")
 
     def add_status_line(self, line):
-        """Adds a text line to the status for logging processing progress."""
+        """Add a text line to the status for logging processing progress."""
         ts = datetime.now().isoformat(timespec="seconds")
         self.status = (self.status + "\n" if self.status else '') + ts + ": " + line
 
-    class Meta:
+    class Meta:  # noqa: D101
         db_table = "affiliation_record"
         table_alias = "ar"
 
@@ -944,7 +979,7 @@ class Url(BaseModel, AuditMixin):
 
     @classmethod
     def shorten(cls, url):
-        """Creates a shorten url or retrievs an exiting one."""
+        """Create a shorten url or retrievs an exiting one."""
         try:
             u = cls.get(url=url)
         except cls.DoesNotExist:
@@ -973,6 +1008,7 @@ def create_tables():
     UserOrgAffiliation.create_table()
     OrgInfo.create_table()
     OrcidApiCall.create_table()
+    OrcidAuthorizeCall.create_table()
     Task.create_table()
     AffiliationRecord.create_table()
     OrgInvitation.create_table()
@@ -982,9 +1018,8 @@ def create_tables():
 
 def drop_tables():
     """Drop all model tables."""
-
     for m in (Organisation, User, UserOrg, OrcidToken, UserOrgAffiliation, OrgInfo, OrgInvitation,
-              OrcidApiCall, Task, AffiliationRecord, Url, UserInvitation):
+              OrcidApiCall, OrcidAuthorizeCall, Task, AffiliationRecord, Url, UserInvitation):
         if m.table_exists():
             try:
                 m.drop_table(fail_silently=True, cascade=db.drop_cascade)
