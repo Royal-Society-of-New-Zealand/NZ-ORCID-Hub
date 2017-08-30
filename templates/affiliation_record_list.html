@@ -7,7 +7,7 @@
       <tbody>
         <tr>
           <td>
-            <b>Taks Filename</b>
+            <b>Task Filename</b>
           </td>
           <td>
             {{task.filename}}
@@ -26,7 +26,11 @@
             <b>Completed At</b>
           </td>
           <td>
-            {{task.completed_at|isodate}}
+            {% if task.completed_at %}
+              {{task.completed_at|isodate}}
+            {% else %}
+              &nbsp;
+            {% endif %}
           </td>
         </tr>
         <tr>
@@ -37,7 +41,18 @@
             {{task.created_at|isodate}}
           </td>
         </tr>
-      </tbody></table>
-    {% endif %}
-    {{ super() }}
-  {% endblock %}
+      </tbody>
+    </table>
+  {% endif %}
+  <span class="pull-right">
+    <form class="icon" method="POST"
+                       action="{{url_for('activate_all')}}">
+      <input id="task_id" name="task_id" type="hidden" value="{{task.id}}">
+      <button onclick="return safeConfirm('Are you sure you want to activate all records for processing?');"
+              data-toggle="tooltip" data-placement="bottom"
+              title="Activiate all records for batch processing..." class="btn btn-info">Activiate all
+      </button>
+    </form>
+  </span>
+  {{ super() }}
+{% endblock %}

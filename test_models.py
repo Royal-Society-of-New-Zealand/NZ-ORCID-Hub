@@ -1,12 +1,12 @@
 from itertools import product
 
-import pytest
 from peewee import Model, SqliteDatabase
 from playhouse.test_utils import test_database
 
-from models import (Affiliation, AffiliationRecord, OrcidToken, Organisation, OrgInfo, PartialDate,
-                    PartialDateField, Role, Task, User, UserOrg, UserOrgAffiliation, create_tables,
-                    drop_tables)
+import pytest
+from models import (Affiliation, AffiliationRecord, ModelException, OrcidToken, Organisation,
+                    OrgInfo, PartialDate, PartialDateField, Role, Task, User, UserOrg,
+                    UserOrgAffiliation, create_tables, drop_tables)
 
 
 @pytest.fixture
@@ -79,14 +79,14 @@ def test_user_uuid():
 
 def test_user_org_link_user_constraint(test_models):
     org = Organisation.get(id=1)
-    uo = UserOrg(user=999999, org=org)
+    uo = UserOrg(user_id=999999, org=org)
     with pytest.raises(User.DoesNotExist):
         uo.save()
 
 
 def test_user_org_link_org_constraint(test_models):
     user = User.get(id=1)
-    uo = UserOrg(user=user, org=999999)
+    uo = UserOrg(user=user, org_id=999999)
     with pytest.raises(Organisation.DoesNotExist):
         uo.save()
 
@@ -213,6 +213,9 @@ def test_partial_date():
     assert PartialDate.create("1997-12") == PartialDate(year=1997, month=12, day=None)
     assert PartialDate.create("1997-12-31") == PartialDate(year=1997, month=12, day=31)
 
+    with pytest.raises(ModelException):
+        PartialDate.create("ABC")
+
 
 def test_pd_field():
 
@@ -263,6 +266,14 @@ def test_affiliations(test_models):
     assert Affiliation.EMP == Affiliation["EMP"]
     assert hash(Affiliation.EMP) == hash("EMP")
     assert str(Affiliation.EDU | Affiliation.EMP) == "Education, Employment"
+
+
+def test_field_is_updated(test_db):
+    u = User.create(email="test@test.com", name="TESTER")
+    u.save()
+    assert not u.field_is_updated("name")
+    u.name = "NEW VALUE"
+    assert u.field_is_updated("name")
 
 
 def test_load_task_from_csv(test_models):

@@ -32,18 +32,26 @@ def initdb():
     initializedb.initdb()
 
 
-@app.cli.command()
-@click.argument('filename')
-def load_org_info(filename):
+@app.cli.group()
+@click.option("-v", "--verbose", is_flag=True)
+def load(verbose):
+    """Load data from files."""
+    app.verbose = verbose
+
+
+@load.command()
+@click.argument('input', type=click.File('r'), required=True)
+def org_info(input):
     """Pre-loads organisation data."""
-    row_count = models.OrgInfo.load_from_csv(filename)
-    print("Loaded %d records" % row_count)
+    row_count = models.OrgInfo.load_from_csv(input)
+    click.echo(f"Loaded {row_count} records")
 
 
 @app.cli.command()
-def process():
-    """."""
-    process_affiliation_records()
+@click.option("-n", default=20, help="Max number of rows to process.")
+def process(n):
+    """Process uploaded affiliation records."""
+    process_affiliation_records(n)
 
 
 if os.environ.get("ENV") == "dev0":

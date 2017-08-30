@@ -1,49 +1,26 @@
 {% extends "base.html" %}
+{% from "macros.html" import render_field %}
 
 {% block content %}
-<h1>Organisation Confirmation Form</h1>
-<form method="POST" name="confirm">
+  <h1>Organisation Confirmation Form</h1>
+  <form method="POST" name="confirm">
     {{ form.hidden_tag() }}
 
+    {{ render_field(form.name) }}
+    {{ render_field(form.email) }}
     <div class="form-group">
-        <label for="org_name">Organisation Name:</label>
-        {{ form.orgName(size=50, id="org_name", class="form-control") }}
+      <p>
+      <a id="connect-orcid-button" class="btn btn-default" href="{{client_secret_url}}" role="button">
+        <img id="orcid-id-logo" src="https://orcid.org/sites/default/files/images/orcid_24x24.png" width='24'
+                                height='24' alt="ORCID logo"/>&nbsp;Take me to ORCID to obtain my Client ID and Client Secret </a>
+      </p>
     </div>
-    <div class="form-group">
-        <label for="org_email">Organisation Email:</label>
-        {{ form.orgEmailid(size=50, id="org_email", class="form-control") }}
-    </div>
-    <div class="form-group">
-    <p>
-        <a id="connect-orcid-button" class="btn btn-default" href="{{client_secret_url}}" role="button">
-            <img id="orcid-id-logo" src="https://orcid.org/sites/default/files/images/orcid_24x24.png" width='24'
-                 height='24' alt="ORCID logo"/>&nbsp;Take me to ORCID to obtain my Client ID and Client Secret </a>
-    </p>
-    </div>
-    <div class="form-group">
-        <label for="org_id">ORCID Client ID:</label>
-        {{ form.orgOricdClientId(size=50, id="org_id", class="form-control") }}
-    </div>
-    <div class="form-group">
-        <label for="org_secret">ORCID Client Secret:</label>
-        {{ form.orgOrcidClientSecret(size=50, id="org_secret", class="form-control") }}
-    </div>
-    <div class="form-group">
-        <label for="country">Country:</label>
-        {{ form.country(style="width:300px;height:30px") }}
-    </div>
-    <div class="form-group">
-        <label for="city">City:</label>
-        {{ form.city(size=30, class="form-control", id="city") }}
-    </div>
-        <div class="form-group" data-toggle="tooltip" title="The best id to use for your organisation, e.g. one of the following: RINGGOLD, FUNDREF, NZBN or EON">
-        <label for="disambiguation_org_id" >Organisation ID:</label>
-        {{ form.disambiguation_org_id(size=30, class="form-control", id="disambiguation_org_id") }}
-    </div>
-        <div class="form-group" data-toggle="tooltip" title="The source of your organisation's disambiguation id">
-        <label for="disambiguation_org_source">Source of the Organisation ID:</label>
-        {{ form.disambiguation_org_source(size=30, class="form-control", id="disambiguation_org_source") }}
-    </div>
+    {{ render_field(form.orcid_client_id) }}
+    {{ render_field(form.orcid_secret) }}
+    {{ render_field(form.country) }}
+    {{ render_field(form.city) }}
+    {{ render_field(form.disambiguated_id, **{"data-toggle": "tooltip", "title": "The best id to use for your organisation, e.g. one of the following: RINGGOLD, FUNDREF, NZBN or EON"}) }}
+    {{ render_field(form.disambiguation_source, **{"data-toggle": "tooltip", "title": "The source of your organisation's disambiguated ID"}) }}
     <button type="submit" class="btn btn-default" value="Confirmation">Confirmation</button>
-</form>
+  </form>
 {% endblock %}

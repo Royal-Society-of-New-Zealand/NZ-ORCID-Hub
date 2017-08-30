@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% from "macros.html" import render_field %}
+
+{% block content %}
+  <form method="POST">
+    <div class="row">
+      <div class="col-md-9 col-sm-8 col-xs-12">
+        <h1>User Invitation</h1>
+      </div>
+    </div>
+    <div class="row">
+      <div class="col-md-6 col-sm-6 col-xs-12">
+        {{ form.hidden_tag() }}
+        {{ render_field(form.first_name) }}
+        {{ render_field(form.last_name) }}
+        {{ render_field(form.email_address) }}
+        {{ render_field(form.orcid_id) }}
+        {{ render_field(form.course_or_role) }}
+        {{ render_field(form.start_date) }}
+        {{ render_field(form.end_date) }}
+        {{ render_field(form.is_student) }}
+        {{ render_field(form.is_employee) }}
+      </div>
+      <div class="col-md-6 col-sm-6 col-xs-12">
+        {{ render_field(form.department) }}
+        {{ render_field(form.organisation) }}
+        {{ render_field(form.city) }}
+        {{ render_field(form.state) }}
+        {{ render_field(form.country) }}
+        {{ render_field(form.disambiguated_id) }}
+        {{ render_field(form.disambiguation_source) }}
+        <div class="col-md-10 col-sm-10 col-xs-12">
+          <span class="pull-right">{{ render_field(form.resend) }}</span>
+        </div>
+        <div class="col-md-2 col-sm-2 col-xs-12">
+          <button type="submit" class="btn btn-primary" value="Save">Invite...</button>
+        </div>
+      </div>
+    </div>
+  </form>
+{% endblock %}

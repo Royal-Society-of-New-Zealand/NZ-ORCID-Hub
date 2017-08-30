@@ -3,10 +3,10 @@
 
 import pprint
 
-import pytest
 from flask_login import login_user
 
 import login_provider
+import pytest
 import utils
 from models import Organisation, Role, User, UserOrg
 
@@ -155,25 +155,25 @@ def test_tuakiri_login_with_org(client):
 
 def test_confirmation_token(app):
     """Test generate_confirmation_token and confirm_token"""
-    app.config['TOKEN_SECRET_KEY'] = "SECRET"
-    app.config['TOKEN_PASSWORD_SALT'] = "SALT"
+    app.config['SECRET_KEY'] = "SECRET"
+    app.config['SALT'] = "SALT"
     token = utils.generate_confirmation_token("TEST@ORGANISATION.COM")
     assert utils.confirm_token(token) == "TEST@ORGANISATION.COM"
 
-    app.config['TOKEN_SECRET_KEY'] = "SECRET"
-    app.config['TOKEN_PASSWORD_SALT'] = "COMPROMISED SALT"
+    app.config['SECRET_KEY'] = "SECRET"
+    app.config['SALT'] = "COMPROMISED SALT"
     assert utils.confirm_token(token) is False
 
-    app.config['TOKEN_SECRET_KEY'] = "COMPROMISED SECRET"
-    app.config['TOKEN_PASSWORD_SALT'] = "SALT"
+    app.config['SECRET_KEY'] = "COMPROMISED SECRET"
+    app.config['SALT'] = "SALT"
     assert utils.confirm_token(token) is False
 
-    app.config['TOKEN_SECRET_KEY'] = "COMPROMISED SECRET"
-    app.config['TOKEN_PASSWORD_SALT'] = "COMPROMISED SALT"
+    app.config['SECRET_KEY'] = "COMPROMISED SECRET"
+    app.config['SALT'] = "COMPROMISED SALT"
     assert utils.confirm_token(token) is False
 
-    app.config['TOKEN_SECRET_KEY'] = "COMPROMISED"
-    app.config['TOKEN_PASSWORD_SALT'] = "COMPROMISED"
+    app.config['SECRET_KEY'] = "COMPROMISED"
+    app.config['SALT'] = "COMPROMISED"
     assert utils.confirm_token(token, 0) is False, "Expired token shoud be rejected"
 
 
