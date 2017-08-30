@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-"""Swagger generated client 'monkey-patch' for logging API requests.
+"""
+Swagger generated client 'monkey-patch' for logging API requests.
 
 isort:skip_file
 """
@@ -194,6 +195,6 @@ class MemberAPI(MemberAPIV20Api):
 
 
 # yapf: disable
-from swagger_client import *  # noqa: F401, F403, F405
+from swagger_client import *  # noqa: F401,F403,F405
 api_client.RESTClientObject = OrcidRESTClientObject  # noqa: F405
 apis.member_apiv20_api.ApiClient = OrcidApiClient  # noqa: F405
