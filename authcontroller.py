@@ -29,7 +29,7 @@ from werkzeug.urls import iri_to_uri
 import orcid_client
 from application import app, db, mail
 from config import (APP_DESCRIPTION, APP_NAME, APP_URL, AUTHORIZATION_BASE_URL, CRED_TYPE_PREMIUM,
-                    EXTERNAL_SP, MEMBER_API_FORM_BASE_URL, NEW_CREDENTIALS, NOTE_ORCID,
+                    EXTERNAL_SP, EXISTING_UPDATE, MEMBER_API_FORM_BASE_URL, NEW_CREDENTIALS, NOTE_ORCID,
                     ORCID_API_BASE, ORCID_BASE_URL, ORCID_CLIENT_ID, ORCID_CLIENT_SECRET,
                     SCOPE_ACTIVITIES_UPDATE, SCOPE_AUTHENTICATE, SCOPE_READ_LIMITED, TOKEN_URL)
 from forms import OrgConfirmationForm
@@ -660,18 +660,6 @@ def onboard_org():
         form.email.render_kw = {'readonly': True}
 
     redirect_uri = url_for("orcid_callback", _external=True)
-    client_secret_url = append_qs(
-        iri_to_uri(MEMBER_API_FORM_BASE_URL),
-        new_existing=NEW_CREDENTIALS,
-        note=NOTE_ORCID + " " + user.organisation.name,
-        contact_email=email,
-        contact_name=user.name,
-        org_name=user.organisation.name,
-        cred_type=CRED_TYPE_PREMIUM,
-        app_name=APP_NAME + " for " + user.organisation.name,
-        app_description=APP_DESCRIPTION + user.organisation.name + "and its researchers",
-        app_url=APP_URL,
-        redirect_uri_1=redirect_uri)
 
     if form.validate_on_submit():
 
@@ -726,7 +714,25 @@ def onboard_org():
 
             return redirect(url_for("link"))
 
-    return render_template('orgconfirmation.html', client_secret_url=client_secret_url, form=form)
+    new_existing = NEW_CREDENTIALS
+    if organisation.confirmed:
+        new_existing = EXISTING_UPDATE
+
+    client_secret_url = append_qs(
+        iri_to_uri(MEMBER_API_FORM_BASE_URL),
+        new_existing=new_existing,
+        note=NOTE_ORCID + " " + user.organisation.name,
+        contact_email=email,
+        contact_name=user.name,
+        org_name=user.organisation.name,
+        cred_type=CRED_TYPE_PREMIUM,
+        app_name=APP_NAME + " for " + user.organisation.name,
+        app_description=APP_DESCRIPTION + user.organisation.name + "and its researchers",
+        app_url=APP_URL,
+        redirect_uri_1=redirect_uri)
+
+    return render_template('orgconfirmation.html', client_secret_url=client_secret_url, form=form,
+                           organisation=organisation)
 
 
 @app.after_request
