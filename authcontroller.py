@@ -24,6 +24,7 @@ from flask_login import current_user, login_required, login_user, logout_user
 from flask_mail import Message
 from oauthlib.oauth2 import rfc6749
 from requests_oauthlib import OAuth2Session
+from swagger_client.rest import ApiException
 from werkzeug.urls import iri_to_uri
 
 import orcid_client
@@ -34,19 +35,19 @@ from config import (APP_DESCRIPTION, APP_NAME, APP_URL, AUTHORIZATION_BASE_URL, 
                     SCOPE_ACTIVITIES_UPDATE, SCOPE_AUTHENTICATE, SCOPE_READ_LIMITED, TOKEN_URL)
 from forms import OrgConfirmationForm
 from login_provider import roles_required
-from models import (Affiliation, OrcidToken, Organisation, OrgInfo, OrgInvitation, Role, Url, User,
-                    UserOrg, OrcidAuthorizeCall, UserInvitation)
-from swagger_client.rest import ApiException
+from models import (Affiliation, OrcidAuthorizeCall, OrcidToken, Organisation, OrgInfo,
+                    OrgInvitation, Role, Url, User, UserInvitation, UserOrg)
 from utils import append_qs, confirm_token
 
 HEADERS = {'Accept': 'application/vnd.orcid+json', 'Content-type': 'application/vnd.orcid+json'}
 
 
 def get_next_url():
-    """Retrieves and sanitizes next/return URL."""
+    """Retrieve and sanitize next/return URL."""
     _next = request.args.get("next") or request.args.get("_next")
 
-    if _next and ("orcidhub.org.nz" in _next or _next.startswith("/") or "127.0" in _next or "c9users.io" in _next):
+    if _next and ("orcidhub.org.nz" in _next or _next.startswith("/") or "127.0" in _next
+                  or "c9users.io" in _next):
         return _next
     return None
 
@@ -55,7 +56,7 @@ def get_next_url():
 @app.route("/login")
 @app.route("/")
 def login():
-    """Main landing page."""
+    """Show main landing page with login buttons."""
     _next = get_next_url()
     orcid_login_url = url_for("orcid_login", next=_next)
     if EXTERNAL_SP:
@@ -82,7 +83,8 @@ def login():
 def shib_sp():
     """Remote Shibboleth authenitication handler.
 
-    All it does passes all response headers to the original calller."""
+    All it does passes all response headers to the original calller.
+    """
     _next = get_next_url()
     _key = request.args.get("key")
     if _next:
@@ -319,9 +321,8 @@ def link():
                     family_names=current_user.last_name,
                     given_names=current_user.first_name,
                     email=current_user.email)
-                oac, orcid_authorize_call_found = OrcidAuthorizeCall.get_or_create(user_id=current_user.id,
-                                                                                   method="GET", url=orcid_url_write,
-                                                                                   state=state)
+                oac, orcid_authorize_call_found = OrcidAuthorizeCall.get_or_create(
+                    user_id=current_user.id, method="GET", url=orcid_url_write, state=state)
                 oac.url = "Access_Denied Flow " + orcid_url_write + orcid_url_read + orcid_url_authenticate
                 oac.save()
                 return render_template(
@@ -330,7 +331,8 @@ def link():
                     orcid_url_read_limited=orcid_url_read,
                     orcid_url_authenticate=orcid_url_authenticate,
                     error=error)
-        oac = OrcidAuthorizeCall.create(user_id=current_user.id, method="GET", url=orcid_url_write, state=state)
+        oac = OrcidAuthorizeCall.create(
+            user_id=current_user.id, method="GET", url=orcid_url_write, state=state)
         oac.save()
         return render_template(
             "linking.html", orcid_url_write=orcid_url_write, orcid_base_url=ORCID_BASE_URL)
@@ -343,11 +345,13 @@ def link():
 @app.route("/orcid/auth/<path:url>")
 @app.route("/auth/<path:url>")
 def orcid_callback_proxy(url):
+    """Redirect to the original invokator."""
     url = unquote(url)
     return redirect(append_qs(url, **request.args))
 
 
 def is_emp_or_edu_record_present(access_token, affiliation_type, user):
+    """Determine if there is already an affiliation record for the user."""
     orcid_client.configuration.access_token = access_token
     # create an instance of the API class
     api_instance = orcid_client.MemberAPIV20Api()
@@ -613,7 +617,7 @@ def profile():
 @app.route("/confirm/organisation", methods=["GET", "POST"])
 @roles_required(Role.ADMIN, Role.TECHNICAL)
 def onboard_org():
-    """Registration confirmations.
+    """Confirm and finalize registration.
 
     TODO: expand the spect as soon as the reqirements get sorted out.
     """
@@ -777,15 +781,9 @@ in order to complete the log-out.""", "warning")
     return render_template("uoa-slo.html")
 
 
-def generateRow(users):
-    yield "Email,Eppn,ORCID ID\n"
-    for u in users:
-        # ORCID ID might be NULL, Hence adding a check
-        yield ','.join([u.email, str(u.eppn or ""), str(u.orcid or "")]) + '\n'
-
-
 @app.errorhandler(500)
 def internal_error(error):
+    """Handle internal error."""
     app.logger.exception("Unhandle exception occured.")
     trace = traceback.format_exc()
     return render_template("http500.html", error_message=str(error), trace=trace)
@@ -794,13 +792,13 @@ def internal_error(error):
 @app.route("/orcid/login/")
 @app.route("/orcid/login/<invitation_token>")
 def orcid_login(invitation_token=None):
-    """Authentication vi ORCID.
+    """Authenticate a user vi ORCID.
 
     If an invitain token is presented, perform affiliation of the user or on-boarding
     of the onboarding of the organisation, if the user is the technical conatact of
     the organisation. For technical contacts the email should be made available for
-    READ LIMITED scope."""
-
+    READ LIMITED scope.
+    """
     _next = get_next_url()
     redirect_uri = url_for("orcid_callback", _next=_next, _external=True)
 
@@ -856,7 +854,8 @@ def orcid_login(invitation_token=None):
                 given_names=user.first_name,
                 email=email)
 
-        oac = OrcidAuthorizeCall.create(user_id=None, method="GET", url=orcid_authenticate_url, state=state)
+        oac = OrcidAuthorizeCall.create(
+            user_id=None, method="GET", url=orcid_authenticate_url, state=state)
         oac.save()
 
         return redirect(orcid_authenticate_url)
@@ -868,6 +867,7 @@ def orcid_login(invitation_token=None):
 
 
 def orcid_login_callback(request):
+    """Handle call-back for user authenitcation via ORCID."""
     _next = get_next_url()
 
     state = request.args.get("state")
@@ -1060,6 +1060,7 @@ def orcid_login_callback(request):
 @app.route("/select/user_org/<int:user_org_id>")
 @login_required
 def select_user_org(user_org_id):
+    """Change the current organisation of the current user."""
     user_org_id = int(user_org_id)
     _next = get_next_url() or request.referrer or url_for("login")
     try:

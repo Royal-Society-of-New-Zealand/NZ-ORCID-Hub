@@ -11,7 +11,6 @@ from models import Role, User
 
 def test_admin_view_access(request_ctx):
     """Test if SUPERUSER can access Flask-Admin"."""
-
     with request_ctx("/admin/user/") as ctx:
         test_user = User(
             name="TEST USER",
@@ -28,7 +27,6 @@ def test_admin_view_access(request_ctx):
 
 def test_admin_view_access_fail(client, request_ctx):
     """Test if non SUPERUSER cannot access Flask-Admin"."""
-
     rv = client.get("/admin/user/")
     assert rv.status_code == 302
     assert "next=" in rv.location and "admin" in rv.location
@@ -45,7 +43,6 @@ def test_admin_view_access_fail(client, request_ctx):
 
 def test_pyinfo(request_ctx):
     """Test pyinfo is workinkg."""
-
     with request_ctx("/pyinfo") as ctx:
         test_user = User(
             name="TEST USER",
@@ -62,7 +59,6 @@ def test_pyinfo(request_ctx):
 
 def test_year_range():
     """Test Jinja2 filter."""
-
     assert views.year_range({"start_date": None, "end_date": None}) == "unknown-present"
     assert views.year_range({
         "start_date": {
