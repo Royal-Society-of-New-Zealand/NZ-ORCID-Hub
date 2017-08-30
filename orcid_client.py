@@ -8,7 +8,7 @@ isort:skip_file
 from config import ORCID_API_BASE, SCOPE_READ_LIMITED, SCOPE_ACTIVITIES_UPDATE, ORCID_BASE_URL
 from flask_login import current_user
 from models import OrcidApiCall, Affiliation, OrcidToken
-from swagger_client import (configuration, rest, api_client, apis, MemberAPIV20Api, SourceClientId,
+from swagger_client import (configuration, rest, api_client, MemberAPIV20Api, SourceClientId,
                             Source, OrganizationAddress, DisambiguatedOrganization, Employment,
                             Education, Organization)
 from time import time
@@ -197,4 +197,3 @@ class MemberAPI(MemberAPIV20Api):
 # yapf: disable
 from swagger_client import *  # noqa: F401,F403,F405
 api_client.RESTClientObject = OrcidRESTClientObject  # noqa: F405
-apis.member_apiv20_api.ApiClient = OrcidApiClient  # noqa: F405
