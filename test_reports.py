@@ -33,7 +33,6 @@ def test_admin_view_access(request_ctx):
         login_user(test_user, remember=True)
 
         rv = ctx.app.full_dispatch_request()
-        print(rv.data.decode())
         assert rv.status_code == 200
         assert b"TEST ORGANISATION" in rv.data
         assert b"1 / 2" in rv.data
