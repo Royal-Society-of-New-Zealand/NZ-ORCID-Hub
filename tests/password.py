@@ -1,16 +1,19 @@
+# -*- coding: utf-8 -*-
+"""Utilities for secure storage and retrieval of secrets."""
+
 # noinspection PyPackageRequirements
+import base64
+import logging
+import os
+from os.path import dirname, join
 
 from Crypto.Cipher import AES
-import base64
-import os
-from os.path import join, dirname
 from dotenv import load_dotenv
-import logging
 
 
 # noinspection PyClassHasNoInit,PyMethodMayBeStatic
-class Password(object):
-    def __init__(self):
+class Password:  # noqa: D101
+    def __init__(self):  # noqa: D102
         try:
             self.password = Password.decode_password()
         except:
@@ -19,6 +22,7 @@ class Password(object):
 
     @staticmethod
     def encode_password():
+        """Encrypt and base64-encode the password."""
         # Get password from ENV.
         # Get secret from ENV.
         # print encoded password to stdout.
@@ -30,7 +34,7 @@ class Password(object):
         print(encoded)
 
     @staticmethod
-    def decode_password():
+    def decode_password():  # noqa: D102
         password = os.environ.get('PASSWORD')
         secret_key = os.environ.get('SECRET')
 
@@ -41,11 +45,9 @@ class Password(object):
         return decoded
 
 
-
 if __name__ == "__main__":
     Password.encode_password()
 else:
     dotenv_path = join(dirname(__file__), '.env')
     load_dotenv(dotenv_path)
     PASSWORD = Password()
-

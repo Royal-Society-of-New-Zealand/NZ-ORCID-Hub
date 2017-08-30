@@ -4,7 +4,7 @@ Documentation     A resource file with reusable keywords and variables.
 ...               The system specific keywords created here form our own
 ...               domain specific language. They utilize keywords provided
 ...               by the imported Selenium2Library.
-Library           Selenium2Library
+Library           SeleniumLibrary
 
 *** Variables ***
 ${SERVER}           dev.orcidhub.org.nz
@@ -15,7 +15,7 @@ ${ONBOARD URL}      https://${SERVER}/invite/organisation
 
 *** Variables ***
 #${TUAKIRI FED}      Tuakiri New Zealand Access Federation
-${UOA IDP}          http://iam.auckland.ac.nz/idp
+${UOA IDP}          http://iam.test.auckland.ac.nz/idp
 ${UOA FORM NAME}      _eventId_proceed
 
 *** Keywords ***

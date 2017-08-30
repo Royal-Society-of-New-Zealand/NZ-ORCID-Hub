@@ -8,7 +8,7 @@ Resource          resource.robot
 Variables           config.py
 
 *** Variables ***
-${UOA USERNAME}     ${USERNAME}
+${UOA USERNAME}     ${TEST_USERNAME}
 ${UOA PASSWORD}     ${PASSWORD}
 
 *** Test Cases ***
