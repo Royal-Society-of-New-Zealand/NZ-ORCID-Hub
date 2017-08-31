@@ -276,12 +276,13 @@ def send_user_initation(inviter,
                     f"submitted by {inviter} of {org} for affiliations: {affiliation_types}")
 
         email = email.lower()
-        user, _ = User.get_or_create(email=email)
-        user.first_name = first_name
-        user.last_name = last_name
-        user.roles |= Role.RESEARCHER
-        user.email = email
+        user, user_created = User.get_or_create(email=email)
+        if user_created:
+            user.first_name = first_name
+            user.last_name = last_name
         user.organisation = org
+        user.roles |= Role.RESEARCHER
+
         token = generate_confirmation_token(email=email, org=org.name)
         with app.app_context():
             url = flask.url_for('orcid_login', invitation_token=token, _external=True)
@@ -298,6 +299,10 @@ def send_user_initation(inviter,
         user.save()
 
         user_org, user_org_created = UserOrg.get_or_create(user=user, org=org)
+        if user_org_created:
+            user_org.created_by = inviter.id
+        else:
+            user_org.updated_by = inviter.id
 
         if affiliations is None and affiliation_types:
             affiliations = 0
@@ -317,7 +322,7 @@ def send_user_initation(inviter,
             last_name=last_name,
             orcid=orcid,
             department=department,
-            organisation=organisation,
+            organisation=org.name,
             city=city,
             state=state,
             country=country,

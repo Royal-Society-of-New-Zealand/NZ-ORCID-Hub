@@ -163,7 +163,7 @@ class MemberAPI(MemberAPIV20Api):
             rec.end_date = end_date.as_orcid_dict()
 
         try:
-            if affiliation == Affiliation.EDU:
+            if affiliation == Affiliation.EMP:
                 api_call = self.update_employment if put_code else self.create_employment
             else:
                 api_call = self.update_education if put_code else self.create_education
