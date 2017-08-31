@@ -30,7 +30,7 @@ from werkzeug.urls import iri_to_uri
 import orcid_client
 from application import app, db, mail
 from config import (APP_DESCRIPTION, APP_NAME, APP_URL, AUTHORIZATION_BASE_URL, CRED_TYPE_PREMIUM,
-                    EXTERNAL_SP, EXISTING_UPDATE, MEMBER_API_FORM_BASE_URL, NEW_CREDENTIALS, NOTE_ORCID,
+                    EXTERNAL_SP, MEMBER_API_FORM_BASE_URL, NOTE_ORCID,
                     ORCID_API_BASE, ORCID_BASE_URL, ORCID_CLIENT_ID, ORCID_CLIENT_SECRET,
                     SCOPE_ACTIVITIES_UPDATE, SCOPE_AUTHENTICATE, SCOPE_READ_LIMITED, TOKEN_URL)
 from forms import OrgConfirmationForm
@@ -623,7 +623,7 @@ def request_orcid_credentials():
     """
     client_secret_url = append_qs(
         iri_to_uri(MEMBER_API_FORM_BASE_URL),
-        new_existing=(EXISTING_UPDATE if current_user.organisation.confirmed else NEW_CREDENTIALS),
+        new_existing=('Existing_Update' if current_user.organisation.confirmed else 'New_Credentials'),
         note=NOTE_ORCID + " " + current_user.organisation.name,
         contact_email=current_user.email,
         contact_name=current_user.name,
