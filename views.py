@@ -261,6 +261,7 @@ class OrganisationAdmin(AppModelView):
         "name",
         "tuakiri_name",
         "city", )
+    edit_template = "admin/organisation_edit.html"
 
     def update_model(self, form, model):
         """Handle change of the technical contact."""
@@ -525,7 +526,7 @@ def user_orcid_id_url(user):
 @app.template_filter("isodate")
 def isodate(d, sep=' '):
     """Render date into format YYYY-mm-dd HH:MM."""
-    return d.strftime("%Y‑%m‑%d" + sep + "%H:%M") if d and isinstance(d, (datetime, )) else d
+    return d.strftime("%Y‑%m‑%d" + sep + "%H:%M") if d and isinstance(d, (datetime, )) else ''
 
 
 @app.template_filter("shorturl")
