@@ -390,7 +390,7 @@ class AffiliationRecordAdmin(AppModelView):
         if not super().is_accessible():
             return False
 
-        if request.method == "POST":
+        if request.method == "POST" and request.form.get("rowid"):
             # get the first ROWID:
             rowid = int(request.form.get("rowid"))
             task_id = AffiliationRecord.get(id=rowid).task_id

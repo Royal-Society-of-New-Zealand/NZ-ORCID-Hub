@@ -175,7 +175,7 @@ class MemberAPI(MemberAPIV20Api):
             app.logger.info(
                 f"For {self.user} the ORCID record was {'updated' if put_code else 'created'} from {self.org}"
             )
-            created = bool(put_code)
+            created = not bool(put_code)
             # retrieve the put-code from response Location header:
             if resp.status == 201:
                 location = resp.headers.get("Location")
