@@ -17,7 +17,7 @@ from flask_login import UserMixin, current_user
 from peewee import BooleanField as BooleanField_
 from peewee import (CharField, DateTimeField, DeferredRelation, Field, FixedCharField,
                     ForeignKeyField, IntegerField, Model, OperationalError, SmallIntegerField,
-                    TextField)
+                    TextField, fn)
 from playhouse.shortcuts import model_to_dict
 from pycountry import countries
 
@@ -305,6 +305,44 @@ class Organisation(BaseModel, AuditMixin):
         help_text="Organisation technical contact")
     created_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
     updated_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
+
+    api_credentials_requested_at = DateTimeField(
+        null=True,
+        help_text="The time stamp when the user clicked on the button to register client API.")
+    api_credentials_entered_at = DateTimeField(
+        null=True, help_text="The time stamp when the user entered API Client ID and secret.")
+
+    @property
+    def invitation_sent_to(self):
+        """Get the most recent invitation recepient."""
+        try:
+            return (self.orginvitation_set.select(OrgInvitation.invitee).where(
+                OrgInvitation.invitee_id == self.tech_contact_id)
+                    .order_by(OrgInvitation.created_at.desc()).first().invitee)
+        except:
+            return None
+
+    @property
+    def invitation_sent_at(self):
+        """Get the timestamp of the most recent invitation sent to the technical contact."""
+        try:
+            return (self.orginvitation_set.select(
+                fn.MAX(OrgInvitation.created_at).alias("last_sent_at")).where(
+                    OrgInvitation.invitee_id == self.tech_contact_id).first().last_sent_at)
+        except:
+            return None
+
+    @property
+    def invitation_confirmed_at(self):
+        """Get the timestamp when the invitation link was opened."""
+        try:
+            return (self.orginvitation_set.select(
+                fn.MAX(OrgInvitation.created_at).alias("last_confirmed_at")).where(
+                    OrgInvitation.invitee_id == self.tech_contact_id)
+                    .where(OrgInvitation.confirmed_at.is_null(False)).first().last_confirmed_at)
+        except:
+            raise
+            return None
 
     @property
     def users(self):
