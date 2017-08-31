@@ -341,7 +341,6 @@ class Organisation(BaseModel, AuditMixin):
                     OrgInvitation.invitee_id == self.tech_contact_id)
                     .where(OrgInvitation.confirmed_at.is_null(False)).first().last_confirmed_at)
         except:
-            raise
             return None
 
     @property
