@@ -5,7 +5,7 @@ import logging
 import os
 import textwrap
 from datetime import datetime
-from itertools import groupby
+from itertools import filterfalse, groupby
 from os.path import splitext
 from urllib.parse import urlencode, urlparse
 
@@ -341,6 +341,29 @@ def send_user_initation(inviter,
         raise ex
 
 
+def unique_everseen(iterable, key=None):
+    """List unique elements, preserving order. Remember all elements ever seen.
+
+    The snippet is taken form https://docs.python.org/3.6/library/itertools.html#itertools-recipes
+    >>> unique_everseen('AAAABBBCCDAABBB')
+    A B C D
+    >>> unique_everseen('ABBCcAD', str.lower)
+    A B C D
+    """
+    seen = set()
+    seen_add = seen.add
+    if key is None:
+        for element in filterfalse(seen.__contains__, iterable):
+            seen_add(element)
+            yield element
+    else:
+        for element in iterable:
+            k = key(element)
+            if k not in seen:
+                seen_add(k)
+                yield element
+
+
 def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
     """Create or update affiliation record of a user.
 
@@ -352,7 +375,8 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
     org = Organisation.get(id=org_id)
     api = orcid_client.MemberAPI(org, user)
 
-    for task_by_user in records:
+    # TODO: refactor the query to replace this workaround (need to eliminate 'stale' invitations)
+    for task_by_user in unique_everseen(records, key=lambda t: t.affiliation_record.id):
         ar = task_by_user.affiliation_record
         at = ar.affiliation_type.lower()
         if at in {"faculty", "staff", "emp"}:
