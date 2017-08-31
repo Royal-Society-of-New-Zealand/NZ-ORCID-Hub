@@ -95,6 +95,7 @@ class AppModelView(ModelView):
         "created_by",
         "updated_by", )
     form_overrides = dict(start_date=PartialDateField, end_date=PartialDateField)
+    form_widget_args = {c: {"readonly": True} for c in column_exclude_list}
 
     def __init__(self, model=None, *args, **kwargs):
         """Pick the model based on the ModelView class name assuming it is ModelClass + "Admin"."""
@@ -262,6 +263,9 @@ class OrganisationAdmin(AppModelView):
         "tuakiri_name",
         "city", )
     edit_template = "admin/organisation_edit.html"
+    form_widget_args = AppModelView.form_widget_args
+    form_widget_args["api_credentials_requested_at"] = {"readonly": True}
+    form_widget_args["api_credentials_entered_at"] = {"readonly": True}
 
     def update_model(self, form, model):
         """Handle change of the technical contact."""
