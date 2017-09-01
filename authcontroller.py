@@ -745,6 +745,7 @@ def onboard_org():
 
     return render_template('orgconfirmation.html', form=form, organisation=organisation)
 
+
 @app.after_request
 def remove_if_invalid(response):
     """Remove a stale session and session cookie."""
