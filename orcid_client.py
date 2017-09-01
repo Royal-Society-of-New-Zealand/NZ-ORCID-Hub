@@ -14,6 +14,7 @@ from swagger_client import (configuration, rest, api_client, MemberAPIV20Api, So
 from time import time
 from urllib.parse import urlparse
 from application import app
+import json
 
 url = urlparse(ORCID_API_BASE)
 configuration.host = url.scheme + "://" + url.hostname
@@ -96,6 +97,32 @@ class MemberAPI(MemberAPIV20Api):
 
         self.source = Source(
             source_orcid=None, source_client_id=self.source_clientid, source_name=org.name)
+
+    def get_record(self):
+        """Fetch record details."""
+        header_params = {
+            "Accept":
+            self.api_client.select_header_content_type([
+                'application/vnd.orcid+xml; qs=5', 'application/orcid+xml; qs=3',
+                'application/xml', 'application/vnd.orcid+json; qs=4',
+                'application/orcid+json; qs=2', 'application/json'
+            ])
+        }
+
+        resp, code, headers = self.api_client.call_api(
+            f"/v2.0/{self.user.orcid}",
+            "GET",
+            header_params=header_params,
+            response_type=None,
+            auth_settings=["orcid_auth"],
+            _preload_content=False)
+        if code != 200:
+            app.logger.error(f"Failed to retrieve ORDIC profile. Code: {code}.")
+            app.logger.info(f"Headers: {headers}")
+            app.logger.info(f"Body: {resp.data.decode()}")
+            return None
+
+        return json.loads(resp.data.decode())
 
     def create_or_update_affiliation(self,
                                      affiliation=None,
