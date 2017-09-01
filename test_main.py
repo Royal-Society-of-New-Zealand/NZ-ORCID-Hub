@@ -78,15 +78,15 @@ def test_tuakiri_login(client):
             "Auedupersonsharedtoken": "ABC123",
             "Sn": "LAST NAME/SURNAME/FAMILY NAME",
             'Givenname': "FIRST NAME/GIVEN NAME",
-            "Mail": "user@test.test.net",
+            "Mail": "user123@test.test.net;user123@test.net",
             "O": "ORGANISATION 123",
             "Displayname": "TEST USER FROM 123",
             "Unscoped-Affiliation": "staff",
-            "Eppn": "user@test.test.net"
+            "Eppn": "eppn123@test.test.net"
         })
 
     assert rv.status_code == 302
-    u = User.get(email="user@test.test.net")
+    u = User.get(email="user123@test.test.net")
     assert u.name == "TEST USER FROM 123", "Expected to have the user in the DB"
     assert u.first_name == "FIRST NAME/GIVEN NAME"
     assert u.last_name == "LAST NAME/SURNAME/FAMILY NAME"

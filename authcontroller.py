@@ -183,14 +183,21 @@ def handle_login():
             flash("Failed to save organisation data: %s" % str(ex))
             app.logger.error("Exception Occured: %r", str(ex))
 
-    try:
-        q = User.select().where(User.email == email)
-        if eppn:
-            q = q.orwhere(User.eppn == eppn)
-        if secondary_emails:
-            q = q.orwhere(User.email.in_(secondary_emails))
-        user = q.first()
-
+    q = User.select().where(User.email == email)
+    if eppn:
+        q = q.orwhere(User.eppn == eppn)
+    if secondary_emails:
+        q = q.orwhere(User.email.in_(secondary_emails))
+    user = q.first()
+    if not user:
+        user = User.create(
+            email=email,
+            eppn=eppn,
+            name=name,
+            first_name=first_name,
+            last_name=last_name,
+            roles=Role.RESEARCHER)
+    else:
         # Add Shibboleth meta data if they are missing
         if not user.name or org is not None and user.name == org.name and name:
             user.name = name
@@ -200,15 +207,6 @@ def handle_login():
             user.last_name = last_name
         if not user.eppn and eppn:
             user.eppn = eppn
-
-    except User.DoesNotExist:
-        user = User.create(
-            email=email,
-            eppn=eppn,
-            name=name,
-            first_name=first_name,
-            last_name=last_name,
-            roles=Role.RESEARCHER)
 
     # TODO: need to find out a simple way of tracking
     # the organization user is logged in from:
