@@ -10,11 +10,11 @@
     <div class="form-group">
       <p>
         {% if organisation.confirmed %}
-          <a id="connect-orcid-button" class="btn btn-default" href="{{client_secret_url}}" role="button">
+          <a id="connect-orcid-button" class="btn btn-default" href="{{url_for('request_orcid_credentials')}}" target="_blank" role="button">
             <img id="orcid-id-logo" src="https://orcid.org/sites/default/files/images/orcid_24x24.png" width='24'
                                     height='24' alt="ORCID logo"/>&nbsp;Take me to ORCID to change my Client details </a>
         {% else %}
-          <a id="connect-orcid-button-update" class="btn btn-default" href="{{client_secret_url}}" role="button">
+          <a id="connect-orcid-button-update" class="btn btn-default" href="{{url_for('request_orcid_credentials')}}" target="_blank" role="button">
             <img id="orcid-id-logo-update" src="https://orcid.org/sites/default/files/images/orcid_24x24.png" width='24'
                                     height='24' alt="ORCID logo"/>&nbsp;Take me to ORCID to obtain my Client ID and Client Secret </a>
         {% endif %}

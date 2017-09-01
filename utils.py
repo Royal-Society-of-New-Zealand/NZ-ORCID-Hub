@@ -5,7 +5,7 @@ import logging
 import os
 import textwrap
 from datetime import datetime
-from itertools import groupby
+from itertools import filterfalse, groupby
 from os.path import splitext
 from urllib.parse import urlencode, urlparse
 
@@ -276,12 +276,13 @@ def send_user_initation(inviter,
                     f"submitted by {inviter} of {org} for affiliations: {affiliation_types}")
 
         email = email.lower()
-        user, _ = User.get_or_create(email=email)
-        user.first_name = first_name
-        user.last_name = last_name
-        user.roles |= Role.RESEARCHER
-        user.email = email
+        user, user_created = User.get_or_create(email=email)
+        if user_created:
+            user.first_name = first_name
+            user.last_name = last_name
         user.organisation = org
+        user.roles |= Role.RESEARCHER
+
         token = generate_confirmation_token(email=email, org=org.name)
         with app.app_context():
             url = flask.url_for('orcid_login', invitation_token=token, _external=True)
@@ -298,6 +299,10 @@ def send_user_initation(inviter,
         user.save()
 
         user_org, user_org_created = UserOrg.get_or_create(user=user, org=org)
+        if user_org_created:
+            user_org.created_by = inviter.id
+        else:
+            user_org.updated_by = inviter.id
 
         if affiliations is None and affiliation_types:
             affiliations = 0
@@ -317,7 +322,7 @@ def send_user_initation(inviter,
             last_name=last_name,
             orcid=orcid,
             department=department,
-            organisation=organisation,
+            organisation=org.name,
             city=city,
             state=state,
             country=country,
@@ -341,6 +346,29 @@ def send_user_initation(inviter,
         raise ex
 
 
+def unique_everseen(iterable, key=None):
+    """List unique elements, preserving order. Remember all elements ever seen.
+
+    The snippet is taken form https://docs.python.org/3.6/library/itertools.html#itertools-recipes
+    >>> unique_everseen('AAAABBBCCDAABBB')
+    A B C D
+    >>> unique_everseen('ABBCcAD', str.lower)
+    A B C D
+    """
+    seen = set()
+    seen_add = seen.add
+    if key is None:
+        for element in filterfalse(seen.__contains__, iterable):
+            seen_add(element)
+            yield element
+    else:
+        for element in iterable:
+            k = key(element)
+            if k not in seen:
+                seen_add(k)
+                yield element
+
+
 def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
     """Create or update affiliation record of a user.
 
@@ -352,7 +380,8 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
     org = Organisation.get(id=org_id)
     api = orcid_client.MemberAPI(org, user)
 
-    for task_by_user in records:
+    # TODO: refactor the query to replace this workaround (need to eliminate 'stale' invitations)
+    for task_by_user in unique_everseen(records, key=lambda t: t.affiliation_record.id):
         ar = task_by_user.affiliation_record
         at = ar.affiliation_type.lower()
         if at in {"faculty", "staff", "emp"}:
@@ -374,6 +403,7 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
                 ar.add_status_line(f"Affiliation record was created.")
             else:
                 ar.add_status_line("Affiliation record was updated")
+            ar.put_code = put_code
             ar.processed_at = datetime.now()
 
         except Exception as ex:
