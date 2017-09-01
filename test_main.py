@@ -92,6 +92,35 @@ def test_tuakiri_login(client):
     assert u.last_name == "LAST NAME/SURNAME/FAMILY NAME"
 
 
+def test_tuakiri_login_usgin_eppn(client):
+    """Test logging attempt via Shibboleth using differt values to identify the user."""
+    org = Organisation(tuakiri_name="ORGANISATION 123ABC")
+    org.save()
+    user = User.create(
+        email="something_else@test.test.net", eppn="eppn123@test.test.net", roles=Role.RESEARCHER)
+    user.save()
+
+    rv = client.get(
+        "/Tuakiri/login",
+        headers={
+            "Auedupersonsharedtoken": "ABC123",
+            "Sn": "LAST NAME/SURNAME/FAMILY NAME",
+            'Givenname': "FIRST NAME/GIVEN NAME",
+            "Mail": "user123@test.test.net",
+            "O": "ORGANISATION 123ABC",
+            "Displayname": "TEST USER FROM 123",
+            "Unscoped-Affiliation": "staff",
+            "Eppn": "eppn123@test.test.net"
+        })
+
+    assert rv.status_code == 302
+    u = User.get(eppn="eppn123@test.test.net")
+    assert u.email == "something_else@test.test.net"
+    assert u.name == "TEST USER FROM 123", "Expected to have the user in the DB"
+    assert u.first_name == "FIRST NAME/GIVEN NAME"
+    assert u.last_name == "LAST NAME/SURNAME/FAMILY NAME"
+
+
 def test_tuakiri_login_wo_org(client):
     """
     Test logging attempt via Shibboleth.

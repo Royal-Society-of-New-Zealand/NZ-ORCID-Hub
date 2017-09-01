@@ -30,9 +30,9 @@ from werkzeug.urls import iri_to_uri
 import orcid_client
 from application import app, db, mail
 from config import (APP_DESCRIPTION, APP_NAME, APP_URL, AUTHORIZATION_BASE_URL, CRED_TYPE_PREMIUM,
-                    EXTERNAL_SP, MEMBER_API_FORM_BASE_URL, NOTE_ORCID,
-                    ORCID_API_BASE, ORCID_BASE_URL, ORCID_CLIENT_ID, ORCID_CLIENT_SECRET,
-                    SCOPE_ACTIVITIES_UPDATE, SCOPE_AUTHENTICATE, SCOPE_READ_LIMITED, TOKEN_URL)
+                    EXTERNAL_SP, MEMBER_API_FORM_BASE_URL, NOTE_ORCID, ORCID_API_BASE,
+                    ORCID_BASE_URL, ORCID_CLIENT_ID, ORCID_CLIENT_SECRET, SCOPE_ACTIVITIES_UPDATE,
+                    SCOPE_AUTHENTICATE, SCOPE_READ_LIMITED, TOKEN_URL)
 from forms import OrgConfirmationForm
 from login_provider import roles_required
 from models import (Affiliation, OrcidAuthorizeCall, OrcidToken, Organisation, OrgInfo,
@@ -191,14 +191,14 @@ def handle_login():
             flash(f"Failed to save organisation data: {ex}")
             app.logger.exception(f"Failed to save organisation data: {ex}")
 
-    try:
-        q = User.select().where(User.email == email)
-        if eppn:
-            q = q.orwhere(User.eppn == eppn)
-        if secondary_emails:
-            q = q.orwhere(User.email.in_(secondary_emails))
-        user = q.first()
+    q = User.select().where(User.email == email)
+    if eppn:
+        q = q.orwhere(User.eppn == eppn)
+    if secondary_emails:
+        q = q.orwhere(User.email.in_(secondary_emails))
+    user = q.first()
 
+    if user:
         # Add Shibboleth meta data if they are missing
         if not user.name or org is not None and user.name == org.name and name:
             user.name = name
@@ -208,8 +208,7 @@ def handle_login():
             user.last_name = last_name
         if not user.eppn and eppn:
             user.eppn = eppn
-
-    except User.DoesNotExist:
+    else:
         user = User.create(
             email=email,
             eppn=eppn,
@@ -628,7 +627,8 @@ def request_orcid_credentials():
     """
     client_secret_url = append_qs(
         iri_to_uri(MEMBER_API_FORM_BASE_URL),
-        new_existing=('Existing_Update' if current_user.organisation.confirmed else 'New_Credentials'),
+        new_existing=('Existing_Update'
+                      if current_user.organisation.confirmed else 'New_Credentials'),
         note=NOTE_ORCID + " " + current_user.organisation.name,
         contact_email=current_user.email,
         contact_name=current_user.name,
