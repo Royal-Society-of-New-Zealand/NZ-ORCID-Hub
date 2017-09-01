@@ -162,8 +162,8 @@ def handle_login():
                                    for a in data.get("Unscoped-Affiliation", '').encode("latin-1")
                                    .decode("utf-8").replace(',', ';').split(';'))
         app.logger.info(
-            "User with email address %r is trying to login having affiliation as %r with %r",
-            email, unscoped_affiliation, shib_org_name)
+            f"User with email address {email} (eppn: {eppn} is trying "
+            f"to login having affiliation as {unscoped_affiliation} with {shib_org_name}")
         if secondary_emails:
             app.logger.info(
                 f"the user has logged in with secondary email addresses: {secondary_emails}")
@@ -192,7 +192,12 @@ def handle_login():
             app.logger.exception(f"Failed to save organisation data: {ex}")
 
     try:
-        user = User.get(User.email == email)
+        q = User.select().where(User.email == email)
+        if eppn:
+            q = q.orwhere(User.eppn == eppn)
+        if secondary_emails:
+            q = q.orwhere(User.email.in_(secondary_emails))
+        user = q.first()
 
         # Add Shibboleth meta data if they are missing
         if not user.name or org is not None and user.name == org.name and name:
