@@ -163,7 +163,7 @@ class MemberAPI(MemberAPIV20Api):
             rec.end_date = end_date.as_orcid_dict()
 
         try:
-            if affiliation == Affiliation.EDU:
+            if affiliation == Affiliation.EMP:
                 api_call = self.update_employment if put_code else self.create_employment
             else:
                 api_call = self.update_education if put_code else self.create_education
@@ -175,7 +175,7 @@ class MemberAPI(MemberAPIV20Api):
             app.logger.info(
                 f"For {self.user} the ORCID record was {'updated' if put_code else 'created'} from {self.org}"
             )
-            created = bool(put_code)
+            created = not bool(put_code)
             # retrieve the put-code from response Location header:
             if resp.status == 201:
                 location = resp.headers.get("Location")
