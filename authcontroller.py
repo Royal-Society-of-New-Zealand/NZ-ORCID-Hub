@@ -7,6 +7,7 @@ user (reseaser) affiliations.
 
 import base64
 import pickle
+import re
 import secrets
 import zlib
 from datetime import datetime
@@ -20,6 +21,7 @@ from flask_login import current_user, login_required, login_user, logout_user
 from flask_mail import Message
 from oauthlib.oauth2 import rfc6749
 from requests_oauthlib import OAuth2Session
+from swagger_client.rest import ApiException
 from werkzeug.urls import iri_to_uri
 
 import orcid_client
@@ -33,7 +35,6 @@ from forms import OnboardingTokenForm, OrgConfirmationForm, SelectOrganisation
 from login_provider import roles_required
 from models import (Affiliation, OrcidToken, Organisation, OrgInfo, OrgInvitation, Role, User,
                     UserOrg)
-from swagger_client.rest import ApiException
 from utils import append_qs, confirm_token
 
 HEADERS = {'Accept': 'application/vnd.orcid+json', 'Content-type': 'application/vnd.orcid+json'}
@@ -143,7 +144,8 @@ def handle_login():
     try:
         last_name = data['Sn'].encode("latin-1").decode("utf-8")
         first_name = data['Givenname'].encode("latin-1").decode("utf-8")
-        email = data['Mail'].encode("latin-1").decode("utf-8").lower()
+        email, *secondary_emails = re.split("[,; \t]",
+                                            data['Mail'].encode("latin-1").decode("utf-8").lower())
         session["shib_O"] = shib_org_name = data['O'].encode("latin-1").decode("utf-8")
         name = data.get('Displayname').encode("latin-1").decode("utf-8")
         eppn = data.get('Eppn').encode("latin-1").decode("utf-8")
@@ -151,8 +153,13 @@ def handle_login():
                                    for a in data.get("Unscoped-Affiliation", '').encode("latin-1")
                                    .decode("utf-8").replace(',', ';').split(';'))
         app.logger.info(
-            "User with email address %r is trying to login having affiliation as %r with %r",
-            email, unscoped_affiliation, shib_org_name)
+            f"User with email address {email} (eppn: {eppn} is trying " +
+            f"to login having affiliation as {unscoped_affiliation} with {shib_org_name}")
+
+        if secondary_emails:
+            app.logger.info(
+                f"the user has logged in with secondary email addresses: {secondary_emails}")
+
     except Exception as ex:
         app.logger.error("Encountered exception: %r", ex)
         abort(500, ex)
@@ -177,7 +184,12 @@ def handle_login():
             app.logger.error("Exception Occured: %r", str(ex))
 
     try:
-        user = User.get(User.email == email)
+        q = User.select().where(User.email == email)
+        if eppn:
+            q = q.orwhere(User.eppn == eppn)
+        if secondary_emails:
+            q = q.orwhere(User.email.in_(secondary_emails))
+        user = q.first()
 
         # Add Shibboleth meta data if they are missing
         if not user.name or org is not None and user.name == org.name and name:
@@ -691,9 +703,8 @@ def confirm_organisation(token=None):
                     except OrgInvitation.DoesNotExist:
                         pass
                     # Delete the "stale" invitations:
-                    OrgInvitation.delete().where(
-                            OrgInvitation.org == organisation,
-                            OrgInvitation.token != token).execute()
+                    OrgInvitation.delete().where(OrgInvitation.org == organisation,
+                                                 OrgInvitation.token != token).execute()
 
                     return redirect(url_for("link"))
 
