@@ -403,6 +403,7 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
                 ar.add_status_line(f"Affiliation record was created.")
             else:
                 ar.add_status_line("Affiliation record was updated")
+            ar.orcid = orcid
             ar.put_code = put_code
             ar.processed_at = datetime.now()
 
