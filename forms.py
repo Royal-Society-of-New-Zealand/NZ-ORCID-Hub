@@ -256,6 +256,7 @@ class OrgConfirmationForm(FlaskForm):
 
     name = StringField('Organisation Name', validators=[DataRequired()])
     email = EmailField('Organisation EmailId', validators=[DataRequired(), Email()])
+    show_api_credentials = BooleanField("Show API Credentials", default=False)
     orcid_client_id = StringField(
         'Organisation Orcid Client Id: ',
         validators=[
