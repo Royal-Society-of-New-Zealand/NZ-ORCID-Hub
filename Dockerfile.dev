@@ -5,6 +5,7 @@ LABEL maintainer="The University of Auckland" \
 	description="NZ ORCiD Hub Application Image with Development support"
 
 ADD https://github.com/zaproxy/zaproxy/releases/download/2.6.0/ZAP_2.6.0_Linux.tar.gz ZAP_Linux.tar.gz
+ADD http://anduin.linuxfromscratch.org/BLFS/OpenJDK/OpenJDK-1.8.0.141/OpenJDK-1.8.0.141-x86_64-bin.tar.xz OpenJDK.tar.gz.xz
 
 RUN yum -y update \
     && yum -y install  install https://download.postgresql.org/pub/repos/yum/9.6/redhat/rhel-7-x86_64/pgdg-redhat96-9.6-3.noarch.rpm \
@@ -13,15 +14,16 @@ RUN yum -y update \
 	    python36u-pip \
 	    git \
 	&& tar -xzf ZAP_Linux.tar.gz -C /tmp \
+	&& tar -xf OpenJDK.tar.gz.xz -C /tmp \
 	&& pip3.6 install -U git+https://github.com/Royal-Society-of-New-Zealand/zap-cli \
     && pip3.6 install -U flake8_docstrings pytest-cov coveralls pyyaml \
-    && yum -y install  install java \
     && cd /var/lib/rpm \
     && rm -rf __db* \
     && rpm --rebuilddb \
     && yum -y clean all \
     && rm -rf $HOME/.pip/cache \
     && rm -rf ZAP_Linux.tar.gz \
+    && rm -rf OpenJDK.tar.gz.xz \
     && rm -rf /var/cache/*/* /anaconda-post.log
 
 ENV DEBUG=1
