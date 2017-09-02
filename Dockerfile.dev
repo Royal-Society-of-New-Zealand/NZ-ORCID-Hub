@@ -15,6 +15,7 @@ RUN yum -y update \
 	&& tar -xzf ZAP_Linux.tar.gz -C /tmp \
 	&& pip3.6 install -U git+https://github.com/Royal-Society-of-New-Zealand/zap-cli \
     && pip3.6 install -U flake8_docstrings pytest-cov coveralls pyyaml \
+    && yum -y install  install java \
     && cd /var/lib/rpm \
     && rm -rf __db* \
     && rpm --rebuilddb \

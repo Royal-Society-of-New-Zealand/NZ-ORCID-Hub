@@ -6,7 +6,7 @@ language: python
 cache: pip
 
 env:
-  - ENV=dev PGPORT=54321 USER_UID=$(id -u) USER_GID=$(id -g) DOMAIN=build.orcidhub.org.nz
+  - ENV=dev PGPORT=54321 USER_UID=$(id -u) USER_GID=$(id -g) DOMAIN=build.orcidhub.org.nz LANG=en_US.UTF-8
 
 before_install:
   - sudo rm /usr/local/bin/docker-compose
