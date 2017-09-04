@@ -452,9 +452,10 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
             put_code, orcid, created = api.create_or_update_affiliation(
                 affiliation=affiliation, **ar._data)
             if created:
-                ar.add_status_line(f"Affiliation record was created.")
+                ar.add_status_line(f"{str(affiliation)} record was created.")
             else:
-                ar.add_status_line("Affiliation record was updated")
+                ar.add_status_line(f"{str(affiliation)} record was updated.")
+            ar.orcid = orcid
             ar.put_code = put_code
             ar.processed_at = datetime.now()
 
@@ -534,8 +535,12 @@ def process_affiliation_records(max_rows=20):
                 AffiliationRecord.orcid).distinct().count()
 
             with app.app_context():
+                protocol_scheme = 'http'
+                if not EXTERNAL_SP:
+                    protocol_scheme = 'https'
                 export_url = flask.url_for(
-                    "affiliationrecord.export", export_type="csv", task_id=task.id, _external=True)
+                    "affiliationrecord.export", export_type="csv", _scheme=protocol_scheme, task_id=task.id,
+                    _external=True)
                 send_email(
                     "email/task_completed.html",
                     subject="Affiliation Process Update",
