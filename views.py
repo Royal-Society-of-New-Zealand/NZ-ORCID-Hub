@@ -89,6 +89,8 @@ class AppModelView(ModelView):
         datetime:
         lambda view, value: Markup(value.strftime("%Y‑%m‑%d&nbsp;%H:%M")),
     })
+    column_type_formatters_export = dict(typefmt.EXPORT_FORMATTERS)
+    column_type_formatters_export.update({PartialDate: lambda view, value: str(value)})
     column_exclude_list = (
         "created_at",
         "updated_at",
