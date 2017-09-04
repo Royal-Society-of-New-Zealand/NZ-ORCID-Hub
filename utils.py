@@ -5,7 +5,7 @@ import logging
 import os
 import textwrap
 from datetime import datetime
-from itertools import groupby
+from itertools import filterfalse, groupby
 from os.path import splitext
 from urllib.parse import urlencode, urlparse
 
@@ -28,6 +28,9 @@ from models import (AFFILIATION_TYPES, Affiliation, AffiliationRecord, OrcidToke
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 logger.addHandler(logging.StreamHandler())
+
+EDU_CODES = {"student", "edu"}
+EMP_CODES = {"faculty", "staff", "emp"}
 
 
 def send_email(template_filename,
@@ -276,12 +279,13 @@ def send_user_initation(inviter,
                     f"submitted by {inviter} of {org} for affiliations: {affiliation_types}")
 
         email = email.lower()
-        user, _ = User.get_or_create(email=email)
-        user.first_name = first_name
-        user.last_name = last_name
-        user.roles |= Role.RESEARCHER
-        user.email = email
+        user, user_created = User.get_or_create(email=email)
+        if user_created:
+            user.first_name = first_name
+            user.last_name = last_name
         user.organisation = org
+        user.roles |= Role.RESEARCHER
+
         token = generate_confirmation_token(email=email, org=org.name)
         with app.app_context():
             url = flask.url_for('orcid_login', invitation_token=token, _external=True)
@@ -298,6 +302,10 @@ def send_user_initation(inviter,
         user.save()
 
         user_org, user_org_created = UserOrg.get_or_create(user=user, org=org)
+        if user_org_created:
+            user_org.created_by = inviter.id
+        else:
+            user_org.updated_by = inviter.id
 
         if affiliations is None and affiliation_types:
             affiliations = 0
@@ -317,7 +325,7 @@ def send_user_initation(inviter,
             last_name=last_name,
             orcid=orcid,
             department=department,
-            organisation=organisation,
+            organisation=org.name,
             city=city,
             state=state,
             country=country,
@@ -341,6 +349,29 @@ def send_user_initation(inviter,
         raise ex
 
 
+def unique_everseen(iterable, key=None):
+    """List unique elements, preserving order. Remember all elements ever seen.
+
+    The snippet is taken form https://docs.python.org/3.6/library/itertools.html#itertools-recipes
+    >>> unique_everseen('AAAABBBCCDAABBB')
+    A B C D
+    >>> unique_everseen('ABBCcAD', str.lower)
+    A B C D
+    """
+    seen = set()
+    seen_add = seen.add
+    if key is None:
+        for element in filterfalse(seen.__contains__, iterable):
+            seen_add(element)
+            yield element
+    else:
+        for element in iterable:
+            k = key(element)
+            if k not in seen:
+                seen_add(k)
+                yield element
+
+
 def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
     """Create or update affiliation record of a user.
 
@@ -349,15 +380,65 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
     3. If there is match update the record;
     4. If no match create a new one.
     """
+    records = list(unique_everseen(records, key=lambda t: t.affiliation_record.id))
     org = Organisation.get(id=org_id)
+    client_id = org.orcid_client_id
     api = orcid_client.MemberAPI(org, user)
+    record = api.get_record()
+    activities = record.get("activities-summary")
+
+    def is_org_rec(rec):
+        return (rec.get("source").get("source-client-id")
+                and rec.get("source").get("source-client-id").get("path") == client_id)
+
+    employments = [
+        r for r in (activities.get("employments").get("employment-summary")) if is_org_rec(r)
+    ]
+    educations = [
+        r for r in (activities.get("educations").get("education-summary")) if is_org_rec(r)
+    ]
+
+    taken_put_codes = {
+        r.affiliation_record.put_code
+        for r in records if r.affiliation_record.put_code
+    }
+
+    def match_put_code(records, affiliation_record):
+        """Match and asign put-code to a single affiliation record and the existing ORCID records."""
+        if affiliation_record.put_code:
+            return
+        for r in records:
+            put_code = r.get("put-code")
+            if put_code in taken_put_codes:
+                continue
+
+            if ((r.get("start-date") is None and r.get("end-date") is None
+                 and r.get("department-name") is None and r.get("role-title") is None)
+                    or (r.get("start-date") == affiliation_record.start_date
+                        and r.get("department-name") == affiliation_record.department_name
+                        and r.get("role-title") == affiliation_record.role_title)):
+                affiliation_record.put_code = put_code
+                taken_put_codes.add(put_code)
+                app.logger.debug(
+                    f"put-code {put_code} was asigned to the affiliation record "
+                    f"(ID: {affiliation_record.id}, Task ID: {affiliation_record.task_id})")
+                break
 
     for task_by_user in records:
         ar = task_by_user.affiliation_record
         at = ar.affiliation_type.lower()
-        if at in {"faculty", "staff", "emp"}:
+        if at in EMP_CODES:
+            match_put_code(employments, ar)
+        elif at in EDU_CODES:
+            match_put_code(educations, ar)
+
+    for task_by_user in records:
+        ar = task_by_user.affiliation_record
+        at = ar.affiliation_type.lower()
+
+        if at in EMP_CODES:
             affiliation = Affiliation.EMP
-        elif at in {"student", "edu"}:
+        elif at in EDU_CODES:
             affiliation = Affiliation.EDU
         else:
             logger.info(f"For {user} not able to determine affiliaton type with {org}")
@@ -371,9 +452,11 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
             put_code, orcid, created = api.create_or_update_affiliation(
                 affiliation=affiliation, **ar._data)
             if created:
-                ar.add_status_line(f"Affiliation record was created.")
+                ar.add_status_line(f"{str(affiliation)} record was created.")
             else:
-                ar.add_status_line("Affiliation record was updated")
+                ar.add_status_line(f"{str(affiliation)} record was updated.")
+            ar.orcid = orcid
+            ar.put_code = put_code
             ar.processed_at = datetime.now()
 
         except Exception as ex:
@@ -452,8 +535,12 @@ def process_affiliation_records(max_rows=20):
                 AffiliationRecord.orcid).distinct().count()
 
             with app.app_context():
+                protocol_scheme = 'http'
+                if not EXTERNAL_SP:
+                    protocol_scheme = 'https'
                 export_url = flask.url_for(
-                    "affiliationrecord.export", export_type="csv", task_id=task.id, _external=True)
+                    "affiliationrecord.export", export_type="csv", _scheme=protocol_scheme, task_id=task.id,
+                    _external=True)
                 send_email(
                     "email/task_completed.html",
                     subject="Affiliation Process Update",

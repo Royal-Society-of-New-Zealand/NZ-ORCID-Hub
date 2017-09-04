@@ -30,9 +30,9 @@ from werkzeug.urls import iri_to_uri
 import orcid_client
 from application import app, db, mail
 from config import (APP_DESCRIPTION, APP_NAME, APP_URL, AUTHORIZATION_BASE_URL, CRED_TYPE_PREMIUM,
-                    EXTERNAL_SP, MEMBER_API_FORM_BASE_URL, NEW_CREDENTIALS, NOTE_ORCID,
-                    ORCID_API_BASE, ORCID_BASE_URL, ORCID_CLIENT_ID, ORCID_CLIENT_SECRET,
-                    SCOPE_ACTIVITIES_UPDATE, SCOPE_AUTHENTICATE, SCOPE_READ_LIMITED, TOKEN_URL)
+                    EXTERNAL_SP, MEMBER_API_FORM_BASE_URL, NOTE_ORCID, ORCID_API_BASE,
+                    ORCID_BASE_URL, ORCID_CLIENT_ID, ORCID_CLIENT_SECRET, SCOPE_ACTIVITIES_UPDATE,
+                    SCOPE_AUTHENTICATE, SCOPE_READ_LIMITED, TOKEN_URL)
 from forms import OrgConfirmationForm
 from login_provider import roles_required
 from models import (Affiliation, OrcidAuthorizeCall, OrcidToken, Organisation, OrgInfo,
@@ -163,8 +163,8 @@ def handle_login():
                                    for a in data.get("Unscoped-Affiliation", '').encode("latin-1")
                                    .decode("utf-8").replace(',', ';').split(';'))
         app.logger.info(
-            "User with email address %r is trying to login having affiliation as %r with %r",
-            email, unscoped_affiliation, shib_org_name)
+            f"User with email address {email} (eppn: {eppn} is trying "
+            f"to login having affiliation as {unscoped_affiliation} with {shib_org_name}")
         if secondary_emails:
             app.logger.info(
                 f"the user has logged in with secondary email addresses: {secondary_emails}")
@@ -192,9 +192,14 @@ def handle_login():
             flash(f"Failed to save organisation data: {ex}")
             app.logger.exception(f"Failed to save organisation data: {ex}")
 
-    try:
-        user = User.get(User.email == email)
+    q = User.select().where(User.email == email)
+    if eppn:
+        q = q.orwhere(User.eppn == eppn)
+    if secondary_emails:
+        q = q.orwhere(User.email.in_(secondary_emails))
+    user = q.first()
 
+    if user:
         # Add Shibboleth meta data if they are missing
         if not user.name or org is not None and user.name == org.name and name:
             user.name = name
@@ -204,8 +209,7 @@ def handle_login():
             user.last_name = last_name
         if not user.eppn and eppn:
             user.eppn = eppn
-
-    except User.DoesNotExist:
+    else:
         user = User.create(
             email=email,
             eppn=eppn,
@@ -615,6 +619,33 @@ def profile():
                 "profile.html", user=user, users_orcid=users_orcid, profile_url=ORCID_BASE_URL)
 
 
+@app.route("/orcid/request_credentials")
+@roles_required(Role.TECHNICAL)
+def request_orcid_credentials():
+    """Redirect to the ORCID for the technical conact of the organisation.
+
+    Additionally the time stamp gets saved when the handler gets invoked.
+    """
+    client_secret_url = append_qs(
+        iri_to_uri(MEMBER_API_FORM_BASE_URL),
+        new_existing=('Existing_Update'
+                      if current_user.organisation.confirmed else 'New_Credentials'),
+        note=NOTE_ORCID + " " + current_user.organisation.name,
+        contact_email=current_user.email,
+        contact_name=current_user.name,
+        org_name=current_user.organisation.name,
+        cred_type=CRED_TYPE_PREMIUM,
+        app_name=APP_NAME + " for " + current_user.organisation.name,
+        app_description=APP_DESCRIPTION + current_user.organisation.name + "and its researchers",
+        app_url=APP_URL,
+        redirect_uri_1=url_for("orcid_callback", _external=True))
+
+    current_user.organisation.api_credentials_requested_at = datetime.now()
+    current_user.organisation.save()
+
+    return redirect(client_secret_url)
+
+
 @app.route("/confirm/organisation", methods=["GET", "POST"])
 @roles_required(Role.ADMIN, Role.TECHNICAL)
 def onboard_org():
@@ -664,20 +695,6 @@ def onboard_org():
         form.name.render_kw = {'readonly': True}
         form.email.render_kw = {'readonly': True}
 
-    redirect_uri = url_for("orcid_callback", _external=True)
-    client_secret_url = append_qs(
-        iri_to_uri(MEMBER_API_FORM_BASE_URL),
-        new_existing=NEW_CREDENTIALS,
-        note=NOTE_ORCID + " " + user.organisation.name,
-        contact_email=email,
-        contact_name=user.name,
-        org_name=user.organisation.name,
-        cred_type=CRED_TYPE_PREMIUM,
-        app_name=APP_NAME + " for " + user.organisation.name,
-        app_description=APP_DESCRIPTION + user.organisation.name + "and its researchers",
-        app_url=APP_URL,
-        redirect_uri_1=redirect_uri)
-
     if form.validate_on_submit():
 
         headers = {'Accept': 'application/json'}
@@ -697,7 +714,7 @@ def onboard_org():
             if not organisation.confirmed:
                 organisation.confirmed = True
                 with app.app_context():
-                    # TODO: shouldn't it be also 'nicified'?
+                    # TODO: shouldn't it be also 'nicified' (turned into HTML)
                     msg = Message("Welcome to the NZ ORCID Hub - Success", recipients=[email])
                     msg.body = ("Congratulations! Your identity has been confirmed and "
                                 "your organisation onboarded successfully.\n"
@@ -709,6 +726,7 @@ def onboard_org():
                 flash("Organisation information updated successfully!", "success")
 
             form.populate_obj(organisation)
+            organisation.api_credentials_entered_at = datetime.now()
             try:
                 organisation.save()
             except Exception as ex:
@@ -731,7 +749,7 @@ def onboard_org():
 
             return redirect(url_for("link"))
 
-    return render_template('orgconfirmation.html', client_secret_url=client_secret_url, form=form)
+    return render_template('orgconfirmation.html', form=form, organisation=organisation)
 
 
 @app.after_request
