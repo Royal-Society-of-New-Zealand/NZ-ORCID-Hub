@@ -29,6 +29,9 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 logger.addHandler(logging.StreamHandler())
 
+EDU_CODES = {"student", "edu"}
+EMP_CODES = {"faculty", "staff", "emp"}
+
 
 def send_email(template_filename,
                recipient,
@@ -377,16 +380,65 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
     3. If there is match update the record;
     4. If no match create a new one.
     """
+    records = list(unique_everseen(records, key=lambda t: t.affiliation_record.id))
     org = Organisation.get(id=org_id)
+    client_id = org.orcid_client_id
     api = orcid_client.MemberAPI(org, user)
+    record = api.get_record()
+    activities = record.get("activities-summary")
 
-    # TODO: refactor the query to replace this workaround (need to eliminate 'stale' invitations)
-    for task_by_user in unique_everseen(records, key=lambda t: t.affiliation_record.id):
+    def is_org_rec(rec):
+        return (rec.get("source").get("source-client-id")
+                and rec.get("source").get("source-client-id").get("path") == client_id)
+
+    employments = [
+        r for r in (activities.get("employments").get("employment-summary")) if is_org_rec(r)
+    ]
+    educations = [
+        r for r in (activities.get("educations").get("education-summary")) if is_org_rec(r)
+    ]
+
+    taken_put_codes = {
+        r.affiliation_record.put_code
+        for r in records if r.affiliation_record.put_code
+    }
+
+    def match_put_code(records, affiliation_record):
+        """Match and asign put-code to a single affiliation record and the existing ORCID records."""
+        if affiliation_record.put_code:
+            return
+        for r in records:
+            put_code = r.get("put-code")
+            if put_code in taken_put_codes:
+                continue
+
+            if ((r.get("start-date") is None and r.get("end-date") is None
+                 and r.get("department-name") is None and r.get("role-title") is None)
+                    or (r.get("start-date") == affiliation_record.start_date
+                        and r.get("department-name") == affiliation_record.department_name
+                        and r.get("role-title") == affiliation_record.role_title)):
+                affiliation_record.put_code = put_code
+                taken_put_codes.add(put_code)
+                app.logger.debug(
+                    f"put-code {put_code} was asigned to the affiliation record "
+                    f"(ID: {affiliation_record.id}, Task ID: {affiliation_record.task_id})")
+                break
+
+    for task_by_user in records:
         ar = task_by_user.affiliation_record
         at = ar.affiliation_type.lower()
-        if at in {"faculty", "staff", "emp"}:
+        if at in EMP_CODES:
+            match_put_code(employments, ar)
+        elif at in EDU_CODES:
+            match_put_code(educations, ar)
+
+    for task_by_user in records:
+        ar = task_by_user.affiliation_record
+        at = ar.affiliation_type.lower()
+
+        if at in EMP_CODES:
             affiliation = Affiliation.EMP
-        elif at in {"student", "edu"}:
+        elif at in EDU_CODES:
             affiliation = Affiliation.EDU
         else:
             logger.info(f"For {user} not able to determine affiliaton type with {org}")
