@@ -69,14 +69,16 @@ class OrcidRESTClientObject(rest.RESTClientObject):
 class MemberAPI(MemberAPIV20Api):
     """ORCID Mmeber API extension."""
 
-    def __init__(self, org, user, *args, **kwargs):
+    def __init__(self, org=None, user=None, *args, **kwargs):
         """Set up the configuration with the access token given to the org. by the user."""
         super().__init__(*args, **kwargs)
         self.set_config(org, user)
 
-    def set_config(self, org, user):
+    def set_config(self, org=None, user=None):
         """Set up clietn configuration."""
         global configuration
+        if org is None:
+            org = user.organisation
         self.org = org
         self.user = user
         self.orcid_token = None
@@ -99,7 +101,7 @@ class MemberAPI(MemberAPIV20Api):
             source_orcid=None, source_client_id=self.source_clientid, source_name=org.name)
 
     def get_record(self):
-        """Fetch record details."""
+        """Fetch record details. (The generated one is broken)."""
         header_params = {
             "Accept":
             self.api_client.select_header_content_type([
