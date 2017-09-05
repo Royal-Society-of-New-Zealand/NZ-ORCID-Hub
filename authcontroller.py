@@ -24,7 +24,6 @@ from flask_login import current_user, login_required, login_user, logout_user
 from flask_mail import Message
 from oauthlib.oauth2 import rfc6749
 from requests_oauthlib import OAuth2Session
-from swagger_client.rest import ApiException
 from werkzeug.urls import iri_to_uri
 
 import orcid_client
@@ -37,6 +36,7 @@ from forms import OrgConfirmationForm
 from login_provider import roles_required
 from models import (Affiliation, OrcidAuthorizeCall, OrcidToken, Organisation, OrgInfo,
                     OrgInvitation, Role, Url, User, UserInvitation, UserOrg)
+from swagger_client.rest import ApiException
 from utils import append_qs, confirm_token
 
 HEADERS = {'Accept': 'application/vnd.orcid+json', 'Content-type': 'application/vnd.orcid+json'}

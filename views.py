@@ -14,7 +14,6 @@ from flask_admin.form import SecureForm
 from flask_admin.model import typefmt
 from flask_login import current_user, login_required
 from jinja2 import Markup
-from swagger_client.rest import ApiException
 from werkzeug import secure_filename
 
 import orcid_client
@@ -30,6 +29,7 @@ from models import (Affiliation, CharField, OrcidApiCall, OrcidToken, Organisati
                     UserOrg, UserOrgAffiliation, db)
 # NB! Should be disabled in production
 from pyinfo import info
+from swagger_client.rest import ApiException
 from utils import generate_confirmation_token, send_user_initation
 
 HEADERS = {"Accept": "application/vnd.orcid+json", "Content-type": "application/vnd.orcid+json"}
@@ -67,6 +67,17 @@ def short_url(short_id):
         return redirect(u.url)
     except Url.DoesNotExist:
         abort(404)
+
+
+def read_uploaded_file(form):
+    """Read up the whole content and deconde it and return the whole content."""
+    raw = request.files[form.file_.name].read()
+    for encoding in "utf-8", "utf-8-sig", "utf-16":
+        try:
+            return raw.decode(encoding)
+        except UnicodeDecodeError:
+            continue
+    return raw.decode("latin-1")
 
 
 class AppModelView(ModelView):
@@ -844,17 +855,6 @@ def show_record_section(user_id, section_type="EMP"):
             data=data,
             user_id=user_id,
             org_client_id=user.organisation.orcid_client_id)
-
-
-def read_uploaded_file(form):
-    """Read up the whole content and deconde it and return the whole content."""
-    raw = request.files[form.file_.name].read()
-    for encoding in "utf-8", "utf-8-sig", "utf-16":
-        try:
-            return raw.decode(encoding)
-        except UnicodeDecodeError:
-            continue
-    return raw.decode("latin-1")
 
 
 @app.route("/load/org", methods=["GET", "POST"])
