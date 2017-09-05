@@ -1055,6 +1055,7 @@ def orcid_login_callback(request):
                     return redirect(_next or url_for("onboard_org"))
                 else:
                     return redirect(url_for("link"))
+        session['Should_not_logout_from_ORCID'] = True
         return redirect(url_for("profile"))
 
     except User.DoesNotExist:
