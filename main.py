@@ -26,28 +26,36 @@ def setup_logging():
 
 
 @app.cli.command()
-@click.option("-d", "--drop", is_flag=False)
-@click.option("-f", "--force", is_flag=False)
-def initdb(drop=False, force=False):
+@click.option("-d", "--drop", is_flag=True, help="Drop tables before creating...")
+@click.option("-f", "--force", is_flag=True, help="Enforce table craeation.")
+@click.option("-A", "--audit", is_flag=True, help="Create adit trail tables.")
+def initdb(create=False, drop=False, force=False, audit=True):
     """Initialize the database."""
     if drop and force:
         models.drop_tables()
+
     logger = logging.getLogger("peewee")
     if logger:
         logger.setLevel(logging.DEBUG)
         logger.addHandler(logging.StreamHandler())
-    models.create_tables()
 
-    super_user = models.User(
+    try:
+        models.create_tables()
+    except:
+        app.logger.exception("Failed to create tables...")
+
+    if audit:
+        app.logger.info("Creating audit tables...")
+        models.create_audit_tables()
+
+    super_user, _ = models.User.get_or_create(
         name="The University of Auckland",
         email="root@mailinator.com",
         confirmed=True,
         roles=models.Role.SUPERUSER)
-    super_user.save()
 
-    org = models.Organisation(
+    org, _ = models.Organisation.get_or_create(
         name="The University of Auckland", tuakiri_name="University of Auckland", confirmed=True)
-    org.save()
 
 
 @app.cli.group()

@@ -1063,6 +1063,14 @@ def create_tables():
     Url.create_table()
     UserInvitation.create_table()
 
+
+def create_audit_tables():
+    """Create all DB audit tables for PostgreSQL DB."""
+    try:
+        db.connect()
+    except OperationalError:
+        pass
+
     if isinstance(db, PostgresqlDatabase):
         with open("conf/auditing.sql", 'br') as input_file:
             sql = readup_file(input_file)
