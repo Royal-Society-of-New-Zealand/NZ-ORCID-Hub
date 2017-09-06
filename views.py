@@ -69,6 +69,17 @@ def short_url(short_id):
         abort(404)
 
 
+def read_uploaded_file(form):
+    """Read up the whole content and deconde it and return the whole content."""
+    raw = request.files[form.file_.name].read()
+    for encoding in "utf-8", "utf-8-sig", "utf-16":
+        try:
+            return raw.decode(encoding)
+        except UnicodeDecodeError:
+            continue
+    return raw.decode("latin-1")
+
+
 class AppModelView(ModelView):
     """ModelView customization."""
 
@@ -843,17 +854,6 @@ def show_record_section(user_id, section_type="EMP"):
             data=data,
             user_id=user_id,
             org_client_id=user.organisation.orcid_client_id)
-
-
-def read_uploaded_file(form):
-    """Read up the whole content and deconde it and return the whole content."""
-    raw = request.files[form.file_.name].read()
-    for encoding in "utf-8", "utf-8-sig", "utf-16":
-        try:
-            return raw.decode(encoding)
-        except UnicodeDecodeError:
-            continue
-    return raw.decode("latin-1")
 
 
 @app.route("/load/org", methods=["GET", "POST"])
