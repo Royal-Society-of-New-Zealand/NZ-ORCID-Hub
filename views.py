@@ -647,16 +647,16 @@ def edit_section_record(user_id, put_code=None, section_type="EMP"):
         flash("The user hasn't authorized you to Add records", "warning")
         return redirect(_url)
     orcid_client.configuration.access_token = orcid_token.access_token
-    api_instance = orcid_client.MemberAPIV20Api()
+    api = orcid_client.MemberAPI(user=current_user.id)
 
     # TODO: handle "new"...
     if put_code:
         try:
             # Fetch an Employment
             if section_type == "EMP":
-                api_response = api_instance.view_employment(user.orcid, put_code)
+                api_response = api.view_employment(user.orcid, put_code)
             elif section_type == "EDU":
-                api_response = api_instance.view_education(user.orcid, put_code)
+                api_response = api.view_education(user.orcid, put_code)
 
             _data = api_response.to_dict()
             data = SectionRecord(
@@ -683,7 +683,6 @@ def edit_section_record(user_id, put_code=None, section_type="EMP"):
         form.country.data = org.country
 
     if form.validate_on_submit():
-        # TODO: Audit trail
         # TODO: If it"s guarantee that the record will be editited solely by a sigle token we can
         # cache the record in the local DB
 
@@ -715,20 +714,20 @@ def edit_section_record(user_id, put_code=None, section_type="EMP"):
             if put_code:
                 rec.put_code = int(put_code)
                 if section_type == "EMP":
-                    api_response = api_instance.update_employment(user.orcid, put_code, body=rec)
+                    api_response = api.update_employment(user.orcid, put_code, body=rec)
                     app.logger.info("For %r employment record updated by %r", user.orcid,
                                     current_user)
                 else:
-                    api_response = api_instance.update_education(user.orcid, put_code, body=rec)
+                    api_response = api.update_education(user.orcid, put_code, body=rec)
                     app.logger.info("For %r education record updated by %r", user.orcid,
                                     current_user)
             else:
                 if section_type == "EMP":
-                    api_response = api_instance.create_employment(user.orcid, body=rec)
+                    api_response = api.create_employment(user.orcid, body=rec)
                     app.logger.info("For %r employment record created by %r", user.orcid,
                                     current_user)
                 else:
-                    api_response = api_instance.create_education(user.orcid, body=rec)
+                    api_response = api.create_education(user.orcid, body=rec)
                     app.logger.info("For %r education record created by %r", user.orcid,
                                     current_user)
 
