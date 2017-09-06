@@ -36,13 +36,24 @@ BEGIN
 		RAISE NOTICE 'EXECUTING %', v_sql;
 		EXECUTE v_sql;
 		EXECUTE format('DROP TRIGGER IF EXISTS %3$I ON %1$I.%2$I;',
-			r.table_schema, r.table_name, r.table_name||'_audit_tr');
-			v_sql := format('CREATE TRIGGER %3$I
-				AFTER INSERT OR UPDATE OR DELETE ON %1$I.%2$I
-				FOR EACH ROW EXECUTE PROCEDURE log_changes();',
-					r.table_schema, r.table_name, r.table_name||'_audit_tr');
-				RAISE NOTICE 'EXECUTING %', v_sql;
-				EXECUTE v_sql;
+			r.table_schema, r.table_name, r.table_name||'_audit_update_tr');
+		v_sql := format('CREATE TRIGGER %3$I
+			AFTER UPDATE ON %1$I.%2$I
+			FOR EACH ROW
+			WHEN (OLD.* IS DISTINCT FROM NEW.*)
+			EXECUTE PROCEDURE log_changes();',
+			r.table_schema, r.table_name, r.table_name||'_audit_update_tr');
+		RAISE NOTICE 'EXECUTING %', v_sql;
+		EXECUTE v_sql;
+		EXECUTE format('DROP TRIGGER IF EXISTS %3$I ON %1$I.%2$I;',
+			r.table_schema, r.table_name, r.table_name||'_audit_delete_tr');
+		v_sql := format('CREATE TRIGGER %3$I
+			AFTER DELETE ON %1$I.%2$I
+			FOR EACH ROW
+			EXECUTE PROCEDURE log_changes();',
+			r.table_schema, r.table_name, r.table_name||'_audit_delete_tr');
+		RAISE NOTICE 'EXECUTING %', v_sql;
+		EXECUTE v_sql;
 	END LOOP;
 END;
 $$;
