@@ -14,7 +14,6 @@ from flask_admin.form import SecureForm
 from flask_admin.model import typefmt
 from flask_login import current_user, login_required
 from jinja2 import Markup
-from swagger_client.rest import ApiException
 from werkzeug import secure_filename
 
 import orcid_client
@@ -30,6 +29,7 @@ from models import (Affiliation, CharField, OrcidApiCall, OrcidToken, Organisati
                     UserOrg, UserOrgAffiliation, db)
 # NB! Should be disabled in production
 from pyinfo import info
+from swagger_client.rest import ApiException
 from utils import generate_confirmation_token, send_user_initation
 
 HEADERS = {"Accept": "application/vnd.orcid+json", "Content-type": "application/vnd.orcid+json"}
