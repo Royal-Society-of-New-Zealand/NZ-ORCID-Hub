@@ -11,6 +11,7 @@ from models import OrcidApiCall, Affiliation, OrcidToken
 from swagger_client import (configuration, rest, api_client, MemberAPIV20Api, SourceClientId,
                             Source, OrganizationAddress, DisambiguatedOrganization, Employment,
                             Education, Organization)
+from swagger_client.rest import ApiException
 from time import time
 from urllib.parse import urlparse
 from application import app
@@ -110,14 +111,22 @@ class MemberAPI(MemberAPIV20Api):
                 'application/orcid+json; qs=2', 'application/json'
             ])
         }
+        try:
+            resp, code, headers = self.api_client.call_api(
+                f"/v2.0/{self.user.orcid}",
+                "GET",
+                header_params=header_params,
+                response_type=None,
+                auth_settings=["orcid_auth"],
+                _preload_content=False)
+        except ApiException as ex:
+            import pdb
+            pdb.set_trace()
+            if ex.status == 401:
+                self.orcid_token.delete_instance()
+            app.logger.error(f"ApiException Occured: {ex}")
+            return None
 
-        resp, code, headers = self.api_client.call_api(
-            f"/v2.0/{self.user.orcid}",
-            "GET",
-            header_params=header_params,
-            response_type=None,
-            auth_settings=["orcid_auth"],
-            _preload_content=False)
         if code != 200:
             app.logger.error(f"Failed to retrieve ORDIC profile. Code: {code}.")
             app.logger.info(f"Headers: {headers}")
