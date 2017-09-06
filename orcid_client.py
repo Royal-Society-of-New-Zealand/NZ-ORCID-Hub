@@ -85,8 +85,8 @@ class MemberAPI(MemberAPIV20Api):
         if access_token is None:
             try:
                 orcid_token = OrcidToken.get(
-                    user=user,
-                    org=org,
+                    user_id=user.id,
+                    org_id=org.id,
                     scope=SCOPE_READ_LIMITED[0] + "," + SCOPE_ACTIVITIES_UPDATE[0])
             except Exception as ex:
                 app.logger.exception("Exception occured while retriving ORCID Token")
@@ -172,6 +172,7 @@ class MemberAPI(MemberAPIV20Api):
                                      org_name=None,
                                      city=None,
                                      state=None,
+                                     region=None,
                                      country=None,
                                      disambiguated_id=None,
                                      disambiguation_source=None,
@@ -205,7 +206,9 @@ class MemberAPI(MemberAPIV20Api):
                 return put_code, self.user.orcid, False
 
         organisation_address = OrganizationAddress(
-            city=city or self.org.city, country=country or self.org.country)
+            city=city or self.org.city,
+            country=country or self.org.country,
+            region=state or region or self.org.state)
 
         disambiguated_organization_details = DisambiguatedOrganization(
             disambiguated_organization_identifier=disambiguated_id or self.org.disambiguated_id,
@@ -233,6 +236,7 @@ class MemberAPI(MemberAPIV20Api):
 
         rec.department_name = department
         rec.role_title = role
+
         if start_date:
             rec.start_date = start_date.as_orcid_dict()
         if end_date:
