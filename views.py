@@ -5,7 +5,6 @@ import json
 import os
 from collections import namedtuple
 from datetime import datetime
-from urllib.parse import urlparse
 
 from flask import (abort, flash, redirect, render_template, request, send_from_directory, url_for)
 from flask_admin.actions import action

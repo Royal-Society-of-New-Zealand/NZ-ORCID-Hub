@@ -45,8 +45,8 @@ class OrcidRESTClientObject(rest.RESTClientObject):
                 query_params=query_params,
                 body=body,
                 put_code=put_code)
-        except Exception as ex:
-            app.logger.errer(ex)
+        except Exception:
+            app.logger.exception("Failed to create API call log entry.")
         res = super().request(
             method=method,
             url=url,
@@ -195,6 +195,8 @@ class MemberAPI(MemberAPIV20Api):
             role = None
         if not state:
             state = None
+        if not region:
+            region = None
 
         if affiliation is None:
             app.logger.warning("Missing affiliation value.")

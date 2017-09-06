@@ -435,7 +435,7 @@ def orcid_callback():
     orcid = token['orcid']
     name = token["name"]
 
-    user = User.get(id=current_user.id)
+    user = current_user
     user.orcid = orcid
     if not user.name and name:
         user.name = name
