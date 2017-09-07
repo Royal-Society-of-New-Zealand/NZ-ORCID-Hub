@@ -165,7 +165,7 @@ class BitmapMultipleValueField(SelectMultipleField):
 class RecordForm(FlaskForm):
     """User/researcher employment detail form."""
 
-    name = StringField("Institution/employer", [validators.required()])
+    org_name = StringField("Institution/employer", [validators.required()])
     city = StringField("City", [validators.required()])
     state = StringField("State/region", filters=[lambda x: x or None])
     country = CountrySelectField("Country", [validators.required()])
@@ -179,7 +179,7 @@ class RecordForm(FlaskForm):
         """Adjust the form fields for specific record type."""
         form = cls(*args, **kwargs)
         if form_type == "EDU":
-            form.name.name = form.name.label.text = "Institution"
+            form.org_name.name = form.org_name.label.text = "Institution"
             form.role.name = form.role.label.text = "Course/Degree"
         return form
 
