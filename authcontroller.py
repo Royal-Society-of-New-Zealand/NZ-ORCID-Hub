@@ -748,7 +748,7 @@ def orcid_login(invitation_token=None):
             try:
                 org = Organisation.get(name=org_name)
 
-                if org.orcid_client_id:
+                if org.orcid_client_id and not user.is_tech_contact_of(org):
                     client_id = org.orcid_client_id
                     scope = SCOPE_ACTIVITIES_UPDATE + SCOPE_READ_LIMITED
                 else:
