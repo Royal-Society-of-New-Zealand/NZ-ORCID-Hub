@@ -17,7 +17,7 @@ from flask_login import UserMixin, current_user
 from peewee import BooleanField as BooleanField_
 from peewee import (CharField, DateTimeField, DeferredRelation, Field, FixedCharField,
                     ForeignKeyField, IntegerField, Model, OperationalError, PostgresqlDatabase,
-                    SmallIntegerField, TextField, fn)
+                    ProgrammingError, SmallIntegerField, TextField, fn)
 from playhouse.shortcuts import model_to_dict
 from pycountry import countries
 
@@ -1049,19 +1049,29 @@ def create_tables():
     except OperationalError:
         pass
 
-    Organisation.create_table()
-    User.create_table()
-    UserOrg.create_table()
-    OrcidToken.create_table()
-    UserOrgAffiliation.create_table()
-    OrgInfo.create_table()
-    OrcidApiCall.create_table()
-    OrcidAuthorizeCall.create_table()
-    Task.create_table()
-    AffiliationRecord.create_table()
-    OrgInvitation.create_table()
-    Url.create_table()
-    UserInvitation.create_table()
+    for model in [
+            Organisation,
+            User,
+            UserOrg,
+            OrcidToken,
+            UserOrgAffiliation,
+            OrgInfo,
+            OrcidApiCall,
+            OrcidAuthorizeCall,
+            Task,
+            AffiliationRecord,
+            OrgInvitation,
+            Url,
+            UserInvitation,
+    ]:
+
+        try:
+            model.create_table()
+        except ProgrammingError as ex:
+            if "already exists" in str(ex):
+                app.logger.info(f"Table '{model._meta.name}' already exists")
+            else:
+                raise ex
 
 
 def create_audit_tables():
