@@ -24,7 +24,6 @@ from flask_login import current_user, login_required, login_user, logout_user
 from flask_mail import Message
 from oauthlib.oauth2 import rfc6749
 from requests_oauthlib import OAuth2Session
-from swagger_client.rest import ApiException
 from werkzeug.urls import iri_to_uri
 
 import orcid_client
@@ -37,6 +36,7 @@ from forms import OrgConfirmationForm
 from login_provider import roles_required
 from models import (Affiliation, OrcidAuthorizeCall, OrcidToken, Organisation, OrgInfo,
                     OrgInvitation, Role, Url, User, UserInvitation, UserOrg)
+from swagger_client.rest import ApiException
 from utils import append_qs, confirm_token
 
 HEADERS = {'Accept': 'application/vnd.orcid+json', 'Content-type': 'application/vnd.orcid+json'}
@@ -355,43 +355,6 @@ def orcid_callback_proxy(url):
     return redirect(append_qs(url, **request.args))
 
 
-def is_emp_or_edu_record_present(access_token, affiliation_type, user):
-    """Determine if there is already an affiliation record for the user."""
-    orcid_client.configuration.access_token = access_token
-    # create an instance of the API class
-    api_instance = orcid_client.MemberAPIV20Api()
-    try:
-        api_response = None
-        affiliation_type_key = ""
-        # Fetch all entries
-        if affiliation_type == Affiliation.EMP:
-            api_response = api_instance.view_employments(user.orcid)
-            affiliation_type_key = "employment_summary"
-
-        elif affiliation_type == Affiliation.EDU:
-            api_response = api_instance.view_educations(user.orcid)
-            affiliation_type_key = "education_summary"
-
-        if api_response:
-            data = api_response.to_dict()
-            for r in data.get(affiliation_type_key, []):
-                if r["organization"]["name"] == user.organisation.name and user.organisation.name in \
-                        r["source"]["source_name"]["value"]:
-                    app.logger.info("For %r there is %r present on ORCID profile", user,
-                                    affiliation_type_key)
-                    return True
-
-    except ApiException as apiex:
-        app.logger.error(
-            f"For {user} while checking for employment and education records, Encountered Exception: {apiex}"
-        )
-        return False
-    except Exception:
-        app.logger.exception("Failed to verify presence of employment or education record.")
-        return False
-    return False
-
-
 # Step 2: User authorization, this happens on the provider.
 @app.route("/auth", methods=["GET"])
 def orcid_callback():
@@ -505,70 +468,19 @@ def orcid_callback():
                     "and now trying to update employment or education record", user,
                     user.organisation, scope)
     if scope == SCOPE_READ_LIMITED[0] + "," + SCOPE_ACTIVITIES_UPDATE[0] and orcid_token_found:
-        orcid_client.configuration.access_token = orcid_token.access_token
-        api_instance = orcid_client.MemberAPIV20Api()
+        api = orcid_client.MemberAPI(user=user, access_token=orcid_token.access_token)
 
-        url = urlparse(ORCID_BASE_URL)
-        source_clientid = orcid_client.SourceClientId(
-            host=url.hostname,
-            path=user.organisation.orcid_client_id,
-            uri="http://" + url.hostname + "/client/" + user.organisation.orcid_client_id)
-
-        organisation_address = orcid_client.OrganizationAddress(
-            city=user.organisation.city, country=user.organisation.country)
-
-        disambiguated_organization_details = orcid_client.DisambiguatedOrganization(
-            disambiguated_organization_identifier=user.organisation.disambiguated_id,
-            disambiguation_source=user.organisation.disambiguation_source)
-
-        # TODO: need to check if the entry doesn't exist already:
         for a in Affiliation:
 
             if not a & user.affiliations:
                 continue
 
-            if a == Affiliation.EMP:
-                rec = orcid_client.Employment()
-            elif a == Affiliation.EDU:
-                rec = orcid_client.Education()
-            else:
-                continue
-
-            rec.source = orcid_client.Source(
-                source_orcid=None,
-                source_client_id=source_clientid,
-                source_name=user.organisation.name)
-
-            rec.organization = orcid_client.Organization(
-                name=user.organisation.name,
-                address=organisation_address,
-                disambiguated_organization=disambiguated_organization_details)
-
-            if (not is_emp_or_edu_record_present(orcid_token.access_token, a, user)):
-                try:
-                    if a == Affiliation.EMP:
-
-                        api_instance.create_employment(user.orcid, body=rec)
-                        flash(
-                            "Your ORCID employment record was updated with an affiliation entry from '%s'"
-                            % user.organisation, "success")
-                        app.logger.info("For %r the ORCID employment record was updated from %r",
-                                        user, user.organisation)
-                    elif a == Affiliation.EDU:
-                        api_instance.create_education(user.orcid, body=rec)
-                        flash(
-                            "Your ORCID education record was updated with an affiliation entry from '%s'"
-                            % user.organisation, "success")
-                        app.logger.info("For %r the ORCID education record was updated from %r",
-                                        user, user.organisation)
-                    else:
-                        continue
-                    # TODO: Save the put-code in db table
-
-                except ApiException as ex:
-                    flash(f"Failed to update the entry: {ex.body}", "danger")
-                except Exception as ex:
-                    app.logger.error(f"For {user} encountered exception: {ex}")
+            try:
+                api.create_or_update_affiliation(initial=True, affiliation=a)
+            except ApiException as ex:
+                flash(f"Failed to update the entry: {ex.body}", "danger")
+            except Exception as ex:
+                app.logger.exception(f"For {user} encountered exception")
 
         if not user.affiliations:
             flash(
@@ -1056,6 +968,7 @@ def orcid_login_callback(request):
                     return redirect(_next or url_for("onboard_org"))
                 else:
                     return redirect(url_for("link"))
+        session['Should_not_logout_from_ORCID'] = True
         return redirect(url_for("profile"))
 
     except User.DoesNotExist:
