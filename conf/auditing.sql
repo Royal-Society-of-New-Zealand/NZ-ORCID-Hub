@@ -14,6 +14,10 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TABLE IF EXISTS audit.orcid_api_call;
+DROP TABLE IF EXISTS audit.orcid_authorize_call;
+DROP TABLE IF EXISTS audit.task;
+
 DO $$
 DECLARE r RECORD; v_sql text;
 BEGIN
@@ -22,13 +26,11 @@ BEGIN
 		WHERE table_catalog = 'orcidhub' AND table_schema = 'public'
 		AND table_name IN (
 			'user',
-			'task',
 			'user_org',
 			'orcidtoken',
 			'organisation',
 			'affiliation_record',
-			'user_organisation_affiliation',
-			'orcid_authorize_call')) LOOP
+			'user_organisation_affiliation')) LOOP
 	v_sql := format('CREATE TABLE IF NOT EXISTS audit.%2$I AS
 		SELECT NULL::timestamp without time zone AS ts, NULL::char(1) AS op,
 		source.* FROM %1$I.%2$I AS source WHERE 1=0;',
