@@ -16,8 +16,8 @@ from urllib.parse import urlencode
 from flask_login import UserMixin, current_user
 from peewee import BooleanField as BooleanField_
 from peewee import (CharField, DateTimeField, DeferredRelation, Field, FixedCharField,
-                    ForeignKeyField, IntegerField, Model, OperationalError, SmallIntegerField,
-                    TextField, fn)
+                    ForeignKeyField, IntegerField, Model, OperationalError, PostgresqlDatabase,
+                    SmallIntegerField, TextField, fn)
 from playhouse.shortcuts import model_to_dict
 from pycountry import countries
 
@@ -1031,6 +1031,17 @@ class Url(BaseModel, AuditMixin):
         return u
 
 
+def readup_file(input_file):
+    """Read up the whole content and deconde it and return the whole content."""
+    raw = input_file.read()
+    for encoding in "utf-8-sig", "utf-8", "utf-16":
+        try:
+            return raw.decode(encoding)
+        except UnicodeDecodeError:
+            continue
+    return raw.decode("latin-1")
+
+
 def create_tables():
     """Create all DB tables."""
     try:
@@ -1051,6 +1062,20 @@ def create_tables():
     OrgInvitation.create_table()
     Url.create_table()
     UserInvitation.create_table()
+
+
+def create_audit_tables():
+    """Create all DB audit tables for PostgreSQL DB."""
+    try:
+        db.connect()
+    except OperationalError:
+        pass
+
+    if isinstance(db, PostgresqlDatabase):
+        with open("conf/auditing.sql", 'br') as input_file:
+            sql = readup_file(input_file)
+            with db.get_cursor() as cr:
+                cr.execute(sql)
 
 
 def drop_tables():

@@ -583,7 +583,10 @@ def process_affiliation_records(max_rows=20):
                 if not EXTERNAL_SP:
                     protocol_scheme = 'https'
                 export_url = flask.url_for(
-                    "affiliationrecord.export", export_type="csv", _scheme=protocol_scheme, task_id=task.id,
+                    "affiliationrecord.export",
+                    export_type="csv",
+                    _scheme=protocol_scheme,
+                    task_id=task.id,
                     _external=True)
                 send_email(
                     "email/task_completed.html",

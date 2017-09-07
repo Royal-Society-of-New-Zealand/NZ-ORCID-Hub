@@ -5,7 +5,6 @@ import json
 import os
 from collections import namedtuple
 from datetime import datetime
-from urllib.parse import urlparse
 
 from flask import (abort, flash, redirect, render_template, request, send_from_directory, url_for)
 from flask_admin.actions import action
@@ -14,7 +13,6 @@ from flask_admin.form import SecureForm
 from flask_admin.model import typefmt
 from flask_login import current_user, login_required
 from jinja2 import Markup
-from swagger_client.rest import ApiException
 from werkzeug import secure_filename
 
 import orcid_client
@@ -30,6 +28,7 @@ from models import (Affiliation, CharField, OrcidApiCall, OrcidToken, Organisati
                     UserOrg, UserOrgAffiliation, db)
 # NB! Should be disabled in production
 from pyinfo import info
+from swagger_client.rest import ApiException
 from utils import generate_confirmation_token, send_user_initation
 
 HEADERS = {"Accept": "application/vnd.orcid+json", "Content-type": "application/vnd.orcid+json"}
@@ -67,6 +66,17 @@ def short_url(short_id):
         return redirect(u.url)
     except Url.DoesNotExist:
         abort(404)
+
+
+def read_uploaded_file(form):
+    """Read up the whole content and deconde it and return the whole content."""
+    raw = request.files[form.file_.name].read()
+    for encoding in "utf-8", "utf-8-sig", "utf-16":
+        try:
+            return raw.decode(encoding)
+        except UnicodeDecodeError:
+            continue
+    return raw.decode("latin-1")
 
 
 class AppModelView(ModelView):
@@ -647,16 +657,16 @@ def edit_section_record(user_id, put_code=None, section_type="EMP"):
         flash("The user hasn't authorized you to Add records", "warning")
         return redirect(_url)
     orcid_client.configuration.access_token = orcid_token.access_token
-    api_instance = orcid_client.MemberAPIV20Api()
+    api = orcid_client.MemberAPI(user=current_user)
 
     # TODO: handle "new"...
     if put_code:
         try:
             # Fetch an Employment
             if section_type == "EMP":
-                api_response = api_instance.view_employment(user.orcid, put_code)
+                api_response = api.view_employment(user.orcid, put_code)
             elif section_type == "EDU":
-                api_response = api_instance.view_education(user.orcid, put_code)
+                api_response = api.view_education(user.orcid, put_code)
 
             _data = api_response.to_dict()
             data = SectionRecord(
@@ -683,55 +693,13 @@ def edit_section_record(user_id, put_code=None, section_type="EMP"):
         form.country.data = org.country
 
     if form.validate_on_submit():
-        # TODO: Audit trail
-        # TODO: If it"s guarantee that the record will be editited solely by a sigle token we can
-        # cache the record in the local DB
-
-        rec = orcid_client.Employment() if section_type == "EMP" else orcid_client.Education()
-        rec.start_date = form.start_date.data.as_orcid_dict()
-        rec.end_date = form.end_date.data.as_orcid_dict()
-        rec.path = ""
-        rec.department_name = form.department.data
-        rec.role_title = form.role.data
-
-        url = urlparse(ORCID_BASE_URL)
-        source_clientid = orcid_client.SourceClientId(
-            host=url.hostname,
-            path=org.orcid_client_id,
-            uri="http://" + url.hostname + "/client/" + org.orcid_client_id)
-        rec.source = orcid_client.Source(
-            source_orcid=None, source_client_id=source_clientid, source_name=org.name)
-
-        organisation_address = orcid_client.OrganizationAddress(
-            city=form.city.data, region=form.state.data, country=form.country.data)
-
-        rec.organization = orcid_client.Organization(
-            name=form.name.data, address=organisation_address, disambiguated_organization=None)
-
-        if org.name != form.name.data:
-            orcid_client.DisambiguatedOrganization(
-                disambiguated_organization_identifier=org.name, disambiguation_source=org.name)
         try:
-            if put_code:
-                rec.put_code = int(put_code)
-                if section_type == "EMP":
-                    api_response = api_instance.update_employment(user.orcid, put_code, body=rec)
-                    app.logger.info("For %r employment record updated by %r", user.orcid,
-                                    current_user)
-                else:
-                    api_response = api_instance.update_education(user.orcid, put_code, body=rec)
-                    app.logger.info("For %r education record updated by %r", user.orcid,
-                                    current_user)
-            else:
-                if section_type == "EMP":
-                    api_response = api_instance.create_employment(user.orcid, body=rec)
-                    app.logger.info("For %r employment record created by %r", user.orcid,
-                                    current_user)
-                else:
-                    api_response = api_instance.create_education(user.orcid, body=rec)
-                    app.logger.info("For %r education record created by %r", user.orcid,
-                                    current_user)
-
+            put_code, orcid, created = api.create_or_update_affiliation(
+                put_code=put_code,
+                affiliation=Affiliation[section_type],
+                **{f.name: f.data
+                   for f in form})
+            if put_code and created:
                 flash("Record details has been added successfully!", "success")
 
             affiliation, _ = UserOrgAffiliation.get_or_create(
@@ -844,17 +812,6 @@ def show_record_section(user_id, section_type="EMP"):
             data=data,
             user_id=user_id,
             org_client_id=user.organisation.orcid_client_id)
-
-
-def read_uploaded_file(form):
-    """Read up the whole content and deconde it and return the whole content."""
-    raw = request.files[form.file_.name].read()
-    for encoding in "utf-8", "utf-8-sig", "utf-16":
-        try:
-            return raw.decode(encoding)
-        except UnicodeDecodeError:
-            continue
-    return raw.decode("latin-1")
 
 
 @app.route("/load/org", methods=["GET", "POST"])
