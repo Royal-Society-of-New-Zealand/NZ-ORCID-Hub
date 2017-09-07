@@ -6,7 +6,7 @@
          style="background-image:url({{url_for('static', filename='images/banner.svg')}}); background-position: right top; background-size: auto 127px; background-repeat: no-repeat; height: 127px; background-color: #000;">
     </div>
   {% endblock %}
-  {% if current_user.confirmed %}
+
     <nav class="navbar navbar-default">
       <div class="container-fluid">
         <div class="navbar-header">
@@ -29,7 +29,7 @@
                 <span data-toggle="tooltip"
                   data-placement="bottom" title="About HUB">About</span>
               </a></li>
-
+            {% if current_user.confirmed %}
               {% if current_user.organisations.count() > 1 %}
                 <li>
                   <p class="navbar-btn">
@@ -94,7 +94,9 @@
                       </ul>
                     </li>
                   {% endif %}
+                {% endif %}
           </ul>
+          {% if current_user.confirmed %}
           <ul class="nav navbar-nav navbar-right">
             <li>{{orcid_url(current_user)}}</li>
 
@@ -137,11 +139,12 @@
             <li><a href="{{url_for('logout')}}"><span class="glyphicon glyphicon-log-out"></span> log out</a>
             </li>
           </ul>
+          {% endif %}
           <!-- button class="btn btn-danger navbar-btn">Button</button -->
         </div>
       </div>
     </nav>
-  {% endif %}
+
 </header>
 {% with messages = get_flashed_messages(with_categories=true) %}
   <!-- Categories: success (green), info (blue), warning (yellow), danger (red) -->
