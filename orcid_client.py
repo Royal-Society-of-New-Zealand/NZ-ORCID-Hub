@@ -115,14 +115,20 @@ class MemberAPI(MemberAPIV20Api):
                 'application/orcid+json; qs=2', 'application/json'
             ])
         }
+        try:
+            resp, code, headers = self.api_client.call_api(
+                f"/v2.0/{self.user.orcid}",
+                "GET",
+                header_params=header_params,
+                response_type=None,
+                auth_settings=["orcid_auth"],
+                _preload_content=False)
+        except ApiException as ex:
+            if ex.status == 401:
+                self.orcid_token.delete_instance()
+            app.logger.error(f"ApiException Occured: {ex}")
+            return None
 
-        resp, code, headers = self.api_client.call_api(
-            f"/v2.0/{self.user.orcid}",
-            "GET",
-            header_params=header_params,
-            response_type=None,
-            auth_settings=["orcid_auth"],
-            _preload_content=False)
         if code != 200:
             app.logger.error(f"Failed to retrieve ORDIC profile. Code: {code}.")
             app.logger.info(f"Headers: {headers}")
