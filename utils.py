@@ -471,7 +471,8 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
             ar = task_by_user.affiliation_record
             ar.add_status_line("Exception occured while accessing user's profile")
             ar.save()
-            user = User.get(email=task_by_user.affiliation_record.email, organisation=task_by_user.org)
+            user = User.get(
+                email=task_by_user.affiliation_record.email, organisation=task_by_user.org)
             user_org = UserOrg.get(user=user, org=task_by_user.org)
             token = generate_confirmation_token(email=user.email, org=org.name)
             with app.app_context():
@@ -506,9 +507,11 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
 
             status = "The invitation resent at " + datetime.now().isoformat(timespec="seconds")
             (AffiliationRecord.update(status=AffiliationRecord.status + "\n" + status).where(
-                AffiliationRecord.status.is_null(False), AffiliationRecord.email == user.email).execute())
-            (AffiliationRecord.update(status=status).where(AffiliationRecord.status.is_null(),
-                                                           AffiliationRecord.email == user.email).execute())
+                AffiliationRecord.status.is_null(False),
+                AffiliationRecord.email == user.email).execute())
+            (AffiliationRecord.update(
+                status=status).where(AffiliationRecord.status.is_null(),
+                                     AffiliationRecord.email == user.email).execute())
 
 
 def process_affiliation_records(max_rows=20):
