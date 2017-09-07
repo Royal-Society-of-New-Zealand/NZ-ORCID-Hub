@@ -81,23 +81,40 @@
                     <li class="dropdown">
                       <a class="dropdown-toggle" data-toggle="dropdown" href="#">Admin
                         <span class="caret"></span></a>
-                      <ul class="dropdown-menu">
+                      <ul class="dropdown-menu multi-level">
                         <li id="user.index_view"><a data-toggle="tooltip" data-placement="left" title="Registered users" href="{{ url_for('user.index_view')}}">Users</a></li>
                         <li id="organisation.index_view"><a data-toggle="tooltip" data-placement="left" title="Registered Organisations" href="{{ url_for('organisation.index_view')}}">Organisations</a>
                         </li>
                         <li id="orcidtoken.index_view"><a data-toggle="tooltip" data-placement="left" title="Registered user ORCID access tokens" href="{{ url_for('orcidtoken.index_view')}}">ORCID Tokens</a></li>
+                        <li class="divider"></li>
                         <li id="load_org"><a data-toggle="tooltip" data-placement="left" title="Pre-load Organisation Meta-information" href="{{ url_for('load_org')}}">Upload Organisation Info</a></li>
                         <li id="orginfo.index_view"><a data-toggle="tooltip" data-placement="left" title="Pre-loaded Organisation Meta-information" href="{{ url_for('orginfo.index_view')}}">View Organisation
                             Info</a></li>
-                        <li id="user_summary"><a href="{{ url_for('user_summary')}}">User Summary</a></li>
-                        <li id="org_invitation_summary"><a href="{{ url_for('org_invitation_summary')}}">Invitation Summary</a></li>
+                        <li class="divider"></li>
+                        <li class="dropdown-submenu">
+                          <a class="dropdwon-toggle" href="#">Reports</a>
+                            <ul class="dropdown-menu">
+                              <li id="user_summary"><a href="{{ url_for('user_summary')}}">User Summary</a></li>
+                              <li id="org_invitation_summary">
+                                  <a data-toggle="tooltip"
+                                    data-placement="left"
+                                    title="Organisation invitation summary."
+                                    href="{{ url_for('org_invitation_summary')}}">Organisation Invitations</a>
+                              </li>
+                              <li id="user_invitation_summary">
+                                <a data-toggle="tooltip"
+                                  data-placement="left"
+                                  title="User invitation summary."
+                                  href="{{ url_for('user_invitation_summary')}}">User Invitations</a>
+                              </li>
+                          </ul>
+                        </li>
                       </ul>
                     </li>
                   {% endif %}
           </ul>
           <ul class="nav navbar-nav navbar-right">
             <li>{{orcid_url(current_user)}}</li>
-
             <li class="dropdown">
               <a href="#" class="dropdown-toggle" data-toggle="dropdown">
                 <img alt="GRAVATAR" src="{{ current_user.avatar(20) }}">

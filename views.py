@@ -510,7 +510,7 @@ admin.add_view(ViewMembersAdmin(name="viewmembers", endpoint="viewmembers"))
 admin.add_view(UserOrgAmin(UserOrg))
 
 SectionRecord = namedtuple("SectionRecord", [
-    "name", "city", "state", "country", "department", "role", "start_date", "end_date"
+    "org_name", "city", "state", "country", "department", "role", "start_date", "end_date"
 ])
 SectionRecord.__new__.__defaults__ = (None, ) * len(SectionRecord._fields)
 
@@ -670,7 +670,7 @@ def edit_section_record(user_id, put_code=None, section_type="EMP"):
 
             _data = api_response.to_dict()
             data = SectionRecord(
-                name=_data.get("organization").get("name"),
+                org_name=_data.get("organization").get("name"),
                 city=_data.get("organization").get("address").get("city", ""),
                 state=_data.get("organization").get("address").get("region", ""),
                 country=_data.get("organization").get("address").get("country", ""),
@@ -680,15 +680,17 @@ def edit_section_record(user_id, put_code=None, section_type="EMP"):
                 end_date=PartialDate.create(_data.get("end_date")))
         except ApiException as e:
             message = json.loads(e.body.replace("''", "\"")).get('user-messsage')
-            print("Exception when calling MemberAPIV20Api->view_employment: %s\n" % message)
+            app.logger.error(f"Exception when calling MemberAPIV20Api->view_employment: {message}")
         except Exception as ex:
+            app.logger.exception(
+                "Unhandler error occured while creating or editing a profile record.")
             abort(500, ex)
     else:
-        data = SectionRecord(name=org.name, city=org.city, country=org.country)
+        data = SectionRecord(org_name=org.name, city=org.city, country=org.country)
 
     form = RecordForm.create_form(request.form, obj=data, form_type=section_type)
-    if not form.name.data:
-        form.name.data = org.name
+    if not form.org_name.data:
+        form.org_name.data = org.name
     if not form.country.data or form.country.data == "None":
         form.country.data = org.country
 
@@ -724,6 +726,8 @@ def edit_section_record(user_id, put_code=None, section_type="EMP"):
             flash("Failed to update the entry: %s." % message, "danger")
             app.logger.exception(f"For {user} exception encountered")
         except Exception as ex:
+            app.logger.exception(
+                "Unhandler error occured while creating or editing a profile record.")
             abort(500, ex)
 
     return render_template("profile_entry.html", section_type=section_type, form=form, _url=_url)

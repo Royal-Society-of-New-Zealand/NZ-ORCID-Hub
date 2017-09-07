@@ -3,7 +3,7 @@
 <html lang="en">
   <head>
     {% block head %}
-      <title>{% block title %}New Zealand ORCID Hub{% endblock %}</title>
+      <title>{% block title %}{{ title or "New Zealand ORCID Hub"}}{% endblock %}</title>
       <meta charset="utf-8">
       <meta http-equiv="X-UA-Compatible" content="IE=edge">
       <meta name="description" content="NZ ORCID Hub"/>
