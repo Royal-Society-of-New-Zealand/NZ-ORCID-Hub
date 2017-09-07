@@ -472,13 +472,14 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
             ar.add_status_line("Exception occured while accessing user's profile")
             ar.save()
             user = User.get(email=task_by_user.affiliation_record.email, organisation=task_by_user.org)
+            user_org = UserOrg.get(user=user, org=task_by_user.org)
             token = generate_confirmation_token(email=user.email, org=org.name)
             with app.app_context():
                 url = flask.url_for('orcid_login', invitation_token=token, _external=True)
                 invitation_url = flask.url_for(
                     "short_url", short_id=Url.shorten(url).short_id, _external=True)
                 send_email(
-                    "email/researcher_invitation.html",
+                    "email/researcher_reinvitation.html",
                     recipient=(user.organisation.name, user.email),
                     reply_to=(task_by_user.created_by.name, task_by_user.created_by.email),
                     invitation_url=invitation_url,
@@ -498,11 +499,12 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
                 country=org.country,
                 start_date=task_by_user.affiliation_record.start_date,
                 end_date=task_by_user.affiliation_record.end_date,
+                affiliations=user_org.affiliations,
                 disambiguated_id=org.disambiguated_id,
                 disambiguation_source=org.disambiguation_source,
                 token=token)
 
-            status = "The invitation sent at " + datetime.now().isoformat(timespec="seconds")
+            status = "The invitation resent at " + datetime.now().isoformat(timespec="seconds")
             (AffiliationRecord.update(status=AffiliationRecord.status + "\n" + status).where(
                 AffiliationRecord.status.is_null(False), AffiliationRecord.email == user.email).execute())
             (AffiliationRecord.update(status=status).where(AffiliationRecord.status.is_null(),

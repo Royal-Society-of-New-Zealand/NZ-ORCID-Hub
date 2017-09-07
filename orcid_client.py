@@ -120,8 +120,6 @@ class MemberAPI(MemberAPIV20Api):
                 auth_settings=["orcid_auth"],
                 _preload_content=False)
         except ApiException as ex:
-            import pdb
-            pdb.set_trace()
             if ex.status == 401:
                 self.orcid_token.delete_instance()
             app.logger.error(f"ApiException Occured: {ex}")
