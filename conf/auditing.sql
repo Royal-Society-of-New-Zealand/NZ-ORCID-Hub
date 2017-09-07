@@ -14,6 +14,10 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TABLE IF EXISTS audit.orcid_api_call;
+DROP TABLE IF EXISTS audit.orcid_authorize_call;
+DROP TABLE IF EXISTS audit.task;
+
 DO $$
 DECLARE r RECORD; v_sql text;
 BEGIN
