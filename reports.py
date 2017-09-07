@@ -7,7 +7,7 @@ from peewee import JOIN, fn
 from application import app
 from forms import DateRangeForm
 from login_provider import roles_required
-from models import Organisation, OrgInvitation, Role, User, UserOrg
+from models import (Organisation, OrgInvitation, Role, User, UserInvitation, UserOrg)
 
 
 @app.route("/user_summary")
@@ -57,6 +57,24 @@ def org_invitation_summary():  # noqa: D103
         OrgInvitation.confirmed_at >> None).order_by(OrgInvitation.created_at)
 
     return render_template(
-        "org_invitation_summary.html",
+        "invitation_summary.html",
+        title="Organisation Invitation Summary",
+        summary=summary,
+        unconfirmed_invitations=unconfirmed_invitations)
+
+
+@app.route("/user_invitatin_summary")
+@roles_required(Role.SUPERUSER)
+def user_invitation_summary():  # noqa: D103
+
+    summary = UserInvitation.select(
+        fn.COUNT(UserInvitation.id).alias("total"),
+        fn.COUNT(UserInvitation.confirmed_at).alias("confirmed")).first()
+    unconfirmed_invitations = UserInvitation.select().where(
+        UserInvitation.confirmed_at >> None).order_by(UserInvitation.created_at)
+
+    return render_template(
+        "invitation_summary.html",
+        title="User Invitation Summary",
         summary=summary,
         unconfirmed_invitations=unconfirmed_invitations)
