@@ -18,6 +18,15 @@ DROP TABLE IF EXISTS audit.orcid_api_call;
 DROP TABLE IF EXISTS audit.orcid_authorize_call;
 DROP TABLE IF EXISTS audit.task;
 
+DROP TRIGGER IF EXISTS orcid_authorize_call_audit_delete_tr ON orcid_authorize_call;
+DROP TRIGGER IF EXISTS orcid_authorize_call_audit_update_tr ON orcid_authorize_call;
+
+DROP TRIGGER IF EXISTS orcid_api_call_audit_delete_tr ON orcid_api_call;
+DROP TRIGGER IF EXISTS orcid_api_call_audit_update_tr ON orcid_api_call;
+
+DROP TRIGGER IF EXISTS task_delete_tr ON task;
+DROP TRIGGER IF EXISTS task_update_tr ON task;
+
 DO $$
 DECLARE r RECORD; v_sql text;
 BEGIN
