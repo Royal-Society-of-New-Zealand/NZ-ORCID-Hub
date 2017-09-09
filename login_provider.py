@@ -1,3 +1,5 @@
+"""Application login provider for Flask-Login."""
+
 from functools import wraps
 
 from flask import flash
@@ -7,7 +9,9 @@ from application import login_manager
 from models import User
 
 
-def roles_required(*roles):
+def roles_required(*roles):  # noqa: D202
+    """Docorate handler with role requiremnts."""
+
     def wrapper(fn):
         @wraps(fn)
         def decorated_view(*args, **kwargs):

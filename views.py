@@ -5,7 +5,6 @@ import json
 import os
 from collections import namedtuple
 from datetime import datetime
-from urllib.parse import urlparse
 
 from flask import (abort, flash, redirect, render_template, request, send_from_directory, url_for)
 from flask_admin.actions import action
@@ -23,11 +22,10 @@ from config import ORCID_BASE_URL, SCOPE_ACTIVITIES_UPDATE, SCOPE_READ_LIMITED
 from forms import (BitmapMultipleValueField, FileUploadForm, OrgRegistrationForm, PartialDateField,
                    RecordForm, UserInvitationForm)
 from login_provider import roles_required
-from models import PartialDate as PD
 from models import AffiliationRecord  # noqa: F401
 from models import (Affiliation, CharField, OrcidApiCall, OrcidToken, Organisation, OrgInfo,
-                    OrgInvitation, Role, Task, TextField, Url, User, UserInvitation, UserOrg,
-                    UserOrgAffiliation, db)
+                    OrgInvitation, PartialDate, Role, Task, TextField, Url, User, UserInvitation,
+                    UserOrg, UserOrgAffiliation, db)
 # NB! Should be disabled in production
 from pyinfo import info
 from swagger_client.rest import ApiException
@@ -60,6 +58,7 @@ def about():
 
 @app.route("/u/<short_id>")
 def short_url(short_id):
+    """Redirect to the full URL."""
     try:
         u = Url.get(short_id=short_id)
         if request.args:
@@ -67,6 +66,17 @@ def short_url(short_id):
         return redirect(u.url)
     except Url.DoesNotExist:
         abort(404)
+
+
+def read_uploaded_file(form):
+    """Read up the whole content and deconde it and return the whole content."""
+    raw = request.files[form.file_.name].read()
+    for encoding in "utf-8", "utf-8-sig", "utf-16":
+        try:
+            return raw.decode(encoding)
+        except UnicodeDecodeError:
+            continue
+    return raw.decode("latin-1")
 
 
 class AppModelView(ModelView):
@@ -89,15 +99,18 @@ class AppModelView(ModelView):
         datetime:
         lambda view, value: Markup(value.strftime("%Y‑%m‑%d&nbsp;%H:%M")),
     })
+    column_type_formatters_export = dict(typefmt.EXPORT_FORMATTERS)
+    column_type_formatters_export.update({PartialDate: lambda view, value: str(value)})
     column_exclude_list = (
         "created_at",
         "updated_at",
         "created_by",
         "updated_by", )
     form_overrides = dict(start_date=PartialDateField, end_date=PartialDateField)
+    form_widget_args = {c: {"readonly": True} for c in column_exclude_list}
 
     def __init__(self, model=None, *args, **kwargs):
-        """Picks the model based on the ModelView class name assuming it is ModelClass + "Admin"."""
+        """Pick the model based on the ModelView class name assuming it is ModelClass + "Admin"."""
         if model is None:
             if hasattr(self, "model"):
                 model = self.model
@@ -109,7 +122,7 @@ class AppModelView(ModelView):
         super().__init__(model, *args, **kwargs)
 
     def get_pk_value(self, model):
-        """Fix for composite keys."""
+        """Get correct value for composite keys."""
         if self.model._meta.composite_key:
             return tuple([
                 model._data[field_name] for field_name in self.model._meta.primary_key.field_names
@@ -123,6 +136,7 @@ class AppModelView(ModelView):
         return super().get_one(id)
 
     def init_search(self):
+        """Include linked columns in the search if they are defined with 'liked_table.column'."""
         if self.column_searchable_list:
             for p in self.column_searchable_list:
                 if "." in p:
@@ -159,8 +173,7 @@ class AppModelView(ModelView):
         return redirect(url_for("login", next=request.url))
 
     def get_query(self):
-        """Add URL query to the data select for foreign key and select data
-        that user has access to."""
+        """Add URL query to the data select for foreign key and select data that user has access to."""
         query = super().get_query()
 
         if current_user and not current_user.has_role(Role.SUPERUSER) and current_user.has_role(
@@ -199,6 +212,7 @@ class AppModelView(ModelView):
 
 class UserAdmin(AppModelView):
     """User model view."""
+
     roles = {1: "Superuser", 2: "Administrator", 4: "Researcher", 8: "Technical Contact"}
 
     column_exclude_list = (
@@ -254,11 +268,16 @@ class UserAdmin(AppModelView):
 
 class OrganisationAdmin(AppModelView):
     """Organisation model view."""
+
     column_exclude_list = ("orcid_client_id", "orcid_secret", "created_at")
     column_searchable_list = (
         "name",
         "tuakiri_name",
         "city", )
+    edit_template = "admin/organisation_edit.html"
+    form_widget_args = AppModelView.form_widget_args
+    form_widget_args["api_credentials_requested_at"] = {"readonly": True}
+    form_widget_args["api_credentials_entered_at"] = {"readonly": True}
 
     def update_model(self, form, model):
         """Handle change of the technical contact."""
@@ -348,6 +367,8 @@ class UserOrgAmin(AppModelView):
 
 
 class TaskAdmin(AppModelView):
+    """Task model view."""
+
     roles_required = Role.SUPERUSER | Role.ADMIN
     list_template = "view_tasks.html"
     can_edit = False
@@ -356,6 +377,8 @@ class TaskAdmin(AppModelView):
 
 
 class AffiliationRecordAdmin(AppModelView):
+    """Affiliation record model view."""
+
     roles_required = Role.SUPERUSER | Role.ADMIN
     list_template = "affiliation_record_list.html"
     column_exclude_list = (
@@ -384,7 +407,7 @@ class AffiliationRecordAdmin(AppModelView):
         if not super().is_accessible():
             return False
 
-        if request.method == "POST":
+        if request.method == "POST" and request.form.get("rowid"):
             # get the first ROWID:
             rowid = int(request.form.get("rowid"))
             task_id = AffiliationRecord.get(id=rowid).task_id
@@ -411,7 +434,8 @@ class AffiliationRecordAdmin(AppModelView):
         return True
 
     def get_export_name(self, export_type='csv'):
-        """
+        """Get export file name using the original imported file name.
+
         :return: The exported csv file name.
         """
         task_id = request.args.get("task_id")
@@ -454,6 +478,8 @@ class AffiliationRecordAdmin(AppModelView):
 
 
 class ViewMembersAdmin(AppModelView):
+    """Organisation member model (User beloging to the current org.admin oganisation) view."""
+
     roles_required = Role.SUPERUSER | Role.ADMIN
     list_template = "viewMembers.html"
     column_list = ("email", "orcid")
@@ -467,6 +493,7 @@ class ViewMembersAdmin(AppModelView):
     can_export = True
 
     def get_query(self):
+        """Get quiery for the user belonging to the organistation of the current user."""
         return current_user.organisation.users
 
 
@@ -483,7 +510,7 @@ admin.add_view(ViewMembersAdmin(name="viewmembers", endpoint="viewmembers"))
 admin.add_view(UserOrgAmin(UserOrg))
 
 SectionRecord = namedtuple("SectionRecord", [
-    "name", "city", "state", "country", "department", "role", "start_date", "end_date"
+    "org_name", "city", "state", "country", "department", "role", "start_date", "end_date"
 ])
 SectionRecord.__new__.__defaults__ = (None, ) * len(SectionRecord._fields)
 
@@ -515,12 +542,12 @@ def user_orcid_id_url(user):
 @app.template_filter("isodate")
 def isodate(d, sep=' '):
     """Render date into format YYYY-mm-dd HH:MM."""
-    return d.strftime("%Y‑%m‑%d" + sep + "%H:%M") if d and isinstance(d, (datetime, )) else d
+    return d.strftime("%Y‑%m‑%d" + sep + "%H:%M") if d and isinstance(d, (datetime, )) else ''
 
 
 @app.template_filter("shorturl")
 def shorturl(url):
-    """Create and render short url"""
+    """Create and render short url."""
     u = Url.shorten(url)
     return url_for("short_url", short_id=u.short_id, _external=True)
 
@@ -593,7 +620,6 @@ def delete_employment(user_id, put_code=None):
 @roles_required(Role.ADMIN)
 def education(user_id, put_code=None):
     """Create a new or edit an existing employment record."""
-
     return edit_section_record(user_id, put_code, "EDU")
 
 
@@ -602,13 +628,11 @@ def education(user_id, put_code=None):
 @roles_required(Role.ADMIN)
 def employment(user_id, put_code=None):
     """Create a new or edit an existing employment record."""
-
     return edit_section_record(user_id, put_code, "EMP")
 
 
 def edit_section_record(user_id, put_code=None, section_type="EMP"):
     """Create a new or edit an existing profile section record."""
-
     section_type = section_type.upper()[:3]
     _url = (request.args.get("url") or url_for("employment_list", user_id=user_id)
             if section_type == "EMP" else url_for("edu_list", user_id=user_id))
@@ -633,91 +657,51 @@ def edit_section_record(user_id, put_code=None, section_type="EMP"):
         flash("The user hasn't authorized you to Add records", "warning")
         return redirect(_url)
     orcid_client.configuration.access_token = orcid_token.access_token
-    api_instance = orcid_client.MemberAPIV20Api()
+    api = orcid_client.MemberAPI(user=current_user)
 
     # TODO: handle "new"...
     if put_code:
         try:
             # Fetch an Employment
             if section_type == "EMP":
-                api_response = api_instance.view_employment(user.orcid, put_code)
+                api_response = api.view_employment(user.orcid, put_code)
             elif section_type == "EDU":
-                api_response = api_instance.view_education(user.orcid, put_code)
+                api_response = api.view_education(user.orcid, put_code)
 
             _data = api_response.to_dict()
             data = SectionRecord(
-                name=_data.get("organization").get("name"),
+                org_name=_data.get("organization").get("name"),
                 city=_data.get("organization").get("address").get("city", ""),
                 state=_data.get("organization").get("address").get("region", ""),
                 country=_data.get("organization").get("address").get("country", ""),
                 department=_data.get("department_name", ""),
                 role=_data.get("role_title", ""),
-                start_date=PD.create(_data.get("start_date")),
-                end_date=PD.create(_data.get("end_date")))
+                start_date=PartialDate.create(_data.get("start_date")),
+                end_date=PartialDate.create(_data.get("end_date")))
         except ApiException as e:
             message = json.loads(e.body.replace("''", "\"")).get('user-messsage')
-            print("Exception when calling MemberAPIV20Api->view_employment: %s\n" % message)
+            app.logger.error(f"Exception when calling MemberAPIV20Api->view_employment: {message}")
         except Exception as ex:
+            app.logger.exception(
+                "Unhandler error occured while creating or editing a profile record.")
             abort(500, ex)
     else:
-        data = SectionRecord(name=org.name, city=org.city, country=org.country)
+        data = SectionRecord(org_name=org.name, city=org.city, country=org.country)
 
     form = RecordForm.create_form(request.form, obj=data, form_type=section_type)
-    if not form.name.data:
-        form.name.data = org.name
+    if not form.org_name.data:
+        form.org_name.data = org.name
     if not form.country.data or form.country.data == "None":
         form.country.data = org.country
 
     if form.validate_on_submit():
-        # TODO: Audit trail
-        # TODO: If it"s guarantee that the record will be editited solely by a sigle token we can
-        # cache the record in the local DB
-
-        rec = orcid_client.Employment() if section_type == "EMP" else orcid_client.Education()
-        rec.start_date = form.start_date.data.as_orcid_dict()
-        rec.end_date = form.end_date.data.as_orcid_dict()
-        rec.path = ""
-        rec.department_name = form.department.data
-        rec.role_title = form.role.data
-
-        url = urlparse(ORCID_BASE_URL)
-        source_clientid = orcid_client.SourceClientId(
-            host=url.hostname,
-            path=org.orcid_client_id,
-            uri="http://" + url.hostname + "/client/" + org.orcid_client_id)
-        rec.source = orcid_client.Source(
-            source_orcid=None, source_client_id=source_clientid, source_name=org.name)
-
-        organisation_address = orcid_client.OrganizationAddress(
-            city=form.city.data, region=form.state.data, country=form.country.data)
-
-        rec.organization = orcid_client.Organization(
-            name=form.name.data, address=organisation_address, disambiguated_organization=None)
-
-        if org.name != form.name.data:
-            orcid_client.DisambiguatedOrganization(
-                disambiguated_organization_identifier=org.name, disambiguation_source=org.name)
         try:
-            if put_code:
-                rec.put_code = int(put_code)
-                if section_type == "EMP":
-                    api_response = api_instance.update_employment(user.orcid, put_code, body=rec)
-                    app.logger.info("For %r employment record updated by %r", user.orcid,
-                                    current_user)
-                else:
-                    api_response = api_instance.update_education(user.orcid, put_code, body=rec)
-                    app.logger.info("For %r education record updated by %r", user.orcid,
-                                    current_user)
-            else:
-                if section_type == "EMP":
-                    api_response = api_instance.create_employment(user.orcid, body=rec)
-                    app.logger.info("For %r employment record created by %r", user.orcid,
-                                    current_user)
-                else:
-                    api_response = api_instance.create_education(user.orcid, body=rec)
-                    app.logger.info("For %r education record created by %r", user.orcid,
-                                    current_user)
-
+            put_code, orcid, created = api.create_or_update_affiliation(
+                put_code=put_code,
+                affiliation=Affiliation[section_type],
+                **{f.name: f.data
+                   for f in form})
+            if put_code and created:
                 flash("Record details has been added successfully!", "success")
 
             affiliation, _ = UserOrgAffiliation.get_or_create(
@@ -742,6 +726,8 @@ def edit_section_record(user_id, put_code=None, section_type="EMP"):
             flash("Failed to update the entry: %s." % message, "danger")
             app.logger.exception(f"For {user} exception encountered")
         except Exception as ex:
+            app.logger.exception(
+                "Unhandler error occured while creating or editing a profile record.")
             abort(500, ex)
 
     return render_template("profile_entry.html", section_type=section_type, form=form, _url=_url)
@@ -751,6 +737,7 @@ def edit_section_record(user_id, put_code=None, section_type="EMP"):
 @app.route("/<int:user_id>/emp")
 @login_required
 def employment_list(user_id):
+    """Show the employmen list of the selected user."""
     return show_record_section(user_id, "EMP")
 
 
@@ -758,12 +745,12 @@ def employment_list(user_id):
 @app.route("/<int:user_id>/edu")
 @login_required
 def edu_list(user_id):
+    """Show the education list of the selected user."""
     return show_record_section(user_id, "EDU")
 
 
 def show_record_section(user_id, section_type="EMP"):
     """Show all user profile section list."""
-
     _url = request.args.get("url") or request.referrer or url_for("viewmembers.index_view")
 
     section_type = section_type.upper()[:3]  # normalize the section type
@@ -831,22 +818,10 @@ def show_record_section(user_id, section_type="EMP"):
             org_client_id=user.organisation.orcid_client_id)
 
 
-def read_uploaded_file(form):
-    """Read up the whole content and deconde it and return the whole content."""
-    raw = request.files[form.file_.name].read()
-    for encoding in "utf-8", "utf-8-sig", "utf-16":
-        try:
-            return raw.decode(encoding)
-        except UnicodeDecodeError:
-            continue
-    return raw.decode("latin-1")
-
-
 @app.route("/load/org", methods=["GET", "POST"])
 @roles_required(Role.SUPERUSER)
 def load_org():
     """Preload organisation data."""
-
     form = FileUploadForm()
     if form.validate_on_submit():
         row_count = OrgInfo.load_from_csv(read_uploaded_file(form))
@@ -861,7 +836,6 @@ def load_org():
 @roles_required(Role.ADMIN)
 def load_researcher_affiliations():
     """Preload organisation data."""
-
     form = FileUploadForm()
     if form.validate_on_submit():
         filename = secure_filename(form.file_.data.filename)
@@ -877,7 +851,6 @@ def load_researcher_affiliations():
 @roles_required(Role.SUPERUSER)
 def orcid_api_rep():
     """Show ORCID API invocation report."""
-
     data = db.execute_sql("""
     WITH rd AS (
         SELECT date_trunc("minute", call_datetime) AS d, count(*) AS c
@@ -906,7 +879,6 @@ def register_org(org_name,
                  disambiguation_source=None,
                  **kwargs):
     """Register research organisaion."""
-
     email = (email or org_email).lower()
     try:
         User.get(User.email == email)

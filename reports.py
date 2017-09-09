@@ -1,20 +1,18 @@
 # -*- coding: utf-8 -*-
-"""Application views."""
-
-from collections import namedtuple
+"""Application views for reporting."""
 
 from flask import redirect, render_template, request, url_for
-from peewee import fn
+from peewee import JOIN, fn
 
-from application import app, db
+from application import app
 from forms import DateRangeForm
 from login_provider import roles_required
-from models import OrgInvitation, Role, User
+from models import (Organisation, OrgInvitation, Role, User, UserInvitation, UserOrg)
 
 
 @app.route("/user_summary")
 @roles_required(Role.SUPERUSER)
-def user_summary():
+def user_summary():  # noqa: D103
 
     form = DateRangeForm(request.args)
 
@@ -29,38 +27,28 @@ def user_summary():
                     from_date=date_range.from_date.date().isoformat(),
                     to_date=date_range.to_date.date().isoformat()))
 
-    sql = """
-SELECT st.*, o.name
-FROM (
-    SELECT o.id, count(u.id) AS user_count, count(u.orcid) AS linked_user_count
-    FROM organisation AS o
-        LEFT JOIN user_org AS uo ON uo.org_id=o.id
-        LEFT JOIN "user" AS u ON u.id=uo.user_id
-    WHERE u.created_at BETWEEN %s AND %s
-    GROUP BY o.id) AS st
-NATURAL JOIN organisation AS o
-ORDER BY o.name"""
+    query = (Organisation.select(Organisation.name,
+                                 fn.COUNT(User.id).alias("user_count"),
+                                 fn.COUNT(User.orcid).alias("linked_user_count"))
+             .where(User.created_at.between(form.from_date.data, form.to_date.data)).join(
+                 UserOrg, JOIN.LEFT_OUTER, on=(UserOrg.org_id == Organisation.id)).join(
+                     User, JOIN.LEFT_OUTER,
+                     on=(User.id == UserOrg.user_id)).group_by(Organisation.name))
 
-    cr = db.execute_sql(sql, (
-        form.from_date.data,
-        form.to_date.data, ))
-    columns = [c[0] for c in cr.description]
-    Row = namedtuple("Row", columns)
-    rows = [Row(*r) for r in cr.fetchall()]
-    total_user_count = sum(r.user_count for r in rows)
-    total_linked_user_count = sum(r.linked_user_count for r in rows)
+    total_user_count = sum(r.user_count for r in query)
+    total_linked_user_count = sum(r.linked_user_count for r in query)
 
     return render_template(
         "user_summary.html",
         form=form,
-        rows=rows,
+        query=query,
         total_user_count=total_user_count,
         total_linked_user_count=total_linked_user_count)
 
 
 @app.route("/org_invitatin_summary")
 @roles_required(Role.SUPERUSER)
-def org_invitation_summary():
+def org_invitation_summary():  # noqa: D103
 
     summary = OrgInvitation.select(
         fn.COUNT(OrgInvitation.id).alias("total"),
@@ -69,6 +57,24 @@ def org_invitation_summary():
         OrgInvitation.confirmed_at >> None).order_by(OrgInvitation.created_at)
 
     return render_template(
-        "org_invitation_summary.html",
+        "invitation_summary.html",
+        title="Organisation Invitation Summary",
+        summary=summary,
+        unconfirmed_invitations=unconfirmed_invitations)
+
+
+@app.route("/user_invitatin_summary")
+@roles_required(Role.SUPERUSER)
+def user_invitation_summary():  # noqa: D103
+
+    summary = UserInvitation.select(
+        fn.COUNT(UserInvitation.id).alias("total"),
+        fn.COUNT(UserInvitation.confirmed_at).alias("confirmed")).first()
+    unconfirmed_invitations = UserInvitation.select().where(
+        UserInvitation.confirmed_at >> None).order_by(UserInvitation.created_at)
+
+    return render_template(
+        "invitation_summary.html",
+        title="User Invitation Summary",
         summary=summary,
         unconfirmed_invitations=unconfirmed_invitations)

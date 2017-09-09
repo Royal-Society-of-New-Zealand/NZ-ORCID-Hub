@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # -*-coding: utf-8 -*-
+"""Collects and renders Python and Flask application evironment and configuration."""
 
 import cgi
 import os
@@ -40,7 +41,7 @@ def _info():
     return info
 
 
-def get_system_info():
+def get_system_info():  # noqa: D103
     system_info = []
 
     distname = platform.linux_distribution()[0]
@@ -78,7 +79,7 @@ def get_system_info():
     return system_info
 
 
-def get_py_internals():
+def get_py_internals():  # noqa: D103
     py_internals = []
     if hasattr(sys, 'builtin_module_names'):
         py_internals.append(('Built-in Modules', ', '.join(sys.builtin_module_names)))
@@ -107,7 +108,7 @@ def get_py_internals():
     return py_internals
 
 
-def get_os_internals():
+def get_os_internals():  # noqa: D103
     os_internals = []
     if hasattr(os, 'getcwd'):
         os_internals.append(("Current Working Directory", os.getcwd()))
@@ -139,11 +140,11 @@ def get_os_internals():
     return os_internals
 
 
-def get_envvars():
+def get_envvars():  # noqa: D103
     return [(k, cgi.escape(v, quote=True)) for k, v in os.environ.items()]
 
 
-def get_database_info():
+def get_database_info():  # noqa: D103
     database_info = []
     database_info.append(('DB2/Informix (ibm_db)', is_imported('ibm_db')))
     database_info.append(('MSSQL (adodbapi)', is_imported('adodbapi')))
@@ -158,7 +159,7 @@ def get_database_info():
     return database_info
 
 
-def get_compression_info():
+def get_compression_info():  # noqa: D103
     compression_info = []
     compression_info.append(('Bzip2 Support', is_imported('bz2')))
     compression_info.append(('Gzip Support', is_imported('gzip')))
@@ -168,7 +169,7 @@ def get_compression_info():
     return compression_info
 
 
-def get_socket_info():
+def get_socket_info():  # noqa: D103
     socket_info = []
     socket_info.append(('Hostname', socket.gethostname()))
     socket_info.append(('Hostname (fully qualified)',
@@ -182,7 +183,7 @@ def get_socket_info():
     return socket_info
 
 
-def get_multimedia_info():
+def get_multimedia_info():  # noqa: D103
     multimedia_info = []
     multimedia_info.append(('AIFF Support', is_imported('aifc')))
     multimedia_info.append(('Color System Conversion Support', is_imported('colorsys')))
@@ -200,7 +201,7 @@ def get_multimedia_info():
     return multimedia_info
 
 
-def is_imported(module):
+def is_imported(module):  # noqa: D103
     if module in sys.modules:
         return 'enabled'
     return 'disabled'

@@ -4,6 +4,7 @@ LABEL maintainer="The University of Auckland" \
 	version="2.0" \
 	description="NZ ORCiD Hub Application Image with Development support"
 
+COPY dev_requirements.txt /dev_requirements.txt
 ADD https://github.com/zaproxy/zaproxy/releases/download/2.6.0/ZAP_2.6.0_Linux.tar.gz ZAP_Linux.tar.gz
 ADD http://anduin.linuxfromscratch.org/BLFS/OpenJDK/OpenJDK-1.8.0.141/OpenJDK-1.8.0.141-x86_64-bin.tar.xz OpenJDK.tar.gz.xz
 
@@ -17,6 +18,7 @@ RUN yum -y update \
 	&& tar -xf OpenJDK.tar.gz.xz -C /tmp \
 	&& pip3.6 install -U git+https://github.com/Royal-Society-of-New-Zealand/zap-cli \
     && pip3.6 install -U flake8_docstrings pytest-cov coveralls pyyaml \
+    && pip3.6 install -U -r /dev_requirements.txt \
     && cd /var/lib/rpm \
     && rm -rf __db* \
     && rpm --rebuilddb \
@@ -24,7 +26,8 @@ RUN yum -y update \
     && rm -rf $HOME/.pip/cache \
     && rm -rf ZAP_Linux.tar.gz \
     && rm -rf OpenJDK.tar.gz.xz \
-    && rm -rf /var/cache/*/* /anaconda-post.log
+    && rm -rf /var/cache/*/* /anaconda-post.log /dev_requirements.txt
+
 
 ENV DEBUG=1
 WORKDIR /src

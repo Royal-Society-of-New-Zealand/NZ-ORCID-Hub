@@ -5,7 +5,7 @@ import logging
 import os
 import textwrap
 from datetime import datetime
-from itertools import groupby
+from itertools import filterfalse, groupby
 from os.path import splitext
 from urllib.parse import urlencode, urlparse
 
@@ -29,6 +29,9 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 logger.addHandler(logging.StreamHandler())
 
+EDU_CODES = {"student", "edu"}
+EMP_CODES = {"faculty", "staff", "emp"}
+
 
 def send_email(template_filename,
                recipient,
@@ -37,8 +40,8 @@ def send_email(template_filename,
                reply_to=None,
                subject=None,
                **kwargs):
-    """
-    Send an email, acquiring its payload by rendering a jinja2 template
+    """Send an email, acquiring its payload by rendering a jinja2 template.
+
     :type template_filename: :class:`str`
     :param subject: the subject of the email
     :param template_filename: name of the template_filename file in ``templates/emails`` to use
@@ -122,8 +125,8 @@ def send_email(template_filename,
 
 
 class RewrapExtension(jinja2.ext.Extension):
-    """
-    The :mod:`jinja2` extension adds a ``{% rewrap %}...{% endrewrap %}`` block
+    """The :mod:`jinja2` extension adds a ``{% rewrap %}...{% endrewrap %}`` block.
+
     The contents in the rewrap block are modified as follows
     * whitespace at the start and end of lines is discarded
     * the contents are split into 'paragraphs' separated by blank lines
@@ -145,9 +148,10 @@ class RewrapExtension(jinja2.ext.Extension):
         {% rewrap 72 %}
     It defaults to 78.
     """
+
     tags = set(['rewrap'])
 
-    def parse(self, parser):
+    def parse(self, parser):  # noqa: D102
         # first token is 'rewrap'
         lineno = parser.stream.next().lineno
 
@@ -209,19 +213,19 @@ def confirm_token(token, expiration=1300000):
 
 
 def append_qs(url, **qs):
-    """Appends new query strings to an arbitraty URL."""
+    """Append new query strings to an arbitraty URL."""
     return url + ('&' if urlparse(url).query else '?') + urlencode(qs, doseq=True)
 
 
 def track_event(category, action, label=None, value=0):
     """Track application events with Google Analytics."""
-    GA_TRACKING_ID = app.config.get("GA_TRACKING_ID")
-    if not GA_TRACKING_ID:
+    ga_tracking_id = app.config.get("GA_TRACKING_ID")
+    if not ga_tracking_id:
         return
 
     data = {
         "v": "1",  # API Version.
-        "tid": GA_TRACKING_ID,  # Tracking ID / Property ID.
+        "tid": ga_tracking_id,  # Tracking ID / Property ID.
         # Anonymous Client Identifier. Ideally, this should be a UUID that
         # is associated with particular user, device, or browser instance.
         "cid": current_user.uuid,
@@ -244,7 +248,6 @@ def track_event(category, action, label=None, value=0):
 
 def set_server_name():
     """Set the server name for batch processes."""
-
     if not app.config.get("SERVER_NAME"):
         if EXTERNAL_SP:
             app.config["SERVER_NAME"] = "127.0.0.1:5000"
@@ -273,18 +276,18 @@ def send_user_initation(inviter,
                         disambiguation_source=None,
                         **kwargs):
     """Send an invitation to join ORCID Hub logging in via ORCID."""
-
     try:
         logger.info(f"*** Sending an invitation to '{first_name} {last_name} <{email}>' "
                     f"submitted by {inviter} of {org} for affiliations: {affiliation_types}")
 
         email = email.lower()
-        user, _ = User.get_or_create(email=email)
-        user.first_name = first_name
-        user.last_name = last_name
-        user.roles |= Role.RESEARCHER
-        user.email = email
+        user, user_created = User.get_or_create(email=email)
+        if user_created:
+            user.first_name = first_name
+            user.last_name = last_name
         user.organisation = org
+        user.roles |= Role.RESEARCHER
+
         token = generate_confirmation_token(email=email, org=org.name)
         with app.app_context():
             url = flask.url_for('orcid_login', invitation_token=token, _external=True)
@@ -295,13 +298,16 @@ def send_user_initation(inviter,
                 recipient=(user.organisation.name, user.email),
                 reply_to=(inviter.name, inviter.email),
                 invitation_url=invitation_url,
-                invitation_token=token,
                 org_name=user.organisation.name,
                 user=user)
 
         user.save()
 
         user_org, user_org_created = UserOrg.get_or_create(user=user, org=org)
+        if user_org_created:
+            user_org.created_by = inviter.id
+        else:
+            user_org.updated_by = inviter.id
 
         if affiliations is None and affiliation_types:
             affiliations = 0
@@ -321,7 +327,7 @@ def send_user_initation(inviter,
             last_name=last_name,
             orcid=orcid,
             department=department,
-            organisation=organisation,
+            organisation=org.name,
             city=city,
             state=state,
             country=country,
@@ -345,47 +351,169 @@ def send_user_initation(inviter,
         raise ex
 
 
+def unique_everseen(iterable, key=None):
+    """List unique elements, preserving order. Remember all elements ever seen.
+
+    The snippet is taken form https://docs.python.org/3.6/library/itertools.html#itertools-recipes
+    >>> unique_everseen('AAAABBBCCDAABBB')
+    A B C D
+    >>> unique_everseen('ABBCcAD', str.lower)
+    A B C D
+    """
+    seen = set()
+    seen_add = seen.add
+    if key is None:
+        for element in filterfalse(seen.__contains__, iterable):
+            seen_add(element)
+            yield element
+    else:
+        for element in iterable:
+            k = key(element)
+            if k not in seen:
+                seen_add(k)
+                yield element
+
+
 def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
-    """Creates or updates affiliation record of a user.
+    """Create or update affiliation record of a user.
 
     1. Retries user edurcation and employment surramy from ORCID;
     2. Match the recodrs with the summary;
     3. If there is match update the record;
-    4. If no match create a new one."""
-
+    4. If no match create a new one.
+    """
+    records = list(unique_everseen(records, key=lambda t: t.affiliation_record.id))
     org = Organisation.get(id=org_id)
+    client_id = org.orcid_client_id
     api = orcid_client.MemberAPI(org, user)
+    profile_record = api.get_record()
+    if profile_record:
+        activities = profile_record.get("activities-summary")
 
-    for task_by_user in records:
-        ar = task_by_user.affiliation_record
-        at = ar.affiliation_type.lower()
-        if at in {"faculty", "staff", "emp"}:
-            affiliation = Affiliation.EMP
-        elif at in {"student", "edu"}:
-            affiliation = Affiliation.EDU
-        else:
-            logger.info(f"For {user} not able to determine affiliaton type with {org}")
-            ar.processed_at = datetime.now()
-            ar.add_status_line(f"Unsupported affiliation type '{at}' allowed values are: " +
-                               ', '.join(at for at in AFFILIATION_TYPES))
-            ar.save()
-            continue
+        def is_org_rec(rec):
+            return (rec.get("source").get("source-client-id")
+                    and rec.get("source").get("source-client-id").get("path") == client_id)
 
-        try:
-            put_code, orcid, created = api.create_or_update_affiliation(
-                affiliation=affiliation, **ar._data)
-            if created:
-                ar.add_status_line(f"Affiliation record was created.")
+        employments = [
+            r for r in (activities.get("employments").get("employment-summary")) if is_org_rec(r)
+        ]
+        educations = [
+            r for r in (activities.get("educations").get("education-summary")) if is_org_rec(r)
+        ]
+
+        taken_put_codes = {
+            r.affiliation_record.put_code
+            for r in records if r.affiliation_record.put_code
+        }
+
+        def match_put_code(records, affiliation_record):
+            """Match and asign put-code to a single affiliation record and the existing ORCID records."""
+            if affiliation_record.put_code:
+                return
+            for r in records:
+                put_code = r.get("put-code")
+                if put_code in taken_put_codes:
+                    continue
+
+                if ((r.get("start-date") is None and r.get("end-date") is None
+                     and r.get("department-name") is None and r.get("role-title") is None)
+                        or (r.get("start-date") == affiliation_record.start_date
+                            and r.get("department-name") == affiliation_record.department_name
+                            and r.get("role-title") == affiliation_record.role_title)):
+                    affiliation_record.put_code = put_code
+                    taken_put_codes.add(put_code)
+                    app.logger.debug(
+                        f"put-code {put_code} was asigned to the affiliation record "
+                        f"(ID: {affiliation_record.id}, Task ID: {affiliation_record.task_id})")
+                    break
+
+        for task_by_user in records:
+            ar = task_by_user.affiliation_record
+            at = ar.affiliation_type.lower()
+            if at in EMP_CODES:
+                match_put_code(employments, ar)
+            elif at in EDU_CODES:
+                match_put_code(educations, ar)
+
+        for task_by_user in records:
+            ar = task_by_user.affiliation_record
+            at = ar.affiliation_type.lower()
+
+            if at in EMP_CODES:
+                affiliation = Affiliation.EMP
+            elif at in EDU_CODES:
+                affiliation = Affiliation.EDU
             else:
-                ar.add_status_line("Affiliation record was updated")
-            ar.processed_at = datetime.now()
+                logger.info(f"For {user} not able to determine affiliaton type with {org}")
+                ar.processed_at = datetime.now()
+                ar.add_status_line(f"Unsupported affiliation type '{at}' allowed values are: " +
+                                   ', '.join(at for at in AFFILIATION_TYPES))
+                ar.save()
+                continue
 
-        except Exception as ex:
-            logger.exception(f"For {user} encountered exception")
-            ar.add_status_line(f"Exception occured processing the record: {ex}.")
+            try:
+                put_code, orcid, created = api.create_or_update_affiliation(
+                    affiliation=affiliation, **ar._data)
+                if created:
+                    ar.add_status_line(f"{str(affiliation)} record was created.")
+                else:
+                    ar.add_status_line(f"{str(affiliation)} record was updated.")
+                ar.orcid = orcid
+                ar.put_code = put_code
+                ar.processed_at = datetime.now()
 
-        finally:
+            except Exception as ex:
+                logger.exception(f"For {user} encountered exception")
+                ar.add_status_line(f"Exception occured processing the record: {ex}.")
+
+            finally:
+                ar.save()
+    else:
+        for task_by_user in records:
+            ar = task_by_user.affiliation_record
+            ar.add_status_line("Exception occured while accessing user's profile")
             ar.save()
+            user = User.get(
+                email=task_by_user.affiliation_record.email, organisation=task_by_user.org)
+            user_org = UserOrg.get(user=user, org=task_by_user.org)
+            token = generate_confirmation_token(email=user.email, org=org.name)
+            with app.app_context():
+                url = flask.url_for('orcid_login', invitation_token=token, _external=True)
+                invitation_url = flask.url_for(
+                    "short_url", short_id=Url.shorten(url).short_id, _external=True)
+                send_email(
+                    "email/researcher_reinvitation.html",
+                    recipient=(user.organisation.name, user.email),
+                    reply_to=(task_by_user.created_by.name, task_by_user.created_by.email),
+                    invitation_url=invitation_url,
+                    org_name=user.organisation.name,
+                    user=user)
+            UserInvitation.create(
+                invitee_id=user.id,
+                inviter_id=task_by_user.created_by.id,
+                org=org,
+                email=user.email,
+                first_name=user.first_name,
+                last_name=user.last_name,
+                orcid=user.orcid,
+                organisation=org.name,
+                city=org.city,
+                state=org.state,
+                country=org.country,
+                start_date=task_by_user.affiliation_record.start_date,
+                end_date=task_by_user.affiliation_record.end_date,
+                affiliations=user_org.affiliations,
+                disambiguated_id=org.disambiguated_id,
+                disambiguation_source=org.disambiguation_source,
+                token=token)
+
+            status = "The invitation resent at " + datetime.now().isoformat(timespec="seconds")
+            (AffiliationRecord.update(status=AffiliationRecord.status + "\n" + status).where(
+                AffiliationRecord.status.is_null(False),
+                AffiliationRecord.email == user.email).execute())
+            (AffiliationRecord.update(
+                status=status).where(AffiliationRecord.status.is_null(),
+                                     AffiliationRecord.email == user.email).execute())
 
 
 def process_affiliation_records(max_rows=20):
@@ -456,8 +584,15 @@ def process_affiliation_records(max_rows=20):
                 AffiliationRecord.orcid).distinct().count()
 
             with app.app_context():
+                protocol_scheme = 'http'
+                if not EXTERNAL_SP:
+                    protocol_scheme = 'https'
                 export_url = flask.url_for(
-                    "affiliationrecord.export", export_type="csv", task_id=task.id, _external=True)
+                    "affiliationrecord.export",
+                    export_type="csv",
+                    _scheme=protocol_scheme,
+                    task_id=task.id,
+                    _external=True)
                 send_email(
                     "email/task_completed.html",
                     subject="Affiliation Process Update",

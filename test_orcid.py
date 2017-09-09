@@ -3,13 +3,13 @@
 
 import json
 import time
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 
+import pytest
 import requests_oauthlib
 from flask import session, url_for
 from flask_login import login_user
 
-import pytest
 from models import Affiliation, OrcidToken, Organisation, User, UserOrg
 
 fake_time = time.time()
@@ -67,13 +67,13 @@ def test_link_already_affiliated(request_ctx):
         test_user.save()
         orcidtoken = OrcidToken(
             user=test_user, org=org, scope="/read-limited", access_token="ABC1234")
-        orcidtokenWrite = OrcidToken(
+        orcidtoken_write = OrcidToken(
             user=test_user,
             org=org,
             scope="/read-limited,/activities/update",
             access_token="ABC234")
         orcidtoken.save()
-        orcidtokenWrite.save()
+        orcidtoken_write.save()
         login_user(test_user, remember=True)
         uo = UserOrg(user=test_user, org=org)
         uo.save()
@@ -132,8 +132,8 @@ def test_link_orcid_auth_callback(name, request_ctx):
     refresh_token="ABC1235"))
 def test_link_orcid_auth_callback_with_affiliation(name, request_ctx):
     """Test ORCID callback - the user authorized the organisation access to the ORCID profile."""
-    with patch("orcid_client.MemberAPIV20Api") as m, patch(
-            "swagger_client.SourceClientId"), request_ctx("/auth?state=xyz") as ctx:
+    with patch("orcid_client.MemberAPI") as m, patch("orcid_client.SourceClientId"), request_ctx(
+            "/auth?state=xyz") as ctx:
         org = Organisation.create(
             name="THE ORGANISATION",
             confirmed=True,
@@ -161,8 +161,12 @@ def test_link_orcid_auth_callback_with_affiliation(name, request_ctx):
         orcid_token = OrcidToken.get(user=test_user, org=org)
         assert orcid_token.access_token == "ABC123"
 
-        api_mock.create_employment.assert_called_once()
-        api_mock.create_education.assert_called_once()
+        api_mock.create_or_update_affiliation.assert_has_calls([
+            call(affiliation=Affiliation.EDU, initial=True),
+            call(affiliation=Affiliation.EMP, initial=True),
+        ])
+        # api_mock.create_employment.assert_called_once()
+        # api_mock.create_education.assert_called_once()
 
 
 def make_fake_response(text, *args, **kwargs):

@@ -9,27 +9,59 @@ import logging
 import os
 
 import click
-from flask_debugtoolbar import DebugToolbarExtension
 
-import initializedb
 import models  # noqa: F401
 from application import app
-from authcontroller import *  # noqa: F401, F403
-from reports import *  # noqa: F401, F403
+from authcontroller import *  # noqa: F401,F403
+from reports import *  # noqa: F401,F403
 from utils import process_affiliation_records
-from views import *  # noqa: F401, F403
+from views import *  # noqa: F401,F403
 
 
 @app.before_first_request
 def setup_logging():
+    """Set-up logger to log to STDOUT (eventually conainer log)."""
     app.logger.addHandler(logging.StreamHandler())
     app.logger.setLevel(logging.INFO)
 
 
 @app.cli.command()
-def initdb():
+@click.option("-d", "--drop", is_flag=True, help="Drop tables before creating...")
+@click.option("-f", "--force", is_flag=True, help="Enforce table craeation.")
+@click.option("-A", "--audit", is_flag=True, help="Create adit trail tables.")
+@click.option(
+    "-V",
+    "--verbose",
+    is_flag=True,
+    help="Shows SQL statements that get sent to the server or DB.")
+def initdb(create=False, drop=False, force=False, audit=True, verbose=False):
     """Initialize the database."""
-    initializedb.initdb()
+    if drop and force:
+        models.drop_tables()
+
+    if verbose:
+        logger = logging.getLogger("peewee")
+        if logger:
+            logger.setLevel(logging.DEBUG)
+            logger.addHandler(logging.StreamHandler())
+
+    try:
+        models.create_tables()
+    except:
+        app.logger.exception("Failed to create tables...")
+
+    if audit:
+        app.logger.info("Creating audit tables...")
+        models.create_audit_tables()
+
+    super_user, _ = models.User.get_or_create(
+        name="The University of Auckland",
+        email="root@mailinator.com",
+        confirmed=True,
+        roles=models.Role.SUPERUSER)
+
+    org, _ = models.Organisation.get_or_create(
+        name="The University of Auckland", tuakiri_name="University of Auckland", confirmed=True)
 
 
 @app.cli.group()
@@ -61,6 +93,7 @@ if os.environ.get("ENV") == "dev0":
     app.debug = True
 
 if app.debug:
+    from flask_debugtoolbar import DebugToolbarExtension
     toolbar = DebugToolbarExtension(app)
     # logger = logging.getLogger('peewee')
     # logger.setLevel(logging.DEBUG)

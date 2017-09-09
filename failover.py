@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Failover DB connection. """
+"""Failover DB connection."""
 
 import logging
 
@@ -8,13 +8,15 @@ from psycopg2 import OperationalError
 
 
 class PgDbWithFailover(PostgresqlDatabase):
-    """Postgres DB connection with a failover server. """
+    """Postgres DB connection with a failover server."""
 
     def __init__(self, *args, failover_host=None, **kwargs):
+        """Set up the connction paramers with an additional failover host name."""
         self.failover_host = failover_host
         super().__init__(*args, **kwargs)
 
     def connect(self):
+        """Attempt to connect or reconnect."""
         if not self._local.closed:
             with self._conn_lock:
                 with self.exception_wrapper:
@@ -26,6 +28,11 @@ class PgDbWithFailover(PostgresqlDatabase):
         super().connect()
 
     def _connect(self, database, encoding=None, **kwargs):
+        """Attempt to connect to the DB.
+
+        In case it's not available, 'fail over' to the back-up stand-by DB and propagete
+        it to the master DB.
+        """
         try:
             return super()._connect(database, encoding=encoding, **kwargs)
         except OperationalError as ex:
@@ -43,6 +50,7 @@ class PgDbWithFailover(PostgresqlDatabase):
                 raise ex
 
     def execute_sql(self, sql, params=None, require_commit=True):
+        """Attempt to exectute a SQL statement. If it fails try to fail over ..."""
         try:
             return super().execute_sql(sql, params=params, require_commit=require_commit)
         except (DatabaseError, InterfaceError) as ex:
