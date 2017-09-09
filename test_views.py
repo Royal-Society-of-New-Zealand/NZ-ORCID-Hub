@@ -24,6 +24,7 @@ fake_time = time.time()
 
 @pytest.fixture
 def test_db():
+    """Test to check db."""
     _db = SqliteDatabase(":memory:")
     with test_database(
             _db, (Organisation, User, UserOrg, OrcidToken, UserOrgAffiliation, Task,
@@ -36,6 +37,7 @@ def test_db():
 
 @pytest.fixture
 def test_models(test_db):
+    """Test to check models."""
     Organisation.insert_many((dict(
         name="Organisation #%d" % i,
         tuakiri_name="Organisation #%d" % i,
@@ -152,6 +154,7 @@ def test_year_range():
 
 
 def test_user_orcid_id_url():
+    """Test to get orcid url."""
     u = User(
         email="test123@test.test.net",
         name="TEST USER",
@@ -167,6 +170,7 @@ def test_user_orcid_id_url():
 @patch.object(orcid_client.MemberAPIV20Api, "view_employments",
               lambda self, *args, **kwargs: make_fake_response('{"test": "TEST1234567890"}'))
 def test_show_record_section(request_ctx, test_db):
+    """Test to show selected record."""
     org = Organisation.get_or_create(
         id=1,
         name="THE ORGANISATION",

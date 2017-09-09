@@ -183,6 +183,9 @@ def test_tuakiri_login_with_org(client):
 
 
 def test_tuakiri_login_by_techical_contact_organisation_not_onboarded(client):
+    """
+        Test logging attempt by technical contact when organisation is not onboarded
+    """
     org = Organisation(name="Org112", tuakiri_name="Org112", confirmed=False, is_email_sent=True)
     u = User(email="user1113@test.test.net", confirmed=True, roles=Role.TECHNICAL, organisation=org)
     org.tech_contact = u
@@ -235,6 +238,9 @@ def test_confirmation_token(app):
 
 
 def test_login_provider_load_user(request_ctx):  # noqa: D103
+    """
+            Test to load user
+    """
     u = User(
         email="test123@test.test.net",
         name="TEST USER",
@@ -261,6 +267,9 @@ def test_login_provider_load_user(request_ctx):  # noqa: D103
 
 
 def test_onboard_org(request_ctx):
+    """
+            Test to organisation onboarding
+    """
     Organisation.get_or_create(
         id=1,
         name="THE ORGANISATION",
@@ -326,6 +335,9 @@ def test_onboard_org(request_ctx):
 
 
 def test_logout(request_ctx):
+    """
+            Test to logout
+    """
     with request_ctx("/logout") as ctxx:
         rv = ctxx.app.full_dispatch_request()
         assert rv.status_code == 302

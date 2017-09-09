@@ -19,6 +19,7 @@ def test_append_qs():
 
 
 def test_generate_confirmation_token():
+    """Test to generate confirmation token."""
     token = utils.generate_confirmation_token(["testemail@example.com"])
     data = utils.confirm_token(token)
     # Test positive testcase
@@ -29,6 +30,7 @@ def test_generate_confirmation_token():
 
 
 def test_track_event(request_ctx):
+    """Test to track event."""
     category = "test"
     action = "test"
     label = None
@@ -50,6 +52,7 @@ def test_track_event(request_ctx):
 
 
 def test_set_server_name(app):
+    """Test to set server name."""
     utils.set_server_name()
     server_name = app.config.get("SERVER_NAME")
     utils.set_server_name()
@@ -60,6 +63,7 @@ def test_set_server_name(app):
 
 
 def test_send_user_initation(request_ctx):
+    """Test to send user invitation."""
     org = Organisation(
         id=1,
         name="THE ORGANISATION",
