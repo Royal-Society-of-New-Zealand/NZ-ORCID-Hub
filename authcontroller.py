@@ -733,7 +733,7 @@ def orcid_login(invitation_token=None):
     redirect_uri = url_for("orcid_callback", _next=_next, _external=True)
 
     try:
-        scope = SCOPE_AUTHENTICATE
+        orcid_scope = SCOPE_AUTHENTICATE[:]
 
         client_id = ORCID_CLIENT_ID
         if invitation_token:
@@ -750,9 +750,9 @@ def orcid_login(invitation_token=None):
 
                 if org.orcid_client_id and not user.is_tech_contact_of(org):
                     client_id = org.orcid_client_id
-                    scope = SCOPE_ACTIVITIES_UPDATE + SCOPE_READ_LIMITED
+                    orcid_scope = SCOPE_ACTIVITIES_UPDATE + SCOPE_READ_LIMITED
                 else:
-                    scope += SCOPE_READ_LIMITED
+                    orcid_scope += SCOPE_READ_LIMITED
 
                 redirect_uri = append_qs(redirect_uri, invitation_token=invitation_token)
             except Organisation.DoesNotExist:
@@ -770,7 +770,7 @@ def orcid_login(invitation_token=None):
         # if the invitation token is missing perform only authentication (in the call back handler)
         redirect_uri = append_qs(redirect_uri, login="1")
 
-        client_write = OAuth2Session(client_id, scope=scope, redirect_uri=redirect_uri)
+        client_write = OAuth2Session(client_id, scope=orcid_scope, redirect_uri=redirect_uri)
 
         authorization_url, state = client_write.authorization_url(AUTHORIZATION_BASE_URL)
         # if the inviation token is preset use it as OAuth state
