@@ -242,6 +242,8 @@ def track_event(category, action, label=None, value=0):
     # on your application's needs, this may be a non-error and can be caught
     # by the caller.
     response.raise_for_status()
+    # Returning response only for test, but can be used in application for some other reasons
+    return response
 
 
 def set_server_name():

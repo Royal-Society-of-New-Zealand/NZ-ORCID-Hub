@@ -29,7 +29,7 @@
             url: "{{orcid_base_url}}" + "userStatus.json?logUserOut=true",
             dataType: 'jsonp',
             success: function(result,status,xhr) {
-                window.location="{{orcid_url_write}}"
+                window.location="{{orcid_url_write | safe}}"
             },
             error: function (xhr, status, error) {
                 alert(status);
