@@ -888,7 +888,7 @@ def orcid_login_callback(request):
                 f"User '{user}' attempted to affiliate with non-existing organisation {org_name}")
             return redirect(url_for("login"))
 
-        if user.is_tech_contact_of(org) and invitation_token and user_org.is_admin:
+        if user_org.is_admin and invitation_token:
             access_token = token.get("access_token")
             if not access_token:
                 app.logger.error(f"Missing access token: {token}")
@@ -921,9 +921,9 @@ def orcid_login_callback(request):
                     flash(
                         f"Your '{org}' has not be onboarded. Please, try again once your technical contact"
                         f" onboards your organisation on ORCIDHUB", "warning")
-                    return redirect(_next or url_for("about"))
+                    return redirect(url_for("about"))
                 elif org.confirmed:
-                    return redirect(_next or url_for('viewmembers.index_view'))
+                    return redirect(url_for('viewmembers.index_view'))
             else:
                 logout_user()
                 flash(
