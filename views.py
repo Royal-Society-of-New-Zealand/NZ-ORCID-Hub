@@ -55,6 +55,10 @@ def about():
     """Show "about" page."""
     return render_template("about.html")
 
+@app.route("/faq")
+def faq():
+    """Show "FAQ" page."""
+    return render_template("faq.html")
 
 @app.route("/u/<short_id>")
 def short_url(short_id):
