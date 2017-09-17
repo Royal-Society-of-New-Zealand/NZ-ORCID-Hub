@@ -125,7 +125,15 @@ class MemberAPI(MemberAPIV20Api):
                 _preload_content=False)
         except ApiException as ex:
             if ex.status == 401:
-                self.orcid_token.delete_instance()
+                try:
+                    orcid_token = OrcidToken.get(
+                        user_id=self.user.id,
+                        org_id=self.org.id,
+                        scope=SCOPE_READ_LIMITED[0] + "," + SCOPE_ACTIVITIES_UPDATE[0])
+                    orcid_token.delete_instance()
+                except Exception as ex:
+                    app.logger.exception("Exception occured while retriving ORCID Token")
+                    return None
             app.logger.error(f"ApiException Occured: {ex}")
             return None
 
