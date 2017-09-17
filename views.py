@@ -102,9 +102,7 @@ class AppModelView(ModelView):
     column_type_formatters_export = dict(typefmt.EXPORT_FORMATTERS)
     column_type_formatters_export.update({PartialDate: lambda view, value: str(value)})
     column_exclude_list = (
-        "created_at",
         "updated_at",
-        "created_by",
         "updated_by", )
     form_overrides = dict(start_date=PartialDateField, end_date=PartialDateField)
     form_widget_args = {c: {"readonly": True} for c in column_exclude_list}
