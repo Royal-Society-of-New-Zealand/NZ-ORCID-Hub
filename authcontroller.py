@@ -959,6 +959,7 @@ def orcid_login_callback(request):
                     for a in Affiliation:
                         if a & ui.affiliations:
                             params["affiliation"] = a
+                            params["initial"] = True
                             api.create_or_update_affiliation(**params)
                 ui.confirmed_at = datetime.now()
                 ui.save()
