@@ -742,7 +742,7 @@ def orcid_login(invitation_token=None):
             if isinstance(data, str):
                 email, org_name = data.split(';')
             else:
-                email, org_name = data.get("email"), data.get("org_name")
+                email, org_name = data.get("email"), data.get("org")
             user = User.get(email=email)
             if not org_name:
                 org_name = user.organisation.name
@@ -826,7 +826,7 @@ def orcid_login_callback(request):
             if isinstance(data, str):
                 email, org_name = data.split(';')
             else:
-                email, org_name = data.get("email"), data.get("org_name")
+                email, org_name = data.get("email"), data.get("org")
             user = User.get(email=email)
 
             if not org_name:
@@ -959,6 +959,7 @@ def orcid_login_callback(request):
                     for a in Affiliation:
                         if a & ui.affiliations:
                             params["affiliation"] = a
+                            params["initial"] = True
                             api.create_or_update_affiliation(**params)
                 ui.confirmed_at = datetime.now()
                 ui.save()
