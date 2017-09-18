@@ -211,6 +211,8 @@ class MemberAPI(MemberAPIV20Api):
             state = None
         if not region:
             region = None
+        if not self.org.state:
+            self.org.state = None
 
         if affiliation is None:
             app.logger.warning("Missing affiliation value.")
