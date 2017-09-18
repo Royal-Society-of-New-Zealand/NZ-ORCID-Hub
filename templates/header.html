@@ -23,11 +23,11 @@
             <li id="login"><a href="{{ url_for('login') }}">
                 <span data-toggle="tooltip"
                       data-placement="bottom"
-                      title="HUB Home" class="fa fa-home glyphicon glyphicon-home"
+                      title="Home" class="fa fa-home glyphicon glyphicon-home"
                                                                                      style="font-size: large;" aria-hidden="true"></span></a></li>
             <li id="about"><a href="{{ url_for('about') }}">
               <span data-toggle="tooltip"
-                  data-placement="bottom" title="About HUB">About</span>
+                  data-placement="bottom" title="About Hub">About</span>
             </a></li>
             <li id="faq"><a href="{{ url_for('faq') }}">
               <span data-toggle="tooltip"
@@ -62,8 +62,10 @@
                     <ul class="dropdown-menu">
                       <li id="invite_user"><a href="{{ url_for('invite_user') }}" data-toggle="tooltip"
                                                                                   title="Invite a new researcher">Invite Researcher</a></li>
-                      <li id="load_researcher_affiliations"><a href="{{ url_for('load_researcher_affiliations')}}">Upload Affiliations</a></li>
-                      <li id="task.index_view"><a href="{{ url_for('task.index_view')}}">Uploaded Tasks</a></li>
+                      <li id="load_researcher_affiliations"><a href="{{ url_for('load_researcher_affiliations')}}" data-toggle="tooltip"
+                                                                                  title="Import a file of affiliation data as a new task">Upload Affiliations</a></li>
+                      <li id="task.index_view"><a href="{{ url_for('task.index_view')}}"  data-toggle="tooltip"
+                                                                                  title="Review the progress and results of your current affiliation tasks">Uploaded Tasks</a></li>
                     </ul>
                   </li>
                   <li id="viewmembers"><a href="{{ url_for('viewmembers.index_view')}}">

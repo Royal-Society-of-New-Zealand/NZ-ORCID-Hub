@@ -79,6 +79,56 @@ def login():
         orcid_login_url=orcid_login_url,
         org_onboarded_info=org_onboarded_info)
 
+@app.route("/about")
+
+def about():
+    """Show about page with login buttons."""
+    _next = get_next_url()
+    orcid_login_url = url_for("orcid_login", next=_next)
+    if EXTERNAL_SP:
+        session["auth_secret"] = secret_token = secrets.token_urlsafe()
+        _next = url_for("handle_login", _next=_next, _external=True)
+        login_url = append_qs(EXTERNAL_SP, _next=_next, key=secret_token)
+    else:
+        login_url = url_for("handle_login", _next=_next)
+
+    org_onboarded_info = {
+        r.name: r.tuakiri_name
+        for r in Organisation.select(Organisation.name, Organisation.tuakiri_name).where(
+            Organisation.confirmed.__eq__(True))
+    }
+
+    return render_template(
+        "about.html",
+        login_url=login_url,
+        orcid_login_url=orcid_login_url,
+        org_onboarded_info=org_onboarded_info)
+
+@app.route("/faq")
+
+def faq():
+    """Show FAQ page with login buttons."""
+    _next = get_next_url()
+    orcid_login_url = url_for("orcid_login", next=_next)
+    if EXTERNAL_SP:
+        session["auth_secret"] = secret_token = secrets.token_urlsafe()
+        _next = url_for("handle_login", _next=_next, _external=True)
+        login_url = append_qs(EXTERNAL_SP, _next=_next, key=secret_token)
+    else:
+        login_url = url_for("handle_login", _next=_next)
+
+    org_onboarded_info = {
+        r.name: r.tuakiri_name
+        for r in Organisation.select(Organisation.name, Organisation.tuakiri_name).where(
+            Organisation.confirmed.__eq__(True))
+    }
+
+    return render_template(
+        "faq.html",
+        login_url=login_url,
+        orcid_login_url=orcid_login_url,
+        org_onboarded_info=org_onboarded_info)
+
 
 @app.route("/Tuakiri/SP")
 def shib_sp():
@@ -260,7 +310,7 @@ def handle_login():
         app.logger.info("User %r is org admin and organisation is not onboarded", user)
         return redirect(url_for("onboard_org"))
     else:
-        flash(f"Your organisation ({shib_org_name}) is not onboarded", "danger")
+        flash(f"Your organisation ({shib_org_name}) is not yet using the Hub, see your Technical Contact for a timeline", "warning")
         app.logger.info("User %r organisation is not onboarded", user)
 
     return redirect(url_for("login"))
@@ -277,7 +327,7 @@ def link():
         redirect_uri = sp_url.scheme + "://" + sp_url.netloc + "/auth/" + quote(redirect_uri)
 
     if current_user.organisation and not current_user.organisation.confirmed:
-        flash(f"Your organisation ({current_user.organisation.name}) is not onboarded", "danger")
+        flash(f"Your organisation ({current_user.organisation.name}) is not yet using the Hub, see your Technical Contact for a timeline", "warning")
         return redirect(url_for("login"))
 
     client_write = OAuth2Session(
@@ -385,8 +435,8 @@ def orcid_callback():
         error = request.args["error"]
         error_description = request.args.get("error_description")
         if error == "access_denied":
-            flash("You have denied the Hub access to your ORCID record."
-                  " At a minimum, the Hub needs to know your ORCID iD to be useful.", "danger")
+            flash("You have denied {current_user.organisation.name} access to your ORCID record."
+                  " Please choose from one of the four options below.", "warning")
         else:
             flash(
                 f"Error occured while attempting to authorize '{current_user.organisation.name}': {error_description}",
@@ -399,7 +449,7 @@ def orcid_callback():
         state = request.args['state']
         if state != session.get('oauth_state'):
             flash(
-                "Retry giving permissions or if issue persist then, Please contact ORCIDHUB for support",
+                "Retry giving permissions, or if the issue persist please contact orcid@royalsociety.org.nz for support",
                 "danger")
             app.logger.error(
                 f"For {current_user} session state was {session.get('oauth_state', 'empty')}, "
@@ -487,8 +537,8 @@ def orcid_callback():
                 "The ORCID Hub was not able to automatically write an affiliation with "
                 f"{user.organisation}, as the nature of the affiliation with your "
                 "organisation does not appear to include either Employment or Education.\n"
-                "Please contact your Organisation Administrator(s) if you believe this is an error "
-                "and try again.", "warning")
+                "Please contact your Organisation Administrator(s) if you believe this is an error."
+                , "warning")
 
     session['Should_not_logout_from_ORCID'] = True
     return redirect(url_for("profile"))
@@ -757,7 +807,7 @@ def orcid_login(invitation_token=None):
 
                 redirect_uri = append_qs(redirect_uri, invitation_token=invitation_token)
             except Organisation.DoesNotExist:
-                flash("Organisation '{org_name}' doesn't exist!", "danger")
+                flash("Organisation '{org_name}' doesn't exist in the Hub!", "danger")
                 app.logger.error(
                     f"User '{user}' attempted to affiliate with non-existing organisation {org_name}"
                 )
@@ -792,7 +842,7 @@ def orcid_login(invitation_token=None):
         return redirect(orcid_authenticate_url)
 
     except Exception as ex:
-        flash("Something went wrong contact orcidhub support!", "danger")
+        flash("Something went wrong. Please contact orcid@royalsociety.org.nz for support!", "danger")
         app.logger.exception("Failed to login via ORCID.")
         return redirect(url_for("login"))
 
@@ -806,12 +856,12 @@ def orcid_login_callback(request):
 
     if not state or state != session.get("oauth_state"):
         flash("Something went wrong, Please retry giving permissions or if issue persist then, "
-              "Please contact ORCIDHUB for support", "danger")
+              "Please contact orcid@royalsociety.org.nz for support", "danger")
         return redirect(url_for("login"))
 
     error = request.args.get("error")
     if error == "access_denied":
-        flash("You have just denied access while trying to Login via ORCID, Please try again",
+        flash("You have just denied access to the Hub knowing your ORCID iD; to log in please try again and authorise",
               "warning")
         return redirect(url_for("login"))
 
@@ -833,9 +883,9 @@ def orcid_login_callback(request):
             try:
                 org = Organisation.get(name=org_name)
             except Organisation.DoesNotExist:
-                flash("Organisation '{org_name}' doesn't exist!", "danger")
+                flash("Organisation '{org_name}' doesn't exist in the Hub!", "danger")
                 app.logger.error(
-                    f"User '{user}' attempted to affiliate with non-existing organisation {org_name}"
+                    f"User '{user}' attempted to affiliate with an organisation that's not known: {org_name}"
                 )
                 return redirect(url_for("login"))
             if not user.is_tech_contact_of(org) and org.orcid_client_id and org.orcid_secret:
@@ -862,7 +912,9 @@ def orcid_login_callback(request):
 
         except User.DoesNotExist:
             if email is None:
-                flash(f"The account with ORCID iD {orcid_id} doesn't exist.", "danger")
+                flash(f"The account with ORCID iD {orcid_id} is not known in the Hub. "
+                    "Try again when you've linked your ORCID iD with an organistion through either "
+                    "a Tuakiri-mediated log in, or from an organisation's email invitation", "warning")
                 return redirect(url_for("login"))
             user = User.get(email=email)
 
@@ -880,9 +932,9 @@ def orcid_login_callback(request):
         try:
             org = Organisation.get(name=org_name) if org_name else user.organisation
         except Organisation.DoesNotExist:
-            flash("Organisation '{org_name}' doesn't exist!", "danger")
+            flash("Organisation '{org_name}' doesn't exist in the Hub!", "danger")
             app.logger.error(
-                f"User '{user}' attempted to affiliate with non-existing organisation {org_name}")
+                f"User '{user}' attempted to affiliate with an organisation that's not known: {org_name}")
             return redirect(url_for("login"))
 
         if user.is_tech_contact_of(org) and invitation_token:
@@ -905,7 +957,7 @@ def orcid_login_callback(request):
                         "Exception when calling MemberAPIV20Api->view_employments: %s\n" % message,
                         "danger")
                     flash(
-                        f"Cannot verify your email address. Please, change the access level for your "
+                        f"The Hub cannot verify your email address from your ORCID record. Please, change the access level for your "
                         f"organisation email address '{email}' to 'trusted parties'.", "danger")
                     return redirect(url_for("login"))
             data = json.loads(api_response.data)
@@ -916,7 +968,7 @@ def orcid_login_callback(request):
             else:
                 logout_user()
                 flash(
-                    f"Cannot verify your email address. Please, change the access level for your "
+                    f"The Hub cannot verify your email address from your ORCID record. Please, change the access level for your "
                     f"organisation email address '{email}' to 'trusted parties'.", "danger")
                 return redirect(url_for("login"))
 
@@ -972,10 +1024,10 @@ def orcid_login_callback(request):
         return redirect(url_for("profile"))
 
     except User.DoesNotExist:
-        flash("You are not onboarded on ORCIDHUB...", "danger")
+        flash("You are not known in the Hub...", "danger")
         return redirect(url_for("login"))
     except UserOrg.DoesNotExist:
-        flash("You are not onboarded on ORCIDHUB...", "danger")
+        flash("You are not known in the Hub...", "danger")
         return redirect(url_for("login"))
     except rfc6749.errors.MissingCodeError:
         flash("%s cannot be invoked directly..." % request.url, "danger")
@@ -984,7 +1036,7 @@ def orcid_login_callback(request):
         flash("Missing token.", "danger")
         return redirect(url_for("login"))
     except Exception as ex:
-        flash(f"Something went wrong contact orcidhub support for issue: {ex}", "danger")
+        flash(f"Something went wrong contact orcid@royalsociety.org.nz support for issue: {ex}", "danger")
         app.logger.exception("Unhandled excetion occrured while handling ORCID call-back.")
         return redirect(url_for("login"))
 
@@ -1002,7 +1054,7 @@ def select_user_org(user_org_id):
             current_user.organisation_id = uo.org_id
             current_user.save()
         else:
-            flash("You are not permitted to switch to this organisation", "danger")
+            flash("You cannot switch your user to this organisation", "danger")
     except UserOrg.DoesNotExist:
         flash("Your are not related to this organisation.", "danger")
     return redirect(_next)
