@@ -29,15 +29,21 @@ def setup_logging():
 @click.option("-d", "--drop", is_flag=True, help="Drop tables before creating...")
 @click.option("-f", "--force", is_flag=True, help="Enforce table craeation.")
 @click.option("-A", "--audit", is_flag=True, help="Create adit trail tables.")
-def initdb(create=False, drop=False, force=False, audit=True):
+@click.option(
+    "-V",
+    "--verbose",
+    is_flag=True,
+    help="Shows SQL statements that get sent to the server or DB.")
+def initdb(create=False, drop=False, force=False, audit=True, verbose=False):
     """Initialize the database."""
     if drop and force:
         models.drop_tables()
 
-    logger = logging.getLogger("peewee")
-    if logger:
-        logger.setLevel(logging.DEBUG)
-        logger.addHandler(logging.StreamHandler())
+    if verbose:
+        logger = logging.getLogger("peewee")
+        if logger:
+            logger.setLevel(logging.DEBUG)
+            logger.addHandler(logging.StreamHandler())
 
     try:
         models.create_tables()

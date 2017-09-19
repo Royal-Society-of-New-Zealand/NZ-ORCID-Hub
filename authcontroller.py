@@ -695,12 +695,13 @@ def onboard_org():
                 oi = (OrgInvitation.select().where(OrgInvitation.email == email,
                                                    OrgInvitation.org == organisation)
                       .order_by(OrgInvitation.id.desc()).first())
-                if not oi.confirmed_at:
-                    oi.confirmed_at = datetime.now()
-                    oi.save()
-                # Delete the "stale" invitations:
-                OrgInvitation.delete().where(OrgInvitation.id != oi.id,
-                                             OrgInvitation.org == organisation).execute()
+                if oi:
+                    if not oi.confirmed_at:
+                        oi.confirmed_at = datetime.now()
+                        oi.save()
+                    # Delete the "stale" invitations:
+                    OrgInvitation.delete().where(OrgInvitation.id != oi.id,
+                                                 OrgInvitation.org == organisation).execute()
             except OrgInvitation.DoesNotExist:
                 pass
 
@@ -779,7 +780,7 @@ def orcid_login(invitation_token=None):
     redirect_uri = url_for("orcid_callback", _next=_next, _external=True)
 
     try:
-        scope = SCOPE_AUTHENTICATE
+        orcid_scope = SCOPE_AUTHENTICATE[:]
 
         client_id = ORCID_CLIENT_ID
         if invitation_token:
@@ -787,18 +788,19 @@ def orcid_login(invitation_token=None):
             if isinstance(data, str):
                 email, org_name = data.split(';')
             else:
-                email, org_name = data.get("email"), data.get("org_name")
+                email, org_name = data.get("email"), data.get("org")
             user = User.get(email=email)
             if not org_name:
                 org_name = user.organisation.name
             try:
                 org = Organisation.get(name=org_name)
+                user_org = UserOrg.get(user=user, org=org)
 
-                if org.orcid_client_id:
+                if org.orcid_client_id and not user_org.is_admin:
                     client_id = org.orcid_client_id
-                    scope = SCOPE_ACTIVITIES_UPDATE + SCOPE_READ_LIMITED
+                    orcid_scope = SCOPE_ACTIVITIES_UPDATE + SCOPE_READ_LIMITED
                 else:
-                    scope += SCOPE_READ_LIMITED
+                    orcid_scope += SCOPE_READ_LIMITED
 
                 redirect_uri = append_qs(redirect_uri, invitation_token=invitation_token)
             except Organisation.DoesNotExist:
@@ -816,7 +818,7 @@ def orcid_login(invitation_token=None):
         # if the invitation token is missing perform only authentication (in the call back handler)
         redirect_uri = append_qs(redirect_uri, login="1")
 
-        client_write = OAuth2Session(client_id, scope=scope, redirect_uri=redirect_uri)
+        client_write = OAuth2Session(client_id, scope=orcid_scope, redirect_uri=redirect_uri)
 
         authorization_url, state = client_write.authorization_url(AUTHORIZATION_BASE_URL)
         # if the inviation token is preset use it as OAuth state
@@ -870,20 +872,21 @@ def orcid_login_callback(request):
             if isinstance(data, str):
                 email, org_name = data.split(';')
             else:
-                email, org_name = data.get("email"), data.get("org_name")
+                email, org_name = data.get("email"), data.get("org")
             user = User.get(email=email)
 
             if not org_name:
                 org_name = user.organisation.name
             try:
                 org = Organisation.get(name=org_name)
+                user_org = UserOrg.get(user=user, org=org)
             except Organisation.DoesNotExist:
                 flash("Organisation '{org_name}' doesn't exist in the Hub!", "danger")
                 app.logger.error(
                     f"User '{user}' attempted to affiliate with an organisation that's not known: {org_name}"
                 )
                 return redirect(url_for("login"))
-            if not user.is_tech_contact_of(org) and org.orcid_client_id and org.orcid_secret:
+            if org.orcid_client_id and org.orcid_secret and not user_org.is_admin:
                 orcid_client_id = org.orcid_client_id
                 orcid_client_secret = org.orcid_secret
 
@@ -926,13 +929,14 @@ def orcid_login_callback(request):
         # User is a technical conatct. We should verify email address
         try:
             org = Organisation.get(name=org_name) if org_name else user.organisation
+            user_org = UserOrg.get(user=user, org=org)
         except Organisation.DoesNotExist:
             flash("Organisation '{org_name}' doesn't exist in the Hub!", "danger")
             app.logger.error(
                 f"User '{user}' attempted to affiliate with an organisation that's not known: {org_name}")
             return redirect(url_for("login"))
 
-        if user.is_tech_contact_of(org) and invitation_token:
+        if user_org.is_admin and invitation_token:
             access_token = token.get("access_token")
             if not access_token:
                 app.logger.error(f"Missing access token: {token}")
@@ -960,7 +964,15 @@ def orcid_login_callback(request):
             if data and data.get("email") and any(
                     e.get("email") == email for e in data.get("email")):
                 user.save()
-                return redirect(_next or url_for("onboard_org"))
+                if not org.confirmed and user.is_tech_contact_of(org):
+                    return redirect(_next or url_for("onboard_org"))
+                elif not org.confirmed and not user.is_tech_contact_of(org):
+                    flash(
+                        f"Your '{org}' has not be onboarded. Please, try again once your technical contact"
+                        f" onboards your organisation on ORCIDHUB", "warning")
+                    return redirect(url_for("about"))
+                elif org.confirmed:
+                    return redirect(url_for('viewmembers.index_view'))
             else:
                 logout_user()
                 flash(
@@ -969,7 +981,7 @@ def orcid_login_callback(request):
                     f"organisation email address '{email}' to 'trusted parties'.", "danger")
                 return redirect(url_for("login"))
 
-        elif not user.is_tech_contact_of(org) and invitation_token:
+        elif not user_org.is_admin and invitation_token:
             scope = ",".join(token.get("scope", []))
             if not scope:
                 flash("Scope missing, contact orcidhub support", "danger")
@@ -997,6 +1009,7 @@ def orcid_login_callback(request):
                     for a in Affiliation:
                         if a & ui.affiliations:
                             params["affiliation"] = a
+                            params["initial"] = True
                             api.create_or_update_affiliation(**params)
                 ui.confirmed_at = datetime.now()
                 ui.save()
@@ -1013,8 +1026,16 @@ def orcid_login_callback(request):
             try:
                 OrcidToken.get(user=user, org=org)
             except OrcidToken.DoesNotExist:
-                if user.is_tech_contact_of(org):
-                    return redirect(_next or url_for("onboard_org"))
+                if user.is_tech_contact_of(org) and not org.confirmed:
+                    return redirect(url_for("onboard_org"))
+                elif not user.is_tech_contact_of(org) and user_org.is_admin and not org.confirmed:
+                    flash(
+                        f"Your '{org}' has not be onboarded."
+                        f"Please, try again once your technical contact onboard's your organisation on ORCIDHUB",
+                        "warning")
+                    return redirect(url_for("about"))
+                elif org.confirmed and user_org.is_admin:
+                    return redirect(url_for('viewmembers.index_view'))
                 else:
                     return redirect(url_for("link"))
         session['Should_not_logout_from_ORCID'] = True

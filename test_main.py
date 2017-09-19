@@ -8,7 +8,7 @@ from flask_login import login_user
 
 import login_provider
 import utils
-from models import Organisation, Role, User, UserOrg
+from models import Organisation, Role, User, UserOrg, OrgInvitation, OrgInfo
 
 
 def test_index(client):
@@ -158,7 +158,7 @@ def test_tuakiri_login_with_org(client):
     onboared, the user should be informed about that and
     redirected to the login page.
     """
-    org = Organisation(tuakiri_name="THE ORGANISATION")
+    org = Organisation(tuakiri_name="THE ORGANISATION", confirmed=True)
     org.save()
 
     rv = client.get(
@@ -178,9 +178,38 @@ def test_tuakiri_login_with_org(client):
     u = User.get(email="user111@test.test.net")
     assert u.organisation == org
     assert org in u.organisations
-    assert b"Your organisation (INCOGNITO) is not onboarded" not in rv.data
+    assert b"Your organisation (THE ORGANISATION) is not onboarded" not in rv.data
     uo = UserOrg.get(user=u, org=org)
     assert not uo.is_admin
+
+
+def test_tuakiri_login_by_techical_contact_organisation_not_onboarded(client):
+    """Test logging attempt by technical contact when organisation is not onboarded."""
+    org = Organisation(name="Org112", tuakiri_name="Org112", confirmed=False, is_email_sent=True)
+    u = User(email="user1113@test.test.net", confirmed=True, roles=Role.TECHNICAL, organisation=org)
+    org.tech_contact = u
+    org.save()
+
+    UserOrg(user=u, org=org, is_admin=True)
+    rv = client.get(
+        "/Tuakiri/login",
+        headers={
+            "Auedupersonsharedtoken": "ABC11s1",
+            "Sn": "LAST NAME/SURNAME/FAMILY NAME",
+            'Givenname': "FIRST NAME/GIVEN NAME",
+            "Mail": "user1113@test.test.net",
+            "O": "Org112",
+            "Displayname": "TEST USER FROM THE Org112",
+            "Unscoped-Affiliation": "student",
+            "Eppn": "user11137@test.test.net"
+        },
+        follow_redirects=True)
+
+    assert u.organisation == org
+    assert not org.confirmed
+    assert u.is_tech_contact_of(org)
+    assert rv.status_code == 200
+    assert b"<!DOCTYPE html>" in rv.data, "Expected HTML content"
 
 
 def test_confirmation_token(app):
@@ -208,6 +237,7 @@ def test_confirmation_token(app):
 
 
 def test_login_provider_load_user(request_ctx):  # noqa: D103
+    """Test to load user."""
     u = User(
         email="test123@test.test.net",
         name="TEST USER",
@@ -231,3 +261,77 @@ def test_login_provider_load_user(request_ctx):  # noqa: D103
         assert rv != "SUCCESS"
         assert rv.status_code == 302
         assert rv.location.startswith("/")
+
+
+def test_onboard_org(request_ctx):
+    """Test to organisation onboarding."""
+    Organisation.get_or_create(
+        id=1,
+        name="THE ORGANISATION",
+        tuakiri_name="THE ORGANISATION",
+        confirmed=False,
+        orcid_client_id="CLIENT ID",
+        orcid_secret="Client Secret",
+        city="CITY",
+        country="COUNTRY",
+        disambiguated_id="ID",
+        disambiguation_source="SOURCE",
+        is_email_sent=True)
+    org = Organisation.get(id=1)
+    User.get_or_create(
+        id=123,
+        email="test123@test.test.net",
+        name="TEST USER",
+        roles=Role.TECHNICAL,
+        orcid=123,
+        organisation_id=1,
+        confirmed=True,
+        organisation=org)
+    User.get_or_create(
+        id=124,
+        email="test1234@test.test.net",
+        name="TEST USER",
+        roles=Role.ADMIN,
+        orcid=1243,
+        organisation_id=1,
+        confirmed=True,
+        organisation=org)
+    org_info = OrgInfo.get_or_create(id=121,
+                                     name="THE ORGANISATION",
+                                     tuakiri_name="THE ORGANISATION"
+                                     )
+    org_info = OrgInfo.get(id=121)
+    u = User.get(id=123)
+    second_user = User.get(id=124)
+    org.tech_contact = u
+    org.tech_contact_id = u.id
+    org_info.save()
+    org.save()
+    u.save()
+    OrgInvitation.get_or_create(id=111, email=u.email, org=org, token="sdsddsd")
+    org_invitation = OrgInvitation.get(id=111)
+    org_invitation.save()
+    UserOrg(user=u, org=org, is_admin=True)
+    with request_ctx("/confirm/organisation") as ctx:
+        login_user(u)
+        u.save()
+        assert u.is_tech_contact_of(org)
+        rv = ctx.app.full_dispatch_request()
+        assert rv.status_code == 200
+        assert b"<!DOCTYPE html>" in rv.data, "Expected HTML content"
+        assert b"Take me to ORCID to obtain my Client ID and Client Secret" in rv.data,\
+            "Expected Button on the confirmation page"
+    with request_ctx("/confirm/organisation") as ctxx:
+        second_user.save()
+        login_user(second_user)
+        rv = ctxx.app.full_dispatch_request()
+        assert rv.status_code == 302
+        assert rv.location.startswith("/admin/viewmembers/")
+
+
+def test_logout(request_ctx):
+    """Test to logout."""
+    with request_ctx("/logout") as ctxx:
+        rv = ctxx.app.full_dispatch_request()
+        assert rv.status_code == 302
+        assert rv.location.startswith("/?logout=True")
