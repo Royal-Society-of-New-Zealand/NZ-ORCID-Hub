@@ -49,6 +49,7 @@ def pyinfo():
     """Show Python and runtime environment and settings."""
     return render_template("pyinfo.html", **info)
 
+
 @app.route("/u/<short_id>")
 def short_url(short_id):
     """Redirect to the full URL."""
