@@ -1,44 +1,42 @@
 {% extends "layout.html" %}
 {% block content %}
-  <div class="container">
-    <div class="jumbotron">
-      <h2 class="display-2">Welcome to the NZ ORCID hub</h2>
-      <p style="margin-left: 1em;">...Linking New Zealand organisations to ORCID.</p>
-      <!-- div class="center-block">
-        <a class="btn btn-primary" href="{{ship_login_url}}" role="button">Login via Tuakiri</a>
-        <a class="btn btn-success" href="#" role="button">Login via ORCiD</a>
-        </div -->
-        <div class="jumbotron" style="padding-top: 10px">
-          <p>Login below using Tuakiri to have your staff/student affiliation asserted in your ORCID record</p>
-          <div class="login-blocks">
-            <a href="{{login_url}}">
-              <div class="tuakiri">
-                <img alt="Login via Tuakiri" src="{{image('REANNZ_Tuakiri_service.png')}}">
-                <div class="login-button">Login&nbsp;via&nbsp;Tuakiri</div>
-              </div>
-            </a>
-            {% if config.ENV != "prod" %}
-              <a href="{{orcid_login_url}}">
-                <div class="orcid">
-                  <img alt="Login via Orcid" src="{{image('orcid-logo.png')}}">
-                  <div class="login-button">Login&nbsp;via&nbsp;Orcid</div>
-                </div>
-              </a>
-            {% endif %}
-          </div>
-          <div class="onboarding-block" style="padding-top: 20px">
-            {% if org_onboarded_info %}
-              <p>Organisations onboard the Hub so far:</p>
-              <table>
-                {% for v in org_onboarded_info.items() %}
-                  <tr>
-                    <td class="name">{{ v.0 }}</td>
-                  </tr>
-                {% endfor %}
-              </table>
-            {% endif %}
-          </div>
+<div class="container">
+  <h2 class="display-2"><img class="orcidHub-id-logo" src="{{url_for('static', filename='images/logo.png')}}"  width="48" height="48" alt="ORCID Hub logo" />&nbsp;Welcome to the NZ ORCID Hub</h2>
+  <p><br/>The NZ ORCID Hub connects research staff and students with the organisations where they study, are employed, or that they recieve funding from.</p>
+  <p>Staff and students can use the Hub to give permission to their institution(s) to access their ORCID records, and in return.
+  <p>NZ ORCID Consortium members can use the Hub to assert these relationships in their staff, students’, and recipients' ORCID records.<br/>
+  </p>
+  <p>For more information on the Hub's background and development see the
+    <a href="https://royalsociety.org.nz/orcid-in-new-zealand/new-zealand-orcid-consortium/who-is-involved-with-the-new-zealand-orcid-consortium/new-zealand-orcid-hub/">Hub pages</a>
+    of the Royal Society Te Apārangi’s website.</p>
+  <p>To see if your organisation is a member of the NZ ORCID Consortium, see here:
+    <a href="https://royalsociety.org.nz/orcid-in-new-zealand/new-zealand-orcid-consortium/who-is-involved-with-the-new-zealand-orcid-consortium/nz-orcid-consortium-members/">
+      NZ ORCID Consortium Members</a></p>
+
+  <div class="onboarding-block" style="padding-top: 20px">
+    {% if org_onboarded_info %}
+      <h3><p>Organisations using the Hub:</p></h3>
+      <div class="row">
+        <div class="col-sm-6">
+          <h4><p>Tuakiri Members</p></h4>
+            {% for v in org_onboarded_info.items() %}
+              {% if (v.1 and not(v.0 == 'Royal Society Te Apārangi')) %}
+                <p>{{ v.0 }}</p>
+              {% endif %}
+            {% endfor %}
         </div>
+         <div class="col-sm-6">
+          <h4><p>Non-Tuakiri Members</p></h4>
+          <p>Royal Society Te Apārangi</p>
+          {% for v in org_onboarded_info.items() %}
+            {% if v.1 == None %}
+              <p>{{ v.0 }}</p>
+            {% endif %}
+          {% endfor %}
+        </div>
+      </div>
+    {% endif %}
   </div>
-  </div>
+</div>
+
 {% endblock %}

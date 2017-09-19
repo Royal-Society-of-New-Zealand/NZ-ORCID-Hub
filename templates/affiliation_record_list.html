@@ -48,9 +48,9 @@
     <form class="icon" method="POST"
                        action="{{url_for('activate_all')}}">
       <input id="task_id" name="task_id" type="hidden" value="{{task.id}}">
-      <button onclick="return safeConfirm('Are you sure you want to activate all records for processing?');"
+      <button onclick="return safeConfirm('Are you sure you want to activate every record in this batch for processing?');"
               data-toggle="tooltip" data-placement="bottom"
-              title="Activiate all records for batch processing..." class="btn btn-info">Activiate all
+              title="Activate all records for batch processing..." class="btn btn-info">Activate all
       </button>
     </form>
   </span>

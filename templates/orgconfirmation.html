@@ -10,7 +10,7 @@
     <div class="form-group">
       <p>
         {% if organisation.confirmed %}
-          <a id="connect-orcid-button" class="btn btn-default" href="{{url_for('request_orcid_credentials')}}" target="_blank" role="button">
+          <a id="connect-orcid-button" class="btn btn-default" data-toggle="tooltip" data-placement="bottom" title="For example, because you need to change the organisation name or wish to add another redirect URI" href="{{url_for('request_orcid_credentials')}}" target="_blank" role="button">
             <img id="orcid-id-logo" src="https://orcid.org/sites/default/files/images/orcid_24x24.png" width='24'
                                     height='24' alt="ORCID logo"/>&nbsp;Take me to ORCID to change my Client details </a>
         {% else %}

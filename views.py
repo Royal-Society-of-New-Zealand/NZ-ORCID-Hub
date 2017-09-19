@@ -50,12 +50,6 @@ def pyinfo():
     return render_template("pyinfo.html", **info)
 
 
-@app.route("/about")
-def about():
-    """Show "about" page."""
-    return render_template("about.html")
-
-
 @app.route("/u/<short_id>")
 def short_url(short_id):
     """Redirect to the full URL."""
