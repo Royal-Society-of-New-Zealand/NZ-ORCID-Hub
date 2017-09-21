@@ -1012,6 +1012,7 @@ class AffiliationRecord(BaseModel):
 
 class FundingRecord(BaseModel):
     """Funding record loaded from Json file for batch processing."""
+
     status = TextField(null=True, help_text="Record processing status.")
 
     @staticmethod
