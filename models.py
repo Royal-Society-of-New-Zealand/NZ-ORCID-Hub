@@ -6,6 +6,7 @@ import random
 import re
 import string
 import uuid
+import json
 from collections import namedtuple
 from datetime import datetime
 from hashlib import md5
@@ -1007,6 +1008,21 @@ class AffiliationRecord(BaseModel):
     class Meta:  # noqa: D101
         db_table = "affiliation_record"
         table_alias = "ar"
+
+
+class FundingRecord(BaseModel):
+    """Funding record loaded from Json file for batch processing."""
+    status = TextField(null=True, help_text="Record processing status.")
+
+    @staticmethod
+    def load_from_json(source, filename=None):
+        """Load data from CSV file or a string."""
+        if isinstance(source, str):
+            return json.loads(source)
+
+    class Meta:  # noqa: D101
+        db_table = "funding_record"
+        table_alias = "fr"
 
 
 class Url(BaseModel, AuditMixin):
