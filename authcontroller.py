@@ -936,6 +936,7 @@ def orcid_login_callback(request):
                 f"User '{user}' attempted to affiliate with an organisation that's not known: {org_name}")
             return redirect(url_for("login"))
 
+        session['Should_not_logout_from_ORCID'] = True
         if user_org.is_admin and invitation_token:
             access_token = token.get("access_token")
             if not access_token:
@@ -1038,7 +1039,6 @@ def orcid_login_callback(request):
                     return redirect(url_for('viewmembers.index_view'))
                 else:
                     return redirect(url_for("link"))
-        session['Should_not_logout_from_ORCID'] = True
         return redirect(url_for("profile"))
 
     except User.DoesNotExist:
