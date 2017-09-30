@@ -108,3 +108,8 @@ log.html
 output.xml
 report.html
 selenium-*
+tests/log.html
+tests/output.xml
+tests/report.html
+tests/selenium-*
+tests/resources/config.py

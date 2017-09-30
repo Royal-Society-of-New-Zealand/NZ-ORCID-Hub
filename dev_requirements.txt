@@ -20,7 +20,6 @@ six>=1.10.0
 testpath>=0.3.1
 yapf>=0.17.0
 robotframework>=3.0.2
-# robotframework-selenium2library>=1.8.0
-git+https://github.com/robotframework/SeleniumLibrary
+robotframework-seleniumlibrary>=3.0.0b1
 pycrypto>=2.6.1
 python-dotenv>=0.6.3

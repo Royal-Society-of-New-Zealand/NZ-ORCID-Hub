@@ -7,16 +7,12 @@ Documentation     A resource file with reusable keywords and variables.
 Library           SeleniumLibrary
 
 *** Variables ***
-${SERVER}           dev.orcidhub.org.nz
-${BROWSER}          Chrome
-${DELAY}            0.1
-${LOGIN URL}        https://${SERVER}/Tuakiri/login
-${ONBOARD URL}      https://${SERVER}/invite/organisation
-
-*** Variables ***
-#${TUAKIRI FED}      Tuakiri New Zealand Access Federation
-${UOA IDP}          http://iam.test.auckland.ac.nz/idp
-${UOA FORM NAME}      _eventId_proceed
+${SERVER}               dev.orcidhub.org.nz
+${BROWSER}              Chrome
+${DELAY}                0.1
+${LOGIN URL}            https://${SERVER}/Tuakiri/login
+${ONBOARD URL}          https://${SERVER}/invite/organisation
+${ORG ADMIN URL}        https://${SERVER}/admin/organisation/
 
 *** Keywords ***
 Open Browser To Login Page
@@ -34,16 +30,9 @@ Go To Login Page
 
 Select Identity Provider
     [Arguments]     ${provider}
-    #Select From List By Value   name=FedSelector ${federation}
-    Select From List By Value   name=origin  ${provider}
+    Select From List By Value  //select[@name="FedSelector"]  Tuakiri TEST Federation
+    Select From List By Value  //select[@name="origin"]  ${provider}
     Submit Form     IdPList
-
-University of Auckland Login
-    Title Should Be    The University of Auckland Login Service
-
-University of Auckland Information Release
-    ${title}    Get Title
-    Run Keyword If  '${title}' == 'Information Release'   Click Button    name=_eventId_proceed
 
 # Most identity providers use a username and password field with the following ids.
 Input Username
@@ -62,3 +51,10 @@ Submit Credentials
 Onboard Organisation Should Be Open
     Location Should Be      ${ONBOARD URL}
     Title Should Be         New Zealand ORCID Hub
+
+Onboard an Organisation
+    [Arguments]  ${organisation}    ${organisation_email}
+    Go To               ${ONBOARD URL}
+    Input Text      name=org_name   ${organisation}
+    Input Text      name=org_email  ${organisation email}
+    Submit Form
