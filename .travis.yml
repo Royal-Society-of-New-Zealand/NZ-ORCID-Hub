@@ -28,7 +28,7 @@ script:
   - docker-compose exec app flake8 *.py
   - docker-compose exec app env DATABASE_URL="sqlite:///:memory:" pytest --ignore=venv -s -v --cov .
   - docker-compose exec app find -name '__pycache__' -exec rm -rf {} \; || true
-  # - sleep 10 ; wait_pg_up
+  - grep -m1 -q 'PostgreSQL init process complete' <(docker-compose logs -f db)
   - docker-compose exec db psql -U postgres -c "SELECT 1" && echo "DB IS RUNNING"
   - docker-compose exec db psql -U orcidhub -d orcidhub -c "SELECT 1" && echo "DB orcidhub IS RUNNING"
   - docker-compose logs db
