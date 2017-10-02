@@ -199,6 +199,7 @@ def test_show_record_section(request_ctx, test_db):
     with request_ctx("/"):
         login_user(u)
         rv = views.show_record_section(user_id=123)
+        assert u.email in rv
 
 
 def make_fake_response(text, *args, **kwargs):
