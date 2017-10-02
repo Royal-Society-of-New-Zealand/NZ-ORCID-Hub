@@ -282,7 +282,6 @@ def link():
         family_names=current_user.last_name,
         given_names=current_user.first_name,
         email=current_user.email)
-    app.logger.info(f"*** orcid_url_write: {orcid_url_write}")
 
     # Check if user details are already in database
     # TODO: re-affiliation after revoking access?
