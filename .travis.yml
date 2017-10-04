@@ -23,10 +23,11 @@ install:
   - docker-compose up -d
 
 script:
+  - wait_pg_up() { until docker-compose exec db psql -U postgres -l; do echo "Waiting for postgres to start..."; sleep 1; done }
   - docker-compose exec app flake8 *.py
   - docker-compose exec app env DATABASE_URL="sqlite:///:memory:" EXTERNAL_SP='' pytest --ignore=venv --ignore=orcid -s -v --cov-config .coveragerc  --cov .
   - docker-compose exec app find -name '__pycache__' -exec rm -rf {} \; || true
-  - grep -m1 -q 'PostgreSQL init process complete; ready for start up.' <(docker-compose logs -f db)
+  - grep -m1 -q 'PostgreSQL init process complete; ready for start up.' <(docker-compose logs -f db); wait_pg_up
   - docker-compose exec db psql -U postgres -c "SELECT 1" && echo "DB IS RUNNING"
   - docker-compose exec db psql -U orcidhub -d orcidhub -c "SELECT 1" && echo "DB orcidhub IS RUNNING"
   - docker-compose exec app curl -k -s https://localhost/pyinfo -o /dev/null && echo "WSGI is working..."
