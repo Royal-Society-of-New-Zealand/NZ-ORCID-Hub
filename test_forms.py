@@ -7,7 +7,7 @@ from unittest.mock import MagicMock
 import pytest
 from wtforms import Form, StringField
 
-from forms import PartialDate, PartialDateField, validate_orcid_id_field
+from forms import PartialDate, PartialDateField, validate_orcid_id_field, CountrySelectField, BitmapMultipleValueField
 from models import PartialDate as PartialDateDbField
 
 
@@ -32,6 +32,12 @@ def test_form():  # noqa
         pdf1 = PartialDateField("f1", default=PartialDateDbField(1995), id="test-id-1")
         pdf2 = PartialDateField("f2", default=PartialDateDbField(2017, 5, 13), id="test-id-2")
         pdf3 = PartialDateField("f3")
+        csf1 = CountrySelectField()
+        csf2 = CountrySelectField(label="Select Country")
+        bmvf1 = BitmapMultipleValueField(choices=[(1, "one",), (2, "two",), (4, "four",), ])
+        bmvf2 = BitmapMultipleValueField(
+            choices=[(1, "one",), (2, "two",), (4, "four",), ],)
+        bmvf2.is_bitmap_value = False
 
     return F
 
@@ -147,3 +153,17 @@ def test_orcid_validation(test_form):  # noqa
         validate_orcid_id_field(test_form, orcid_id)
     assert "Invalid ORCID iD checksum. Make sure you have entered correct ORCID iD." in str(excinfo.value)
 
+
+def test_country_select_field(test_form):  # noqa
+    tf = test_form()
+    assert tf.csf1.label.text == "Country"
+    assert tf.csf2.label.text == "Select Country"
+
+
+def test_bitmap_multiple_value_field(test_form):
+    tf = test_form()
+    tf.bmvf1.data = 3
+    tf.bmvf2.data = (1, 4, )
+    tf.validate()
+    tf.bmvf1.process_data(5)
+    tf.bmvf1.process_data([1, 4])
