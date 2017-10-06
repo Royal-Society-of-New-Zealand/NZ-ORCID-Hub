@@ -540,11 +540,13 @@ def process_affiliation_records(max_rows=20):
              .join(
                  UserInvitation,
                  JOIN.LEFT_OUTER,
-                 on=((UserInvitation.email == AffiliationRecord.email) & (UserInvitation.task_id == Task.id))).join(
-                     OrcidToken,
-                     JOIN.LEFT_OUTER,
-                     on=((OrcidToken.user_id == User.id) & (OrcidToken.org_id == Organisation.id) &
-                         (OrcidToken.scope.contains("/activities/update")))).limit(max_rows))
+                 on=((UserInvitation.email == AffiliationRecord.email) &
+                     (UserInvitation.task_id == Task.id))).join(
+                         OrcidToken,
+                         JOIN.LEFT_OUTER,
+                         on=((OrcidToken.user_id == User.id) &
+                             (OrcidToken.org_id == Organisation.id) &
+                             (OrcidToken.scope.contains("/activities/update")))).limit(max_rows))
     for (task_id, org_id, user), tasks_by_user in groupby(tasks, lambda t: (
             t.id,
             t.org_id,

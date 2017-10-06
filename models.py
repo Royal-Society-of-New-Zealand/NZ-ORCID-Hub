@@ -939,8 +939,7 @@ class UserInvitation(BaseModel, AuditMixin):
         User, on_delete="SET NULL", null=True, related_name="sent_user_invitations")
     org = ForeignKeyField(
         Organisation, on_delete="CASCADE", null=True, verbose_name="Organisation")
-    task = ForeignKeyField(
-        Task, on_delete="CASCADE", null=True, index=True, verbose_name="Task")
+    task = ForeignKeyField(Task, on_delete="CASCADE", null=True, index=True, verbose_name="Task")
 
     email = TextField(index=True, help_text="The email address the invitation was sent to.")
     first_name = TextField(null=True, verbose_name="First Name")

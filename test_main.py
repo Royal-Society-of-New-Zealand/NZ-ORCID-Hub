@@ -8,7 +8,7 @@ from flask_login import login_user
 
 import login_provider
 import utils
-from models import Organisation, Role, User, UserOrg, OrgInvitation, OrgInfo
+from models import Organisation, OrgInfo, OrgInvitation, Role, User, UserOrg
 
 
 def test_index(client):
@@ -186,7 +186,8 @@ def test_tuakiri_login_with_org(client):
 def test_tuakiri_login_by_techical_contact_organisation_not_onboarded(client):
     """Test logging attempt by technical contact when organisation is not onboarded."""
     org = Organisation(name="Org112", tuakiri_name="Org112", confirmed=False, is_email_sent=True)
-    u = User(email="user1113@test.test.net", confirmed=True, roles=Role.TECHNICAL, organisation=org)
+    u = User(
+        email="user1113@test.test.net", confirmed=True, roles=Role.TECHNICAL, organisation=org)
     org.tech_contact = u
     org.save()
 
@@ -296,10 +297,8 @@ def test_onboard_org(request_ctx):
         organisation_id=1,
         confirmed=True,
         organisation=org)
-    org_info = OrgInfo.get_or_create(id=121,
-                                     name="THE ORGANISATION",
-                                     tuakiri_name="THE ORGANISATION"
-                                     )
+    org_info = OrgInfo.get_or_create(
+        id=121, name="THE ORGANISATION", tuakiri_name="THE ORGANISATION")
     org_info = OrgInfo.get(id=121)
     u = User.get(id=123)
     second_user = User.get(id=124)
