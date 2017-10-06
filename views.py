@@ -36,6 +36,7 @@ HEADERS = {"Accept": "application/vnd.orcid+json", "Content-type": "application/
 
 @app.route("/failure")
 def failure():
+    """TODO: remove afer demoing the error handling..."""
     try:
         1 / 0
     except ZeroDivisionError as ex:
@@ -1017,19 +1018,20 @@ def invite_organisation():
                     flash("New Technical contact has been Invited Successfully! "
                           "An email has been sent to the Technical contact", "success")
                     app.logger.info(
-                        "For Organisation '%s' , New Technical Contact '%s' has been invited successfully." %
-                        (form.org_name.data, form.org_email.data))
+                        "For Organisation '%s' , New Technical Contact '%s' has been invited successfully."
+                        % (form.org_name.data, form.org_email.data))
                 else:
                     flash("New Organisation Admin has been Invited Successfully! "
                           "An email has been sent to the Organisation Admin", "success")
                     app.logger.info(
-                        "For Organisation '%s' , New Organisation Admin '%s' has been invited successfully." %
-                        (form.org_name.data, form.org_email.data))
+                        "For Organisation '%s' , New Organisation Admin '%s' has been invited successfully."
+                        % (form.org_name.data, form.org_email.data))
             else:
                 flash("Organisation Invited Successfully! "
                       "An email has been sent to the organisation contact", "success")
-                app.logger.info("Organisation '%s' successfully invited. Invitation sent to '%s'." %
-                                (form.org_name.data, form.org_email.data))
+                app.logger.info(
+                    "Organisation '%s' successfully invited. Invitation sent to '%s'." %
+                    (form.org_name.data, form.org_email.data))
         except Exception as ex:
             app.logger.exception(f"Failed to send registration invitation with {params}.")
             flash(f"Failed to send registration invitation: {ex}.", "danger")
