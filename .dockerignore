@@ -1,7 +1,14 @@
+.*
 *.db
 tags
 tags.tmp
 backup*
 masterdb
-pgdata
+pgdata*
 venv
+orcid
+htmlcov
+archive
+tests
+swagger.json
+

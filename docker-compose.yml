@@ -33,6 +33,7 @@ services:
       - SECRET_KEY
       - ORCID_CLIENT_ID
       - ORCID_CLIENT_SECRET
+      - SENTRY_DSN
     domainname: orcidhub.org.nz
     hostname: app
     ports:
