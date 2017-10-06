@@ -669,43 +669,6 @@ class OrgInvitation(BaseModel, AuditMixin):
         db_table = "org_invitation"
 
 
-class UserInvitation(BaseModel, AuditMixin):
-    """Organisation invitation to on-board the Hub."""
-
-    invitee = ForeignKeyField(
-        User, on_delete="CASCADE", null=True, related_name="received_user_invitations")
-    inviter = ForeignKeyField(
-        User, on_delete="SET NULL", null=True, related_name="sent_user_invitations")
-    org = ForeignKeyField(
-        Organisation, on_delete="CASCADE", null=True, verbose_name="Organisation")
-
-    email = TextField(index=True, help_text="The email address the invitation was sent to.")
-    first_name = TextField(null=True, verbose_name="First Name")
-    last_name = TextField(null=True, verbose_name="Last Name")
-    orcid = OrcidIdField(null=True)
-    department = TextField(verbose_name="Campus/Department", null=True)
-    organisation = TextField(verbose_name="Organisation Name", null=True)
-    city = TextField(verbose_name="City", null=True)
-    state = TextField(verbose_name="State", null=True)
-    country = CharField(verbose_name="Country", max_length=2, null=True)
-    course_or_role = TextField(verbose_name="Course or Job title", null=True)
-    start_date = PartialDateField(verbose_name="Start date", null=True)
-    end_date = PartialDateField(verbose_name="End date (leave blank if current)", null=True)
-    affiliations = SmallIntegerField(verbose_name="User affiliations", null=True)
-    disambiguated_id = TextField(verbose_name="Disambiguation ORG Id", null=True)
-    disambiguation_source = TextField(verbose_name="Disambiguation ORG Source", null=True)
-    token = TextField(unique=True)
-    confirmed_at = DateTimeField(null=True)
-
-    @property
-    def sent_at(self):
-        """Get the time the invitation was sent."""
-        return self.created_at
-
-    class Meta:  # noqa: D101
-        db_table = "user_invitation"
-
-
 class UserOrg(BaseModel, AuditMixin):
     """Linking object for many-to-many relationship."""
 
@@ -965,6 +928,44 @@ class Task(BaseModel, AuditMixin):
 
     class Meta:  # noqa: D101
         table_alias = "t"
+
+
+class UserInvitation(BaseModel, AuditMixin):
+    """Organisation invitation to on-board the Hub."""
+
+    invitee = ForeignKeyField(
+        User, on_delete="CASCADE", null=True, related_name="received_user_invitations")
+    inviter = ForeignKeyField(
+        User, on_delete="SET NULL", null=True, related_name="sent_user_invitations")
+    org = ForeignKeyField(
+        Organisation, on_delete="CASCADE", null=True, verbose_name="Organisation")
+    task = ForeignKeyField(Task, on_delete="CASCADE", null=True, index=True, verbose_name="Task")
+
+    email = TextField(index=True, help_text="The email address the invitation was sent to.")
+    first_name = TextField(null=True, verbose_name="First Name")
+    last_name = TextField(null=True, verbose_name="Last Name")
+    orcid = OrcidIdField(null=True)
+    department = TextField(verbose_name="Campus/Department", null=True)
+    organisation = TextField(verbose_name="Organisation Name", null=True)
+    city = TextField(verbose_name="City", null=True)
+    state = TextField(verbose_name="State", null=True)
+    country = CharField(verbose_name="Country", max_length=2, null=True)
+    course_or_role = TextField(verbose_name="Course or Job title", null=True)
+    start_date = PartialDateField(verbose_name="Start date", null=True)
+    end_date = PartialDateField(verbose_name="End date (leave blank if current)", null=True)
+    affiliations = SmallIntegerField(verbose_name="User affiliations", null=True)
+    disambiguated_id = TextField(verbose_name="Disambiguation ORG Id", null=True)
+    disambiguation_source = TextField(verbose_name="Disambiguation ORG Source", null=True)
+    token = TextField(unique=True)
+    confirmed_at = DateTimeField(null=True)
+
+    @property
+    def sent_at(self):
+        """Get the time the invitation was sent."""
+        return self.created_at
+
+    class Meta:  # noqa: D101
+        db_table = "user_invitation"
 
 
 class AffiliationRecord(BaseModel):
