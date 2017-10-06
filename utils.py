@@ -256,7 +256,8 @@ def set_server_name():
                 "SERVER_NAME"] = "orcidhub.org.nz" if ENV == "prod" else ENV + ".orcidhub.org.nz"
 
 
-def send_user_initation(inviter,
+def send_user_initation(task_id,
+                        inviter,
                         org,
                         email,
                         first_name,
@@ -319,6 +320,7 @@ def send_user_initation(inviter,
 
         user_org.save()
         ui = UserInvitation.create(
+            task_id=task_id,
             invitee_id=user.id,
             inviter_id=inviter.id,
             org=org,
@@ -538,7 +540,7 @@ def process_affiliation_records(max_rows=20):
              .join(
                  UserInvitation,
                  JOIN.LEFT_OUTER,
-                 on=(UserInvitation.email == AffiliationRecord.email)).join(
+                 on=((UserInvitation.email == AffiliationRecord.email) & (UserInvitation.task_id == Task.id))).join(
                      OrcidToken,
                      JOIN.LEFT_OUTER,
                      on=((OrcidToken.user_id == User.id) & (OrcidToken.org_id == Organisation.id) &
@@ -565,7 +567,7 @@ def process_affiliation_records(max_rows=20):
                 )  # noqa: E501
             }
             for invitation, affiliations in invitation_dict.items():
-                send_user_initation(*invitation, affiliations)
+                send_user_initation(task_id, *invitation, affiliations)
         else:  # user exits and we have tokens
             create_or_update_affiliations(user, org_id, tasks_by_user)
         task_ids.add(task_id)
