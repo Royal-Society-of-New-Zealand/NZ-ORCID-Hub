@@ -62,7 +62,7 @@ def test_set_server_name(app):
     assert "abc.orcidhub.org.nz" == app.config.get("SERVER_NAME")
 
 
-def test_send_user_initation(request_ctx):
+def test_send_user_invitation(request_ctx):
     """Test to send user invitation."""
     org = Organisation(
         id=1,
@@ -102,7 +102,7 @@ def test_send_user_initation(request_ctx):
     last_name = "Test"
     affiliation_types = {"staff"}
     with request_ctx("/"):
-        utils.send_user_initation(
+        utils.send_user_invitation(
             inviter=inviter,
             org=org,
             email=email,
