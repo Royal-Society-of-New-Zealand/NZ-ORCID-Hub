@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 """Tests for util functions."""
 
-import utils
-
 from flask_login import login_user
-from models import Role, User, Organisation, UserOrg
+
+import utils
+from models import Organisation, Role, User, UserOrg
 
 
 def test_append_qs():
@@ -102,5 +102,10 @@ def test_send_user_initation(request_ctx):
     last_name = "Test"
     affiliation_types = {"staff"}
     with request_ctx("/"):
-        utils.send_user_initation(inviter=inviter, org=org, email=email, first_name=first_name, last_name=last_name,
-                                  affiliation_types=affiliation_types)
+        utils.send_user_initation(
+            inviter=inviter,
+            org=org,
+            email=email,
+            first_name=first_name,
+            last_name=last_name,
+            affiliation_types=affiliation_types)
