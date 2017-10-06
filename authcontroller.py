@@ -30,7 +30,7 @@ from werkzeug.urls import iri_to_uri
 import orcid_client
 from application import app, db, mail, sentry
 from config import (APP_DESCRIPTION, APP_NAME, APP_URL, AUTHORIZATION_BASE_URL, CRED_TYPE_PREMIUM,
-                    EXTERNAL_SP, MEMBER_API_FORM_BASE_URL, NOTE_ORCID, ORCID_API_BASE,
+                    ENV, EXTERNAL_SP, MEMBER_API_FORM_BASE_URL, NOTE_ORCID, ORCID_API_BASE,
                     ORCID_BASE_URL, ORCID_CLIENT_ID, ORCID_CLIENT_SECRET, SCOPE_ACTIVITIES_UPDATE,
                     SCOPE_AUTHENTICATE, SCOPE_READ_LIMITED, TOKEN_URL)
 from forms import OrgConfirmationForm
@@ -218,6 +218,12 @@ def handle_login():
         if secondary_emails:
             app.logger.info(
                 f"the user has logged in with secondary email addresses: {secondary_emails}")
+
+        if ENV != "dev" and not (unscoped_affiliation & {"faculty", "staff", "student"}):
+            flash(
+                f"Access Denied! Your account (email: {email}, eppn: {eppn}) is not affiliated with '{shib_org_name}'",
+                "danger")
+            return redirect(url_for("login"))
 
     except Exception as ex:
         app.logger.exception("Failed to login via TUAKIRI.")
