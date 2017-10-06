@@ -12,9 +12,7 @@ from playhouse import db_url
 from config import *  # noqa: F401, F403
 from failover import PgDbWithFailover
 
-# from raven.contrib.flask import Sentry
-
-##from raven.contrib.flask import Sentry
+from raven.contrib.flask import Sentry
 
 app = Flask(__name__)
 app.config.from_object(__name__)
@@ -34,7 +32,7 @@ admin = Admin(
     app, name="NZ ORCiD Hub", template_mode="bootstrap3", base_template="admin/master.html")
 
 # https://sentry.io/orcid-hub/nz-orcid-hub-dev/getting-started/python-flask/
-# sentry = Sentry(app, dsn=SENTRY_DSN)
+sentry = Sentry(app, logging=True, level=logging.DEBUG if ENV=="dev" else logging.ERROR)
 
 login_manager = flask_login.LoginManager()
 login_manager.login_view = "login"

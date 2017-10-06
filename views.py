@@ -17,7 +17,7 @@ from werkzeug import secure_filename
 
 import orcid_client
 import utils
-from application import admin, app
+from application import admin, app, sentry
 from config import ORCID_BASE_URL, SCOPE_ACTIVITIES_UPDATE, SCOPE_READ_LIMITED
 from forms import (BitmapMultipleValueField, FileUploadForm, OrgRegistrationForm, PartialDateField,
                    RecordForm, UserInvitationForm)
@@ -32,6 +32,15 @@ from swagger_client.rest import ApiException
 from utils import generate_confirmation_token, send_user_initation
 
 HEADERS = {"Accept": "application/vnd.orcid+json", "Content-type": "application/vnd.orcid+json"}
+
+
+@app.route("/failure")
+def failure():
+    try:
+        1 / 0
+    except ZeroDivisionError as ex:
+        sentry.captureException()
+        abort(500, ex)
 
 
 @app.route("/favicon.ico")

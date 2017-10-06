@@ -19,7 +19,7 @@ from time import time
 from urllib.parse import quote, unquote, urlparse
 
 import requests
-from flask import (abort, current_app, flash, redirect, render_template, request, session, url_for)
+from flask import (abort, current_app, flash, g, redirect, render_template, request, session, url_for)
 from flask_login import current_user, login_required, login_user, logout_user
 from flask_mail import Message
 from oauthlib.oauth2 import rfc6749
@@ -27,7 +27,7 @@ from requests_oauthlib import OAuth2Session
 from werkzeug.urls import iri_to_uri
 
 import orcid_client
-from application import app, db, mail
+from application import app, db, mail, sentry
 from config import (APP_DESCRIPTION, APP_NAME, APP_URL, AUTHORIZATION_BASE_URL, CRED_TYPE_PREMIUM,
                     EXTERNAL_SP, MEMBER_API_FORM_BASE_URL, NOTE_ORCID, ORCID_API_BASE,
                     ORCID_BASE_URL, ORCID_CLIENT_ID, ORCID_CLIENT_SECRET, SCOPE_ACTIVITIES_UPDATE,
@@ -761,9 +761,12 @@ in order to complete the log-out.""", "warning")
 @app.errorhandler(500)
 def internal_error(error):
     """Handle internal error."""
-    app.logger.exception("Unhandle exception occured.")
     trace = traceback.format_exc()
-    return render_template("http500.html", error_message=str(error), trace=trace)
+    return render_template("http500.html",
+            trace=trace,
+            error_message=str(error),
+            event_id=g.sentry_event_id,
+            public_dsn=sentry.client.get_public_dsn("https"))
 
 
 @app.route("/orcid/login/")
