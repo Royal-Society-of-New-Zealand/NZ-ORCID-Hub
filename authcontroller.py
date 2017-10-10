@@ -262,9 +262,9 @@ def handle_login():
     else:
 
         if ENV != "dev" and not (unscoped_affiliation & {"faculty", "staff", "student"}):
-            flash(
-                f"Access Denied! Your account (email: {email}, eppn: {eppn}) is not affiliated with '{shib_org_name}'",
-                "danger")
+            msg = f"Access Denied! Your account (email: {email}, eppn: {eppn}) is not affiliated with '{shib_org_name}'"
+            app.logger.error(msg)
+            flash(msg, "danger")
             return redirect(url_for("login"))
 
         user = User.create(
