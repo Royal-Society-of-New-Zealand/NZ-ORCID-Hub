@@ -218,12 +218,6 @@ def handle_login():
             app.logger.info(
                 f"the user has logged in with secondary email addresses: {secondary_emails}")
 
-        if ENV != "dev" and not (unscoped_affiliation & {"faculty", "staff", "student"}):
-            flash(
-                f"Access Denied! Your account (email: {email}, eppn: {eppn}) is not affiliated with '{shib_org_name}'",
-                "danger")
-            return redirect(url_for("login"))
-
     except Exception as ex:
         app.logger.exception("Failed to login via TUAKIRI.")
         abort(500, ex)
@@ -265,6 +259,13 @@ def handle_login():
         if not user.eppn and eppn:
             user.eppn = eppn
     else:
+
+        if ENV != "dev" and not (unscoped_affiliation & {"faculty", "staff", "student"}):
+            flash(
+                f"Access Denied! Your account (email: {email}, eppn: {eppn}) is not affiliated with '{shib_org_name}'",
+                "danger")
+            return redirect(url_for("login"))
+
         user = User.create(
             email=email,
             eppn=eppn,
