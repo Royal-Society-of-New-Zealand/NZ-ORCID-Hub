@@ -14,3 +14,5 @@ wtf-peewee
 pycountry
 html2text
 tablib
+raven
+raven[flask]
