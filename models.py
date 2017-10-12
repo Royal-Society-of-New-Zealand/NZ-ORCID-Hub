@@ -237,7 +237,7 @@ class BaseModel(Model):
         """Get dictionary representation of the model."""
         return model_to_dict(self)
 
-    class Meta:  # noqa: D101
+    class Meta:  # noqa: D101,D106
         database = db
 
 
@@ -396,7 +396,7 @@ class OrgInfo(BaseModel):
     def __repr__(self):
         return self.name or self.disambiguated_id or super().__repr__()
 
-    class Meta:  # noqa: D101
+    class Meta:  # noqa: D101,D106
         db_table = "org_info"
         table_alias = "oi"
 
@@ -665,7 +665,7 @@ class OrgInvitation(BaseModel, AuditMixin):
         """Get the time the invitation was sent."""
         return self.created_at
 
-    class Meta:  # noqa: D101
+    class Meta:  # noqa: D101,D106
         db_table = "org_invitation"
 
 
@@ -711,7 +711,7 @@ class UserOrg(BaseModel, AuditMixin):
 
         return super().save(*args, **kwargs)
 
-    class Meta:  # noqa: D101
+    class Meta:  # noqa: D101,D106
         db_table = "user_org"
         table_alias = "uo"
         indexes = ((("user", "org"), True), )
@@ -747,7 +747,7 @@ class UserOrgAffiliation(BaseModel, AuditMixin):
     created_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
     updated_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
 
-    class Meta:  # noqa: D101
+    class Meta:  # noqa: D101,D106
         db_table = "user_organisation_affiliation"
         table_alias = "oua"
 
@@ -765,7 +765,7 @@ class OrcidApiCall(BaseModel):
     response = TextField(null=True)
     response_time_ms = IntegerField(null=True)
 
-    class Meta:  # noqa: D101
+    class Meta:  # noqa: D101,D106
         db_table = "orcid_api_call"
 
 
@@ -780,7 +780,7 @@ class OrcidAuthorizeCall(BaseModel):
     state = TextField(null=True)
     response_time_ms = IntegerField(null=True)
 
-    class Meta:  # noqa: D101
+    class Meta:  # noqa: D101,D106
         db_table = "orcid_authorize_call"
 
 
@@ -926,7 +926,7 @@ class Task(BaseModel, AuditMixin):
 
         return task
 
-    class Meta:  # noqa: D101
+    class Meta:  # noqa: D101,D106
         table_alias = "t"
 
 
@@ -964,7 +964,7 @@ class UserInvitation(BaseModel, AuditMixin):
         """Get the time the invitation was sent."""
         return self.created_at
 
-    class Meta:  # noqa: D101
+    class Meta:  # noqa: D101,D106
         db_table = "user_invitation"
 
 
@@ -1005,7 +1005,7 @@ class AffiliationRecord(BaseModel):
         ts = datetime.now().isoformat(timespec="seconds")
         self.status = (self.status + "\n" if self.status else '') + ts + ": " + line
 
-    class Meta:  # noqa: D101
+    class Meta:  # noqa: D101,D106
         db_table = "affiliation_record"
         table_alias = "ar"
 
