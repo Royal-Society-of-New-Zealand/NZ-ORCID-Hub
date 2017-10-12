@@ -179,23 +179,26 @@ class MemberAPI(MemberAPIV20Api):
             return False
         return False
 
-    def create_or_update_affiliation(self,
-                                     affiliation=None,
-                                     role=None,
-                                     department=None,
-                                     org_name=None,
-                                     city=None,
-                                     state=None,
-                                     region=None,
-                                     country=None,
-                                     disambiguated_id=None,
-                                     disambiguation_source=None,
-                                     start_date=None,
-                                     end_date=None,
-                                     put_code=None,
-                                     initial=False,
-                                     *args,
-                                     **kwargs):
+    def create_or_update_affiliation(
+            self,
+            affiliation=None,
+            role=None,
+            department=None,
+            org_name=None,
+            # NB! affiliation_record has 'organisation' field for organisation name
+            organisation=None,
+            city=None,
+            state=None,
+            region=None,
+            country=None,
+            disambiguated_id=None,
+            disambiguation_source=None,
+            start_date=None,
+            end_date=None,
+            put_code=None,
+            initial=False,
+            *args,
+            **kwargs):
         """Create or update affiliation record of a user.
 
         :param initial: the affiliation entry created while handlind ORCID authorizastion call back.
@@ -245,7 +248,7 @@ class MemberAPI(MemberAPIV20Api):
 
         rec.source = self.source
         rec.organization = Organization(
-            name=org_name or self.org.name,
+            name=organisation or org_name or self.org.name,
             address=organisation_address,
             disambiguated_organization=disambiguated_organization_details)
 
