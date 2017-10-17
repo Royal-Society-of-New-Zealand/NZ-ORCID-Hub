@@ -5,7 +5,7 @@ from datetime import datetime
 
 from flask_login import login_user
 
-from models import Organisation, Role, User, UserOrg
+from models import Organisation, User, UserOrg
 
 
 def test_admin_view_access(request_ctx):
