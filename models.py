@@ -645,9 +645,9 @@ class User(BaseModel, UserMixin, AuditMixin):
         if self.is_dirty():
             if self.field_is_updated("is_superuser"):
                 if self.is_superuser and not self.has_role(Role.SUPERUSER):
-                    self.roles ^= Role.SUPERUSER
-                elif not self.is_superuser and self.has_role(Role.SUPERUSER):
                     self.roles |= Role.SUPERUSER
+                elif not self.is_superuser and self.has_role(Role.SUPERUSER):
+                    self.roles ^= Role.SUPERUSER
             elif self.field_is_updated("roles"):
                 self.is_superuser = self.has_role(Role.SUPERUSER)
 
