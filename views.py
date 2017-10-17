@@ -221,6 +221,7 @@ class UserAdmin(AppModelView):
         "email",
         "eppn",
         "organisation.name", )
+    form_excluded_columns = ("roles", )  # Disable role asignemnt to the users
     form_overrides = dict(roles=BitmapMultipleValueField)
     form_args = dict(roles=dict(choices=roles.items()))
 

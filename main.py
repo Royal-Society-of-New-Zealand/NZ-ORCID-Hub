@@ -54,11 +54,12 @@ def initdb(create=False, drop=False, force=False, audit=True, verbose=False):
         app.logger.info("Creating audit tables...")
         models.create_audit_tables()
 
-    super_user, _ = models.User.get_or_create(
-        name="The University of Auckland",
-        email="root@mailinator.com",
-        confirmed=True,
-        roles=models.Role.SUPERUSER)
+    for name, email in [
+        ("The University of Auckland", "root@mailinator.com"),
+        ("The University of Auckland", "rad42@mailinator.com"),
+    ]:
+        super_user, _ = models.User.get_or_create(
+            name=name, email=email, confirmed=True, is_superuser=True)
 
     org, _ = models.Organisation.get_or_create(
         name="The University of Auckland", tuakiri_name="University of Auckland", confirmed=True)
