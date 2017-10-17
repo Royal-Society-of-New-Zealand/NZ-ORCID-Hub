@@ -210,6 +210,7 @@ class UserAdmin(AppModelView):
     column_exclude_list = (
         "password",
         "username",
+        "roles",
         "first_name",
         "last_name", )
     column_formatters = dict(
@@ -221,41 +222,12 @@ class UserAdmin(AppModelView):
         "email",
         "eppn",
         "organisation.name", )
+    form_excluded_columns = ("roles", )  # Disable role asignemnt to the users
     form_overrides = dict(roles=BitmapMultipleValueField)
     form_args = dict(roles=dict(choices=roles.items()))
 
     form_ajax_refs = {"organisation": {"fields": (Organisation.name, "name")}}
     can_export = True
-
-    def update_model(self, form, model):
-        """Added prevalidation of the form."""
-        if form.roles.data != model.roles:
-            if bool(form.roles.data & Role.ADMIN) != UserOrg.select().where(
-                (UserOrg.user_id == model.id) & UserOrg.is_admin).exists():  # noqa: E125
-                if form.roles.data & Role.ADMIN:
-                    flash(f"Cannot add ADMIN role to {model} "
-                          "since there is no organisation the user is an administrator for.",
-                          "danger")
-                else:
-                    flash(f"Cannot revoke ADMIN role from {model} "
-                          "since there is an organisation the user is an administrator for.",
-                          "danger")
-                form.roles.data = model.roles
-                return False
-            if bool(form.roles.data & Role.TECHNICAL) != Organisation.select().where(
-                    Organisation.tech_contact_id == model.id).exists():
-                if model.has_role(Role.TECHNICAL):
-                    flash(f"Cannot revoke TECHNICAL role from {model} "
-                          "since there is an organisation the user is the technical contact for.",
-                          "danger")
-                else:
-                    flash(f"Cannot add TECHNICAL role to {model} "
-                          "since there is no organisation the user is the technical contact for.",
-                          "danger")
-                form.roles.data = model.roles
-                return False
-
-        return super().update_model(form, model)
 
 
 class OrganisationAdmin(AppModelView):

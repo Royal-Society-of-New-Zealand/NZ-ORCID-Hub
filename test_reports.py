@@ -5,7 +5,7 @@ from datetime import datetime
 
 from flask_login import login_user
 
-from models import Organisation, Role, User, UserOrg
+from models import Organisation, User, UserOrg
 
 
 def test_admin_view_access(request_ctx):
@@ -16,7 +16,7 @@ def test_admin_view_access(request_ctx):
             created_at=datetime(2017, 8, 29, 17, 32, 31, 148548),
             name="TEST USER",
             email="test@test.test.net",
-            roles=Role.SUPERUSER,
+            is_superuser=True,
             username="test42",
             confirmed=True)
         UserOrg.create(user=test_user, org=org)
@@ -24,7 +24,7 @@ def test_admin_view_access(request_ctx):
             created_at=datetime(2017, 8, 29, 17, 32, 31, 148548),
             name="TEST USER #2",
             email="test2@test.test.net",
-            roles=Role.SUPERUSER,
+            is_superuser=True,
             username="test42",
             orcid="123-456-789",
             confirmed=True)

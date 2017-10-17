@@ -17,7 +17,7 @@ from flask_login import UserMixin, current_user
 from peewee import BooleanField as BooleanField_
 from peewee import (CharField, DateTimeField, DeferredRelation, Field, FixedCharField,
                     ForeignKeyField, IntegerField, Model, OperationalError, PostgresqlDatabase,
-                    ProgrammingError, SmallIntegerField, TextField, fn)
+                    SmallIntegerField, TextField, fn)
 from playhouse.shortcuts import model_to_dict
 from pycountry import countries
 
@@ -479,6 +479,7 @@ class User(BaseModel, UserMixin, AuditMixin):
     confirmed = BooleanField(default=False)
     # Role bit-map:
     roles = SmallIntegerField(default=0)
+    is_superuser = BooleanField(default=False)
 
     is_locked = BooleanField(default=False)
 
@@ -526,16 +527,11 @@ class User(BaseModel, UserMixin, AuditMixin):
             try:
                 return bool(Role[role.upper()] & Role(self.roles))
             except:
-                False
+                return False
         elif type(role) is int:
             return bool(role & self.roles)
         else:
             return False
-
-    @property
-    def is_superuser(self):
-        """Test if the user is a HUB admin."""
-        return self.roles & Role.SUPERUSER
 
     @property
     def is_admin(self):
@@ -644,6 +640,19 @@ class User(BaseModel, UserMixin, AuditMixin):
         """Generate UUID for the user basee on the the primary email."""
         return uuid.uuid5(uuid.NAMESPACE_URL, "mailto:" + (self.email or self.eppn))
 
+    def save(self, *args, **kwargs):
+        """Handle data consitency syncing attribute "is_superuser" with roles."""
+        if self.is_dirty():
+            if self.field_is_updated("is_superuser"):
+                if self.is_superuser and not self.has_role(Role.SUPERUSER):
+                    self.roles |= Role.SUPERUSER
+                elif not self.is_superuser and self.has_role(Role.SUPERUSER):
+                    self.roles ^= Role.SUPERUSER
+            elif self.field_is_updated("roles"):
+                self.is_superuser = self.has_role(Role.SUPERUSER)
+
+        super().save(*args, **kwargs)
+
 
 DeferredUser.set_model(User)
 
@@ -696,6 +705,7 @@ class UserOrg(BaseModel, AuditMixin):
         before saving data.
         """
         if self.is_dirty():
+
             if self.field_is_updated("org"):
                 self.org  # just enforce re-querying
             user = self.user
@@ -1069,7 +1079,7 @@ def create_tables():
 
         try:
             model.create_table()
-        except ProgrammingError as ex:
+        except OperationalError as ex:
             if "already exists" in str(ex):
                 app.logger.info(f"Table '{model._meta.name}' already exists")
             else:
