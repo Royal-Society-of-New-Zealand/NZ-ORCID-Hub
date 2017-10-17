@@ -1,23 +1,22 @@
 # -*- coding: utf-8 -*-
 """Tests for core functions."""
 
-import sys
 import json
-from flask_login import login_user
-
-import views
-import pytest
-
-from config import ORCID_BASE_URL
+import sys
+import time
+from itertools import product
 from unittest.mock import MagicMock, patch
+
+import pytest
+from flask_login import login_user
 from peewee import SqliteDatabase
 from playhouse.test_utils import test_database
 
+import orcid_client
+import views
+from config import ORCID_BASE_URL
 from models import (AffiliationRecord, OrcidToken, Organisation, Role, Task, User, UserOrg,
                     UserOrgAffiliation)
-from itertools import product
-import time
-import orcid_client
 
 fake_time = time.time()
 
@@ -199,7 +198,7 @@ def test_show_record_section(request_ctx, test_db):
     with request_ctx("/"):
         login_user(u)
         rv = views.show_record_section(user_id=123)
-        print(rv)
+        assert u.email in rv
 
 
 def make_fake_response(text, *args, **kwargs):

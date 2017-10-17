@@ -238,7 +238,7 @@ class BaseModel(Model):
         """Get dictionary representation of the model."""
         return model_to_dict(self)
 
-    class Meta:  # noqa: D101
+    class Meta:  # noqa: D101,D106
         database = db
 
 
@@ -397,7 +397,7 @@ class OrgInfo(BaseModel):
     def __repr__(self):
         return self.name or self.disambiguated_id or super().__repr__()
 
-    class Meta:  # noqa: D101
+    class Meta:  # noqa: D101,D106
         db_table = "org_info"
         table_alias = "oi"
 
@@ -666,45 +666,8 @@ class OrgInvitation(BaseModel, AuditMixin):
         """Get the time the invitation was sent."""
         return self.created_at
 
-    class Meta:  # noqa: D101
+    class Meta:  # noqa: D101,D106
         db_table = "org_invitation"
-
-
-class UserInvitation(BaseModel, AuditMixin):
-    """Organisation invitation to on-board the Hub."""
-
-    invitee = ForeignKeyField(
-        User, on_delete="CASCADE", null=True, related_name="received_user_invitations")
-    inviter = ForeignKeyField(
-        User, on_delete="SET NULL", null=True, related_name="sent_user_invitations")
-    org = ForeignKeyField(
-        Organisation, on_delete="CASCADE", null=True, verbose_name="Organisation")
-
-    email = TextField(index=True, help_text="The email address the invitation was sent to.")
-    first_name = TextField(null=True, verbose_name="First Name")
-    last_name = TextField(null=True, verbose_name="Last Name")
-    orcid = OrcidIdField(null=True)
-    department = TextField(verbose_name="Campus/Department", null=True)
-    organisation = TextField(verbose_name="Organisation Name", null=True)
-    city = TextField(verbose_name="City", null=True)
-    state = TextField(verbose_name="State", null=True)
-    country = CharField(verbose_name="Country", max_length=2, null=True)
-    course_or_role = TextField(verbose_name="Course or Job title", null=True)
-    start_date = PartialDateField(verbose_name="Start date", null=True)
-    end_date = PartialDateField(verbose_name="End date (leave blank if current)", null=True)
-    affiliations = SmallIntegerField(verbose_name="User affiliations", null=True)
-    disambiguated_id = TextField(verbose_name="Disambiguation ORG Id", null=True)
-    disambiguation_source = TextField(verbose_name="Disambiguation ORG Source", null=True)
-    token = TextField(unique=True)
-    confirmed_at = DateTimeField(null=True)
-
-    @property
-    def sent_at(self):
-        """Get the time the invitation was sent."""
-        return self.created_at
-
-    class Meta:  # noqa: D101
-        db_table = "user_invitation"
 
 
 class UserOrg(BaseModel, AuditMixin):
@@ -749,7 +712,7 @@ class UserOrg(BaseModel, AuditMixin):
 
         return super().save(*args, **kwargs)
 
-    class Meta:  # noqa: D101
+    class Meta:  # noqa: D101,D106
         db_table = "user_org"
         table_alias = "uo"
         indexes = ((("user", "org"), True), )
@@ -785,7 +748,7 @@ class UserOrgAffiliation(BaseModel, AuditMixin):
     created_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
     updated_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
 
-    class Meta:  # noqa: D101
+    class Meta:  # noqa: D101,D106
         db_table = "user_organisation_affiliation"
         table_alias = "oua"
 
@@ -803,7 +766,7 @@ class OrcidApiCall(BaseModel):
     response = TextField(null=True)
     response_time_ms = IntegerField(null=True)
 
-    class Meta:  # noqa: D101
+    class Meta:  # noqa: D101,D106
         db_table = "orcid_api_call"
 
 
@@ -818,7 +781,7 @@ class OrcidAuthorizeCall(BaseModel):
     state = TextField(null=True)
     response_time_ms = IntegerField(null=True)
 
-    class Meta:  # noqa: D101
+    class Meta:  # noqa: D101,D106
         db_table = "orcid_authorize_call"
 
 
@@ -964,8 +927,46 @@ class Task(BaseModel, AuditMixin):
 
         return task
 
-    class Meta:  # noqa: D101
+    class Meta:  # noqa: D101,D106
         table_alias = "t"
+
+
+class UserInvitation(BaseModel, AuditMixin):
+    """Organisation invitation to on-board the Hub."""
+
+    invitee = ForeignKeyField(
+        User, on_delete="CASCADE", null=True, related_name="received_user_invitations")
+    inviter = ForeignKeyField(
+        User, on_delete="SET NULL", null=True, related_name="sent_user_invitations")
+    org = ForeignKeyField(
+        Organisation, on_delete="CASCADE", null=True, verbose_name="Organisation")
+    task = ForeignKeyField(Task, on_delete="CASCADE", null=True, index=True, verbose_name="Task")
+
+    email = TextField(index=True, help_text="The email address the invitation was sent to.")
+    first_name = TextField(null=True, verbose_name="First Name")
+    last_name = TextField(null=True, verbose_name="Last Name")
+    orcid = OrcidIdField(null=True)
+    department = TextField(verbose_name="Campus/Department", null=True)
+    organisation = TextField(verbose_name="Organisation Name", null=True)
+    city = TextField(verbose_name="City", null=True)
+    state = TextField(verbose_name="State", null=True)
+    country = CharField(verbose_name="Country", max_length=2, null=True)
+    course_or_role = TextField(verbose_name="Course or Job title", null=True)
+    start_date = PartialDateField(verbose_name="Start date", null=True)
+    end_date = PartialDateField(verbose_name="End date (leave blank if current)", null=True)
+    affiliations = SmallIntegerField(verbose_name="User affiliations", null=True)
+    disambiguated_id = TextField(verbose_name="Disambiguation ORG Id", null=True)
+    disambiguation_source = TextField(verbose_name="Disambiguation ORG Source", null=True)
+    token = TextField(unique=True)
+    confirmed_at = DateTimeField(null=True)
+
+    @property
+    def sent_at(self):
+        """Get the time the invitation was sent."""
+        return self.created_at
+
+    class Meta:  # noqa: D101,D106
+        db_table = "user_invitation"
 
 
 class AffiliationRecord(BaseModel):
@@ -1005,7 +1006,7 @@ class AffiliationRecord(BaseModel):
         ts = datetime.now().isoformat(timespec="seconds")
         self.status = (self.status + "\n" if self.status else '') + ts + ": " + line
 
-    class Meta:  # noqa: D101
+    class Meta:  # noqa: D101,D106
         db_table = "affiliation_record"
         table_alias = "ar"
 

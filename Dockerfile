@@ -92,6 +92,7 @@ RUN yum -y update \
     && rm -rf __db* \
     && rpm --rebuilddb \
     && yum -y clean all \
+    && rm -rf /var/cache/yum \
     && rm -rf $HOME/.pip/cache \
     && rm -rf /var/cache/*/* /anaconda-post.log \
     && rm -f /swagger-codegen-cli.jar /orcid_swagger.json \

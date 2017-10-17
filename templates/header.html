@@ -94,11 +94,19 @@
                     <li id="organisation.index_view"><a data-toggle="tooltip" data-placement="left" title="Registered Organisations" href="{{ url_for('organisation.index_view')}}">Organisations</a>
                     </li>
                     <li id="orcidtoken.index_view"><a data-toggle="tooltip" data-placement="left" title="Registered user ORCID access tokens" href="{{ url_for('orcidtoken.index_view')}}">ORCID Tokens</a></li>
+                    <li class="divider"></li>
                     <li id="load_org"><a data-toggle="tooltip" data-placement="left" title="Pre-load Organisation Meta-information" href="{{ url_for('load_org')}}">Upload Organisation Info</a></li>
                     <li id="orginfo.index_view"><a data-toggle="tooltip" data-placement="left" title="Pre-loaded Organisation Meta-information" href="{{ url_for('orginfo.index_view')}}">View Organisation
                         Info</a></li>
-                    <li id="user_summary"><a href="{{ url_for('user_summary')}}">User Summary</a></li>
-                    <li id="org_invitation_summary"><a href="{{ url_for('org_invitation_summary')}}">Invitation Summary</a></li>
+                    <li class="divider"></li>
+                    <li class="dropdown-submenu">
+                      <a class="dropdown-toggle" tabindex="-1" href="#">Reports<!-- span class="caret"></span --></a>
+                      <ul class="dropdown-menu">
+                        <li id="user_summary"><a data-toggle="tooltip" data-placement="left" title="User Summary" href="{{ url_for('user_summary')}}">Users</a></li>
+                        <li id="org_invitation_summary"><a data-toggle="tooltip" data-placement="left" title="Organisation Invitation Summary" href="{{ url_for('org_invitation_summary')}}">Organisation Invitations</a></li>
+                        <li id="user_invitation_summary"><a data-toggle="tooltip" data-placement="left" title="User Invitation Summary" href="{{ url_for('user_invitation_summary')}}">User Invitations</a></li>
+                      </ul>
+                    </li>
                   </ul>
                 </li>
               {% endif %}
@@ -161,23 +169,19 @@
                         <div class="col-md-6" style="border-right: 1px solid #ddd">
                           <h3 class="text-center">Institutional credentials</h3>
                         </div>
-                        {% if config.ENV != "prod" %}
                           <div class="col-md-6 center-block">
                             <h3 class="text-center">ORCID record</h3>
                           </div>
-                        {% endif %}
                       </div>
                       <div class="row">
                         <div class="col-md-6" style="border-right: 1px solid #ddd">
                           <img class="center-block" alt="Login via Tuakiri" src="{{image('REANNZ_Tuakiri_service.png')}}" style="width:50%">
                           <br/>
                         </div>
-                        {% if config.ENV != "prod" %}
                           <div class="col-md-6">
                             <img class="center-block" alt="Login via Orcid" src="{{image('orcid-logo.png')}}" style="width:50%">
                             <br/>
                           </div>
-                        {% endif %}
                       </div>
                       <div class="row">
                         <div class="col-md-6" style="border-right: 1px solid #ddd">
@@ -185,11 +189,9 @@
                             title="Tuakiri-members include: all Universities; all Crown Research Institutes (except GNS); and ARA Institute of Canterbury">
                             Tuakiri-member organisation</a></p>
                         </div>
-                        {% if config.ENV != "prod" %}
                           <div class="col-md-6">
                             <p>I'm the Tech Contact or Administrator for a Non-Tuakiri member organsation</p>
                           </div>
-                        {% endif %}
                       </div>
                       <div class="row">
                         <div class="col-md-6" style="border-right: 1px solid #ddd">
@@ -201,7 +203,6 @@
                           <p></p>
                         </div>
 
-                        {% if config.ENV != "prod" %}
                           <div class="col-md-6">
                             <a href="{{orcid_login_url}}">
                               <div class="orcid">
@@ -210,19 +211,16 @@
                             </a>
                             <p></p>
                           </div>
-                        {% endif %}
                       </div>
                       <div class="row">
                         <div class="col-md-6" style="border-right: 1px solid #ddd">
                           <small><p>This log in takes you to the Tuakiri Directory Service where you can select your Home Organisation.
                           Once returned to the Hub, you'll be able to give your organisation permission to write your affiliation to your ORCID record</p></small>
                         </div>
-                        {% if config.ENV != "prod" %}
                           <div class="col-md-6">
                             <small><p>This log in takes you to ORCID to let the Hub retrieve your ORCID iD.<br/>
                             Once you've linked your ORCID iD to an organisation using the Hub, you can use this ORCID record to log in.</p></small>
                           </div>
-                        {% endif %}
                       </div>
                     </div>
                     <div class="modal-footer">

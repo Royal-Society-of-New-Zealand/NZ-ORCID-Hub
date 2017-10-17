@@ -29,7 +29,7 @@ from models import (Affiliation, CharField, OrcidApiCall, OrcidToken, Organisati
 # NB! Should be disabled in production
 from pyinfo import info
 from swagger_client.rest import ApiException
-from utils import generate_confirmation_token, send_user_initation
+from utils import generate_confirmation_token, send_user_invitation
 
 HEADERS = {"Accept": "application/vnd.orcid+json", "Content-type": "application/vnd.orcid+json"}
 
@@ -1056,19 +1056,20 @@ def invite_organisation():
                     flash("New Technical contact has been Invited Successfully! "
                           "An email has been sent to the Technical contact", "success")
                     app.logger.info(
-                        "For Organisation '%s' , New Technical Contact '%s' has been invited successfully." %
-                        (form.org_name.data, form.org_email.data))
+                        "For Organisation '%s' , New Technical Contact '%s' has been invited successfully."
+                        % (form.org_name.data, form.org_email.data))
                 else:
                     flash("New Organisation Admin has been Invited Successfully! "
                           "An email has been sent to the Organisation Admin", "success")
                     app.logger.info(
-                        "For Organisation '%s' , New Organisation Admin '%s' has been invited successfully." %
-                        (form.org_name.data, form.org_email.data))
+                        "For Organisation '%s' , New Organisation Admin '%s' has been invited successfully."
+                        % (form.org_name.data, form.org_email.data))
             else:
                 flash("Organisation Invited Successfully! "
                       "An email has been sent to the organisation contact", "success")
-                app.logger.info("Organisation '%s' successfully invited. Invitation sent to '%s'." %
-                                (form.org_name.data, form.org_email.data))
+                app.logger.info(
+                    "Organisation '%s' successfully invited. Invitation sent to '%s'." %
+                    (form.org_name.data, form.org_email.data))
         except Exception as ex:
             app.logger.exception(f"Failed to send registration invitation with {params}.")
             flash(f"Failed to send registration invitation: {ex}.", "danger")
@@ -1110,7 +1111,7 @@ def invite_user():
         except UserInvitation.DoesNotExist:
             pass
 
-        ui = send_user_initation(
+        ui = send_user_invitation(
             current_user,
             org,
             email=email,

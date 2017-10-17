@@ -256,25 +256,26 @@ def set_server_name():
                 "SERVER_NAME"] = "orcidhub.org.nz" if ENV == "prod" else ENV + ".orcidhub.org.nz"
 
 
-def send_user_initation(inviter,
-                        org,
-                        email,
-                        first_name,
-                        last_name,
-                        affiliation_types=None,
-                        orcid=None,
-                        department=None,
-                        organisation=None,
-                        city=None,
-                        state=None,
-                        country=None,
-                        course_or_role=None,
-                        start_date=None,
-                        end_date=None,
-                        affiliations=None,
-                        disambiguated_id=None,
-                        disambiguation_source=None,
-                        **kwargs):
+def send_user_invitation(inviter,
+                         org,
+                         email,
+                         first_name,
+                         last_name,
+                         affiliation_types=None,
+                         orcid=None,
+                         department=None,
+                         organisation=None,
+                         city=None,
+                         state=None,
+                         country=None,
+                         course_or_role=None,
+                         start_date=None,
+                         end_date=None,
+                         affiliations=None,
+                         disambiguated_id=None,
+                         disambiguation_source=None,
+                         task_id=None,
+                         **kwargs):
     """Send an invitation to join ORCID Hub logging in via ORCID."""
     try:
         logger.info(f"*** Sending an invitation to '{first_name} {last_name} <{email}>' "
@@ -319,6 +320,7 @@ def send_user_initation(inviter,
 
         user_org.save()
         ui = UserInvitation.create(
+            task_id=task_id,
             invitee_id=user.id,
             inviter_id=inviter.id,
             org=org,
@@ -538,11 +540,13 @@ def process_affiliation_records(max_rows=20):
              .join(
                  UserInvitation,
                  JOIN.LEFT_OUTER,
-                 on=(UserInvitation.email == AffiliationRecord.email)).join(
-                     OrcidToken,
-                     JOIN.LEFT_OUTER,
-                     on=((OrcidToken.user_id == User.id) & (OrcidToken.org_id == Organisation.id) &
-                         (OrcidToken.scope.contains("/activities/update")))).limit(max_rows))
+                 on=((UserInvitation.email == AffiliationRecord.email) &
+                     (UserInvitation.task_id == Task.id))).join(
+                         OrcidToken,
+                         JOIN.LEFT_OUTER,
+                         on=((OrcidToken.user_id == User.id) &
+                             (OrcidToken.org_id == Organisation.id) &
+                             (OrcidToken.scope.contains("/activities/update")))).limit(max_rows))
     for (task_id, org_id, user), tasks_by_user in groupby(tasks, lambda t: (
             t.id,
             t.org_id,
@@ -565,7 +569,7 @@ def process_affiliation_records(max_rows=20):
                 )  # noqa: E501
             }
             for invitation, affiliations in invitation_dict.items():
-                send_user_initation(*invitation, affiliations)
+                send_user_invitation(*invitation, affiliations, task_id=task_id)
         else:  # user exits and we have tokens
             create_or_update_affiliations(user, org_id, tasks_by_user)
         task_ids.add(task_id)
