@@ -440,7 +440,7 @@ class AffiliationRecordAdmin(AppModelView):
         return super().get_export_name(export_type=export_type)
 
     @action("activate", "Activate for processing",
-            "Are you sure you want to activate the selected records for batch processing?\n\nBy clicking \"OK\" "+
+            "Are you sure you want to activate the selected records for batch processing?\n\nBy clicking \"OK\" " +
             "you are affirming that the affiliations to be written are, to the\n best of your knowledge, correct!")
     def action_activate(self, ids):
         """Batch registraion of users."""
