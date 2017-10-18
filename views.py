@@ -20,13 +20,13 @@ import orcid_client
 import utils
 from application import admin, app
 from config import ORCID_BASE_URL, SCOPE_ACTIVITIES_UPDATE, SCOPE_READ_LIMITED
-from forms import (BitmapMultipleValueField, FileUploadForm, OrgRegistrationForm, PartialDateField,
-                   RecordForm, UserInvitationForm, JsonFileUploadForm)
+from forms import (BitmapMultipleValueField, FileUploadForm, JsonFileUploadForm,
+                   OrgRegistrationForm, PartialDateField, RecordForm, UserInvitationForm)
 from login_provider import roles_required
 from models import AffiliationRecord  # noqa: F401
-from models import (Affiliation, CharField, OrcidApiCall, OrcidToken, Organisation, OrgInfo,
-                    OrgInvitation, PartialDate, Role, Task, TextField, Url, User, UserInvitation,
-                    UserOrg, UserOrgAffiliation, FundingRecord, db)
+from models import (Affiliation, CharField, FundingRecord, OrcidApiCall, OrcidToken, Organisation,
+                    OrgInfo, OrgInvitation, PartialDate, Role, Task, TextField, Url, User,
+                    UserInvitation, UserOrg, UserOrgAffiliation, db)
 # NB! Should be disabled in production
 from pyinfo import info
 from swagger_client.rest import ApiException
@@ -867,7 +867,8 @@ def load_researcher_funding():
                     org=current_user.organisation,
                     scope=SCOPE_READ_LIMITED[0] + "," + SCOPE_ACTIVITIES_UPDATE[0])
             except:
-                flash(f"The user {orcid_id} hasn't authorized you to add funding record", "warning")
+                flash(f"The user {orcid_id} hasn't authorized you to add funding record",
+                      "warning")
                 continue
 
             orcid_client.configuration.access_token = orcid_token.access_token
@@ -878,7 +879,8 @@ def load_researcher_funding():
                 params = dict(orcid=user.orcid, body=funding_data, _preload_content=False)
                 api_instance.create_funding(**params)
                 funding_created_id += orcid_id + " ,"
-                app.logger.info("For %r funding record was created by %r", user.orcid, current_user)
+                app.logger.info("For %r funding record was created by %r", user.orcid,
+                                current_user)
             except ApiException as e:
                 message = json.loads(e.body.replace("''", "\"")).get('user-messsage')
                 flash("Failed to create the entry: %s" % message, "danger")
@@ -886,7 +888,8 @@ def load_researcher_funding():
                 app.logger.error("For %r encountered exception: %r", user, ex)
                 abort(500, ex)
         if funding_created_id:
-            flash(f"funding record for {funding_created_id} has been successfully created.", "success")
+            flash(f"funding record for {funding_created_id} has been successfully created.",
+                  "success")
 
     return render_template("fileUpload.html", form=form, form_title="Funding")
 

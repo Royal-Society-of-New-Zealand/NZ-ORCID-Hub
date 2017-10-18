@@ -2,11 +2,11 @@
 """Application models."""
 
 import csv
+import json
 import random
 import re
 import string
 import uuid
-import json
 from collections import namedtuple
 from datetime import datetime
 from hashlib import md5
@@ -540,7 +540,7 @@ class User(BaseModel, UserMixin, AuditMixin):
 
     @is_superuser.setter
     def is_superuser(self, value):
-        """Sets user as a HUB admin."""
+        """Set user as a HUB admin."""
         if value:
             self.roles |= Role.SUPERUSER
         else:
@@ -1042,19 +1042,19 @@ class FundingRecord(BaseModel, AuditMixin):
     visibility = CharField(null=True, max_length=100)
     put_code = IntegerField(null=True)
 
-
     @staticmethod
     def load_from_json(source, filename=None):
         """Load data from CSV file or a string."""
         if isinstance(source, str):
             return json.loads(source)
 
-    class Meta:  # noqa: D101
+    class Meta:  # noqa: D101,D106
         db_table = "funding_record"
         table_alias = "fr"
 
 
 class FundingContributor(BaseModel):
+    """Researcher or contributor - reciever of the funding."""
 
     funding_record = ForeignKeyField(FundingRecord, related_name="contributors")
     orcid = OrcidIdField(null=True)
@@ -1062,12 +1062,13 @@ class FundingContributor(BaseModel):
     email = CharField(max_length=120, null=True)
     role = CharField(max_length=120, null=True)
 
-    class Meta:  # noqa: D101
+    class Meta:  # noqa: D101,D106
         db_table = "funding_contributor"
         table_alias = "fc"
 
 
 class ExternalId(BaseModel):
+    """Extereral Identifier."""
 
     funding_record = ForeignKeyField(FundingRecord, related_name="external_ids")
     type = CharField(max_length=80)
@@ -1075,7 +1076,7 @@ class ExternalId(BaseModel):
     url = CharField(max_length=200, null=True)
     relationship = CharField(max_length=80, null=True)
 
-    class Meta:
+    class Meta:  # noqa: D101,D106
         db_table = "external_id"
         table_alias = "ei"
 
@@ -1103,12 +1104,12 @@ class Url(BaseModel, AuditMixin):
         return u
 
 
-
 class Funding(BaseModel):
     """Uploaded research Funding record."""
 
     short_id = CharField(unique=True, max_length=5)
     url = TextField()
+
 
 def readup_file(input_file):
     """Read up the whole content and deconde it and return the whole content."""

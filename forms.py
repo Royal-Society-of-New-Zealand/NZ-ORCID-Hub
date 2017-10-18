@@ -195,9 +195,7 @@ class FileUploadForm(FlaskForm):
 class JsonFileUploadForm(FlaskForm):
     """Funding info pre-loading form."""
 
-    file_ = FileField(
-        validators=[FileRequired(),
-                    FileAllowed(["json"], 'JSON file only!')])
+    file_ = FileField(validators=[FileRequired(), FileAllowed(["json"], 'JSON file only!')])
 
 
 class OnboardingTokenForm(FlaskForm):
