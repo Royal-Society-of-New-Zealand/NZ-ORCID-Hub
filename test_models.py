@@ -295,3 +295,17 @@ FNB	LNB	b.b@test.com	TEST0	Science and Education Group	Wellington	Manager Specia
         org=org)
     assert test.record_count == 9
     assert AffiliationRecord.select().count() == test.record_count
+
+
+def test_is_superuser():
+    su = User(roles=Role.SUPERUSER)
+    assert su.is_superuser
+    su.is_superuser = False
+    assert not su.has_role(Role.SUPERUSER)
+
+    u = User()
+    assert not u.is_superuser
+    assert not u.has_role(Role.SUPERUSER)
+    u.is_superuser = True
+    assert u.is_superuser
+    assert u.has_role(Role.SUPERUSER)
