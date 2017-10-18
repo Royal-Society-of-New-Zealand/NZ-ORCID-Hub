@@ -14,18 +14,19 @@ from flask_admin.model import typefmt
 from flask_login import current_user, login_required
 from jinja2 import Markup
 from werkzeug import secure_filename
+from wtforms.fields import BooleanField
 
 import orcid_client
 import utils
 from application import admin, app
 from config import ORCID_BASE_URL, SCOPE_ACTIVITIES_UPDATE, SCOPE_READ_LIMITED
-from forms import (BitmapMultipleValueField, FileUploadForm, OrgRegistrationForm, PartialDateField,
-                   RecordForm, UserInvitationForm)
+from forms import (BitmapMultipleValueField, FileUploadForm, JsonFileUploadForm,
+                   OrgRegistrationForm, PartialDateField, RecordForm, UserInvitationForm)
 from login_provider import roles_required
 from models import AffiliationRecord  # noqa: F401
-from models import (Affiliation, CharField, OrcidApiCall, OrcidToken, Organisation, OrgInfo,
-                    OrgInvitation, PartialDate, Role, Task, TextField, Url, User, UserInvitation,
-                    UserOrg, UserOrgAffiliation, db)
+from models import (Affiliation, CharField, FundingRecord, OrcidApiCall, OrcidToken, Organisation,
+                    OrgInfo, OrgInvitation, PartialDate, Role, Task, TextField, Url, User,
+                    UserInvitation, UserOrg, UserOrgAffiliation, db)
 # NB! Should be disabled in production
 from pyinfo import info
 from swagger_client.rest import ApiException
@@ -207,6 +208,9 @@ class UserAdmin(AppModelView):
 
     roles = {1: "Superuser", 2: "Administrator", 4: "Researcher", 8: "Technical Contact"}
 
+    # column_list = (User.
+    form_extra_fields = dict(is_superuser=BooleanField("Is Superuser"))
+    form_excluded_columns = ("roles", )
     column_exclude_list = (
         "password",
         "username",
@@ -229,7 +233,7 @@ class UserAdmin(AppModelView):
 
     def update_model(self, form, model):
         """Added prevalidation of the form."""
-        if form.roles.data != model.roles:
+        if "roles" not in self.form_excluded_columns and form.roles.data != model.roles:
             if bool(form.roles.data & Role.ADMIN) != UserOrg.select().where(
                 (UserOrg.user_id == model.id) & UserOrg.is_admin).exists():  # noqa: E125
                 if form.roles.data & Role.ADMIN:
@@ -837,6 +841,57 @@ def load_researcher_affiliations():
         return redirect(url_for("affiliationrecord.index_view", task_id=task.id))
 
     return render_template("fileUpload.html", form=form, form_title="Researcher")
+
+
+@app.route("/load/researcher/funding", methods=["GET", "POST"])
+@roles_required(Role.ADMIN)
+def load_researcher_funding():
+    """Preload organisation data."""
+    form = JsonFileUploadForm()
+    if form.validate_on_submit():
+        filename = secure_filename(form.file_.data.filename)
+        funding_data = FundingRecord.load_from_json(read_uploaded_file(form), filename=filename)
+
+        orcid_token = None
+        contributors_list = funding_data["contributors"]["contributor"]
+        funding_created_id = ""
+        for contributor in contributors_list:
+
+            orcid_id = contributor["contributor-orcid"]["path"]
+            user = None
+
+            try:
+                user = User.get(orcid=orcid_id)
+                orcid_token = OrcidToken.get(
+                    user=user,
+                    org=current_user.organisation,
+                    scope=SCOPE_READ_LIMITED[0] + "," + SCOPE_ACTIVITIES_UPDATE[0])
+            except:
+                flash(f"The user {orcid_id} hasn't authorized you to add funding record",
+                      "warning")
+                continue
+
+            orcid_client.configuration.access_token = orcid_token.access_token
+            api_instance = orcid_client.MemberAPIV20Api()
+
+            try:
+                # Adding funding info
+                params = dict(orcid=user.orcid, body=funding_data, _preload_content=False)
+                api_instance.create_funding(**params)
+                funding_created_id += orcid_id + " ,"
+                app.logger.info("For %r funding record was created by %r", user.orcid,
+                                current_user)
+            except ApiException as e:
+                message = json.loads(e.body.replace("''", "\"")).get('user-messsage')
+                flash("Failed to create the entry: %s" % message, "danger")
+            except Exception as ex:
+                app.logger.error("For %r encountered exception: %r", user, ex)
+                abort(500, ex)
+        if funding_created_id:
+            flash(f"funding record for {funding_created_id} has been successfully created.",
+                  "success")
+
+    return render_template("fileUpload.html", form=form, form_title="Funding")
 
 
 @app.route("/orcid_api_rep", methods=["GET", "POST"])
