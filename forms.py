@@ -21,7 +21,7 @@ def validate_orcid_id_field(form, field):
     if not field.data:
         return
     try:
-        models.validate_orcid_id(field.date)
+        models.validate_orcid_id(field.data)
     except ValueError as ex:
         raise ValidationError(str(ex))
 
