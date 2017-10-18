@@ -18,6 +18,7 @@
     </thead>
     <tbody>
   {%- for r in user_orgs %}
+  <!-- {{r._meta.fields}} -->
       <tr>
         <td class="col-name">{{r.name}}</td>
         <td class="col-name">{{r.is_admin}}</td>

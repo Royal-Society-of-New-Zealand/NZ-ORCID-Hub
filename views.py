@@ -1102,8 +1102,8 @@ def user_organisations(user_id):
     user_orgs = (Organisation.select(
         Organisation.id, Organisation.name,
         (Organisation.tech_contact_id == user_id).alias("is_tech_contact"), UserOrg.is_admin).join(
-            UserOrg, on=(UserOrg.org_id == Organisation.id)))
-
+            UserOrg, on=((UserOrg.org_id == Organisation.id) & (UserOrg.user_id == user_id)))
+                 .naive())
     return render_template("user_organisations.html", user_orgs=user_orgs)
 
 
