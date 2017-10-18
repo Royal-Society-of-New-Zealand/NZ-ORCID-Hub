@@ -301,7 +301,7 @@ class Organisation(BaseModel, AuditMixin):
     is_email_sent = BooleanField(default=False)
     tech_contact = ForeignKeyField(
         DeferredUser,
-        related_name="tech_contact_for",
+        related_name="tech_contact_of",
         on_delete="SET NULL",
         null=True,
         help_text="Organisation technical contact")

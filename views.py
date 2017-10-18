@@ -210,7 +210,12 @@ class UserAdmin(AppModelView):
 
     # column_list = (User.
     form_extra_fields = dict(is_superuser=BooleanField("Is Superuser"))
-    form_excluded_columns = ("roles", )
+    form_excluded_columns = (
+        "roles",
+        "created_at",
+        "updated_at",
+        "created_by",
+        "updated_by", )
     column_exclude_list = (
         "password",
         "username",
@@ -228,7 +233,11 @@ class UserAdmin(AppModelView):
     form_overrides = dict(roles=BitmapMultipleValueField)
     form_args = dict(roles=dict(choices=roles.items()))
 
-    form_ajax_refs = {"organisation": {"fields": (Organisation.name, "name")}}
+    form_ajax_refs = {
+        "organisation": {
+            "fields": (Organisation.name, "name")
+        },
+    }
     can_export = True
 
     def update_model(self, form, model):
@@ -1084,6 +1093,18 @@ def invite_organisation():
     return render_template(
         "registration.html", form=form, org_info={r.name: r.to_dict()
                                                   for r in OrgInfo.select()})
+
+
+@app.route("/user/<int:user_id>/organisations", methods=["GET", "POST"])
+@roles_required(Role.SUPERUSER)
+def user_organisations(user_id):
+    """Manage user organisaions."""
+    user_orgs = (Organisation.select(
+        Organisation.id, Organisation.name,
+        (Organisation.tech_contact_id == user_id).alias("is_tech_contact"), UserOrg.is_admin).join(
+            UserOrg, on=(UserOrg.org_id == Organisation.id)))
+
+    return render_template("user_organisations.html", user_orgs=user_orgs)
 
 
 @app.route("/invite/user", methods=["GET", "POST"])
