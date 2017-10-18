@@ -1019,10 +1019,29 @@ class AffiliationRecord(BaseModel):
         table_alias = "ar"
 
 
-class FundingRecord(BaseModel):
+class FundingRecord(BaseModel, AuditMixin):
     """Funding record loaded from Json file for batch processing."""
 
+    task = ForeignKeyField(Task, related_name="funding_records", on_delete="CASCADE")
     status = TextField(null=True, help_text="Record processing status.")
+    title = CharField(max_length=80)
+    translated_title = CharField(null=True, max_length=80)
+    type = CharField(max_length=80)
+    organization_defined_type = CharField(null=True, max_length=80)
+    short_description = CharField(null=True, max_length=80)
+    amount = Field(null=True)
+    currency = CharField(null=True, max_length=3)
+    start_date = PartialDateField(null=True)
+    end_date = PartialDateField(null=True)
+    org_name = CharField(null=True, max_length=255, verbose_name="Organisation Name")
+    city = CharField(null=True, max_length=255)
+    region = CharField(null=True, max_length=255)
+    country = CharField(null=True, max_length=255)
+    disambiguated_org_identifier = CharField(null=True, max_length=255)
+    disambiguation_source = CharField(null=True, max_length=255)
+    visibility = CharField(null=True, max_length=100)
+    put_code = IntegerField(null=True)
+
 
     @staticmethod
     def load_from_json(source, filename=None):
@@ -1033,6 +1052,33 @@ class FundingRecord(BaseModel):
     class Meta:  # noqa: D101
         db_table = "funding_record"
         table_alias = "fr"
+
+
+class FundingContributor(BaseModel):
+
+    funding_record = ForeignKeyField(FundingRecord, related_name="contributors")
+    orcid = OrcidIdField(null=True)
+    name = CharField(max_length=120, null=True)
+    email = CharField(max_length=120, null=True)
+    role = CharField(max_length=120, null=True)
+
+    class Meta:  # noqa: D101
+        db_table = "funding_contributor"
+        table_alias = "fc"
+
+
+class ExternalId(BaseModel):
+
+    funding_record = ForeignKeyField(FundingRecord, related_name="external_ids")
+    type = CharField(max_length=80)
+    value = CharField(max_length=80)
+    url = CharField(max_length=200, null=True)
+    relationship = CharField(max_length=80, null=True)
+
+
+    class Model:
+        db_table = "external_id"
+        table_alias = "ei"
 
 
 class Url(BaseModel, AuditMixin):
@@ -1057,6 +1103,13 @@ class Url(BaseModel, AuditMixin):
                     return u
         return u
 
+
+
+class Funding(BaseModel):
+    """Uploaded research Funding record."""
+
+    short_id = CharField(unique=True, max_length=5)
+    url = TextField()
 
 def readup_file(input_file):
     """Read up the whole content and deconde it and return the whole content."""
@@ -1090,6 +1143,9 @@ def create_tables():
             OrgInvitation,
             Url,
             UserInvitation,
+            Funding,
+            ExternalId,
+            FundingContributor,
     ]:
 
         try:
