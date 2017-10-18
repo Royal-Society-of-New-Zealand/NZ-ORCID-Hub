@@ -14,6 +14,7 @@ from flask_admin.model import typefmt
 from flask_login import current_user, login_required
 from jinja2 import Markup
 from werkzeug import secure_filename
+from wtforms.fields import BooleanField
 
 import orcid_client
 import utils
@@ -207,6 +208,9 @@ class UserAdmin(AppModelView):
 
     roles = {1: "Superuser", 2: "Administrator", 4: "Researcher", 8: "Technical Contact"}
 
+    # column_list = (User.
+    form_extra_fields = dict(is_superuser=BooleanField("Is Superuser"))
+    form_excluded_columns = ("roles", )
     column_exclude_list = (
         "password",
         "username",
@@ -229,7 +233,7 @@ class UserAdmin(AppModelView):
 
     def update_model(self, form, model):
         """Added prevalidation of the form."""
-        if form.roles.data != model.roles:
+        if "roles" not in self.form_excluded_columns and form.roles.data != model.roles:
             if bool(form.roles.data & Role.ADMIN) != UserOrg.select().where(
                 (UserOrg.user_id == model.id) & UserOrg.is_admin).exists():  # noqa: E125
                 if form.roles.data & Role.ADMIN:

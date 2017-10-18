@@ -535,7 +535,15 @@ class User(BaseModel, UserMixin, AuditMixin):
     @property
     def is_superuser(self):
         """Test if the user is a HUB admin."""
-        return self.roles & Role.SUPERUSER
+        return bool(self.roles & Role.SUPERUSER)
+
+    @is_superuser.setter
+    def is_superuser(self, value):
+        """Sets user as a HUB admin."""
+        if value:
+            self.roles |= Role.SUPERUSER
+        else:
+            self.roles ^= Role.SUPERUSER
 
     @property
     def is_admin(self):
