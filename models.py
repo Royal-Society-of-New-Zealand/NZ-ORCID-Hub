@@ -1029,7 +1029,7 @@ class FundingRecord(BaseModel, AuditMixin):
     type = CharField(max_length=80)
     organization_defined_type = CharField(null=True, max_length=80)
     short_description = CharField(null=True, max_length=80)
-    amount = Field(null=True)
+    amount = CharField(null=True, max_length=80)
     currency = CharField(null=True, max_length=3)
     start_date = PartialDateField(null=True)
     end_date = PartialDateField(null=True)
@@ -1071,12 +1071,11 @@ class ExternalId(BaseModel):
 
     funding_record = ForeignKeyField(FundingRecord, related_name="external_ids")
     type = CharField(max_length=80)
-    value = CharField(max_length=80)
+    value = CharField(max_length=255)
     url = CharField(max_length=200, null=True)
     relationship = CharField(max_length=80, null=True)
 
-
-    class Model:
+    class Meta:
         db_table = "external_id"
         table_alias = "ei"
 
@@ -1143,9 +1142,9 @@ def create_tables():
             OrgInvitation,
             Url,
             UserInvitation,
-            Funding,
-            ExternalId,
+            FundingRecord,
             FundingContributor,
+            ExternalId,
     ]:
 
         try:
