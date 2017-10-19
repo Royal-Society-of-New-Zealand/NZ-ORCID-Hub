@@ -841,7 +841,7 @@ class Task(BaseModel, AuditMixin):
             reader = csv.reader(source, delimiter='\t')
             header = next(reader)
         if len(header) < 2:
-            raise Exception("Expected CSV or TSV format file.")
+            raise ModelException("Expected CSV or TSV format file.")
 
         assert len(header) >= 7, \
             "Wrong number of fields. Expected at least 7 fields " \
@@ -868,7 +868,7 @@ class Task(BaseModel, AuditMixin):
         idxs = [index(rex) for rex in header_rexs]
 
         if all(idx is None for idx in idxs):
-            raise Exception(f"Failed to map fields based on the header of the file: {header}")
+            raise ModelException(f"Failed to map fields based on the header of the file: {header}")
 
         if org is None:
             org = current_user.organisation if current_user else None
@@ -898,10 +898,7 @@ class Task(BaseModel, AuditMixin):
                         )
 
                     if orcid:
-                        try:
-                            validate_orcid_id(orcid)
-                        except Exception as ex:
-                            pass
+                        validate_orcid_id(orcid)
 
                     if not email or not EMAIL_REGEX.match(email):
                         raise ValueError(
@@ -1075,7 +1072,8 @@ class FundingRecord(BaseModel, AuditMixin):
                 organization_defined_type = funding_data["organization-defined-type"]["value"] if \
                     funding_data["organization-defined-type"] else None
 
-                short_description = funding_data["short-description"] if funding_data["short-description"] else None
+                short_description = funding_data["short-description"] if funding_data[
+                    "short-description"] else None
 
                 amount = funding_data["amount"]["value"] if funding_data["amount"] else None
 
@@ -1107,15 +1105,22 @@ class FundingRecord(BaseModel, AuditMixin):
 
                 visibility = funding_data["visibility"] if funding_data["visibility"] else None
 
-                funding_record = FundingRecord.create(task=task, title=title, translated_title=translated_title,
-                                                      type=type,
-                                                      organization_defined_type=organization_defined_type,
-                                                      short_description=short_description,
-                                                      amount=amount, currency=currency, org_name=org_name, city=city,
-                                                      region=region, country=country,
-                                                      disambiguated_org_identifier=disambiguated_org_identifier,
-                                                      disambiguated_source=disambiguated_source,
-                                                      visibility=visibility)
+                funding_record = FundingRecord.create(
+                    task=task,
+                    title=title,
+                    translated_title=translated_title,
+                    type=type,
+                    organization_defined_type=organization_defined_type,
+                    short_description=short_description,
+                    amount=amount,
+                    currency=currency,
+                    org_name=org_name,
+                    city=city,
+                    region=region,
+                    country=country,
+                    disambiguated_org_identifier=disambiguated_org_identifier,
+                    disambiguated_source=disambiguated_source,
+                    visibility=visibility)
                 FundingContributor.create(funding_record=funding_record)
                 # TODO: ExternalId.create(funding_record=funding_record)
                 return funding_data
