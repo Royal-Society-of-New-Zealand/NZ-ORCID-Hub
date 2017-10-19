@@ -19,6 +19,7 @@ from peewee import BooleanField as BooleanField_
 from peewee import (CharField, DateTimeField, DeferredRelation, Field, FixedCharField,
                     ForeignKeyField, IntegerField, Model, OperationalError, PostgresqlDatabase,
                     ProgrammingError, SmallIntegerField, TextField, fn)
+from peewee_validates import ModelValidator
 from playhouse.shortcuts import model_to_dict
 from pycountry import countries
 
@@ -240,6 +241,7 @@ class BaseModel(Model):
 
     class Meta:  # noqa: D101,D106
         database = db
+        only_save_dirty = True
 
 
 class ModelDeferredRelation(DeferredRelation):
@@ -434,9 +436,9 @@ class OrgInfo(BaseModel):
 
         idxs = [index(rex) for rex in header_rexs]
 
-        def val(row, i):
+        def val(row, i, default=None):
             if idxs[i] is None:
-                return None
+                return default
             else:
                 v = row[idxs[i]].strip()
                 return None if v == '' else v
@@ -871,9 +873,9 @@ class Task(BaseModel, AuditMixin):
         if org is None:
             org = current_user.organisation if current_user else None
 
-        def val(row, i):
+        def val(row, i, default=None):
             if idxs[i] is None or idxs[i] >= len(row):
-                return None
+                return default
             else:
                 v = row[idxs[i]].strip()
                 return None if v == '' else v
@@ -881,7 +883,9 @@ class Task(BaseModel, AuditMixin):
         with db.atomic():
             try:
                 task = cls.create(org=org, filename=filename)
+
                 for row_no, row in enumerate(reader):
+
                     if len(row) == 0:
                         continue
 
@@ -903,13 +907,13 @@ class Task(BaseModel, AuditMixin):
                         raise ValueError(
                             f"Invalid email address '{email}'  in the row #{row_no+2}: {row}")
 
-                    affiliation_type = val(row, 10).lower()
+                    affiliation_type = val(row, 10, "").lower()
                     if not affiliation_type or affiliation_type not in AFFILIATION_TYPES:
                         raise ValueError(
                             f"Invalid affiliation type '{affiliation_type}' in the row #{row_no+2}: {row}. "
                             f"Expected values: {', '.join(at for at in AFFILIATION_TYPES)}.")
 
-                    AffiliationRecord.create(
+                    af = AffiliationRecord(
                         task=task,
                         first_name=val(row, 0),
                         last_name=val(row, 1),
@@ -928,6 +932,11 @@ class Task(BaseModel, AuditMixin):
                         put_code=val(row, 14),
                         orcid=orcid,
                         external_id=val(row, 16))
+                    validator = ModelValidator(af)
+                    if not validator.validate():
+                        raise ModelException(f"Invalid record: {validator.errors}")
+                    af.save()
+
             except Exception as ex:
                 db.rollback()
                 app.logger.exception("Failed to laod affiliation file.")
@@ -950,7 +959,8 @@ class UserInvitation(BaseModel, AuditMixin):
         Organisation, on_delete="CASCADE", null=True, verbose_name="Organisation")
     task = ForeignKeyField(Task, on_delete="CASCADE", null=True, index=True, verbose_name="Task")
 
-    email = TextField(index=True, help_text="The email address the invitation was sent to.")
+    email = CharField(
+        index=True, max_length=80, help_text="The email address the invitation was sent to.")
     first_name = TextField(null=True, verbose_name="First Name")
     last_name = TextField(null=True, verbose_name="Last Name")
     orcid = OrcidIdField(null=True)
@@ -989,20 +999,22 @@ class AffiliationRecord(BaseModel):
         help_text="Record identifier used in the data source system.")
     first_name = CharField(max_length=120, null=True)
     last_name = CharField(max_length=120, null=True)
-    email = CharField(max_length=120, null=True)
+    email = CharField(max_length=80, null=True)
     orcid = OrcidIdField(null=True)
-    organisation = TextField(null=True, index=True)
+    organisation = CharField(null=True, index=True, max_length=200)
     affiliation_type = CharField(
         max_length=20, null=True, choices=[(v, v) for v in AFFILIATION_TYPES])
-    role = TextField(null=True, verbose_name="Role/Course")
-    department = TextField(null=True)
+    role = CharField(null=True, verbose_name="Role/Course", max_length=100)
+    department = CharField(null=True, max_length=200)
     start_date = PartialDateField(null=True)
     end_date = PartialDateField(null=True)
-    city = TextField(null=True)
-    state = TextField(null=True, verbose_name="State/Region")
-    country = TextField(null=True, verbose_name="Country")
-    disambiguated_id = TextField(null=True, verbose_name="Disambiguated Organization Identifier")
-    disambiguated_source = TextField(null=True, verbose_name="Disambiguated Source")
+    city = CharField(null=True, max_length=200)
+    state = CharField(null=True, verbose_name="State/Region", max_length=100)
+    country = CharField(null=True, verbose_name="Country", max_length=3)
+    disambiguated_id = CharField(
+        null=True, max_length=20, verbose_name="Disambiguated Organization Identifier")
+    disambiguated_source = CharField(
+        null=True, max_length=100, verbose_name="Disambiguation Source")
 
     is_active = BooleanField(
         default=False, help_text="The record is marked for batch processing", null=True)

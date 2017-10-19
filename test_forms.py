@@ -7,7 +7,8 @@ from unittest.mock import MagicMock
 import pytest
 from wtforms import Form, StringField
 
-from forms import PartialDate, PartialDateField, validate_orcid_id_field, CountrySelectField, BitmapMultipleValueField
+from forms import (BitmapMultipleValueField, CountrySelectField, PartialDate, PartialDateField,
+                   validate_orcid_id_field)
 from models import PartialDate as PartialDateDbField
 
 
@@ -34,9 +35,29 @@ def test_form():  # noqa
         pdf3 = PartialDateField("f3")
         csf1 = CountrySelectField()
         csf2 = CountrySelectField(label="Select Country")
-        bmvf1 = BitmapMultipleValueField(choices=[(1, "one",), (2, "two",), (4, "four",), ])
+        bmvf1 = BitmapMultipleValueField(choices=[
+            (
+                1,
+                "one", ),
+            (
+                2,
+                "two", ),
+            (
+                4,
+                "four", ),
+        ])
         bmvf2 = BitmapMultipleValueField(
-            choices=[(1, "one",), (2, "two",), (4, "four",), ],)
+            choices=[
+                (
+                    1,
+                    "one", ),
+                (
+                    2,
+                    "two", ),
+                (
+                    4,
+                    "four", ),
+            ], )
         bmvf2.is_bitmap_value = False
 
     return F
@@ -146,12 +167,14 @@ def test_orcid_validation(test_form):  # noqa
     orcid_id.data = "INVALID FORMAT"
     with pytest.raises(ValueError) as excinfo:
         validate_orcid_id_field(test_form, orcid_id)
-    assert "Invalid ORCID iD. It should be in the form of 'xxxx-xxxx-xxxx-xxxx' where x is a digit." in str(excinfo.value)
+    assert "Invalid ORCID iD. It should be in the form of 'xxxx-xxxx-xxxx-xxxx' where x is a digit." in str(
+        excinfo.value)
 
     orcid_id.data = "0000-0001-8228-7154"
     with pytest.raises(ValueError) as excinfo:
         validate_orcid_id_field(test_form, orcid_id)
-    assert "Invalid ORCID iD checksum. Make sure you have entered correct ORCID iD." in str(excinfo.value)
+    assert "Invalid ORCID iD checksum. Make sure you have entered correct ORCID iD." in str(
+        excinfo.value)
 
 
 def test_country_select_field(test_form):  # noqa
@@ -160,10 +183,12 @@ def test_country_select_field(test_form):  # noqa
     assert tf.csf2.label.text == "Select Country"
 
 
-def test_bitmap_multiple_value_field(test_form):
+def test_bitmap_multiple_value_field(test_form):  # noqa
     tf = test_form()
     tf.bmvf1.data = 3
-    tf.bmvf2.data = (1, 4, )
+    tf.bmvf2.data = (
+        1,
+        4, )
     tf.validate()
     tf.bmvf1.process_data(5)
     tf.bmvf1.process_data([1, 4])
