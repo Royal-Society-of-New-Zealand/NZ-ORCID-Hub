@@ -843,6 +843,7 @@ def load_researcher_affiliations():
                 ValueError,
                 ModelException, ) as ex:
             flash(f"Failed to load affiliation record file: {ex}", "danger")
+            app.logger.exception("Failed to load affiliation records.")
 
     return render_template("fileUpload.html", form=form, form_title="Researcher")
 
