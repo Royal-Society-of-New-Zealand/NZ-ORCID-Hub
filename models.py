@@ -539,7 +539,7 @@ class User(BaseModel, UserMixin, AuditMixin):
         return bool(self.roles & Role.SUPERUSER)
 
     @is_superuser.setter
-    def is_superuser(self, value):
+    def is_superuser(self, value):  # noqa: D401
         """Sets user as a HUB admin."""
         if value:
             self.roles |= Role.SUPERUSER
@@ -1118,6 +1118,7 @@ class FundingRecord(BaseModel, AuditMixin):
 
 
 class FundingContributor(BaseModel):
+    """Funding Contributors loaded for batch processing."""
 
     funding_record = ForeignKeyField(FundingRecord, related_name="contributors")
     orcid = OrcidIdField(null=True)
@@ -1131,6 +1132,7 @@ class FundingContributor(BaseModel):
 
 
 class ExternalId(BaseModel):
+    """Funding ExternalId loaded for batch processing."""
 
     funding_record = ForeignKeyField(FundingRecord, related_name="external_ids")
     type = CharField(max_length=80)
@@ -1138,7 +1140,7 @@ class ExternalId(BaseModel):
     url = CharField(max_length=200, null=True)
     relationship = CharField(max_length=80, null=True)
 
-    class Meta:
+    class Meta:  # noqa: D101
         db_table = "external_id"
         table_alias = "ei"
 
