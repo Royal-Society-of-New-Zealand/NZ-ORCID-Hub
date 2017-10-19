@@ -5,9 +5,10 @@
 from unittest.mock import MagicMock
 
 import pytest
-from wtforms import Form
+from wtforms import Form, StringField
 
-from forms import PartialDate, PartialDateField
+from forms import (BitmapMultipleValueField, CountrySelectField, PartialDate, PartialDateField,
+                   validate_orcid_id_field)
 from models import PartialDate as PartialDateDbField
 
 
@@ -32,6 +33,32 @@ def test_form():  # noqa
         pdf1 = PartialDateField("f1", default=PartialDateDbField(1995), id="test-id-1")
         pdf2 = PartialDateField("f2", default=PartialDateDbField(2017, 5, 13), id="test-id-2")
         pdf3 = PartialDateField("f3")
+        csf1 = CountrySelectField()
+        csf2 = CountrySelectField(label="Select Country")
+        bmvf1 = BitmapMultipleValueField(choices=[
+            (
+                1,
+                "one", ),
+            (
+                2,
+                "two", ),
+            (
+                4,
+                "four", ),
+        ])
+        bmvf2 = BitmapMultipleValueField(
+            choices=[
+                (
+                    1,
+                    "one", ),
+                (
+                    2,
+                    "two", ),
+                (
+                    4,
+                    "four", ),
+            ], )
+        bmvf2.is_bitmap_value = False
 
     return F
 
@@ -127,3 +154,41 @@ def test_partial_date_field_with_data_and_obj(test_form):  # noqa
     assert '<option selected value="13">' in pdf1
     assert '<option value="2001">2001</option><option selected value="2000">2000</option>' in pdf1
     assert '<option value="">Month</option><option selected value="1">01</option><option value="2">' in pdf1
+
+
+def test_orcid_validation(test_form):  # noqa
+
+    orcid_id = StringField("ORCID iD", [
+        validate_orcid_id_field,
+    ])
+    orcid_id.data = "0000-0001-8228-7153"
+    validate_orcid_id_field(test_form, orcid_id)
+
+    orcid_id.data = "INVALID FORMAT"
+    with pytest.raises(ValueError) as excinfo:
+        validate_orcid_id_field(test_form, orcid_id)
+    assert "Invalid ORCID iD. It should be in the form of 'xxxx-xxxx-xxxx-xxxx' where x is a digit." in str(
+        excinfo.value)
+
+    orcid_id.data = "0000-0001-8228-7154"
+    with pytest.raises(ValueError) as excinfo:
+        validate_orcid_id_field(test_form, orcid_id)
+    assert "Invalid ORCID iD checksum. Make sure you have entered correct ORCID iD." in str(
+        excinfo.value)
+
+
+def test_country_select_field(test_form):  # noqa
+    tf = test_form()
+    assert tf.csf1.label.text == "Country"
+    assert tf.csf2.label.text == "Select Country"
+
+
+def test_bitmap_multiple_value_field(test_form):  # noqa
+    tf = test_form()
+    tf.bmvf1.data = 3
+    tf.bmvf2.data = (
+        1,
+        4, )
+    tf.validate()
+    tf.bmvf1.process_data(5)
+    tf.bmvf1.process_data([1, 4])
