@@ -1,7 +1,7 @@
 FROM centos:centos7
 
 LABEL maintainer="The University of Auckland" \
-	version="1.0" \
+	version="2.1" \
 	description="NZ ORCiD Hub Application Image with Development support"
 
 ADD http://download.opensuse.org/repositories/security://shibboleth/CentOS_7/security:shibboleth.repo /etc/yum.repos.d/shibboleth.repo

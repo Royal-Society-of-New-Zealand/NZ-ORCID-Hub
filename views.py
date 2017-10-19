@@ -24,9 +24,9 @@ from forms import (BitmapMultipleValueField, FileUploadForm, JsonFileUploadForm,
                    OrgRegistrationForm, PartialDateField, RecordForm, UserInvitationForm)
 from login_provider import roles_required
 from models import AffiliationRecord  # noqa: F401
-from models import (Affiliation, CharField, FundingRecord, OrcidApiCall, OrcidToken, Organisation,
-                    OrgInfo, OrgInvitation, PartialDate, Role, Task, TextField, Url, User,
-                    UserInvitation, UserOrg, UserOrgAffiliation, db)
+from models import (Affiliation, CharField, FundingRecord, ModelException, OrcidApiCall,
+                    OrcidToken, Organisation, OrgInfo, OrgInvitation, PartialDate, Role, Task,
+                    TextField, Url, User, UserInvitation, UserOrg, UserOrgAffiliation, db)
 # NB! Should be disabled in production
 from pyinfo import info
 from swagger_client.rest import ApiException
@@ -835,10 +835,15 @@ def load_researcher_affiliations():
     form = FileUploadForm()
     if form.validate_on_submit():
         filename = secure_filename(form.file_.data.filename)
-        task = Task.load_from_csv(read_uploaded_file(form), filename=filename)
-
-        flash(f"Successfully loaded {task.record_count} rows.")
-        return redirect(url_for("affiliationrecord.index_view", task_id=task.id))
+        try:
+            task = Task.load_from_csv(read_uploaded_file(form), filename=filename)
+            flash(f"Successfully loaded {task.record_count} rows.")
+            return redirect(url_for("affiliationrecord.index_view", task_id=task.id))
+        except (
+                ValueError,
+                ModelException, ) as ex:
+            flash(f"Failed to load affiliation record file: {ex}", "danger")
+            app.logger.exception("Failed to load affiliation records.")
 
     return render_template("fileUpload.html", form=form, form_title="Researcher")
 
@@ -880,7 +885,8 @@ def load_researcher_funding():
                 params = dict(orcid=user.orcid, body=funding_data, _preload_content=False)
                 api_instance.create_funding(**params)
                 funding_created_id += email + " ,"
-                app.logger.info("For %r funding record was created by %r", user.orcid, current_user)
+                app.logger.info("For %r funding record was created by %r", user.orcid,
+                                current_user)
             except ApiException as e:
                 message = json.loads(e.body.replace("''", "\"")).get('user-messsage')
                 flash("Failed to create the entry: %s" % message, "danger")

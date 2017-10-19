@@ -3,6 +3,7 @@ requests
 requests_oauthlib
 psycopg2
 peewee
+peewee-validates
 flask-login
 Flask-WTF
 flask_mail  # TODO: remove at some stage
