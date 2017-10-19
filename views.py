@@ -857,17 +857,19 @@ def load_researcher_funding():
         funding_created_id = ""
         for contributor in contributors_list:
 
-            orcid_id = contributor["contributor-orcid"]["path"]
+            # orcid_id = contributor["contributor-orcid"]["path"]
+            email = contributor["contributor-email"]["value"]
             user = None
 
             try:
-                user = User.get(orcid=orcid_id)
+                user = User.get(email=email)
                 orcid_token = OrcidToken.get(
                     user=user,
                     org=current_user.organisation,
                     scope=SCOPE_READ_LIMITED[0] + "," + SCOPE_ACTIVITIES_UPDATE[0])
             except:
-                flash(f"The user {orcid_id} hasn't authorized you to add funding record", "warning")
+                # TODO: Send a mail to researcher asking him permissions
+                flash(f"The user {email} hasn't authorized you to add funding record", "warning")
                 continue
 
             orcid_client.configuration.access_token = orcid_token.access_token
@@ -877,7 +879,7 @@ def load_researcher_funding():
                 # Adding funding info
                 params = dict(orcid=user.orcid, body=funding_data, _preload_content=False)
                 api_instance.create_funding(**params)
-                funding_created_id += orcid_id + " ,"
+                funding_created_id += email + " ,"
                 app.logger.info("For %r funding record was created by %r", user.orcid, current_user)
             except ApiException as e:
                 message = json.loads(e.body.replace("''", "\"")).get('user-messsage')
