@@ -2,11 +2,11 @@
 """Application models."""
 
 import csv
+import json
 import random
 import re
 import string
 import uuid
-import json
 from collections import namedtuple
 from datetime import datetime
 from hashlib import md5
@@ -1112,13 +1112,13 @@ class FundingRecord(BaseModel, AuditMixin):
                 app.logger.exception("Failed to laod affiliation file.")
                 raise
 
-    class Meta:  # noqa: D101
+    class Meta:  # noqa: D101,D106
         db_table = "funding_record"
         table_alias = "fr"
 
 
 class FundingContributor(BaseModel):
-    """Funding Contributors loaded for batch processing."""
+    """Researcher or contributor - reciever of the funding."""
 
     funding_record = ForeignKeyField(FundingRecord, related_name="contributors")
     orcid = OrcidIdField(null=True)
@@ -1126,7 +1126,7 @@ class FundingContributor(BaseModel):
     email = CharField(max_length=120, null=True)
     role = CharField(max_length=120, null=True)
 
-    class Meta:  # noqa: D101
+    class Meta:  # noqa: D101,D106
         db_table = "funding_contributor"
         table_alias = "fc"
 
@@ -1140,7 +1140,7 @@ class ExternalId(BaseModel):
     url = CharField(max_length=200, null=True)
     relationship = CharField(max_length=80, null=True)
 
-    class Meta:  # noqa: D101
+    class Meta:  # noqa: D101,D106
         db_table = "external_id"
         table_alias = "ei"
 

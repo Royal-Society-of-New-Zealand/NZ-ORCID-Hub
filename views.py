@@ -20,13 +20,13 @@ import orcid_client
 import utils
 from application import admin, app
 from config import ORCID_BASE_URL, SCOPE_ACTIVITIES_UPDATE, SCOPE_READ_LIMITED
-from forms import (BitmapMultipleValueField, FileUploadForm, OrgRegistrationForm, PartialDateField,
-                   RecordForm, UserInvitationForm, JsonFileUploadForm)
+from forms import (BitmapMultipleValueField, FileUploadForm, JsonFileUploadForm,
+                   OrgRegistrationForm, PartialDateField, RecordForm, UserInvitationForm)
 from login_provider import roles_required
 from models import AffiliationRecord  # noqa: F401
-from models import (Affiliation, CharField, OrcidApiCall, OrcidToken, Organisation, OrgInfo,
-                    OrgInvitation, PartialDate, Role, Task, TextField, Url, User, UserInvitation,
-                    UserOrg, UserOrgAffiliation, FundingRecord, db)
+from models import (Affiliation, CharField, FundingRecord, OrcidApiCall, OrcidToken, Organisation,
+                    OrgInfo, OrgInvitation, PartialDate, Role, Task, TextField, Url, User,
+                    UserInvitation, UserOrg, UserOrgAffiliation, db)
 # NB! Should be disabled in production
 from pyinfo import info
 from swagger_client.rest import ApiException
@@ -888,7 +888,8 @@ def load_researcher_funding():
                 app.logger.error("For %r encountered exception: %r", user, ex)
                 abort(500, ex)
         if funding_created_id:
-            flash(f"funding record for {funding_created_id} has been successfully created.", "success")
+            flash(f"funding record for {funding_created_id} has been successfully created.",
+                  "success")
 
     return render_template("fileUpload.html", form=form, form_title="Funding")
 
