@@ -24,9 +24,9 @@ from forms import (BitmapMultipleValueField, FileUploadForm, JsonFileUploadForm,
                    OrgRegistrationForm, PartialDateField, RecordForm, UserInvitationForm)
 from login_provider import roles_required
 from models import AffiliationRecord  # noqa: F401
-from models import (Affiliation, CharField, FundingRecord, OrcidApiCall, OrcidToken, Organisation,
-                    OrgInfo, OrgInvitation, PartialDate, Role, Task, TextField, Url, User,
-                    UserInvitation, UserOrg, UserOrgAffiliation, db)
+from models import (Affiliation, CharField, FundingRecord, ModelException, OrcidApiCall,
+                    OrcidToken, Organisation, OrgInfo, OrgInvitation, PartialDate, Role, Task,
+                    TextField, Url, User, UserInvitation, UserOrg, UserOrgAffiliation, db)
 # NB! Should be disabled in production
 from pyinfo import info
 from swagger_client.rest import ApiException
@@ -453,7 +453,8 @@ class AffiliationRecordAdmin(AppModelView):
         return super().get_export_name(export_type=export_type)
 
     @action("activate", "Activate for processing",
-            "Are you sure you want to activate the selected records for batch processing?")
+            "Are you sure you want to activate the selected records for batch processing?\n\nBy clicking \"OK\" " +
+            "you are affirming that the affiliations to be written are, to the\n best of your knowledge, correct!")
     def action_activate(self, ids):
         """Batch registraion of users."""
         try:
@@ -844,10 +845,15 @@ def load_researcher_affiliations():
     form = FileUploadForm()
     if form.validate_on_submit():
         filename = secure_filename(form.file_.data.filename)
-        task = Task.load_from_csv(read_uploaded_file(form), filename=filename)
-
-        flash(f"Successfully loaded {task.record_count} rows.")
-        return redirect(url_for("affiliationrecord.index_view", task_id=task.id))
+        try:
+            task = Task.load_from_csv(read_uploaded_file(form), filename=filename)
+            flash(f"Successfully loaded {task.record_count} rows.")
+            return redirect(url_for("affiliationrecord.index_view", task_id=task.id))
+        except (
+                ValueError,
+                ModelException, ) as ex:
+            flash(f"Failed to load affiliation record file: {ex}", "danger")
+            app.logger.exception("Failed to load affiliation records.")
 
     return render_template("fileUpload.html", form=form, form_title="Researcher")
 
@@ -866,18 +872,19 @@ def load_researcher_funding():
         funding_created_id = ""
         for contributor in contributors_list:
 
-            orcid_id = contributor["contributor-orcid"]["path"]
+            # orcid_id = contributor["contributor-orcid"]["path"]
+            email = contributor["contributor-email"]["value"]
             user = None
 
             try:
-                user = User.get(orcid=orcid_id)
+                user = User.get(email=email)
                 orcid_token = OrcidToken.get(
                     user=user,
                     org=current_user.organisation,
                     scope=SCOPE_READ_LIMITED[0] + "," + SCOPE_ACTIVITIES_UPDATE[0])
             except:
-                flash(f"The user {orcid_id} hasn't authorized you to add funding record",
-                      "warning")
+                # TODO: Send a mail to researcher asking him permissions
+                flash(f"The user {email} hasn't authorized you to add funding record", "warning")
                 continue
 
             orcid_client.configuration.access_token = orcid_token.access_token
@@ -887,7 +894,7 @@ def load_researcher_funding():
                 # Adding funding info
                 params = dict(orcid=user.orcid, body=funding_data, _preload_content=False)
                 api_instance.create_funding(**params)
-                funding_created_id += orcid_id + " ,"
+                funding_created_id += email + " ,"
                 app.logger.info("For %r funding record was created by %r", user.orcid,
                                 current_user)
             except ApiException as e:
