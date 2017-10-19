@@ -1,12 +1,10 @@
 FROM orcidhub/app
 
 LABEL maintainer="The University of Auckland" \
-	version="2.0" \
+	version="2.1" \
 	description="NZ ORCiD Hub Application Image with Development support"
 
 COPY dev_requirements.txt /dev_requirements.txt
-ADD https://github.com/zaproxy/zaproxy/releases/download/2.6.0/ZAP_2.6.0_Linux.tar.gz ZAP_Linux.tar.gz
-ADD http://anduin.linuxfromscratch.org/BLFS/OpenJDK/OpenJDK-1.8.0.141/OpenJDK-1.8.0.141-x86_64-bin.tar.xz OpenJDK.tar.xz
 
 RUN yum -y update \
     && yum -y install  install https://download.postgresql.org/pub/repos/yum/9.6/redhat/rhel-7-x86_64/pgdg-redhat96-9.6-3.noarch.rpm \
@@ -14,8 +12,6 @@ RUN yum -y update \
             postgresql96 \
 	    python36u-pip \
 	    git \
-    && tar -xzf ZAP_Linux.tar.gz -C /tmp \
-    && tar -xf OpenJDK.tar.xz -C /tmp \
     && pip3.6 install -U git+https://github.com/Royal-Society-of-New-Zealand/zap-cli \
     && pip3.6 install -U flake8_docstrings pytest-cov coveralls pyyaml \
     && pip3.6 install -U -r /dev_requirements.txt \
@@ -25,8 +21,6 @@ RUN yum -y update \
     && yum -y clean all \
     && rm -rf /var/cache/yum \
     && rm -rf $HOME/.pip/cache \
-    && rm -rf ZAP_Linux.tar.gz \
-    && rm -rf OpenJDK.tar.xz \
     && rm -rf /var/cache/*/* /anaconda-post.log /dev_requirements.txt
 
 
