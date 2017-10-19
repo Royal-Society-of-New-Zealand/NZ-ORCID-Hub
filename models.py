@@ -539,8 +539,8 @@ class User(BaseModel, UserMixin, AuditMixin):
         return bool(self.roles & Role.SUPERUSER)
 
     @is_superuser.setter
-    def is_superuser(self, value):
-        """Set user as a HUB admin."""
+    def is_superuser(self, value):  # noqa: D401
+        """Sets user as a HUB admin."""
         if value:
             self.roles |= Role.SUPERUSER
         else:
@@ -1042,11 +1042,75 @@ class FundingRecord(BaseModel, AuditMixin):
     visibility = CharField(null=True, max_length=100)
     put_code = IntegerField(null=True)
 
-    @staticmethod
-    def load_from_json(source, filename=None):
+    @classmethod
+    def load_from_json(cls, source, filename=None, org=None):
         """Load data from CSV file or a string."""
         if isinstance(source, str):
-            return json.loads(source)
+            funding_data = json.loads(source)
+            try:
+                if org is None:
+                    org = current_user.organisation if current_user else None
+                task = Task.create(org=org, filename=filename)
+
+                title = funding_data["title"]["title"]["value"] if \
+                    funding_data["title"] and funding_data["title"]["title"] else None
+
+                translated_title = funding_data["title"]["translated-title"]["value"] if \
+                    funding_data["title"] and funding_data["title"]["translated-title"] else None
+
+                type = funding_data["type"] if funding_data["type"] else None
+
+                organization_defined_type = funding_data["organization-defined-type"]["value"] if \
+                    funding_data["organization-defined-type"] else None
+
+                short_description = funding_data["short-description"] if funding_data["short-description"] else None
+
+                amount = funding_data["amount"]["value"] if funding_data["amount"] else None
+
+                currency = funding_data["amount"]["currency-code"] \
+                    if funding_data["amount"] and funding_data["amount"]["currency-code"] else None
+                # TODO: start_date = funding_data["start-date"]
+                # TODO: end_date = funding_data["end-date"]
+                org_name = funding_data["organization"]["name"] if \
+                    funding_data["organization"] and funding_data["organization"]["name"] else None
+
+                city = funding_data["organization"]["address"]["city"] if \
+                    funding_data["organization"] and funding_data["organization"]["address"] else None
+
+                region = funding_data["organization"]["address"]["region"] if \
+                    funding_data["organization"] and funding_data["organization"]["address"] else None
+
+                country = funding_data["organization"]["address"]["country"] if \
+                    funding_data["organization"] and funding_data["organization"]["address"] else None
+
+                disambiguated_org_identifier = funding_data["organization"][
+                    "disambiguated-organization"]["disambiguated-organization-identifier"] if \
+                    funding_data["organization"] and \
+                    funding_data["organization"]["disambiguated-organization"] else None
+
+                disambiguated_source = funding_data["organization"][
+                    "disambiguated-organization"]["disambiguation-source"] if \
+                    funding_data["organization"] and \
+                    funding_data["organization"]["disambiguated-organization"] else None
+
+                visibility = funding_data["visibility"] if funding_data["visibility"] else None
+
+                funding_record = FundingRecord.create(task=task, title=title, translated_title=translated_title,
+                                                      type=type,
+                                                      organization_defined_type=organization_defined_type,
+                                                      short_description=short_description,
+                                                      amount=amount, currency=currency, org_name=org_name, city=city,
+                                                      region=region, country=country,
+                                                      disambiguated_org_identifier=disambiguated_org_identifier,
+                                                      disambiguated_source=disambiguated_source,
+                                                      visibility=visibility)
+                FundingContributor.create(funding_record=funding_record)
+                # TODO: ExternalId.create(funding_record=funding_record)
+                return funding_data
+            except Exception as ex:
+                db.rollback()
+                app.logger.exception("Failed to laod affiliation file.")
+                raise
 
     class Meta:  # noqa: D101,D106
         db_table = "funding_record"
@@ -1068,7 +1132,7 @@ class FundingContributor(BaseModel):
 
 
 class ExternalId(BaseModel):
-    """Extereral Identifier."""
+    """Funding ExternalId loaded for batch processing."""
 
     funding_record = ForeignKeyField(FundingRecord, related_name="external_ids")
     type = CharField(max_length=80)
