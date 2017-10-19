@@ -2,6 +2,7 @@
 """Application models."""
 
 import csv
+import json
 import random
 import re
 import string
@@ -535,7 +536,15 @@ class User(BaseModel, UserMixin, AuditMixin):
     @property
     def is_superuser(self):
         """Test if the user is a HUB admin."""
-        return self.roles & Role.SUPERUSER
+        return bool(self.roles & Role.SUPERUSER)
+
+    @is_superuser.setter
+    def is_superuser(self, value):  # noqa: D401
+        """Sets user as a HUB admin."""
+        if value:
+            self.roles |= Role.SUPERUSER
+        else:
+            self.roles ^= Role.SUPERUSER
 
     @property
     def is_admin(self):
@@ -1010,6 +1019,132 @@ class AffiliationRecord(BaseModel):
         table_alias = "ar"
 
 
+class FundingRecord(BaseModel, AuditMixin):
+    """Funding record loaded from Json file for batch processing."""
+
+    task = ForeignKeyField(Task, related_name="funding_records", on_delete="CASCADE")
+    status = TextField(null=True, help_text="Record processing status.")
+    title = CharField(max_length=80)
+    translated_title = CharField(null=True, max_length=80)
+    type = CharField(max_length=80)
+    organization_defined_type = CharField(null=True, max_length=80)
+    short_description = CharField(null=True, max_length=80)
+    amount = CharField(null=True, max_length=80)
+    currency = CharField(null=True, max_length=3)
+    start_date = PartialDateField(null=True)
+    end_date = PartialDateField(null=True)
+    org_name = CharField(null=True, max_length=255, verbose_name="Organisation Name")
+    city = CharField(null=True, max_length=255)
+    region = CharField(null=True, max_length=255)
+    country = CharField(null=True, max_length=255)
+    disambiguated_org_identifier = CharField(null=True, max_length=255)
+    disambiguation_source = CharField(null=True, max_length=255)
+    visibility = CharField(null=True, max_length=100)
+    put_code = IntegerField(null=True)
+
+    @classmethod
+    def load_from_json(cls, source, filename=None, org=None):
+        """Load data from CSV file or a string."""
+        if isinstance(source, str):
+            funding_data = json.loads(source)
+            try:
+                if org is None:
+                    org = current_user.organisation if current_user else None
+                task = Task.create(org=org, filename=filename)
+
+                title = funding_data["title"]["title"]["value"] if \
+                    funding_data["title"] and funding_data["title"]["title"] else None
+
+                translated_title = funding_data["title"]["translated-title"]["value"] if \
+                    funding_data["title"] and funding_data["title"]["translated-title"] else None
+
+                type = funding_data["type"] if funding_data["type"] else None
+
+                organization_defined_type = funding_data["organization-defined-type"]["value"] if \
+                    funding_data["organization-defined-type"] else None
+
+                short_description = funding_data["short-description"] if funding_data["short-description"] else None
+
+                amount = funding_data["amount"]["value"] if funding_data["amount"] else None
+
+                currency = funding_data["amount"]["currency-code"] \
+                    if funding_data["amount"] and funding_data["amount"]["currency-code"] else None
+                # TODO: start_date = funding_data["start-date"]
+                # TODO: end_date = funding_data["end-date"]
+                org_name = funding_data["organization"]["name"] if \
+                    funding_data["organization"] and funding_data["organization"]["name"] else None
+
+                city = funding_data["organization"]["address"]["city"] if \
+                    funding_data["organization"] and funding_data["organization"]["address"] else None
+
+                region = funding_data["organization"]["address"]["region"] if \
+                    funding_data["organization"] and funding_data["organization"]["address"] else None
+
+                country = funding_data["organization"]["address"]["country"] if \
+                    funding_data["organization"] and funding_data["organization"]["address"] else None
+
+                disambiguated_org_identifier = funding_data["organization"][
+                    "disambiguated-organization"]["disambiguated-organization-identifier"] if \
+                    funding_data["organization"] and \
+                    funding_data["organization"]["disambiguated-organization"] else None
+
+                disambiguated_source = funding_data["organization"][
+                    "disambiguated-organization"]["disambiguation-source"] if \
+                    funding_data["organization"] and \
+                    funding_data["organization"]["disambiguated-organization"] else None
+
+                visibility = funding_data["visibility"] if funding_data["visibility"] else None
+
+                funding_record = FundingRecord.create(task=task, title=title, translated_title=translated_title,
+                                                      type=type,
+                                                      organization_defined_type=organization_defined_type,
+                                                      short_description=short_description,
+                                                      amount=amount, currency=currency, org_name=org_name, city=city,
+                                                      region=region, country=country,
+                                                      disambiguated_org_identifier=disambiguated_org_identifier,
+                                                      disambiguated_source=disambiguated_source,
+                                                      visibility=visibility)
+                FundingContributor.create(funding_record=funding_record)
+                # TODO: ExternalId.create(funding_record=funding_record)
+                return funding_data
+            except Exception as ex:
+                db.rollback()
+                app.logger.exception("Failed to laod affiliation file.")
+                raise
+
+    class Meta:  # noqa: D101,D106
+        db_table = "funding_record"
+        table_alias = "fr"
+
+
+class FundingContributor(BaseModel):
+    """Researcher or contributor - reciever of the funding."""
+
+    funding_record = ForeignKeyField(FundingRecord, related_name="contributors")
+    orcid = OrcidIdField(null=True)
+    name = CharField(max_length=120, null=True)
+    email = CharField(max_length=120, null=True)
+    role = CharField(max_length=120, null=True)
+
+    class Meta:  # noqa: D101,D106
+        db_table = "funding_contributor"
+        table_alias = "fc"
+
+
+class ExternalId(BaseModel):
+    """Funding ExternalId loaded for batch processing."""
+
+    funding_record = ForeignKeyField(FundingRecord, related_name="external_ids")
+    type = CharField(max_length=80)
+    value = CharField(max_length=255)
+    url = CharField(max_length=200, null=True)
+    relationship = CharField(max_length=80, null=True)
+
+    class Meta:  # noqa: D101,D106
+        db_table = "external_id"
+        table_alias = "ei"
+
+
 class Url(BaseModel, AuditMixin):
     """Shortened URLs."""
 
@@ -1031,6 +1166,13 @@ class Url(BaseModel, AuditMixin):
                     u = cls.create(short_id=short_id, url=url)
                     return u
         return u
+
+
+class Funding(BaseModel):
+    """Uploaded research Funding record."""
+
+    short_id = CharField(unique=True, max_length=5)
+    url = TextField()
 
 
 def readup_file(input_file):
@@ -1065,6 +1207,9 @@ def create_tables():
             OrgInvitation,
             Url,
             UserInvitation,
+            FundingRecord,
+            FundingContributor,
+            ExternalId,
     ]:
 
         try:
