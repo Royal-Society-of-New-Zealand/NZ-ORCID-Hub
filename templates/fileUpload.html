@@ -8,7 +8,7 @@
             <h1>{{ form_title }} Info Upload</h1>
               {{ form.hidden_tag() }}
               {{ render_field(form.file_) }}
-              <span class="pull-right">
+              <span class="pull-right" style="padding-bottom: 40px;">
                 <button type="submit" class="btn btn-primary" value="Save">Upload</button>
               </span>
         </form>
@@ -35,16 +35,16 @@
           <li>Department</li>
           <li>City: if different to your home campus's city otherwise that will be used</li>
           <li>Region</li>
-          <li>Course or Title; for an education item, the course of study or degree name, for an employment item, </li>
-          <li>Start date;</li>
-          <li>End date;</li>
-          <li>Country; ISO 3166-1 alpha-2 and if different to your home campus's country code otherwise that will be used, i.e. NZ.</li>
-          <li>Disambiguation ID; if different to your home campus's ID, the identifier for the Organisation that is given by the accompanying Disambiguation Source</li>
-          <li>Disambiguation Source; typically RINGGOLD or Fundref, and required if a Disambiguation ID is provided</li>
+          <li>Course or Title: for an education item, the course of study or degree name; for an employment item, the role or job title</li>
+          <li>Start date: Affiliation start date in ISO 8601 format, to the known/desired level of precision</li>
+          <li>End date: Affiliation end date in ISO 8601 format, leave blank or omit field for ongoing affiliations</li>
+          <li>Country: ISO 3166-1 alpha-2 and if different to your home campus's country code otherwise that will be used, i.e. NZ.</li>
+          <li>Disambiguation ID: if different to your home campus's ID, the identifier for the Organisation that is given by the accompanying Disambiguation Source</li>
+          <li>Disambiguation Source: typically RINGGOLD or Fundref, and required if a Disambiguation ID is provided</li>
         </ul>
         <li>To update existing ORCID items</li>
         <ul>
-          <li>Put-Code; this is a code ORCID uses to identify the item and is returned to you in the Hub's affiliation report. </br>
+          <li>Put-Code: this is a code ORCID uses to identify the item and is returned to you in the Hub's affiliation report. </br>
           With a put-code the Hub attempts to overwrite an item; while without one, a new item is created with a new put-code</li>
         </ul>
       </ul>
