@@ -368,7 +368,7 @@ class Organisation(BaseModel, AuditMixin):
             if self.name is None:
                 self.name = self.tuakiri_name
 
-            if self.field_is_updated("tech_contact"):
+            if self.field_is_updated("tech_contact") and self.tech_contact:
                 if not self.tech_contact.has_role(Role.TECHNICAL):
                     self.tech_contact.roles |= Role.TECHNICAL
                     self.tech_contact.save()
