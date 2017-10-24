@@ -206,9 +206,9 @@ class AppModelView(ModelView):
 class UserAdmin(AppModelView):
     """User model view."""
 
+    edit_template = "admin/user_edit.html"
     roles = {1: "Superuser", 2: "Administrator", 4: "Researcher", 8: "Technical Contact"}
 
-    # column_list = (User.
     form_extra_fields = dict(is_superuser=BooleanField("Is Superuser"))
     form_excluded_columns = (
         "roles",
@@ -452,9 +452,12 @@ class AffiliationRecordAdmin(AppModelView):
                                      export_type)
         return super().get_export_name(export_type=export_type)
 
-    @action("activate", "Activate for processing",
-            "Are you sure you want to activate the selected records for batch processing?\n\nBy clicking \"OK\" " +
-            "you are affirming that the affiliations to be written are, to the\n best of your knowledge, correct!")
+    @action(
+        "activate", "Activate for processing",
+        "Are you sure you want to activate the selected records for batch processing?\n\nBy clicking \"OK\" "
+        +
+        "you are affirming that the affiliations to be written are, to the\n best of your knowledge, correct!"
+    )
     def action_activate(self, ids):
         """Batch registraion of users."""
         try:

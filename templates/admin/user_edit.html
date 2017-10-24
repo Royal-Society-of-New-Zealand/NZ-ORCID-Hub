@@ -1,0 +1,87 @@
+{% extends "admin/model/edit.html" %}
+
+{% block navlinks %}
+  <ul class="nav nav-tabs">
+    <li>
+      <a href="{{ return_url }}">{{ _gettext('List') }}</a>
+    </li>
+    {%- if admin_view.can_create -%}
+    <li>
+      <a href="{{ get_url('.create_view', url=return_url) }}">{{ _gettext('Create') }}</a>
+    </li>
+    {%- endif -%}
+    <li class="active">
+      <a href="javascript:void(0)">{{ _gettext('Edit') }}</a>
+    </li>
+    <!-- Trigger the modal with a button -->
+    <li>
+      <a href="javascript:void(0)" data-toggle="modal" data-target="#user-organisations">{{ _gettext('Organisations...') }}</a>
+    </li>
+    {%- if admin_view.can_view_details -%}
+    <li>
+      <a href="{{ get_url('.details_view', id=request.args.get('id'), url=return_url) }}">{{ _gettext('Details') }}</a>
+    </li>
+    {%- endif -%}
+  </ul>
+{% endblock %}
+
+{% block body %}
+  {{ super() }}
+
+  <!-- Modal -->
+  <div id="user-organisations" class="modal fade" role="dialog">
+    <div class="modal-dialog">
+
+      <!-- Modal content-->
+      <div class="modal-content">
+        <div class="modal-header">
+          <button type="button" class="close" data-dismiss="modal">&times;</button>
+          <h4 class="modal-title">User Organisations</h4>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label for="organisation" class="col-md-2 control-label">Organisation
+              &nbsp;
+            </label>
+            <div class="col-md-10">
+              <input class="form-control" data-allow-blank="1" data-placeholder="Please select model" data-role="select2-ajax" data-url="{{url_for('organisation.ajax_lookup', name='organisation')}}" id="user-organisation" name="organisation" type="hidden">
+            </div>
+          </div>
+
+          <table class="table table-striped table-bordered table-hover model-list">
+            <thead>
+              <tr>
+                <th class="column-header">
+                  Name
+                </th>
+                <th class="column-header">
+                  Is Admin
+                </th>
+                <th class="column-header">
+                  Is Tech.Contact
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {%- for r in model.organisations %}
+              <!-- {{r._meta.fields}} -->
+              <tr>
+                <td class="col-name">{{r.name}}</td>
+                <td class="col-name">{{r.is_admin}}</td>
+                <td class="col-name">{{r.is_tech_contact}}</td>
+              </tr>
+            {% endfor %}
+            </tbody>
+          </table>
+
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+
+{% endblock %}

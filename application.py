@@ -31,7 +31,7 @@ admin = Admin(
     app, name="NZ ORCiD Hub", template_mode="bootstrap3", base_template="admin/master.html")
 
 # https://sentry.io/orcid-hub/nz-orcid-hub-dev/getting-started/python-flask/
-sentry = Sentry(app, logging=True, level=logging.DEBUG if ENV == "dev" else logging.ERROR)
+sentry = Sentry(app, logging=True, level=logging.WARNING)
 
 login_manager = flask_login.LoginManager()
 login_manager.login_view = "login"
