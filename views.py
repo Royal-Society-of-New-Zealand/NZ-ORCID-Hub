@@ -372,6 +372,103 @@ class TaskAdmin(AppModelView):
     can_delete = True
 
 
+class FundingRecordAdmin(AppModelView):
+    """Funding record model view."""
+
+    roles_required = Role.SUPERUSER | Role.ADMIN
+    list_template = "funding_record_list.html"
+    column_exclude_list = (
+        "task",
+        "organisation", )
+    """column_searchable_list = (
+        "first_name",
+         )"""
+    column_export_exclude_list = (
+        "task",
+        "is_active", )
+    can_edit = True
+    can_create = False
+    can_delete = False
+    can_view_details = True
+    can_export = True
+
+    form_widget_args = {"external_id": {"readonly": True}}
+
+    def is_accessible(self):
+        """Verify if the task view is accessible for the current user."""
+        if not super().is_accessible():
+            return False
+
+        if request.method == "POST" and request.form.get("rowid"):
+            # get the first ROWID:
+            rowid = int(request.form.get("rowid"))
+            task_id = FundingRecord.get(id=rowid).task_id
+        else:
+            task_id = request.args.get("task_id")
+            if not task_id:
+                _id = request.args.get("id")
+                if not _id:
+                    flash("Cannot invoke the task view without task ID", "danger")
+                    return False
+                else:
+                    task_id = FundingRecord.get(id=_id).task_id
+
+        try:
+            task = Task.get(id=task_id)
+            if task.org.id != current_user.organisation.id:
+                flash("Access denied! You cannot access this task.", "danger")
+                return False
+
+        except Task.DoesNotExist:
+            flash("The task deesn't exist.", "danger")
+            return False
+
+        return True
+
+    def get_export_name(self, export_type='csv'):
+        """Get export file name using the original imported file name.
+
+        :return: The exported csv file name.
+        """
+        task_id = request.args.get("task_id")
+        if task_id:
+            task = Task.get(id=task_id)
+            if task:
+                filename = os.path.splitext(task.filename)[0]
+                return "%s_%s.%s" % (filename, datetime.now().strftime("%Y-%m-%d_%H-%M-%S"),
+                                     export_type)
+        return super().get_export_name(export_type=export_type)
+
+    @action("activate", "Activate for processing",
+            "Are you sure you want to activate the selected records for batch processing?")
+    def action_activate(self, ids):
+        """Batch registraion of users."""
+        try:
+            count = self.model.update(is_active=True).where(
+                self.model.is_active == False,  # noqa: E712
+                self.model.id.in_(ids)).execute()
+        except Exception as ex:
+            flash(f"Failed to activate the selected records: {ex}")
+            app.logger.exception("Failed to activate the selected records")
+        else:
+            flash(f"{count} records were activated for batch processing.")
+
+    @action("reset", "Reset for processing",
+            "Are you sure you want to reset the selected records for batch processing?")
+    def action_reset(self, ids):
+        """Batch reset of users."""
+        try:
+            count = self.model.update(processed_at=None).where(
+                self.model.is_active,
+                self.model.processed_at.is_null(False), self.model.id.in_(ids)).execute()
+        except Exception as ex:
+            flash(f"Failed to activate the selected records: {ex}")
+            app.logger.exception("Failed to activate the selected records")
+
+        else:
+            flash(f"{count} records were activated for batch processing.")
+
+
 class AffiliationRecordAdmin(AppModelView):
     """Affiliation record model view."""
 
@@ -501,6 +598,7 @@ admin.add_view(OrgInfoAdmin(OrgInfo))
 admin.add_view(OrcidApiCallAmin(OrcidApiCall))
 admin.add_view(TaskAdmin(Task))
 admin.add_view(AffiliationRecordAdmin())
+admin.add_view(FundingRecordAdmin())
 admin.add_view(AppModelView(UserInvitation))
 admin.add_view(ViewMembersAdmin(name="viewmembers", endpoint="viewmembers"))
 
@@ -856,8 +954,11 @@ def load_researcher_funding():
     form = JsonFileUploadForm()
     if form.validate_on_submit():
         filename = secure_filename(form.file_.data.filename)
-        funding_data = FundingRecord.load_from_json(read_uploaded_file(form), filename=filename)
+        task = FundingRecord.load_from_json(read_uploaded_file(form), filename=filename)
+        flash(f"Successfully loaded {task.record_count} rows.")
+        return redirect(url_for("fundingrecord.index_view", task_id=task.id))
 
+    """
         orcid_token = None
         contributors_list = funding_data["contributors"]["contributor"]
         funding_created_id = ""
@@ -886,8 +987,7 @@ def load_researcher_funding():
                 params = dict(orcid=user.orcid, body=funding_data, _preload_content=False)
                 api_instance.create_funding(**params)
                 funding_created_id += email + " ,"
-                app.logger.info("For %r funding record was created by %r", user.orcid,
-                                current_user)
+                app.logger.info("For %r funding record was created by %r", user.orcid, current_user)
             except ApiException as e:
                 message = json.loads(e.body.replace("''", "\"")).get('user-messsage')
                 flash("Failed to create the entry: %s" % message, "danger")
@@ -895,9 +995,9 @@ def load_researcher_funding():
                 app.logger.error("For %r encountered exception: %r", user, ex)
                 abort(500, ex)
         if funding_created_id:
-            flash(f"funding record for {funding_created_id} has been successfully created.",
-                  "success")
+            flash(f"funding record for {funding_created_id} has been successfully created.", "success")
 
+    """
     return render_template("fileUpload.html", form=form, form_title="Funding")
 
 

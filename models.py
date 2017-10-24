@@ -807,6 +807,7 @@ class Task(BaseModel, AuditMixin):
         User, on_delete="SET NULL", null=True, related_name="created_tasks")
     updated_by = ForeignKeyField(
         User, on_delete="SET NULL", null=True, related_name="updated_tasks")
+    task_type = SmallIntegerField(default=0, null=True)
 
     def __repr__(self):
         return self.filename or f"Task #{self.id}"
@@ -883,9 +884,7 @@ class Task(BaseModel, AuditMixin):
         with db.atomic():
             try:
                 task = cls.create(org=org, filename=filename)
-
                 for row_no, row in enumerate(reader):
-
                     if len(row) == 0:
                         continue
 
@@ -898,7 +897,10 @@ class Task(BaseModel, AuditMixin):
                         )
 
                     if orcid:
-                        validate_orcid_id(orcid)
+                        try:
+                            validate_orcid_id(orcid)
+                        except Exception as ex:
+                            pass
 
                     if not email or not EMAIL_REGEX.match(email):
                         raise ValueError(
@@ -933,7 +935,6 @@ class Task(BaseModel, AuditMixin):
                     if not validator.validate():
                         raise ModelException(f"Invalid record: {validator.errors}")
                     af.save()
-
             except Exception as ex:
                 db.rollback()
                 app.logger.exception("Failed to laod affiliation file.")
@@ -1028,6 +1029,25 @@ class AffiliationRecord(BaseModel):
         table_alias = "ar"
 
 
+class TaskType(IntFlag):
+    """
+    Enum used to represent Task type.
+
+    The model provide multi role support representing role sets as bitmaps.
+    """
+
+    AFFILIATION = 0  # Affilation of employment/education
+    FUNDING = 1  # Funding
+
+    def __eq__(self, other):
+        if isinstance(other, TaskType):
+            return self.value == other.value
+        return (self.name == other or self.name == getattr(other, 'name', None))
+
+    def __hash__(self):
+        return hash(self.name)
+
+
 class FundingRecord(BaseModel, AuditMixin):
     """Funding record loaded from Json file for batch processing."""
 
@@ -1059,7 +1079,7 @@ class FundingRecord(BaseModel, AuditMixin):
             try:
                 if org is None:
                     org = current_user.organisation if current_user else None
-                task = Task.create(org=org, filename=filename)
+                task = Task.create(org=org, filename=filename, task_type=TaskType.FUNDING)
 
                 title = funding_data["title"]["title"]["value"] if \
                     funding_data["title"] and funding_data["title"]["title"] else None
@@ -1072,15 +1092,14 @@ class FundingRecord(BaseModel, AuditMixin):
                 organization_defined_type = funding_data["organization-defined-type"]["value"] if \
                     funding_data["organization-defined-type"] else None
 
-                short_description = funding_data["short-description"] if funding_data[
-                    "short-description"] else None
+                short_description = funding_data["short-description"] if funding_data["short-description"] else None
 
                 amount = funding_data["amount"]["value"] if funding_data["amount"] else None
 
                 currency = funding_data["amount"]["currency-code"] \
                     if funding_data["amount"] and funding_data["amount"]["currency-code"] else None
-                # TODO: start_date = funding_data["start-date"]
-                # TODO: end_date = funding_data["end-date"]
+                start_date = PartialDate.create(funding_data["start-date"])
+                end_date = PartialDate.create(funding_data["end-date"])
                 org_name = funding_data["organization"]["name"] if \
                     funding_data["organization"] and funding_data["organization"]["name"] else None
 
@@ -1105,25 +1124,35 @@ class FundingRecord(BaseModel, AuditMixin):
 
                 visibility = funding_data["visibility"] if funding_data["visibility"] else None
 
-                funding_record = FundingRecord.create(
-                    task=task,
-                    title=title,
-                    translated_title=translated_title,
-                    type=type,
-                    organization_defined_type=organization_defined_type,
-                    short_description=short_description,
-                    amount=amount,
-                    currency=currency,
-                    org_name=org_name,
-                    city=city,
-                    region=region,
-                    country=country,
-                    disambiguated_org_identifier=disambiguated_org_identifier,
-                    disambiguated_source=disambiguated_source,
-                    visibility=visibility)
-                FundingContributor.create(funding_record=funding_record)
-                # TODO: ExternalId.create(funding_record=funding_record)
-                return funding_data
+                funding_record = FundingRecord.create(task=task, title=title, translated_title=translated_title,
+                                                      type=type,
+                                                      organization_defined_type=organization_defined_type,
+                                                      short_description=short_description,
+                                                      amount=amount, currency=currency, org_name=org_name, city=city,
+                                                      region=region, country=country,
+                                                      disambiguated_org_identifier=disambiguated_org_identifier,
+                                                      disambiguated_source=disambiguated_source,
+                                                      visibility=visibility, start_date=start_date, end_date=end_date)
+
+                contributors_list = funding_data["contributors"]["contributor"]
+                for contributor in contributors_list:
+                    orcid_id = contributor["contributor-orcid"]["path"]
+                    email = contributor["contributor-email"]["value"]
+                    name = contributor["credit-name"]["value"]
+                    role = contributor["contributor-attributes"]["contributor-role"]
+                    FundingContributor.create(funding_record=funding_record, orcid=orcid_id, name=name, email=email,
+                                              role=role)
+
+                external_ids_list = funding_data["external-ids"]["external-id"]
+                for external_id in external_ids_list:
+                    type = external_id["external-id-type"]
+                    value = external_id["external-id-value"]
+                    url = external_id["external-id-url"]["value"]
+                    relationship = external_id["external-id-relationship"]
+                    ExternalId.create(funding_record=funding_record, type=type, value=value, url=url,
+                                      relationship=relationship)
+
+                return task
             except Exception as ex:
                 db.rollback()
                 app.logger.exception("Failed to laod affiliation file.")
