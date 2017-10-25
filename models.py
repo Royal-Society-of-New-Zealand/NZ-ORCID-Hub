@@ -1052,7 +1052,6 @@ class FundingRecord(BaseModel, AuditMixin):
     """Funding record loaded from Json file for batch processing."""
 
     task = ForeignKeyField(Task, related_name="funding_records", on_delete="CASCADE")
-    status = TextField(null=True, help_text="Record processing status.")
     title = CharField(max_length=80)
     translated_title = CharField(null=True, max_length=80)
     type = CharField(max_length=80)
@@ -1070,6 +1069,10 @@ class FundingRecord(BaseModel, AuditMixin):
     disambiguation_source = CharField(null=True, max_length=255)
     visibility = CharField(null=True, max_length=100)
     put_code = IntegerField(null=True)
+    is_active = BooleanField(
+        default=False, help_text="The record is marked for batch processing", null=True)
+    processed_at = DateTimeField(null=True)
+    status = TextField(null=True, help_text="Record processing status.")
 
     @classmethod
     def load_from_json(cls, source, filename=None, org=None):
@@ -1157,6 +1160,11 @@ class FundingRecord(BaseModel, AuditMixin):
                 db.rollback()
                 app.logger.exception("Failed to laod affiliation file.")
                 raise
+
+    def add_status_line(self, line):
+        """Add a text line to the status for logging processing progress."""
+        ts = datetime.now().isoformat(timespec="seconds")
+        self.status = (self.status + "\n" if self.status else '') + ts + ": " + line
 
     class Meta:  # noqa: D101,D106
         db_table = "funding_record"

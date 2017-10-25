@@ -653,10 +653,16 @@ def activate_all():
     """Batch registraion of users."""
     _url = request.args.get("url") or request.referrer
     task_id = request.form.get('task_id')
+    task = Task.get(id=task_id)
     try:
-        count = AffiliationRecord.update(
-            is_active=True).where(AffiliationRecord.task_id == task_id,
-                                  AffiliationRecord.is_active == False).execute()  # noqa: E712
+        if task.task_type == 0:
+            count = AffiliationRecord.update(
+                is_active=True).where(AffiliationRecord.task_id == task_id,
+                                      AffiliationRecord.is_active == False).execute()  # noqa: E712
+        elif task.task_type == 1:
+            count = FundingRecord.update(
+                is_active=True).where(FundingRecord.task_id == task_id,
+                                      FundingRecord.is_active == False).execute()  # noqa: E712
     except Exception as ex:
         flash(f"Failed to activate the selected records: {ex}")
         app.logger.exception("Failed to activate the selected records")
