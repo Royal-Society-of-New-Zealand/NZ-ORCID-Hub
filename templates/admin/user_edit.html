@@ -81,17 +81,9 @@
 $('#user-orgs').on("change", function(e) {
    console.info(e);
 });
-
 var app = angular.module("userAdmin", []);
-app.controller("userOrgs", function($scope, $http) {
-  $http({
-    method: "GET",
-    url: '{{url_for("user_orgs", user_id=request.args.get("id"))}}'
-  }).then(function success(response) {
-    $scope.user_orgs = response.data["user-orgs"];
-  }, function error(response) {
-    $scope.error = response.data.error;
-  });
+app.controller("userOrgs", function($scope) {
+  $scope.user_orgs = {{ model.organisations.dicts()| list | tojson }};
 });
   </script>
 {% endblock %}
