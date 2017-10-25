@@ -6,7 +6,8 @@ import os
 from collections import namedtuple
 from datetime import datetime
 
-from flask import (abort, flash, redirect, render_template, request, send_from_directory, url_for)
+from flask import (abort, flash, jsonify, redirect, render_template, request, send_from_directory,
+                   url_for)
 from flask_admin.actions import action
 from flask_admin.contrib.peewee import ModelView
 from flask_admin.form import SecureForm
@@ -1161,3 +1162,19 @@ def invite_user():
         break
 
     return render_template("user_invitation.html", form=form)
+
+
+@app.route("/hub/api/v0.1/user/<int:user_id>/orgs")
+@roles_required(Role.SUPERUSER, Role.ADMIN)
+def user_orgs(user_id):
+    """Retrive all linked to the user organisations."""
+    try:
+        u = User.get(id=user_id)
+        return jsonify({"user-orgs": list(u.organisations.dicts())})
+    except User.DoesNotExist:
+        return jsonify({"error": f"Not Found user with ID: {user_id}"}), 404
+    except Exception as ex:
+        app.logger.exception(f"Failed to retrieve user (ID: {user_id}) organisations.")
+        return jsonify({
+            "error": f"Failed to retrieve user (ID: {user_id}) organisations: {ex}."
+        }), 500
