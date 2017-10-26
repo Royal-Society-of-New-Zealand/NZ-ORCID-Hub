@@ -63,10 +63,12 @@
         </thead>
         {% raw %}
         <tbody ng-app="userAdmin" ng-controller="userOrgs">
-          <tr ng-repeat="r in user_orgs">
-            <td class="col-name">{{r.name}}</td>
-            <td class="col-name">{{r.is_admin}}</td>
-            <td class="col-name">{{r.is_tech_contact}}</td>
+          <tr ng-repeat="r in user_orgs | orderBy: 'name'">
+            <form>
+                <td class="col-name">{{r.name}}</td>
+                <td class="col-name"><input type="checkbox" ng-model="r.is_admin"></td>
+                <td class="col-name"><input type="checkbox" ng-model="r.is_tech_contact"></td>
+            </form>
           </tr>
         </tbody>
         {% endraw %}

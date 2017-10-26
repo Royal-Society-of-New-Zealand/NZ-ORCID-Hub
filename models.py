@@ -504,8 +504,9 @@ class User(BaseModel, UserMixin, AuditMixin):
         # return Organisation.select().join(
         #     UserOrg, on=(UserOrg.org_id == Organisation.id)).where(UserOrg.user_id == self.id)
         return (Organisation.select(
-            Organisation, (Organisation.tech_contact_id == self.id).alias("is_tech_contact"),
-            UserOrg.is_admin).join(
+            Organisation,
+            (Organisation.tech_contact_id == self.id).alias("is_tech_contact"),
+            ((UserOrg.is_admin.is_null(False)) & (UserOrg.is_admin)).alias("is_admin")).join(
                 UserOrg, on=((UserOrg.org_id == Organisation.id) & (UserOrg.user_id == self.id)))
                 .naive())
 
