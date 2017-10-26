@@ -1181,9 +1181,9 @@ def user_orgs(user_id):
 
 
 
-@app.route("/hub/api/v0.1/user/<int:user_id>/orgs/add", method=["POST", "PUT", ])
+@app.route("/hub/api/v0.1/user/<int:user_id>/orgs/org", methods=["POST", "PUT", "PATCH", ])
 @roles_required(Role.SUPERUSER, Role.ADMIN)
-def user_orgs(user_id):
+def user_orgs_org(user_id):
     """Adds an organisation to the user.
 
     Recieves:

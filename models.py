@@ -16,7 +16,7 @@ from urllib.parse import urlencode
 
 from flask_login import UserMixin, current_user
 from peewee import BooleanField as BooleanField_
-from peewee import (CharField, DateTimeField, DeferredRelation, Field, FixedCharField,
+from peewee import (JOIN, CharField, DateTimeField, DeferredRelation, Field, FixedCharField,
                     ForeignKeyField, IntegerField, Model, OperationalError, PostgresqlDatabase,
                     ProgrammingError, SmallIntegerField, TextField, fn)
 from peewee_validates import ModelValidator
@@ -509,6 +509,14 @@ class User(BaseModel, UserMixin, AuditMixin):
             ((UserOrg.is_admin.is_null(False)) & (UserOrg.is_admin)).alias("is_admin")).join(
                 UserOrg, on=((UserOrg.org_id == Organisation.id) & (UserOrg.user_id == self.id)))
                 .naive())
+
+    @property
+    def available_organisations(self):
+        """Get all not yet linked to the user organisation query."""
+        return (Organisation.select(Organisation)
+                .where(UserOrg.id.is_null())
+                .join(
+                UserOrg, JOIN.LEFT_OUTER, on=((UserOrg.org_id == Organisation.id) & (UserOrg.user_id == self.id))))
 
     @property
     def admin_for(self):
