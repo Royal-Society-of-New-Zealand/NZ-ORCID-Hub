@@ -1178,3 +1178,23 @@ def user_orgs(user_id):
         return jsonify({
             "error": f"Failed to retrieve user (ID: {user_id}) organisations: {ex}."
         }), 500
+
+
+
+@app.route("/hub/api/v0.1/user/<int:user_id>/orgs/add", method=["POST", "PUT", ])
+@roles_required(Role.SUPERUSER, Role.ADMIN)
+def user_orgs(user_id):
+    """Adds an organisation to the user.
+
+    Recieves:
+    {"org_id": N, "is_admin": true/false, "is_tech_contact": true/false}
+
+    If the user is already linked to the organisation, the entry gets only updated.
+
+    If another user is the tech.contact of the organisation, the existing user
+    should be demoted.
+    """
+    data = request.json
+    if not data:
+        return jsonify({"error": "NOT DATA"}), 403
+    pass
