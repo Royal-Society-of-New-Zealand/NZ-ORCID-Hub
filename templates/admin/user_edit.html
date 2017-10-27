@@ -36,14 +36,19 @@
       <h3>Details</h3>
       {{ lib.render_form(form, return_url, extra(), form_opts) }}
     </div>
-    <div id="user-orgs-tab" class="tab-pane active">
+    <div id="user-orgs-tab" class="tab-pane active" ng-app="userAdmin" ng-controller="userOrgs">
       <h3>User Organisations</h3>
       <div class="form-group">
         <label for="organisation" class="col-md-2 control-label">Organisation
           &nbsp;
         </label>
         <div class="col-md-10">
-          <select ng-model="selectedOrg" ng-options="o.name for o in available_orgs">
+          <select ng-model="selectedOrg" ng-change="add_org()"
+            ng-options="o.name for o in available_orgs | orderBy: 'name' track by o.id">
+        {% raw %}
+            <!-- option ng-repeat="o in available_orgs | orderBy: 'name'" value="{{o.id}}">{{o.name}}</option -->
+            <option value="">-- Choose an Organisation --</option>
+        {% endraw %}
           </select>
           <!--select class="form-control" data-allow-blank="1" data-allow-clear="true" data-placeholder="Please select Organisation" data-role="select2-ajax" data-url="{{url_for('user.ajax_lookup', name='organisation')}}" id="user-orgs" name="user-orgs" type="hidden">
           </select -->
@@ -53,6 +58,9 @@
       <table class="table table-striped table-bordered table-hover model-list">
         <thead>
           <tr>
+            <th class="column-header">
+              Remove
+            </th>
             <th class="column-header">
               Name
             </th>
@@ -65,9 +73,10 @@
           </tr>
         </thead>
         {% raw %}
-        <tbody ng-app="userAdmin" ng-controller="userOrgs">
+        <tbody>
           <tr ng-repeat="r in user_orgs | orderBy: 'name'">
             <form>
+                <td class="col-name">x</td>
                 <td class="col-name">{{r.name}}</td>
                 <td class="col-name"><input type="checkbox" ng-model="r.is_admin"></td>
                 <td class="col-name"><input type="checkbox" ng-model="r.is_tech_contact"></td>
@@ -90,6 +99,12 @@ var app = angular.module("userAdmin", []);
 app.controller("userOrgs", function($scope) {
   $scope.user_orgs = {{ model.organisations.dicts()| list | tojson }};
   $scope.available_orgs = {{ model.available_organisations.dicts()| list | tojson }};
+  $scope.add_org = function() {
+    console.info($scope.selectedOrg);
+    $scope.user_orgs.push({id: $scope.selectedOrg.id, name: $scope.selectedOrg.name, is_admin: false,
+      is_tech_contact: false});
+    //$scope.$apply()
+  }
 });
   </script>
 {% endblock %}

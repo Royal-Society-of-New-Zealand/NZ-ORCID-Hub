@@ -504,8 +504,7 @@ class User(BaseModel, UserMixin, AuditMixin):
         # return Organisation.select().join(
         #     UserOrg, on=(UserOrg.org_id == Organisation.id)).where(UserOrg.user_id == self.id)
         return (Organisation.select(
-            Organisation,
-            (Organisation.tech_contact_id == self.id).alias("is_tech_contact"),
+            Organisation, (Organisation.tech_contact_id == self.id).alias("is_tech_contact"),
             ((UserOrg.is_admin.is_null(False)) & (UserOrg.is_admin)).alias("is_admin")).join(
                 UserOrg, on=((UserOrg.org_id == Organisation.id) & (UserOrg.user_id == self.id)))
                 .naive())
@@ -513,10 +512,10 @@ class User(BaseModel, UserMixin, AuditMixin):
     @property
     def available_organisations(self):
         """Get all not yet linked to the user organisation query."""
-        return (Organisation.select(Organisation)
-                .where(UserOrg.id.is_null())
-                .join(
-                UserOrg, JOIN.LEFT_OUTER, on=((UserOrg.org_id == Organisation.id) & (UserOrg.user_id == self.id))))
+        return (Organisation.select(Organisation).where(UserOrg.id.is_null()).join(
+            UserOrg,
+            JOIN.LEFT_OUTER,
+            on=((UserOrg.org_id == Organisation.id) & (UserOrg.user_id == self.id))))
 
     @property
     def admin_for(self):

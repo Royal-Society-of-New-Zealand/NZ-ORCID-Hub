@@ -32,6 +32,7 @@ from models import (Affiliation, CharField, FundingRecord, ModelException, Orcid
 from pyinfo import info
 from swagger_client.rest import ApiException
 from utils import generate_confirmation_token, send_user_invitation
+from playhouse.shortcuts import model_to_dict
 
 HEADERS = {"Accept": "application/vnd.orcid+json", "Content-type": "application/vnd.orcid+json"}
 
@@ -1164,12 +1165,18 @@ def invite_user():
     return render_template("user_invitation.html", form=form)
 
 
-@app.route("/hub/api/v0.1/user/<int:user_id>/orgs")
+@app.route("/hub/api/v0.1/users/<int:user_id>/orgs/<int:org_id>")
+@app.route("/hub/api/v0.1/users/<int:user_id>/orgs/")
 @roles_required(Role.SUPERUSER, Role.ADMIN)
-def user_orgs(user_id):
+def user_orgs(user_id, org_id=None):
     """Retrive all linked to the user organisations."""
     try:
         u = User.get(id=user_id)
+        if org_id:
+            org = u.organisations.where(Organisation.id == org_id).first()
+            if org:
+                return jsonify(model_to_dict(org))
+            return jsonify({"error": f"Not Found Organisation with ID: {org_id}"}), 404
         return jsonify({"user-orgs": list(u.organisations.dicts())})
     except User.DoesNotExist:
         return jsonify({"error": f"Not Found user with ID: {user_id}"}), 404
@@ -1180,11 +1187,21 @@ def user_orgs(user_id):
         }), 500
 
 
-
-@app.route("/hub/api/v0.1/user/<int:user_id>/orgs/org", methods=["POST", "PUT", "PATCH", ])
+@app.route(
+    "/hub/api/v0.1/users/<int:user_id>/orgs/<int:org_id>", methods=[
+        "POST",
+        "PUT",
+        "PATCH",
+    ])
+@app.route(
+    "/hub/api/v0.1/users/<int:user_id>/orgs/", methods=[
+        "POST",
+        "PUT",
+        "PATCH",
+    ])
 @roles_required(Role.SUPERUSER, Role.ADMIN)
-def user_orgs_org(user_id):
-    """Adds an organisation to the user.
+def user_orgs_org(user_id, org_id):
+    """Add an organisation to the user.
 
     Recieves:
     {"org_id": N, "is_admin": true/false, "is_tech_contact": true/false}
@@ -1193,8 +1210,18 @@ def user_orgs_org(user_id):
 
     If another user is the tech.contact of the organisation, the existing user
     should be demoted.
+
+    Returns: user_org entry
     """
     data = request.json
-    if not data:
-        return jsonify({"error": "NOT DATA"}), 403
+    if not data or data.get("org_id"):
+        return jsonify({"error": "NOT DATA"}), 400
     pass
+    uo, created = UserOrg.get_or_create(user_id=user_id, org_id=data.get("org_id"))
+    if "is_admin" in data:
+        uo.is_admin = data["is_admin"]
+        uo.save()
+    if "is_tech_contact" in data:
+        pass  # TODO: swap over the technical contact
+    return jsonify({"user_org": model_to_dict(u, recurse=False), "status": ("created" if created else "updated")})
+

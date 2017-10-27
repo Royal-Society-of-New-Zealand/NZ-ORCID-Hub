@@ -9,6 +9,7 @@ from flask_debugtoolbar import DebugToolbarExtension
 from flask_mail import Mail
 from playhouse import db_url
 from raven.contrib.flask import Sentry
+from flask_peewee.rest import RestAPI
 
 from config import *  # noqa: F401, F403
 from failover import PgDbWithFailover
@@ -23,10 +24,11 @@ if DATABASE_URL.startswith("sqlite"):
 else:
     db = db_url.connect(DATABASE_URL, autorollback=True, connect_timeout=3)
 
+api = RestAPI(app)
+
 mail = Mail()
 mail.init_app(app)
 
-# admin = Admin(app, name="NZ ORCiD Hub", template_mode="bootstrap3", base_template="layout.html")
 admin = Admin(
     app, name="NZ ORCiD Hub", template_mode="bootstrap3", base_template="admin/master.html")
 
