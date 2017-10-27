@@ -42,6 +42,8 @@ from utils import append_qs, confirm_token
 
 HEADERS = {'Accept': 'application/vnd.orcid+json', 'Content-type': 'application/vnd.orcid+json'}
 
+DEFAULT_AUTH_KEYS_ORG_NAME = "Royal Society Te Apārangi"
+
 
 def get_next_url():
     """Retrieve and sanitize next/return URL."""
@@ -51,6 +53,25 @@ def get_next_url():
                   or "c9users.io" in _next):
         return _next
     return None
+
+
+def get_orcid_authentication_keys():
+    """
+    Use either configuration keys or the specified org keys.
+
+    Returns: (client_id, client_secret).
+
+    """
+    if ORCID_CLIENT_ID and ORCID_CLIENT_SECRET:
+        return (ORCID_CLIENT_ID, ORCID_CLIENT_SECRET)
+
+    app.logger.warning(
+        f"Missing ORCID credentials for authentication. Falling back to '{DEFAULT_AUTH_KEYS_ORG_NAME}' credetials."
+    )
+    org = Organisation.select().where(Organisation.name == DEFAULT_AUTH_KEYS_ORG_NAME).first()
+    if not org:
+        raise Exception("Missing ORCID authentication credentials.")
+    return (org.orcid_client_id, org.orcid_secret)
 
 
 @app.route("/index")
@@ -799,7 +820,7 @@ def orcid_login(invitation_token=None):
     try:
         orcid_scope = SCOPE_AUTHENTICATE[:]
 
-        client_id = ORCID_CLIENT_ID
+        client_id, _ = get_orcid_authentication_keys()
         if invitation_token:
             data = confirm_token(invitation_token)
             if isinstance(data, str):
@@ -882,8 +903,7 @@ def orcid_login_callback(request):
         return redirect(url_for("login"))
 
     try:
-        orcid_client_id = ORCID_CLIENT_ID
-        orcid_client_secret = ORCID_CLIENT_SECRET
+        orcid_client_id, orcid_client_secret = get_orcid_authentication_keys()
         email = org_name = None
 
         if invitation_token:
