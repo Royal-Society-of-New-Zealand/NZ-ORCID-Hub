@@ -22,8 +22,8 @@ from peewee import JOIN
 import orcid_client
 from application import app
 from config import ENV, EXTERNAL_SP
-from models import (AFFILIATION_TYPES, Affiliation, AffiliationRecord, OrcidToken, Organisation,
-                    Role, Task, Url, User, UserInvitation, UserOrg)
+from models import (AFFILIATION_TYPES, Affiliation, AffiliationRecord, FundingRecord, FundingContributor,
+                    OrcidToken, Organisation, Role, Task, Url, User, UserInvitation, UserOrg)
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -515,6 +515,50 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
                 status=status).where(AffiliationRecord.status.is_null(),
                                      AffiliationRecord.email == user.email).execute())
             return
+
+
+def process_funding_records(max_rows=20):
+    """Process uploaded affiliation records."""
+    set_server_name()
+
+    """This query is to retrieve Tasks associated with funding records, which are not processed but are active"""
+
+    tasks = (Task.select(Task, FundingRecord, FundingContributor, User,
+                         UserInvitation.id.alias("invitation_id"), OrcidToken).where(
+        FundingRecord.processed_at.is_null(), FundingRecord.is_active,
+        (OrcidToken.id.is_null(False) | ((FundingRecord.status.is_null()) | (FundingRecord.status.contains(
+            "sent").__invert__())))).join(FundingRecord, on=(Task.id == FundingRecord.task_id)).join(
+        FundingContributor, on=(FundingRecord.id == FundingContributor.funding_record_id)).join(
+        User, JOIN.LEFT_OUTER, on=((User.email == FundingContributor.email) | (User.orcid == FundingContributor.orcid)))
+             .join(Organisation, JOIN.LEFT_OUTER, on=(Organisation.id == Task.org_id))
+             .join(UserInvitation, JOIN.LEFT_OUTER, on=((UserInvitation.email == FundingContributor.email)
+                                                        & (UserInvitation.task_id == Task.id)))
+             .join(OrcidToken, JOIN.LEFT_OUTER, on=((OrcidToken.user_id == User.id)
+                                                    & (OrcidToken.org_id == Organisation.id)
+
+                                                    & (OrcidToken.scope.contains("/activities/update"))))
+             .limit(max_rows))
+
+    for (task_id, org_id, funding_record_id, user), tasks_by_user in groupby(tasks, lambda t: (
+            t.id,
+            t.org_id,
+            t.funding_record.id,
+            t.funding_record.funding_contributor.user,)):
+
+        """If we have the token associated to the user then update the funding record, otherwise send him an invite"""
+        if (user.id is None or user.orcid is None or not OrcidToken.select().where(
+                        (OrcidToken.user_id == user.id) & (OrcidToken.org_id == org_id) &
+                    (OrcidToken.scope.contains("/activities/update"))).exists()):  # noqa: E127, E129
+
+            for k, tasks in groupby(
+                    tasks_by_user,
+                    lambda t: (t.created_by, t.org, t.funding_record.funding_contributor.email,
+                               t.funding_record.funding_contributor.name)):  # noqa: E501
+                # TODO: Send an invitation mail
+                """send_user_invitationn(k, task_id=task_id)"""
+        else:
+            # TODO : create or update funding record
+                """create_or_update_funding(user, org_id, tasks_by_user)"""
 
 
 def process_affiliation_records(max_rows=20):
