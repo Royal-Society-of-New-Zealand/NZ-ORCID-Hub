@@ -16,10 +16,7 @@ from authcontroller import *  # noqa: F401,F403
 from reports import *  # noqa: F401,F403
 from utils import process_affiliation_records
 from views import *  # noqa: F401,F403
-
-api.register(models.User)  # noqa:F405
-api.register(models.Organisation)  # noqa:F405
-api.setup()
+from api import *  # noqa: F401,F403
 
 
 @app.before_first_request

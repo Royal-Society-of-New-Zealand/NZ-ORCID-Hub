@@ -9,7 +9,7 @@ from flask_debugtoolbar import DebugToolbarExtension
 from flask_mail import Mail
 from playhouse import db_url
 from raven.contrib.flask import Sentry
-from flask_peewee.rest import RestAPI
+from flask_peewee.rest import RestAPI, Authentication
 
 from config import *  # noqa: F401, F403
 from failover import PgDbWithFailover
@@ -24,7 +24,11 @@ if DATABASE_URL.startswith("sqlite"):
 else:
     db = db_url.connect(DATABASE_URL, autorollback=True, connect_timeout=3)
 
-api = RestAPI(app)
+class UserAuthentication(Authentication):
+    def authorize(self):
+        return flask_login.current_user.is_authenticated
+
+api = RestAPI(app, prefix="/api/v0.1", name="ORCID HUB Data API", default_auth=UserAuthentication())
 
 mail = Mail()
 mail.init_app(app)
