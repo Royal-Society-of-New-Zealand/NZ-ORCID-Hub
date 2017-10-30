@@ -963,47 +963,6 @@ def load_researcher_funding():
         task = FundingRecord.load_from_json(read_uploaded_file(form), filename=filename)
         flash(f"Successfully loaded {task.record_count} rows.")
         return redirect(url_for("fundingrecord.index_view", task_id=task.id))
-
-    """
-        orcid_token = None
-        contributors_list = funding_data["contributors"]["contributor"]
-        funding_created_id = ""
-        for contributor in contributors_list:
-
-            # orcid_id = contributor["contributor-orcid"]["path"]
-            email = contributor["contributor-email"]["value"]
-            user = None
-
-            try:
-                user = User.get(email=email)
-                orcid_token = OrcidToken.get(
-                    user=user,
-                    org=current_user.organisation,
-                    scope=SCOPE_READ_LIMITED[0] + "," + SCOPE_ACTIVITIES_UPDATE[0])
-            except:
-                # TODO: Send a mail to researcher asking him permissions
-                flash(f"The user {email} hasn't authorized you to add funding record", "warning")
-                continue
-
-            orcid_client.configuration.access_token = orcid_token.access_token
-            api_instance = orcid_client.MemberAPIV20Api()
-
-            try:
-                # Adding funding info
-                params = dict(orcid=user.orcid, body=funding_data, _preload_content=False)
-                api_instance.create_funding(**params)
-                funding_created_id += email + " ,"
-                app.logger.info("For %r funding record was created by %r", user.orcid, current_user)
-            except ApiException as e:
-                message = json.loads(e.body.replace("''", "\"")).get('user-messsage')
-                flash("Failed to create the entry: %s" % message, "danger")
-            except Exception as ex:
-                app.logger.error("For %r encountered exception: %r", user, ex)
-                abort(500, ex)
-        if funding_created_id:
-            flash(f"funding record for {funding_created_id} has been successfully created.", "success")
-
-    """
     return render_template("fileUpload.html", form=form, form_title="Funding")
 
 

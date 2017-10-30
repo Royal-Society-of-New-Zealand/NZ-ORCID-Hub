@@ -1179,6 +1179,13 @@ class FundingContributor(BaseModel):
     name = CharField(max_length=120, null=True)
     email = CharField(max_length=120, null=True)
     role = CharField(max_length=120, null=True)
+    status = TextField(null=True, help_text="Record processing status.")
+    put_code = IntegerField(null=True)
+
+    def add_status_line(self, line):
+        """Add a text line to the status for logging processing progress."""
+        ts = datetime.now().isoformat(timespec="seconds")
+        self.status = (self.status + "\n" if self.status else '') + ts + ": " + line
 
     class Meta:  # noqa: D101,D106
         db_table = "funding_contributor"
