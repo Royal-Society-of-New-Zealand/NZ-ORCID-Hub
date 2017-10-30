@@ -7,8 +7,8 @@ isort:skip_file
 
 from config import ORCID_API_BASE, SCOPE_READ_LIMITED, SCOPE_ACTIVITIES_UPDATE, ORCID_BASE_URL
 from flask_login import current_user
-from models import OrcidApiCall, Affiliation, OrcidToken, FundingContributor as funding_cont, User as user_model, \
-    ExternalId as externalid_model
+from models import OrcidApiCall, Affiliation, OrcidToken, FundingContributor as FundingCont, User as UserModel, \
+    ExternalId as ExternalidModel
 from swagger_client import (configuration, rest, api_client, MemberAPIV20Api, SourceClientId,
                             Source, OrganizationAddress, DisambiguatedOrganization, Employment,
                             Education, Organization)
@@ -182,7 +182,6 @@ class MemberAPI(MemberAPIV20Api):
 
     def create_or_update_funding(self, task_by_user, *args, **kwargs):
         """Create or update funding record of a user."""
-
         fr = task_by_user.funding_record
         fc = task_by_user.funding_record.funding_contributor
 
@@ -248,12 +247,12 @@ class MemberAPI(MemberAPIV20Api):
             rec.start_date = start_date.as_orcid_dict()
         if end_date:
             rec.end_date = end_date.as_orcid_dict()
-        funding_contributors = funding_cont.select().where(funding_cont.funding_record_id == fr.id)
+        funding_contributors = FundingCont.select().where(FundingCont.funding_record_id == fr.id)
 
         funding_contributor_list = []
         for f in funding_contributors:
-            contributor_from_user_table = user_model.get(
-                user_model.email == f.email and user_model.orcid.is_null(False))
+            contributor_from_user_table = UserModel.get(
+                UserModel.email == f.email and UserModel.orcid.is_null(False))
             path = None
             uri = None
             host = None
@@ -278,7 +277,7 @@ class MemberAPI(MemberAPIV20Api):
         rec.contributors = FundingContributors(contributor=funding_contributor_list)        # noqa: F405
         external_id_list = []
 
-        external_ids = externalid_model.select().where(externalid_model.funding_record_id == fr.id)
+        external_ids = ExternalidModel.select().where(ExternalidModel.funding_record_id == fr.id)
 
         for exi in external_ids:
             external_id_type = exi.type

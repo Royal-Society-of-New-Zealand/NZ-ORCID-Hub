@@ -322,11 +322,7 @@ def send_funding_invitation(inviter, org, email, name, task_id=None, **kwargs):
 
 
 def create_or_update_funding(user, org_id, records, *args, **kwargs):
-    """Create or update funding record of a user.
-
-
-    """
-
+    """Create or update funding record of a user."""
     records = list(unique_everseen(records, key=lambda t: t.funding_record.id))
     org = Organisation.get(id=org_id)
     client_id = org.orcid_client_id

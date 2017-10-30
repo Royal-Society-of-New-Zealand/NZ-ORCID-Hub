@@ -367,6 +367,8 @@ class TaskAdmin(AppModelView):
 
     roles_required = Role.SUPERUSER | Role.ADMIN
     list_template = "view_tasks.html"
+    column_exclude_list = (
+        "task_type",)
     can_edit = False
     can_create = False
     can_delete = True
@@ -961,7 +963,7 @@ def load_researcher_funding():
     if form.validate_on_submit():
         filename = secure_filename(form.file_.data.filename)
         task = FundingRecord.load_from_json(read_uploaded_file(form), filename=filename)
-        flash(f"Successfully loaded {task.record_count} rows.")
+        flash(f"Successfully loaded {task.record_funding_count} rows.")
         return redirect(url_for("fundingrecord.index_view", task_id=task.id))
     return render_template("fileUpload.html", form=form, form_title="Funding")
 

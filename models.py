@@ -799,6 +799,7 @@ class Task(BaseModel, AuditMixin):
     """Batch processing task created form CSV/TSV file."""
 
     __record_count = None
+    __record_funding_count = None
     org = ForeignKeyField(
         Organisation, index=True, verbose_name="Organisation", on_delete="SET NULL")
     completed_at = DateTimeField(null=True)
@@ -818,6 +819,13 @@ class Task(BaseModel, AuditMixin):
         if self.__record_count is None:
             self.__record_count = self.affiliationrecord_set.count()
         return self.__record_count
+
+    @property
+    def record_funding_count(self):
+        """Get count of the loaded funding records."""
+        if self.__record_funding_count is None:
+            self.__record_funding_count = self.funding_records.count()
+        return self.__record_funding_count
 
     @classmethod
     def load_from_csv(cls, source, filename=None, org=None):
@@ -1120,7 +1128,7 @@ class FundingRecord(BaseModel, AuditMixin):
                     funding_data["organization"] and \
                     funding_data["organization"]["disambiguated-organization"] else None
 
-                disambiguated_source = funding_data["organization"][
+                disambiguation_source = funding_data["organization"][
                     "disambiguated-organization"]["disambiguation-source"] if \
                     funding_data["organization"] and \
                     funding_data["organization"]["disambiguated-organization"] else None
@@ -1134,7 +1142,7 @@ class FundingRecord(BaseModel, AuditMixin):
                                                       amount=amount, currency=currency, org_name=org_name, city=city,
                                                       region=region, country=country,
                                                       disambiguated_org_identifier=disambiguated_org_identifier,
-                                                      disambiguated_source=disambiguated_source,
+                                                      disambiguation_source=disambiguation_source,
                                                       visibility=visibility, start_date=start_date, end_date=end_date)
 
                 contributors_list = funding_data["contributors"]["contributor"]
