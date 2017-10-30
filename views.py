@@ -20,10 +20,10 @@ import orcid_client
 import utils
 from application import admin, app
 from config import ORCID_BASE_URL, SCOPE_ACTIVITIES_UPDATE, SCOPE_READ_LIMITED
-from forms import (BitmapMultipleValueField, FileUploadForm, JsonFileUploadForm,
+from forms import (BitmapMultipleValueField, FileUploadForm, JsonOrYamlFileUploadForm,
                    OrgRegistrationForm, PartialDateField, RecordForm, UserInvitationForm)
 from login_provider import roles_required
-from models import AffiliationRecord  # noqa: F401
+from models import AffiliationRecord, FundingContributor  # noqa: F401
 from models import (Affiliation, CharField, FundingRecord, ModelException, OrcidApiCall,
                     OrcidToken, Organisation, OrgInfo, OrgInvitation, PartialDate, Role, Task,
                     TextField, Url, User, UserInvitation, UserOrg, UserOrgAffiliation, db)
@@ -374,6 +374,31 @@ class TaskAdmin(AppModelView):
     can_delete = True
 
 
+class FundingContributorAdmin(AppModelView):
+    """Funding record model view."""
+
+    roles_required = Role.SUPERUSER | Role.ADMIN
+    list_template = "funding_contributor_list.html"
+    column_exclude_list = (
+        "funding_record", )
+
+    can_edit = True
+    can_create = False
+    can_delete = False
+    can_view_details = True
+    can_export = True
+
+    form_widget_args = {"external_id": {"readonly": True}}
+
+    def is_accessible(self):
+        """Verify if the funding contributor view is accessible for the current user."""
+        if not super().is_accessible():
+            flash("Access denied! You cannot access this task.", "danger")
+            return False
+
+        return True
+
+
 class FundingRecordAdmin(AppModelView):
     """Funding record model view."""
 
@@ -382,9 +407,9 @@ class FundingRecordAdmin(AppModelView):
     column_exclude_list = (
         "task",
         "organisation", )
-    """column_searchable_list = (
-        "first_name",
-         )"""
+    column_searchable_list = (
+        "title",
+         )
     column_export_exclude_list = (
         "task",
         "is_active", )
@@ -601,6 +626,7 @@ admin.add_view(OrcidApiCallAmin(OrcidApiCall))
 admin.add_view(TaskAdmin(Task))
 admin.add_view(AffiliationRecordAdmin())
 admin.add_view(FundingRecordAdmin())
+admin.add_view(FundingContributorAdmin())
 admin.add_view(AppModelView(UserInvitation))
 admin.add_view(ViewMembersAdmin(name="viewmembers", endpoint="viewmembers"))
 
@@ -844,6 +870,14 @@ def employment_list(user_id):
     return show_record_section(user_id, "EMP")
 
 
+@app.route("/<int:funding_record_id>/FundingContributor/list")
+@app.route("/<int:funding_record_id>/FundingContributor")
+@login_required
+def funding_contributor_list(funding_record_id):
+    """Show the funding contributors list of the selected user."""
+    return redirect(url_for("fundingcontributor.index_view", funding_record_id=funding_record_id))
+
+
 @app.route("/<int:user_id>/edu/list")
 @app.route("/<int:user_id>/edu")
 @login_required
@@ -959,7 +993,7 @@ def load_researcher_affiliations():
 @roles_required(Role.ADMIN)
 def load_researcher_funding():
     """Preload organisation data."""
-    form = JsonFileUploadForm()
+    form = JsonOrYamlFileUploadForm()
     if form.validate_on_submit():
         filename = secure_filename(form.file_.data.filename)
         task = FundingRecord.load_from_json(read_uploaded_file(form), filename=filename)

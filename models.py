@@ -7,6 +7,8 @@ import random
 import re
 import string
 import uuid
+import yaml
+import os
 from collections import namedtuple
 from datetime import datetime
 from hashlib import md5
@@ -1086,7 +1088,12 @@ class FundingRecord(BaseModel, AuditMixin):
     def load_from_json(cls, source, filename=None, org=None):
         """Load data from CSV file or a string."""
         if isinstance(source, str):
-            funding_data = json.loads(source)
+            # import data from file based on its extension; either it is yaml or json
+            if os.path.splitext(filename)[1][1:] == "yaml" or "yml":
+                funding_data = yaml.load(source)
+            else:
+                funding_data = json.loads(source)
+
             try:
                 if org is None:
                     org = current_user.organisation if current_user else None
