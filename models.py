@@ -323,7 +323,7 @@ class Organisation(BaseModel, AuditMixin):
             return (self.orginvitation_set.select(OrgInvitation.invitee).where(
                 OrgInvitation.invitee_id == self.tech_contact_id)
                     .order_by(OrgInvitation.created_at.desc()).first().invitee)
-        except:
+        except Exception:
             return None
 
     @property
@@ -333,7 +333,7 @@ class Organisation(BaseModel, AuditMixin):
             return (self.orginvitation_set.select(
                 fn.MAX(OrgInvitation.created_at).alias("last_sent_at")).where(
                     OrgInvitation.invitee_id == self.tech_contact_id).first().last_sent_at)
-        except:
+        except Exception:
             return None
 
     @property
@@ -344,7 +344,7 @@ class Organisation(BaseModel, AuditMixin):
                 fn.MAX(OrgInvitation.created_at).alias("last_confirmed_at")).where(
                     OrgInvitation.invitee_id == self.tech_contact_id)
                     .where(OrgInvitation.confirmed_at.is_null(False)).first().last_confirmed_at)
-        except:
+        except Exception:
             return None
 
     @property
@@ -528,7 +528,7 @@ class User(BaseModel, UserMixin, AuditMixin):
         elif isinstance(role, str):
             try:
                 return bool(Role[role.upper()] & Role(self.roles))
-            except:
+            except Exception:
                 False
         elif type(role) is int:
             return bool(role & self.roles)

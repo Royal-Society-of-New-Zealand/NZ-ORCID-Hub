@@ -580,7 +580,7 @@ def delete_employment(user_id, put_code=None):
         put_code = request.form.get("put_code")
     try:
         user = User.get(id=user_id, organisation_id=current_user.organisation_id)
-    except:
+    except Exception:
         flash("ORCID HUB doent have data related to this researcher", "warning")
         return redirect(url_for('viewmembers.index_view'))
     if not user.orcid:
@@ -594,7 +594,7 @@ def delete_employment(user_id, put_code=None):
             user=user,
             org=user.organisation,
             scope=SCOPE_READ_LIMITED[0] + "," + SCOPE_ACTIVITIES_UPDATE[0])
-    except:
+    except Exception:
         flash("The user hasn't authorized you to delete records", "warning")
         return redirect(_url)
 
@@ -653,7 +653,7 @@ def edit_section_record(user_id, put_code=None, section_type="EMP"):
     try:
         orcid_token = OrcidToken.get(
             user=user, org=org, scope=SCOPE_READ_LIMITED[0] + "," + SCOPE_ACTIVITIES_UPDATE[0])
-    except:
+    except Exception:
         flash("The user hasn't authorized you to Add records", "warning")
         return redirect(_url)
     orcid_client.configuration.access_token = orcid_token.access_token
@@ -756,7 +756,7 @@ def show_record_section(user_id, section_type="EMP"):
     section_type = section_type.upper()[:3]  # normalize the section type
     try:
         user = User.get(id=user_id, organisation_id=current_user.organisation_id)
-    except:
+    except Exception:
         flash("ORCID HUB doent have data related to this researcher", "warning")
         return redirect(_url)
 
@@ -767,7 +767,7 @@ def show_record_section(user_id, section_type="EMP"):
     orcid_token = None
     try:
         orcid_token = OrcidToken.get(user=user, org=current_user.organisation)
-    except:
+    except Exception:
         flash("User didn't give permissions to update his/her records", "warning")
         return redirect(_url)
 
@@ -876,7 +876,7 @@ def load_researcher_funding():
                     user=user,
                     org=current_user.organisation,
                     scope=SCOPE_READ_LIMITED[0] + "," + SCOPE_ACTIVITIES_UPDATE[0])
-            except:
+            except Exception:
                 # TODO: Send a mail to researcher asking him permissions
                 flash(f"The user {email} hasn't authorized you to add funding record", "warning")
                 continue
