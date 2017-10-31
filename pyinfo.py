@@ -24,7 +24,7 @@ def _info():
             module = __import__(i)
             sys.modules[i] = module
             globals()[i] = module
-        except:
+        except Exception:
             pass
 
     info = {}
@@ -176,7 +176,7 @@ def get_socket_info():  # noqa: D103
                         socket.gethostbyaddr(socket.gethostname())[0]))
     try:
         socket_info.append(('IP Address', socket.gethostbyname(socket.gethostname())))
-    except:
+    except Exception:
         pass
     socket_info.append(('IPv6 Support', getattr(socket, 'has_ipv6', False)))
     socket_info.append(('SSL Support', hasattr(socket, 'ssl')))

@@ -22,7 +22,7 @@ class PgDbWithFailover(PostgresqlDatabase):
                 with self.exception_wrapper:
                     try:
                         self._close(self._local.conn)
-                    except:
+                    except Exception:
                         pass
                     self._local.closed = True
         super().connect()
