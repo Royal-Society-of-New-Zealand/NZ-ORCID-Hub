@@ -443,9 +443,12 @@ class AffiliationRecordAdmin(AppModelView):
                                      export_type)
         return super().get_export_name(export_type=export_type)
 
-    @action("activate", "Activate for processing",
-            "Are you sure you want to activate the selected records for batch processing?\n\nBy clicking \"OK\" " +
-            "you are affirming that the affiliations to be written are, to the\n best of your knowledge, correct!")
+    @action(
+        "activate", "Activate for processing",
+        "Are you sure you want to activate the selected records for batch processing?\n\nBy clicking \"OK\" "
+        +
+        "you are affirming that the affiliations to be written are, to the\n best of your knowledge, correct!"
+    )
     def action_activate(self, ids):
         """Batch registraion of users."""
         try:
@@ -1062,28 +1065,39 @@ def invite_organisation():
     if form.validate_on_submit():
         params = {f.name: f.data for f in form}
         try:
+            org_name = params.get("org_name")
+            email = params.get("org_email").lower()
+
+            if params.get("tech_contact"):
+                try:
+                    org = Organisation.get(name=org_name)
+                    if org.tech_contact and org.tech_contact.email != email:
+                        flash(f"The current tech.conact {org.tech_contact.name} "
+                              f"({org.tech_contact.email}) will be revoked.", "warning")
+                except Organisation.DoesNotExist:
+                    pass
+
             register_org(**params)
-            org = Organisation.get(name=params["org_name"])
-            user = User.get(email=form.org_email.data)
+            org = Organisation.get(name=org_name)
+            user = User.get(email=email)
             if org.confirmed:
                 if user.is_tech_contact_of(org):
                     flash("New Technical contact has been Invited Successfully! "
                           "An email has been sent to the Technical contact", "success")
                     app.logger.info(
-                        "For Organisation '%s' , New Technical Contact '%s' has been invited successfully."
-                        % (form.org_name.data, form.org_email.data))
+                        f"For Organisation '{org_name}' , "
+                        f"New Technical Contact '{email}' has been invited successfully.")
                 else:
                     flash("New Organisation Admin has been Invited Successfully! "
                           "An email has been sent to the Organisation Admin", "success")
                     app.logger.info(
-                        "For Organisation '%s' , New Organisation Admin '%s' has been invited successfully."
-                        % (form.org_name.data, form.org_email.data))
+                        f"For Organisation '{org_name}' , "
+                        f"New Organisation Admin '{email}' has been invited successfully.")
             else:
                 flash("Organisation Invited Successfully! "
                       "An email has been sent to the organisation contact", "success")
-                app.logger.info(
-                    "Organisation '%s' successfully invited. Invitation sent to '%s'." %
-                    (form.org_name.data, form.org_email.data))
+                app.logger.info(f"Organisation '{org_name}' successfully invited. "
+                                f"Invitation sent to '{email}'.")
         except Exception as ex:
             app.logger.exception(f"Failed to send registration invitation with {params}.")
             flash(f"Failed to send registration invitation: {ex}.", "danger")

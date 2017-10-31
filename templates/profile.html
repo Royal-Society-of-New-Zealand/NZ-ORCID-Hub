@@ -42,7 +42,7 @@
         {% if session['Should_not_logout_from_ORCID'] %}
             <p class="text-center">To review and manage all your ORCID permissions, log into the settings page of your ORCID record here:
             <a href= '{{ profile_url + "account"}}' ><span>{{ profile_url + 'account' }}</span></a> and review the "Trusted organisations" listed.</p>
-            <button class="connect-orcid-button" onclick="location.href='{{profile_url + 'signin'}}'" style="height: 50px;width: auto;">
+            <button class="connect-orcid-button" onclick="location.href='{{profile_url + 'my-orcid'}}'" style="height: 50px;width: auto;">
                 <img class="orcid-id-logo" src="https://orcid.org/sites/default/files/images/orcid_24x24.png" width="24" height="24" alt="ORCID logo" /> Take me to my record in ORCID
             </button>
         {% else %}
@@ -63,7 +63,7 @@
                 url: "{{profile_url}}" + "userStatus.json?logUserOut=true",
                 dataType: 'jsonp',
                 success: function(result,status,xhr) {
-                    window.location='{{profile_url + "signin"}}'
+                    window.location='{{profile_url + "my-orcid"}}'
                 },
                 error: function (xhr, status, error) {
                     alert(status);
