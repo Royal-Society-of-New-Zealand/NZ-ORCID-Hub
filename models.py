@@ -878,7 +878,7 @@ class Task(BaseModel, AuditMixin):
                 return default
             else:
                 v = row[idxs[i]].strip()
-                return None if v == '' else v
+                return default if v == '' else v
 
         with db.atomic():
             try:
@@ -889,7 +889,7 @@ class Task(BaseModel, AuditMixin):
                     if len(row) == 0:
                         continue
 
-                    email = val(row, 2).lower()
+                    email = val(row, 2, "").lower()
                     orcid = val(row, 15)
 
                     if not (email or orcid):
