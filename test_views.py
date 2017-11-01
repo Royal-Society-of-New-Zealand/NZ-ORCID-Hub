@@ -26,8 +26,15 @@ def test_db():
     """Test to check db."""
     _db = SqliteDatabase(":memory:")
     with test_database(
-            _db, (Organisation, User, UserOrg, OrcidToken, UserOrgAffiliation, Task,
-                  AffiliationRecord),
+            _db, (
+                Organisation,
+                User,
+                UserOrg,
+                OrcidToken,
+                UserOrgAffiliation,
+                Task,
+                AffiliationRecord,
+            ),
             fail_silently=True) as _test_db:
         yield _test_db
 
