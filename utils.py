@@ -207,7 +207,7 @@ def confirm_token(token, expiration=1300000):
     serializer = URLSafeTimedSerializer(app.config["SECRET_KEY"])
     try:
         data = serializer.loads(token, salt=app.config["SALT"], max_age=expiration)
-    except:
+    except Exception:
         return False
     return data
 

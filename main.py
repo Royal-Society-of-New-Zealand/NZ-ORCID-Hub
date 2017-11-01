@@ -48,7 +48,7 @@ def initdb(create=False, drop=False, force=False, audit=True, verbose=False):
 
     try:
         models.create_tables()
-    except:
+    except Exception:
         app.logger.exception("Failed to create tables...")
 
     if audit:
