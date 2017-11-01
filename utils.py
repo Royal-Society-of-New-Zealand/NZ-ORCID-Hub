@@ -102,8 +102,8 @@ def send_email(template_filename,
         reply_to = sender
 
     rendered = template.make_module(vars=kwargs)
-    plain_rendered = plain_template.make_module(
-        vars=kwargs) if plain_template else html2text(str(rendered))
+    plain_rendered = plain_template.make_module(vars=kwargs) if plain_template else html2text(
+        str(rendered))
 
     if subject is None:
         subject = getattr(rendered, "subject", "Welcome to the NZ ORCID Hub")
@@ -511,9 +511,9 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
             (AffiliationRecord.update(status=AffiliationRecord.status + "\n" + status).where(
                 AffiliationRecord.status.is_null(False),
                 AffiliationRecord.email == user.email).execute())
-            (AffiliationRecord.update(
-                status=status).where(AffiliationRecord.status.is_null(),
-                                     AffiliationRecord.email == user.email).execute())
+            (AffiliationRecord.update(status=status).where(
+                AffiliationRecord.status.is_null(),
+                AffiliationRecord.email == user.email).execute())
             return
 
 

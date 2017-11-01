@@ -78,7 +78,8 @@ class PartialDateField(Field):
             for f in (
                     "year",
                     "month",
-                    "day", ):
+                    "day",
+            ):
                 try:
                     if (self.name + ":" + f) in formdata:
                         raw_val = formdata.get(self.name + ":" + f)
@@ -158,8 +159,8 @@ class BitmapMultipleValueField(SelectMultipleField):
             for d in self.data:
                 if d not in values:
                     raise ValueError(
-                        self.gettext("'%(value)s' is not a valid choice for this field") % dict(
-                            value=d))
+                        self.gettext("'%(value)s' is not a valid choice for this field") %
+                        dict(value=d))
 
 
 class RecordForm(FlaskForm):
