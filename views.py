@@ -7,10 +7,6 @@ from collections import namedtuple
 from datetime import datetime
 
 from flask import (abort, flash, redirect, render_template, request, send_from_directory, url_for)
-from flask_admin.actions import action
-from flask_admin.contrib.peewee import ModelView
-from flask_admin.form import SecureForm
-from flask_admin.model import typefmt
 from flask_login import current_user, login_required
 from jinja2 import Markup
 from werkzeug import secure_filename
@@ -20,6 +16,10 @@ import orcid_client
 import utils
 from application import admin, app
 from config import ORCID_BASE_URL, SCOPE_ACTIVITIES_UPDATE, SCOPE_READ_LIMITED
+from flask_admin.actions import action
+from flask_admin.contrib.peewee import ModelView
+from flask_admin.form import SecureForm
+from flask_admin.model import typefmt
 from forms import (BitmapMultipleValueField, FileUploadForm, JsonFileUploadForm,
                    OrgRegistrationForm, PartialDateField, RecordForm, UserInvitationForm)
 from login_provider import roles_required
@@ -98,7 +98,8 @@ class AppModelView(ModelView):
     column_type_formatters_export.update({PartialDate: lambda view, value: str(value)})
     column_exclude_list = (
         "updated_at",
-        "updated_by", )
+        "updated_by",
+    )
     form_overrides = dict(start_date=PartialDateField, end_date=PartialDateField)
     form_widget_args = {c: {"readonly": True} for c in column_exclude_list}
 
@@ -113,6 +114,18 @@ class AppModelView(ModelView):
             if model is None:
                 raise Exception(f"Model class {model_class_name} doesn't exit.")
         super().__init__(model, *args, **kwargs)
+
+    # TODO: remove whent it gets merged into the upsteem repo (it's a workaround to make
+    # joins LEFT OUTERE)
+    def _handle_join(self, query, field, joins):
+        if field.model_class != self.model:
+            model_name = field.model_class.__name__
+
+            if model_name not in joins:
+                query = query.join(field.model_class, "LEFT OUTER")
+                joins.add(model_name)
+
+        return query
 
     def get_pk_value(self, model):
         """Get correct value for composite keys."""
@@ -143,7 +156,8 @@ class AppModelView(ModelView):
                 # Check type
                 if not isinstance(p, (
                         CharField,
-                        TextField, )):
+                        TextField,
+                )):
                     raise Exception('Can only search on text columns. ' +
                                     'Failed to setup search for "%s"' % p)
 
@@ -197,7 +211,8 @@ class AppModelView(ModelView):
                 'page_size',
                 'sort',
                 'desc',
-                'search', ) and not k.startswith('flt')
+                'search',
+            ) and not k.startswith('flt')
         }
         view_args.extra_args = extra_args
         return view_args
@@ -215,7 +230,8 @@ class UserAdmin(AppModelView):
         "password",
         "username",
         "first_name",
-        "last_name", )
+        "last_name",
+    )
     column_formatters = dict(
         roles=lambda v, c, m, p: ", ".join(n for r, n in v.roles.items() if r & m.roles),
         orcid=lambda v, c, m, p: m.orcid.replace("-", "\u2011") if m.orcid else "")
@@ -224,7 +240,8 @@ class UserAdmin(AppModelView):
         "orcid",
         "email",
         "eppn",
-        "organisation.name", )
+        "organisation.name",
+    )
     form_overrides = dict(roles=BitmapMultipleValueField)
     form_args = dict(roles=dict(choices=roles.items()))
 
@@ -269,7 +286,8 @@ class OrganisationAdmin(AppModelView):
     column_searchable_list = (
         "name",
         "tuakiri_name",
-        "city", )
+        "city",
+    )
     edit_template = "admin/organisation_edit.html"
     form_widget_args = AppModelView.form_widget_args
     form_widget_args["api_credentials_requested_at"] = {"readonly": True}
@@ -300,7 +318,8 @@ class OrgInfoAdmin(AppModelView):
         "city",
         "first_name",
         "last_name",
-        "email", )
+        "email",
+    )
 
     @action("invite", "Register Organisation",
             "Are you sure you want to register selected organisations?")
@@ -335,7 +354,8 @@ class OrcidTokenAdmin(AppModelView):
     column_searchable_list = (
         "user.name",
         "user.email",
-        "org.name", )
+        "org.name",
+    )
     can_export = True
     can_create = False
 
@@ -351,7 +371,8 @@ class OrcidApiCallAmin(AppModelView):
         "url",
         "body",
         "response",
-        "user.name", )
+        "user.name",
+    )
 
 
 class UserOrgAmin(AppModelView):
@@ -359,7 +380,8 @@ class UserOrgAmin(AppModelView):
 
     column_searchable_list = (
         "user.email",
-        "org.name", )
+        "org.name",
+    )
 
 
 class TaskAdmin(AppModelView):
@@ -379,17 +401,20 @@ class AffiliationRecordAdmin(AppModelView):
     list_template = "affiliation_record_list.html"
     column_exclude_list = (
         "task",
-        "organisation", )
+        "organisation",
+    )
     column_searchable_list = (
         "first_name",
         "last_name",
         "email",
         "role",
         "department",
-        "state", )
+        "state",
+    )
     column_export_exclude_list = (
         "task",
-        "is_active", )
+        "is_active",
+    )
     can_edit = True
     can_create = False
     can_delete = False
@@ -509,9 +534,9 @@ admin.add_view(ViewMembersAdmin(name="viewmembers", endpoint="viewmembers"))
 
 admin.add_view(UserOrgAmin(UserOrg))
 
-SectionRecord = namedtuple("SectionRecord", [
-    "org_name", "city", "state", "country", "department", "role", "start_date", "end_date"
-])
+SectionRecord = namedtuple(
+    "SectionRecord",
+    ["org_name", "city", "state", "country", "department", "role", "start_date", "end_date"])
 SectionRecord.__new__.__defaults__ = (None, ) * len(SectionRecord._fields)
 
 
@@ -559,9 +584,9 @@ def activate_all():
     _url = request.args.get("url") or request.referrer
     task_id = request.form.get('task_id')
     try:
-        count = AffiliationRecord.update(
-            is_active=True).where(AffiliationRecord.task_id == task_id,
-                                  AffiliationRecord.is_active == False).execute()  # noqa: E712
+        count = AffiliationRecord.update(is_active=True).where(
+            AffiliationRecord.task_id == task_id,
+            AffiliationRecord.is_active == False).execute()  # noqa: E712
     except Exception as ex:
         flash(f"Failed to activate the selected records: {ex}")
         app.logger.exception("Failed to activate the selected records")
@@ -845,7 +870,8 @@ def load_researcher_affiliations():
             return redirect(url_for("affiliationrecord.index_view", task_id=task.id))
         except (
                 ValueError,
-                ModelException, ) as ex:
+                ModelException,
+        ) as ex:
             flash(f"Failed to load affiliation record file: {ex}", "danger")
             app.logger.exception("Failed to load affiliation records.")
 
@@ -1018,8 +1044,8 @@ def register_org(org_name,
         # TODO: for via_orcid constact direct link to ORCID with callback like to HUB
         if via_orcid:
             short_id = Url.shorten(
-                url_for("orcid_login", invitation_token=token, _next=url_for(
-                    "onboard_org"))).short_id
+                url_for("orcid_login", invitation_token=token,
+                        _next=url_for("onboard_org"))).short_id
             invitation_url = url_for("short_url", short_id=short_id, _external=True)
         else:
             invitation_url = url_for("login", _external=True)

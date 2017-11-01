@@ -32,7 +32,8 @@ AFFILIATION_TYPES = (
     "student",
     "education",
     "staff",
-    "employment", )
+    "employment",
+)
 
 try:
     from enum import IntFlag
@@ -98,7 +99,7 @@ class PartialDate(namedtuple("PartialDate", ["year", "month", "day"])):
             return None
         if isinstance(value, str):
             try:
-                return cls(* [int(v) for v in value.split('-')])
+                return cls(*[int(v) for v in value.split('-')])
             except Exception as ex:
                 raise ModelException(f"Wrong partial date value '{value}': {ex}")
 
@@ -171,7 +172,8 @@ class PartialDateField(Field):
         return PartialDate(**dict(zip_longest((
             "year",
             "month",
-            "day", ), parts)))
+            "day",
+        ), parts)))
 
 
 class Role(IntFlag):
@@ -320,8 +322,8 @@ class Organisation(BaseModel, AuditMixin):
     def invitation_sent_to(self):
         """Get the most recent invitation recepient."""
         try:
-            return (self.orginvitation_set.select(OrgInvitation.invitee).where(
-                OrgInvitation.invitee_id == self.tech_contact_id)
+            return (self.orginvitation_set.select(
+                OrgInvitation.invitee).where(OrgInvitation.invitee_id == self.tech_contact_id)
                     .order_by(OrgInvitation.created_at.desc()).first().invitee)
         except Exception:
             return None
@@ -342,8 +344,8 @@ class Organisation(BaseModel, AuditMixin):
         try:
             return (self.orginvitation_set.select(
                 fn.MAX(OrgInvitation.created_at).alias("last_confirmed_at")).where(
-                    OrgInvitation.invitee_id == self.tech_contact_id)
-                    .where(OrgInvitation.confirmed_at.is_null(False)).first().last_confirmed_at)
+                    OrgInvitation.invitee_id == self.tech_contact_id).where(
+                        OrgInvitation.confirmed_at.is_null(False)).first().last_confirmed_at)
         except Exception:
             return None
 

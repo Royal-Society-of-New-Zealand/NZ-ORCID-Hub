@@ -134,8 +134,8 @@ def get_os_internals():  # noqa: D103
         os_internals.append(("Path Seperator", os.pathsep))
 
     if hasattr(os, 'getloadavg'):
-        os_internals.append(("Load Avarage",
-                             ', '.join(map(lambda x: str(round(x, 2)), os.getloadavg()))))
+        os_internals.append(("Load Avarage", ', '.join(
+            map(lambda x: str(round(x, 2)), os.getloadavg()))))
 
     return os_internals
 
