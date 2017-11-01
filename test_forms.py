@@ -38,25 +38,31 @@ def test_form():  # noqa
         bmvf1 = BitmapMultipleValueField(choices=[
             (
                 1,
-                "one", ),
+                "one",
+            ),
             (
                 2,
-                "two", ),
+                "two",
+            ),
             (
                 4,
-                "four", ),
+                "four",
+            ),
         ])
         bmvf2 = BitmapMultipleValueField(
             choices=[
                 (
                     1,
-                    "one", ),
+                    "one",
+                ),
                 (
                     2,
-                    "two", ),
+                    "two",
+                ),
                 (
                     4,
-                    "four", ),
+                    "four",
+                ),
             ], )
         bmvf2.is_bitmap_value = False
 
@@ -188,7 +194,8 @@ def test_bitmap_multiple_value_field(test_form):  # noqa
     tf.bmvf1.data = 3
     tf.bmvf2.data = (
         1,
-        4, )
+        4,
+    )
     tf.validate()
     tf.bmvf1.process_data(5)
     tf.bmvf1.process_data([1, 4])

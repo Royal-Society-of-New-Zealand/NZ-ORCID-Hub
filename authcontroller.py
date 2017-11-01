@@ -571,7 +571,9 @@ def profile():
         return redirect(url_for("login"))
     else:
         client = OAuth2Session(
-            user.organisation.orcid_client_id, token={"access_token": orcid_token.access_token})
+            user.organisation.orcid_client_id, token={
+                "access_token": orcid_token.access_token
+            })
         base_url = ORCID_API_BASE + user.orcid
         # TODO: utilize asyncio/aiohttp to run it concurrently
         resp_person = client.get(base_url + "/person", headers=HEADERS)
@@ -706,8 +708,8 @@ def onboard_org():
             try:
                 # Get the most recent invitation:
                 oi = (OrgInvitation.select().where(OrgInvitation.email == email,
-                                                   OrgInvitation.org == organisation)
-                      .order_by(OrgInvitation.id.desc()).first())
+                                                   OrgInvitation.org == organisation).order_by(
+                                                       OrgInvitation.id.desc()).first())
                 if oi:
                     if not oi.confirmed_at:
                         oi.confirmed_at = datetime.now()
