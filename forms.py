@@ -47,7 +47,7 @@ class PartialDate:
         yield "<select %s>" % html_params(name=field.name + ":" + part)
         try:
             current_value = int(getattr(field.data, part))
-        except:
+        except Exception:
             current_value = None
         # TODO: localization
         yield "<option %s>%s</option>" % (html_params(value="", selected=(current_value is None)),
