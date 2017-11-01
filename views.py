@@ -23,7 +23,7 @@ from config import ORCID_BASE_URL, SCOPE_ACTIVITIES_UPDATE, SCOPE_READ_LIMITED
 from forms import (BitmapMultipleValueField, FileUploadForm, JsonOrYamlFileUploadForm,
                    OrgRegistrationForm, PartialDateField, RecordForm, UserInvitationForm)
 from login_provider import roles_required
-from models import AffiliationRecord, FundingContributor  # noqa: F401
+from models import AffiliationRecord, FundingContributor, ExternalId    # noqa: F401
 from models import (Affiliation, CharField, FundingRecord, ModelException, OrcidApiCall,
                     OrcidToken, Organisation, OrgInfo, OrgInvitation, PartialDate, Role, Task,
                     TextField, Url, User, UserInvitation, UserOrg, UserOrgAffiliation, db)
@@ -374,6 +374,31 @@ class TaskAdmin(AppModelView):
     can_delete = True
 
 
+class ExternalIdAdmin(AppModelView):
+    """ExternalId model view."""
+
+    roles_required = Role.SUPERUSER | Role.ADMIN
+    list_template = "funding_externalid_list.html"
+    column_exclude_list = (
+        "funding_record", )
+
+    can_edit = True
+    can_create = False
+    can_delete = False
+    can_view_details = True
+    can_export = True
+
+    form_widget_args = {"external_id": {"readonly": True}}
+
+    def is_accessible(self):
+        """Verify if the external id's view is accessible for the current user."""
+        if not super().is_accessible():
+            flash("Access denied! You cannot access this task.", "danger")
+            return False
+
+        return True
+
+
 class FundingContributorAdmin(AppModelView):
     """Funding record model view."""
 
@@ -627,6 +652,7 @@ admin.add_view(TaskAdmin(Task))
 admin.add_view(AffiliationRecordAdmin())
 admin.add_view(FundingRecordAdmin())
 admin.add_view(FundingContributorAdmin())
+admin.add_view(ExternalIdAdmin())
 admin.add_view(AppModelView(UserInvitation))
 admin.add_view(ViewMembersAdmin(name="viewmembers", endpoint="viewmembers"))
 
@@ -876,6 +902,14 @@ def employment_list(user_id):
 def funding_contributor_list(funding_record_id):
     """Show the funding contributors list of the selected user."""
     return redirect(url_for("fundingcontributor.index_view", funding_record_id=funding_record_id))
+
+
+@app.route("/<int:funding_record_id>/ExternaId/list")
+@app.route("/<int:funding_record_id>/ExternaId")
+@login_required
+def externalid_list(funding_record_id):
+    """Show the External id list of the funding item."""
+    return redirect(url_for("externalid.index_view", funding_record_id=funding_record_id))
 
 
 @app.route("/<int:user_id>/edu/list")
