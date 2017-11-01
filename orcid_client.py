@@ -435,13 +435,13 @@ class MemberAPI(MemberAPIV20Api):
                 try:
                     orcid, put_code = location.split("/")[-3::2]
                     put_code = int(put_code)
-                except:
+                except Exception:
                     app.logger.exception("Failed to get ORCID iD/put-code from the response.")
                     raise Exception("Failed to get ORCID iD/put-code from the response.")
             elif resp.status == 200:
                 orcid = self.user.orcid
 
-        except:
+        except Exception:
             app.logger.exception(f"For {self.user} encountered exception")
         else:
             return (put_code, orcid, created)
