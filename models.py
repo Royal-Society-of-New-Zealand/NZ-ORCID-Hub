@@ -1078,7 +1078,6 @@ class FundingRecord(BaseModel, AuditMixin):
     disambiguated_org_identifier = CharField(null=True, max_length=255)
     disambiguation_source = CharField(null=True, max_length=255)
     visibility = CharField(null=True, max_length=100)
-    put_code = IntegerField(null=True)
     is_active = BooleanField(
         default=False, help_text="The record is marked for batch processing", null=True)
     processed_at = DateTimeField(null=True)
@@ -1154,7 +1153,9 @@ class FundingRecord(BaseModel, AuditMixin):
 
                 contributors_list = funding_data["contributors"]["contributor"]
                 for contributor in contributors_list:
-                    orcid_id = contributor["contributor-orcid"]["path"]
+                    orcid_id = None
+                    if contributor["contributor-orcid"] and contributor["contributor-orcid"]["path"]:
+                        orcid_id = contributor["contributor-orcid"]["path"]
                     email = contributor["contributor-email"]["value"]
                     name = contributor["credit-name"]["value"]
                     role = contributor["contributor-attributes"]["contributor-role"]
@@ -1196,6 +1197,7 @@ class FundingContributor(BaseModel):
     role = CharField(max_length=120, null=True)
     status = TextField(null=True, help_text="Record processing status.")
     put_code = IntegerField(null=True)
+    processed_at = DateTimeField(null=True)
 
     def add_status_line(self, line):
         """Add a text line to the status for logging processing progress."""

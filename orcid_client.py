@@ -251,12 +251,18 @@ class MemberAPI(MemberAPIV20Api):
 
         funding_contributor_list = []
         for f in funding_contributors:
-            contributor_from_user_table = UserModel.get(
-                UserModel.email == f.email and UserModel.orcid.is_null(False))
+            contributor_from_user_table = UserModel.get(UserModel.email == f.email)
             path = None
             uri = None
             host = None
-            if contributor_from_user_table:
+            credit_name = None
+            contributor_orcid = None
+            if f.name:
+                credit_name = CreditName(value=f.name)      # noqa: F405
+            elif contributor_from_user_table and contributor_from_user_table.name:
+                credit_name = CreditName(value=contributor_from_user_table.name)        # noqa: F405
+
+            if contributor_from_user_table and contributor_from_user_table.orcid:
                 path = contributor_from_user_table.orcid
             elif f.orcid:
                 path = f.orcid
@@ -265,8 +271,7 @@ class MemberAPI(MemberAPIV20Api):
                 url = urlparse(ORCID_BASE_URL)
                 uri = "http://" + url.hostname + "/" + path
                 host = url.hostname
-            contributor_orcid = ContributorOrcid(uri=uri, path=path, host=host)     # noqa: F405
-            credit_name = CreditName(value=f.name)      # noqa: F405
+                contributor_orcid = ContributorOrcid(uri=uri, path=path, host=host)     # noqa: F405
             contributor_email = ContributorEmail(value=f.email)     # noqa: F405
             contributor_attributes = FundingContributorAttributes(contributor_role=f.role)      # noqa: F405
 

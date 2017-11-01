@@ -378,7 +378,6 @@ def create_or_update_funding(user, org_id, records, *args, **kwargs):
             match_put_code(fundings, fr, fc)
 
         for task_by_user in records:
-            fr = task_by_user.funding_record
             fc = task_by_user.funding_record.funding_contributor
 
             try:
@@ -389,14 +388,14 @@ def create_or_update_funding(user, org_id, records, *args, **kwargs):
                     fc.add_status_line(f"Funding record was updated.")
                 fc.orcid = orcid
                 fc.put_code = put_code
-                fr.processed_at = datetime.now()
+                fc.processed_at = datetime.now()
 
             except Exception as ex:
                 logger.exception(f"For {user} encountered exception")
-                fr.add_status_line(f"Exception occured processing the record: {ex}.")
+                fc.add_status_line(f"Exception occured processing the record: {ex}.")
 
             finally:
-                fr.save()
+                fc.save()
     else:
         # TODO: Invitation resend in case user revokes organisation permissions
         app.logger.debug(
@@ -668,13 +667,14 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
 def process_funding_records(max_rows=20):
     """Process uploaded affiliation records."""
     set_server_name()
-
+    task_ids = set()
+    funding_ids = set()
     """This query is to retrieve Tasks associated with funding records, which are not processed but are active"""
 
     tasks = (Task.select(Task, FundingRecord, FundingContributor, User,
                          UserInvitation.id.alias("invitation_id"), OrcidToken).where(
-        FundingRecord.processed_at.is_null(), FundingRecord.is_active,
-        (OrcidToken.id.is_null(False) | ((FundingRecord.status.is_null()) | (FundingRecord.status.contains(
+        FundingRecord.processed_at.is_null(), FundingContributor.processed_at.is_null(), FundingRecord.is_active,
+        (OrcidToken.id.is_null(False) | ((FundingContributor.status.is_null()) | (FundingContributor.status.contains(
             "sent").__invert__())))).join(FundingRecord, on=(Task.id == FundingRecord.task_id)).join(
         FundingContributor, on=(FundingRecord.id == FundingContributor.funding_record_id)).join(
         User, JOIN.LEFT_OUTER, on=((User.email == FundingContributor.email) | (User.orcid == FundingContributor.orcid)))
@@ -705,6 +705,26 @@ def process_funding_records(max_rows=20):
                 send_funding_invitation(*k, task_id=task_id)
         else:
             create_or_update_funding(user, org_id, tasks_by_user)
+        task_ids.add(task_id)
+        funding_ids.add(funding_record_id)
+
+        for funding_record in FundingRecord.select().where(FundingRecord.id << funding_ids):
+            # The funding record is processed for all contributors
+            if not (FundingContributor.select().where(
+                        FundingContributor.funding_record_id == funding_record.id,
+                    FundingContributor.processed_at.is_null()).exists()):
+                funding_record.processed_at = datetime.now()
+                funding_record.add_status_line(
+                    f"Funding record is processed, and now the funding record will appear on contributors profile")
+                funding_record.save()
+
+        for task in Task.select().where(Task.id << task_ids):
+            # The task is completed (Once all records are processed):
+            if not (FundingRecord.select().where(
+                        FundingRecord.task_id == task.id,
+                    FundingRecord.processed_at.is_null()).exists()):
+                task.completed_at = datetime.now()
+                task.save()
 
 
 def process_affiliation_records(max_rows=20):
