@@ -6,6 +6,7 @@ import flask_login
 from flask import Flask
 from flask_debugtoolbar import DebugToolbarExtension
 from flask_mail import Mail
+from flask_oauthlib.provider import OAuth2Provider
 from peewee import PostgresqlDatabase
 from playhouse import db_url
 from playhouse.shortcuts import RetryOperationalError
@@ -23,6 +24,7 @@ class ReconnectablePostgresqlDatabase(RetryOperationalError, PostgresqlDatabase)
 
 app = Flask(__name__)
 app.config.from_object(__name__)
+oauth = OAuth2Provider(app)
 
 # TODO: implment connection factory
 db_url.register_database(PgDbWithFailover, "pg+failover", "postgres+failover")

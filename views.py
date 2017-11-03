@@ -24,9 +24,10 @@ from forms import (BitmapMultipleValueField, FileUploadForm, JsonFileUploadForm,
                    OrgRegistrationForm, PartialDateField, RecordForm, UserInvitationForm)
 from login_provider import roles_required
 from models import AffiliationRecord  # noqa: F401
-from models import (Affiliation, CharField, FundingRecord, ModelException, OrcidApiCall,
-                    OrcidToken, Organisation, OrgInfo, OrgInvitation, PartialDate, Role, Task,
-                    TextField, Url, User, UserInvitation, UserOrg, UserOrgAffiliation, db)
+from models import (Affiliation, CharField, Client, FundingRecord, Grant, ModelException,
+                    OrcidApiCall, OrcidToken, Organisation, OrgInfo, OrgInvitation, PartialDate,
+                    Role, Task, TextField, Token, Url, User, UserInvitation, UserOrg,
+                    UserOrgAffiliation, db)
 # NB! Should be disabled in production
 from pyinfo import info
 from swagger_client.rest import ApiException
@@ -533,6 +534,9 @@ admin.add_view(AppModelView(UserInvitation))
 admin.add_view(ViewMembersAdmin(name="viewmembers", endpoint="viewmembers"))
 
 admin.add_view(UserOrgAmin(UserOrg))
+admin.add_view(AppModelView(Client))
+admin.add_view(AppModelView(Grant))
+admin.add_view(AppModelView(Token))
 
 SectionRecord = namedtuple(
     "SectionRecord",

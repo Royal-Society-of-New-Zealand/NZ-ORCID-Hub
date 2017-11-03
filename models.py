@@ -735,7 +735,7 @@ class OrcidToken(BaseModel, AuditMixin):
 
     user = ForeignKeyField(User)
     org = ForeignKeyField(Organisation, index=True, verbose_name="Organisation")
-    scope = TextField(null=True)
+    scope = TextField(null=True, db_column="scope")  # TODO impomenet property
     access_token = CharField(max_length=36, unique=True, null=True)
     issue_time = DateTimeField(default=datetime.now)
     refresh_token = CharField(max_length=36, unique=True, null=True)
@@ -1194,6 +1194,123 @@ class Funding(BaseModel):
     url = TextField()
 
 
+class Client(BaseModel, AuditMixin):
+    """API Client Application.
+
+    A client is the app which wants to use the resource of a user.
+    It is suggested that the client is registered by a user on your site,
+    but it is not required.
+    """
+
+    name = CharField(null=True, max_length=40, help_text="human readable name, not required")
+    description = CharField(
+        null=True, max_length=400, help_text="human readable description, not required")
+    user = ForeignKeyField(
+        User, null=True, on_delete="SET NULL", help_text="creator of the client, not required")
+
+    client_id = CharField(max_length=40, unique=True)
+    client_secret = CharField(max_length=55, unique=True)
+    is_confidential = BooleanField(null=True, help_text="public or confidential")
+
+    _redirect_uris = TextField(null=True)
+    _default_scopes = TextField(null=True)
+
+    @property
+    def client_type(self):
+        if self.is_confidential:
+            return 'confidential'
+        return 'public'
+
+    @property
+    def redirect_uris(self):
+        if self._redirect_uris:
+            return self._redirect_uris.split()
+        return []
+
+    @property
+    def default_redirect_uri(self):
+        return self.redirect_uris[0]
+
+    @property
+    def default_scopes(self):
+        if self._default_scopes:
+            return self._default_scopes.split()
+        return []
+
+
+class Grant(BaseModel):
+    """Grant Token
+
+    A grant token is created in the authorization flow, and will be destroyed when
+    the authorization is finished. In this case, it would be better to store the data
+    in a cache, which leads to better performance.
+    """
+
+    user = ForeignKeyField(User, on_delete="CASCADE")
+
+    # client_id = db.Column(
+    #     db.String(40), db.ForeignKey('client.client_id'),
+    #     nullable=False,
+    # )
+    client = ForeignKeyField(Client, index=True)
+    code = CharField(max_length=255, index=True)
+
+    redirect_uri = CharField(max_length=255, null=True)
+    expires = DateTimeField(null=True)
+
+    _scopes = TextField(null=True)
+
+    def delete(self):
+        super().delete().execute()
+        return self
+
+    @property
+    def scopes(self):
+        if self._scopes:
+            return self._scopes.split()
+        return []
+
+    @scopes.setter
+    def scopes(self, value):
+        if isinstance(value, str):
+            self._scopes = value
+        else:
+            self._scopes = ' '.join(value)
+
+
+class Token(BaseModel):
+    """
+    Bearer Token
+
+    A bearer token is the final token that could be used by the client.
+    There are other token types, but bearer token is widely used.
+    Flask-OAuthlib only comes with a bearer token.
+    """
+    # client_id = db.Column(
+    #     db.String(40), db.ForeignKey('client.client_id'),
+    #     nullable=False,
+    # )
+    # client = db.relationship('Client')
+    client = ForeignKeyField(Client)
+    user = ForeignKeyField(User, null=True, on_delete="SET NULL")
+    token_type = CharField(max_length=40)
+
+    access_token = CharField(max_length=255, unique=True)
+    refresh_token = CharField(max_length=255, unique=True)
+    expires = DateTimeField(null=True)
+    _scopes = TextField(null=True)
+
+    def delete(self):
+        super().delete().execute()
+        return self
+
+    @property
+    def scopes(self):
+        if self._scopes:
+            return self._scopes.split()
+        return []
+
+
 def readup_file(input_file):
     """Read up the whole content and deconde it and return the whole content."""
     raw = input_file.read()
@@ -1229,11 +1346,14 @@ def create_tables():
             FundingRecord,
             FundingContributor,
             ExternalId,
+            Client,
+            Grant,
+            Token,
     ]:
 
         try:
             model.create_table()
-        except ProgrammingError as ex:
+        except (ProgrammingError, OperationalError) as ex:
             if "already exists" in str(ex):
                 app.logger.info(f"Table '{model._meta.name}' already exists")
             else:

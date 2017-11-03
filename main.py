@@ -13,6 +13,7 @@ import click
 import models  # noqa: F401
 from application import app
 from authcontroller import *  # noqa: F401,F403
+from oauth import *  # noqa: F401,F403
 from reports import *  # noqa: F401,F403
 from utils import process_affiliation_records
 from views import *  # noqa: F401,F403
