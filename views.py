@@ -535,6 +535,9 @@ class FundingRecordAdmin(AppModelView):
             count = self.model.update(processed_at=None).where(
                 self.model.is_active,
                 self.model.processed_at.is_null(False), self.model.id.in_(ids)).execute()
+            FundingContributor.update(
+                processed_at=None).where(FundingContributor.funding_record.in_(ids)
+                                         and FundingContributor.processed_at.is_null(False)).execute()
         except Exception as ex:
             flash(f"Failed to activate the selected records: {ex}")
             app.logger.exception("Failed to activate the selected records")
