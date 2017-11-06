@@ -380,7 +380,10 @@ class UserOrgAmin(AppModelView):
 
     column_searchable_list = (
         "user.email",
+        "user.name",
         "org.name",
+        "user.first_name",
+        "user.last_name",
     )
 
 
