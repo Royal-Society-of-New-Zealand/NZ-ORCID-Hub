@@ -7,6 +7,8 @@ import random
 import re
 import string
 import uuid
+import yaml
+import os
 from collections import namedtuple
 from datetime import datetime
 from hashlib import md5
@@ -32,7 +34,8 @@ AFFILIATION_TYPES = (
     "student",
     "education",
     "staff",
-    "employment", )
+    "employment",
+)
 
 try:
     from enum import IntFlag
@@ -98,7 +101,7 @@ class PartialDate(namedtuple("PartialDate", ["year", "month", "day"])):
             return None
         if isinstance(value, str):
             try:
-                return cls(* [int(v) for v in value.split('-')])
+                return cls(*[int(v) for v in value.split('-')])
             except Exception as ex:
                 raise ModelException(f"Wrong partial date value '{value}': {ex}")
 
@@ -171,7 +174,8 @@ class PartialDateField(Field):
         return PartialDate(**dict(zip_longest((
             "year",
             "month",
-            "day", ), parts)))
+            "day",
+        ), parts)))
 
 
 class Role(IntFlag):
@@ -320,8 +324,8 @@ class Organisation(BaseModel, AuditMixin):
     def invitation_sent_to(self):
         """Get the most recent invitation recepient."""
         try:
-            return (self.orginvitation_set.select(OrgInvitation.invitee).where(
-                OrgInvitation.invitee_id == self.tech_contact_id)
+            return (self.orginvitation_set.select(
+                OrgInvitation.invitee).where(OrgInvitation.invitee_id == self.tech_contact_id)
                     .order_by(OrgInvitation.created_at.desc()).first().invitee)
         except Exception:
             return None
@@ -342,8 +346,8 @@ class Organisation(BaseModel, AuditMixin):
         try:
             return (self.orginvitation_set.select(
                 fn.MAX(OrgInvitation.created_at).alias("last_confirmed_at")).where(
-                    OrgInvitation.invitee_id == self.tech_contact_id)
-                    .where(OrgInvitation.confirmed_at.is_null(False)).first().last_confirmed_at)
+                    OrgInvitation.invitee_id == self.tech_contact_id).where(
+                        OrgInvitation.confirmed_at.is_null(False)).first().last_confirmed_at)
         except Exception:
             return None
 
@@ -812,6 +816,7 @@ class Task(BaseModel, AuditMixin):
     """Batch processing task created form CSV/TSV file."""
 
     __record_count = None
+    __record_funding_count = None
     org = ForeignKeyField(
         Organisation, index=True, verbose_name="Organisation", on_delete="SET NULL")
     completed_at = DateTimeField(null=True)
@@ -831,6 +836,13 @@ class Task(BaseModel, AuditMixin):
         if self.__record_count is None:
             self.__record_count = self.affiliationrecord_set.count()
         return self.__record_count
+
+    @property
+    def record_funding_count(self):
+        """Get count of the loaded funding records."""
+        if self.__record_funding_count is None:
+            self.__record_funding_count = self.funding_records.count()
+        return self.__record_funding_count
 
     @classmethod
     def load_from_csv(cls, source, filename=None, org=None):
@@ -1081,7 +1093,6 @@ class FundingRecord(BaseModel, AuditMixin):
     disambiguated_org_identifier = CharField(null=True, max_length=255)
     disambiguation_source = CharField(null=True, max_length=255)
     visibility = CharField(null=True, max_length=100)
-    put_code = IntegerField(null=True)
     is_active = BooleanField(
         default=False, help_text="The record is marked for batch processing", null=True)
     processed_at = DateTimeField(null=True)
@@ -1091,7 +1102,12 @@ class FundingRecord(BaseModel, AuditMixin):
     def load_from_json(cls, source, filename=None, org=None):
         """Load data from CSV file or a string."""
         if isinstance(source, str):
-            funding_data = json.loads(source)
+            # import data from file based on its extension; either it is yaml or json
+            if os.path.splitext(filename)[1][1:] == "yaml" or "yml":
+                funding_data = yaml.load(source)
+            else:
+                funding_data = json.loads(source)
+
             try:
                 if org is None:
                     org = current_user.organisation if current_user else None
@@ -1133,7 +1149,7 @@ class FundingRecord(BaseModel, AuditMixin):
                     funding_data["organization"] and \
                     funding_data["organization"]["disambiguated-organization"] else None
 
-                disambiguated_source = funding_data["organization"][
+                disambiguation_source = funding_data["organization"][
                     "disambiguated-organization"]["disambiguation-source"] if \
                     funding_data["organization"] and \
                     funding_data["organization"]["disambiguated-organization"] else None
@@ -1147,12 +1163,14 @@ class FundingRecord(BaseModel, AuditMixin):
                                                       amount=amount, currency=currency, org_name=org_name, city=city,
                                                       region=region, country=country,
                                                       disambiguated_org_identifier=disambiguated_org_identifier,
-                                                      disambiguated_source=disambiguated_source,
+                                                      disambiguation_source=disambiguation_source,
                                                       visibility=visibility, start_date=start_date, end_date=end_date)
 
                 contributors_list = funding_data["contributors"]["contributor"]
                 for contributor in contributors_list:
-                    orcid_id = contributor["contributor-orcid"]["path"]
+                    orcid_id = None
+                    if contributor["contributor-orcid"] and contributor["contributor-orcid"]["path"]:
+                        orcid_id = contributor["contributor-orcid"]["path"]
                     email = contributor["contributor-email"]["value"]
                     name = contributor["credit-name"]["value"]
                     role = contributor["contributor-attributes"]["contributor-role"]
@@ -1192,6 +1210,14 @@ class FundingContributor(BaseModel):
     name = CharField(max_length=120, null=True)
     email = CharField(max_length=120, null=True)
     role = CharField(max_length=120, null=True)
+    status = TextField(null=True, help_text="Record processing status.")
+    put_code = IntegerField(null=True)
+    processed_at = DateTimeField(null=True)
+
+    def add_status_line(self, line):
+        """Add a text line to the status for logging processing progress."""
+        ts = datetime.now().isoformat(timespec="seconds")
+        self.status = (self.status + "\n" if self.status else '') + ts + ": " + line
 
     class Meta:  # noqa: D101,D106
         db_table = "funding_contributor"

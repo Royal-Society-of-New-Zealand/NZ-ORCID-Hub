@@ -4,21 +4,30 @@ from logging.handlers import RotatingFileHandler
 
 import flask_login
 from flask import Flask
-from flask_admin import Admin
 from flask_debugtoolbar import DebugToolbarExtension
 from flask_mail import Mail
+from peewee import PostgresqlDatabase
 from playhouse import db_url
+from playhouse.shortcuts import RetryOperationalError
 from raven.contrib.flask import Sentry
 from flask_peewee.rest import RestAPI, Authentication
 
 from config import *  # noqa: F401, F403
 from failover import PgDbWithFailover
+from flask_admin import Admin
+
+
+# http://docs.peewee-orm.com/en/latest/peewee/database.html#automatic-reconnect
+class ReconnectablePostgresqlDatabase(RetryOperationalError, PostgresqlDatabase):
+    pass
+
 
 app = Flask(__name__)
 app.config.from_object(__name__)
 
 # TODO: implment connection factory
 db_url.register_database(PgDbWithFailover, "pg+failover", "postgres+failover")
+db_url.PostgresqlDatabase = ReconnectablePostgresqlDatabase
 if DATABASE_URL.startswith("sqlite"):
     db = db_url.connect(DATABASE_URL, autorollback=True)
 else:

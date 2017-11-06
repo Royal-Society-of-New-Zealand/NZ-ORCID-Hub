@@ -56,3 +56,14 @@
   </span>
   {{ super() }}
 {% endblock %}
+{% block list_row_actions %}
+  {{ super() }}
+    <div class="list-buttons-column">
+      <a class="icon" href="{{ url_for('funding_contributor_list', funding_record_id=row.id, url=request.url) }}" title="Funding Contributor">
+        <spam class="fa fa-users glyphicon glyphicon-users icon"></spam>
+      </a>
+      <a class="icon" href="{{ url_for('externalid_list', funding_record_id=row.id, url=request.url) }}" title="Funding ExternalId">
+        <spam class="fa fa-external-link glyphicon glyphicon-users icon"></spam>
+      </a>
+    </div>
+{% endblock %}

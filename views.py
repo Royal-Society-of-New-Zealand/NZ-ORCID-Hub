@@ -21,10 +21,14 @@ import orcid_client
 import utils
 from application import admin, app
 from config import ORCID_BASE_URL, SCOPE_ACTIVITIES_UPDATE, SCOPE_READ_LIMITED
-from forms import (BitmapMultipleValueField, FileUploadForm, JsonFileUploadForm,
+from flask_admin.actions import action
+from flask_admin.contrib.peewee import ModelView
+from flask_admin.form import SecureForm
+from flask_admin.model import typefmt
+from forms import (BitmapMultipleValueField, FileUploadForm, JsonOrYamlFileUploadForm,
                    OrgRegistrationForm, PartialDateField, RecordForm, UserInvitationForm)
 from login_provider import roles_required
-from models import AffiliationRecord  # noqa: F401
+from models import AffiliationRecord, FundingContributor, ExternalId    # noqa: F401
 from models import (Affiliation, CharField, FundingRecord, ModelException, OrcidApiCall,
                     OrcidToken, Organisation, OrgInfo, OrgInvitation, PartialDate, Role, Task,
                     TextField, Url, User, UserInvitation, UserOrg, UserOrgAffiliation, db)
@@ -100,7 +104,8 @@ class AppModelView(ModelView):
     column_type_formatters_export.update({PartialDate: lambda view, value: str(value)})
     column_exclude_list = (
         "updated_at",
-        "updated_by", )
+        "updated_by",
+    )
     form_overrides = dict(start_date=PartialDateField, end_date=PartialDateField)
     form_widget_args = {c: {"readonly": True} for c in column_exclude_list}
 
@@ -115,6 +120,18 @@ class AppModelView(ModelView):
             if model is None:
                 raise Exception(f"Model class {model_class_name} doesn't exit.")
         super().__init__(model, *args, **kwargs)
+
+    # TODO: remove whent it gets merged into the upsteem repo (it's a workaround to make
+    # joins LEFT OUTERE)
+    def _handle_join(self, query, field, joins):
+        if field.model_class != self.model:
+            model_name = field.model_class.__name__
+
+            if model_name not in joins:
+                query = query.join(field.model_class, "LEFT OUTER")
+                joins.add(model_name)
+
+        return query
 
     def get_pk_value(self, model):
         """Get correct value for composite keys."""
@@ -145,7 +162,8 @@ class AppModelView(ModelView):
                 # Check type
                 if not isinstance(p, (
                         CharField,
-                        TextField, )):
+                        TextField,
+                )):
                     raise Exception('Can only search on text columns. ' +
                                     'Failed to setup search for "%s"' % p)
 
@@ -199,7 +217,8 @@ class AppModelView(ModelView):
                 'page_size',
                 'sort',
                 'desc',
-                'search', ) and not k.startswith('flt')
+                'search',
+            ) and not k.startswith('flt')
         }
         view_args.extra_args = extra_args
         return view_args
@@ -222,7 +241,8 @@ class UserAdmin(AppModelView):
         "password",
         "username",
         "first_name",
-        "last_name", )
+        "last_name",
+    )
     column_formatters = dict(
         roles=lambda v, c, m, p: ", ".join(n for r, n in v.roles.items() if r & m.roles),
         orcid=lambda v, c, m, p: m.orcid.replace("-", "\u2011") if m.orcid else "")
@@ -231,7 +251,8 @@ class UserAdmin(AppModelView):
         "orcid",
         "email",
         "eppn",
-        "organisation.name", )
+        "organisation.name",
+    )
     form_overrides = dict(roles=BitmapMultipleValueField)
     form_args = dict(roles=dict(choices=roles.items()))
 
@@ -280,7 +301,8 @@ class OrganisationAdmin(AppModelView):
     column_searchable_list = (
         "name",
         "tuakiri_name",
-        "city", )
+        "city",
+    )
     edit_template = "admin/organisation_edit.html"
     form_widget_args = AppModelView.form_widget_args
     form_widget_args["api_credentials_requested_at"] = {"readonly": True}
@@ -311,7 +333,8 @@ class OrgInfoAdmin(AppModelView):
         "city",
         "first_name",
         "last_name",
-        "email", )
+        "email",
+    )
 
     @action("invite", "Register Organisation",
             "Are you sure you want to register selected organisations?")
@@ -346,7 +369,8 @@ class OrcidTokenAdmin(AppModelView):
     column_searchable_list = (
         "user.name",
         "user.email",
-        "org.name", )
+        "org.name",
+    )
     can_export = True
     can_create = False
 
@@ -362,7 +386,8 @@ class OrcidApiCallAmin(AppModelView):
         "url",
         "body",
         "response",
-        "user.name", )
+        "user.name",
+    )
 
 
 class UserOrgAmin(AppModelView):
@@ -370,7 +395,8 @@ class UserOrgAmin(AppModelView):
 
     column_searchable_list = (
         "user.email",
-        "org.name", )
+        "org.name",
+    )
 
 
 class TaskAdmin(AppModelView):
@@ -378,9 +404,61 @@ class TaskAdmin(AppModelView):
 
     roles_required = Role.SUPERUSER | Role.ADMIN
     list_template = "view_tasks.html"
+    column_exclude_list = (
+        "task_type",)
     can_edit = False
     can_create = False
     can_delete = True
+
+
+class ExternalIdAdmin(AppModelView):
+    """ExternalId model view."""
+
+    roles_required = Role.SUPERUSER | Role.ADMIN
+    list_template = "funding_externalid_list.html"
+    column_exclude_list = (
+        "funding_record", )
+
+    can_edit = True
+    can_create = False
+    can_delete = False
+    can_view_details = True
+    can_export = True
+
+    form_widget_args = {"external_id": {"readonly": True}}
+
+    def is_accessible(self):
+        """Verify if the external id's view is accessible for the current user."""
+        if not super().is_accessible():
+            flash("Access denied! You cannot access this task.", "danger")
+            return False
+
+        return True
+
+
+class FundingContributorAdmin(AppModelView):
+    """Funding record model view."""
+
+    roles_required = Role.SUPERUSER | Role.ADMIN
+    list_template = "funding_contributor_list.html"
+    column_exclude_list = (
+        "funding_record", )
+
+    can_edit = True
+    can_create = False
+    can_delete = False
+    can_view_details = True
+    can_export = True
+
+    form_widget_args = {"external_id": {"readonly": True}}
+
+    def is_accessible(self):
+        """Verify if the funding contributor view is accessible for the current user."""
+        if not super().is_accessible():
+            flash("Access denied! You cannot access this task.", "danger")
+            return False
+
+        return True
 
 
 class FundingRecordAdmin(AppModelView):
@@ -391,9 +469,9 @@ class FundingRecordAdmin(AppModelView):
     column_exclude_list = (
         "task",
         "organisation", )
-    """column_searchable_list = (
-        "first_name",
-         )"""
+    column_searchable_list = (
+        "title",
+         )
     column_export_exclude_list = (
         "task",
         "is_active", )
@@ -472,6 +550,9 @@ class FundingRecordAdmin(AppModelView):
             count = self.model.update(processed_at=None).where(
                 self.model.is_active,
                 self.model.processed_at.is_null(False), self.model.id.in_(ids)).execute()
+            FundingContributor.update(
+                processed_at=None).where(FundingContributor.funding_record.in_(ids)
+                                         and FundingContributor.processed_at.is_null(False)).execute()
         except Exception as ex:
             flash(f"Failed to activate the selected records: {ex}")
             app.logger.exception("Failed to activate the selected records")
@@ -487,17 +568,20 @@ class AffiliationRecordAdmin(AppModelView):
     list_template = "affiliation_record_list.html"
     column_exclude_list = (
         "task",
-        "organisation", )
+        "organisation",
+    )
     column_searchable_list = (
         "first_name",
         "last_name",
         "email",
         "role",
         "department",
-        "state", )
+        "state",
+    )
     column_export_exclude_list = (
         "task",
-        "is_active", )
+        "is_active",
+    )
     can_edit = True
     can_create = False
     can_delete = False
@@ -613,14 +697,16 @@ admin.add_view(OrcidApiCallAmin(OrcidApiCall))
 admin.add_view(TaskAdmin(Task))
 admin.add_view(AffiliationRecordAdmin())
 admin.add_view(FundingRecordAdmin())
+admin.add_view(FundingContributorAdmin())
+admin.add_view(ExternalIdAdmin())
 admin.add_view(AppModelView(UserInvitation))
 admin.add_view(ViewMembersAdmin(name="viewmembers", endpoint="viewmembers"))
 
 admin.add_view(UserOrgAmin(UserOrg))
 
-SectionRecord = namedtuple("SectionRecord", [
-    "org_name", "city", "state", "country", "department", "role", "start_date", "end_date"
-])
+SectionRecord = namedtuple(
+    "SectionRecord",
+    ["org_name", "city", "state", "country", "department", "role", "start_date", "end_date"])
 SectionRecord.__new__.__defaults__ = (None, ) * len(SectionRecord._fields)
 
 
@@ -856,6 +942,22 @@ def employment_list(user_id):
     return show_record_section(user_id, "EMP")
 
 
+@app.route("/<int:funding_record_id>/FundingContributor/list")
+@app.route("/<int:funding_record_id>/FundingContributor")
+@login_required
+def funding_contributor_list(funding_record_id):
+    """Show the funding contributors list of the selected user."""
+    return redirect(url_for("fundingcontributor.index_view", funding_record_id=funding_record_id))
+
+
+@app.route("/<int:funding_record_id>/ExternaId/list")
+@app.route("/<int:funding_record_id>/ExternaId")
+@login_required
+def externalid_list(funding_record_id):
+    """Show the External id list of the funding item."""
+    return redirect(url_for("externalid.index_view", funding_record_id=funding_record_id))
+
+
 @app.route("/<int:user_id>/edu/list")
 @app.route("/<int:user_id>/edu")
 @login_required
@@ -960,7 +1062,8 @@ def load_researcher_affiliations():
             return redirect(url_for("affiliationrecord.index_view", task_id=task.id))
         except (
                 ValueError,
-                ModelException, ) as ex:
+                ModelException,
+        ) as ex:
             flash(f"Failed to load affiliation record file: {ex}", "danger")
             app.logger.exception("Failed to load affiliation records.")
 
@@ -971,53 +1074,12 @@ def load_researcher_affiliations():
 @roles_required(Role.ADMIN)
 def load_researcher_funding():
     """Preload organisation data."""
-    form = JsonFileUploadForm()
+    form = JsonOrYamlFileUploadForm()
     if form.validate_on_submit():
         filename = secure_filename(form.file_.data.filename)
         task = FundingRecord.load_from_json(read_uploaded_file(form), filename=filename)
-        flash(f"Successfully loaded {task.record_count} rows.")
+        flash(f"Successfully loaded {task.record_funding_count} rows.")
         return redirect(url_for("fundingrecord.index_view", task_id=task.id))
-
-    """
-        orcid_token = None
-        contributors_list = funding_data["contributors"]["contributor"]
-        funding_created_id = ""
-        for contributor in contributors_list:
-
-            # orcid_id = contributor["contributor-orcid"]["path"]
-            email = contributor["contributor-email"]["value"]
-            user = None
-
-            try:
-                user = User.get(email=email)
-                orcid_token = OrcidToken.get(
-                    user=user,
-                    org=current_user.organisation,
-                    scope=SCOPE_READ_LIMITED[0] + "," + SCOPE_ACTIVITIES_UPDATE[0])
-            except Exception:
-                # TODO: Send a mail to researcher asking him permissions
-                flash(f"The user {email} hasn't authorized you to add funding record", "warning")
-                continue
-
-            orcid_client.configuration.access_token = orcid_token.access_token
-            api_instance = orcid_client.MemberAPIV20Api()
-
-            try:
-                # Adding funding info
-                params = dict(orcid=user.orcid, body=funding_data, _preload_content=False)
-                api_instance.create_funding(**params)
-                funding_created_id += email + " ,"
-                app.logger.info("For %r funding record was created by %r", user.orcid, current_user)
-            except ApiException as e:
-                message = json.loads(e.body.replace("''", "\"")).get('user-messsage')
-                flash("Failed to create the entry: %s" % message, "danger")
-            except Exception as ex:
-                app.logger.error("For %r encountered exception: %r", user, ex)
-                abort(500, ex)
-        if funding_created_id:
-            flash(f"funding record for {funding_created_id} has been successfully created.", "success")
-
-    """
     return render_template("fileUpload.html", form=form, form_title="Funding")
 
 
@@ -1135,8 +1197,8 @@ def register_org(org_name,
         # TODO: for via_orcid constact direct link to ORCID with callback like to HUB
         if via_orcid:
             short_id = Url.shorten(
-                url_for("orcid_login", invitation_token=token, _next=url_for(
-                    "onboard_org"))).short_id
+                url_for("orcid_login", invitation_token=token,
+                        _next=url_for("onboard_org"))).short_id
             invitation_url = url_for("short_url", short_id=short_id, _external=True)
         else:
             invitation_url = url_for("login", _external=True)

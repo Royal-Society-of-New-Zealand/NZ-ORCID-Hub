@@ -32,8 +32,8 @@ def user_summary():  # noqa: D103
                                  fn.COUNT(User.orcid).alias("linked_user_count"))
              .where(User.created_at.between(form.from_date.data, form.to_date.data)).join(
                  UserOrg, JOIN.LEFT_OUTER, on=(UserOrg.org_id == Organisation.id)).join(
-                     User, JOIN.LEFT_OUTER,
-                     on=(User.id == UserOrg.user_id)).group_by(Organisation.name))
+                     User, JOIN.LEFT_OUTER, on=(User.id == UserOrg.user_id)).group_by(
+                         Organisation.name))
 
     total_user_count = sum(r.user_count for r in query)
     total_linked_user_count = sum(r.linked_user_count for r in query)

@@ -43,6 +43,35 @@ from utils import append_qs, confirm_token
 HEADERS = {'Accept': 'application/vnd.orcid+json', 'Content-type': 'application/vnd.orcid+json'}
 
 
+@app.context_processor
+def utility_processor():  # noqa: D202
+    """Define funcions callable form Jinja2 using application context."""
+
+    def onboarded_organisations():
+        return list(
+            Organisation.select(Organisation.name, Organisation.tuakiri_name).where(
+                Organisation.confirmed.__eq__(True)))
+
+    def orcid_login_url():
+        return url_for("orcid_login", next=get_next_url())
+
+    def tuakiri_login_url():
+        _next = get_next_url()
+        if EXTERNAL_SP:
+            session["auth_secret"] = secret_token = secrets.token_urlsafe()
+            _next = url_for("handle_login", _next=_next, _external=True)
+            login_url = append_qs(EXTERNAL_SP, _next=_next, key=secret_token)
+        else:
+            login_url = url_for("handle_login", _next=_next)
+        return login_url
+
+    return dict(
+        orcid_login_url=orcid_login_url,
+        tuakiri_login_url=tuakiri_login_url,
+        onboarded_organisations=onboarded_organisations,
+    )
+
+
 def get_next_url():
     """Retrieve and sanitize next/return URL."""
     _next = request.args.get("next") or request.args.get("_next")
@@ -58,76 +87,19 @@ def get_next_url():
 @app.route("/")
 def login():
     """Show main landing page with login buttons."""
-    _next = get_next_url()
-    orcid_login_url = url_for("orcid_login", next=_next)
-    if EXTERNAL_SP:
-        session["auth_secret"] = secret_token = secrets.token_urlsafe()
-        _next = url_for("handle_login", _next=_next, _external=True)
-        login_url = append_qs(EXTERNAL_SP, _next=_next, key=secret_token)
-    else:
-        login_url = url_for("handle_login", _next=_next)
-
-    org_onboarded_info = {
-        r.name: r.tuakiri_name
-        for r in Organisation.select(Organisation.name, Organisation.tuakiri_name).where(
-            Organisation.confirmed.__eq__(True))
-    }
-
-    return render_template(
-        "index.html",
-        login_url=login_url,
-        orcid_login_url=orcid_login_url,
-        org_onboarded_info=org_onboarded_info)
+    return render_template("index.html")
 
 
 @app.route("/about")
 def about():
     """Show about page with login buttons."""
-    _next = get_next_url()
-    orcid_login_url = url_for("orcid_login", next=_next)
-    if EXTERNAL_SP:
-        session["auth_secret"] = secret_token = secrets.token_urlsafe()
-        _next = url_for("handle_login", _next=_next, _external=True)
-        login_url = append_qs(EXTERNAL_SP, _next=_next, key=secret_token)
-    else:
-        login_url = url_for("handle_login", _next=_next)
-
-    org_onboarded_info = {
-        r.name: r.tuakiri_name
-        for r in Organisation.select(Organisation.name, Organisation.tuakiri_name).where(
-            Organisation.confirmed.__eq__(True))
-    }
-
-    return render_template(
-        "about.html",
-        login_url=login_url,
-        orcid_login_url=orcid_login_url,
-        org_onboarded_info=org_onboarded_info)
+    return render_template("about.html")
 
 
 @app.route("/faq")
 def faq():
     """Show FAQ page with login buttons."""
-    _next = get_next_url()
-    orcid_login_url = url_for("orcid_login", next=_next)
-    if EXTERNAL_SP:
-        session["auth_secret"] = secret_token = secrets.token_urlsafe()
-        _next = url_for("handle_login", _next=_next, _external=True)
-        login_url = append_qs(EXTERNAL_SP, _next=_next, key=secret_token)
-    else:
-        login_url = url_for("handle_login", _next=_next)
-
-    org_onboarded_info = {
-        r.name: r.tuakiri_name
-        for r in Organisation.select(Organisation.name, Organisation.tuakiri_name).where(
-            Organisation.confirmed.__eq__(True))
-    }
-
-    return render_template(
-        "faq.html",
-        login_url=login_url,
-        orcid_login_url=orcid_login_url,
-        org_onboarded_info=org_onboarded_info)
+    return render_template("faq.html")
 
 
 @app.route("/Tuakiri/SP")
@@ -193,6 +165,8 @@ def handle_login():
 
     # TODO: make it secret
     if EXTERNAL_SP:
+        if "auth_secret" not in session:
+            return redirect(url_for("login"))
         sp_url = urlparse(EXTERNAL_SP)
         attr_url = sp_url.scheme + "://" + sp_url.netloc + "/sp/attributes/" + session.get(
             "auth_secret")
@@ -571,7 +545,9 @@ def profile():
         return redirect(url_for("login"))
     else:
         client = OAuth2Session(
-            user.organisation.orcid_client_id, token={"access_token": orcid_token.access_token})
+            user.organisation.orcid_client_id, token={
+                "access_token": orcid_token.access_token
+            })
         base_url = ORCID_API_BASE + user.orcid
         # TODO: utilize asyncio/aiohttp to run it concurrently
         resp_person = client.get(base_url + "/person", headers=HEADERS)
@@ -706,8 +682,8 @@ def onboard_org():
             try:
                 # Get the most recent invitation:
                 oi = (OrgInvitation.select().where(OrgInvitation.email == email,
-                                                   OrgInvitation.org == organisation)
-                      .order_by(OrgInvitation.id.desc()).first())
+                                                   OrgInvitation.org == organisation).order_by(
+                                                       OrgInvitation.id.desc()).first())
                 if oi:
                     if not oi.confirmed_at:
                         oi.confirmed_at = datetime.now()
@@ -845,9 +821,13 @@ def orcid_login(invitation_token=None):
         if invitation_token:
             orcid_authenticate_url = append_qs(
                 orcid_authenticate_url,
-                family_names=user.last_name,
-                given_names=user.first_name,
                 email=email)
+            # For funding record, we dont have first name and Last Name
+            if user.last_name and user.first_name:
+                orcid_authenticate_url = append_qs(
+                    orcid_authenticate_url,
+                    family_names=user.last_name,
+                    given_names=user.first_name)
 
         oac = OrcidAuthorizeCall.create(
             user_id=None, method="GET", url=orcid_authenticate_url, state=state)
