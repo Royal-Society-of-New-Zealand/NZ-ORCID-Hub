@@ -998,15 +998,9 @@ def register_org(org_name,
             app.logger.exception("Failed to save organisation data")
             raise
 
-        try:
-            user = User.get(email=email)
-            user.organisation = org
-            user.confirmed = True
-        except User.DoesNotExist:
-            user = User.create(
-                email=email,
-                confirmed=True,  # In order to let the user in...
-                organisation=org)
+        user, user_created = User.get_or_create(email=email)
+        user.organisation = org
+        user.confirmed = True
 
         user.roles |= Role.ADMIN
         if via_orcid:
@@ -1063,7 +1057,8 @@ def register_org(org_name,
             cc_email=(current_user.name, current_user.email),
             invitation_url=invitation_url,
             org_name=org_name,
-            user=user)
+            user=user,
+            existing_user=not (user_created))
 
         org.is_email_sent = True
         try:

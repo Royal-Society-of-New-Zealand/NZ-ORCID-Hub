@@ -15,11 +15,9 @@ from config import *  # noqa: F401, F403
 from failover import PgDbWithFailover
 from flask_admin import Admin
 
-
 # http://docs.peewee-orm.com/en/latest/peewee/database.html#automatic-reconnect
 class ReconnectablePostgresqlDatabase(RetryOperationalError, PostgresqlDatabase):
     pass
-
 
 app = Flask(__name__)
 app.config.from_object(__name__)
