@@ -1,0 +1,8 @@
+type: map
+mapping:
+    source:
+        type: str
+    path:
+        type: str
+    type:
+        type: str

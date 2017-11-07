@@ -1062,9 +1062,14 @@ def load_researcher_funding():
     form = JsonOrYamlFileUploadForm()
     if form.validate_on_submit():
         filename = secure_filename(form.file_.data.filename)
-        task = FundingRecord.load_from_json(read_uploaded_file(form), filename=filename)
-        flash(f"Successfully loaded {task.record_funding_count} rows.")
-        return redirect(url_for("fundingrecord.index_view", task_id=task.id))
+        try:
+            task = FundingRecord.load_from_json(read_uploaded_file(form), filename=filename)
+            flash(f"Successfully loaded {task.record_funding_count} rows.")
+            return redirect(url_for("fundingrecord.index_view", task_id=task.id))
+        except Exception as ex:
+            flash(f"Failed to load funding record file: {ex}", "danger")
+            app.logger.exception("Failed to load funding records.")
+
     return render_template("fileUpload.html", form=form, form_title="Funding")
 
 

@@ -24,6 +24,7 @@ from peewee import (CharField, DateTimeField, DeferredRelation, Field, FixedChar
 from peewee_validates import ModelValidator
 from playhouse.shortcuts import model_to_dict
 from pycountry import countries
+from pykwalify.core import Core
 
 from application import app, db
 from config import DEFAULT_COUNTRY, ENV
@@ -1094,6 +1095,13 @@ class FundingRecord(BaseModel, AuditMixin):
                 funding_data = yaml.load(source)
             else:
                 funding_data = json.loads(source)
+
+            # Adding schema valdation for funding
+            validator = Core(source_data=funding_data,      # noqa: F841
+                             schema_files=["funding_schema.yaml"])
+
+            # TODO: Uncomment the below code once "funding_schema.yaml" is fully ready
+            # validator.validate(raise_exception=True)
 
             try:
                 if org is None:
