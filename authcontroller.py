@@ -82,6 +82,7 @@ def get_next_url():
     return None
 
 
+@app.route("/index.html")
 @app.route("/index")
 @app.route("/login")
 @app.route("/")
@@ -90,12 +91,14 @@ def login():
     return render_template("index.html")
 
 
+@app.route("/about.html")
 @app.route("/about")
 def about():
     """Show about page with login buttons."""
     return render_template("about.html")
 
 
+@app.route("/faq.html")
 @app.route("/faq")
 def faq():
     """Show FAQ page with login buttons."""
