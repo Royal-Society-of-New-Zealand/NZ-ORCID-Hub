@@ -508,7 +508,13 @@ class ViewMembersAdmin(AppModelView):
     roles_required = Role.SUPERUSER | Role.ADMIN
     list_template = "viewMembers.html"
     column_list = ("email", "orcid")
-    column_searchable_list = ("email", "orcid")
+    column_searchable_list = (
+        "email",
+        "orcid",
+        "name",
+        "first_name",
+        "last_name",
+    )
     column_export_list = ("email", "eppn", "orcid")
     model = User
     can_edit = False
