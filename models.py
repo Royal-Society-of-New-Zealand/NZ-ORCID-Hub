@@ -3,12 +3,11 @@
 
 import csv
 import json
+import os
 import random
 import re
 import string
 import uuid
-import yaml
-import os
 from collections import namedtuple
 from datetime import datetime
 from hashlib import md5
@@ -16,6 +15,7 @@ from io import StringIO
 from itertools import zip_longest
 from urllib.parse import urlencode
 
+import yaml
 from flask_login import UserMixin, current_user
 from peewee import BooleanField as BooleanField_
 from peewee import (JOIN, CharField, DateTimeField, DeferredRelation, Field, FixedCharField,
@@ -1124,7 +1124,8 @@ class FundingRecord(BaseModel, AuditMixin):
                 organization_defined_type = funding_data["organization-defined-type"]["value"] if \
                     funding_data["organization-defined-type"] else None
 
-                short_description = funding_data["short-description"] if funding_data["short-description"] else None
+                short_description = funding_data["short-description"] if funding_data[
+                    "short-description"] else None
 
                 amount = funding_data["amount"]["value"] if funding_data["amount"] else None
 
@@ -1156,15 +1157,24 @@ class FundingRecord(BaseModel, AuditMixin):
 
                 visibility = funding_data["visibility"] if funding_data["visibility"] else None
 
-                funding_record = FundingRecord.create(task=task, title=title, translated_title=translated_title,
-                                                      type=type,
-                                                      organization_defined_type=organization_defined_type,
-                                                      short_description=short_description,
-                                                      amount=amount, currency=currency, org_name=org_name, city=city,
-                                                      region=region, country=country,
-                                                      disambiguated_org_identifier=disambiguated_org_identifier,
-                                                      disambiguation_source=disambiguation_source,
-                                                      visibility=visibility, start_date=start_date, end_date=end_date)
+                funding_record = FundingRecord.create(
+                    task=task,
+                    title=title,
+                    translated_title=translated_title,
+                    type=type,
+                    organization_defined_type=organization_defined_type,
+                    short_description=short_description,
+                    amount=amount,
+                    currency=currency,
+                    org_name=org_name,
+                    city=city,
+                    region=region,
+                    country=country,
+                    disambiguated_org_identifier=disambiguated_org_identifier,
+                    disambiguation_source=disambiguation_source,
+                    visibility=visibility,
+                    start_date=start_date,
+                    end_date=end_date)
 
                 contributors_list = funding_data["contributors"]["contributor"]
                 for contributor in contributors_list:
@@ -1174,8 +1184,12 @@ class FundingRecord(BaseModel, AuditMixin):
                     email = contributor["contributor-email"]["value"]
                     name = contributor["credit-name"]["value"]
                     role = contributor["contributor-attributes"]["contributor-role"]
-                    FundingContributor.create(funding_record=funding_record, orcid=orcid_id, name=name, email=email,
-                                              role=role)
+                    FundingContributor.create(
+                        funding_record=funding_record,
+                        orcid=orcid_id,
+                        name=name,
+                        email=email,
+                        role=role)
 
                 external_ids_list = funding_data["external-ids"]["external-id"]
                 for external_id in external_ids_list:
@@ -1183,8 +1197,12 @@ class FundingRecord(BaseModel, AuditMixin):
                     value = external_id["external-id-value"]
                     url = external_id["external-id-url"]["value"]
                     relationship = external_id["external-id-relationship"]
-                    ExternalId.create(funding_record=funding_record, type=type, value=value, url=url,
-                                      relationship=relationship)
+                    ExternalId.create(
+                        funding_record=funding_record,
+                        type=type,
+                        value=value,
+                        url=url,
+                        relationship=relationship)
 
                 return task
             except Exception as ex:

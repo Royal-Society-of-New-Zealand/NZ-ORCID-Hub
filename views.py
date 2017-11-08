@@ -5,18 +5,17 @@ import json
 import os
 from collections import namedtuple
 from datetime import datetime
+from importlib import import_module
 
 from flask import (abort, flash, jsonify, redirect, render_template, request, send_from_directory,
                    url_for)
-from flask_admin.actions import action
-from flask_admin.contrib.peewee import ModelView
-from flask_admin.form import SecureForm
-from flask_admin.model import typefmt
 from flask_login import current_user, login_required
 from jinja2 import Markup
+from playhouse.shortcuts import model_to_dict
 from werkzeug import secure_filename
 from wtforms.fields import BooleanField
 
+import models
 import orcid_client
 import utils
 from application import admin, app
@@ -28,15 +27,15 @@ from flask_admin.model import typefmt
 from forms import (BitmapMultipleValueField, FileUploadForm, JsonOrYamlFileUploadForm,
                    OrgRegistrationForm, PartialDateField, RecordForm, UserInvitationForm)
 from login_provider import roles_required
-from models import AffiliationRecord, FundingContributor, ExternalId    # noqa: F401
-from models import (Affiliation, CharField, FundingRecord, ModelException, OrcidApiCall,
-                    OrcidToken, Organisation, OrgInfo, OrgInvitation, PartialDate, Role, Task,
-                    TextField, Url, User, UserInvitation, UserOrg, UserOrgAffiliation, db)
+from models import CharField  # noqa: F401
+from models import (Affiliation, AffiliationRecord, FundingContributor, FundingRecord,
+                    ModelException, OrcidApiCall, OrcidToken, Organisation, OrgInfo, OrgInvitation,
+                    PartialDate, Role, Task, TextField, Url, User, UserInvitation, UserOrg,
+                    UserOrgAffiliation, db)
 # NB! Should be disabled in production
 from pyinfo import info
 from swagger_client.rest import ApiException
 from utils import generate_confirmation_token, send_user_invitation
-from playhouse.shortcuts import model_to_dict
 
 HEADERS = {"Accept": "application/vnd.orcid+json", "Content-type": "application/vnd.orcid+json"}
 
@@ -118,7 +117,9 @@ class AppModelView(ModelView):
                 model_class_name = self.__class__.__name__.replace("Admin", '')
                 model = globals().get(model_class_name)
             if model is None:
-                raise Exception(f"Model class {model_class_name} doesn't exit.")
+                if model_class_name not in dir(models):
+                    raise Exception(f"Model class {model_class_name} doesn't exit.")
+                model = models.__dict__.get(model_class_name)
         super().__init__(model, *args, **kwargs)
 
     # TODO: remove whent it gets merged into the upsteem repo (it's a workaround to make
@@ -236,7 +237,8 @@ class UserAdmin(AppModelView):
         "created_at",
         "updated_at",
         "created_by",
-        "updated_by", )
+        "updated_by",
+    )
     column_exclude_list = (
         "password",
         "username",
@@ -404,8 +406,7 @@ class TaskAdmin(AppModelView):
 
     roles_required = Role.SUPERUSER | Role.ADMIN
     list_template = "view_tasks.html"
-    column_exclude_list = (
-        "task_type",)
+    column_exclude_list = ("task_type", )
     can_edit = False
     can_create = False
     can_delete = True
@@ -416,8 +417,7 @@ class ExternalIdAdmin(AppModelView):
 
     roles_required = Role.SUPERUSER | Role.ADMIN
     list_template = "funding_externalid_list.html"
-    column_exclude_list = (
-        "funding_record", )
+    column_exclude_list = ("funding_record", )
 
     can_edit = True
     can_create = False
@@ -441,8 +441,7 @@ class FundingContributorAdmin(AppModelView):
 
     roles_required = Role.SUPERUSER | Role.ADMIN
     list_template = "funding_contributor_list.html"
-    column_exclude_list = (
-        "funding_record", )
+    column_exclude_list = ("funding_record", )
 
     can_edit = True
     can_create = False
@@ -468,13 +467,13 @@ class FundingRecordAdmin(AppModelView):
     list_template = "funding_record_list.html"
     column_exclude_list = (
         "task",
-        "organisation", )
-    column_searchable_list = (
-        "title",
-         )
+        "organisation",
+    )
+    column_searchable_list = ("title", )
     column_export_exclude_list = (
         "task",
-        "is_active", )
+        "is_active",
+    )
     can_edit = True
     can_create = False
     can_delete = False
@@ -550,9 +549,9 @@ class FundingRecordAdmin(AppModelView):
             count = self.model.update(processed_at=None).where(
                 self.model.is_active,
                 self.model.processed_at.is_null(False), self.model.id.in_(ids)).execute()
-            FundingContributor.update(
-                processed_at=None).where(FundingContributor.funding_record.in_(ids)
-                                         and FundingContributor.processed_at.is_null(False)).execute()
+            FundingContributor.update(processed_at=None).where(
+                FundingContributor.funding_record.in_(ids)
+                and FundingContributor.processed_at.is_null(False)).execute()
         except Exception as ex:
             flash(f"Failed to activate the selected records: {ex}")
             app.logger.exception("Failed to activate the selected records")
@@ -762,13 +761,13 @@ def activate_all():
     task = Task.get(id=task_id)
     try:
         if task.task_type == 0:
-            count = AffiliationRecord.update(
-                is_active=True).where(AffiliationRecord.task_id == task_id,
-                                      AffiliationRecord.is_active == False).execute()  # noqa: E712
+            count = AffiliationRecord.update(is_active=True).where(
+                AffiliationRecord.task_id == task_id,
+                AffiliationRecord.is_active == False).execute()  # noqa: E712
         elif task.task_type == 1:
-            count = FundingRecord.update(
-                is_active=True).where(FundingRecord.task_id == task_id,
-                                      FundingRecord.is_active == False).execute()  # noqa: E712
+            count = FundingRecord.update(is_active=True).where(
+                FundingRecord.task_id == task_id,
+                FundingRecord.is_active == False).execute()  # noqa: E712
     except Exception as ex:
         flash(f"Failed to activate the selected records: {ex}")
         app.logger.exception("Failed to activate the selected records")
@@ -1385,11 +1384,13 @@ def user_orgs(user_id, org_id=None):
         "PATCH",
     ])
 @roles_required(Role.SUPERUSER, Role.ADMIN)
-def user_orgs_org(user_id, org_id):
+def user_orgs_org(user_id, org_id=None):
     """Add an organisation to the user.
 
     Recieves:
-    {"org_id": N, "is_admin": true/false, "is_tech_contact": true/false}
+    {"id": N, "is_admin": true/false, "is_tech_contact": true/false, ...}
+
+    Where: id - the organisation ID.
 
     If the user is already linked to the organisation, the entry gets only updated.
 
@@ -1397,16 +1398,27 @@ def user_orgs_org(user_id, org_id):
     should be demoted.
 
     Returns: user_org entry
+
     """
     data = request.json
-    if not data or data.get("org_id"):
+    if not data or not data.get("id"):
         return jsonify({"error": "NOT DATA"}), 400
-    pass
-    uo, created = UserOrg.get_or_create(user_id=user_id, org_id=data.get("org_id"))
-    if "is_admin" in data:
+    if not org_id:
+        org_id = data.get("id")
+    org = Organisation.get(id=org_id)
+    uo, created = UserOrg.get_or_create(user_id=user_id, org_id=org_id)
+    if "is_admin" in data and uo.is_admin != data["is_admin"]:
         uo.is_admin = data["is_admin"]
         uo.save()
     if "is_tech_contact" in data:
-        pass  # TODO: swap over the technical contact
-    return jsonify({"user_org": model_to_dict(u, recurse=False), "status": ("created" if created else "updated")})
-
+        user = User.get(id=user_id)
+        if data["is_tech_contact"]:
+            org.tech_contact = user
+        elif org.tech_contact == user:
+            org.tech_contact_id = None
+        org.save()
+    return jsonify({
+        "org": model_to_dict(org, recurse=False),
+        "user_org": model_to_dict(uo, recurse=False),
+        "status": ("created" if created else "updated"),
+    })

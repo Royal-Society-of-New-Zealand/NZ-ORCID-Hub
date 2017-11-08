@@ -76,10 +76,14 @@
         <tbody>
           <tr ng-repeat="r in user_orgs | orderBy: 'name'">
             <form>
-                <td class="col-name">x</td>
+              <td class="col-name">
+                <button ng-really-message="Are you sure you want to delete this record?" ng-really-click="delete_org(r.id)" title="Delete record">
+                  <span class="fa fa-trash glyphicon glyphicon-trash"></span>
+                </button>
+              </td>
                 <td class="col-name">{{r.name}}</td>
-                <td class="col-name"><input type="checkbox" ng-model="r.is_admin"></td>
-                <td class="col-name"><input type="checkbox" ng-model="r.is_tech_contact"></td>
+                <td class="col-name"><input type="checkbox" ng-change="change(r)" ng-model="r.is_admin"></td>
+                <td class="col-name"><input type="checkbox" ng-change="change(r)" ng-model="r.is_tech_contact"></td>
             </form>
           </tr>
         </tbody>
@@ -96,15 +100,53 @@ $('#user-orgs').on("change", function(e) {
    console.info(e);
 });
 var app = angular.module("userAdmin", []);
-app.controller("userOrgs", function($scope) {
+app.directive('ngReallyClick', [function() {
+    return {
+        restrict: 'A',
+        link: function(scope, element, attrs) {
+            element.bind('click', function() {
+                var message = attrs.ngReallyMessage;
+                if (message && confirm(message)) {
+                    scope.$apply(attrs.ngReallyClick);
+                }
+            });
+        }
+    }
+}]);
+app.controller("userOrgs", function($scope, $http) {
   $scope.user_orgs = {{ model.organisations.dicts()| list | tojson }};
   $scope.available_orgs = {{ model.available_organisations.dicts()| list | tojson }};
   $scope.add_org = function() {
     console.info($scope.selectedOrg);
+    if (!$scope.selectedOrg) {
+      return;
+    }
     $scope.user_orgs.push({id: $scope.selectedOrg.id, name: $scope.selectedOrg.name, is_admin: false,
       is_tech_contact: false});
-    //$scope.$apply()
-  }
+    for (var i in $scope.available_orgs) {
+      if ($scope.available_orgs[i].id == $scope.selectedOrg.id) {
+        $scope.available_orgs.splice(i, 1);
+        $scope.selectedOrg = null;
+        break;
+      }
+    }
+  };
+  $scope.delete_org = function(org_id) {
+    for (var i in $scope.user_orgs) {
+      if ($scope.user_orgs[i].id == org_id) {
+        var o = $scope.user_orgs.splice(i, 1);
+        $scope.available_orgs.push(o.pop());
+        break;
+      }
+    }
+  };
+  $scope.change = function(user_org) {
+    console.info(user_org);
+    $http.put("{{ url_for('user_orgs_org', user_id=request.args.get('id')) }}", user_org)
+      .then(function(response) {
+        console.info(response.data);
+      });
+  };
 });
   </script>
 {% endblock %}
