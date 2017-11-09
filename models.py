@@ -1199,6 +1199,7 @@ class FundingRecord(BaseModel, AuditMixin):
     def del_none(d):      # noqa: N805
         """
         Delete keys with the value ``None`` in a dictionary, recursively.
+
         So that the schema validation will not fail, for elements that are none
         """
         for key, value in list(d.items()):
