@@ -1196,10 +1196,9 @@ class FundingRecord(BaseModel, AuditMixin):
         ts = datetime.now().isoformat(timespec="seconds")
         self.status = (self.status + "\n" if self.status else '') + ts + ": " + line
 
-    def del_none(d):
+    def del_none(d):      # noqa: N805
         """
         Delete keys with the value ``None`` in a dictionary, recursively.
-
         So that the schema validation will not fail, for elements that are none
         """
         for key, value in list(d.items()):
@@ -1207,7 +1206,7 @@ class FundingRecord(BaseModel, AuditMixin):
                 del d[key]
             elif isinstance(value, dict):
                 FundingRecord.del_none(value)
-        return d  # For convenience
+        return d
 
     class Meta:  # noqa: D101,D106
         db_table = "funding_record"
