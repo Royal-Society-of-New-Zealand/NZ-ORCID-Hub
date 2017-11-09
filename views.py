@@ -1403,7 +1403,7 @@ def user_orgs_org(user_id, org_id=None):
 
     """
     data = request.json
-    if not data or not data.get("id"):
+    if not org_id and not (data and data.get("id")):
         return jsonify({"error": "NOT DATA"}), 400
     if not org_id:
         org_id = data.get("id")

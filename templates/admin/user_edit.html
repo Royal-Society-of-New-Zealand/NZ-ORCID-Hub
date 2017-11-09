@@ -16,11 +16,12 @@
       <a href="{{ get_url('.create_view', url=return_url) }}">{{ _gettext('Create') }}</a>
     </li>
     {%- endif -%}
-    <li>
+    <li class="active">
       <a data-toggle="tab"  href="#edit-tab">{{ _gettext('Edit') }}</a>
     </li>
-    <li class="active">
-      <a data-toggle="tab" href="#user-orgs-tab">{{ _gettext('Organisations...') }}</a>
+    <li>
+      <a data-toggle="tab" href="#user-orgs-tab">
+        <span data-toggle="tooltip" title="User Organisations">{{ _gettext('Organisations') }}</span></a>
     </li>
     {%- if admin_view.can_view_details -%}
     <li>
@@ -32,22 +33,22 @@
 
 {% block edit_form %}
   <div class="tab-content">
-    <div id="edit-tab" class="tab-pane">
+    <div id="edit-tab" class="tab-pane active">
       <h3>Details</h3>
       {{ lib.render_form(form, return_url, extra(), form_opts) }}
     </div>
-    <div id="user-orgs-tab" class="tab-pane active" ng-app="userAdmin" ng-controller="userOrgs">
+    <div id="user-orgs-tab" class="tab-pane" ng-app="userAdmin" ng-controller="userOrgs">
       <h3>User Organisations</h3>
       <div class="form-group">
-        <label for="organisation" class="col-md-2 control-label">Organisation
+        <!-- label for="organisation" class="col-md-2 control-label">Organisation
           &nbsp;
-        </label>
+        </label -->
         <div class="col-md-10">
           <select ng-model="selectedOrg" ng-change="add_org()"
             ng-options="o.name for o in available_orgs | orderBy: 'name' track by o.id">
         {% raw %}
             <!-- option ng-repeat="o in available_orgs | orderBy: 'name'" value="{{o.id}}">{{o.name}}</option -->
-            <option value="">-- Choose an Organisation --</option>
+            <option value="">-- Choose an Organisation to add... --</option>
         {% endraw %}
           </select>
           <!--select class="form-control" data-allow-blank="1" data-allow-clear="true" data-placeholder="Please select Organisation" data-role="select2-ajax" data-url="{{url_for('user.ajax_lookup', name='organisation')}}" id="user-orgs" name="user-orgs" type="hidden">
@@ -139,8 +140,9 @@ app.controller("userOrgs", function($scope, $http) {
     for (var i in $scope.user_orgs) {
       if ($scope.user_orgs[i].id == org_id) {
         var org = $scope.user_orgs.splice(i, 1).pop();
+        console.info(org);
         $scope.available_orgs.push(org);
-        $http.delete("{{ url_for('user_orgs_org', user_id=request.args.get('id')) }}", org)
+        $http.delete("{{ url_for('user_orgs_org', user_id=request.args.get('id')) }}" + org_id)
           .then(function(response) {
             console.info(response.data);
           });
