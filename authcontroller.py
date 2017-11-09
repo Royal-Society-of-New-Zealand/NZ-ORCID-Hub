@@ -43,6 +43,35 @@ from utils import append_qs, confirm_token
 HEADERS = {'Accept': 'application/vnd.orcid+json', 'Content-type': 'application/vnd.orcid+json'}
 
 
+@app.context_processor
+def utility_processor():  # noqa: D202
+    """Define funcions callable form Jinja2 using application context."""
+
+    def onboarded_organisations():
+        return list(
+            Organisation.select(Organisation.name, Organisation.tuakiri_name).where(
+                Organisation.confirmed.__eq__(True)))
+
+    def orcid_login_url():
+        return url_for("orcid_login", next=get_next_url())
+
+    def tuakiri_login_url():
+        _next = get_next_url()
+        if EXTERNAL_SP:
+            session["auth_secret"] = secret_token = secrets.token_urlsafe()
+            _next = url_for("handle_login", _next=_next, _external=True)
+            login_url = append_qs(EXTERNAL_SP, _next=_next, key=secret_token)
+        else:
+            login_url = url_for("handle_login", _next=_next)
+        return login_url
+
+    return dict(
+        orcid_login_url=orcid_login_url,
+        tuakiri_login_url=tuakiri_login_url,
+        onboarded_organisations=onboarded_organisations,
+    )
+
+
 def get_next_url():
     """Retrieve and sanitize next/return URL."""
     _next = request.args.get("next") or request.args.get("_next")
@@ -53,81 +82,27 @@ def get_next_url():
     return None
 
 
+@app.route("/index.html")
 @app.route("/index")
 @app.route("/login")
 @app.route("/")
 def login():
     """Show main landing page with login buttons."""
-    _next = get_next_url()
-    orcid_login_url = url_for("orcid_login", next=_next)
-    if EXTERNAL_SP:
-        session["auth_secret"] = secret_token = secrets.token_urlsafe()
-        _next = url_for("handle_login", _next=_next, _external=True)
-        login_url = append_qs(EXTERNAL_SP, _next=_next, key=secret_token)
-    else:
-        login_url = url_for("handle_login", _next=_next)
-
-    org_onboarded_info = {
-        r.name: r.tuakiri_name
-        for r in Organisation.select(Organisation.name, Organisation.tuakiri_name).where(
-            Organisation.confirmed.__eq__(True))
-    }
-
-    return render_template(
-        "index.html",
-        login_url=login_url,
-        orcid_login_url=orcid_login_url,
-        org_onboarded_info=org_onboarded_info)
+    return render_template("index.html")
 
 
+@app.route("/about.html")
 @app.route("/about")
 def about():
     """Show about page with login buttons."""
-    _next = get_next_url()
-    orcid_login_url = url_for("orcid_login", next=_next)
-    if EXTERNAL_SP:
-        session["auth_secret"] = secret_token = secrets.token_urlsafe()
-        _next = url_for("handle_login", _next=_next, _external=True)
-        login_url = append_qs(EXTERNAL_SP, _next=_next, key=secret_token)
-    else:
-        login_url = url_for("handle_login", _next=_next)
-
-    org_onboarded_info = {
-        r.name: r.tuakiri_name
-        for r in Organisation.select(Organisation.name, Organisation.tuakiri_name).where(
-            Organisation.confirmed.__eq__(True))
-    }
-
-    return render_template(
-        "about.html",
-        login_url=login_url,
-        orcid_login_url=orcid_login_url,
-        org_onboarded_info=org_onboarded_info)
+    return render_template("about.html")
 
 
+@app.route("/faq.html")
 @app.route("/faq")
 def faq():
     """Show FAQ page with login buttons."""
-    _next = get_next_url()
-    orcid_login_url = url_for("orcid_login", next=_next)
-    if EXTERNAL_SP:
-        session["auth_secret"] = secret_token = secrets.token_urlsafe()
-        _next = url_for("handle_login", _next=_next, _external=True)
-        login_url = append_qs(EXTERNAL_SP, _next=_next, key=secret_token)
-    else:
-        login_url = url_for("handle_login", _next=_next)
-
-    org_onboarded_info = {
-        r.name: r.tuakiri_name
-        for r in Organisation.select(Organisation.name, Organisation.tuakiri_name).where(
-            Organisation.confirmed.__eq__(True))
-    }
-
-    return render_template(
-        "faq.html",
-        login_url=login_url,
-        orcid_login_url=orcid_login_url,
-        org_onboarded_info=org_onboarded_info)
+    return render_template("faq.html")
 
 
 @app.route("/Tuakiri/SP")
@@ -193,6 +168,8 @@ def handle_login():
 
     # TODO: make it secret
     if EXTERNAL_SP:
+        if "auth_secret" not in session:
+            return redirect(url_for("login"))
         sp_url = urlparse(EXTERNAL_SP)
         attr_url = sp_url.scheme + "://" + sp_url.netloc + "/sp/attributes/" + session.get(
             "auth_secret")
