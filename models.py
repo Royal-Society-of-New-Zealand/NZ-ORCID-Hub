@@ -1244,6 +1244,9 @@ class Client(BaseModel, AuditMixin):
 
     @property
     def default_redirect_uri(self):
+        ru = self.redirect_uris
+        if not ru:
+            return None
         return self.redirect_uris[0]
 
     @property
@@ -1275,9 +1278,9 @@ class Grant(BaseModel):
 
     _scopes = TextField(null=True)
 
-    def delete(self):
-        super().delete().execute()
-        return self
+    # def delete(self):
+    #     super().delete().execute()
+    #     return self
 
     @property
     def scopes(self):
@@ -1311,13 +1314,13 @@ class Token(BaseModel):
     token_type = CharField(max_length=40)
 
     access_token = CharField(max_length=255, unique=True)
-    refresh_token = CharField(max_length=255, unique=True)
+    refresh_token = CharField(max_length=255, unique=True, null=True)
     expires = DateTimeField(null=True)
     _scopes = TextField(null=True)
 
-    def delete(self):
-        super().delete().execute()
-        return self
+    # def delete(self):
+    #     super().delete().execute()
+    #     return self
 
     @property
     def scopes(self):

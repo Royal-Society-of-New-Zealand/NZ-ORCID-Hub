@@ -10,7 +10,7 @@ from models import Client, Grant, Token, User
 @oauth.clientgetter
 def load_client(client_id):
     try:
-        return Client.get(client_id=client_id).first()
+        return Client.get(client_id=client_id)
     except Client.DoesNotExist:
         return None
 
@@ -50,20 +50,23 @@ def load_token(access_token=None, refresh_token=None):
 def save_token(token, request, *args, **kwargs):
 
     # make sure that every client has only one token connected to a user
-    Token.delete().where(
-        Token.client_id == Client.select().where(Client.client_id == request.client.client_id),
-        Token.user_id == request.user.id).execute()
+    try:
+        client = Client.get(client_id=request.client.client_id)
+    except Client.DoesNotExist:
+        return jsonify({"error": "CLIENT DOESN'T EXIST"}), 404
+    Token.delete().where(Token.client == client).where(Token.user_id == request.user.id).execute()
 
     expires_in = token.get("expires_in")
     expires = datetime.utcnow() + timedelta(seconds=expires_in)
+    print(token)
 
     return Token.create(
         access_token=token["access_token"],
-        refresh_token=token["refresh_token"],
+        refresh_token=token.get("refresh_token"),
         token_type=token["token_type"],
         _scopes=token["scope"],
         expires=expires,
-        client_id=request.client.client_id,
+        client=client,
         user_id=request.user.id,
     )
 
@@ -89,7 +92,8 @@ def access_token():
 
 
 @app.route('/api/me')
-@oauth.require_oauth('email')
+@app.route("/api/v0.1/me")
+@oauth.require_oauth()
 def me():
     user = request.oauth.user
-    return jsonify(email=user.email, username=user.username)
+    return jsonify(email=user.email, name=user.name)
