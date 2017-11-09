@@ -94,11 +94,26 @@ class PartialDate(namedtuple("PartialDate", ["year", "month", "day"])):
 
         >>> PartialDate.create("2003-07-14")
         2003-07-13
+
+        >>> PartialDate.create("2003/03")
+        2003-03
+
+        >>> PartialDate.create("2003/07/14")
+        2003-07-13
+
+        >>> PartialDate.create("03/2003")
+        2003-03
+
+        >>> PartialDate.create("14/07/2003")
+        2003-07-13
         """
         if value is None or value == {}:
             return None
         if isinstance(value, str):
             try:
+                if '/' in value:
+                    parts = value.split('/')
+                    return cls(*[int(v) for v in (parts[::-1] if len(parts[-1]) > 2 else parts)])
                 return cls(*[int(v) for v in value.split('-')])
             except Exception as ex:
                 raise ModelException(f"Wrong partial date value '{value}': {ex}")
@@ -822,7 +837,7 @@ class Task(BaseModel, AuditMixin):
 
     @classmethod
     def load_from_csv(cls, source, filename=None, org=None):
-        """Load data from CSV/TSV file or a string."""
+        """Load affiliation record data from CSV/TSV file or a string."""
         if isinstance(source, str):
             if '\n' in source:
                 source = StringIO(source)
