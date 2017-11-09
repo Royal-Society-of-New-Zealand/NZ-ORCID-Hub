@@ -93,19 +93,19 @@ class PartialDate(namedtuple("PartialDate", ["year", "month", "day"])):
         2003-03
 
         >>> PartialDate.create("2003-07-14")
-        2003-07-13
+        2003-07-14
 
         >>> PartialDate.create("2003/03")
         2003-03
 
         >>> PartialDate.create("2003/07/14")
-        2003-07-13
+        2003-07-14
 
         >>> PartialDate.create("03/2003")
         2003-03
 
         >>> PartialDate.create("14/07/2003")
-        2003-07-13
+        2003-07-14
         """
         if value is None or value == {}:
             return None
