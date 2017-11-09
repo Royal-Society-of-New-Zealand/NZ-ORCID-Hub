@@ -2,6 +2,7 @@
 """Application models."""
 
 import csv
+import copy
 import json
 import random
 import re
@@ -1095,13 +1096,14 @@ class FundingRecord(BaseModel, AuditMixin):
                 funding_data = yaml.load(source)
             else:
                 funding_data = json.loads(source)
+            validation_source_data = copy.deepcopy(funding_data)
+
+            # Removing None for correct schema validation
+            validation_source_data = FundingRecord.del_none(validation_source_data)
 
             # Adding schema valdation for funding
-            validator = Core(source_data=funding_data,      # noqa: F841
-                             schema_files=["funding_schema.yaml"])
-
-            # TODO: Uncomment the below code once "funding_schema.yaml" is fully ready
-            # validator.validate(raise_exception=True)
+            validator = Core(source_data=validation_source_data, schema_files=["funding_schema.yaml"])
+            validator.validate(raise_exception=True)
 
             try:
                 if org is None:
@@ -1109,10 +1111,12 @@ class FundingRecord(BaseModel, AuditMixin):
                 task = Task.create(org=org, filename=filename, task_type=TaskType.FUNDING)
 
                 title = funding_data["title"]["title"]["value"] if \
-                    funding_data["title"] and funding_data["title"]["title"] else None
+                    funding_data["title"] and funding_data["title"]["title"] and \
+                    funding_data["title"]["title"]["value"] else None
 
                 translated_title = funding_data["title"]["translated-title"]["value"] if \
-                    funding_data["title"] and funding_data["title"]["translated-title"] else None
+                    funding_data["title"] and funding_data["title"]["translated-title"] \
+                    and funding_data["title"]["translated-title"]["value"] else None
 
                 type = funding_data["type"] if funding_data["type"] else None
 
@@ -1191,6 +1195,19 @@ class FundingRecord(BaseModel, AuditMixin):
         """Add a text line to the status for logging processing progress."""
         ts = datetime.now().isoformat(timespec="seconds")
         self.status = (self.status + "\n" if self.status else '') + ts + ": " + line
+
+    def del_none(d):
+        """
+        Delete keys with the value ``None`` in a dictionary, recursively.
+
+        So that the schema validation will not fail, for elements that are none
+        """
+        for key, value in list(d.items()):
+            if value is None:
+                del d[key]
+            elif isinstance(value, dict):
+                FundingRecord.del_none(value)
+        return d  # For convenience
 
     class Meta:  # noqa: D101,D106
         db_table = "funding_record"
