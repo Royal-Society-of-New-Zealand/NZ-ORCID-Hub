@@ -5,7 +5,6 @@ import json
 import os
 from collections import namedtuple
 from datetime import datetime
-from importlib import import_module
 
 from flask import (abort, flash, jsonify, redirect, render_template, request, send_from_directory,
                    url_for)
@@ -1372,16 +1371,19 @@ def user_orgs(user_id, org_id=None):
 
 
 @app.route(
-    "/hub/api/v0.1/users/<int:user_id>/orgs/<int:org_id>", methods=[
+    "/hub/api/v0.1/users/<int:user_id>/orgs/<int:org_id>",
+    methods=[
+        "DELETE",
+        "PATCH",
         "POST",
         "PUT",
-        "PATCH",
     ])
 @app.route(
     "/hub/api/v0.1/users/<int:user_id>/orgs/", methods=[
+        "DELETE",
+        "PATCH",
         "POST",
         "PUT",
-        "PATCH",
     ])
 @roles_required(Role.SUPERUSER, Role.ADMIN)
 def user_orgs_org(user_id, org_id=None):
@@ -1405,20 +1407,31 @@ def user_orgs_org(user_id, org_id=None):
         return jsonify({"error": "NOT DATA"}), 400
     if not org_id:
         org_id = data.get("id")
-    org = Organisation.get(id=org_id)
-    uo, created = UserOrg.get_or_create(user_id=user_id, org_id=org_id)
-    if "is_admin" in data and uo.is_admin != data["is_admin"]:
-        uo.is_admin = data["is_admin"]
-        uo.save()
-    if "is_tech_contact" in data:
+    if request.method == "DELETE":
+        UserOrg.delete().where((UserOrg.user_id == user_id) & (UserOrg.org_id == org_id)).execute()
         user = User.get(id=user_id)
-        if data["is_tech_contact"]:
-            org.tech_contact = user
-        elif org.tech_contact == user:
-            org.tech_contact_id = None
-        org.save()
-    return jsonify({
-        "org": model_to_dict(org, recurse=False),
-        "user_org": model_to_dict(uo, recurse=False),
-        "status": ("created" if created else "updated"),
-    })
+        if user.organisation_id == org_id:
+            user.organisation_id = None
+            user.save()
+        return jsonify({
+            "user-org": data,
+            "status": "DELETED",
+        })
+    else:
+        org = Organisation.get(id=org_id)
+        uo, created = UserOrg.get_or_create(user_id=user_id, org_id=org_id)
+        if "is_admin" in data and uo.is_admin != data["is_admin"]:
+            uo.is_admin = data["is_admin"]
+            uo.save()
+        if "is_tech_contact" in data:
+            user = User.get(id=user_id)
+            if data["is_tech_contact"]:
+                org.tech_contact = user
+            elif org.tech_contact == user:
+                org.tech_contact_id = None
+            org.save()
+        return jsonify({
+            "org": model_to_dict(org, recurse=False),
+            "user_org": model_to_dict(uo, recurse=False),
+            "status": ("CREATED" if created else "UPDATED"),
+        }), (201 if created else 200)

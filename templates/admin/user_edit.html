@@ -121,8 +121,8 @@ app.controller("userOrgs", function($scope, $http) {
     if (!$scope.selectedOrg) {
       return;
     }
-    $scope.user_orgs.push({id: $scope.selectedOrg.id, name: $scope.selectedOrg.name, is_admin: false,
-      is_tech_contact: false});
+    var org = {id: $scope.selectedOrg.id, name: $scope.selectedOrg.name, is_admin: false, is_tech_contact: false};
+    $scope.user_orgs.push(org);
     for (var i in $scope.available_orgs) {
       if ($scope.available_orgs[i].id == $scope.selectedOrg.id) {
         $scope.available_orgs.splice(i, 1);
@@ -130,12 +130,20 @@ app.controller("userOrgs", function($scope, $http) {
         break;
       }
     }
+    $http.post("{{ url_for('user_orgs_org', user_id=request.args.get('id')) }}", org)
+    .then(function(response) {
+        console.info(response.data);
+      });
   };
   $scope.delete_org = function(org_id) {
     for (var i in $scope.user_orgs) {
       if ($scope.user_orgs[i].id == org_id) {
-        var o = $scope.user_orgs.splice(i, 1);
-        $scope.available_orgs.push(o.pop());
+        var org = $scope.user_orgs.splice(i, 1).pop();
+        $scope.available_orgs.push(org);
+        $http.delete("{{ url_for('user_orgs_org', user_id=request.args.get('id')) }}", org)
+          .then(function(response) {
+            console.info(response.data);
+          });
         break;
       }
     }

@@ -11,7 +11,7 @@ import os
 import click
 
 import models  # noqa: F401
-from application import api, app
+from application import app
 from authcontroller import *  # noqa: F401,F403
 from reports import *  # noqa: F401,F403
 from utils import process_affiliation_records, process_funding_records
