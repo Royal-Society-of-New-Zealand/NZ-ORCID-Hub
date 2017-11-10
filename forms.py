@@ -193,10 +193,10 @@ class FileUploadForm(FlaskForm):
                     FileAllowed(["csv", "tsv"], 'CSV or TSV files only!')])
 
 
-class JsonFileUploadForm(FlaskForm):
+class JsonOrYamlFileUploadForm(FlaskForm):
     """Funding info pre-loading form."""
 
-    file_ = FileField(validators=[FileRequired(), FileAllowed(["json"], 'JSON file only!')])
+    file_ = FileField(validators=[FileRequired(), FileAllowed(["json", "yaml"], 'JSON or YAML file only!')])
 
 
 class OnboardingTokenForm(FlaskForm):

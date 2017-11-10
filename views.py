@@ -20,10 +20,10 @@ from flask_admin.actions import action
 from flask_admin.contrib.peewee import ModelView
 from flask_admin.form import SecureForm
 from flask_admin.model import typefmt
-from forms import (BitmapMultipleValueField, FileUploadForm, JsonFileUploadForm,
+from forms import (BitmapMultipleValueField, FileUploadForm, JsonOrYamlFileUploadForm,
                    OrgRegistrationForm, PartialDateField, RecordForm, UserInvitationForm)
 from login_provider import roles_required
-from models import AffiliationRecord  # noqa: F401
+from models import AffiliationRecord, FundingContributor, ExternalId    # noqa: F401
 from models import (Affiliation, CharField, FundingRecord, ModelException, OrcidApiCall,
                     OrcidToken, Organisation, OrgInfo, OrgInvitation, PartialDate, Role, Task,
                     TextField, Url, User, UserInvitation, UserOrg, UserOrgAffiliation, db)
@@ -389,9 +389,165 @@ class TaskAdmin(AppModelView):
 
     roles_required = Role.SUPERUSER | Role.ADMIN
     list_template = "view_tasks.html"
+    column_exclude_list = (
+        "task_type",)
     can_edit = False
     can_create = False
     can_delete = True
+
+
+class ExternalIdAdmin(AppModelView):
+    """ExternalId model view."""
+
+    roles_required = Role.SUPERUSER | Role.ADMIN
+    list_template = "funding_externalid_list.html"
+    column_exclude_list = (
+        "funding_record", )
+
+    can_edit = True
+    can_create = False
+    can_delete = False
+    can_view_details = True
+    can_export = True
+
+    form_widget_args = {"external_id": {"readonly": True}}
+
+    def is_accessible(self):
+        """Verify if the external id's view is accessible for the current user."""
+        if not super().is_accessible():
+            flash("Access denied! You cannot access this task.", "danger")
+            return False
+
+        return True
+
+
+class FundingContributorAdmin(AppModelView):
+    """Funding record model view."""
+
+    roles_required = Role.SUPERUSER | Role.ADMIN
+    list_template = "funding_contributor_list.html"
+    column_exclude_list = (
+        "funding_record", )
+
+    can_edit = True
+    can_create = False
+    can_delete = False
+    can_view_details = True
+    can_export = True
+
+    form_widget_args = {"external_id": {"readonly": True}}
+
+    def is_accessible(self):
+        """Verify if the funding contributor view is accessible for the current user."""
+        if not super().is_accessible():
+            flash("Access denied! You cannot access this task.", "danger")
+            return False
+
+        return True
+
+
+class FundingRecordAdmin(AppModelView):
+    """Funding record model view."""
+
+    roles_required = Role.SUPERUSER | Role.ADMIN
+    list_template = "funding_record_list.html"
+    column_exclude_list = (
+        "task",
+        "organisation", )
+    column_searchable_list = (
+        "title",
+         )
+    column_export_exclude_list = (
+        "task",
+        "is_active", )
+    can_edit = True
+    can_create = False
+    can_delete = False
+    can_view_details = True
+    can_export = True
+
+    form_widget_args = {"external_id": {"readonly": True}}
+
+    def is_accessible(self):
+        """Verify if the task view is accessible for the current user."""
+        if not super().is_accessible():
+            return False
+
+        # Added the feature for superuser to access task related to all research organiastion
+        if current_user.is_superuser:
+            return True
+
+        if request.method == "POST" and request.form.get("rowid"):
+            # get the first ROWID:
+            rowid = int(request.form.get("rowid"))
+            task_id = FundingRecord.get(id=rowid).task_id
+        else:
+            task_id = request.args.get("task_id")
+            if not task_id:
+                _id = request.args.get("id")
+                if not _id:
+                    flash("Cannot invoke the task view without task ID", "danger")
+                    return False
+                else:
+                    task_id = FundingRecord.get(id=_id).task_id
+
+        try:
+            task = Task.get(id=task_id)
+            if task.org.id != current_user.organisation.id:
+                flash("Access denied! You cannot access this task.", "danger")
+                return False
+
+        except Task.DoesNotExist:
+            flash("The task deesn't exist.", "danger")
+            return False
+
+        return True
+
+    def get_export_name(self, export_type='csv'):
+        """Get export file name using the original imported file name.
+
+        :return: The exported csv file name.
+        """
+        task_id = request.args.get("task_id")
+        if task_id:
+            task = Task.get(id=task_id)
+            if task:
+                filename = os.path.splitext(task.filename)[0]
+                return "%s_%s.%s" % (filename, datetime.now().strftime("%Y-%m-%d_%H-%M-%S"),
+                                     export_type)
+        return super().get_export_name(export_type=export_type)
+
+    @action("activate", "Activate for processing",
+            "Are you sure you want to activate the selected records for batch processing?")
+    def action_activate(self, ids):
+        """Batch registraion of users."""
+        try:
+            count = self.model.update(is_active=True).where(
+                self.model.is_active == False,  # noqa: E712
+                self.model.id.in_(ids)).execute()
+        except Exception as ex:
+            flash(f"Failed to activate the selected records: {ex}")
+            app.logger.exception("Failed to activate the selected records")
+        else:
+            flash(f"{count} records were activated for batch processing.")
+
+    @action("reset", "Reset for processing",
+            "Are you sure you want to reset the selected records for batch processing?")
+    def action_reset(self, ids):
+        """Batch reset of users."""
+        try:
+            count = self.model.update(processed_at=None).where(
+                self.model.is_active,
+                self.model.processed_at.is_null(False), self.model.id.in_(ids)).execute()
+            FundingContributor.update(
+                processed_at=None).where(FundingContributor.funding_record.in_(ids)
+                                         and FundingContributor.processed_at.is_null(False)).execute()
+        except Exception as ex:
+            flash(f"Failed to activate the selected records: {ex}")
+            app.logger.exception("Failed to activate the selected records")
+
+        else:
+            flash(f"{count} records were activated for batch processing.")
 
 
 class AffiliationRecordAdmin(AppModelView):
@@ -427,6 +583,10 @@ class AffiliationRecordAdmin(AppModelView):
         """Verify if the task view is accessible for the current user."""
         if not super().is_accessible():
             return False
+
+        # Added the feature for superuser to access task related to all research organiastion
+        if current_user.is_superuser:
+            return True
 
         if request.method == "POST" and request.form.get("rowid"):
             # get the first ROWID:
@@ -535,6 +695,9 @@ admin.add_view(OrgInfoAdmin(OrgInfo))
 admin.add_view(OrcidApiCallAmin(OrcidApiCall))
 admin.add_view(TaskAdmin(Task))
 admin.add_view(AffiliationRecordAdmin())
+admin.add_view(FundingRecordAdmin())
+admin.add_view(FundingContributorAdmin())
+admin.add_view(ExternalIdAdmin())
 admin.add_view(AppModelView(UserInvitation))
 admin.add_view(ViewMembersAdmin(name="viewmembers", endpoint="viewmembers"))
 
@@ -589,10 +752,16 @@ def activate_all():
     """Batch registraion of users."""
     _url = request.args.get("url") or request.referrer
     task_id = request.form.get('task_id')
+    task = Task.get(id=task_id)
     try:
-        count = AffiliationRecord.update(is_active=True).where(
-            AffiliationRecord.task_id == task_id,
-            AffiliationRecord.is_active == False).execute()  # noqa: E712
+        if task.task_type == 0:
+            count = AffiliationRecord.update(
+                is_active=True).where(AffiliationRecord.task_id == task_id,
+                                      AffiliationRecord.is_active == False).execute()  # noqa: E712
+        elif task.task_type == 1:
+            count = FundingRecord.update(
+                is_active=True).where(FundingRecord.task_id == task_id,
+                                      FundingRecord.is_active == False).execute()  # noqa: E712
     except Exception as ex:
         flash(f"Failed to activate the selected records: {ex}")
         app.logger.exception("Failed to activate the selected records")
@@ -772,6 +941,22 @@ def employment_list(user_id):
     return show_record_section(user_id, "EMP")
 
 
+@app.route("/<int:funding_record_id>/FundingContributor/list")
+@app.route("/<int:funding_record_id>/FundingContributor")
+@login_required
+def funding_contributor_list(funding_record_id):
+    """Show the funding contributors list of the selected user."""
+    return redirect(url_for("fundingcontributor.index_view", funding_record_id=funding_record_id))
+
+
+@app.route("/<int:funding_record_id>/ExternaId/list")
+@app.route("/<int:funding_record_id>/ExternaId")
+@login_required
+def externalid_list(funding_record_id):
+    """Show the External id list of the funding item."""
+    return redirect(url_for("externalid.index_view", funding_record_id=funding_record_id))
+
+
 @app.route("/<int:user_id>/edu/list")
 @app.route("/<int:user_id>/edu")
 @login_required
@@ -888,50 +1073,16 @@ def load_researcher_affiliations():
 @roles_required(Role.ADMIN)
 def load_researcher_funding():
     """Preload organisation data."""
-    form = JsonFileUploadForm()
+    form = JsonOrYamlFileUploadForm()
     if form.validate_on_submit():
         filename = secure_filename(form.file_.data.filename)
-        funding_data = FundingRecord.load_from_json(read_uploaded_file(form), filename=filename)
-
-        orcid_token = None
-        contributors_list = funding_data["contributors"]["contributor"]
-        funding_created_id = ""
-        for contributor in contributors_list:
-
-            # orcid_id = contributor["contributor-orcid"]["path"]
-            email = contributor["contributor-email"]["value"]
-            user = None
-
-            try:
-                user = User.get(email=email)
-                orcid_token = OrcidToken.get(
-                    user=user,
-                    org=current_user.organisation,
-                    scope=SCOPE_READ_LIMITED[0] + "," + SCOPE_ACTIVITIES_UPDATE[0])
-            except Exception:
-                # TODO: Send a mail to researcher asking him permissions
-                flash(f"The user {email} hasn't authorized you to add funding record", "warning")
-                continue
-
-            orcid_client.configuration.access_token = orcid_token.access_token
-            api_instance = orcid_client.MemberAPIV20Api()
-
-            try:
-                # Adding funding info
-                params = dict(orcid=user.orcid, body=funding_data, _preload_content=False)
-                api_instance.create_funding(**params)
-                funding_created_id += email + " ,"
-                app.logger.info("For %r funding record was created by %r", user.orcid,
-                                current_user)
-            except ApiException as e:
-                message = json.loads(e.body.replace("''", "\"")).get('user-messsage')
-                flash("Failed to create the entry: %s" % message, "danger")
-            except Exception as ex:
-                app.logger.error("For %r encountered exception: %r", user, ex)
-                abort(500, ex)
-        if funding_created_id:
-            flash(f"funding record for {funding_created_id} has been successfully created.",
-                  "success")
+        try:
+            task = FundingRecord.load_from_json(read_uploaded_file(form), filename=filename)
+            flash(f"Successfully loaded {task.record_funding_count} rows.")
+            return redirect(url_for("fundingrecord.index_view", task_id=task.id))
+        except Exception as ex:
+            flash(f"Failed to load funding record file: {ex}", "danger")
+            app.logger.exception("Failed to load funding records.")
 
     return render_template("fileUpload.html", form=form, form_title="Funding")
 

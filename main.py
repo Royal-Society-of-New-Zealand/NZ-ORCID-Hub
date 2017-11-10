@@ -14,7 +14,7 @@ import models  # noqa: F401
 from application import app
 from authcontroller import *  # noqa: F401,F403
 from reports import *  # noqa: F401,F403
-from utils import process_affiliation_records
+from utils import process_affiliation_records, process_funding_records
 from views import *  # noqa: F401,F403
 
 
@@ -82,8 +82,9 @@ def org_info(input):
 @app.cli.command()
 @click.option("-n", default=20, help="Max number of rows to process.")
 def process(n):
-    """Process uploaded affiliation records."""
+    """Process uploaded affiliation and funding records."""
     process_affiliation_records(n)
+    process_funding_records(n)
 
 
 if os.environ.get("ENV") == "dev0":

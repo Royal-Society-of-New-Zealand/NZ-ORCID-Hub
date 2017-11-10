@@ -824,9 +824,13 @@ def orcid_login(invitation_token=None):
         if invitation_token:
             orcid_authenticate_url = append_qs(
                 orcid_authenticate_url,
-                family_names=user.last_name,
-                given_names=user.first_name,
                 email=email)
+            # For funding record, we dont have first name and Last Name
+            if user.last_name and user.first_name:
+                orcid_authenticate_url = append_qs(
+                    orcid_authenticate_url,
+                    family_names=user.last_name,
+                    given_names=user.first_name)
 
         oac = OrcidAuthorizeCall.create(
             user_id=None, method="GET", url=orcid_authenticate_url, state=state)

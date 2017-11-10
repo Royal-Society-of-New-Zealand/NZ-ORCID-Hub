@@ -17,3 +17,5 @@ html2text
 tablib
 raven
 raven[flask]
+pyyaml
+pykwalify
