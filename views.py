@@ -3,6 +3,7 @@
 
 import json
 import os
+import secrets
 from collections import namedtuple
 from datetime import datetime
 
@@ -20,8 +21,9 @@ from flask_admin.actions import action
 from flask_admin.contrib.peewee import ModelView
 from flask_admin.form import SecureForm
 from flask_admin.model import typefmt
-from forms import (BitmapMultipleValueField, FileUploadForm, JsonFileUploadForm,
-                   OrgRegistrationForm, PartialDateField, RecordForm, UserInvitationForm)
+from forms import (ApplicationFrom, BitmapMultipleValueField, CredentialForm, FileUploadForm,
+                   JsonFileUploadForm, OrgRegistrationForm, PartialDateField, RecordForm,
+                   UserInvitationForm)
 from login_provider import roles_required
 from models import AffiliationRecord  # noqa: F401
 from models import (Affiliation, CharField, Client, FundingRecord, Grant, ModelException,
@@ -1187,3 +1189,58 @@ def invite_user():
         break
 
     return render_template("user_invitation.html", form=form)
+
+
+@app.route(
+    "/settings/applications/<int:app_id>", methods=[
+        "GET",
+        "POST",
+    ])
+@app.route(
+    "/settings/applications", methods=[
+        "GET",
+        "POST",
+    ])
+@roles_required(Role.SUPERUSER, Role.ADMIN)
+def application(app_id=None):
+    form = ApplicationFrom()
+    if app_id:
+        client = Client.select().where(Client.id == app_id).first()
+    else:
+        client = Client.select().where(Client.user_id == current_user.id).first()
+    if client:
+        return redirect(url_for("api_credentials", app_id=client.id))
+
+    if form.validate_on_submit():
+        client = Client()
+        form.populate_obj(client)
+        client.client_id = secrets.token_hex(10)
+        client.client_secret = secrets.token_urlsafe(20)
+        client.save()
+        print(form, form.register, form.cancel)
+        return redirect(url_for("api_credentials", app_id=client.id))
+
+    return render_template("application.html", form=form)
+
+
+@app.route(
+    "/settings/credentials/<int:app_id>", methods=[
+        "GET",
+        "POST",
+    ])
+@app.route(
+    "/settings/credentials", methods=[
+        "GET",
+        "POST",
+    ])
+@roles_required(Role.SUPERUSER, Role.ADMIN)
+def api_credentials(app_id=None):
+    if app_id:
+        client = Client.select().where(Client.id == app_id).first()
+    else:
+        client = Client.select().where(Client.user_id == current_user.id).first()
+    if not client:
+        return redirect(url_for("application"))
+    form = CredentialForm(obj=client)
+
+    return render_template("api_credentials.html", form=form)

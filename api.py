@@ -1,17 +1,17 @@
 """HUB API"""
 
-from flask_peewee.rest import Authentication, RestResource
-from flask import request, jsonify
+from flask import jsonify, request
+from flask_oauthlib.utils import create_response, extract_params
+from flask_peewee.rest import Authentication, RestAPI, RestResource
+from oauthlib.common import add_params_to_uri, to_unicode, urlencode
 
 import models
-from application import oauth, app
-from flask_oauthlib.utils import extract_params, create_response
-from oauthlib.common import to_unicode, add_params_to_uri, urlencode
-from flask_peewee.rest import RestAPI
+from application import app, oauth
 
 
 class AppRestAuthentication(Authentication):
     """Use Flask-OAuthlib authentication and application authentication."""
+
     # TODO: add user role requierentes.
 
     def authorize(self):
@@ -37,14 +37,17 @@ class AppRestAuthentication(Authentication):
 
         return True
 
+
 default_auth = AppRestAuthentication()
 api = RestAPI(app, prefix="/api/v0.1", default_auth=default_auth, name="ORCID Hub Data")
+
 
 class UserResource(RestResource):
     exclude = (
         "password",
         "email",
     )
+
 
 api.register(models.Organisation)
 api.register(models.User, UserResource)

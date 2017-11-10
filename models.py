@@ -1210,7 +1210,7 @@ class Funding(BaseModel):
 
 
 class Client(BaseModel, AuditMixin):
-    """API Client Application.
+    """API Client Application/Consumer.
 
     A client is the app which wants to use the resource of a user.
     It is suggested that the client is registered by a user on your site,
@@ -1218,17 +1218,25 @@ class Client(BaseModel, AuditMixin):
     """
 
     name = CharField(null=True, max_length=40, help_text="human readable name, not required")
+    homepage_url = CharField(null=True, max_length=100)
     description = CharField(
         null=True, max_length=400, help_text="human readable description, not required")
     user = ForeignKeyField(
         User, null=True, on_delete="SET NULL", help_text="creator of the client, not required")
 
-    client_id = CharField(max_length=40, unique=True)
+    client_id = CharField(max_length=100, unique=True)
     client_secret = CharField(max_length=55, unique=True)
     is_confidential = BooleanField(null=True, help_text="public or confidential")
+    grant_type = CharField(max_length=18, default="client_credentials", null=True)
+    response_type = CharField(max_length=4, default="code", null=True)
 
     _redirect_uris = TextField(null=True)
     _default_scopes = TextField(null=True)
+
+    def save(self, *args, **kwargs):  # noqa: D102
+        if self.is_dirty() and self.user_id is None and current_user:
+            self.user_id = current_user.id
+        return super().save(*args, **kwargs)
 
     @property
     def client_type(self):
@@ -1241,6 +1249,19 @@ class Client(BaseModel, AuditMixin):
         if self._redirect_uris:
             return self._redirect_uris.split()
         return []
+
+    @redirect_uris.setter
+    def redirect_uris(self, value):
+        if value and isinstance(value, str):
+            self._redirect_uris = value
+
+    @property
+    def callback_urls(self):
+        return self._redirect_uris
+
+    @callback_urls.setter
+    def callback_urls(self, value):
+        self._redirect_uris = value
 
     @property
     def default_redirect_uri(self):
@@ -1257,7 +1278,7 @@ class Client(BaseModel, AuditMixin):
 
 
 class Grant(BaseModel):
-    """Grant Token
+    """Grant Token / Authorization Code
 
     A grant token is created in the authorization flow, and will be destroyed when
     the authorization is finished. In this case, it would be better to store the data
@@ -1313,8 +1334,8 @@ class Token(BaseModel):
     user = ForeignKeyField(User, null=True, on_delete="SET NULL")
     token_type = CharField(max_length=40)
 
-    access_token = CharField(max_length=255, unique=True)
-    refresh_token = CharField(max_length=255, unique=True, null=True)
+    access_token = CharField(max_length=100, unique=True)
+    refresh_token = CharField(max_length=100, unique=True, null=True)
     expires = DateTimeField(null=True)
     _scopes = TextField(null=True)
 
@@ -1327,6 +1348,10 @@ class Token(BaseModel):
         if self._scopes:
             return self._scopes.split()
         return []
+
+    @property
+    def expires_at(self):
+        return self.expires
 
 
 def readup_file(input_file):

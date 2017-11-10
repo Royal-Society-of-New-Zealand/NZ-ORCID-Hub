@@ -11,13 +11,13 @@ import os
 import click
 
 import models  # noqa: F401
+from api import *  # noqa: F401,F403
 from application import app
 from authcontroller import *  # noqa: F401,F403
 from oauth import *  # noqa: F401,F403
 from reports import *  # noqa: F401,F403
 from utils import process_affiliation_records
 from views import *  # noqa: F401,F403
-from api import *  # noqa: F401,F403
 
 
 @app.before_first_request
@@ -56,11 +56,15 @@ def initdb(create=False, drop=False, force=False, audit=True, verbose=False):
         app.logger.info("Creating audit tables...")
         models.create_audit_tables()
 
-    super_user, _ = models.User.get_or_create(
-        name="The University of Auckland",
-        email="root@mailinator.com",
-        confirmed=True,
-        roles=models.Role.SUPERUSER)
+    super_user, created = models.User.get_or_create(
+        email="root@mailinator.com", roles=models.Role.SUPERUSER)
+
+    if not created:
+        return
+
+    super_user.name = "The University of Auckland"
+    super_user.confirmed = True
+    super_user.save()
 
     org, _ = models.Organisation.get_or_create(
         name="The University of Auckland", tuakiri_name="University of Auckland", confirmed=True)

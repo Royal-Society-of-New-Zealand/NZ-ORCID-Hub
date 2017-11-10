@@ -7,7 +7,7 @@ from flask_wtf import FlaskForm
 from flask_wtf.file import FileAllowed, FileField, FileRequired
 from pycountry import countries
 from wtforms import (BooleanField, Field, SelectField, SelectMultipleField, StringField,
-                     validators)
+                     SubmitField, TextField, validators)
 from wtforms.fields.html5 import DateField, EmailField
 from wtforms.validators import (UUID, DataRequired, Email, Regexp, Required, ValidationError)
 from wtforms.widgets import HTMLString, html_params
@@ -317,3 +317,29 @@ class DateRangeForm(FlaskForm):
 
     from_date = DateField('DatePicker', format='%Y-%m-%d')
     to_date = DateField('DatePicker', format='%Y-%m-%d')
+
+
+class ApplicationFromBase(FlaskForm):
+    """User/client application registration management form."""
+
+    name = StringField("Application name", [validators.required()])
+    homepage_url = StringField("Homepage URL")
+    description = TextField("Application Description")
+    callback_urls = TextField("Authorization callback URLs")
+
+
+class ApplicationFrom(ApplicationFromBase):
+
+    register = SubmitField("Register", render_kw={"class": "btn btn-primary mr-2"})
+    cancel = SubmitField("Cancel", render_kw={"class": "btn btn-invisible"})
+
+
+class CredentialForm(ApplicationFromBase):
+    """User/client application credential registration management form."""
+
+    client_id = StringField("Client ID", render_kw={"readonly": True})
+    client_secret = StringField("Client Secret", render_kw={"readonly": True})
+    revoke = SubmitField("Revoke all user tokens", render_kw={"class": "btn btn-danger"})
+    reset = SubmitField("Reset client secret", render_kw={"class": "btn btn-danger"})
+    update = SubmitField("Update application", render_kw={"class": "btn btn-primary mr-2"})
+    delete = SubmitField("Delete application", render_kw={"class": "btn btn-danger"})
