@@ -473,6 +473,10 @@ class FundingRecordAdmin(AppModelView):
         if not super().is_accessible():
             return False
 
+        # Added the feature for superuser to access task related to all research organiastion
+        if current_user.is_superuser:
+            return True
+
         if request.method == "POST" and request.form.get("rowid"):
             # get the first ROWID:
             rowid = int(request.form.get("rowid"))
@@ -579,6 +583,10 @@ class AffiliationRecordAdmin(AppModelView):
         """Verify if the task view is accessible for the current user."""
         if not super().is_accessible():
             return False
+
+        # Added the feature for superuser to access task related to all research organiastion
+        if current_user.is_superuser:
+            return True
 
         if request.method == "POST" and request.form.get("rowid"):
             # get the first ROWID:
