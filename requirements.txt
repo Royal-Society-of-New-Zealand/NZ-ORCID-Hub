@@ -18,3 +18,4 @@ tablib
 raven
 raven[flask]
 pyyaml
+pykwalify
