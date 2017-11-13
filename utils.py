@@ -22,8 +22,9 @@ from peewee import JOIN
 import orcid_client
 from application import app
 from config import ENV, EXTERNAL_SP
-from models import (AFFILIATION_TYPES, Affiliation, AffiliationRecord, OrcidToken, Organisation,
-                    Role, Task, Url, User, UserInvitation, UserOrg)
+from models import (AFFILIATION_TYPES, Affiliation, AffiliationRecord, FundingContributor,
+                    FundingRecord, OrcidToken, Organisation, Role, Task, Url, User, UserInvitation,
+                    UserOrg)
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -254,6 +255,153 @@ def set_server_name():
         else:
             app.config[
                 "SERVER_NAME"] = "orcidhub.org.nz" if ENV == "prod" else ENV + ".orcidhub.org.nz"
+
+
+def send_funding_invitation(inviter, org, email, name, task_id=None, **kwargs):
+    """Send an funding invitation to join ORCID Hub logging in via ORCID."""
+    try:
+        logger.info(f"*** Sending an funding invitation to '{name} <{email}>' "
+                    f"submitted by {inviter} of {org}")
+
+        email = email.lower()
+        user, user_created = User.get_or_create(email=email)
+        if user_created:
+            user.name = name
+            user.created_by = inviter.id
+        else:
+            user.updated_by = inviter.id
+
+        user.organisation = org
+        user.roles |= Role.RESEARCHER
+
+        token = generate_confirmation_token(email=email, org=org.name)
+        with app.app_context():
+            url = flask.url_for('orcid_login', invitation_token=token, _external=True)
+            invitation_url = flask.url_for(
+                "short_url", short_id=Url.shorten(url).short_id, _external=True)
+            send_email(
+                "email/funding_invitation.html",
+                recipient=(user.organisation.name, user.email),
+                reply_to=(inviter.name, inviter.email),
+                invitation_url=invitation_url,
+                org_name=user.organisation.name,
+                user=user)
+
+        user.save()
+
+        user_org, user_org_created = UserOrg.get_or_create(user=user, org=org)
+        if user_org_created:
+            user_org.created_by = inviter.id
+        else:
+            user_org.updated_by = inviter.id
+        user_org.affiliations = 0
+        user_org.save()
+
+        ui = UserInvitation.create(
+            task_id=task_id,
+            invitee_id=user.id,
+            inviter_id=inviter.id,
+            org=org,
+            email=email,
+            first_name=name,
+            affiliations=0,
+            organisation=org.name,
+            disambiguated_id=org.disambiguated_id,
+            disambiguation_source=org.disambiguation_source,
+            token=token)
+
+        status = "The invitation sent at " + datetime.now().isoformat(timespec="seconds")
+        (FundingContributor.update(status=FundingContributor.status + "\n" + status).where(
+            FundingContributor.status.is_null(False), FundingContributor.email == email).execute())
+        (FundingContributor.update(status=status).where(
+            FundingContributor.status.is_null(), FundingContributor.email == email).execute())
+        return ui
+
+    except Exception as ex:
+        logger.error(f"Exception occured while sending mails {ex}")
+        raise ex
+
+
+def create_or_update_funding(user, org_id, records, *args, **kwargs):
+    """Create or update funding record of a user."""
+    records = list(unique_everseen(records, key=lambda t: t.funding_record.id))
+    org = Organisation.get(id=org_id)
+    client_id = org.orcid_client_id
+    api = orcid_client.MemberAPI(org, user)
+
+    profile_record = api.get_record()
+
+    if profile_record:
+        activities = profile_record.get("activities-summary")
+
+        def is_org_rec(rec):
+            return (rec.get("source").get("source-client-id")
+                    and rec.get("source").get("source-client-id").get("path") == client_id)
+
+        fundings = []
+
+        for r in activities.get("fundings").get("group"):
+            fs = r.get("funding-summary")[0]
+            if is_org_rec(fs):
+                fundings.append(fs)
+
+        taken_put_codes = {
+            r.funding_record.funding_contributor.put_code
+            for r in records if r.funding_record.funding_contributor.put_code
+        }
+
+        def match_put_code(records, funding_record, funding_contributor):
+            """Match and asign put-code to a single funding record and the existing ORCID records."""
+            if funding_contributor.put_code:
+                return
+            for r in records:
+                put_code = r.get("put-code")
+                if put_code in taken_put_codes:
+                    continue
+
+                if ((r.get("title") is None and r.get("title").get("title") is None
+                     and r.get("title").get("title").get("value") is None and r.get("type") is None
+                     and r.get("organization") is None
+                     and r.get("organization").get("name") is None)
+                        or (r.get("title").get("title").get("value") == funding_record.title
+                            and r.get("type") == funding_record.type
+                            and r.get("organization").get("name") == funding_record.org_name)):
+                    funding_contributor.put_code = put_code
+                    funding_contributor.save()
+                    taken_put_codes.add(put_code)
+                    app.logger.debug(
+                        f"put-code {put_code} was asigned to the funding record "
+                        f"(ID: {funding_record.id}, Task ID: {funding_record.task_id})")
+                    break
+
+        for task_by_user in records:
+            fr = task_by_user.funding_record
+            fc = task_by_user.funding_record.funding_contributor
+            match_put_code(fundings, fr, fc)
+
+        for task_by_user in records:
+            fc = task_by_user.funding_record.funding_contributor
+
+            try:
+                put_code, orcid, created = api.create_or_update_funding(task_by_user)
+                if created:
+                    fc.add_status_line(f"Funding record was created.")
+                else:
+                    fc.add_status_line(f"Funding record was updated.")
+                fc.orcid = orcid
+                fc.put_code = put_code
+                fc.processed_at = datetime.now()
+
+            except Exception as ex:
+                logger.exception(f"For {user} encountered exception")
+                fc.add_status_line(f"Exception occured processing the record: {ex}.")
+
+            finally:
+                fc.save()
+    else:
+        # TODO: Invitation resend in case user revokes organisation permissions
+        app.logger.debug(f"Should resend an invite to the researcher asking for permissions")
+        return
 
 
 def send_user_invitation(inviter,
@@ -515,6 +663,82 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
                 AffiliationRecord.status.is_null(),
                 AffiliationRecord.email == user.email).execute())
             return
+
+
+def process_funding_records(max_rows=20):
+    """Process uploaded affiliation records."""
+    set_server_name()
+    task_ids = set()
+    funding_ids = set()
+    """This query is to retrieve Tasks associated with funding records, which are not processed but are active"""
+
+    tasks = (Task.select(
+        Task, FundingRecord, FundingContributor, User,
+        UserInvitation.id.alias("invitation_id"), OrcidToken).where(
+            FundingRecord.processed_at.is_null(),
+            FundingContributor.processed_at.is_null(), FundingRecord.is_active,
+            (OrcidToken.id.is_null(False) |
+             ((FundingContributor.status.is_null()) |
+              (FundingContributor.status.contains("sent").__invert__())))).join(
+                  FundingRecord, on=(Task.id == FundingRecord.task_id)).join(
+                      FundingContributor,
+                      on=(FundingRecord.id == FundingContributor.funding_record_id)).join(
+                          User,
+                          JOIN.LEFT_OUTER,
+                          on=((User.email == FundingContributor.email) |
+                              (User.orcid == FundingContributor.orcid)))
+             .join(Organisation, JOIN.LEFT_OUTER, on=(Organisation.id == Task.org_id)).join(
+                 UserInvitation,
+                 JOIN.LEFT_OUTER,
+                 on=((UserInvitation.email == FundingContributor.email)
+                     & (UserInvitation.task_id == Task.id))).join(
+                         OrcidToken,
+                         JOIN.LEFT_OUTER,
+                         on=((OrcidToken.user_id == User.id)
+                             & (OrcidToken.org_id == Organisation.id)
+                             & (OrcidToken.scope.contains("/activities/update")))).limit(max_rows))
+
+    for (task_id, org_id, funding_record_id, user), tasks_by_user in groupby(tasks, lambda t: (
+            t.id,
+            t.org_id,
+            t.funding_record.id,
+            t.funding_record.funding_contributor.user,)):
+        """If we have the token associated to the user then update the funding record, otherwise send him an invite"""
+        if (user.id is None or user.orcid is None or not OrcidToken.select().where(
+            (OrcidToken.user_id == user.id) & (OrcidToken.org_id == org_id) &
+            (OrcidToken.scope.contains("/activities/update"))).exists()):  # noqa: E127, E129
+
+            for k, tasks in groupby(
+                    tasks_by_user,
+                    lambda t: (
+                        t.created_by,
+                        t.org,
+                        t.funding_record.funding_contributor.email,
+                        t.funding_record.funding_contributor.name, )
+            ):  # noqa: E501
+                send_funding_invitation(*k, task_id=task_id)
+        else:
+            create_or_update_funding(user, org_id, tasks_by_user)
+        task_ids.add(task_id)
+        funding_ids.add(funding_record_id)
+
+        for funding_record in FundingRecord.select().where(FundingRecord.id << funding_ids):
+            # The funding record is processed for all contributors
+            if not (FundingContributor.select().where(
+                    FundingContributor.funding_record_id == funding_record.id,
+                    FundingContributor.processed_at.is_null()).exists()):
+                funding_record.processed_at = datetime.now()
+                funding_record.add_status_line(
+                    f"Funding record is processed, and now the funding record will appear on contributors profile"
+                )
+                funding_record.save()
+
+        for task in Task.select().where(Task.id << task_ids):
+            # The task is completed (Once all records are processed):
+            if not (FundingRecord.select().where(FundingRecord.task_id == task.id,
+                                                 FundingRecord.processed_at.is_null()).exists()):
+                task.completed_at = datetime.now()
+                task.save()
 
 
 def process_affiliation_records(max_rows=20):

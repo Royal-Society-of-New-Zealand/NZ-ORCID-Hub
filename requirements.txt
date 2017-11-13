@@ -17,4 +17,7 @@ html2text
 tablib
 raven
 raven[flask]
+pyyaml
+pykwalify
+flask-peewee
 Flask-OAuthlib

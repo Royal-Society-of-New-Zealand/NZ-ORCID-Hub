@@ -1,0 +1,43 @@
+{% extends "admin/model/edit.html" %}
+
+{% block body %}
+  {{ super() }}
+   <div class="form-group">
+    <label for="organisation" class="col-md-2 control-label">Organisation
+        &nbsp;
+    </label>
+    <div class="col-md-10">
+
+      <input class="form-control" data-allow-blank="1" data-placeholder="Please select model" data-role="select2-ajax" data-url="{{url_for('organisation.ajax_lookup', name='organisation')}}" id="organisation" name="organisation" type="hidden">
+
+
+    </div>
+
+  </div>
+
+  <table class="table table-striped table-bordered table-hover model-list">
+    <thead>
+      <tr>
+        <th class="column-header">
+          Name
+        </th>
+        <th class="column-header">
+          Is Admin
+        </th>
+        <th class="column-header">
+          Is Tech.Contact
+        </th>
+      </tr>
+    </thead>
+    <tbody>
+  {%- for r in model.user_orgs %}
+  <!-- {{r._meta.fields}} -->
+      <tr>
+        <td class="col-name">{{r.name}}</td>
+        <td class="col-name">{{r.is_admin}}</td>
+        <td class="col-name">{{r.is_tech_contact}}</td>
+      </tr>
+  {% endfor %}
+    </tbody>
+  </table>
+{% endblock %}

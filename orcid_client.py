@@ -7,7 +7,8 @@ isort:skip_file
 
 from config import ORCID_API_BASE, SCOPE_READ_LIMITED, SCOPE_ACTIVITIES_UPDATE, ORCID_BASE_URL
 from flask_login import current_user
-from models import OrcidApiCall, Affiliation, OrcidToken
+from models import (OrcidApiCall, Affiliation, OrcidToken, FundingContributor as FundingCont, User
+                    as UserModel, ExternalId as ExternalIdModel)
 from swagger_client import (configuration, rest, api_client, MemberAPIV20Api, SourceClientId,
                             Source, OrganizationAddress, DisambiguatedOrganization, Employment,
                             Education, Organization)
@@ -179,6 +180,165 @@ class MemberAPI(MemberAPIV20Api):
             return False
         return False
 
+    def create_or_update_funding(self, task_by_user, *args, **kwargs):
+        """Create or update funding record of a user."""
+        fr = task_by_user.funding_record
+        fc = task_by_user.funding_record.funding_contributor
+
+        if not fr.title:
+            title = None
+
+        city = fr.city
+        country = fr.country
+        region = fr.region
+        disambiguated_id = fr.disambiguated_org_identifier
+        disambiguation_source = fr.disambiguation_source
+        org_name = fr.org_name
+        funding_type = fr.type
+
+        put_code = fc.put_code
+
+        if not city:
+            city = None
+        if not region:
+            region = None
+        if not self.org.state:
+            self.org.state = None
+
+        organisation_address = OrganizationAddress(
+            city=city or self.org.city,
+            country=country or self.org.country,
+            region=region or self.org.state)
+
+        disambiguated_organization_details = DisambiguatedOrganization(
+            disambiguated_organization_identifier=disambiguated_id or self.org.disambiguated_id,
+            disambiguation_source=disambiguation_source or self.org.disambiguation_source)
+        rec = Funding()  # noqa: F405
+
+        rec.organization = Organization(
+            name=org_name or self.org.name,
+            address=organisation_address,
+            disambiguated_organization=disambiguated_organization_details)
+
+        organization_defined_type = fr.organization_defined_type
+        title = Title(value=fr.title)  # noqa: F405
+        translated_title = None
+        if fr.translated_title:
+            translated_title = TranslatedTitle(value=fr.translated_title)  # noqa: F405
+        short_description = fr.short_description
+        amount = fr.amount
+        currency_code = fr.currency
+        start_date = fr.start_date
+        end_date = fr.end_date
+        visibility = fr.visibility
+
+        rec.source = self.source
+        rec.type = funding_type
+        rec.organization_defined_type = organization_defined_type
+        rec.title = FundingTitle(title=title, translated_title=translated_title)  # noqa: F405
+        rec.short_description = short_description
+        rec.amount = Amount(value=amount, currency_code=currency_code)  # noqa: F405
+        rec.visibility = visibility
+
+        if put_code:
+            rec.put_code = put_code
+
+        if start_date:
+            rec.start_date = start_date.as_orcid_dict()
+        if end_date:
+            rec.end_date = end_date.as_orcid_dict()
+        funding_contributors = FundingCont.select().where(FundingCont.funding_record_id == fr.id)
+
+        funding_contributor_list = []
+        for f in funding_contributors:
+            contributor_from_user_table = UserModel.get(UserModel.email == f.email)
+            path = None
+            uri = None
+            host = None
+            credit_name = None
+            contributor_orcid = None
+            if f.name:
+                credit_name = CreditName(value=f.name)  # noqa: F405
+            elif contributor_from_user_table and contributor_from_user_table.name:
+                credit_name = CreditName(value=contributor_from_user_table.name)  # noqa: F405
+
+            if contributor_from_user_table and contributor_from_user_table.orcid:
+                path = contributor_from_user_table.orcid
+            elif f.orcid:
+                path = f.orcid
+
+            if path:
+                url = urlparse(ORCID_BASE_URL)
+                uri = "http://" + url.hostname + "/" + path
+                host = url.hostname
+                contributor_orcid = ContributorOrcid(uri=uri, path=path, host=host)  # noqa: F405
+            contributor_email = ContributorEmail(value=f.email)  # noqa: F405
+            contributor_attributes = FundingContributorAttributes(  # noqa: F405
+                contributor_role=f.role)
+
+            funding_contributor_list.append(
+                FundingContributor(  # noqa: F405
+                    contributor_orcid=contributor_orcid,
+                    credit_name=credit_name,
+                    contributor_email=contributor_email,
+                    contributor_attributes=contributor_attributes))
+
+        rec.contributors = FundingContributors(contributor=funding_contributor_list)  # noqa: F405
+        external_id_list = []
+
+        external_ids = ExternalIdModel.select().where(ExternalIdModel.funding_record_id == fr.id)
+
+        for exi in external_ids:
+            external_id_type = exi.type
+            external_id_value = exi.value
+            external_id_url = Url(value=exi.url)  # noqa: F405
+            external_id_relationship = exi.relationship
+            external_id_list.append(
+                ExternalID(  # noqa: F405
+                    external_id_type=external_id_type,
+                    external_id_value=external_id_value,
+                    external_id_url=external_id_url,
+                    external_id_relationship=external_id_relationship))
+
+        rec.external_ids = ExternalIDs(external_id=external_id_list)  # noqa: F405
+
+        try:
+            api_call = self.update_funding if put_code else self.create_funding
+
+            params = dict(orcid=self.user.orcid, body=rec, _preload_content=False)
+            if put_code:
+                params["put_code"] = put_code
+            resp = api_call(**params)
+            app.logger.info(
+                f"For {self.user} the ORCID record was {'updated' if put_code else 'created'} from {self.org}"
+            )
+            created = not bool(put_code)
+            # retrieve the put-code from response Location header:
+            if resp.status == 201:
+                location = resp.headers.get("Location")
+                try:
+                    orcid, put_code = location.split("/")[-3::2]
+                    put_code = int(put_code)
+                    fc.put_code = put_code
+                    fc.save()
+                except:
+                    app.logger.exception("Failed to get ORCID iD/put-code from the response.")
+                    raise Exception("Failed to get ORCID iD/put-code from the response.")
+            elif resp.status == 200:
+                orcid = self.user.orcid
+
+        except ApiException as ex:
+            if ex.status == 404:
+                fc.put_code = None
+                fc.save()
+                app.logger.exception(
+                    f"For {self.user} encountered exception, So updating related put_code")
+            raise ex
+        except:
+            app.logger.exception(f"For {self.user} encountered exception")
+        else:
+            return (put_code, orcid, created)
+
     def create_or_update_affiliation(
             self,
             affiliation=None,
@@ -297,4 +457,5 @@ class MemberAPI(MemberAPIV20Api):
 
 # yapf: disable
 from swagger_client import *  # noqa: F401,F403,F405
+
 api_client.RESTClientObject = OrcidRESTClientObject  # noqa: F405
