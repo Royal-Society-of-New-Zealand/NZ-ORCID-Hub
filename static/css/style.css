@@ -244,3 +244,16 @@ table.permissions, table.permissions th, table.permissions td, table.users, tabl
     border-radius: 6px 0 6px 6px;
 }
 
+.remove-org {
+    color: #337ab7;
+    border: none;
+    background: transparent;
+    text-decoration: none;
+    padding: 0;
+    line-height: normal;
+}
+
+.column-header {
+    color: #337ab7;
+    text-decoration: none;
+}

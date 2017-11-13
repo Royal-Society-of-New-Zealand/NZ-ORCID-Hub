@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """Application models."""
 
-import csv
 import copy
+import csv
 import json
 import os
 import random
@@ -25,10 +25,10 @@ from peewee import (JOIN, CharField, DateTimeField, DeferredRelation, Field, Fix
 from peewee_validates import ModelValidator
 from playhouse.shortcuts import model_to_dict
 from pycountry import countries
-from pykwalify.core import Core
 
 from application import app, db
 from config import DEFAULT_COUNTRY, ENV
+from pykwalify.core import Core
 
 EMAIL_REGEX = re.compile(r"^[_a-z0-9-]+(\.[_a-z0-9-]+)*@[a-z0-9-]+(\.[a-z0-9-]+)*(\.[a-z]{2,4})$")
 
@@ -1130,7 +1130,8 @@ class FundingRecord(BaseModel, AuditMixin):
             validation_source_data = FundingRecord.del_none(validation_source_data)
 
             # Adding schema valdation for funding
-            validator = Core(source_data=validation_source_data, schema_files=["funding_schema.yaml"])
+            validator = Core(
+                source_data=validation_source_data, schema_files=["funding_schema.yaml"])
             validator.validate(raise_exception=True)
 
             try:
@@ -1242,7 +1243,7 @@ class FundingRecord(BaseModel, AuditMixin):
         ts = datetime.now().isoformat(timespec="seconds")
         self.status = (self.status + "\n" if self.status else '') + ts + ": " + line
 
-    def del_none(d):      # noqa: N805
+    def del_none(d):  # noqa: N805
         """
         Delete keys with the value ``None`` in a dictionary, recursively.
 

@@ -42,54 +42,67 @@
       <div class="form-group">
         <!-- label for="organisation" class="col-md-2 control-label">Organisation
           &nbsp;
-        </label -->
-        <div class="col-md-10">
-          <select ng-model="selectedOrg" ng-change="add_org()"
-            ng-options="o.name for o in available_orgs | orderBy: 'name' track by o.id">
-        {% raw %}
-            <!-- option ng-repeat="o in available_orgs | orderBy: 'name'" value="{{o.id}}">{{o.name}}</option -->
-            <option value="">-- Choose an Organisation to add... --</option>
-        {% endraw %}
-          </select>
-          <!--select class="form-control" data-allow-blank="1" data-allow-clear="true" data-placeholder="Please select Organisation" data-role="select2-ajax" data-url="{{url_for('user.ajax_lookup', name='organisation')}}" id="user-orgs" name="user-orgs" type="hidden">
-          </select -->
-          <!-- input class="form-control" data-allow-blank="1" data-allow-clear="true" data-placeholder="Please select Organisation" data-role="select2-ajax" data-url="{{url_for('user.ajax_lookup', name='organisation')}}" id="user-orgs" name="user-orgs" type="hidden" -->
-      </div>
+          </label -->
+          <div class="row">
+            <div class="col-md-10">
+              <label for="sel_org">Select an ogranisation to add:</label>
+              <select class="form-control" id="sel_org" ng-model="selectedOrg" ng-change="add_org()"
+                                                                               ng-options="o.name for o in available_orgs | orderBy: 'name' track by o.id">
+                {% raw %}
+                <!-- option ng-repeat="o in available_orgs | orderBy: 'name'" value="{{o.id}}">{{o.name}}</option -->
+                <option value="">-- Choose an Organisation to add... --</option>
+                {% endraw %}
+              </select>
+              <!--select class="form-control" data-allow-blank="1" data-allow-clear="true" data-placeholder="Please select Organisation" data-role="select2-ajax" data-url="{{url_for('user.ajax_lookup', name='organisation')}}" id="user-orgs" name="user-orgs" type="hidden">
+                </select -->
+                <!-- input class="form-control" data-allow-blank="1" data-allow-clear="true" data-placeholder="Please select Organisation" data-role="select2-ajax" data-url="{{url_for('user.ajax_lookup', name='organisation')}}" id="user-orgs" name="user-orgs" type="hidden" -->
 
-      <table class="table table-striped table-bordered table-hover model-list">
-        <thead>
-          <tr>
-            <th class="column-header">
-              Remove
-            </th>
-            <th class="column-header">
-              Name
-            </th>
-            <th class="column-header">
-              Is Admin
-            </th>
-            <th class="column-header">
-              Is Tech.Contact
-            </th>
-          </tr>
-        </thead>
-        {% raw %}
-        <tbody>
-          <tr ng-repeat="r in user_orgs | orderBy: 'name'">
-            <form>
-              <td class="col-name">
-                <button ng-really-message="Are you sure you want to delete this record?" ng-really-click="delete_org(r.id)" title="Delete record">
-                  <span class="fa fa-trash glyphicon glyphicon-trash"></span>
-                </button>
-              </td>
-                <td class="col-name">{{r.name}}</td>
-                <td class="col-name"><input type="checkbox" ng-change="change(r)" ng-model="r.is_admin"></td>
-                <td class="col-name"><input type="checkbox" ng-change="change(r)" ng-model="r.is_tech_contact"></td>
-            </form>
-          </tr>
-        </tbody>
-        {% endraw %}
-      </table>
+            </div>
+          </div>
+      </div>
+      <div class="row">
+        <div class="col-md-10">
+
+          <table class="table table-striped table-bordered table-hover model-list">
+            <thead>
+              <tr>
+                <th class="column-header">
+                  Remove
+                </th>
+                <th class="column-header">
+                  Name
+                </th>
+                <th class="column-header">
+                  Is Admin
+                </th>
+                <th class="column-header">
+                  Is Tech.Contact
+                </th>
+              </tr>
+            </thead>
+            {% raw %}
+            <tbody>
+              <tr ng-repeat="r in user_orgs | orderBy: 'name'">
+                <form class="icon">
+                  <td class="col-name">
+                    <button
+                      ng-really-message="Are you sure you want to delete this record?"
+                      ng-really-click="delete_org(r.id)"
+                      title="Delete record"
+                      class="remove-org">
+                      <span class="fa fa-trash glyphicon glyphicon-trash"></span>
+                    </button>
+                  </td>
+                  <td class="col-name">{{r.name}}</td>
+                  <td class="col-name"><input type="checkbox" ng-change="change(r)" ng-model="r.is_admin"></td>
+                  <td class="col-name"><input type="checkbox" ng-change="change(r)" ng-model="r.is_tech_contact"></td>
+                </form>
+              </tr>
+            </tbody>
+            {% endraw %}
+          </table>
+        </div>
+      </div>
     </div>
   </div>
 {% endblock %}
@@ -97,28 +110,28 @@
 {% block tail_js %}
   {{ super() }}
   <script>
-$('#user-orgs').on("change", function(e) {
-   console.info(e);
-});
+    $('#user-orgs').on("change", function(e) {
+      //console.info(e);
+    });
 var app = angular.module("userAdmin", []);
 app.directive('ngReallyClick', [function() {
-    return {
-        restrict: 'A',
-        link: function(scope, element, attrs) {
-            element.bind('click', function() {
-                var message = attrs.ngReallyMessage;
-                if (message && confirm(message)) {
-                    scope.$apply(attrs.ngReallyClick);
-                }
-            });
+  return {
+    restrict: 'A',
+    link: function(scope, element, attrs) {
+      element.bind('click', function() {
+        var message = attrs.ngReallyMessage;
+        if (message && confirm(message)) {
+          scope.$apply(attrs.ngReallyClick);
         }
+      });
     }
+  }
 }]);
 app.controller("userOrgs", function($scope, $http) {
   $scope.user_orgs = {{ model.organisations.dicts()| list | tojson }};
   $scope.available_orgs = {{ model.available_organisations.dicts()| list | tojson }};
   $scope.add_org = function() {
-    console.info($scope.selectedOrg);
+    //console.info($scope.selectedOrg);
     if (!$scope.selectedOrg) {
       return;
     }
@@ -132,29 +145,29 @@ app.controller("userOrgs", function($scope, $http) {
       }
     }
     $http.post("{{ url_for('user_orgs_org', user_id=request.args.get('id')) }}", org)
-    .then(function(response) {
-        console.info(response.data);
+      .then(function(response) {
+        //console.info(response.data);
       });
   };
   $scope.delete_org = function(org_id) {
     for (var i in $scope.user_orgs) {
       if ($scope.user_orgs[i].id == org_id) {
         var org = $scope.user_orgs.splice(i, 1).pop();
-        console.info(org);
+        //console.info(org);
         $scope.available_orgs.push(org);
         $http.delete("{{ url_for('user_orgs_org', user_id=request.args.get('id')) }}" + org_id)
           .then(function(response) {
-            console.info(response.data);
+            //console.info(response.data);
           });
         break;
       }
     }
   };
   $scope.change = function(user_org) {
-    console.info(user_org);
+    //console.info(user_org);
     $http.put("{{ url_for('user_orgs_org', user_id=request.args.get('id')) }}", user_org)
       .then(function(response) {
-        console.info(response.data);
+        //console.info(response.data);
       });
   };
 });
