@@ -1252,6 +1252,10 @@ class FundingRecord(BaseModel, AuditMixin):
         for key, value in list(d.items()):
             if value is None:
                 del d[key]
+            elif isinstance(value, list):
+                for item in value:
+                    if isinstance(item, dict):
+                        FundingRecord.del_none(item)
             elif isinstance(value, dict):
                 FundingRecord.del_none(value)
         return d
