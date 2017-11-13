@@ -7,8 +7,8 @@ isort:skip_file
 
 from config import ORCID_API_BASE, SCOPE_READ_LIMITED, SCOPE_ACTIVITIES_UPDATE, ORCID_BASE_URL
 from flask_login import current_user
-from models import OrcidApiCall, Affiliation, OrcidToken, FundingContributor as FundingCont, User as UserModel, \
-    ExternalId as ExternalidModel
+from models import (OrcidApiCall, Affiliation, OrcidToken, FundingContributor as FundingCont, User
+                    as UserModel, ExternalId as ExternalIdModel)
 from swagger_client import (configuration, rest, api_client, MemberAPIV20Api, SourceClientId,
                             Source, OrganizationAddress, DisambiguatedOrganization, Employment,
                             Education, Organization)
@@ -213,7 +213,7 @@ class MemberAPI(MemberAPIV20Api):
         disambiguated_organization_details = DisambiguatedOrganization(
             disambiguated_organization_identifier=disambiguated_id or self.org.disambiguated_id,
             disambiguation_source=disambiguation_source or self.org.disambiguation_source)
-        rec = Funding()     # noqa: F405
+        rec = Funding()  # noqa: F405
 
         rec.organization = Organization(
             name=org_name or self.org.name,
@@ -221,10 +221,10 @@ class MemberAPI(MemberAPIV20Api):
             disambiguated_organization=disambiguated_organization_details)
 
         organization_defined_type = fr.organization_defined_type
-        title = Title(value=fr.title)       # noqa: F405
+        title = Title(value=fr.title)  # noqa: F405
         translated_title = None
         if fr.translated_title:
-            translated_title = TranslatedTitle(value=fr.translated_title)       # noqa: F405
+            translated_title = TranslatedTitle(value=fr.translated_title)  # noqa: F405
         short_description = fr.short_description
         amount = fr.amount
         currency_code = fr.currency
@@ -235,9 +235,9 @@ class MemberAPI(MemberAPIV20Api):
         rec.source = self.source
         rec.type = funding_type
         rec.organization_defined_type = organization_defined_type
-        rec.title = FundingTitle(title=title, translated_title=translated_title)        # noqa: F405
+        rec.title = FundingTitle(title=title, translated_title=translated_title)  # noqa: F405
         rec.short_description = short_description
-        rec.amount = Amount(value=amount, currency_code=currency_code)      # noqa: F405
+        rec.amount = Amount(value=amount, currency_code=currency_code)  # noqa: F405
         rec.visibility = visibility
 
         if put_code:
@@ -258,9 +258,9 @@ class MemberAPI(MemberAPIV20Api):
             credit_name = None
             contributor_orcid = None
             if f.name:
-                credit_name = CreditName(value=f.name)      # noqa: F405
+                credit_name = CreditName(value=f.name)  # noqa: F405
             elif contributor_from_user_table and contributor_from_user_table.name:
-                credit_name = CreditName(value=contributor_from_user_table.name)        # noqa: F405
+                credit_name = CreditName(value=contributor_from_user_table.name)  # noqa: F405
 
             if contributor_from_user_table and contributor_from_user_table.orcid:
                 path = contributor_from_user_table.orcid
@@ -271,29 +271,36 @@ class MemberAPI(MemberAPIV20Api):
                 url = urlparse(ORCID_BASE_URL)
                 uri = "http://" + url.hostname + "/" + path
                 host = url.hostname
-                contributor_orcid = ContributorOrcid(uri=uri, path=path, host=host)     # noqa: F405
-            contributor_email = ContributorEmail(value=f.email)     # noqa: F405
-            contributor_attributes = FundingContributorAttributes(contributor_role=f.role)      # noqa: F405
+                contributor_orcid = ContributorOrcid(uri=uri, path=path, host=host)  # noqa: F405
+            contributor_email = ContributorEmail(value=f.email)  # noqa: F405
+            contributor_attributes = FundingContributorAttributes(  # noqa: F405
+                contributor_role=f.role)
 
-            funding_contributor_list.append(FundingContributor(contributor_orcid=contributor_orcid,     # noqa: F405
-                                                      credit_name=credit_name, contributor_email=contributor_email,
-                                                      contributor_attributes=contributor_attributes))
+            funding_contributor_list.append(
+                FundingContributor(  # noqa: F405
+                    contributor_orcid=contributor_orcid,
+                    credit_name=credit_name,
+                    contributor_email=contributor_email,
+                    contributor_attributes=contributor_attributes))
 
-        rec.contributors = FundingContributors(contributor=funding_contributor_list)        # noqa: F405
+        rec.contributors = FundingContributors(contributor=funding_contributor_list)  # noqa: F405
         external_id_list = []
 
-        external_ids = ExternalidModel.select().where(ExternalidModel.funding_record_id == fr.id)
+        external_ids = ExternalIdModel.select().where(ExternalIdModel.funding_record_id == fr.id)
 
         for exi in external_ids:
             external_id_type = exi.type
             external_id_value = exi.value
-            external_id_url = Url(value=exi.url)    # noqa: F405
+            external_id_url = Url(value=exi.url)  # noqa: F405
             external_id_relationship = exi.relationship
-            external_id_list.append(ExternalID(external_id_type=external_id_type,       # noqa: F405
-                                               external_id_value=external_id_value, external_id_url=external_id_url,
-                                               external_id_relationship=external_id_relationship))
+            external_id_list.append(
+                ExternalID(  # noqa: F405
+                    external_id_type=external_id_type,
+                    external_id_value=external_id_value,
+                    external_id_url=external_id_url,
+                    external_id_relationship=external_id_relationship))
 
-        rec.external_ids = ExternalIDs(external_id=external_id_list)    # noqa: F405
+        rec.external_ids = ExternalIDs(external_id=external_id_list)  # noqa: F405
 
         try:
             api_call = self.update_funding if put_code else self.create_funding
@@ -324,7 +331,8 @@ class MemberAPI(MemberAPIV20Api):
             if ex.status == 404:
                 fc.put_code = None
                 fc.save()
-                app.logger.exception(f"For {self.user} encountered exception, So updating related put_code")
+                app.logger.exception(
+                    f"For {self.user} encountered exception, So updating related put_code")
             raise ex
         except:
             app.logger.exception(f"For {self.user} encountered exception")

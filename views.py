@@ -6,12 +6,15 @@ import os
 from collections import namedtuple
 from datetime import datetime
 
-from flask import (abort, flash, redirect, render_template, request, send_from_directory, url_for)
+from flask import (abort, flash, jsonify, redirect, render_template, request, send_from_directory,
+                   url_for)
 from flask_login import current_user, login_required
 from jinja2 import Markup
+from playhouse.shortcuts import model_to_dict
 from werkzeug import secure_filename
 from wtforms.fields import BooleanField
 
+import models
 import orcid_client
 import utils
 from application import admin, app
@@ -23,10 +26,11 @@ from flask_admin.model import typefmt
 from forms import (BitmapMultipleValueField, FileUploadForm, JsonOrYamlFileUploadForm,
                    OrgRegistrationForm, PartialDateField, RecordForm, UserInvitationForm)
 from login_provider import roles_required
-from models import AffiliationRecord, FundingContributor, ExternalId    # noqa: F401
-from models import (Affiliation, CharField, FundingRecord, ModelException, OrcidApiCall,
-                    OrcidToken, Organisation, OrgInfo, OrgInvitation, PartialDate, Role, Task,
-                    TextField, Url, User, UserInvitation, UserOrg, UserOrgAffiliation, db)
+from models import CharField  # noqa: F401
+from models import (Affiliation, AffiliationRecord, FundingContributor, FundingRecord,
+                    ModelException, OrcidApiCall, OrcidToken, Organisation, OrgInfo, OrgInvitation,
+                    PartialDate, Role, Task, TextField, Url, User, UserInvitation, UserOrg,
+                    UserOrgAffiliation, db)
 # NB! Should be disabled in production
 from pyinfo import info
 from swagger_client.rest import ApiException
@@ -112,7 +116,9 @@ class AppModelView(ModelView):
                 model_class_name = self.__class__.__name__.replace("Admin", '')
                 model = globals().get(model_class_name)
             if model is None:
-                raise Exception(f"Model class {model_class_name} doesn't exit.")
+                if model_class_name not in dir(models):
+                    raise Exception(f"Model class {model_class_name} doesn't exit.")
+                model = models.__dict__.get(model_class_name)
         super().__init__(model, *args, **kwargs)
 
     # TODO: remove whent it gets merged into the upsteem repo (it's a workaround to make
@@ -221,11 +227,17 @@ class AppModelView(ModelView):
 class UserAdmin(AppModelView):
     """User model view."""
 
+    edit_template = "admin/user_edit.html"
     roles = {1: "Superuser", 2: "Administrator", 4: "Researcher", 8: "Technical Contact"}
 
-    # column_list = (User.
     form_extra_fields = dict(is_superuser=BooleanField("Is Superuser"))
-    form_excluded_columns = ("roles", )
+    form_excluded_columns = (
+        "roles",
+        "created_at",
+        "updated_at",
+        "created_by",
+        "updated_by",
+    )
     column_exclude_list = (
         "password",
         "username",
@@ -245,7 +257,11 @@ class UserAdmin(AppModelView):
     form_overrides = dict(roles=BitmapMultipleValueField)
     form_args = dict(roles=dict(choices=roles.items()))
 
-    form_ajax_refs = {"organisation": {"fields": (Organisation.name, "name")}}
+    form_ajax_refs = {
+        "organisation": {
+            "fields": (Organisation.name, "name")
+        },
+    }
     can_export = True
 
     def update_model(self, form, model):
@@ -389,8 +405,7 @@ class TaskAdmin(AppModelView):
 
     roles_required = Role.SUPERUSER | Role.ADMIN
     list_template = "view_tasks.html"
-    column_exclude_list = (
-        "task_type",)
+    column_exclude_list = ("task_type", )
     can_edit = False
     can_create = False
     can_delete = True
@@ -401,8 +416,7 @@ class ExternalIdAdmin(AppModelView):
 
     roles_required = Role.SUPERUSER | Role.ADMIN
     list_template = "funding_externalid_list.html"
-    column_exclude_list = (
-        "funding_record", )
+    column_exclude_list = ("funding_record", )
 
     can_edit = True
     can_create = False
@@ -426,8 +440,7 @@ class FundingContributorAdmin(AppModelView):
 
     roles_required = Role.SUPERUSER | Role.ADMIN
     list_template = "funding_contributor_list.html"
-    column_exclude_list = (
-        "funding_record", )
+    column_exclude_list = ("funding_record", )
 
     can_edit = True
     can_create = False
@@ -453,13 +466,13 @@ class FundingRecordAdmin(AppModelView):
     list_template = "funding_record_list.html"
     column_exclude_list = (
         "task",
-        "organisation", )
-    column_searchable_list = (
-        "title",
-         )
+        "organisation",
+    )
+    column_searchable_list = ("title", )
     column_export_exclude_list = (
         "task",
-        "is_active", )
+        "is_active",
+    )
     can_edit = True
     can_create = False
     can_delete = False
@@ -539,9 +552,9 @@ class FundingRecordAdmin(AppModelView):
             count = self.model.update(processed_at=None).where(
                 self.model.is_active,
                 self.model.processed_at.is_null(False), self.model.id.in_(ids)).execute()
-            FundingContributor.update(
-                processed_at=None).where(FundingContributor.funding_record.in_(ids)
-                                         and FundingContributor.processed_at.is_null(False)).execute()
+            FundingContributor.update(processed_at=None).where(
+                FundingContributor.funding_record.in_(ids)
+                and FundingContributor.processed_at.is_null(False)).execute()
         except Exception as ex:
             flash(f"Failed to activate the selected records: {ex}")
             app.logger.exception("Failed to activate the selected records")
@@ -755,13 +768,13 @@ def activate_all():
     task = Task.get(id=task_id)
     try:
         if task.task_type == 0:
-            count = AffiliationRecord.update(
-                is_active=True).where(AffiliationRecord.task_id == task_id,
-                                      AffiliationRecord.is_active == False).execute()  # noqa: E712
+            count = AffiliationRecord.update(is_active=True).where(
+                AffiliationRecord.task_id == task_id,
+                AffiliationRecord.is_active == False).execute()  # noqa: E712
         elif task.task_type == 1:
-            count = FundingRecord.update(
-                is_active=True).where(FundingRecord.task_id == task_id,
-                                      FundingRecord.is_active == False).execute()  # noqa: E712
+            count = FundingRecord.update(is_active=True).where(
+                FundingRecord.task_id == task_id,
+                FundingRecord.is_active == False).execute()  # noqa: E712
     except Exception as ex:
         flash(f"Failed to activate the selected records: {ex}")
         app.logger.exception("Failed to activate the selected records")
@@ -1290,6 +1303,18 @@ def invite_organisation():
                                                   for r in OrgInfo.select()})
 
 
+@app.route("/user/<int:user_id>/organisations", methods=["GET", "POST"])
+@roles_required(Role.SUPERUSER)
+def user_organisations(user_id):
+    """Manage user organisaions."""
+    user_orgs = (Organisation.select(
+        Organisation.id, Organisation.name,
+        (Organisation.tech_contact_id == user_id).alias("is_tech_contact"), UserOrg.is_admin).join(
+            UserOrg, on=((UserOrg.org_id == Organisation.id) & (UserOrg.user_id == user_id)))
+                 .naive())
+    return render_template("user_organisations.html", user_orgs=user_orgs)
+
+
 @app.route("/invite/user", methods=["GET", "POST"])
 @roles_required(Role.SUPERUSER, Role.ADMIN)
 def invite_user():
@@ -1334,3 +1359,92 @@ def invite_user():
         break
 
     return render_template("user_invitation.html", form=form)
+
+
+@app.route("/hub/api/v0.1/users/<int:user_id>/orgs/<int:org_id>")
+@app.route("/hub/api/v0.1/users/<int:user_id>/orgs/")
+@roles_required(Role.SUPERUSER, Role.ADMIN)
+def user_orgs(user_id, org_id=None):
+    """Retrive all linked to the user organisations."""
+    try:
+        u = User.get(id=user_id)
+        if org_id:
+            org = u.organisations.where(Organisation.id == org_id).first()
+            if org:
+                return jsonify(model_to_dict(org))
+            return jsonify({"error": f"Not Found Organisation with ID: {org_id}"}), 404
+        return jsonify({"user-orgs": list(u.organisations.dicts())})
+    except User.DoesNotExist:
+        return jsonify({"error": f"Not Found user with ID: {user_id}"}), 404
+    except Exception as ex:
+        app.logger.exception(f"Failed to retrieve user (ID: {user_id}) organisations.")
+        return jsonify({
+            "error": f"Failed to retrieve user (ID: {user_id}) organisations: {ex}."
+        }), 500
+
+
+@app.route(
+    "/hub/api/v0.1/users/<int:user_id>/orgs/<int:org_id>",
+    methods=[
+        "DELETE",
+        "PATCH",
+        "POST",
+        "PUT",
+    ])
+@app.route(
+    "/hub/api/v0.1/users/<int:user_id>/orgs/", methods=[
+        "DELETE",
+        "PATCH",
+        "POST",
+        "PUT",
+    ])
+@roles_required(Role.SUPERUSER, Role.ADMIN)
+def user_orgs_org(user_id, org_id=None):
+    """Add an organisation to the user.
+
+    Recieves:
+    {"id": N, "is_admin": true/false, "is_tech_contact": true/false, ...}
+
+    Where: id - the organisation ID.
+
+    If the user is already linked to the organisation, the entry gets only updated.
+
+    If another user is the tech.contact of the organisation, the existing user
+    should be demoted.
+
+    Returns: user_org entry
+
+    """
+    data = request.json
+    if not org_id and not (data and data.get("id")):
+        return jsonify({"error": "NOT DATA"}), 400
+    if not org_id:
+        org_id = data.get("id")
+    if request.method == "DELETE":
+        UserOrg.delete().where((UserOrg.user_id == user_id) & (UserOrg.org_id == org_id)).execute()
+        user = User.get(id=user_id)
+        if user.organisation_id == org_id:
+            user.organisation_id = None
+            user.save()
+        return jsonify({
+            "user-org": data,
+            "status": "DELETED",
+        })
+    else:
+        org = Organisation.get(id=org_id)
+        uo, created = UserOrg.get_or_create(user_id=user_id, org_id=org_id)
+        if "is_admin" in data and uo.is_admin != data["is_admin"]:
+            uo.is_admin = data["is_admin"]
+            uo.save()
+        if "is_tech_contact" in data:
+            user = User.get(id=user_id)
+            if data["is_tech_contact"]:
+                org.tech_contact = user
+            elif org.tech_contact == user:
+                org.tech_contact_id = None
+            org.save()
+        return jsonify({
+            "org": model_to_dict(org, recurse=False),
+            "user_org": model_to_dict(uo, recurse=False),
+            "status": ("CREATED" if created else "UPDATED"),
+        }), (201 if created else 200)

@@ -1,15 +1,14 @@
 # -*- coding: utf-8 -*-
 """Application models."""
 
-import csv
 import copy
+import csv
 import json
+import os
 import random
 import re
 import string
 import uuid
-import yaml
-import os
 from collections import namedtuple
 from datetime import datetime
 from hashlib import md5
@@ -17,18 +16,19 @@ from io import StringIO
 from itertools import zip_longest
 from urllib.parse import urlencode
 
+import yaml
 from flask_login import UserMixin, current_user
 from peewee import BooleanField as BooleanField_
-from peewee import (CharField, DateTimeField, DeferredRelation, Field, FixedCharField,
+from peewee import (JOIN, CharField, DateTimeField, DeferredRelation, Field, FixedCharField,
                     ForeignKeyField, IntegerField, Model, OperationalError, PostgresqlDatabase,
                     ProgrammingError, SmallIntegerField, TextField, fn)
 from peewee_validates import ModelValidator
 from playhouse.shortcuts import model_to_dict
 from pycountry import countries
-from pykwalify.core import Core
 
 from application import app, db
 from config import DEFAULT_COUNTRY, ENV
+from pykwalify.core import Core
 
 EMAIL_REGEX = re.compile(r"^[_a-z0-9-]+(\.[_a-z0-9-]+)*@[a-z0-9-]+(\.[a-z0-9-]+)*(\.[a-z]{2,4})$")
 
@@ -324,7 +324,7 @@ class Organisation(BaseModel, AuditMixin):
     is_email_sent = BooleanField(default=False)
     tech_contact = ForeignKeyField(
         DeferredUser,
-        related_name="tech_contact_for",
+        related_name="tech_contact_of",
         on_delete="SET NULL",
         null=True,
         help_text="Organisation technical contact")
@@ -389,7 +389,7 @@ class Organisation(BaseModel, AuditMixin):
             if self.name is None:
                 self.name = self.tuakiri_name
 
-            if self.field_is_updated("tech_contact"):
+            if self.field_is_updated("tech_contact") and self.tech_contact:
                 if not self.tech_contact.has_role(Role.TECHNICAL):
                     self.tech_contact.roles |= Role.TECHNICAL
                     self.tech_contact.save()
@@ -522,8 +522,21 @@ class User(BaseModel, UserMixin, AuditMixin):
     @property
     def organisations(self):
         """Get all linked to the user organisation query."""
-        return Organisation.select().join(
-            UserOrg, on=(UserOrg.org_id == Organisation.id)).where(UserOrg.user_id == self.id)
+        # return Organisation.select().join(
+        #     UserOrg, on=(UserOrg.org_id == Organisation.id)).where(UserOrg.user_id == self.id)
+        return (Organisation.select(
+            Organisation, (Organisation.tech_contact_id == self.id).alias("is_tech_contact"),
+            ((UserOrg.is_admin.is_null(False)) & (UserOrg.is_admin)).alias("is_admin")).join(
+                UserOrg, on=((UserOrg.org_id == Organisation.id) & (UserOrg.user_id == self.id)))
+                .naive())
+
+    @property
+    def available_organisations(self):
+        """Get all not yet linked to the user organisation query."""
+        return (Organisation.select(Organisation).where(UserOrg.id.is_null()).join(
+            UserOrg,
+            JOIN.LEFT_OUTER,
+            on=((UserOrg.org_id == Organisation.id) & (UserOrg.user_id == self.id))))
 
     @property
     def admin_for(self):
@@ -1117,7 +1130,8 @@ class FundingRecord(BaseModel, AuditMixin):
             validation_source_data = FundingRecord.del_none(validation_source_data)
 
             # Adding schema valdation for funding
-            validator = Core(source_data=validation_source_data, schema_files=["funding_schema.yaml"])
+            validator = Core(
+                source_data=validation_source_data, schema_files=["funding_schema.yaml"])
             validator.validate(raise_exception=True)
 
             try:
@@ -1138,7 +1152,8 @@ class FundingRecord(BaseModel, AuditMixin):
                 organization_defined_type = funding_data["organization-defined-type"]["value"] if \
                     funding_data["organization-defined-type"] else None
 
-                short_description = funding_data["short-description"] if funding_data["short-description"] else None
+                short_description = funding_data["short-description"] if funding_data[
+                    "short-description"] else None
 
                 amount = funding_data["amount"]["value"] if funding_data["amount"] else None
 
@@ -1170,15 +1185,24 @@ class FundingRecord(BaseModel, AuditMixin):
 
                 visibility = funding_data["visibility"] if funding_data["visibility"] else None
 
-                funding_record = FundingRecord.create(task=task, title=title, translated_title=translated_title,
-                                                      type=type,
-                                                      organization_defined_type=organization_defined_type,
-                                                      short_description=short_description,
-                                                      amount=amount, currency=currency, org_name=org_name, city=city,
-                                                      region=region, country=country,
-                                                      disambiguated_org_identifier=disambiguated_org_identifier,
-                                                      disambiguation_source=disambiguation_source,
-                                                      visibility=visibility, start_date=start_date, end_date=end_date)
+                funding_record = FundingRecord.create(
+                    task=task,
+                    title=title,
+                    translated_title=translated_title,
+                    type=type,
+                    organization_defined_type=organization_defined_type,
+                    short_description=short_description,
+                    amount=amount,
+                    currency=currency,
+                    org_name=org_name,
+                    city=city,
+                    region=region,
+                    country=country,
+                    disambiguated_org_identifier=disambiguated_org_identifier,
+                    disambiguation_source=disambiguation_source,
+                    visibility=visibility,
+                    start_date=start_date,
+                    end_date=end_date)
 
                 contributors_list = funding_data["contributors"]["contributor"]
                 for contributor in contributors_list:
@@ -1188,8 +1212,12 @@ class FundingRecord(BaseModel, AuditMixin):
                     email = contributor["contributor-email"]["value"]
                     name = contributor["credit-name"]["value"]
                     role = contributor["contributor-attributes"]["contributor-role"]
-                    FundingContributor.create(funding_record=funding_record, orcid=orcid_id, name=name, email=email,
-                                              role=role)
+                    FundingContributor.create(
+                        funding_record=funding_record,
+                        orcid=orcid_id,
+                        name=name,
+                        email=email,
+                        role=role)
 
                 external_ids_list = funding_data["external-ids"]["external-id"]
                 for external_id in external_ids_list:
@@ -1197,8 +1225,12 @@ class FundingRecord(BaseModel, AuditMixin):
                     value = external_id["external-id-value"]
                     url = external_id["external-id-url"]["value"]
                     relationship = external_id["external-id-relationship"]
-                    ExternalId.create(funding_record=funding_record, type=type, value=value, url=url,
-                                      relationship=relationship)
+                    ExternalId.create(
+                        funding_record=funding_record,
+                        type=type,
+                        value=value,
+                        url=url,
+                        relationship=relationship)
 
                 return task
             except Exception as ex:
@@ -1211,7 +1243,7 @@ class FundingRecord(BaseModel, AuditMixin):
         ts = datetime.now().isoformat(timespec="seconds")
         self.status = (self.status + "\n" if self.status else '') + ts + ": " + line
 
-    def del_none(d):      # noqa: N805
+    def del_none(d):  # noqa: N805
         """
         Delete keys with the value ``None`` in a dictionary, recursively.
 

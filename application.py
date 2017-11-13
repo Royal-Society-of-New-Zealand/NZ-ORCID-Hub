@@ -6,6 +6,7 @@ import flask_login
 from flask import Flask
 from flask_debugtoolbar import DebugToolbarExtension
 from flask_mail import Mail
+from flask_peewee.rest import Authentication, RestAPI
 from peewee import PostgresqlDatabase
 from playhouse import db_url
 from playhouse.shortcuts import RetryOperationalError
@@ -32,15 +33,23 @@ if DATABASE_URL.startswith("sqlite"):
 else:
     db = db_url.connect(DATABASE_URL, autorollback=True, connect_timeout=3)
 
+
+class UserAuthentication(Authentication):
+    def authorize(self):
+        return flask_login.current_user.is_authenticated
+
+
+api = RestAPI(
+    app, prefix="/api/v0.1", name="ORCID HUB Data API", default_auth=UserAuthentication())
+
 mail = Mail()
 mail.init_app(app)
 
-# admin = Admin(app, name="NZ ORCiD Hub", template_mode="bootstrap3", base_template="layout.html")
 admin = Admin(
     app, name="NZ ORCiD Hub", template_mode="bootstrap3", base_template="admin/master.html")
 
 # https://sentry.io/orcid-hub/nz-orcid-hub-dev/getting-started/python-flask/
-sentry = Sentry(app, logging=True, level=logging.DEBUG if ENV == "dev" else logging.ERROR)
+sentry = Sentry(app, logging=True, level=logging.WARNING)
 
 login_manager = flask_login.LoginManager()
 login_manager.login_view = "login"

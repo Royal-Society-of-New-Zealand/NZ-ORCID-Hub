@@ -19,3 +19,4 @@ raven
 raven[flask]
 pyyaml
 pykwalify
+flask-peewee

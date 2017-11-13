@@ -22,8 +22,9 @@ from peewee import JOIN
 import orcid_client
 from application import app
 from config import ENV, EXTERNAL_SP
-from models import (AFFILIATION_TYPES, Affiliation, AffiliationRecord, FundingRecord, FundingContributor,
-                    OrcidToken, Organisation, Role, Task, Url, User, UserInvitation, UserOrg)
+from models import (AFFILIATION_TYPES, Affiliation, AffiliationRecord, FundingContributor,
+                    FundingRecord, OrcidToken, Organisation, Role, Task, Url, User, UserInvitation,
+                    UserOrg)
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -312,8 +313,8 @@ def send_funding_invitation(inviter, org, email, name, task_id=None, **kwargs):
         status = "The invitation sent at " + datetime.now().isoformat(timespec="seconds")
         (FundingContributor.update(status=FundingContributor.status + "\n" + status).where(
             FundingContributor.status.is_null(False), FundingContributor.email == email).execute())
-        (FundingContributor.update(status=status).where(FundingContributor.status.is_null(), FundingContributor.email
-                                                        == email).execute())
+        (FundingContributor.update(status=status).where(
+            FundingContributor.status.is_null(), FundingContributor.email == email).execute())
         return ui
 
     except Exception as ex:
@@ -360,7 +361,8 @@ def create_or_update_funding(user, org_id, records, *args, **kwargs):
 
                 if ((r.get("title") is None and r.get("title").get("title") is None
                      and r.get("title").get("title").get("value") is None and r.get("type") is None
-                     and r.get("organization") is None and r.get("organization").get("name") is None)
+                     and r.get("organization") is None
+                     and r.get("organization").get("name") is None)
                         or (r.get("title").get("title").get("value") == funding_record.title
                             and r.get("type") == funding_record.type
                             and r.get("organization").get("name") == funding_record.org_name)):
@@ -398,8 +400,7 @@ def create_or_update_funding(user, org_id, records, *args, **kwargs):
                 fc.save()
     else:
         # TODO: Invitation resend in case user revokes organisation permissions
-        app.logger.debug(
-            f"Should resend an invite to the researcher asking for permissions")
+        app.logger.debug(f"Should resend an invite to the researcher asking for permissions")
         return
 
 
@@ -671,37 +672,50 @@ def process_funding_records(max_rows=20):
     funding_ids = set()
     """This query is to retrieve Tasks associated with funding records, which are not processed but are active"""
 
-    tasks = (Task.select(Task, FundingRecord, FundingContributor, User,
-                         UserInvitation.id.alias("invitation_id"), OrcidToken).where(
-        FundingRecord.processed_at.is_null(), FundingContributor.processed_at.is_null(), FundingRecord.is_active,
-        (OrcidToken.id.is_null(False) | ((FundingContributor.status.is_null()) | (FundingContributor.status.contains(
-            "sent").__invert__())))).join(FundingRecord, on=(Task.id == FundingRecord.task_id)).join(
-        FundingContributor, on=(FundingRecord.id == FundingContributor.funding_record_id)).join(
-        User, JOIN.LEFT_OUTER, on=((User.email == FundingContributor.email) | (User.orcid == FundingContributor.orcid)))
-             .join(Organisation, JOIN.LEFT_OUTER, on=(Organisation.id == Task.org_id))
-             .join(UserInvitation, JOIN.LEFT_OUTER, on=((UserInvitation.email == FundingContributor.email)
-                                                        & (UserInvitation.task_id == Task.id)))
-             .join(OrcidToken, JOIN.LEFT_OUTER, on=((OrcidToken.user_id == User.id)
-                                                    & (OrcidToken.org_id == Organisation.id)
-
-                                                    & (OrcidToken.scope.contains("/activities/update"))))
-             .limit(max_rows))
+    tasks = (Task.select(
+        Task, FundingRecord, FundingContributor, User,
+        UserInvitation.id.alias("invitation_id"), OrcidToken).where(
+            FundingRecord.processed_at.is_null(),
+            FundingContributor.processed_at.is_null(), FundingRecord.is_active,
+            (OrcidToken.id.is_null(False) |
+             ((FundingContributor.status.is_null()) |
+              (FundingContributor.status.contains("sent").__invert__())))).join(
+                  FundingRecord, on=(Task.id == FundingRecord.task_id)).join(
+                      FundingContributor,
+                      on=(FundingRecord.id == FundingContributor.funding_record_id)).join(
+                          User,
+                          JOIN.LEFT_OUTER,
+                          on=((User.email == FundingContributor.email) |
+                              (User.orcid == FundingContributor.orcid)))
+             .join(Organisation, JOIN.LEFT_OUTER, on=(Organisation.id == Task.org_id)).join(
+                 UserInvitation,
+                 JOIN.LEFT_OUTER,
+                 on=((UserInvitation.email == FundingContributor.email)
+                     & (UserInvitation.task_id == Task.id))).join(
+                         OrcidToken,
+                         JOIN.LEFT_OUTER,
+                         on=((OrcidToken.user_id == User.id)
+                             & (OrcidToken.org_id == Organisation.id)
+                             & (OrcidToken.scope.contains("/activities/update")))).limit(max_rows))
 
     for (task_id, org_id, funding_record_id, user), tasks_by_user in groupby(tasks, lambda t: (
             t.id,
             t.org_id,
             t.funding_record.id,
             t.funding_record.funding_contributor.user,)):
-
         """If we have the token associated to the user then update the funding record, otherwise send him an invite"""
         if (user.id is None or user.orcid is None or not OrcidToken.select().where(
-                        (OrcidToken.user_id == user.id) & (OrcidToken.org_id == org_id) &
-                    (OrcidToken.scope.contains("/activities/update"))).exists()):  # noqa: E127, E129
+            (OrcidToken.user_id == user.id) & (OrcidToken.org_id == org_id) &
+            (OrcidToken.scope.contains("/activities/update"))).exists()):  # noqa: E127, E129
 
             for k, tasks in groupby(
                     tasks_by_user,
-                    lambda t: (t.created_by, t.org, t.funding_record.funding_contributor.email,
-                               t.funding_record.funding_contributor.name)):  # noqa: E501
+                    lambda t: (
+                        t.created_by,
+                        t.org,
+                        t.funding_record.funding_contributor.email,
+                        t.funding_record.funding_contributor.name, )
+            ):  # noqa: E501
                 send_funding_invitation(*k, task_id=task_id)
         else:
             create_or_update_funding(user, org_id, tasks_by_user)
@@ -711,18 +725,18 @@ def process_funding_records(max_rows=20):
         for funding_record in FundingRecord.select().where(FundingRecord.id << funding_ids):
             # The funding record is processed for all contributors
             if not (FundingContributor.select().where(
-                        FundingContributor.funding_record_id == funding_record.id,
+                    FundingContributor.funding_record_id == funding_record.id,
                     FundingContributor.processed_at.is_null()).exists()):
                 funding_record.processed_at = datetime.now()
                 funding_record.add_status_line(
-                    f"Funding record is processed, and now the funding record will appear on contributors profile")
+                    f"Funding record is processed, and now the funding record will appear on contributors profile"
+                )
                 funding_record.save()
 
         for task in Task.select().where(Task.id << task_ids):
             # The task is completed (Once all records are processed):
-            if not (FundingRecord.select().where(
-                        FundingRecord.task_id == task.id,
-                    FundingRecord.processed_at.is_null()).exists()):
+            if not (FundingRecord.select().where(FundingRecord.task_id == task.id,
+                                                 FundingRecord.processed_at.is_null()).exists()):
                 task.completed_at = datetime.now()
                 task.save()
 

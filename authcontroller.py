@@ -822,9 +822,7 @@ def orcid_login(invitation_token=None):
 
         orcid_authenticate_url = iri_to_uri(authorization_url)
         if invitation_token:
-            orcid_authenticate_url = append_qs(
-                orcid_authenticate_url,
-                email=email)
+            orcid_authenticate_url = append_qs(orcid_authenticate_url, email=email)
             # For funding record, we dont have first name and Last Name
             if user.last_name and user.first_name:
                 orcid_authenticate_url = append_qs(
