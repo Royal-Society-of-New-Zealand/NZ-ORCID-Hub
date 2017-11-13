@@ -7,8 +7,8 @@ isort:skip_file
 
 from config import ORCID_API_BASE, SCOPE_READ_LIMITED, SCOPE_ACTIVITIES_UPDATE, ORCID_BASE_URL
 from flask_login import current_user
-from models import OrcidApiCall, Affiliation, OrcidToken, FundingContributor as FundingCont, User as UserModel, \
-    ExternalId as ExternalidModel
+from models import (OrcidApiCall, Affiliation, OrcidToken, FundingContributor as FundingCont, User
+                    as UserModel, ExternalId as ExternalIdModel)
 from swagger_client import (configuration, rest, api_client, MemberAPIV20Api, SourceClientId,
                             Source, OrganizationAddress, DisambiguatedOrganization, Employment,
                             Education, Organization)
@@ -273,12 +273,12 @@ class MemberAPI(MemberAPIV20Api):
                 host = url.hostname
                 contributor_orcid = ContributorOrcid(uri=uri, path=path, host=host)  # noqa: F405
             contributor_email = ContributorEmail(value=f.email)  # noqa: F405
-            contributor_attributes = FundingContributorAttributes(
-                contributor_role=f.role)  # noqa: F405
+            contributor_attributes = FundingContributorAttributes(  # noqa: F405
+                contributor_role=f.role)
 
             funding_contributor_list.append(
-                FundingContributor(
-                    contributor_orcid=contributor_orcid,  # noqa: F405
+                FundingContributor(  # noqa: F405
+                    contributor_orcid=contributor_orcid,
                     credit_name=credit_name,
                     contributor_email=contributor_email,
                     contributor_attributes=contributor_attributes))
@@ -286,7 +286,7 @@ class MemberAPI(MemberAPIV20Api):
         rec.contributors = FundingContributors(contributor=funding_contributor_list)  # noqa: F405
         external_id_list = []
 
-        external_ids = ExternalidModel.select().where(ExternalidModel.funding_record_id == fr.id)
+        external_ids = ExternalIdModel.select().where(ExternalIdModel.funding_record_id == fr.id)
 
         for exi in external_ids:
             external_id_type = exi.type
@@ -294,8 +294,8 @@ class MemberAPI(MemberAPIV20Api):
             external_id_url = Url(value=exi.url)  # noqa: F405
             external_id_relationship = exi.relationship
             external_id_list.append(
-                ExternalID(
-                    external_id_type=external_id_type,  # noqa: F405
+                ExternalID(  # noqa: F405
+                    external_id_type=external_id_type,
                     external_id_value=external_id_value,
                     external_id_url=external_id_url,
                     external_id_relationship=external_id_relationship))
