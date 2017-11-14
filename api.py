@@ -7,6 +7,7 @@ from flask_peewee.rest import Authentication, RestAPI, RestResource
 from flask_peewee.utils import slugify
 from oauthlib.common import add_params_to_uri, to_unicode, urlencode
 from werkzeug.exceptions import NotFound
+from flask_swagger import swagger
 
 import models
 from application import api, app, oauth
@@ -60,6 +61,47 @@ class UserAPI(MethodView):
     ]
 
     def get(self, identifier=None):
+        """
+        Verifies if a user with given email address or ORCID ID exists.
+        ---
+        tags:
+          - "user"
+        summary: "Get user by user email or ORCID ID"
+        description: ""
+        produces:
+          - "application/json"
+        parameters:
+          - name: "identifier"
+            in: "path"
+            description: "The name that needs to be fetched. Use user1 for testing. "
+            required: true
+            type: "string"
+        responses:
+          200:
+            description: "successful operation"
+            schema:
+              id: UserApiResponse
+              properties:
+                found:
+                  type: "boolean"
+                result:
+                  type: "object"
+                  properties:
+                    orcid:
+                      type: "string"
+                      format: "^[0-9]{4}-?[0-9]{4}-?[0-9]{4}-?[0-9]{4}$"
+                      description: "User ORCID ID"
+                    email:
+                      type: "string"
+                    eppn:
+                      type: "string"
+          400:
+            description: "Invalid identifier supplied"
+          403:
+            description: "Access Denied"
+          404:
+            description: "User not found"
+        """
         if identifier is None:
             return jsonify({"error": "Need at least one parameter: email or ORCID ID."}), 400
         try:
@@ -96,3 +138,11 @@ app.add_url_rule(
     "/api/v0.1/users/<identifier>", view_func=UserAPI.as_view("users"), methods=[
         "GET",
     ])
+
+
+@app.route("/spec")
+def spec():
+    swag = swagger(app)
+    swag["info"]["version"] = "0.1"
+    swag["info"]["title"] = "ORCID HUB API"
+    return jsonify(swag)

@@ -21,3 +21,4 @@ pyyaml
 pykwalify
 flask-peewee
 Flask-OAuthlib
+flask-swagger
