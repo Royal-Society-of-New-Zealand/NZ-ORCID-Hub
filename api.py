@@ -9,8 +9,8 @@ from oauthlib.common import add_params_to_uri, to_unicode, urlencode
 from werkzeug.exceptions import NotFound
 
 import models
-from models import (EMAIL_REGEX, ORCID_ID_REGEX, User, UserOrg)
 from application import api, app, oauth
+from models import EMAIL_REGEX, ORCID_ID_REGEX, User, UserOrg
 
 
 class AppRestResource(RestResource):
@@ -55,7 +55,9 @@ def me():
 
 
 class UserAPI(MethodView):
-    decorators = [oauth.require_oauth(), ]
+    decorators = [
+        oauth.require_oauth(),
+    ]
 
     def get(self, identifier=None):
         if identifier is None:
@@ -67,13 +69,18 @@ class UserAPI(MethodView):
                 try:
                     models.validate_orcid_id(identifier)
                 except Exception as ex:
-                    return jsonify({"error": f"Incorrect identifier value '{identifier}': {ex}"}), 400
+                    return jsonify({
+                        "error": f"Incorrect identifier value '{identifier}': {ex}"
+                    }), 400
                 user = User.get(orcid=identifier)
             else:
                 return jsonify({"error": f"Incorrect identifier value: {identifier}."}), 400
         except User.DoesNotExist:
-            return jsonify({"error": f"User with specified identifier '{identifier}' not found."}), 404
-        if not UserOrg.select().where(UserOrg.org == request.oauth.client.org, UserOrg.user == user).exists():
+            return jsonify({
+                "error": f"User with specified identifier '{identifier}' not found."
+            }), 404
+        if not UserOrg.select().where(UserOrg.org == request.oauth.client.org,
+                                      UserOrg.user == user).exists():
             return jsonify({"error": "Access Denied"}), 403
         return jsonify({
             "found": True,
@@ -81,9 +88,11 @@ class UserAPI(MethodView):
                 "orcid": user.orcid,
                 "email": user.email,
                 "eppn": user.eppn
-        }}), 200
+            }
+        }), 200
 
-app.add_url_rule("/api/v0.1/users/<identifier>",
-        view_func=UserAPI.as_view("users"),
-        methods=["GET", ])
 
+app.add_url_rule(
+    "/api/v0.1/users/<identifier>", view_func=UserAPI.as_view("users"), methods=[
+        "GET",
+    ])
