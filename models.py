@@ -31,6 +31,7 @@ from application import app, db
 from config import DEFAULT_COUNTRY, ENV
 
 EMAIL_REGEX = re.compile(r"^[_a-z0-9-]+(\.[_a-z0-9-]+)*@[a-z0-9-]+(\.[a-z0-9-]+)*(\.[a-z]{2,4})$")
+ORCID_ID_REGEX = re.compile(r"^\d{4}-?\d{4}-?\d{4}-?\d{4}$")
 
 AFFILIATION_TYPES = (
     "student",
@@ -56,7 +57,7 @@ def validate_orcid_id(value):
     if not value:
         return
 
-    if not re.match(r"^\d{4}-?\d{4}-?\d{4}-?\d{4}$", value):
+    if not ORCID_ID_REGEX.match(value):
         raise ValueError(
             "Invalid ORCID iD. It should be in the form of 'xxxx-xxxx-xxxx-xxxx' where x is a digit."
         )
@@ -1341,6 +1342,7 @@ class Client(BaseModel, AuditMixin):
         null=True, max_length=400, help_text="human readable description, not required")
     user = ForeignKeyField(
         User, null=True, on_delete="SET NULL", help_text="creator of the client, not required")
+    org = ForeignKeyField(Organisation, on_delete="CASCADE", related_name="client_applications")
 
     client_id = CharField(max_length=100, unique=True)
     client_secret = CharField(max_length=55, unique=True)

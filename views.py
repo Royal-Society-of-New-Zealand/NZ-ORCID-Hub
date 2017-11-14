@@ -1389,7 +1389,7 @@ def application(app_id=None):
         return redirect(url_for("api_credentials", app_id=client.id))
 
     if form.validate_on_submit():
-        client = Client()
+        client = Client(org_id=current_user.organisation.id)
         form.populate_obj(client)
         client.client_id = secrets.token_hex(10)
         client.client_secret = secrets.token_urlsafe(20)

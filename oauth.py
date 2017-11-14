@@ -89,11 +89,3 @@ def authorize(*args, **kwargs):
 @oauth.token_handler
 def access_token():
     return None
-
-
-@app.route('/api/me')
-@app.route("/api/v0.1/me")
-@oauth.require_oauth()
-def me():
-    user = request.oauth.user
-    return jsonify(email=user.email, name=user.name)
