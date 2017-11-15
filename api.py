@@ -11,7 +11,7 @@ from flask_swagger import swagger
 
 import models
 from application import api, app, oauth
-from models import EMAIL_REGEX, ORCID_ID_REGEX, User, UserOrg
+from models import EMAIL_REGEX, ORCID_ID_REGEX, User, UserOrg, OrcidToken
 
 
 class AppRestResource(RestResource):
@@ -126,7 +126,7 @@ class UserAPI(MethodView):
             return jsonify({"error": "Access Denied"}), 403
         return jsonify({
             "found": True,
-            "resut": {
+            "result": {
                 "orcid": user.orcid,
                 "email": user.email,
                 "eppn": user.eppn
@@ -139,6 +139,105 @@ app.add_url_rule(
         "GET",
     ])
 
+
+class TokenAPI(MethodView):
+    decorators = [
+        oauth.require_oauth(),
+    ]
+
+    def get(self, identifier=None):
+        """
+        Retrieves user access token and refresh token.
+        ---
+        tags:
+          - "token"
+        summary: "Retrieves user access token and refresh token."
+        description: ""
+        produces:
+          - "application/json"
+        parameters:
+          - name: "identifier"
+            in: "path"
+            description: "User identifier (either email or ORCID ID)"
+            required: true
+            type: "string"
+        responses:
+          200:
+            description: "successful operation"
+            schema:
+              id: UserApiResponse
+              properties:
+                found:
+                  type: "boolean"
+                token:
+                  type: "object"
+                  properties:
+                    access_token:
+                      type: "string"
+                      description: "ORCID API user profile access token"
+                    refresh_token:
+                      type: "string"
+                      description: "ORCID API user profile refresh token"
+                    scopes:
+                      type: "string"
+                      description: "ORCID API user token scopes"
+                    issue_time:
+                      type: "dateTime"
+                    expires_in:
+                      type: "integer"
+          400:
+            description: "Invalid identifier supplied"
+          403:
+            description: "Access Denied"
+          404:
+            description: "User not found"
+        """
+        if identifier is None:
+            return jsonify({"error": "Need at least one parameter: email or ORCID ID."}), 400
+        try:
+            if EMAIL_REGEX.match(identifier):
+                user = User.get(email=identifier)
+            elif ORCID_ID_REGEX.match(identifier):
+                try:
+                    models.validate_orcid_id(identifier)
+                except Exception as ex:
+                    return jsonify({
+                        "error": f"Incorrect identifier value '{identifier}': {ex}"
+                    }), 400
+                user = User.get(orcid=identifier)
+            else:
+                return jsonify({"error": f"Incorrect identifier value: {identifier}."}), 400
+        except User.DoesNotExist:
+            return jsonify({
+                "error": f"User with specified identifier '{identifier}' not found."
+            }), 404
+        org = request.oauth.client.org
+        if not UserOrg.select().where(UserOrg.org == org,
+                                      UserOrg.user == user).exists():
+            return jsonify({"error": "Access Denied"}), 403
+
+        try:
+            token = OrcidToken.get(user=user, org=org)
+        except OrcidToken.DoesNotExist:
+            return jsonify({
+                "error": f"Token for the users {user} ({identifier}) affiliated with {org} not found."
+            }), 404
+
+        return jsonify({
+            "found": True,
+            "token": {
+                "access_token": token.access_token,
+                "refresh_token": token.refresh_token,
+                "issue_time": token.issue_time,
+                "expires_in": token.expires_in
+            }
+        }), 200
+
+
+app.add_url_rule(
+    "/api/v0.1/tokens/<identifier>", view_func=TokenAPI.as_view("tokens"), methods=[
+        "GET",
+    ])
 
 @app.route("/spec")
 def spec():
