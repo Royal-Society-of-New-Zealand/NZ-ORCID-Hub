@@ -29,6 +29,7 @@ from pycountry import countries
 from application import app, db
 from config import DEFAULT_COUNTRY, ENV
 from pykwalify.core import Core
+from pykwalify.errors import SchemaError
 
 EMAIL_REGEX = re.compile(r"^[_a-z0-9-]+(\.[_a-z0-9-]+)*@[a-z0-9-]+(\.[a-z0-9-]+)*(\.[a-z]{2,4})$")
 
@@ -1121,116 +1122,121 @@ class FundingRecord(BaseModel, AuditMixin):
         if isinstance(source, str):
             # import data from file based on its extension; either it is yaml or json
             if os.path.splitext(filename)[1][1:] == "yaml" or "yml":
-                funding_data = yaml.load(source)
+                funding_data_list = yaml.load(source)
             else:
-                funding_data = json.loads(source)
-            validation_source_data = copy.deepcopy(funding_data)
+                funding_data_list = json.loads(source)
 
             # Removing None for correct schema validation
-            validation_source_data = FundingRecord.del_none(validation_source_data)
+            if not isinstance(funding_data_list, list):
+                raise SchemaError(u"Schema validation failed:\n - Expecting a list of funding records")
 
-            # Adding schema valdation for funding
-            validator = Core(
-                source_data=validation_source_data, schema_files=["funding_schema.yaml"])
-            validator.validate(raise_exception=True)
+            for funding_data in funding_data_list:
+                validation_source_data = copy.deepcopy(funding_data)
+                validation_source_data = FundingRecord.del_none(validation_source_data)
+
+                # Adding schema valdation for funding
+                validator = Core(source_data=validation_source_data, schema_files=["funding_schema.yaml"])
+                validator.validate(raise_exception=True)
 
             try:
                 if org is None:
                     org = current_user.organisation if current_user else None
                 task = Task.create(org=org, filename=filename, task_type=TaskType.FUNDING)
 
-                title = funding_data["title"]["title"]["value"] if \
-                    funding_data["title"] and funding_data["title"]["title"] and \
-                    funding_data["title"]["title"]["value"] else None
+                for funding_data in funding_data_list:
 
-                translated_title = funding_data["title"]["translated-title"]["value"] if \
-                    funding_data["title"] and funding_data["title"]["translated-title"] \
-                    and funding_data["title"]["translated-title"]["value"] else None
+                    title = funding_data["title"]["title"]["value"] if \
+                        funding_data["title"] and funding_data["title"]["title"] and \
+                        funding_data["title"]["title"]["value"] else None
 
-                type = funding_data["type"] if funding_data["type"] else None
+                    translated_title = funding_data["title"]["translated-title"]["value"] if \
+                        funding_data["title"] and funding_data["title"]["translated-title"] \
+                        and funding_data["title"]["translated-title"]["value"] else None
 
-                organization_defined_type = funding_data["organization-defined-type"]["value"] if \
-                    funding_data["organization-defined-type"] else None
+                    type = funding_data["type"] if funding_data["type"] else None
 
-                short_description = funding_data["short-description"] if funding_data[
-                    "short-description"] else None
+                    organization_defined_type = funding_data["organization-defined-type"]["value"] if \
+                        funding_data["organization-defined-type"] else None
 
-                amount = funding_data["amount"]["value"] if funding_data["amount"] else None
+                    short_description = funding_data["short-description"] if funding_data[
+                        "short-description"] else None
 
-                currency = funding_data["amount"]["currency-code"] \
-                    if funding_data["amount"] and funding_data["amount"]["currency-code"] else None
-                start_date = PartialDate.create(funding_data["start-date"])
-                end_date = PartialDate.create(funding_data["end-date"])
-                org_name = funding_data["organization"]["name"] if \
-                    funding_data["organization"] and funding_data["organization"]["name"] else None
+                    amount = funding_data["amount"]["value"] if funding_data["amount"] else None
 
-                city = funding_data["organization"]["address"]["city"] if \
-                    funding_data["organization"] and funding_data["organization"]["address"] else None
+                    currency = funding_data["amount"]["currency-code"] \
+                        if funding_data["amount"] and funding_data["amount"]["currency-code"] else None
+                    start_date = PartialDate.create(funding_data["start-date"])
+                    end_date = PartialDate.create(funding_data["end-date"])
+                    org_name = funding_data["organization"]["name"] if \
+                        funding_data["organization"] and funding_data["organization"]["name"] else None
 
-                region = funding_data["organization"]["address"]["region"] if \
-                    funding_data["organization"] and funding_data["organization"]["address"] else None
+                    city = funding_data["organization"]["address"]["city"] if \
+                        funding_data["organization"] and funding_data["organization"]["address"] else None
 
-                country = funding_data["organization"]["address"]["country"] if \
-                    funding_data["organization"] and funding_data["organization"]["address"] else None
+                    region = funding_data["organization"]["address"]["region"] if \
+                        funding_data["organization"] and funding_data["organization"]["address"] else None
 
-                disambiguated_org_identifier = funding_data["organization"][
-                    "disambiguated-organization"]["disambiguated-organization-identifier"] if \
-                    funding_data["organization"] and \
-                    funding_data["organization"]["disambiguated-organization"] else None
+                    country = funding_data["organization"]["address"]["country"] if \
+                        funding_data["organization"] and funding_data["organization"]["address"] else None
 
-                disambiguation_source = funding_data["organization"][
-                    "disambiguated-organization"]["disambiguation-source"] if \
-                    funding_data["organization"] and \
-                    funding_data["organization"]["disambiguated-organization"] else None
+                    disambiguated_org_identifier = funding_data["organization"][
+                        "disambiguated-organization"]["disambiguated-organization-identifier"] if \
+                        funding_data["organization"] and \
+                        funding_data["organization"]["disambiguated-organization"] else None
 
-                visibility = funding_data["visibility"] if funding_data["visibility"] else None
+                    disambiguation_source = funding_data["organization"][
+                        "disambiguated-organization"]["disambiguation-source"] if \
+                        funding_data["organization"] and \
+                        funding_data["organization"]["disambiguated-organization"] else None
 
-                funding_record = FundingRecord.create(
-                    task=task,
-                    title=title,
-                    translated_title=translated_title,
-                    type=type,
-                    organization_defined_type=organization_defined_type,
-                    short_description=short_description,
-                    amount=amount,
-                    currency=currency,
-                    org_name=org_name,
-                    city=city,
-                    region=region,
-                    country=country,
-                    disambiguated_org_identifier=disambiguated_org_identifier,
-                    disambiguation_source=disambiguation_source,
-                    visibility=visibility,
-                    start_date=start_date,
-                    end_date=end_date)
+                    visibility = funding_data["visibility"] if funding_data["visibility"] else None
 
-                contributors_list = funding_data["contributors"]["contributor"]
-                for contributor in contributors_list:
-                    orcid_id = None
-                    if contributor["contributor-orcid"] and contributor["contributor-orcid"]["path"]:
-                        orcid_id = contributor["contributor-orcid"]["path"]
-                    email = contributor["contributor-email"]["value"]
-                    name = contributor["credit-name"]["value"]
-                    role = contributor["contributor-attributes"]["contributor-role"]
-                    FundingContributor.create(
-                        funding_record=funding_record,
-                        orcid=orcid_id,
-                        name=name,
-                        email=email,
-                        role=role)
-
-                external_ids_list = funding_data["external-ids"]["external-id"]
-                for external_id in external_ids_list:
-                    type = external_id["external-id-type"]
-                    value = external_id["external-id-value"]
-                    url = external_id["external-id-url"]["value"]
-                    relationship = external_id["external-id-relationship"]
-                    ExternalId.create(
-                        funding_record=funding_record,
+                    funding_record = FundingRecord.create(
+                        task=task,
+                        title=title,
+                        translated_title=translated_title,
                         type=type,
-                        value=value,
-                        url=url,
-                        relationship=relationship)
+                        organization_defined_type=organization_defined_type,
+                        short_description=short_description,
+                        amount=amount,
+                        currency=currency,
+                        org_name=org_name,
+                        city=city,
+                        region=region,
+                        country=country,
+                        disambiguated_org_identifier=disambiguated_org_identifier,
+                        disambiguation_source=disambiguation_source,
+                        visibility=visibility,
+                        start_date=start_date,
+                        end_date=end_date)
+
+                    contributors_list = funding_data["contributors"]["contributor"]
+                    for contributor in contributors_list:
+                        orcid_id = None
+                        if contributor["contributor-orcid"] and contributor["contributor-orcid"]["path"]:
+                            orcid_id = contributor["contributor-orcid"]["path"]
+                        email = contributor["contributor-email"]["value"]
+                        name = contributor["credit-name"]["value"]
+                        role = contributor["contributor-attributes"]["contributor-role"]
+                        FundingContributor.create(
+                            funding_record=funding_record,
+                            orcid=orcid_id,
+                            name=name,
+                            email=email,
+                            role=role)
+
+                    external_ids_list = funding_data["external-ids"]["external-id"]
+                    for external_id in external_ids_list:
+                        type = external_id["external-id-type"]
+                        value = external_id["external-id-value"]
+                        url = external_id["external-id-url"]["value"]
+                        relationship = external_id["external-id-relationship"]
+                        ExternalId.create(
+                            funding_record=funding_record,
+                            type=type,
+                            value=value,
+                            url=url,
+                            relationship=relationship)
 
                 return task
             except Exception as ex:
