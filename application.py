@@ -23,6 +23,7 @@ class ReconnectablePostgresqlDatabase(RetryOperationalError, PostgresqlDatabase)
 
 
 app = Flask(__name__)
+1/0
 app.config.from_object(__name__)
 
 # TODO: implment connection factory
