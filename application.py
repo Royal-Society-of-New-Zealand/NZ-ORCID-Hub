@@ -61,6 +61,7 @@ if __name__ == "__main__":
     from authcontroller import *
     from views import *
     from reports import *
+    1/0
 
     os.environ['DEBUG'] = "1"
     # This allows us to use a plain HTTP callback
