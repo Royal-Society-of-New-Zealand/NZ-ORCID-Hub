@@ -145,4 +145,6 @@ def spec():
     swag = swagger(app)
     swag["info"]["version"] = "0.1"
     swag["info"]["title"] = "ORCID HUB API"
+    swag["basePath"] = "/api/v0.1"
+    swag["host"] = "dev.orcidhub.org.nz"
     return jsonify(swag)
