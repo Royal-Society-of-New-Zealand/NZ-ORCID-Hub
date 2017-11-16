@@ -25,13 +25,14 @@ from peewee import (JOIN, CharField, DateTimeField, DeferredRelation, Field, Fix
 from peewee_validates import ModelValidator
 from playhouse.shortcuts import model_to_dict
 from pycountry import countries
-
-from application import app, db
-from config import DEFAULT_COUNTRY, ENV
 from pykwalify.core import Core
 from pykwalify.errors import SchemaError
 
-EMAIL_REGEX = re.compile(r"^[_a-z0-9-]+(\.[_a-z0-9-]+)*@[a-z0-9-]+(\.[a-z0-9-]+)*(\.[a-z]{2,4})$")
+from application import app, db
+from config import DEFAULT_COUNTRY, ENV
+
+EMAIL_REGEX = re.compile(r"^[_a-z0-9-]+([._a-z0-9-]+)*@[a-z0-9-]+(\.[a-z0-9-]+)*(\.[a-z]{2,4})$")
+ORCID_ID_REGEX = re.compile(r"^\d{4}-?\d{4}-?\d{4}-?\d{4}$")
 
 AFFILIATION_TYPES = (
     "student",
@@ -57,7 +58,7 @@ def validate_orcid_id(value):
     if not value:
         return
 
-    if not re.match(r"^\d{4}-?\d{4}-?\d{4}-?\d{4}$", value):
+    if not ORCID_ID_REGEX.match(value):
         raise ValueError(
             "Invalid ORCID iD. It should be in the form of 'xxxx-xxxx-xxxx-xxxx' where x is a digit."
         )
@@ -768,7 +769,7 @@ class OrcidToken(BaseModel, AuditMixin):
 
     user = ForeignKeyField(User)
     org = ForeignKeyField(Organisation, index=True, verbose_name="Organisation")
-    scope = TextField(null=True)
+    scope = TextField(null=True, db_column="scope")  # TODO impomenet property
     access_token = CharField(max_length=36, unique=True, null=True)
     issue_time = DateTimeField(default=datetime.now)
     refresh_token = CharField(max_length=36, unique=True, null=True)
@@ -1128,14 +1129,16 @@ class FundingRecord(BaseModel, AuditMixin):
 
             # Removing None for correct schema validation
             if not isinstance(funding_data_list, list):
-                raise SchemaError(u"Schema validation failed:\n - Expecting a list of funding records")
+                raise SchemaError(
+                    u"Schema validation failed:\n - Expecting a list of funding records")
 
             for funding_data in funding_data_list:
                 validation_source_data = copy.deepcopy(funding_data)
                 validation_source_data = FundingRecord.del_none(validation_source_data)
 
                 # Adding schema valdation for funding
-                validator = Core(source_data=validation_source_data, schema_files=["funding_schema.yaml"])
+                validator = Core(
+                    source_data=validation_source_data, schema_files=["funding_schema.yaml"])
                 validator.validate(raise_exception=True)
 
             try:
@@ -1337,6 +1340,143 @@ class Funding(BaseModel):
     url = TextField()
 
 
+class Client(BaseModel, AuditMixin):
+    """API Client Application/Consumer.
+
+    A client is the app which wants to use the resource of a user.
+    It is suggested that the client is registered by a user on your site,
+    but it is not required.
+    """
+
+    name = CharField(null=True, max_length=40, help_text="human readable name, not required")
+    homepage_url = CharField(null=True, max_length=100)
+    description = CharField(
+        null=True, max_length=400, help_text="human readable description, not required")
+    user = ForeignKeyField(
+        User, null=True, on_delete="SET NULL", help_text="creator of the client, not required")
+    org = ForeignKeyField(Organisation, on_delete="CASCADE", related_name="client_applications")
+
+    client_id = CharField(max_length=100, unique=True)
+    client_secret = CharField(max_length=55, unique=True)
+    is_confidential = BooleanField(null=True, help_text="public or confidential")
+    grant_type = CharField(max_length=18, default="client_credentials", null=True)
+    response_type = CharField(max_length=4, default="code", null=True)
+
+    _redirect_uris = TextField(null=True)
+    _default_scopes = TextField(null=True)
+
+    def save(self, *args, **kwargs):  # noqa: D102
+        if self.is_dirty() and self.user_id is None and current_user:
+            self.user_id = current_user.id
+        return super().save(*args, **kwargs)
+
+    @property
+    def client_type(self):  # noqa: D102
+        if self.is_confidential:
+            return 'confidential'
+        return 'public'
+
+    @property
+    def redirect_uris(self):  # noqa: D102
+        if self._redirect_uris:
+            return self._redirect_uris.split()
+        return []
+
+    @redirect_uris.setter
+    def redirect_uris(self, value):
+        if value and isinstance(value, str):
+            self._redirect_uris = value
+
+    @property
+    def callback_urls(self):  # noqa: D102
+        return self._redirect_uris
+
+    @callback_urls.setter
+    def callback_urls(self, value):
+        self._redirect_uris = value
+
+    @property
+    def default_redirect_uri(self):  # noqa: D102
+        ru = self.redirect_uris
+        if not ru:
+            return None
+        return self.redirect_uris[0]
+
+    @property
+    def default_scopes(self):  # noqa: D102
+        if self._default_scopes:
+            return self._default_scopes.split()
+        return []
+
+
+class Grant(BaseModel):
+    """Grant Token / Authorization Code.
+
+    A grant token is created in the authorization flow, and will be destroyed when
+    the authorization is finished. In this case, it would be better to store the data
+    in a cache, which leads to better performance.
+    """
+
+    user = ForeignKeyField(User, on_delete="CASCADE")
+
+    # client_id = db.Column(
+    #     db.String(40), db.ForeignKey('client.client_id'),
+    #     nullable=False,
+    # )
+    client = ForeignKeyField(Client, index=True)
+    code = CharField(max_length=255, index=True)
+
+    redirect_uri = CharField(max_length=255, null=True)
+    expires = DateTimeField(null=True)
+
+    _scopes = TextField(null=True)
+
+    # def delete(self):
+    #     super().delete().execute()
+    #     return self
+
+    @property
+    def scopes(self):  # noqa: D102
+        if self._scopes:
+            return self._scopes.split()
+        return []
+
+    @scopes.setter
+    def scopes(self, value):  # noqa: D102
+        if isinstance(value, str):
+            self._scopes = value
+        else:
+            self._scopes = ' '.join(value)
+
+
+class Token(BaseModel):
+    """Bearer Token.
+
+    A bearer token is the final token that could be used by the client.
+    There are other token types, but bearer token is widely used.
+    Flask-OAuthlib only comes with a bearer token.
+    """
+
+    client = ForeignKeyField(Client)
+    user = ForeignKeyField(User, null=True, on_delete="SET NULL")
+    token_type = CharField(max_length=40)
+
+    access_token = CharField(max_length=100, unique=True)
+    refresh_token = CharField(max_length=100, unique=True, null=True)
+    expires = DateTimeField(null=True)
+    _scopes = TextField(null=True)
+
+    @property
+    def scopes(self):  # noqa: D102
+        if self._scopes:
+            return self._scopes.split()
+        return []
+
+    @property
+    def expires_at(self):  # noqa: D102
+        return self.expires
+
+
 def readup_file(input_file):
     """Read up the whole content and deconde it and return the whole content."""
     raw = input_file.read()
@@ -1372,11 +1512,14 @@ def create_tables():
             FundingRecord,
             FundingContributor,
             ExternalId,
+            Client,
+            Grant,
+            Token,
     ]:
 
         try:
             model.create_table()
-        except ProgrammingError as ex:
+        except (ProgrammingError, OperationalError) as ex:
             if "already exists" in str(ex):
                 app.logger.info(f"Table '{model._meta.name}' already exists")
             else:

@@ -3,9 +3,10 @@ import os
 from logging.handlers import RotatingFileHandler
 
 import flask_login
-from flask import Flask
+from flask import Flask, request
 from flask_debugtoolbar import DebugToolbarExtension
 from flask_mail import Mail
+from flask_oauthlib.provider import OAuth2Provider
 from flask_peewee.rest import Authentication, RestAPI
 from peewee import PostgresqlDatabase
 from playhouse import db_url
@@ -24,6 +25,8 @@ class ReconnectablePostgresqlDatabase(RetryOperationalError, PostgresqlDatabase)
 
 app = Flask(__name__)
 app.config.from_object(__name__)
+app.url_map.strict_slashes = False
+oauth = OAuth2Provider(app)
 
 # TODO: implment connection factory
 db_url.register_database(PgDbWithFailover, "pg+failover", "postgres+failover")
@@ -35,12 +38,53 @@ else:
 
 
 class UserAuthentication(Authentication):
+    """Use Flask-OAuthlib authentication and application authentication."""
+
     def authorize(self):
         return flask_login.current_user.is_authenticated
 
 
-api = RestAPI(
-    app, prefix="/api/v0.1", name="ORCID HUB Data API", default_auth=UserAuthentication())
+class Oauth2Authentication(Authentication):
+    """Use Flask-OAuthlib authentication and application authentication."""
+
+    # TODO: add user role requierentes.
+    # TOOD: limit access to the user data ONLY!
+
+    def authorize(self):
+        if not super().authorize():
+            return False
+
+        if hasattr(request, "oauth") and request.oauth:
+            return True
+
+        valid, req = oauth.verify_request(())
+        if not valid:
+            return False
+
+        request.oauth = req
+        return True
+
+
+class DataRestAPI(RestAPI):
+    def configure_routes(self):
+        for url, callback in self.get_urls():
+            self.blueprint.route(url)(callback)
+
+        for provider in self._registry.values():
+            api_name = provider.get_api_name()
+            for url, callback in provider.get_urls():
+                full_url = '/%s%s' % (api_name, url)
+                self.blueprint.add_url_rule(
+                    full_url,
+                    '%s_%s' % (api_name, callback.__name__),
+                    self.auth_wrapper(callback, provider),
+                    methods=provider.allowed_methods,
+                    strict_slashes=False,
+                )
+
+
+default_auth = Oauth2Authentication()
+api = DataRestAPI(app, prefix="/data/api/v0.1", default_auth=default_auth, name="data_api")
 
 mail = Mail()
 mail.init_app(app)
