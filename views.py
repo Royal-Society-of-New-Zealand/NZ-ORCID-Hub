@@ -874,7 +874,7 @@ def edit_section_record(user_id, put_code=None, section_type="EMP"):
         flash("The user hasn't authorized you to Add records", "warning")
         return redirect(_url)
     orcid_client.configuration.access_token = orcid_token.access_token
-    api = orcid_client.MemberAPI(user=current_user)
+    api = orcid_client.MemberAPI(user=user)
 
     # TODO: handle "new"...
     if put_code:
