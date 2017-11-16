@@ -284,14 +284,12 @@ def get_spec(app):
             }
         }
     }
-    swag["security"] = [
-        {
-            "application": [
-                "read",
-                "write",
-            ]
-        },
-    ],
+    swag["security"] = {
+        "application": [
+            "read",
+            "write",
+        ]
+    }
     return swag
 
 
