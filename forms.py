@@ -331,6 +331,7 @@ class ApplicationFromBase(FlaskForm):
 
 
 class ApplicationFrom(ApplicationFromBase):
+    """Application client registration form."""
 
     register = SubmitField("Register", render_kw={"class": "btn btn-primary mr-2"})
     cancel = SubmitField("Cancel", render_kw={"class": "btn btn-invisible"})

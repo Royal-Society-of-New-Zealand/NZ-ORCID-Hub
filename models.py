@@ -26,13 +26,12 @@ from peewee_validates import ModelValidator
 from playhouse.shortcuts import model_to_dict
 from pycountry import countries
 from pykwalify.core import Core
+from pykwalify.errors import SchemaError
 
 from application import app, db
 from config import DEFAULT_COUNTRY, ENV
-from pykwalify.core import Core
-from pykwalify.errors import SchemaError
 
-EMAIL_REGEX = re.compile(r"^[_a-z0-9-]+(\.[_a-z0-9-]+)*@[a-z0-9-]+(\.[a-z0-9-]+)*(\.[a-z]{2,4})$")
+EMAIL_REGEX = re.compile(r"^[_a-z0-9-]+([._a-z0-9-]+)*@[a-z0-9-]+(\.[a-z0-9-]+)*(\.[a-z]{2,4})$")
 ORCID_ID_REGEX = re.compile(r"^\d{4}-?\d{4}-?\d{4}-?\d{4}$")
 
 AFFILIATION_TYPES = (
@@ -1130,14 +1129,16 @@ class FundingRecord(BaseModel, AuditMixin):
 
             # Removing None for correct schema validation
             if not isinstance(funding_data_list, list):
-                raise SchemaError(u"Schema validation failed:\n - Expecting a list of funding records")
+                raise SchemaError(
+                    u"Schema validation failed:\n - Expecting a list of funding records")
 
             for funding_data in funding_data_list:
                 validation_source_data = copy.deepcopy(funding_data)
                 validation_source_data = FundingRecord.del_none(validation_source_data)
 
                 # Adding schema valdation for funding
-                validator = Core(source_data=validation_source_data, schema_files=["funding_schema.yaml"])
+                validator = Core(
+                    source_data=validation_source_data, schema_files=["funding_schema.yaml"])
                 validator.validate(raise_exception=True)
 
             try:
@@ -1370,13 +1371,13 @@ class Client(BaseModel, AuditMixin):
         return super().save(*args, **kwargs)
 
     @property
-    def client_type(self):
+    def client_type(self):  # noqa: D102
         if self.is_confidential:
             return 'confidential'
         return 'public'
 
     @property
-    def redirect_uris(self):
+    def redirect_uris(self):  # noqa: D102
         if self._redirect_uris:
             return self._redirect_uris.split()
         return []
@@ -1387,7 +1388,7 @@ class Client(BaseModel, AuditMixin):
             self._redirect_uris = value
 
     @property
-    def callback_urls(self):
+    def callback_urls(self):  # noqa: D102
         return self._redirect_uris
 
     @callback_urls.setter
@@ -1395,21 +1396,21 @@ class Client(BaseModel, AuditMixin):
         self._redirect_uris = value
 
     @property
-    def default_redirect_uri(self):
+    def default_redirect_uri(self):  # noqa: D102
         ru = self.redirect_uris
         if not ru:
             return None
         return self.redirect_uris[0]
 
     @property
-    def default_scopes(self):
+    def default_scopes(self):  # noqa: D102
         if self._default_scopes:
             return self._default_scopes.split()
         return []
 
 
 class Grant(BaseModel):
-    """Grant Token / Authorization Code
+    """Grant Token / Authorization Code.
 
     A grant token is created in the authorization flow, and will be destroyed when
     the authorization is finished. In this case, it would be better to store the data
@@ -1435,13 +1436,13 @@ class Grant(BaseModel):
     #     return self
 
     @property
-    def scopes(self):
+    def scopes(self):  # noqa: D102
         if self._scopes:
             return self._scopes.split()
         return []
 
     @scopes.setter
-    def scopes(self, value):
+    def scopes(self, value):  # noqa: D102
         if isinstance(value, str):
             self._scopes = value
         else:
@@ -1449,18 +1450,13 @@ class Grant(BaseModel):
 
 
 class Token(BaseModel):
-    """
-    Bearer Token
+    """Bearer Token.
 
     A bearer token is the final token that could be used by the client.
     There are other token types, but bearer token is widely used.
     Flask-OAuthlib only comes with a bearer token.
     """
-    # client_id = db.Column(
-    #     db.String(40), db.ForeignKey('client.client_id'),
-    #     nullable=False,
-    # )
-    # client = db.relationship('Client')
+
     client = ForeignKeyField(Client)
     user = ForeignKeyField(User, null=True, on_delete="SET NULL")
     token_type = CharField(max_length=40)
@@ -1470,18 +1466,14 @@ class Token(BaseModel):
     expires = DateTimeField(null=True)
     _scopes = TextField(null=True)
 
-    # def delete(self):
-    #     super().delete().execute()
-    #     return self
-
     @property
-    def scopes(self):
+    def scopes(self):  # noqa: D102
         if self._scopes:
             return self._scopes.split()
         return []
 
     @property
-    def expires_at(self):
+    def expires_at(self):  # noqa: D102
         return self.expires
 
 

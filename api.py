@@ -1,33 +1,38 @@
-"""HUB API"""
+"""HUB API."""
 
 from flask import jsonify, request
 from flask.views import MethodView
-from flask_oauthlib.utils import create_response, extract_params
-from flask_peewee.rest import Authentication, RestAPI, RestResource
+from flask_peewee.rest import RestResource
 from flask_peewee.utils import slugify
-from oauthlib.common import add_params_to_uri, to_unicode, urlencode
-from werkzeug.exceptions import NotFound
 from flask_swagger import swagger
+from werkzeug.exceptions import NotFound
 
 import models
 from application import api, app, oauth
-from models import EMAIL_REGEX, ORCID_ID_REGEX, User, UserOrg, OrcidToken
+from models import EMAIL_REGEX, ORCID_ID_REGEX, OrcidToken, User, UserOrg
 
 
 class AppRestResource(RestResource):
+    """Application REST Resource."""
+
     def get_api_name(self):
+        """Pluralize the name based on the model."""
         return slugify(self.model.__name__ + 's')
 
     def response_forbidden(self):
+        """Handle denied access. Return both status code and an error message."""
         return jsonify({"error": 'Forbidden'}), 403
 
     def response_bad_method(self):
+        """Handle ivalid method ivokation. Return both status code and an error message."""
         return jsonify({"error": f'Unsupported method "{request.method}"'}), 405
 
     def response_bad_request(self):
+        """Handle 'bad request'. Return both status code and an error message."""
         return jsonify({"error": 'Bad request'}), 400
 
     def api_detail(self, pk, method=None):
+        """Handle 'data not found'. Return both status code and an error message."""
         try:
             return super().api_detail(pk, method)
         except NotFound:
@@ -35,6 +40,8 @@ class AppRestResource(RestResource):
 
 
 class UserResource(AppRestResource):
+    """User resource."""
+
     exclude = (
         "password",
         "email",
@@ -51,18 +58,22 @@ api.setup()
 @app.route("/api/v0.1/me")
 @oauth.require_oauth()
 def me():
+    """Get the token user data."""
     user = request.oauth.user
     return jsonify(email=user.email, name=user.name)
 
 
 class UserAPI(MethodView):
+    """User data service."""
+
     decorators = [
         oauth.require_oauth(),
     ]
 
     def get(self, identifier=None):
         """
-        Verifies if a user with given email address or ORCID ID exists.
+        Verify if a user with given email address or ORCID ID exists.
+
         ---
         tags:
           - "user"
@@ -103,24 +114,25 @@ class UserAPI(MethodView):
             description: "User not found"
         """
         if identifier is None:
-            return jsonify({"error": "Need at least one parameter: email or ORCID ID."}), 400
-        try:
-            if EMAIL_REGEX.match(identifier):
-                user = User.get(email=identifier)
-            elif ORCID_ID_REGEX.match(identifier):
-                try:
-                    models.validate_orcid_id(identifier)
-                except Exception as ex:
-                    return jsonify({
-                        "error": f"Incorrect identifier value '{identifier}': {ex}"
-                    }), 400
-                user = User.get(orcid=identifier)
-            else:
-                return jsonify({"error": f"Incorrect identifier value: {identifier}."}), 400
-        except User.DoesNotExist:
+            return jsonify({"error": "Need at least one parameter: email, eppn or ORCID ID."}), 400
+
+        identifier = identifier.strip()
+        if EMAIL_REGEX.match(identifier):
+            user = User.select().where((User.email == identifier) | (
+                User.eppn == identifier)).first()
+        elif ORCID_ID_REGEX.match(identifier):
+            try:
+                models.validate_orcid_id(identifier)
+            except Exception as ex:
+                return jsonify({"error": f"Incorrect identifier value '{identifier}': {ex}"}), 400
+            user = User.select().where(User.orcid == identifier).first()
+        else:
+            return jsonify({"error": f"Incorrect identifier value: {identifier}."}), 400
+        if user is None:
             return jsonify({
                 "error": f"User with specified identifier '{identifier}' not found."
             }), 404
+
         if not UserOrg.select().where(UserOrg.org == request.oauth.client.org,
                                       UserOrg.user == user).exists():
             return jsonify({"error": "Access Denied"}), 403
@@ -141,31 +153,34 @@ app.add_url_rule(
 
 
 class TokenAPI(MethodView):
+    """ORCID access token service."""
+
     decorators = [
         oauth.require_oauth(),
     ]
 
     def get(self, identifier=None):
         """
-        Retrieves user access token and refresh token.
+        Retrieve user access token and refresh token.
+
         ---
         tags:
           - "token"
-        summary: "Retrieves user access token and refresh token."
+        summary: "Retrieves user access and refresh tokens."
         description: ""
         produces:
           - "application/json"
         parameters:
           - name: "identifier"
             in: "path"
-            description: "User identifier (either email or ORCID ID)"
+            description: "User identifier (either email, eppn or ORCID ID)"
             required: true
             type: "string"
         responses:
           200:
             description: "successful operation"
             schema:
-              id: UserApiResponse
+              id: OrcidToken
               properties:
                 found:
                   type: "boolean"
@@ -194,33 +209,34 @@ class TokenAPI(MethodView):
         """
         if identifier is None:
             return jsonify({"error": "Need at least one parameter: email or ORCID ID."}), 400
-        try:
-            if EMAIL_REGEX.match(identifier):
-                user = User.get(email=identifier)
-            elif ORCID_ID_REGEX.match(identifier):
-                try:
-                    models.validate_orcid_id(identifier)
-                except Exception as ex:
-                    return jsonify({
-                        "error": f"Incorrect identifier value '{identifier}': {ex}"
-                    }), 400
-                user = User.get(orcid=identifier)
-            else:
-                return jsonify({"error": f"Incorrect identifier value: {identifier}."}), 400
-        except User.DoesNotExist:
+
+        identifier = identifier.strip()
+        if EMAIL_REGEX.match(identifier):
+            user = User.select().where((User.email == identifier) | (
+                User.eppn == identifier)).first()
+        elif ORCID_ID_REGEX.match(identifier):
+            try:
+                models.validate_orcid_id(identifier)
+            except Exception as ex:
+                return jsonify({"error": f"Incorrect identifier value '{identifier}': {ex}"}), 400
+            user = User.select().where(User.orcid == identifier).first()
+        else:
+            return jsonify({"error": f"Incorrect identifier value: {identifier}."}), 400
+        if user is None:
             return jsonify({
                 "error": f"User with specified identifier '{identifier}' not found."
             }), 404
+
         org = request.oauth.client.org
-        if not UserOrg.select().where(UserOrg.org == org,
-                                      UserOrg.user == user).exists():
+        if not UserOrg.select().where(UserOrg.org == org, UserOrg.user == user).exists():
             return jsonify({"error": "Access Denied"}), 403
 
         try:
             token = OrcidToken.get(user=user, org=org)
         except OrcidToken.DoesNotExist:
             return jsonify({
-                "error": f"Token for the users {user} ({identifier}) affiliated with {org} not found."
+                "error":
+                f"Token for the users {user} ({identifier}) affiliated with {org} not found."
             }), 404
 
         return jsonify({
@@ -228,7 +244,7 @@ class TokenAPI(MethodView):
             "token": {
                 "access_token": token.access_token,
                 "refresh_token": token.refresh_token,
-                "issue_time": token.issue_time,
+                "issue_time": token.issue_time.isoformat(),
                 "expires_in": token.expires_in
             }
         }), 200
@@ -239,11 +255,13 @@ app.add_url_rule(
         "GET",
     ])
 
+
 @app.route("/spec")
 def spec():
+    """Return the specification of the API."""
     swag = swagger(app)
     swag["info"]["version"] = "0.1"
     swag["info"]["title"] = "ORCID HUB API"
     swag["basePath"] = "/api/v0.1"
-    swag["host"] = "dev.orcidhub.org.nz"
+    swag["host"] = request.host  # "dev.orcidhub.org.nz"
     return jsonify(swag)

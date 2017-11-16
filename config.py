@@ -53,6 +53,8 @@ if ENV in ("dev0", ):
     TEMPLATES_AUTO_RELOAD = True
     # EXPLAIN_TEMPLATE_LOADING = True
 
+OAUTH2_PROVIDER_TOKEN_EXPIRES_IN = 86400  # Default Bearer token expires time, default is 3600.
+
 # add mail server config
 MAIL_PORT = int(environ.get("MAIL_PORT", 25))
 MAIL_SUPPRESS_SEND = False

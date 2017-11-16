@@ -1,14 +1,16 @@
+"""OAuth support for provider."""
+
 from datetime import datetime, timedelta
 
 from flask import jsonify, render_template, request
 from flask_login import current_user, login_required
 
 from application import app, oauth
-from models import Client, Grant, Token, User
+from models import Client, Grant, Token
 
 
 @oauth.clientgetter
-def load_client(client_id):
+def load_client(client_id):  # noqa: D103
     try:
         return Client.get(client_id=client_id)
     except Client.DoesNotExist:
@@ -16,7 +18,7 @@ def load_client(client_id):
 
 
 @oauth.grantgetter
-def load_grant(client_id, code):
+def load_grant(client_id, code):  # noqa: D103
     try:
         return Grant.get(client_id=client_id, code=code)
     except Grant.DoesNotExist:
@@ -24,7 +26,7 @@ def load_grant(client_id, code):
 
 
 @oauth.grantsetter
-def save_grant(client_id, code, request, *args, **kwargs):
+def save_grant(client_id, code, request, *args, **kwargs):  # noqa: D103
     expires = datetime.utcnow() + timedelta(seconds=100)
     return Grant.create(
         client=Client.get(client_id=client_id),
@@ -36,7 +38,7 @@ def save_grant(client_id, code, request, *args, **kwargs):
 
 
 @oauth.tokengetter
-def load_token(access_token=None, refresh_token=None):
+def load_token(access_token=None, refresh_token=None):  # noqa: D103
     try:
         if access_token:
             return Token.get(access_token=access_token)
@@ -47,7 +49,7 @@ def load_token(access_token=None, refresh_token=None):
 
 
 @oauth.tokensetter
-def save_token(token, request, *args, **kwargs):
+def save_token(token, request, *args, **kwargs):  # noqa: D103
 
     # make sure that every client has only one token connected to a user
     try:
@@ -58,7 +60,6 @@ def save_token(token, request, *args, **kwargs):
 
     expires_in = token.get("expires_in")
     expires = datetime.utcnow() + timedelta(seconds=expires_in)
-    print(token)
 
     return Token.create(
         access_token=token["access_token"],
@@ -74,7 +75,7 @@ def save_token(token, request, *args, **kwargs):
 @app.route("/oauth/authorize", methods=["GET", "POST"])
 @login_required
 @oauth.authorize_handler
-def authorize(*args, **kwargs):
+def authorize(*args, **kwargs):  # noqa: D103
     if request.method == "GET":
         client_id = kwargs.get("client_id")
         client = Client.query.filter_by(client_id=client_id).first()
@@ -87,5 +88,5 @@ def authorize(*args, **kwargs):
 
 @app.route("/oauth/token", methods=["POST"])
 @oauth.token_handler
-def access_token():
+def access_token():  # noqa: D103
     return None

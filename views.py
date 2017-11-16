@@ -28,10 +28,10 @@ from forms import (ApplicationFrom, BitmapMultipleValueField, CredentialForm, Fi
                    JsonOrYamlFileUploadForm, OrgRegistrationForm, PartialDateField, RecordForm,
                    UserInvitationForm)
 from login_provider import roles_required
-from models import (Affiliation, AffiliationRecord, CharField, Client, FundingRecord, Grant,
-                    ModelException, OrcidApiCall, OrcidToken, Organisation, OrgInfo, OrgInvitation,
-                    PartialDate, Role, Task, TextField, Token, Url, User, UserInvitation, UserOrg,
-                    UserOrgAffiliation, db)
+from models import (Affiliation, AffiliationRecord, CharField, Client, FundingContributor,
+                    FundingRecord, Grant, ModelException, OrcidApiCall, OrcidToken, Organisation,
+                    OrgInfo, OrgInvitation, PartialDate, Role, Task, TextField, Token, Url, User,
+                    UserInvitation, UserOrg, UserOrgAffiliation, db)
 # NB! Should be disabled in production
 from pyinfo import info
 from swagger_client.rest import ApiException
@@ -1377,6 +1377,7 @@ def invite_user():
     ])
 @roles_required(Role.SUPERUSER, Role.ADMIN)
 def application(app_id=None):
+    """Register an application client."""
     form = ApplicationFrom()
     if app_id:
         client = Client.select().where(Client.id == app_id).first()
@@ -1412,6 +1413,7 @@ def application(app_id=None):
     ])
 @roles_required(Role.SUPERUSER, Role.ADMIN)
 def api_credentials(app_id=None):
+    """Manage API credentials."""
     if app_id:
         client = Client.select().where(Client.id == app_id).first()
     else:
