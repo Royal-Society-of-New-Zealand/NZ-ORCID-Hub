@@ -1,6 +1,7 @@
 """HUB API."""
 
-from flask import jsonify, request
+import yaml
+from flask import current_app, jsonify, request
 from flask.views import MethodView
 from flask_peewee.rest import RestResource
 from flask_peewee.utils import slugify
@@ -256,12 +257,52 @@ app.add_url_rule(
     ])
 
 
-@app.route("/spec")
-def spec():
-    """Return the specification of the API."""
+def get_spec(app):
+    """Build API swagger scecifiction."""
     swag = swagger(app)
     swag["info"]["version"] = "0.1"
     swag["info"]["title"] = "ORCID HUB API"
     swag["basePath"] = "/api/v0.1"
     swag["host"] = request.host  # "dev.orcidhub.org.nz"
+    return swag
+
+
+@app.route("/spec.json")
+def json_spec():
+    """Return the specification of the API."""
+    swag = get_spec(app)
     return jsonify(swag)
+
+
+@app.route("/spec.yml")
+@app.route("/spec.yaml")
+def yaml_spec():
+    """Return the specification of the API."""
+    swag = get_spec(app)
+    return yamlfy(swag)
+
+
+@app.route("/spec")
+def spec():
+    """Return the specification of the API."""
+    swag = get_spec(app)
+    best = request.accept_mimetypes.best_match(["text/yaml", "application/x-yaml"])
+    if (best in (
+            "text/yaml",
+            "application/x-yaml",
+    ) and request.accept_mimetypes[best] > request.accept_mimetypes["application/json"]):
+        return yamlfy(swag)
+    else:
+        return jsonify(swag)
+
+
+def yamlfy(*args, **kwargs):
+    """Create respose in YAML just like jsonify does it for JSON."""
+    if args and kwargs:
+        raise TypeError('yamlfy() behavior undefined when passed both args and kwargs')
+    elif len(args) == 1:  # single args are passed directly to dumps()
+        data = args[0]
+    else:
+        data = args or kwargs
+
+    return current_app.response_class((yaml.dump(data), '\n'), mimetype="text/yaml")
