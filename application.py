@@ -23,7 +23,6 @@ class ReconnectablePostgresqlDatabase(RetryOperationalError, PostgresqlDatabase)
 
 
 app = Flask(__name__)
-1/0
 app.config.from_object(__name__)
 
 # TODO: implment connection factory
@@ -62,7 +61,6 @@ if __name__ == "__main__":
     from authcontroller import *
     from views import *
     from reports import *
-    1/0
 
     os.environ['DEBUG'] = "1"
     # This allows us to use a plain HTTP callback
