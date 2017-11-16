@@ -281,17 +281,17 @@ def get_spec(app):
             "scopes": {
                 "write": "allows modifying resources",
                 "read": "allows reading resources",
-            },
-            "security": [
-                {
-                    "application": [
-                        "read",
-                        "write",
-                    ]
-                },
-            ],
+            }
         }
     }
+    swag["security"] = [
+        {
+            "application": [
+                "read",
+                "write",
+            ]
+        },
+    ],
     return swag
 
 
