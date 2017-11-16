@@ -29,7 +29,7 @@
         </ul>
         <li>Optional:</li>
         <ul>
-          <li>Identifier: this can be any identifier used in your internal systems and is to allow you to match the resulting put-code from ORCID simplifying updates to the item</li>
+          <li>Identifier: this can be any identifier used in your internal systems and is to allow you to match the resulting put-code from ORCID to simplify making future updates to the item</li>
           <li>ORCID iD: once it has been authenticated, an ORCID iD can be used instead of an email address; however, without an email address any invitation required cannot be sent</li>
           <li>Organisation: if different to your home campus. NB you may only write affiliations for organisations that are related to the member, e.g., historic names and subsidiaries</li>
           <li>Department</li>
@@ -44,14 +44,15 @@
         </ul>
         <li>To update existing ORCID items</li>
         <ul>
-          <li>Put-Code: this is a code ORCID uses to identify the item and is returned to you in the Hub's affiliation report. </br>
+          <li>Put-Code: this is a code ORCID uses to identify the item and is returned to you in the Hub's affiliation report. <br />
           With a put-code the Hub attempts to overwrite an item; while without one, a new item is created with a new put-code</li>
         </ul>
       </ul>
       <p>
-      Note: each record in the the affiliation file must contain either an email address or, <strong>if</strong> an individual has already gone through the Hub, an ORCID iD.</br>
-      Dates must be given in ISO 8601 format, i.e., <strong>YYYY-MM-DD</strong> with partial dates accepted, e.g, "2017", "2017-12", and "2017-12-15" are all valid.</br>
-      Where a field header or value is not provided, the value from your organisation will be used if it's available, e.g., Organisation, City, Country, Disambiguation ID, </br>
+      Note: each record in the the affiliation file must contain either an email address or, <strong>if</strong> an individual has already gone through the Hub, an ORCID iD.<br />
+      Dates are preferred in ISO 8601 format, i.e., <strong>YYYY-MM-DD</strong> with partial dates accepted, e.g, "2017", "2017-12", and "2017-12-15" are all valid; however,<br />
+      the Hub will try to interpret any dates provided.  
+      Where a field header or value is not provided, the value from your organisation will be used if it's available, e.g., Organisation, City, Country, Disambiguation ID, <br />
       and Disambiguation Source can be omitted where redundant.</p>
       </div>
     </div>
