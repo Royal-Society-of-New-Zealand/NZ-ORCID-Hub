@@ -198,7 +198,7 @@ class TokenAPI(MethodView):
                       type: "string"
                       description: "ORCID API user token scopes"
                     issue_time:
-                      type: "dateTime"
+                      type: "string"
                     expires_in:
                       type: "integer"
           400:
