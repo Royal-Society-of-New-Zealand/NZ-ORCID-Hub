@@ -1,7 +1,7 @@
 """HUB API."""
 
 import yaml
-from flask import current_app, jsonify, request
+from flask import current_app, jsonify, request, url_for
 from flask.views import MethodView
 from flask_peewee.rest import RestResource
 from flask_peewee.utils import slugify
@@ -262,8 +262,22 @@ def get_spec(app):
     swag = swagger(app)
     swag["info"]["version"] = "0.1"
     swag["info"]["title"] = "ORCID HUB API"
-    swag["basePath"] = "/api/v0.1"
+    # swag["basePath"] = "/api/v0.1"
     swag["host"] = request.host  # "dev.orcidhub.org.nz"
+    swag["consumes"] = "application/json"
+    swag["produces"] = "application/json"
+    swag["securityDefinitions"] = {
+        "application": {
+            "type": "oauth2",
+            "tokenUrl": url_for("access_token", _external=True),
+            "flow": "application",
+            # "scopes": {
+            #     "write": "allows modifying resources",
+            #     "read": "allows reading resources",
+            # },
+            # "security": {"application": ["read", "write", ]},
+        }
+    }
     return swag
 
 
