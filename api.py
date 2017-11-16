@@ -264,8 +264,9 @@ def get_spec(app):
     swag["info"]["title"] = "ORCID HUB API"
     # swag["basePath"] = "/api/v0.1"
     swag["host"] = request.host  # "dev.orcidhub.org.nz"
-    swag["consumes"] = "application/json"
-    swag["produces"] = "application/json"
+    swag["consumes"] = ["application/json", ]
+    swag["produces"] = ["application/json", ]
+    swag["schemes"] = ["https", ]
     swag["securityDefinitions"] = {
         "application": {
             "type": "oauth2",
