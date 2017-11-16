@@ -25,6 +25,7 @@ class ReconnectablePostgresqlDatabase(RetryOperationalError, PostgresqlDatabase)
 
 app = Flask(__name__)
 app.config.from_object(__name__)
+app.url_map.strict_slashes = False
 oauth = OAuth2Provider(app)
 
 # TODO: implment connection factory
