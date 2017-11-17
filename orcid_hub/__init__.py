@@ -109,12 +109,3 @@ from .views import *  # noqa: F401,F403
 from .oauth import *  # noqa: F401,F403
 from .reports import *  # noqa: F401,F403
 from .utils import process_affiliation_records, process_funding_records
-
-if __name__ == "__main__":
-
-    os.environ['DEBUG'] = "1"
-    # This allows us to use a plain HTTP callback
-    os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
-    if app.debug:
-        toolbar = DebugToolbarExtension(app)
-    app.run(debug=True, port=5000)
