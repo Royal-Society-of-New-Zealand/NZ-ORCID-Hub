@@ -8,7 +8,7 @@ import pytest
 from wtforms import Form, StringField
 
 from .forms import (BitmapMultipleValueField, CountrySelectField, PartialDate, PartialDateField,
-                   validate_orcid_id_field)
+                    validate_orcid_id_field)  # noqa: E128
 from .models import PartialDate as PartialDateDbField
 
 
