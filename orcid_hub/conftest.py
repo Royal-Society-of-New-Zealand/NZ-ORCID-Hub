@@ -8,23 +8,26 @@ isort:skip_file
 import os
 import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # flake8: noqa
 import config
-config.DATABASE_URL = os.environ.get("TEST_DATABASE_URL") or "sqlite:///:memory:"
-os.environ["DATABASE_URL"] = config.DATABASE_URL
+DATABASE_URL = os.environ.get("TEST_DATABASE_URL") or "sqlite:///:memory:"
+config.DATABASE_URL = DATABASE_URL
+os.environ["DATABASE_URL"] = DATABASE_URL
 # yapf: enable
 
 import pytest
 from playhouse import db_url
 from playhouse.test_utils import test_database
 
-from application import app as _app
-from models import *  # noqa: F401, F403
-from authcontroller import *  # noqa: F401, F403
-from views import *  # noqa: F401, F403
-from reports import *  # noqa: F401, F403
+from . import app as _app
+_app.config["DATABASE_URL"] = DATABASE_URL
+from .models import *  # noqa: F401, F403
+from .authcontroller import *  # noqa: F401, F403
+from .views import *  # noqa: F401, F403
+from .reports import *  # noqa: F401, F403
 
-db = _app.db = _db = db_url.connect(_app.config["DATABASE_URL"], autorollback=True)
+db = _app.db = _db = db_url.connect(DATABASE_URL, autorollback=True)
 
 
 @pytest.yield_fixture

@@ -7,9 +7,9 @@ from unittest.mock import MagicMock
 import pytest
 from wtforms import Form, StringField
 
-from forms import (BitmapMultipleValueField, CountrySelectField, PartialDate, PartialDateField,
+from .forms import (BitmapMultipleValueField, CountrySelectField, PartialDate, PartialDateField,
                    validate_orcid_id_field)
-from models import PartialDate as PartialDateDbField
+from .models import PartialDate as PartialDateDbField
 
 
 def test_partial_date_widget():  # noqa

@@ -10,7 +10,7 @@ import requests_oauthlib
 from flask import session, url_for
 from flask_login import login_user
 
-from models import Affiliation, OrcidToken, Organisation, User, UserOrg
+from .models import Affiliation, OrcidToken, Organisation, User, UserOrg
 
 fake_time = time.time()
 
