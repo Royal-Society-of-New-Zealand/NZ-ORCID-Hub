@@ -5,8 +5,8 @@ from datetime import datetime, timedelta
 from flask import jsonify, render_template, request
 from flask_login import current_user, login_required
 
-from application import app, oauth
-from models import Client, Grant, Token
+from . import app, oauth
+from .models import Client, Grant, Token
 
 
 @oauth.clientgetter

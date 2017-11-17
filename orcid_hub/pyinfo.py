@@ -8,7 +8,7 @@ import platform
 import socket
 import sys
 
-from application import app
+from . import app
 
 optional_modules_list = [
     'Cookie', 'mod_wsgi', 'psycopg2', 'zlib', 'gzip', 'bz2', 'zipfile', 'tarfile', 'ldap',

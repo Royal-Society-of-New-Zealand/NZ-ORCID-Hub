@@ -3,8 +3,8 @@
 
 from flask_login import login_user
 
-import utils
-from models import Organisation, Role, User, UserOrg
+from . import utils
+from .models import Organisation, Role, User, UserOrg
 
 
 def test_append_qs():

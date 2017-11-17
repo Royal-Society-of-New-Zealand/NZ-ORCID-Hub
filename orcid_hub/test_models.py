@@ -4,7 +4,7 @@ import pytest
 from peewee import Model, SqliteDatabase
 from playhouse.test_utils import test_database
 
-from models import (Affiliation, AffiliationRecord, ModelException, OrcidToken, Organisation,
+from .models import (Affiliation, AffiliationRecord, ModelException, OrcidToken, Organisation,
                     OrgInfo, PartialDate, PartialDateField, Role, Task, User, UserOrg,
                     UserOrgAffiliation, create_tables, drop_tables)
 

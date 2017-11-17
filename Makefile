@@ -1,5 +1,5 @@
 NAME = orcidhub/app
-VERSION = 3.2
+VERSION = 3.3
 
 .PHONY: all build test tag_latest
 
@@ -16,5 +16,5 @@ tag_latest: build
 push: tag_latest
 	docker push $(NAME):$(VERSION)
 	docker push $(NAME)-dev:$(VERSION)
-	docker push $(NAME)
-	docker push $(NAME)-dev
+	# docker push $(NAME)
+	# docker push $(NAME)-dev

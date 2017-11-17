@@ -5,8 +5,8 @@ from functools import wraps
 from flask import flash
 from flask_login import current_user
 
-from application import login_manager
-from models import User
+from . import login_manager
+from .models import User
 
 
 def roles_required(*roles):  # noqa: D202

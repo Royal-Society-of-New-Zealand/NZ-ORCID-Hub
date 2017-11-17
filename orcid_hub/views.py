@@ -15,27 +15,25 @@ from playhouse.shortcuts import model_to_dict
 from werkzeug import secure_filename
 from wtforms.fields import BooleanField
 
-import models
-import orcid_client
-import utils
-from application import admin, app
 from config import ORCID_BASE_URL, SCOPE_ACTIVITIES_UPDATE, SCOPE_READ_LIMITED
 from flask_admin.actions import action
 from flask_admin.contrib.peewee import ModelView
 from flask_admin.form import SecureForm
 from flask_admin.model import typefmt
-from forms import (ApplicationFrom, BitmapMultipleValueField, CredentialForm, FileUploadForm,
-                   JsonOrYamlFileUploadForm, OrgRegistrationForm, PartialDateField, RecordForm,
-                   UserInvitationForm)
-from login_provider import roles_required
-from models import (Affiliation, AffiliationRecord, CharField, Client, FundingContributor,
-                    FundingRecord, Grant, ModelException, OrcidApiCall, OrcidToken, Organisation,
-                    OrgInfo, OrgInvitation, PartialDate, Role, Task, TextField, Token, Url, User,
-                    UserInvitation, UserOrg, UserOrgAffiliation, db)
-# NB! Should be disabled in production
-from pyinfo import info
 from swagger_client.rest import ApiException
-from utils import generate_confirmation_token, send_user_invitation
+
+from . import admin, app, models, orcid_client, utils
+from .forms import (ApplicationFrom, BitmapMultipleValueField, CredentialForm, FileUploadForm,
+                    JsonOrYamlFileUploadForm, OrgRegistrationForm, PartialDateField, RecordForm,
+                    UserInvitationForm)
+from .login_provider import roles_required
+from .models import (Affiliation, AffiliationRecord, CharField, Client, FundingContributor,
+                     FundingRecord, Grant, ModelException, OrcidApiCall, OrcidToken, Organisation,
+                     OrgInfo, OrgInvitation, PartialDate, Role, Task, TextField, Token, Url, User,
+                     UserInvitation, UserOrg, UserOrgAffiliation, db)
+# NB! Should be disabled in production
+from .pyinfo import info
+from .utils import generate_confirmation_token, send_user_invitation
 
 HEADERS = {"Accept": "application/vnd.orcid+json", "Content-type": "application/vnd.orcid+json"}
 

@@ -75,10 +75,8 @@ If you are running this application for the first time then follow steps a to d:
 > - GRANT ALL PRIVILEGES ON DATABASE orcidhub to orcidhub;.
 
 
-d) Run initializedb.py to create table in postgres
+d) Run `flask initdb` to create the tables in the application database.
 
-Run application.py
-Open link https://test.orcidhub.org.nz/index
 
 ## Development Environment
 
@@ -94,22 +92,13 @@ either directly invoking it with `python application.py` or using Flask CLI
 (http://flask.pocoo.org/docs/0.12/cli/):
 
 ```
+pip install -e orcid_hub
 export EXTERNAL_SP=https://dev.orcidhub.org.nz/Tuakiri/SP
 export DATABASE_URL=sqlite:///data.db
-export FLASK_APP=/path/to/main.py
-export PYTHONPATH=$(dirname $FLASK_APP)  ## flask run has problems with setting up search paths
+export FLASK_APP=orcid_hub
+## export PYTHONPATH=$(dirname $FLASK_APP)  ## flask run has problems with setting up search paths
 export FLASK_DEBUG=1
 flask run
-```
-
-You can add these setting to you virtual environment activation script, e.g. (assuming it's located in the root directory):
-
-```
-export FLASK_APP=$(dirname $VIRTUAL_ENV)/main.py
-export PYTHONPATH=$(dirname $FLASK_APP)
-export EXTERNAL_SP=https://dev.orcidhub.org.nz/Tuakiri/SP
-export DATABASE_URL=sqlite:///data.db
-export FLASK_DEBUG=1
 ```
 
 To connect to the PostgreSQL node:

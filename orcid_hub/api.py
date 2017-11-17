@@ -8,9 +8,8 @@ from flask_peewee.utils import slugify
 from flask_swagger import swagger
 from werkzeug.exceptions import NotFound
 
-import models
-from application import api, app, oauth
-from models import EMAIL_REGEX, ORCID_ID_REGEX, OrcidToken, User, UserOrg
+from . import api, app, models, oauth
+from .models import EMAIL_REGEX, ORCID_ID_REGEX, OrcidToken, User, UserOrg
 
 
 class AppRestResource(RestResource):
@@ -284,12 +283,14 @@ def get_spec(app):
             }
         }
     }
-    swag["security"] = [{
-        "application": [
-            "read",
-            "write",
-        ]
-    }, ]
+    swag["security"] = [
+        {
+            "application": [
+                "read",
+                "write",
+            ]
+        },
+    ]
     return swag
 
 

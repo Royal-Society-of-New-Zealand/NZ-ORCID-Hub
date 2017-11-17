@@ -12,8 +12,9 @@ from wtforms.fields.html5 import DateField, EmailField
 from wtforms.validators import (UUID, DataRequired, Email, Regexp, Required, ValidationError)
 from wtforms.widgets import HTMLString, html_params
 
-import models
 from config import DEFAULT_COUNTRY
+
+from . import models
 
 
 def validate_orcid_id_field(form, field):
