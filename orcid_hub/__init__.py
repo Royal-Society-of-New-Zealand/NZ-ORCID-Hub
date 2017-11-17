@@ -1,7 +1,21 @@
+# -*- coding: utf-8 -*-  # noqa
+"""
+    ORCID-Hub
+    ~~~~~~~~~
+
+    The New Zealand ORCID Hub allows all Consortium members to productively engage with ORCID
+    regardless of technical resources. The technology partner, with oversight from
+    the IT Advisory Group, lead agency and ORCID, will develop and maintain the Hub.
+
+    :copyright: (c) 2017 Royal Society of New Zealand.
+    :license: MIT, see LICENSE for more details.
+"""
+
+__version__ = '2.1-dev'
+
 import logging
 import os
 import click
-from logging.handlers import RotatingFileHandler
 
 import flask_login
 from flask import Flask, request
@@ -15,12 +29,15 @@ from playhouse.shortcuts import RetryOperationalError
 from raven.contrib.flask import Sentry
 
 from config import *  # noqa: F401, F403
+from config import DATABASE_URL
 from .failover import PgDbWithFailover
 from flask_admin import Admin
 
 
 # http://docs.peewee-orm.com/en/latest/peewee/database.html#automatic-reconnect
 class ReconnectablePostgresqlDatabase(RetryOperationalError, PostgresqlDatabase):
+    """Support for reconnecting closed DB connectios."""
+
     pass
 
 
@@ -41,7 +58,7 @@ else:
 class UserAuthentication(Authentication):
     """Use Flask-OAuthlib authentication and application authentication."""
 
-    def authorize(self):
+    def authorize(self):  # noqa: D102
         return flask_login.current_user.is_authenticated
 
 
@@ -51,7 +68,7 @@ class Oauth2Authentication(Authentication):
     # TODO: add user role requierentes.
     # TOOD: limit access to the user data ONLY!
 
-    def authorize(self):
+    def authorize(self):  # noqa: D102
         if not super().authorize():
             return False
 
@@ -67,7 +84,9 @@ class Oauth2Authentication(Authentication):
 
 
 class DataRestAPI(RestAPI):
-    def configure_routes(self):
+    """Customized ORM model CRUD API."""
+
+    def configure_routes(self):  # noqa: D102
         for url, callback in self.get_urls():
             self.blueprint.route(url)(callback)
 
@@ -108,4 +127,90 @@ from .authcontroller import *  # noqa: F401,F403
 from .views import *  # noqa: F401,F403
 from .oauth import *  # noqa: F401,F403
 from .reports import *  # noqa: F401,F403
-from .utils import process_affiliation_records, process_funding_records
+from .utils import process_affiliation_records, process_funding_records  # noqa: E402
+
+
+@app.before_first_request
+def setup_logging():
+    """Set-up logger to log to STDOUT (eventually conainer log)."""
+    app.logger.addHandler(logging.StreamHandler())
+    app.logger.setLevel(logging.INFO)
+
+
+@app.cli.command()
+@click.option("-d", "--drop", is_flag=True, help="Drop tables before creating...")
+@click.option("-f", "--force", is_flag=True, help="Enforce table craeation.")
+@click.option("-A", "--audit", is_flag=True, help="Create adit trail tables.")
+@click.option(
+    "-V",
+    "--verbose",
+    is_flag=True,
+    help="Shows SQL statements that get sent to the server or DB.")
+def initdb(create=False, drop=False, force=False, audit=True, verbose=False):
+    """Initialize the database."""
+    if drop and force:
+        models.drop_tables()
+
+    if verbose:
+        logger = logging.getLogger("peewee")
+        if logger:
+            logger.setLevel(logging.DEBUG)
+            logger.addHandler(logging.StreamHandler())
+
+    try:
+        models.create_tables()
+    except Exception:
+        app.logger.exception("Failed to create tables...")
+
+    if audit:
+        app.logger.info("Creating audit tables...")
+        models.create_audit_tables()
+
+    super_user, created = models.User.get_or_create(
+        email="root@mailinator.com", roles=models.Role.SUPERUSER)
+
+    if not created:
+        return
+
+    super_user.name = "The University of Auckland"
+    super_user.confirmed = True
+    super_user.save()
+
+    org, _ = models.Organisation.get_or_create(
+        name="The University of Auckland", tuakiri_name="University of Auckland", confirmed=True)
+
+
+@app.cli.group()
+@click.option("-v", "--verbose", is_flag=True)
+def load(verbose):
+    """Load data from files."""
+    app.verbose = verbose
+
+
+@load.command()
+@click.argument('input', type=click.File('r'), required=True)
+def org_info(input):
+    """Pre-loads organisation data."""
+    row_count = models.OrgInfo.load_from_csv(input)
+    click.echo(f"Loaded {row_count} records")
+
+
+@app.cli.command()
+@click.option("-n", default=20, help="Max number of rows to process.")
+def process(n):
+    """Process uploaded affiliation and funding records."""
+    process_affiliation_records(n)
+    process_funding_records(n)
+
+
+if os.environ.get("ENV") == "dev0":
+    # This allows us to use a plain HTTP callback
+    os.environ['DEBUG'] = "1"
+    os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
+    app.debug = True
+
+if app.debug:
+    toolbar = DebugToolbarExtension(app)
+    # logger = logging.getLogger('peewee')
+    # logger.setLevel(logging.DEBUG)
+    # logger.addHandler(logging.StreamHandler())

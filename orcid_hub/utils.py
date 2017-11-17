@@ -19,12 +19,12 @@ from html2text import html2text
 from itsdangerous import URLSafeTimedSerializer
 from peewee import JOIN
 
-from . import orcid_client
-from . import app
 from config import ENV, EXTERNAL_SP
+
+from . import app, orcid_client
 from .models import (AFFILIATION_TYPES, Affiliation, AffiliationRecord, FundingContributor,
-                    FundingRecord, OrcidToken, Organisation, Role, Task, Url, User, UserInvitation,
-                    UserOrg)
+                     FundingRecord, OrcidToken, Organisation, Role, Task, Url, User,
+                     UserInvitation, UserOrg)
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
