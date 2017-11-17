@@ -28,7 +28,7 @@ from pycountry import countries
 from pykwalify.core import Core
 from pykwalify.errors import SchemaError
 
-from application import app, db
+from . import app, db
 from config import DEFAULT_COUNTRY, ENV
 
 EMAIL_REGEX = re.compile(r"^[_a-z0-9-]+([._a-z0-9-]+)*@[a-z0-9-]+(\.[a-z0-9-]+)*(\.[a-z]{2,4})$")

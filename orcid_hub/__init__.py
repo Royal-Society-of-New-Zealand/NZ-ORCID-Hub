@@ -1,5 +1,6 @@
 import logging
 import os
+import click
 from logging.handlers import RotatingFileHandler
 
 import flask_login
@@ -14,7 +15,7 @@ from playhouse.shortcuts import RetryOperationalError
 from raven.contrib.flask import Sentry
 
 from config import *  # noqa: F401, F403
-from failover import PgDbWithFailover
+from .failover import PgDbWithFailover
 from flask_admin import Admin
 
 
@@ -100,11 +101,16 @@ login_manager.login_view = "login"
 login_manager.login_message_category = "info"
 login_manager.init_app(app)
 
+from . import models  # noqa: F401
+from .api import *  # noqa: F401,F403
+# from .application import app
+from .authcontroller import *  # noqa: F401,F403
+from .views import *  # noqa: F401,F403
+from .oauth import *  # noqa: F401,F403
+from .reports import *  # noqa: F401,F403
+from .utils import process_affiliation_records, process_funding_records
+
 if __name__ == "__main__":
-    # flake8: noqa
-    from authcontroller import *
-    from views import *
-    from reports import *
 
     os.environ['DEBUG'] = "1"
     # This allows us to use a plain HTTP callback

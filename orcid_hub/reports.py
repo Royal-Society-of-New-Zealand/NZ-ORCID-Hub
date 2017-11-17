@@ -4,10 +4,10 @@
 from flask import redirect, render_template, request, url_for
 from peewee import JOIN, fn
 
-from application import app
-from forms import DateRangeForm
-from login_provider import roles_required
-from models import (Organisation, OrgInvitation, Role, User, UserInvitation, UserOrg)
+from . import app
+from .forms import DateRangeForm
+from .login_provider import roles_required
+from .models import (Organisation, OrgInvitation, Role, User, UserInvitation, UserOrg)
 
 
 @app.route("/user_summary")

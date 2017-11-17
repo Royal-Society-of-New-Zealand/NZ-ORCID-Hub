@@ -19,10 +19,10 @@ from html2text import html2text
 from itsdangerous import URLSafeTimedSerializer
 from peewee import JOIN
 
-import orcid_client
-from application import app
+from . import orcid_client
+from . import app
 from config import ENV, EXTERNAL_SP
-from models import (AFFILIATION_TYPES, Affiliation, AffiliationRecord, FundingContributor,
+from .models import (AFFILIATION_TYPES, Affiliation, AffiliationRecord, FundingContributor,
                     FundingRecord, OrcidToken, Organisation, Role, Task, Url, User, UserInvitation,
                     UserOrg)
 
