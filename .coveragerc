@@ -4,12 +4,12 @@ branch = True
 omit =
     orcid/*
     venv/*
-    test_*.py
+    orcid_hub/test_*.py
     main.py
     monitor.py
-    pyinfo.py
+    orcid_hub/pyinfo.py
     initializedb.py
-    conftest.py
+    orcid_hub/conftest.py
     config.py
     create.py
     setup.py
@@ -18,12 +18,12 @@ omit =
 omit =
     orcid/*
     venv/*
-    test_*.py
+    orcid_hub/test_*.py
     main.py
     monitor.py
-    pyinfo.py
+    orcid_hub/pyinfo.py
     initializedb.py
-    conftest.py
+    orcid_hub/conftest.py
     config.py
     create.py
     setup.py
