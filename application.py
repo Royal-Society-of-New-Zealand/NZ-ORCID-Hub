@@ -1,3 +1,6 @@
+# -*- coding: utf-8 -*-
+"""Application File."""
+
 import os
 
 from orcid_hub import app
