@@ -11,5 +11,4 @@ if __name__ == "__main__":
     os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
     os.environ["ENV"] = "dev0"
     app.debug = True
-    app.secret_key = os.urandom(24)
     app.run(debug=True, port=5000)

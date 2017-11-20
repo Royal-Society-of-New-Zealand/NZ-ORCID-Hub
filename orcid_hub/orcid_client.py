@@ -230,7 +230,7 @@ class MemberAPI(MemberAPIV20Api):
         currency_code = fr.currency
         start_date = fr.start_date
         end_date = fr.end_date
-        visibility = fr.visibility
+        visibility = fr.visibility if fr.visibility else "PUBLIC"
 
         rec.source = self.source
         rec.type = funding_type
