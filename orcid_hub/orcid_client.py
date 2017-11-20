@@ -230,7 +230,6 @@ class MemberAPI(MemberAPIV20Api):
         currency_code = fr.currency
         start_date = fr.start_date
         end_date = fr.end_date
-        visibility = fr.visibility if fr.visibility else "PUBLIC"
 
         rec.source = self.source
         rec.type = funding_type
@@ -238,7 +237,6 @@ class MemberAPI(MemberAPIV20Api):
         rec.title = FundingTitle(title=title, translated_title=translated_title)  # noqa: F405
         rec.short_description = short_description
         rec.amount = Amount(value=amount, currency_code=currency_code)  # noqa: F405
-        rec.visibility = visibility
 
         if put_code:
             rec.put_code = put_code
@@ -272,15 +270,15 @@ class MemberAPI(MemberAPIV20Api):
                 uri = "http://" + url.hostname + "/" + path
                 host = url.hostname
                 contributor_orcid = ContributorOrcid(uri=uri, path=path, host=host)  # noqa: F405
-            contributor_email = ContributorEmail(value=f.email)  # noqa: F405
+            # As Contributor email is by default private so, we are not sending it in funding payload
+            # contributor_email = ContributorEmail(value=f.email)  # noqa: F405
             contributor_attributes = FundingContributorAttributes(  # noqa: F405
-                contributor_role=f.role)
+                contributor_role=f.role.upper())
 
             funding_contributor_list.append(
                 FundingContributor(  # noqa: F405
                     contributor_orcid=contributor_orcid,
                     credit_name=credit_name,
-                    contributor_email=contributor_email,
                     contributor_attributes=contributor_attributes))
 
         rec.contributors = FundingContributors(contributor=funding_contributor_list)  # noqa: F405
@@ -289,10 +287,14 @@ class MemberAPI(MemberAPIV20Api):
         external_ids = ExternalIdModel.select().where(ExternalIdModel.funding_record_id == fr.id)
 
         for exi in external_ids:
-            external_id_type = exi.type
+            # Orcid is expecting external type as 'grant_number'
+            external_id_type = exi.type if exi.type else "grant_number"
             external_id_value = exi.value
-            external_id_url = Url(value=exi.url)  # noqa: F405
-            external_id_relationship = exi.relationship
+            external_id_url = None
+            if exi.url:
+                external_id_url = Url(value=exi.url)  # noqa: F405
+            # Setting the external id relationship as 'SELF' by default, it can be either SELF/PART_OF
+            external_id_relationship = exi.relationship.upper() if exi.relationship else "SELF"
             external_id_list.append(
                 ExternalID(  # noqa: F405
                     external_id_type=external_id_type,
