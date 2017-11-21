@@ -75,7 +75,7 @@ If you are running this application for the first time then follow steps a to d:
 > - GRANT ALL PRIVILEGES ON DATABASE orcidhub to orcidhub;.
 
 
-d) Run `flask initdb` to create the tables in the application database.
+d) Run `orcidhub initdb` to create the tables in the application database.
 
 
 ## Development Environment
@@ -96,9 +96,8 @@ pip install -e orcid_hub
 export EXTERNAL_SP=https://dev.orcidhub.org.nz/Tuakiri/SP
 export DATABASE_URL=sqlite:///data.db
 export FLASK_APP=orcid_hub
-## export PYTHONPATH=$(dirname $FLASK_APP)  ## flask run has problems with setting up search paths
 export FLASK_DEBUG=1
-flask run
+orcidhub run
 ```
 
 To connect to the PostgreSQL node:

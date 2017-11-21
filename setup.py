@@ -22,8 +22,9 @@ And run it:
     $ . venv/bin/activate
     $ pip install -e .
     $ export FLASK_APP=orcid_hub
-    $ flask initdb
-    $ flask run
+    $ orcidhub initdb
+    $ orcidhub cradmin EMAIL
+    $ orcidhub run
     * Running on http://localhost:5000/
 
 Ready for production? `Read this first <http://docs.orcidhub.org.nz/deploying/>`.
@@ -79,4 +80,8 @@ setup(
         "License :: OSI Approved :: MIT License",
         "Programming Language :: Ptyhon :: 3.6",
     ],
+    entry_points='''
+        [console_scripts]
+        orcidhub=orcid_hub.cli:main
+    '''
 )
