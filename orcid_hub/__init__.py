@@ -171,13 +171,9 @@ def initdb(create=False, drop=False, force=False, audit=True, verbose=False):
 @app.cli.command("cradmin")
 @click.option("-f", "--force", is_flag=True, help="Enforce creation of the super-user.")
 @click.option("-V", "--verbose", is_flag=True, help="Shows SQL statements.")
-@click.option("-N", "--name", is_flag=True, help="User full name.")
-@click.option("-O", "--org-name", is_flag=True, help="Organisation name.")
-@click.option(
-    "-I",
-    "--internal-org-name",
-    is_flag=True,
-    help="Internal organisation name (e.g., used by IdPs).")
+@click.option("-N", "--name", help="User full name.")
+@click.option("-O", "--org-name", help="Organisation name.")
+@click.option("-I", "--internal-org-name", help="Internal organisation name (e.g., used by IdPs).")
 @click.argument("email", nargs=1)
 def create_hub_administrator(email=False,
                              name=None,
@@ -196,10 +192,11 @@ def create_hub_administrator(email=False,
             "Database tables doensn't exist. Please, firts initialize the datatabase.")
         sys.exit(1)
 
-    super_user, created = models.User.get_or_create(email=email, roles=models.Role.SUPERUSER)
+    super_user, created = models.User.get_or_create(email=email)
 
     super_user.name = name or org_name or internal_org_name
     super_user.confirmed = True
+    super_user.is_superuser = True
 
     if org_name:
         org, _ = models.Organisation.get_or_create(name=org_name)
@@ -207,7 +204,9 @@ def create_hub_administrator(email=False,
             org.tuakiri_name = internal_org_name
         org.confirmed = True
         org.save()
-        super_user.org = org
+        models.UserOrg.get_or_create(user=super_user, org=org)
+
+        super_user.organisation = org
 
     super_user.save()
 
