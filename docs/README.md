@@ -76,11 +76,10 @@ If you are running this application for the first time then follow steps a to d:
 > - GRANT ALL PRIVILEGES ON DATABASE orcidhub to orcidhub;.
 
 
-	d) Run `flask initdb` to create the tables in the application database.
-	For more information run `flask initdb --help`.
-	d) Run `flask cradmin EMAIL` to create a hub administrator. For more information run
-	`flask cradmin --help`.
-
+	d) Run `orcidhub initdb` to create the tables in the application database.
+	For more information run `orcidhub initdb --help`.
+	d) Run `orcidhub cradmin EMAIL` to create a hub administrator. For more information run
+	`orcidhub cradmin --help`.
 
 ## Development Environment
 
@@ -101,9 +100,9 @@ export EXTERNAL_SP=https://dev.orcidhub.org.nz/Tuakiri/SP
 export DATABASE_URL=sqlite:///data.db
 export FLASK_APP=orcid_hub
 export FLASK_DEBUG=1
-flask initdb
-flask cradmin EMAIL
-flask run
+orcidhub initdb
+orcidhub cradmin EMAIL
+orcidhub run
 ```
 
 To connect to the PostgreSQL node:
