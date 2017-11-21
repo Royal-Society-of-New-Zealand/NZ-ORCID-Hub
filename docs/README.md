@@ -66,6 +66,7 @@ Orcid API client ID and secret
 ## Steps to execute this application
 
 If you are running this application for the first time then follow steps a to d:
+
 	a) From the project directory run pip3 install -r requirement.txt
 	b) install run install_package.sh to install postgress and required libraries
 	c) Create database and user in postgres
@@ -75,8 +76,10 @@ If you are running this application for the first time then follow steps a to d:
 > - GRANT ALL PRIVILEGES ON DATABASE orcidhub to orcidhub;.
 
 
-d) Run `flask initdb` to create the tables in the application database.
-
+	d) Run `orcidhub initdb` to create the tables in the application database.
+	For more information run `orcidhub initdb --help`.
+	d) Run `orcidhub cradmin EMAIL` to create a hub administrator. For more information run
+	`orcidhub cradmin --help`.
 
 ## Development Environment
 
@@ -96,9 +99,10 @@ pip install -e orcid_hub
 export EXTERNAL_SP=https://dev.orcidhub.org.nz/Tuakiri/SP
 export DATABASE_URL=sqlite:///data.db
 export FLASK_APP=orcid_hub
-## export PYTHONPATH=$(dirname $FLASK_APP)  ## flask run has problems with setting up search paths
 export FLASK_DEBUG=1
-flask run
+orcidhub initdb
+orcidhub cradmin EMAIL
+orcidhub run
 ```
 
 To connect to the PostgreSQL node:

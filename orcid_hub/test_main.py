@@ -6,8 +6,7 @@ import pprint
 import pytest
 from flask_login import login_user
 
-from . import login_provider
-from . import utils
+from . import login_provider, utils
 from .models import Organisation, OrgInfo, OrgInvitation, Role, User, UserOrg
 
 

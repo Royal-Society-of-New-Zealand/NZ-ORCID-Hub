@@ -142,7 +142,7 @@ class PartialDate(namedtuple("PartialDate", ["year", "month", "day"])):
             return res + "-%02d" % int(self.day) if self.day else res
 
 
-PartialDate.__new__.__defaults__ = (None,) * len(PartialDate._fields)
+PartialDate.__new__.__defaults__ = (None, ) * len(PartialDate._fields)
 
 
 class OrcidIdField(FixedCharField):
@@ -242,9 +242,9 @@ class Affiliation(IntFlag):
 
     def __str__(self):
         return ", ".join({
-                             self.EDU: "Education",
-                             self.EMP: "Employment"
-                         }[a] for a in Affiliation if a & self)
+            self.EDU: "Education",
+            self.EMP: "Employment"
+        }[a] for a in Affiliation if a & self)
 
 
 class BaseModel(Model):
@@ -356,7 +356,7 @@ class Organisation(BaseModel, AuditMixin):
         try:
             return (self.orginvitation_set.select(
                 fn.MAX(OrgInvitation.created_at).alias("last_sent_at")).where(
-                OrgInvitation.invitee_id == self.tech_contact_id).first().last_sent_at)
+                    OrgInvitation.invitee_id == self.tech_contact_id).first().last_sent_at)
         except Exception:
             return None
 
@@ -366,8 +366,8 @@ class Organisation(BaseModel, AuditMixin):
         try:
             return (self.orginvitation_set.select(
                 fn.MAX(OrgInvitation.created_at).alias("last_confirmed_at")).where(
-                OrgInvitation.invitee_id == self.tech_contact_id).where(
-                OrgInvitation.confirmed_at.is_null(False)).first().last_confirmed_at)
+                    OrgInvitation.invitee_id == self.tech_contact_id).where(
+                        OrgInvitation.confirmed_at.is_null(False)).first().last_confirmed_at)
         except Exception:
             return None
 
@@ -442,11 +442,13 @@ class OrgInfo(BaseModel):
             "Wrong number of fields. Expected at least 3 fields " \
             "(name, disambiguated organisation ID, and disambiguation source). " \
             "Read header: %s" % header
-        header_rexs = [re.compile(ex, re.I)
-                       for ex in ("organisation|name", "title", r"first\s*(name)?", r"last\s*(name)?", "role",
-                                  "email", "phone", "public|permission to post to web", r"country\s*(code)?",
-                                  "city", "(common:)?disambiguated.*identifier",
-                                  "(common:)?disambiguation.*source", r"tuakiri\s*(name)?")]
+        header_rexs = [
+            re.compile(ex, re.I)
+            for ex in ("organisation|name", "title", r"first\s*(name)?", r"last\s*(name)?", "role",
+                       "email", "phone", "public|permission to post to web", r"country\s*(code)?",
+                       "city", "(common:)?disambiguated.*identifier",
+                       "(common:)?disambiguation.*source", r"tuakiri\s*(name)?")
+        ]
 
         def index(rex):
             """Return first header column index matching the given regex."""
@@ -528,7 +530,7 @@ class User(BaseModel, UserMixin, AuditMixin):
         return (Organisation.select(
             Organisation, (Organisation.tech_contact_id == self.id).alias("is_tech_contact"),
             ((UserOrg.is_admin.is_null(False)) & (UserOrg.is_admin)).alias("is_admin")).join(
-            UserOrg, on=((UserOrg.org_id == Organisation.id) & (UserOrg.user_id == self.id)))
+                UserOrg, on=((UserOrg.org_id == Organisation.id) & (UserOrg.user_id == self.id)))
                 .naive())
 
     @property
@@ -632,9 +634,11 @@ class User(BaseModel, UserMixin, AuditMixin):
             "Wrong number of fields. Expected at least 4 fields " \
             "(first Name, Last Name, affiliation and email). " \
             "Read header: %s" % header
-        header_rexs = [re.compile(ex, re.I)
-                       for ex in (r"first\s*(name)?", r"last\s*(name)?", "email\s*(address)?",
-                                  "affiliation|student/staff")]
+        header_rexs = [
+            re.compile(ex, re.I)
+            for ex in (r"first\s*(name)?", r"last\s*(name)?", "email\s*(address)?",
+                       "affiliation|student/staff")
+        ]
 
         def index(rex):
             """Return first header column index matching the given regex."""
@@ -745,7 +749,7 @@ class UserOrg(BaseModel, AuditMixin):
             user = self.user
             if self.is_admin != user.is_admin:
                 if self.is_admin or UserOrg.select().where((UserOrg.user_id == self.user_id) & (
-                            UserOrg.org_id != self.org_id) & UserOrg.is_admin).exists():  # noqa: E125
+                        UserOrg.org_id != self.org_id) & UserOrg.is_admin).exists():  # noqa: E125
                     user.roles |= Role.ADMIN
                     app.logger.info(f"Added ADMIN role to user {user}")
                 else:
@@ -758,7 +762,7 @@ class UserOrg(BaseModel, AuditMixin):
     class Meta:  # noqa: D101,D106
         db_table = "user_org"
         table_alias = "uo"
-        indexes = ((("user", "org"), True),)
+        indexes = ((("user", "org"), True), )
 
 
 class OrcidToken(BaseModel, AuditMixin):
@@ -890,12 +894,14 @@ class Task(BaseModel, AuditMixin):
             "(first name, last name, email address, organisation, " \
             "campus/department, city, course or job title, start date, end date, student/staff). " \
             f"Read header: {header}"
-        header_rexs = [re.compile(ex, re.I)
-                       for ex in (r"first\s*(name)?", r"last\s*(name)?", "email", "organisation|^name",
-                                  "campus|department", "city", "state|region", "course|title|role",
-                                  r"start\s*(date)?", r"end\s*(date)?",
-                                  r"affiliation(s)?\s*(type)?|student|staff", "country", r"disambiguat.*id",
-                                  r"disambiguat.*source", r"put|code", "orcid", "external.*|.*identifier")]
+        header_rexs = [
+            re.compile(ex, re.I)
+            for ex in (r"first\s*(name)?", r"last\s*(name)?", "email", "organisation|^name",
+                       "campus|department", "city", "state|region", "course|title|role",
+                       r"start\s*(date)?", r"end\s*(date)?",
+                       r"affiliation(s)?\s*(type)?|student|staff", "country", r"disambiguat.*id",
+                       r"disambiguat.*source", r"put|code", "orcid", "external.*|.*identifier")
+        ]
 
         def index(rex):
             """Return first header column index matching the given regex."""
@@ -1117,7 +1123,8 @@ class FundingRecord(BaseModel, AuditMixin):
         """Load data from CSV file or a string."""
         if isinstance(source, str):
             # import data from file based on its extension; either it is yaml or json
-            if os.path.splitext(filename)[1][1:] == "yaml" or os.path.splitext(filename)[1][1:] == "yml":
+            if os.path.splitext(filename)[1][1:] == "yaml" or os.path.splitext(
+                    filename)[1][1:] == "yml":
                 funding_data_list = yaml.load(source)
             else:
                 funding_data_list = json.loads(source)
@@ -1159,7 +1166,8 @@ class FundingRecord(BaseModel, AuditMixin):
                     short_description = funding_data.get("short-description") if funding_data.get(
                         "short-description") else None
 
-                    amount = funding_data.get("amount").get("value") if funding_data.get("amount") else None
+                    amount = funding_data.get("amount").get("value") if funding_data.get(
+                        "amount") else None
 
                     currency = funding_data.get("amount").get("currency-code") \
                         if funding_data.get("amount") and funding_data.get("amount").get("currency-code") else None
@@ -1190,7 +1198,8 @@ class FundingRecord(BaseModel, AuditMixin):
                         funding_data.get("organization") and \
                         funding_data.get("organization").get("disambiguated-organization") else None
 
-                    visibility = funding_data.get("visibility") if funding_data.get("visibility") else None
+                    visibility = funding_data.get("visibility") if funding_data.get(
+                        "visibility") else None
 
                     funding_record = FundingRecord.create(
                         task=task,
@@ -1215,7 +1224,8 @@ class FundingRecord(BaseModel, AuditMixin):
                         funding_data.get("contributors") else None
                     for contributor in contributors_list:
                         orcid_id = None
-                        if contributor.get("contributor-orcid") and contributor.get("contributor-orcid").get("path"):
+                        if contributor.get("contributor-orcid") and contributor.get(
+                                "contributor-orcid").get("path"):
                             orcid_id = contributor.get("contributor-orcid").get("path")
 
                         email = contributor.get("contributor-email").get("value") if \
@@ -1504,25 +1514,25 @@ def create_tables():
         pass
 
     for model in [
-        Organisation,
-        User,
-        UserOrg,
-        OrcidToken,
-        UserOrgAffiliation,
-        OrgInfo,
-        OrcidApiCall,
-        OrcidAuthorizeCall,
-        Task,
-        AffiliationRecord,
-        OrgInvitation,
-        Url,
-        UserInvitation,
-        FundingRecord,
-        FundingContributor,
-        ExternalId,
-        Client,
-        Grant,
-        Token,
+            Organisation,
+            User,
+            UserOrg,
+            OrcidToken,
+            UserOrgAffiliation,
+            OrgInfo,
+            OrcidApiCall,
+            OrcidAuthorizeCall,
+            Task,
+            AffiliationRecord,
+            OrgInvitation,
+            Url,
+            UserInvitation,
+            FundingRecord,
+            FundingContributor,
+            ExternalId,
+            Client,
+            Grant,
+            Token,
     ]:
 
         try:
