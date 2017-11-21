@@ -1373,7 +1373,7 @@ def invite_user():
         "GET",
         "POST",
     ])
-@roles_required(Role.SUPERUSER, Role.ADMIN)
+@roles_required(Role.SUPERUSER, Role.TECHNICAL)
 def application(app_id=None):
     """Register an application client."""
     form = ApplicationFrom()
@@ -1386,6 +1386,8 @@ def application(app_id=None):
             f"You aready have registered application '{client.name}' and issued API credentials.",
             "warning")
         return redirect(url_for("api_credentials", app_id=client.id))
+    print(form)
+    print("***", request.form)
 
     if form.validate_on_submit():
         client = Client(org_id=current_user.organisation.id)
@@ -1409,7 +1411,7 @@ def application(app_id=None):
         "GET",
         "POST",
     ])
-@roles_required(Role.SUPERUSER, Role.ADMIN)
+@roles_required(Role.SUPERUSER, Role.TECHNICAL)
 def api_credentials(app_id=None):
     """Manage API credentials."""
     if app_id:
