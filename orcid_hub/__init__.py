@@ -41,8 +41,10 @@ class ReconnectablePostgresqlDatabase(RetryOperationalError, PostgresqlDatabase)
     pass
 
 
-app = Flask(__name__)
+app = Flask(__name__, instance_relative_config=True)
 app.config.from_object(__name__)
+if not app.config.from_pyfile("settings.cfg", silent=True):
+    print("*** WARNING: Faile to laod local application configuration from 'instance/settins.cfg'")
 app.url_map.strict_slashes = False
 oauth = OAuth2Provider(app)
 
