@@ -74,8 +74,20 @@
                 {% endif %}
               {% endif %}
               {% if current_user.is_tech_contact_of(current_user.organisation) %}
+                {% if current_user.organisation.can_use_api %}
+                <li class="dropdown">
+                  <a class="dropdown-toggle" data-toggle="dropdown" href="#">Settings
+                    <span class="caret"></span></a>
+                  <ul class="dropdown-menu">
+                    <li id="onboard_org"><a href="{{ url_for('onboard_org')}}">
+                        <span data-toggle="tooltip" data-placement="left" title="View your organisation's ORCID information">Your Organisation</span></a></li>
+                    <li id="user.index_view"><a data-toggle="tooltip" data-placement="left" title="Register a client application or manage application credentials" href="{{ url_for('application')}}">Applicatin Registration</a></li>
+                  </ul>
+                </li>
+                {% else %}
                 <li id="onboard_org"><a href="{{ url_for('onboard_org')}}">
                     <span data-toggle="tooltip" data-placement="bottom" title="View your organisation's ORCID information">Your Organisation</span></a></li>
+                {% endif %}
               {% endif %}
               {% if current_user.has_role("SUPERUSER") %}
                 <li id="registerOrganisation"><a href="{{ url_for('invite_organisation') }}">Register

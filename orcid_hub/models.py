@@ -340,6 +340,8 @@ class Organisation(BaseModel, AuditMixin):
     api_credentials_entered_at = DateTimeField(
         null=True, help_text="The time stamp when the user entered API Client ID and secret.")
 
+    can_use_api = BooleanField(null=True, help_text="The organisation can access ORCID Hub API.")
+
     @property
     def invitation_sent_to(self):
         """Get the most recent invitation recepient."""
@@ -1425,6 +1427,9 @@ class Client(BaseModel, AuditMixin):
         if self._default_scopes:
             return self._default_scopes.split()
         return []
+
+    def __repr__(self):  # noqa: D102
+        return self.name or self.homepage_url or self.description
 
 
 class Grant(BaseModel):

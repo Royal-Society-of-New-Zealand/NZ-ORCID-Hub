@@ -311,7 +311,7 @@ class OrganisationAdmin(AppModelView):
     def update_model(self, form, model):
         """Handle change of the technical contact."""
         # Technical contact changed:
-        if form.tech_contact.data.id != model.tech_contact_id:
+        if form.tech_contact.data and form.tech_contact.data.id != model.tech_contact_id:
             # Revoke the TECHNICAL role if thre is no org the user is tech.contact for.
             if model.tech_contact and model.tech_contact.has_role(
                     Role.TECHNICAL) and not Organisation.select().where(
@@ -1384,10 +1384,8 @@ def application(app_id=None):
     if client:
         flash(
             f"You aready have registered application '{client.name}' and issued API credentials.",
-            "warning")
+            "info")
         return redirect(url_for("api_credentials", app_id=client.id))
-    print(form)
-    print("***", request.form)
 
     if form.validate_on_submit():
         client = Client(org_id=current_user.organisation.id)
@@ -1395,7 +1393,7 @@ def application(app_id=None):
         client.client_id = secrets.token_hex(10)
         client.client_secret = secrets.token_urlsafe(20)
         client.save()
-        print(form, form.register, form.cancel)
+        flash(f"Application '{client.name}' was successfully registered.", "success")
         return redirect(url_for("api_credentials", app_id=client.id))
 
     return render_template("application.html", form=form)
@@ -1421,6 +1419,22 @@ def api_credentials(app_id=None):
     if not client:
         return redirect(url_for("application"))
     form = CredentialForm(obj=client)
+    print(form.reset.data)
+    print("***", request.form)
+    if form.validate_on_submit():
+        if form.revoke.data:
+            Token.delete().where(Token.client == client).execute()
+        elif form.reset.data:
+            form.client_id.data = client.client_id = secrets.token_hex(10)
+            form.client_secret.data = client.client_secret = secrets.token_urlsafe(20)
+            client.save()
+        elif form.update_app.data:
+            form.populate_obj(client)
+            client.save()
+        elif form.delete.data:
+            Token.delete().where(Token.client == client).execute()
+            client.delete().execute()
+            return redirect(url_for("application"))
 
     return render_template("api_credentials.html", form=form)
 

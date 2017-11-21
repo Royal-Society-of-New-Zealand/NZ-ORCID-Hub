@@ -345,5 +345,5 @@ class CredentialForm(ApplicationFromBase):
     client_secret = StringField("Client Secret", render_kw={"readonly": True})
     revoke = SubmitField("Revoke all user tokens", render_kw={"class": "btn btn-danger"})
     reset = SubmitField("Reset client secret", render_kw={"class": "btn btn-danger"})
-    update = SubmitField("Update application", render_kw={"class": "btn btn-primary mr-2"})
+    update_app = SubmitField("Update application", render_kw={"class": "btn btn-primary mr-2"})
     delete = SubmitField("Delete application", render_kw={"class": "btn btn-danger"})
