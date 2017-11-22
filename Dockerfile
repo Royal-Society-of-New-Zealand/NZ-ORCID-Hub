@@ -5,8 +5,6 @@ LABEL maintainer="The University of Auckland" \
 	description="NZ ORCiD Hub Application Image with Development support"
 
 ADD http://download.opensuse.org/repositories/security://shibboleth/CentOS_7/security:shibboleth.repo /etc/yum.repos.d/shibboleth.repo
-ADD http://repo1.maven.org/maven2/io/swagger/swagger-codegen-cli/2.2.2/swagger-codegen-cli-2.2.2.jar swagger-codegen-cli.jar
-ADD https://api.orcid.org/resources/swagger.json /orcid/swagger.json
 
 COPY conf/app.wsgi /var/www/html/
 # prefix "ZZ" added, that it gest inluded the very end (after Shibboleth gets loaded)
@@ -29,12 +27,6 @@ RUN yum -y update \
 	python36u-pip \
     && pip3.6 install mod_wsgi psycopg2 \
     && pip3.6 install -r /requirements.txt \
-    && sed -i 's/"PUBLIC" ]/"PUBLIC", "PRIVATE" ]/g' /orcid/swagger.json \
-    && java -jar swagger-codegen-cli.jar generate -l python -i /orcid/swagger.json -o orcid \
-    && sed -i '597 s#return parse(string)#return datetime.fromtimestamp(float(string)/1000)#' orcid/swagger_client/api_client.py \
-    && sed -i '596 s#from dateutil.parser import parse#from datetime import datetime#' orcid/swagger_client/api_client.py \
-    && cd orcid \
-    && python3.6 setup.py install \
     && rm -f /requirements.txt \
     && /usr/bin/mod_wsgi-express module-config >/etc/httpd/conf.modules.d/10-wsgi.conf \
     && [ -d /var/run/lock ] || mkdir -p /var/run/lock \
@@ -95,7 +87,7 @@ RUN yum -y update \
     && rm -rf /var/cache/yum \
     && rm -rf $HOME/.pip/cache \
     && rm -rf /var/cache/*/* /anaconda-post.log \
-    && rm -f /swagger-codegen-cli.jar /orcid_swagger.json \
+    && rm -f /requirements.txt \
     && rm -rf /swagger_client.egg-info /orcid
 
 
