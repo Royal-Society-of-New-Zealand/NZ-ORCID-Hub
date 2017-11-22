@@ -446,7 +446,7 @@ class PeerReview(object):
         :param visibility: The visibility of this PeerReview.
         :type: str
         """
-        allowed_values = ["SYSTEM", "PRIVATE", "LIMITED", "REGISTERED_ONLY", "PUBLIC", "PRIVATE"]
+        allowed_values = ["LIMITED", "REGISTERED_ONLY", "PUBLIC", "PRIVATE"]
         if visibility not in allowed_values:
             raise ValueError(
                 "Invalid value for `visibility` ({0}), must be one of {1}"

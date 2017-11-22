@@ -40,7 +40,7 @@ class MemberAPIV20Api(object):
                 config.api_client = ApiClient()
             self.api_client = config.api_client
 
-    def add_permission_notification_json(self, orcid, **kwargs):
+    def add_permission_notification(self, orcid, **kwargs):
         """
         Add a notification
         
@@ -50,7 +50,7 @@ class MemberAPIV20Api(object):
         >>> def callback_function(response):
         >>>     pprint(response)
         >>>
-        >>> thread = api.add_permission_notification_json(orcid, callback=callback_function)
+        >>> thread = api.add_permission_notification(orcid, callback=callback_function)
 
         :param callback function: The callback function
             for asynchronous request. (optional)
@@ -62,12 +62,12 @@ class MemberAPIV20Api(object):
         """
         kwargs['_return_http_data_only'] = True
         if kwargs.get('callback'):
-            return self.add_permission_notification_json_with_http_info(orcid, **kwargs)
+            return self.add_permission_notification_with_http_info(orcid, **kwargs)
         else:
-            (data) = self.add_permission_notification_json_with_http_info(orcid, **kwargs)
+            (data) = self.add_permission_notification_with_http_info(orcid, **kwargs)
             return data
 
-    def add_permission_notification_json_with_http_info(self, orcid, **kwargs):
+    def add_permission_notification_with_http_info(self, orcid, **kwargs):
         """
         Add a notification
         
@@ -77,7 +77,7 @@ class MemberAPIV20Api(object):
         >>> def callback_function(response):
         >>>     pprint(response)
         >>>
-        >>> thread = api.add_permission_notification_json_with_http_info(orcid, callback=callback_function)
+        >>> thread = api.add_permission_notification_with_http_info(orcid, callback=callback_function)
 
         :param callback function: The callback function
             for asynchronous request. (optional)
@@ -99,13 +99,13 @@ class MemberAPIV20Api(object):
             if key not in all_params:
                 raise TypeError(
                     "Got an unexpected keyword argument '%s'"
-                    " to method add_permission_notification_json" % key
+                    " to method add_permission_notification" % key
                 )
             params[key] = val
         del params['kwargs']
         # verify the required parameter 'orcid' is set
         if ('orcid' not in params) or (params['orcid'] is None):
-            raise ValueError("Missing the required parameter `orcid` when calling `add_permission_notification_json`")
+            raise ValueError("Missing the required parameter `orcid` when calling `add_permission_notification`")
 
 
         collection_formats = {}
@@ -131,7 +131,7 @@ class MemberAPIV20Api(object):
 
         # HTTP header `Content-Type`
         header_params['Content-Type'] = self.api_client.\
-            select_header_content_type(['application/vnd.orcid+json; qs=4', 'application/orcid+json; qs=2', 'application/json'])
+            select_header_content_type(['application/vnd.orcid+xml; qs=5', 'application/orcid+xml; qs=3', 'application/xml', 'application/vnd.orcid+json; qs=4', 'application/orcid+json; qs=2', 'application/json'])
 
         # Authentication setting
         auth_settings = ['orcid_two_legs']
@@ -151,7 +151,7 @@ class MemberAPIV20Api(object):
                                         _request_timeout=params.get('_request_timeout'),
                                         collection_formats=collection_formats)
 
-    def create_address_json(self, orcid, **kwargs):
+    def create_address(self, orcid, **kwargs):
         """
         Add an address
         
@@ -161,7 +161,7 @@ class MemberAPIV20Api(object):
         >>> def callback_function(response):
         >>>     pprint(response)
         >>>
-        >>> thread = api.create_address_json(orcid, callback=callback_function)
+        >>> thread = api.create_address(orcid, callback=callback_function)
 
         :param callback function: The callback function
             for asynchronous request. (optional)
@@ -173,12 +173,12 @@ class MemberAPIV20Api(object):
         """
         kwargs['_return_http_data_only'] = True
         if kwargs.get('callback'):
-            return self.create_address_json_with_http_info(orcid, **kwargs)
+            return self.create_address_with_http_info(orcid, **kwargs)
         else:
-            (data) = self.create_address_json_with_http_info(orcid, **kwargs)
+            (data) = self.create_address_with_http_info(orcid, **kwargs)
             return data
 
-    def create_address_json_with_http_info(self, orcid, **kwargs):
+    def create_address_with_http_info(self, orcid, **kwargs):
         """
         Add an address
         
@@ -188,7 +188,7 @@ class MemberAPIV20Api(object):
         >>> def callback_function(response):
         >>>     pprint(response)
         >>>
-        >>> thread = api.create_address_json_with_http_info(orcid, callback=callback_function)
+        >>> thread = api.create_address_with_http_info(orcid, callback=callback_function)
 
         :param callback function: The callback function
             for asynchronous request. (optional)
@@ -210,13 +210,13 @@ class MemberAPIV20Api(object):
             if key not in all_params:
                 raise TypeError(
                     "Got an unexpected keyword argument '%s'"
-                    " to method create_address_json" % key
+                    " to method create_address" % key
                 )
             params[key] = val
         del params['kwargs']
         # verify the required parameter 'orcid' is set
         if ('orcid' not in params) or (params['orcid'] is None):
-            raise ValueError("Missing the required parameter `orcid` when calling `create_address_json`")
+            raise ValueError("Missing the required parameter `orcid` when calling `create_address`")
 
 
         collection_formats = {}
@@ -240,10 +240,6 @@ class MemberAPIV20Api(object):
         header_params['Accept'] = self.api_client.\
             select_header_accept(['application/vnd.orcid+xml; qs=5', 'application/orcid+xml; qs=3', 'application/xml', 'application/vnd.orcid+json; qs=4', 'application/orcid+json; qs=2', 'application/json'])
 
-        # HTTP header `Content-Type`
-        header_params['Content-Type'] = self.api_client.\
-            select_header_content_type(['application/vnd.orcid+xml; qs=5', 'application/orcid+xml; qs=3', 'application/xml'])
-
         # Authentication setting
         auth_settings = ['orcid_auth']
 
@@ -262,7 +258,7 @@ class MemberAPIV20Api(object):
                                         _request_timeout=params.get('_request_timeout'),
                                         collection_formats=collection_formats)
 
-    def create_education_json(self, orcid, **kwargs):
+    def create_education(self, orcid, **kwargs):
         """
         Create an Education
         
@@ -272,7 +268,7 @@ class MemberAPIV20Api(object):
         >>> def callback_function(response):
         >>>     pprint(response)
         >>>
-        >>> thread = api.create_education_json(orcid, callback=callback_function)
+        >>> thread = api.create_education(orcid, callback=callback_function)
 
         :param callback function: The callback function
             for asynchronous request. (optional)
@@ -284,12 +280,12 @@ class MemberAPIV20Api(object):
         """
         kwargs['_return_http_data_only'] = True
         if kwargs.get('callback'):
-            return self.create_education_json_with_http_info(orcid, **kwargs)
+            return self.create_education_with_http_info(orcid, **kwargs)
         else:
-            (data) = self.create_education_json_with_http_info(orcid, **kwargs)
+            (data) = self.create_education_with_http_info(orcid, **kwargs)
             return data
 
-    def create_education_json_with_http_info(self, orcid, **kwargs):
+    def create_education_with_http_info(self, orcid, **kwargs):
         """
         Create an Education
         
@@ -299,7 +295,7 @@ class MemberAPIV20Api(object):
         >>> def callback_function(response):
         >>>     pprint(response)
         >>>
-        >>> thread = api.create_education_json_with_http_info(orcid, callback=callback_function)
+        >>> thread = api.create_education_with_http_info(orcid, callback=callback_function)
 
         :param callback function: The callback function
             for asynchronous request. (optional)
@@ -321,13 +317,13 @@ class MemberAPIV20Api(object):
             if key not in all_params:
                 raise TypeError(
                     "Got an unexpected keyword argument '%s'"
-                    " to method create_education_json" % key
+                    " to method create_education" % key
                 )
             params[key] = val
         del params['kwargs']
         # verify the required parameter 'orcid' is set
         if ('orcid' not in params) or (params['orcid'] is None):
-            raise ValueError("Missing the required parameter `orcid` when calling `create_education_json`")
+            raise ValueError("Missing the required parameter `orcid` when calling `create_education`")
 
 
         collection_formats = {}
@@ -353,7 +349,7 @@ class MemberAPIV20Api(object):
 
         # HTTP header `Content-Type`
         header_params['Content-Type'] = self.api_client.\
-            select_header_content_type(['application/vnd.orcid+json; qs=4', 'application/orcid+json; qs=2', 'application/json'])
+            select_header_content_type(['application/vnd.orcid+xml; qs=5', 'application/orcid+xml; qs=3', 'application/xml', 'application/vnd.orcid+json; qs=4', 'application/orcid+json; qs=2', 'application/json'])
 
         # Authentication setting
         auth_settings = ['orcid_auth']
@@ -373,7 +369,7 @@ class MemberAPIV20Api(object):
                                         _request_timeout=params.get('_request_timeout'),
                                         collection_formats=collection_formats)
 
-    def create_employment_json(self, orcid, **kwargs):
+    def create_employment(self, orcid, **kwargs):
         """
         Create an Employment
         
@@ -383,7 +379,7 @@ class MemberAPIV20Api(object):
         >>> def callback_function(response):
         >>>     pprint(response)
         >>>
-        >>> thread = api.create_employment_json(orcid, callback=callback_function)
+        >>> thread = api.create_employment(orcid, callback=callback_function)
 
         :param callback function: The callback function
             for asynchronous request. (optional)
@@ -395,12 +391,12 @@ class MemberAPIV20Api(object):
         """
         kwargs['_return_http_data_only'] = True
         if kwargs.get('callback'):
-            return self.create_employment_json_with_http_info(orcid, **kwargs)
+            return self.create_employment_with_http_info(orcid, **kwargs)
         else:
-            (data) = self.create_employment_json_with_http_info(orcid, **kwargs)
+            (data) = self.create_employment_with_http_info(orcid, **kwargs)
             return data
 
-    def create_employment_json_with_http_info(self, orcid, **kwargs):
+    def create_employment_with_http_info(self, orcid, **kwargs):
         """
         Create an Employment
         
@@ -410,7 +406,7 @@ class MemberAPIV20Api(object):
         >>> def callback_function(response):
         >>>     pprint(response)
         >>>
-        >>> thread = api.create_employment_json_with_http_info(orcid, callback=callback_function)
+        >>> thread = api.create_employment_with_http_info(orcid, callback=callback_function)
 
         :param callback function: The callback function
             for asynchronous request. (optional)
@@ -432,13 +428,13 @@ class MemberAPIV20Api(object):
             if key not in all_params:
                 raise TypeError(
                     "Got an unexpected keyword argument '%s'"
-                    " to method create_employment_json" % key
+                    " to method create_employment" % key
                 )
             params[key] = val
         del params['kwargs']
         # verify the required parameter 'orcid' is set
         if ('orcid' not in params) or (params['orcid'] is None):
-            raise ValueError("Missing the required parameter `orcid` when calling `create_employment_json`")
+            raise ValueError("Missing the required parameter `orcid` when calling `create_employment`")
 
 
         collection_formats = {}
@@ -464,7 +460,7 @@ class MemberAPIV20Api(object):
 
         # HTTP header `Content-Type`
         header_params['Content-Type'] = self.api_client.\
-            select_header_content_type(['application/vnd.orcid+json; qs=4', 'application/orcid+json; qs=2', 'application/json'])
+            select_header_content_type(['application/vnd.orcid+xml; qs=5', 'application/orcid+xml; qs=3', 'application/xml', 'application/vnd.orcid+json; qs=4', 'application/orcid+json; qs=2', 'application/json'])
 
         # Authentication setting
         auth_settings = ['orcid_auth']
@@ -484,7 +480,7 @@ class MemberAPIV20Api(object):
                                         _request_timeout=params.get('_request_timeout'),
                                         collection_formats=collection_formats)
 
-    def create_external_identifier_json(self, orcid, **kwargs):
+    def create_external_identifier(self, orcid, **kwargs):
         """
         Add external identifier
         
@@ -494,7 +490,7 @@ class MemberAPIV20Api(object):
         >>> def callback_function(response):
         >>>     pprint(response)
         >>>
-        >>> thread = api.create_external_identifier_json(orcid, callback=callback_function)
+        >>> thread = api.create_external_identifier(orcid, callback=callback_function)
 
         :param callback function: The callback function
             for asynchronous request. (optional)
@@ -506,12 +502,12 @@ class MemberAPIV20Api(object):
         """
         kwargs['_return_http_data_only'] = True
         if kwargs.get('callback'):
-            return self.create_external_identifier_json_with_http_info(orcid, **kwargs)
+            return self.create_external_identifier_with_http_info(orcid, **kwargs)
         else:
-            (data) = self.create_external_identifier_json_with_http_info(orcid, **kwargs)
+            (data) = self.create_external_identifier_with_http_info(orcid, **kwargs)
             return data
 
-    def create_external_identifier_json_with_http_info(self, orcid, **kwargs):
+    def create_external_identifier_with_http_info(self, orcid, **kwargs):
         """
         Add external identifier
         
@@ -521,7 +517,7 @@ class MemberAPIV20Api(object):
         >>> def callback_function(response):
         >>>     pprint(response)
         >>>
-        >>> thread = api.create_external_identifier_json_with_http_info(orcid, callback=callback_function)
+        >>> thread = api.create_external_identifier_with_http_info(orcid, callback=callback_function)
 
         :param callback function: The callback function
             for asynchronous request. (optional)
@@ -543,13 +539,13 @@ class MemberAPIV20Api(object):
             if key not in all_params:
                 raise TypeError(
                     "Got an unexpected keyword argument '%s'"
-                    " to method create_external_identifier_json" % key
+                    " to method create_external_identifier" % key
                 )
             params[key] = val
         del params['kwargs']
         # verify the required parameter 'orcid' is set
         if ('orcid' not in params) or (params['orcid'] is None):
-            raise ValueError("Missing the required parameter `orcid` when calling `create_external_identifier_json`")
+            raise ValueError("Missing the required parameter `orcid` when calling `create_external_identifier`")
 
 
         collection_formats = {}
@@ -573,10 +569,6 @@ class MemberAPIV20Api(object):
         header_params['Accept'] = self.api_client.\
             select_header_accept(['application/vnd.orcid+xml; qs=5', 'application/orcid+xml; qs=3', 'application/xml', 'application/vnd.orcid+json; qs=4', 'application/orcid+json; qs=2', 'application/json'])
 
-        # HTTP header `Content-Type`
-        header_params['Content-Type'] = self.api_client.\
-            select_header_content_type(['application/vnd.orcid+json; qs=4', 'application/orcid+json; qs=2', 'application/json'])
-
         # Authentication setting
         auth_settings = ['orcid_auth']
 
@@ -595,7 +587,7 @@ class MemberAPIV20Api(object):
                                         _request_timeout=params.get('_request_timeout'),
                                         collection_formats=collection_formats)
 
-    def create_funding_json(self, orcid, **kwargs):
+    def create_funding(self, orcid, **kwargs):
         """
         Create a Funding
         
@@ -605,7 +597,7 @@ class MemberAPIV20Api(object):
         >>> def callback_function(response):
         >>>     pprint(response)
         >>>
-        >>> thread = api.create_funding_json(orcid, callback=callback_function)
+        >>> thread = api.create_funding(orcid, callback=callback_function)
 
         :param callback function: The callback function
             for asynchronous request. (optional)
@@ -617,12 +609,12 @@ class MemberAPIV20Api(object):
         """
         kwargs['_return_http_data_only'] = True
         if kwargs.get('callback'):
-            return self.create_funding_json_with_http_info(orcid, **kwargs)
+            return self.create_funding_with_http_info(orcid, **kwargs)
         else:
-            (data) = self.create_funding_json_with_http_info(orcid, **kwargs)
+            (data) = self.create_funding_with_http_info(orcid, **kwargs)
             return data
 
-    def create_funding_json_with_http_info(self, orcid, **kwargs):
+    def create_funding_with_http_info(self, orcid, **kwargs):
         """
         Create a Funding
         
@@ -632,7 +624,7 @@ class MemberAPIV20Api(object):
         >>> def callback_function(response):
         >>>     pprint(response)
         >>>
-        >>> thread = api.create_funding_json_with_http_info(orcid, callback=callback_function)
+        >>> thread = api.create_funding_with_http_info(orcid, callback=callback_function)
 
         :param callback function: The callback function
             for asynchronous request. (optional)
@@ -654,13 +646,13 @@ class MemberAPIV20Api(object):
             if key not in all_params:
                 raise TypeError(
                     "Got an unexpected keyword argument '%s'"
-                    " to method create_funding_json" % key
+                    " to method create_funding" % key
                 )
             params[key] = val
         del params['kwargs']
         # verify the required parameter 'orcid' is set
         if ('orcid' not in params) or (params['orcid'] is None):
-            raise ValueError("Missing the required parameter `orcid` when calling `create_funding_json`")
+            raise ValueError("Missing the required parameter `orcid` when calling `create_funding`")
 
 
         collection_formats = {}
@@ -686,7 +678,7 @@ class MemberAPIV20Api(object):
 
         # HTTP header `Content-Type`
         header_params['Content-Type'] = self.api_client.\
-            select_header_content_type(['application/vnd.orcid+json; qs=4', 'application/orcid+json; qs=2', 'application/json'])
+            select_header_content_type(['application/vnd.orcid+xml; qs=5', 'application/orcid+xml; qs=3', 'application/xml', 'application/vnd.orcid+json; qs=4', 'application/orcid+json; qs=2', 'application/json'])
 
         # Authentication setting
         auth_settings = ['orcid_auth']
@@ -706,7 +698,7 @@ class MemberAPIV20Api(object):
                                         _request_timeout=params.get('_request_timeout'),
                                         collection_formats=collection_formats)
 
-    def create_group_id_record_json(self, **kwargs):
+    def create_group_id_record(self, **kwargs):
         """
         Create a Group
         
@@ -716,7 +708,7 @@ class MemberAPIV20Api(object):
         >>> def callback_function(response):
         >>>     pprint(response)
         >>>
-        >>> thread = api.create_group_id_record_json(callback=callback_function)
+        >>> thread = api.create_group_id_record(callback=callback_function)
 
         :param callback function: The callback function
             for asynchronous request. (optional)
@@ -727,12 +719,12 @@ class MemberAPIV20Api(object):
         """
         kwargs['_return_http_data_only'] = True
         if kwargs.get('callback'):
-            return self.create_group_id_record_json_with_http_info(**kwargs)
+            return self.create_group_id_record_with_http_info(**kwargs)
         else:
-            (data) = self.create_group_id_record_json_with_http_info(**kwargs)
+            (data) = self.create_group_id_record_with_http_info(**kwargs)
             return data
 
-    def create_group_id_record_json_with_http_info(self, **kwargs):
+    def create_group_id_record_with_http_info(self, **kwargs):
         """
         Create a Group
         
@@ -742,7 +734,7 @@ class MemberAPIV20Api(object):
         >>> def callback_function(response):
         >>>     pprint(response)
         >>>
-        >>> thread = api.create_group_id_record_json_with_http_info(callback=callback_function)
+        >>> thread = api.create_group_id_record_with_http_info(callback=callback_function)
 
         :param callback function: The callback function
             for asynchronous request. (optional)
@@ -763,7 +755,7 @@ class MemberAPIV20Api(object):
             if key not in all_params:
                 raise TypeError(
                     "Got an unexpected keyword argument '%s'"
-                    " to method create_group_id_record_json" % key
+                    " to method create_group_id_record" % key
                 )
             params[key] = val
         del params['kwargs']
@@ -790,7 +782,7 @@ class MemberAPIV20Api(object):
 
         # HTTP header `Content-Type`
         header_params['Content-Type'] = self.api_client.\
-            select_header_content_type(['application/vnd.orcid+json; qs=4', 'application/orcid+json; qs=2', 'application/json'])
+            select_header_content_type(['application/vnd.orcid+xml; qs=5', 'application/orcid+xml; qs=3', 'application/xml', 'application/vnd.orcid+json; qs=4', 'application/orcid+json; qs=2', 'application/json'])
 
         # Authentication setting
         auth_settings = ['orcid_two_legs']
@@ -810,7 +802,7 @@ class MemberAPIV20Api(object):
                                         _request_timeout=params.get('_request_timeout'),
                                         collection_formats=collection_formats)
 
-    def create_keyword_json(self, orcid, **kwargs):
+    def create_keyword(self, orcid, **kwargs):
         """
         Add keyword
         
@@ -820,7 +812,7 @@ class MemberAPIV20Api(object):
         >>> def callback_function(response):
         >>>     pprint(response)
         >>>
-        >>> thread = api.create_keyword_json(orcid, callback=callback_function)
+        >>> thread = api.create_keyword(orcid, callback=callback_function)
 
         :param callback function: The callback function
             for asynchronous request. (optional)
@@ -832,12 +824,12 @@ class MemberAPIV20Api(object):
         """
         kwargs['_return_http_data_only'] = True
         if kwargs.get('callback'):
-            return self.create_keyword_json_with_http_info(orcid, **kwargs)
+            return self.create_keyword_with_http_info(orcid, **kwargs)
         else:
-            (data) = self.create_keyword_json_with_http_info(orcid, **kwargs)
+            (data) = self.create_keyword_with_http_info(orcid, **kwargs)
             return data
 
-    def create_keyword_json_with_http_info(self, orcid, **kwargs):
+    def create_keyword_with_http_info(self, orcid, **kwargs):
         """
         Add keyword
         
@@ -847,7 +839,7 @@ class MemberAPIV20Api(object):
         >>> def callback_function(response):
         >>>     pprint(response)
         >>>
-        >>> thread = api.create_keyword_json_with_http_info(orcid, callback=callback_function)
+        >>> thread = api.create_keyword_with_http_info(orcid, callback=callback_function)
 
         :param callback function: The callback function
             for asynchronous request. (optional)
@@ -869,13 +861,13 @@ class MemberAPIV20Api(object):
             if key not in all_params:
                 raise TypeError(
                     "Got an unexpected keyword argument '%s'"
-                    " to method create_keyword_json" % key
+                    " to method create_keyword" % key
                 )
             params[key] = val
         del params['kwargs']
         # verify the required parameter 'orcid' is set
         if ('orcid' not in params) or (params['orcid'] is None):
-            raise ValueError("Missing the required parameter `orcid` when calling `create_keyword_json`")
+            raise ValueError("Missing the required parameter `orcid` when calling `create_keyword`")
 
 
         collection_formats = {}
@@ -899,10 +891,6 @@ class MemberAPIV20Api(object):
         header_params['Accept'] = self.api_client.\
             select_header_accept(['application/vnd.orcid+xml; qs=5', 'application/orcid+xml; qs=3', 'application/xml', 'application/vnd.orcid+json; qs=4', 'application/orcid+json; qs=2', 'application/json'])
 
-        # HTTP header `Content-Type`
-        header_params['Content-Type'] = self.api_client.\
-            select_header_content_type(['application/vnd.orcid+json; qs=4', 'application/orcid+json; qs=2', 'application/json'])
-
         # Authentication setting
         auth_settings = ['orcid_auth']
 
@@ -921,7 +909,7 @@ class MemberAPIV20Api(object):
                                         _request_timeout=params.get('_request_timeout'),
                                         collection_formats=collection_formats)
 
-    def create_other_name_json(self, orcid, **kwargs):
+    def create_other_name(self, orcid, **kwargs):
         """
         Add other name
         
@@ -931,7 +919,7 @@ class MemberAPIV20Api(object):
         >>> def callback_function(response):
         >>>     pprint(response)
         >>>
-        >>> thread = api.create_other_name_json(orcid, callback=callback_function)
+        >>> thread = api.create_other_name(orcid, callback=callback_function)
 
         :param callback function: The callback function
             for asynchronous request. (optional)
@@ -943,12 +931,12 @@ class MemberAPIV20Api(object):
         """
         kwargs['_return_http_data_only'] = True
         if kwargs.get('callback'):
-            return self.create_other_name_json_with_http_info(orcid, **kwargs)
+            return self.create_other_name_with_http_info(orcid, **kwargs)
         else:
-            (data) = self.create_other_name_json_with_http_info(orcid, **kwargs)
+            (data) = self.create_other_name_with_http_info(orcid, **kwargs)
             return data
 
-    def create_other_name_json_with_http_info(self, orcid, **kwargs):
+    def create_other_name_with_http_info(self, orcid, **kwargs):
         """
         Add other name
         
@@ -958,7 +946,7 @@ class MemberAPIV20Api(object):
         >>> def callback_function(response):
         >>>     pprint(response)
         >>>
-        >>> thread = api.create_other_name_json_with_http_info(orcid, callback=callback_function)
+        >>> thread = api.create_other_name_with_http_info(orcid, callback=callback_function)
 
         :param callback function: The callback function
             for asynchronous request. (optional)
@@ -980,13 +968,13 @@ class MemberAPIV20Api(object):
             if key not in all_params:
                 raise TypeError(
                     "Got an unexpected keyword argument '%s'"
-                    " to method create_other_name_json" % key
+                    " to method create_other_name" % key
                 )
             params[key] = val
         del params['kwargs']
         # verify the required parameter 'orcid' is set
         if ('orcid' not in params) or (params['orcid'] is None):
-            raise ValueError("Missing the required parameter `orcid` when calling `create_other_name_json`")
+            raise ValueError("Missing the required parameter `orcid` when calling `create_other_name`")
 
 
         collection_formats = {}
@@ -1010,10 +998,6 @@ class MemberAPIV20Api(object):
         header_params['Accept'] = self.api_client.\
             select_header_accept(['application/vnd.orcid+xml; qs=5', 'application/orcid+xml; qs=3', 'application/xml', 'application/vnd.orcid+json; qs=4', 'application/orcid+json; qs=2', 'application/json'])
 
-        # HTTP header `Content-Type`
-        header_params['Content-Type'] = self.api_client.\
-            select_header_content_type(['application/vnd.orcid+json; qs=4', 'application/orcid+json; qs=2', 'application/json'])
-
         # Authentication setting
         auth_settings = ['orcid_auth']
 
@@ -1032,7 +1016,7 @@ class MemberAPIV20Api(object):
                                         _request_timeout=params.get('_request_timeout'),
                                         collection_formats=collection_formats)
 
-    def create_peer_review_json(self, orcid, **kwargs):
+    def create_peer_review(self, orcid, **kwargs):
         """
         Create a Peer Review
         
@@ -1042,7 +1026,7 @@ class MemberAPIV20Api(object):
         >>> def callback_function(response):
         >>>     pprint(response)
         >>>
-        >>> thread = api.create_peer_review_json(orcid, callback=callback_function)
+        >>> thread = api.create_peer_review(orcid, callback=callback_function)
 
         :param callback function: The callback function
             for asynchronous request. (optional)
@@ -1054,12 +1038,12 @@ class MemberAPIV20Api(object):
         """
         kwargs['_return_http_data_only'] = True
         if kwargs.get('callback'):
-            return self.create_peer_review_json_with_http_info(orcid, **kwargs)
+            return self.create_peer_review_with_http_info(orcid, **kwargs)
         else:
-            (data) = self.create_peer_review_json_with_http_info(orcid, **kwargs)
+            (data) = self.create_peer_review_with_http_info(orcid, **kwargs)
             return data
 
-    def create_peer_review_json_with_http_info(self, orcid, **kwargs):
+    def create_peer_review_with_http_info(self, orcid, **kwargs):
         """
         Create a Peer Review
         
@@ -1069,7 +1053,7 @@ class MemberAPIV20Api(object):
         >>> def callback_function(response):
         >>>     pprint(response)
         >>>
-        >>> thread = api.create_peer_review_json_with_http_info(orcid, callback=callback_function)
+        >>> thread = api.create_peer_review_with_http_info(orcid, callback=callback_function)
 
         :param callback function: The callback function
             for asynchronous request. (optional)
@@ -1091,13 +1075,13 @@ class MemberAPIV20Api(object):
             if key not in all_params:
                 raise TypeError(
                     "Got an unexpected keyword argument '%s'"
-                    " to method create_peer_review_json" % key
+                    " to method create_peer_review" % key
                 )
             params[key] = val
         del params['kwargs']
         # verify the required parameter 'orcid' is set
         if ('orcid' not in params) or (params['orcid'] is None):
-            raise ValueError("Missing the required parameter `orcid` when calling `create_peer_review_json`")
+            raise ValueError("Missing the required parameter `orcid` when calling `create_peer_review`")
 
 
         collection_formats = {}
@@ -1123,7 +1107,7 @@ class MemberAPIV20Api(object):
 
         # HTTP header `Content-Type`
         header_params['Content-Type'] = self.api_client.\
-            select_header_content_type(['application/vnd.orcid+json; qs=4', 'application/orcid+json; qs=2', 'application/json'])
+            select_header_content_type(['application/vnd.orcid+xml; qs=5', 'application/orcid+xml; qs=3', 'application/xml', 'application/vnd.orcid+json; qs=4', 'application/orcid+json; qs=2', 'application/json'])
 
         # Authentication setting
         auth_settings = ['orcid_auth']
@@ -1143,7 +1127,7 @@ class MemberAPIV20Api(object):
                                         _request_timeout=params.get('_request_timeout'),
                                         collection_formats=collection_formats)
 
-    def create_researcher_url_json(self, orcid, **kwargs):
+    def create_researcher_url(self, orcid, **kwargs):
         """
         Add a new researcher url for an ORCID ID
         
@@ -1153,7 +1137,7 @@ class MemberAPIV20Api(object):
         >>> def callback_function(response):
         >>>     pprint(response)
         >>>
-        >>> thread = api.create_researcher_url_json(orcid, callback=callback_function)
+        >>> thread = api.create_researcher_url(orcid, callback=callback_function)
 
         :param callback function: The callback function
             for asynchronous request. (optional)
@@ -1165,12 +1149,12 @@ class MemberAPIV20Api(object):
         """
         kwargs['_return_http_data_only'] = True
         if kwargs.get('callback'):
-            return self.create_researcher_url_json_with_http_info(orcid, **kwargs)
+            return self.create_researcher_url_with_http_info(orcid, **kwargs)
         else:
-            (data) = self.create_researcher_url_json_with_http_info(orcid, **kwargs)
+            (data) = self.create_researcher_url_with_http_info(orcid, **kwargs)
             return data
 
-    def create_researcher_url_json_with_http_info(self, orcid, **kwargs):
+    def create_researcher_url_with_http_info(self, orcid, **kwargs):
         """
         Add a new researcher url for an ORCID ID
         
@@ -1180,7 +1164,7 @@ class MemberAPIV20Api(object):
         >>> def callback_function(response):
         >>>     pprint(response)
         >>>
-        >>> thread = api.create_researcher_url_json_with_http_info(orcid, callback=callback_function)
+        >>> thread = api.create_researcher_url_with_http_info(orcid, callback=callback_function)
 
         :param callback function: The callback function
             for asynchronous request. (optional)
@@ -1202,13 +1186,13 @@ class MemberAPIV20Api(object):
             if key not in all_params:
                 raise TypeError(
                     "Got an unexpected keyword argument '%s'"
-                    " to method create_researcher_url_json" % key
+                    " to method create_researcher_url" % key
                 )
             params[key] = val
         del params['kwargs']
         # verify the required parameter 'orcid' is set
         if ('orcid' not in params) or (params['orcid'] is None):
-            raise ValueError("Missing the required parameter `orcid` when calling `create_researcher_url_json`")
+            raise ValueError("Missing the required parameter `orcid` when calling `create_researcher_url`")
 
 
         collection_formats = {}
@@ -1230,11 +1214,7 @@ class MemberAPIV20Api(object):
             body_params = params['body']
         # HTTP header `Accept`
         header_params['Accept'] = self.api_client.\
-            select_header_accept(['application/vnd.orcid+json; qs=4', 'application/orcid+json; qs=2', 'application/json'])
-
-        # HTTP header `Content-Type`
-        header_params['Content-Type'] = self.api_client.\
-            select_header_content_type(['application/vnd.orcid+json; qs=4', 'application/orcid+json; qs=2', 'application/json'])
+            select_header_accept(['application/vnd.orcid+xml; qs=5', 'application/orcid+xml; qs=3', 'application/xml', 'application/vnd.orcid+json; qs=4', 'application/orcid+json; qs=2', 'application/json'])
 
         # Authentication setting
         auth_settings = ['orcid_auth']
@@ -1254,7 +1234,7 @@ class MemberAPIV20Api(object):
                                         _request_timeout=params.get('_request_timeout'),
                                         collection_formats=collection_formats)
 
-    def create_work_json(self, orcid, **kwargs):
+    def create_work(self, orcid, **kwargs):
         """
         Create a Work
         
@@ -1264,7 +1244,7 @@ class MemberAPIV20Api(object):
         >>> def callback_function(response):
         >>>     pprint(response)
         >>>
-        >>> thread = api.create_work_json(orcid, callback=callback_function)
+        >>> thread = api.create_work(orcid, callback=callback_function)
 
         :param callback function: The callback function
             for asynchronous request. (optional)
@@ -1276,12 +1256,12 @@ class MemberAPIV20Api(object):
         """
         kwargs['_return_http_data_only'] = True
         if kwargs.get('callback'):
-            return self.create_work_json_with_http_info(orcid, **kwargs)
+            return self.create_work_with_http_info(orcid, **kwargs)
         else:
-            (data) = self.create_work_json_with_http_info(orcid, **kwargs)
+            (data) = self.create_work_with_http_info(orcid, **kwargs)
             return data
 
-    def create_work_json_with_http_info(self, orcid, **kwargs):
+    def create_work_with_http_info(self, orcid, **kwargs):
         """
         Create a Work
         
@@ -1291,7 +1271,7 @@ class MemberAPIV20Api(object):
         >>> def callback_function(response):
         >>>     pprint(response)
         >>>
-        >>> thread = api.create_work_json_with_http_info(orcid, callback=callback_function)
+        >>> thread = api.create_work_with_http_info(orcid, callback=callback_function)
 
         :param callback function: The callback function
             for asynchronous request. (optional)
@@ -1313,13 +1293,13 @@ class MemberAPIV20Api(object):
             if key not in all_params:
                 raise TypeError(
                     "Got an unexpected keyword argument '%s'"
-                    " to method create_work_json" % key
+                    " to method create_work" % key
                 )
             params[key] = val
         del params['kwargs']
         # verify the required parameter 'orcid' is set
         if ('orcid' not in params) or (params['orcid'] is None):
-            raise ValueError("Missing the required parameter `orcid` when calling `create_work_json`")
+            raise ValueError("Missing the required parameter `orcid` when calling `create_work`")
 
 
         collection_formats = {}
@@ -1345,7 +1325,7 @@ class MemberAPIV20Api(object):
 
         # HTTP header `Content-Type`
         header_params['Content-Type'] = self.api_client.\
-            select_header_content_type(['application/vnd.orcid+json; qs=4', 'application/orcid+json; qs=2', 'application/json'])
+            select_header_content_type(['application/vnd.orcid+xml; qs=5', 'application/orcid+xml; qs=3', 'application/xml', 'application/vnd.orcid+json; qs=4', 'application/orcid+json; qs=2', 'application/json'])
 
         # Authentication setting
         auth_settings = ['orcid_auth']
@@ -1381,7 +1361,7 @@ class MemberAPIV20Api(object):
             for asynchronous request. (optional)
         :param str orcid: (required)
         :param WorkBulk body:
-        :return: None
+        :return: str
                  If the method is called asynchronously,
                  returns the request thread.
         """
@@ -1408,7 +1388,7 @@ class MemberAPIV20Api(object):
             for asynchronous request. (optional)
         :param str orcid: (required)
         :param WorkBulk body:
-        :return: None
+        :return: str
                  If the method is called asynchronously,
                  returns the request thread.
         """
@@ -1468,7 +1448,7 @@ class MemberAPIV20Api(object):
                                         body=body_params,
                                         post_params=form_params,
                                         files=local_var_files,
-                                        response_type=None,
+                                        response_type='str',
                                         auth_settings=auth_settings,
                                         callback=params.get('callback'),
                                         _return_http_data_only=params.get('_return_http_data_only'),
@@ -2783,10 +2763,6 @@ class MemberAPIV20Api(object):
         header_params['Accept'] = self.api_client.\
             select_header_accept(['application/vnd.orcid+xml; qs=5', 'application/orcid+xml; qs=3', 'application/xml', 'application/vnd.orcid+json; qs=4', 'application/orcid+json; qs=2', 'application/json'])
 
-        # HTTP header `Content-Type`
-        header_params['Content-Type'] = self.api_client.\
-            select_header_content_type(['application/vnd.orcid+xml; qs=5', 'application/orcid+xml; qs=3', 'application/xml'])
-
         # Authentication setting
         auth_settings = ['orcid_auth']
 
@@ -2805,7 +2781,7 @@ class MemberAPIV20Api(object):
                                         _request_timeout=params.get('_request_timeout'),
                                         collection_formats=collection_formats)
 
-    def edit_external_identifier_json(self, orcid, put_code, **kwargs):
+    def edit_external_identifier(self, orcid, put_code, **kwargs):
         """
         Edit external identifier
         
@@ -2815,7 +2791,7 @@ class MemberAPIV20Api(object):
         >>> def callback_function(response):
         >>>     pprint(response)
         >>>
-        >>> thread = api.edit_external_identifier_json(orcid, put_code, callback=callback_function)
+        >>> thread = api.edit_external_identifier(orcid, put_code, callback=callback_function)
 
         :param callback function: The callback function
             for asynchronous request. (optional)
@@ -2828,12 +2804,12 @@ class MemberAPIV20Api(object):
         """
         kwargs['_return_http_data_only'] = True
         if kwargs.get('callback'):
-            return self.edit_external_identifier_json_with_http_info(orcid, put_code, **kwargs)
+            return self.edit_external_identifier_with_http_info(orcid, put_code, **kwargs)
         else:
-            (data) = self.edit_external_identifier_json_with_http_info(orcid, put_code, **kwargs)
+            (data) = self.edit_external_identifier_with_http_info(orcid, put_code, **kwargs)
             return data
 
-    def edit_external_identifier_json_with_http_info(self, orcid, put_code, **kwargs):
+    def edit_external_identifier_with_http_info(self, orcid, put_code, **kwargs):
         """
         Edit external identifier
         
@@ -2843,7 +2819,7 @@ class MemberAPIV20Api(object):
         >>> def callback_function(response):
         >>>     pprint(response)
         >>>
-        >>> thread = api.edit_external_identifier_json_with_http_info(orcid, put_code, callback=callback_function)
+        >>> thread = api.edit_external_identifier_with_http_info(orcid, put_code, callback=callback_function)
 
         :param callback function: The callback function
             for asynchronous request. (optional)
@@ -2866,16 +2842,16 @@ class MemberAPIV20Api(object):
             if key not in all_params:
                 raise TypeError(
                     "Got an unexpected keyword argument '%s'"
-                    " to method edit_external_identifier_json" % key
+                    " to method edit_external_identifier" % key
                 )
             params[key] = val
         del params['kwargs']
         # verify the required parameter 'orcid' is set
         if ('orcid' not in params) or (params['orcid'] is None):
-            raise ValueError("Missing the required parameter `orcid` when calling `edit_external_identifier_json`")
+            raise ValueError("Missing the required parameter `orcid` when calling `edit_external_identifier`")
         # verify the required parameter 'put_code' is set
         if ('put_code' not in params) or (params['put_code'] is None):
-            raise ValueError("Missing the required parameter `put_code` when calling `edit_external_identifier_json`")
+            raise ValueError("Missing the required parameter `put_code` when calling `edit_external_identifier`")
 
 
         collection_formats = {}
@@ -2901,10 +2877,6 @@ class MemberAPIV20Api(object):
         header_params['Accept'] = self.api_client.\
             select_header_accept(['application/vnd.orcid+xml; qs=5', 'application/orcid+xml; qs=3', 'application/xml', 'application/vnd.orcid+json; qs=4', 'application/orcid+json; qs=2', 'application/json'])
 
-        # HTTP header `Content-Type`
-        header_params['Content-Type'] = self.api_client.\
-            select_header_content_type(['application/vnd.orcid+json; qs=4', 'application/orcid+json; qs=2', 'application/json'])
-
         # Authentication setting
         auth_settings = ['orcid_auth']
 
@@ -2923,7 +2895,7 @@ class MemberAPIV20Api(object):
                                         _request_timeout=params.get('_request_timeout'),
                                         collection_formats=collection_formats)
 
-    def edit_keyword_json(self, orcid, put_code, **kwargs):
+    def edit_keyword(self, orcid, put_code, **kwargs):
         """
         Edit keyword
         
@@ -2933,7 +2905,7 @@ class MemberAPIV20Api(object):
         >>> def callback_function(response):
         >>>     pprint(response)
         >>>
-        >>> thread = api.edit_keyword_json(orcid, put_code, callback=callback_function)
+        >>> thread = api.edit_keyword(orcid, put_code, callback=callback_function)
 
         :param callback function: The callback function
             for asynchronous request. (optional)
@@ -2946,12 +2918,12 @@ class MemberAPIV20Api(object):
         """
         kwargs['_return_http_data_only'] = True
         if kwargs.get('callback'):
-            return self.edit_keyword_json_with_http_info(orcid, put_code, **kwargs)
+            return self.edit_keyword_with_http_info(orcid, put_code, **kwargs)
         else:
-            (data) = self.edit_keyword_json_with_http_info(orcid, put_code, **kwargs)
+            (data) = self.edit_keyword_with_http_info(orcid, put_code, **kwargs)
             return data
 
-    def edit_keyword_json_with_http_info(self, orcid, put_code, **kwargs):
+    def edit_keyword_with_http_info(self, orcid, put_code, **kwargs):
         """
         Edit keyword
         
@@ -2961,7 +2933,7 @@ class MemberAPIV20Api(object):
         >>> def callback_function(response):
         >>>     pprint(response)
         >>>
-        >>> thread = api.edit_keyword_json_with_http_info(orcid, put_code, callback=callback_function)
+        >>> thread = api.edit_keyword_with_http_info(orcid, put_code, callback=callback_function)
 
         :param callback function: The callback function
             for asynchronous request. (optional)
@@ -2984,16 +2956,16 @@ class MemberAPIV20Api(object):
             if key not in all_params:
                 raise TypeError(
                     "Got an unexpected keyword argument '%s'"
-                    " to method edit_keyword_json" % key
+                    " to method edit_keyword" % key
                 )
             params[key] = val
         del params['kwargs']
         # verify the required parameter 'orcid' is set
         if ('orcid' not in params) or (params['orcid'] is None):
-            raise ValueError("Missing the required parameter `orcid` when calling `edit_keyword_json`")
+            raise ValueError("Missing the required parameter `orcid` when calling `edit_keyword`")
         # verify the required parameter 'put_code' is set
         if ('put_code' not in params) or (params['put_code'] is None):
-            raise ValueError("Missing the required parameter `put_code` when calling `edit_keyword_json`")
+            raise ValueError("Missing the required parameter `put_code` when calling `edit_keyword`")
 
 
         collection_formats = {}
@@ -3019,10 +2991,6 @@ class MemberAPIV20Api(object):
         header_params['Accept'] = self.api_client.\
             select_header_accept(['application/vnd.orcid+xml; qs=5', 'application/orcid+xml; qs=3', 'application/xml', 'application/vnd.orcid+json; qs=4', 'application/orcid+json; qs=2', 'application/json'])
 
-        # HTTP header `Content-Type`
-        header_params['Content-Type'] = self.api_client.\
-            select_header_content_type(['application/vnd.orcid+json; qs=4', 'application/orcid+json; qs=2', 'application/json'])
-
         # Authentication setting
         auth_settings = ['orcid_auth']
 
@@ -3041,7 +3009,7 @@ class MemberAPIV20Api(object):
                                         _request_timeout=params.get('_request_timeout'),
                                         collection_formats=collection_formats)
 
-    def edit_other_name_json(self, orcid, put_code, **kwargs):
+    def edit_other_name(self, orcid, put_code, **kwargs):
         """
         Edit other name
         
@@ -3051,7 +3019,7 @@ class MemberAPIV20Api(object):
         >>> def callback_function(response):
         >>>     pprint(response)
         >>>
-        >>> thread = api.edit_other_name_json(orcid, put_code, callback=callback_function)
+        >>> thread = api.edit_other_name(orcid, put_code, callback=callback_function)
 
         :param callback function: The callback function
             for asynchronous request. (optional)
@@ -3064,12 +3032,12 @@ class MemberAPIV20Api(object):
         """
         kwargs['_return_http_data_only'] = True
         if kwargs.get('callback'):
-            return self.edit_other_name_json_with_http_info(orcid, put_code, **kwargs)
+            return self.edit_other_name_with_http_info(orcid, put_code, **kwargs)
         else:
-            (data) = self.edit_other_name_json_with_http_info(orcid, put_code, **kwargs)
+            (data) = self.edit_other_name_with_http_info(orcid, put_code, **kwargs)
             return data
 
-    def edit_other_name_json_with_http_info(self, orcid, put_code, **kwargs):
+    def edit_other_name_with_http_info(self, orcid, put_code, **kwargs):
         """
         Edit other name
         
@@ -3079,7 +3047,7 @@ class MemberAPIV20Api(object):
         >>> def callback_function(response):
         >>>     pprint(response)
         >>>
-        >>> thread = api.edit_other_name_json_with_http_info(orcid, put_code, callback=callback_function)
+        >>> thread = api.edit_other_name_with_http_info(orcid, put_code, callback=callback_function)
 
         :param callback function: The callback function
             for asynchronous request. (optional)
@@ -3102,16 +3070,16 @@ class MemberAPIV20Api(object):
             if key not in all_params:
                 raise TypeError(
                     "Got an unexpected keyword argument '%s'"
-                    " to method edit_other_name_json" % key
+                    " to method edit_other_name" % key
                 )
             params[key] = val
         del params['kwargs']
         # verify the required parameter 'orcid' is set
         if ('orcid' not in params) or (params['orcid'] is None):
-            raise ValueError("Missing the required parameter `orcid` when calling `edit_other_name_json`")
+            raise ValueError("Missing the required parameter `orcid` when calling `edit_other_name`")
         # verify the required parameter 'put_code' is set
         if ('put_code' not in params) or (params['put_code'] is None):
-            raise ValueError("Missing the required parameter `put_code` when calling `edit_other_name_json`")
+            raise ValueError("Missing the required parameter `put_code` when calling `edit_other_name`")
 
 
         collection_formats = {}
@@ -3137,10 +3105,6 @@ class MemberAPIV20Api(object):
         header_params['Accept'] = self.api_client.\
             select_header_accept(['application/vnd.orcid+xml; qs=5', 'application/orcid+xml; qs=3', 'application/xml', 'application/vnd.orcid+json; qs=4', 'application/orcid+json; qs=2', 'application/json'])
 
-        # HTTP header `Content-Type`
-        header_params['Content-Type'] = self.api_client.\
-            select_header_content_type(['application/vnd.orcid+json; qs=4', 'application/orcid+json; qs=2', 'application/json'])
-
         # Authentication setting
         auth_settings = ['orcid_auth']
 
@@ -3159,7 +3123,7 @@ class MemberAPIV20Api(object):
                                         _request_timeout=params.get('_request_timeout'),
                                         collection_formats=collection_formats)
 
-    def edit_researcher_url_json(self, orcid, put_code, **kwargs):
+    def edit_researcher_url(self, orcid, put_code, **kwargs):
         """
         Edits researcher url for an ORCID ID
         
@@ -3169,7 +3133,7 @@ class MemberAPIV20Api(object):
         >>> def callback_function(response):
         >>>     pprint(response)
         >>>
-        >>> thread = api.edit_researcher_url_json(orcid, put_code, callback=callback_function)
+        >>> thread = api.edit_researcher_url(orcid, put_code, callback=callback_function)
 
         :param callback function: The callback function
             for asynchronous request. (optional)
@@ -3182,12 +3146,12 @@ class MemberAPIV20Api(object):
         """
         kwargs['_return_http_data_only'] = True
         if kwargs.get('callback'):
-            return self.edit_researcher_url_json_with_http_info(orcid, put_code, **kwargs)
+            return self.edit_researcher_url_with_http_info(orcid, put_code, **kwargs)
         else:
-            (data) = self.edit_researcher_url_json_with_http_info(orcid, put_code, **kwargs)
+            (data) = self.edit_researcher_url_with_http_info(orcid, put_code, **kwargs)
             return data
 
-    def edit_researcher_url_json_with_http_info(self, orcid, put_code, **kwargs):
+    def edit_researcher_url_with_http_info(self, orcid, put_code, **kwargs):
         """
         Edits researcher url for an ORCID ID
         
@@ -3197,7 +3161,7 @@ class MemberAPIV20Api(object):
         >>> def callback_function(response):
         >>>     pprint(response)
         >>>
-        >>> thread = api.edit_researcher_url_json_with_http_info(orcid, put_code, callback=callback_function)
+        >>> thread = api.edit_researcher_url_with_http_info(orcid, put_code, callback=callback_function)
 
         :param callback function: The callback function
             for asynchronous request. (optional)
@@ -3220,16 +3184,16 @@ class MemberAPIV20Api(object):
             if key not in all_params:
                 raise TypeError(
                     "Got an unexpected keyword argument '%s'"
-                    " to method edit_researcher_url_json" % key
+                    " to method edit_researcher_url" % key
                 )
             params[key] = val
         del params['kwargs']
         # verify the required parameter 'orcid' is set
         if ('orcid' not in params) or (params['orcid'] is None):
-            raise ValueError("Missing the required parameter `orcid` when calling `edit_researcher_url_json`")
+            raise ValueError("Missing the required parameter `orcid` when calling `edit_researcher_url`")
         # verify the required parameter 'put_code' is set
         if ('put_code' not in params) or (params['put_code'] is None):
-            raise ValueError("Missing the required parameter `put_code` when calling `edit_researcher_url_json`")
+            raise ValueError("Missing the required parameter `put_code` when calling `edit_researcher_url`")
 
 
         collection_formats = {}
@@ -3254,10 +3218,6 @@ class MemberAPIV20Api(object):
         # HTTP header `Accept`
         header_params['Accept'] = self.api_client.\
             select_header_accept(['application/vnd.orcid+xml; qs=5', 'application/orcid+xml; qs=3', 'application/xml', 'application/vnd.orcid+json; qs=4', 'application/orcid+json; qs=2', 'application/json'])
-
-        # HTTP header `Content-Type`
-        header_params['Content-Type'] = self.api_client.\
-            select_header_content_type(['application/vnd.orcid+json; qs=4', 'application/orcid+json; qs=2', 'application/json'])
 
         # Authentication setting
         auth_settings = ['orcid_auth']
@@ -3491,7 +3451,7 @@ class MemberAPIV20Api(object):
                                         _request_timeout=params.get('_request_timeout'),
                                         collection_formats=collection_formats)
 
-    def update_education_json(self, orcid, put_code, **kwargs):
+    def update_education(self, orcid, put_code, **kwargs):
         """
         Update an Education
         
@@ -3501,7 +3461,7 @@ class MemberAPIV20Api(object):
         >>> def callback_function(response):
         >>>     pprint(response)
         >>>
-        >>> thread = api.update_education_json(orcid, put_code, callback=callback_function)
+        >>> thread = api.update_education(orcid, put_code, callback=callback_function)
 
         :param callback function: The callback function
             for asynchronous request. (optional)
@@ -3514,12 +3474,12 @@ class MemberAPIV20Api(object):
         """
         kwargs['_return_http_data_only'] = True
         if kwargs.get('callback'):
-            return self.update_education_json_with_http_info(orcid, put_code, **kwargs)
+            return self.update_education_with_http_info(orcid, put_code, **kwargs)
         else:
-            (data) = self.update_education_json_with_http_info(orcid, put_code, **kwargs)
+            (data) = self.update_education_with_http_info(orcid, put_code, **kwargs)
             return data
 
-    def update_education_json_with_http_info(self, orcid, put_code, **kwargs):
+    def update_education_with_http_info(self, orcid, put_code, **kwargs):
         """
         Update an Education
         
@@ -3529,7 +3489,7 @@ class MemberAPIV20Api(object):
         >>> def callback_function(response):
         >>>     pprint(response)
         >>>
-        >>> thread = api.update_education_json_with_http_info(orcid, put_code, callback=callback_function)
+        >>> thread = api.update_education_with_http_info(orcid, put_code, callback=callback_function)
 
         :param callback function: The callback function
             for asynchronous request. (optional)
@@ -3552,16 +3512,16 @@ class MemberAPIV20Api(object):
             if key not in all_params:
                 raise TypeError(
                     "Got an unexpected keyword argument '%s'"
-                    " to method update_education_json" % key
+                    " to method update_education" % key
                 )
             params[key] = val
         del params['kwargs']
         # verify the required parameter 'orcid' is set
         if ('orcid' not in params) or (params['orcid'] is None):
-            raise ValueError("Missing the required parameter `orcid` when calling `update_education_json`")
+            raise ValueError("Missing the required parameter `orcid` when calling `update_education`")
         # verify the required parameter 'put_code' is set
         if ('put_code' not in params) or (params['put_code'] is None):
-            raise ValueError("Missing the required parameter `put_code` when calling `update_education_json`")
+            raise ValueError("Missing the required parameter `put_code` when calling `update_education`")
 
 
         collection_formats = {}
@@ -3589,7 +3549,7 @@ class MemberAPIV20Api(object):
 
         # HTTP header `Content-Type`
         header_params['Content-Type'] = self.api_client.\
-            select_header_content_type(['application/vnd.orcid+json; qs=4', 'application/orcid+json; qs=2', 'application/json'])
+            select_header_content_type(['application/vnd.orcid+xml; qs=5', 'application/orcid+xml; qs=3', 'application/xml', 'application/vnd.orcid+json; qs=4', 'application/orcid+json; qs=2', 'application/json'])
 
         # Authentication setting
         auth_settings = ['orcid_auth']
@@ -3609,7 +3569,7 @@ class MemberAPIV20Api(object):
                                         _request_timeout=params.get('_request_timeout'),
                                         collection_formats=collection_formats)
 
-    def update_employment_json(self, orcid, put_code, **kwargs):
+    def update_employment(self, orcid, put_code, **kwargs):
         """
         Update an Employment
         
@@ -3619,7 +3579,7 @@ class MemberAPIV20Api(object):
         >>> def callback_function(response):
         >>>     pprint(response)
         >>>
-        >>> thread = api.update_employment_json(orcid, put_code, callback=callback_function)
+        >>> thread = api.update_employment(orcid, put_code, callback=callback_function)
 
         :param callback function: The callback function
             for asynchronous request. (optional)
@@ -3632,12 +3592,12 @@ class MemberAPIV20Api(object):
         """
         kwargs['_return_http_data_only'] = True
         if kwargs.get('callback'):
-            return self.update_employment_json_with_http_info(orcid, put_code, **kwargs)
+            return self.update_employment_with_http_info(orcid, put_code, **kwargs)
         else:
-            (data) = self.update_employment_json_with_http_info(orcid, put_code, **kwargs)
+            (data) = self.update_employment_with_http_info(orcid, put_code, **kwargs)
             return data
 
-    def update_employment_json_with_http_info(self, orcid, put_code, **kwargs):
+    def update_employment_with_http_info(self, orcid, put_code, **kwargs):
         """
         Update an Employment
         
@@ -3647,7 +3607,7 @@ class MemberAPIV20Api(object):
         >>> def callback_function(response):
         >>>     pprint(response)
         >>>
-        >>> thread = api.update_employment_json_with_http_info(orcid, put_code, callback=callback_function)
+        >>> thread = api.update_employment_with_http_info(orcid, put_code, callback=callback_function)
 
         :param callback function: The callback function
             for asynchronous request. (optional)
@@ -3670,16 +3630,16 @@ class MemberAPIV20Api(object):
             if key not in all_params:
                 raise TypeError(
                     "Got an unexpected keyword argument '%s'"
-                    " to method update_employment_json" % key
+                    " to method update_employment" % key
                 )
             params[key] = val
         del params['kwargs']
         # verify the required parameter 'orcid' is set
         if ('orcid' not in params) or (params['orcid'] is None):
-            raise ValueError("Missing the required parameter `orcid` when calling `update_employment_json`")
+            raise ValueError("Missing the required parameter `orcid` when calling `update_employment`")
         # verify the required parameter 'put_code' is set
         if ('put_code' not in params) or (params['put_code'] is None):
-            raise ValueError("Missing the required parameter `put_code` when calling `update_employment_json`")
+            raise ValueError("Missing the required parameter `put_code` when calling `update_employment`")
 
 
         collection_formats = {}
@@ -3707,7 +3667,7 @@ class MemberAPIV20Api(object):
 
         # HTTP header `Content-Type`
         header_params['Content-Type'] = self.api_client.\
-            select_header_content_type(['application/vnd.orcid+json; qs=4', 'application/orcid+json; qs=2', 'application/json'])
+            select_header_content_type(['application/vnd.orcid+xml; qs=5', 'application/orcid+xml; qs=3', 'application/xml', 'application/vnd.orcid+json; qs=4', 'application/orcid+json; qs=2', 'application/json'])
 
         # Authentication setting
         auth_settings = ['orcid_auth']
@@ -3727,7 +3687,7 @@ class MemberAPIV20Api(object):
                                         _request_timeout=params.get('_request_timeout'),
                                         collection_formats=collection_formats)
 
-    def update_funding_json(self, orcid, put_code, **kwargs):
+    def update_funding(self, orcid, put_code, **kwargs):
         """
         Update a Funding
         
@@ -3737,7 +3697,7 @@ class MemberAPIV20Api(object):
         >>> def callback_function(response):
         >>>     pprint(response)
         >>>
-        >>> thread = api.update_funding_json(orcid, put_code, callback=callback_function)
+        >>> thread = api.update_funding(orcid, put_code, callback=callback_function)
 
         :param callback function: The callback function
             for asynchronous request. (optional)
@@ -3750,12 +3710,12 @@ class MemberAPIV20Api(object):
         """
         kwargs['_return_http_data_only'] = True
         if kwargs.get('callback'):
-            return self.update_funding_json_with_http_info(orcid, put_code, **kwargs)
+            return self.update_funding_with_http_info(orcid, put_code, **kwargs)
         else:
-            (data) = self.update_funding_json_with_http_info(orcid, put_code, **kwargs)
+            (data) = self.update_funding_with_http_info(orcid, put_code, **kwargs)
             return data
 
-    def update_funding_json_with_http_info(self, orcid, put_code, **kwargs):
+    def update_funding_with_http_info(self, orcid, put_code, **kwargs):
         """
         Update a Funding
         
@@ -3765,7 +3725,7 @@ class MemberAPIV20Api(object):
         >>> def callback_function(response):
         >>>     pprint(response)
         >>>
-        >>> thread = api.update_funding_json_with_http_info(orcid, put_code, callback=callback_function)
+        >>> thread = api.update_funding_with_http_info(orcid, put_code, callback=callback_function)
 
         :param callback function: The callback function
             for asynchronous request. (optional)
@@ -3788,16 +3748,16 @@ class MemberAPIV20Api(object):
             if key not in all_params:
                 raise TypeError(
                     "Got an unexpected keyword argument '%s'"
-                    " to method update_funding_json" % key
+                    " to method update_funding" % key
                 )
             params[key] = val
         del params['kwargs']
         # verify the required parameter 'orcid' is set
         if ('orcid' not in params) or (params['orcid'] is None):
-            raise ValueError("Missing the required parameter `orcid` when calling `update_funding_json`")
+            raise ValueError("Missing the required parameter `orcid` when calling `update_funding`")
         # verify the required parameter 'put_code' is set
         if ('put_code' not in params) or (params['put_code'] is None):
-            raise ValueError("Missing the required parameter `put_code` when calling `update_funding_json`")
+            raise ValueError("Missing the required parameter `put_code` when calling `update_funding`")
 
 
         collection_formats = {}
@@ -3825,7 +3785,7 @@ class MemberAPIV20Api(object):
 
         # HTTP header `Content-Type`
         header_params['Content-Type'] = self.api_client.\
-            select_header_content_type(['application/vnd.orcid+json; qs=4', 'application/orcid+json; qs=2', 'application/json'])
+            select_header_content_type(['application/vnd.orcid+xml; qs=5', 'application/orcid+xml; qs=3', 'application/xml', 'application/vnd.orcid+json; qs=4', 'application/orcid+json; qs=2', 'application/json'])
 
         # Authentication setting
         auth_settings = ['orcid_auth']
@@ -3845,7 +3805,7 @@ class MemberAPIV20Api(object):
                                         _request_timeout=params.get('_request_timeout'),
                                         collection_formats=collection_formats)
 
-    def update_group_id_record_json(self, put_code, **kwargs):
+    def update_group_id_record(self, put_code, **kwargs):
         """
         Update a Group
         
@@ -3855,7 +3815,7 @@ class MemberAPIV20Api(object):
         >>> def callback_function(response):
         >>>     pprint(response)
         >>>
-        >>> thread = api.update_group_id_record_json(put_code, callback=callback_function)
+        >>> thread = api.update_group_id_record(put_code, callback=callback_function)
 
         :param callback function: The callback function
             for asynchronous request. (optional)
@@ -3867,12 +3827,12 @@ class MemberAPIV20Api(object):
         """
         kwargs['_return_http_data_only'] = True
         if kwargs.get('callback'):
-            return self.update_group_id_record_json_with_http_info(put_code, **kwargs)
+            return self.update_group_id_record_with_http_info(put_code, **kwargs)
         else:
-            (data) = self.update_group_id_record_json_with_http_info(put_code, **kwargs)
+            (data) = self.update_group_id_record_with_http_info(put_code, **kwargs)
             return data
 
-    def update_group_id_record_json_with_http_info(self, put_code, **kwargs):
+    def update_group_id_record_with_http_info(self, put_code, **kwargs):
         """
         Update a Group
         
@@ -3882,7 +3842,7 @@ class MemberAPIV20Api(object):
         >>> def callback_function(response):
         >>>     pprint(response)
         >>>
-        >>> thread = api.update_group_id_record_json_with_http_info(put_code, callback=callback_function)
+        >>> thread = api.update_group_id_record_with_http_info(put_code, callback=callback_function)
 
         :param callback function: The callback function
             for asynchronous request. (optional)
@@ -3904,13 +3864,13 @@ class MemberAPIV20Api(object):
             if key not in all_params:
                 raise TypeError(
                     "Got an unexpected keyword argument '%s'"
-                    " to method update_group_id_record_json" % key
+                    " to method update_group_id_record" % key
                 )
             params[key] = val
         del params['kwargs']
         # verify the required parameter 'put_code' is set
         if ('put_code' not in params) or (params['put_code'] is None):
-            raise ValueError("Missing the required parameter `put_code` when calling `update_group_id_record_json`")
+            raise ValueError("Missing the required parameter `put_code` when calling `update_group_id_record`")
 
 
         collection_formats = {}
@@ -3936,7 +3896,7 @@ class MemberAPIV20Api(object):
 
         # HTTP header `Content-Type`
         header_params['Content-Type'] = self.api_client.\
-            select_header_content_type(['application/vnd.orcid+json; qs=4', 'application/orcid+json; qs=2', 'application/json'])
+            select_header_content_type(['application/vnd.orcid+xml; qs=5', 'application/orcid+xml; qs=3', 'application/xml', 'application/vnd.orcid+json; qs=4', 'application/orcid+json; qs=2', 'application/json'])
 
         # Authentication setting
         auth_settings = ['orcid_two_legs']
@@ -3956,7 +3916,7 @@ class MemberAPIV20Api(object):
                                         _request_timeout=params.get('_request_timeout'),
                                         collection_formats=collection_formats)
 
-    def update_peer_review_json(self, orcid, put_code, **kwargs):
+    def update_peer_review(self, orcid, put_code, **kwargs):
         """
         Update a Peer Review
         
@@ -3966,7 +3926,7 @@ class MemberAPIV20Api(object):
         >>> def callback_function(response):
         >>>     pprint(response)
         >>>
-        >>> thread = api.update_peer_review_json(orcid, put_code, callback=callback_function)
+        >>> thread = api.update_peer_review(orcid, put_code, callback=callback_function)
 
         :param callback function: The callback function
             for asynchronous request. (optional)
@@ -3979,12 +3939,12 @@ class MemberAPIV20Api(object):
         """
         kwargs['_return_http_data_only'] = True
         if kwargs.get('callback'):
-            return self.update_peer_review_json_with_http_info(orcid, put_code, **kwargs)
+            return self.update_peer_review_with_http_info(orcid, put_code, **kwargs)
         else:
-            (data) = self.update_peer_review_json_with_http_info(orcid, put_code, **kwargs)
+            (data) = self.update_peer_review_with_http_info(orcid, put_code, **kwargs)
             return data
 
-    def update_peer_review_json_with_http_info(self, orcid, put_code, **kwargs):
+    def update_peer_review_with_http_info(self, orcid, put_code, **kwargs):
         """
         Update a Peer Review
         
@@ -3994,7 +3954,7 @@ class MemberAPIV20Api(object):
         >>> def callback_function(response):
         >>>     pprint(response)
         >>>
-        >>> thread = api.update_peer_review_json_with_http_info(orcid, put_code, callback=callback_function)
+        >>> thread = api.update_peer_review_with_http_info(orcid, put_code, callback=callback_function)
 
         :param callback function: The callback function
             for asynchronous request. (optional)
@@ -4017,16 +3977,16 @@ class MemberAPIV20Api(object):
             if key not in all_params:
                 raise TypeError(
                     "Got an unexpected keyword argument '%s'"
-                    " to method update_peer_review_json" % key
+                    " to method update_peer_review" % key
                 )
             params[key] = val
         del params['kwargs']
         # verify the required parameter 'orcid' is set
         if ('orcid' not in params) or (params['orcid'] is None):
-            raise ValueError("Missing the required parameter `orcid` when calling `update_peer_review_json`")
+            raise ValueError("Missing the required parameter `orcid` when calling `update_peer_review`")
         # verify the required parameter 'put_code' is set
         if ('put_code' not in params) or (params['put_code'] is None):
-            raise ValueError("Missing the required parameter `put_code` when calling `update_peer_review_json`")
+            raise ValueError("Missing the required parameter `put_code` when calling `update_peer_review`")
 
 
         collection_formats = {}
@@ -4054,7 +4014,7 @@ class MemberAPIV20Api(object):
 
         # HTTP header `Content-Type`
         header_params['Content-Type'] = self.api_client.\
-            select_header_content_type(['application/vnd.orcid+json; qs=4', 'application/orcid+json; qs=2', 'application/json'])
+            select_header_content_type(['application/vnd.orcid+xml; qs=5', 'application/orcid+xml; qs=3', 'application/xml', 'application/vnd.orcid+json; qs=4', 'application/orcid+json; qs=2', 'application/json'])
 
         # Authentication setting
         auth_settings = ['orcid_auth']
@@ -4074,7 +4034,7 @@ class MemberAPIV20Api(object):
                                         _request_timeout=params.get('_request_timeout'),
                                         collection_formats=collection_formats)
 
-    def update_work_json(self, orcid, put_code, **kwargs):
+    def update_work(self, orcid, put_code, **kwargs):
         """
         Update a Work
         
@@ -4084,7 +4044,7 @@ class MemberAPIV20Api(object):
         >>> def callback_function(response):
         >>>     pprint(response)
         >>>
-        >>> thread = api.update_work_json(orcid, put_code, callback=callback_function)
+        >>> thread = api.update_work(orcid, put_code, callback=callback_function)
 
         :param callback function: The callback function
             for asynchronous request. (optional)
@@ -4097,12 +4057,12 @@ class MemberAPIV20Api(object):
         """
         kwargs['_return_http_data_only'] = True
         if kwargs.get('callback'):
-            return self.update_work_json_with_http_info(orcid, put_code, **kwargs)
+            return self.update_work_with_http_info(orcid, put_code, **kwargs)
         else:
-            (data) = self.update_work_json_with_http_info(orcid, put_code, **kwargs)
+            (data) = self.update_work_with_http_info(orcid, put_code, **kwargs)
             return data
 
-    def update_work_json_with_http_info(self, orcid, put_code, **kwargs):
+    def update_work_with_http_info(self, orcid, put_code, **kwargs):
         """
         Update a Work
         
@@ -4112,7 +4072,7 @@ class MemberAPIV20Api(object):
         >>> def callback_function(response):
         >>>     pprint(response)
         >>>
-        >>> thread = api.update_work_json_with_http_info(orcid, put_code, callback=callback_function)
+        >>> thread = api.update_work_with_http_info(orcid, put_code, callback=callback_function)
 
         :param callback function: The callback function
             for asynchronous request. (optional)
@@ -4135,16 +4095,16 @@ class MemberAPIV20Api(object):
             if key not in all_params:
                 raise TypeError(
                     "Got an unexpected keyword argument '%s'"
-                    " to method update_work_json" % key
+                    " to method update_work" % key
                 )
             params[key] = val
         del params['kwargs']
         # verify the required parameter 'orcid' is set
         if ('orcid' not in params) or (params['orcid'] is None):
-            raise ValueError("Missing the required parameter `orcid` when calling `update_work_json`")
+            raise ValueError("Missing the required parameter `orcid` when calling `update_work`")
         # verify the required parameter 'put_code' is set
         if ('put_code' not in params) or (params['put_code'] is None):
-            raise ValueError("Missing the required parameter `put_code` when calling `update_work_json`")
+            raise ValueError("Missing the required parameter `put_code` when calling `update_work`")
 
 
         collection_formats = {}
@@ -4172,7 +4132,7 @@ class MemberAPIV20Api(object):
 
         # HTTP header `Content-Type`
         header_params['Content-Type'] = self.api_client.\
-            select_header_content_type(['application/vnd.orcid+json; qs=4', 'application/orcid+json; qs=2', 'application/json'])
+            select_header_content_type(['application/vnd.orcid+xml; qs=5', 'application/orcid+xml; qs=3', 'application/xml', 'application/vnd.orcid+json; qs=4', 'application/orcid+json; qs=2', 'application/json'])
 
         # Authentication setting
         auth_settings = ['orcid_auth']

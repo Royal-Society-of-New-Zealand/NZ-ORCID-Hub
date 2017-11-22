@@ -72,7 +72,6 @@ from .models.source_name import SourceName
 from .models.source_orcid import SourceOrcid
 from .models.subtitle import Subtitle
 from .models.title import Title
-from .models.transient_non_empty_string import TransientNonEmptyString
 from .models.translated_title import TranslatedTitle
 from .models.url import Url
 from .models.work import Work
@@ -85,7 +84,6 @@ from .models.works import Works
 from .models.year import Year
 
 # import apis into sdk package
-from .apis.development_member_apiv30_dev1_api import DevelopmentMemberAPIV30Dev1Api
 from .apis.member_apiv20_api import MemberAPIV20Api
 from .apis.member_apiv21_api import MemberAPIV21Api
 

@@ -54,16 +54,16 @@ from pprint import pprint
 # Configure OAuth2 access token for authorization: orcid_two_legs
 swagger_client.configuration.access_token = 'YOUR_ACCESS_TOKEN'
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Dev1Api()
+api_instance = swagger_client.MemberAPIV20Api()
 orcid = 'orcid_example' # str | 
 body = swagger_client.NotificationPermission() # NotificationPermission |  (optional)
 
 try:
     # Add a notification
-    api_response = api_instance.add_permission_notification_json(orcid, body=body)
+    api_response = api_instance.add_permission_notification(orcid, body=body)
     pprint(api_response)
 except ApiException as e:
-    print("Exception when calling DevelopmentMemberAPIV30Dev1Api->add_permission_notification_json: %s\n" % e)
+    print("Exception when calling MemberAPIV20Api->add_permission_notification: %s\n" % e)
 
 ```
 
@@ -73,91 +73,18 @@ All URIs are relative to *https://api.orcid.org*
 
 Class | Method | HTTP request | Description
 ------------ | ------------- | ------------- | -------------
-*DevelopmentMemberAPIV30Dev1Api* | [**add_permission_notification_json**](docs/DevelopmentMemberAPIV30Dev1Api.md#add_permission_notification_json) | **POST** /v3.0_dev1/{orcid}/notification-permission | Add a notification
-*DevelopmentMemberAPIV30Dev1Api* | [**create_address_json**](docs/DevelopmentMemberAPIV30Dev1Api.md#create_address_json) | **POST** /v3.0_dev1/{orcid}/address | Add an address
-*DevelopmentMemberAPIV30Dev1Api* | [**create_education_json**](docs/DevelopmentMemberAPIV30Dev1Api.md#create_education_json) | **POST** /v3.0_dev1/{orcid}/education | Create an Education
-*DevelopmentMemberAPIV30Dev1Api* | [**create_employment_json**](docs/DevelopmentMemberAPIV30Dev1Api.md#create_employment_json) | **POST** /v3.0_dev1/{orcid}/employment | Create an Employment
-*DevelopmentMemberAPIV30Dev1Api* | [**create_external_identifier_json**](docs/DevelopmentMemberAPIV30Dev1Api.md#create_external_identifier_json) | **POST** /v3.0_dev1/{orcid}/external-identifiers | Add external identifier
-*DevelopmentMemberAPIV30Dev1Api* | [**create_funding_json**](docs/DevelopmentMemberAPIV30Dev1Api.md#create_funding_json) | **POST** /v3.0_dev1/{orcid}/funding | Create a Funding
-*DevelopmentMemberAPIV30Dev1Api* | [**create_group_id_record_json**](docs/DevelopmentMemberAPIV30Dev1Api.md#create_group_id_record_json) | **POST** /v3.0_dev1/group-id-record | Create a Group
-*DevelopmentMemberAPIV30Dev1Api* | [**create_keyword_json**](docs/DevelopmentMemberAPIV30Dev1Api.md#create_keyword_json) | **POST** /v3.0_dev1/{orcid}/keywords | Add keyword
-*DevelopmentMemberAPIV30Dev1Api* | [**create_other_name_json**](docs/DevelopmentMemberAPIV30Dev1Api.md#create_other_name_json) | **POST** /v3.0_dev1/{orcid}/other-names | Add other name
-*DevelopmentMemberAPIV30Dev1Api* | [**create_peer_review_json**](docs/DevelopmentMemberAPIV30Dev1Api.md#create_peer_review_json) | **POST** /v3.0_dev1/{orcid}/peer-review | Create a Peer Review
-*DevelopmentMemberAPIV30Dev1Api* | [**create_researcher_url_json**](docs/DevelopmentMemberAPIV30Dev1Api.md#create_researcher_url_json) | **POST** /v3.0_dev1/{orcid}/researcher-urls | Add a new researcher url for an ORCID ID
-*DevelopmentMemberAPIV30Dev1Api* | [**create_work_json**](docs/DevelopmentMemberAPIV30Dev1Api.md#create_work_json) | **POST** /v3.0_dev1/{orcid}/work | Create a Work
-*DevelopmentMemberAPIV30Dev1Api* | [**create_works**](docs/DevelopmentMemberAPIV30Dev1Api.md#create_works) | **POST** /v3.0_dev1/{orcid}/works | Create a listo of Work
-*DevelopmentMemberAPIV30Dev1Api* | [**delete_address**](docs/DevelopmentMemberAPIV30Dev1Api.md#delete_address) | **DELETE** /v3.0_dev1/{orcid}/address/{putCode} | Delete an address
-*DevelopmentMemberAPIV30Dev1Api* | [**delete_education**](docs/DevelopmentMemberAPIV30Dev1Api.md#delete_education) | **DELETE** /v3.0_dev1/{orcid}/education/{putCode} | Delete an Education
-*DevelopmentMemberAPIV30Dev1Api* | [**delete_employment**](docs/DevelopmentMemberAPIV30Dev1Api.md#delete_employment) | **DELETE** /v3.0_dev1/{orcid}/employment/{putCode} | Delete an Employment
-*DevelopmentMemberAPIV30Dev1Api* | [**delete_external_identifier**](docs/DevelopmentMemberAPIV30Dev1Api.md#delete_external_identifier) | **DELETE** /v3.0_dev1/{orcid}/external-identifiers/{putCode} | Delete external identifier
-*DevelopmentMemberAPIV30Dev1Api* | [**delete_funding**](docs/DevelopmentMemberAPIV30Dev1Api.md#delete_funding) | **DELETE** /v3.0_dev1/{orcid}/funding/{putCode} | Delete a Funding
-*DevelopmentMemberAPIV30Dev1Api* | [**delete_group_id_record**](docs/DevelopmentMemberAPIV30Dev1Api.md#delete_group_id_record) | **DELETE** /v3.0_dev1/group-id-record/{putCode} | Delete a Group
-*DevelopmentMemberAPIV30Dev1Api* | [**delete_keyword**](docs/DevelopmentMemberAPIV30Dev1Api.md#delete_keyword) | **DELETE** /v3.0_dev1/{orcid}/keywords/{putCode} | Delete keyword
-*DevelopmentMemberAPIV30Dev1Api* | [**delete_other_name**](docs/DevelopmentMemberAPIV30Dev1Api.md#delete_other_name) | **DELETE** /v3.0_dev1/{orcid}/other-names/{putCode} | Delete other name
-*DevelopmentMemberAPIV30Dev1Api* | [**delete_peer_review**](docs/DevelopmentMemberAPIV30Dev1Api.md#delete_peer_review) | **DELETE** /v3.0_dev1/{orcid}/peer-review/{putCode} | Delete a Peer Review
-*DevelopmentMemberAPIV30Dev1Api* | [**delete_researcher_url**](docs/DevelopmentMemberAPIV30Dev1Api.md#delete_researcher_url) | **DELETE** /v3.0_dev1/{orcid}/researcher-urls/{putCode} | Delete one researcher url from an ORCID ID
-*DevelopmentMemberAPIV30Dev1Api* | [**delete_work**](docs/DevelopmentMemberAPIV30Dev1Api.md#delete_work) | **DELETE** /v3.0_dev1/{orcid}/work/{putCode} | Delete a Work
-*DevelopmentMemberAPIV30Dev1Api* | [**edit_address**](docs/DevelopmentMemberAPIV30Dev1Api.md#edit_address) | **PUT** /v3.0_dev1/{orcid}/address/{putCode} | Edit an address
-*DevelopmentMemberAPIV30Dev1Api* | [**edit_external_identifier_json**](docs/DevelopmentMemberAPIV30Dev1Api.md#edit_external_identifier_json) | **PUT** /v3.0_dev1/{orcid}/external-identifiers/{putCode} | Edit external identifier
-*DevelopmentMemberAPIV30Dev1Api* | [**edit_keyword_json**](docs/DevelopmentMemberAPIV30Dev1Api.md#edit_keyword_json) | **PUT** /v3.0_dev1/{orcid}/keywords/{putCode} | Edit keyword
-*DevelopmentMemberAPIV30Dev1Api* | [**edit_other_name_json**](docs/DevelopmentMemberAPIV30Dev1Api.md#edit_other_name_json) | **PUT** /v3.0_dev1/{orcid}/other-names/{putCode} | Edit other name
-*DevelopmentMemberAPIV30Dev1Api* | [**edit_researcher_url_json**](docs/DevelopmentMemberAPIV30Dev1Api.md#edit_researcher_url_json) | **PUT** /v3.0_dev1/{orcid}/researcher-urls/{putCode} | Edits researcher url for an ORCID ID
-*DevelopmentMemberAPIV30Dev1Api* | [**flag_as_archived_permission_notification**](docs/DevelopmentMemberAPIV30Dev1Api.md#flag_as_archived_permission_notification) | **DELETE** /v3.0_dev1/{orcid}/notification-permission/{id} | Archive a notification
-*DevelopmentMemberAPIV30Dev1Api* | [**search_by_query_xml**](docs/DevelopmentMemberAPIV30Dev1Api.md#search_by_query_xml) | **GET** /v3.0_dev1/search | Search records
-*DevelopmentMemberAPIV30Dev1Api* | [**update_education_json**](docs/DevelopmentMemberAPIV30Dev1Api.md#update_education_json) | **PUT** /v3.0_dev1/{orcid}/education/{putCode} | Update an Education
-*DevelopmentMemberAPIV30Dev1Api* | [**update_employment_json**](docs/DevelopmentMemberAPIV30Dev1Api.md#update_employment_json) | **PUT** /v3.0_dev1/{orcid}/employment/{putCode} | Update an Employment
-*DevelopmentMemberAPIV30Dev1Api* | [**update_funding_json**](docs/DevelopmentMemberAPIV30Dev1Api.md#update_funding_json) | **PUT** /v3.0_dev1/{orcid}/funding/{putCode} | Update a Funding
-*DevelopmentMemberAPIV30Dev1Api* | [**update_group_id_record_json**](docs/DevelopmentMemberAPIV30Dev1Api.md#update_group_id_record_json) | **PUT** /v3.0_dev1/group-id-record/{putCode} | Update a Group
-*DevelopmentMemberAPIV30Dev1Api* | [**update_peer_review_json**](docs/DevelopmentMemberAPIV30Dev1Api.md#update_peer_review_json) | **PUT** /v3.0_dev1/{orcid}/peer-review/{putCode} | Update a Peer Review
-*DevelopmentMemberAPIV30Dev1Api* | [**update_work_json**](docs/DevelopmentMemberAPIV30Dev1Api.md#update_work_json) | **PUT** /v3.0_dev1/{orcid}/work/{putCode} | Update a Work
-*DevelopmentMemberAPIV30Dev1Api* | [**view_activities**](docs/DevelopmentMemberAPIV30Dev1Api.md#view_activities) | **GET** /v3.0_dev1/{orcid}/activities | Fetch all activities
-*DevelopmentMemberAPIV30Dev1Api* | [**view_address**](docs/DevelopmentMemberAPIV30Dev1Api.md#view_address) | **GET** /v3.0_dev1/{orcid}/address/{putCode} | Fetch an address
-*DevelopmentMemberAPIV30Dev1Api* | [**view_addresses**](docs/DevelopmentMemberAPIV30Dev1Api.md#view_addresses) | **GET** /v3.0_dev1/{orcid}/address | Fetch all addresses of a profile
-*DevelopmentMemberAPIV30Dev1Api* | [**view_biography**](docs/DevelopmentMemberAPIV30Dev1Api.md#view_biography) | **GET** /v3.0_dev1/{orcid}/biography | Get biography details
-*DevelopmentMemberAPIV30Dev1Api* | [**view_client**](docs/DevelopmentMemberAPIV30Dev1Api.md#view_client) | **GET** /v3.0_dev1/client/{client_id} | Fetch client details
-*DevelopmentMemberAPIV30Dev1Api* | [**view_education**](docs/DevelopmentMemberAPIV30Dev1Api.md#view_education) | **GET** /v3.0_dev1/{orcid}/education/{putCode} | Fetch an Education
-*DevelopmentMemberAPIV30Dev1Api* | [**view_education_summary**](docs/DevelopmentMemberAPIV30Dev1Api.md#view_education_summary) | **GET** /v3.0_dev1/{orcid}/education/summary/{putCode} | Fetch an Education summary
-*DevelopmentMemberAPIV30Dev1Api* | [**view_educations**](docs/DevelopmentMemberAPIV30Dev1Api.md#view_educations) | **GET** /v3.0_dev1/{orcid}/educations | Fetch all educations
-*DevelopmentMemberAPIV30Dev1Api* | [**view_emails**](docs/DevelopmentMemberAPIV30Dev1Api.md#view_emails) | **GET** /v3.0_dev1/{orcid}/email | Fetch all emails for an ORCID ID
-*DevelopmentMemberAPIV30Dev1Api* | [**view_employment**](docs/DevelopmentMemberAPIV30Dev1Api.md#view_employment) | **GET** /v3.0_dev1/{orcid}/employment/{putCode} | Fetch an Employment
-*DevelopmentMemberAPIV30Dev1Api* | [**view_employment_summary**](docs/DevelopmentMemberAPIV30Dev1Api.md#view_employment_summary) | **GET** /v3.0_dev1/{orcid}/employment/summary/{putCode} | Fetch an Employment Summary
-*DevelopmentMemberAPIV30Dev1Api* | [**view_employments**](docs/DevelopmentMemberAPIV30Dev1Api.md#view_employments) | **GET** /v3.0_dev1/{orcid}/employments | Fetch all employments
-*DevelopmentMemberAPIV30Dev1Api* | [**view_external_identifier**](docs/DevelopmentMemberAPIV30Dev1Api.md#view_external_identifier) | **GET** /v3.0_dev1/{orcid}/external-identifiers/{putCode} | Fetch external identifier
-*DevelopmentMemberAPIV30Dev1Api* | [**view_external_identifiers**](docs/DevelopmentMemberAPIV30Dev1Api.md#view_external_identifiers) | **GET** /v3.0_dev1/{orcid}/external-identifiers | Fetch external identifiers
-*DevelopmentMemberAPIV30Dev1Api* | [**view_funding**](docs/DevelopmentMemberAPIV30Dev1Api.md#view_funding) | **GET** /v3.0_dev1/{orcid}/funding/{putCode} | Fetch a Funding
-*DevelopmentMemberAPIV30Dev1Api* | [**view_funding_summary**](docs/DevelopmentMemberAPIV30Dev1Api.md#view_funding_summary) | **GET** /v3.0_dev1/{orcid}/funding/summary/{putCode} | Fetch a Funding Summary
-*DevelopmentMemberAPIV30Dev1Api* | [**view_fundings**](docs/DevelopmentMemberAPIV30Dev1Api.md#view_fundings) | **GET** /v3.0_dev1/{orcid}/fundings | Fetch all fundings
-*DevelopmentMemberAPIV30Dev1Api* | [**view_group_id_record**](docs/DevelopmentMemberAPIV30Dev1Api.md#view_group_id_record) | **GET** /v3.0_dev1/group-id-record/{putCode} | Fetch a Group
-*DevelopmentMemberAPIV30Dev1Api* | [**view_group_id_records**](docs/DevelopmentMemberAPIV30Dev1Api.md#view_group_id_records) | **GET** /v3.0_dev1/group-id-record | Fetch Groups
-*DevelopmentMemberAPIV30Dev1Api* | [**view_keyword**](docs/DevelopmentMemberAPIV30Dev1Api.md#view_keyword) | **GET** /v3.0_dev1/{orcid}/keywords/{putCode} | Fetch keyword
-*DevelopmentMemberAPIV30Dev1Api* | [**view_keywords**](docs/DevelopmentMemberAPIV30Dev1Api.md#view_keywords) | **GET** /v3.0_dev1/{orcid}/keywords | Fetch keywords
-*DevelopmentMemberAPIV30Dev1Api* | [**view_other_name**](docs/DevelopmentMemberAPIV30Dev1Api.md#view_other_name) | **GET** /v3.0_dev1/{orcid}/other-names/{putCode} | Fetch Other name
-*DevelopmentMemberAPIV30Dev1Api* | [**view_other_names**](docs/DevelopmentMemberAPIV30Dev1Api.md#view_other_names) | **GET** /v3.0_dev1/{orcid}/other-names | Fetch Other names
-*DevelopmentMemberAPIV30Dev1Api* | [**view_peer_review**](docs/DevelopmentMemberAPIV30Dev1Api.md#view_peer_review) | **GET** /v3.0_dev1/{orcid}/peer-review/{putCode} | Fetch a Peer Review
-*DevelopmentMemberAPIV30Dev1Api* | [**view_peer_review_summary**](docs/DevelopmentMemberAPIV30Dev1Api.md#view_peer_review_summary) | **GET** /v3.0_dev1/{orcid}/peer-review/summary/{putCode} | Fetch a Peer Review Summary
-*DevelopmentMemberAPIV30Dev1Api* | [**view_peer_reviews**](docs/DevelopmentMemberAPIV30Dev1Api.md#view_peer_reviews) | **GET** /v3.0_dev1/{orcid}/peer-reviews | Fetch all peer reviews
-*DevelopmentMemberAPIV30Dev1Api* | [**view_permission_notification**](docs/DevelopmentMemberAPIV30Dev1Api.md#view_permission_notification) | **GET** /v3.0_dev1/{orcid}/notification-permission/{id} | Fetch a notification by id
-*DevelopmentMemberAPIV30Dev1Api* | [**view_person**](docs/DevelopmentMemberAPIV30Dev1Api.md#view_person) | **GET** /v3.0_dev1/{orcid}/person | Fetch person details
-*DevelopmentMemberAPIV30Dev1Api* | [**view_personal_details**](docs/DevelopmentMemberAPIV30Dev1Api.md#view_personal_details) | **GET** /v3.0_dev1/{orcid}/personal-details | Fetch personal details for an ORCID ID
-*DevelopmentMemberAPIV30Dev1Api* | [**view_record**](docs/DevelopmentMemberAPIV30Dev1Api.md#view_record) | **GET** /v3.0_dev1/{orcid}{ignore} | Fetch record details
-*DevelopmentMemberAPIV30Dev1Api* | [**view_researcher_url**](docs/DevelopmentMemberAPIV30Dev1Api.md#view_researcher_url) | **GET** /v3.0_dev1/{orcid}/researcher-urls/{putCode} | Fetch one researcher url for an ORCID ID
-*DevelopmentMemberAPIV30Dev1Api* | [**view_researcher_urls**](docs/DevelopmentMemberAPIV30Dev1Api.md#view_researcher_urls) | **GET** /v3.0_dev1/{orcid}/researcher-urls | Fetch all researcher urls for an ORCID ID
-*DevelopmentMemberAPIV30Dev1Api* | [**view_specified_works**](docs/DevelopmentMemberAPIV30Dev1Api.md#view_specified_works) | **GET** /v3.0_dev1/{orcid}/works/{putCodes} | Fetch specified works
-*DevelopmentMemberAPIV30Dev1Api* | [**view_work**](docs/DevelopmentMemberAPIV30Dev1Api.md#view_work) | **GET** /v3.0_dev1/{orcid}/work/{putCode} | Fetch a Work
-*DevelopmentMemberAPIV30Dev1Api* | [**view_work_summary**](docs/DevelopmentMemberAPIV30Dev1Api.md#view_work_summary) | **GET** /v3.0_dev1/{orcid}/work/summary/{putCode} | Fetch a Work Summary
-*DevelopmentMemberAPIV30Dev1Api* | [**view_works**](docs/DevelopmentMemberAPIV30Dev1Api.md#view_works) | **GET** /v3.0_dev1/{orcid}/works | Fetch all works
-*MemberAPIV20Api* | [**add_permission_notification_json**](docs/MemberAPIV20Api.md#add_permission_notification_json) | **POST** /v2.0/{orcid}/notification-permission | Add a notification
-*MemberAPIV20Api* | [**create_address_json**](docs/MemberAPIV20Api.md#create_address_json) | **POST** /v2.0/{orcid}/address | Add an address
-*MemberAPIV20Api* | [**create_education_json**](docs/MemberAPIV20Api.md#create_education_json) | **POST** /v2.0/{orcid}/education | Create an Education
-*MemberAPIV20Api* | [**create_employment_json**](docs/MemberAPIV20Api.md#create_employment_json) | **POST** /v2.0/{orcid}/employment | Create an Employment
-*MemberAPIV20Api* | [**create_external_identifier_json**](docs/MemberAPIV20Api.md#create_external_identifier_json) | **POST** /v2.0/{orcid}/external-identifiers | Add external identifier
-*MemberAPIV20Api* | [**create_funding_json**](docs/MemberAPIV20Api.md#create_funding_json) | **POST** /v2.0/{orcid}/funding | Create a Funding
-*MemberAPIV20Api* | [**create_group_id_record_json**](docs/MemberAPIV20Api.md#create_group_id_record_json) | **POST** /v2.0/group-id-record | Create a Group
-*MemberAPIV20Api* | [**create_keyword_json**](docs/MemberAPIV20Api.md#create_keyword_json) | **POST** /v2.0/{orcid}/keywords | Add keyword
-*MemberAPIV20Api* | [**create_other_name_json**](docs/MemberAPIV20Api.md#create_other_name_json) | **POST** /v2.0/{orcid}/other-names | Add other name
-*MemberAPIV20Api* | [**create_peer_review_json**](docs/MemberAPIV20Api.md#create_peer_review_json) | **POST** /v2.0/{orcid}/peer-review | Create a Peer Review
-*MemberAPIV20Api* | [**create_researcher_url_json**](docs/MemberAPIV20Api.md#create_researcher_url_json) | **POST** /v2.0/{orcid}/researcher-urls | Add a new researcher url for an ORCID ID
-*MemberAPIV20Api* | [**create_work_json**](docs/MemberAPIV20Api.md#create_work_json) | **POST** /v2.0/{orcid}/work | Create a Work
+*MemberAPIV20Api* | [**add_permission_notification**](docs/MemberAPIV20Api.md#add_permission_notification) | **POST** /v2.0/{orcid}/notification-permission | Add a notification
+*MemberAPIV20Api* | [**create_address**](docs/MemberAPIV20Api.md#create_address) | **POST** /v2.0/{orcid}/address | Add an address
+*MemberAPIV20Api* | [**create_education**](docs/MemberAPIV20Api.md#create_education) | **POST** /v2.0/{orcid}/education | Create an Education
+*MemberAPIV20Api* | [**create_employment**](docs/MemberAPIV20Api.md#create_employment) | **POST** /v2.0/{orcid}/employment | Create an Employment
+*MemberAPIV20Api* | [**create_external_identifier**](docs/MemberAPIV20Api.md#create_external_identifier) | **POST** /v2.0/{orcid}/external-identifiers | Add external identifier
+*MemberAPIV20Api* | [**create_funding**](docs/MemberAPIV20Api.md#create_funding) | **POST** /v2.0/{orcid}/funding | Create a Funding
+*MemberAPIV20Api* | [**create_group_id_record**](docs/MemberAPIV20Api.md#create_group_id_record) | **POST** /v2.0/group-id-record | Create a Group
+*MemberAPIV20Api* | [**create_keyword**](docs/MemberAPIV20Api.md#create_keyword) | **POST** /v2.0/{orcid}/keywords | Add keyword
+*MemberAPIV20Api* | [**create_other_name**](docs/MemberAPIV20Api.md#create_other_name) | **POST** /v2.0/{orcid}/other-names | Add other name
+*MemberAPIV20Api* | [**create_peer_review**](docs/MemberAPIV20Api.md#create_peer_review) | **POST** /v2.0/{orcid}/peer-review | Create a Peer Review
+*MemberAPIV20Api* | [**create_researcher_url**](docs/MemberAPIV20Api.md#create_researcher_url) | **POST** /v2.0/{orcid}/researcher-urls | Add a new researcher url for an ORCID ID
+*MemberAPIV20Api* | [**create_work**](docs/MemberAPIV20Api.md#create_work) | **POST** /v2.0/{orcid}/work | Create a Work
 *MemberAPIV20Api* | [**create_works**](docs/MemberAPIV20Api.md#create_works) | **POST** /v2.0/{orcid}/works | Create a listo of Work
 *MemberAPIV20Api* | [**delete_address**](docs/MemberAPIV20Api.md#delete_address) | **DELETE** /v2.0/{orcid}/address/{putCode} | Delete an address
 *MemberAPIV20Api* | [**delete_education**](docs/MemberAPIV20Api.md#delete_education) | **DELETE** /v2.0/{orcid}/education/{putCode} | Delete an Education
@@ -171,18 +98,18 @@ Class | Method | HTTP request | Description
 *MemberAPIV20Api* | [**delete_researcher_url**](docs/MemberAPIV20Api.md#delete_researcher_url) | **DELETE** /v2.0/{orcid}/researcher-urls/{putCode} | Delete one researcher url from an ORCID ID
 *MemberAPIV20Api* | [**delete_work**](docs/MemberAPIV20Api.md#delete_work) | **DELETE** /v2.0/{orcid}/work/{putCode} | Delete a Work
 *MemberAPIV20Api* | [**edit_address**](docs/MemberAPIV20Api.md#edit_address) | **PUT** /v2.0/{orcid}/address/{putCode} | Edit an address
-*MemberAPIV20Api* | [**edit_external_identifier_json**](docs/MemberAPIV20Api.md#edit_external_identifier_json) | **PUT** /v2.0/{orcid}/external-identifiers/{putCode} | Edit external identifier
-*MemberAPIV20Api* | [**edit_keyword_json**](docs/MemberAPIV20Api.md#edit_keyword_json) | **PUT** /v2.0/{orcid}/keywords/{putCode} | Edit keyword
-*MemberAPIV20Api* | [**edit_other_name_json**](docs/MemberAPIV20Api.md#edit_other_name_json) | **PUT** /v2.0/{orcid}/other-names/{putCode} | Edit other name
-*MemberAPIV20Api* | [**edit_researcher_url_json**](docs/MemberAPIV20Api.md#edit_researcher_url_json) | **PUT** /v2.0/{orcid}/researcher-urls/{putCode} | Edits researcher url for an ORCID ID
+*MemberAPIV20Api* | [**edit_external_identifier**](docs/MemberAPIV20Api.md#edit_external_identifier) | **PUT** /v2.0/{orcid}/external-identifiers/{putCode} | Edit external identifier
+*MemberAPIV20Api* | [**edit_keyword**](docs/MemberAPIV20Api.md#edit_keyword) | **PUT** /v2.0/{orcid}/keywords/{putCode} | Edit keyword
+*MemberAPIV20Api* | [**edit_other_name**](docs/MemberAPIV20Api.md#edit_other_name) | **PUT** /v2.0/{orcid}/other-names/{putCode} | Edit other name
+*MemberAPIV20Api* | [**edit_researcher_url**](docs/MemberAPIV20Api.md#edit_researcher_url) | **PUT** /v2.0/{orcid}/researcher-urls/{putCode} | Edits researcher url for an ORCID ID
 *MemberAPIV20Api* | [**flag_as_archived_permission_notification**](docs/MemberAPIV20Api.md#flag_as_archived_permission_notification) | **DELETE** /v2.0/{orcid}/notification-permission/{id} | Archive a notification
 *MemberAPIV20Api* | [**search_by_query_xml**](docs/MemberAPIV20Api.md#search_by_query_xml) | **GET** /v2.0/search | Search records
-*MemberAPIV20Api* | [**update_education_json**](docs/MemberAPIV20Api.md#update_education_json) | **PUT** /v2.0/{orcid}/education/{putCode} | Update an Education
-*MemberAPIV20Api* | [**update_employment_json**](docs/MemberAPIV20Api.md#update_employment_json) | **PUT** /v2.0/{orcid}/employment/{putCode} | Update an Employment
-*MemberAPIV20Api* | [**update_funding_json**](docs/MemberAPIV20Api.md#update_funding_json) | **PUT** /v2.0/{orcid}/funding/{putCode} | Update a Funding
-*MemberAPIV20Api* | [**update_group_id_record_json**](docs/MemberAPIV20Api.md#update_group_id_record_json) | **PUT** /v2.0/group-id-record/{putCode} | Update a Group
-*MemberAPIV20Api* | [**update_peer_review_json**](docs/MemberAPIV20Api.md#update_peer_review_json) | **PUT** /v2.0/{orcid}/peer-review/{putCode} | Update a Peer Review
-*MemberAPIV20Api* | [**update_work_json**](docs/MemberAPIV20Api.md#update_work_json) | **PUT** /v2.0/{orcid}/work/{putCode} | Update a Work
+*MemberAPIV20Api* | [**update_education**](docs/MemberAPIV20Api.md#update_education) | **PUT** /v2.0/{orcid}/education/{putCode} | Update an Education
+*MemberAPIV20Api* | [**update_employment**](docs/MemberAPIV20Api.md#update_employment) | **PUT** /v2.0/{orcid}/employment/{putCode} | Update an Employment
+*MemberAPIV20Api* | [**update_funding**](docs/MemberAPIV20Api.md#update_funding) | **PUT** /v2.0/{orcid}/funding/{putCode} | Update a Funding
+*MemberAPIV20Api* | [**update_group_id_record**](docs/MemberAPIV20Api.md#update_group_id_record) | **PUT** /v2.0/group-id-record/{putCode} | Update a Group
+*MemberAPIV20Api* | [**update_peer_review**](docs/MemberAPIV20Api.md#update_peer_review) | **PUT** /v2.0/{orcid}/peer-review/{putCode} | Update a Peer Review
+*MemberAPIV20Api* | [**update_work**](docs/MemberAPIV20Api.md#update_work) | **PUT** /v2.0/{orcid}/work/{putCode} | Update a Work
 *MemberAPIV20Api* | [**view_activities**](docs/MemberAPIV20Api.md#view_activities) | **GET** /v2.0/{orcid}/activities | Fetch all activities
 *MemberAPIV20Api* | [**view_address**](docs/MemberAPIV20Api.md#view_address) | **GET** /v2.0/{orcid}/address/{putCode} | Fetch an address
 *MemberAPIV20Api* | [**view_addresses**](docs/MemberAPIV20Api.md#view_addresses) | **GET** /v2.0/{orcid}/address | Fetch all addresses of a profile
@@ -219,18 +146,18 @@ Class | Method | HTTP request | Description
 *MemberAPIV20Api* | [**view_work**](docs/MemberAPIV20Api.md#view_work) | **GET** /v2.0/{orcid}/work/{putCode} | Fetch a Work
 *MemberAPIV20Api* | [**view_work_summary**](docs/MemberAPIV20Api.md#view_work_summary) | **GET** /v2.0/{orcid}/work/summary/{putCode} | Fetch a Work Summary
 *MemberAPIV20Api* | [**view_works**](docs/MemberAPIV20Api.md#view_works) | **GET** /v2.0/{orcid}/works | Fetch all works
-*MemberAPIV21Api* | [**add_permission_notification_json**](docs/MemberAPIV21Api.md#add_permission_notification_json) | **POST** /v2.1/{orcid}/notification-permission | Add a notification
-*MemberAPIV21Api* | [**create_address_json**](docs/MemberAPIV21Api.md#create_address_json) | **POST** /v2.1/{orcid}/address | Add an address
-*MemberAPIV21Api* | [**create_education_json**](docs/MemberAPIV21Api.md#create_education_json) | **POST** /v2.1/{orcid}/education | Create an Education
-*MemberAPIV21Api* | [**create_employment_json**](docs/MemberAPIV21Api.md#create_employment_json) | **POST** /v2.1/{orcid}/employment | Create an Employment
-*MemberAPIV21Api* | [**create_external_identifier_json**](docs/MemberAPIV21Api.md#create_external_identifier_json) | **POST** /v2.1/{orcid}/external-identifiers | Add external identifier
-*MemberAPIV21Api* | [**create_funding_json**](docs/MemberAPIV21Api.md#create_funding_json) | **POST** /v2.1/{orcid}/funding | Create a Funding
-*MemberAPIV21Api* | [**create_group_id_record_json**](docs/MemberAPIV21Api.md#create_group_id_record_json) | **POST** /v2.1/group-id-record | Create a Group
-*MemberAPIV21Api* | [**create_keyword_json**](docs/MemberAPIV21Api.md#create_keyword_json) | **POST** /v2.1/{orcid}/keywords | Add keyword
-*MemberAPIV21Api* | [**create_other_name_json**](docs/MemberAPIV21Api.md#create_other_name_json) | **POST** /v2.1/{orcid}/other-names | Add other name
-*MemberAPIV21Api* | [**create_peer_review_json**](docs/MemberAPIV21Api.md#create_peer_review_json) | **POST** /v2.1/{orcid}/peer-review | Create a Peer Review
-*MemberAPIV21Api* | [**create_researcher_url_json**](docs/MemberAPIV21Api.md#create_researcher_url_json) | **POST** /v2.1/{orcid}/researcher-urls | Add a new researcher url for an ORCID ID
-*MemberAPIV21Api* | [**create_work_json**](docs/MemberAPIV21Api.md#create_work_json) | **POST** /v2.1/{orcid}/work | Create a Work
+*MemberAPIV21Api* | [**add_permission_notification**](docs/MemberAPIV21Api.md#add_permission_notification) | **POST** /v2.1/{orcid}/notification-permission | Add a notification
+*MemberAPIV21Api* | [**create_address**](docs/MemberAPIV21Api.md#create_address) | **POST** /v2.1/{orcid}/address | Add an address
+*MemberAPIV21Api* | [**create_education**](docs/MemberAPIV21Api.md#create_education) | **POST** /v2.1/{orcid}/education | Create an Education
+*MemberAPIV21Api* | [**create_employment**](docs/MemberAPIV21Api.md#create_employment) | **POST** /v2.1/{orcid}/employment | Create an Employment
+*MemberAPIV21Api* | [**create_external_identifier**](docs/MemberAPIV21Api.md#create_external_identifier) | **POST** /v2.1/{orcid}/external-identifiers | Add external identifier
+*MemberAPIV21Api* | [**create_funding**](docs/MemberAPIV21Api.md#create_funding) | **POST** /v2.1/{orcid}/funding | Create a Funding
+*MemberAPIV21Api* | [**create_group_id_record**](docs/MemberAPIV21Api.md#create_group_id_record) | **POST** /v2.1/group-id-record | Create a Group
+*MemberAPIV21Api* | [**create_keyword**](docs/MemberAPIV21Api.md#create_keyword) | **POST** /v2.1/{orcid}/keywords | Add keyword
+*MemberAPIV21Api* | [**create_other_name**](docs/MemberAPIV21Api.md#create_other_name) | **POST** /v2.1/{orcid}/other-names | Add other name
+*MemberAPIV21Api* | [**create_peer_review**](docs/MemberAPIV21Api.md#create_peer_review) | **POST** /v2.1/{orcid}/peer-review | Create a Peer Review
+*MemberAPIV21Api* | [**create_researcher_url**](docs/MemberAPIV21Api.md#create_researcher_url) | **POST** /v2.1/{orcid}/researcher-urls | Add a new researcher url for an ORCID ID
+*MemberAPIV21Api* | [**create_work**](docs/MemberAPIV21Api.md#create_work) | **POST** /v2.1/{orcid}/work | Create a Work
 *MemberAPIV21Api* | [**create_works**](docs/MemberAPIV21Api.md#create_works) | **POST** /v2.1/{orcid}/works | Create a listo of Work
 *MemberAPIV21Api* | [**delete_address**](docs/MemberAPIV21Api.md#delete_address) | **DELETE** /v2.1/{orcid}/address/{putCode} | Delete an address
 *MemberAPIV21Api* | [**delete_education**](docs/MemberAPIV21Api.md#delete_education) | **DELETE** /v2.1/{orcid}/education/{putCode} | Delete an Education
@@ -244,18 +171,18 @@ Class | Method | HTTP request | Description
 *MemberAPIV21Api* | [**delete_researcher_url**](docs/MemberAPIV21Api.md#delete_researcher_url) | **DELETE** /v2.1/{orcid}/researcher-urls/{putCode} | Delete one researcher url from an ORCID ID
 *MemberAPIV21Api* | [**delete_work**](docs/MemberAPIV21Api.md#delete_work) | **DELETE** /v2.1/{orcid}/work/{putCode} | Delete a Work
 *MemberAPIV21Api* | [**edit_address**](docs/MemberAPIV21Api.md#edit_address) | **PUT** /v2.1/{orcid}/address/{putCode} | Edit an address
-*MemberAPIV21Api* | [**edit_external_identifier_json**](docs/MemberAPIV21Api.md#edit_external_identifier_json) | **PUT** /v2.1/{orcid}/external-identifiers/{putCode} | Edit external identifier
-*MemberAPIV21Api* | [**edit_keyword_json**](docs/MemberAPIV21Api.md#edit_keyword_json) | **PUT** /v2.1/{orcid}/keywords/{putCode} | Edit keyword
-*MemberAPIV21Api* | [**edit_other_name_json**](docs/MemberAPIV21Api.md#edit_other_name_json) | **PUT** /v2.1/{orcid}/other-names/{putCode} | Edit other name
-*MemberAPIV21Api* | [**edit_researcher_url_json**](docs/MemberAPIV21Api.md#edit_researcher_url_json) | **PUT** /v2.1/{orcid}/researcher-urls/{putCode} | Edits researcher url for an ORCID ID
+*MemberAPIV21Api* | [**edit_external_identifier**](docs/MemberAPIV21Api.md#edit_external_identifier) | **PUT** /v2.1/{orcid}/external-identifiers/{putCode} | Edit external identifier
+*MemberAPIV21Api* | [**edit_keyword**](docs/MemberAPIV21Api.md#edit_keyword) | **PUT** /v2.1/{orcid}/keywords/{putCode} | Edit keyword
+*MemberAPIV21Api* | [**edit_other_name**](docs/MemberAPIV21Api.md#edit_other_name) | **PUT** /v2.1/{orcid}/other-names/{putCode} | Edit other name
+*MemberAPIV21Api* | [**edit_researcher_url**](docs/MemberAPIV21Api.md#edit_researcher_url) | **PUT** /v2.1/{orcid}/researcher-urls/{putCode} | Edits researcher url for an ORCID ID
 *MemberAPIV21Api* | [**flag_as_archived_permission_notification**](docs/MemberAPIV21Api.md#flag_as_archived_permission_notification) | **DELETE** /v2.1/{orcid}/notification-permission/{id} | Archive a notification
 *MemberAPIV21Api* | [**search_by_query_xml**](docs/MemberAPIV21Api.md#search_by_query_xml) | **GET** /v2.1/search | Search records
-*MemberAPIV21Api* | [**update_education_json**](docs/MemberAPIV21Api.md#update_education_json) | **PUT** /v2.1/{orcid}/education/{putCode} | Update an Education
-*MemberAPIV21Api* | [**update_employment_json**](docs/MemberAPIV21Api.md#update_employment_json) | **PUT** /v2.1/{orcid}/employment/{putCode} | Update an Employment
-*MemberAPIV21Api* | [**update_funding_json**](docs/MemberAPIV21Api.md#update_funding_json) | **PUT** /v2.1/{orcid}/funding/{putCode} | Update a Funding
-*MemberAPIV21Api* | [**update_group_id_record_json**](docs/MemberAPIV21Api.md#update_group_id_record_json) | **PUT** /v2.1/group-id-record/{putCode} | Update a Group
-*MemberAPIV21Api* | [**update_peer_review_json**](docs/MemberAPIV21Api.md#update_peer_review_json) | **PUT** /v2.1/{orcid}/peer-review/{putCode} | Update a Peer Review
-*MemberAPIV21Api* | [**update_work_json**](docs/MemberAPIV21Api.md#update_work_json) | **PUT** /v2.1/{orcid}/work/{putCode} | Update a Work
+*MemberAPIV21Api* | [**update_education**](docs/MemberAPIV21Api.md#update_education) | **PUT** /v2.1/{orcid}/education/{putCode} | Update an Education
+*MemberAPIV21Api* | [**update_employment**](docs/MemberAPIV21Api.md#update_employment) | **PUT** /v2.1/{orcid}/employment/{putCode} | Update an Employment
+*MemberAPIV21Api* | [**update_funding**](docs/MemberAPIV21Api.md#update_funding) | **PUT** /v2.1/{orcid}/funding/{putCode} | Update a Funding
+*MemberAPIV21Api* | [**update_group_id_record**](docs/MemberAPIV21Api.md#update_group_id_record) | **PUT** /v2.1/group-id-record/{putCode} | Update a Group
+*MemberAPIV21Api* | [**update_peer_review**](docs/MemberAPIV21Api.md#update_peer_review) | **PUT** /v2.1/{orcid}/peer-review/{putCode} | Update a Peer Review
+*MemberAPIV21Api* | [**update_work**](docs/MemberAPIV21Api.md#update_work) | **PUT** /v2.1/{orcid}/work/{putCode} | Update a Work
 *MemberAPIV21Api* | [**view_activities**](docs/MemberAPIV21Api.md#view_activities) | **GET** /v2.1/{orcid}/activities | Fetch all activities
 *MemberAPIV21Api* | [**view_address**](docs/MemberAPIV21Api.md#view_address) | **GET** /v2.1/{orcid}/address/{putCode} | Fetch an address
 *MemberAPIV21Api* | [**view_addresses**](docs/MemberAPIV21Api.md#view_addresses) | **GET** /v2.1/{orcid}/address | Fetch all addresses of a profile
@@ -354,7 +281,6 @@ Class | Method | HTTP request | Description
  - [SourceOrcid](docs/SourceOrcid.md)
  - [Subtitle](docs/Subtitle.md)
  - [Title](docs/Title.md)
- - [TransientNonEmptyString](docs/TransientNonEmptyString.md)
  - [TranslatedTitle](docs/TranslatedTitle.md)
  - [Url](docs/Url.md)
  - [Work](docs/Work.md)

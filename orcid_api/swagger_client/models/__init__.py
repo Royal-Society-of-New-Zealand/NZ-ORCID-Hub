@@ -72,7 +72,6 @@ from .source_name import SourceName
 from .source_orcid import SourceOrcid
 from .subtitle import Subtitle
 from .title import Title
-from .transient_non_empty_string import TransientNonEmptyString
 from .translated_title import TranslatedTitle
 from .url import Url
 from .work import Work

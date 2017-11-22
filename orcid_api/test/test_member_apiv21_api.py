@@ -31,97 +31,97 @@ class TestMemberAPIV21Api(unittest.TestCase):
     def tearDown(self):
         pass
 
-    def test_add_permission_notification_json(self):
+    def test_add_permission_notification(self):
         """
-        Test case for add_permission_notification_json
+        Test case for add_permission_notification
 
         Add a notification
         """
         pass
 
-    def test_create_address_json(self):
+    def test_create_address(self):
         """
-        Test case for create_address_json
+        Test case for create_address
 
         Add an address
         """
         pass
 
-    def test_create_education_json(self):
+    def test_create_education(self):
         """
-        Test case for create_education_json
+        Test case for create_education
 
         Create an Education
         """
         pass
 
-    def test_create_employment_json(self):
+    def test_create_employment(self):
         """
-        Test case for create_employment_json
+        Test case for create_employment
 
         Create an Employment
         """
         pass
 
-    def test_create_external_identifier_json(self):
+    def test_create_external_identifier(self):
         """
-        Test case for create_external_identifier_json
+        Test case for create_external_identifier
 
         Add external identifier
         """
         pass
 
-    def test_create_funding_json(self):
+    def test_create_funding(self):
         """
-        Test case for create_funding_json
+        Test case for create_funding
 
         Create a Funding
         """
         pass
 
-    def test_create_group_id_record_json(self):
+    def test_create_group_id_record(self):
         """
-        Test case for create_group_id_record_json
+        Test case for create_group_id_record
 
         Create a Group
         """
         pass
 
-    def test_create_keyword_json(self):
+    def test_create_keyword(self):
         """
-        Test case for create_keyword_json
+        Test case for create_keyword
 
         Add keyword
         """
         pass
 
-    def test_create_other_name_json(self):
+    def test_create_other_name(self):
         """
-        Test case for create_other_name_json
+        Test case for create_other_name
 
         Add other name
         """
         pass
 
-    def test_create_peer_review_json(self):
+    def test_create_peer_review(self):
         """
-        Test case for create_peer_review_json
+        Test case for create_peer_review
 
         Create a Peer Review
         """
         pass
 
-    def test_create_researcher_url_json(self):
+    def test_create_researcher_url(self):
         """
-        Test case for create_researcher_url_json
+        Test case for create_researcher_url
 
         Add a new researcher url for an ORCID ID
         """
         pass
 
-    def test_create_work_json(self):
+    def test_create_work(self):
         """
-        Test case for create_work_json
+        Test case for create_work
 
         Create a Work
         """
@@ -231,33 +231,33 @@ class TestMemberAPIV21Api(unittest.TestCase):
         """
         pass
 
-    def test_edit_external_identifier_json(self):
+    def test_edit_external_identifier(self):
         """
-        Test case for edit_external_identifier_json
+        Test case for edit_external_identifier
 
         Edit external identifier
         """
         pass
 
-    def test_edit_keyword_json(self):
+    def test_edit_keyword(self):
         """
-        Test case for edit_keyword_json
+        Test case for edit_keyword
 
         Edit keyword
         """
         pass
 
-    def test_edit_other_name_json(self):
+    def test_edit_other_name(self):
         """
-        Test case for edit_other_name_json
+        Test case for edit_other_name
 
         Edit other name
         """
         pass
 
-    def test_edit_researcher_url_json(self):
+    def test_edit_researcher_url(self):
         """
-        Test case for edit_researcher_url_json
+        Test case for edit_researcher_url
 
         Edits researcher url for an ORCID ID
         """
@@ -279,49 +279,49 @@ class TestMemberAPIV21Api(unittest.TestCase):
         """
         pass
 
-    def test_update_education_json(self):
+    def test_update_education(self):
         """
-        Test case for update_education_json
+        Test case for update_education
 
         Update an Education
         """
         pass
 
-    def test_update_employment_json(self):
+    def test_update_employment(self):
         """
-        Test case for update_employment_json
+        Test case for update_employment
 
         Update an Employment
         """
         pass
 
-    def test_update_funding_json(self):
+    def test_update_funding(self):
         """
-        Test case for update_funding_json
+        Test case for update_funding
 
         Update a Funding
         """
         pass
 
-    def test_update_group_id_record_json(self):
+    def test_update_group_id_record(self):
         """
-        Test case for update_group_id_record_json
+        Test case for update_group_id_record
 
         Update a Group
         """
         pass
 
-    def test_update_peer_review_json(self):
+    def test_update_peer_review(self):
         """
-        Test case for update_peer_review_json
+        Test case for update_peer_review
 
         Update a Peer Review
         """
         pass
 
-    def test_update_work_json(self):
+    def test_update_work(self):
         """
-        Test case for update_work_json
+        Test case for update_work
 
         Update a Work
         """

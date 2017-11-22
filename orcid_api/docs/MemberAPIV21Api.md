@@ -4,18 +4,18 @@ All URIs are relative to *https://api.orcid.org*
 
 Method | HTTP request | Description
 ------------- | ------------- | -------------
-[**add_permission_notification_json**](MemberAPIV21Api.md#add_permission_notification_json) | **POST** /v2.1/{orcid}/notification-permission | Add a notification
-[**create_address_json**](MemberAPIV21Api.md#create_address_json) | **POST** /v2.1/{orcid}/address | Add an address
-[**create_education_json**](MemberAPIV21Api.md#create_education_json) | **POST** /v2.1/{orcid}/education | Create an Education
-[**create_employment_json**](MemberAPIV21Api.md#create_employment_json) | **POST** /v2.1/{orcid}/employment | Create an Employment
-[**create_external_identifier_json**](MemberAPIV21Api.md#create_external_identifier_json) | **POST** /v2.1/{orcid}/external-identifiers | Add external identifier
-[**create_funding_json**](MemberAPIV21Api.md#create_funding_json) | **POST** /v2.1/{orcid}/funding | Create a Funding
-[**create_group_id_record_json**](MemberAPIV21Api.md#create_group_id_record_json) | **POST** /v2.1/group-id-record | Create a Group
-[**create_keyword_json**](MemberAPIV21Api.md#create_keyword_json) | **POST** /v2.1/{orcid}/keywords | Add keyword
-[**create_other_name_json**](MemberAPIV21Api.md#create_other_name_json) | **POST** /v2.1/{orcid}/other-names | Add other name
-[**create_peer_review_json**](MemberAPIV21Api.md#create_peer_review_json) | **POST** /v2.1/{orcid}/peer-review | Create a Peer Review
-[**create_researcher_url_json**](MemberAPIV21Api.md#create_researcher_url_json) | **POST** /v2.1/{orcid}/researcher-urls | Add a new researcher url for an ORCID ID
-[**create_work_json**](MemberAPIV21Api.md#create_work_json) | **POST** /v2.1/{orcid}/work | Create a Work
+[**add_permission_notification**](MemberAPIV21Api.md#add_permission_notification) | **POST** /v2.1/{orcid}/notification-permission | Add a notification
+[**create_address**](MemberAPIV21Api.md#create_address) | **POST** /v2.1/{orcid}/address | Add an address
+[**create_education**](MemberAPIV21Api.md#create_education) | **POST** /v2.1/{orcid}/education | Create an Education
+[**create_employment**](MemberAPIV21Api.md#create_employment) | **POST** /v2.1/{orcid}/employment | Create an Employment
+[**create_external_identifier**](MemberAPIV21Api.md#create_external_identifier) | **POST** /v2.1/{orcid}/external-identifiers | Add external identifier
+[**create_funding**](MemberAPIV21Api.md#create_funding) | **POST** /v2.1/{orcid}/funding | Create a Funding
+[**create_group_id_record**](MemberAPIV21Api.md#create_group_id_record) | **POST** /v2.1/group-id-record | Create a Group
+[**create_keyword**](MemberAPIV21Api.md#create_keyword) | **POST** /v2.1/{orcid}/keywords | Add keyword
+[**create_other_name**](MemberAPIV21Api.md#create_other_name) | **POST** /v2.1/{orcid}/other-names | Add other name
+[**create_peer_review**](MemberAPIV21Api.md#create_peer_review) | **POST** /v2.1/{orcid}/peer-review | Create a Peer Review
+[**create_researcher_url**](MemberAPIV21Api.md#create_researcher_url) | **POST** /v2.1/{orcid}/researcher-urls | Add a new researcher url for an ORCID ID
+[**create_work**](MemberAPIV21Api.md#create_work) | **POST** /v2.1/{orcid}/work | Create a Work
 [**create_works**](MemberAPIV21Api.md#create_works) | **POST** /v2.1/{orcid}/works | Create a listo of Work
 [**delete_address**](MemberAPIV21Api.md#delete_address) | **DELETE** /v2.1/{orcid}/address/{putCode} | Delete an address
 [**delete_education**](MemberAPIV21Api.md#delete_education) | **DELETE** /v2.1/{orcid}/education/{putCode} | Delete an Education
@@ -29,18 +29,18 @@ Method | HTTP request | Description
 [**delete_researcher_url**](MemberAPIV21Api.md#delete_researcher_url) | **DELETE** /v2.1/{orcid}/researcher-urls/{putCode} | Delete one researcher url from an ORCID ID
 [**delete_work**](MemberAPIV21Api.md#delete_work) | **DELETE** /v2.1/{orcid}/work/{putCode} | Delete a Work
 [**edit_address**](MemberAPIV21Api.md#edit_address) | **PUT** /v2.1/{orcid}/address/{putCode} | Edit an address
-[**edit_external_identifier_json**](MemberAPIV21Api.md#edit_external_identifier_json) | **PUT** /v2.1/{orcid}/external-identifiers/{putCode} | Edit external identifier
-[**edit_keyword_json**](MemberAPIV21Api.md#edit_keyword_json) | **PUT** /v2.1/{orcid}/keywords/{putCode} | Edit keyword
-[**edit_other_name_json**](MemberAPIV21Api.md#edit_other_name_json) | **PUT** /v2.1/{orcid}/other-names/{putCode} | Edit other name
-[**edit_researcher_url_json**](MemberAPIV21Api.md#edit_researcher_url_json) | **PUT** /v2.1/{orcid}/researcher-urls/{putCode} | Edits researcher url for an ORCID ID
+[**edit_external_identifier**](MemberAPIV21Api.md#edit_external_identifier) | **PUT** /v2.1/{orcid}/external-identifiers/{putCode} | Edit external identifier
+[**edit_keyword**](MemberAPIV21Api.md#edit_keyword) | **PUT** /v2.1/{orcid}/keywords/{putCode} | Edit keyword
+[**edit_other_name**](MemberAPIV21Api.md#edit_other_name) | **PUT** /v2.1/{orcid}/other-names/{putCode} | Edit other name
+[**edit_researcher_url**](MemberAPIV21Api.md#edit_researcher_url) | **PUT** /v2.1/{orcid}/researcher-urls/{putCode} | Edits researcher url for an ORCID ID
 [**flag_as_archived_permission_notification**](MemberAPIV21Api.md#flag_as_archived_permission_notification) | **DELETE** /v2.1/{orcid}/notification-permission/{id} | Archive a notification
 [**search_by_query_xml**](MemberAPIV21Api.md#search_by_query_xml) | **GET** /v2.1/search | Search records
-[**update_education_json**](MemberAPIV21Api.md#update_education_json) | **PUT** /v2.1/{orcid}/education/{putCode} | Update an Education
-[**update_employment_json**](MemberAPIV21Api.md#update_employment_json) | **PUT** /v2.1/{orcid}/employment/{putCode} | Update an Employment
-[**update_funding_json**](MemberAPIV21Api.md#update_funding_json) | **PUT** /v2.1/{orcid}/funding/{putCode} | Update a Funding
-[**update_group_id_record_json**](MemberAPIV21Api.md#update_group_id_record_json) | **PUT** /v2.1/group-id-record/{putCode} | Update a Group
-[**update_peer_review_json**](MemberAPIV21Api.md#update_peer_review_json) | **PUT** /v2.1/{orcid}/peer-review/{putCode} | Update a Peer Review
-[**update_work_json**](MemberAPIV21Api.md#update_work_json) | **PUT** /v2.1/{orcid}/work/{putCode} | Update a Work
+[**update_education**](MemberAPIV21Api.md#update_education) | **PUT** /v2.1/{orcid}/education/{putCode} | Update an Education
+[**update_employment**](MemberAPIV21Api.md#update_employment) | **PUT** /v2.1/{orcid}/employment/{putCode} | Update an Employment
+[**update_funding**](MemberAPIV21Api.md#update_funding) | **PUT** /v2.1/{orcid}/funding/{putCode} | Update a Funding
+[**update_group_id_record**](MemberAPIV21Api.md#update_group_id_record) | **PUT** /v2.1/group-id-record/{putCode} | Update a Group
+[**update_peer_review**](MemberAPIV21Api.md#update_peer_review) | **PUT** /v2.1/{orcid}/peer-review/{putCode} | Update a Peer Review
+[**update_work**](MemberAPIV21Api.md#update_work) | **PUT** /v2.1/{orcid}/work/{putCode} | Update a Work
 [**view_activities**](MemberAPIV21Api.md#view_activities) | **GET** /v2.1/{orcid}/activities | Fetch all activities
 [**view_address**](MemberAPIV21Api.md#view_address) | **GET** /v2.1/{orcid}/address/{putCode} | Fetch an address
 [**view_addresses**](MemberAPIV21Api.md#view_addresses) | **GET** /v2.1/{orcid}/address | Fetch all addresses of a profile
@@ -79,8 +79,8 @@ Method | HTTP request | Description
 [**view_works**](MemberAPIV21Api.md#view_works) | **GET** /v2.1/{orcid}/works | Fetch all works
 
 
-# **add_permission_notification_json**
-> str add_permission_notification_json(orcid, body=body)
+# **add_permission_notification**
+> str add_permission_notification(orcid, body=body)
 
 Add a notification
 
@@ -104,10 +104,10 @@ body = swagger_client.NotificationPermission() # NotificationPermission |  (opti
 
 try: 
     # Add a notification
-    api_response = api_instance.add_permission_notification_json(orcid, body=body)
+    api_response = api_instance.add_permission_notification(orcid, body=body)
     pprint(api_response)
 except ApiException as e:
-    print("Exception when calling MemberAPIV21Api->add_permission_notification_json: %s\n" % e)
+    print("Exception when calling MemberAPIV21Api->add_permission_notification: %s\n" % e)
 ```
 
 ### Parameters
@@ -127,13 +127,13 @@ Name | Type | Description  | Notes
 
 ### HTTP request headers
 
- - **Content-Type**: application/vnd.orcid+json; qs=4, application/orcid+json; qs=2, application/json
+ - **Content-Type**: application/vnd.orcid+xml; qs=5, application/orcid+xml; qs=3, application/xml, application/vnd.orcid+json; qs=4, application/orcid+json; qs=2, application/json
  - **Accept**: application/vnd.orcid+xml; qs=5, application/orcid+xml; qs=3, application/xml, application/vnd.orcid+json; qs=4, application/orcid+json; qs=2, application/json
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
-# **create_address_json**
-> create_address_json(orcid, body=body)
+# **create_address**
+> create_address(orcid, body=body)
 
 Add an address
 
@@ -157,9 +157,9 @@ body = swagger_client.Address() # Address |  (optional)
 
 try: 
     # Add an address
-    api_instance.create_address_json(orcid, body=body)
+    api_instance.create_address(orcid, body=body)
 except ApiException as e:
-    print("Exception when calling MemberAPIV21Api->create_address_json: %s\n" % e)
+    print("Exception when calling MemberAPIV21Api->create_address: %s\n" % e)
 ```
 
 ### Parameters
@@ -179,13 +179,13 @@ void (empty response body)
 
 ### HTTP request headers
 
- - **Content-Type**: application/vnd.orcid+json; qs=4, application/orcid+json; qs=2, application/json
+ - **Content-Type**: Not defined
  - **Accept**: application/vnd.orcid+xml; qs=5, application/orcid+xml; qs=3, application/xml, application/vnd.orcid+json; qs=4, application/orcid+json; qs=2, application/json
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
-# **create_education_json**
-> str create_education_json(orcid, body=body)
+# **create_education**
+> str create_education(orcid, body=body)
 
 Create an Education
 
@@ -209,10 +209,10 @@ body = swagger_client.Education() # Education |  (optional)
 
 try: 
     # Create an Education
-    api_response = api_instance.create_education_json(orcid, body=body)
+    api_response = api_instance.create_education(orcid, body=body)
     pprint(api_response)
 except ApiException as e:
-    print("Exception when calling MemberAPIV21Api->create_education_json: %s\n" % e)
+    print("Exception when calling MemberAPIV21Api->create_education: %s\n" % e)
 ```
 
 ### Parameters
@@ -232,13 +232,13 @@ Name | Type | Description  | Notes
 
 ### HTTP request headers
 
- - **Content-Type**: application/vnd.orcid+json; qs=4, application/orcid+json; qs=2, application/json
+ - **Content-Type**: application/vnd.orcid+xml; qs=5, application/orcid+xml; qs=3, application/xml, application/vnd.orcid+json; qs=4, application/orcid+json; qs=2, application/json
  - **Accept**: application/vnd.orcid+xml; qs=5, application/orcid+xml; qs=3, application/xml, application/vnd.orcid+json; qs=4, application/orcid+json; qs=2, application/json
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
-# **create_employment_json**
-> str create_employment_json(orcid, body=body)
+# **create_employment**
+> str create_employment(orcid, body=body)
 
 Create an Employment
 
@@ -262,10 +262,10 @@ body = swagger_client.Employment() # Employment |  (optional)
 
 try: 
     # Create an Employment
-    api_response = api_instance.create_employment_json(orcid, body=body)
+    api_response = api_instance.create_employment(orcid, body=body)
     pprint(api_response)
 except ApiException as e:
-    print("Exception when calling MemberAPIV21Api->create_employment_json: %s\n" % e)
+    print("Exception when calling MemberAPIV21Api->create_employment: %s\n" % e)
 ```
 
 ### Parameters
@@ -285,13 +285,13 @@ Name | Type | Description  | Notes
 
 ### HTTP request headers
 
- - **Content-Type**: application/vnd.orcid+json; qs=4, application/orcid+json; qs=2, application/json
+ - **Content-Type**: application/vnd.orcid+xml; qs=5, application/orcid+xml; qs=3, application/xml, application/vnd.orcid+json; qs=4, application/orcid+json; qs=2, application/json
  - **Accept**: application/vnd.orcid+xml; qs=5, application/orcid+xml; qs=3, application/xml, application/vnd.orcid+json; qs=4, application/orcid+json; qs=2, application/json
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
-# **create_external_identifier_json**
-> create_external_identifier_json(orcid, body=body)
+# **create_external_identifier**
+> create_external_identifier(orcid, body=body)
 
 Add external identifier
 
@@ -315,9 +315,9 @@ body = swagger_client.PersonExternalIdentifier() # PersonExternalIdentifier |  (
 
 try: 
     # Add external identifier
-    api_instance.create_external_identifier_json(orcid, body=body)
+    api_instance.create_external_identifier(orcid, body=body)
 except ApiException as e:
-    print("Exception when calling MemberAPIV21Api->create_external_identifier_json: %s\n" % e)
+    print("Exception when calling MemberAPIV21Api->create_external_identifier: %s\n" % e)
 ```
 
 ### Parameters
@@ -337,13 +337,13 @@ void (empty response body)
 
 ### HTTP request headers
 
- - **Content-Type**: application/vnd.orcid+json; qs=4, application/orcid+json; qs=2, application/json
+ - **Content-Type**: Not defined
  - **Accept**: application/vnd.orcid+xml; qs=5, application/orcid+xml; qs=3, application/xml, application/vnd.orcid+json; qs=4, application/orcid+json; qs=2, application/json
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
-# **create_funding_json**
-> str create_funding_json(orcid, body=body)
+# **create_funding**
+> str create_funding(orcid, body=body)
 
 Create a Funding
 
@@ -367,10 +367,10 @@ body = swagger_client.Funding() # Funding |  (optional)
 
 try: 
     # Create a Funding
-    api_response = api_instance.create_funding_json(orcid, body=body)
+    api_response = api_instance.create_funding(orcid, body=body)
     pprint(api_response)
 except ApiException as e:
-    print("Exception when calling MemberAPIV21Api->create_funding_json: %s\n" % e)
+    print("Exception when calling MemberAPIV21Api->create_funding: %s\n" % e)
 ```
 
 ### Parameters
@@ -390,13 +390,13 @@ Name | Type | Description  | Notes
 
 ### HTTP request headers
 
- - **Content-Type**: application/vnd.orcid+json; qs=4, application/orcid+json; qs=2, application/json
+ - **Content-Type**: application/vnd.orcid+xml; qs=5, application/orcid+xml; qs=3, application/xml, application/vnd.orcid+json; qs=4, application/orcid+json; qs=2, application/json
  - **Accept**: application/vnd.orcid+xml; qs=5, application/orcid+xml; qs=3, application/xml, application/vnd.orcid+json; qs=4, application/orcid+json; qs=2, application/json
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
-# **create_group_id_record_json**
-> create_group_id_record_json(body=body)
+# **create_group_id_record**
+> create_group_id_record(body=body)
 
 Create a Group
 
@@ -419,9 +419,9 @@ body = swagger_client.GroupIdRecord() # GroupIdRecord |  (optional)
 
 try: 
     # Create a Group
-    api_instance.create_group_id_record_json(body=body)
+    api_instance.create_group_id_record(body=body)
 except ApiException as e:
-    print("Exception when calling MemberAPIV21Api->create_group_id_record_json: %s\n" % e)
+    print("Exception when calling MemberAPIV21Api->create_group_id_record: %s\n" % e)
 ```
 
 ### Parameters
@@ -440,13 +440,13 @@ void (empty response body)
 
 ### HTTP request headers
 
- - **Content-Type**: application/vnd.orcid+json; qs=4, application/orcid+json; qs=2, application/json
+ - **Content-Type**: application/vnd.orcid+xml; qs=5, application/orcid+xml; qs=3, application/xml, application/vnd.orcid+json; qs=4, application/orcid+json; qs=2, application/json
  - **Accept**: application/vnd.orcid+xml; qs=5, application/orcid+xml; qs=3, application/xml, application/vnd.orcid+json; qs=4, application/orcid+json; qs=2, application/json
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
-# **create_keyword_json**
-> create_keyword_json(orcid, body=body)
+# **create_keyword**
+> create_keyword(orcid, body=body)
 
 Add keyword
 
@@ -470,9 +470,9 @@ body = swagger_client.Keyword() # Keyword |  (optional)
 
 try: 
     # Add keyword
-    api_instance.create_keyword_json(orcid, body=body)
+    api_instance.create_keyword(orcid, body=body)
 except ApiException as e:
-    print("Exception when calling MemberAPIV21Api->create_keyword_json: %s\n" % e)
+    print("Exception when calling MemberAPIV21Api->create_keyword: %s\n" % e)
 ```
 
 ### Parameters
@@ -492,13 +492,13 @@ void (empty response body)
 
 ### HTTP request headers
 
- - **Content-Type**: application/vnd.orcid+json; qs=4, application/orcid+json; qs=2, application/json
+ - **Content-Type**: Not defined
  - **Accept**: application/vnd.orcid+xml; qs=5, application/orcid+xml; qs=3, application/xml, application/vnd.orcid+json; qs=4, application/orcid+json; qs=2, application/json
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
-# **create_other_name_json**
-> create_other_name_json(orcid, body=body)
+# **create_other_name**
+> create_other_name(orcid, body=body)
 
 Add other name
 
@@ -522,9 +522,9 @@ body = swagger_client.OtherName() # OtherName |  (optional)
 
 try: 
     # Add other name
-    api_instance.create_other_name_json(orcid, body=body)
+    api_instance.create_other_name(orcid, body=body)
 except ApiException as e:
-    print("Exception when calling MemberAPIV21Api->create_other_name_json: %s\n" % e)
+    print("Exception when calling MemberAPIV21Api->create_other_name: %s\n" % e)
 ```
 
 ### Parameters
@@ -544,13 +544,13 @@ void (empty response body)
 
 ### HTTP request headers
 
- - **Content-Type**: application/vnd.orcid+json; qs=4, application/orcid+json; qs=2, application/json
+ - **Content-Type**: Not defined
  - **Accept**: application/vnd.orcid+xml; qs=5, application/orcid+xml; qs=3, application/xml, application/vnd.orcid+json; qs=4, application/orcid+json; qs=2, application/json
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
-# **create_peer_review_json**
-> str create_peer_review_json(orcid, body=body)
+# **create_peer_review**
+> str create_peer_review(orcid, body=body)
 
 Create a Peer Review
 
@@ -574,10 +574,10 @@ body = swagger_client.PeerReview() # PeerReview |  (optional)
 
 try: 
     # Create a Peer Review
-    api_response = api_instance.create_peer_review_json(orcid, body=body)
+    api_response = api_instance.create_peer_review(orcid, body=body)
     pprint(api_response)
 except ApiException as e:
-    print("Exception when calling MemberAPIV21Api->create_peer_review_json: %s\n" % e)
+    print("Exception when calling MemberAPIV21Api->create_peer_review: %s\n" % e)
 ```
 
 ### Parameters
@@ -597,13 +597,13 @@ Name | Type | Description  | Notes
 
 ### HTTP request headers
 
- - **Content-Type**: application/vnd.orcid+json; qs=4, application/orcid+json; qs=2, application/json
+ - **Content-Type**: application/vnd.orcid+xml; qs=5, application/orcid+xml; qs=3, application/xml, application/vnd.orcid+json; qs=4, application/orcid+json; qs=2, application/json
  - **Accept**: application/vnd.orcid+xml; qs=5, application/orcid+xml; qs=3, application/xml, application/vnd.orcid+json; qs=4, application/orcid+json; qs=2, application/json
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
-# **create_researcher_url_json**
-> create_researcher_url_json(orcid, body=body)
+# **create_researcher_url**
+> create_researcher_url(orcid, body=body)
 
 Add a new researcher url for an ORCID ID
 
@@ -627,9 +627,9 @@ body = swagger_client.ResearcherUrl() # ResearcherUrl |  (optional)
 
 try: 
     # Add a new researcher url for an ORCID ID
-    api_instance.create_researcher_url_json(orcid, body=body)
+    api_instance.create_researcher_url(orcid, body=body)
 except ApiException as e:
-    print("Exception when calling MemberAPIV21Api->create_researcher_url_json: %s\n" % e)
+    print("Exception when calling MemberAPIV21Api->create_researcher_url: %s\n" % e)
 ```
 
 ### Parameters
@@ -649,13 +649,13 @@ void (empty response body)
 
 ### HTTP request headers
 
- - **Content-Type**: application/vnd.orcid+json; qs=4, application/orcid+json; qs=2, application/json
+ - **Content-Type**: Not defined
  - **Accept**: application/vnd.orcid+xml; qs=5, application/orcid+xml; qs=3, application/xml, application/vnd.orcid+json; qs=4, application/orcid+json; qs=2, application/json
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
-# **create_work_json**
-> str create_work_json(orcid, body=body)
+# **create_work**
+> str create_work(orcid, body=body)
 
 Create a Work
 
@@ -679,10 +679,10 @@ body = swagger_client.Work() # Work |  (optional)
 
 try: 
     # Create a Work
-    api_response = api_instance.create_work_json(orcid, body=body)
+    api_response = api_instance.create_work(orcid, body=body)
     pprint(api_response)
 except ApiException as e:
-    print("Exception when calling MemberAPIV21Api->create_work_json: %s\n" % e)
+    print("Exception when calling MemberAPIV21Api->create_work: %s\n" % e)
 ```
 
 ### Parameters
@@ -702,13 +702,13 @@ Name | Type | Description  | Notes
 
 ### HTTP request headers
 
- - **Content-Type**: application/vnd.orcid+json; qs=4, application/orcid+json; qs=2, application/json
+ - **Content-Type**: application/vnd.orcid+xml; qs=5, application/orcid+xml; qs=3, application/xml, application/vnd.orcid+json; qs=4, application/orcid+json; qs=2, application/json
  - **Accept**: application/vnd.orcid+xml; qs=5, application/orcid+xml; qs=3, application/xml, application/vnd.orcid+json; qs=4, application/orcid+json; qs=2, application/json
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **create_works**
-> create_works(orcid, body=body)
+> str create_works(orcid, body=body)
 
 Create a listo of Work
 
@@ -732,7 +732,8 @@ body = swagger_client.WorkBulk() # WorkBulk |  (optional)
 
 try: 
     # Create a listo of Work
-    api_instance.create_works(orcid, body=body)
+    api_response = api_instance.create_works(orcid, body=body)
+    pprint(api_response)
 except ApiException as e:
     print("Exception when calling MemberAPIV21Api->create_works: %s\n" % e)
 ```
@@ -746,7 +747,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-void (empty response body)
+**str**
 
 ### Authorization
 
@@ -1378,13 +1379,13 @@ void (empty response body)
 
 ### HTTP request headers
 
- - **Content-Type**: application/vnd.orcid+xml; qs=5, application/orcid+xml; qs=3, application/xml
+ - **Content-Type**: Not defined
  - **Accept**: application/vnd.orcid+xml; qs=5, application/orcid+xml; qs=3, application/xml, application/vnd.orcid+json; qs=4, application/orcid+json; qs=2, application/json
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
-# **edit_external_identifier_json**
-> edit_external_identifier_json(orcid, put_code, body=body)
+# **edit_external_identifier**
+> edit_external_identifier(orcid, put_code, body=body)
 
 Edit external identifier
 
@@ -1409,9 +1410,9 @@ body = swagger_client.PersonExternalIdentifier() # PersonExternalIdentifier |  (
 
 try: 
     # Edit external identifier
-    api_instance.edit_external_identifier_json(orcid, put_code, body=body)
+    api_instance.edit_external_identifier(orcid, put_code, body=body)
 except ApiException as e:
-    print("Exception when calling MemberAPIV21Api->edit_external_identifier_json: %s\n" % e)
+    print("Exception when calling MemberAPIV21Api->edit_external_identifier: %s\n" % e)
 ```
 
 ### Parameters
@@ -1432,13 +1433,13 @@ void (empty response body)
 
 ### HTTP request headers
 
- - **Content-Type**: application/vnd.orcid+json; qs=4, application/orcid+json; qs=2, application/json
+ - **Content-Type**: Not defined
  - **Accept**: application/vnd.orcid+xml; qs=5, application/orcid+xml; qs=3, application/xml, application/vnd.orcid+json; qs=4, application/orcid+json; qs=2, application/json
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
-# **edit_keyword_json**
-> edit_keyword_json(orcid, put_code, body=body)
+# **edit_keyword**
+> edit_keyword(orcid, put_code, body=body)
 
 Edit keyword
 
@@ -1463,9 +1464,9 @@ body = swagger_client.Keyword() # Keyword |  (optional)
 
 try: 
     # Edit keyword
-    api_instance.edit_keyword_json(orcid, put_code, body=body)
+    api_instance.edit_keyword(orcid, put_code, body=body)
 except ApiException as e:
-    print("Exception when calling MemberAPIV21Api->edit_keyword_json: %s\n" % e)
+    print("Exception when calling MemberAPIV21Api->edit_keyword: %s\n" % e)
 ```
 
 ### Parameters
@@ -1486,13 +1487,13 @@ void (empty response body)
 
 ### HTTP request headers
 
- - **Content-Type**: application/vnd.orcid+json; qs=4, application/orcid+json; qs=2, application/json
+ - **Content-Type**: Not defined
  - **Accept**: application/vnd.orcid+xml; qs=5, application/orcid+xml; qs=3, application/xml, application/vnd.orcid+json; qs=4, application/orcid+json; qs=2, application/json
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
-# **edit_other_name_json**
-> edit_other_name_json(orcid, put_code, body=body)
+# **edit_other_name**
+> edit_other_name(orcid, put_code, body=body)
 
 Edit other name
 
@@ -1517,9 +1518,9 @@ body = swagger_client.OtherName() # OtherName |  (optional)
 
 try: 
     # Edit other name
-    api_instance.edit_other_name_json(orcid, put_code, body=body)
+    api_instance.edit_other_name(orcid, put_code, body=body)
 except ApiException as e:
-    print("Exception when calling MemberAPIV21Api->edit_other_name_json: %s\n" % e)
+    print("Exception when calling MemberAPIV21Api->edit_other_name: %s\n" % e)
 ```
 
 ### Parameters
@@ -1540,13 +1541,13 @@ void (empty response body)
 
 ### HTTP request headers
 
- - **Content-Type**: application/vnd.orcid+json; qs=4, application/orcid+json; qs=2, application/json
+ - **Content-Type**: Not defined
  - **Accept**: application/vnd.orcid+xml; qs=5, application/orcid+xml; qs=3, application/xml, application/vnd.orcid+json; qs=4, application/orcid+json; qs=2, application/json
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
-# **edit_researcher_url_json**
-> edit_researcher_url_json(orcid, put_code, body=body)
+# **edit_researcher_url**
+> edit_researcher_url(orcid, put_code, body=body)
 
 Edits researcher url for an ORCID ID
 
@@ -1571,9 +1572,9 @@ body = swagger_client.ResearcherUrl() # ResearcherUrl |  (optional)
 
 try: 
     # Edits researcher url for an ORCID ID
-    api_instance.edit_researcher_url_json(orcid, put_code, body=body)
+    api_instance.edit_researcher_url(orcid, put_code, body=body)
 except ApiException as e:
-    print("Exception when calling MemberAPIV21Api->edit_researcher_url_json: %s\n" % e)
+    print("Exception when calling MemberAPIV21Api->edit_researcher_url: %s\n" % e)
 ```
 
 ### Parameters
@@ -1594,7 +1595,7 @@ void (empty response body)
 
 ### HTTP request headers
 
- - **Content-Type**: application/vnd.orcid+json; qs=4, application/orcid+json; qs=2, application/json
+ - **Content-Type**: Not defined
  - **Accept**: application/vnd.orcid+xml; qs=5, application/orcid+xml; qs=3, application/xml, application/vnd.orcid+json; qs=4, application/orcid+json; qs=2, application/json
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
@@ -1702,8 +1703,8 @@ void (empty response body)
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
-# **update_education_json**
-> update_education_json(orcid, put_code, body=body)
+# **update_education**
+> update_education(orcid, put_code, body=body)
 
 Update an Education
 
@@ -1728,9 +1729,9 @@ body = swagger_client.Education() # Education |  (optional)
 
 try: 
     # Update an Education
-    api_instance.update_education_json(orcid, put_code, body=body)
+    api_instance.update_education(orcid, put_code, body=body)
 except ApiException as e:
-    print("Exception when calling MemberAPIV21Api->update_education_json: %s\n" % e)
+    print("Exception when calling MemberAPIV21Api->update_education: %s\n" % e)
 ```
 
 ### Parameters
@@ -1751,13 +1752,13 @@ void (empty response body)
 
 ### HTTP request headers
 
- - **Content-Type**: application/vnd.orcid+json; qs=4, application/orcid+json; qs=2, application/json
+ - **Content-Type**: application/vnd.orcid+xml; qs=5, application/orcid+xml; qs=3, application/xml, application/vnd.orcid+json; qs=4, application/orcid+json; qs=2, application/json
  - **Accept**: application/vnd.orcid+xml; qs=5, application/orcid+xml; qs=3, application/xml, application/vnd.orcid+json; qs=4, application/orcid+json; qs=2, application/json
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
-# **update_employment_json**
-> update_employment_json(orcid, put_code, body=body)
+# **update_employment**
+> update_employment(orcid, put_code, body=body)
 
 Update an Employment
 
@@ -1782,9 +1783,9 @@ body = swagger_client.Employment() # Employment |  (optional)
 
 try: 
     # Update an Employment
-    api_instance.update_employment_json(orcid, put_code, body=body)
+    api_instance.update_employment(orcid, put_code, body=body)
 except ApiException as e:
-    print("Exception when calling MemberAPIV21Api->update_employment_json: %s\n" % e)
+    print("Exception when calling MemberAPIV21Api->update_employment: %s\n" % e)
 ```
 
 ### Parameters
@@ -1805,13 +1806,13 @@ void (empty response body)
 
 ### HTTP request headers
 
- - **Content-Type**: application/vnd.orcid+json; qs=4, application/orcid+json; qs=2, application/json
+ - **Content-Type**: application/vnd.orcid+xml; qs=5, application/orcid+xml; qs=3, application/xml, application/vnd.orcid+json; qs=4, application/orcid+json; qs=2, application/json
  - **Accept**: application/vnd.orcid+xml; qs=5, application/orcid+xml; qs=3, application/xml, application/vnd.orcid+json; qs=4, application/orcid+json; qs=2, application/json
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
-# **update_funding_json**
-> update_funding_json(orcid, put_code, body=body)
+# **update_funding**
+> update_funding(orcid, put_code, body=body)
 
 Update a Funding
 
@@ -1836,9 +1837,9 @@ body = swagger_client.Funding() # Funding |  (optional)
 
 try: 
     # Update a Funding
-    api_instance.update_funding_json(orcid, put_code, body=body)
+    api_instance.update_funding(orcid, put_code, body=body)
 except ApiException as e:
-    print("Exception when calling MemberAPIV21Api->update_funding_json: %s\n" % e)
+    print("Exception when calling MemberAPIV21Api->update_funding: %s\n" % e)
 ```
 
 ### Parameters
@@ -1859,13 +1860,13 @@ void (empty response body)
 
 ### HTTP request headers
 
- - **Content-Type**: application/vnd.orcid+json; qs=4, application/orcid+json; qs=2, application/json
+ - **Content-Type**: application/vnd.orcid+xml; qs=5, application/orcid+xml; qs=3, application/xml, application/vnd.orcid+json; qs=4, application/orcid+json; qs=2, application/json
  - **Accept**: application/vnd.orcid+xml; qs=5, application/orcid+xml; qs=3, application/xml, application/vnd.orcid+json; qs=4, application/orcid+json; qs=2, application/json
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
-# **update_group_id_record_json**
-> update_group_id_record_json(put_code, body=body)
+# **update_group_id_record**
+> update_group_id_record(put_code, body=body)
 
 Update a Group
 
@@ -1889,9 +1890,9 @@ body = swagger_client.GroupIdRecord() # GroupIdRecord |  (optional)
 
 try: 
     # Update a Group
-    api_instance.update_group_id_record_json(put_code, body=body)
+    api_instance.update_group_id_record(put_code, body=body)
 except ApiException as e:
-    print("Exception when calling MemberAPIV21Api->update_group_id_record_json: %s\n" % e)
+    print("Exception when calling MemberAPIV21Api->update_group_id_record: %s\n" % e)
 ```
 
 ### Parameters
@@ -1911,13 +1912,13 @@ void (empty response body)
 
 ### HTTP request headers
 
- - **Content-Type**: application/vnd.orcid+json; qs=4, application/orcid+json; qs=2, application/json
+ - **Content-Type**: application/vnd.orcid+xml; qs=5, application/orcid+xml; qs=3, application/xml, application/vnd.orcid+json; qs=4, application/orcid+json; qs=2, application/json
  - **Accept**: application/vnd.orcid+xml; qs=5, application/orcid+xml; qs=3, application/xml, application/vnd.orcid+json; qs=4, application/orcid+json; qs=2, application/json
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
-# **update_peer_review_json**
-> update_peer_review_json(orcid, put_code, body=body)
+# **update_peer_review**
+> update_peer_review(orcid, put_code, body=body)
 
 Update a Peer Review
 
@@ -1942,9 +1943,9 @@ body = swagger_client.PeerReview() # PeerReview |  (optional)
 
 try: 
     # Update a Peer Review
-    api_instance.update_peer_review_json(orcid, put_code, body=body)
+    api_instance.update_peer_review(orcid, put_code, body=body)
 except ApiException as e:
-    print("Exception when calling MemberAPIV21Api->update_peer_review_json: %s\n" % e)
+    print("Exception when calling MemberAPIV21Api->update_peer_review: %s\n" % e)
 ```
 
 ### Parameters
@@ -1965,13 +1966,13 @@ void (empty response body)
 
 ### HTTP request headers
 
- - **Content-Type**: application/vnd.orcid+json; qs=4, application/orcid+json; qs=2, application/json
+ - **Content-Type**: application/vnd.orcid+xml; qs=5, application/orcid+xml; qs=3, application/xml, application/vnd.orcid+json; qs=4, application/orcid+json; qs=2, application/json
  - **Accept**: application/vnd.orcid+xml; qs=5, application/orcid+xml; qs=3, application/xml, application/vnd.orcid+json; qs=4, application/orcid+json; qs=2, application/json
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
-# **update_work_json**
-> update_work_json(orcid, put_code, body=body)
+# **update_work**
+> update_work(orcid, put_code, body=body)
 
 Update a Work
 
@@ -1996,9 +1997,9 @@ body = swagger_client.Work() # Work |  (optional)
 
 try: 
     # Update a Work
-    api_instance.update_work_json(orcid, put_code, body=body)
+    api_instance.update_work(orcid, put_code, body=body)
 except ApiException as e:
-    print("Exception when calling MemberAPIV21Api->update_work_json: %s\n" % e)
+    print("Exception when calling MemberAPIV21Api->update_work: %s\n" % e)
 ```
 
 ### Parameters
@@ -2019,7 +2020,7 @@ void (empty response body)
 
 ### HTTP request headers
 
- - **Content-Type**: application/vnd.orcid+json; qs=4, application/orcid+json; qs=2, application/json
+ - **Content-Type**: application/vnd.orcid+xml; qs=5, application/orcid+xml; qs=3, application/xml, application/vnd.orcid+json; qs=4, application/orcid+json; qs=2, application/json
  - **Accept**: application/vnd.orcid+xml; qs=5, application/orcid+xml; qs=3, application/xml, application/vnd.orcid+json; qs=4, application/orcid+json; qs=2, application/json
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)

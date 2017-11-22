@@ -10,11 +10,9 @@ Name | Type | Description | Notes
 **path** | **str** |  | [optional] 
 **department_name** | **str** |  | [optional] 
 **role_title** | **str** |  | [optional] 
-**start_date** | [**FuzzyDate**](FuzzyDate.md) |  | 
+**start_date** | [**FuzzyDate**](FuzzyDate.md) |  | [optional] 
 **end_date** | [**FuzzyDate**](FuzzyDate.md) |  | [optional] 
 **organization** | [**Organization**](Organization.md) |  | 
-**url** | [**Url**](Url.md) |  | [optional] 
-**external_ids** | [**ExternalIDs**](ExternalIDs.md) |  | [optional] 
 **visibility** | **str** |  | [optional] 
 
 [[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)

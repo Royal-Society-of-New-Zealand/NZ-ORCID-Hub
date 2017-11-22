@@ -10,7 +10,6 @@ Name | Type | Description | Notes
 **title** | [**WorkTitle**](WorkTitle.md) |  | [optional] 
 **external_ids** | [**ExternalIDs**](ExternalIDs.md) |  | [optional] 
 **type** | **str** |  | [optional] 
-**journal_title** | [**Title**](Title.md) |  | [optional] 
 **publication_date** | [**PublicationDate**](PublicationDate.md) |  | [optional] 
 **visibility** | **str** |  | [optional] 
 **path** | **str** |  | [optional] 

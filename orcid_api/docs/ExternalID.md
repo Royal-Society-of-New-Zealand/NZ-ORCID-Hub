@@ -5,7 +5,6 @@ Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **external_id_type** | **str** |  | 
 **external_id_value** | **str** |  | 
-**external_id_normalized** | [**TransientNonEmptyString**](TransientNonEmptyString.md) |  | [optional] 
 **external_id_url** | [**Url**](Url.md) |  | [optional] 
 **external_id_relationship** | **str** |  | [optional] 
 

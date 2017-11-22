@@ -593,8 +593,8 @@ class ApiClient(object):
         :return: datetime.
         """
         try:
-            from dateutil.parser import parse
-            return parse(string)
+            from datetime import datetime
+            return datetime.fromtimestamp(float(string)/1000)
         except ImportError:
             return string
         except ValueError:
