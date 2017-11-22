@@ -9,14 +9,14 @@ ADD http://download.opensuse.org/repositories/security://shibboleth/CentOS_7/sec
 COPY conf/app.wsgi /var/www/html/
 # prefix "ZZ" added, that it gest inluded the very end (after Shibboleth gets loaded)
 COPY conf/app.conf /etc/httpd/conf.d/ZZ-app.conf
-COPY requirements.txt /requirements.txt
+COPY requirements.txt /
+COPY orcid_api /orcid_api
 COPY run-app /usr/local/bin/
 COPY ./conf /conf
 
 RUN yum -y update \ 
     && yum -y install https://centos7.iuscommunity.org/ius-release.rpm \
     && yum -y install \
-        java \
     	shibboleth.x86_64 \
     	httpd \
 	mod_ssl \
@@ -26,8 +26,7 @@ RUN yum -y update \
 	python36u-devel.x86_64 \
 	python36u-pip \
     && pip3.6 install mod_wsgi psycopg2 \
-    && pip3.6 install -r /requirements.txt \
-    && rm -f /requirements.txt \
+    && pip3.6 install -U -r /requirements.txt \
     && /usr/bin/mod_wsgi-express module-config >/etc/httpd/conf.modules.d/10-wsgi.conf \
     && [ -d /var/run/lock ] || mkdir -p /var/run/lock \
     && [ -d /var/lock/subsys/ ] || mkdir -p /var/lock/subsys/ \
@@ -48,7 +47,6 @@ RUN yum -y update \
 	glibc-devel \
 	glibc-headers \
 	httpd-devel \
-	java-1.8.0-openjdk-headless \
 	javapackages-tools \
 	kernel-headers \
 	libdb-devel \
@@ -76,9 +74,10 @@ RUN yum -y update \
 	python-javapackages \
 	python-lxml \
 	ttmkfdir \
-	tzdata-java \
 	xorg-x11-fonts-Type1 \
 	xorg-x11-font-utils \
+	java-1.8.0-openjdk-headless \
+	tzdata-java \
     && chmod +x /usr/local/bin/run-app \
     && cd /var/lib/rpm \
     && rm -rf __db* \
@@ -87,7 +86,7 @@ RUN yum -y update \
     && rm -rf /var/cache/yum \
     && rm -rf $HOME/.pip/cache \
     && rm -rf /var/cache/*/* /anaconda-post.log \
-    && rm -f /requirements.txt \
+    && rm -rf /requirements.txt /orcid_api \
     && rm -rf /swagger_client.egg-info /orcid
 
 
