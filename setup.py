@@ -20,12 +20,12 @@ And run it:
 
     $ virtualevn -p python3.6 venv
     $ . venv/bin/activate
-    $ pip install -e .
+    $ pip install -e .  # OR (with development packages): pip install -e .[dev]
     $ export FLASK_APP=orcid_hub
     $ orcidhub initdb
     $ orcidhub cradmin EMAIL
-    $ orcidhub run
-    * Running on http://localhost:5000/
+    $ orcidhub run -p PORT
+    * Running on http://localhost:PORT/
 
 Ready for production? `Read this first <http://docs.orcidhub.org.nz/deploying/>`.
 
@@ -44,12 +44,12 @@ setup(
     version="2.0.0",
     url="https://github.com/Royal-Society-of-New-Zealand/NZ-ORCID-Hub",
     long_description=__doc__ or open('README.md').read(),
-    # packages=[
-    #     "orcid_hub",
-    # ],
     packages=find_packages(),
     include_package_data=True,
     zip_safe=False,
+    dependency_links=[
+        "./orcid_api",  # pre-geneated and patched 'swagger_client' from form ./orcid_api
+    ],
     install_requires=[
         "requests",
         "requests_oauthlib",
@@ -73,6 +73,48 @@ setup(
         "Flask-OAuthlib",
         "flask-swagger",
     ],
+    extras_require={
+        "test": [
+            "pyyaml",
+            "coverage>=4.4.1",
+            "coveralls>=1.2.0",
+            "fake-factory>=9999.9.9",
+            "flake8>=3.4.1",
+            "flake8-docstrings>=1.1.0",
+            "flake8-polyfill>=1.0.1",
+            "mccabe>=0.6.1",
+            "pep8-naming>=0.4.1",
+            "pycodestyle>=2.3.1",
+            "pydocs>=0.2",
+            "pyflakes>=1.5.0",
+            "pytest>=3.2.1",
+            "pytest-cov>=2.5.1",
+            "testpath>=0.3.1",
+        ],
+        "dev": [
+            "pyyaml",
+            "coverage>=4.4.1",
+            "coveralls>=1.2.0",
+            "fake-factory>=9999.9.9",
+            "flake8>=3.4.1",
+            "flake8-docstrings>=1.1.0",
+            "flake8-polyfill>=1.0.1",
+            "flask-debugtoolbar>=0.10.1",
+            "isort>=4.2.15",
+            "mccabe>=0.6.1",
+            "pep8-naming>=0.4.1",
+            "pycodestyle>=2.3.1",
+            "pydocs>=0.2",
+            "pydocstyle>=2.0.0",
+            "pyflakes>=1.5.0",
+            "Pygments>=2.2.0",
+            "pytest>=3.2.1",
+            "pytest-cov>=2.5.1",
+            "six>=1.10.0",
+            "testpath>=0.3.1",
+            "yapf>=0.17.0",
+        ],
+    },
     license="MIT",
     classifiers=[
         "Development Status :: 1 - Release",
@@ -80,8 +122,9 @@ setup(
         "License :: OSI Approved :: MIT License",
         "Programming Language :: Ptyhon :: 3.6",
     ],
-    entry_points='''
-        [console_scripts]
-        orcidhub=orcid_hub.cli:main
-    '''
+    entry_points={
+        "console_scripts": [
+            "orcidhub=orcid_hub.cli:main"
+        ]
+    }
 )
