@@ -1,7 +1,7 @@
 version: '2.1'
 services:
   db:
-    image: postgres:9.6.3
+    image: postgres:9.6
     environment:
       - POSTGRES_PASSWORD
       - PGPASSWORD
@@ -33,6 +33,7 @@ services:
       - SECRET_KEY
       - ORCID_CLIENT_ID
       - ORCID_CLIENT_SECRET
+      - SENTRY_DSN
     domainname: orcidhub.org.nz
     hostname: app
     ports:

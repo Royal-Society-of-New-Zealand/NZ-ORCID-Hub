@@ -1,0 +1,52 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="jumbotron">
+    <p>Kia ora <strong>{{current_user.name}}</strong>
+        from <strong>{{current_user.organisation.name}}</strong>.
+    </p>
+    {% if error=='access_denied' %}
+        <h4>The NZ ORCID Hub would like to help you verify your employment/education in your ORCID record</h4>
+        <div class="jumbotron">
+            <p>I would like {{current_user.organisation.name}} to connect to my ORCID record to write an employment/education affiliation entry; click here to return to ORCID to: <a id="connect-orcid-button_write_permission_error" class="btn btn-default" href="{{orcid_url_write | safe}}" role="button"><img id="orcid-id-logo_write_permission_error" src="https://orcid.org/sites/default/files/images/orcid_24x24.png"
+                         width='24' height='24' alt="ORCID logo"/>&nbsp;grant&nbsp;read-limited&nbsp;&amp;&nbsp;write&nbsp;permission</a></p><hr>
+            <p>I would like {{current_user.organisation.name}} to be able to read my trusted-party information in my ORCID record but not to write to it; click here to return to ORCID to:: <a id="connect-orcid-button_read_permission" class="btn btn-default" href="{{orcid_url_read_limited | safe}}" role="button"><img id="orcid-id-logo_read_limited" src="https://orcid.org/sites/default/files/images/orcid_24x24.png"
+                         width='24' height='24' alt="ORCID logo"/>&nbsp;grant&nbsp;read-limited&nbsp;permission</a></p><hr>
+            <p>I would like {{current_user.organisation.name}} to know my ORCID iD and only read public information in my ORCID record; click here to return to ORCID to: <a id="connect-orcid-button_authenticate" class="btn btn-default" href="{{orcid_url_authenticate | safe}}" role="button"><img id="orcid-id-logo_authenticate" src="https://orcid.org/sites/default/files/images/orcid_24x24.png"
+                         width='24' height='24' alt="ORCID logo"/>&nbsp;authenticate&nbsp;my&nbsp;ORCID id</a></p><hr>
+            <p>I don't want {{current_user.organisation.name}} to know my ORCID iD; click here to: <a id="logout-orcidhub-button" class="btn btn-default" href="{{url_for('logout')}}" role="button"><img id="orcidhub-id-logout" src="{{url_for('static', filename='images/logo.png')}}"
+                         width='24' height='24' alt="ORCIDHub logo"/>&nbsp;log&nbsp;out&nbsp;of&nbsp;the&nbsp;NZ&nbsp;ORCID&nbsp;Hub</a></p>
+        </div>
+    {% else %}
+        {% if not session['Should_not_logout_from_ORCID'] %}
+            <p>
+                <a id="connect-orcid-button_write_permission" class="btn btn-default" role="button" onclick="logoutOrcid()">
+                    <img id="orcid-id-logo_write_permission" src="https://orcid.org/sites/default/files/images/orcid_24x24.png"
+                         width='24' height='24' alt="ORCID logo"/>&nbsp;Take me to ORCID to allow {{current_user.organisation.name}} permission to access my ORCID record</a>
+            </p>
+        {% else %}
+            <p>
+                <a id="connect-orcid-button_write_permission_no_logout" class="btn btn-default" role="button" href="{{orcid_url_write | safe}}">
+                    <img id="orcid-id-logo_write_permission__no_logout" src="https://orcid.org/sites/default/files/images/orcid_24x24.png"
+                         width='24' height='24' alt="ORCID logo"/>&nbsp;Take me to ORCID to allow {{current_user.organisation.name}} permission to access my ORCID record</a>
+            </p>
+        {% endif %}
+        <p>By clicking this button, you'll be taken to ORCID to create or sign into your ORCID record.
+        From there, if you authorise your organisation you'll be returned to the Hub with your organisation
+        knowing your ORCID iD and able to read your public and trusted party information.
+        In return, any staff/student affiliation shown by your Hub login will be written to your ORCID record.</p>
+    {% endif %}
+    <script>
+    function logoutOrcid() {
+        $.ajax({
+            url: "{{orcid_base_url}}" + "userStatus.json?logUserOut=true",
+            dataType: 'jsonp',
+            success: function(result,status,xhr) {
+                window.location="{{orcid_url_write | safe}}"
+            },
+            error: function (xhr, status, error) {
+                alert(status);
+            }
+        });}
+    </script>
+</div>
+{% endblock %}

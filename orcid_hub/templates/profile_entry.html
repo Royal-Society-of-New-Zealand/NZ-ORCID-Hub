@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% from "macros.html" import render_field %}
+
+{% block content %}
+  <form method="POST">
+    <div class="row">
+      <div class="col-md-9 col-sm-8 col-xs-12">
+        <h1>{{tile or ("Education" if section_type == "EDU" else "Employment")}}</h1>
+      </div>
+    </div>
+    <div class="row">
+      <div class="col-md-6 col-sm-6 col-xs-12">
+        {{ form.hidden_tag() }}
+        {{ render_field(form.org_name) }}
+        {{ render_field(form.city) }}
+        {{ render_field(form.state) }}
+        {{ render_field(form.country) }}
+      </div>
+      <div class="col-md-6 col-sm-6 col-xs-12">
+        {{ render_field(form.department) }}
+        {{ render_field(form.role) }}
+        {{ render_field(form.start_date) }}
+        {{ render_field(form.end_date) }}
+        <button type="submit" class="btn btn-primary" value="Save">Save</button>
+        <a role="button" class="btn btn-default" href="{{_url}}">Cancel</a>
+      </div>
+    </div>
+  </form>
+{% endblock %}

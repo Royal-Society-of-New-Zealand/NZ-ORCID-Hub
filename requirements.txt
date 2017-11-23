@@ -3,14 +3,24 @@ requests
 requests_oauthlib
 psycopg2
 peewee
-flask-login
-Flask-WTF
-flask_mail  # TODO: remove at some stage
-emails
-flask-admin
+peewee-validates
 python-slugify
-flask-script
+emails
 wtf-peewee
 pycountry
 html2text
 tablib
+pyyaml
+pykwalify
+Flask
+flask-admin
+flask-login
+Flask-WTF
+flask_mail  # TODO: remove at some stage
+flask-peewee
+Flask-OAuthlib
+flask-swagger
+raven
+raven[flask]
+./orcid_api
+

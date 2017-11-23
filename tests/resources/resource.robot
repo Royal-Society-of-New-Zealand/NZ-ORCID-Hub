@@ -8,10 +8,18 @@ Library           SeleniumLibrary
 
 *** Variables ***
 ${SERVER}               dev.orcidhub.org.nz
+<<<<<<< HEAD:tests/resources/resource.robot
 ${BROWSER}              phantomjs
 ${DELAY}                0.1
 ${LOGIN URL}            https://${SERVER}/Tuakiri/login
 ${ONBOARD URL}          https://${SERVER}/invite/organisation
+=======
+${BROWSER}              Chrome
+${DELAY}                0.1
+${LOGIN URL}            https://${SERVER}/Tuakiri/login
+${ONBOARD URL}          https://${SERVER}/invite/organisation
+${ORG ADMIN URL}        https://${SERVER}/admin/organisation/
+>>>>>>> 9deba0db520f12a7cd6bcfe8725bfd25e29fd994:tests/resources/resource.robot
 
 *** Keywords ***
 Open Browser To Login Page

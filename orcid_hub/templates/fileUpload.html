@@ -1,0 +1,60 @@
+{% extends "layout.html" %}
+{% from "macros.html" import render_field %}
+
+{% block content %}
+  <div class="row">
+    <div class="col-md-12 col-sm-12 col-xs-12">
+        <form method="POST" enctype="multipart/form-data">
+            <h1>{{ form_title }} Info Upload</h1>
+              {{ form.hidden_tag() }}
+              {{ render_field(form.file_) }}
+              <span class="pull-right" style="padding-bottom: 40px;">
+                <button type="submit" class="btn btn-primary" value="Save">Upload</button>
+              </span>
+        </form>
+      </div>
+    </div>
+    {% if request.endpoint == "load_researcher_affiliations" %}
+    <div class="row">
+      <div class="col-md-12 col-sm-12 col-xs-12">
+      <p>Please format your affiliation data as a comma-separated or tab-separated text file.</br>
+      The first row of the file must contain only headers matching any of the following allowed field names:</p>
+      <ul>
+        <li>Required:</li>
+        <ul>
+          <li>Affiliation type: i.e., a value to indicate whether to write the affiliation to education or employment e.g., "staff" or "student"</li>
+          <li>Email: the institutional email for the individual, and where the invitation will be sent if they're not known by the Hub</li>
+          <li>First name: if the user does not have an ORCID iD, this field together with 'Last name' and email, will be used to pre-fill ORCID registration</li>
+          <li>Last name</li>
+        </ul>
+        <li>Optional:</li>
+        <ul>
+          <li>Identifier: this can be any identifier used in your internal systems and is to allow you to match the resulting put-code from ORCID to simplify making future updates to the item</li>
+          <li>ORCID iD: once it has been authenticated, an ORCID iD can be used instead of an email address; however, without an email address any invitation required cannot be sent</li>
+          <li>Organisation: if different to your home campus. NB you may only write affiliations for organisations that are related to the member, e.g., historic names and subsidiaries</li>
+          <li>Department</li>
+          <li>City: if different to your home campus's city otherwise that will be used</li>
+          <li>Region</li>
+          <li>Course or Title: for an education item, the course of study or degree name; for an employment item, the role or job title</li>
+          <li>Start date: Affiliation start date in ISO 8601 format, to the known/desired level of precision</li>
+          <li>End date: Affiliation end date in ISO 8601 format, leave blank or omit field for ongoing affiliations</li>
+          <li>Country: ISO 3166-1 alpha-2 and if different to your home campus's country code otherwise that will be used, i.e. NZ.</li>
+          <li>Disambiguation ID: if different to your home campus's ID, the identifier for the Organisation that is given by the accompanying Disambiguation Source</li>
+          <li>Disambiguation Source: typically RINGGOLD or Fundref, and required if a Disambiguation ID is provided</li>
+        </ul>
+        <li>To update existing ORCID items</li>
+        <ul>
+          <li>Put-Code: this is a code ORCID uses to identify the item and is returned to you in the Hub's affiliation report. <br />
+          With a put-code the Hub attempts to overwrite an item; while without one, a new item is created with a new put-code</li>
+        </ul>
+      </ul>
+      <p>
+      Note: each record in the the affiliation file must contain either an email address or, <strong>if</strong> an individual has already gone through the Hub, an ORCID iD.
+      Dates are preferred in ISO 8601 format, i.e., <strong>YYYY-MM-DD</strong> with partial dates accepted, e.g, "2017", "2017-12", and "2017-12-15" are all valid; however,
+      the Hub will try to interpret any dates provided.<br />
+      Where a field header or value is not provided, the value from your organisation will be used if it's available, e.g., Organisation, City, Country, Disambiguation ID,
+      and Disambiguation Source can be omitted where redundant.</p>
+      </div>
+    </div>
+  {% endif %}
+{% endblock %}
