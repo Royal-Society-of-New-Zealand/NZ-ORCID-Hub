@@ -6,7 +6,7 @@ services:
   - docker
 
 env:
-  - ENV=dev PGPORT=54321 USER_UID=$(id -u) USER_GID=$(id -g) DOMAIN=build.orcidhub.org.nz
+  - ENV=dev PGPORT=54321 USER_UID=$(id -u) USER_GID=$(id -g) DOMAIN=build.orcidhub.org.nz PROD_BRANCH=V2
 
 before_install:
   - sudo rm /usr/local/bin/docker-compose
@@ -41,7 +41,9 @@ after_success:
   - chmod 400 .travis/deploy.key
   - ssh-add .travis/deploy.key
   - git remote add deploy ssh://ec2-user@dev.orcidhub.org.nz/~/repo.git
-  - git push --all deploy
+  - git remote add test ssh://ec2-user@test.orcidhub.org.nz/~/repo.git
+  - git push deploy HAED:$TRAVIS_BRANCH
+  - test "$TRAVIS_BRANCH" == "$PROD_BRANCH" -a "$TRAVIS_EVENT_TYPE" == "push" && git push test HAED:$TRAVIS_BRANCH  # Deploy the prod.branc to UAT env
   - rm -f .travis/deploy.key
 
 notifications:
