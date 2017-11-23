@@ -1,5 +1,11 @@
 .*
 *.db
+*.json
+__pycache__
+SAML
+*.csv
+*.md
+tuakiri-mock
 tags
 tags.tmp
 backup*
@@ -11,4 +17,9 @@ htmlcov
 archive
 tests
 swagger.json
-
+CNAME
+instance
+docs
+gen-keys
+migrations
+*egg*
