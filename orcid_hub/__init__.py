@@ -15,8 +15,9 @@ __version__ = '2.1-dev'
 
 import logging
 import os
-import click
+import sys
 
+import click
 import flask_login
 from flask import Flask, request
 from flask_debugtoolbar import DebugToolbarExtension
@@ -41,8 +42,10 @@ class ReconnectablePostgresqlDatabase(RetryOperationalError, PostgresqlDatabase)
     pass
 
 
-app = Flask(__name__)
+app = Flask(__name__, instance_relative_config=True)
 app.config.from_object(__name__)
+if not app.config.from_pyfile("settings.cfg", silent=True):
+    print("*** WARNING: Faile to laod local application configuration from 'instance/settins.cfg'")
 app.url_map.strict_slashes = False
 oauth = OAuth2Provider(app)
 
@@ -139,7 +142,7 @@ def setup_logging():
 
 @app.cli.command()
 @click.option("-d", "--drop", is_flag=True, help="Drop tables before creating...")
-@click.option("-f", "--force", is_flag=True, help="Enforce table craeation.")
+@click.option("-f", "--force", is_flag=True, help="Enforce table creation.")
 @click.option("-A", "--audit", is_flag=True, help="Create adit trail tables.")
 @click.option(
     "-V",
@@ -148,14 +151,14 @@ def setup_logging():
     help="Shows SQL statements that get sent to the server or DB.")
 def initdb(create=False, drop=False, force=False, audit=True, verbose=False):
     """Initialize the database."""
-    if drop and force:
-        models.drop_tables()
-
     if verbose:
         logger = logging.getLogger("peewee")
         if logger:
             logger.setLevel(logging.DEBUG)
             logger.addHandler(logging.StreamHandler())
+
+    if drop and force:
+        models.drop_tables()
 
     try:
         models.create_tables()
@@ -166,18 +169,48 @@ def initdb(create=False, drop=False, force=False, audit=True, verbose=False):
         app.logger.info("Creating audit tables...")
         models.create_audit_tables()
 
-    super_user, created = models.User.get_or_create(
-        email="root@mailinator.com", roles=models.Role.SUPERUSER)
 
-    if not created:
-        return
+@app.cli.command("cradmin")
+@click.option("-f", "--force", is_flag=True, help="Enforce creation of the super-user.")
+@click.option("-V", "--verbose", is_flag=True, help="Shows SQL statements.")
+@click.option("-N", "--name", help="User full name.")
+@click.option("-O", "--org-name", help="Organisation name.")
+@click.option("-I", "--internal-org-name", help="Internal organisation name (e.g., used by IdPs).")
+@click.argument("email", nargs=1)
+def create_hub_administrator(email=False,
+                             name=None,
+                             force=False,
+                             verbose=False,
+                             org_name=None,
+                             internal_org_name=None):
+    """Create a hub administrator, an organisation and link the user to the Organisation."""
+    if verbose:
+        logger = logging.getLogger("peewee")
+        if logger:
+            logger.setLevel(logging.DEBUG)
+            logger.addHandler(logging.StreamHandler())
+    if not models.User.table_exists() or not models.Organisation.table_exists():
+        app.logger.error(
+            "Database tables doensn't exist. Please, firts initialize the datatabase.")
+        sys.exit(1)
 
-    super_user.name = "The University of Auckland"
+    super_user, created = models.User.get_or_create(email=email)
+
+    super_user.name = name or org_name or internal_org_name
     super_user.confirmed = True
-    super_user.save()
+    super_user.is_superuser = True
 
-    org, _ = models.Organisation.get_or_create(
-        name="The University of Auckland", tuakiri_name="University of Auckland", confirmed=True)
+    if org_name:
+        org, _ = models.Organisation.get_or_create(name=org_name)
+        if internal_org_name:
+            org.tuakiri_name = internal_org_name
+        org.confirmed = True
+        org.save()
+        models.UserOrg.get_or_create(user=super_user, org=org)
+
+        super_user.organisation = org
+
+    super_user.save()
 
 
 @app.cli.group()
