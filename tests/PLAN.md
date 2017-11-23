@@ -20,6 +20,12 @@
  - Re-sending an invitation (generating a new token);
  - Attempt to re-use the invitation token;
 
+# Organisation (not connected to TUAKIRI) administrator invitation (_Hub Admin_)
+ - Sending invitation to a user not yet registered;
+ - Sending invitation to an exiting user;
+ - Re-sending an invitation (generating a new token);
+ - Attempt to re-use the invitation token;
+
 # User/Researcher affiliation (_Any User_)
 
 # User profile update (adding new entries, deletion and update of records) (_Org.Admin_)
