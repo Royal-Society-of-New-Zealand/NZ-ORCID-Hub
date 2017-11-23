@@ -5,7 +5,7 @@ Swagger generated client 'monkey-patch' for logging API requests.
 isort:skip_file
 """
 
-from config import ORCID_API_BASE, SCOPE_READ_LIMITED, SCOPE_ACTIVITIES_UPDATE, ORCID_BASE_URL
+from .config import ORCID_API_BASE, SCOPE_READ_LIMITED, SCOPE_ACTIVITIES_UPDATE, ORCID_BASE_URL
 from flask_login import current_user
 from .models import (OrcidApiCall, Affiliation, OrcidToken, FundingContributor as FundingCont, User
                      as UserModel, ExternalId as ExternalIdModel)

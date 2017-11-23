@@ -28,7 +28,7 @@ from pycountry import countries
 from pykwalify.core import Core
 from pykwalify.errors import SchemaError
 
-from config import DEFAULT_COUNTRY, ENV
+from .config import DEFAULT_COUNTRY, ENV
 
 from . import app, db
 

@@ -40,11 +40,15 @@ Links
 from setuptools import find_packages, setup
 
 setup(
-    name="ORCID Hub",
-    version="2.0.0",
+    name="ORCID-Hub",
+    version="3.0.1",
+    keywords=["orcid", "hub", "research", ],
+    author="Jason Gush, Radomirs Cirskis, Roshan Pawar",
+    author_email="jagu04@gmail.com, nad2000@gmail.com, roshan.pawar@auckland.ac.nz",
     url="https://github.com/Royal-Society-of-New-Zealand/NZ-ORCID-Hub",
-    long_description=__doc__ or open('README.md').read(),
-    packages=find_packages(),
+    long_description=__doc__ or open('docs/README.md').read(),
+    packages=["orcid_hub", "swagger_client", ],
+    # packages=find_packages(),
     include_package_data=True,
     zip_safe=False,
     dependency_links=[
@@ -55,6 +59,7 @@ setup(
         "requests_oauthlib",
         "psycopg2",
         "peewee",
+        "peewee-validates",
         "flask-login",
         "Flask-WTF",
         "emails",
@@ -72,6 +77,7 @@ setup(
         "flask-peewee",
         "Flask-OAuthlib",
         "flask-swagger",
+        "flask-mail",
     ],
     extras_require={
         "test": [
@@ -117,10 +123,10 @@ setup(
     },
     license="MIT",
     classifiers=[
-        "Development Status :: 1 - Release",
+        "Development Status :: 3 - Alpha",
         "Intended Audience :: Developers",
         "License :: OSI Approved :: MIT License",
-        "Programming Language :: Ptyhon :: 3.6",
+        "Programming Language :: Python :: 3.6",
     ],
     entry_points={
         "console_scripts": [

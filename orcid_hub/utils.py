@@ -19,7 +19,7 @@ from html2text import html2text
 from itsdangerous import URLSafeTimedSerializer
 from peewee import JOIN
 
-from config import ENV, EXTERNAL_SP
+from .config import ENV, EXTERNAL_SP
 
 from . import app, orcid_client
 from .models import (AFFILIATION_TYPES, Affiliation, AffiliationRecord, FundingContributor,

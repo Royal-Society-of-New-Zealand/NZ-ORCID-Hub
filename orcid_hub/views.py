@@ -15,7 +15,7 @@ from playhouse.shortcuts import model_to_dict
 from werkzeug import secure_filename
 from wtforms.fields import BooleanField
 
-from config import ORCID_BASE_URL, SCOPE_ACTIVITIES_UPDATE, SCOPE_READ_LIMITED
+from .config import ORCID_BASE_URL, SCOPE_ACTIVITIES_UPDATE, SCOPE_READ_LIMITED
 from flask_admin.actions import action
 from flask_admin.contrib.peewee import ModelView
 from flask_admin.form import SecureForm
