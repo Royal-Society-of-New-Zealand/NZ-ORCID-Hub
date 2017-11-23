@@ -1,0 +1,31 @@
+{% extends "layout.html" %}
+{% block content %}
+  <div class="container">
+    <div class="jumbotron">
+      <h1>Webservice currently unavailable <small>Error: <br />{{error_message}}</small></h1>
+      <p class="lead">An unexpected condition was encountered.<br />
+      Our service team has been dispatched to bring it back online.</p>
+    </div>
+    {% if config.ENV != "prod" and trace %}
+      <div class="container">
+        <h1>Details</h1>
+        <pre>{{trace}}</pre>
+      </div>
+    {% endif %}
+    {% if event_id %}
+      <script src="https://cdn.ravenjs.com/2.3.0/raven.min.js"></script>
+      <script>
+      Raven.showReportDialog({
+        eventId: '{{ event_id }}',
+        dsn: '{{ public_dsn }}'
+        {% if current_user.is_authenticated %},
+          user: {
+              name: '{{ current_user.name }}',
+              email: '{{ current_user.email }}'
+          }
+        {% endif %}
+      });
+      </script>
+    {% endif %}
+  </div>
+{% endblock %}

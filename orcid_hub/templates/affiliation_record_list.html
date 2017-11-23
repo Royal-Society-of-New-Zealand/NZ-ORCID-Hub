@@ -1,0 +1,59 @@
+{% extends 'admin/model/list.html' %}
+{% block body %}
+  {% if data %}
+    {% set task = data[0].task %}
+    <h1>{{task.filename}}</h1>
+    <table class="table table-hover table-bordered searchable">
+      <tbody>
+        <tr>
+          <td>
+            <b>Task Filename</b>
+          </td>
+          <td>
+            {{task.filename}}
+          </td>
+        </tr>
+        <tr>
+          <td>
+            <b>Organisation</b>
+          </td>
+          <td>
+            {{task.org.name}}
+          </td>
+        </tr>
+        <tr>
+          <td>
+            <b>Completed At</b>
+          </td>
+          <td>
+            {% if task.completed_at %}
+              {{task.completed_at|isodate}}
+            {% else %}
+              &nbsp;
+            {% endif %}
+          </td>
+        </tr>
+        <tr>
+          <td>
+            <b>Submitted At</b>
+          </td>
+          <td>
+            {{task.created_at|isodate}}
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  {% endif %}
+  <span class="pull-right">
+    <form class="icon" method="POST"
+                       action="{{url_for('activate_all')}}">
+      <input id="task_id" name="task_id" type="hidden" value="{{task.id}}">
+      <button onclick="return safeConfirm('Are you sure you want to activate every record in this batch for processing?\n\nBy clicking &quot;OK&quot;'+
+              ' you are affirming that the affiliations to be written are, to the \nbest of your knowledge, correct!');"
+              data-toggle="tooltip" data-placement="bottom"
+              title="Activate all records for batch processing..." class="btn btn-info">Activate all
+      </button>
+    </form>
+  </span>
+  {{ super() }}
+{% endblock %}

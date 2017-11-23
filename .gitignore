@@ -113,3 +113,4 @@ tests/output.xml
 tests/report.html
 tests/selenium-*
 tests/resources/config.py
+instance/settings.cfg

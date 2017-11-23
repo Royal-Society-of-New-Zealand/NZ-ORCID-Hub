@@ -1,0 +1,42 @@
+{% extends 'admin/model/edit.html' %}
+{% block body %}
+    {% if model %}
+    <table class="table table-hover table-bordered searchable">
+      <tbody>
+        <tr>
+          <td>
+            <strong>Invited At</strong>
+          </td>
+          <td>
+            {{model.invitation_sent_at|isodate}}
+          </td>
+        </tr>
+        <tr>
+          <td>
+            <strong>Email Confirmed</strong>
+          </td>
+          <td>
+            {{model.invitation_confirmed_at|isodate}}
+          </td>
+        </tr>
+        <tr>
+          <td>
+            <strong>API Request Button Clicked</strong>
+          </td>
+          <td>
+            {{model.api_credentials_requested_at|isodate}}
+          </td>
+        </tr>
+        <tr>
+          <td>
+            <strong>API Credentials entered successfully</strong>
+          </td>
+          <td>
+            {{model.api_credentials_entered_at|isodate}}
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  {% endif %}
+  {{ super() }}
+{% endblock %}
