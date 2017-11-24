@@ -132,8 +132,8 @@ def test_link_orcid_auth_callback(name, request_ctx):
     refresh_token="ABC1235"))
 def test_link_orcid_auth_callback_with_affiliation(name, request_ctx):
     """Test ORCID callback - the user authorized the organisation access to the ORCID profile."""
-    with patch("orcid_client.MemberAPI") as m, patch("orcid_client.SourceClientId"), request_ctx(
-            "/auth?state=xyz") as ctx:
+    with patch("orcid_hub.orcid_client.MemberAPI") as m, patch(
+            "orcid_hub.orcid_client.SourceClientId"), request_ctx("/auth?state=xyz") as ctx:
         org = Organisation.create(
             name="THE ORGANISATION",
             confirmed=True,
