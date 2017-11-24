@@ -940,7 +940,7 @@ class Task(BaseModel, AuditMixin):
                     country_alpha_2 = [(c.alpha_2) for c in countries]
                     uploaded_country = val(row, 11)
 
-                    if uploaded_country not in country_alpha_2:
+                    if uploaded_country and uploaded_country not in country_alpha_2:
                         raise ModelException(
                             f" (Country must be 2 character from ISO 3166-1 alpha-2) in the row #{row_no+2}: {row}"
                         )
