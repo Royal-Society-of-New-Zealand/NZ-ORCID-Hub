@@ -1,0 +1,11 @@
+SERVER = 'dev.orcidhub.org.nz'
+# BROWSER = 'phantomjs'
+# DELAY = 0.1
+# LOGIN URL = 'https://' + SERVER + '/Tuakiri/login'
+# ONBOARD URL = 'https://' + SERVER  + '/invite/organisation'
+BROWSER = 'Chrome'
+DELAY = 0.1
+LOGIN_URL = 'https://${SERVER}/Tuakiri/login'
+
+TEST_USERNAME = 'root'
+TEST_PASSWORD = 'NOT_FOR_YOU'
