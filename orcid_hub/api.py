@@ -256,6 +256,103 @@ app.add_url_rule(
     ])
 
 
+# class AffiliationTaskAPI(MethodView):
+#     """Affiliation task service."""
+
+#     decorators = [
+#         oauth.require_oauth(),
+#     ]
+
+#     def get(self, identifier=None):
+#         """
+#         Manage affiliation batch process tasks.
+
+#         ---
+#         tags:
+#           - "affiliation"
+#         summary: "Manage affiliation batch process tasks."
+#         description: ""
+#         produces:
+#           - "application/json"
+#         parameters:
+#           - name: "task-id"
+#             in: "path"
+#             description: "Batch task ID."
+#             required: true
+#             type: "string"
+#         responses:
+#           200:
+#             description: "successful operation"
+#             schema:
+#               id: AffiliationTaskResult
+#               properties:
+#                 found:
+#                   type: "boolean"
+#                 token:
+#                   type: "object"
+#                   properties:
+#                     access_token:
+#                       type: "string"
+#                       description: "ORCID API user profile access token"
+#                     refresh_token:
+#                       type: "string"
+#                       description: "ORCID API user profile refresh token"
+#                     scopes:
+#                       type: "string"
+#                       description: "ORCID API user token scopes"
+#                     issue_time:
+#                       type: "string"
+#                     expires_in:
+#                       type: "integer"
+#           400:
+#             description: "Invalid identifier supplied"
+#           403:
+#             description: "Access Denied"
+#           404:
+#             description: "User not found"
+#         """
+#         if identifier is None:
+#             return jsonify({"error": "Need at least one parameter: email or ORCID ID."}), 400
+
+#         identifier = identifier.strip()
+#         if EMAIL_REGEX.match(identifier):
+#             user = User.select().where((User.email == identifier) | (
+#                 User.eppn == identifier)).first()
+#         elif ORCID_ID_REGEX.match(identifier):
+#             try:
+#                 models.validate_orcid_id(identifier)
+#             except Exception as ex:
+#                 return jsonify({"error": f"Incorrect identifier value '{identifier}': {ex}"}), 400
+#             user = User.select().where(User.orcid == identifier).first()
+#         else:
+#             return jsonify({"error": f"Incorrect identifier value: {identifier}."}), 400
+#         if user is None:
+#             return jsonify({
+#                 "error": f"User with specified identifier '{identifier}' not found."
+#             }), 404
+
+#         org = request.oauth.client.org
+#         if not UserOrg.select().where(UserOrg.org == org, UserOrg.user == user).exists():
+#             return jsonify({"error": "Access Denied"}), 403
+
+#         try:
+#             token = OrcidToken.get(user=user, org=org)
+#         except OrcidToken.DoesNotExist:
+#             return jsonify({
+#                 "error":
+#                 f"Token for the users {user} ({identifier}) affiliated with {org} not found."
+#             }), 404
+
+#         return jsonify({
+#             "found": True,
+#             "token": {
+#                 "access_token": token.access_token,
+#                 "refresh_token": token.refresh_token,
+#                 "issue_time": token.issue_time.isoformat(),
+#                 "expires_in": token.expires_in
+#             }
+#         }), 200
+
 def get_spec(app):
     """Build API swagger scecifiction."""
     swag = swagger(app)

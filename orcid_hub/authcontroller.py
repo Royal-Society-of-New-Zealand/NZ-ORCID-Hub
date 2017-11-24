@@ -30,7 +30,7 @@ from werkzeug.urls import iri_to_uri
 
 # TODO: need to read form app.config[...]
 from config import (APP_DESCRIPTION, APP_NAME, APP_URL, AUTHORIZATION_BASE_URL, CRED_TYPE_PREMIUM,
-                    ENV, EXTERNAL_SP, MEMBER_API_FORM_BASE_URL, NOTE_ORCID, ORCID_API_BASE,
+                    ENV, MEMBER_API_FORM_BASE_URL, NOTE_ORCID, ORCID_API_BASE,
                     ORCID_BASE_URL, ORCID_CLIENT_ID, ORCID_CLIENT_SECRET, SCOPE_ACTIVITIES_UPDATE,
                     SCOPE_AUTHENTICATE, SCOPE_READ_LIMITED, TOKEN_URL)
 
@@ -42,6 +42,7 @@ from .models import (Affiliation, OrcidAuthorizeCall, OrcidToken, Organisation, 
 from .utils import append_qs, confirm_token
 
 HEADERS = {'Accept': 'application/vnd.orcid+json', 'Content-type': 'application/vnd.orcid+json'}
+EXTERNAL_SP = app.config.get("EXTERNAL_SP")
 
 
 @app.context_processor
