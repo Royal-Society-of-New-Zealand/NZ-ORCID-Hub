@@ -430,7 +430,6 @@ class MemberAPI(MemberAPIV20Api):
                 api_call = self.update_employment if put_code else self.create_employment
             else:
                 api_call = self.update_education if put_code else self.create_education
-
             params = dict(orcid=self.user.orcid, body=rec, _preload_content=False)
             if put_code:
                 params["put_code"] = put_code
@@ -451,8 +450,12 @@ class MemberAPI(MemberAPIV20Api):
             elif resp.status == 200:
                 orcid = self.user.orcid
 
-        except Exception:
+        except ApiException as apiex:
+            app.logger.exception(f"For {self.user} encountered exception: {apiex}")
+            raise apiex
+        except Exception as ex:
             app.logger.exception(f"For {self.user} encountered exception")
+            raise ex
         else:
             return (put_code, orcid, created)
 

@@ -32,7 +32,7 @@ from config import DEFAULT_COUNTRY, ENV
 
 from . import app, db
 
-EMAIL_REGEX = re.compile(r"^[_a-z0-9-]+([._a-z0-9-]+)*@[a-z0-9-]+(\.[a-z0-9-]+)*(\.[a-z]{2,4})$")
+EMAIL_REGEX = re.compile(r"^[_a-z0-9-]+(\.[_a-z0-9-]+)*@[a-z0-9-]+(\.[a-z0-9-]+)*(\.[a-z]{2,4})$")
 ORCID_ID_REGEX = re.compile(r"^\d{4}-?\d{4}-?\d{4}-?\d{4}$")
 
 AFFILIATION_TYPES = (
@@ -936,6 +936,15 @@ class Task(BaseModel, AuditMixin):
                     email = val(row, 2, "").lower()
                     orcid = val(row, 15)
 
+                    # The uploaded country must be from ISO 3166-1 alpha-2
+                    country_alpha_2 = [(c.alpha_2) for c in countries]
+                    uploaded_country = val(row, 11)
+
+                    if uploaded_country and uploaded_country not in country_alpha_2:
+                        raise ModelException(
+                            f" (Country must be 2 character from ISO 3166-1 alpha-2) in the row #{row_no+2}: {row}"
+                        )
+
                     if not (email or orcid):
                         raise ModelException(
                             f"Missing user identifier (email address or ORCID iD) in the row #{row_no+2}: {row}"
@@ -1053,7 +1062,7 @@ class AffiliationRecord(BaseModel):
     end_date = PartialDateField(null=True)
     city = CharField(null=True, max_length=200)
     state = CharField(null=True, verbose_name="State/Region", max_length=100)
-    country = CharField(null=True, verbose_name="Country", max_length=3)
+    country = CharField(null=True, verbose_name="Country", max_length=2)
     disambiguated_id = CharField(
         null=True, max_length=20, verbose_name="Disambiguated Organization Identifier")
     disambiguated_source = CharField(
