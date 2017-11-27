@@ -32,7 +32,7 @@ from config import DEFAULT_COUNTRY, ENV
 
 from . import app, db
 
-EMAIL_REGEX = re.compile(r"^[_a-z0-9-]+([._a-z0-9-]+)*@[a-z0-9-]+(\.[a-z0-9-]+)*(\.[a-z]{2,4})$")
+EMAIL_REGEX = re.compile(r"^[_a-z0-9-]+(\.[_a-z0-9-]+)*@[a-z0-9-]+(\.[a-z0-9-]+)*(\.[a-z]{2,4})$")
 ORCID_ID_REGEX = re.compile(r"^\d{4}-?\d{4}-?\d{4}-?\d{4}$")
 
 AFFILIATION_TYPES = (
