@@ -9,20 +9,19 @@ from datetime import datetime
 
 from flask import (abort, flash, jsonify, redirect, render_template, request, send_from_directory,
                    url_for)
-from flask_login import current_user, login_required
-from jinja2 import Markup
-from playhouse.shortcuts import model_to_dict
-from werkzeug import secure_filename
-from wtforms.fields import BooleanField
-
-from .config import ORCID_BASE_URL, SCOPE_ACTIVITIES_UPDATE, SCOPE_READ_LIMITED
 from flask_admin.actions import action
 from flask_admin.contrib.peewee import ModelView
 from flask_admin.form import SecureForm
 from flask_admin.model import typefmt
+from flask_login import current_user, login_required
+from jinja2 import Markup
+from playhouse.shortcuts import model_to_dict
 from swagger_client.rest import ApiException
+from werkzeug import secure_filename
+from wtforms.fields import BooleanField
 
 from . import admin, app, models, orcid_client, utils
+from .config import ORCID_BASE_URL, SCOPE_ACTIVITIES_UPDATE, SCOPE_READ_LIMITED
 from .forms import (ApplicationFrom, BitmapMultipleValueField, CredentialForm, FileUploadForm,
                     JsonOrYamlFileUploadForm, OrgRegistrationForm, PartialDateField, RecordForm,
                     UserInvitationForm)
@@ -549,8 +548,8 @@ class FundingRecordAdmin(AppModelView):
         """Batch reset of users."""
         try:
             count = self.model.update(processed_at=None).where(
-                self.model.is_active,
-                self.model.processed_at.is_null(False), self.model.id.in_(ids)).execute()
+                self.model.is_active, self.model.processed_at.is_null(False),
+                self.model.id.in_(ids)).execute()
             FundingContributor.update(processed_at=None).where(
                 FundingContributor.funding_record.in_(ids)
                 and FundingContributor.processed_at.is_null(False)).execute()
@@ -664,8 +663,8 @@ class AffiliationRecordAdmin(AppModelView):
         """Batch reset of users."""
         try:
             count = self.model.update(processed_at=None).where(
-                self.model.is_active,
-                self.model.processed_at.is_null(False), self.model.id.in_(ids)).execute()
+                self.model.is_active, self.model.processed_at.is_null(False),
+                self.model.id.in_(ids)).execute()
         except Exception as ex:
             flash(f"Failed to activate the selected records: {ex}")
             app.logger.exception("Failed to activate the selected records")
