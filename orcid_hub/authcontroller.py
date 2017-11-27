@@ -25,7 +25,7 @@ from flask_login import current_user, login_required, login_user, logout_user
 from flask_mail import Message
 from oauthlib.oauth2 import rfc6749
 from requests_oauthlib import OAuth2Session
-from swagger_client.rest import ApiException
+from orcid_api.rest import ApiException
 from werkzeug.urls import iri_to_uri
 
 from . import app, db, mail, orcid_client, sentry

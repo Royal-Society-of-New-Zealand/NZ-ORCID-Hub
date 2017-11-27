@@ -118,8 +118,8 @@ class UserAPI(MethodView):
 
         identifier = identifier.strip()
         if EMAIL_REGEX.match(identifier):
-            user = User.select().where((User.email == identifier) | (
-                User.eppn == identifier)).first()
+            user = User.select().where((User.email == identifier)
+                                       | (User.eppn == identifier)).first()
         elif ORCID_ID_REGEX.match(identifier):
             try:
                 models.validate_orcid_id(identifier)
@@ -212,8 +212,8 @@ class TokenAPI(MethodView):
 
         identifier = identifier.strip()
         if EMAIL_REGEX.match(identifier):
-            user = User.select().where((User.email == identifier) | (
-                User.eppn == identifier)).first()
+            user = User.select().where((User.email == identifier)
+                                       | (User.eppn == identifier)).first()
         elif ORCID_ID_REGEX.match(identifier):
             try:
                 models.validate_orcid_id(identifier)

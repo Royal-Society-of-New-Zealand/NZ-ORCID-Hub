@@ -16,7 +16,7 @@ from flask_admin.model import typefmt
 from flask_login import current_user, login_required
 from jinja2 import Markup
 from playhouse.shortcuts import model_to_dict
-from swagger_client.rest import ApiException
+from orcid_api.rest import ApiException
 from werkzeug import secure_filename
 from wtforms.fields import BooleanField
 

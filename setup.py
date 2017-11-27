@@ -37,23 +37,26 @@ Links
 * `about the project <https://orcidhub.org.nz/about/>`_
 * `documentation <http://docs.orcidhub.org.nz/>`_
 """
+
 from setuptools import find_packages, setup
+VERSION = "3.0.4"
 
 setup(
     name="ORCID-Hub",
-    version="3.0.1",
+    version=VERSION,
     keywords=["orcid", "hub", "research", ],
     author="Jason Gush, Radomirs Cirskis, Roshan Pawar",
     author_email="jagu04@gmail.com, nad2000@gmail.com, roshan.pawar@auckland.ac.nz",
     url="https://github.com/Royal-Society-of-New-Zealand/NZ-ORCID-Hub",
     long_description=__doc__ or open('docs/README.md').read(),
-    packages=["orcid_hub", "swagger_client", ],
-    # packages=find_packages(),
-    include_package_data=True,
+    # packages=["orcid_hub", ],
+    packages=find_packages(),
     zip_safe=False,
-    dependency_links=[
-        "./orcid_api",  # pre-geneated and patched 'swagger_client' from form ./orcid_api
-    ],
+    package_data={'': ["'orcid_swagger.yaml"]},
+    include_package_data=True,
+    # dependency_links=[
+    #     "./orcid_api",  # pre-geneated and patched 'swagger_client' from form ./orcid_api
+    # ],
     install_requires=[
         "requests",
         "requests_oauthlib",
@@ -62,8 +65,7 @@ setup(
         "peewee-validates",
         "flask-login",
         "Flask-WTF",
-        "emails",
-        "flask-admin",
+        "emails", "flask-admin",
         "python-slugify",
         "flask-script",
         "wtf-peewee",
@@ -78,25 +80,9 @@ setup(
         "Flask-OAuthlib",
         "flask-swagger",
         "flask-mail",
+        # "swagger_client",
     ],
     extras_require={
-        "test": [
-            "pyyaml",
-            "coverage>=4.4.1",
-            "coveralls>=1.2.0",
-            "fake-factory>=9999.9.9",
-            "flake8>=3.4.1",
-            "flake8-docstrings>=1.1.0",
-            "flake8-polyfill>=1.0.1",
-            "mccabe>=0.6.1",
-            "pep8-naming>=0.4.1",
-            "pycodestyle>=2.3.1",
-            "pydocs>=0.2",
-            "pyflakes>=1.5.0",
-            "pytest>=3.2.1",
-            "pytest-cov>=2.5.1",
-            "testpath>=0.3.1",
-        ],
         "dev": [
             "pyyaml",
             "coverage>=4.4.1",
@@ -119,6 +105,23 @@ setup(
             "six>=1.10.0",
             "testpath>=0.3.1",
             "yapf>=0.17.0",
+        ],
+        "test": [
+            "pyyaml",
+            "coverage>=4.4.1",
+            "coveralls>=1.2.0",
+            "fake-factory>=9999.9.9",
+            "flake8>=3.4.1",
+            "flake8-docstrings>=1.1.0",
+            "flake8-polyfill>=1.0.1",
+            "mccabe>=0.6.1",
+            "pep8-naming>=0.4.1",
+            "pycodestyle>=2.3.1",
+            "pydocs>=0.2",
+            "pyflakes>=1.5.0",
+            "pytest>=3.2.1",
+            "pytest-cov>=2.5.1",
+            "testpath>=0.3.1",
         ],
     },
     license="MIT",
