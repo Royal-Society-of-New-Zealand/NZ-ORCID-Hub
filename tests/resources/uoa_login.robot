@@ -16,7 +16,7 @@ Open Browser To UOA Login Page
     Select Identity Provider    ${UOA_IDP}
 
 University of Auckland Login Page
-    Title Should Be    The University of Auckland Login Servic
+    Title Should Be    The University of Auckland Login Service
 
 University of Auckland Information Release
     ${title}    Get Title
