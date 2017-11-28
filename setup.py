@@ -85,7 +85,9 @@ setup(
     ],
     extras_require={
         "dev": [
-            "Sphinx",
+            "sphinx",
+            "sphinx-autobuild",
+            "recommonmark",
             "pyyaml",
             "coverage>=4.4.1",
             "coveralls>=1.2.0",
