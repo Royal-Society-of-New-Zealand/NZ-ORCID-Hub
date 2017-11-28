@@ -24,7 +24,7 @@ install:
 
 script:
   - wait_pg_up() { until docker-compose exec db psql -U postgres -l; do echo "Waiting for postgres to start..."; sleep 1; done }
-  - docker-compose exec app flake8 flake8 --exclude=venv,orcid_api,migrations,SAML .
+  - docker-compose exec app flake8 --exclude=venv,orcid_api,migrations,SAML,docs .
   - docker-compose exec app env DATABASE_URL="sqlite:///:memory:" EXTERNAL_SP='' pytest --ignore=venv --ignore=orcid_api -s -v --cov-config .coveragerc  --cov .
   - docker-compose exec app find -name '__pycache__' -exec rm -rf {} \; || true
   - grep -m1 -q 'PostgreSQL init process complete; ready for start up.' <(docker-compose logs -f db); wait_pg_up
