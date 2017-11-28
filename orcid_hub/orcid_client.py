@@ -9,9 +9,9 @@ from .config import ORCID_API_BASE, SCOPE_READ_LIMITED, SCOPE_ACTIVITIES_UPDATE,
 from flask_login import current_user
 from .models import (OrcidApiCall, Affiliation, OrcidToken, FundingContributor as FundingCont, User
                      as UserModel, ExternalId as ExternalIdModel)
-from orcid_api import (configuration, rest, api_client, MemberAPIV20Api, SourceClientId,
-                            Source, OrganizationAddress, DisambiguatedOrganization, Employment,
-                            Education, Organization)
+from orcid_api import (configuration, rest, api_client, MemberAPIV20Api, SourceClientId, Source,
+                       OrganizationAddress, DisambiguatedOrganization, Employment, Education,
+                       Organization)
 from orcid_api.rest import ApiException
 from time import time
 from urllib.parse import urlparse
