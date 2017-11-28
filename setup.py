@@ -39,7 +39,7 @@ Links
 """
 
 from setuptools import find_packages, setup
-VERSION = "3.0.5"
+from orcid_hub import __version__ as VERSION
 
 setup(
     name="ORCID-Hub",
