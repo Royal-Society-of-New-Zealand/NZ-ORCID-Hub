@@ -590,6 +590,13 @@ class AffiliationRecordAdmin(AppModelView):
 
     form_widget_args = {"external_id": {"readonly": True}}
 
+    def render(self, template, **kwargs):
+        """Pass the task to the render function as an added argument."""
+        if "task" not in kwargs:
+            kwargs["task"] = Task.get(id=request.args.get("task_id"))
+
+        return super().render(template, **kwargs)
+
     def is_accessible(self):
         """Verify if the task view is accessible for the current user."""
         if not super().is_accessible():
