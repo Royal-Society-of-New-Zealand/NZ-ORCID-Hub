@@ -50,7 +50,8 @@ setup(
     url="https://github.com/Royal-Society-of-New-Zealand/NZ-ORCID-Hub",
     long_description=__doc__ or open('docs/README.md').read(),
     # packages=["orcid_hub", ],
-    packages=find_packages(),
+    packages=["orcid_hub", "orcid_api", ],
+    # packages=find_packages(),
     zip_safe=False,
     package_data={'': ["'orcid_swagger.yaml"]},
     include_package_data=True,
@@ -84,6 +85,7 @@ setup(
     ],
     extras_require={
         "dev": [
+            "Sphinx",
             "pyyaml",
             "coverage>=4.4.1",
             "coveralls>=1.2.0",
