@@ -1,8 +1,8 @@
 from os import environ
 
 SERVER = 'dev.orcidhub.org.nz'
-BROWSER = 'Chrome'
-# BROWSER = 'phantomjs'
+# BROWSER = 'Chrome'
+BROWSER = 'phantomjs'
 DELAY = 0.1
 LOGIN_URL = 'https://' + SERVER + '/Tuakiri/login'
 ONBOARD_URL = 'https://' + SERVER + '/invite/organisation'
