@@ -8,14 +8,10 @@ Suite Teardown    Close Browser
 Test Setup        University of Auckland Login Page
 Resource          resources/resource.robot
 Resource          resources/uoa_login.robot
-Variables         resources/config.py
-
-*** Variables ***
-${UOA USERNAME}     ${TEST_USERNAME}
-${UOA PASSWORD}     ${TEST_PASSWORD}
-
+Resource          resources/organisation.robot
+Variables         resources/variables.py
 
 *** Test Cases ***
 Valid Login
-    Login UoA       ${UOA USERNAME}     ${UOA_PASSWORD}
+    Login UoA       ${TEST_USERNAME}     ${TEST_PASSWORD}
     Onboard Organisation Should Be Open

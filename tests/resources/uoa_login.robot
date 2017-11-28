@@ -1,25 +1,22 @@
 *** Settings ***
-Documentation     A resource file for University of Auckland Login.
-Library           SeleniumLibrary
-
-*** Variables ***
-${UOA IDP}              http://iam.test.auckland.ac.nz/idp
-${UOA FORM NAME}        _eventId_proceed
+Documentation     University of Auckland Login Resource File.
+Library           SeleniumLibrary   run_on_failure=Nothing
+Variables         variables.py
 
 *** Keywords ***
 Login UoA
     [Arguments]    ${username}      ${password}
     Input Username                  ${username}
     Input Password                  ${password}
-    Submit Credentials              ${UOA FORM NAME}
+    Submit Credentials              ${UOA_FORM_NAME}
     University of Auckland Information Release
 
 Open Browser To UOA Login Page
     Open Browser To Login Page
-    Select Identity Provider    ${UOA IDP}
+    Select Identity Provider    ${UOA_IDP}
 
 University of Auckland Login Page
-    Title Should Be    The University of Auckland Login Service
+    Title Should Be    The University of Auckland Login Servic
 
 University of Auckland Information Release
     ${title}    Get Title

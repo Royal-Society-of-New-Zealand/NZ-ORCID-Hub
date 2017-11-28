@@ -6,19 +6,14 @@ Test Setup        University of Auckland Login Page
 Test Template     Login With Invalid Credentials Should Fail
 Resource          resources/resource.robot
 Resource          resources/uoa_login.robot
-Variables         resources/config.py
-
-
-*** Variables ***
-${UOA USERNAME}     ${TEST_USERNAME}
-${UOA PASSWORD}     ${TEST_PASSWORD}
+Variables         resources/variables.py
 
 *** Test Cases ***
-Invalid Username                 invalid          ${UOA PASSWORD}
-Invalid Password                 ${UOA USERNAME}  invalid
+Invalid Username                 invalid          ${TEST_PASSWORD}
+Invalid Password                 ${TEST_USERNAME}  invalid
 Invalid Username And Password    invalid          whatever
-Empty Username                   ${EMPTY}         ${UOA PASSWORD}
-Empty Password                   ${UOA USERNAME}  ${EMPTY}
+Empty Username                   ${EMPTY}         ${TEST_PASSWORD}
+Empty Password                   ${TEST_USERNAME}  ${EMPTY}
 Empty Username And Password      ${EMPTY}         ${EMPTY}
 
 *** Keywords ***

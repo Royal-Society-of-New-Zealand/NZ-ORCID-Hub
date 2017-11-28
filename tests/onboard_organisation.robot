@@ -10,16 +10,10 @@ Resource            resources/organisation.robot
 Resource            resources/uoa_login.robot
 Variables           resources/variables.py
 
-*** Variables ***
-${UOA USERNAME}     ${TEST_USERNAME}
-${UOA PASSWORD}     ${TEST_PASSWORD}
-${ORGANISATION}     0000 TEST ORGANISATION
-${ORGANISATION EMAIL}   daniel.jimenez@auckland.ac.nz
-
 *** Test Cases ***
 Onboard Organisation
-    Login UoA       ${UOA USERNAME}     ${UOA_PASSWORD}
-    Onboard an Organisation     ${ORGANISATION}     ${ORGANISATION EMAIL}
+    Login UoA       ${TEST_USERNAME}     ${TEST_PASSWORD}
+    Onboard an Organisation     ${ORGANISATION}     ${ORGANISATION_EMAIL}
     
 # Remove Organisation
 #     Login UoA       ${UOA USERNAME}     ${UOA_PASSWORD}
