@@ -906,7 +906,11 @@ def orcid_login_callback(request):
             app.logger.error(f"Missing ORCID iD: {token}")
             abort(401, "Missing ORCID iD.")
         try:
-            user = User.get(orcid=orcid_id)
+            # If there is an invitation token then check user based on email; else based on orcid
+            if not invitation_token:
+                user = User.get(orcid=orcid_id)
+            else:
+                user = User.get(email=email)
 
         except User.DoesNotExist:
             if email is None:
@@ -916,7 +920,6 @@ def orcid_login_callback(request):
                     f"a Tuakiri-mediated log in, or from an organisation's email invitation",
                     "warning")
                 return redirect(url_for("login"))
-            user = User.get(email=email)
 
         if not user.orcid:
             user.orcid = orcid_id
