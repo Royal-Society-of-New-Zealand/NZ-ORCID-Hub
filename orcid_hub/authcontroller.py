@@ -25,13 +25,14 @@ from flask_login import current_user, login_required, login_user, logout_user
 from flask_mail import Message
 from oauthlib.oauth2 import rfc6749
 from requests_oauthlib import OAuth2Session
+from swagger_client.rest import ApiException
 from werkzeug.urls import iri_to_uri
 
+# TODO: need to read form app.config[...]
 from config import (APP_DESCRIPTION, APP_NAME, APP_URL, AUTHORIZATION_BASE_URL, CRED_TYPE_PREMIUM,
                     ENV, EXTERNAL_SP, MEMBER_API_FORM_BASE_URL, NOTE_ORCID, ORCID_API_BASE,
                     ORCID_BASE_URL, ORCID_CLIENT_ID, ORCID_CLIENT_SECRET, SCOPE_ACTIVITIES_UPDATE,
                     SCOPE_AUTHENTICATE, SCOPE_READ_LIMITED, TOKEN_URL)
-from swagger_client.rest import ApiException
 
 from . import app, db, mail, orcid_client, sentry
 from .forms import OrgConfirmationForm
@@ -906,7 +907,11 @@ def orcid_login_callback(request):
             app.logger.error(f"Missing ORCID iD: {token}")
             abort(401, "Missing ORCID iD.")
         try:
-            user = User.get(orcid=orcid_id)
+            # If there is an invitation token then check user based on email; else based on orcid
+            if not invitation_token:
+                user = User.get(orcid=orcid_id)
+            else:
+                user = User.get(email=email)
 
         except User.DoesNotExist:
             if email is None:
@@ -916,7 +921,6 @@ def orcid_login_callback(request):
                     f"a Tuakiri-mediated log in, or from an organisation's email invitation",
                     "warning")
                 return redirect(url_for("login"))
-            user = User.get(email=email)
 
         if not user.orcid:
             user.orcid = orcid_id
