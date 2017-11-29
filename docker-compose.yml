@@ -22,6 +22,7 @@ services:
   app:
     depends_on:
       - db
+      - sentry
     image: orcidhub/app-dev
     environment:
       - ENV
@@ -60,7 +61,6 @@ services:
     depends_on:
       - 'redis'
       - 'db'
-      - 'app'
     ports:
       - '9000:9000'
     environment:
@@ -85,7 +85,6 @@ services:
     depends_on:
       - 'redis'
       - 'db'
-      - 'app'
     command: "sentry run worker"
     environment:
       - SENTRY_SECRET_KEY
