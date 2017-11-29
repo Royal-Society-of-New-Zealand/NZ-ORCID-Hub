@@ -3,4 +3,6 @@ format:
 requirements_file: dev_requirements.ext
 python:
   version: 3.6
+  extra_requirements:
+    - dev
 
