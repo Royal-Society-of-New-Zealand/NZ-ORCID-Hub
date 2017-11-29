@@ -30,7 +30,9 @@ BUILD_DATE = datetime.datetime.utcfromtimestamp(int(os.environ.get('SOURCE_DATE_
 
 # sys.path.insert(0, os.path.abspath('.'))
 # sys.path.insert(0, os.path.abspath('../..'))
-sys.path.append(os.path.dirname(__file__))
+_dir = os.path.dirname(__file__)
+sys.path.append(os.path.dirname(_dir))
+sys.path.append(_dir)
 
 # disable logging to Sentry:
 raven_logger = logging.getLogger('raven.base.Client')
