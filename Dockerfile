@@ -89,8 +89,7 @@ RUN yum -y update \
     && rm -rf $HOME/.pip/cache \
     && rm -rf /var/cache/*/* /anaconda-post.log \
     && rm -rf /requirements.txt /orcid_api \
-    && rm -rf /swagger_client.egg-info /orcid \
-    && find / -name __pycache__ -exec rm -rf "{}" \;
+    && rm -rf /swagger_client.egg-info /orcid
 
 
 EXPOSE 80 443
