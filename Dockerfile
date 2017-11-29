@@ -9,9 +9,10 @@ ADD http://download.opensuse.org/repositories/security://shibboleth/CentOS_7/sec
 COPY conf/app.wsgi /var/www/html/
 # prefix "ZZ" added, that it gest inluded the very end (after Shibboleth gets loaded)
 COPY conf/app.conf /etc/httpd/conf.d/ZZ-app.conf
-COPY requirements.txt setup.py /
-COPY orcid_api /orcid_api
-COPY orcid_hub /orcid_hub
+COPY requirements.txt /
+# COPY setup.py /
+# COPY orcid_api /orcid_api
+# COPY orcid_hub /orcid_hub
 COPY run-app /usr/local/bin/
 COPY ./conf /conf
 
@@ -28,7 +29,6 @@ RUN yum -y update \
 	python36u-pip \
     && pip3.6 install mod_wsgi psycopg2 \
     && pip3.6 install -U -r /requirements.txt \
-    && pip3.6 install . \
     && /usr/bin/mod_wsgi-express module-config >/etc/httpd/conf.modules.d/10-wsgi.conf \
     && [ -d /var/run/lock ] || mkdir -p /var/run/lock \
     && [ -d /var/lock/subsys/ ] || mkdir -p /var/lock/subsys/ \
