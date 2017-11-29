@@ -3,6 +3,7 @@
  - New user (creates an entry in user table, link to the organisation entry);
  - Returning user;
  - Entering invalid data (all kinds of corner cases);
+ - Creation & Removal of Organisation
 
 # Organisation on-boarding (organisation invitation to join the Hub) (_Hub Admin_)
  - Sending invitation to a user not yet registered;
@@ -38,4 +39,3 @@
 # Difficult Tests to be added
  - Returning user after update IdP (IAM) profile, e.g., preferred name, affiliation nature (staff, student, etc.);
  - Returning user after update IdP (IAM) profile: email address;
- - Removal of an organisation.

@@ -19,3 +19,24 @@ Onboard an Organisation
     Input Text      //input[@name="org_email"]      ${organisation email}
     Click Element   //input[@name="tech_contact"]
     Submit Form
+
+Find Organisation
+    [Arguments]     ${org}
+    Go To           ${ORG_ADMIN_URL}
+    Input Text      //input[@name='search']     ${org}
+    Press Key       //input[@name='search']     \\13
+    Click Link      //a[@title="Sort by Name"]
+
+Remove Organisation
+    [Arguments]     ${org_to_remove}
+    Find Organisation   ${org_to_remove}
+    Click Link      xpath=(//td[text()[contains(.,'${org_to_remove}')]]/parent::*/td[@class='list-buttons-column']/a)
+    ${org} =        Get Value   //input[@name="name"]
+    ${href} =       Get Location
+    ${result} =     Fetch From Right    ${href}     id=
+    ${id} =         Fetch From Left     ${result}   &
+    Should Be Equal     '${org}'    '${org_to_remove}'
+    Find Organisation   ${org}
+    Choose Ok On Next Confirmation
+    Click Button    xpath=(//input[@value='${id}']/parent::*/button)
+    Confirm Action
