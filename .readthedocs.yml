@@ -1,6 +1,6 @@
 format:
   - none
-requirements_file: dev_requirements.ext
+requirements_file: dev_requirements.txt
 python:
   version: 3.6
   extra_requirements:
