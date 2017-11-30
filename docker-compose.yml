@@ -22,7 +22,7 @@ services:
   app:
     depends_on:
       - db
-    image: orcidhub/app-dev
+    image: orcidhub/app-dev:2.3
     environment:
       - ENV
       - SHIB_SP_DOMAINNAME
