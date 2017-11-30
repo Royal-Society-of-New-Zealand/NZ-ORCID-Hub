@@ -20,7 +20,6 @@ from itsdangerous import URLSafeTimedSerializer
 from peewee import JOIN
 
 from . import app, orcid_client
-from .config import ENV, EXTERNAL_SP
 from .models import (AFFILIATION_TYPES, Affiliation, AffiliationRecord, FundingContributor,
                      FundingRecord, OrcidToken, Organisation, Role, Task, Url, User,
                      UserInvitation, UserOrg)

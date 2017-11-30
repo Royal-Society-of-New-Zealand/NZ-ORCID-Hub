@@ -255,7 +255,6 @@ app.add_url_rule(
         "GET",
     ])
 
-
 # class AffiliationTaskAPI(MethodView):
 #     """Affiliation task service."""
 
@@ -352,6 +351,7 @@ app.add_url_rule(
 #                 "expires_in": token.expires_in
 #             }
 #         }), 200
+
 
 def get_spec(app):
     """Build API swagger scecifiction."""
