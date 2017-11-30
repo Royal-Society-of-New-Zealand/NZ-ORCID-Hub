@@ -1,6 +1,5 @@
 [run]
 branch = True
-
 omit =
     orcid/*
     orcid_api/*
@@ -11,6 +10,8 @@ omit =
     orcid_hub/pyinfo.py
     initializedb.py
     orcid_hub/conftest.py
+    run.py
+    application.py
     config.py
     create.py
     setup.py
@@ -26,6 +27,8 @@ omit =
     orcid_hub/pyinfo.py
     initializedb.py
     orcid_hub/conftest.py
+    run.py
+    application.py
     config.py
     create.py
     setup.py
