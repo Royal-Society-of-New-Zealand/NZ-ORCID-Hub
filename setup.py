@@ -137,7 +137,7 @@ setup(
     ],
     entry_points={
         "console_scripts": [
-            "orcidhub=orcid_hub.cli:main"
+            "orcidhub=orcid_hub:app.cli"
         ]
     }
 )

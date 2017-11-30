@@ -11,7 +11,7 @@
     :license: MIT, see LICENSE for more details.
 """
 
-__version__ = '3.0a5'
+__version__ = '3.0a6'
 
 import logging
 import os
@@ -247,3 +247,6 @@ if app.debug:
     # logger = logging.getLogger('peewee')
     # logger.setLevel(logging.DEBUG)
     # logger.addHandler(logging.StreamHandler())
+
+if __name__ == "__main__":
+    app.cli()
