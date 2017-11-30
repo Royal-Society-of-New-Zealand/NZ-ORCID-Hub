@@ -738,6 +738,28 @@ def process_funding_records(max_rows=20):
                                                  FundingRecord.processed_at.is_null()).exists()):
                 task.completed_at = datetime.now()
                 task.save()
+                error_count = FundingRecord.select().where(
+                    FundingRecord.task_id == task.id, FundingRecord.status ** "%error%").count()
+                row_count = task.record_funding_count
+
+                with app.app_context():
+                    protocol_scheme = 'http'
+                    if not EXTERNAL_SP:
+                        protocol_scheme = 'https'
+                    export_url = flask.url_for(
+                        "fundingrecord.export",
+                        export_type="json",
+                        _scheme=protocol_scheme,
+                        task_id=task.id,
+                        _external=True)
+                    send_email(
+                        "email/funding_task_completed.html",
+                        subject="Funding Process Update",
+                        recipient=(task.created_by.name, task.created_by.email),
+                        error_count=error_count,
+                        row_count=row_count,
+                        export_url=export_url,
+                        filename=task.filename)
 
 
 def process_affiliation_records(max_rows=20):
