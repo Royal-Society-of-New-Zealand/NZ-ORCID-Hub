@@ -25,16 +25,15 @@ from flask_login import current_user, login_required, login_user, logout_user
 from flask_mail import Message
 from oauthlib.oauth2 import rfc6749
 from requests_oauthlib import OAuth2Session
-from swagger_client.rest import ApiException
+from orcid_api.rest import ApiException
 from werkzeug.urls import iri_to_uri
 
-# TODO: need to read form app.config[...]
-from config import (APP_DESCRIPTION, APP_NAME, APP_URL, AUTHORIZATION_BASE_URL, CRED_TYPE_PREMIUM,
-                    ENV, MEMBER_API_FORM_BASE_URL, NOTE_ORCID, ORCID_API_BASE,
-                    ORCID_BASE_URL, ORCID_CLIENT_ID, ORCID_CLIENT_SECRET, SCOPE_ACTIVITIES_UPDATE,
-                    SCOPE_AUTHENTICATE, SCOPE_READ_LIMITED, TOKEN_URL)
-
 from . import app, db, mail, orcid_client, sentry
+# TODO: need to read form app.config[...]
+from .config import (APP_DESCRIPTION, APP_NAME, APP_URL, AUTHORIZATION_BASE_URL, CRED_TYPE_PREMIUM,
+                     ENV, EXTERNAL_SP, MEMBER_API_FORM_BASE_URL, NOTE_ORCID, ORCID_API_BASE,
+                     ORCID_BASE_URL, ORCID_CLIENT_ID, ORCID_CLIENT_SECRET, SCOPE_ACTIVITIES_UPDATE,
+                     SCOPE_AUTHENTICATE, SCOPE_READ_LIMITED, TOKEN_URL)
 from .forms import OrgConfirmationForm
 from .login_provider import roles_required
 from .models import (Affiliation, OrcidAuthorizeCall, OrcidToken, Organisation, OrgInfo,
@@ -203,14 +202,14 @@ def handle_login():
         abort(500, ex)
 
     try:
-        org = Organisation.get((Organisation.tuakiri_name == shib_org_name) | (
-            Organisation.name == shib_org_name))
+        org = Organisation.get((Organisation.tuakiri_name == shib_org_name)
+                               | (Organisation.name == shib_org_name))
     except Organisation.DoesNotExist:
         org = Organisation(tuakiri_name=shib_org_name)
         # try to get the official organisation name:
         try:
-            org_info = OrgInfo.get((OrgInfo.tuakiri_name == shib_org_name) | (
-                OrgInfo.name == shib_org_name))
+            org_info = OrgInfo.get((OrgInfo.tuakiri_name == shib_org_name)
+                                   | (OrgInfo.name == shib_org_name))
         except OrgInfo.DoesNotExist:
             org.name = shib_org_name
         else:
@@ -630,9 +629,9 @@ def onboard_org():
             and come back to this form once you have them.""", "info")
 
             try:
-                oi = OrgInfo.get((OrgInfo.email == email) | (
-                    OrgInfo.tuakiri_name == user.organisation.name) | (
-                        OrgInfo.name == user.organisation.name))
+                oi = OrgInfo.get((OrgInfo.email == email)
+                                 | (OrgInfo.tuakiri_name == user.organisation.name)
+                                 | (OrgInfo.name == user.organisation.name))
                 form.city.data = organisation.city = oi.city
                 form.disambiguated_id.data = organisation.disambiguated_id = oi.disambiguated_id
                 form.disambiguation_source.data = organisation.disambiguation_source = oi.disambiguation_source
@@ -908,7 +907,11 @@ def orcid_login_callback(request):
             app.logger.error(f"Missing ORCID iD: {token}")
             abort(401, "Missing ORCID iD.")
         try:
-            user = User.get(orcid=orcid_id)
+            # If there is an invitation token then check user based on email; else based on orcid
+            if not invitation_token:
+                user = User.get(orcid=orcid_id)
+            else:
+                user = User.get(email=email)
 
         except User.DoesNotExist:
             if email is None:
@@ -918,7 +921,6 @@ def orcid_login_callback(request):
                     f"a Tuakiri-mediated log in, or from an organisation's email invitation",
                     "warning")
                 return redirect(url_for("login"))
-            user = User.get(email=email)
 
         if not user.orcid:
             user.orcid = orcid_id

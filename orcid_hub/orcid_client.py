@@ -5,14 +5,14 @@ Swagger generated client 'monkey-patch' for logging API requests.
 isort:skip_file
 """
 
-from config import ORCID_API_BASE, SCOPE_READ_LIMITED, SCOPE_ACTIVITIES_UPDATE, ORCID_BASE_URL
+from .config import ORCID_API_BASE, SCOPE_READ_LIMITED, SCOPE_ACTIVITIES_UPDATE, ORCID_BASE_URL
 from flask_login import current_user
 from .models import (OrcidApiCall, Affiliation, OrcidToken, FundingContributor as FundingCont, User
                      as UserModel, ExternalId as ExternalIdModel)
-from swagger_client import (configuration, rest, api_client, MemberAPIV20Api, SourceClientId,
-                            Source, OrganizationAddress, DisambiguatedOrganization, Employment,
-                            Education, Organization)
-from swagger_client.rest import ApiException
+from orcid_api import (configuration, rest, api_client, MemberAPIV20Api, SourceClientId, Source,
+                       OrganizationAddress, DisambiguatedOrganization, Employment, Education,
+                       Organization)
+from orcid_api.rest import ApiException
 from time import time
 from urllib.parse import urlparse
 from . import app
@@ -430,7 +430,6 @@ class MemberAPI(MemberAPIV20Api):
                 api_call = self.update_employment if put_code else self.create_employment
             else:
                 api_call = self.update_education if put_code else self.create_education
-
             params = dict(orcid=self.user.orcid, body=rec, _preload_content=False)
             if put_code:
                 params["put_code"] = put_code
@@ -451,13 +450,17 @@ class MemberAPI(MemberAPIV20Api):
             elif resp.status == 200:
                 orcid = self.user.orcid
 
-        except Exception:
+        except ApiException as apiex:
+            app.logger.exception(f"For {self.user} encountered exception: {apiex}")
+            raise apiex
+        except Exception as ex:
             app.logger.exception(f"For {self.user} encountered exception")
+            raise ex
         else:
             return (put_code, orcid, created)
 
 
 # yapf: disable
-from swagger_client import *  # noqa: F401,F403,F405
+from orcid_api import *  # noqa: F401,F403,F405
 
 api_client.RESTClientObject = OrcidRESTClientObject  # noqa: F405
