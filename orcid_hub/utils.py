@@ -19,9 +19,8 @@ from html2text import html2text
 from itsdangerous import URLSafeTimedSerializer
 from peewee import JOIN
 
-from config import ENV, EXTERNAL_SP
-
 from . import app, orcid_client
+from .config import ENV, EXTERNAL_SP
 from .models import (AFFILIATION_TYPES, Affiliation, AffiliationRecord, FundingContributor,
                      FundingRecord, OrcidToken, Organisation, Role, Task, Url, User,
                      UserInvitation, UserOrg)
@@ -673,10 +672,10 @@ def process_funding_records(max_rows=20):
     """This query is to retrieve Tasks associated with funding records, which are not processed but are active"""
 
     tasks = (Task.select(
-        Task, FundingRecord, FundingContributor, User,
-        UserInvitation.id.alias("invitation_id"), OrcidToken).where(
-            FundingRecord.processed_at.is_null(),
-            FundingContributor.processed_at.is_null(), FundingRecord.is_active,
+        Task, FundingRecord, FundingContributor,
+        User, UserInvitation.id.alias("invitation_id"), OrcidToken).where(
+            FundingRecord.processed_at.is_null(), FundingContributor.processed_at.is_null(),
+            FundingRecord.is_active,
             (OrcidToken.id.is_null(False) |
              ((FundingContributor.status.is_null()) |
               (FundingContributor.status.contains("sent").__invert__())))).join(

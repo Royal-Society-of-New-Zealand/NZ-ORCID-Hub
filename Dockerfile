@@ -10,7 +10,9 @@ COPY conf/app.wsgi /var/www/html/
 # prefix "ZZ" added, that it gest inluded the very end (after Shibboleth gets loaded)
 COPY conf/app.conf /etc/httpd/conf.d/ZZ-app.conf
 COPY requirements.txt /
-COPY orcid_api /orcid_api
+# COPY setup.py /
+# COPY orcid_api /orcid_api
+# COPY orcid_hub /orcid_hub
 COPY run-app /usr/local/bin/
 COPY ./conf /conf
 
