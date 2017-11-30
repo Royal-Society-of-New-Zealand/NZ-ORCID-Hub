@@ -201,14 +201,14 @@ def handle_login():
         abort(500, ex)
 
     try:
-        org = Organisation.get((Organisation.tuakiri_name == shib_org_name) | (
-            Organisation.name == shib_org_name))
+        org = Organisation.get((Organisation.tuakiri_name == shib_org_name)
+                               | (Organisation.name == shib_org_name))
     except Organisation.DoesNotExist:
         org = Organisation(tuakiri_name=shib_org_name)
         # try to get the official organisation name:
         try:
-            org_info = OrgInfo.get((OrgInfo.tuakiri_name == shib_org_name) | (
-                OrgInfo.name == shib_org_name))
+            org_info = OrgInfo.get((OrgInfo.tuakiri_name == shib_org_name)
+                                   | (OrgInfo.name == shib_org_name))
         except OrgInfo.DoesNotExist:
             org.name = shib_org_name
         else:
@@ -628,9 +628,9 @@ def onboard_org():
             and come back to this form once you have them.""", "info")
 
             try:
-                oi = OrgInfo.get((OrgInfo.email == email) | (
-                    OrgInfo.tuakiri_name == user.organisation.name) | (
-                        OrgInfo.name == user.organisation.name))
+                oi = OrgInfo.get((OrgInfo.email == email)
+                                 | (OrgInfo.tuakiri_name == user.organisation.name)
+                                 | (OrgInfo.name == user.organisation.name))
                 form.city.data = organisation.city = oi.city
                 form.disambiguated_id.data = organisation.disambiguated_id = oi.disambiguated_id
                 form.disambiguation_source.data = organisation.disambiguation_source = oi.disambiguation_source

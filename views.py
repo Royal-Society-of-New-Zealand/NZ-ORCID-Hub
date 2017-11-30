@@ -503,8 +503,8 @@ class AffiliationRecordAdmin(AppModelView):
         """Batch reset of users."""
         try:
             count = self.model.update(processed_at=None).where(
-                self.model.is_active,
-                self.model.processed_at.is_null(False), self.model.id.in_(ids)).execute()
+                self.model.is_active, self.model.processed_at.is_null(False),
+                self.model.id.in_(ids)).execute()
         except Exception as ex:
             flash(f"Failed to activate the selected records: {ex}")
             app.logger.exception("Failed to activate the selected records")
