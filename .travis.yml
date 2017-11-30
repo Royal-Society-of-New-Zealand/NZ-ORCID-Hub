@@ -43,6 +43,7 @@ after_success:
   - git remote add deploy ssh://ec2-user@dev.orcidhub.org.nz/~/repo.git
   - git remote add test ssh://ec2-user@test.orcidhub.org.nz/~/repo.git
   - git push deploy HEAD:$TRAVIS_BRANCH
+  - test "$TRAVIS_BRANCH" != "$PROD_BRANCH" && git push test HEAD:$TRAVIS_BRANCH  # Deploy the dev if it's not the production branch
   - test "$TRAVIS_BRANCH" == "$PROD_BRANCH" -a "$TRAVIS_EVENT_TYPE" == "push" && git push test HEAD:$TRAVIS_BRANCH  # Deploy the prod.branc to UAT env
   - rm -f .travis/deploy.key
 
