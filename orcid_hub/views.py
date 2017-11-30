@@ -16,13 +16,12 @@ from flask_admin.model import typefmt
 from flask_login import current_user, login_required
 from jinja2 import Markup
 from playhouse.shortcuts import model_to_dict
-from swagger_client.rest import ApiException
+from orcid_api.rest import ApiException
 from werkzeug import secure_filename
 from wtforms.fields import BooleanField
 
-from config import ORCID_BASE_URL, SCOPE_ACTIVITIES_UPDATE, SCOPE_READ_LIMITED
-
 from . import admin, app, models, orcid_client, utils
+from .config import ORCID_BASE_URL, SCOPE_ACTIVITIES_UPDATE, SCOPE_READ_LIMITED
 from .forms import (ApplicationFrom, BitmapMultipleValueField, CredentialForm, FileUploadForm,
                     JsonOrYamlFileUploadForm, OrgRegistrationForm, PartialDateField, RecordForm,
                     UserInvitationForm)
@@ -672,8 +671,8 @@ class AffiliationRecordAdmin(AppModelView):
         """Batch reset of users."""
         try:
             count = self.model.update(processed_at=None).where(
-                self.model.is_active,
-                self.model.processed_at.is_null(False), self.model.id.in_(ids)).execute()
+                self.model.is_active, self.model.processed_at.is_null(False),
+                self.model.id.in_(ids)).execute()
         except Exception as ex:
             flash(f"Failed to activate the selected records: {ex}")
             app.logger.exception("Failed to activate the selected records")

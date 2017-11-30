@@ -11,7 +11,7 @@
     :license: MIT, see LICENSE for more details.
 """
 
-__version__ = '2.1-dev'
+__version__ = '3.0a5'
 
 import logging
 import os
@@ -29,8 +29,8 @@ from playhouse import db_url
 from playhouse.shortcuts import RetryOperationalError
 from raven.contrib.flask import Sentry
 
-from config import *  # noqa: F401, F403
-from config import DATABASE_URL
+from .config import *  # noqa: F401, F403
+from .config import DATABASE_URL
 from .failover import PgDbWithFailover
 from flask_admin import Admin
 
