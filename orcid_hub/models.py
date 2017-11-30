@@ -28,9 +28,8 @@ from pycountry import countries
 from pykwalify.core import Core
 from pykwalify.errors import SchemaError
 
-from config import DEFAULT_COUNTRY, ENV
-
 from . import app, db
+from .config import DEFAULT_COUNTRY, ENV
 
 EMAIL_REGEX = re.compile(r"^[_a-z0-9-]+(\.[_a-z0-9-]+)*@[a-z0-9-]+(\.[a-z0-9-]+)*(\.[a-z]{2,4})$")
 ORCID_ID_REGEX = re.compile(r"^\d{4}-?\d{4}-?\d{4}-?\d{4}$")
@@ -1108,6 +1107,7 @@ class FundingRecord(BaseModel, AuditMixin):
     task = ForeignKeyField(Task, related_name="funding_records", on_delete="CASCADE")
     title = CharField(max_length=80)
     translated_title = CharField(null=True, max_length=80)
+    translated_title_language_code = CharField(null=True, max_length=10)
     type = CharField(max_length=80)
     organization_defined_type = CharField(null=True, max_length=80)
     short_description = CharField(null=True, max_length=4000)
@@ -1167,6 +1167,11 @@ class FundingRecord(BaseModel, AuditMixin):
                         funding_data.get("title") and funding_data.get("title").get("translated-title") \
                         and funding_data.get("title").get("translated-title").get("value") else None
 
+                    translated_title_language_code = funding_data.get("title").get("translated-title").get(
+                        "language-code") if funding_data.get("title") and funding_data.get("title").get(
+                        "translated-title") and funding_data.get("title").get("translated-title").get(
+                        "language-code") else None
+
                     type = funding_data.get("type") if funding_data.get("type") else None
 
                     organization_defined_type = funding_data.get("organization-defined-type").get("value") if \
@@ -1214,6 +1219,7 @@ class FundingRecord(BaseModel, AuditMixin):
                         task=task,
                         title=title,
                         translated_title=translated_title,
+                        translated_title_language_code=translated_title_language_code,
                         type=type,
                         organization_defined_type=organization_defined_type,
                         short_description=short_description,
