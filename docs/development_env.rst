@@ -8,7 +8,7 @@ Minimal runnig ORCID Hub (assuming you have created and activated Python 3.6 vir
 
 .. code-block:: bash
 
-   pip install orcid-hub
+   pip install -U 'orcid-hub[dev]'
    orcidhub initdb
    orcidhub cradmin myadmin@mydomain.net  # use a valid email
    orcidhub run
