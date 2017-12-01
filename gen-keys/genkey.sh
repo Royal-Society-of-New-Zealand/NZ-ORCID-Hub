@@ -15,7 +15,7 @@ fail_if_error() {
 export PASSPHRASE=$(head -c 64 /dev/urandom  | base64)
 subj="
 "
-ALTNAME=DNS:$DOMAIN,DNS:api.$DOMAIN,URI:https://$DOMAIN/shibboleth,URI:https://$DOMAIN/Shibboleth.sso
+ALTNAME=DNS:$DOMAIN,DNS:sentry.$DOMAIN,DNS:api.$DOMAIN,URI:https://$DOMAIN/shibboleth,URI:https://$DOMAIN/Shibboleth.sso
 
 SSLCNF=$(mktemp -t --suffix=.cfg)
 cat >$SSLCNF <<EOF

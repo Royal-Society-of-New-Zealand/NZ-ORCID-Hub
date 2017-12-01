@@ -9,6 +9,8 @@ Welcome to ORCID Hub's documentation!
 
 The home of development for the New Zealand ORCID Hub.
 
+Because New Zealand ORCID Hub is fun to use.
+
 .. toctree::
    :maxdepth: 2
    :caption: Contents:
