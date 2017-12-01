@@ -30,6 +30,7 @@ host    all             all             34.225.18.251/32            trust
 EOF
 
 createdb -U "$POSTGRES_USER" orcidhub
+createdb -U "$POSTGRES_USER" sentry
 
 psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d orcidhub <<-EOSQL
   CREATE USER orcidhub WITH PASSWORD '${POSTGRES_PASSWORD}';
