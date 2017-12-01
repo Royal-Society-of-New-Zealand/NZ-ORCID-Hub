@@ -28,7 +28,7 @@ from requests_oauthlib import OAuth2Session
 from orcid_api.rest import ApiException
 from werkzeug.urls import iri_to_uri
 
-from . import app, db, mail, orcid_client, sentry
+from . import app, db, mail, orcid_client
 # TODO: need to read form app.config[...]
 from .config import (APP_DESCRIPTION, APP_NAME, APP_URL, AUTHORIZATION_BASE_URL, CRED_TYPE_PREMIUM,
                      MEMBER_API_FORM_BASE_URL, NOTE_ORCID, ORCID_API_BASE, ORCID_BASE_URL,
@@ -756,12 +756,19 @@ in order to complete the log-out.""", "warning")
 def internal_error(error):
     """Handle internal error."""
     trace = traceback.format_exc()
-    return render_template(
-        "http500.html",
-        trace=trace,
-        error_message=str(error),
-        event_id=g.sentry_event_id,
-        public_dsn=sentry.client.get_public_dsn("https"))
+    try:
+        from . import sentry
+        return render_template(
+            "http500.html",
+            trace=trace,
+            error_message=str(error),
+            event_id=g.sentry_event_id,
+            public_dsn=sentry.client.get_public_dsn("https"))
+    except:
+        return render_template(
+            "http500.html",
+            trace=trace,
+            error_message=str(error))
 
 
 @app.route("/orcid/login/")

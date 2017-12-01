@@ -135,9 +135,13 @@ setup(
         "License :: OSI Approved :: MIT License",
         "Programming Language :: Python :: 3.6",
     ],
-    entry_points={
-        "console_scripts": [
-            "orcidhub=orcid_hub:app.cli"
-        ]
-    }
+    entry_points='''
+        [console_scripts]
+        orcidhub=orcid_hub.cli:main
+    '''
+    # entry_points={
+    #     "console_scripts": [
+    #         "orcidhub=orcid_hub.cli:main"
+    #     ]
+    # }
 )
