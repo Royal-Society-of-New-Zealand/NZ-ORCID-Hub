@@ -16,7 +16,8 @@ Because New Zealand ORCID Hub is fun to use.
    :caption: Contents:
 
    development_env
-
+   sendmail
+   troubleshooting
 
 Indices and tables
 ------------------
