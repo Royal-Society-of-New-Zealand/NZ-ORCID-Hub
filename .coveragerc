@@ -1,6 +1,7 @@
 [run]
 branch = True
 omit =
+    tests/*
     orcid/*
     orcid_api/*
     venv/*
@@ -18,6 +19,7 @@ omit =
 
 [report]
 omit =
+    tests/*
     orcid/*
     orcid_api/*
     venv/*
