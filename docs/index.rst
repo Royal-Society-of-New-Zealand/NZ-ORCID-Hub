@@ -15,6 +15,7 @@ Because New Zealand ORCID Hub is fun to use.
    :maxdepth: 2
    :caption: Contents:
 
+   development_env
 
 
 Indices and tables
@@ -23,21 +24,21 @@ Indices and tables
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
--  `Application Docker Image`_
+.. -  `Application Docker Image`_
 
-   -  `Usage`_
-   -  `Environment Variables`_
+..    -  `Usage`_
+..    -  `Environment Variables`_
 
-      -  `ENV`_
-      -  `SHIB_SP_DOMAINNAME`_
-      -  `SHIB_IDP_DOMAINNAME`_
-      -  `SHIB_SSO_DS_URL`_
-      -  `SHIB_METADATA_PROVIDER_URI`_
-      -  `SHIB_METADATA_CERT_FILE`_
-      -  `ORCID_CLIENT_ID and ORCID_CLIENT_SECRET`_
+..       -  `ENV`_
+..       -  `SHIB_SP_DOMAINNAME`_
+..       -  `SHIB_IDP_DOMAINNAME`_
+..       -  `SHIB_SSO_DS_URL`_
+..       -  `SHIB_METADATA_PROVIDER_URI`_
+..       -  `SHIB_METADATA_CERT_FILE`_
+..       -  `ORCID_CLIENT_ID and ORCID_CLIENT_SECRET`_
 
--  `Steps to execute this application`_
--  `Development Environment`_
+.. -  `Steps to execute this application`_
+.. -  `Development Environment`_
 
 Application Docker Image
 ------------------------
@@ -66,29 +67,29 @@ environment.
 ENV
 ^^^
 
-The runtime environment name (default: **test**)
+The runtime environment name (default: *test*)
 
 SHIB_SP_DOMAINNAME
 ^^^^^^^^^^^^^^^^^^
 
-Your **Service Provider** domain name (default: \**${ENV}.“**)
+Your *Service Provider* domain name (default: \*${ENV}.“*)
 
 SHIB_IDP_DOMAINNAME
 ^^^^^^^^^^^^^^^^^^^
 
-Your **Idendtity Provider** domain name, e.g.,
+Your *Idendtity Provider* domain name, e.g.,
 *http://directory.tuakiri.ac.nz*
 
 SHIB_SSO_DS_URL
 ^^^^^^^^^^^^^^^
 
 SSO discovery service URL (default:
-**https://${SHIB_IDP_DOMAINNAME}/ds/DS**)
+*https://${SHIB_IDP_DOMAINNAME}/ds/DS*)
 
 SHIB_METADATA_PROVIDER_URI
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-**Shibboleth** SAML 2.0 meta data provider URI (moro at:
+*Shibboleth* SAML 2.0 meta data provider URI (more at:
 https://wiki.shibboleth.net/confluence/display/SHIB2/NativeSPMetadataProvider)
 
 SHIB_METADATA_CERT_FILE
@@ -107,21 +108,18 @@ Steps to execute this application
 If you are running this application for the first time then follow steps
 a to d:
 
-::
+a) From the project directory run pip3 install -r requirement.txt
+b) install run install_package.sh to install postgress and required libraries
+c) Create database and user in postgres
 
-    a) From the project directory run pip3 install -r requirement.txt
-    b) install run install_package.sh to install postgress and required libraries
-    c) Create database and user in postgres
+.. code-block:: sql
 
-..
+    CREATE USER orcidhub WITH PASSWORD ‘***’;
+    CREATE DATABASE orcidhub;
+    GRANT ALL PRIVILEGES ON DATABASE orcidhub to orcidhub;
 
-    -  CREATE USER orcidhub WITH PASSWORD ‘\****\*’;
-    -  CREATE DATABASE orcidhub;
-    -  GRANT ALL PRIVILEGES ON DATABASE orcidhub to orcidhub;.
 
-::
-
-    d) Run `orcidhub initdb` to create the tables in the application database.
+d) Run `orcidhub initdb` to create the tables in the application database.
 
 .. _Application Docker Image: #application-docker-image
 .. _Usage: #usage

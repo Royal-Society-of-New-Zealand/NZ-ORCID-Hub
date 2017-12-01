@@ -20,7 +20,6 @@ from itsdangerous import URLSafeTimedSerializer
 from peewee import JOIN
 
 from . import app, orcid_client
-from .config import ENV, EXTERNAL_SP
 from .models import (AFFILIATION_TYPES, Affiliation, AffiliationRecord, FundingContributor,
                      FundingRecord, OrcidToken, Organisation, Role, Task, Url, User,
                      UserInvitation, UserOrg)
@@ -31,6 +30,9 @@ logger.addHandler(logging.StreamHandler())
 
 EDU_CODES = {"student", "edu"}
 EMP_CODES = {"faculty", "staff", "emp"}
+
+ENV = app.config.get("ENV")
+EXTERNAL_SP = app.config.get("EXTERNAL_SP")
 
 
 def send_email(template_filename,
