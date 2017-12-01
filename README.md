@@ -1,4 +1,4 @@
-# NZ-ORCID-Hub [![Build Status](https://travis-ci.org/Royal-Society-of-New-Zealand/NZ-ORCID-Hub.svg?branch=master)](https://travis-ci.org/Royal-Society-of-New-Zealand/NZ-ORCID-Hub)[![Coverage Status](https://coveralls.io/repos/github/Royal-Society-of-New-Zealand/NZ-ORCID-Hub/badge.svg)](https://coveralls.io/github/Royal-Society-of-New-Zealand/NZ-ORCID-Hub)
+# NZ-ORCID-Hub [![Build Status](https://travis-ci.org/Royal-Society-of-New-Zealand/NZ-ORCID-Hub.svg?branch=master)](https://travis-ci.org/Royal-Society-of-New-Zealand/NZ-ORCID-Hub)[![Coverage Status](https://coveralls.io/repos/github/Royal-Society-of-New-Zealand/NZ-ORCID-Hub/badge.svg)](https://coveralls.io/github/Royal-Society-of-New-Zealand/NZ-ORCID-Hub)[![RTD Status](https://readthedocs.org/projects/nz-orcid-hub/badge/)](http://docs.orcidhub.org.nz/)
 The home of development for the New Zealand ORCID Hub.
 
 - [Application Docker Image](#application-docker-image)
