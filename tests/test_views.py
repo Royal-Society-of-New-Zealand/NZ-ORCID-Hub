@@ -12,10 +12,10 @@ from flask_login import login_user
 from peewee import SqliteDatabase
 from playhouse.test_utils import test_database
 
-from . import orcid_client, views
-from .config import ORCID_BASE_URL
-from .models import UserOrgAffiliation  # noqa: E128
-from .models import (AffiliationRecord, OrcidToken, Organisation, Role, Task, User, UserOrg)
+from orcid_hub import orcid_client, views
+from orcid_hub.config import ORCID_BASE_URL
+from orcid_hub.models import UserOrgAffiliation  # noqa: E128
+from orcid_hub.models import (AffiliationRecord, OrcidToken, Organisation, Role, Task, User, UserOrg)
 
 fake_time = time.time()
 

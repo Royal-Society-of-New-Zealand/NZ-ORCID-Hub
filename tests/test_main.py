@@ -6,8 +6,8 @@ import pprint
 import pytest
 from flask_login import login_user
 
-from . import login_provider, utils
-from .models import Organisation, OrgInfo, OrgInvitation, Role, User, UserOrg
+from orcid_hub import login_provider, utils
+from orcid_hub.models import Organisation, OrgInfo, OrgInvitation, Role, User, UserOrg
 
 
 def test_index(client):

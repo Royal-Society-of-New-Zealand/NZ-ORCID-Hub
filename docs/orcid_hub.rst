@@ -36,14 +36,6 @@ orcid\_hub\.config module
     :undoc-members:
     :show-inheritance:
 
-orcid\_hub\.conftest module
----------------------------
-
-.. automodule:: orcid_hub.conftest
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
 orcid\_hub\.failover module
 ---------------------------
 
@@ -108,61 +100,6 @@ orcid\_hub\.reports module
     :undoc-members:
     :show-inheritance:
 
-orcid\_hub\.test\_forms module
-------------------------------
-
-.. automodule:: orcid_hub.test_forms
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-orcid\_hub\.test\_main module
------------------------------
-
-.. automodule:: orcid_hub.test_main
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-orcid\_hub\.test\_models module
--------------------------------
-
-.. automodule:: orcid_hub.test_models
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-orcid\_hub\.test\_orcid module
-------------------------------
-
-.. automodule:: orcid_hub.test_orcid
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-orcid\_hub\.test\_reports module
---------------------------------
-
-.. automodule:: orcid_hub.test_reports
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-orcid\_hub\.test\_utils module
-------------------------------
-
-.. automodule:: orcid_hub.test_utils
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-orcid\_hub\.test\_views module
-------------------------------
-
-.. automodule:: orcid_hub.test_views
-    :members:
-    :undoc-members:
-    :show-inheritance:
 
 orcid\_hub\.utils module
 ------------------------

@@ -10,7 +10,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 # sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # flake8: noqa
-from . import config
+from orcid_hub import config
 DATABASE_URL = os.environ.get("TEST_DATABASE_URL") or "sqlite:///:memory:"
 config.DATABASE_URL = DATABASE_URL
 os.environ["DATABASE_URL"] = DATABASE_URL
@@ -20,12 +20,12 @@ import pytest
 from playhouse import db_url
 from playhouse.test_utils import test_database
 
-from . import app as _app
+from orcid_hub import app as _app
 _app.config["DATABASE_URL"] = DATABASE_URL
-from .models import *  # noqa: F401, F403
-from .authcontroller import *  # noqa: F401, F403
-from .views import *  # noqa: F401, F403
-from .reports import *  # noqa: F401, F403
+from orcid_hub.models import *  # noqa: F401, F403
+from orcid_hub.authcontroller import *  # noqa: F401, F403
+from orcid_hub.views import *  # noqa: F401, F403
+from orcid_hub.reports import *  # noqa: F401, F403
 
 db = _app.db = _db = db_url.connect(DATABASE_URL, autorollback=True)
 
