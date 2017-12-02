@@ -1003,6 +1003,8 @@ class UserInvitation(BaseModel, AuditMixin):
 class AffiliationRecord(BaseModel):
     """Affiliation record loaded from CSV file for batch processing."""
 
+    is_active = BooleanField(
+        default=False, help_text="The record is marked for batch processing", null=True)
     task = ForeignKeyField(Task)
     put_code = IntegerField(null=True)
     external_id = CharField(
@@ -1010,6 +1012,8 @@ class AffiliationRecord(BaseModel):
         null=True,
         verbose_name="External ID",
         help_text="Record identifier used in the data source system.")
+    processed_at = DateTimeField(null=True)
+    status = TextField(null=True, help_text="Record processing status.")
     first_name = CharField(max_length=120, null=True)
     last_name = CharField(max_length=120, null=True)
     email = CharField(max_length=80, null=True)
@@ -1028,11 +1032,6 @@ class AffiliationRecord(BaseModel):
         null=True, max_length=20, verbose_name="Disambiguated Organization Identifier")
     disambiguated_source = CharField(
         null=True, max_length=100, verbose_name="Disambiguation Source")
-
-    is_active = BooleanField(
-        default=False, help_text="The record is marked for batch processing", null=True)
-    processed_at = DateTimeField(null=True)
-    status = TextField(null=True, help_text="Record processing status.")
 
     def add_status_line(self, line):
         """Add a text line to the status for logging processing progress."""
