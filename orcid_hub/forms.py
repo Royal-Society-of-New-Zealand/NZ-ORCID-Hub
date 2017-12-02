@@ -12,9 +12,8 @@ from wtforms.fields.html5 import DateField, EmailField
 from wtforms.validators import (UUID, DataRequired, Email, Regexp, Required, ValidationError)
 from wtforms.widgets import HTMLString, html_params
 
-from config import DEFAULT_COUNTRY
-
 from . import models
+from .config import DEFAULT_COUNTRY
 
 
 def validate_orcid_id_field(form, field):
@@ -345,5 +344,5 @@ class CredentialForm(ApplicationFromBase):
     client_secret = StringField("Client Secret", render_kw={"readonly": True})
     revoke = SubmitField("Revoke all user tokens", render_kw={"class": "btn btn-danger"})
     reset = SubmitField("Reset client secret", render_kw={"class": "btn btn-danger"})
-    update = SubmitField("Update application", render_kw={"class": "btn btn-primary mr-2"})
+    update_app = SubmitField("Update application", render_kw={"class": "btn btn-primary mr-2"})
     delete = SubmitField("Delete application", render_kw={"class": "btn btn-danger"})

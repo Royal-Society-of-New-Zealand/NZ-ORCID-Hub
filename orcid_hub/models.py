@@ -28,9 +28,8 @@ from pycountry import countries
 from pykwalify.core import Core
 from pykwalify.errors import SchemaError
 
-from config import DEFAULT_COUNTRY, ENV
-
 from . import app, db
+from .config import DEFAULT_COUNTRY, ENV
 
 EMAIL_REGEX = re.compile(r"^[_a-z0-9-]+(\.[_a-z0-9-]+)*@[a-z0-9-]+(\.[a-z0-9-]+)*(\.[a-z]{2,4})$")
 ORCID_ID_REGEX = re.compile(r"^\d{4}-?\d{4}-?\d{4}-?\d{4}$")
@@ -339,6 +338,8 @@ class Organisation(BaseModel, AuditMixin):
         help_text="The time stamp when the user clicked on the button to register client API.")
     api_credentials_entered_at = DateTimeField(
         null=True, help_text="The time stamp when the user entered API Client ID and secret.")
+
+    can_use_api = BooleanField(null=True, help_text="The organisation can access ORCID Hub API.")
 
     @property
     def invitation_sent_to(self):
@@ -1042,6 +1043,8 @@ class UserInvitation(BaseModel, AuditMixin):
 class AffiliationRecord(BaseModel):
     """Affiliation record loaded from CSV file for batch processing."""
 
+    is_active = BooleanField(
+        default=False, help_text="The record is marked for batch processing", null=True)
     task = ForeignKeyField(Task)
     put_code = IntegerField(null=True)
     external_id = CharField(
@@ -1049,6 +1052,8 @@ class AffiliationRecord(BaseModel):
         null=True,
         verbose_name="External ID",
         help_text="Record identifier used in the data source system.")
+    processed_at = DateTimeField(null=True)
+    status = TextField(null=True, help_text="Record processing status.")
     first_name = CharField(max_length=120, null=True)
     last_name = CharField(max_length=120, null=True)
     email = CharField(max_length=80, null=True)
@@ -1067,11 +1072,6 @@ class AffiliationRecord(BaseModel):
         null=True, max_length=20, verbose_name="Disambiguated Organization Identifier")
     disambiguated_source = CharField(
         null=True, max_length=100, verbose_name="Disambiguation Source")
-
-    is_active = BooleanField(
-        default=False, help_text="The record is marked for batch processing", null=True)
-    processed_at = DateTimeField(null=True)
-    status = TextField(null=True, help_text="Record processing status.")
 
     def add_status_line(self, line):
         """Add a text line to the status for logging processing progress."""
@@ -1108,6 +1108,7 @@ class FundingRecord(BaseModel, AuditMixin):
     task = ForeignKeyField(Task, related_name="funding_records", on_delete="CASCADE")
     title = CharField(max_length=80)
     translated_title = CharField(null=True, max_length=80)
+    translated_title_language_code = CharField(null=True, max_length=10)
     type = CharField(max_length=80)
     organization_defined_type = CharField(null=True, max_length=80)
     short_description = CharField(null=True, max_length=4000)
@@ -1167,6 +1168,12 @@ class FundingRecord(BaseModel, AuditMixin):
                         funding_data.get("title") and funding_data.get("title").get("translated-title") \
                         and funding_data.get("title").get("translated-title").get("value") else None
 
+                    translated_title_language_code = funding_data.get("title").get(
+                        "translated-title").get(
+                            "language-code") if funding_data.get("title") and funding_data.get(
+                                "title").get("translated-title") and funding_data.get("title").get(
+                                    "translated-title").get("language-code") else None
+
                     type = funding_data.get("type") if funding_data.get("type") else None
 
                     organization_defined_type = funding_data.get("organization-defined-type").get("value") if \
@@ -1214,6 +1221,7 @@ class FundingRecord(BaseModel, AuditMixin):
                         task=task,
                         title=title,
                         translated_title=translated_title,
+                        translated_title_language_code=translated_title_language_code,
                         type=type,
                         organization_defined_type=organization_defined_type,
                         short_description=short_description,
@@ -1326,15 +1334,7 @@ class FundingContributor(BaseModel):
 class ExternalId(BaseModel):
     """Funding ExternalId loaded for batch processing."""
 
-    funding_record = ForeignKeyField(FundingRecord, related_name="external_ids")
-    type = CharField(max_length=80)
-    value = CharField(max_length=255)
-    url = CharField(max_length=200, null=True)
-    relationship = CharField(max_length=80, null=True)
-
-    class Meta:  # noqa: D101,D106
-        db_table = "external_id"
-        table_alias = "ei"
+    pass
 
 
 class Url(BaseModel, AuditMixin):
@@ -1434,6 +1434,9 @@ class Client(BaseModel, AuditMixin):
         if self._default_scopes:
             return self._default_scopes.split()
         return []
+
+    def __repr__(self):  # noqa: D102
+        return self.name or self.homepage_url or self.description
 
 
 class Grant(BaseModel):

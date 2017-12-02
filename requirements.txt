@@ -22,5 +22,4 @@ Flask-OAuthlib
 flask-swagger
 raven
 raven[flask]
-./orcid_api
 

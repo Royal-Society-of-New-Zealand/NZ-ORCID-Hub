@@ -5,14 +5,14 @@ Swagger generated client 'monkey-patch' for logging API requests.
 isort:skip_file
 """
 
-from config import ORCID_API_BASE, SCOPE_READ_LIMITED, SCOPE_ACTIVITIES_UPDATE, ORCID_BASE_URL
+from .config import ORCID_API_BASE, SCOPE_READ_LIMITED, SCOPE_ACTIVITIES_UPDATE, ORCID_BASE_URL
 from flask_login import current_user
 from .models import (OrcidApiCall, Affiliation, OrcidToken, FundingContributor as FundingCont, User
                      as UserModel, ExternalId as ExternalIdModel)
-from swagger_client import (configuration, rest, api_client, MemberAPIV20Api, SourceClientId,
-                            Source, OrganizationAddress, DisambiguatedOrganization, Employment,
-                            Education, Organization)
-from swagger_client.rest import ApiException
+from orcid_api import (configuration, rest, api_client, MemberAPIV20Api, SourceClientId, Source,
+                       OrganizationAddress, DisambiguatedOrganization, Employment, Education,
+                       Organization)
+from orcid_api.rest import ApiException
 from time import time
 from urllib.parse import urlparse
 from . import app
@@ -224,7 +224,8 @@ class MemberAPI(MemberAPIV20Api):
         title = Title(value=fr.title)  # noqa: F405
         translated_title = None
         if fr.translated_title:
-            translated_title = TranslatedTitle(value=fr.translated_title)  # noqa: F405
+            translated_title = TranslatedTitle(value=fr.translated_title,       # noqa: F405
+                                               language_code=fr.translated_title_language_code)  # noqa: F405
         short_description = fr.short_description
         amount = fr.amount
         currency_code = fr.currency
@@ -461,6 +462,6 @@ class MemberAPI(MemberAPIV20Api):
 
 
 # yapf: disable
-from swagger_client import *  # noqa: F401,F403,F405
+from orcid_api import *  # noqa: F401,F403,F405
 
 api_client.RESTClientObject = OrcidRESTClientObject  # noqa: F405
