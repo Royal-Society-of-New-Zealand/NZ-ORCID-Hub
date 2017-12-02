@@ -1,0 +1,28 @@
+{% extends 'admin/model/list.html' %}
+{% block body %}
+  {% if data %}
+    {% set funding_record = data[0].funding_record %}
+    <h1>{{funding_record.filename}}</h1>
+    <table class="table table-hover table-bordered searchable">
+      <tbody>
+        <tr>
+          <td>
+            <b>Funding Title</b>
+          </td>
+          <td>
+            {{funding_record.title}}
+          </td>
+        </tr>
+        <tr>
+          <td>
+            <b>Funding Type</b>
+          </td>
+          <td>
+            {{funding_record.type}}
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  {% endif %}
+  {{ super() }}
+{% endblock %}

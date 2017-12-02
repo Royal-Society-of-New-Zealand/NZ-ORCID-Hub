@@ -3,4 +3,4 @@ import sys, os
 app_dir = os.path.dirname(__file__)
 sys.path.insert(0, app_dir)
 
-from main import app as application
+from orcid_hub import app as application
