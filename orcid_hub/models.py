@@ -1168,10 +1168,11 @@ class FundingRecord(BaseModel, AuditMixin):
                         funding_data.get("title") and funding_data.get("title").get("translated-title") \
                         and funding_data.get("title").get("translated-title").get("value") else None
 
-                    translated_title_language_code = funding_data.get("title").get("translated-title").get(
-                        "language-code") if funding_data.get("title") and funding_data.get("title").get(
-                        "translated-title") and funding_data.get("title").get("translated-title").get(
-                        "language-code") else None
+                    translated_title_language_code = funding_data.get("title").get(
+                        "translated-title").get(
+                            "language-code") if funding_data.get("title") and funding_data.get(
+                                "title").get("translated-title") and funding_data.get("title").get(
+                                    "translated-title").get("language-code") else None
 
                     type = funding_data.get("type") if funding_data.get("type") else None
 
