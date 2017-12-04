@@ -109,6 +109,7 @@ setup(
             "six>=1.10.0",
             "testpath>=0.3.1",
             "yapf>=0.17.0",
+            "Faker",
         ],
         "test": [
             "pyyaml",
@@ -126,6 +127,7 @@ setup(
             "pytest>=3.2.1",
             "pytest-cov>=2.5.1",
             "testpath>=0.3.1",
+            "Faker",
         ],
     },
     license="MIT",

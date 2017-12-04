@@ -1,7 +1,8 @@
+-r requirements.txt
 sphinx
 sphinx-autobuild
 recommonmark
-pyyaml 
+pyyaml
 coverage>=4.4.1
 coveralls>=1.2.0
 fake-factory>=9999.9.9
@@ -22,3 +23,4 @@ pytest-cov>=2.5.1
 six>=1.10.0
 testpath>=0.3.1
 yapf>=0.17.0
+Faker
