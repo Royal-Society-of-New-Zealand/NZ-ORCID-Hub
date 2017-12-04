@@ -1334,7 +1334,15 @@ class FundingContributor(BaseModel):
 class ExternalId(BaseModel):
     """Funding ExternalId loaded for batch processing."""
 
-    pass
+    funding_record = ForeignKeyField(FundingRecord, related_name="external_ids")
+    type = CharField(max_length=80)
+    value = CharField(max_length=255)
+    url = CharField(max_length=200, null=True)
+    relationship = CharField(max_length=80, null=True)
+
+    class Meta:  # noqa: D101,D106
+        db_table = "external_id"
+        table_alias = "ei"
 
 
 class Url(BaseModel, AuditMixin):
