@@ -482,7 +482,9 @@ class FundingRecordAdmin(AppModelView):
     def render(self, template, **kwargs):
         """Pass the task to the render function as an added argument."""
         if "task" not in kwargs:
-            kwargs["task"] = Task.get(id=request.args.get("task_id"))
+            task_id = request.args.get("task_id")
+            if task_id:
+                kwargs["task"] = Task.get(id=task_id)
 
         return super().render(template, **kwargs)
 
@@ -601,7 +603,9 @@ class AffiliationRecordAdmin(AppModelView):
     def render(self, template, **kwargs):
         """Pass the task to the render function as an added argument."""
         if "task" not in kwargs:
-            kwargs["task"] = Task.get(id=request.args.get("task_id"))
+            task_id = request.args.get("task_id")
+            if task_id:
+                kwargs["task"] = Task.get(id=task_id)
 
         return super().render(template, **kwargs)
 
