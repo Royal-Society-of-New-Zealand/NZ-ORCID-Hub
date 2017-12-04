@@ -1,9 +1,5 @@
 *** Settings ***
 Documentation       A resource file with reusable keywords and variables.
-...
-...                 The system specific keywords created here form our own
-...                 domain specific language. They utilize keywords provided
-...                 by the imported Selenium2Library.
 Library             SeleniumLibrary     run_on_failure=Nothing
 Variables           variables.py
 
@@ -27,10 +23,14 @@ Find Organisation
     Press Key       //input[@name='search']     \\13
     Click Link      //a[@title="Sort by Name"]
 
+Edit Organisation
+    [Arguments]     ${org}
+    Click Link      xpath=(//td[text()[contains(.,'${org}')]]/parent::*/td[@class='list-buttons-column']/a)
+
 Remove Organisation
     [Arguments]     ${org_to_remove}
     Find Organisation   ${org_to_remove}
-    Click Link      xpath=(//td[text()[contains(.,'${org_to_remove}')]]/parent::*/td[@class='list-buttons-column']/a)
+    Edit Organisation  ${org_to_remove}
     ${org} =        Get Value   //input[@name="name"]
     ${href} =       Get Location
     ${result} =     Fetch From Right    ${href}     id=

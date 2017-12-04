@@ -1,12 +1,12 @@
 *** Settings ***
-Documentation     A test suite with a single test for invalid login.
-Suite Setup       Open Browser To UOA Login Page
-Suite Teardown    Close Browser
-Test Setup        University of Auckland Login Page
-Test Template     Login With Invalid Credentials Should Fail
-Resource          resources/resource.robot
-Resource          resources/uoa_login.robot
-Variables         resources/variables.py
+Documentation             A test suite with a single test for invalid login.
+Test Setup                Open Browser & Set Speed
+Test Teardown            Close Browser
+Resource                  resources/resource.robot
+Test Template             Login With Invalid Credentials Should Fail
+Resource                  resources/tuakiri/login.robot
+Resource                  resources/tuakiri/uoa.robot
+Variables                 resources/variables.py
 
 *** Test Cases ***
 Invalid Username                 invalid          ${TEST_PASSWORD}
