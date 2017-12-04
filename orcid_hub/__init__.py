@@ -133,6 +133,11 @@ from .authcontroller import *  # noqa: F401,F403
 from .views import *  # noqa: F401,F403
 from .oauth import *  # noqa: F401,F403
 from .reports import *  # noqa: F401,F403
+
+if app.testing:
+    from .mocks import mocks
+    app.register_blueprint(mocks)
+
 from .utils import process_affiliation_records, process_funding_records  # noqa: E402
 
 

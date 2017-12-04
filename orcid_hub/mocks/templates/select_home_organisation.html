@@ -1,0 +1,353 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<!-- saved from url=(0265)https://directory.tuakiri.ac.nz/ds/DS?entityID=https%3A%2F%2Ftest.orcidhub.org.nz%2Fshibboleth&return=https%3A%2F%2Ftest.orcidhub.org.nz%2FShibboleth.sso%2FLogin%3FSAMLDS%3D1%26target%3Dss%253Amem%253Af743d492b2e7d07598b9e93a77c8dfd77c3d2ddf3cd7f6de1783549308084ad1 -->
+<html>
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <link rel="stylesheet" title="normal" type="text/css"
+                                          href="{{ url_for('mocks.static', filename='wayf.css') }}">
+    <title>Select your Home Organisation</title>
+    <link rel="shortcut icon" href="https://directory.tuakiri.ac.nz/static/images/favicon.ico">
+    </head>
+<body>
+
+<div id="content">
+
+<div id="background_a">
+<div id="background_b">
+<div id="background_c">
+
+    <div class="head">
+      <div class="logo"><img src="{{ url_for('mocks.static', filename='tuakiri.png') }}" alt="REANNZ Tuakiri"></div>
+
+<!-- Tuakiri links -->
+        <ul class="ds_links">
+                <li><a target="_blank" href="https://reannz.co.nz/services/network-cloud-services/tuakiri/">About</a></li>
+                <li><a target="_blank" href="mailto:tuakiri@reannz.co.nz">Support</a></li>
+        </ul>
+
+       <h2>Select your Home Organisation </h2>
+    </div>
+
+    <div class="selector">
+    <p class="text">
+
+<!--CONFIG-->
+
+The service
+   <b>'UAT Orcid Hub SP'</b>
+   at host <b>{{ request.host }}</b>
+
+you are trying to access requires that you authenticate with your home organisation.
+
+    <div class="list">
+        <h3>Select from the list:</h3>
+
+
+
+        <form method="get" name="IdPList" action="{{url_for('mocks.iam')}}">
+            <div>
+
+
+                 <input type="hidden" name="entityID" value="https://test.orcidhub.org.nz/shibboleth">
+                 <input type="hidden" name="returnX" value="https://test.orcidhub.org.nz/Shibboleth.sso/Login?SAMLDS=1&amp;target=ss%3Amem%3Af743d492b2e7d07598b9e93a77c8dfd77c3d2ddf3cd7f6de1783549308084ad1">
+                 <input type="hidden" name="returnIDParam" value="entityID">
+
+             <table id="tab">
+               <tbody><tr>
+                <th>Federation</th>
+                <th>Organisation</th>
+               </tr>
+               <tr><td>
+                 <select name="FedSelector" size="16" id="FedSelect" style="overflow-y: scroll;" tabindex="30" onchange="changedFed(this.form.origin,
+                                                  this.form.FedSelector[this.form.FedSelector.selectedIndex].value);">
+
+
+
+                       <option value="Tuakiri New Zealand Access Federation">
+                         Tuakiri New Zealand Access Federation
+                       </option>
+
+                     <!-- More than one site so select the 'All' -->
+
+                     <option value="ALL" selected="selected">
+                         All Sites
+                     </option>
+
+                 </select></td><td>
+                 <input type="hidden" name="action" value="selection">
+                 <select name="origin" size="16" id="originIdp" tabindex="40" style="overflow-y: scroll;" onchange="readjustListAfterChange(event, this);">
+
+
+                   <option value="https://idp.agresearch.co.nz/idp/shibboleth">AgResearch</option><option value="https://idp.cpit.ac.nz/idp/shibboleth">Ara Institute of Canterbury</option><option value="https://idp.aut.ac.nz/idp/shibboleth">AUT University</option><option value="https://idp.esr.cri.nz/idp/shibboleth">ESR</option><option value="https://idp.landcareresearch.co.nz/idp/shibboleth">Landcare Research</option><option value="https://idp.lincoln.ac.nz/idp/shibboleth">Lincoln University</option><option value="https://idp.massey.ac.nz/idp/shibboleth">Massey University</option><option value="https://idp.niwa.co.nz/idp/shibboleth">NIWA</option><option value="https://idp.plantandfood.co.nz/idp/shibboleth">Plant and Food Research</option><option value="https://idp.scionresearch.com/idp/shibboleth">Scion</option><option value="http://iam.auckland.ac.nz/idp">The University of Auckland</option><option value="https://idp.waikato.ac.nz/idp/shibboleth">The University of Waikato</option><option value="https://virtualhome.tuakiri.ac.nz/idp/shibboleth">Tuakiri Virtual Home</option><option value="https://idp.canterbury.ac.nz/idp/shibboleth">University of Canterbury</option><option value="https://idp.otago.ac.nz/idp/shibboleth">University of Otago</option><option value="https://idp.vuw.ac.nz/idp/shibboleth">Victoria University of Wellington</option></select>
+                 </td></tr>
+             </tbody></table>
+             <p>
+               <select name="cache" tabindex="60">
+                 <option value="false"> Do not remember</option>
+                 <option value="session"> Remember for session</option>
+                 <option value="perm" selected="selected"> Remember for a month</option>
+               </select>
+               <input class="select" type="submit" value="Select" tabindex="50"><br>
+               <input type="checkbox" name="redirect" onclick="return confirmRedirectCheckbox(document.IdPList.redirect)" value="redirect">Redirect me in the future without asking me again.<br>
+             </p>
+            </div>
+           </form>
+        </div>
+        <div class="search">
+        </div>
+    </div>
+
+    <div class="footer">
+<!--        <p class="text"> -->
+                <!--CONFIG-->
+<!--        </p> -->
+    </div>
+
+<script language="javascript" type="text/javascript">
+<!--
+// global variable to hold the scrollLineHeight
+var scrollLineHeight;
+
+function refreshScrollParams(idpSelector) {
+    scrollLineHeight = undefined;
+
+    // only attempt scrolling on browsers where JavaScript supports scrollByLines on SELECT elements
+    if ( idpSelector.scrollByLines ) {
+	// NOTE: this only works if the SELECT element has: style="overflow-y: scroll;"
+	var scrollTopOld = idpSelector.scrollTop;
+	idpSelector.scrollByLines(1);
+	scrollLineHeight = idpSelector.scrollTop - scrollTopOld;
+	idpSelector.scrollByLines(-1);
+    };
+};
+
+// invoke the function now
+var idpSelector = document.getElementById('originIdp');
+refreshScrollParams(idpSelector)
+
+
+function readjustListAfterChange(event, theSelect) {
+    // only proceed if scrollLineHeight is properly initialized and the SELECT
+    // element supports scrolling
+    if (scrollLineHeight && (scrollLineHeight > 0 ) && ( theSelect.scrollTop>=0)  )  {
+        var scrolledToLine = (theSelect.scrollTop / scrollLineHeight).toFixed(0);
+        if (theSelect.selectedIndex < scrolledToLine) {
+            theSelect.scrollByLines( theSelect.selectedIndex - scrolledToLine );
+        } else if ( theSelect.selectedIndex >= scrolledToLine + theSelect.size) {
+            theSelect.scrollByLines( theSelect.selectedIndex+1 - theSelect.size - scrolledToLine );
+        };
+    };
+    return true;
+}
+
+-->
+</script>
+
+
+<script language="javascript" type="text/javascript">
+<!--
+
+function changedFed(X, Selected) {
+
+     while (X.length > 0) {
+        X.options[(X.length-1)] = null;
+     }
+
+
+
+      if (Selected == "Tuakiri\x20New\x20Zealand\x20Access\x20Federation") {
+        var opt;
+
+          opt = new Option ("AgResearch");
+          X.options[X.length] = opt;
+          opt.value = "https\x3A\x2F\x2Fidp.agresearch.co.nz\x2Fidp\x2Fshibboleth";
+
+          opt = new Option ("Ara\x20Institute\x20of\x20Canterbury");
+          X.options[X.length] = opt;
+          opt.value = "https\x3A\x2F\x2Fidp.cpit.ac.nz\x2Fidp\x2Fshibboleth";
+
+          opt = new Option ("AUT\x20University");
+          X.options[X.length] = opt;
+          opt.value = "https\x3A\x2F\x2Fidp.aut.ac.nz\x2Fidp\x2Fshibboleth";
+
+          opt = new Option ("ESR");
+          X.options[X.length] = opt;
+          opt.value = "https\x3A\x2F\x2Fidp.esr.cri.nz\x2Fidp\x2Fshibboleth";
+
+          opt = new Option ("Landcare\x20Research");
+          X.options[X.length] = opt;
+          opt.value = "https\x3A\x2F\x2Fidp.landcareresearch.co.nz\x2Fidp\x2Fshibboleth";
+
+          opt = new Option ("Lincoln\x20University");
+          X.options[X.length] = opt;
+          opt.value = "https\x3A\x2F\x2Fidp.lincoln.ac.nz\x2Fidp\x2Fshibboleth";
+
+          opt = new Option ("Massey\x20University");
+          X.options[X.length] = opt;
+          opt.value = "https\x3A\x2F\x2Fidp.massey.ac.nz\x2Fidp\x2Fshibboleth";
+
+          opt = new Option ("NIWA");
+          X.options[X.length] = opt;
+          opt.value = "https\x3A\x2F\x2Fidp.niwa.co.nz\x2Fidp\x2Fshibboleth";
+
+          opt = new Option ("Plant\x20and\x20Food\x20Research");
+          X.options[X.length] = opt;
+          opt.value = "https\x3A\x2F\x2Fidp.plantandfood.co.nz\x2Fidp\x2Fshibboleth";
+
+          opt = new Option ("Scion");
+          X.options[X.length] = opt;
+          opt.value = "https\x3A\x2F\x2Fidp.scionresearch.com\x2Fidp\x2Fshibboleth";
+
+          opt = new Option ("The\x20University\x20of\x20Auckland");
+          X.options[X.length] = opt;
+          opt.value = "http\x3A\x2F\x2Fiam.auckland.ac.nz\x2Fidp";
+
+          opt = new Option ("The\x20University\x20of\x20Waikato");
+          X.options[X.length] = opt;
+          opt.value = "https\x3A\x2F\x2Fidp.waikato.ac.nz\x2Fidp\x2Fshibboleth";
+
+          opt = new Option ("Tuakiri\x20Virtual\x20Home");
+          X.options[X.length] = opt;
+          opt.value = "https\x3A\x2F\x2Fvirtualhome.tuakiri.ac.nz\x2Fidp\x2Fshibboleth";
+
+          opt = new Option ("University\x20of\x20Canterbury");
+          X.options[X.length] = opt;
+          opt.value = "https\x3A\x2F\x2Fidp.canterbury.ac.nz\x2Fidp\x2Fshibboleth";
+
+          opt = new Option ("University\x20of\x20Otago");
+          X.options[X.length] = opt;
+          opt.value = "https\x3A\x2F\x2Fidp.otago.ac.nz\x2Fidp\x2Fshibboleth";
+
+          opt = new Option ("Victoria\x20University\x20of\x20Wellington");
+          X.options[X.length] = opt;
+          opt.value = "https\x3A\x2F\x2Fidp.vuw.ac.nz\x2Fidp\x2Fshibboleth";
+
+      }
+
+
+      if (Selected == "ALL") {
+        var opt;
+
+              opt = new Option ("AgResearch");
+              X.options[X.length] = opt;
+              opt.value = "https\x3A\x2F\x2Fidp.agresearch.co.nz\x2Fidp\x2Fshibboleth";
+
+              opt = new Option ("Ara\x20Institute\x20of\x20Canterbury");
+              X.options[X.length] = opt;
+              opt.value = "https\x3A\x2F\x2Fidp.cpit.ac.nz\x2Fidp\x2Fshibboleth";
+
+              opt = new Option ("AUT\x20University");
+              X.options[X.length] = opt;
+              opt.value = "https\x3A\x2F\x2Fidp.aut.ac.nz\x2Fidp\x2Fshibboleth";
+
+              opt = new Option ("ESR");
+              X.options[X.length] = opt;
+              opt.value = "https\x3A\x2F\x2Fidp.esr.cri.nz\x2Fidp\x2Fshibboleth";
+
+              opt = new Option ("Landcare\x20Research");
+              X.options[X.length] = opt;
+              opt.value = "https\x3A\x2F\x2Fidp.landcareresearch.co.nz\x2Fidp\x2Fshibboleth";
+
+              opt = new Option ("Lincoln\x20University");
+              X.options[X.length] = opt;
+              opt.value = "https\x3A\x2F\x2Fidp.lincoln.ac.nz\x2Fidp\x2Fshibboleth";
+
+              opt = new Option ("Massey\x20University");
+              X.options[X.length] = opt;
+              opt.value = "https\x3A\x2F\x2Fidp.massey.ac.nz\x2Fidp\x2Fshibboleth";
+
+              opt = new Option ("NIWA");
+              X.options[X.length] = opt;
+              opt.value = "https\x3A\x2F\x2Fidp.niwa.co.nz\x2Fidp\x2Fshibboleth";
+
+              opt = new Option ("Plant\x20and\x20Food\x20Research");
+              X.options[X.length] = opt;
+              opt.value = "https\x3A\x2F\x2Fidp.plantandfood.co.nz\x2Fidp\x2Fshibboleth";
+
+              opt = new Option ("Scion");
+              X.options[X.length] = opt;
+              opt.value = "https\x3A\x2F\x2Fidp.scionresearch.com\x2Fidp\x2Fshibboleth";
+
+              opt = new Option ("The\x20University\x20of\x20Auckland");
+              X.options[X.length] = opt;
+              opt.value = "http\x3A\x2F\x2Fiam.auckland.ac.nz\x2Fidp";
+
+              opt = new Option ("The\x20University\x20of\x20Waikato");
+              X.options[X.length] = opt;
+              opt.value = "https\x3A\x2F\x2Fidp.waikato.ac.nz\x2Fidp\x2Fshibboleth";
+
+              opt = new Option ("Tuakiri\x20Virtual\x20Home");
+              X.options[X.length] = opt;
+              opt.value = "https\x3A\x2F\x2Fvirtualhome.tuakiri.ac.nz\x2Fidp\x2Fshibboleth";
+
+              opt = new Option ("University\x20of\x20Canterbury");
+              X.options[X.length] = opt;
+              opt.value = "https\x3A\x2F\x2Fidp.canterbury.ac.nz\x2Fidp\x2Fshibboleth";
+
+              opt = new Option ("University\x20of\x20Otago");
+              X.options[X.length] = opt;
+              opt.value = "https\x3A\x2F\x2Fidp.otago.ac.nz\x2Fidp\x2Fshibboleth";
+
+              opt = new Option ("Victoria\x20University\x20of\x20Wellington");
+              X.options[X.length] = opt;
+              opt.value = "https\x3A\x2F\x2Fidp.vuw.ac.nz\x2Fidp\x2Fshibboleth";
+
+
+
+    }
+
+
+  refreshScrollParams(X);
+
+}
+
+// Function to set the federation in the federations list
+// Select the Option FedName in FedSelect and then calls changedFed to repopulate IdPSelect list of IdPs.
+// Does not do anything if FedName is blank or not found in th federations list
+function setFederation(FedSelect, IdPSelect, FedName) {
+  var i = 0;
+
+  while (i < FedSelect.length) {
+    if (FedSelect.options[i].value == FedName) {
+      FedSelect.selectedIndex = i;
+      changedFed(IdPSelect, FedName);
+      return;
+    };
+    i++;
+  };
+  // no match - not doing anything
+}
+-->
+</script>
+
+   <script language="javascript" type="text/javascript">
+<!--
+   function confirmRedirectCheckbox(checkbox) {
+     return !(checkbox && checkbox.checked) || confirm('Are you sure you want to be automatically redirected to the selected organisation in the future without being asked again?\n\nYou can reset your selection at https\x3A\x2F\x2Fdirectory.tuakiri.ac.nz\x2Fds\x2Freset.jsp\nOr by deleting your cookies for this host: directory.tuakiri.ac.nz');
+   };
+-->
+</script>
+
+</div> <!-- end of background divs -->
+</div>
+</div>
+
+</div>
+
+   <script language="javascript" type="text/javascript">
+   <!--
+  /* set the default federation on load - when set */
+  setFederation(document.getElementById('FedSelect'),document.getElementById('originIdp'),'Tuakiri\x20New\x20Zealand\x20Access\x20Federation');
+   -->
+   </script>
+
+
+
+<!-- display DS version -->
+
+<!-- DS version: 1.1.2-tuakiri-0.9.8.22 -->
+
+<!-- Internal Hostname: tkrdirprd02.its.auckland.ac.nz -->
+
+
+<iframe frameborder="0" scrolling="no" style="background-color: transparent; border: 0px; display: none;" src="{{ url_for('mocks.static', filename='saved_resource.html') }}></iframe><div id="GOOGLE_INPUT_CHEXT_FLAG" input="" input_stat="{&quot;tlang&quot;:true,&quot;tsbc&quot;:true,&quot;pun&quot;:true,&quot;mk&quot;:true,&quot;ss&quot;:true}" style="display: none;"></div></body></html>

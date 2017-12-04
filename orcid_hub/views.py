@@ -456,6 +456,25 @@ class FundingContributorAdmin(AppModelView):
 
         return True
 
+    @action("reset", "Reset for processing",
+            "Are you sure you want to reset the selected records for batch processing?")
+    def action_reset(self, ids):
+        """Batch reset of users."""
+        try:
+            status = " The record was reset at " + datetime.now().isoformat(timespec="seconds")
+            count = self.model.update(processed_at=None, status=status).where(
+                self.model.status.is_null(False), self.model.id.in_(ids)).execute()
+            funding_record_id = self.model.select().where(self.model.id.in_(ids))[0].funding_record_id
+            FundingRecord.update(processed_at=None, status=FundingRecord.status + status).where(
+                FundingRecord.is_active,
+                FundingRecord.id == funding_record_id).execute()
+        except Exception as ex:
+            flash(f"Failed to activate the selected records: {ex}")
+            app.logger.exception("Failed to activate the selected records")
+
+        else:
+            flash(f"{count} Funding Contributor records were reset for batch processing.")
+
 
 class FundingRecordAdmin(AppModelView):
     """Funding record model view."""
@@ -478,6 +497,15 @@ class FundingRecordAdmin(AppModelView):
     can_export = True
 
     form_widget_args = {"external_id": {"readonly": True}}
+
+    def render(self, template, **kwargs):
+        """Pass the task to the render function as an added argument."""
+        if "task" not in kwargs:
+            task_id = request.args.get("task_id")
+            if task_id:
+                kwargs["task"] = Task.get(id=task_id)
+
+        return super().render(template, **kwargs)
 
     def is_accessible(self):
         """Verify if the task view is accessible for the current user."""
@@ -594,7 +622,9 @@ class AffiliationRecordAdmin(AppModelView):
     def render(self, template, **kwargs):
         """Pass the task to the render function as an added argument."""
         if "task" not in kwargs:
-            kwargs["task"] = Task.get(id=request.args.get("task_id"))
+            task_id = request.args.get("task_id")
+            if task_id:
+                kwargs["task"] = Task.get(id=task_id)
 
         return super().render(template, **kwargs)
 

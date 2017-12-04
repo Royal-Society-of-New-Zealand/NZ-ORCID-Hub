@@ -39,18 +39,26 @@ Links
 """
 
 from setuptools import find_packages, setup
+
 from orcid_hub import __version__ as VERSION
 
 setup(
     name="ORCID-Hub",
     version=VERSION,
-    keywords=["orcid", "hub", "research", ],
+    keywords=[
+        "orcid",
+        "hub",
+        "research",
+    ],
     author="Jason Gush, Radomirs Cirskis, Roshan Pawar",
     author_email="jagu04@gmail.com, nad2000@gmail.com, roshan.pawar@auckland.ac.nz",
     url="https://github.com/Royal-Society-of-New-Zealand/NZ-ORCID-Hub",
     long_description=__doc__ or open('docs/README.md').read(),
     # packages=["orcid_hub", ],
-    packages=["orcid_hub", "orcid_api", ],
+    packages=[
+        "orcid_hub",
+        "orcid_api",
+    ],
     # packages=find_packages(),
     zip_safe=False,
     package_data={'': ["'orcid_swagger.yaml"]},
@@ -66,7 +74,8 @@ setup(
         "peewee-validates",
         "flask-login",
         "Flask-WTF",
-        "emails", "flask-admin",
+        "emails",
+        "flask-admin",
         "python-slugify",
         "flask-script",
         "wtf-peewee",
@@ -109,6 +118,7 @@ setup(
             "six>=1.10.0",
             "testpath>=0.3.1",
             "yapf>=0.17.0",
+            "Faker",
         ],
         "test": [
             "pyyaml",
@@ -126,6 +136,7 @@ setup(
             "pytest>=3.2.1",
             "pytest-cov>=2.5.1",
             "testpath>=0.3.1",
+            "Faker",
         ],
     },
     license="MIT",
@@ -139,6 +150,7 @@ setup(
         [console_scripts]
         orcidhub=orcid_hub.cli:main
     '''
+
     # entry_points={
     #     "console_scripts": [
     #         "orcidhub=orcid_hub.cli:main"
