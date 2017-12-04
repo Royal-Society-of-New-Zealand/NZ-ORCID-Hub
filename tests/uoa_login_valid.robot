@@ -1,15 +1,11 @@
 *** Settings ***
-Documentation     A test suite with a single test for valid login.
-...
-...               This test has a workflow that is created using keywords in
-...               the imported resource file.
-Suite Setup       Open Browser To UOA Login Page
-Suite Teardown    Close Browser
-Test Setup        University of Auckland Login Page
-Resource          resources/resource.robot
-Resource          resources/uoa_login.robot
-Resource          resources/organisation.robot
-Variables         resources/variables.py
+Documentation             A test suite with a single test for valid login.
+Test Setup                Open Browser & Set Speed
+Test Teardown             Close Browser
+Resource                  resources/resource.robot
+Resource                  resources/tuakiri/login.robot
+Resource                  resources/tuakiri/uoa.robot
+Resource                  resources/organisation.robot
 
 *** Test Cases ***
 Valid Login
