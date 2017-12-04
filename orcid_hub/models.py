@@ -1258,7 +1258,7 @@ class FundingRecord(BaseModel, AuditMixin):
                             funding_record=funding_record,
                             orcid=orcid_id,
                             name=name,
-                            email=email,
+                            email=email.lower(),
                             role=role)
 
                     external_ids_list = funding_data.get("external-ids").get("external-id") if \
