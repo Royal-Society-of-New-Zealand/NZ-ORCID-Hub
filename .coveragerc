@@ -1,8 +1,9 @@
 [run]
 branch = True
-
 omit =
+    tests/*
     orcid/*
+    orcid_api/*
     venv/*
     orcid_hub/test_*.py
     main.py
@@ -10,13 +11,17 @@ omit =
     orcid_hub/pyinfo.py
     initializedb.py
     orcid_hub/conftest.py
+    run.py
+    application.py
     config.py
     create.py
     setup.py
 
 [report]
 omit =
+    tests/*
     orcid/*
+    orcid_api/*
     venv/*
     orcid_hub/test_*.py
     main.py
@@ -24,6 +29,8 @@ omit =
     orcid_hub/pyinfo.py
     initializedb.py
     orcid_hub/conftest.py
+    run.py
+    application.py
     config.py
     create.py
     setup.py

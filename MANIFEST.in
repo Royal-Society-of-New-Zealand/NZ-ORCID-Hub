@@ -1,0 +1,3 @@
+recursive-include orcid_hub/templates *
+recursive-include orcid_hub/static *
+include LICENSE

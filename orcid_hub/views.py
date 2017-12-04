@@ -16,13 +16,12 @@ from flask_admin.model import typefmt
 from flask_login import current_user, login_required
 from jinja2 import Markup
 from playhouse.shortcuts import model_to_dict
-from swagger_client.rest import ApiException
+from orcid_api.rest import ApiException
 from werkzeug import secure_filename
 from wtforms.fields import BooleanField
 
-from config import ORCID_BASE_URL, SCOPE_ACTIVITIES_UPDATE, SCOPE_READ_LIMITED
-
 from . import admin, app, models, orcid_client, utils
+from .config import ORCID_BASE_URL, SCOPE_ACTIVITIES_UPDATE, SCOPE_READ_LIMITED
 from .forms import (ApplicationFrom, BitmapMultipleValueField, CredentialForm, FileUploadForm,
                     JsonOrYamlFileUploadForm, OrgRegistrationForm, PartialDateField, RecordForm,
                     UserInvitationForm)
@@ -311,7 +310,7 @@ class OrganisationAdmin(AppModelView):
     def update_model(self, form, model):
         """Handle change of the technical contact."""
         # Technical contact changed:
-        if form.tech_contact.data.id != model.tech_contact_id:
+        if form.tech_contact.data and form.tech_contact.data.id != model.tech_contact_id:
             # Revoke the TECHNICAL role if thre is no org the user is tech.contact for.
             if model.tech_contact and model.tech_contact.has_role(
                     Role.TECHNICAL) and not Organisation.select().where(
@@ -457,6 +456,25 @@ class FundingContributorAdmin(AppModelView):
 
         return True
 
+    @action("reset", "Reset for processing",
+            "Are you sure you want to reset the selected records for batch processing?")
+    def action_reset(self, ids):
+        """Batch reset of users."""
+        try:
+            status = " The record was reset at " + datetime.now().isoformat(timespec="seconds")
+            count = self.model.update(processed_at=None, status=status).where(
+                self.model.status.is_null(False), self.model.id.in_(ids)).execute()
+            funding_record_id = self.model.select().where(self.model.id.in_(ids))[0].funding_record_id
+            FundingRecord.update(processed_at=None, status=FundingRecord.status + status).where(
+                FundingRecord.is_active,
+                FundingRecord.id == funding_record_id).execute()
+        except Exception as ex:
+            flash(f"Failed to activate the selected records: {ex}")
+            app.logger.exception("Failed to activate the selected records")
+
+        else:
+            flash(f"{count} Funding Contributor records were reset for batch processing.")
+
 
 class FundingRecordAdmin(AppModelView):
     """Funding record model view."""
@@ -479,6 +497,15 @@ class FundingRecordAdmin(AppModelView):
     can_export = True
 
     form_widget_args = {"external_id": {"readonly": True}}
+
+    def render(self, template, **kwargs):
+        """Pass the task to the render function as an added argument."""
+        if "task" not in kwargs:
+            task_id = request.args.get("task_id")
+            if task_id:
+                kwargs["task"] = Task.get(id=task_id)
+
+        return super().render(template, **kwargs)
 
     def is_accessible(self):
         """Verify if the task view is accessible for the current user."""
@@ -548,18 +575,19 @@ class FundingRecordAdmin(AppModelView):
     def action_reset(self, ids):
         """Batch reset of users."""
         try:
-            count = self.model.update(processed_at=None).where(
+            self.model.update(processed_at=None).where(
                 self.model.is_active,
                 self.model.processed_at.is_null(False), self.model.id.in_(ids)).execute()
-            FundingContributor.update(processed_at=None).where(
-                FundingContributor.funding_record.in_(ids)
-                and FundingContributor.processed_at.is_null(False)).execute()
+            status = "The record was reset at " + datetime.now().isoformat(timespec="seconds")
+            count = FundingContributor.update(processed_at=None, status=status).where(
+                FundingContributor.funding_record.in_(ids),
+                FundingContributor.status.is_null(False)).execute()
         except Exception as ex:
             flash(f"Failed to activate the selected records: {ex}")
             app.logger.exception("Failed to activate the selected records")
 
         else:
-            flash(f"{count} records were activated for batch processing.")
+            flash(f"{count} Funding Contributor records were reset for batch processing.")
 
 
 class AffiliationRecordAdmin(AppModelView):
@@ -590,6 +618,15 @@ class AffiliationRecordAdmin(AppModelView):
     can_export = True
 
     form_widget_args = {"external_id": {"readonly": True}}
+
+    def render(self, template, **kwargs):
+        """Pass the task to the render function as an added argument."""
+        if "task" not in kwargs:
+            task_id = request.args.get("task_id")
+            if task_id:
+                kwargs["task"] = Task.get(id=task_id)
+
+        return super().render(template, **kwargs)
 
     def is_accessible(self):
         """Verify if the task view is accessible for the current user."""
@@ -664,8 +701,8 @@ class AffiliationRecordAdmin(AppModelView):
         """Batch reset of users."""
         try:
             count = self.model.update(processed_at=None).where(
-                self.model.is_active,
-                self.model.processed_at.is_null(False), self.model.id.in_(ids)).execute()
+                self.model.is_active, self.model.processed_at.is_null(False),
+                self.model.id.in_(ids)).execute()
         except Exception as ex:
             flash(f"Failed to activate the selected records: {ex}")
             app.logger.exception("Failed to activate the selected records")
@@ -1373,7 +1410,7 @@ def invite_user():
         "GET",
         "POST",
     ])
-@roles_required(Role.SUPERUSER, Role.ADMIN)
+@roles_required(Role.SUPERUSER, Role.TECHNICAL)
 def application(app_id=None):
     """Register an application client."""
     form = ApplicationFrom()
@@ -1384,7 +1421,7 @@ def application(app_id=None):
     if client:
         flash(
             f"You aready have registered application '{client.name}' and issued API credentials.",
-            "warning")
+            "info")
         return redirect(url_for("api_credentials", app_id=client.id))
 
     if form.validate_on_submit():
@@ -1393,7 +1430,7 @@ def application(app_id=None):
         client.client_id = secrets.token_hex(10)
         client.client_secret = secrets.token_urlsafe(20)
         client.save()
-        print(form, form.register, form.cancel)
+        flash(f"Application '{client.name}' was successfully registered.", "success")
         return redirect(url_for("api_credentials", app_id=client.id))
 
     return render_template("application.html", form=form)
@@ -1409,7 +1446,7 @@ def application(app_id=None):
         "GET",
         "POST",
     ])
-@roles_required(Role.SUPERUSER, Role.ADMIN)
+@roles_required(Role.SUPERUSER, Role.TECHNICAL)
 def api_credentials(app_id=None):
     """Manage API credentials."""
     if app_id:
@@ -1419,6 +1456,22 @@ def api_credentials(app_id=None):
     if not client:
         return redirect(url_for("application"))
     form = CredentialForm(obj=client)
+    print(form.reset.data)
+    print("***", request.form)
+    if form.validate_on_submit():
+        if form.revoke.data:
+            Token.delete().where(Token.client == client).execute()
+        elif form.reset.data:
+            form.client_id.data = client.client_id = secrets.token_hex(10)
+            form.client_secret.data = client.client_secret = secrets.token_urlsafe(20)
+            client.save()
+        elif form.update_app.data:
+            form.populate_obj(client)
+            client.save()
+        elif form.delete.data:
+            Token.delete().where(Token.client == client).execute()
+            client.delete().execute()
+            return redirect(url_for("application"))
 
     return render_template("api_credentials.html", form=form)
 

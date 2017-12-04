@@ -1,4 +1,8 @@
-pyyaml 
+-r requirements.txt
+sphinx
+sphinx-autobuild
+recommonmark
+pyyaml
 coverage>=4.4.1
 coveralls>=1.2.0
 fake-factory>=9999.9.9
@@ -23,3 +27,4 @@ robotframework>=3.0.2
 robotframework-seleniumlibrary>=3.0.0b1
 pycrypto>=2.6.1
 python-dotenv>=0.6.3
+Faker

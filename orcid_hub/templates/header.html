@@ -61,6 +61,7 @@
                                                                                   title="Invite a new researcher">Invite Researcher</a></li>
                       <li id="load_researcher_affiliations"><a href="{{ url_for('load_researcher_affiliations')}}" data-toggle="tooltip"
                                                                                   title="Import a file of affiliation data as a new task">Upload Affiliations</a></li>
+                      <!-- Commenting code so that funding info is not accessible in production-->
                       <li id="load_researcher_funding"><a href="{{ url_for('load_researcher_funding')}}" data-toggle="tooltip"
                                                                                   title="Import a file of funding data">Upload Funding</a></li>
                       <li id="task.index_view"><a href="{{ url_for('task.index_view')}}"  data-toggle="tooltip"
@@ -74,8 +75,20 @@
                 {% endif %}
               {% endif %}
               {% if current_user.is_tech_contact_of(current_user.organisation) %}
+                {% if current_user.organisation.can_use_api %}
+                <li class="dropdown">
+                  <a class="dropdown-toggle" data-toggle="dropdown" href="#">Settings
+                    <span class="caret"></span></a>
+                  <ul class="dropdown-menu">
+                    <li id="onboard_org"><a href="{{ url_for('onboard_org')}}">
+                        <span data-toggle="tooltip" data-placement="left" title="View your organisation's ORCID information">Your Organisation</span></a></li>
+                    <li id="user.index_view"><a data-toggle="tooltip" data-placement="left" title="Register a client application or manage application credentials" href="{{ url_for('application')}}">Applicatin Registration</a></li>
+                  </ul>
+                </li>
+                {% else %}
                 <li id="onboard_org"><a href="{{ url_for('onboard_org')}}">
                     <span data-toggle="tooltip" data-placement="bottom" title="View your organisation's ORCID information">Your Organisation</span></a></li>
+                {% endif %}
               {% endif %}
               {% if current_user.has_role("SUPERUSER") %}
                 <li id="registerOrganisation"><a href="{{ url_for('invite_organisation') }}">Register

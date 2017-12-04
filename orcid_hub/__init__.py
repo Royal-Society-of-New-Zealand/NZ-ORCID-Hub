@@ -11,7 +11,7 @@
     :license: MIT, see LICENSE for more details.
 """
 
-__version__ = '2.1-dev'
+__version__ = '3.0a6'
 
 import logging
 import os
@@ -27,10 +27,11 @@ from flask_peewee.rest import Authentication, RestAPI
 from peewee import PostgresqlDatabase
 from playhouse import db_url
 from playhouse.shortcuts import RetryOperationalError
+# disable Sentry if there is no SENTRY_DSN:
 from raven.contrib.flask import Sentry
 
-from config import *  # noqa: F401, F403
-from config import DATABASE_URL
+from .config import *  # noqa: F401, F403
+from .config import DATABASE_URL
 from .failover import PgDbWithFailover
 from flask_admin import Admin
 
@@ -44,12 +45,12 @@ class ReconnectablePostgresqlDatabase(RetryOperationalError, PostgresqlDatabase)
 
 app = Flask(__name__, instance_relative_config=True)
 app.config.from_object(__name__)
-if not app.config.from_pyfile("settings.cfg", silent=True):
+if not app.config.from_pyfile("settings.cfg", silent=True) and app.debug:
     print("*** WARNING: Faile to laod local application configuration from 'instance/settins.cfg'")
 app.url_map.strict_slashes = False
 oauth = OAuth2Provider(app)
 
-# TODO: implment connection factory
+# TODO: implement connection factory
 db_url.register_database(PgDbWithFailover, "pg+failover", "postgres+failover")
 db_url.PostgresqlDatabase = ReconnectablePostgresqlDatabase
 if DATABASE_URL.startswith("sqlite"):
@@ -116,7 +117,9 @@ admin = Admin(
     app, name="NZ ORCiD Hub", template_mode="bootstrap3", base_template="admin/master.html")
 
 # https://sentry.io/orcid-hub/nz-orcid-hub-dev/getting-started/python-flask/
-sentry = Sentry(app, logging=True, level=logging.WARNING)
+SENTRY_DSN = app.config.get("SENTRY_DSN")
+if SENTRY_DSN:
+    sentry = Sentry(app, dsn=SENTRY_DSN, logging=True, level=logging.DEBUG if app.debug else logging.WARNING)
 
 login_manager = flask_login.LoginManager()
 login_manager.login_view = "login"
@@ -130,6 +133,11 @@ from .authcontroller import *  # noqa: F401,F403
 from .views import *  # noqa: F401,F403
 from .oauth import *  # noqa: F401,F403
 from .reports import *  # noqa: F401,F403
+
+if app.testing:
+    from .mocks import mocks
+    app.register_blueprint(mocks)
+
 from .utils import process_affiliation_records, process_funding_records  # noqa: E402
 
 
@@ -137,7 +145,7 @@ from .utils import process_affiliation_records, process_funding_records  # noqa:
 def setup_logging():
     """Set-up logger to log to STDOUT (eventually conainer log)."""
     app.logger.addHandler(logging.StreamHandler())
-    app.logger.setLevel(logging.INFO)
+    app.logger.setLevel(logging.DEBUG if app.debug else logging.WARNING)
 
 
 @app.cli.command()
@@ -175,6 +183,7 @@ def initdb(create=False, drop=False, force=False, audit=True, verbose=False):
 @click.option("-V", "--verbose", is_flag=True, help="Shows SQL statements.")
 @click.option("-N", "--name", help="User full name.")
 @click.option("-O", "--org-name", help="Organisation name.")
+@click.option("--orcid", help="User's ORCID iD (for the users authenticated via ORCID).")
 @click.option("-I", "--internal-org-name", help="Internal organisation name (e.g., used by IdPs).")
 @click.argument("email", nargs=1)
 def create_hub_administrator(email=False,
@@ -182,6 +191,7 @@ def create_hub_administrator(email=False,
                              force=False,
                              verbose=False,
                              org_name=None,
+                             orcid=None,
                              internal_org_name=None):
     """Create a hub administrator, an organisation and link the user to the Organisation."""
     if verbose:
@@ -199,6 +209,7 @@ def create_hub_administrator(email=False,
     super_user.name = name or org_name or internal_org_name
     super_user.confirmed = True
     super_user.is_superuser = True
+    super_user.orcid = orcid
 
     if org_name:
         org, _ = models.Organisation.get_or_create(name=org_name)
