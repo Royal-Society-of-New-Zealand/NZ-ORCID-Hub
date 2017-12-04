@@ -6,6 +6,7 @@ provides runner that could be launched form a dubugger or a consose with out **f
 """
 
 import os
+
 from orcid_hub import app
 
 if __name__ == "__main__":

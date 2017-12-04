@@ -1,13 +1,12 @@
+"""External service mocking."""
+
 from flask import Blueprint, render_template, abort, request, session, redirect
-from jinja2 import TemplateNotFound
 from os import path, remove
 from tempfile import gettempdir
 import base64
-import json
 import pickle
 import zlib
 from urllib.parse import urlsplit
-
 
 TEST_DATA = {
     "test123@test.net": {
@@ -92,8 +91,8 @@ def shib_sp():
     _next = get_next_url()
     _key = request.args.get("key")
     session["external-sp-mock"] = {
-            "next": _next,
-            "key": _key,
+        "next": _next,
+        "key": _key,
     }
     if _next:
         return render_template("select_home_organisation.html")
@@ -101,15 +100,17 @@ def shib_sp():
     abort(403)
 
 
-@mocks.route("/iam", methods=["GET", "POST", ])
+@mocks.route(
+    "/iam", methods=[
+        "GET",
+        "POST",
+    ])
 def iam():
     """Identity and access management (IAM) mock.
 
     It presenst a mock for selecting an organisation and redirects to
     a login form mock.
     """
-
-
     if request.method == "GET":
         return render_template("mocks_login.html")
     elif request.method == "POST":
@@ -123,40 +124,74 @@ def iam():
 
         data = {k: v for k, v in request.headers.items()}
         data.update({
-            "Shib-Cookie-Name": "NO NAME",
-            "Shib-Session-Id": "_bc79355832c457a3b70e9322890b74d7",
-            "Shib-Session-Index": "_67c1daeffa1fc862d1e54ecb3e37ace1",
-            "Shib-Identity-Provider": idp,
-            "Shib-Authentication-Method": "urn:oasis:names:tc:SAML:2.0:ac:classes:PasswordProtectedTransport",
-            "Shib-Authentication-Instant": "2017-12-04T05:24:44.405Z",
-            "Shib-Authncontext-Class": "urn:oasis:names:tc:SAML:2.0:ac:classes:PasswordProtectedTransport",
-            "Shib-Authncontext-Decl": "",
-            "Shib-Assertion-Count": "",
-            "Shib-Handler": "N/A",
-            "Affiliation": "",
-            "Unscoped-Affiliation": "",
-            "Entitlement": "",
-            "Targeted-Id": "",
-            "Persistent-Id": "N/A",
-            "O": "",
-            "Sn": "Bloggs",
-            "Cn": "Rad Bloggs",
-            "Givenname": "Rad",
-            "Mail": email,
-            "Displayname": "",
-            "Ou": "",
-            "Telephonenumber": "",
-            "Assurance": "",
-            "Primary-Affiliation": "",
-            "Auedupersonsharedtoken": "",
-            "Auedupersonlegalname": "",
-            "Auedupersonaffiliation": "",
-            "Mobile": "",
-            "Uid": "",
-            "Postaladdress": "",
-            "Homeorganization": "",
-            "Homeorganizationtype": "",
-            "Shib-Application-Id": "default",
+            "Shib-Cookie-Name":
+            "NO NAME",
+            "Shib-Session-Id":
+            "_bc79355832c457a3b70e9322890b74d7",
+            "Shib-Session-Index":
+            "_67c1daeffa1fc862d1e54ecb3e37ace1",
+            "Shib-Identity-Provider":
+            idp,
+            "Shib-Authentication-Method":
+            "urn:oasis:names:tc:SAML:2.0:ac:classes:PasswordProtectedTransport",
+            "Shib-Authentication-Instant":
+            "2017-12-04T05:24:44.405Z",
+            "Shib-Authncontext-Class":
+            "urn:oasis:names:tc:SAML:2.0:ac:classes:PasswordProtectedTransport",
+            "Shib-Authncontext-Decl":
+            "",
+            "Shib-Assertion-Count":
+            "",
+            "Shib-Handler":
+            "N/A",
+            "Affiliation":
+            "",
+            "Unscoped-Affiliation":
+            "",
+            "Entitlement":
+            "",
+            "Targeted-Id":
+            "",
+            "Persistent-Id":
+            "N/A",
+            "O":
+            "",
+            "Sn":
+            "Bloggs",
+            "Cn":
+            "Rad Bloggs",
+            "Givenname":
+            "Rad",
+            "Mail":
+            email,
+            "Displayname":
+            "",
+            "Ou":
+            "",
+            "Telephonenumber":
+            "",
+            "Assurance":
+            "",
+            "Primary-Affiliation":
+            "",
+            "Auedupersonsharedtoken":
+            "",
+            "Auedupersonlegalname":
+            "",
+            "Auedupersonaffiliation":
+            "",
+            "Mobile":
+            "",
+            "Uid":
+            "",
+            "Postaladdress":
+            "",
+            "Homeorganization":
+            "",
+            "Homeorganizationtype":
+            "",
+            "Shib-Application-Id":
+            "default",
         })
 
         if email in TEST_DATA:
@@ -166,7 +201,7 @@ def iam():
             fake = Faker()
             fn, ln = fake.first_name(), fake.last_name()
             cn = fn + ' ' + ln
-            affiliation = fake.random.choice(["faculty", "staff", "student" ])
+            affiliation = fake.random.choice(["faculty", "staff", "student"])
             data.update({
                 "Eppn": email.split("@")[0] + '@' + domainname,
                 "Affiliation": affiliation,
@@ -182,7 +217,7 @@ def iam():
                 "Displayname": cn,
                 "Telephonenumber": fake.phone_number(),
                 "Mobile": fake.phone_number(),
-                "Uid": fake.random.randint(1000000,9999999),
+                "Uid": fake.random.randint(1000000, 9999999),
                 "Postaladdress": fake.address(),
             })
 
