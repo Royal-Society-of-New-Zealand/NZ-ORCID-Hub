@@ -7,11 +7,12 @@ isort:skip_file
 
 from config import ORCID_API_BASE, SCOPE_READ_LIMITED, SCOPE_ACTIVITIES_UPDATE, ORCID_BASE_URL
 from flask_login import current_user
-from models import OrcidApiCall, Affiliation, OrcidToken
-from swagger_client import (configuration, rest, api_client, MemberAPIV20Api, SourceClientId,
+from models import (OrcidApiCall, Affiliation, OrcidToken, FundingContributor as FundingCont, User
+                    as UserModel, ExternalId as ExternalIdModel)
+from orcid_api import (configuration, rest, api_client, MemberAPIV20Api, SourceClientId,
                             Source, OrganizationAddress, DisambiguatedOrganization, Employment,
                             Education, Organization)
-from swagger_client.rest import ApiException
+from orcid_api.rest import ApiException
 from time import time
 from urllib.parse import urlparse
 from application import app
@@ -99,7 +100,6 @@ class MemberAPI(MemberAPIV20Api):
         url = urlparse(ORCID_BASE_URL)
         self.source_clientid = SourceClientId(
             host=url.hostname,
-            path=org.orcid_client_id,
             uri="http://" + url.hostname + "/client/" + org.orcid_client_id)
 
         self.source = Source(
@@ -296,5 +296,166 @@ class MemberAPI(MemberAPIV20Api):
 
 
 # yapf: disable
-from swagger_client import *  # noqa: F401,F403,F405
+from orcid_api import *  # noqa: F401,F403,F405
+api_client.RESTClientObject = OrcidRESTClientObject  # noqa: F405
+# -*- coding: utf-8 -*-
+"""
+Swagger generated client 'monkey-patch' for logging API requests.
+
+isort:skip_file
+"""
+
+from config import ORCID_API_BASE, SCOPE_READ_LIMITED, SCOPE_ACTIVITIES_UPDATE, ORCID_BASE_URL
+from flask_login import current_user
+from models import OrcidApiCall, Affiliation, OrcidToken
+from orcid_api import (configuration, rest, api_client, MemberAPIV20Api, SourceClientId,
+                            Source, OrganizationAddress, DisambiguatedOrganization, Employment,
+                            Education, Organization)
+from orcid_api.rest import ApiException
+from time import time
+from urllib.parse import urlparse
+from application import app
+import json
+
+url = urlparse(ORCID_API_BASE)
+configuration.host = url.scheme + "://" + url.hostname
+
+
+class OrcidRESTClientObject(rest.RESTClientObject):
+    """REST Client with call logging."""
+
+    def request(self,
+                method,
+                url,
+                query_params=None,
+                headers=None,
+                body=None,
+                post_params=None,
+                _preload_content=True,
+                _request_timeout=None,
+                **kwargs):
+        """Exectue REST API request and logs both request, response and the restponse time."""
+        request_time = time()
+        put_code = body.get("put-code") if body else None
+        try:
+            oac = OrcidApiCall.create(
+                user_id=current_user.id if current_user else None,
+                method=method,
+                url=url,
+                query_params=query_params,
+                body=body,
+                put_code=put_code)
+        except Exception:
+            app.logger.exception("Failed to create API call log entry.")
+        res = super().request(
+            method=method,
+            url=url,
+            query_params=query_params,
+            headers=headers,
+            body=body,
+            post_params=post_params,
+            _preload_content=_preload_content,
+            _request_timeout=_request_timeout,
+            **kwargs)
+        if res and oac:
+            oac.status = res.status
+            oac.response_time_ms = round((time() - request_time) * 1000)
+            if res.data:
+                oac.response = res.data
+            oac.save()
+
+        return res
+
+
+class MemberAPI(MemberAPIV20Api):
+    """ORCID Mmeber API extension."""
+
+    def __init__(self, org=None, user=None, access_token=None, *args, **kwargs):
+        """Set up the configuration with the access token given to the org. by the user."""
+        super().__init__(*args, **kwargs)
+            region = None
+        if not self.org.state:
+            self.org.state = None
+
+        if affiliation is None:
+            app.logger.warning("Missing affiliation value.")
+            raise Exception("Missing affiliation value.")
+
+        if initial:
+            put_code = self.is_emp_or_edu_record_present(affiliation)
+            if put_code:
+                return put_code, self.user.orcid, False
+
+        organisation_address = OrganizationAddress(
+            city=city or self.org.city,
+            country=country or self.org.country,
+            region=state or region or self.org.state)
+
+        disambiguated_organization_details = DisambiguatedOrganization(
+            disambiguated_organization_identifier=disambiguated_id or self.org.disambiguated_id,
+            disambiguation_source=disambiguation_source or self.org.disambiguation_source)
+
+        if affiliation == Affiliation.EMP:
+            rec = Employment()
+        elif affiliation == Affiliation.EDU:
+            rec = Education()
+        else:
+            app.logger.info(
+                f"For {self.user} not able to determine affiliaton type with {self.org}")
+            raise Exception(
+                f"Unsupported affiliation type '{affiliation}' for {self.user} affiliaton type with {self.org}"
+            )
+
+        rec.source = self.source
+        rec.organization = Organization(
+            name=organisation or org_name or self.org.name,
+            address=organisation_address,
+            disambiguated_organization=disambiguated_organization_details)
+
+        if put_code:
+            rec.put_code = put_code
+
+        rec.department_name = department
+        rec.role_title = role
+
+        if start_date:
+            rec.start_date = start_date.as_orcid_dict()
+        if end_date:
+            rec.end_date = end_date.as_orcid_dict()
+
+        try:
+            if affiliation == Affiliation.EMP:
+                api_call = self.update_employment if put_code else self.create_employment
+            else:
+                api_call = self.update_education if put_code else self.create_education
+
+            params = dict(orcid=self.user.orcid, body=rec, _preload_content=False)
+            if put_code:
+                params["put_code"] = put_code
+            resp = api_call(**params)
+            app.logger.info(
+                f"For {self.user} the ORCID record was {'updated' if put_code else 'created'} from {self.org}"
+            )
+            created = not bool(put_code)
+            # retrieve the put-code from response Location header:
+            if resp.status == 201:
+                location = resp.headers.get("Location")
+                try:
+                    orcid, put_code = location.split("/")[-3::2]
+                    put_code = int(put_code)
+                except Exception:
+                    app.logger.exception("Failed to get ORCID iD/put-code from the response.")
+                    raise Exception("Failed to get ORCID iD/put-code from the response.")
+            elif resp.status == 200:
+                orcid = self.user.orcid
+
+        except Exception:
+            app.logger.exception(f"For {self.user} encountered exception")
+        else:
+            return (put_code, orcid, created)
+
+
+# yapf: disable
+from orcid_api import *  # noqa: F401,F403,F405
+
 api_client.RESTClientObject = OrcidRESTClientObject  # noqa: F405

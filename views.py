@@ -29,7 +29,7 @@ from models import (Affiliation, CharField, FundingRecord, ModelException, Orcid
                     TextField, Url, User, UserInvitation, UserOrg, UserOrgAffiliation, db)
 # NB! Should be disabled in production
 from pyinfo import info
-from swagger_client.rest import ApiException
+from orcid_api.rest import ApiException
 from utils import generate_confirmation_token, send_user_invitation
 
 HEADERS = {"Accept": "application/vnd.orcid+json", "Content-type": "application/vnd.orcid+json"}

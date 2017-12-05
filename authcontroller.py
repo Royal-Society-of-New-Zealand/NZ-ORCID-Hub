@@ -37,7 +37,7 @@ from forms import OrgConfirmationForm
 from login_provider import roles_required
 from models import (Affiliation, OrcidAuthorizeCall, OrcidToken, Organisation, OrgInfo,
                     OrgInvitation, Role, Url, User, UserInvitation, UserOrg)
-from swagger_client.rest import ApiException
+from orcid_api.rest import ApiException
 from utils import append_qs, confirm_token
 
 HEADERS = {'Accept': 'application/vnd.orcid+json', 'Content-type': 'application/vnd.orcid+json'}
