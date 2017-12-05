@@ -1400,6 +1400,32 @@ def invite_user():
     return render_template("user_invitation.html", form=form)
 
 
+from flask_wtf import FlaskForm
+from flask_wtf.file import FileField, FileRequired
+from werkzeug.utils import secure_filename
+class LogoForm(FlaskForm):
+    logo = FileField(validators=[FileRequired()])
+
+@roles_required(Role.TECHNICAL, Role.ADMIN)
+@app.route("/settings/logo", methods=["GET", "POST", ])
+def logo():
+    """Manage organisation 'logo'"""
+    accept = request.headers.get("Accept")
+    if accept and "image/" in accept and
+        pass
+    print("****", request.headers)
+    form = LogoForm()
+    if form.validate_on_submit():
+        f = form.logo.data
+        filename = secure_filename(f.filename)
+        org = current_user.organisation
+        org.logo = f.read()
+        org.save()
+        flash(f"Saved organisation logo '{filename}'", "info")
+
+    return render_template("logo.html", form=form)
+
+
 @app.route(
     "/settings/applications/<int:app_id>", methods=[
         "GET",

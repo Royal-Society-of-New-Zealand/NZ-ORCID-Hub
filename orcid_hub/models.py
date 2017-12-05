@@ -302,6 +302,14 @@ class AuditMixin(Model):
         return super().save(*args, **kwargs)
 
 
+class File(BaseModel):
+    """Uploaded image files."""
+
+    filename = CharField(max_length=100)
+    data = BlobField()
+    mime_type = CharField(max_length=30)
+
+
 class Organisation(BaseModel, AuditMixin):
     """Research oranisation."""
 
@@ -340,7 +348,7 @@ class Organisation(BaseModel, AuditMixin):
         null=True, help_text="The time stamp when the user entered API Client ID and secret.")
 
     can_use_api = BooleanField(null=True, help_text="The organisation can access ORCID Hub API.")
-    logo = BlobField(null=True, help_text="The logo of the organisation")
+    logo = ForeignKeyField(File, on_delete="CASCADE", null=True, help_text="The logo of the organisation")
 
     @property
     def invitation_sent_to(self):
@@ -1535,6 +1543,7 @@ def create_tables():
         pass
 
     for model in [
+            File,
             Organisation,
             User,
             UserOrg,
