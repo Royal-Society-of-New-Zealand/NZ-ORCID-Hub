@@ -21,7 +21,7 @@ from flask_login import UserMixin, current_user
 from peewee import BooleanField as BooleanField_
 from peewee import (JOIN, CharField, DateTimeField, DeferredRelation, Field, FixedCharField,
                     ForeignKeyField, IntegerField, Model, OperationalError, PostgresqlDatabase,
-                    ProgrammingError, SmallIntegerField, TextField, fn)
+                    BlobField, ProgrammingError, SmallIntegerField, TextField, fn)
 from peewee_validates import ModelValidator
 from playhouse.shortcuts import model_to_dict
 from pycountry import countries
@@ -340,6 +340,7 @@ class Organisation(BaseModel, AuditMixin):
         null=True, help_text="The time stamp when the user entered API Client ID and secret.")
 
     can_use_api = BooleanField(null=True, help_text="The organisation can access ORCID Hub API.")
+    logo = BlobField(null=True, help_text="The logo of the organisation")
 
     @property
     def invitation_sent_to(self):
