@@ -7,8 +7,7 @@ isort:skip_file
 
 from config import ORCID_API_BASE, SCOPE_READ_LIMITED, SCOPE_ACTIVITIES_UPDATE, ORCID_BASE_URL
 from flask_login import current_user
-from models import (OrcidApiCall, Affiliation, OrcidToken, FundingContributor as FundingCont, User
-                    as UserModel, ExternalId as ExternalIdModel)
+from models import OrcidApiCall, Affiliation, OrcidToken
 from orcid_api import (configuration, rest, api_client, MemberAPIV20Api, SourceClientId,
                             Source, OrganizationAddress, DisambiguatedOrganization, Employment,
                             Education, Organization)
@@ -100,6 +99,7 @@ class MemberAPI(MemberAPIV20Api):
         url = urlparse(ORCID_BASE_URL)
         self.source_clientid = SourceClientId(
             host=url.hostname,
+            path=org.orcid_client_id,
             uri="http://" + url.hostname + "/client/" + org.orcid_client_id)
 
         self.source = Source(
@@ -293,3 +293,8 @@ class MemberAPI(MemberAPIV20Api):
             app.logger.exception(f"For {self.user} encountered exception")
         else:
             return (put_code, orcid, created)
+
+
+# yapf: disable
+from orcid_api import *  # noqa: F401,F403,F405
+api_client.RESTClientObject = OrcidRESTClientObject  # noqa: F405
