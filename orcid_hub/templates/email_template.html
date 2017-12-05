@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% from "macros.html" import render_field %}
+
+{% block content %}
+  <form method="POST">
+    <div class="row">
+      <div class="col-md-9 col-sm-8 col-xs-12">
+        <h1>{{ title|default("Invitation email template", true) }}</h1>
+      </div>
+    </div>
+    <div class="row">
+      <div class="col-md-6 col-sm-6 col-xs-12">
+        {{ form.hidden_tag() }}
+        {{ render_field(form.email_template_enabled, data_toggle="collapse", data_target="#template-row") }}
+      </div>
+    </div>
+    <div class="{{'row collapse in' if form.email_template_enabled.data else 'row collapse'}}" id="template-row">
+      <div class="col-md-6 col-sm-6 col-xs-12">
+        {{ render_field(form.email_template) }}
+      </div>
+    </div>
+    <div class="row">
+      <div class="col-md-6 col-sm-6 col-xs-12">
+        {{ form.prefill }}{{ form.cancel }}{{ form.save }}
+      </div>
+    </div>
+      <div class="col-md-6 col-sm-6 col-xs-12">
+      </div>
+      </div>
+  </form>
+{% endblock %}

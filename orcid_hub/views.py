@@ -2,13 +2,15 @@
 """Application views."""
 
 import json
+from werkzeug.utils import secure_filename
 import os
 import secrets
 from collections import namedtuple
+from io import BytesIO
 from datetime import datetime
 
 from flask import (abort, flash, jsonify, redirect, render_template, request, send_from_directory,
-                   url_for)
+                   url_for, send_file)
 from flask_admin.actions import action
 from flask_admin.contrib.peewee import ModelView
 from flask_admin.form import SecureForm
@@ -22,11 +24,11 @@ from wtforms.fields import BooleanField
 
 from . import admin, app, models, orcid_client, utils
 from .config import ORCID_BASE_URL, SCOPE_ACTIVITIES_UPDATE, SCOPE_READ_LIMITED
-from .forms import (ApplicationFrom, BitmapMultipleValueField, CredentialForm, FileUploadForm,
+from .forms import (EmailTemplateForm,LogoForm, ApplicationFrom, BitmapMultipleValueField, CredentialForm, FileUploadForm,
                     JsonOrYamlFileUploadForm, OrgRegistrationForm, PartialDateField, RecordForm,
                     UserInvitationForm)
 from .login_provider import roles_required
-from .models import (Affiliation, AffiliationRecord, CharField, Client, FundingContributor,
+from .models import (Affiliation, AffiliationRecord, CharField, Client, File, FundingContributor,
                      FundingRecord, Grant, ModelException, OrcidApiCall, OrcidToken, Organisation,
                      OrgInfo, OrgInvitation, PartialDate, Role, Task, TextField, Token, Url, User,
                      UserInvitation, UserOrg, UserOrgAffiliation, db)
@@ -1400,30 +1402,99 @@ def invite_user():
     return render_template("user_invitation.html", form=form)
 
 
-from flask_wtf import FlaskForm
-from flask_wtf.file import FileField, FileRequired
-from werkzeug.utils import secure_filename
-class LogoForm(FlaskForm):
-    logo = FileField(validators=[FileRequired()])
+DEFAULT_EMAIL_TEMPLATE = """<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Affiliation Process Update</title>
+    <meta name="keywords" content="ORCID HUB,New Zealand,NZ,orcid"/>
+  </head>
+  <body>
+    <div style="font-family: Arial, Verdana, Georgia, and Times New Roman; background-color: white; color: black;">
+      <table style="vertical-align: middle; background-color: black; color: white; width: 100%;">
+        <tr>
+          <td>&nbsp;</td>
+          <td align="right">
+            <img src="{LOGO}" title="NZ ORCID Hub" alt="NZ ORCID Hub" style="display:block;" />
+          </td>
+        </tr>
+      </table>
+      {MESSAGE}
+      <p>If you received this email in error, or you have questions about the responsibilities involved, please contact: <a href="mailto:orcid@royalsociety.org.nz">orcid@royalsociety.org.nz</a></p>
+      <hr>
+      <p>This email was sent to {EMAIL}</p>
+      <!--  Footer Details -->
+      <table style="vertical-align: top; background-color: black; color: white; width: 100%; margin-top: 25px;">
+        <tr>
+          <td>
+            <p style="vertical-align: top; padding-left: 15px;">
+            Contact details for the NZ ORCID Hub<br>
+            Phone: (04) 472 7421<br>
+            PO Box 598, Wellington 6140<br>
+            <b><a style="text-decoration: none; color: white;"
+                  href="mailto:orcid@royalsociety.org.nz">orcid@royalsociety.org.nz</a></b>
+            </p>
+          </td>
+          <td style="vertical-align: top;">
+            <p class="copyright"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank"><img src="{{url_for('static', filename='images/CC-BY-icon-80x15.png', _external=True)}}" alt="CC-BY"/></a></p>
+          </td>
+        </tr>
+      </table>
+    </div>
+  </body>
+</html>
+"""
+
+
+@roles_required(Role.TECHNICAL, Role.ADMIN)
+@app.route("/settings/email_template", methods=["GET", "POST", ])
+def email_template():
+    """Manage organisation invitation email template."""
+    org = current_user.organisation
+    form = EmailTemplateForm(obj=org)
+
+    if form.validate_on_submit():
+        if form.prefill.data:
+            form.email_template.data = DEFAULT_EMAIL_TEMPLATE
+        elif form.reset.data:
+            form.email_template.data = DEFAULT_EMAIL_TEMPLATE
+        elif form.cancel.data:
+            pass
+        elif form.save.data:
+            # form.populate_obj(org)
+            org.email_template = form.email_template.data
+            org.email_template_enabled = form.email_template_enabled.data
+            org.save()
+            flash("Saved organisation email template'", "info")
+
+    return render_template("email_template.html", form=form)
+
 
 @roles_required(Role.TECHNICAL, Role.ADMIN)
 @app.route("/settings/logo", methods=["GET", "POST", ])
 def logo():
     """Manage organisation 'logo'"""
-    accept = request.headers.get("Accept")
-    if accept and "image/" in accept and
-        pass
-    print("****", request.headers)
+    org = current_user.organisation
+    best = request.accept_mimetypes.best_match(["text/html", "image/*"])
+    if best == "image/*" and org.logo:
+        return send_file(
+            BytesIO(org.logo.data),
+            mimetype=org.logo.mimetype,
+            attachment_filename=org.logo.filename)
+
     form = LogoForm()
     if form.validate_on_submit():
         f = form.logo.data
         filename = secure_filename(f.filename)
-        org = current_user.organisation
-        org.logo = f.read()
+        logo = File.create(data=f.read(), mimetype=f.mimetype, filename=f.filename)
+        org.logo = logo
         org.save()
         flash(f"Saved organisation logo '{filename}'", "info")
 
     return render_template("logo.html", form=form)
+
+
+
 
 
 @app.route(

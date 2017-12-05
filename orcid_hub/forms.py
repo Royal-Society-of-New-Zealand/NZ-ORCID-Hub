@@ -10,7 +10,7 @@ from wtforms import (BooleanField, Field, SelectField, SelectMultipleField, Stri
                      SubmitField, TextField, validators)
 from wtforms.fields.html5 import DateField, EmailField
 from wtforms.validators import (UUID, DataRequired, Email, Regexp, Required, ValidationError)
-from wtforms.widgets import HTMLString, html_params
+from wtforms.widgets import HTMLString, html_params, TextArea
 
 from . import models
 from .config import DEFAULT_COUNTRY
@@ -199,6 +199,29 @@ class JsonOrYamlFileUploadForm(FlaskForm):
     file_ = FileField(
         validators=[FileRequired(),
                     FileAllowed(["json", "yaml"], 'JSON or YAML file only!')])
+
+
+class LogoForm(FlaskForm):
+    """Organisation Logo image upload form."""
+
+    logo = FileField(validators=[
+        FileRequired(),
+        FileAllowed(["gif", "png", "jpg"], 'Only image files allowed!')
+    ])
+
+
+class EmailTemplateForm(FlaskForm):
+    """Email template form."""
+
+    email_template = TextField(
+        widget=TextArea(), render_kw={
+            "style": "min-width: 800px;min-height: 550px;"
+        })
+    email_template_enabled = BooleanField(default=False)
+    prefill = SubmitField("Pre-fill")
+    reset = SubmitField("Reset", render_kw={"class": "btn btn-danger"})
+    save = SubmitField("Save", render_kw={"class": "btn btn-pirmary"})
+    cancel = SubmitField("Cancel", render_kw={"class": "btn btn-invisible"})
 
 
 class OnboardingTokenForm(FlaskForm):

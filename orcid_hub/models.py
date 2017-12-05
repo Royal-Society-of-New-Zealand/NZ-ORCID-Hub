@@ -307,7 +307,7 @@ class File(BaseModel):
 
     filename = CharField(max_length=100)
     data = BlobField()
-    mime_type = CharField(max_length=30)
+    mimetype = CharField(max_length=30, db_column="mime_type")
 
 
 class Organisation(BaseModel, AuditMixin):
@@ -349,6 +349,9 @@ class Organisation(BaseModel, AuditMixin):
 
     can_use_api = BooleanField(null=True, help_text="The organisation can access ORCID Hub API.")
     logo = ForeignKeyField(File, on_delete="CASCADE", null=True, help_text="The logo of the organisation")
+    email_template = TextField(null=True, db_column="email_template")
+    email_template_enabled = BooleanField(
+        null=True, default=False, db_column="email_template_enabled")
 
     @property
     def invitation_sent_to(self):
