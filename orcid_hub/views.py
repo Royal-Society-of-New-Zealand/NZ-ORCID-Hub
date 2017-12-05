@@ -10,6 +10,7 @@ from datetime import datetime
 from flask import (abort, flash, jsonify, redirect, render_template, request, send_from_directory,
                    url_for)
 from flask_admin.actions import action
+from flask_admin._compat import iteritems
 from flask_admin.contrib.peewee import ModelView
 from flask_admin.form import SecureForm
 from flask_admin.model import typefmt
@@ -489,6 +490,10 @@ class FundingRecordAdmin(AppModelView):
     column_export_exclude_list = (
         "task",
         "is_active",
+        "status",
+        "processed_at",
+        "created_at",
+        "updated_at",
     )
     can_edit = True
     can_create = False
@@ -541,6 +546,39 @@ class FundingRecordAdmin(AppModelView):
             return False
 
         return True
+
+    def _export_data(self):
+        # Macros in column_formatters are not supported.
+        # Macros will have a function name 'inner'
+        # This causes non-macro functions named 'inner' not work.
+        for col, func in iteritems(self.column_formatters_export):
+            # skip checking columns not being exported
+            if col not in [col for col, _ in self._export_columns]:
+                continue
+
+            if func.__name__ == 'inner':
+                raise NotImplementedError(
+                    'Macros are not implemented in export. Exclude column in'
+                    ' column_formatters_export, column_export_list, or '
+                    ' column_export_exclude_list. Column: %s' % (col,)
+                )
+
+        # Grab parameters from URL
+        view_args = self._get_list_extra_args()
+
+        # Map column index to column name
+        sort_column = self._get_column_by_idx(view_args.sort)
+        if sort_column is not None:
+            sort_column = sort_column[0]
+
+        # Get count and data
+        count, data = self.get_list(0, sort_column, view_args.sort_desc,
+                                    view_args.search, view_args.filters,
+                                    page_size=self.export_max_rows)
+
+        # TODO: have to append fundingContributor and ExternalID data while exporting
+
+        return count, data
 
     def get_export_name(self, export_type='csv'):
         """Get export file name using the original imported file name.
