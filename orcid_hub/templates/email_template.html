@@ -34,14 +34,13 @@
     </div>
     <div class="row">
       <div class="col-md-6 col-sm-6 col-xs-12">
-        {{ form.prefill(**{"data-toggle": "tooltip", "title": "Prefill or reset the email template"}) }}
-        {#{ form.cancel }#}
-        {{ form.save }}
-        {{ form.send(**{"data-toggle": "tooltip", "title": "Send a test email to yourself"}) }}
+        <div class="form-group">
+          {{ form.prefill(**{"data-toggle": "tooltip", "title": "Prefill or reset the email template"}) }}
+          {#{ form.cancel }#}
+          {{ form.save }}
+          {{ form.send(**{"data-toggle": "tooltip", "title": "Send a test email to yourself"}) }}
+        </div>
       </div>
     </div>
-      <div class="col-md-6 col-sm-6 col-xs-12">
-      </div>
-      </div>
   </form>
 {% endblock %}
