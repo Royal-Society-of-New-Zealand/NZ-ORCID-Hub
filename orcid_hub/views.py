@@ -1421,6 +1421,7 @@ def email_template():
         elif form.cancel.data:
             pass
         elif form.send.data:
+            logo = org.logo
             utils.send_email(
                 "email/test.html",
                 recipient=(current_user.name, current_user.email),
@@ -1429,6 +1430,7 @@ def email_template():
                 sender=(current_user.name, current_user.email),
                 subject="TEST EMAIL",
                 org_name=org.name,
+                logo=url_for("logo_image", token=logo.token, _external=True) if logo else None,
                 base=form.email_template.data)
         elif form.save.data:
             # form.populate_obj(org)
