@@ -82,7 +82,7 @@ def send_email(template_filename,
         jinja_env = jinja2.Environment(
             loader=loader, extensions=['jinja2.ext.autoescape', 'jinja2.ext.with_'])
 
-    if logo in None:
+    if logo is None:
         logo = url_for("static", filename="images/banner-small.png", _external=True)
     if base is None:
         if current_user:
