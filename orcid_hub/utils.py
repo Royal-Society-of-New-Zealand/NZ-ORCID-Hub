@@ -128,7 +128,6 @@ def send_email(template_filename,
         MESSAGE=html_msg,
         LOGO=logo,
         BASE_URL=url_for("login", _external=True)[:-1])
-    print("***", html_msg)
 
     plain_msg = html2text(html_msg)
 
