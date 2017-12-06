@@ -84,7 +84,7 @@ def send_email(template_filename,
 
     if logo is None:
         logo = url_for("static", filename="images/banner-small.png", _external=True)
-    if base is None:
+    if base is None and not current_user.is_anonymous:
         if current_user:
             org = current_user.organisation
             if org.email_template_enabled and org.email_template:
