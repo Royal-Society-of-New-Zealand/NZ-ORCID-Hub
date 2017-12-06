@@ -122,7 +122,7 @@ def send_email(template_filename,
 
     html_msg = str(rendered)
     html_msg = base.format(
-            EMAIL=kwargs["sender"],
+            EMAIL=kwargs["sender"]["email"],
             SUBJECT=subject,
             MESSAGE=html_msg,
             LOGO=logo,
