@@ -7,7 +7,7 @@ from peewee import JOIN, fn
 from . import app
 from .forms import DateRangeForm
 from .login_provider import roles_required
-from .models import (Organisation, OrgInvitation, Role, User, UserInvitation, UserOrg)
+from .models import Organisation, OrgInvitation, Role, User, UserInvitation, UserOrg
 
 
 @app.route("/user_summary")

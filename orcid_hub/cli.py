@@ -1,6 +1,7 @@
 """This is a management script for the ORCID Hub application."""
 import click
 from flask.cli import FlaskGroup
+
 # from . import app
 
 
