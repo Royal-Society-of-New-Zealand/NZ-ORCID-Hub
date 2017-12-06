@@ -19,14 +19,14 @@ from time import time
 from urllib.parse import quote, unquote, urlparse
 
 import requests
-from flask import (abort, current_app, flash, g, redirect, render_template, request, session,
-                   url_for)
+from flask import abort, current_app, flash, g, redirect, render_template, request, session, url_for
 from flask_login import current_user, login_required, login_user, logout_user
 from flask_mail import Message
 from oauthlib.oauth2 import rfc6749
 from requests_oauthlib import OAuth2Session
-from orcid_api.rest import ApiException
 from werkzeug.urls import iri_to_uri
+
+from orcid_api.rest import ApiException
 
 from . import app, db, mail, orcid_client
 # TODO: need to read form app.config[...]
@@ -765,10 +765,7 @@ def internal_error(error):
             event_id=g.sentry_event_id,
             public_dsn=sentry.client.get_public_dsn("https"))
     except:
-        return render_template(
-            "http500.html",
-            trace=trace,
-            error_message=str(error))
+        return render_template("http500.html", trace=trace, error_message=str(error))
 
 
 @app.route("/orcid/login/")
