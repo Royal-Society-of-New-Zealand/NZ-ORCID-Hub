@@ -8,6 +8,7 @@ import os
 import random
 import re
 import string
+import secrets
 import uuid
 from collections import namedtuple
 from datetime import datetime
@@ -308,6 +309,7 @@ class File(BaseModel):
     filename = CharField(max_length=100)
     data = BlobField()
     mimetype = CharField(max_length=30, db_column="mime_type")
+    token = FixedCharField(max_length=8, unique=True, default=lambda: secrets.token_urlsafe(8))
 
 
 class Organisation(BaseModel, AuditMixin):

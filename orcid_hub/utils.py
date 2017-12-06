@@ -11,6 +11,7 @@ from urllib.parse import urlencode, urlparse
 
 import emails
 import flask
+from flask import url_for
 import jinja2
 import jinja2.ext
 import requests
@@ -41,11 +42,13 @@ def send_email(template_filename,
                sender=(app.config.get("APP_NAME"), app.config.get("MAIL_DEFAULT_SENDER")),
                reply_to=None,
                subject=None,
+               base=None,
                **kwargs):
     """Send an email, acquiring its payload by rendering a jinja2 template.
 
     :type template_filename: :class:`str`
     :param subject: the subject of the email
+    :param base: the base template of the email messagess
     :param template_filename: name of the template_filename file in ``templates/emails`` to use
     :type recipient: :class:`tuple` (:class:`str`, :class:`str`)
     :param recipient: 'To' (name, email)
@@ -79,6 +82,20 @@ def send_email(template_filename,
         jinja_env = jinja2.Environment(
             loader=loader, extensions=['jinja2.ext.autoescape', 'jinja2.ext.with_'])
 
+    default_logo_url = url_for("static", filename="images/banner-small.png", _external=True)
+    if base is None:
+        if current_user:
+            org = current_user.organisation
+            if org.email_template_enabled and org.email_template:
+                base = org.email_template
+                if org.logo:
+                    logo = url_for("logo_image", token=org.logo.token, _external=True)
+                else:
+                    logo = default_logo_url
+    if not base:
+        base = app.config.get("DEFAULT_EMAIL_TEMPLATE")
+        logo = default_logo_url
+
     jinja_env = jinja_env.overlay(autoescape=False, extensions=[RewrapExtension])
 
     def get_template(filename):
@@ -94,7 +111,6 @@ def send_email(template_filename,
         return {"name": name, "email": email}
 
     template = get_template(template_filename)
-    plain_template = get_template(splitext(template_filename)[0] + ".plain")
 
     kwargs["sender"] = _jinja2_email(*sender)
     kwargs["recipient"] = _jinja2_email(*recipient)
@@ -104,17 +120,23 @@ def send_email(template_filename,
         reply_to = sender
 
     rendered = template.make_module(vars=kwargs)
-    plain_rendered = plain_template.make_module(vars=kwargs) if plain_template else html2text(
-        str(rendered))
-
     if subject is None:
         subject = getattr(rendered, "subject", "Welcome to the NZ ORCID Hub")
+
+    html_msg = str(rendered)
+    html_msg = base.format(
+            EMAIL=kwargs["sender"],
+            SUBJECT=subject,
+            MESSAGE=html_msg,
+            LOGO=logo)
+
+    plain_msg = html2text(html_msg)
 
     msg = emails.html(
         subject=subject,
         mail_from=(app.config.get("APP_NAME", "ORCID Hub"), app.config.get("MAIL_DEFAULT_SENDER")),
-        html=str(rendered),
-        text=str(plain_rendered))
+        html=html_msg,
+        text=plain_msg)
     dkip_key_path = os.path.join(app.root_path, ".keys", "dkim.key")
     if os.path.exists(dkip_key_path):
         msg.dkim(key=open(dkip_key_path), domain="orcidhub.org.nz", selector="default")

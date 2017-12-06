@@ -220,6 +220,7 @@ class EmailTemplateForm(FlaskForm):
     email_template_enabled = BooleanField(default=False)
     prefill = SubmitField("Pre-fill")
     reset = SubmitField("Reset", render_kw={"class": "btn btn-danger"})
+    send = SubmitField("Send", render_kw={"class": "btn btn-pirmary"})
     save = SubmitField("Save", render_kw={"class": "btn btn-pirmary"})
     cancel = SubmitField("Cancel", render_kw={"class": "btn btn-invisible"})
 

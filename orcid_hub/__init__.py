@@ -49,6 +49,7 @@ if not app.config.from_pyfile("settings.cfg", silent=True) and app.debug:
     print("*** WARNING: Faile to laod local application configuration from 'instance/settins.cfg'")
 app.url_map.strict_slashes = False
 oauth = OAuth2Provider(app)
+DATABASE_URL = app.config.get("DATABASE_URL")
 
 # TODO: implement connection factory
 db_url.register_database(PgDbWithFailover, "pg+failover", "postgres+failover")

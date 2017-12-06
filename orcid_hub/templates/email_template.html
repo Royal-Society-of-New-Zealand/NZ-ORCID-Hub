@@ -5,7 +5,7 @@
   <form method="POST">
     <div class="row">
       <div class="col-md-9 col-sm-8 col-xs-12">
-        <h1>{{ title|default("Invitation email template", true) }}</h1>
+        <h1>{{ title|default("Email template", true) }}</h1>
       </div>
     </div>
     <div class="row">
@@ -15,13 +15,24 @@
       </div>
     </div>
     <div class="{{'row collapse in' if form.email_template_enabled.data else 'row collapse'}}" id="template-row">
-      <div class="col-md-6 col-sm-6 col-xs-12">
+      <div class="col-md-10 col-sm-10 col-xs-12">
         {{ render_field(form.email_template) }}
+      </div>
+      <div class="col-md-4 col-sm-4 col-xs-8">
+        The available template fields are:
+        <dl>
+          <dt>{LOGO}</dt>
+          <dd>Organisation logo</dd>
+          <dt>{EMAIL}</dt>
+          <dd>Recepient email address</dd>
+          <dt>{MESSAGE}</dt>
+          <dd>Core message that will be sent to the recepient</dd>
+        </dl>
       </div>
     </div>
     <div class="row">
       <div class="col-md-6 col-sm-6 col-xs-12">
-        {{ form.prefill }}{{ form.cancel }}{{ form.save }}
+        {{ form.prefill }}{{ form.cancel }}{{ form.save }}{{ form.send }}
       </div>
     </div>
       <div class="col-md-6 col-sm-6 col-xs-12">

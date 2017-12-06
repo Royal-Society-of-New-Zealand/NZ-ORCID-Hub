@@ -1402,48 +1402,6 @@ def invite_user():
     return render_template("user_invitation.html", form=form)
 
 
-DEFAULT_EMAIL_TEMPLATE = """<!DOCTYPE html>
-<html>
-  <head>
-    <meta charset="utf-8">
-    <title>Affiliation Process Update</title>
-    <meta name="keywords" content="ORCID HUB,New Zealand,NZ,orcid"/>
-  </head>
-  <body>
-    <div style="font-family: Arial, Verdana, Georgia, and Times New Roman; background-color: white; color: black;">
-      <table style="vertical-align: middle; background-color: black; color: white; width: 100%;">
-        <tr>
-          <td>&nbsp;</td>
-          <td align="right">
-            <img src="{LOGO}" title="NZ ORCID Hub" alt="NZ ORCID Hub" style="display:block;" />
-          </td>
-        </tr>
-      </table>
-      {MESSAGE}
-      <p>If you received this email in error, or you have questions about the responsibilities involved, please contact: <a href="mailto:orcid@royalsociety.org.nz">orcid@royalsociety.org.nz</a></p>
-      <hr>
-      <p>This email was sent to {EMAIL}</p>
-      <!--  Footer Details -->
-      <table style="vertical-align: top; background-color: black; color: white; width: 100%; margin-top: 25px;">
-        <tr>
-          <td>
-            <p style="vertical-align: top; padding-left: 15px;">
-            Contact details for the NZ ORCID Hub<br>
-            Phone: (04) 472 7421<br>
-            PO Box 598, Wellington 6140<br>
-            <b><a style="text-decoration: none; color: white;"
-                  href="mailto:orcid@royalsociety.org.nz">orcid@royalsociety.org.nz</a></b>
-            </p>
-          </td>
-          <td style="vertical-align: top;">
-            <p class="copyright"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank"><img src="{{url_for('static', filename='images/CC-BY-icon-80x15.png', _external=True)}}" alt="CC-BY"/></a></p>
-          </td>
-        </tr>
-      </table>
-    </div>
-  </body>
-</html>
-"""
 
 
 @roles_required(Role.TECHNICAL, Role.ADMIN)
@@ -1454,12 +1412,18 @@ def email_template():
     form = EmailTemplateForm(obj=org)
 
     if form.validate_on_submit():
-        if form.prefill.data:
-            form.email_template.data = DEFAULT_EMAIL_TEMPLATE
-        elif form.reset.data:
-            form.email_template.data = DEFAULT_EMAIL_TEMPLATE
+        if form.prefill.data or form.reset.data:
+            form.email_template.data = app.config.get("DEFAULT_EMAIL_TEMPLATE")
         elif form.cancel.data:
             pass
+        elif form.cancel.send:
+            utils.send_email(
+                "email/test.html",
+                recipient=(current_user.name, current_user.email),
+                reply_to=(current_user.name, current_user.email),
+                cc_email=(current_user.name, current_user.email),
+                org_name=org.name,
+                base=form.email_template.data)
         elif form.save.data:
             # form.populate_obj(org)
             org.email_template = form.email_template.data
@@ -1468,6 +1432,20 @@ def email_template():
             flash("Saved organisation email template'", "info")
 
     return render_template("email_template.html", form=form)
+
+
+@app.route("/logo/<string:token>")
+@app.route("/logo")
+def logo_image(token=None):
+    """Get organisation Logo image."""
+    if not token:
+        logo = File.select(File.token == token)
+        if logo:
+            return send_file(
+                BytesIO(logo.data),
+                mimetype=logo.mimetype,
+                attachment_filename=logo.filename)
+    return redirect(url_for("static", filename="images/banner-small.png", _external=True))
 
 
 @roles_required(Role.TECHNICAL, Role.ADMIN)
@@ -1492,9 +1470,6 @@ def logo():
         flash(f"Saved organisation logo '{filename}'", "info")
 
     return render_template("logo.html", form=form)
-
-
-
 
 
 @app.route(
