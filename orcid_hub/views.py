@@ -1414,14 +1414,15 @@ def email_template():
     """Manage organisation invitation email template."""
     org = current_user.organisation
     form = EmailTemplateForm(obj=org)
+    default_template = app.config.get("DEFAULT_EMAIL_TEMPLATE")
 
     if form.validate_on_submit():
         if form.prefill.data or form.reset.data:
-            form.email_template.data = app.config.get("DEFAULT_EMAIL_TEMPLATE")
+            form.email_template.data = default_template
         elif form.cancel.data:
             pass
         elif form.send.data:
-            logo = org.logo
+            logo = org.logo if form.email_template_enabled.data else None
             utils.send_email(
                 "email/test.html",
                 recipient=(current_user.name, current_user.email),
@@ -1431,7 +1432,8 @@ def email_template():
                 subject="TEST EMAIL",
                 org_name=org.name,
                 logo=url_for("logo_image", token=logo.token, _external=True) if logo else None,
-                base=form.email_template.data)
+                base=form.email_template.data
+                if form.email_template_enabled.data else default_template)
         elif form.save.data:
             # form.populate_obj(org)
             org.email_template = form.email_template.data
