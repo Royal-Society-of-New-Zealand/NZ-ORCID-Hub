@@ -31,7 +31,6 @@ from playhouse.shortcuts import RetryOperationalError
 from raven.contrib.flask import Sentry
 
 from .config import *  # noqa: F401, F403
-from .config import DATABASE_URL
 from .failover import PgDbWithFailover
 from flask_admin import Admin
 
@@ -49,6 +48,7 @@ if not app.config.from_pyfile("settings.cfg", silent=True) and app.debug:
     print("*** WARNING: Faile to laod local application configuration from 'instance/settins.cfg'")
 app.url_map.strict_slashes = False
 oauth = OAuth2Provider(app)
+DATABASE_URL = app.config.get("DATABASE_URL")
 
 # TODO: implement connection factory
 db_url.register_database(PgDbWithFailover, "pg+failover", "postgres+failover")
@@ -119,7 +119,8 @@ admin = Admin(
 # https://sentry.io/orcid-hub/nz-orcid-hub-dev/getting-started/python-flask/
 SENTRY_DSN = app.config.get("SENTRY_DSN")
 if SENTRY_DSN:
-    sentry = Sentry(app, dsn=SENTRY_DSN, logging=True, level=logging.DEBUG if app.debug else logging.WARNING)
+    sentry = Sentry(
+        app, dsn=SENTRY_DSN, logging=True, level=logging.DEBUG if app.debug else logging.WARNING)
 
 login_manager = flask_login.LoginManager()
 login_manager.login_view = "login"

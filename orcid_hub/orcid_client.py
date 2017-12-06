@@ -224,8 +224,9 @@ class MemberAPI(MemberAPIV20Api):
         title = Title(value=fr.title)  # noqa: F405
         translated_title = None
         if fr.translated_title:
-            translated_title = TranslatedTitle(value=fr.translated_title,       # noqa: F405
-                                               language_code=fr.translated_title_language_code)  # noqa: F405
+            translated_title = TranslatedTitle(  # noqa: F405
+                value=fr.translated_title,  # noqa: F405
+                language_code=fr.translated_title_language_code)  # noqa: F405
         short_description = fr.short_description
         amount = fr.amount
         currency_code = fr.currency
