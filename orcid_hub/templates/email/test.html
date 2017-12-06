@@ -1,0 +1,7 @@
+{#% extends "email/base.html" %#}
+{% block content %}
+  <h2 class="display-2">This is your organisation '{{org_name}}' email template test email </h2>
+  <p>The email was sent by {{sender}} to {{recipient}}</p>.
+  <p>You can modify your email template at <a href="{{ url_for('email_template', _exterlan=True) }}">{{ url_for('email_template', _exterlan=True) }}</a></p>
+  </p>
+{% endblock %}
