@@ -122,7 +122,7 @@ DEFAULT_EMAIL_TEMPLATE = """<!DOCTYPE html>
           <td style="vertical-align: top;">
             <p class="copyright"><a href="https://creativecommons.org/licenses/by/4.0/"
             target="_blank"><img
-            src="{BASE_URL}/static/images/CC-BY-icon-80x15.png" alt="CC-BY"/></a></p>
+            src="{BASE_URL}/static/images/CC-BY-icon-80x15.png" alt="CC-BY" /></a></p>
           </td>
         </tr>
       </table>
