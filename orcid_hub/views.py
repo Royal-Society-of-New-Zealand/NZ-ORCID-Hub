@@ -1416,12 +1416,14 @@ def email_template():
             form.email_template.data = app.config.get("DEFAULT_EMAIL_TEMPLATE")
         elif form.cancel.data:
             pass
-        elif form.cancel.send:
+        elif form.send.data:
             utils.send_email(
                 "email/test.html",
                 recipient=(current_user.name, current_user.email),
                 reply_to=(current_user.name, current_user.email),
                 cc_email=(current_user.name, current_user.email),
+                sender=(current_user.name, current_user.email),
+                subject="TEST EMAIL",
                 org_name=org.name,
                 base=form.email_template.data)
         elif form.save.data:

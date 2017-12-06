@@ -23,11 +23,8 @@ pytest-cov>=2.5.1
 six>=1.10.0
 testpath>=0.3.1
 yapf>=0.17.0
-<<<<<<< HEAD
-=======
 robotframework>=3.0.2
 robotframework-seleniumlibrary>=3.0.0
 pycrypto>=2.6.1
 python-dotenv>=0.6.3
->>>>>>> 38ca635... configuration fix
 Faker

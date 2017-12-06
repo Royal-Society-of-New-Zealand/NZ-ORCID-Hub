@@ -82,7 +82,7 @@ def send_email(template_filename,
         jinja_env = jinja2.Environment(
             loader=loader, extensions=['jinja2.ext.autoescape', 'jinja2.ext.with_'])
 
-    default_logo_url = url_for("static", filename="images/banner-small.png", _external=True)
+    logo = url_for("static", filename="images/banner-small.png", _external=True)
     if base is None:
         if current_user:
             org = current_user.organisation
@@ -90,11 +90,8 @@ def send_email(template_filename,
                 base = org.email_template
                 if org.logo:
                     logo = url_for("logo_image", token=org.logo.token, _external=True)
-                else:
-                    logo = default_logo_url
     if not base:
         base = app.config.get("DEFAULT_EMAIL_TEMPLATE")
-        logo = default_logo_url
 
     jinja_env = jinja_env.overlay(autoescape=False, extensions=[RewrapExtension])
 
@@ -128,7 +125,9 @@ def send_email(template_filename,
             EMAIL=kwargs["sender"],
             SUBJECT=subject,
             MESSAGE=html_msg,
-            LOGO=logo)
+            LOGO=logo,
+            BASE_URL=url_for("login", _external=True)[:-1])
+    print("***", html_msg)
 
     plain_msg = html2text(html_msg)
 
@@ -145,7 +144,7 @@ def send_email(template_filename,
     msg.set_headers({"reply-to": reply_to})
     msg.mail_to.append(recipient)
 
-    msg.send(smtp=dict(host=app.config["MAIL_SERVER"], port=app.config["MAIL_PORT"]))
+    print("***", msg.send(smtp=dict(host=app.config["MAIL_SERVER"], port=app.config["MAIL_PORT"])))
 
 
 class RewrapExtension(jinja2.ext.Extension):
