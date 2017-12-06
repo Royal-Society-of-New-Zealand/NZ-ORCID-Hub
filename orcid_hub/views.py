@@ -1444,8 +1444,8 @@ def email_template():
 @app.route("/logo")
 def logo_image(token=None):
     """Get organisation Logo image."""
-    if not token:
-        logo = File.select(File.token == token)
+    if token:
+        logo = File.select().where(File.token == token).first()
         if logo:
             return send_file(
                 BytesIO(logo.data), mimetype=logo.mimetype, attachment_filename=logo.filename)
