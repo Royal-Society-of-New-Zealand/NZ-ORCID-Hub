@@ -53,7 +53,7 @@ class PartialDate:
         except Exception:
             current_value = None
         # TODO: localization
-        if current_value:
+        if current_value or part != "year":
             yield "<option %s>%s</option>" % (html_params(value="", selected=(current_value is None)),
                                               part.capitalize())
         option_format = "<option %s>%04d</option>" if part == "year" else "<option %s>%02d</option>"
