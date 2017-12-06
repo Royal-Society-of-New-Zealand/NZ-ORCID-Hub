@@ -53,15 +53,11 @@ class PartialDate:
         except Exception:
             current_value = None
         # TODO: localization
-        if current_value or part != "year":
-            yield "<option %s>%s</option>" % (html_params(value="", selected=(current_value is None)),
-                                              part.capitalize())
+        yield "<option %s>%s</option>" % (html_params(value="", selected=(current_value is None)),
+                                          part.capitalize())
         option_format = "<option %s>%04d</option>" if part == "year" else "<option %s>%02d</option>"
         for v in range(range_value, 1912, -1) if part == "year" else range(
                 1, 13 if part == "month" else 32):
-            if not current_value and v == cls.__current_year:
-                yield "<option %s>%s</option>" % (html_params(value="", selected=(current_value is None)),
-                                                  part.capitalize())
             yield option_format % (html_params(value=v, selected=(v == current_value)), v)
         yield "</select>"
 
