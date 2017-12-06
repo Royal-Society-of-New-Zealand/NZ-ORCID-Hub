@@ -45,16 +45,23 @@ class PartialDate:
     def render_select(cls, part, field):
         """Render select for a specific part of date."""
         yield "<select %s>" % html_params(name=field.name + ":" + part)
+        # If user didn't specifiy the date then the year range will start from current year + 5 years
+        range_value = cls.__current_year + 5
         try:
             current_value = int(getattr(field.data, part))
+            range_value = current_value + 5
         except Exception:
             current_value = None
         # TODO: localization
-        yield "<option %s>%s</option>" % (html_params(value="", selected=(current_value is None)),
-                                          part.capitalize())
+        if current_value:
+            yield "<option %s>%s</option>" % (html_params(value="", selected=(current_value is None)),
+                                              part.capitalize())
         option_format = "<option %s>%04d</option>" if part == "year" else "<option %s>%02d</option>"
-        for v in range(cls.__current_year, 1912, -1) if part == "year" else range(
+        for v in range(range_value, 1912, -1) if part == "year" else range(
                 1, 13 if part == "month" else 32):
+            if not current_value and v == cls.__current_year:
+                yield "<option %s>%s</option>" % (html_params(value="", selected=(current_value is None)),
+                                                  part.capitalize())
             yield option_format % (html_params(value=v, selected=(v == current_value)), v)
         yield "</select>"
 
