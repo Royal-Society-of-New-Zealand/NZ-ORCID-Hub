@@ -9,8 +9,8 @@ from pycountry import countries
 from wtforms import (BooleanField, Field, SelectField, SelectMultipleField, StringField,
                      SubmitField, TextField, validators)
 from wtforms.fields.html5 import DateField, EmailField
-from wtforms.validators import (UUID, DataRequired, Email, Regexp, Required, ValidationError)
-from wtforms.widgets import HTMLString, html_params, TextArea
+from wtforms.validators import UUID, DataRequired, Email, Regexp, Required, ValidationError
+from wtforms.widgets import HTMLString, TextArea, html_params
 
 from . import models
 from .config import DEFAULT_COUNTRY

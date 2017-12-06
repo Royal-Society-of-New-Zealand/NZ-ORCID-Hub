@@ -102,7 +102,9 @@ DEFAULT_EMAIL_TEMPLATE = """<!DOCTYPE html>
         </tr>
       </table>
       {MESSAGE}
-      <p>If you received this email in error, or you have questions about the responsibilities involved, please contact: <a href="mailto:orcid@royalsociety.org.nz">orcid@royalsociety.org.nz</a></p>
+      <p>If you received this email in error, or you have questions about the responsibilities
+      involved, please contact: <a href="mailto:orcid@royalsociety.org.nz">
+      orcid@royalsociety.org.nz</a></p>
       <hr>
       <p>This email was sent to <a href="mailto:{EMAIL}>{EMAIL}</a></p>
       <!--  Footer Details -->
@@ -118,7 +120,8 @@ DEFAULT_EMAIL_TEMPLATE = """<!DOCTYPE html>
             </p>
           </td>
           <td style="vertical-align: top;">
-            <p class="copyright"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank"><img
+            <p class="copyright"><a href="https://creativecommons.org/licenses/by/4.0/"
+            target="_blank"><img
             src="{BASE_URL}/static/images/CC-BY-icon-80x15.png" alt="CC-BY"/></a></p>
           </td>
         </tr>

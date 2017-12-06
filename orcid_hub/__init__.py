@@ -31,7 +31,6 @@ from playhouse.shortcuts import RetryOperationalError
 from raven.contrib.flask import Sentry
 
 from .config import *  # noqa: F401, F403
-from .config import DATABASE_URL
 from .failover import PgDbWithFailover
 from flask_admin import Admin
 
@@ -120,7 +119,8 @@ admin = Admin(
 # https://sentry.io/orcid-hub/nz-orcid-hub-dev/getting-started/python-flask/
 SENTRY_DSN = app.config.get("SENTRY_DSN")
 if SENTRY_DSN:
-    sentry = Sentry(app, dsn=SENTRY_DSN, logging=True, level=logging.DEBUG if app.debug else logging.WARNING)
+    sentry = Sentry(
+        app, dsn=SENTRY_DSN, logging=True, level=logging.DEBUG if app.debug else logging.WARNING)
 
 login_manager = flask_login.LoginManager()
 login_manager.login_view = "login"

@@ -6,15 +6,14 @@ import os
 import textwrap
 from datetime import datetime
 from itertools import filterfalse, groupby
-from os.path import splitext
 from urllib.parse import urlencode, urlparse
 
 import emails
 import flask
-from flask import url_for
 import jinja2
 import jinja2.ext
 import requests
+from flask import url_for
 from flask_login import current_user
 from html2text import html2text
 from itsdangerous import URLSafeTimedSerializer
@@ -122,11 +121,11 @@ def send_email(template_filename,
 
     html_msg = str(rendered)
     html_msg = base.format(
-            EMAIL=kwargs["sender"]["email"],
-            SUBJECT=subject,
-            MESSAGE=html_msg,
-            LOGO=logo,
-            BASE_URL=url_for("login", _external=True)[:-1])
+        EMAIL=kwargs["sender"]["email"],
+        SUBJECT=subject,
+        MESSAGE=html_msg,
+        LOGO=logo,
+        BASE_URL=url_for("login", _external=True)[:-1])
 
     plain_msg = html2text(html_msg)
 
@@ -761,7 +760,7 @@ def process_funding_records(max_rows=20):
                 task.completed_at = datetime.now()
                 task.save()
                 error_count = FundingRecord.select().where(
-                    FundingRecord.task_id == task.id, FundingRecord.status ** "%error%").count()
+                    FundingRecord.task_id == task.id, FundingRecord.status**"%error%").count()
                 row_count = task.record_funding_count
 
                 with app.app_context():

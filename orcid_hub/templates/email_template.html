@@ -21,10 +21,12 @@
       <div class="col-md-4 col-sm-4 col-xs-8">
         The available template fields are:
         <dl>
-          <dt>{LOGO}</dt>
-          <dd>Organisation logo</dd>
+          <dt>{BASE_URL}</dt>
+          <dd>The ORCID Hub base URL</dd>
           <dt>{EMAIL}</dt>
           <dd>Recepient email address</dd>
+          <dt>{LOGO}</dt>
+          <dd>Organisation logo</dd>
           <dt>{MESSAGE}</dt>
           <dd>Core message that will be sent to the recepient</dd>
         </dl>
@@ -32,7 +34,10 @@
     </div>
     <div class="row">
       <div class="col-md-6 col-sm-6 col-xs-12">
-        {{ form.prefill }}{{ form.cancel }}{{ form.save }}{{ form.send }}
+        {{ form.prefill(**{"data-toggle": "tooltip", "title": "Prefill or reset the email template"}) }}
+        {#{ form.cancel }#}
+        {{ form.save }}
+        {{ form.send(**{"data-toggle": "tooltip", "title": "Send a test email to yourself"}) }}
       </div>
     </div>
       <div class="col-md-6 col-sm-6 col-xs-12">

@@ -7,8 +7,8 @@ import json
 import os
 import random
 import re
-import string
 import secrets
+import string
 import uuid
 from collections import namedtuple
 from datetime import datetime
@@ -20,9 +20,9 @@ from urllib.parse import urlencode
 import yaml
 from flask_login import UserMixin, current_user
 from peewee import BooleanField as BooleanField_
-from peewee import (JOIN, CharField, DateTimeField, DeferredRelation, Field, FixedCharField,
-                    ForeignKeyField, IntegerField, Model, OperationalError, PostgresqlDatabase,
-                    BlobField, ProgrammingError, SmallIntegerField, TextField, fn)
+from peewee import (JOIN, BlobField, CharField, DateTimeField, DeferredRelation, Field,
+                    FixedCharField, ForeignKeyField, IntegerField, Model, OperationalError,
+                    PostgresqlDatabase, ProgrammingError, SmallIntegerField, TextField, fn)
 from peewee_validates import ModelValidator
 from playhouse.shortcuts import model_to_dict
 from pycountry import countries
@@ -350,7 +350,8 @@ class Organisation(BaseModel, AuditMixin):
         null=True, help_text="The time stamp when the user entered API Client ID and secret.")
 
     can_use_api = BooleanField(null=True, help_text="The organisation can access ORCID Hub API.")
-    logo = ForeignKeyField(File, on_delete="CASCADE", null=True, help_text="The logo of the organisation")
+    logo = ForeignKeyField(
+        File, on_delete="CASCADE", null=True, help_text="The logo of the organisation")
     email_template = TextField(null=True, db_column="email_template")
     email_template_enabled = BooleanField(
         null=True, default=False, db_column="email_template_enabled")

@@ -2,15 +2,13 @@
 """Application views."""
 
 import json
-from werkzeug.utils import secure_filename
 import os
 import secrets
 from collections import namedtuple
-from io import BytesIO
 from datetime import datetime
+from io import BytesIO
 
-from flask import (abort, flash, jsonify, redirect, render_template, request, send_from_directory,
-                   url_for, send_file)
+from flask import abort, flash, jsonify, redirect, render_template, request, send_file, send_from_directory, url_for
 from flask_admin.actions import action
 from flask_admin.contrib.peewee import ModelView
 from flask_admin.form import SecureForm
@@ -18,15 +16,16 @@ from flask_admin.model import typefmt
 from flask_login import current_user, login_required
 from jinja2 import Markup
 from playhouse.shortcuts import model_to_dict
-from orcid_api.rest import ApiException
-from werkzeug import secure_filename
+from werkzeug.utils import secure_filename
 from wtforms.fields import BooleanField
+
+from orcid_api.rest import ApiException
 
 from . import admin, app, models, orcid_client, utils
 from .config import ORCID_BASE_URL, SCOPE_ACTIVITIES_UPDATE, SCOPE_READ_LIMITED
-from .forms import (EmailTemplateForm,LogoForm, ApplicationFrom, BitmapMultipleValueField, CredentialForm, FileUploadForm,
-                    JsonOrYamlFileUploadForm, OrgRegistrationForm, PartialDateField, RecordForm,
-                    UserInvitationForm)
+from .forms import (ApplicationFrom, BitmapMultipleValueField, CredentialForm, EmailTemplateForm,
+                    FileUploadForm, JsonOrYamlFileUploadForm, LogoForm, OrgRegistrationForm,
+                    PartialDateField, RecordForm, UserInvitationForm)
 from .login_provider import roles_required
 from .models import (Affiliation, AffiliationRecord, CharField, Client, File, FundingContributor,
                      FundingRecord, Grant, ModelException, OrcidApiCall, OrcidToken, Organisation,
@@ -464,12 +463,14 @@ class FundingContributorAdmin(AppModelView):
         """Batch reset of users."""
         try:
             status = " The record was reset at " + datetime.now().isoformat(timespec="seconds")
-            count = self.model.update(processed_at=None, status=status).where(
-                self.model.status.is_null(False), self.model.id.in_(ids)).execute()
-            funding_record_id = self.model.select().where(self.model.id.in_(ids))[0].funding_record_id
-            FundingRecord.update(processed_at=None, status=FundingRecord.status + status).where(
-                FundingRecord.is_active,
-                FundingRecord.id == funding_record_id).execute()
+            count = self.model.update(
+                processed_at=None, status=status).where(
+                    self.model.status.is_null(False), self.model.id.in_(ids)).execute()
+            funding_record_id = self.model.select().where(
+                self.model.id.in_(ids))[0].funding_record_id
+            FundingRecord.update(
+                processed_at=None, status=FundingRecord.status + status).where(
+                    FundingRecord.is_active, FundingRecord.id == funding_record_id).execute()
         except Exception as ex:
             flash(f"Failed to activate the selected records: {ex}")
             app.logger.exception("Failed to activate the selected records")
@@ -577,13 +578,14 @@ class FundingRecordAdmin(AppModelView):
     def action_reset(self, ids):
         """Batch reset of users."""
         try:
-            self.model.update(processed_at=None).where(
-                self.model.is_active,
-                self.model.processed_at.is_null(False), self.model.id.in_(ids)).execute()
+            self.model.update(processed_at=None).where(self.model.is_active,
+                                                       self.model.processed_at.is_null(False),
+                                                       self.model.id.in_(ids)).execute()
             status = "The record was reset at " + datetime.now().isoformat(timespec="seconds")
-            count = FundingContributor.update(processed_at=None, status=status).where(
-                FundingContributor.funding_record.in_(ids),
-                FundingContributor.status.is_null(False)).execute()
+            count = FundingContributor.update(
+                processed_at=None, status=status).where(
+                    FundingContributor.funding_record.in_(ids),
+                    FundingContributor.status.is_null(False)).execute()
         except Exception as ex:
             flash(f"Failed to activate the selected records: {ex}")
             app.logger.exception("Failed to activate the selected records")
@@ -1402,10 +1404,12 @@ def invite_user():
     return render_template("user_invitation.html", form=form)
 
 
-
-
 @roles_required(Role.TECHNICAL, Role.ADMIN)
-@app.route("/settings/email_template", methods=["GET", "POST", ])
+@app.route(
+    "/settings/email_template", methods=[
+        "GET",
+        "POST",
+    ])
 def email_template():
     """Manage organisation invitation email template."""
     org = current_user.organisation
@@ -1444,16 +1448,18 @@ def logo_image(token=None):
         logo = File.select(File.token == token)
         if logo:
             return send_file(
-                BytesIO(logo.data),
-                mimetype=logo.mimetype,
-                attachment_filename=logo.filename)
+                BytesIO(logo.data), mimetype=logo.mimetype, attachment_filename=logo.filename)
     return redirect(url_for("static", filename="images/banner-small.png", _external=True))
 
 
 @roles_required(Role.TECHNICAL, Role.ADMIN)
-@app.route("/settings/logo", methods=["GET", "POST", ])
+@app.route(
+    "/settings/logo", methods=[
+        "GET",
+        "POST",
+    ])
 def logo():
-    """Manage organisation 'logo'"""
+    """Manage organisation 'logo'."""
     org = current_user.organisation
     best = request.accept_mimetypes.best_match(["text/html", "image/*"])
     if best == "image/*" and org.logo:

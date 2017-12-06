@@ -41,7 +41,7 @@ Links
 from setuptools import find_packages, setup
 
 #from orcid_hub import __version__ as VERSION
-VERSION  = '3.0a14'
+VERSION = '3.0a14'
 
 setup(
     name="ORCID-Hub",
