@@ -862,6 +862,7 @@ class Task(BaseModel, AuditMixin):
     updated_by = ForeignKeyField(
         User, on_delete="SET NULL", null=True, related_name="updated_tasks")
     task_type = SmallIntegerField(default=0, null=True)
+    expires_at = DateTimeField(null=True)
 
     def __repr__(self):
         return self.filename or f"Task #{self.id}"
@@ -1060,7 +1061,7 @@ class AffiliationRecord(BaseModel):
 
     is_active = BooleanField(
         default=False, help_text="The record is marked for batch processing", null=True)
-    task = ForeignKeyField(Task)
+    task = ForeignKeyField(Task, on_delete="CASCADE")
     put_code = IntegerField(null=True)
     external_id = CharField(
         max_length=100,
@@ -1327,7 +1328,8 @@ class FundingRecord(BaseModel, AuditMixin):
 class FundingContributor(BaseModel):
     """Researcher or contributor - reciever of the funding."""
 
-    funding_record = ForeignKeyField(FundingRecord, related_name="contributors")
+    funding_record = ForeignKeyField(
+        FundingRecord, related_name="contributors", on_delete="CASCADE")
     orcid = OrcidIdField(null=True)
     name = CharField(max_length=120, null=True)
     email = CharField(max_length=120, null=True)
@@ -1349,7 +1351,8 @@ class FundingContributor(BaseModel):
 class ExternalId(BaseModel):
     """Funding ExternalId loaded for batch processing."""
 
-    funding_record = ForeignKeyField(FundingRecord, related_name="external_ids")
+    funding_record = ForeignKeyField(
+        FundingRecord, related_name="external_ids", on_delete="CASCADE")
     type = CharField(max_length=80)
     value = CharField(max_length=255)
     url = CharField(max_length=200, null=True)

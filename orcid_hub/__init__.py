@@ -13,6 +13,7 @@
 
 __version__ = '3.0a6'
 
+from datetime import datetime
 import logging
 import os
 import sys
@@ -139,7 +140,8 @@ if app.testing:
     from .mocks import mocks
     app.register_blueprint(mocks)
 
-from .utils import process_affiliation_records, process_funding_records  # noqa: E402
+from .utils import (process_affiliation_records, process_funding_records,
+                    process_tasks)  # noqa: E402
 
 
 @app.before_first_request
@@ -246,6 +248,10 @@ def process(n):
     """Process uploaded affiliation and funding records."""
     process_affiliation_records(n)
     process_funding_records(n)
+
+    # Run only onece an hour
+    if datetime.now().minute == 0:
+        process_tasks(n)
 
 
 if os.environ.get("ENV") == "dev0":

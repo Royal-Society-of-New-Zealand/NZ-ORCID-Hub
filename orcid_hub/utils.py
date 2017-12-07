@@ -4,7 +4,7 @@
 import logging
 import os
 import textwrap
-from datetime import datetime
+from datetime import datetime, timedelta
 from itertools import filterfalse, groupby
 from urllib.parse import urlencode, urlparse
 
@@ -21,7 +21,7 @@ from peewee import JOIN
 
 from . import app, orcid_client
 from .models import (AFFILIATION_TYPES, Affiliation, AffiliationRecord, FundingContributor,
-                     FundingRecord, OrcidToken, Organisation, Role, Task, Url, User,
+                     FundingRecord, OrcidToken, Organisation, Role, Task, TaskType, Url, User,
                      UserInvitation, UserOrg)
 
 logger = logging.getLogger(__name__)
@@ -788,7 +788,7 @@ def process_funding_records(max_rows=20):
 def process_affiliation_records(max_rows=20):
     """Process uploaded affiliation records."""
     set_server_name()
-    # TODO: optimize removing redudnt fields
+    # TODO: optimize removing redundant fields
     # TODO: perhaps it should be broken into 2 queries
     task_ids = set()
     tasks = (Task.select(
@@ -873,3 +873,53 @@ def process_affiliation_records(max_rows=20):
                     orcid_rec_count=orcid_rec_count,
                     export_url=export_url,
                     filename=task.filename)
+
+
+def process_tasks(max_rows=20):
+    """Hande batch task expiration.
+
+    Send a information messages about upcoming removal of the processed/uploaded tasks
+    3 weeks after uploading and and removal of expired tasks 4 weeks after uploading.
+
+    Args:
+        max_rows (int): The maximum number of rows that will get processed in one go.
+
+    Returns:
+        int. The number of processed task records.
+
+    """
+    Task.delete().where((Task.expires_at < datetime.now())).execute()
+
+    for task in Task.select().where(Task.expires_at.is_null() & (
+            Task.created_at < (datetime.now() - timedelta(weeks=3)))).limit(max_rows):
+        task.expires_at = (datetime.now() + timedelta(weeks=1))
+        task.save()
+        row_count = task.record_count
+        if task.type == TaskType.AFFILIATION:
+            error_count = AffiliationRecord.select().where(
+                AffiliationRecord.task_id == task.id, AffiliationRecord.status**"%error%").count()
+            row_count = task.record_count
+        elif task.type == TaskType.FUNDING:
+            error_count = FundingRecord.select().where(FundingRecord.task_id == task.id,
+                                                       FundingRecord.status**"%error%").count()
+        else:
+            raise Exception(f"Unexpeced task type: {task.type} ({task}).")
+
+        with app.app_context():
+            protocol_scheme = 'http'
+            if not EXTERNAL_SP:
+                protocol_scheme = 'https'
+            export_url = flask.url_for(
+                "affiliationrecord.export" if task.type == TaskType.AFFILIATION else ".export",
+                export_type="csv",
+                _scheme=protocol_scheme,
+                task_id=task.id,
+                _external=True)
+            send_email(
+                "email/task_expiration.html",
+                subject="Batch process task is about to expire",
+                recipient=(task.created_by.name, task.created_by.email),
+                error_count=error_count,
+                row_count=row_count,
+                export_url=export_url,
+                filename=task.filename)

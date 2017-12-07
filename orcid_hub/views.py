@@ -297,7 +297,12 @@ class UserAdmin(AppModelView):
 class OrganisationAdmin(AppModelView):
     """Organisation model view."""
 
-    column_exclude_list = ("orcid_client_id", "orcid_secret", "created_at", "logo", )
+    column_exclude_list = (
+        "orcid_client_id",
+        "orcid_secret",
+        "created_at",
+        "logo",
+    )
     column_searchable_list = (
         "name",
         "tuakiri_name",
