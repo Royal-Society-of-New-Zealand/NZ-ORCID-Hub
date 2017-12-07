@@ -892,7 +892,7 @@ def process_tasks(max_rows=20):
 
     for task in Task.select().where(Task.expires_at.is_null() & (
             Task.created_at < (datetime.now() - timedelta(weeks=3)))).limit(max_rows):
-        task.expires_at = (datetime.now() + timedelta(weeks=1))
+        task.expires_at = (task.created_at + timedelta(weeks=4))
         task.save()
         if task.task_type == TaskType.AFFILIATION.value:
             error_count = AffiliationRecord.select().where(
