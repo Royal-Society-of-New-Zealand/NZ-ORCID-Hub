@@ -421,6 +421,14 @@ class TaskAdmin(AppModelView):
     can_edit = False
     can_create = False
     can_delete = True
+    column_searchable_list = (
+        "filename",
+        "created_by.email",
+        "created_by.name",
+        "created_by.first_name",
+        "created_by.last_name",
+        "org.name",
+    )
 
 
 class ExternalIdAdmin(AppModelView):
