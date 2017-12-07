@@ -895,11 +895,11 @@ def process_tasks(max_rows=20):
         task.expires_at = (datetime.now() + timedelta(weeks=1))
         task.save()
         row_count = task.record_count
-        if task.task_type == TaskType.AFFILIATION:
+        if task.task_type == TaskType.AFFILIATION.value:
             error_count = AffiliationRecord.select().where(
                 AffiliationRecord.task_id == task.id, AffiliationRecord.status**"%error%").count()
             row_count = task.record_count
-        elif task.task_type == TaskType.FUNDING:
+        elif task.task_type == TaskType.FUNDING.value:
             error_count = FundingRecord.select().where(FundingRecord.task_id == task.id,
                                                        FundingRecord.status**"%error%").count()
         else:
