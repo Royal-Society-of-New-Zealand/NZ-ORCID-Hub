@@ -894,11 +894,9 @@ def process_tasks(max_rows=20):
             Task.created_at < (datetime.now() - timedelta(weeks=3)))).limit(max_rows):
         task.expires_at = (datetime.now() + timedelta(weeks=1))
         task.save()
-        row_count = task.record_count
         if task.task_type == TaskType.AFFILIATION.value:
             error_count = AffiliationRecord.select().where(
                 AffiliationRecord.task_id == task.id, AffiliationRecord.status**"%error%").count()
-            row_count = task.record_count
         elif task.task_type == TaskType.FUNDING.value:
             error_count = FundingRecord.select().where(FundingRecord.task_id == task.id,
                                                        FundingRecord.status**"%error%").count()
@@ -917,9 +915,8 @@ def process_tasks(max_rows=20):
                 _external=True)
             send_email(
                 "email/task_expiration.html",
+                task=task,
                 subject="Batch process task is about to expire",
                 recipient=(task.created_by.name, task.created_by.email),
                 error_count=error_count,
-                row_count=row_count,
-                export_url=export_url,
-                filename=task.filename)
+                export_url=export_url)
