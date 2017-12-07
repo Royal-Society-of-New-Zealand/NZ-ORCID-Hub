@@ -15,7 +15,7 @@
         {{ render_field(form.via_orcid, data_toggle="collapse", data_target="#user-details") }}
       </div>
     </div>
-    <div class="{{'row' if form.via_orcid.data else 'row collapse'}}" id="user-details">
+    <div class="{{'row collapse in' if form.via_orcid.data else 'row collapse'}}" id="user-details">
       <div class="col-md-6 col-sm-6 col-xs-12">
         {{ render_field(form.first_name) }}
         {{ render_field(form.last_name) }}
