@@ -144,7 +144,9 @@ def send_email(template_filename,
     msg.set_headers({"reply-to": reply_to})
     msg.mail_to.append(recipient)
 
-    msg.send(smtp=dict(host=app.config["MAIL_SERVER"], port=app.config["MAIL_PORT"]))
+    res = msg.send(smtp=dict(host=app.config["MAIL_SERVER"], port=app.config["MAIL_PORT"]))
+    print("***", res)
+    print("***", html_msg)
 
 
 class RewrapExtension(jinja2.ext.Extension):
