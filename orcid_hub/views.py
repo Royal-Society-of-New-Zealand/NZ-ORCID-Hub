@@ -584,9 +584,7 @@ class FundingRecordAdmin(AppModelView):
         return True
 
     def _export_tablib(self, export_type, return_url):
-        """
-            Exports a variety of formats using the tablib library.
-        """
+        """Override funding export functionality to integrate funding contributors and external ids."""
         if tablib is None:
             flash(gettext('Tablib dependency not installed.'), 'error')
             return redirect(return_url)
@@ -609,7 +607,7 @@ class FundingRecordAdmin(AppModelView):
             vals = []
             for c in self._export_columns:
                 if c[0] == 'contributors':
-                    l = []
+                    contributor_list = []
                     for f in row.contributors:
                         d = {}
                         for col in f._meta.columns.keys():
@@ -621,10 +619,10 @@ class FundingRecordAdmin(AppModelView):
                                     self.column_formatters_export,
                                     self.column_type_formatters_export,
                                 )
-                        l.append(d)
-                    vals.append(l)
+                        contributor_list.append(d)
+                    vals.append(contributor_list)
                 elif c[0] == 'external_ids':
-                    l = []
+                    external_id_list = []
                     for f in row.external_ids:
                         d = {}
                         for col in f._meta.columns.keys():
@@ -636,8 +634,8 @@ class FundingRecordAdmin(AppModelView):
                                     self.column_formatters_export,
                                     self.column_type_formatters_export,
                                 )
-                        l.append(d)
-                    vals.append(l)
+                        external_id_list.append(d)
+                    vals.append(external_id_list)
                 else:
                     vals.append(self.get_export_value(row, c[0]))
             ds.append(vals)
