@@ -107,7 +107,7 @@ DEFAULT_EMAIL_TEMPLATE = """<!DOCTYPE html>
       involved, please contact: <a href="mailto:orcid@royalsociety.org.nz">
       orcid@royalsociety.org.nz</a></p>
       <hr>
-      <p>This email was sent to <a href="mailto:{EMAIL}>{EMAIL}</a></p>
+      <p>This email was sent to <a href="mailto:{EMAIL}">{EMAIL}</a></p>
       <!--  Footer Details -->
       <table style="vertical-align: top; background-color: black; color: white; width: 100%; margin-top: 25px;">
         <tr>

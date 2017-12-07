@@ -4,7 +4,7 @@
 import logging
 import os
 import textwrap
-from datetime import datetime
+from datetime import datetime, timedelta
 from itertools import filterfalse, groupby
 from urllib.parse import urlencode, urlparse
 
@@ -21,7 +21,7 @@ from peewee import JOIN
 
 from . import app, orcid_client
 from .models import (AFFILIATION_TYPES, Affiliation, AffiliationRecord, FundingContributor,
-                     FundingRecord, OrcidToken, Organisation, Role, Task, Url, User,
+                     FundingRecord, OrcidToken, Organisation, Role, Task, TaskType, Url, User,
                      UserInvitation, UserOrg)
 
 logger = logging.getLogger(__name__)
@@ -84,7 +84,7 @@ def send_email(template_filename,
 
     if logo is None:
         logo = url_for("static", filename="images/banner-small.png", _external=True)
-    if base is None and not current_user.is_anonymous:
+    if base is None and current_user and not current_user.is_anonymous:
         if current_user:
             org = current_user.organisation
             if org.email_template_enabled and org.email_template:
@@ -123,7 +123,7 @@ def send_email(template_filename,
 
     html_msg = str(rendered)
     html_msg = base.format(
-        EMAIL=kwargs["sender"]["email"],
+        EMAIL=kwargs["recipient"]["email"],
         SUBJECT=subject,
         MESSAGE=html_msg,
         LOGO=logo,
@@ -143,7 +143,6 @@ def send_email(template_filename,
         msg.cc.append(cc_email)
     msg.set_headers({"reply-to": reply_to})
     msg.mail_to.append(recipient)
-
     msg.send(smtp=dict(host=app.config["MAIL_SERVER"], port=app.config["MAIL_PORT"]))
 
 
@@ -788,7 +787,7 @@ def process_funding_records(max_rows=20):
 def process_affiliation_records(max_rows=20):
     """Process uploaded affiliation records."""
     set_server_name()
-    # TODO: optimize removing redudnt fields
+    # TODO: optimize removing redundant fields
     # TODO: perhaps it should be broken into 2 queries
     task_ids = set()
     tasks = (Task.select(
@@ -873,3 +872,50 @@ def process_affiliation_records(max_rows=20):
                     orcid_rec_count=orcid_rec_count,
                     export_url=export_url,
                     filename=task.filename)
+
+
+def process_tasks(max_rows=20):
+    """Hande batch task expiration.
+
+    Send a information messages about upcoming removal of the processed/uploaded tasks
+    3 weeks after uploading and and removal of expired tasks 4 weeks after uploading.
+
+    Args:
+        max_rows (int): The maximum number of rows that will get processed in one go.
+
+    Returns:
+        int. The number of processed task records.
+
+    """
+    Task.delete().where((Task.expires_at < datetime.now())).execute()
+
+    for task in Task.select().where(Task.expires_at.is_null() & (
+            Task.created_at < (datetime.now() - timedelta(weeks=3)))).limit(max_rows):
+        task.expires_at = (task.created_at + timedelta(weeks=4))
+        task.save()
+        if task.task_type == TaskType.AFFILIATION.value:
+            error_count = AffiliationRecord.select().where(
+                AffiliationRecord.task_id == task.id, AffiliationRecord.status**"%error%").count()
+        elif task.task_type == TaskType.FUNDING.value:
+            error_count = FundingRecord.select().where(FundingRecord.task_id == task.id,
+                                                       FundingRecord.status**"%error%").count()
+        else:
+            raise Exception(f"Unexpeced task type: {task.task_type} ({task}).")
+
+        with app.app_context():
+            protocol_scheme = 'http'
+            if not EXTERNAL_SP:
+                protocol_scheme = 'https'
+            export_url = flask.url_for(
+                "affiliationrecord.export" if task.task_type == TaskType.AFFILIATION else "fundingrecord.export",
+                export_type="csv",
+                _scheme=protocol_scheme,
+                task_id=task.id,
+                _external=True)
+            send_email(
+                "email/task_expiration.html",
+                task=task,
+                subject="Batch process task is about to expire",
+                recipient=(task.created_by.name, task.created_by.email),
+                error_count=error_count,
+                export_url=export_url)

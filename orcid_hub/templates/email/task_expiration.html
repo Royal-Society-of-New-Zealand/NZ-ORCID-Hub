@@ -1,0 +1,12 @@
+<h2 class="display-2">Batch Task Update</h2>
+
+<p>Processing of uploaded batch process data file <strong>{{task.filename}}</strong>
+with {{task.row_count}} uploaded at <strong>{{task.create_at|isodate}}</strong>
+will expire in one week and will deleted form the database.
+</p>
+{% if error_count > 0 %}
+There were {{error_count}} error(s).</p>
+{% endif %}
+
+<p>You can export a csv of the results with both ORCID iD and put codes by clicking this link:
+<a href="{{export_url}}">{{export_url}}</a></p>
