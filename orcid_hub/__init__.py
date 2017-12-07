@@ -250,8 +250,8 @@ def process(n):
     process_funding_records(n)
 
     # Run only onece an hour
-    if datetime.now().minute == 0:
-        process_tasks(n)
+    # if datetime.now().minute == 0:
+    process_tasks(n)
 
 
 if os.environ.get("ENV") == "dev0":
