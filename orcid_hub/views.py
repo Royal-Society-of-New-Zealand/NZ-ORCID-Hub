@@ -2,14 +2,22 @@
 """Application views."""
 
 import json
+import mimetypes
 import os
 import secrets
+try:
+    import tablib
+except ImportError:
+    tablib = None
+
 from collections import namedtuple
 from datetime import datetime
 from io import BytesIO
 
-from flask import abort, flash, jsonify, redirect, render_template, request, send_file, send_from_directory, url_for
+from flask import (abort, flash, jsonify, redirect, render_template, request, send_file, send_from_directory,
+                   url_for, Response)
 from flask_admin.actions import action
+from flask_admin.babel import gettext
 from flask_admin.contrib.peewee import ModelView
 from flask_admin.form import SecureForm
 from flask_admin.model import typefmt
@@ -429,7 +437,6 @@ class ExternalIdAdmin(AppModelView):
     can_create = False
     can_delete = False
     can_view_details = True
-    can_export = True
 
     form_widget_args = {"external_id": {"readonly": True}}
 
@@ -453,7 +460,6 @@ class FundingContributorAdmin(AppModelView):
     can_create = False
     can_delete = False
     can_view_details = True
-    can_export = True
 
     form_widget_args = {"external_id": {"readonly": True}}
 
@@ -500,6 +506,38 @@ class FundingRecordAdmin(AppModelView):
     column_export_exclude_list = (
         "task",
         "is_active",
+        "status",
+        "processed_at",
+        "created_at",
+        "updated_at",
+    )
+    export_types = [
+        "tsv",
+        "yaml",
+        "json",
+        "xlsx",
+        "ods",
+    ]
+    column_export_list = (
+        "contributors",
+        "external_ids",
+        "title",
+        "translated_title",
+        "translated_title_language_code",
+        "type",
+        "organization_defined_type",
+        "short_description",
+        "amount",
+        "currency",
+        "start_date",
+        "end_date",
+        "org_name",
+        "city",
+        "region",
+        "country",
+        "disambiguated_org_identifier",
+        "disambiguation_source",
+        "visibility",
     )
     can_edit = True
     can_create = False
@@ -552,6 +590,79 @@ class FundingRecordAdmin(AppModelView):
             return False
 
         return True
+
+    def _export_tablib(self, export_type, return_url):
+        """Override funding export functionality to integrate funding contributors and external ids."""
+        if tablib is None:
+            flash(gettext('Tablib dependency not installed.'), 'error')
+            return redirect(return_url)
+
+        filename = self.get_export_name(export_type)
+
+        disposition = 'attachment;filename=%s' % (secure_filename(filename),)
+
+        mimetype, encoding = mimetypes.guess_type(filename)
+        if not mimetype:
+            mimetype = 'application/octet-stream'
+        if encoding:
+            mimetype = '%s; charset=%s' % (mimetype, encoding)
+
+        ds = tablib.Dataset(headers=[c[1] for c in self._export_columns])
+
+        count, data = self._export_data()
+
+        for row in data:
+            vals = []
+            for c in self._export_columns:
+                if c[0] == 'contributors':
+                    contributor_list = []
+                    for f in row.contributors:
+                        d = {}
+                        for col in f._meta.columns.keys():
+                            if col not in ['id', 'funding_record_id', 'status', 'processed_at']:
+                                d[col] = self._get_list_value(
+                                    None,
+                                    f,
+                                    col,
+                                    self.column_formatters_export,
+                                    self.column_type_formatters_export,
+                                )
+                        contributor_list.append(d)
+                    vals.append(contributor_list)
+                elif c[0] == 'external_ids':
+                    external_id_list = []
+                    for f in row.external_ids:
+                        d = {}
+                        for col in f._meta.columns.keys():
+                            if col not in ['id', 'funding_record_id']:
+                                d[col] = self._get_list_value(
+                                    None,
+                                    f,
+                                    col,
+                                    self.column_formatters_export,
+                                    self.column_type_formatters_export,
+                                )
+                        external_id_list.append(d)
+                    vals.append(external_id_list)
+                else:
+                    vals.append(self.get_export_value(row, c[0]))
+            ds.append(vals)
+
+        try:
+            try:
+                response_data = ds.export(format=export_type)
+            except AttributeError:
+                response_data = getattr(ds, export_type)
+        except (AttributeError, tablib.UnsupportedFormat):
+            flash(gettext('Export type "%(type)s not supported.',
+                          type=export_type), 'error')
+            return redirect(return_url)
+
+        return Response(
+            response_data,
+            headers={'Content-Disposition': disposition},
+            mimetype=mimetype,
+        )
 
     def get_export_name(self, export_type='csv'):
         """Get export file name using the original imported file name.

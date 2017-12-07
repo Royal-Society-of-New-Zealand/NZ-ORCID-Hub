@@ -138,14 +138,14 @@ def test_partial_date_field_with_obj(test_form):  # noqa
     pdf1 = tf.pdf1()
 
     assert '<option selected value="13">' in pdf1
-    assert '<option value="">Year</option><option selected value="2017">2017</option>' in pdf1
+    assert '<option selected value="2017">2017</option>' in pdf1
     assert '<option value="">Month</option><option selected value="1">01</option><option value="2">' in pdf1
 
     tf = test_form(None, obj=MagicMock(pdf3=PartialDateDbField(2017)))
     pdf3 = tf.pdf3()
 
     assert '<option selected value="">' in pdf3
-    assert '<option value="">Year</option><option selected value="2017">2017</option>' in pdf3
+    assert '<option selected value="2017">2017</option>' in pdf3
     assert '<option selected value="">Month</option><option value="1">01</option><option value="2">' in pdf3
 
 
