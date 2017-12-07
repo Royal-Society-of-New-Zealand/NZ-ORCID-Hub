@@ -13,7 +13,6 @@
 
 __version__ = '3.0a6'
 
-from datetime import datetime
 import logging
 import os
 import sys
@@ -248,9 +247,6 @@ def process(n):
     """Process uploaded affiliation and funding records."""
     process_affiliation_records(n)
     process_funding_records(n)
-
-    # Run only onece an hour
-    # if datetime.now().minute == 0:
     process_tasks(n)
 
 
