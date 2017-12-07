@@ -143,8 +143,7 @@ def send_email(template_filename,
         msg.cc.append(cc_email)
     msg.set_headers({"reply-to": reply_to})
     msg.mail_to.append(recipient)
-
-    res = msg.send(smtp=dict(host=app.config["MAIL_SERVER"], port=app.config["MAIL_PORT"]))
+    msg.send(smtp=dict(host=app.config["MAIL_SERVER"], port=app.config["MAIL_PORT"]))
 
 
 class RewrapExtension(jinja2.ext.Extension):
