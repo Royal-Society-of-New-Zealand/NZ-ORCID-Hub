@@ -123,7 +123,7 @@ def send_email(template_filename,
 
     html_msg = str(rendered)
     html_msg = base.format(
-        EMAIL=kwargs["sender"]["email"],
+        EMAIL=kwargs["recipient"]["email"],
         SUBJECT=subject,
         MESSAGE=html_msg,
         LOGO=logo,
@@ -145,8 +145,6 @@ def send_email(template_filename,
     msg.mail_to.append(recipient)
 
     res = msg.send(smtp=dict(host=app.config["MAIL_SERVER"], port=app.config["MAIL_PORT"]))
-    print("***", res)
-    print("***", html_msg)
 
 
 class RewrapExtension(jinja2.ext.Extension):
