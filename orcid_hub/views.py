@@ -5,17 +5,12 @@ import json
 import mimetypes
 import os
 import secrets
-try:
-    import tablib
-except ImportError:
-    tablib = None
-
 from collections import namedtuple
 from datetime import datetime
 from io import BytesIO
 
-from flask import (abort, flash, jsonify, redirect, render_template, request, send_file, send_from_directory,
-                   url_for, Response)
+from flask import (Response, abort, flash, jsonify, redirect, render_template, request, send_file,
+                   send_from_directory, url_for)
 from flask_admin.actions import action
 from flask_admin.babel import gettext
 from flask_admin.contrib.peewee import ModelView
@@ -42,6 +37,11 @@ from .models import (Affiliation, AffiliationRecord, CharField, Client, File, Fu
 # NB! Should be disabled in production
 from .pyinfo import info
 from .utils import generate_confirmation_token, send_user_invitation
+
+try:
+    import tablib
+except ImportError:
+    tablib = None
 
 HEADERS = {"Accept": "application/vnd.orcid+json", "Content-type": "application/vnd.orcid+json"}
 
@@ -604,7 +604,7 @@ class FundingRecordAdmin(AppModelView):
 
         filename = self.get_export_name(export_type)
 
-        disposition = 'attachment;filename=%s' % (secure_filename(filename),)
+        disposition = 'attachment;filename=%s' % (secure_filename(filename), )
 
         mimetype, encoding = mimetypes.guess_type(filename)
         if not mimetype:
@@ -659,8 +659,7 @@ class FundingRecordAdmin(AppModelView):
             except AttributeError:
                 response_data = getattr(ds, export_type)
         except (AttributeError, tablib.UnsupportedFormat):
-            flash(gettext('Export type "%(type)s not supported.',
-                          type=export_type), 'error')
+            flash(gettext('Export type "%(type)s not supported.', type=export_type), 'error')
             return redirect(return_url)
 
         return Response(
