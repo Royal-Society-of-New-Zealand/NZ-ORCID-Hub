@@ -907,7 +907,8 @@ def process_tasks(max_rows=20):
             if not EXTERNAL_SP:
                 protocol_scheme = 'https'
             export_url = flask.url_for(
-                "affiliationrecord.export" if task.task_type == TaskType.AFFILIATION else "fundingrecord.export",
+                "affiliationrecord.export"
+                if task.task_type == TaskType.AFFILIATION else "fundingrecord.export",
                 export_type="csv",
                 _scheme=protocol_scheme,
                 task_id=task.id,

@@ -1056,7 +1056,23 @@ class UserInvitation(BaseModel, AuditMixin):
         db_table = "user_invitation"
 
 
-class AffiliationRecord(BaseModel):
+class RecordModel(BaseModel):
+    """Commond model bits of the task records."""
+
+    def save(self, *args, **kwargs):
+        """Update related batch task when changing the record."""
+        if self.is_dirty() and hasattr(self, "task"):
+            self.task.updated_at = datetime.now()
+            self.task.save()
+        return super().save(*args, **kwargs)
+
+    def add_status_line(self, line):
+        """Add a text line to the status for logging processing progress."""
+        ts = datetime.now().isoformat(timespec="seconds")
+        self.status = (self.status + "\n" if self.status else '') + ts + ": " + line
+
+
+class AffiliationRecord(RecordModel):
     """Affiliation record loaded from CSV file for batch processing."""
 
     is_active = BooleanField(
@@ -1089,11 +1105,6 @@ class AffiliationRecord(BaseModel):
     disambiguated_source = CharField(
         null=True, max_length=100, verbose_name="Disambiguation Source")
 
-    def add_status_line(self, line):
-        """Add a text line to the status for logging processing progress."""
-        ts = datetime.now().isoformat(timespec="seconds")
-        self.status = (self.status + "\n" if self.status else '') + ts + ": " + line
-
     class Meta:  # noqa: D101,D106
         db_table = "affiliation_record"
         table_alias = "ar"
@@ -1118,7 +1129,7 @@ class TaskType(IntFlag):
         return hash(self.name)
 
 
-class FundingRecord(BaseModel, AuditMixin):
+class FundingRecord(RecordModel):
     """Funding record loaded from Json file for batch processing."""
 
     task = ForeignKeyField(Task, related_name="funding_records", on_delete="CASCADE")
@@ -1298,12 +1309,8 @@ class FundingRecord(BaseModel, AuditMixin):
                 app.logger.exception("Failed to laod affiliation file.")
                 raise
 
-    def add_status_line(self, line):
-        """Add a text line to the status for logging processing progress."""
-        ts = datetime.now().isoformat(timespec="seconds")
-        self.status = (self.status + "\n" if self.status else '') + ts + ": " + line
-
-    def del_none(d):  # noqa: N805
+    @classmethod
+    def del_none(cls, d):  # noqa: N805
         """
         Delete keys with the value ``None`` in a dictionary, recursively.
 
@@ -1315,9 +1322,9 @@ class FundingRecord(BaseModel, AuditMixin):
             elif isinstance(value, list):
                 for item in value:
                     if isinstance(item, dict):
-                        FundingRecord.del_none(item)
+                        cls.del_none(item)
             elif isinstance(value, dict):
-                FundingRecord.del_none(value)
+                cls.del_none(value)
         return d
 
     class Meta:  # noqa: D101,D106
