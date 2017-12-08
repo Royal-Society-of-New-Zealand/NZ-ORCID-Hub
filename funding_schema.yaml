@@ -38,8 +38,6 @@ mapping:
                 mapping:
                     value:
                         type: str
-    put-code:
-        type: int
     path:
         type: str
     type:
@@ -169,6 +167,8 @@ mapping:
                                 mapping:
                                     contributor-role:
                                         type: str
+                            put-code:
+                                type: int
     organization:
         type: map
         mapping:
