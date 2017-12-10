@@ -715,16 +715,10 @@ class FundingRecordAdmin(AppModelView):
 
         # https://docs.djangoproject.com/en/1.8/howto/outputting-csv/
         class Echo(object):
-            """
-            An object that implements just the write method of the file-like
-            interface.
-            """
+            """An object that implements just the write method of the file-like interface."""
 
             def write(self, value):
-                """
-                Write the value by returning it, instead of storing
-                in a buffer.
-                """
+                """Write the value by returning it, instead of storing in a buffer."""
                 return value
 
         writer = csv.writer(Echo(), delimiter=delimiter)
@@ -758,6 +752,7 @@ class FundingRecordAdmin(AppModelView):
         """Get export file name using the original imported file name.
         :return: The exported csv file name.
         """
+
         task_id = request.args.get("task_id")
         if task_id:
             task = Task.get(id=task_id)
