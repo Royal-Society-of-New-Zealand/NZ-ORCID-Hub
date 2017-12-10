@@ -749,10 +749,7 @@ class FundingRecordAdmin(AppModelView):
         )
 
     def get_export_name(self, export_type='csv'):
-        """Get export file name using the original imported file name.
-        :return: The exported csv file name.
-        """
-
+        """Get export file name using the original imported file name. :return: The exported csv file name."""
         task_id = request.args.get("task_id")
         if task_id:
             task = Task.get(id=task_id)
