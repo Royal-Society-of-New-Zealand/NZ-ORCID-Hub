@@ -1,19 +1,24 @@
 # -*- coding: utf-8 -*-
 """Application views."""
 
+import csv
 import json
 import mimetypes
 import os
 import secrets
+import yaml
 from collections import namedtuple
 from datetime import datetime
 from io import BytesIO
 
 from flask import (Response, abort, flash, jsonify, redirect, render_template, request, send_file,
-                   send_from_directory, url_for)
+                   send_from_directory, url_for, stream_with_context)
 from flask_admin.actions import action
 from flask_admin.babel import gettext
+from flask_admin.base import expose
+from flask_admin.helpers import get_redirect_target
 from flask_admin.contrib.peewee import ModelView
+from flask_admin._compat import csv_encode
 from flask_admin.form import SecureForm
 from flask_admin.model import typefmt
 from flask_login import current_user, login_required
@@ -357,7 +362,8 @@ class OrgInfoAdmin(AppModelView):
         for oi in OrgInfo.select().where(OrgInfo.id.in_(ids)):
             try:
                 register_org(
-                    email=oi.name,
+                    org_name=oi.name,
+                    email=oi.email,
                     tech_contact=True,
                     via_orcid=(False if oi.tuakiri_name else True),
                     first_name=oi.first_name,
@@ -515,17 +521,6 @@ class FundingRecordAdmin(AppModelView):
         "processed_at",
         "created_at",
         "updated_at",
-    )
-    export_types = [
-        "tsv",
-        "yaml",
-        "json",
-        "xlsx",
-        "ods",
-    ]
-    column_export_list = (
-        "contributors",
-        "external_ids",
         "title",
         "translated_title",
         "translated_title_language_code",
@@ -543,6 +538,25 @@ class FundingRecordAdmin(AppModelView):
         "disambiguated_org_identifier",
         "disambiguation_source",
         "visibility",
+    )
+    export_types = [
+        "tsv",
+        "yaml",
+        "json",
+        "csv",
+    ]
+    column_export_list = (
+        "funding id",
+        "contributors",
+    )
+    column_csv_export_list = (
+        "funding id",
+        "email",
+        "name",
+        "orcid",
+        "put_code",
+        "role",
+        "status"
     )
     can_edit = True
     can_create = False
@@ -604,7 +618,7 @@ class FundingRecordAdmin(AppModelView):
 
         filename = self.get_export_name(export_type)
 
-        disposition = 'attachment;filename=%s' % (secure_filename(filename), )
+        disposition = 'attachment;filename=%s' % (secure_filename(filename),)
 
         mimetype, encoding = mimetypes.guess_type(filename)
         if not mimetype:
@@ -617,44 +631,16 @@ class FundingRecordAdmin(AppModelView):
         count, data = self._export_data()
 
         for row in data:
-            vals = []
-            for c in self._export_columns:
-                if c[0] == 'contributors':
-                    contributor_list = []
-                    for f in row.contributors:
-                        d = {}
-                        for col in f._meta.columns.keys():
-                            if col not in ['id', 'funding_record_id', 'status', 'processed_at']:
-                                d[col] = self._get_list_value(
-                                    None,
-                                    f,
-                                    col,
-                                    self.column_formatters_export,
-                                    self.column_type_formatters_export,
-                                )
-                        contributor_list.append(d)
-                    vals.append(contributor_list)
-                elif c[0] == 'external_ids':
-                    external_id_list = []
-                    for f in row.external_ids:
-                        d = {}
-                        for col in f._meta.columns.keys():
-                            if col not in ['id', 'funding_record_id']:
-                                d[col] = self._get_list_value(
-                                    None,
-                                    f,
-                                    col,
-                                    self.column_formatters_export,
-                                    self.column_type_formatters_export,
-                                )
-                        external_id_list.append(d)
-                    vals.append(external_id_list)
-                else:
-                    vals.append(self.get_export_value(row, c[0]))
-            ds.append(vals)
+            external_id_list, contributor_list = self.get_external_id_contributors(row)
+            for external_ids in external_id_list:
+                vals = []
+                vals.append(external_ids['value'])
+                vals.append(contributor_list)
+                ds.append(vals)
 
         try:
             try:
+                ds.yaml = yaml.safe_dump(json.loads(ds.json.replace("\\n", " ")))
                 response_data = ds.export(format=export_type)
             except AttributeError:
                 response_data = getattr(ds, export_type)
@@ -668,9 +654,108 @@ class FundingRecordAdmin(AppModelView):
             mimetype=mimetype,
         )
 
+    def get_external_id_contributors(self, row):
+        """Get funding contributors and external ids."""
+        vals = []
+        contributor_list = []
+        external_id_list = []
+        exclude_list = ['id', 'funding_record_id', 'processed_at']
+        for c in self._export_columns:
+            if c[0] == 'contributors':
+                for f in row.contributors:
+                    contributor_rec = {}
+                    for col in f._meta.columns.keys():
+                        if col not in exclude_list:
+                            contributor_rec[col] = self._get_list_value(
+                                None,
+                                f,
+                                col,
+                                self.column_formatters_export,
+                                self.column_type_formatters_export,
+                            )
+                    contributor_list.append(contributor_rec)
+            elif c[0] == 'funding id':
+                for f in row.external_ids:
+                    external_id_rec = {}
+                    for col in f._meta.columns.keys():
+                        if col not in exclude_list:
+                            external_id_rec[col] = self._get_list_value(
+                                None,
+                                f,
+                                col,
+                                self.column_formatters_export,
+                                self.column_type_formatters_export,
+                            )
+                    external_id_list.append(external_id_rec)
+            else:
+                vals.append(self.get_export_value(row, c[0]))
+        return (external_id_list, contributor_list)
+
+    @expose('/export/<export_type>/')
+    def export(self, export_type):
+        """Check the export type whether it is csv, tsv or other format."""
+        return_url = get_redirect_target() or self.get_url('.index_view')
+
+        if not self.can_export or (export_type not in self.export_types):
+            flash(gettext('Permission denied.'), 'error')
+            return redirect(return_url)
+
+        if export_type == 'csv' or export_type == 'tsv':
+            return self._export_csv(return_url, export_type)
+        else:
+            return self._export_tablib(export_type, return_url)
+
+    def _export_csv(self, return_url, export_type):
+        """Export a CSV or tsv of records as a stream."""
+        delimiter = ","
+        if export_type == 'tsv':
+            delimiter = "\t"
+
+        count, data = self._export_data()
+
+        # https://docs.djangoproject.com/en/1.8/howto/outputting-csv/
+        class Echo(object):
+            """
+            An object that implements just the write method of the file-like
+            interface.
+            """
+
+            def write(self, value):
+                """
+                Write the value by returning it, instead of storing
+                in a buffer.
+                """
+                return value
+
+        writer = csv.writer(Echo(), delimiter=delimiter)
+
+        def generate():
+            # Append the column titles at the beginning
+            titles = [csv_encode(c) for c in self.column_csv_export_list]
+            yield writer.writerow(titles)
+
+            for row in data:
+                external_id_list, contributor_list = self.get_external_id_contributors(row)
+                for external_ids in external_id_list:
+                    for cont in contributor_list:
+                        vals = []
+                        vals.append(external_ids['value'])
+                        for col in self.column_csv_export_list[1:]:
+                            vals.append(cont.get(col))
+                        yield writer.writerow(vals)
+
+        filename = self.get_export_name(export_type=export_type)
+
+        disposition = 'attachment;filename=%s' % (secure_filename(filename),)
+
+        return Response(
+            stream_with_context(generate()),
+            headers={'Content-Disposition': disposition},
+            mimetype='text/' + export_type
+        )
+
     def get_export_name(self, export_type='csv'):
         """Get export file name using the original imported file name.
-
         :return: The exported csv file name.
         """
         task_id = request.args.get("task_id")
