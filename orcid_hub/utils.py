@@ -132,12 +132,13 @@ def send_email(template_filename,
         subject = getattr(rendered, "subject", "Welcome to the NZ ORCID Hub")
 
     html_msg = str(rendered)
-    html_msg = base.format(
-        EMAIL=kwargs["recipient"]["email"],
-        SUBJECT=subject,
-        MESSAGE=html_msg,
-        LOGO=logo,
-        BASE_URL=url_for("login", _external=True)[:-1])
+    if base:
+        html_msg = base.format(
+            EMAIL=kwargs["recipient"]["email"],
+            SUBJECT=subject,
+            MESSAGE=html_msg,
+            LOGO=logo,
+            BASE_URL=url_for("login", _external=True)[:-1])
 
     plain_msg = html2text(html_msg)
 

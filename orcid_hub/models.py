@@ -1281,11 +1281,15 @@ class FundingRecord(RecordModel):
                         role = contributor.get("contributor-attributes").get("contributor-role") if \
                             contributor.get("contributor-attributes") else None
 
+                        put_code = contributor.get("put-code") if \
+                            contributor.get("put-code") else None
+
                         FundingContributor.create(
                             funding_record=funding_record,
                             orcid=orcid_id,
                             name=name,
                             email=email.lower(),
+                            put_code=put_code,
                             role=role)
 
                     external_ids_list = funding_data.get("external-ids").get("external-id") if \
