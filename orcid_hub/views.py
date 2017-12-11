@@ -36,7 +36,7 @@ from .models import (Affiliation, AffiliationRecord, CharField, Client, File, Fu
                      UserInvitation, UserOrg, UserOrgAffiliation, db)
 # NB! Should be disabled in production
 from .pyinfo import info
-from .utils import generate_confirmation_token, send_user_invitation
+from .utils import generate_confirmation_token, get_next_url, send_user_invitation
 
 try:
     import tablib
@@ -44,6 +44,16 @@ except ImportError:
     tablib = None
 
 HEADERS = {"Accept": "application/vnd.orcid+json", "Content-type": "application/vnd.orcid+json"}
+
+
+@app.errorhandler(404)
+def page_not_found(e):
+    """Handle nonexistin pages."""
+    _next = get_next_url()
+    if _next:
+        flash("Page Not Found", "danger")
+        return redirect(_next)
+    return render_template("404.html"), 404
 
 
 @app.route("/favicon.ico")
@@ -150,9 +160,13 @@ class AppModelView(ModelView):
 
     def get_one(self, id):
         """Fix for composite keys."""
-        if self.model._meta.composite_key:
-            return self.model.get(**dict(zip(self.model._meta.primary_key.field_names, id)))
-        return super().get_one(id)
+        try:
+            if self.model._meta.composite_key:
+                return self.model.get(**dict(zip(self.model._meta.primary_key.field_names, id)))
+            return super().get_one(id)
+        except self.model.DoesNotExist:
+            flash(f"The record with given ID: {id} doesn't exist or it was deleted.", "danger")
+            abort(404)
 
     def init_search(self):
         """Include linked columns in the search if they are defined with 'liked_table.column'."""
@@ -454,60 +468,17 @@ class ExternalIdAdmin(AppModelView):
         return True
 
 
-class FundingContributorAdmin(AppModelView):
-    """Funding record model view."""
-
-    roles_required = Role.SUPERUSER | Role.ADMIN
-    list_template = "funding_contributor_list.html"
-    column_exclude_list = ("funding_record", )
+class RecordModelView(AppModelView):
+    """Common record model view bits."""
 
     can_edit = True
     can_create = False
     can_delete = False
     can_view_details = True
+    can_export = True
 
     form_widget_args = {"external_id": {"readonly": True}}
 
-    def is_accessible(self):
-        """Verify if the funding contributor view is accessible for the current user."""
-        if not super().is_accessible():
-            flash("Access denied! You cannot access this task.", "danger")
-            return False
-
-        return True
-
-    @action("reset", "Reset for processing",
-            "Are you sure you want to reset the selected records for batch processing?")
-    def action_reset(self, ids):
-        """Batch reset of users."""
-        try:
-            status = " The record was reset at " + datetime.now().isoformat(timespec="seconds")
-            count = self.model.update(
-                processed_at=None, status=status).where(
-                    self.model.status.is_null(False), self.model.id.in_(ids)).execute()
-            funding_record_id = self.model.select().where(
-                self.model.id.in_(ids))[0].funding_record_id
-            FundingRecord.update(
-                processed_at=None, status=FundingRecord.status + status).where(
-                    FundingRecord.is_active, FundingRecord.id == funding_record_id).execute()
-        except Exception as ex:
-            flash(f"Failed to activate the selected records: {ex}")
-            app.logger.exception("Failed to activate the selected records")
-
-        else:
-            flash(f"{count} Funding Contributor records were reset for batch processing.")
-
-
-class FundingRecordAdmin(AppModelView):
-    """Funding record model view."""
-
-    roles_required = Role.SUPERUSER | Role.ADMIN
-    list_template = "funding_record_list.html"
-    column_exclude_list = (
-        "task",
-        "organisation",
-    )
-    column_searchable_list = ("title", )
     column_export_exclude_list = (
         "task",
         "is_active",
@@ -523,43 +494,6 @@ class FundingRecordAdmin(AppModelView):
         "xlsx",
         "ods",
     ]
-    column_export_list = (
-        "contributors",
-        "external_ids",
-        "title",
-        "translated_title",
-        "translated_title_language_code",
-        "type",
-        "organization_defined_type",
-        "short_description",
-        "amount",
-        "currency",
-        "start_date",
-        "end_date",
-        "org_name",
-        "city",
-        "region",
-        "country",
-        "disambiguated_org_identifier",
-        "disambiguation_source",
-        "visibility",
-    )
-    can_edit = True
-    can_create = False
-    can_delete = False
-    can_view_details = True
-    can_export = True
-
-    form_widget_args = {"external_id": {"readonly": True}}
-
-    def render(self, template, **kwargs):
-        """Pass the task to the render function as an added argument."""
-        if "task" not in kwargs:
-            task_id = request.args.get("task_id")
-            if task_id:
-                kwargs["task"] = Task.get(id=task_id)
-
-        return super().render(template, **kwargs)
 
     def is_accessible(self):
         """Verify if the task view is accessible for the current user."""
@@ -595,6 +529,125 @@ class FundingRecordAdmin(AppModelView):
             return False
 
         return True
+
+    def get_export_name(self, export_type='csv'):
+        """Get export file name using the original imported file name.
+
+        :return: The exported csv file name.
+        """
+        task_id = request.args.get("task_id")
+        if task_id:
+            task = Task.get(id=task_id)
+            if task:
+                filename = os.path.splitext(task.filename)[0]
+                return "%s_%s.%s" % (filename, datetime.now().strftime("%Y-%m-%d_%H-%M-%S"),
+                                     export_type)
+        return super().get_export_name(export_type=export_type)
+
+    def render(self, template, **kwargs):
+        """Pass the task to the render function as an added argument."""
+        if "task" not in kwargs:
+            task_id = request.args.get("task_id")
+            if task_id:
+                try:
+                    kwargs["task"] = Task.get(id=task_id)
+                except Task.DoesNotExist:
+                    flash("The task doesn't exist or it was deleted.", "danger")
+                    abort(404)
+
+        return super().render(template, **kwargs)
+
+    @action("activate", "Activate for processing",
+            """Are you sure you want to activate the selected records for batch processing?
+
+By clicking "OK" you are affirming that the affiliations and/or funding data
+to be written are, to the best of your knowledge, correct!""")
+    def action_activate(self, ids):
+        """Batch activation of the users."""
+        try:
+            count = self.model.update(is_active=True).where(
+                self.model.is_active == False,  # noqa: E712
+                self.model.id.in_(ids)).execute()
+        except Exception as ex:
+            flash(f"Failed to activate the selected records: {ex}")
+            app.logger.exception("Failed to activate the selected records")
+        else:
+            flash(f"{count} records were activated for batch processing.")
+
+    @action("reset", "Reset for processing",
+            "Are you sure you want to reset the selected records for batch processing?")
+    def action_reset(self, ids):
+        """Batch reset of records."""
+        try:
+            self.model.update(processed_at=None).where(self.model.is_active,
+                                                       self.model.processed_at.is_null(False),
+                                                       self.model.id.in_(ids)).execute()
+            status = "The record was reset at " + datetime.now().isoformat(timespec="seconds")
+            count = FundingContributor.update(
+                processed_at=None, status=status).where(
+                    FundingContributor.funding_record.in_(ids),
+                    FundingContributor.status.is_null(False)).execute()
+        except Exception as ex:
+            flash(f"Failed to activate the selected records: {ex}")
+            app.logger.exception("Failed to reset the selected records")
+
+        else:
+            flash(f"{count} records were reset for batch processing.")
+
+
+class AffiliationRecordAdmin(RecordModelView):
+    """Affiliation record model view."""
+
+    list_template = "affiliation_record_list.html"
+    column_exclude_list = (
+        "task",
+        "organisation",
+    )
+    column_searchable_list = (
+        "first_name",
+        "last_name",
+        "email",
+        "role",
+        "department",
+        "state",
+    )
+    column_export_exclude_list = (
+        "task",
+        "is_active",
+    )
+
+
+class FundingRecordAdmin(RecordModelView):
+    """Funding record model view."""
+
+    roles_required = Role.SUPERUSER | Role.ADMIN
+    list_template = "funding_record_list.html"
+    column_exclude_list = (
+        "task",
+        "organisation",
+    )
+    column_searchable_list = ("title", )
+    column_export_list = (
+        "contributors",
+        "external_ids",
+        "title",
+        "translated_title",
+        "translated_title_language_code",
+        "type",
+        "organization_defined_type",
+        "short_description",
+        "amount",
+        "currency",
+        "start_date",
+        "end_date",
+        "org_name",
+        "city",
+        "region",
+        "country",
+        "disambiguated_org_identifier",
+        "disambiguation_source",
+        "visibility",
+    )
 
     def _export_tablib(self, export_type, return_url):
         """Override funding export functionality to integrate funding contributors and external ids."""
@@ -668,174 +721,41 @@ class FundingRecordAdmin(AppModelView):
             mimetype=mimetype,
         )
 
-    def get_export_name(self, export_type='csv'):
-        """Get export file name using the original imported file name.
 
-        :return: The exported csv file name.
-        """
-        task_id = request.args.get("task_id")
-        if task_id:
-            task = Task.get(id=task_id)
-            if task:
-                filename = os.path.splitext(task.filename)[0]
-                return "%s_%s.%s" % (filename, datetime.now().strftime("%Y-%m-%d_%H-%M-%S"),
-                                     export_type)
-        return super().get_export_name(export_type=export_type)
-
-    @action("activate", "Activate for processing",
-            "Are you sure you want to activate the selected records for batch processing?")
-    def action_activate(self, ids):
-        """Batch registraion of users."""
-        try:
-            count = self.model.update(is_active=True).where(
-                self.model.is_active == False,  # noqa: E712
-                self.model.id.in_(ids)).execute()
-        except Exception as ex:
-            flash(f"Failed to activate the selected records: {ex}")
-            app.logger.exception("Failed to activate the selected records")
-        else:
-            flash(f"{count} records were activated for batch processing.")
-
-    @action("reset", "Reset for processing",
-            "Are you sure you want to reset the selected records for batch processing?")
-    def action_reset(self, ids):
-        """Batch reset of users."""
-        try:
-            self.model.update(processed_at=None).where(self.model.is_active,
-                                                       self.model.processed_at.is_null(False),
-                                                       self.model.id.in_(ids)).execute()
-            status = "The record was reset at " + datetime.now().isoformat(timespec="seconds")
-            count = FundingContributor.update(
-                processed_at=None, status=status).where(
-                    FundingContributor.funding_record.in_(ids),
-                    FundingContributor.status.is_null(False)).execute()
-        except Exception as ex:
-            flash(f"Failed to activate the selected records: {ex}")
-            app.logger.exception("Failed to activate the selected records")
-
-        else:
-            flash(f"{count} Funding Contributor records were reset for batch processing.")
-
-
-class AffiliationRecordAdmin(AppModelView):
-    """Affiliation record model view."""
+class FundingContributorAdmin(AppModelView):
+    """Funding record model view."""
 
     roles_required = Role.SUPERUSER | Role.ADMIN
-    list_template = "affiliation_record_list.html"
-    column_exclude_list = (
-        "task",
-        "organisation",
-    )
-    column_searchable_list = (
-        "first_name",
-        "last_name",
-        "email",
-        "role",
-        "department",
-        "state",
-    )
-    column_export_exclude_list = (
-        "task",
-        "is_active",
-    )
+    list_template = "funding_contributor_list.html"
+    column_exclude_list = ("funding_record", )
+
     can_edit = True
     can_create = False
     can_delete = False
     can_view_details = True
-    can_export = True
 
     form_widget_args = {"external_id": {"readonly": True}}
-
-    def render(self, template, **kwargs):
-        """Pass the task to the render function as an added argument."""
-        if "task" not in kwargs:
-            task_id = request.args.get("task_id")
-            if task_id:
-                kwargs["task"] = Task.get(id=task_id)
-
-        return super().render(template, **kwargs)
-
-    def is_accessible(self):
-        """Verify if the task view is accessible for the current user."""
-        if not super().is_accessible():
-            return False
-
-        # Added the feature for superuser to access task related to all research organiastion
-        if current_user.is_superuser:
-            return True
-
-        if request.method == "POST" and request.form.get("rowid"):
-            # get the first ROWID:
-            rowid = int(request.form.get("rowid"))
-            task_id = AffiliationRecord.get(id=rowid).task_id
-        else:
-            task_id = request.args.get("task_id")
-            if not task_id:
-                _id = request.args.get("id")
-                if not _id:
-                    flash("Cannot invoke the task view without task ID", "danger")
-                    return False
-                else:
-                    task_id = AffiliationRecord.get(id=_id).task_id
-
-        try:
-            task = Task.get(id=task_id)
-            if task.org.id != current_user.organisation.id:
-                flash("Access denied! You cannot access this task.", "danger")
-                return False
-
-        except Task.DoesNotExist:
-            flash("The task deesn't exist.", "danger")
-            return False
-
-        return True
-
-    def get_export_name(self, export_type='csv'):
-        """Get export file name using the original imported file name.
-
-        :return: The exported csv file name.
-        """
-        task_id = request.args.get("task_id")
-        if task_id:
-            task = Task.get(id=task_id)
-            if task:
-                filename = os.path.splitext(task.filename)[0]
-                return "%s_%s.%s" % (filename, datetime.now().strftime("%Y-%m-%d_%H-%M-%S"),
-                                     export_type)
-        return super().get_export_name(export_type=export_type)
-
-    @action(
-        "activate", "Activate for processing",
-        "Are you sure you want to activate the selected records for batch processing?\n\nBy clicking \"OK\" "
-        +
-        "you are affirming that the affiliations to be written are, to the\n best of your knowledge, correct!"
-    )
-    def action_activate(self, ids):
-        """Batch registraion of users."""
-        try:
-            count = self.model.update(is_active=True).where(
-                self.model.is_active == False,  # noqa: E712
-                self.model.id.in_(ids)).execute()
-        except Exception as ex:
-            flash(f"Failed to activate the selected records: {ex}")
-            app.logger.exception("Failed to activate the selected records")
-        else:
-            flash(f"{count} records were activated for batch processing.")
 
     @action("reset", "Reset for processing",
             "Are you sure you want to reset the selected records for batch processing?")
     def action_reset(self, ids):
         """Batch reset of users."""
         try:
-            count = self.model.update(processed_at=None).where(
-                self.model.is_active, self.model.processed_at.is_null(False),
-                self.model.id.in_(ids)).execute()
+            status = " The record was reset at " + datetime.now().isoformat(timespec="seconds")
+            count = self.model.update(
+                processed_at=None, status=status).where(
+                    self.model.status.is_null(False), self.model.id.in_(ids)).execute()
+            funding_record_id = self.model.select().where(
+                self.model.id.in_(ids))[0].funding_record_id
+            FundingRecord.update(
+                processed_at=None, status=FundingRecord.status + status).where(
+                    FundingRecord.is_active, FundingRecord.id == funding_record_id).execute()
         except Exception as ex:
             flash(f"Failed to activate the selected records: {ex}")
-            app.logger.exception("Failed to activate the selected records")
+            app.logger.exception("Failed to reset the selected records")
 
         else:
-            flash(f"{count} records were activated for batch processing.")
+            flash(f"{count} Funding Contributor records were reset for batch processing.")
 
 
 class ViewMembersAdmin(AppModelView):
