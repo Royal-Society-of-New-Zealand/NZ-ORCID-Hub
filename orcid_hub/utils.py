@@ -13,7 +13,7 @@ import flask
 import jinja2
 import jinja2.ext
 import requests
-from flask import url_for, request
+from flask import request, url_for
 from flask_login import current_user
 from html2text import html2text
 from itsdangerous import URLSafeTimedSerializer

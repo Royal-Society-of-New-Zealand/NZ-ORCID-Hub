@@ -36,7 +36,7 @@ from .models import (Affiliation, AffiliationRecord, CharField, Client, File, Fu
                      UserInvitation, UserOrg, UserOrgAffiliation, db)
 # NB! Should be disabled in production
 from .pyinfo import info
-from .utils import generate_confirmation_token, send_user_invitation, get_next_url
+from .utils import generate_confirmation_token, get_next_url, send_user_invitation
 
 try:
     import tablib
@@ -557,9 +557,8 @@ class RecordModelView(AppModelView):
 
         return super().render(template, **kwargs)
 
-    @action(
-        "activate", "Activate for processing",
-        """Are you sure you want to activate the selected records for batch processing?
+    @action("activate", "Activate for processing",
+            """Are you sure you want to activate the selected records for batch processing?
 
 By clicking "OK" you are affirming that the affiliations and/or funding data
 to be written are, to the best of your knowledge, correct!""")
