@@ -589,7 +589,7 @@ to be written are, to the best of your knowledge, correct!""")
                     FundingContributor.status.is_null(False)).execute()
         except Exception as ex:
             flash(f"Failed to activate the selected records: {ex}")
-            app.logger.exception("Failed to activate the selected records")
+            app.logger.exception("Failed to reset the selected records")
 
         else:
             flash(f"{count} records were reset for batch processing.")
@@ -736,14 +736,6 @@ class FundingContributorAdmin(AppModelView):
 
     form_widget_args = {"external_id": {"readonly": True}}
 
-    def is_accessible(self):
-        """Verify if the funding contributor view is accessible for the current user."""
-        if not super().is_accessible():
-            flash("Access denied! You cannot access this task.", "danger")
-            return False
-
-        return True
-
     @action("reset", "Reset for processing",
             "Are you sure you want to reset the selected records for batch processing?")
     def action_reset(self, ids):
@@ -760,7 +752,7 @@ class FundingContributorAdmin(AppModelView):
                     FundingRecord.is_active, FundingRecord.id == funding_record_id).execute()
         except Exception as ex:
             flash(f"Failed to activate the selected records: {ex}")
-            app.logger.exception("Failed to activate the selected records")
+            app.logger.exception("Failed to reset the selected records")
 
         else:
             flash(f"{count} Funding Contributor records were reset for batch processing.")
