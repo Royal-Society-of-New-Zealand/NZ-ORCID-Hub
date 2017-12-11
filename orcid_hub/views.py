@@ -36,7 +36,7 @@ from .models import (Affiliation, AffiliationRecord, CharField, Client, File, Fu
                      UserInvitation, UserOrg, UserOrgAffiliation, db)
 # NB! Should be disabled in production
 from .pyinfo import info
-from .utils import generate_confirmation_token, send_user_invitation
+from .utils import generate_confirmation_token, send_user_invitation, get_next_url
 
 try:
     import tablib
@@ -44,6 +44,16 @@ except ImportError:
     tablib = None
 
 HEADERS = {"Accept": "application/vnd.orcid+json", "Content-type": "application/vnd.orcid+json"}
+
+
+@app.errorhandler(404)
+def page_not_found(e):
+    """Handle nonexistin pages."""
+    _next = get_next_url()
+    if _next:
+        flash("Page Not Found", "danger")
+        return redirect(_next)
+    return render_template("404.html"), 404
 
 
 @app.route("/favicon.ico")
@@ -150,9 +160,13 @@ class AppModelView(ModelView):
 
     def get_one(self, id):
         """Fix for composite keys."""
-        if self.model._meta.composite_key:
-            return self.model.get(**dict(zip(self.model._meta.primary_key.field_names, id)))
-        return super().get_one(id)
+        try:
+            if self.model._meta.composite_key:
+                return self.model.get(**dict(zip(self.model._meta.primary_key.field_names, id)))
+            return super().get_one(id)
+        except self.model.DoesNotExist:
+            flash(f"The record with given ID: {id} doesn't exist or it was deleted.", "danger")
+            abort(404)
 
     def init_search(self):
         """Include linked columns in the search if they are defined with 'liked_table.column'."""

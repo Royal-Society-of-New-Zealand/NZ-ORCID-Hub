@@ -13,7 +13,7 @@ import flask
 import jinja2
 import jinja2.ext
 import requests
-from flask import url_for
+from flask import url_for, request
 from flask_login import current_user
 from html2text import html2text
 from itsdangerous import URLSafeTimedSerializer
@@ -33,6 +33,16 @@ EMP_CODES = {"faculty", "staff", "emp"}
 
 ENV = app.config.get("ENV")
 EXTERNAL_SP = app.config.get("EXTERNAL_SP")
+
+
+def get_next_url():
+    """Retrieve and sanitize next/return URL."""
+    _next = request.args.get("next") or request.args.get("_next") or request.args.get("url")
+
+    if _next and ("orcidhub.org.nz" in _next or _next.startswith("/") or "127.0" in _next
+                  or "c9users.io" in _next):
+        return _next
+    return None
 
 
 def send_email(template_filename,
