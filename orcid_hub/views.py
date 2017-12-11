@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """Application views."""
 
+import copy
 import csv
 import json
 import mimetypes
@@ -675,6 +676,7 @@ class FundingRecordAdmin(AppModelView):
                             )
                     contributor_list.append(contributor_rec)
             elif c[0] == 'funding id':
+                external_id_relation_part_of = {}
                 for f in row.external_ids:
                     external_id_rec = {}
                     for col in f._meta.columns.keys():
@@ -690,6 +692,12 @@ class FundingRecordAdmin(AppModelView):
                     if not external_id_list and external_id_rec.get('relationship') and external_id_rec.get(
                             'relationship').lower() == 'self':
                         external_id_list.append(external_id_rec)
+                    elif not external_id_list and not external_id_relation_part_of and external_id_rec.get(
+                            'relationship').lower() == 'part_of':
+                        external_id_relation_part_of = copy.deepcopy(external_id_rec)
+                # Also if there no external id with relation 'Self' take first one from 'part_of'
+                if not external_id_list and external_id_relation_part_of:
+                    external_id_list.append(external_id_relation_part_of)
             else:
                 vals.append(self.get_export_value(row, c[0]))
         return (external_id_list, contributor_list)
