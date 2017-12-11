@@ -686,7 +686,10 @@ class FundingRecordAdmin(AppModelView):
                                 self.column_formatters_export,
                                 self.column_type_formatters_export,
                             )
-                    external_id_list.append(external_id_rec)
+                    # Get the first external id from extrnal id list with 'SELF' relationship for funding export
+                    if not external_id_list and external_id_rec.get('relationship') and external_id_rec.get(
+                            'relationship').lower() == 'self':
+                        external_id_list.append(external_id_rec)
             else:
                 vals.append(self.get_export_value(row, c[0]))
         return (external_id_list, contributor_list)
