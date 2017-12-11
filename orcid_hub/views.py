@@ -454,7 +454,7 @@ class ExternalIdAdmin(AppModelView):
         return True
 
 
-class RecordModelView:
+class RecordModelView(AppModelView):
     """Common record model view bits."""
 
     can_edit = True
