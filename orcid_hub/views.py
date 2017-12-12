@@ -559,19 +559,25 @@ to the best of your knowledge, correct!""")
     def action_reset(self, ids):
         """Reset batch task records."""
         status = "The record was reset at " + datetime.now().isoformat(timespec="seconds")
-        try:
-            count = self.model.update(processed_at=None).where(
-                self.model.is_active, self.model.processed_at.is_null(False),
-                self.model.id.in_(ids)).execute()
-            for _id in ids:
-                self.model.add_status_line(status)
+        with db.atomic():
+            try:
+                for r in self.model.select().where(self.model.is_active,
+                                                   self.model.processed_at.is_null(False),
+                                                   self.model.id.in_(ids)):
+                    r.add_status_line(status)
+                    r.save()
 
-        except Exception as ex:
-            flash(f"Failed to activate the selected records: {ex}")
-            app.logger.exception("Failed to activate the selected records")
+                count = self.model.update(processed_at=None).where(
+                    self.model.is_active, self.model.processed_at.is_null(False),
+                    self.model.id.in_(ids)).execute()
 
-        else:
-            flash(f"{count} records were activated for batch processing.")
+            except Exception as ex:
+                db.rollback()
+                flash(f"Failed to activate the selected records: {ex}")
+                app.logger.exception("Failed to activate the selected records")
+
+            else:
+                flash(f"{count} records were activated for batch processing.")
 
 
 class ExternalIdAdmin(AppModelView):
