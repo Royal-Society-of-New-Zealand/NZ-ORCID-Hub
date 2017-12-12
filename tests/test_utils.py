@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 """Tests for util functions."""
-
 from flask_login import login_user
 
 from orcid_hub import utils
 from orcid_hub.models import Organisation, Role, User, UserOrg
+from unittest.mock import patch
 
 
 def test_append_qs():
@@ -101,11 +101,21 @@ def test_send_user_invitation(request_ctx):
     first_name = "TEST"
     last_name = "Test"
     affiliation_types = {"staff"}
-    with request_ctx("/"):
-        utils.send_user_invitation(
+    with patch("smtplib.SMTP") as mock_smtp, request_ctx("/") as ctxx:
+        instance = mock_smtp.return_value
+        error = {
+            email:
+                (450, "Requested mail action not taken: mailbox unavailable")
+        }
+        instance.utils.send_user_invitation.return_value = error
+        result = instance.utils.send_user_invitation(
             inviter=inviter,
             org=org,
             email=email,
             first_name=first_name,
             last_name=last_name,
             affiliation_types=affiliation_types)
+        rv = ctxx.app.full_dispatch_request()
+        assert rv.status_code == 200
+        assert instance.utils.send_user_invitation.called == True         # noqa: E712
+        assert (450, 'Requested mail action not taken: mailbox unavailable') == result[email]

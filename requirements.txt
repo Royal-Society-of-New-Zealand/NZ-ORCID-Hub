@@ -16,7 +16,6 @@ Flask
 flask-admin
 flask-login
 Flask-WTF
-flask_mail  # TODO: remove at some stage
 flask-peewee
 Flask-OAuthlib
 flask-swagger
