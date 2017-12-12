@@ -21,14 +21,13 @@ from urllib.parse import quote, unquote, urlparse
 import requests
 from flask import abort, current_app, flash, g, redirect, render_template, request, session, url_for
 from flask_login import current_user, login_required, login_user, logout_user
-from flask_mail import Message
 from oauthlib.oauth2 import rfc6749
 from requests_oauthlib import OAuth2Session
 from werkzeug.urls import iri_to_uri
 
 from orcid_api.rest import ApiException
 
-from . import app, db, mail, orcid_client
+from . import app, db, orcid_client
 # TODO: need to read form app.config[...]
 from .config import (APP_DESCRIPTION, APP_NAME, APP_URL, AUTHORIZATION_BASE_URL, CRED_TYPE_PREMIUM,
                      MEMBER_API_FORM_BASE_URL, NOTE_ORCID, ORCID_API_BASE, ORCID_BASE_URL,
@@ -654,15 +653,8 @@ def onboard_org():
 
             if not organisation.confirmed:
                 organisation.confirmed = True
-                with app.app_context():
-                    # TODO: shouldn't it be also 'nicified' (turned into HTML)
-                    msg = Message("Welcome to the NZ ORCID Hub - Success", recipients=[email])
-                    msg.body = ("Congratulations! Your identity has been confirmed and "
-                                "your organisation onboarded successfully.\n"
-                                "Any researcher from your organisation can now use the Hub")
-                    mail.send(msg)
-                    app.logger.info("For %r Onboarding is Completed!", user)
-                    flash("Your Onboarding is Completed!", "success")
+                app.logger.info("For %r Onboarding is Completed!", user)
+                flash("Your Onboarding is Completed!", "success")
             else:
                 flash("Organisation information updated successfully!", "success")
 

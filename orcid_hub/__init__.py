@@ -21,7 +21,6 @@ import click
 import flask_login
 from flask import Flask, request
 from flask_debugtoolbar import DebugToolbarExtension
-from flask_mail import Mail
 from flask_oauthlib.provider import OAuth2Provider
 from flask_peewee.rest import Authentication, RestAPI
 from peewee import PostgresqlDatabase
@@ -109,9 +108,6 @@ class DataRestAPI(RestAPI):
 
 default_auth = Oauth2Authentication()
 api = DataRestAPI(app, prefix="/data/api/v0.1", default_auth=default_auth, name="data_api")
-
-mail = Mail()
-mail.init_app(app)
 
 admin = Admin(
     app, name="NZ ORCiD Hub", template_mode="bootstrap3", base_template="admin/master.html")
