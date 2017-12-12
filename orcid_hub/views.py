@@ -36,9 +36,9 @@ from .forms import (ApplicationFrom, BitmapMultipleValueField, CredentialForm, E
                     FileUploadForm, JsonOrYamlFileUploadForm, LogoForm, OrgRegistrationForm,
                     PartialDateField, RecordForm, UserInvitationForm)
 from .login_provider import roles_required
-from .models import (Affiliation, AffiliationRecord, CharField, Client, File, FundingContributor,
-                     FundingRecord, Grant, ModelException, OrcidApiCall, OrcidToken, Organisation,
-                     OrgInfo, OrgInvitation, PartialDate, Role, Task, TextField, Token, Url, User,
+from .models import (Affiliation, AffiliationRecord, CharField, Client, File, FundingRecord, Grant,
+                     ModelException, OrcidApiCall, OrcidToken, Organisation, OrgInfo,
+                     OrgInvitation, PartialDate, Role, Task, TextField, Token, Url, User,
                      UserInvitation, UserOrg, UserOrgAffiliation, db)
 # NB! Should be disabled in production
 from .pyinfo import info
@@ -166,9 +166,13 @@ class AppModelView(ModelView):
 
     def get_one(self, id):
         """Fix for composite keys."""
-        if self.model._meta.composite_key:
-            return self.model.get(**dict(zip(self.model._meta.primary_key.field_names, id)))
-        return super().get_one(id)
+        try:
+            if self.model._meta.composite_key:
+                return self.model.get(**dict(zip(self.model._meta.primary_key.field_names, id)))
+            return super().get_one(id)
+        except self.model.DoesNotExist:
+            flash(f"The record with given ID: {id} doesn't exist or it was deleted.", "danger")
+            abort(404)
 
     def init_search(self):
         """Include linked columns in the search if they are defined with 'liked_table.column'."""
@@ -448,6 +452,128 @@ class TaskAdmin(AppModelView):
     )
 
 
+class RecordModelView(AppModelView):
+    """Task record model view."""
+
+    roles_required = Role.SUPERUSER | Role.ADMIN
+    column_exclude_list = (
+        "task",
+        "organisation",
+    )
+    column_export_exclude_list = (
+        "task",
+        "is_active",
+    )
+    can_edit = True
+    can_create = False
+    can_delete = False
+    can_view_details = True
+    can_export = True
+
+    form_widget_args = {"external_id": {"readonly": True}}
+
+    def render(self, template, **kwargs):
+        """Pass the task to the render function as an added argument."""
+        if "task" not in kwargs:
+            task_id = request.args.get("task_id")
+            if task_id:
+                try:
+                    kwargs["task"] = Task.get(id=task_id)
+                except Task.DoesNotExist:
+                    flash(f"The task with ID: {task_id} doesn't exist.", "danger")
+                    abort(404)
+        return super().render(template, **kwargs)
+
+    def is_accessible(self):
+        """Verify if the task view is accessible for the current user."""
+        if not super().is_accessible():
+            return False
+
+        # Added the feature for superuser to access task related to all research organiastion
+        if current_user.is_superuser:
+            return True
+
+        if request.method == "POST" and request.form.get("rowid"):
+            # get the first ROWID:
+            rowid = int(request.form.get("rowid"))
+            task_id = self.model.get(id=rowid).task_id
+        else:
+            task_id = request.args.get("task_id")
+            if not task_id:
+                _id = request.args.get("id")
+                if not _id:
+                    flash("Cannot invoke the task view without task ID", "danger")
+                    return False
+                else:
+                    task_id = self.model.get(id=_id).task_id
+
+        try:
+            task = Task.get(id=task_id)
+            if task.org.id != current_user.organisation.id:
+                flash("Access denied! You cannot access this task.", "danger")
+                return False
+
+        except Task.DoesNotExist:
+            flash("The task deesn't exist.", "danger")
+            abort(404)
+
+        return True
+
+    def get_export_name(self, export_type='csv'):
+        """Get export file name using the original imported file name.
+
+        :return: The exported csv file name.
+        """
+        task_id = request.args.get("task_id")
+        if task_id:
+            try:
+                task = Task.get(id=task_id)
+                filename = os.path.splitext(task.filename)[0]
+                return "%s_%s.%s" % (filename, datetime.now().strftime("%Y-%m-%d_%H-%M-%S"),
+                                     export_type)
+            except Task.DoesNotExist:
+                flash(f"The batch task doesn't exist", "danger")
+                abort(404)
+
+        return super().get_export_name(export_type=export_type)
+
+    @action("activate", "Activate for processing",
+            """Are you sure you want to activate the selected records for batch processing?
+
+By clicking "OK" you are affirming that the affiliations or the funding records to be written are,
+to the best of your knowledge, correct!""")
+    def action_activate(self, ids):
+        """Batch registraion of users."""
+        try:
+            count = self.model.update(is_active=True).where(
+                self.model.is_active == False,  # noqa: E712
+                self.model.id.in_(ids)).execute()
+        except Exception as ex:
+            flash(f"Failed to activate the selected records: {ex}")
+            app.logger.exception("Failed to activate the selected records")
+        else:
+            flash(f"{count} records were activated for batch processing.")
+
+    @action("reset", "Reset for processing",
+            "Are you sure you want to reset the selected records for batch processing?")
+    def action_reset(self, ids):
+        """Reset batch task records."""
+        status = "The record was reset at " + datetime.now().isoformat(timespec="seconds")
+        try:
+            count = self.model.update(processed_at=None).where(
+                self.model.is_active, self.model.processed_at.is_null(False),
+                self.model.id.in_(ids)).execute()
+            for _id in ids:
+                self.model.add_status_line(status)
+
+        except Exception as ex:
+            flash(f"Failed to activate the selected records: {ex}")
+            app.logger.exception("Failed to activate the selected records")
+
+        else:
+            flash(f"{count} records were activated for batch processing.")
+
+
 class ExternalIdAdmin(AppModelView):
     """ExternalId model view."""
 
@@ -515,15 +641,10 @@ class FundingContributorAdmin(AppModelView):
             flash(f"{count} Funding Contributor records were reset for batch processing.")
 
 
-class FundingRecordAdmin(AppModelView):
+class FundingRecordAdmin(RecordModelView):
     """Funding record model view."""
 
-    roles_required = Role.SUPERUSER | Role.ADMIN
     list_template = "funding_record_list.html"
-    column_exclude_list = (
-        "task",
-        "organisation",
-    )
     column_searchable_list = ("title", )
     column_export_exclude_list = (
         "task",
@@ -561,57 +682,6 @@ class FundingRecordAdmin(AppModelView):
         "contributors",
     )
     column_csv_export_list = ("funding id", "email", "name", "orcid", "put_code", "role", "status")
-    can_edit = True
-    can_create = False
-    can_delete = False
-    can_view_details = True
-    can_export = True
-
-    form_widget_args = {"external_id": {"readonly": True}}
-
-    def render(self, template, **kwargs):
-        """Pass the task to the render function as an added argument."""
-        if "task" not in kwargs:
-            task_id = request.args.get("task_id")
-            if task_id:
-                kwargs["task"] = Task.get(id=task_id)
-
-        return super().render(template, **kwargs)
-
-    def is_accessible(self):
-        """Verify if the task view is accessible for the current user."""
-        if not super().is_accessible():
-            return False
-
-        # Added the feature for superuser to access task related to all research organiastion
-        if current_user.is_superuser:
-            return True
-
-        if request.method == "POST" and request.form.get("rowid"):
-            # get the first ROWID:
-            rowid = int(request.form.get("rowid"))
-            task_id = FundingRecord.get(id=rowid).task_id
-        else:
-            task_id = request.args.get("task_id")
-            if not task_id:
-                _id = request.args.get("id")
-                if not _id:
-                    flash("Cannot invoke the task view without task ID", "danger")
-                    return False
-                else:
-                    task_id = FundingRecord.get(id=_id).task_id
-
-        try:
-            task = Task.get(id=task_id)
-            if task.org.id != current_user.organisation.id:
-                flash("Access denied! You cannot access this task.", "danger")
-                return False
-
-        except Task.DoesNotExist:
-            flash("The task deesn't exist.", "danger")
-            return False
-
-        return True
 
     def _export_tablib(self, export_type, return_url):
         """Override funding export functionality to integrate funding contributors and external ids."""
@@ -761,56 +831,10 @@ class FundingRecordAdmin(AppModelView):
             headers={'Content-Disposition': disposition},
             mimetype='text/' + export_type)
 
-    def get_export_name(self, export_type='csv'):
-        """Get export file name using the original imported file name. :return: The exported csv file name."""
-        task_id = request.args.get("task_id")
-        if task_id:
-            task = Task.get(id=task_id)
-            if task:
-                filename = os.path.splitext(task.filename)[0]
-                return "%s_%s.%s" % (filename, datetime.now().strftime("%Y-%m-%d_%H-%M-%S"),
-                                     export_type)
-        return super().get_export_name(export_type=export_type)
 
-    @action("activate", "Activate for processing",
-            "Are you sure you want to activate the selected records for batch processing?")
-    def action_activate(self, ids):
-        """Batch registraion of users."""
-        try:
-            count = self.model.update(is_active=True).where(
-                self.model.is_active == False,  # noqa: E712
-                self.model.id.in_(ids)).execute()
-        except Exception as ex:
-            flash(f"Failed to activate the selected records: {ex}")
-            app.logger.exception("Failed to activate the selected records")
-        else:
-            flash(f"{count} records were activated for batch processing.")
-
-    @action("reset", "Reset for processing",
-            "Are you sure you want to reset the selected records for batch processing?")
-    def action_reset(self, ids):
-        """Batch reset of users."""
-        try:
-            self.model.update(processed_at=None).where(self.model.is_active,
-                                                       self.model.processed_at.is_null(False),
-                                                       self.model.id.in_(ids)).execute()
-            status = "The record was reset at " + datetime.now().isoformat(timespec="seconds")
-            count = FundingContributor.update(
-                processed_at=None, status=status).where(
-                    FundingContributor.funding_record.in_(ids),
-                    FundingContributor.status.is_null(False)).execute()
-        except Exception as ex:
-            flash(f"Failed to activate the selected records: {ex}")
-            app.logger.exception("Failed to activate the selected records")
-
-        else:
-            flash(f"{count} Funding Contributor records were reset for batch processing.")
-
-
-class AffiliationRecordAdmin(AppModelView):
+class AffiliationRecordAdmin(RecordModelView):
     """Affiliation record model view."""
 
-    roles_required = Role.SUPERUSER | Role.ADMIN
     list_template = "affiliation_record_list.html"
     column_exclude_list = (
         "task",
@@ -828,104 +852,6 @@ class AffiliationRecordAdmin(AppModelView):
         "task",
         "is_active",
     )
-    can_edit = True
-    can_create = False
-    can_delete = False
-    can_view_details = True
-    can_export = True
-
-    form_widget_args = {"external_id": {"readonly": True}}
-
-    def render(self, template, **kwargs):
-        """Pass the task to the render function as an added argument."""
-        if "task" not in kwargs:
-            task_id = request.args.get("task_id")
-            if task_id:
-                kwargs["task"] = Task.get(id=task_id)
-
-        return super().render(template, **kwargs)
-
-    def is_accessible(self):
-        """Verify if the task view is accessible for the current user."""
-        if not super().is_accessible():
-            return False
-
-        # Added the feature for superuser to access task related to all research organiastion
-        if current_user.is_superuser:
-            return True
-
-        if request.method == "POST" and request.form.get("rowid"):
-            # get the first ROWID:
-            rowid = int(request.form.get("rowid"))
-            task_id = AffiliationRecord.get(id=rowid).task_id
-        else:
-            task_id = request.args.get("task_id")
-            if not task_id:
-                _id = request.args.get("id")
-                if not _id:
-                    flash("Cannot invoke the task view without task ID", "danger")
-                    return False
-                else:
-                    task_id = AffiliationRecord.get(id=_id).task_id
-
-        try:
-            task = Task.get(id=task_id)
-            if task.org.id != current_user.organisation.id:
-                flash("Access denied! You cannot access this task.", "danger")
-                return False
-
-        except Task.DoesNotExist:
-            flash("The task deesn't exist.", "danger")
-            return False
-
-        return True
-
-    def get_export_name(self, export_type='csv'):
-        """Get export file name using the original imported file name.
-
-        :return: The exported csv file name.
-        """
-        task_id = request.args.get("task_id")
-        if task_id:
-            task = Task.get(id=task_id)
-            if task:
-                filename = os.path.splitext(task.filename)[0]
-                return "%s_%s.%s" % (filename, datetime.now().strftime("%Y-%m-%d_%H-%M-%S"),
-                                     export_type)
-        return super().get_export_name(export_type=export_type)
-
-    @action(
-        "activate", "Activate for processing",
-        "Are you sure you want to activate the selected records for batch processing?\n\nBy clicking \"OK\" "
-        +
-        "you are affirming that the affiliations to be written are, to the\n best of your knowledge, correct!"
-    )
-    def action_activate(self, ids):
-        """Batch registraion of users."""
-        try:
-            count = self.model.update(is_active=True).where(
-                self.model.is_active == False,  # noqa: E712
-                self.model.id.in_(ids)).execute()
-        except Exception as ex:
-            flash(f"Failed to activate the selected records: {ex}")
-            app.logger.exception("Failed to activate the selected records")
-        else:
-            flash(f"{count} records were activated for batch processing.")
-
-    @action("reset", "Reset for processing",
-            "Are you sure you want to reset the selected records for batch processing?")
-    def action_reset(self, ids):
-        """Batch reset of users."""
-        try:
-            count = self.model.update(processed_at=None).where(
-                self.model.is_active, self.model.processed_at.is_null(False),
-                self.model.id.in_(ids)).execute()
-        except Exception as ex:
-            flash(f"Failed to activate the selected records: {ex}")
-            app.logger.exception("Failed to activate the selected records")
-
-        else:
-            flash(f"{count} records were activated for batch processing.")
 
 
 class ViewMembersAdmin(AppModelView):
