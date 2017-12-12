@@ -7,20 +7,20 @@ import json
 import mimetypes
 import os
 import secrets
-import yaml
 from collections import namedtuple
 from datetime import datetime
 from io import BytesIO
 
+import yaml
 from flask import (Response, abort, flash, jsonify, redirect, render_template, request, send_file,
-                   send_from_directory, url_for, stream_with_context)
+                   send_from_directory, stream_with_context, url_for)
+from flask_admin._compat import csv_encode
 from flask_admin.actions import action
 from flask_admin.babel import gettext
 from flask_admin.base import expose
-from flask_admin.helpers import get_redirect_target
 from flask_admin.contrib.peewee import ModelView
-from flask_admin._compat import csv_encode
 from flask_admin.form import SecureForm
+from flask_admin.helpers import get_redirect_target
 from flask_admin.model import typefmt
 from flask_login import current_user, login_required
 from jinja2 import Markup
@@ -42,7 +42,7 @@ from .models import (Affiliation, AffiliationRecord, CharField, Client, File, Fu
                      UserInvitation, UserOrg, UserOrgAffiliation, db)
 # NB! Should be disabled in production
 from .pyinfo import info
-from .utils import generate_confirmation_token, send_user_invitation
+from .utils import generate_confirmation_token, get_next_url, send_user_invitation
 
 try:
     import tablib
@@ -50,6 +50,16 @@ except ImportError:
     tablib = None
 
 HEADERS = {"Accept": "application/vnd.orcid+json", "Content-type": "application/vnd.orcid+json"}
+
+
+@app.errorhandler(404)
+def page_not_found(e):
+    """Handle nonexistin pages."""
+    _next = get_next_url()
+    if _next:
+        flash("Page Not Found", "danger")
+        return redirect(_next)
+    return render_template("404.html"), 404
 
 
 @app.route("/favicon.ico")
@@ -550,15 +560,7 @@ class FundingRecordAdmin(AppModelView):
         "funding id",
         "contributors",
     )
-    column_csv_export_list = (
-        "funding id",
-        "email",
-        "name",
-        "orcid",
-        "put_code",
-        "role",
-        "status"
-    )
+    column_csv_export_list = ("funding id", "email", "name", "orcid", "put_code", "role", "status")
     can_edit = True
     can_create = False
     can_delete = False
@@ -619,7 +621,7 @@ class FundingRecordAdmin(AppModelView):
 
         filename = self.get_export_name(export_type)
 
-        disposition = 'attachment;filename=%s' % (secure_filename(filename),)
+        disposition = 'attachment;filename=%s' % (secure_filename(filename), )
 
         mimetype, encoding = mimetypes.guess_type(filename)
         if not mimetype:
@@ -689,8 +691,9 @@ class FundingRecordAdmin(AppModelView):
                                 self.column_type_formatters_export,
                             )
                     # Get the first external id from extrnal id list with 'SELF' relationship for funding export
-                    if not external_id_list and external_id_rec.get('relationship') and external_id_rec.get(
-                            'relationship').lower() == 'self':
+                    if not external_id_list and external_id_rec.get(
+                            'relationship') and external_id_rec.get(
+                                'relationship').lower() == 'self':
                         external_id_list.append(external_id_rec)
                     elif not external_id_list and not external_id_relation_part_of and external_id_rec.get(
                             'relationship').lower() == 'part_of':
@@ -751,13 +754,12 @@ class FundingRecordAdmin(AppModelView):
 
         filename = self.get_export_name(export_type=export_type)
 
-        disposition = 'attachment;filename=%s' % (secure_filename(filename),)
+        disposition = 'attachment;filename=%s' % (secure_filename(filename), )
 
         return Response(
             stream_with_context(generate()),
             headers={'Content-Disposition': disposition},
-            mimetype='text/' + export_type
-        )
+            mimetype='text/' + export_type)
 
     def get_export_name(self, export_type='csv'):
         """Get export file name using the original imported file name. :return: The exported csv file name."""
