@@ -36,8 +36,8 @@ from .forms import (ApplicationFrom, BitmapMultipleValueField, CredentialForm, E
                     FileUploadForm, JsonOrYamlFileUploadForm, LogoForm, OrgRegistrationForm,
                     PartialDateField, RecordForm, UserInvitationForm)
 from .login_provider import roles_required
-from .models import (Affiliation, AffiliationRecord, CharField, Client, File, FundingRecord, Grant,
-                     ModelException, OrcidApiCall, OrcidToken, Organisation, OrgInfo,
+from .models import (Affiliation, AffiliationRecord, CharField, Client, File, FundingRecord, FundingContributor,
+                     Grant, ModelException, OrcidApiCall, OrcidToken, Organisation, OrgInfo,
                      OrgInvitation, PartialDate, Role, Task, TextField, Token, Url, User,
                      UserInvitation, UserOrg, UserOrgAffiliation, db)
 # NB! Should be disabled in production
@@ -561,15 +561,14 @@ to the best of your knowledge, correct!""")
         status = "The record was reset at " + datetime.now().isoformat(timespec="seconds")
         with db.atomic():
             try:
-                for r in self.model.select().where(self.model.is_active,
-                                                   self.model.processed_at.is_null(False),
-                                                   self.model.id.in_(ids)):
-                    r.add_status_line(status)
-                    r.save()
-
-                count = self.model.update(processed_at=None).where(
+                count = self.model.update(processed_at=None, status=status).where(
                     self.model.is_active, self.model.processed_at.is_null(False),
                     self.model.id.in_(ids)).execute()
+
+                if self.model == FundingRecord:
+                    count = FundingContributor.update(processed_at=None, status=status).where(
+                        FundingContributor.funding_record.in_(ids),
+                        FundingContributor.status.is_null(False)).execute()
 
             except Exception as ex:
                 db.rollback()
@@ -577,7 +576,10 @@ to the best of your knowledge, correct!""")
                 app.logger.exception("Failed to activate the selected records")
 
             else:
-                flash(f"{count} records were activated for batch processing.")
+                if self.model == FundingRecord:
+                    flash(f"{count} Funding Contributor records were reset for batch processing.")
+                else:
+                    flash(f"{count} Affiliation records were reset for batch processing.")
 
 
 class ExternalIdAdmin(AppModelView):
