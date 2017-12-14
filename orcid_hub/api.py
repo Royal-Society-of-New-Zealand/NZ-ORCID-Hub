@@ -7,6 +7,7 @@ from flask_peewee.rest import RestResource
 from flask_peewee.utils import slugify
 from flask_swagger import swagger
 from werkzeug.exceptions import NotFound
+from flask_peewee_swagger.swagger import Swagger, SwaggerUI
 
 from . import api, app, models, oauth
 from .models import EMAIL_REGEX, ORCID_ID_REGEX, OrcidToken, User, UserOrg
@@ -50,8 +51,14 @@ class UserResource(AppRestResource):
 
 api.register(models.Organisation, AppRestResource)
 api.register(models.Task, AppRestResource)
-# api.register(models.User, UserResource)
+api.register(models.User, UserResource)
 api.setup()
+
+api_swagger = Swagger(api, swagger_version="2.0")
+api_swagger.setup()
+
+swaggerUI = SwaggerUI(app)
+swaggerUI.setup()
 
 
 @app.route('/api/me')
