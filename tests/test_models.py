@@ -4,7 +4,7 @@ import pytest
 from peewee import Model, SqliteDatabase
 from playhouse.test_utils import test_database
 
-from orcid_hub.models import (Affiliation, AffiliationRecord, ModelException, OrcidToken,
+from orcid_hub.models import (Affiliation, AffiliationRecord, FundingRecord, FundingContributor, ModelException, OrcidToken,
                               Organisation, OrgInfo, PartialDate, PartialDateField, Role, Task,
                               User, UserOrg, UserOrgAffiliation, create_tables, drop_tables)
 
@@ -23,7 +23,7 @@ def test_db():
     _db = SqliteDatabase(":memory:")
     with test_database(
             _db,
-        (Organisation, User, UserOrg, OrcidToken, UserOrgAffiliation, Task, AffiliationRecord),
+        (Organisation, User, UserOrg, OrcidToken, UserOrgAffiliation, Task, AffiliationRecord, FundingRecord, FundingContributor),
             fail_silently=True) as _test_db:
         yield _test_db
 
