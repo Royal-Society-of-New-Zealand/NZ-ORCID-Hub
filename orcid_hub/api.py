@@ -54,10 +54,29 @@ api.register(models.Task, AppRestResource)
 api.register(models.User, UserResource)
 api.setup()
 
-api_swagger = Swagger(api, swagger_version="2.0")
+
+common_spec = {
+    "security": [{
+        "application": ["read", "write"]
+    }],
+    "securityDefinitions": {
+        "application": {
+            "flow": "application",
+            "scopes": {
+                "read": "allows reading resources",
+                "write": "allows modifying resources"
+            },
+            "tokenUrl": "http://127.0.0.1:5000/oauth/token",
+            "type": "oauth2"
+        }
+    },
+}
+
+api_swagger = Swagger(api, swagger_version="2.0", extras=common_spec)
 api_swagger.setup()
 
-swaggerUI = SwaggerUI(app)
+swaggerUI = SwaggerUI(
+    app, version="3.6.1", url="http://127.0.0.1:5000/data/api/v0.1/meta/resources")
 swaggerUI.setup()
 
 
@@ -374,7 +393,7 @@ def get_spec(app):
         "application/json",
     ]
     swag["schemes"] = [
-        "https",
+        request.scheme,
     ]
     swag["securityDefinitions"] = {
         "application": {
