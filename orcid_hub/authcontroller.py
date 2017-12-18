@@ -37,7 +37,7 @@ from .forms import OrgConfirmationForm
 from .login_provider import roles_required
 from .models import (Affiliation, OrcidAuthorizeCall, OrcidToken, Organisation, OrgInfo,
                      OrgInvitation, Role, Url, User, UserInvitation, UserOrg)
-from .utils import append_qs, confirm_token
+from .utils import append_qs, confirm_token, get_next_url
 
 HEADERS = {'Accept': 'application/vnd.orcid+json', 'Content-type': 'application/vnd.orcid+json'}
 ENV = app.config.get("ENV")
@@ -71,16 +71,6 @@ def utility_processor():  # noqa: D202
         tuakiri_login_url=tuakiri_login_url,
         onboarded_organisations=onboarded_organisations,
     )
-
-
-def get_next_url():
-    """Retrieve and sanitize next/return URL."""
-    _next = request.args.get("next") or request.args.get("_next")
-
-    if _next and ("orcidhub.org.nz" in _next or _next.startswith("/") or "127.0" in _next
-                  or "c9users.io" in _next):
-        return _next
-    return None
 
 
 @app.route("/index.html")
