@@ -3,7 +3,10 @@
 from flask_login import login_user
 
 from orcid_hub import utils
-from orcid_hub.models import Organisation, Role, User, UserOrg, Task, FundingContributor, FundingRecord
+from orcid_hub.models import Organisation, Role, User, UserOrg, Task, FundingContributor, FundingRecord, \
+    UserInvitation, OrcidToken, ExternalId
+from peewee import JOIN
+from itertools import groupby
 from unittest.mock import patch
 import logging
 logger = logging.getLogger(__name__)
@@ -160,7 +163,7 @@ def test_send_funding_invitation(test_db, request_ctx):
         disambiguation_org_source="SOURCE")
 
     inviter = User(
-        email="test1237@mailinator.com",
+        email="test1as237@mailinator.com",
         name="TEST USER",
         username="test123",
         roles=Role.RESEARCHER,
@@ -195,3 +198,167 @@ def test_send_funding_invitation(test_db, request_ctx):
             task_id=task.id)
         rv = ctxx.app.full_dispatch_request()
         assert rv.status_code == 200
+
+
+def get_record_mock():
+    """Mock profile api call."""
+    return {'activities-summary':
+                {'last-modified-date': {'value': 1513136293368},    # noqa: E127
+                 'educations': {'last-modified-date': None, 'education-summary': [],
+                                'path': '/0000-0002-3879-2651/educations'},
+                 'employments': {'last-modified-date': None, 'employment-summary': [],
+                                 'path': '/0000-0002-3879-2651/employments'},
+                 'fundings': {'last-modified-date': {'value': 1513136293368}, 'group': [
+                     {'last-modified-date': {'value': 1513136293368}, 'external-ids': {
+                         'external-id': [
+                             {'external-id-type': 'grant_number', 'external-id-value': 'GNS1701',
+                              'external-id-url': None, 'external-id-relationship': 'SELF'},
+                             {'external-id-type': 'grant_number', 'external-id-value': '17-GNS-022',
+                              'external-id-url': None, 'external-id-relationship': 'SELF'}]},
+                      'funding-summary': [{'created-date': {'value': 1511935227017},
+                                           'last-modified-date': {'value': 1513136293368},
+                                           'source': {'source-orcid': None, 'source-client-id': {
+                                               'uri': 'http://sandbox.orcid.org/client/APP-5ZVH4JRQ0C27RVH5',
+                                               'path': 'APP-5ZVH4JRQ0C27RVH5',
+                                               'host': 'sandbox.orcid.org'}, 'source-name': {
+                                               'value': 'The University of Auckland - MyORCiD'}},
+                                           'title': {'title': {
+                                               'value': 'Probing the crust with zirco'},
+                                               'translated-title': {'value': 'नमस्ते',
+                                                                    'language-code': 'hi'}},
+                                           'type': 'CONTRACT', 'start-date': None,
+                                           'end-date': {'year': {'value': '2025'}, 'month': None,
+                                                        'day': None},
+                                           'organization': {'name': 'Royal Society Te Apārangi'},
+                                           'put-code': 9597,
+                                           'path': '/0000-0002-3879-2651/funding/9597'}]}],
+                              'path': '/0000-0002-3879-2651/fundings'},
+                 'path': '/0000-0002-3879-2651/activities'}, 'path': '/0000-0002-3879-2651'}
+
+
+def create_or_update_funding_mock(task_by_user):
+    """Mock funding api call."""
+    return ("12344", "12344", True)
+
+
+@patch("orcid_hub.orcid_client.MemberAPI.create_or_update_funding", side_effect=create_or_update_funding_mock)
+@patch("orcid_hub.orcid_client.MemberAPI.get_record", side_effect=get_record_mock)
+def test_create_or_update_funding(abc, test_db, request_ctx):
+    """Test create or update funding."""
+    org = Organisation(
+        name="THE ORGANISATION",
+        tuakiri_name="THE ORGANISATION",
+        confirmed=True,
+        orcid_client_id="CLIENT ID",
+        orcid_secret="Client Secret",
+        city="CITY",
+        country="COUNTRY",
+        disambiguation_org_id="ID",
+        disambiguation_org_source="SOURCE")
+    org.save()
+
+    u = User(
+        email="test1234456@mailinator.com",
+        name="TEST USER",
+        username="test123",
+        roles=Role.RESEARCHER,
+        orcid="123",
+        confirmed=True,
+        organisation=org)
+    u.save()
+    user_org = UserOrg(user=u, org=org)
+    user_org.save()
+
+    t = Task(
+        org=org,
+        filename="xyz.json",
+        created_by=u,
+        updated_by=u,
+        task_type=1)
+    t.save()
+
+    fr = FundingRecord(
+        task=t,
+        title="Test titile",
+        translated_title="Test title",
+        translated_title_language_code="Test",
+        type="Test type",
+        organization_defined_type="Test org",
+        short_description="Test desc",
+        amount="1000",
+        currency="USD",
+        org_name="Test_orgname",
+        city="Test city",
+        region="Test",
+        country="Test",
+        disambiguated_org_identifier="Test_dis",
+        disambiguation_source="Test_source",
+        is_active=True,
+        visibility="Test_visibity")
+    fr.save()
+
+    fc = FundingContributor(
+        funding_record=fr,
+        name="Test",
+        email="test1234456@mailinator.com",
+        orcid="123",
+        role="Researcher")
+    fc.save()
+
+    ext_id = ExternalId(
+        funding_record=fr,
+        type="Test_type",
+        value="Test_value",
+        url="Test",
+        relationship="SELF")
+    ext_id.save()
+
+    ui = UserInvitation(
+        invitee=u,
+        inviter=u,
+        org=org,
+        task=t,
+        email="test1234456@mailinator.com",
+        token="xyztoken")
+    ui.save()
+
+    ot = OrcidToken(
+        user=u,
+        org=org,
+        scope="/read-limited,/activities/update",
+        access_token="Test_token")
+    ot.save()
+
+    tasks = (Task.select(
+        Task, FundingRecord, FundingContributor,
+        User, UserInvitation.id.alias("invitation_id"), OrcidToken).where(
+            FundingRecord.processed_at.is_null(), FundingContributor.processed_at.is_null(),
+            FundingRecord.is_active,
+            (OrcidToken.id.is_null(False) |
+             ((FundingContributor.status.is_null()) |
+              (FundingContributor.status.contains("sent").__invert__())))).join(
+                  FundingRecord, on=(Task.id == FundingRecord.task_id)).join(
+                      FundingContributor,
+                      on=(FundingRecord.id == FundingContributor.funding_record_id)).join(
+                          User,
+                          JOIN.LEFT_OUTER,
+                          on=((User.email == FundingContributor.email) |
+                              (User.orcid == FundingContributor.orcid)))
+             .join(Organisation, JOIN.LEFT_OUTER, on=(Organisation.id == Task.org_id)).join(
+                 UserInvitation,
+                 JOIN.LEFT_OUTER,
+                 on=((UserInvitation.email == FundingContributor.email)
+                     & (UserInvitation.task_id == Task.id))).join(
+                         OrcidToken,
+                         JOIN.LEFT_OUTER,
+                         on=((OrcidToken.user_id == User.id)
+                             & (OrcidToken.org_id == Organisation.id)
+                             & (OrcidToken.scope.contains("/activities/update")))).limit(20))
+
+    for (task_id, org_id, funding_record_id, user), tasks_by_user in groupby(tasks, lambda t: (
+            t.id,
+            t.org_id,
+            t.funding_record.id,
+            t.funding_record.funding_contributor.user,)):
+        utils.create_or_update_funding(user=user, org_id=org_id, records=tasks_by_user)
+    assert "123" == fc.orcid
