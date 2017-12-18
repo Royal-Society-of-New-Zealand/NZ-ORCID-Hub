@@ -94,7 +94,7 @@ def test_models(test_db):
         state="Test_%d" % i,
         country="Test_%d" % i,
         disambiguated_id="Test_%d" % i,
-        disambiguated_source="Test_%d" % i) for i in range(60))).execute()
+        disambiguated_source="Test_%d" % i) for i in range(10))).execute()
 
     FundingRecord.insert_many((dict(
         task=Task.get(id=1),
@@ -114,7 +114,7 @@ def test_models(test_db):
         disambiguation_source="Test_%d" % i,
         is_active=False,
         status="Test_%d" % i,
-        visibility="Test_%d" % i) for i in range(60))).execute()
+        visibility="Test_%d" % i) for i in range(10))).execute()
 
     FundingContributor.insert_many((dict(
         funding_record=FundingRecord.get(id=1),
@@ -123,14 +123,14 @@ def test_models(test_db):
         email="Test_%d@mailinator.com" % i,
         role="Test_%d" % i,
         status="Test_%d" % i,
-        put_code=90) for i in range(60))).execute()
+        put_code=90) for i in range(10))).execute()
 
     ExternalId.insert_many((dict(
         funding_record=FundingRecord.get(id=1),
         type="Test_%d" % i,
         value="Test_%d" % i,
         url="Test_%d" % i,
-        relationship="Test_%d" % i) for i in range(60))).execute()
+        relationship="Test_%d" % i) for i in range(10))).execute()
 
     yield test_db
 
@@ -167,19 +167,19 @@ def test_orcidtoken_count(test_models):
 
 
 def test_AffiliationRecord_count(test_models):
-    assert AffiliationRecord.select().count() == 60
+    assert AffiliationRecord.select().count() == 10
 
 
 def test_FundingRecord_count(test_models):
-    assert FundingRecord.select().count() == 60
+    assert FundingRecord.select().count() == 10
 
 
 def test_FundingContributor_count(test_models):
-    assert FundingContributor.select().count() == 60
+    assert FundingContributor.select().count() == 10
 
 
 def test_ExternalId_count(test_models):
-    assert ExternalId.select().count() == 60
+    assert ExternalId.select().count() == 10
 
 
 def test_Task_count(test_models):
@@ -381,7 +381,7 @@ FNB	LNB	b.b@test.com	TEST0	Science and Education Group	Wellington	Manager Specia
         filename="TEST.tsv",
         org=org)
     assert test.record_count == 9
-    assert AffiliationRecord.select().count() == test.record_count + 60     # The 60 value is from already inserted entries.
+    assert AffiliationRecord.select().count() == test.record_count + 10     # The 10 value is from already inserted entries.
 
 
 def test_is_superuser():
