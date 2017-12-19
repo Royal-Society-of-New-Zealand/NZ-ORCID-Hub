@@ -3,8 +3,8 @@
 from flask_login import login_user
 
 from orcid_hub import utils
-from orcid_hub.models import Organisation, Role, User, UserOrg, Task, FundingContributor, FundingRecord, \
-    UserInvitation, OrcidToken, ExternalId
+from orcid_hub.models import AffiliationRecord, Organisation, Role, User, UserOrg, Task, FundingContributor, \
+    FundingRecord, UserInvitation, OrcidToken, ExternalId
 from peewee import JOIN
 from itertools import groupby
 from unittest.mock import patch
@@ -206,8 +206,49 @@ def get_record_mock():
                 {'last-modified-date': {'value': 1513136293368},    # noqa: E127
                  'educations': {'last-modified-date': None, 'education-summary': [],
                                 'path': '/0000-0002-3879-2651/educations'},
-                 'employments': {'last-modified-date': None, 'employment-summary': [],
-                                 'path': '/0000-0002-3879-2651/employments'},
+                 "employments": {
+                     "last-modified-date": {
+                         "value": 1511401310144
+                     },
+                     "employment-summary": [
+                         {
+                             "created-date": {
+                                 "value": 1511401310144
+                             },
+                             "last-modified-date": {
+                                 "value": 1511401310144
+                             },
+                             "source": {
+                                 "source-orcid": None,
+                                 "source-client-id": {
+                                     "uri": "http://sandbox.orcid.org/client/APP-5ZVH4JRQ0C27RVH5",
+                                     "path": "APP-5ZVH4JRQ0C27RVH5",
+                                     "host": "sandbox.orcid.org"
+                                 },
+                                 "source-name": {
+                                     "value": "The University of Auckland - MyORCiD"
+                                 }
+                             },
+                             "department-name": None,
+                             "role-title": None,
+                             "start-date": None,
+                             "end-date": None,
+                             "organization": {
+                                 "name": "The University of Auckland",
+                                 "address": {
+                                     "city": "Auckland",
+                                     "region": None,
+                                     "country": "NZ"
+                                 },
+                                 "disambiguated-organization": None
+                             },
+                             "visibility": "PUBLIC",
+                             "put-code": 29272,
+                             "path": "/0000-0003-1255-9023/employment/29272"
+                         }
+                     ],
+                     "path": "/0000-0003-1255-9023/employments"
+                 },
                  'fundings': {'last-modified-date': {'value': 1513136293368}, 'group': [
                      {'last-modified-date': {'value': 1513136293368}, 'external-ids': {
                          'external-id': [
@@ -236,20 +277,20 @@ def get_record_mock():
                  'path': '/0000-0002-3879-2651/activities'}, 'path': '/0000-0002-3879-2651'}
 
 
-def create_or_update_funding_mock(task_by_user):
+def create_or_update_fund_or_aff_mock(affiliation=None, task_by_user=None, *args, **kwargs):
     """Mock funding api call."""
-    return ("12344", "12344", True)
+    return (12399, "12344", True)
 
 
-@patch("orcid_hub.orcid_client.MemberAPI.create_or_update_funding", side_effect=create_or_update_funding_mock)
+@patch("orcid_hub.orcid_client.MemberAPI.create_or_update_funding", side_effect=create_or_update_fund_or_aff_mock)
 @patch("orcid_hub.orcid_client.MemberAPI.get_record", side_effect=get_record_mock)
-def test_create_or_update_funding(abc, test_db, request_ctx):
+def test_create_or_update_funding(patch, test_db, request_ctx):
     """Test create or update funding."""
     org = Organisation(
         name="THE ORGANISATION",
         tuakiri_name="THE ORGANISATION",
         confirmed=True,
-        orcid_client_id="CLIENT ID",
+        orcid_client_id="APP-5ZVH4JRQ0C27RVH5",
         orcid_secret="Client Secret",
         city="CITY",
         country="COUNTRY",
@@ -361,4 +402,112 @@ def test_create_or_update_funding(abc, test_db, request_ctx):
             t.funding_record.id,
             t.funding_record.funding_contributor.user,)):
         utils.create_or_update_funding(user=user, org_id=org_id, records=tasks_by_user)
-    assert "123" == fc.orcid
+    funding_contributor = FundingContributor.get(orcid=12344)
+    assert 12399 == funding_contributor.put_code
+    assert "12344" == funding_contributor.orcid
+
+
+@patch("orcid_hub.orcid_client.MemberAPI.create_or_update_affiliation", side_effect=create_or_update_fund_or_aff_mock)
+@patch("orcid_hub.orcid_client.MemberAPI.get_record", side_effect=get_record_mock)
+def test_create_or_update_affiliation(patch, test_db, request_ctx):
+    """Test create or update affiliation."""
+    org = Organisation(
+        name="THE ORGANISATION",
+        tuakiri_name="THE ORGANISATION",
+        confirmed=True,
+        orcid_client_id="APP-5ZVH4JRQ0C27RVH5",
+        orcid_secret="Client Secret",
+        city="CITY",
+        country="COUNTRY",
+        disambiguation_org_id="ID",
+        disambiguation_org_source="SOURCE")
+    org.save()
+
+    u = User(
+        email="test1234456@mailinator.com",
+        name="TEST USER",
+        username="test123",
+        roles=Role.RESEARCHER,
+        orcid="123",
+        confirmed=True,
+        organisation=org)
+    u.save()
+    user_org = UserOrg(user=u, org=org)
+    user_org.save()
+
+    t = Task(
+        org=org,
+        filename="xyz.json",
+        created_by=u,
+        updated_by=u,
+        task_type=0)
+    t.save()
+
+    af = AffiliationRecord(
+        is_active=True,
+        task=t,
+        external_id="Test",
+        first_name="Test",
+        last_name="Test",
+        email="test1234456@mailinator.com",
+        orcid="123112311231",
+        organisation="asdasd",
+        affiliation_type="staff",
+        role="Test",
+        department="Test",
+        city="Test",
+        state="Test",
+        country="Test",
+        disambiguated_id="Test",
+        disambiguated_source="Test")
+    af.save()
+
+    ui = UserInvitation(
+        invitee=u,
+        inviter=u,
+        org=org,
+        task=t,
+        email="test1234456@mailinator.com",
+        token="xyztoken")
+    ui.save()
+
+    ot = OrcidToken(
+        user=u,
+        org=org,
+        scope="/read-limited,/activities/update",
+        access_token="Test_token")
+    ot.save()
+
+    tasks = (Task.select(
+        Task, AffiliationRecord, User, UserInvitation.id.alias("invitation_id"), OrcidToken).where(
+            AffiliationRecord.processed_at.is_null(), AffiliationRecord.is_active,
+            ((User.id.is_null(False) & User.orcid.is_null(False) & OrcidToken.id.is_null(False)) |
+             ((User.id.is_null() | User.orcid.is_null() | OrcidToken.id.is_null()) &
+              UserInvitation.id.is_null() &
+              (AffiliationRecord.status.is_null()
+               | AffiliationRecord.status.contains("sent").__invert__())))).join(
+                   AffiliationRecord, on=(Task.id == AffiliationRecord.task_id)).join(
+                       User,
+                       JOIN.LEFT_OUTER,
+                       on=((User.email == AffiliationRecord.email) |
+                           (User.orcid == AffiliationRecord.orcid))).join(
+                               Organisation, JOIN.LEFT_OUTER, on=(Organisation.id == Task.org_id))
+             .join(
+                 UserInvitation,
+                 JOIN.LEFT_OUTER,
+                 on=((UserInvitation.email == AffiliationRecord.email) &
+                     (UserInvitation.task_id == Task.id))).join(
+                         OrcidToken,
+                         JOIN.LEFT_OUTER,
+                         on=((OrcidToken.user_id == User.id) &
+                             (OrcidToken.org_id == Organisation.id) &
+                             (OrcidToken.scope.contains("/activities/update")))).limit(20))
+    for (task_id, org_id, user), tasks_by_user in groupby(tasks, lambda t: (
+            t.id,
+            t.org_id,
+            t.affiliation_record.user, )):
+        utils.create_or_update_affiliations(user=user, org_id=org_id, records=tasks_by_user)
+    affiliation_record = AffiliationRecord.get(task=t)
+    assert 12399 == affiliation_record.put_code
+    assert "12344" == affiliation_record.orcid
+    assert "Employment record was created" in affiliation_record.status
