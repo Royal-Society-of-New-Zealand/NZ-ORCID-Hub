@@ -257,6 +257,7 @@ class MemberAPI(MemberAPIV20Api):
             host = None
             credit_name = None
             contributor_orcid = None
+            contributor_attributes = None
             if f.name:
                 credit_name = CreditName(value=f.name)  # noqa: F405
             elif contributor_from_user_table and contributor_from_user_table.name:
@@ -274,8 +275,9 @@ class MemberAPI(MemberAPIV20Api):
                 contributor_orcid = ContributorOrcid(uri=uri, path=path, host=host)  # noqa: F405
             # As Contributor email is by default private so, we are not sending it in funding payload
             # contributor_email = ContributorEmail(value=f.email)  # noqa: F405
-            contributor_attributes = FundingContributorAttributes(  # noqa: F405
-                contributor_role=f.role.upper())
+            if f.role:
+                contributor_attributes = FundingContributorAttributes(  # noqa: F405
+                    contributor_role=f.role.upper())
 
             funding_contributor_list.append(
                 FundingContributor(  # noqa: F405
