@@ -21,4 +21,5 @@ Flask-OAuthlib
 flask-swagger
 raven
 raven[flask]
-git+https://github.com/nad2000/flask-peewee-swagger.git
+#git+https://github.com/nad2000/flask-peewee-swagger.git
+https://github.com/nad2000/flask-peewee-swagger/archive/master.zip
