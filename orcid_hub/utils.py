@@ -427,8 +427,11 @@ def create_or_update_funding(user, org_id, records, *args, **kwargs):
             except Exception as ex:
                 logger.exception(f"For {user} encountered exception")
                 fc.add_status_line(f"Exception occured processing the record: {ex}.")
+                fr.add_status_line(f"Exception occured processing the record: {ex}.")
+                fc.processed_at = datetime.now()
 
             finally:
+                fr.save()
                 fc.save()
     else:
         # TODO: Invitation resend in case user revokes organisation permissions
@@ -761,7 +764,7 @@ def process_funding_records(max_rows=20):
                     FundingContributor.processed_at.is_null()).exists()):
                 funding_record.processed_at = datetime.now()
                 funding_record.add_status_line(
-                    f"Funding record is processed, and now the funding record will appear on contributors profile"
+                    f"Funding record is processed."
                 )
                 funding_record.save()
 
