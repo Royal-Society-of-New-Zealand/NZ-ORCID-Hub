@@ -32,6 +32,7 @@ from raven.contrib.flask import Sentry
 from .config import *  # noqa: F401, F403
 from .failover import PgDbWithFailover
 from flask_admin import Admin
+import flask_saml
 
 
 # http://docs.peewee-orm.com/en/latest/peewee/database.html#automatic-reconnect
@@ -46,6 +47,7 @@ app.config.from_object(__name__)
 if not app.config.from_pyfile("settings.cfg", silent=True) and app.debug:
     print("*** WARNING: Faile to laod local application configuration from 'instance/settins.cfg'")
 app.url_map.strict_slashes = False
+flask_saml.FlaskSAML(app, debug=app.config.get("DEBUG", False))
 oauth = OAuth2Provider(app)
 DATABASE_URL = app.config.get("DATABASE_URL")
 
