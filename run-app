@@ -1,10 +1,5 @@
 #!/bin/bash
 
-# Set up the configuration:
-if [ -z "$ORCID_CLIENT_ID" ] || [ -z "$ORCID_CLIENT_SECRET" ] ; then
-  echo "Missing Orcid API client ID (\$ORCID_CLIENT_ID) and/or secret (\$ORCID_CLIENT_SECRET)"
-  exit 78 # /* configuration error */
-fi
 ## Runtime environment name:
 ENV=${ENV:-test}
 echo "Runtime Environment: $ENV"
@@ -21,7 +16,7 @@ echo "Shibboleth SP Domainname (\$SHIB_SP_DOMAINNAME): \"$SHIB_SP_DOMAINNAME\""
 
 ## Shibboleth SP domainname:
 if [ -z "$SHIB_IDP_DOMAINNAME" ] ; then
-  if [ "$ENV" != "prod" ] ; then
+  if [ "$ENV" != "prod" ] && [ "$ENV" != "test" ]; then
     SHIB_IDP_DOMAINNAME=directory.test.tuakiri.ac.nz
   else 
     SHIB_IDP_DOMAINNAME=directory.tuakiri.ac.nz
@@ -33,7 +28,7 @@ echo "Shibboleth IdP Domainname (\$SHIB_IDP_DOMAINNAME): $SHIB_IDP_DOMAINNAME"
 echo "Shibboleth SSO Discovery URL: $SHIB_SSO_DS_URL"
 
 if [ -z "$SHIB_METADATA_PROVIDER_URI" ] ; then
-  if [ "$ENV" != "prod" ] ; then
+  if [ "$ENV" != "prod" ] && [ "$ENV" != "test" ]; then
     SHIB_METADATA_PROVIDER_URI=https://${SHIB_IDP_DOMAINNAME}/metadata/tuakiri-test-metadata-signed.xml
   else 
     SHIB_METADATA_PROVIDER_URI=https://${SHIB_IDP_DOMAINNAME}/metadata/tuakiri-metadata-signed.xml
@@ -42,7 +37,7 @@ fi
 echo "Shibboleth metadata provider URI (\$SHIB_METADATA_PROVIDER_URI): $SHIB_METADATA_PROVIDER_URI"
 
 if [ -z "$SHIB_METADATA_CERT_FILE" ] ; then
-  if [ "$ENV" != "prod" ] ; then
+  if [ "$ENV" != "prod" ] && [ "$ENV" != "test" ]; then
     SHIB_METADATA_CERT_FILE=tuakiri-test-metadata-cert.pem
   else 
     SHIB_METADATA_CERT_FILE=tuakiri-metadata-cert.pem
@@ -53,11 +48,6 @@ echo "Shibboleth metadata certificate file (\$SHIB_METADATA_CERT_FILE): $SHIB_ME
 export ENV SHIB_SP_DOMAINNAME SHIB_IDP_DOMAINNAME SHIB_SSO_DS_URL SHIB_METADATA_PROVIDER_URI
 export SHIB_METADATA_CERT_FILE
 
-if [ ! -f /etc/shibboleth/sp-key.pem ] || [ ! -f /etc/shibboleth/sp-cert.pem ] ; then
-  cd /etc/shibboleth
-  ./keygen.sh -f -h $SHIB_SP_DOMAINNAME -e https://$SHIB_SP_DOMAINNAME/shibboleth
-fi
-
 cp /.keys/${ENV}-server.key /etc/pki/tls/private/server.key
 chown root /etc/pki/tls/private/server.key
 chmod 400 /etc/pki/tls/private/server.key
@@ -65,6 +55,13 @@ cp /.keys/${ENV}-server.crt /etc/pki/tls/certs/server.crt
 chown root /etc/pki/tls/certs/server.crt
 cp /.keys/CA.crt /etc/pki/tls/certs/CA.crt
 chown root /etc/pki/tls/certs/CA.crt
+
+cp /.keys/${ENV}-sp.key /etc/shibboleth/sp-key.pem
+cp /./.keys/${ENV}-sp.crt /etc/shibboleth/sp-cert.pem
+if [ ! -f /etc/shibboleth/sp-key.pem ] || [ ! -f /etc/shibboleth/sp-cert.pem ] ; then
+  cd /etc/shibboleth
+  ./keygen.sh -f -h $SHIB_SP_DOMAINNAME -e https://$SHIB_SP_DOMAINNAME/shibboleth
+fi
 
 echo "Rendering Shibboleth configuration template ..."
 /conf/render_template /conf/templates/shibboleth2.xml >/etc/shibboleth/shibboleth2.xml
@@ -78,4 +75,9 @@ echo "Starting Shibboleth ..."
 /etc/shibboleth/shibd-redhat start
 rm -f /run/httpd/httpd.pid /usr/local/apache2/logs/httpd.pid /var/lock/subsys/shibd
 echo "Starting Apache2 ..."
+
+# Re-direct all errors to container logs:
+ln -sfT /dev/stderr /var/log/httpd/error_log
+# ln -sfT /dev/stdout /var/log/httpd/access_log
+
 exec httpd -DFOREGROUND

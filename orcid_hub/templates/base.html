@@ -1,0 +1,10 @@
+{% extends "layout.html" %}
+{% block content %}
+  <div class="container">
+    <div id="content">
+      <h1>Welcome to the NZ ORCID Hub</h1>
+      <div id="logged-in-info-username"><span><h2> </h2>Hi <b text="{{ userName }}">{{userName}} ,</b></span></div>
+      <div id="logged-in-info-orgname"><span><h2> </h2>Organisation Name: <b text="{{ organisationName }}">{{organisationName}}</b></span></div>
+    </div>
+  </div>
+{% endblock %}

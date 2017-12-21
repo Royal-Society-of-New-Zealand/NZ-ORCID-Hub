@@ -1,4 +1,4 @@
-# NZ-ORCID-Hub [![Build Status](https://travis-ci.org/Royal-Society-of-New-Zealand/NZ-ORCID-Hub.svg?branch=master)](https://travis-ci.org/Royal-Society-of-New-Zealand/NZ-ORCID-Hub)[![Coverage Status](https://coveralls.io/repos/github/Royal-Society-of-New-Zealand/NZ-ORCID-Hub/badge.svg)](https://coveralls.io/github/Royal-Society-of-New-Zealand/NZ-ORCID-Hub)
+# NZ-ORCID-Hub [![Build Status](https://travis-ci.org/Royal-Society-of-New-Zealand/NZ-ORCID-Hub.svg?branch=master)](https://travis-ci.org/Royal-Society-of-New-Zealand/NZ-ORCID-Hub)[![Coverage Status](https://coveralls.io/repos/github/Royal-Society-of-New-Zealand/NZ-ORCID-Hub/badge.svg)](https://coveralls.io/github/Royal-Society-of-New-Zealand/NZ-ORCID-Hub)[![RTD Status](https://readthedocs.org/projects/nz-orcid-hub/badge/)](http://docs.orcidhub.org.nz/)
 The home of development for the New Zealand ORCID Hub.
 
 - [Application Docker Image](#application-docker-image)
@@ -110,4 +110,11 @@ export PYTHONPATH=$(dirname $FLASK_APP)
 export EXTERNAL_SP=https://dev.orcidhub.org.nz/Tuakiri/SP
 export DATABASE_URL=sqlite:///data.db
 export FLASK_DEBUG=1
+```
+
+To connect to the PostgreSQL node:
+
+```
+export PGHOST=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' $(docker-compose ps -q db))
+export DATABASE_URL=postgresql://orcidhub:p455w0rd@${PGHOST}:5432/orcidhub
 ```

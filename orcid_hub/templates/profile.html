@@ -1,0 +1,85 @@
+{% extends "layout.html" %}
+{% block content %}
+  <div class="jumbotron">
+    <p>
+    <strong>Kia ora {{ user.name}}</strong>,</p>
+
+    <div class="body-message">
+        <p>You are logged into the NZ ORCID Hub through <strong>{{ user.organisation.name }}</strong>.</p>
+
+        <p>You have given the following permission(s) to your ORCID record using the Hub.</p>
+        <div class="table-responsive">
+            <table class="table permissions">
+              <thead>
+                <tr class="info">
+                  <th style="text-align: center;">email address</th>
+                  <th style="text-align: center;">ORCID permission(s)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for user_orcid_data in users_orcid or [] %}
+                          <tr class="active">
+                            <td> {% if user_orcid_data.user.email %}{{ user_orcid_data.user.email}} {% endif %} </td>
+                            <td> {% if user_orcid_data.scope %}
+                                    {% if user_orcid_data.scope == "/read-limited,/activities/update" %}
+                                        {{ (user_orcid_data.org|string() + ' can read and write information to your ORCID record<br/>
+                                        1. ' + user_orcid_data.org|string() + ' can read your trusted-party information.<br/>
+                                        2. ' + user_orcid_data.org|string() + ' can create and update research activities') | safe }}
+                                    {% elif user_orcid_data.scope == "/read-limited" %}
+                                        {{ user_orcid_data.org|string() + ' can read trusted-party information from your ORCID record'}}
+                                    {% elif user_orcid_data.scope == "/authenticate" %}
+                                        {{ user_orcid_data.org|string() + ' knows your authenticated ORCID iD'}}
+                                    {% else %}
+                                        {{user_orcid_data.scope}}
+                                    {% endif %}
+                                {% endif %} </td>
+                          </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+        </div>
+        <p>No further action from you is needed; you're welcome to log out of the Hub.</p>
+        {% if session['Should_not_logout_from_ORCID'] %}
+            <p class="text-center">To review and manage all your ORCID permissions, log into the settings page of your ORCID record here:
+            <a href= '{{ profile_url + "account"}}' ><span>{{ profile_url + 'account' }}</span></a> and review the "Trusted organisations" listed.</p>
+            <button class="connect-orcid-button" onclick="location.href='{{profile_url + 'my-orcid'}}'" style="height: 50px;width: auto;">
+                <img class="orcid-id-logo" src="https://orcid.org/sites/default/files/images/orcid_24x24.png" width="24" height="24" alt="ORCID logo" /> Take me to my record in ORCID
+            </button>
+        {% else %}
+            <p class="text-center">To review and manage all your ORCID permissions, log into the settings page of your ORCID record here:
+            <a onclick=logoutOrcidAccount()><span>{{ profile_url + 'account' }}</span></a> and review the "Trusted organisations" listed.</p>
+            <button class="connect-orcid-button" onclick="logoutOrcid()" style="height: 50px;width: auto;">
+                <img class="orcid-id-logo" src="https://orcid.org/sites/default/files/images/orcid_24x24.png" width="24" height="24" alt="ORCID logo" /> Manage my ORCID Record
+            </button>
+        {% endif %}
+        <button class="connect-orcidhub-google-group-button" onclick="location.href='/faq'" style="height: 50px;width: auto;">
+            <img class="orcidHub-id-logo" src="{{url_for('static', filename='images/logo.png')}}" width="24" height="24" alt="ORCID Hub logo" /> Hub FAQ
+        </button>
+    </div>
+</div>
+      <script>
+        function logoutOrcid() {
+            $.ajax({
+                url: "{{profile_url}}" + "userStatus.json?logUserOut=true",
+                dataType: 'jsonp',
+                success: function(result,status,xhr) {
+                    window.location='{{profile_url + "my-orcid"}}'
+                },
+                error: function (xhr, status, error) {
+                    alert(status);
+                }
+            });}
+        function logoutOrcidAccount() {
+            $.ajax({
+                url: "{{profile_url}}" + "userStatus.json?logUserOut=true",
+                dataType: 'jsonp',
+                success: function(result,status,xhr) {
+                    window.location='{{ profile_url + "account"}}'
+                },
+                error: function (xhr, status, error) {
+                    alert(status);
+                }
+            });}
+    </script>
+  </div>
+{% endblock %}

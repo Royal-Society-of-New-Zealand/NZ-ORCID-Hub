@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+<link rel="stylesheet" type="text/css" href="{{url_for('static', filename='css/pyinfo.css')}}" />
+  <title>pyinfo()</title>
+
+</head>
+<body>
+
+  <div class="header">
+    <h1>Python {{ python_version }}</h1>
+      <a href="//python.org/">
+        <img border="0" src="//python.org/images/python-logo.gif" alt="Python">
+      </a>
+  </div>
+
+  <h2 class="center">Flask Config</h2>
+
+  <div class="content">
+    <table> 
+      {% for v in app_config.items() %}
+      <tr>
+        <td class="name">{{ v.0 }}</td>
+        <td class="value">{{ v.1 }}</td>
+      </tr>
+      {% endfor %}
+    </table>
+  </div>
+
+  <h2 class="center">System</h2>
+
+  <div class="content">
+    <table> 
+      {% for v in system_info %}
+      <tr>
+        <td class="name">{{ v.0 }}</td>
+        <td class="value">{{ v.1 }}</td>
+      </tr>
+      {% endfor %}
+    </table>
+  </div>
+
+  <h2 class="center"> Python Internals</h2>
+
+  <div class="content">
+    <table> 
+      {% for v in py_internals %}
+      <tr>
+        <td class="name">{{ v.0 }}</td>
+        <td class="value">{{ v.1 }}</td>
+      </tr>
+      {% endfor %}
+    </table>
+  </div>
+
+  <h2 class="center"> OS Internals</h2>
+
+  <div class="content">
+    <table> 
+      {% for v in os_internals %}
+      <tr>
+        <td class="name">{{ v.0 }}</td>
+        <td class="value">{{ v.1 }}</td>
+      </tr>
+      {% endfor %}
+    </table>
+  </div>
+
+  <h2 class="center"> Environments </h2>
+
+  <div class="content">
+    <table> 
+      {% for v in envvars %}
+      <tr>
+        <td class="name">{{ v.0 }}</td>
+        <td class="value">{{ v.1 }}</td>
+      </tr>
+      {% endfor %}
+    </table>
+  </div>
+
+  <h2 class="center"> Database Support </h2>
+
+  <div class="content">
+    <table> 
+      {% for v in database_info %}
+      <tr>
+        <td class="name">{{ v.0 }}</td>
+        <td class="value">{{ v.1 }}</td>
+      </tr>
+      {% endfor %}
+    </table>
+  </div>
+
+  <h2 class="center"> Compression and archiving </h2>
+
+  <div class="content">
+    <table> 
+      {% for v in compression_info %}
+      <tr>
+        <td class="name">{{ v.0 }}</td>
+        <td class="value">{{ v.1 }}</td>
+      </tr>
+      {% endfor %}
+    </table>
+  </div>
+
+  <h2 class="center"> Socket </h2>
+
+  <div class="content">
+    <table> 
+      {% for v in socket_info %}
+      <tr>
+        <td class="name">{{ v.0 }}</td>
+        <td class="value">{{ v.1 }}</td>
+      </tr>
+      {% endfor %}
+    </table>
+  </div>
+
+  <h2 class="center"> Multimedia </h2>
+
+  <div class="content">
+    <table> 
+      {% for v in multimedia_info %}
+      <tr>
+        <td class="name">{{ v.0 }}</td>
+        <td class="value">{{ v.1 }}</td>
+      </tr>
+      {% endfor %}
+    </table>
+  </div>
+
+  <h2 class="center"> Request Environments </h2>
+
+  <div class="content">
+    <table> 
+      {% for k, v in request.environ.items() %}
+      <tr>
+        <td class="name">{{ k }}</td>
+        <td class="value">{{ v | escape }}</td>
+      </tr>
+      {% endfor %}
+    </table>
+  </div>
+
+  <h2 class="center"> License</h2>
+  <div class="content footer">
+    <p>
+    All credit to <a href="https://github.com/branneman">branneman</a>.
+    <br />
+    Source Code at <a href="https://github.com/lifenglifeng001/flask-hello">flask-hello</a>
+
+    </p>
+  </div>
+
+</body>
+</html>
+

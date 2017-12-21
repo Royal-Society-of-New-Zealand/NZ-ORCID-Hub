@@ -1,35 +1,40 @@
 version: '2.1'
 services:
   db:
-    image: postgres:9.6.2
-    mem_limit: 524288000
+    image: postgres:9.6
     environment:
       - POSTGRES_PASSWORD
       - PGPASSWORD
     domainname: orcidhub.org.nz
     hostname: db
+    ports:
+      - "${PGPORT:-5432}:5432"
     volumes:
+      - /etc/passwd:/etc/passwd:ro
       - ./conf/init-user-db.sh:/docker-entrypoint-initdb.d/init-user-db.sh
+      - ./pgdata:/var/lib/postgresql/data
+      - ./backup:/backup
+      - ./archive:/archive
+      - ${HOME}:${HOME}
+    user: "${USER_UID:-500}:${USER_GID:-500}"
     restart: always
-
 
   app:
     depends_on:
       - db
-    image: orcidhub/app-dev
-    mem_limit: 424288000
+      - sentry
+    image: orcidhub/app-dev:3.6
     environment:
       - ENV
-      - POSTGRES_PASSWORD
-      - PGPASSWORD
-      - ORCID_CLIENT_ID=APP-TF7LKIE084PYTQ59
-      - ORCID_CLIENT_SECRET
+      - SHIB_SP_DOMAINNAME
       - TOKEN_PASSWORD_SALT
       - MAIL_DEFAULT_SENDER
       - TOKEN_SECRET_KEY
-      - MAIL_USERNAME
-      - MAIL_PASSWORD
-      - MAIL_SERVER
+      - DATABASE_URL
+      - SECRET_KEY
+      - ORCID_CLIENT_ID
+      - ORCID_CLIENT_SECRET
+      - SENTRY_DSN
     domainname: orcidhub.org.nz
     hostname: app
     ports:
@@ -42,9 +47,74 @@ services:
       - ./app.conf:/etc/httpd/conf.d/ZZ-app.conf
       - ./conf/attribute-map.xml:/etc/shibboleth/attribute-map.xml
       - ./tuakiri-test-metadata-cert.pem:/etc/shibboleth/tuakiri-test-metadata-cert.pem
-      - ./.keys/${ENV:-dev}-sp.key:/etc/shibboleth/sp-key.pem
-      - ./.keys/${ENV:-dev}-sp.crt:/etc/shibboleth/sp-cert.pem
+      - ./tuakiri-metadata-cert.pem:/etc/shibboleth/tuakiri-metadata-cert.pem
       - ./.keys:/.keys
       - ./conf:/conf
     restart: always
 
+  redis:
+    image: 'redis'
+    restart: always
+
+  sentry:
+    image: 'sentry:latest'
+    depends_on:
+      - 'redis'
+      - 'db'
+    ports:
+      - '9000:9000'
+    environment:
+      - SENTRY_SECRET_KEY
+      - SENTRY_POSTGRES_HOST
+      - SENTRY_POSTGRES_PORT
+      - SENTRY_DB_NAME
+      - SENTRY_DB_USER
+      - SENTRY_DB_PASSWORD
+      - SENTRY_REDIS_HOST
+      - POSTGRES_PASSWORD
+      - PGPASSWORD
+      - SENTRY_SERVER_EMAIL
+      - SENTRY_EMAIL_HOST
+      - SENTRY_EMAIL_PORT
+    volumes:
+      - ./conf/init-user-db.sh:/docker-entrypoint-initdb.d/init-user-db.sh
+    restart: always
+
+  sentry_worker:
+    image: 'sentry:latest'
+    depends_on:
+      - 'redis'
+      - 'db'
+      - 'app'
+    command: "sentry run worker"
+    environment:
+      - SENTRY_SECRET_KEY
+      - SENTRY_POSTGRES_HOST
+      - SENTRY_POSTGRES_PORT
+      - SENTRY_DB_NAME
+      - SENTRY_DB_USER
+      - SENTRY_DB_PASSWORD
+      - SENTRY_REDIS_HOST
+      - SENTRY_SERVER_EMAIL
+      - SENTRY_EMAIL_HOST
+      - SENTRY_EMAIL_PORT
+    restart: always
+
+  sentry_cron:
+    image: 'sentry:latest'
+    depends_on:
+      - 'redis'
+      - 'db'
+    command: "sentry run cron"
+    environment:
+      - SENTRY_SECRET_KEY
+      - SENTRY_POSTGRES_HOST
+      - SENTRY_POSTGRES_PORT
+      - SENTRY_DB_NAME
+      - SENTRY_DB_USER
+      - SENTRY_DB_PASSWORD
+      - SENTRY_REDIS_HOST
+      - SENTRY_SERVER_EMAIL
+      - SENTRY_EMAIL_HOST
+      - SENTRY_EMAIL_PORT
+    restart: always

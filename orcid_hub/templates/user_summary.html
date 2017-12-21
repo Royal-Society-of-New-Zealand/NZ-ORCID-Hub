@@ -1,0 +1,67 @@
+{% extends "layout.html" %}
+{% block head %}
+  {{ super() }}
+  <script type="text/javascript" src="https://www.google.com/jsapi"></script>
+  <script type="text/javascript">
+google.load("visualization", "1", {packages:["corechart"]});
+google.setOnLoadCallback(drawPieChart);
+function drawPieChart() {
+  var data = google.visualization.arrayToDataTable([
+      ['Users','Count'],
+      ['Linked', {{total_linked_user_count}}],
+      ['Non-linked', {{total_user_count - total_linked_user_count}}],
+  ]);
+
+  var options = {
+    title: 'Connected users',
+    width: 900,
+    height: 500,
+    colors: ['#4060A5', '#1EC7FE', '#e64522', '#0097BD', '#3a5876', '#cb2027'],
+    is3D: true
+  };
+  var chart = new google.visualization.PieChart(document.getElementById('piechart'));
+  chart.draw(data, options);
+}
+  </script>
+{% endblock %}
+{% block content %}
+
+  <form method="GET">
+      <label for="from_date">From: </label>{{ form.from_date }}
+      <label for="from_to">To: </label>{{ form.to_date }}
+      <input type="submit" value="Select...">
+  </form>
+
+  <table class="table table-striped table-bordered table-hover model-list">
+    <thead>
+      <tr>
+        <th class="column-header">
+          Name
+        </th>
+        <th class="column-header">
+          Linked User Count / User Count (%)
+        </th>
+      </tr>
+    </thead>
+    <tbody>
+      {%- for r in query %}
+      <tr>
+        <td class="col-name">{{r.name}}</td>
+        <td class="col-user_count">{{r.linked_user_count}} / {{r.user_count}}
+        {%- if r.user_count %} ({{ "%0.0f%%" % (100 * r.linked_user_count / r.user_count) }}){% endif -%}
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+    <tfoot>
+      <tr>
+        <td class="column-footer"><strong>Total:</strong></td>
+        <td class="column-footer col-user_count">{{total_linked_user_count}} / {{total_user_count}}
+        {%- if total_user_count %} ({{ "%0.0f%%" % (100 * total_linked_user_count / total_user_count) }}){% endif -%}
+        </td>
+      </tr>
+    </tfoot>
+  </table>
+  <div id="piechart"></div>
+  </div>
+{% endblock %}

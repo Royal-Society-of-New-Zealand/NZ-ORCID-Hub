@@ -15,7 +15,7 @@ fail_if_error() {
 export PASSPHRASE=$(head -c 64 /dev/urandom  | base64)
 subj="
 "
-ALTNAME=DNS:$DOMAIN,DNS:api.$DOMAIN,URI:https://$DOMAIN/shibboleth,URI:https://$DOMAIN/Shibboleth.sso
+ALTNAME=DNS:$DOMAIN,DNS:sentry.$DOMAIN,DNS:api.$DOMAIN,URI:https://$DOMAIN/shibboleth,URI:https://$DOMAIN/Shibboleth.sso
 
 SSLCNF=$(mktemp -t --suffix=.cfg)
 cat >$SSLCNF <<EOF
@@ -56,11 +56,11 @@ openssl req \
   -out $DOMAIN.csr \
   -passin env:PASSPHRASE 
 fail_if_error $?
-cp $DOMAIN.key $DOMAIN.key.org
+cp $DOMAIN.key $DOMAIN.key._
 fail_if_error $?
 
 # Strip the passphrase from our RSA-key to not get prompted when Apache (or any other webserver) starts:
-openssl rsa -in $DOMAIN.key.org -out $DOMAIN.key -passin env:PASSPHRASE
+openssl rsa -in $DOMAIN.key._ -out $DOMAIN.key -passin env:PASSPHRASE
 fail_if_error $?
 
 # Create a self-signed certificate:

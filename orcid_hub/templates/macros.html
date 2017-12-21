@@ -1,0 +1,30 @@
+{% macro render_field(f) %}
+{% if f.type == "BooleanField" %}
+  <div class="checkbox">
+    <label for="{{ f.id }}">
+    {{ f(id=f.id, placeholder=f.label.text, **kwargs) }}
+    {{ f.label.text }}
+    </label>
+{% else %}
+    <div class="form-group">
+      {{ f.label }}{% if f.flags.required %}&nbsp;<strong style="color: red">*</strong>{% endif %}
+      {{ f(class="form-control", id=f.id, placeholder=f.label.text, **kwargs) | safe }}
+{% endif %}
+{% if f.errors %}
+      <ul class=errors>
+        {% for error in f.errors %}
+          <li style="color: red">{{ error }}</li>
+        {% endfor %}
+      </ul>
+{% endif %}
+  </div>
+{% endmacro %}
+
+{% macro orcid_url(user, full_url=False, target="_blank") -%}
+  {%- if user.orcid -%}
+  <a href="{{user|orcid}}" target="{{target}}" class="orcid">
+    <img alt="ORCID iD" src="{{url_for('static', filename='images/orcid_16x16.gif')}}" style="width:16px; height:16px; margin-right:4px">{{user|orcid if full_url else config.ORCID_BASE_URL.split('/', 2)[2] + user.orcid}}</a>
+{%- else %}&nbsp;{% endif -%}
+{%- endmacro %}
+
+{% macro image(filename) -%}{{url_for('static', filename='images/' + filename)}}{%- endmacro -%}

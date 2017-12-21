@@ -1,0 +1,21 @@
+{% extends "layout.html" %}
+{% from "macros.html" import render_field %}
+
+{% block content %}
+  <div class="row">
+    <div class="col-md-12 col-sm-12 col-xs-12">
+      <form method="POST" enctype="multipart/form-data">
+        <h1>Organisation Logo</h1>
+        {% if current_user.organisation.logo %}
+          <img src="{{ url_for('logo_image', token=current_user.organisation.logo.token) }}"
+               style="max-height: 100px; max-width: 100px;">
+        {% endif %}
+        {{ form.hidden_tag() }}
+        {{ render_field(form.logo) }}
+        <span class="pull-right" style="padding-bottom: 40px;">
+          <button type="submit" class="btn btn-primary" value="Save">Upload</button>
+        </span>
+      </form>
+    </div>
+  </div>
+{% endblock %}

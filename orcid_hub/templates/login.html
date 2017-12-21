@@ -1,0 +1,48 @@
+{% extends "layout.html" %}
+{% block content %}
+    <div id="slideshow_container">  
+	  <div class="slideshow">
+	    <ul class="slideshow">
+          <li class="show"><img width="940" height="350" src="/static/images/screen1.jpg" alt="NZ ORCID Hub Powering Researchers" /></li>
+          <li><img width="940" height="350" src="/static/images/screen2.jpg" alt="NZ ORCID Hub Powering Researchers" /></li>
+        </ul> 
+	  </div><!--close slideshow-->  	
+	</div><!--close slideshow_container-->   
+	
+	<div id="site_content">		
+	  
+	  <div class="sidebar_container">       
+		<div class="sidebar">
+          <div class="sidebar_item">
+            <h2>News </h2>
+            <p>Welcome to the NZ ORCID Hub. Please have a look around, any feedback is much appreciated.</p>
+          </div><!--close sidebar_item--> 
+        </div><!--close sidebar-->     		
+		<div class="sidebar">
+          <div class="sidebar_item">
+            <h2>Latest Update</h2>
+            <h3>May 2017</h3>
+            <p>Initial Release</p>         
+		  </div><!--close sidebar_item--> 
+        </div><!--close sidebar-->
+        <div class="sidebar">
+          <div class="sidebar_item">
+            <h2>Contact</h2>
+            <p>Phone: +644 472 7421</p>
+            <p>Email: <a href="mailto:orcid@royalsociety.org.nz">orcid@royalsociety.org.nz</a></p>
+          </div><!--close sidebar_item--> 
+        </div><!--close sidebar-->
+       </div><!--close sidebar_container-->	
+	   
+	  <div id="content">
+        <div class="content_item">
+		  <h1>Welcome to the NZ ORCID Hub</h1>
+		<div id="logged-in-info"><span><h2> </h2>Hi <b text="{{ userName }}">{{userName}} ,</b></span></div>
+            <div id="logged-in-info"><span><h2> </h2>Organisation Name: <b text="{{ organisationName }}">{{organisationName}}</b></span></div>
+            <div id="logged-in-info"><span><h2> </h2>Your Works Info from ORCID: <b text="{{ work }}"><pre>{{work}}</pre></b></span></div>
+          
+		  
+		</div><!--close content_item-->
+      </div><!--close content-->   
+	</div><!--close site_content-->  	
+{% endblock %}

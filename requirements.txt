@@ -1,19 +1,24 @@
 # pip install -U -r requirements.txt
-juggernaut
 requests
 requests_oauthlib
 psycopg2
 peewee
-flask-login
-Flask-WTF
-flask_mail
-inotify
-flask-admin
+peewee-validates
 python-slugify
-flask-script
+emails
 wtf-peewee
 pycountry
+html2text
+tablib
+pyyaml
+pykwalify
+Flask
+flask-admin
+flask-login
+Flask-WTF
+flask-peewee
+Flask-OAuthlib
+flask-swagger
+raven
+raven[flask]
 
-# For testing (should be disabled in the production):
-flask-debugtoolbar
-fake-factory

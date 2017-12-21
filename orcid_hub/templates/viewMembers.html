@@ -1,0 +1,18 @@
+{% extends 'admin/model/list.html' %}
+{% block body %}
+  {{ super() }}
+{% endblock %}
+{% block list_row_actions %}
+  {{ super() }}
+  {% if row.orcid %}
+    <div class="list-buttons-column">
+      <a class="icon" href="{{ url_for('employment_list', user_id=row.id, url=request.url) }}" title="Employment">
+        <spam class="fa fa-briefcase glyphicon glyphicon-briefcase icon"></spam>
+      </a>
+      <a class="icon" href="{{ url_for('edu_list', user_id=row.id, url=request.url) }}" title="Education">
+        <spam class="fa fa-graduation-cap glyphicon glyphicon-education icon"></spam>
+      </a>
+    </div>
+  {% endif %}
+
+{% endblock %}
