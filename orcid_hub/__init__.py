@@ -121,7 +121,7 @@ if SENTRY_DSN:
         app, dsn=SENTRY_DSN, logging=True, level=logging.DEBUG if app.debug else logging.WARNING)
 
 login_manager = flask_login.LoginManager()
-login_manager.login_view = "login"
+login_manager.login_view = "index"
 login_manager.login_message_category = "info"
 login_manager.init_app(app)
 
