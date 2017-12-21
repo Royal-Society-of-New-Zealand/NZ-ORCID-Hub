@@ -1133,13 +1133,13 @@ class FundingRecord(RecordModel):
     """Funding record loaded from Json file for batch processing."""
 
     task = ForeignKeyField(Task, related_name="funding_records", on_delete="CASCADE")
-    title = CharField(max_length=80)
-    translated_title = CharField(null=True, max_length=80)
+    title = CharField(max_length=255)
+    translated_title = CharField(null=True, max_length=255)
     translated_title_language_code = CharField(null=True, max_length=10)
-    type = CharField(max_length=80)
-    organization_defined_type = CharField(null=True, max_length=80)
+    type = CharField(max_length=255)
+    organization_defined_type = CharField(null=True, max_length=255)
     short_description = CharField(null=True, max_length=4000)
-    amount = CharField(null=True, max_length=80)
+    amount = CharField(null=True, max_length=255)
     currency = CharField(null=True, max_length=3)
     start_date = PartialDateField(null=True)
     end_date = PartialDateField(null=True)
@@ -1364,10 +1364,10 @@ class ExternalId(BaseModel):
 
     funding_record = ForeignKeyField(
         FundingRecord, related_name="external_ids", on_delete="CASCADE")
-    type = CharField(max_length=80)
+    type = CharField(max_length=255)
     value = CharField(max_length=255)
     url = CharField(max_length=200, null=True)
-    relationship = CharField(max_length=80, null=True)
+    relationship = CharField(max_length=255, null=True)
 
     class Meta:  # noqa: D101,D106
         db_table = "external_id"
