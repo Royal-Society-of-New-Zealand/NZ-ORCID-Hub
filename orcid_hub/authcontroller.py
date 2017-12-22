@@ -696,7 +696,7 @@ def remove_if_invalid(response):
 
 
 @app.route("/logout")
-def logout():
+def app_logout():
     """Log out a logged user.
 
     Note: if the user has logged in via the University of Auckland SSO,
