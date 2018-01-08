@@ -721,7 +721,7 @@ class FundingRecordAdmin(RecordModelView):
 
         try:
             try:
-                ds.yaml = yaml.safe_dump(json.loads(ds.json.replace("\\n", " ")))
+                ds.yaml = yaml.safe_dump(json.loads(ds.json.replace("]\\", "]").replace("\\n", " ")))
                 response_data = ds.export(format=export_type)
             except AttributeError:
                 response_data = getattr(ds, export_type)

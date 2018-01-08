@@ -2,6 +2,7 @@
 """Various utilities."""
 
 import logging
+import json
 import os
 import textwrap
 from datetime import datetime, timedelta
@@ -426,9 +427,16 @@ def create_or_update_funding(user, org_id, records, *args, **kwargs):
 
             except Exception as ex:
                 logger.exception(f"For {user} encountered exception")
-                fc.add_status_line(f"Exception occured processing the record: {ex}.")
+                exception_msg = ""
+                if ex and ex.body:
+                    exception_msg = json.loads(ex.body)
+                fc.add_status_line(f"Exception occured processing the record: {exception_msg}.")
+                fc.processed_at = datetime.now()
+                fr.add_status_line(
+                    f"Error processing record, Fix and reset to enable this record to be processed: {exception_msg}.")
 
             finally:
+                fr.save()
                 fc.save()
     else:
         # TODO: Invitation resend in case user revokes organisation permissions
@@ -760,9 +768,10 @@ def process_funding_records(max_rows=20):
                     FundingContributor.funding_record_id == funding_record.id,
                     FundingContributor.processed_at.is_null()).exists()):
                 funding_record.processed_at = datetime.now()
-                funding_record.add_status_line(
-                    f"Funding record is processed, and now the funding record will appear on contributors profile"
-                )
+                if "error" not in funding_record.status:
+                    funding_record.add_status_line(
+                        f"Funding record is processed."
+                    )
                 funding_record.save()
 
         for task in Task.select().where(Task.id << task_ids):
