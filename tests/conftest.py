@@ -44,6 +44,11 @@ def app():
          AffiliationRecord, OrcidAuthorizeCall, OrcidApiCall, Url, UserInvitation, OrgInvitation),
             fail_silently=True):  # noqa: F405
         _app.db = _db
+        _app.config["DATABASE_URL"] = DATABASE_URL
+        _app.config["EXTERNAL_SP"] = None
+        _app.config["SENTRY_DSN"] = None
+        _app.sentry = None
+
         yield _app
 
     ctx.pop()
