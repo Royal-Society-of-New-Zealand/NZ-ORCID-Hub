@@ -210,7 +210,7 @@ class AppModelView(ModelView):
 
     def inaccessible_callback(self, name, **kwargs):
         """Handle access denial. Redirect to login page if user doesn"t have access."""
-        return redirect(url_for("login", next=request.url))
+        return redirect(url_for("index", next=request.url))
 
     def get_query(self):
         """Add URL query to the data select for foreign key and select data that user has access to."""
@@ -1408,7 +1408,7 @@ def register_org(org_name,
                         _next=url_for("onboard_org"))).short_id
             invitation_url = url_for("short_url", short_id=short_id, _external=True)
         else:
-            invitation_url = url_for("login", _external=True)
+            invitation_url = url_for("index", _external=True)
 
         utils.send_email(
             "email/org_invitation.html",
