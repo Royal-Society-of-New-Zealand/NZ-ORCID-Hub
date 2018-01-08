@@ -139,7 +139,7 @@ def send_email(template_filename,
             SUBJECT=subject,
             MESSAGE=html_msg,
             LOGO=logo,
-            BASE_URL=url_for("login", _external=True)[:-1])
+            BASE_URL=url_for("index", _external=True)[:-1])
 
     plain_msg = html2text(html_msg)
 
