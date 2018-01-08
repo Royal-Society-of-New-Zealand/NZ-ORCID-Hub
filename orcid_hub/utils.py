@@ -768,7 +768,7 @@ def process_funding_records(max_rows=20):
                     FundingContributor.funding_record_id == funding_record.id,
                     FundingContributor.processed_at.is_null()).exists()):
                 funding_record.processed_at = datetime.now()
-                if "error" not in funding_record.status:
+                if not funding_record.status or "error" not in funding_record.status:
                     funding_record.add_status_line(
                         f"Funding record is processed."
                     )

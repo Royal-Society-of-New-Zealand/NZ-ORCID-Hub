@@ -6,7 +6,7 @@ services:
   - docker
 
 env:
-  - ENV=dev PGPORT=54321 USER_UID=$(id -u) USER_GID=$(id -g) DOMAIN=build.orcidhub.org.nz PROD_BRANCH=V2 UAT_BRANCH=V3
+  - ENV=dev PGPORT=54321 USER_UID=$(id -u) USER_GID=$(id -g) DOMAIN=build.orcidhub.org.nz PROD_BRANCH=V3 UAT_BRANCH=V3
 
 before_install:
   - sudo rm /usr/local/bin/docker-compose
