@@ -32,12 +32,10 @@ def test_load_task_from_csv_with_failures(request_ctx):
     """,
             filename="TEST.tsv",
             org=org)
-        assert task.record_count == 1
-        assert AffiliationRecord.select().count() == task.record_count
         AffiliationRecord.update(is_active=True).where(
             AffiliationRecord.task_id == task.id).execute()
         mock_msg().send = Mock(side_effect=Exception("FAILED TO SEND EMAIL"))
         utils.process_affiliation_records(10000)
-        rec = task.affiliationrecord_set.first()
+        rec = AffiliationRecord.select().where(AffiliationRecord.task_id == task.id).first()
         assert "FAILED TO SEND EMAIL" in rec.status
-        assert rec.completed_at is not None
+        assert rec.processed_at is not None

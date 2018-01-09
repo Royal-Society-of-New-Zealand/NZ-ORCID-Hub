@@ -485,7 +485,7 @@ class OrgInfo(BaseModel):
 
         for row in reader:
             # skip empty lines:
-            if row is None or row.strip() == '':
+            if row is None or (len(row) == 1 and row[0].strip() == ''):
                 continue
 
             name = val(row, 0)
@@ -954,7 +954,7 @@ class Task(BaseModel, AuditMixin):
                     # skip empty lines:
                     if len(row) == 0:
                         continue
-                    if  len(row) == 1 and row[0].strip() == '':
+                    if len(row) == 1 and row[0].strip() == '':
                         continue
 
                     email = val(row, 2, "").lower()

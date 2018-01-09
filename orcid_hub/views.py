@@ -36,9 +36,9 @@ from .forms import (ApplicationFrom, BitmapMultipleValueField, CredentialForm, E
                     FileUploadForm, JsonOrYamlFileUploadForm, LogoForm, OrgRegistrationForm,
                     PartialDateField, RecordForm, UserInvitationForm)
 from .login_provider import roles_required
-from .models import (Affiliation, AffiliationRecord, CharField, Client, File, FundingRecord, FundingContributor,
-                     Grant, ModelException, OrcidApiCall, OrcidToken, Organisation, OrgInfo,
-                     OrgInvitation, PartialDate, Role, Task, TextField, Token, Url, User,
+from .models import (Affiliation, AffiliationRecord, CharField, Client, File, FundingContributor,
+                     FundingRecord, Grant, ModelException, OrcidApiCall, OrcidToken, Organisation,
+                     OrgInfo, OrgInvitation, PartialDate, Role, Task, TextField, Token, Url, User,
                      UserInvitation, UserOrg, UserOrgAffiliation, db)
 # NB! Should be disabled in production
 from .pyinfo import info
@@ -561,14 +561,16 @@ to the best of your knowledge, correct!""")
         status = "The record was reset at " + datetime.now().isoformat(timespec="seconds")
         with db.atomic():
             try:
-                count = self.model.update(processed_at=None, status=status).where(
-                    self.model.is_active, self.model.processed_at.is_null(False),
-                    self.model.id.in_(ids)).execute()
+                count = self.model.update(
+                    processed_at=None, status=status).where(self.model.is_active,
+                                                            self.model.processed_at.is_null(False),
+                                                            self.model.id.in_(ids)).execute()
 
                 if self.model == FundingRecord:
-                    count = FundingContributor.update(processed_at=None, status=status).where(
-                        FundingContributor.funding_record.in_(ids),
-                        FundingContributor.status.is_null(False)).execute()
+                    count = FundingContributor.update(
+                        processed_at=None, status=status).where(
+                            FundingContributor.funding_record.in_(ids),
+                            FundingContributor.status.is_null(False)).execute()
 
             except Exception as ex:
                 db.rollback()
@@ -721,7 +723,8 @@ class FundingRecordAdmin(RecordModelView):
 
         try:
             try:
-                ds.yaml = yaml.safe_dump(json.loads(ds.json.replace("]\\", "]").replace("\\n", " ")))
+                ds.yaml = yaml.safe_dump(
+                    json.loads(ds.json.replace("]\\", "]").replace("\\n", " ")))
                 response_data = ds.export(format=export_type)
             except AttributeError:
                 response_data = getattr(ds, export_type)
