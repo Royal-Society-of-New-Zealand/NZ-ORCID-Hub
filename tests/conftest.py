@@ -41,7 +41,7 @@ def app():
     with test_database(
             _db,
         (Organisation, User, UserOrg, OrcidToken, UserOrgAffiliation, OrgInfo, Task,
-         AffiliationRecord, OrcidAuthorizeCall, OrcidApiCall, Url, UserInvitation, OrgInvitation),
+         AffiliationRecord, FundingRecord, FundingContributor, OrcidAuthorizeCall, OrcidApiCall, Url, UserInvitation, OrgInvitation, ExternalId),
             fail_silently=True):  # noqa: F405
         _app.db = _db
         yield _app
