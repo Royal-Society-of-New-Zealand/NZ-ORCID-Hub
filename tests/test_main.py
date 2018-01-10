@@ -4,10 +4,13 @@
 import pprint
 
 import pytest
+from orcid_hub import authcontroller
 from flask_login import login_user
+from flask import request, session
+from unittest.mock import patch
 
 from orcid_hub import login_provider, utils
-from orcid_hub.models import Organisation, OrgInfo, OrgInvitation, Role, User, UserOrg
+from orcid_hub.models import Organisation, OrgInfo, OrgInvitation, Role, User, UserOrg, OrcidAuthorizeCall
 
 
 def test_index(client):
@@ -333,3 +336,138 @@ def test_logout(request_ctx):
         rv = ctxx.app.full_dispatch_request()
         assert rv.status_code == 302
         assert rv.location.startswith("/?logout=True")
+
+
+def test_orcid_login(request_ctx):
+    """Test login from orcid."""
+    Organisation.get_or_create(
+        id=1,
+        name="THE ORGANISATION",
+        tuakiri_name="THE ORGANISATION",
+        confirmed=False,
+        orcid_client_id="CLIENT ID",
+        orcid_secret="Client Secret",
+        city="CITY",
+        country="COUNTRY",
+        disambiguated_id="ID",
+        disambiguation_source="SOURCE",
+        is_email_sent=True)
+    org = Organisation.get(id=1)
+    User.get_or_create(
+        id=123,
+        email="test123@test.test.net",
+        name="TEST USER",
+        roles=Role.TECHNICAL,
+        orcid=123,
+        organisation_id=1,
+        confirmed=True,
+        organisation=org)
+    u = User.get(id=123)
+    org.save()
+    u.save()
+    UserOrg.get_or_create(id=122, user=u, org=org, is_admin=True)
+    user_org = UserOrg.get(id=122)
+    user_org.save()
+    token = utils.generate_confirmation_token(email=u.email, org=org.name)
+    with request_ctx("/orcid/login/" + token) as ctxx:
+        rv = ctxx.app.full_dispatch_request()
+        assert rv.status_code == 302
+        orcid_authorize = OrcidAuthorizeCall.get(method="GET")
+        assert "&email=test123%40test.test.net" in orcid_authorize.url
+
+
+def fetch_token_mock(self, token_url=None, code=None, authorization_response=None,
+                     body='', auth=None, username=None, password=None, method='POST',
+                     timeout=None, headers=None, verify=True, proxies=None, **kwargs):
+    """Mock token fetching api call."""
+    token = {'orcid': '12121', 'name': 'ros', 'access_token': 'xyz', 'refresh_token': 'xyz',
+             'scope': '/activities/update'}
+    return token
+
+
+def get_record_mock(self, orcid=None, **kwargs):
+    """Mock record api call."""
+    request.data = '{"noemail": "sstest123@test.test.net"}'
+    return request
+
+
+@patch("orcid_hub.OAuth2Session.fetch_token", side_effect=fetch_token_mock)
+@patch("orcid_hub.orcid_client.MemberAPIV20Api.view_emails", side_effect=get_record_mock)
+def test_orcid_login_callback_admin_flow(patch, patch2, request_ctx):
+    """Test login from orcid callback function for Organisation Technical contact."""
+    Organisation.get_or_create(
+        id=1,
+        name="THE ORGANISATION",
+        tuakiri_name="THE ORGANISATION",
+        confirmed=False,
+        orcid_client_id="CLIENT ID",
+        orcid_secret="Client Secret",
+        city="CITY",
+        country="COUNTRY",
+        disambiguated_id="ID",
+        disambiguation_source="SOURCE",
+        is_email_sent=True)
+    org = Organisation.get(id=1)
+    User.get_or_create(
+        id=123,
+        email="test123@test.test.net",
+        name="TEST USER",
+        roles=Role.TECHNICAL,
+        orcid=123,
+        organisation_id=1,
+        confirmed=True,
+        organisation=org)
+    u = User.get(id=123)
+    org.save()
+    u.save()
+    UserOrg.get_or_create(id=122, user=u, org=org, is_admin=True)
+    user_org = UserOrg.get(id=122)
+    user_org.save()
+    token = utils.generate_confirmation_token(email=u.email, org=org.name)
+    with request_ctx() as ctxx:
+        request.args = {"invitation_token": token, "state": "xyz"}
+        session['oauth_state'] = "xyz"
+        ctxx = authcontroller.orcid_login_callback(request)
+        assert ctxx.status_code == 302
+        assert ctxx.location.startswith("/")
+
+
+@patch("orcid_hub.OAuth2Session.fetch_token", side_effect=fetch_token_mock)
+def test_orcid_login_callback_researcher_flow(patch, request_ctx):
+    """Test login from orcid callback function for researcher and display profile."""
+    Organisation.get_or_create(
+        id=1,
+        name="THE ORGANISATION",
+        tuakiri_name="THE ORGANISATION",
+        confirmed=True,
+        orcid_client_id="CLIENT ID",
+        orcid_secret="Client Secret",
+        city="CITY",
+        country="COUNTRY",
+        disambiguated_id="ID",
+        disambiguation_source="SOURCE",
+        is_email_sent=True)
+    org = Organisation.get(id=1)
+    User.get_or_create(
+        id=123,
+        email="test123@test.test.net",
+        name="TEST USER",
+        roles=Role.RESEARCHER,
+        orcid=123,
+        organisation_id=1,
+        confirmed=True,
+        organisation=org)
+    u = User.get(id=123)
+    org.save()
+    u.save()
+    UserOrg.get_or_create(id=122, user=u, org=org, is_admin=False)
+    user_org = UserOrg.get(id=122)
+    user_org.save()
+    token = utils.generate_confirmation_token(email=u.email, org=org.name)
+    with request_ctx() as ctxx:
+        request.args = {"invitation_token": token, "state": "xyz"}
+        session['oauth_state'] = "xyz"
+        ctxx = authcontroller.orcid_login_callback(request)
+        assert ctxx.status_code == 302
+        # display profile
+        assert ctxx.location.startswith("/profile")
