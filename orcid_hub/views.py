@@ -1621,7 +1621,7 @@ def logo():
 
     form = LogoForm()
     if form.validate_on_submit():
-        f = form.logo.data
+        f = form.logo_file.data
         filename = secure_filename(f.filename)
         logo = File.create(data=f.read(), mimetype=f.mimetype, filename=f.filename)
         org.logo = logo

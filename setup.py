@@ -38,10 +38,13 @@ Links
 * `documentation <http://docs.orcidhub.org.nz/>`_
 """
 
+import re
+
 from setuptools import find_packages, setup
 
-#from orcid_hub import __version__ as VERSION
-VERSION = '3.0a14'
+# extract version from __init__.py
+with open("orcid_hub/__init__.py", "r") as f:
+    VERSION = next(re.finditer("__version__ = [\"'](.*?)[\"']", f.read())).group(1).strip()
 
 setup(
     name="ORCID-Hub",
@@ -138,6 +141,7 @@ setup(
             "pytest-cov>=2.5.1",
             "testpath>=0.3.1",
             "Faker",
+            "Online-W3C-Validator==0.2a0",
         ],
     },
     license="MIT",

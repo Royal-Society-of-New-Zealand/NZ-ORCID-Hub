@@ -207,7 +207,7 @@ class JsonOrYamlFileUploadForm(FlaskForm):
 class LogoForm(FlaskForm):
     """Organisation Logo image upload form."""
 
-    logo = FileField(validators=[
+    logo_file = FileField(validators=[
         FileRequired(),
         FileAllowed(["gif", "png", "jpg"], 'Only image files allowed!')
     ])
@@ -216,7 +216,7 @@ class LogoForm(FlaskForm):
 class EmailTemplateForm(FlaskForm):
     """Email template form."""
 
-    email_template = TextField(
+    email_template_content = TextField(
         widget=TextArea(), render_kw={
             "style": "min-width: 800px;min-height: 550px;"
         })
