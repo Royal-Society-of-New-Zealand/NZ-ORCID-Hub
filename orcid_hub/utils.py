@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """Various utilities."""
 
-import logging
 import json
+import logging
 import os
 import textwrap
 from datetime import datetime, timedelta
@@ -423,7 +423,6 @@ def create_or_update_funding(user, org_id, records, *args, **kwargs):
                     fc.add_status_line(f"Funding record was updated.")
                 fc.orcid = orcid
                 fc.put_code = put_code
-                fc.processed_at = datetime.now()
 
             except Exception as ex:
                 logger.exception(f"For {user} encountered exception")
@@ -431,11 +430,12 @@ def create_or_update_funding(user, org_id, records, *args, **kwargs):
                 if ex and ex.body:
                     exception_msg = json.loads(ex.body)
                 fc.add_status_line(f"Exception occured processing the record: {exception_msg}.")
-                fc.processed_at = datetime.now()
                 fr.add_status_line(
-                    f"Error processing record, Fix and reset to enable this record to be processed: {exception_msg}.")
+                    f"Error processing record, Fix and reset to enable this record to be processed: {exception_msg}."
+                )
 
             finally:
+                fc.processed_at = datetime.now()
                 fr.save()
                 fc.save()
     else:
@@ -537,8 +537,8 @@ def send_user_invitation(inviter,
         return ui
 
     except Exception as ex:
-        logger.error(f"Exception occured while sending mails {ex}")
-        raise ex
+        logger.exception(f"Exception occured while sending mails {ex}")
+        raise
 
 
 def unique_everseen(iterable, key=None):
@@ -769,9 +769,7 @@ def process_funding_records(max_rows=20):
                     FundingContributor.processed_at.is_null()).exists()):
                 funding_record.processed_at = datetime.now()
                 if not funding_record.status or "error" not in funding_record.status:
-                    funding_record.add_status_line(
-                        f"Funding record is processed."
-                    )
+                    funding_record.add_status_line("Funding record is processed.")
                 funding_record.save()
 
         for task in Task.select().where(Task.id << task_ids):
@@ -856,7 +854,15 @@ def process_affiliation_records(max_rows=20):
                 )  # noqa: E501
             }
             for invitation, affiliations in invitation_dict.items():
-                send_user_invitation(*invitation, affiliations, task_id=task_id)
+                try:
+                    send_user_invitation(*invitation, affiliations, task_id=task_id)
+                except Exception as ex:
+                    email = invitation[2]
+                    (AffiliationRecord.update(
+                        processed_at=datetime.now(), status=f"Failed to send an invitation: {ex}.")
+                     .where(AffiliationRecord.task_id == task_id, AffiliationRecord.email == email,
+                            AffiliationRecord.processed_at.is_null())).execute()
+
         else:  # user exits and we have tokens
             create_or_update_affiliations(user, org_id, tasks_by_user)
         task_ids.add(task_id)
@@ -883,15 +889,19 @@ def process_affiliation_records(max_rows=20):
                     _scheme=protocol_scheme,
                     task_id=task.id,
                     _external=True)
-                send_email(
-                    "email/task_completed.html",
-                    subject="Affiliation Process Update",
-                    recipient=(task.created_by.name, task.created_by.email),
-                    error_count=error_count,
-                    row_count=row_count,
-                    orcid_rec_count=orcid_rec_count,
-                    export_url=export_url,
-                    filename=task.filename)
+                try:
+                    send_email(
+                        "email/task_completed.html",
+                        subject="Affiliation Process Update",
+                        recipient=(task.created_by.name, task.created_by.email),
+                        error_count=error_count,
+                        row_count=row_count,
+                        orcid_rec_count=orcid_rec_count,
+                        export_url=export_url,
+                        filename=task.filename)
+                except Exception as ex:
+                    logger.exception(
+                        "Failed to send batch process comletion notification message.")
 
 
 def process_tasks(max_rows=20):
