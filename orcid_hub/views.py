@@ -71,6 +71,26 @@ def favicon():
         mimetype="image/vnd.microsoft.icon")
 
 
+@app.route("/status")
+def status():
+    """Check the application health status attempting to connect to the DB.
+
+    NB! This entry point should be protectd and accessible
+    only form the appliction monitoring servers.
+    """
+    try:
+        now = db.execute_sql("SELECT now();").fetchone()[0]
+        return jsonify({
+            "status": "Connection successful.",
+            "db-timestamp": now.isoformat(),
+        })
+    except Exception as ex:
+        return jsonify({
+            "status": "Error",
+            "message": str(ex),
+        }), 503  # Service Unavailable
+
+
 @app.route("/pyinfo")
 @roles_required(Role.SUPERUSER)
 def pyinfo():
