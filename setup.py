@@ -141,7 +141,7 @@ setup(
             "pytest-cov>=2.5.1",
             "testpath>=0.3.1",
             "Faker",
-            "Online-W3C-Validator==0.2a0",
+            "Online-W3C-Validator>=0.3.1",
         ],
     },
     license="MIT",
