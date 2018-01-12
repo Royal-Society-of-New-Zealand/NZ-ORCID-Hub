@@ -484,6 +484,10 @@ class OrgInfo(BaseModel):
                 return None if v == '' else v
 
         for row in reader:
+            # skip empty lines:
+            if row is None or (len(row) == 1 and row[0].strip() == ''):
+                continue
+
             name = val(row, 0)
             oi, _ = cls.get_or_create(name=name)
 
@@ -947,7 +951,10 @@ class Task(BaseModel, AuditMixin):
             try:
                 task = cls.create(org=org, filename=filename)
                 for row_no, row in enumerate(reader):
+                    # skip empty lines:
                     if len(row) == 0:
+                        continue
+                    if len(row) == 1 and row[0].strip() == '':
                         continue
 
                     email = val(row, 2, "").lower()

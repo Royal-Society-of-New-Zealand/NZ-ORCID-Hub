@@ -1,10 +1,12 @@
 # -*- coding: utf-8 -*-
 """Tests for util functions."""
+from unittest.mock import patch
+
 from flask_login import login_user
 
 from orcid_hub import utils
-from orcid_hub.models import AffiliationRecord, Organisation, Role, User, UserOrg, Task, FundingContributor, \
-    FundingRecord, UserInvitation, OrcidToken, ExternalId
+from orcid_hub.models import (AffiliationRecord, Organisation, Role, User, UserOrg, Task, FundingContributor,
+    FundingRecord, UserInvitation, OrcidToken, ExternalId)
 from peewee import JOIN
 from itertools import groupby
 from unittest.mock import patch
@@ -69,15 +71,7 @@ def test_set_server_name(app):
     assert "abc.orcidhub.org.nz" == app.config.get("SERVER_NAME")
 
 
-def send_mail_mock(template_filename,
-                   recipient,
-                   cc_email=None,
-                   sender=None,
-                   reply_to=None,
-                   subject=None,
-                   base=None,
-                   logo=None,
-                   **kwargs):
+def send_mail_mock(*argvs, **kwargs):
     """Mock email invitation."""
     logger.info(f"***\nActually email invitation was mocked, so no email sent!!!!!")
     return True
@@ -127,13 +121,9 @@ def test_send_user_invitation(test_db, request_ctx):
     with patch("smtplib.SMTP") as mock_smtp, request_ctx("/") as ctxx:
 
         instance = mock_smtp.return_value
-        error = {
-            email:
-                (450, "Requested mail action not taken: mailbox unavailable")
-        }
-        instance.orcid_hub.utils.send_email.return_value = error
-        result = instance.orcid_hub.utils.send_email(template_filename="xyz.html", recipient=u.email)
-        utils.send_user_invitation(
+        error = {email: (450, "Requested mail action not taken: mailbox unavailable")}
+        instance.utils.send_user_invitation.return_value = error
+        result = instance.utils.send_user_invitation(
             inviter=inviter,
             org=org,
             email=email,
@@ -143,7 +133,7 @@ def test_send_user_invitation(test_db, request_ctx):
             task_id=task.id)
         rv = ctxx.app.full_dispatch_request()
         assert rv.status_code == 200
-        assert instance.orcid_hub.utils.send_email.called == True         # noqa: E712
+        assert instance.utils.send_user_invitation.called  # noqa: E712
         assert (450, 'Requested mail action not taken: mailbox unavailable') == result[email]
 
 
