@@ -8,6 +8,7 @@ from orcid_hub import authcontroller
 from flask_login import login_user
 from flask import request, session
 from unittest.mock import patch
+from werkzeug.datastructures import ImmutableMultiDict
 
 from orcid_hub import login_provider, utils
 from orcid_hub.models import Organisation, OrgInfo, OrgInvitation, Role, User, UserOrg, OrcidAuthorizeCall, \
@@ -587,3 +588,81 @@ def test_get_attributes(request_ctx):
         rv = ctxx.app.full_dispatch_request()
         # No such file name 'xyz'
         assert rv.status_code == 403
+
+
+def test_link(request_ctx):
+    """Test orcid profile linking."""
+    Organisation.get_or_create(
+        id=1,
+        name="THE ORGANISATION",
+        tuakiri_name="THE ORGANISATION",
+        confirmed=True,
+        orcid_client_id="CLIENT ID",
+        orcid_secret="Client Secret",
+        city="CITY",
+        country="COUNTRY",
+        disambiguated_id="ID",
+        disambiguation_source="SOURCE",
+        is_email_sent=True)
+    org = Organisation.get(id=1)
+
+    User.get_or_create(
+        id=123,
+        email="test123@test.test.net",
+        name="TEST USER",
+        roles=Role.TECHNICAL,
+        orcid=123,
+        organisation_id=1,
+        confirmed=True,
+        organisation=org)
+    user = User.get(id=123)
+    org.save()
+    user.save()
+    UserOrg.get_or_create(id=1224, user=user, org=org, is_admin=True)
+    user_org = UserOrg.get(id=1224)
+    user_org.save()
+    with request_ctx("/link") as ctxx:
+        login_user(user, remember=True)
+        request.args = ImmutableMultiDict([('error', 'access_denied')])
+        rv = ctxx.app.full_dispatch_request()
+        assert rv.status_code == 200
+        assert b"<!DOCTYPE html>" in rv.data, "Expected HTML content"
+
+
+def test_orcid_callback(request_ctx):
+    """Test orcid researcher deny flow."""
+    Organisation.get_or_create(
+        id=1,
+        name="THE ORGANISATION",
+        tuakiri_name="THE ORGANISATION",
+        confirmed=True,
+        orcid_client_id="CLIENT ID",
+        orcid_secret="Client Secret",
+        city="CITY",
+        country="COUNTRY",
+        disambiguated_id="ID",
+        disambiguation_source="SOURCE",
+        is_email_sent=True)
+    org = Organisation.get(id=1)
+
+    User.get_or_create(
+        id=123,
+        email="test123@test.test.net",
+        name="TEST USER",
+        roles=Role.TECHNICAL,
+        orcid=123,
+        organisation_id=1,
+        confirmed=True,
+        organisation=org)
+    user = User.get(id=123)
+    org.save()
+    user.save()
+    UserOrg.get_or_create(id=1224, user=user, org=org, is_admin=True)
+    user_org = UserOrg.get(id=1224)
+    user_org.save()
+    with request_ctx("/auth") as ctxx:
+        login_user(user, remember=True)
+        request.args = ImmutableMultiDict([('error', 'access_denied'), ('login', '2')])
+        rv = ctxx.app.full_dispatch_request()
+        assert rv.status_code == 302
+        assert rv.location.startswith("/link")
