@@ -5,6 +5,7 @@ import pprint
 
 import pytest
 from flask_login import login_user
+from flask import session
 
 from orcid_hub import login_provider, utils
 from orcid_hub.models import Organisation, OrgInfo, OrgInvitation, Role, User, UserOrg
@@ -329,7 +330,27 @@ def test_onboard_org(request_ctx):
 
 def test_logout(request_ctx):
     """Test to logout."""
-    with request_ctx("/logout") as ctxx:
-        rv = ctxx.app.full_dispatch_request()
+    user = User.create(
+        email="test@test.test.net",
+        name="TEST USER",
+        roles=Role.TECHNICAL,
+        confirmed=True,
+        organisation=Organisation.create(
+            name="THE ORGANISATION",
+            tuakiri_name="THE ORGANISATION",
+            confirmed=True,
+            is_email_sent=True))
+
+    with request_ctx("/logout") as ctx:
+        login_user(user)
+        rv = ctx.app.full_dispatch_request()
         assert rv.status_code == 302
         assert rv.location.startswith("/?logout=True")
+
+        # UoA user:
+        login_user(user)
+        session["shib_O"] = "University of Auckland"
+        rv = ctx.app.full_dispatch_request()
+        assert rv.status_code == 302
+        assert "Shibboleth.sso" in rv.location
+        assert "uoa-slo" in rv.location
