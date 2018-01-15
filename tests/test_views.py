@@ -3,6 +3,7 @@
 
 import datetime
 import json
+import os
 import sys
 import time
 from itertools import product
@@ -291,6 +292,6 @@ def test_read_uploaded_file(request_ctx):
     with request_ctx() as ctxx:
         form = FileUploadForm()
         form.file_.name = "conftest.py"
-        request.files = {'conftest.py': open('conftest.py', 'rb')}
+        request.files = {'conftest.py': open(os.getcwd() + '/conftest.py', 'rb')}
         ctxx = views.read_uploaded_file(form)
         assert "@pytest.fixture" in ctxx
