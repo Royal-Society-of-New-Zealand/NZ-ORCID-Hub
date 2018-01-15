@@ -290,7 +290,7 @@ def test_read_uploaded_file(request_ctx):
     """Test Uploading File."""
     with request_ctx() as ctxx:
         form = FileUploadForm()
-        form.file_.name = "funding_schema.yaml"
-        request.files = {'funding_schema.yaml': open('../funding_schema.yaml', 'rb')}
+        form.file_.name = "conftest.py"
+        request.files = {'conftest.py': open('conftest.py', 'rb')}
         ctxx = views.read_uploaded_file(form)
-        assert "Funding Schema" in ctxx
+        assert "@pytest.fixture" in ctxx
