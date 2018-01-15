@@ -16,7 +16,9 @@ from playhouse.test_utils import test_database
 from orcid_hub import orcid_client, views
 from orcid_hub.config import ORCID_BASE_URL
 from orcid_hub.models import UserOrgAffiliation  # noqa: E128
-from orcid_hub.models import AffiliationRecord, OrcidToken, Organisation, Role, Task, User, UserOrg
+from orcid_hub.models import AffiliationRecord, OrcidToken, Organisation, Role, Task, User, UserOrg, Url
+from orcid_hub.forms import FileUploadForm
+from flask import request
 
 fake_time = time.time()
 
@@ -239,3 +241,56 @@ def make_fake_response(text, *args, **kwargs):
     if "status_code" in kwargs:
         mm.status_code = kwargs["status_code"]
     return mm
+
+
+def test_short_url(request_ctx):
+    """Test short url."""
+    short_url = Url.shorten("https://dev.orcidhub.org.nz/confirm/organisation/xsdsdsfdds")
+    with request_ctx("/u/" + short_url.short_id) as ctxx:
+        rv = ctxx.app.full_dispatch_request()
+        assert rv.status_code == 302
+        assert rv.location.startswith("https://dev.orcidhub.org.nz")
+
+
+def test_load_org(request_ctx):
+    """Test load organisation."""
+    Organisation.get_or_create(
+        id=1,
+        name="THE ORGANISATION",
+        tuakiri_name="THE ORGANISATION",
+        confirmed=False,
+        orcid_client_id="CLIENT ID",
+        orcid_secret="Client Secret",
+        city="CITY",
+        country="COUNTRY",
+        disambiguated_id="ID",
+        disambiguation_source="SOURCE",
+        is_email_sent=True)
+    org = Organisation.get(id=1)
+    User.get_or_create(
+        id=123,
+        email="test123@test.test.net",
+        name="TEST USER",
+        roles=Role.SUPERUSER,
+        orcid=123,
+        organisation_id=1,
+        confirmed=True,
+        organisation=org)
+    test_user = User.get(id=123)
+    test_user.save()
+    org.save()
+    with request_ctx("/load/org") as ctxx:
+        login_user(test_user, remember=True)
+        rv = ctxx.app.full_dispatch_request()
+        assert rv.status_code == 200
+        assert b"<!DOCTYPE html>" in rv.data, "Expected HTML content"
+
+
+def test_read_uploaded_file(request_ctx):
+    """Test Uploading File."""
+    with request_ctx() as ctxx:
+        form = FileUploadForm()
+        form.file_.name = "funding_schema.yaml"
+        request.files = {'funding_schema.yaml': open('../funding_schema.yaml', 'rb')}
+        ctxx = views.read_uploaded_file(form)
+        assert "Funding Schema" in ctxx
