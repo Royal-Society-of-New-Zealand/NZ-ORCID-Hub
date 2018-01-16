@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """Tests for core functions."""
 
+import datetime
 import json
 import sys
 import time
@@ -15,7 +16,7 @@ from playhouse.test_utils import test_database
 from orcid_hub import orcid_client, views
 from orcid_hub.config import ORCID_BASE_URL
 from orcid_hub.models import UserOrgAffiliation  # noqa: E128
-from orcid_hub.models import (AffiliationRecord, OrcidToken, Organisation, Role, Task, User, UserOrg)
+from orcid_hub.models import AffiliationRecord, OrcidToken, Organisation, Role, Task, User, UserOrg
 
 fake_time = time.time()
 
@@ -205,6 +206,26 @@ def test_show_record_section(request_ctx, test_db):
         login_user(u)
         rv = views.show_record_section(user_id=123)
         assert u.email in rv
+
+
+def test_status(client):
+    """Test status is workinkg both when DB is accessible or not."""
+    with patch("orcid_hub.views.db") as db:  # , request_ctx("/status") as ctx:
+        result = MagicMock()
+        result.fetchone.return_value = (datetime.datetime(2042, 1, 1, 0, 0), )
+        db.execute_sql.return_value = result
+        rv = client.get("/status")
+        data = json.loads(rv.data)
+        assert rv.status_code == 200
+        assert data["status"] == "Connection successful."
+        assert data["db-timestamp"] == "2042-01-01T00:00:00"
+    with patch("orcid_hub.views.db") as db:  # , request_ctx("/status") as ctx:
+        db.execute_sql.side_effect = Exception("FAILURE")
+        rv = client.get("/status")
+        data = json.loads(rv.data)
+        assert rv.status_code == 503
+        assert data["status"] == "Error"
+        assert "FAILURE" in data["message"]
 
 
 def make_fake_response(text, *args, **kwargs):
