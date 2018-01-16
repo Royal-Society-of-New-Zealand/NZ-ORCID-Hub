@@ -1,4 +1,5 @@
 FROM centos:centos7
+ENV LANG=en_US.UTF-8
 
 LABEL maintainer="The University of Auckland" \
 	version="2.1" \
@@ -16,7 +17,7 @@ COPY requirements.txt /
 COPY run-app /usr/local/bin/
 COPY ./conf /conf
 
-RUN yum -y update \ 
+RUN yum -y update \
     && yum -y install https://centos7.iuscommunity.org/ius-release.rpm \
     && yum -y install \
     	shibboleth.x86_64 \
