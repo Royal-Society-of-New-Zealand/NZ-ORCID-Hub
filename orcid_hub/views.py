@@ -1580,7 +1580,7 @@ def invite_user():
         "GET",
         "POST",
     ])
-def email_template():
+def manage_email_template():
     """Manage organisation invitation email template."""
     org = current_user.organisation
     form = EmailTemplateForm(obj=org)

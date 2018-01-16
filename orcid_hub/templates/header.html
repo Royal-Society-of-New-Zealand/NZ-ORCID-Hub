@@ -68,7 +68,7 @@
                                                                                             title="Review the progress and results of your current affiliation tasks">Uploaded Tasks</a></li>
                       </ul>
                     </li>
-                    <li id="viewmembers"><a href="{{ url_for('viewmembers.index_view')}}">
+                    <li id="viewmembers.index_view"><a href="{{ url_for('viewmembers.index_view')}}">
                         <span data-toggle="tooltip" data-placement="bottom" title="ORCID iDs of researchers at your institution">
                           Researchers
                         </span> </a></li>
@@ -88,7 +88,7 @@
                           {% endif %}
                           <li id="logo"><a href="{{ url_for('logo')}}">
                               <span data-toggle="tooltip" data-placement="left" title="Upload your organisation logo">Logo</span></a></li>
-                          <li id="email_template"><a href="{{ url_for('email_template')}}">
+                          <li id="manage_email_template"><a href="{{ url_for('manage_email_template')}}">
                               <span data-toggle="tooltip" data-placement="left" title="Customize your organization email template">Email Template</span></a></li>
                         </ul>
                       </li>

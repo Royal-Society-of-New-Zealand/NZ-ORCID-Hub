@@ -216,7 +216,7 @@ class LogoForm(FlaskForm):
 class EmailTemplateForm(FlaskForm):
     """Email template form."""
 
-    email_template_content = TextField(
+    email_template = TextField(
         widget=TextArea(), render_kw={
             "style": "min-width: 800px;min-height: 550px;"
         })
