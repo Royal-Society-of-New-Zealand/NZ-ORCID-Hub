@@ -16,5 +16,5 @@ done
 
 cd $HOME
 docker-compose restart
-docker-compose logs
+docker-compose logs --tail=60
 ```
