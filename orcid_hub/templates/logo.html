@@ -8,10 +8,10 @@
         <h1>Organisation Logo</h1>
         {% if current_user.organisation.logo %}
           <img src="{{ url_for('logo_image', token=current_user.organisation.logo.token) }}"
-               style="max-height: 100px; max-width: 100px;">
+               style="max-height: 100px; max-width: 100px;" alt="Organisation Logo">
         {% endif %}
         {{ form.hidden_tag() }}
-        {{ render_field(form.logo) }}
+        {{ render_field(form.logo_file) }}
         <span class="pull-right" style="padding-bottom: 40px;">
           <button type="submit" class="btn btn-primary" value="Save">Upload</button>
         </span>

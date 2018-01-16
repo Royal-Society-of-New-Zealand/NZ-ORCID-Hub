@@ -1580,7 +1580,7 @@ def invite_user():
         "GET",
         "POST",
     ])
-def email_template():
+def manage_email_template():
     """Manage organisation invitation email template."""
     org = current_user.organisation
     form = EmailTemplateForm(obj=org)
@@ -1644,7 +1644,7 @@ def logo():
 
     form = LogoForm()
     if form.validate_on_submit():
-        f = form.logo.data
+        f = form.logo_file.data
         filename = secure_filename(f.filename)
         logo = File.create(data=f.read(), mimetype=f.mimetype, filename=f.filename)
         org.logo = logo

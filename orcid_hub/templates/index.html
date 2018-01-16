@@ -19,10 +19,10 @@
     </div>
     <div class="onboarding-block" style="padding-top: 20px">
       {% if onboarded_organisations() %}
-        <h3><p>Organisations using the Hub:</p></h3>
+        <h3>Organisations using the Hub:</h3>
         <div class="row">
           <div class="col-sm-6">
-            <h4><p>Tuakiri Members</p></h4>
+            <h4>Tuakiri Members</h4>
             {% for r in onboarded_organisations() %}
               {% if (r.tuakiri_name != None and not(r.name == 'Royal Society Te Apārangi')) %}
                 <p>{{ r.name }}</p>
@@ -30,7 +30,7 @@
             {% endfor %}
           </div>
           <div class="col-sm-6">
-            <h4><p>Non-Tuakiri Members</p></h4>
+            <h4>Non-Tuakiri Members</h4>
             <p>Royal Society Te Apārangi</p>
             {% for r in onboarded_organisations() %}
               {% if r.tuakiri_name == None %}
