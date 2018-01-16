@@ -292,6 +292,7 @@ def test_read_uploaded_file(request_ctx):
     with request_ctx() as ctxx:
         form = FileUploadForm()
         form.file_.name = "conftest.py"
-        request.files = {'conftest.py': open(os.getcwd() + '/conftest.py', 'rb')}
-        ctxx = views.read_uploaded_file(form)
+        with open(os.path.join(os.path.dirname(os.path.realpath(__file__)), 'conftest.py'), 'rb') as f:
+            request.files = {'conftest.py': f}
+            ctxx = views.read_uploaded_file(form)
         assert "@pytest.fixture" in ctxx
