@@ -18,7 +18,7 @@ from orcid_hub import orcid_client, views
 from orcid_hub.config import ORCID_BASE_URL
 from orcid_hub.models import UserOrgAffiliation  # noqa: E128
 from orcid_hub.models import (AffiliationRecord, Client, Grant, OrcidToken, Organisation, Role,
-                              Task, Token, User, UserOrg)
+                              Task, Token, User, UserOrg, Url)
 from orcid_hub.forms import FileUploadForm
 from flask import request
 
@@ -192,6 +192,7 @@ def test_show_record_section(request_ctx, test_db):
         disambiguated_id="ID",
         disambiguation_source="SOURCE")
     u = User.create(
+        orcid="12123",
         email="test123@test.test.net",
         name="TEST USER",
         roles=Role.RESEARCHER,
@@ -204,6 +205,7 @@ def test_show_record_section(request_ctx, test_db):
         login_user(u)
         rv = views.show_record_section(user_id=u.id)
         assert u.email in rv
+        assert u.name in rv
 
 
 def test_status(client):
