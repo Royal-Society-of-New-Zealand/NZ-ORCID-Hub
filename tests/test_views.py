@@ -16,7 +16,8 @@ from playhouse.test_utils import test_database
 from orcid_hub import orcid_client, views
 from orcid_hub.config import ORCID_BASE_URL
 from orcid_hub.models import UserOrgAffiliation  # noqa: E128
-from orcid_hub.models import AffiliationRecord, OrcidToken, Organisation, Role, Task, User, UserOrg
+from orcid_hub.models import (AffiliationRecord, Client, Grant, OrcidToken, Organisation, Role,
+                              Task, Token, User, UserOrg)
 
 fake_time = time.time()
 
@@ -177,8 +178,7 @@ def test_user_orcid_id_url():
               lambda self, *args, **kwargs: make_fake_response('{"test": "TEST1234567890"}'))
 def test_show_record_section(request_ctx, test_db):
     """Test to show selected record."""
-    org = Organisation.get_or_create(
-        id=1,
+    org = Organisation.create(
         name="THE ORGANISATION",
         tuakiri_name="THE ORGANISATION",
         confirmed=True,
@@ -188,23 +188,18 @@ def test_show_record_section(request_ctx, test_db):
         country="COUNTRY",
         disambiguated_id="ID",
         disambiguation_source="SOURCE")
-    org = Organisation.get(id=1)
-    u = User.get_or_create(
-        id=123,
+    u = User.create(
         email="test123@test.test.net",
         name="TEST USER",
         roles=Role.RESEARCHER,
-        orcid=123,
-        organisation_id=1,
         confirmed=True,
         organisation=org)
-    u = User.get(id=123)
 
-    OrcidToken.get_or_create(user=u, org=org, access_token="ABC123")
+    OrcidToken.create(user=u, org=org, access_token="ABC123")
 
     with request_ctx("/"):
         login_user(u)
-        rv = views.show_record_section(user_id=123)
+        rv = views.show_record_section(user_id=u.id)
         assert u.email in rv
 
 
@@ -226,6 +221,52 @@ def test_status(client):
         assert rv.status_code == 503
         assert data["status"] == "Error"
         assert "FAILURE" in data["message"]
+
+
+def test_application_registration(app, request_ctx):
+    """Test application registration."""
+    with request_ctx(
+            "/settings/applications", method="POST", data={
+                "name": "TEST APP",
+                "homepage_url": "http://test.at.test",
+                "description": "TEST APPLICATION 123",
+                "register": "Register",
+            }) as ctx, test_database(
+                app.db, (Client, Grant, Token), fail_silently=True):  # noqa: F405
+
+        org = Organisation.create(
+            can_use_api=True,
+            name="THE ORGANISATION",
+            tuakiri_name="THE ORGANISATION",
+            confirmed=True,
+            orcid_client_id="CLIENT ID",
+            orcid_secret="Client Secret",
+            city="CITY",
+            country="COUNTRY",
+            disambiguated_id="ID",
+            disambiguation_source="SOURCE")
+        user = User.create(
+            email="test123@test.test.net",
+            name="TEST USER",
+            roles=Role.TECHNICAL,
+            orcid="123",
+            organisation_id=1,
+            confirmed=True,
+            organisation=org)
+        UserOrg.create(user=user, org=org, is_admin=True)
+        org.update(tech_contact=user).execute()
+        login_user(user, remember=True)
+
+        rv = ctx.app.full_dispatch_request()
+
+        c = Client.get(name="TEST APP")
+        assert c.homepage_url == "http://test.at.test"
+        assert c.description == "TEST APPLICATION 123"
+        assert c.user == user
+        assert c.org == org
+        assert c.client_id
+        assert c.client_secret
+        assert rv.status_code == 302
 
 
 def make_fake_response(text, *args, **kwargs):

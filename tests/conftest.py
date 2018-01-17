@@ -7,6 +7,7 @@ isort:skip_file
 # yapf: disable
 import os
 import sys
+import logging
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 # sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # flake8: noqa
@@ -37,6 +38,9 @@ def app():
     ctx = _app.app_context()
     ctx.push()
     _app.config['TESTING'] = True
+    logger = logging.getLogger("peewee")
+    if logger:
+        logger.setLevel(logging.INFO)
 
     with test_database(
             _db,
@@ -47,6 +51,7 @@ def app():
         _app.config["DATABASE_URL"] = DATABASE_URL
         _app.config["EXTERNAL_SP"] = None
         _app.config["SENTRY_DSN"] = None
+        _app.config["WTF_CSRF_ENABLED"] = False
         _app.sentry = None
 
         yield _app
