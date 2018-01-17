@@ -10,6 +10,7 @@ from peewee import JOIN
 from itertools import groupby
 from unittest.mock import patch
 import logging
+
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 logger.addHandler(logging.StreamHandler())
