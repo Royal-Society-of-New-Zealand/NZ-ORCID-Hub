@@ -1167,22 +1167,6 @@ def employment_list(user_id):
     return show_record_section(user_id, "EMP")
 
 
-@app.route("/<int:funding_record_id>/FundingContributor/list")
-@app.route("/<int:funding_record_id>/FundingContributor")
-@login_required
-def funding_contributor_list(funding_record_id):
-    """Show the funding contributors list of the selected user."""
-    return redirect(url_for("fundingcontributor.index_view", funding_record_id=funding_record_id))
-
-
-@app.route("/<int:funding_record_id>/ExternaId/list")
-@app.route("/<int:funding_record_id>/ExternaId")
-@login_required
-def externalid_list(funding_record_id):
-    """Show the External id list of the funding item."""
-    return redirect(url_for("externalid.index_view", funding_record_id=funding_record_id))
-
-
 @app.route("/<int:user_id>/edu/list")
 @app.route("/<int:user_id>/edu")
 @login_required
@@ -1580,7 +1564,7 @@ def invite_user():
         "GET",
         "POST",
     ])
-def email_template():
+def manage_email_template():
     """Manage organisation invitation email template."""
     org = current_user.organisation
     form = EmailTemplateForm(obj=org)
@@ -1644,7 +1628,7 @@ def logo():
 
     form = LogoForm()
     if form.validate_on_submit():
-        f = form.logo.data
+        f = form.logo_file.data
         filename = secure_filename(f.filename)
         logo = File.create(data=f.read(), mimetype=f.mimetype, filename=f.filename)
         org.logo = logo
