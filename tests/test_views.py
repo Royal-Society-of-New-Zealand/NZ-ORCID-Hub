@@ -3,6 +3,7 @@
 
 import datetime
 import json
+import os
 import sys
 import time
 from itertools import product
@@ -16,7 +17,10 @@ from playhouse.test_utils import test_database
 from orcid_hub import orcid_client, views
 from orcid_hub.config import ORCID_BASE_URL
 from orcid_hub.models import UserOrgAffiliation  # noqa: E128
-from orcid_hub.models import AffiliationRecord, OrcidToken, Organisation, Role, Task, User, UserOrg
+from orcid_hub.models import (AffiliationRecord, Client, Grant, OrcidToken, Organisation, Role,
+                              Task, Token, User, UserOrg)
+from orcid_hub.forms import FileUploadForm
+from flask import request
 
 fake_time = time.time()
 
@@ -177,8 +181,7 @@ def test_user_orcid_id_url():
               lambda self, *args, **kwargs: make_fake_response('{"test": "TEST1234567890"}'))
 def test_show_record_section(request_ctx, test_db):
     """Test to show selected record."""
-    org = Organisation.get_or_create(
-        id=1,
+    org = Organisation.create(
         name="THE ORGANISATION",
         tuakiri_name="THE ORGANISATION",
         confirmed=True,
@@ -188,23 +191,18 @@ def test_show_record_section(request_ctx, test_db):
         country="COUNTRY",
         disambiguated_id="ID",
         disambiguation_source="SOURCE")
-    org = Organisation.get(id=1)
-    u = User.get_or_create(
-        id=123,
+    u = User.create(
         email="test123@test.test.net",
         name="TEST USER",
         roles=Role.RESEARCHER,
-        orcid=123,
-        organisation_id=1,
         confirmed=True,
         organisation=org)
-    u = User.get(id=123)
 
-    OrcidToken.get_or_create(user=u, org=org, access_token="ABC123")
+    OrcidToken.create(user=u, org=org, access_token="ABC123")
 
     with request_ctx("/"):
         login_user(u)
-        rv = views.show_record_section(user_id=123)
+        rv = views.show_record_section(user_id=u.id)
         assert u.email in rv
 
 
@@ -228,6 +226,52 @@ def test_status(client):
         assert "FAILURE" in data["message"]
 
 
+def test_application_registration(app, request_ctx):
+    """Test application registration."""
+    with request_ctx(
+            "/settings/applications", method="POST", data={
+                "name": "TEST APP",
+                "homepage_url": "http://test.at.test",
+                "description": "TEST APPLICATION 123",
+                "register": "Register",
+            }) as ctx, test_database(
+                app.db, (Client, Grant, Token), fail_silently=True):  # noqa: F405
+
+        org = Organisation.create(
+            can_use_api=True,
+            name="THE ORGANISATION",
+            tuakiri_name="THE ORGANISATION",
+            confirmed=True,
+            orcid_client_id="CLIENT ID",
+            orcid_secret="Client Secret",
+            city="CITY",
+            country="COUNTRY",
+            disambiguated_id="ID",
+            disambiguation_source="SOURCE")
+        user = User.create(
+            email="test123@test.test.net",
+            name="TEST USER",
+            roles=Role.TECHNICAL,
+            orcid="123",
+            organisation_id=1,
+            confirmed=True,
+            organisation=org)
+        UserOrg.create(user=user, org=org, is_admin=True)
+        org.update(tech_contact=user).execute()
+        login_user(user, remember=True)
+
+        rv = ctx.app.full_dispatch_request()
+
+        c = Client.get(name="TEST APP")
+        assert c.homepage_url == "http://test.at.test"
+        assert c.description == "TEST APPLICATION 123"
+        assert c.user == user
+        assert c.org == org
+        assert c.client_id
+        assert c.client_secret
+        assert rv.status_code == 302
+
+
 def make_fake_response(text, *args, **kwargs):
     """Mock out the response object returned by requests_oauthlib.OAuth2Session.get(...)."""
     mm = MagicMock(name="response")
@@ -239,3 +283,193 @@ def make_fake_response(text, *args, **kwargs):
     if "status_code" in kwargs:
         mm.status_code = kwargs["status_code"]
     return mm
+
+
+def test_short_url(request_ctx):
+    """Test short url."""
+    short_url = Url.shorten("https://dev.orcidhub.org.nz/confirm/organisation/xsdsdsfdds")
+    with request_ctx("/u/" + short_url.short_id) as ctxx:
+        rv = ctxx.app.full_dispatch_request()
+        assert rv.status_code == 302
+        assert rv.location.startswith("https://dev.orcidhub.org.nz")
+
+
+def test_load_org(request_ctx):
+    """Test load organisation."""
+    Organisation.get_or_create(
+        id=1,
+        name="THE ORGANISATION",
+        tuakiri_name="THE ORGANISATION",
+        confirmed=False,
+        orcid_client_id="CLIENT ID",
+        orcid_secret="Client Secret",
+        city="CITY",
+        country="COUNTRY",
+        disambiguated_id="ID",
+        disambiguation_source="SOURCE",
+        is_email_sent=True)
+    org = Organisation.get(id=1)
+    User.get_or_create(
+        id=123,
+        email="test123@test.test.net",
+        name="TEST USER",
+        roles=Role.SUPERUSER,
+        orcid=123,
+        organisation_id=1,
+        confirmed=True,
+        organisation=org)
+    test_user = User.get(id=123)
+    test_user.save()
+    org.save()
+    with request_ctx("/load/org") as ctxx:
+        login_user(test_user, remember=True)
+        rv = ctxx.app.full_dispatch_request()
+        assert rv.status_code == 200
+        assert b"<!DOCTYPE html>" in rv.data, "Expected HTML content"
+
+
+def test_read_uploaded_file(request_ctx):
+    """Test Uploading File."""
+    with request_ctx() as ctxx:
+        form = FileUploadForm()
+        form.file_.name = "conftest.py"
+        with open(os.path.join(os.path.dirname(os.path.realpath(__file__)), 'conftest.py'), 'rb') as f:
+            request.files = {'conftest.py': f}
+            ctxx = views.read_uploaded_file(form)
+        assert "@pytest.fixture" in ctxx
+
+
+def test_user_orgs_org(request_ctx):
+    """Test add an organisation to the user."""
+    Organisation.get_or_create(
+        id=1,
+        name="THE ORGANISATION",
+        tuakiri_name="THE ORGANISATION",
+        confirmed=False,
+        orcid_client_id="CLIENT ID",
+        orcid_secret="Client Secret",
+        city="CITY",
+        country="COUNTRY",
+        disambiguated_id="ID",
+        disambiguation_source="SOURCE",
+        is_email_sent=True)
+    org = Organisation.get(id=1)
+    User.get_or_create(
+        id=123,
+        email="test123@test.test.net",
+        name="TEST USER",
+        roles=Role.SUPERUSER,
+        orcid=123,
+        organisation_id=1,
+        confirmed=True,
+        organisation=org)
+    user = User.get(id=123)
+    org.save()
+    user.save()
+    UserOrg.get_or_create(id=122, user=user, org=org, is_admin=True)
+    user_org = UserOrg.get(id=122)
+    user_org.save()
+    with request_ctx():
+        login_user(user, remember=True)
+        request._cached_json = {"id": 1, "name": "THE ORGANISATION", "is_admin": True, "is_tech_contact": True}
+        resp = views.user_orgs_org(user_id=123)
+        assert resp[1] == 200
+        assert Role.ADMIN in user.roles
+        organisation = Organisation.get(id=1)
+        # User becomes the technical contact of the organisation.
+        assert organisation.tech_contact == user
+
+
+def test_user_orgs(request_ctx):
+    """Test add an organisation to the user."""
+    Organisation.get_or_create(
+        id=1,
+        name="THE ORGANISATION",
+        tuakiri_name="THE ORGANISATION",
+        confirmed=False,
+        orcid_client_id="CLIENT ID",
+        orcid_secret="Client Secret",
+        city="CITY",
+        country="COUNTRY",
+        disambiguated_id="ID",
+        disambiguation_source="SOURCE",
+        is_email_sent=True)
+    org = Organisation.get(id=1)
+    User.get_or_create(
+        id=123,
+        email="test123@test.test.net",
+        name="TEST USER",
+        roles=Role.SUPERUSER,
+        orcid=123,
+        organisation_id=1,
+        confirmed=True,
+        organisation=org)
+    user = User.get(id=123)
+    org.save()
+    user.save()
+    UserOrg.get_or_create(id=122, user=user, org=org, is_admin=True)
+    user_org = UserOrg.get(id=122)
+    user_org.save()
+    user_id = str(user.id)
+    org_id = str(org.id)
+    with request_ctx("/hub/api/v0.1/users/" + user_id + "/orgs/") as ctxx:
+        login_user(user, remember=True)
+        rv = ctxx.app.full_dispatch_request()
+        assert rv.status_code == 200
+    with request_ctx("/hub/api/v0.1/users/" + user_id + "/orgs/" + org_id) as ctxxx:
+        login_user(user, remember=True)
+        rv = ctxxx.app.full_dispatch_request()
+        assert rv.status_code == 200
+    with request_ctx("/hub/api/v0.1/users/" + "1234" + "/orgs/") as ctxx:
+        # failure test case, user not found
+        login_user(user, remember=True)
+        rv = ctxx.app.full_dispatch_request()
+        assert rv.status_code == 404
+
+
+def test_api_credentials(request_ctx):
+    """Test manage API credentials.."""
+    Organisation.get_or_create(
+        id=1,
+        name="THE ORGANISATION",
+        tuakiri_name="THE ORGANISATION",
+        confirmed=False,
+        orcid_client_id="CLIENT ID",
+        orcid_secret="Client Secret",
+        city="CITY",
+        country="COUNTRY",
+        disambiguated_id="ID",
+        disambiguation_source="SOURCE",
+        is_email_sent=True)
+    org = Organisation.get(id=1)
+    User.get_or_create(
+        id=123,
+        email="test123@test.test.net",
+        name="TEST USER",
+        roles=Role.TECHNICAL,
+        orcid=123,
+        organisation_id=1,
+        confirmed=True,
+        organisation=org)
+    user = User.get(id=123)
+    org.save()
+    user.save()
+    UserOrg.get_or_create(id=122, user=user, org=org, is_admin=True)
+    user_org = UserOrg.get(id=122)
+    user_org.save()
+    Client.get_or_create(
+        id=1234,
+        name="Test_client",
+        user=user,
+        org=org,
+        client_id="requestd_client_id",
+        client_secret="xyz",
+        is_confidential="public",
+        grant_type="client_credentials",
+        response_type="xyz")
+    client_info = Client.get(id=1234)
+    client_info.save()
+    with request_ctx():
+        login_user(user, remember=True)
+        resp = views.api_credentials()
+        assert "requestd_client_id" in resp

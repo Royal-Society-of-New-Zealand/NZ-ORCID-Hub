@@ -720,7 +720,7 @@ def logout():
             sso_url_base = ''
         return redirect(sso_url_base + "/Shibboleth.sso/Logout?return=" + quote(
             url_for(
-                "uoa_slo" if org_name and org_name == "University of Auckland" else "login",
+                "uoa_slo" if org_name and org_name == "University of Auckland" else "index",
                 _external=True)))
     return redirect(url_for("index", logout=True))
 

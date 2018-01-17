@@ -207,7 +207,7 @@ class JsonOrYamlFileUploadForm(FlaskForm):
 class LogoForm(FlaskForm):
     """Organisation Logo image upload form."""
 
-    logo = FileField(validators=[
+    logo_file = FileField(validators=[
         FileRequired(),
         FileAllowed(["gif", "png", "jpg"], 'Only image files allowed!')
     ])

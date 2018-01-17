@@ -1,12 +1,11 @@
 # -*- coding: utf-8 -*-
 """Tests for util functions."""
-from unittest.mock import patch
 
 from flask_login import login_user
-
+from flask import make_response
 from orcid_hub import utils
 from orcid_hub.models import (AffiliationRecord, Organisation, Role, User, UserOrg, Task, FundingContributor,
-    FundingRecord, UserInvitation, OrcidToken, ExternalId)
+                              FundingRecord, UserInvitation, OrcidToken, ExternalId)
 from peewee import JOIN
 from itertools import groupby
 from unittest.mock import patch
@@ -268,12 +267,23 @@ def get_record_mock():
                  'path': '/0000-0002-3879-2651/activities'}, 'path': '/0000-0002-3879-2651'}
 
 
-def create_or_update_fund_or_aff_mock(affiliation=None, task_by_user=None, *args, **kwargs):
+def create_or_update_fund_mock(self=None, orcid=None, **kwargs):
     """Mock funding api call."""
-    return (12399, "12344", True)
+    v = make_response
+    v.status = 201
+    v.headers = {'Location': '12344/xyz/12399'}
+    return v
 
 
-@patch("orcid_hub.orcid_client.MemberAPI.create_or_update_funding", side_effect=create_or_update_fund_or_aff_mock)
+def create_or_update_aff_mock(affiliation=None, task_by_user=None, *args, **kwargs):
+    """Mock affiliation api call."""
+    v = make_response
+    v.status = 201
+    v.headers = {'Location': '12344/xyz/12399'}
+    return v
+
+
+@patch("orcid_api.MemberAPIV20Api.create_funding", side_effect=create_or_update_fund_mock)
 @patch("orcid_hub.orcid_client.MemberAPI.get_record", side_effect=get_record_mock)
 def test_create_or_update_funding(patch, test_db, request_ctx):
     """Test create or update funding."""
@@ -314,7 +324,7 @@ def test_create_or_update_funding(patch, test_db, request_ctx):
         title="Test titile",
         translated_title="Test title",
         translated_title_language_code="Test",
-        type="Test type",
+        type="GRANT",
         organization_defined_type="Test org",
         short_description="Test desc",
         amount="1000",
@@ -398,7 +408,7 @@ def test_create_or_update_funding(patch, test_db, request_ctx):
     assert "12344" == funding_contributor.orcid
 
 
-@patch("orcid_hub.orcid_client.MemberAPI.create_or_update_affiliation", side_effect=create_or_update_fund_or_aff_mock)
+@patch("orcid_api.MemberAPIV20Api.update_employment", side_effect=create_or_update_aff_mock)
 @patch("orcid_hub.orcid_client.MemberAPI.get_record", side_effect=get_record_mock)
 def test_create_or_update_affiliation(patch, test_db, request_ctx):
     """Test create or update affiliation."""
@@ -501,4 +511,4 @@ def test_create_or_update_affiliation(patch, test_db, request_ctx):
     affiliation_record = AffiliationRecord.get(task=t)
     assert 12399 == affiliation_record.put_code
     assert "12344" == affiliation_record.orcid
-    assert "Employment record was created" in affiliation_record.status
+    assert "Employment record was updated" in affiliation_record.status
