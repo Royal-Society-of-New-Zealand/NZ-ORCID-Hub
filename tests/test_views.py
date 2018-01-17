@@ -296,3 +296,91 @@ def test_read_uploaded_file(request_ctx):
             request.files = {'conftest.py': f}
             ctxx = views.read_uploaded_file(form)
         assert "@pytest.fixture" in ctxx
+
+
+def test_user_orgs_org(request_ctx):
+    """Test add an organisation to the user."""
+    Organisation.get_or_create(
+        id=1,
+        name="THE ORGANISATION",
+        tuakiri_name="THE ORGANISATION",
+        confirmed=False,
+        orcid_client_id="CLIENT ID",
+        orcid_secret="Client Secret",
+        city="CITY",
+        country="COUNTRY",
+        disambiguated_id="ID",
+        disambiguation_source="SOURCE",
+        is_email_sent=True)
+    org = Organisation.get(id=1)
+    User.get_or_create(
+        id=123,
+        email="test123@test.test.net",
+        name="TEST USER",
+        roles=Role.SUPERUSER,
+        orcid=123,
+        organisation_id=1,
+        confirmed=True,
+        organisation=org)
+    user = User.get(id=123)
+    org.save()
+    user.save()
+    UserOrg.get_or_create(id=122, user=user, org=org, is_admin=True)
+    user_org = UserOrg.get(id=122)
+    user_org.save()
+    with request_ctx():
+        login_user(user, remember=True)
+        request._cached_json = {"id": 1, "name": "THE ORGANISATION", "is_admin": True, "is_tech_contact": True}
+        resp = views.user_orgs_org(user_id=123)
+        assert resp[1] == 200
+        assert Role.ADMIN in user.roles
+        organisation = Organisation.get(id=1)
+        # User becomes the technical contact of the organisation.
+        assert organisation.tech_contact == user
+
+
+def test_user_orgs(request_ctx):
+    """Test add an organisation to the user."""
+    Organisation.get_or_create(
+        id=1,
+        name="THE ORGANISATION",
+        tuakiri_name="THE ORGANISATION",
+        confirmed=False,
+        orcid_client_id="CLIENT ID",
+        orcid_secret="Client Secret",
+        city="CITY",
+        country="COUNTRY",
+        disambiguated_id="ID",
+        disambiguation_source="SOURCE",
+        is_email_sent=True)
+    org = Organisation.get(id=1)
+    User.get_or_create(
+        id=123,
+        email="test123@test.test.net",
+        name="TEST USER",
+        roles=Role.SUPERUSER,
+        orcid=123,
+        organisation_id=1,
+        confirmed=True,
+        organisation=org)
+    user = User.get(id=123)
+    org.save()
+    user.save()
+    UserOrg.get_or_create(id=122, user=user, org=org, is_admin=True)
+    user_org = UserOrg.get(id=122)
+    user_org.save()
+    user_id = str(user.id)
+    org_id = str(org.id)
+    with request_ctx("/hub/api/v0.1/users/" + user_id + "/orgs/") as ctxx:
+        login_user(user, remember=True)
+        rv = ctxx.app.full_dispatch_request()
+        assert rv.status_code == 200
+    with request_ctx("/hub/api/v0.1/users/" + user_id + "/orgs/" + org_id) as ctxxx:
+        login_user(user, remember=True)
+        rv = ctxxx.app.full_dispatch_request()
+        assert rv.status_code == 200
+    with request_ctx("/hub/api/v0.1/users/" + "1234" + "/orgs/") as ctxx:
+        # failure test case, user not found
+        login_user(user, remember=True)
+        rv = ctxx.app.full_dispatch_request()
+        assert rv.status_code == 404
