@@ -1167,22 +1167,6 @@ def employment_list(user_id):
     return show_record_section(user_id, "EMP")
 
 
-@app.route("/<int:funding_record_id>/FundingContributor/list")
-@app.route("/<int:funding_record_id>/FundingContributor")
-@login_required
-def funding_contributor_list(funding_record_id):
-    """Show the funding contributors list of the selected user."""
-    return redirect(url_for("fundingcontributor.index_view", funding_record_id=funding_record_id))
-
-
-@app.route("/<int:funding_record_id>/ExternaId/list")
-@app.route("/<int:funding_record_id>/ExternaId")
-@login_required
-def externalid_list(funding_record_id):
-    """Show the External id list of the funding item."""
-    return redirect(url_for("externalid.index_view", funding_record_id=funding_record_id))
-
-
 @app.route("/<int:user_id>/edu/list")
 @app.route("/<int:user_id>/edu")
 @login_required
