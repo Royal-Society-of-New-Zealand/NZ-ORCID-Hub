@@ -8,7 +8,7 @@ from orcid_hub.models import (AffiliationRecord, Organisation, Role, User, UserO
                               FundingRecord, UserInvitation, OrcidToken, ExternalId)
 from peewee import JOIN
 from itertools import groupby
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 import logging
 
 logger = logging.getLogger(__name__)
@@ -512,3 +512,37 @@ def test_create_or_update_affiliation(patch, test_db, request_ctx):
     assert 12399 == affiliation_record.put_code
     assert "12344" == affiliation_record.orcid
     assert "Employment record was updated" in affiliation_record.status
+
+
+def test_send_email(app):
+    """Test emailing."""
+    with app.app_context(), patch("emails.message.Message") as msg_cls, patch(
+            "flask.current_app.jinja_env"):
+        # login_user(super_user)
+        msg = msg_cls.return_value = Mock()
+        utils.send_email(
+            "template.html", (
+                "TEST USER",
+                "test123@test.edu",
+            ),
+            subject="TEST")
+
+        msg_cls.assert_called_once()
+        msg.send.assert_called_once()
+
+    with app.app_context(), patch("emails.message.Message") as msg_cls, patch(
+            "flask.current_app.jinja_env"):
+        # login_user(super_user)
+        msg = msg_cls.return_value = Mock()
+        utils.send_email(
+            "template", (
+                "TEST USER",
+                "test123@test.edu",
+            ),
+            logo="LOGO",
+            cc_email=None,
+            reply_to=None,
+            subject="TEST")
+
+        msg_cls.assert_called_once()
+        msg.send.assert_called_once()
