@@ -18,7 +18,7 @@ from orcid_hub import orcid_client, views
 from orcid_hub.config import ORCID_BASE_URL
 from orcid_hub.models import UserOrgAffiliation  # noqa: E128
 from orcid_hub.models import (AffiliationRecord, Client, Grant, OrcidToken, Organisation, Role,
-                              Task, Token, User, UserOrg, Url)
+                              Task, Token, User, UserOrg, Url, OrgInfo)
 from orcid_hub.forms import FileUploadForm
 from flask import request
 
@@ -475,3 +475,67 @@ def test_api_credentials(request_ctx):
         login_user(user, remember=True)
         resp = views.api_credentials()
         assert "requestd_client_id" in resp
+
+
+def test_page_not_found(request_ctx):
+    """Test handle nonexistin pages."""
+    with request_ctx():
+        resp = views.page_not_found("abc")
+        assert 404 == resp[1]
+        assert "Sorry, that page doesn't exist." in resp[0]
+
+
+def test_action_invite(request_ctx):
+    """Test handle nonexistin pages."""
+    Organisation.get_or_create(
+        id=1,
+        name="THE ORGANISATION",
+        tuakiri_name="THE ORGANISATION",
+        confirmed=False,
+        orcid_client_id="CLIENT ID",
+        orcid_secret="Client Secret",
+        city="CITY",
+        country="COUNTRY",
+        disambiguated_id="ID",
+        disambiguation_source="SOURCE",
+        is_email_sent=True)
+    org = Organisation.get(id=1)
+    User.get_or_create(
+        id=123,
+        email="test123@test.test.net",
+        name="TEST USER",
+        roles=Role.TECHNICAL,
+        orcid=123,
+        organisation_id=1,
+        confirmed=True,
+        organisation=org)
+    user = User.get(id=123)
+    org.save()
+    user.save()
+    UserOrg.get_or_create(id=122, user=user, org=org, is_admin=True)
+    user_org = UserOrg.get(id=122)
+    user_org.save()
+    OrgInfo.get_or_create(
+        id=1234,
+        name="Test_client",
+        tuakiri_name="xyz",
+        title="mr",
+        first_name="xyz",
+        last_name="xyz",
+        role="lead",
+        email="test123@test.test.net",
+        phone="121",
+        is_public=True,
+        country="NZ",
+        city="Auckland",
+        disambiguated_id="123",
+        disambiguation_source="ringgold")
+    org_info = OrgInfo.get(id=1234)
+    org_info.save()
+    with request_ctx():
+        login_user(user, remember=True)
+        views.OrgInfoAdmin.action_invite(OrgInfo, ids=[1234])
+        # New organisation is created from OrgInfo and user is added with Admin role
+        org2 = Organisation.get(id=2)
+        assert "Test_client" == org2.name
+        assert Role.ADMIN in user.roles
