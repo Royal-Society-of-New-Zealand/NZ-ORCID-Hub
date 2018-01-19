@@ -1,15 +1,18 @@
 # -*- coding: utf-8 -*-
 """Tests for util functions."""
 
-from flask_login import login_user
-from flask import make_response
-from orcid_hub import utils
-from orcid_hub.models import (AffiliationRecord, Organisation, Role, User, UserOrg, Task, FundingContributor,
-                              FundingRecord, UserInvitation, OrcidToken, ExternalId)
-from peewee import JOIN
+import logging
 from itertools import groupby
 from unittest.mock import Mock, patch
-import logging
+
+import pytest
+from flask import make_response
+from flask_login import login_user
+from peewee import JOIN
+
+from orcid_hub import utils
+from orcid_hub.models import (AffiliationRecord, ExternalId, FundingContributor, FundingRecord,
+                              OrcidToken, Organisation, Role, Task, User, UserInvitation, UserOrg)
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -516,34 +519,56 @@ def test_create_or_update_affiliation(patch, test_db, request_ctx):
 
 def test_send_email(app):
     """Test emailing."""
-    with app.app_context(), patch("emails.message.Message") as msg_cls, patch(
-            "flask.current_app.jinja_env"):
+    with app.app_context():
+
+        # import pdb; pdb.set_trace()
+        # app.config["SERVER_NAME"] = "ORCIDHUB"
+
+        with patch("emails.message.Message") as msg_cls, patch(
+                "flask.current_app.jinja_env"):
+            # login_user(super_user)
+            msg = msg_cls.return_value = Mock()
+            utils.send_email(
+                "template.html", (
+                    "TEST USER",
+                    "test123@test.edu",
+                ),
+                subject="TEST")
+
+            msg_cls.assert_called_once()
+            msg.send.assert_called_once()
+
+            dkip_key_path = app.config["DKIP_KEY_PATH"]
+            app.config["DKIP_KEY_PATH"] = __file__
+            utils.send_email(
+                "template", (
+                    "TEST USER",
+                    "test123@test.edu",
+                ),
+                base="BASE",
+                subject="TEST")
+            msg.dkim.assert_called_once()
+            msg.dkim.reset_mock()
+            app.config["DKIP_KEY_PATH"] = "NON-EXISTING FILE..."
+            utils.send_email(
+                "template", (
+                    "TEST USER",
+                    "test123@test.edu",
+                ),
+                base="BASE",
+                subject="TEST")
+            msg.dkim.assert_not_called()
+            app.config["DKIP_KEY_PATH"] = dkip_key_path
+
+        # temlates w/o extension and missing template file
         # login_user(super_user)
-        msg = msg_cls.return_value = Mock()
-        utils.send_email(
-            "template.html", (
-                "TEST USER",
-                "test123@test.edu",
-            ),
-            subject="TEST")
+        from jinja2.exceptions import TemplateNotFound
 
-        msg_cls.assert_called_once()
-        msg.send.assert_called_once()
-
-    # temlates w/o extension
-    with app.app_context(), patch("emails.message.Message") as msg_cls, patch(
-            "flask.current_app.jinja_env"):
-        # login_user(super_user)
-        msg = msg_cls.return_value = Mock()
-        utils.send_email(
-            "template", (
-                "TEST USER",
-                "test123@test.edu",
-            ),
-            logo="LOGO",
-            cc_email=None,
-            reply_to=None,
-            subject="TEST")
-
-        msg_cls.assert_called_once()
-        msg.send.assert_called_once()
+        with pytest.raises(TemplateNotFound):
+            utils.send_email(
+                "missing_template", (
+                    "TEST USER",
+                    "test123@test.edu",
+                ),
+                logo="LOGO",
+                subject="TEST")

@@ -98,13 +98,7 @@ def send_email(template_filename,
     if not base:
         base = app.config.get("DEFAULT_EMAIL_TEMPLATE")
 
-    jinja_env = jinja_env.overlay(autoescape=False, extensions=[RewrapExtension])
-
-    def get_template(filename):
-        try:
-            return jinja_env.get_template(filename)
-        except jinja2.exceptions.TemplateNotFound:
-            return None
+    jinja_env = jinja_env.overlay(autoescape=False)
 
     def _jinja2_email(name, email):
         if name is None:
@@ -112,7 +106,7 @@ def send_email(template_filename,
             name = jinja_env.undefined(name='name', hint=hint)
         return {"name": name, "email": email}
 
-    template = get_template(template_filename)
+    template = jinja_env.get_template(template_filename)
 
     kwargs["sender"] = _jinja2_email(*sender)
     kwargs["recipient"] = _jinja2_email(*recipient)
@@ -141,7 +135,7 @@ def send_email(template_filename,
         mail_from=(app.config.get("APP_NAME", "ORCID Hub"), app.config.get("MAIL_DEFAULT_SENDER")),
         html=html_msg,
         text=plain_msg)
-    dkip_key_path = os.path.join(app.root_path, ".keys", "dkim.key")
+    dkip_key_path = app.config["DKIP_KEY_PATH"]
     if os.path.exists(dkip_key_path):
         msg.dkim(key=open(dkip_key_path), domain="orcidhub.org.nz", selector="default")
     if cc_email:
@@ -149,73 +143,6 @@ def send_email(template_filename,
     msg.set_headers({"reply-to": reply_to})
     msg.mail_to.append(recipient)
     msg.send(smtp=dict(host=app.config["MAIL_SERVER"], port=app.config["MAIL_PORT"]))
-
-
-class RewrapExtension(jinja2.ext.Extension):
-    """The :mod:`jinja2` extension adds a ``{% rewrap %}...{% endrewrap %}`` block.
-
-    The contents in the rewrap block are modified as follows
-    * whitespace at the start and end of lines is discarded
-    * the contents are split into 'paragraphs' separated by blank lines
-    * empty paragraphs are discarded - so two blank lines is equivalent to
-      one blank line, and blank lines at the start and end of the block
-      are effectively discarded
-    * lines in each paragraph are joined to one line, and then text wrapped
-      to lines `width` characters wide
-    * paragraphs are re-joined into text, with blank lines insert in between
-      them
-    It does not insert a newline at the end of the block, which means that::
-        Something, then a blank line
-        {% block rewrap %}
-        some text
-        {% endblock %}
-        After another blank line
-    will do what you expect.
-    You may optionally specify the width like so::
-        {% rewrap 72 %}
-    It defaults to 78.
-    """
-
-    tags = set(['rewrap'])
-
-    def parse(self, parser):  # noqa: D102
-        # first token is 'rewrap'
-        lineno = parser.stream.next().lineno
-
-        if parser.stream.current.type != 'block_end':
-            width = parser.parse_expression()
-        else:
-            width = jinja2.nodes.Const(78)
-
-        body = parser.parse_statements(['name:endrewrap'], drop_needle=True)
-
-        call = self.call_method('_rewrap', [width])
-        return jinja2.nodes.CallBlock(call, [], [], body).set_lineno(lineno)
-
-    def _rewrap(self, width, caller):
-        contents = caller()
-        lines = [line.strip() for line in contents.splitlines()]
-        lines.append('')
-
-        paragraphs = []
-        start = 0
-        while start != len(lines):
-            end = lines.index('', start)
-            if start != end:
-                paragraph = ' '.join(lines[start:end])
-                paragraphs.append(paragraph)
-            start = end + 1
-
-        new_lines = []
-
-        for paragraph in paragraphs:
-            if new_lines:
-                new_lines.append('')
-            new_lines += textwrap.wrap(paragraph, width)
-
-        # under the assumption that there will be a newline immediately after
-        # the endrewrap block, don't put a newline on the end.
-        return '\n'.join(new_lines)
 
 
 def generate_confirmation_token(*args, **kwargs):
