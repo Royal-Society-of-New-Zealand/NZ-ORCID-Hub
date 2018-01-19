@@ -53,7 +53,6 @@ def app():
         _app.config["EXTERNAL_SP"] = None
         _app.config["SENTRY_DSN"] = None
         _app.config["WTF_CSRF_ENABLED"] = False
-        _app.config["SERVER_NAME"] = "ORCIDHUB"
         _app.sentry = None
 
         yield _app
