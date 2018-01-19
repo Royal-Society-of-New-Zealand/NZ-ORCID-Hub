@@ -552,10 +552,10 @@ def test_action_invite(patch, request_ctx):
 
 def test_shorturl(request_ctx):
     """Test short url."""
-    url = "https://localhost/xsdsdsfdds"
+    url = "http://localhost/xsdsdsfdds"
     with request_ctx():
         rv = views.shorturl(url)
-        assert "localhost" in rv
+        assert "http://" in rv
 
 
 def test_activate_all(request_ctx):
