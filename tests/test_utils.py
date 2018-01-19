@@ -593,6 +593,7 @@ def test_send_email(app):
             # Using organisation template
             msg.reset_mock()
             org.email_template = "TEMPLATE {LOGO}"
+            org.email_template_enabled = True
             org.save()
             utils.send_email(
                 "template", (
