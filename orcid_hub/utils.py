@@ -4,15 +4,12 @@
 import json
 import logging
 import os
-import textwrap
 from datetime import datetime, timedelta
 from itertools import filterfalse, groupby
 from urllib.parse import urlencode, urlparse
 
 import emails
 import flask
-import jinja2
-import jinja2.ext
 import requests
 from flask import request, url_for
 from flask_login import current_user
@@ -860,7 +857,7 @@ def process_tasks(max_rows=20):
                 protocol_scheme = 'https'
             export_url = flask.url_for(
                 "affiliationrecord.export"
-                if task.task_type == TaskType.AFFILIATION else "fundingrecord.export",
+                if task.task_type == TaskType.AFFILIATION.value else "fundingrecord.export",
                 export_type="csv",
                 _scheme=protocol_scheme,
                 task_id=task.id,
