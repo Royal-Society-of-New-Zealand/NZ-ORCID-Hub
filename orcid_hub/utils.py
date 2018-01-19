@@ -84,14 +84,7 @@ def send_email(template_filename,
     """
     if not template_filename.endswith(".html"):
         template_filename += ".html"
-    if flask.current_app:
-        # use the app's env if it's available, so that url_for may be used
-        jinja_env = flask.current_app.jinja_env
-    else:
-        path = os.path.join(os.path.dirname(__file__), "templates")
-        loader = jinja2.FileSystemLoader(path)
-        jinja_env = jinja2.Environment(
-            loader=loader, extensions=['jinja2.ext.autoescape', 'jinja2.ext.with_'])
+    jinja_env = flask.current_app.jinja_env
 
     if logo is None:
         logo = url_for("static", filename="images/banner-small.png", _external=True)

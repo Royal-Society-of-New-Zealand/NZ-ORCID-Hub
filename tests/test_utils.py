@@ -530,6 +530,7 @@ def test_send_email(app):
         msg_cls.assert_called_once()
         msg.send.assert_called_once()
 
+    # temlates w/o extension
     with app.app_context(), patch("emails.message.Message") as msg_cls, patch(
             "flask.current_app.jinja_env"):
         # login_user(super_user)
