@@ -21,6 +21,8 @@ from orcid_hub.models import (AffiliationRecord, Client, Grant, OrcidToken, Orga
                               Task, Token, User, UserOrg, Url, OrgInfo)
 from orcid_hub.forms import FileUploadForm
 from flask import request
+from orcid_hub import app
+from werkzeug.datastructures import ImmutableMultiDict
 
 fake_time = time.time()
 
@@ -87,7 +89,7 @@ def test_models(test_db):
     yield test_db
 
 
-def test_admin_view_access(request_ctx):
+def test_superuser_view_access(request_ctx):
     """Test if SUPERUSER can access Flask-Admin"."""
     with request_ctx("/admin/user/") as ctx:
         test_user = User(
@@ -485,7 +487,14 @@ def test_page_not_found(request_ctx):
         assert "Sorry, that page doesn't exist." in resp[0]
 
 
-def test_action_invite(request_ctx):
+def send_mail_mock(*argvs, **kwargs):
+    """Mock email invitation."""
+    app.logger.info(f"***\nActually email invitation was mocked, so no email sent!!!!!")
+    return True
+
+
+@patch("orcid_hub.utils.send_email", side_effect=send_mail_mock)
+def test_action_invite(patch, request_ctx):
     """Test handle nonexistin pages."""
     Organisation.get_or_create(
         id=1,
@@ -539,3 +548,79 @@ def test_action_invite(request_ctx):
         org2 = Organisation.get(id=2)
         assert "Test_client" == org2.name
         assert Role.ADMIN in user.roles
+
+
+def test_shorturl(request_ctx):
+    """Test short url."""
+    url = "https://localhost/xsdsdsfdds"
+    with request_ctx():
+        rv = views.shorturl(url)
+        assert "localhost" in rv
+
+
+def test_activate_all(request_ctx):
+    """Test batch registraion of users."""
+    Organisation.get_or_create(
+        id=1,
+        name="THE ORGANISATION",
+        tuakiri_name="THE ORGANISATION",
+        confirmed=False,
+        orcid_client_id="CLIENT ID",
+        orcid_secret="Client Secret",
+        city="CITY",
+        country="COUNTRY",
+        disambiguated_id="ID",
+        disambiguation_source="SOURCE",
+        is_email_sent=True)
+    org = Organisation.get(id=1)
+    User.get_or_create(
+        id=123,
+        email="test123@test.test.net",
+        name="TEST USER",
+        roles=Role.TECHNICAL,
+        orcid=123,
+        organisation_id=1,
+        confirmed=True,
+        organisation=org)
+    user = User.get(id=123)
+    org.save()
+    user.save()
+    UserOrg.get_or_create(id=122, user=user, org=org, is_admin=True)
+    user_org = UserOrg.get(id=122)
+    user_org.save()
+
+    Task.get_or_create(
+        id=1234,
+        org=org,
+        completed_at="12/12/12",
+        filename="xyz.txt",
+        created_by=user,
+        updated_by=user,
+        task_type=0)
+    Task.get_or_create(
+        id=12345,
+        org=org,
+        completed_at="12/12/12",
+        filename="xyz.txt",
+        created_by=user,
+        updated_by=user,
+        task_type=1)
+
+    task1 = Task.get(id=1234)
+    task1.save()
+    task2 = Task.get(id=12345)
+    task2.save()
+    with request_ctx("/activate_all", method="POST") as ctxx:
+        login_user(user, remember=True)
+        request.args = ImmutableMultiDict([('url', 'http://localhost/affiliation_record_activate_for_batch')])
+        request.form = ImmutableMultiDict([('task_id', '1234')])
+        rv = ctxx.app.full_dispatch_request()
+        assert rv.status_code == 302
+        assert rv.location.startswith("http://localhost/affiliation_record_activate_for_batch")
+    with request_ctx("/activate_all", method="POST") as ctxx:
+        login_user(user, remember=True)
+        request.args = ImmutableMultiDict([('url', 'http://localhost/funding_record_activate_for_batch')])
+        request.form = ImmutableMultiDict([('task_id', '12345')])
+        rv = ctxx.app.full_dispatch_request()
+        assert rv.status_code == 302
+        assert rv.location.startswith("http://localhost/funding_record_activate_for_batch")
