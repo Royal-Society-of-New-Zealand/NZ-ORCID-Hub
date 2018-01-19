@@ -600,14 +600,14 @@ def test_send_email(app):
                     "TEST USER",
                     "test123@test.edu",
                 ),
-                base="BASE {LOGO}",
+                sender=(None, None, ),
                 subject="TEST WITH ORG BASE AND LOGO",
                 org=org)
             msg.send.assert_called_once()
             _, kwargs = msg_cls.call_args
             assert kwargs["subject"] == "TEST WITH ORG BASE AND LOGO"
             assert kwargs["mail_from"] == ("NZ ORCID HUB", "no-reply@orcidhub.org.nz", )
-            expected_html = f"BASE http://{app.config['SERVER_NAME'].lower()}/logo/TOKEN000"
+            expected_html = f"TEMPLATE http://{app.config['SERVER_NAME'].lower()}/logo/TOKEN000"
             assert kwargs["html"] == expected_html
             assert kwargs["text"] == expected_html + "\n\n"
 
