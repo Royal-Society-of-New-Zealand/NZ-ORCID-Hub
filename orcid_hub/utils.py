@@ -431,7 +431,7 @@ def create_or_update_funding(user, org_id, records, *args, **kwargs):
                     exception_msg = json.loads(ex.body)
                 fc.add_status_line(f"Exception occured processing the record: {exception_msg}.")
                 fr.add_status_line(
-                    f"Error processing record, Fix and reset to enable this record to be processed: {exception_msg}."
+                    f"Error processing record. Fix and reset to enable this record to be processed: {exception_msg}."
                 )
 
             finally:
@@ -608,8 +608,8 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
                 if ((r.get("start-date") is None and r.get("end-date") is None
                      and r.get("department-name") is None and r.get("role-title") is None)
                         or (r.get("start-date") == affiliation_record.start_date
-                            and r.get("department-name") == affiliation_record.department_name
-                            and r.get("role-title") == affiliation_record.role_title)):
+                            and r.get("department-name") == affiliation_record.department
+                            and r.get("role-title") == affiliation_record.role)):
                     affiliation_record.put_code = put_code
                     taken_put_codes.add(put_code)
                     app.logger.debug(
@@ -618,30 +618,25 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
                     break
 
         for task_by_user in records:
-            ar = task_by_user.affiliation_record
-            at = ar.affiliation_type.lower()
-            if at in EMP_CODES:
-                match_put_code(employments, ar)
-            elif at in EDU_CODES:
-                match_put_code(educations, ar)
-
-        for task_by_user in records:
-            ar = task_by_user.affiliation_record
-            at = ar.affiliation_type.lower()
-
-            if at in EMP_CODES:
-                affiliation = Affiliation.EMP
-            elif at in EDU_CODES:
-                affiliation = Affiliation.EDU
-            else:
-                logger.info(f"For {user} not able to determine affiliaton type with {org}")
-                ar.processed_at = datetime.now()
-                ar.add_status_line(f"Unsupported affiliation type '{at}' allowed values are: " +
-                                   ', '.join(at for at in AFFILIATION_TYPES))
-                ar.save()
-                continue
-
             try:
+                ar = task_by_user.affiliation_record
+                at = ar.affiliation_type.lower()
+
+                if at in EMP_CODES:
+                    match_put_code(employments, ar)
+                    affiliation = Affiliation.EMP
+                elif at in EDU_CODES:
+                    match_put_code(educations, ar)
+                    affiliation = Affiliation.EDU
+                else:
+                    logger.info(f"For {user} not able to determine affiliaton type with {org}")
+                    ar.processed_at = datetime.now()
+                    ar.add_status_line(
+                        f"Unsupported affiliation type '{at}' allowed values are: " + ', '.join(
+                            at for at in AFFILIATION_TYPES))
+                    ar.save()
+                    continue
+
                 put_code, orcid, created = api.create_or_update_affiliation(
                     affiliation=affiliation, **ar._data)
                 if created:
@@ -655,6 +650,7 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
             except Exception as ex:
                 logger.exception(f"For {user} encountered exception")
                 ar.add_status_line(f"Exception occured processing the record: {ex}.")
+                ar.processed_at = datetime.now()
 
             finally:
                 ar.save()
