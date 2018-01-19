@@ -54,6 +54,7 @@ def send_email(template_filename,
                subject=None,
                base=None,
                logo=None,
+               org=None,
                **kwargs):
     """Send an email, acquiring its payload by rendering a jinja2 template.
 
@@ -65,6 +66,7 @@ def send_email(template_filename,
     :param recipient: 'To' (name, email)
     :type sender: :class:`tuple` (:class:`str`, :class:`str`)
     :param sender: 'From' (name, email)
+    :param org: organisation on which behalf the email is sent
     * `recipient` and `sender` are made available to the template as variables
     * In any email tuple, name may be ``None``
     * The subject is retrieved from a sufficiently-global template variable;
@@ -82,19 +84,22 @@ def send_email(template_filename,
       Note that ``{{ variables }}`` in manually wrapped text can cause
       problems!
     """
+    if not org and current_user and not current_user.is_anonymous:
+        org = current_user.organisation
     if not template_filename.endswith(".html"):
         template_filename += ".html"
     jinja_env = flask.current_app.jinja_env
 
     if logo is None:
-        logo = url_for("static", filename="images/banner-small.png", _external=True)
-    if base is None and current_user and not current_user.is_anonymous:
-        if current_user:
-            org = current_user.organisation
-            if org.email_template_enabled and org.email_template:
-                base = org.email_template
-                if org.logo:
-                    logo = url_for("logo_image", token=org.logo.token, _external=True)
+        if org and org.logo:
+            logo = url_for("logo_image", token=org.logo.token, _external=True)
+        else:
+            logo = url_for("static", filename="images/banner-small.png", _external=True)
+
+    if not base and org:
+        if org.email_template_enabled and org.email_template:
+            base = org.email_template
+
     if not base:
         base = app.config.get("DEFAULT_EMAIL_TEMPLATE")
 
@@ -238,6 +243,7 @@ def send_funding_invitation(inviter, org, email, name, task_id=None, **kwargs):
                 reply_to=(inviter.name, inviter.email),
                 invitation_url=invitation_url,
                 org_name=user.organisation.name,
+                org=org,
                 user=user)
 
         user.save()
@@ -408,6 +414,7 @@ def send_user_invitation(inviter,
                 reply_to=(inviter.name, inviter.email),
                 invitation_url=invitation_url,
                 org_name=user.organisation.name,
+                org=org,
                 user=user)
 
         user.save()
@@ -590,6 +597,7 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
                     reply_to=(task_by_user.created_by.name, task_by_user.created_by.email),
                     invitation_url=invitation_url,
                     org_name=user.organisation.name,
+                    org=org,
                     user=user)
             UserInvitation.create(
                 invitee_id=user.id,
