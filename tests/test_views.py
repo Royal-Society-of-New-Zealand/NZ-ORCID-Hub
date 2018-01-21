@@ -370,7 +370,7 @@ def test_user_orgs_org(request_ctx):
     user = User.get(id=123)
     org.save()
     user.save()
-    UserOrg.get_or_create(id=122, user=user, org=org, is_admin=True)
+    UserOrg.get_or_create(id=122, user=user, org=org, is_admin=False)
     user_org = UserOrg.get(id=122)
     user_org.save()
     with request_ctx():
@@ -378,10 +378,19 @@ def test_user_orgs_org(request_ctx):
         request._cached_json = {"id": 1, "name": "THE ORGANISATION", "is_admin": True, "is_tech_contact": True}
         resp = views.user_orgs_org(user_id=123)
         assert resp[1] == 200
-        assert Role.ADMIN in user.roles
+        user_org = UserOrg.get(id=122)
+        assert user_org.is_admin is True
         organisation = Organisation.get(id=1)
         # User becomes the technical contact of the organisation.
         assert organisation.tech_contact == user
+    with request_ctx(method="DELETE"):
+        # Delete user and organisation association
+        login_user(user, remember=True)
+        request._cached_json = {"id": 1, "name": "THE ORGANISATION", "is_admin": True, "is_tech_contact": True}
+        resp = views.user_orgs_org(user_id=123)
+        assert "DELETED" in resp.data.decode("utf-8")
+        user = User.get(id=123)
+        assert user.organisation_id is None
 
 
 def test_user_orgs(request_ctx):
