@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Application configuration."""
 
-from os import environ, urandom
+from os import environ, urandom, path
 
 ENV = environ.get("ENV", "dev")
 
@@ -131,3 +131,5 @@ DEFAULT_EMAIL_TEMPLATE = """<!DOCTYPE html>
   </body>
 </html>
 """
+
+DKIP_KEY_PATH = path.join(path.dirname(path.relpath(path.relpath(__file__))), ".keys", "dkim.key")

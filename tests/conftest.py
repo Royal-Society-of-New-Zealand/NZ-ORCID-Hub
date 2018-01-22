@@ -44,7 +44,7 @@ def app():
 
     with test_database(
             _db,
-        (Organisation, User, UserOrg, OrcidToken, UserOrgAffiliation, OrgInfo, Task,
+        (File, Organisation, User, UserOrg, OrcidToken, UserOrgAffiliation, OrgInfo, Task,
          AffiliationRecord, FundingRecord, FundingContributor, OrcidAuthorizeCall, OrcidApiCall, Url,
          UserInvitation, OrgInvitation, ExternalId, Client),
             fail_silently=True):  # noqa: F405
@@ -53,6 +53,7 @@ def app():
         _app.config["EXTERNAL_SP"] = None
         _app.config["SENTRY_DSN"] = None
         _app.config["WTF_CSRF_ENABLED"] = False
+        #_app.config["SERVER_NAME"] = "ORCIDHUB"
         _app.sentry = None
 
         yield _app
