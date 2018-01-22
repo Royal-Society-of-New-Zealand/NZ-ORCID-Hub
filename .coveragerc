@@ -16,6 +16,9 @@ omit =
     config.py
     create.py
     setup.py
+    orcid_hub/mocks/__init__.py
+    orcid_hub/cli.py
+    orcid_hub/failover.py
 
 [report]
 omit =
@@ -34,6 +37,9 @@ omit =
     config.py
     create.py
     setup.py
+    orcid_hub/mocks/__init__.py
+    orcid_hub/cli.py
+    orcid_hub/failover.py
 
 # Regexes for lines to exclude from consideration
 exclude_lines =
