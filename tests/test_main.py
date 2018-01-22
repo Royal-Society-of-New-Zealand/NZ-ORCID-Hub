@@ -2,17 +2,16 @@
 """Tests for core functions."""
 
 import pprint
+from unittest.mock import patch
 
 import pytest
-from orcid_hub import authcontroller
-from flask_login import login_user
 from flask import request, session
-from unittest.mock import patch
+from flask_login import login_user
 from werkzeug.datastructures import ImmutableMultiDict
 
-from orcid_hub import login_provider, utils
-from orcid_hub.models import Organisation, OrgInfo, OrgInvitation, Role, User, UserOrg, OrcidAuthorizeCall, \
-    UserInvitation, Affiliation, OrcidToken
+from orcid_hub import authcontroller, login_provider, utils
+from orcid_hub.models import (Affiliation, OrcidAuthorizeCall, OrcidToken, Organisation, OrgInfo,
+                              OrgInvitation, Role, User, UserInvitation, UserOrg)
 
 
 def test_index(client):
@@ -393,12 +392,28 @@ def test_orcid_login(request_ctx):
         assert "&email=test123%40test.test.net" in orcid_authorize.url
 
 
-def fetch_token_mock(self, token_url=None, code=None, authorization_response=None,
-                     body='', auth=None, username=None, password=None, method='POST',
-                     timeout=None, headers=None, verify=True, proxies=None, **kwargs):
+def fetch_token_mock(self,
+                     token_url=None,
+                     code=None,
+                     authorization_response=None,
+                     body='',
+                     auth=None,
+                     username=None,
+                     password=None,
+                     method='POST',
+                     timeout=None,
+                     headers=None,
+                     verify=True,
+                     proxies=None,
+                     **kwargs):
     """Mock token fetching api call."""
-    token = {'orcid': '12121', 'name': 'ros', 'access_token': 'xyz', 'refresh_token': 'xyz',
-             'scope': '/activities/update'}
+    token = {
+        'orcid': '12121',
+        'name': 'ros',
+        'access_token': 'xyz',
+        'refresh_token': 'xyz',
+        'scope': '/activities/update'
+    }
     return token
 
 
@@ -449,31 +464,33 @@ def test_orcid_login_callback_admin_flow(patch, patch2, request_ctx):
         assert ctxx.location.startswith("/")
 
 
-def affiliation_mock(self=None,
-                     affiliation=None,
-                     role=None,
-                     department=None,
-                     org_name=None,
-                     # NB! affiliation_record has 'organisation' field for organisation name
-                     organisation=None,
-                     city=None,
-                     state=None,
-                     region=None,
-                     country=None,
-                     disambiguated_id=None,
-                     disambiguation_source=None,
-                     start_date=None,
-                     end_date=None,
-                     put_code=None,
-                     initial=False,
-                     *args,
-                     **kwargs):
+def affiliation_mock(
+        self=None,
+        affiliation=None,
+        role=None,
+        department=None,
+        org_name=None,
+        # NB! affiliation_record has 'organisation' field for organisation name
+        organisation=None,
+        city=None,
+        state=None,
+        region=None,
+        country=None,
+        disambiguated_id=None,
+        disambiguation_source=None,
+        start_date=None,
+        end_date=None,
+        put_code=None,
+        initial=False,
+        *args,
+        **kwargs):
     """Mock record api call."""
     return "xyz"
 
 
 @patch("orcid_hub.OAuth2Session.fetch_token", side_effect=fetch_token_mock)
-@patch("orcid_hub.orcid_client.MemberAPI.create_or_update_affiliation", side_effect=affiliation_mock)
+@patch(
+    "orcid_hub.orcid_client.MemberAPI.create_or_update_affiliation", side_effect=affiliation_mock)
 def test_orcid_login_callback_researcher_flow(patch, patch2, request_ctx):
     """Test login from orcid callback function for researcher and display profile."""
     Organisation.get_or_create(
@@ -505,18 +522,11 @@ def test_orcid_login_callback_researcher_flow(patch, patch2, request_ctx):
     user_org = UserOrg.get(id=122)
     user_org.save()
     token = utils.generate_confirmation_token(email=u.email, org=org.name)
-    UserInvitation.get_or_create(
-        id=1233,
-        email=u.email,
-        token=token,
-        affiliations=Affiliation.EMP)
+    UserInvitation.get_or_create(id=1233, email=u.email, token=token, affiliations=Affiliation.EMP)
     user_invitation = UserInvitation.get(id=1233)
     user_invitation.save()
     OrcidToken.get_or_create(
-        id=19,
-        user_id=u.id,
-        org_id=org.id,
-        scope='/read-limited,/activities/update')
+        id=19, user_id=u.id, org_id=org.id, scope='/read-limited,/activities/update')
     orcid_token = OrcidToken.get(id=19)
     orcid_token.save()
     with request_ctx() as ctxx:

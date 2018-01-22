@@ -4,9 +4,10 @@ import pytest
 from peewee import Model, SqliteDatabase
 from playhouse.test_utils import test_database
 
-from orcid_hub.models import (Affiliation, AffiliationRecord, ExternalId, FundingRecord, FundingContributor, ModelException, OrcidToken,
-                              Organisation, OrgInfo, PartialDate, PartialDateField, Role, Task,
-                              User, UserOrg, UserOrgAffiliation, create_tables, drop_tables)
+from orcid_hub.models import (Affiliation, AffiliationRecord, ExternalId, FundingContributor,
+                              FundingRecord, ModelException, OrcidToken, Organisation, OrgInfo,
+                              PartialDate, PartialDateField, Role, Task, User, UserOrg,
+                              UserOrgAffiliation, create_tables, drop_tables)
 
 
 @pytest.fixture
@@ -22,8 +23,8 @@ def test_db():
     """
     _db = SqliteDatabase(":memory:")
     with test_database(
-            _db,
-        (Organisation, User, UserOrg, OrcidToken, UserOrgAffiliation, Task, AffiliationRecord, ExternalId, FundingRecord, FundingContributor),
+            _db, (Organisation, User, UserOrg, OrcidToken, UserOrgAffiliation, Task,
+                  AffiliationRecord, ExternalId, FundingRecord, FundingContributor),
             fail_silently=True) as _test_db:
         yield _test_db
 
@@ -381,7 +382,8 @@ FNB	LNB	b.b@test.com	TEST0	Science and Education Group	Wellington	Manager Specia
         filename="TEST.tsv",
         org=org)
     assert test.record_count == 9
-    assert AffiliationRecord.select().count() == test.record_count + 10     # The 10 value is from already inserted entries.
+    assert AffiliationRecord.select().count(
+    ) == test.record_count + 10  # The 10 value is from already inserted entries.
 
 
 def test_is_superuser():
