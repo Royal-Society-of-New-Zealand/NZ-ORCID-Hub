@@ -1,16 +1,20 @@
 # -*- coding: utf-8 -*-
 """Tests for util functions."""
-from unittest.mock import patch
 
+import logging
+from itertools import groupby
+from unittest.mock import Mock, patch
+
+import pytest
+from flask import make_response
 from flask_login import login_user
+from peewee import JOIN
 
 from orcid_hub import utils
-from orcid_hub.models import (AffiliationRecord, Organisation, Role, User, UserOrg, Task, FundingContributor,
-    FundingRecord, UserInvitation, OrcidToken, ExternalId)
-from peewee import JOIN
-from itertools import groupby
-from unittest.mock import patch
-import logging
+from orcid_hub.models import (AffiliationRecord, ExternalId, File, FundingContributor,
+                              FundingRecord, OrcidToken, Organisation, Role, Task, User,
+                              UserInvitation, UserOrg)
+
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 logger.addHandler(logging.StreamHandler())
@@ -267,12 +271,23 @@ def get_record_mock():
                  'path': '/0000-0002-3879-2651/activities'}, 'path': '/0000-0002-3879-2651'}
 
 
-def create_or_update_fund_or_aff_mock(affiliation=None, task_by_user=None, *args, **kwargs):
+def create_or_update_fund_mock(self=None, orcid=None, **kwargs):
     """Mock funding api call."""
-    return (12399, "12344", True)
+    v = make_response
+    v.status = 201
+    v.headers = {'Location': '12344/xyz/12399'}
+    return v
 
 
-@patch("orcid_hub.orcid_client.MemberAPI.create_or_update_funding", side_effect=create_or_update_fund_or_aff_mock)
+def create_or_update_aff_mock(affiliation=None, task_by_user=None, *args, **kwargs):
+    """Mock affiliation api call."""
+    v = make_response
+    v.status = 201
+    v.headers = {'Location': '12344/xyz/12399'}
+    return v
+
+
+@patch("orcid_api.MemberAPIV20Api.create_funding", side_effect=create_or_update_fund_mock)
 @patch("orcid_hub.orcid_client.MemberAPI.get_record", side_effect=get_record_mock)
 def test_create_or_update_funding(patch, test_db, request_ctx):
     """Test create or update funding."""
@@ -313,7 +328,7 @@ def test_create_or_update_funding(patch, test_db, request_ctx):
         title="Test titile",
         translated_title="Test title",
         translated_title_language_code="Test",
-        type="Test type",
+        type="GRANT",
         organization_defined_type="Test org",
         short_description="Test desc",
         amount="1000",
@@ -397,11 +412,11 @@ def test_create_or_update_funding(patch, test_db, request_ctx):
     assert "12344" == funding_contributor.orcid
 
 
-@patch("orcid_hub.orcid_client.MemberAPI.create_or_update_affiliation", side_effect=create_or_update_fund_or_aff_mock)
+@patch("orcid_api.MemberAPIV20Api.update_employment", side_effect=create_or_update_aff_mock)
 @patch("orcid_hub.orcid_client.MemberAPI.get_record", side_effect=get_record_mock)
 def test_create_or_update_affiliation(patch, test_db, request_ctx):
     """Test create or update affiliation."""
-    org = Organisation(
+    org = Organisation.create(
         name="THE ORGANISATION",
         tuakiri_name="THE ORGANISATION",
         confirmed=True,
@@ -411,9 +426,7 @@ def test_create_or_update_affiliation(patch, test_db, request_ctx):
         country="COUNTRY",
         disambiguation_org_id="ID",
         disambiguation_org_source="SOURCE")
-    org.save()
-
-    u = User(
+    u = User.create(
         email="test1234456@mailinator.com",
         name="TEST USER",
         username="test123",
@@ -421,19 +434,16 @@ def test_create_or_update_affiliation(patch, test_db, request_ctx):
         orcid="123",
         confirmed=True,
         organisation=org)
-    u.save()
-    user_org = UserOrg(user=u, org=org)
-    user_org.save()
+    UserOrg.create(user=u, org=org)
 
-    t = Task(
+    t = Task.create(
         org=org,
         filename="xyz.json",
         created_by=u,
         updated_by=u,
         task_type=0)
-    t.save()
 
-    af = AffiliationRecord(
+    AffiliationRecord.create(
         is_active=True,
         task=t,
         external_id="Test",
@@ -450,23 +460,20 @@ def test_create_or_update_affiliation(patch, test_db, request_ctx):
         country="Test",
         disambiguated_id="Test",
         disambiguated_source="Test")
-    af.save()
 
-    ui = UserInvitation(
+    UserInvitation.create(
         invitee=u,
         inviter=u,
         org=org,
         task=t,
         email="test1234456@mailinator.com",
         token="xyztoken")
-    ui.save()
 
-    ot = OrcidToken(
+    OrcidToken.create(
         user=u,
         org=org,
         scope="/read-limited,/activities/update",
         access_token="Test_token")
-    ot.save()
 
     tasks = (Task.select(
         Task, AffiliationRecord, User, UserInvitation.id.alias("invitation_id"), OrcidToken).where(
@@ -500,4 +507,122 @@ def test_create_or_update_affiliation(patch, test_db, request_ctx):
     affiliation_record = AffiliationRecord.get(task=t)
     assert 12399 == affiliation_record.put_code
     assert "12344" == affiliation_record.orcid
-    assert "Employment record was created" in affiliation_record.status
+    assert "Employment record was updated" in affiliation_record.status
+
+
+def test_send_email(app):
+    """Test emailing."""
+    with app.app_context():
+
+        # import pdb; pdb.set_trace()
+        # app.config["SERVER_NAME"] = "ORCIDHUB"
+
+        with patch("emails.message.Message") as msg_cls, patch(
+                "flask.current_app.jinja_env"):
+            msg = msg_cls.return_value = Mock()
+            utils.send_email(
+                "template.html", (
+                    "TEST USER",
+                    "test123@test.edu",
+                ),
+                subject="TEST")
+
+            msg_cls.assert_called_once()
+            msg.send.assert_called_once()
+
+            msg.reset_mock()
+            dkip_key_path = app.config["DKIP_KEY_PATH"]
+            app.config["DKIP_KEY_PATH"] = __file__
+            utils.send_email(
+                "template", (
+                    "TEST USER",
+                    "test123@test.edu",
+                ),
+                base="BASE",
+                subject="TEST")
+            msg.dkim.assert_called_once()
+            msg.send.assert_called_once()
+
+            msg.reset_mock()
+            app.config["DKIP_KEY_PATH"] = "NON-EXISTING FILE..."
+            utils.send_email(
+                "template", (
+                    "TEST USER",
+                    "test123@test.edu",
+                ),
+                base="BASE",
+                subject="TEST")
+            msg.dkim.assert_not_called()
+            msg.send.assert_called_once()
+            app.config["DKIP_KEY_PATH"] = dkip_key_path
+
+            # User organisation's logo
+            msg.reset_mock()
+            logo_file = File.create(
+                    filename="LOGO.png",
+                    data=b"000000000000000000000",
+                    mimetype="image/png",
+                    token="TOKEN000")
+            org = Organisation.create(
+                name="THE ORGANISATION",
+                tuakiri_name="THE ORGANISATION",
+                confirmed=True,
+                orcid_client_id="APP-5ZVH4JRQ0C27RVH5",
+                orcid_secret="Client Secret",
+                city="CITY",
+                logo=logo_file,
+                country="COUNTRY",
+                disambiguation_org_id="ID",
+                disambiguation_org_source="SOURCE")
+            utils.send_email(
+                "template", (
+                    "TEST USER",
+                    "test123@test.edu",
+                ),
+                base="BASE {LOGO}",
+                subject="TEST WITH BASE AND LOGO",
+                org=org)
+            msg.send.assert_called_once()
+            _, kwargs = msg_cls.call_args
+            assert kwargs["subject"] == "TEST WITH BASE AND LOGO"
+            assert kwargs["mail_from"] == ("NZ ORCID HUB", "no-reply@orcidhub.org.nz", )
+            expected_html = f"BASE http://{app.config['SERVER_NAME'].lower()}/logo/TOKEN000"
+            assert kwargs["html"] == expected_html
+            assert kwargs["text"] == expected_html + "\n\n"
+
+            # Using organisation template
+            msg.reset_mock()
+            org.email_template = "TEMPLATE {LOGO}"
+            org.email_template_enabled = True
+            org.save()
+            utils.send_email(
+                "template", (
+                    "TEST USER",
+                    "test123@test.edu",
+                ),
+                sender=(None, None, ),
+                subject="TEST WITH ORG BASE AND LOGO",
+                org=org)
+            msg.send.assert_called_once()
+            _, kwargs = msg_cls.call_args
+            assert kwargs["subject"] == "TEST WITH ORG BASE AND LOGO"
+            assert kwargs["mail_from"] == (
+                "NZ ORCID HUB",
+                "no-reply@orcidhub.org.nz",
+            )
+            expected_html = f"TEMPLATE http://{app.config['SERVER_NAME'].lower()}/logo/TOKEN000"
+            assert kwargs["html"] == expected_html
+            assert kwargs["text"] == expected_html + "\n\n"
+
+        # temlates w/o extension and missing template file
+        # login_user(super_user)
+        from jinja2.exceptions import TemplateNotFound
+
+        with pytest.raises(TemplateNotFound):
+            utils.send_email(
+                "missing_template", (
+                    "TEST USER",
+                    "test123@test.edu",
+                ),
+                logo="LOGO",
+                subject="TEST")

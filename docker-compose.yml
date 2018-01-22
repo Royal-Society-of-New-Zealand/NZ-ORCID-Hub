@@ -23,7 +23,7 @@ services:
     depends_on:
       - db
       # - sentry
-    image: orcidhub/app-dev:3.9
+    image: orcidhub/app-dev
     environment:
       - ENV
       - SHIB_SP_DOMAINNAME

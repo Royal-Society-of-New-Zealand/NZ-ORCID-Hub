@@ -5,6 +5,7 @@ omit =
     orcid/*
     orcid_api/*
     venv/*
+    tuakiri_mock/*
     orcid_hub/test_*.py
     main.py
     monitor.py
@@ -16,6 +17,10 @@ omit =
     config.py
     create.py
     setup.py
+    orcid_hub/mocks/__init__.py
+    orcid_hub/cli.py
+    orcid_hub/failover.py
+    instance/settings.cfg
 
 [report]
 omit =
@@ -23,6 +28,7 @@ omit =
     orcid/*
     orcid_api/*
     venv/*
+    tuakiri_mock/*
     orcid_hub/test_*.py
     main.py
     monitor.py
@@ -34,6 +40,10 @@ omit =
     config.py
     create.py
     setup.py
+    orcid_hub/mocks/__init__.py
+    orcid_hub/cli.py
+    orcid_hub/failover.py
+    instance/settings.cfg
 
 # Regexes for lines to exclude from consideration
 exclude_lines =
