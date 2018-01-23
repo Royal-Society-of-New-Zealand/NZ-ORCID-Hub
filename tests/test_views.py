@@ -684,3 +684,53 @@ def test_logo(request_ctx):
         rv = ctxx.app.full_dispatch_request()
         assert rv.status_code == 200
         assert b"<!DOCTYPE html>" in rv.data, "Expected HTML content"
+    with request_ctx("/logo/token_123") as ctxxx:
+        login_user(user, remember=True)
+        rv = ctxxx.app.full_dispatch_request()
+        assert rv.status_code == 302
+        assert rv.location.endswith("images/banner-small.png")
+
+
+def test_manage_email_template(request_ctx):
+    """Test manage organisation invitation email template."""
+    Organisation.get_or_create(
+        id=1,
+        name="THE ORGANISATION",
+        tuakiri_name="THE ORGANISATION",
+        confirmed=False,
+        orcid_client_id="CLIENT ID",
+        orcid_secret="Client Secret",
+        city="CITY",
+        country="COUNTRY",
+        disambiguated_id="ID",
+        disambiguation_source="SOURCE",
+        is_email_sent=True)
+    org = Organisation.get(id=1)
+    User.get_or_create(
+        id=123,
+        email="test123@test.test.net",
+        name="TEST USER",
+        roles=Role.TECHNICAL,
+        orcid=123,
+        organisation_id=1,
+        confirmed=True,
+        organisation=org)
+    user = User.get(id=123)
+    org.save()
+    user.save()
+    UserOrg.get_or_create(id=122, user=user, org=org, is_admin=True)
+    user_org = UserOrg.get(id=122)
+    user_org.save()
+    with request_ctx("/settings/email_template", method="POST", data={
+        "name": "TEST APP",
+        "homepage_url": "http://test.at.test",
+        "description": "TEST APPLICATION 123",
+        "email_template": "enable",
+        "save": "xyz"}
+                     ) as ctxx:
+        login_user(user, remember=True)
+        rv = ctxx.app.full_dispatch_request()
+        assert rv.status_code == 200
+        assert b"<!DOCTYPE html>" in rv.data, "Expected HTML content"
+        org1 = Organisation.get(id=1)
+        assert org1.email_template == "enable"
