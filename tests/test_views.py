@@ -6,6 +6,7 @@ import json
 import os
 import sys
 import time
+import logging
 from itertools import product
 from unittest.mock import MagicMock, patch
 
@@ -18,13 +19,16 @@ from orcid_hub import orcid_client, views
 from orcid_hub.config import ORCID_BASE_URL
 from orcid_hub.models import UserOrgAffiliation  # noqa: E128
 from orcid_hub.models import (AffiliationRecord, Client, Grant, OrcidToken, Organisation, Role,
-                              Task, Token, User, UserOrg, Url, OrgInfo)
+                              Task, Token, User, UserOrg, Url, OrgInfo, UserInvitation)
 from orcid_hub.forms import FileUploadForm
 from flask import request
 from orcid_hub import app
 from werkzeug.datastructures import ImmutableMultiDict
 
 fake_time = time.time()
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+logger.addHandler(logging.StreamHandler())
 
 
 @pytest.fixture
@@ -691,7 +695,8 @@ def test_logo(request_ctx):
         assert rv.location.endswith("images/banner-small.png")
 
 
-def test_manage_email_template(request_ctx):
+@patch("orcid_hub.utils.send_email", side_effect=send_mail_mock)
+def test_manage_email_template(patch, request_ctx):
     """Test manage organisation invitation email template."""
     Organisation.get_or_create(
         id=1,
@@ -734,3 +739,73 @@ def test_manage_email_template(request_ctx):
         assert b"<!DOCTYPE html>" in rv.data, "Expected HTML content"
         org1 = Organisation.get(id=1)
         assert org1.email_template == "enable"
+    with request_ctx("/settings/email_template", method="POST", data={
+        "name": "TEST APP", "email_template_enabled": "xyz", "email_address": "test123@test.test.net", "send": "xyz"
+    }) as cttxx:
+        login_user(user, remember=True)
+        rv = cttxx.app.full_dispatch_request()
+        assert rv.status_code == 200
+        assert b"<!DOCTYPE html>" in rv.data, "Expected HTML content"
+
+
+def send_mail_mock(*argvs, **kwargs):
+    """Mock email invitation."""
+    logger.info(f"***\nActually email invitation was mocked, so no email sent!!!!!")
+    return True
+
+
+@patch("orcid_hub.utils.send_email", side_effect=send_mail_mock)
+def test_invite_user(patch, request_ctx):
+    """Test invite a researcher to join the hub."""
+    Organisation.get_or_create(
+        id=1,
+        name="THE ORGANISATION",
+        tuakiri_name="THE ORGANISATION",
+        confirmed=False,
+        orcid_client_id="CLIENT ID",
+        orcid_secret="Client Secret",
+        city="CITY",
+        country="COUNTRY",
+        disambiguated_id="ID",
+        disambiguation_source="SOURCE",
+        is_email_sent=True)
+    org = Organisation.get(id=1)
+    User.get_or_create(
+        id=123,
+        email="test123@test.test.net",
+        name="TEST USER",
+        roles=Role.TECHNICAL,
+        orcid=123,
+        organisation_id=1,
+        confirmed=True,
+        organisation=org)
+    user = User.get(id=123)
+    org.save()
+    user.save()
+    UserOrg.get_or_create(id=122, user=user, org=org, is_admin=True)
+    user_org = UserOrg.get(id=122)
+    user_org.save()
+    UserInvitation.get_or_create(
+        id=1211,
+        invitee=user,
+        inviter=user,
+        org=org,
+        email="test1234456@mailinator.com",
+        token="xyztoken")
+    ui = UserInvitation.get(id=1211)
+    ui.save()
+    with request_ctx("/invite/user") as ctxxx:
+        login_user(user, remember=True)
+        rv = ctxxx.app.full_dispatch_request()
+        assert rv.status_code == 200
+        assert b"<!DOCTYPE html>" in rv.data, "Expected HTML content"
+        assert b"THE ORGANISATION" in rv.data
+    with request_ctx("/invite/user", method="POST", data={
+        "name": "TEST APP", "is_employee": "false", "email_address": "test123@test.test.net",
+        "resend": "enable", "is_student": "true", "first_name": "test", "last_name": "test", "city": "test"
+    }) as ctxx:
+        login_user(user, remember=True)
+        rv = ctxx.app.full_dispatch_request()
+        assert rv.status_code == 200
+        assert b"<!DOCTYPE html>" in rv.data, "Expected HTML content"
+        assert b"test123@test.test.net" in rv.data
