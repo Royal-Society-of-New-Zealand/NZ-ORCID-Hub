@@ -75,7 +75,10 @@ def test_process_tasks(request_ctx):
         hostname = ctx.request.host
         assert kwargs["export_url"] == (
             f"https://{hostname}/admin/affiliationrecord/export/csv/?task_id={task.id}")
-        assert kwargs["recipient"] == ("TEST", "admin@test.edu", )
+        assert kwargs["recipient"] == (
+            "TEST",
+            "admin@test.edu",
+        )
         assert kwargs["subject"] == "Batch process task is about to expire"
         assert kwargs["task"] == task
 
@@ -104,7 +107,10 @@ def test_process_tasks(request_ctx):
         hostname = ctx.request.host
         assert kwargs["export_url"] == (
             f"https://{hostname}/admin/fundingrecord/export/csv/?task_id={task.id}")
-        assert kwargs["recipient"] == ("TEST", "admin@test.edu", )
+        assert kwargs["recipient"] == (
+            "TEST",
+            "admin@test.edu",
+        )
         assert kwargs["subject"] == "Batch process task is about to expire"
         assert kwargs["task"] == task
 
@@ -133,4 +139,3 @@ def test_process_tasks(request_ctx):
             utils.process_tasks()
             utils.process_tasks()
             assert Task.select().count() == 0
-
