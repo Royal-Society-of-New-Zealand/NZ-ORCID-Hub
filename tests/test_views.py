@@ -10,17 +10,17 @@ from itertools import product
 from unittest.mock import MagicMock, patch
 
 import pytest
+from flask import request
 from flask_login import login_user
 from peewee import SqliteDatabase
 from playhouse.test_utils import test_database
 
 from orcid_hub import orcid_client, views
 from orcid_hub.config import ORCID_BASE_URL
-from orcid_hub.models import UserOrgAffiliation  # noqa: E128
-from orcid_hub.models import (AffiliationRecord, Client, Grant, OrcidToken, Organisation, Role,
-                              Task, Token, User, UserOrg, Url, OrgInfo)
 from orcid_hub.forms import FileUploadForm
-from flask import request
+from orcid_hub.models import UserOrgAffiliation  # noqa: E128
+from orcid_hub.models import (AffiliationRecord, Client, Grant, OrcidToken, Organisation, OrgInfo,
+                              Role, Task, Token, Url, User, UserOrg)
 
 fake_time = time.time()
 
@@ -231,7 +231,9 @@ def test_status(client):
 def test_application_registration(app, request_ctx):
     """Test application registration."""
     with request_ctx(
-            "/settings/applications", method="POST", data={
+            "/settings/applications",
+            method="POST",
+            data={
                 "name": "TEST APP",
                 "homepage_url": "http://test.at.test",
                 "description": "TEST APPLICATION 123",
@@ -335,7 +337,8 @@ def test_read_uploaded_file(request_ctx):
     with request_ctx() as ctxx:
         form = FileUploadForm()
         form.file_.name = "conftest.py"
-        with open(os.path.join(os.path.dirname(os.path.realpath(__file__)), 'conftest.py'), 'rb') as f:
+        with open(os.path.join(os.path.dirname(os.path.realpath(__file__)), 'conftest.py'),
+                  'rb') as f:
             request.files = {'conftest.py': f}
             ctxx = views.read_uploaded_file(form)
         assert "@pytest.fixture" in ctxx
@@ -373,7 +376,12 @@ def test_user_orgs_org(request_ctx):
     user_org.save()
     with request_ctx():
         login_user(user, remember=True)
-        request._cached_json = {"id": 1, "name": "THE ORGANISATION", "is_admin": True, "is_tech_contact": True}
+        request._cached_json = {
+            "id": 1,
+            "name": "THE ORGANISATION",
+            "is_admin": True,
+            "is_tech_contact": True
+        }
         resp = views.user_orgs_org(user_id=123)
         assert resp[1] == 200
         assert Role.ADMIN in user.roles

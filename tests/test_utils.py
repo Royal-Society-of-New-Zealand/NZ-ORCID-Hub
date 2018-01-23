@@ -185,90 +185,136 @@ def test_send_funding_invitation(test_db, request_ctx):
     fc.save()
     with request_ctx("/") as ctxx:
         utils.send_funding_invitation(
-            inviter=inviter,
-            org=org,
-            email=email,
-            name=u.name,
-            task_id=task.id)
+            inviter=inviter, org=org, email=email, name=u.name, task_id=task.id)
         rv = ctxx.app.full_dispatch_request()
         assert rv.status_code == 200
 
 
 def get_record_mock():
     """Mock profile api call."""
-    return {'activities-summary':
-                {'last-modified-date': {'value': 1513136293368},    # noqa: E127
-                 'educations': {'last-modified-date': None, 'education-summary': [],
-                                'path': '/0000-0002-3879-2651/educations'},
-                 "employments": {
-                     "last-modified-date": {
-                         "value": 1511401310144
-                     },
-                     "employment-summary": [
-                         {
-                             "created-date": {
-                                 "value": 1511401310144
-                             },
-                             "last-modified-date": {
-                                 "value": 1511401310144
-                             },
-                             "source": {
-                                 "source-orcid": None,
-                                 "source-client-id": {
-                                     "uri": "http://sandbox.orcid.org/client/APP-5ZVH4JRQ0C27RVH5",
-                                     "path": "APP-5ZVH4JRQ0C27RVH5",
-                                     "host": "sandbox.orcid.org"
-                                 },
-                                 "source-name": {
-                                     "value": "The University of Auckland - MyORCiD"
-                                 }
-                             },
-                             "department-name": None,
-                             "role-title": None,
-                             "start-date": None,
-                             "end-date": None,
-                             "organization": {
-                                 "name": "The University of Auckland",
-                                 "address": {
-                                     "city": "Auckland",
-                                     "region": None,
-                                     "country": "NZ"
-                                 },
-                                 "disambiguated-organization": None
-                             },
-                             "visibility": "PUBLIC",
-                             "put-code": 29272,
-                             "path": "/0000-0003-1255-9023/employment/29272"
-                         }
-                     ],
-                     "path": "/0000-0003-1255-9023/employments"
-                 },
-                 'fundings': {'last-modified-date': {'value': 1513136293368}, 'group': [
-                     {'last-modified-date': {'value': 1513136293368}, 'external-ids': {
-                         'external-id': [
-                             {'external-id-type': 'grant_number', 'external-id-value': 'GNS1701',
-                              'external-id-url': None, 'external-id-relationship': 'SELF'},
-                             {'external-id-type': 'grant_number', 'external-id-value': '17-GNS-022',
-                              'external-id-url': None, 'external-id-relationship': 'SELF'}]},
-                      'funding-summary': [{'created-date': {'value': 1511935227017},
-                                           'last-modified-date': {'value': 1513136293368},
-                                           'source': {'source-orcid': None, 'source-client-id': {
-                                               'uri': 'http://sandbox.orcid.org/client/APP-5ZVH4JRQ0C27RVH5',
-                                               'path': 'APP-5ZVH4JRQ0C27RVH5',
-                                               'host': 'sandbox.orcid.org'}, 'source-name': {
-                                               'value': 'The University of Auckland - MyORCiD'}},
-                                           'title': {'title': {
-                                               'value': 'Probing the crust with zirco'},
-                                               'translated-title': {'value': 'नमस्ते',
-                                                                    'language-code': 'hi'}},
-                                           'type': 'CONTRACT', 'start-date': None,
-                                           'end-date': {'year': {'value': '2025'}, 'month': None,
-                                                        'day': None},
-                                           'organization': {'name': 'Royal Society Te Apārangi'},
-                                           'put-code': 9597,
-                                           'path': '/0000-0002-3879-2651/funding/9597'}]}],
-                              'path': '/0000-0002-3879-2651/fundings'},
-                 'path': '/0000-0002-3879-2651/activities'}, 'path': '/0000-0002-3879-2651'}
+    return {
+        'activities-summary': {
+            'last-modified-date': {
+                'value': 1513136293368
+            },  # noqa: E127
+            'educations': {
+                'last-modified-date': None,
+                'education-summary': [],
+                'path': '/0000-0002-3879-2651/educations'
+            },
+            "employments": {
+                "last-modified-date": {
+                    "value": 1511401310144
+                },
+                "employment-summary": [{
+                    "created-date": {
+                        "value": 1511401310144
+                    },
+                    "last-modified-date": {
+                        "value": 1511401310144
+                    },
+                    "source": {
+                        "source-orcid": None,
+                        "source-client-id": {
+                            "uri": "http://sandbox.orcid.org/client/APP-5ZVH4JRQ0C27RVH5",
+                            "path": "APP-5ZVH4JRQ0C27RVH5",
+                            "host": "sandbox.orcid.org"
+                        },
+                        "source-name": {
+                            "value": "The University of Auckland - MyORCiD"
+                        }
+                    },
+                    "department-name": None,
+                    "role-title": None,
+                    "start-date": None,
+                    "end-date": None,
+                    "organization": {
+                        "name": "The University of Auckland",
+                        "address": {
+                            "city": "Auckland",
+                            "region": None,
+                            "country": "NZ"
+                        },
+                        "disambiguated-organization": None
+                    },
+                    "visibility": "PUBLIC",
+                    "put-code": 29272,
+                    "path": "/0000-0003-1255-9023/employment/29272"
+                }],
+                "path":
+                "/0000-0003-1255-9023/employments"
+            },
+            'fundings': {
+                'last-modified-date': {
+                    'value': 1513136293368
+                },
+                'group': [{
+                    'last-modified-date': {
+                        'value': 1513136293368
+                    },
+                    'external-ids': {
+                        'external-id': [{
+                            'external-id-type': 'grant_number',
+                            'external-id-value': 'GNS1701',
+                            'external-id-url': None,
+                            'external-id-relationship': 'SELF'
+                        }, {
+                            'external-id-type': 'grant_number',
+                            'external-id-value': '17-GNS-022',
+                            'external-id-url': None,
+                            'external-id-relationship': 'SELF'
+                        }]
+                    },
+                    'funding-summary': [{
+                        'created-date': {
+                            'value': 1511935227017
+                        },
+                        'last-modified-date': {
+                            'value': 1513136293368
+                        },
+                        'source': {
+                            'source-orcid': None,
+                            'source-client-id': {
+                                'uri': 'http://sandbox.orcid.org/client/APP-5ZVH4JRQ0C27RVH5',
+                                'path': 'APP-5ZVH4JRQ0C27RVH5',
+                                'host': 'sandbox.orcid.org'
+                            },
+                            'source-name': {
+                                'value': 'The University of Auckland - MyORCiD'
+                            }
+                        },
+                        'title': {
+                            'title': {
+                                'value': 'Probing the crust with zirco'
+                            },
+                            'translated-title': {
+                                'value': 'नमस्ते',
+                                'language-code': 'hi'
+                            }
+                        },
+                        'type': 'CONTRACT',
+                        'start-date': None,
+                        'end-date': {
+                            'year': {
+                                'value': '2025'
+                            },
+                            'month': None,
+                            'day': None
+                        },
+                        'organization': {
+                            'name': 'Royal Society Te Apārangi'
+                        },
+                        'put-code': 9597,
+                        'path': '/0000-0002-3879-2651/funding/9597'
+                    }]
+                }],
+                'path':
+                '/0000-0002-3879-2651/fundings'
+            },
+            'path': '/0000-0002-3879-2651/activities'
+        },
+        'path': '/0000-0002-3879-2651'
+    }
 
 
 def create_or_update_fund_mock(self=None, orcid=None, **kwargs):
@@ -315,12 +361,7 @@ def test_create_or_update_funding(patch, test_db, request_ctx):
     user_org = UserOrg(user=u, org=org)
     user_org.save()
 
-    t = Task(
-        org=org,
-        filename="xyz.json",
-        created_by=u,
-        updated_by=u,
-        task_type=1)
+    t = Task(org=org, filename="xyz.json", created_by=u, updated_by=u, task_type=1)
     t.save()
 
     fr = FundingRecord(
@@ -352,11 +393,7 @@ def test_create_or_update_funding(patch, test_db, request_ctx):
     fc.save()
 
     ext_id = ExternalId(
-        funding_record=fr,
-        type="Test_type",
-        value="Test_value",
-        url="Test",
-        relationship="SELF")
+        funding_record=fr, type="Test_type", value="Test_value", url="Test", relationship="SELF")
     ext_id.save()
 
     ui = UserInvitation(
@@ -369,10 +406,7 @@ def test_create_or_update_funding(patch, test_db, request_ctx):
     ui.save()
 
     ot = OrcidToken(
-        user=u,
-        org=org,
-        scope="/read-limited,/activities/update",
-        access_token="Test_token")
+        user=u, org=org, scope="/read-limited,/activities/update", access_token="Test_token")
     ot.save()
 
     tasks = (Task.select(
@@ -436,12 +470,7 @@ def test_create_or_update_affiliation(patch, test_db, request_ctx):
         organisation=org)
     UserOrg.create(user=u, org=org)
 
-    t = Task.create(
-        org=org,
-        filename="xyz.json",
-        created_by=u,
-        updated_by=u,
-        task_type=0)
+    t = Task.create(org=org, filename="xyz.json", created_by=u, updated_by=u, task_type=0)
 
     AffiliationRecord.create(
         is_active=True,
@@ -470,10 +499,7 @@ def test_create_or_update_affiliation(patch, test_db, request_ctx):
         token="xyztoken")
 
     OrcidToken.create(
-        user=u,
-        org=org,
-        scope="/read-limited,/activities/update",
-        access_token="Test_token")
+        user=u, org=org, scope="/read-limited,/activities/update", access_token="Test_token")
 
     tasks = (Task.select(
         Task, AffiliationRecord, User, UserInvitation.id.alias("invitation_id"), OrcidToken).where(
@@ -517,15 +543,13 @@ def test_send_email(app):
         # import pdb; pdb.set_trace()
         # app.config["SERVER_NAME"] = "ORCIDHUB"
 
-        with patch("emails.message.Message") as msg_cls, patch(
-                "flask.current_app.jinja_env"):
+        with patch("emails.message.Message") as msg_cls, patch("flask.current_app.jinja_env"):
             msg = msg_cls.return_value = Mock()
             utils.send_email(
                 "template.html", (
                     "TEST USER",
                     "test123@test.edu",
-                ),
-                subject="TEST")
+                ), subject="TEST")
 
             msg_cls.assert_called_once()
             msg.send.assert_called_once()
@@ -537,9 +561,7 @@ def test_send_email(app):
                 "template", (
                     "TEST USER",
                     "test123@test.edu",
-                ),
-                base="BASE",
-                subject="TEST")
+                ), base="BASE", subject="TEST")
             msg.dkim.assert_called_once()
             msg.send.assert_called_once()
 
@@ -549,9 +571,7 @@ def test_send_email(app):
                 "template", (
                     "TEST USER",
                     "test123@test.edu",
-                ),
-                base="BASE",
-                subject="TEST")
+                ), base="BASE", subject="TEST")
             msg.dkim.assert_not_called()
             msg.send.assert_called_once()
             app.config["DKIP_KEY_PATH"] = dkip_key_path
@@ -559,10 +579,10 @@ def test_send_email(app):
             # User organisation's logo
             msg.reset_mock()
             logo_file = File.create(
-                    filename="LOGO.png",
-                    data=b"000000000000000000000",
-                    mimetype="image/png",
-                    token="TOKEN000")
+                filename="LOGO.png",
+                data=b"000000000000000000000",
+                mimetype="image/png",
+                token="TOKEN000")
             org = Organisation.create(
                 name="THE ORGANISATION",
                 tuakiri_name="THE ORGANISATION",
@@ -585,7 +605,10 @@ def test_send_email(app):
             msg.send.assert_called_once()
             _, kwargs = msg_cls.call_args
             assert kwargs["subject"] == "TEST WITH BASE AND LOGO"
-            assert kwargs["mail_from"] == ("NZ ORCID HUB", "no-reply@orcidhub.org.nz", )
+            assert kwargs["mail_from"] == (
+                "NZ ORCID HUB",
+                "no-reply@orcidhub.org.nz",
+            )
             expected_html = f"BASE http://{app.config['SERVER_NAME'].lower()}/logo/TOKEN000"
             assert kwargs["html"] == expected_html
             assert kwargs["text"] == expected_html + "\n\n"
@@ -600,7 +623,10 @@ def test_send_email(app):
                     "TEST USER",
                     "test123@test.edu",
                 ),
-                sender=(None, None, ),
+                sender=(
+                    None,
+                    None,
+                ),
                 subject="TEST WITH ORG BASE AND LOGO",
                 org=org)
             msg.send.assert_called_once()
