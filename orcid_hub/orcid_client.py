@@ -164,8 +164,8 @@ class MemberAPI(MemberAPIV20Api):
                 records = data.get("employment-summary"
                                    if affiliation_type == Affiliation.EMP else "education-summary")
                 for r in records:
-                    if ("source-client-id" in r["source"] and
-                            self.org.orcid_client_id == r["source"]["source-client-id"]["path"]):
+                    if ("source-client-id" in r.get("source") and r.get("source").get("source-client-id") and
+                            self.org.orcid_client_id == r.get("source").get("source-client-id").get("path")):
                         app.logger.info(f"For {self.user} there is {affiliation_type!s} "
                                         "present on ORCID profile.")
                         return r["put-code"]
