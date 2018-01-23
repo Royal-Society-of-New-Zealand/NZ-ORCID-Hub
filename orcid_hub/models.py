@@ -263,6 +263,14 @@ class BaseModel(Model):
         """Get dictionary representation of the model."""
         return model_to_dict(self)
 
+    def reload(self):
+        """Refresh the object from the DB."""
+        newer_self = self.get(self._meta.primary_key == self._get_pk_value())
+        for field_name in self._meta.fields.keys():
+            val = getattr(newer_self, field_name)
+            setattr(self, field_name, val)
+        self._dirty.clear()
+
     class Meta:  # noqa: D101,D106
         database = db
         only_save_dirty = True

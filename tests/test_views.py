@@ -539,3 +539,70 @@ def test_action_invite(request_ctx):
         org2 = Organisation.get(id=2)
         assert "Test_client" == org2.name
         assert Role.ADMIN in user.roles
+
+
+def test_email_template(request_ctx):
+    """Test email maintenance."""
+    org = Organisation.create(name="TEST0", tuakiri_name="TEST")
+    user = User.create(
+        email="admin@test.edu",
+        name="TEST",
+        first_name="FIRST_NAME",
+        last_name="LAST_NAME",
+        confirmed=True,
+        organisation=org)
+    UserOrg.create(user=user, org=org, is_admin=True)
+    org.tech_contact = user
+    org.save()
+
+    with request_ctx(
+            "/settings/email_template",
+            method="POST",
+            data={
+                "email_template_enabled": "y",
+                "prefill": "Pre-fill",
+            }) as ctx:
+        login_user(user)
+        rv = ctx.app.full_dispatch_request()
+        assert rv.status_code == 200
+        assert b"&lt;!DOCTYPE html&gt;" in rv.data
+        org.reload()
+        assert not org.email_template_enabled
+
+    with patch("orcid_hub.utils.send_email") as send_email, request_ctx(
+            "/settings/email_template",
+            method="POST",
+            data={
+                "email_template_enabled": "y",
+                "email_template": "TEST TEMPLATE {EMAIL}",
+                "send": "Send",
+            }) as ctx:
+        login_user(user)
+        rv = ctx.app.full_dispatch_request()
+        assert rv.status_code == 200
+        org.reload()
+        assert not org.email_template_enabled
+        send_email.assert_called_once_with(
+            "email/test.html",
+            base="TEST TEMPLATE {EMAIL}",
+            cc_email=("TEST", "admin@test.edu"),
+            logo=None,
+            org_name="TEST0",
+            recipient=("TEST", "admin@test.edu"),
+            reply_to=("TEST", "admin@test.edu"),
+            sender=("TEST", "admin@test.edu"),
+            subject="TEST EMAIL")
+
+    with request_ctx(
+            "/settings/email_template",
+            method="POST",
+            data={
+                "email_template_enabled": "y",
+                "email_template": "TEST TEMPLATE TO SAVE",
+                "save": "Save",
+            }) as ctx:
+        login_user(user)
+        rv = ctx.app.full_dispatch_request()
+        assert rv.status_code == 200
+        org.reload()
+        assert org.email_template_enabled
