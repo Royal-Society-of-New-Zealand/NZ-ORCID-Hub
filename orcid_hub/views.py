@@ -583,15 +583,25 @@ to the best of your knowledge, correct!""")
             try:
                 count = self.model.update(
                     processed_at=None, status=status).where(self.model.is_active,
-                                                            self.model.processed_at.is_null(False),
                                                             self.model.id.in_(ids)).execute()
 
                 if self.model == FundingRecord:
                     count = FundingContributor.update(
                         processed_at=None, status=status).where(
-                            FundingContributor.funding_record.in_(ids),
-                            FundingContributor.status.is_null(False)).execute()
-
+                            FundingContributor.funding_record.in_(ids)).execute()
+                elif self.model == AffiliationRecord:
+                    # Delete the userInvitation token when reset to send the mail again.
+                    task_id = None
+                    if request.method == "POST" and request.form.get("rowid"):
+                        # get the first ROWID:
+                        rowid = int(request.form.get("rowid"))
+                        task_id = self.model.get(id=rowid).task_id
+                    else:
+                        task_id = request.form.get('task_id')
+                    user_invitation = UserInvitation.get(task_id=task_id)
+                    user_invitation.delete_instance()
+            except UserInvitation.DoesNotExist:
+                pass
             except Exception as ex:
                 db.rollback()
                 flash(f"Failed to activate the selected records: {ex}")
@@ -653,22 +663,22 @@ class FundingContributorAdmin(AppModelView):
             "Are you sure you want to reset the selected records for batch processing?")
     def action_reset(self, ids):
         """Batch reset of users."""
-        try:
-            status = " The record was reset at " + datetime.now().isoformat(timespec="seconds")
-            count = self.model.update(
-                processed_at=None, status=status).where(
-                    self.model.status.is_null(False), self.model.id.in_(ids)).execute()
-            funding_record_id = self.model.select().where(
-                self.model.id.in_(ids))[0].funding_record_id
-            FundingRecord.update(
-                processed_at=None, status=FundingRecord.status + status).where(
-                    FundingRecord.is_active, FundingRecord.id == funding_record_id).execute()
-        except Exception as ex:
-            flash(f"Failed to activate the selected records: {ex}")
-            app.logger.exception("Failed to activate the selected records")
-
-        else:
-            flash(f"{count} Funding Contributor records were reset for batch processing.")
+        with db.atomic():
+            try:
+                status = " The record was reset at " + datetime.now().isoformat(timespec="seconds")
+                count = self.model.update(
+                    processed_at=None, status=status).where(self.model.id.in_(ids)).execute()
+                funding_record_id = self.model.select().where(
+                    self.model.id.in_(ids))[0].funding_record_id
+                FundingRecord.update(
+                    processed_at=None, status=status).where(
+                        FundingRecord.is_active, FundingRecord.id == funding_record_id).execute()
+            except Exception as ex:
+                db.rollback()
+                flash(f"Failed to activate the selected records: {ex}")
+                app.logger.exception("Failed to activate the selected records")
+            else:
+                flash(f"{count} Funding Contributor records were reset for batch processing.")
 
 
 class FundingRecordAdmin(RecordModelView):
