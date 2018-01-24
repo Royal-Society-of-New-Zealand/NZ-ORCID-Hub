@@ -3,6 +3,7 @@
 
 import datetime
 import json
+import logging
 import os
 import sys
 import time
@@ -14,15 +15,19 @@ from flask import request
 from flask_login import login_user
 from peewee import SqliteDatabase
 from playhouse.test_utils import test_database
+from werkzeug.datastructures import ImmutableMultiDict
 
-from orcid_hub import orcid_client, views
+from orcid_hub import app, orcid_client, views
 from orcid_hub.config import ORCID_BASE_URL
 from orcid_hub.forms import FileUploadForm
 from orcid_hub.models import UserOrgAffiliation  # noqa: E128
-from orcid_hub.models import (AffiliationRecord, Client, Grant, OrcidToken, Organisation, OrgInfo,
-                              Role, Task, Token, Url, User, UserOrg)
+from orcid_hub.models import (AffiliationRecord, Client, Grant, OrcidToken, Organisation, OrgInfo, Role, Task, Token,
+                              Url, User, UserInvitation, UserOrg)
 
 fake_time = time.time()
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+logger.addHandler(logging.StreamHandler())
 
 
 @pytest.fixture
@@ -87,7 +92,7 @@ def test_models(test_db):
     yield test_db
 
 
-def test_admin_view_access(request_ctx):
+def test_superuser_view_access(request_ctx):
     """Test if SUPERUSER can access Flask-Admin"."""
     with request_ctx("/admin/user/") as ctx:
         test_user = User(
@@ -371,7 +376,7 @@ def test_user_orgs_org(request_ctx):
     user = User.get(id=123)
     org.save()
     user.save()
-    UserOrg.get_or_create(id=122, user=user, org=org, is_admin=True)
+    UserOrg.get_or_create(id=122, user=user, org=org, is_admin=False)
     user_org = UserOrg.get(id=122)
     user_org.save()
     with request_ctx():
@@ -384,10 +389,19 @@ def test_user_orgs_org(request_ctx):
         }
         resp = views.user_orgs_org(user_id=123)
         assert resp[1] == 200
-        assert Role.ADMIN in user.roles
+        user_org = UserOrg.get(id=122)
+        assert user_org.is_admin is True
         organisation = Organisation.get(id=1)
         # User becomes the technical contact of the organisation.
         assert organisation.tech_contact == user
+    with request_ctx(method="DELETE"):
+        # Delete user and organisation association
+        login_user(user, remember=True)
+        request._cached_json = {"id": 1, "name": "THE ORGANISATION", "is_admin": True, "is_tech_contact": True}
+        resp = views.user_orgs_org(user_id=123)
+        assert "DELETED" in resp.data.decode("utf-8")
+        user = User.get(id=123)
+        assert user.organisation_id is None
 
 
 def test_user_orgs(request_ctx):
@@ -479,10 +493,24 @@ def test_api_credentials(request_ctx):
         response_type="xyz")
     client_info = Client.get(id=1234)
     client_info.save()
-    with request_ctx():
+    with request_ctx(method="POST", data={
+        "name": "TEST APP",
+        "homepage_url": "http://test.at.test",
+        "description": "TEST APPLICATION 123",
+        "register": "Register",
+        "reset": "xyz"}
+                     ):
         login_user(user, remember=True)
         resp = views.api_credentials()
-        assert "requestd_client_id" in resp
+        assert "test123@test.test.net" in resp
+    with request_ctx(method="POST", data={
+        "name": "TEST APP",
+        "delete": "xyz"}
+                     ):
+        login_user(user, remember=True)
+        resp = views.api_credentials()
+        assert resp.status_code == 302
+        assert "application" in resp.location
 
 
 def test_page_not_found(request_ctx):
@@ -493,7 +521,14 @@ def test_page_not_found(request_ctx):
         assert "Sorry, that page doesn't exist." in resp[0]
 
 
-def test_action_invite(request_ctx):
+def send_mail_mock(*argvs, **kwargs):
+    """Mock email invitation."""
+    app.logger.info(f"***\nActually email invitation was mocked, so no email sent!!!!!")
+    return True
+
+
+@patch("orcid_hub.utils.send_email", side_effect=send_mail_mock)
+def test_action_invite(patch, request_ctx):
     """Test handle nonexistin pages."""
     Organisation.get_or_create(
         id=1,
@@ -547,3 +582,237 @@ def test_action_invite(request_ctx):
         org2 = Organisation.get(id=2)
         assert "Test_client" == org2.name
         assert Role.ADMIN in user.roles
+
+
+def test_shorturl(request_ctx):
+    """Test short url."""
+    url = "http://localhost/xsdsdsfdds"
+    with request_ctx():
+        rv = views.shorturl(url)
+        assert "http://" in rv
+
+
+def test_activate_all(request_ctx):
+    """Test batch registraion of users."""
+    Organisation.get_or_create(
+        id=1,
+        name="THE ORGANISATION",
+        tuakiri_name="THE ORGANISATION",
+        confirmed=False,
+        orcid_client_id="CLIENT ID",
+        orcid_secret="Client Secret",
+        city="CITY",
+        country="COUNTRY",
+        disambiguated_id="ID",
+        disambiguation_source="SOURCE",
+        is_email_sent=True)
+    org = Organisation.get(id=1)
+    User.get_or_create(
+        id=123,
+        email="test123@test.test.net",
+        name="TEST USER",
+        roles=Role.TECHNICAL,
+        orcid=123,
+        organisation_id=1,
+        confirmed=True,
+        organisation=org)
+    user = User.get(id=123)
+    org.save()
+    user.save()
+    UserOrg.get_or_create(id=122, user=user, org=org, is_admin=True)
+    user_org = UserOrg.get(id=122)
+    user_org.save()
+
+    Task.get_or_create(
+        id=1234,
+        org=org,
+        completed_at="12/12/12",
+        filename="xyz.txt",
+        created_by=user,
+        updated_by=user,
+        task_type=0)
+    Task.get_or_create(
+        id=12345,
+        org=org,
+        completed_at="12/12/12",
+        filename="xyz.txt",
+        created_by=user,
+        updated_by=user,
+        task_type=1)
+
+    task1 = Task.get(id=1234)
+    task1.save()
+    task2 = Task.get(id=12345)
+    task2.save()
+    with request_ctx("/activate_all", method="POST") as ctxx:
+        login_user(user, remember=True)
+        request.args = ImmutableMultiDict([('url', 'http://localhost/affiliation_record_activate_for_batch')])
+        request.form = ImmutableMultiDict([('task_id', '1234')])
+        rv = ctxx.app.full_dispatch_request()
+        assert rv.status_code == 302
+        assert rv.location.startswith("http://localhost/affiliation_record_activate_for_batch")
+    with request_ctx("/activate_all", method="POST") as ctxx:
+        login_user(user, remember=True)
+        request.args = ImmutableMultiDict([('url', 'http://localhost/funding_record_activate_for_batch')])
+        request.form = ImmutableMultiDict([('task_id', '12345')])
+        rv = ctxx.app.full_dispatch_request()
+        assert rv.status_code == 302
+        assert rv.location.startswith("http://localhost/funding_record_activate_for_batch")
+
+
+def test_logo(request_ctx):
+    """Test manage organisation 'logo'."""
+    Organisation.get_or_create(
+        id=1,
+        name="THE ORGANISATION",
+        tuakiri_name="THE ORGANISATION",
+        confirmed=False,
+        orcid_client_id="CLIENT ID",
+        orcid_secret="Client Secret",
+        city="CITY",
+        country="COUNTRY",
+        disambiguated_id="ID",
+        disambiguation_source="SOURCE",
+        is_email_sent=True)
+    org = Organisation.get(id=1)
+    User.get_or_create(
+        id=123,
+        email="test123@test.test.net",
+        name="TEST USER",
+        roles=Role.TECHNICAL,
+        orcid=123,
+        organisation_id=1,
+        confirmed=True,
+        organisation=org)
+    user = User.get(id=123)
+    org.save()
+    user.save()
+    UserOrg.get_or_create(id=122, user=user, org=org, is_admin=True)
+    user_org = UserOrg.get(id=122)
+    user_org.save()
+    with request_ctx("/settings/logo", method="POST") as ctxx:
+        login_user(user, remember=True)
+        rv = ctxx.app.full_dispatch_request()
+        assert rv.status_code == 200
+        assert b"<!DOCTYPE html>" in rv.data, "Expected HTML content"
+    with request_ctx("/logo/token_123") as ctxxx:
+        login_user(user, remember=True)
+        rv = ctxxx.app.full_dispatch_request()
+        assert rv.status_code == 302
+        assert rv.location.endswith("images/banner-small.png")
+
+
+@patch("orcid_hub.utils.send_email", side_effect=send_mail_mock)
+def test_manage_email_template(patch, request_ctx):
+    """Test manage organisation invitation email template."""
+    Organisation.get_or_create(
+        id=1,
+        name="THE ORGANISATION",
+        tuakiri_name="THE ORGANISATION",
+        confirmed=False,
+        orcid_client_id="CLIENT ID",
+        orcid_secret="Client Secret",
+        city="CITY",
+        country="COUNTRY",
+        disambiguated_id="ID",
+        disambiguation_source="SOURCE",
+        is_email_sent=True)
+    org = Organisation.get(id=1)
+    User.get_or_create(
+        id=123,
+        email="test123@test.test.net",
+        name="TEST USER",
+        roles=Role.TECHNICAL,
+        orcid=123,
+        organisation_id=1,
+        confirmed=True,
+        organisation=org)
+    user = User.get(id=123)
+    org.save()
+    user.save()
+    UserOrg.get_or_create(id=122, user=user, org=org, is_admin=True)
+    user_org = UserOrg.get(id=122)
+    user_org.save()
+    with request_ctx("/settings/email_template", method="POST", data={
+        "name": "TEST APP",
+        "homepage_url": "http://test.at.test",
+        "description": "TEST APPLICATION 123",
+        "email_template": "enable",
+        "save": "xyz"}
+                     ) as ctxx:
+        login_user(user, remember=True)
+        rv = ctxx.app.full_dispatch_request()
+        assert rv.status_code == 200
+        assert b"<!DOCTYPE html>" in rv.data, "Expected HTML content"
+        org1 = Organisation.get(id=1)
+        assert org1.email_template == "enable"
+    with request_ctx("/settings/email_template", method="POST", data={
+        "name": "TEST APP", "email_template_enabled": "xyz", "email_address": "test123@test.test.net", "send": "xyz"
+    }) as cttxx:
+        login_user(user, remember=True)
+        rv = cttxx.app.full_dispatch_request()
+        assert rv.status_code == 200
+        assert b"<!DOCTYPE html>" in rv.data, "Expected HTML content"
+
+
+def send_mail_mock(*argvs, **kwargs):
+    """Mock email invitation."""
+    logger.info(f"***\nActually email invitation was mocked, so no email sent!!!!!")
+    return True
+
+
+@patch("orcid_hub.utils.send_email", side_effect=send_mail_mock)
+def test_invite_user(patch, request_ctx):
+    """Test invite a researcher to join the hub."""
+    Organisation.get_or_create(
+        id=1,
+        name="THE ORGANISATION",
+        tuakiri_name="THE ORGANISATION",
+        confirmed=False,
+        orcid_client_id="CLIENT ID",
+        orcid_secret="Client Secret",
+        city="CITY",
+        country="COUNTRY",
+        disambiguated_id="ID",
+        disambiguation_source="SOURCE",
+        is_email_sent=True)
+    org = Organisation.get(id=1)
+    User.get_or_create(
+        id=123,
+        email="test123@test.test.net",
+        name="TEST USER",
+        roles=Role.TECHNICAL,
+        orcid=123,
+        organisation_id=1,
+        confirmed=True,
+        organisation=org)
+    user = User.get(id=123)
+    org.save()
+    user.save()
+    UserOrg.get_or_create(id=122, user=user, org=org, is_admin=True)
+    user_org = UserOrg.get(id=122)
+    user_org.save()
+    UserInvitation.get_or_create(
+        id=1211,
+        invitee=user,
+        inviter=user,
+        org=org,
+        email="test1234456@mailinator.com",
+        token="xyztoken")
+    ui = UserInvitation.get(id=1211)
+    ui.save()
+    with request_ctx("/invite/user") as ctxxx:
+        login_user(user, remember=True)
+        rv = ctxxx.app.full_dispatch_request()
+        assert rv.status_code == 200
+        assert b"<!DOCTYPE html>" in rv.data, "Expected HTML content"
+        assert b"THE ORGANISATION" in rv.data
+    with request_ctx("/invite/user", method="POST", data={
+        "name": "TEST APP", "is_employee": "false", "email_address": "test123@test.test.net",
+        "resend": "enable", "is_student": "true", "first_name": "test", "last_name": "test", "city": "test"
+    }) as ctxx:
+        login_user(user, remember=True)
+        rv = ctxx.app.full_dispatch_request()
+        assert rv.status_code == 200
+        assert b"<!DOCTYPE html>" in rv.data, "Expected HTML content"
+        assert b"test123@test.test.net" in rv.data
