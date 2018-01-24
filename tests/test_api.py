@@ -5,6 +5,7 @@ import json
 
 import pytest
 
+from orcid_hub.api import yamlfy
 from orcid_hub.models import Client, OrcidToken, Organisation, Role, Token, User, UserOrg
 
 
@@ -205,3 +206,22 @@ def test_spec(client, url):
     """Test API specs."""
     rv = client.get(url)
     assert rv.status_code == 200
+
+
+def test_yaml_spec(client):
+    """Test API specs (the default entry point with yaml content type)."""
+    rv = client.get("/spec", headers={"Accept": "text/yaml"})
+    assert rv.status_code == 200
+
+
+def test_yamlfy(app):
+    """Test yamlfy function."""
+    from flask import Response
+    assert isinstance(yamlfy(1), Response)
+    assert isinstance(yamlfy(1, 2, 3), Response)
+    assert isinstance(yamlfy(key_arg=42), Response)
+    with pytest.raises(TypeError):
+        yamlfy(1, 2, 3, key_arg=42)
+
+
+
