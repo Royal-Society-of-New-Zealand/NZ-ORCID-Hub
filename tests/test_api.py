@@ -224,4 +224,39 @@ def test_yamlfy(app):
         yamlfy(1, 2, 3, key_arg=42)
 
 
+def test_db_api(app_req_ctx):
+    """Test DB API."""
+    with app_req_ctx(
+            "/data/api/v0.1/organisations/", headers=dict(authorization="Bearer TEST")) as ctx:
+        rv = ctx.app.full_dispatch_request()
+        assert rv.status_code == 200
+        data = json.loads(rv.data)
+        assert "objects" in data
+        assert len(data["objects"]) == 2
 
+    with app_req_ctx("/data/api/v0.1/tasks/", headers=dict(authorization="Bearer TEST")) as ctx:
+        rv = ctx.app.full_dispatch_request()
+        assert rv.status_code == 200
+        data = json.loads(rv.data)
+        assert "objects" in data
+        assert len(data["objects"]) == 0
+
+    org = Organisation.get(id=1)
+    with app_req_ctx(
+            f"/data/api/v0.1/organisations/{org.id}",
+            headers=dict(authorization="Bearer TEST")) as ctx:
+        rv = ctx.app.full_dispatch_request()
+        assert rv.status_code == 200
+        data = json.loads(rv.data)
+        assert data["name"] == org.name
+        assert data["tuakiri_name"] == org.tuakiri_name
+
+    org = Organisation.get(id=2)
+    with app_req_ctx(
+            f"/data/api/v0.1/organisations/{org.id}",
+            headers=dict(authorization="Bearer TEST")) as ctx:
+        rv = ctx.app.full_dispatch_request()
+        assert rv.status_code == 200
+        data = json.loads(rv.data)
+        assert data["name"] == org.name
+        assert data["tuakiri_name"] == org.tuakiri_name
