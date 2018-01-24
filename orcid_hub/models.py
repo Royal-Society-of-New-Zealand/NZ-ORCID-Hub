@@ -639,6 +639,12 @@ class User(BaseModel, UserMixin, AuditMixin):
             org = self.organisation
         return org and org.tech_contact and org.tech_contact_id == self.id
 
+    def is_admin_of(self, org=None):
+        """Indicats if the user is the technical contact of the organisation."""
+        if org is None:
+            org = self.organisation
+        return org and UserOrg.select(UserOrg.user == self, UserOrg.org == org, UserOrg.is_admin).exists()
+
     @staticmethod
     def load_from_csv(source):
         """Load data from CSV file or a string."""
