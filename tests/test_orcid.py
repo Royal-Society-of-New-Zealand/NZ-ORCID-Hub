@@ -3,7 +3,7 @@
 
 import json
 import time
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import Mock, MagicMock, call, patch
 
 import pytest
 import requests_oauthlib
@@ -11,8 +11,52 @@ from flask import session, url_for
 from flask_login import login_user
 
 from orcid_hub.models import Affiliation, OrcidToken, Organisation, User, UserOrg
+from orcid_hub.orcid_client import MemberAPI, configuration, api_client
 
 fake_time = time.time()
+
+
+def test_member_api(app):
+    """Test MemberAPI extension and wrapper of ORCID API."""
+    org = Organisation.create(name="THE ORGANISATION", confirmed=True, orcid_client_id="CLIENT000")
+    user = User.create(
+        orcid="1001-0001-0001-0001",
+        name="TEST USER 123",
+        email="test123@test.test.net",
+        organisation=org,
+        confirmed=True)
+    UserOrg.create(user=user, org=org, affiliation=Affiliation.EDU)
+
+    MemberAPI(user=user)
+    assert configuration.access_token is None
+
+    MemberAPI(user=user, org=org)
+    assert configuration.access_token is None
+
+    MemberAPI(user=user, org=org, access_token="ACCESS000")
+    assert configuration.access_token == 'ACCESS000'
+
+    OrcidToken.create(
+        access_token="ACCESS123", user=user, org=org, scope="/read-limited,/activities/update")
+    api = MemberAPI(user=user, org=org)
+    assert configuration.access_token == "ACCESS123"
+
+    with patch.object(
+            api_client.ApiClient,
+            "call_api",
+            return_value=(
+                Mock(data=b"""{"mock": "data"}"""),
+                200,
+                [],
+            )) as call_api:
+        api.get_record()
+        call_api.assert_called_with(
+            f"/v2.0/{user.orcid}",
+            "GET",
+            _preload_content=False,
+            auth_settings=["orcid_auth"],
+            header_params={"Accept": "application/json"},
+            response_type=None)
 
 
 @patch.object(requests_oauthlib.OAuth2Session, "authorization_url",
@@ -20,11 +64,9 @@ fake_time = time.time()
 def test_link(request_ctx):
     """Test a user affiliation initialization."""
     with request_ctx("/link") as ctx:
-        org = Organisation(name="THE ORGANISATION", confirmed=True)
-        org.save()
-        test_user = User(
+        org = Organisation.create(name="THE ORGANISATION", confirmed=True)
+        test_user = User.create(
             name="TEST USER 123", email="test123@test.test.net", organisation=org, confirmed=True)
-        test_user.save()
         login_user(test_user, remember=True)
 
         rv = ctx.app.full_dispatch_request()
