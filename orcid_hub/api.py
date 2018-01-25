@@ -461,10 +461,3 @@ def yamlfy(*args, **kwargs):
         data = args or kwargs
 
     return current_app.response_class((yaml.dump(data), '\n'), mimetype="text/yaml")
-
-
-swaggerUI = SwaggerUI(
-    app, version="3.6.1", url="http://127.0.0.1:5000/data/api/v0.1/meta/resources")
-swaggerUI.setup()
-
-
