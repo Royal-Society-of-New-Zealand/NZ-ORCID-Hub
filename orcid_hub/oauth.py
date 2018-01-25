@@ -18,7 +18,7 @@ def load_client(client_id):  # noqa: D103
 
 
 @oauth.grantgetter
-def load_grant(client_id, code):  # noqa: D103
+def load_grant(client_id, code):  # noqa: D103 pragma: no cover
     try:
         return Grant.get(client_id=client_id, code=code)
     except Grant.DoesNotExist:
@@ -26,7 +26,7 @@ def load_grant(client_id, code):  # noqa: D103
 
 
 @oauth.grantsetter
-def save_grant(client_id, code, request, *args, **kwargs):  # noqa: D103
+def save_grant(client_id, code, request, *args, **kwargs):  # noqa: D103 pragma: no cover
     expires = datetime.utcnow() + timedelta(seconds=100)
     return Grant.create(
         client=Client.get(client_id=client_id),
@@ -42,7 +42,7 @@ def load_token(access_token=None, refresh_token=None):  # noqa: D103
     try:
         if access_token:
             return Token.get(access_token=access_token)
-        elif refresh_token:
+        elif refresh_token:  # pragma: no cover
             return Token.get(refresh_token=refresh_token)
     except Token.DoesNotExist:
         return None
@@ -54,7 +54,7 @@ def save_token(token, request, *args, **kwargs):  # noqa: D103
     # make sure that every client has only one token connected to a user
     try:
         client = Client.get(client_id=request.client.client_id)
-    except Client.DoesNotExist:
+    except Client.DoesNotExist:  # pragma: no cover
         return jsonify({"error": "CLIENT DOESN'T EXIST"}), 404
     Token.delete().where(Token.client == client).where(Token.user_id == request.user.id).execute()
 
@@ -75,7 +75,7 @@ def save_token(token, request, *args, **kwargs):  # noqa: D103
 @app.route("/oauth/authorize", methods=["GET", "POST"])
 @login_required
 @oauth.authorize_handler
-def authorize(*args, **kwargs):  # noqa: D103
+def authorize(*args, **kwargs):  # noqa: D103 pragma: no cover
     if request.method == "GET":
         client_id = kwargs.get("client_id")
         client = Client.query.filter_by(client_id=client_id).first()
