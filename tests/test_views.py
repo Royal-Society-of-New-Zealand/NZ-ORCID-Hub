@@ -809,3 +809,45 @@ def test_invite_user(patch, request_ctx):
         assert rv.status_code == 200
         assert b"<!DOCTYPE html>" in rv.data, "Expected HTML content"
         assert b"test123@test.test.net" in rv.data
+
+
+@patch("orcid_hub.utils.send_email", side_effect=send_mail_mock)
+def test_invite_organisation(patch, request_ctx):
+    """Test invite an organisation to register."""
+    Organisation.get_or_create(
+        id=1,
+        name="THE ORGANISATION",
+        tuakiri_name="THE ORGANISATION",
+        confirmed=False,
+        orcid_client_id="CLIENT ID",
+        orcid_secret="Client Secret",
+        city="CITY",
+        country="COUNTRY",
+        disambiguated_id="ID",
+        disambiguation_source="SOURCE",
+        is_email_sent=True)
+    org = Organisation.get(id=1)
+    User.get_or_create(
+        id=123,
+        email="test123@test.test.net",
+        name="TEST USER",
+        roles=Role.SUPERUSER,
+        orcid=123,
+        organisation_id=1,
+        confirmed=True,
+        organisation=org)
+    user = User.get(id=123)
+    org.save()
+    user.save()
+    UserOrg.get_or_create(id=122, user=user, org=org, is_admin=True)
+    user_org = UserOrg.get(id=122)
+    user_org.save()
+    with request_ctx("/invite/organisation", method="POST", data={
+        "org_name": "THE ORGANISATION", "org_email": "test123@test.test.net", "tech_contact": "True",
+        "via_orcid": "True", "first_name": "xyz", "last_name": "xyz", "city": "xyz"
+    }) as ctxx:
+        login_user(user, remember=True)
+        rv = ctxx.app.full_dispatch_request()
+        assert rv.status_code == 200
+        assert b"<!DOCTYPE html>" in rv.data, "Expected HTML content"
+        assert b"test123@test.test.net" in rv.data
