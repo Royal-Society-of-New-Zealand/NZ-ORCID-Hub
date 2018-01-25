@@ -9,7 +9,7 @@ from flask_swagger import swagger
 from werkzeug.exceptions import NotFound
 from flask_peewee_swagger.swagger import Swagger, SwaggerUI
 
-from . import api, app, models, oauth, AppAuthentication
+from . import api, app, models, oauth
 from .models import EMAIL_REGEX, ORCID_ID_REGEX, OrcidToken, User, UserOrg
 
 
@@ -86,11 +86,6 @@ common_spec = {
 
 api_swagger = Swagger(api, swagger_version="2.0", extras=common_spec)
 api_swagger.setup()
-
-swaggerUI = SwaggerUI(
-    app, version="3.6.1", url="http://127.0.0.1:5000/data/api/v0.1/meta/resources")
-swaggerUI.setup()
-
 
 @app.route('/api/me')
 @app.route("/api/v0.1/me")
@@ -466,3 +461,10 @@ def yamlfy(*args, **kwargs):
         data = args or kwargs
 
     return current_app.response_class((yaml.dump(data), '\n'), mimetype="text/yaml")
+
+
+swaggerUI = SwaggerUI(
+    app, version="3.6.1", url="http://127.0.0.1:5000/data/api/v0.1/meta/resources")
+swaggerUI.setup()
+
+
