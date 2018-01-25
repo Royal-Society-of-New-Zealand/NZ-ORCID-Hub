@@ -33,7 +33,7 @@ from . import app, db
 from .config import DEFAULT_COUNTRY, ENV
 
 EMAIL_REGEX = re.compile(r"^[_a-z0-9-]+(\.[_a-z0-9-]+)*@[a-z0-9-]+(\.[a-z0-9-]+)*(\.[a-z]{2,4})$")
-ORCID_ID_REGEX = re.compile(r"^\d{4}-?\d{4}-?\d{4}-?\d{4}$")
+ORCID_ID_REGEX = re.compile(r"^([X\d]{4}-?){3}[X\d]{4}$")
 
 AFFILIATION_TYPES = (
     "student",
@@ -263,6 +263,14 @@ class BaseModel(Model):
         """Get dictionary representation of the model."""
         return model_to_dict(self)
 
+    def reload(self):
+        """Refresh the object from the DB."""
+        newer_self = self.get(self._meta.primary_key == self._get_pk_value())
+        for field_name in self._meta.fields.keys():
+            val = getattr(newer_self, field_name)
+            setattr(self, field_name, val)
+        self._dirty.clear()
+
     class Meta:  # noqa: D101,D106
         database = db
         only_save_dirty = True
@@ -484,6 +492,10 @@ class OrgInfo(BaseModel):
                 return None if v == '' else v
 
         for row in reader:
+            # skip empty lines:
+            if row is None or (len(row) == 1 and row[0].strip() == ''):
+                continue
+
             name = val(row, 0)
             oi, _ = cls.get_or_create(name=name)
 
@@ -634,6 +646,12 @@ class User(BaseModel, UserMixin, AuditMixin):
         if org is None:
             org = self.organisation
         return org and org.tech_contact and org.tech_contact_id == self.id
+
+    def is_admin_of(self, org=None):
+        """Indicats if the user is the technical contact of the organisation."""
+        if org is None:
+            org = self.organisation
+        return org and UserOrg.select(UserOrg.user == self, UserOrg.org == org, UserOrg.is_admin).exists()
 
     @staticmethod
     def load_from_csv(source):
@@ -947,7 +965,10 @@ class Task(BaseModel, AuditMixin):
             try:
                 task = cls.create(org=org, filename=filename)
                 for row_no, row in enumerate(reader):
+                    # skip empty lines:
                     if len(row) == 0:
+                        continue
+                    if len(row) == 1 and row[0].strip() == '':
                         continue
 
                     email = val(row, 2, "").lower()
@@ -1133,13 +1154,13 @@ class FundingRecord(RecordModel):
     """Funding record loaded from Json file for batch processing."""
 
     task = ForeignKeyField(Task, related_name="funding_records", on_delete="CASCADE")
-    title = CharField(max_length=80)
-    translated_title = CharField(null=True, max_length=80)
+    title = CharField(max_length=255)
+    translated_title = CharField(null=True, max_length=255)
     translated_title_language_code = CharField(null=True, max_length=10)
-    type = CharField(max_length=80)
-    organization_defined_type = CharField(null=True, max_length=80)
+    type = CharField(max_length=255)
+    organization_defined_type = CharField(null=True, max_length=255)
     short_description = CharField(null=True, max_length=4000)
-    amount = CharField(null=True, max_length=80)
+    amount = CharField(null=True, max_length=255)
     currency = CharField(null=True, max_length=3)
     start_date = PartialDateField(null=True)
     end_date = PartialDateField(null=True)
@@ -1364,10 +1385,10 @@ class ExternalId(BaseModel):
 
     funding_record = ForeignKeyField(
         FundingRecord, related_name="external_ids", on_delete="CASCADE")
-    type = CharField(max_length=80)
+    type = CharField(max_length=255)
     value = CharField(max_length=255)
     url = CharField(max_length=200, null=True)
-    relationship = CharField(max_length=80, null=True)
+    relationship = CharField(max_length=255, null=True)
 
     class Meta:  # noqa: D101,D106
         db_table = "external_id"

@@ -4,9 +4,10 @@ import pytest
 from peewee import Model, SqliteDatabase
 from playhouse.test_utils import test_database
 
-from orcid_hub.models import (Affiliation, AffiliationRecord, ModelException, OrcidToken,
-                              Organisation, OrgInfo, PartialDate, PartialDateField, Role, Task,
-                              User, UserOrg, UserOrgAffiliation, create_tables, drop_tables)
+from orcid_hub.models import (Affiliation, AffiliationRecord, ExternalId, FundingContributor,
+                              FundingRecord, ModelException, OrcidToken, Organisation, OrgInfo,
+                              PartialDate, PartialDateField, Role, Task, User, UserOrg,
+                              UserOrgAffiliation, create_tables, drop_tables)
 
 
 @pytest.fixture
@@ -22,8 +23,8 @@ def test_db():
     """
     _db = SqliteDatabase(":memory:")
     with test_database(
-            _db,
-        (Organisation, User, UserOrg, OrcidToken, UserOrgAffiliation, Task, AffiliationRecord),
+            _db, (Organisation, User, UserOrg, OrcidToken, UserOrgAffiliation, Task,
+                  AffiliationRecord, ExternalId, FundingRecord, FundingContributor),
             fail_silently=True) as _test_db:
         yield _test_db
 
@@ -69,6 +70,69 @@ def test_models(test_db):
         path="Test_%d" % i,
         put_code="%d" % i) for i in range(30))).execute()
 
+    Task.insert_many((dict(
+        org=Organisation.get(id=1),
+        created_by=User.get(id=1),
+        updated_by=User.get(id=1),
+        filename="Test_%d" % i,
+        task_type=0) for i in range(30))).execute()
+
+    AffiliationRecord.insert_many((dict(
+        is_active=False,
+        task=Task.get(id=1),
+        put_code=90,
+        external_id="Test_%d" % i,
+        status="Test_%d" % i,
+        first_name="Test_%d" % i,
+        last_name="Test_%d" % i,
+        email="Test_%d" % i,
+        orcid="123112311231%d" % i,
+        organisation="Test_%d" % i,
+        affiliation_type="Test_%d" % i,
+        role="Test_%d" % i,
+        department="Test_%d" % i,
+        city="Test_%d" % i,
+        state="Test_%d" % i,
+        country="Test_%d" % i,
+        disambiguated_id="Test_%d" % i,
+        disambiguated_source="Test_%d" % i) for i in range(10))).execute()
+
+    FundingRecord.insert_many((dict(
+        task=Task.get(id=1),
+        title="Test_%d" % i,
+        translated_title="Test_%d" % i,
+        translated_title_language_code="Test_%d" % i,
+        type="Test_%d" % i,
+        organization_defined_type="Test_%d" % i,
+        short_description="Test_%d" % i,
+        amount="Test_%d" % i,
+        currency="Test_%d" % i,
+        org_name="Test_%d" % i,
+        city="Test_%d" % i,
+        region="Test_%d" % i,
+        country="Test_%d" % i,
+        disambiguated_org_identifier="Test_%d" % i,
+        disambiguation_source="Test_%d" % i,
+        is_active=False,
+        status="Test_%d" % i,
+        visibility="Test_%d" % i) for i in range(10))).execute()
+
+    FundingContributor.insert_many((dict(
+        funding_record=FundingRecord.get(id=1),
+        orcid="123112311231%d" % i,
+        name="Test_%d" % i,
+        email="Test_%d@mailinator.com" % i,
+        role="Test_%d" % i,
+        status="Test_%d" % i,
+        put_code=90) for i in range(10))).execute()
+
+    ExternalId.insert_many((dict(
+        funding_record=FundingRecord.get(id=1),
+        type="Test_%d" % i,
+        value="Test_%d" % i,
+        url="Test_%d" % i,
+        relationship="Test_%d" % i) for i in range(10))).execute()
+
     yield test_db
 
 
@@ -101,6 +165,26 @@ def test_user_count(test_models):
 
 def test_orcidtoken_count(test_models):
     assert OrcidToken.select().count() == 60
+
+
+def test_AffiliationRecord_count(test_models):
+    assert AffiliationRecord.select().count() == 10
+
+
+def test_FundingRecord_count(test_models):
+    assert FundingRecord.select().count() == 10
+
+
+def test_FundingContributor_count(test_models):
+    assert FundingContributor.select().count() == 10
+
+
+def test_ExternalId_count(test_models):
+    assert ExternalId.select().count() == 10
+
+
+def test_Task_count(test_models):
+    assert Task.select().count() == 30
 
 
 def test_user_oganisation_affiliation_count(test_models):
@@ -298,7 +382,8 @@ FNB	LNB	b.b@test.com	TEST0	Science and Education Group	Wellington	Manager Specia
         filename="TEST.tsv",
         org=org)
     assert test.record_count == 9
-    assert AffiliationRecord.select().count() == test.record_count
+    assert AffiliationRecord.select().count(
+    ) == test.record_count + 10  # The 10 value is from already inserted entries.
 
 
 def test_is_superuser():

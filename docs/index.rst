@@ -15,6 +15,8 @@ Because New Zealand ORCID Hub is fun to use.
    :maxdepth: 2
    :caption: Contents:
 
+   writing_funding_items
+   customising_email_messages
    development_env
    sendmail
    troubleshooting

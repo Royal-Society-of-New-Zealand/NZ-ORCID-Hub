@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Application configuration."""
 
-from os import environ, urandom
+from os import environ, urandom, path
 
 ENV = environ.get("ENV", "dev")
 
@@ -89,7 +89,7 @@ DEFAULT_EMAIL_TEMPLATE = """<!DOCTYPE html>
 <html>
   <head>
     <meta charset="utf-8">
-    <title>Affiliation Process Update</title>
+    <title>{SUBJECT}</title>
     <meta name="keywords" content="ORCID HUB,New Zealand,NZ,orcid"/>
   </head>
   <body>
@@ -131,3 +131,5 @@ DEFAULT_EMAIL_TEMPLATE = """<!DOCTYPE html>
   </body>
 </html>
 """
+
+DKIP_KEY_PATH = path.join(path.dirname(path.relpath(path.relpath(__file__))), ".keys", "dkim.key")

@@ -11,7 +11,7 @@
     :license: MIT, see LICENSE for more details.
 """
 
-__version__ = '4.0a1'
+__version__ = "3.1.1"
 
 import logging
 import os
@@ -134,7 +134,7 @@ if SENTRY_DSN:
         app, dsn=SENTRY_DSN, logging=True, level=logging.DEBUG if app.debug else logging.WARNING)
 
 login_manager = LoginManager()
-login_manager.login_view = "login"
+login_manager.login_view = "index"
 login_manager.login_message_category = "info"
 login_manager.init_app(app)
 

@@ -36,9 +36,9 @@ from .forms import (ApplicationFrom, BitmapMultipleValueField, CredentialForm, E
                     FileUploadForm, JsonOrYamlFileUploadForm, LogoForm, OrgRegistrationForm,
                     PartialDateField, RecordForm, UserInvitationForm)
 from .login_provider import roles_required
-from .models import (Affiliation, AffiliationRecord, CharField, Client, File, FundingRecord, FundingContributor,
-                     Grant, ModelException, OrcidApiCall, OrcidToken, Organisation, OrgInfo,
-                     OrgInvitation, PartialDate, Role, Task, TextField, Token, Url, User,
+from .models import (Affiliation, AffiliationRecord, CharField, Client, File, FundingContributor,
+                     FundingRecord, Grant, ModelException, OrcidApiCall, OrcidToken, Organisation,
+                     OrgInfo, OrgInvitation, PartialDate, Role, Task, TextField, Token, Url, User,
                      UserInvitation, UserOrg, UserOrgAffiliation, db)
 # NB! Should be disabled in production
 from .pyinfo import info
@@ -69,6 +69,26 @@ def favicon():
         os.path.join(app.root_path, "static", "images"),
         "favicon.ico",
         mimetype="image/vnd.microsoft.icon")
+
+
+@app.route("/status")
+def status():
+    """Check the application health status attempting to connect to the DB.
+
+    NB! This entry point should be protectd and accessible
+    only form the appliction monitoring servers.
+    """
+    try:
+        now = db.execute_sql("SELECT now();").fetchone()[0]
+        return jsonify({
+            "status": "Connection successful.",
+            "db-timestamp": now.isoformat(),
+        })
+    except Exception as ex:
+        return jsonify({
+            "status": "Error",
+            "message": str(ex),
+        }), 503  # Service Unavailable
 
 
 @app.route("/pyinfo")
@@ -210,7 +230,7 @@ class AppModelView(ModelView):
 
     def inaccessible_callback(self, name, **kwargs):
         """Handle access denial. Redirect to login page if user doesn"t have access."""
-        return redirect(url_for("login", next=request.url))
+        return redirect(url_for("index", next=request.url))
 
     def get_query(self):
         """Add URL query to the data select for foreign key and select data that user has access to."""
@@ -561,14 +581,16 @@ to the best of your knowledge, correct!""")
         status = "The record was reset at " + datetime.now().isoformat(timespec="seconds")
         with db.atomic():
             try:
-                count = self.model.update(processed_at=None, status=status).where(
-                    self.model.is_active, self.model.processed_at.is_null(False),
-                    self.model.id.in_(ids)).execute()
+                count = self.model.update(
+                    processed_at=None, status=status).where(self.model.is_active,
+                                                            self.model.processed_at.is_null(False),
+                                                            self.model.id.in_(ids)).execute()
 
                 if self.model == FundingRecord:
-                    count = FundingContributor.update(processed_at=None, status=status).where(
-                        FundingContributor.funding_record.in_(ids),
-                        FundingContributor.status.is_null(False)).execute()
+                    count = FundingContributor.update(
+                        processed_at=None, status=status).where(
+                            FundingContributor.funding_record.in_(ids),
+                            FundingContributor.status.is_null(False)).execute()
 
             except Exception as ex:
                 db.rollback()
@@ -721,7 +743,8 @@ class FundingRecordAdmin(RecordModelView):
 
         try:
             try:
-                ds.yaml = yaml.safe_dump(json.loads(ds.json.replace("\\n", " ")))
+                ds.yaml = yaml.safe_dump(
+                    json.loads(ds.json.replace("]\\", "]").replace("\\n", " ")))
                 response_data = ds.export(format=export_type)
             except AttributeError:
                 response_data = getattr(ds, export_type)
@@ -1144,22 +1167,6 @@ def employment_list(user_id):
     return show_record_section(user_id, "EMP")
 
 
-@app.route("/<int:funding_record_id>/FundingContributor/list")
-@app.route("/<int:funding_record_id>/FundingContributor")
-@login_required
-def funding_contributor_list(funding_record_id):
-    """Show the funding contributors list of the selected user."""
-    return redirect(url_for("fundingcontributor.index_view", funding_record_id=funding_record_id))
-
-
-@app.route("/<int:funding_record_id>/ExternaId/list")
-@app.route("/<int:funding_record_id>/ExternaId")
-@login_required
-def externalid_list(funding_record_id):
-    """Show the External id list of the funding item."""
-    return redirect(url_for("externalid.index_view", funding_record_id=funding_record_id))
-
-
 @app.route("/<int:user_id>/edu/list")
 @app.route("/<int:user_id>/edu")
 @login_required
@@ -1408,7 +1415,7 @@ def register_org(org_name,
                         _next=url_for("onboard_org"))).short_id
             invitation_url = url_for("short_url", short_id=short_id, _external=True)
         else:
-            invitation_url = url_for("login", _external=True)
+            invitation_url = url_for("index", _external=True)
 
         utils.send_email(
             "email/org_invitation.html",
@@ -1557,7 +1564,7 @@ def invite_user():
         "GET",
         "POST",
     ])
-def email_template():
+def manage_email_template():
     """Manage organisation invitation email template."""
     org = current_user.organisation
     form = EmailTemplateForm(obj=org)
@@ -1603,12 +1610,12 @@ def logo_image(token=None):
     return redirect(url_for("static", filename="images/banner-small.png", _external=True))
 
 
-@roles_required(Role.TECHNICAL, Role.ADMIN)
 @app.route(
     "/settings/logo", methods=[
         "GET",
         "POST",
     ])
+@roles_required(Role.TECHNICAL, Role.ADMIN)
 def logo():
     """Manage organisation 'logo'."""
     org = current_user.organisation
@@ -1621,7 +1628,7 @@ def logo():
 
     form = LogoForm()
     if form.validate_on_submit():
-        f = form.logo.data
+        f = form.logo_file.data
         filename = secure_filename(f.filename)
         logo = File.create(data=f.read(), mimetype=f.mimetype, filename=f.filename)
         org.logo = logo

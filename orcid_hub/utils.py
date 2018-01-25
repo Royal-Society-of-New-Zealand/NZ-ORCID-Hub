@@ -1,17 +1,15 @@
 # -*- coding: utf-8 -*-
 """Various utilities."""
 
+import json
 import logging
 import os
-import textwrap
 from datetime import datetime, timedelta
 from itertools import filterfalse, groupby
 from urllib.parse import urlencode, urlparse
 
 import emails
 import flask
-import jinja2
-import jinja2.ext
 import requests
 from flask import request, url_for
 from flask_login import current_user
@@ -53,6 +51,7 @@ def send_email(template_filename,
                subject=None,
                base=None,
                logo=None,
+               org=None,
                **kwargs):
     """Send an email, acquiring its payload by rendering a jinja2 template.
 
@@ -64,6 +63,7 @@ def send_email(template_filename,
     :param recipient: 'To' (name, email)
     :type sender: :class:`tuple` (:class:`str`, :class:`str`)
     :param sender: 'From' (name, email)
+    :param org: organisation on which behalf the email is sent
     * `recipient` and `sender` are made available to the template as variables
     * In any email tuple, name may be ``None``
     * The subject is retrieved from a sufficiently-global template variable;
@@ -81,36 +81,26 @@ def send_email(template_filename,
       Note that ``{{ variables }}`` in manually wrapped text can cause
       problems!
     """
+    if not org and current_user and not current_user.is_anonymous:
+        org = current_user.organisation
     if not template_filename.endswith(".html"):
         template_filename += ".html"
-    if flask.current_app:
-        # use the app's env if it's available, so that url_for may be used
-        jinja_env = flask.current_app.jinja_env
-    else:
-        path = os.path.join(os.path.dirname(__file__), "templates")
-        loader = jinja2.FileSystemLoader(path)
-        jinja_env = jinja2.Environment(
-            loader=loader, extensions=['jinja2.ext.autoescape', 'jinja2.ext.with_'])
+    jinja_env = flask.current_app.jinja_env
 
     if logo is None:
-        logo = url_for("static", filename="images/banner-small.png", _external=True)
-    if base is None and current_user and not current_user.is_anonymous:
-        if current_user:
-            org = current_user.organisation
-            if org.email_template_enabled and org.email_template:
-                base = org.email_template
-                if org.logo:
-                    logo = url_for("logo_image", token=org.logo.token, _external=True)
+        if org and org.logo:
+            logo = url_for("logo_image", token=org.logo.token, _external=True)
+        else:
+            logo = url_for("static", filename="images/banner-small.png", _external=True)
+
+    if not base and org:
+        if org.email_template_enabled and org.email_template:
+            base = org.email_template
+
     if not base:
         base = app.config.get("DEFAULT_EMAIL_TEMPLATE")
 
-    jinja_env = jinja_env.overlay(autoescape=False, extensions=[RewrapExtension])
-
-    def get_template(filename):
-        try:
-            return jinja_env.get_template(filename)
-        except jinja2.exceptions.TemplateNotFound:
-            return None
+    jinja_env = jinja_env.overlay(autoescape=False)
 
     def _jinja2_email(name, email):
         if name is None:
@@ -118,7 +108,7 @@ def send_email(template_filename,
             name = jinja_env.undefined(name='name', hint=hint)
         return {"name": name, "email": email}
 
-    template = get_template(template_filename)
+    template = jinja_env.get_template(template_filename)
 
     kwargs["sender"] = _jinja2_email(*sender)
     kwargs["recipient"] = _jinja2_email(*recipient)
@@ -131,14 +121,12 @@ def send_email(template_filename,
     if subject is None:
         subject = getattr(rendered, "subject", "Welcome to the NZ ORCID Hub")
 
-    html_msg = str(rendered)
-    if base:
-        html_msg = base.format(
-            EMAIL=kwargs["recipient"]["email"],
-            SUBJECT=subject,
-            MESSAGE=html_msg,
-            LOGO=logo,
-            BASE_URL=url_for("login", _external=True)[:-1])
+    html_msg = base.format(
+        EMAIL=kwargs["recipient"]["email"],
+        SUBJECT=subject,
+        MESSAGE=str(rendered),
+        LOGO=logo,
+        BASE_URL=url_for("index", _external=True)[:-1])
 
     plain_msg = html2text(html_msg)
 
@@ -147,7 +135,7 @@ def send_email(template_filename,
         mail_from=(app.config.get("APP_NAME", "ORCID Hub"), app.config.get("MAIL_DEFAULT_SENDER")),
         html=html_msg,
         text=plain_msg)
-    dkip_key_path = os.path.join(app.root_path, ".keys", "dkim.key")
+    dkip_key_path = app.config["DKIP_KEY_PATH"]
     if os.path.exists(dkip_key_path):
         msg.dkim(key=open(dkip_key_path), domain="orcidhub.org.nz", selector="default")
     if cc_email:
@@ -155,73 +143,6 @@ def send_email(template_filename,
     msg.set_headers({"reply-to": reply_to})
     msg.mail_to.append(recipient)
     msg.send(smtp=dict(host=app.config["MAIL_SERVER"], port=app.config["MAIL_PORT"]))
-
-
-class RewrapExtension(jinja2.ext.Extension):
-    """The :mod:`jinja2` extension adds a ``{% rewrap %}...{% endrewrap %}`` block.
-
-    The contents in the rewrap block are modified as follows
-    * whitespace at the start and end of lines is discarded
-    * the contents are split into 'paragraphs' separated by blank lines
-    * empty paragraphs are discarded - so two blank lines is equivalent to
-      one blank line, and blank lines at the start and end of the block
-      are effectively discarded
-    * lines in each paragraph are joined to one line, and then text wrapped
-      to lines `width` characters wide
-    * paragraphs are re-joined into text, with blank lines insert in between
-      them
-    It does not insert a newline at the end of the block, which means that::
-        Something, then a blank line
-        {% block rewrap %}
-        some text
-        {% endblock %}
-        After another blank line
-    will do what you expect.
-    You may optionally specify the width like so::
-        {% rewrap 72 %}
-    It defaults to 78.
-    """
-
-    tags = set(['rewrap'])
-
-    def parse(self, parser):  # noqa: D102
-        # first token is 'rewrap'
-        lineno = parser.stream.next().lineno
-
-        if parser.stream.current.type != 'block_end':
-            width = parser.parse_expression()
-        else:
-            width = jinja2.nodes.Const(78)
-
-        body = parser.parse_statements(['name:endrewrap'], drop_needle=True)
-
-        call = self.call_method('_rewrap', [width])
-        return jinja2.nodes.CallBlock(call, [], [], body).set_lineno(lineno)
-
-    def _rewrap(self, width, caller):
-        contents = caller()
-        lines = [line.strip() for line in contents.splitlines()]
-        lines.append('')
-
-        paragraphs = []
-        start = 0
-        while start != len(lines):
-            end = lines.index('', start)
-            if start != end:
-                paragraph = ' '.join(lines[start:end])
-                paragraphs.append(paragraph)
-            start = end + 1
-
-        new_lines = []
-
-        for paragraph in paragraphs:
-            if new_lines:
-                new_lines.append('')
-            new_lines += textwrap.wrap(paragraph, width)
-
-        # under the assumption that there will be a newline immediately after
-        # the endrewrap block, don't put a newline on the end.
-        return '\n'.join(new_lines)
 
 
 def generate_confirmation_token(*args, **kwargs):
@@ -317,6 +238,7 @@ def send_funding_invitation(inviter, org, email, name, task_id=None, **kwargs):
                 reply_to=(inviter.name, inviter.email),
                 invitation_url=invitation_url,
                 org_name=user.organisation.name,
+                org=org,
                 user=user)
 
         user.save()
@@ -422,13 +344,20 @@ def create_or_update_funding(user, org_id, records, *args, **kwargs):
                     fc.add_status_line(f"Funding record was updated.")
                 fc.orcid = orcid
                 fc.put_code = put_code
-                fc.processed_at = datetime.now()
 
             except Exception as ex:
                 logger.exception(f"For {user} encountered exception")
-                fc.add_status_line(f"Exception occured processing the record: {ex}.")
+                exception_msg = ""
+                if ex and ex.body:
+                    exception_msg = json.loads(ex.body)
+                fc.add_status_line(f"Exception occured processing the record: {exception_msg}.")
+                fr.add_status_line(
+                    f"Error processing record. Fix and reset to enable this record to be processed: {exception_msg}."
+                )
 
             finally:
+                fc.processed_at = datetime.now()
+                fr.save()
                 fc.save()
     else:
         # TODO: Invitation resend in case user revokes organisation permissions
@@ -480,6 +409,7 @@ def send_user_invitation(inviter,
                 reply_to=(inviter.name, inviter.email),
                 invitation_url=invitation_url,
                 org_name=user.organisation.name,
+                org=org,
                 user=user)
 
         user.save()
@@ -529,8 +459,8 @@ def send_user_invitation(inviter,
         return ui
 
     except Exception as ex:
-        logger.error(f"Exception occured while sending mails {ex}")
-        raise ex
+        logger.exception(f"Exception occured while sending mails {ex}")
+        raise
 
 
 def unique_everseen(iterable, key=None):
@@ -600,8 +530,8 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
                 if ((r.get("start-date") is None and r.get("end-date") is None
                      and r.get("department-name") is None and r.get("role-title") is None)
                         or (r.get("start-date") == affiliation_record.start_date
-                            and r.get("department-name") == affiliation_record.department_name
-                            and r.get("role-title") == affiliation_record.role_title)):
+                            and r.get("department-name") == affiliation_record.department
+                            and r.get("role-title") == affiliation_record.role)):
                     affiliation_record.put_code = put_code
                     taken_put_codes.add(put_code)
                     app.logger.debug(
@@ -610,30 +540,25 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
                     break
 
         for task_by_user in records:
-            ar = task_by_user.affiliation_record
-            at = ar.affiliation_type.lower()
-            if at in EMP_CODES:
-                match_put_code(employments, ar)
-            elif at in EDU_CODES:
-                match_put_code(educations, ar)
-
-        for task_by_user in records:
-            ar = task_by_user.affiliation_record
-            at = ar.affiliation_type.lower()
-
-            if at in EMP_CODES:
-                affiliation = Affiliation.EMP
-            elif at in EDU_CODES:
-                affiliation = Affiliation.EDU
-            else:
-                logger.info(f"For {user} not able to determine affiliaton type with {org}")
-                ar.processed_at = datetime.now()
-                ar.add_status_line(f"Unsupported affiliation type '{at}' allowed values are: " +
-                                   ', '.join(at for at in AFFILIATION_TYPES))
-                ar.save()
-                continue
-
             try:
+                ar = task_by_user.affiliation_record
+                at = ar.affiliation_type.lower()
+
+                if at in EMP_CODES:
+                    match_put_code(employments, ar)
+                    affiliation = Affiliation.EMP
+                elif at in EDU_CODES:
+                    match_put_code(educations, ar)
+                    affiliation = Affiliation.EDU
+                else:
+                    logger.info(f"For {user} not able to determine affiliaton type with {org}")
+                    ar.processed_at = datetime.now()
+                    ar.add_status_line(
+                        f"Unsupported affiliation type '{at}' allowed values are: " + ', '.join(
+                            at for at in AFFILIATION_TYPES))
+                    ar.save()
+                    continue
+
                 put_code, orcid, created = api.create_or_update_affiliation(
                     affiliation=affiliation, **ar._data)
                 if created:
@@ -647,6 +572,7 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
             except Exception as ex:
                 logger.exception(f"For {user} encountered exception")
                 ar.add_status_line(f"Exception occured processing the record: {ex}.")
+                ar.processed_at = datetime.now()
 
             finally:
                 ar.save()
@@ -666,6 +592,7 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
                     reply_to=(task_by_user.created_by.name, task_by_user.created_by.email),
                     invitation_url=invitation_url,
                     org_name=user.organisation.name,
+                    org=org,
                     user=user)
             UserInvitation.create(
                 invitee_id=user.id,
@@ -760,9 +687,8 @@ def process_funding_records(max_rows=20):
                     FundingContributor.funding_record_id == funding_record.id,
                     FundingContributor.processed_at.is_null()).exists()):
                 funding_record.processed_at = datetime.now()
-                funding_record.add_status_line(
-                    f"Funding record is processed, and now the funding record will appear on contributors profile"
-                )
+                if not funding_record.status or "error" not in funding_record.status:
+                    funding_record.add_status_line("Funding record is processed.")
                 funding_record.save()
 
         for task in Task.select().where(Task.id << task_ids):
@@ -847,7 +773,15 @@ def process_affiliation_records(max_rows=20):
                 )  # noqa: E501
             }
             for invitation, affiliations in invitation_dict.items():
-                send_user_invitation(*invitation, affiliations, task_id=task_id)
+                try:
+                    send_user_invitation(*invitation, affiliations, task_id=task_id)
+                except Exception as ex:
+                    email = invitation[2]
+                    (AffiliationRecord.update(
+                        processed_at=datetime.now(), status=f"Failed to send an invitation: {ex}.")
+                     .where(AffiliationRecord.task_id == task_id, AffiliationRecord.email == email,
+                            AffiliationRecord.processed_at.is_null())).execute()
+
         else:  # user exits and we have tokens
             create_or_update_affiliations(user, org_id, tasks_by_user)
         task_ids.add(task_id)
@@ -874,15 +808,19 @@ def process_affiliation_records(max_rows=20):
                     _scheme=protocol_scheme,
                     task_id=task.id,
                     _external=True)
-                send_email(
-                    "email/task_completed.html",
-                    subject="Affiliation Process Update",
-                    recipient=(task.created_by.name, task.created_by.email),
-                    error_count=error_count,
-                    row_count=row_count,
-                    orcid_rec_count=orcid_rec_count,
-                    export_url=export_url,
-                    filename=task.filename)
+                try:
+                    send_email(
+                        "email/task_completed.html",
+                        subject="Affiliation Process Update",
+                        recipient=(task.created_by.name, task.created_by.email),
+                        error_count=error_count,
+                        row_count=row_count,
+                        orcid_rec_count=orcid_rec_count,
+                        export_url=export_url,
+                        filename=task.filename)
+                except Exception as ex:
+                    logger.exception(
+                        "Failed to send batch process comletion notification message.")
 
 
 def process_tasks(max_rows=20):
@@ -919,7 +857,7 @@ def process_tasks(max_rows=20):
                 protocol_scheme = 'https'
             export_url = flask.url_for(
                 "affiliationrecord.export"
-                if task.task_type == TaskType.AFFILIATION else "fundingrecord.export",
+                if task.task_type == TaskType.AFFILIATION.value else "fundingrecord.export",
                 export_type="csv",
                 _scheme=protocol_scheme,
                 task_id=task.id,

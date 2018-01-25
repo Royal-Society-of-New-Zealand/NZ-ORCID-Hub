@@ -8,7 +8,7 @@ import pytest
 from wtforms import Form, StringField
 
 from orcid_hub.forms import validate_orcid_id_field  # noqa: E128
-from orcid_hub.forms import (BitmapMultipleValueField, CountrySelectField, PartialDate, PartialDateField)
+from orcid_hub.forms import BitmapMultipleValueField, CountrySelectField, PartialDate, PartialDateField
 from orcid_hub.models import PartialDate as PartialDateDbField
 
 

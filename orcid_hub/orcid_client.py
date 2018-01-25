@@ -74,11 +74,11 @@ class MemberAPI(MemberAPIV20Api):
     def __init__(self, org=None, user=None, access_token=None, *args, **kwargs):
         """Set up the configuration with the access token given to the org. by the user."""
         super().__init__(*args, **kwargs)
-        self.set_config(org, user)
+        self.set_config(org, user, access_token)
 
     def set_config(self, org=None, user=None, access_token=None):
         """Set up clietn configuration."""
-        global configuration
+        # global configuration
         if org is None:
             org = user.organisation
         self.org = org
@@ -108,6 +108,7 @@ class MemberAPI(MemberAPIV20Api):
 
     def get_record(self):
         """Fetch record details. (The generated one is broken)."""
+        # import pdb; pdb.set_trace()
         header_params = {
             "Accept":
             self.api_client.select_header_content_type([
@@ -164,8 +165,8 @@ class MemberAPI(MemberAPIV20Api):
                 records = data.get("employment-summary"
                                    if affiliation_type == Affiliation.EMP else "education-summary")
                 for r in records:
-                    if ("source-client-id" in r["source"] and
-                            self.org.orcid_client_id == r["source"]["source-client-id"]["path"]):
+                    if ("source-client-id" in r.get("source") and r.get("source").get("source-client-id") and
+                            self.org.orcid_client_id == r.get("source").get("source-client-id").get("path")):
                         app.logger.info(f"For {self.user} there is {affiliation_type!s} "
                                         "present on ORCID profile.")
                         return r["put-code"]
@@ -257,6 +258,7 @@ class MemberAPI(MemberAPIV20Api):
             host = None
             credit_name = None
             contributor_orcid = None
+            contributor_attributes = None
             if f.name:
                 credit_name = CreditName(value=f.name)  # noqa: F405
             elif contributor_from_user_table and contributor_from_user_table.name:
@@ -274,8 +276,9 @@ class MemberAPI(MemberAPIV20Api):
                 contributor_orcid = ContributorOrcid(uri=uri, path=path, host=host)  # noqa: F405
             # As Contributor email is by default private so, we are not sending it in funding payload
             # contributor_email = ContributorEmail(value=f.email)  # noqa: F405
-            contributor_attributes = FundingContributorAttributes(  # noqa: F405
-                contributor_role=f.role.upper())
+            if f.role:
+                contributor_attributes = FundingContributorAttributes(  # noqa: F405
+                    contributor_role=f.role.upper())
 
             funding_contributor_list.append(
                 FundingContributor(  # noqa: F405

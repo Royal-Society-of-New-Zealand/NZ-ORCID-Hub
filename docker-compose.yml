@@ -22,8 +22,8 @@ services:
   app:
     depends_on:
       - db
-      - sentry
-    image: orcidhub/app-dev:3.6
+      # - sentry
+    image: orcidhub/app-dev
     environment:
       - ENV
       - SHIB_SP_DOMAINNAME
@@ -52,69 +52,69 @@ services:
       - ./conf:/conf
     restart: always
 
-  redis:
-    image: 'redis'
-    restart: always
+  # redis:
+  #   image: 'redis'
+  #   restart: always
 
-  sentry:
-    image: 'sentry:latest'
-    depends_on:
-      - 'redis'
-      - 'db'
-    ports:
-      - '9000:9000'
-    environment:
-      - SENTRY_SECRET_KEY
-      - SENTRY_POSTGRES_HOST
-      - SENTRY_POSTGRES_PORT
-      - SENTRY_DB_NAME
-      - SENTRY_DB_USER
-      - SENTRY_DB_PASSWORD
-      - SENTRY_REDIS_HOST
-      - POSTGRES_PASSWORD
-      - PGPASSWORD
-      - SENTRY_SERVER_EMAIL
-      - SENTRY_EMAIL_HOST
-      - SENTRY_EMAIL_PORT
-    volumes:
-      - ./conf/init-user-db.sh:/docker-entrypoint-initdb.d/init-user-db.sh
-    restart: always
+  # sentry:
+  #   image: 'sentry:latest'
+  #   depends_on:
+  #     - 'redis'
+  #     - 'db'
+  #   ports:
+  #     - '9000:9000'
+  #   environment:
+  #     - SENTRY_SECRET_KEY
+  #     - SENTRY_POSTGRES_HOST
+  #     - SENTRY_POSTGRES_PORT
+  #     - SENTRY_DB_NAME
+  #     - SENTRY_DB_USER
+  #     - SENTRY_DB_PASSWORD
+  #     - SENTRY_REDIS_HOST
+  #     - POSTGRES_PASSWORD
+  #     - PGPASSWORD
+  #     - SENTRY_SERVER_EMAIL
+  #     - SENTRY_EMAIL_HOST
+  #     - SENTRY_EMAIL_PORT
+  #   volumes:
+  #     - ./conf/init-user-db.sh:/docker-entrypoint-initdb.d/init-user-db.sh
+  #   restart: always
 
-  sentry_worker:
-    image: 'sentry:latest'
-    depends_on:
-      - 'redis'
-      - 'db'
-      - 'app'
-    command: "sentry run worker"
-    environment:
-      - SENTRY_SECRET_KEY
-      - SENTRY_POSTGRES_HOST
-      - SENTRY_POSTGRES_PORT
-      - SENTRY_DB_NAME
-      - SENTRY_DB_USER
-      - SENTRY_DB_PASSWORD
-      - SENTRY_REDIS_HOST
-      - SENTRY_SERVER_EMAIL
-      - SENTRY_EMAIL_HOST
-      - SENTRY_EMAIL_PORT
-    restart: always
+  # sentry_worker:
+  #   image: 'sentry:latest'
+  #   depends_on:
+  #     - 'redis'
+  #     - 'db'
+  #     - 'app'
+  #   command: "sentry run worker"
+  #   environment:
+  #     - SENTRY_SECRET_KEY
+  #     - SENTRY_POSTGRES_HOST
+  #     - SENTRY_POSTGRES_PORT
+  #     - SENTRY_DB_NAME
+  #     - SENTRY_DB_USER
+  #     - SENTRY_DB_PASSWORD
+  #     - SENTRY_REDIS_HOST
+  #     - SENTRY_SERVER_EMAIL
+  #     - SENTRY_EMAIL_HOST
+  #     - SENTRY_EMAIL_PORT
+  #   restart: always
 
-  sentry_cron:
-    image: 'sentry:latest'
-    depends_on:
-      - 'redis'
-      - 'db'
-    command: "sentry run cron"
-    environment:
-      - SENTRY_SECRET_KEY
-      - SENTRY_POSTGRES_HOST
-      - SENTRY_POSTGRES_PORT
-      - SENTRY_DB_NAME
-      - SENTRY_DB_USER
-      - SENTRY_DB_PASSWORD
-      - SENTRY_REDIS_HOST
-      - SENTRY_SERVER_EMAIL
-      - SENTRY_EMAIL_HOST
-      - SENTRY_EMAIL_PORT
-    restart: always
+  # sentry_cron:
+  #   image: 'sentry:latest'
+  #   depends_on:
+  #     - 'redis'
+  #     - 'db'
+  #   command: "sentry run cron"
+  #   environment:
+  #     - SENTRY_SECRET_KEY
+  #     - SENTRY_POSTGRES_HOST
+  #     - SENTRY_POSTGRES_PORT
+  #     - SENTRY_DB_NAME
+  #     - SENTRY_DB_USER
+  #     - SENTRY_DB_PASSWORD
+  #     - SENTRY_REDIS_HOST
+  #     - SENTRY_SERVER_EMAIL
+  #     - SENTRY_EMAIL_HOST
+  #     - SENTRY_EMAIL_PORT
+  #   restart: always

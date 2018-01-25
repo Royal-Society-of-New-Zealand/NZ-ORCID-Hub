@@ -1,4 +1,5 @@
 FROM centos:centos7
+ENV LANG=en_US.UTF-8
 
 LABEL maintainer="The University of Auckland" \
 	version="2.1" \
