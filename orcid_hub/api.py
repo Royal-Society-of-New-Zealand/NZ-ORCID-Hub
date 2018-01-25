@@ -113,9 +113,6 @@ class UserAPI(MethodView):
           404:
             description: "User not found"
         """
-        if identifier is None:
-            return jsonify({"error": "Need at least one parameter: email, eppn or ORCID ID."}), 400
-
         identifier = identifier.strip()
         if EMAIL_REGEX.match(identifier):
             user = User.select().where((User.email == identifier)
@@ -133,8 +130,9 @@ class UserAPI(MethodView):
                 "error": f"User with specified identifier '{identifier}' not found."
             }), 404
 
-        if not UserOrg.select().where(UserOrg.org == request.oauth.client.org,
-                                      UserOrg.user == user).exists():
+        if (not UserOrg.select().where(UserOrg.org == request.oauth.client.org,
+                                       UserOrg.user == user).exists()
+                and user.organisation != request.oauth.client.org):
             return jsonify({"error": "Access Denied"}), 403
         return jsonify({
             "found": True,
@@ -207,9 +205,6 @@ class TokenAPI(MethodView):
           404:
             description: "User not found"
         """
-        if identifier is None:
-            return jsonify({"error": "Need at least one parameter: email or ORCID ID."}), 400
-
         identifier = identifier.strip()
         if EMAIL_REGEX.match(identifier):
             user = User.select().where((User.email == identifier)
@@ -228,7 +223,9 @@ class TokenAPI(MethodView):
             }), 404
 
         org = request.oauth.client.org
-        if not UserOrg.select().where(UserOrg.org == org, UserOrg.user == user).exists():
+        if (not UserOrg.select().where(UserOrg.org == request.oauth.client.org,
+                                       UserOrg.user == user).exists()
+                and user.organisation != request.oauth.client.org):
             return jsonify({"error": "Access Denied"}), 403
 
         try:

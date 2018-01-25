@@ -33,7 +33,7 @@ from . import app, db
 from .config import DEFAULT_COUNTRY, ENV
 
 EMAIL_REGEX = re.compile(r"^[_a-z0-9-]+(\.[_a-z0-9-]+)*@[a-z0-9-]+(\.[a-z0-9-]+)*(\.[a-z]{2,4})$")
-ORCID_ID_REGEX = re.compile(r"^\d{4}-?\d{4}-?\d{4}-?\d{4}$")
+ORCID_ID_REGEX = re.compile(r"^([X\d]{4}-?){3}[X\d]{4}$")
 
 AFFILIATION_TYPES = (
     "student",
@@ -262,6 +262,14 @@ class BaseModel(Model):
     def to_dict(self):
         """Get dictionary representation of the model."""
         return model_to_dict(self)
+
+    def reload(self):
+        """Refresh the object from the DB."""
+        newer_self = self.get(self._meta.primary_key == self._get_pk_value())
+        for field_name in self._meta.fields.keys():
+            val = getattr(newer_self, field_name)
+            setattr(self, field_name, val)
+        self._dirty.clear()
 
     class Meta:  # noqa: D101,D106
         database = db
@@ -638,6 +646,12 @@ class User(BaseModel, UserMixin, AuditMixin):
         if org is None:
             org = self.organisation
         return org and org.tech_contact and org.tech_contact_id == self.id
+
+    def is_admin_of(self, org=None):
+        """Indicats if the user is the technical contact of the organisation."""
+        if org is None:
+            org = self.organisation
+        return org and UserOrg.select(UserOrg.user == self, UserOrg.org == org, UserOrg.is_admin).exists()
 
     @staticmethod
     def load_from_csv(source):

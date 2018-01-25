@@ -89,7 +89,7 @@ DEFAULT_EMAIL_TEMPLATE = """<!DOCTYPE html>
 <html>
   <head>
     <meta charset="utf-8">
-    <title>Affiliation Process Update</title>
+    <title>{SUBJECT}</title>
     <meta name="keywords" content="ORCID HUB,New Zealand,NZ,orcid"/>
   </head>
   <body>

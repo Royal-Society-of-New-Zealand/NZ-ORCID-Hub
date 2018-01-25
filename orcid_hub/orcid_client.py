@@ -74,11 +74,11 @@ class MemberAPI(MemberAPIV20Api):
     def __init__(self, org=None, user=None, access_token=None, *args, **kwargs):
         """Set up the configuration with the access token given to the org. by the user."""
         super().__init__(*args, **kwargs)
-        self.set_config(org, user)
+        self.set_config(org, user, access_token)
 
     def set_config(self, org=None, user=None, access_token=None):
         """Set up clietn configuration."""
-        global configuration
+        # global configuration
         if org is None:
             org = user.organisation
         self.org = org
@@ -108,6 +108,7 @@ class MemberAPI(MemberAPIV20Api):
 
     def get_record(self):
         """Fetch record details. (The generated one is broken)."""
+        # import pdb; pdb.set_trace()
         header_params = {
             "Accept":
             self.api_client.select_header_content_type([

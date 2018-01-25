@@ -1620,12 +1620,12 @@ def logo_image(token=None):
     return redirect(url_for("static", filename="images/banner-small.png", _external=True))
 
 
-@roles_required(Role.TECHNICAL, Role.ADMIN)
 @app.route(
     "/settings/logo", methods=[
         "GET",
         "POST",
     ])
+@roles_required(Role.TECHNICAL, Role.ADMIN)
 def logo():
     """Manage organisation 'logo'."""
     org = current_user.organisation
