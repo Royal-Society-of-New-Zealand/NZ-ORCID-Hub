@@ -185,6 +185,8 @@ def test_user_orcid_id_url():
 
 @patch.object(orcid_client.MemberAPIV20Api, "view_employments",
               lambda self, *args, **kwargs: make_fake_response('{"test": "TEST1234567890"}'))
+@patch.object(orcid_client.MemberAPIV20Api, "view_educations",
+              lambda self, *args, **kwargs: make_fake_response('{"test": "TEST1234567890"}'))
 def test_show_record_section(request_ctx, test_db):
     """Test to show selected record."""
     org = Organisation.create(
@@ -210,6 +212,11 @@ def test_show_record_section(request_ctx, test_db):
     with request_ctx("/"):
         login_user(u)
         rv = views.show_record_section(user_id=u.id)
+        assert u.email in rv
+        assert u.name in rv
+    with request_ctx("/"):
+        login_user(u)
+        rv = views.show_record_section(user_id=u.id, section_type="EDU")
         assert u.email in rv
         assert u.name in rv
 
@@ -851,3 +858,133 @@ def test_invite_organisation(patch, request_ctx):
         assert rv.status_code == 200
         assert b"<!DOCTYPE html>" in rv.data, "Expected HTML content"
         assert b"test123@test.test.net" in rv.data
+    with request_ctx("/invite/organisation", method="POST", data={
+        "org_name": "ORG NAME", "org_email": "test123@test.test.net", "tech_contact": "True",
+        "via_orcid": "True", "first_name": "xyz", "last_name": "xyz", "city": "xyz"
+    }) as ctxx:
+        login_user(user, remember=True)
+        org = Organisation.get(id=1)
+        org.name = "ORG NAME"
+        org.confirmed = True
+        org.save()
+        rv = ctxx.app.full_dispatch_request()
+        assert rv.status_code == 200
+        assert b"<!DOCTYPE html>" in rv.data, "Expected HTML content"
+        assert b"test123@test.test.net" in rv.data
+
+
+def test_load_researcher_funding(request_ctx):
+    """Test preload organisation data."""
+    Organisation.get_or_create(
+        id=1,
+        name="THE ORGANISATION",
+        tuakiri_name="THE ORGANISATION",
+        confirmed=False,
+        orcid_client_id="CLIENT ID",
+        orcid_secret="Client Secret",
+        city="CITY",
+        country="COUNTRY",
+        disambiguated_id="ID",
+        disambiguation_source="SOURCE",
+        is_email_sent=True)
+    org = Organisation.get(id=1)
+    User.get_or_create(
+        id=123,
+        email="test123@test.test.net",
+        name="TEST USER",
+        roles=Role.ADMIN,
+        orcid=123,
+        organisation_id=1,
+        confirmed=True,
+        organisation=org)
+    user = User.get(id=123)
+    org.save()
+    user.save()
+    UserOrg.get_or_create(id=122, user=user, org=org, is_admin=True)
+    user_org = UserOrg.get(id=122)
+    user_org.save()
+    with request_ctx("/load/researcher/funding", method="POST", data={"file_": "{'filename': 'xyz.json'}",
+                                                                      "email": "test123@test.test.net"}) as ctxx:
+        login_user(user, remember=True)
+        rv = ctxx.app.full_dispatch_request()
+        assert rv.status_code == 200
+        assert b"<!DOCTYPE html>" in rv.data, "Expected HTML content"
+        assert b"test123@test.test.net" in rv.data
+
+
+def test_load_researcher_affiliations(request_ctx):
+    """Test preload organisation data."""
+    Organisation.get_or_create(
+        id=1,
+        name="THE ORGANISATION",
+        tuakiri_name="THE ORGANISATION",
+        confirmed=False,
+        orcid_client_id="CLIENT ID",
+        orcid_secret="Client Secret",
+        city="CITY",
+        country="COUNTRY",
+        disambiguated_id="ID",
+        disambiguation_source="SOURCE",
+        is_email_sent=True)
+    org = Organisation.get(id=1)
+    User.get_or_create(
+        id=123,
+        email="test123@test.test.net",
+        name="TEST USER",
+        roles=Role.ADMIN,
+        orcid=123,
+        organisation_id=1,
+        confirmed=True,
+        organisation=org)
+    user = User.get(id=123)
+    org.save()
+    user.save()
+    UserOrg.get_or_create(id=122, user=user, org=org, is_admin=True)
+    user_org = UserOrg.get(id=122)
+    user_org.save()
+    form = FileUploadForm()
+    form.file_.name = "conftest.py"
+    with request_ctx("/load/researcher", method="POST", data={"file_": "{'filename': 'xyz.json'}",
+                                                              "email": "test123@test.test.net", form: form}) as ctxx:
+        login_user(user, remember=True)
+        rv = ctxx.app.full_dispatch_request()
+        assert rv.status_code == 200
+        assert b"<!DOCTYPE html>" in rv.data, "Expected HTML content"
+        assert b"test123@test.test.net" in rv.data
+
+
+@patch.object(orcid_client.MemberAPIV20Api, "view_employment",
+              lambda self, *args, **kwargs: make_fake_response('{"test": "TEST1234567890"}'))
+@patch.object(orcid_client.MemberAPIV20Api, "view_education",
+              lambda self, *args, **kwargs: make_fake_response('{"test": "TEST1234567890"}'))
+def test_edit_section_record(request_ctx, test_db):
+    """Test create a new or edit an existing profile section record."""
+    org = Organisation.create(
+        name="THE ORGANISATION",
+        tuakiri_name="THE ORGANISATION",
+        confirmed=True,
+        orcid_client_id="CLIENT ID",
+        orcid_secret="Client Secret",
+        city="CITY",
+        country="COUNTRY",
+        disambiguated_id="ID",
+        disambiguation_source="SOURCE")
+    u = User.create(
+        orcid="12123",
+        email="test123@test.test.net",
+        name="TEST USER",
+        roles=Role.RESEARCHER,
+        confirmed=True,
+        organisation=org)
+
+    OrcidToken.create(user=u, org=org, access_token="ABC123", scope="/read-limited,/activities/update")
+    with request_ctx("/"):
+        login_user(u)
+        rv = views.edit_section_record(user_id=u.id, put_code="1212")
+        assert u.email in rv
+        assert u.name in rv
+    with request_ctx("/"):
+        login_user(u)
+        rv = views.edit_section_record(user_id=u.id, put_code="1212", section_type="EDU")
+        assert u.email in rv
+        assert u.name in rv
