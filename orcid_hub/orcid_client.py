@@ -48,6 +48,7 @@ class OrcidRESTClientObject(rest.RESTClientObject):
                 put_code=put_code)
         except Exception:
             app.logger.exception("Failed to create API call log entry.")
+            oac = None
         res = super().request(
             method=method,
             url=url,

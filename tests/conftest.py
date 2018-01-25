@@ -15,7 +15,12 @@ from orcid_hub import config
 DATABASE_URL = os.environ.get("TEST_DATABASE_URL") or "sqlite:///:memory:"
 config.DATABASE_URL = DATABASE_URL
 os.environ["DATABASE_URL"] = DATABASE_URL
+# Patch it before is gets patched by 'orcid_client'
+# import orcid_api
+# from unittest.mock import MagicMock
+# RESTClientObject = orcid_api.api_client.RESTClientObject = MagicMock(orcid_api.api_client.RESTClientObject)
 # yapf: enable
+
 
 import pytest
 from playhouse import db_url

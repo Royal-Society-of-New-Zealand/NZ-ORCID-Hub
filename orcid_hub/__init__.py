@@ -11,7 +11,7 @@
     :license: MIT, see LICENSE for more details.
 """
 
-__version__ = "3.0.18"
+__version__ = "3.0.19"
 
 import logging
 import os
