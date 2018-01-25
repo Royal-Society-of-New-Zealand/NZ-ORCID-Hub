@@ -1118,3 +1118,32 @@ def test_edit_section_record(request_ctx, test_db):
         rv = views.edit_section_record(user_id=u.id, put_code="1212", section_type="EDU")
         assert u.email in rv
         assert u.name in rv
+
+
+@patch.object(orcid_client.MemberAPIV20Api, "delete_employment",
+              lambda self, *args, **kwargs: make_fake_response('{"test": "TEST1234567890"}'))
+def test_delete_employment(request_ctx, test_db):
+    """Test delete an employment record."""
+    org = Organisation.create(
+        name="THE ORGANISATION",
+        tuakiri_name="THE ORGANISATION",
+        confirmed=True,
+        orcid_client_id="CLIENT ID",
+        orcid_secret="Client Secret",
+        city="CITY",
+        country="COUNTRY",
+        disambiguated_id="ID",
+        disambiguation_source="SOURCE")
+    u = User.create(
+        orcid="12123",
+        email="test123@test.test.net",
+        name="TEST USER",
+        roles=Role.ADMIN,
+        confirmed=True,
+        organisation=org)
+
+    OrcidToken.create(user=u, org=org, access_token="ABC123", scope="/read-limited,/activities/update")
+    with request_ctx("/"):
+        login_user(u)
+        rv = views.delete_employment(user_id=u.id, put_code="1212")
+        assert rv.status_code == 302
