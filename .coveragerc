@@ -12,6 +12,7 @@ omit =
     orcid_hub/pyinfo.py
     initializedb.py
     orcid_hub/conftest.py
+    orcid_hub/config.py
     run.py
     application.py
     config.py
@@ -35,6 +36,7 @@ omit =
     orcid_hub/pyinfo.py
     initializedb.py
     orcid_hub/conftest.py
+    orcid_hub/config.py
     run.py
     application.py
     config.py
