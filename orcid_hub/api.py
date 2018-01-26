@@ -7,7 +7,7 @@ from flask_peewee.rest import RestResource
 from flask_peewee.utils import slugify
 from flask_swagger import swagger
 from werkzeug.exceptions import NotFound
-from flask_peewee_swagger.swagger import Swagger, SwaggerUI
+from flask_peewee_swagger.swagger import Swagger
 
 from . import api, app, models, oauth
 from .models import EMAIL_REGEX, ORCID_ID_REGEX, OrcidToken, User, UserOrg
@@ -40,15 +40,19 @@ class AppRestResource(RestResource):
             return jsonify({"error": 'Not found'}), 404
 
     def check_get(self, obj=None):
+        """Pre-authorizing a GET request."""
         return True
 
     def check_post(self, obj=None):
+        """Pre-authorizing a POST request."""
         return True
 
     def check_put(self, obj):
+        """Pre-authorizing a PUT request."""
         return True
 
     def check_delete(self, obj):
+        """Pre-authorizing a DELETE request."""
         return True
 
 
@@ -86,6 +90,7 @@ common_spec = {
 
 api_swagger = Swagger(api, swagger_version="2.0", extras=common_spec)
 api_swagger.setup()
+
 
 @app.route('/api/me')
 @app.route("/api/v0.1/me")

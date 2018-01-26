@@ -49,7 +49,13 @@ if not app.config.from_pyfile("settings.cfg", silent=True) and app.debug:
     print("*** WARNING: Faile to laod local application configuration from 'instance/settins.cfg'")
 app.url_map.strict_slashes = False
 oauth = OAuth2Provider(app)
-limiter = Limiter(app, headers_enabled=True, default_limits=["24 per second", "40 per second", ])
+limiter = Limiter(
+    app,
+    headers_enabled=True,
+    default_limits=[
+        "40 per second",  # burst
+        "1440 per minute",  # allowed max: 24/sec
+    ])
 DATABASE_URL = app.config.get("DATABASE_URL")
 
 # TODO: implement connection factory
@@ -72,6 +78,7 @@ class AppAuthentication(Authentication):
     """Use Flask-OAuthlib authentication and application authentication."""
 
     def __init__(self, roles_required=None, app_auth=True):
+        """Initialize the Authenticator for accessing DB via REST API usig OAuth2."""
         self.roles_required = roles_required
         self.app_auth = app_auth
 
@@ -86,7 +93,6 @@ class AppAuthentication(Authentication):
 
         if not super().authorize():
             return False
-
 
         if hasattr(request, "oauth") and request.oauth:
             return True
@@ -148,7 +154,6 @@ login_manager.init_app(app)
 
 from . import models  # noqa: F401
 from .api import *  # noqa: F401,F403
-# from .application import app
 from .authcontroller import *  # noqa: F401,F403
 from .views import *  # noqa: F401,F403
 from .oauth import *  # noqa: F401,F403
