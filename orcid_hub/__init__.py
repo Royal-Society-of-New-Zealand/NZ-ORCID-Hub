@@ -33,6 +33,7 @@ from .config import *  # noqa: F401, F403
 from .failover import PgDbWithFailover
 from flask_admin import Admin
 from flask_peewee_swagger.swagger import SwaggerUI
+from flask_limiter import Limiter
 
 
 # http://docs.peewee-orm.com/en/latest/peewee/database.html#automatic-reconnect
@@ -48,6 +49,7 @@ if not app.config.from_pyfile("settings.cfg", silent=True) and app.debug:
     print("*** WARNING: Faile to laod local application configuration from 'instance/settins.cfg'")
 app.url_map.strict_slashes = False
 oauth = OAuth2Provider(app)
+limiter = Limiter(app, headers_enabled=True, default_limits=["24 per second", "40 per second", ])
 DATABASE_URL = app.config.get("DATABASE_URL")
 
 # TODO: implement connection factory
