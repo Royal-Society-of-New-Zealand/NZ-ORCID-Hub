@@ -82,7 +82,7 @@ common_spec = {
                 "read": "allows reading resources",
                 "write": "allows modifying resources"
             },
-            "tokenUrl": "http://127.0.0.1:5000/oauth/token",
+            "tokenUrl": "/oauth/token",
             "type": "oauth2"
         }
     },

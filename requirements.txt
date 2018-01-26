@@ -23,5 +23,5 @@ flask-swagger
 raven
 raven[flask]
 #git+https://github.com/nad2000/flask-peewee-swagger.git
-https://github.com/nad2000/flask-peewee-swagger/archive/master.zip
+flask-peewee-swagger>=1.1.5
 flask-limiter>=1.0.0,<2.0.0
