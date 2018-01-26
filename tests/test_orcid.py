@@ -3,16 +3,193 @@
 
 import json
 import time
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import DEFAULT, MagicMock, Mock, call, patch
 
 import pytest
 import requests_oauthlib
 from flask import session, url_for
 from flask_login import login_user
 
-from orcid_hub.models import Affiliation, OrcidToken, Organisation, User, UserOrg
+from orcid_hub.models import Affiliation, OrcidApiCall, OrcidToken, Organisation, User, UserOrg  # noqa:E404
+from orcid_hub.orcid_client import ApiException, MemberAPI, api_client, configuration  # noqa:E404
 
 fake_time = time.time()
+
+
+def test_member_api(app, mocker):
+    """Test MemberAPI extension and wrapper of ORCID API."""
+    mocker.patch.multiple("orcid_hub.app.logger", error=DEFAULT, exception=DEFAULT, info=DEFAULT)
+    org = Organisation.create(name="THE ORGANISATION", confirmed=True, orcid_client_id="CLIENT000")
+    user = User.create(
+        orcid="1001-0001-0001-0001",
+        name="TEST USER 123",
+        email="test123@test.test.net",
+        organisation=org,
+        confirmed=True)
+    UserOrg.create(user=user, org=org, affiliation=Affiliation.EDU)
+
+    MemberAPI(user=user)
+    assert configuration.access_token is None or configuration.access_token == ''
+
+    MemberAPI(user=user, org=org)
+    assert configuration.access_token is None or configuration.access_token == ''
+
+    MemberAPI(user=user, org=org, access_token="ACCESS000")
+    assert configuration.access_token == 'ACCESS000'
+
+    OrcidToken.create(
+        access_token="ACCESS123", user=user, org=org, scope="/read-limited,/activities/update")
+    api = MemberAPI(user=user, org=org)
+    assert configuration.access_token == "ACCESS123"
+
+    with patch.object(
+            api_client.ApiClient, "call_api", side_effect=ApiException(
+                reason="FAILURE", status=401)) as call_api:
+        with patch.object(OrcidToken, "delete") as delete:
+            api.get_record()
+            app.logger.error.assert_called_with("ApiException Occured: (401)\nReason: FAILURE\n")
+            call_api.assert_called_once()
+            delete.assert_called_once()
+
+    with patch.object(
+            api_client.ApiClient,
+            "call_api",
+            side_effect=ApiException(reason="FAILURE 999", status=999)) as call_api:
+        api.get_record()
+        app.logger.error.assert_called_with("ApiException Occured: (999)\nReason: FAILURE 999\n")
+
+    with patch.object(
+            api_client.ApiClient, "call_api", side_effect=ApiException(
+                reason="FAILURE", status=401)) as call_api:
+        with patch.object(OrcidToken, "get", side_effect=Exception("FAILURE")) as get:
+            api.get_record()
+            app.logger.exception.assert_called_with(
+                "Exception occured while retriving ORCID Token")
+            call_api.assert_called_once()
+            get.assert_called_once()
+
+    with patch.object(
+            api_client.ApiClient,
+            "call_api",
+            return_value=(
+                Mock(data=b"""{"mock": "data"}"""),
+                200,
+                [],
+            )) as call_api:
+        api.get_record()
+        call_api.assert_called_with(
+            f"/v2.0/{user.orcid}",
+            "GET",
+            _preload_content=False,
+            auth_settings=["orcid_auth"],
+            header_params={"Accept": "application/json"},
+            response_type=None)
+
+    # Test API call auditing:
+    with patch.object(
+            api_client.RESTClientObject.__base__,
+            "request",
+            return_value=Mock(data=b"""{"mock": "data"}""", status_code=200)) as request_mock:
+
+        api.get_record()
+
+        request_mock.assert_called_once_with(
+            _preload_content=False,
+            _request_timeout=None,
+            body=None,
+            headers={
+                "Accept": "application/json",
+                "User-Agent": "Swagger-Codegen/1.0.0/python",
+                "Authorization": "Bearer ACCESS123"
+            },
+            method="GET",
+            post_params=None,
+            query_params=None,
+            url="https://api.sandbox.orcid.org/v2.0/1001-0001-0001-0001")
+        api_call = OrcidApiCall.select().first()
+        assert api_call.response == '{"mock": "data"}'
+        assert api_call.url == "https://api.sandbox.orcid.org/v2.0/1001-0001-0001-0001"
+
+        with patch.object(OrcidApiCall, "create", side_effect=Exception("FAILURE")) as create:
+            api.get_record()
+            create.assert_called_once()
+
+    with patch.object(
+            api_client.RESTClientObject.__base__,
+            "request",
+            return_value=Mock(data=None, status_code=200)) as request_mock:
+        # api.get_record()
+        OrcidApiCall.delete().execute()
+        api.view_person("1234-XXXX-XXXX-XXXX")
+        api_call = OrcidApiCall.select().first()
+        assert api_call.response is None
+        assert api_call.url == "https://api.sandbox.orcid.org/v2.0/1234-XXXX-XXXX-XXXX/person"
+
+
+def test_is_emp_or_edu_record_present(app, mocker):
+    """Test 'is_emp_or_edu_record_present' method."""
+    mocker.patch.multiple("orcid_hub.app.logger", error=DEFAULT, exception=DEFAULT, info=DEFAULT)
+    org = Organisation.create(name="THE ORGANISATION", confirmed=True, orcid_client_id="CLIENT000")
+    user = User.create(
+        orcid="1001-0001-0001-0001",
+        name="TEST USER 123",
+        email="test123@test.test.net",
+        organisation=org,
+        confirmed=True)
+    UserOrg.create(user=user, org=org, affiliation=Affiliation.EDU)
+
+    api = MemberAPI(user=user, org=org)
+
+    with patch.object(
+            api_client.ApiClient,
+            "call_api",
+            return_value=(
+                Mock(data=b"""{"mock": "data"}"""),
+                200,
+                [],
+            )) as call_api:
+        api.is_emp_or_edu_record_present(Affiliation.EDU)
+        call_api.assert_called_with(
+            "/v2.0/{orcid}/educations",
+            "GET", {"orcid": "1001-0001-0001-0001"}, {}, {"Accept": "application/json"},
+            _preload_content=False,
+            _request_timeout=None,
+            _return_http_data_only=True,
+            auth_settings=["orcid_auth"],
+            body=None,
+            callback=None,
+            collection_formats={},
+            files={},
+            post_params=[],
+            response_type="Educations")
+        api.is_emp_or_edu_record_present(Affiliation.EMP)
+        call_api.assert_called_with(
+            "/v2.0/{orcid}/employments",
+            "GET", {"orcid": "1001-0001-0001-0001"}, {}, {"Accept": "application/json"},
+            _preload_content=False,
+            _request_timeout=None,
+            _return_http_data_only=True,
+            auth_settings=["orcid_auth"],
+            body=None,
+            callback=None,
+            collection_formats={},
+            files={},
+            post_params=[],
+            response_type="Employments")
+
+    with patch.object(
+            api_client.ApiClient, "call_api", side_effect=ApiException(
+                reason="FAILURE", status=401)) as call_api:
+        api.is_emp_or_edu_record_present(Affiliation.EDU)
+        app.logger.error.assert_called_with(
+            "For TEST USER 123 (test123@test.test.net) while checking for employment "
+            "and education records, Encountered Exception: (401)\nReason: FAILURE\n")
+
+    with patch.object(
+            api_client.ApiClient, "call_api", side_effect=Exception("EXCEPTION")) as call_api:
+        api.is_emp_or_edu_record_present(Affiliation.EDU)
+        app.logger.exception.assert_called_with(
+            "Failed to verify presence of employment or education record.")
 
 
 @patch.object(requests_oauthlib.OAuth2Session, "authorization_url",
@@ -20,11 +197,9 @@ fake_time = time.time()
 def test_link(request_ctx):
     """Test a user affiliation initialization."""
     with request_ctx("/link") as ctx:
-        org = Organisation(name="THE ORGANISATION", confirmed=True)
-        org.save()
-        test_user = User(
+        org = Organisation.create(name="THE ORGANISATION", confirmed=True)
+        test_user = User.create(
             name="TEST USER 123", email="test123@test.test.net", organisation=org, confirmed=True)
-        test_user.save()
         login_user(test_user, remember=True)
 
         rv = ctx.app.full_dispatch_request()
