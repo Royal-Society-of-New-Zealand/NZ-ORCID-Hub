@@ -2,7 +2,7 @@
 """Tests for core functions."""
 
 import pprint
-from unittest.mock import patch
+from unittest.mock import patch, Mock
 
 import pytest
 from flask import request, session
@@ -329,6 +329,19 @@ def test_onboard_org(request_ctx):
         rv = ctxx.app.full_dispatch_request()
         assert rv.status_code == 302
         assert rv.location.startswith("/admin/viewmembers/")
+    with request_ctx("/confirm/organisation", method="POST", data={
+        "orcid_client_id": "APP-FDFN3F52J3M4L34S", "orcid_secret": "4916c2d7-085e-487e-94d0-32450a9cfe6c",
+        "country": "NZ", "city": "Auckland", "disambiguated_id": "xyz", "disambiguation_source": "xyz",
+        "name": "THE ORGANISATION"
+    }) as cttxx:
+        login_user(u)
+        u.save()
+        with patch(
+                "orcid_hub.authcontroller.requests") as requests:
+            requests.post.return_value = Mock(data=b'XXXX', status_code=200)
+            rv = cttxx.app.full_dispatch_request()
+            assert rv.status_code == 302
+            assert rv.location.startswith("/link")
 
 
 def test_logout(request_ctx):
