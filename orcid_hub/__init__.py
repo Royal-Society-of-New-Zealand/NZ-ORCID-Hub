@@ -77,8 +77,9 @@ class UserAuthentication(Authentication):
 class AppAuthentication(Authentication):
     """Use Flask-OAuthlib authentication and application authentication."""
 
-    def __init__(self, roles_required=None, app_auth=True):
+    def __init__(self, roles_required=None, app_auth=True, protected_methods=None):
         """Initialize the Authenticator for accessing DB via REST API usig OAuth2."""
+        super().__init__(protected_methods=protected_methods)
         self.roles_required = roles_required
         self.app_auth = app_auth
 
