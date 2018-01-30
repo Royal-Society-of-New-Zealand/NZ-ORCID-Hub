@@ -19,6 +19,7 @@ omit =
     create.py
     setup.py
     orcid_hub/mocks/__init__.py
+    orcid_hub/__init__.py
     orcid_hub/cli.py
     orcid_hub/failover.py
     instance/settings.cfg
@@ -43,6 +44,7 @@ omit =
     create.py
     setup.py
     orcid_hub/mocks/__init__.py
+    orcid_hub/__init__.py
     orcid_hub/cli.py
     orcid_hub/failover.py
     instance/settings.cfg
