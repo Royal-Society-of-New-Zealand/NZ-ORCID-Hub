@@ -456,11 +456,10 @@ def test_orcid_login_callback_admin_flow(patch, patch2, request_ctx):
     User.get_or_create(
         id=123,
         email="test123@test.test.net",
-        name="TEST USER",
         roles=Role.TECHNICAL,
         orcid=123,
         organisation_id=1,
-        confirmed=True,
+        confirmed=False,
         organisation=org)
     u = User.get(id=123)
     org.save()
@@ -494,6 +493,57 @@ def test_orcid_login_callback_admin_flow(patch, patch2, request_ctx):
         ct = authcontroller.orcid_login_callback(request)
         assert ct.status_code == 302
         assert ct.location.startswith("/")
+    with request_ctx():
+        request.args = {"invitation_token": None, "state": "xyz"}
+        session['oauth_state'] = "xyz"
+        ct = authcontroller.orcid_login_callback(request)
+        assert ct.status_code == 302
+        assert ct.location.startswith("/")
+    with request_ctx():
+        # Test case for catching general exception: invitation token here is integer, so an exception will be thrown.
+        request.args = {"invitation_token": 123, "state": "xyz"}
+        session['oauth_state'] = "xyz"
+        ct = authcontroller.orcid_login_callback(request)
+        assert ct.status_code == 302
+        assert ct.location.startswith("/")
+    with request_ctx():
+        # User login via orcid, where organisation is not confirmed.
+        u = User.get(id=123)
+        u.orcid = 12121
+        u.save()
+        request.args = {"invitation_token": None, "state": "xyz"}
+        session['oauth_state'] = "xyz"
+        ctxx = authcontroller.orcid_login_callback(request)
+        assert ctxx.status_code == 302
+        assert ctxx.location.startswith("/about")
+    with request_ctx():
+        # User login via orcid, where organisation is confirmed, so showing viewmembers page.
+        u = User.get(id=123)
+        u.orcid = 12121
+        u.save()
+        org = Organisation.get(id=1)
+        org.tech_contact = u
+        org.confirmed = True
+        org.save()
+        request.args = {"invitation_token": None, "state": "xyz"}
+        session['oauth_state'] = "xyz"
+        ctxx = authcontroller.orcid_login_callback(request)
+        assert ctxx.status_code == 302
+        assert ctxx.location.startswith("/admin/viewmembers/")
+    with request_ctx():
+        # User login via orcid, where organisation is not confirmed and user is tech, so showing confirm org page.
+        u = User.get(id=123)
+        u.orcid = 12121
+        u.save()
+        org = Organisation.get(id=1)
+        org.tech_contact = u
+        org.confirmed = False
+        org.save()
+        request.args = {"invitation_token": None, "state": "xyz"}
+        session['oauth_state'] = "xyz"
+        ctxx = authcontroller.orcid_login_callback(request)
+        assert ctxx.status_code == 302
+        assert ctxx.location.startswith("/confirm/organisation")
 
 
 def affiliation_mock(
