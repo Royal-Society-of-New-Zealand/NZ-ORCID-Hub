@@ -1,7 +1,7 @@
 """HUB API."""
 
 import yaml
-from flask import current_app, jsonify, request, url_for
+from flask import current_app, jsonify, render_template, request, url_for
 from flask.views import MethodView
 from flask_peewee.rest import RestResource
 from flask_peewee.utils import slugify
@@ -454,6 +454,14 @@ def spec():
         return yamlfy(swag)
     else:
         return jsonify(swag)
+
+
+@app.route("/api-docs/")
+@app.route("/api-docs/<path:url>")
+def api_doc(url=None):
+    if url is None:
+        url = request.args.get("url", url_for("spec", _external=True))
+    return render_template("swaggerui.html", url=url)
 
 
 def yamlfy(*args, **kwargs):
