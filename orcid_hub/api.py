@@ -457,7 +457,7 @@ def spec():
         return jsonify(swag)
 
 
-@app.route("/api-docs")
+@app.route("/api-docs/")
 @app.route("/api-docs/<path:url>")
 @roles_required(Role.TECHNICAL)
 def api_docs(url=None):
@@ -467,7 +467,7 @@ def api_docs(url=None):
     return render_template("swaggerui.html", url=url)
 
 
-@app.route("/db-api-docs")
+@app.route("/db-api-docs/")
 @app.route("/db-api-docs/<path:url>")
 @roles_required(Role.SUPERUSER)
 def db_api_docs(url=None):
