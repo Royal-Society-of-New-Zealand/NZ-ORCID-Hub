@@ -4,6 +4,8 @@
 import json
 
 import pytest
+from flask import url_for
+from flask_login import login_user
 
 from orcid_hub.api import yamlfy
 from orcid_hub.models import Client, OrcidToken, Organisation, Role, Token, User, UserOrg
@@ -303,6 +305,32 @@ def test_yamlfy(app):
     assert isinstance(yamlfy(key_arg=42), Response)
     with pytest.raises(TypeError):
         yamlfy(1, 2, 3, key_arg=42)
+
+
+def test_api_docs(app_req_ctx):
+    """Test API docs."""
+    tech_contact = User.get(email="app123@test.edu")
+    with app_req_ctx("/api-docs/http://SPECIFICATION") as ctx:
+        login_user(tech_contact)
+        rv = ctx.app.full_dispatch_request()
+        assert rv.status_code == 200
+        assert b"http://SPECIFICATION" in rv.data
+    with app_req_ctx("/api-docs") as ctx:
+        login_user(tech_contact)
+        rv = ctx.app.full_dispatch_request()
+        assert rv.status_code == 200
+        assert url_for("spec", _external=True).encode("utf-8") in rv.data
+    super_user = User.create(email="super_user@test.edu", roles=Role.SUPERUSER, confirmed=True)
+    with app_req_ctx("/db-api-docs/http://SPECIFICATION") as ctx:
+        login_user(super_user)
+        rv = ctx.app.full_dispatch_request()
+        assert rv.status_code == 200
+        assert b"http://SPECIFICATION" in rv.data
+    with app_req_ctx("/db-api-docs") as ctx:
+        login_user(super_user)
+        rv = ctx.app.full_dispatch_request()
+        assert rv.status_code == 200
+        assert url_for("Swagger.model_resources", _external=True).encode("utf-8") in rv.data
 
 
 def test_db_api(app_req_ctx):

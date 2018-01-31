@@ -11,7 +11,7 @@
     :license: MIT, see LICENSE for more details.
 """
 
-__version__ = "4.1.1"
+__version__ = "4.1.2"
 
 import logging
 import os
@@ -32,7 +32,6 @@ from raven.contrib.flask import Sentry
 from .config import *  # noqa: F401, F403
 from .failover import PgDbWithFailover
 from flask_admin import Admin
-# from flask_peewee_swagger.swagger import SwaggerUI
 from flask_limiter import Limiter
 
 
@@ -136,11 +135,6 @@ api = DataRestAPI(app, prefix="/data/api/v0.1", default_auth=default_auth, name=
 
 admin = Admin(
     app, name="NZ ORCiD Hub", template_mode="bootstrap3", base_template="admin/master.html")
-
-# swaggerUI = SwaggerUI(
-#     app, version="3.6.1", url="/data/api/v0.1/meta/resources")
-# swaggerUI.setup()
-
 
 # https://sentry.io/orcid-hub/nz-orcid-hub-dev/getting-started/python-flask/
 SENTRY_DSN = app.config.get("SENTRY_DSN")

@@ -10,7 +10,8 @@ from werkzeug.exceptions import NotFound
 from flask_peewee_swagger.swagger import Swagger
 
 from . import api, app, models, oauth
-from .models import EMAIL_REGEX, ORCID_ID_REGEX, OrcidToken, User, UserOrg
+from .login_provider import roles_required
+from .models import EMAIL_REGEX, ORCID_ID_REGEX, OrcidToken, Role, User, UserOrg
 
 
 class AppRestResource(RestResource):
@@ -20,15 +21,15 @@ class AppRestResource(RestResource):
         """Pluralize the name based on the model."""
         return slugify(self.model.__name__ + 's')
 
-    def response_forbidden(self):
+    def response_forbidden(self):  # pragma: no cover
         """Handle denied access. Return both status code and an error message."""
         return jsonify({"error": 'Forbidden'}), 403
 
-    def response_bad_method(self):
+    def response_bad_method(self):  # pragma: no cover
         """Handle ivalid method ivokation. Return both status code and an error message."""
         return jsonify({"error": f'Unsupported method "{request.method}"'}), 405
 
-    def response_bad_request(self):
+    def response_bad_request(self):  # pragma: no cover
         """Handle 'bad request'. Return both status code and an error message."""
         return jsonify({"error": 'Bad request'}), 400
 
@@ -36,22 +37,22 @@ class AppRestResource(RestResource):
         """Handle 'data not found'. Return both status code and an error message."""
         try:
             return super().api_detail(pk, method)
-        except NotFound:
+        except NotFound:  # pragma: no cover
             return jsonify({"error": 'Not found'}), 404
 
     def check_get(self, obj=None):
         """Pre-authorizing a GET request."""
         return True
 
-    def check_post(self, obj=None):
+    def check_post(self, obj=None):  # pragma: no cover
         """Pre-authorizing a POST request."""
         return True
 
-    def check_put(self, obj):
+    def check_put(self, obj):  # pragma: no cover
         """Pre-authorizing a PUT request."""
         return True
 
-    def check_delete(self, obj):
+    def check_delete(self, obj):  # pragma: no cover
         """Pre-authorizing a DELETE request."""
         return True
 
@@ -291,102 +292,102 @@ app.add_url_rule(
     ])
 
 
-class AffiliationTaskAPI(MethodView):
-    """Affiliation task service."""
+# class AffiliationTaskAPI(MethodView):
+#     """Affiliation task service."""
 
-    decorators = [
-        oauth.require_oauth(),
-    ]
+#     decorators = [
+#         oauth.require_oauth(),
+#     ]
 
-    def get(self, task_id=None):
-        """
-        Manage affiliation batch process tasks.
+#     def get(self, task_id=None):
+#         """
+#         Manage affiliation batch process tasks.
 
-        ---
-        tags:
-          - "affiliation"
-        summary: "Manage affiliation batch process tasks."
-        description: ""
-        produces:
-          - "application/json"
-        parameters:
-          - name: "task-id"
-            in: "path"
-            description: "Batch task ID."
-            required: true
-            type: "string"
-        responses:
-          200:
-            description: "successful operation"
-            schema:
-              id: AffiliationTaskResult
-              properties:
-                found:
-                  type: "boolean"
-                token:
-                  type: "object"
-                  properties:
-                    access_token:
-                      type: "string"
-                      description: "ORCID API user profile access token"
-                    refresh_token:
-                      type: "string"
-                      description: "ORCID API user profile refresh token"
-                    scopes:
-                      type: "string"
-                      description: "ORCID API user token scopes"
-                    issue_time:
-                      type: "string"
-                    expires_in:
-                      type: "integer"
-          400:
-            description: "Invalid identifier supplied"
-          403:
-            description: "Access Denied"
-          404:
-            description: "User not found"
-        """
-        if task_id is None:
-            return jsonify({"error": "Need at least one parameter: email or ORCID ID."}), 400
+#         ---
+#         tags:
+#           - "affiliation"
+#         summary: "Manage affiliation batch process tasks."
+#         description: ""
+#         produces:
+#           - "application/json"
+#         parameters:
+#           - name: "task-id"
+#             in: "path"
+#             description: "Batch task ID."
+#             required: true
+#             type: "string"
+#         responses:
+#           200:
+#             description: "successful operation"
+#             schema:
+#               id: AffiliationTaskResult
+#               properties:
+#                 found:
+#                   type: "boolean"
+#                 token:
+#                   type: "object"
+#                   properties:
+#                     access_token:
+#                       type: "string"
+#                       description: "ORCID API user profile access token"
+#                     refresh_token:
+#                       type: "string"
+#                       description: "ORCID API user profile refresh token"
+#                     scopes:
+#                       type: "string"
+#                       description: "ORCID API user token scopes"
+#                     issue_time:
+#                       type: "string"
+#                     expires_in:
+#                       type: "integer"
+#           400:
+#             description: "Invalid identifier supplied"
+#           403:
+#             description: "Access Denied"
+#           404:
+#             description: "User not found"
+#         """
+#         if task_id is None:
+#             return jsonify({"error": "Need at least one parameter: email or ORCID ID."}), 400
 
-        identifier = task_id.strip()
-        if EMAIL_REGEX.match(identifier):
-            user = User.select().where((User.email == identifier) | (
-                User.eppn == identifier)).first()
-        elif ORCID_ID_REGEX.match(identifier):
-            try:
-                models.validate_orcid_id(identifier)
-            except Exception as ex:
-                return jsonify({"error": f"Incorrect identifier value '{identifier}': {ex}"}), 400
-            user = User.select().where(User.orcid == identifier).first()
-        else:
-            return jsonify({"error": f"Incorrect identifier value: {identifier}."}), 400
-        if user is None:
-            return jsonify({
-                "error": f"User with specified identifier '{identifier}' not found."
-            }), 404
+#         identifier = task_id.strip()
+#         if EMAIL_REGEX.match(identifier):
+#             user = User.select().where((User.email == identifier) | (
+#                 User.eppn == identifier)).first()
+#         elif ORCID_ID_REGEX.match(identifier):
+#             try:
+#                 models.validate_orcid_id(identifier)
+#             except Exception as ex:
+#                 return jsonify({"error": f"Incorrect identifier value '{identifier}': {ex}"}), 400
+#             user = User.select().where(User.orcid == identifier).first()
+#         else:
+#             return jsonify({"error": f"Incorrect identifier value: {identifier}."}), 400
+#         if user is None:
+#             return jsonify({
+#                 "error": f"User with specified identifier '{identifier}' not found."
+#             }), 404
 
-        org = request.oauth.client.org
-        if not UserOrg.select().where(UserOrg.org == org, UserOrg.user == user).exists():
-            return jsonify({"error": "Access Denied"}), 403
+#         org = request.oauth.client.org
+#         if not UserOrg.select().where(UserOrg.org == org, UserOrg.user == user).exists():
+#             return jsonify({"error": "Access Denied"}), 403
 
-        try:
-            token = OrcidToken.get(user=user, org=org)
-        except OrcidToken.DoesNotExist:
-            return jsonify({
-                "error":
-                f"Token for the users {user} ({identifier}) affiliated with {org} not found."
-            }), 404
+#         try:
+#             token = OrcidToken.get(user=user, org=org)
+#         except OrcidToken.DoesNotExist:
+#             return jsonify({
+#                 "error":
+#                 f"Token for the users {user} ({identifier}) affiliated with {org} not found."
+#             }), 404
 
-        return jsonify({
-            "found": True,
-            "token": {
-                "access_token": token.access_token,
-                "refresh_token": token.refresh_token,
-                "issue_time": token.issue_time.isoformat(),
-                "expires_in": token.expires_in
-            }
-        }), 200
+#         return jsonify({
+#             "found": True,
+#             "token": {
+#                 "access_token": token.access_token,
+#                 "refresh_token": token.refresh_token,
+#                 "issue_time": token.issue_time.isoformat(),
+#                 "expires_in": token.expires_in
+#             }
+#         }), 200
 
 
 def get_spec(app):
@@ -456,11 +457,23 @@ def spec():
         return jsonify(swag)
 
 
-@app.route("/api-docs/")
+@app.route("/api-docs")
 @app.route("/api-docs/<path:url>")
-def api_doc(url=None):
+@roles_required(Role.TECHNICAL)
+def api_docs(url=None):
+    """Show Swagger UI for the latest/current Hub API."""
     if url is None:
         url = request.args.get("url", url_for("spec", _external=True))
+    return render_template("swaggerui.html", url=url)
+
+
+@app.route("/db-api-docs")
+@app.route("/db-api-docs/<path:url>")
+@roles_required(Role.SUPERUSER)
+def db_api_docs(url=None):
+    """Show Swagger UI for the latest/current Hub DB API."""
+    if url is None:
+        url = request.args.get("url", url_for("Swagger.model_resources", _external=True))
     return render_template("swaggerui.html", url=url)
 
 
