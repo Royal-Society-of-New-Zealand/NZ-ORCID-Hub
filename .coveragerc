@@ -12,12 +12,14 @@ omit =
     orcid_hub/pyinfo.py
     initializedb.py
     orcid_hub/conftest.py
+    orcid_hub/config.py
     run.py
     application.py
     config.py
     create.py
     setup.py
     orcid_hub/mocks/__init__.py
+    orcid_hub/__init__.py
     orcid_hub/cli.py
     orcid_hub/failover.py
     instance/settings.cfg
@@ -35,12 +37,14 @@ omit =
     orcid_hub/pyinfo.py
     initializedb.py
     orcid_hub/conftest.py
+    orcid_hub/config.py
     run.py
     application.py
     config.py
     create.py
     setup.py
     orcid_hub/mocks/__init__.py
+    orcid_hub/__init__.py
     orcid_hub/cli.py
     orcid_hub/failover.py
     instance/settings.cfg
