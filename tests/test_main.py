@@ -225,19 +225,31 @@ def test_confirmation_token(app):
 
     app.config['SECRET_KEY'] = "SECRET"
     app.config['SALT'] = "COMPROMISED SALT"
-    assert utils.confirm_token(token) is False
+    with pytest.raises(Exception) as ex_info:
+        utils.confirm_token(token)
+    # Got exception
+    assert "does not match" in ex_info.value.message
 
     app.config['SECRET_KEY'] = "COMPROMISED SECRET"
     app.config['SALT'] = "SALT"
-    assert utils.confirm_token(token) is False
+    with pytest.raises(Exception) as ex_info:
+        utils.confirm_token(token)
+    # Got exception
+    assert "does not match" in ex_info.value.message
 
     app.config['SECRET_KEY'] = "COMPROMISED SECRET"
     app.config['SALT'] = "COMPROMISED SALT"
-    assert utils.confirm_token(token) is False
+    with pytest.raises(Exception) as ex_info:
+        utils.confirm_token(token)
+    # Got exception
+    assert "does not match" in ex_info.value.message
 
     app.config['SECRET_KEY'] = "COMPROMISED"
     app.config['SALT'] = "COMPROMISED"
-    assert utils.confirm_token(token, 0) is False, "Expired token shoud be rejected"
+    with pytest.raises(Exception) as ex_info:
+        utils.confirm_token(token, 0)
+    # Got exception
+    assert "does not match" in ex_info.value.message
 
 
 def test_login_provider_load_user(request_ctx):  # noqa: D103
