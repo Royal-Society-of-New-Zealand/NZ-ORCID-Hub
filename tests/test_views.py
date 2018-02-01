@@ -231,6 +231,7 @@ def test_status(client):
         assert rv.status_code == 200
         assert data["status"] == "Connection successful."
         assert data["db-timestamp"] == "2042-01-01T00:00:00"
+
     with patch("orcid_hub.views.db") as db:  # , request_ctx("/status") as ctx:
         db.execute_sql.side_effect = Exception("FAILURE")
         rv = client.get("/status")

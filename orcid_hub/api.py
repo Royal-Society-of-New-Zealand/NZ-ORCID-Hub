@@ -1,15 +1,17 @@
 """HUB API."""
 
 import yaml
-from flask import current_app, jsonify, request, url_for
+from flask import current_app, jsonify, render_template, request, url_for
 from flask.views import MethodView
 from flask_peewee.rest import RestResource
 from flask_peewee.utils import slugify
 from flask_swagger import swagger
 from werkzeug.exceptions import NotFound
+from flask_peewee_swagger.swagger import Swagger
 
 from . import api, app, models, oauth
-from .models import EMAIL_REGEX, ORCID_ID_REGEX, OrcidToken, User, UserOrg
+from .login_provider import roles_required
+from .models import EMAIL_REGEX, ORCID_ID_REGEX, OrcidToken, Role, User, UserOrg
 
 
 class AppRestResource(RestResource):
@@ -19,15 +21,15 @@ class AppRestResource(RestResource):
         """Pluralize the name based on the model."""
         return slugify(self.model.__name__ + 's')
 
-    def response_forbidden(self):
+    def response_forbidden(self):  # pragma: no cover
         """Handle denied access. Return both status code and an error message."""
         return jsonify({"error": 'Forbidden'}), 403
 
-    def response_bad_method(self):
+    def response_bad_method(self):  # pragma: no cover
         """Handle ivalid method ivokation. Return both status code and an error message."""
         return jsonify({"error": f'Unsupported method "{request.method}"'}), 405
 
-    def response_bad_request(self):
+    def response_bad_request(self):  # pragma: no cover
         """Handle 'bad request'. Return both status code and an error message."""
         return jsonify({"error": 'Bad request'}), 400
 
@@ -35,8 +37,24 @@ class AppRestResource(RestResource):
         """Handle 'data not found'. Return both status code and an error message."""
         try:
             return super().api_detail(pk, method)
-        except NotFound:
+        except NotFound:  # pragma: no cover
             return jsonify({"error": 'Not found'}), 404
+
+    def check_get(self, obj=None):
+        """Pre-authorizing a GET request."""
+        return True
+
+    def check_post(self, obj=None):  # pragma: no cover
+        """Pre-authorizing a POST request."""
+        return True
+
+    def check_put(self, obj):  # pragma: no cover
+        """Pre-authorizing a PUT request."""
+        return True
+
+    def check_delete(self, obj):  # pragma: no cover
+        """Pre-authorizing a DELETE request."""
+        return True
 
 
 class UserResource(AppRestResource):
@@ -50,8 +68,29 @@ class UserResource(AppRestResource):
 
 api.register(models.Organisation, AppRestResource)
 api.register(models.Task, AppRestResource)
-# api.register(models.User, UserResource)
+api.register(models.User, UserResource)
 api.setup()
+
+
+common_spec = {
+    "security": [{
+        "application": ["read", "write"]
+    }],
+    "securityDefinitions": {
+        "application": {
+            "flow": "application",
+            "scopes": {
+                "read": "allows reading resources",
+                "write": "allows modifying resources"
+            },
+            "tokenUrl": "/oauth/token",
+            "type": "oauth2"
+        }
+    },
+}
+
+api_swagger = Swagger(api, swagger_version="2.0", extras=common_spec)
+api_swagger.setup()
 
 
 @app.route('/api/me')
@@ -252,6 +291,7 @@ app.add_url_rule(
         "GET",
     ])
 
+
 # class AffiliationTaskAPI(MethodView):
 #     """Affiliation task service."""
 
@@ -259,7 +299,7 @@ app.add_url_rule(
 #         oauth.require_oauth(),
 #     ]
 
-#     def get(self, identifier=None):
+#     def get(self, task_id=None):
 #         """
 #         Manage affiliation batch process tasks.
 
@@ -307,10 +347,10 @@ app.add_url_rule(
 #           404:
 #             description: "User not found"
 #         """
-#         if identifier is None:
+#         if task_id is None:
 #             return jsonify({"error": "Need at least one parameter: email or ORCID ID."}), 400
 
-#         identifier = identifier.strip()
+#         identifier = task_id.strip()
 #         if EMAIL_REGEX.match(identifier):
 #             user = User.select().where((User.email == identifier) | (
 #                 User.eppn == identifier)).first()
@@ -364,7 +404,7 @@ def get_spec(app):
         "application/json",
     ]
     swag["schemes"] = [
-        "https",
+        request.scheme,
     ]
     swag["securityDefinitions"] = {
         "application": {
@@ -415,6 +455,26 @@ def spec():
         return yamlfy(swag)
     else:
         return jsonify(swag)
+
+
+@app.route("/api-docs/")
+@app.route("/api-docs/<path:url>")
+@roles_required(Role.TECHNICAL)
+def api_docs(url=None):
+    """Show Swagger UI for the latest/current Hub API."""
+    if url is None:
+        url = request.args.get("url", url_for("spec", _external=True))
+    return render_template("swaggerui.html", url=url)
+
+
+@app.route("/db-api-docs/")
+@app.route("/db-api-docs/<path:url>")
+@roles_required(Role.SUPERUSER)
+def db_api_docs(url=None):
+    """Show Swagger UI for the latest/current Hub DB API."""
+    if url is None:
+        url = request.args.get("url", url_for("Swagger.model_resources", _external=True))
+    return render_template("swaggerui.html", url=url)
 
 
 def yamlfy(*args, **kwargs):
