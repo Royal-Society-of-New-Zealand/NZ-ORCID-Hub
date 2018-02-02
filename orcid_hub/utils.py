@@ -14,7 +14,7 @@ import requests
 from flask import request, url_for
 from flask_login import current_user
 from html2text import html2text
-from itsdangerous import URLSafeTimedSerializer
+from itsdangerous import URLSafeTimedSerializer, SignatureExpired
 from peewee import JOIN
 
 from . import app, orcid_client
@@ -161,8 +161,12 @@ def confirm_token(token, expiration=1300000):
     serializer = URLSafeTimedSerializer(app.config["SECRET_KEY"])
     try:
         data = serializer.loads(token, salt=app.config["SALT"], max_age=expiration)
-    except Exception:
-        return False
+    except SignatureExpired as sx:
+        logger.error(f"Invitation token SignatureExpired: {sx}")
+        raise sx
+    except Exception as ex:
+        logger.error(f"Invitation token Exception {ex}")
+        raise ex
     return data
 
 
