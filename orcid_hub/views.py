@@ -1568,12 +1568,12 @@ def invite_user():
     return render_template("user_invitation.html", form=form)
 
 
-@roles_required(Role.TECHNICAL, Role.ADMIN)
 @app.route(
     "/settings/email_template", methods=[
         "GET",
         "POST",
     ])
+@roles_required(Role.TECHNICAL, Role.ADMIN)
 def manage_email_template():
     """Manage organisation invitation email template."""
     org = current_user.organisation
