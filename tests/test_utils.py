@@ -39,7 +39,10 @@ def test_generate_confirmation_token():
     assert 'testemail@example.com' == data[0]
     import time
     time.sleep(2)
-    assert not utils.confirm_token(token, expiration=1)
+    with pytest.raises(Exception) as ex_info:
+        utils.confirm_token(token, expiration=1)
+    # Got exception
+    assert "Signature age 2 > 1 seconds" in ex_info.value.message
 
 
 def test_track_event(request_ctx):
