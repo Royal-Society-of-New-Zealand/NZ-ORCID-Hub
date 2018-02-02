@@ -17,6 +17,7 @@ from os import path, remove
 from tempfile import gettempdir
 from time import time
 from urllib.parse import quote, unquote, urlparse
+from itsdangerous import SignatureExpired
 
 import requests
 from flask import abort, current_app, flash, g, redirect, render_template, request, session, url_for
@@ -824,6 +825,12 @@ def orcid_login(invitation_token=None):
 
         return redirect(orcid_authenticate_url)
 
+    except SignatureExpired as sx:
+        flash("It's been more than 15 days since your invitation was sent and it has expired. "
+              "Please contact the sender to issue a new one",
+              "danger")
+        app.logger.exception("Failed to login via ORCID.")
+        return redirect(url_for("index"))
     except Exception as ex:
         flash("Something went wrong. Please contact orcid@royalsociety.org.nz for support!",
               "danger")
@@ -834,7 +841,6 @@ def orcid_login(invitation_token=None):
 def orcid_login_callback(request):
     """Handle call-back for user authenitcation via ORCID."""
     _next = get_next_url()
-
     state = request.args.get("state")
     invitation_token = request.args.get("invitation_token")
 
