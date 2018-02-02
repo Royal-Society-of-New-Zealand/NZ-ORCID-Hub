@@ -1637,7 +1637,10 @@ def logo():
             attachment_filename=org.logo.filename)
 
     form = LogoForm()
-    if form.validate_on_submit():
+    if request.method == "POST" and form.reset.data:
+        org.logo = None
+        org.save()
+    elif form.validate_on_submit():
         f = form.logo_file.data
         filename = secure_filename(f.filename)
         logo = File.create(data=f.read(), mimetype=f.mimetype, filename=f.filename)
