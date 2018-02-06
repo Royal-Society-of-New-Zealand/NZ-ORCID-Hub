@@ -8,6 +8,7 @@ import sys
 import time
 from itertools import product
 from unittest.mock import MagicMock, patch
+from io import BytesIO
 
 import pytest
 from flask import request
@@ -300,34 +301,10 @@ def test_short_url(request_ctx):
 
 def test_load_org(request_ctx):
     """Test load organisation."""
-    Organisation.get_or_create(
-        id=1,
-        name="THE ORGANISATION",
-        tuakiri_name="THE ORGANISATION",
-        confirmed=False,
-        orcid_client_id="CLIENT ID",
-        orcid_secret="Client Secret",
-        city="CITY",
-        country="COUNTRY",
-        disambiguated_id="ID",
-        disambiguation_source="SOURCE",
-        is_email_sent=True)
-    org = Organisation.get(id=1)
-    User.get_or_create(
-        id=123,
-        email="test123@test.test.net",
-        name="TEST USER",
-        roles=Role.SUPERUSER,
-        orcid=123,
-        organisation_id=1,
-        confirmed=True,
-        organisation=org)
-    test_user = User.get(id=123)
-    test_user.save()
-    org.save()
-    with request_ctx("/load/org") as ctxx:
-        login_user(test_user, remember=True)
-        rv = ctxx.app.full_dispatch_request()
+    root = User.get(email="root@test.edu")
+    with request_ctx("/load/org") as ctx:
+        login_user(root, remember=True)
+        rv = ctx.app.full_dispatch_request()
         assert rv.status_code == 200
         assert b"<!DOCTYPE html>" in rv.data, "Expected HTML content"
 
@@ -346,8 +323,7 @@ def test_read_uploaded_file(request_ctx):
 
 def test_user_orgs_org(request_ctx):
     """Test add an organisation to the user."""
-    Organisation.get_or_create(
-        id=1,
+    org = Organisation.create(
         name="THE ORGANISATION",
         tuakiri_name="THE ORGANISATION",
         confirmed=False,
@@ -358,42 +334,33 @@ def test_user_orgs_org(request_ctx):
         disambiguated_id="ID",
         disambiguation_source="SOURCE",
         is_email_sent=True)
-    org = Organisation.get(id=1)
-    User.get_or_create(
-        id=123,
+    user = User.create(
         email="test123@test.test.net",
         name="TEST USER",
         roles=Role.SUPERUSER,
-        orcid=123,
-        organisation_id=1,
+        orcid="123",
         confirmed=True,
         organisation=org)
-    user = User.get(id=123)
-    org.save()
-    user.save()
-    UserOrg.get_or_create(id=122, user=user, org=org, is_admin=True)
-    user_org = UserOrg.get(id=122)
-    user_org.save()
+    UserOrg.create(user=user, org=org, is_admin=True)
     with request_ctx():
         login_user(user, remember=True)
         request._cached_json = {
-            "id": 1,
+            "id": org.id,
             "name": "THE ORGANISATION",
             "is_admin": True,
             "is_tech_contact": True
         }
-        resp = views.user_orgs_org(user_id=123)
+        resp = views.user_orgs_org(user_id=user.id)
         assert resp[1] == 200
         assert Role.ADMIN in user.roles
-        organisation = Organisation.get(id=1)
+        organisation = Organisation.get(name="THE ORGANISATION")
         # User becomes the technical contact of the organisation.
         assert organisation.tech_contact == user
 
 
 def test_user_orgs(request_ctx):
     """Test add an organisation to the user."""
-    Organisation.get_or_create(
-        id=1,
+    org = Organisation.create(
         name="THE ORGANISATION",
         tuakiri_name="THE ORGANISATION",
         confirmed=False,
@@ -404,43 +371,33 @@ def test_user_orgs(request_ctx):
         disambiguated_id="ID",
         disambiguation_source="SOURCE",
         is_email_sent=True)
-    org = Organisation.get(id=1)
-    User.get_or_create(
-        id=123,
+    user = User.create(
         email="test123@test.test.net",
         name="TEST USER",
         roles=Role.SUPERUSER,
-        orcid=123,
-        organisation_id=1,
+        orcid="123",
         confirmed=True,
         organisation=org)
-    user = User.get(id=123)
-    org.save()
-    user.save()
-    UserOrg.get_or_create(id=122, user=user, org=org, is_admin=True)
-    user_org = UserOrg.get(id=122)
-    user_org.save()
-    user_id = str(user.id)
-    org_id = str(org.id)
-    with request_ctx("/hub/api/v0.1/users/" + user_id + "/orgs/") as ctxx:
+    UserOrg.create(user=user, org=org, is_admin=True)
+
+    with request_ctx(f"/hub/api/v0.1/users/{user.id}/orgs/") as ctx:
         login_user(user, remember=True)
-        rv = ctxx.app.full_dispatch_request()
+        rv = ctx.app.full_dispatch_request()
         assert rv.status_code == 200
-    with request_ctx("/hub/api/v0.1/users/" + user_id + "/orgs/" + org_id) as ctxxx:
+    with request_ctx(f"/hub/api/v0.1/users/{user.id}/orgs/{org.id}") as ctx:
         login_user(user, remember=True)
-        rv = ctxxx.app.full_dispatch_request()
+        rv = ctx.app.full_dispatch_request()
         assert rv.status_code == 200
-    with request_ctx("/hub/api/v0.1/users/" + "1234" + "/orgs/") as ctxx:
+    with request_ctx("/hub/api/v0.1/users/1234/orgs/") as ctx:
         # failure test case, user not found
         login_user(user, remember=True)
-        rv = ctxx.app.full_dispatch_request()
+        rv = ctx.app.full_dispatch_request()
         assert rv.status_code == 404
 
 
 def test_api_credentials(request_ctx):
     """Test manage API credentials.."""
-    Organisation.get_or_create(
-        id=1,
+    org = Organisation.create(
         name="THE ORGANISATION",
         tuakiri_name="THE ORGANISATION",
         confirmed=False,
@@ -451,24 +408,15 @@ def test_api_credentials(request_ctx):
         disambiguated_id="ID",
         disambiguation_source="SOURCE",
         is_email_sent=True)
-    org = Organisation.get(id=1)
-    User.get_or_create(
-        id=123,
+    user = User.create(
         email="test123@test.test.net",
         name="TEST USER",
         roles=Role.TECHNICAL,
-        orcid=123,
-        organisation_id=1,
+        orcid="123",
         confirmed=True,
         organisation=org)
-    user = User.get(id=123)
-    org.save()
-    user.save()
-    UserOrg.get_or_create(id=122, user=user, org=org, is_admin=True)
-    user_org = UserOrg.get(id=122)
-    user_org.save()
-    Client.get_or_create(
-        id=1234,
+    UserOrg.create(user=user, org=org, is_admin=True)
+    Client.create(
         name="Test_client",
         user=user,
         org=org,
@@ -477,8 +425,6 @@ def test_api_credentials(request_ctx):
         is_confidential="public",
         grant_type="client_credentials",
         response_type="xyz")
-    client_info = Client.get(id=1234)
-    client_info.save()
     with request_ctx():
         login_user(user, remember=True)
         resp = views.api_credentials()
@@ -495,8 +441,7 @@ def test_page_not_found(request_ctx):
 
 def test_action_invite(request_ctx):
     """Test handle nonexistin pages."""
-    Organisation.get_or_create(
-        id=1,
+    org = Organisation.create(
         name="THE ORGANISATION",
         tuakiri_name="THE ORGANISATION",
         confirmed=False,
@@ -507,24 +452,15 @@ def test_action_invite(request_ctx):
         disambiguated_id="ID",
         disambiguation_source="SOURCE",
         is_email_sent=True)
-    org = Organisation.get(id=1)
-    User.get_or_create(
-        id=123,
+    user = User.create(
         email="test123@test.test.net",
         name="TEST USER",
         roles=Role.TECHNICAL,
-        orcid=123,
-        organisation_id=1,
+        orcid="123",
         confirmed=True,
         organisation=org)
-    user = User.get(id=123)
-    org.save()
-    user.save()
-    UserOrg.get_or_create(id=122, user=user, org=org, is_admin=True)
-    user_org = UserOrg.get(id=122)
-    user_org.save()
-    OrgInfo.get_or_create(
-        id=1234,
+    UserOrg.create(user=user, org=org, is_admin=True)
+    org_info = OrgInfo.create(
         name="Test_client",
         tuakiri_name="xyz",
         title="mr",
@@ -538,32 +474,19 @@ def test_action_invite(request_ctx):
         city="Auckland",
         disambiguated_id="123",
         disambiguation_source="ringgold")
-    org_info = OrgInfo.get(id=1234)
-    org_info.save()
     with request_ctx():
         login_user(user, remember=True)
-        views.OrgInfoAdmin.action_invite(OrgInfo, ids=[1234])
+        views.OrgInfoAdmin.action_invite(OrgInfo, ids=[org_info.id])
         # New organisation is created from OrgInfo and user is added with Admin role
-        org2 = Organisation.get(id=2)
-        assert "Test_client" == org2.name
+        org2 = Organisation.get(name="Test_client")
+        assert user.is_admin_of(org2)
         assert Role.ADMIN in user.roles
 
 
 def test_email_template(app, request_ctx):
     """Test email maintenance."""
-    org = Organisation.create(
-        name="TEST0",
-        tuakiri_name="TEST")
-    user = User.create(
-        email="admin@test.edu",
-        name="TEST",
-        first_name="FIRST_NAME",
-        last_name="LAST_NAME",
-        confirmed=True,
-        organisation=org)
-    UserOrg.create(user=user, org=org, is_admin=True)
-    org.tech_contact = user
-    org.save()
+    org = Organisation.get(name="TEST0")
+    user = User.get(email="admin@test.edu")
 
     with request_ctx(
             "/settings/email_template",
@@ -595,12 +518,12 @@ def test_email_template(app, request_ctx):
         send_email.assert_called_once_with(
             "email/test.html",
             base="TEST TEMPLATE {EMAIL}",
-            cc_email=("TEST", "admin@test.edu"),
+            cc_email=("TEST ORG ADMIN", "admin@test.edu"),
             logo=None,
             org_name="TEST0",
-            recipient=("TEST", "admin@test.edu"),
-            reply_to=("TEST", "admin@test.edu"),
-            sender=("TEST", "admin@test.edu"),
+            recipient=("TEST ORG ADMIN", "admin@test.edu"),
+            reply_to=("TEST ORG ADMIN", "admin@test.edu"),
+            sender=("TEST ORG ADMIN", "admin@test.edu"),
             subject="TEST EMAIL")
 
     with request_ctx(
@@ -647,6 +570,7 @@ def test_email_template(app, request_ctx):
         mimetype="image/png",
         token="TOKEN000")
     org.save()
+    user.reload()
     with patch("orcid_hub.utils.send_email") as send_email, request_ctx(
             "/settings/email_template",
             method="POST",
@@ -663,10 +587,44 @@ def test_email_template(app, request_ctx):
         send_email.assert_called_once_with(
             "email/test.html",
             base="TEST TEMPLATE {EMAIL}",
-            cc_email=("TEST", "admin@test.edu"),
+            cc_email=("TEST ORG ADMIN", "admin@test.edu"),
             logo=f"http://{ctx.request.host}/logo/TOKEN000",
             org_name="TEST0",
-            recipient=("TEST", "admin@test.edu"),
-            reply_to=("TEST", "admin@test.edu"),
-            sender=("TEST", "admin@test.edu"),
+            recipient=("TEST ORG ADMIN", "admin@test.edu"),
+            reply_to=("TEST ORG ADMIN", "admin@test.edu"),
+            sender=("TEST ORG ADMIN", "admin@test.edu"),
             subject="TEST EMAIL")
+
+
+
+def test_logo(request_ctx):
+    """Test logo support."""
+    org = Organisation.get(name="TEST0")
+    user = User.get(email="admin@test.edu")
+    with request_ctx(
+            "/settings/logo",
+            method="POST",
+            data={
+                "upload": "Upload",
+                "logo_file": (
+                    BytesIO(b"FAKE IMAGE"),
+                    "logo.png",
+                ),
+            }) as ctx:
+        login_user(user)
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 200
+        org.reload()
+        assert org.logo is not None
+        assert org.logo.filename == "logo.png"
+    with request_ctx(
+            "/settings/logo",
+            method="POST",
+            data={
+                "reset": "Reset",
+            }) as ctx:
+        login_user(user)
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 200
+        org.reload()
+        assert org.logo is None

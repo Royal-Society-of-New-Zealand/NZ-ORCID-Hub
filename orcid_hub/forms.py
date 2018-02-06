@@ -215,6 +215,7 @@ class LogoForm(FlaskForm):
     reset = SubmitField("Reset", render_kw={"class": "btn btn-danger"})
     cancel = SubmitField("Cancel", render_kw={"class": "btn btn-invisible"})
 
+
 class EmailTemplateForm(FlaskForm):
     """Email template form."""
 
