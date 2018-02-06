@@ -23,4 +23,5 @@ Flask-OAuthlib
 flask-swagger
 raven
 raven[flask]
-
+flask-peewee-swagger>=1.1.5
+flask-limiter>=1.0.0,<2.0.0
