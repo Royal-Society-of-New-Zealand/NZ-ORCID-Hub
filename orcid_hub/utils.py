@@ -687,44 +687,44 @@ def process_funding_records(max_rows=20):
         task_ids.add(task_id)
         funding_ids.add(funding_record_id)
 
-        for funding_record in FundingRecord.select().where(FundingRecord.id << funding_ids):
-            # The funding record is processed for all contributors
-            if not (FundingContributor.select().where(
-                    FundingContributor.funding_record_id == funding_record.id,
-                    FundingContributor.processed_at.is_null()).exists()):
-                funding_record.processed_at = datetime.now()
-                if not funding_record.status or "error" not in funding_record.status:
-                    funding_record.add_status_line("Funding record is processed.")
-                funding_record.save()
+    for funding_record in FundingRecord.select().where(FundingRecord.id << funding_ids):
+        # The funding record is processed for all contributors
+        if not (FundingContributor.select().where(
+                FundingContributor.funding_record_id == funding_record.id,
+                FundingContributor.processed_at.is_null()).exists()):
+            funding_record.processed_at = datetime.now()
+            if not funding_record.status or "error" not in funding_record.status:
+                funding_record.add_status_line("Funding record is processed.")
+            funding_record.save()
 
-        for task in Task.select().where(Task.id << task_ids):
-            # The task is completed (Once all records are processed):
-            if not (FundingRecord.select().where(FundingRecord.task_id == task.id,
-                                                 FundingRecord.processed_at.is_null()).exists()):
-                task.completed_at = datetime.now()
-                task.save()
-                error_count = FundingRecord.select().where(
-                    FundingRecord.task_id == task.id, FundingRecord.status**"%error%").count()
-                row_count = task.record_funding_count
+    for task in Task.select().where(Task.id << task_ids):
+        # The task is completed (Once all records are processed):
+        if not (FundingRecord.select().where(FundingRecord.task_id == task.id,
+                                             FundingRecord.processed_at.is_null()).exists()):
+            task.completed_at = datetime.now()
+            task.save()
+            error_count = FundingRecord.select().where(
+                FundingRecord.task_id == task.id, FundingRecord.status**"%error%").count()
+            row_count = task.record_funding_count
 
-                with app.app_context():
-                    protocol_scheme = 'http'
-                    if not EXTERNAL_SP:
-                        protocol_scheme = 'https'
-                    export_url = flask.url_for(
-                        "fundingrecord.export",
-                        export_type="json",
-                        _scheme=protocol_scheme,
-                        task_id=task.id,
-                        _external=True)
-                    send_email(
-                        "email/funding_task_completed.html",
-                        subject="Funding Process Update",
-                        recipient=(task.created_by.name, task.created_by.email),
-                        error_count=error_count,
-                        row_count=row_count,
-                        export_url=export_url,
-                        filename=task.filename)
+            with app.app_context():
+                protocol_scheme = 'http'
+                if not EXTERNAL_SP:
+                    protocol_scheme = 'https'
+                export_url = flask.url_for(
+                    "fundingrecord.export",
+                    export_type="json",
+                    _scheme=protocol_scheme,
+                    task_id=task.id,
+                    _external=True)
+                send_email(
+                    "email/funding_task_completed.html",
+                    subject="Funding Process Update",
+                    recipient=(task.created_by.name, task.created_by.email),
+                    error_count=error_count,
+                    row_count=row_count,
+                    export_url=export_url,
+                    filename=task.filename)
 
 
 def process_affiliation_records(max_rows=20):
