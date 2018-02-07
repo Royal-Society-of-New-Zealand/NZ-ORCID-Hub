@@ -341,7 +341,7 @@ def test_db_api(app_req_ctx):
         assert rv.status_code == 200
         data = json.loads(rv.data)
         assert "objects" in data
-        assert len(data["objects"]) == 2
+        assert len(data["objects"]) == 3
 
     with app_req_ctx("/data/api/v0.1/tasks/", headers=dict(authorization="Bearer TEST")) as ctx:
         rv = ctx.app.full_dispatch_request()
