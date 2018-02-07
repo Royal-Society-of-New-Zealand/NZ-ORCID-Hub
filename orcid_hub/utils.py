@@ -126,7 +126,8 @@ def send_email(template_filename,
         SUBJECT=subject,
         MESSAGE=str(rendered),
         LOGO=logo,
-        BASE_URL=url_for("index", _external=True)[:-1])
+        BASE_URL=url_for("index", _external=True)[:-1],
+        INCLUDED_URL=kwargs.get("invitation_url", '') or kwargs.get("include_url", ''))
 
     plain_msg = html2text(html_msg)
 

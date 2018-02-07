@@ -2,14 +2,15 @@
 requests
 requests_oauthlib
 psycopg2
-peewee
+peewee>=2.10.0,<3.0.0
 peewee-validates
 python-slugify
 emails
-wtf-peewee
+wtf-peewee==0.2.6
 pycountry
 html2text
 tablib
+openpyxl>=2.4.9,<2.5.0
 pyyaml
 pykwalify
 Flask
@@ -22,4 +23,5 @@ Flask-OAuthlib
 flask-swagger
 raven
 raven[flask]
-
+flask-peewee-swagger>=1.1.5
+flask-limiter>=1.0.0,<2.0.0

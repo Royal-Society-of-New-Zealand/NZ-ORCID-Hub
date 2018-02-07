@@ -281,8 +281,7 @@ def test_login_provider_load_user(request_ctx):  # noqa: D103
 
 def test_onboard_org(request_ctx):
     """Test to organisation onboarding."""
-    Organisation.get_or_create(
-        id=1,
+    org = Organisation.create(
         name="THE ORGANISATION",
         tuakiri_name="THE ORGANISATION",
         confirmed=False,
@@ -293,39 +292,29 @@ def test_onboard_org(request_ctx):
         disambiguated_id="ID",
         disambiguation_source="SOURCE",
         is_email_sent=True)
-    org = Organisation.get(id=1)
-    User.get_or_create(
-        id=123,
+    u = User.create(
         email="test123@test.test.net",
         name="TEST USER",
         roles=Role.TECHNICAL,
-        orcid=123,
-        organisation_id=1,
+        orcid="123",
         confirmed=True,
         organisation=org)
-    User.get_or_create(
-        id=124,
+    second_user = User.create(
         email="test1234@test.test.net",
         name="TEST USER",
         roles=Role.ADMIN,
-        orcid=1243,
-        organisation_id=1,
+        orcid="1243",
         confirmed=True,
         organisation=org)
-    org_info = OrgInfo.get_or_create(
-        id=121, name="THE ORGANISATION", tuakiri_name="THE ORGANISATION")
-    org_info = OrgInfo.get(id=121)
-    u = User.get(id=123)
-    second_user = User.get(id=124)
+    org_info = OrgInfo.create(
+        name="THE ORGANISATION", tuakiri_name="THE ORGANISATION")
     org.tech_contact = u
-    org.tech_contact_id = u.id
     org_info.save()
     org.save()
-    u.save()
-    OrgInvitation.get_or_create(id=111, email=u.email, org=org, token="sdsddsd")
-    org_invitation = OrgInvitation.get(id=111)
-    org_invitation.save()
-    UserOrg(user=u, org=org, is_admin=True)
+
+    OrgInvitation.get_or_create(email=u.email, org=org, token="sdsddsd")
+    UserOrg.create(user=u, org=org, is_admin=True)
+
     with request_ctx("/confirm/organisation") as ctx:
         login_user(u)
         u.save()
@@ -341,15 +330,21 @@ def test_onboard_org(request_ctx):
         rv = ctxx.app.full_dispatch_request()
         assert rv.status_code == 302
         assert rv.location.startswith("/admin/viewmembers/")
-    with request_ctx("/confirm/organisation", method="POST", data={
-        "orcid_client_id": "APP-FDFN3F52J3M4L34S", "orcid_secret": "4916c2d7-085e-487e-94d0-32450a9cfe6c",
-        "country": "NZ", "city": "Auckland", "disambiguated_id": "xyz", "disambiguation_source": "xyz",
-        "name": "THE ORGANISATION"
-    }) as cttxx:
+    with request_ctx(
+            "/confirm/organisation",
+            method="POST",
+            data={
+                "orcid_client_id": "APP-FDFN3F52J3M4L34S",
+                "orcid_secret": "4916c2d7-085e-487e-94d0-32450a9cfe6c",
+                "country": "NZ",
+                "city": "Auckland",
+                "disambiguated_id": "xyz",
+                "disambiguation_source": "xyz",
+                "name": "THE ORGANISATION"
+            }) as cttxx:
         login_user(u)
         u.save()
-        with patch(
-                "orcid_hub.authcontroller.requests") as requests:
+        with patch("orcid_hub.authcontroller.requests") as requests:
             requests.post.return_value = Mock(data=b'XXXX', status_code=200)
             rv = cttxx.app.full_dispatch_request()
             assert rv.status_code == 302
@@ -381,8 +376,7 @@ def test_logout(request_ctx):
 
 def test_orcid_login(request_ctx):
     """Test login from orcid."""
-    Organisation.get_or_create(
-        id=1,
+    org = Organisation.create(
         name="THE ORGANISATION",
         tuakiri_name="THE ORGANISATION",
         confirmed=False,
@@ -393,23 +387,16 @@ def test_orcid_login(request_ctx):
         disambiguated_id="ID",
         disambiguation_source="SOURCE",
         is_email_sent=True)
-    org = Organisation.get(id=1)
-    User.get_or_create(
-        id=123,
+    u = User.create(
         email="test123@test.test.net",
         name="TEST USER",
         roles=Role.TECHNICAL,
-        orcid=123,
-        organisation_id=1,
+        orcid="123",
         confirmed=True,
         organisation=org)
-    u = User.get(id=123)
-    org.save()
-    u.save()
-    UserOrg.get_or_create(id=122, user=u, org=org, is_admin=True)
-    user_org = UserOrg.get(id=122)
-    user_org.save()
+    UserOrg.create(user=u, org=org, is_admin=True)
     token = utils.generate_confirmation_token(email=u.email, org=org.name)
+
     with request_ctx("/orcid/login/" + token) as ctxx:
         rv = ctxx.app.full_dispatch_request()
         assert rv.status_code == 302
@@ -452,8 +439,7 @@ def get_record_mock(self, orcid=None, **kwargs):
 @patch("orcid_hub.orcid_client.MemberAPIV20Api.view_emails", side_effect=get_record_mock)
 def test_orcid_login_callback_admin_flow(patch, patch2, request_ctx):
     """Test login from orcid callback function for Organisation Technical contact."""
-    Organisation.get_or_create(
-        id=1,
+    org = Organisation.create(
         name="THE ORGANISATION",
         tuakiri_name="THE ORGANISATION",
         confirmed=False,
@@ -464,40 +450,33 @@ def test_orcid_login_callback_admin_flow(patch, patch2, request_ctx):
         disambiguated_id="ID",
         disambiguation_source="SOURCE",
         is_email_sent=True)
-    org = Organisation.get(id=1)
-    User.get_or_create(
-        id=123,
+    u = User.create(
         email="test123@test.test.net",
         roles=Role.TECHNICAL,
-        orcid=123,
-        organisation_id=1,
+        orcid="123",
         confirmed=False,
         organisation=org)
-    u = User.get(id=123)
-    org.save()
-    u.save()
-    UserOrg.get_or_create(id=122, user=u, org=org, is_admin=True)
-    user_org = UserOrg.get(id=122)
-    user_org.save()
+    UserOrg.create(user=u, org=org, is_admin=True)
     token = utils.generate_confirmation_token(email=u.email, org=org.name)
-    with request_ctx() as ctxx:
+
+    with request_ctx() as resp:
         request.args = {"invitation_token": token, "state": "xyz"}
         session['oauth_state'] = "xyz"
-        ctxx = authcontroller.orcid_login_callback(request)
-        assert ctxx.status_code == 302
-        assert ctxx.location.startswith("/")
-    with request_ctx() as ctxxx:
+        resp = authcontroller.orcid_login_callback(request)
+        assert resp.status_code == 302
+        assert resp.location.startswith("/")
+    with request_ctx() as respx:
         request.args = {"invitation_token": token, "state": "xyzabc"}
         session['oauth_state'] = "xyz"
-        ctxxx = authcontroller.orcid_login_callback(request)
-        assert ctxxx.status_code == 302
-        assert ctxxx.location.startswith("/")
-    with request_ctx() as cttxx:
+        respx = authcontroller.orcid_login_callback(request)
+        assert respx.status_code == 302
+        assert respx.location.startswith("/")
+    with request_ctx() as resp:
         request.args = {"invitation_token": token, "state": "xyz", "error": "access_denied"}
         session['oauth_state'] = "xyz"
-        cttxx = authcontroller.orcid_login_callback(request)
-        assert cttxx.status_code == 302
-        assert cttxx.location.startswith("/")
+        resp = authcontroller.orcid_login_callback(request)
+        assert resp.status_code == 302
+        assert resp.location.startswith("/")
     with request_ctx() as ct:
         token = utils.generate_confirmation_token(email=u.email, org=None)
         request.args = {"invitation_token": token, "state": "xyz"}
@@ -520,42 +499,32 @@ def test_orcid_login_callback_admin_flow(patch, patch2, request_ctx):
         assert ct.location.startswith("/")
     with request_ctx():
         # User login via orcid, where organisation is not confirmed.
-        u = User.get(id=123)
-        u.orcid = 12121
+        u.orcid = "12121"
         u.save()
         request.args = {"invitation_token": None, "state": "xyz"}
         session['oauth_state'] = "xyz"
-        ctxx = authcontroller.orcid_login_callback(request)
-        assert ctxx.status_code == 302
-        assert ctxx.location.startswith("/about")
+        resp = authcontroller.orcid_login_callback(request)
+        assert resp.status_code == 302
+        assert resp.location.startswith("/about")
     with request_ctx():
         # User login via orcid, where organisation is confirmed, so showing viewmembers page.
-        u = User.get(id=123)
-        u.orcid = 12121
-        u.save()
-        org = Organisation.get(id=1)
         org.tech_contact = u
         org.confirmed = True
         org.save()
         request.args = {"invitation_token": None, "state": "xyz"}
         session['oauth_state'] = "xyz"
-        ctxx = authcontroller.orcid_login_callback(request)
-        assert ctxx.status_code == 302
-        assert ctxx.location.startswith("/admin/viewmembers/")
+        resp = authcontroller.orcid_login_callback(request)
+        assert resp.status_code == 302
+        assert resp.location.startswith("/admin/viewmembers/")
     with request_ctx():
         # User login via orcid, where organisation is not confirmed and user is tech, so showing confirm org page.
-        u = User.get(id=123)
-        u.orcid = 12121
-        u.save()
-        org = Organisation.get(id=1)
-        org.tech_contact = u
         org.confirmed = False
         org.save()
         request.args = {"invitation_token": None, "state": "xyz"}
         session['oauth_state'] = "xyz"
-        ctxx = authcontroller.orcid_login_callback(request)
-        assert ctxx.status_code == 302
-        assert ctxx.location.startswith("/confirm/organisation")
+        resp = authcontroller.orcid_login_callback(request)
+        assert resp.status_code == 302
+        assert resp.location.startswith("/confirm/organisation")
 
 
 def affiliation_mock(
@@ -587,8 +556,7 @@ def affiliation_mock(
     "orcid_hub.orcid_client.MemberAPI.create_or_update_affiliation", side_effect=affiliation_mock)
 def test_orcid_login_callback_researcher_flow(patch, patch2, request_ctx):
     """Test login from orcid callback function for researcher and display profile."""
-    Organisation.get_or_create(
-        id=1,
+    org = Organisation.create(
         name="THE ORGANISATION",
         tuakiri_name="THE ORGANISATION",
         confirmed=True,
@@ -599,43 +567,29 @@ def test_orcid_login_callback_researcher_flow(patch, patch2, request_ctx):
         disambiguated_id="ID",
         disambiguation_source="SOURCE",
         is_email_sent=True)
-    org = Organisation.get(id=1)
-    User.get_or_create(
-        id=123,
+    u = User.create(
         email="test123@test.test.net",
         name="TEST USER",
         roles=Role.RESEARCHER,
-        orcid=123,
-        organisation_id=1,
+        orcid="123",
         confirmed=True,
         organisation=org)
-    u = User.get(id=123)
-    org.save()
-    u.save()
-    UserOrg.get_or_create(id=122, user=u, org=org, is_admin=False)
-    user_org = UserOrg.get(id=122)
-    user_org.save()
+    UserOrg.create(user=u, org=org, is_admin=False)
     token = utils.generate_confirmation_token(email=u.email, org=org.name)
-    UserInvitation.get_or_create(id=1233, email=u.email, token=token, affiliations=Affiliation.EMP)
-    user_invitation = UserInvitation.get(id=1233)
-    user_invitation.save()
-    OrcidToken.get_or_create(
-        id=19, user_id=u.id, org_id=org.id, scope='/read-limited,/activities/update')
-    orcid_token = OrcidToken.get(id=19)
-    orcid_token.save()
-    with request_ctx() as ctxx:
+    UserInvitation.create(email=u.email, token=token, affiliations=Affiliation.EMP)
+    OrcidToken.create(user=u, org=org, scope='/read-limited,/activities/update')
+    with request_ctx():
         request.args = {"invitation_token": token, "state": "xyz"}
         session['oauth_state'] = "xyz"
-        ctxx = authcontroller.orcid_login_callback(request)
-        assert ctxx.status_code == 302
+        resp = authcontroller.orcid_login_callback(request)
+        assert resp.status_code == 302
         # display profile
-        assert ctxx.location.startswith("/profile")
+        assert resp.location.startswith("/profile")
 
 
 def test_select_user_org(request_ctx):
     """Test organisation switch of current user."""
-    Organisation.get_or_create(
-        id=1,
+    org = Organisation.create(
         name="THE ORGANISATION",
         tuakiri_name="THE ORGANISATION",
         confirmed=True,
@@ -646,10 +600,8 @@ def test_select_user_org(request_ctx):
         disambiguated_id="ID",
         disambiguation_source="SOURCE",
         is_email_sent=True)
-    org = Organisation.get(id=1)
 
-    Organisation.get_or_create(
-        id=2,
+    org2 = Organisation.create(
         name="THE ORGANISATION2",
         tuakiri_name="THE ORGANISATION2",
         confirmed=True,
@@ -660,35 +612,26 @@ def test_select_user_org(request_ctx):
         disambiguated_id="ID",
         disambiguation_source="SOURCE",
         is_email_sent=True)
-    org2 = Organisation.get(id=2)
 
-    User.get_or_create(
-        id=123,
+    user = User.create(
         email="test123@test.test.net",
         name="TEST USER",
         roles=Role.TECHNICAL,
-        orcid=123,
-        organisation_id=1,
+        orcid="123",
         confirmed=True,
         organisation=org)
-    user = User.get(id=123)
     org.save()
     org2.save()
     user.save()
-    UserOrg.get_or_create(id=1224, user=user, org=org, is_admin=True)
-    UserOrg.get_or_create(id=12234, user=user, org=org2, is_admin=True)
-    user_org = UserOrg.get(id=1224)
-    user_org2 = UserOrg.get(id=12234)
-    user_org.save()
-    user_org2.save()
-    org_id = str(user_org2.id)
-    with request_ctx("/select/user_org/" + org_id) as ctxx:
+    UserOrg.create(user=user, org=org, is_admin=True)
+    user_org2 = UserOrg.create(user=user, org=org2, is_admin=True)
+    with request_ctx(f"/select/user_org/{user_org2.id}") as ctx:
         login_user(user, remember=True)
-        rv = ctxx.app.full_dispatch_request()
+        rv = ctx.app.full_dispatch_request()
         assert rv.status_code == 302
-        assert user.organisation_id != 1
+        assert user.organisation_id != org.id
         # Current users organisation has been changes from 1 to 2
-        assert user.organisation_id == 2
+        assert user.organisation_id == org2.id
 
 
 def test_shib_sp(request_ctx):
@@ -711,8 +654,7 @@ def test_get_attributes(request_ctx):
 
 def test_link(request_ctx):
     """Test orcid profile linking."""
-    Organisation.get_or_create(
-        id=1,
+    org = Organisation.create(
         name="THE ORGANISATION",
         tuakiri_name="THE ORGANISATION",
         confirmed=True,
@@ -723,35 +665,26 @@ def test_link(request_ctx):
         disambiguated_id="ID",
         disambiguation_source="SOURCE",
         is_email_sent=True)
-    org = Organisation.get(id=1)
 
-    User.get_or_create(
-        id=123,
+    user = User.create(
         email="test123@test.test.net",
         name="TEST USER",
         roles=Role.TECHNICAL,
-        orcid=123,
-        organisation_id=1,
+        orcid="123",
         confirmed=True,
         organisation=org)
-    user = User.get(id=123)
-    org.save()
-    user.save()
-    UserOrg.get_or_create(id=1224, user=user, org=org, is_admin=True)
-    user_org = UserOrg.get(id=1224)
-    user_org.save()
-    with request_ctx("/link") as ctxx:
+    UserOrg.create(user=user, org=org, is_admin=True)
+    with request_ctx("/link") as ctx:
         login_user(user, remember=True)
         request.args = ImmutableMultiDict([('error', 'access_denied')])
-        rv = ctxx.app.full_dispatch_request()
+        rv = ctx.app.full_dispatch_request()
         assert rv.status_code == 200
         assert b"<!DOCTYPE html>" in rv.data, "Expected HTML content"
 
 
 def test_orcid_callback(request_ctx):
     """Test orcid researcher deny flow."""
-    Organisation.get_or_create(
-        id=1,
+    org = Organisation.create(
         name="THE ORGANISATION",
         tuakiri_name="THE ORGANISATION",
         confirmed=True,
@@ -762,26 +695,19 @@ def test_orcid_callback(request_ctx):
         disambiguated_id="ID",
         disambiguation_source="SOURCE",
         is_email_sent=True)
-    org = Organisation.get(id=1)
 
-    User.get_or_create(
-        id=123,
+    user = User.create(
         email="test123@test.test.net",
         name="TEST USER",
         roles=Role.TECHNICAL,
-        orcid=123,
-        organisation_id=1,
+        orcid="123",
         confirmed=True,
         organisation=org)
-    user = User.get(id=123)
-    org.save()
-    user.save()
-    UserOrg.get_or_create(id=1224, user=user, org=org, is_admin=True)
-    user_org = UserOrg.get(id=1224)
-    user_org.save()
-    with request_ctx("/auth") as ctxx:
+    UserOrg.create(user=user, org=org, is_admin=True)
+
+    with request_ctx("/auth") as ctx:
         login_user(user, remember=True)
         request.args = ImmutableMultiDict([('error', 'access_denied'), ('login', '2')])
-        rv = ctxx.app.full_dispatch_request()
+        rv = ctx.app.full_dispatch_request()
         assert rv.status_code == 302
         assert rv.location.startswith("/link")
