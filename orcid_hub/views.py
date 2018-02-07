@@ -137,6 +137,7 @@ class AppModelView(ModelView):
         "html",
     ]
     form_base_class = SecureForm
+    column_default_sort = "id"
     column_type_formatters = dict(typefmt.BASE_FORMATTERS)
     column_type_formatters.update({
         datetime:
