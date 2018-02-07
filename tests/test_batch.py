@@ -15,16 +15,10 @@ from orcid_hub.models import (Affiliation, AffiliationRecord, ModelException, Or
                               drop_tables)
 
 
-def test_load_task_from_csv_with_failures(request_ctx):
-    org = Organisation.create(name="TEST0", tuakiri_name="TEST")
-    super_user = User.create(
-        email="admin@test.edu",
-        name="TEST",
-        first_name="FIRST_NAME",
-        last_name="LAST_NAME",
-        confirmed=True,
-        is_superuser=True,
-        organisation=org)
+def test_process_task_from_csv_with_failures(request_ctx):
+    """Test task loading and processing with failures."""
+    org = Organisation.get(name="TEST0")
+    super_user = User.get(email="admin@test.edu")
     with patch("emails.html") as mock_msg, request_ctx("/") as ctx:
         login_user(super_user)
         # flake8: noqa
@@ -45,15 +39,8 @@ def test_load_task_from_csv_with_failures(request_ctx):
 
 def test_process_tasks(request_ctx):
     """Test expiration data setting and deletion of the exprired tasks."""
-    org = Organisation.create(name="TEST0", tuakiri_name="TEST")
-    super_user = User.create(
-        email="admin@test.edu",
-        name="TEST",
-        first_name="FIRST_NAME",
-        last_name="LAST_NAME",
-        confirmed=True,
-        is_superuser=True,
-        organisation=org)
+    org = Organisation.get(name="TEST0")
+    super_user = User.get(email="admin@test.edu")
     with patch("orcid_hub.utils.send_email") as send_email, request_ctx("/") as ctx:
         login_user(super_user)
         # flake8: noqa
@@ -76,8 +63,8 @@ def test_process_tasks(request_ctx):
         assert kwargs["export_url"] == (
             f"https://{hostname}/admin/affiliationrecord/export/csv/?task_id={task.id}")
         assert kwargs["recipient"] == (
-            "TEST",
-            "admin@test.edu",
+            super_user.name,
+            super_user.email,
         )
         assert kwargs["subject"] == "Batch process task is about to expire"
         assert kwargs["task"] == task
@@ -108,8 +95,8 @@ def test_process_tasks(request_ctx):
         assert kwargs["export_url"] == (
             f"https://{hostname}/admin/fundingrecord/export/csv/?task_id={task.id}")
         assert kwargs["recipient"] == (
-            "TEST",
-            "admin@test.edu",
+            super_user.name,
+            super_user.email,
         )
         assert kwargs["subject"] == "Batch process task is about to expire"
         assert kwargs["task"] == task
