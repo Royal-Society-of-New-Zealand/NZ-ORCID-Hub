@@ -310,7 +310,7 @@ def test_yamlfy(app):
 def test_api_docs(app_req_ctx):
     """Test API docs."""
     tech_contact = User.get(email="app123@test.edu")
-    with app_req_ctx("/api-docs/http://SPECIFICATION") as ctx:
+    with app_req_ctx("/api-docs/?url=http://SPECIFICATION") as ctx:
         login_user(tech_contact)
         rv = ctx.app.full_dispatch_request()
         assert rv.status_code == 200
@@ -321,7 +321,7 @@ def test_api_docs(app_req_ctx):
         assert rv.status_code == 200
         assert url_for("spec", _external=True).encode("utf-8") in rv.data
     super_user = User.create(email="super_user@test.edu", roles=Role.SUPERUSER, confirmed=True)
-    with app_req_ctx("/db-api-docs/http://SPECIFICATION") as ctx:
+    with app_req_ctx("/db-api-docs/?url=http://SPECIFICATION") as ctx:
         login_user(super_user)
         rv = ctx.app.full_dispatch_request()
         assert rv.status_code == 200

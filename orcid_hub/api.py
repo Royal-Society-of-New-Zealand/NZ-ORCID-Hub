@@ -458,22 +458,18 @@ def spec():
 
 
 @app.route("/api-docs/")
-@app.route("/api-docs/<path:url>")
 @roles_required(Role.TECHNICAL)
-def api_docs(url=None):
+def api_docs():
     """Show Swagger UI for the latest/current Hub API."""
-    if url is None:
-        url = request.args.get("url", url_for("spec", _external=True))
+    url = request.args.get("url", url_for("spec", _external=True))
     return render_template("swaggerui.html", url=url)
 
 
 @app.route("/db-api-docs/")
-@app.route("/db-api-docs/<path:url>")
 @roles_required(Role.SUPERUSER)
-def db_api_docs(url=None):
+def db_api_docs():
     """Show Swagger UI for the latest/current Hub DB API."""
-    if url is None:
-        url = request.args.get("url", url_for("Swagger.model_resources", _external=True))
+    url = request.args.get("url", url_for("Swagger.model_resources", _external=True))
     return render_template("swaggerui.html", url=url)
 
 
