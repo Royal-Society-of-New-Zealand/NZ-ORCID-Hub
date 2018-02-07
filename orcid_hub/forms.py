@@ -211,6 +211,9 @@ class LogoForm(FlaskForm):
         FileRequired(),
         FileAllowed(["gif", "png", "jpg"], 'Only image files allowed!')
     ])
+    upload = SubmitField("Upload", render_kw={"class": "btn btn-primary"})
+    reset = SubmitField("Reset", render_kw={"class": "btn btn-danger"})
+    cancel = SubmitField("Cancel", render_kw={"class": "btn btn-invisible"})
 
 
 class EmailTemplateForm(FlaskForm):
