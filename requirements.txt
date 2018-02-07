@@ -2,11 +2,11 @@
 requests
 requests_oauthlib
 psycopg2
-peewee
+peewee==2.10.2
 peewee-validates
 python-slugify
 emails
-wtf-peewee
+wtf-peewee==0.2.6
 pycountry
 html2text
 tablib
@@ -17,9 +17,8 @@ Flask
 https://github.com/nad2000/flask-admin/archive/master.zip
 flask-login
 Flask-WTF
-flask-peewee
 Flask-OAuthlib
-flask-swagger
+flask-peewee==0.6.7
 raven
 raven[flask]
 #git+https://github.com/nad2000/flask-peewee-swagger.git
