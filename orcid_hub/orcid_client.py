@@ -249,7 +249,9 @@ class MemberAPI(MemberAPIV20Api):
             rec.start_date = start_date.as_orcid_dict()
         if end_date:
             rec.end_date = end_date.as_orcid_dict()
-        funding_contributors = FundingCont.select().where(FundingCont.funding_record_id == fr.id)
+
+        funding_contributors = FundingCont.select().where(FundingCont.funding_record_id == fr.id).order_by(
+            FundingCont.id)
 
         funding_contributor_list = []
         for f in funding_contributors:
