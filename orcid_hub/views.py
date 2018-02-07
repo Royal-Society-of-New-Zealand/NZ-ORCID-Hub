@@ -1569,12 +1569,12 @@ def invite_user():
     return render_template("user_invitation.html", form=form)
 
 
-@roles_required(Role.TECHNICAL, Role.ADMIN)
 @app.route(
     "/settings/email_template", methods=[
         "GET",
         "POST",
     ])
+@roles_required(Role.TECHNICAL, Role.ADMIN)
 def manage_email_template():
     """Manage organisation invitation email template."""
     org = current_user.organisation
@@ -1638,7 +1638,10 @@ def logo():
             attachment_filename=org.logo.filename)
 
     form = LogoForm()
-    if form.validate_on_submit():
+    if request.method == "POST" and form.reset.data:
+        org.logo = None
+        org.save()
+    elif form.validate_on_submit():
         f = form.logo_file.data
         filename = secure_filename(f.filename)
         logo = File.create(data=f.read(), mimetype=f.mimetype, filename=f.filename)
