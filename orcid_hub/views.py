@@ -122,6 +122,13 @@ def read_uploaded_file(form):
     return raw.decode("latin-1")
 
 
+def orcid_link_formatter(view, context, model, name):
+    """Format ORCID ID for ModelViews."""
+    if not model.orcid:
+        return ""
+    return Markup(f'<a href="{ORCID_BASE_URL}/{model.orcid}" target="_blank">{model.orcid}</a>')
+
+
 class AppModelView(ModelView):
     """ModelView customization."""
 
@@ -137,6 +144,9 @@ class AppModelView(ModelView):
         "html",
     ]
     form_base_class = SecureForm
+    column_formatters = dict(
+        roles=lambda v, c, m, p: ", ".join(n for r, n in v.roles.items() if r & m.roles),
+        orcid=orcid_link_formatter)
     column_default_sort = "id"
     column_type_formatters = dict(typefmt.BASE_FORMATTERS)
     column_type_formatters.update({
@@ -293,9 +303,6 @@ class UserAdmin(AppModelView):
         "first_name",
         "last_name",
     )
-    column_formatters = dict(
-        roles=lambda v, c, m, p: ", ".join(n for r, n in v.roles.items() if r & m.roles),
-        orcid=lambda v, c, m, p: m.orcid.replace("-", "\u2011") if m.orcid else "")
     column_searchable_list = (
         "name",
         "orcid",
