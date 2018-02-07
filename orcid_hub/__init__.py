@@ -11,14 +11,14 @@
     :license: MIT, see LICENSE for more details.
 """
 
-__version__ = "3.0.18"
+__version__ = "4.1.2"
 
 import logging
 import os
 import sys
 
 import click
-import flask_login
+from flask_login import current_user, LoginManager
 from flask import Flask, request
 from flask_debugtoolbar import DebugToolbarExtension
 from flask_oauthlib.provider import OAuth2Provider
@@ -32,6 +32,7 @@ from raven.contrib.flask import Sentry
 from .config import *  # noqa: F401, F403
 from .failover import PgDbWithFailover
 from flask_admin import Admin
+from flask_limiter import Limiter
 
 
 # http://docs.peewee-orm.com/en/latest/peewee/database.html#automatic-reconnect
@@ -47,6 +48,13 @@ if not app.config.from_pyfile("settings.cfg", silent=True) and app.debug:
     print("*** WARNING: Faile to laod local application configuration from 'instance/settins.cfg'")
 app.url_map.strict_slashes = False
 oauth = OAuth2Provider(app)
+limiter = Limiter(
+    app,
+    headers_enabled=True,
+    default_limits=[
+        "40 per second",  # burst
+        "1440 per minute",  # allowed max: 24/sec
+    ])
 DATABASE_URL = app.config.get("DATABASE_URL")
 
 # TODO: implement connection factory
@@ -62,16 +70,27 @@ class UserAuthentication(Authentication):
     """Use Flask-OAuthlib authentication and application authentication."""
 
     def authorize(self):  # noqa: D102
-        return flask_login.current_user.is_authenticated
+        return current_user.is_authenticated
 
 
-class Oauth2Authentication(Authentication):
+class AppAuthentication(Authentication):
     """Use Flask-OAuthlib authentication and application authentication."""
 
-    # TODO: add user role requierentes.
-    # TOOD: limit access to the user data ONLY!
+    def __init__(self, roles_required=None, app_auth=True, protected_methods=None):
+        """Initialize the Authenticator for accessing DB via REST API usig OAuth2."""
+        super().__init__(protected_methods=protected_methods)
+        self.roles_required = roles_required
+        self.app_auth = app_auth
 
     def authorize(self):  # noqa: D102
+
+        if self.app_auth:
+            # Eithe user application authentication or Access Token
+            if current_user and current_user.is_authenticated:
+                if not self.roles_required or current_user.has_role(self.roles_required):
+                    return True
+                return False
+
         if not super().authorize():
             return False
 
@@ -79,6 +98,11 @@ class Oauth2Authentication(Authentication):
             return True
 
         valid, req = oauth.verify_request(())
+
+        # verify if the token owner has any of the roles:
+        # if self.roles_required and not current_user.has_role(self.roles_required):
+        #     return False
+
         if not valid:
             return False
 
@@ -106,7 +130,7 @@ class DataRestAPI(RestAPI):
                 )
 
 
-default_auth = Oauth2Authentication()
+default_auth = AppAuthentication(app_auth=True)
 api = DataRestAPI(app, prefix="/data/api/v0.1", default_auth=default_auth, name="data_api")
 
 admin = Admin(
@@ -118,14 +142,13 @@ if SENTRY_DSN:
     sentry = Sentry(
         app, dsn=SENTRY_DSN, logging=True, level=logging.DEBUG if app.debug else logging.WARNING)
 
-login_manager = flask_login.LoginManager()
+login_manager = LoginManager()
 login_manager.login_view = "index"
 login_manager.login_message_category = "info"
 login_manager.init_app(app)
 
 from . import models  # noqa: F401
 from .api import *  # noqa: F401,F403
-# from .application import app
 from .authcontroller import *  # noqa: F401,F403
 from .views import *  # noqa: F401,F403
 from .oauth import *  # noqa: F401,F403

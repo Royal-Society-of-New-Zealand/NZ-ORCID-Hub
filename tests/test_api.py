@@ -4,7 +4,10 @@
 import json
 
 import pytest
+from flask import url_for
+from flask_login import login_user
 
+from orcid_hub.api import yamlfy
 from orcid_hub.models import Client, OrcidToken, Organisation, Role, Token, User, UserOrg
 
 
@@ -50,7 +53,7 @@ def app_req_ctx(request_ctx):
         confirmed=True,
         organisation=org)
 
-    OrcidToken.create(user=user, org=org, access_token="TEST-ACCESS-TOKEN")
+    OrcidToken.create(user=user, org=org, access_token="ORCID-TEST-ACCESS-TOKEN")
 
     User.create(
         email="researcher2@test.edu",
@@ -85,7 +88,6 @@ def test_get_oauth_access_token(app_req_ctx):
                 grant_type="client_credentials",
                 client_id="CLIENT_ID",
                 client_secret="CLIENT_SECRET")) as ctx:
-        # login_user(user, remember=True)
         rv = ctx.app.full_dispatch_request()
         assert rv.status_code == 200
         data = json.loads(rv.data)
@@ -97,16 +99,98 @@ def test_get_oauth_access_token(app_req_ctx):
         # prevously created access token should be removed
         assert not Token.select().where(Token.access_token == "TEST").exists()
 
+    with app_req_ctx(
+            "/oauth/token",
+            method="POST",
+            data=dict(
+                grant_type="client_credentials",
+                client_id="NOT-EXISTING-CLIENT_ID",
+                client_secret="CLIENT_SECRET")) as ctx:
+        # login_user(user, remember=True)
+        rv = ctx.app.full_dispatch_request()
+        assert rv.status_code == 401
+        data = json.loads(rv.data)
+        assert data["error"] == "invalid_client"
+
+    with app_req_ctx(
+            "/oauth/token",
+            method="POST",
+            data=dict(
+                grant_type="client_credentials",
+                client_id="CLIENT_ID",
+                client_secret="INCORRECT")) as ctx:
+        # login_user(user, remember=True)
+        rv = ctx.app.full_dispatch_request()
+        assert rv.status_code == 401
+        data = json.loads(rv.data)
+        assert data["error"] == "invalid_client"
+
+    with app_req_ctx(
+            "/oauth/token",
+            method="POST",
+            data=dict(
+                grant_type="INCORRECT",
+                client_id="NOT-EXISTING-CLIENT_ID",
+                client_secret="CLIENT_SECRET")) as ctx:
+        # login_user(user, remember=True)
+        rv = ctx.app.full_dispatch_request()
+        assert rv.status_code == 400
+        data = json.loads(rv.data)
+        assert data["error"] == "unsupported_grant_type"
+
+
+# def test_revoke_access_token(app_req_ctx):
+#     """Test the acquisition of OAuth access token."""
+#     with app_req_ctx(
+#             "/oauth/token",
+#             method="POST",
+#             data=dict(
+#                 grant_type="client_credentials",
+#                 client_id="CLIENT_ID",
+#                 client_secret="CLIENT_SECRET")) as ctx:
+#         rv = ctx.app.full_dispatch_request()
+#         assert rv.status_code == 200
+#         data = json.loads(rv.data)
+#         client = Client.get(client_id="CLIENT_ID")
+#         token = Token.get(client=client)
+#         assert data["access_token"] == token.access_token
+
+#     with app_req_ctx(
+#             "/oauth/token",
+#             method="POST",
+#             data=dict(
+#                 grant_type="client_credentials",
+#                 client_id="CLIENT_ID",
+#                 client_secret="CLIENT_SECRET")) as ctx:
+#         rv = ctx.app.full_dispatch_request()
+#         assert rv.status_code == 200
+#         data = json.loads(rv.data)
+
 
 def test_me(app_req_ctx):
     """Test the echo endpoint."""
-    with app_req_ctx("/api/me", headers=dict(authorization="Bearer TEST")) as ctx:
-        user = User.get(email="app123@test.edu")
+    user = User.get(email="app123@test.edu")
+    token = Token.get(user=user)
+    with app_req_ctx("/api/me", headers=dict(authorization=f"Bearer {token.access_token}")) as ctx:
         rv = ctx.app.full_dispatch_request()
         assert rv.status_code == 200
         data = json.loads(rv.data)
         assert data["email"] == user.email
         assert data["name"] == user.name
+
+    # Test invalid token:
+    with app_req_ctx("/api/me", headers=dict(authorization="Bearer INVALID")) as ctx:
+        user = User.get(email="app123@test.edu")
+        rv = ctx.app.full_dispatch_request()
+        assert rv.status_code == 401
+
+    # Test expired token:
+    from datetime import datetime
+    token.expires = datetime(1971, 1, 1)
+    token.save()
+    with app_req_ctx("/api/me", headers=dict(authorization=f"Bearer {token.access_token}")) as ctx:
+        rv = ctx.app.full_dispatch_request()
+        assert rv.status_code == 401
 
 
 @pytest.mark.parametrize("resource", [
@@ -205,3 +289,83 @@ def test_spec(client, url):
     """Test API specs."""
     rv = client.get(url)
     assert rv.status_code == 200
+
+
+def test_yaml_spec(client):
+    """Test API specs (the default entry point with yaml content type)."""
+    rv = client.get("/spec", headers={"Accept": "text/yaml"})
+    assert rv.status_code == 200
+
+
+def test_yamlfy(app):
+    """Test yamlfy function."""
+    from flask import Response
+    assert isinstance(yamlfy(1), Response)
+    assert isinstance(yamlfy(1, 2, 3), Response)
+    assert isinstance(yamlfy(key_arg=42), Response)
+    with pytest.raises(TypeError):
+        yamlfy(1, 2, 3, key_arg=42)
+
+
+def test_api_docs(app_req_ctx):
+    """Test API docs."""
+    tech_contact = User.get(email="app123@test.edu")
+    with app_req_ctx("/api-docs/http://SPECIFICATION") as ctx:
+        login_user(tech_contact)
+        rv = ctx.app.full_dispatch_request()
+        assert rv.status_code == 200
+        assert b"http://SPECIFICATION" in rv.data
+    with app_req_ctx("/api-docs") as ctx:
+        login_user(tech_contact)
+        rv = ctx.app.full_dispatch_request()
+        assert rv.status_code == 200
+        assert url_for("spec", _external=True).encode("utf-8") in rv.data
+    super_user = User.create(email="super_user@test.edu", roles=Role.SUPERUSER, confirmed=True)
+    with app_req_ctx("/db-api-docs/http://SPECIFICATION") as ctx:
+        login_user(super_user)
+        rv = ctx.app.full_dispatch_request()
+        assert rv.status_code == 200
+        assert b"http://SPECIFICATION" in rv.data
+    with app_req_ctx("/db-api-docs") as ctx:
+        login_user(super_user)
+        rv = ctx.app.full_dispatch_request()
+        assert rv.status_code == 200
+        assert url_for("Swagger.model_resources", _external=True).encode("utf-8") in rv.data
+
+
+def test_db_api(app_req_ctx):
+    """Test DB API."""
+    with app_req_ctx(
+            "/data/api/v0.1/organisations/", headers=dict(authorization="Bearer TEST")) as ctx:
+        rv = ctx.app.full_dispatch_request()
+        assert rv.status_code == 200
+        data = json.loads(rv.data)
+        assert "objects" in data
+        assert len(data["objects"]) == 2
+
+    with app_req_ctx("/data/api/v0.1/tasks/", headers=dict(authorization="Bearer TEST")) as ctx:
+        rv = ctx.app.full_dispatch_request()
+        assert rv.status_code == 200
+        data = json.loads(rv.data)
+        assert "objects" in data
+        assert len(data["objects"]) == 0
+
+    org = Organisation.get(id=1)
+    with app_req_ctx(
+            f"/data/api/v0.1/organisations/{org.id}",
+            headers=dict(authorization="Bearer TEST")) as ctx:
+        rv = ctx.app.full_dispatch_request()
+        assert rv.status_code == 200
+        data = json.loads(rv.data)
+        assert data["name"] == org.name
+        assert data["tuakiri_name"] == org.tuakiri_name
+
+    org = Organisation.get(id=2)
+    with app_req_ctx(
+            f"/data/api/v0.1/organisations/{org.id}",
+            headers=dict(authorization="Bearer TEST")) as ctx:
+        rv = ctx.app.full_dispatch_request()
+        assert rv.status_code == 200
+        data = json.loads(rv.data)
+        assert data["name"] == org.name
+        assert data["tuakiri_name"] == org.tuakiri_name

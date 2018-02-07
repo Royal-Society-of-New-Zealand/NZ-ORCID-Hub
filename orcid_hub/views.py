@@ -30,7 +30,7 @@ from wtforms.fields import BooleanField
 
 from orcid_api.rest import ApiException
 
-from . import admin, app, models, orcid_client, utils
+from . import admin, app, limiter, models, orcid_client, utils
 from .config import ORCID_BASE_URL, SCOPE_ACTIVITIES_UPDATE, SCOPE_READ_LIMITED
 from .forms import (ApplicationFrom, BitmapMultipleValueField, CredentialForm, EmailTemplateForm,
                     FileUploadForm, JsonOrYamlFileUploadForm, LogoForm, OrgRegistrationForm,
@@ -72,6 +72,7 @@ def favicon():
 
 
 @app.route("/status")
+@limiter.limit("10/second")
 def status():
     """Check the application health status attempting to connect to the DB.
 
