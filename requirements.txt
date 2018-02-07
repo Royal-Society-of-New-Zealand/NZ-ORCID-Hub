@@ -18,7 +18,7 @@ Flask
 https://github.com/nad2000/flask-admin/archive/master.zip
 flask-login
 Flask-WTF
-flask-peewee
+flask-peewee==0.6.7
 Flask-OAuthlib
 flask-swagger
 raven
