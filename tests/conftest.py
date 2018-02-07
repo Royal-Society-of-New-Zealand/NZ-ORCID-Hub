@@ -58,8 +58,34 @@ def app():
         _app.config["EXTERNAL_SP"] = None
         _app.config["SENTRY_DSN"] = None
         _app.config["WTF_CSRF_ENABLED"] = False
+        _app.config["DEBUG_TB_ENABLED"] = False
         #_app.config["SERVER_NAME"] = "ORCIDHUB"
         _app.sentry = None
+        # Add some data:
+        org = Organisation.create(
+            name="TEST0",
+            tuakiri_name="TEST ZERO")
+        # An org.admin
+        user = User.create(
+            email="admin@test.edu",
+            name="TEST ORG ADMIN",
+            first_name="FIRST_NAME",
+            last_name="LAST_NAME",
+            confirmed=True,
+            organisation=org)
+        UserOrg.create(user=user, org=org, is_admin=True)
+        org.tech_contact = user
+        org.save()
+        # Hub admin:
+        User.create(
+            email="root@test.edu",
+            name="TEST HUB ADMIN",
+            first_name="FIRST_NAME",
+            last_name="LAST_NAME",
+            roles=Role.SUPERUSER,
+            confirmed=True,
+            organisation=org)
+
 
         yield _app
 
@@ -77,7 +103,6 @@ def client(app):
 @pytest.fixture
 def request_ctx(app):
     """Request context creator."""
-
     def make_ctx(*args, **kwargs):
         return app.test_request_context(*args, **kwargs)
 
