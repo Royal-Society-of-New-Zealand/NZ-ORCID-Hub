@@ -27,6 +27,18 @@ def user_summary():  # noqa: D103
                     from_date=date_range.from_date.date().isoformat(),
                     to_date=date_range.to_date.date().isoformat()))
 
+    created_users = (User.select(User.organisation_id,
+                                 fn.COUNT(User.id).alias("user_count"))
+                     .where(User.created_at.between(form.from_date.data, form.to_date.data)).join(
+                         UserOrg, JOIN.LEFT_OUTER, on=(UserOrg.org_id == User.id)).group_by(
+                             User.organisation_id))
+
+    linked_users = (User.select(User.organisation_id,
+                                fn.COUNT(User.orcid).alias("linked_user_count"))
+                    .where(User.created_at.between(form.from_date.data, form.to_date.data)).join(
+                        UserOrg, JOIN.LEFT_OUTER, on=(UserOrg.org_id == User.id)).group_by(
+                            User.organisation_id))
+
     query = (Organisation.select(Organisation.name,
                                  fn.COUNT(User.id).alias("user_count"),
                                  fn.COUNT(User.orcid).alias("linked_user_count"))
@@ -34,6 +46,7 @@ def user_summary():  # noqa: D103
                  UserOrg, JOIN.LEFT_OUTER, on=(UserOrg.org_id == Organisation.id)).join(
                      User, JOIN.LEFT_OUTER, on=(User.id == UserOrg.user_id)).group_by(
                          Organisation.name))
+
 
     total_user_count = sum(r.user_count for r in query)
     total_linked_user_count = sum(r.linked_user_count for r in query)
