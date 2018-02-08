@@ -72,7 +72,7 @@ def favicon():
 
 
 @app.route("/status")
-@limiter.limit("10/second")
+@limiter.limit("10/minute")
 def status():
     """Check the application health status attempting to connect to the DB.
 
@@ -155,6 +155,7 @@ class AppModelView(ModelView):
     })
     column_type_formatters_export = dict(typefmt.EXPORT_FORMATTERS)
     column_type_formatters_export.update({PartialDate: lambda view, value: str(value)})
+    column_formatters_export = dict(orcid=lambda v, c, m, p: m.orcid)
     column_exclude_list = (
         "updated_at",
         "updated_by",
