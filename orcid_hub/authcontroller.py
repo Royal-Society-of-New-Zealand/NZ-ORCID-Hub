@@ -1004,7 +1004,7 @@ def orcid_login_callback(request):
                 ui = UserInvitation.get(token=invitation_token)
                 if ui.affiliations & (Affiliation.EMP | Affiliation.EDU):
                     api = orcid_client.MemberAPI(org, user)
-                    params = {k: v for k, v in ui._data.items() if v != ""}
+                    params = {k: v for k, v in ui.__data__.items() if v != ""}
                     for a in Affiliation:
                         if a & ui.affiliations:
                             params["affiliation"] = a

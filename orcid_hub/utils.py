@@ -566,7 +566,7 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
                     continue
 
                 put_code, orcid, created = api.create_or_update_affiliation(
-                    affiliation=affiliation, **ar._data)
+                    affiliation=affiliation, **ar.__data__)
                 if created:
                     ar.add_status_line(f"{str(affiliation)} record was created.")
                 else:

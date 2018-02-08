@@ -179,11 +179,11 @@ class AppModelView(ModelView):
     # TODO: remove whent it gets merged into the upsteem repo (it's a workaround to make
     # joins LEFT OUTERE)
     def _handle_join(self, query, field, joins):
-        if field.model_class != self.model:
-            model_name = field.model_class.__name__
+        if field.model != self.model:
+            model_name = field.model.__name__
 
             if model_name not in joins:
-                query = query.join(field.model_class, "LEFT OUTER")
+                query = query.join(field.model, "LEFT OUTER")
                 joins.add(model_name)
 
         return query
@@ -192,7 +192,7 @@ class AppModelView(ModelView):
         """Get correct value for composite keys."""
         if self.model._meta.composite_key:
             return tuple([
-                model._data[field_name] for field_name in self.model._meta.primary_key.field_names
+                model.__data__[field_name] for field_name in self.model._meta.primary_key.field_names
             ])
         return super().get_pk_value(model)
 
@@ -252,7 +252,7 @@ class AppModelView(ModelView):
                 Role.ADMIN):
             # Show only rows realted to the curretn organisation the user is admin for.
             # Skip this part for SUPERUSER.
-            db_columns = [c.db_column for c in self.model._meta.fields.values()]
+            db_columns = [c.column_name for c in self.model._meta.fields.values()]
             if "org_id" in db_columns or "organisation_id" in db_columns:
                 if "org_id" in db_columns:
                     query = query.where(self.model.org_id == current_user.organisation.id)
@@ -261,8 +261,8 @@ class AppModelView(ModelView):
 
         if request.args and any(a.endswith("_id") for a in request.args):
             for f in self.model._meta.fields.values():
-                if f.db_column.endswith("_id") and f.db_column in request.args:
-                    query = query.where(f == int(request.args[f.db_column]))
+                if f.column_name.endswith("_id") and f.column_name in request.args:
+                    query = query.where(f == int(request.args[f.column_name]))
         return query
 
     def _get_list_extra_args(self):

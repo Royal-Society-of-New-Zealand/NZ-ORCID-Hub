@@ -20,7 +20,7 @@ from urllib.parse import urlencode
 import yaml
 from flask_login import UserMixin, current_user
 from peewee import BooleanField as BooleanField_
-from peewee import (JOIN, BlobField, CharField, DateTimeField, DeferredRelation, Field,
+from peewee import (JOIN, BlobField, CharField, DateTimeField, DeferredForeignKey, Field,
                     FixedCharField, ForeignKeyField, IntegerField, Model, OperationalError,
                     PostgresqlDatabase, ProgrammingError, SmallIntegerField, TextField, fn)
 from peewee_validates import ModelValidator
@@ -171,7 +171,7 @@ class BooleanField(BooleanField_):
 class PartialDateField(Field):
     """Partial date custom DB data field mapped to varchar(10)."""
 
-    db_field = "varchar(10)"
+    field_type = "varchar(10)"
 
     def db_value(self, value):
         """Convert into partial ISO date textual representation: YYYY-**-**, YYYY-MM-**, or YYYY-MM-DD."""
@@ -276,19 +276,19 @@ class BaseModel(Model):
         only_save_dirty = True
 
 
-class ModelDeferredRelation(DeferredRelation):
-    """Fixed DefferedRelation to allow inheritance and mixins."""
+# class ModelDeferredRelation(DeferredRelation):
+#     """Fixed DefferedRelation to allow inheritance and mixins."""
 
-    def set_model(self, rel_model):
-        """Include model in the generated "related_name" to make it unique."""
-        for model, field, name in self.fields:
-            if isinstance(field, ForeignKeyField) and not field._related_name:
-                field._related_name = "%s_%s_set" % (model.model_class_name(), name)
+#     def set_model(self, rel_model):
+#         """Include model in the generated "backref" to make it unique."""
+#         for model, field, name in self.fields:
+#             if isinstance(field, ForeignKeyField) and not field._related_name:
+#                 field._related_name = "%s_%s_set" % (model.model_class_name(), name)
 
-        super().set_model(rel_model)
+#         super().set_model(rel_model)
 
 
-DeferredUser = ModelDeferredRelation()
+# DeferredUser = ModelDeferredRelation()
 
 
 class AuditMixin(Model):
@@ -297,8 +297,8 @@ class AuditMixin(Model):
     created_at = DateTimeField(default=datetime.now)
     updated_at = DateTimeField(null=True)
 
-    # created_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
-    # updated_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
+    # created_by = DeferredForeignKey("User", on_delete="SET NULL", null=True)
+    # updated_by = DeferredForeignKey("User", on_delete="SET NULL", null=True)
 
     def save(self, *args, **kwargs):  # noqa: D102
         if self.is_dirty():
@@ -316,7 +316,7 @@ class File(BaseModel):
 
     filename = CharField(max_length=100)
     data = BlobField()
-    mimetype = CharField(max_length=30, db_column="mime_type")
+    mimetype = CharField(max_length=30, column_name="mime_type")
     token = FixedCharField(max_length=8, unique=True, default=lambda: secrets.token_urlsafe(8)[:8])
 
 
@@ -342,14 +342,14 @@ class Organisation(BaseModel, AuditMixin):
     disambiguated_id = CharField(null=True)
     disambiguation_source = CharField(null=True)
     is_email_sent = BooleanField(default=False)
-    tech_contact = ForeignKeyField(
-        DeferredUser,
-        related_name="tech_contact_of",
+    tech_contact = DeferredForeignKey(
+        "User",
+        backref="tech_contact_of",
         on_delete="SET NULL",
         null=True,
         help_text="Organisation technical contact")
-    created_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
-    updated_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
+    created_by = DeferredForeignKey("User", on_delete="SET NULL", backref="created_orgs", null=True)
+    updated_by = DeferredForeignKey("User", on_delete="SET NULL", backref="updated_orgs", null=True)
 
     api_credentials_requested_at = DateTimeField(
         null=True,
@@ -360,9 +360,9 @@ class Organisation(BaseModel, AuditMixin):
     can_use_api = BooleanField(null=True, help_text="The organisation can access ORCID Hub API.")
     logo = ForeignKeyField(
         File, on_delete="CASCADE", null=True, help_text="The logo of the organisation")
-    email_template = TextField(null=True, db_column="email_template")
+    email_template = TextField(null=True, column_name="email_template")
     email_template_enabled = BooleanField(
-        null=True, default=False, db_column="email_template_enabled")
+        null=True, default=False, column_name="email_template_enabled")
 
     @property
     def invitation_sent_to(self):
@@ -448,7 +448,7 @@ class OrgInfo(BaseModel):
         return self.name or self.disambiguated_id or super().__repr__()
 
     class Meta:  # noqa: D101,D106
-        db_table = "org_info"
+        table_name = "org_info"
         table_alias = "oi"
 
     @classmethod
@@ -541,9 +541,9 @@ class User(BaseModel, UserMixin, AuditMixin):
     # NB! depricated!
     # TODO: we still need to rememeber the rognanistiaon that last authenticated the user
     organisation = ForeignKeyField(
-        Organisation, related_name="members", on_delete="CASCADE", null=True)
-    created_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
-    updated_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
+        Organisation, backref="members", on_delete="CASCADE", null=True)
+    created_by = DeferredForeignKey("User", on_delete="SET NULL", backref="created_users", null=True)
+    updated_by = DeferredForeignKey("User", on_delete="SET NULL", backref="updated_users", null=True)
 
     def __repr__(self):
         if self.name and (self.eppn or self.email):
@@ -659,16 +659,13 @@ class User(BaseModel, UserMixin, AuditMixin):
         return uuid.uuid5(uuid.NAMESPACE_URL, "mailto:" + (self.email or self.eppn))
 
 
-DeferredUser.set_model(User)
-
-
 class OrgInvitation(BaseModel, AuditMixin):
     """Organisation invitation to on-board the Hub."""
 
     invitee = ForeignKeyField(
-        User, on_delete="CASCADE", null=True, related_name="received_org_invitations")
+        User, on_delete="CASCADE", null=True, backref="received_org_invitations")
     inviter = ForeignKeyField(
-        User, on_delete="SET NULL", null=True, related_name="sent_org_invitations")
+        User, on_delete="SET NULL", null=True, backref="sent_org_invitations")
     org = ForeignKeyField(Organisation, on_delete="SET NULL", verbose_name="Organisation")
     email = TextField(help_text="The email address the invitation was sent to.")
     token = TextField(unique=True)
@@ -680,7 +677,7 @@ class OrgInvitation(BaseModel, AuditMixin):
         return self.created_at
 
     class Meta:  # noqa: D101,D106
-        db_table = "org_invitation"
+        table_name = "org_invitation"
 
 
 class UserOrg(BaseModel, AuditMixin):
@@ -696,9 +693,9 @@ class UserOrg(BaseModel, AuditMixin):
     # Affiliation bit-map:
     affiliations = SmallIntegerField(default=0, null=True, verbose_name="EDU Person Affiliations")
     created_by = ForeignKeyField(
-        User, on_delete="SET NULL", null=True, related_name="created_user_orgs")
+        User, on_delete="SET NULL", null=True, backref="created_user_orgs")
     updated_by = ForeignKeyField(
-        User, on_delete="SET NULL", null=True, related_name="updated_user_orgs")
+        User, on_delete="SET NULL", null=True, backref="updated_user_orgs")
 
     # TODO: the access token should be either here or in a separate list
     # access_token = CharField(max_length=120, unique=True, null=True)
@@ -726,7 +723,7 @@ class UserOrg(BaseModel, AuditMixin):
         return super().save(*args, **kwargs)
 
     class Meta:  # noqa: D101,D106
-        db_table = "user_org"
+        table_name = "user_org"
         table_alias = "uo"
         indexes = ((("user", "org"), True), )
 
@@ -736,13 +733,13 @@ class OrcidToken(BaseModel, AuditMixin):
 
     user = ForeignKeyField(User)
     org = ForeignKeyField(Organisation, index=True, verbose_name="Organisation")
-    scope = TextField(null=True, db_column="scope")  # TODO impomenet property
+    scope = TextField(null=True, column_name="scope")  # TODO impomenet property
     access_token = CharField(max_length=36, unique=True, null=True)
     issue_time = DateTimeField(default=datetime.now)
     refresh_token = CharField(max_length=36, unique=True, null=True)
     expires_in = SmallIntegerField(default=0)
-    created_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
-    updated_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
+    created_by = DeferredForeignKey("User", on_delete="SET NULL", null=True)
+    updated_by = DeferredForeignKey("User", on_delete="SET NULL", null=True)
 
 
 class UserOrgAffiliation(BaseModel, AuditMixin):
@@ -758,11 +755,11 @@ class UserOrgAffiliation(BaseModel, AuditMixin):
     role_title = TextField(null=True)
     put_code = IntegerField(null=True)
     path = TextField(null=True)
-    created_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
-    updated_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
+    created_by = DeferredForeignKey("User", on_delete="SET NULL", null=True)
+    updated_by = DeferredForeignKey("User", on_delete="SET NULL", null=True)
 
     class Meta:  # noqa: D101,D106
-        db_table = "user_organisation_affiliation"
+        table_name = "user_organisation_affiliation"
         table_alias = "oua"
 
 
@@ -780,7 +777,7 @@ class OrcidApiCall(BaseModel):
     response_time_ms = IntegerField(null=True)
 
     class Meta:  # noqa: D101,D106
-        db_table = "orcid_api_call"
+        table_name = "orcid_api_call"
 
 
 class OrcidAuthorizeCall(BaseModel):
@@ -795,7 +792,7 @@ class OrcidAuthorizeCall(BaseModel):
     response_time_ms = IntegerField(null=True)
 
     class Meta:  # noqa: D101,D106
-        db_table = "orcid_authorize_call"
+        table_name = "orcid_authorize_call"
 
 
 class Task(BaseModel, AuditMixin):
@@ -808,9 +805,9 @@ class Task(BaseModel, AuditMixin):
     completed_at = DateTimeField(null=True)
     filename = TextField(null=True)
     created_by = ForeignKeyField(
-        User, on_delete="SET NULL", null=True, related_name="created_tasks")
+        User, on_delete="SET NULL", null=True, backref="created_tasks")
     updated_by = ForeignKeyField(
-        User, on_delete="SET NULL", null=True, related_name="updated_tasks")
+        User, on_delete="SET NULL", null=True, backref="updated_tasks")
     task_type = SmallIntegerField(default=0, null=True)
     expires_at = DateTimeField(null=True)
 
@@ -974,9 +971,9 @@ class UserInvitation(BaseModel, AuditMixin):
     """Organisation invitation to on-board the Hub."""
 
     invitee = ForeignKeyField(
-        User, on_delete="CASCADE", null=True, related_name="received_user_invitations")
+        User, on_delete="CASCADE", null=True, backref="received_user_invitations")
     inviter = ForeignKeyField(
-        User, on_delete="SET NULL", null=True, related_name="sent_user_invitations")
+        User, on_delete="SET NULL", null=True, backref="sent_user_invitations")
     org = ForeignKeyField(
         Organisation, on_delete="CASCADE", null=True, verbose_name="Organisation")
     task = ForeignKeyField(Task, on_delete="CASCADE", null=True, index=True, verbose_name="Task")
@@ -1006,7 +1003,7 @@ class UserInvitation(BaseModel, AuditMixin):
         return self.created_at
 
     class Meta:  # noqa: D101,D106
-        db_table = "user_invitation"
+        table_name = "user_invitation"
 
 
 class RecordModel(BaseModel):
@@ -1059,7 +1056,7 @@ class AffiliationRecord(RecordModel):
         null=True, max_length=100, verbose_name="Disambiguation Source")
 
     class Meta:  # noqa: D101,D106
-        db_table = "affiliation_record"
+        table_name = "affiliation_record"
         table_alias = "ar"
 
 
@@ -1085,7 +1082,7 @@ class TaskType(IntFlag):
 class FundingRecord(RecordModel):
     """Funding record loaded from Json file for batch processing."""
 
-    task = ForeignKeyField(Task, related_name="funding_records", on_delete="CASCADE")
+    task = ForeignKeyField(Task, backref="funding_records", on_delete="CASCADE")
     title = CharField(max_length=255)
     translated_title = CharField(null=True, max_length=255)
     translated_title_language_code = CharField(null=True, max_length=10)
@@ -1285,7 +1282,7 @@ class FundingRecord(RecordModel):
         return d
 
     class Meta:  # noqa: D101,D106
-        db_table = "funding_record"
+        table_name = "funding_record"
         table_alias = "fr"
 
 
@@ -1293,7 +1290,7 @@ class FundingContributor(BaseModel):
     """Researcher or contributor - reciever of the funding."""
 
     funding_record = ForeignKeyField(
-        FundingRecord, related_name="contributors", on_delete="CASCADE")
+        FundingRecord, backref="contributors", on_delete="CASCADE")
     orcid = OrcidIdField(null=True)
     name = CharField(max_length=120, null=True)
     email = CharField(max_length=120, null=True)
@@ -1308,7 +1305,7 @@ class FundingContributor(BaseModel):
         self.status = (self.status + "\n" if self.status else '') + ts + ": " + line
 
     class Meta:  # noqa: D101,D106
-        db_table = "funding_contributor"
+        table_name = "funding_contributor"
         table_alias = "fc"
 
 
@@ -1316,14 +1313,14 @@ class ExternalId(BaseModel):
     """Funding ExternalId loaded for batch processing."""
 
     funding_record = ForeignKeyField(
-        FundingRecord, related_name="external_ids", on_delete="CASCADE")
+        FundingRecord, backref="external_ids", on_delete="CASCADE")
     type = CharField(max_length=255)
     value = CharField(max_length=255)
     url = CharField(max_length=200, null=True)
     relationship = CharField(max_length=255, null=True)
 
     class Meta:  # noqa: D101,D106
-        db_table = "external_id"
+        table_name = "external_id"
         table_alias = "ei"
 
 
@@ -1371,7 +1368,7 @@ class Client(BaseModel, AuditMixin):
         null=True, max_length=400, help_text="human readable description, not required")
     user = ForeignKeyField(
         User, null=True, on_delete="SET NULL", help_text="creator of the client, not required")
-    org = ForeignKeyField(Organisation, on_delete="CASCADE", related_name="client_applications")
+    org = ForeignKeyField(Organisation, on_delete="CASCADE", backref="client_applications")
 
     client_id = CharField(max_length=100, unique=True)
     client_secret = CharField(max_length=55, unique=True)
@@ -1557,7 +1554,7 @@ def create_audit_tables():
     if isinstance(db, PostgresqlDatabase):
         with open("conf/auditing.sql", 'br') as input_file:
             sql = readup_file(input_file)
-            with db.get_cursor() as cr:
+            with db.cursor() as cr:
                 cr.execute(sql)
 
 
