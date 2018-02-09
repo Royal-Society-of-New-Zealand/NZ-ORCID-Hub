@@ -23,11 +23,12 @@ from peewee import BooleanField as BooleanField_
 from peewee import (JOIN, BlobField, CharField, DateTimeField, DeferredRelation, Field,
                     FixedCharField, ForeignKeyField, IntegerField, Model, OperationalError,
                     PostgresqlDatabase, ProgrammingError, SmallIntegerField, TextField, fn)
-from peewee_validates import ModelValidator
 from playhouse.shortcuts import model_to_dict
 from pycountry import countries
 from pykwalify.core import Core
 from pykwalify.errors import SchemaError
+
+from peewee_validates import ModelValidator
 
 from . import app, db
 from .config import DEFAULT_COUNTRY, ENV
@@ -44,7 +45,7 @@ AFFILIATION_TYPES = (
 
 try:
     from enum import IntFlag
-except ImportError:
+except ImportError:  # pragma: no cover
     from enum import IntEnum as IntFlag
 
 
@@ -332,7 +333,7 @@ class Organisation(BaseModel, AuditMixin):
     if ENV != "prod":
         orcid_client_id = CharField(max_length=80, null=True)
         orcid_secret = CharField(max_length=80, null=True)
-    else:
+    else:  # pragma: no cover
         orcid_client_id = CharField(max_length=80, unique=True, null=True)
         orcid_secret = CharField(max_length=80, unique=True, null=True)
     confirmed = BooleanField(default=False)
@@ -912,13 +913,13 @@ class Task(BaseModel, AuditMixin):
 
                     if uploaded_country and uploaded_country not in country_alpha_2:
                         raise ModelException(
-                            f" (Country must be 2 character from ISO 3166-1 alpha-2) in the row #{row_no+2}: {row}"
-                        )
+                            f" (Country must be 2 character from ISO 3166-1 alpha-2) in the row "
+                            f"#{row_no+2}: {row}. Header: {header}")
 
                     if not (email or orcid):
                         raise ModelException(
-                            f"Missing user identifier (email address or ORCID iD) in the row #{row_no+2}: {row}"
-                        )
+                            f"Missing user identifier (email address or ORCID iD) in the row "
+                            f"#{row_no+2}: {row}. Header: {header}")
 
                     if orcid:
                         try:
