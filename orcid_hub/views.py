@@ -1030,27 +1030,31 @@ def reset_all():
                 count = AffiliationRecord.update(processed_at=None, status=status).where(
                     AffiliationRecord.task_id == task_id,
                     AffiliationRecord.is_active == True).execute()  # noqa: E712
-                user_invitation = UserInvitation.get(task_id=task_id)
-                user_invitation.delete_instance()
+
+                for user_invitation in UserInvitation.select().where(UserInvitation.task == task):
+                    try:
+                        user_invitation.delete_instance()
+                    except UserInvitation.DoesNotExist:
+                        pass
+
             elif task.task_type == 1:
                 for funding_record in FundingRecord.select().where(FundingRecord.task_id == task_id,
                                                                    FundingRecord.is_active == True):    # noqa: E712
                     funding_record.processed_at = None
                     funding_record.status = status
 
-                    count = FundingContributor.update(
+                    FundingContributor.update(
                         processed_at=None, status=status).where(
                         FundingContributor.funding_record == funding_record.id).execute()
                     funding_record.save()
-        except UserInvitation.DoesNotExist:
-            pass
+                    count = count + 1
         except Exception as ex:
             db.rollback()
             flash(f"Failed to reset the selected records: {ex}")
             app.logger.exception("Failed to reset the selected records")
         else:
             if task.task_type == 1:
-                flash(f"{count} Funding Contributor records were reset for batch processing.")
+                flash(f"{count} Funding records were reset for batch processing.")
             else:
                 flash(f"{count} Affiliation records were reset for batch processing.")
     return redirect(_url)
