@@ -1,4 +1,5 @@
 {% extends "layout.html" %}
+{% block title %}User Summary{% endblock %}
 {% block head %}
   {{ super() }}
   <script src="https://www.google.com/jsapi"></script>
@@ -48,7 +49,7 @@ function drawPieChart() {
       <tr>
         <td class="col-name">{{r.name}}</td>
         <td class="col-user_count">{{r.linked_user_count}} / {{r.user_count}}
-        {%- if r.user_count %} ({{ "%0.0f%%" % (100 * r.linked_user_count / r.user_count) }}){% endif -%}
+        {%- if r.user_count %} ({{ "%0.0f%%" % (100 * r.linked_user_count / r.user_count if r.linked_user_count else 0.0) }}){% endif -%}
         </td>
       </tr>
     {% endfor %}

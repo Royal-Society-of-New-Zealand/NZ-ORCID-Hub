@@ -8,6 +8,7 @@ isort:skip_file
 import os
 import sys
 import logging
+from datetime import datetime
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 # sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # flake8: noqa
@@ -67,6 +68,7 @@ def app():
             tuakiri_name="TEST ZERO")
         # An org.admin
         user = User.create(
+            created_at=datetime(2017, 11, 28),
             email="admin@test.edu",
             name="TEST ORG ADMIN",
             first_name="FIRST_NAME",
@@ -78,6 +80,7 @@ def app():
         org.save()
         # Hub admin:
         User.create(
+            created_at=datetime(2017, 11, 27),
             email="root@test.edu",
             name="TEST HUB ADMIN",
             first_name="FIRST_NAME",
@@ -85,7 +88,18 @@ def app():
             roles=Role.SUPERUSER,
             confirmed=True,
             organisation=org)
-
+        User.insert_many(
+            dict(
+                email=f"researcher{i}@test.edu",
+                name=f"TEST RESEARCHER #{i}",
+                first_name=f"FIRST_NAME #{i}",
+                last_name=f"LAST_NAME #{i}",
+                confirmed=True,
+                organisation=org,
+                created_at=datetime(2017, 12, 1)) for i in range(100, 107)).execute()
+        OrcidToken.insert_many(
+            dict(org=org, user=u, expires_in=0, created_at=datetime(2018, 1, 1))
+            for u in User.select(User.id) if u.id % 2 == 0).execute()
 
         yield _app
 
