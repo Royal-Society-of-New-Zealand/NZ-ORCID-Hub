@@ -18,10 +18,10 @@ Flask
 https://github.com/nad2000/flask-admin/archive/master.zip
 flask-login
 Flask-WTF
-flask-peewee
+flask-peewee==0.6.7
 Flask-OAuthlib
-flask-swagger
 raven
 raven[flask]
 flask-peewee-swagger>=1.1.5
 flask-limiter>=1.0.0,<2.0.0
+flask-swagger
