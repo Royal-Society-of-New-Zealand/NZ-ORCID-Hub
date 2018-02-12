@@ -1053,6 +1053,9 @@ def reset_all():
             flash(f"Failed to reset the selected records: {ex}")
             app.logger.exception("Failed to reset the selected records")
         else:
+            task.expires_at = None
+            task.completed_at = None
+            task.save()
             if task.task_type == 1:
                 flash(f"{count} Funding records were reset for batch processing.")
             else:
