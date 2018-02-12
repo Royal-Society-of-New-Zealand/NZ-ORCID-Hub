@@ -157,11 +157,14 @@ def generate_confirmation_token(*args, **kwargs):
 
 
 # Token Expiry after 15 days.
-def confirm_token(token, expiration=1300000):
+def confirm_token(token, expiration=1300000, unsafe=False):
     """Genearate confirmaatin token."""
     serializer = URLSafeTimedSerializer(app.config["SECRET_KEY"])
     try:
-        data = serializer.loads(token, salt=app.config["SALT"], max_age=expiration)
+        if unsafe:
+            data = serializer.loads_unsafe(token)
+        else:
+            data = serializer.loads(token, salt=app.config["SALT"], max_age=expiration)
     except SignatureExpired as sx:
         logger.error(f"Invitation token SignatureExpired: {sx}")
         raise sx
