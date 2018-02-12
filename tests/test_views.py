@@ -22,7 +22,7 @@ from orcid_hub import app, orcid_client, views
 from orcid_hub.config import ORCID_BASE_URL
 from orcid_hub.forms import FileUploadForm
 from orcid_hub.models import UserOrgAffiliation  # noqa: E128
-from orcid_hub.models import (AffiliationRecord, Client, File, Grant, OrcidToken, Organisation,
+from orcid_hub.models import (AffiliationRecord, Client, File, OrcidToken, Organisation,
                               OrgInfo, Role, Task, Token, Url, User, UserInvitation, UserOrg)
 
 fake_time = time.time()
@@ -244,6 +244,42 @@ def test_status(client):
 
 def test_application_registration(app, request_ctx):
     """Test application registration."""
+    org = Organisation.create(
+        can_use_api=True,
+        name="THE ORGANISATION",
+        tuakiri_name="THE ORGANISATION",
+        confirmed=True,
+        orcid_client_id="CLIENT ID",
+        orcid_secret="Client Secret",
+        city="CITY",
+        country="COUNTRY",
+        disambiguated_id="ID",
+        disambiguation_source="SOURCE")
+    user = User.create(
+        email="test123@test.test.net",
+        name="TEST USER",
+        roles=Role.TECHNICAL,
+        orcid="123",
+        organisation_id=1,
+        confirmed=True,
+        organisation=org)
+    UserOrg.create(user=user, org=org, is_admin=True)
+    org.update(tech_contact=user).execute()
+
+    with request_ctx(
+            "/settings/applications",
+            method="POST",
+            data={
+                "homepage_url": "http://test.at.test",
+                "description": "TEST APPLICATION 123",
+                "register": "Register",
+            }) as ctx:  # noqa: F405
+        login_user(user, remember=True)
+        resp = ctx.app.full_dispatch_request()
+        with pytest.raises(Client.DoesNotExist):
+            Client.get(name="TEST APP")
+        assert resp.status_code == 200
+
     with request_ctx(
             "/settings/applications",
             method="POST",
@@ -252,34 +288,9 @@ def test_application_registration(app, request_ctx):
                 "homepage_url": "http://test.at.test",
                 "description": "TEST APPLICATION 123",
                 "register": "Register",
-            }) as ctx, test_database(
-                app.db, (Client, Grant, Token), fail_silently=True):  # noqa: F405
-
-        org = Organisation.create(
-            can_use_api=True,
-            name="THE ORGANISATION",
-            tuakiri_name="THE ORGANISATION",
-            confirmed=True,
-            orcid_client_id="CLIENT ID",
-            orcid_secret="Client Secret",
-            city="CITY",
-            country="COUNTRY",
-            disambiguated_id="ID",
-            disambiguation_source="SOURCE")
-        user = User.create(
-            email="test123@test.test.net",
-            name="TEST USER",
-            roles=Role.TECHNICAL,
-            orcid="123",
-            organisation_id=1,
-            confirmed=True,
-            organisation=org)
-        UserOrg.create(user=user, org=org, is_admin=True)
-        org.update(tech_contact=user).execute()
+            }) as ctx:  # noqa: F405
         login_user(user, remember=True)
-
         rv = ctx.app.full_dispatch_request()
-
         c = Client.get(name="TEST APP")
         assert c.homepage_url == "http://test.at.test"
         assert c.description == "TEST APPLICATION 123"
@@ -288,6 +299,81 @@ def test_application_registration(app, request_ctx):
         assert c.client_id
         assert c.client_secret
         assert rv.status_code == 302
+
+    client = Client.get(name="TEST APP")
+    with request_ctx(f"/settings/applications/{client.id}") as ctx:
+
+        login_user(user, remember=True)
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 302
+        assert resp.location == f"/settings/credentials/{client.id}"
+
+    with request_ctx("/settings/credentials") as ctx:
+        login_user(user, remember=True)
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 200
+
+    with request_ctx(f"/settings/credentials/{client.id}") as ctx:
+        login_user(user, remember=True)
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 200
+
+    with request_ctx("/settings/credentials/99999999999999") as ctx:
+        login_user(user, remember=True)
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 302
+        assert resp.location == "/settings/applications"
+
+    with request_ctx(
+            f"/settings/credentials/{client.id}", method="POST", data={
+                "revoke": "Revoke",
+                "name": client.name,
+            }) as ctx:
+        login_user(user, remember=True)
+        Token.create(client=client, token_type="TEST", access_token="TEST000")
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 200
+        assert Token.select().where(Token.client == client).count() == 0
+
+    with request_ctx(
+            f"/settings/credentials/{client.id}", method="POST", data={
+                "reset": "Reset",
+                "name": client.name,
+            }) as ctx:
+        login_user(user, remember=True)
+        old_client = client
+        resp = ctx.app.full_dispatch_request()
+        client = Client.get(name="TEST APP")
+        assert resp.status_code == 200
+        assert client.client_id != old_client.client_id
+        assert client.client_secret != old_client.client_secret
+
+    with request_ctx(
+            f"/settings/credentials/{client.id}", method="POST", data={
+                "update_app": "Update",
+                "name": "NEW APP NAME",
+                "homepage_url": "http://test.test.edu",
+                "description": "DESCRIPTION",
+                "callback_urls": "http://test.edu/callback",
+            }) as ctx:
+        login_user(user, remember=True)
+        old_client = client
+        resp = ctx.app.full_dispatch_request()
+        client = Client.get(id=client.id)
+        assert resp.status_code == 200
+        assert client.name == "NEW APP NAME"
+
+    with request_ctx(
+            f"/settings/credentials/{client.id}", method="POST", data={
+                "delete": "Delete",
+                "name": "NEW APP NAME",
+            }) as ctx:
+        login_user(user, remember=True)
+        old_client = client
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 302
+        assert resp.location == "/settings/applications"
+        assert not Client.select().where(Client.id == client.id).exists()
 
 
 def make_fake_response(text, *args, **kwargs):

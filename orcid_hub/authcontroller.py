@@ -581,7 +581,7 @@ def request_orcid_credentials():
         app_url=APP_URL,
         redirect_uri_1=url_for("orcid_callback", _external=True))
 
-    current_user.organisation.api_credentials_requested_at = datetime.now()
+    current_user.organisation.api_credentials_requested_at = datetime.utcnow()
     current_user.organisation.save()
 
     return redirect(client_secret_url)
@@ -660,7 +660,7 @@ def onboard_org():
                 flash("Organisation information updated successfully!", "success")
 
             form.populate_obj(organisation)
-            organisation.api_credentials_entered_at = datetime.now()
+            organisation.api_credentials_entered_at = datetime.utcnow()
             try:
                 organisation.save()
             except Exception as ex:
@@ -674,7 +674,7 @@ def onboard_org():
                                                        OrgInvitation.id.desc()).first())
                 if oi:
                     if not oi.confirmed_at:
-                        oi.confirmed_at = datetime.now()
+                        oi.confirmed_at = datetime.utcnow()
                         oi.save()
                     # Delete the "stale" invitations:
                     OrgInvitation.delete().where(OrgInvitation.id != oi.id,
@@ -1010,7 +1010,7 @@ def orcid_login_callback(request):
                             params["affiliation"] = a
                             params["initial"] = True
                             api.create_or_update_affiliation(**params)
-                ui.confirmed_at = datetime.now()
+                ui.confirmed_at = datetime.utcnow()
                 ui.save()
 
             except UserInvitation.DoesNotExist:

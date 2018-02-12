@@ -151,7 +151,8 @@ class AppModelView(ModelView):
     column_type_formatters = dict(typefmt.BASE_FORMATTERS)
     column_type_formatters.update({
         datetime:
-        lambda view, value: Markup(value.strftime("%Y‑%m‑%d&nbsp;%H:%M")),
+        lambda view, value: Markup(f"""<time datetime="{value.isoformat(timespec='minutes')}" />"""),
+        # lambda view, value: Markup(value.strftime("%Y‑%m‑%d&nbsp;%H:%M")),
     })
     column_type_formatters_export = dict(typefmt.EXPORT_FORMATTERS)
     column_type_formatters_export.update({PartialDate: lambda view, value: str(value)})
@@ -559,7 +560,7 @@ class RecordModelView(AppModelView):
             try:
                 task = Task.get(id=task_id)
                 filename = os.path.splitext(task.filename)[0]
-                return "%s_%s.%s" % (filename, datetime.now().strftime("%Y-%m-%d_%H-%M-%S"),
+                return "%s_%s.%s" % (filename, datetime.utcnow().strftime("%Y-%m-%d_%H-%M-%S"),
                                      export_type)
             except Task.DoesNotExist:
                 flash(f"The batch task doesn't exist", "danger")
@@ -588,7 +589,7 @@ to the best of your knowledge, correct!""")
             "Are you sure you want to reset the selected records for batch processing?")
     def action_reset(self, ids):
         """Reset batch task records."""
-        status = "The record was reset at " + datetime.now().isoformat(timespec="seconds")
+        status = "The record was reset at " + datetime.utcnow().isoformat(timespec="seconds")
         with db.atomic():
             try:
                 count = self.model.update(
@@ -675,7 +676,7 @@ class FundingContributorAdmin(AppModelView):
         """Batch reset of users."""
         with db.atomic():
             try:
-                status = " The record was reset at " + datetime.now().isoformat(timespec="seconds")
+                status = " The record was reset at " + datetime.utcnow().isoformat(timespec="seconds")
                 count = self.model.update(
                     processed_at=None, status=status).where(self.model.id.in_(ids)).execute()
                 funding_record_id = self.model.select().where(
@@ -980,9 +981,13 @@ def user_orcid_id_url(user):
 
 
 @app.template_filter("isodate")
-def isodate(d, sep=' '):
+def isodate(d, sep="&nbsp;"):
     """Render date into format YYYY-mm-dd HH:MM."""
-    return d.strftime("%Y‑%m‑%d" + sep + "%H:%M") if d and isinstance(d, (datetime, )) else ''
+    if d and isinstance(d, datetime):
+        return Markup(
+            f"""<time datetime="{d.isoformat(timespec='minutes')}" """
+            f"""data-format="YYYY[&#8209;]MM[&#8209;]DD[{sep}]HH:mm" />""")
+    return ''
 
 
 @app.template_filter("shorturl")
@@ -1717,8 +1722,6 @@ def api_credentials(app_id=None):
     if not client:
         return redirect(url_for("application"))
     form = CredentialForm(obj=client)
-    print(form.reset.data)
-    print("***", request.form)
     if form.validate_on_submit():
         if form.revoke.data:
             Token.delete().where(Token.client == client).execute()
