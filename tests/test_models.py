@@ -1,13 +1,15 @@
+from datetime import datetime
 from itertools import product
 
 import pytest
 from peewee import Model, SqliteDatabase
 from playhouse.test_utils import test_database
 
-from orcid_hub.models import (Affiliation, AffiliationRecord, ExternalId, FundingContributor,
-                              FundingRecord, ModelException, OrcidToken, Organisation, OrgInfo,
-                              PartialDate, PartialDateField, Role, Task, User, UserOrg,
-                              UserOrgAffiliation, create_tables, drop_tables)
+from orcid_hub.models import (Affiliation, AffiliationRecord, BaseModel, BooleanField, ExternalId,
+                              FundingContributor, FundingRecord, ModelException, OrcidToken,
+                              Organisation, OrgInfo, PartialDate, PartialDateField, Role, Task,
+                              TextField, User, UserOrg, UserOrgAffiliation, create_tables,
+                              drop_tables, validate_orcid_id)
 
 
 @pytest.fixture
@@ -265,6 +267,8 @@ def test_create_tables(test_models):
 
 def test_partial_date():
     pd = PartialDate.create({"year": {"value": "2003"}})
+    with pytest.raises(TypeError):
+        pd.as_datetime()
     assert pd.as_orcid_dict() == {'year': {'value': '2003'}, 'month': None, 'day': None}
     assert pd.year == 2003
     pd = PartialDate.create({
@@ -303,6 +307,12 @@ def test_partial_date():
 
     with pytest.raises(ModelException):
         PartialDate.create("ABC")
+
+    pd = PartialDate(2003, 12, 31)
+    assert pd.as_datetime() == datetime(2003, 12, 31)
+
+    pd = PartialDate()
+    assert str(pd) == ""
 
 
 def test_pd_field():
@@ -398,3 +408,36 @@ def test_is_superuser():
     u.is_superuser = True
     assert u.is_superuser
     assert u.has_role(Role.SUPERUSER)
+
+
+def test_validate_orcid_id():
+    assert validate_orcid_id(None) is None
+    assert validate_orcid_id(0) is None
+    assert validate_orcid_id("") is None
+    assert validate_orcid_id("0000-0000-0000-00X3") is None
+    with pytest.raises(ValueError):
+        validate_orcid_id("123")
+    with pytest.raises(ValueError):
+        validate_orcid_id("0000-0000-0000-00X4")
+
+
+def test_boolean_field():
+
+    class TestTableWithBooleanField(BaseModel):
+        test_field = BooleanField()
+
+    TestTableWithBooleanField.create_table()
+    TestTableWithBooleanField.create(test_field=True)
+    assert TestTableWithBooleanField.select().where(
+        TestTableWithBooleanField.test_field.NOT()).count() == 0
+
+
+def test_base_model_to_dict():
+    class TestTable(BaseModel):
+        test_field = TextField()
+
+    TestTable.create_table()
+    TestTable.create(test_field="ABC123")
+
+    rec = TestTable.select().first()
+    assert rec.to_dict() == {"id": 1, "test_field": "ABC123"}
