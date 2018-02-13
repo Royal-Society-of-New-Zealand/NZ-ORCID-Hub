@@ -11,9 +11,10 @@ from collections import namedtuple
 from datetime import datetime
 from io import BytesIO
 
+import tablib
 import yaml
-from flask import (Response, abort, flash, jsonify, redirect, render_template, request, send_file,
-                   send_from_directory, stream_with_context, url_for)
+from flask import (Response, abort, flash, jsonify, redirect, render_template, request, send_file, send_from_directory,
+                   stream_with_context, url_for)
 from flask_admin._compat import csv_encode
 from flask_admin.actions import action
 from flask_admin.babel import gettext
@@ -43,11 +44,6 @@ from .models import (Affiliation, AffiliationRecord, CharField, Client, File, Fu
 # NB! Should be disabled in production
 from .pyinfo import info
 from .utils import generate_confirmation_token, get_next_url, send_user_invitation
-
-try:
-    import tablib
-except ImportError:
-    tablib = None
 
 HEADERS = {"Accept": "application/vnd.orcid+json", "Content-type": "application/vnd.orcid+json"}
 
@@ -148,6 +144,7 @@ class AppModelView(ModelView):
         roles=lambda v, c, m, p: ", ".join(n for r, n in v.roles.items() if r & m.roles),
         orcid=orcid_link_formatter)
     column_default_sort = "id"
+    column_labels = dict(org="Organisation", orcid="ORCID iD")
     column_type_formatters = dict(typefmt.BASE_FORMATTERS)
     column_type_formatters.update({
         datetime:
@@ -430,7 +427,6 @@ class OrgInfoAdmin(AppModelView):
 class OrcidTokenAdmin(AppModelView):
     """ORCID token model view."""
 
-    column_labels = dict(org="Organisation")
     column_searchable_list = (
         "user.name",
         "user.email",
