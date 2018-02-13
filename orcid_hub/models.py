@@ -531,7 +531,7 @@ class User(BaseModel, UserMixin, AuditMixin):
     email = CharField(max_length=120, unique=True, null=True)
     eppn = CharField(max_length=120, unique=True, null=True)
     # ORCiD:
-    orcid = OrcidIdField(null=True)
+    orcid = OrcidIdField(null=True, verbose_name="ORCID iD", help_text="User's ORCID iD")
     confirmed = BooleanField(default=False)
     # Role bit-map:
     roles = SmallIntegerField(default=0)
@@ -868,7 +868,7 @@ class Task(BaseModel, AuditMixin):
                        "campus|department", "city", "state|region", "course|title|role",
                        r"start\s*(date)?", r"end\s*(date)?",
                        r"affiliation(s)?\s*(type)?|student|staff", "country", r"disambiguat.*id",
-                       r"disambiguat.*source", r"put|code", "orcid", "external.*|.*identifier")
+                       r"disambiguat.*source", r"put|code", "orcid.*", "external.*|.*identifier")
         ]
 
         def index(rex):
