@@ -18,7 +18,7 @@ from orcid_hub.models import (Affiliation, AffiliationRecord, ModelException, Or
 def test_process_task_from_csv_with_failures(request_ctx):
     """Test task loading and processing with failures."""
     org = Organisation.get(name="TEST0")
-    super_user = User.get(email="admin@test.edu")
+    super_user = User.get(email="admin@test0.edu")
     with patch("emails.html") as mock_msg, request_ctx("/") as ctx:
         login_user(super_user)
         # flake8: noqa
@@ -40,7 +40,7 @@ def test_process_task_from_csv_with_failures(request_ctx):
 def test_process_tasks(request_ctx):
     """Test expiration data setting and deletion of the exprired tasks."""
     org = Organisation.get(name="TEST0")
-    super_user = User.get(email="admin@test.edu")
+    super_user = User.get(email="admin@test0.edu")
     with patch("orcid_hub.utils.send_email") as send_email, request_ctx("/") as ctx:
         login_user(super_user)
         # flake8: noqa

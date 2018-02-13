@@ -352,9 +352,9 @@ def test_application_registration(app, request_ctx):
             f"/settings/credentials/{client.id}", method="POST", data={
                 "update_app": "Update",
                 "name": "NEW APP NAME",
-                "homepage_url": "http://test.test.edu",
+                "homepage_url": "http://test.test0.edu",
                 "description": "DESCRIPTION",
-                "callback_urls": "http://test.edu/callback",
+                "callback_urls": "http://test0.edu/callback",
             }) as ctx:
         login_user(user, remember=True)
         old_client = client
@@ -400,7 +400,7 @@ def test_short_url(request_ctx):
 
 def test_load_org(request_ctx):
     """Test load organisation."""
-    root = User.get(email="root@test.edu")
+    root = User.get(email="root@test0.edu")
     with request_ctx("/load/org") as ctx:
         login_user(root, remember=True)
         rv = ctx.app.full_dispatch_request()
@@ -772,7 +772,7 @@ def send_mail_mock(*argvs, **kwargs):
 def test_invite_user(request_ctx):
     """Test invite a researcher to join the hub."""
     org = Organisation.get(name="TEST0")
-    admin = User.get(email="admin@test.edu")
+    admin = User.get(email="admin@test0.edu")
     user = User.create(
         email="test123@test.test.net",
         name="TEST USER",
@@ -815,7 +815,7 @@ def test_invite_user(request_ctx):
 def test_email_template(app, request_ctx):
     """Test email maintenance."""
     org = Organisation.get(name="TEST0")
-    user = User.get(email="admin@test.edu")
+    user = User.get(email="admin@test0.edu")
 
     with request_ctx(
             "/settings/email_template",
@@ -847,12 +847,12 @@ def test_email_template(app, request_ctx):
         send_email.assert_called_once_with(
             "email/test.html",
             base="TEST TEMPLATE {EMAIL}",
-            cc_email=("TEST ORG ADMIN", "admin@test.edu"),
+            cc_email=("TEST ORG #0 ADMIN", "admin@test0.edu"),
             logo=None,
             org_name="TEST0",
-            recipient=("TEST ORG ADMIN", "admin@test.edu"),
-            reply_to=("TEST ORG ADMIN", "admin@test.edu"),
-            sender=("TEST ORG ADMIN", "admin@test.edu"),
+            recipient=("TEST ORG #0 ADMIN", "admin@test0.edu"),
+            reply_to=("TEST ORG #0 ADMIN", "admin@test0.edu"),
+            sender=("TEST ORG #0 ADMIN", "admin@test0.edu"),
             subject="TEST EMAIL")
 
     with request_ctx(
@@ -916,19 +916,19 @@ def test_email_template(app, request_ctx):
         send_email.assert_called_once_with(
             "email/test.html",
             base="TEST TEMPLATE {EMAIL}",
-            cc_email=("TEST ORG ADMIN", "admin@test.edu"),
+            cc_email=("TEST ORG #0 ADMIN", "admin@test0.edu"),
             logo=f"http://{ctx.request.host}/logo/TOKEN000",
             org_name="TEST0",
-            recipient=("TEST ORG ADMIN", "admin@test.edu"),
-            reply_to=("TEST ORG ADMIN", "admin@test.edu"),
-            sender=("TEST ORG ADMIN", "admin@test.edu"),
+            recipient=("TEST ORG #0 ADMIN", "admin@test0.edu"),
+            reply_to=("TEST ORG #0 ADMIN", "admin@test0.edu"),
+            sender=("TEST ORG #0 ADMIN", "admin@test0.edu"),
             subject="TEST EMAIL")
 
 
 def test_logo_file(request_ctx):
     """Test logo support."""
     org = Organisation.get(name="TEST0")
-    user = User.get(email="admin@test.edu")
+    user = User.get(email="admin@test0.edu")
     with request_ctx(
             "/settings/logo",
             method="POST",
@@ -962,7 +962,7 @@ def test_logo_file(request_ctx):
 def test_invite_organisation(send_email, request_ctx):
     """Test invite an organisation to register."""
     org = Organisation.get(name="TEST0")
-    root = User.get(email="root@test.edu")
+    root = User.get(email="root@test0.edu")
     user = User.create(
         email="test123@test.test.net", name="TEST USER", confirmed=True, organisation=org)
     UserOrg.create(user=user, org=org, is_admin=True)
@@ -1162,6 +1162,35 @@ def test_delete_employment(request_ctx, test_db):
         login_user(u)
         rv = views.delete_employment(user_id=u.id, put_code="1212")
         assert rv.status_code == 302
+
+
+def test_viewmemebers(request_ctx):
+    """Test affilated researcher view."""
+    non_admin = User.get(email="researcher100@test0.edu")
+    with request_ctx("/admin/viewmembers") as ctx:
+        login_user(non_admin)
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 302
+
+    admin = User.get(email="admin@test0.edu")
+    with request_ctx("/admin/viewmembers") as ctx:
+        login_user(admin)
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 200
+        assert b"researcher100@test0.edu" in resp.data
+
+    with request_ctx(f"/admin/viewmembers/edit/?id={non_admin.id}") as ctx:
+        login_user(admin)
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 200
+        assert non_admin.email.encode() in resp.data
+        assert non_admin.name.encode() in resp.data
+
+    user2 = User.get(email="researcher100@test1.edu")
+    with request_ctx(f"/admin/viewmembers/edit/?id={user2.id}") as ctx:
+        login_user(admin)
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 403
 
 
 def test_reset_all(request_ctx):
