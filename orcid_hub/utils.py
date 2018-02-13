@@ -272,7 +272,7 @@ def send_funding_invitation(inviter, org, email, name, task_id=None, **kwargs):
             disambiguation_source=org.disambiguation_source,
             token=token)
 
-        status = "The invitation sent at " + datetime.now().isoformat(timespec="seconds")
+        status = "The invitation sent at " + datetime.utcnow().isoformat(timespec="seconds")
         (FundingContributor.update(status=FundingContributor.status + "\n" + status).where(
             FundingContributor.status.is_null(False), FundingContributor.email == email).execute())
         (FundingContributor.update(status=status).where(
@@ -364,7 +364,7 @@ def create_or_update_funding(user, org_id, records, *args, **kwargs):
                 )
 
             finally:
-                fc.processed_at = datetime.now()
+                fc.processed_at = datetime.utcnow()
                 fr.save()
                 fc.save()
     else:
@@ -460,7 +460,7 @@ def send_user_invitation(inviter,
             disambiguation_source=disambiguation_source,
             token=token)
 
-        status = "The invitation sent at " + datetime.now().isoformat(timespec="seconds")
+        status = "The invitation sent at " + datetime.utcnow().isoformat(timespec="seconds")
         (AffiliationRecord.update(status=AffiliationRecord.status + "\n" + status).where(
             AffiliationRecord.status.is_null(False), AffiliationRecord.email == email).execute())
         (AffiliationRecord.update(status=status).where(AffiliationRecord.status.is_null(),
@@ -561,7 +561,7 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
                     affiliation = Affiliation.EDU
                 else:
                     logger.info(f"For {user} not able to determine affiliaton type with {org}")
-                    ar.processed_at = datetime.now()
+                    ar.processed_at = datetime.utcnow()
                     ar.add_status_line(
                         f"Unsupported affiliation type '{at}' allowed values are: " + ', '.join(
                             at for at in AFFILIATION_TYPES))
@@ -576,12 +576,12 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
                     ar.add_status_line(f"{str(affiliation)} record was updated.")
                 ar.orcid = orcid
                 ar.put_code = put_code
-                ar.processed_at = datetime.now()
+                ar.processed_at = datetime.utcnow()
 
             except Exception as ex:
                 logger.exception(f"For {user} encountered exception")
                 ar.add_status_line(f"Exception occured processing the record: {ex}.")
-                ar.processed_at = datetime.now()
+                ar.processed_at = datetime.utcnow()
 
             finally:
                 ar.save()
@@ -623,7 +623,7 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
                 token=token)
 
             status = "Exception occured while accessing user's profile. " \
-                     "Hence, The invitation resent at " + datetime.now().isoformat(timespec="seconds")
+                     "Hence, The invitation resent at " + datetime.utcnow().isoformat(timespec="seconds")
             (AffiliationRecord.update(status=AffiliationRecord.status + "\n" + status).where(
                 AffiliationRecord.status.is_null(False),
                 AffiliationRecord.email == user.email).execute())
@@ -695,7 +695,7 @@ def process_funding_records(max_rows=20):
         if not (FundingContributor.select().where(
                 FundingContributor.funding_record_id == funding_record.id,
                 FundingContributor.processed_at.is_null()).exists()):
-            funding_record.processed_at = datetime.now()
+            funding_record.processed_at = datetime.utcnow()
             if not funding_record.status or "error" not in funding_record.status:
                 funding_record.add_status_line("Funding record is processed.")
             funding_record.save()
@@ -704,7 +704,7 @@ def process_funding_records(max_rows=20):
         # The task is completed (Once all records are processed):
         if not (FundingRecord.select().where(FundingRecord.task_id == task.id,
                                              FundingRecord.processed_at.is_null()).exists()):
-            task.completed_at = datetime.now()
+            task.completed_at = datetime.utcnow()
             task.save()
             error_count = FundingRecord.select().where(
                 FundingRecord.task_id == task.id, FundingRecord.status**"%error%").count()
@@ -787,7 +787,7 @@ def process_affiliation_records(max_rows=20):
                 except Exception as ex:
                     email = invitation[2]
                     (AffiliationRecord.update(
-                        processed_at=datetime.now(), status=f"Failed to send an invitation: {ex}.")
+                        processed_at=datetime.utcnow(), status=f"Failed to send an invitation: {ex}.")
                      .where(AffiliationRecord.task_id == task_id, AffiliationRecord.email == email,
                             AffiliationRecord.processed_at.is_null())).execute()
 
@@ -799,7 +799,7 @@ def process_affiliation_records(max_rows=20):
         if not (AffiliationRecord.select().where(
                 AffiliationRecord.task_id == task.id,
                 AffiliationRecord.processed_at.is_null()).exists()):
-            task.completed_at = datetime.now()
+            task.completed_at = datetime.utcnow()
             task.save()
             error_count = AffiliationRecord.select().where(
                 AffiliationRecord.task_id == task.id, AffiliationRecord.status**"%error%").count()
@@ -846,10 +846,10 @@ def process_tasks(max_rows=20):
         int. The number of processed task records.
 
     """
-    Task.delete().where((Task.expires_at < datetime.now())).execute()
+    Task.delete().where((Task.expires_at < datetime.utcnow())).execute()
 
     for task in Task.select().where(Task.expires_at.is_null()).limit(max_rows):
-
+    
         max_created_at_expiry = (task.created_at + timedelta(weeks=4))
         max_updated_at_expiry = (task.updated_at + timedelta(weeks=2))
 

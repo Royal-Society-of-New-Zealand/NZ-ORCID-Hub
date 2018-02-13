@@ -295,7 +295,7 @@ DeferredUser = ModelDeferredRelation()
 class AuditMixin(Model):
     """Mixing for getting data necessary for data change audit trail maintenace."""
 
-    created_at = DateTimeField(default=datetime.now)
+    created_at = DateTimeField(default=datetime.utcnow)
     updated_at = DateTimeField(null=True)
 
     # created_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
@@ -303,7 +303,7 @@ class AuditMixin(Model):
 
     def save(self, *args, **kwargs):  # noqa: D102
         if self.is_dirty():
-            self.updated_at = datetime.now()
+            self.updated_at = datetime.utcnow()
             if current_user and hasattr(current_user, "id"):
                 if hasattr(self, "created_by") and self.created_by and hasattr(self, "updated_by"):
                     self.updated_by_id = current_user.id
@@ -739,7 +739,7 @@ class OrcidToken(BaseModel, AuditMixin):
     org = ForeignKeyField(Organisation, index=True, verbose_name="Organisation")
     scope = TextField(null=True, db_column="scope")  # TODO impomenet property
     access_token = CharField(max_length=36, unique=True, null=True)
-    issue_time = DateTimeField(default=datetime.now)
+    issue_time = DateTimeField(default=datetime.utcnow)
     refresh_token = CharField(max_length=36, unique=True, null=True)
     expires_in = SmallIntegerField(default=0)
     created_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
@@ -770,7 +770,7 @@ class UserOrgAffiliation(BaseModel, AuditMixin):
 class OrcidApiCall(BaseModel):
     """ORCID API call audit entry."""
 
-    called_at = DateTimeField(default=datetime.now)
+    called_at = DateTimeField(default=datetime.utcnow)
     user = ForeignKeyField(User, null=True)
     method = TextField()
     url = TextField()
@@ -787,7 +787,7 @@ class OrcidApiCall(BaseModel):
 class OrcidAuthorizeCall(BaseModel):
     """ORCID Authorize call audit entry."""
 
-    called_at = DateTimeField(default=datetime.now)
+    called_at = DateTimeField(default=datetime.utcnow)
     user = ForeignKeyField(User, null=True)
     method = TextField(null=True)
     url = TextField(null=True)
@@ -848,7 +848,7 @@ class Task(BaseModel, AuditMixin):
             if hasattr(source, "name"):
                 filename = source.name
             else:
-                filename = datetime.now().isoformat(timespec="seconds")
+                filename = datetime.utcnow().isoformat(timespec="seconds")
 
         if len(header) == 1 and '\t' in header[0]:
             source.seek(0)
@@ -1016,13 +1016,13 @@ class RecordModel(BaseModel):
     def save(self, *args, **kwargs):
         """Update related batch task when changing the record."""
         if self.is_dirty() and hasattr(self, "task"):
-            self.task.updated_at = datetime.now()
+            self.task.updated_at = datetime.utcnow()
             self.task.save()
         return super().save(*args, **kwargs)
 
     def add_status_line(self, line):
         """Add a text line to the status for logging processing progress."""
-        ts = datetime.now().isoformat(timespec="seconds")
+        ts = datetime.utcnow().isoformat(timespec="seconds")
         self.status = (self.status + "\n" if self.status else '') + ts + ": " + line
 
 
@@ -1305,7 +1305,7 @@ class FundingContributor(BaseModel):
 
     def add_status_line(self, line):
         """Add a text line to the status for logging processing progress."""
-        ts = datetime.now().isoformat(timespec="seconds")
+        ts = datetime.utcnow().isoformat(timespec="seconds")
         self.status = (self.status + "\n" if self.status else '') + ts + ": " + line
 
     class Meta:  # noqa: D101,D106
