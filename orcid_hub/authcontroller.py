@@ -12,6 +12,7 @@ import re
 import secrets
 import traceback
 import zlib
+from contextlib import suppress
 from datetime import datetime
 from os import path, remove
 from tempfile import gettempdir
@@ -826,6 +827,23 @@ def orcid_login(invitation_token=None):
         return redirect(orcid_authenticate_url)
 
     except SignatureExpired as sx:
+        with suppress(Exception):
+            data = confirm_token(invitation_token, unsafe=True)
+
+            if isinstance(data, str):
+                user_email, user_org_name = data[1].split(';')
+            else:
+                user_email, user_org_name = data[1].get("email"), data[1].get("org")
+            user = User.get(email=user_email)
+            org = Organisation.get(name=user_org_name or user.organisation.name)
+
+            # if we are able to find token then show the message of permission already given
+            if OrcidToken.select().where(OrcidToken.user == user, OrcidToken.org == org):
+                flash("You have already given permission, you can simply login on orcidhub",
+                      "warning")
+                app.logger.warning("Failed to login via ORCID, as user was trying old invitation token")
+                return redirect(url_for("index"))
+
         flash("It's been more than 15 days since your invitation was sent and it has expired. "
               "Please contact the sender to issue a new one",
               "danger")
