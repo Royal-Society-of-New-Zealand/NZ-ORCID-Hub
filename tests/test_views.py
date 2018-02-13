@@ -1009,7 +1009,21 @@ def test_invite_organisation(send_email, request_ctx):
         send_email.assert_called_once()
 
 
-def test_load_researcher_funding(request_ctx):
+def core_mock(self=None, source_file=None, schema_files=None, source_data=None, schema_data=None, extensions=None,
+              strict_rule_validation=False,
+              fix_ruby_style_regex=False, allow_assertions=False, ):
+    """Mock validation api call."""
+    return None
+
+
+def validate(self=None, raise_exception=True):
+    """Mock validation api call."""
+    return False
+
+
+@patch("pykwalify.core.Core.validate", side_effect=validate)
+@patch("pykwalify.core.Core.__init__", side_effect=core_mock)
+def test_load_researcher_funding(patch, patch2, request_ctx):
     """Test preload organisation data."""
     org = Organisation.create(
         name="THE ORGANISATION",
@@ -1034,14 +1048,22 @@ def test_load_researcher_funding(request_ctx):
             "/load/researcher/funding",
             method="POST",
             data={
-                "file_": "{'filename': 'xyz.json'}",
+                "file_": (
+                        BytesIO(
+                            b'[{"title": { "title": { "value": "1ral"}},"short-description": "Mi","type": "CONTRACT",'
+                            b'"contributors": {"contributor": [{"contributor-attributes": {"contributor-role": '
+                            b'"co_lead"},"credit-name": {"value": "firentini"},"contributor-email": {"value": '
+                            b'"ma1@mailinator.com"}}]}, "external-ids": {"external-id": [{"external-id-value": '
+                            b'"GNS170661","external-id-type": "grant_number"}]}}]'),
+                        "logo.json",),
                 "email": user.email
             }) as ctx:
         login_user(user, remember=True)
         rv = ctx.app.full_dispatch_request()
-        assert rv.status_code == 200
-        assert b"<!DOCTYPE html>" in rv.data, "Expected HTML content"
-        assert user.email.encode() in rv.data
+        assert rv.status_code == 302
+        # Funding file successfully loaded.
+        assert "task_id" in rv.location
+        assert "funding" in rv.location
 
 
 def test_load_researcher_affiliations(request_ctx):
