@@ -692,7 +692,7 @@ class UserOrg(BaseModel, AuditMixin):
         Organisation, on_delete="CASCADE", index=True, verbose_name="Organisation")
 
     is_admin = BooleanField(
-        default=False, help_text="User is an administrator for the organisation")
+        null=True, default=False, help_text="User is an administrator for the organisation")
 
     # Affiliation bit-map:
     affiliations = SmallIntegerField(default=0, null=True, verbose_name="EDU Person Affiliations")

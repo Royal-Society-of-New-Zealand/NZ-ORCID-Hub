@@ -928,6 +928,18 @@ class ViewMembersAdmin(AppModelView):
         """Get quiery for the user belonging to the organistation of the current user."""
         return current_user.organisation.users
 
+    def get_one(self, id):
+        """Limit access only to the userers belonging to the current organisation."""
+        try:
+            user = User.get(id=id)
+            if not user.organisations.where(UserOrg.org == current_user.organisation).exists():
+                flash("Access Denied!", "danger")
+                abort(403)
+            return user
+        except User.DoesNotExist:
+            flash(f"The user with given ID: {id} doesn't exist or it was deleted.", "danger")
+            abort(404)
+
 
 admin.add_view(UserAdmin(User))
 admin.add_view(OrganisationAdmin(Organisation))
