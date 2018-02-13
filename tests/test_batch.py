@@ -50,7 +50,7 @@ def test_process_tasks(request_ctx):
     """,
             filename="TEST_TASK.tsv",
             org=org)
-        Task.update(created_at=datetime(1999, 1, 1)).execute()
+        Task.update(created_at=datetime(1999, 1, 1), updated_at=datetime(1999, 1, 1)).execute()
         utils.process_tasks()
         assert Task.select().count() == 1
         assert not Task.select().where(Task.expires_at.is_null()).exists()
@@ -82,6 +82,7 @@ def test_process_tasks(request_ctx):
             updated_by=super_user,
             task_type=TaskType.FUNDING.value)
 
+        Task.update(updated_at=datetime(1999, 1, 1)).execute()
         assert Task.select().where(Task.expires_at.is_null()).count() == 1
         utils.process_tasks()
         assert Task.select().count() == 1
@@ -110,6 +111,7 @@ def test_process_tasks(request_ctx):
             updated_by=super_user,
             task_type=-12345)
 
+        Task.update(updated_at=datetime(1999, 1, 1)).execute()
         with pytest.raises(Exception, message="Unexpeced task type: -12345 (ERROR.err)."):
             utils.process_tasks()
         task.delete().execute()
@@ -122,6 +124,7 @@ def test_process_tasks(request_ctx):
                 filename="FILE.file",
                 created_by=super_user,
                 updated_by=super_user)
+            Task.update(updated_at=datetime(1999, 1, 1)).execute()
             assert Task.select().count() == 1
             utils.process_tasks()
             utils.process_tasks()

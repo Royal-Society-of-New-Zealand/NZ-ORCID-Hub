@@ -1030,6 +1030,54 @@ def activate_all():
     return redirect(_url)
 
 
+@app.route("/reset_all", methods=["POST"])
+@roles_required(Role.SUPERUSER, Role.ADMIN, Role.TECHNICAL)
+def reset_all():
+    """Batch reset of batch records."""
+    _url = request.args.get("url") or request.referrer
+    task_id = request.form.get('task_id')
+    task = Task.get(id=task_id)
+    count = 0
+    with db.atomic():
+        try:
+            status = "The record was reset at " + datetime.now().isoformat(timespec="seconds")
+            if task.task_type == 0:
+                count = AffiliationRecord.update(processed_at=None, status=status).where(
+                    AffiliationRecord.task_id == task_id,
+                    AffiliationRecord.is_active == True).execute()  # noqa: E712
+
+                for user_invitation in UserInvitation.select().where(UserInvitation.task == task):
+                    try:
+                        user_invitation.delete_instance()
+                    except UserInvitation.DoesNotExist:
+                        pass
+
+            elif task.task_type == 1:
+                for funding_record in FundingRecord.select().where(FundingRecord.task_id == task_id,
+                                                                   FundingRecord.is_active == True):    # noqa: E712
+                    funding_record.processed_at = None
+                    funding_record.status = status
+
+                    FundingContributor.update(
+                        processed_at=None, status=status).where(
+                        FundingContributor.funding_record == funding_record.id).execute()
+                    funding_record.save()
+                    count = count + 1
+        except Exception as ex:
+            db.rollback()
+            flash(f"Failed to reset the selected records: {ex}")
+            app.logger.exception("Failed to reset the selected records")
+        else:
+            task.expires_at = None
+            task.completed_at = None
+            task.save()
+            if task.task_type == 1:
+                flash(f"{count} Funding records were reset for batch processing.")
+            else:
+                flash(f"{count} Affiliation records were reset for batch processing.")
+    return redirect(_url)
+
+
 @app.route("/<int:user_id>/emp/<int:put_code>/delete", methods=["POST"])
 @roles_required(Role.ADMIN)
 def delete_employment(user_id, put_code=None):

@@ -22,7 +22,7 @@ from orcid_hub import app, orcid_client, views
 from orcid_hub.config import ORCID_BASE_URL
 from orcid_hub.forms import FileUploadForm
 from orcid_hub.models import UserOrgAffiliation  # noqa: E128
-from orcid_hub.models import (AffiliationRecord, Client, File, OrcidToken, Organisation,
+from orcid_hub.models import (AffiliationRecord, Client, File, FundingRecord, OrcidToken, Organisation,
                               OrgInfo, Role, Task, Token, Url, User, UserInvitation, UserOrg)
 
 fake_time = time.time()
@@ -1009,7 +1009,21 @@ def test_invite_organisation(send_email, request_ctx):
         send_email.assert_called_once()
 
 
-def test_load_researcher_funding(request_ctx):
+def core_mock(self=None, source_file=None, schema_files=None, source_data=None, schema_data=None, extensions=None,
+              strict_rule_validation=False,
+              fix_ruby_style_regex=False, allow_assertions=False, ):
+    """Mock validation api call."""
+    return None
+
+
+def validate(self=None, raise_exception=True):
+    """Mock validation api call."""
+    return False
+
+
+@patch("pykwalify.core.Core.validate", side_effect=validate)
+@patch("pykwalify.core.Core.__init__", side_effect=core_mock)
+def test_load_researcher_funding(patch, patch2, request_ctx):
     """Test preload organisation data."""
     org = Organisation.create(
         name="THE ORGANISATION",
@@ -1034,14 +1048,22 @@ def test_load_researcher_funding(request_ctx):
             "/load/researcher/funding",
             method="POST",
             data={
-                "file_": "{'filename': 'xyz.json'}",
+                "file_": (
+                        BytesIO(
+                            b'[{"title": { "title": { "value": "1ral"}},"short-description": "Mi","type": "CONTRACT",'
+                            b'"contributors": {"contributor": [{"contributor-attributes": {"contributor-role": '
+                            b'"co_lead"},"credit-name": {"value": "firentini"},"contributor-email": {"value": '
+                            b'"ma1@mailinator.com"}}]}, "external-ids": {"external-id": [{"external-id-value": '
+                            b'"GNS170661","external-id-type": "grant_number"}]}}]'),
+                        "logo.json",),
                 "email": user.email
             }) as ctx:
         login_user(user, remember=True)
         rv = ctx.app.full_dispatch_request()
-        assert rv.status_code == 200
-        assert b"<!DOCTYPE html>" in rv.data, "Expected HTML content"
-        assert user.email.encode() in rv.data
+        assert rv.status_code == 302
+        # Funding file successfully loaded.
+        assert "task_id" in rv.location
+        assert "funding" in rv.location
 
 
 def test_load_researcher_affiliations(request_ctx):
@@ -1169,3 +1191,114 @@ def test_viewmemebers(request_ctx):
         login_user(admin)
         resp = ctx.app.full_dispatch_request()
         assert resp.status_code == 403
+
+
+def test_reset_all(request_ctx):
+    """Test reset batch process."""
+    org = Organisation.create(
+        name="THE ORGANISATION",
+        tuakiri_name="THE ORGANISATION",
+        confirmed=False,
+        orcid_client_id="CLIENT ID",
+        orcid_secret="Client Secret",
+        city="CITY",
+        country="COUNTRY",
+        disambiguated_id="ID",
+        disambiguation_source="SOURCE",
+        is_email_sent=True)
+
+    user = User.create(
+        email="test123@test.test.net",
+        name="TEST USER",
+        roles=Role.TECHNICAL,
+        orcid=123,
+        organisation_id=1,
+        confirmed=True,
+        organisation=org)
+    UserOrg.create(user=user, org=org, is_admin=True)
+
+    task1 = Task.create(
+        id=1,
+        org=org,
+        completed_at="12/12/12",
+        filename="xyz.txt",
+        created_by=user,
+        updated_by=user,
+        task_type=0)
+
+    AffiliationRecord.create(
+        is_active=True,
+        task=task1,
+        external_id="Test",
+        first_name="Test",
+        last_name="Test",
+        email="test1234456@mailinator.com",
+        orcid="123112311231",
+        organisation="asdasd",
+        affiliation_type="staff",
+        role="Test",
+        department="Test",
+        city="Test",
+        state="Test",
+        country="Test",
+        disambiguated_id="Test",
+        disambiguated_source="Test")
+
+    UserInvitation.create(
+        invitee=user,
+        inviter=user,
+        org=org,
+        task=task1,
+        email="test1234456@mailinator.com",
+        token="xyztoken")
+
+    task2 = Task.create(
+        id=2,
+        org=org,
+        completed_at="12/12/12",
+        filename="xyz.txt",
+        created_by=user,
+        updated_by=user,
+        task_type=1)
+
+    FundingRecord.create(
+        task=task2,
+        title="Test titile",
+        translated_title="Test title",
+        translated_title_language_code="Test",
+        type="GRANT",
+        organization_defined_type="Test org",
+        short_description="Test desc",
+        amount="1000",
+        currency="USD",
+        org_name="Test_orgname",
+        city="Test city",
+        region="Test",
+        country="Test",
+        disambiguated_org_identifier="Test_dis",
+        disambiguation_source="Test_source",
+        is_active=True,
+        visibility="Test_visibity")
+
+    with request_ctx("/reset_all", method="POST") as ctxx:
+        login_user(user, remember=True)
+        request.args = ImmutableMultiDict([('url', 'http://localhost/affiliation_record_reset_for_batch')])
+        request.form = ImmutableMultiDict([('task_id', task1.id)])
+        rv = ctxx.app.full_dispatch_request()
+        t = Task.get(id=1)
+        ar = AffiliationRecord.get(id=1)
+        assert "The record was reset" in ar.status
+        assert t.completed_at is None
+        assert rv.status_code == 302
+        assert rv.location.startswith("http://localhost/affiliation_record_reset_for_batch")
+    with request_ctx("/reset_all", method="POST") as ctxx:
+        login_user(user, remember=True)
+        request.args = ImmutableMultiDict([('url', 'http://localhost/funding_record_reset_for_batch')])
+        request.form = ImmutableMultiDict([('task_id', task2.id)])
+        rv = ctxx.app.full_dispatch_request()
+        t2 = Task.get(id=2)
+        fr = FundingRecord.get(id=1)
+        assert "The record was reset" in fr.status
+        assert t2.completed_at is None
+        assert rv.status_code == 302
+        assert rv.location.startswith("http://localhost/funding_record_reset_for_batch")
