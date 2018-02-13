@@ -157,11 +157,14 @@ def generate_confirmation_token(*args, **kwargs):
 
 
 # Token Expiry after 15 days.
-def confirm_token(token, expiration=1300000):
+def confirm_token(token, expiration=1300000, unsafe=False):
     """Genearate confirmaatin token."""
     serializer = URLSafeTimedSerializer(app.config["SECRET_KEY"])
     try:
-        data = serializer.loads(token, salt=app.config["SALT"], max_age=expiration)
+        if unsafe:
+            data = serializer.loads_unsafe(token)
+        else:
+            data = serializer.loads(token, salt=app.config["SALT"], max_age=expiration)
     except SignatureExpired as sx:
         logger.error(f"Invitation token SignatureExpired: {sx}")
         raise sx
@@ -830,10 +833,11 @@ def process_affiliation_records(max_rows=20):
 
 
 def process_tasks(max_rows=20):
-    """Hande batch task expiration.
+    """Handle batch task expiration.
 
     Send a information messages about upcoming removal of the processed/uploaded tasks
-    3 weeks after uploading and and removal of expired tasks 4 weeks after uploading.
+    based on date whichever is greater either created_at + month or updated_at + 2 weeks
+    and removal of expired tasks based on the expiry date.
 
     Args:
         max_rows (int): The maximum number of rows that will get processed in one go.
@@ -844,34 +848,43 @@ def process_tasks(max_rows=20):
     """
     Task.delete().where((Task.expires_at < datetime.utcnow())).execute()
 
-    for task in Task.select().where(Task.expires_at.is_null() & (
-            Task.created_at < (datetime.utcnow() - timedelta(weeks=3)))).limit(max_rows):
-        task.expires_at = (task.created_at + timedelta(weeks=4))
-        task.save()
-        if task.task_type == TaskType.AFFILIATION.value:
-            error_count = AffiliationRecord.select().where(
-                AffiliationRecord.task_id == task.id, AffiliationRecord.status**"%error%").count()
-        elif task.task_type == TaskType.FUNDING.value:
-            error_count = FundingRecord.select().where(FundingRecord.task_id == task.id,
-                                                       FundingRecord.status**"%error%").count()
-        else:
-            raise Exception(f"Unexpeced task type: {task.task_type} ({task}).")
+    for task in Task.select().where(Task.expires_at.is_null()).limit(max_rows):
 
-        with app.app_context():
-            protocol_scheme = 'http'
-            if not EXTERNAL_SP:
-                protocol_scheme = 'https'
-            export_url = flask.url_for(
-                "affiliationrecord.export"
-                if task.task_type == TaskType.AFFILIATION.value else "fundingrecord.export",
-                export_type="csv",
-                _scheme=protocol_scheme,
-                task_id=task.id,
-                _external=True)
-            send_email(
-                "email/task_expiration.html",
-                task=task,
-                subject="Batch process task is about to expire",
-                recipient=(task.created_by.name, task.created_by.email),
-                error_count=error_count,
-                export_url=export_url)
+        max_created_at_expiry = (task.created_at + timedelta(weeks=4))
+        max_updated_at_expiry = (task.updated_at + timedelta(weeks=2))
+
+        max_expiry_date = max_created_at_expiry
+
+        if max_created_at_expiry < max_updated_at_expiry:
+            max_expiry_date = max_updated_at_expiry
+
+        if max_expiry_date < (datetime.now() + timedelta(weeks=1)):
+            task.expires_at = max_expiry_date
+            task.save()
+            if task.task_type == TaskType.AFFILIATION.value:
+                error_count = AffiliationRecord.select().where(
+                    AffiliationRecord.task_id == task.id, AffiliationRecord.status ** "%error%").count()
+            elif task.task_type == TaskType.FUNDING.value:
+                error_count = FundingRecord.select().where(FundingRecord.task_id == task.id,
+                                                           FundingRecord.status ** "%error%").count()
+            else:
+                raise Exception(f"Unexpeced task type: {task.task_type} ({task}).")
+
+            with app.app_context():
+                protocol_scheme = 'http'
+                if not EXTERNAL_SP:
+                    protocol_scheme = 'https'
+                export_url = flask.url_for(
+                    "affiliationrecord.export"
+                    if task.task_type == TaskType.AFFILIATION.value else "fundingrecord.export",
+                    export_type="csv",
+                    _scheme=protocol_scheme,
+                    task_id=task.id,
+                    _external=True)
+                send_email(
+                    "email/task_expiration.html",
+                    task=task,
+                    subject="Batch process task is about to expire",
+                    recipient=(task.created_by.name, task.created_by.email),
+                    error_count=error_count,
+                    export_url=export_url)
