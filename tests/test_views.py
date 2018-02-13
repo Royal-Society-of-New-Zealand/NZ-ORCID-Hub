@@ -22,7 +22,7 @@ from orcid_hub import app, orcid_client, views
 from orcid_hub.config import ORCID_BASE_URL
 from orcid_hub.forms import FileUploadForm
 from orcid_hub.models import UserOrgAffiliation  # noqa: E128
-from orcid_hub.models import (AffiliationRecord, Client, File, OrcidToken, Organisation,
+from orcid_hub.models import (AffiliationRecord, Client, File, FundingRecord, OrcidToken, Organisation,
                               OrgInfo, Role, Task, Token, Url, User, UserInvitation, UserOrg)
 
 fake_time = time.time()
@@ -1140,3 +1140,114 @@ def test_delete_employment(request_ctx, test_db):
         login_user(u)
         rv = views.delete_employment(user_id=u.id, put_code="1212")
         assert rv.status_code == 302
+
+
+def test_reset_all(request_ctx):
+    """Test reset batch process."""
+    org = Organisation.create(
+        name="THE ORGANISATION",
+        tuakiri_name="THE ORGANISATION",
+        confirmed=False,
+        orcid_client_id="CLIENT ID",
+        orcid_secret="Client Secret",
+        city="CITY",
+        country="COUNTRY",
+        disambiguated_id="ID",
+        disambiguation_source="SOURCE",
+        is_email_sent=True)
+
+    user = User.create(
+        email="test123@test.test.net",
+        name="TEST USER",
+        roles=Role.TECHNICAL,
+        orcid=123,
+        organisation_id=1,
+        confirmed=True,
+        organisation=org)
+    UserOrg.create(user=user, org=org, is_admin=True)
+
+    task1 = Task.create(
+        id=1,
+        org=org,
+        completed_at="12/12/12",
+        filename="xyz.txt",
+        created_by=user,
+        updated_by=user,
+        task_type=0)
+
+    AffiliationRecord.create(
+        is_active=True,
+        task=task1,
+        external_id="Test",
+        first_name="Test",
+        last_name="Test",
+        email="test1234456@mailinator.com",
+        orcid="123112311231",
+        organisation="asdasd",
+        affiliation_type="staff",
+        role="Test",
+        department="Test",
+        city="Test",
+        state="Test",
+        country="Test",
+        disambiguated_id="Test",
+        disambiguated_source="Test")
+
+    UserInvitation.create(
+        invitee=user,
+        inviter=user,
+        org=org,
+        task=task1,
+        email="test1234456@mailinator.com",
+        token="xyztoken")
+
+    task2 = Task.create(
+        id=2,
+        org=org,
+        completed_at="12/12/12",
+        filename="xyz.txt",
+        created_by=user,
+        updated_by=user,
+        task_type=1)
+
+    FundingRecord.create(
+        task=task2,
+        title="Test titile",
+        translated_title="Test title",
+        translated_title_language_code="Test",
+        type="GRANT",
+        organization_defined_type="Test org",
+        short_description="Test desc",
+        amount="1000",
+        currency="USD",
+        org_name="Test_orgname",
+        city="Test city",
+        region="Test",
+        country="Test",
+        disambiguated_org_identifier="Test_dis",
+        disambiguation_source="Test_source",
+        is_active=True,
+        visibility="Test_visibity")
+
+    with request_ctx("/reset_all", method="POST") as ctxx:
+        login_user(user, remember=True)
+        request.args = ImmutableMultiDict([('url', 'http://localhost/affiliation_record_reset_for_batch')])
+        request.form = ImmutableMultiDict([('task_id', task1.id)])
+        rv = ctxx.app.full_dispatch_request()
+        t = Task.get(id=1)
+        ar = AffiliationRecord.get(id=1)
+        assert "The record was reset" in ar.status
+        assert t.completed_at is None
+        assert rv.status_code == 302
+        assert rv.location.startswith("http://localhost/affiliation_record_reset_for_batch")
+    with request_ctx("/reset_all", method="POST") as ctxx:
+        login_user(user, remember=True)
+        request.args = ImmutableMultiDict([('url', 'http://localhost/funding_record_reset_for_batch')])
+        request.form = ImmutableMultiDict([('task_id', task2.id)])
+        rv = ctxx.app.full_dispatch_request()
+        t2 = Task.get(id=2)
+        fr = FundingRecord.get(id=1)
+        assert "The record was reset" in fr.status
+        assert t2.completed_at is None
+        assert rv.status_code == 302
+        assert rv.location.startswith("http://localhost/funding_record_reset_for_batch")

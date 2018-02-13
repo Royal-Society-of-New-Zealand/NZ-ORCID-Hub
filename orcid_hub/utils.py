@@ -849,7 +849,7 @@ def process_tasks(max_rows=20):
     Task.delete().where((Task.expires_at < datetime.utcnow())).execute()
 
     for task in Task.select().where(Task.expires_at.is_null()).limit(max_rows):
-    
+
         max_created_at_expiry = (task.created_at + timedelta(weeks=4))
         max_updated_at_expiry = (task.updated_at + timedelta(weeks=2))
 
@@ -863,10 +863,10 @@ def process_tasks(max_rows=20):
             task.save()
             if task.task_type == TaskType.AFFILIATION.value:
                 error_count = AffiliationRecord.select().where(
-                    AffiliationRecord.task_id == task.id, AffiliationRecord.status**"%error%").count()
+                    AffiliationRecord.task_id == task.id, AffiliationRecord.status ** "%error%").count()
             elif task.task_type == TaskType.FUNDING.value:
                 error_count = FundingRecord.select().where(FundingRecord.task_id == task.id,
-                                                           FundingRecord.status**"%error%").count()
+                                                           FundingRecord.status ** "%error%").count()
             else:
                 raise Exception(f"Unexpeced task type: {task.task_type} ({task}).")
 
