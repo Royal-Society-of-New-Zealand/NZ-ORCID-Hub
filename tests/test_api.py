@@ -22,7 +22,7 @@ def app_req_ctx(request_ctx):
         country="COUNTRY")
 
     admin = User.create(
-        email="app123@test.edu",
+        email="app123@test0.edu",
         name="TEST USER WITH AN APP",
         roles=Role.TECHNICAL,
         orcid="1001-0001-0001-0001",
@@ -46,8 +46,8 @@ def app_req_ctx(request_ctx):
     Token.create(client=client, user=admin, access_token="TEST", token_type="Bearer")
 
     user = User.create(
-        email="researcher@test.edu",
-        eppn="eppn@test.edu",
+        email="researcher@test0.edu",
+        eppn="eppn@test0.edu",
         name="TEST REASEARCHER",
         orcid="0000-0000-0000-00X3",
         confirmed=True,
@@ -56,8 +56,8 @@ def app_req_ctx(request_ctx):
     OrcidToken.create(user=user, org=org, access_token="ORCID-TEST-ACCESS-TOKEN")
 
     User.create(
-        email="researcher2@test.edu",
-        eppn="eppn2@test.edu",
+        email="researcher2@test0.edu",
+        eppn="eppn2@test0.edu",
         name="TEST REASEARCHER W/O ORCID ACCESS TOKEN",
         orcid="0000-0000-0000-11X2",
         confirmed=True,
@@ -169,7 +169,7 @@ def test_get_oauth_access_token(app_req_ctx):
 
 def test_me(app_req_ctx):
     """Test the echo endpoint."""
-    user = User.get(email="app123@test.edu")
+    user = User.get(email="app123@test0.edu")
     token = Token.get(user=user)
     with app_req_ctx("/api/me", headers=dict(authorization=f"Bearer {token.access_token}")) as ctx:
         rv = ctx.app.full_dispatch_request()
@@ -180,7 +180,7 @@ def test_me(app_req_ctx):
 
     # Test invalid token:
     with app_req_ctx("/api/me", headers=dict(authorization="Bearer INVALID")) as ctx:
-        user = User.get(email="app123@test.edu")
+        user = User.get(email="app123@test0.edu")
         rv = ctx.app.full_dispatch_request()
         assert rv.status_code == 401
 
@@ -202,7 +202,7 @@ def test_me(app_req_ctx):
 ])
 def test_user_and_token_api(app_req_ctx, resource, version):
     """Test the echo endpoint."""
-    user = User.get(email="researcher@test.edu")
+    user = User.get(email="researcher@test0.edu")
     org2_user = User.get(email="researcher@org2.edu")
     with app_req_ctx(
             f"/api/{version}/{resource}/ABC123", headers=dict(authorization="Bearer TEST")) as ctx:
@@ -257,7 +257,7 @@ def test_user_and_token_api(app_req_ctx, resource, version):
                 assert data["token"]["access_token"] == token.access_token
 
     if resource == "tokens":
-        user2 = User.get(email="researcher2@test.edu")
+        user2 = User.get(email="researcher2@test0.edu")
         for identifier in [
                 user2.email,
                 user2.orcid,
@@ -309,7 +309,7 @@ def test_yamlfy(app):
 
 def test_api_docs(app_req_ctx):
     """Test API docs."""
-    tech_contact = User.get(email="app123@test.edu")
+    tech_contact = User.get(email="app123@test0.edu")
     with app_req_ctx("/api-docs/?url=http://SPECIFICATION") as ctx:
         login_user(tech_contact)
         rv = ctx.app.full_dispatch_request()
@@ -320,7 +320,7 @@ def test_api_docs(app_req_ctx):
         rv = ctx.app.full_dispatch_request()
         assert rv.status_code == 200
         assert url_for("spec", _external=True).encode("utf-8") in rv.data
-    super_user = User.create(email="super_user@test.edu", roles=Role.SUPERUSER, confirmed=True)
+    super_user = User.create(email="super_user@test0.edu", roles=Role.SUPERUSER, confirmed=True)
     with app_req_ctx("/db-api-docs/?url=http://SPECIFICATION") as ctx:
         login_user(super_user)
         rv = ctx.app.full_dispatch_request()
@@ -341,7 +341,7 @@ def test_db_api(app_req_ctx):
         assert rv.status_code == 200
         data = json.loads(rv.data)
         assert "objects" in data
-        assert len(data["objects"]) == 3
+        assert len(data["objects"]) == 4
 
     with app_req_ctx("/data/api/v0.1/tasks/", headers=dict(authorization="Bearer TEST")) as ctx:
         rv = ctx.app.full_dispatch_request()

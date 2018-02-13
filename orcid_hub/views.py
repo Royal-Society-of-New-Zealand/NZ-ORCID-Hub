@@ -149,7 +149,6 @@ class AppModelView(ModelView):
     column_type_formatters.update({
         datetime:
         lambda view, value: Markup(f"""<time datetime="{value.isoformat(timespec='minutes')}" />"""),
-        # lambda view, value: Markup(value.strftime("%Y‑%m‑%d&nbsp;%H:%M")),
     })
     column_type_formatters_export = dict(typefmt.EXPORT_FORMATTERS)
     column_type_formatters_export.update({PartialDate: lambda view, value: str(value)})
@@ -907,6 +906,8 @@ class ViewMembersAdmin(AppModelView):
 
     roles_required = Role.SUPERUSER | Role.ADMIN
     list_template = "viewMembers.html"
+    form_columns = ["name", "orcid", "email", "eppn", ]
+    form_widget_args = {c: {"readonly": True} for c in form_columns if c != "email"}
     column_list = ("email", "orcid")
     column_searchable_list = (
         "email",
@@ -917,7 +918,7 @@ class ViewMembersAdmin(AppModelView):
     )
     column_export_list = ("email", "eppn", "orcid")
     model = User
-    can_edit = False
+    can_edit = True
     can_create = False
     can_delete = False
     can_view_details = False
@@ -926,6 +927,18 @@ class ViewMembersAdmin(AppModelView):
     def get_query(self):
         """Get quiery for the user belonging to the organistation of the current user."""
         return current_user.organisation.users
+
+    def get_one(self, id):
+        """Limit access only to the userers belonging to the current organisation."""
+        try:
+            user = User.get(id=id)
+            if not user.organisations.where(UserOrg.org == current_user.organisation).exists():
+                flash("Access Denied!", "danger")
+                abort(403)
+            return user
+        except User.DoesNotExist:
+            flash(f"The user with given ID: {id} doesn't exist or it was deleted.", "danger")
+            abort(404)
 
 
 admin.add_view(UserAdmin(User))

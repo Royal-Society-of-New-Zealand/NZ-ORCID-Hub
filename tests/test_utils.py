@@ -52,19 +52,17 @@ def test_track_event(request_ctx):
     label = None
     value = 0
 
-    u = User(
+    u = User.create(
         email="test123@test.test.net",
         name="TEST USER",
         username="test123",
         roles=Role.RESEARCHER,
-        orcid=None,
         confirmed=True)
-    u.save()
 
     with request_ctx("/"):
         login_user(u)
-        rv = utils.track_event(category, action, label, value)
-        assert rv.status_code == 200
+        resp = utils.track_event(category, action, label, value)
+        assert resp.status_code == 200
 
 
 def test_set_server_name(app):
@@ -551,7 +549,7 @@ def test_send_email(app):
             utils.send_email(
                 "template.html", (
                     "TEST USER",
-                    "test123@test.edu",
+                    "test123@test0.edu",
                 ), subject="TEST")
 
             msg_cls.assert_called_once()
@@ -563,7 +561,7 @@ def test_send_email(app):
             utils.send_email(
                 "template", (
                     "TEST USER",
-                    "test123@test.edu",
+                    "test123@test0.edu",
                 ), base="BASE", subject="TEST")
             msg.dkim.assert_called_once()
             msg.send.assert_called_once()
@@ -573,7 +571,7 @@ def test_send_email(app):
             utils.send_email(
                 "template", (
                     "TEST USER",
-                    "test123@test.edu",
+                    "test123@test0.edu",
                 ), base="BASE", subject="TEST")
             msg.dkim.assert_not_called()
             msg.send.assert_called_once()
@@ -600,7 +598,7 @@ def test_send_email(app):
             utils.send_email(
                 "template", (
                     "TEST USER",
-                    "test123@test.edu",
+                    "test123@test0.edu",
                 ),
                 base="BASE {LOGO}",
                 subject="TEST WITH BASE AND LOGO",
@@ -624,7 +622,7 @@ def test_send_email(app):
             utils.send_email(
                 "template", (
                     "TEST USER",
-                    "test123@test.edu",
+                    "test123@test0.edu",
                 ),
                 sender=(
                     None,
@@ -651,7 +649,7 @@ def test_send_email(app):
             utils.send_email(
                 "missing_template", (
                     "TEST USER",
-                    "test123@test.edu",
+                    "test123@test0.edu",
                 ),
                 logo="LOGO",
                 subject="TEST")

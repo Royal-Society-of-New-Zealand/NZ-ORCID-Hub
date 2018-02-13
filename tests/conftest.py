@@ -63,43 +63,48 @@ def app():
         #_app.config["SERVER_NAME"] = "ORCIDHUB"
         _app.sentry = None
         # Add some data:
-        org = Organisation.create(
-            name="TEST0",
-            tuakiri_name="TEST ZERO")
-        # An org.admin
-        user = User.create(
-            created_at=datetime(2017, 11, 28),
-            email="admin@test.edu",
-            name="TEST ORG ADMIN",
-            first_name="FIRST_NAME",
-            last_name="LAST_NAME",
-            confirmed=True,
-            organisation=org)
-        UserOrg.create(user=user, org=org, is_admin=True)
-        org.tech_contact = user
-        org.save()
-        # Hub admin:
-        User.create(
-            created_at=datetime(2017, 11, 27),
-            email="root@test.edu",
-            name="TEST HUB ADMIN",
-            first_name="FIRST_NAME",
-            last_name="LAST_NAME",
-            roles=Role.SUPERUSER,
-            confirmed=True,
-            organisation=org)
-        User.insert_many(
-            dict(
-                email=f"researcher{i}@test.edu",
-                name=f"TEST RESEARCHER #{i}",
-                first_name=f"FIRST_NAME #{i}",
-                last_name=f"LAST_NAME #{i}",
+        for org_no in range(2):
+            org = Organisation.create(
+                name=f"TEST{org_no}",
+                tuakiri_name=f"TEST ORG #{org_no}")
+            # An org.admin
+            user = User.create(
+                created_at=datetime(2017, 11, 28),
+                email=f"admin@test{org_no}.edu",
+                name=f"TEST ORG #{org_no} ADMIN",
+                first_name="FIRST_NAME",
+                last_name="LAST_NAME",
                 confirmed=True,
-                organisation=org,
-                created_at=datetime(2017, 12, 1)) for i in range(100, 107)).execute()
-        OrcidToken.insert_many(
-            dict(org=org, user=u, expires_in=0, created_at=datetime(2018, 1, 1))
-            for u in User.select(User.id) if u.id % 2 == 0).execute()
+                organisation=org)
+            UserOrg.create(user=user, org=org, is_admin=True)
+            org.tech_contact = user
+            org.save()
+            # Hub admin:
+            User.create(
+                created_at=datetime(2017, 11, 27),
+                email=f"root@test{org_no}.edu",
+                name="TEST HUB ADMIN",
+                first_name="FIRST_NAME",
+                last_name="LAST_NAME",
+                roles=Role.SUPERUSER,
+                confirmed=True,
+                organisation=org)
+            User.insert_many(
+                dict(
+                    email=f"researcher{i}@test{org_no}.edu",
+                    name=f"TEST RESEARCHER #{i} OF {org_no} ",
+                    first_name=f"FIRST_NAME #{i}",
+                    last_name=f"LAST_NAME #{i}",
+                    confirmed=True,
+                    organisation=org,
+                    created_at=datetime(2017, 12, i % 31 + 1)) for i in range(100, 107)).execute()
+            OrcidToken.insert_many(
+                dict(org=org, user=u, expires_in=0, created_at=datetime(2018, 1, 1))
+                for u in User.select(User.id) if u.id % 2 == 0).execute()
+        UserOrg.insert_from(
+            query=User.select(User.id, User.organisation_id, User.created_at).where(
+                User.email.contains("researcher")),
+            fields=[UserOrg.user_id, UserOrg.org_id, UserOrg.created_at]).execute()
 
         yield _app
 
