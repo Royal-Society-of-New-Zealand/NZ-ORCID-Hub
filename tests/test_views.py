@@ -183,42 +183,36 @@ def test_user_orcid_id_url():
     assert (views.user_orcid_id_url(u) == "")
 
 
-@patch.object(orcid_client.MemberAPIV20Api, "view_employments",
-              lambda self, *args, **kwargs: make_fake_response('{"test": "TEST1234567890"}'))
-@patch.object(orcid_client.MemberAPIV20Api, "view_educations",
-              lambda self, *args, **kwargs: make_fake_response('{"test": "TEST1234567890"}'))
-def test_show_record_section(request_ctx, test_db):
+def test_show_record_section(request_ctx):
     """Test to show selected record."""
-    org = Organisation.create(
-        name="THE ORGANISATION",
-        tuakiri_name="THE ORGANISATION",
-        confirmed=True,
-        orcid_client_id="CLIENT ID",
-        orcid_secret="Client Secret",
-        city="CITY",
-        country="COUNTRY",
-        disambiguated_id="ID",
-        disambiguation_source="SOURCE")
-    u = User.create(
-        orcid="12123",
-        email="test123@test.test.net",
-        name="TEST USER",
-        roles=Role.RESEARCHER,
-        confirmed=True,
-        organisation=org)
+    admin = User.get(email="admin@test0.edu")
+    user = User.get(email="researcher100@test0.edu")
+    if not user.orcid:
+        user.orcid = "XXXX-XXXX-XXXX-0001"
+        user.save()
 
-    OrcidToken.create(user=u, org=org, access_token="ABC123")
+    OrcidToken.create(user=user, org=user.organisation, access_token="ABC123")
 
-    with request_ctx("/"):
-        login_user(u)
-        rv = views.show_record_section(user_id=u.id)
-        assert u.email in rv
-        assert u.name in rv
-    with request_ctx("/"):
-        login_user(u)
-        rv = views.show_record_section(user_id=u.id, section_type="EDU")
-        assert u.email in rv
-        assert u.name in rv
+    with patch.object(
+            orcid_client.MemberAPIV20Api,
+            "view_employments",
+            MagicMock(return_value=make_fake_response('{"test": "TEST1234567890"}'))
+    ) as view_employments, request_ctx(f"/section/{user.id}/EMP/list") as ctx:
+        login_user(admin)
+        resp = ctx.app.full_dispatch_request()
+        assert admin.email.encode() in resp.data
+        assert admin.name.encode() in resp.data
+        view_employments.assert_called_once_with("XXXX-XXXX-XXXX-0001")
+    with patch.object(
+            orcid_client.MemberAPIV20Api,
+            "view_educations",
+            MagicMock(return_value=make_fake_response('{"test": "TEST1234567890"}'))
+    ) as view_educations, request_ctx(f"/section/{user.id}/EDU/list") as ctx:
+        login_user(admin)
+        resp = ctx.app.full_dispatch_request()
+        assert admin.email.encode() in resp.data
+        assert admin.name.encode() in resp.data
+        view_educations.assert_called_once_with("XXXX-XXXX-XXXX-0001")
 
 
 def test_status(client):
@@ -1098,70 +1092,107 @@ def test_load_researcher_affiliations(request_ctx):
         assert user.email.encode() in rv.data
 
 
-@patch.object(orcid_client.MemberAPIV20Api, "view_employment",
-              lambda self, *args, **kwargs: make_fake_response('{"test": "TEST1234567890"}'))
-@patch.object(orcid_client.MemberAPIV20Api, "view_education",
-              lambda self, *args, **kwargs: make_fake_response('{"test": "TEST1234567890"}'))
-def test_edit_section_record(request_ctx, test_db):
+def test_edit_record(request_ctx):
     """Test create a new or edit an existing profile section record."""
-    org = Organisation.create(
-        name="THE ORGANISATION",
-        tuakiri_name="THE ORGANISATION",
-        confirmed=True,
-        orcid_client_id="CLIENT ID",
-        orcid_secret="Client Secret",
-        city="CITY",
-        country="COUNTRY",
-        disambiguated_id="ID",
-        disambiguation_source="SOURCE")
-    u = User.create(
-        orcid="12123",
-        email="test123@test.test.net",
-        name="TEST USER",
-        roles=Role.RESEARCHER,
-        confirmed=True,
-        organisation=org)
+    admin = User.get(email="admin@test0.edu")
+    user = User.get(email="researcher100@test0.edu")
+    admin.organisation.orcid_client_id = "ABC123"
+    admin.organisation.save()
+    if not user.orcid:
+        user.orcid = "XXXX-XXXX-XXXX-0001"
+        user.save()
 
-    OrcidToken.create(user=u, org=org, access_token="ABC123", scope="/read-limited,/activities/update")
-    with request_ctx("/"):
-        login_user(u)
-        rv = views.edit_section_record(user_id=u.id, put_code="1212")
-        assert u.email in rv
-        assert u.name in rv
-    with request_ctx("/"):
-        login_user(u)
-        rv = views.edit_section_record(user_id=u.id, put_code="1212", section_type="EDU")
-        assert u.email in rv
-        assert u.name in rv
+    OrcidToken.create(user=user, org=user.organisation, access_token="ABC123", scope="/read-limited,/activities/update")
+    with patch.object(
+            orcid_client.MemberAPIV20Api,
+            "view_employment",
+            MagicMock(return_value=make_fake_response('{"test": "TEST1234567890"}'))
+    ) as view_employment, request_ctx(f"/section/{user.id}/EMP/1212/edit") as ctx:
+        login_user(admin)
+        resp = ctx.app.full_dispatch_request()
+        assert admin.email.encode() in resp.data
+        assert admin.name.encode() in resp.data
+        view_employment.assert_called_once_with("XXXX-XXXX-XXXX-0001", 1212)
+    with patch.object(
+            orcid_client.MemberAPIV20Api,
+            "view_education",
+            MagicMock(return_value=make_fake_response('{"test": "TEST1234567890"}'))
+    ) as view_education, request_ctx(f"/section/{user.id}/EDU/1234/edit") as ctx:
+        login_user(admin)
+        resp = ctx.app.full_dispatch_request()
+        assert admin.email.encode() in resp.data
+        assert admin.name.encode() in resp.data
+        view_education.assert_called_once_with("XXXX-XXXX-XXXX-0001", 1234)
 
 
-@patch.object(orcid_client.MemberAPIV20Api, "delete_employment",
-              lambda self, *args, **kwargs: make_fake_response('{"test": "TEST1234567890"}'))
-def test_delete_employment(request_ctx, test_db):
+def test_delete_employment(request_ctx, app):
     """Test delete an employment record."""
-    org = Organisation.create(
-        name="THE ORGANISATION",
-        tuakiri_name="THE ORGANISATION",
-        confirmed=True,
-        orcid_client_id="CLIENT ID",
-        orcid_secret="Client Secret",
-        city="CITY",
-        country="COUNTRY",
-        disambiguated_id="ID",
-        disambiguation_source="SOURCE")
-    u = User.create(
-        orcid="12123",
-        email="test123@test.test.net",
-        name="TEST USER",
-        roles=Role.ADMIN,
-        confirmed=True,
-        organisation=org)
+    admin = User.get(email="admin@test0.edu")
+    user = User.get(email="researcher100@test0.edu")
 
-    OrcidToken.create(user=u, org=org, access_token="ABC123", scope="/read-limited,/activities/update")
-    with request_ctx("/"):
-        login_user(u)
-        rv = views.delete_employment(user_id=u.id, put_code="1212")
-        assert rv.status_code == 302
+    with request_ctx(f"/section/{user.id}/EMP/1212/delete", method="POST") as ctx:
+        login_user(user)
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 302
+        assert resp.location.startswith("/?next=")
+
+    with request_ctx(f"/section/99999999/EMP/1212/delete", method="POST") as ctx:
+        login_user(admin)
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 302
+        assert resp.location == "/admin/viewmembers/"
+
+    with request_ctx(f"/section/{user.id}/EMP/1212/delete", method="POST") as ctx:
+        login_user(admin)
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 302
+        assert resp.location == f"/section/{user.id}/EMP/list"
+
+    admin.organisation.orcid_client_id = "ABC123"
+    admin.organisation.save()
+
+    with request_ctx(f"/section/{user.id}/EMP/1212/delete", method="POST") as ctx:
+        login_user(admin)
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 302
+        assert resp.location == f"/section/{user.id}/EMP/list"
+
+    if not user.orcid:
+        user.orcid = "XXXX-XXXX-XXXX-0001"
+        user.save()
+
+    token = OrcidToken.create(
+        user=user, org=user.organisation, access_token="ABC123", scope="/read-limited")
+
+    with request_ctx(f"/section/{user.id}/EMP/1212/delete", method="POST") as ctx:
+        login_user(admin)
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 302
+        assert resp.location == f"/section/{user.id}/EMP/list"
+
+    token.scope = "/read-limited,/activities/update"
+    token.save()
+
+    with patch.object(
+            orcid_client.MemberAPIV20Api,
+            "delete_employment",
+            MagicMock(
+                return_value='{"test": "TEST1234567890"}')) as delete_employment, request_ctx(
+                    f"/section/{user.id}/EMP/12345/delete", method="POST") as ctx:
+        login_user(admin)
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 302
+        delete_employment.assert_called_once_with("XXXX-XXXX-XXXX-0001", 12345)
+
+    with patch.object(
+            orcid_client.MemberAPIV20Api,
+            "delete_education",
+            MagicMock(return_value='{"test": "TEST1234567890"}')) as delete_education, request_ctx(
+                f"/section/{user.id}/EDU/54321/delete", method="POST") as ctx:
+        login_user(admin)
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 302
+        delete_education.assert_called_once_with("XXXX-XXXX-XXXX-0001", 54321)
 
 
 def test_viewmemebers(request_ctx):
