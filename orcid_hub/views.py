@@ -1078,25 +1078,22 @@ def reset_all():
     return redirect(_url)
 
 
-@app.route("/<int:user_id>/emp/<int:put_code>/delete", methods=["POST"])
+@app.route("/section/<int:user_id>/<string:section_type>/<int:put_code>/delete", methods=["POST"])
 @roles_required(Role.ADMIN)
-def delete_employment(user_id, put_code=None):
-    """Delete an employment record."""
+def delete_record(user_id, section_type, put_code):
+    """Delete an employment or education record."""
     _url = request.args.get("url") or request.referrer or url_for(
-        "employment_list", user_id=user_id)
-    if put_code is None and "put_code" in request.form:
-        put_code = request.form.get("put_code")
+        "section", user_id=user_id, section_type=section_type)
     try:
         user = User.get(id=user_id, organisation_id=current_user.organisation_id)
     except Exception:
-        flash("ORCID HUB doent have data related to this researcher", "warning")
+        flash("ORCID HUB doesn't have data related to this researcher", "warning")
         return redirect(url_for('viewmembers.index_view'))
     if not user.orcid:
         flash("The user hasn't yet linked their ORCID record", "danger")
         return redirect(_url)
 
     orcid_token = None
-
     try:
         orcid_token = OrcidToken.get(
             user=user,
@@ -1111,39 +1108,29 @@ def delete_employment(user_id, put_code=None):
 
     try:
         # Delete an Employment
-        api_instance.delete_employment(user.orcid, put_code)
-        app.logger.info("For %r employment record was deleted by %r", user.orcid, current_user)
-        flash("Employment record successfully deleted.", "success")
+        if section_type == "EMP":
+            api_instance.delete_employment(user.orcid, put_code)
+        else:
+            api_instance.delete_education(user.orcid, put_code)
+        app.logger.info(f"For {user.orcid} '{section_type}' record was deleted by {current_user}")
+        flash("The record was successfully deleted.", "success")
     except ApiException as e:
-        message = json.loads(e.body.replace("''", "\"")).get('user-messsage')
-        flash("Failed to delete the entry: %s" % message, "danger")
+        flash("Failed to delete the entry: " +
+              json.loads(e.body.replace("''", "\"")).get('user-messsage'), "danger")
     except Exception as ex:
         app.logger.error("For %r encountered exception: %r", user, ex)
         abort(500, ex)
     return redirect(_url)
 
 
-@app.route("/<int:user_id>/edu/<int:put_code>/edit", methods=["GET", "POST"])
-@app.route("/<int:user_id>/edu/new", methods=["GET", "POST"])
+@app.route("/section/<int:user_id>/<string:section_type>/<int:put_code>/edit", methods=["GET", "POST"])
+@app.route("/section/<int:user_id>/<string:section_type>/new", methods=["GET", "POST"])
 @roles_required(Role.ADMIN)
-def education(user_id, put_code=None):
-    """Create a new or edit an existing employment record."""
-    return edit_section_record(user_id, put_code, "EDU")
-
-
-@app.route("/<int:user_id>/emp/<int:put_code>/edit", methods=["GET", "POST"])
-@app.route("/<int:user_id>/emp/new", methods=["GET", "POST"])
-@roles_required(Role.ADMIN)
-def employment(user_id, put_code=None):
-    """Create a new or edit an existing employment record."""
-    return edit_section_record(user_id, put_code, "EMP")
-
-
-def edit_section_record(user_id, put_code=None, section_type="EMP"):
+def edit_record(user_id, section_type, put_code=None):
     """Create a new or edit an existing profile section record."""
     section_type = section_type.upper()[:3]
-    _url = (request.args.get("url") or url_for("employment_list", user_id=user_id)
-            if section_type == "EMP" else url_for("edu_list", user_id=user_id))
+    _url = (request.args.get("url")
+            or url_for("section", user_id=user_id, section_type=section_type))
 
     org = current_user.organisation
     try:
@@ -1241,27 +1228,17 @@ def edit_section_record(user_id, put_code=None, section_type="EMP"):
     return render_template("profile_entry.html", section_type=section_type, form=form, _url=_url)
 
 
-@app.route("/<int:user_id>/emp/list")
-@app.route("/<int:user_id>/emp")
+@app.route("/section/<int:user_id>/<string:section_type>/list")
 @login_required
-def employment_list(user_id):
-    """Show the employmen list of the selected user."""
-    return show_record_section(user_id, "EMP")
-
-
-@app.route("/<int:user_id>/edu/list")
-@app.route("/<int:user_id>/edu")
-@login_required
-def edu_list(user_id):
-    """Show the education list of the selected user."""
-    return show_record_section(user_id, "EDU")
-
-
-def show_record_section(user_id, section_type="EMP"):
-    """Show all user profile section list."""
+def section(user_id, section_type="EMP"):
+    """Show all user profile section list (either 'Education' or 'Employment')."""
     _url = request.args.get("url") or request.referrer or url_for("viewmembers.index_view")
 
     section_type = section_type.upper()[:3]  # normalize the section type
+    if section_type not in ["EDU", "EMP", ]:
+        flash("Incorrect user profile section", "danger")
+        return redirect(_url)
+
     try:
         user = User.get(id=user_id, organisation_id=current_user.organisation_id)
     except Exception:
@@ -1286,15 +1263,14 @@ def show_record_section(user_id, section_type="EMP"):
         # Fetch all entries
         if section_type == "EMP":
             api_response = api_instance.view_employments(user.orcid)
-        elif section_type == "EDU":
+        else:  # section_type == "EDU
             api_response = api_instance.view_educations(user.orcid)
     except ApiException as ex:
-        message = json.loads(ex.body.replace("''", "\"")).get('user-messsage')
         if ex.status == 401:
             flash("User has revoked the permissions to update his/her records", "warning")
         else:
-            flash("Exception when calling MemberAPIV20Api->view_employments: %s\n" % message,
-                  "danger")
+            flash("Exception when calling ORCID API: \n" +
+                  json.loads(ex.body.replace("''", "\"")).get('user-messsage'), "danger")
         return redirect(_url)
     except Exception as ex:
         abort(500, ex)
@@ -1310,20 +1286,14 @@ def show_record_section(user_id, section_type="EMP"):
         app.logger.exception(f"For {user} encountered exception")
         return redirect(_url)
     # TODO: transform data for presentation:
-    if section_type == "EMP":
-        return render_template(
-            "employments.html",
-            url=_url,
-            data=data,
-            user_id=user_id,
-            org_client_id=user.organisation.orcid_client_id)
-    elif section_type == "EDU":
-        return render_template(
-            "educations.html",
-            url=_url,
-            data=data,
-            user_id=user_id,
-            org_client_id=user.organisation.orcid_client_id)
+    records = data.get("education_summary" if section_type == "EDU" else "employment_summary", [])
+    return render_template(
+        "section.html",
+        url=_url,
+        records=records,
+        section_type=section_type,
+        user_id=user_id,
+        org_client_id=user.organisation.orcid_client_id)
 
 
 @app.route("/load/org", methods=["GET", "POST"])
