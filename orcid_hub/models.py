@@ -260,9 +260,26 @@ class BaseModel(Model):
         """Get the class name of the model."""
         return cls._meta.name
 
-    def to_dict(self):
+    def to_dict(self,
+                recurse=True,
+                backrefs=False,
+                only=None,
+                exclude=None,
+                seen=None,
+                extra_attrs=None,
+                fields_from_query=None,
+                max_depth=None):
         """Get dictionary representation of the model."""
-        return model_to_dict(self)
+        return model_to_dict(
+            self,
+            recurse=recurse,
+            backrefs=backrefs,
+            only=only,
+            exclude=exclude,
+            seen=seen,
+            extra_attrs=extra_attrs,
+            fields_from_query=fields_from_query,
+            max_depth=max_depth)
 
     def reload(self):
         """Refresh the object from the DB."""

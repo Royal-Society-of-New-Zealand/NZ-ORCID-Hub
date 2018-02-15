@@ -5,13 +5,14 @@ from flask import current_app, jsonify, render_template, request, url_for
 from flask.views import MethodView
 from flask_peewee.rest import RestResource
 from flask_peewee.utils import slugify
+from flask_restful import Resource
 from flask_swagger import swagger
 from werkzeug.exceptions import NotFound
 from flask_peewee_swagger.swagger import Swagger
 
-from . import api, app, models, oauth
+from . import data_api, api, app, models, oauth
 from .login_provider import roles_required
-from .models import EMAIL_REGEX, ORCID_ID_REGEX, OrcidToken, Role, User, UserOrg
+from .models import EMAIL_REGEX, ORCID_ID_REGEX, OrcidToken, Role, User, UserOrg, Task
 
 
 class AppRestResource(RestResource):
@@ -66,10 +67,10 @@ class UserResource(AppRestResource):
     )
 
 
-api.register(models.Organisation, AppRestResource)
-api.register(models.Task, AppRestResource)
-api.register(models.User, UserResource)
-api.setup()
+data_api.register(models.Organisation, AppRestResource)
+data_api.register(models.Task, AppRestResource)
+data_api.register(models.User, UserResource)
+data_api.setup()
 
 
 common_spec = {
@@ -89,8 +90,8 @@ common_spec = {
     },
 }
 
-api_swagger = Swagger(api, swagger_version="2.0", extras=common_spec)
-api_swagger.setup()
+data_api_swagger = Swagger(data_api, swagger_version="2.0", extras=common_spec)
+data_api_swagger.setup()
 
 
 @app.route('/api/me')
@@ -100,6 +101,19 @@ def me():
     """Get the token user data."""
     user = request.oauth.user
     return jsonify(email=user.email, name=user.name)
+
+
+class TaskAPI(Resource):
+    """Task services."""
+
+    def get(self, task_id):
+
+        task = Task.get(id=task_id)
+        # import pdb; pdb.set_trace()
+        return jsonify(task.to_dict(max_depth=2))
+
+
+api.add_resource(TaskAPI, "/api/v0.1/tasks/<int:task_id>")
 
 
 class UserAPI(MethodView):
