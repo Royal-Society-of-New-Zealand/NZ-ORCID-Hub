@@ -37,6 +37,22 @@ def test_process_task_from_csv_with_failures(request_ctx):
         assert rec.processed_at is not None
 
 
+def test_upload_affiliation_with_wrong_country(request_ctx):
+    """Test task loading and processing with failures."""
+    org = Organisation.get(name="TEST0")
+    super_user = User.get(email="admin@test0.edu")
+    with patch("emails.html") as mock_msg, request_ctx("/") as ctx:
+        login_user(super_user)
+        # flake8: noqa
+        with pytest.raises(ModelException):
+            task = Task.load_from_csv(
+                """First name\tLast name\temail address\tOrganisation\tCampus/Department\tCity\tCourse or Job title\tStart date\tEnd date\tStudent/Staff\tCountry
+FNA\tLBA\taaa.lnb@test.com\tTEST1\tResearch Funding\tWellington\tProgramme Manager - ORCID\t2016-09\t\tStaff\tNO COUNTRY
+        """,
+                filename="TEST.tsv",
+                org=org)
+
+
 def test_process_tasks(request_ctx):
     """Test expiration data setting and deletion of the exprired tasks."""
     org = Organisation.get(name="TEST0")
@@ -45,8 +61,8 @@ def test_process_tasks(request_ctx):
         login_user(super_user)
         # flake8: noqa
         task = Task.load_from_csv(
-            """First name	Last name	email address	Organisation	Campus/Department	City	Course or Job title	Start date	End date	Student/Staff
-    FNA	LBA	aaa.lnb123@test.com	TEST1	Research Funding	Wellington	Programme Manager - ORCID	2016-09		Staff
+            """First name	Last name	email address	Organisation	Campus/Department	City	Course or Job title\tStart date	End date	Student/Staff\tCountry
+    FNA	LBA	aaa.lnb123@test.com	TEST1	Research Funding	Wellington	Programme Manager - ORCID	2016-09		Staff\tNew Zealand
     """,
             filename="TEST_TASK.tsv",
             org=org)
