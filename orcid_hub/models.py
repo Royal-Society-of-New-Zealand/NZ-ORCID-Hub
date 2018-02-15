@@ -906,15 +906,21 @@ class Task(BaseModel, AuditMixin):
 
                     email = val(row, 2, "").lower()
                     orcid = val(row, 15)
+                    external_id = val(row, 16)
+                    if not email and not orcid and external_id and EMAIL_REGEX.match(external_id):
+                        # if email is missing and exernal ID is given as a valid email, use it:
+                        email = external_id
 
                     # The uploaded country must be from ISO 3166-1 alpha-2
-                    country_alpha_2 = [(c.alpha_2) for c in countries]
-                    uploaded_country = val(row, 11)
+                    country = val(row, 11)
 
-                    if uploaded_country and uploaded_country not in country_alpha_2:
-                        raise ModelException(
-                            f" (Country must be 2 character from ISO 3166-1 alpha-2) in the row "
-                            f"#{row_no+2}: {row}. Header: {header}")
+                    if country:
+                        try:
+                            country = countries.lookup(country).alpha_2
+                        except Exception:
+                            raise ModelException(
+                                f" (Country must be 2 character from ISO 3166-1 alpha-2) in the row "
+                                f"#{row_no+2}: {row}. Header: {header}")
 
                     if not (email or orcid):
                         raise ModelException(
@@ -950,12 +956,12 @@ class Task(BaseModel, AuditMixin):
                         start_date=PartialDate.create(val(row, 8)),
                         end_date=PartialDate.create(val(row, 9)),
                         affiliation_type=affiliation_type,
-                        country=val(row, 11),
+                        country=country,
                         disambiguated_id=val(row, 12),
                         disambiguated_source=val(row, 13),
                         put_code=val(row, 14),
                         orcid=orcid,
-                        external_id=val(row, 16))
+                        external_id=external_id)
                     validator = ModelValidator(af)
                     if not validator.validate():
                         raise ModelException(f"Invalid record: {validator.errors}")

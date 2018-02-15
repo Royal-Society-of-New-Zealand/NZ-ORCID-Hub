@@ -45,8 +45,8 @@ def test_process_tasks(request_ctx):
         login_user(super_user)
         # flake8: noqa
         task = Task.load_from_csv(
-            """First name	Last name	email address	Organisation	Campus/Department	City	Course or Job title	Start date	End date	Student/Staff
-    FNA	LBA	aaa.lnb123@test.com	TEST1	Research Funding	Wellington	Programme Manager - ORCID	2016-09		Staff
+            """First name	Last name	email address	Organisation	Campus/Department	City	Course or Job title\tStart date	End date	Student/Staff\tCountry
+    FNA	LBA	aaa.lnb123@test.com	TEST1	Research Funding	Wellington	Programme Manager - ORCID	2016-09		Staff\tNew Zealand
     """,
             filename="TEST_TASK.tsv",
             org=org)
