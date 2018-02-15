@@ -1379,6 +1379,25 @@ def load_researcher_funding():
     return render_template("fileUpload.html", form=form, form_title="Funding")
 
 
+@app.route("/load/researcher/work", methods=["GET", "POST"])
+@roles_required(Role.ADMIN)
+def load_researcher_work():
+    """Preload researcher's work data."""
+    form = JsonOrYamlFileUploadForm()
+    if form.validate_on_submit():
+        # filename = secure_filename(form.file_.data.filename)
+        try:
+            '''
+            task = WorkRecord.load_from_json(read_uploaded_file(form), filename=filename)
+            flash(f"Successfully loaded {task.record_work_count} rows.")
+            return redirect(url_for("workrecord.index_view", task_id=task.id))'''
+        except Exception as ex:
+            flash(f"Failed to load work record file: {ex}", "danger")
+            app.logger.exception("Failed to load work records.")
+
+    return render_template("fileUpload.html", form=form, form_title="Work")
+
+
 @app.route("/orcid_api_rep", methods=["GET", "POST"])
 @roles_required(Role.SUPERUSER)
 def orcid_api_rep():

@@ -1290,6 +1290,67 @@ class FundingRecord(RecordModel):
         table_alias = "fr"
 
 
+class WorkRecord(RecordModel):
+    """Work record loaded from Json file for batch processing."""
+
+    task = ForeignKeyField(Task, related_name="work_record", on_delete="CASCADE")
+    title = CharField(max_length=255)
+    sub_title = CharField(null=True, max_length=255)
+    translated_title = CharField(null=True, max_length=255)
+    translated_title_language_code = CharField(null=True, max_length=10)
+    journal_title = CharField(null=True, max_length=255)
+    short_description = CharField(null=True, max_length=4000)
+    citation_type = CharField(max_length=255)
+    citation_value = CharField(max_length=255)
+    type = CharField(null=True, max_length=255)
+    publication_date = PartialDateField(null=True)
+    publication_media_type = CharField(null=True, max_length=255)
+    url = CharField(null=True, max_length=255)
+    language_code = CharField(null=True, max_length=10)
+    country = CharField(null=True, max_length=255)
+    visibility = CharField(null=True, max_length=100)
+
+    is_active = BooleanField(
+        default=False, help_text="The record is marked for batch processing", null=True)
+    processed_at = DateTimeField(null=True)
+    status = TextField(null=True, help_text="Record processing status.")
+
+    @classmethod
+    def load_from_json(cls, source, filename=None, org=None):
+        """Load data from CSV file or a string."""
+
+    class Meta:  # noqa: D101,D106
+        db_table = "work_record"
+        table_alias = "wr"
+
+
+class WorkContributor(BaseModel):
+    """Researcher or contributor - related to work."""
+
+    work_record = ForeignKeyField(
+        WorkRecord, related_name="work_contributors", on_delete="CASCADE")
+
+    contributor_sequence = CharField(max_length=120, null=True)
+
+    # Have to reuse the fundingcontributors table
+    '''orcid = OrcidIdField(null=True)
+    name = CharField(max_length=120, null=True)
+    email = CharField(max_length=120, null=True)
+    role = CharField(max_length=120, null=True)
+    status = TextField(null=True, help_text="Record processing status.")
+    put_code = IntegerField(null=True)
+    processed_at = DateTimeField(null=True)'''
+
+    def add_status_line(self, line):
+        """Add a text line to the status for logging processing progress."""
+        ts = datetime.utcnow().isoformat(timespec="seconds")
+        self.status = (self.status + "\n" if self.status else '') + ts + ": " + line
+
+    class Meta:  # noqa: D101,D106
+        db_table = "work_contributor"
+        table_alias = "wc"
+
+
 class FundingContributor(BaseModel):
     """Researcher or contributor - reciever of the funding."""
 
