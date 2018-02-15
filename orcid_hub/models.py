@@ -74,10 +74,10 @@ def validate_orcid_id(value):
 
 
 class PartialDate(namedtuple("PartialDate", ["year", "month", "day"])):
-    """Partial date (without month day or both moth and month day."""
+    """Partial date (without month day or both month and month day."""
 
     def as_orcid_dict(self):
-        """Return ORCID dictionry representation of the partial date."""
+        """Return ORCID dictionary representation of the partial date."""
         if self.year is None and self.month is None and self.day is None:
             return None
         return dict(((f, None if v is None else {
@@ -1073,6 +1073,7 @@ class TaskType(IntFlag):
 
     AFFILIATION = 0  # Affilation of employment/education
     FUNDING = 1  # Funding
+    WORK = 2
 
     def __eq__(self, other):
         if isinstance(other, TaskType):
@@ -1324,38 +1325,9 @@ class WorkRecord(RecordModel):
         table_alias = "wr"
 
 
-class WorkContributor(BaseModel):
-    """Researcher or contributor - related to work."""
+class ContributorModel(BaseModel):
+    """Common model bits of the contributor records."""
 
-    work_record = ForeignKeyField(
-        WorkRecord, related_name="work_contributors", on_delete="CASCADE")
-
-    contributor_sequence = CharField(max_length=120, null=True)
-
-    # Have to reuse the fundingcontributors table
-    '''orcid = OrcidIdField(null=True)
-    name = CharField(max_length=120, null=True)
-    email = CharField(max_length=120, null=True)
-    role = CharField(max_length=120, null=True)
-    status = TextField(null=True, help_text="Record processing status.")
-    put_code = IntegerField(null=True)
-    processed_at = DateTimeField(null=True)'''
-
-    def add_status_line(self, line):
-        """Add a text line to the status for logging processing progress."""
-        ts = datetime.utcnow().isoformat(timespec="seconds")
-        self.status = (self.status + "\n" if self.status else '') + ts + ": " + line
-
-    class Meta:  # noqa: D101,D106
-        db_table = "work_contributor"
-        table_alias = "wc"
-
-
-class FundingContributor(BaseModel):
-    """Researcher or contributor - reciever of the funding."""
-
-    funding_record = ForeignKeyField(
-        FundingRecord, related_name="contributors", on_delete="CASCADE")
     orcid = OrcidIdField(null=True)
     name = CharField(max_length=120, null=True)
     email = CharField(max_length=120, null=True)
@@ -1369,20 +1341,55 @@ class FundingContributor(BaseModel):
         ts = datetime.utcnow().isoformat(timespec="seconds")
         self.status = (self.status + "\n" if self.status else '') + ts + ": " + line
 
+
+class WorkContributor(ContributorModel):
+    """Researcher or contributor - related to work."""
+
+    work_record = ForeignKeyField(
+        WorkRecord, related_name="work_contributors", on_delete="CASCADE")
+    contributor_sequence = CharField(max_length=120, null=True)
+
+    class Meta:  # noqa: D101,D106
+        db_table = "work_contributor"
+        table_alias = "wc"
+
+
+class FundingContributor(ContributorModel):
+    """Researcher or contributor - reciever of the funding."""
+
+    funding_record = ForeignKeyField(
+        FundingRecord, related_name="contributors", on_delete="CASCADE")
+
     class Meta:  # noqa: D101,D106
         db_table = "funding_contributor"
         table_alias = "fc"
 
 
-class ExternalId(BaseModel):
-    """Funding ExternalId loaded for batch processing."""
+class ExternalIdModel(BaseModel):
+    """Common model bits of the ExternalId records."""
 
-    funding_record = ForeignKeyField(
-        FundingRecord, related_name="external_ids", on_delete="CASCADE")
     type = CharField(max_length=255)
     value = CharField(max_length=255)
     url = CharField(max_length=200, null=True)
     relationship = CharField(max_length=255, null=True)
+
+
+class WorkExternalId(ExternalIdModel):
+    """Work ExternalId loaded for batch processing."""
+
+    work_record = ForeignKeyField(
+        WorkRecord, related_name="external_ids", on_delete="CASCADE")
+
+    class Meta:  # noqa: D101,D106
+        db_table = "work_external_id"
+        table_alias = "wei"
+
+
+class ExternalId(ExternalIdModel):
+    """Funding ExternalId loaded for batch processing."""
+
+    funding_record = ForeignKeyField(
+        FundingRecord, related_name="external_ids", on_delete="CASCADE")
 
     class Meta:  # noqa: D101,D106
         db_table = "external_id"
@@ -1593,6 +1600,9 @@ def create_tables():
             Url,
             UserInvitation,
             FundingRecord,
+            WorkRecord,
+            WorkContributor,
+            WorkExternalId,
             FundingContributor,
             ExternalId,
             Client,
