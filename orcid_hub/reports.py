@@ -45,7 +45,8 @@ def user_summary():  # noqa: D103
         fn.COALESCE(user_counts.c.user_count, 0).alias("user_count"),
         fn.COALESCE(linked_counts.c.linked_user_count, 0).alias("linked_user_count")).join(
             user_counts, on=(Organisation.id == user_counts.c.org_id)).join(
-                linked_counts, JOIN.LEFT_OUTER, on=(Organisation.id == linked_counts.c.org_id)))
+                linked_counts, JOIN.LEFT_OUTER,
+                on=(Organisation.id == linked_counts.c.org_id)).order_by(Organisation.name))
 
     total_user_count = sum(r.user_count for r in query if r.user_count)
     total_linked_user_count = sum(r.linked_user_count for r in query if r.linked_user_count)
