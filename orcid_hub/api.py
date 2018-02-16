@@ -1,22 +1,25 @@
 """HUB API."""
 
 import yaml
+from flask_login import login_user, current_user
 from flask import current_app, jsonify, render_template, request, url_for
 from flask.views import MethodView
 from flask_peewee.rest import RestResource
 from flask_peewee.utils import slugify
-from flask_restful import Resource
+from flask_restful import Resource, reqparse
 from flask_swagger import swagger
 from werkzeug.exceptions import NotFound
 from flask_peewee_swagger.swagger import Swagger
 
 from . import data_api, api, app, models, oauth
 from .login_provider import roles_required
-from .models import EMAIL_REGEX, ORCID_ID_REGEX, OrcidToken, Role, User, UserOrg, Task
+from .models import EMAIL_REGEX, ORCID_ID_REGEX, AffiliationRecord, OrcidToken, Role, User, UserOrg, Task, TaskType
 
 
 class AppRestResource(RestResource):
     """Application REST Resource."""
+
+    allowed_methods = ["GET", "PATCH", "POST", "PUT", "DELETE"]
 
     def get_api_name(self):
         """Pluralize the name based on the model."""
@@ -103,20 +106,174 @@ def me():
     return jsonify(email=user.email, name=user.name)
 
 
-class TaskAPI(Resource):
+class TaskResource(Resource):
+
+    decorators = [
+        oauth.require_oauth(),
+    ]
+
+    available_task_types = [t.name for t in TaskType]
+
+    def dispatch_request(self, *args, **kwargs):
+        """Do some pre-handling..."""
+        # import pdb; pdb.set_trace()
+        parser = reqparse.RequestParser()
+        parser.add_argument(
+            "type", type=str, help="Task type: " + ", ".join(self.available_task_types))
+        task_type = parser.parse_args().get("type")
+        self.task_type = None if task_type is None else TaskType[task_type]
+        return super().dispatch_request(*args, **kwargs)
+
+    def jsonify_task(self, task):
+        task_dict = task.to_dict(
+            recurse=False,
+            to_dashes=True,
+            exclude=[Task.created_by, Task.updated_by, Task.org, Task.task_type])
+        task_dict["task-type"] = TaskType(task.task_type).name
+        if TaskType(task.task_type) == TaskType.AFFILIATION:
+            # import pdb; pdb.set_trace()
+            records = task.affiliationrecord_set
+        else:
+            records = task.funding_records
+        task_dict["records"] = [r.to_dict(to_dashes=True, recurse=False, exclude=[AffiliationRecord.task]) for r in records]
+        return jsonify(task_dict)
+
+
+class TaskList(TaskResource):
+    """Task list services."""
+
+    def get(self, *args, **kwargs):
+        """
+        Retrieve the list of all submitted task.
+
+        ---
+        tags:
+          - "tasks"
+        summary: "Retrieve the list of all submitted task."
+        description: "Retrieve the list of all submitted task."
+        produces:
+          - "application/json"
+        parameters:
+          - name: "type"
+            in: "path"
+            description: "The task type: AFFILIATION, FUNDING."
+            required: false
+            type: "string"
+        responses:
+          200:
+            description: "successful operation"
+            schema:
+              id: TaskListApiResponse
+              type: array
+              items:
+                type: object
+          403:
+            description: "Access Denied"
+        """
+        return jsonify([
+                t.to_dict(
+                    recurse=False,
+                    to_dashes=True,
+                    exclude=[Task.created_by, Task.updated_by, Task.org, Task.task_type])
+                for t in Task.select()
+        ])
+
+    def post(self):
+        """Upload the task."""
+        login_user(request.oauth.user)
+        # import pdb; pdb.set_trace()
+        if self.task_type == TaskType.AFFILIATION:
+            if request.content_type == "text/csv":
+                task = Task.load_from_csv(request.data.decode("utf-8"))
+        return self.jsonify_task(task)
+
+
+class TaskAPI(TaskResource):
     """Task services."""
 
     def get(self, task_id):
+        return self.jsonify_task(Task.get(id=task_id))
 
+    def post(self, task_id):
+        """Upload the task."""
+        pass
+
+    def patch(self, task_id):
+        """Update the task."""
+        import pdb; pdb.set_trace()
         task = Task.get(id=task_id)
-        # import pdb; pdb.set_trace()
-        return jsonify(task.to_dict(max_depth=2))
+        for row in request.get_json():
+            if "id" in row:
+                rec = AffiliationRecord.get(id=row["id"])
+                for k, v in row.items():
+                    k = k.replace('-', '_')
+                    if k in rec._data and rec._data[k] != v:
+                        rec._data[k] = v
+                if rec.is_dirty():
+                    rec.save()
+        return self.jsonify_task(task)
 
 
 api.add_resource(TaskAPI, "/api/v0.1/tasks/<int:task_id>")
+api.add_resource(TaskList, "/api/v0.1/tasks")
 
 
-class UserAPI(MethodView):
+class UserListAPI(Resource):
+    """User list data service."""
+
+    decorators = [
+        oauth.require_oauth(),
+    ]
+
+    def get(self, identifier=None):
+        """
+        Return the list of the user belonging to the organisation.
+
+        ---
+        tags:
+          - "users"
+        summary: "Retrieve the list of all users."
+        description: "Retrieve the list of all users."
+        produces:
+          - "application/json"
+        responses:
+          200:
+            description: "successful operation"
+            schema:
+              id: UserListApiResponse
+              properties:
+                users:
+                  type: array
+                  items:
+                    type: "object"
+                    properties:
+                      name:
+                        type: string
+                      orcid:
+                        type: "string"
+                        description: "User ORCID ID"
+                      email:
+                        type: "string"
+                      eppn:
+                        type: "string"
+          400:
+            description: "Invalid identifier supplied"
+          403:
+            description: "Access Denied"
+        """
+        login_user(request.oauth.user)
+        return jsonify({
+            "users": [
+                u.to_dict(recurse=False, to_dashes=True)
+                for u in User.select().where(User.organisation == current_user.organisation)
+            ]
+        })
+
+
+api.add_resource(UserListAPI, "/api/v0.1/users")
+
+
+class UserAPI(Resource):
     """User data service."""
 
     decorators = [
@@ -197,10 +354,12 @@ class UserAPI(MethodView):
         }), 200
 
 
-app.add_url_rule(
-    "/api/v0.1/users/<identifier>", view_func=UserAPI.as_view("users"), methods=[
-        "GET",
-    ])
+# app.add_url_rule(
+#     "/api/v0.1/users/<identifier>", view_func=UserAPI.as_view("users"), methods=[
+#         "GET",
+#     ])
+
+api.add_resource(UserAPI, "/api/v0.1/users/<identifier>")
 
 
 class TokenAPI(MethodView):

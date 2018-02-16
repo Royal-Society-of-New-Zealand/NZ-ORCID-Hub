@@ -260,7 +260,16 @@ class BaseModel(Model):
         """Get the class name of the model."""
         return cls._meta.name
 
+    def __to_dashes(self, o):
+        """Replace '_' with '-' in the dict keys."""
+        if isinstance(o, (list, tuple)):
+            return [self.__to_dashes(e) for e in o]
+        elif isinstance(o, dict):
+            return {k.replace('_', '-'): self.__to_dashes(v) for k, v in o.items()}
+        return o
+
     def to_dict(self,
+                to_dashes=False,
                 recurse=True,
                 backrefs=False,
                 only=None,
@@ -270,7 +279,7 @@ class BaseModel(Model):
                 fields_from_query=None,
                 max_depth=None):
         """Get dictionary representation of the model."""
-        return model_to_dict(
+        o = model_to_dict(
             self,
             recurse=recurse,
             backrefs=backrefs,
@@ -280,6 +289,12 @@ class BaseModel(Model):
             extra_attrs=extra_attrs,
             fields_from_query=fields_from_query,
             max_depth=max_depth)
+        for k, v in o.items():
+            if isinstance(v, PartialDate):
+                o[k] = str(v)
+        if to_dashes:
+            return self.__to_dashes(o)
+        return o
 
     def reload(self):
         """Refresh the object from the DB."""

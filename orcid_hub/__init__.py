@@ -56,7 +56,7 @@ limiter = Limiter(
     app,
     headers_enabled=True,
     default_limits=[
-        "40 per second",  # burst
+        "40 per second",  # burst: 40/sec
         "1440 per minute",  # allowed max: 24/sec
     ])
 DATABASE_URL = app.config.get("DATABASE_URL")
@@ -74,12 +74,26 @@ class JSONEncoder(_JSONEncoder):
     """date and datetime encoding into ISO format for JSON payload."""
 
     def default(self, o):
+
         if isinstance(o, datetime):
             return o.isoformat(timespec="seconds")
         elif isinstance(o, date):
             return o.isoformat()
 
         return super().default(o)
+
+    # def iterencode(self, o, _one_shot=False):
+    #     if isinstance(o, dict):
+    #         o = self.__to_dashes(o)
+    #     return super().iterencode(o, _one_shot)
+
+    # def __to_dashes(self, o):
+    #     """Replace '_' with '-' in the dict keys."""
+    #     if isinstance(o, (list, tuple)):
+    #         return [self.__to_dashes(e) for e in o]
+    #     elif isinstance(o, dict):
+    #         return {k.replace('_', '-'): self.__to_dashes(v) for k, v in o.items()}
+    #     return o
 
 
 app.json_encoder = JSONEncoder
