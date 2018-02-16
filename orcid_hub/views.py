@@ -40,7 +40,7 @@ from .login_provider import roles_required
 from .models import (Affiliation, AffiliationRecord, CharField, Client, File, FundingContributor,
                      FundingRecord, Grant, ModelException, OrcidApiCall, OrcidToken, Organisation,
                      OrgInfo, OrgInvitation, PartialDate, Role, Task, TextField, Token, Url, User,
-                     UserInvitation, UserOrg, UserOrgAffiliation, db)
+                     UserInvitation, UserOrg, UserOrgAffiliation, db, WorkRecord)
 # NB! Should be disabled in production
 from .pyinfo import info
 from .utils import generate_confirmation_token, get_next_url, send_user_invitation
@@ -1385,12 +1385,11 @@ def load_researcher_work():
     """Preload researcher's work data."""
     form = JsonOrYamlFileUploadForm()
     if form.validate_on_submit():
-        # filename = secure_filename(form.file_.data.filename)
+        filename = secure_filename(form.file_.data.filename)
         try:
-            '''
             task = WorkRecord.load_from_json(read_uploaded_file(form), filename=filename)
-            flash(f"Successfully loaded {task.record_work_count} rows.")
-            return redirect(url_for("workrecord.index_view", task_id=task.id))'''
+            flash(f"Successfully loaded {task.work_record_count} rows.")
+            # return redirect(url_for("workrecord.index_view", task_id=task.id))
         except Exception as ex:
             flash(f"Failed to load work record file: {ex}", "danger")
             app.logger.exception("Failed to load work records.")

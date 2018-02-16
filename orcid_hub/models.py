@@ -804,6 +804,7 @@ class Task(BaseModel, AuditMixin):
 
     __record_count = None
     __record_funding_count = None
+    __work_record_count = None
     org = ForeignKeyField(
         Organisation, index=True, verbose_name="Organisation", on_delete="SET NULL")
     completed_at = DateTimeField(null=True)
@@ -831,6 +832,13 @@ class Task(BaseModel, AuditMixin):
         if self.__record_funding_count is None:
             self.__record_funding_count = self.funding_records.count()
         return self.__record_funding_count
+
+    @property
+    def work_record_count(self):
+        """Get count of the loaded work records."""
+        if self.__work_record_count is None:
+            self.__work_record_count = self.work_record.count()
+        return self.__work_record_count
 
     @classmethod
     def load_from_csv(cls, source, filename=None, org=None):
@@ -1112,7 +1120,7 @@ class FundingRecord(RecordModel):
 
     @classmethod
     def load_from_json(cls, source, filename=None, org=None):
-        """Load data from CSV file or a string."""
+        """Load data from json file or a string."""
         if isinstance(source, str):
             # import data from file based on its extension; either it is yaml or json
             if os.path.splitext(filename)[1][1:] == "yaml" or os.path.splitext(
@@ -1318,7 +1326,163 @@ class WorkRecord(RecordModel):
 
     @classmethod
     def load_from_json(cls, source, filename=None, org=None):
-        """Load data from CSV file or a string."""
+        """Load data from JSON file or a string."""
+        if isinstance(source, str):
+            # import data from file based on its extension; either it is yaml or json
+            if os.path.splitext(filename)[1][1:] == "yaml" or os.path.splitext(
+                    filename)[1][1:] == "yml":
+                work_data_list = yaml.load(source)
+            else:
+                work_data_list = json.loads(source)
+
+            # Removing None for correct schema validation
+            if not isinstance(work_data_list, list):
+                raise SchemaError(
+                    u"Schema validation failed:\n - Expecting a list of Work records")
+
+            # TODO: validation of uploaded work file
+            '''for work_data in work_data_list:
+                validation_source_data = copy.deepcopy(work_data)
+                validation_source_data = WorkRecord.del_none(validation_source_data)
+
+                # Adding schema valdation for Work
+                validator = Core(
+                    source_data=validation_source_data, schema_files=["work_schema.yaml"])
+                validator.validate(raise_exception=True)'''
+
+            try:
+                if org is None:
+                    org = current_user.organisation if current_user else None
+                task = Task.create(org=org, filename=filename, task_type=TaskType.WORK)
+
+                for work_data in work_data_list:
+
+                    title = work_data.get("title").get("title").get("value") if \
+                        work_data.get("title") and work_data.get("title").get("title") and \
+                        work_data.get("title").get("title").get("value") else None
+
+                    sub_title = work_data.get("title").get("subtitle").get("value") if \
+                        work_data.get("title") and work_data.get("title").get("subtitle") and \
+                        work_data.get("title").get("subtitle").get("value") else None
+
+                    translated_title = work_data.get("title").get("translated-title").get("value") if \
+                        work_data.get("title") and work_data.get("title").get("translated-title") \
+                        and work_data.get("title").get("translated-title").get("value") else None
+
+                    translated_title_language_code = work_data.get("title").get(
+                        "translated-title").get(
+                            "language-code") if work_data.get("title") and work_data.get(
+                                "title").get("translated-title") and work_data.get("title").get(
+                                    "translated-title").get("language-code") else None
+
+                    journal_title = work_data.get("journal-title").get("value") if \
+                        work_data.get("journal-title") and work_data.get("journal-title").get("value") else None
+
+                    short_description = work_data.get("short-description") if work_data.get(
+                        "short-description") else None
+
+                    citation_type = work_data.get("citation").get("citation-type") if \
+                        work_data.get("citation") and work_data.get("citation").get("citation-type") else None
+
+                    citation_value = work_data.get("citation").get("citation-value") if \
+                        work_data.get("citation") and work_data.get("citation").get("citation-value") else None
+
+                    type = work_data.get("type") if work_data.get("type") else None
+
+                    # publication_date = PartialDate.create(work_data.get("publication-date"))
+
+                    publication_media_type = work_data.get("publication-date").get("media-type") if \
+                        work_data.get("publication-date") and work_data.get("publication-date").get("media-type") \
+                        else None
+
+                    url = work_data.get("url").get("value") if \
+                        work_data.get("url") and work_data.get("url").get("value") else None
+
+                    language_code = work_data.get("language-code") if work_data.get("language-code") else None
+
+                    country = work_data.get("country").get("value") if \
+                        work_data.get("country") and work_data.get("country").get("value") else None
+
+                    visibility = work_data.get("visibility") if work_data.get("visibility") else None
+
+                    work_record = WorkRecord.create(
+                        task=task,
+                        title=title,
+                        sub_title=sub_title,
+                        translated_title=translated_title,
+                        translated_title_language_code=translated_title_language_code,
+                        journal_title=journal_title,
+                        short_description=short_description,
+                        citation_type=citation_type,
+                        citation_value=citation_value,
+                        type=type,
+                        # publication_date=publication_date,
+                        publication_media_type=publication_media_type,
+                        url=url,
+                        language_code=language_code,
+                        country=country,
+                        visibility=visibility)
+
+                    contributors_list = work_data.get("contributors").get("contributor") if \
+                        work_data.get("contributors") else None
+
+                    if contributors_list:
+                        for contributor in contributors_list:
+                            orcid_id = None
+                            if contributor.get("contributor-orcid") and contributor.get(
+                                    "contributor-orcid").get("path"):
+                                orcid_id = contributor.get("contributor-orcid").get("path")
+
+                            name = contributor.get("credit-name").get("value") if \
+                                contributor.get("credit-name") else None
+
+                            email = contributor.get("contributor-email").get("value") if \
+                                contributor.get("contributor-email") else None
+
+                            role = contributor.get("contributor-attributes").get("contributor-role") if \
+                                contributor.get("contributor-attributes") else None
+
+                            contributor_sequence = contributor.get("contributor-attributes").get(
+                                "contributor-sequence") if contributor.get("contributor-attributes") else None
+
+                            put_code = contributor.get("put-code") if \
+                                contributor.get("put-code") else None
+
+                            WorkContributor.create(
+                                work_record=work_record,
+                                orcid=orcid_id,
+                                name=name,
+                                email=email.lower(),
+                                put_code=put_code,
+                                role=role,
+                                contributor_sequence=contributor_sequence)
+                    else:
+                        raise SchemaError(u"Schema validation failed:\n - "
+                                          u"Expecting contributors for which the work record will be written")
+
+                    external_ids_list = work_data.get("external-ids").get("external-id") if \
+                        work_data.get("external-ids") else None
+                    if external_ids_list:
+                        for external_id in external_ids_list:
+                            type = external_id.get("external-id-type")
+                            value = external_id.get("external-id-value")
+                            url = external_id.get("external-id-url").get("value") if \
+                                external_id.get("external-id-url") else None
+                            relationship = external_id.get("external-id-relationship")
+                            WorkExternalId.create(
+                                work_record=work_record,
+                                type=type,
+                                value=value,
+                                url=url,
+                                relationship=relationship)
+                    else:
+                        raise SchemaError(u"Schema validation failed:\n - An external identifier is required")
+
+                return task
+            except Exception as ex:
+                db.rollback()
+                app.logger.exception("Failed to laod affiliation file.")
+                raise
 
     class Meta:  # noqa: D101,D106
         db_table = "work_record"
