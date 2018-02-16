@@ -29,14 +29,14 @@ def user_summary():  # noqa: D103
 
     user_counts = (User.select(
         User.organisation.alias("org_id"),
-        fn.COUNT(User.id).alias("user_count")).where(
+        fn.COUNT(fn.DISTINCT(User.id)).alias("user_count")).where(
             User.created_at.between(form.from_date.data, form.to_date.data)).join(
                 UserOrg, JOIN.LEFT_OUTER, on=(UserOrg.org_id == User.id)).group_by(
                     User.organisation)).alias("user_counts")
 
     linked_counts = (OrcidToken.select(
         OrcidToken.org.alias("org_id"),
-        fn.COUNT(OrcidToken.user).alias("linked_user_count")).where(
+        fn.COUNT(fn.DISTINCT(OrcidToken.user)).alias("linked_user_count")).where(
             OrcidToken.created_at.between(form.from_date.data, form.to_date.data)).group_by(
                 OrcidToken.org).alias("linked_counts"))
 
@@ -45,7 +45,8 @@ def user_summary():  # noqa: D103
         fn.COALESCE(user_counts.c.user_count, 0).alias("user_count"),
         fn.COALESCE(linked_counts.c.linked_user_count, 0).alias("linked_user_count")).join(
             user_counts, on=(Organisation.id == user_counts.c.org_id)).join(
-                linked_counts, JOIN.LEFT_OUTER, on=(Organisation.id == linked_counts.c.org_id)))
+                linked_counts, JOIN.LEFT_OUTER,
+                on=(Organisation.id == linked_counts.c.org_id)).order_by(Organisation.name))
 
     total_user_count = sum(r.user_count for r in query if r.user_count)
     total_linked_user_count = sum(r.linked_user_count for r in query if r.linked_user_count)

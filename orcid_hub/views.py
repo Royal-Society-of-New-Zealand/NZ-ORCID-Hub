@@ -352,12 +352,23 @@ class UserAdmin(AppModelView):
 class OrganisationAdmin(AppModelView):
     """Organisation model view."""
 
+    column_formatters = {
+        "logo":
+        lambda v, c, m, p: Markup(
+            '<img style="max-height: 100px; max-width: 100px;" src="'
+            f"""{url_for('logo_image', token=m.logo.token)}" alt="the logo of {m.name}">""") if m.logo else ''
+    }
     column_exclude_list = (
         "orcid_client_id",
         "orcid_secret",
         "created_at",
-        "logo",
+        "updated_at",
+        "created_by",
+        "updated_by",
+        "email_template",
+        "email_template_enabled",
     )
+    form_excluded_columns = ("logo", )
     column_searchable_list = (
         "name",
         "tuakiri_name",
