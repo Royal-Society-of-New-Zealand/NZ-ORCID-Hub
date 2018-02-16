@@ -29,14 +29,14 @@ def user_summary():  # noqa: D103
 
     user_counts = (User.select(
         User.organisation.alias("org_id"),
-        fn.COUNT(User.id).alias("user_count")).where(
+        fn.COUNT(fn.DISTINCT(User.id)).alias("user_count")).where(
             User.created_at.between(form.from_date.data, form.to_date.data)).join(
                 UserOrg, JOIN.LEFT_OUTER, on=(UserOrg.org_id == User.id)).group_by(
                     User.organisation)).alias("user_counts")
 
     linked_counts = (OrcidToken.select(
         OrcidToken.org.alias("org_id"),
-        fn.COUNT(OrcidToken.user).alias("linked_user_count")).where(
+        fn.COUNT(fn.DISTINCT(OrcidToken.user)).alias("linked_user_count")).where(
             OrcidToken.created_at.between(form.from_date.data, form.to_date.data)).group_by(
                 OrcidToken.org).alias("linked_counts"))
 
