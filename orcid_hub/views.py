@@ -620,12 +620,10 @@ to the best of your knowledge, correct!""")
                     flash(f"{count} Affiliation records were reset for batch processing.")
 
 
-class ExternalIdAdmin(AppModelView):
-    """ExternalId model view."""
+class ExternalIdModelView(AppModelView):
+    """Combine ExternalId model view."""
 
     roles_required = Role.SUPERUSER | Role.ADMIN
-    list_template = "funding_externalid_list.html"
-    column_exclude_list = ("funding_record", )
 
     can_edit = True
     can_create = False
@@ -641,6 +639,20 @@ class ExternalIdAdmin(AppModelView):
             return False
 
         return True
+
+
+class ExternalIdAdmin(ExternalIdModelView):
+    """ExternalId model view."""
+
+    list_template = "funding_externalid_list.html"
+    column_exclude_list = ("funding_record", )
+
+
+class WorkExternalIdAdmin(ExternalIdModelView):
+    """WorkExternalId model view."""
+
+    list_template = "work_externalid_list.html"
+    column_exclude_list = ("work_record", )
 
 
 class FundingContributorAdmin(AppModelView):
@@ -966,6 +978,7 @@ admin.add_view(AffiliationRecordAdmin())
 admin.add_view(FundingRecordAdmin())
 admin.add_view(FundingContributorAdmin())
 admin.add_view(ExternalIdAdmin())
+admin.add_view(WorkExternalIdAdmin())
 admin.add_view(WorkRecordAdmin())
 admin.add_view(AppModelView(UserInvitation))
 admin.add_view(ViewMembersAdmin(name="viewmembers", endpoint="viewmembers"))
