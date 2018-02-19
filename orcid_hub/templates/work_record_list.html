@@ -77,12 +77,10 @@
 {% block list_row_actions %}
 {{ super() }}
 <div class="list-buttons-column">
-    <!--
-    <a class="icon" href="{{ url_for('fundingcontributor.index_view', funding_record_id=row.id, url=request.url) }}"
-       title="Funding Contributor">
+    <a class="icon" href="{{ url_for('workcontributor.index_view', work_record_id=row.id, url=request.url) }}"
+       title="Work Contributor">
         <spam class="fa fa-users glyphicon glyphicon-users icon"></spam>
     </a>
-    -->
     <a class="icon" href="{{ url_for('workexternalid.index_view', work_record_id=row.id, url=request.url) }}"
        title="Work ExternalId">
         <spam class="fa fa-external-link glyphicon glyphicon-users icon"></spam>

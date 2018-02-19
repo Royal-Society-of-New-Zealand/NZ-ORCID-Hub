@@ -655,12 +655,10 @@ class WorkExternalIdAdmin(ExternalIdModelView):
     column_exclude_list = ("work_record", )
 
 
-class FundingContributorAdmin(AppModelView):
-    """Funding record model view."""
+class ContributorModelAdmin(AppModelView):
+    """Combine contributor record model view."""
 
     roles_required = Role.SUPERUSER | Role.ADMIN
-    list_template = "funding_contributor_list.html"
-    column_exclude_list = ("funding_record", )
 
     can_edit = True
     can_create = False
@@ -670,7 +668,7 @@ class FundingContributorAdmin(AppModelView):
     form_widget_args = {"external_id": {"readonly": True}}
 
     def is_accessible(self):
-        """Verify if the funding contributor view is accessible for the current user."""
+        """Verify if the contributor view is accessible for the current user."""
         if not super().is_accessible():
             flash("Access denied! You cannot access this task.", "danger")
             return False
@@ -682,6 +680,7 @@ class FundingContributorAdmin(AppModelView):
     def action_reset(self, ids):
         """Batch reset of users."""
         with db.atomic():
+            # TODO: Also include the logic for resetting work record, same as funding record.
             try:
                 status = " The record was reset at " + datetime.utcnow().isoformat(timespec="seconds")
                 count = self.model.update(
@@ -697,6 +696,20 @@ class FundingContributorAdmin(AppModelView):
                 app.logger.exception("Failed to activate the selected records")
             else:
                 flash(f"{count} Funding Contributor records were reset for batch processing.")
+
+
+class FundingContributorAdmin(ContributorModelAdmin):
+    """Funding contributor record model view."""
+
+    list_template = "funding_contributor_list.html"
+    column_exclude_list = ("funding_record", )
+
+
+class WorkContributorAdmin(ContributorModelAdmin):
+    """Work contributor record model view."""
+
+    list_template = "work_contributor_list.html"
+    column_exclude_list = ("work_record", )
 
 
 class FundingRecordAdmin(RecordModelView):
@@ -978,6 +991,7 @@ admin.add_view(AffiliationRecordAdmin())
 admin.add_view(FundingRecordAdmin())
 admin.add_view(FundingContributorAdmin())
 admin.add_view(ExternalIdAdmin())
+admin.add_view(WorkContributorAdmin())
 admin.add_view(WorkExternalIdAdmin())
 admin.add_view(WorkRecordAdmin())
 admin.add_view(AppModelView(UserInvitation))
