@@ -566,7 +566,7 @@ class RecordModelView(AppModelView):
     @action("activate", "Activate for processing",
             """Are you sure you want to activate the selected records for batch processing?
 
-By clicking "OK" you are affirming that the affiliations or the funding records to be written are,
+By clicking "OK" you are affirming that the selected records to be written are,
 to the best of your knowledge, correct!""")
     def action_activate(self, ids):
         """Batch registraion of users."""
@@ -1065,6 +1065,10 @@ def activate_all():
             count = FundingRecord.update(is_active=True).where(
                 FundingRecord.task_id == task_id,
                 FundingRecord.is_active == False).execute()  # noqa: E712
+        elif task.task_type == 2:
+            count = WorkRecord.update(is_active=True).where(
+                WorkRecord.task_id == task_id,
+                WorkRecord.is_active == False).execute()  # noqa: E712
     except Exception as ex:
         flash(f"Failed to activate the selected records: {ex}")
         app.logger.exception("Failed to activate the selected records")

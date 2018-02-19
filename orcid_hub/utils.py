@@ -20,7 +20,7 @@ from peewee import JOIN
 from . import app, orcid_client
 from .models import (AFFILIATION_TYPES, Affiliation, AffiliationRecord, FundingContributor,
                      FundingRecord, OrcidToken, Organisation, Role, Task, TaskType, Url, User,
-                     UserInvitation, UserOrg)
+                     UserInvitation, UserOrg, WorkRecord, WorkContributor)
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -216,6 +216,72 @@ def set_server_name():
         else:
             app.config[
                 "SERVER_NAME"] = "orcidhub.org.nz" if ENV == "prod" else ENV + ".orcidhub.org.nz"
+
+
+def send_work_invitation(inviter, org, email, name, task_id=None, **kwargs):
+    """Send a work invitation to join ORCID Hub logging in via ORCID."""
+    try:
+        logger.info(f"*** Sending an Work invitation to '{name} <{email}>' "
+                    f"submitted by {inviter} of {org}")
+
+        email = email.lower()
+        user, user_created = User.get_or_create(email=email)
+        if user_created:
+            user.name = name
+            user.created_by = inviter.id
+        else:
+            user.updated_by = inviter.id
+
+        user.organisation = org
+        user.roles |= Role.RESEARCHER
+
+        token = generate_confirmation_token(email=email, org=org.name)
+        with app.app_context():
+            url = flask.url_for('orcid_login', invitation_token=token, _external=True)
+            invitation_url = flask.url_for(
+                "short_url", short_id=Url.shorten(url).short_id, _external=True)
+            send_email(
+                "email/work_invitation.html",
+                recipient=(user.organisation.name, user.email),
+                reply_to=(inviter.name, inviter.email),
+                invitation_url=invitation_url,
+                org_name=user.organisation.name,
+                org=org,
+                user=user)
+
+        user.save()
+
+        user_org, user_org_created = UserOrg.get_or_create(user=user, org=org)
+        if user_org_created:
+            user_org.created_by = inviter.id
+        else:
+            user_org.updated_by = inviter.id
+        user_org.affiliations = 0
+        user_org.save()
+
+        ui = UserInvitation.create(
+            task_id=task_id,
+            invitee_id=user.id,
+            inviter_id=inviter.id,
+            org=org,
+            email=email,
+            first_name=name,
+            affiliations=0,
+            organisation=org.name,
+            disambiguated_id=org.disambiguated_id,
+            disambiguation_source=org.disambiguation_source,
+            token=token)
+
+        status = "The invitation sent at " + datetime.utcnow().isoformat(timespec="seconds")
+        (WorkContributor.update(status=WorkContributor.status + "\n" + status).where(
+            WorkContributor.status.is_null(False), WorkContributor.email == email).execute())
+        (WorkContributor.update(status=status).where(
+            WorkContributor.status.is_null(), WorkContributor.email == email).execute())
+        return ui
+
+    except Exception as ex:
+        logger.error(f"Exception occured while sending mails {ex}")
+        raise ex
 
 
 def send_funding_invitation(inviter, org, email, name, task_id=None, **kwargs):
@@ -631,6 +697,100 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
                 AffiliationRecord.status.is_null(),
                 AffiliationRecord.email == user.email).execute())
             return
+
+
+def process_work_records(max_rows=20):
+    """Process uploaded work records."""
+    set_server_name()
+    task_ids = set()
+    work_ids = set()
+    """This query is to retrieve Tasks associated with work records, which are not processed but are active"""
+
+    tasks = (Task.select(
+        Task, WorkRecord, WorkContributor,
+        User, UserInvitation.id.alias("invitation_id"), OrcidToken).where(
+            WorkRecord.processed_at.is_null(), WorkContributor.processed_at.is_null(),
+            WorkRecord.is_active,
+            (OrcidToken.id.is_null(False) |
+             ((WorkContributor.status.is_null()) |
+              (WorkContributor.status.contains("sent").__invert__())))).join(
+                  WorkRecord, on=(Task.id == WorkRecord.task_id)).join(
+                      WorkContributor,
+                      on=(WorkRecord.id == WorkContributor.work_record_id)).join(
+                          User, JOIN.LEFT_OUTER,
+                          on=((User.email == WorkContributor.email) | (User.orcid == WorkContributor.orcid)))
+             .join(Organisation, JOIN.LEFT_OUTER, on=(Organisation.id == Task.org_id)).join(
+                 UserInvitation,
+                 JOIN.LEFT_OUTER,
+                 on=((UserInvitation.email == WorkContributor.email)
+                     & (UserInvitation.task_id == Task.id))).join(
+                         OrcidToken,
+                         JOIN.LEFT_OUTER,
+                         on=((OrcidToken.user_id == User.id)
+                             & (OrcidToken.org_id == Organisation.id)
+                             & (OrcidToken.scope.contains("/activities/update")))).limit(max_rows))
+
+    for (task_id, org_id, work_record_id, user), tasks_by_user in groupby(tasks, lambda t: (
+            t.id,
+            t.org_id,
+            t.work_record.id,
+            t.work_record.work_contributor.user,)):
+        """If we have the token associated to the user then update the work record, otherwise send him an invite"""
+        if (user.id is None or user.orcid is None or not OrcidToken.select().where(
+            (OrcidToken.user_id == user.id) & (OrcidToken.org_id == org_id) &
+            (OrcidToken.scope.contains("/activities/update"))).exists()):  # noqa: E127, E129
+
+            for k, tasks in groupby(
+                    tasks_by_user,
+                    lambda t: (
+                        t.created_by,
+                        t.org,
+                        t.work_record.work_contributor.email,
+                        t.work_record.work_contributor.name, )
+            ):  # noqa: E501
+                send_work_invitation(*k, task_id=task_id)
+        else:
+            '''create_or_update_work(user, org_id, tasks_by_user)'''
+        task_ids.add(task_id)
+        work_ids.add(work_record_id)
+
+    for work_record in WorkRecord.select().where(WorkRecord.id << work_ids):
+        # The Work record is processed for all contributors
+        if not (WorkContributor.select().where(
+                WorkContributor.work_record_id == work_record.id,
+                WorkContributor.processed_at.is_null()).exists()):
+            work_record.processed_at = datetime.utcnow()
+            if not work_record.status or "error" not in work_record.status:
+                work_record.add_status_line("Work record is processed.")
+            work_record.save()
+
+    for task in Task.select().where(Task.id << task_ids):
+        # The task is completed (Once all records are processed):
+        if not (WorkRecord.select().where(WorkRecord.task_id == task.id, WorkRecord.processed_at.is_null()).exists()):
+            task.completed_at = datetime.utcnow()
+            task.save()
+            error_count = WorkRecord.select().where(
+                WorkRecord.task_id == task.id, WorkRecord.status**"%error%").count()
+            row_count = task.record_work_count
+
+            with app.app_context():
+                protocol_scheme = 'http'
+                if not EXTERNAL_SP:
+                    protocol_scheme = 'https'
+                export_url = flask.url_for(
+                    "workrecord.export",
+                    export_type="json",
+                    _scheme=protocol_scheme,
+                    task_id=task.id,
+                    _external=True)
+                send_email(
+                    "email/work_task_completed.html",
+                    subject="Work Process Update",
+                    recipient=(task.created_by.name, task.created_by.email),
+                    error_count=error_count,
+                    row_count=row_count,
+                    export_url=export_url,
+                    filename=task.filename)
 
 
 def process_funding_records(max_rows=20):
