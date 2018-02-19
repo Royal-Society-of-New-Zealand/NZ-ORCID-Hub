@@ -879,6 +879,21 @@ class FundingRecordAdmin(RecordModelView):
             mimetype='text/' + export_type)
 
 
+class WorkRecordAdmin(RecordModelView):
+    """Work record model view."""
+
+    list_template = "work_record_list.html"
+    column_searchable_list = ("title", )
+
+    export_types = [
+        "tsv",
+        "yaml",
+        "json",
+        "csv",
+    ]
+    form_overrides = dict(publication_date=PartialDateField)
+
+
 class AffiliationRecordAdmin(RecordModelView):
     """Affiliation record model view."""
 
@@ -951,6 +966,7 @@ admin.add_view(AffiliationRecordAdmin())
 admin.add_view(FundingRecordAdmin())
 admin.add_view(FundingContributorAdmin())
 admin.add_view(ExternalIdAdmin())
+admin.add_view(WorkRecordAdmin())
 admin.add_view(AppModelView(UserInvitation))
 admin.add_view(ViewMembersAdmin(name="viewmembers", endpoint="viewmembers"))
 
@@ -1389,7 +1405,7 @@ def load_researcher_work():
         try:
             task = WorkRecord.load_from_json(read_uploaded_file(form), filename=filename)
             flash(f"Successfully loaded {task.work_record_count} rows.")
-            # return redirect(url_for("workrecord.index_view", task_id=task.id))
+            return redirect(url_for("workrecord.index_view", task_id=task.id))
         except Exception as ex:
             flash(f"Failed to load work record file: {ex}", "danger")
             app.logger.exception("Failed to load work records.")
