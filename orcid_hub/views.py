@@ -354,8 +354,9 @@ class OrganisationAdmin(AppModelView):
 
     column_formatters = {
         "logo":
-        lambda v, c, m, p: Markup('<img style="max-height: 100px; max-width: 100px;" src="'
-                                  f"""{url_for('logo', token=m.logo.token)}" alt="the logo of {m.name}">""") if m.logo else ''
+        lambda v, c, m, p: Markup(
+            '<img style="max-height: 100px; max-width: 100px;" src="'
+            f"""{url_for('logo_image', token=m.logo.token)}" alt="the logo of {m.name}">""") if m.logo else ''
     }
     column_exclude_list = (
         "orcid_client_id",

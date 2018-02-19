@@ -3,8 +3,8 @@
   {% if model %}
     <h1>
       {% if model.logo %}
-        <a href="{{url_for('logo', token=model.logo.token)}}">
-          <img style="max-height: 100px; max-width: 100px;" src="{{url_for('logo', token=model.logo.token)}}" alt="the logo of {{model.name}}">
+        <a href="{{url_for('logo_image', token=model.logo.token)}}">
+          <img style="max-height: 100px; max-width: 100px;" src="{{url_for('logo_image', token=model.logo.token)}}" alt="the logo of {{model.name}}">
         </a>
       {% endif %}
         {{model.name}}
