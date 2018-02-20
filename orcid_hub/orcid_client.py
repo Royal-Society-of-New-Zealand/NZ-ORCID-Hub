@@ -8,7 +8,7 @@ isort:skip_file
 from .config import ORCID_API_BASE, SCOPE_READ_LIMITED, SCOPE_ACTIVITIES_UPDATE, ORCID_BASE_URL
 from flask_login import current_user
 from .models import (OrcidApiCall, Affiliation, OrcidToken, FundingContributor as FundingCont, User
-                     as UserModel, ExternalId as ExternalIdModel)
+                     as UserModel, ExternalId as ExternalIdModel, WorkContributor as WorkCont, WorkExternalId)
 from orcid_api import (configuration, rest, api_client, MemberAPIV20Api, SourceClientId, Source,
                        OrganizationAddress, DisambiguatedOrganization, Employment, Education,
                        Organization)
@@ -181,6 +181,187 @@ class MemberAPI(MemberAPIV20Api):
             app.logger.exception("Failed to verify presence of employment or education record.")
             return False
         return False
+
+    def create_or_update_work(self, task_by_user, *args, **kwargs):
+        """Create or update work record of a user."""
+        wr = task_by_user.work_record
+        wc = task_by_user.work_record.work_contributor
+
+        title = wr.title
+        sub_title = wr.sub_title
+        translated_title = wr.translated_title
+        translated_title_language_code = wr.translated_title_language_code
+        journal_title = wr.journal_title
+        short_description = wr.short_description
+        citation_type = wr.citation_type
+        citation_value = wr.citation_value
+        work_type = wr.type
+        publication_date = wr.publication_date
+        publication_media_type = wr.publication_media_type
+        url = wr.url
+        work_language_code = wr.language_code
+        country = wr.country
+        visibility = wr.visibility
+
+        put_code = wc.put_code
+
+        if not title:
+            title = None
+        if not translated_title:
+            translated_title = None
+        if not translated_title_language_code:
+            translated_title_language_code = None
+        if not journal_title:
+            journal_title = None
+        if not short_description:
+            short_description = None
+        if not citation_type:
+            citation_type = None
+        if not citation_value:
+            citation_value = None
+        if not work_type:
+            work_type = None
+        if not publication_date:
+            publication_date = None
+        if not publication_media_type:
+            publication_media_type = None
+        if not url:
+            url = None
+        if not work_language_code:
+            work_language_code = None
+        if not country:
+            country = None
+        if not visibility:
+            visibility = None
+
+        rec = Work()    # noqa: F405
+        title = Title(value=title)  # noqa: F405
+        subtitle = None
+        if sub_title:
+            subtitle = Subtitle(value=sub_title)    # noqa: F405
+        if translated_title:
+            translated_title = TranslatedTitle(value=wr.translated_title,   # noqa: F405
+                                               language_code=translated_title_language_code)  # noqa: F405
+
+        rec.title = WorkTitle(title=title, subtitle=subtitle, translated_title=translated_title)  # noqa: F405
+        if journal_title:
+            rec.journal_title = Title(value=journal_title)  # noqa: F405
+        rec.short_description = short_description
+        rec.source = self.source
+        rec.type = work_type
+
+        if publication_date:
+            rec.publication_date = PublicationDate(publication_date.as_orcid_dict(),    # noqa: F405
+                                                   media_type=publication_media_type)   # noqa: F405
+        if put_code:
+            rec.put_code = put_code
+        if visibility:
+            rec.visibility = visibility
+        if work_language_code:
+            rec.language_code = work_language_code
+        if country:
+            rec.country = Country(value=country)    # noqa: F405
+        if url:
+            rec.url = Url(value=url)    # noqa: F405
+        if citation_type and citation_value:
+            rec.citation = Citation(citation_type=citation_type, citation_value=citation_value)     # noqa: F405
+
+        work_contributors = WorkCont.select().where(WorkCont.work_record_id == wr.id).order_by(
+            WorkCont.contributor_sequence)
+
+        work_contributor_list = []
+        for w in work_contributors:
+            contributor_from_user_table = UserModel.get(UserModel.email == w.email)
+            path = None
+            credit_name = None
+            contributor_orcid = None
+            contributor_attributes = None
+
+            if contributor_from_user_table and contributor_from_user_table.orcid:
+                path = contributor_from_user_table.orcid
+            elif w.orcid:
+                path = w.orcid
+
+            if path:
+                url = urlparse(ORCID_BASE_URL)
+                uri = "http://" + url.hostname + "/" + path
+                host = url.hostname
+                contributor_orcid = ContributorOrcid(uri=uri, path=path, host=host)  # noqa: F405
+
+            if w.name:
+                credit_name = CreditName(value=w.name)  # noqa: F405
+            elif contributor_from_user_table and contributor_from_user_table.name:
+                credit_name = CreditName(value=contributor_from_user_table.name)  # noqa: F405
+
+            if w.role and w.contributor_sequence:
+                contributor_attributes = ContributorAttributes(  # noqa: F405
+                    contributor_role=w.role.upper(), contributor_sequence=w.contributor_sequence)
+
+            # As Contributor email is by default private so, we are not sending it in work payload
+            work_contributor_list.append(
+                Contributor(  # noqa: F405
+                    contributor_orcid=contributor_orcid,
+                    credit_name=credit_name,
+                    contributor_attributes=contributor_attributes))
+
+        rec.contributors = WorkContributors(contributor=work_contributor_list)  # noqa: F405
+
+        external_id_list = []
+        external_ids = WorkExternalId.select().where(WorkExternalId.work_record_id == wr.id)
+
+        for exi in external_ids:
+            external_id_type = exi.type
+            external_id_value = exi.value
+            external_id_url = None
+            if exi.url:
+                external_id_url = Url(value=exi.url)  # noqa: F405
+            # Setting the external id relationship as 'SELF' by default, it can be either SELF/PART_OF
+            external_id_relationship = exi.relationship.upper() if exi.relationship else "SELF"
+            external_id_list.append(
+                ExternalID(  # noqa: F405
+                    external_id_type=external_id_type,
+                    external_id_value=external_id_value,
+                    external_id_url=external_id_url,
+                    external_id_relationship=external_id_relationship))
+
+        rec.external_ids = ExternalIDs(external_id=external_id_list)  # noqa: F405
+
+        try:
+            api_call = self.update_work if put_code else self.create_work
+
+            params = dict(orcid=self.user.orcid, body=rec, _preload_content=False)
+            if put_code:
+                params["put_code"] = put_code
+            resp = api_call(**params)
+            app.logger.info(
+                f"For {self.user} the ORCID record was {'updated' if put_code else 'created'} from {self.org}"
+            )
+            created = not bool(put_code)
+            # retrieve the put-code from response Location header:
+            if resp.status == 201:
+                location = resp.headers.get("Location")
+                try:
+                    orcid, put_code = location.split("/")[-3::2]
+                    put_code = int(put_code)
+                    wc.put_code = put_code
+                    wc.save()
+                except:
+                    app.logger.exception("Failed to get ORCID iD/put-code from the response.")
+                    raise Exception("Failed to get ORCID iD/put-code from the response.")
+            elif resp.status == 200:
+                orcid = self.user.orcid
+
+        except ApiException as ex:
+            if ex.status == 404:
+                wc.put_code = None
+                wc.save()
+                app.logger.exception(
+                    f"For {self.user} encountered exception, So updating related put_code")
+            raise ex
+        except:
+            app.logger.exception(f"For {self.user} encountered exception")
+        else:
+            return (put_code, orcid, created)
 
     def create_or_update_funding(self, task_by_user, *args, **kwargs):
         """Create or update funding record of a user."""

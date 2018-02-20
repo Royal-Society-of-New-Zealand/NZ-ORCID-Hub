@@ -350,6 +350,92 @@ def send_funding_invitation(inviter, org, email, name, task_id=None, **kwargs):
         raise ex
 
 
+def create_or_update_work(user, org_id, records, *args, **kwargs):
+    """Create or update work record of a user."""
+    records = list(unique_everseen(records, key=lambda t: t.work_record.id))
+    org = Organisation.get(id=org_id)
+    client_id = org.orcid_client_id
+    api = orcid_client.MemberAPI(org, user)
+
+    profile_record = api.get_record()
+
+    if profile_record:
+        activities = profile_record.get("activities-summary")
+
+        def is_org_rec(rec):
+            return (rec.get("source").get("source-client-id")
+                    and rec.get("source").get("source-client-id").get("path") == client_id)
+
+        works = []
+
+        for r in activities.get("works").get("group"):
+            ws = r.get("work-summary")[0]
+            if is_org_rec(ws):
+                works.append(ws)
+
+        taken_put_codes = {
+            r.work_record.work_contributor.put_code
+            for r in records if r.work_record.work_contributor.put_code
+        }
+
+        def match_put_code(records, work_record, work_contributor):
+            """Match and assign put-code to a single work record and the existing ORCID records."""
+            if work_contributor.put_code:
+                return
+            for r in records:
+                put_code = r.get("put-code")
+                if put_code in taken_put_codes:
+                    continue
+
+                if ((r.get("title") is None and r.get("title").get("title") is None
+                     and r.get("title").get("title").get("value") is None and r.get("type") is None)
+                        or (r.get("title").get("title").get("value") == work_record.title
+                            and r.get("type") == work_record.type)):
+                    work_contributor.put_code = put_code
+                    work_contributor.save()
+                    taken_put_codes.add(put_code)
+                    app.logger.debug(
+                        f"put-code {put_code} was asigned to the work record "
+                        f"(ID: {work_record.id}, Task ID: {work_record.task_id})")
+                    break
+
+        for task_by_user in records:
+            wr = task_by_user.work_record
+            wc = task_by_user.work_record.work_contributor
+            match_put_code(works, wr, wc)
+
+        for task_by_user in records:
+            wc = task_by_user.work_record.work_contributor
+
+            try:
+                put_code, orcid, created = api.create_or_update_work(task_by_user)
+                if created:
+                    wc.add_status_line(f"Work record was created.")
+                else:
+                    wc.add_status_line(f"Work record was updated.")
+                wc.orcid = orcid
+                wc.put_code = put_code
+
+            except Exception as ex:
+                logger.exception(f"For {user} encountered exception")
+                exception_msg = ""
+                if ex and ex.body:
+                    exception_msg = json.loads(ex.body)
+                wc.add_status_line(f"Exception occured processing the record: {exception_msg}.")
+                wr.add_status_line(
+                    f"Error processing record. Fix and reset to enable this record to be processed: {exception_msg}."
+                )
+
+            finally:
+                wc.processed_at = datetime.utcnow()
+                wr.save()
+                wc.save()
+    else:
+        # TODO: Invitation resend in case user revokes organisation permissions
+        app.logger.debug(f"Should resend an invite to the researcher asking for permissions")
+        return
+
+
 def create_or_update_funding(user, org_id, records, *args, **kwargs):
     """Create or update funding record of a user."""
     records = list(unique_everseen(records, key=lambda t: t.funding_record.id))
@@ -750,7 +836,7 @@ def process_work_records(max_rows=20):
             ):  # noqa: E501
                 send_work_invitation(*k, task_id=task_id)
         else:
-            '''create_or_update_work(user, org_id, tasks_by_user)'''
+            create_or_update_work(user, org_id, tasks_by_user)
         task_ids.add(task_id)
         work_ids.add(work_record_id)
 
@@ -771,7 +857,7 @@ def process_work_records(max_rows=20):
             task.save()
             error_count = WorkRecord.select().where(
                 WorkRecord.task_id == task.id, WorkRecord.status**"%error%").count()
-            row_count = task.record_work_count
+            row_count = task.work_record_count
 
             with app.app_context():
                 protocol_scheme = 'http'
