@@ -74,6 +74,7 @@ def app():
                 name=f"TEST ORG #{org_no} ADMIN",
                 first_name="FIRST_NAME",
                 last_name="LAST_NAME",
+                can_use_api=(org_no == 0),
                 confirmed=True,
                 organisation=org)
             UserOrg.create(user=user, org=org, is_admin=True)
@@ -101,6 +102,8 @@ def app():
             OrcidToken.insert_many(
                 dict(org=org, user=u, expires_in=0, created_at=datetime(2018, 1, 1))
                 for u in User.select(User.id) if u.id % 2 == 0).execute()
+            if org_no == 0:
+                Client.create(org=org, user=user, client_id=org.name + "-ID", client_secret=org.name + "-SECRET")
         UserOrg.insert_from(
             query=User.select(User.id, User.organisation_id, User.created_at).where(
                 User.email.contains("researcher")),

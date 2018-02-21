@@ -94,6 +94,7 @@ setup(
         "Flask-OAuthlib",
         "flask-swagger",
         "flask-mail",
+        "flask-restful",
         # "swagger_client",
     ],
     extras_require={
