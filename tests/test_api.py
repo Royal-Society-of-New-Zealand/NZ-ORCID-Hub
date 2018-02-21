@@ -1,14 +1,15 @@
 # -*- coding: utf-8 -*-
 """Tests for core functions."""
 
+import copy
 import json
 
 import pytest
 from flask import url_for
 from flask_login import login_user
 
-from orcid_hub.api import yamlfy
-from orcid_hub.models import Client, OrcidToken, Organisation, Role, Token, User, UserOrg
+from orcid_hub.apis import yamlfy
+from orcid_hub.models import Client, OrcidToken, Organisation, Role, Task, Token, User, UserOrg
 
 
 @pytest.fixture
@@ -369,3 +370,136 @@ def test_db_api(app_req_ctx):
         data = json.loads(rv.data)
         assert data["name"] == org.name
         assert data["tuakiri_name"] == org.tuakiri_name
+
+
+def test_affiliation_api(client):
+    """Test affiliation API in various formats."""
+    resp = client.post(
+        "/oauth/token",
+        content_type="application/x-www-form-urlencoded",
+        data=b"grant_type=client_credentials&client_id=TEST0-ID&client_secret=TEST0-SECRET")
+    data = json.loads(resp.data)
+    access_token = data["access_token"]
+    resp = client.post(
+        "/api/v0.1/affiliations/?filename=TEST42.csv",
+        headers=dict(authorization=f"Bearer {access_token}"),
+        content_type="text/csv",
+        data=b"First Name,Last Name,email,Organisation,Affiliation Type,Role,Department,Start Date,"
+        b"End Date,City,State,Country,Disambiguated Id,Disambiguated Source\n"
+        b"Researcher,Par,researcher.020@mailinator.com,Royal Org1,Staff,Programme Guide - "
+        b"ORCID,Research Funding,2016-09,,Wellington,SATE,NZ,,\n"
+        b"Roshan,Pawar,researcher.010@mailinator.com,Royal Org1,Staff,AAA,Research "
+        b"Funding,2016-09,,Wellington,SATE,NZ,,\n"
+        b"Roshan,Pawar,researcher.010@mailinator.com,Royal Org1,Student,BBB,Research "
+        b"Funding,2016-09,,Wellington,SATE,New Zealand,,")
+    data = json.loads(resp.data)
+    assert data["filename"] == "TEST42.csv"
+    assert data["task-type"] == "AFFILIATION"
+    assert len(data["records"]) == 3
+    task_id = int(data["id"])
+    for r in data["records"]:
+        del(r["id"])
+        r["city"] = "TEST000"
+    resp = client.post(
+        f"/api/v0.1/affiliations/{task_id}",
+        headers=dict(authorization=f"Bearer {access_token}"),
+        content_type="application/json",
+        data=json.dumps(data))
+    data = json.loads(resp.data)
+    assert len(data["records"]) == 3
+    # should get a new set of records
+
+    del(data["records"][2])
+    resp = client.post(
+        f"/api/v0.1/affiliations/{task_id}",
+        headers=dict(authorization=f"Bearer {access_token}"),
+        content_type="application/json",
+        data=json.dumps(data))
+    new_data = json.loads(resp.data)
+    assert len(new_data["records"]) == 2
+
+    incorrect_data = copy.deepcopy(data)
+    incorrect_data["records"].insert(0, {
+        "first-name": "TEST000 FN",
+        "last-name": "TEST000 LN",
+    })
+    resp = client.post(
+        f"/api/v0.1/affiliations/{task_id}",
+        headers=dict(authorization=f"Bearer {access_token}"),
+        content_type="application/json",
+        data=json.dumps(incorrect_data))
+    data = json.loads(resp.data)
+    assert resp.status_code == 422
+    assert data["error"] == "Validation error."
+
+    resp = client.get(
+        f"/api/v0.1/affiliations/{task_id}",
+        headers=dict(authorization=f"Bearer {access_token}"))
+    data = json.loads(resp.data)
+    incorrect_data = copy.deepcopy(data)
+    incorrect_data["records"].insert(0, {
+        "email": "test1234@test.edu",
+        "first-name": "TEST000 FN",
+        "last-name": "TEST000 LN",
+    })
+    resp = client.post(
+        f"/api/v0.1/affiliations/{task_id}",
+        headers=dict(authorization=f"Bearer {access_token}"),
+        content_type="application/json",
+        data=json.dumps(incorrect_data))
+    data = json.loads(resp.data)
+    assert resp.status_code == 422
+    assert data["error"] == "Validation error."
+
+    resp = client.get(
+        f"/api/v0.1/affiliations/{task_id}",
+        headers=dict(authorization=f"Bearer {access_token}"))
+    data = json.loads(resp.data)
+    new_data = copy.deepcopy(data)
+    new_data["records"].insert(0, {
+        "email": "test1234@test.edu",
+        "first-name": "TEST000 FN",
+        "last-name": "TEST000 LN",
+        "affiliation-type": "staff",
+        "city": "TEST000"
+    })
+    resp = client.post(
+        f"/api/v0.1/affiliations/{task_id}",
+        headers=dict(authorization=f"Bearer {access_token}"),
+        content_type="application/json",
+        data=json.dumps(new_data))
+    data = json.loads(resp.data)
+    assert resp.status_code == 200
+    assert len(data["records"]) == 3
+
+    resp = client.put(
+        f"/api/v0.1/affiliations/{task_id}",
+        headers=dict(authorization=f"Bearer {access_token}"),
+        content_type="application/json",
+        data=json.dumps(data))
+    data = json.loads(resp.data)
+    assert resp.status_code == 200
+    assert len(data["records"]) == 3
+
+    resp = client.get(
+        f"/api/v0.1/affiliations/{task_id}",
+        headers=dict(authorization=f"Bearer {access_token}"))
+    data = json.loads(resp.data)
+    new_data = copy.deepcopy(data)
+    for i, r in enumerate(new_data["records"]):
+        new_data["records"][i] = {"id": r["id"], "is-active": True}
+    resp = client.patch(
+        f"/api/v0.1/affiliations/{task_id}",
+        headers=dict(authorization=f"Bearer {access_token}"),
+        content_type="application/json",
+        data=json.dumps(new_data))
+    data = json.loads(resp.data)
+    assert resp.status_code == 200
+    assert len(data["records"]) == 3
+    assert all(r["is-active"] for r in data["records"])
+    assert all(r["city"] == "TEST000" for r in data["records"])
+
+    resp = client.delete(
+        f"/api/v0.1/affiliations/{task_id}",
+        headers=dict(authorization=f"Bearer {access_token}"))
+    assert Task.select().count() == 0
