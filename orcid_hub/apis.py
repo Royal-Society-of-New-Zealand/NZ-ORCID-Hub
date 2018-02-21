@@ -1,8 +1,9 @@
 """HUB API."""
 
 import yaml
+from datetime import datetime
 from flask_login import login_user, current_user
-from flask import current_app, jsonify, render_template, request, url_for
+from flask import abort, current_app, jsonify, render_template, request, url_for, Response
 from flask.views import MethodView
 from flask_peewee.rest import RestResource
 from flask_peewee.utils import slugify
@@ -10,10 +11,13 @@ from flask_restful import Resource, reqparse
 from flask_swagger import swagger
 from werkzeug.exceptions import NotFound
 from flask_peewee_swagger.swagger import Swagger
+import jsonschema
 
-from . import data_api, api, app, models, oauth
+from . import data_api, api, app, db, models, oauth
 from .login_provider import roles_required
-from .models import EMAIL_REGEX, ORCID_ID_REGEX, AffiliationRecord, OrcidToken, Role, User, UserOrg, Task, TaskType
+from .models import (EMAIL_REGEX, ORCID_ID_REGEX, AffiliationRecord, OrcidToken, PartialDate, Role,
+                     User, UserOrg, Task, TaskType)
+from .schemas import affiliation_task_schema
 
 
 class AppRestResource(RestResource):
@@ -106,11 +110,25 @@ def me():
     return jsonify(email=user.email, name=user.name)
 
 
-class TaskResource(Resource):
+class AppResource(Resource):
+    """Common application resource."""
 
     decorators = [
         oauth.require_oauth(),
     ]
+
+    def dispatch_request(self, *args, **kwargs):
+        """Do some pre-handling and post-handling."""
+        resp = super().dispatch_request(*args, **kwargs)
+        if isinstance(resp, tuple) and len(resp) == 2:
+            if isinstance(resp[0], Response) and isinstance(resp[1], int):
+                resp[0].status_code = resp[1]
+                return resp[0]
+        return resp
+
+
+class TaskResource(AppResource):
+    """Common task ralated reource."""
 
     available_task_types = [t.name for t in TaskType]
 
@@ -120,11 +138,16 @@ class TaskResource(Resource):
         parser = reqparse.RequestParser()
         parser.add_argument(
             "type", type=str, help="Task type: " + ", ".join(self.available_task_types))
-        task_type = parser.parse_args().get("type")
+        parser.add_argument(
+            "filename", type=str, help="Filename of the task.")
+        parsed_args = parser.parse_args()
+        task_type = parsed_args.get("type")
+        self.filename = parsed_args.get("filename")
         self.task_type = None if task_type is None else TaskType[task_type]
         return super().dispatch_request(*args, **kwargs)
 
     def jsonify_task(self, task):
+        """Create JSON response with the task payload."""
         task_dict = task.to_dict(
             recurse=False,
             to_dashes=True,
@@ -135,8 +158,74 @@ class TaskResource(Resource):
             records = task.affiliationrecord_set
         else:
             records = task.funding_records
-        task_dict["records"] = [r.to_dict(to_dashes=True, recurse=False, exclude=[AffiliationRecord.task]) for r in records]
+        task_dict["records"] = [
+            r.to_dict(to_dashes=True, recurse=False, exclude=[AffiliationRecord.task])
+            for r in records
+        ]
         return jsonify(task_dict)
+
+    def delete_task(self, task_id):
+        """Delete the task."""
+        login_user(request.oauth.user)
+        task = Task.get(id=task_id)
+        if task.created_by != current_user:
+            abort(403)
+        task.delete_instance()
+        return {"message": "The task was successfully deletd."}
+
+    def handle_affiliation_task(self, task_id=None):
+        """Handle PUT, POST, or PATCH request. Request body expected to be encoded in JSON."""
+        login_user(request.oauth.user)
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "Ivalid request format. Only JSON, CSV, or TSV are acceptable."}), 415
+        try:
+            if request.method != "PATCH":
+                jsonschema.validate(data, affiliation_task_schema)
+        except jsonschema.exceptions.ValidationError as ex:
+            return jsonify({"error": "Validation error.", "message": ex.message}), 422
+        except Exception as ex:
+            return jsonify({"error": "Unhandled except occured.", "exception": ex}), 400
+        if "records" not in data:
+            return jsonify({"error": "Validation error.", "message": "Missing affiliation records."}), 422
+
+        with db.atomic():
+            try:
+                filename = (data.get("filename") or self.filename or datetime.utcnow().isoformat(timespec="seconds"))
+                if task_id:
+                    task = Task.get(id=task_id)
+                    if task.created_by != current_user:
+                        return jsonify({"error": "Access denied."}), 403
+                else:
+                    task = Task.create(filename=filename, user=current_user, org=current_user.organisation)
+
+                if request.method == "POST" and task_id:
+                    AffiliationRecord.delete().where(AffiliationRecord.task_id == task_id).execute()
+
+                record_fields = AffiliationRecord._meta.fields.keys()
+                for row in data["records"]:
+                    if "id" in row and request.method in ["PUT", "PATCH"]:
+                        rec = AffiliationRecord.get(id=row["id"])
+                    else:
+                        rec = AffiliationRecord(task=task)
+
+                    # import pdb; pdb.set_trace()
+                    for k, v in row.items():
+                        if k == "id":
+                            continue
+                        k = k.replace('-', '_')
+                        if k in record_fields and rec._data.get(k) != v:
+                            rec._data[k] = PartialDate.create(v) if k.endswith("date") else v
+                            rec._dirty.add(k)
+                    if rec.is_dirty():
+                        rec.save()
+
+            except Exception as ex:
+                db.rollback()
+                app.logger.exception("Failed to hadle affiliation API request.")
+                return jsonify({"error": "Unhandled except occured.", "exception": str(ex)}), 400
+
+        return self.jsonify_task(task)
 
 
 class TaskList(TaskResource):
@@ -178,52 +267,274 @@ class TaskList(TaskResource):
                 for t in Task.select()
         ])
 
-    def post(self):
-        """Upload the task."""
+
+class AffiliationListAPI(TaskResource):
+    """Affiliation list API."""
+
+    def post(self, *args, **kwargs):
+        """Upload the affiliation task.
+
+        ---
+        tags:
+          - "affiliations"
+        summary: "Post the affiliation list task."
+        description: "Post the affiliation list task."
+        consumes:
+        - application/json
+        - text/csv
+        definitions:
+        - schema:
+            id: AffiliationTask
+            properties:
+              id:
+                type: integer
+                format: int64
+              filename:
+                type: string
+              task-type:
+                type: string
+                enum:
+                - AFFILIATION
+                - FUNDING
+              created-at:
+                type: string
+                format: date-time
+              expires-at:
+                type: string
+                format: date-time
+              completed-at:
+                type: string
+                format: date-time
+              records:
+                type: array
+                items:
+                  type: object
+                  $ref: "#/definitions/AffiliationTaskRecord"
+        - schema:
+            id: AffiliationTaskRecord
+            properties:
+              id:
+                type: integer
+                format: int64
+              put-code:
+                type: string
+              external-id:
+                type: string
+              is-active:
+                type: boolean
+              email:
+                type: string
+                required: true
+              first-name:
+                type: string
+                required: true
+              last-name:
+                type: string
+                required: true
+              role:
+                type: string
+              organisation:
+                type: string
+              department:
+                type: string
+              city:
+                type: string
+              state:
+                type: string
+              country:
+                type: string
+              disambiguated-id:
+                type: string
+              disambiguated-source:
+                type: string
+              affiliation-type:
+                type: string
+                required: true
+              start-date:
+                type: string
+                required: false
+              end-date:
+                type: string
+                required: false
+              processed-at:
+                type: string
+                format: date-time
+                required: false
+              status:
+                type: string
+                required: false
+              orcid:
+                type: string
+                format: "^[0-9]{4}-?[0-9]{4}-?[0-9]{4}-?[0-9]{4}$"
+                description: "User ORCID ID"
+                required: false
+        produces:
+        - application/json
+        parameters:
+        - name: "filename"
+          in: "path"
+          description: "The batch process filename."
+          required: false
+          type: "string"
+        responses:
+          200:
+            description: "successful operation"
+            schema:
+              $ref: "#/definitions/AffiliationTask"
+          403:
+            description: "Access Denied"
+        """
         login_user(request.oauth.user)
-        # import pdb; pdb.set_trace()
-        if self.task_type == TaskType.AFFILIATION:
-            if request.content_type == "text/csv":
-                task = Task.load_from_csv(request.data.decode("utf-8"))
-        return self.jsonify_task(task)
+        if request.content_type in ["text/csv", "text/tsv"]:
+            task = Task.load_from_csv(request.data.decode("utf-8"), filename=self.filename)
+            return self.jsonify_task(task)
+        return self.handle_affiliation_task()
 
 
-class TaskAPI(TaskResource):
-    """Task services."""
+class AffiliationAPI(TaskResource):
+    """Affiliation task services."""
 
     def get(self, task_id):
-        return self.jsonify_task(Task.get(id=task_id))
+        """
+        Retrieve the specified affiliation task.
 
-    def post(self, task_id):
-        """Upload the task."""
-        pass
-
-    def patch(self, task_id):
-        """Update the task."""
-        import pdb; pdb.set_trace()
+        ---
+        tags:
+          - "affiliations"
+        summary: "Retrieve the specified affiliation task."
+        description: "Retrieve the specified affiliation task."
+        produces:
+          - "application/json"
+        responses:
+          200:
+            description: "successful operation"
+            schema:
+              $ref: "#/definitions/AffiliationTask"
+          403:
+            description: "Access Denied"
+        """
+        login_user(request.oauth.user)
         task = Task.get(id=task_id)
-        for row in request.get_json():
-            if "id" in row:
-                rec = AffiliationRecord.get(id=row["id"])
-                for k, v in row.items():
-                    k = k.replace('-', '_')
-                    if k in rec._data and rec._data[k] != v:
-                        rec._data[k] = v
-                if rec.is_dirty():
-                    rec.save()
+        if task.created_by != current_user:
+            abort(403)
         return self.jsonify_task(task)
 
+    def post(self, task_id):
+        """Upload the task and completely override the affiliation task.
 
-api.add_resource(TaskAPI, "/api/v0.1/tasks/<int:task_id>")
+        ---
+        tags:
+          - "affiliations"
+        summary: "Update the affiliation task."
+        description: "Update the affiliation task."
+        consumes:
+          - application/json
+        parameters:
+          - in: body
+            name: affiliationTask
+            description: "Affiliation task."
+            scheme:
+              $ref: "#/definitions/AffiliationTask"
+        produces:
+          - "application/json"
+        responses:
+          200:
+            description: "successful operation"
+            schema:
+              $ref: "#/definitions/AffiliationTask"
+          403:
+            description: "Access Denied"
+        """
+        return self.handle_affiliation_task(task_id)
+
+    def put(self, task_id):
+        """Update the affiliation task.
+
+        ---
+        tags:
+          - "affiliations"
+        summary: "Update the affiliation task."
+        description: "Update the affiliation task."
+        consumes:
+          - application/json
+        parameters:
+          - in: body
+            name: affiliationTask
+            description: "Affiliation task."
+            scheme:
+              $ref: "#/definitions/AffiliationTask"
+        produces:
+          - "application/json"
+        responses:
+          200:
+            description: "successful operation"
+            schema:
+              $ref: "#/definitions/AffiliationTask"
+          403:
+            description: "Access Denied"
+        """
+        return self.handle_affiliation_task(task_id)
+
+    def patch(self, task_id):
+        """Update the affiliation task.
+
+        ---
+        tags:
+          - "affiliations"
+        summary: "Update the affiliation task."
+        description: "Update the affiliation task."
+        consumes:
+          - application/json
+        parameters:
+          - in: body
+            name: affiliationTask
+            description: "Affiliation task."
+            scheme:
+              $ref: "#/definitions/AffiliationTask"
+        produces:
+          - "application/json"
+        responses:
+          200:
+            description: "successful operation"
+            schema:
+              $ref: "#/definitions/AffiliationTask"
+          403:
+            description: "Access Denied"
+        """
+        return self.handle_affiliation_task(task_id)
+
+    def delete(self, task_id):
+        """Delete the specified affiliation task.
+
+        ---
+        tags:
+          - "affiliations"
+        summary: "Delete the specified affiliation task."
+        description: "Delete the specified affiliation task."
+        parameters:
+          - name: id
+            in: path
+            description: "Batch task ID."
+            required: true
+            type: "integer"
+        produces:
+          - "application/json"
+        responses:
+          200:
+            description: "Successful operation"
+          403:
+            description: "Access Denied"
+        """
+        return self.delete_task(task_id)
+
+
 api.add_resource(TaskList, "/api/v0.1/tasks")
+api.add_resource(AffiliationListAPI, "/api/v0.1/affiliations")
+api.add_resource(AffiliationAPI, "/api/v0.1/affiliations/<int:task_id>")
 
 
-class UserListAPI(Resource):
+class UserListAPI(AppResource):
     """User list data service."""
-
-    decorators = [
-        oauth.require_oauth(),
-    ]
 
     def get(self, identifier=None):
         """
@@ -273,12 +584,8 @@ class UserListAPI(Resource):
 api.add_resource(UserListAPI, "/api/v0.1/users")
 
 
-class UserAPI(Resource):
+class UserAPI(AppResource):
     """User data service."""
-
-    decorators = [
-        oauth.require_oauth(),
-    ]
 
     def get(self, identifier=None):
         """
@@ -286,7 +593,7 @@ class UserAPI(Resource):
 
         ---
         tags:
-          - "user"
+          - "users"
         summary: "Get user by user email or ORCID ID"
         description: ""
         produces:
