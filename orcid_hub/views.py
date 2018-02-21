@@ -40,7 +40,7 @@ from .login_provider import roles_required
 from .models import (Affiliation, AffiliationRecord, CharField, Client, File, FundingContributor,
                      FundingRecord, Grant, ModelException, OrcidApiCall, OrcidToken, Organisation,
                      OrgInfo, OrgInvitation, PartialDate, Role, Task, TextField, Token, Url, User,
-                     UserInvitation, UserOrg, UserOrgAffiliation, db, WorkRecord)
+                     UserInvitation, UserOrg, UserOrgAffiliation, db, WorkRecord, WorkContributor)
 # NB! Should be disabled in production
 from .pyinfo import info
 from .utils import generate_confirmation_token, get_next_url, send_user_invitation
@@ -595,6 +595,10 @@ to the best of your knowledge, correct!""")
                     count = FundingContributor.update(
                         processed_at=None, status=status).where(
                             FundingContributor.funding_record.in_(ids)).execute()
+                elif self.model == WorkRecord:
+                    count = WorkContributor.update(
+                        processed_at=None, status=status).where(
+                        WorkContributor.work_record.in_(ids)).execute()
                 elif self.model == AffiliationRecord:
                     # Delete the userInvitation token when reset to send the mail again.
                     task_id = None
@@ -616,6 +620,8 @@ to the best of your knowledge, correct!""")
             else:
                 if self.model == FundingRecord:
                     flash(f"{count} Funding Contributor records were reset for batch processing.")
+                elif self.model == WorkRecord:
+                    flash(f"{count} Work Contributor records were reset for batch processing.")
                 else:
                     flash(f"{count} Affiliation records were reset for batch processing.")
 
@@ -680,22 +686,31 @@ class ContributorModelAdmin(AppModelView):
     def action_reset(self, ids):
         """Batch reset of users."""
         with db.atomic():
-            # TODO: Also include the logic for resetting work record, same as funding record.
             try:
                 status = " The record was reset at " + datetime.utcnow().isoformat(timespec="seconds")
                 count = self.model.update(
                     processed_at=None, status=status).where(self.model.id.in_(ids)).execute()
-                funding_record_id = self.model.select().where(
-                    self.model.id.in_(ids))[0].funding_record_id
-                FundingRecord.update(
-                    processed_at=None, status=status).where(
-                        FundingRecord.is_active, FundingRecord.id == funding_record_id).execute()
+                if self.model == FundingContributor:
+                    funding_record_id = self.model.select().where(
+                        self.model.id.in_(ids))[0].funding_record_id
+                    FundingRecord.update(
+                        processed_at=None, status=status).where(
+                            FundingRecord.is_active, FundingRecord.id == funding_record_id).execute()
+                elif self.model == WorkContributor:
+                    work_record_id = self.model.select().where(
+                        self.model.id.in_(ids))[0].work_record_id
+                    WorkRecord.update(
+                        processed_at=None, status=status).where(
+                        WorkRecord.is_active, WorkRecord.id == work_record_id).execute()
             except Exception as ex:
                 db.rollback()
                 flash(f"Failed to activate the selected records: {ex}")
                 app.logger.exception("Failed to activate the selected records")
             else:
-                flash(f"{count} Funding Contributor records were reset for batch processing.")
+                if self.model == FundingContributor:
+                    flash(f"{count} Funding Contributor records were reset for batch processing.")
+                else:
+                    flash(f"{count} Work Contributor records were reset for batch processing.")
 
 
 class FundingContributorAdmin(ContributorModelAdmin):
@@ -1110,6 +1125,18 @@ def reset_all():
                         FundingContributor.funding_record == funding_record.id).execute()
                     funding_record.save()
                     count = count + 1
+
+            elif task.task_type == 2:
+                for work_record in WorkRecord.select().where(WorkRecord.task_id == task_id,
+                                                                   WorkRecord.is_active == True):    # noqa: E712
+                    work_record.processed_at = None
+                    work_record.status = status
+
+                    WorkContributor.update(
+                        processed_at=None, status=status).where(
+                        WorkContributor.work_record == work_record.id).execute()
+                    work_record.save()
+                    count = count + 1
         except Exception as ex:
             db.rollback()
             flash(f"Failed to reset the selected records: {ex}")
@@ -1120,6 +1147,8 @@ def reset_all():
             task.save()
             if task.task_type == 1:
                 flash(f"{count} Funding records were reset for batch processing.")
+            elif task.task_type == 2:
+                flash(f"{count} Work records were reset for batch processing.")
             else:
                 flash(f"{count} Affiliation records were reset for batch processing.")
     return redirect(_url)
