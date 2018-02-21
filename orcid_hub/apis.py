@@ -126,6 +126,18 @@ class AppResource(Resource):
                 return resp[0]
         return resp
 
+    def httpdate(self, dt):
+        """Return a string representation of a date according to RFC 1123 (HTTP/1.1).
+
+        The supplied date must be in UTC.
+        """
+        weekday = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][dt.weekday()]
+        month = [
+            "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+        ][dt.month - 1]
+        return "%s, %02d %s %04d %02d:%02d:%02d GMT" % (weekday, dt.day, month, dt.year, dt.hour,
+                                                        dt.minute, dt.second)
+
 
 class TaskResource(AppResource):
     """Common task ralated reource."""
@@ -162,7 +174,8 @@ class TaskResource(AppResource):
             r.to_dict(to_dashes=True, recurse=False, exclude=[AffiliationRecord.task])
             for r in records
         ]
-        return jsonify(task_dict)
+        resp = jsonify(task_dict)
+        resp.handler["Last-Modified"] = self.httpdate(task.updated_at or task.created_at)
 
     def delete_task(self, task_id):
         """Delete the task."""
