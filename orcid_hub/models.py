@@ -685,7 +685,7 @@ class User(BaseModel, UserMixin, AuditMixin):
         """Indicats if the user is the technical contact of the organisation."""
         if org is None:
             org = self.organisation
-        return org and UserOrg.select(UserOrg.user == self, UserOrg.org == org, UserOrg.is_admin).exists()
+        return org and UserOrg.select().where(UserOrg.user == self, UserOrg.org == org, UserOrg.is_admin).exists()
 
     @property
     def uuid(self):
