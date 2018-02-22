@@ -1333,3 +1333,45 @@ def test_reset_all(request_ctx):
         assert t2.completed_at is None
         assert rv.status_code == 302
         assert rv.location.startswith("http://localhost/funding_record_reset_for_batch")
+
+
+def test_issue_470198698(request_ctx):
+    """Test regression https://sentry.io/royal-society-of-new-zealand/nz-orcid-hub/issues/470198698/."""
+    from bs4 import BeautifulSoup
+
+    admin = User.get(email="admin@test0.edu")
+    org = admin.organisation
+
+    task = Task.create(org=org, filename="TEST000.csv", user=admin)
+    AffiliationRecord.insert_many(
+        dict(
+            task=task,
+            orcid=f"XXXX-XXXX-XXXX-{i:04d}" if i % 2 else None,
+            first_name=f"FN #{i}",
+            last_name=f"LF #{i}",
+            email=f"test{i}") for i in range(10)).execute()
+
+    with request_ctx(f"/admin/affiliationrecord/?task_id={task.id}") as ctx:
+        login_user(admin)
+        resp = ctx.app.full_dispatch_request()
+        soup = BeautifulSoup(resp.data, "html.parser")
+
+    orcid_col_idx = next(i for i, h in enumerate(soup.thead.find_all("th"))
+                         if "col-orcid" in h["class"]) - 2
+
+    with request_ctx(f"/admin/affiliationrecord/?sort={orcid_col_idx}&task_id={task.id}") as ctx:
+        login_user(admin)
+        resp = ctx.app.full_dispatch_request()
+    soup = BeautifulSoup(resp.data, "html.parser")
+    orcid_column = soup.find(class_="table-responsive").find_all(class_="col-orcid")
+    assert orcid_column[-1].text.strip() == "XXXX-XXXX-XXXX-0009"
+
+    with request_ctx("/admin/affiliationrecord/") as ctx:
+        login_user(admin)
+        resp = ctx.app.full_dispatch_request()
+    assert resp.status_code == 302
+
+    with request_ctx(f"/admin/affiliationrecord/?task_id=99999999") as ctx:
+        login_user(admin)
+        resp = ctx.app.full_dispatch_request()
+    assert resp.status_code == 404

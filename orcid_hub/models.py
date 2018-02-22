@@ -152,8 +152,9 @@ class OrcidIdField(FixedCharField):
     def __init__(self, *args, **kwargs):
         """Initialize ORCID iD data field."""
         if "verbose_name" not in kwargs:
-            kwargs["verbose_name"] = "ORCID iD"
-        super().__init__(*args, max_length=19, **kwargs)
+            self.verbose_name = "ORCID iD"
+        self.max_length = 19
+        super().__init__(*args, **kwargs)
 
         # TODO: figure out where to place the value validation...
         # def coerce(self, value):
@@ -684,7 +685,7 @@ class User(BaseModel, UserMixin, AuditMixin):
         """Indicats if the user is the technical contact of the organisation."""
         if org is None:
             org = self.organisation
-        return org and UserOrg.select(UserOrg.user == self, UserOrg.org == org, UserOrg.is_admin).exists()
+        return org and UserOrg.select().where(UserOrg.user == self, UserOrg.org == org, UserOrg.is_admin).exists()
 
     @property
     def uuid(self):
