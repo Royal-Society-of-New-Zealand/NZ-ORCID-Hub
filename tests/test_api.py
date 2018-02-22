@@ -9,7 +9,7 @@ from flask import url_for
 from flask_login import login_user
 
 from orcid_hub.apis import yamlfy
-from orcid_hub.models import Client, OrcidToken, Organisation, Role, Task, Token, User, UserOrg
+from orcid_hub.models import Client, OrcidToken, Organisation, Role, Task, TaskType, Token, User, UserOrg
 
 
 @pytest.fixture
@@ -396,7 +396,22 @@ def test_affiliation_api(client):
     assert data["filename"] == "TEST42.csv"
     assert data["task-type"] == "AFFILIATION"
     assert len(data["records"]) == 3
-    task_id = int(data["id"])
+    task_id = data["id"]
+
+    resp = client.get("/api/v0.1/tasks", headers=dict(authorization=f"Bearer {access_token}"))
+    tasks = json.loads(resp.data)
+    assert tasks[0]["id"] == task_id
+
+    task_copy = copy.deepcopy(data)
+    del(task_copy["id"])
+    task_copy["filename"] = "TASK-COPY.csv"
+    resp = client.post(
+        "/api/v0.1/affiliations/",
+        headers=dict(authorization=f"Bearer {access_token}"),
+        content_type="application/json",
+        data=json.dumps(task_copy))
+    assert Task.select().count() == 2
+
     for r in data["records"]:
         del(r["id"])
         r["city"] = "TEST000"
@@ -499,7 +514,65 @@ def test_affiliation_api(client):
     assert all(r["is-active"] for r in data["records"])
     assert all(r["city"] == "TEST000" for r in data["records"])
 
+    resp = client.head(
+        f"/api/v0.1/affiliations/{task_id}",
+        headers=dict(authorization=f"Bearer {access_token}"))
+    assert "Last-Modified" in resp.headers
+
+    resp = client.head(
+        "/api/v0.1/affiliations/999999999",
+        headers=dict(authorization=f"Bearer {access_token}"))
+    assert resp.status_code == 404
+
+    resp = client.get(
+        "/api/v0.1/affiliations/999999999",
+        headers=dict(authorization=f"Bearer {access_token}"))
+    assert resp.status_code == 404
+
+    resp = client.patch(
+        "/api/v0.1/affiliations/999999999",
+        headers=dict(authorization=f"Bearer {access_token}"),
+        content_type="application/json",
+        data=json.dumps(new_data))
+    assert resp.status_code == 404
+
     resp = client.delete(
         f"/api/v0.1/affiliations/{task_id}",
         headers=dict(authorization=f"Bearer {access_token}"))
-    assert Task.select().count() == 0
+    assert Task.select().count() == 1
+
+    other_user = User.get(email="admin@test1.edu")
+    other_task = Task.create(
+        created_by=other_user,
+        org=other_user.organisation,
+        filename="OTHER.csv",
+        task_type=TaskType.AFFILIATION)
+
+    resp = client.head(
+        f"/api/v0.1/affiliations/{other_task.id}",
+        headers=dict(authorization=f"Bearer {access_token}"))
+    assert resp.status_code == 403
+
+    resp = client.get(
+        f"/api/v0.1/affiliations/{other_task.id}",
+        headers=dict(authorization=f"Bearer {access_token}"))
+    assert resp.status_code == 403
+
+    resp = client.patch(
+        f"/api/v0.1/affiliations/{other_task.id}",
+        headers=dict(authorization=f"Bearer {access_token}"),
+        content_type="application/json",
+        data=json.dumps(new_data))
+    assert resp.status_code == 403
+
+    resp = client.delete(
+        f"/api/v0.1/affiliations/{other_task.id}",
+        headers=dict(authorization=f"Bearer {access_token}"))
+    assert resp.status_code == 403
+
+    resp = client.patch(
+        f"/api/v0.1/affiliations/{task_id}",
+        headers=dict(authorization=f"Bearer {access_token}"),
+        content_type="application/json",
+        data=b'')
+    assert resp.status_code == 400

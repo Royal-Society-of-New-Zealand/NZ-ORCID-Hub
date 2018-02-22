@@ -160,22 +160,34 @@ class TaskResource(AppResource):
 
     def jsonify_task(self, task):
         """Create JSON response with the task payload."""
-        task_dict = task.to_dict(
-            recurse=False,
-            to_dashes=True,
-            exclude=[Task.created_by, Task.updated_by, Task.org, Task.task_type])
-        task_dict["task-type"] = TaskType(task.task_type).name
-        if TaskType(task.task_type) == TaskType.AFFILIATION:
-            # import pdb; pdb.set_trace()
-            records = task.affiliationrecord_set
+        if isinstance(task, int):
+            login_user(request.oauth.user)
+            try:
+                task = Task.get(id=task)
+            except Task.DoesNotExist:
+                return jsonify({"error": "The task doesn't exist."}), 404
+            if task.created_by != current_user:
+                return jsonify({"error": "Access denied."}), 403
+        if request.method != "HEAD":
+            task_dict = task.to_dict(
+                recurse=False,
+                to_dashes=True,
+                exclude=[Task.created_by, Task.updated_by, Task.org, Task.task_type])
+            task_dict["task-type"] = TaskType(task.task_type).name
+            if TaskType(task.task_type) == TaskType.AFFILIATION:
+                # import pdb; pdb.set_trace()
+                records = task.affiliationrecord_set
+            else:
+                records = task.funding_records
+            task_dict["records"] = [
+                r.to_dict(to_dashes=True, recurse=False, exclude=[AffiliationRecord.task])
+                for r in records
+            ]
+            resp = jsonify(task_dict)
         else:
-            records = task.funding_records
-        task_dict["records"] = [
-            r.to_dict(to_dashes=True, recurse=False, exclude=[AffiliationRecord.task])
-            for r in records
-        ]
-        resp = jsonify(task_dict)
-        resp.handler["Last-Modified"] = self.httpdate(task.updated_at or task.created_at)
+            resp = jsonify({"updated-at": task.updated_at})
+        resp.headers["Last-Modified"] = self.httpdate(task.updated_at or task.created_at)
+        return resp
 
     def delete_task(self, task_id):
         """Delete the task."""
@@ -206,7 +218,10 @@ class TaskResource(AppResource):
             try:
                 filename = (data.get("filename") or self.filename or datetime.utcnow().isoformat(timespec="seconds"))
                 if task_id:
-                    task = Task.get(id=task_id)
+                    try:
+                        task = Task.get(id=task_id)
+                    except Task.DoesNotExist:
+                        return jsonify({"error": "The task doesn't exist."}), 404
                     if task.created_by != current_user:
                         return jsonify({"error": "Access denied."}), 403
                 else:
@@ -418,6 +433,12 @@ class AffiliationAPI(TaskResource):
         description: "Retrieve the specified affiliation task."
         produces:
           - "application/json"
+        parameters:
+          - name: "task_id"
+            in: "path"
+            description: "Affiliation task ID."
+            required: true
+            type: "integer"
         responses:
           200:
             description: "successful operation"
@@ -426,11 +447,7 @@ class AffiliationAPI(TaskResource):
           403:
             description: "Access Denied"
         """
-        login_user(request.oauth.user)
-        task = Task.get(id=task_id)
-        if task.created_by != current_user:
-            abort(403)
-        return self.jsonify_task(task)
+        return self.jsonify_task(task_id)
 
     def post(self, task_id):
         """Upload the task and completely override the affiliation task.
@@ -443,6 +460,11 @@ class AffiliationAPI(TaskResource):
         consumes:
           - application/json
         parameters:
+          - name: "task_id"
+            in: "path"
+            description: "Affiliation task ID."
+            required: true
+            type: "integer"
           - in: body
             name: affiliationTask
             description: "Affiliation task."
@@ -471,6 +493,11 @@ class AffiliationAPI(TaskResource):
         consumes:
           - application/json
         parameters:
+          - name: "task_id"
+            in: "path"
+            description: "Affiliation task ID."
+            required: true
+            type: "integer"
           - in: body
             name: affiliationTask
             description: "Affiliation task."
@@ -499,6 +526,11 @@ class AffiliationAPI(TaskResource):
         consumes:
           - application/json
         parameters:
+          - name: "task_id"
+            in: "path"
+            description: "Affiliation task ID."
+            required: true
+            type: "integer"
           - in: body
             name: affiliationTask
             description: "Affiliation task."
@@ -525,9 +557,9 @@ class AffiliationAPI(TaskResource):
         summary: "Delete the specified affiliation task."
         description: "Delete the specified affiliation task."
         parameters:
-          - name: id
-            in: path
-            description: "Batch task ID."
+          - name: "task_id"
+            in: "path"
+            description: "Affiliation task ID."
             required: true
             type: "integer"
         produces:
@@ -539,6 +571,30 @@ class AffiliationAPI(TaskResource):
             description: "Access Denied"
         """
         return self.delete_task(task_id)
+
+    def head(self, task_id):
+        """Handle HEAD request.
+
+        ---
+        tags:
+          - "affiliations"
+        summary: "Return task update time-stamp."
+        description: "Return task update time-stamp."
+        parameters:
+          - name: "task_id"
+            in: "path"
+            description: "Affiliation task ID."
+            required: true
+            type: "integer"
+        produces:
+          - "application/json"
+        responses:
+          200:
+            description: "Successful operation"
+          403:
+            description: "Access Denied"
+        """
+        return self.jsonify_task(task_id)
 
 
 api.add_resource(TaskList, "/api/v0.1/tasks")
