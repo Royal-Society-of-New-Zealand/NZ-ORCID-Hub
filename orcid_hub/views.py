@@ -519,6 +519,8 @@ class RecordModelView(AppModelView):
                 except Task.DoesNotExist:
                     flash(f"The task with ID: {task_id} doesn't exist.", "danger")
                     abort(404)
+            else:
+                return redirect(request.args.get("url") or url_for("task.index_view"))
         return super().render(template, **kwargs)
 
     def is_accessible(self):
