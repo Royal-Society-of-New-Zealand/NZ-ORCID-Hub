@@ -404,6 +404,12 @@ class AffiliationListAPI(TaskResource):
           description: "The batch process filename."
           required: false
           type: "string"
+        - name: body
+          in: body
+          description: "Affiliation task."
+          required: true
+          schema:
+            $ref: "#/definitions/AffiliationTask"
         responses:
           200:
             description: "successful operation"
@@ -468,7 +474,7 @@ class AffiliationAPI(TaskResource):
           - in: body
             name: affiliationTask
             description: "Affiliation task."
-            scheme:
+            schema:
               $ref: "#/definitions/AffiliationTask"
         produces:
           - "application/json"
@@ -501,7 +507,7 @@ class AffiliationAPI(TaskResource):
           - in: body
             name: affiliationTask
             description: "Affiliation task."
-            scheme:
+            schema:
               $ref: "#/definitions/AffiliationTask"
         produces:
           - "application/json"
@@ -534,7 +540,7 @@ class AffiliationAPI(TaskResource):
           - in: body
             name: affiliationTask
             description: "Affiliation task."
-            scheme:
+            schema:
               $ref: "#/definitions/AffiliationTask"
         produces:
           - "application/json"
