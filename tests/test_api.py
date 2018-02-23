@@ -576,3 +576,50 @@ def test_affiliation_api(client):
         content_type="application/json",
         data=b'')
     assert resp.status_code == 400
+
+    resp = client.post(
+        "/api/v0.1/affiliations/?filename=TEST42.csv",
+        headers=dict(authorization=f"Bearer {access_token}", accept="text/yaml"),
+        content_type="text/yaml",
+        data="""task-type: AFFILIATION
+filename: TEST42.yml
+records:
+- affiliation-type: student
+  city: Wellington
+  country: NZ
+  department: Research Funding
+  email: researcher.010@mailinator.com
+  first-name: Roshan
+  last-name: Pawar
+  organisation: Royal Org1
+  role: BBB
+  start-date: 2016-09
+- affiliation-type: staff
+  city: Wellington
+  country: NZ
+  department: Research Funding
+  email: researcher.010@mailinator.com
+  first-name: Roshan
+  last-name: Pawar
+  organisation: Royal Org1
+  role: AAA
+  start-date: 2016-09
+- affiliation-type: staff
+  city: Wellington
+  country: NZ
+  department: Research Funding
+  email: researcher.020@mailinator.com
+  first-name: Researcher
+  is-active: false
+  last-name: Par
+  organisation: Royal Org1
+  role: Programme Guide - ORCID
+  start-date: 2016-09
+""")
+    data = json.loads(resp.data)
+    assert data["filename"] == "TEST42.yml"
+    assert data["task-type"] == "AFFILIATION"
+    assert len(data["records"]) == 3
+    task_id = data["id"]
+    task = Task.get(id=task_id)
+    assert task.affiliationrecord_set.count() == 3
