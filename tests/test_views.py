@@ -1253,11 +1253,17 @@ def test_viewmembers_delete(request_ctx):
             data={
                 "id": str(researcher0.id),
                 "url": "/admin/viewmembers/",
-            }) as ctx, patch("orcid_hub.views.AppModelView.on_model_delete", create=True,
-            side_effect=Exception("FAILURED")):  # noqa: F405
+            }) as ctx, patch(
+                "orcid_hub.views.AppModelView.on_model_delete",
+                create=True,
+                side_effect=Exception("FAILURED")), patch(
+                    "orcid_hub.views.AppModelView.handle_view_exception",
+                    create=True,
+                    return_value=False):  # noqa: F405
         login_user(admin0)
-        with pytest.raises(Exception):
-            ctx.app.full_dispatch_request()
+        resp = ctx.app.full_dispatch_request()
+    assert resp.status_code == 302
+    assert resp.location == "/admin/viewmembers/"
     assert User.select().where(User.id == researcher0.id).count() == 1
 
     with request_ctx(
