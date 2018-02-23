@@ -32,7 +32,7 @@ from wtforms.fields import BooleanField
 from orcid_api.rest import ApiException
 
 from . import admin, app, limiter, models, orcid_client, utils
-from .config import ORCID_BASE_URL, SCOPE_ACTIVITIES_UPDATE, SCOPE_READ_LIMITED
+from .config import ORCID_BASE_URL, SCOPE_ACTIVITIES_UPDATE, SCOPE_READ_LIMITED, ENV
 from .forms import (ApplicationFrom, BitmapMultipleValueField, CredentialForm, EmailTemplateForm,
                     FileUploadForm, JsonOrYamlFileUploadForm, LogoForm, OrgRegistrationForm,
                     PartialDateField, RecordForm, UserInvitationForm)
@@ -139,7 +139,10 @@ class AppModelView(ModelView):
         "ods",
         "html",
     ]
-    form_base_class = SecureForm
+
+    if ENV != "dev":
+        form_base_class = SecureForm
+
     column_formatters = dict(
         roles=lambda v, c, m, p: ", ".join(n for r, n in v.roles.items() if r & m.roles),
         orcid=orcid_link_formatter)
@@ -933,7 +936,7 @@ class ViewMembersAdmin(AppModelView):
     model = User
     can_edit = True
     can_create = False
-    can_delete = False
+    can_delete = True
     can_view_details = False
     can_export = True
 
@@ -952,6 +955,28 @@ class ViewMembersAdmin(AppModelView):
         except User.DoesNotExist:
             flash(f"The user with given ID: {id} doesn't exist or it was deleted.", "danger")
             abort(404)
+
+    def delete_model(self, model):
+        """Delete a row."""
+        user_org = UserOrg.select().where(
+                UserOrg.user == model,
+                UserOrg.org == current_user.organisation).first()
+        try:
+            self.on_model_delete(model)
+            if model.organisations.count() < 2:
+                model.delete_instance(recursive=True)
+            else:
+                user_org.delete_instance(recursive=True)
+
+        except Exception as ex:
+            if not self.handle_view_exception(ex):
+                flash(gettext('Failed to delete record. %(error)s', error=str(ex)), 'error')
+                app.logger.exception('Failed to delete record.')
+
+            return False
+        else:
+            self.after_model_delete(model)
+        return True
 
 
 admin.add_view(UserAdmin(User))

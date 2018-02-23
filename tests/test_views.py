@@ -1195,7 +1195,7 @@ def test_delete_employment(request_ctx, app):
         delete_education.assert_called_once_with("XXXX-XXXX-XXXX-0001", 54321)
 
 
-def test_viewmemebers(request_ctx):
+def test_viewmembers(request_ctx):
     """Test affilated researcher view."""
     non_admin = User.get(email="researcher100@test0.edu")
     with request_ctx("/admin/viewmembers") as ctx:
@@ -1217,11 +1217,75 @@ def test_viewmemebers(request_ctx):
         assert non_admin.email.encode() in resp.data
         assert non_admin.name.encode() in resp.data
 
+    with request_ctx(f"/admin/viewmembers/edit/?id=9999999999") as ctx:
+        login_user(admin)
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 404
+
     user2 = User.get(email="researcher100@test1.edu")
     with request_ctx(f"/admin/viewmembers/edit/?id={user2.id}") as ctx:
         login_user(admin)
         resp = ctx.app.full_dispatch_request()
         assert resp.status_code == 403
+
+
+def test_viewmembers_delete(request_ctx):
+    """Test affilated researcher deletion via the view."""
+    admin0 = User.get(email="admin@test0.edu")
+    admin1 = User.get(email="admin@test1.edu")
+    researcher0 = User.get(email="researcher100@test0.edu")
+    researcher1 = User.get(email="researcher100@test1.edu")
+
+    with request_ctx(
+            "/admin/viewmembers/delete/",
+            method="POST",
+            data={
+                "id": str(researcher1.id),
+                "url": "/admin/viewmembers/",
+            }) as ctx:  # noqa: F405
+        login_user(admin0)
+        resp = ctx.app.full_dispatch_request()
+    assert resp.status_code == 403
+
+    with request_ctx(
+            "/admin/viewmembers/delete/",
+            method="POST",
+            data={
+                "id": str(researcher0.id),
+                "url": "/admin/viewmembers/",
+            }) as ctx, patch("orcid_hub.views.AppModelView.on_model_delete", create=True,
+            side_effect=Exception("FAILURED")):  # noqa: F405
+        login_user(admin0)
+        with pytest.raises(Exception):
+            ctx.app.full_dispatch_request()
+    assert User.select().where(User.id == researcher0.id).count() == 1
+
+    with request_ctx(
+            "/admin/viewmembers/delete/",
+            method="POST",
+            data={
+                "id": str(researcher0.id),
+                "url": "/admin/viewmembers/",
+            }) as ctx:  # noqa: F405
+        login_user(admin0)
+        resp = ctx.app.full_dispatch_request()
+    assert resp.status_code == 302
+    with pytest.raises(User.DoesNotExist):
+        User.get(id=researcher0.id)
+
+    UserOrg.create(org=admin0.organisation, user=researcher1)
+    with request_ctx(
+            "/admin/viewmembers/delete/",
+            method="POST",
+            data={
+                "id": str(researcher1.id),
+                "url": "/admin/viewmembers/",
+            }) as ctx:  # noqa: F405
+        login_user(admin1)
+        resp = ctx.app.full_dispatch_request()
+    assert resp.status_code == 302
+    assert User.select().where(User.id == researcher1.id).count() == 1
+    assert UserOrg.select().where(UserOrg.user == researcher1).count() == 1
 
 
 def test_reset_all(request_ctx):
