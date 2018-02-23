@@ -206,7 +206,14 @@ class TaskResource(AppResource):
     def delete_task(self, task_id):
         """Delete the task."""
         login_user(request.oauth.user)
-        task = Task.get(id=task_id)
+        try:
+            task = Task.get(id=task_id)
+        except Task.DoesNotExist:
+            return jsonify({"error": "The task doesn't exist."}), 404
+        except Exception as ex:
+            app.logger.exception(f"Failed to find the task with ID: {task_id}")
+            return jsonify({"error": "Unhandled except occured.", "exception": ex}), 400
+
         if task.created_by != current_user:
             abort(403)
         task.delete_instance()

@@ -541,6 +541,11 @@ def test_affiliation_api(client):
         headers=dict(authorization=f"Bearer {access_token}"))
     assert Task.select().count() == 1
 
+    resp = client.delete(
+        f"/api/v0.1/affiliations/{task_id}",
+        headers=dict(authorization=f"Bearer {access_token}"))
+    assert resp.status_code == 404
+
     other_user = User.get(email="admin@test1.edu")
     other_task = Task.create(
         created_by=other_user,
