@@ -727,10 +727,9 @@ class WorkContributorAdmin(ContributorModelAdmin):
     column_exclude_list = ("work_record", )
 
 
-class FundingRecordAdmin(RecordModelView):
-    """Funding record model view."""
+class FundingWorkCommonModelView(RecordModelView):
+    """Common view for Funding and Work model."""
 
-    list_template = "funding_record_list.html"
     column_searchable_list = ("title", )
     column_export_exclude_list = (
         "task",
@@ -739,38 +738,17 @@ class FundingRecordAdmin(RecordModelView):
         "processed_at",
         "created_at",
         "updated_at",
-        "title",
-        "translated_title",
-        "translated_title_language_code",
-        "type",
-        "organization_defined_type",
-        "short_description",
-        "amount",
-        "currency",
-        "start_date",
-        "end_date",
-        "org_name",
-        "city",
-        "region",
-        "country",
-        "disambiguated_org_identifier",
-        "disambiguation_source",
-        "visibility",
     )
+
     export_types = [
         "tsv",
         "yaml",
         "json",
         "csv",
     ]
-    column_export_list = (
-        "funding id",
-        "contributors",
-    )
-    column_csv_export_list = ("funding id", "email", "name", "orcid", "put_code", "role", "status")
 
     def _export_tablib(self, export_type, return_url):
-        """Override funding export functionality to integrate funding contributors and external ids."""
+        """Override export functionality to integrate funding/work contributors with external ids."""
         if tablib is None:
             flash(gettext('Tablib dependency not installed.'), 'error')
             return redirect(return_url)
@@ -815,14 +793,28 @@ class FundingRecordAdmin(RecordModelView):
         )
 
     def get_external_id_contributors(self, row):
-        """Get funding contributors and external ids."""
+        """Get funding/work contributors with external ids."""
         vals = []
         contributor_list = []
         external_id_list = []
-        exclude_list = ['id', 'funding_record_id', 'processed_at']
+        record_id = "funding_record_id"
+        funding_work_id = "funding id"
+        contributors = "contributors"
+
+        if self.model == WorkRecord:
+            record_id = "work_record_id"
+            funding_work_id = "work id"
+            contributors = "work_contributors"
+
+        exclude_list = ['id', record_id, 'processed_at']
         for c in self._export_columns:
-            if c[0] == 'contributors':
-                for f in row.contributors:
+            if c[0] == contributors:
+                if self.model == WorkRecord:
+                    contributors_data = row.work_contributors
+                else:
+                    contributors_data = row.contributors
+
+                for f in contributors_data:
                     contributor_rec = {}
                     for col in f._meta.columns.keys():
                         if col not in exclude_list:
@@ -834,7 +826,7 @@ class FundingRecordAdmin(RecordModelView):
                                 self.column_type_formatters_export,
                             )
                     contributor_list.append(contributor_rec)
-            elif c[0] == 'funding id':
+            elif c[0] == funding_work_id:
                 external_id_relation_part_of = {}
                 for f in row.external_ids:
                     external_id_rec = {}
@@ -847,7 +839,7 @@ class FundingRecordAdmin(RecordModelView):
                                 self.column_formatters_export,
                                 self.column_type_formatters_export,
                             )
-                    # Get the first external id from extrnal id list with 'SELF' relationship for funding export
+                    # Get the first external id from extrnal id list with 'SELF' relationship for funding/work export
                     if not external_id_list and external_id_rec.get(
                             'relationship') and external_id_rec.get(
                                 'relationship').lower() == 'self':
@@ -919,19 +911,65 @@ class FundingRecordAdmin(RecordModelView):
             mimetype='text/' + export_type)
 
 
-class WorkRecordAdmin(RecordModelView):
+class FundingRecordAdmin(FundingWorkCommonModelView):
+    """Funding record model view."""
+
+    list_template = "funding_record_list.html"
+    column_export_exclude_list = (
+        "title",
+        "translated_title",
+        "translated_title_language_code",
+        "type",
+        "organization_defined_type",
+        "short_description",
+        "amount",
+        "currency",
+        "start_date",
+        "end_date",
+        "org_name",
+        "city",
+        "region",
+        "country",
+        "disambiguated_org_identifier",
+        "disambiguation_source",
+        "visibility",
+    )
+
+    column_export_list = (
+        "funding id",
+        "contributors",
+    )
+    column_csv_export_list = ("funding id", "email", "name", "orcid", "put_code", "role", "status")
+
+
+class WorkRecordAdmin(FundingWorkCommonModelView):
     """Work record model view."""
 
     list_template = "work_record_list.html"
-    column_searchable_list = ("title", )
-
-    export_types = [
-        "tsv",
-        "yaml",
-        "json",
-        "csv",
-    ]
     form_overrides = dict(publication_date=PartialDateField)
+
+    column_export_exclude_list = (
+        "title",
+        "sub_title",
+        "translated_title",
+        "translated_title_language_code",
+        "journal_title",
+        "short_description",
+        "citation_type",
+        "citation_value"
+        "type",
+        "publication_date",
+        "publication_media_type",
+        "url",
+        "language_code",
+        "country",
+        "visibility",
+    )
+    column_export_list = (
+        "work id",
+        "work_contributors",
+    )
+    column_csv_export_list = ("work id", "email", "name", "orcid", "put_code", "role", "status")
 
 
 class AffiliationRecordAdmin(RecordModelView):
