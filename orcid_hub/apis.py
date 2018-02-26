@@ -20,6 +20,15 @@ from .models import (EMAIL_REGEX, ORCID_ID_REGEX, AffiliationRecord, OrcidToken,
 from .schemas import affiliation_task_schema
 
 
+def prefers_yaml():
+    """Test if the client prefers YAML."""
+    best = request.accept_mimetypes.best_match(["text/yaml", "application/x-yaml"])
+    return (best in [
+        "text/yaml",
+        "application/x-yaml",
+    ] and request.accept_mimetypes[best] > request.accept_mimetypes["application/json"])
+
+
 class AppRestResource(RestResource):
     """Application REST Resource."""
 
@@ -138,6 +147,11 @@ class AppResource(Resource):
         return "%s, %02d %s %04d %02d:%02d:%02d GMT" % (weekday, dt.day, month, dt.year, dt.hour,
                                                         dt.minute, dt.second)
 
+    @property
+    def is_yaml_request(self):
+        """Test if the requst body content type is YAML."""
+        return request.content_type in ["text/yaml", "application/x-yaml"]
+
 
 class TaskResource(AppResource):
     """Common task ralated reource."""
@@ -146,7 +160,6 @@ class TaskResource(AppResource):
 
     def dispatch_request(self, *args, **kwargs):
         """Do some pre-handling..."""
-        # import pdb; pdb.set_trace()
         parser = reqparse.RequestParser()
         parser.add_argument(
             "type", type=str, help="Task type: " + ", ".join(self.available_task_types))
@@ -192,7 +205,14 @@ class TaskResource(AppResource):
     def delete_task(self, task_id):
         """Delete the task."""
         login_user(request.oauth.user)
-        task = Task.get(id=task_id)
+        try:
+            task = Task.get(id=task_id)
+        except Task.DoesNotExist:
+            return jsonify({"error": "The task doesn't exist."}), 404
+        except Exception as ex:
+            app.logger.exception(f"Failed to find the task with ID: {task_id}")
+            return jsonify({"error": "Unhandled except occured.", "exception": ex}), 400
+
         if task.created_by != current_user:
             abort(403)
         task.delete_instance()
@@ -201,7 +221,18 @@ class TaskResource(AppResource):
     def handle_affiliation_task(self, task_id=None):
         """Handle PUT, POST, or PATCH request. Request body expected to be encoded in JSON."""
         login_user(request.oauth.user)
-        data = request.get_json()
+
+        if self.is_yaml_request:
+            try:
+                data = yaml.load(request.data)
+            except Exception as ex:
+                return jsonify({
+                    "error": "Ivalid request format. Only JSON, CSV, or TSV are acceptable.",
+                    "message": str(ex)
+                }), 415
+        else:
+            data = request.get_json()
+
         if not data:
             return jsonify({"error": "Ivalid request format. Only JSON, CSV, or TSV are acceptable."}), 415
         try:
@@ -270,6 +301,7 @@ class TaskList(TaskResource):
         description: "Retrieve the list of all submitted task."
         produces:
           - "application/json"
+          - "text/yaml"
         parameters:
           - name: "type"
             in: "path"
@@ -287,13 +319,14 @@ class TaskList(TaskResource):
           403:
             description: "Access Denied"
         """
-        return jsonify([
+        tasks = [
                 t.to_dict(
                     recurse=False,
                     to_dashes=True,
                     exclude=[Task.created_by, Task.updated_by, Task.org, Task.task_type])
                 for t in Task.select()
-        ])
+        ]
+        return yamlfy(tasks) if prefers_yaml() else jsonify(tasks)
 
 
 class AffiliationListAPI(TaskResource):
@@ -310,6 +343,7 @@ class AffiliationListAPI(TaskResource):
         consumes:
         - application/json
         - text/csv
+        - text/yaml
         definitions:
         - schema:
             id: AffiliationTask
@@ -465,6 +499,8 @@ class AffiliationAPI(TaskResource):
         description: "Update the affiliation task."
         consumes:
           - application/json
+          - text/yaml
+        definitions:
         parameters:
           - name: "task_id"
             in: "path"
@@ -498,6 +534,7 @@ class AffiliationAPI(TaskResource):
         description: "Update the affiliation task."
         consumes:
           - application/json
+          - text/yaml
         parameters:
           - name: "task_id"
             in: "path"
@@ -531,6 +568,7 @@ class AffiliationAPI(TaskResource):
         description: "Update the affiliation task."
         consumes:
           - application/json
+          - text/yaml
         parameters:
           - name: "task_id"
             in: "path"
@@ -736,11 +774,6 @@ class UserAPI(AppResource):
         }), 200
 
 
-# app.add_url_rule(
-#     "/api/v0.1/users/<identifier>", view_func=UserAPI.as_view("users"), methods=[
-#         "GET",
-#     ])
-
 api.add_resource(UserAPI, "/api/v0.1/users/<identifier>")
 
 
@@ -847,104 +880,6 @@ app.add_url_rule(
     ])
 
 
-# class AffiliationTaskAPI(MethodView):
-#     """Affiliation task service."""
-
-#     decorators = [
-#         oauth.require_oauth(),
-#     ]
-
-#     def get(self, task_id=None):
-#         """
-#         Manage affiliation batch process tasks.
-
-#         ---
-#         tags:
-#           - "affiliation"
-#         summary: "Manage affiliation batch process tasks."
-#         description: ""
-#         produces:
-#           - "application/json"
-#         parameters:
-#           - name: "task-id"
-#             in: "path"
-#             description: "Batch task ID."
-#             required: true
-#             type: "string"
-#         responses:
-#           200:
-#             description: "successful operation"
-#             schema:
-#               id: AffiliationTaskResult
-#               properties:
-#                 found:
-#                   type: "boolean"
-#                 token:
-#                   type: "object"
-#                   properties:
-#                     access_token:
-#                       type: "string"
-#                       description: "ORCID API user profile access token"
-#                     refresh_token:
-#                       type: "string"
-#                       description: "ORCID API user profile refresh token"
-#                     scopes:
-#                       type: "string"
-#                       description: "ORCID API user token scopes"
-#                     issue_time:
-#                       type: "string"
-#                     expires_in:
-#                       type: "integer"
-#           400:
-#             description: "Invalid identifier supplied"
-#           403:
-#             description: "Access Denied"
-#           404:
-#             description: "User not found"
-#         """
-#         if task_id is None:
-#             return jsonify({"error": "Need at least one parameter: email or ORCID ID."}), 400
-
-#         identifier = task_id.strip()
-#         if EMAIL_REGEX.match(identifier):
-#             user = User.select().where((User.email == identifier) | (
-#                 User.eppn == identifier)).first()
-#         elif ORCID_ID_REGEX.match(identifier):
-#             try:
-#                 models.validate_orcid_id(identifier)
-#             except Exception as ex:
-#                 return jsonify({"error": f"Incorrect identifier value '{identifier}': {ex}"}), 400
-#             user = User.select().where(User.orcid == identifier).first()
-#         else:
-#             return jsonify({"error": f"Incorrect identifier value: {identifier}."}), 400
-#         if user is None:
-#             return jsonify({
-#                 "error": f"User with specified identifier '{identifier}' not found."
-#             }), 404
-
-#         org = request.oauth.client.org
-#         if not UserOrg.select().where(UserOrg.org == org, UserOrg.user == user).exists():
-#             return jsonify({"error": "Access Denied"}), 403
-
-#         try:
-#             token = OrcidToken.get(user=user, org=org)
-#         except OrcidToken.DoesNotExist:
-#             return jsonify({
-#                 "error":
-#                 f"Token for the users {user} ({identifier}) affiliated with {org} not found."
-#             }), 404
-
-#         return jsonify({
-#             "found": True,
-#             "token": {
-#                 "access_token": token.access_token,
-#                 "refresh_token": token.refresh_token,
-#                 "issue_time": token.issue_time.isoformat(),
-#                 "expires_in": token.expires_in
-#             }
-#         }), 200
-
-
 def get_spec(app):
     """Build API swagger scecifiction."""
     swag = swagger(app)
@@ -1030,6 +965,7 @@ def db_api_docs():
 
 def yamlfy(*args, **kwargs):
     """Create respose in YAML just like jsonify does it for JSON."""
+    yaml.add_representer
     if args and kwargs:
         raise TypeError('yamlfy() behavior undefined when passed both args and kwargs')
     elif len(args) == 1:  # single args are passed directly to dumps()

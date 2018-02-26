@@ -385,11 +385,20 @@ def make_fake_response(text, *args, **kwargs):
 
 def test_short_url(request_ctx):
     """Test short url."""
-    short_url = Url.shorten("https://dev.orcidhub.org.nz/confirm/organisation/xsdsdsfdds")
-    with request_ctx("/u/" + short_url.short_id) as ctxx:
-        rv = ctxx.app.full_dispatch_request()
-        assert rv.status_code == 302
-        assert rv.location.startswith("https://dev.orcidhub.org.nz")
+    short_url = Url.shorten("https://HOST/confirm/organisation/ABCD1234")
+    with request_ctx("/u/" + short_url.short_id) as ctx:
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 302
+        assert resp.location == "https://HOST/confirm/organisation/ABCD1234"
+
+    with request_ctx("/u/" + short_url.short_id + "?param=PARAM123") as ctx:
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 302
+        assert resp.location == "https://HOST/confirm/organisation/ABCD1234?param=PARAM123"
+
+    with request_ctx("/u/DOES_NOT_EXIST") as ctx:
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 404
 
 
 def test_load_org(request_ctx):
@@ -397,9 +406,9 @@ def test_load_org(request_ctx):
     root = User.get(email="root@test0.edu")
     with request_ctx("/load/org") as ctx:
         login_user(root, remember=True)
-        rv = ctx.app.full_dispatch_request()
-        assert rv.status_code == 200
-        assert b"<!DOCTYPE html>" in rv.data, "Expected HTML content"
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 200
+        assert b"<!DOCTYPE html>" in resp.data, "Expected HTML content"
 
 
 def test_read_uploaded_file(request_ctx):
@@ -552,10 +561,23 @@ def test_api_credentials(request_ctx):
 
 def test_page_not_found(request_ctx):
     """Test handle nonexistin pages."""
-    with request_ctx():
-        resp = views.page_not_found("abc")
-        assert 404 == resp[1]
-        assert "Sorry, that page doesn't exist." in resp[0]
+    with request_ctx("/this/does/not/exist") as ctx:
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 404
+        assert b"Sorry, that page doesn't exist." in resp.data
+
+    with request_ctx("/this/does/not/exist/?url=/something/else") as ctx:
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 302
+        assert resp.location == "/something/else"
+
+
+def test_favicon(request_ctx):
+    """Test favicon."""
+    with request_ctx("/favicon.ico") as ctx:
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 200
+        assert resp.mimetype == "image/vnd.microsoft.icon"
 
 
 def send_mail_mock(*argvs, **kwargs):
