@@ -160,7 +160,6 @@ class TaskResource(AppResource):
 
     def dispatch_request(self, *args, **kwargs):
         """Do some pre-handling..."""
-        # import pdb; pdb.set_trace()
         parser = reqparse.RequestParser()
         parser.add_argument(
             "type", type=str, help="Task type: " + ", ".join(self.available_task_types))

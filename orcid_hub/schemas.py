@@ -6,7 +6,7 @@ affiliation_record_schema = {
     "type": "object",
     "properties": {
         "id": {"type": "integer", "format": "int64"},
-        "put-code": {"type": ["string", "null"]},
+        "put-code": {"type": ["string", "null", "integer"]},
         "external-id": {"type": ["string", "null"]},
         "is-active": {"type": "boolean"},
         "email": {"type": ["string", "null"]},
