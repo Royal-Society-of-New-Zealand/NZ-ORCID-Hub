@@ -32,7 +32,7 @@ from playhouse.shortcuts import RetryOperationalError
 # disable Sentry if there is no SENTRY_DSN:
 from raven.contrib.flask import Sentry
 
-from .config import *  # noqa: F401, F403
+from . import config  # noqa: F401, F403
 from .failover import PgDbWithFailover
 from flask_admin import Admin
 from flask_limiter import Limiter
@@ -46,7 +46,7 @@ class ReconnectablePostgresqlDatabase(RetryOperationalError, PostgresqlDatabase)
 
 
 app = Flask(__name__, instance_relative_config=True)
-app.config.from_object(__name__)
+app.config.from_object(config)
 if not app.config.from_pyfile("settings.cfg", silent=True) and app.debug:
     print("*** WARNING: Faile to laod local application configuration from 'instance/settins.cfg'")
 app.url_map.strict_slashes = False

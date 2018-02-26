@@ -62,6 +62,7 @@ def app():
         _app.config["DEBUG_TB_ENABLED"] = False
         #_app.config["SERVER_NAME"] = "ORCIDHUB"
         _app.sentry = None
+
         # Add some data:
         for org_no in range(2):
             org = Organisation.create(
