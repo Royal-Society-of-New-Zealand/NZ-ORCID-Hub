@@ -20,7 +20,7 @@ from peewee import JOIN
 from . import app, orcid_client
 from .models import (AFFILIATION_TYPES, Affiliation, AffiliationRecord, FundingContributor,
                      FundingRecord, OrcidToken, Organisation, Role, Task, TaskType, Url, User,
-                     UserInvitation, UserOrg, WorkRecord, WorkContributor)
+                     UserInvitation, UserOrg, WorkRecord, WorkContributor, db)
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -218,10 +218,10 @@ def set_server_name():
                 "SERVER_NAME"] = "orcidhub.org.nz" if ENV == "prod" else ENV + ".orcidhub.org.nz"
 
 
-def send_work_invitation(inviter, org, email, name, task_id=None, **kwargs):
-    """Send a work invitation to join ORCID Hub logging in via ORCID."""
+def send_work_funding_invitation(inviter, org, email, name, task_id=None, invitation_template=None, **kwargs):
+    """Send a work or funding invitation to join ORCID Hub logging in via ORCID."""
     try:
-        logger.info(f"*** Sending an Work invitation to '{name} <{email}>' "
+        logger.info(f"*** Sending an invitation to '{name} <{email}>' "
                     f"submitted by {inviter} of {org}")
 
         email = email.lower()
@@ -241,7 +241,7 @@ def send_work_invitation(inviter, org, email, name, task_id=None, **kwargs):
             invitation_url = flask.url_for(
                 "short_url", short_id=Url.shorten(url).short_id, _external=True)
             send_email(
-                "email/work_invitation.html",
+                invitation_template,
                 recipient=(user.organisation.name, user.email),
                 reply_to=(inviter.name, inviter.email),
                 invitation_url=invitation_url,
@@ -272,77 +272,6 @@ def send_work_invitation(inviter, org, email, name, task_id=None, **kwargs):
             disambiguation_source=org.disambiguation_source,
             token=token)
 
-        status = "The invitation sent at " + datetime.utcnow().isoformat(timespec="seconds")
-        (WorkContributor.update(status=WorkContributor.status + "\n" + status).where(
-            WorkContributor.status.is_null(False), WorkContributor.email == email).execute())
-        (WorkContributor.update(status=status).where(
-            WorkContributor.status.is_null(), WorkContributor.email == email).execute())
-        return ui
-
-    except Exception as ex:
-        logger.error(f"Exception occured while sending mails {ex}")
-        raise ex
-
-
-def send_funding_invitation(inviter, org, email, name, task_id=None, **kwargs):
-    """Send an funding invitation to join ORCID Hub logging in via ORCID."""
-    try:
-        logger.info(f"*** Sending an funding invitation to '{name} <{email}>' "
-                    f"submitted by {inviter} of {org}")
-
-        email = email.lower()
-        user, user_created = User.get_or_create(email=email)
-        if user_created:
-            user.name = name
-            user.created_by = inviter.id
-        else:
-            user.updated_by = inviter.id
-
-        user.organisation = org
-        user.roles |= Role.RESEARCHER
-
-        token = generate_confirmation_token(email=email, org=org.name)
-        with app.app_context():
-            url = flask.url_for('orcid_login', invitation_token=token, _external=True)
-            invitation_url = flask.url_for(
-                "short_url", short_id=Url.shorten(url).short_id, _external=True)
-            send_email(
-                "email/funding_invitation.html",
-                recipient=(user.organisation.name, user.email),
-                reply_to=(inviter.name, inviter.email),
-                invitation_url=invitation_url,
-                org_name=user.organisation.name,
-                org=org,
-                user=user)
-
-        user.save()
-
-        user_org, user_org_created = UserOrg.get_or_create(user=user, org=org)
-        if user_org_created:
-            user_org.created_by = inviter.id
-        else:
-            user_org.updated_by = inviter.id
-        user_org.affiliations = 0
-        user_org.save()
-
-        ui = UserInvitation.create(
-            task_id=task_id,
-            invitee_id=user.id,
-            inviter_id=inviter.id,
-            org=org,
-            email=email,
-            first_name=name,
-            affiliations=0,
-            organisation=org.name,
-            disambiguated_id=org.disambiguated_id,
-            disambiguation_source=org.disambiguation_source,
-            token=token)
-
-        status = "The invitation sent at " + datetime.utcnow().isoformat(timespec="seconds")
-        (FundingContributor.update(status=FundingContributor.status + "\n" + status).where(
-            FundingContributor.status.is_null(False), FundingContributor.email == email).execute())
-        (FundingContributor.update(status=status).where(
-            FundingContributor.status.is_null(), FundingContributor.email == email).execute())
         return ui
 
     except Exception as ex:
@@ -834,7 +763,14 @@ def process_work_records(max_rows=20):
                         t.work_record.work_contributor.email,
                         t.work_record.work_contributor.name, )
             ):  # noqa: E501
-                send_work_invitation(*k, task_id=task_id)
+                send_work_funding_invitation(*k, task_id=task_id, invitation_template="email/work_invitation.html")
+                with db.atomic():
+                    status = "The invitation sent at " + datetime.utcnow().isoformat(timespec="seconds")
+                    (WorkContributor.update(status=WorkContributor.status + "\n" + status).where(
+                        WorkContributor.status.is_null(False), WorkContributor.email == k[2]).execute())
+                    (WorkContributor.update(status=status).where(
+                        WorkContributor.status.is_null(), WorkContributor.email == k[2]).execute())
+
         else:
             create_or_update_work(user, org_id, tasks_by_user)
         task_ids.add(task_id)
@@ -930,7 +866,13 @@ def process_funding_records(max_rows=20):
                         t.funding_record.funding_contributor.email,
                         t.funding_record.funding_contributor.name, )
             ):  # noqa: E501
-                send_funding_invitation(*k, task_id=task_id)
+                send_work_funding_invitation(*k, task_id=task_id, invitation_template="email/funding_invitation.html")
+                with db.atomic():
+                    status = "The invitation sent at " + datetime.utcnow().isoformat(timespec="seconds")
+                    (FundingContributor.update(status=FundingContributor.status + "\n" + status).where(
+                        FundingContributor.status.is_null(False), FundingContributor.email == k[2]).execute())
+                    (FundingContributor.update(status=status).where(
+                        FundingContributor.status.is_null(), FundingContributor.email == k[2]).execute())
         else:
             create_or_update_funding(user, org_id, tasks_by_user)
         task_ids.add(task_id)

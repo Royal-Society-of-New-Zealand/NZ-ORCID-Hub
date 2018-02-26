@@ -187,84 +187,60 @@ class MemberAPI(MemberAPIV20Api):
         wr = task_by_user.work_record
         wc = task_by_user.work_record.work_contributor
 
-        title = wr.title
-        sub_title = wr.sub_title
-        translated_title = wr.translated_title
-        translated_title_language_code = wr.translated_title_language_code
-        journal_title = wr.journal_title
-        short_description = wr.short_description
-        citation_type = wr.citation_type
-        citation_value = wr.citation_value
-        work_type = wr.type
-        publication_date = wr.publication_date
-        publication_media_type = wr.publication_media_type
-        url = wr.url
-        work_language_code = wr.language_code
-        country = wr.country
-        visibility = wr.visibility
-
-        put_code = wc.put_code
-
-        if not title:
-            title = None
-        if not translated_title:
-            translated_title = None
-        if not translated_title_language_code:
-            translated_title_language_code = None
-        if not journal_title:
-            journal_title = None
-        if not short_description:
-            short_description = None
-        if not citation_type:
-            citation_type = None
-        if not citation_value:
-            citation_value = None
-        if not work_type:
-            work_type = None
-        if not publication_date:
-            publication_date = None
-        if not publication_media_type:
-            publication_media_type = None
-        if not url:
-            url = None
-        if not work_language_code:
-            work_language_code = None
-        if not country:
-            country = None
-        if not visibility:
-            visibility = None
-
         rec = Work()    # noqa: F405
-        title = Title(value=title)  # noqa: F405
+        title = None
+        if wr.title:
+            title = Title(value=wr.title)  # noqa: F405
         subtitle = None
-        if sub_title:
-            subtitle = Subtitle(value=sub_title)    # noqa: F405
-        if translated_title:
-            translated_title = TranslatedTitle(value=wr.translated_title,   # noqa: F405
-                                               language_code=translated_title_language_code)  # noqa: F405
-
+        if wr.sub_title:
+            subtitle = Subtitle(value=wr.sub_title)     # noqa: F405
+        translated_title = None
+        if wr.translated_title and wr.translated_title_language_code:
+            translated_title = TranslatedTitle(value=wr.translated_title,  # noqa: F405
+                                               language_code=wr.translated_title_language_code)  # noqa: F405
         rec.title = WorkTitle(title=title, subtitle=subtitle, translated_title=translated_title)  # noqa: F405
-        if journal_title:
-            rec.journal_title = Title(value=journal_title)  # noqa: F405
+
+        if wr.journal_title:
+            rec.journal_title = Title(value=wr.journal_title)  # noqa: F405
+
+        short_description = None
+        if wr.short_description:
+            short_description = wr.short_description
         rec.short_description = short_description
+
         rec.source = self.source
+
+        work_type = None
+        if wr.type:
+            work_type = wr.type
         rec.type = work_type
 
-        if publication_date:
-            rec.publication_date = PublicationDate(publication_date.as_orcid_dict(),    # noqa: F405
+        if wr.publication_date:
+            publication_media_type = None
+            if wr.publication_media_type:
+                publication_media_type = wr.publication_media_type
+
+            rec.publication_date = PublicationDate(wr.publication_date.as_orcid_dict(),    # noqa: F405
                                                    media_type=publication_media_type)   # noqa: F405
+
+        put_code = wc.put_code
         if put_code:
-            rec.put_code = put_code
-        if visibility:
-            rec.visibility = visibility
-        if work_language_code:
-            rec.language_code = work_language_code
-        if country:
-            rec.country = Country(value=country)    # noqa: F405
-        if url:
-            rec.url = Url(value=url)    # noqa: F405
-        if citation_type and citation_value:
-            rec.citation = Citation(citation_type=citation_type, citation_value=citation_value)     # noqa: F405
+            rec.put_code = wc.put_code
+
+        if wr.visibility:
+            rec.visibility = wr.visibility
+
+        if wr.language_code:
+            rec.language_code = wr.language_code
+
+        if wr.country:
+            rec.country = Country(value=wr.country)  # noqa: F405
+
+        if wr.url:
+            rec.url = Url(value=wr.url)  # noqa: F405
+
+        if wr.citation_type and wr.citation_value:
+            rec.citation = Citation(citation_type=wr.citation_type, citation_value=wr.citation_value)  # noqa: F405
 
         work_contributors = WorkCont.select().where(WorkCont.work_record_id == wr.id).order_by(
             WorkCont.contributor_sequence)

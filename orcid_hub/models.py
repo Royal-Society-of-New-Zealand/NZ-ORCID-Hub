@@ -1123,16 +1123,7 @@ class FundingRecord(RecordModel):
         """Load data from json file or a string."""
         if isinstance(source, str):
             # import data from file based on its extension; either it is yaml or json
-            if os.path.splitext(filename)[1][1:] == "yaml" or os.path.splitext(
-                    filename)[1][1:] == "yml":
-                funding_data_list = yaml.load(source)
-            else:
-                funding_data_list = json.loads(source)
-
-            # Removing None for correct schema validation
-            if not isinstance(funding_data_list, list):
-                raise SchemaError(
-                    u"Schema validation failed:\n - Expecting a list of funding records")
+            funding_data_list = load_yaml_json(filename=filename, source=source)
 
             for funding_data in funding_data_list:
                 validation_source_data = copy.deepcopy(funding_data)
@@ -1329,16 +1320,7 @@ class WorkRecord(RecordModel):
         """Load data from JSON file or a string."""
         if isinstance(source, str):
             # import data from file based on its extension; either it is yaml or json
-            if os.path.splitext(filename)[1][1:] == "yaml" or os.path.splitext(
-                    filename)[1][1:] == "yml":
-                work_data_list = yaml.load(source)
-            else:
-                work_data_list = json.loads(source)
-
-            # Removing None for correct schema validation
-            if not isinstance(work_data_list, list):
-                raise SchemaError(
-                    u"Schema validation failed:\n - Expecting a list of Work records")
+            work_data_list = load_yaml_json(filename=filename, source=source)
 
             # TODO: validation of uploaded work file
             '''for work_data in work_data_list:
@@ -1806,3 +1788,18 @@ def drop_tables():
                 m.drop_table(fail_silently=True, cascade=db.drop_cascade)
             except OperationalError:
                 pass
+
+
+def load_yaml_json(filename, source):
+    """Create a common way of loading json or yaml file."""
+    if os.path.splitext(filename)[1][1:] == "yaml" or os.path.splitext(
+            filename)[1][1:] == "yml":
+        data_list = yaml.load(source)
+    else:
+        data_list = json.loads(source)
+
+    # Removing None for correct schema validation
+    if not isinstance(data_list, list):
+        raise SchemaError(
+            u"Schema validation failed:\n - Expecting a list of Records")
+    return data_list

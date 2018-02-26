@@ -143,7 +143,7 @@ def test_send_user_invitation(test_db, request_ctx):
 
 
 @patch("orcid_hub.utils.send_email", side_effect=send_mail_mock)
-def test_send_funding_invitation(test_db, request_ctx):
+def test_send_work_funding_invitation(test_db, request_ctx):
     """Test to send user invitation."""
     org = Organisation(
         id=1,
@@ -185,7 +185,7 @@ def test_send_funding_invitation(test_db, request_ctx):
     fc = FundingContributor(funding_record=fr.id, email=email)
     fc.save()
     with request_ctx("/") as ctxx:
-        utils.send_funding_invitation(
+        utils.send_work_funding_invitation(
             inviter=inviter, org=org, email=email, name=u.name, task_id=task.id)
         rv = ctxx.app.full_dispatch_request()
         assert rv.status_code == 200
