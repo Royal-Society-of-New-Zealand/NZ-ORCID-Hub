@@ -974,3 +974,23 @@ def yamlfy(*args, **kwargs):
         data = args or kwargs
 
     return current_app.response_class((yaml.dump(data), '\n'), mimetype="text/yaml")
+
+
+class OrcidAPIProxy(MethodView):
+    """ORCID API proxy."""
+
+    def get(self, path=None):
+        """Handle GET request..."""
+        return jsonify({
+            # "body": request.data,
+            "args": request.args,
+            "path": request.path,
+            "call": path
+        })
+
+    def post(self):
+        """Handle POST request..."""
+        pass
+
+
+app.add_url_rule("/orcid/api/<path:path>", view_func=OrcidAPIProxy.as_view('orcid_api'))
