@@ -385,11 +385,20 @@ def make_fake_response(text, *args, **kwargs):
 
 def test_short_url(request_ctx):
     """Test short url."""
-    short_url = Url.shorten("https://dev.orcidhub.org.nz/confirm/organisation/xsdsdsfdds")
-    with request_ctx("/u/" + short_url.short_id) as ctxx:
-        rv = ctxx.app.full_dispatch_request()
-        assert rv.status_code == 302
-        assert rv.location.startswith("https://dev.orcidhub.org.nz")
+    short_url = Url.shorten("https://HOST/confirm/organisation/ABCD1234")
+    with request_ctx("/u/" + short_url.short_id) as ctx:
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 302
+        assert resp.location == "https://HOST/confirm/organisation/ABCD1234"
+
+    with request_ctx("/u/" + short_url.short_id + "?param=PARAM123") as ctx:
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 302
+        assert resp.location == "https://HOST/confirm/organisation/ABCD1234?param=PARAM123"
+
+    with request_ctx("/u/DOES_NOT_EXIST") as ctx:
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 404
 
 
 def test_load_org(request_ctx):
@@ -397,9 +406,9 @@ def test_load_org(request_ctx):
     root = User.get(email="root@test0.edu")
     with request_ctx("/load/org") as ctx:
         login_user(root, remember=True)
-        rv = ctx.app.full_dispatch_request()
-        assert rv.status_code == 200
-        assert b"<!DOCTYPE html>" in rv.data, "Expected HTML content"
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 200
+        assert b"<!DOCTYPE html>" in resp.data, "Expected HTML content"
 
 
 def test_read_uploaded_file(request_ctx):
@@ -552,10 +561,23 @@ def test_api_credentials(request_ctx):
 
 def test_page_not_found(request_ctx):
     """Test handle nonexistin pages."""
-    with request_ctx():
-        resp = views.page_not_found("abc")
-        assert 404 == resp[1]
-        assert "Sorry, that page doesn't exist." in resp[0]
+    with request_ctx("/this/does/not/exist") as ctx:
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 404
+        assert b"Sorry, that page doesn't exist." in resp.data
+
+    with request_ctx("/this/does/not/exist/?url=/something/else") as ctx:
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 302
+        assert resp.location == "/something/else"
+
+
+def test_favicon(request_ctx):
+    """Test favicon."""
+    with request_ctx("/favicon.ico") as ctx:
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 200
+        assert resp.mimetype == "image/vnd.microsoft.icon"
 
 
 def send_mail_mock(*argvs, **kwargs):
@@ -1195,7 +1217,7 @@ def test_delete_employment(request_ctx, app):
         delete_education.assert_called_once_with("XXXX-XXXX-XXXX-0001", 54321)
 
 
-def test_viewmemebers(request_ctx):
+def test_viewmembers(request_ctx):
     """Test affilated researcher view."""
     non_admin = User.get(email="researcher100@test0.edu")
     with request_ctx("/admin/viewmembers") as ctx:
@@ -1217,11 +1239,81 @@ def test_viewmemebers(request_ctx):
         assert non_admin.email.encode() in resp.data
         assert non_admin.name.encode() in resp.data
 
+    with request_ctx(f"/admin/viewmembers/edit/?id=9999999999") as ctx:
+        login_user(admin)
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 404
+
     user2 = User.get(email="researcher100@test1.edu")
     with request_ctx(f"/admin/viewmembers/edit/?id={user2.id}") as ctx:
         login_user(admin)
         resp = ctx.app.full_dispatch_request()
         assert resp.status_code == 403
+
+
+def test_viewmembers_delete(request_ctx):
+    """Test affilated researcher deletion via the view."""
+    admin0 = User.get(email="admin@test0.edu")
+    admin1 = User.get(email="admin@test1.edu")
+    researcher0 = User.get(email="researcher100@test0.edu")
+    researcher1 = User.get(email="researcher100@test1.edu")
+
+    with request_ctx(
+            "/admin/viewmembers/delete/",
+            method="POST",
+            data={
+                "id": str(researcher1.id),
+                "url": "/admin/viewmembers/",
+            }) as ctx:  # noqa: F405
+        login_user(admin0)
+        resp = ctx.app.full_dispatch_request()
+    assert resp.status_code == 403
+
+    with request_ctx(
+            "/admin/viewmembers/delete/",
+            method="POST",
+            data={
+                "id": str(researcher0.id),
+                "url": "/admin/viewmembers/",
+            }) as ctx, patch(
+                "orcid_hub.views.AppModelView.on_model_delete",
+                create=True,
+                side_effect=Exception("FAILURED")), patch(
+                    "orcid_hub.views.AppModelView.handle_view_exception",
+                    create=True,
+                    return_value=False):  # noqa: F405
+        login_user(admin0)
+        resp = ctx.app.full_dispatch_request()
+    assert resp.status_code == 302
+    assert resp.location == "/admin/viewmembers/"
+    assert User.select().where(User.id == researcher0.id).count() == 1
+
+    with request_ctx(
+            "/admin/viewmembers/delete/",
+            method="POST",
+            data={
+                "id": str(researcher0.id),
+                "url": "/admin/viewmembers/",
+            }) as ctx:  # noqa: F405
+        login_user(admin0)
+        resp = ctx.app.full_dispatch_request()
+    assert resp.status_code == 302
+    with pytest.raises(User.DoesNotExist):
+        User.get(id=researcher0.id)
+
+    UserOrg.create(org=admin0.organisation, user=researcher1)
+    with request_ctx(
+            "/admin/viewmembers/delete/",
+            method="POST",
+            data={
+                "id": str(researcher1.id),
+                "url": "/admin/viewmembers/",
+            }) as ctx:  # noqa: F405
+        login_user(admin1)
+        resp = ctx.app.full_dispatch_request()
+    assert resp.status_code == 302
+    assert User.select().where(User.id == researcher1.id).count() == 1
+    assert UserOrg.select().where(UserOrg.user == researcher1).count() == 1
 
 
 def test_reset_all(request_ctx):
