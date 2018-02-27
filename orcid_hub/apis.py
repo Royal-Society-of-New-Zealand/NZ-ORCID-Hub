@@ -1,6 +1,8 @@
 """HUB API."""
 
 import yaml
+from yaml.representer import SafeRepresenter
+from yaml.dumper import Dumper
 from datetime import datetime
 from flask_login import login_user, current_user
 from flask import abort, current_app, jsonify, render_template, request, url_for, Response
@@ -963,9 +965,16 @@ def db_api_docs():
     return render_template("swaggerui.html", url=url)
 
 
+class SafeRepresenterWithISODate(SafeRepresenter):
+    """Customized representer for datetaime rendering in ISO format."""
+    def represent_datetime(self, data):
+        value = data.isoformat(timespec="seconds")
+        return self.represent_scalar('tag:yaml.org,2002:timestamp', value)
+
+
 def yamlfy(*args, **kwargs):
     """Create respose in YAML just like jsonify does it for JSON."""
-    yaml.add_representer
+    yaml.add_representer(datetime, SafeRepresenterWithISODate.represent_datetime, Dumper=Dumper)
     if args and kwargs:
         raise TypeError('yamlfy() behavior undefined when passed both args and kwargs')
     elif len(args) == 1:  # single args are passed directly to dumps()
