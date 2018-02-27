@@ -612,9 +612,9 @@ to the best of your knowledge, correct!""")
                         processed_at=None, status=status).where(
                             FundingContributor.funding_record.in_(ids)).execute()
                 elif self.model == WorkRecord:
-                    count = WorkContributor.update(
+                    count = WorkInvitees.update(
                         processed_at=None, status=status).where(
-                        WorkContributor.work_record.in_(ids)).execute()
+                        WorkInvitees.work_record.in_(ids)).execute()
                 elif self.model == AffiliationRecord:
                     # Delete the userInvitation token when reset to send the mail again.
                     task_id = None
@@ -637,7 +637,7 @@ to the best of your knowledge, correct!""")
                 if self.model == FundingRecord:
                     flash(f"{count} Funding Contributor records were reset for batch processing.")
                 elif self.model == WorkRecord:
-                    flash(f"{count} Work Contributor records were reset for batch processing.")
+                    flash(f"{count} Work Invitee records were reset for batch processing.")
                 else:
                     flash(f"{count} Affiliation records were reset for batch processing.")
 
@@ -1283,9 +1283,9 @@ def reset_all():
                     work_record.processed_at = None
                     work_record.status = status
 
-                    WorkContributor.update(
+                    WorkInvitees.update(
                         processed_at=None, status=status).where(
-                        WorkContributor.work_record == work_record.id).execute()
+                        WorkInvitees.work_record == work_record.id).execute()
                     work_record.save()
                     count = count + 1
         except Exception as ex:

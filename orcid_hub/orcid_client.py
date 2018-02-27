@@ -185,7 +185,7 @@ class MemberAPI(MemberAPIV20Api):
     def create_or_update_work(self, task_by_user, *args, **kwargs):
         """Create or update work record of a user."""
         wr = task_by_user.work_record
-        wc = task_by_user.work_record.work_contributor
+        wi = task_by_user.work_record.work_invitees
 
         rec = Work()    # noqa: F405
         title = None
@@ -223,9 +223,9 @@ class MemberAPI(MemberAPIV20Api):
             rec.publication_date = PublicationDate(wr.publication_date.as_orcid_dict(),    # noqa: F405
                                                    media_type=publication_media_type)   # noqa: F405
 
-        put_code = wc.put_code
+        put_code = wi.put_code
         if put_code:
-            rec.put_code = wc.put_code
+            rec.put_code = wi.put_code
 
         if wr.visibility:
             rec.visibility = wr.visibility
@@ -247,15 +247,12 @@ class MemberAPI(MemberAPIV20Api):
 
         work_contributor_list = []
         for w in work_contributors:
-            contributor_from_user_table = UserModel.get(UserModel.email == w.email)
             path = None
             credit_name = None
             contributor_orcid = None
             contributor_attributes = None
 
-            if contributor_from_user_table and contributor_from_user_table.orcid:
-                path = contributor_from_user_table.orcid
-            elif w.orcid:
+            if w.orcid:
                 path = w.orcid
 
             if path:
@@ -266,8 +263,6 @@ class MemberAPI(MemberAPIV20Api):
 
             if w.name:
                 credit_name = CreditName(value=w.name)  # noqa: F405
-            elif contributor_from_user_table and contributor_from_user_table.name:
-                credit_name = CreditName(value=contributor_from_user_table.name)  # noqa: F405
 
             if w.role and w.contributor_sequence:
                 contributor_attributes = ContributorAttributes(  # noqa: F405
@@ -319,8 +314,8 @@ class MemberAPI(MemberAPIV20Api):
                 try:
                     orcid, put_code = location.split("/")[-3::2]
                     put_code = int(put_code)
-                    wc.put_code = put_code
-                    wc.save()
+                    wi.put_code = put_code
+                    wi.save()
                 except:
                     app.logger.exception("Failed to get ORCID iD/put-code from the response.")
                     raise Exception("Failed to get ORCID iD/put-code from the response.")
@@ -329,8 +324,8 @@ class MemberAPI(MemberAPIV20Api):
 
         except ApiException as ex:
             if ex.status == 404:
-                wc.put_code = None
-                wc.save()
+                wi.put_code = None
+                wi.save()
                 app.logger.exception(
                     f"For {self.user} encountered exception, So updating related put_code")
             raise ex

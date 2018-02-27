@@ -20,7 +20,7 @@ from peewee import JOIN
 from . import app, orcid_client
 from .models import (AFFILIATION_TYPES, Affiliation, AffiliationRecord, FundingContributor,
                      FundingRecord, OrcidToken, Organisation, Role, Task, TaskType, Url, User,
-                     UserInvitation, UserOrg, WorkRecord, WorkContributor, db)
+                     UserInvitation, UserOrg, WorkRecord, WorkInvitees, db)
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -303,13 +303,13 @@ def create_or_update_work(user, org_id, records, *args, **kwargs):
                 works.append(ws)
 
         taken_put_codes = {
-            r.work_record.work_contributor.put_code
-            for r in records if r.work_record.work_contributor.put_code
+            r.work_record.work_invitees.put_code
+            for r in records if r.work_record.work_invitees.put_code
         }
 
-        def match_put_code(records, work_record, work_contributor):
+        def match_put_code(records, work_record, work_invitees):
             """Match and assign put-code to a single work record and the existing ORCID records."""
-            if work_contributor.put_code:
+            if work_invitees.put_code:
                 return
             for r in records:
                 put_code = r.get("put-code")
@@ -320,8 +320,8 @@ def create_or_update_work(user, org_id, records, *args, **kwargs):
                      and r.get("title").get("title").get("value") is None and r.get("type") is None)
                         or (r.get("title").get("title").get("value") == work_record.title
                             and r.get("type") == work_record.type)):
-                    work_contributor.put_code = put_code
-                    work_contributor.save()
+                    work_invitees.put_code = put_code
+                    work_invitees.save()
                     taken_put_codes.add(put_code)
                     app.logger.debug(
                         f"put-code {put_code} was asigned to the work record "
@@ -330,35 +330,35 @@ def create_or_update_work(user, org_id, records, *args, **kwargs):
 
         for task_by_user in records:
             wr = task_by_user.work_record
-            wc = task_by_user.work_record.work_contributor
-            match_put_code(works, wr, wc)
+            wi = task_by_user.work_record.work_invitees
+            match_put_code(works, wr, wi)
 
         for task_by_user in records:
-            wc = task_by_user.work_record.work_contributor
+            wi = task_by_user.work_record.work_invitees
 
             try:
                 put_code, orcid, created = api.create_or_update_work(task_by_user)
                 if created:
-                    wc.add_status_line(f"Work record was created.")
+                    wi.add_status_line(f"Work record was created.")
                 else:
-                    wc.add_status_line(f"Work record was updated.")
-                wc.orcid = orcid
-                wc.put_code = put_code
+                    wi.add_status_line(f"Work record was updated.")
+                wi.orcid = orcid
+                wi.put_code = put_code
 
             except Exception as ex:
                 logger.exception(f"For {user} encountered exception")
                 exception_msg = ""
                 if ex and ex.body:
                     exception_msg = json.loads(ex.body)
-                wc.add_status_line(f"Exception occured processing the record: {exception_msg}.")
+                wi.add_status_line(f"Exception occured processing the record: {exception_msg}.")
                 wr.add_status_line(
                     f"Error processing record. Fix and reset to enable this record to be processed: {exception_msg}."
                 )
 
             finally:
-                wc.processed_at = datetime.utcnow()
+                wi.processed_at = datetime.utcnow()
                 wr.save()
-                wc.save()
+                wi.save()
     else:
         # TODO: Invitation resend in case user revokes organisation permissions
         app.logger.debug(f"Should resend an invite to the researcher asking for permissions")
@@ -722,22 +722,22 @@ def process_work_records(max_rows=20):
     """This query is to retrieve Tasks associated with work records, which are not processed but are active"""
 
     tasks = (Task.select(
-        Task, WorkRecord, WorkContributor,
+        Task, WorkRecord, WorkInvitees,
         User, UserInvitation.id.alias("invitation_id"), OrcidToken).where(
-            WorkRecord.processed_at.is_null(), WorkContributor.processed_at.is_null(),
+            WorkRecord.processed_at.is_null(), WorkInvitees.processed_at.is_null(),
             WorkRecord.is_active,
             (OrcidToken.id.is_null(False) |
-             ((WorkContributor.status.is_null()) |
-              (WorkContributor.status.contains("sent").__invert__())))).join(
+             ((WorkInvitees.status.is_null()) |
+              (WorkInvitees.status.contains("sent").__invert__())))).join(
                   WorkRecord, on=(Task.id == WorkRecord.task_id)).join(
-                      WorkContributor,
-                      on=(WorkRecord.id == WorkContributor.work_record_id)).join(
+                      WorkInvitees,
+                      on=(WorkRecord.id == WorkInvitees.work_record_id)).join(
                           User, JOIN.LEFT_OUTER,
-                          on=((User.email == WorkContributor.email) | (User.orcid == WorkContributor.orcid)))
+                          on=((User.email == WorkInvitees.email) | (User.orcid == WorkInvitees.orcid)))
              .join(Organisation, JOIN.LEFT_OUTER, on=(Organisation.id == Task.org_id)).join(
                  UserInvitation,
                  JOIN.LEFT_OUTER,
-                 on=((UserInvitation.email == WorkContributor.email)
+                 on=((UserInvitation.email == WorkInvitees.email)
                      & (UserInvitation.task_id == Task.id))).join(
                          OrcidToken,
                          JOIN.LEFT_OUTER,
@@ -749,7 +749,7 @@ def process_work_records(max_rows=20):
             t.id,
             t.org_id,
             t.work_record.id,
-            t.work_record.work_contributor.user,)):
+            t.work_record.work_invitees.user,)):
         """If we have the token associated to the user then update the work record, otherwise send him an invite"""
         if (user.id is None or user.orcid is None or not OrcidToken.select().where(
             (OrcidToken.user_id == user.id) & (OrcidToken.org_id == org_id) &
@@ -760,16 +760,16 @@ def process_work_records(max_rows=20):
                     lambda t: (
                         t.created_by,
                         t.org,
-                        t.work_record.work_contributor.email,
-                        t.work_record.work_contributor.name, )
+                        t.work_record.work_invitees.email,
+                        t.work_record.work_invitees.first_name, )
             ):  # noqa: E501
                 send_work_funding_invitation(*k, task_id=task_id, invitation_template="email/work_invitation.html")
                 with db.atomic():
                     status = "The invitation sent at " + datetime.utcnow().isoformat(timespec="seconds")
-                    (WorkContributor.update(status=WorkContributor.status + "\n" + status).where(
-                        WorkContributor.status.is_null(False), WorkContributor.email == k[2]).execute())
-                    (WorkContributor.update(status=status).where(
-                        WorkContributor.status.is_null(), WorkContributor.email == k[2]).execute())
+                    (WorkInvitees.update(status=WorkInvitees.status + "\n" + status).where(
+                        WorkInvitees.status.is_null(False), WorkInvitees.email == k[2]).execute())
+                    (WorkInvitees.update(status=status).where(
+                        WorkInvitees.status.is_null(), WorkInvitees.email == k[2]).execute())
 
         else:
             create_or_update_work(user, org_id, tasks_by_user)
@@ -777,10 +777,10 @@ def process_work_records(max_rows=20):
         work_ids.add(work_record_id)
 
     for work_record in WorkRecord.select().where(WorkRecord.id << work_ids):
-        # The Work record is processed for all contributors
-        if not (WorkContributor.select().where(
-                WorkContributor.work_record_id == work_record.id,
-                WorkContributor.processed_at.is_null()).exists()):
+        # The Work record is processed for all invitees
+        if not (WorkInvitees.select().where(
+                WorkInvitees.work_record_id == work_record.id,
+                WorkInvitees.processed_at.is_null()).exists()):
             work_record.processed_at = datetime.utcnow()
             if not work_record.status or "error" not in work_record.status:
                 work_record.add_status_line("Work record is processed.")
