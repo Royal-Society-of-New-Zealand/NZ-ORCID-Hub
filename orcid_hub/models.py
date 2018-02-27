@@ -152,8 +152,9 @@ class OrcidIdField(FixedCharField):
     def __init__(self, *args, **kwargs):
         """Initialize ORCID iD data field."""
         if "verbose_name" not in kwargs:
-            kwargs["verbose_name"] = "ORCID iD"
-        super().__init__(*args, max_length=19, **kwargs)
+            self.verbose_name = "ORCID iD"
+        self.max_length = 19
+        super().__init__(*args, **kwargs)
 
         # TODO: figure out where to place the value validation...
         # def coerce(self, value):
@@ -260,9 +261,41 @@ class BaseModel(Model):
         """Get the class name of the model."""
         return cls._meta.name
 
-    def to_dict(self):
+    def __to_dashes(self, o):
+        """Replace '_' with '-' in the dict keys."""
+        if isinstance(o, (list, tuple)):
+            return [self.__to_dashes(e) for e in o]
+        elif isinstance(o, dict):
+            return {k.replace('_', '-'): self.__to_dashes(v) for k, v in o.items()}
+        return o
+
+    def to_dict(self,
+                to_dashes=False,
+                recurse=True,
+                backrefs=False,
+                only=None,
+                exclude=None,
+                seen=None,
+                extra_attrs=None,
+                fields_from_query=None,
+                max_depth=None):
         """Get dictionary representation of the model."""
-        return model_to_dict(self)
+        o = model_to_dict(
+            self,
+            recurse=recurse,
+            backrefs=backrefs,
+            only=only,
+            exclude=exclude,
+            seen=seen,
+            extra_attrs=extra_attrs,
+            fields_from_query=fields_from_query,
+            max_depth=max_depth)
+        for k, v in o.items():
+            if isinstance(v, PartialDate):
+                o[k] = str(v)
+        if to_dashes:
+            return self.__to_dashes(o)
+        return o
 
     def reload(self):
         """Refresh the object from the DB."""
@@ -914,15 +947,21 @@ class Task(BaseModel, AuditMixin):
 
                     email = val(row, 2, "").lower()
                     orcid = val(row, 15)
+                    external_id = val(row, 16)
+                    if not email and not orcid and external_id and EMAIL_REGEX.match(external_id):
+                        # if email is missing and exernal ID is given as a valid email, use it:
+                        email = external_id
 
                     # The uploaded country must be from ISO 3166-1 alpha-2
-                    country_alpha_2 = [(c.alpha_2) for c in countries]
-                    uploaded_country = val(row, 11)
+                    country = val(row, 11)
 
-                    if uploaded_country and uploaded_country not in country_alpha_2:
-                        raise ModelException(
-                            f" (Country must be 2 character from ISO 3166-1 alpha-2) in the row "
-                            f"#{row_no+2}: {row}. Header: {header}")
+                    if country:
+                        try:
+                            country = countries.lookup(country).alpha_2
+                        except Exception:
+                            raise ModelException(
+                                f" (Country must be 2 character from ISO 3166-1 alpha-2) in the row "
+                                f"#{row_no+2}: {row}. Header: {header}")
 
                     if not (email or orcid):
                         raise ModelException(
@@ -958,12 +997,12 @@ class Task(BaseModel, AuditMixin):
                         start_date=PartialDate.create(val(row, 8)),
                         end_date=PartialDate.create(val(row, 9)),
                         affiliation_type=affiliation_type,
-                        country=val(row, 11),
+                        country=country,
                         disambiguated_id=val(row, 12),
                         disambiguated_source=val(row, 13),
                         put_code=val(row, 14),
                         orcid=orcid,
-                        external_id=val(row, 16))
+                        external_id=external_id)
                     validator = ModelValidator(af)
                     if not validator.validate():
                         raise ModelException(f"Invalid record: {validator.errors}")

@@ -11,25 +11,28 @@
     :license: MIT, see LICENSE for more details.
 """
 
-__version__ = "4.1.2"
+__version__ = "4.2.0"
 
 import logging
 import os
 import sys
+from datetime import date, datetime
 
 import click
+from flask.json import JSONEncoder as _JSONEncoder
 from flask_login import current_user, LoginManager
 from flask import Flask, request
 from flask_debugtoolbar import DebugToolbarExtension
 from flask_oauthlib.provider import OAuth2Provider
 from flask_peewee.rest import Authentication, RestAPI
+from flask_restful import Api
 from peewee import PostgresqlDatabase
 from playhouse import db_url
 from playhouse.shortcuts import RetryOperationalError
 # disable Sentry if there is no SENTRY_DSN:
 from raven.contrib.flask import Sentry
 
-from .config import *  # noqa: F401, F403
+from . import config  # noqa: F401, F403
 from .failover import PgDbWithFailover
 from flask_admin import Admin
 from flask_limiter import Limiter
@@ -43,16 +46,17 @@ class ReconnectablePostgresqlDatabase(RetryOperationalError, PostgresqlDatabase)
 
 
 app = Flask(__name__, instance_relative_config=True)
-app.config.from_object(__name__)
+app.config.from_object(config)
 if not app.config.from_pyfile("settings.cfg", silent=True) and app.debug:
     print("*** WARNING: Faile to laod local application configuration from 'instance/settins.cfg'")
 app.url_map.strict_slashes = False
 oauth = OAuth2Provider(app)
+api = Api(app)
 limiter = Limiter(
     app,
     headers_enabled=True,
     default_limits=[
-        "40 per second",  # burst
+        "40 per second",  # burst: 40/sec
         "1440 per minute",  # allowed max: 24/sec
     ])
 DATABASE_URL = app.config.get("DATABASE_URL")
@@ -64,6 +68,22 @@ if DATABASE_URL.startswith("sqlite"):
     db = db_url.connect(DATABASE_URL, autorollback=True)
 else:
     db = db_url.connect(DATABASE_URL, autorollback=True, connect_timeout=3)
+
+
+class JSONEncoder(_JSONEncoder):
+    """date and datetime encoding into ISO format for JSON payload."""
+
+    def default(self, o):
+        """Provide default endocing for date and datetime."""
+        if isinstance(o, datetime):
+            return o.isoformat(timespec="seconds")
+        elif isinstance(o, date):
+            return o.isoformat()
+
+        return super().default(o)
+
+
+app.json_encoder = JSONEncoder
 
 
 class UserAuthentication(Authentication):
@@ -131,7 +151,7 @@ class DataRestAPI(RestAPI):
 
 
 default_auth = AppAuthentication(app_auth=True)
-api = DataRestAPI(app, prefix="/data/api/v0.1", default_auth=default_auth, name="data_api")
+data_api = DataRestAPI(app, prefix="/data/api/v0.1", default_auth=default_auth, name="data_api")
 
 admin = Admin(
     app, name="NZ ORCiD Hub", template_mode="bootstrap3", base_template="admin/master.html")
@@ -148,7 +168,7 @@ login_manager.login_message_category = "info"
 login_manager.init_app(app)
 
 from . import models  # noqa: F401
-from .api import *  # noqa: F401,F403
+from .apis import *  # noqa: F401,F403
 from .authcontroller import *  # noqa: F401,F403
 from .views import *  # noqa: F401,F403
 from .oauth import *  # noqa: F401,F403

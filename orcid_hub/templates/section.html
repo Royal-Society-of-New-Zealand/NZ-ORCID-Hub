@@ -5,19 +5,27 @@
 			<thead>
 				<tr class="info">
 					<th class="col-md-1">&nbsp;</th>
-					<th class="column-header">Institution</th>
+          {% if section_type == "EDU" %}
+            <th class="column-header">Institution</th>
+          {% else %}
+            <th class="column-header">Institution/employer</th>
+          {% endif %}
 					<th class="column-header">City</th>
 					<th class="column-header">State/region</th>
 					<th class="column-header">Country</th>
 					<th class="column-header">Department</th>
-					<th class="column-header">Degree</th>
+          {% if section_type == "EDU" %}
+            <th class="column-header">Degree</th>
+          {% else %}
+            <th class="column-header">Role</th>
+          {% endif %}
 					<th class="column-header"></th>
-
+					<th class="column-header">Put-code</th>
 				</tr>
 			</thead>
 
 			<tbody>
-				{% if not data.get('education_summary') %}
+				{% if not records %}
 					<tr>
 						<td colspan="999">
 							<div class="text-center">
@@ -26,18 +34,19 @@
 						</td>
 					</tr>
 				{% endif %}
-				{% for r in data.get("education_summary", []) %}
+				{% for r in records %}
 					<tr>
 						{% if org_client_id in r["source"]["source_client_id"]["path"] %}
 							<td class="list-buttons-column">
 								<a class="icon"
-					 href="{{url_for('education', user_id=user_id, put_code=r['put_code']) }}?url={{url_for('edu_list', user_id=user_id)}}"
+					 href="{{url_for('edit_record', user_id=user_id, section_type=section_type, put_code=r['put_code']) }}?url={{url_for('section', user_id=user_id, section_type=section_type)}}"
 			title="Edit Record">
 									<span class="fa fa-pencil glyphicon glyphicon-pencil"></span>
 								</a>
 								<form class="icon" method="POST"
-													 action="{{url_for('delete_employment', user_id=user_id, put_code=r['put_code'])}}">
+													 action="{{url_for('delete_record', user_id=user_id, section_type=section_type, put_code=r['put_code'])}}">
 									<input id="put-code" name="put_code" type="hidden" value="{{r['put_code']}}">
+									<input id="section-type" name="section_type" type="hidden" value="{{section_type}}">
 									<button onclick="return safeConfirm('Are you sure you want to delete this record?');"
 								 title="Delete record">
 										<span class="fa fa-trash glyphicon glyphicon-trash"></span>
@@ -60,6 +69,7 @@
 						<td>{{r.get("department_name", "")|default("", True)}}</td>
 						<td>{{r.get("role_title", "")|default("", True)}}</td>
 						<td>{{r|year_range}}</td>
+						<td>{{r.get("put_code")}}</td>
 					</tr>
 				{% endfor %}
 			</tbody>
@@ -68,7 +78,7 @@
 			{% if url %}
 				<a role="button" class="btn btn-danger" href="{{url}}">Cancel</a>
 			{% endif %}
-			<a role="button" class="btn btn-primary" href="{{url_for('education', user_id=user_id)}}">New...</a>
+			<a role="button" class="btn btn-primary" href="{{url_for('edit_record', user_id=user_id, section_type=section_type)}}">New...</a>
 		</div>
 	</div>
 {% endblock %}
