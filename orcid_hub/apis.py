@@ -967,7 +967,9 @@ def db_api_docs():
 
 class SafeRepresenterWithISODate(SafeRepresenter):
     """Customized representer for datetaime rendering in ISO format."""
+
     def represent_datetime(self, data):
+        """Customize datetime rendering in ISO format."""
         value = data.isoformat(timespec="seconds")
         return self.represent_scalar('tag:yaml.org,2002:timestamp', value)
 

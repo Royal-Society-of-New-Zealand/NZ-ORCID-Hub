@@ -77,6 +77,10 @@
 {% block list_row_actions %}
 {{ super() }}
 <div class="list-buttons-column">
+    <a class="icon" href="{{ url_for('workinvitees.index_view', work_record_id=row.id, url=request.url) }}"
+       title="Work Invitees">
+        <spam class="fa fa-envelope"></spam>
+    </a>
     <a class="icon" href="{{ url_for('workcontributor.index_view', work_record_id=row.id, url=request.url) }}"
        title="Work Contributor">
         <spam class="fa fa-users glyphicon glyphicon-users icon"></spam>

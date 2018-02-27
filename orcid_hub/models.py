@@ -1444,6 +1444,29 @@ class WorkRecord(RecordModel):
                         country=country,
                         visibility=visibility)
 
+                    invitees_list = work_data.get("invitees") if work_data.get("invitees") else None
+
+                    if invitees_list:
+                        for invitee in invitees_list:
+                            identifier = invitee.get("identifier") if invitee.get("identifier") else None
+                            email = invitee.get("email") if invitee.get("email") else None
+                            first_name = invitee.get("first-name") if invitee.get("first-name") else None
+                            last_name = invitee.get("last-name") if invitee.get("last-name") else None
+                            orcid_id = invitee.get("ORCID-iD") if invitee.get("ORCID-iD") else None
+                            put_code = invitee.get("put-code") if invitee.get("put-code") else None
+
+                            WorkInvitees.create(
+                                work_record=work_record,
+                                identifier=identifier,
+                                email=email.lower(),
+                                first_name=first_name,
+                                last_name=last_name,
+                                orcid=orcid_id,
+                                put_code=put_code)
+                    else:
+                        raise SchemaError(u"Schema validation failed:\n - "
+                                          u"Expecting Invitees for which the work record will be written")
+
                     contributors_list = work_data.get("contributors").get("contributor") if \
                         work_data.get("contributors") else None
 
@@ -1457,29 +1480,18 @@ class WorkRecord(RecordModel):
                             name = contributor.get("credit-name").get("value") if \
                                 contributor.get("credit-name") else None
 
-                            email = contributor.get("contributor-email").get("value") if \
-                                contributor.get("contributor-email") else None
-
                             role = contributor.get("contributor-attributes").get("contributor-role") if \
                                 contributor.get("contributor-attributes") else None
 
                             contributor_sequence = contributor.get("contributor-attributes").get(
                                 "contributor-sequence") if contributor.get("contributor-attributes") else None
 
-                            put_code = contributor.get("put-code") if \
-                                contributor.get("put-code") else None
-
                             WorkContributor.create(
                                 work_record=work_record,
                                 orcid=orcid_id,
                                 name=name,
-                                email=email.lower(),
-                                put_code=put_code,
                                 role=role,
                                 contributor_sequence=contributor_sequence)
-                    else:
-                        raise SchemaError(u"Schema validation failed:\n - "
-                                          u"Expecting contributors for which the work record will be written")
 
                     external_ids_list = work_data.get("external-ids").get("external-id") if \
                         work_data.get("external-ids") else None
@@ -1527,12 +1539,15 @@ class ContributorModel(BaseModel):
         self.status = (self.status + "\n" if self.status else '') + ts + ": " + line
 
 
-class WorkContributor(ContributorModel):
+class WorkContributor(BaseModel):
     """Researcher or contributor - related to work."""
 
     work_record = ForeignKeyField(
         WorkRecord, related_name="work_contributors", on_delete="CASCADE")
     contributor_sequence = CharField(max_length=120, null=True)
+    orcid = OrcidIdField(null=True)
+    name = CharField(max_length=120, null=True)
+    role = CharField(max_length=120, null=True)
 
     class Meta:  # noqa: D101,D106
         db_table = "work_contributor"
@@ -1548,6 +1563,46 @@ class FundingContributor(ContributorModel):
     class Meta:  # noqa: D101,D106
         db_table = "funding_contributor"
         table_alias = "fc"
+
+
+class InviteesModel(BaseModel):
+    """Common model bits of the invitees records."""
+
+    identifier = CharField(max_length=120, null=True)
+    email = CharField(max_length=120, null=True)
+    first_name = CharField(max_length=120, null=True)
+    last_name = CharField(max_length=120, null=True)
+    orcid = OrcidIdField(null=True)
+    put_code = IntegerField(null=True)
+    status = TextField(null=True, help_text="Record processing status.")
+    processed_at = DateTimeField(null=True)
+
+    def add_status_line(self, line):
+        """Add a text line to the status for logging processing progress."""
+        ts = datetime.utcnow().isoformat(timespec="seconds")
+        self.status = (self.status + "\n" if self.status else '') + ts + ": " + line
+
+
+class WorkInvitees(InviteesModel):
+    """Researcher or Invitees - related to work."""
+
+    work_record = ForeignKeyField(
+        WorkRecord, related_name="work_invitees", on_delete="CASCADE")
+
+    class Meta:  # noqa: D101,D106
+        db_table = "work_invitees"
+        table_alias = "wi"
+
+
+class FundingInvitees(InviteesModel):
+    """Researcher or Invitees - related to funding."""
+
+    funding_record = ForeignKeyField(
+        FundingRecord, related_name="funding_invitees", on_delete="CASCADE")
+
+    class Meta:  # noqa: D101,D106
+        db_table = "funding_invitees"
+        table_alias = "fi"
 
 
 class ExternalIdModel(BaseModel):
@@ -1788,7 +1843,9 @@ def create_tables():
             WorkRecord,
             WorkContributor,
             WorkExternalId,
+            WorkInvitees,
             FundingContributor,
+            FundingInvitees,
             ExternalId,
             Client,
             Grant,
