@@ -37,10 +37,10 @@ from .forms import (ApplicationFrom, BitmapMultipleValueField, CredentialForm, E
                     FileUploadForm, JsonOrYamlFileUploadForm, LogoForm, OrgRegistrationForm,
                     PartialDateField, RecordForm, UserInvitationForm)
 from .login_provider import roles_required
-from .models import (Affiliation, AffiliationRecord, CharField, Client, File, FundingContributor, FundingInvitees,
+from .models import (Affiliation, AffiliationRecord, CharField, Client, File, FundingInvitees,
                      FundingRecord, Grant, ModelException, OrcidApiCall, OrcidToken, Organisation,
                      OrgInfo, OrgInvitation, PartialDate, Role, Task, TextField, Token, Url, User,
-                     UserInvitation, UserOrg, UserOrgAffiliation, db, WorkRecord, WorkContributor, WorkInvitees)
+                     UserInvitation, UserOrg, UserOrgAffiliation, db, WorkRecord, WorkInvitees)
 # NB! Should be disabled in production
 from .pyinfo import info
 from .utils import generate_confirmation_token, get_next_url, send_user_invitation
@@ -608,9 +608,9 @@ to the best of your knowledge, correct!""")
                                                             self.model.id.in_(ids)).execute()
 
                 if self.model == FundingRecord:
-                    count = FundingContributor.update(
+                    count = FundingInvitees.update(
                         processed_at=None, status=status).where(
-                            FundingContributor.funding_record.in_(ids)).execute()
+                            FundingInvitees.funding_record.in_(ids)).execute()
                 elif self.model == WorkRecord:
                     count = WorkInvitees.update(
                         processed_at=None, status=status).where(
@@ -635,7 +635,7 @@ to the best of your knowledge, correct!""")
 
             else:
                 if self.model == FundingRecord:
-                    flash(f"{count} Funding Contributor records were reset for batch processing.")
+                    flash(f"{count} Funding Invitee records were reset for batch processing.")
                 elif self.model == WorkRecord:
                     flash(f"{count} Work Invitee records were reset for batch processing.")
                 else:
@@ -697,38 +697,6 @@ class ContributorModelAdmin(AppModelView):
 
         return True
 
-    # TODO: Update the code for this class by removing reset from contributors as we are now using invitees.
-    @action("reset", "Reset for processing",
-            "Are you sure you want to reset the selected records for batch processing?")
-    def action_reset(self, ids):
-        """Batch reset of users."""
-        with db.atomic():
-            try:
-                status = " The record was reset at " + datetime.utcnow().isoformat(timespec="seconds")
-                count = self.model.update(
-                    processed_at=None, status=status).where(self.model.id.in_(ids)).execute()
-                if self.model == FundingContributor:
-                    funding_record_id = self.model.select().where(
-                        self.model.id.in_(ids))[0].funding_record_id
-                    FundingRecord.update(
-                        processed_at=None, status=status).where(
-                            FundingRecord.is_active, FundingRecord.id == funding_record_id).execute()
-                elif self.model == WorkContributor:
-                    work_record_id = self.model.select().where(
-                        self.model.id.in_(ids))[0].work_record_id
-                    WorkRecord.update(
-                        processed_at=None, status=status).where(
-                        WorkRecord.is_active, WorkRecord.id == work_record_id).execute()
-            except Exception as ex:
-                db.rollback()
-                flash(f"Failed to activate the selected records: {ex}")
-                app.logger.exception("Failed to activate the selected records")
-            else:
-                if self.model == FundingContributor:
-                    flash(f"{count} Funding Contributor records were reset for batch processing.")
-                else:
-                    flash(f"{count} Work Contributor records were reset for batch processing.")
-
 
 class FundingContributorAdmin(ContributorModelAdmin):
     """Funding contributor record model view."""
@@ -737,27 +705,11 @@ class FundingContributorAdmin(ContributorModelAdmin):
     column_exclude_list = ("funding_record", )
 
 
-class WorkContributorAdmin(AppModelView):
+class WorkContributorAdmin(ContributorModelAdmin):
     """Work contributor record model view."""
 
     list_template = "work_contributor_list.html"
     column_exclude_list = ("work_record", )
-
-    # TODO: Move the below code to common method once funding schema is also changed.
-    roles_required = Role.SUPERUSER | Role.ADMIN
-
-    can_edit = True
-    can_create = False
-    can_delete = False
-    can_view_details = True
-
-    def is_accessible(self):
-        """Verify if the contributor view is accessible for the current user."""
-        if not super().is_accessible():
-            flash("Access denied! You cannot access this task.", "danger")
-            return False
-
-        return True
 
 
 class InviteesModelAdmin(AppModelView):
@@ -815,6 +767,13 @@ class WorkInviteesAdmin(InviteesModelAdmin):
 
     list_template = "work_invitees_list.html"
     column_exclude_list = ("work_record", )
+
+
+class FundingInviteesAdmin(InviteesModelAdmin):
+    """Funding invitees record model view."""
+
+    list_template = "funding_invitees_list.html"
+    column_exclude_list = ("funding_record", )
 
 
 class FundingWorkCommonModelView(RecordModelView):
@@ -1155,6 +1114,7 @@ admin.add_view(TaskAdmin(Task))
 admin.add_view(AffiliationRecordAdmin())
 admin.add_view(FundingRecordAdmin())
 admin.add_view(FundingContributorAdmin())
+admin.add_view(FundingInviteesAdmin())
 admin.add_view(ExternalIdAdmin())
 admin.add_view(WorkContributorAdmin())
 admin.add_view(WorkExternalIdAdmin())
@@ -1271,9 +1231,9 @@ def reset_all():
                     funding_record.processed_at = None
                     funding_record.status = status
 
-                    FundingContributor.update(
+                    FundingInvitees.update(
                         processed_at=None, status=status).where(
-                        FundingContributor.funding_record == funding_record.id).execute()
+                        FundingInvitees.funding_record == funding_record.id).execute()
                     funding_record.save()
                     count = count + 1
 

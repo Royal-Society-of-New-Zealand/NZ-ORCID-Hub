@@ -1257,50 +1257,68 @@ class FundingRecord(RecordModel):
                         start_date=start_date,
                         end_date=end_date)
 
+                    invitees_list = funding_data.get("invitees") if funding_data.get("invitees") else None
+                    if invitees_list:
+                        for invitee in invitees_list:
+                            identifier = invitee.get("identifier") if invitee.get("identifier") else None
+                            email = invitee.get("email") if invitee.get("email") else None
+                            first_name = invitee.get("first-name") if invitee.get("first-name") else None
+                            last_name = invitee.get("last-name") if invitee.get("last-name") else None
+                            orcid_id = invitee.get("ORCID-iD") if invitee.get("ORCID-iD") else None
+                            put_code = invitee.get("put-code") if invitee.get("put-code") else None
+
+                            FundingInvitees.create(
+                                funding_record=funding_record,
+                                identifier=identifier,
+                                email=email.lower(),
+                                first_name=first_name,
+                                last_name=last_name,
+                                orcid=orcid_id,
+                                put_code=put_code)
+                    else:
+                        raise SchemaError(u"Schema validation failed:\n - "
+                                          u"Expecting Invitees for which the funding record will be written")
+
                     contributors_list = funding_data.get("contributors").get("contributor") if \
                         funding_data.get("contributors") else None
-                    for contributor in contributors_list:
-                        orcid_id = None
-                        if contributor.get("contributor-orcid") and contributor.get(
-                                "contributor-orcid").get("path"):
-                            orcid_id = contributor.get("contributor-orcid").get("path")
+                    if contributors_list:
+                        for contributor in contributors_list:
+                            orcid_id = None
+                            if contributor.get("contributor-orcid") and contributor.get(
+                                    "contributor-orcid").get("path"):
+                                orcid_id = contributor.get("contributor-orcid").get("path")
 
-                        email = contributor.get("contributor-email").get("value") if \
-                            contributor.get("contributor-email") else None
+                            name = contributor.get("credit-name").get("value") if \
+                                contributor.get("credit-name") else None
 
-                        name = contributor.get("credit-name").get("value") if \
-                            contributor.get("credit-name") else None
+                            role = contributor.get("contributor-attributes").get("contributor-role") if \
+                                contributor.get("contributor-attributes") else None
 
-                        role = contributor.get("contributor-attributes").get("contributor-role") if \
-                            contributor.get("contributor-attributes") else None
-
-                        put_code = contributor.get("put-code") if \
-                            contributor.get("put-code") else None
-
-                        FundingContributor.create(
-                            funding_record=funding_record,
-                            orcid=orcid_id,
-                            name=name,
-                            email=email.lower(),
-                            put_code=put_code,
-                            role=role)
+                            FundingContributor.create(
+                                funding_record=funding_record,
+                                orcid=orcid_id,
+                                name=name,
+                                role=role)
 
                     external_ids_list = funding_data.get("external-ids").get("external-id") if \
                         funding_data.get("external-ids") else None
-                    for external_id in external_ids_list:
-                        type = external_id.get("external-id-type")
-                        value = external_id.get("external-id-value")
-                        url = external_id.get("external-id-url").get("value") if \
-                            external_id.get("external-id-url") else None
-                        relationship = external_id.get("external-id-relationship")
-                        ExternalId.create(
-                            funding_record=funding_record,
-                            type=type,
-                            value=value,
-                            url=url,
-                            relationship=relationship)
-
+                    if external_ids_list:
+                        for external_id in external_ids_list:
+                            type = external_id.get("external-id-type")
+                            value = external_id.get("external-id-value")
+                            url = external_id.get("external-id-url").get("value") if \
+                                external_id.get("external-id-url") else None
+                            relationship = external_id.get("external-id-relationship")
+                            ExternalId.create(
+                                funding_record=funding_record,
+                                type=type,
+                                value=value,
+                                url=url,
+                                relationship=relationship)
+                    else:
+                        raise SchemaError(u"Schema validation failed:\n - An external identifier is required")
                 return task
+
             except Exception as ex:
                 db.rollback()
                 app.logger.exception("Failed to laod affiliation file.")
@@ -1527,27 +1545,15 @@ class ContributorModel(BaseModel):
 
     orcid = OrcidIdField(null=True)
     name = CharField(max_length=120, null=True)
-    email = CharField(max_length=120, null=True)
     role = CharField(max_length=120, null=True)
-    status = TextField(null=True, help_text="Record processing status.")
-    put_code = IntegerField(null=True)
-    processed_at = DateTimeField(null=True)
-
-    def add_status_line(self, line):
-        """Add a text line to the status for logging processing progress."""
-        ts = datetime.utcnow().isoformat(timespec="seconds")
-        self.status = (self.status + "\n" if self.status else '') + ts + ": " + line
 
 
-class WorkContributor(BaseModel):
+class WorkContributor(ContributorModel):
     """Researcher or contributor - related to work."""
 
     work_record = ForeignKeyField(
         WorkRecord, related_name="work_contributors", on_delete="CASCADE")
     contributor_sequence = CharField(max_length=120, null=True)
-    orcid = OrcidIdField(null=True)
-    name = CharField(max_length=120, null=True)
-    role = CharField(max_length=120, null=True)
 
     class Meta:  # noqa: D101,D106
         db_table = "work_contributor"
