@@ -441,10 +441,10 @@ def test_create_or_update_funding(patch, test_db, request_ctx):
             t.funding_record.id,
             t.funding_record.funding_invitees.user,)):
         # TODO: Fix this unit test case once the funding schema is completely changed
-        '''utils.create_or_update_funding(user=user, org_id=org_id, records=tasks_by_user)
+        utils.create_or_update_funding(user=user, org_id=org_id, records=tasks_by_user)
     funding_invitees = FundingInvitees.get(orcid=12344)
     assert 12399 == funding_invitees.put_code
-    assert "12344" == funding_invitees.orcid'''
+    assert "12344" == funding_invitees.orcid
 
 
 @patch("orcid_api.MemberAPIV20Api.update_employment", side_effect=create_or_update_aff_mock)

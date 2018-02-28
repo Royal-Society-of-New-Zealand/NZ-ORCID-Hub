@@ -7,8 +7,8 @@ isort:skip_file
 
 from .config import ORCID_API_BASE, SCOPE_READ_LIMITED, SCOPE_ACTIVITIES_UPDATE, ORCID_BASE_URL
 from flask_login import current_user
-from .models import (OrcidApiCall, Affiliation, OrcidToken, FundingContributor as FundingCont, User
-                     as UserModel, ExternalId as ExternalIdModel, WorkContributor as WorkCont, WorkExternalId)
+from .models import (OrcidApiCall, Affiliation, OrcidToken, FundingContributor as FundingCont,
+                     ExternalId as ExternalIdModel, WorkContributor as WorkCont, WorkExternalId)
 from orcid_api import (configuration, rest, api_client, MemberAPIV20Api, SourceClientId, Source,
                        OrganizationAddress, DisambiguatedOrganization, Employment, Education,
                        Organization)
@@ -337,7 +337,7 @@ class MemberAPI(MemberAPIV20Api):
     def create_or_update_funding(self, task_by_user, *args, **kwargs):
         """Create or update funding record of a user."""
         fr = task_by_user.funding_record
-        fc = task_by_user.funding_record.funding_contributor
+        fi = task_by_user.funding_record.funding_invitees
 
         if not fr.title:
             title = None
@@ -350,7 +350,7 @@ class MemberAPI(MemberAPIV20Api):
         org_name = fr.org_name
         funding_type = fr.type
 
-        put_code = fc.put_code
+        put_code = fi.put_code
 
         if not city:
             city = None
@@ -406,42 +406,37 @@ class MemberAPI(MemberAPIV20Api):
             FundingCont.id)
 
         funding_contributor_list = []
-        for f in funding_contributors:
-            contributor_from_user_table = UserModel.get(UserModel.email == f.email)
-            path = None
-            uri = None
-            host = None
-            credit_name = None
-            contributor_orcid = None
-            contributor_attributes = None
-            if f.name:
-                credit_name = CreditName(value=f.name)  # noqa: F405
-            elif contributor_from_user_table and contributor_from_user_table.name:
-                credit_name = CreditName(value=contributor_from_user_table.name)  # noqa: F405
+        if funding_contributors:
+            for f in funding_contributors:
+                path = None
+                uri = None
+                host = None
+                credit_name = None
+                contributor_orcid = None
+                contributor_attributes = None
+                if f.name:
+                    credit_name = CreditName(value=f.name)  # noqa: F405
 
-            if contributor_from_user_table and contributor_from_user_table.orcid:
-                path = contributor_from_user_table.orcid
-            elif f.orcid:
-                path = f.orcid
+                if f.orcid:
+                    path = f.orcid
 
-            if path:
-                url = urlparse(ORCID_BASE_URL)
-                uri = "http://" + url.hostname + "/" + path
-                host = url.hostname
-                contributor_orcid = ContributorOrcid(uri=uri, path=path, host=host)  # noqa: F405
-            # As Contributor email is by default private so, we are not sending it in funding payload
-            # contributor_email = ContributorEmail(value=f.email)  # noqa: F405
-            if f.role:
-                contributor_attributes = FundingContributorAttributes(  # noqa: F405
-                    contributor_role=f.role.upper())
+                if path:
+                    url = urlparse(ORCID_BASE_URL)
+                    uri = "http://" + url.hostname + "/" + path
+                    host = url.hostname
+                    contributor_orcid = ContributorOrcid(uri=uri, path=path, host=host)  # noqa: F405
+                # As Contributor email is by default private so, we are not sending it in funding payload
+                if f.role:
+                    contributor_attributes = FundingContributorAttributes(  # noqa: F405
+                        contributor_role=f.role.upper())
 
-            funding_contributor_list.append(
-                FundingContributor(  # noqa: F405
-                    contributor_orcid=contributor_orcid,
-                    credit_name=credit_name,
-                    contributor_attributes=contributor_attributes))
+                funding_contributor_list.append(
+                    FundingContributor(  # noqa: F405
+                        contributor_orcid=contributor_orcid,
+                        credit_name=credit_name,
+                        contributor_attributes=contributor_attributes))
 
-        rec.contributors = FundingContributors(contributor=funding_contributor_list)  # noqa: F405
+            rec.contributors = FundingContributors(contributor=funding_contributor_list)  # noqa: F405
         external_id_list = []
 
         external_ids = ExternalIdModel.select().where(ExternalIdModel.funding_record_id == fr.id)
@@ -481,8 +476,8 @@ class MemberAPI(MemberAPIV20Api):
                 try:
                     orcid, put_code = location.split("/")[-3::2]
                     put_code = int(put_code)
-                    fc.put_code = put_code
-                    fc.save()
+                    fi.put_code = put_code
+                    fi.save()
                 except:
                     app.logger.exception("Failed to get ORCID iD/put-code from the response.")
                     raise Exception("Failed to get ORCID iD/put-code from the response.")
@@ -491,8 +486,8 @@ class MemberAPI(MemberAPIV20Api):
 
         except ApiException as ex:
             if ex.status == 404:
-                fc.put_code = None
-                fc.save()
+                fi.put_code = None
+                fi.save()
                 app.logger.exception(
                     f"For {self.user} encountered exception, So updating related put_code")
             raise ex
