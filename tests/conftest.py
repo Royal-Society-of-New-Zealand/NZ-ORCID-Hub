@@ -51,7 +51,7 @@ def app():
     with test_database(
             _db,
         (File, Organisation, User, UserOrg, OrcidToken, UserOrgAffiliation, OrgInfo, Task,
-         AffiliationRecord, FundingRecord, FundingContributor, OrcidAuthorizeCall, OrcidApiCall,
+         AffiliationRecord, FundingRecord, FundingContributor, FundingInvitees, OrcidAuthorizeCall, OrcidApiCall,
          Url, UserInvitation, OrgInvitation, ExternalId, Client, Grant, Token),
             fail_silently=True):  # noqa: F405
         _app.db = _db

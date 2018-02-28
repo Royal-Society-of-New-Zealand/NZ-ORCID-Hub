@@ -2,6 +2,24 @@ name: Funding Schema
 desc: This schema is added to validate correct funding input from research organisation admin
 type: map
 mapping:
+    invitees:
+        type: seq
+        sequence:
+          -
+            type: map
+            mapping:
+                identifier:
+                    type: str
+                email:
+                    type: str
+                first-name:
+                    type: str
+                last-name:
+                    type: str
+                ORCID-iD:
+                    type: str
+                put-code:
+                    type: int
     created-date:
         type: map
         mapping:
@@ -157,18 +175,11 @@ mapping:
                                 mapping:
                                     value:
                                         type: str
-                            contributor-email:
-                                type: map
-                                mapping:
-                                    value:
-                                        type: str
                             contributor-attributes:
                                 type: map
                                 mapping:
                                     contributor-role:
                                         type: str
-                            put-code:
-                                type: int
     organization:
         type: map
         mapping:

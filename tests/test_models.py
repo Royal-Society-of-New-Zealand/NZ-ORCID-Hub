@@ -6,7 +6,7 @@ from peewee import Model, SqliteDatabase
 from playhouse.test_utils import test_database
 
 from orcid_hub.models import (Affiliation, AffiliationRecord, BaseModel, BooleanField, ExternalId,
-                              FundingContributor, FundingRecord, ModelException, OrcidToken,
+                              FundingContributor, FundingRecord, FundingInvitees, ModelException, OrcidToken,
                               Organisation, OrgInfo, PartialDate, PartialDateField, Role, Task,
                               TextField, User, UserOrg, UserOrgAffiliation, create_tables,
                               drop_tables, validate_orcid_id)
@@ -26,7 +26,7 @@ def test_db():
     _db = SqliteDatabase(":memory:")
     with test_database(
             _db, (Organisation, User, UserOrg, OrgInfo, OrcidToken, UserOrgAffiliation, Task,
-                  AffiliationRecord, ExternalId, FundingRecord, FundingContributor),
+                  AffiliationRecord, ExternalId, FundingRecord, FundingContributor, FundingInvitees),
             fail_silently=True) as _test_db:
         yield _test_db
 
@@ -123,10 +123,7 @@ def test_models(test_db):
         funding_record=FundingRecord.get(id=1),
         orcid="123112311231%d" % i,
         name="Test_%d" % i,
-        email="Test_%d@mailinator.com" % i,
-        role="Test_%d" % i,
-        status="Test_%d" % i,
-        put_code=90) for i in range(10))).execute()
+        role="Test_%d" % i) for i in range(10))).execute()
 
     ExternalId.insert_many((dict(
         funding_record=FundingRecord.get(id=1),

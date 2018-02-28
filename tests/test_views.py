@@ -1066,10 +1066,12 @@ def test_load_researcher_funding(patch, patch2, request_ctx):
             data={
                 "file_": (
                         BytesIO(
-                            b'[{"title": { "title": { "value": "1ral"}},"short-description": "Mi","type": "CONTRACT",'
+                            b'[{"invitees": [{"identifier":"00001", "email": "marco.232323newwjwewkppp@mailinator.com",'
+                            b'"first-name": "Alice", "last-name": "Contributor 1", "ORCID-iD": null, "put-code":null}],'
+                            b'"title": { "title": { "value": "1ral"}},"short-description": "Mi","type": "CONTRACT",'
                             b'"contributors": {"contributor": [{"contributor-attributes": {"contributor-role": '
-                            b'"co_lead"},"credit-name": {"value": "firentini"},"contributor-email": {"value": '
-                            b'"ma1@mailinator.com"}}]}, "external-ids": {"external-id": [{"external-id-value": '
+                            b'"co_lead"},"credit-name": {"value": "firentini"}}]}'
+                            b', "external-ids": {"external-id": [{"external-id-value": '
                             b'"GNS170661","external-id-type": "grant_number"}]}}]'),
                         "logo.json",),
                 "email": user.email
