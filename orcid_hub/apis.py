@@ -1,22 +1,24 @@
 """HUB API."""
 
-import yaml
 from datetime import datetime
-from flask_login import login_user, current_user
-from flask import abort, current_app, jsonify, render_template, request, url_for, Response
+
+import jsonschema
+import requests
+import yaml
+from flask import Response, abort, current_app, jsonify, render_template, request, stream_with_context, url_for
 from flask.views import MethodView
+from flask_login import current_user, login_user
 from flask_peewee.rest import RestResource
 from flask_peewee.utils import slugify
+from flask_peewee_swagger.swagger import Swagger
 from flask_restful import Resource, reqparse
 from flask_swagger import swagger
 from werkzeug.exceptions import NotFound
-from flask_peewee_swagger.swagger import Swagger
-import jsonschema
 
-from . import data_api, api, app, db, models, oauth
+from . import api, app, data_api, db, models, oauth
 from .login_provider import roles_required
-from .models import (EMAIL_REGEX, ORCID_ID_REGEX, AffiliationRecord, OrcidToken, PartialDate, Role,
-                     User, UserOrg, Task, TaskType)
+from .models import (EMAIL_REGEX, ORCID_ID_REGEX, AffiliationRecord, OrcidToken, PartialDate, Role, Task, TaskType,
+                     User, UserOrg)
 from .schemas import affiliation_task_schema
 
 
@@ -976,21 +978,54 @@ def yamlfy(*args, **kwargs):
     return current_app.response_class((yaml.dump(data), '\n'), mimetype="text/yaml")
 
 
-class OrcidAPIProxy(MethodView):
-    """ORCID API proxy."""
+@app.route("/orcid/api/<path:path>")
+@oauth.require_oauth()
+def get(path=None):
+    """Handle GET request..."""
+    # login_user(request.oauth.user)
+    version, orcid, *rest = path.split('/')
+    # TODO: verify the version
+    # TODO: verify ORCID ID value
 
-    def get(self, path=None):
-        """Handle GET request..."""
+    if not ORCID_ID_REGEX.match(orcid):
         return jsonify({
             # "body": request.data,
             "args": request.args,
             "path": request.path,
             "call": path
         })
+    token = OrcidToken.select().join(User).where(User.orcid == orcid).first()
+    if not token:
+        return jsonify({
+            # "body": request.data,
+            "args": request.args,
+            "path": request.path,
+            "call": path,
+            "message": "The user hasn't granted acceess to the user profile"
+        }), 404
 
-    def post(self):
-        """Handle POST request..."""
-        pass
+    orcid_api_host_url = app.config["ORCID_API_HOST_URL"]
+    # CHUNK_SIZE = 1024
+    # TODO: sanitize headers
+    headers = {
+        h: v
+        for h, v in request.headers
+        if h in ["Cache-Control", "User-Agent", "Accept", "Accept-Encoding", "Connection"]
+    }
+    headers["Authorization"] = f"Bearer {token.access_token}"
+    url = f"{orcid_api_host_url}{version}/{orcid}"
+    if rest:
+        url += '/' + '/'.join(rest)
 
+    resp = requests.get(url, stream=True, headers=headers)
 
-app.add_url_rule("/orcid/api/<path:path>", view_func=OrcidAPIProxy.as_view('orcid_api'))
+    def generate():
+        # for chunk in resp.raw.stream(decode_content=False, amt=CHUNK_SIZE):
+        for chunk in resp.raw.stream(decode_content=False):
+            yield chunk
+
+    # TODO: verify if flask can create chunked responses: Transfer-Encoding: chunked
+    proxy_headers = [(h, v) for h, v in resp.raw.headers.items() if h not in ["Transfer-Encoding", ]]
+    proxy_resp = Response(
+        stream_with_context(generate()), headers=proxy_headers, status=resp.status_code)
+    return proxy_resp
