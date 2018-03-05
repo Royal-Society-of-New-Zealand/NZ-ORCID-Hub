@@ -473,6 +473,7 @@ def send_user_invitation(inviter,
                          disambiguated_id=None,
                          disambiguation_source=None,
                          task_id=None,
+                         cc_email=None,
                          **kwargs):
     """Send an invitation to join ORCID Hub logging in via ORCID."""
     try:
@@ -496,7 +497,7 @@ def send_user_invitation(inviter,
                 "email/researcher_invitation.html",
                 recipient=(user.organisation.name, user.email),
                 reply_to=(inviter.name, inviter.email),
-                cc_email=(inviter.name, inviter.email),
+                cc_email=cc_email,
                 invitation_url=invitation_url,
                 org_name=user.organisation.name,
                 org=org,
