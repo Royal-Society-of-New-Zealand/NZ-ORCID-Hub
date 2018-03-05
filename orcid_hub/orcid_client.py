@@ -216,12 +216,10 @@ class MemberAPI(MemberAPIV20Api):
         rec.type = work_type
 
         if wr.publication_date:
-            publication_media_type = None
+            publication_date = wr.publication_date.as_orcid_dict()
             if wr.publication_media_type:
-                publication_media_type = wr.publication_media_type
-
-            rec.publication_date = PublicationDate(wr.publication_date.as_orcid_dict(),    # noqa: F405
-                                                   media_type=publication_media_type)   # noqa: F405
+                publication_date['media-type'] = wr.publication_media_type.upper()
+            rec.publication_date = publication_date
 
         put_code = wi.put_code
         if put_code:

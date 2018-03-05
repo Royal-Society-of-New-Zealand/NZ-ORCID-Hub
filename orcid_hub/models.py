@@ -1428,7 +1428,10 @@ class WorkRecord(RecordModel):
 
                     type = work_data.get("type") if work_data.get("type") else None
 
-                    # publication_date = PartialDate.create(work_data.get("publication-date"))
+                    # Removing key 'media-type' from the publication_date dict. and only considering year, day & month
+                    publication_date = PartialDate.create(
+                        {date_key: work_data.get("publication-date")[date_key] for date_key in
+                         ('day', 'month', 'year')}) if work_data.get("publication-date") else None
 
                     publication_media_type = work_data.get("publication-date").get("media-type") if \
                         work_data.get("publication-date") and work_data.get("publication-date").get("media-type") \
@@ -1455,7 +1458,7 @@ class WorkRecord(RecordModel):
                         citation_type=citation_type,
                         citation_value=citation_value,
                         type=type,
-                        # publication_date=publication_date,
+                        publication_date=publication_date,
                         publication_media_type=publication_media_type,
                         url=url,
                         language_code=language_code,
