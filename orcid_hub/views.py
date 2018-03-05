@@ -1640,7 +1640,8 @@ def invite_user():
             email=email,
             affiliations=affiliations,
             **{f.name: f.data
-               for f in form})
+               for f in form},
+            cc_email=(current_user.name, current_user.email))
         flash(f"An invitation to {ui.email} was {'resent' if resend else 'sent'} successfully.",
               "success")
         break
