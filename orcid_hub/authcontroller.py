@@ -980,7 +980,7 @@ def orcid_login_callback(request):
                     return redirect(url_for("index"))
             data = json.loads(api_response.data)
             if data and data.get("email") and any(
-                    e.get("email") == email for e in data.get("email")):
+                    e.get("email").lower() == email for e in data.get("email")):
                 user.save()
                 if not org.confirmed and user.is_tech_contact_of(org):
                     return redirect(_next or url_for("onboard_org"))
