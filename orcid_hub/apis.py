@@ -14,11 +14,13 @@ from flask_peewee_swagger.swagger import Swagger
 from flask_restful import Resource, reqparse
 from flask_swagger import swagger
 from werkzeug.exceptions import NotFound
+from yaml.dumper import Dumper
+from yaml.representer import SafeRepresenter
 
 from . import api, app, data_api, db, models, oauth
 from .login_provider import roles_required
-from .models import (EMAIL_REGEX, ORCID_ID_REGEX, AffiliationRecord, OrcidToken, PartialDate, Role, Task, TaskType,
-                     User, UserOrg)
+from .models import (EMAIL_REGEX, ORCID_ID_REGEX, AffiliationRecord, OrcidToken, PartialDate, Role,
+                     Task, TaskType, User, UserOrg, validate_orcid_id)
 from .schemas import affiliation_task_schema
 
 
@@ -965,9 +967,18 @@ def db_api_docs():
     return render_template("swaggerui.html", url=url)
 
 
+class SafeRepresenterWithISODate(SafeRepresenter):
+    """Customized representer for datetaime rendering in ISO format."""
+
+    def represent_datetime(self, data):
+        """Customize datetime rendering in ISO format."""
+        value = data.isoformat(timespec="seconds")
+        return self.represent_scalar('tag:yaml.org,2002:timestamp', value)
+
+
 def yamlfy(*args, **kwargs):
     """Create respose in YAML just like jsonify does it for JSON."""
-    yaml.add_representer
+    yaml.add_representer(datetime, SafeRepresenterWithISODate.represent_datetime, Dumper=Dumper)
     if args and kwargs:
         raise TypeError('yamlfy() behavior undefined when passed both args and kwargs')
     elif len(args) == 1:  # single args are passed directly to dumps()
@@ -986,23 +997,13 @@ def get(path=None):
     version, orcid, *rest = path.split('/')
     # TODO: verify the version
     # TODO: verify ORCID ID value
-
-    if not ORCID_ID_REGEX.match(orcid):
-        return jsonify({
-            # "body": request.data,
-            "args": request.args,
-            "path": request.path,
-            "call": path
-        })
+    try:
+        validate_orcid_id(orcid)
+    except Exception as ex:
+        return jsonify({"error": str(ex), "message": "Missing or invalid ORCID iD."}), 404
     token = OrcidToken.select().join(User).where(User.orcid == orcid).first()
     if not token:
-        return jsonify({
-            # "body": request.data,
-            "args": request.args,
-            "path": request.path,
-            "call": path,
-            "message": "The user hasn't granted acceess to the user profile"
-        }), 404
+        return jsonify({"message": "The user hasn't granted acceess to the user profile"}), 404
 
     orcid_api_host_url = app.config["ORCID_API_HOST_URL"]
     # CHUNK_SIZE = 1024
@@ -1026,6 +1027,7 @@ def get(path=None):
 
     # TODO: verify if flask can create chunked responses: Transfer-Encoding: chunked
     proxy_headers = [(h, v) for h, v in resp.raw.headers.items() if h not in ["Transfer-Encoding", ]]
+    # import pdb; pdb.set_trace()
     proxy_resp = Response(
         stream_with_context(generate()), headers=proxy_headers, status=resp.status_code)
     return proxy_resp
