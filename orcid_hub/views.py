@@ -516,6 +516,10 @@ class RecordModelView(AppModelView):
         """Pass the task to the render function as an added argument."""
         if "task" not in kwargs:
             task_id = request.args.get("task_id")
+            # Adding check to get task_id while using can_edit functionality for the affiliation/funding/work records.
+            if not task_id:
+                _id = request.args.get("id")
+                task_id = self.model.get(id=_id).task_id
             if task_id:
                 try:
                     kwargs["task"] = Task.get(id=task_id)
