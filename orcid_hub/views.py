@@ -500,6 +500,10 @@ class RecordModelView(AppModelView):
         "task",
         "organisation",
     )
+    form_excluded_columns = (
+        "task",
+        "organisation",
+    )
     column_export_exclude_list = (
         "task",
         "is_active",
@@ -510,11 +514,11 @@ class RecordModelView(AppModelView):
     can_view_details = True
     can_export = True
 
-    form_widget_args = {"external_id": {"readonly": True}}
+    form_widget_args = {"external_id": {"readonly": True}, "task": {"readonly": True}}
 
     def render(self, template, **kwargs):
         """Pass the task to the render function as an added argument."""
-        if "task" not in kwargs:
+        if template == self.list_template and "task" not in kwargs:
             task_id = request.args.get("task_id")
             if task_id:
                 try:
