@@ -1069,7 +1069,7 @@ class AffiliationRecord(RecordModel):
     """Affiliation record loaded from CSV file for batch processing."""
 
     is_active = BooleanField(
-        default=False, help_text="The record is marked for batch processing", null=True)
+        default=False, help_text="The record is marked 'active' for batch processing", null=True)
     task = ForeignKeyField(Task, on_delete="CASCADE")
     put_code = IntegerField(null=True)
     external_id = CharField(

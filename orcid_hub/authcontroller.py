@@ -221,7 +221,7 @@ def handle_login():
 
     if user:
         # Add Shibboleth meta data if they are missing
-        if not user.name or org is not None and user.name == org.name and name:
+        if name and user.name != name:
             user.name = name
         if not user.first_name and first_name:
             user.first_name = first_name
