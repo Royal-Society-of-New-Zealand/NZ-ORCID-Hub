@@ -644,7 +644,8 @@ class User(BaseModel, UserMixin, AuditMixin):
         """Sets user as a HUB admin."""
         if value:
             self.roles |= Role.SUPERUSER
-        else:
+        # Only do the bitwise XOR in case if superuser is present in roles,otherwise superuser gets set in user edit.
+        elif bool(self.roles & Role.SUPERUSER):
             self.roles ^= Role.SUPERUSER
 
     @property
