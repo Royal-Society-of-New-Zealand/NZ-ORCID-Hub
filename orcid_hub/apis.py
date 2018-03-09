@@ -989,10 +989,10 @@ def yamlfy(*args, **kwargs):
     return current_app.response_class((yaml.dump(data), '\n'), mimetype="text/yaml")
 
 
-@app.route("/orcid/api/<path:path>")
+@app.route("/orcid/api/<path:path>", methods=["GET", "POST", "PUT", "DELETE"])
 @oauth.require_oauth()
-def get(path=None):
-    """Handle GET request..."""
+def orcid_proxy(path=None):
+    """Handle proxied request..."""
     # login_user(request.oauth.user)
     version, orcid, *rest = path.split('/')
     # TODO: verify the version
@@ -1018,7 +1018,11 @@ def get(path=None):
     if rest:
         url += '/' + '/'.join(rest)
 
-    resp = requests.get(url, stream=True, headers=headers)
+    # resp = requests.get(url, stream=True, headers=headers)
+    proxy_req = requests.Request(request.method, url, data=request.stream, headers=headers).prepare()
+    session = requests.Session()
+    # TODO: add timemout
+    resp = session.send(proxy_req, stream=True)
 
     def generate():
         # for chunk in resp.raw.stream(decode_content=False, amt=CHUNK_SIZE):

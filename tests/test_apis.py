@@ -641,7 +641,7 @@ def test_proxy_get_profile(app_req_ctx):
     with app_req_ctx(
             f"/orcid/api/v1.23/{orcid_id}", headers=dict(
                 authorization=f"Bearer {token.access_token}")) as ctx, patch(
-                        "orcid_hub.apis.requests.get") as mockget:
+                        "orcid_hub.apis.requests.Session.send") as mocksend:
         mockresp = MagicMock(status_code=200)
         mockresp.raw.stream = lambda *args, **kwargs: iter([b"""{"data": "TEST"}"""])
         mockresp.raw.headers = {
@@ -654,13 +654,14 @@ def test_proxy_get_profile(app_req_ctx):
                 "Pragma": "no-cache",
                 "Expires": "0",
         }
-        mockget.return_value = mockresp
+        mocksend.return_value = mockresp
         resp = ctx.app.full_dispatch_request()
         assert resp.status_code == 200
-        mockget.assert_called_once_with(
-            f"https://api.sandbox.orcid.org/v1.23/{orcid_id}",
-            headers={"Authorization": "Bearer ORCID-TEST-ACCESS-TOKEN"},
-            stream=True)
+        args, kwargs = mocksend.call_args
+        assert kwargs["stream"]
+        assert args[0].url == f"https://api.sandbox.orcid.org/v1.23/{orcid_id}"
+        assert args[0].headers["Authorization"] == "Bearer ORCID-TEST-ACCESS-TOKEN"
+
         data = json.loads(resp.data)
         assert data == {"data": "TEST"}
 
