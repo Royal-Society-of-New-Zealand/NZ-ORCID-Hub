@@ -11,6 +11,8 @@ from flask_login import login_user
 from orcid_hub.apis import yamlfy
 from orcid_hub.models import Client, OrcidToken, Organisation, Role, Task, TaskType, Token, User, UserOrg
 
+from unittest.mock import patch, MagicMock
+
 
 @pytest.fixture
 def app_req_ctx(request_ctx):
@@ -628,3 +630,50 @@ records:
     task_id = data["id"]
     task = Task.get(id=task_id)
     assert task.affiliationrecord_set.count() == 3
+
+
+def test_proxy_get_profile(app_req_ctx):
+    """Test the echo endpoint."""
+    user = User.get(email="app123@test0.edu")
+    token = Token.get(user=user)
+    orcid_id = "0000-0000-0000-00X3"
+
+    with app_req_ctx(
+            f"/orcid/api/v1.23/{orcid_id}", headers=dict(
+                authorization=f"Bearer {token.access_token}")) as ctx, patch(
+                        "orcid_hub.apis.requests.get") as mockget:
+        mockresp = MagicMock(status_code=200)
+        mockresp.raw.stream = lambda *args, **kwargs: iter([b"""{"data": "TEST"}"""])
+        mockresp.raw.headers = {
+                "Server": "TEST123",
+                "Content-Type": "application/json;charset=UTF-8",
+                "Transfer-Encoding": "chunked",
+                "Connection": "keep-alive",
+                "Access-Control-Allow-Origin": "*",
+                "Cache-Control": "no -cache, no-store, max-age=0, must-revalidate",
+                "Pragma": "no-cache",
+                "Expires": "0",
+        }
+        mockget.return_value = mockresp
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 200
+        mockget.assert_called_once_with(
+            f"https://api.sandbox.orcid.org/v1.23/{orcid_id}",
+            headers={"Authorization": "Bearer ORCID-TEST-ACCESS-TOKEN"},
+            stream=True)
+        data = json.loads(resp.data)
+        assert data == {"data": "TEST"}
+
+    # malformatted ORCID ID:
+    with app_req_ctx(
+            "/orcid/api/v1.23/NOT-ORCID-ID/PATH", headers=dict(
+                authorization=f"Bearer {token.access_token}")) as ctx:
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 404
+
+    # no ORCID access token
+    with app_req_ctx(
+            "/orcid/api/v1.23/0000-0000-0000-11X2/PATH", headers=dict(
+                authorization=f"Bearer {token.access_token}")) as ctx:
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 404

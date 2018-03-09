@@ -5,7 +5,9 @@ from os import environ, urandom, path
 
 ENV = environ.get("ENV", "dev")
 
-ORCID_API_BASE = "https://api.sandbox.orcid.org/v2.0/" if ENV != "prod" else "https://api.orcid.org/v2.0/"
+ORCID_API_HOST_URL = "https://api.sandbox.orcid.org/" if ENV != "prod" else "https://api.orcid.org/"
+ORCID_API_VERSION = "v2.0"
+ORCID_API_BASE = ORCID_API_HOST_URL + ORCID_API_VERSION + '/'
 ORCID_BASE_URL = "https://sandbox.orcid.org/" if ENV != "prod" else "https://orcid.org/"
 
 SECRET_KEY = environ.get("SECRET_KEY", urandom(42).hex())
