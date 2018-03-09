@@ -1,5 +1,8 @@
 """HUB API."""
 
+import yaml
+from yaml.representer import SafeRepresenter
+from yaml.dumper import Dumper
 from datetime import datetime
 
 import jsonschema
