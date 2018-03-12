@@ -989,19 +989,20 @@ def yamlfy(*args, **kwargs):
     return current_app.response_class((yaml.dump(data), '\n'), mimetype="text/yaml")
 
 
-@app.route("/orcid/api/<path:path>")
+@app.route("/orcid/api/<path:path>", methods=["GET", "POST", "PUT", "DELETE"])
 @oauth.require_oauth()
-def get(path=None):
-    """Handle GET request..."""
-    # login_user(request.oauth.user)
+def orcid_proxy(path=None):
+    """Handle proxied request..."""
+    login_user(request.oauth.user)
     version, orcid, *rest = path.split('/')
     # TODO: verify the version
-    # TODO: verify ORCID ID value
+    # TODO: add logging ...
     try:
         validate_orcid_id(orcid)
     except Exception as ex:
         return jsonify({"error": str(ex), "message": "Missing or invalid ORCID iD."}), 404
-    token = OrcidToken.select().join(User).where(User.orcid == orcid).first()
+    token = OrcidToken.select().join(User).where(
+        User.orcid == orcid, OrcidToken.org == current_user.organisation).first()
     if not token:
         return jsonify({"message": "The user hasn't granted acceess to the user profile"}), 404
 
@@ -1010,15 +1011,18 @@ def get(path=None):
     # TODO: sanitize headers
     headers = {
         h: v
-        for h, v in request.headers
-        if h in ["Cache-Control", "User-Agent", "Accept", "Accept-Encoding", "Connection"]
+        for h, v in request.headers if h in
+        ["Cache-Control", "User-Agent", "Accept", "Accept-Encoding", "Connection", "Content-Type"]
     }
     headers["Authorization"] = f"Bearer {token.access_token}"
     url = f"{orcid_api_host_url}{version}/{orcid}"
     if rest:
         url += '/' + '/'.join(rest)
 
-    resp = requests.get(url, stream=True, headers=headers)
+    proxy_req = requests.Request(request.method, url, data=request.stream, headers=headers).prepare()
+    session = requests.Session()
+    # TODO: add timemout
+    resp = session.send(proxy_req, stream=True)
 
     def generate():
         # for chunk in resp.raw.stream(decode_content=False, amt=CHUNK_SIZE):
