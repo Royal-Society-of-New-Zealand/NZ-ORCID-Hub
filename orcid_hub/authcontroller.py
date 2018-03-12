@@ -824,7 +824,8 @@ def orcid_login(invitation_token=None):
             user_id=None, method="GET", url=orcid_authenticate_url, state=state)
         oac.save()
 
-        return redirect(orcid_authenticate_url)
+        return render_template(
+            "orcidLogoutAndCallback.html", orcid_base_url=ORCID_BASE_URL, callback_url=orcid_authenticate_url)
 
     except SignatureExpired as sx:
         with suppress(Exception):
