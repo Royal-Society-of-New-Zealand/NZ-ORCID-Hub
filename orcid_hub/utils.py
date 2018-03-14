@@ -14,7 +14,7 @@ import requests
 from flask import request, url_for
 from flask_login import current_user
 from html2text import html2text
-from itsdangerous import URLSafeTimedSerializer, SignatureExpired
+from itsdangerous import URLSafeTimedSerializer
 from peewee import JOIN
 
 from . import app, orcid_client
@@ -160,15 +160,10 @@ def generate_confirmation_token(*args, **kwargs):
 def confirm_token(token, expiration=1300000, unsafe=False):
     """Genearate confirmaatin token."""
     serializer = URLSafeTimedSerializer(app.config["SECRET_KEY"])
-    try:
-        if unsafe:
-            data = serializer.loads_unsafe(token)
-        else:
-            data = serializer.loads(token, salt=app.config["SALT"], max_age=expiration)
-    except SignatureExpired as sx:
-        raise sx
-    except Exception as ex:
-        raise ex
+    if unsafe:
+        data = serializer.loads_unsafe(token)
+    else:
+        data = serializer.loads(token, salt=app.config["SALT"], max_age=expiration)
     return data
 
 
