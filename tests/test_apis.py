@@ -698,11 +698,11 @@ def test_proxy_get_profile(app_req_ctx):
             "/orcid/api/v1.23/NOT-ORCID-ID/PATH", headers=dict(
                 authorization=f"Bearer {token.access_token}")) as ctx:
         resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 404
+        assert resp.status_code == 415
 
     # no ORCID access token
     with app_req_ctx(
             "/orcid/api/v1.23/0000-0000-0000-11X2/PATH", headers=dict(
                 authorization=f"Bearer {token.access_token}")) as ctx:
         resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 404
+        assert resp.status_code == 403

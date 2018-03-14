@@ -1000,11 +1000,11 @@ def orcid_proxy(path=None):
     try:
         validate_orcid_id(orcid)
     except Exception as ex:
-        return jsonify({"error": str(ex), "message": "Missing or invalid ORCID iD."}), 404
+        return jsonify({"error": str(ex), "message": "Missing or invalid ORCID iD."}), 415
     token = OrcidToken.select().join(User).where(
         User.orcid == orcid, OrcidToken.org == current_user.organisation).first()
     if not token:
-        return jsonify({"message": "The user hasn't granted acceess to the user profile"}), 404
+        return jsonify({"message": "The user hasn't granted acceess to the user profile"}), 403
 
     orcid_api_host_url = app.config["ORCID_API_HOST_URL"]
     # CHUNK_SIZE = 1024
