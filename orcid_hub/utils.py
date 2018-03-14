@@ -166,10 +166,8 @@ def confirm_token(token, expiration=1300000, unsafe=False):
         else:
             data = serializer.loads(token, salt=app.config["SALT"], max_age=expiration)
     except SignatureExpired as sx:
-        logger.error(f"Invitation token SignatureExpired: {sx}")
         raise sx
     except Exception as ex:
-        logger.error(f"Invitation token Exception {ex}")
         raise ex
     return data
 
