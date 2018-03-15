@@ -843,14 +843,14 @@ def orcid_login(invitation_token=None):
                 flash("You have already given permission, you can simply login on orcidhub",
                       "warning")
                 app.logger.warning(f"Failed to login via ORCID, as {user_email} from {user_org_name} organisation, "
-                                   f"was trying old invitation token")
+                                   "was trying old invitation token")
                 return redirect(url_for("index"))
 
         flash("It's been more than 15 days since your invitation was sent and it has expired. "
               "Please contact the sender to issue a new one",
               "danger")
         app.logger.warning(f"Failed to login via ORCID, as {user_email} from {user_org_name} organisation, "
-                           f"was trying old invitation token")
+                           "was trying old invitation token")
         return redirect(url_for("index"))
     except Exception as ex:
         flash("Something went wrong. Please contact orcid@royalsociety.org.nz for support!",
