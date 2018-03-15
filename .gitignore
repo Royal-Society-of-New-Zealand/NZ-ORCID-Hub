@@ -103,3 +103,5 @@ CSR/
 .idea/misc.xml
 instance/settings.cfg
 tags
+data.db
+

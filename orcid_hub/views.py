@@ -37,10 +37,10 @@ from .forms import (ApplicationFrom, BitmapMultipleValueField, CredentialForm, E
                     FileUploadForm, JsonOrYamlFileUploadForm, LogoForm, OrgRegistrationForm,
                     PartialDateField, RecordForm, UserInvitationForm)
 from .login_provider import roles_required
-from .models import (Affiliation, AffiliationRecord, CharField, Client, File, FundingContributor,
+from .models import (Affiliation, AffiliationRecord, CharField, Client, File, FundingInvitees,
                      FundingRecord, Grant, ModelException, OrcidApiCall, OrcidToken, Organisation,
                      OrgInfo, OrgInvitation, PartialDate, Role, Task, TextField, Token, Url, User,
-                     UserInvitation, UserOrg, UserOrgAffiliation, db)
+                     UserInvitation, UserOrg, UserOrgAffiliation, db, WorkRecord, WorkInvitees)
 # NB! Should be disabled in production
 from .pyinfo import info
 from .utils import generate_confirmation_token, get_next_url, send_user_invitation
@@ -586,7 +586,7 @@ class RecordModelView(AppModelView):
     @action("activate", "Activate for processing",
             """Are you sure you want to activate the selected records for batch processing?
 
-By clicking "OK" you are affirming that the affiliations or the funding records to be written are,
+By clicking "OK" you are affirming that the selected records to be written are,
 to the best of your knowledge, correct!""")
     def action_activate(self, ids):
         """Batch registraion of users."""
@@ -612,9 +612,13 @@ to the best of your knowledge, correct!""")
                                                             self.model.id.in_(ids)).execute()
 
                 if self.model == FundingRecord:
-                    count = FundingContributor.update(
+                    count = FundingInvitees.update(
                         processed_at=None, status=status).where(
-                            FundingContributor.funding_record.in_(ids)).execute()
+                            FundingInvitees.funding_record.in_(ids)).execute()
+                elif self.model == WorkRecord:
+                    count = WorkInvitees.update(
+                        processed_at=None, status=status).where(
+                        WorkInvitees.work_record.in_(ids)).execute()
                 elif self.model == AffiliationRecord:
                     # Delete the userInvitation token when reset to send the mail again.
                     task_id = None
@@ -635,17 +639,17 @@ to the best of your knowledge, correct!""")
 
             else:
                 if self.model == FundingRecord:
-                    flash(f"{count} Funding Contributor records were reset for batch processing.")
+                    flash(f"{count} Funding Invitee records were reset for batch processing.")
+                elif self.model == WorkRecord:
+                    flash(f"{count} Work Invitee records were reset for batch processing.")
                 else:
                     flash(f"{count} Affiliation records were reset for batch processing.")
 
 
-class ExternalIdAdmin(AppModelView):
-    """ExternalId model view."""
+class ExternalIdModelView(AppModelView):
+    """Combine ExternalId model view."""
 
     roles_required = Role.SUPERUSER | Role.ADMIN
-    list_template = "funding_externalid_list.html"
-    column_exclude_list = ("funding_record", )
 
     can_edit = True
     can_create = False
@@ -663,12 +667,24 @@ class ExternalIdAdmin(AppModelView):
         return True
 
 
-class FundingContributorAdmin(AppModelView):
-    """Funding record model view."""
+class ExternalIdAdmin(ExternalIdModelView):
+    """ExternalId model view."""
+
+    list_template = "funding_externalid_list.html"
+    column_exclude_list = ("funding_record", )
+
+
+class WorkExternalIdAdmin(ExternalIdModelView):
+    """WorkExternalId model view."""
+
+    list_template = "work_externalid_list.html"
+    column_exclude_list = ("work_record", )
+
+
+class ContributorModelAdmin(AppModelView):
+    """Combine contributor record model view."""
 
     roles_required = Role.SUPERUSER | Role.ADMIN
-    list_template = "funding_contributor_list.html"
-    column_exclude_list = ("funding_record", )
 
     can_edit = True
     can_create = False
@@ -678,7 +694,40 @@ class FundingContributorAdmin(AppModelView):
     form_widget_args = {"external_id": {"readonly": True}}
 
     def is_accessible(self):
-        """Verify if the funding contributor view is accessible for the current user."""
+        """Verify if the contributor view is accessible for the current user."""
+        if not super().is_accessible():
+            flash("Access denied! You cannot access this task.", "danger")
+            return False
+
+        return True
+
+
+class FundingContributorAdmin(ContributorModelAdmin):
+    """Funding contributor record model view."""
+
+    list_template = "funding_contributor_list.html"
+    column_exclude_list = ("funding_record", )
+
+
+class WorkContributorAdmin(ContributorModelAdmin):
+    """Work contributor record model view."""
+
+    list_template = "work_contributor_list.html"
+    column_exclude_list = ("work_record", )
+
+
+class InviteesModelAdmin(AppModelView):
+    """Combine Invitees record model view."""
+
+    roles_required = Role.SUPERUSER | Role.ADMIN
+
+    can_edit = True
+    can_create = False
+    can_delete = False
+    can_view_details = True
+
+    def is_accessible(self):
+        """Verify if the invitees view is accessible for the current user."""
         if not super().is_accessible():
             flash("Access denied! You cannot access this task.", "danger")
             return False
@@ -694,23 +743,46 @@ class FundingContributorAdmin(AppModelView):
                 status = " The record was reset at " + datetime.utcnow().isoformat(timespec="seconds")
                 count = self.model.update(
                     processed_at=None, status=status).where(self.model.id.in_(ids)).execute()
-                funding_record_id = self.model.select().where(
-                    self.model.id.in_(ids))[0].funding_record_id
-                FundingRecord.update(
-                    processed_at=None, status=status).where(
-                        FundingRecord.is_active, FundingRecord.id == funding_record_id).execute()
+                if self.model == FundingInvitees:
+                    funding_record_id = self.model.select().where(
+                        self.model.id.in_(ids))[0].funding_record_id
+                    FundingRecord.update(
+                        processed_at=None, status=status).where(
+                            FundingRecord.is_active, FundingRecord.id == funding_record_id).execute()
+                elif self.model == WorkInvitees:
+                    work_record_id = self.model.select().where(
+                        self.model.id.in_(ids))[0].work_record_id
+                    WorkRecord.update(
+                        processed_at=None, status=status).where(
+                        WorkRecord.is_active, WorkRecord.id == work_record_id).execute()
             except Exception as ex:
                 db.rollback()
                 flash(f"Failed to activate the selected records: {ex}")
                 app.logger.exception("Failed to activate the selected records")
             else:
-                flash(f"{count} Funding Contributor records were reset for batch processing.")
+                if self.model == FundingInvitees:
+                    flash(f"{count} Funding Invitees records were reset for batch processing.")
+                else:
+                    flash(f"{count} Work Invitees records were reset for batch processing.")
 
 
-class FundingRecordAdmin(RecordModelView):
-    """Funding record model view."""
+class WorkInviteesAdmin(InviteesModelAdmin):
+    """Work invitees record model view."""
 
-    list_template = "funding_record_list.html"
+    list_template = "work_invitees_list.html"
+    column_exclude_list = ("work_record", )
+
+
+class FundingInviteesAdmin(InviteesModelAdmin):
+    """Funding invitees record model view."""
+
+    list_template = "funding_invitees_list.html"
+    column_exclude_list = ("funding_record", )
+
+
+class FundingWorkCommonModelView(RecordModelView):
+    """Common view for Funding and Work model."""
+
     column_searchable_list = ("title", )
     column_export_exclude_list = (
         "task",
@@ -719,38 +791,17 @@ class FundingRecordAdmin(RecordModelView):
         "processed_at",
         "created_at",
         "updated_at",
-        "title",
-        "translated_title",
-        "translated_title_language_code",
-        "type",
-        "organization_defined_type",
-        "short_description",
-        "amount",
-        "currency",
-        "start_date",
-        "end_date",
-        "org_name",
-        "city",
-        "region",
-        "country",
-        "disambiguated_org_identifier",
-        "disambiguation_source",
-        "visibility",
     )
+
     export_types = [
         "tsv",
         "yaml",
         "json",
         "csv",
     ]
-    column_export_list = (
-        "funding id",
-        "contributors",
-    )
-    column_csv_export_list = ("funding id", "email", "name", "orcid", "put_code", "role", "status")
 
     def _export_tablib(self, export_type, return_url):
-        """Override funding export functionality to integrate funding contributors and external ids."""
+        """Override export functionality to integrate funding/work contributors with external ids."""
         if tablib is None:
             flash(gettext('Tablib dependency not installed.'), 'error')
             return redirect(return_url)
@@ -795,14 +846,28 @@ class FundingRecordAdmin(RecordModelView):
         )
 
     def get_external_id_contributors(self, row):
-        """Get funding contributors and external ids."""
+        """Get funding/work contributors with external ids."""
         vals = []
         contributor_list = []
         external_id_list = []
-        exclude_list = ['id', 'funding_record_id', 'processed_at']
+        record_id = "funding_record_id"
+        funding_work_id = "funding id"
+        contributors = "contributors"
+
+        if self.model == WorkRecord:
+            record_id = "work_record_id"
+            funding_work_id = "work id"
+            contributors = "work_contributors"
+
+        exclude_list = ['id', record_id, 'processed_at']
         for c in self._export_columns:
-            if c[0] == 'contributors':
-                for f in row.contributors:
+            if c[0] == contributors:
+                if self.model == WorkRecord:
+                    contributors_data = row.work_contributors
+                else:
+                    contributors_data = row.contributors
+
+                for f in contributors_data:
                     contributor_rec = {}
                     for col in f._meta.columns.keys():
                         if col not in exclude_list:
@@ -814,7 +879,7 @@ class FundingRecordAdmin(RecordModelView):
                                 self.column_type_formatters_export,
                             )
                     contributor_list.append(contributor_rec)
-            elif c[0] == 'funding id':
+            elif c[0] == funding_work_id:
                 external_id_relation_part_of = {}
                 for f in row.external_ids:
                     external_id_rec = {}
@@ -827,7 +892,7 @@ class FundingRecordAdmin(RecordModelView):
                                 self.column_formatters_export,
                                 self.column_type_formatters_export,
                             )
-                    # Get the first external id from extrnal id list with 'SELF' relationship for funding export
+                    # Get the first external id from extrnal id list with 'SELF' relationship for funding/work export
                     if not external_id_list and external_id_rec.get(
                             'relationship') and external_id_rec.get(
                                 'relationship').lower() == 'self':
@@ -897,6 +962,67 @@ class FundingRecordAdmin(RecordModelView):
             stream_with_context(generate()),
             headers={'Content-Disposition': disposition},
             mimetype='text/' + export_type)
+
+
+class FundingRecordAdmin(FundingWorkCommonModelView):
+    """Funding record model view."""
+
+    list_template = "funding_record_list.html"
+    column_export_exclude_list = (
+        "title",
+        "translated_title",
+        "translated_title_language_code",
+        "type",
+        "organization_defined_type",
+        "short_description",
+        "amount",
+        "currency",
+        "start_date",
+        "end_date",
+        "org_name",
+        "city",
+        "region",
+        "country",
+        "disambiguated_org_identifier",
+        "disambiguation_source",
+        "visibility",
+    )
+
+    column_export_list = (
+        "funding id",
+        "contributors",
+    )
+    column_csv_export_list = ("funding id", "email", "name", "orcid", "put_code", "role", "status")
+
+
+class WorkRecordAdmin(FundingWorkCommonModelView):
+    """Work record model view."""
+
+    list_template = "work_record_list.html"
+    form_overrides = dict(publication_date=PartialDateField)
+
+    column_export_exclude_list = (
+        "title",
+        "sub_title",
+        "translated_title",
+        "translated_title_language_code",
+        "journal_title",
+        "short_description",
+        "citation_type",
+        "citation_value"
+        "type",
+        "publication_date",
+        "publication_media_type",
+        "url",
+        "language_code",
+        "country",
+        "visibility",
+    )
+    column_export_list = (
+        "work id",
+        "work_contributors",
+    )
+    column_csv_export_list = ("work id", "email", "name", "orcid", "put_code", "role", "status")
 
 
 class AffiliationRecordAdmin(RecordModelView):
@@ -992,7 +1118,12 @@ admin.add_view(TaskAdmin(Task))
 admin.add_view(AffiliationRecordAdmin())
 admin.add_view(FundingRecordAdmin())
 admin.add_view(FundingContributorAdmin())
+admin.add_view(FundingInviteesAdmin())
 admin.add_view(ExternalIdAdmin())
+admin.add_view(WorkContributorAdmin())
+admin.add_view(WorkExternalIdAdmin())
+admin.add_view(WorkInviteesAdmin())
+admin.add_view(WorkRecordAdmin())
 admin.add_view(AppModelView(UserInvitation))
 admin.add_view(ViewMembersAdmin(name="viewmembers", endpoint="viewmembers"))
 
@@ -1064,6 +1195,10 @@ def activate_all():
             count = FundingRecord.update(is_active=True).where(
                 FundingRecord.task_id == task_id,
                 FundingRecord.is_active == False).execute()  # noqa: E712
+        elif task.task_type == 2:
+            count = WorkRecord.update(is_active=True).where(
+                WorkRecord.task_id == task_id,
+                WorkRecord.is_active == False).execute()  # noqa: E712
     except Exception as ex:
         flash(f"Failed to activate the selected records: {ex}")
         app.logger.exception("Failed to activate the selected records")
@@ -1100,10 +1235,22 @@ def reset_all():
                     funding_record.processed_at = None
                     funding_record.status = status
 
-                    FundingContributor.update(
+                    FundingInvitees.update(
                         processed_at=None, status=status).where(
-                        FundingContributor.funding_record == funding_record.id).execute()
+                        FundingInvitees.funding_record == funding_record.id).execute()
                     funding_record.save()
+                    count = count + 1
+
+            elif task.task_type == 2:
+                for work_record in WorkRecord.select().where(WorkRecord.task_id == task_id,
+                                                                   WorkRecord.is_active == True):    # noqa: E712
+                    work_record.processed_at = None
+                    work_record.status = status
+
+                    WorkInvitees.update(
+                        processed_at=None, status=status).where(
+                        WorkInvitees.work_record == work_record.id).execute()
+                    work_record.save()
                     count = count + 1
         except Exception as ex:
             db.rollback()
@@ -1115,6 +1262,8 @@ def reset_all():
             task.save()
             if task.task_type == 1:
                 flash(f"{count} Funding records were reset for batch processing.")
+            elif task.task_type == 2:
+                flash(f"{count} Work records were reset for batch processing.")
             else:
                 flash(f"{count} Affiliation records were reset for batch processing.")
     return redirect(_url)
@@ -1389,6 +1538,24 @@ def load_researcher_funding():
             app.logger.exception("Failed to load funding records.")
 
     return render_template("fileUpload.html", form=form, form_title="Funding")
+
+
+@app.route("/load/researcher/work", methods=["GET", "POST"])
+@roles_required(Role.ADMIN)
+def load_researcher_work():
+    """Preload researcher's work data."""
+    form = JsonOrYamlFileUploadForm()
+    if form.validate_on_submit():
+        filename = secure_filename(form.file_.data.filename)
+        try:
+            task = WorkRecord.load_from_json(read_uploaded_file(form), filename=filename)
+            flash(f"Successfully loaded {task.work_record_count} rows.")
+            return redirect(url_for("workrecord.index_view", task_id=task.id))
+        except Exception as ex:
+            flash(f"Failed to load work record file: {ex}", "danger")
+            app.logger.exception("Failed to load work records.")
+
+    return render_template("fileUpload.html", form=form, form_title="Work")
 
 
 @app.route("/orcid_api_rep", methods=["GET", "POST"])
