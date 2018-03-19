@@ -778,6 +778,19 @@ class OrcidToken(BaseModel, AuditMixin):
     created_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
     updated_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
 
+    @property
+    def scopes(self):  # noqa: D102
+        if self._scopes:
+            return self._scopes.split()
+        return []
+
+    @scopes.setter
+    def scopes(self, value):  # noqa: D102
+        if isinstance(value, str):
+            self._scopes = value
+        else:
+            self._scopes = ' '.join(value)
+
 
 class UserOrgAffiliation(BaseModel, AuditMixin):
     """For Keeping the information about the affiliation."""

@@ -615,6 +615,15 @@ class MemberAPI(MemberAPIV20Api):
             return (put_code, orcid, created)
 
 
+    def get_webhook_access_token(self):
+        """Retrieve the ORCID webhook access tokne and store it."""
+        pass
+
+    def register_webhook(user=None, orcid=None):
+        """Register a webhook for the given ORCID ID or user."""
+        pass
+
+
 # yapf: disable
 from orcid_api import *  # noqa: F401,F403,F405
 
