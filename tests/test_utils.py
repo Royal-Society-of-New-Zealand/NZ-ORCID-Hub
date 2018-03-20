@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """Tests for util functions."""
 
 import logging
@@ -336,7 +337,7 @@ def get_record_mock():
                         },
                         'title': {
                             'title': {
-                                'value': 'Probing the crust with zirco'
+                                'value': 'Test titile2'
                             },
                             'translated-title': {
                                 'value': 'नमस्ते',
@@ -378,7 +379,7 @@ def create_or_update_aff_mock(affiliation=None, task_by_user=None, *args, **kwar
 @patch("orcid_hub.orcid_client.MemberAPI.get_record", side_effect=get_record_mock)
 def test_create_or_update_funding(email_patch, patch, test_db, request_ctx):
     """Test create or update funding."""
-    org = Organisation(
+    org = Organisation.create(
         name="THE ORGANISATION",
         tuakiri_name="THE ORGANISATION",
         confirmed=True,
@@ -388,9 +389,8 @@ def test_create_or_update_funding(email_patch, patch, test_db, request_ctx):
         country="COUNTRY",
         disambiguation_org_id="ID",
         disambiguation_org_source="SOURCE")
-    org.save()
 
-    u = User(
+    u = User.create(
         email="test1234456@mailinator.com",
         name="TEST USER",
         username="test123",
@@ -398,14 +398,12 @@ def test_create_or_update_funding(email_patch, patch, test_db, request_ctx):
         orcid="123",
         confirmed=True,
         organisation=org)
-    u.save()
-    user_org = UserOrg(user=u, org=org)
-    user_org.save()
 
-    t = Task(org=org, filename="xyz.json", created_by=u, updated_by=u, task_type=1)
-    t.save()
+    UserOrg.create(user=u, org=org)
 
-    fr = FundingRecord(
+    t = Task.create(org=org, filename="xyz.json", created_by=u, updated_by=u, task_type=1)
+
+    fr = FundingRecord.create(
         task=t,
         title="Test titile",
         translated_title="Test title",
@@ -423,35 +421,30 @@ def test_create_or_update_funding(email_patch, patch, test_db, request_ctx):
         disambiguation_source="Test_source",
         is_active=True,
         visibility="Test_visibity")
-    fr.save()
 
-    fi = FundingInvitees(
+    FundingInvitees.create(
         funding_record=fr,
         first_name="Test",
         email="test1234456@mailinator.com",
         orcid="123")
-    fi.save()
 
-    ext_id = ExternalId(
+    ExternalId.create(
         funding_record=fr, type="Test_type", value="Test_value", url="Test", relationship="SELF")
-    ext_id.save()
 
-    fc = FundingContributor(
+    FundingContributor.create(
         funding_record=fr, orcid="1213", role="LEAD", name="Contributor")
-    fc.save()
 
-    ui = UserInvitation(
+    UserInvitation.create(
         invitee=u,
         inviter=u,
         org=org,
         task=t,
         email="test1234456@mailinator.com",
         token="xyztoken")
-    ui.save()
 
-    ot = OrcidToken(
+    OrcidToken.create(
         user=u, org=org, scope="/read-limited,/activities/update", access_token="Test_token")
-    ot.save()
+
     utils.process_funding_records()
     funding_invitees = FundingInvitees.get(orcid=12344)
     assert 12399 == funding_invitees.put_code
@@ -463,7 +456,7 @@ def test_create_or_update_funding(email_patch, patch, test_db, request_ctx):
 @patch("orcid_hub.orcid_client.MemberAPI.get_record", side_effect=get_record_mock)
 def test_create_or_update_work(email_patch, patch, test_db, request_ctx):
     """Test create or update work."""
-    org = Organisation(
+    org = Organisation.create(
         name="THE ORGANISATION",
         tuakiri_name="THE ORGANISATION",
         confirmed=True,
@@ -473,24 +466,21 @@ def test_create_or_update_work(email_patch, patch, test_db, request_ctx):
         country="COUNTRY",
         disambiguation_org_id="ID",
         disambiguation_org_source="SOURCE")
-    org.save()
 
-    u = User(
+    u = User.create(
         email="test1234456@mailinator.com",
         name="TEST USER",
         username="test123",
         roles=Role.RESEARCHER,
-        orcid="123",
+        orcid="12344",
         confirmed=True,
         organisation=org)
-    u.save()
-    user_org = UserOrg(user=u, org=org)
-    user_org.save()
 
-    t = Task(org=org, filename="xyz.json", created_by=u, updated_by=u, task_type=1)
-    t.save()
+    UserOrg.create(user=u, org=org)
 
-    wr = WorkRecord(
+    t = Task.create(org=org, filename="xyz.json", created_by=u, updated_by=u, task_type=1)
+
+    wr = WorkRecord.create(
         task=t,
         title="Test titile",
         sub_title="Test titile",
@@ -509,35 +499,30 @@ def test_create_or_update_work(email_patch, patch, test_db, request_ctx):
         region="Test",
         is_active=True,
         visibility="PUBLIC")
-    wr.save()
 
-    wi = WorkInvitees(
+    WorkInvitees.create(
         work_record=wr,
         first_name="Test",
         email="test1234456@mailinator.com",
-        orcid="123")
-    wi.save()
+        orcid="12344")
 
-    ext_id = WorkExternalId(
+    WorkExternalId.create(
         work_record=wr, type="Test_type", value="Test_value", url="Test", relationship="SELF")
-    ext_id.save()
 
-    wc = WorkContributor(
+    WorkContributor.create(
         work_record=wr, contributor_sequence="1", orcid="1213", role="LEAD", name="Contributor")
-    wc.save()
 
-    ui = UserInvitation(
+    UserInvitation.create(
         invitee=u,
         inviter=u,
         org=org,
         task=t,
         email="test1234456@mailinator.com",
         token="xyztoken")
-    ui.save()
 
-    ot = OrcidToken(
+    OrcidToken.create(
         user=u, org=org, scope="/read-limited,/activities/update", access_token="Test_token")
-    ot.save()
+
     utils.process_work_records()
     work_invitees = WorkInvitees.get(orcid=12344)
     assert 12399 == work_invitees.put_code
