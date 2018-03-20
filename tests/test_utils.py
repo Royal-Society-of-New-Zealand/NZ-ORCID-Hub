@@ -373,9 +373,10 @@ def create_or_update_aff_mock(affiliation=None, task_by_user=None, *args, **kwar
     return v
 
 
+@patch("orcid_hub.utils.send_email", side_effect=send_mail_mock)
 @patch("orcid_api.MemberAPIV20Api.create_funding", side_effect=create_or_update_fund_mock)
 @patch("orcid_hub.orcid_client.MemberAPI.get_record", side_effect=get_record_mock)
-def test_create_or_update_funding(patch, test_db, request_ctx):
+def test_create_or_update_funding(email_patch, patch, test_db, request_ctx):
     """Test create or update funding."""
     org = Organisation(
         name="THE ORGANISATION",
@@ -451,47 +452,16 @@ def test_create_or_update_funding(patch, test_db, request_ctx):
     ot = OrcidToken(
         user=u, org=org, scope="/read-limited,/activities/update", access_token="Test_token")
     ot.save()
-
-    tasks = (Task.select(
-        Task, FundingRecord, FundingInvitees,
-        User, UserInvitation.id.alias("invitation_id"), OrcidToken).where(
-            FundingRecord.processed_at.is_null(), FundingInvitees.processed_at.is_null(),
-            FundingRecord.is_active,
-            (OrcidToken.id.is_null(False) |
-             ((FundingInvitees.status.is_null()) |
-              (FundingInvitees.status.contains("sent").__invert__())))).join(
-                  FundingRecord, on=(Task.id == FundingRecord.task_id)).join(
-                      FundingInvitees,
-                      on=(FundingRecord.id == FundingInvitees.funding_record_id)).join(
-                          User,
-                          JOIN.LEFT_OUTER,
-                          on=((User.email == FundingInvitees.email) |
-                              (User.orcid == FundingInvitees.orcid)))
-             .join(Organisation, JOIN.LEFT_OUTER, on=(Organisation.id == Task.org_id)).join(
-                 UserInvitation,
-                 JOIN.LEFT_OUTER,
-                 on=((UserInvitation.email == FundingInvitees.email)
-                     & (UserInvitation.task_id == Task.id))).join(
-                         OrcidToken,
-                         JOIN.LEFT_OUTER,
-                         on=((OrcidToken.user_id == User.id)
-                             & (OrcidToken.org_id == Organisation.id)
-                             & (OrcidToken.scope.contains("/activities/update")))).limit(20))
-
-    for (task_id, org_id, funding_record_id, user), tasks_by_user in groupby(tasks, lambda t: (
-            t.id,
-            t.org_id,
-            t.funding_record.id,
-            t.funding_record.funding_invitees.user,)):
-        utils.create_or_update_funding(user=user, org_id=org_id, records=tasks_by_user)
+    utils.process_funding_records()
     funding_invitees = FundingInvitees.get(orcid=12344)
     assert 12399 == funding_invitees.put_code
     assert "12344" == funding_invitees.orcid
 
 
+@patch("orcid_hub.utils.send_email", side_effect=send_mail_mock)
 @patch("orcid_api.MemberAPIV20Api.create_work", side_effect=create_or_update_fund_mock)
 @patch("orcid_hub.orcid_client.MemberAPI.get_record", side_effect=get_record_mock)
-def test_create_or_update_work(patch, test_db, request_ctx):
+def test_create_or_update_work(email_patch, patch, test_db, request_ctx):
     """Test create or update work."""
     org = Organisation(
         name="THE ORGANISATION",
@@ -568,39 +538,7 @@ def test_create_or_update_work(patch, test_db, request_ctx):
     ot = OrcidToken(
         user=u, org=org, scope="/read-limited,/activities/update", access_token="Test_token")
     ot.save()
-
-    tasks = (Task.select(
-        Task, WorkRecord, WorkInvitees,
-        User, UserInvitation.id.alias("invitation_id"), OrcidToken).where(
-            WorkRecord.processed_at.is_null(), WorkInvitees.processed_at.is_null(),
-            WorkRecord.is_active,
-            (OrcidToken.id.is_null(False) |
-             ((WorkInvitees.status.is_null()) |
-              (WorkInvitees.status.contains("sent").__invert__())))).join(
-                  WorkRecord, on=(Task.id == WorkRecord.task_id)).join(
-                      WorkInvitees,
-                      on=(WorkRecord.id == WorkInvitees.work_record_id)).join(
-                          User,
-                          JOIN.LEFT_OUTER,
-                          on=((User.email == WorkInvitees.email) |
-                              (User.orcid == WorkInvitees.orcid)))
-             .join(Organisation, JOIN.LEFT_OUTER, on=(Organisation.id == Task.org_id)).join(
-                 UserInvitation,
-                 JOIN.LEFT_OUTER,
-                 on=((UserInvitation.email == WorkInvitees.email)
-                     & (UserInvitation.task_id == Task.id))).join(
-                         OrcidToken,
-                         JOIN.LEFT_OUTER,
-                         on=((OrcidToken.user_id == User.id)
-                             & (OrcidToken.org_id == Organisation.id)
-                             & (OrcidToken.scope.contains("/activities/update")))).limit(20))
-
-    for (task_id, org_id, work_record_id, user), tasks_by_user in groupby(tasks, lambda t: (
-            t.id,
-            t.org_id,
-            t.work_record.id,
-            t.work_record.work_invitees.user,)):
-        utils.create_or_update_work(user=user, org_id=org_id, records=tasks_by_user)
+    utils.process_work_records()
     work_invitees = WorkInvitees.get(orcid=12344)
     assert 12399 == work_invitees.put_code
     assert "12344" == work_invitees.orcid
