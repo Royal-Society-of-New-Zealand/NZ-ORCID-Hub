@@ -11,9 +11,9 @@ from flask_login import login_user
 from peewee import JOIN
 
 from orcid_hub import utils
-from orcid_hub.models import (AffiliationRecord, ExternalId, File, FundingInvitees,
+from orcid_hub.models import (AffiliationRecord, ExternalId, File, FundingContributor, FundingInvitees,
                               FundingRecord, OrcidToken, Organisation, Role, Task, User,
-                              UserInvitation, UserOrg)
+                              UserInvitation, UserOrg, WorkRecord, WorkInvitees, WorkExternalId, WorkContributor)
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -312,6 +312,45 @@ def get_record_mock():
                 'path':
                 '/0000-0002-3879-2651/fundings'
             },
+            'works': {
+                'group': [{
+                    'external-ids': {
+                        'external-id': [{
+                            'external-id-type': 'grant_number',
+                            'external-id-value': 'GNS1701',
+                            'external-id-url': None,
+                            'external-id-relationship': 'SELF'
+                        }]
+                    },
+                    'work-summary': [{
+                        'source': {
+                            'source-orcid': None,
+                            'source-client-id': {
+                                'uri': 'http://sandbox.orcid.org/client/APP-5ZVH4JRQ0C27RVH5',
+                                'path': 'APP-5ZVH4JRQ0C27RVH5',
+                                'host': 'sandbox.orcid.org'
+                            },
+                            'source-name': {
+                                'value': 'The University of Auckland - MyORCiD'
+                            }
+                        },
+                        'title': {
+                            'title': {
+                                'value': 'Probing the crust with zirco'
+                            },
+                            'translated-title': {
+                                'value': 'नमस्ते',
+                                'language-code': 'hi'
+                            }
+                        },
+                        'type': 'BOOK_CHAPTER',
+                        'put-code': 9597,
+                        'path': '/0000-0002-3879-2651/works/9597'
+                    }]
+                }],
+                'path':
+                    '/0000-0002-3879-2651/works'
+            },
             'path': '/0000-0002-3879-2651/activities'
         },
         'path': '/0000-0002-3879-2651'
@@ -385,16 +424,20 @@ def test_create_or_update_funding(patch, test_db, request_ctx):
         visibility="Test_visibity")
     fr.save()
 
-    fc = FundingInvitees(
+    fi = FundingInvitees(
         funding_record=fr,
         first_name="Test",
         email="test1234456@mailinator.com",
         orcid="123")
-    fc.save()
+    fi.save()
 
     ext_id = ExternalId(
         funding_record=fr, type="Test_type", value="Test_value", url="Test", relationship="SELF")
     ext_id.save()
+
+    fc = FundingContributor(
+        funding_record=fr, orcid="1213", role="LEAD", name="Contributor")
+    fc.save()
 
     ui = UserInvitation(
         invitee=u,
@@ -440,11 +483,127 @@ def test_create_or_update_funding(patch, test_db, request_ctx):
             t.org_id,
             t.funding_record.id,
             t.funding_record.funding_invitees.user,)):
-        # TODO: Fix this unit test case once the funding schema is completely changed
         utils.create_or_update_funding(user=user, org_id=org_id, records=tasks_by_user)
     funding_invitees = FundingInvitees.get(orcid=12344)
     assert 12399 == funding_invitees.put_code
     assert "12344" == funding_invitees.orcid
+
+
+@patch("orcid_api.MemberAPIV20Api.create_work", side_effect=create_or_update_fund_mock)
+@patch("orcid_hub.orcid_client.MemberAPI.get_record", side_effect=get_record_mock)
+def test_create_or_update_work(patch, test_db, request_ctx):
+    """Test create or update work."""
+    org = Organisation(
+        name="THE ORGANISATION",
+        tuakiri_name="THE ORGANISATION",
+        confirmed=True,
+        orcid_client_id="APP-5ZVH4JRQ0C27RVH5",
+        orcid_secret="Client Secret",
+        city="CITY",
+        country="COUNTRY",
+        disambiguation_org_id="ID",
+        disambiguation_org_source="SOURCE")
+    org.save()
+
+    u = User(
+        email="test1234456@mailinator.com",
+        name="TEST USER",
+        username="test123",
+        roles=Role.RESEARCHER,
+        orcid="123",
+        confirmed=True,
+        organisation=org)
+    u.save()
+    user_org = UserOrg(user=u, org=org)
+    user_org.save()
+
+    t = Task(org=org, filename="xyz.json", created_by=u, updated_by=u, task_type=1)
+    t.save()
+
+    wr = WorkRecord(
+        task=t,
+        title="Test titile",
+        sub_title="Test titile",
+        translated_title="Test title",
+        translated_title_language_code="Test",
+        journal_title="Test titile",
+        short_description="Test desc",
+        citation_type="Test",
+        citation_value="Test",
+        type="BOOK_CHAPTER",
+        url="Test org",
+        language_code="en",
+        country="Test",
+        org_name="Test_orgname",
+        city="Test city",
+        region="Test",
+        is_active=True,
+        visibility="PUBLIC")
+    wr.save()
+
+    wi = WorkInvitees(
+        work_record=wr,
+        first_name="Test",
+        email="test1234456@mailinator.com",
+        orcid="123")
+    wi.save()
+
+    ext_id = WorkExternalId(
+        work_record=wr, type="Test_type", value="Test_value", url="Test", relationship="SELF")
+    ext_id.save()
+
+    wc = WorkContributor(
+        work_record=wr, contributor_sequence="1", orcid="1213", role="LEAD", name="Contributor")
+    wc.save()
+
+    ui = UserInvitation(
+        invitee=u,
+        inviter=u,
+        org=org,
+        task=t,
+        email="test1234456@mailinator.com",
+        token="xyztoken")
+    ui.save()
+
+    ot = OrcidToken(
+        user=u, org=org, scope="/read-limited,/activities/update", access_token="Test_token")
+    ot.save()
+
+    tasks = (Task.select(
+        Task, WorkRecord, WorkInvitees,
+        User, UserInvitation.id.alias("invitation_id"), OrcidToken).where(
+            WorkRecord.processed_at.is_null(), WorkInvitees.processed_at.is_null(),
+            WorkRecord.is_active,
+            (OrcidToken.id.is_null(False) |
+             ((WorkInvitees.status.is_null()) |
+              (WorkInvitees.status.contains("sent").__invert__())))).join(
+                  WorkRecord, on=(Task.id == WorkRecord.task_id)).join(
+                      WorkInvitees,
+                      on=(WorkRecord.id == WorkInvitees.work_record_id)).join(
+                          User,
+                          JOIN.LEFT_OUTER,
+                          on=((User.email == WorkInvitees.email) |
+                              (User.orcid == WorkInvitees.orcid)))
+             .join(Organisation, JOIN.LEFT_OUTER, on=(Organisation.id == Task.org_id)).join(
+                 UserInvitation,
+                 JOIN.LEFT_OUTER,
+                 on=((UserInvitation.email == WorkInvitees.email)
+                     & (UserInvitation.task_id == Task.id))).join(
+                         OrcidToken,
+                         JOIN.LEFT_OUTER,
+                         on=((OrcidToken.user_id == User.id)
+                             & (OrcidToken.org_id == Organisation.id)
+                             & (OrcidToken.scope.contains("/activities/update")))).limit(20))
+
+    for (task_id, org_id, work_record_id, user), tasks_by_user in groupby(tasks, lambda t: (
+            t.id,
+            t.org_id,
+            t.work_record.id,
+            t.work_record.work_invitees.user,)):
+        utils.create_or_update_work(user=user, org_id=org_id, records=tasks_by_user)
+    work_invitees = WorkInvitees.get(orcid=12344)
+    assert 12399 == work_invitees.put_code
+    assert "12344" == work_invitees.orcid
 
 
 @patch("orcid_api.MemberAPIV20Api.update_employment", side_effect=create_or_update_aff_mock)
