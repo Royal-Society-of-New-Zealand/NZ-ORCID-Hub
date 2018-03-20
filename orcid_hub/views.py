@@ -10,11 +10,12 @@ import secrets
 from collections import namedtuple
 from datetime import datetime
 from io import BytesIO
+from threading import Thread
 
 import tablib
 import yaml
-from flask import (Response, abort, flash, jsonify, redirect, render_template, request, send_file, send_from_directory,
-                   stream_with_context, url_for)
+from flask import (Response, abort, flash, jsonify, redirect, render_template, request, send_file,
+                   send_from_directory, stream_with_context, url_for)
 from flask_admin._compat import csv_encode
 from flask_admin.actions import action
 from flask_admin.babel import gettext
@@ -32,7 +33,7 @@ from wtforms.fields import BooleanField
 from orcid_api.rest import ApiException
 
 from . import admin, app, limiter, models, orcid_client, utils
-from .config import ORCID_BASE_URL, SCOPE_ACTIVITIES_UPDATE, SCOPE_READ_LIMITED, ENV
+from .config import ENV, ORCID_BASE_URL, SCOPE_ACTIVITIES_UPDATE, SCOPE_READ_LIMITED
 from .forms import (ApplicationFrom, BitmapMultipleValueField, CredentialForm, EmailTemplateForm,
                     FileUploadForm, JsonOrYamlFileUploadForm, LogoForm, OrgRegistrationForm,
                     PartialDateField, RecordForm, UserInvitationForm)
@@ -40,7 +41,8 @@ from .login_provider import roles_required
 from .models import (Affiliation, AffiliationRecord, CharField, Client, File, FundingInvitees,
                      FundingRecord, Grant, ModelException, OrcidApiCall, OrcidToken, Organisation,
                      OrgInfo, OrgInvitation, PartialDate, Role, Task, TextField, Token, Url, User,
-                     UserInvitation, UserOrg, UserOrgAffiliation, db, WorkRecord, WorkInvitees)
+                     UserInvitation, UserOrg, UserOrgAffiliation, WorkInvitees, WorkRecord, db,
+                     validate_orcid_id)
 # NB! Should be disabled in production
 from .pyinfo import info
 from .utils import generate_confirmation_token, get_next_url, send_user_invitation
@@ -2066,6 +2068,18 @@ def user_orgs_org(user_id, org_id=None):
         }), (201 if created else 200)
 
 
-# @app.route("/services/<string:orcid>/updated", methos=["POST"])
-# def update_webhook(orcid):
-#     pass
+@app.route("/services/<string:orcid>/updated", methods=["POST"])
+def update_webhook(orcid):
+    """Handle webook calls."""
+    def handle_callback(orcid):
+        """Log the update and call client webhook callbacks."""
+        pass
+
+    try:
+        validate_orcid_id(orcid)
+        thread = Thread(target=handle_callback, kwargs=dict(orcid=orcid))
+        thread.start()
+    except Exception as ex:
+        app.logger.exception(f"Invalid ORDIC iD received: {orcid}")
+
+    return '', 204

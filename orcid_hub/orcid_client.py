@@ -614,12 +614,11 @@ class MemberAPI(MemberAPIV20Api):
         else:
             return (put_code, orcid, created)
 
-
     def get_webhook_access_token(self):
         """Retrieve the ORCID webhook access tokne and store it."""
         pass
 
-    def register_webhook(user=None, orcid=None):
+    def register_webhook(self, user=None, orcid=None):
         """Register a webhook for the given ORCID ID or user."""
         pass
 

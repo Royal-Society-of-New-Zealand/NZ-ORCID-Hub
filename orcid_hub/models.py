@@ -780,16 +780,27 @@ class OrcidToken(BaseModel, AuditMixin):
 
     @property
     def scopes(self):  # noqa: D102
-        if self._scopes:
-            return self._scopes.split()
+        if self.scope:
+            return self.scope.split(',')
         return []
 
     @scopes.setter
     def scopes(self, value):  # noqa: D102
         if isinstance(value, str):
-            self._scopes = value
+            self.scope = value
         else:
-            self._scopes = ' '.join(value)
+            self.scope = ','.join(value)
+
+
+class WebhookAccessToken(BaseModel, AuditMixin):
+    """For storing ORCID webhook access tokens."""
+
+    org = ForeignKeyField(Organisation, index=True, verbose_name="Organisation")
+    scope = TextField(null=True, db_column="scope")
+    access_token = CharField(max_length=36, unique=True, null=True)
+    issue_time = DateTimeField(default=datetime.utcnow)
+    refresh_token = CharField(max_length=36, unique=True, null=True)
+    expires_in = SmallIntegerField(default=0)
 
 
 class UserOrgAffiliation(BaseModel, AuditMixin):
@@ -1869,6 +1880,7 @@ def create_tables():
             Client,
             Grant,
             Token,
+            WebhookAccessToken,
     ]:
 
         try:
