@@ -399,7 +399,7 @@ def test_orcid_login(request_ctx):
 
     with request_ctx("/orcid/login/" + token) as ctxx:
         rv = ctxx.app.full_dispatch_request()
-        assert rv.status_code == 302
+        assert rv.status_code == 200
         orcid_authorize = OrcidAuthorizeCall.get(method="GET")
         assert "&email=test123%40test.test.net" in orcid_authorize.url
 

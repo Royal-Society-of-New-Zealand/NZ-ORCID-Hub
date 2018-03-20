@@ -645,7 +645,7 @@ class User(BaseModel, UserMixin, AuditMixin):
         if value:
             self.roles |= Role.SUPERUSER
         else:
-            self.roles ^= Role.SUPERUSER
+            self.roles &= ~Role.SUPERUSER
 
     @property
     def is_admin(self):
