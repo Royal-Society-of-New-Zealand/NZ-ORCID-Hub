@@ -1,5 +1,5 @@
-name: Funding Schema
-desc: This schema is added to validate correct funding input from research organisation admin
+name: Work Schema
+desc: This schema is added to validate correct work input from research organisation admin
 type: map
 mapping:
     invitees:
@@ -58,19 +58,16 @@ mapping:
                         type: str
     path:
         type: str
-    type:
-        type: str
-        required: True
-    organization-defined-type:
-        type: map
-        mapping:
-            value:
-                type: str
     title:
         required: True
         type: map
         mapping:
             title:
+                type: map
+                mapping:
+                    value:
+                        type: str
+            subtitle:
                 type: map
                 mapping:
                     value:
@@ -82,21 +79,24 @@ mapping:
                         type: str
                     language-code:
                         type: str
+    journal-title:
+                type: map
+                mapping:
+                    value:
+                        type: str
     short-description:
         type: str
-    amount:
+    citation:
         type: map
         mapping:
-            value:
+            citation-type:
                 type: str
-            currency-code:
+            citation-value:
                 type: str
-    url:
-        type: map
-        mapping:
-            value:
-                type: str
-    start-date:
+    type:
+        type: str
+        required: True
+    publication-date:
         type: map
         mapping:
             year:
@@ -114,24 +114,8 @@ mapping:
                 mapping:
                     value:
                         type: str
-    end-date:
-        type: map
-        mapping:
-            year:
-                type: map
-                mapping:
-                    value:
-                        type: str
-            month:
-                type: map
-                mapping:
-                    value:
-                        type: str
-            day:
-                type: map
-                mapping:
-                    value:
-                        type: str
+            media-type:
+                type: str
     external-ids:
         type: map
         mapping:
@@ -152,6 +136,11 @@ mapping:
                                         type: str
                             external-id-relationship:
                                 type: str
+    url:
+        type: map
+        mapping:
+            value:
+                type: str
     contributors:
         type: map
         mapping:
@@ -178,28 +167,16 @@ mapping:
                             contributor-attributes:
                                 type: map
                                 mapping:
+                                    contributor-sequence:
+                                        type: str
                                     contributor-role:
                                         type: str
-    organization:
+    language-code:
+        type: str
+    country:
         type: map
         mapping:
-            name:
+            value:
                 type: str
-            address:
-                type: map
-                mapping:
-                    city:
-                        type: str
-                    region:
-                        type: str
-                    country:
-                        type: str
-            disambiguated-organization:
-                type: map
-                mapping:
-                    disambiguated-organization-identifier:
-                        type: str
-                    disambiguation-source:
-                        type: str
     visibility:
         type: str

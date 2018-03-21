@@ -605,8 +605,17 @@ to the best of your knowledge, correct!""")
     def action_reset(self, ids):
         """Reset batch task records."""
         status = "The record was reset at " + datetime.utcnow().isoformat(timespec="seconds")
+        task_id = None
         with db.atomic():
             try:
+                if request.method == "POST" and request.form.get("rowid"):
+                    # get the first ROWID:
+                    rowid = int(request.form.get("rowid"))
+                    task_id = self.model.get(id=rowid).task_id
+                else:
+                    task_id = request.form.get('task_id')
+                task = Task.get(id=task_id)
+
                 count = self.model.update(
                     processed_at=None, status=status).where(self.model.is_active,
                                                             self.model.id.in_(ids)).execute()
@@ -621,13 +630,6 @@ to the best of your knowledge, correct!""")
                         WorkInvitees.work_record.in_(ids)).execute()
                 elif self.model == AffiliationRecord:
                     # Delete the userInvitation token when reset to send the mail again.
-                    task_id = None
-                    if request.method == "POST" and request.form.get("rowid"):
-                        # get the first ROWID:
-                        rowid = int(request.form.get("rowid"))
-                        task_id = self.model.get(id=rowid).task_id
-                    else:
-                        task_id = request.form.get('task_id')
                     user_invitation = UserInvitation.get(task_id=task_id)
                     user_invitation.delete_instance()
             except UserInvitation.DoesNotExist:
@@ -638,6 +640,9 @@ to the best of your knowledge, correct!""")
                 app.logger.exception("Failed to activate the selected records")
 
             else:
+                task.expires_at = None
+                task.completed_at = None
+                task.save()
                 if self.model == FundingRecord:
                     flash(f"{count} Funding Invitee records were reset for batch processing.")
                 elif self.model == WorkRecord:
@@ -801,7 +806,7 @@ class FundingWorkCommonModelView(RecordModelView):
     ]
 
     def _export_tablib(self, export_type, return_url):
-        """Override export functionality to integrate funding/work contributors with external ids."""
+        """Override export functionality to integrate funding/work invitees with external ids."""
         if tablib is None:
             flash(gettext('Tablib dependency not installed.'), 'error')
             return redirect(return_url)
@@ -821,11 +826,11 @@ class FundingWorkCommonModelView(RecordModelView):
         count, data = self._export_data()
 
         for row in data:
-            external_id_list, contributor_list = self.get_external_id_contributors(row)
+            external_id_list, invitees_list = self.get_external_id_invitees(row)
             for external_ids in external_id_list:
                 vals = []
                 vals.append(external_ids['value'])
-                vals.append(contributor_list)
+                vals.append(invitees_list)
                 ds.append(vals)
 
         try:
@@ -845,40 +850,40 @@ class FundingWorkCommonModelView(RecordModelView):
             mimetype=mimetype,
         )
 
-    def get_external_id_contributors(self, row):
-        """Get funding/work contributors with external ids."""
+    def get_external_id_invitees(self, row):
+        """Get funding/work invitees with external ids."""
         vals = []
-        contributor_list = []
+        invitees_list = []
         external_id_list = []
         record_id = "funding_record_id"
         funding_work_id = "funding id"
-        contributors = "contributors"
+        invitees = "funding_invitees"
 
         if self.model == WorkRecord:
             record_id = "work_record_id"
             funding_work_id = "work id"
-            contributors = "work_contributors"
+            invitees = "work_invitees"
 
         exclude_list = ['id', record_id, 'processed_at']
         for c in self._export_columns:
-            if c[0] == contributors:
+            if c[0] == invitees:
                 if self.model == WorkRecord:
-                    contributors_data = row.work_contributors
+                    invitees_data = row.work_invitees
                 else:
-                    contributors_data = row.contributors
+                    invitees_data = row.funding_invitees
 
-                for f in contributors_data:
-                    contributor_rec = {}
+                for f in invitees_data:
+                    invitees_rec = {}
                     for col in f._meta.columns.keys():
                         if col not in exclude_list:
-                            contributor_rec[col] = self._get_list_value(
+                            invitees_rec[col] = self._get_list_value(
                                 None,
                                 f,
                                 col,
                                 self.column_formatters_export,
                                 self.column_type_formatters_export,
                             )
-                    contributor_list.append(contributor_rec)
+                    invitees_list.append(invitees_rec)
             elif c[0] == funding_work_id:
                 external_id_relation_part_of = {}
                 for f in row.external_ids:
@@ -905,7 +910,7 @@ class FundingWorkCommonModelView(RecordModelView):
                     external_id_list.append(external_id_relation_part_of)
             else:
                 vals.append(self.get_export_value(row, c[0]))
-        return (external_id_list, contributor_list)
+        return (external_id_list, invitees_list)
 
     @expose('/export/<export_type>/')
     def export(self, export_type):
@@ -945,9 +950,9 @@ class FundingWorkCommonModelView(RecordModelView):
             yield writer.writerow(titles)
 
             for row in data:
-                external_id_list, contributor_list = self.get_external_id_contributors(row)
+                external_id_list, invitees_list = self.get_external_id_invitees(row)
                 for external_ids in external_id_list:
-                    for cont in contributor_list:
+                    for cont in invitees_list:
                         vals = []
                         vals.append(external_ids['value'])
                         for col in self.column_csv_export_list[1:]:
@@ -990,9 +995,10 @@ class FundingRecordAdmin(FundingWorkCommonModelView):
 
     column_export_list = (
         "funding id",
-        "contributors",
+        "funding_invitees",
     )
-    column_csv_export_list = ("funding id", "email", "name", "orcid", "put_code", "role", "status")
+    column_csv_export_list = ("funding id", "identifier", "email", "first_name", "last_name", "orcid",
+                              "put_code", "status")
 
 
 class WorkRecordAdmin(FundingWorkCommonModelView):
@@ -1020,9 +1026,10 @@ class WorkRecordAdmin(FundingWorkCommonModelView):
     )
     column_export_list = (
         "work id",
-        "work_contributors",
+        "work_invitees",
     )
-    column_csv_export_list = ("work id", "email", "name", "orcid", "put_code", "role", "status")
+    column_csv_export_list = ("work id", "identifier", "email", "first_name", "last_name", "orcid",
+                              "put_code", "status")
 
 
 class AffiliationRecordAdmin(RecordModelView):

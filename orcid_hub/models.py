@@ -1166,7 +1166,7 @@ class FundingRecord(RecordModel):
 
             for funding_data in funding_data_list:
                 validation_source_data = copy.deepcopy(funding_data)
-                validation_source_data = FundingRecord.del_none(validation_source_data)
+                validation_source_data = del_none(validation_source_data)
 
                 # Adding schema valdation for funding
                 validator = Core(
@@ -1324,24 +1324,6 @@ class FundingRecord(RecordModel):
                 app.logger.exception("Failed to laod affiliation file.")
                 raise
 
-    @classmethod
-    def del_none(cls, d):  # noqa: N805
-        """
-        Delete keys with the value ``None`` in a dictionary, recursively.
-
-        So that the schema validation will not fail, for elements that are none
-        """
-        for key, value in list(d.items()):
-            if value is None:
-                del d[key]
-            elif isinstance(value, list):
-                for item in value:
-                    if isinstance(item, dict):
-                        cls.del_none(item)
-            elif isinstance(value, dict):
-                cls.del_none(value)
-        return d
-
     class Meta:  # noqa: D101,D106
         db_table = "funding_record"
         table_alias = "fr"
@@ -1380,14 +1362,14 @@ class WorkRecord(RecordModel):
             work_data_list = load_yaml_json(filename=filename, source=source)
 
             # TODO: validation of uploaded work file
-            '''for work_data in work_data_list:
+            for work_data in work_data_list:
                 validation_source_data = copy.deepcopy(work_data)
-                validation_source_data = WorkRecord.del_none(validation_source_data)
+                validation_source_data = del_none(validation_source_data)
 
                 # Adding schema valdation for Work
                 validator = Core(
                     source_data=validation_source_data, schema_files=["work_schema.yaml"])
-                validator.validate(raise_exception=True)'''
+                validator.validate(raise_exception=True)
 
             try:
                 if org is None:
@@ -1428,7 +1410,10 @@ class WorkRecord(RecordModel):
 
                     type = work_data.get("type") if work_data.get("type") else None
 
-                    # publication_date = PartialDate.create(work_data.get("publication-date"))
+                    # Removing key 'media-type' from the publication_date dict. and only considering year, day & month
+                    publication_date = PartialDate.create(
+                        {date_key: work_data.get("publication-date")[date_key] for date_key in
+                         ('day', 'month', 'year')}) if work_data.get("publication-date") else None
 
                     publication_media_type = work_data.get("publication-date").get("media-type") if \
                         work_data.get("publication-date") and work_data.get("publication-date").get("media-type") \
@@ -1455,7 +1440,7 @@ class WorkRecord(RecordModel):
                         citation_type=citation_type,
                         citation_value=citation_value,
                         type=type,
-                        # publication_date=publication_date,
+                        publication_date=publication_date,
                         publication_media_type=publication_media_type,
                         url=url,
                         language_code=language_code,
@@ -1905,3 +1890,21 @@ def load_yaml_json(filename, source):
         raise SchemaError(
             u"Schema validation failed:\n - Expecting a list of Records")
     return data_list
+
+
+def del_none(d):
+    """
+    Delete keys with the value ``None`` in a dictionary, recursively.
+
+    So that the schema validation will not fail, for elements that are none
+    """
+    for key, value in list(d.items()):
+        if value is None:
+            del d[key]
+        elif isinstance(value, list):
+            for item in value:
+                if isinstance(item, dict):
+                    del_none(item)
+        elif isinstance(value, dict):
+            del_none(value)
+    return d
