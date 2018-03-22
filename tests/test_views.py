@@ -12,7 +12,7 @@ from unittest.mock import MagicMock, patch
 from io import BytesIO
 
 import pytest
-from flask import request
+from flask import request, make_response
 from flask_login import login_user
 from peewee import SqliteDatabase
 from playhouse.test_utils import test_database
@@ -1157,7 +1157,9 @@ def test_edit_record(request_ctx):
     if not user.orcid:
         user.orcid = "XXXX-XXXX-XXXX-0001"
         user.save()
-
+    fake_response = make_response
+    fake_response.status = 201
+    fake_response.headers = {'Location': '12344/xyz/12399'}
     OrcidToken.create(user=user, org=user.organisation, access_token="ABC123", scope="/read-limited,/activities/update")
     with patch.object(
             orcid_client.MemberAPIV20Api,
@@ -1179,6 +1181,18 @@ def test_edit_record(request_ctx):
         assert admin.email.encode() in resp.data
         assert admin.name.encode() in resp.data
         view_education.assert_called_once_with("XXXX-XXXX-XXXX-0001", 1234)
+    with patch.object(
+            orcid_client.MemberAPIV20Api,
+            "create_education",
+            MagicMock(return_value=fake_response)), request_ctx(f"/section/{user.id}/EDU/new", method="POST",
+                                                                data={"city": "Auckland"}) as ctx:
+        login_user(admin)
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 302
+        assert resp.location == f"/section/{user.id}/EDU/list"
+        affiliation_record = UserOrgAffiliation.get(user=user)
+        # checking if the UserOrgAffiliation record is updated with put_code supplied from fake response
+        assert 12399 == affiliation_record.put_code
 
 
 def test_delete_employment(request_ctx, app):

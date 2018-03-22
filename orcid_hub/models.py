@@ -62,7 +62,7 @@ def validate_orcid_id(value):
 
     if not ORCID_ID_REGEX.match(value):
         raise ValueError(
-            "Invalid ORCID iD. It should be in the form of 'xxxx-xxxx-xxxx-xxxx' where x is a digit."
+            f"Invalid ORCID iD {value}. It should be in the form of 'xxxx-xxxx-xxxx-xxxx' where x is a digit."
         )
     check = 0
     for n in value:
@@ -70,7 +70,7 @@ def validate_orcid_id(value):
             continue
         check = (2 * check + int(10 if n == 'X' else n)) % 11
     if check != 1:
-        raise ValueError("Invalid ORCID iD checksum. Make sure you have entered correct ORCID iD.")
+        raise ValueError(f"Invalid ORCID iD {value} checksum. Make sure you have entered correct ORCID iD.")
 
 
 class PartialDate(namedtuple("PartialDate", ["year", "month", "day"])):
@@ -969,10 +969,7 @@ class Task(BaseModel, AuditMixin):
                             f"#{row_no+2}: {row}. Header: {header}")
 
                     if orcid:
-                        try:
-                            validate_orcid_id(orcid)
-                        except Exception as ex:
-                            pass
+                        validate_orcid_id(orcid)
 
                     if not email or not EMAIL_REGEX.match(email):
                         raise ValueError(
