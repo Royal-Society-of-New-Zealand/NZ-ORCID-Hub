@@ -605,8 +605,17 @@ to the best of your knowledge, correct!""")
     def action_reset(self, ids):
         """Reset batch task records."""
         status = "The record was reset at " + datetime.utcnow().isoformat(timespec="seconds")
+        task_id = None
         with db.atomic():
             try:
+                if request.method == "POST" and request.form.get("rowid"):
+                    # get the first ROWID:
+                    rowid = int(request.form.get("rowid"))
+                    task_id = self.model.get(id=rowid).task_id
+                else:
+                    task_id = request.form.get('task_id')
+                task = Task.get(id=task_id)
+
                 count = self.model.update(
                     processed_at=None, status=status).where(self.model.is_active,
                                                             self.model.id.in_(ids)).execute()
@@ -616,24 +625,23 @@ to the best of your knowledge, correct!""")
                         processed_at=None, status=status).where(
                             FundingContributor.funding_record.in_(ids)).execute()
                 elif self.model == AffiliationRecord:
-                    # Delete the userInvitation token when reset to send the mail again.
-                    task_id = None
-                    if request.method == "POST" and request.form.get("rowid"):
-                        # get the first ROWID:
-                        rowid = int(request.form.get("rowid"))
-                        task_id = self.model.get(id=rowid).task_id
-                    else:
-                        task_id = request.form.get('task_id')
-                    user_invitation = UserInvitation.get(task_id=task_id)
-                    user_invitation.delete_instance()
-            except UserInvitation.DoesNotExist:
-                pass
+                    # Delete the userInvitation token for selected reset items.
+                    selected_emails = []
+                    for item in self.model.select().where(self.model.id.in_(ids)):
+                        selected_emails.append(item.email)
+
+                    for user_invitation in UserInvitation.select().where(UserInvitation.email.in_(selected_emails)):
+                        user_invitation.delete_instance()
+
             except Exception as ex:
                 db.rollback()
                 flash(f"Failed to activate the selected records: {ex}")
                 app.logger.exception("Failed to activate the selected records")
 
             else:
+                task.expires_at = None
+                task.completed_at = None
+                task.save()
                 if self.model == FundingRecord:
                     flash(f"{count} Funding Contributor records were reset for batch processing.")
                 else:
