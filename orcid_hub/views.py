@@ -1567,9 +1567,13 @@ def invite_organisation():
                 try:
                     org = Organisation.get(name=org_name)
                     if org.tech_contact and org.tech_contact.email != email:
-                        old_tech = User.get(id=org.tech_contact.id)
-                        old_tech.roles &= ~Role.TECHNICAL
-                        old_tech.save()
+                        # If the current tech contact is technical contact of more than one organisation,
+                        # then dont update the Roles in User table.
+                        check_tech_contact_count = Organisation.select().where(
+                            Organisation.tech_contact == org.tech_contact).count()
+                        if check_tech_contact_count == 1:
+                            org.tech_contact.roles &= ~Role.TECHNICAL
+                            org.tech_contact.save()
                         flash(f"The current tech.contact {org.tech_contact.name} "
                               f"({org.tech_contact.email}) will be revoked.", "warning")
                 except Organisation.DoesNotExist:
@@ -1903,9 +1907,8 @@ def user_orgs_org(user_id, org_id=None):
             if data["is_tech_contact"]:
                 # Updating old Technical Contact's Role info.
                 if org.tech_contact and org.tech_contact != user:
-                    old_user = User.get(id=org.tech_contact.id)
-                    old_user.roles &= ~Role.TECHNICAL
-                    old_user.save()
+                    org.tech_contact.roles &= ~Role.TECHNICAL
+                    org.tech_contact.save()
                 # Assigning new tech contact to organisation.
                 org.tech_contact = user
             elif org.tech_contact == user:
