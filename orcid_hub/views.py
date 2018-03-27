@@ -626,11 +626,8 @@ to the best of your knowledge, correct!""")
                             FundingContributor.funding_record.in_(ids)).execute()
                 elif self.model == AffiliationRecord:
                     # Delete the userInvitation token for selected reset items.
-                    selected_emails = []
-                    for item in self.model.select().where(self.model.id.in_(ids)):
-                        selected_emails.append(item.email)
-
-                    for user_invitation in UserInvitation.select().where(UserInvitation.email.in_(selected_emails)):
+                    for user_invitation in UserInvitation.select().where(UserInvitation.email.in_(
+                            self.model.select(self.model.email).where(self.model.id.in_(ids)))):
                         user_invitation.delete_instance()
 
             except Exception as ex:
