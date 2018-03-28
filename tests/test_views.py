@@ -12,7 +12,7 @@ from unittest.mock import MagicMock, patch
 from io import BytesIO
 
 import pytest
-from flask import request
+from flask import request, make_response
 from flask_login import login_user
 from peewee import SqliteDatabase
 from playhouse.test_utils import test_database
@@ -1084,6 +1084,38 @@ def test_load_researcher_funding(patch, patch2, request_ctx):
         assert "funding" in rv.location
 
 
+@patch("pykwalify.core.Core.validate", side_effect=validate)
+@patch("pykwalify.core.Core.__init__", side_effect=core_mock)
+def test_load_researcher_work(patch, patch2, request_ctx):
+    """Test preload work data."""
+    user = User.get(email="admin@test1.edu")
+    user.roles = Role.ADMIN
+    user.save()
+    with request_ctx(
+            "/load/researcher/work",
+            method="POST",
+            data={
+                "file_": (
+                        BytesIO(
+                            b'[{"invitees": [{"identifier":"00001", "email": "marco.232323newwjwewkppp@mailinator.com",'
+                            b'"first-name": "Alice", "last-name": "Contributor 1", "ORCID-iD": null, "put-code":null}],'
+                            b'"title": { "title": { "value": "1ral"}}, "citation": {"citation-type": '
+                            b'"FORMATTED_UNSPECIFIED", "citation-value": "This is citation value"}, "type": "BOOK_CHR",'
+                            b'"contributors": {"contributor": [{"contributor-attributes": {"contributor-role": '
+                            b'"AUTHOR", "contributor-sequence" : "1"},"credit-name": {"value": "firentini"}}]}'
+                            b', "external-ids": {"external-id": [{"external-id-value": '
+                            b'"GNS170661","external-id-type": "grant_number"}]}}]'),
+                        "logo.json",),
+                "email": user.email
+            }) as ctx:
+        login_user(user, remember=True)
+        rv = ctx.app.full_dispatch_request()
+        assert rv.status_code == 302
+        # Work file successfully loaded.
+        assert "task_id" in rv.location
+        assert "work" in rv.location
+
+
 def test_load_researcher_affiliations(request_ctx):
     """Test preload organisation data."""
     org = Organisation.create(
@@ -1125,7 +1157,9 @@ def test_edit_record(request_ctx):
     if not user.orcid:
         user.orcid = "XXXX-XXXX-XXXX-0001"
         user.save()
-
+    fake_response = make_response
+    fake_response.status = 201
+    fake_response.headers = {'Location': '12344/xyz/12399'}
     OrcidToken.create(user=user, org=user.organisation, access_token="ABC123", scope="/read-limited,/activities/update")
     with patch.object(
             orcid_client.MemberAPIV20Api,
@@ -1147,6 +1181,18 @@ def test_edit_record(request_ctx):
         assert admin.email.encode() in resp.data
         assert admin.name.encode() in resp.data
         view_education.assert_called_once_with("XXXX-XXXX-XXXX-0001", 1234)
+    with patch.object(
+            orcid_client.MemberAPIV20Api,
+            "create_education",
+            MagicMock(return_value=fake_response)), request_ctx(f"/section/{user.id}/EDU/new", method="POST",
+                                                                data={"city": "Auckland"}) as ctx:
+        login_user(admin)
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 302
+        assert resp.location == f"/section/{user.id}/EDU/list"
+        affiliation_record = UserOrgAffiliation.get(user=user)
+        # checking if the UserOrgAffiliation record is updated with put_code supplied from fake response
+        assert 12399 == affiliation_record.put_code
 
 
 def test_delete_employment(request_ctx, app):

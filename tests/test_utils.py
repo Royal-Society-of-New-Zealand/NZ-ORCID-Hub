@@ -11,9 +11,9 @@ from flask_login import login_user
 from peewee import JOIN
 
 from orcid_hub import utils
-from orcid_hub.models import (AffiliationRecord, ExternalId, File, FundingInvitees,
+from orcid_hub.models import (AffiliationRecord, ExternalId, File, FundingContributor, FundingInvitees,
                               FundingRecord, OrcidToken, Organisation, Role, Task, User,
-                              UserInvitation, UserOrg)
+                              UserInvitation, UserOrg, WorkRecord, WorkInvitees, WorkExternalId, WorkContributor)
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -312,6 +312,45 @@ def get_record_mock():
                 'path':
                 '/0000-0002-3879-2651/fundings'
             },
+            'works': {
+                'group': [{
+                    'external-ids': {
+                        'external-id': [{
+                            'external-id-type': 'grant_number',
+                            'external-id-value': 'GNS1701',
+                            'external-id-url': None,
+                            'external-id-relationship': 'SELF'
+                        }]
+                    },
+                    'work-summary': [{
+                        'source': {
+                            'source-orcid': None,
+                            'source-client-id': {
+                                'uri': 'http://sandbox.orcid.org/client/APP-5ZVH4JRQ0C27RVH5',
+                                'path': 'APP-5ZVH4JRQ0C27RVH5',
+                                'host': 'sandbox.orcid.org'
+                            },
+                            'source-name': {
+                                'value': 'The University of Auckland - MyORCiD'
+                            }
+                        },
+                        'title': {
+                            'title': {
+                                'value': 'Test titile2'
+                            },
+                            'translated-title': {
+                                'value': 'नमस्ते',
+                                'language-code': 'hi'
+                            }
+                        },
+                        'type': 'BOOK_CHAPTER',
+                        'put-code': 9597,
+                        'path': '/0000-0002-3879-2651/works/9597'
+                    }]
+                }],
+                'path':
+                    '/0000-0002-3879-2651/works'
+            },
             'path': '/0000-0002-3879-2651/activities'
         },
         'path': '/0000-0002-3879-2651'
@@ -334,11 +373,12 @@ def create_or_update_aff_mock(affiliation=None, task_by_user=None, *args, **kwar
     return v
 
 
+@patch("orcid_hub.utils.send_email", side_effect=send_mail_mock)
 @patch("orcid_api.MemberAPIV20Api.create_funding", side_effect=create_or_update_fund_mock)
 @patch("orcid_hub.orcid_client.MemberAPI.get_record", side_effect=get_record_mock)
-def test_create_or_update_funding(patch, test_db, request_ctx):
+def test_create_or_update_funding(email_patch, patch, test_db, request_ctx):
     """Test create or update funding."""
-    org = Organisation(
+    org = Organisation.create(
         name="THE ORGANISATION",
         tuakiri_name="THE ORGANISATION",
         confirmed=True,
@@ -348,9 +388,8 @@ def test_create_or_update_funding(patch, test_db, request_ctx):
         country="COUNTRY",
         disambiguation_org_id="ID",
         disambiguation_org_source="SOURCE")
-    org.save()
 
-    u = User(
+    u = User.create(
         email="test1234456@mailinator.com",
         name="TEST USER",
         username="test123",
@@ -358,14 +397,12 @@ def test_create_or_update_funding(patch, test_db, request_ctx):
         orcid="123",
         confirmed=True,
         organisation=org)
-    u.save()
-    user_org = UserOrg(user=u, org=org)
-    user_org.save()
 
-    t = Task(org=org, filename="xyz.json", created_by=u, updated_by=u, task_type=1)
-    t.save()
+    UserOrg.create(user=u, org=org)
 
-    fr = FundingRecord(
+    t = Task.create(org=org, filename="xyz.json", created_by=u, updated_by=u, task_type=1)
+
+    fr = FundingRecord.create(
         task=t,
         title="Test titile",
         translated_title="Test title",
@@ -383,68 +420,112 @@ def test_create_or_update_funding(patch, test_db, request_ctx):
         disambiguation_source="Test_source",
         is_active=True,
         visibility="Test_visibity")
-    fr.save()
 
-    fc = FundingInvitees(
+    FundingInvitees.create(
         funding_record=fr,
         first_name="Test",
         email="test1234456@mailinator.com",
         orcid="123")
-    fc.save()
 
-    ext_id = ExternalId(
+    ExternalId.create(
         funding_record=fr, type="Test_type", value="Test_value", url="Test", relationship="SELF")
-    ext_id.save()
 
-    ui = UserInvitation(
+    FundingContributor.create(
+        funding_record=fr, orcid="1213", role="LEAD", name="Contributor")
+
+    UserInvitation.create(
         invitee=u,
         inviter=u,
         org=org,
         task=t,
         email="test1234456@mailinator.com",
         token="xyztoken")
-    ui.save()
 
-    ot = OrcidToken(
+    OrcidToken.create(
         user=u, org=org, scope="/read-limited,/activities/update", access_token="Test_token")
-    ot.save()
 
-    tasks = (Task.select(
-        Task, FundingRecord, FundingInvitees,
-        User, UserInvitation.id.alias("invitation_id"), OrcidToken).where(
-            FundingRecord.processed_at.is_null(), FundingInvitees.processed_at.is_null(),
-            FundingRecord.is_active,
-            (OrcidToken.id.is_null(False) |
-             ((FundingInvitees.status.is_null()) |
-              (FundingInvitees.status.contains("sent").__invert__())))).join(
-                  FundingRecord, on=(Task.id == FundingRecord.task_id)).join(
-                      FundingInvitees,
-                      on=(FundingRecord.id == FundingInvitees.funding_record_id)).join(
-                          User,
-                          JOIN.LEFT_OUTER,
-                          on=((User.email == FundingInvitees.email) |
-                              (User.orcid == FundingInvitees.orcid)))
-             .join(Organisation, JOIN.LEFT_OUTER, on=(Organisation.id == Task.org_id)).join(
-                 UserInvitation,
-                 JOIN.LEFT_OUTER,
-                 on=((UserInvitation.email == FundingInvitees.email)
-                     & (UserInvitation.task_id == Task.id))).join(
-                         OrcidToken,
-                         JOIN.LEFT_OUTER,
-                         on=((OrcidToken.user_id == User.id)
-                             & (OrcidToken.org_id == Organisation.id)
-                             & (OrcidToken.scope.contains("/activities/update")))).limit(20))
-
-    for (task_id, org_id, funding_record_id, user), tasks_by_user in groupby(tasks, lambda t: (
-            t.id,
-            t.org_id,
-            t.funding_record.id,
-            t.funding_record.funding_invitees.user,)):
-        # TODO: Fix this unit test case once the funding schema is completely changed
-        utils.create_or_update_funding(user=user, org_id=org_id, records=tasks_by_user)
+    utils.process_funding_records()
     funding_invitees = FundingInvitees.get(orcid=12344)
     assert 12399 == funding_invitees.put_code
     assert "12344" == funding_invitees.orcid
+
+
+@patch("orcid_hub.utils.send_email", side_effect=send_mail_mock)
+@patch("orcid_api.MemberAPIV20Api.create_work", side_effect=create_or_update_fund_mock)
+@patch("orcid_hub.orcid_client.MemberAPI.get_record", side_effect=get_record_mock)
+def test_create_or_update_work(email_patch, patch, test_db, request_ctx):
+    """Test create or update work."""
+    org = Organisation.create(
+        name="THE ORGANISATION",
+        tuakiri_name="THE ORGANISATION",
+        confirmed=True,
+        orcid_client_id="APP-5ZVH4JRQ0C27RVH5",
+        orcid_secret="Client Secret",
+        city="CITY",
+        country="COUNTRY",
+        disambiguation_org_id="ID",
+        disambiguation_org_source="SOURCE")
+
+    u = User.create(
+        email="test1234456@mailinator.com",
+        name="TEST USER",
+        username="test123",
+        roles=Role.RESEARCHER,
+        orcid="12344",
+        confirmed=True,
+        organisation=org)
+
+    UserOrg.create(user=u, org=org)
+
+    t = Task.create(org=org, filename="xyz.json", created_by=u, updated_by=u, task_type=1)
+
+    wr = WorkRecord.create(
+        task=t,
+        title="Test titile",
+        sub_title="Test titile",
+        translated_title="Test title",
+        translated_title_language_code="Test",
+        journal_title="Test titile",
+        short_description="Test desc",
+        citation_type="Test",
+        citation_value="Test",
+        type="BOOK_CHAPTER",
+        url="Test org",
+        language_code="en",
+        country="Test",
+        org_name="Test_orgname",
+        city="Test city",
+        region="Test",
+        is_active=True,
+        visibility="PUBLIC")
+
+    WorkInvitees.create(
+        work_record=wr,
+        first_name="Test",
+        email="test1234456@mailinator.com",
+        orcid="12344")
+
+    WorkExternalId.create(
+        work_record=wr, type="Test_type", value="Test_value", url="Test", relationship="SELF")
+
+    WorkContributor.create(
+        work_record=wr, contributor_sequence="1", orcid="1213", role="LEAD", name="Contributor")
+
+    UserInvitation.create(
+        invitee=u,
+        inviter=u,
+        org=org,
+        task=t,
+        email="test1234456@mailinator.com",
+        token="xyztoken")
+
+    OrcidToken.create(
+        user=u, org=org, scope="/read-limited,/activities/update", access_token="Test_token")
+
+    utils.process_work_records()
+    work_invitees = WorkInvitees.get(orcid=12344)
+    assert 12399 == work_invitees.put_code
+    assert "12344" == work_invitees.orcid
 
 
 @patch("orcid_api.MemberAPIV20Api.update_employment", side_effect=create_or_update_aff_mock)
