@@ -631,11 +631,10 @@ to the best of your knowledge, correct!""")
                         processed_at=None, status=status).where(
                         WorkInvitees.work_record.in_(ids)).execute()
                 elif self.model == AffiliationRecord:
-                    # Delete the userInvitation token when reset to send the mail again.
-                    user_invitation = UserInvitation.get(task_id=task_id)
-                    user_invitation.delete_instance()
-            except UserInvitation.DoesNotExist:
-                pass
+                    # Delete the userInvitation token for selected reset items.
+                    for user_invitation in UserInvitation.select().where(UserInvitation.email.in_(
+                            self.model.select(self.model.email).where(self.model.id.in_(ids)))):
+                        user_invitation.delete_instance()
             except Exception as ex:
                 db.rollback()
                 flash(f"Failed to activate the selected records: {ex}")

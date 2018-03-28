@@ -768,7 +768,7 @@ class UserOrg(BaseModel, AuditMixin):
 class OrcidToken(BaseModel, AuditMixin):
     """For Keeping Orcid token in the table."""
 
-    user = ForeignKeyField(User)
+    user = ForeignKeyField(User, null=True, index=True)  # TODO: add validation for 3-legged authorization tokens
     org = ForeignKeyField(Organisation, index=True, verbose_name="Organisation")
     scope = TextField(null=True, db_column="scope")  # TODO impomenet property
     access_token = CharField(max_length=36, unique=True, null=True)
