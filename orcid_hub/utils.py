@@ -1069,3 +1069,26 @@ def process_tasks(max_rows=20):
                     recipient=(task.created_by.name, task.created_by.email),
                     error_count=error_count,
                     export_url=export_url)
+
+
+def get_webhooks_access_token(org):
+    """Request a webhook access token and store it.
+
+    The any previously requesed webhook tokens will be deleted."""
+    resp = requests.post(
+        app.config["TOKEN_URL"],
+        headers={"Accepts": "application/json"},
+        data=dict(
+            client_id=org.orcid_client_id,
+            client_secret=org.orcid_secret,
+            scope="/webhook",
+            grant_type="client_credentials"))
+    OrcidToken.delete().where(OrcidToken.org == org, OrcidToken.scope == "/webhook").execute()
+    data = resp.json()
+    token = OrcidToken.create(
+        org=org,
+        access_token=data["access_token"],
+        refresh_token=data["refresh_token"],
+        scope=data["scope"],
+        expires_in=data["expires_in"])
+    return token
