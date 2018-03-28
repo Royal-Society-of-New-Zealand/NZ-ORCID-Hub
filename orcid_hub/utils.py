@@ -1074,7 +1074,8 @@ def process_tasks(max_rows=20):
 def get_webhooks_access_token(org):
     """Request a webhook access token and store it.
 
-    The any previously requesed webhook tokens will be deleted."""
+    The any previously requesed webhook tokens will be deleted.
+    """
     resp = requests.post(
         app.config["TOKEN_URL"],
         headers={"Accepts": "application/json"},
