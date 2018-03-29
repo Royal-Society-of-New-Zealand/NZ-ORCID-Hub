@@ -774,9 +774,22 @@ class OrcidToken(BaseModel, AuditMixin):
     access_token = CharField(max_length=36, unique=True, null=True)
     issue_time = DateTimeField(default=datetime.utcnow)
     refresh_token = CharField(max_length=36, unique=True, null=True)
-    expires_in = SmallIntegerField(default=0)
+    expires_in = IntegerField(default=0)
     created_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
     updated_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
+
+    @property
+    def scopes(self):  # noqa: D102
+        if self.scope:
+            return self.scope.split(',')
+        return []
+
+    @scopes.setter
+    def scopes(self, value):  # noqa: D102
+        if isinstance(value, str):
+            self.scope = value
+        else:
+            self.scope = ','.join(value)
 
 
 class UserOrgAffiliation(BaseModel, AuditMixin):
