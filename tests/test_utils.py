@@ -736,7 +736,7 @@ def test_send_email(app):
                 subject="TEST")
 
 
-def test_get_webhook_access_token(request_ctx):
+def test_get_client_credentials_token(request_ctx):
     """Test retrieval of the webhook tokens."""
     with request_ctx("/"), patch("orcid_hub.utils.requests.post") as mockpost:
         admin = User.get(email="admin@test0.edu")
@@ -755,7 +755,7 @@ def test_get_webhook_access_token(request_ctx):
 
         OrcidToken.create(
             org=org, access_token="access_token", refresh_token="refresh_token", scope="/webhook")
-        token = utils.get_webhooks_access_token(org)
+        token = utils.get_client_credentials_token(org, "/webhook")
         assert OrcidToken.select().where(OrcidToken.org == org, OrcidToken.scope == "/webhook").count() == 1
         assert token.access_token == "ACCESS-TOKEN-123"
         assert token.refresh_token == "REFRESH-TOKEN-123"

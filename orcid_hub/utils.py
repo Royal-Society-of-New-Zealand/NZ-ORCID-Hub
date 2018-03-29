@@ -1071,10 +1071,10 @@ def process_tasks(max_rows=20):
                     export_url=export_url)
 
 
-def get_webhooks_access_token(org):
-    """Request a webhook access token and store it.
+def get_client_credentials_token(org, scope="/webhook"):
+    """Request a cient credetials grant type access token and store it.
 
-    The any previously requesed webhook tokens will be deleted.
+    The any previously requesed with the give scope tokens will be deleted.
     """
     resp = requests.post(
         app.config["TOKEN_URL"],
@@ -1082,7 +1082,7 @@ def get_webhooks_access_token(org):
         data=dict(
             client_id=org.orcid_client_id,
             client_secret=org.orcid_secret,
-            scope="/webhook",
+            scope=scope,
             grant_type="client_credentials"))
     OrcidToken.delete().where(OrcidToken.org == org, OrcidToken.scope == "/webhook").execute()
     data = resp.json()
@@ -1090,6 +1090,6 @@ def get_webhooks_access_token(org):
         org=org,
         access_token=data["access_token"],
         refresh_token=data["refresh_token"],
-        scope=data["scope"],
+        scope=data.get("scope") or scope,
         expires_in=data["expires_in"])
     return token
