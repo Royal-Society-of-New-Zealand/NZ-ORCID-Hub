@@ -2074,18 +2074,18 @@ def user_orgs_org(user_id, org_id=None):
         }), (201 if created else 200)
 
 
-@app.route("/services/<string:orcid>/updated", methods=["POST"])
-def update_webhook(orcid):
+@app.route("/services/<int:user_id>/updated", methods=["POST"])
+def update_webhook(user_id):
     """Handle webook calls."""
-    def handle_callback(orcid):
+    def handle_callback(user):
         """Log the update and call client webhook callbacks."""
         pass
 
     try:
-        validate_orcid_id(orcid)
-        thread = Thread(target=handle_callback, kwargs=dict(orcid=orcid))
+        user = User.get(id=user_id)
+        thread = Thread(target=handle_callback, kwargs=dict(user=user))
         thread.start()
     except Exception as ex:
-        app.logger.exception(f"Invalid ORDIC iD received: {orcid}")
+        app.logger.exception(f"Invalid user_id: {user_id}")
 
     return '', 204

@@ -6,7 +6,7 @@ import logging
 import os
 from datetime import datetime, timedelta
 from itertools import filterfalse, groupby
-from urllib.parse import urlencode, urlparse
+from urllib.parse import urlencode, urlparse, quote
 
 import emails
 import flask
@@ -1093,3 +1093,23 @@ def get_client_credentials_token(org, scope="/webhook"):
         scope=data.get("scope") or scope,
         expires_in=data["expires_in"])
     return token
+
+
+def register_webhook(user):
+    """Registers an ORCID webhook for the given user profile update enents"""
+    set_server_name()
+    try:
+        token = OrcidToken.get(org=user.organisation, scope="/webhook")
+    except OrcidToken.DoesNotExist:
+        token = get_client_credentials_token(org=user.organisation, scope="/webhook")
+    with app.app_context():
+        callback_url = quote(url_for("update_webhook", user_id=user.id))
+    url = f"{app.config['TOKEN_URL']}/{user.orcid}/webhook/{callback_url}"
+    resp = requests.put(
+        url,
+        headers={
+            "Accepts": "application/json",
+            "Authorization": f"Bearer {token.access_token}",
+            "Content-Length": "0"
+        })
+    return resp
