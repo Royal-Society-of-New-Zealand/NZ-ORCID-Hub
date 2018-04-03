@@ -39,7 +39,7 @@ from .forms import (ApplicationFrom, BitmapMultipleValueField, CredentialForm, E
                     PartialDateField, RecordForm, UserInvitationForm)
 from .login_provider import roles_required
 from .models import (Affiliation, AffiliationRecord, CharField, Client, File, FundingInvitees,
-                     FundingRecord, Grant, ModelException, OrcidApiCall, OrcidToken, Organisation,
+                     FundingRecord, Grant, GroupIdRecord, ModelException, OrcidApiCall, OrcidToken, Organisation,
                      OrgInfo, OrgInvitation, PartialDate, Role, Task, TextField, Token, Url, User,
                      UserInvitation, UserOrg, UserOrgAffiliation, WorkInvitees, WorkRecord, db,
                      validate_orcid_id)
@@ -1117,6 +1117,76 @@ class ViewMembersAdmin(AppModelView):
         return True
 
 
+class GroupIdRecordAdmin(AppModelView):
+    """GroupIdRecord model view."""
+
+    roles_required = Role.SUPERUSER | Role.ADMIN
+    list_template = "view_group_id_record.html"
+    can_edit = True
+    can_create = True
+    can_delete = True
+    column_searchable_list = (
+        "name",
+        "group_id",
+    )
+    form_excluded_columns = (
+        "processed_at",
+        "status",
+    )
+
+    @action("Insert/Update Record", "Insert or Update record",
+            "Are you sure you want add or update group id record?")
+    def action_insert_update(self, ids):
+        """Insert/Update GroupID records."""
+        count = 0
+        with db.atomic():
+            for gid in self.model.select().where(self.model.id.in_(ids)):
+                try:
+                    org = gid.organisation
+                    orcid_token = None
+                    gid.status = None
+                    try:
+                        orcid_token = OrcidToken.get(org=org, scope='/group-id-record/update')
+                    except OrcidToken.DoesNotExist:
+                        orcid_token = utils.get_webhooks_access_token(org=org, scope="/group-id-record/update")
+                    except Exception as ex:
+                        flash("Something went wrong in ORCID call, "
+                              "please contact orcid@royalsociety.org.nz for support", "warning")
+                        app.logger.exception(f'Exception occured {ex}')
+
+                    orcid_client.configuration.access_token = orcid_token.access_token
+                    api = orcid_client.MemberAPI(org=org, access_token=orcid_token.access_token)
+
+                    put_code, created = api.create_or_update_record_id_group(put_code=gid.put_code,
+                                                                             org=org, group_name=gid.name,
+                                                                             group_id=gid.group_id,
+                                                                             description=gid.description, type=gid.type)
+
+                    if created:
+                        gid.add_status_line(f"The group id record was created.")
+                    else:
+                        gid.add_status_line(f"The group id record was updated.")
+
+                    gid.put_code = put_code
+                    count += 1
+                except ApiException as ex:
+                    if ex.status == 404:
+                        gid.put_code = None
+                    flash("Something went wrong in ORCID call, "
+                          "Please contact orcid@royalsociety.org.nz for support", "warning")
+                    app.logger.exception(f'Exception occured {ex}')
+                    gid.add_status_line(f"ApiException: {ex}")
+                except Exception as ex:
+                    flash("Something went wrong in ORCID call, "
+                          "Please contact orcid@royalsociety.org.nz for support", "warning")
+                    app.logger.exception(f'Exception occured {ex}')
+                    gid.add_status_line(f"Exception: {ex}")
+                finally:
+                    gid.processed_at = datetime.utcnow()
+                    gid.save()
+        flash("%d Record was processed." % count)
+
+
 admin.add_view(UserAdmin(User))
 admin.add_view(OrganisationAdmin(Organisation))
 admin.add_view(OrcidTokenAdmin(OrcidToken))
@@ -1139,6 +1209,7 @@ admin.add_view(UserOrgAmin(UserOrg))
 admin.add_view(AppModelView(Client))
 admin.add_view(AppModelView(Grant))
 admin.add_view(AppModelView(Token))
+admin.add_view(GroupIdRecordAdmin(GroupIdRecord))
 
 SectionRecord = namedtuple(
     "SectionRecord",

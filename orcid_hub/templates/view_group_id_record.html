@@ -1,0 +1,10 @@
+{% extends 'admin/model/list.html' %}
+{% block body %}
+  {{ super() }}
+{% endblock %}
+{% block list_row_actions %}
+    <a class="icon" href="" title="Add Peer Review Details">
+      <span class="fa fa-external-link glyphicon glyphicon-users icon"></span>
+    </a>
+  {{ super() }}
+{% endblock %}

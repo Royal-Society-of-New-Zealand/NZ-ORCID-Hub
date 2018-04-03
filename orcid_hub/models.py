@@ -1083,6 +1083,24 @@ class RecordModel(BaseModel):
         self.status = (self.status + "\n" if self.status else '') + ts + ": " + line
 
 
+class GroupIdRecord(RecordModel):
+    """GroupID records."""
+
+    put_code = IntegerField(null=True)
+    processed_at = DateTimeField(null=True)
+    status = TextField(null=True, help_text="Record processing status.")
+    name = CharField(max_length=120)
+    group_id = CharField(max_length=120)
+    description = CharField(max_length=120)
+    type = CharField(max_length=80, null=True)
+    organisation = ForeignKeyField(
+        Organisation, related_name="organisation", on_delete="CASCADE", null=True)
+
+    class Meta:  # noqa: D101,D106
+        db_table = "group_id_record"
+        table_alias = "gid"
+
+
 class AffiliationRecord(RecordModel):
     """Affiliation record loaded from CSV file for batch processing."""
 

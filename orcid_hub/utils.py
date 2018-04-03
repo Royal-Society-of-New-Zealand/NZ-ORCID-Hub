@@ -1071,7 +1071,7 @@ def process_tasks(max_rows=20):
                     export_url=export_url)
 
 
-def get_webhooks_access_token(org):
+def get_webhooks_access_token(org, scope="/webhook"):
     """Request a webhook access token and store it.
 
     The any previously requesed webhook tokens will be deleted.
@@ -1082,7 +1082,7 @@ def get_webhooks_access_token(org):
         data=dict(
             client_id=org.orcid_client_id,
             client_secret=org.orcid_secret,
-            scope="/webhook",
+            scope=scope,
             grant_type="client_credentials"))
     OrcidToken.delete().where(OrcidToken.org == org, OrcidToken.scope == "/webhook").execute()
     data = resp.json()

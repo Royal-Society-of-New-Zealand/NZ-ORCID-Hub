@@ -182,6 +182,44 @@ class MemberAPI(MemberAPIV20Api):
             return False
         return False
 
+    def create_or_update_record_id_group(self, org=None, group_name=None, group_id=None, description=None,
+                                         type=None, put_code=None):
+        """Create or update group id record."""
+        rec = GroupIdRecord()  # noqa: F405
+
+        rec.name = group_name
+        rec.group_id = group_id
+        rec.description = description
+        rec.type = type
+
+        try:
+            api_call = self.update_group_id_record if put_code else self.create_group_id_record
+
+            params = dict(body=rec, _preload_content=False)
+            if put_code:
+                params["put_code"] = str(put_code)
+            resp = api_call(**params)
+
+            created = not bool(put_code)
+            # retrieve the put-code from response Location header:
+            if resp.status == 201:
+                location = resp.headers.get("Location")
+                try:
+                    _, put_code = location.split("/")[-3::2]
+                    put_code = int(put_code)
+                except:
+                    app.logger.exception("Failed to get put-code from the response.")
+                    raise Exception("Failed to get put-code from the response.")
+        except ApiException as ex:
+            if ex.status == 404:
+                app.logger.exception(
+                    f"For {self.user} encountered exception, So updating related put_code")
+            raise ex
+        except:
+            app.logger.exception(f"For {self.user} encountered exception")
+        else:
+            return (put_code, created)
+
     def create_or_update_work(self, task_by_user, *args, **kwargs):
         """Create or update work record of a user."""
         wr = task_by_user.work_record
