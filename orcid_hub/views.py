@@ -41,8 +41,7 @@ from .login_provider import roles_required
 from .models import (Affiliation, AffiliationRecord, CharField, Client, File, FundingInvitees,
                      FundingRecord, Grant, ModelException, OrcidApiCall, OrcidToken, Organisation,
                      OrgInfo, OrgInvitation, PartialDate, Role, Task, TextField, Token, Url, User,
-                     UserInvitation, UserOrg, UserOrgAffiliation, WorkInvitees, WorkRecord, db,
-                     validate_orcid_id)
+                     UserInvitation, UserOrg, UserOrgAffiliation, WorkInvitees, WorkRecord, db)
 # NB! Should be disabled in production
 from .pyinfo import info
 from .utils import generate_confirmation_token, get_next_url, send_user_invitation
@@ -2079,6 +2078,7 @@ def update_webhook(user_id):
     """Handle webook calls."""
     def handle_callback(user):
         """Log the update and call client webhook callbacks."""
+        # TODO: add client webhook calls
         pass
 
     try:

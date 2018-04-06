@@ -6,7 +6,7 @@ import logging
 import os
 from datetime import datetime, timedelta
 from itertools import filterfalse, groupby
-from urllib.parse import urlencode, urlparse, quote
+from urllib.parse import quote, urlencode, urlparse
 
 import emails
 import flask
@@ -20,7 +20,7 @@ from peewee import JOIN
 from . import app, orcid_client
 from .models import (AFFILIATION_TYPES, Affiliation, AffiliationRecord, FundingInvitees,
                      FundingRecord, OrcidToken, Organisation, Role, Task, TaskType, Url, User,
-                     UserInvitation, UserOrg, WorkRecord, WorkInvitees, db)
+                     UserInvitation, UserOrg, WorkInvitees, WorkRecord, db)
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -41,6 +41,15 @@ def get_next_url():
                   or "c9users.io" in _next):
         return _next
     return None
+
+
+def is_valid_url(url):
+    """Validate URL (expexted to have a path)."""
+    try:
+        result = urlparse(url)
+        return result.scheme and result.netloc and result.path
+    except:
+        return False
 
 
 def send_email(template_filename,
@@ -1095,15 +1104,21 @@ def get_client_credentials_token(org, scope="/webhook"):
     return token
 
 
-def register_webhook(user):
-    """Registers an ORCID webhook for the given user profile update enents"""
+def register_orcid_webhook(user, callback_url=None):
+    """Register an ORCID webhook for the given user profile update events.
+
+    If URL is given, it will be used for as call-back URL.
+    """
     set_server_name()
     try:
         token = OrcidToken.get(org=user.organisation, scope="/webhook")
     except OrcidToken.DoesNotExist:
         token = get_client_credentials_token(org=user.organisation, scope="/webhook")
-    with app.app_context():
-        callback_url = quote(url_for("update_webhook", user_id=user.id))
+    if callback_url in None:
+        with app.app_context():
+            callback_url = quote(url_for("update_webhook", user_id=user.id))
+    elif '/' in callback_url:
+        callback_url = quote(callback_url)
     url = f"{app.config['TOKEN_URL']}/{user.orcid}/webhook/{callback_url}"
     resp = requests.put(
         url,

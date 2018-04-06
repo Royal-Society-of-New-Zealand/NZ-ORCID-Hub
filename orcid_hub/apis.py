@@ -5,6 +5,7 @@ from datetime import datetime
 import jsonschema
 import requests
 import yaml
+from urllib.parse import unquote
 from flask import Response, abort, current_app, jsonify, render_template, request, stream_with_context, url_for
 from flask.views import MethodView
 from flask_login import current_user, login_user
@@ -22,6 +23,7 @@ from .login_provider import roles_required
 from .models import (EMAIL_REGEX, ORCID_ID_REGEX, AffiliationRecord, OrcidToken, PartialDate, Role,
                      Task, TaskType, User, UserOrg, validate_orcid_id)
 from .schemas import affiliation_task_schema
+from .utils import register_orcid_webhook, is_valid_url
 
 
 def prefers_yaml():
@@ -1035,3 +1037,28 @@ def orcid_proxy(path=None):
     proxy_resp = Response(
         stream_with_context(generate()), headers=proxy_headers, status=resp.status_code)
     return proxy_resp
+
+
+@app.route("/api/v0.1/<string:orcidg>/webhook/<path:url>", methods=["POST", "DELETE"])
+@oauth.require_oauth()
+def register_webhook(orcid, url=None):
+    """Handle webhook registration for an individual user with direct client call-back."""
+    login_user(request.oauth.user)
+
+    try:
+        validate_orcid_id(orcid)
+    except Exception as ex:
+        return jsonify({"error": str(ex), "message": "Missing or invalid ORCID iD."}), 415
+    url = unquote(url)
+    if is_valid_url(url):
+        return jsonify({"error": "Invalid call-back URL", "message": f"Invalid call-back URL: {url}"}), 415
+
+    try:
+        user = User.get(orcid=orcid)
+    except User.DoesNotExist:
+        return jsonify({
+            "error": "Invalid ORCID ID.",
+            "message": f"User with given ORCID ID '{orcid}' doesn't exist."
+        }), 415
+
+    register_orcid_webhook(user, url)
