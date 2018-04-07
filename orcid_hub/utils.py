@@ -1114,7 +1114,7 @@ def register_orcid_webhook(user, callback_url=None):
         token = OrcidToken.get(org=user.organisation, scope="/webhook")
     except OrcidToken.DoesNotExist:
         token = get_client_credentials_token(org=user.organisation, scope="/webhook")
-    if callback_url in None:
+    if callback_url is None:
         with app.app_context():
             callback_url = quote(url_for("update_webhook", user_id=user.id))
     elif '/' in callback_url:

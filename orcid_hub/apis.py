@@ -1,12 +1,13 @@
 """HUB API."""
 
 from datetime import datetime
+from urllib.parse import unquote
 
 import jsonschema
 import requests
 import yaml
-from urllib.parse import unquote
-from flask import Response, abort, current_app, jsonify, render_template, request, stream_with_context, url_for
+from flask import (Response, abort, current_app, jsonify, make_response, render_template, request,
+                   stream_with_context, url_for)
 from flask.views import MethodView
 from flask_login import current_user, login_user
 from flask_peewee.rest import RestResource
@@ -20,10 +21,10 @@ from yaml.representer import SafeRepresenter
 
 from . import api, app, data_api, db, models, oauth
 from .login_provider import roles_required
-from .models import (EMAIL_REGEX, ORCID_ID_REGEX, AffiliationRecord, OrcidToken, PartialDate, Role,
-                     Task, TaskType, User, UserOrg, validate_orcid_id)
+from .models import (EMAIL_REGEX, ORCID_ID_REGEX, AffiliationRecord, OrcidToken, PartialDate, Role, Task, TaskType,
+                     User, UserOrg, validate_orcid_id)
 from .schemas import affiliation_task_schema
-from .utils import register_orcid_webhook, is_valid_url
+from .utils import is_valid_url, register_orcid_webhook
 
 
 def prefers_yaml():
@@ -1039,9 +1040,9 @@ def orcid_proxy(path=None):
     return proxy_resp
 
 
-@app.route("/api/v0.1/<string:orcidg>/webhook/<path:url>", methods=["POST", "DELETE"])
+@app.route("/api/v0.1/<string:orcid>/webhook/<path:callback_url>", methods=["PUT", "DELETE"])
 @oauth.require_oauth()
-def register_webhook(orcid, url=None):
+def register_webhook(orcid, callback_url=None):
     """Handle webhook registration for an individual user with direct client call-back."""
     login_user(request.oauth.user)
 
@@ -1049,9 +1050,12 @@ def register_webhook(orcid, url=None):
         validate_orcid_id(orcid)
     except Exception as ex:
         return jsonify({"error": str(ex), "message": "Missing or invalid ORCID iD."}), 415
-    url = unquote(url)
-    if is_valid_url(url):
-        return jsonify({"error": "Invalid call-back URL", "message": f"Invalid call-back URL: {url}"}), 415
+    callback_url = unquote(callback_url)
+    if is_valid_url(callback_url):
+        return jsonify({
+            "error": "Invalid call-back URL",
+            "message": f"Invalid call-back URL: {callback_url}"
+        }), 415
 
     try:
         user = User.get(orcid=orcid)
@@ -1061,4 +1065,9 @@ def register_webhook(orcid, url=None):
             "message": f"User with given ORCID ID '{orcid}' doesn't exist."
         }), 415
 
-    register_orcid_webhook(user, url)
+    orcid_resp = register_orcid_webhook(user, callback_url)
+    resp = make_response('', orcid_resp.status_code)
+    if "Location" in orcid_resp.headers:
+        resp.headers["Location"] = orcid_resp.headers["Location"]
+
+    return resp
