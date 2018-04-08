@@ -1735,6 +1735,10 @@ class Client(BaseModel, AuditMixin):
             return self._default_scopes.split()
         return []
 
+    def validate_scopes(self, scopes):
+        """Validate client requested scopes."""
+        return "/webhook" in scopes or not scopes
+
     def __repr__(self):  # noqa: D102
         return self.name or self.homepage_url or self.description
 

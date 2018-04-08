@@ -1041,7 +1041,7 @@ def orcid_proxy(path=None):
 
 
 @app.route("/api/v0.1/<string:orcid>/webhook/<path:callback_url>", methods=["PUT", "DELETE"])
-@oauth.require_oauth()
+@oauth.require_oauth("/webhook")
 def register_webhook(orcid, callback_url=None):
     """Handle webhook registration for an individual user with direct client call-back."""
     login_user(request.oauth.user)

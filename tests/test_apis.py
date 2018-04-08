@@ -714,8 +714,27 @@ def test_webhook_registration(app_req_ctx):
     """Test webhook registration."""
     user = User.get(email="app123@test0.edu")
     org = user.organisation
-    token = Token.get(user=user)
     orcid_id = "0000-0000-0000-00X3"
+    client = Client.get(org=org)
+    with app_req_ctx(
+            "/oauth/token",
+            method="POST",
+            data=dict(
+                grant_type="client_credentials",
+                client_id=client.client_id,
+                client_secret=client.client_secret,
+                scope="/webhook")) as ctx:
+        login_user(user)
+        rv = ctx.app.full_dispatch_request()
+        assert rv.status_code == 200
+        data = json.loads(rv.data)
+        token = Token.get(user=user, _scopes="/webhook")
+        client = Client.get(client_id="CLIENT_ID")
+        token = Token.get(client=client)
+        assert data["access_token"] == token.access_token
+        assert data["expires_in"] == ctx.app.config["OAUTH2_PROVIDER_TOKEN_EXPIRES_IN"]
+        assert data["token_type"] == token.token_type
+        # prevously created access token should be removed
 
     with app_req_ctx(
             f"/api/v0.1/{orcid_id}/webhook/http%3A%2F%2FCALL-BACK",
