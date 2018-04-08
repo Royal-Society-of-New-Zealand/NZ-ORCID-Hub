@@ -1121,7 +1121,7 @@ class GroupIdRecordAdmin(AppModelView):
     """GroupIdRecord model view."""
 
     roles_required = Role.SUPERUSER | Role.ADMIN
-    list_template = "view_group_id_record.html"
+    list_template = "admin/model/list.html"
     can_edit = True
     can_create = True
     can_delete = True
@@ -1172,8 +1172,11 @@ class GroupIdRecordAdmin(AppModelView):
                 except ApiException as ex:
                     if ex.status == 404:
                         gid.put_code = None
-                    flash("Something went wrong in ORCID call, "
-                          "Please contact orcid@royalsociety.org.nz for support", "warning")
+                    elif ex.status == 401:
+                        orcid_token.delete_instance()
+                    flash("Something went wrong in ORCID call, Please try again by making by making necessary changes, "
+                          "In case you understand the 'user-message' present in the status field or else "
+                          "please contact orcid@royalsociety.org.nz for support", "warning")
                     app.logger.exception(f'Exception occured {ex}')
                     gid.add_status_line(f"ApiException: {ex}")
                 except Exception as ex:

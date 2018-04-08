@@ -1092,7 +1092,7 @@ class GroupIdRecord(RecordModel):
     name = CharField(max_length=120)
     group_id = CharField(max_length=120)
     description = CharField(max_length=120)
-    type = CharField(max_length=80, null=True)
+    type = CharField(max_length=80)
     organisation = ForeignKeyField(
         Organisation, related_name="organisation", on_delete="CASCADE", null=True)
 
