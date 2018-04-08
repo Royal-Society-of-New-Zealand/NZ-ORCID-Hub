@@ -1104,8 +1104,8 @@ def get_client_credentials_token(org, scope="/webhook"):
     return token
 
 
-def register_orcid_webhook(user, callback_url=None):
-    """Register an ORCID webhook for the given user profile update events.
+def register_orcid_webhook(user, callback_url=None, delete=False):
+    """Register or delete an ORCID webhook for the given user profile update events.
 
     If URL is given, it will be used for as call-back URL.
     """
@@ -1120,11 +1120,10 @@ def register_orcid_webhook(user, callback_url=None):
     elif '/' in callback_url:
         callback_url = quote(callback_url)
     url = f"{app.config['TOKEN_URL']}/{user.orcid}/webhook/{callback_url}"
-    resp = requests.put(
-        url,
-        headers={
-            "Accepts": "application/json",
-            "Authorization": f"Bearer {token.access_token}",
-            "Content-Length": "0"
-        })
+    headers = {
+        "Accepts": "application/json",
+        "Authorization": f"Bearer {token.access_token}",
+        "Content-Length": "0"
+    }
+    resp = requests.delete(url, headers=headers) if delete else requests.put(url, headers=headers)
     return resp

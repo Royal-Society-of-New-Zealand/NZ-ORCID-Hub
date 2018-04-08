@@ -1065,7 +1065,7 @@ def register_webhook(orcid, callback_url=None):
             "message": f"User with given ORCID ID '{orcid}' doesn't exist."
         }), 415
 
-    orcid_resp = register_orcid_webhook(user, callback_url)
+    orcid_resp = register_orcid_webhook(user, callback_url, delete=request.method == "DELETE")
     resp = make_response('', orcid_resp.status_code)
     if "Location" in orcid_resp.headers:
         resp.headers["Location"] = orcid_resp.headers["Location"]

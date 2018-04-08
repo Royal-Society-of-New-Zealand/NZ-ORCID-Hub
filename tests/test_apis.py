@@ -767,6 +767,41 @@ def test_webhook_registration(app_req_ctx):
 
         q = OrcidToken.select().where(OrcidToken.org == org, OrcidToken.scope == "/webhook")
         assert q.count() == 1
+        orcid_token = q.first()
+        assert orcid_token.access_token == "ACCESS-TOKEN-123"
+        assert orcid_token.refresh_token == "REFRESH-TOKEN-123"
+        assert orcid_token.expires_in == 99999
+        assert orcid_token.scope == "/webhook"
+
+    with app_req_ctx(
+            f"/api/v0.1/{orcid_id}/webhook/http%3A%2F%2FCALL-BACK",
+            method="DELETE", headers=dict(
+                authorization=f"Bearer {token.access_token}")) as ctx, patch(
+                            "orcid_hub.utils.requests.delete") as mockdelete:
+        # Webhook deletion response:
+        mockresp = MagicMock(status_code=204, data=b'')
+        # mockresp.raw.stream = lambda *args, **kwargs: iter([b"""{"data": "TEST"}"""])
+        mockresp.raw.headers = {
+                "Server": "TEST123",
+                "Connection": "keep-alive",
+                "Location": "LOCATION",
+                "Pragma": "no-cache",
+                "Expires": "0",
+        }
+        mockdelete.return_value = mockresp
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 204
+
+        args, kwargs = mockput.call_args
+        assert args[0] == "https://sandbox.orcid.org/oauth/token/0000-0000-0000-00X3/webhook/http%3A//CALL-BACK"
+        assert kwargs["headers"] == {
+            "Accepts": "application/json",
+            "Authorization": "Bearer ACCESS-TOKEN-123",
+            "Content-Length": "0"
+        }
+
+        q = OrcidToken.select().where(OrcidToken.org == org, OrcidToken.scope == "/webhook")
+        assert q.count() == 1
         token = q.first()
         assert token.access_token == "ACCESS-TOKEN-123"
         assert token.refresh_token == "REFRESH-TOKEN-123"
