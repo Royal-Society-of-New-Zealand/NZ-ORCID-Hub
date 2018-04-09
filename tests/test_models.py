@@ -304,6 +304,14 @@ def test_partial_date():
     assert PartialDate.create("1997/12/31") == PartialDate(year=1997, month=12, day=31)
     assert PartialDate.create("12/1997") == PartialDate(year=1997, month=12, day=None)
     assert PartialDate.create("31/12/1997") == PartialDate(year=1997, month=12, day=31)
+    assert PartialDate.create("1997 12:00:00 PM") == PartialDate(year=1997, month=None, day=None)
+    assert PartialDate.create("1997-12 12:00:00 PM") == PartialDate(year=1997, month=12, day=None)
+    assert PartialDate.create("1997-12-31 12:00:00 PM") == PartialDate(year=1997, month=12, day=31)
+    assert PartialDate.create("1997/12 12:00:00 PM") == PartialDate(year=1997, month=12, day=None)
+    assert PartialDate.create("1997/12/31 12:00:00 PM") == PartialDate(year=1997, month=12, day=31)
+    assert PartialDate.create("12/1997 12:00:00 PM") == PartialDate(year=1997, month=12, day=None)
+    assert PartialDate.create("31/12/1997 12:00:00 PM") == PartialDate(year=1997, month=12, day=31)
+    assert PartialDate.create("6/08/2017 12:00:00 PM") == PartialDate(year=2017, month=8, day=6)
 
     with pytest.raises(ModelException):
         PartialDate.create("ABC")

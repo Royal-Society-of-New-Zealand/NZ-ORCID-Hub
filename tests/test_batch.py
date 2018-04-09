@@ -47,7 +47,7 @@ def test_upload_affiliation_with_wrong_country(request_ctx):
         with pytest.raises(ModelException):
             task = Task.load_from_csv(
                 """First name\tLast name\temail address\tOrganisation\tCampus/Department\tCity\tCourse or Job title\tStart date\tEnd date\tStudent/Staff\tCountry
-FNA\tLBA\taaa.lnb@test.com\tTEST1\tResearch Funding\tWellington\tProgramme Manager - ORCID\t2016-09\t\tStaff\tNO COUNTRY
+FNA\tLBA\taaa.lnb@test.com\tTEST1\tResearch Funding\tWellington\tProgramme Manager - ORCID\t2016-09 19:00:00 PM\t\tStaff\tNO COUNTRY
         """,
                 filename="TEST.tsv",
                 org=org)
