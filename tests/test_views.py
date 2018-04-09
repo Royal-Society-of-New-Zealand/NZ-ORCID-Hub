@@ -1066,10 +1066,12 @@ def test_load_researcher_funding(patch, patch2, request_ctx):
             data={
                 "file_": (
                         BytesIO(
-                            b'[{"title": { "title": { "value": "1ral"}},"short-description": "Mi","type": "CONTRACT",'
+                            b'[{"invitees": [{"identifier":"00001", "email": "marco.232323newwjwewkppp@mailinator.com",'
+                            b'"first-name": "Alice", "last-name": "Contributor 1", "ORCID-iD": null, "put-code":null}],'
+                            b'"title": { "title": { "value": "1ral"}},"short-description": "Mi","type": "CONTRACT",'
                             b'"contributors": {"contributor": [{"contributor-attributes": {"contributor-role": '
-                            b'"co_lead"},"credit-name": {"value": "firentini"},"contributor-email": {"value": '
-                            b'"ma1@mailinator.com"}}]}, "external-ids": {"external-id": [{"external-id-value": '
+                            b'"co_lead"},"credit-name": {"value": "firentini"}}]}'
+                            b', "external-ids": {"external-id": [{"external-id-value": '
                             b'"GNS170661","external-id-type": "grant_number"}]}}]'),
                         "logo.json",),
                 "email": user.email
@@ -1080,6 +1082,38 @@ def test_load_researcher_funding(patch, patch2, request_ctx):
         # Funding file successfully loaded.
         assert "task_id" in rv.location
         assert "funding" in rv.location
+
+
+@patch("pykwalify.core.Core.validate", side_effect=validate)
+@patch("pykwalify.core.Core.__init__", side_effect=core_mock)
+def test_load_researcher_work(patch, patch2, request_ctx):
+    """Test preload work data."""
+    user = User.get(email="admin@test1.edu")
+    user.roles = Role.ADMIN
+    user.save()
+    with request_ctx(
+            "/load/researcher/work",
+            method="POST",
+            data={
+                "file_": (
+                        BytesIO(
+                            b'[{"invitees": [{"identifier":"00001", "email": "marco.232323newwjwewkppp@mailinator.com",'
+                            b'"first-name": "Alice", "last-name": "Contributor 1", "ORCID-iD": null, "put-code":null}],'
+                            b'"title": { "title": { "value": "1ral"}}, "citation": {"citation-type": '
+                            b'"FORMATTED_UNSPECIFIED", "citation-value": "This is citation value"}, "type": "BOOK_CHR",'
+                            b'"contributors": {"contributor": [{"contributor-attributes": {"contributor-role": '
+                            b'"AUTHOR", "contributor-sequence" : "1"},"credit-name": {"value": "firentini"}}]}'
+                            b', "external-ids": {"external-id": [{"external-id-value": '
+                            b'"GNS170661","external-id-type": "grant_number"}]}}]'),
+                        "logo.json",),
+                "email": user.email
+            }) as ctx:
+        login_user(user, remember=True)
+        rv = ctx.app.full_dispatch_request()
+        assert rv.status_code == 302
+        # Work file successfully loaded.
+        assert "task_id" in rv.location
+        assert "work" in rv.location
 
 
 def test_load_researcher_affiliations(request_ctx):

@@ -11,6 +11,8 @@ from flask_login import login_user
 from orcid_hub.apis import yamlfy
 from orcid_hub.models import Client, OrcidToken, Organisation, Role, Task, TaskType, Token, User, UserOrg
 
+from unittest.mock import patch, MagicMock
+
 
 @pytest.fixture
 def app_req_ctx(request_ctx):
@@ -18,6 +20,8 @@ def app_req_ctx(request_ctx):
     org = Organisation.create(
         name="THE ORGANISATION",
         tuakiri_name="THE ORGANISATION",
+        orcid_client_id="APP-12345678",
+        orcid_secret="CLIENT-SECRET",
         confirmed=True,
         city="CITY",
         country="COUNTRY")
@@ -628,3 +632,197 @@ records:
     task_id = data["id"]
     task = Task.get(id=task_id)
     assert task.affiliationrecord_set.count() == 3
+
+
+def test_proxy_get_profile(app_req_ctx):
+    """Test the echo endpoint."""
+    user = User.get(email="app123@test0.edu")
+    token = Token.get(user=user)
+    orcid_id = "0000-0000-0000-00X3"
+
+    with app_req_ctx(
+            f"/orcid/api/v1.23/{orcid_id}", headers=dict(
+                authorization=f"Bearer {token.access_token}")) as ctx, patch(
+                        "orcid_hub.apis.requests.Session.send") as mocksend:
+        mockresp = MagicMock(status_code=200)
+        mockresp.raw.stream = lambda *args, **kwargs: iter([b"""{"data": "TEST"}"""])
+        mockresp.raw.headers = {
+                "Server": "TEST123",
+                "Content-Type": "application/json;charset=UTF-8",
+                "Transfer-Encoding": "chunked",
+                "Connection": "keep-alive",
+                "Access-Control-Allow-Origin": "*",
+                "Cache-Control": "no -cache, no-store, max-age=0, must-revalidate",
+                "Pragma": "no-cache",
+                "Expires": "0",
+        }
+        mocksend.return_value = mockresp
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 200
+        args, kwargs = mocksend.call_args
+        assert kwargs["stream"]
+        assert args[0].url == f"https://api.sandbox.orcid.org/v1.23/{orcid_id}"
+        assert args[0].headers["Authorization"] == "Bearer ORCID-TEST-ACCESS-TOKEN"
+
+        data = json.loads(resp.data)
+        assert data == {"data": "TEST"}
+
+    with app_req_ctx(
+            f"/orcid/api/v1.23/{orcid_id}", headers=dict(
+                authorization=f"Bearer {token.access_token}"), method="POST",
+            data=b"""{"data": "REQUEST"}""") as ctx, patch(
+                        "orcid_hub.apis.requests.Session.send") as mocksend:
+        mockresp = MagicMock(status_code=201)
+        mockresp.raw.stream = lambda *args, **kwargs: iter([b"""{"data": "TEST"}"""])
+        mockresp.raw.headers = {
+                "Server": "TEST123",
+                "Content-Type": "application/json;charset=UTF-8",
+                "Transfer-Encoding": "chunked",
+                "Connection": "keep-alive",
+                "Access-Control-Allow-Origin": "*",
+                "Cache-Control": "no -cache, no-store, max-age=0, must-revalidate",
+                "Pragma": "no-cache",
+                "Expires": "0",
+        }
+        mocksend.return_value = mockresp
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 201
+        args, kwargs = mocksend.call_args
+        assert kwargs["stream"]
+        assert args[0].url == f"https://api.sandbox.orcid.org/v1.23/{orcid_id}"
+        assert args[0].headers["Authorization"] == "Bearer ORCID-TEST-ACCESS-TOKEN"
+
+        data = json.loads(resp.data)
+        assert data == {"data": "TEST"}
+
+    # malformatted ORCID ID:
+    with app_req_ctx(
+            "/orcid/api/v1.23/NOT-ORCID-ID/PATH", headers=dict(
+                authorization=f"Bearer {token.access_token}")) as ctx:
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 415
+
+    # no ORCID access token
+    with app_req_ctx(
+            "/orcid/api/v1.23/0000-0000-0000-11X2/PATH", headers=dict(
+                authorization=f"Bearer {token.access_token}")) as ctx:
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 403
+
+
+def test_webhook_registration(app_req_ctx):
+    """Test webhook registration."""
+    user = User.get(email="app123@test0.edu")
+    org = user.organisation
+    orcid_id = "0000-0000-0000-00X3"
+    client = Client.get(org=org)
+    with app_req_ctx(
+            "/oauth/token",
+            method="POST",
+            data=dict(
+                grant_type="client_credentials",
+                client_id=client.client_id,
+                client_secret=client.client_secret,
+                scope="/webhook")) as ctx:
+        login_user(user)
+        rv = ctx.app.full_dispatch_request()
+        assert rv.status_code == 200
+        data = json.loads(rv.data)
+        token = Token.get(user=user, _scopes="/webhook")
+        client = Client.get(client_id="CLIENT_ID")
+        token = Token.get(client=client)
+        assert data["access_token"] == token.access_token
+        assert data["expires_in"] == ctx.app.config["OAUTH2_PROVIDER_TOKEN_EXPIRES_IN"]
+        assert data["token_type"] == token.token_type
+        # prevously created access token should be removed
+
+    with app_req_ctx(
+            f"/api/v0.1/{orcid_id}/webhook/http%3A%2F%2FCALL-BACK",
+            method="PUT", headers=dict(
+                authorization=f"Bearer {token.access_token}")) as ctx, patch(
+                            "orcid_hub.utils.requests.post") as mockpost, patch(
+                            "orcid_hub.utils.requests.put") as mockput:
+        # Access toke request resp:
+        mockresp = MagicMock(status_code=201)
+        mockresp.json.return_value = {
+            "access_token": "ACCESS-TOKEN-123",
+            "token_type": "bearer",
+            "refresh_token": "REFRESH-TOKEN-123",
+            "expires_in": 99999,
+            "scope": "/webhook",
+            "orcid": None
+        }
+        mockpost.return_value = mockresp
+        # Webhook registration response:
+        mockresp = MagicMock(status_code=201, data=b'')
+        # mockresp.raw.stream = lambda *args, **kwargs: iter([b"""{"data": "TEST"}"""])
+        mockresp.raw.headers = {
+                "Server": "TEST123",
+                "Connection": "keep-alive",
+                "Location": "LOCATION",
+                "Pragma": "no-cache",
+                "Expires": "0",
+        }
+        mockput.return_value = mockresp
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 201
+        args, kwargs = mockpost.call_args
+        assert args[0] == "https://sandbox.orcid.org/oauth/token"
+        assert kwargs["data"] == {
+            "client_id": "APP-12345678",
+            "client_secret": "CLIENT-SECRET",
+            "scope": "/webhook",
+            "grant_type": "client_credentials"
+        }
+        assert kwargs["headers"] == {"Accepts": "application/json"}
+
+        args, kwargs = mockput.call_args
+        assert args[0] == "https://sandbox.orcid.org/oauth/token/0000-0000-0000-00X3/webhook/http%3A//CALL-BACK"
+        assert kwargs["headers"] == {
+            "Accepts": "application/json",
+            "Authorization": "Bearer ACCESS-TOKEN-123",
+            "Content-Length": "0"
+        }
+
+        q = OrcidToken.select().where(OrcidToken.org == org, OrcidToken.scope == "/webhook")
+        assert q.count() == 1
+        orcid_token = q.first()
+        assert orcid_token.access_token == "ACCESS-TOKEN-123"
+        assert orcid_token.refresh_token == "REFRESH-TOKEN-123"
+        assert orcid_token.expires_in == 99999
+        assert orcid_token.scope == "/webhook"
+
+    with app_req_ctx(
+            f"/api/v0.1/{orcid_id}/webhook/http%3A%2F%2FCALL-BACK",
+            method="DELETE", headers=dict(
+                authorization=f"Bearer {token.access_token}")) as ctx, patch(
+                            "orcid_hub.utils.requests.delete") as mockdelete:
+        # Webhook deletion response:
+        mockresp = MagicMock(status_code=204, data=b'')
+        # mockresp.raw.stream = lambda *args, **kwargs: iter([b"""{"data": "TEST"}"""])
+        mockresp.raw.headers = {
+                "Server": "TEST123",
+                "Connection": "keep-alive",
+                "Location": "LOCATION",
+                "Pragma": "no-cache",
+                "Expires": "0",
+        }
+        mockdelete.return_value = mockresp
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 204
+
+        args, kwargs = mockput.call_args
+        assert args[0] == "https://sandbox.orcid.org/oauth/token/0000-0000-0000-00X3/webhook/http%3A//CALL-BACK"
+        assert kwargs["headers"] == {
+            "Accepts": "application/json",
+            "Authorization": "Bearer ACCESS-TOKEN-123",
+            "Content-Length": "0"
+        }
+
+        q = OrcidToken.select().where(OrcidToken.org == org, OrcidToken.scope == "/webhook")
+        assert q.count() == 1
+        token = q.first()
+        assert token.access_token == "ACCESS-TOKEN-123"
+        assert token.refresh_token == "REFRESH-TOKEN-123"
+        assert token.expires_in == 99999
+        assert token.scope == "/webhook"

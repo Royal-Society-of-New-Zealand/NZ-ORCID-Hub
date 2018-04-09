@@ -20,12 +20,11 @@ def user_summary():  # noqa: D103
         date_range = User.select(
             fn.MIN(User.created_at).alias('from_date'),
             fn.MAX(User.created_at).alias('to_date')).first()
-        if date_range:
-            return redirect(
-                url_for(
-                    "user_summary",
-                    from_date=date_range.from_date.date().isoformat(),
-                    to_date=date_range.to_date.date().isoformat()))
+        return redirect(
+            url_for(
+                "user_summary",
+                from_date=date_range.from_date.date().isoformat(),
+                to_date=date_range.to_date.date().isoformat()))
 
     user_counts = (User.select(
         User.organisation.alias("org_id"),
