@@ -41,8 +41,8 @@ from .login_provider import roles_required
 from .models import (Affiliation, AffiliationRecord, CharField, Client, File, FundingInvitees,
                      FundingRecord, Grant, GroupIdRecord, ModelException, OrcidApiCall, OrcidToken, Organisation,
                      OrgInfo, OrgInvitation, PartialDate, Role, Task, TextField, Token, Url, User,
-                     UserInvitation, UserOrg, UserOrgAffiliation, WorkInvitees, WorkRecord, db,
-                     validate_orcid_id)
+                     UserInvitation, UserOrg, UserOrgAffiliation, WorkInvitees, WorkRecord, db, PeerReviewRecord,
+                     PeerReviewInvitees, validate_orcid_id)
 # NB! Should be disabled in production
 from .pyinfo import info
 from .utils import generate_confirmation_token, get_next_url, send_user_invitation
@@ -630,6 +630,10 @@ to the best of your knowledge, correct!""")
                     count = WorkInvitees.update(
                         processed_at=None, status=status).where(
                         WorkInvitees.work_record.in_(ids)).execute()
+                elif self.model == PeerReviewRecord:
+                    count = PeerReviewInvitees.update(
+                        processed_at=None, status=status).where(
+                        PeerReviewInvitees.peer_review_record.in_(ids)).execute()
                 elif self.model == AffiliationRecord:
                     # Delete the userInvitation token for selected reset items.
                     for user_invitation in UserInvitation.select().where(UserInvitation.email.in_(
@@ -648,6 +652,8 @@ to the best of your knowledge, correct!""")
                     flash(f"{count} Funding Invitee records were reset for batch processing.")
                 elif self.model == WorkRecord:
                     flash(f"{count} Work Invitee records were reset for batch processing.")
+                elif self.model == PeerReviewRecord:
+                    flash(f"{count} Peer Review Invitee records were reset for batch processing.")
                 else:
                     flash(f"{count} Affiliation records were reset for batch processing.")
 
@@ -685,6 +691,13 @@ class WorkExternalIdAdmin(ExternalIdModelView):
 
     list_template = "work_externalid_list.html"
     column_exclude_list = ("work_record", )
+
+
+class PeerReviewExternalIdAdmin(ExternalIdModelView):
+    """PeerReviewExternalId model view."""
+
+    list_template = "peer_review_externalid_invitees_list.html"
+    column_exclude_list = ("peer_review_record", )
 
 
 class ContributorModelAdmin(AppModelView):
@@ -761,6 +774,12 @@ class InviteesModelAdmin(AppModelView):
                     WorkRecord.update(
                         processed_at=None, status=status).where(
                         WorkRecord.is_active, WorkRecord.id == work_record_id).execute()
+                elif self.model == PeerReviewInvitees:
+                    peer_review_record_id = self.model.select().where(
+                        self.model.id.in_(ids))[0].peer_review_record_id
+                    PeerReviewRecord.update(
+                        processed_at=None, status=status).where(
+                        PeerReviewRecord.is_active, PeerReviewRecord.id == peer_review_record_id).execute()
             except Exception as ex:
                 db.rollback()
                 flash(f"Failed to activate the selected records: {ex}")
@@ -768,6 +787,8 @@ class InviteesModelAdmin(AppModelView):
             else:
                 if self.model == FundingInvitees:
                     flash(f"{count} Funding Invitees records were reset for batch processing.")
+                elif self.model == PeerReviewInvitees:
+                    flash(f"{count} Peer Review Invitees records were reset for batch processing.")
                 else:
                     flash(f"{count} Work Invitees records were reset for batch processing.")
 
@@ -786,10 +807,16 @@ class FundingInviteesAdmin(InviteesModelAdmin):
     column_exclude_list = ("funding_record", )
 
 
+class PeerReviewInviteesAdmin(InviteesModelAdmin):
+    """Peer Review invitees record model view."""
+
+    list_template = "peer_review_externalid_invitees_list.html"
+    column_exclude_list = ("peer_review_record", )
+
+
 class FundingWorkCommonModelView(RecordModelView):
     """Common view for Funding and Work model."""
 
-    column_searchable_list = ("title", )
     column_export_exclude_list = (
         "task",
         "is_active",
@@ -973,6 +1000,7 @@ class FundingWorkCommonModelView(RecordModelView):
 class FundingRecordAdmin(FundingWorkCommonModelView):
     """Funding record model view."""
 
+    column_searchable_list = ("title",)
     list_template = "funding_record_list.html"
     column_export_exclude_list = (
         "title",
@@ -1005,6 +1033,7 @@ class FundingRecordAdmin(FundingWorkCommonModelView):
 class WorkRecordAdmin(FundingWorkCommonModelView):
     """Work record model view."""
 
+    column_searchable_list = ("title",)
     list_template = "work_record_list.html"
     form_overrides = dict(publication_date=PartialDateField)
 
@@ -1030,6 +1059,29 @@ class WorkRecordAdmin(FundingWorkCommonModelView):
         "work_invitees",
     )
     column_csv_export_list = ("work id", "identifier", "email", "first_name", "last_name", "orcid",
+                              "put_code", "status")
+
+
+class PeerReviewRecordAdmin(FundingWorkCommonModelView):
+    """Peer Review record model view."""
+
+    column_searchable_list = ("review_group_id",)
+    list_template = "peer_review_record_list.html"
+    form_overrides = dict(review_completion_date=PartialDateField)
+
+    column_export_exclude_list = (
+        "review_group_id",
+        "reviewer_role",
+        "review_type",
+        "subject_type",
+        "review_completion_date",
+        "visibility",
+    )
+    column_export_list = (
+        "Peer Review id",
+        "peer_review_invitees",
+    )
+    column_csv_export_list = ("Peer Review id", "identifier", "email", "first_name", "last_name", "orcid",
                               "put_code", "status")
 
 
@@ -1205,6 +1257,9 @@ admin.add_view(WorkContributorAdmin())
 admin.add_view(WorkExternalIdAdmin())
 admin.add_view(WorkInviteesAdmin())
 admin.add_view(WorkRecordAdmin())
+admin.add_view(PeerReviewRecordAdmin())
+admin.add_view(PeerReviewInviteesAdmin())
+admin.add_view(PeerReviewExternalIdAdmin())
 admin.add_view(AppModelView(UserInvitation))
 admin.add_view(ViewMembersAdmin(name="viewmembers", endpoint="viewmembers"))
 
@@ -1281,6 +1336,10 @@ def activate_all():
             count = WorkRecord.update(is_active=True).where(
                 WorkRecord.task_id == task_id,
                 WorkRecord.is_active == False).execute()  # noqa: E712
+        elif task.task_type == 3:
+            count = PeerReviewRecord.update(is_active=True).where(
+                PeerReviewRecord.task_id == task_id,
+                PeerReviewRecord.is_active == False).execute()  # noqa: E712
     except Exception as ex:
         flash(f"Failed to activate the selected records: {ex}")
         app.logger.exception("Failed to activate the selected records")
@@ -1334,6 +1393,17 @@ def reset_all():
                         WorkInvitees.work_record == work_record.id).execute()
                     work_record.save()
                     count = count + 1
+            elif task.task_type == 3:
+                for peer_review_record in PeerReviewRecord.select().where(PeerReviewRecord.task_id == task_id,
+                                                                   PeerReviewRecord.is_active == True):    # noqa: E712
+                    peer_review_record.processed_at = None
+                    peer_review_record.status = status
+
+                    PeerReviewInvitees.update(
+                        processed_at=None, status=status).where(
+                        PeerReviewInvitees.peer_review_record == peer_review_record.id).execute()
+                    peer_review_record.save()
+                    count = count + 1
         except Exception as ex:
             db.rollback()
             flash(f"Failed to reset the selected records: {ex}")
@@ -1346,6 +1416,8 @@ def reset_all():
                 flash(f"{count} Funding records were reset for batch processing.")
             elif task.task_type == 2:
                 flash(f"{count} Work records were reset for batch processing.")
+            elif task.task_type == 3:
+                flash(f"{count} Peer Review records were reset for batch processing.")
             else:
                 flash(f"{count} Affiliation records were reset for batch processing.")
     return redirect(_url)
@@ -1638,6 +1710,24 @@ def load_researcher_work():
             app.logger.exception("Failed to load work records.")
 
     return render_template("fileUpload.html", form=form, form_title="Work")
+
+
+@app.route("/load/researcher/peer_review", methods=["GET", "POST"])
+@roles_required(Role.ADMIN)
+def load_researcher_peer_review():
+    """Preload researcher's peer review data."""
+    form = JsonOrYamlFileUploadForm()
+    if form.validate_on_submit():
+        filename = secure_filename(form.file_.data.filename)
+        try:
+            task = PeerReviewRecord.load_from_json(read_uploaded_file(form), filename=filename)
+            flash(f"Successfully loaded {task.peer_review_record_count} rows.")
+            return redirect(url_for("peerreviewrecord.index_view", task_id=task.id))
+        except Exception as ex:
+            flash(f"Failed to load peer review record file: {ex}", "danger")
+            app.logger.exception("Failed to load peer review records.")
+
+    return render_template("fileUpload.html", form=form, form_title="Peer Review")
 
 
 @app.route("/orcid_api_rep", methods=["GET", "POST"])
