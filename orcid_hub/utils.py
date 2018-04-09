@@ -6,7 +6,7 @@ import logging
 import os
 from datetime import datetime, timedelta
 from itertools import filterfalse, groupby
-from urllib.parse import urlencode, urlparse
+from urllib.parse import quote, urlencode, urlparse
 
 import emails
 import flask
@@ -20,7 +20,7 @@ from peewee import JOIN
 from . import app, orcid_client
 from .models import (AFFILIATION_TYPES, Affiliation, AffiliationRecord, FundingInvitees,
                      FundingRecord, OrcidToken, Organisation, Role, Task, TaskType, Url, User,
-                     UserInvitation, UserOrg, WorkRecord, WorkInvitees, db)
+                     UserInvitation, UserOrg, WorkInvitees, WorkRecord, db)
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -41,6 +41,15 @@ def get_next_url():
                   or "c9users.io" in _next):
         return _next
     return None
+
+
+def is_valid_url(url):
+    """Validate URL (expexted to have a path)."""
+    try:
+        result = urlparse(url)
+        return result.scheme and result.netloc and result.path
+    except:
+        return False
 
 
 def send_email(template_filename,
@@ -1071,10 +1080,10 @@ def process_tasks(max_rows=20):
                     export_url=export_url)
 
 
-def get_webhooks_access_token(org):
-    """Request a webhook access token and store it.
+def get_client_credentials_token(org, scope="/webhook"):
+    """Request a cient credetials grant type access token and store it.
 
-    The any previously requesed webhook tokens will be deleted.
+    The any previously requesed with the give scope tokens will be deleted.
     """
     resp = requests.post(
         app.config["TOKEN_URL"],
@@ -1082,7 +1091,7 @@ def get_webhooks_access_token(org):
         data=dict(
             client_id=org.orcid_client_id,
             client_secret=org.orcid_secret,
-            scope="/webhook",
+            scope=scope,
             grant_type="client_credentials"))
     OrcidToken.delete().where(OrcidToken.org == org, OrcidToken.scope == "/webhook").execute()
     data = resp.json()
@@ -1090,6 +1099,31 @@ def get_webhooks_access_token(org):
         org=org,
         access_token=data["access_token"],
         refresh_token=data["refresh_token"],
-        scope=data["scope"],
+        scope=data.get("scope") or scope,
         expires_in=data["expires_in"])
     return token
+
+
+def register_orcid_webhook(user, callback_url=None, delete=False):
+    """Register or delete an ORCID webhook for the given user profile update events.
+
+    If URL is given, it will be used for as call-back URL.
+    """
+    set_server_name()
+    try:
+        token = OrcidToken.get(org=user.organisation, scope="/webhook")
+    except OrcidToken.DoesNotExist:
+        token = get_client_credentials_token(org=user.organisation, scope="/webhook")
+    if callback_url is None:
+        with app.app_context():
+            callback_url = quote(url_for("update_webhook", user_id=user.id))
+    elif '/' in callback_url:
+        callback_url = quote(callback_url)
+    url = f"{app.config['TOKEN_URL']}/{user.orcid}/webhook/{callback_url}"
+    headers = {
+        "Accepts": "application/json",
+        "Authorization": f"Bearer {token.access_token}",
+        "Content-Length": "0"
+    }
+    resp = requests.delete(url, headers=headers) if delete else requests.put(url, headers=headers)
+    return resp
