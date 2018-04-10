@@ -1546,7 +1546,7 @@ class PeerReviewRecord(RecordModel):
                             orcid_id = invitee.get("ORCID-iD") if invitee.get("ORCID-iD") else None
                             put_code = invitee.get("put-code") if invitee.get("put-code") else None
 
-                            PeerReviewInvitees.create(
+                            PeerReviewInvitee.create(
                                 peer_review_record=peer_review_record,
                                 identifier=identifier,
                                 email=email.lower(),
@@ -1832,14 +1832,14 @@ class InviteesModel(BaseModel):
         self.status = (self.status + "\n" if self.status else '') + ts + ": " + line
 
 
-class PeerReviewInvitees(InviteesModel):
-    """Researcher or Invitees - related to peer review."""
+class PeerReviewInvitee(InviteesModel):
+    """Researcher or Invitee - related to peer review."""
 
     peer_review_record = ForeignKeyField(
-        PeerReviewRecord, related_name="peer_review_invitees", on_delete="CASCADE")
+        PeerReviewRecord, related_name="peer_review_invitee", on_delete="CASCADE")
 
     class Meta:  # noqa: D101,D106
-        db_table = "peer_review_invitees"
+        db_table = "peer_review_invitee"
         table_alias = "pi"
 
 
@@ -2119,7 +2119,7 @@ def create_tables():
             FundingInvitees,
             ExternalId,
             PeerReviewRecord,
-            PeerReviewInvitees,
+            PeerReviewInvitee,
             PeerReviewExternalId,
             Client,
             Grant,

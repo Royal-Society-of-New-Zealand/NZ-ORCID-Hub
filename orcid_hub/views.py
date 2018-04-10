@@ -42,7 +42,7 @@ from .models import (Affiliation, AffiliationRecord, CharField, Client, File, Fu
                      FundingRecord, Grant, GroupIdRecord, ModelException, OrcidApiCall, OrcidToken, Organisation,
                      OrgInfo, OrgInvitation, PartialDate, Role, Task, TextField, Token, Url, User,
                      UserInvitation, UserOrg, UserOrgAffiliation, WorkInvitees, WorkRecord, db, PeerReviewRecord,
-                     PeerReviewInvitees, validate_orcid_id)
+                     PeerReviewInvitee, validate_orcid_id)
 # NB! Should be disabled in production
 from .pyinfo import info
 from .utils import generate_confirmation_token, get_next_url, send_user_invitation
@@ -631,9 +631,9 @@ to the best of your knowledge, correct!""")
                         processed_at=None, status=status).where(
                         WorkInvitees.work_record.in_(ids)).execute()
                 elif self.model == PeerReviewRecord:
-                    count = PeerReviewInvitees.update(
+                    count = PeerReviewInvitee.update(
                         processed_at=None, status=status).where(
-                        PeerReviewInvitees.peer_review_record.in_(ids)).execute()
+                        PeerReviewInvitee.peer_review_record.in_(ids)).execute()
                 elif self.model == AffiliationRecord:
                     # Delete the userInvitation token for selected reset items.
                     for user_invitation in UserInvitation.select().where(UserInvitation.email.in_(
@@ -774,7 +774,7 @@ class InviteesModelAdmin(AppModelView):
                     WorkRecord.update(
                         processed_at=None, status=status).where(
                         WorkRecord.is_active, WorkRecord.id == work_record_id).execute()
-                elif self.model == PeerReviewInvitees:
+                elif self.model == PeerReviewInvitee:
                     peer_review_record_id = self.model.select().where(
                         self.model.id.in_(ids))[0].peer_review_record_id
                     PeerReviewRecord.update(
@@ -787,7 +787,7 @@ class InviteesModelAdmin(AppModelView):
             else:
                 if self.model == FundingInvitees:
                     flash(f"{count} Funding Invitees records were reset for batch processing.")
-                elif self.model == PeerReviewInvitees:
+                elif self.model == PeerReviewInvitee:
                     flash(f"{count} Peer Review Invitees records were reset for batch processing.")
                 else:
                     flash(f"{count} Work Invitees records were reset for batch processing.")
@@ -807,8 +807,8 @@ class FundingInviteesAdmin(InviteesModelAdmin):
     column_exclude_list = ("funding_record", )
 
 
-class PeerReviewInviteesAdmin(InviteesModelAdmin):
-    """Peer Review invitees record model view."""
+class PeerReviewInviteeAdmin(InviteesModelAdmin):
+    """Peer Review invitee record model view."""
 
     list_template = "peer_review_externalid_invitees_list.html"
     column_exclude_list = ("peer_review_record", )
@@ -1079,7 +1079,7 @@ class PeerReviewRecordAdmin(FundingWorkCommonModelView):
     )
     column_export_list = (
         "Peer Review id",
-        "peer_review_invitees",
+        "peer_review_invitee",
     )
     column_csv_export_list = ("Peer Review id", "identifier", "email", "first_name", "last_name", "orcid",
                               "put_code", "status")
@@ -1258,7 +1258,7 @@ admin.add_view(WorkExternalIdAdmin())
 admin.add_view(WorkInviteesAdmin())
 admin.add_view(WorkRecordAdmin())
 admin.add_view(PeerReviewRecordAdmin())
-admin.add_view(PeerReviewInviteesAdmin())
+admin.add_view(PeerReviewInviteeAdmin())
 admin.add_view(PeerReviewExternalIdAdmin())
 admin.add_view(AppModelView(UserInvitation))
 admin.add_view(ViewMembersAdmin(name="viewmembers", endpoint="viewmembers"))
@@ -1399,9 +1399,9 @@ def reset_all():
                     peer_review_record.processed_at = None
                     peer_review_record.status = status
 
-                    PeerReviewInvitees.update(
+                    PeerReviewInvitee.update(
                         processed_at=None, status=status).where(
-                        PeerReviewInvitees.peer_review_record == peer_review_record.id).execute()
+                        PeerReviewInvitee.peer_review_record == peer_review_record.id).execute()
                     peer_review_record.save()
                     count = count + 1
         except Exception as ex:

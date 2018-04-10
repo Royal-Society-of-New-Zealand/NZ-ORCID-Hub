@@ -77,7 +77,7 @@
 {% block list_row_actions %}
 {{ super() }}
 <div class="list-buttons-column">
-    <a class="icon" href="{{ url_for('peerreviewinvitees.index_view', peer_review_record_id=row.id, url=request.url) }}"
+    <a class="icon" href="{{ url_for('peerreviewinvitee.index_view', peer_review_record_id=row.id, url=request.url) }}"
        title="Peer Review Invitees">
         <spam class="fa fa-envelope"></spam>
     </a>
