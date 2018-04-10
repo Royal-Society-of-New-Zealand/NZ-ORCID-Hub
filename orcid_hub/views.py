@@ -634,6 +634,7 @@ to the best of your knowledge, correct!""")
                     for user_invitation in UserInvitation.select().where(UserInvitation.email.in_(
                             self.model.select(self.model.email).where(self.model.id.in_(ids)))):
                         user_invitation.delete_instance()
+
             except Exception as ex:
                 db.rollback()
                 flash(f"Failed to activate the selected records: {ex}")
@@ -1733,9 +1734,18 @@ def invite_organisation():
                 try:
                     org = Organisation.get(name=org_name)
                     if org.tech_contact and org.tech_contact.email != email:
-                        flash(f"The current tech.conact {org.tech_contact.name} "
+                        # If the current tech contact is technical contact of more than one organisation,
+                        # then dont update the Roles in User table.
+                        check_tech_contact_count = Organisation.select().where(
+                            Organisation.tech_contact == org.tech_contact).count()
+                        if check_tech_contact_count == 1:
+                            org.tech_contact.roles &= ~Role.TECHNICAL
+                            org.tech_contact.save()
+                        flash(f"The current tech.contact {org.tech_contact.name} "
                               f"({org.tech_contact.email}) will be revoked.", "warning")
                 except Organisation.DoesNotExist:
+                    pass
+                except User.DoesNotExist:
                     pass
 
             register_org(**params)
@@ -2056,12 +2066,17 @@ def user_orgs_org(user_id, org_id=None):
     else:
         org = Organisation.get(id=org_id)
         uo, created = UserOrg.get_or_create(user_id=user_id, org_id=org_id)
-        if "is_admin" in data and uo.is_admin != data["is_admin"]:
+        if "is_admin" in data:
             uo.is_admin = data["is_admin"]
             uo.save()
         if "is_tech_contact" in data:
             user = User.get(id=user_id)
             if data["is_tech_contact"]:
+                # Updating old Technical Contact's Role info.
+                if org.tech_contact and org.tech_contact != user:
+                    org.tech_contact.roles &= ~Role.TECHNICAL
+                    org.tech_contact.save()
+                # Assigning new tech contact to organisation.
                 org.tech_contact = user
             elif org.tech_contact == user:
                 org.tech_contact_id = None
