@@ -6,7 +6,7 @@ import logging
 import os
 from datetime import datetime, timedelta
 from itertools import filterfalse, groupby
-from urllib.parse import urlencode, urlparse
+from urllib.parse import quote, urlencode, urlparse
 
 import emails
 import flask
@@ -18,9 +18,9 @@ from itsdangerous import URLSafeTimedSerializer
 from peewee import JOIN
 
 from . import app, orcid_client
-from .models import (AFFILIATION_TYPES, Affiliation, AffiliationRecord, FundingContributor,
+from .models import (AFFILIATION_TYPES, Affiliation, AffiliationRecord, FundingInvitees,
                      FundingRecord, OrcidToken, Organisation, Role, Task, TaskType, Url, User,
-                     UserInvitation, UserOrg)
+                     UserInvitation, UserOrg, WorkInvitees, WorkRecord, db)
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -41,6 +41,15 @@ def get_next_url():
                   or "c9users.io" in _next):
         return _next
     return None
+
+
+def is_valid_url(url):
+    """Validate URL (expexted to have a path)."""
+    try:
+        result = urlparse(url)
+        return result.scheme and result.netloc and result.path
+    except:
+        return False
 
 
 def send_email(template_filename,
@@ -211,10 +220,10 @@ def set_server_name():
                 "SERVER_NAME"] = "orcidhub.org.nz" if ENV == "prod" else ENV + ".orcidhub.org.nz"
 
 
-def send_funding_invitation(inviter, org, email, name, task_id=None, **kwargs):
-    """Send an funding invitation to join ORCID Hub logging in via ORCID."""
+def send_work_funding_invitation(inviter, org, email, name, task_id=None, invitation_template=None, **kwargs):
+    """Send a work or funding invitation to join ORCID Hub logging in via ORCID."""
     try:
-        logger.info(f"*** Sending an funding invitation to '{name} <{email}>' "
+        logger.info(f"*** Sending an invitation to '{name} <{email}>' "
                     f"submitted by {inviter} of {org}")
 
         email = email.lower()
@@ -234,7 +243,7 @@ def send_funding_invitation(inviter, org, email, name, task_id=None, **kwargs):
             invitation_url = flask.url_for(
                 "short_url", short_id=Url.shorten(url).short_id, _external=True)
             send_email(
-                "email/funding_invitation.html",
+                invitation_template,
                 recipient=(user.organisation.name, user.email),
                 reply_to=(inviter.name, inviter.email),
                 invitation_url=invitation_url,
@@ -265,16 +274,97 @@ def send_funding_invitation(inviter, org, email, name, task_id=None, **kwargs):
             disambiguation_source=org.disambiguation_source,
             token=token)
 
-        status = "The invitation sent at " + datetime.utcnow().isoformat(timespec="seconds")
-        (FundingContributor.update(status=FundingContributor.status + "\n" + status).where(
-            FundingContributor.status.is_null(False), FundingContributor.email == email).execute())
-        (FundingContributor.update(status=status).where(
-            FundingContributor.status.is_null(), FundingContributor.email == email).execute())
         return ui
 
     except Exception as ex:
         logger.error(f"Exception occured while sending mails {ex}")
         raise ex
+
+
+def create_or_update_work(user, org_id, records, *args, **kwargs):
+    """Create or update work record of a user."""
+    records = list(unique_everseen(records, key=lambda t: t.work_record.id))
+    org = Organisation.get(id=org_id)
+    client_id = org.orcid_client_id
+    api = orcid_client.MemberAPI(org, user)
+
+    profile_record = api.get_record()
+
+    if profile_record:
+        activities = profile_record.get("activities-summary")
+
+        def is_org_rec(rec):
+            return (rec.get("source").get("source-client-id")
+                    and rec.get("source").get("source-client-id").get("path") == client_id)
+
+        works = []
+
+        for r in activities.get("works").get("group"):
+            ws = r.get("work-summary")[0]
+            if is_org_rec(ws):
+                works.append(ws)
+
+        taken_put_codes = {
+            r.work_record.work_invitees.put_code
+            for r in records if r.work_record.work_invitees.put_code
+        }
+
+        def match_put_code(records, work_record, work_invitees):
+            """Match and assign put-code to a single work record and the existing ORCID records."""
+            if work_invitees.put_code:
+                return
+            for r in records:
+                put_code = r.get("put-code")
+                if put_code in taken_put_codes:
+                    continue
+
+                if ((r.get("title") is None and r.get("title").get("title") is None
+                     and r.get("title").get("title").get("value") is None and r.get("type") is None)
+                        or (r.get("title").get("title").get("value") == work_record.title
+                            and r.get("type") == work_record.type)):
+                    work_invitees.put_code = put_code
+                    work_invitees.save()
+                    taken_put_codes.add(put_code)
+                    app.logger.debug(
+                        f"put-code {put_code} was asigned to the work record "
+                        f"(ID: {work_record.id}, Task ID: {work_record.task_id})")
+                    break
+
+        for task_by_user in records:
+            wr = task_by_user.work_record
+            wi = task_by_user.work_record.work_invitees
+            match_put_code(works, wr, wi)
+
+        for task_by_user in records:
+            wi = task_by_user.work_record.work_invitees
+
+            try:
+                put_code, orcid, created = api.create_or_update_work(task_by_user)
+                if created:
+                    wi.add_status_line(f"Work record was created.")
+                else:
+                    wi.add_status_line(f"Work record was updated.")
+                wi.orcid = orcid
+                wi.put_code = put_code
+
+            except Exception as ex:
+                logger.exception(f"For {user} encountered exception")
+                exception_msg = ""
+                if ex and ex.body:
+                    exception_msg = json.loads(ex.body)
+                wi.add_status_line(f"Exception occured processing the record: {exception_msg}.")
+                wr.add_status_line(
+                    f"Error processing record. Fix and reset to enable this record to be processed: {exception_msg}."
+                )
+
+            finally:
+                wi.processed_at = datetime.utcnow()
+                wr.save()
+                wi.save()
+    else:
+        # TODO: Invitation resend in case user revokes organisation permissions
+        app.logger.debug(f"Should resend an invite to the researcher asking for permissions")
+        return
 
 
 def create_or_update_funding(user, org_id, records, *args, **kwargs):
@@ -301,13 +391,13 @@ def create_or_update_funding(user, org_id, records, *args, **kwargs):
                 fundings.append(fs)
 
         taken_put_codes = {
-            r.funding_record.funding_contributor.put_code
-            for r in records if r.funding_record.funding_contributor.put_code
+            r.funding_record.funding_invitees.put_code
+            for r in records if r.funding_record.funding_invitees.put_code
         }
 
-        def match_put_code(records, funding_record, funding_contributor):
+        def match_put_code(records, funding_record, funding_invitees):
             """Match and asign put-code to a single funding record and the existing ORCID records."""
-            if funding_contributor.put_code:
+            if funding_invitees.put_code:
                 return
             for r in records:
                 put_code = r.get("put-code")
@@ -321,8 +411,8 @@ def create_or_update_funding(user, org_id, records, *args, **kwargs):
                         or (r.get("title").get("title").get("value") == funding_record.title
                             and r.get("type") == funding_record.type
                             and r.get("organization").get("name") == funding_record.org_name)):
-                    funding_contributor.put_code = put_code
-                    funding_contributor.save()
+                    funding_invitees.put_code = put_code
+                    funding_invitees.save()
                     taken_put_codes.add(put_code)
                     app.logger.debug(
                         f"put-code {put_code} was asigned to the funding record "
@@ -331,35 +421,35 @@ def create_or_update_funding(user, org_id, records, *args, **kwargs):
 
         for task_by_user in records:
             fr = task_by_user.funding_record
-            fc = task_by_user.funding_record.funding_contributor
-            match_put_code(fundings, fr, fc)
+            fi = task_by_user.funding_record.funding_invitees
+            match_put_code(fundings, fr, fi)
 
         for task_by_user in records:
-            fc = task_by_user.funding_record.funding_contributor
+            fi = task_by_user.funding_record.funding_invitees
 
             try:
                 put_code, orcid, created = api.create_or_update_funding(task_by_user)
                 if created:
-                    fc.add_status_line(f"Funding record was created.")
+                    fi.add_status_line(f"Funding record was created.")
                 else:
-                    fc.add_status_line(f"Funding record was updated.")
-                fc.orcid = orcid
-                fc.put_code = put_code
+                    fi.add_status_line(f"Funding record was updated.")
+                fi.orcid = orcid
+                fi.put_code = put_code
 
             except Exception as ex:
                 logger.exception(f"For {user} encountered exception")
                 exception_msg = ""
                 if ex and ex.body:
                     exception_msg = json.loads(ex.body)
-                fc.add_status_line(f"Exception occured processing the record: {exception_msg}.")
+                fi.add_status_line(f"Exception occured processing the record: {exception_msg}.")
                 fr.add_status_line(
                     f"Error processing record. Fix and reset to enable this record to be processed: {exception_msg}."
                 )
 
             finally:
-                fc.processed_at = datetime.utcnow()
+                fi.processed_at = datetime.utcnow()
                 fr.save()
-                fc.save()
+                fi.save()
     else:
         # TODO: Invitation resend in case user revokes organisation permissions
         app.logger.debug(f"Should resend an invite to the researcher asking for permissions")
@@ -627,32 +717,132 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
             return
 
 
+def process_work_records(max_rows=20):
+    """Process uploaded work records."""
+    set_server_name()
+    task_ids = set()
+    work_ids = set()
+    """This query is to retrieve Tasks associated with work records, which are not processed but are active"""
+
+    tasks = (Task.select(
+        Task, WorkRecord, WorkInvitees,
+        User, UserInvitation.id.alias("invitation_id"), OrcidToken).where(
+            WorkRecord.processed_at.is_null(), WorkInvitees.processed_at.is_null(),
+            WorkRecord.is_active,
+            (OrcidToken.id.is_null(False) |
+             ((WorkInvitees.status.is_null()) |
+              (WorkInvitees.status.contains("sent").__invert__())))).join(
+                  WorkRecord, on=(Task.id == WorkRecord.task_id)).join(
+                      WorkInvitees,
+                      on=(WorkRecord.id == WorkInvitees.work_record_id)).join(
+                          User, JOIN.LEFT_OUTER,
+                          on=((User.email == WorkInvitees.email) | (User.orcid == WorkInvitees.orcid)))
+             .join(Organisation, JOIN.LEFT_OUTER, on=(Organisation.id == Task.org_id)).join(
+                 UserInvitation,
+                 JOIN.LEFT_OUTER,
+                 on=((UserInvitation.email == WorkInvitees.email)
+                     & (UserInvitation.task_id == Task.id))).join(
+                         OrcidToken,
+                         JOIN.LEFT_OUTER,
+                         on=((OrcidToken.user_id == User.id)
+                             & (OrcidToken.org_id == Organisation.id)
+                             & (OrcidToken.scope.contains("/activities/update")))).limit(max_rows))
+
+    for (task_id, org_id, work_record_id, user), tasks_by_user in groupby(tasks, lambda t: (
+            t.id,
+            t.org_id,
+            t.work_record.id,
+            t.work_record.work_invitees.user,)):
+        """If we have the token associated to the user then update the work record, otherwise send him an invite"""
+        if (user.id is None or user.orcid is None or not OrcidToken.select().where(
+            (OrcidToken.user_id == user.id) & (OrcidToken.org_id == org_id) &
+            (OrcidToken.scope.contains("/activities/update"))).exists()):  # noqa: E127, E129
+
+            for k, tasks in groupby(
+                    tasks_by_user,
+                    lambda t: (
+                        t.created_by,
+                        t.org,
+                        t.work_record.work_invitees.email,
+                        t.work_record.work_invitees.first_name, )
+            ):  # noqa: E501
+                send_work_funding_invitation(*k, task_id=task_id, invitation_template="email/work_invitation.html")
+                with db.atomic():
+                    status = "The invitation sent at " + datetime.utcnow().isoformat(timespec="seconds")
+                    (WorkInvitees.update(status=WorkInvitees.status + "\n" + status).where(
+                        WorkInvitees.status.is_null(False), WorkInvitees.email == k[2]).execute())
+                    (WorkInvitees.update(status=status).where(
+                        WorkInvitees.status.is_null(), WorkInvitees.email == k[2]).execute())
+
+        else:
+            create_or_update_work(user, org_id, tasks_by_user)
+        task_ids.add(task_id)
+        work_ids.add(work_record_id)
+
+    for work_record in WorkRecord.select().where(WorkRecord.id << work_ids):
+        # The Work record is processed for all invitees
+        if not (WorkInvitees.select().where(
+                WorkInvitees.work_record_id == work_record.id,
+                WorkInvitees.processed_at.is_null()).exists()):
+            work_record.processed_at = datetime.utcnow()
+            if not work_record.status or "error" not in work_record.status:
+                work_record.add_status_line("Work record is processed.")
+            work_record.save()
+
+    for task in Task.select().where(Task.id << task_ids):
+        # The task is completed (Once all records are processed):
+        if not (WorkRecord.select().where(WorkRecord.task_id == task.id, WorkRecord.processed_at.is_null()).exists()):
+            task.completed_at = datetime.utcnow()
+            task.save()
+            error_count = WorkRecord.select().where(
+                WorkRecord.task_id == task.id, WorkRecord.status**"%error%").count()
+            row_count = task.work_record_count
+
+            with app.app_context():
+                protocol_scheme = 'http'
+                if not EXTERNAL_SP:
+                    protocol_scheme = 'https'
+                export_url = flask.url_for(
+                    "workrecord.export",
+                    export_type="json",
+                    _scheme=protocol_scheme,
+                    task_id=task.id,
+                    _external=True)
+                send_email(
+                    "email/work_task_completed.html",
+                    subject="Work Process Update",
+                    recipient=(task.created_by.name, task.created_by.email),
+                    error_count=error_count,
+                    row_count=row_count,
+                    export_url=export_url,
+                    filename=task.filename)
+
+
 def process_funding_records(max_rows=20):
     """Process uploaded affiliation records."""
     set_server_name()
     task_ids = set()
     funding_ids = set()
     """This query is to retrieve Tasks associated with funding records, which are not processed but are active"""
-
     tasks = (Task.select(
-        Task, FundingRecord, FundingContributor,
+        Task, FundingRecord, FundingInvitees,
         User, UserInvitation.id.alias("invitation_id"), OrcidToken).where(
-            FundingRecord.processed_at.is_null(), FundingContributor.processed_at.is_null(),
+            FundingRecord.processed_at.is_null(), FundingInvitees.processed_at.is_null(),
             FundingRecord.is_active,
             (OrcidToken.id.is_null(False) |
-             ((FundingContributor.status.is_null()) |
-              (FundingContributor.status.contains("sent").__invert__())))).join(
+             ((FundingInvitees.status.is_null()) |
+              (FundingInvitees.status.contains("sent").__invert__())))).join(
                   FundingRecord, on=(Task.id == FundingRecord.task_id)).join(
-                      FundingContributor,
-                      on=(FundingRecord.id == FundingContributor.funding_record_id)).join(
+                      FundingInvitees,
+                      on=(FundingRecord.id == FundingInvitees.funding_record_id)).join(
                           User,
                           JOIN.LEFT_OUTER,
-                          on=((User.email == FundingContributor.email) |
-                              (User.orcid == FundingContributor.orcid)))
+                          on=((User.email == FundingInvitees.email) |
+                              (User.orcid == FundingInvitees.orcid)))
              .join(Organisation, JOIN.LEFT_OUTER, on=(Organisation.id == Task.org_id)).join(
                  UserInvitation,
                  JOIN.LEFT_OUTER,
-                 on=((UserInvitation.email == FundingContributor.email)
+                 on=((UserInvitation.email == FundingInvitees.email)
                      & (UserInvitation.task_id == Task.id))).join(
                          OrcidToken,
                          JOIN.LEFT_OUTER,
@@ -664,7 +854,7 @@ def process_funding_records(max_rows=20):
             t.id,
             t.org_id,
             t.funding_record.id,
-            t.funding_record.funding_contributor.user,)):
+            t.funding_record.funding_invitees.user,)):
         """If we have the token associated to the user then update the funding record, otherwise send him an invite"""
         if (user.id is None or user.orcid is None or not OrcidToken.select().where(
             (OrcidToken.user_id == user.id) & (OrcidToken.org_id == org_id) &
@@ -675,20 +865,26 @@ def process_funding_records(max_rows=20):
                     lambda t: (
                         t.created_by,
                         t.org,
-                        t.funding_record.funding_contributor.email,
-                        t.funding_record.funding_contributor.name, )
+                        t.funding_record.funding_invitees.email,
+                        t.funding_record.funding_invitees.first_name, )
             ):  # noqa: E501
-                send_funding_invitation(*k, task_id=task_id)
+                send_work_funding_invitation(*k, task_id=task_id, invitation_template="email/funding_invitation.html")
+                with db.atomic():
+                    status = "The invitation sent at " + datetime.utcnow().isoformat(timespec="seconds")
+                    (FundingInvitees.update(status=FundingInvitees.status + "\n" + status).where(
+                        FundingInvitees.status.is_null(False), FundingInvitees.email == k[2]).execute())
+                    (FundingInvitees.update(status=status).where(
+                        FundingInvitees.status.is_null(), FundingInvitees.email == k[2]).execute())
         else:
             create_or_update_funding(user, org_id, tasks_by_user)
         task_ids.add(task_id)
         funding_ids.add(funding_record_id)
 
     for funding_record in FundingRecord.select().where(FundingRecord.id << funding_ids):
-        # The funding record is processed for all contributors
-        if not (FundingContributor.select().where(
-                FundingContributor.funding_record_id == funding_record.id,
-                FundingContributor.processed_at.is_null()).exists()):
+        # The funding record is processed for all invitees
+        if not (FundingInvitees.select().where(
+                FundingInvitees.funding_record_id == funding_record.id,
+                FundingInvitees.processed_at.is_null()).exists()):
             funding_record.processed_at = datetime.utcnow()
             if not funding_record.status or "error" not in funding_record.status:
                 funding_record.add_status_line("Funding record is processed.")
@@ -882,3 +1078,52 @@ def process_tasks(max_rows=20):
                     recipient=(task.created_by.name, task.created_by.email),
                     error_count=error_count,
                     export_url=export_url)
+
+
+def get_client_credentials_token(org, scope="/webhook"):
+    """Request a cient credetials grant type access token and store it.
+
+    The any previously requesed with the give scope tokens will be deleted.
+    """
+    resp = requests.post(
+        app.config["TOKEN_URL"],
+        headers={"Accepts": "application/json"},
+        data=dict(
+            client_id=org.orcid_client_id,
+            client_secret=org.orcid_secret,
+            scope=scope,
+            grant_type="client_credentials"))
+    OrcidToken.delete().where(OrcidToken.org == org, OrcidToken.scope == "/webhook").execute()
+    data = resp.json()
+    token = OrcidToken.create(
+        org=org,
+        access_token=data["access_token"],
+        refresh_token=data["refresh_token"],
+        scope=data.get("scope") or scope,
+        expires_in=data["expires_in"])
+    return token
+
+
+def register_orcid_webhook(user, callback_url=None, delete=False):
+    """Register or delete an ORCID webhook for the given user profile update events.
+
+    If URL is given, it will be used for as call-back URL.
+    """
+    set_server_name()
+    try:
+        token = OrcidToken.get(org=user.organisation, scope="/webhook")
+    except OrcidToken.DoesNotExist:
+        token = get_client_credentials_token(org=user.organisation, scope="/webhook")
+    if callback_url is None:
+        with app.app_context():
+            callback_url = quote(url_for("update_webhook", user_id=user.id))
+    elif '/' in callback_url:
+        callback_url = quote(callback_url)
+    url = f"{app.config['TOKEN_URL']}/{user.orcid}/webhook/{callback_url}"
+    headers = {
+        "Accepts": "application/json",
+        "Authorization": f"Bearer {token.access_token}",
+        "Content-Length": "0"
+    }
+    resp = requests.delete(url, headers=headers) if delete else requests.put(url, headers=headers)
+    return resp

@@ -6,10 +6,10 @@ from peewee import Model, SqliteDatabase
 from playhouse.test_utils import test_database
 
 from orcid_hub.models import (Affiliation, AffiliationRecord, BaseModel, BooleanField, ExternalId,
-                              FundingContributor, FundingRecord, ModelException, OrcidToken,
+                              FundingContributor, FundingRecord, FundingInvitees, ModelException, OrcidToken,
                               Organisation, OrgInfo, PartialDate, PartialDateField, Role, Task,
-                              TextField, User, UserOrg, UserOrgAffiliation, create_tables,
-                              drop_tables, validate_orcid_id)
+                              TextField, User, UserOrg, UserOrgAffiliation, WorkRecord, WorkContributor, WorkExternalId,
+                              WorkInvitees, create_tables, drop_tables, validate_orcid_id)
 
 
 @pytest.fixture
@@ -26,7 +26,8 @@ def test_db():
     _db = SqliteDatabase(":memory:")
     with test_database(
             _db, (Organisation, User, UserOrg, OrgInfo, OrcidToken, UserOrgAffiliation, Task,
-                  AffiliationRecord, ExternalId, FundingRecord, FundingContributor),
+                  AffiliationRecord, ExternalId, FundingRecord, FundingContributor, FundingInvitees,
+                  WorkRecord, WorkContributor, WorkExternalId, WorkInvitees),
             fail_silently=True) as _test_db:
         yield _test_db
 
@@ -123,10 +124,17 @@ def test_models(test_db):
         funding_record=FundingRecord.get(id=1),
         orcid="123112311231%d" % i,
         name="Test_%d" % i,
-        email="Test_%d@mailinator.com" % i,
-        role="Test_%d" % i,
+        role="Test_%d" % i) for i in range(10))).execute()
+
+    FundingInvitees.insert_many((dict(
+        funding_record=FundingRecord.get(id=1),
+        orcid="123112311231%d" % i,
+        first_name="Test_%d" % i,
+        last_name="Test_%d" % i,
+        put_code=i,
         status="Test_%d" % i,
-        put_code=90) for i in range(10))).execute()
+        identifier="%d" % i,
+        email="Test_%d" % i) for i in range(10))).execute()
 
     ExternalId.insert_many((dict(
         funding_record=FundingRecord.get(id=1),
@@ -134,6 +142,48 @@ def test_models(test_db):
         value="Test_%d" % i,
         url="Test_%d" % i,
         relationship="Test_%d" % i) for i in range(10))).execute()
+
+    WorkRecord.insert_many((dict(
+        task=Task.get(id=1),
+        title="Test_%d" % i,
+        sub_title="Test_%d" % i,
+        translated_title="Test_%d" % i,
+        translated_title_language_code="Test_%d" % i,
+        journal_title="Test_%d" % i,
+        short_description="Test_%d" % i,
+        citation_type="Test_%d" % i,
+        citation_value="Test_%d" % i,
+        type="Test_%d" % i,
+        url="Test_%d" % i,
+        language_code="Test_%d" % i,
+        country="Test_%d" % i,
+        is_active=False,
+        status="Test_%d" % i,
+        visibility="Test_%d" % i) for i in range(10))).execute()
+
+    WorkContributor.insert_many((dict(
+        work_record=WorkRecord.get(id=1),
+        orcid="123112311231%d" % i,
+        name="Test_%d" % i,
+        contributor_sequence="%d" % i,
+        role="Test_%d" % i) for i in range(10))).execute()
+
+    WorkExternalId.insert_many((dict(
+        work_record=WorkRecord.get(id=1),
+        type="Test_%d" % i,
+        value="Test_%d" % i,
+        url="Test_%d" % i,
+        relationship="Test_%d" % i) for i in range(10))).execute()
+
+    WorkInvitees.insert_many((dict(
+        work_record=WorkRecord.get(id=1),
+        orcid="123112311231%d" % i,
+        first_name="Test_%d" % i,
+        last_name="Test_%d" % i,
+        put_code=i,
+        status="Test_%d" % i,
+        identifier="%d" % i,
+        email="Test_%d" % i) for i in range(10))).execute()
 
     yield test_db
 
@@ -181,8 +231,28 @@ def test_FundingContributor_count(test_models):
     assert FundingContributor.select().count() == 10
 
 
+def test_FundingInvitees_count(test_models):
+    assert FundingInvitees.select().count() == 10
+
+
 def test_ExternalId_count(test_models):
     assert ExternalId.select().count() == 10
+
+
+def test_WorkRecord_count(test_models):
+    assert WorkRecord.select().count() == 10
+
+
+def test_WorkContributor_count(test_models):
+    assert WorkContributor.select().count() == 10
+
+
+def test_WorkExternalId_count(test_models):
+    assert WorkExternalId.select().count() == 10
+
+
+def test_WorkInvitees_count(test_models):
+    assert WorkInvitees.select().count() == 10
 
 
 def test_Task_count(test_models):
@@ -304,6 +374,14 @@ def test_partial_date():
     assert PartialDate.create("1997/12/31") == PartialDate(year=1997, month=12, day=31)
     assert PartialDate.create("12/1997") == PartialDate(year=1997, month=12, day=None)
     assert PartialDate.create("31/12/1997") == PartialDate(year=1997, month=12, day=31)
+    assert PartialDate.create("1997 12:00:00 PM") == PartialDate(year=1997, month=None, day=None)
+    assert PartialDate.create("1997-12 12:00:00 PM") == PartialDate(year=1997, month=12, day=None)
+    assert PartialDate.create("1997-12-31 12:00:00 PM") == PartialDate(year=1997, month=12, day=31)
+    assert PartialDate.create("1997/12 12:00:00 PM") == PartialDate(year=1997, month=12, day=None)
+    assert PartialDate.create("1997/12/31 12:00:00 PM") == PartialDate(year=1997, month=12, day=31)
+    assert PartialDate.create("12/1997 12:00:00 PM") == PartialDate(year=1997, month=12, day=None)
+    assert PartialDate.create("31/12/1997 12:00:00 PM") == PartialDate(year=1997, month=12, day=31)
+    assert PartialDate.create("6/08/2017 12:00:00 PM") == PartialDate(year=2017, month=8, day=6)
 
     with pytest.raises(ModelException):
         PartialDate.create("ABC")

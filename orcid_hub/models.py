@@ -35,6 +35,8 @@ from .config import DEFAULT_COUNTRY, ENV
 
 EMAIL_REGEX = re.compile(r"^[_a-z0-9-]+(\.[_a-z0-9-]+)*@[a-z0-9-]+(\.[a-z0-9-]+)*(\.[a-z]{2,4})$")
 ORCID_ID_REGEX = re.compile(r"^([X\d]{4}-?){3}[X\d]{4}$")
+PARTIAL_DATE_REREX = re.compile(r"\d+([/\-]\d+){,2}")
+
 
 AFFILIATION_TYPES = (
     "student",
@@ -74,10 +76,10 @@ def validate_orcid_id(value):
 
 
 class PartialDate(namedtuple("PartialDate", ["year", "month", "day"])):
-    """Partial date (without month day or both moth and month day."""
+    """Partial date (without month day or both month and month day."""
 
     def as_orcid_dict(self):
-        """Return ORCID dictionry representation of the partial date."""
+        """Return ORCID dictionary representation of the partial date."""
         if self.year is None and self.month is None and self.day is None:
             return None
         return dict(((f, None if v is None else {
@@ -118,11 +120,15 @@ class PartialDate(namedtuple("PartialDate", ["year", "month", "day"])):
         if value is None or value == {}:
             return None
         if isinstance(value, str):
+            match = PARTIAL_DATE_REREX.search(value)
+            if not match:
+                raise ModelException(f"Wrong partial date value '{value}'")
+            value0 = match[0]
             try:
-                if '/' in value:
-                    parts = value.split('/')
+                if '/' in value0:
+                    parts = value0.split('/')
                     return cls(*[int(v) for v in (parts[::-1] if len(parts[-1]) > 2 else parts)])
-                return cls(*[int(v) for v in value.split('-')])
+                return cls(*[int(v) for v in value0.split('-')])
             except Exception as ex:
                 raise ModelException(f"Wrong partial date value '{value}': {ex}")
 
@@ -768,15 +774,28 @@ class UserOrg(BaseModel, AuditMixin):
 class OrcidToken(BaseModel, AuditMixin):
     """For Keeping Orcid token in the table."""
 
-    user = ForeignKeyField(User)
+    user = ForeignKeyField(User, null=True, index=True)  # TODO: add validation for 3-legged authorization tokens
     org = ForeignKeyField(Organisation, index=True, verbose_name="Organisation")
     scope = TextField(null=True, db_column="scope")  # TODO impomenet property
     access_token = CharField(max_length=36, unique=True, null=True)
     issue_time = DateTimeField(default=datetime.utcnow)
     refresh_token = CharField(max_length=36, unique=True, null=True)
-    expires_in = SmallIntegerField(default=0)
+    expires_in = IntegerField(default=0)
     created_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
     updated_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
+
+    @property
+    def scopes(self):  # noqa: D102
+        if self.scope:
+            return self.scope.split(',')
+        return []
+
+    @scopes.setter
+    def scopes(self, value):  # noqa: D102
+        if isinstance(value, str):
+            self.scope = value
+        else:
+            self.scope = ','.join(value)
 
 
 class UserOrgAffiliation(BaseModel, AuditMixin):
@@ -837,6 +856,7 @@ class Task(BaseModel, AuditMixin):
 
     __record_count = None
     __record_funding_count = None
+    __work_record_count = None
     org = ForeignKeyField(
         Organisation, index=True, verbose_name="Organisation", on_delete="SET NULL")
     completed_at = DateTimeField(null=True)
@@ -864,6 +884,13 @@ class Task(BaseModel, AuditMixin):
         if self.__record_funding_count is None:
             self.__record_funding_count = self.funding_records.count()
         return self.__record_funding_count
+
+    @property
+    def work_record_count(self):
+        """Get count of the loaded work records."""
+        if self.__work_record_count is None:
+            self.__work_record_count = self.work_record.count()
+        return self.__work_record_count
 
     @classmethod
     def load_from_csv(cls, source, filename=None, org=None):
@@ -1109,6 +1136,7 @@ class TaskType(IntFlag):
 
     AFFILIATION = 0  # Affilation of employment/education
     FUNDING = 1  # Funding
+    WORK = 2
 
     def __eq__(self, other):
         if isinstance(other, TaskType):
@@ -1147,23 +1175,14 @@ class FundingRecord(RecordModel):
 
     @classmethod
     def load_from_json(cls, source, filename=None, org=None):
-        """Load data from CSV file or a string."""
+        """Load data from json file or a string."""
         if isinstance(source, str):
             # import data from file based on its extension; either it is yaml or json
-            if os.path.splitext(filename)[1][1:] == "yaml" or os.path.splitext(
-                    filename)[1][1:] == "yml":
-                funding_data_list = yaml.load(source)
-            else:
-                funding_data_list = json.loads(source)
-
-            # Removing None for correct schema validation
-            if not isinstance(funding_data_list, list):
-                raise SchemaError(
-                    u"Schema validation failed:\n - Expecting a list of funding records")
+            funding_data_list = load_yaml_json(filename=filename, source=source)
 
             for funding_data in funding_data_list:
                 validation_source_data = copy.deepcopy(funding_data)
-                validation_source_data = FundingRecord.del_none(validation_source_data)
+                validation_source_data = del_none(validation_source_data)
 
                 # Adding schema valdation for funding
                 validator = Core(
@@ -1254,48 +1273,262 @@ class FundingRecord(RecordModel):
                         start_date=start_date,
                         end_date=end_date)
 
+                    invitees_list = funding_data.get("invitees") if funding_data.get("invitees") else None
+                    if invitees_list:
+                        for invitee in invitees_list:
+                            identifier = invitee.get("identifier") if invitee.get("identifier") else None
+                            email = invitee.get("email") if invitee.get("email") else None
+                            first_name = invitee.get("first-name") if invitee.get("first-name") else None
+                            last_name = invitee.get("last-name") if invitee.get("last-name") else None
+                            orcid_id = invitee.get("ORCID-iD") if invitee.get("ORCID-iD") else None
+                            put_code = invitee.get("put-code") if invitee.get("put-code") else None
+
+                            FundingInvitees.create(
+                                funding_record=funding_record,
+                                identifier=identifier,
+                                email=email.lower(),
+                                first_name=first_name,
+                                last_name=last_name,
+                                orcid=orcid_id,
+                                put_code=put_code)
+                    else:
+                        raise SchemaError(u"Schema validation failed:\n - "
+                                          u"Expecting Invitees for which the funding record will be written")
+
                     contributors_list = funding_data.get("contributors").get("contributor") if \
                         funding_data.get("contributors") else None
-                    for contributor in contributors_list:
-                        orcid_id = None
-                        if contributor.get("contributor-orcid") and contributor.get(
-                                "contributor-orcid").get("path"):
-                            orcid_id = contributor.get("contributor-orcid").get("path")
+                    if contributors_list:
+                        for contributor in contributors_list:
+                            orcid_id = None
+                            if contributor.get("contributor-orcid") and contributor.get(
+                                    "contributor-orcid").get("path"):
+                                orcid_id = contributor.get("contributor-orcid").get("path")
 
-                        email = contributor.get("contributor-email").get("value") if \
-                            contributor.get("contributor-email") else None
+                            name = contributor.get("credit-name").get("value") if \
+                                contributor.get("credit-name") else None
 
-                        name = contributor.get("credit-name").get("value") if \
-                            contributor.get("credit-name") else None
+                            role = contributor.get("contributor-attributes").get("contributor-role") if \
+                                contributor.get("contributor-attributes") else None
 
-                        role = contributor.get("contributor-attributes").get("contributor-role") if \
-                            contributor.get("contributor-attributes") else None
-
-                        put_code = contributor.get("put-code") if \
-                            contributor.get("put-code") else None
-
-                        FundingContributor.create(
-                            funding_record=funding_record,
-                            orcid=orcid_id,
-                            name=name,
-                            email=email.lower(),
-                            put_code=put_code,
-                            role=role)
+                            FundingContributor.create(
+                                funding_record=funding_record,
+                                orcid=orcid_id,
+                                name=name,
+                                role=role)
 
                     external_ids_list = funding_data.get("external-ids").get("external-id") if \
                         funding_data.get("external-ids") else None
-                    for external_id in external_ids_list:
-                        type = external_id.get("external-id-type")
-                        value = external_id.get("external-id-value")
-                        url = external_id.get("external-id-url").get("value") if \
-                            external_id.get("external-id-url") else None
-                        relationship = external_id.get("external-id-relationship")
-                        ExternalId.create(
-                            funding_record=funding_record,
-                            type=type,
-                            value=value,
-                            url=url,
-                            relationship=relationship)
+                    if external_ids_list:
+                        for external_id in external_ids_list:
+                            type = external_id.get("external-id-type")
+                            value = external_id.get("external-id-value")
+                            url = external_id.get("external-id-url").get("value") if \
+                                external_id.get("external-id-url") else None
+                            relationship = external_id.get("external-id-relationship")
+                            ExternalId.create(
+                                funding_record=funding_record,
+                                type=type,
+                                value=value,
+                                url=url,
+                                relationship=relationship)
+                    else:
+                        raise SchemaError(u"Schema validation failed:\n - An external identifier is required")
+                return task
+
+            except Exception as ex:
+                db.rollback()
+                app.logger.exception("Failed to laod affiliation file.")
+                raise
+
+    class Meta:  # noqa: D101,D106
+        db_table = "funding_record"
+        table_alias = "fr"
+
+
+class WorkRecord(RecordModel):
+    """Work record loaded from Json file for batch processing."""
+
+    task = ForeignKeyField(Task, related_name="work_record", on_delete="CASCADE")
+    title = CharField(max_length=255)
+    sub_title = CharField(null=True, max_length=255)
+    translated_title = CharField(null=True, max_length=255)
+    translated_title_language_code = CharField(null=True, max_length=10)
+    journal_title = CharField(null=True, max_length=255)
+    short_description = CharField(null=True, max_length=4000)
+    citation_type = CharField(max_length=255)
+    citation_value = CharField(max_length=255)
+    type = CharField(null=True, max_length=255)
+    publication_date = PartialDateField(null=True)
+    publication_media_type = CharField(null=True, max_length=255)
+    url = CharField(null=True, max_length=255)
+    language_code = CharField(null=True, max_length=10)
+    country = CharField(null=True, max_length=255)
+    visibility = CharField(null=True, max_length=100)
+
+    is_active = BooleanField(
+        default=False, help_text="The record is marked for batch processing", null=True)
+    processed_at = DateTimeField(null=True)
+    status = TextField(null=True, help_text="Record processing status.")
+
+    @classmethod
+    def load_from_json(cls, source, filename=None, org=None):
+        """Load data from JSON file or a string."""
+        if isinstance(source, str):
+            # import data from file based on its extension; either it is yaml or json
+            work_data_list = load_yaml_json(filename=filename, source=source)
+
+            # TODO: validation of uploaded work file
+            for work_data in work_data_list:
+                validation_source_data = copy.deepcopy(work_data)
+                validation_source_data = del_none(validation_source_data)
+
+                # Adding schema valdation for Work
+                validator = Core(
+                    source_data=validation_source_data, schema_files=["work_schema.yaml"])
+                validator.validate(raise_exception=True)
+
+            try:
+                if org is None:
+                    org = current_user.organisation if current_user else None
+                task = Task.create(org=org, filename=filename, task_type=TaskType.WORK)
+
+                for work_data in work_data_list:
+
+                    title = work_data.get("title").get("title").get("value") if \
+                        work_data.get("title") and work_data.get("title").get("title") and \
+                        work_data.get("title").get("title").get("value") else None
+
+                    sub_title = work_data.get("title").get("subtitle").get("value") if \
+                        work_data.get("title") and work_data.get("title").get("subtitle") and \
+                        work_data.get("title").get("subtitle").get("value") else None
+
+                    translated_title = work_data.get("title").get("translated-title").get("value") if \
+                        work_data.get("title") and work_data.get("title").get("translated-title") \
+                        and work_data.get("title").get("translated-title").get("value") else None
+
+                    translated_title_language_code = work_data.get("title").get(
+                        "translated-title").get(
+                            "language-code") if work_data.get("title") and work_data.get(
+                                "title").get("translated-title") and work_data.get("title").get(
+                                    "translated-title").get("language-code") else None
+
+                    journal_title = work_data.get("journal-title").get("value") if \
+                        work_data.get("journal-title") and work_data.get("journal-title").get("value") else None
+
+                    short_description = work_data.get("short-description") if work_data.get(
+                        "short-description") else None
+
+                    citation_type = work_data.get("citation").get("citation-type") if \
+                        work_data.get("citation") and work_data.get("citation").get("citation-type") else None
+
+                    citation_value = work_data.get("citation").get("citation-value") if \
+                        work_data.get("citation") and work_data.get("citation").get("citation-value") else None
+
+                    type = work_data.get("type") if work_data.get("type") else None
+
+                    # Removing key 'media-type' from the publication_date dict. and only considering year, day & month
+                    publication_date = PartialDate.create(
+                        {date_key: work_data.get("publication-date")[date_key] for date_key in
+                         ('day', 'month', 'year')}) if work_data.get("publication-date") else None
+
+                    publication_media_type = work_data.get("publication-date").get("media-type") if \
+                        work_data.get("publication-date") and work_data.get("publication-date").get("media-type") \
+                        else None
+
+                    url = work_data.get("url").get("value") if \
+                        work_data.get("url") and work_data.get("url").get("value") else None
+
+                    language_code = work_data.get("language-code") if work_data.get("language-code") else None
+
+                    country = work_data.get("country").get("value") if \
+                        work_data.get("country") and work_data.get("country").get("value") else None
+
+                    visibility = work_data.get("visibility") if work_data.get("visibility") else None
+
+                    work_record = WorkRecord.create(
+                        task=task,
+                        title=title,
+                        sub_title=sub_title,
+                        translated_title=translated_title,
+                        translated_title_language_code=translated_title_language_code,
+                        journal_title=journal_title,
+                        short_description=short_description,
+                        citation_type=citation_type,
+                        citation_value=citation_value,
+                        type=type,
+                        publication_date=publication_date,
+                        publication_media_type=publication_media_type,
+                        url=url,
+                        language_code=language_code,
+                        country=country,
+                        visibility=visibility)
+
+                    invitees_list = work_data.get("invitees") if work_data.get("invitees") else None
+
+                    if invitees_list:
+                        for invitee in invitees_list:
+                            identifier = invitee.get("identifier") if invitee.get("identifier") else None
+                            email = invitee.get("email") if invitee.get("email") else None
+                            first_name = invitee.get("first-name") if invitee.get("first-name") else None
+                            last_name = invitee.get("last-name") if invitee.get("last-name") else None
+                            orcid_id = invitee.get("ORCID-iD") if invitee.get("ORCID-iD") else None
+                            put_code = invitee.get("put-code") if invitee.get("put-code") else None
+
+                            WorkInvitees.create(
+                                work_record=work_record,
+                                identifier=identifier,
+                                email=email.lower(),
+                                first_name=first_name,
+                                last_name=last_name,
+                                orcid=orcid_id,
+                                put_code=put_code)
+                    else:
+                        raise SchemaError(u"Schema validation failed:\n - "
+                                          u"Expecting Invitees for which the work record will be written")
+
+                    contributors_list = work_data.get("contributors").get("contributor") if \
+                        work_data.get("contributors") else None
+
+                    if contributors_list:
+                        for contributor in contributors_list:
+                            orcid_id = None
+                            if contributor.get("contributor-orcid") and contributor.get(
+                                    "contributor-orcid").get("path"):
+                                orcid_id = contributor.get("contributor-orcid").get("path")
+
+                            name = contributor.get("credit-name").get("value") if \
+                                contributor.get("credit-name") else None
+
+                            role = contributor.get("contributor-attributes").get("contributor-role") if \
+                                contributor.get("contributor-attributes") else None
+
+                            contributor_sequence = contributor.get("contributor-attributes").get(
+                                "contributor-sequence") if contributor.get("contributor-attributes") else None
+
+                            WorkContributor.create(
+                                work_record=work_record,
+                                orcid=orcid_id,
+                                name=name,
+                                role=role,
+                                contributor_sequence=contributor_sequence)
+
+                    external_ids_list = work_data.get("external-ids").get("external-id") if \
+                        work_data.get("external-ids") else None
+                    if external_ids_list:
+                        for external_id in external_ids_list:
+                            type = external_id.get("external-id-type")
+                            value = external_id.get("external-id-value")
+                            url = external_id.get("external-id-url").get("value") if \
+                                external_id.get("external-id-url") else None
+                            relationship = external_id.get("external-id-relationship")
+                            WorkExternalId.create(
+                                work_record=work_record,
+                                type=type,
+                                value=value,
+                                url=url,
+                                relationship=relationship)
+                    else:
+                        raise SchemaError(u"Schema validation failed:\n - An external identifier is required")
 
                 return task
             except Exception as ex:
@@ -1303,40 +1536,52 @@ class FundingRecord(RecordModel):
                 app.logger.exception("Failed to laod affiliation file.")
                 raise
 
-    @classmethod
-    def del_none(cls, d):  # noqa: N805
-        """
-        Delete keys with the value ``None`` in a dictionary, recursively.
+    class Meta:  # noqa: D101,D106
+        db_table = "work_record"
+        table_alias = "wr"
 
-        So that the schema validation will not fail, for elements that are none
-        """
-        for key, value in list(d.items()):
-            if value is None:
-                del d[key]
-            elif isinstance(value, list):
-                for item in value:
-                    if isinstance(item, dict):
-                        cls.del_none(item)
-            elif isinstance(value, dict):
-                cls.del_none(value)
-        return d
+
+class ContributorModel(BaseModel):
+    """Common model bits of the contributor records."""
+
+    orcid = OrcidIdField(null=True)
+    name = CharField(max_length=120, null=True)
+    role = CharField(max_length=120, null=True)
+
+
+class WorkContributor(ContributorModel):
+    """Researcher or contributor - related to work."""
+
+    work_record = ForeignKeyField(
+        WorkRecord, related_name="work_contributors", on_delete="CASCADE")
+    contributor_sequence = CharField(max_length=120, null=True)
 
     class Meta:  # noqa: D101,D106
-        db_table = "funding_record"
-        table_alias = "fr"
+        db_table = "work_contributor"
+        table_alias = "wc"
 
 
-class FundingContributor(BaseModel):
+class FundingContributor(ContributorModel):
     """Researcher or contributor - reciever of the funding."""
 
     funding_record = ForeignKeyField(
         FundingRecord, related_name="contributors", on_delete="CASCADE")
-    orcid = OrcidIdField(null=True)
-    name = CharField(max_length=120, null=True)
+
+    class Meta:  # noqa: D101,D106
+        db_table = "funding_contributor"
+        table_alias = "fc"
+
+
+class InviteesModel(BaseModel):
+    """Common model bits of the invitees records."""
+
+    identifier = CharField(max_length=120, null=True)
     email = CharField(max_length=120, null=True)
-    role = CharField(max_length=120, null=True)
-    status = TextField(null=True, help_text="Record processing status.")
+    first_name = CharField(max_length=120, null=True)
+    last_name = CharField(max_length=120, null=True)
+    orcid = OrcidIdField(null=True)
     put_code = IntegerField(null=True)
+    status = TextField(null=True, help_text="Record processing status.")
     processed_at = DateTimeField(null=True)
 
     def add_status_line(self, line):
@@ -1344,20 +1589,54 @@ class FundingContributor(BaseModel):
         ts = datetime.utcnow().isoformat(timespec="seconds")
         self.status = (self.status + "\n" if self.status else '') + ts + ": " + line
 
+
+class WorkInvitees(InviteesModel):
+    """Researcher or Invitees - related to work."""
+
+    work_record = ForeignKeyField(
+        WorkRecord, related_name="work_invitees", on_delete="CASCADE")
+
     class Meta:  # noqa: D101,D106
-        db_table = "funding_contributor"
-        table_alias = "fc"
+        db_table = "work_invitees"
+        table_alias = "wi"
 
 
-class ExternalId(BaseModel):
-    """Funding ExternalId loaded for batch processing."""
+class FundingInvitees(InviteesModel):
+    """Researcher or Invitees - related to funding."""
 
     funding_record = ForeignKeyField(
-        FundingRecord, related_name="external_ids", on_delete="CASCADE")
+        FundingRecord, related_name="funding_invitees", on_delete="CASCADE")
+
+    class Meta:  # noqa: D101,D106
+        db_table = "funding_invitees"
+        table_alias = "fi"
+
+
+class ExternalIdModel(BaseModel):
+    """Common model bits of the ExternalId records."""
+
     type = CharField(max_length=255)
     value = CharField(max_length=255)
     url = CharField(max_length=200, null=True)
     relationship = CharField(max_length=255, null=True)
+
+
+class WorkExternalId(ExternalIdModel):
+    """Work ExternalId loaded for batch processing."""
+
+    work_record = ForeignKeyField(
+        WorkRecord, related_name="external_ids", on_delete="CASCADE")
+
+    class Meta:  # noqa: D101,D106
+        db_table = "work_external_id"
+        table_alias = "wei"
+
+
+class ExternalId(ExternalIdModel):
+    """Funding ExternalId loaded for batch processing."""
+
+    funding_record = ForeignKeyField(
+        FundingRecord, related_name="external_ids", on_delete="CASCADE")
 
     class Meta:  # noqa: D101,D106
         db_table = "external_id"
@@ -1461,6 +1740,10 @@ class Client(BaseModel, AuditMixin):
         if self._default_scopes:
             return self._default_scopes.split()
         return []
+
+    def validate_scopes(self, scopes):
+        """Validate client requested scopes."""
+        return "/webhook" in scopes or not scopes
 
     def __repr__(self):  # noqa: D102
         return self.name or self.homepage_url or self.description
@@ -1568,7 +1851,12 @@ def create_tables():
             Url,
             UserInvitation,
             FundingRecord,
+            WorkRecord,
+            WorkContributor,
+            WorkExternalId,
+            WorkInvitees,
             FundingContributor,
+            FundingInvitees,
             ExternalId,
             Client,
             Grant,
@@ -1607,3 +1895,36 @@ def drop_tables():
                 m.drop_table(fail_silently=True, cascade=db.drop_cascade)
             except OperationalError:
                 pass
+
+
+def load_yaml_json(filename, source):
+    """Create a common way of loading json or yaml file."""
+    if os.path.splitext(filename)[1][1:] == "yaml" or os.path.splitext(
+            filename)[1][1:] == "yml":
+        data_list = yaml.load(source)
+    else:
+        data_list = json.loads(source)
+
+    # Removing None for correct schema validation
+    if not isinstance(data_list, list):
+        raise SchemaError(
+            u"Schema validation failed:\n - Expecting a list of Records")
+    return data_list
+
+
+def del_none(d):
+    """
+    Delete keys with the value ``None`` in a dictionary, recursively.
+
+    So that the schema validation will not fail, for elements that are none
+    """
+    for key, value in list(d.items()):
+        if value is None:
+            del d[key]
+        elif isinstance(value, list):
+            for item in value:
+                if isinstance(item, dict):
+                    del_none(item)
+        elif isinstance(value, dict):
+            del_none(value)
+    return d

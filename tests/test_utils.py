@@ -3,7 +3,7 @@
 
 import logging
 from itertools import groupby
-from unittest.mock import Mock, patch
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 from flask import make_response
@@ -12,8 +12,9 @@ from peewee import JOIN
 
 from orcid_hub import utils
 from orcid_hub.models import (AffiliationRecord, ExternalId, File, FundingContributor,
-                              FundingRecord, OrcidToken, Organisation, Role, Task, User,
-                              UserInvitation, UserOrg)
+                              FundingInvitees, FundingRecord, OrcidToken, Organisation, Role, Task,
+                              User, UserInvitation, UserOrg, WorkRecord, WorkInvitees,
+                              WorkExternalId, WorkContributor)
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -143,7 +144,7 @@ def test_send_user_invitation(test_db, request_ctx):
 
 
 @patch("orcid_hub.utils.send_email", side_effect=send_mail_mock)
-def test_send_funding_invitation(test_db, request_ctx):
+def test_send_work_funding_invitation(test_db, request_ctx):
     """Test to send user invitation."""
     org = Organisation(
         id=1,
@@ -182,10 +183,10 @@ def test_send_funding_invitation(test_db, request_ctx):
     email = "test1234456@mailinator.com"
     fr = FundingRecord(task=task.id, title="xyz", type="Award")
     fr.save()
-    fc = FundingContributor(funding_record=fr.id, email=email)
+    fc = FundingInvitees(funding_record=fr.id, email=email)
     fc.save()
     with request_ctx("/") as ctxx:
-        utils.send_funding_invitation(
+        utils.send_work_funding_invitation(
             inviter=inviter, org=org, email=email, name=u.name, task_id=task.id)
         rv = ctxx.app.full_dispatch_request()
         assert rv.status_code == 200
@@ -312,6 +313,45 @@ def get_record_mock():
                 'path':
                 '/0000-0002-3879-2651/fundings'
             },
+            'works': {
+                'group': [{
+                    'external-ids': {
+                        'external-id': [{
+                            'external-id-type': 'grant_number',
+                            'external-id-value': 'GNS1701',
+                            'external-id-url': None,
+                            'external-id-relationship': 'SELF'
+                        }]
+                    },
+                    'work-summary': [{
+                        'source': {
+                            'source-orcid': None,
+                            'source-client-id': {
+                                'uri': 'http://sandbox.orcid.org/client/APP-5ZVH4JRQ0C27RVH5',
+                                'path': 'APP-5ZVH4JRQ0C27RVH5',
+                                'host': 'sandbox.orcid.org'
+                            },
+                            'source-name': {
+                                'value': 'The University of Auckland - MyORCiD'
+                            }
+                        },
+                        'title': {
+                            'title': {
+                                'value': 'Test titile2'
+                            },
+                            'translated-title': {
+                                'value': 'नमस्ते',
+                                'language-code': 'hi'
+                            }
+                        },
+                        'type': 'BOOK_CHAPTER',
+                        'put-code': 9597,
+                        'path': '/0000-0002-3879-2651/works/9597'
+                    }]
+                }],
+                'path':
+                    '/0000-0002-3879-2651/works'
+            },
             'path': '/0000-0002-3879-2651/activities'
         },
         'path': '/0000-0002-3879-2651'
@@ -334,11 +374,12 @@ def create_or_update_aff_mock(affiliation=None, task_by_user=None, *args, **kwar
     return v
 
 
+@patch("orcid_hub.utils.send_email", side_effect=send_mail_mock)
 @patch("orcid_api.MemberAPIV20Api.create_funding", side_effect=create_or_update_fund_mock)
 @patch("orcid_hub.orcid_client.MemberAPI.get_record", side_effect=get_record_mock)
-def test_create_or_update_funding(patch, test_db, request_ctx):
+def test_create_or_update_funding(email_patch, patch, test_db, request_ctx):
     """Test create or update funding."""
-    org = Organisation(
+    org = Organisation.create(
         name="THE ORGANISATION",
         tuakiri_name="THE ORGANISATION",
         confirmed=True,
@@ -348,9 +389,8 @@ def test_create_or_update_funding(patch, test_db, request_ctx):
         country="COUNTRY",
         disambiguation_org_id="ID",
         disambiguation_org_source="SOURCE")
-    org.save()
 
-    u = User(
+    u = User.create(
         email="test1234456@mailinator.com",
         name="TEST USER",
         username="test123",
@@ -358,14 +398,12 @@ def test_create_or_update_funding(patch, test_db, request_ctx):
         orcid="123",
         confirmed=True,
         organisation=org)
-    u.save()
-    user_org = UserOrg(user=u, org=org)
-    user_org.save()
 
-    t = Task(org=org, filename="xyz.json", created_by=u, updated_by=u, task_type=1)
-    t.save()
+    UserOrg.create(user=u, org=org)
 
-    fr = FundingRecord(
+    t = Task.create(org=org, filename="xyz.json", created_by=u, updated_by=u, task_type=1)
+
+    fr = FundingRecord.create(
         task=t,
         title="Test titile",
         translated_title="Test title",
@@ -383,68 +421,112 @@ def test_create_or_update_funding(patch, test_db, request_ctx):
         disambiguation_source="Test_source",
         is_active=True,
         visibility="Test_visibity")
-    fr.save()
 
-    fc = FundingContributor(
+    FundingInvitees.create(
         funding_record=fr,
-        name="Test",
+        first_name="Test",
         email="test1234456@mailinator.com",
-        orcid="123",
-        role="Researcher")
-    fc.save()
+        orcid="123")
 
-    ext_id = ExternalId(
+    ExternalId.create(
         funding_record=fr, type="Test_type", value="Test_value", url="Test", relationship="SELF")
-    ext_id.save()
 
-    ui = UserInvitation(
+    FundingContributor.create(
+        funding_record=fr, orcid="1213", role="LEAD", name="Contributor")
+
+    UserInvitation.create(
         invitee=u,
         inviter=u,
         org=org,
         task=t,
         email="test1234456@mailinator.com",
         token="xyztoken")
-    ui.save()
 
-    ot = OrcidToken(
+    OrcidToken.create(
         user=u, org=org, scope="/read-limited,/activities/update", access_token="Test_token")
-    ot.save()
 
-    tasks = (Task.select(
-        Task, FundingRecord, FundingContributor,
-        User, UserInvitation.id.alias("invitation_id"), OrcidToken).where(
-            FundingRecord.processed_at.is_null(), FundingContributor.processed_at.is_null(),
-            FundingRecord.is_active,
-            (OrcidToken.id.is_null(False) |
-             ((FundingContributor.status.is_null()) |
-              (FundingContributor.status.contains("sent").__invert__())))).join(
-                  FundingRecord, on=(Task.id == FundingRecord.task_id)).join(
-                      FundingContributor,
-                      on=(FundingRecord.id == FundingContributor.funding_record_id)).join(
-                          User,
-                          JOIN.LEFT_OUTER,
-                          on=((User.email == FundingContributor.email) |
-                              (User.orcid == FundingContributor.orcid)))
-             .join(Organisation, JOIN.LEFT_OUTER, on=(Organisation.id == Task.org_id)).join(
-                 UserInvitation,
-                 JOIN.LEFT_OUTER,
-                 on=((UserInvitation.email == FundingContributor.email)
-                     & (UserInvitation.task_id == Task.id))).join(
-                         OrcidToken,
-                         JOIN.LEFT_OUTER,
-                         on=((OrcidToken.user_id == User.id)
-                             & (OrcidToken.org_id == Organisation.id)
-                             & (OrcidToken.scope.contains("/activities/update")))).limit(20))
+    utils.process_funding_records()
+    funding_invitees = FundingInvitees.get(orcid=12344)
+    assert 12399 == funding_invitees.put_code
+    assert "12344" == funding_invitees.orcid
 
-    for (task_id, org_id, funding_record_id, user), tasks_by_user in groupby(tasks, lambda t: (
-            t.id,
-            t.org_id,
-            t.funding_record.id,
-            t.funding_record.funding_contributor.user,)):
-        utils.create_or_update_funding(user=user, org_id=org_id, records=tasks_by_user)
-    funding_contributor = FundingContributor.get(orcid=12344)
-    assert 12399 == funding_contributor.put_code
-    assert "12344" == funding_contributor.orcid
+
+@patch("orcid_hub.utils.send_email", side_effect=send_mail_mock)
+@patch("orcid_api.MemberAPIV20Api.create_work", side_effect=create_or_update_fund_mock)
+@patch("orcid_hub.orcid_client.MemberAPI.get_record", side_effect=get_record_mock)
+def test_create_or_update_work(email_patch, patch, test_db, request_ctx):
+    """Test create or update work."""
+    org = Organisation.create(
+        name="THE ORGANISATION",
+        tuakiri_name="THE ORGANISATION",
+        confirmed=True,
+        orcid_client_id="APP-5ZVH4JRQ0C27RVH5",
+        orcid_secret="Client Secret",
+        city="CITY",
+        country="COUNTRY",
+        disambiguation_org_id="ID",
+        disambiguation_org_source="SOURCE")
+
+    u = User.create(
+        email="test1234456@mailinator.com",
+        name="TEST USER",
+        username="test123",
+        roles=Role.RESEARCHER,
+        orcid="12344",
+        confirmed=True,
+        organisation=org)
+
+    UserOrg.create(user=u, org=org)
+
+    t = Task.create(org=org, filename="xyz.json", created_by=u, updated_by=u, task_type=1)
+
+    wr = WorkRecord.create(
+        task=t,
+        title="Test titile",
+        sub_title="Test titile",
+        translated_title="Test title",
+        translated_title_language_code="Test",
+        journal_title="Test titile",
+        short_description="Test desc",
+        citation_type="Test",
+        citation_value="Test",
+        type="BOOK_CHAPTER",
+        url="Test org",
+        language_code="en",
+        country="Test",
+        org_name="Test_orgname",
+        city="Test city",
+        region="Test",
+        is_active=True,
+        visibility="PUBLIC")
+
+    WorkInvitees.create(
+        work_record=wr,
+        first_name="Test",
+        email="test1234456@mailinator.com",
+        orcid="12344")
+
+    WorkExternalId.create(
+        work_record=wr, type="Test_type", value="Test_value", url="Test", relationship="SELF")
+
+    WorkContributor.create(
+        work_record=wr, contributor_sequence="1", orcid="1213", role="LEAD", name="Contributor")
+
+    UserInvitation.create(
+        invitee=u,
+        inviter=u,
+        org=org,
+        task=t,
+        email="test1234456@mailinator.com",
+        token="xyztoken")
+
+    OrcidToken.create(
+        user=u, org=org, scope="/read-limited,/activities/update", access_token="Test_token")
+
+    utils.process_work_records()
+    work_invitees = WorkInvitees.get(orcid=12344)
+    assert 12399 == work_invitees.put_code
+    assert "12344" == work_invitees.orcid
 
 
 @patch("orcid_api.MemberAPIV20Api.update_employment", side_effect=create_or_update_aff_mock)
@@ -653,3 +735,38 @@ def test_send_email(app):
                 ),
                 logo="LOGO",
                 subject="TEST")
+
+
+def test_get_client_credentials_token(request_ctx):
+    """Test retrieval of the webhook tokens."""
+    with request_ctx("/"), patch("orcid_hub.utils.requests.post") as mockpost:
+        admin = User.get(email="admin@test0.edu")
+        org = admin.organisation
+        login_user(admin)
+        mockresp = MagicMock(status_code=201)
+        mockresp.json.return_value = {
+            "access_token": "ACCESS-TOKEN-123",
+            "token_type": "bearer",
+            "refresh_token": "REFRESH-TOKEN-123",
+            "expires_in": 99999,
+            "scope": "/webhook",
+            "orcid": None
+        }
+        mockpost.return_value = mockresp
+
+        OrcidToken.create(
+            org=org, access_token="access_token", refresh_token="refresh_token", scope="/webhook")
+        token = utils.get_client_credentials_token(org, "/webhook")
+        assert OrcidToken.select().where(OrcidToken.org == org, OrcidToken.scope == "/webhook").count() == 1
+        assert token.access_token == "ACCESS-TOKEN-123"
+        assert token.refresh_token == "REFRESH-TOKEN-123"
+        assert token.expires_in == 99999
+        assert token.scope == "/webhook"
+
+
+def test_is_valid_url():
+    """Test URL validation for call-back URLs."""
+    assert utils.is_valid_url("http://www.orcidhub.org.nz/some_path")
+    assert not utils.is_valid_url("http://www.orcidhub.org.nz")
+    assert not utils.is_valid_url("www.orcidhub.org.nz/some_path")
+    assert not utils.is_valid_url(12345)
