@@ -35,6 +35,8 @@ from .config import DEFAULT_COUNTRY, ENV
 
 EMAIL_REGEX = re.compile(r"^[_a-z0-9-]+(\.[_a-z0-9-]+)*@[a-z0-9-]+(\.[a-z0-9-]+)*(\.[a-z]{2,4})$")
 ORCID_ID_REGEX = re.compile(r"^([X\d]{4}-?){3}[X\d]{4}$")
+PARTIAL_DATE_REREX = re.compile(r"\d+([/\-]\d+){,2}")
+
 
 AFFILIATION_TYPES = (
     "student",
@@ -118,11 +120,15 @@ class PartialDate(namedtuple("PartialDate", ["year", "month", "day"])):
         if value is None or value == {}:
             return None
         if isinstance(value, str):
+            match = PARTIAL_DATE_REREX.search(value)
+            if not match:
+                raise ModelException(f"Wrong partial date value '{value}'")
+            value0 = match[0]
             try:
-                if '/' in value:
-                    parts = value.split('/')
+                if '/' in value0:
+                    parts = value0.split('/')
                     return cls(*[int(v) for v in (parts[::-1] if len(parts[-1]) > 2 else parts)])
-                return cls(*[int(v) for v in value.split('-')])
+                return cls(*[int(v) for v in value0.split('-')])
             except Exception as ex:
                 raise ModelException(f"Wrong partial date value '{value}': {ex}")
 
@@ -2004,6 +2010,10 @@ class Client(BaseModel, AuditMixin):
         if self._default_scopes:
             return self._default_scopes.split()
         return []
+
+    def validate_scopes(self, scopes):
+        """Validate client requested scopes."""
+        return "/webhook" in scopes or not scopes
 
     def __repr__(self):  # noqa: D102
         return self.name or self.homepage_url or self.description

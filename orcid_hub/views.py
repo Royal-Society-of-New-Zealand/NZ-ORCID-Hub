@@ -42,7 +42,7 @@ from .models import (Affiliation, AffiliationRecord, CharField, Client, File, Fu
                      FundingRecord, Grant, GroupIdRecord, ModelException, OrcidApiCall, OrcidToken, Organisation,
                      OrgInfo, OrgInvitation, PartialDate, Role, Task, TextField, Token, Url, User,
                      UserInvitation, UserOrg, UserOrgAffiliation, WorkInvitees, WorkRecord, db, PeerReviewRecord,
-                     PeerReviewInvitee, validate_orcid_id)
+                     PeerReviewInvitee)
 # NB! Should be disabled in production
 from .pyinfo import info
 from .utils import generate_confirmation_token, get_next_url, send_user_invitation
@@ -639,6 +639,7 @@ to the best of your knowledge, correct!""")
                     for user_invitation in UserInvitation.select().where(UserInvitation.email.in_(
                             self.model.select(self.model.email).where(self.model.id.in_(ids)))):
                         user_invitation.delete_instance()
+
             except Exception as ex:
                 db.rollback()
                 flash(f"Failed to activate the selected records: {ex}")
@@ -1200,7 +1201,7 @@ class GroupIdRecordAdmin(AppModelView):
                     try:
                         orcid_token = OrcidToken.get(org=org, scope='/group-id-record/update')
                     except OrcidToken.DoesNotExist:
-                        orcid_token = utils.get_webhooks_access_token(org=org, scope="/group-id-record/update")
+                        orcid_token = utils.get_client_credentials_token(org=org, scope="/group-id-record/update")
                     except Exception as ex:
                         flash("Something went wrong in ORCID call, "
                               "please contact orcid@royalsociety.org.nz for support", "warning")
@@ -1898,9 +1899,18 @@ def invite_organisation():
                 try:
                     org = Organisation.get(name=org_name)
                     if org.tech_contact and org.tech_contact.email != email:
-                        flash(f"The current tech.conact {org.tech_contact.name} "
+                        # If the current tech contact is technical contact of more than one organisation,
+                        # then dont update the Roles in User table.
+                        check_tech_contact_count = Organisation.select().where(
+                            Organisation.tech_contact == org.tech_contact).count()
+                        if check_tech_contact_count == 1:
+                            org.tech_contact.roles &= ~Role.TECHNICAL
+                            org.tech_contact.save()
+                        flash(f"The current tech.contact {org.tech_contact.name} "
                               f"({org.tech_contact.email}) will be revoked.", "warning")
                 except Organisation.DoesNotExist:
+                    pass
+                except User.DoesNotExist:
                     pass
 
             register_org(**params)
@@ -2221,12 +2231,17 @@ def user_orgs_org(user_id, org_id=None):
     else:
         org = Organisation.get(id=org_id)
         uo, created = UserOrg.get_or_create(user_id=user_id, org_id=org_id)
-        if "is_admin" in data and uo.is_admin != data["is_admin"]:
+        if "is_admin" in data:
             uo.is_admin = data["is_admin"]
             uo.save()
         if "is_tech_contact" in data:
             user = User.get(id=user_id)
             if data["is_tech_contact"]:
+                # Updating old Technical Contact's Role info.
+                if org.tech_contact and org.tech_contact != user:
+                    org.tech_contact.roles &= ~Role.TECHNICAL
+                    org.tech_contact.save()
+                # Assigning new tech contact to organisation.
                 org.tech_contact = user
             elif org.tech_contact == user:
                 org.tech_contact_id = None
@@ -2238,18 +2253,19 @@ def user_orgs_org(user_id, org_id=None):
         }), (201 if created else 200)
 
 
-@app.route("/services/<string:orcid>/updated", methods=["POST"])
-def update_webhook(orcid):
+@app.route("/services/<int:user_id>/updated", methods=["POST"])
+def update_webhook(user_id):
     """Handle webook calls."""
-    def handle_callback(orcid):
+    def handle_callback(user):
         """Log the update and call client webhook callbacks."""
+        # TODO: add client webhook calls
         pass
 
     try:
-        validate_orcid_id(orcid)
-        thread = Thread(target=handle_callback, kwargs=dict(orcid=orcid))
+        user = User.get(id=user_id)
+        thread = Thread(target=handle_callback, kwargs=dict(user=user))
         thread.start()
     except Exception as ex:
-        app.logger.exception(f"Invalid ORDIC iD received: {orcid}")
+        app.logger.exception(f"Invalid user_id: {user_id}")
 
     return '', 204
