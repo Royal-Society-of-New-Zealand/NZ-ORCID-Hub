@@ -20,7 +20,7 @@ from peewee import JOIN
 from . import app, orcid_client
 from .models import (AFFILIATION_TYPES, Affiliation, AffiliationRecord, FundingInvitees,
                      FundingRecord, OrcidToken, Organisation, Role, Task, TaskType, Url, User,
-                     UserInvitation, UserOrg, WorkInvitees, WorkRecord, db)
+                     UserInvitation, UserOrg, WorkInvitees, WorkRecord, db, PeerReviewRecord, PeerReviewInvitee)
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -221,7 +221,7 @@ def set_server_name():
 
 
 def send_work_funding_invitation(inviter, org, email, name, task_id=None, invitation_template=None, **kwargs):
-    """Send a work or funding invitation to join ORCID Hub logging in via ORCID."""
+    """Send a work, funding or peer review invitation to join ORCID Hub logging in via ORCID."""
     try:
         logger.info(f"*** Sending an invitation to '{name} <{email}>' "
                     f"submitted by {inviter} of {org}")
@@ -361,6 +361,91 @@ def create_or_update_work(user, org_id, records, *args, **kwargs):
                 wi.processed_at = datetime.utcnow()
                 wr.save()
                 wi.save()
+    else:
+        # TODO: Invitation resend in case user revokes organisation permissions
+        app.logger.debug(f"Should resend an invite to the researcher asking for permissions")
+        return
+
+
+def create_or_update_peer_review(user, org_id, records, *args, **kwargs):
+    """Create or update peer review record of a user."""
+    records = list(unique_everseen(records, key=lambda t: t.peer_review_record.id))
+    org = Organisation.get(id=org_id)
+    client_id = org.orcid_client_id
+    api = orcid_client.MemberAPI(org, user)
+
+    profile_record = api.get_record()
+
+    if profile_record:
+        activities = profile_record.get("activities-summary")
+
+        def is_org_rec(rec):
+            return (rec.get("source").get("source-client-id")
+                    and rec.get("source").get("source-client-id").get("path") == client_id)
+
+        peer_reviews = []
+
+        for r in activities.get("peer-reviews").get("group"):
+            ws = r.get("peer-review-summary")[0]
+            if is_org_rec(ws):
+                peer_reviews.append(ws)
+
+        taken_put_codes = {
+            r.peer_review_record.peer_review_invitee.put_code
+            for r in records if r.peer_review_record.peer_review_invitee.put_code
+        }
+
+        def match_put_code(records, peer_review_record, peer_review_invitee):
+            """Match and assign put-code to a single peer review record and the existing ORCID records."""
+            if peer_review_invitee.put_code:
+                return
+            for r in records:
+                put_code = r.get("put-code")
+                if put_code in taken_put_codes:
+                    continue
+                # TODO: Add an extra condition for external-id, so that correct put code can be assign.
+                if (r.get("review-group-id") and r.get(
+                        "review-group-id") == peer_review_record.review_group_id):
+                    peer_review_invitee.put_code = put_code
+                    peer_review_invitee.save()
+                    taken_put_codes.add(put_code)
+                    app.logger.debug(
+                        f"put-code {put_code} was asigned to the peer review record "
+                        f"(ID: {peer_review_record.id}, Task ID: {peer_review_record.task_id})")
+                    break
+
+        for task_by_user in records:
+            pr = task_by_user.peer_review_record
+            pi = task_by_user.peer_review_record.peer_review_invitee
+            match_put_code(peer_reviews, pr, pi)
+
+        for task_by_user in records:
+            pi = task_by_user.peer_review_record.peer_review_invitee
+            pr = task_by_user.peer_review_record
+
+            try:
+                put_code, orcid, created = api.create_or_update_peer_review(task_by_user)
+                if created:
+                    pi.add_status_line(f"Peer review record was created.")
+                else:
+                    pi.add_status_line(f"Peer review record was updated.")
+                pi.orcid = orcid
+                pi.put_code = put_code
+
+            except Exception as ex:
+                logger.exception(f"For {user} encountered exception")
+                exception_msg = ""
+                if ex and ex.body:
+                    exception_msg = json.loads(ex.body)
+                pi.add_status_line(f"Exception occured processing the record: {exception_msg}.")
+                pr.add_status_line(
+                    f"Error processing record. Fix and reset to enable this record to be processed: {exception_msg}."
+                )
+
+            finally:
+                pi.processed_at = datetime.utcnow()
+                pr.save()
+                pi.save()
     else:
         # TODO: Invitation resend in case user revokes organisation permissions
         app.logger.debug(f"Should resend an invite to the researcher asking for permissions")
@@ -815,6 +900,110 @@ def process_work_records(max_rows=20):
                     error_count=error_count,
                     row_count=row_count,
                     export_url=export_url,
+                    task_name="Work",
+                    filename=task.filename)
+
+
+def process_peer_review_records(max_rows=20):
+    """Process uploaded peer_review records."""
+    set_server_name()
+    task_ids = set()
+    peer_review_ids = set()
+    """This query is to retrieve Tasks associated with peer review records, which are not processed but are active"""
+    tasks = (Task.select(
+        Task, PeerReviewRecord, PeerReviewInvitee,
+        User, UserInvitation.id.alias("invitation_id"), OrcidToken).where(
+            PeerReviewRecord.processed_at.is_null(), PeerReviewInvitee.processed_at.is_null(),
+            PeerReviewRecord.is_active,
+            (OrcidToken.id.is_null(False) |
+             ((PeerReviewInvitee.status.is_null()) |
+              (PeerReviewInvitee.status.contains("sent").__invert__())))).join(
+                  PeerReviewRecord, on=(Task.id == PeerReviewRecord.task_id)).join(
+                      PeerReviewInvitee,
+                      on=(PeerReviewRecord.id == PeerReviewInvitee.peer_review_record_id)).join(
+                          User, JOIN.LEFT_OUTER,
+                          on=((User.email == PeerReviewInvitee.email) | (User.orcid == PeerReviewInvitee.orcid)))
+             .join(Organisation, JOIN.LEFT_OUTER, on=(Organisation.id == Task.org_id)).join(
+                 UserInvitation,
+                 JOIN.LEFT_OUTER,
+                 on=((UserInvitation.email == PeerReviewInvitee.email)
+                     & (UserInvitation.task_id == Task.id))).join(
+                         OrcidToken,
+                         JOIN.LEFT_OUTER,
+                         on=((OrcidToken.user_id == User.id)
+                             & (OrcidToken.org_id == Organisation.id)
+                             & (OrcidToken.scope.contains("/activities/update")))).limit(max_rows))
+
+    for (task_id, org_id, peer_review_record_id, user), tasks_by_user in groupby(tasks, lambda t: (
+            t.id,
+            t.org_id,
+            t.peer_review_record.id,
+            t.peer_review_record.peer_review_invitee.user,)):
+        """If we have the token associated to the user then update the peer record, otherwise send him an invite"""
+        if (user.id is None or user.orcid is None or not OrcidToken.select().where(
+            (OrcidToken.user_id == user.id) & (OrcidToken.org_id == org_id) &
+            (OrcidToken.scope.contains("/activities/update"))).exists()):  # noqa: E127, E129
+
+            for k, tasks in groupby(
+                    tasks_by_user,
+                    lambda t: (
+                        t.created_by,
+                        t.org,
+                        t.peer_review_record.peer_review_invitee.email,
+                        t.peer_review_record.peer_review_invitee.first_name, )
+            ):  # noqa: E501
+                send_work_funding_invitation(*k, task_id=task_id,
+                                             invitation_template="email/peer_review_invitation.html")
+                with db.atomic():
+                    status = "The invitation sent at " + datetime.utcnow().isoformat(timespec="seconds")
+                    (PeerReviewInvitee.update(status=PeerReviewInvitee.status + "\n" + status).where(
+                        PeerReviewInvitee.status.is_null(False), PeerReviewInvitee.email == k[2]).execute())
+                    (PeerReviewInvitee.update(status=status).where(
+                        PeerReviewInvitee.status.is_null(), PeerReviewInvitee.email == k[2]).execute())
+
+        else:
+            create_or_update_peer_review(user, org_id, tasks_by_user)
+        task_ids.add(task_id)
+        peer_review_ids.add(peer_review_record_id)
+
+    for peer_review_record in PeerReviewRecord.select().where(PeerReviewRecord.id << peer_review_ids):
+        # The Peer Review record is processed for all invitees
+        if not (PeerReviewInvitee.select().where(
+                PeerReviewInvitee.peer_review_record_id == peer_review_record.id,
+                PeerReviewInvitee.processed_at.is_null()).exists()):
+            peer_review_record.processed_at = datetime.utcnow()
+            if not peer_review_record.status or "error" not in peer_review_record.status:
+                peer_review_record.add_status_line("Peer Review record is processed.")
+            peer_review_record.save()
+
+    for task in Task.select().where(Task.id << task_ids):
+        # The task is completed (Once all records are processed):
+        if not (PeerReviewRecord.select().where(PeerReviewRecord.task_id == task.id,
+                                                PeerReviewRecord.processed_at.is_null()).exists()):
+            task.completed_at = datetime.utcnow()
+            task.save()
+            error_count = PeerReviewRecord.select().where(
+                PeerReviewRecord.task_id == task.id, PeerReviewRecord.status ** "%error%").count()
+            row_count = task.peer_review_record_count
+
+            with app.app_context():
+                protocol_scheme = 'http'
+                if not EXTERNAL_SP:
+                    protocol_scheme = 'https'
+                export_url = flask.url_for(
+                    "peerreviewrecord.export",
+                    export_type="json",
+                    _scheme=protocol_scheme,
+                    task_id=task.id,
+                    _external=True)
+                send_email(
+                    "email/work_task_completed.html",
+                    subject="Peer Review Process Update",
+                    recipient=(task.created_by.name, task.created_by.email),
+                    error_count=error_count,
+                    row_count=row_count,
+                    export_url=export_url,
+                    task_name="Peer Review",
                     filename=task.filename)
 
 
@@ -1051,12 +1240,23 @@ def process_tasks(max_rows=20):
         if max_expiry_date < (datetime.now() + timedelta(weeks=1)):
             task.expires_at = max_expiry_date
             task.save()
+            export_model = None
             if task.task_type == TaskType.AFFILIATION.value:
-                error_count = AffiliationRecord.select().where(
-                    AffiliationRecord.task_id == task.id, AffiliationRecord.status ** "%error%").count()
+                export_model = "affiliationrecord.export"
+                error_count = AffiliationRecord.select().where(AffiliationRecord.task_id == task.id,
+                                                               AffiliationRecord.status ** "%error%").count()
             elif task.task_type == TaskType.FUNDING.value:
+                export_model = "fundingrecord.export"
                 error_count = FundingRecord.select().where(FundingRecord.task_id == task.id,
                                                            FundingRecord.status ** "%error%").count()
+            elif task.task_type == TaskType.WORK.value:
+                export_model = "workrecord.export"
+                error_count = WorkRecord.select().where(WorkRecord.task_id == task.id,
+                                                        WorkRecord.status ** "%error%").count()
+            elif task.task_type == TaskType.PEER_REVIEW.value:
+                export_model = "peerreviewrecord.export"
+                error_count = PeerReviewRecord.select().where(PeerReviewRecord.task_id == task.id,
+                                                              PeerReviewRecord.status ** "%error%").count()
             else:
                 raise Exception(f"Unexpeced task type: {task.task_type} ({task}).")
 
@@ -1065,8 +1265,7 @@ def process_tasks(max_rows=20):
                 if not EXTERNAL_SP:
                     protocol_scheme = 'https'
                 export_url = flask.url_for(
-                    "affiliationrecord.export"
-                    if task.task_type == TaskType.AFFILIATION.value else "fundingrecord.export",
+                    export_model,
                     export_type="csv",
                     _scheme=protocol_scheme,
                     task_id=task.id,

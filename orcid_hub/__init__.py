@@ -179,7 +179,7 @@ if app.testing:
     app.register_blueprint(mocks)
 
 from .utils import (process_affiliation_records, process_funding_records,
-                    process_tasks, process_work_records)  # noqa: E402
+                    process_tasks, process_work_records, process_peer_review_records)  # noqa: E402
 
 
 @app.before_first_request
@@ -287,6 +287,7 @@ def process(n):
     process_affiliation_records(n)
     process_funding_records(n)
     process_work_records(n)
+    process_peer_review_records(n)
     process_tasks(n)
 
 
