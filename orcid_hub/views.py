@@ -816,7 +816,7 @@ class PeerReviewInviteeAdmin(InviteesModelAdmin):
 
 
 class FundingWorkCommonModelView(RecordModelView):
-    """Common view for Funding and Work model."""
+    """Common view for Funding, Work and Peer review model."""
 
     column_export_exclude_list = (
         "task",
@@ -835,7 +835,7 @@ class FundingWorkCommonModelView(RecordModelView):
     ]
 
     def _export_tablib(self, export_type, return_url):
-        """Override export functionality to integrate funding/work invitees with external ids."""
+        """Override export functionality to integrate funding/work/peer review invitees with external ids."""
         if tablib is None:
             flash(gettext('Tablib dependency not installed.'), 'error')
             return redirect(return_url)
@@ -880,24 +880,30 @@ class FundingWorkCommonModelView(RecordModelView):
         )
 
     def get_external_id_invitees(self, row):
-        """Get funding/work invitees with external ids."""
+        """Get funding/work/peer_review invitees with external ids."""
         vals = []
         invitees_list = []
         external_id_list = []
         record_id = "funding_record_id"
-        funding_work_id = "funding id"
+        funding_work_peer_review_id = "funding id"
         invitees = "funding_invitees"
 
         if self.model == WorkRecord:
             record_id = "work_record_id"
-            funding_work_id = "work id"
+            funding_work_peer_review_id = "work id"
             invitees = "work_invitees"
+        elif self.model == PeerReviewRecord:
+            record_id = "peer_review_record_id"
+            funding_work_peer_review_id = "Peer Review id"
+            invitees = "peer_review_invitee"
 
         exclude_list = ['id', record_id, 'processed_at']
         for c in self._export_columns:
             if c[0] == invitees:
                 if self.model == WorkRecord:
                     invitees_data = row.work_invitees
+                elif self.model == PeerReviewRecord:
+                    invitees_data = row.peer_review_invitee
                 else:
                     invitees_data = row.funding_invitees
 
@@ -913,7 +919,7 @@ class FundingWorkCommonModelView(RecordModelView):
                                 self.column_type_formatters_export,
                             )
                     invitees_list.append(invitees_rec)
-            elif c[0] == funding_work_id:
+            elif c[0] == funding_work_peer_review_id:
                 external_id_relation_part_of = {}
                 for f in row.external_ids:
                     external_id_rec = {}

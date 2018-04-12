@@ -1895,7 +1895,7 @@ class PeerReviewExternalId(ExternalIdModel):
     """Peer Review ExternalId loaded for batch processing."""
 
     peer_review_record = ForeignKeyField(
-        PeerReviewRecord, related_name="peer_review_external_id", on_delete="CASCADE")
+        PeerReviewRecord, related_name="external_ids", on_delete="CASCADE")
 
     class Meta:  # noqa: D101,D106
         db_table = "peer_review_external_id"
