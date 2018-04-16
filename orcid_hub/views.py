@@ -1184,6 +1184,8 @@ class GroupIdRecordAdmin(AppModelView):
     can_edit = True
     can_create = True
     can_delete = True
+
+    form_widget_args = {"organisation": {"disabled": True}}
     column_searchable_list = (
         "name",
         "group_id",
@@ -1192,6 +1194,12 @@ class GroupIdRecordAdmin(AppModelView):
         "processed_at",
         "status",
     )
+
+    def create_form(self, obj=None):
+        """Preselect the organisation field with Admin's organisation."""
+        form = super(GroupIdRecordAdmin, self).create_form()
+        form.organisation.data = current_user.organisation
+        return form
 
     @action("Insert/Update Record", "Insert or Update record",
             "Are you sure you want add or update group id record?")
