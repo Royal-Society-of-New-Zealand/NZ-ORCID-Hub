@@ -53,6 +53,15 @@ def test_models(test_db):
         roles=Role.SUPERUSER if i % 42 == 0 else Role.ADMIN if i % 13 == 0 else Role.RESEARCHER)
                       for i in range(60))).execute()
 
+    User.insert_many((dict(
+        name="Test User with ORCID ID 'ABC-123' #%d" % i,
+        orcid="ABC-123",
+        first_name="Test_%d" % i,
+        last_name="User_%d" % i,
+        email="user_the_same_id_%d@org%d.org.nz" % (i, i),
+        confirmed=True,
+        roles=Role.RESEARCHER) for i in range(3))).execute()
+
     UserOrg.insert_many((dict(is_admin=((u + o) % 23 == 0), user=u, org=o)
                          for (u, o) in product(range(2, 60, 4), range(2, 10)))).execute()
 
@@ -212,7 +221,7 @@ def test_org_count(test_models):
 
 
 def test_user_count(test_models):
-    assert User.select().count() == 60
+    assert User.select().count() == 63
 
 
 def test_orcidtoken_count(test_models):
@@ -271,6 +280,7 @@ def test_user_org_link(test_models):
     assert Organisation.get(id=1).admins.count() == 1
     assert Organisation.get(id=5).users.count() > 0
     assert Organisation.get(id=5).admins.count() > 0
+    assert len(User.get(email="user_the_same_id_0@org0.org.nz").linked_accounts) == 3
 
 
 def test_roles(test_models):
