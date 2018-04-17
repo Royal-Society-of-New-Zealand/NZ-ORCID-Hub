@@ -1350,18 +1350,43 @@ def test_viewmembers_delete(request_ctx):
         User.get(id=researcher0.id)
 
     UserOrg.create(org=admin0.organisation, user=researcher1)
+    OrcidToken.create(org=admin0.organisation, user=researcher1, access_token="ABC123")
     with request_ctx(
             "/admin/viewmembers/delete/",
             method="POST",
             data={
                 "id": str(researcher1.id),
                 "url": "/admin/viewmembers/",
-            }) as ctx:  # noqa: F405
+            }) as ctx, patch("orcid_hub.views.requests.post") as mockpost:  # noqa: F405
+        org = researcher1.organisation
+        mockpost.return_value = MagicMock(status_code=400)
         login_user(admin1)
         resp = ctx.app.full_dispatch_request()
-    assert resp.status_code == 302
-    assert User.select().where(User.id == researcher1.id).count() == 1
-    assert UserOrg.select().where(UserOrg.user == researcher1).count() == 1
+        assert resp.status_code == 302
+        assert User.select().where(User.id == researcher1.id).count() == 1
+        assert UserOrg.select().where(UserOrg.user == researcher1).count() == 2
+        assert OrcidToken.select().where(OrcidToken.org == org, OrcidToken.user == researcher1).count() == 1
+
+        mockpost.side_effect = Exception("FAILURE")
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 302
+        assert User.select().where(User.id == researcher1.id).count() == 1
+        assert UserOrg.select().where(UserOrg.user == researcher1).count() == 2
+        assert OrcidToken.select().where(OrcidToken.org == org, OrcidToken.user == researcher1).count() == 1
+
+        mockpost.reset_mock(side_effect=True)
+        mockpost.return_value = MagicMock(status_code=200)
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 302
+        assert User.select().where(User.id == researcher1.id).count() == 1
+        assert UserOrg.select().where(UserOrg.user == researcher1).count() == 1
+        args, kwargs = mockpost.call_args
+        assert args[0] == ctx.app.config["ORCID_BASE_URL"] + "oauth/revoke"
+        data = kwargs["data"]
+        assert data["client_id"] == "ABC123"
+        assert data["client_secret"] == "SECRET-12345"
+        assert data["token"].startswith("TOKEN-1")
+        assert OrcidToken.select().where(OrcidToken.org == org, OrcidToken.user == researcher1).count() == 0
 
 
 def test_reset_all(request_ctx):
