@@ -1412,13 +1412,12 @@ class PeerReviewRecord(RecordModel):
             # import data from file based on its extension; either it is yaml or json
             peer_review_data_list = load_yaml_json(filename=filename, source=source)
 
-            # TODO: validation of uploaded peer review file.
-            '''for peer_review_data in peer_review_data_list:
+            for peer_review_data in peer_review_data_list:
                 validation_source_data = copy.deepcopy(peer_review_data)
                 validation_source_data = del_none(validation_source_data)
 
                 validator = Core(source_data=validation_source_data, schema_files=["peer_review_schema.yaml"])
-                validator.validate(raise_exception=True)'''
+                validator.validate(raise_exception=True)
 
             try:
                 if org is None:
