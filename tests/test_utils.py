@@ -13,8 +13,8 @@ from peewee import JOIN
 from orcid_hub import utils
 from orcid_hub.models import (AffiliationRecord, ExternalId, File, FundingContributor,
                               FundingInvitees, FundingRecord, OrcidToken, Organisation, Role, Task,
-                              User, UserInvitation, UserOrg, WorkRecord, WorkInvitees,
-                              WorkExternalId, WorkContributor)
+                              User, UserInvitation, UserOrg, WorkRecord, WorkInvitees, WorkExternalId, WorkContributor,
+                              PeerReviewRecord, PeerReviewInvitee, PeerReviewExternalId)
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -313,6 +313,62 @@ def get_record_mock():
                 'path':
                 '/0000-0002-3879-2651/fundings'
             },
+            "peer-reviews": {
+                "group": [
+                    {
+                        "external-ids": {
+                            "external-id": [
+                                {
+                                    "external-id-type": "peer-review",
+                                    "external-id-value": "issn:12131",
+                                    "external-id-url": None,
+                                    "external-id-relationship": None
+                                }
+                            ]
+                        },
+                        "peer-review-summary": [
+                            {
+                                "source": {
+                                    "source-orcid": None,
+                                    "source-client-id": {
+                                        "uri": "http://sandbox.orcid.org/client/APP-5ZVH4JRQ0C27RVH5",
+                                        "path": "APP-5ZVH4JRQ0C27RVH5",
+                                        "host": "sandbox.orcid.org"
+                                    },
+                                    "source-name": {
+                                        "value": "The University of Auckland - MyORCiD"
+                                    }
+                                },
+                                "external-ids": {
+                                    "external-id": [
+                                        {
+                                            "external-id-type": "source-work-id",
+                                            "external-id-value": "122334",
+                                            "external-id-url": {
+                                                "value": "https://localsystem.org/1234"
+                                            },
+                                            "external-id-relationship": "SELF"
+                                        }
+                                    ]
+                                },
+                                "review-group-id": "issn:12131",
+                                "convening-organization": {
+                                    "name": "The University of Auckland",
+                                    "address": {
+                                        "city": "Auckland",
+                                        "region": "Auckland",
+                                        "country": "NZ"
+                                    },
+                                    "disambiguated-organization": None
+                                },
+                                "visibility": "PUBLIC",
+                                "put-code": 2622,
+                            }
+                        ]
+                    }
+                ],
+                "path": "/0000-0003-1255-9023/peer-reviews"
+            },
             'works': {
                 'group': [{
                     'external-ids': {
@@ -478,7 +534,7 @@ def test_create_or_update_work(email_patch, patch, test_db, request_ctx):
 
     UserOrg.create(user=u, org=org)
 
-    t = Task.create(org=org, filename="xyz.json", created_by=u, updated_by=u, task_type=1)
+    t = Task.create(org=org, filename="xyz.json", created_by=u, updated_by=u, task_type=2)
 
     wr = WorkRecord.create(
         task=t,
@@ -527,6 +583,86 @@ def test_create_or_update_work(email_patch, patch, test_db, request_ctx):
     work_invitees = WorkInvitees.get(orcid=12344)
     assert 12399 == work_invitees.put_code
     assert "12344" == work_invitees.orcid
+
+
+@patch("orcid_hub.utils.send_email", side_effect=send_mail_mock)
+@patch("orcid_api.MemberAPIV20Api.create_peer_review", side_effect=create_or_update_fund_mock)
+@patch("orcid_hub.orcid_client.MemberAPI.get_record", side_effect=get_record_mock)
+def test_create_or_update_peer_review(email_patch, patch, test_db, request_ctx):
+    """Test create or update peer review."""
+    org = Organisation.create(
+        name="THE ORGANISATION",
+        tuakiri_name="THE ORGANISATION",
+        confirmed=True,
+        orcid_client_id="APP-5ZVH4JRQ0C27RVH5",
+        orcid_secret="Client Secret",
+        city="CITY",
+        country="COUNTRY",
+        disambiguation_org_id="ID",
+        disambiguation_org_source="SOURCE")
+
+    u = User.create(
+        email="test1234456@mailinator.com",
+        name="TEST USER",
+        username="test123",
+        roles=Role.RESEARCHER,
+        orcid="12344",
+        confirmed=True,
+        organisation=org)
+
+    UserOrg.create(user=u, org=org)
+
+    t = Task.create(id=12, org=org, filename="xyz.json", created_by=u, updated_by=u, task_type=3)
+    pr = PeerReviewRecord.create(
+        task=t,
+        review_group_id="issn:1212",
+        reviewer_role="reviewer",
+        review_url="xyz",
+        review_type="REVIEW",
+        subject_external_id_type="doi",
+        subject_external_id_value="1212",
+        subject_external_id_url="url/SELF",
+        subject_external_id_relationship="SELF",
+        subject_container_name="Journal title",
+        subject_type="JOURNAL_ARTICLE",
+        subject_name_title="name",
+        subject_name_subtitle="subtitle",
+        subject_name_translated_title_lang_code="en",
+        subject_name_translated_title="sdsd",
+        subject_url="url",
+        convening_org_name="THE ORGANISATION",
+        convening_org_city="auckland",
+        convening_org_region="auckland",
+        convening_org_country="nz",
+        convening_org_disambiguated_identifier="123",
+        convening_org_disambiguation_source="1212",
+        is_active=True,
+        visibility="PUBLIC")
+
+    PeerReviewInvitee.create(
+        peer_review_record=pr,
+        first_name="Test",
+        email="test1234456@mailinator.com",
+        orcid="12344")
+
+    PeerReviewExternalId.create(
+        peer_review_record=pr, type="Test_type", value="Test_value", url="Test", relationship="SELF")
+
+    UserInvitation.create(
+        invitee=u,
+        inviter=u,
+        org=org,
+        task=t,
+        email="test1234456@mailinator.com",
+        token="xyztoken")
+
+    OrcidToken.create(
+        user=u, org=org, scope="/read-limited,/activities/update", access_token="Test_token")
+
+    utils.process_peer_review_records()
+    peer_review_invitees = PeerReviewInvitee.get(orcid=12344)
+    assert 12399 == peer_review_invitees.put_code
+    assert "12344" == peer_review_invitees.orcid
 
 
 @patch("orcid_api.MemberAPIV20Api.update_employment", side_effect=create_or_update_aff_mock)
@@ -623,7 +759,6 @@ def test_send_email(app):
     """Test emailing."""
     with app.app_context():
 
-        # import pdb; pdb.set_trace()
         # app.config["SERVER_NAME"] = "ORCIDHUB"
 
         with patch("emails.message.Message") as msg_cls, patch("flask.current_app.jinja_env"):
