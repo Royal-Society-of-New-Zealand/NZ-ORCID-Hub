@@ -178,8 +178,7 @@ if app.testing:
     from .mocks import mocks
     app.register_blueprint(mocks)
 
-from .utils import (process_affiliation_records, process_funding_records,
-                    process_tasks, process_work_records, process_peer_review_records)  # noqa: E402
+from .utils import process_records  # noqa: E402
 
 
 @app.before_first_request
@@ -283,12 +282,8 @@ def org_info(input):
 @app.cli.command()
 @click.option("-n", default=20, help="Max number of rows to process.")
 def process(n):
-    """Process uploaded affiliation and funding records."""
-    process_affiliation_records(n)
-    process_funding_records(n)
-    process_work_records(n)
-    process_peer_review_records(n)
-    process_tasks(n)
+    """Process uploaded records."""
+    process_records(n)
 
 
 if os.environ.get("ENV") == "dev0":

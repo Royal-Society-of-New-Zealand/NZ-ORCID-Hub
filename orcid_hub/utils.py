@@ -416,12 +416,12 @@ def create_or_update_peer_review(user, org_id, records, *args, **kwargs):
 
         for task_by_user in records:
             pr = task_by_user.peer_review_record
-            pi = task_by_user.peer_review_record.peer_review_invitee
+            pi = pr.peer_review_invitee
             match_put_code(peer_reviews, pr, pi)
 
         for task_by_user in records:
-            pi = task_by_user.peer_review_record.peer_review_invitee
             pr = task_by_user.peer_review_record
+            pi = pr.peer_review_invitee
 
             try:
                 put_code, orcid, created = api.create_or_update_peer_review(task_by_user)
@@ -1326,3 +1326,12 @@ def register_orcid_webhook(user, callback_url=None, delete=False):
     }
     resp = requests.delete(url, headers=headers) if delete else requests.put(url, headers=headers)
     return resp
+
+
+def process_records(n):
+    """Process first n records and run other batch tasks."""
+    process_affiliation_records(n)
+    process_funding_records(n)
+    process_work_records(n)
+    process_peer_review_records(n)
+    process_tasks(n)
