@@ -12,6 +12,7 @@ from datetime import datetime
 from io import BytesIO
 from threading import Thread
 
+import requests
 import tablib
 import yaml
 from flask import (Response, abort, flash, jsonify, redirect, render_template, request, send_file,
@@ -1154,15 +1155,41 @@ class ViewMembersAdmin(AppModelView):
             abort(404)
 
     def delete_model(self, model):
-        """Delete a row."""
+        """Delete a row and revoke all access tokens issues for the organisation."""
+        org = current_user.organisation
+        token_revoke_url = app.config["ORCID_BASE_URL"] + "oauth/revoke"
+        for token in OrcidToken.select().where(OrcidToken.org == org, OrcidToken.user == model):
+            try:
+                resp = requests.post(
+                    token_revoke_url,
+                    headers={"Accepts": "application/json"},
+                    data=dict(
+                        client_id=org.orcid_client_id,
+                        client_secret=org.orcid_secret,
+                        token=token.access_token))
+
+                if resp.status_code != 200:
+                    flash("Failed to revoke token {tokne.access_token}: {ex}", "error")
+                    return False
+
+                token.delete_instance(recursive=True)
+
+            except Exception as ex:
+                flash("Failed to revoke token {tokne.access_token}: {ex}", "error")
+                app.logger.exception('Failed to delete record.')
+                return False
+
         user_org = UserOrg.select().where(
                 UserOrg.user == model,
-                UserOrg.org == current_user.organisation).first()
+                UserOrg.org == org).first()
         try:
             self.on_model_delete(model)
             if model.organisations.count() < 2:
                 model.delete_instance(recursive=True)
             else:
+                if model.organisation == user_org.org:
+                    model.organisation = model.organisations.first()
+                    model.save()
                 user_org.delete_instance(recursive=True)
 
         except Exception as ex:

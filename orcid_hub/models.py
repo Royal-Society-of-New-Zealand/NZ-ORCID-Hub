@@ -602,6 +602,11 @@ class User(BaseModel, UserMixin, AuditMixin):
                 .naive())
 
     @property
+    def linked_accounts(self):
+        """Get all linked accounts - accounts sharing the same ORCID ID."""
+        return [u for u in User.select().where(User.orcid == self.orcid)] if self.orcid else [self]
+
+    @property
     def available_organisations(self):
         """Get all not yet linked to the user organisation query."""
         return (Organisation.select(Organisation).where(UserOrg.id.is_null()).join(
