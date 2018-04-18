@@ -19,7 +19,7 @@ from peewee import JOIN
 
 from . import app, orcid_client
 from .models import (AFFILIATION_TYPES, Affiliation, AffiliationRecord, FundingInvitees,
-                     FundingRecord, OrcidToken, Organisation, Role, Task, TaskType, Url, User,
+                     FundingRecord, OrcidToken, Organisation, Role, Task, TaskType, Url, User, PeerReviewExternalId,
                      UserInvitation, UserOrg, WorkInvitees, WorkRecord, db, PeerReviewRecord, PeerReviewInvitee)
 
 logger = logging.getLogger(__name__)
@@ -386,26 +386,32 @@ def create_or_update_peer_review(user, org_id, records, *args, **kwargs):
         peer_reviews = []
 
         for r in activities.get("peer-reviews").get("group"):
-            ws = r.get("peer-review-summary")[0]
-            if is_org_rec(ws):
-                peer_reviews.append(ws)
+            peer_review_summary = r.get("peer-review-summary")
+            for ps in peer_review_summary:
+                if is_org_rec(ps):
+                    peer_reviews.append(ps)
 
         taken_put_codes = {
             r.peer_review_record.peer_review_invitee.put_code
             for r in records if r.peer_review_record.peer_review_invitee.put_code
         }
 
-        def match_put_code(records, peer_review_record, peer_review_invitee):
+        def match_put_code(records, peer_review_record, peer_review_invitee, taken_external_id_values):
             """Match and assign put-code to a single peer review record and the existing ORCID records."""
             if peer_review_invitee.put_code:
                 return
             for r in records:
                 put_code = r.get("put-code")
+
+                external_id_value = r.get("external-ids").get("external-id")[0].get("external-id-value") if r.get(
+                    "external-ids") and r.get("external-ids").get("external-id") and r.get("external-ids").get(
+                    "external-id")[0].get("external-id-value") else None
+
                 if put_code in taken_put_codes:
                     continue
-                # TODO: Add an extra condition for external-id, so that correct put code can be assign.
-                if (r.get("review-group-id") and r.get(
-                        "review-group-id") == peer_review_record.review_group_id):
+
+                if (r.get("review-group-id") and r.get("review-group-id") == peer_review_record.review_group_id and
+                            external_id_value in taken_external_id_values):     # noqa: E127
                     peer_review_invitee.put_code = put_code
                     peer_review_invitee.save()
                     taken_put_codes.add(put_code)
@@ -417,7 +423,10 @@ def create_or_update_peer_review(user, org_id, records, *args, **kwargs):
         for task_by_user in records:
             pr = task_by_user.peer_review_record
             pi = pr.peer_review_invitee
-            match_put_code(peer_reviews, pr, pi)
+
+            external_ids = PeerReviewExternalId.select().where(PeerReviewExternalId.peer_review_record_id == pr.id)
+            taken_external_id_values = {ei.value for ei in external_ids if ei.value}
+            match_put_code(peer_reviews, pr, pi, taken_external_id_values)
 
         for task_by_user in records:
             pr = task_by_user.peer_review_record

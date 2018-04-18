@@ -615,7 +615,7 @@ def test_create_or_update_peer_review(email_patch, patch, test_db, request_ctx):
     t = Task.create(id=12, org=org, filename="xyz.json", created_by=u, updated_by=u, task_type=3)
     pr = PeerReviewRecord.create(
         task=t,
-        review_group_id="issn:1212",
+        review_group_id="issn:12131",
         reviewer_role="reviewer",
         review_url="xyz",
         review_type="REVIEW",
@@ -646,7 +646,7 @@ def test_create_or_update_peer_review(email_patch, patch, test_db, request_ctx):
         orcid="12344")
 
     PeerReviewExternalId.create(
-        peer_review_record=pr, type="Test_type", value="Test_value", url="Test", relationship="SELF")
+        peer_review_record=pr, type="Test_type", value="122334_different", url="Test", relationship="SELF")
 
     UserInvitation.create(
         invitee=u,
