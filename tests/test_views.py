@@ -1116,6 +1116,41 @@ def test_load_researcher_work(patch, patch2, request_ctx):
         assert "work" in rv.location
 
 
+@patch("pykwalify.core.Core.validate", side_effect=validate)
+@patch("pykwalify.core.Core.__init__", side_effect=core_mock)
+def test_load_researcher_peer_review(patch, patch2, request_ctx):
+    """Test preload peer review data."""
+    user = User.get(email="admin@test1.edu")
+    user.roles = Role.ADMIN
+    user.save()
+    with request_ctx(
+            "/load/researcher/peer_review",
+            method="POST",
+            data={
+                "file_": (
+                        BytesIO(
+                            b'[{"invitees": [{"identifier": "00001", "email": "contriuto7384P@mailinator.com", '
+                            b'"first-name": "Alice", "last-name": "Contributor 1", "ORCID-iD": null, "put-code": null}]'
+                            b', "reviewer-role": "REVIEWER", "review-identifiers": { "external-id": [{ '
+                            b'"external-id-type": "source-work-id", "external-id-value": "1212221", "external-id-url": '
+                            b'{"value": "https://localsystem.org/1234"}, "external-id-relationship": "SELF"}]}, '
+                            b'"review-type": "REVIEW", "review-group-id": "issn:90122", "subject-container-name": { '
+                            b'"value": "Journal title"}, "subject-type": "JOURNAL_ARTICLE", "subject-name": { '
+                            b'"title": {"value": "Name of the paper reviewed"}},"subject-url": { '
+                            b'"value": "https://subject-alt-url.com"}, "convening-organization": { "name": '
+                            b'"The University of Auckland", "address": { "city": "Auckland", "region": "Auckland",'
+                            b' "country": "NZ" } }}]'),
+                        "logo.json",),
+                "email": user.email
+            }) as ctx:
+        login_user(user, remember=True)
+        rv = ctx.app.full_dispatch_request()
+        assert rv.status_code == 302
+        # peer-review file successfully loaded.
+        assert "task_id" in rv.location
+        assert "peer" in rv.location
+
+
 def test_load_researcher_affiliations(request_ctx):
     """Test preload organisation data."""
     org = Organisation.create(
