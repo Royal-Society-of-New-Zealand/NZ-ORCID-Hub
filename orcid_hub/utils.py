@@ -47,7 +47,7 @@ def is_valid_url(url):
     """Validate URL (expexted to have a path)."""
     try:
         result = urlparse(url)
-        return result.scheme and result.netloc and result.path
+        return result.scheme and result.netloc and (result.path or result.path == '')
     except:
         return False
 
@@ -1087,7 +1087,7 @@ def get_client_credentials_token(org, scope="/webhook"):
     """
     resp = requests.post(
         app.config["TOKEN_URL"],
-        headers={"Accepts": "application/json"},
+        headers={"Accept": "application/json"},
         data=dict(
             client_id=org.orcid_client_id,
             client_secret=org.orcid_secret,
@@ -1117,11 +1117,11 @@ def register_orcid_webhook(user, callback_url=None, delete=False):
     if callback_url is None:
         with app.app_context():
             callback_url = quote(url_for("update_webhook", user_id=user.id))
-    elif '/' in callback_url:
-        callback_url = quote(callback_url)
-    url = f"{app.config['TOKEN_URL']}/{user.orcid}/webhook/{callback_url}"
+    elif '/' in callback_url or ':' in callback_url:
+        callback_url = quote(callback_url, safe='')
+    url = f"{app.config['ORCID_API_HOST_URL']}{user.orcid}/webhook/{callback_url}"
     headers = {
-        "Accepts": "application/json",
+        "Accept": "application/json",
         "Authorization": f"Bearer {token.access_token}",
         "Content-Length": "0"
     }
