@@ -862,6 +862,7 @@ class Task(BaseModel, AuditMixin):
     __record_count = None
     __record_funding_count = None
     __work_record_count = None
+    __peer_review_record_count = None
     org = ForeignKeyField(
         Organisation, index=True, verbose_name="Organisation", on_delete="SET NULL")
     completed_at = DateTimeField(null=True)
@@ -896,6 +897,13 @@ class Task(BaseModel, AuditMixin):
         if self.__work_record_count is None:
             self.__work_record_count = self.work_record.count()
         return self.__work_record_count
+
+    @property
+    def peer_review_record_count(self):
+        """Get count of the loaded peer review records."""
+        if self.__peer_review_record_count is None:
+            self.__peer_review_record_count = self.peer_review_record.count()
+        return self.__peer_review_record_count
 
     @classmethod
     def load_from_csv(cls, source, filename=None, org=None):
@@ -1094,6 +1102,24 @@ class RecordModel(BaseModel):
         self.status = (self.status + "\n" if self.status else '') + ts + ": " + line
 
 
+class GroupIdRecord(RecordModel):
+    """GroupID records."""
+
+    put_code = IntegerField(null=True)
+    processed_at = DateTimeField(null=True)
+    status = TextField(null=True, help_text="Record processing status.")
+    name = CharField(max_length=120)
+    group_id = CharField(max_length=120)
+    description = CharField(max_length=120)
+    type = CharField(max_length=80)
+    organisation = ForeignKeyField(
+        Organisation, related_name="organisation", on_delete="CASCADE", null=True)
+
+    class Meta:  # noqa: D101,D106
+        db_table = "group_id_record"
+        table_alias = "gid"
+
+
 class AffiliationRecord(RecordModel):
     """Affiliation record loaded from CSV file for batch processing."""
 
@@ -1142,6 +1168,7 @@ class TaskType(IntFlag):
     AFFILIATION = 0  # Affilation of employment/education
     FUNDING = 1  # Funding
     WORK = 2
+    PEER_REVIEW = 3
 
     def __eq__(self, other):
         if isinstance(other, TaskType):
@@ -1348,6 +1375,226 @@ class FundingRecord(RecordModel):
     class Meta:  # noqa: D101,D106
         db_table = "funding_record"
         table_alias = "fr"
+
+
+class PeerReviewRecord(RecordModel):
+    """Peer Review record loaded from Json file for batch processing."""
+
+    task = ForeignKeyField(Task, related_name="peer_review_record", on_delete="CASCADE")
+    review_group_id = CharField(max_length=255)
+    reviewer_role = CharField(null=True, max_length=255)
+    review_url = CharField(null=True, max_length=255)
+    review_type = CharField(null=True, max_length=255)
+    review_completion_date = PartialDateField(null=True)
+    subject_external_id_type = CharField(null=True, max_length=255)
+    subject_external_id_value = CharField(null=True, max_length=255)
+    subject_external_id_url = CharField(null=True, max_length=255)
+    subject_external_id_relationship = CharField(null=True, max_length=255)
+    subject_container_name = CharField(null=True, max_length=255)
+    subject_type = CharField(null=True, max_length=80)
+    subject_name_title = CharField(null=True, max_length=255)
+    subject_name_subtitle = CharField(null=True, max_length=255)
+    subject_name_translated_title_lang_code = CharField(null=True, max_length=10)
+    subject_name_translated_title = CharField(null=True, max_length=255)
+    subject_url = CharField(null=True, max_length=255)
+    convening_org_name = CharField(null=True, max_length=255)
+    convening_org_city = CharField(null=True, max_length=255)
+    convening_org_region = CharField(null=True, max_length=255)
+    convening_org_country = CharField(null=True, max_length=255)
+    convening_org_disambiguated_identifier = CharField(null=True, max_length=255)
+    convening_org_disambiguation_source = CharField(null=True, max_length=255)
+    visibility = CharField(null=True, max_length=100)
+
+    is_active = BooleanField(
+        default=False, help_text="The record is marked for batch processing", null=True)
+    processed_at = DateTimeField(null=True)
+    status = TextField(null=True, help_text="Record processing status.")
+
+    @classmethod
+    def load_from_json(cls, source, filename=None, org=None):
+        """Load data from JSON file or a string."""
+        if isinstance(source, str):
+            # import data from file based on its extension; either it is yaml or json
+            peer_review_data_list = load_yaml_json(filename=filename, source=source)
+
+            for peer_review_data in peer_review_data_list:
+                validation_source_data = copy.deepcopy(peer_review_data)
+                validation_source_data = del_none(validation_source_data)
+
+                validator = Core(source_data=validation_source_data, schema_files=["peer_review_schema.yaml"])
+                validator.validate(raise_exception=True)
+
+            try:
+                if org is None:
+                    org = current_user.organisation if current_user else None
+                task = Task.create(org=org, filename=filename, task_type=TaskType.PEER_REVIEW)
+
+                for peer_review_data in peer_review_data_list:
+
+                    review_group_id = peer_review_data.get("review-group-id") if peer_review_data.get(
+                        "review-group-id") else None
+
+                    reviewer_role = peer_review_data.get("reviewer-role") if peer_review_data.get(
+                        "reviewer-role") else None
+
+                    review_url = peer_review_data.get("review-url").get("value") if peer_review_data.get(
+                        "review-url") else None
+
+                    review_type = peer_review_data.get("review-type") if peer_review_data.get("review-type") else None
+
+                    review_completion_date = PartialDate.create(peer_review_data.get("review-completion-date"))
+
+                    subject_external_id_type = peer_review_data.get("subject-external-identifier").get(
+                        "external-id-type") if peer_review_data.get(
+                        "subject-external-identifier") else None
+
+                    subject_external_id_value = peer_review_data.get("subject-external-identifier").get(
+                        "external-id-value") if peer_review_data.get(
+                        "subject-external-identifier") else None
+
+                    subject_external_id_url = peer_review_data.get("subject-external-identifier").get(
+                        "external-id-url").get("value") if peer_review_data.get(
+                        "subject-external-identifier") and peer_review_data.get("subject-external-identifier").get(
+                        "external-id-url") else None
+
+                    subject_external_id_relationship = peer_review_data.get("subject-external-identifier").get(
+                        "external-id-relationship") if peer_review_data.get(
+                        "subject-external-identifier") else None
+
+                    subject_container_name = peer_review_data.get("subject-container-name").get(
+                        "value") if peer_review_data.get(
+                        "subject-container-name") else None
+
+                    subject_type = peer_review_data.get("subject-type") if peer_review_data.get(
+                        "subject-type") else None
+
+                    subject_name_title = peer_review_data.get("subject-name").get("title").get(
+                        "value") if peer_review_data.get(
+                        "subject-name") and peer_review_data.get("subject-name").get("title") else None
+
+                    subject_name_subtitle = peer_review_data.get("subject-name").get("subtitle").get(
+                        "value") if peer_review_data.get(
+                        "subject-name") and peer_review_data.get("subject-name").get("subtitle") else None
+
+                    subject_name_translated_title_lang_code = peer_review_data.get("subject-name").get(
+                        "translated-title").get(
+                        "language-code") if peer_review_data.get(
+                        "subject-name") and peer_review_data.get("subject-name").get("translated-title") else None
+
+                    subject_name_translated_title = peer_review_data.get("subject-name").get(
+                        "translated-title").get(
+                        "value") if peer_review_data.get(
+                        "subject-name") and peer_review_data.get("subject-name").get("translated-title") else None
+
+                    subject_url = peer_review_data.get("subject-url").get("value") if peer_review_data.get(
+                        "subject-name") else None
+
+                    convening_org_name = peer_review_data.get("convening-organization").get(
+                        "name") if peer_review_data.get(
+                        "convening-organization") else None
+
+                    convening_org_city = peer_review_data.get("convening-organization").get("address").get(
+                        "city") if peer_review_data.get("convening-organization") and peer_review_data.get(
+                        "convening-organization").get("address") else None
+
+                    convening_org_region = peer_review_data.get("convening-organization").get("address").get(
+                        "region") if peer_review_data.get("convening-organization") and peer_review_data.get(
+                        "convening-organization").get("address") else None
+
+                    convening_org_country = peer_review_data.get("convening-organization").get("address").get(
+                        "country") if peer_review_data.get("convening-organization") and peer_review_data.get(
+                        "convening-organization").get("address") else None
+
+                    convening_org_disambiguated_identifier = peer_review_data.get(
+                        "convening-organization").get("disambiguated-organization").get(
+                        "disambiguated-organization-identifier") if peer_review_data.get(
+                        "convening-organization") and peer_review_data.get("convening-organization").get(
+                        "disambiguated-organization") else None
+
+                    convening_org_disambiguation_source = peer_review_data.get(
+                        "convening-organization").get("disambiguated-organization").get(
+                        "disambiguation-source") if peer_review_data.get(
+                        "convening-organization") and peer_review_data.get("convening-organization").get(
+                        "disambiguated-organization") else None
+
+                    visibility = peer_review_data.get("visibility") if peer_review_data.get("visibility") else None
+
+                    peer_review_record = PeerReviewRecord.create(
+                        task=task,
+                        review_group_id=review_group_id,
+                        reviewer_role=reviewer_role,
+                        review_url=review_url,
+                        review_type=review_type,
+                        review_completion_date=review_completion_date,
+                        subject_external_id_type=subject_external_id_type,
+                        subject_external_id_value=subject_external_id_value,
+                        subject_external_id_url=subject_external_id_url,
+                        subject_external_id_relationship=subject_external_id_relationship,
+                        subject_container_name=subject_container_name,
+                        subject_type=subject_type,
+                        subject_name_title=subject_name_title,
+                        subject_name_subtitle=subject_name_subtitle,
+                        subject_name_translated_title_lang_code=subject_name_translated_title_lang_code,
+                        subject_name_translated_title=subject_name_translated_title,
+                        subject_url=subject_url,
+                        convening_org_name=convening_org_name,
+                        convening_org_city=convening_org_city,
+                        convening_org_region=convening_org_region,
+                        convening_org_country=convening_org_country,
+                        convening_org_disambiguated_identifier=convening_org_disambiguated_identifier,
+                        convening_org_disambiguation_source=convening_org_disambiguation_source,
+                        visibility=visibility)
+
+                    invitees_list = peer_review_data.get("invitees") if peer_review_data.get("invitees") else None
+
+                    if invitees_list:
+                        for invitee in invitees_list:
+                            identifier = invitee.get("identifier") if invitee.get("identifier") else None
+                            email = invitee.get("email") if invitee.get("email") else None
+                            first_name = invitee.get("first-name") if invitee.get("first-name") else None
+                            last_name = invitee.get("last-name") if invitee.get("last-name") else None
+                            orcid_id = invitee.get("ORCID-iD") if invitee.get("ORCID-iD") else None
+                            put_code = invitee.get("put-code") if invitee.get("put-code") else None
+
+                            PeerReviewInvitee.create(
+                                peer_review_record=peer_review_record,
+                                identifier=identifier,
+                                email=email.lower(),
+                                first_name=first_name,
+                                last_name=last_name,
+                                orcid=orcid_id,
+                                put_code=put_code)
+                    else:
+                        raise SchemaError(u"Schema validation failed:\n - "
+                                          u"Expecting Invitees for which the peer review record will be written")
+
+                    external_ids_list = peer_review_data.get("review-identifiers").get("external-id") if \
+                        peer_review_data.get("review-identifiers") else None
+                    if external_ids_list:
+                        for external_id in external_ids_list:
+                            type = external_id.get("external-id-type")
+                            value = external_id.get("external-id-value")
+                            url = external_id.get("external-id-url").get("value") if \
+                                external_id.get("external-id-url") else None
+                            relationship = external_id.get("external-id-relationship")
+                            PeerReviewExternalId.create(
+                                peer_review_record=peer_review_record,
+                                type=type,
+                                value=value,
+                                url=url,
+                                relationship=relationship)
+                    else:
+                        raise SchemaError(u"Schema validation failed:\n - An external identifier is required")
+
+                return task
+            except Exception as ex:
+                db.rollback()
+                app.logger.exception("Failed to laod affiliation file.")
+                raise
+
+    class Meta:  # noqa: D101,D106
+        db_table = "peer_review_record"
+        table_alias = "pr"
 
 
 class WorkRecord(RecordModel):
@@ -1595,6 +1842,17 @@ class InviteesModel(BaseModel):
         self.status = (self.status + "\n" if self.status else '') + ts + ": " + line
 
 
+class PeerReviewInvitee(InviteesModel):
+    """Researcher or Invitee - related to peer review."""
+
+    peer_review_record = ForeignKeyField(
+        PeerReviewRecord, related_name="peer_review_invitee", on_delete="CASCADE")
+
+    class Meta:  # noqa: D101,D106
+        db_table = "peer_review_invitee"
+        table_alias = "pi"
+
+
 class WorkInvitees(InviteesModel):
     """Researcher or Invitees - related to work."""
 
@@ -1635,6 +1893,17 @@ class WorkExternalId(ExternalIdModel):
     class Meta:  # noqa: D101,D106
         db_table = "work_external_id"
         table_alias = "wei"
+
+
+class PeerReviewExternalId(ExternalIdModel):
+    """Peer Review ExternalId loaded for batch processing."""
+
+    peer_review_record = ForeignKeyField(
+        PeerReviewRecord, related_name="external_ids", on_delete="CASCADE")
+
+    class Meta:  # noqa: D101,D106
+        db_table = "peer_review_external_id"
+        table_alias = "pei"
 
 
 class ExternalId(ExternalIdModel):
@@ -1863,6 +2132,9 @@ def create_tables():
             FundingContributor,
             FundingInvitees,
             ExternalId,
+            PeerReviewRecord,
+            PeerReviewInvitee,
+            PeerReviewExternalId,
             Client,
             Grant,
             Token,

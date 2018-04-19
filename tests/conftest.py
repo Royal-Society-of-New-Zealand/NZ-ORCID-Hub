@@ -53,7 +53,7 @@ def app():
         (File, Organisation, User, UserOrg, OrcidToken, UserOrgAffiliation, OrgInfo, Task,
          AffiliationRecord, FundingRecord, FundingContributor, FundingInvitees, OrcidAuthorizeCall, OrcidApiCall,
          Url, UserInvitation, OrgInvitation, ExternalId, Client, Grant, Token, WorkRecord, WorkContributor,
-         WorkExternalId, WorkInvitees), fail_silently=True):  # noqa: F405
+         WorkExternalId, WorkInvitees, PeerReviewRecord, PeerReviewInvitee, PeerReviewExternalId), fail_silently=True):  # noqa: F405
         _app.db = _db
         _app.config["DATABASE_URL"] = DATABASE_URL
         _app.config["EXTERNAL_SP"] = None
