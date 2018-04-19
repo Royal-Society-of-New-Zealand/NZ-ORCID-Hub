@@ -16,7 +16,6 @@ Send a POST request::
 
 """
 from http.server import BaseHTTPRequestHandler, HTTPServer
-import time
 
 try:
     import coloredlogs
@@ -25,33 +24,21 @@ try:
 except ImportError:
     pass
 
-hostName = ""
-hostPort = 8080
+host_name = ""
+host_port = 8080
 
 
-class MyServer(BaseHTTPRequestHandler):
+class UpdateHandler(BaseHTTPRequestHandler):
+    """Webhook update even handler."""
 
-    # def handle_one_request(self):
-    #     super().handle_one_request()
-    #     logging.info(f"{self.command} {self.client_address}: {self.path}")
-
-    def _set_headers(self):
-        self.send_response(200)
-        self.send_header('Content-type', 'application/json')
-        self.end_headers()
-
-    def do_HEAD(self):
-        self._set_headers()
-
-    # GET is for clients geting the predi
-    def do_GET(self):
+    def do_GET(self):  # noqa: N802
+        """Handle GET request."""
         self.send_response(204)
         self.end_headers()
         self.wfile.write(b'')
 
-    # POST is for submitting data.
-    def do_POST(self):
-
+    def do_POST(self):  # noqa: N802
+        """Handle POST request."""
         if "Content-Length" in self.headers:
             content_length = int(self.headers['Content-Length'])
             post_data = self.rfile.read(content_length)
@@ -63,19 +50,21 @@ class MyServer(BaseHTTPRequestHandler):
         self.wfile.write(b'')
 
     def log_message(self, format, *args):
+        """Log a message."""
         logging.info(format, *args)
 
-    def log_error(selr, format, *args):
+    def log_error(self, format, *args):
+        """Log an error message."""
         logging.error(format, *args)
 
 
-myServer = HTTPServer((hostName, hostPort), MyServer)
-logging.info(f"Server Starts {hostName}, port: {hostPort}")
+server = HTTPServer((host_name, host_port), UpdateHandler)
+logging.info(f"Server Starts {host_name}, port: {host_port}")
 
 try:
-    myServer.serve_forever()
+    server.serve_forever()
 except KeyboardInterrupt:
     pass
 
-myServer.server_close()
-logging.info(f"Server Stops {hostName}, port: {hostPort}")
+server.server_close()
+logging.info(f"Server Stops {host_name}, port: {host_port}")
