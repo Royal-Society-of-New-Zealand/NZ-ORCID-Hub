@@ -11,7 +11,7 @@
     :license: MIT, see LICENSE for more details.
 """
 
-__version__ = "4.2.0"
+__version__ = "4.5.0"
 
 import logging
 import os
@@ -36,6 +36,8 @@ from . import config  # noqa: F401, F403
 from .failover import PgDbWithFailover
 from flask_admin import Admin
 from flask_limiter import Limiter
+from flask_rq2 import RQ
+import rq_dashboard
 
 
 # http://docs.peewee-orm.com/en/latest/peewee/database.html#automatic-reconnect
@@ -49,6 +51,7 @@ app = Flask(__name__, instance_relative_config=True)
 app.config.from_object(config)
 if not app.config.from_pyfile("settings.cfg", silent=True) and app.debug:
     print("*** WARNING: Faile to laod local application configuration from 'instance/settins.cfg'")
+app.config.from_object(rq_dashboard.default_settings)
 app.url_map.strict_slashes = False
 oauth = OAuth2Provider(app)
 api = Api(app)
@@ -68,6 +71,8 @@ if DATABASE_URL.startswith("sqlite"):
     db = db_url.connect(DATABASE_URL, autorollback=True)
 else:
     db = db_url.connect(DATABASE_URL, autorollback=True, connect_timeout=3)
+rq = RQ(app)
+app.register_blueprint(rq_dashboard.blueprint, url_prefix="/rq")
 
 
 class JSONEncoder(_JSONEncoder):

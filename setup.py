@@ -96,6 +96,10 @@ setup(
         "flask-mail",
         "flask-restful",
         # "swagger_client",
+        "rq",
+        "rq-dashboard",
+        "Flask-RQ2",
+        "Flask-RQ2[cli]",
     ],
     extras_require={
         "dev": [
