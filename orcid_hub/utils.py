@@ -574,6 +574,7 @@ def send_user_invitation(inviter,
                          **kwargs):
     """Send an invitation to join ORCID Hub logging in via ORCID."""
     try:
+        set_server_name()
         logger.info(f"*** Sending an invitation to '{first_name} {last_name} <{email}>' "
                     f"submitted by {inviter} of {org} for affiliations: {affiliation_types}")
 

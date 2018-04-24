@@ -98,6 +98,7 @@ setup(
         # "swagger_client",
         "rq",
         "rq-dashboard",
+        "rq-scheduler",
         "Flask-RQ2",
         "Flask-RQ2[cli]",
     ],

@@ -28,6 +28,7 @@ flask-swagger
 flask-restful
 jsonschema>=2.6.0,<3.0.0
 rq
+rq-scheduler
 Flask-RQ2
 Flask-RQ2[cli]
 rq-dashboard

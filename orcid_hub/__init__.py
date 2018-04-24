@@ -71,7 +71,15 @@ if DATABASE_URL.startswith("sqlite"):
     db = db_url.connect(DATABASE_URL, autorollback=True)
 else:
     db = db_url.connect(DATABASE_URL, autorollback=True, connect_timeout=3)
+
 rq = RQ(app)
+# Creates a worker thathandle jobs in "default" queue.
+default_worker = rq.get_worker()
+default_worker.work(burst=True)
+# check every 10 seconds if there are any jobs to enqueue
+scheduler = rq.get_scheduler(interval=10)
+scheduler.run()
+
 app.register_blueprint(rq_dashboard.blueprint, url_prefix="/rq")
 
 
