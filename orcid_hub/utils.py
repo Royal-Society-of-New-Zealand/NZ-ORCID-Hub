@@ -17,7 +17,7 @@ from html2text import html2text
 from itsdangerous import URLSafeTimedSerializer
 from peewee import JOIN
 
-from . import app, orcid_client
+from . import app, orcid_client, rq
 from .models import (AFFILIATION_TYPES, Affiliation, AffiliationRecord, FundingInvitees,
                      FundingRecord, OrcidToken, Organisation, Role, Task, TaskType, Url, User, PeerReviewExternalId,
                      UserInvitation, UserOrg, WorkInvitees, WorkRecord, db, PeerReviewRecord, PeerReviewInvitee)
@@ -550,6 +550,7 @@ def create_or_update_funding(user, org_id, records, *args, **kwargs):
         return
 
 
+@rq.job(timeout=60)
 def send_user_invitation(inviter,
                          org,
                          email,

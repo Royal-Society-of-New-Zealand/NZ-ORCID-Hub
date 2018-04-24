@@ -2028,16 +2028,18 @@ def invite_user():
         except UserInvitation.DoesNotExist:
             pass
 
-        ui = send_user_invitation(
-            current_user,
+        inviter = current_user._get_current_object()
+        job = send_user_invitation.queue(
+            inviter,
             org,
             email=email,
             affiliations=affiliations,
             **{f.name: f.data
                for f in form},
             cc_email=(current_user.name, current_user.email))
-        flash(f"An invitation to {ui.email} was {'resent' if resend else 'sent'} successfully.",
-              "success")
+        flash(
+            f"An invitation to {email} was {'resent' if resend else 'sent'} successfully (task id: {job.id}).",
+            "success")
         break
 
     return render_template("user_invitation.html", form=form)
