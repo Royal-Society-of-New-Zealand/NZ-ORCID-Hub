@@ -20,7 +20,7 @@ from peewee import JOIN
 from . import app, orcid_client
 from .models import (AFFILIATION_TYPES, Affiliation, AffiliationRecord, FundingInvitees,
                      FundingRecord, OrcidToken, Organisation, Role, Task, TaskType, Url, User, PeerReviewExternalId,
-                     UserInvitation, UserOrg, WorkInvitees, WorkRecord, db, PeerReviewRecord, PeerReviewInvitee)
+                     UserInvitation, UserOrg, WorkInvitees, WorkRecord, PeerReviewRecord, PeerReviewInvitee)
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -222,7 +222,8 @@ def set_server_name():
                 "SERVER_NAME"] = "orcidhub.org.nz" if ENV == "prod" else ENV + ".orcidhub.org.nz"
 
 
-def send_work_funding_invitation(inviter, org, email, name, task_id=None, invitation_template=None, **kwargs):
+def send_work_funding_peer_review_invitation(inviter, org, email, name, task_id=None, invitation_template=None,
+                                             token_expiry_in_sec=1300000, **kwargs):
     """Send a work, funding or peer review invitation to join ORCID Hub logging in via ORCID."""
     try:
         logger.info(f"*** Sending an invitation to '{name} <{email}>' "
@@ -238,8 +239,7 @@ def send_work_funding_invitation(inviter, org, email, name, task_id=None, invita
 
         user.organisation = org
         user.roles |= Role.RESEARCHER
-
-        token = generate_confirmation_token(expiration=2600000, email=email, org=org.name)
+        token = generate_confirmation_token(expiration=token_expiry_in_sec, email=email, org=org.name)
         with app.app_context():
             url = flask.url_for('orcid_login', invitation_token=token, _external=True)
             invitation_url = flask.url_for(
@@ -572,6 +572,7 @@ def send_user_invitation(inviter,
                          disambiguation_source=None,
                          task_id=None,
                          cc_email=None,
+                         token_expiry_in_sec=1300000,
                          **kwargs):
     """Send an invitation to join ORCID Hub logging in via ORCID."""
     try:
@@ -585,8 +586,7 @@ def send_user_invitation(inviter,
             user.last_name = last_name
         user.organisation = org
         user.roles |= Role.RESEARCHER
-
-        token = generate_confirmation_token(expiration=2600000, email=email, org=org.name)
+        token = generate_confirmation_token(expiration=token_expiry_in_sec, email=email, org=org.name)
         with app.app_context():
             url = flask.url_for('orcid_login', invitation_token=token, _external=True)
             invitation_url = flask.url_for(
@@ -862,14 +862,25 @@ def process_work_records(max_rows=20):
                         t.work_record.work_invitees.email,
                         t.work_record.work_invitees.first_name, )
             ):  # noqa: E501
-                send_work_funding_invitation(*k, task_id=task_id, invitation_template="email/work_invitation.html")
-                with db.atomic():
-                    status = "The invitation sent at " + datetime.utcnow().isoformat(timespec="seconds")
-                    (WorkInvitees.update(status=WorkInvitees.status + "\n" + status).where(
-                        WorkInvitees.status.is_null(False), WorkInvitees.email == k[2]).execute())
-                    (WorkInvitees.update(status=status).where(
-                        WorkInvitees.status.is_null(), WorkInvitees.email == k[2]).execute())
+                email = k[2]
+                token_expiry_in_sec = 2600000
+                status = "The invitation sent at " + datetime.utcnow().isoformat(timespec="seconds")
+                try:
+                    # For researcher invitation the expiry is 30 days, if it is reset then it is 2 weeks.
+                    if WorkInvitees.select().where(WorkInvitees.email == email,
+                                                   WorkInvitees.status ** "%reset%").count() != 0:
+                        token_expiry_in_sec = 1300000
+                    send_work_funding_peer_review_invitation(*k, task_id=task_id,
+                                                             token_expiry_in_sec=token_expiry_in_sec,
+                                                             invitation_template="email/work_invitation.html")
 
+                    (WorkInvitees.update(status=WorkInvitees.status + "\n" + status).where(
+                        WorkInvitees.status.is_null(False), WorkInvitees.email == email).execute())
+                    (WorkInvitees.update(status=status).where(
+                        WorkInvitees.status.is_null(), WorkInvitees.email == email).execute())
+                except Exception as ex:
+                    (WorkInvitees.update(processed_at=datetime.utcnow(), status=f"Failed to send an invitation: {ex}.")
+                     .where(WorkInvitees.email == email, WorkInvitees.processed_at.is_null())).execute()
         else:
             create_or_update_work(user, org_id, tasks_by_user)
         task_ids.add(task_id)
@@ -963,15 +974,25 @@ def process_peer_review_records(max_rows=20):
                         t.peer_review_record.peer_review_invitee.email,
                         t.peer_review_record.peer_review_invitee.first_name, )
             ):  # noqa: E501
-                send_work_funding_invitation(*k, task_id=task_id,
-                                             invitation_template="email/peer_review_invitation.html")
-                with db.atomic():
-                    status = "The invitation sent at " + datetime.utcnow().isoformat(timespec="seconds")
-                    (PeerReviewInvitee.update(status=PeerReviewInvitee.status + "\n" + status).where(
-                        PeerReviewInvitee.status.is_null(False), PeerReviewInvitee.email == k[2]).execute())
-                    (PeerReviewInvitee.update(status=status).where(
-                        PeerReviewInvitee.status.is_null(), PeerReviewInvitee.email == k[2]).execute())
+                email = k[2]
+                token_expiry_in_sec = 2600000
+                status = "The invitation sent at " + datetime.utcnow().isoformat(timespec="seconds")
+                try:
+                    if PeerReviewInvitee.select().where(PeerReviewInvitee.email == email,
+                                                        PeerReviewInvitee.status ** "%reset%").count() != 0:
+                        token_expiry_in_sec = 1300000
+                    send_work_funding_peer_review_invitation(*k, task_id=task_id,
+                                                             token_expiry_in_sec=token_expiry_in_sec,
+                                                             invitation_template="email/peer_review_invitation.html")
 
+                    (PeerReviewInvitee.update(status=PeerReviewInvitee.status + "\n" + status).where(
+                        PeerReviewInvitee.status.is_null(False), PeerReviewInvitee.email == email).execute())
+                    (PeerReviewInvitee.update(status=status).where(
+                        PeerReviewInvitee.status.is_null(), PeerReviewInvitee.email == email).execute())
+                except Exception as ex:
+                    (PeerReviewInvitee.update(processed_at=datetime.utcnow(),
+                                              status=f"Failed to send an invitation: {ex}.")
+                     .where(PeerReviewInvitee.email == email, PeerReviewInvitee.processed_at.is_null())).execute()
         else:
             create_or_update_peer_review(user, org_id, tasks_by_user)
         task_ids.add(task_id)
@@ -1068,13 +1089,25 @@ def process_funding_records(max_rows=20):
                         t.funding_record.funding_invitees.email,
                         t.funding_record.funding_invitees.first_name, )
             ):  # noqa: E501
-                send_work_funding_invitation(*k, task_id=task_id, invitation_template="email/funding_invitation.html")
-                with db.atomic():
-                    status = "The invitation sent at " + datetime.utcnow().isoformat(timespec="seconds")
+                email = k[2]
+                token_expiry_in_sec = 2600000
+                status = "The invitation sent at " + datetime.utcnow().isoformat(timespec="seconds")
+                try:
+                    if FundingInvitees.select().where(FundingInvitees.email == email,
+                                                      FundingInvitees.status ** "%reset%").count() != 0:
+                        token_expiry_in_sec = 1300000
+                    send_work_funding_peer_review_invitation(*k, task_id=task_id,
+                                                             token_expiry_in_sec=token_expiry_in_sec,
+                                                             invitation_template="email/funding_invitation.html")
+
                     (FundingInvitees.update(status=FundingInvitees.status + "\n" + status).where(
-                        FundingInvitees.status.is_null(False), FundingInvitees.email == k[2]).execute())
+                        FundingInvitees.status.is_null(False), FundingInvitees.email == email).execute())
                     (FundingInvitees.update(status=status).where(
-                        FundingInvitees.status.is_null(), FundingInvitees.email == k[2]).execute())
+                        FundingInvitees.status.is_null(), FundingInvitees.email == email).execute())
+                except Exception as ex:
+                    (FundingInvitees.update(processed_at=datetime.utcnow(),
+                                            status=f"Failed to send an invitation: {ex}.")
+                     .where(FundingInvitees.email == email, FundingInvitees.processed_at.is_null())).execute()
         else:
             create_or_update_funding(user, org_id, tasks_by_user)
         task_ids.add(task_id)
@@ -1172,15 +1205,21 @@ def process_affiliation_records(max_rows=20):
                 )  # noqa: E501
             }
             for invitation, affiliations in invitation_dict.items():
+                email = invitation[2]
+                token_expiry_in_sec = 2600000
                 try:
-                    send_user_invitation(*invitation, affiliations, task_id=task_id)
+                    # For researcher invitation the expiry is 30 days, if it is reset then it 2 weeks.
+                    if AffiliationRecord.select().where(AffiliationRecord.task_id == task_id,
+                                                        AffiliationRecord.email == email,
+                                                        AffiliationRecord.status ** "%reset%").count() != 0:
+                        token_expiry_in_sec = 1300000
+                    send_user_invitation(*invitation, affiliations, task_id=task_id,
+                                         token_expiry_in_sec=token_expiry_in_sec)
                 except Exception as ex:
-                    email = invitation[2]
                     (AffiliationRecord.update(
                         processed_at=datetime.utcnow(), status=f"Failed to send an invitation: {ex}.")
                      .where(AffiliationRecord.task_id == task_id, AffiliationRecord.email == email,
                             AffiliationRecord.processed_at.is_null())).execute()
-
         else:  # user exits and we have tokens
             create_or_update_affiliations(user, org_id, tasks_by_user)
         task_ids.add(task_id)
