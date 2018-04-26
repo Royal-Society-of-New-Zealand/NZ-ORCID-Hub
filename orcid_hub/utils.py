@@ -14,7 +14,7 @@ import requests
 from flask import request, url_for
 from flask_login import current_user
 from html2text import html2text
-from itsdangerous import URLSafeTimedSerializer
+from itsdangerous import TimedJSONWebSignatureSerializer
 from peewee import JOIN
 
 from . import app, orcid_client
@@ -155,9 +155,12 @@ def send_email(template_filename,
     msg.send(smtp=dict(host=app.config["MAIL_SERVER"], port=app.config["MAIL_PORT"]))
 
 
-def generate_confirmation_token(*args, **kwargs):
-    """Generate Organisation registration confirmation token."""
-    serializer = URLSafeTimedSerializer(app.config["SECRET_KEY"])
+def generate_confirmation_token(expiration=1300000, *args, **kwargs):
+    """Generate Organisation registration confirmation token.
+
+    Invitation Token Expiry for Admins is 15 days, whereas for researchers the token expiry is of 30 days.
+    """
+    serializer = TimedJSONWebSignatureSerializer(app.config["SECRET_KEY"], expires_in=expiration)
     salt = app.config["SALT"]
     if len(kwargs) == 0:
         return serializer.dumps(args[0] if len(args) == 1 else args, salt=salt)
@@ -165,14 +168,13 @@ def generate_confirmation_token(*args, **kwargs):
         return serializer.dumps(kwargs.values()[0] if len(kwargs) == 1 else kwargs, salt=salt)
 
 
-# Token Expiry after 15 days.
-def confirm_token(token, expiration=1300000, unsafe=False):
+def confirm_token(token, unsafe=False):
     """Genearate confirmaatin token."""
-    serializer = URLSafeTimedSerializer(app.config["SECRET_KEY"])
+    serializer = TimedJSONWebSignatureSerializer(app.config["SECRET_KEY"])
     if unsafe:
         data = serializer.loads_unsafe(token)
     else:
-        data = serializer.loads(token, salt=app.config["SALT"], max_age=expiration)
+        data = serializer.loads(token, salt=app.config["SALT"])
     return data
 
 
@@ -237,7 +239,7 @@ def send_work_funding_invitation(inviter, org, email, name, task_id=None, invita
         user.organisation = org
         user.roles |= Role.RESEARCHER
 
-        token = generate_confirmation_token(email=email, org=org.name)
+        token = generate_confirmation_token(expiration=2600000, email=email, org=org.name)
         with app.app_context():
             url = flask.url_for('orcid_login', invitation_token=token, _external=True)
             invitation_url = flask.url_for(
@@ -584,7 +586,7 @@ def send_user_invitation(inviter,
         user.organisation = org
         user.roles |= Role.RESEARCHER
 
-        token = generate_confirmation_token(email=email, org=org.name)
+        token = generate_confirmation_token(expiration=2600000, email=email, org=org.name)
         with app.app_context():
             url = flask.url_for('orcid_login', invitation_token=token, _external=True)
             invitation_url = flask.url_for(
