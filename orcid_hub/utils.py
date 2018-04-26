@@ -155,7 +155,7 @@ def send_email(template_filename,
     msg.send(smtp=dict(host=app.config["MAIL_SERVER"], port=app.config["MAIL_PORT"]))
 
 
-def generate_confirmation_token(expiration=1300000, *args, **kwargs):
+def generate_confirmation_token(*args, expiration=1300000, **kwargs):
     """Generate Organisation registration confirmation token.
 
     Invitation Token Expiry for Admins is 15 days, whereas for researchers the token expiry is of 30 days.
