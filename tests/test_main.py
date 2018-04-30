@@ -396,8 +396,7 @@ def test_orcid_login(request_ctx):
         organisation=org)
     UserOrg.create(user=u, org=org, is_admin=True)
     token = utils.generate_confirmation_token(email=u.email, org=org.name)
-
-    with request_ctx("/orcid/login/" + token) as ctxx:
+    with request_ctx("/orcid/login/" + token.decode("utf-8")) as ctxx:
         rv = ctxx.app.full_dispatch_request()
         assert rv.status_code == 200
         orcid_authorize = OrcidAuthorizeCall.get(method="GET")
