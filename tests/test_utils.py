@@ -902,6 +902,6 @@ def test_get_client_credentials_token(request_ctx):
 def test_is_valid_url():
     """Test URL validation for call-back URLs."""
     assert utils.is_valid_url("http://www.orcidhub.org.nz/some_path")
-    assert not utils.is_valid_url("http://www.orcidhub.org.nz")
+    assert utils.is_valid_url("http://www.orcidhub.org.nz")
     assert not utils.is_valid_url("www.orcidhub.org.nz/some_path")
     assert not utils.is_valid_url(12345)

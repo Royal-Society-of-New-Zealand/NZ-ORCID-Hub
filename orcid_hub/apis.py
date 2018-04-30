@@ -1041,7 +1041,7 @@ def orcid_proxy(path=None):
 
 
 @app.route("/api/v0.1/<string:orcid>/webhook/<path:callback_url>", methods=["PUT", "DELETE"])
-@oauth.require_oauth("/webhook")
+@oauth.require_oauth()
 def register_webhook(orcid, callback_url=None):
     """Handle webhook registration for an individual user with direct client call-back."""
     login_user(request.oauth.user)
@@ -1051,7 +1051,7 @@ def register_webhook(orcid, callback_url=None):
     except Exception as ex:
         return jsonify({"error": str(ex), "message": "Missing or invalid ORCID iD."}), 415
     callback_url = unquote(callback_url)
-    if is_valid_url(callback_url):
+    if not is_valid_url(callback_url):
         return jsonify({
             "error": "Invalid call-back URL",
             "message": f"Invalid call-back URL: {callback_url}"
