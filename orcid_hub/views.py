@@ -648,6 +648,7 @@ to the best of your knowledge, correct!""")
 
             else:
                 task.expires_at = None
+                task.expiry_email_sent_at = None
                 task.completed_at = None
                 task.save()
                 if self.model == FundingRecord:
@@ -1452,6 +1453,7 @@ def reset_all():
             app.logger.exception("Failed to reset the selected records")
         else:
             task.expires_at = None
+            task.expiry_email_sent_at = None
             task.completed_at = None
             task.save()
             if task.task_type == 1:
