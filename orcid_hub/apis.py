@@ -692,13 +692,16 @@ class UserListAPI(AppResource):
           403:
             description: "Access Denied"
         """
+
         login_user(request.oauth.user)
-        return jsonify({
-            "users": [
-                u.to_dict(recurse=False, to_dashes=True)
-                for u in User.select().where(User.organisation == current_user.organisation)
-            ]
-        })
+        from_date = request.args.get("from_date")
+        to_date = request.args.get("to_date")
+        users = User.select().where(User.organisation == current_user.organisation)
+        if from_date:
+            users = users.Where((User.created_at >= from_date) | (User.updated_at >= from_date))
+        if to_date:
+            users = users.Where((User.created_at >= to_date) | (User.updated_at >= to_date))
+        return jsonify({"users": [u.to_dict(recurse=False, to_dashes=True) for u in users]})
 
 
 api.add_resource(UserListAPI, "/api/v0.1/users")
