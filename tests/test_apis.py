@@ -774,12 +774,12 @@ def test_webhook_registration(app_req_ctx):
             "scope": "/webhook",
             "grant_type": "client_credentials"
         }
-        assert kwargs["headers"] == {"Accepts": "application/json"}
+        assert kwargs["headers"] == {"Accept": "application/json"}
 
         args, kwargs = mockput.call_args
-        assert args[0] == "https://sandbox.orcid.org/oauth/token/0000-0000-0000-00X3/webhook/http%3A//CALL-BACK"
+        assert args[0] == "https://api.sandbox.orcid.org/0000-0000-0000-00X3/webhook/http%3A%2F%2FCALL-BACK"
         assert kwargs["headers"] == {
-            "Accepts": "application/json",
+            "Accept": "application/json",
             "Authorization": "Bearer ACCESS-TOKEN-123",
             "Content-Length": "0"
         }
@@ -812,9 +812,9 @@ def test_webhook_registration(app_req_ctx):
         assert resp.status_code == 204
 
         args, kwargs = mockput.call_args
-        assert args[0] == "https://sandbox.orcid.org/oauth/token/0000-0000-0000-00X3/webhook/http%3A//CALL-BACK"
+        assert args[0] == "https://api.sandbox.orcid.org/0000-0000-0000-00X3/webhook/http%3A%2F%2FCALL-BACK"
         assert kwargs["headers"] == {
-            "Accepts": "application/json",
+            "Accept": "application/json",
             "Authorization": "Bearer ACCESS-TOKEN-123",
             "Content-Length": "0"
         }
