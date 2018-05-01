@@ -1009,11 +1009,12 @@ def orcid_login_callback(request):
                 return redirect(url_for("index"))
 
             orcid_token, orcid_token_found = OrcidToken.get_or_create(
-                user_id=user.id, org=user.organisation, scope=scope)
+                user_id=user.id, org=org, scope=scope)
             orcid_token.access_token = token["access_token"]
             orcid_token.refresh_token = token["refresh_token"]
             with db.atomic():
                 try:
+                    user.organisation = org
                     user.save()
                     orcid_token.save()
                 except Exception as ex:
