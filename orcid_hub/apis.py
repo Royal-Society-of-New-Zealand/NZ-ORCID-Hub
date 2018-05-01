@@ -717,7 +717,7 @@ class UserListAPI(AppResource):
             if a.startswith("from"):
                 users = users.where((User.created_at >= v) | (User.updated_at >= v))
             else:
-                users = users.where((User.created_at <= v) | (User.updated_at <= v))
+                users = users.where((User.created_at <= v) & (User.updated_at <= v))
         return jsonify({"users": [u.to_dict(recurse=False, to_dashes=True) for u in users]})
 
 

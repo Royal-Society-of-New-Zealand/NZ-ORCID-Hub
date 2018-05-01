@@ -22,6 +22,7 @@ from flask_admin.actions import action
 from flask_admin.babel import gettext
 from flask_admin.base import expose
 from flask_admin.contrib.peewee import ModelView
+from flask_admin.contrib.peewee.filters import DateTimeGreaterFilter, DateTimeSmallerFilter
 from flask_admin.form import SecureForm
 from flask_admin.helpers import get_redirect_target
 from flask_admin.model import typefmt
@@ -1137,6 +1138,10 @@ class ViewMembersAdmin(AppModelView):
     can_delete = True
     can_view_details = False
     can_export = True
+    column_filters = (
+        DateTimeGreaterFilter(column=User.created_at, name="From Date"),
+        DateTimeSmallerFilter(column=User.updated_at, name="To Date"),
+    )
 
     def get_query(self):
         """Get quiery for the user belonging to the organistation of the current user."""
