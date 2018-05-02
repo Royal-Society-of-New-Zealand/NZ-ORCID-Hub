@@ -1142,7 +1142,7 @@ class ViewMembersAdmin(AppModelView):
     can_export = True
     column_filters = (
         filters.DateBetweenFilter(column=User.created_at, name="Registration Date"),
-        filters.DateBetweenFilter(column=User.updated_at, name="Updat Date"),
+        filters.DateBetweenFilter(column=User.updated_at, name="Update Date"),
     )
 
     def get_query(self):
