@@ -21,8 +21,7 @@ from flask_admin._compat import csv_encode
 from flask_admin.actions import action
 from flask_admin.babel import gettext
 from flask_admin.base import expose
-from flask_admin.contrib.peewee import ModelView
-from flask_admin.contrib.peewee.filters import DateTimeGreaterFilter, DateTimeSmallerFilter
+from flask_admin.contrib.peewee import ModelView, filters
 from flask_admin.form import SecureForm
 from flask_admin.helpers import get_redirect_target
 from flask_admin.model import typefmt
@@ -41,10 +40,10 @@ from .forms import (ApplicationFrom, BitmapMultipleValueField, CredentialForm, E
                     PartialDateField, RecordForm, UserInvitationForm)
 from .login_provider import roles_required
 from .models import (Affiliation, AffiliationRecord, CharField, Client, File, FundingInvitees,
-                     FundingRecord, Grant, GroupIdRecord, ModelException, OrcidApiCall, OrcidToken, Organisation,
-                     OrgInfo, OrgInvitation, PartialDate, Role, Task, TextField, Token, Url, User,
-                     UserInvitation, UserOrg, UserOrgAffiliation, WorkInvitees, WorkRecord, db, PeerReviewRecord,
-                     PeerReviewInvitee)
+                     FundingRecord, Grant, GroupIdRecord, ModelException, OrcidApiCall, OrcidToken,
+                     Organisation, OrgInfo, OrgInvitation, PartialDate, PeerReviewInvitee,
+                     PeerReviewRecord, Role, Task, TextField, Token, Url, User, UserInvitation,
+                     UserOrg, UserOrgAffiliation, WorkInvitees, WorkRecord, db)
 # NB! Should be disabled in production
 from .pyinfo import info
 from .utils import generate_confirmation_token, get_next_url, send_user_invitation
@@ -1123,7 +1122,9 @@ class ViewMembersAdmin(AppModelView):
     list_template = "viewMembers.html"
     form_columns = ["name", "orcid", "email", "eppn", ]
     form_widget_args = {c: {"readonly": True} for c in form_columns if c != "email"}
-    column_list = ("email", "orcid")
+    column_list = ("email", "orcid", "created_at", "updated_at", )
+    column_formatters_export = dict(orcid=lambda v, c, m, p: m.orcid)
+    column_exclude_list = None
     column_searchable_list = (
         "email",
         "orcid",
@@ -1139,8 +1140,8 @@ class ViewMembersAdmin(AppModelView):
     can_view_details = False
     can_export = True
     column_filters = (
-        DateTimeGreaterFilter(column=User.created_at, name="From Date"),
-        DateTimeSmallerFilter(column=User.updated_at, name="To Date"),
+        filters.DateBetweenFilter(column=User.created_at, name="Registration Date"),
+        filters.DateBetweenFilter(column=User.updated_at, name="Updat Date"),
     )
 
     def get_query(self):

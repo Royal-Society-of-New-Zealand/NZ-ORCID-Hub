@@ -3,6 +3,7 @@
 
 import copy
 import json
+from datetime import datetime
 
 import pytest
 from flask import url_for
@@ -57,8 +58,18 @@ def app_req_ctx(request_ctx):
         orcid="0000-0000-0000-00X3",
         confirmed=True,
         organisation=org)
-
     OrcidToken.create(user=user, org=org, access_token="ORCID-TEST-ACCESS-TOKEN")
+
+    User.insert_many(
+        dict(
+            email=f"researcher{i}@test0.edu",
+            name=f"TEST RESEARCHER #{i}",
+            first_name=f"FIRST_NAME #{i}",
+            last_name=f"LAST_NAME #{i}",
+            confirmed=True,
+            organisation=org,
+            created_at=datetime(2017, 12, i % 31 + 1),
+            updated_at=datetime(2017, 12, i % 31 + 1)) for i in range(200, 207)).execute()
 
     User.create(
         email="researcher2@test0.edu",
@@ -260,6 +271,45 @@ def test_user_and_token_api(app_req_ctx, resource, version):
             else:
                 token = OrcidToken.get(user_id=user.id)
                 assert data["token"]["access_token"] == token.access_token
+    if resource == "users":  # test user listing
+        with app_req_ctx(
+                f"/api/{version}/{resource}",
+                headers=dict(authorization="Bearer TEST")) as ctx:
+            rv = ctx.app.full_dispatch_request()
+            data = json.loads(rv.data)
+            assert rv.status_code == 200
+            data = json.loads(rv.data)
+            assert len(data["users"]) == 10
+        with app_req_ctx(
+                f"/api/{version}/{resource}?from_date=ABCD",
+                headers=dict(authorization="Bearer TEST")) as ctx:
+            rv = ctx.app.full_dispatch_request()
+            data = json.loads(rv.data)
+            assert rv.status_code == 422
+        with app_req_ctx(
+                f"/api/{version}/{resource}?from_date=2018-01-01",
+                headers=dict(authorization="Bearer TEST")) as ctx:
+            rv = ctx.app.full_dispatch_request()
+            data = json.loads(rv.data)
+            assert rv.status_code == 200
+            data = json.loads(rv.data)
+            assert len(data["users"]) == 3
+        with app_req_ctx(
+                f"/api/{version}/{resource}?to_date=2018-01-01",
+                headers=dict(authorization="Bearer TEST")) as ctx:
+            rv = ctx.app.full_dispatch_request()
+            data = json.loads(rv.data)
+            assert rv.status_code == 200
+            data = json.loads(rv.data)
+            assert len(data["users"]) == 7
+        with app_req_ctx(
+                f"/api/{version}/{resource}?from_date=2017-12-20&to_date=2017-12-21",
+                headers=dict(authorization="Bearer TEST")) as ctx:
+            rv = ctx.app.full_dispatch_request()
+            data = json.loads(rv.data)
+            assert rv.status_code == 200
+            data = json.loads(rv.data)
+            assert len(data["users"]) == 2
 
     if resource == "tokens":
         user2 = User.get(email="researcher2@test0.edu")

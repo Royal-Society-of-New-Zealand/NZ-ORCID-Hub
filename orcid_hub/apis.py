@@ -672,12 +672,12 @@ class UserListAPI(AppResource):
             name: from_date
             type: string
             minimum: 0
-            description: user account creation date starting with ...
+            description: the date starting from which user accounts were created and/or updated.
           - in: query
             name: to_date
             type: string
             minimum: 0
-            description: user account creation date ending with ...
+            description: the date until which user accounts were created and/or updated.
         responses:
           200:
             description: "successful operation"
