@@ -44,6 +44,8 @@ class UpdateHandler(BaseHTTPRequestHandler):
             post_data = self.rfile.read(content_length)
             if post_data:
                 logging.info("Received:", post_data)
+        self.log_message("*** Headers:\n%s", self.headers)
+        self.log_message("Source: %s", self.headers.get("X-Forwarded-For"))
 
         self.send_response(204)
         self.end_headers()
