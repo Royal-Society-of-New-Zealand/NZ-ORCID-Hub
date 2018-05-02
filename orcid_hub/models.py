@@ -873,9 +873,15 @@ class Task(BaseModel, AuditMixin):
         User, on_delete="SET NULL", null=True, related_name="updated_tasks")
     task_type = SmallIntegerField(default=0, null=True)
     expires_at = DateTimeField(null=True)
+    expiry_email_sent_at = DateTimeField(null=True)
 
     def __repr__(self):
         return self.filename or f"Task #{self.id}"
+
+    @property
+    def is_expiry_email_sent(self):
+        """Test if the expiry email is sent ot not."""
+        return bool(self.expiry_email_sent_at)
 
     @property
     def record_count(self):

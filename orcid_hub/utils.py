@@ -1287,9 +1287,11 @@ def process_tasks(max_rows=20):
         if max_created_at_expiry < max_updated_at_expiry:
             max_expiry_date = max_updated_at_expiry
 
-        if max_expiry_date < (datetime.now() + timedelta(weeks=1)):
-            task.expires_at = max_expiry_date
-            task.save()
+        task.expires_at = max_expiry_date
+        task.save()
+
+    for task in Task.select().where(Task.expires_at.is_null(False)).limit(max_rows):
+        if not task.is_expiry_email_sent and task.expires_at < (datetime.now() + timedelta(weeks=1)):
             export_model = None
             if task.task_type == TaskType.AFFILIATION.value:
                 export_model = "affiliationrecord.export"
@@ -1327,6 +1329,8 @@ def process_tasks(max_rows=20):
                     recipient=(task.created_by.name, task.created_by.email),
                     error_count=error_count,
                     export_url=export_url)
+            task.expiry_email_sent_at = datetime.utcnow()
+            task.save()
 
 
 def get_client_credentials_token(org, scope="/webhook"):
