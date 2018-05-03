@@ -1315,6 +1315,12 @@ def test_viewmembers(request_ctx):
         assert resp.status_code == 200
         assert b"researcher100@test0.edu" in resp.data
 
+    with request_ctx("/admin/viewmembers/?flt1_0=2018-05-01+to+2018-05-31&flt2_1=2018-05-01+to+2018-05-31") as ctx:
+        login_user(admin)
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 200
+        assert b"researcher100@test0.edu" not in resp.data
+
     with request_ctx(f"/admin/viewmembers/edit/?id={non_admin.id}") as ctx:
         login_user(admin)
         resp = ctx.app.full_dispatch_request()
