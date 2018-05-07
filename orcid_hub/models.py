@@ -1111,13 +1111,28 @@ class RecordModel(BaseModel):
 class GroupIdRecord(RecordModel):
     """GroupID records."""
 
+    type_choices = [('publisher', 'publisher'), ('institution', 'institution'), ('journal', 'journal'),
+                    ('conference', 'conference'), ('newspaper', 'newspaper'), ('newsletter', 'newsletter'),
+                    ('magazine', 'magazine'), ('peer-review service', 'peer-review service')]
+    type_choices.sort(key=lambda e: e[1])
+    type_choices.insert(0, ("", ""))
     put_code = IntegerField(null=True)
     processed_at = DateTimeField(null=True)
     status = TextField(null=True, help_text="Record processing status.")
-    name = CharField(max_length=120)
-    group_id = CharField(max_length=120)
-    description = CharField(max_length=120)
-    type = CharField(max_length=80)
+    name = CharField(max_length=120,
+                     help_text="The name of the group. This can be the name of a journal (Journal of Criminal Justice),"
+                               " a publisher (Society of Criminal Justice), or non-specific description (Legal Journal)"
+                               " as required.")
+    group_id = CharField(max_length=120,
+                         help_text="The group's identifier, formatted as type:identifier, e.g. issn:12345678. "
+                                   "This can be as specific (e.g. the journal's ISSN) or vague as required. "
+                                   "Valid types include: issn, ringgold, orcid-generated, fundref, publons.")
+    description = CharField(max_length=120,
+                            help_text="A brief textual description of the group. "
+                                      "This can be as specific or vague as required.")
+    type = CharField(max_length=80, choices=type_choices,
+                     help_text="One of the specified types: publisher; institution; journal; conference; newspaper; "
+                               "newsletter; magazine; peer-review service.")
     organisation = ForeignKeyField(
         Organisation, related_name="organisation", on_delete="CASCADE", null=True)
 
