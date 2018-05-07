@@ -191,13 +191,15 @@ class MemberAPI(MemberAPIV20Api):
         rec.group_id = group_id
         rec.description = description
         rec.type = type
+        if put_code:
+            rec.put_code = put_code
 
         try:
             api_call = self.update_group_id_record if put_code else self.create_group_id_record
 
             params = dict(body=rec, _preload_content=False)
             if put_code:
-                params["put_code"] = str(put_code)
+                params["put_code"] = put_code
             resp = api_call(**params)
 
             created = not bool(put_code)
