@@ -1360,6 +1360,9 @@ class FundingRecord(RecordModel):
                             name = contributor.get("credit-name").get("value") if \
                                 contributor.get("credit-name") else None
 
+                            email = contributor.get("contributor-email").get("value") if \
+                                contributor.get("contributor-email") else None
+
                             role = contributor.get("contributor-attributes").get("contributor-role") if \
                                 contributor.get("contributor-attributes") else None
 
@@ -1367,6 +1370,7 @@ class FundingRecord(RecordModel):
                                 funding_record=funding_record,
                                 orcid=orcid_id,
                                 name=name,
+                                email=email,
                                 role=role)
 
                     external_ids_list = funding_data.get("external-ids").get("external-id") if \
@@ -1772,6 +1776,9 @@ class WorkRecord(RecordModel):
                             name = contributor.get("credit-name").get("value") if \
                                 contributor.get("credit-name") else None
 
+                            email = contributor.get("contributor-email").get("value") if \
+                                contributor.get("contributor-email") else None
+
                             role = contributor.get("contributor-attributes").get("contributor-role") if \
                                 contributor.get("contributor-attributes") else None
 
@@ -1782,6 +1789,7 @@ class WorkRecord(RecordModel):
                                 work_record=work_record,
                                 orcid=orcid_id,
                                 name=name,
+                                email=email,
                                 role=role,
                                 contributor_sequence=contributor_sequence)
 
@@ -1820,6 +1828,7 @@ class ContributorModel(BaseModel):
     orcid = OrcidIdField(null=True)
     name = CharField(max_length=120, null=True)
     role = CharField(max_length=120, null=True)
+    email = CharField(max_length=120, null=True)
 
 
 class WorkContributor(ContributorModel):
