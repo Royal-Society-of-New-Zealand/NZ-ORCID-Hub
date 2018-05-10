@@ -10,16 +10,18 @@ import secrets
 from collections import namedtuple
 from datetime import datetime
 from io import BytesIO
+from threading import Thread
 
+import requests
 import tablib
 import yaml
-from flask import (Response, abort, flash, jsonify, redirect, render_template, request, send_file, send_from_directory,
-                   stream_with_context, url_for)
+from flask import (Response, abort, flash, jsonify, redirect, render_template, request, send_file,
+                   send_from_directory, stream_with_context, url_for)
 from flask_admin._compat import csv_encode
 from flask_admin.actions import action
 from flask_admin.babel import gettext
 from flask_admin.base import expose
-from flask_admin.contrib.peewee import ModelView
+from flask_admin.contrib.peewee import ModelView, filters
 from flask_admin.form import SecureForm
 from flask_admin.helpers import get_redirect_target
 from flask_admin.model import typefmt
@@ -32,15 +34,16 @@ from wtforms.fields import BooleanField
 from orcid_api.rest import ApiException
 
 from . import admin, app, limiter, models, orcid_client, utils
-from .config import ORCID_BASE_URL, SCOPE_ACTIVITIES_UPDATE, SCOPE_READ_LIMITED, ENV
+from .config import ENV, ORCID_BASE_URL, SCOPE_ACTIVITIES_UPDATE, SCOPE_READ_LIMITED
 from .forms import (ApplicationFrom, BitmapMultipleValueField, CredentialForm, EmailTemplateForm,
                     FileUploadForm, JsonOrYamlFileUploadForm, LogoForm, OrgRegistrationForm,
                     PartialDateField, RecordForm, UserInvitationForm)
 from .login_provider import roles_required
-from .models import (Affiliation, AffiliationRecord, CharField, Client, File, FundingContributor,
-                     FundingRecord, Grant, ModelException, OrcidApiCall, OrcidToken, Organisation,
-                     OrgInfo, OrgInvitation, PartialDate, Role, Task, TextField, Token, Url, User,
-                     UserInvitation, UserOrg, UserOrgAffiliation, db)
+from .models import (Affiliation, AffiliationRecord, CharField, Client, File, FundingInvitees,
+                     FundingRecord, Grant, GroupIdRecord, ModelException, OrcidApiCall, OrcidToken,
+                     Organisation, OrgInfo, OrgInvitation, PartialDate, PeerReviewInvitee,
+                     PeerReviewRecord, Role, Task, TextField, Token, Url, User, UserInvitation,
+                     UserOrg, UserOrgAffiliation, WorkInvitees, WorkRecord, db)
 # NB! Should be disabled in production
 from .pyinfo import info
 from .utils import generate_confirmation_token, get_next_url, send_user_invitation
@@ -500,6 +503,10 @@ class RecordModelView(AppModelView):
         "task",
         "organisation",
     )
+    form_excluded_columns = (
+        "task",
+        "organisation",
+    )
     column_export_exclude_list = (
         "task",
         "is_active",
@@ -510,11 +517,11 @@ class RecordModelView(AppModelView):
     can_view_details = True
     can_export = True
 
-    form_widget_args = {"external_id": {"readonly": True}}
+    form_widget_args = {"external_id": {"readonly": True}, "task": {"readonly": True}}
 
     def render(self, template, **kwargs):
         """Pass the task to the render function as an added argument."""
-        if "task" not in kwargs:
+        if template == self.list_template and "task" not in kwargs:
             task_id = request.args.get("task_id")
             if task_id:
                 try:
@@ -582,7 +589,7 @@ class RecordModelView(AppModelView):
     @action("activate", "Activate for processing",
             """Are you sure you want to activate the selected records for batch processing?
 
-By clicking "OK" you are affirming that the affiliations or the funding records to be written are,
+By clicking "OK" you are affirming that the selected records to be written are,
 to the best of your knowledge, correct!""")
     def action_activate(self, ids):
         """Batch registraion of users."""
@@ -601,47 +608,63 @@ to the best of your knowledge, correct!""")
     def action_reset(self, ids):
         """Reset batch task records."""
         status = "The record was reset at " + datetime.utcnow().isoformat(timespec="seconds")
+        task_id = None
         with db.atomic():
             try:
+                if request.method == "POST" and request.form.get("rowid"):
+                    # get the first ROWID:
+                    rowid = int(request.form.get("rowid"))
+                    task_id = self.model.get(id=rowid).task_id
+                else:
+                    task_id = request.form.get('task_id')
+                task = Task.get(id=task_id)
+
                 count = self.model.update(
                     processed_at=None, status=status).where(self.model.is_active,
                                                             self.model.id.in_(ids)).execute()
 
                 if self.model == FundingRecord:
-                    count = FundingContributor.update(
+                    count = FundingInvitees.update(
                         processed_at=None, status=status).where(
-                            FundingContributor.funding_record.in_(ids)).execute()
+                            FundingInvitees.funding_record.in_(ids)).execute()
+                elif self.model == WorkRecord:
+                    count = WorkInvitees.update(
+                        processed_at=None, status=status).where(
+                        WorkInvitees.work_record.in_(ids)).execute()
+                elif self.model == PeerReviewRecord:
+                    count = PeerReviewInvitee.update(
+                        processed_at=None, status=status).where(
+                        PeerReviewInvitee.peer_review_record.in_(ids)).execute()
                 elif self.model == AffiliationRecord:
-                    # Delete the userInvitation token when reset to send the mail again.
-                    task_id = None
-                    if request.method == "POST" and request.form.get("rowid"):
-                        # get the first ROWID:
-                        rowid = int(request.form.get("rowid"))
-                        task_id = self.model.get(id=rowid).task_id
-                    else:
-                        task_id = request.form.get('task_id')
-                    user_invitation = UserInvitation.get(task_id=task_id)
-                    user_invitation.delete_instance()
-            except UserInvitation.DoesNotExist:
-                pass
+                    # Delete the userInvitation token for selected reset items.
+                    for user_invitation in UserInvitation.select().where(UserInvitation.email.in_(
+                            self.model.select(self.model.email).where(self.model.id.in_(ids)))):
+                        user_invitation.delete_instance()
+
             except Exception as ex:
                 db.rollback()
                 flash(f"Failed to activate the selected records: {ex}")
                 app.logger.exception("Failed to activate the selected records")
 
             else:
+                task.expires_at = None
+                task.expiry_email_sent_at = None
+                task.completed_at = None
+                task.save()
                 if self.model == FundingRecord:
-                    flash(f"{count} Funding Contributor records were reset for batch processing.")
+                    flash(f"{count} Funding Invitee records were reset for batch processing.")
+                elif self.model == WorkRecord:
+                    flash(f"{count} Work Invitee records were reset for batch processing.")
+                elif self.model == PeerReviewRecord:
+                    flash(f"{count} Peer Review Invitee records were reset for batch processing.")
                 else:
                     flash(f"{count} Affiliation records were reset for batch processing.")
 
 
-class ExternalIdAdmin(AppModelView):
-    """ExternalId model view."""
+class ExternalIdModelView(AppModelView):
+    """Combine ExternalId model view."""
 
     roles_required = Role.SUPERUSER | Role.ADMIN
-    list_template = "funding_externalid_list.html"
-    column_exclude_list = ("funding_record", )
 
     can_edit = True
     can_create = False
@@ -659,12 +682,31 @@ class ExternalIdAdmin(AppModelView):
         return True
 
 
-class FundingContributorAdmin(AppModelView):
-    """Funding record model view."""
+class ExternalIdAdmin(ExternalIdModelView):
+    """ExternalId model view."""
+
+    list_template = "funding_externalid_list.html"
+    column_exclude_list = ("funding_record", )
+
+
+class WorkExternalIdAdmin(ExternalIdModelView):
+    """WorkExternalId model view."""
+
+    list_template = "work_externalid_list.html"
+    column_exclude_list = ("work_record", )
+
+
+class PeerReviewExternalIdAdmin(ExternalIdModelView):
+    """PeerReviewExternalId model view."""
+
+    list_template = "peer_review_externalid_invitees_list.html"
+    column_exclude_list = ("peer_review_record", )
+
+
+class ContributorModelAdmin(AppModelView):
+    """Combine contributor record model view."""
 
     roles_required = Role.SUPERUSER | Role.ADMIN
-    list_template = "funding_contributor_list.html"
-    column_exclude_list = ("funding_record", )
 
     can_edit = True
     can_create = False
@@ -674,7 +716,40 @@ class FundingContributorAdmin(AppModelView):
     form_widget_args = {"external_id": {"readonly": True}}
 
     def is_accessible(self):
-        """Verify if the funding contributor view is accessible for the current user."""
+        """Verify if the contributor view is accessible for the current user."""
+        if not super().is_accessible():
+            flash("Access denied! You cannot access this task.", "danger")
+            return False
+
+        return True
+
+
+class FundingContributorAdmin(ContributorModelAdmin):
+    """Funding contributor record model view."""
+
+    list_template = "funding_contributor_list.html"
+    column_exclude_list = ("funding_record", )
+
+
+class WorkContributorAdmin(ContributorModelAdmin):
+    """Work contributor record model view."""
+
+    list_template = "work_contributor_list.html"
+    column_exclude_list = ("work_record", )
+
+
+class InviteesModelAdmin(AppModelView):
+    """Combine Invitees record model view."""
+
+    roles_required = Role.SUPERUSER | Role.ADMIN
+
+    can_edit = True
+    can_create = False
+    can_delete = False
+    can_view_details = True
+
+    def is_accessible(self):
+        """Verify if the invitees view is accessible for the current user."""
         if not super().is_accessible():
             flash("Access denied! You cannot access this task.", "danger")
             return False
@@ -690,24 +765,61 @@ class FundingContributorAdmin(AppModelView):
                 status = " The record was reset at " + datetime.utcnow().isoformat(timespec="seconds")
                 count = self.model.update(
                     processed_at=None, status=status).where(self.model.id.in_(ids)).execute()
-                funding_record_id = self.model.select().where(
-                    self.model.id.in_(ids))[0].funding_record_id
-                FundingRecord.update(
-                    processed_at=None, status=status).where(
-                        FundingRecord.is_active, FundingRecord.id == funding_record_id).execute()
+                if self.model == FundingInvitees:
+                    funding_record_id = self.model.select().where(
+                        self.model.id.in_(ids))[0].funding_record_id
+                    FundingRecord.update(
+                        processed_at=None, status=status).where(
+                            FundingRecord.is_active, FundingRecord.id == funding_record_id).execute()
+                elif self.model == WorkInvitees:
+                    work_record_id = self.model.select().where(
+                        self.model.id.in_(ids))[0].work_record_id
+                    WorkRecord.update(
+                        processed_at=None, status=status).where(
+                        WorkRecord.is_active, WorkRecord.id == work_record_id).execute()
+                elif self.model == PeerReviewInvitee:
+                    peer_review_record_id = self.model.select().where(
+                        self.model.id.in_(ids))[0].peer_review_record_id
+                    PeerReviewRecord.update(
+                        processed_at=None, status=status).where(
+                        PeerReviewRecord.is_active, PeerReviewRecord.id == peer_review_record_id).execute()
             except Exception as ex:
                 db.rollback()
                 flash(f"Failed to activate the selected records: {ex}")
                 app.logger.exception("Failed to activate the selected records")
             else:
-                flash(f"{count} Funding Contributor records were reset for batch processing.")
+                if self.model == FundingInvitees:
+                    flash(f"{count} Funding Invitees records were reset for batch processing.")
+                elif self.model == PeerReviewInvitee:
+                    flash(f"{count} Peer Review Invitees records were reset for batch processing.")
+                else:
+                    flash(f"{count} Work Invitees records were reset for batch processing.")
 
 
-class FundingRecordAdmin(RecordModelView):
-    """Funding record model view."""
+class WorkInviteesAdmin(InviteesModelAdmin):
+    """Work invitees record model view."""
 
-    list_template = "funding_record_list.html"
-    column_searchable_list = ("title", )
+    list_template = "work_invitees_list.html"
+    column_exclude_list = ("work_record", )
+
+
+class FundingInviteesAdmin(InviteesModelAdmin):
+    """Funding invitees record model view."""
+
+    list_template = "funding_invitees_list.html"
+    column_exclude_list = ("funding_record", )
+
+
+class PeerReviewInviteeAdmin(InviteesModelAdmin):
+    """Peer Review invitee record model view."""
+
+    list_template = "peer_review_externalid_invitees_list.html"
+    column_exclude_list = ("peer_review_record", )
+
+
+class FundingWorkCommonModelView(RecordModelView):
+    """Common view for Funding, Work and Peer review model."""
+
     column_export_exclude_list = (
         "task",
         "is_active",
@@ -715,38 +827,17 @@ class FundingRecordAdmin(RecordModelView):
         "processed_at",
         "created_at",
         "updated_at",
-        "title",
-        "translated_title",
-        "translated_title_language_code",
-        "type",
-        "organization_defined_type",
-        "short_description",
-        "amount",
-        "currency",
-        "start_date",
-        "end_date",
-        "org_name",
-        "city",
-        "region",
-        "country",
-        "disambiguated_org_identifier",
-        "disambiguation_source",
-        "visibility",
     )
+
     export_types = [
         "tsv",
         "yaml",
         "json",
         "csv",
     ]
-    column_export_list = (
-        "funding id",
-        "contributors",
-    )
-    column_csv_export_list = ("funding id", "email", "name", "orcid", "put_code", "role", "status")
 
     def _export_tablib(self, export_type, return_url):
-        """Override funding export functionality to integrate funding contributors and external ids."""
+        """Override export functionality to integrate funding/work/peer review invitees with external ids."""
         if tablib is None:
             flash(gettext('Tablib dependency not installed.'), 'error')
             return redirect(return_url)
@@ -766,11 +857,11 @@ class FundingRecordAdmin(RecordModelView):
         count, data = self._export_data()
 
         for row in data:
-            external_id_list, contributor_list = self.get_external_id_contributors(row)
+            external_id_list, invitees_list = self.get_external_id_invitees(row)
             for external_ids in external_id_list:
                 vals = []
                 vals.append(external_ids['value'])
-                vals.append(contributor_list)
+                vals.append(invitees_list)
                 ds.append(vals)
 
         try:
@@ -790,27 +881,47 @@ class FundingRecordAdmin(RecordModelView):
             mimetype=mimetype,
         )
 
-    def get_external_id_contributors(self, row):
-        """Get funding contributors and external ids."""
+    def get_external_id_invitees(self, row):
+        """Get funding/work/peer_review invitees with external ids."""
         vals = []
-        contributor_list = []
+        invitees_list = []
         external_id_list = []
-        exclude_list = ['id', 'funding_record_id', 'processed_at']
+        record_id = "funding_record_id"
+        funding_work_peer_review_id = "funding id"
+        invitees = "funding_invitees"
+
+        if self.model == WorkRecord:
+            record_id = "work_record_id"
+            funding_work_peer_review_id = "work id"
+            invitees = "work_invitees"
+        elif self.model == PeerReviewRecord:
+            record_id = "peer_review_record_id"
+            funding_work_peer_review_id = "Peer Review id"
+            invitees = "peer_review_invitee"
+
+        exclude_list = ['id', record_id, 'processed_at']
         for c in self._export_columns:
-            if c[0] == 'contributors':
-                for f in row.contributors:
-                    contributor_rec = {}
+            if c[0] == invitees:
+                if self.model == WorkRecord:
+                    invitees_data = row.work_invitees
+                elif self.model == PeerReviewRecord:
+                    invitees_data = row.peer_review_invitee
+                else:
+                    invitees_data = row.funding_invitees
+
+                for f in invitees_data:
+                    invitees_rec = {}
                     for col in f._meta.columns.keys():
                         if col not in exclude_list:
-                            contributor_rec[col] = self._get_list_value(
+                            invitees_rec[col] = self._get_list_value(
                                 None,
                                 f,
                                 col,
                                 self.column_formatters_export,
                                 self.column_type_formatters_export,
                             )
-                    contributor_list.append(contributor_rec)
-            elif c[0] == 'funding id':
+                    invitees_list.append(invitees_rec)
+            elif c[0] == funding_work_peer_review_id:
                 external_id_relation_part_of = {}
                 for f in row.external_ids:
                     external_id_rec = {}
@@ -823,7 +934,7 @@ class FundingRecordAdmin(RecordModelView):
                                 self.column_formatters_export,
                                 self.column_type_formatters_export,
                             )
-                    # Get the first external id from extrnal id list with 'SELF' relationship for funding export
+                    # Get the first external id from extrnal id list with 'SELF' relationship for funding/work export
                     if not external_id_list and external_id_rec.get(
                             'relationship') and external_id_rec.get(
                                 'relationship').lower() == 'self':
@@ -836,7 +947,7 @@ class FundingRecordAdmin(RecordModelView):
                     external_id_list.append(external_id_relation_part_of)
             else:
                 vals.append(self.get_export_value(row, c[0]))
-        return (external_id_list, contributor_list)
+        return (external_id_list, invitees_list)
 
     @expose('/export/<export_type>/')
     def export(self, export_type):
@@ -876,9 +987,9 @@ class FundingRecordAdmin(RecordModelView):
             yield writer.writerow(titles)
 
             for row in data:
-                external_id_list, contributor_list = self.get_external_id_contributors(row)
+                external_id_list, invitees_list = self.get_external_id_invitees(row)
                 for external_ids in external_id_list:
-                    for cont in contributor_list:
+                    for cont in invitees_list:
                         vals = []
                         vals.append(external_ids['value'])
                         for col in self.column_csv_export_list[1:]:
@@ -893,6 +1004,94 @@ class FundingRecordAdmin(RecordModelView):
             stream_with_context(generate()),
             headers={'Content-Disposition': disposition},
             mimetype='text/' + export_type)
+
+
+class FundingRecordAdmin(FundingWorkCommonModelView):
+    """Funding record model view."""
+
+    column_searchable_list = ("title",)
+    list_template = "funding_record_list.html"
+    column_export_exclude_list = (
+        "title",
+        "translated_title",
+        "translated_title_language_code",
+        "type",
+        "organization_defined_type",
+        "short_description",
+        "amount",
+        "currency",
+        "start_date",
+        "end_date",
+        "org_name",
+        "city",
+        "region",
+        "country",
+        "disambiguated_org_identifier",
+        "disambiguation_source",
+        "visibility",
+    )
+
+    column_export_list = (
+        "funding id",
+        "funding_invitees",
+    )
+    column_csv_export_list = ("funding id", "identifier", "email", "first_name", "last_name", "orcid",
+                              "put_code", "status")
+
+
+class WorkRecordAdmin(FundingWorkCommonModelView):
+    """Work record model view."""
+
+    column_searchable_list = ("title",)
+    list_template = "work_record_list.html"
+    form_overrides = dict(publication_date=PartialDateField)
+
+    column_export_exclude_list = (
+        "title",
+        "sub_title",
+        "translated_title",
+        "translated_title_language_code",
+        "journal_title",
+        "short_description",
+        "citation_type",
+        "citation_value"
+        "type",
+        "publication_date",
+        "publication_media_type",
+        "url",
+        "language_code",
+        "country",
+        "visibility",
+    )
+    column_export_list = (
+        "work id",
+        "work_invitees",
+    )
+    column_csv_export_list = ("work id", "identifier", "email", "first_name", "last_name", "orcid",
+                              "put_code", "status")
+
+
+class PeerReviewRecordAdmin(FundingWorkCommonModelView):
+    """Peer Review record model view."""
+
+    column_searchable_list = ("review_group_id",)
+    list_template = "peer_review_record_list.html"
+    form_overrides = dict(review_completion_date=PartialDateField)
+
+    column_export_exclude_list = (
+        "review_group_id",
+        "reviewer_role",
+        "review_type",
+        "subject_type",
+        "review_completion_date",
+        "visibility",
+    )
+    column_export_list = (
+        "Peer Review id",
+        "peer_review_invitee",
+    )
+    column_csv_export_list = ("Peer Review id", "identifier", "email", "first_name", "last_name", "orcid",
+                              "put_code", "status")
 
 
 class AffiliationRecordAdmin(RecordModelView):
@@ -924,7 +1123,9 @@ class ViewMembersAdmin(AppModelView):
     list_template = "viewMembers.html"
     form_columns = ["name", "orcid", "email", "eppn", ]
     form_widget_args = {c: {"readonly": True} for c in form_columns if c != "email"}
-    column_list = ("email", "orcid")
+    column_list = ("email", "orcid", "created_at", "updated_at", )
+    column_formatters_export = dict(orcid=lambda v, c, m, p: m.orcid)
+    column_exclude_list = None
     column_searchable_list = (
         "email",
         "orcid",
@@ -939,6 +1140,10 @@ class ViewMembersAdmin(AppModelView):
     can_delete = True
     can_view_details = False
     can_export = True
+    column_filters = (
+        filters.DateBetweenFilter(column=User.created_at, name="Registration Date"),
+        filters.DateBetweenFilter(column=User.updated_at, name="Update Date"),
+    )
 
     def get_query(self):
         """Get quiery for the user belonging to the organistation of the current user."""
@@ -957,15 +1162,41 @@ class ViewMembersAdmin(AppModelView):
             abort(404)
 
     def delete_model(self, model):
-        """Delete a row."""
+        """Delete a row and revoke all access tokens issues for the organisation."""
+        org = current_user.organisation
+        token_revoke_url = app.config["ORCID_BASE_URL"] + "oauth/revoke"
+        for token in OrcidToken.select().where(OrcidToken.org == org, OrcidToken.user == model):
+            try:
+                resp = requests.post(
+                    token_revoke_url,
+                    headers={"Accepts": "application/json"},
+                    data=dict(
+                        client_id=org.orcid_client_id,
+                        client_secret=org.orcid_secret,
+                        token=token.access_token))
+
+                if resp.status_code != 200:
+                    flash("Failed to revoke token {tokne.access_token}: {ex}", "error")
+                    return False
+
+                token.delete_instance(recursive=True)
+
+            except Exception as ex:
+                flash("Failed to revoke token {tokne.access_token}: {ex}", "error")
+                app.logger.exception('Failed to delete record.')
+                return False
+
         user_org = UserOrg.select().where(
                 UserOrg.user == model,
-                UserOrg.org == current_user.organisation).first()
+                UserOrg.org == org).first()
         try:
             self.on_model_delete(model)
             if model.organisations.count() < 2:
                 model.delete_instance(recursive=True)
             else:
+                if model.organisation == user_org.org:
+                    model.organisation = model.organisations.first()
+                    model.save()
                 user_org.delete_instance(recursive=True)
 
         except Exception as ex:
@@ -979,6 +1210,87 @@ class ViewMembersAdmin(AppModelView):
         return True
 
 
+class GroupIdRecordAdmin(AppModelView):
+    """GroupIdRecord model view."""
+
+    roles_required = Role.SUPERUSER | Role.ADMIN
+    list_template = "admin/model/list.html"
+    can_edit = True
+    can_create = True
+    can_delete = True
+
+    form_widget_args = {"organisation": {"disabled": True}}
+    column_searchable_list = (
+        "name",
+        "group_id",
+    )
+    form_excluded_columns = (
+        "processed_at",
+        "status",
+    )
+
+    def create_form(self, obj=None):
+        """Preselect the organisation field with Admin's organisation."""
+        form = super(GroupIdRecordAdmin, self).create_form()
+        form.organisation.data = current_user.organisation
+        return form
+
+    @action("Insert/Update Record", "Insert or Update record",
+            "Are you sure you want add or update group id record?")
+    def action_insert_update(self, ids):
+        """Insert/Update GroupID records."""
+        count = 0
+        with db.atomic():
+            for gid in self.model.select().where(self.model.id.in_(ids)):
+                try:
+                    org = gid.organisation
+                    orcid_token = None
+                    gid.status = None
+                    try:
+                        orcid_token = OrcidToken.get(org=org, scope='/group-id-record/update')
+                    except OrcidToken.DoesNotExist:
+                        orcid_token = utils.get_client_credentials_token(org=org, scope="/group-id-record/update")
+                    except Exception as ex:
+                        flash("Something went wrong in ORCID call, "
+                              "please contact orcid@royalsociety.org.nz for support", "warning")
+                        app.logger.exception(f'Exception occured {ex}')
+
+                    orcid_client.configuration.access_token = orcid_token.access_token
+                    api = orcid_client.MemberAPI(org=org, access_token=orcid_token.access_token)
+
+                    put_code, created = api.create_or_update_record_id_group(put_code=gid.put_code,
+                                                                             org=org, group_name=gid.name,
+                                                                             group_id=gid.group_id,
+                                                                             description=gid.description, type=gid.type)
+
+                    if created:
+                        gid.add_status_line(f"The group id record was created.")
+                    else:
+                        gid.add_status_line(f"The group id record was updated.")
+
+                    gid.put_code = put_code
+                    count += 1
+                except ApiException as ex:
+                    if ex.status == 404:
+                        gid.put_code = None
+                    elif ex.status == 401:
+                        orcid_token.delete_instance()
+                    flash("Something went wrong in ORCID call, Please try again by making by making necessary changes, "
+                          "In case you understand the 'user-message' present in the status field or else "
+                          "please contact orcid@royalsociety.org.nz for support", "warning")
+                    app.logger.exception(f'Exception occured {ex}')
+                    gid.add_status_line(f"ApiException: {ex}")
+                except Exception as ex:
+                    flash("Something went wrong in ORCID call, "
+                          "Please contact orcid@royalsociety.org.nz for support", "warning")
+                    app.logger.exception(f'Exception occured {ex}')
+                    gid.add_status_line(f"Exception: {ex}")
+                finally:
+                    gid.processed_at = datetime.utcnow()
+                    gid.save()
+        flash("%d Record was processed." % count)
+
+
 admin.add_view(UserAdmin(User))
 admin.add_view(OrganisationAdmin(Organisation))
 admin.add_view(OrcidTokenAdmin(OrcidToken))
@@ -988,7 +1300,15 @@ admin.add_view(TaskAdmin(Task))
 admin.add_view(AffiliationRecordAdmin())
 admin.add_view(FundingRecordAdmin())
 admin.add_view(FundingContributorAdmin())
+admin.add_view(FundingInviteesAdmin())
 admin.add_view(ExternalIdAdmin())
+admin.add_view(WorkContributorAdmin())
+admin.add_view(WorkExternalIdAdmin())
+admin.add_view(WorkInviteesAdmin())
+admin.add_view(WorkRecordAdmin())
+admin.add_view(PeerReviewRecordAdmin())
+admin.add_view(PeerReviewInviteeAdmin())
+admin.add_view(PeerReviewExternalIdAdmin())
 admin.add_view(AppModelView(UserInvitation))
 admin.add_view(ViewMembersAdmin(name="viewmembers", endpoint="viewmembers"))
 
@@ -996,6 +1316,7 @@ admin.add_view(UserOrgAmin(UserOrg))
 admin.add_view(AppModelView(Client))
 admin.add_view(AppModelView(Grant))
 admin.add_view(AppModelView(Token))
+admin.add_view(GroupIdRecordAdmin(GroupIdRecord))
 
 SectionRecord = namedtuple(
     "SectionRecord",
@@ -1060,6 +1381,14 @@ def activate_all():
             count = FundingRecord.update(is_active=True).where(
                 FundingRecord.task_id == task_id,
                 FundingRecord.is_active == False).execute()  # noqa: E712
+        elif task.task_type == 2:
+            count = WorkRecord.update(is_active=True).where(
+                WorkRecord.task_id == task_id,
+                WorkRecord.is_active == False).execute()  # noqa: E712
+        elif task.task_type == 3:
+            count = PeerReviewRecord.update(is_active=True).where(
+                PeerReviewRecord.task_id == task_id,
+                PeerReviewRecord.is_active == False).execute()  # noqa: E712
     except Exception as ex:
         flash(f"Failed to activate the selected records: {ex}")
         app.logger.exception("Failed to activate the selected records")
@@ -1096,10 +1425,33 @@ def reset_all():
                     funding_record.processed_at = None
                     funding_record.status = status
 
-                    FundingContributor.update(
+                    FundingInvitees.update(
                         processed_at=None, status=status).where(
-                        FundingContributor.funding_record == funding_record.id).execute()
+                        FundingInvitees.funding_record == funding_record.id).execute()
                     funding_record.save()
+                    count = count + 1
+
+            elif task.task_type == 2:
+                for work_record in WorkRecord.select().where(WorkRecord.task_id == task_id,
+                                                                   WorkRecord.is_active == True):    # noqa: E712
+                    work_record.processed_at = None
+                    work_record.status = status
+
+                    WorkInvitees.update(
+                        processed_at=None, status=status).where(
+                        WorkInvitees.work_record == work_record.id).execute()
+                    work_record.save()
+                    count = count + 1
+            elif task.task_type == 3:
+                for peer_review_record in PeerReviewRecord.select().where(PeerReviewRecord.task_id == task_id,
+                                                                   PeerReviewRecord.is_active == True):    # noqa: E712
+                    peer_review_record.processed_at = None
+                    peer_review_record.status = status
+
+                    PeerReviewInvitee.update(
+                        processed_at=None, status=status).where(
+                        PeerReviewInvitee.peer_review_record == peer_review_record.id).execute()
+                    peer_review_record.save()
                     count = count + 1
         except Exception as ex:
             db.rollback()
@@ -1107,10 +1459,15 @@ def reset_all():
             app.logger.exception("Failed to reset the selected records")
         else:
             task.expires_at = None
+            task.expiry_email_sent_at = None
             task.completed_at = None
             task.save()
             if task.task_type == 1:
                 flash(f"{count} Funding records were reset for batch processing.")
+            elif task.task_type == 2:
+                flash(f"{count} Work records were reset for batch processing.")
+            elif task.task_type == 3:
+                flash(f"{count} Peer Review records were reset for batch processing.")
             else:
                 flash(f"{count} Affiliation records were reset for batch processing.")
     return redirect(_url)
@@ -1387,6 +1744,42 @@ def load_researcher_funding():
     return render_template("fileUpload.html", form=form, form_title="Funding")
 
 
+@app.route("/load/researcher/work", methods=["GET", "POST"])
+@roles_required(Role.ADMIN)
+def load_researcher_work():
+    """Preload researcher's work data."""
+    form = JsonOrYamlFileUploadForm()
+    if form.validate_on_submit():
+        filename = secure_filename(form.file_.data.filename)
+        try:
+            task = WorkRecord.load_from_json(read_uploaded_file(form), filename=filename)
+            flash(f"Successfully loaded {task.work_record_count} rows.")
+            return redirect(url_for("workrecord.index_view", task_id=task.id))
+        except Exception as ex:
+            flash(f"Failed to load work record file: {ex}", "danger")
+            app.logger.exception("Failed to load work records.")
+
+    return render_template("fileUpload.html", form=form, form_title="Work")
+
+
+@app.route("/load/researcher/peer_review", methods=["GET", "POST"])
+@roles_required(Role.ADMIN)
+def load_researcher_peer_review():
+    """Preload researcher's peer review data."""
+    form = JsonOrYamlFileUploadForm()
+    if form.validate_on_submit():
+        filename = secure_filename(form.file_.data.filename)
+        try:
+            task = PeerReviewRecord.load_from_json(read_uploaded_file(form), filename=filename)
+            flash(f"Successfully loaded {task.peer_review_record_count} rows.")
+            return redirect(url_for("peerreviewrecord.index_view", task_id=task.id))
+        except Exception as ex:
+            flash(f"Failed to load peer review record file: {ex}", "danger")
+            app.logger.exception("Failed to load peer review records.")
+
+    return render_template("fileUpload.html", form=form, form_title="Peer Review")
+
+
 @app.route("/orcid_api_rep", methods=["GET", "POST"])
 @roles_required(Role.SUPERUSER)
 def orcid_api_rep():
@@ -1497,7 +1890,7 @@ def register_org(org_name,
             user_org = UserOrg.create(user=user, org=org, is_admin=True)
 
         app.logger.info(f"Ready to send an ivitation to '{org_name} <{email}>'.")
-        token = generate_confirmation_token(email=email, org_name=org_name)
+        token = generate_confirmation_token(email=email, org=org_name)
         # TODO: for via_orcid constact direct link to ORCID with callback like to HUB
         if via_orcid:
             short_id = Url.shorten(
@@ -1555,9 +1948,18 @@ def invite_organisation():
                 try:
                     org = Organisation.get(name=org_name)
                     if org.tech_contact and org.tech_contact.email != email:
-                        flash(f"The current tech.conact {org.tech_contact.name} "
+                        # If the current tech contact is technical contact of more than one organisation,
+                        # then dont update the Roles in User table.
+                        check_tech_contact_count = Organisation.select().where(
+                            Organisation.tech_contact == org.tech_contact).count()
+                        if check_tech_contact_count == 1:
+                            org.tech_contact.roles &= ~Role.TECHNICAL
+                            org.tech_contact.save()
+                        flash(f"The current tech.contact {org.tech_contact.name} "
                               f"({org.tech_contact.email}) will be revoked.", "warning")
                 except Organisation.DoesNotExist:
+                    pass
+                except User.DoesNotExist:
                     pass
 
             register_org(**params)
@@ -1640,7 +2042,8 @@ def invite_user():
             email=email,
             affiliations=affiliations,
             **{f.name: f.data
-               for f in form})
+               for f in form},
+            cc_email=(current_user.name, current_user.email))
         flash(f"An invitation to {ui.email} was {'resent' if resend else 'sent'} successfully.",
               "success")
         break
@@ -1877,12 +2280,17 @@ def user_orgs_org(user_id, org_id=None):
     else:
         org = Organisation.get(id=org_id)
         uo, created = UserOrg.get_or_create(user_id=user_id, org_id=org_id)
-        if "is_admin" in data and uo.is_admin != data["is_admin"]:
+        if "is_admin" in data:
             uo.is_admin = data["is_admin"]
             uo.save()
         if "is_tech_contact" in data:
             user = User.get(id=user_id)
             if data["is_tech_contact"]:
+                # Updating old Technical Contact's Role info.
+                if org.tech_contact and org.tech_contact != user:
+                    org.tech_contact.roles &= ~Role.TECHNICAL
+                    org.tech_contact.save()
+                # Assigning new tech contact to organisation.
                 org.tech_contact = user
             elif org.tech_contact == user:
                 org.tech_contact_id = None
@@ -1892,3 +2300,21 @@ def user_orgs_org(user_id, org_id=None):
             "user_org": model_to_dict(uo, recurse=False),
             "status": ("CREATED" if created else "UPDATED"),
         }), (201 if created else 200)
+
+
+@app.route("/services/<int:user_id>/updated", methods=["POST"])
+def update_webhook(user_id):
+    """Handle webook calls."""
+    def handle_callback(user):
+        """Log the update and call client webhook callbacks."""
+        # TODO: add client webhook calls
+        pass
+
+    try:
+        user = User.get(id=user_id)
+        thread = Thread(target=handle_callback, kwargs=dict(user=user))
+        thread.start()
+    except Exception as ex:
+        app.logger.exception(f"Invalid user_id: {user_id}")
+
+    return '', 204

@@ -221,7 +221,7 @@ def handle_login():
 
     if user:
         # Add Shibboleth meta data if they are missing
-        if not user.name or org is not None and user.name == org.name and name:
+        if name and user.name != name:
             user.name = name
         if not user.first_name and first_name:
             user.first_name = first_name
@@ -824,7 +824,8 @@ def orcid_login(invitation_token=None):
             user_id=None, method="GET", url=orcid_authenticate_url, state=state)
         oac.save()
 
-        return redirect(orcid_authenticate_url)
+        return render_template(
+            "orcidLogoutAndCallback.html", orcid_base_url=ORCID_BASE_URL, callback_url=orcid_authenticate_url)
 
     except SignatureExpired as sx:
         with suppress(Exception):
@@ -841,18 +842,20 @@ def orcid_login(invitation_token=None):
             if OrcidToken.select().where(OrcidToken.user == user, OrcidToken.org == org):
                 flash("You have already given permission, you can simply login on orcidhub",
                       "warning")
-                app.logger.warning("Failed to login via ORCID, as user was trying old invitation token")
+                app.logger.warning(f"Failed to login via ORCID, as {user_email} from {user_org_name} organisation, "
+                                   "was trying old invitation token")
                 return redirect(url_for("index"))
 
         flash("It's been more than 15 days since your invitation was sent and it has expired. "
               "Please contact the sender to issue a new one",
               "danger")
-        app.logger.exception("Failed to login via ORCID.")
+        app.logger.warning(f"Failed to login via ORCID, as {user_email} from {user_org_name} organisation, "
+                           "was trying old invitation token")
         return redirect(url_for("index"))
     except Exception as ex:
         flash("Something went wrong. Please contact orcid@royalsociety.org.nz for support!",
               "danger")
-        app.logger.exception("Failed to login via ORCID.")
+        app.logger.exception(f"Failed to login via ORCID: {ex}")
         return redirect(url_for("index"))
 
 
@@ -980,7 +983,7 @@ def orcid_login_callback(request):
                     return redirect(url_for("index"))
             data = json.loads(api_response.data)
             if data and data.get("email") and any(
-                    e.get("email") == email for e in data.get("email")):
+                    e.get("email").lower() == email for e in data.get("email")):
                 user.save()
                 if not org.confirmed and user.is_tech_contact_of(org):
                     return redirect(_next or url_for("onboard_org"))
@@ -1006,11 +1009,12 @@ def orcid_login_callback(request):
                 return redirect(url_for("index"))
 
             orcid_token, orcid_token_found = OrcidToken.get_or_create(
-                user_id=user.id, org=user.organisation, scope=scope)
+                user_id=user.id, org=org, scope=scope)
             orcid_token.access_token = token["access_token"]
             orcid_token.refresh_token = token["refresh_token"]
             with db.atomic():
                 try:
+                    user.organisation = org
                     user.save()
                     orcid_token.save()
                 except Exception as ex:

@@ -1,5 +1,5 @@
-name: Funding Schema
-desc: This schema is added to validate correct funding input from research organisation admin
+name: Peer Review Schema
+desc: This schema is added to validate correct peer review input from research organisation admin
 type: map
 mapping:
     invitees:
@@ -56,83 +56,9 @@ mapping:
                 mapping:
                     value:
                         type: str
-    path:
+    reviewer-role:
         type: str
-    type:
-        type: str
-        required: True
-    organization-defined-type:
-        type: map
-        mapping:
-            value:
-                type: str
-    title:
-        required: True
-        type: map
-        mapping:
-            title:
-                type: map
-                mapping:
-                    value:
-                        type: str
-            translated-title:
-                type: map
-                mapping:
-                    value:
-                        type: str
-                    language-code:
-                        type: str
-    short-description:
-        type: str
-    amount:
-        type: map
-        mapping:
-            value:
-                type: str
-            currency-code:
-                type: str
-    url:
-        type: map
-        mapping:
-            value:
-                type: str
-    start-date:
-        type: map
-        mapping:
-            year:
-                type: map
-                mapping:
-                    value:
-                        type: str
-            month:
-                type: map
-                mapping:
-                    value:
-                        type: str
-            day:
-                type: map
-                mapping:
-                    value:
-                        type: str
-    end-date:
-        type: map
-        mapping:
-            year:
-                type: map
-                mapping:
-                    value:
-                        type: str
-            month:
-                type: map
-                mapping:
-                    value:
-                        type: str
-            day:
-                type: map
-                mapping:
-                    value:
-                        type: str
-    external-ids:
+    review-identifiers:
         type: map
         mapping:
             external-id:
@@ -152,35 +78,82 @@ mapping:
                                         type: str
                             external-id-relationship:
                                 type: str
-    contributors:
+    review-url:
         type: map
         mapping:
-            contributor:
-                type: seq
-                sequence:
-                    -
-                        type: map
-                        mapping:
-                            contributor-orcid:
-                                type: map
-                                mapping:
-                                    uri:
-                                        type: str
-                                    path:
-                                        type: str
-                                    host:
-                                        type: str
-                            credit-name:
-                                type: map
-                                mapping:
-                                    value:
-                                        type: str
-                            contributor-attributes:
-                                type: map
-                                mapping:
-                                    contributor-role:
-                                        type: str
-    organization:
+            value:
+                type: str
+    review-type:
+        type: str
+    review-completion-date:
+        type: map
+        mapping:
+            year:
+                type: map
+                mapping:
+                    value:
+                        type: str
+            month:
+                type: map
+                mapping:
+                    value:
+                        type: str
+            day:
+                type: map
+                mapping:
+                    value:
+                        type: str
+    review-group-id:
+        required: True
+        type: str
+    subject-external-identifier:
+        type: map
+        mapping:
+            external-id-type:
+                type: str
+            external-id-value:
+                 type: str
+            external-id-url:
+                  type: map
+                  mapping:
+                      value:
+                          type: str
+            external-id-relationship:
+                  type: str
+    subject-container-name:
+        type: map
+        mapping:
+            value:
+                type: str
+    subject-type:
+        type: str
+    subject-name:
+        type: map
+        mapping:
+            title:
+                type: map
+                mapping:
+                    value:
+                        type: str
+            subtitle:
+                type: map
+                mapping:
+                    value:
+                        type: str
+            translated-title:
+                type: map
+                mapping:
+                    language-code:
+                        type: str
+                    value:
+                        type: str
+    subject-url:
+        type: map
+        mapping:
+            value:
+                type: str
+    convening-organization:
+        required: True
         type: map
         mapping:
             name:
@@ -202,4 +175,6 @@ mapping:
                     disambiguation-source:
                         type: str
     visibility:
+        type: str
+    path:
         type: str

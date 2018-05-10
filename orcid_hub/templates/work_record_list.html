@@ -47,7 +47,7 @@
                 <form class="icon" method="POST" action="{{url_for('activate_all')}}">
                   <input id="task_id" name="task_id" type="hidden" value="{{task.id}}">
                   <button onclick="return safeConfirm('Are you sure you want to activate every record in this batch for processing?\n\nBy clicking &quot;OK&quot;'+
-                  ' you are affirming that the fundings to be written are, to the \nbest of your knowledge, correct!');"
+                  ' you are affirming that the works to be written are, to the \nbest of your knowledge, correct!');"
                           data-toggle="tooltip"
                           data-placement="bottom"
                           title="Activate all records for batch processing..."
@@ -59,7 +59,7 @@
                       action="{{url_for('reset_all')}}">
                   <input id="task_idd" name="task_id" type="hidden" value="{{task.id}}">
                   <button onclick="return safeConfirm('Are you sure you want to reset every record in this batch for processing?\n\nBy clicking &quot;OK&quot;'+
-                  ' you are affirming that the fundings to be written are, to the \nbest of your knowledge, correct!');"
+                  ' you are affirming that the works to be written are, to the \nbest of your knowledge, correct!');"
                           data-toggle="tooltip"
                           data-placement="bottom"
                           title="Reset all records for batch processing..."
@@ -77,16 +77,16 @@
 {% block list_row_actions %}
 {{ super() }}
 <div class="list-buttons-column">
-    <a class="icon" href="{{ url_for('fundinginvitees.index_view', funding_record_id=row.id, url=request.url) }}"
-       title="Funding Invitees">
+    <a class="icon" href="{{ url_for('workinvitees.index_view', work_record_id=row.id, url=request.url) }}"
+       title="Work Invitees">
         <spam class="fa fa-envelope"></spam>
     </a>
-    <a class="icon" href="{{ url_for('fundingcontributor.index_view', funding_record_id=row.id, url=request.url) }}"
-       title="Funding Contributor">
+    <a class="icon" href="{{ url_for('workcontributor.index_view', work_record_id=row.id, url=request.url) }}"
+       title="Work Contributor">
         <spam class="fa fa-users glyphicon glyphicon-users icon"></spam>
     </a>
-    <a class="icon" href="{{ url_for('externalid.index_view', funding_record_id=row.id, url=request.url) }}"
-       title="Funding ExternalId">
+    <a class="icon" href="{{ url_for('workexternalid.index_view', work_record_id=row.id, url=request.url) }}"
+       title="Work ExternalId">
         <spam class="fa fa-external-link glyphicon glyphicon-users icon"></spam>
     </a>
 </div>

@@ -2,7 +2,7 @@
 """Application views for reporting."""
 
 from flask import redirect, render_template, request, url_for
-from peewee import JOIN, fn
+from peewee import JOIN, SQL, fn
 
 from . import app
 from .forms import DateRangeForm
@@ -15,17 +15,29 @@ from .models import OrcidToken, Organisation, OrgInvitation, Role, User, UserInv
 def user_summary():  # noqa: D103
 
     form = DateRangeForm(request.args)
+    sort = request.args.get("sort")
+    if sort:
+        try:
+            sort = int(sort)
+        except:
+            sort = None
+    desc = request.args.get("desc")
+    if desc:
+        try:
+            desc = int(desc)
+        except:
+            desc = None
 
     if not (form.from_date.data and form.to_date.data):
         date_range = User.select(
             fn.MIN(User.created_at).alias('from_date'),
             fn.MAX(User.created_at).alias('to_date')).first()
-        if date_range:
-            return redirect(
-                url_for(
-                    "user_summary",
-                    from_date=date_range.from_date.date().isoformat(),
-                    to_date=date_range.to_date.date().isoformat()))
+        return redirect(
+            url_for(
+                "user_summary",
+                from_date=date_range.from_date.date().isoformat(),
+                to_date=date_range.to_date.date().isoformat(),
+                sort=sort, desc=desc))
 
     user_counts = (User.select(
         User.organisation.alias("org_id"),
@@ -46,17 +58,36 @@ def user_summary():  # noqa: D103
         fn.COALESCE(linked_counts.c.linked_user_count, 0).alias("linked_user_count")).join(
             user_counts, on=(Organisation.id == user_counts.c.org_id)).join(
                 linked_counts, JOIN.LEFT_OUTER,
-                on=(Organisation.id == linked_counts.c.org_id)).order_by(Organisation.name))
+                on=(Organisation.id == linked_counts.c.org_id)))
+
+    if sort == 1:
+        order_fields = [SQL("user_count"), SQL("linked_user_count"), ]
+    else:
+        order_fields = [Organisation.name, ]
+    if desc:
+        order_fields = [f.desc() for f in order_fields]
+    query = query.order_by(*order_fields)
 
     total_user_count = sum(r.user_count for r in query if r.user_count)
     total_linked_user_count = sum(r.linked_user_count for r in query if r.linked_user_count)
+
+    headers = [(h,
+                url_for(
+                    "user_summary",
+                    from_date=form.from_date.data,
+                    to_date=form.to_date.data,
+                    sort=i,
+                    desc=1 if sort == i and not desc else 0))
+               for i, h in enumerate(["Name", "Linked User Count / User Count (%)"])]
 
     return render_template(
         "user_summary.html",
         form=form,
         query=query,
         total_user_count=total_user_count,
-        total_linked_user_count=total_linked_user_count)
+        total_linked_user_count=total_linked_user_count,
+        sort=sort, desc=desc,
+        headers=headers)
 
 
 @app.route("/org_invitatin_summary")

@@ -61,9 +61,12 @@
                                                                                     title="Invite a new researcher">Invite Researcher</a></li>
                         <li id="load_researcher_affiliations"><a href="{{ url_for('load_researcher_affiliations')}}" data-toggle="tooltip"
                                                                                                                      title="Import a file of affiliation data as a new task">Upload Affiliations</a></li>
-                        <!-- Commenting code so that funding info is not accessible in production-->
                         <li id="load_researcher_funding"><a href="{{ url_for('load_researcher_funding')}}" data-toggle="tooltip"
                                                                                                            title="Import a file of funding data">Upload Funding</a></li>
+                        <li id="load_researcher_works"><a href="{{ url_for('load_researcher_work')}}" data-toggle="tooltip"
+                                                                                                           title="Import a file of Researcher Work">Upload Work</a></li>
+                        <li id="load_peer_review"><a href="{{ url_for('load_researcher_peer_review')}}"  data-toggle="tooltip"
+                                                                                            title="Import a file of peer review record">Upload Peer Review</a></li>
                         <li id="task.index_view"><a href="{{ url_for('task.index_view')}}"  data-toggle="tooltip"
                                                                                             title="Review the progress and results of your current affiliation tasks">Uploaded Tasks</a></li>
                       </ul>
@@ -85,13 +88,15 @@
 
 
                             {% if current_user.organisation.can_use_api %}
-                              <li id="applicatin"><a data-toggle="tooltip" data-placement="left" title="Register a client application or manage application credentials" href="{{ url_for('application')}}">Applicatin Registration</a></li>
+                              <li id="applicatin"><a data-toggle="tooltip" data-placement="left" title="Register a client application or manage application credentials" href="{{ url_for('application')}}">Application Registration</a></li>
                             {% endif %}
                           {% endif %}
                           <li id="logo"><a href="{{ url_for('logo')}}">
                               <span data-toggle="tooltip" data-placement="left" title="Upload your organisation logo">Logo</span></a></li>
                           <li id="manage_email_template"><a href="{{ url_for('manage_email_template')}}">
                               <span data-toggle="tooltip" data-placement="left" title="Customize your organization email template">Email Template</span></a></li>
+                          <li id="groupidrecord.index_view"><a href="{{ url_for('groupidrecord.index_view')}}"  data-toggle="tooltip"
+                                                                                            title="Create or Update group id record">GroupId Record</a></li>
                         </ul>
                       </li>
                     {% endif %}
