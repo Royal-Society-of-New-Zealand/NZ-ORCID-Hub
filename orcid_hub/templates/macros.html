@@ -1,3 +1,12 @@
+{# Render a form tag taht contains a CSRF token and all hiddedn fields. #}
+{%- macro form_tag(form, endpoint, fid='', css_class='', method="POST", enctype='') -%}
+<form{% if endpoint %}action="{{ url_for(endpoint, **kwargs) }}"{%endif%} method="{{ method }}"{% if fid %} id="{{ fid }}"{%endif%}{%if css_class%} class="{{ css_class }}"{%endif%}{% if enctype%} enctype="{{ enctype }}"{%endif%}>
+  {{ form.hidden_tag() }}
+  {{ caller () }}
+</form>
+{%- endmacro -%}
+
+{# Render a form field's errors. #}
 {%- macro field_errors(f) -%}
   {% if f.errors %}
     <ul class="list-unstyled text-danger field-error error">
@@ -8,6 +17,7 @@
   {% endif %}
 {%- endmacro -%}
 
+{# Render a form field. #}
 {%- macro render_field(f, css_class='') -%}
 {% if f.errors %}
   {% set css_class = css_class + " has-error " + kwargs.pop("class", '') %}
@@ -35,6 +45,7 @@
 </div>
 {% endmacro %}
 
+{# Render a user's ORCID as a link. #}
 {%- macro orcid_url(user, full_url=False, target="_blank") -%}
   {%- if user.orcid -%}
   <a href="{{user|orcid}}" target="{{target}}" class="orcid">
@@ -42,6 +53,7 @@
   {%- else %}&nbsp;{% endif -%}
 {%- endmacro -%}
 
+{# Render a satic image link. #}
 {%- macro image(filename) -%}
   {{url_for('static', filename='images/' + filename)}}
 {%- endmacro -%}
