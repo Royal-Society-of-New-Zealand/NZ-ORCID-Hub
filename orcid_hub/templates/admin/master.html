@@ -3,6 +3,7 @@ for integration of the common menu and header.
 The extension based on the version v1.5.#}
 {% extends 'admin/base.html' %}
 {% block head_css %}
+  <meta name="csrf-token" content="{{ csrf_token() }}">
   {{ super() }}
   <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.6.3/css/font-awesome.min.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-select/1.12.4/css/bootstrap-select.min.css">
