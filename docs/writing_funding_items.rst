@@ -3,7 +3,25 @@
 Writing funding items
 ^^^^^^^^^^^^^^^^^^^^^
 
-Writing funding works very similarly to affiliations, i.e., a funding file containing the email or ORCID iD of researcher/contributors and funding data is uploaded to the Hub and the Hub either sends the researcher/contributor invitations or uses the access token it already has to write the information to their ORCID records.
+The task of writing funding works very similarly to writing affiliations, i.e., 
 
-The main difference is that while affiliation files can be either csv or tsv, for funding the file must be in either json or YAML formats.  The Hub accepts these files structured in the same way as the ORCID 2.0/2.1 schema, and the contributors block is where each individual to be invited/written is specified.
+* a batch file containing information to be written to ORCID records, together with the email or ORCID iD of the researcher/contributors to be affected, is uploaded to the Hub.  
+* the Hub then either sends the people identitified email invitations and/or uses the access tokens it already has to write the information to their ORCID records.
 
+The main difference in writing funding is that while affiliation files are simple and can thus be given as either csv or tsv format, funding in ORCID is more complex requiring a structured file format such as the json or YAML formats to convey.  
+The Hub accepts batches of funding items where each item contains an initial invitees block (detailing the names, email, and optionally ORCID iD and put-code for each individual to be affected) and following that invitee block, data to be written to each invitee's ORCID record following the structur of the ORCID V2.0/V2.1 funding schema.  If the task describes an update to existing information omit the put-code from the funding data, and instead specify it in the invitees block::
+
+    [{"invitees":[{invitee1}, {invitee2}, ...], funding},{"invitees":[{invitee4}, {invitee5}, ...], funding2}, ...]
+
+Example files can be found in the project's `JIRA issue relating to this task <https://jira.auckland.ac.nz/browse/ORCIDHUB-274>`_, while any uploaded funding file will be validated against the `funding schema in YAML <https://github.com/Royal-Society-of-New-Zealand/NZ-ORCID-Hub/blob/master/funding_schema.yaml>`_.
+
+Each invitee is specified as:
+
+:first-name: 
+    required - if the user does not have an ORCID iD, this field together with 'Last name' and email, will be used to pre-fill ORCID registration
+:last-name: required
+:\email: the institutional email for the individual, and where the invitation will be sent if they're not known by the Hub
+:ORCID-iD: once it has been authenticated, an ORCID iD can be used instead of an email address; however, without an email address any invitation required cannot be sent
+:identifier: this can be any identifier used in your internal systems and is to allow you to match the resulting put-code from ORCID to simplify making future updates to the item
+:put-code: this is a numeric code which identifies the item in the ORCID registryu, and is returned to you in the Hub's funding report once the item has been successfully written. 
+    With a put-code the Hub attempts to overwrite an item; while without one, a new item is created having a new put-code
