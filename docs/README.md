@@ -45,7 +45,7 @@ Your **Service Provider** domain name (default: **${ENV}.<container domainname>"
 
 #### SHIB_IDP_DOMAINNAME
 
-Your **Idendtity Provider** domain name, e.g., *http://directory.tuakiri.ac.nz*
+Your **Identity Provider** domain name, e.g., *http://directory.tuakiri.ac.nz*
 
 #### SHIB_SSO_DS_URL
 
