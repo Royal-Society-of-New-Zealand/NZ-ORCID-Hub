@@ -1144,6 +1144,7 @@ class ViewMembersAdmin(AppModelView):
         filters.DateBetweenFilter(column=User.created_at, name="Registration Date"),
         filters.DateBetweenFilter(column=User.updated_at, name="Update Date"),
     )
+    column_labels = {"created_at": "Registered At"}
 
     def get_query(self):
         """Get quiery for the user belonging to the organistation of the current user."""

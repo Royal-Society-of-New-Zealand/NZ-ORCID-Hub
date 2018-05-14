@@ -337,6 +337,10 @@ def test_user_org_link(test_models):
     assert Organisation.get(id=5).admins.count() > 0
     assert len(User.get(email="user_the_same_id_0@org0.org.nz").linked_accounts) == 3
 
+    user = User.get(email="user0@org0.org.nz")
+    available_organisations = user.available_organisations
+    assert available_organisations.count() == 10
+
 
 def test_roles(test_models):
     assert Role.RESEARCHER == "RESEARCHER"
