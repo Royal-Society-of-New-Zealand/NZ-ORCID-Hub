@@ -427,6 +427,7 @@ class MemberAPI(MemberAPIV20Api):
             credit_name = None
             contributor_orcid = None
             contributor_attributes = None
+            contributor_email = None
 
             if w.orcid:
                 path = w.orcid
@@ -440,15 +441,18 @@ class MemberAPI(MemberAPIV20Api):
             if w.name:
                 credit_name = CreditName(value=w.name)  # noqa: F405
 
+            if w.email:
+                contributor_email = ContributorEmail(value=w.email)  # noqa: F405
+
             if w.role and w.contributor_sequence:
                 contributor_attributes = ContributorAttributes(  # noqa: F405
                     contributor_role=w.role.upper(), contributor_sequence=w.contributor_sequence)
 
-            # As Contributor email is by default private so, we are not sending it in work payload
             work_contributor_list.append(
                 Contributor(  # noqa: F405
                     contributor_orcid=contributor_orcid,
                     credit_name=credit_name,
+                    contributor_email=contributor_email,
                     contributor_attributes=contributor_attributes))
 
         rec.contributors = WorkContributors(contributor=work_contributor_list)  # noqa: F405
@@ -588,10 +592,14 @@ class MemberAPI(MemberAPIV20Api):
                 uri = None
                 host = None
                 credit_name = None
+                contributor_email = None
                 contributor_orcid = None
                 contributor_attributes = None
                 if f.name:
                     credit_name = CreditName(value=f.name)  # noqa: F405
+
+                if f.email:
+                    contributor_email = ContributorEmail(value=f.email)  # noqa: F405
 
                 if f.orcid:
                     path = f.orcid
@@ -601,7 +609,7 @@ class MemberAPI(MemberAPIV20Api):
                     uri = "http://" + url.hostname + "/" + path
                     host = url.hostname
                     contributor_orcid = ContributorOrcid(uri=uri, path=path, host=host)  # noqa: F405
-                # As Contributor email is by default private so, we are not sending it in funding payload
+
                 if f.role:
                     contributor_attributes = FundingContributorAttributes(  # noqa: F405
                         contributor_role=f.role.upper())
@@ -610,6 +618,7 @@ class MemberAPI(MemberAPIV20Api):
                     FundingContributor(  # noqa: F405
                         contributor_orcid=contributor_orcid,
                         credit_name=credit_name,
+                        contributor_email=contributor_email,
                         contributor_attributes=contributor_attributes))
 
             rec.contributors = FundingContributors(contributor=funding_contributor_list)  # noqa: F405
