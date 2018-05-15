@@ -23,7 +23,7 @@ services:
     depends_on:
       - db
       # - sentry
-    image: orcidhub/app-dev
+    image: orcidhub/app-dev:v4
     environment:
       - ENV
       - SHIB_SP_DOMAINNAME
@@ -52,9 +52,37 @@ services:
       - ./conf:/conf
     restart: always
 
-  # redis:
-  #   image: 'redis'
-  #   restart: always
+  redis:
+    image: redis
+    restart: always
+
+  worker:
+      image: orcidhub/app-dev:v4
+    depends_on:
+      - redis
+      - db
+      - app
+    command: "flask rq worker"
+    environment:
+      - ENV
+      - MAIL_DEFAULT_SENDER
+      - TOKEN_SECRET_KEY
+      - SECRET_KEY
+    restart: always
+
+  scheduler:
+    image: orcidhub/app-dev
+    depends_on:
+      - redis
+      - db
+      - app
+    command: "flask rq scheduler"
+    environment:
+      - ENV
+      - MAIL_DEFAULT_SENDER
+      - TOKEN_SECRET_KEY
+      - SECRET_KEY
+    restart: always
 
   # sentry:
   #   image: 'sentry:latest'
