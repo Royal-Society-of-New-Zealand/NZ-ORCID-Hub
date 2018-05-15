@@ -143,8 +143,8 @@ class AppModelView(ModelView):
         "html",
     ]
 
-    if ENV != "dev":
-        form_base_class = SecureForm
+    # if ENV != "dev":
+    #     form_base_class = SecureForm
 
     column_formatters = dict(
         roles=lambda v, c, m, p: ", ".join(n for r, n in v.roles.items() if r & m.roles),
