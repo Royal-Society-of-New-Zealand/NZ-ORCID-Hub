@@ -9,7 +9,7 @@ The task of writing works is very similar to writing affiliations, i.e.,
 * the Hub then either sends the people identitified email invitations and/or uses the access tokens it already has to write the information to their ORCID records.
 
 The main difference in writing works is that while affiliation files are simple and can thus be given as either csv or tsv format, works in ORCID are more complex requiring a structured file format such as the json or YAML formats to convey.  
-The Hub accepts batches of works items where each item contains an initial invitees block (detailing the names, email, and optionally ORCID iD and put-code for each individual to be affected) and following that invitee block, data to be written to each invitee's ORCID record following the structur of the ORCID V2.0/V2.1 works schema.  If the task describes an update to existing information omit the put-code from the funding data, and instead specify it in the relevant invitee in the invitees block::
+The Hub accepts batches of works items where each item contains an initial invitees block (detailing the names, email, and optionally ORCID iD and put-code for each individual to be affected) and following that invitee block, the data to be written to each invitee's ORCID record.  The work data must comply with the structure of the ORCID V2.0/V2.1 works schema, but omit put-code.  If the task describes an update to existing information in a users ORCID record the put-code will not apply to all invitees; instead specify each put-code in the data of the relevant invitee::
 
     [{"invitees":[{invitee1}, {invitee2}, ...], work},{"invitees":[{invitee4}, {invitee5}, ...], work2}, ...]
 
