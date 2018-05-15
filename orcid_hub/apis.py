@@ -656,7 +656,7 @@ api.add_resource(AffiliationAPI, "/api/v0.1/affiliations/<int:task_id>")
 class UserListAPI(AppResource):
     """User list data service."""
 
-    def get(self, identifier=None):
+    def get(self):
         """
         Return the list of the user belonging to the organisation.
 
@@ -667,6 +667,17 @@ class UserListAPI(AppResource):
         description: "Retrieve the list of all users."
         produces:
           - "application/json"
+        parameters:
+          - in: query
+            name: from_date
+            type: string
+            minimum: 0
+            description: the date starting from which user accounts were created and/or updated.
+          - in: query
+            name: to_date
+            type: string
+            minimum: 0
+            description: the date until which user accounts were created and/or updated.
         responses:
           200:
             description: "successful operation"
@@ -687,18 +698,27 @@ class UserListAPI(AppResource):
                         type: "string"
                       eppn:
                         type: "string"
-          400:
-            description: "Invalid identifier supplied"
           403:
             description: "Access Denied"
         """
         login_user(request.oauth.user)
-        return jsonify({
-            "users": [
-                u.to_dict(recurse=False, to_dashes=True)
-                for u in User.select().where(User.organisation == current_user.organisation)
-            ]
-        })
+        users = User.select().where(User.organisation == current_user.organisation)
+        for a in ["from_date", "to_date"]:
+            v = request.args.get(a)
+            if not v:
+                continue
+            try:
+                v = datetime.strptime(v, "%Y-%m-%d")
+            except ValueError as ex:
+                return jsonify({
+                    "error": f"Failed to parse the date for \"{a}\": {v}",
+                    "message": str(ex)
+                }), 422
+            if a.startswith("from"):
+                users = users.where((User.created_at >= v) | (User.updated_at >= v))
+            else:
+                users = users.where((User.created_at <= v) & (User.updated_at <= v))
+        return jsonify({"users": [u.to_dict(recurse=False, to_dashes=True) for u in users]})
 
 
 api.add_resource(UserListAPI, "/api/v0.1/users")
@@ -1041,7 +1061,7 @@ def orcid_proxy(path=None):
 
 
 @app.route("/api/v0.1/<string:orcid>/webhook/<path:callback_url>", methods=["PUT", "DELETE"])
-@oauth.require_oauth("/webhook")
+@oauth.require_oauth()
 def register_webhook(orcid, callback_url=None):
     """Handle webhook registration for an individual user with direct client call-back."""
     login_user(request.oauth.user)
@@ -1051,7 +1071,7 @@ def register_webhook(orcid, callback_url=None):
     except Exception as ex:
         return jsonify({"error": str(ex), "message": "Missing or invalid ORCID iD."}), 415
     callback_url = unquote(callback_url)
-    if is_valid_url(callback_url):
+    if not is_valid_url(callback_url):
         return jsonify({
             "error": "Invalid call-back URL",
             "message": f"Invalid call-back URL: {callback_url}"

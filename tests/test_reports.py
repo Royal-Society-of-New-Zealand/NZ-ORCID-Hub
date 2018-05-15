@@ -49,6 +49,16 @@ def test_user_summary(request_ctx):
         assert b"TEST0" in resp.data
         assert b"root@test0.edu" in resp.data
         assert b"0 / 9 (0%)" in resp.data
+    for (sort, desc) in [(0, 0), (0, 1), (1, 0), (1, 1)]:
+        with request_ctx(
+                f"/user_summary?from_date=2017-01-01&to_date=2018-12-31&sort={sort}&desc={desc}"
+        ) as ctx:
+            login_user(user, remember=True)
+            resp = ctx.app.full_dispatch_request()
+            assert resp.status_code == 200
+            data = resp.data.decode()
+            assert f"&sort={0 if sort else 1}&desc=0" in data
+            assert f"&sort={sort}&desc={0 if desc else 1}" in data
     with request_ctx("/user_summary") as ctx:
         login_user(user, remember=True)
         resp = ctx.app.full_dispatch_request()

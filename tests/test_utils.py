@@ -34,16 +34,16 @@ def test_append_qs():
 
 def test_generate_confirmation_token():
     """Test to generate confirmation token."""
-    token = utils.generate_confirmation_token(["testemail@example.com"])
+    token = utils.generate_confirmation_token(["testemail@example.com"], expiration=1)
     data = utils.confirm_token(token)
     # Test positive testcase
     assert 'testemail@example.com' == data[0]
     import time
     time.sleep(2)
     with pytest.raises(Exception) as ex_info:
-        utils.confirm_token(token, expiration=1)
+        utils.confirm_token(token)
     # Got exception
-    assert "Signature age 2 > 1 seconds" in ex_info.value.message
+    assert "Signature expired" in ex_info.value.message
 
 
 def test_track_event(request_ctx):
@@ -144,7 +144,7 @@ def test_send_user_invitation(test_db, request_ctx):
 
 
 @patch("orcid_hub.utils.send_email", side_effect=send_mail_mock)
-def test_send_work_funding_invitation(test_db, request_ctx):
+def test_send_work_funding_peer_review_invitation(test_db, request_ctx):
     """Test to send user invitation."""
     org = Organisation(
         id=1,
@@ -186,7 +186,7 @@ def test_send_work_funding_invitation(test_db, request_ctx):
     fc = FundingInvitees(funding_record=fr.id, email=email)
     fc.save()
     with request_ctx("/") as ctxx:
-        utils.send_work_funding_invitation(
+        utils.send_work_funding_peer_review_invitation(
             inviter=inviter, org=org, email=email, name=u.name, task_id=task.id)
         rv = ctxx.app.full_dispatch_request()
         assert rv.status_code == 200
@@ -488,7 +488,7 @@ def test_create_or_update_funding(email_patch, patch, test_db, request_ctx):
         funding_record=fr, type="Test_type", value="Test_value", url="Test", relationship="SELF")
 
     FundingContributor.create(
-        funding_record=fr, orcid="1213", role="LEAD", name="Contributor")
+        funding_record=fr, orcid="1213", role="LEAD", name="Contributor", email="contributor@mailinator.com")
 
     UserInvitation.create(
         invitee=u,
@@ -566,7 +566,7 @@ def test_create_or_update_work(email_patch, patch, test_db, request_ctx):
         work_record=wr, type="Test_type", value="Test_value", url="Test", relationship="SELF")
 
     WorkContributor.create(
-        work_record=wr, contributor_sequence="1", orcid="1213", role="LEAD", name="Contributor")
+        work_record=wr, contributor_sequence="1", orcid="1213", role="LEAD", name="xyz", email="xyz@mailiantor.com")
 
     UserInvitation.create(
         invitee=u,
@@ -902,6 +902,6 @@ def test_get_client_credentials_token(request_ctx):
 def test_is_valid_url():
     """Test URL validation for call-back URLs."""
     assert utils.is_valid_url("http://www.orcidhub.org.nz/some_path")
-    assert not utils.is_valid_url("http://www.orcidhub.org.nz")
+    assert utils.is_valid_url("http://www.orcidhub.org.nz")
     assert not utils.is_valid_url("www.orcidhub.org.nz/some_path")
     assert not utils.is_valid_url(12345)
