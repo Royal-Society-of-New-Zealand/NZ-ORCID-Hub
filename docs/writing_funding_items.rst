@@ -12,7 +12,7 @@ The main difference in writing funding is that while affiliation files are simpl
 
     [{"invitees":[{invitee1}, {invitee2}, ...], funding},{"invitees":[{invitee4}, {invitee5}, ...], funding2}, ...]
 
-Example files can be found in the project's `JIRA issue relating to this task <https://jira.auckland.ac.nz/browse/ORCIDHUB-274>`_, while any uploaded funding file will be validated against the `funding schema in YAML <https://github.com/Royal-Society-of-New-Zealand/NZ-ORCID-Hub/blob/master/funding_schema.yaml>`_.
+Example files in both `json </docs/examples/funding.json>`_ and `YAML </docs/examples/funding.yaml>`_ can be found in example folder, while any uploaded funding file will be validated against the `funding schema in YAML <https://github.com/Royal-Society-of-New-Zealand/NZ-ORCID-Hub/blob/master/funding_schema.yaml>`_.
 
 Each invitee is specified as:
 
