@@ -1,23 +1,22 @@
 {% extends "layout.html" %}
-{% from "macros.html" import render_field %}
+{% from "macros.html" import render_field, form_tag %}
 
 {% block content %}
   <div class="row">
     <div class="col-md-12 col-sm-12 col-xs-12">
-      <form method="POST" enctype="multipart/form-data">
+      {% call form_tag(form, enctype="multipart/form-data") %}
         <h1>Organisation Logo</h1>
         {% if current_user.organisation.logo %}
           <img src="{{ url_for('logo_image', token=current_user.organisation.logo.token) }}"
                style="max-height: 100px; max-width: 100px;" alt="Organisation Logo">
         {% endif %}
-        {{ form.hidden_tag() }}
         {{ render_field(form.logo_file) }}
         <span class="pull-right" style="padding-bottom: 40px;">
           {{ form.upload }}
           {{ form.reset }}
           {#{ form.cancel }#}
         </span>
-      </form>
+      {% endcall %}
     </div>
     <div class="row">
       <div class="col-md-12 col-sm-12 col-xs-12">

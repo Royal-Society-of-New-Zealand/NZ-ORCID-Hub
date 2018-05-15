@@ -1,17 +1,16 @@
 {% extends "layout.html" %}
-{% from "macros.html" import render_field %}
+{% from "macros.html" import render_field, form_tag %}
 
 {% block content %}
   <div class="row">
     <div class="col-md-12 col-sm-12 col-xs-12">
-      <form method="POST" enctype="multipart/form-data">
+      {% call form_tag(form, enctype="multipart/form-data") %}
         <h1>{{ form_title }} Info Upload</h1>
-        {{ form.hidden_tag() }}
         {{ render_field(form.file_) }}
         <span class="pull-right" style="padding-bottom: 40px;">
           <button type="submit" class="btn btn-primary" value="Save">Upload</button>
         </span>
-      </form>
+      {% endcall %}
     </div>
   </div>
   {% if request.endpoint == "load_researcher_affiliations" %}
