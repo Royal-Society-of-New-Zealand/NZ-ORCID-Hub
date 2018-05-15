@@ -488,7 +488,7 @@ def test_create_or_update_funding(email_patch, patch, test_db, request_ctx):
         funding_record=fr, type="Test_type", value="Test_value", url="Test", relationship="SELF")
 
     FundingContributor.create(
-        funding_record=fr, orcid="1213", role="LEAD", name="Contributor")
+        funding_record=fr, orcid="1213", role="LEAD", name="Contributor", email="contributor@mailinator.com")
 
     UserInvitation.create(
         invitee=u,
@@ -566,7 +566,7 @@ def test_create_or_update_work(email_patch, patch, test_db, request_ctx):
         work_record=wr, type="Test_type", value="Test_value", url="Test", relationship="SELF")
 
     WorkContributor.create(
-        work_record=wr, contributor_sequence="1", orcid="1213", role="LEAD", name="Contributor")
+        work_record=wr, contributor_sequence="1", orcid="1213", role="LEAD", name="xyz", email="xyz@mailiantor.com")
 
     UserInvitation.create(
         invitee=u,
