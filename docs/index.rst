@@ -43,6 +43,11 @@ Indices and tables
 .. -  `Steps to execute this application`_
 .. -  `Development Environment`_
 
+ORCID API Specification
+-----------------------
+
+.. mdinclude:: ../../orcid_api/README.md
+
 Application Docker Image
 ------------------------
 
