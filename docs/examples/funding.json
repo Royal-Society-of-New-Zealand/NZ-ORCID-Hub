@@ -35,7 +35,6 @@
 				}, {
 					"contributor-attributes": {"contributor-role": ""},
 					"credit-name": {"value": "Dr E Contributor 3"}
-					}
 				}
 			]
 		},
@@ -65,7 +64,7 @@
 			"contributor": [{
 					"contributor-attributes": {"contributor-role": "lead"},
 					"credit-name": {"value": "Associate Professor F Contributor 4"},
-					"contributor-email": {"value": "contributor4@mailinator.com"}
+					"contributor-email": {"value": "contributor4@mailinator.com"},
 					"contributor-orcid": {
 						"uri": "https://orcid.org/XXXX-XXXX-XXXX-XXX4",
 						"path": "XXXX-XXXX-XXXX-XXX4",
