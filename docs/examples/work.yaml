@@ -49,14 +49,12 @@
       credit-name:
         value: Associate Professor Alice
       contributor-email:
-        value: fdhjfdj@mailinator.com
+        value: alice.333456@mailinator.com
     - contributor-attributes:
-        contributor-sequence: '1'
+        contributor-sequence: '2'
         contributor-role: AUTHOR
       credit-name:
-        value: firstAssociate Professor ML r
-      contributor-email:
-        value: alice.333456@mailinator.com
+        value: Dr Bob
   language-code: en
   country:
     value: NZ
