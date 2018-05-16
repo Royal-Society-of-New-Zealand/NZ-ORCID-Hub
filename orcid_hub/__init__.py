@@ -20,7 +20,6 @@ from datetime import date, datetime
 
 import click
 from flask.json import JSONEncoder as _JSONEncoder
-from flask_wtf import CSRFProtect
 from flask_login import current_user, LoginManager
 from flask import Flask, request
 from flask_debugtoolbar import DebugToolbarExtension
@@ -52,7 +51,6 @@ if not app.config.from_pyfile("settings.cfg", silent=True) and app.debug:
     print("*** WARNING: Faile to laod local application configuration from 'instance/settins.cfg'")
 app.url_map.strict_slashes = False
 oauth = OAuth2Provider(app)
-csrf = CSRFProtect(app)
 api = Api(app)
 limiter = Limiter(
     app,
