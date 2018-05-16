@@ -34,7 +34,7 @@ from wtforms.fields import BooleanField
 from orcid_api.rest import ApiException
 
 from . import admin, app, limiter, models, orcid_client, utils
-from .config import ENV, ORCID_BASE_URL, SCOPE_ACTIVITIES_UPDATE, SCOPE_READ_LIMITED
+from .config import ORCID_BASE_URL, SCOPE_ACTIVITIES_UPDATE, SCOPE_READ_LIMITED
 from .forms import (ApplicationFrom, BitmapMultipleValueField, CredentialForm, EmailTemplateForm,
                     FileUploadForm, JsonOrYamlFileUploadForm, LogoForm, OrgRegistrationForm,
                     PartialDateField, RecordForm, UserInvitationForm)
@@ -144,7 +144,7 @@ class AppModelView(ModelView):
     ]
 
     # if ENV != "dev":
-    #     form_base_class = SecureForm
+    form_base_class = SecureForm
 
     column_formatters = dict(
         roles=lambda v, c, m, p: ", ".join(n for r, n in v.roles.items() if r & m.roles),
