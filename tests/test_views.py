@@ -23,7 +23,7 @@ from orcid_hub.config import ORCID_BASE_URL
 from orcid_hub.forms import FileUploadForm
 from orcid_hub.models import UserOrgAffiliation  # noqa: E128
 from orcid_hub.models import (AffiliationRecord, Client, File, FundingRecord, OrcidToken, Organisation,
-                              OrgInfo, Role, Task, Token, Url, User, UserInvitation, UserOrg)
+                              OrgInfo, Role, Task, Token, Url, User, UserInvitation, UserOrg, PeerReviewRecord)
 
 fake_time = time.time()
 logger = logging.getLogger(__name__)
@@ -1116,6 +1116,41 @@ def test_load_researcher_work(patch, patch2, request_ctx):
         assert "work" in rv.location
 
 
+@patch("pykwalify.core.Core.validate", side_effect=validate)
+@patch("pykwalify.core.Core.__init__", side_effect=core_mock)
+def test_load_researcher_peer_review(patch, patch2, request_ctx):
+    """Test preload peer review data."""
+    user = User.get(email="admin@test1.edu")
+    user.roles = Role.ADMIN
+    user.save()
+    with request_ctx(
+            "/load/researcher/peer_review",
+            method="POST",
+            data={
+                "file_": (
+                        BytesIO(
+                            b'[{"invitees": [{"identifier": "00001", "email": "contriuto7384P@mailinator.com", '
+                            b'"first-name": "Alice", "last-name": "Contributor 1", "ORCID-iD": null, "put-code": null}]'
+                            b', "reviewer-role": "REVIEWER", "review-identifiers": { "external-id": [{ '
+                            b'"external-id-type": "source-work-id", "external-id-value": "1212221", "external-id-url": '
+                            b'{"value": "https://localsystem.org/1234"}, "external-id-relationship": "SELF"}]}, '
+                            b'"review-type": "REVIEW", "review-group-id": "issn:90122", "subject-container-name": { '
+                            b'"value": "Journal title"}, "subject-type": "JOURNAL_ARTICLE", "subject-name": { '
+                            b'"title": {"value": "Name of the paper reviewed"}},"subject-url": { '
+                            b'"value": "https://subject-alt-url.com"}, "convening-organization": { "name": '
+                            b'"The University of Auckland", "address": { "city": "Auckland", "region": "Auckland",'
+                            b' "country": "NZ" } }}]'),
+                        "logo.json",),
+                "email": user.email
+            }) as ctx:
+        login_user(user, remember=True)
+        rv = ctx.app.full_dispatch_request()
+        assert rv.status_code == 302
+        # peer-review file successfully loaded.
+        assert "task_id" in rv.location
+        assert "peer" in rv.location
+
+
 def test_load_researcher_affiliations(request_ctx):
     """Test preload organisation data."""
     org = Organisation.create(
@@ -1280,6 +1315,12 @@ def test_viewmembers(request_ctx):
         assert resp.status_code == 200
         assert b"researcher100@test0.edu" in resp.data
 
+    with request_ctx("/admin/viewmembers/?flt1_0=2018-05-01+to+2018-05-31&flt2_1=2018-05-01+to+2018-05-31") as ctx:
+        login_user(admin)
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 200
+        assert b"researcher100@test0.edu" not in resp.data
+
     with request_ctx(f"/admin/viewmembers/edit/?id={non_admin.id}") as ctx:
         login_user(admin)
         resp = ctx.app.full_dispatch_request()
@@ -1350,18 +1391,43 @@ def test_viewmembers_delete(request_ctx):
         User.get(id=researcher0.id)
 
     UserOrg.create(org=admin0.organisation, user=researcher1)
+    OrcidToken.create(org=admin0.organisation, user=researcher1, access_token="ABC123")
     with request_ctx(
             "/admin/viewmembers/delete/",
             method="POST",
             data={
                 "id": str(researcher1.id),
                 "url": "/admin/viewmembers/",
-            }) as ctx:  # noqa: F405
+            }) as ctx, patch("orcid_hub.views.requests.post") as mockpost:  # noqa: F405
+        org = researcher1.organisation
+        mockpost.return_value = MagicMock(status_code=400)
         login_user(admin1)
         resp = ctx.app.full_dispatch_request()
-    assert resp.status_code == 302
-    assert User.select().where(User.id == researcher1.id).count() == 1
-    assert UserOrg.select().where(UserOrg.user == researcher1).count() == 1
+        assert resp.status_code == 302
+        assert User.select().where(User.id == researcher1.id).count() == 1
+        assert UserOrg.select().where(UserOrg.user == researcher1).count() == 2
+        assert OrcidToken.select().where(OrcidToken.org == org, OrcidToken.user == researcher1).count() == 1
+
+        mockpost.side_effect = Exception("FAILURE")
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 302
+        assert User.select().where(User.id == researcher1.id).count() == 1
+        assert UserOrg.select().where(UserOrg.user == researcher1).count() == 2
+        assert OrcidToken.select().where(OrcidToken.org == org, OrcidToken.user == researcher1).count() == 1
+
+        mockpost.reset_mock(side_effect=True)
+        mockpost.return_value = MagicMock(status_code=200)
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 302
+        assert User.select().where(User.id == researcher1.id).count() == 1
+        assert UserOrg.select().where(UserOrg.user == researcher1).count() == 1
+        args, kwargs = mockpost.call_args
+        assert args[0] == ctx.app.config["ORCID_BASE_URL"] + "oauth/revoke"
+        data = kwargs["data"]
+        assert data["client_id"] == "ABC123"
+        assert data["client_secret"] == "SECRET-12345"
+        assert data["token"].startswith("TOKEN-1")
+        assert OrcidToken.select().where(OrcidToken.org == org, OrcidToken.user == researcher1).count() == 0
 
 
 def test_reset_all(request_ctx):
@@ -1451,6 +1517,22 @@ def test_reset_all(request_ctx):
         is_active=True,
         visibility="Test_visibity")
 
+    task3 = Task.create(
+        id=3,
+        org=org,
+        completed_at="12/12/12",
+        filename="xyz.txt",
+        created_by=user,
+        updated_by=user,
+        task_type=3)
+
+    PeerReviewRecord.create(
+        id=1,
+        task=task3,
+        review_group_id=1212,
+        is_active=True,
+        visibility="Test_visibity")
+
     with request_ctx("/reset_all", method="POST") as ctxx:
         login_user(user, remember=True)
         request.args = ImmutableMultiDict([('url', 'http://localhost/affiliation_record_reset_for_batch')])
@@ -1473,6 +1555,17 @@ def test_reset_all(request_ctx):
         assert t2.completed_at is None
         assert rv.status_code == 302
         assert rv.location.startswith("http://localhost/funding_record_reset_for_batch")
+    with request_ctx("/reset_all", method="POST") as ctxx:
+        login_user(user, remember=True)
+        request.args = ImmutableMultiDict([('url', 'http://localhost/peer_review_record_reset_for_batch')])
+        request.form = ImmutableMultiDict([('task_id', task3.id)])
+        rv = ctxx.app.full_dispatch_request()
+        t2 = Task.get(id=3)
+        pr = PeerReviewRecord.get(id=1)
+        assert "The record was reset" in pr.status
+        assert t2.completed_at is None
+        assert rv.status_code == 302
+        assert rv.location.startswith("http://localhost/peer_review_record_reset_for_batch")
 
 
 def test_issue_470198698(request_ctx):

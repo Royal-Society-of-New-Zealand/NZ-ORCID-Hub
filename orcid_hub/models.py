@@ -35,7 +35,7 @@ from .config import DEFAULT_COUNTRY, ENV
 
 EMAIL_REGEX = re.compile(r"^[_a-z0-9-]+(\.[_a-z0-9-]+)*@[a-z0-9-]+(\.[a-z0-9-]+)*(\.[a-z]{2,4})$")
 ORCID_ID_REGEX = re.compile(r"^([X\d]{4}-?){3}[X\d]{4}$")
-PARTIAL_DATE_REREX = re.compile(r"\d+([/\-]\d+){,2}")
+PARTIAL_DATE_REGEX = re.compile(r"\d+([/\-]\d+){,2}")
 
 
 AFFILIATION_TYPES = (
@@ -120,17 +120,14 @@ class PartialDate(namedtuple("PartialDate", ["year", "month", "day"])):
         if value is None or value == {}:
             return None
         if isinstance(value, str):
-            match = PARTIAL_DATE_REREX.search(value)
+            match = PARTIAL_DATE_REGEX.search(value)
             if not match:
                 raise ModelException(f"Wrong partial date value '{value}'")
             value0 = match[0]
-            try:
-                if '/' in value0:
-                    parts = value0.split('/')
-                    return cls(*[int(v) for v in (parts[::-1] if len(parts[-1]) > 2 else parts)])
-                return cls(*[int(v) for v in value0.split('-')])
-            except Exception as ex:
-                raise ModelException(f"Wrong partial date value '{value}': {ex}")
+            if '/' in value0:
+                parts = value0.split('/')
+                return cls(*[int(v) for v in (parts[::-1] if len(parts[-1]) > 2 else parts)])
+            return cls(*[int(v) for v in value0.split('-')])
 
         return cls(**{k: int(v.get("value")) if v else None for k, v in value.items()})
 
@@ -862,6 +859,7 @@ class Task(BaseModel, AuditMixin):
     __record_count = None
     __record_funding_count = None
     __work_record_count = None
+    __peer_review_record_count = None
     org = ForeignKeyField(
         Organisation, index=True, verbose_name="Organisation", on_delete="SET NULL")
     completed_at = DateTimeField(null=True)
@@ -872,9 +870,15 @@ class Task(BaseModel, AuditMixin):
         User, on_delete="SET NULL", null=True, related_name="updated_tasks")
     task_type = SmallIntegerField(default=0, null=True)
     expires_at = DateTimeField(null=True)
+    expiry_email_sent_at = DateTimeField(null=True)
 
     def __repr__(self):
         return self.filename or f"Task #{self.id}"
+
+    @property
+    def is_expiry_email_sent(self):
+        """Test if the expiry email is sent ot not."""
+        return bool(self.expiry_email_sent_at)
 
     @property
     def record_count(self):
@@ -896,6 +900,13 @@ class Task(BaseModel, AuditMixin):
         if self.__work_record_count is None:
             self.__work_record_count = self.work_record.count()
         return self.__work_record_count
+
+    @property
+    def peer_review_record_count(self):
+        """Get count of the loaded peer review records."""
+        if self.__peer_review_record_count is None:
+            self.__peer_review_record_count = self.peer_review_record.count()
+        return self.__peer_review_record_count
 
     @classmethod
     def load_from_csv(cls, source, filename=None, org=None):
@@ -1094,6 +1105,39 @@ class RecordModel(BaseModel):
         self.status = (self.status + "\n" if self.status else '') + ts + ": " + line
 
 
+class GroupIdRecord(RecordModel):
+    """GroupID records."""
+
+    type_choices = [('publisher', 'publisher'), ('institution', 'institution'), ('journal', 'journal'),
+                    ('conference', 'conference'), ('newspaper', 'newspaper'), ('newsletter', 'newsletter'),
+                    ('magazine', 'magazine'), ('peer-review service', 'peer-review service')]
+    type_choices.sort(key=lambda e: e[1])
+    type_choices.insert(0, ("", ""))
+    put_code = IntegerField(null=True)
+    processed_at = DateTimeField(null=True)
+    status = TextField(null=True, help_text="Record processing status.")
+    name = CharField(max_length=120,
+                     help_text="The name of the group. This can be the name of a journal (Journal of Criminal Justice),"
+                               " a publisher (Society of Criminal Justice), or non-specific description (Legal Journal)"
+                               " as required.")
+    group_id = CharField(max_length=120,
+                         help_text="The group's identifier, formatted as type:identifier, e.g. issn:12345678. "
+                                   "This can be as specific (e.g. the journal's ISSN) or vague as required. "
+                                   "Valid types include: issn, ringgold, orcid-generated, fundref, publons.")
+    description = CharField(max_length=120,
+                            help_text="A brief textual description of the group. "
+                                      "This can be as specific or vague as required.")
+    type = CharField(max_length=80, choices=type_choices,
+                     help_text="One of the specified types: publisher; institution; journal; conference; newspaper; "
+                               "newsletter; magazine; peer-review service.")
+    organisation = ForeignKeyField(
+        Organisation, related_name="organisation", on_delete="CASCADE", null=True)
+
+    class Meta:  # noqa: D101,D106
+        db_table = "group_id_record"
+        table_alias = "gid"
+
+
 class AffiliationRecord(RecordModel):
     """Affiliation record loaded from CSV file for batch processing."""
 
@@ -1142,6 +1186,7 @@ class TaskType(IntFlag):
     AFFILIATION = 0  # Affilation of employment/education
     FUNDING = 1  # Funding
     WORK = 2
+    PEER_REVIEW = 3
 
     def __eq__(self, other):
         if isinstance(other, TaskType):
@@ -1201,62 +1246,25 @@ class FundingRecord(RecordModel):
 
                 for funding_data in funding_data_list:
 
-                    title = funding_data.get("title").get("title").get("value") if \
-                        funding_data.get("title") and funding_data.get("title").get("title") and \
-                        funding_data.get("title").get("title").get("value") else None
-
-                    translated_title = funding_data.get("title").get("translated-title").get("value") if \
-                        funding_data.get("title") and funding_data.get("title").get("translated-title") \
-                        and funding_data.get("title").get("translated-title").get("value") else None
-
-                    translated_title_language_code = funding_data.get("title").get(
-                        "translated-title").get(
-                            "language-code") if funding_data.get("title") and funding_data.get(
-                                "title").get("translated-title") and funding_data.get("title").get(
-                                    "translated-title").get("language-code") else None
-
-                    type = funding_data.get("type") if funding_data.get("type") else None
-
-                    organization_defined_type = funding_data.get("organization-defined-type").get("value") if \
-                        funding_data.get("organization-defined-type") else None
-
-                    short_description = funding_data.get("short-description") if funding_data.get(
-                        "short-description") else None
-
-                    amount = funding_data.get("amount").get("value") if funding_data.get(
-                        "amount") else None
-
-                    currency = funding_data.get("amount").get("currency-code") \
-                        if funding_data.get("amount") and funding_data.get("amount").get("currency-code") else None
+                    title = get_val(funding_data, "title", "title", "value")
+                    translated_title = get_val(funding_data, "title", "translated-title", "value")
+                    translated_title_language_code = get_val(funding_data, "title", "translated-title", "language-code")
+                    type = funding_data.get("type")
+                    organization_defined_type = get_val(funding_data, "organization-defined-type", "value")
+                    short_description = funding_data.get("short-description")
+                    amount = get_val(funding_data, "amount", "value")
+                    currency = get_val(funding_data, "amount", "currency-code")
                     start_date = PartialDate.create(funding_data.get("start-date"))
                     end_date = PartialDate.create(funding_data.get("end-date"))
-                    org_name = funding_data.get("organization").get("name") if \
-                        funding_data.get("organization") and funding_data.get("organization").get("name") else None
-
-                    city = funding_data.get("organization").get("address").get("city") if \
-                        funding_data.get("organization") and funding_data.get("organization").get("address") \
-                        else None
-
-                    region = funding_data.get("organization").get("address").get("region") if \
-                        funding_data.get("organization") and funding_data.get("organization").get("address") \
-                        else None
-
-                    country = funding_data.get("organization").get("address").get("country") if \
-                        funding_data.get("organization") and funding_data.get("organization").get("address") \
-                        else None
-
-                    disambiguated_org_identifier = funding_data.get("organization").get(
-                        "disambiguated-organization").get("disambiguated-organization-identifier") if \
-                        funding_data.get("organization") and \
-                        funding_data.get("organization").get("disambiguated-organization") else None
-
-                    disambiguation_source = funding_data.get("organization").get(
-                        "disambiguated-organization").get("disambiguation-source") if \
-                        funding_data.get("organization") and \
-                        funding_data.get("organization").get("disambiguated-organization") else None
-
-                    visibility = funding_data.get("visibility") if funding_data.get(
-                        "visibility") else None
+                    org_name = get_val(funding_data, "organization", "name")
+                    city = get_val(funding_data, "organization", "address", "city")
+                    region = get_val(funding_data, "organization", "address", "region")
+                    country = get_val(funding_data, "organization", "address", "country")
+                    disambiguated_org_identifier = get_val(funding_data, "organization", "disambiguated-organization",
+                                                           "disambiguated-organization-identifier")
+                    disambiguation_source = get_val(funding_data, "organization", "disambiguated-organization",
+                                                    "disambiguation-source")
+                    visibility = funding_data.get("visibility")
 
                     funding_record = FundingRecord.create(
                         task=task,
@@ -1281,12 +1289,12 @@ class FundingRecord(RecordModel):
                     invitees_list = funding_data.get("invitees") if funding_data.get("invitees") else None
                     if invitees_list:
                         for invitee in invitees_list:
-                            identifier = invitee.get("identifier") if invitee.get("identifier") else None
-                            email = invitee.get("email") if invitee.get("email") else None
-                            first_name = invitee.get("first-name") if invitee.get("first-name") else None
-                            last_name = invitee.get("last-name") if invitee.get("last-name") else None
-                            orcid_id = invitee.get("ORCID-iD") if invitee.get("ORCID-iD") else None
-                            put_code = invitee.get("put-code") if invitee.get("put-code") else None
+                            identifier = invitee.get("identifier")
+                            email = invitee.get("email")
+                            first_name = invitee.get("first-name")
+                            last_name = invitee.get("last-name")
+                            orcid_id = invitee.get("ORCID-iD")
+                            put_code = invitee.get("put-code")
 
                             FundingInvitees.create(
                                 funding_record=funding_record,
@@ -1304,21 +1312,16 @@ class FundingRecord(RecordModel):
                         funding_data.get("contributors") else None
                     if contributors_list:
                         for contributor in contributors_list:
-                            orcid_id = None
-                            if contributor.get("contributor-orcid") and contributor.get(
-                                    "contributor-orcid").get("path"):
-                                orcid_id = contributor.get("contributor-orcid").get("path")
-
-                            name = contributor.get("credit-name").get("value") if \
-                                contributor.get("credit-name") else None
-
-                            role = contributor.get("contributor-attributes").get("contributor-role") if \
-                                contributor.get("contributor-attributes") else None
+                            orcid_id = get_val(contributor, "contributor-orcid", "path")
+                            name = get_val(contributor, "credit-name", "value")
+                            email = get_val(contributor, "contributor-email", "value")
+                            role = get_val(contributor, "contributor-attributes", "contributor-role")
 
                             FundingContributor.create(
                                 funding_record=funding_record,
                                 orcid=orcid_id,
                                 name=name,
+                                email=email,
                                 role=role)
 
                     external_ids_list = funding_data.get("external-ids").get("external-id") if \
@@ -1327,8 +1330,7 @@ class FundingRecord(RecordModel):
                         for external_id in external_ids_list:
                             type = external_id.get("external-id-type")
                             value = external_id.get("external-id-value")
-                            url = external_id.get("external-id-url").get("value") if \
-                                external_id.get("external-id-url") else None
+                            url = get_val(external_id, "external-id-url", "value")
                             relationship = external_id.get("external-id-relationship")
                             ExternalId.create(
                                 funding_record=funding_record,
@@ -1348,6 +1350,226 @@ class FundingRecord(RecordModel):
     class Meta:  # noqa: D101,D106
         db_table = "funding_record"
         table_alias = "fr"
+
+
+class PeerReviewRecord(RecordModel):
+    """Peer Review record loaded from Json file for batch processing."""
+
+    task = ForeignKeyField(Task, related_name="peer_review_record", on_delete="CASCADE")
+    review_group_id = CharField(max_length=255)
+    reviewer_role = CharField(null=True, max_length=255)
+    review_url = CharField(null=True, max_length=255)
+    review_type = CharField(null=True, max_length=255)
+    review_completion_date = PartialDateField(null=True)
+    subject_external_id_type = CharField(null=True, max_length=255)
+    subject_external_id_value = CharField(null=True, max_length=255)
+    subject_external_id_url = CharField(null=True, max_length=255)
+    subject_external_id_relationship = CharField(null=True, max_length=255)
+    subject_container_name = CharField(null=True, max_length=255)
+    subject_type = CharField(null=True, max_length=80)
+    subject_name_title = CharField(null=True, max_length=255)
+    subject_name_subtitle = CharField(null=True, max_length=255)
+    subject_name_translated_title_lang_code = CharField(null=True, max_length=10)
+    subject_name_translated_title = CharField(null=True, max_length=255)
+    subject_url = CharField(null=True, max_length=255)
+    convening_org_name = CharField(null=True, max_length=255)
+    convening_org_city = CharField(null=True, max_length=255)
+    convening_org_region = CharField(null=True, max_length=255)
+    convening_org_country = CharField(null=True, max_length=255)
+    convening_org_disambiguated_identifier = CharField(null=True, max_length=255)
+    convening_org_disambiguation_source = CharField(null=True, max_length=255)
+    visibility = CharField(null=True, max_length=100)
+
+    is_active = BooleanField(
+        default=False, help_text="The record is marked for batch processing", null=True)
+    processed_at = DateTimeField(null=True)
+    status = TextField(null=True, help_text="Record processing status.")
+
+    @classmethod
+    def load_from_json(cls, source, filename=None, org=None):
+        """Load data from JSON file or a string."""
+        if isinstance(source, str):
+            # import data from file based on its extension; either it is yaml or json
+            peer_review_data_list = load_yaml_json(filename=filename, source=source)
+
+            for peer_review_data in peer_review_data_list:
+                validation_source_data = copy.deepcopy(peer_review_data)
+                validation_source_data = del_none(validation_source_data)
+
+                validator = Core(source_data=validation_source_data, schema_files=["peer_review_schema.yaml"])
+                validator.validate(raise_exception=True)
+
+            try:
+                if org is None:
+                    org = current_user.organisation if current_user else None
+                task = Task.create(org=org, filename=filename, task_type=TaskType.PEER_REVIEW)
+
+                for peer_review_data in peer_review_data_list:
+
+                    review_group_id = peer_review_data.get("review-group-id") if peer_review_data.get(
+                        "review-group-id") else None
+
+                    reviewer_role = peer_review_data.get("reviewer-role") if peer_review_data.get(
+                        "reviewer-role") else None
+
+                    review_url = peer_review_data.get("review-url").get("value") if peer_review_data.get(
+                        "review-url") else None
+
+                    review_type = peer_review_data.get("review-type") if peer_review_data.get("review-type") else None
+
+                    review_completion_date = PartialDate.create(peer_review_data.get("review-completion-date"))
+
+                    subject_external_id_type = peer_review_data.get("subject-external-identifier").get(
+                        "external-id-type") if peer_review_data.get(
+                        "subject-external-identifier") else None
+
+                    subject_external_id_value = peer_review_data.get("subject-external-identifier").get(
+                        "external-id-value") if peer_review_data.get(
+                        "subject-external-identifier") else None
+
+                    subject_external_id_url = peer_review_data.get("subject-external-identifier").get(
+                        "external-id-url").get("value") if peer_review_data.get(
+                        "subject-external-identifier") and peer_review_data.get("subject-external-identifier").get(
+                        "external-id-url") else None
+
+                    subject_external_id_relationship = peer_review_data.get("subject-external-identifier").get(
+                        "external-id-relationship") if peer_review_data.get(
+                        "subject-external-identifier") else None
+
+                    subject_container_name = peer_review_data.get("subject-container-name").get(
+                        "value") if peer_review_data.get(
+                        "subject-container-name") else None
+
+                    subject_type = peer_review_data.get("subject-type") if peer_review_data.get(
+                        "subject-type") else None
+
+                    subject_name_title = peer_review_data.get("subject-name").get("title").get(
+                        "value") if peer_review_data.get(
+                        "subject-name") and peer_review_data.get("subject-name").get("title") else None
+
+                    subject_name_subtitle = peer_review_data.get("subject-name").get("subtitle").get(
+                        "value") if peer_review_data.get(
+                        "subject-name") and peer_review_data.get("subject-name").get("subtitle") else None
+
+                    subject_name_translated_title_lang_code = peer_review_data.get("subject-name").get(
+                        "translated-title").get(
+                        "language-code") if peer_review_data.get(
+                        "subject-name") and peer_review_data.get("subject-name").get("translated-title") else None
+
+                    subject_name_translated_title = peer_review_data.get("subject-name").get(
+                        "translated-title").get(
+                        "value") if peer_review_data.get(
+                        "subject-name") and peer_review_data.get("subject-name").get("translated-title") else None
+
+                    subject_url = peer_review_data.get("subject-url").get("value") if peer_review_data.get(
+                        "subject-name") else None
+
+                    convening_org_name = peer_review_data.get("convening-organization").get(
+                        "name") if peer_review_data.get(
+                        "convening-organization") else None
+
+                    convening_org_city = peer_review_data.get("convening-organization").get("address").get(
+                        "city") if peer_review_data.get("convening-organization") and peer_review_data.get(
+                        "convening-organization").get("address") else None
+
+                    convening_org_region = peer_review_data.get("convening-organization").get("address").get(
+                        "region") if peer_review_data.get("convening-organization") and peer_review_data.get(
+                        "convening-organization").get("address") else None
+
+                    convening_org_country = peer_review_data.get("convening-organization").get("address").get(
+                        "country") if peer_review_data.get("convening-organization") and peer_review_data.get(
+                        "convening-organization").get("address") else None
+
+                    convening_org_disambiguated_identifier = peer_review_data.get(
+                        "convening-organization").get("disambiguated-organization").get(
+                        "disambiguated-organization-identifier") if peer_review_data.get(
+                        "convening-organization") and peer_review_data.get("convening-organization").get(
+                        "disambiguated-organization") else None
+
+                    convening_org_disambiguation_source = peer_review_data.get(
+                        "convening-organization").get("disambiguated-organization").get(
+                        "disambiguation-source") if peer_review_data.get(
+                        "convening-organization") and peer_review_data.get("convening-organization").get(
+                        "disambiguated-organization") else None
+
+                    visibility = peer_review_data.get("visibility") if peer_review_data.get("visibility") else None
+
+                    peer_review_record = PeerReviewRecord.create(
+                        task=task,
+                        review_group_id=review_group_id,
+                        reviewer_role=reviewer_role,
+                        review_url=review_url,
+                        review_type=review_type,
+                        review_completion_date=review_completion_date,
+                        subject_external_id_type=subject_external_id_type,
+                        subject_external_id_value=subject_external_id_value,
+                        subject_external_id_url=subject_external_id_url,
+                        subject_external_id_relationship=subject_external_id_relationship,
+                        subject_container_name=subject_container_name,
+                        subject_type=subject_type,
+                        subject_name_title=subject_name_title,
+                        subject_name_subtitle=subject_name_subtitle,
+                        subject_name_translated_title_lang_code=subject_name_translated_title_lang_code,
+                        subject_name_translated_title=subject_name_translated_title,
+                        subject_url=subject_url,
+                        convening_org_name=convening_org_name,
+                        convening_org_city=convening_org_city,
+                        convening_org_region=convening_org_region,
+                        convening_org_country=convening_org_country,
+                        convening_org_disambiguated_identifier=convening_org_disambiguated_identifier,
+                        convening_org_disambiguation_source=convening_org_disambiguation_source,
+                        visibility=visibility)
+
+                    invitees_list = peer_review_data.get("invitees") if peer_review_data.get("invitees") else None
+
+                    if invitees_list:
+                        for invitee in invitees_list:
+                            identifier = invitee.get("identifier") if invitee.get("identifier") else None
+                            email = invitee.get("email") if invitee.get("email") else None
+                            first_name = invitee.get("first-name") if invitee.get("first-name") else None
+                            last_name = invitee.get("last-name") if invitee.get("last-name") else None
+                            orcid_id = invitee.get("ORCID-iD") if invitee.get("ORCID-iD") else None
+                            put_code = invitee.get("put-code") if invitee.get("put-code") else None
+
+                            PeerReviewInvitee.create(
+                                peer_review_record=peer_review_record,
+                                identifier=identifier,
+                                email=email.lower(),
+                                first_name=first_name,
+                                last_name=last_name,
+                                orcid=orcid_id,
+                                put_code=put_code)
+                    else:
+                        raise SchemaError(u"Schema validation failed:\n - "
+                                          u"Expecting Invitees for which the peer review record will be written")
+
+                    external_ids_list = peer_review_data.get("review-identifiers").get("external-id") if \
+                        peer_review_data.get("review-identifiers") else None
+                    if external_ids_list:
+                        for external_id in external_ids_list:
+                            type = external_id.get("external-id-type")
+                            value = external_id.get("external-id-value")
+                            url = external_id.get("external-id-url").get("value") if \
+                                external_id.get("external-id-url") else None
+                            relationship = external_id.get("external-id-relationship")
+                            PeerReviewExternalId.create(
+                                peer_review_record=peer_review_record,
+                                type=type,
+                                value=value,
+                                url=url,
+                                relationship=relationship)
+                    else:
+                        raise SchemaError(u"Schema validation failed:\n - An external identifier is required")
+
+                return task
+            except Exception as ex:
+                db.rollback()
+                app.logger.exception("Failed to laod affiliation file.")
+                raise
+
+    class Meta:  # noqa: D101,D106
+        db_table = "peer_review_record"
+        table_alias = "pr"
 
 
 class WorkRecord(RecordModel):
@@ -1399,56 +1621,25 @@ class WorkRecord(RecordModel):
 
                 for work_data in work_data_list:
 
-                    title = work_data.get("title").get("title").get("value") if \
-                        work_data.get("title") and work_data.get("title").get("title") and \
-                        work_data.get("title").get("title").get("value") else None
-
-                    sub_title = work_data.get("title").get("subtitle").get("value") if \
-                        work_data.get("title") and work_data.get("title").get("subtitle") and \
-                        work_data.get("title").get("subtitle").get("value") else None
-
-                    translated_title = work_data.get("title").get("translated-title").get("value") if \
-                        work_data.get("title") and work_data.get("title").get("translated-title") \
-                        and work_data.get("title").get("translated-title").get("value") else None
-
-                    translated_title_language_code = work_data.get("title").get(
-                        "translated-title").get(
-                            "language-code") if work_data.get("title") and work_data.get(
-                                "title").get("translated-title") and work_data.get("title").get(
-                                    "translated-title").get("language-code") else None
-
-                    journal_title = work_data.get("journal-title").get("value") if \
-                        work_data.get("journal-title") and work_data.get("journal-title").get("value") else None
-
-                    short_description = work_data.get("short-description") if work_data.get(
-                        "short-description") else None
-
-                    citation_type = work_data.get("citation").get("citation-type") if \
-                        work_data.get("citation") and work_data.get("citation").get("citation-type") else None
-
-                    citation_value = work_data.get("citation").get("citation-value") if \
-                        work_data.get("citation") and work_data.get("citation").get("citation-value") else None
-
-                    type = work_data.get("type") if work_data.get("type") else None
+                    title = get_val(work_data, "title", "title", "value")
+                    sub_title = get_val(work_data, "title", "subtitle", "value")
+                    translated_title = get_val(work_data, "title", "translated-title", "value")
+                    translated_title_language_code = get_val(work_data, "title", "translated-title", "language-code")
+                    journal_title = get_val(work_data, "journal-title", "value")
+                    short_description = get_val(work_data, "short-description")
+                    citation_type = get_val(work_data, "citation", "citation-type")
+                    citation_value = get_val(work_data, "citation", "citation-value")
+                    type = get_val(work_data, "type")
+                    publication_media_type = get_val(work_data, "publication-date", "media-type")
+                    url = get_val(work_data, "url", "value")
+                    language_code = get_val(work_data, "language-code")
+                    country = get_val(work_data, "country", "value")
+                    visibility = get_val(work_data, "visibility")
 
                     # Removing key 'media-type' from the publication_date dict. and only considering year, day & month
                     publication_date = PartialDate.create(
                         {date_key: work_data.get("publication-date")[date_key] for date_key in
                          ('day', 'month', 'year')}) if work_data.get("publication-date") else None
-
-                    publication_media_type = work_data.get("publication-date").get("media-type") if \
-                        work_data.get("publication-date") and work_data.get("publication-date").get("media-type") \
-                        else None
-
-                    url = work_data.get("url").get("value") if \
-                        work_data.get("url") and work_data.get("url").get("value") else None
-
-                    language_code = work_data.get("language-code") if work_data.get("language-code") else None
-
-                    country = work_data.get("country").get("value") if \
-                        work_data.get("country") and work_data.get("country").get("value") else None
-
-                    visibility = work_data.get("visibility") if work_data.get("visibility") else None
 
                     work_record = WorkRecord.create(
                         task=task,
@@ -1472,12 +1663,12 @@ class WorkRecord(RecordModel):
 
                     if invitees_list:
                         for invitee in invitees_list:
-                            identifier = invitee.get("identifier") if invitee.get("identifier") else None
-                            email = invitee.get("email") if invitee.get("email") else None
-                            first_name = invitee.get("first-name") if invitee.get("first-name") else None
-                            last_name = invitee.get("last-name") if invitee.get("last-name") else None
-                            orcid_id = invitee.get("ORCID-iD") if invitee.get("ORCID-iD") else None
-                            put_code = invitee.get("put-code") if invitee.get("put-code") else None
+                            identifier = invitee.get("identifier")
+                            email = invitee.get("email")
+                            first_name = invitee.get("first-name")
+                            last_name = invitee.get("last-name")
+                            orcid_id = invitee.get("ORCID-iD")
+                            put_code = invitee.get("put-code")
 
                             WorkInvitees.create(
                                 work_record=work_record,
@@ -1496,24 +1687,18 @@ class WorkRecord(RecordModel):
 
                     if contributors_list:
                         for contributor in contributors_list:
-                            orcid_id = None
-                            if contributor.get("contributor-orcid") and contributor.get(
-                                    "contributor-orcid").get("path"):
-                                orcid_id = contributor.get("contributor-orcid").get("path")
-
-                            name = contributor.get("credit-name").get("value") if \
-                                contributor.get("credit-name") else None
-
-                            role = contributor.get("contributor-attributes").get("contributor-role") if \
-                                contributor.get("contributor-attributes") else None
-
-                            contributor_sequence = contributor.get("contributor-attributes").get(
-                                "contributor-sequence") if contributor.get("contributor-attributes") else None
+                            orcid_id = get_val(contributor, "contributor-orcid", "path")
+                            name = get_val(contributor, "credit-name", "value")
+                            email = get_val(contributor, "contributor-email", "value")
+                            role = get_val(contributor, "contributor-attributes", "contributor-role")
+                            contributor_sequence = get_val(contributor, "contributor-attributes",
+                                                           "contributor-sequence")
 
                             WorkContributor.create(
                                 work_record=work_record,
                                 orcid=orcid_id,
                                 name=name,
+                                email=email,
                                 role=role,
                                 contributor_sequence=contributor_sequence)
 
@@ -1523,8 +1708,7 @@ class WorkRecord(RecordModel):
                         for external_id in external_ids_list:
                             type = external_id.get("external-id-type")
                             value = external_id.get("external-id-value")
-                            url = external_id.get("external-id-url").get("value") if \
-                                external_id.get("external-id-url") else None
+                            url = get_val(external_id, "external-id-url", "value")
                             relationship = external_id.get("external-id-relationship")
                             WorkExternalId.create(
                                 work_record=work_record,
@@ -1552,6 +1736,7 @@ class ContributorModel(BaseModel):
     orcid = OrcidIdField(null=True)
     name = CharField(max_length=120, null=True)
     role = CharField(max_length=120, null=True)
+    email = CharField(max_length=120, null=True)
 
 
 class WorkContributor(ContributorModel):
@@ -1595,6 +1780,17 @@ class InviteesModel(BaseModel):
         self.status = (self.status + "\n" if self.status else '') + ts + ": " + line
 
 
+class PeerReviewInvitee(InviteesModel):
+    """Researcher or Invitee - related to peer review."""
+
+    peer_review_record = ForeignKeyField(
+        PeerReviewRecord, related_name="peer_review_invitee", on_delete="CASCADE")
+
+    class Meta:  # noqa: D101,D106
+        db_table = "peer_review_invitee"
+        table_alias = "pi"
+
+
 class WorkInvitees(InviteesModel):
     """Researcher or Invitees - related to work."""
 
@@ -1635,6 +1831,17 @@ class WorkExternalId(ExternalIdModel):
     class Meta:  # noqa: D101,D106
         db_table = "work_external_id"
         table_alias = "wei"
+
+
+class PeerReviewExternalId(ExternalIdModel):
+    """Peer Review ExternalId loaded for batch processing."""
+
+    peer_review_record = ForeignKeyField(
+        PeerReviewRecord, related_name="external_ids", on_delete="CASCADE")
+
+    class Meta:  # noqa: D101,D106
+        db_table = "peer_review_external_id"
+        table_alias = "pei"
 
 
 class ExternalId(ExternalIdModel):
@@ -1863,6 +2070,9 @@ def create_tables():
             FundingContributor,
             FundingInvitees,
             ExternalId,
+            PeerReviewRecord,
+            PeerReviewInvitee,
+            PeerReviewExternalId,
             Client,
             Grant,
             Token,
@@ -1932,4 +2142,13 @@ def del_none(d):
                     del_none(item)
         elif isinstance(value, dict):
             del_none(value)
+    return d
+
+
+def get_val(d, *keys):
+    """To get the value from uploaded fields."""
+    for k in keys:
+        if not d:
+            break
+        d = d.get(k)
     return d

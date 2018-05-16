@@ -1,8 +1,8 @@
 {% extends "base.html" %}
-{% from "macros.html" import render_field %}
+{% from "macros.html" import render_field, form_tag %}
 
 {% block content %}
-  <form method="POST">
+  {% call form_tag(form) %}
     <div class="row">
       <div class="col-md-9 col-sm-8 col-xs-12">
         <h1>Register a new OAuth application</h1>
@@ -10,16 +10,13 @@
     </div>
     <div class="row">
       <div class="col-md-6 col-sm-6 col-xs-12">
-        {{ form.hidden_tag() }}
         {{ render_field(form.name) }}
         {{ render_field(form.homepage_url) }}
-      <!-- /div>
-      <div class="col-md-6 col-sm-6 col-xs-12" -->
         {{ render_field(form.description) }}
         {{ render_field(form.callback_urls) }}
         {{ form.register }}
         {{ form.cancel }}
       </div>
     </div>
-  </form>
+  {% endcall %}
 {% endblock %}

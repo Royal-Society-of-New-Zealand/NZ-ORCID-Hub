@@ -53,7 +53,7 @@ def app():
         (File, Organisation, User, UserOrg, OrcidToken, UserOrgAffiliation, OrgInfo, Task,
          AffiliationRecord, FundingRecord, FundingContributor, FundingInvitees, OrcidAuthorizeCall, OrcidApiCall,
          Url, UserInvitation, OrgInvitation, ExternalId, Client, Grant, Token, WorkRecord, WorkContributor,
-         WorkExternalId, WorkInvitees), fail_silently=True):  # noqa: F405
+         WorkExternalId, WorkInvitees, PeerReviewRecord, PeerReviewInvitee, PeerReviewExternalId), fail_silently=True):  # noqa: F405
         _app.db = _db
         _app.config["DATABASE_URL"] = DATABASE_URL
         _app.config["EXTERNAL_SP"] = None
@@ -68,6 +68,11 @@ def app():
             org = Organisation.create(
                 name=f"TEST{org_no}",
                 tuakiri_name=f"TEST ORG #{org_no}")
+            if org_no == 1:
+                org.orcid_client_id = "ABC123"
+                org.orcid_secret = "SECRET-12345"
+                org.save()
+
             # An org.admin
             user = User.create(
                 created_at=datetime(2017, 11, 28),
@@ -101,8 +106,13 @@ def app():
                     organisation=org,
                     created_at=datetime(2017, 12, i % 31 + 1)) for i in range(100, 107)).execute()
             OrcidToken.insert_many(
-                dict(org=org, user=u, expires_in=0, created_at=datetime(2018, 1, 1))
-                for u in User.select(User.id) if u.id % 2 == 0).execute()
+                dict(
+                    access_token=f"TOKEN-{org_no}-{u.id}",
+                    org=org,
+                    user=u,
+                    expires_in=0,
+                    created_at=datetime(2018, 1, 1)) for u in User.select(User.id)
+                if u.id % 2 == 0).execute()
             if org_no == 0:
                 Client.create(org=org, user=user, client_id=org.name + "-ID", client_secret=org.name + "-SECRET")
         UserOrg.insert_from(

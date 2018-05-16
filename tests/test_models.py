@@ -9,7 +9,8 @@ from orcid_hub.models import (Affiliation, AffiliationRecord, BaseModel, Boolean
                               FundingContributor, FundingRecord, FundingInvitees, ModelException, OrcidToken,
                               Organisation, OrgInfo, PartialDate, PartialDateField, Role, Task,
                               TextField, User, UserOrg, UserOrgAffiliation, WorkRecord, WorkContributor, WorkExternalId,
-                              WorkInvitees, create_tables, drop_tables, validate_orcid_id)
+                              WorkInvitees, PeerReviewRecord, PeerReviewInvitee, PeerReviewExternalId,
+                              create_tables, drop_tables, validate_orcid_id)
 
 
 @pytest.fixture
@@ -27,7 +28,8 @@ def test_db():
     with test_database(
             _db, (Organisation, User, UserOrg, OrgInfo, OrcidToken, UserOrgAffiliation, Task,
                   AffiliationRecord, ExternalId, FundingRecord, FundingContributor, FundingInvitees,
-                  WorkRecord, WorkContributor, WorkExternalId, WorkInvitees),
+                  WorkRecord, WorkContributor, WorkExternalId, WorkInvitees, PeerReviewRecord, PeerReviewExternalId,
+                  PeerReviewInvitee),
             fail_silently=True) as _test_db:
         yield _test_db
 
@@ -152,6 +154,49 @@ def test_models(test_db):
         url="Test_%d" % i,
         relationship="Test_%d" % i) for i in range(10))).execute()
 
+    PeerReviewRecord.insert_many((dict(
+        task=Task.get(id=1),
+        review_group_id="issn:1212_%d" % i,
+        reviewer_role="reviewer_%d" % i,
+        review_url="xyz_%d" % i,
+        review_type="REVIEW_%d" % i,
+        subject_external_id_type="doi_%d" % i,
+        subject_external_id_value="1212_%d" % i,
+        subject_external_id_url="url/SELF_%d" % i,
+        subject_external_id_relationship="SELF_%d" % i,
+        subject_container_name="Journal title_%d" % i,
+        subject_type="JOURNAL_ARTICLE_%d" % i,
+        subject_name_title="name_%d" % i,
+        subject_name_subtitle="subtitle_%d" % i,
+        subject_name_translated_title_lang_code="en",
+        subject_name_translated_title="sdsd_%d" % i,
+        subject_url="url_%d" % i,
+        convening_org_name="THE ORGANISATION_%d" % i,
+        convening_org_city="auckland_%d" % i,
+        convening_org_region="auckland_%d" % i,
+        convening_org_country="nz_%d" % i,
+        convening_org_disambiguated_identifier="123_%d" % i,
+        convening_org_disambiguation_source="1212_%d" % i,
+        is_active=False,
+        visibility="PUBLIC") for i in range(10))).execute()
+
+    PeerReviewExternalId.insert_many((dict(
+        peer_review_record=PeerReviewRecord.get(id=1),
+        type="Test1_%d" % i,
+        value="Test1_%d" % i,
+        url="Test1_%d" % i,
+        relationship="Test1_%d" % i) for i in range(10))).execute()
+
+    PeerReviewInvitee.insert_many((dict(
+        peer_review_record=PeerReviewRecord.get(id=1),
+        orcid="1231123112311%d" % i,
+        first_name="Test1_%d" % i,
+        last_name="Test1_%d" % i,
+        put_code=i,
+        status="Test1_%d" % i,
+        identifier="1%d" % i,
+        email="Test1_%d" % i) for i in range(10))).execute()
+
     WorkRecord.insert_many((dict(
         task=Task.get(id=1),
         title="Test_%d" % i,
@@ -264,6 +309,16 @@ def test_WorkInvitees_count(test_models):
     assert WorkInvitees.select().count() == 10
 
 
+def test_PeerReviewRecord_count(test_models):
+    assert PeerReviewRecord.select().count() == 10
+
+
+def test_PeerReviewExternalId_count(test_models):
+    assert PeerReviewExternalId.select().count() == 10
+
+def test_PeerReviewInvitees_count(test_models):
+    assert PeerReviewInvitee.select().count() == 10
+
 def test_Task_count(test_models):
     assert Task.select().count() == 30
 
@@ -281,6 +336,10 @@ def test_user_org_link(test_models):
     assert Organisation.get(id=5).users.count() > 0
     assert Organisation.get(id=5).admins.count() > 0
     assert len(User.get(email="user_the_same_id_0@org0.org.nz").linked_accounts) == 3
+
+    user = User.get(email="user0@org0.org.nz")
+    available_organisations = user.available_organisations
+    assert available_organisations.count() == 10
 
 
 def test_roles(test_models):
