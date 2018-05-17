@@ -911,12 +911,7 @@ class Task(BaseModel, AuditMixin):
     def load_from_csv(cls, source, filename=None, org=None):
         """Load affiliation record data from CSV/TSV file or a string."""
         if isinstance(source, str):
-            if '\n' in source:
-                source = StringIO(source)
-            else:
-                source = open(source)
-                if filename is None:
-                    filename = source
+            source = StringIO(source)
         reader = csv.reader(source)
         header = next(reader)
         if filename is None:
