@@ -27,13 +27,12 @@ from playhouse.shortcuts import model_to_dict
 from pycountry import countries
 from pykwalify.core import Core
 from pykwalify.errors import SchemaError
-
 from peewee_validates import ModelValidator
 
 from . import app, db
 from .config import DEFAULT_COUNTRY, ENV
 
-EMAIL_REGEX = re.compile(r"^[_a-z0-9-]+(\.[_a-z0-9-]+)*@[a-z0-9-]+(\.[a-z0-9-]+)*(\.[a-z]{2,4})$")
+EMAIL_REGEX = re.compile(r"^[_a-z0-9-+]+(\.[_a-z0-9-]+)*@[a-z0-9-+]+(\.[a-z0-9-]+)*(\.[a-z]{2,4})$")
 ORCID_ID_REGEX = re.compile(r"^([X\d]{4}-?){3}[X\d]{4}$")
 PARTIAL_DATE_REGEX = re.compile(r"\d+([/\-]\d+){,2}")
 
