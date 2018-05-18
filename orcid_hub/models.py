@@ -155,8 +155,9 @@ class OrcidIdField(FixedCharField):
     def __init__(self, *args, **kwargs):
         """Initialize ORCID iD data field."""
         if "verbose_name" not in kwargs:
-            self.verbose_name = "ORCID iD"
-        self.max_length = 19
+            kwargs["verbose_name"] = "ORCID iD"
+        if "max_length" not in kwargs:
+            kwargs["max_length"] = 19
         super().__init__(*args, **kwargs)
 
         # TODO: figure out where to place the value validation...
@@ -332,7 +333,7 @@ class AuditMixin(Model):
     """Mixing for getting data necessary for data change audit trail maintenace."""
 
     created_at = DateTimeField(default=datetime.utcnow)
-    updated_at = DateTimeField(null=True)
+    updated_at = DateTimeField(null=True, default=None)
 
     # created_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
     # updated_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
@@ -868,7 +869,7 @@ class Task(BaseModel, AuditMixin):
         User, on_delete="SET NULL", null=True, related_name="created_tasks")
     updated_by = ForeignKeyField(
         User, on_delete="SET NULL", null=True, related_name="updated_tasks")
-    task_type = SmallIntegerField(default=0, null=True)
+    task_type = SmallIntegerField(default=0)
     expires_at = DateTimeField(null=True)
     expiry_email_sent_at = DateTimeField(null=True)
 
@@ -2059,6 +2060,7 @@ def create_tables():
             OrcidAuthorizeCall,
             Task,
             AffiliationRecord,
+            GroupIdRecord,
             OrgInvitation,
             Url,
             UserInvitation,
@@ -2095,10 +2097,12 @@ def create_audit_tables():
         pass
 
     if isinstance(db, PostgresqlDatabase):
-        with open("conf/auditing.sql", 'br') as input_file:
+        with open(os.path.join(os.path.dirname(__file__), "sql", "auditing.sql"), 'br') as input_file:
             sql = readup_file(input_file)
+            db.commit()
             with db.get_cursor() as cr:
                 cr.execute(sql)
+            db.commit()
 
 
 def drop_tables():

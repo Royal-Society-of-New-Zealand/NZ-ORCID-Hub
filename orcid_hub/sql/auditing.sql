@@ -1,5 +1,6 @@
 /* Create audit log  trigger and all tables: */
 CREATE SCHEMA IF NOT EXISTS audit;
+
 CREATE OR REPLACE FUNCTION log_changes() RETURNS TRIGGER AS $$
 DECLARE v_sql text;
 BEGIN
