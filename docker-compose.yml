@@ -1,7 +1,8 @@
-version: '2.1'
+version: '3.5'
 services:
   db:
-    image: postgres:9.6
+    image: postgres:10.4
+    # image: postgres:9.6
     environment:
       - POSTGRES_PASSWORD
       - PGPASSWORD
@@ -17,7 +18,7 @@ services:
       - ./archive:/archive
       - ${HOME}:${HOME}
     user: "${USER_UID:-500}:${USER_GID:-500}"
-    restart: always
+    # restart: always
 
   app:
     depends_on:
@@ -30,7 +31,7 @@ services:
       - TOKEN_PASSWORD_SALT
       - MAIL_DEFAULT_SENDER
       - TOKEN_SECRET_KEY
-      - DATABASE_URL
+      # - DATABASE_URL
       - SECRET_KEY
       - ORCID_CLIENT_ID
       - ORCID_CLIENT_SECRET
@@ -50,7 +51,7 @@ services:
       - ./tuakiri-metadata-cert.pem:/etc/shibboleth/tuakiri-metadata-cert.pem
       - ./.keys:/.keys
       - ./conf:/conf
-    restart: always
+      # restart: always
 
   # redis:
   #   image: 'redis'
