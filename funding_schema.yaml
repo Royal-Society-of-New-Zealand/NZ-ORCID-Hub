@@ -175,6 +175,11 @@ mapping:
                                 mapping:
                                     value:
                                         type: str
+                            contributor-email:
+                                type: map
+                                mapping:
+                                    value:
+                                        type: str
                             contributor-attributes:
                                 type: map
                                 mapping:

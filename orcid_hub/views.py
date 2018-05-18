@@ -1144,6 +1144,7 @@ class ViewMembersAdmin(AppModelView):
         filters.DateBetweenFilter(column=User.created_at, name="Registration Date"),
         filters.DateBetweenFilter(column=User.updated_at, name="Update Date"),
     )
+    column_labels = {"created_at": "Registered At"}
 
     def get_query(self):
         """Get quiery for the user belonging to the organistation of the current user."""
@@ -2201,8 +2202,9 @@ def api_credentials(app_id=None):
             form.populate_obj(client)
             client.save()
         elif form.delete.data:
-            Token.delete().where(Token.client == client).execute()
-            client.delete().execute()
+            with db.atomic():
+                Token.delete().where(Token.client == client).execute()
+                client.delete_instance(recursive=True)
             return redirect(url_for("application"))
 
     return render_template("api_credentials.html", form=form)

@@ -35,7 +35,7 @@ from .config import DEFAULT_COUNTRY, ENV
 
 EMAIL_REGEX = re.compile(r"^[_a-z0-9-]+(\.[_a-z0-9-]+)*@[a-z0-9-]+(\.[a-z0-9-]+)*(\.[a-z]{2,4})$")
 ORCID_ID_REGEX = re.compile(r"^([X\d]{4}-?){3}[X\d]{4}$")
-PARTIAL_DATE_REREX = re.compile(r"\d+([/\-]\d+){,2}")
+PARTIAL_DATE_REGEX = re.compile(r"\d+([/\-]\d+){,2}")
 
 
 AFFILIATION_TYPES = (
@@ -120,17 +120,14 @@ class PartialDate(namedtuple("PartialDate", ["year", "month", "day"])):
         if value is None or value == {}:
             return None
         if isinstance(value, str):
-            match = PARTIAL_DATE_REREX.search(value)
+            match = PARTIAL_DATE_REGEX.search(value)
             if not match:
                 raise ModelException(f"Wrong partial date value '{value}'")
             value0 = match[0]
-            try:
-                if '/' in value0:
-                    parts = value0.split('/')
-                    return cls(*[int(v) for v in (parts[::-1] if len(parts[-1]) > 2 else parts)])
-                return cls(*[int(v) for v in value0.split('-')])
-            except Exception as ex:
-                raise ModelException(f"Wrong partial date value '{value}': {ex}")
+            if '/' in value0:
+                parts = value0.split('/')
+                return cls(*[int(v) for v in (parts[::-1] if len(parts[-1]) > 2 else parts)])
+            return cls(*[int(v) for v in value0.split('-')])
 
         return cls(**{k: int(v.get("value")) if v else None for k, v in value.items()})
 
@@ -1249,62 +1246,25 @@ class FundingRecord(RecordModel):
 
                 for funding_data in funding_data_list:
 
-                    title = funding_data.get("title").get("title").get("value") if \
-                        funding_data.get("title") and funding_data.get("title").get("title") and \
-                        funding_data.get("title").get("title").get("value") else None
-
-                    translated_title = funding_data.get("title").get("translated-title").get("value") if \
-                        funding_data.get("title") and funding_data.get("title").get("translated-title") \
-                        and funding_data.get("title").get("translated-title").get("value") else None
-
-                    translated_title_language_code = funding_data.get("title").get(
-                        "translated-title").get(
-                            "language-code") if funding_data.get("title") and funding_data.get(
-                                "title").get("translated-title") and funding_data.get("title").get(
-                                    "translated-title").get("language-code") else None
-
-                    type = funding_data.get("type") if funding_data.get("type") else None
-
-                    organization_defined_type = funding_data.get("organization-defined-type").get("value") if \
-                        funding_data.get("organization-defined-type") else None
-
-                    short_description = funding_data.get("short-description") if funding_data.get(
-                        "short-description") else None
-
-                    amount = funding_data.get("amount").get("value") if funding_data.get(
-                        "amount") else None
-
-                    currency = funding_data.get("amount").get("currency-code") \
-                        if funding_data.get("amount") and funding_data.get("amount").get("currency-code") else None
+                    title = get_val(funding_data, "title", "title", "value")
+                    translated_title = get_val(funding_data, "title", "translated-title", "value")
+                    translated_title_language_code = get_val(funding_data, "title", "translated-title", "language-code")
+                    type = funding_data.get("type")
+                    organization_defined_type = get_val(funding_data, "organization-defined-type", "value")
+                    short_description = funding_data.get("short-description")
+                    amount = get_val(funding_data, "amount", "value")
+                    currency = get_val(funding_data, "amount", "currency-code")
                     start_date = PartialDate.create(funding_data.get("start-date"))
                     end_date = PartialDate.create(funding_data.get("end-date"))
-                    org_name = funding_data.get("organization").get("name") if \
-                        funding_data.get("organization") and funding_data.get("organization").get("name") else None
-
-                    city = funding_data.get("organization").get("address").get("city") if \
-                        funding_data.get("organization") and funding_data.get("organization").get("address") \
-                        else None
-
-                    region = funding_data.get("organization").get("address").get("region") if \
-                        funding_data.get("organization") and funding_data.get("organization").get("address") \
-                        else None
-
-                    country = funding_data.get("organization").get("address").get("country") if \
-                        funding_data.get("organization") and funding_data.get("organization").get("address") \
-                        else None
-
-                    disambiguated_org_identifier = funding_data.get("organization").get(
-                        "disambiguated-organization").get("disambiguated-organization-identifier") if \
-                        funding_data.get("organization") and \
-                        funding_data.get("organization").get("disambiguated-organization") else None
-
-                    disambiguation_source = funding_data.get("organization").get(
-                        "disambiguated-organization").get("disambiguation-source") if \
-                        funding_data.get("organization") and \
-                        funding_data.get("organization").get("disambiguated-organization") else None
-
-                    visibility = funding_data.get("visibility") if funding_data.get(
-                        "visibility") else None
+                    org_name = get_val(funding_data, "organization", "name")
+                    city = get_val(funding_data, "organization", "address", "city")
+                    region = get_val(funding_data, "organization", "address", "region")
+                    country = get_val(funding_data, "organization", "address", "country")
+                    disambiguated_org_identifier = get_val(funding_data, "organization", "disambiguated-organization",
+                                                           "disambiguated-organization-identifier")
+                    disambiguation_source = get_val(funding_data, "organization", "disambiguated-organization",
+                                                    "disambiguation-source")
+                    visibility = funding_data.get("visibility")
 
                     funding_record = FundingRecord.create(
                         task=task,
@@ -1329,12 +1289,12 @@ class FundingRecord(RecordModel):
                     invitees_list = funding_data.get("invitees") if funding_data.get("invitees") else None
                     if invitees_list:
                         for invitee in invitees_list:
-                            identifier = invitee.get("identifier") if invitee.get("identifier") else None
-                            email = invitee.get("email") if invitee.get("email") else None
-                            first_name = invitee.get("first-name") if invitee.get("first-name") else None
-                            last_name = invitee.get("last-name") if invitee.get("last-name") else None
-                            orcid_id = invitee.get("ORCID-iD") if invitee.get("ORCID-iD") else None
-                            put_code = invitee.get("put-code") if invitee.get("put-code") else None
+                            identifier = invitee.get("identifier")
+                            email = invitee.get("email")
+                            first_name = invitee.get("first-name")
+                            last_name = invitee.get("last-name")
+                            orcid_id = invitee.get("ORCID-iD")
+                            put_code = invitee.get("put-code")
 
                             FundingInvitees.create(
                                 funding_record=funding_record,
@@ -1352,21 +1312,16 @@ class FundingRecord(RecordModel):
                         funding_data.get("contributors") else None
                     if contributors_list:
                         for contributor in contributors_list:
-                            orcid_id = None
-                            if contributor.get("contributor-orcid") and contributor.get(
-                                    "contributor-orcid").get("path"):
-                                orcid_id = contributor.get("contributor-orcid").get("path")
-
-                            name = contributor.get("credit-name").get("value") if \
-                                contributor.get("credit-name") else None
-
-                            role = contributor.get("contributor-attributes").get("contributor-role") if \
-                                contributor.get("contributor-attributes") else None
+                            orcid_id = get_val(contributor, "contributor-orcid", "path")
+                            name = get_val(contributor, "credit-name", "value")
+                            email = get_val(contributor, "contributor-email", "value")
+                            role = get_val(contributor, "contributor-attributes", "contributor-role")
 
                             FundingContributor.create(
                                 funding_record=funding_record,
                                 orcid=orcid_id,
                                 name=name,
+                                email=email,
                                 role=role)
 
                     external_ids_list = funding_data.get("external-ids").get("external-id") if \
@@ -1375,8 +1330,7 @@ class FundingRecord(RecordModel):
                         for external_id in external_ids_list:
                             type = external_id.get("external-id-type")
                             value = external_id.get("external-id-value")
-                            url = external_id.get("external-id-url").get("value") if \
-                                external_id.get("external-id-url") else None
+                            url = get_val(external_id, "external-id-url", "value")
                             relationship = external_id.get("external-id-relationship")
                             ExternalId.create(
                                 funding_record=funding_record,
@@ -1667,56 +1621,25 @@ class WorkRecord(RecordModel):
 
                 for work_data in work_data_list:
 
-                    title = work_data.get("title").get("title").get("value") if \
-                        work_data.get("title") and work_data.get("title").get("title") and \
-                        work_data.get("title").get("title").get("value") else None
-
-                    sub_title = work_data.get("title").get("subtitle").get("value") if \
-                        work_data.get("title") and work_data.get("title").get("subtitle") and \
-                        work_data.get("title").get("subtitle").get("value") else None
-
-                    translated_title = work_data.get("title").get("translated-title").get("value") if \
-                        work_data.get("title") and work_data.get("title").get("translated-title") \
-                        and work_data.get("title").get("translated-title").get("value") else None
-
-                    translated_title_language_code = work_data.get("title").get(
-                        "translated-title").get(
-                            "language-code") if work_data.get("title") and work_data.get(
-                                "title").get("translated-title") and work_data.get("title").get(
-                                    "translated-title").get("language-code") else None
-
-                    journal_title = work_data.get("journal-title").get("value") if \
-                        work_data.get("journal-title") and work_data.get("journal-title").get("value") else None
-
-                    short_description = work_data.get("short-description") if work_data.get(
-                        "short-description") else None
-
-                    citation_type = work_data.get("citation").get("citation-type") if \
-                        work_data.get("citation") and work_data.get("citation").get("citation-type") else None
-
-                    citation_value = work_data.get("citation").get("citation-value") if \
-                        work_data.get("citation") and work_data.get("citation").get("citation-value") else None
-
-                    type = work_data.get("type") if work_data.get("type") else None
+                    title = get_val(work_data, "title", "title", "value")
+                    sub_title = get_val(work_data, "title", "subtitle", "value")
+                    translated_title = get_val(work_data, "title", "translated-title", "value")
+                    translated_title_language_code = get_val(work_data, "title", "translated-title", "language-code")
+                    journal_title = get_val(work_data, "journal-title", "value")
+                    short_description = get_val(work_data, "short-description")
+                    citation_type = get_val(work_data, "citation", "citation-type")
+                    citation_value = get_val(work_data, "citation", "citation-value")
+                    type = get_val(work_data, "type")
+                    publication_media_type = get_val(work_data, "publication-date", "media-type")
+                    url = get_val(work_data, "url", "value")
+                    language_code = get_val(work_data, "language-code")
+                    country = get_val(work_data, "country", "value")
+                    visibility = get_val(work_data, "visibility")
 
                     # Removing key 'media-type' from the publication_date dict. and only considering year, day & month
                     publication_date = PartialDate.create(
                         {date_key: work_data.get("publication-date")[date_key] for date_key in
                          ('day', 'month', 'year')}) if work_data.get("publication-date") else None
-
-                    publication_media_type = work_data.get("publication-date").get("media-type") if \
-                        work_data.get("publication-date") and work_data.get("publication-date").get("media-type") \
-                        else None
-
-                    url = work_data.get("url").get("value") if \
-                        work_data.get("url") and work_data.get("url").get("value") else None
-
-                    language_code = work_data.get("language-code") if work_data.get("language-code") else None
-
-                    country = work_data.get("country").get("value") if \
-                        work_data.get("country") and work_data.get("country").get("value") else None
-
-                    visibility = work_data.get("visibility") if work_data.get("visibility") else None
 
                     work_record = WorkRecord.create(
                         task=task,
@@ -1740,12 +1663,12 @@ class WorkRecord(RecordModel):
 
                     if invitees_list:
                         for invitee in invitees_list:
-                            identifier = invitee.get("identifier") if invitee.get("identifier") else None
-                            email = invitee.get("email") if invitee.get("email") else None
-                            first_name = invitee.get("first-name") if invitee.get("first-name") else None
-                            last_name = invitee.get("last-name") if invitee.get("last-name") else None
-                            orcid_id = invitee.get("ORCID-iD") if invitee.get("ORCID-iD") else None
-                            put_code = invitee.get("put-code") if invitee.get("put-code") else None
+                            identifier = invitee.get("identifier")
+                            email = invitee.get("email")
+                            first_name = invitee.get("first-name")
+                            last_name = invitee.get("last-name")
+                            orcid_id = invitee.get("ORCID-iD")
+                            put_code = invitee.get("put-code")
 
                             WorkInvitees.create(
                                 work_record=work_record,
@@ -1764,24 +1687,18 @@ class WorkRecord(RecordModel):
 
                     if contributors_list:
                         for contributor in contributors_list:
-                            orcid_id = None
-                            if contributor.get("contributor-orcid") and contributor.get(
-                                    "contributor-orcid").get("path"):
-                                orcid_id = contributor.get("contributor-orcid").get("path")
-
-                            name = contributor.get("credit-name").get("value") if \
-                                contributor.get("credit-name") else None
-
-                            role = contributor.get("contributor-attributes").get("contributor-role") if \
-                                contributor.get("contributor-attributes") else None
-
-                            contributor_sequence = contributor.get("contributor-attributes").get(
-                                "contributor-sequence") if contributor.get("contributor-attributes") else None
+                            orcid_id = get_val(contributor, "contributor-orcid", "path")
+                            name = get_val(contributor, "credit-name", "value")
+                            email = get_val(contributor, "contributor-email", "value")
+                            role = get_val(contributor, "contributor-attributes", "contributor-role")
+                            contributor_sequence = get_val(contributor, "contributor-attributes",
+                                                           "contributor-sequence")
 
                             WorkContributor.create(
                                 work_record=work_record,
                                 orcid=orcid_id,
                                 name=name,
+                                email=email,
                                 role=role,
                                 contributor_sequence=contributor_sequence)
 
@@ -1791,8 +1708,7 @@ class WorkRecord(RecordModel):
                         for external_id in external_ids_list:
                             type = external_id.get("external-id-type")
                             value = external_id.get("external-id-value")
-                            url = external_id.get("external-id-url").get("value") if \
-                                external_id.get("external-id-url") else None
+                            url = get_val(external_id, "external-id-url", "value")
                             relationship = external_id.get("external-id-relationship")
                             WorkExternalId.create(
                                 work_record=work_record,
@@ -1820,6 +1736,7 @@ class ContributorModel(BaseModel):
     orcid = OrcidIdField(null=True)
     name = CharField(max_length=120, null=True)
     role = CharField(max_length=120, null=True)
+    email = CharField(max_length=120, null=True)
 
 
 class WorkContributor(ContributorModel):
@@ -2225,4 +2142,13 @@ def del_none(d):
                     del_none(item)
         elif isinstance(value, dict):
             del_none(value)
+    return d
+
+
+def get_val(d, *keys):
+    """To get the value from uploaded fields."""
+    for k in keys:
+        if not d:
+            break
+        d = d.get(k)
     return d

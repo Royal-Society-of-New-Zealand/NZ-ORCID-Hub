@@ -624,9 +624,22 @@ def onboard_org():
                 oi = OrgInfo.get((OrgInfo.email == email)
                                  | (OrgInfo.tuakiri_name == user.organisation.name)
                                  | (OrgInfo.name == user.organisation.name))
-                form.city.data = organisation.city = oi.city
-                form.disambiguated_id.data = organisation.disambiguated_id = oi.disambiguated_id
-                form.disambiguation_source.data = organisation.disambiguation_source = oi.disambiguation_source
+
+                if organisation.city:
+                    form.city.data = oi.city = organisation.city
+                else:
+                    form.city.data = organisation.city = oi.city
+
+                if organisation.disambiguated_id:
+                    form.disambiguated_id.data = oi.disambiguated_id = organisation.disambiguated_id
+                else:
+                    form.disambiguated_id.data = organisation.disambiguated_id = oi.disambiguated_id
+
+                if organisation.disambiguation_source:
+                    form.disambiguation_source.data = oi.disambiguation_source = organisation.disambiguation_source
+                else:
+                    form.disambiguation_source.data = organisation.disambiguation_source = oi.disambiguation_source
+                oi.save()
                 organisation.save()
             except OrgInfo.DoesNotExist:
                 pass
@@ -680,7 +693,22 @@ def onboard_org():
                     # Delete the "stale" invitations:
                     OrgInvitation.delete().where(OrgInvitation.id != oi.id,
                                                  OrgInvitation.org == organisation).execute()
+
+                org_info = OrgInfo.get((OrgInfo.tuakiri_name == organisation.name)
+                                       | (OrgInfo.name == organisation.name))
+                if organisation.city:
+                    org_info.city = organisation.city
+
+                if organisation.disambiguated_id:
+                    org_info.disambiguated_id = organisation.disambiguated_id
+
+                if organisation.disambiguation_source:
+                    org_info.disambiguation_source = organisation.disambiguation_source
+
+                org_info.save()
             except OrgInvitation.DoesNotExist:
+                pass
+            except OrgInfo.DoesNotExist:
                 pass
 
             return redirect(url_for("link"))
