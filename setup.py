@@ -95,6 +95,7 @@ setup(
         "flask-swagger",
         "flask-mail",
         "flask-restful",
+        "validators",
         # "swagger_client",
     ],
     extras_require={

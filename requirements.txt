@@ -1,7 +1,7 @@
 # pip install -U -r requirements.txt
 requests
 requests_oauthlib
-psycopg2
+psycopg2-binary
 peewee>=2.10.0,<3.0.0
 peewee-validates
 python-slugify
