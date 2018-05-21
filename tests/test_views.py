@@ -443,34 +443,38 @@ def test_user_orgs_org(request_ctx):
         orcid="123",
         confirmed=True,
         organisation=org)
-    UserOrg.create(user=user, org=org, is_admin=True)
-    with request_ctx():
+    with request_ctx(
+            f"/hub/api/v0.1/users/{user.id}/orgs/",
+            data=json.dumps({
+                "id": org.id,
+                "name": org.name,
+                "is_admin": True,
+                "is_tech_contact": True
+            }),
+            method="POST",
+            content_type="application/json") as ctx:
         login_user(user, remember=True)
-        request._cached_json = {
-            "id": org.id,
-            "name": org.name,
-            "is_admin": True,
-            "is_tech_contact": True
-        }
-        resp = views.user_orgs_org(user_id=user.id)
-        assert resp[1] == 200
-        assert Role.ADMIN in user.roles
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 201
+        assert User.get(id=user.id).roles & Role.ADMIN
         organisation = Organisation.get(name="THE ORGANISATION")
         # User becomes the technical contact of the organisation.
         assert organisation.tech_contact == user
-    with request_ctx(method="DELETE"):
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 200
+        assert UserOrg.select().where(UserOrg.user == user, UserOrg.org == org,
+                                      UserOrg.is_admin).exists()
+    with request_ctx(f"/hub/api/v0.1/users/{user.id}/orgs/{org.id}", method="DELETE") as ctx:
         # Delete user and organisation association
         login_user(user, remember=True)
-        request._cached_json = {
-            "id": org.id,
-            "name": org.name,
-            "is_admin": True,
-            "is_tech_contact": True
-        }
-        resp = views.user_orgs_org(user_id=user.id)
-        assert "DELETED" in resp.data.decode("utf-8")
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 204
+        data = json.loads(resp.data)
         user = User.get(id=user.id)
+        assert data["status"] == "DELETED"
         assert user.organisation_id is None
+        assert not (user.roles & Role.ADMIN)
+        assert not UserOrg.select().where(UserOrg.user == user, UserOrg.org == org).exists()
 
 
 def test_user_orgs(request_ctx):

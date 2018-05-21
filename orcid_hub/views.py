@@ -2251,7 +2251,7 @@ def user_orgs(user_id, org_id=None):
 def user_orgs_org(user_id, org_id=None):
     """Add an organisation to the user.
 
-    Recieves:
+    Receives:
     {"id": N, "is_admin": true/false, "is_tech_contact": true/false, ...}
 
     Where: id - the organisation ID.
@@ -2270,15 +2270,20 @@ def user_orgs_org(user_id, org_id=None):
     if not org_id:
         org_id = data.get("id")
     if request.method == "DELETE":
-        UserOrg.delete().where((UserOrg.user_id == user_id) & (UserOrg.org_id == org_id)).execute()
+        UserOrg.delete().where(
+                (UserOrg.user_id == user_id) & (UserOrg.org_id == org_id)).execute()
         user = User.get(id=user_id)
+        if (user.roles & Role.ADMIN) and not user.admin_for.exists():
+            user.roles &= ~Role.ADMIN
+            user.save()
+            app.logger.info(f"Revoked ADMIN role from user {user}")
         if user.organisation_id == org_id:
             user.organisation_id = None
             user.save()
         return jsonify({
             "user-org": data,
             "status": "DELETED",
-        })
+        }), 204
     else:
         org = Organisation.get(id=org_id)
         uo, created = UserOrg.get_or_create(user_id=user_id, org_id=org_id)
