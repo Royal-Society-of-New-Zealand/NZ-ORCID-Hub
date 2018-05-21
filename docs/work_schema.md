@@ -13,7 +13,7 @@ The Hub will consume any json or YAML file complying to the following schema.  N
 ## Properties
 Type | Description | Notes
 ------------- | ------------- | -------------
-[**list[work]**](#Work) | Container for the works to be written | [required] 
+[**list[work]**](#work) | Container for the works to be written | [required] 
 
 
 # Work
