@@ -11,9 +11,9 @@ The Hub will consume any json or YAML file complying to the following schema.  N
 # Works
 
 ## Properties
-Name | Type | Description | Notes
------------- | ------------- | ------------- | -------------
- | [**list[work]**](#Work) | Container for the works to be written | [required] 
+Type | Description | Notes
+------------- | ------------- | -------------
+[**list[work]**](#Work) | Container for the works to be written | [required] 
 
 
 # Work
@@ -96,9 +96,9 @@ Name | Type | Description | Notes
 ## Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-**title** | [**Title**](Title.md) | Container for the main name or title of the work | [required] 
-**subtitle** | [**Subtitle**](Subtitle.md) | Container for any subtitle to the work | [optional] 
-**translated-title** | [**TranslatedTitle**](TranslatedTitle.md) | Container for any translations of the work's title | [optional] 
+**title** | [**Title**](#Title-and-Subtitle) | Container for the main name or title of the work | [required] 
+**subtitle** | [**Subtitle**](#Title-and-Subtitle) | Container for any subtitle to the work | [optional] 
+**translated-title** | [**TranslatedTitle**](#TranslatedTitle) | Container for any translations of the work's title | [optional] 
 
 # Title and Subtitle
 
