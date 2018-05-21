@@ -27,4 +27,5 @@ flask-limiter>=1.0.0,<2.0.0
 flask-swagger
 flask-restful
 jsonschema>=2.6.0,<3.0.0
+validators
 

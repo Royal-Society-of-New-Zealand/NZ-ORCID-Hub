@@ -5,6 +5,7 @@ from urllib.parse import unquote
 
 import jsonschema
 import requests
+import validators
 import yaml
 from flask import (Response, abort, current_app, jsonify, make_response, render_template, request,
                    stream_with_context, url_for)
@@ -21,7 +22,7 @@ from yaml.representer import SafeRepresenter
 
 from . import api, app, data_api, db, models, oauth
 from .login_provider import roles_required
-from .models import (EMAIL_REGEX, ORCID_ID_REGEX, AffiliationRecord, OrcidToken, PartialDate, Role, Task, TaskType,
+from .models import (ORCID_ID_REGEX, AffiliationRecord, OrcidToken, PartialDate, Role, Task, TaskType,
                      User, UserOrg, validate_orcid_id)
 from .schemas import affiliation_task_schema
 from .utils import is_valid_url, register_orcid_webhook
@@ -771,7 +772,7 @@ class UserAPI(AppResource):
             description: "User not found"
         """
         identifier = identifier.strip()
-        if EMAIL_REGEX.match(identifier):
+        if validators.email(identifier):
             user = User.select().where((User.email == identifier)
                                        | (User.eppn == identifier)).first()
         elif ORCID_ID_REGEX.match(identifier):
@@ -860,7 +861,7 @@ class TokenAPI(MethodView):
             description: "User not found"
         """
         identifier = identifier.strip()
-        if EMAIL_REGEX.match(identifier):
+        if validators.email(identifier):
             user = User.select().where((User.email == identifier)
                                        | (User.eppn == identifier)).first()
         elif ORCID_ID_REGEX.match(identifier):
