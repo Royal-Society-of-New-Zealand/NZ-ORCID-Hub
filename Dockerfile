@@ -2,7 +2,6 @@ FROM centos:centos7
 ENV LANG=en_US.UTF-8
 
 LABEL maintainer="The University of Auckland" \
-	version="4.10" \
 	description="NZ ORCiD Hub Application Image with Development support"
 
 ADD http://download.opensuse.org/repositories/security://shibboleth/CentOS_7/security:shibboleth.repo /etc/yum.repos.d/shibboleth.repo
@@ -28,7 +27,7 @@ RUN yum -y update \
         python36u.x86_64 \
         python36u-devel.x86_64 \
         python36u-pip \
-    && pip3.6 install mod_wsgi psycopg2 \
+    && pip3.6 install -U pip mod_wsgi psycopg2 \
     && pip3.6 install -U -r /requirements.txt \
     && /usr/bin/mod_wsgi-express module-config >/etc/httpd/conf.modules.d/10-wsgi.conf \
     && [ -d /var/run/lock ] || mkdir -p /var/run/lock \

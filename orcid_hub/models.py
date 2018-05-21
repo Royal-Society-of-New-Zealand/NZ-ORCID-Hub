@@ -10,6 +10,7 @@ import re
 import secrets
 import string
 import uuid
+import validators
 from collections import namedtuple
 from datetime import datetime
 from hashlib import md5
@@ -27,13 +28,11 @@ from playhouse.shortcuts import model_to_dict
 from pycountry import countries
 from pykwalify.core import Core
 from pykwalify.errors import SchemaError
-
 from peewee_validates import ModelValidator
 
 from . import app, db
 from .config import DEFAULT_COUNTRY, ENV
 
-EMAIL_REGEX = re.compile(r"^[_a-z0-9-]+(\.[_a-z0-9-]+)*@[a-z0-9-]+(\.[a-z0-9-]+)*(\.[a-z]{2,4})$")
 ORCID_ID_REGEX = re.compile(r"^([X\d]{4}-?){3}[X\d]{4}$")
 PARTIAL_DATE_REGEX = re.compile(r"\d+([/\-]\d+){,2}")
 
@@ -155,8 +154,9 @@ class OrcidIdField(FixedCharField):
     def __init__(self, *args, **kwargs):
         """Initialize ORCID iD data field."""
         if "verbose_name" not in kwargs:
-            self.verbose_name = "ORCID iD"
-        self.max_length = 19
+            kwargs["verbose_name"] = "ORCID iD"
+        if "max_length" not in kwargs:
+            kwargs["max_length"] = 19
         super().__init__(*args, **kwargs)
 
         # TODO: figure out where to place the value validation...
@@ -332,7 +332,7 @@ class AuditMixin(Model):
     """Mixing for getting data necessary for data change audit trail maintenace."""
 
     created_at = DateTimeField(default=datetime.utcnow)
-    updated_at = DateTimeField(null=True)
+    updated_at = DateTimeField(null=True, default=None)
 
     # created_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
     # updated_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
@@ -868,7 +868,7 @@ class Task(BaseModel, AuditMixin):
         User, on_delete="SET NULL", null=True, related_name="created_tasks")
     updated_by = ForeignKeyField(
         User, on_delete="SET NULL", null=True, related_name="updated_tasks")
-    task_type = SmallIntegerField(default=0, null=True)
+    task_type = SmallIntegerField(default=0)
     expires_at = DateTimeField(null=True)
     expiry_email_sent_at = DateTimeField(null=True)
 
@@ -912,12 +912,7 @@ class Task(BaseModel, AuditMixin):
     def load_from_csv(cls, source, filename=None, org=None):
         """Load affiliation record data from CSV/TSV file or a string."""
         if isinstance(source, str):
-            if '\n' in source:
-                source = StringIO(source)
-            else:
-                source = open(source)
-                if filename is None:
-                    filename = source
+            source = StringIO(source)
         reader = csv.reader(source)
         header = next(reader)
         if filename is None:
@@ -983,7 +978,8 @@ class Task(BaseModel, AuditMixin):
                     email = val(row, 2, "").lower()
                     orcid = val(row, 15)
                     external_id = val(row, 16)
-                    if not email and not orcid and external_id and EMAIL_REGEX.match(external_id):
+
+                    if not email and not orcid and external_id and validators.email(external_id):
                         # if email is missing and exernal ID is given as a valid email, use it:
                         email = external_id
 
@@ -1006,7 +1002,7 @@ class Task(BaseModel, AuditMixin):
                     if orcid:
                         validate_orcid_id(orcid)
 
-                    if not email or not EMAIL_REGEX.match(email):
+                    if not email or not validators.email(email):
                         raise ValueError(
                             f"Invalid email address '{email}'  in the row #{row_no+2}: {row}")
 
@@ -2059,6 +2055,7 @@ def create_tables():
             OrcidAuthorizeCall,
             Task,
             AffiliationRecord,
+            GroupIdRecord,
             OrgInvitation,
             Url,
             UserInvitation,
@@ -2095,10 +2092,12 @@ def create_audit_tables():
         pass
 
     if isinstance(db, PostgresqlDatabase):
-        with open("conf/auditing.sql", 'br') as input_file:
+        with open(os.path.join(os.path.dirname(__file__), "sql", "auditing.sql"), 'br') as input_file:
             sql = readup_file(input_file)
+            db.commit()
             with db.get_cursor() as cr:
                 cr.execute(sql)
+            db.commit()
 
 
 def drop_tables():
