@@ -511,7 +511,7 @@ def orcid_callback():
                 api.create_or_update_affiliation(initial=True, affiliation=a)
             except ApiException as ex:
                 flash(f"Failed to update the entry: {ex.body}", "danger")
-            except Exception as ex:
+            except Exception:
                 app.logger.exception(f"For {user} encountered exception")
 
         if not user.affiliations:
@@ -740,7 +740,7 @@ def logout():
     org_name = session.get("shib_O")
     try:
         logout_user()
-    except Exception as ex:
+    except Exception:
         app.logger.exception("Failed to log out.")
 
     session.clear()
@@ -859,7 +859,7 @@ def orcid_login(invitation_token=None):
         return render_template(
             "orcidLogoutAndCallback.html", orcid_base_url=ORCID_BASE_URL, callback_url=orcid_authenticate_url)
 
-    except SignatureExpired as sx:
+    except SignatureExpired:
         with suppress(Exception):
             data = confirm_token(invitation_token, unsafe=True)
 
