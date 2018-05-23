@@ -685,6 +685,7 @@ class MemberAPI(MemberAPIV20Api):
             self,
             affiliation=None,
             role=None,
+            course_or_role=None,
             department=None,
             org_name=None,
             # NB! affiliation_record has 'organisation' field for organisation name
@@ -733,9 +734,14 @@ class MemberAPI(MemberAPIV20Api):
             country=country or self.org.country,
             region=state or region or self.org.state)
 
+        if disambiguation_source:
+            disambiguation_source = disambiguation_source.upper()
+        elif self.org.disambiguation_source:
+            disambiguation_source = self.org.disambiguation_source.upper()
+
         disambiguated_organization_details = DisambiguatedOrganization(
             disambiguated_organization_identifier=disambiguated_id or self.org.disambiguated_id,
-            disambiguation_source=disambiguation_source or self.org.disambiguation_source)
+            disambiguation_source=disambiguation_source)
 
         if affiliation == Affiliation.EMP:
             rec = Employment()
@@ -758,7 +764,7 @@ class MemberAPI(MemberAPIV20Api):
             rec.put_code = put_code
 
         rec.department_name = department
-        rec.role_title = role
+        rec.role_title = role or course_or_role
 
         if start_date:
             rec.start_date = start_date.as_orcid_dict()
