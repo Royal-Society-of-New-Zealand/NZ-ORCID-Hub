@@ -700,6 +700,22 @@ def test_link(request_ctx):
         assert b"<!DOCTYPE html>" in rv.data, "Expected HTML content"
 
 
+def test_faq(request_ctx):
+    """Test faq path traversal security issue."""
+    with request_ctx("/faq") as ctxx:
+        request.args = {'url': '/xyz/sitename'}
+        rv = ctxx.app.full_dispatch_request()
+        assert rv.status_code == 403
+
+
+def test_about(request_ctx):
+    """Test about page path traversal security issue."""
+    with request_ctx("/about") as ctxx:
+        request.args = {'url': '/xyz/sitename'}
+        rv = ctxx.app.full_dispatch_request()
+        assert rv.status_code == 403
+
+
 def test_orcid_callback(request_ctx):
     """Test orcid researcher deny flow."""
     org = Organisation.create(
