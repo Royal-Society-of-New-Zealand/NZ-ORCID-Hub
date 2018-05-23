@@ -188,6 +188,13 @@ def setup_logging():
     app.logger.setLevel(logging.DEBUG if app.debug else logging.WARNING)
 
 
+@app.after_request
+def apply_x_frame(response):
+    """Include X-frame header in http response to protect against clickhiJacking."""
+    response.headers["X-Frame-Options"] = "SAMEORIGIN"
+    return response
+
+
 @app.cli.command()
 @click.option("-d", "--drop", is_flag=True, help="Drop tables before creating...")
 @click.option("-f", "--force", is_flag=True, help="Enforce table creation.")

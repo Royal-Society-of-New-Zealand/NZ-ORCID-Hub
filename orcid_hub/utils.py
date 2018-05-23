@@ -1256,7 +1256,7 @@ def process_affiliation_records(max_rows=20):
                         orcid_rec_count=orcid_rec_count,
                         export_url=export_url,
                         filename=task.filename)
-                except Exception as ex:
+                except Exception:
                     logger.exception(
                         "Failed to send batch process comletion notification message.")
 
