@@ -734,10 +734,8 @@ class MemberAPI(MemberAPIV20Api):
             country=country or self.org.country,
             region=state or region or self.org.state)
 
-        if disambiguation_source:
-            disambiguation_source = disambiguation_source.upper()
-        elif self.org.disambiguation_source:
-            disambiguation_source = self.org.disambiguation_source.upper()
+        disambiguation_source = (lambda source: source.upper() if source else source)(
+            disambiguation_source or self.org.disambiguation_source)
 
         disambiguated_organization_details = DisambiguatedOrganization(
             disambiguated_organization_identifier=disambiguated_id or self.org.disambiguated_id,
