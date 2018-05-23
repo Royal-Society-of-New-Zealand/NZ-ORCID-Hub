@@ -88,6 +88,8 @@ def index():
 @app.route("/about")
 def about():
     """Show about page with login buttons."""
+    if request.args:
+        abort(403)
     return render_template("about.html")
 
 
@@ -95,6 +97,8 @@ def about():
 @app.route("/faq")
 def faq():
     """Show FAQ page with login buttons."""
+    if request.args:
+        abort(403)
     return render_template("faq.html")
 
 
