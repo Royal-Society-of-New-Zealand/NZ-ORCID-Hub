@@ -1,5 +1,7 @@
 version: '3.5'
+
 services:
+
   db:
     image: postgres:10.4
     # image: postgres:9.6
@@ -24,7 +26,7 @@ services:
     depends_on:
       - db
       # - sentry
-    image: orcidhub/app-dev:v4
+    image: orcidhub/app-dev
     environment:
       - ENV
       - SHIB_SP_DOMAINNAME
@@ -55,10 +57,14 @@ services:
 
   redis:
     image: redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./data/redis:/data
     restart: always
 
   worker:
-      image: orcidhub/app-dev:v4
+    image: orcidhub/app-dev
     depends_on:
       - redis
       - db

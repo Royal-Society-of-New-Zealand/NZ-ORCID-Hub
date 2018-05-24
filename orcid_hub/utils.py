@@ -17,10 +17,11 @@ from html2text import html2text
 from itsdangerous import TimedJSONWebSignatureSerializer
 from peewee import JOIN
 
-from . import app, orcid_client, rq
+from . import app, orcid_client, celery
 from .models import (AFFILIATION_TYPES, Affiliation, AffiliationRecord, FundingInvitees,
-                     FundingRecord, OrcidToken, Organisation, Role, Task, TaskType, Url, User, PeerReviewExternalId,
-                     UserInvitation, UserOrg, WorkInvitees, WorkRecord, PeerReviewRecord, PeerReviewInvitee)
+                     FundingRecord, OrcidToken, Organisation, Role, Task, TaskType, Url, User,
+                     PartialDate, PeerReviewExternalId, UserInvitation, UserOrg, WorkInvitees,
+                     WorkRecord, PeerReviewRecord, PeerReviewInvitee)
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -153,6 +154,11 @@ def send_email(template_filename,
     msg.set_headers({"reply-to": reply_to})
     msg.mail_to.append(recipient)
     msg.send(smtp=dict(host=app.config["MAIL_SERVER"], port=app.config["MAIL_PORT"]))
+
+
+@celery.task()
+def add(x, y):
+    return x + y
 
 
 def generate_confirmation_token(*args, expiration=1300000, **kwargs):
@@ -552,7 +558,7 @@ def create_or_update_funding(user, org_id, records, *args, **kwargs):
         return
 
 
-@rq.job(timeout=60)
+@celery.task(timeout=60)
 def send_user_invitation(inviter,
                          org,
                          email,
@@ -577,6 +583,14 @@ def send_user_invitation(inviter,
                          **kwargs):
     """Send an invitation to join ORCID Hub logging in via ORCID."""
     try:
+        if isinstance(inviter, int):
+            inviter = User.get(id=inviter)
+        if isinstance(org, int):
+            org = Organisation.get(id=org)
+        if isinstance(start_date, list):
+            start_date = PartialDate(*start_date)
+        if isinstance(end_date, list):
+            end_date = PartialDate(*end_date)
         set_server_name()
         logger.info(f"*** Sending an invitation to '{first_name} {last_name} <{email}>' "
                     f"submitted by {inviter} of {org} for affiliations: {affiliation_types}")
@@ -647,7 +661,7 @@ def send_user_invitation(inviter,
             AffiliationRecord.status.is_null(False), AffiliationRecord.email == email).execute())
         (AffiliationRecord.update(status=status).where(AffiliationRecord.status.is_null(),
                                                        AffiliationRecord.email == email).execute())
-        return ui
+        return ui.id
 
     except Exception as ex:
         logger.exception(f"Exception occured while sending mails {ex}")

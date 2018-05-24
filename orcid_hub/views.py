@@ -2038,16 +2038,16 @@ def invite_user():
             pass
 
         inviter = current_user._get_current_object()
-        job = send_user_invitation.queue(
-            inviter,
-            org,
+        res = send_user_invitation.delay(
+            inviter.id,
+            org.id,
             email=email,
             affiliations=affiliations,
             **{f.name: f.data
                for f in form},
             cc_email=(current_user.name, current_user.email))
         flash(
-            f"An invitation to {email} was {'resent' if resend else 'sent'} successfully (task id: {job.id}).",
+            f"An invitation to {email} was {'resent' if resend else 'sent'} successfully (task id: {res.id}).",
             "success")
         break
 
