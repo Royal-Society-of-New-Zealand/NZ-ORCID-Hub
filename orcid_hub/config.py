@@ -72,6 +72,7 @@ CRED_TYPE_PREMIUM = 2
 APP_NAME = 'NZ ORCID HUB'
 APP_DESCRIPTION = 'This is an ORCID integration through the NZ ORCID HUB connecting'
 APP_URL = "https://" + (ENV + ".orcidhub.org.nz" if ENV != "prod" else "orcidhub.org.nz")
+SEED_HUB_ADMIN = getenv("SEED_HUB_ADMIN", "rad42@mailinator.com")
 
 # External Shibboleth SP login URL (e.g., https://test.orcidhub.org.nz/Tuakiri/login)
 EXTERNAL_SP = getenv("EXTERNAL_SP") if ENV != "prod" else None

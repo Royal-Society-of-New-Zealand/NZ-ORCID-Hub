@@ -206,8 +206,11 @@ def setup_logging():
     """Set-up logger to log to STDOUT (eventually conainer log)."""
     app.logger.addHandler(logging.StreamHandler())
     app.logger.setLevel(logging.DEBUG if app.debug else logging.WARNING)
+    # TODO: check if DB is created
+    # TODO: seed the hub admin
 
 
+# TODO: implement db command with subcommands initdb/seed/...
 @app.cli.command()
 @click.option("-d", "--drop", is_flag=True, help="Drop tables before creating...")
 @click.option("-f", "--force", is_flag=True, help="Enforce table creation.")
