@@ -17,7 +17,7 @@ from html2text import html2text
 from itsdangerous import TimedJSONWebSignatureSerializer
 from peewee import JOIN
 
-from . import app, orcid_client, celery
+from . import app, orcid_client, rq
 from .models import (AFFILIATION_TYPES, Affiliation, AffiliationRecord, FundingInvitees,
                      FundingRecord, OrcidToken, Organisation, Role, Task, TaskType, Url, User,
                      PartialDate, PeerReviewExternalId, UserInvitation, UserOrg, WorkInvitees,
@@ -154,11 +154,6 @@ def send_email(template_filename,
     msg.set_headers({"reply-to": reply_to})
     msg.mail_to.append(recipient)
     msg.send(smtp=dict(host=app.config["MAIL_SERVER"], port=app.config["MAIL_PORT"]))
-
-
-@celery.task()
-def add(x, y):
-    return x + y
 
 
 def generate_confirmation_token(*args, expiration=1300000, **kwargs):
@@ -558,7 +553,7 @@ def create_or_update_funding(user, org_id, records, *args, **kwargs):
         return
 
 
-@celery.task(timeout=60)
+@rq.job(timeout=120)
 def send_user_invitation(inviter,
                          org,
                          email,

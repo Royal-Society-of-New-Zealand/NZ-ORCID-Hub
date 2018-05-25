@@ -17,6 +17,7 @@ import logging
 import os
 import sys
 from datetime import date, datetime
+from time import time, sleep
 
 import click
 from flask.json import JSONEncoder as _JSONEncoder
@@ -38,7 +39,34 @@ from flask_admin import Admin
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from flask_rq2 import RQ
-from celery import Celery
+import rq_dashboard
+from rq import Queue as _Queue
+
+
+class ThrottledQueue(_Queue):
+    """Queue with throttled deque."""
+
+    # Default rate limit per sec (20 messages/sec)
+    # NB! the rate should be greater than 1.0
+    DEFAULT_RATE = 20.0
+    rate = DEFAULT_RATE
+    _allowance = rate
+    _last_check = time()
+
+    @classmethod
+    def dequeue_any(cls, *args, **kwargs):
+        """Dequeue the messages with throttling."""
+        current = time()
+        time_passed = current - cls._last_check
+        cls._last_check = time()
+        cls._allowance += time_passed * cls.rate
+        if cls._allowance > cls.rate:
+            cls._allowance = cls.rate
+        if cls._allowance < 1.0:
+            # wait...
+            sleep(1.0 - (cls._allowance / cls.rate))
+            cls._allowance = cls.rate
+        return _Queue.dequeue_any(*args, **kwargs)
 
 
 # http://docs.peewee-orm.com/en/latest/peewee/database.html#automatic-reconnect
@@ -64,6 +92,10 @@ limiter = Limiter(
         "1440 per minute",  # allowed max: 24/sec
     ])
 DATABASE_URL = app.config.get("DATABASE_URL")
+rq = RQ(app)
+# app.config.from_object(rq_dashboard.default_settings)
+app.config["REDIS_URL"] = app.config.get("RQ_REDIS_URL")
+app.register_blueprint(rq_dashboard.blueprint, url_prefix="/rq")
 
 # TODO: implement connection factory
 db_url.register_database(PgDbWithFailover, "pg+failover", "postgres+failover")
@@ -72,22 +104,6 @@ if DATABASE_URL.startswith("sqlite"):
     db = db_url.connect(DATABASE_URL, autorollback=True)
 else:
     db = db_url.connect(DATABASE_URL, autorollback=True, connect_timeout=3)
-
-
-def make_celery(app):
-    celery = Celery(app.import_name)
-    celery.conf.update(app.config)
-
-    class ContextTask(celery.Task):
-        def __call__(self, *args, **kwargs):
-            with app.app_context():
-                return self.run(*args, **kwargs)
-
-    celery.Task = ContextTask
-    return celery
-
-
-celery = make_celery(app)
 
 
 class JSONEncoder(_JSONEncoder):

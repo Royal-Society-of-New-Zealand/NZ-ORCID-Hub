@@ -2038,7 +2038,7 @@ def invite_user():
             pass
 
         inviter = current_user._get_current_object()
-        res = send_user_invitation.delay(
+        res = send_user_invitation.queue(
             inviter.id,
             org.id,
             email=email,

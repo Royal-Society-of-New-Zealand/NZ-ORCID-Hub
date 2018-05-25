@@ -137,6 +137,13 @@ DEFAULT_EMAIL_TEMPLATE = """<!DOCTYPE html>
 
 DKIP_KEY_PATH = path.join(path.dirname(path.relpath(path.relpath(__file__))), ".keys", "dkim.key")
 
+# RQ
+RQ_REDIS_URL = "redis://redis:6379/0"
+RQ_QUEUE_CLASS = "orcid_hub.ThrottledQueue"
+# rq-dashboard config:
+RQ_POLL_INTERVAL = 5000  #: Web interface poll period for updates in ms
+WEB_BACKGROUND = "gray"
+
 # Celery
 CELERY_BROKER_URL = "redis://localhost:6379/0"
 CELERY_RESULT_BACKEND = "redis://localhost:6379/0"
