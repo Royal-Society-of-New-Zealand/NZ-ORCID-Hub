@@ -15,5 +15,5 @@ The Hub accepts batches of works items where each item contains an initial invit
 
 Example files can be found here: `works.json </docs/examples/works.json>`_ and `works.yaml </docs/examples/works.yaml>`_, while any uploaded works file will be validated against the `works schema in YAML <work_schema.yaml>`_.
 
-For more information on the structure of the works files see here: `Works schema for ORCID API 2.0/2.1 </docs/works schema.md>`_
+For more information on the structure of the works files see here: `Works schema for ORCID API 2.0/2.1 </docs/works_schema.md>`_
 
