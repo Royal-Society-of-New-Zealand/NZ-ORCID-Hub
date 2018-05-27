@@ -266,3 +266,4 @@ Name | Type | Description | Notes
 
 [**back to Work**](#work)
 
+See the [ORCID V2.1 message schema for works](https://github.com/ORCID/ORCID-Source/blob/master/orcid-model/src/main/resources/record_2.1/work-2.1.xsd) for further explanation of what the works fields ORCID acceptse, and what they're intended to convey
