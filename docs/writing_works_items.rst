@@ -13,17 +13,7 @@ The Hub accepts batches of works items where each item contains an initial invit
 
     [{"invitees":[{invitee1}, {invitee2}, ...], work},{"invitees":[{invitee4}, {invitee5}, ...], work2}, ...]
 
-Example files can be found in the project's `JIRA issue relating to this task <https://jira.auckland.ac.nz/browse/ORCIDHUB-28>`_, while any uploaded funding file will be validated against the `works schema in YAML <https://github.com/Royal-Society-of-New-Zealand/NZ-ORCID-Hub/blob/master/work_schema.yaml>`_.
+Example files can be found here: `works.json </docs/examples/works.json>`_ and `works.yaml </docs/examples/works.yaml>`_, while any uploaded works file will be validated against the `works schema in YAML <work_schema.yaml>`_.
 
-Each invitee is specified as:
+For more information on the structure of the works files see here: `Works schema for ORCID API 2.0/2.1 </docs/works schema.md>`_
 
-:first-name: 
-    required - if the user does not have an ORCID iD, this field together with 'Last name' and email, will be used to pre-fill ORCID registration
-:last-name: required
-:\email: the institutional email for the individual, and where the invitation will be sent if they're not known by the Hub
-:ORCID-iD: once it has been authenticated, an ORCID iD can be used instead of an email address; however, without an email address any invitation required cannot be sent
-:identifier: this can be any identifier used in your internal systems and is to allow you to match the resulting put-code from ORCID to simplify making future updates to the item
-:put-code: this is a numeric code which identifies the item in the ORCID registryu, and is returned to you in the Hub's funding report once the item has been successfully written. 
-    With a put-code the Hub attempts to overwrite an item; while without one, a new item is created having a new put-code
-
-See the ORCID V2.1 `works schema <https://github.com/ORCID/ORCID-Source/blob/master/orcid-model/src/main/resources/record_2.1/work-2.1.xsd>`_ documentation for more explanation of what the works fields are, and what they're intended to convey
