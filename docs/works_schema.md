@@ -35,8 +35,8 @@ Name | Type | Description | Notes
 **citation** | [**Citation**](#citation) | Container for a work citation | [optional] 
 **type** | **str** | The work's type, see [here](https://members.orcid.org/api/resources/work-types) for the 38 allowed types | [required] 
 **publication-date** | [**PublicationDate**](#publicationdate) | Container for the date(s) the work was available to the public | [optional] 
-**external-ids** | [**ExternalIDs**](#externalids) | Container for a work citation | [optional] 
-**url** | [**Url**](#url) | A container for the url value | [optional] 
+**external-ids** | [**list[external-id]**](#externalid) | Container for the unique IDs of the work | [optional] 
+**url** | [**Url**](#url) | A container for the url representation of the work | [optional] 
 **contributors** | [**WorkContributors**](#workcontributors) | Container for the contributors of the work | [optional] 
 **language-code** | **str** | Two-Four letter language code to identify the language used in work fields | [optional] 
 **country** | [**Country**](#country) | Container to identify the work's original country of publication/presentation | [optional] 
@@ -165,15 +165,6 @@ Name | Type | Description | Notes
 
 [**back to PublicationDate**](#publicationdate)
 
-# ExternalIDs
-
-## Properties
-Name | Type | Description | Notes
------------- | ------------- | ------------- | -------------
-**external-id** | [**list[ExternalID]**](#externalid) | Container for external identifiers to the work | [optional] 
-
-[**back to Work**](#work)
-
 # ExternalID
 
 ## Properties
@@ -184,7 +175,7 @@ Name | Type | Description | Notes
 **external-id-url** | [**Url**](#url) | A container for the url value | [optional] 
 **external-id-relationship** | **str** | The relationship of this identifier to the work | "SELF" or "PART-OF" [optional] 
 
-[**back to ExternalIDs**](#externalids)
+[**back to Work**](#work)
 
 # Url
 
