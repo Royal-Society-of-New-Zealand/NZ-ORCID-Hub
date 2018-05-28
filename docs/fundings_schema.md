@@ -37,7 +37,7 @@ Name | Type | Description | Notes
 **organization_defined_type** | [**FundingSubType**](#fundingsubtype) | Container for the organisation's category of funding | [optional] 
 **start-date** | [**StartDate**](#startdate-and-enddate) | The date the funding began, given to any level of specificity | [optional] 
 **end-date** | [**EndDate**](#startdate-and-enddate) | The date the funding ended or will end, given to any level of specificity | [optional] 
-**external-ids** | [**ExternalIDs**](#externalids) | A non-repeatable container for identifiers of the funding | [optional] 
+**external-ids** | [**list[external-id]**](#externalid) | A non-repeatable container for identifiers of the funding | [optional] 
 **url** | [**Url**](#url) | A link to the funding or funding output (appears in the user interface under "Alternate URL") | [optional] 
 **contributors** | [**FundingContributors**](#fundingcontributors) | Container for information about the recipients of the funding | [optional] 
 **visibility** | **str** | NB: Chosen by each invitee/user | [optional, ignored] 
@@ -189,7 +189,7 @@ Name | Type | Description | Notes
 **external-id-url** | [**Url**](#url) | A container for the url value | [optional] 
 **external-id-relationship** | **str** | The relationship of this identifier to the award/project | "SELF" or "PART-OF" [optional] 
 
-[**back to ExternalIDs**](#externalids)
+[**back to Funding**](#funding)
 
 # Url
 
