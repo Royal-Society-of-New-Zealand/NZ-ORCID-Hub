@@ -51,7 +51,7 @@ Minimum one - maximum unbounded
 ## Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-**identifier** | **str** | Internal idenifier from your system for the work-person relationship | [optional]
+**identifier** | **str** | Internal identifier from your system for the work-person relationship | [optional]
 **first-name** | **str** | First name to assist ORCID iD registration | [required]
 **last-name** | **str** | Last name to assist ORCID iD registration | [required]
 **email** | **str** | The email address any permissions request will be sent to | [required unless Hub-known ORCID-iD present]
