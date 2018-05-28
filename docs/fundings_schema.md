@@ -6,7 +6,7 @@ Batch funding files to be passed through the Hub must be presented in either of 
     * a list of invitees (i.e., the individuals whose ORCID records are to be affected); and,
     * the ORCID Message data that is to be asserted to each invitee's ORCID record
 
-Examples can be found here: [**funding.json**](/docs/examples/funding.json) and [**funding.yaml**](/docs/examples/funding.yaml)
+Examples can be found here: [**fundings.json**](/docs/examples/fundings.json) and [**fundings.yaml**](/docs/examples/fundings.yaml)
 
 The Hub will consume any json or YAML file complying to the following schema.  NB additional validation will be performed when the data is sent to ORCID, and any errors in the message will be reported in the item's status field in the Hub's UI or task report. 
 
