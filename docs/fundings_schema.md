@@ -104,6 +104,38 @@ Name | Type | Description | Notes
 
 [**back to Source**](#source)
 
+# Organization
+
+## Properties
+Name | Type | Description | Notes
+------------ | ------------- | ------------- | -------------
+**name** | **str** | The human-readable name of the funding organisation | [optional] 
+**address** | [**Address**](#address) | Container for organization location information | [optional] 
+**disambiguated-organization** | [**DisambiguatedOrganization**](#disambiguatedorganization) | A reference to a disambiguated version the funding organisation | [optional] 
+
+[**back to Funding**](#funding)
+
+# Address
+
+## Properties
+Name | Type | Description | Notes
+------------ | ------------- | ------------- | -------------
+**city** | **str** | The city center of the funding organization | [required] 
+**region** | **str** | Region within the country | [optional] 
+**country** | **str** | The country code of the national center of the funding organization | ISO 3166-1 alpha-2 [required] 
+
+[**back to Organization**](#organization)
+
+# DisambiguatedOrganization
+
+## Properties
+Name | Type | Description | Notes
+------------ | ------------- | ------------- | -------------
+**disambiguated-organization-identifier** | **str** | The disambiguated organization identifier | [required] 
+**disambiguation-source** | **str** | The source providing the disambiguated organization ID | "ISNI", "RINGGOLD", "FUNDREF" or "GRID" [required] 
+
+[**back to Organization**](#organization)
+
 # FundingTitle
 
 ## Properties
