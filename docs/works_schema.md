@@ -30,7 +30,7 @@ Name | Type | Description | Notes
 **last-modified-date** | [**LastModifiedDate**](#createddate-and-lastmodifieddate) | Container for work item's last modification date | [optional, ignored] 
 **source** | [**Source**](#source) | Container for when/how the item was asserted | [optional, ignored] 
 **title** | [**WorkTitle**](#worktitle) | Container for the title(s) of the work | [required] 
-**journal-title** | [**Title**](#title) | Container for the title of the publication or group under which the work was published/presented | [optional] 
+**journal-title** | [**JournalTitle**](#journaltitle) | Container for the title of the publication or group under which the work was published/presented | [optional] 
 **short-description** | **str** | An element for a few sentences describing the work, e.g., an abstract. | [optional] 
 **citation** | [**Citation**](#citation) | Container for a work citation | [optional] 
 **type** | **str** | The work's type, see [here](https://members.orcid.org/api/resources/work-types) for the 38 allowed types | [required] 
@@ -130,9 +130,18 @@ Name | Type | Description | Notes
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **value** | **str** | The main title of the work or funding translated into another language | [optional] 
-**language-code** | **str** | Two-Four letter language code to identify the language of the translation| [optional] 
+**language-code** | **str** | Two-Four letter language code to identify the language of the translation | [optional] 
 
 [**back to WorkTitle**](#worktitle)
+
+# JournalTitle
+
+## Properties
+Name | Type | Description | Notes
+------------ | ------------- | ------------- | -------------
+**value** | **str** | The title/conference name of the publication, event or group under which the work appeared | [optional] 
+
+[**back to Work**](#work)
 
 # Citation
 
@@ -142,7 +151,7 @@ Name | Type | Description | Notes
 **citation-type** | **str** | The type (format) of the citation. | "BIBTEX", "FORMATTED-APA", "FORMATTED-CHICAGO", "FORMATTED-HARVARD", "FORMATTED-IEEE", "FORMATTED-MLA", "FORMATTED-UNSPECIFIED", "FORMATTED-VANCOUVER" OR "RIS" [required, "BIBTEX" preferred]
 **citation-value** | **str** | The citation formatted in the given citation type | [required]
 
-[**back to Work**](#work)
+
 
 # PublicationDate
 
