@@ -423,7 +423,8 @@ def fetch_token_mock(self,
         'name': 'ros',
         'access_token': 'xyz',
         'refresh_token': 'xyz',
-        'scope': '/activities/update'
+        'scope': '/activities/update',
+        'expires_in': '12121'
     }
     return token
 

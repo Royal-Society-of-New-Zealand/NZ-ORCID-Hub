@@ -38,7 +38,7 @@ def test_member_api(app, mocker):
     assert configuration.access_token == 'ACCESS000'
 
     OrcidToken.create(
-        access_token="ACCESS123", user=user, org=org, scope="/read-limited,/activities/update")
+        access_token="ACCESS123", user=user, org=org, scope="/read-limited,/activities/update", expires_in='121')
     api = MemberAPI(user=user, org=org)
     assert configuration.access_token == "ACCESS123"
 
@@ -271,6 +271,7 @@ def test_link_already_affiliated(request_ctx):
     access_token="ABC123",
     orcid="ABC-123-456-789",
     scope=['/read-limited'],
+    expires_in="1212",
     refresh_token="ABC1235"))
 def test_link_orcid_auth_callback(name, request_ctx):
     """Test ORCID callback - the user authorized the organisation access to the ORCID profile."""
@@ -311,6 +312,7 @@ def test_link_orcid_auth_callback(name, request_ctx):
     access_token="ABC123",
     orcid="ABC-123-456-789",
     scope=['/read-limited,/activities/update'],
+    expires_in="1212",
     refresh_token="ABC1235"))
 def test_link_orcid_auth_callback_with_affiliation(name, request_ctx):
     """Test ORCID callback - the user authorized the organisation access to the ORCID profile."""
