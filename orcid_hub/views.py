@@ -1736,7 +1736,7 @@ def load_researcher_funding():
         filename = secure_filename(form.file_.data.filename)
         try:
             task = FundingRecord.load_from_json(read_uploaded_file(form), filename=filename)
-            flash(f"Successfully loaded {task.record_funding_count} rows.")
+            flash(f"Successfully loaded {task.record_count} rows.")
             return redirect(url_for("fundingrecord.index_view", task_id=task.id))
         except Exception as ex:
             flash(f"Failed to load funding record file: {ex}", "danger")
@@ -1754,7 +1754,7 @@ def load_researcher_work():
         filename = secure_filename(form.file_.data.filename)
         try:
             task = WorkRecord.load_from_json(read_uploaded_file(form), filename=filename)
-            flash(f"Successfully loaded {task.work_record_count} rows.")
+            flash(f"Successfully loaded {task.record_count} rows.")
             return redirect(url_for("workrecord.index_view", task_id=task.id))
         except Exception as ex:
             flash(f"Failed to load work record file: {ex}", "danger")
@@ -1772,7 +1772,7 @@ def load_researcher_peer_review():
         filename = secure_filename(form.file_.data.filename)
         try:
             task = PeerReviewRecord.load_from_json(read_uploaded_file(form), filename=filename)
-            flash(f"Successfully loaded {task.peer_review_record_count} rows.")
+            flash(f"Successfully loaded {task.record_count} rows.")
             return redirect(url_for("peerreviewrecord.index_view", task_id=task.id))
         except Exception as ex:
             flash(f"Failed to load peer review record file: {ex}", "danger")

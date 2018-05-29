@@ -17,7 +17,7 @@ from html2text import html2text
 from itsdangerous import TimedJSONWebSignatureSerializer
 from peewee import JOIN
 
-from . import app, orcid_client, rq
+from . import app, orcid_client
 from .models import (AFFILIATION_TYPES, Affiliation, AffiliationRecord, FundingInvitees,
                      FundingRecord, OrcidToken, Organisation, Role, Task, TaskType, Url, User,
                      PartialDate, PeerReviewExternalId, UserInvitation, UserOrg, WorkInvitees,
@@ -553,7 +553,6 @@ def create_or_update_funding(user, org_id, records, *args, **kwargs):
         return
 
 
-@rq.job(timeout=120)
 def send_user_invitation(inviter,
                          org,
                          email,
@@ -914,7 +913,7 @@ def process_work_records(max_rows=20):
             task.save()
             error_count = WorkRecord.select().where(
                 WorkRecord.task_id == task.id, WorkRecord.status**"%error%").count()
-            row_count = task.work_record_count
+            row_count = task.record_count
 
             with app.app_context():
                 protocol_scheme = 'http'
@@ -1027,7 +1026,7 @@ def process_peer_review_records(max_rows=20):
             task.save()
             error_count = PeerReviewRecord.select().where(
                 PeerReviewRecord.task_id == task.id, PeerReviewRecord.status ** "%error%").count()
-            row_count = task.peer_review_record_count
+            row_count = task.record_count
 
             with app.app_context():
                 protocol_scheme = 'http'
@@ -1142,7 +1141,7 @@ def process_funding_records(max_rows=20):
             task.save()
             error_count = FundingRecord.select().where(
                 FundingRecord.task_id == task.id, FundingRecord.status**"%error%").count()
-            row_count = task.record_funding_count
+            row_count = task.record_count
 
             with app.app_context():
                 protocol_scheme = 'http'
@@ -1244,7 +1243,7 @@ def process_affiliation_records(max_rows=20):
             error_count = AffiliationRecord.select().where(
                 AffiliationRecord.task_id == task.id, AffiliationRecord.status**"%error%").count()
             row_count = task.record_count
-            orcid_rec_count = task.affiliationrecord_set.select(
+            orcid_rec_count = task.affiliation_records.select(
                 AffiliationRecord.orcid).distinct().count()
 
             with app.app_context():
@@ -1288,7 +1287,10 @@ def process_tasks(max_rows=20):
     """
     Task.delete().where((Task.expires_at < datetime.utcnow())).execute()
 
-    for task in Task.select().where(Task.expires_at.is_null()).limit(max_rows):
+    tasks = Task.select().where(Task.expires_at.is_null())
+    if max_rows and max_rows > 0:
+        tasks = tasks.limit(max_rows)
+    for task in tasks:
 
         max_created_at_expiry = (task.created_at + timedelta(weeks=4))
         max_updated_at_expiry = (task.updated_at + timedelta(weeks=2))
@@ -1301,47 +1303,37 @@ def process_tasks(max_rows=20):
         task.expires_at = max_expiry_date
         task.save()
 
-    for task in Task.select().where(Task.expires_at.is_null(False)).limit(max_rows):
-        if not task.is_expiry_email_sent and task.expires_at < (datetime.now() + timedelta(weeks=1)):
-            export_model = None
-            if task.task_type == TaskType.AFFILIATION.value:
-                export_model = "affiliationrecord.export"
-                error_count = AffiliationRecord.select().where(AffiliationRecord.task_id == task.id,
-                                                               AffiliationRecord.status ** "%error%").count()
-            elif task.task_type == TaskType.FUNDING.value:
-                export_model = "fundingrecord.export"
-                error_count = FundingRecord.select().where(FundingRecord.task_id == task.id,
-                                                           FundingRecord.status ** "%error%").count()
-            elif task.task_type == TaskType.WORK.value:
-                export_model = "workrecord.export"
-                error_count = WorkRecord.select().where(WorkRecord.task_id == task.id,
-                                                        WorkRecord.status ** "%error%").count()
-            elif task.task_type == TaskType.PEER_REVIEW.value:
-                export_model = "peerreviewrecord.export"
-                error_count = PeerReviewRecord.select().where(PeerReviewRecord.task_id == task.id,
-                                                              PeerReviewRecord.status ** "%error%").count()
-            else:
-                raise Exception(f"Unexpeced task type: {task.task_type} ({task}).")
+    tasks = Task.select().where(
+            Task.expires_at.is_null(False),
+            Task.expiry_email_sent_at.is_null(),
+            Task.expires_at < (datetime.now() + timedelta(weeks=1)))
+    if max_rows and max_rows > 0:
+        tasks = tasks.limit(max_rows)
+    for task in tasks:
 
-            with app.app_context():
-                protocol_scheme = 'http'
-                if not EXTERNAL_SP:
-                    protocol_scheme = 'https'
-                export_url = flask.url_for(
-                    export_model,
-                    export_type="csv",
-                    _scheme=protocol_scheme,
-                    task_id=task.id,
-                    _external=True)
-                send_email(
-                    "email/task_expiration.html",
-                    task=task,
-                    subject="Batch process task is about to expire",
-                    recipient=(task.created_by.name, task.created_by.email),
-                    error_count=error_count,
-                    export_url=export_url)
-            task.expiry_email_sent_at = datetime.utcnow()
-            task.save()
+        export_model = task.record_model._meta.name + ".export"
+        error_count = task.error_count
+
+        set_server_name()
+        with app.app_context():
+            protocol_scheme = 'http'
+            if not EXTERNAL_SP:
+                protocol_scheme = 'https'
+            export_url = flask.url_for(
+                export_model,
+                export_type="csv",
+                _scheme=protocol_scheme,
+                task_id=task.id,
+                _external=True)
+            send_email(
+                "email/task_expiration.html",
+                task=task,
+                subject="Batch process task is about to expire",
+                recipient=(task.created_by.name, task.created_by.email),
+                error_count=error_count,
+                export_url=export_url)
+        task.expiry_email_sent_at = datetime.utcnow()
+        task.save()
 
 
 def get_client_credentials_token(org, scope="/webhook"):
