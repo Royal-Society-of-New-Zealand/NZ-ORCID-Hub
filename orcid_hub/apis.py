@@ -197,7 +197,7 @@ class TaskResource(AppResource):
             task_dict["task-type"] = TaskType(task.task_type).name
             if TaskType(task.task_type) == TaskType.AFFILIATION:
                 # import pdb; pdb.set_trace()
-                records = task.affiliationrecord_set
+                records = task.affiliation_records
             else:
                 records = task.funding_records
             task_dict["records"] = [

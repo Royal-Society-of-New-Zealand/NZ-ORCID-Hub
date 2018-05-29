@@ -823,13 +823,13 @@ def test_invite_user(request_ctx):
                 "first_name": "test",
                 "last_name": "test",
                 "city": "test"
-            }) as ctx, patch("orcid_hub.views.send_user_invitation") as send_user_invitation:
+            }) as ctx, patch("orcid_hub.views.send_user_invitation.queue") as queue_send_user_invitation:
         login_user(admin, remember=True)
         rv = ctx.app.full_dispatch_request()
         assert rv.status_code == 200
         assert b"<!DOCTYPE html>" in rv.data, "Expected HTML content"
         assert b"test123@test.test.net" in rv.data
-        send_user_invitation.assert_called_once()
+        queue_send_user_invitation.assert_called_once()
 
 
 def test_email_template(app, request_ctx):

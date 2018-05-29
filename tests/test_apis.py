@@ -681,7 +681,7 @@ records:
     assert len(data["records"]) == 3
     task_id = data["id"]
     task = Task.get(id=task_id)
-    assert task.affiliationrecord_set.count() == 3
+    assert task.affiliation_records.count() == 3
 
 
 def test_proxy_get_profile(app_req_ctx):

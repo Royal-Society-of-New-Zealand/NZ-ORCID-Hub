@@ -74,6 +74,18 @@ def validate_orcid_id(value):
         raise ValueError(f"Invalid ORCID iD {value} checksum. Make sure you have entered correct ORCID iD.")
 
 
+def lazy_property(fn):
+    """Make a property lazy-evaluated."""
+    attr_name = '_lazy_' + fn.__name__
+
+    @property
+    def _lazy_property(self):
+        if not hasattr(self, attr_name):
+            setattr(self, attr_name, fn(self))
+        return getattr(self, attr_name)
+    return _lazy_property
+
+
 class PartialDate(namedtuple("PartialDate", ["year", "month", "day"])):
     """Partial date (without month day or both month and month day."""
 
@@ -856,10 +868,6 @@ class OrcidAuthorizeCall(BaseModel):
 class Task(BaseModel, AuditMixin):
     """Batch processing task created form CSV/TSV file."""
 
-    __record_count = None
-    __record_funding_count = None
-    __work_record_count = None
-    __peer_review_record_count = None
     org = ForeignKeyField(
         Organisation, index=True, verbose_name="Organisation", on_delete="SET NULL")
     completed_at = DateTimeField(null=True)
@@ -873,40 +881,37 @@ class Task(BaseModel, AuditMixin):
     expiry_email_sent_at = DateTimeField(null=True)
 
     def __repr__(self):
-        return self.filename or f"Task #{self.id}"
+        return self.filename or f"{TaskType(self.task_type).name.capitalize()} record processing task #{self.id}"
 
     @property
     def is_expiry_email_sent(self):
         """Test if the expiry email is sent ot not."""
         return bool(self.expiry_email_sent_at)
 
-    @property
+    @lazy_property
     def record_count(self):
         """Get count of the loaded recoreds."""
-        if self.__record_count is None:
-            self.__record_count = self.affiliationrecord_set.count()
-        return self.__record_count
+        return self.records.count()
 
     @property
-    def record_funding_count(self):
-        """Get count of the loaded funding records."""
-        if self.__record_funding_count is None:
-            self.__record_funding_count = self.funding_records.count()
-        return self.__record_funding_count
+    def record_model(self):
+        """Get record model class."""
+        _, models = self.records.get_query_meta()
+        model, = models.keys()
+        return model
+
+    @lazy_property
+    def records(self):
+        """Get all task record query."""
+        return getattr(self, TaskType(self.task_type).name.lower() + "_records")
 
     @property
-    def work_record_count(self):
-        """Get count of the loaded work records."""
-        if self.__work_record_count is None:
-            self.__work_record_count = self.work_record.count()
-        return self.__work_record_count
-
-    @property
-    def peer_review_record_count(self):
-        """Get count of the loaded peer review records."""
-        if self.__peer_review_record_count is None:
-            self.__peer_review_record_count = self.peer_review_record.count()
-        return self.__peer_review_record_count
+    def error_count(self):
+        """Get error count encountered during processing batch task."""
+        q = self.records
+        _, models = q.get_query_meta()
+        model, = models.keys()
+        return self.records.where(self.record_model.status ** "%error%").count()
 
     @classmethod
     def load_from_csv(cls, source, filename=None, org=None):
@@ -1139,7 +1144,7 @@ class AffiliationRecord(RecordModel):
 
     is_active = BooleanField(
         default=False, help_text="The record is marked 'active' for batch processing", null=True)
-    task = ForeignKeyField(Task, on_delete="CASCADE")
+    task = ForeignKeyField(Task, related_name="affiliation_records", on_delete="CASCADE")
     put_code = IntegerField(null=True)
     external_id = CharField(
         max_length=100,
@@ -1173,11 +1178,7 @@ class AffiliationRecord(RecordModel):
 
 
 class TaskType(IntFlag):
-    """
-    Enum used to represent Task type.
-
-    The model provide multi role support representing role sets as bitmaps.
-    """
+    """Enum used to represent Task type."""
 
     AFFILIATION = 0  # Affilation of employment/education
     FUNDING = 1  # Funding
@@ -1187,7 +1188,9 @@ class TaskType(IntFlag):
     def __eq__(self, other):
         if isinstance(other, TaskType):
             return self.value == other.value
-        return (self.name == other or self.name == getattr(other, 'name', None))
+        elif isinstance(other, int):
+            return self.value == other
+        return (self.name == other or self.name == getattr(other, "name", None))
 
     def __hash__(self):
         return hash(self.name)
@@ -1351,7 +1354,7 @@ class FundingRecord(RecordModel):
 class PeerReviewRecord(RecordModel):
     """Peer Review record loaded from Json file for batch processing."""
 
-    task = ForeignKeyField(Task, related_name="peer_review_record", on_delete="CASCADE")
+    task = ForeignKeyField(Task, related_name="peer_review_records", on_delete="CASCADE")
     review_group_id = CharField(max_length=255)
     reviewer_role = CharField(null=True, max_length=255)
     review_url = CharField(null=True, max_length=255)
@@ -1571,7 +1574,7 @@ class PeerReviewRecord(RecordModel):
 class WorkRecord(RecordModel):
     """Work record loaded from Json file for batch processing."""
 
-    task = ForeignKeyField(Task, related_name="work_record", on_delete="CASCADE")
+    task = ForeignKeyField(Task, related_name="work_records", on_delete="CASCADE")
     title = CharField(max_length=255)
     sub_title = CharField(null=True, max_length=255)
     translated_title = CharField(null=True, max_length=255)

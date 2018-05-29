@@ -28,7 +28,7 @@ local   replication     postgres                            trust
 host    replication     postgres        34.225.18.251/32    trust
 host    all             all             34.225.18.251/32    trust
 host    orcidhub        orcidhub        app                 trust
-host    all             all             gageway             trust
+host    all             all             gateway             trust
 EOF
 
 createdb -U "$POSTGRES_USER" orcidhub
