@@ -487,6 +487,7 @@ def orcid_callback():
         user_id=user.id, org=user.organisation, scope=scope)
     orcid_token.access_token = token["access_token"]
     orcid_token.refresh_token = token["refresh_token"]
+    orcid_token.expires_in = token["expires_in"]
     with db.atomic():
         try:
             orcid_token.save()
@@ -1044,6 +1045,7 @@ def orcid_login_callback(request):
                 user_id=user.id, org=org, scope=scope)
             orcid_token.access_token = token["access_token"]
             orcid_token.refresh_token = token["refresh_token"]
+            orcid_token.expires_in = token["expires_in"]
             with db.atomic():
                 try:
                     user.organisation = org
