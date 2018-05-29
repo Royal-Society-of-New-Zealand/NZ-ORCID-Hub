@@ -21,6 +21,12 @@ logger.setLevel(logging.INFO)
 logger.addHandler(logging.StreamHandler())
 
 
+def test_unique_everseen():
+    """Test unique_everseen."""
+    assert list(utils.unique_everseen('AAAABBBCCDAABBB')) == list("ABCD")
+    assert list(utils.unique_everseen('ABBCcAD', str.lower)) == list("ABCD")
+
+
 def test_append_qs():
     """Test URL modication."""
     assert utils.append_qs(
