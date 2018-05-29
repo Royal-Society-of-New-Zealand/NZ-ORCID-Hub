@@ -90,7 +90,7 @@ class MemberAPI(MemberAPIV20Api):
                     user_id=user.id,
                     org_id=org.id,
                     scope=SCOPE_READ_LIMITED[0] + "," + SCOPE_ACTIVITIES_UPDATE[0])
-            except Exception as ex:
+            except Exception:
                 app.logger.exception("Exception occured while retriving ORCID Token")
                 return None
 
@@ -134,7 +134,7 @@ class MemberAPI(MemberAPIV20Api):
                         org_id=self.org.id,
                         scope=SCOPE_READ_LIMITED[0] + "," + SCOPE_ACTIVITIES_UPDATE[0])
                     orcid_token.delete_instance()
-                except Exception as ex:
+                except Exception:
                     app.logger.exception("Exception occured while retriving ORCID Token")
                     return None
             app.logger.error(f"ApiException Occured: {ex}")

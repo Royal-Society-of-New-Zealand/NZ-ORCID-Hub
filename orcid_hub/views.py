@@ -1183,7 +1183,7 @@ class ViewMembersAdmin(AppModelView):
                 token.delete_instance(recursive=True)
 
             except Exception as ex:
-                flash("Failed to revoke token {tokne.access_token}: {ex}", "error")
+                flash(f"Failed to revoke token {token.access_token}: {ex}", "error")
                 app.logger.exception('Failed to delete record.')
                 return False
 
@@ -1839,7 +1839,7 @@ def register_org(org_name,
 
         try:
             org.save()
-        except Exception as ex:
+        except Exception:
             app.logger.exception("Failed to save organisation data")
             raise
 
@@ -1864,7 +1864,7 @@ def register_org(org_name,
 
         try:
             user.save()
-        except Exception as ex:
+        except Exception:
             app.logger.exception("Failed to save user data")
             raise
 
@@ -1874,7 +1874,7 @@ def register_org(org_name,
             try:
                 user.save()
                 org.save()
-            except Exception as ex:
+            except Exception:
                 app.logger.exception(
                     "Failed to assign the user as the technical contact to the organisation")
                 raise
@@ -1883,7 +1883,7 @@ def register_org(org_name,
             user_org.is_admin = True
             try:
                 user_org.save()
-            except Exception as ex:
+            except Exception:
                 app.logger.exception(
                     "Failed to assign the user as an administrator to the organisation")
                 raise
@@ -1913,7 +1913,7 @@ def register_org(org_name,
         org.is_email_sent = True
         try:
             org.save()
-        except Exception as ex:
+        except Exception:
             app.logger.exception("Failed to save organisation data")
             raise
 
@@ -2323,7 +2323,7 @@ def update_webhook(user_id):
         user = User.get(id=user_id)
         thread = Thread(target=handle_callback, kwargs=dict(user=user))
         thread.start()
-    except Exception as ex:
+    except Exception:
         app.logger.exception(f"Invalid user_id: {user_id}")
 
     return '', 204

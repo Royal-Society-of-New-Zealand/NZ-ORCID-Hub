@@ -1040,9 +1040,9 @@ class Task(BaseModel, AuditMixin):
                     if not validator.validate():
                         raise ModelException(f"Invalid record: {validator.errors}")
                     af.save()
-            except Exception as ex:
+            except Exception:
                 db.rollback()
-                app.logger.exception("Failed to laod affiliation file.")
+                app.logger.exception("Failed to load affiliation file.")
                 raise
 
         return task
@@ -1341,9 +1341,9 @@ class FundingRecord(RecordModel):
                         raise SchemaError(u"Schema validation failed:\n - An external identifier is required")
                 return task
 
-            except Exception as ex:
+            except Exception:
                 db.rollback()
-                app.logger.exception("Failed to laod affiliation file.")
+                app.logger.exception("Failed to load funding file.")
                 raise
 
     class Meta:  # noqa: D101,D106
@@ -1561,9 +1561,9 @@ class PeerReviewRecord(RecordModel):
                         raise SchemaError(u"Schema validation failed:\n - An external identifier is required")
 
                 return task
-            except Exception as ex:
+            except Exception:
                 db.rollback()
-                app.logger.exception("Failed to laod affiliation file.")
+                app.logger.exception("Failed to load peer review file.")
                 raise
 
     class Meta:  # noqa: D101,D106
@@ -1719,9 +1719,9 @@ class WorkRecord(RecordModel):
                         raise SchemaError(u"Schema validation failed:\n - An external identifier is required")
 
                 return task
-            except Exception as ex:
+            except Exception:
                 db.rollback()
-                app.logger.exception("Failed to laod affiliation file.")
+                app.logger.exception("Failed to load work record file.")
                 raise
 
     class Meta:  # noqa: D101,D106
