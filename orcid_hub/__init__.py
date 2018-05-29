@@ -208,6 +208,7 @@ from .authcontroller import *  # noqa: F401,F403
 from .views import *  # noqa: F401,F403
 from .oauth import *  # noqa: F401,F403
 from .reports import *  # noqa: F401,F403
+from .schedule import *  # noqa: F401,F403
 
 
 @rq_dashboard.blueprint.before_request

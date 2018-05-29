@@ -1273,6 +1273,7 @@ def process_affiliation_records(max_rows=20):
                         "Failed to send batch process comletion notification message.")
 
 
+@rq.job(timeout=300)
 def process_tasks(max_rows=20):
     """Handle batch task expiration.
 
@@ -1394,4 +1395,4 @@ def process_records(n):
     process_funding_records(n)
     process_work_records(n)
     process_peer_review_records(n)
-    process_tasks(n)
+    # process_tasks(n)
