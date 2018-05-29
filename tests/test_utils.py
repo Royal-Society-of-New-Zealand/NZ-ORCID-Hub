@@ -27,6 +27,11 @@ def test_unique_everseen():
     assert list(utils.unique_everseen('ABBCcAD', str.lower)) == list("ABCD")
 
 
+def test_process_records():
+    """Test process records function."""
+    utils.process_records(0)
+
+
 def test_append_qs():
     """Test URL modication."""
     assert utils.append_qs(
