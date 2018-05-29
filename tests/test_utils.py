@@ -21,6 +21,12 @@ logger.setLevel(logging.INFO)
 logger.addHandler(logging.StreamHandler())
 
 
+def test_unique_everseen():
+    """Test unique_everseen."""
+    assert list(utils.unique_everseen('AAAABBBCCDAABBB')) == list("ABCD")
+    assert list(utils.unique_everseen('ABBCcAD', str.lower)) == list("ABCD")
+
+
 def test_append_qs():
     """Test URL modication."""
     assert utils.append_qs(
@@ -77,6 +83,11 @@ def test_set_server_name(app):
     assert "abc.orcidhub.org.nz" == app.config.get("SERVER_NAME")
 
 
+def test_process_records(app):
+    """Test process records function."""
+    utils.process_records(0)
+
+
 def send_mail_mock(*argvs, **kwargs):
     """Mock email invitation."""
     logger.info(f"***\nActually email invitation was mocked, so no email sent!!!!!")
@@ -86,8 +97,7 @@ def send_mail_mock(*argvs, **kwargs):
 @patch("orcid_hub.utils.send_email", side_effect=send_mail_mock)
 def test_send_user_invitation(test_db, request_ctx):
     """Test to send user invitation."""
-    org = Organisation(
-        id=1,
+    org = Organisation.create(
         name="THE ORGANISATION",
         tuakiri_name="THE ORGANISATION",
         confirmed=True,
@@ -98,7 +108,7 @@ def test_send_user_invitation(test_db, request_ctx):
         disambiguation_org_id="ID",
         disambiguation_org_source="SOURCE")
 
-    inviter = User(
+    inviter = User.create(
         email="test123@mailinator.com",
         name="TEST USER",
         username="test123",
@@ -141,6 +151,20 @@ def test_send_user_invitation(test_db, request_ctx):
         assert rv.status_code == 200
         assert instance.utils.send_user_invitation.called  # noqa: E712
         assert (450, 'Requested mail action not taken: mailbox unavailable') == result[email]
+
+    with patch("orcid_hub.utils.send_email") as send_email:
+        result = utils.send_user_invitation(
+            inviter=inviter.id,
+            org=org.id,
+            email=email,
+            first_name=first_name,
+            last_name=last_name,
+            affiliation_types=affiliation_types,
+            start_date=[1971, 1, 1],
+            end_date=[2018, 5, 29],
+            task_id=task.id)
+        send_email.assert_called_once()
+        assert result == UserInvitation.select().order_by(UserInvitation.id.desc()).first().id
 
 
 @patch("orcid_hub.utils.send_email", side_effect=send_mail_mock)

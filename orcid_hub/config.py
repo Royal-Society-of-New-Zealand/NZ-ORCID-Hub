@@ -1,23 +1,23 @@
 # -*- coding: utf-8 -*-
 """Application configuration."""
 
-from os import environ, urandom, path
+from os import environ, getenv, path, urandom
 
-ENV = environ.get("ENV", "dev")
+ENV = getenv("ENV", "dev")
 
 ORCID_API_HOST_URL = "https://api.sandbox.orcid.org/" if ENV != "prod" else "https://api.orcid.org/"
 ORCID_API_VERSION = "v2.0"
 ORCID_API_BASE = ORCID_API_HOST_URL + ORCID_API_VERSION + '/'
 ORCID_BASE_URL = "https://sandbox.orcid.org/" if ENV != "prod" else "https://orcid.org/"
 
-SECRET_KEY = environ.get("SECRET_KEY", urandom(42).hex())
-SENTRY_DSN = environ.get("SENTRY_DSN")
-SALT = "secret-salt" if ENV.startswith("dev") else (environ.get("TOKEN_PASSWORD_SALT")
+SECRET_KEY = getenv("SECRET_KEY", urandom(42).hex())
+SENTRY_DSN = getenv("SENTRY_DSN")
+SALT = "secret-salt" if ENV.startswith("dev") else (getenv("TOKEN_PASSWORD_SALT")
                                                     or urandom(5).hex())
 
 # NZ ORCIDHUB API client ID and secret
-ORCID_CLIENT_ID = environ.get("ORCID_CLIENT_ID", "APP-42W3G8FS4OHGM562")
-ORCID_CLIENT_SECRET = environ.get("ORCID_CLIENT_SECRET")
+ORCID_CLIENT_ID = getenv("ORCID_CLIENT_ID", "APP-42W3G8FS4OHGM562")
+ORCID_CLIENT_SECRET = getenv("ORCID_CLIENT_SECRET")
 
 # Change the URL as per the enviornment
 AUTHORIZATION_BASE_URL = 'https://sandbox.orcid.org/oauth/authorize' \
@@ -30,15 +30,15 @@ SCOPE_READ_LIMITED = ['/read-limited']
 SCOPE_AUTHENTICATE = ['/authenticate']
 
 # Database connection url
-DATABASE_URL = environ.get("DATABASE_URL")
-BACKUP_DATABASE_URL = environ.get("BACKUP_DATABASE_URL")
+DATABASE_URL = getenv("DATABASE_URL")
+BACKUP_DATABASE_URL = getenv("BACKUP_DATABASE_URL")
 
 if not DATABASE_URL:
-    POSTGRES_PASSWORD = environ.get("POSTGRES_PASSWORD") or environ.get("PGPASSWORD") or "p455w0rd"
-    DB_NAME = environ.get("PGDATABASE", "orcidhub")
-    DB_USERNAME = environ.get("PGUSER", "orcidhub")
+    POSTGRES_PASSWORD = getenv("POSTGRES_PASSWORD") or getenv("PGPASSWORD") or "p455w0rd"
+    DB_NAME = getenv("PGDATABASE", "orcidhub")
+    DB_USERNAME = getenv("PGUSER", "orcidhub")
     DB_PASSWORD = POSTGRES_PASSWORD
-    DB_HOSTNAME = environ.get("PGHOST", "db")
+    DB_HOSTNAME = getenv("PGHOST", "db")
     DATABASE_URL = "postgresql://" + DB_NAME
     if POSTGRES_PASSWORD:
         DATABASE_URL += ':' + POSTGRES_PASSWORD
@@ -59,10 +59,10 @@ if ENV in ("dev0", ):
 OAUTH2_PROVIDER_TOKEN_EXPIRES_IN = 86400  # Default Bearer token expires time, default is 3600.
 
 # add mail server config
-MAIL_PORT = int(environ.get("MAIL_PORT", 25))
+MAIL_PORT = int(getenv("MAIL_PORT", 25))
 MAIL_SUPPRESS_SEND = False
-MAIL_DEFAULT_SENDER = environ.get("MAIL_DEFAULT_SENDER", "no-reply@orcidhub.org.nz")
-MAIL_SERVER = environ.get("MAIL_SERVER", "gateway")
+MAIL_DEFAULT_SENDER = getenv("MAIL_DEFAULT_SENDER", "no-reply@orcidhub.org.nz")
+MAIL_SERVER = getenv("MAIL_SERVER", "gateway")
 
 MEMBER_API_FORM_BASE_URL = "https://orcid.org/content/register-client-application-sandbox" \
     if ENV != "prod" else "https://orcid.org/content/register-client-application-production-trusted-party"
@@ -72,9 +72,10 @@ CRED_TYPE_PREMIUM = 2
 APP_NAME = 'NZ ORCID HUB'
 APP_DESCRIPTION = 'This is an ORCID integration through the NZ ORCID HUB connecting'
 APP_URL = "https://" + (ENV + ".orcidhub.org.nz" if ENV != "prod" else "orcidhub.org.nz")
+SEED_HUB_ADMIN = getenv("SEED_HUB_ADMIN", "rad42@mailinator.com")
 
 # External Shibboleth SP login URL (e.g., https://test.orcidhub.org.nz/Tuakiri/login)
-EXTERNAL_SP = environ.get("EXTERNAL_SP") if ENV != "prod" else None
+EXTERNAL_SP = getenv("EXTERNAL_SP") if ENV != "prod" else None
 
 DEFAULT_COUNTRY = "NZ"
 
@@ -135,3 +136,18 @@ DEFAULT_EMAIL_TEMPLATE = """<!DOCTYPE html>
 """
 
 DKIP_KEY_PATH = path.join(path.dirname(path.relpath(path.relpath(__file__))), ".keys", "dkim.key")
+
+# RQ
+RQ_REDIS_URL = "redis://redis:6379/0"
+RQ_QUEUE_CLASS = "orcid_hub.ThrottledQueue"
+# rq-dashboard config:
+RQ_POLL_INTERVAL = 5000  #: Web interface poll period for updates in ms
+WEB_BACKGROUND = "gray"
+
+# Celery
+CELERY_BROKER_URL = "redis://localhost:6379/0"
+CELERY_RESULT_BACKEND = "redis://localhost:6379/0"
+
+# CELERY_ACCEPT_CONTENT = ["application/x-python-serialize"]
+# CELERY_TASK_SERIALIZER = "pickle"
+# CELERY_RESULT_SERIALIZER = "pickle"

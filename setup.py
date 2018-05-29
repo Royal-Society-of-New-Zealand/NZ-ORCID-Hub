@@ -97,6 +97,11 @@ setup(
         "flask-restful",
         "validators",
         # "swagger_client",
+        "rq",
+        "rq-dashboard",
+        "rq-scheduler",
+        "Flask-RQ2",
+        "Flask-RQ2[cli]",
     ],
     extras_require={
         "dev": [
