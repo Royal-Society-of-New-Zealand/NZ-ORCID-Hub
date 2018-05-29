@@ -22,7 +22,7 @@ from time import time, sleep
 import click
 from flask.json import JSONEncoder as _JSONEncoder
 from flask_login import current_user, LoginManager
-from flask import Flask, request
+from flask import Flask, flash, request, redirect, url_for
 from flask_debugtoolbar import DebugToolbarExtension
 from flask_oauthlib.provider import OAuth2Provider
 from flask_peewee.rest import Authentication, RestAPI
@@ -95,7 +95,11 @@ DATABASE_URL = app.config.get("DATABASE_URL")
 rq = RQ(app)
 # app.config.from_object(rq_dashboard.default_settings)
 app.config["REDIS_URL"] = app.config.get("RQ_REDIS_URL")
-app.register_blueprint(rq_dashboard.blueprint, url_prefix="/rq")
+
+
+
+
+
 
 # TODO: implement connection factory
 db_url.register_database(PgDbWithFailover, "pg+failover", "postgres+failover")
@@ -209,6 +213,21 @@ from .authcontroller import *  # noqa: F401,F403
 from .views import *  # noqa: F401,F403
 from .oauth import *  # noqa: F401,F403
 from .reports import *  # noqa: F401,F403
+
+
+@rq_dashboard.blueprint.before_request
+def restrict_rq(*args, **kwargs):
+    """Restrict access to RQ-Dashboard."""
+    if not current_user.is_authenticated:
+        flash("You're not logged in!", "danger")
+        return redirect(url_for("index")), 401
+    if not current_user.has_role(models.Role.SUPERUSER):
+        flash("You're not authorized to access this page!", "danger")
+        return redirect(url_for("index")), 403
+
+
+app.register_blueprint(rq_dashboard.blueprint, url_prefix="/rq")
+
 
 if app.testing:
     from .mocks import mocks

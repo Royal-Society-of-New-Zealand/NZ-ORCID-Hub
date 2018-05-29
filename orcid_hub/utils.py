@@ -19,9 +19,9 @@ from peewee import JOIN
 
 from . import app, orcid_client
 from .models import (AFFILIATION_TYPES, Affiliation, AffiliationRecord, FundingInvitees,
-                     FundingRecord, OrcidToken, Organisation, Role, Task, TaskType, Url, User,
-                     PartialDate, PeerReviewExternalId, UserInvitation, UserOrg, WorkInvitees,
-                     WorkRecord, PeerReviewRecord, PeerReviewInvitee)
+                     FundingRecord, OrcidToken, Organisation, Role, Task, Url, User, PartialDate,
+                     PeerReviewExternalId, UserInvitation, UserOrg, WorkInvitees, WorkRecord,
+                     PeerReviewRecord, PeerReviewInvitee)
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
