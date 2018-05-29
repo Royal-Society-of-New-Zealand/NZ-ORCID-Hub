@@ -96,11 +96,6 @@ rq = RQ(app)
 # app.config.from_object(rq_dashboard.default_settings)
 app.config["REDIS_URL"] = app.config.get("RQ_REDIS_URL")
 
-
-
-
-
-
 # TODO: implement connection factory
 db_url.register_database(PgDbWithFailover, "pg+failover", "postgres+failover")
 db_url.PostgresqlDatabase = ReconnectablePostgresqlDatabase

@@ -17,7 +17,7 @@ from html2text import html2text
 from itsdangerous import TimedJSONWebSignatureSerializer
 from peewee import JOIN
 
-from . import app, orcid_client
+from . import app, orcid_client, rq
 from .models import (AFFILIATION_TYPES, Affiliation, AffiliationRecord, FundingInvitees,
                      FundingRecord, OrcidToken, Organisation, Role, Task, Url, User, PartialDate,
                      PeerReviewExternalId, UserInvitation, UserOrg, WorkInvitees, WorkRecord,
@@ -553,6 +553,7 @@ def create_or_update_funding(user, org_id, records, *args, **kwargs):
         return
 
 
+@rq.job(timeout=300)
 def send_user_invitation(inviter,
                          org,
                          email,
@@ -823,6 +824,7 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
             return
 
 
+@rq.job(timeout=300)
 def process_work_records(max_rows=20):
     """Process uploaded work records."""
     set_server_name()
@@ -1360,6 +1362,7 @@ def get_client_credentials_token(org, scope="/webhook"):
     return token
 
 
+@rq.job(timeout=300)
 def register_orcid_webhook(user, callback_url=None, delete=False):
     """Register or delete an ORCID webhook for the given user profile update events.
 
