@@ -27,11 +27,6 @@ def test_unique_everseen():
     assert list(utils.unique_everseen('ABBCcAD', str.lower)) == list("ABCD")
 
 
-def test_process_records():
-    """Test process records function."""
-    utils.process_records(0)
-
-
 def test_append_qs():
     """Test URL modication."""
     assert utils.append_qs(
@@ -86,6 +81,11 @@ def test_set_server_name(app):
     app.config["SERVER_NAME"] = "abc.orcidhub.org.nz"
     utils.set_server_name()
     assert "abc.orcidhub.org.nz" == app.config.get("SERVER_NAME")
+
+
+def test_process_records(app):
+    """Test process records function."""
+    utils.process_records(0)
 
 
 def send_mail_mock(*argvs, **kwargs):
