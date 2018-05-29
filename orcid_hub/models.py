@@ -1032,7 +1032,7 @@ class Task(BaseModel, AuditMixin):
                         affiliation_type=affiliation_type,
                         country=country,
                         disambiguated_id=val(row, 12),
-                        disambiguated_source=val(row, 13),
+                        disambiguation_source=val(row, 13),
                         put_code=val(row, 14),
                         orcid=orcid,
                         external_id=external_id)
@@ -1169,7 +1169,7 @@ class AffiliationRecord(RecordModel):
     country = CharField(null=True, verbose_name="Country", max_length=2)
     disambiguated_id = CharField(
         null=True, max_length=20, verbose_name="Disambiguated Organization Identifier")
-    disambiguated_source = CharField(
+    disambiguation_source = CharField(
         null=True, max_length=100, verbose_name="Disambiguation Source")
 
     class Meta:  # noqa: D101,D106

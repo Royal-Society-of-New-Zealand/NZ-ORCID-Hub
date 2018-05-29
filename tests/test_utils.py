@@ -731,7 +731,7 @@ def test_create_or_update_affiliation(patch, test_db, request_ctx):
         state="Test",
         country="Test",
         disambiguated_id="Test",
-        disambiguated_source="Test")
+        disambiguation_source="Test")
 
     UserInvitation.create(
         invitee=u,

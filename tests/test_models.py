@@ -109,7 +109,7 @@ def test_models(test_db):
         state="Test_%d" % i,
         country="Test_%d" % i,
         disambiguated_id="Test_%d" % i,
-        disambiguated_source="Test_%d" % i) for i in range(10))).execute()
+        disambiguation_source="Test_%d" % i) for i in range(10))).execute()
 
     FundingRecord.insert_many((dict(
         task=Task.get(id=1),
