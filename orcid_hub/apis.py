@@ -332,7 +332,7 @@ class TaskList(TaskResource):
                     recurse=False,
                     to_dashes=True,
                     exclude=[Task.created_by, Task.updated_by, Task.org, Task.task_type])
-                for t in Task.select()
+                for t in Task.select().where(Task.org_id == current_user.organisation_id)
         ]
         return yamlfy(tasks) if prefers_yaml() else jsonify(tasks)
 
