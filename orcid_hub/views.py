@@ -1232,7 +1232,7 @@ class GroupIdRecordAdmin(AppModelView):
 
     def create_form(self, obj=None):
         """Preselect the organisation field with Admin's organisation."""
-        form = super(GroupIdRecordAdmin, self).create_form()
+        form = super().create_form()
         form.organisation.data = current_user.organisation
         return form
 

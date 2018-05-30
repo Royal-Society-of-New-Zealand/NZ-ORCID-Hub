@@ -180,15 +180,6 @@ class RecordForm(FlaskForm):
     disambiguated_id = StringField("Disambiguated Organisation ID")
     disambiguation_source = StringField("Disambiguation Source")
 
-    @classmethod
-    def create_form(cls, *args, form_type=None, **kwargs):
-        """Adjust the form fields for specific record type."""
-        form = cls(*args, **kwargs)
-        if form_type == "EDU":
-            form.org_name.name = form.org_name.label.text = "Institution"
-            form.role.name = form.role.label.text = "Course/Degree"
-        return form
-
     def __init__(self, *args, form_type=None, **kwargs):
         """Create form."""
         super().__init__(*args, **kwargs)
