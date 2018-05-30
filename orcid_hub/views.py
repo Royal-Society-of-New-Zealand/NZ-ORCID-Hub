@@ -7,7 +7,6 @@ import json
 import mimetypes
 import os
 import secrets
-from collections import namedtuple
 from datetime import datetime
 from io import BytesIO
 from threading import Thread
