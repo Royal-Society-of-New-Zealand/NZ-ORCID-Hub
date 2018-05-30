@@ -1221,10 +1221,15 @@ def test_edit_record(request_ctx):
         assert admin.name.encode() in resp.data
         view_education.assert_called_once_with("XXXX-XXXX-XXXX-0001", 1234)
     with patch.object(
-            orcid_client.MemberAPIV20Api,
-            "create_education",
-            MagicMock(return_value=fake_response)), request_ctx(f"/section/{user.id}/EDU/new", method="POST",
-                                                                data={"city": "Auckland"}) as ctx:
+            orcid_client.MemberAPIV20Api, "create_education",
+            MagicMock(return_value=fake_response)), request_ctx(
+                f"/section/{user.id}/EDU/new",
+                method="POST",
+                data={
+                    "city": "Auckland",
+                    "country": "NZ",
+                    "org_name": "TEST",
+                }) as ctx:
         login_user(admin)
         resp = ctx.app.full_dispatch_request()
         assert resp.status_code == 302

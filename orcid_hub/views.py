@@ -7,7 +7,6 @@ import json
 import mimetypes
 import os
 import secrets
-from collections import namedtuple
 from datetime import datetime
 from io import BytesIO
 from threading import Thread
@@ -40,10 +39,10 @@ from .forms import (ApplicationFrom, BitmapMultipleValueField, CredentialForm, E
                     PartialDateField, RecordForm, UserInvitationForm)
 from .login_provider import roles_required
 from .models import (Affiliation, AffiliationRecord, CharField, Client, File, FundingInvitees,
-                     FundingRecord, Grant, GroupIdRecord, ModelException, OrcidApiCall, OrcidToken,
-                     Organisation, OrgInfo, OrgInvitation, PartialDate, PeerReviewInvitee,
-                     PeerReviewRecord, Role, Task, TextField, Token, Url, User, UserInvitation,
-                     UserOrg, UserOrgAffiliation, WorkInvitees, WorkRecord, db)
+                     FundingRecord, Grant, get_val, GroupIdRecord, ModelException, OrcidApiCall,
+                     OrcidToken, Organisation, OrgInfo, OrgInvitation, PartialDate,
+                     PeerReviewInvitee, PeerReviewRecord, Role, Task, TextField, Token, Url, User,
+                     UserInvitation, UserOrg, UserOrgAffiliation, WorkInvitees, WorkRecord, db)
 # NB! Should be disabled in production
 from .pyinfo import info
 from .utils import generate_confirmation_token, get_next_url, send_user_invitation
@@ -1232,7 +1231,7 @@ class GroupIdRecordAdmin(AppModelView):
 
     def create_form(self, obj=None):
         """Preselect the organisation field with Admin's organisation."""
-        form = super(GroupIdRecordAdmin, self).create_form()
+        form = super().create_form()
         form.organisation.data = current_user.organisation
         return form
 
@@ -1318,11 +1317,6 @@ admin.add_view(AppModelView(Client))
 admin.add_view(AppModelView(Grant))
 admin.add_view(AppModelView(Token))
 admin.add_view(GroupIdRecordAdmin(GroupIdRecord))
-
-SectionRecord = namedtuple(
-    "SectionRecord",
-    ["org_name", "city", "state", "country", "department", "role", "start_date", "end_date"])
-SectionRecord.__new__.__defaults__ = (None, ) * len(SectionRecord._fields)
 
 
 @app.template_filter("year_range")
@@ -1550,40 +1544,48 @@ def edit_record(user_id, section_type, put_code=None):
     orcid_client.configuration.access_token = orcid_token.access_token
     api = orcid_client.MemberAPI(user=user)
 
-    # TODO: handle "new"...
-    if put_code:
-        try:
-            # Fetch an Employment
-            if section_type == "EMP":
-                api_response = api.view_employment(user.orcid, put_code)
-            elif section_type == "EDU":
-                api_response = api.view_education(user.orcid, put_code)
+    form = RecordForm(form_type=section_type)
+    if request.method == "GET":
+        if put_code:
+            try:
+                # Fetch an Employment
+                if section_type == "EMP":
+                    api_response = api.view_employment(user.orcid, put_code)
+                elif section_type == "EDU":
+                    api_response = api.view_education(user.orcid, put_code)
 
-            _data = api_response.to_dict()
-            data = SectionRecord(
-                org_name=_data.get("organization").get("name"),
-                city=_data.get("organization").get("address").get("city", ""),
-                state=_data.get("organization").get("address").get("region", ""),
-                country=_data.get("organization").get("address").get("country", ""),
-                department=_data.get("department_name", ""),
-                role=_data.get("role_title", ""),
-                start_date=PartialDate.create(_data.get("start_date")),
-                end_date=PartialDate.create(_data.get("end_date")))
-        except ApiException as e:
-            message = json.loads(e.body.replace("''", "\"")).get('user-messsage')
-            app.logger.error(f"Exception when calling MemberAPIV20Api->view_employment: {message}")
-        except Exception as ex:
-            app.logger.exception(
-                "Unhandler error occured while creating or editing a profile record.")
-            abort(500, ex)
-    else:
-        data = SectionRecord(org_name=org.name, city=org.city, country=org.country)
+                _data = api_response.to_dict()
+                data = dict(
+                    org_name=_data.get("organization").get("name"),
+                    disambiguated_id=get_val(
+                        _data, "organization", "disambiguated_organization",
+                        "disambiguated_organization_identifier"),
+                    disambiguation_source=get_val(
+                        _data, "organization", "disambiguated_organization",
+                        "disambiguation_source"),
+                    city=_data.get("organization").get("address").get("city", ""),
+                    state=_data.get("organization").get("address").get("region", ""),
+                    country=_data.get("organization").get("address").get("country", ""),
+                    department=_data.get("department_name", ""),
+                    role=_data.get("role_title", ""),
+                    start_date=PartialDate.create(_data.get("start_date")),
+                    end_date=PartialDate.create(_data.get("end_date")))
+            except ApiException as e:
+                message = json.loads(e.body.replace("''", "\"")).get('user-messsage')
+                app.logger.error(f"Exception when calling MemberAPIV20Api->view_employment: {message}")
+            except Exception as ex:
+                app.logger.exception(
+                    "Unhandler error occured while creating or editing a profile record.")
+                abort(500, ex)
+        else:
+            data = dict(
+                org_name=org.name,
+                disambiguated_id=org.disambiguated_id,
+                disambiguation_source=org.disambiguation_source,
+                city=org.city,
+                country=org.country)
 
-    form = RecordForm.create_form(request.form, obj=data, form_type=section_type)
-    if not form.org_name.data:
-        form.org_name.data = org.name
-    if not form.country.data or form.country.data == "None":
-        form.country.data = org.country
+        form.process(data=data)
 
     if form.validate_on_submit():
         try:
@@ -1598,23 +1600,24 @@ def edit_record(user_id, section_type, put_code=None):
             affiliation, _ = UserOrgAffiliation.get_or_create(
                 user=user,
                 organisation=org,
-                put_code=put_code,
-                department_name=form.department.data,
-                department_city=form.city.data,
-                role_title=form.role.data)
+                put_code=put_code)
 
+            affiliation.department_name = form.department.data
+            affiliation.department_city = form.city.data
+            affiliation.role_title = form.role.data
             form.populate_obj(affiliation)
-            if put_code:
-                affiliation.put_code = put_code
-            else:
-                pass
-                # affiliation.path = resp.headers["Location"]
-                # affiliation.put_code = int(resp.headers["Location"].rsplit("/", 1)[-1])
+
             affiliation.save()
             return redirect(_url)
+
         except ApiException as e:
-            message = json.loads(e.body.replace("''", "\"")).get('user-messsage')
-            flash("Failed to update the entry: %s." % message, "danger")
+            body = json.loads(e.body)
+            message = body.get("user-message")
+            more_info = body.get("more-info")
+            flash(f"Failed to update the entry: {message}", "danger")
+            if more_info:
+                flash(f'You can find more information at <a href="{more_info}">{more_info}</a>', "info")
+
             app.logger.exception(f"For {user} exception encountered")
         except Exception as ex:
             app.logger.exception(

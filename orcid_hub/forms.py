@@ -177,15 +177,15 @@ class RecordForm(FlaskForm):
     role = StringField("Role/title", filters=[lambda x: x or None])
     start_date = PartialDateField("Start date")
     end_date = PartialDateField("End date (leave blank if current)")
+    disambiguated_id = StringField("Disambiguated Organisation ID")
+    disambiguation_source = StringField("Disambiguation Source")
 
-    @classmethod
-    def create_form(cls, *args, form_type=None, **kwargs):
-        """Adjust the form fields for specific record type."""
-        form = cls(*args, **kwargs)
+    def __init__(self, *args, form_type=None, **kwargs):
+        """Create form."""
+        super().__init__(*args, **kwargs)
         if form_type == "EDU":
-            form.org_name.name = form.org_name.label.text = "Institution"
-            form.role.name = form.role.label.text = "Course/Degree"
-        return form
+            self.org_name.name = self.org_name.label.text = "Institution"
+            self.role.name = self.role.label.text = "Course/Degree"
 
 
 class FileUploadForm(FlaskForm):

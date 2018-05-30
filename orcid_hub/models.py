@@ -817,6 +817,8 @@ class UserOrgAffiliation(BaseModel, AuditMixin):
 
     user = ForeignKeyField(User)
     organisation = ForeignKeyField(Organisation, index=True, verbose_name="Organisation")
+    disambiguated_id = CharField(verbose_name="Disambiguation ORG Id", null=True)
+    disambiguation_source = CharField(verbose_name="Disambiguation ORG Source", null=True)
     name = TextField(null=True, verbose_name="Institution/employer")
     start_date = PartialDateField(null=True)
     end_date = PartialDateField(null=True)
@@ -2147,10 +2149,10 @@ def del_none(d):
     return d
 
 
-def get_val(d, *keys):
+def get_val(d, *keys, default=None):
     """To get the value from uploaded fields."""
     for k in keys:
         if not d:
             break
-        d = d.get(k)
+        d = d.get(k, default)
     return d
