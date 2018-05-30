@@ -189,6 +189,13 @@ class RecordForm(FlaskForm):
             form.role.name = form.role.label.text = "Course/Degree"
         return form
 
+    def __init__(self, *args, form_type=None, **kwargs):
+        """Create form."""
+        super().__init__(*args, **kwargs)
+        if form_type == "EDU":
+            self.org_name.name = self.org_name.label.text = "Institution"
+            self.role.name = self.role.label.text = "Course/Degree"
+
 
 class FileUploadForm(FlaskForm):
     """Organisation info pre-loading form."""

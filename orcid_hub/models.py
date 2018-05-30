@@ -817,6 +817,8 @@ class UserOrgAffiliation(BaseModel, AuditMixin):
 
     user = ForeignKeyField(User)
     organisation = ForeignKeyField(Organisation, index=True, verbose_name="Organisation")
+    disambiguated_id = CharField(verbose_name="Disambiguation ORG Id", null=True)
+    disambiguation_source = CharField(verbose_name="Disambiguation ORG Source", null=True)
     name = TextField(null=True, verbose_name="Institution/employer")
     start_date = PartialDateField(null=True)
     end_date = PartialDateField(null=True)
