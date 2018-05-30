@@ -177,6 +177,8 @@ class RecordForm(FlaskForm):
     role = StringField("Role/title", filters=[lambda x: x or None])
     start_date = PartialDateField("Start date")
     end_date = PartialDateField("End date (leave blank if current)")
+    disambiguated_id = StringField("Disambiguated Organisation ID")
+    disambiguation_source = StringField("Disambiguation Source")
 
     @classmethod
     def create_form(cls, *args, form_type=None, **kwargs):

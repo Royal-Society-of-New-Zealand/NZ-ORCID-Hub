@@ -2147,10 +2147,10 @@ def del_none(d):
     return d
 
 
-def get_val(d, *keys):
+def get_val(d, *keys, default=None):
     """To get the value from uploaded fields."""
     for k in keys:
         if not d:
             break
-        d = d.get(k)
+        d = d.get(k, default)
     return d

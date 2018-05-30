@@ -40,10 +40,10 @@ from .forms import (ApplicationFrom, BitmapMultipleValueField, CredentialForm, E
                     PartialDateField, RecordForm, UserInvitationForm)
 from .login_provider import roles_required
 from .models import (Affiliation, AffiliationRecord, CharField, Client, File, FundingInvitees,
-                     FundingRecord, Grant, GroupIdRecord, ModelException, OrcidApiCall, OrcidToken,
-                     Organisation, OrgInfo, OrgInvitation, PartialDate, PeerReviewInvitee,
-                     PeerReviewRecord, Role, Task, TextField, Token, Url, User, UserInvitation,
-                     UserOrg, UserOrgAffiliation, WorkInvitees, WorkRecord, db)
+                     FundingRecord, Grant, get_val, GroupIdRecord, ModelException, OrcidApiCall,
+                     OrcidToken, Organisation, OrgInfo, OrgInvitation, PartialDate,
+                     PeerReviewInvitee, PeerReviewRecord, Role, Task, TextField, Token, Url, User,
+                     UserInvitation, UserOrg, UserOrgAffiliation, WorkInvitees, WorkRecord, db)
 # NB! Should be disabled in production
 from .pyinfo import info
 from .utils import generate_confirmation_token, get_next_url, send_user_invitation
@@ -1319,9 +1319,10 @@ admin.add_view(AppModelView(Grant))
 admin.add_view(AppModelView(Token))
 admin.add_view(GroupIdRecordAdmin(GroupIdRecord))
 
-SectionRecord = namedtuple(
-    "SectionRecord",
-    ["org_name", "city", "state", "country", "department", "role", "start_date", "end_date"])
+SectionRecord = namedtuple("SectionRecord", [
+    "org_name", "disambiguated_id", "disambiguation_source", "city", "state", "country",
+    "department", "role", "start_date", "end_date"
+])
 SectionRecord.__new__.__defaults__ = (None, ) * len(SectionRecord._fields)
 
 
@@ -1560,8 +1561,15 @@ def edit_record(user_id, section_type, put_code=None):
                 api_response = api.view_education(user.orcid, put_code)
 
             _data = api_response.to_dict()
+            import pdb; pdb.set_trace()
             data = SectionRecord(
                 org_name=_data.get("organization").get("name"),
+                disambiguated_id=get_val(
+                    _data, "organization", "disambiguated_organisation",
+                    "disambiguated_organization_identifier"),
+                disambiguation_source=get_val(
+                    _data, "organization", "disambiguated_organisation",
+                    "disambiguation_source"),
                 city=_data.get("organization").get("address").get("city", ""),
                 state=_data.get("organization").get("address").get("region", ""),
                 country=_data.get("organization").get("address").get("country", ""),
