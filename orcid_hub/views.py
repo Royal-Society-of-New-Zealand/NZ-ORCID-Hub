@@ -1319,12 +1319,6 @@ admin.add_view(AppModelView(Grant))
 admin.add_view(AppModelView(Token))
 admin.add_view(GroupIdRecordAdmin(GroupIdRecord))
 
-SectionRecord = namedtuple("SectionRecord", [
-    "org_name", "disambiguated_id", "disambiguation_source", "city", "state", "country",
-    "department", "role", "start_date", "end_date"
-])
-SectionRecord.__new__.__defaults__ = (None, ) * len(SectionRecord._fields)
-
 
 @app.template_filter("year_range")
 def year_range(entry):
