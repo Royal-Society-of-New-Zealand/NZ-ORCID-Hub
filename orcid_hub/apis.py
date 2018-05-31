@@ -872,16 +872,16 @@ class TokenAPI(MethodView):
             user = User.select().where(User.orcid == identifier).first()
         else:
             return jsonify({"error": f"Incorrect identifier value: {identifier}."}), 400
-        if user is None:
+
+        org = request.oauth.client.org
+        if user is None or (user.organisation != request.oauth.client.org
+                            and not UserOrg.select().where(
+                                UserOrg.org == request.oauth.client.org,
+                                UserOrg.user == user,
+                            ).exists()):
             return jsonify({
                 "error": f"User with specified identifier '{identifier}' not found."
             }), 404
-
-        org = request.oauth.client.org
-        if (not UserOrg.select().where(UserOrg.org == request.oauth.client.org,
-                                       UserOrg.user == user).exists()
-                and user.organisation != request.oauth.client.org):
-            return jsonify({"error": "Access Denied"}), 403
 
         try:
             token = OrcidToken.get(user=user, org=org)
