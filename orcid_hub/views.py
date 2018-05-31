@@ -7,6 +7,7 @@ import json
 import mimetypes
 import os
 import secrets
+import traceback
 from datetime import datetime
 from io import BytesIO
 from threading import Thread
@@ -14,8 +15,8 @@ from threading import Thread
 import requests
 import tablib
 import yaml
-from flask import (Response, abort, flash, jsonify, redirect, render_template, request, send_file,
-                   send_from_directory, stream_with_context, url_for)
+from flask import (Response, abort, flash, g, jsonify, redirect, render_template, request,
+                   send_file, send_from_directory, stream_with_context, url_for)
 from flask_admin._compat import csv_encode
 from flask_admin.actions import action
 from flask_admin.babel import gettext
@@ -39,15 +40,40 @@ from .forms import (ApplicationFrom, BitmapMultipleValueField, CredentialForm, E
                     PartialDateField, RecordForm, UserInvitationForm)
 from .login_provider import roles_required
 from .models import (Affiliation, AffiliationRecord, CharField, Client, File, FundingInvitees,
-                     FundingRecord, Grant, get_val, GroupIdRecord, ModelException, OrcidApiCall,
-                     OrcidToken, Organisation, OrgInfo, OrgInvitation, PartialDate,
-                     PeerReviewInvitee, PeerReviewRecord, Role, Task, TextField, Token, Url, User,
-                     UserInvitation, UserOrg, UserOrgAffiliation, WorkInvitees, WorkRecord, db)
+                     FundingRecord, Grant, GroupIdRecord, ModelException, OrcidApiCall, OrcidToken,
+                     Organisation, OrgInfo, OrgInvitation, PartialDate, PeerReviewInvitee,
+                     PeerReviewRecord, Role, Task, TextField, Token, Url, User, UserInvitation,
+                     UserOrg, UserOrgAffiliation, WorkInvitees, WorkRecord, db, get_val)
 # NB! Should be disabled in production
 from .pyinfo import info
 from .utils import generate_confirmation_token, get_next_url, send_user_invitation
 
 HEADERS = {"Accept": "application/vnd.orcid+json", "Content-type": "application/vnd.orcid+json"}
+
+
+@app.errorhandler(401)
+def unauthorized(e):
+    """Handle Unauthorized (401)."""
+    _next = get_next_url()
+    if _next:
+        flash(
+            "You might not have the necessary permissions to access this page or you were not authenticted",
+            "danger")
+        return redirect(_next)
+    return render_template("401.html"), 401
+
+
+@app.errorhandler(403)
+def forbidden(e):
+    """Handle Forbidden (403)."""
+    _next = get_next_url()
+    if _next:
+        flash("Page Not Found", "danger")
+        flash(
+            "You might not have the necessary permissions to access this page.",
+            "danger")
+        return redirect(_next)
+    return render_template("403.html"), 403
 
 
 @app.errorhandler(404)
@@ -58,6 +84,22 @@ def page_not_found(e):
         flash("Page Not Found", "danger")
         return redirect(_next)
     return render_template("404.html"), 404
+
+
+@app.errorhandler(500)
+def internal_error(error):
+    """Handle internal error."""
+    trace = traceback.format_exc()
+    try:
+        from . import sentry
+        return render_template(
+            "500.html",
+            trace=trace,
+            error_message=str(error),
+            event_id=g.sentry_event_id,
+            public_dsn=sentry.client.get_public_dsn("https"))
+    except:
+        return render_template("500.html", trace=trace, error_message=str(error))
 
 
 @app.route("/favicon.ico")

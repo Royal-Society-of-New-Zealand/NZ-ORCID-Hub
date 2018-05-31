@@ -1,0 +1,13 @@
+{% extends "layout.html" %}
+
+{% block page_title %}Unauthorized{% endblock %}
+
+{% block content %}
+<div class="jumbotron">
+    <div class="text-center">
+        <h1>401</h1>
+        <p>Sorry, you might not have the necessary permissions to access this page or you were not authenticted.</p>
+        <!-- p>Want to <a href="{{ url_for('index') }}">go home</a> instead?</p -->
+    </div>
+</div>
+{% endblock %}
