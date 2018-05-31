@@ -10,7 +10,6 @@ import json
 import pickle
 import re
 import secrets
-import traceback
 import zlib
 from contextlib import suppress
 from datetime import datetime
@@ -21,7 +20,7 @@ from urllib.parse import quote, unquote, urlparse
 from itsdangerous import SignatureExpired
 
 import requests
-from flask import abort, current_app, flash, g, redirect, render_template, request, session, url_for
+from flask import abort, current_app, flash, redirect, render_template, request, session, url_for
 from flask_login import current_user, login_required, login_user, logout_user
 from oauthlib.oauth2 import rfc6749
 from requests_oauthlib import OAuth2Session
@@ -767,22 +766,6 @@ def uoa_slo():
 You have to close all open browser tabs and windows in order
 in order to complete the log-out.""", "warning")
     return render_template("uoa-slo.html")
-
-
-@app.errorhandler(500)
-def internal_error(error):
-    """Handle internal error."""
-    trace = traceback.format_exc()
-    try:
-        from . import sentry
-        return render_template(
-            "http500.html",
-            trace=trace,
-            error_message=str(error),
-            event_id=g.sentry_event_id,
-            public_dsn=sentry.client.get_public_dsn("https"))
-    except:
-        return render_template("http500.html", trace=trace, error_message=str(error))
 
 
 @app.route("/orcid/login/")
