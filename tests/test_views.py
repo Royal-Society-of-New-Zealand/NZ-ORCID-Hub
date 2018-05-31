@@ -125,20 +125,52 @@ def test_admin_view_access_fail(client, request_ctx):
         assert "next=" in rv.location and "admin" in rv.location
 
 
-def test_pyinfo(request_ctx):
-    """Test pyinfo is workinkg."""
-    with request_ctx("/pyinfo") as ctx:
-        test_user = User(
-            name="TEST USER",
-            email="test@test.test.net",
-            username="test42",
-            confirmed=True,
-            roles=Role.SUPERUSER)
-        login_user(test_user, remember=True)
+def test_access(request_ctx):
+    """Test access to differente resources."""
+    test_superuser = User.create(
+        name="TEST SUPERUSER",
+        email="super@test.test.net",
+        username="test42",
+        confirmed=True,
+        roles=Role.SUPERUSER)
+    test_user = User.create(
+        name="TEST SUPERUSER",
+        email="user123456789@test.test.net",
+        username="test123456789",
+        confirmed=True,
+        roles=Role.RESEARCHER)
 
+    with request_ctx("/pyinfo") as ctx:
+        rv = ctx.app.full_dispatch_request()
+        assert rv.status_code == 302
+
+    with request_ctx("/rq") as ctx:
+        rv = ctx.app.full_dispatch_request()
+        assert rv.status_code == 401
+        assert b"401" in rv.data
+
+    with request_ctx("/pyinfo") as ctx:
+        login_user(test_superuser, remember=True)
         rv = ctx.app.full_dispatch_request()
         assert rv.status_code == 200
         assert bytes(sys.version, encoding="utf-8") in rv.data
+
+    with request_ctx("/pyinfo") as ctx:
+        login_user(test_user, remember=True)
+        rv = ctx.app.full_dispatch_request()
+        assert rv.status_code == 302
+
+    with request_ctx("/rq") as ctx:
+        login_user(test_superuser, remember=True)
+        rv = ctx.app.full_dispatch_request()
+        assert rv.status_code == 200
+        assert b"Queues" in rv.data
+
+    with request_ctx("/rq") as ctx:
+        login_user(test_user, remember=True)
+        rv = ctx.app.full_dispatch_request()
+        assert rv.status_code == 403
+        assert b"403" in rv.data
 
 
 def test_year_range():

@@ -22,7 +22,7 @@ from time import time, sleep
 import click
 from flask.json import JSONEncoder as _JSONEncoder
 from flask_login import current_user, LoginManager
-from flask import Flask, flash, request, redirect, url_for
+from flask import abort, Flask, request
 from flask_debugtoolbar import DebugToolbarExtension
 from flask_oauthlib.provider import OAuth2Provider
 from flask_peewee.rest import Authentication, RestAPI
@@ -215,11 +215,9 @@ from .schedule import *  # noqa: F401,F403
 def restrict_rq(*args, **kwargs):
     """Restrict access to RQ-Dashboard."""
     if not current_user.is_authenticated:
-        flash("You're not logged in!", "danger")
-        return redirect(url_for("index")), 401
+        abort(401)
     if not current_user.has_role(models.Role.SUPERUSER):
-        flash("You're not authorized to access this page!", "danger")
-        return redirect(url_for("index")), 403
+        abort(403)
 
 
 app.register_blueprint(rq_dashboard.blueprint, url_prefix="/rq")
