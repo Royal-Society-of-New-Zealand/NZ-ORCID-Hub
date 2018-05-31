@@ -149,6 +149,11 @@ def test_access(request_ctx):
         assert rv.status_code == 401
         assert b"401" in rv.data
 
+    with request_ctx("/rq?next=http://orcidhub.org.nz/next") as ctx:
+        rv = ctx.app.full_dispatch_request()
+        assert rv.status_code == 302
+        assert rv.location == "http://orcidhub.org.nz/next"
+
     with request_ctx("/pyinfo") as ctx:
         login_user(test_superuser, remember=True)
         rv = ctx.app.full_dispatch_request()
@@ -171,6 +176,12 @@ def test_access(request_ctx):
         rv = ctx.app.full_dispatch_request()
         assert rv.status_code == 403
         assert b"403" in rv.data
+
+    with request_ctx("/rq?next=http://orcidhub.org.nz/next") as ctx:
+        login_user(test_user, remember=True)
+        rv = ctx.app.full_dispatch_request()
+        assert rv.status_code == 302
+        assert rv.location == "http://orcidhub.org.nz/next"
 
 
 def test_year_range():
