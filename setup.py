@@ -107,6 +107,7 @@ setup(
         "dev": [
             "sphinx",
             "sphinx-autobuild",
+            "m2r",
             "recommonmark",
             "pyyaml",
             "coverage>=4.4.1",
