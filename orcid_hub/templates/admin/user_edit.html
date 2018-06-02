@@ -4,6 +4,12 @@
   {{super()}}
   <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.6.4/angular.min.js"></script>
   <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.6.4/angular-sanitize.js"></script>
+  {%- if config.debug %}
+  <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+  {% else %}
+  <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+  {% endif -%}
+  <script src="https://cdn.jsdelivr.net/npm/lodash@4.17.10/lodash.min.js" integrity="sha256-/GKyJ0BQJD8c8UYgf7ziBrs/QgcikS7Fv/SaArgBcEI=" crossorigin="anonymous"></script>
 {% endblock %}
 
 {% block navlinks %}
@@ -22,6 +28,10 @@
     <li>
       <a data-toggle="tab" href="#user-orgs-tab">
         <span data-toggle="tooltip" title="User Organisations">{{ _gettext('Organisations') }}</span></a>
+    </li>
+    <li>
+      <a data-toggle="tab" href="#user-orgs-tab-vue">
+        <span data-toggle="tooltip" title="User Organisations (Vue)">{{ _gettext('Organisations (Vue)') }}</span></a>
     </li>
     {%- if admin_view.can_view_details -%}
     <li>
@@ -104,6 +114,61 @@
         </div>
       </div>
     </div>
+    <div id="user-orgs-tab-vue" class="tab-pane">
+      <h3>User Organisations (Vue)</h3>
+      <div class="form-group">
+        <div class="row">
+          <div class="col-md-10">
+            <label for="sel_org">Select an ogranisation to add:</label>
+            <select class="form-control" id="sel_org">
+              {% raw %}
+              <option value="">-- Choose an Organisation to add... --</option>
+              <option v-for="uo in orderedAvailableOrgs" :value="uo.id" :key="uo.id">{{uo.name}}</option>
+              {% endraw %}
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="row">
+        <div class="col-md-10">
+
+          <table class="table table-striped table-bordered table-hover model-list">
+            <thead>
+              <tr>
+                <th class="column-header">
+                  Remove
+                </th>
+                <th class="column-header">
+                  Name
+                </th>
+                <th class="column-header">
+                  Is Admin
+                </th>
+                <th class="column-header">
+                  Is Tech.Contact
+                </th>
+              </tr>
+            </thead>
+            {% raw %}
+            <tbody>
+              <tr v-for="r in orderedUserOrgs" :key="r.id">
+                  <td class="col-name">
+                    <button
+                      title="Delete record"
+                      class="remove-org">
+                      <span class="fa fa-trash glyphicon glyphicon-trash"></span>
+                    </button>
+                  </td>
+                  <td class="col-name">{{r.name}}</td>
+                  <td class="col-name"><input type="checkbox" v-model="r.is_admin"></td>
+                  <td class="col-name"><input type="checkbox" v-model="r.is_tech_contact"></td>
+              </tr>
+            </tbody>
+            {% endraw %}
+          </table>
+        </div>
+      </div>
+    </div>
   </div>
 {% endblock %}
 
@@ -113,6 +178,23 @@
     $('#user-orgs').on("change", function(e) {
       //console.info(e);
     });
+
+// var _ = require('lodash');
+var vm = new Vue({
+  el: "#user-orgs-tab-vue",
+  data: {
+    available_orgs: {{ model.available_organisations.dicts()| list | tojson }},
+    user_orgs: {{ model.organisations.dicts()| list | tojson }}
+  },
+  computed: {
+    orderedAvailableOrgs: function() {
+      return _.orderBy(this.available_orgs, "name");
+    },
+    orderedUserOrgs: function() {
+      return _.orderBy(this.user_orgs, "name");
+    }
+  }
+});
 var app = angular.module("userAdmin", []);
 app.directive('ngReallyClick', [function() {
   return {
