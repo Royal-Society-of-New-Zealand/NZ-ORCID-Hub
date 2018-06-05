@@ -25,6 +25,7 @@ Table of Contents
    docker
    sendmail
    troubleshooting
+   db_recovery
    pg_upgrade
 
 
