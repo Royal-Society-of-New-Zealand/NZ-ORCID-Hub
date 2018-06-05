@@ -90,7 +90,7 @@ class MemberAPI(MemberAPIV20Api):
                     user_id=user.id,
                     org_id=org.id,
                     scope=SCOPE_READ_LIMITED[0] + "," + SCOPE_ACTIVITIES_UPDATE[0])
-            except Exception as ex:
+            except Exception:
                 app.logger.exception("Exception occured while retriving ORCID Token")
                 return None
 
@@ -134,7 +134,7 @@ class MemberAPI(MemberAPIV20Api):
                         org_id=self.org.id,
                         scope=SCOPE_READ_LIMITED[0] + "," + SCOPE_ACTIVITIES_UPDATE[0])
                     orcid_token.delete_instance()
-                except Exception as ex:
+                except Exception:
                     app.logger.exception("Exception occured while retriving ORCID Token")
                     return None
             app.logger.error(f"ApiException Occured: {ex}")
@@ -427,6 +427,7 @@ class MemberAPI(MemberAPIV20Api):
             credit_name = None
             contributor_orcid = None
             contributor_attributes = None
+            contributor_email = None
 
             if w.orcid:
                 path = w.orcid
@@ -440,15 +441,18 @@ class MemberAPI(MemberAPIV20Api):
             if w.name:
                 credit_name = CreditName(value=w.name)  # noqa: F405
 
+            if w.email:
+                contributor_email = ContributorEmail(value=w.email)  # noqa: F405
+
             if w.role and w.contributor_sequence:
                 contributor_attributes = ContributorAttributes(  # noqa: F405
                     contributor_role=w.role.upper(), contributor_sequence=w.contributor_sequence)
 
-            # As Contributor email is by default private so, we are not sending it in work payload
             work_contributor_list.append(
                 Contributor(  # noqa: F405
                     contributor_orcid=contributor_orcid,
                     credit_name=credit_name,
+                    contributor_email=contributor_email,
                     contributor_attributes=contributor_attributes))
 
         rec.contributors = WorkContributors(contributor=work_contributor_list)  # noqa: F405
@@ -588,10 +592,14 @@ class MemberAPI(MemberAPIV20Api):
                 uri = None
                 host = None
                 credit_name = None
+                contributor_email = None
                 contributor_orcid = None
                 contributor_attributes = None
                 if f.name:
                     credit_name = CreditName(value=f.name)  # noqa: F405
+
+                if f.email:
+                    contributor_email = ContributorEmail(value=f.email)  # noqa: F405
 
                 if f.orcid:
                     path = f.orcid
@@ -601,7 +609,7 @@ class MemberAPI(MemberAPIV20Api):
                     uri = "http://" + url.hostname + "/" + path
                     host = url.hostname
                     contributor_orcid = ContributorOrcid(uri=uri, path=path, host=host)  # noqa: F405
-                # As Contributor email is by default private so, we are not sending it in funding payload
+
                 if f.role:
                     contributor_attributes = FundingContributorAttributes(  # noqa: F405
                         contributor_role=f.role.upper())
@@ -610,6 +618,7 @@ class MemberAPI(MemberAPIV20Api):
                     FundingContributor(  # noqa: F405
                         contributor_orcid=contributor_orcid,
                         credit_name=credit_name,
+                        contributor_email=contributor_email,
                         contributor_attributes=contributor_attributes))
 
             rec.contributors = FundingContributors(contributor=funding_contributor_list)  # noqa: F405
@@ -676,6 +685,7 @@ class MemberAPI(MemberAPIV20Api):
             self,
             affiliation=None,
             role=None,
+            course_or_role=None,
             department=None,
             org_name=None,
             # NB! affiliation_record has 'organisation' field for organisation name
@@ -724,9 +734,12 @@ class MemberAPI(MemberAPIV20Api):
             country=country or self.org.country,
             region=state or region or self.org.state)
 
+        disambiguation_source = (lambda source: source.upper() if source else source)(
+            disambiguation_source or self.org.disambiguation_source)
+
         disambiguated_organization_details = DisambiguatedOrganization(
             disambiguated_organization_identifier=disambiguated_id or self.org.disambiguated_id,
-            disambiguation_source=disambiguation_source or self.org.disambiguation_source)
+            disambiguation_source=disambiguation_source)
 
         if affiliation == Affiliation.EMP:
             rec = Employment()
@@ -749,7 +762,7 @@ class MemberAPI(MemberAPIV20Api):
             rec.put_code = put_code
 
         rec.department_name = department
-        rec.role_title = role
+        rec.role_title = role or course_or_role
 
         if start_date:
             rec.start_date = start_date.as_orcid_dict()

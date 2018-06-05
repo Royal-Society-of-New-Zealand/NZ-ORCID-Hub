@@ -53,6 +53,6 @@ class PgDbWithFailover(PostgresqlDatabase):
         """Attempt to exectute a SQL statement. If it fails try to fail over ..."""
         try:
             return super().execute_sql(sql, params=params, require_commit=require_commit)
-        except (DatabaseError, InterfaceError) as ex:
+        except (DatabaseError, InterfaceError):
             self.connect()
             return super().execute_sql(sql, params=params, require_commit=False)

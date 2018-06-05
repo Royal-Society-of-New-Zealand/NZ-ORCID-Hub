@@ -125,20 +125,63 @@ def test_admin_view_access_fail(client, request_ctx):
         assert "next=" in rv.location and "admin" in rv.location
 
 
-def test_pyinfo(request_ctx):
-    """Test pyinfo is workinkg."""
-    with request_ctx("/pyinfo") as ctx:
-        test_user = User(
-            name="TEST USER",
-            email="test@test.test.net",
-            username="test42",
-            confirmed=True,
-            roles=Role.SUPERUSER)
-        login_user(test_user, remember=True)
+def test_access(request_ctx):
+    """Test access to differente resources."""
+    test_superuser = User.create(
+        name="TEST SUPERUSER",
+        email="super@test.test.net",
+        username="test42",
+        confirmed=True,
+        roles=Role.SUPERUSER)
+    test_user = User.create(
+        name="TEST SUPERUSER",
+        email="user123456789@test.test.net",
+        username="test123456789",
+        confirmed=True,
+        roles=Role.RESEARCHER)
 
+    with request_ctx("/pyinfo") as ctx:
+        rv = ctx.app.full_dispatch_request()
+        assert rv.status_code == 302
+
+    with request_ctx("/rq") as ctx:
+        rv = ctx.app.full_dispatch_request()
+        assert rv.status_code == 401
+        assert b"401" in rv.data
+
+    with request_ctx("/rq?next=http://orcidhub.org.nz/next") as ctx:
+        rv = ctx.app.full_dispatch_request()
+        assert rv.status_code == 302
+        assert rv.location == "http://orcidhub.org.nz/next"
+
+    with request_ctx("/pyinfo") as ctx:
+        login_user(test_superuser, remember=True)
         rv = ctx.app.full_dispatch_request()
         assert rv.status_code == 200
         assert bytes(sys.version, encoding="utf-8") in rv.data
+
+    with request_ctx("/pyinfo") as ctx:
+        login_user(test_user, remember=True)
+        rv = ctx.app.full_dispatch_request()
+        assert rv.status_code == 302
+
+    with request_ctx("/rq") as ctx:
+        login_user(test_superuser, remember=True)
+        rv = ctx.app.full_dispatch_request()
+        assert rv.status_code == 200
+        assert b"Queues" in rv.data
+
+    with request_ctx("/rq") as ctx:
+        login_user(test_user, remember=True)
+        rv = ctx.app.full_dispatch_request()
+        assert rv.status_code == 403
+        assert b"403" in rv.data
+
+    with request_ctx("/rq?next=http://orcidhub.org.nz/next") as ctx:
+        login_user(test_user, remember=True)
+        rv = ctx.app.full_dispatch_request()
+        assert rv.status_code == 302
+        assert rv.location == "http://orcidhub.org.nz/next"
 
 
 def test_year_range():
@@ -443,34 +486,38 @@ def test_user_orgs_org(request_ctx):
         orcid="123",
         confirmed=True,
         organisation=org)
-    UserOrg.create(user=user, org=org, is_admin=True)
-    with request_ctx():
+    with request_ctx(
+            f"/hub/api/v0.1/users/{user.id}/orgs/",
+            data=json.dumps({
+                "id": org.id,
+                "name": org.name,
+                "is_admin": True,
+                "is_tech_contact": True
+            }),
+            method="POST",
+            content_type="application/json") as ctx:
         login_user(user, remember=True)
-        request._cached_json = {
-            "id": org.id,
-            "name": org.name,
-            "is_admin": True,
-            "is_tech_contact": True
-        }
-        resp = views.user_orgs_org(user_id=user.id)
-        assert resp[1] == 200
-        assert Role.ADMIN in user.roles
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 201
+        assert User.get(id=user.id).roles & Role.ADMIN
         organisation = Organisation.get(name="THE ORGANISATION")
         # User becomes the technical contact of the organisation.
         assert organisation.tech_contact == user
-    with request_ctx(method="DELETE"):
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 200
+        assert UserOrg.select().where(UserOrg.user == user, UserOrg.org == org,
+                                      UserOrg.is_admin).exists()
+    with request_ctx(f"/hub/api/v0.1/users/{user.id}/orgs/{org.id}", method="DELETE") as ctx:
         # Delete user and organisation association
         login_user(user, remember=True)
-        request._cached_json = {
-            "id": org.id,
-            "name": org.name,
-            "is_admin": True,
-            "is_tech_contact": True
-        }
-        resp = views.user_orgs_org(user_id=user.id)
-        assert "DELETED" in resp.data.decode("utf-8")
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 204
+        data = json.loads(resp.data)
         user = User.get(id=user.id)
+        assert data["status"] == "DELETED"
         assert user.organisation_id is None
+        assert not (user.roles & Role.ADMIN)
+        assert not UserOrg.select().where(UserOrg.user == user, UserOrg.org == org).exists()
 
 
 def test_user_orgs(request_ctx):
@@ -819,13 +866,13 @@ def test_invite_user(request_ctx):
                 "first_name": "test",
                 "last_name": "test",
                 "city": "test"
-            }) as ctx, patch("orcid_hub.views.send_user_invitation") as send_user_invitation:
+            }) as ctx, patch("orcid_hub.views.send_user_invitation.queue") as queue_send_user_invitation:
         login_user(admin, remember=True)
         rv = ctx.app.full_dispatch_request()
         assert rv.status_code == 200
         assert b"<!DOCTYPE html>" in rv.data, "Expected HTML content"
         assert b"test123@test.test.net" in rv.data
-        send_user_invitation.assert_called_once()
+        queue_send_user_invitation.assert_called_once()
 
 
 def test_email_template(app, request_ctx):
@@ -1217,10 +1264,15 @@ def test_edit_record(request_ctx):
         assert admin.name.encode() in resp.data
         view_education.assert_called_once_with("XXXX-XXXX-XXXX-0001", 1234)
     with patch.object(
-            orcid_client.MemberAPIV20Api,
-            "create_education",
-            MagicMock(return_value=fake_response)), request_ctx(f"/section/{user.id}/EDU/new", method="POST",
-                                                                data={"city": "Auckland"}) as ctx:
+            orcid_client.MemberAPIV20Api, "create_education",
+            MagicMock(return_value=fake_response)), request_ctx(
+                f"/section/{user.id}/EDU/new",
+                method="POST",
+                data={
+                    "city": "Auckland",
+                    "country": "NZ",
+                    "org_name": "TEST",
+                }) as ctx:
         login_user(admin)
         resp = ctx.app.full_dispatch_request()
         assert resp.status_code == 302
@@ -1479,7 +1531,7 @@ def test_reset_all(request_ctx):
         state="Test",
         country="Test",
         disambiguated_id="Test",
-        disambiguated_source="Test")
+        disambiguation_source="Test")
 
     UserInvitation.create(
         invitee=user,

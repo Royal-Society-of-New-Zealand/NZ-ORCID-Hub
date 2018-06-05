@@ -423,7 +423,8 @@ def fetch_token_mock(self,
         'name': 'ros',
         'access_token': 'xyz',
         'refresh_token': 'xyz',
-        'scope': '/activities/update'
+        'scope': '/activities/update',
+        'expires_in': '12121'
     }
     return token
 
@@ -698,6 +699,13 @@ def test_link(request_ctx):
         rv = ctx.app.full_dispatch_request()
         assert rv.status_code == 200
         assert b"<!DOCTYPE html>" in rv.data, "Expected HTML content"
+
+
+@pytest.mark.parametrize("url", ["/faq", "/about"])
+def test_faq_and_about(client, url):
+    """Test faq and about page path traversal security issue."""
+    rv = client.get(url + "?malicious_code")
+    assert rv.status_code == 403
 
 
 def test_orcid_callback(request_ctx):

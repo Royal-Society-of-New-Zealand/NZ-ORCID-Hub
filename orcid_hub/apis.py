@@ -5,6 +5,7 @@ from urllib.parse import unquote
 
 import jsonschema
 import requests
+import validators
 import yaml
 from flask import (Response, abort, current_app, jsonify, make_response, render_template, request,
                    stream_with_context, url_for)
@@ -21,7 +22,7 @@ from yaml.representer import SafeRepresenter
 
 from . import api, app, data_api, db, models, oauth
 from .login_provider import roles_required
-from .models import (EMAIL_REGEX, ORCID_ID_REGEX, AffiliationRecord, OrcidToken, PartialDate, Role, Task, TaskType,
+from .models import (ORCID_ID_REGEX, AffiliationRecord, OrcidToken, PartialDate, Role, Task, TaskType,
                      User, UserOrg, validate_orcid_id)
 from .schemas import affiliation_task_schema
 from .utils import is_valid_url, register_orcid_webhook
@@ -196,7 +197,7 @@ class TaskResource(AppResource):
             task_dict["task-type"] = TaskType(task.task_type).name
             if TaskType(task.task_type) == TaskType.AFFILIATION:
                 # import pdb; pdb.set_trace()
-                records = task.affiliationrecord_set
+                records = task.affiliation_records
             else:
                 records = task.funding_records
             task_dict["records"] = [
@@ -331,7 +332,7 @@ class TaskList(TaskResource):
                     recurse=False,
                     to_dashes=True,
                     exclude=[Task.created_by, Task.updated_by, Task.org, Task.task_type])
-                for t in Task.select()
+                for t in Task.select().where(Task.org_id == current_user.organisation_id)
         ]
         return yamlfy(tasks) if prefers_yaml() else jsonify(tasks)
 
@@ -700,6 +701,8 @@ class UserListAPI(AppResource):
                         type: "string"
           403:
             description: "Access Denied"
+          422:
+            description: "Unprocessable Entity"
         """
         login_user(request.oauth.user)
         users = User.select().where(User.organisation == current_user.organisation)
@@ -765,13 +768,11 @@ class UserAPI(AppResource):
                       type: "string"
           400:
             description: "Invalid identifier supplied"
-          403:
-            description: "Access Denied"
           404:
             description: "User not found"
         """
         identifier = identifier.strip()
-        if EMAIL_REGEX.match(identifier):
+        if validators.email(identifier):
             user = User.select().where((User.email == identifier)
                                        | (User.eppn == identifier)).first()
         elif ORCID_ID_REGEX.match(identifier):
@@ -782,15 +783,15 @@ class UserAPI(AppResource):
             user = User.select().where(User.orcid == identifier).first()
         else:
             return jsonify({"error": f"Incorrect identifier value: {identifier}."}), 400
-        if user is None:
+        if user is None or (user.organisation != request.oauth.client.org
+                            and not UserOrg.select().where(
+                                UserOrg.org == request.oauth.client.org,
+                                UserOrg.user == user,
+                            ).exists()):
             return jsonify({
                 "error": f"User with specified identifier '{identifier}' not found."
             }), 404
 
-        if (not UserOrg.select().where(UserOrg.org == request.oauth.client.org,
-                                       UserOrg.user == user).exists()
-                and user.organisation != request.oauth.client.org):
-            return jsonify({"error": "Access Denied"}), 403
         return jsonify({
             "found": True,
             "result": {
@@ -860,7 +861,7 @@ class TokenAPI(MethodView):
             description: "User not found"
         """
         identifier = identifier.strip()
-        if EMAIL_REGEX.match(identifier):
+        if validators.email(identifier):
             user = User.select().where((User.email == identifier)
                                        | (User.eppn == identifier)).first()
         elif ORCID_ID_REGEX.match(identifier):
@@ -871,16 +872,16 @@ class TokenAPI(MethodView):
             user = User.select().where(User.orcid == identifier).first()
         else:
             return jsonify({"error": f"Incorrect identifier value: {identifier}."}), 400
-        if user is None:
+
+        org = request.oauth.client.org
+        if user is None or (user.organisation != request.oauth.client.org
+                            and not UserOrg.select().where(
+                                UserOrg.org == request.oauth.client.org,
+                                UserOrg.user == user,
+                            ).exists()):
             return jsonify({
                 "error": f"User with specified identifier '{identifier}' not found."
             }), 404
-
-        org = request.oauth.client.org
-        if (not UserOrg.select().where(UserOrg.org == request.oauth.client.org,
-                                       UserOrg.user == user).exists()
-                and user.organisation != request.oauth.client.org):
-            return jsonify({"error": "Access Denied"}), 403
 
         try:
             token = OrcidToken.get(user=user, org=org)

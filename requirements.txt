@@ -1,7 +1,7 @@
 # pip install -U -r requirements.txt
 requests
 requests_oauthlib
-psycopg2
+psycopg2-binary
 peewee>=2.10.0,<3.0.0
 peewee-validates
 python-slugify
@@ -27,4 +27,10 @@ flask-limiter>=1.0.0,<2.0.0
 flask-swagger
 flask-restful
 jsonschema>=2.6.0,<3.0.0
-
+validators
+rq
+rq-scheduler
+Flask-RQ2
+Flask-RQ2[cli]
+rq-dashboard
+# dramatiq[redis, watch]

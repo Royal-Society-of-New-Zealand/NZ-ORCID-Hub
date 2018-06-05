@@ -1,10 +1,9 @@
 {% extends "base.html" %}
-{% from "macros.html" import render_field %}
+{% from "macros.html" import render_field, form_tag %}
 
 {% block content %}
   <h1>Organisation Confirmation Form</h1>
-  <form method="POST" name="confirm">
-    {{ form.hidden_tag() }}
+    {% call form_tag(form) %}
     {{ render_field(form.name) }}
     {{ render_field(form.email) }}
     <div class="form-group">
@@ -35,5 +34,5 @@
     {{ render_field(form.disambiguated_id, **{"data-toggle": "tooltip", "title": "The best id to use for your organisation, e.g. one of the following: RINGGOLD, FUNDREF, NZBN or EON"}) }}
     {{ render_field(form.disambiguation_source, **{"data-toggle": "tooltip", "title": "The source of your organisation's disambiguated ID"}) }}
     <button type="submit" class="btn btn-default" value="Confirmation">Confirmation</button>
-  </form>
+  {% endcall %}
 {% endblock %}

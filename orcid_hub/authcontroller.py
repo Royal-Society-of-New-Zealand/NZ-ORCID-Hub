@@ -10,7 +10,6 @@ import json
 import pickle
 import re
 import secrets
-import traceback
 import zlib
 from contextlib import suppress
 from datetime import datetime
@@ -21,7 +20,7 @@ from urllib.parse import quote, unquote, urlparse
 from itsdangerous import SignatureExpired
 
 import requests
-from flask import abort, current_app, flash, g, redirect, render_template, request, session, url_for
+from flask import abort, current_app, flash, redirect, render_template, request, session, url_for
 from flask_login import current_user, login_required, login_user, logout_user
 from oauthlib.oauth2 import rfc6749
 from requests_oauthlib import OAuth2Session
@@ -88,6 +87,8 @@ def index():
 @app.route("/about")
 def about():
     """Show about page with login buttons."""
+    if request.args:
+        abort(403)
     return render_template("about.html")
 
 
@@ -95,6 +96,8 @@ def about():
 @app.route("/faq")
 def faq():
     """Show FAQ page with login buttons."""
+    if request.args:
+        abort(403)
     return render_template("faq.html")
 
 
@@ -483,6 +486,7 @@ def orcid_callback():
         user_id=user.id, org=user.organisation, scope=scope)
     orcid_token.access_token = token["access_token"]
     orcid_token.refresh_token = token["refresh_token"]
+    orcid_token.expires_in = token["expires_in"]
     with db.atomic():
         try:
             orcid_token.save()
@@ -507,7 +511,7 @@ def orcid_callback():
                 api.create_or_update_affiliation(initial=True, affiliation=a)
             except ApiException as ex:
                 flash(f"Failed to update the entry: {ex.body}", "danger")
-            except Exception as ex:
+            except Exception:
                 app.logger.exception(f"For {user} encountered exception")
 
         if not user.affiliations:
@@ -624,9 +628,22 @@ def onboard_org():
                 oi = OrgInfo.get((OrgInfo.email == email)
                                  | (OrgInfo.tuakiri_name == user.organisation.name)
                                  | (OrgInfo.name == user.organisation.name))
-                form.city.data = organisation.city = oi.city
-                form.disambiguated_id.data = organisation.disambiguated_id = oi.disambiguated_id
-                form.disambiguation_source.data = organisation.disambiguation_source = oi.disambiguation_source
+
+                if organisation.city:
+                    form.city.data = oi.city = organisation.city
+                else:
+                    form.city.data = organisation.city = oi.city
+
+                if organisation.disambiguated_id:
+                    form.disambiguated_id.data = oi.disambiguated_id = organisation.disambiguated_id
+                else:
+                    form.disambiguated_id.data = organisation.disambiguated_id = oi.disambiguated_id
+
+                if organisation.disambiguation_source:
+                    form.disambiguation_source.data = oi.disambiguation_source = organisation.disambiguation_source
+                else:
+                    form.disambiguation_source.data = organisation.disambiguation_source = oi.disambiguation_source
+                oi.save()
                 organisation.save()
             except OrgInfo.DoesNotExist:
                 pass
@@ -680,7 +697,22 @@ def onboard_org():
                     # Delete the "stale" invitations:
                     OrgInvitation.delete().where(OrgInvitation.id != oi.id,
                                                  OrgInvitation.org == organisation).execute()
+
+                org_info = OrgInfo.get((OrgInfo.tuakiri_name == organisation.name)
+                                       | (OrgInfo.name == organisation.name))
+                if organisation.city:
+                    org_info.city = organisation.city
+
+                if organisation.disambiguated_id:
+                    org_info.disambiguated_id = organisation.disambiguated_id
+
+                if organisation.disambiguation_source:
+                    org_info.disambiguation_source = organisation.disambiguation_source
+
+                org_info.save()
             except OrgInvitation.DoesNotExist:
+                pass
+            except OrgInfo.DoesNotExist:
                 pass
 
             return redirect(url_for("link"))
@@ -708,7 +740,7 @@ def logout():
     org_name = session.get("shib_O")
     try:
         logout_user()
-    except Exception as ex:
+    except Exception:
         app.logger.exception("Failed to log out.")
 
     session.clear()
@@ -734,22 +766,6 @@ def uoa_slo():
 You have to close all open browser tabs and windows in order
 in order to complete the log-out.""", "warning")
     return render_template("uoa-slo.html")
-
-
-@app.errorhandler(500)
-def internal_error(error):
-    """Handle internal error."""
-    trace = traceback.format_exc()
-    try:
-        from . import sentry
-        return render_template(
-            "http500.html",
-            trace=trace,
-            error_message=str(error),
-            event_id=g.sentry_event_id,
-            public_dsn=sentry.client.get_public_dsn("https"))
-    except:
-        return render_template("http500.html", trace=trace, error_message=str(error))
 
 
 @app.route("/orcid/login/")
@@ -827,7 +843,7 @@ def orcid_login(invitation_token=None):
         return render_template(
             "orcidLogoutAndCallback.html", orcid_base_url=ORCID_BASE_URL, callback_url=orcid_authenticate_url)
 
-    except SignatureExpired as sx:
+    except SignatureExpired:
         with suppress(Exception):
             data = confirm_token(invitation_token, unsafe=True)
 
@@ -1012,6 +1028,7 @@ def orcid_login_callback(request):
                 user_id=user.id, org=org, scope=scope)
             orcid_token.access_token = token["access_token"]
             orcid_token.refresh_token = token["refresh_token"]
+            orcid_token.expires_in = token["expires_in"]
             with db.atomic():
                 try:
                     user.organisation = org
