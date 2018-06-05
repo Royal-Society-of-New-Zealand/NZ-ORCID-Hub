@@ -2068,32 +2068,65 @@ def invite_user():
         resend = form.resend.data
         email = form.email_address.data.lower()
         affiliations = 0
+        invited_user = None
         if form.is_student.data:
             affiliations = Affiliation.EDU
         if form.is_employee.data:
             affiliations |= Affiliation.EMP
-        try:
-            ui = UserInvitation.get(org=org, email=email)
-            flash(
-                f"An invitation to affiliate with {org} had been already sent to {email} earlier "
-                f"at {isodate(ui.sent_at)}.", "warning" if resend else "danger")
-            if not form.resend.data:
-                break
-        except UserInvitation.DoesNotExist:
-            pass
 
-        inviter = current_user._get_current_object()
-        res = send_user_invitation.queue(
-            inviter.id,
-            org.id,
-            email=email,
-            affiliations=affiliations,
-            **{f.name: f.data
-               for f in form},
-            cc_email=(current_user.name, current_user.email))
-        flash(
-            f"An invitation to {email} was {'resent' if resend else 'sent'} successfully (task id: {res.id}).",
-            "success")
+        try:
+            invited_user = User.get(email=email)
+        except User.DoesNotExist:
+            pass
+        if (invited_user and OrcidToken.select().where(
+                    (OrcidToken.user_id == invited_user.id) & (OrcidToken.org_id == org.id) &
+                (OrcidToken.scope.contains("/activities/update"))).exists()):
+            try:
+                if affiliations & (Affiliation.EMP | Affiliation.EDU):
+                    api = orcid_client.MemberAPI(org, invited_user)
+                    params = {f.name: f.data for f in form if f.data != ""}
+                    for a in Affiliation:
+                        if a & affiliations:
+                            params["affiliation"] = a
+                            params["initial"] = False
+                            api.create_or_update_affiliation(**params)
+                    flash(
+                        f"The ORCID Hub was able to automatically write an affiliation with "
+                        f"{invited_user.organisation}, as the nature of the affiliation with {invited_user} "
+                        f"organisation does appear to include either Employment or Education.\n ",
+                        "success")
+                else:
+                    flash(
+                        f"The ORCID Hub was not able to automatically write an affiliation with "
+                        f"{invited_user.organisation}, as the nature of the affiliation with {invited_user} "
+                        f"organisation does not appear to include either Employment or Education.\n "
+                        f"Please select 'staff' or 'student' checkbox present on this page.", "warning")
+            except Exception as ex:
+                flash(f"Something went wrong: {ex}", "danger")
+                app.logger.exception("Failed to create affiliation record")
+        else:
+            try:
+                ui = UserInvitation.get(org=org, email=email)
+                flash(
+                    f"An invitation to affiliate with {org} had been already sent to {email} earlier "
+                    f"at {isodate(ui.sent_at)}.", "warning" if resend else "danger")
+                if not form.resend.data:
+                    break
+            except UserInvitation.DoesNotExist:
+                pass
+
+            inviter = current_user._get_current_object()
+            res = send_user_invitation.queue(
+                inviter.id,
+                org.id,
+                email=email,
+                affiliations=affiliations,
+                **{f.name: f.data
+                   for f in form},
+                cc_email=(current_user.name, current_user.email))
+            flash(
+                f"An invitation to {email} was {'resent' if resend else 'sent'} successfully (task id: {res}).",
+                "success")
         break
 
     return render_template("user_invitation.html", form=form)

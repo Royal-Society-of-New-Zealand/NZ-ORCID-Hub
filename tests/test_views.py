@@ -22,7 +22,7 @@ from orcid_hub import app, orcid_client, views
 from orcid_hub.config import ORCID_BASE_URL
 from orcid_hub.forms import FileUploadForm
 from orcid_hub.models import UserOrgAffiliation  # noqa: E128
-from orcid_hub.models import (AffiliationRecord, Client, File, FundingRecord, OrcidToken, Organisation,
+from orcid_hub.models import (Affiliation, AffiliationRecord, Client, File, FundingRecord, OrcidToken, Organisation,
                               OrgInfo, Role, Task, Token, Url, User, UserInvitation, UserOrg, PeerReviewRecord)
 
 fake_time = time.time()
@@ -841,7 +841,7 @@ def test_invite_user(request_ctx):
         name="TEST USER",
         confirmed=True,
         organisation=org)
-    UserOrg.create(user=user, org=org)
+    UserOrg.create(user=user, org=org, affiliations=Affiliation.EMP)
     UserInvitation.create(
         invitee=user,
         inviter=admin,
@@ -873,6 +873,28 @@ def test_invite_user(request_ctx):
         assert b"<!DOCTYPE html>" in rv.data, "Expected HTML content"
         assert b"test123@test.test.net" in rv.data
         queue_send_user_invitation.assert_called_once()
+    with patch("orcid_hub.orcid_client.MemberAPI") as m, patch(
+        "orcid_hub.orcid_client.SourceClientId"), request_ctx(
+        "/invite/user",
+        method="POST",
+        data={
+            "name": "TEST APP",
+            "is_employee": "false",
+            "email_address": "test123@test.test.net",
+            "resend": "enable",
+            "is_student": "true",
+            "first_name": "test",
+            "last_name": "test",
+            "city": "test"}) as ctx:
+        login_user(admin, remember=True)
+        OrcidToken.create(access_token="ACCESS123", user=user, org=org, scope="/read-limited,/activities/update",
+                          expires_in='121')
+        api_mock = m.return_value
+        rv = ctx.app.full_dispatch_request()
+        assert rv.status_code == 200
+        assert b"<!DOCTYPE html>" in rv.data, "Expected HTML content"
+        assert b"test123@test.test.net" in rv.data
+        api_mock.create_or_update_affiliation.assert_called_once()
 
 
 def test_email_template(app, request_ctx):
