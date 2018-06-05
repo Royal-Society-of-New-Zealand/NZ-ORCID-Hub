@@ -8,7 +8,7 @@ import os
 import sys
 import time
 from itertools import product
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock, patch
 from io import BytesIO
 
 import pytest
@@ -885,8 +885,7 @@ def test_invite_user(request_ctx):
             "is_student": "true",
             "first_name": "test",
             "last_name": "test",
-            "city": "test"
-        }) as ctx:
+            "city": "test"}) as ctx:
         login_user(admin, remember=True)
         OrcidToken.create(access_token="ACCESS123", user=user, org=org, scope="/read-limited,/activities/update",
                           expires_in='121')
