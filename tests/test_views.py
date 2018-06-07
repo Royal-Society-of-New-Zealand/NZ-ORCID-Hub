@@ -808,9 +808,23 @@ def test_manage_email_template(patch, request_ctx):
         login_user(user, remember=True)
         rv = ctx.app.full_dispatch_request()
         assert rv.status_code == 200
+        assert b"Are you sure?" in rv.data
+    with request_ctx(
+            "/settings/email_template",
+            method="POST",
+            data={
+                "name": "TEST APP",
+                "homepage_url": "http://test.at.test",
+                "description": "TEST APPLICATION 123",
+                "email_template": "enable {MESSAGE} {INCLUDED_URL}",
+                "save": "Save"
+            }) as ctx:
+        login_user(user, remember=True)
+        rv = ctx.app.full_dispatch_request()
+        assert rv.status_code == 200
         assert b"<!DOCTYPE html>" in rv.data, "Expected HTML content"
         org = Organisation.get(id=org.id)
-        assert org.email_template == "enable"
+        assert org.email_template == "enable {MESSAGE} {INCLUDED_URL}"
     with request_ctx(
             "/settings/email_template",
             method="POST",
@@ -945,7 +959,7 @@ def test_email_template(app, request_ctx):
             method="POST",
             data={
                 "email_template_enabled": "y",
-                "email_template": "TEST TEMPLATE TO SAVE",
+                "email_template": "TEST TEMPLATE TO SAVE {MESSAGE} {INCLUDED_URL}",
                 "save": "Save",
             }) as ctx:
         login_user(user)
@@ -953,7 +967,7 @@ def test_email_template(app, request_ctx):
         assert rv.status_code == 200
         org.reload()
         assert org.email_template_enabled
-        assert "TEST TEMPLATE TO SAVE" in org.email_template
+        assert "TEST TEMPLATE TO SAVE {MESSAGE} {INCLUDED_URL}" in org.email_template
 
     with patch("emails.message.Message") as msg_cls, request_ctx(
             "/settings/email_template",
