@@ -98,7 +98,7 @@ class AppResourceList(AppResource):
             return 1
 
     @models.lazy_property
-    def limit(self):
+    def limit(self):  # noqa: D402
         """Get the curretn query limit (rows per a page), default: 20."""
         try:
             return int(request.args.get("limit", 20))
