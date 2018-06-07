@@ -2164,10 +2164,14 @@ def manage_email_template():
                 if form.email_template_enabled.data else default_template)
         elif form.save.data:
             # form.populate_obj(org)
-            org.email_template = form.email_template.data
-            org.email_template_enabled = form.email_template_enabled.data
-            org.save()
-            flash("Saved organisation email template'", "info")
+            if all(x in form.email_template.data for x in ['{MESSAGE}', '{INCLUDED_URL}']):
+                org.email_template = form.email_template.data
+                org.email_template_enabled = form.email_template_enabled.data
+                org.save()
+                flash("Saved organisation email template'", "info")
+            else:
+                flash("Are you sure? Without a {MESSAGE} or {INCLUDED_URL} "
+                      "your users will be unable to respond to your invitations.", "danger")
 
     return render_template("email_template.html", form=form)
 
