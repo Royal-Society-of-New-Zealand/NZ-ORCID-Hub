@@ -9,7 +9,7 @@ import pytest
 from flask import url_for
 from flask_login import login_user
 
-from orcid_hub.apis import yamlfy
+from orcid_hub.apis import plural, yamlfy
 from orcid_hub.models import Client, OrcidToken, Organisation, Role, Task, TaskType, Token, User, UserOrg
 
 from unittest.mock import patch, MagicMock
@@ -93,6 +93,18 @@ def app_req_ctx(request_ctx):
         organisation=org2)
 
     return request_ctx
+
+
+def test_plural():
+    """Test noun pluralization."""
+    assert plural("wolf") == "wolves"
+    assert plural("knife") == "knives"
+    assert plural("potato") == "potatoes"
+    assert plural("cactus") == "cacti"
+    assert plural("criterion") == "criteria"
+    assert plural("community") == "communities"
+    assert plural("six") == "si"
+    assert plural("carrot") == "carrots"
 
 
 def test_get_oauth_access_token(app_req_ctx):

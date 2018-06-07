@@ -204,6 +204,7 @@ login_manager.init_app(app)
 
 from . import models  # noqa: F401
 from .apis import *  # noqa: F401,F403
+from .data_apis import *  # noqa: F401,F403
 from .authcontroller import *  # noqa: F401,F403
 from .views import *  # noqa: F401,F403
 from .oauth import *  # noqa: F401,F403
