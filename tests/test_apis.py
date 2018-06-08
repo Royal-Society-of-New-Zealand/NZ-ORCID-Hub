@@ -9,7 +9,8 @@ import pytest
 from flask import url_for
 from flask_login import login_user
 
-from orcid_hub.apis import plural, yamlfy
+from orcid_hub.apis import yamlfy
+from orcid_hub.data_apis import plural
 from orcid_hub.models import Client, OrcidToken, Organisation, Role, Task, TaskType, Token, User, UserOrg
 
 from unittest.mock import patch, MagicMock
@@ -101,9 +102,10 @@ def test_plural():
     assert plural("knife") == "knives"
     assert plural("potato") == "potatoes"
     assert plural("cactus") == "cacti"
-    assert plural("criterion") == "criteria"
+    # assert plural("criterion") == "criteria"
+    assert plural("organisation") == "organisations"
     assert plural("community") == "communities"
-    assert plural("six") == "si"
+    assert plural("six") == "sixes"
     assert plural("carrot") == "carrots"
 
 
@@ -226,7 +228,7 @@ def test_me(app_req_ctx):
     "tokens",
 ])
 @pytest.mark.parametrize("version", [
-    "v0.1",
+    "v1.0",
 ])
 def test_user_and_token_api(app_req_ctx, resource, version):
     """Test the echo endpoint."""
@@ -234,33 +236,33 @@ def test_user_and_token_api(app_req_ctx, resource, version):
     org2_user = User.get(email="researcher@org2.edu")
     with app_req_ctx(
             f"/api/{version}/{resource}/ABC123", headers=dict(authorization="Bearer TEST")) as ctx:
-        rv = ctx.app.full_dispatch_request()
-        assert rv.status_code == 400
-        data = json.loads(rv.data)
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 400
+        data = json.loads(resp.data)
         assert "error" in data
         assert "incorrect identifier" in data["error"].lower()
     with app_req_ctx(
             f"/api/{version}/{resource}/0000-0000-0000-0000",
             headers=dict(authorization="Bearer TEST")) as ctx:
-        rv = ctx.app.full_dispatch_request()
-        assert rv.status_code == 400
-        data = json.loads(rv.data)
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 400
+        data = json.loads(resp.data)
         assert "error" in data
         assert "incorrect identifier" in data["error"].lower()
     with app_req_ctx(
             f"/api/{version}/{resource}/abc123@some.org",
             headers=dict(authorization="Bearer TEST")) as ctx:
-        rv = ctx.app.full_dispatch_request()
-        assert rv.status_code == 404
-        data = json.loads(rv.data)
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 404
+        data = json.loads(resp.data)
         assert "error" in data
         assert "not found" in data["error"].lower()
     with app_req_ctx(
             f"/api/{version}/{resource}/0000-0000-0000-0001",
             headers=dict(authorization="Bearer TEST")) as ctx:
-        rv = ctx.app.full_dispatch_request()
-        assert rv.status_code == 404
-        data = json.loads(rv.data)
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 404
+        data = json.loads(resp.data)
         assert "error" in data
         assert "not found" in data["error"].lower()
     for identifier in [
@@ -270,58 +272,80 @@ def test_user_and_token_api(app_req_ctx, resource, version):
         with app_req_ctx(
                 f"/api/{version}/{resource}/{identifier}",
                 headers=dict(authorization="Bearer TEST")) as ctx:
-            rv = ctx.app.full_dispatch_request()
-            data = json.loads(rv.data)
-            assert rv.status_code == 200
-            data = json.loads(rv.data)
-            assert data["found"]
+            resp = ctx.app.full_dispatch_request()
+            data = json.loads(resp.data)
+            assert resp.status_code == 200
+            data = json.loads(resp.data)
             if resource == "users":
-                result = data["result"]
-                assert result["email"] == user.email
-                assert result["eppn"] == user.eppn
-                assert result["orcid"] == user.orcid
+                assert data["email"] == user.email
+                assert data["eppn"] == user.eppn
+                assert data["orcid"] == user.orcid
             else:
                 token = OrcidToken.get(user_id=user.id)
-                assert data["token"]["access_token"] == token.access_token
+                assert data["access_token"] == token.access_token
     if resource == "users":  # test user listing
         with app_req_ctx(
                 f"/api/{version}/{resource}",
                 headers=dict(authorization="Bearer TEST")) as ctx:
-            rv = ctx.app.full_dispatch_request()
-            data = json.loads(rv.data)
-            assert rv.status_code == 200
-            data = json.loads(rv.data)
-            assert len(data["users"]) == 10
+            resp = ctx.app.full_dispatch_request()
+            data = json.loads(resp.data)
+            assert resp.status_code == 200
+            data = json.loads(resp.data)
+            assert len(data) == 10
+        with app_req_ctx(
+                f"/api/{version}/{resource}?page=2&page_size=3",
+                headers=dict(authorization="Bearer TEST")) as ctx:
+            resp = ctx.app.full_dispatch_request()
+            data = json.loads(resp.data)
+            assert resp.status_code == 200
+            data = json.loads(resp.data)
+            assert len(data) == 3
+        with app_req_ctx(
+                f"/api/{version}/{resource}?page_size=3",
+                headers=dict(authorization="Bearer TEST")) as ctx:
+            resp = ctx.app.full_dispatch_request()
+            data = json.loads(resp.data)
+            assert resp.status_code == 200
+            data = json.loads(resp.data)
+            assert len(data) == 3
+        with app_req_ctx(
+                f"/api/{version}/{resource}?page=3",
+                headers=dict(authorization="Bearer TEST")) as ctx:
+            resp = ctx.app.full_dispatch_request()
+            data = json.loads(resp.data)
+            assert resp.status_code == 200
+            data = json.loads(resp.data)
+            assert len(data) == 0
         with app_req_ctx(
                 f"/api/{version}/{resource}?from_date=ABCD",
                 headers=dict(authorization="Bearer TEST")) as ctx:
-            rv = ctx.app.full_dispatch_request()
-            data = json.loads(rv.data)
-            assert rv.status_code == 422
+            resp = ctx.app.full_dispatch_request()
+            data = json.loads(resp.data)
+            assert resp.status_code == 422
         with app_req_ctx(
                 f"/api/{version}/{resource}?from_date=2018-01-01",
                 headers=dict(authorization="Bearer TEST")) as ctx:
-            rv = ctx.app.full_dispatch_request()
-            data = json.loads(rv.data)
-            assert rv.status_code == 200
-            data = json.loads(rv.data)
-            assert len(data["users"]) == 3
+            resp = ctx.app.full_dispatch_request()
+            data = json.loads(resp.data)
+            assert resp.status_code == 200
+            data = json.loads(resp.data)
+            assert len(data) == 3
         with app_req_ctx(
                 f"/api/{version}/{resource}?to_date=2018-01-01",
                 headers=dict(authorization="Bearer TEST")) as ctx:
-            rv = ctx.app.full_dispatch_request()
-            data = json.loads(rv.data)
-            assert rv.status_code == 200
-            data = json.loads(rv.data)
-            assert len(data["users"]) == 7
+            resp = ctx.app.full_dispatch_request()
+            data = json.loads(resp.data)
+            assert resp.status_code == 200
+            data = json.loads(resp.data)
+            assert len(data) == 7
         with app_req_ctx(
                 f"/api/{version}/{resource}?from_date=2017-12-20&to_date=2017-12-21",
                 headers=dict(authorization="Bearer TEST")) as ctx:
-            rv = ctx.app.full_dispatch_request()
-            data = json.loads(rv.data)
-            assert rv.status_code == 200
-            data = json.loads(rv.data)
-            assert len(data["users"]) == 2
+            resp = ctx.app.full_dispatch_request()
+            data = json.loads(resp.data)
+            assert resp.status_code == 200
+            data = json.loads(resp.data)
+            assert len(data) == 2
 
     if resource == "tokens":
         user2 = User.get(email="researcher2@test0.edu")
@@ -332,17 +356,17 @@ def test_user_and_token_api(app_req_ctx, resource, version):
             with app_req_ctx(
                     f"/api/{version}/tokens/{identifier}",
                     headers=dict(authorization="Bearer TEST")) as ctx:
-                rv = ctx.app.full_dispatch_request()
-                assert rv.status_code == 404
-                data = json.loads(rv.data)
+                resp = ctx.app.full_dispatch_request()
+                assert resp.status_code == 404
+                data = json.loads(resp.data)
                 assert "error" in data
 
     with app_req_ctx(
             f"/api/{version}/{resource}/{org2_user.email}",
             headers=dict(authorization="Bearer TEST")) as ctx:
-        rv = ctx.app.full_dispatch_request()
-        assert rv.status_code == 404
-        data = json.loads(rv.data)
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 404
+        data = json.loads(resp.data)
         assert "error" in data
 
 
@@ -446,7 +470,7 @@ def test_affiliation_api(client):
     data = json.loads(resp.data)
     access_token = data["access_token"]
     resp = client.post(
-        "/api/v0.1/affiliations/?filename=TEST42.csv",
+        "/api/v1.0/affiliations/?filename=TEST42.csv",
         headers=dict(authorization=f"Bearer {access_token}"),
         content_type="text/csv",
         data=b"First Name,Last Name,email,Organisation,Affiliation Type,Role,Department,Start Date,"
@@ -463,7 +487,7 @@ def test_affiliation_api(client):
     assert len(data["records"]) == 3
     task_id = data["id"]
 
-    resp = client.get("/api/v0.1/tasks", headers=dict(authorization=f"Bearer {access_token}"))
+    resp = client.get("/api/v1.0/tasks", headers=dict(authorization=f"Bearer {access_token}"))
     tasks = json.loads(resp.data)
     assert tasks[0]["id"] == task_id
 
@@ -471,7 +495,7 @@ def test_affiliation_api(client):
     del(task_copy["id"])
     task_copy["filename"] = "TASK-COPY.csv"
     resp = client.post(
-        "/api/v0.1/affiliations/",
+        "/api/v1.0/affiliations/",
         headers=dict(authorization=f"Bearer {access_token}"),
         content_type="application/json",
         data=json.dumps(task_copy))
@@ -481,7 +505,7 @@ def test_affiliation_api(client):
         del(r["id"])
         r["city"] = "TEST000"
     resp = client.post(
-        f"/api/v0.1/affiliations/{task_id}",
+        f"/api/v1.0/affiliations/{task_id}",
         headers=dict(authorization=f"Bearer {access_token}"),
         content_type="application/json",
         data=json.dumps(data))
@@ -491,7 +515,7 @@ def test_affiliation_api(client):
 
     del(data["records"][2])
     resp = client.post(
-        f"/api/v0.1/affiliations/{task_id}",
+        f"/api/v1.0/affiliations/{task_id}",
         headers=dict(authorization=f"Bearer {access_token}"),
         content_type="application/json",
         data=json.dumps(data))
@@ -504,7 +528,7 @@ def test_affiliation_api(client):
         "last-name": "TEST000 LN",
     })
     resp = client.post(
-        f"/api/v0.1/affiliations/{task_id}",
+        f"/api/v1.0/affiliations/{task_id}",
         headers=dict(authorization=f"Bearer {access_token}"),
         content_type="application/json",
         data=json.dumps(incorrect_data))
@@ -513,7 +537,7 @@ def test_affiliation_api(client):
     assert data["error"] == "Validation error."
 
     resp = client.get(
-        f"/api/v0.1/affiliations/{task_id}",
+        f"/api/v1.0/affiliations/{task_id}",
         headers=dict(authorization=f"Bearer {access_token}"))
     data = json.loads(resp.data)
     incorrect_data = copy.deepcopy(data)
@@ -523,7 +547,7 @@ def test_affiliation_api(client):
         "last-name": "TEST000 LN",
     })
     resp = client.post(
-        f"/api/v0.1/affiliations/{task_id}",
+        f"/api/v1.0/affiliations/{task_id}",
         headers=dict(authorization=f"Bearer {access_token}"),
         content_type="application/json",
         data=json.dumps(incorrect_data))
@@ -532,7 +556,7 @@ def test_affiliation_api(client):
     assert data["error"] == "Validation error."
 
     resp = client.get(
-        f"/api/v0.1/affiliations/{task_id}",
+        f"/api/v1.0/affiliations/{task_id}",
         headers=dict(authorization=f"Bearer {access_token}"))
     data = json.loads(resp.data)
     new_data = copy.deepcopy(data)
@@ -544,7 +568,7 @@ def test_affiliation_api(client):
         "city": "TEST000"
     })
     resp = client.post(
-        f"/api/v0.1/affiliations/{task_id}",
+        f"/api/v1.0/affiliations/{task_id}",
         headers=dict(authorization=f"Bearer {access_token}"),
         content_type="application/json",
         data=json.dumps(new_data))
@@ -553,7 +577,7 @@ def test_affiliation_api(client):
     assert len(data["records"]) == 3
 
     resp = client.put(
-        f"/api/v0.1/affiliations/{task_id}",
+        f"/api/v1.0/affiliations/{task_id}",
         headers=dict(authorization=f"Bearer {access_token}"),
         content_type="application/json",
         data=json.dumps(data))
@@ -562,14 +586,14 @@ def test_affiliation_api(client):
     assert len(data["records"]) == 3
 
     resp = client.get(
-        f"/api/v0.1/affiliations/{task_id}",
+        f"/api/v1.0/affiliations/{task_id}",
         headers=dict(authorization=f"Bearer {access_token}"))
     data = json.loads(resp.data)
     new_data = copy.deepcopy(data)
     for i, r in enumerate(new_data["records"]):
         new_data["records"][i] = {"id": r["id"], "is-active": True}
     resp = client.patch(
-        f"/api/v0.1/affiliations/{task_id}",
+        f"/api/v1.0/affiliations/{task_id}",
         headers=dict(authorization=f"Bearer {access_token}"),
         content_type="application/json",
         data=json.dumps(new_data))
@@ -580,34 +604,34 @@ def test_affiliation_api(client):
     assert all(r["city"] == "TEST000" for r in data["records"])
 
     resp = client.head(
-        f"/api/v0.1/affiliations/{task_id}",
+        f"/api/v1.0/affiliations/{task_id}",
         headers=dict(authorization=f"Bearer {access_token}"))
     assert "Last-Modified" in resp.headers
 
     resp = client.head(
-        "/api/v0.1/affiliations/999999999",
+        "/api/v1.0/affiliations/999999999",
         headers=dict(authorization=f"Bearer {access_token}"))
     assert resp.status_code == 404
 
     resp = client.get(
-        "/api/v0.1/affiliations/999999999",
+        "/api/v1.0/affiliations/999999999",
         headers=dict(authorization=f"Bearer {access_token}"))
     assert resp.status_code == 404
 
     resp = client.patch(
-        "/api/v0.1/affiliations/999999999",
+        "/api/v1.0/affiliations/999999999",
         headers=dict(authorization=f"Bearer {access_token}"),
         content_type="application/json",
         data=json.dumps(new_data))
     assert resp.status_code == 404
 
     resp = client.delete(
-        f"/api/v0.1/affiliations/{task_id}",
+        f"/api/v1.0/affiliations/{task_id}",
         headers=dict(authorization=f"Bearer {access_token}"))
     assert Task.select().count() == 1
 
     resp = client.delete(
-        f"/api/v0.1/affiliations/{task_id}",
+        f"/api/v1.0/affiliations/{task_id}",
         headers=dict(authorization=f"Bearer {access_token}"))
     assert resp.status_code == 404
 
@@ -619,36 +643,36 @@ def test_affiliation_api(client):
         task_type=TaskType.AFFILIATION)
 
     resp = client.head(
-        f"/api/v0.1/affiliations/{other_task.id}",
+        f"/api/v1.0/affiliations/{other_task.id}",
         headers=dict(authorization=f"Bearer {access_token}"))
     assert resp.status_code == 403
 
     resp = client.get(
-        f"/api/v0.1/affiliations/{other_task.id}",
+        f"/api/v1.0/affiliations/{other_task.id}",
         headers=dict(authorization=f"Bearer {access_token}"))
     assert resp.status_code == 403
 
     resp = client.patch(
-        f"/api/v0.1/affiliations/{other_task.id}",
+        f"/api/v1.0/affiliations/{other_task.id}",
         headers=dict(authorization=f"Bearer {access_token}"),
         content_type="application/json",
         data=json.dumps(new_data))
     assert resp.status_code == 403
 
     resp = client.delete(
-        f"/api/v0.1/affiliations/{other_task.id}",
+        f"/api/v1.0/affiliations/{other_task.id}",
         headers=dict(authorization=f"Bearer {access_token}"))
     assert resp.status_code == 403
 
     resp = client.patch(
-        f"/api/v0.1/affiliations/{task_id}",
+        f"/api/v1.0/affiliations/{task_id}",
         headers=dict(authorization=f"Bearer {access_token}"),
         content_type="application/json",
         data=b'')
     assert resp.status_code == 400
 
     resp = client.post(
-        "/api/v0.1/affiliations/?filename=TEST42.csv",
+        "/api/v1.0/affiliations/?filename=TEST42.csv",
         headers=dict(authorization=f"Bearer {access_token}", accept="text/yaml"),
         content_type="text/yaml",
         data="""task-type: AFFILIATION
@@ -798,7 +822,7 @@ def test_webhook_registration(app_req_ctx):
         # prevously created access token should be removed
 
     with app_req_ctx(
-            f"/api/v0.1/{orcid_id}/webhook/http%3A%2F%2FCALL-BACK",
+            f"/api/v1.0/{orcid_id}/webhook/http%3A%2F%2FCALL-BACK",
             method="PUT", headers=dict(
                 authorization=f"Bearer {token.access_token}")) as ctx, patch(
                             "orcid_hub.utils.requests.post") as mockpost, patch(
@@ -854,7 +878,7 @@ def test_webhook_registration(app_req_ctx):
         assert orcid_token.scope == "/webhook"
 
     with app_req_ctx(
-            f"/api/v0.1/{orcid_id}/webhook/http%3A%2F%2FCALL-BACK",
+            f"/api/v1.0/{orcid_id}/webhook/http%3A%2F%2FCALL-BACK",
             method="DELETE", headers=dict(
                 authorization=f"Bearer {token.access_token}")) as ctx, patch(
                             "orcid_hub.utils.requests.delete") as mockdelete:

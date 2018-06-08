@@ -1,12 +1,13 @@
 """HUB Data API."""
 
-from flask import (jsonify, request)
+from flask import jsonify, render_template, request, url_for
 from flask_peewee.rest import RestResource
 from flask_peewee.utils import slugify
 from flask_peewee_swagger.swagger import Swagger
 from werkzeug.exceptions import NotFound
 
 from . import data_api, models
+from .login_provider import roles_required
 
 
 def plural(word):
@@ -119,3 +120,11 @@ common_spec = {
 
 data_api_swagger = Swagger(data_api, swagger_version="2.0", extras=common_spec)
 data_api_swagger.setup()
+
+
+@data_api.app.route("/db-api-docs/")
+@roles_required(models.Role.SUPERUSER)
+def db_api_docs():
+    """Show Swagger UI for the latest/current Hub DB API."""
+    url = request.args.get("url", url_for("Swagger.model_resources", _external=True))
+    return render_template("swaggerui.html", url=url)

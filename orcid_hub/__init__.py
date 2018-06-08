@@ -114,7 +114,6 @@ class JSONEncoder(_JSONEncoder):
             return o.isoformat(timespec="seconds")
         elif isinstance(o, date):
             return o.isoformat()
-
         return super().default(o)
 
 
