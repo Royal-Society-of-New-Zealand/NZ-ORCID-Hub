@@ -35,10 +35,12 @@ def app_req_ctx(request_ctx):
         orcid="1001-0001-0001-0001",
         confirmed=True,
         organisation=org)
+    tech_contact = admin
 
     UserOrg.create(user=admin, org=org, is_admin=True)
     org.tech_contact = admin
     org.save()
+    request_ctx.org = org
 
     client = Client.create(
         name="TEST_CLIENT",
@@ -92,6 +94,11 @@ def app_req_ctx(request_ctx):
         orcid="9999-9999-9999-9999",
         confirmed=True,
         organisation=org2)
+
+    super_user = User.create(
+        email="super_user@test0.edu", organisation=org, roles=Role.SUPERUSER, confirmed=True)
+
+    request_ctx.data = locals()
 
     return request_ctx
 
@@ -291,7 +298,7 @@ def test_user_and_token_api(app_req_ctx, resource, version):
             data = json.loads(resp.data)
             assert resp.status_code == 200
             data = json.loads(resp.data)
-            assert len(data) == 10
+            assert len(data) == 11
         with app_req_ctx(
                 f"/api/{version}/{resource}?page=2&page_size=3",
                 headers=dict(authorization="Bearer TEST")) as ctx:
@@ -309,7 +316,7 @@ def test_user_and_token_api(app_req_ctx, resource, version):
             data = json.loads(resp.data)
             assert len(data) == 3
         with app_req_ctx(
-                f"/api/{version}/{resource}?page=3",
+                f"/api/{version}/{resource}?page=42",
                 headers=dict(authorization="Bearer TEST")) as ctx:
             resp = ctx.app.full_dispatch_request()
             data = json.loads(resp.data)
@@ -329,7 +336,7 @@ def test_user_and_token_api(app_req_ctx, resource, version):
             data = json.loads(resp.data)
             assert resp.status_code == 200
             data = json.loads(resp.data)
-            assert len(data) == 3
+            assert len(data) == 4
         with app_req_ctx(
                 f"/api/{version}/{resource}?to_date=2018-01-01",
                 headers=dict(authorization="Bearer TEST")) as ctx:
@@ -399,28 +406,24 @@ def test_yamlfy(app):
 
 def test_api_docs(app_req_ctx):
     """Test API docs."""
-    tech_contact = User.get(email="app123@test0.edu")
-    with app_req_ctx("/api-docs/?url=http://SPECIFICATION") as ctx:
-        login_user(tech_contact)
-        rv = ctx.app.full_dispatch_request()
-        assert rv.status_code == 200
-        assert b"http://SPECIFICATION" in rv.data
+    data = app_req_ctx.data
+    tech_contact = data["tech_contact"]
+    super_user = data["super_user"]
     with app_req_ctx("/api-docs") as ctx:
+        spec_url = url_for("spec", _external=True)
+        data_api_spec_url = url_for("Swagger.model_resources", _external=True)
         login_user(tech_contact)
         rv = ctx.app.full_dispatch_request()
         assert rv.status_code == 200
-        assert url_for("spec", _external=True).encode("utf-8") in rv.data
-    super_user = User.create(email="super_user@test0.edu", roles=Role.SUPERUSER, confirmed=True)
-    with app_req_ctx("/db-api-docs/?url=http://SPECIFICATION") as ctx:
+        assert spec_url.encode("utf-8") in rv.data
+        assert data_api_spec_url.encode("utf-8") not in rv.data
+
+    with app_req_ctx("/api-docs") as ctx:
         login_user(super_user)
         rv = ctx.app.full_dispatch_request()
         assert rv.status_code == 200
-        assert b"http://SPECIFICATION" in rv.data
-    with app_req_ctx("/db-api-docs") as ctx:
-        login_user(super_user)
-        rv = ctx.app.full_dispatch_request()
-        assert rv.status_code == 200
-        assert url_for("Swagger.model_resources", _external=True).encode("utf-8") in rv.data
+        assert spec_url.encode("utf-8") in rv.data
+        assert data_api_spec_url.encode("utf-8") in rv.data
 
 
 def test_db_api(app_req_ctx):

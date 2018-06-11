@@ -976,15 +976,12 @@ def spec():
         return jsonify(swag)
 
 
-@app.route("/api-docs/")
-@roles_required(Role.TECHNICAL)
+@app.route("/api-docs")
+@roles_required(Role.TECHNICAL, Role.SUPERUSER)
 def api_docs():
-    """Show Swagger UI for the latest/current Hub API."""
-    url = request.args.get("url", url_for("spec", _external=True))
-    client = Client.select().where(
-            Client.org == current_user.organisation,
-            Client.user_id == current_user.id).first()
-    return render_template("swaggerui.html", url=url, client=client)
+    """Show Swagger UI for the latest/current Hub API and Data API."""
+    client = Client.select().where(Client.org == current_user.organisation).first()
+    return render_template("swaggerui.html", client=client)
 
 
 class SafeRepresenterWithISODate(SafeRepresenter):
