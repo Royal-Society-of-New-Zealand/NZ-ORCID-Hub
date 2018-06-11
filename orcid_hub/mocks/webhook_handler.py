@@ -17,9 +17,9 @@ Send a POST request::
 """
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
+import logging
 try:
     import coloredlogs
-    import logging
     coloredlogs.install()
 except ImportError:
     pass
@@ -43,7 +43,7 @@ class UpdateHandler(BaseHTTPRequestHandler):
             content_length = int(self.headers['Content-Length'])
             post_data = self.rfile.read(content_length)
             if post_data:
-                logging.info("Received:", post_data)
+                logging.info(f"Received: {post_data.decode()}")
         self.log_message("*** Headers:\n%s", self.headers)
         self.log_message("Source: %s", self.headers.get("X-Forwarded-For"))
 
