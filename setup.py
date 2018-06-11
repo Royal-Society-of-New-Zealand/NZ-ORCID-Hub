@@ -97,11 +97,17 @@ setup(
         "flask-restful",
         "validators",
         # "swagger_client",
+        "rq",
+        "rq-dashboard",
+        "rq-scheduler",
+        "Flask-RQ2",
+        "Flask-RQ2[cli]",
     ],
     extras_require={
         "dev": [
             "sphinx",
             "sphinx-autobuild",
+            "m2r",
             "recommonmark",
             "pyyaml",
             "coverage>=4.4.1",

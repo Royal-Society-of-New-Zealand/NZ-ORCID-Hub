@@ -14,12 +14,14 @@
         {{ render_field(form.city) }}
         {{ render_field(form.state) }}
         {{ render_field(form.country) }}
+        {{ render_field(form.disambiguated_id) }}
       </div>
       <div class="col-md-6 col-sm-6 col-xs-12">
         {{ render_field(form.department) }}
         {{ render_field(form.role) }}
         {{ render_field(form.start_date) }}
         {{ render_field(form.end_date) }}
+        {{ render_field(form.disambiguation_source) }}
         <button type="submit" class="btn btn-primary" value="Save">Save</button>
         <a role="button" class="btn btn-default" href="{{_url}}">Cancel</a>
       </div>

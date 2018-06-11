@@ -11,17 +11,18 @@
     :license: MIT, see LICENSE for more details.
 """
 
-__version__ = "4.3.0"
+__version__ = "4.14.0"
 
 import logging
 import os
 import sys
 from datetime import date, datetime
+from time import time, sleep
 
 import click
 from flask.json import JSONEncoder as _JSONEncoder
 from flask_login import current_user, LoginManager
-from flask import Flask, request
+from flask import abort, Flask, request
 from flask_debugtoolbar import DebugToolbarExtension
 from flask_oauthlib.provider import OAuth2Provider
 from flask_peewee.rest import Authentication, RestAPI
@@ -36,6 +37,36 @@ from . import config  # noqa: F401, F403
 from .failover import PgDbWithFailover
 from flask_admin import Admin
 from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+from flask_rq2 import RQ
+import rq_dashboard
+from rq import Queue as _Queue
+
+
+class ThrottledQueue(_Queue):
+    """Queue with throttled deque."""
+
+    # Default rate limit per sec (20 messages/sec)
+    # NB! the rate should be greater than 1.0
+    DEFAULT_RATE = 20.0
+    rate = DEFAULT_RATE
+    _allowance = rate
+    _last_check = time()
+
+    @classmethod
+    def dequeue_any(cls, *args, **kwargs):
+        """Dequeue the messages with throttling."""
+        current = time()
+        time_passed = current - cls._last_check
+        cls._last_check = time()
+        cls._allowance += time_passed * cls.rate
+        if cls._allowance > cls.rate:
+            cls._allowance = cls.rate
+        if cls._allowance < 1.0:
+            # wait...
+            sleep(1.0 - (cls._allowance / cls.rate))
+            cls._allowance = cls.rate
+        return _Queue.dequeue_any(*args, **kwargs)
 
 
 # http://docs.peewee-orm.com/en/latest/peewee/database.html#automatic-reconnect
@@ -54,12 +85,16 @@ oauth = OAuth2Provider(app)
 api = Api(app)
 limiter = Limiter(
     app,
+    key_func=get_remote_address,
     headers_enabled=True,
     default_limits=[
         "40 per second",  # burst: 40/sec
         "1440 per minute",  # allowed max: 24/sec
     ])
 DATABASE_URL = app.config.get("DATABASE_URL")
+rq = RQ(app)
+# app.config.from_object(rq_dashboard.default_settings)
+app.config["REDIS_URL"] = app.config.get("RQ_REDIS_URL")
 
 # TODO: implement connection factory
 db_url.register_database(PgDbWithFailover, "pg+failover", "postgres+failover")
@@ -173,6 +208,20 @@ from .authcontroller import *  # noqa: F401,F403
 from .views import *  # noqa: F401,F403
 from .oauth import *  # noqa: F401,F403
 from .reports import *  # noqa: F401,F403
+from .schedule import *  # noqa: F401,F403
+
+
+@rq_dashboard.blueprint.before_request
+def restrict_rq(*args, **kwargs):
+    """Restrict access to RQ-Dashboard."""
+    if not current_user.is_authenticated:
+        abort(401)
+    if not current_user.has_role(models.Role.SUPERUSER):
+        abort(403)
+
+
+app.register_blueprint(rq_dashboard.blueprint, url_prefix="/rq")
+
 
 if app.testing:
     from .mocks import mocks
@@ -186,6 +235,15 @@ def setup_logging():
     """Set-up logger to log to STDOUT (eventually conainer log)."""
     app.logger.addHandler(logging.StreamHandler())
     app.logger.setLevel(logging.DEBUG if app.debug else logging.WARNING)
+    # TODO: check if DB is created
+    # TODO: seed the hub admin
+
+
+@app.after_request
+def apply_x_frame(response):
+    """Include X-frame header in http response to protect against clickhiJacking."""
+    response.headers["X-Frame-Options"] = "SAMEORIGIN"
+    return response
 
 
 @app.cli.command()

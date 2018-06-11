@@ -7,7 +7,7 @@ import json
 import mimetypes
 import os
 import secrets
-from collections import namedtuple
+import traceback
 from datetime import datetime
 from io import BytesIO
 from threading import Thread
@@ -15,8 +15,8 @@ from threading import Thread
 import requests
 import tablib
 import yaml
-from flask import (Response, abort, flash, jsonify, redirect, render_template, request, send_file,
-                   send_from_directory, stream_with_context, url_for)
+from flask import (Response, abort, flash, g, jsonify, redirect, render_template, request,
+                   send_file, send_from_directory, stream_with_context, url_for)
 from flask_admin._compat import csv_encode
 from flask_admin.actions import action
 from flask_admin.babel import gettext
@@ -43,12 +43,37 @@ from .models import (Affiliation, AffiliationRecord, CharField, Client, File, Fu
                      FundingRecord, Grant, GroupIdRecord, ModelException, OrcidApiCall, OrcidToken,
                      Organisation, OrgInfo, OrgInvitation, PartialDate, PeerReviewInvitee,
                      PeerReviewRecord, Role, Task, TextField, Token, Url, User, UserInvitation,
-                     UserOrg, UserOrgAffiliation, WorkInvitees, WorkRecord, db)
+                     UserOrg, UserOrgAffiliation, WorkInvitees, WorkRecord, db, get_val)
 # NB! Should be disabled in production
 from .pyinfo import info
 from .utils import generate_confirmation_token, get_next_url, send_user_invitation
 
 HEADERS = {"Accept": "application/vnd.orcid+json", "Content-type": "application/vnd.orcid+json"}
+
+
+@app.errorhandler(401)
+def unauthorized(e):
+    """Handle Unauthorized (401)."""
+    _next = get_next_url()
+    if _next:
+        flash(
+            "You might not have the necessary permissions to access this page or you were not authenticted",
+            "danger")
+        return redirect(_next)
+    return render_template("401.html"), 401
+
+
+@app.errorhandler(403)
+def forbidden(e):
+    """Handle Forbidden (403)."""
+    _next = get_next_url()
+    if _next:
+        flash("Page Not Found", "danger")
+        flash(
+            "You might not have the necessary permissions to access this page.",
+            "danger")
+        return redirect(_next)
+    return render_template("403.html"), 403
 
 
 @app.errorhandler(404)
@@ -59,6 +84,22 @@ def page_not_found(e):
         flash("Page Not Found", "danger")
         return redirect(_next)
     return render_template("404.html"), 404
+
+
+@app.errorhandler(500)
+def internal_error(error):
+    """Handle internal error."""
+    trace = traceback.format_exc()
+    try:
+        from . import sentry
+        return render_template(
+            "500.html",
+            trace=trace,
+            error_message=str(error),
+            event_id=g.sentry_event_id,
+            public_dsn=sentry.client.get_public_dsn("https"))
+    except:
+        return render_template("500.html", trace=trace, error_message=str(error))
 
 
 @app.route("/favicon.ico")
@@ -1183,7 +1224,7 @@ class ViewMembersAdmin(AppModelView):
                 token.delete_instance(recursive=True)
 
             except Exception as ex:
-                flash("Failed to revoke token {tokne.access_token}: {ex}", "error")
+                flash(f"Failed to revoke token {token.access_token}: {ex}", "error")
                 app.logger.exception('Failed to delete record.')
                 return False
 
@@ -1232,7 +1273,7 @@ class GroupIdRecordAdmin(AppModelView):
 
     def create_form(self, obj=None):
         """Preselect the organisation field with Admin's organisation."""
-        form = super(GroupIdRecordAdmin, self).create_form()
+        form = super().create_form()
         form.organisation.data = current_user.organisation
         return form
 
@@ -1318,11 +1359,6 @@ admin.add_view(AppModelView(Client))
 admin.add_view(AppModelView(Grant))
 admin.add_view(AppModelView(Token))
 admin.add_view(GroupIdRecordAdmin(GroupIdRecord))
-
-SectionRecord = namedtuple(
-    "SectionRecord",
-    ["org_name", "city", "state", "country", "department", "role", "start_date", "end_date"])
-SectionRecord.__new__.__defaults__ = (None, ) * len(SectionRecord._fields)
 
 
 @app.template_filter("year_range")
@@ -1550,40 +1586,48 @@ def edit_record(user_id, section_type, put_code=None):
     orcid_client.configuration.access_token = orcid_token.access_token
     api = orcid_client.MemberAPI(user=user)
 
-    # TODO: handle "new"...
-    if put_code:
-        try:
-            # Fetch an Employment
-            if section_type == "EMP":
-                api_response = api.view_employment(user.orcid, put_code)
-            elif section_type == "EDU":
-                api_response = api.view_education(user.orcid, put_code)
+    form = RecordForm(form_type=section_type)
+    if request.method == "GET":
+        if put_code:
+            try:
+                # Fetch an Employment
+                if section_type == "EMP":
+                    api_response = api.view_employment(user.orcid, put_code)
+                elif section_type == "EDU":
+                    api_response = api.view_education(user.orcid, put_code)
 
-            _data = api_response.to_dict()
-            data = SectionRecord(
-                org_name=_data.get("organization").get("name"),
-                city=_data.get("organization").get("address").get("city", ""),
-                state=_data.get("organization").get("address").get("region", ""),
-                country=_data.get("organization").get("address").get("country", ""),
-                department=_data.get("department_name", ""),
-                role=_data.get("role_title", ""),
-                start_date=PartialDate.create(_data.get("start_date")),
-                end_date=PartialDate.create(_data.get("end_date")))
-        except ApiException as e:
-            message = json.loads(e.body.replace("''", "\"")).get('user-messsage')
-            app.logger.error(f"Exception when calling MemberAPIV20Api->view_employment: {message}")
-        except Exception as ex:
-            app.logger.exception(
-                "Unhandler error occured while creating or editing a profile record.")
-            abort(500, ex)
-    else:
-        data = SectionRecord(org_name=org.name, city=org.city, country=org.country)
+                _data = api_response.to_dict()
+                data = dict(
+                    org_name=_data.get("organization").get("name"),
+                    disambiguated_id=get_val(
+                        _data, "organization", "disambiguated_organization",
+                        "disambiguated_organization_identifier"),
+                    disambiguation_source=get_val(
+                        _data, "organization", "disambiguated_organization",
+                        "disambiguation_source"),
+                    city=_data.get("organization").get("address").get("city", ""),
+                    state=_data.get("organization").get("address").get("region", ""),
+                    country=_data.get("organization").get("address").get("country", ""),
+                    department=_data.get("department_name", ""),
+                    role=_data.get("role_title", ""),
+                    start_date=PartialDate.create(_data.get("start_date")),
+                    end_date=PartialDate.create(_data.get("end_date")))
+            except ApiException as e:
+                message = json.loads(e.body.replace("''", "\"")).get('user-messsage')
+                app.logger.error(f"Exception when calling MemberAPIV20Api->view_employment: {message}")
+            except Exception as ex:
+                app.logger.exception(
+                    "Unhandler error occured while creating or editing a profile record.")
+                abort(500, ex)
+        else:
+            data = dict(
+                org_name=org.name,
+                disambiguated_id=org.disambiguated_id,
+                disambiguation_source=org.disambiguation_source,
+                city=org.city,
+                country=org.country)
 
-    form = RecordForm.create_form(request.form, obj=data, form_type=section_type)
-    if not form.org_name.data:
-        form.org_name.data = org.name
-    if not form.country.data or form.country.data == "None":
-        form.country.data = org.country
+        form.process(data=data)
 
     if form.validate_on_submit():
         try:
@@ -1598,23 +1642,24 @@ def edit_record(user_id, section_type, put_code=None):
             affiliation, _ = UserOrgAffiliation.get_or_create(
                 user=user,
                 organisation=org,
-                put_code=put_code,
-                department_name=form.department.data,
-                department_city=form.city.data,
-                role_title=form.role.data)
+                put_code=put_code)
 
+            affiliation.department_name = form.department.data
+            affiliation.department_city = form.city.data
+            affiliation.role_title = form.role.data
             form.populate_obj(affiliation)
-            if put_code:
-                affiliation.put_code = put_code
-            else:
-                pass
-                # affiliation.path = resp.headers["Location"]
-                # affiliation.put_code = int(resp.headers["Location"].rsplit("/", 1)[-1])
+
             affiliation.save()
             return redirect(_url)
+
         except ApiException as e:
-            message = json.loads(e.body.replace("''", "\"")).get('user-messsage')
-            flash("Failed to update the entry: %s." % message, "danger")
+            body = json.loads(e.body)
+            message = body.get("user-message")
+            more_info = body.get("more-info")
+            flash(f"Failed to update the entry: {message}", "danger")
+            if more_info:
+                flash(f'You can find more information at <a href="{more_info}">{more_info}</a>', "info")
+
             app.logger.exception(f"For {user} exception encountered")
         except Exception as ex:
             app.logger.exception(
@@ -1736,7 +1781,7 @@ def load_researcher_funding():
         filename = secure_filename(form.file_.data.filename)
         try:
             task = FundingRecord.load_from_json(read_uploaded_file(form), filename=filename)
-            flash(f"Successfully loaded {task.record_funding_count} rows.")
+            flash(f"Successfully loaded {task.record_count} rows.")
             return redirect(url_for("fundingrecord.index_view", task_id=task.id))
         except Exception as ex:
             flash(f"Failed to load funding record file: {ex}", "danger")
@@ -1754,7 +1799,7 @@ def load_researcher_work():
         filename = secure_filename(form.file_.data.filename)
         try:
             task = WorkRecord.load_from_json(read_uploaded_file(form), filename=filename)
-            flash(f"Successfully loaded {task.work_record_count} rows.")
+            flash(f"Successfully loaded {task.record_count} rows.")
             return redirect(url_for("workrecord.index_view", task_id=task.id))
         except Exception as ex:
             flash(f"Failed to load work record file: {ex}", "danger")
@@ -1772,7 +1817,7 @@ def load_researcher_peer_review():
         filename = secure_filename(form.file_.data.filename)
         try:
             task = PeerReviewRecord.load_from_json(read_uploaded_file(form), filename=filename)
-            flash(f"Successfully loaded {task.peer_review_record_count} rows.")
+            flash(f"Successfully loaded {task.record_count} rows.")
             return redirect(url_for("peerreviewrecord.index_view", task_id=task.id))
         except Exception as ex:
             flash(f"Failed to load peer review record file: {ex}", "danger")
@@ -1839,7 +1884,7 @@ def register_org(org_name,
 
         try:
             org.save()
-        except Exception as ex:
+        except Exception:
             app.logger.exception("Failed to save organisation data")
             raise
 
@@ -1864,7 +1909,7 @@ def register_org(org_name,
 
         try:
             user.save()
-        except Exception as ex:
+        except Exception:
             app.logger.exception("Failed to save user data")
             raise
 
@@ -1874,7 +1919,7 @@ def register_org(org_name,
             try:
                 user.save()
                 org.save()
-            except Exception as ex:
+            except Exception:
                 app.logger.exception(
                     "Failed to assign the user as the technical contact to the organisation")
                 raise
@@ -1883,7 +1928,7 @@ def register_org(org_name,
             user_org.is_admin = True
             try:
                 user_org.save()
-            except Exception as ex:
+            except Exception:
                 app.logger.exception(
                     "Failed to assign the user as an administrator to the organisation")
                 raise
@@ -1913,7 +1958,7 @@ def register_org(org_name,
         org.is_email_sent = True
         try:
             org.save()
-        except Exception as ex:
+        except Exception:
             app.logger.exception("Failed to save organisation data")
             raise
 
@@ -2023,30 +2068,65 @@ def invite_user():
         resend = form.resend.data
         email = form.email_address.data.lower()
         affiliations = 0
+        invited_user = None
         if form.is_student.data:
             affiliations = Affiliation.EDU
         if form.is_employee.data:
             affiliations |= Affiliation.EMP
-        try:
-            ui = UserInvitation.get(org=org, email=email)
-            flash(
-                f"An invitation to affiliate with {org} had been already sent to {email} earlier "
-                f"at {isodate(ui.sent_at)}.", "warning" if resend else "danger")
-            if not form.resend.data:
-                break
-        except UserInvitation.DoesNotExist:
-            pass
 
-        ui = send_user_invitation(
-            current_user,
-            org,
-            email=email,
-            affiliations=affiliations,
-            **{f.name: f.data
-               for f in form},
-            cc_email=(current_user.name, current_user.email))
-        flash(f"An invitation to {ui.email} was {'resent' if resend else 'sent'} successfully.",
-              "success")
+        try:
+            invited_user = User.get(email=email)
+        except User.DoesNotExist:
+            pass
+        if (invited_user and OrcidToken.select().where(
+                    (OrcidToken.user_id == invited_user.id) & (OrcidToken.org_id == org.id) &
+                (OrcidToken.scope.contains("/activities/update"))).exists()):
+            try:
+                if affiliations & (Affiliation.EMP | Affiliation.EDU):
+                    api = orcid_client.MemberAPI(org, invited_user)
+                    params = {f.name: f.data for f in form if f.data != ""}
+                    for a in Affiliation:
+                        if a & affiliations:
+                            params["affiliation"] = a
+                            params["initial"] = False
+                            api.create_or_update_affiliation(**params)
+                    flash(
+                        f"The ORCID Hub was able to automatically write an affiliation with "
+                        f"{invited_user.organisation}, as the nature of the affiliation with {invited_user} "
+                        f"organisation does appear to include either Employment or Education.\n ",
+                        "success")
+                else:
+                    flash(
+                        f"The ORCID Hub was not able to automatically write an affiliation with "
+                        f"{invited_user.organisation}, as the nature of the affiliation with {invited_user} "
+                        f"organisation does not appear to include either Employment or Education.\n "
+                        f"Please select 'staff' or 'student' checkbox present on this page.", "warning")
+            except Exception as ex:
+                flash(f"Something went wrong: {ex}", "danger")
+                app.logger.exception("Failed to create affiliation record")
+        else:
+            try:
+                ui = UserInvitation.get(org=org, email=email)
+                flash(
+                    f"An invitation to affiliate with {org} had been already sent to {email} earlier "
+                    f"at {isodate(ui.sent_at)}.", "warning" if resend else "danger")
+                if not form.resend.data:
+                    break
+            except UserInvitation.DoesNotExist:
+                pass
+
+            inviter = current_user._get_current_object()
+            res = send_user_invitation.queue(
+                inviter.id,
+                org.id,
+                email=email,
+                affiliations=affiliations,
+                **{f.name: f.data
+                   for f in form},
+                cc_email=(current_user.name, current_user.email))
+            flash(
+                f"An invitation to {email} was {'resent' if resend else 'sent'} successfully (task id: {res}).",
+                "success")
         break
 
     return render_template("user_invitation.html", form=form)
@@ -2084,10 +2164,14 @@ def manage_email_template():
                 if form.email_template_enabled.data else default_template)
         elif form.save.data:
             # form.populate_obj(org)
-            org.email_template = form.email_template.data
-            org.email_template_enabled = form.email_template_enabled.data
-            org.save()
-            flash("Saved organisation email template'", "info")
+            if all(x in form.email_template.data for x in ['{MESSAGE}', '{INCLUDED_URL}']):
+                org.email_template = form.email_template.data
+                org.email_template_enabled = form.email_template_enabled.data
+                org.save()
+                flash("Saved organisation email template'", "info")
+            else:
+                flash("Are you sure? Without a {MESSAGE} or {INCLUDED_URL} "
+                      "your users will be unable to respond to your invitations.", "danger")
 
     return render_template("email_template.html", form=form)
 
@@ -2251,7 +2335,7 @@ def user_orgs(user_id, org_id=None):
 def user_orgs_org(user_id, org_id=None):
     """Add an organisation to the user.
 
-    Recieves:
+    Receives:
     {"id": N, "is_admin": true/false, "is_tech_contact": true/false, ...}
 
     Where: id - the organisation ID.
@@ -2270,15 +2354,20 @@ def user_orgs_org(user_id, org_id=None):
     if not org_id:
         org_id = data.get("id")
     if request.method == "DELETE":
-        UserOrg.delete().where((UserOrg.user_id == user_id) & (UserOrg.org_id == org_id)).execute()
+        UserOrg.delete().where(
+                (UserOrg.user_id == user_id) & (UserOrg.org_id == org_id)).execute()
         user = User.get(id=user_id)
+        if (user.roles & Role.ADMIN) and not user.admin_for.exists():
+            user.roles &= ~Role.ADMIN
+            user.save()
+            app.logger.info(f"Revoked ADMIN role from user {user}")
         if user.organisation_id == org_id:
             user.organisation_id = None
             user.save()
         return jsonify({
             "user-org": data,
             "status": "DELETED",
-        })
+        }), 204
     else:
         org = Organisation.get(id=org_id)
         uo, created = UserOrg.get_or_create(user_id=user_id, org_id=org_id)
@@ -2316,7 +2405,7 @@ def update_webhook(user_id):
         user = User.get(id=user_id)
         thread = Thread(target=handle_callback, kwargs=dict(user=user))
         thread.start()
-    except Exception as ex:
+    except Exception:
         app.logger.exception(f"Invalid user_id: {user_id}")
 
     return '', 204

@@ -22,8 +22,7 @@ import sys
 import datetime
 import time
 import logging
-import recommonmark
-from recommonmark.parser import CommonMarkParser
+import recommonmark.parser
 from recommonmark.transform import AutoStructify
 
 BUILD_DATE = datetime.datetime.utcfromtimestamp(int(os.environ.get('SOURCE_DATE_EPOCH', time.time())))
@@ -52,6 +51,7 @@ extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.doctest',
     'sphinx.ext.intersphinx',
+    "m2r",
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -60,10 +60,14 @@ templates_path = ['_templates']
 # The suffix(es) of source filenames.
 # You can specify multiple suffix as a list of string:
 #
-source_parsers = {
-    '.md': CommonMarkParser,
-}
-source_suffix = ['.rst', '.md']
+# source_parsers = {
+#     '.md': recommonmark.parser.CommonMarkParser,
+# }
+# source_suffix = {
+#     '.rst': 'restructuredtext',
+#     '.md': 'markdown',
+# }
+source_suffix = [".rst", ".md"]
 # source_suffix = '.rst'
 
 # The master toctree document.
@@ -202,11 +206,11 @@ texinfo_documents = [
 ]
 
 # this should be at the bottom of conf.py
-def setup(app):
-    app.add_config_value(
-        'recommonmark_config', {
-            'url_resolver': lambda url: github_doc_root + url,
-            'auto_toc_tree_section': 'Contents',
-        }, True)
-    app.add_transform(AutoStructify)
+# def setup(app):
+#     app.add_config_value(
+#         'recommonmark_config', {
+#             'url_resolver': lambda url: github_doc_root + url,
+#             'auto_toc_tree_section': 'Contents',
+#         }, True)
+#     app.add_transform(AutoStructify)
 

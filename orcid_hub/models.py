@@ -10,6 +10,7 @@ import re
 import secrets
 import string
 import uuid
+import validators
 from collections import namedtuple
 from datetime import datetime
 from hashlib import md5
@@ -27,13 +28,11 @@ from playhouse.shortcuts import model_to_dict
 from pycountry import countries
 from pykwalify.core import Core
 from pykwalify.errors import SchemaError
-
 from peewee_validates import ModelValidator
 
 from . import app, db
 from .config import DEFAULT_COUNTRY, ENV
 
-EMAIL_REGEX = re.compile(r"^[_a-z0-9-]+(\.[_a-z0-9-]+)*@[a-z0-9-]+(\.[a-z0-9-]+)*(\.[a-z]{2,4})$")
 ORCID_ID_REGEX = re.compile(r"^([X\d]{4}-?){3}[X\d]{4}$")
 PARTIAL_DATE_REGEX = re.compile(r"\d+([/\-]\d+){,2}")
 
@@ -73,6 +72,18 @@ def validate_orcid_id(value):
         check = (2 * check + int(10 if n == 'X' else n)) % 11
     if check != 1:
         raise ValueError(f"Invalid ORCID iD {value} checksum. Make sure you have entered correct ORCID iD.")
+
+
+def lazy_property(fn):
+    """Make a property lazy-evaluated."""
+    attr_name = '_lazy_' + fn.__name__
+
+    @property
+    def _lazy_property(self):
+        if not hasattr(self, attr_name):
+            setattr(self, attr_name, fn(self))
+        return getattr(self, attr_name)
+    return _lazy_property
 
 
 class PartialDate(namedtuple("PartialDate", ["year", "month", "day"])):
@@ -806,6 +817,8 @@ class UserOrgAffiliation(BaseModel, AuditMixin):
 
     user = ForeignKeyField(User)
     organisation = ForeignKeyField(Organisation, index=True, verbose_name="Organisation")
+    disambiguated_id = CharField(verbose_name="Disambiguation ORG Id", null=True)
+    disambiguation_source = CharField(verbose_name="Disambiguation ORG Source", null=True)
     name = TextField(null=True, verbose_name="Institution/employer")
     start_date = PartialDateField(null=True)
     end_date = PartialDateField(null=True)
@@ -857,10 +870,6 @@ class OrcidAuthorizeCall(BaseModel):
 class Task(BaseModel, AuditMixin):
     """Batch processing task created form CSV/TSV file."""
 
-    __record_count = None
-    __record_funding_count = None
-    __work_record_count = None
-    __peer_review_record_count = None
     org = ForeignKeyField(
         Organisation, index=True, verbose_name="Organisation", on_delete="SET NULL")
     completed_at = DateTimeField(null=True)
@@ -874,51 +883,43 @@ class Task(BaseModel, AuditMixin):
     expiry_email_sent_at = DateTimeField(null=True)
 
     def __repr__(self):
-        return self.filename or f"Task #{self.id}"
+        return self.filename or f"{TaskType(self.task_type).name.capitalize()} record processing task #{self.id}"
 
     @property
     def is_expiry_email_sent(self):
         """Test if the expiry email is sent ot not."""
         return bool(self.expiry_email_sent_at)
 
-    @property
+    @lazy_property
     def record_count(self):
         """Get count of the loaded recoreds."""
-        if self.__record_count is None:
-            self.__record_count = self.affiliationrecord_set.count()
-        return self.__record_count
+        return self.records.count()
 
     @property
-    def record_funding_count(self):
-        """Get count of the loaded funding records."""
-        if self.__record_funding_count is None:
-            self.__record_funding_count = self.funding_records.count()
-        return self.__record_funding_count
+    def record_model(self):
+        """Get record model class."""
+        _, models = self.records.get_query_meta()
+        model, = models.keys()
+        return model
+
+    @lazy_property
+    def records(self):
+        """Get all task record query."""
+        return getattr(self, TaskType(self.task_type).name.lower() + "_records")
 
     @property
-    def work_record_count(self):
-        """Get count of the loaded work records."""
-        if self.__work_record_count is None:
-            self.__work_record_count = self.work_record.count()
-        return self.__work_record_count
-
-    @property
-    def peer_review_record_count(self):
-        """Get count of the loaded peer review records."""
-        if self.__peer_review_record_count is None:
-            self.__peer_review_record_count = self.peer_review_record.count()
-        return self.__peer_review_record_count
+    def error_count(self):
+        """Get error count encountered during processing batch task."""
+        q = self.records
+        _, models = q.get_query_meta()
+        model, = models.keys()
+        return self.records.where(self.record_model.status ** "%error%").count()
 
     @classmethod
     def load_from_csv(cls, source, filename=None, org=None):
         """Load affiliation record data from CSV/TSV file or a string."""
         if isinstance(source, str):
-            if '\n' in source:
-                source = StringIO(source)
-            else:
-                source = open(source)
-                if filename is None:
-                    filename = source
+            source = StringIO(source)
         reader = csv.reader(source)
         header = next(reader)
         if filename is None:
@@ -984,7 +985,8 @@ class Task(BaseModel, AuditMixin):
                     email = val(row, 2, "").lower()
                     orcid = val(row, 15)
                     external_id = val(row, 16)
-                    if not email and not orcid and external_id and EMAIL_REGEX.match(external_id):
+
+                    if not email and not orcid and external_id and validators.email(external_id):
                         # if email is missing and exernal ID is given as a valid email, use it:
                         email = external_id
 
@@ -1007,7 +1009,7 @@ class Task(BaseModel, AuditMixin):
                     if orcid:
                         validate_orcid_id(orcid)
 
-                    if not email or not EMAIL_REGEX.match(email):
+                    if not email or not validators.email(email):
                         raise ValueError(
                             f"Invalid email address '{email}'  in the row #{row_no+2}: {row}")
 
@@ -1032,7 +1034,7 @@ class Task(BaseModel, AuditMixin):
                         affiliation_type=affiliation_type,
                         country=country,
                         disambiguated_id=val(row, 12),
-                        disambiguated_source=val(row, 13),
+                        disambiguation_source=val(row, 13),
                         put_code=val(row, 14),
                         orcid=orcid,
                         external_id=external_id)
@@ -1040,9 +1042,9 @@ class Task(BaseModel, AuditMixin):
                     if not validator.validate():
                         raise ModelException(f"Invalid record: {validator.errors}")
                     af.save()
-            except Exception as ex:
+            except Exception:
                 db.rollback()
-                app.logger.exception("Failed to laod affiliation file.")
+                app.logger.exception("Failed to load affiliation file.")
                 raise
 
         return task
@@ -1144,7 +1146,7 @@ class AffiliationRecord(RecordModel):
 
     is_active = BooleanField(
         default=False, help_text="The record is marked 'active' for batch processing", null=True)
-    task = ForeignKeyField(Task, on_delete="CASCADE")
+    task = ForeignKeyField(Task, related_name="affiliation_records", on_delete="CASCADE")
     put_code = IntegerField(null=True)
     external_id = CharField(
         max_length=100,
@@ -1169,7 +1171,7 @@ class AffiliationRecord(RecordModel):
     country = CharField(null=True, verbose_name="Country", max_length=2)
     disambiguated_id = CharField(
         null=True, max_length=20, verbose_name="Disambiguated Organization Identifier")
-    disambiguated_source = CharField(
+    disambiguation_source = CharField(
         null=True, max_length=100, verbose_name="Disambiguation Source")
 
     class Meta:  # noqa: D101,D106
@@ -1178,11 +1180,7 @@ class AffiliationRecord(RecordModel):
 
 
 class TaskType(IntFlag):
-    """
-    Enum used to represent Task type.
-
-    The model provide multi role support representing role sets as bitmaps.
-    """
+    """Enum used to represent Task type."""
 
     AFFILIATION = 0  # Affilation of employment/education
     FUNDING = 1  # Funding
@@ -1192,7 +1190,9 @@ class TaskType(IntFlag):
     def __eq__(self, other):
         if isinstance(other, TaskType):
             return self.value == other.value
-        return (self.name == other or self.name == getattr(other, 'name', None))
+        elif isinstance(other, int):
+            return self.value == other
+        return (self.name == other or self.name == getattr(other, "name", None))
 
     def __hash__(self):
         return hash(self.name)
@@ -1343,9 +1343,9 @@ class FundingRecord(RecordModel):
                         raise SchemaError(u"Schema validation failed:\n - An external identifier is required")
                 return task
 
-            except Exception as ex:
+            except Exception:
                 db.rollback()
-                app.logger.exception("Failed to laod affiliation file.")
+                app.logger.exception("Failed to load funding file.")
                 raise
 
     class Meta:  # noqa: D101,D106
@@ -1356,7 +1356,7 @@ class FundingRecord(RecordModel):
 class PeerReviewRecord(RecordModel):
     """Peer Review record loaded from Json file for batch processing."""
 
-    task = ForeignKeyField(Task, related_name="peer_review_record", on_delete="CASCADE")
+    task = ForeignKeyField(Task, related_name="peer_review_records", on_delete="CASCADE")
     review_group_id = CharField(max_length=255)
     reviewer_role = CharField(null=True, max_length=255)
     review_url = CharField(null=True, max_length=255)
@@ -1563,9 +1563,9 @@ class PeerReviewRecord(RecordModel):
                         raise SchemaError(u"Schema validation failed:\n - An external identifier is required")
 
                 return task
-            except Exception as ex:
+            except Exception:
                 db.rollback()
-                app.logger.exception("Failed to laod affiliation file.")
+                app.logger.exception("Failed to load peer review file.")
                 raise
 
     class Meta:  # noqa: D101,D106
@@ -1576,7 +1576,7 @@ class PeerReviewRecord(RecordModel):
 class WorkRecord(RecordModel):
     """Work record loaded from Json file for batch processing."""
 
-    task = ForeignKeyField(Task, related_name="work_record", on_delete="CASCADE")
+    task = ForeignKeyField(Task, related_name="work_records", on_delete="CASCADE")
     title = CharField(max_length=255)
     sub_title = CharField(null=True, max_length=255)
     translated_title = CharField(null=True, max_length=255)
@@ -1721,9 +1721,9 @@ class WorkRecord(RecordModel):
                         raise SchemaError(u"Schema validation failed:\n - An external identifier is required")
 
                 return task
-            except Exception as ex:
+            except Exception:
                 db.rollback()
-                app.logger.exception("Failed to laod affiliation file.")
+                app.logger.exception("Failed to load work record file.")
                 raise
 
     class Meta:  # noqa: D101,D106
@@ -2149,10 +2149,10 @@ def del_none(d):
     return d
 
 
-def get_val(d, *keys):
+def get_val(d, *keys, default=None):
     """To get the value from uploaded fields."""
     for k in keys:
         if not d:
             break
-        d = d.get(k)
+        d = d.get(k, default)
     return d

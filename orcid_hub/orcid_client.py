@@ -90,7 +90,7 @@ class MemberAPI(MemberAPIV20Api):
                     user_id=user.id,
                     org_id=org.id,
                     scope=SCOPE_READ_LIMITED[0] + "," + SCOPE_ACTIVITIES_UPDATE[0])
-            except Exception as ex:
+            except Exception:
                 app.logger.exception("Exception occured while retriving ORCID Token")
                 return None
 
@@ -134,7 +134,7 @@ class MemberAPI(MemberAPIV20Api):
                         org_id=self.org.id,
                         scope=SCOPE_READ_LIMITED[0] + "," + SCOPE_ACTIVITIES_UPDATE[0])
                     orcid_token.delete_instance()
-                except Exception as ex:
+                except Exception:
                     app.logger.exception("Exception occured while retriving ORCID Token")
                     return None
             app.logger.error(f"ApiException Occured: {ex}")
@@ -685,6 +685,7 @@ class MemberAPI(MemberAPIV20Api):
             self,
             affiliation=None,
             role=None,
+            course_or_role=None,
             department=None,
             org_name=None,
             # NB! affiliation_record has 'organisation' field for organisation name
@@ -733,9 +734,12 @@ class MemberAPI(MemberAPIV20Api):
             country=country or self.org.country,
             region=state or region or self.org.state)
 
+        disambiguation_source = (lambda source: source.upper() if source else source)(
+            disambiguation_source or self.org.disambiguation_source)
+
         disambiguated_organization_details = DisambiguatedOrganization(
             disambiguated_organization_identifier=disambiguated_id or self.org.disambiguated_id,
-            disambiguation_source=disambiguation_source or self.org.disambiguation_source)
+            disambiguation_source=disambiguation_source) if disambiguation_source and disambiguated_id else None
 
         if affiliation == Affiliation.EMP:
             rec = Employment()
@@ -758,7 +762,7 @@ class MemberAPI(MemberAPIV20Api):
             rec.put_code = put_code
 
         rec.department_name = department
-        rec.role_title = role
+        rec.role_title = role or course_or_role
 
         if start_date:
             rec.start_date = start_date.as_orcid_dict()

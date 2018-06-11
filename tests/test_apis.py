@@ -329,10 +329,9 @@ def test_user_and_token_api(app_req_ctx, resource, version):
             f"/api/{version}/{resource}/{org2_user.email}",
             headers=dict(authorization="Bearer TEST")) as ctx:
         rv = ctx.app.full_dispatch_request()
-        assert rv.status_code == 403
+        assert rv.status_code == 404
         data = json.loads(rv.data)
         assert "error" in data
-        assert "Access Denied" in data["error"]
 
 
 @pytest.mark.parametrize("url", [
@@ -681,7 +680,7 @@ records:
     assert len(data["records"]) == 3
     task_id = data["id"]
     task = Task.get(id=task_id)
-    assert task.affiliationrecord_set.count() == 3
+    assert task.affiliation_records.count() == 3
 
 
 def test_proxy_get_profile(app_req_ctx):
