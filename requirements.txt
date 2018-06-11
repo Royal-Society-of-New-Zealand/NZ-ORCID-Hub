@@ -28,7 +28,8 @@ flask-swagger
 flask-restful
 jsonschema>=2.6.0,<3.0.0
 validators
-rq
+croniter==0.3.20
+rq==0.10.0
 rq-scheduler
 Flask-RQ2
 Flask-RQ2[cli]
