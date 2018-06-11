@@ -554,7 +554,7 @@ class RecordModelView(AppModelView):
     )
     can_edit = True
     can_create = False
-    can_delete = False
+    can_delete = True
     can_view_details = True
     can_export = True
 
