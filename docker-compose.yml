@@ -32,7 +32,6 @@ services:
       - TOKEN_PASSWORD_SALT
       - MAIL_DEFAULT_SENDER
       - TOKEN_SECRET_KEY
-      - DATABASE_URL
       - SECRET_KEY
       - ORCID_CLIENT_ID
       - ORCID_CLIENT_SECRET

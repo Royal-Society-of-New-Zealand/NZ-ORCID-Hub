@@ -1,7 +1,7 @@
 """HUB API."""
 
 from datetime import datetime
-from urllib.parse import unquote
+from urllib.parse import unquote, urlencode
 
 import jsonschema
 import requests
@@ -11,19 +11,15 @@ from flask import (Response, abort, current_app, jsonify, make_response, render_
                    stream_with_context, url_for)
 from flask.views import MethodView
 from flask_login import current_user, login_user
-from flask_peewee.rest import RestResource
-from flask_peewee.utils import slugify
-from flask_peewee_swagger.swagger import Swagger
 from flask_restful import Resource, reqparse
 from flask_swagger import swagger
-from werkzeug.exceptions import NotFound
 from yaml.dumper import Dumper
 from yaml.representer import SafeRepresenter
 
-from . import api, app, data_api, db, models, oauth
+from . import api, app, db, models, oauth
 from .login_provider import roles_required
-from .models import (ORCID_ID_REGEX, AffiliationRecord, OrcidToken, PartialDate, Role, Task, TaskType,
-                     User, UserOrg, validate_orcid_id)
+from .models import (ORCID_ID_REGEX, AffiliationRecord, Client, OrcidToken, PartialDate, Role,
+                     Task, TaskType, User, UserOrg, validate_orcid_id)
 from .schemas import affiliation_task_schema
 from .utils import is_valid_url, register_orcid_webhook
 
@@ -37,89 +33,8 @@ def prefers_yaml():
     ] and request.accept_mimetypes[best] > request.accept_mimetypes["application/json"])
 
 
-class AppRestResource(RestResource):
-    """Application REST Resource."""
-
-    allowed_methods = ["GET", "PATCH", "POST", "PUT", "DELETE"]
-
-    def get_api_name(self):
-        """Pluralize the name based on the model."""
-        return slugify(self.model.__name__ + 's')
-
-    def response_forbidden(self):  # pragma: no cover
-        """Handle denied access. Return both status code and an error message."""
-        return jsonify({"error": 'Forbidden'}), 403
-
-    def response_bad_method(self):  # pragma: no cover
-        """Handle ivalid method ivokation. Return both status code and an error message."""
-        return jsonify({"error": f'Unsupported method "{request.method}"'}), 405
-
-    def response_bad_request(self):  # pragma: no cover
-        """Handle 'bad request'. Return both status code and an error message."""
-        return jsonify({"error": 'Bad request'}), 400
-
-    def api_detail(self, pk, method=None):
-        """Handle 'data not found'. Return both status code and an error message."""
-        try:
-            return super().api_detail(pk, method)
-        except NotFound:  # pragma: no cover
-            return jsonify({"error": 'Not found'}), 404
-
-    def check_get(self, obj=None):
-        """Pre-authorizing a GET request."""
-        return True
-
-    def check_post(self, obj=None):  # pragma: no cover
-        """Pre-authorizing a POST request."""
-        return True
-
-    def check_put(self, obj):  # pragma: no cover
-        """Pre-authorizing a PUT request."""
-        return True
-
-    def check_delete(self, obj):  # pragma: no cover
-        """Pre-authorizing a DELETE request."""
-        return True
-
-
-class UserResource(AppRestResource):
-    """User resource."""
-
-    exclude = (
-        "password",
-        "email",
-    )
-
-
-data_api.register(models.Organisation, AppRestResource)
-data_api.register(models.Task, AppRestResource)
-data_api.register(models.User, UserResource)
-data_api.setup()
-
-
-common_spec = {
-    "security": [{
-        "application": ["read", "write"]
-    }],
-    "securityDefinitions": {
-        "application": {
-            "flow": "application",
-            "scopes": {
-                "read": "allows reading resources",
-                "write": "allows modifying resources"
-            },
-            "tokenUrl": "/oauth/token",
-            "type": "oauth2"
-        }
-    },
-}
-
-data_api_swagger = Swagger(data_api, swagger_version="2.0", extras=common_spec)
-data_api_swagger.setup()
-
-
 @app.route('/api/me')
-@app.route("/api/v0.1/me")
+@app.route("/api/v1.0/me")
 @oauth.require_oauth()
 def me():
     """Get the token user data."""
@@ -159,6 +74,68 @@ class AppResource(Resource):
     def is_yaml_request(self):
         """Test if the requst body content type is YAML."""
         return request.content_type in ["text/yaml", "application/x-yaml"]
+
+
+def changed_path(name, value):
+    """Create query stirng with a new paremeter value."""
+    link = request.path
+    if request.args:
+        link += '&' + urlencode(
+            {k: v if k != name else value
+                for k, v in request.args.items()})
+    return link
+
+
+class AppResourceList(AppResource):
+    """Resource list resource with helpers for pagination."""
+
+    @models.lazy_property
+    def page(self):
+        """Get the curretn queried page."""
+        try:
+            return int(request.args.get("page", 1))
+        except:
+            return 1
+
+    @models.lazy_property
+    def page_size(self):  # noqa: D402
+        """Get the curretn query page size, default: 20."""
+        try:
+            return int(request.args.get("page_size", 20))
+        except:
+            return 20
+
+    @models.lazy_property
+    def next_link(self):
+        """Get the next page link of the requsted resource."""
+        return changed_path("page", self.page + 1)
+
+    @models.lazy_property
+    def previous_link(self):
+        """Get the previous page link of the requsted resource."""
+        if self.page <= 1:
+            return
+        return changed_path("page", self.page - 1)
+
+    @models.lazy_property
+    def first_link(self):
+        """Get the first page link of the requsted resource."""
+        return changed_path("page", 1)
+
+    def api_response(self, query, exclude=None):
+        """Create and return API response with pagination likns."""
+        query = query.paginate(self.page, self.page_size)
+        records = [r.to_dict(recurse=False, to_dashes=True, exclude=exclude) for r in query]
+        resp = yamlfy(records) if prefers_yaml() else jsonify(records)
+        resp.headers["Pagination-Page"] = self.page
+        resp.headers["Pagination-Page-Size"] = self.page_size
+        resp.headers["Pagination-Count"] = len(records)
+        resp.headers["Link"] = f'<{request.full_path}>;rel="self"'
+        if self.previous_link:
+            resp.headers["Link"] += f', <{self.previous_link}>;rel="prev"'
+        if len(records) == self.page_size and self.next_link:
+            resp.headers["Link"] += f', <{self.next_link}>;rel="next"'
+        return resp
 
 
 class TaskResource(AppResource):
@@ -295,7 +272,7 @@ class TaskResource(AppResource):
         return self.jsonify_task(task)
 
 
-class TaskList(TaskResource):
+class TaskList(TaskResource, AppResourceList):
     """Task list services."""
 
     def get(self, *args, **kwargs):
@@ -310,31 +287,61 @@ class TaskList(TaskResource):
         produces:
           - "application/json"
           - "text/yaml"
+        definitions:
+        - schema:
+            id: Task
+            properties:
+              id:
+                type: integer
+                format: int64
+              filename:
+                type: string
+              task-type:
+                type: string
+                enum:
+                - AFFILIATION
+                - FUNDING
+              created-at:
+                type: string
+                format: date-time
+              expires-at:
+                type: string
+                format: date-time
+              completed-at:
+                type: string
+                format: date-time
         parameters:
           - name: "type"
             in: "path"
             description: "The task type: AFFILIATION, FUNDING."
             required: false
             type: "string"
+          - in: query
+            name: page
+            description: The number of the page of retrievd data starting counting from 1
+            type: integer
+            minimum: 0
+            default: 1
+          - in: query
+            name: page_size
+            description: The size of the data page
+            type: integer
+            minimum: 0
+            default: 20
         responses:
           200:
             description: "successful operation"
-            schema:
-              id: TaskListApiResponse
-              type: array
-              items:
-                type: object
+            type: array
+            items:
+              type: object
+              $ref: "#/definitions/Task"
           403:
             description: "Access Denied"
         """
-        tasks = [
-                t.to_dict(
-                    recurse=False,
-                    to_dashes=True,
-                    exclude=[Task.created_by, Task.updated_by, Task.org, Task.task_type])
-                for t in Task.select().where(Task.org_id == current_user.organisation_id)
-        ]
-        return yamlfy(tasks) if prefers_yaml() else jsonify(tasks)
+        login_user(request.oauth.user)
+        return self.api_response(
+            Task.select().where(Task.org_id == current_user.organisation_id),
+            exclude=[Task.created_by, Task.updated_by, Task.org])
 
 
 class AffiliationListAPI(TaskResource):
@@ -649,12 +656,12 @@ class AffiliationAPI(TaskResource):
         return self.jsonify_task(task_id)
 
 
-api.add_resource(TaskList, "/api/v0.1/tasks")
-api.add_resource(AffiliationListAPI, "/api/v0.1/affiliations")
-api.add_resource(AffiliationAPI, "/api/v0.1/affiliations/<int:task_id>")
+api.add_resource(TaskList, "/api/v1.0/tasks")
+api.add_resource(AffiliationListAPI, "/api/v1.0/affiliations")
+api.add_resource(AffiliationAPI, "/api/v1.0/affiliations/<int:task_id>")
 
 
-class UserListAPI(AppResource):
+class UserListAPI(AppResourceList):
     """User list data service."""
 
     def get(self):
@@ -673,32 +680,42 @@ class UserListAPI(AppResource):
             name: from_date
             type: string
             minimum: 0
-            description: the date starting from which user accounts were created and/or updated.
+            description: The date starting from which user accounts were created and/or updated.
           - in: query
             name: to_date
             type: string
             minimum: 0
-            description: the date until which user accounts were created and/or updated.
+            description: The date until which user accounts were created and/or updated.
+          - in: query
+            name: page
+            type: integer
+            minimum: 0
+            default: 1
+            description: The number of the page of retrievd data starting counting from 1
+          - in: query
+            name: page_size
+            type: integer
+            minimum: 0
+            default: 20
+            description: The size of the data page
         responses:
           200:
             description: "successful operation"
             schema:
               id: UserListApiResponse
-              properties:
-                users:
-                  type: array
-                  items:
-                    type: "object"
-                    properties:
-                      name:
-                        type: string
-                      orcid:
-                        type: "string"
-                        description: "User ORCID ID"
-                      email:
-                        type: "string"
-                      eppn:
-                        type: "string"
+              type: array
+              items:
+                type: "object"
+                properties:
+                  name:
+                    type: string
+                  orcid:
+                    type: "string"
+                    description: "User ORCID ID"
+                  email:
+                    type: "string"
+                  eppn:
+                    type: "string"
           403:
             description: "Access Denied"
           422:
@@ -721,10 +738,10 @@ class UserListAPI(AppResource):
                 users = users.where((User.created_at >= v) | (User.updated_at >= v))
             else:
                 users = users.where((User.created_at <= v) & (User.updated_at <= v))
-        return jsonify({"users": [u.to_dict(recurse=False, to_dashes=True) for u in users]})
+        return self.api_response(users)
 
 
-api.add_resource(UserListAPI, "/api/v0.1/users")
+api.add_resource(UserListAPI, "/api/v1.0/users")
 
 
 class UserAPI(AppResource):
@@ -744,7 +761,7 @@ class UserAPI(AppResource):
         parameters:
           - name: "identifier"
             in: "path"
-            description: "The name that needs to be fetched. Use user1 for testing. "
+            description: "The unique identifier (email, ORCID iD, or eppn)"
             required: true
             type: "string"
         responses:
@@ -753,19 +770,14 @@ class UserAPI(AppResource):
             schema:
               id: UserApiResponse
               properties:
-                found:
-                  type: "boolean"
-                result:
-                  type: "object"
-                  properties:
-                    orcid:
-                      type: "string"
-                      format: "^[0-9]{4}-?[0-9]{4}-?[0-9]{4}-?[0-9]{4}$"
-                      description: "User ORCID ID"
-                    email:
-                      type: "string"
-                    eppn:
-                      type: "string"
+                orcid:
+                  type: "string"
+                  format: "^[0-9]{4}-?[0-9]{4}-?[0-9]{4}-?[0-9]{4}$"
+                  description: "User ORCID ID"
+                email:
+                  type: "string"
+                eppn:
+                  type: "string"
           400:
             description: "Invalid identifier supplied"
           404:
@@ -793,16 +805,13 @@ class UserAPI(AppResource):
             }), 404
 
         return jsonify({
-            "found": True,
-            "result": {
-                "orcid": user.orcid,
-                "email": user.email,
-                "eppn": user.eppn
-            }
+            "orcid": user.orcid,
+            "email": user.email,
+            "eppn": user.eppn,
         }), 200
 
 
-api.add_resource(UserAPI, "/api/v0.1/users/<identifier>")
+api.add_resource(UserAPI, "/api/v1.0/users/<identifier>")
 
 
 class TokenAPI(MethodView):
@@ -835,24 +844,19 @@ class TokenAPI(MethodView):
             schema:
               id: OrcidToken
               properties:
-                found:
-                  type: "boolean"
-                token:
-                  type: "object"
-                  properties:
-                    access_token:
-                      type: "string"
-                      description: "ORCID API user profile access token"
-                    refresh_token:
-                      type: "string"
-                      description: "ORCID API user profile refresh token"
-                    scopes:
-                      type: "string"
-                      description: "ORCID API user token scopes"
-                    issue_time:
-                      type: "string"
-                    expires_in:
-                      type: "integer"
+                access_token:
+                  type: "string"
+                  description: "ORCID API user profile access token"
+                refresh_token:
+                  type: "string"
+                  description: "ORCID API user profile refresh token"
+                scopes:
+                  type: "string"
+                  description: "ORCID API user token scopes"
+                issue_time:
+                  type: "string"
+                expires_in:
+                  type: "integer"
           400:
             description: "Invalid identifier supplied"
           403:
@@ -892,18 +896,15 @@ class TokenAPI(MethodView):
             }), 404
 
         return jsonify({
-            "found": True,
-            "token": {
-                "access_token": token.access_token,
-                "refresh_token": token.refresh_token,
-                "issue_time": token.issue_time.isoformat(),
-                "expires_in": token.expires_in
-            }
+            "access_token": token.access_token,
+            "refresh_token": token.refresh_token,
+            "issue_time": token.issue_time.isoformat(),
+            "expires_in": token.expires_in,
         }), 200
 
 
 app.add_url_rule(
-    "/api/v0.1/tokens/<identifier>", view_func=TokenAPI.as_view("tokens"), methods=[
+    "/api/v1.0/tokens/<identifier>", view_func=TokenAPI.as_view("tokens"), methods=[
         "GET",
     ])
 
@@ -911,9 +912,9 @@ app.add_url_rule(
 def get_spec(app):
     """Build API swagger scecifiction."""
     swag = swagger(app)
-    swag["info"]["version"] = "0.1"
+    swag["info"]["version"] = "1.0"
     swag["info"]["title"] = "ORCID HUB API"
-    # swag["basePath"] = "/api/v0.1"
+    # swag["basePath"] = "/api/v1.0"
     swag["host"] = request.host  # "dev.orcidhub.org.nz"
     swag["consumes"] = [
         "application/json",
@@ -975,20 +976,12 @@ def spec():
         return jsonify(swag)
 
 
-@app.route("/api-docs/")
-@roles_required(Role.TECHNICAL)
+@app.route("/api-docs")
+@roles_required(Role.TECHNICAL, Role.SUPERUSER)
 def api_docs():
-    """Show Swagger UI for the latest/current Hub API."""
-    url = request.args.get("url", url_for("spec", _external=True))
-    return render_template("swaggerui.html", url=url)
-
-
-@app.route("/db-api-docs/")
-@roles_required(Role.SUPERUSER)
-def db_api_docs():
-    """Show Swagger UI for the latest/current Hub DB API."""
-    url = request.args.get("url", url_for("Swagger.model_resources", _external=True))
-    return render_template("swaggerui.html", url=url)
+    """Show Swagger UI for the latest/current Hub API and Data API."""
+    client = Client.select().where(Client.org == current_user.organisation).first()
+    return render_template("swaggerui.html", client=client)
 
 
 class SafeRepresenterWithISODate(SafeRepresenter):
@@ -1061,7 +1054,7 @@ def orcid_proxy(path=None):
     return proxy_resp
 
 
-@app.route("/api/v0.1/<string:orcid>/webhook/<path:callback_url>", methods=["PUT", "DELETE"])
+@app.route("/api/v1.0/<string:orcid>/webhook/<path:callback_url>", methods=["PUT", "DELETE"])
 @oauth.require_oauth()
 def register_webhook(orcid, callback_url=None):
     """Handle webhook registration for an individual user with direct client call-back."""
