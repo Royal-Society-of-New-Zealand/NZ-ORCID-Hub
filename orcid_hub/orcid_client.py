@@ -739,7 +739,7 @@ class MemberAPI(MemberAPIV20Api):
 
         disambiguated_organization_details = DisambiguatedOrganization(
             disambiguated_organization_identifier=disambiguated_id or self.org.disambiguated_id,
-            disambiguation_source=disambiguation_source)
+            disambiguation_source=disambiguation_source) if disambiguation_source and disambiguated_id else None
 
         if affiliation == Affiliation.EMP:
             rec = Employment()
