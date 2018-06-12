@@ -219,35 +219,12 @@ def test_tuakiri_login_by_techical_contact_organisation_not_onboarded(client):
 def test_confirmation_token(app):
     """Test generate_confirmation_token and confirm_token."""
     app.config['SECRET_KEY'] = "SECRET"
-    app.config['SALT'] = "SALT"
     token = utils.generate_confirmation_token("TEST@ORGANISATION.COM")
     assert utils.confirm_token(token) == "TEST@ORGANISATION.COM"
 
-    app.config['SECRET_KEY'] = "SECRET"
-    app.config['SALT'] = "COMPROMISED SALT"
-    with pytest.raises(Exception) as ex_info:
-        utils.confirm_token(token)
-    # Got exception
-    assert "does not match" in ex_info.value.message
-
     app.config['SECRET_KEY'] = "COMPROMISED SECRET"
-    app.config['SALT'] = "SALT"
     with pytest.raises(Exception) as ex_info:
         utils.confirm_token(token)
-    # Got exception
-    assert "does not match" in ex_info.value.message
-
-    app.config['SECRET_KEY'] = "COMPROMISED SECRET"
-    app.config['SALT'] = "COMPROMISED SALT"
-    with pytest.raises(Exception) as ex_info:
-        utils.confirm_token(token)
-    # Got exception
-    assert "does not match" in ex_info.value.message
-
-    app.config['SECRET_KEY'] = "COMPROMISED"
-    app.config['SALT'] = "COMPROMISED"
-    with pytest.raises(Exception) as ex_info:
-        utils.confirm_token(token, 0)
     # Got exception
     assert "does not match" in ex_info.value.message
 

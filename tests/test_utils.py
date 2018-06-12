@@ -40,16 +40,23 @@ def test_append_qs():
 
 def test_generate_confirmation_token():
     """Test to generate confirmation token."""
-    token = utils.generate_confirmation_token(["testemail@example.com"], expiration=1)
+    token = utils.generate_confirmation_token(["testemail@example.com"], expiration=0.00001)
     data = utils.confirm_token(token)
     # Test positive testcase
     assert 'testemail@example.com' == data[0]
     import time
-    time.sleep(2)
+    time.sleep(1)
     with pytest.raises(Exception) as ex_info:
         utils.confirm_token(token)
     # Got exception
     assert "Signature expired" in ex_info.value.message
+
+    _salt = utils.app.config["SALT"]
+    utils.app.config["SALT"] = None
+    token = utils.generate_confirmation_token(["testemail123@example.com"])
+    utils.app.config["SALT"] = _salt
+    data = utils.confirm_token(token)
+    assert 'testemail123@example.com' == data[0]
 
 
 def test_track_event(request_ctx):

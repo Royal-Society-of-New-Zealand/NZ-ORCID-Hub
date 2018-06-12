@@ -2074,10 +2074,7 @@ def invite_user():
         if form.is_employee.data:
             affiliations |= Affiliation.EMP
 
-        try:
-            invited_user = User.get(email=email)
-        except User.DoesNotExist:
-            pass
+        invited_user = User.select().where(User.email == email).first()
         if (invited_user and OrcidToken.select().where(
                     (OrcidToken.user_id == invited_user.id) & (OrcidToken.org_id == org.id) &
                 (OrcidToken.scope.contains("/activities/update"))).exists()):
@@ -2116,7 +2113,7 @@ def invite_user():
                 pass
 
             inviter = current_user._get_current_object()
-            res = send_user_invitation.queue(
+            job = send_user_invitation.queue(
                 inviter.id,
                 org.id,
                 email=email,
@@ -2125,7 +2122,7 @@ def invite_user():
                    for f in form},
                 cc_email=(current_user.name, current_user.email))
             flash(
-                f"An invitation to {email} was {'resent' if resend else 'sent'} successfully (task id: {res}).",
+                f"An invitation to {email} was {'resent' if resend else 'sent'} successfully (task id: {job.id}).",
                 "success")
         break
 

@@ -81,7 +81,7 @@ services:
     depends_on:
       - redis
       - db
-    command: "./flask.sh rq scheduler"
+    command: "./flask.sh rq scheduler -v"
     environment:
       - ENV
       - MAIL_DEFAULT_SENDER
