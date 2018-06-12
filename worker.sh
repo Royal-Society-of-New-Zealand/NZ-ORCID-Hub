@@ -7,4 +7,4 @@ export PYTHONPATH=$DIR
 export FLASK_APP=orcid_hub
 export LANG=en_US.UTF-8
 
-exec flask $@
+exec flask rq worker -n $RANDOM $@
