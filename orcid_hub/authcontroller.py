@@ -845,7 +845,7 @@ def orcid_login(invitation_token=None):
 
     except SignatureExpired:
         with suppress(Exception):
-            data = confirm_token(invitation_token, unsafe=True)
+            _, data = confirm_token(invitation_token, unsafe=True)
 
             if isinstance(data, str):
                 user_email, user_org_name = data[1].split(';')
