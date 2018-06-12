@@ -14,7 +14,7 @@ import requests
 from flask import request, url_for
 from flask_login import current_user
 from html2text import html2text
-from itsdangerous import TimedJSONWebSignatureSerializer
+from itsdangerous import BadSignature, TimedJSONWebSignatureSerializer
 from peewee import JOIN
 
 from . import app, orcid_client, rq
@@ -162,11 +162,10 @@ def generate_confirmation_token(*args, expiration=1300000, **kwargs):
     Invitation Token Expiry for Admins is 15 days, whereas for researchers the token expiry is of 30 days.
     """
     serializer = TimedJSONWebSignatureSerializer(app.config["SECRET_KEY"], expires_in=expiration)
-    salt = app.config["SALT"]
     if len(kwargs) == 0:
-        return serializer.dumps(args[0] if len(args) == 1 else args, salt=salt)
+        return serializer.dumps(args[0] if len(args) == 1 else args)
     else:
-        return serializer.dumps(kwargs.values()[0] if len(kwargs) == 1 else kwargs, salt=salt)
+        return serializer.dumps(kwargs.values()[0] if len(kwargs) == 1 else kwargs)
 
 
 def confirm_token(token, unsafe=False):
@@ -175,7 +174,10 @@ def confirm_token(token, unsafe=False):
     if unsafe:
         data = serializer.loads_unsafe(token)
     else:
-        data = serializer.loads(token, salt=app.config["SALT"])
+        try:
+            data = serializer.loads(token, salt=app.config["SALT"])
+        except BadSignature:  # try again w/o the global salt
+            data = serializer.loads(token, salt=None)
     return data
 
 

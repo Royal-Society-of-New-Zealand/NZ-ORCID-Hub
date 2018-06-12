@@ -20,7 +20,6 @@ flask-login
 Flask-WTF
 flask-peewee==0.6.7
 Flask-OAuthlib
-raven
 raven[flask]
 flask-peewee-swagger>=1.1.5
 flask-limiter>=1.0.0,<2.0.0
@@ -31,7 +30,6 @@ validators
 croniter==0.3.20
 rq==0.10.0
 rq-scheduler
-Flask-RQ2
 Flask-RQ2[cli]
 rq-dashboard
 # dramatiq[redis, watch]
