@@ -1388,8 +1388,6 @@ class PeerReviewRecord(RecordModel):
     convening_org_country = CharField(null=True, max_length=255)
     convening_org_disambiguated_identifier = CharField(null=True, max_length=255)
     convening_org_disambiguation_source = CharField(null=True, max_length=255)
-    visibility = CharField(null=True, max_length=100)
-
     is_active = BooleanField(
         default=False, help_text="The record is marked for batch processing", null=True)
     processed_at = DateTimeField(null=True)
@@ -1502,8 +1500,6 @@ class PeerReviewRecord(RecordModel):
                         "convening-organization") and peer_review_data.get("convening-organization").get(
                         "disambiguated-organization") else None
 
-                    visibility = peer_review_data.get("visibility") if peer_review_data.get("visibility") else None
-
                     peer_review_record = PeerReviewRecord.create(
                         task=task,
                         review_group_id=review_group_id,
@@ -1527,8 +1523,7 @@ class PeerReviewRecord(RecordModel):
                         convening_org_region=convening_org_region,
                         convening_org_country=convening_org_country,
                         convening_org_disambiguated_identifier=convening_org_disambiguated_identifier,
-                        convening_org_disambiguation_source=convening_org_disambiguation_source,
-                        visibility=visibility)
+                        convening_org_disambiguation_source=convening_org_disambiguation_source)
 
                     invitees_list = peer_review_data.get("invitees") if peer_review_data.get("invitees") else None
 
@@ -1540,6 +1535,7 @@ class PeerReviewRecord(RecordModel):
                             last_name = invitee.get("last-name") if invitee.get("last-name") else None
                             orcid_id = invitee.get("ORCID-iD") if invitee.get("ORCID-iD") else None
                             put_code = invitee.get("put-code") if invitee.get("put-code") else None
+                            visibility = get_val(invitee, "visibility")
 
                             PeerReviewInvitee.create(
                                 peer_review_record=peer_review_record,
@@ -1548,6 +1544,7 @@ class PeerReviewRecord(RecordModel):
                                 first_name=first_name,
                                 last_name=last_name,
                                 orcid=orcid_id,
+                                visibility=visibility,
                                 put_code=put_code)
                     else:
                         raise SchemaError(u"Schema validation failed:\n - "
@@ -1600,7 +1597,6 @@ class WorkRecord(RecordModel):
     url = CharField(null=True, max_length=255)
     language_code = CharField(null=True, max_length=10)
     country = CharField(null=True, max_length=255)
-    visibility = CharField(null=True, max_length=100)
 
     is_active = BooleanField(
         default=False, help_text="The record is marked for batch processing", null=True)
@@ -1644,7 +1640,6 @@ class WorkRecord(RecordModel):
                     url = get_val(work_data, "url", "value")
                     language_code = get_val(work_data, "language-code")
                     country = get_val(work_data, "country", "value")
-                    visibility = get_val(work_data, "visibility")
 
                     # Removing key 'media-type' from the publication_date dict. and only considering year, day & month
                     publication_date = PartialDate.create(
@@ -1666,8 +1661,7 @@ class WorkRecord(RecordModel):
                         publication_media_type=publication_media_type,
                         url=url,
                         language_code=language_code,
-                        country=country,
-                        visibility=visibility)
+                        country=country)
 
                     invitees_list = work_data.get("invitees") if work_data.get("invitees") else None
 
@@ -1679,6 +1673,7 @@ class WorkRecord(RecordModel):
                             last_name = invitee.get("last-name")
                             orcid_id = invitee.get("ORCID-iD")
                             put_code = invitee.get("put-code")
+                            visibility = get_val(invitee, "visibility")
 
                             WorkInvitees.create(
                                 work_record=work_record,
@@ -1687,6 +1682,7 @@ class WorkRecord(RecordModel):
                                 first_name=first_name,
                                 last_name=last_name,
                                 orcid=orcid_id,
+                                visibility=visibility,
                                 put_code=put_code)
                     else:
                         raise SchemaError(u"Schema validation failed:\n - "

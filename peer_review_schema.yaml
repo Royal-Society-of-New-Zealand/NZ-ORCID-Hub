@@ -20,6 +20,8 @@ mapping:
                     type: str
                 put-code:
                     type: int
+                visibility:
+                    type: str
     created-date:
         type: map
         mapping:
@@ -174,7 +176,5 @@ mapping:
                         type: str
                     disambiguation-source:
                         type: str
-    visibility:
-        type: str
     path:
         type: str
