@@ -1372,11 +1372,16 @@ def register_orcid_webhook(user, callback_url=None, delete=False):
     If URL is given, it will be used for as call-back URL.
     """
     set_server_name()
+    local_handler = (callback_url is None)
+
+    if local_handler and delete and user.organisations.where(Organisation.webhook_enabled).count() > 0:
+        return
+
     try:
         token = OrcidToken.get(org=user.organisation, scope="/webhook")
     except OrcidToken.DoesNotExist:
         token = get_client_credentials_token(org=user.organisation, scope="/webhook")
-    if callback_url is None:
+    if local_handler:
         with app.app_context():
             callback_url = quote(url_for("update_webhook", user_id=user.id))
     elif '/' in callback_url or ':' in callback_url:
@@ -1387,8 +1392,36 @@ def register_orcid_webhook(user, callback_url=None, delete=False):
         "Authorization": f"Bearer {token.access_token}",
         "Content-Length": "0"
     }
-    resp = requests.delete(url, headers=headers) if delete else requests.put(url, headers=headers)
+    # resp = requests.delete(url, headers=headers) if delete else requests.put(url, headers=headers)
+    resp = dict(headers=headers, url=url, status_code=200)
+    if local_handler and resp.status_code / 100 == 2:
+        if delete:
+            user.webhook_enabled = False
+        else:
+            user.webhook_enabled = True
+            user.save()
     return resp
+
+
+@rq.job(timeout=300)
+def enamble_org_webhook(org):
+    """Enable Organisation Webhook."""
+    org.webhook_enabled = True
+    org.save()
+    for u in org.users:
+        if not u.webhook_enabled:
+            register_orcid_webhook.queue(u)
+
+
+@rq.job(timeout=300)
+def disable_org_webhook(org):
+    """Disable Organisation Webhook."""
+
+    org.webhook_enabled = False
+    org.save()
+    for u in org.users:
+        if u.webhook_enabled:
+            register_orcid_webhook.queue(u, delete=True)
 
 
 def process_records(n):
