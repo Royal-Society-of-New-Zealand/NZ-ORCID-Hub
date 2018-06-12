@@ -574,6 +574,9 @@ class MemberAPI(MemberAPIV20Api):
         rec.short_description = short_description
         rec.amount = Amount(value=amount, currency_code=currency_code)  # noqa: F405
 
+        if fi.visibility:
+            rec.visibility = fi.visibility
+
         if put_code:
             rec.put_code = put_code
 

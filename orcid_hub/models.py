@@ -1228,7 +1228,6 @@ class FundingRecord(RecordModel):
     country = CharField(null=True, max_length=255)
     disambiguated_org_identifier = CharField(null=True, max_length=255)
     disambiguation_source = CharField(null=True, max_length=255)
-    visibility = CharField(null=True, max_length=100)
     is_active = BooleanField(
         default=False, help_text="The record is marked for batch processing", null=True)
     processed_at = DateTimeField(null=True)
@@ -1275,7 +1274,6 @@ class FundingRecord(RecordModel):
                                                            "disambiguated-organization-identifier")
                     disambiguation_source = get_val(funding_data, "organization", "disambiguated-organization",
                                                     "disambiguation-source")
-                    visibility = funding_data.get("visibility")
 
                     funding_record = FundingRecord.create(
                         task=task,
@@ -1293,7 +1291,6 @@ class FundingRecord(RecordModel):
                         country=country,
                         disambiguated_org_identifier=disambiguated_org_identifier,
                         disambiguation_source=disambiguation_source,
-                        visibility=visibility,
                         start_date=start_date,
                         end_date=end_date)
 
@@ -1306,6 +1303,7 @@ class FundingRecord(RecordModel):
                             last_name = invitee.get("last-name")
                             orcid_id = invitee.get("ORCID-iD")
                             put_code = invitee.get("put-code")
+                            visibility = invitee.get("visibility")
 
                             FundingInvitees.create(
                                 funding_record=funding_record,
@@ -1314,6 +1312,7 @@ class FundingRecord(RecordModel):
                                 first_name=first_name,
                                 last_name=last_name,
                                 orcid=orcid_id,
+                                visibility=visibility,
                                 put_code=put_code)
                     else:
                         raise SchemaError(u"Schema validation failed:\n - "
@@ -1782,6 +1781,7 @@ class InviteesModel(BaseModel):
     last_name = CharField(max_length=120, null=True)
     orcid = OrcidIdField(null=True)
     put_code = IntegerField(null=True)
+    visibility = CharField(null=True, max_length=100)
     status = TextField(null=True, help_text="Record processing status.")
     processed_at = DateTimeField(null=True)
 
