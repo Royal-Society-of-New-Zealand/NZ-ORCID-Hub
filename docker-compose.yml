@@ -72,6 +72,7 @@ services:
       - MAIL_DEFAULT_SENDER
       - TOKEN_SECRET_KEY
       - SECRET_KEY
+      - SENTRY_DSN
     volumes:
       - .:/src
     # restart: always
@@ -87,6 +88,7 @@ services:
       - MAIL_DEFAULT_SENDER
       - TOKEN_SECRET_KEY
       - SECRET_KEY
+      - SENTRY_DSN
     volumes:
       - .:/src
     # restart: always
