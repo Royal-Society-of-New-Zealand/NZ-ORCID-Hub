@@ -3,7 +3,7 @@
 
 import logging
 from itertools import groupby
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import Mock, patch
 
 import pytest
 from flask import make_response
@@ -11,10 +11,10 @@ from flask_login import login_user
 from peewee import JOIN
 
 from orcid_hub import utils
-from orcid_hub.models import (AffiliationRecord, ExternalId, File, FundingContributor,
-                              FundingInvitees, FundingRecord, OrcidToken, Organisation, Role, Task,
-                              User, UserInvitation, UserOrg, WorkRecord, WorkInvitees, WorkExternalId, WorkContributor,
-                              PeerReviewRecord, PeerReviewInvitee, PeerReviewExternalId)
+from orcid_hub.models import (
+    AffiliationRecord, ExternalId, File, FundingContributor, FundingInvitees, FundingRecord,
+    OrcidToken, Organisation, Role, Task, User, UserInvitation, UserOrg, WorkRecord, WorkInvitees,
+    WorkExternalId, WorkContributor, PeerReviewRecord, PeerReviewInvitee, PeerReviewExternalId)
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)

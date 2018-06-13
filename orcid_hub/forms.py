@@ -382,12 +382,11 @@ class WebhookForm(FlaskForm):
     """Webhoook form."""
 
     webhook_url = URLField(validators=[url(), validators.required()])
-    enable = SubmitField(
-        "Enable",
+    webhook_enabled = BooleanField()
+    save_webhook = SubmitField(
+        "Save",
         render_kw={
-            "class": "btn btn-primary",
+            "class": "btn btn-success",
             "data-toggle": "tooltip",
-            "title": "Enable Organisation webhook"
+            "title": "Save Organisation webhook"
         })
-    disable = SubmitField("Disable", render_kw={"class": "btn btn-danger"})
-    save = SubmitField("Save", render_kw={"class": "btn btn-success"})

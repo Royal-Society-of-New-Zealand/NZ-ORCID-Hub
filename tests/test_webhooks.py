@@ -5,15 +5,11 @@ import logging
 import json
 from types import SimpleNamespace as SimpleObject
 
-import pytest
 from flask_login import login_user
 from unittest.mock import MagicMock, patch
 
 from orcid_hub import utils
-from orcid_hub.models import (
-    AffiliationRecord, Client, ExternalId, File, FundingContributor, FundingInvitees, FundingRecord,
-    OrcidToken, Organisation, Role, Task, User, UserInvitation, UserOrg, WorkRecord, WorkInvitees,
-    WorkExternalId, WorkContributor, PeerReviewRecord, PeerReviewInvitee, PeerReviewExternalId, Token)
+from orcid_hub.models import Client, OrcidToken, User, Token
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -166,6 +162,7 @@ def test_webhook_registration(app_req_ctx):
 
 
 def test_org_webhook(app_req_ctx, monkeypatch):
+    """Test Organisation webhooks."""
     monkeypatch.setattr(
         utils.requests, "post",
         lambda *args, **kwargs: SimpleObject(
@@ -174,9 +171,7 @@ def test_org_webhook(app_req_ctx, monkeypatch):
     monkeypatch.setattr(utils.requests, "put", lambda *args, **kwargs: SimpleObject(status_code=201))
     monkeypatch.setattr(utils.requests, "delete", lambda *args, **kwargs: SimpleObject(status_code=204))
     org = app_req_ctx.data["org"]
-    #with patch.object(utils.register_orcid_webhook, "queue", new_callable=utils.register_orcid_webhook) as queue:
     monkeypatch.setattr(utils.register_orcid_webhook, "queue", utils.register_orcid_webhook)
-    # import pdb; pdb.set_trace()
     utils.enable_org_webhook(org)
     assert org.webhook_enabled
     assert org.users.where(User.orcid.is_null(False), User.webhook_enabled).count() > 0
@@ -184,4 +179,3 @@ def test_org_webhook(app_req_ctx, monkeypatch):
     utils.disable_org_webhook(org)
     assert not org.webhook_enabled
     assert org.users.where(User.orcid.is_null(False), User.webhook_enabled).count() == 0
-

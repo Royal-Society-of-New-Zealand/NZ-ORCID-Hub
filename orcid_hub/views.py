@@ -10,7 +10,6 @@ import secrets
 import traceback
 from datetime import datetime
 from io import BytesIO
-from threading import Thread
 
 import requests
 import tablib
@@ -2393,15 +2392,10 @@ def user_orgs_org(user_id, org_id=None):
 @app.route("/services/<int:user_id>/updated", methods=["POST"])
 def update_webhook(user_id):
     """Handle webook calls."""
-    def handle_callback(user):
-        """Log the update and call client webhook callbacks."""
-        # TODO: add client webhook calls
-        pass
-
     try:
         user = User.get(id=user_id)
-        thread = Thread(target=handle_callback, kwargs=dict(user=user))
-        thread.start()
+        for org in user.organisations.where(Organisation.webhook_enabled, Organisation.webhook_url.is_null(False)):
+            utils.invoke_webhook_handler.queue(org.webhook_url, user.orcid)
     except Exception:
         app.logger.exception(f"Invalid user_id: {user_id}")
 
@@ -2420,16 +2414,13 @@ def org_webhook():
     form = WebhookForm(obj=org)
 
     if form.validate_on_submit():
-
-        if org.webhook_url != form.webhook_url.data:
-            org.webhook_url = form.webhook_url.data
-            flash("Webhook URL was saved.", "info")
-        if form.enable.data:
-            utils.enable_org_webhook.queue(org)
-            flash("Webhook was enabled.", "info")
-        elif form.disable.data:
-            utils.disable_org_webhook.queue(org)
-            flash("Webhook was disabled.", "info")
+        form.populate_obj(org)
         org.save()
+        if form.webhook_enabled.data:
+            job = utils.enable_org_webhook.queue(org)
+            flash(f"Webhook activation was initiated (task id: {job.id})", "info")
+        else:
+            utils.disable_org_webhook.queue(org)
+            flash(f"Webhook was disabled.", "info")
 
     return render_template("form.html", form=form, title="Organisation Webhook")
