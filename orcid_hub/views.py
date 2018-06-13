@@ -2187,7 +2187,7 @@ def manage_email_template():
                 if form.email_template_enabled.data else default_template)
         elif form.save.data:
             # form.populate_obj(org)
-            if all(x in form.email_template.data for x in ['{MESSAGE}', '{INCLUDED_URL}']):
+            if any(x in form.email_template.data for x in ['{MESSAGE}', '{INCLUDED_URL}']):
                 org.email_template = form.email_template.data
                 org.email_template_enabled = form.email_template_enabled.data
                 org.save()
