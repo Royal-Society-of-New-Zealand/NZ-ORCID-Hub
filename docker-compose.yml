@@ -74,7 +74,7 @@ services:
       - SECRET_KEY
     volumes:
       - .:/src
-    # restart: always
+    restart: always
 
   scheduler:
     image: orcidhub/app-dev

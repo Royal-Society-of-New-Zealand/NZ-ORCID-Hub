@@ -1392,8 +1392,7 @@ def register_orcid_webhook(user, callback_url=None, delete=False):
         "Authorization": f"Bearer {token.access_token}",
         "Content-Length": "0"
     }
-    # resp = requests.delete(url, headers=headers) if delete else requests.put(url, headers=headers)
-    resp = dict(headers=headers, url=url, status_code=200)
+    resp = requests.delete(url, headers=headers) if delete else requests.put(url, headers=headers)
     if local_handler and resp.status_code / 100 == 2:
         if delete:
             user.webhook_enabled = False
@@ -1404,13 +1403,15 @@ def register_orcid_webhook(user, callback_url=None, delete=False):
 
 
 @rq.job(timeout=300)
-def enamble_org_webhook(org):
+def enable_org_webhook(org):
     """Enable Organisation Webhook."""
     org.webhook_enabled = True
     org.save()
     for u in org.users:
         if not u.webhook_enabled:
             register_orcid_webhook.queue(u)
+            u.webhook_enabled = True
+            u.save()
 
 
 @rq.job(timeout=300)
