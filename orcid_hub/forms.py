@@ -8,8 +8,8 @@ from flask_wtf.file import FileAllowed, FileField, FileRequired
 from pycountry import countries
 from wtforms import (BooleanField, Field, SelectField, SelectMultipleField, StringField,
                      SubmitField, TextField, validators)
-from wtforms.fields.html5 import DateField, EmailField
-from wtforms.validators import UUID, DataRequired, Email, Regexp, Required, ValidationError
+from wtforms.fields.html5 import DateField, EmailField, URLField
+from wtforms.validators import UUID, DataRequired, Email, Regexp, Required, ValidationError, url
 from wtforms.widgets import HTMLString, TextArea, html_params
 
 from . import models
@@ -376,3 +376,18 @@ class CredentialForm(ApplicationFromBase):
     reset = SubmitField("Reset client secret", render_kw={"class": "btn btn-danger"})
     update_app = SubmitField("Update application", render_kw={"class": "btn btn-primary mr-2"})
     delete = SubmitField("Delete application", render_kw={"class": "btn btn-danger"})
+
+
+class WebhookForm(FlaskForm):
+    """Webhoook form."""
+
+    webhook_url = URLField(validators=[url(), validators.required()])
+    enable = SubmitField(
+        "Enable",
+        render_kw={
+            "class": "btn btn-primary",
+            "data-toggle": "tooltip",
+            "title": "Enable Organisation webhook"
+        })
+    disable = SubmitField("Disable", render_kw={"class": "btn btn-danger"})
+    save = SubmitField("Save", render_kw={"class": "btn btn-success"})

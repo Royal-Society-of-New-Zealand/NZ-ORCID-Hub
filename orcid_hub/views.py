@@ -37,7 +37,7 @@ from . import admin, app, limiter, models, orcid_client, utils
 from .config import ENV, ORCID_BASE_URL, SCOPE_ACTIVITIES_UPDATE, SCOPE_READ_LIMITED
 from .forms import (ApplicationFrom, BitmapMultipleValueField, CredentialForm, EmailTemplateForm,
                     FileUploadForm, JsonOrYamlFileUploadForm, LogoForm, OrgRegistrationForm,
-                    PartialDateField, RecordForm, UserInvitationForm)
+                    PartialDateField, RecordForm, UserInvitationForm, WebhookForm)
 from .login_provider import roles_required
 from .models import (Affiliation, AffiliationRecord, CharField, Client, File, FundingInvitees,
                      FundingRecord, Grant, GroupIdRecord, ModelException, OrcidApiCall, OrcidToken,
@@ -2406,3 +2406,30 @@ def update_webhook(user_id):
         app.logger.exception(f"Invalid user_id: {user_id}")
 
     return '', 204
+
+
+@app.route(
+    "/settings/webhook", methods=[
+        "GET",
+        "POST",
+    ])
+@roles_required(Role.TECHNICAL, Role.SUPERUSER)
+def org_webhook():
+    """Manage organisation invitation email template."""
+    org = current_user.organisation
+    form = WebhookForm(obj=org)
+
+    if form.validate_on_submit():
+
+        if org.webhook_url != form.webhook_url.data:
+            org.webhook_url = form.webhook_url.data
+            flash("Webhook URL was saved.", "info")
+        if form.enable.data:
+            utils.enable_org_webhook.queue(org)
+            flash("Webhook was enabled.", "info")
+        elif form.disable.data:
+            utils.disable_org_webhook.queue(org)
+            flash("Webhook was disabled.", "info")
+        org.save()
+
+    return render_template("form.html", form=form, title="Organisation Webhook")

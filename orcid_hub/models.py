@@ -412,7 +412,8 @@ class Organisation(BaseModel, AuditMixin):
     email_template = TextField(null=True, db_column="email_template")
     email_template_enabled = BooleanField(
         null=True, default=False, db_column="email_template_enabled")
-    webhook_enabled = BooleanField(default=False)
+    webhook_enabled = BooleanField(default=False, null=True)
+    webhook_url = CharField(max_length=100, null=True)
 
     @property
     def invitation_sent_to(self):
