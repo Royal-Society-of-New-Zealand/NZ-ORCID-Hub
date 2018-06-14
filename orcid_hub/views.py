@@ -2419,9 +2419,10 @@ def user_orgs_org(user_id, org_id=None):
 def update_webhook(user_id):
     """Handle webook calls."""
     try:
+        updated_at = datetime.utcnow().isoformat(timespec="minutes")
         user = User.get(id=user_id)
         for org in user.organisations.where(Organisation.webhook_enabled, Organisation.webhook_url.is_null(False)):
-            utils.invoke_webhook_handler.queue(org.webhook_url, user.orcid)
+            utils.invoke_webhook_handler.queue(org.webhook_url, user.orcid, updated_at)
     except Exception:
         app.logger.exception(f"Invalid user_id: {user_id}")
 
