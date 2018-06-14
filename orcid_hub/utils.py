@@ -36,10 +36,10 @@ EXTERNAL_SP = app.config.get("EXTERNAL_SP")
 
 def get_next_url():
     """Retrieve and sanitize next/return URL."""
-    _next = request.args.get("next") or request.args.get("_next") or request.args.get("url")
+    _next = request.args.get("next") or request.args.get("_next") or request.args.get("url") or request.referrer
 
     if _next and ("orcidhub.org.nz" in _next or _next.startswith("/") or "127.0" in _next
-                  or "c9users.io" in _next):
+                  or "c9users.io" in _next or (ENV == "dev" and "orcidhub" in _next)):
         return _next
     return None
 
@@ -1372,11 +1372,16 @@ def register_orcid_webhook(user, callback_url=None, delete=False):
     If URL is given, it will be used for as call-back URL.
     """
     set_server_name()
+    local_handler = (callback_url is None)
+
+    if local_handler and delete and user.organisations.where(Organisation.webhook_enabled).count() > 0:
+        return
+
     try:
         token = OrcidToken.get(org=user.organisation, scope="/webhook")
     except OrcidToken.DoesNotExist:
         token = get_client_credentials_token(org=user.organisation, scope="/webhook")
-    if callback_url is None:
+    if local_handler:
         with app.app_context():
             callback_url = quote(url_for("update_webhook", user_id=user.id))
     elif '/' in callback_url or ':' in callback_url:
@@ -1388,7 +1393,39 @@ def register_orcid_webhook(user, callback_url=None, delete=False):
         "Content-Length": "0"
     }
     resp = requests.delete(url, headers=headers) if delete else requests.put(url, headers=headers)
+    if local_handler and resp.status_code // 100 == 2:
+        if delete:
+            user.webhook_enabled = False
+        else:
+            user.webhook_enabled = True
+        user.save()
     return resp
+
+
+@rq.job(timeout=300)
+def invoke_webhook_handler(webhook_url, orcid):
+    """Propagate 'updated' event to the organisation event handler URL."""
+    return requests.post(webhook_url + '/' + orcid, json={"orcid": orcid})
+
+
+@rq.job(timeout=300)
+def enable_org_webhook(org):
+    """Enable Organisation Webhook."""
+    org.webhook_enabled = True
+    org.save()
+    for u in org.users:
+        if not u.webhook_enabled:
+            register_orcid_webhook.queue(u)
+
+
+@rq.job(timeout=300)
+def disable_org_webhook(org):
+    """Disable Organisation Webhook."""
+    org.webhook_enabled = False
+    org.save()
+    for u in org.users:
+        if u.webhook_enabled:
+            register_orcid_webhook.queue(u, delete=True)
 
 
 def process_records(n):
