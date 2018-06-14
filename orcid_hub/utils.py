@@ -1403,9 +1403,9 @@ def register_orcid_webhook(user, callback_url=None, delete=False):
 
 
 @rq.job(timeout=300)
-def invoke_webhook_handler(webhook_url, orcid):
+def invoke_webhook_handler(webhook_url, orcid, updated_at):
     """Propagate 'updated' event to the organisation event handler URL."""
-    return requests.post(webhook_url + '/' + orcid, json={"orcid": orcid})
+    return requests.post(webhook_url + '/' + orcid, json={"orcid": orcid, "updated-at": updated_at})
 
 
 @rq.job(timeout=300)

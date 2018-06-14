@@ -1,7 +1,14 @@
 # -*- coding: utf-8 -*-
 """Various utilities."""
 
-from orcid_hub import utils as tasks
-from datetime import timedelta
+from orcid_hub import utils as tasks, rq
+from datetime import datetime
 
-tasks.process_tasks.schedule(timedelta(seconds=5), interval=3600, repeat=2)
+
+def setup():
+    """Set up the application schedule. Remove any already scheduled jobs."""
+    scheduler = rq.get_scheduler()
+    for job in scheduler.get_jobs():
+        job.delete()
+
+    tasks.process_tasks.schedule(datetime.utcnow(), interval=3600)

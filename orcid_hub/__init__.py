@@ -33,7 +33,8 @@ from playhouse.shortcuts import RetryOperationalError
 # disable Sentry if there is no SENTRY_DSN:
 from raven.contrib.flask import Sentry
 
-from . import config  # noqa: F401, F403
+from . import config
+from . import schedule
 from .failover import PgDbWithFailover
 from flask_admin import Admin
 from flask_limiter import Limiter
@@ -208,7 +209,6 @@ from .authcontroller import *  # noqa: F401,F403
 from .views import *  # noqa: F401,F403
 from .oauth import *  # noqa: F401,F403
 from .reports import *  # noqa: F401,F403
-from .schedule import *  # noqa: F401,F403
 
 
 @rq_dashboard.blueprint.before_request
@@ -231,7 +231,7 @@ from .utils import process_records  # noqa: E402
 
 
 @app.before_first_request
-def setup_logging():
+def setup_app():
     """Set-up logger to log to STDOUT (eventually conainer log)."""
     app.logger.addHandler(logging.StreamHandler())
     app.logger.setLevel(logging.DEBUG if app.debug else logging.WARNING)
@@ -355,3 +355,5 @@ if app.debug:
     # logger = logging.getLogger('peewee')
     # logger.setLevel(logging.DEBUG)
     # logger.addHandler(logging.StreamHandler())
+
+schedule.setup()
