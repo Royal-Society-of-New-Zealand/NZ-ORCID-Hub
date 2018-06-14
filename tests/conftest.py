@@ -140,3 +140,90 @@ def request_ctx(app):
         return app.test_request_context(*args, **kwargs)
 
     return make_ctx
+
+
+@pytest.fixture
+def app_req_ctx(request_ctx):
+    """Create the fixture for the reques with a test organisation and a test tech.contatct."""
+    org = Organisation.create(
+        name="THE ORGANISATION",
+        tuakiri_name="THE ORGANISATION",
+        orcid_client_id="APP-12345678",
+        orcid_secret="CLIENT-SECRET",
+        confirmed=True,
+        city="CITY",
+        country="COUNTRY")
+
+    admin = User.create(
+        email="app123@test0.edu",
+        name="TEST USER WITH AN APP",
+        roles=Role.TECHNICAL,
+        orcid="1001-0001-0001-0001",
+        confirmed=True,
+        organisation=org)
+    tech_contact = admin
+
+    UserOrg.create(user=admin, org=org, is_admin=True)
+    org.tech_contact = admin
+    org.save()
+    request_ctx.org = org
+
+    client = Client.create(
+        name="TEST_CLIENT",
+        user=admin,
+        org=org,
+        client_id="CLIENT_ID",
+        client_secret="CLIENT_SECRET",
+        is_confidential="public",
+        grant_type="client_credentials",
+        response_type="XYZ")
+
+    Token.create(client=client, user=admin, access_token="TEST", token_type="Bearer")
+
+    user = User.create(
+        email="researcher@test0.edu",
+        eppn="eppn@test0.edu",
+        name="TEST REASEARCHER",
+        orcid="0000-0000-0000-00X3",
+        confirmed=True,
+        organisation=org)
+    OrcidToken.create(user=user, org=org, access_token="ORCID-TEST-ACCESS-TOKEN")
+
+    User.insert_many(
+        dict(
+            email=f"researcher{i}@test0.edu",
+            name=f"TEST RESEARCHER #{i}",
+            first_name=f"FIRST_NAME #{i}",
+            last_name=f"LAST_NAME #{i}",
+            confirmed=True,
+            organisation=org,
+            created_at=datetime(2017, 12, i % 31 + 1),
+            updated_at=datetime(2017, 12, i % 31 + 1)) for i in range(200, 207)).execute()
+
+    User.create(
+        email="researcher2@test0.edu",
+        eppn="eppn2@test0.edu",
+        name="TEST REASEARCHER W/O ORCID ACCESS TOKEN",
+        orcid="0000-0000-0000-11X2",
+        confirmed=True,
+        organisation=org)
+
+    org2 = Organisation.create(
+        name="THE ORGANISATION #2",
+        tuakiri_name="THE ORGANISATION #2",
+        confirmed=True,
+        city="CITY")
+    User.create(
+        email="researcher@org2.edu",
+        eppn="eppn123@org2.edu",
+        name="TEST REASEARCHER #2",
+        orcid="9999-9999-9999-9999",
+        confirmed=True,
+        organisation=org2)
+
+    super_user = User.create(
+        email="super_user@test0.edu", organisation=org, roles=Role.SUPERUSER, confirmed=True)
+
+    request_ctx.data = locals()
+
+    return request_ctx
