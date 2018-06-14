@@ -34,7 +34,6 @@ from playhouse.shortcuts import RetryOperationalError
 from raven.contrib.flask import Sentry
 
 from . import config
-from . import schedule
 from .failover import PgDbWithFailover
 from flask_admin import Admin
 from flask_limiter import Limiter
@@ -356,4 +355,5 @@ if app.debug:
     # logger.setLevel(logging.DEBUG)
     # logger.addHandler(logging.StreamHandler())
 
+from . import schedule  # noqa: E402
 schedule.setup()
