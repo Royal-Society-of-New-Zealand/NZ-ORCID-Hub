@@ -23,7 +23,8 @@ from orcid_hub.config import ORCID_BASE_URL
 from orcid_hub.forms import FileUploadForm
 from orcid_hub.models import UserOrgAffiliation  # noqa: E128
 from orcid_hub.models import (Affiliation, AffiliationRecord, Client, File, FundingRecord, OrcidToken, Organisation,
-                              OrgInfo, Role, Task, Token, Url, User, UserInvitation, UserOrg, PeerReviewRecord)
+                              OrgInfo, Role, Task, Token, Url, User, UserInvitation, UserOrg, PeerReviewRecord,
+                              WorkRecord)
 
 fake_time = time.time()
 logger = logging.getLogger(__name__)
@@ -1621,6 +1622,23 @@ def test_reset_all(request_ctx):
         is_active=True,
         visibility="Test_visibity")
 
+    work_task = Task.create(
+        id=4,
+        org=org,
+        completed_at="12/12/12",
+        filename="xyz.txt",
+        created_by=user,
+        updated_by=user,
+        task_type=2)
+
+    WorkRecord.create(
+        id=1,
+        task=work_task,
+        title=1212,
+        is_active=True,
+        citation_type="Test_citation_type",
+        citation_value="Test_visibity")
+
     with request_ctx("/reset_all", method="POST") as ctxx:
         login_user(user, remember=True)
         request.args = ImmutableMultiDict([('url', 'http://localhost/affiliation_record_reset_for_batch')])
@@ -1654,6 +1672,17 @@ def test_reset_all(request_ctx):
         assert t2.completed_at is None
         assert rv.status_code == 302
         assert rv.location.startswith("http://localhost/peer_review_record_reset_for_batch")
+    with request_ctx("/reset_all", method="POST") as ctxx:
+        login_user(user, remember=True)
+        request.args = ImmutableMultiDict([('url', 'http://localhost/work_record_reset_for_batch')])
+        request.form = ImmutableMultiDict([('task_id', work_task.id)])
+        rv = ctxx.app.full_dispatch_request()
+        t = Task.get(id=4)
+        pr = WorkRecord.get(id=1)
+        assert "The record was reset" in pr.status
+        assert t.completed_at is None
+        assert rv.status_code == 302
+        assert rv.location.startswith("http://localhost/work_record_reset_for_batch")
 
 
 def test_issue_470198698(request_ctx):
