@@ -553,7 +553,7 @@ class RecordModelView(AppModelView):
     )
     can_edit = True
     can_create = False
-    can_delete = False
+    can_delete = True
     can_view_details = True
     can_export = True
 
@@ -1206,6 +1206,13 @@ class ViewMembersAdmin(AppModelView):
         """Delete a row and revoke all access tokens issues for the organisation."""
         org = current_user.organisation
         token_revoke_url = app.config["ORCID_BASE_URL"] + "oauth/revoke"
+
+        if UserOrg.select().where(
+                    (UserOrg.user_id == model.id) & (UserOrg.org_id == org.id) & UserOrg.is_admin).exists():
+            flash(f"Failed to delete record for {model}, As User appears to be one of the admins. "
+                  f"Please contact orcid@royalsociety.org.nz for support", "danger")
+            return False
+
         for token in OrcidToken.select().where(OrcidToken.org == org, OrcidToken.user == model):
             try:
                 resp = requests.post(
@@ -1249,6 +1256,25 @@ class ViewMembersAdmin(AppModelView):
         else:
             self.after_model_delete(model)
         return True
+
+    @action("delete", "Delete",
+            "Are you sure you want to delete selected records?")
+    def action_delete(self, ids):
+        """Delete a record for selected entries."""
+        try:
+            model_pk = getattr(self.model, self._primary_key)
+            count = 0
+
+            query = self.model.select().filter(model_pk << ids)
+
+            for m in query:
+                if self.delete_model(m):
+                    count += 1
+            if count:
+                flash(gettext('Record was successfully deleted.%(count)s records were successfully deleted.',
+                              count=count), 'success')
+        except Exception as ex:
+            flash(gettext('Failed to delete records. %(error)s', error=str(ex)), 'error')
 
 
 class GroupIdRecordAdmin(AppModelView):
@@ -2160,7 +2186,7 @@ def manage_email_template():
                 if form.email_template_enabled.data else default_template)
         elif form.save.data:
             # form.populate_obj(org)
-            if all(x in form.email_template.data for x in ['{MESSAGE}', '{INCLUDED_URL}']):
+            if any(x in form.email_template.data for x in ['{MESSAGE}', '{INCLUDED_URL}']):
                 org.email_template = form.email_template.data
                 org.email_template_enabled = form.email_template_enabled.data
                 org.save()
