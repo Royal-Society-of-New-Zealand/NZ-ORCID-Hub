@@ -38,7 +38,7 @@ from .forms import OrgConfirmationForm
 from .login_provider import roles_required
 from .models import (Affiliation, OrcidAuthorizeCall, OrcidToken, Organisation, OrgInfo,
                      OrgInvitation, Role, Url, User, UserInvitation, UserOrg)
-from .utils import append_qs, confirm_token, get_next_url
+from .utils import append_qs, confirm_token, get_next_url, register_orcid_webhook
 
 HEADERS = {'Accept': 'application/vnd.orcid+json', 'Content-type': 'application/vnd.orcid+json'}
 ENV = app.config.get("ENV")
@@ -954,6 +954,8 @@ def orcid_login_callback(request):
 
         if not user.orcid:
             user.orcid = orcid_id
+            if user.organisation.webhook_enabled:
+                register_orcid_webhook.queue(user)
         if not user.name and token['name']:
             user.name = token['name']
         if not user.confirmed:

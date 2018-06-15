@@ -2121,7 +2121,7 @@ def drop_tables():
               OrcidApiCall, OrcidAuthorizeCall, Task, AffiliationRecord, Url, UserInvitation):
         if m.table_exists():
             try:
-                m.drop_table(fail_silently=True, cascade=db.drop_cascade)
+                m.drop_table(fail_silently=True, cascade=m._meta.database.drop_cascade)
             except OperationalError:
                 pass
 

@@ -1423,9 +1423,8 @@ def disable_org_webhook(org):
     """Disable Organisation Webhook."""
     org.webhook_enabled = False
     org.save()
-    for u in org.users:
-        if u.webhook_enabled:
-            register_orcid_webhook.queue(u, delete=True)
+    for u in org.users.where(User.webhook_enabled):
+        register_orcid_webhook.queue(u, delete=True)
 
 
 def process_records(n):
