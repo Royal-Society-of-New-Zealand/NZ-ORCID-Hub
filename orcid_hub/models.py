@@ -272,6 +272,13 @@ class BaseModel(Model):
         return any(field_name == f.name for f in self.dirty_fields)
 
     @classmethod
+    def get(cls, *query, **kwargs):
+        """Get a single model instance."""
+        if query and not kwargs and len(query) == 1 and isinstance(query[0], int):
+            return super().get(id=query[0])
+        return super().get(*query, **kwargs)
+
+    @classmethod
     def model_class_name(cls):
         """Get the class name of the model."""
         return cls._meta.name
@@ -2114,7 +2121,7 @@ def drop_tables():
               OrcidApiCall, OrcidAuthorizeCall, Task, AffiliationRecord, Url, UserInvitation):
         if m.table_exists():
             try:
-                m.drop_table(fail_silently=True, cascade=db.drop_cascade)
+                m.drop_table(fail_silently=True, cascade=m._meta.database.drop_cascade)
             except OperationalError:
                 pass
 

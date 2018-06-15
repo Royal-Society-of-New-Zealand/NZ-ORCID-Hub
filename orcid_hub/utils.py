@@ -1383,7 +1383,7 @@ def register_orcid_webhook(user, callback_url=None, delete=False):
         token = get_client_credentials_token(org=user.organisation, scope="/webhook")
     if local_handler:
         with app.app_context():
-            callback_url = quote(url_for("update_webhook", user_id=user.id))
+            callback_url = quote(url_for("update_webhook", user_id=user.id), safe='')
     elif '/' in callback_url or ':' in callback_url:
         callback_url = quote(callback_url, safe='')
     url = f"{app.config['ORCID_API_HOST_URL']}{user.orcid}/webhook/{callback_url}"
@@ -1403,9 +1403,9 @@ def register_orcid_webhook(user, callback_url=None, delete=False):
 
 
 @rq.job(timeout=300)
-def invoke_webhook_handler(webhook_url, orcid):
+def invoke_webhook_handler(webhook_url, orcid, updated_at):
     """Propagate 'updated' event to the organisation event handler URL."""
-    return requests.post(webhook_url + '/' + orcid, json={"orcid": orcid})
+    return requests.post(webhook_url + '/' + orcid, json={"orcid": orcid, "updated-at": updated_at})
 
 
 @rq.job(timeout=300)
@@ -1423,9 +1423,8 @@ def disable_org_webhook(org):
     """Disable Organisation Webhook."""
     org.webhook_enabled = False
     org.save()
-    for u in org.users:
-        if u.webhook_enabled:
-            register_orcid_webhook.queue(u, delete=True)
+    for u in org.users.where(User.webhook_enabled):
+        register_orcid_webhook.queue(u, delete=True)
 
 
 def process_records(n):

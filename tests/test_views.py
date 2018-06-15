@@ -22,9 +22,9 @@ from orcid_hub import app, orcid_client, views
 from orcid_hub.config import ORCID_BASE_URL
 from orcid_hub.forms import FileUploadForm
 from orcid_hub.models import UserOrgAffiliation  # noqa: E128
-from orcid_hub.models import (Affiliation, AffiliationRecord, Client, File, FundingRecord, OrcidToken, Organisation,
-                              OrgInfo, Role, Task, Token, Url, User, UserInvitation, UserOrg, PeerReviewRecord,
-                              WorkRecord)
+from orcid_hub.models import (Affiliation, AffiliationRecord, Client, File, FundingRecord,
+                              OrcidToken, Organisation, OrgInfo, Role, Task, Token, Url, User,
+                              UserInvitation, UserOrg, PeerReviewRecord, WorkRecord)
 
 fake_time = time.time()
 logger = logging.getLogger(__name__)
