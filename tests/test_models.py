@@ -573,6 +573,9 @@ def test_boolean_field():
     class TestTableWithBooleanField(BaseModel):
         test_field = BooleanField()
 
+        class Meta:
+            database = SqliteDatabase(":memory:")
+
     TestTableWithBooleanField.create_table()
     TestTableWithBooleanField.create(test_field=True)
     assert TestTableWithBooleanField.select().where(
@@ -580,11 +583,18 @@ def test_boolean_field():
 
 
 def test_base_model_to_dict():
+    """Test base model features."""
     class TestTable(BaseModel):
         test_field = TextField()
+
+        class Meta:
+            database = SqliteDatabase(":memory:")
 
     TestTable.create_table()
     TestTable.create(test_field="ABC123")
 
     rec = TestTable.select().first()
     assert rec.to_dict() == {"id": 1, "test_field": "ABC123"}
+
+    rec = TestTable.get(1)
+    assert rec.test_field == "ABC123"

@@ -14,13 +14,16 @@ from orcid_hub.models import (Affiliation, OrcidAuthorizeCall, OrcidToken, Organ
                               OrgInvitation, Role, User, UserInvitation, UserOrg)
 
 
-def test_index(client):
+def test_index(client, monkeypatch):
     """Test the landing page."""
-    rv = client.get("/")
-    assert b"<!DOCTYPE html>" in rv.data
-    # assert b"Home" in rv.data
-    assert b"Royal Society of New Zealand" in rv.data, \
-        "'Royal Society of New Zealand' should be present on the index page."
+    with monkeypatch.context() as m:
+        m.setattr(authcontroller, "EXTERNAL_SP", "https://some.externar.sp/SP")
+        resp = client.get("/")
+        assert resp.status_code == 200
+        assert b"https://some.externar.sp/SP" in resp.data
+        assert b"<!DOCTYPE html>" in resp.data
+        assert b"Royal Society of New Zealand" in resp.data, \
+            "'Royal Society of New Zealand' should be present on the index page."
 
 
 def get_response(request_ctx):
@@ -681,8 +684,10 @@ def test_link(request_ctx):
 @pytest.mark.parametrize("url", ["/faq", "/about"])
 def test_faq_and_about(client, url):
     """Test faq and about page path traversal security issue."""
-    rv = client.get(url + "?malicious_code")
-    assert rv.status_code == 403
+    resp = client.get(url + "?malicious_code")
+    assert resp.status_code == 403
+    resp = client.get(url)
+    assert resp.status_code == 200
 
 
 def test_orcid_callback(request_ctx):
