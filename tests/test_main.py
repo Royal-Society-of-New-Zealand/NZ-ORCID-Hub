@@ -684,8 +684,10 @@ def test_link(request_ctx):
 @pytest.mark.parametrize("url", ["/faq", "/about"])
 def test_faq_and_about(client, url):
     """Test faq and about page path traversal security issue."""
-    rv = client.get(url + "?malicious_code")
-    assert rv.status_code == 403
+    resp = client.get(url + "?malicious_code")
+    assert resp.status_code == 403
+    resp = client.get(url)
+    assert resp.status_code == 200
 
 
 def test_orcid_callback(request_ctx):
