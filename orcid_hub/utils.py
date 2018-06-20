@@ -225,20 +225,25 @@ def set_server_name():
                 "SERVER_NAME"] = "orcidhub.org.nz" if ENV == "prod" else ENV + ".orcidhub.org.nz"
 
 
-def send_work_funding_peer_review_invitation(inviter, org, email, name, task_id=None, invitation_template=None,
-                                             token_expiry_in_sec=1300000, **kwargs):
+def send_work_funding_peer_review_invitation(inviter, org, email, first_name=None, last_name=None, task_id=None,
+                                             invitation_template=None, token_expiry_in_sec=1300000, **kwargs):
     """Send a work, funding or peer review invitation to join ORCID Hub logging in via ORCID."""
     try:
-        logger.info(f"*** Sending an invitation to '{name} <{email}>' "
+        logger.info(f"*** Sending an invitation to '{first_name} <{email}>' "
                     f"submitted by {inviter} of {org}")
 
         email = email.lower()
         user, user_created = User.get_or_create(email=email)
         if user_created:
-            user.name = name
             user.created_by = inviter.id
         else:
             user.updated_by = inviter.id
+
+        if first_name and not user.first_name:
+            user.first_name = first_name
+
+        if last_name and not user.last_name:
+            user.last_name = last_name
 
         user.organisation = org
         user.roles |= Role.RESEARCHER
@@ -272,7 +277,8 @@ def send_work_funding_peer_review_invitation(inviter, org, email, name, task_id=
             inviter_id=inviter.id,
             org=org,
             email=email,
-            first_name=name,
+            first_name=first_name,
+            last_name=last_name,
             affiliations=0,
             organisation=org.name,
             disambiguated_id=org.disambiguated_id,
@@ -874,7 +880,8 @@ def process_work_records(max_rows=20):
                         t.created_by,
                         t.org,
                         t.work_record.work_invitees.email,
-                        t.work_record.work_invitees.first_name, )
+                        t.work_record.work_invitees.first_name,
+                        t.work_record.work_invitees.last_name, )
             ):  # noqa: E501
                 email = k[2]
                 token_expiry_in_sec = 2600000
@@ -986,7 +993,8 @@ def process_peer_review_records(max_rows=20):
                         t.created_by,
                         t.org,
                         t.peer_review_record.peer_review_invitee.email,
-                        t.peer_review_record.peer_review_invitee.first_name, )
+                        t.peer_review_record.peer_review_invitee.first_name,
+                        t.peer_review_record.peer_review_invitee.last_name, )
             ):  # noqa: E501
                 email = k[2]
                 token_expiry_in_sec = 2600000
@@ -1101,7 +1109,8 @@ def process_funding_records(max_rows=20):
                         t.created_by,
                         t.org,
                         t.funding_record.funding_invitees.email,
-                        t.funding_record.funding_invitees.first_name, )
+                        t.funding_record.funding_invitees.first_name,
+                        t.funding_record.funding_invitees.last_name, )
             ):  # noqa: E501
                 email = k[2]
                 token_expiry_in_sec = 2600000
