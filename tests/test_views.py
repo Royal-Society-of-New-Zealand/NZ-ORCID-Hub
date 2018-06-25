@@ -18,7 +18,7 @@ from peewee import SqliteDatabase
 from playhouse.test_utils import test_database
 from werkzeug.datastructures import ImmutableMultiDict
 
-from orcid_hub import app, orcid_client, views
+from orcid_hub import app, orcid_client, rq, views
 from orcid_hub.config import ORCID_BASE_URL
 from orcid_hub.forms import FileUploadForm
 from orcid_hub.models import UserOrgAffiliation  # noqa: E128
@@ -96,18 +96,46 @@ def test_models(test_db):
 
 def test_superuser_view_access(request_ctx):
     """Test if SUPERUSER can access Flask-Admin"."""
+    with request_ctx("/admin/schedude/") as ctx:
+        rv = ctx.app.full_dispatch_request()
+        assert rv.status_code == 403
+        assert b"403" in rv.data
+
+    user = User.create(
+        name="TEST USER",
+        email="test@test.test.net",
+        roles=Role.SUPERUSER,
+        username="test42",
+        confirmed=True)
+
     with request_ctx("/admin/user/") as ctx:
-        test_user = User(
-            name="TEST USER",
-            email="test@test.test.net",
-            roles=Role.SUPERUSER,
-            username="test42",
-            confirmed=True)
-        login_user(test_user, remember=True)
+        login_user(user, remember=True)
 
         rv = ctx.app.full_dispatch_request()
         assert rv.status_code == 200
         assert b"User" in rv.data
+
+    with request_ctx(f"/admin/user/edit/?id={user.id}") as ctx:
+        login_user(user, remember=True)
+
+        rv = ctx.app.full_dispatch_request()
+        assert rv.status_code == 200
+        assert b"TEST USER" in rv.data
+
+    with request_ctx("/admin/schedude/") as ctx:
+        login_user(user, remember=True)
+
+        rv = ctx.app.full_dispatch_request()
+        assert rv.status_code == 200
+        assert b"interval" in rv.data
+
+    jobs = rq.get_scheduler().get_jobs()
+    with request_ctx(f"/admin/schedude/details/?id={jobs[0].id}") as ctx:
+        login_user(user, remember=True)
+
+        rv = ctx.app.full_dispatch_request()
+        assert rv.status_code == 200
+        assert b"interval" in rv.data
 
 
 def test_admin_view_access_fail(client, request_ctx):

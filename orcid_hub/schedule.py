@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Various utilities."""
 
-from orcid_hub import utils as tasks, rq
+from . import utils as tasks, rq
 from datetime import datetime
 
 

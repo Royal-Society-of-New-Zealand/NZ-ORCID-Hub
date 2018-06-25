@@ -23,16 +23,17 @@ from flask_admin.base import expose
 from flask_admin.contrib.peewee import ModelView, filters
 from flask_admin.form import SecureForm
 from flask_admin.helpers import get_redirect_target
-from flask_admin.model import typefmt
+from flask_admin.model import BaseModelView, typefmt
 from flask_login import current_user, login_required
 from jinja2 import Markup
 from playhouse.shortcuts import model_to_dict
 from werkzeug.utils import secure_filename
 from wtforms.fields import BooleanField
+from flask_rq2.job import FlaskJob
 
 from orcid_api.rest import ApiException
 
-from . import admin, app, limiter, models, orcid_client, utils
+from . import admin, app, limiter, models, orcid_client, rq, utils
 from .config import ENV, ORCID_BASE_URL, SCOPE_ACTIVITIES_UPDATE, SCOPE_READ_LIMITED
 from .forms import (ApplicationFrom, BitmapMultipleValueField, CredentialForm, EmailTemplateForm,
                     FileUploadForm, JsonOrYamlFileUploadForm, LogoForm, OrgRegistrationForm,
@@ -2455,3 +2456,147 @@ def org_webhook():
             flash(f"Webhook was disabled.", "info")
 
     return render_template("form.html", form=form, title="Organisation Webhook")
+
+
+class ScheduerView(BaseModelView):
+    """Simle Flask-RQ2 scheduled task viewer."""
+
+    can_edit = False
+    can_delete = False
+    can_create = False
+    can_view_details = True
+
+    def __init__(self,
+                 name=None,
+                 category=None,
+                 endpoint=None,
+                 url=None,
+                 static_folder=None,
+                 menu_class_name=None,
+                 menu_icon_type=None,
+                 menu_icon_value=None):
+        """Initialize the view."""
+        self._search_fields = []
+
+        model = FlaskJob
+        super().__init__(
+            model,
+            name,
+            category,
+            endpoint,
+            url,
+            static_folder,
+            menu_class_name=menu_class_name,
+            menu_icon_type=menu_icon_type,
+            menu_icon_value=menu_icon_value)
+
+        self._primary_key = self.scaffold_pk()
+
+    def scaffold_pk(self):  # noqa: D102
+        return "id"
+
+    def get_pk_value(self, model):  # noqa: D102
+        return model.id
+
+    def scaffold_list_columns(self):
+        """Scaffold list columns."""
+        return [
+            "description", "created_at", "origin", "enqueued_at", "timeout", "result_ttl",
+            "status", "meta"
+        ]
+
+    def scaffold_sortable_columns(self):  # noqa: D102
+        return self.scaffold_list_columns()
+
+    def init_search(self):  # noqa: D102
+        if self.column_searchable_list:
+            for p in self.column_searchable_list:
+                if isinstance(p, str):
+                    p = getattr(self.model, p)
+
+                # Check type
+                if not isinstance(p, (CharField, TextField)):
+                    raise Exception('Can only search on text columns. ' +
+                                    'Failed to setup search for "%s"' % p)
+
+                self._search_fields.append(p)
+
+        return bool(self._search_fields)
+
+    def scaffold_filters(self, name):  # noqa: D102
+        return None
+
+    def is_valid_filter(self, filter):  # noqa: D102
+        return isinstance(filter, filters.BasePeeweeFilter)
+
+    def scaffold_form(self):  # noqa: D102
+        from wtforms import Form
+        return Form()
+
+    def scaffold_inline_form_models(self, form_class):  # noqa: D102
+        converter = self.model_form_converter(self)
+        inline_converter = self.inline_model_form_converter(self)
+
+        for m in self.inline_models:
+            form_class = inline_converter.contribute(converter,
+                                                     self.model,
+                                                     form_class,
+                                                     m)
+
+        return form_class
+
+    def get_query(self):  # noqa: D102
+        return rq.get_scheduler().get_jobs()
+
+    def get_list(self, page, sort_column, sort_desc, search, filters, execute=True,
+                 page_size=None):
+        """Return records from the database.
+
+        :param page:
+            Page number
+        :param sort_column:
+            Sort column name
+        :param sort_desc:
+            Descending or ascending sort
+        :param search:
+            Search query
+        :param filters:
+            List of filter tuples
+        :param execute:
+            Execute query immediately? Default is `True`
+        :param page_size:
+            Number of results. Defaults to ModelView's page_size. Can be
+            overriden to change the page_size limit. Removing the page_size
+            limit requires setting page_size to 0 or False.
+        """
+        jobs = self.get_query()
+
+        # Get count
+        count = len(jobs)
+
+        # TODO: sort
+
+        return count, jobs
+
+    def get_one(self, job_id):
+        """Get a single job."""
+        try:
+            scheduler = rq.get_scheduler()
+            return scheduler.job_class.fetch(job_id, connection=scheduler.connection)
+        except Exception as ex:
+            flash(f"The jeb with given ID: {job_id} doesn't exist or it was deleted: {ex}.",
+                  "danger")
+            abort(404)
+
+    def is_accessible(self):
+        """Verify if the view is accessible for the current user."""
+        if not current_user.is_active or not current_user.is_authenticated:
+            return False
+
+        if current_user.has_role(Role.SUPERUSER):
+            return True
+
+        return False
+
+
+admin.add_view(ScheduerView(name="schedude", endpoint="schedude"))

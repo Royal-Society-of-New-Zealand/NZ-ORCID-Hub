@@ -1,5 +1,5 @@
 <!-- Header Details -->
-{% from "macros.html" import orcid_url %}
+{% from "macros.html" import orcid_url, image %}
 <header>
   {% block header %}
     <div class="lead banner"
@@ -129,8 +129,11 @@
                               <li id="user_invitation_summary"><a data-toggle="tooltip" data-placement="left" title="User Invitation Summary" href="{{ url_for('user_invitation_summary')}}">User Invitations</a></li>
                             </ul>
                           </li>
-                          <li class="divider"></li>
-                          <li id="rq_dashboard.overview"><a data-toggle="tooltip" data-placement="left" title="Message Queues" href="{{ url_for('rq_dashboard.overview')}}">Message Queues</a></li>
+                          {%- if config.REDIS_URL %}
+                            <li class="divider"></li>
+                            <li id="rq_dashboard.overview"><a data-toggle="tooltip" data-placement="left" title="Message Queues" href="{{ url_for('rq_dashboard.overview', url=request.url)}}">Message Queues</a></li>
+                            <li id="schedude.index_view"><a data-toggle="tooltip" data-placement="left" title="Scheduled Jobs" href="{{ url_for('schedude.index_view') }}">Scheduled Jobs</a></li>
+                          {% endif -%}
                         </ul>
                       </li>
                     {% endif %}
