@@ -128,8 +128,7 @@ def test_models(test_db):
         disambiguated_org_identifier="Test_%d" % i,
         disambiguation_source="Test_%d" % i,
         is_active=False,
-        status="Test_%d" % i,
-        visibility="Test_%d" % i) for i in range(10))).execute()
+        status="Test_%d" % i) for i in range(10))).execute()
 
     FundingContributor.insert_many((dict(
         funding_record=FundingRecord.get(id=1),
@@ -145,6 +144,7 @@ def test_models(test_db):
         put_code=i,
         status="Test_%d" % i,
         identifier="%d" % i,
+        visibility="Test_%d" % i,
         email="Test_%d" % i) for i in range(10))).execute()
 
     ExternalId.insert_many((dict(
@@ -177,8 +177,7 @@ def test_models(test_db):
         convening_org_country="nz_%d" % i,
         convening_org_disambiguated_identifier="123_%d" % i,
         convening_org_disambiguation_source="1212_%d" % i,
-        is_active=False,
-        visibility="PUBLIC") for i in range(10))).execute()
+        is_active=False) for i in range(10))).execute()
 
     PeerReviewExternalId.insert_many((dict(
         peer_review_record=PeerReviewRecord.get(id=1),
@@ -195,6 +194,7 @@ def test_models(test_db):
         put_code=i,
         status="Test1_%d" % i,
         identifier="1%d" % i,
+        visibility = "PUBLIC",
         email="Test1_%d" % i) for i in range(10))).execute()
 
     WorkRecord.insert_many((dict(
@@ -212,8 +212,7 @@ def test_models(test_db):
         language_code="Test_%d" % i,
         country="Test_%d" % i,
         is_active=False,
-        status="Test_%d" % i,
-        visibility="Test_%d" % i) for i in range(10))).execute()
+        status="Test_%d" % i) for i in range(10))).execute()
 
     WorkContributor.insert_many((dict(
         work_record=WorkRecord.get(id=1),
@@ -237,6 +236,7 @@ def test_models(test_db):
         put_code=i,
         status="Test_%d" % i,
         identifier="%d" % i,
+        visibility="Test_%d" % i,
         email="Test_%d" % i) for i in range(10))).execute()
 
     yield test_db

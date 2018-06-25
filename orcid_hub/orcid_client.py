@@ -300,8 +300,8 @@ class MemberAPI(MemberAPIV20Api):
         if put_code:
             rec.put_code = pi.put_code
 
-        if pr.visibility:
-            rec.visibility = pr.visibility
+        if pi.visibility:
+            rec.visibility = pi.visibility
 
         external_id_list = []
         external_ids = PeerReviewExternalId.select().where(PeerReviewExternalId.peer_review_record_id == pr.id)
@@ -403,8 +403,8 @@ class MemberAPI(MemberAPIV20Api):
         if put_code:
             rec.put_code = wi.put_code
 
-        if wr.visibility:
-            rec.visibility = wr.visibility
+        if wi.visibility:
+            rec.visibility = wi.visibility
 
         if wr.language_code:
             rec.language_code = wr.language_code
@@ -573,6 +573,9 @@ class MemberAPI(MemberAPIV20Api):
         rec.title = FundingTitle(title=title, translated_title=translated_title)  # noqa: F405
         rec.short_description = short_description
         rec.amount = Amount(value=amount, currency_code=currency_code)  # noqa: F405
+
+        if fi.visibility:
+            rec.visibility = fi.visibility
 
         if put_code:
             rec.put_code = put_code
