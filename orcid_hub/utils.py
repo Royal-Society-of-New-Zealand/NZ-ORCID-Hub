@@ -19,7 +19,7 @@ from peewee import JOIN
 
 from . import app, orcid_client, rq
 from .models import (AFFILIATION_TYPES, Affiliation, AffiliationRecord, FundingInvitees,
-                     FundingRecord, OrcidToken, Organisation, Role, Task, Url, User, PartialDate,
+                     FundingRecord, get_val, OrcidToken, Organisation, Role, Task, Url, User, PartialDate,
                      PeerReviewExternalId, UserInvitation, UserOrg, WorkInvitees, WorkRecord,
                      PeerReviewRecord, PeerReviewInvitee)
 
@@ -728,16 +728,35 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
 
         def match_put_code(records, affiliation_record):
             """Match and asign put-code to a single affiliation record and the existing ORCID records."""
-            if affiliation_record.put_code:
-                return
             for r in records:
                 put_code = r.get("put-code")
+                start_date = affiliation_record.start_date.as_orcid_dict() if affiliation_record.start_date else None
+                end_date = affiliation_record.end_date.as_orcid_dict() if affiliation_record.end_date else None
+
+                if (r.get("start-date") == start_date and r.get(
+                    "end-date") == end_date and r.get(
+                    "department-name") == affiliation_record.department
+                    and r.get("role-title") == affiliation_record.role
+                    and get_val(r, "organization", "name") == affiliation_record.organisation
+                    and get_val(r, "organization", "address", "city") == affiliation_record.city
+                    and get_val(r, "organization", "address", "region") == affiliation_record.state
+                    and get_val(r, "organization", "address", "country") == affiliation_record.country
+                    and get_val(r, "organization", "disambiguated-organization",
+                                "disambiguated-organization-identifier") == affiliation_record.disambiguated_id
+                    and get_val(r, "organization", "disambiguated-organization",
+                                "disambiguation-source") == affiliation_record.disambiguation_source):
+                    affiliation_record.put_code = put_code
+                    return True
+
+                if affiliation_record.put_code:
+                    return
+
                 if put_code in taken_put_codes:
                     continue
 
                 if ((r.get("start-date") is None and r.get("end-date") is None
                      and r.get("department-name") is None and r.get("role-title") is None)
-                        or (r.get("start-date") == affiliation_record.start_date
+                        or (r.get("start-date") == start_date
                             and r.get("department-name") == affiliation_record.department
                             and r.get("role-title") == affiliation_record.role)):
                     affiliation_record.put_code = put_code
@@ -751,38 +770,40 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
             try:
                 ar = task_by_user.affiliation_record
                 at = ar.affiliation_type.lower()
+                no_orcid_call = False
 
                 if at in EMP_CODES:
-                    match_put_code(employments, ar)
+                    no_orcid_call = match_put_code(employments, ar)
                     affiliation = Affiliation.EMP
                 elif at in EDU_CODES:
-                    match_put_code(educations, ar)
+                    no_orcid_call = match_put_code(educations, ar)
                     affiliation = Affiliation.EDU
                 else:
                     logger.info(f"For {user} not able to determine affiliaton type with {org}")
-                    ar.processed_at = datetime.utcnow()
                     ar.add_status_line(
                         f"Unsupported affiliation type '{at}' allowed values are: " + ', '.join(
                             at for at in AFFILIATION_TYPES))
                     ar.save()
                     continue
 
-                put_code, orcid, created = api.create_or_update_affiliation(
-                    affiliation=affiliation, **ar._data)
-                if created:
-                    ar.add_status_line(f"{str(affiliation)} record was created.")
+                if no_orcid_call:
+                    ar.add_status_line(f"{str(affiliation)} record unchanged.")
                 else:
-                    ar.add_status_line(f"{str(affiliation)} record was updated.")
-                ar.orcid = orcid
-                ar.put_code = put_code
-                ar.processed_at = datetime.utcnow()
+                    put_code, orcid, created = api.create_or_update_affiliation(
+                        affiliation=affiliation, **ar._data)
+                    if created:
+                        ar.add_status_line(f"{str(affiliation)} record was created.")
+                    else:
+                        ar.add_status_line(f"{str(affiliation)} record was updated.")
+                    ar.orcid = orcid
+                    ar.put_code = put_code
 
             except Exception as ex:
                 logger.exception(f"For {user} encountered exception")
                 ar.add_status_line(f"Exception occured processing the record: {ex}.")
-                ar.processed_at = datetime.utcnow()
 
             finally:
+                ar.processed_at = datetime.utcnow()
                 ar.save()
     else:
         for task_by_user in records:
