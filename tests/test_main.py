@@ -383,6 +383,9 @@ def test_orcid_login(request_ctx):
         orcid_authorize = OrcidAuthorizeCall.get(method="GET")
         assert "&email=test123%40test.test.net" in orcid_authorize.url
     with request_ctx("/orcid/login/" + expired_token.decode("utf-8")) as ctxxx:
+        # putting sleep for token expiry.
+        import time
+        time.sleep(1)
         resp = ctxxx.app.full_dispatch_request()
         assert resp.status_code == 302
         assert resp.location.startswith("/")
