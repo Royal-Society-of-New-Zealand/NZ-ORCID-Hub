@@ -730,9 +730,11 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
             """Match and asign put-code to a single affiliation record and the existing ORCID records."""
             for r in records:
                 put_code = r.get("put-code")
+                start_date = affiliation_record.start_date.as_orcid_dict() if affiliation_record.start_date else None
+                end_date = affiliation_record.end_date.as_orcid_dict() if affiliation_record.end_date else None
 
-                if (r.get("start-date") == affiliation_record.start_date.as_orcid_dict() and r.get(
-                    "end-date") == affiliation_record.end_date.as_orcid_dict() and r.get(
+                if (r.get("start-date") == start_date and r.get(
+                    "end-date") == end_date and r.get(
                     "department-name") == affiliation_record.department
                     and r.get("role-title") == affiliation_record.role
                     and get_val(r, "organization", "name") == affiliation_record.organisation
@@ -754,7 +756,7 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
 
                 if ((r.get("start-date") is None and r.get("end-date") is None
                      and r.get("department-name") is None and r.get("role-title") is None)
-                        or (r.get("start-date") == affiliation_record.start_date.as_orcid_dict()
+                        or (r.get("start-date") == start_date
                             and r.get("department-name") == affiliation_record.department
                             and r.get("role-title") == affiliation_record.role)):
                     affiliation_record.put_code = put_code
