@@ -895,7 +895,7 @@ def test_send_email(app):
 
         with pytest.raises(TemplateNotFound):
             utils.send_email(
-                "missing_template", (
+                "missing_template.html", (
                     "TEST USER",
                     "test123@test0.edu",
                 ),
