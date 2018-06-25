@@ -92,55 +92,10 @@
                   {% if current_user.is_tech_contact_of() %}
                     <li id="onboard_org"><a href="{{ url_for('onboard_org')}}">
                         <span data-toggle="tooltip" title="View/get your organisation's ORCID information">Your Organisation</span></a></li>
-                            {% if current_user.organisation.can_use_api %}
-                              <li id="applicatin"><a data-toggle="tooltip" data-placement="left" title="Register/manage Hub API client credentials" href="{{ url_for('application')}}">Hub API Registration</a></li>
-                            {% endif %}
-                          {% endif %}
-                          <li id="logo"><a href="{{ url_for('logo')}}">
-                              <span data-toggle="tooltip" data-placement="left" title="Upload your organisation logo">Logo</span></a></li>
-                          <li id="manage_email_template"><a href="{{ url_for('manage_email_template')}}">
-                              <span data-toggle="tooltip" data-placement="left" title="Customize your organization email template">Email Template</span></a></li>
-                          <li id="groupidrecord.index_view"><a href="{{ url_for('groupidrecord.index_view')}}"  data-toggle="tooltip"
-                                                                                            title="Create or Update group id record">GroupId Record</a></li>
-                          <li id="org_webhook"><a href="{{ url_for('org_webhook')}}">
-                              <span data-toggle="tooltip" data-placement="left" title="Activate the Organisation Webhook">Webhook</span></a></li>
-                        </ul>
-                      </li>
-                    {% endif %}
-                    {% if current_user.has_role("SUPERUSER") %}
-                      <li id="registerOrganisation"><a href="{{ url_for('invite_organisation') }}">Register
-                          Organisation</a>
-                      </li>
-                    {% endif %}
-                    {% if current_user.is_superuser %}
-                      <li class="dropdown">
-                        <a class="dropdown-toggle" data-toggle="dropdown" href="#">Admin
-                          <span class="caret"></span></a>
-                        <ul class="dropdown-menu">
-                          <li id="user.index_view"><a data-toggle="tooltip" data-placement="left" title="Registered users" href="{{ url_for('user.index_view')}}">Users</a></li>
-                          <li id="organisation.index_view"><a data-toggle="tooltip" data-placement="left" title="Registered Organisations" href="{{ url_for('organisation.index_view')}}">Organisations</a>
-                          </li>
-                          <li id="orcidtoken.index_view"><a data-toggle="tooltip" data-placement="left" title="Registered user ORCID access tokens" href="{{ url_for('orcidtoken.index_view')}}">ORCID Tokens</a></li>
-                          <li class="divider"></li>
-                          <li id="load_org"><a data-toggle="tooltip" data-placement="left" title="Pre-load Organisation Meta-information" href="{{ url_for('load_org')}}">Upload Organisation Info</a></li>
-                          <li id="orginfo.index_view"><a data-toggle="tooltip" data-placement="left" title="Pre-loaded Organisation Meta-information" href="{{ url_for('orginfo.index_view')}}">View Organisation
-                              Info</a></li>
-                          <li class="divider"></li>
-                          <li class="dropdown-submenu">
-                            <a class="dropdown-toggle" tabindex="-1" href="#">Reports<!-- span class="caret"></span --></a>
-                            <ul class="dropdown-menu">
-                              <li id="user_summary"><a data-toggle="tooltip" data-placement="left" title="User Summary" href="{{ url_for('user_summary')}}">Users</a></li>
-                              <li id="org_invitation_summary"><a data-toggle="tooltip" data-placement="left" title="Organisation Invitation Summary" href="{{ url_for('org_invitation_summary')}}">Organisation Invitations</a></li>
-                              <li id="user_invitation_summary"><a data-toggle="tooltip" data-placement="left" title="User Invitation Summary" href="{{ url_for('user_invitation_summary')}}">User Invitations</a></li>
-                            </ul>
-                          </li>
-                          {%- if config.REDIS_URL %}
-                            <li class="divider"></li>
-                            <li id="rq_dashboard.overview"><a data-toggle="tooltip" data-placement="left" title="Message Queues" href="{{ url_for('rq_dashboard.overview', url=request.url)}}">Message Queues</a></li>
-                            <li id="schedude.index_view"><a data-toggle="tooltip" data-placement="left" title="Scheduled Jobs" href="{{ url_for('schedude.index_view') }}">Scheduled Jobs</a></li>
-                          {% endif -%}
-                        </ul>
-                      </li>
+
+
+                    {% if current_user.organisation.can_use_api %}
+                      <li id="application"><a data-toggle="tooltip" title="Register/manage Hub API client credentials" href="{{ url_for('application')}}">Hub API Registration</a></li>
                     {% endif %}
                   {% endif %}
                   <li class="dropdown-submenu">
@@ -191,8 +146,9 @@
                     </ul>
                   </li>
                   {%- if config.REDIS_URL %}
-                    <li class="divider"></li>
-                    <li id="rq_dashboard.overview"><a data-toggle="tooltip" data-placement="left" title="Manage Hub's message queues" href="{{ url_for('rq_dashboard.overview')}}">Message Queues</a></li>
+                            <li class="divider"></li>
+                            <li id="rq_dashboard.overview"><a data-toggle="tooltip" data-placement="left" title="Message Queues" href="{{ url_for('rq_dashboard.overview', url=request.url)}}">Message Queues</a></li>
+                            <li id="schedude.index_view"><a data-toggle="tooltip" data-placement="left" title="Scheduled Jobs" href="{{ url_for('schedude.index_view') }}">Scheduled Jobs</a></li>
                   {% endif -%}
                 </ul>
               </li>
