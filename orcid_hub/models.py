@@ -420,6 +420,7 @@ class Organisation(BaseModel, AuditMixin):
     email_template_enabled = BooleanField(
         null=True, default=False, db_column="email_template_enabled")
     webhook_enabled = BooleanField(default=False, null=True)
+    email_notifications_enabled = BooleanField(default=False, null=True)
     webhook_url = CharField(max_length=100, null=True)
 
     @property
@@ -594,7 +595,8 @@ class User(BaseModel, UserMixin, AuditMixin):
     roles = SmallIntegerField(default=0)
 
     is_locked = BooleanField(default=False)
-    webhook_enabled = BooleanField(default=False)
+    webhook_enabled = BooleanField(default=False, null=True)
+    orcid_updated_at = DateTimeField(null=True, default=None)
 
     # TODO: many-to-many
     # NB! depricated!
@@ -612,8 +614,6 @@ class User(BaseModel, UserMixin, AuditMixin):
     @property
     def organisations(self):
         """Get all linked to the user organisation query."""
-        # return Organisation.select().join(
-        #     UserOrg, on=(UserOrg.org_id == Organisation.id)).where(UserOrg.user_id == self.id)
         return (Organisation.select(
             Organisation, (Organisation.tech_contact_id == self.id).alias("is_tech_contact"),
             ((UserOrg.is_admin.is_null(False)) & (UserOrg.is_admin)).alias("is_admin")).join(
