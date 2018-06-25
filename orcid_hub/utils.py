@@ -1340,6 +1340,42 @@ def process_tasks(max_rows=20):
         task.expires_at = max_expiry_date
         task.save()
 
+    for current_task in Task.select():
+        total_count = 0
+        current_count = 0
+
+        model_name = current_task.record_model._meta.name
+        if model_name == 'affiliationrecord':
+            total_count = current_task.affiliation_records.select().distinct().count()
+
+            current_count = current_task.affiliation_records.select().where(
+                AffiliationRecord.processed_at.is_null(False)).distinct().count()
+        elif model_name == 'fundingrecord':
+            for funding_record in current_task.funding_records.select():
+                total_count = total_count + funding_record.funding_invitees.select().distinct().count()
+
+                current_count = current_count + funding_record.funding_invitees.select().where(
+                    FundingInvitees.processed_at.is_null(False)).distinct().count()
+        elif model_name == 'workrecord':
+            for work_record in current_task.work_records.select():
+                total_count = total_count + work_record.work_invitees.select().distinct().count()
+
+                current_count = current_count + work_record.work_invitees.select().where(
+                    WorkInvitees.processed_at.is_null(False)).distinct().count()
+        elif model_name == 'peerreviewrecord':
+            for peer_review_record in current_task.peer_review_records.select():
+                total_count = total_count + peer_review_record.peer_review_invitee.select().distinct().count()
+
+                current_count = current_count + peer_review_record.peer_review_invitee.select().where(
+                    PeerReviewInvitee.processed_at.is_null(False)).distinct().count()
+
+        completed_count = str(current_count) + "/" + str(total_count) + " (" + str(
+            round(current_count * 100 / total_count, 2) if total_count != 0 else 0) + "%)"
+
+        if not current_task.completed_count or current_task.completed_count != completed_count:
+            current_task.completed_count = completed_count
+            current_task.save()
+
     tasks = Task.select().where(
             Task.expires_at.is_null(False),
             Task.expiry_email_sent_at.is_null(),
