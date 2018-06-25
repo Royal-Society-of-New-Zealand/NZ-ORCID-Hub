@@ -214,7 +214,7 @@ def test_send_work_funding_peer_review_invitation(test_db, request_ctx):
     email = "test1234456@mailinator.com"
     fr = FundingRecord(task=task.id, title="xyz", type="Award")
     fr.save()
-    fc = FundingInvitees(funding_record=fr.id, email=email)
+    fc = FundingInvitees(funding_record=fr.id, email=email, first_name="Alice", last_name="Bob")
     fc.save()
     with request_ctx("/") as ctxx:
         utils.send_work_funding_peer_review_invitation(
