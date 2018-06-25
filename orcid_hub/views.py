@@ -193,10 +193,7 @@ class AppModelView(ModelView):
     column_default_sort = "id"
     column_labels = dict(org="Organisation", orcid="ORCID iD")
     column_type_formatters = dict(typefmt.BASE_FORMATTERS)
-    column_type_formatters.update({
-        datetime:
-        lambda view, value: Markup(f"""<time datetime="{value.isoformat(timespec='minutes')}" />"""),
-    })
+    column_type_formatters.update({datetime: lambda view, value: isodate(value)})
     column_type_formatters_export = dict(typefmt.EXPORT_FORMATTERS)
     column_type_formatters_export.update({PartialDate: lambda view, value: str(value)})
     column_formatters_export = dict(orcid=lambda v, c, m, p: m.orcid)
@@ -1417,6 +1414,7 @@ def isodate(d, sep="&nbsp;"):
     if d and isinstance(d, datetime):
         return Markup(
             f"""<time datetime="{d.isoformat(timespec='minutes')}" """
+            f"""data-toggle="tooltip" title="{d.isoformat(timespec='minutes', sep=' ')}" """
             f"""data-format="YYYY[&#8209;]MM[&#8209;]DD[{sep}]HH:mm" />""")
     return ''
 
@@ -2420,10 +2418,28 @@ def user_orgs_org(user_id, org_id=None):
 def update_webhook(user_id):
     """Handle webook calls."""
     try:
-        updated_at = datetime.utcnow().isoformat(timespec="minutes")
+        updated_at = datetime.utcnow()
         user = User.get(id=user_id)
-        for org in user.organisations.where(Organisation.webhook_enabled, Organisation.webhook_url.is_null(False)):
-            utils.invoke_webhook_handler.queue(org.webhook_url, user.orcid, updated_at)
+        user.orcid_updated_at = updated_at
+        user.save()
+        for org in user.organisations.where(Organisation.webhook_enabled):
+
+            if org.webhook_url:
+                utils.invoke_webhook_handler.queue(
+                    org.webhook_url,
+                    user.orcid,
+                    updated_at,
+                )
+
+            if org.email_notifications_enabled:
+                url = app.config["ORCID_BASE_URL"] + user.orcid
+                utils.send_email(
+                    f"""<p>User {user.name} (<a href="{url}" target="_blank">{user.orcid}</a>)
+                    profile was updated at {updated_at.isoformat(timespec="minutes", sep=' ')}.</p>""",
+                    recipient=(org.tech_contact.name, org.tech_contact.email),
+                    subject=f"ORCID Profile Update ({user.orcid})",
+                    org=org)
+
     except Exception:
         app.logger.exception(f"Invalid user_id: {user_id}")
 
@@ -2465,6 +2481,7 @@ class ScheduerView(BaseModelView):
     can_delete = False
     can_create = False
     can_view_details = True
+    column_type_formatters = {datetime: lambda view, value: isodate(value)}
 
     def __init__(self,
                  name=None,

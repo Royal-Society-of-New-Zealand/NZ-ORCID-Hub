@@ -15,13 +15,14 @@ from flask import request, url_for
 from flask_login import current_user
 from html2text import html2text
 from itsdangerous import BadSignature, TimedJSONWebSignatureSerializer
+from jinja2 import Template
 from peewee import JOIN
 
 from . import app, orcid_client, rq
 from .models import (AFFILIATION_TYPES, Affiliation, AffiliationRecord, FundingInvitees,
-                     FundingRecord, get_val, OrcidToken, Organisation, Role, Task, Url, User, PartialDate,
-                     PeerReviewExternalId, UserInvitation, UserOrg, WorkInvitees, WorkRecord,
-                     PeerReviewRecord, PeerReviewInvitee)
+                     FundingRecord, OrcidToken, Organisation, PartialDate, PeerReviewExternalId,
+                     PeerReviewInvitee, PeerReviewRecord, Role, Task, Url, User, UserInvitation,
+                     UserOrg, WorkInvitees, WorkRecord, get_val)
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -53,7 +54,7 @@ def is_valid_url(url):
         return False
 
 
-def send_email(template_filename,
+def send_email(template,
                recipient,
                cc_email=None,
                sender=(app.config.get("APP_NAME"), app.config.get("MAIL_DEFAULT_SENDER")),
@@ -65,10 +66,10 @@ def send_email(template_filename,
                **kwargs):
     """Send an email, acquiring its payload by rendering a jinja2 template.
 
-    :type template_filename: :class:`str`
+    :type template: :class:`str`
     :param subject: the subject of the email
     :param base: the base template of the email messagess
-    :param template_filename: name of the template_filename file in ``templates/emails`` to use
+    :param template: name of the template file in ``templates/emails`` to use
     :type recipient: :class:`tuple` (:class:`str`, :class:`str`)
     :param recipient: 'To' (name, email)
     :type sender: :class:`tuple` (:class:`str`, :class:`str`)
@@ -93,8 +94,6 @@ def send_email(template_filename,
     """
     if not org and current_user and not current_user.is_anonymous:
         org = current_user.organisation
-    if not template_filename.endswith(".html"):
-        template_filename += ".html"
     jinja_env = flask.current_app.jinja_env
 
     if logo is None:
@@ -118,7 +117,10 @@ def send_email(template_filename,
             name = jinja_env.undefined(name='name', hint=hint)
         return {"name": name, "email": email}
 
-    template = jinja_env.get_template(template_filename)
+    if '\n' not in template and template.endswith(".html"):
+        template = jinja_env.get_template(template)
+    else:
+        template = Template(template)
 
     kwargs["sender"] = _jinja2_email(*sender)
     kwargs["recipient"] = _jinja2_email(*recipient)
@@ -1433,9 +1435,25 @@ def register_orcid_webhook(user, callback_url=None, delete=False):
 
 
 @rq.job(timeout=300)
-def invoke_webhook_handler(webhook_url, orcid, updated_at):
+def invoke_webhook_handler(webhook_url, orcid, updated_at, attempts=3):
     """Propagate 'updated' event to the organisation event handler URL."""
-    return requests.post(webhook_url + '/' + orcid, json={"orcid": orcid, "updated-at": updated_at})
+    url = app.config["ORCID_BASE_URL"] + orcid
+    resp = requests.post(
+        webhook_url + '/' + orcid,
+        json={
+            "orcid": orcid,
+            "updated-at": updated_at.isoformat(timespec="minutes"),
+            "url": url
+        })
+    if resp.status_code // 100 != 2:
+        if attempts > 0:
+            invoke_webhook_handler.schedule(
+                timedelta(minutes=5),
+                webhook_url=webhook_url,
+                orcid=orcid,
+                updated_at=updated_at,
+                attempts=attempts - 1)
+    return resp
 
 
 @rq.job(timeout=300)

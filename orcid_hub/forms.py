@@ -381,8 +381,9 @@ class CredentialForm(ApplicationFromBase):
 class WebhookForm(FlaskForm):
     """Webhoook form."""
 
-    webhook_url = URLField(validators=[url(), validators.required()])
+    webhook_url = URLField(validators=[url()])
     webhook_enabled = BooleanField()
+    email_notifications_enabled = BooleanField()
     save_webhook = SubmitField(
         "Save",
         render_kw={
