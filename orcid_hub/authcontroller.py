@@ -850,7 +850,7 @@ def orcid_login(invitation_token=None):
             if isinstance(data, str):
                 user_email, user_org_name = data[1].split(';')
             else:
-                user_email, user_org_name = data[1].get("email"), data[1].get("org")
+                user_email, user_org_name = data.get("email"), data.get("org")
             user = User.get(email=user_email)
             org = Organisation.get(name=user_org_name or user.organisation.name)
 

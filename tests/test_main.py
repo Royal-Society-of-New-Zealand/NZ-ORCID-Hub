@@ -376,11 +376,16 @@ def test_orcid_login(request_ctx):
         organisation=org)
     UserOrg.create(user=u, org=org, is_admin=True)
     token = utils.generate_confirmation_token(email=u.email, org=org.name)
+    expired_token = utils.generate_confirmation_token(expiration=0, email=u.email, org=org.name)
     with request_ctx("/orcid/login/" + token.decode("utf-8")) as ctxx:
         rv = ctxx.app.full_dispatch_request()
         assert rv.status_code == 200
         orcid_authorize = OrcidAuthorizeCall.get(method="GET")
         assert "&email=test123%40test.test.net" in orcid_authorize.url
+    with request_ctx("/orcid/login/" + expired_token.decode("utf-8")) as ctxxx:
+        resp = ctxxx.app.full_dispatch_request()
+        assert resp.status_code == 302
+        assert resp.location.startswith("/")
 
 
 def fetch_token_mock(self,

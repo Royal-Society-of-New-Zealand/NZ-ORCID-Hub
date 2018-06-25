@@ -176,7 +176,10 @@ def confirm_token(token, unsafe=False):
     """Genearate confirmaatin token."""
     serializer = TimedJSONWebSignatureSerializer(app.config["SECRET_KEY"])
     if unsafe:
-        data = serializer.loads_unsafe(token)
+        try:
+            data = serializer.loads_unsafe(token, salt=app.config["SALT"])
+        except BadSignature:  # try again w/o the global salt
+            data = serializer.loads_unsafe(token, salt=None)
     else:
         try:
             data = serializer.loads(token, salt=app.config["SALT"])
