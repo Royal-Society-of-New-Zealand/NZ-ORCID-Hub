@@ -131,7 +131,7 @@
                           </li>
                           {%- if config.REDIS_URL %}
                             <li class="divider"></li>
-                            <li id="rq_dashboard.overview"><a data-toggle="tooltip" data-placement="left" title="Message Queues" href="{{ url_for('rq_dashboard.overview')}}">Message Queues</a></li>
+                            <li id="rq_dashboard.overview"><a data-toggle="tooltip" data-placement="left" title="Message Queues" href="{{ url_for('rq_dashboard.overview', url=request.url)}}">Message Queues</a></li>
                             <li id="schedude.index_view"><a data-toggle="tooltip" data-placement="left" title="Scheduled Jobs" href="{{ url_for('schedude.index_view') }}">Scheduled Jobs</a></li>
                           {% endif -%}
                         </ul>
