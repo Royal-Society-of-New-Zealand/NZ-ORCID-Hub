@@ -7,4 +7,5 @@ export PYTHONPATH=$DIR
 export FLASK_APP=orcid_hub
 export LANG=en_US.UTF-8
 
-exec flask $@
+# Add $RANDOM to make the neame unique:
+exec flask rq worker -n ORCIDHUB.$RANDOM $@

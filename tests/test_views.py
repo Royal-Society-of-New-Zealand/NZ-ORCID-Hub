@@ -18,12 +18,13 @@ from peewee import SqliteDatabase
 from playhouse.test_utils import test_database
 from werkzeug.datastructures import ImmutableMultiDict
 
-from orcid_hub import app, orcid_client, views
+from orcid_hub import app, orcid_client, rq, views
 from orcid_hub.config import ORCID_BASE_URL
 from orcid_hub.forms import FileUploadForm
 from orcid_hub.models import UserOrgAffiliation  # noqa: E128
-from orcid_hub.models import (AffiliationRecord, Client, File, FundingRecord, OrcidToken, Organisation,
-                              OrgInfo, Role, Task, Token, Url, User, UserInvitation, UserOrg, PeerReviewRecord)
+from orcid_hub.models import (Affiliation, AffiliationRecord, Client, File, FundingRecord,
+                              OrcidToken, Organisation, OrgInfo, Role, Task, Token, Url, User,
+                              UserInvitation, UserOrg, PeerReviewRecord, WorkRecord)
 
 fake_time = time.time()
 logger = logging.getLogger(__name__)
@@ -95,18 +96,46 @@ def test_models(test_db):
 
 def test_superuser_view_access(request_ctx):
     """Test if SUPERUSER can access Flask-Admin"."""
+    with request_ctx("/admin/schedude/") as ctx:
+        rv = ctx.app.full_dispatch_request()
+        assert rv.status_code == 403
+        assert b"403" in rv.data
+
+    user = User.create(
+        name="TEST USER",
+        email="test@test.test.net",
+        roles=Role.SUPERUSER,
+        username="test42",
+        confirmed=True)
+
     with request_ctx("/admin/user/") as ctx:
-        test_user = User(
-            name="TEST USER",
-            email="test@test.test.net",
-            roles=Role.SUPERUSER,
-            username="test42",
-            confirmed=True)
-        login_user(test_user, remember=True)
+        login_user(user, remember=True)
 
         rv = ctx.app.full_dispatch_request()
         assert rv.status_code == 200
         assert b"User" in rv.data
+
+    with request_ctx(f"/admin/user/edit/?id={user.id}") as ctx:
+        login_user(user, remember=True)
+
+        rv = ctx.app.full_dispatch_request()
+        assert rv.status_code == 200
+        assert b"TEST USER" in rv.data
+
+    with request_ctx("/admin/schedude/") as ctx:
+        login_user(user, remember=True)
+
+        rv = ctx.app.full_dispatch_request()
+        assert rv.status_code == 200
+        assert b"interval" in rv.data
+
+    jobs = rq.get_scheduler().get_jobs()
+    with request_ctx(f"/admin/schedude/details/?id={jobs[0].id}") as ctx:
+        login_user(user, remember=True)
+
+        rv = ctx.app.full_dispatch_request()
+        assert rv.status_code == 200
+        assert b"interval" in rv.data
 
 
 def test_admin_view_access_fail(client, request_ctx):
@@ -808,9 +837,23 @@ def test_manage_email_template(patch, request_ctx):
         login_user(user, remember=True)
         rv = ctx.app.full_dispatch_request()
         assert rv.status_code == 200
+        assert b"Are you sure?" in rv.data
+    with request_ctx(
+            "/settings/email_template",
+            method="POST",
+            data={
+                "name": "TEST APP",
+                "homepage_url": "http://test.at.test",
+                "description": "TEST APPLICATION 123",
+                "email_template": "enable {MESSAGE} {INCLUDED_URL}",
+                "save": "Save"
+            }) as ctx:
+        login_user(user, remember=True)
+        rv = ctx.app.full_dispatch_request()
+        assert rv.status_code == 200
         assert b"<!DOCTYPE html>" in rv.data, "Expected HTML content"
         org = Organisation.get(id=org.id)
-        assert org.email_template == "enable"
+        assert org.email_template == "enable {MESSAGE} {INCLUDED_URL}"
     with request_ctx(
             "/settings/email_template",
             method="POST",
@@ -841,7 +884,7 @@ def test_invite_user(request_ctx):
         name="TEST USER",
         confirmed=True,
         organisation=org)
-    UserOrg.create(user=user, org=org)
+    UserOrg.create(user=user, org=org, affiliations=Affiliation.EMP)
     UserInvitation.create(
         invitee=user,
         inviter=admin,
@@ -873,6 +916,28 @@ def test_invite_user(request_ctx):
         assert b"<!DOCTYPE html>" in rv.data, "Expected HTML content"
         assert b"test123@test.test.net" in rv.data
         queue_send_user_invitation.assert_called_once()
+    with patch("orcid_hub.orcid_client.MemberAPI") as m, patch(
+        "orcid_hub.orcid_client.SourceClientId"), request_ctx(
+        "/invite/user",
+        method="POST",
+        data={
+            "name": "TEST APP",
+            "is_employee": "false",
+            "email_address": "test123@test.test.net",
+            "resend": "enable",
+            "is_student": "true",
+            "first_name": "test",
+            "last_name": "test",
+            "city": "test"}) as ctx:
+        login_user(admin, remember=True)
+        OrcidToken.create(access_token="ACCESS123", user=user, org=org, scope="/read-limited,/activities/update",
+                          expires_in='121')
+        api_mock = m.return_value
+        rv = ctx.app.full_dispatch_request()
+        assert rv.status_code == 200
+        assert b"<!DOCTYPE html>" in rv.data, "Expected HTML content"
+        assert b"test123@test.test.net" in rv.data
+        api_mock.create_or_update_affiliation.assert_called_once()
 
 
 def test_email_template(app, request_ctx):
@@ -923,7 +988,7 @@ def test_email_template(app, request_ctx):
             method="POST",
             data={
                 "email_template_enabled": "y",
-                "email_template": "TEST TEMPLATE TO SAVE",
+                "email_template": "TEST TEMPLATE TO SAVE {MESSAGE} {INCLUDED_URL}",
                 "save": "Save",
             }) as ctx:
         login_user(user)
@@ -931,7 +996,7 @@ def test_email_template(app, request_ctx):
         assert rv.status_code == 200
         org.reload()
         assert org.email_template_enabled
-        assert "TEST TEMPLATE TO SAVE" in org.email_template
+        assert "TEST TEMPLATE TO SAVE {MESSAGE} {INCLUDED_URL}" in org.email_template
 
     with patch("emails.message.Message") as msg_cls, request_ctx(
             "/settings/email_template",
@@ -1585,6 +1650,23 @@ def test_reset_all(request_ctx):
         is_active=True,
         visibility="Test_visibity")
 
+    work_task = Task.create(
+        id=4,
+        org=org,
+        completed_at="12/12/12",
+        filename="xyz.txt",
+        created_by=user,
+        updated_by=user,
+        task_type=2)
+
+    WorkRecord.create(
+        id=1,
+        task=work_task,
+        title=1212,
+        is_active=True,
+        citation_type="Test_citation_type",
+        citation_value="Test_visibity")
+
     with request_ctx("/reset_all", method="POST") as ctxx:
         login_user(user, remember=True)
         request.args = ImmutableMultiDict([('url', 'http://localhost/affiliation_record_reset_for_batch')])
@@ -1618,6 +1700,17 @@ def test_reset_all(request_ctx):
         assert t2.completed_at is None
         assert rv.status_code == 302
         assert rv.location.startswith("http://localhost/peer_review_record_reset_for_batch")
+    with request_ctx("/reset_all", method="POST") as ctxx:
+        login_user(user, remember=True)
+        request.args = ImmutableMultiDict([('url', 'http://localhost/work_record_reset_for_batch')])
+        request.form = ImmutableMultiDict([('task_id', work_task.id)])
+        rv = ctxx.app.full_dispatch_request()
+        t = Task.get(id=4)
+        pr = WorkRecord.get(id=1)
+        assert "The record was reset" in pr.status
+        assert t.completed_at is None
+        assert rv.status_code == 302
+        assert rv.location.startswith("http://localhost/work_record_reset_for_batch")
 
 
 def test_issue_470198698(request_ctx):

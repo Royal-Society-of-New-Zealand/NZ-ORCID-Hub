@@ -3,7 +3,7 @@
 
 import logging
 from itertools import groupby
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import Mock, patch
 
 import pytest
 from flask import make_response
@@ -11,10 +11,10 @@ from flask_login import login_user
 from peewee import JOIN
 
 from orcid_hub import utils
-from orcid_hub.models import (AffiliationRecord, ExternalId, File, FundingContributor,
-                              FundingInvitees, FundingRecord, OrcidToken, Organisation, Role, Task,
-                              User, UserInvitation, UserOrg, WorkRecord, WorkInvitees, WorkExternalId, WorkContributor,
-                              PeerReviewRecord, PeerReviewInvitee, PeerReviewExternalId)
+from orcid_hub.models import (
+    AffiliationRecord, ExternalId, File, FundingContributor, FundingInvitees, FundingRecord,
+    OrcidToken, Organisation, Role, Task, User, UserInvitation, UserOrg, WorkRecord, WorkInvitees,
+    WorkExternalId, WorkContributor, PeerReviewRecord, PeerReviewInvitee, PeerReviewExternalId)
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -40,16 +40,23 @@ def test_append_qs():
 
 def test_generate_confirmation_token():
     """Test to generate confirmation token."""
-    token = utils.generate_confirmation_token(["testemail@example.com"], expiration=1)
+    token = utils.generate_confirmation_token(["testemail@example.com"], expiration=0.00001)
     data = utils.confirm_token(token)
     # Test positive testcase
     assert 'testemail@example.com' == data[0]
     import time
-    time.sleep(2)
+    time.sleep(1)
     with pytest.raises(Exception) as ex_info:
         utils.confirm_token(token)
     # Got exception
     assert "Signature expired" in ex_info.value.message
+
+    _salt = utils.app.config["SALT"]
+    utils.app.config["SALT"] = None
+    token = utils.generate_confirmation_token(["testemail123@example.com"])
+    utils.app.config["SALT"] = _salt
+    data = utils.confirm_token(token)
+    assert 'testemail123@example.com' == data[0]
 
 
 def test_track_event(request_ctx):
@@ -207,7 +214,7 @@ def test_send_work_funding_peer_review_invitation(test_db, request_ctx):
     email = "test1234456@mailinator.com"
     fr = FundingRecord(task=task.id, title="xyz", type="Award")
     fr.save()
-    fc = FundingInvitees(funding_record=fr.id, email=email)
+    fc = FundingInvitees(funding_record=fr.id, email=email, first_name="Alice", last_name="Bob")
     fc.save()
     with request_ctx("/") as ctxx:
         utils.send_work_funding_peer_review_invitation(
@@ -499,13 +506,13 @@ def test_create_or_update_funding(email_patch, patch, test_db, request_ctx):
         country="Test",
         disambiguated_org_identifier="Test_dis",
         disambiguation_source="Test_source",
-        is_active=True,
-        visibility="Test_visibity")
+        is_active=True)
 
     FundingInvitees.create(
         funding_record=fr,
         first_name="Test",
         email="test1234456@mailinator.com",
+        visibility="PUBLIC",
         orcid="123")
 
     ExternalId.create(
@@ -577,14 +584,14 @@ def test_create_or_update_work(email_patch, patch, test_db, request_ctx):
         org_name="Test_orgname",
         city="Test city",
         region="Test",
-        is_active=True,
-        visibility="PUBLIC")
+        is_active=True)
 
     WorkInvitees.create(
         work_record=wr,
         first_name="Test",
         email="test1234456@mailinator.com",
-        orcid="12344")
+        orcid="12344",
+        visibility="PUBLIC")
 
     WorkExternalId.create(
         work_record=wr, type="Test_type", value="Test_value", url="Test", relationship="SELF")
@@ -660,14 +667,14 @@ def test_create_or_update_peer_review(email_patch, patch, test_db, request_ctx):
         convening_org_country="nz",
         convening_org_disambiguated_identifier="123",
         convening_org_disambiguation_source="1212",
-        is_active=True,
-        visibility="PUBLIC")
+        is_active=True)
 
     PeerReviewInvitee.create(
         peer_review_record=pr,
         first_name="Test",
         email="test1234456@mailinator.com",
-        orcid="12344")
+        orcid="12344",
+        visibility="PUBLIC")
 
     PeerReviewExternalId.create(
         peer_review_record=pr, type="Test_type", value="122334_different", url="Test", relationship="SELF")
@@ -888,39 +895,12 @@ def test_send_email(app):
 
         with pytest.raises(TemplateNotFound):
             utils.send_email(
-                "missing_template", (
+                "missing_template.html", (
                     "TEST USER",
                     "test123@test0.edu",
                 ),
                 logo="LOGO",
                 subject="TEST")
-
-
-def test_get_client_credentials_token(request_ctx):
-    """Test retrieval of the webhook tokens."""
-    with request_ctx("/"), patch("orcid_hub.utils.requests.post") as mockpost:
-        admin = User.get(email="admin@test0.edu")
-        org = admin.organisation
-        login_user(admin)
-        mockresp = MagicMock(status_code=201)
-        mockresp.json.return_value = {
-            "access_token": "ACCESS-TOKEN-123",
-            "token_type": "bearer",
-            "refresh_token": "REFRESH-TOKEN-123",
-            "expires_in": 99999,
-            "scope": "/webhook",
-            "orcid": None
-        }
-        mockpost.return_value = mockresp
-
-        OrcidToken.create(
-            org=org, access_token="access_token", refresh_token="refresh_token", scope="/webhook")
-        token = utils.get_client_credentials_token(org, "/webhook")
-        assert OrcidToken.select().where(OrcidToken.org == org, OrcidToken.scope == "/webhook").count() == 1
-        assert token.access_token == "ACCESS-TOKEN-123"
-        assert token.refresh_token == "REFRESH-TOKEN-123"
-        assert token.expires_in == 99999
-        assert token.scope == "/webhook"
 
 
 def test_is_valid_url():

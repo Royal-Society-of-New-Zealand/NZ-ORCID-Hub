@@ -14,14 +14,15 @@ import requests
 from flask import request, url_for
 from flask_login import current_user
 from html2text import html2text
-from itsdangerous import TimedJSONWebSignatureSerializer
+from itsdangerous import BadSignature, TimedJSONWebSignatureSerializer
+from jinja2 import Template
 from peewee import JOIN
 
 from . import app, orcid_client, rq
 from .models import (AFFILIATION_TYPES, Affiliation, AffiliationRecord, FundingInvitees,
-                     FundingRecord, OrcidToken, Organisation, Role, Task, Url, User, PartialDate,
-                     PeerReviewExternalId, UserInvitation, UserOrg, WorkInvitees, WorkRecord,
-                     PeerReviewRecord, PeerReviewInvitee)
+                     FundingRecord, OrcidToken, Organisation, PartialDate, PeerReviewExternalId,
+                     PeerReviewInvitee, PeerReviewRecord, Role, Task, Url, User, UserInvitation,
+                     UserOrg, WorkInvitees, WorkRecord, get_val)
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -53,7 +54,7 @@ def is_valid_url(url):
         return False
 
 
-def send_email(template_filename,
+def send_email(template,
                recipient,
                cc_email=None,
                sender=(app.config.get("APP_NAME"), app.config.get("MAIL_DEFAULT_SENDER")),
@@ -65,12 +66,12 @@ def send_email(template_filename,
                **kwargs):
     """Send an email, acquiring its payload by rendering a jinja2 template.
 
-    :type template_filename: :class:`str`
+    :type template: :class:`str`
     :param subject: the subject of the email
     :param base: the base template of the email messagess
-    :param template_filename: name of the template_filename file in ``templates/emails`` to use
+    :param template: name of the template file in ``templates/emails`` to use
     :type recipient: :class:`tuple` (:class:`str`, :class:`str`)
-    :param recipient: 'To' (name, email)
+    :param recipient: 'To' (name, email) or just an email address
     :type sender: :class:`tuple` (:class:`str`, :class:`str`)
     :param sender: 'From' (name, email)
     :param org: organisation on which behalf the email is sent
@@ -93,8 +94,6 @@ def send_email(template_filename,
     """
     if not org and current_user and not current_user.is_anonymous:
         org = current_user.organisation
-    if not template_filename.endswith(".html"):
-        template_filename += ".html"
     jinja_env = flask.current_app.jinja_env
 
     if logo is None:
@@ -118,9 +117,14 @@ def send_email(template_filename,
             name = jinja_env.undefined(name='name', hint=hint)
         return {"name": name, "email": email}
 
-    template = jinja_env.get_template(template_filename)
+    if '\n' not in template and template.endswith(".html"):
+        template = jinja_env.get_template(template)
+    else:
+        template = Template(template)
 
     kwargs["sender"] = _jinja2_email(*sender)
+    if isinstance(recipient, str):
+        recipient = (recipient, recipient, )
     kwargs["recipient"] = _jinja2_email(*recipient)
     if subject is not None:
         kwargs["subject"] = subject
@@ -162,20 +166,25 @@ def generate_confirmation_token(*args, expiration=1300000, **kwargs):
     Invitation Token Expiry for Admins is 15 days, whereas for researchers the token expiry is of 30 days.
     """
     serializer = TimedJSONWebSignatureSerializer(app.config["SECRET_KEY"], expires_in=expiration)
-    salt = app.config["SALT"]
     if len(kwargs) == 0:
-        return serializer.dumps(args[0] if len(args) == 1 else args, salt=salt)
+        return serializer.dumps(args[0] if len(args) == 1 else args)
     else:
-        return serializer.dumps(kwargs.values()[0] if len(kwargs) == 1 else kwargs, salt=salt)
+        return serializer.dumps(kwargs.values()[0] if len(kwargs) == 1 else kwargs)
 
 
 def confirm_token(token, unsafe=False):
     """Genearate confirmaatin token."""
     serializer = TimedJSONWebSignatureSerializer(app.config["SECRET_KEY"])
     if unsafe:
-        data = serializer.loads_unsafe(token)
+        try:
+            data = serializer.loads_unsafe(token, salt=app.config["SALT"])
+        except BadSignature:  # try again w/o the global salt
+            data = serializer.loads_unsafe(token, salt=None)
     else:
-        data = serializer.loads(token, salt=app.config["SALT"])
+        try:
+            data = serializer.loads(token, salt=app.config["SALT"])
+        except BadSignature:  # try again w/o the global salt
+            data = serializer.loads(token, salt=None)
     return data
 
 
@@ -223,20 +232,25 @@ def set_server_name():
                 "SERVER_NAME"] = "orcidhub.org.nz" if ENV == "prod" else ENV + ".orcidhub.org.nz"
 
 
-def send_work_funding_peer_review_invitation(inviter, org, email, name, task_id=None, invitation_template=None,
-                                             token_expiry_in_sec=1300000, **kwargs):
+def send_work_funding_peer_review_invitation(inviter, org, email, first_name=None, last_name=None, task_id=None,
+                                             invitation_template=None, token_expiry_in_sec=1300000, **kwargs):
     """Send a work, funding or peer review invitation to join ORCID Hub logging in via ORCID."""
     try:
-        logger.info(f"*** Sending an invitation to '{name} <{email}>' "
+        logger.info(f"*** Sending an invitation to '{first_name} <{email}>' "
                     f"submitted by {inviter} of {org}")
 
         email = email.lower()
         user, user_created = User.get_or_create(email=email)
         if user_created:
-            user.name = name
             user.created_by = inviter.id
         else:
             user.updated_by = inviter.id
+
+        if first_name and not user.first_name:
+            user.first_name = first_name
+
+        if last_name and not user.last_name:
+            user.last_name = last_name
 
         user.organisation = org
         user.roles |= Role.RESEARCHER
@@ -270,7 +284,8 @@ def send_work_funding_peer_review_invitation(inviter, org, email, name, task_id=
             inviter_id=inviter.id,
             org=org,
             email=email,
-            first_name=name,
+            first_name=first_name,
+            last_name=last_name,
             affiliations=0,
             organisation=org.name,
             disambiguated_id=org.disambiguated_id,
@@ -720,16 +735,35 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
 
         def match_put_code(records, affiliation_record):
             """Match and asign put-code to a single affiliation record and the existing ORCID records."""
-            if affiliation_record.put_code:
-                return
             for r in records:
                 put_code = r.get("put-code")
+                start_date = affiliation_record.start_date.as_orcid_dict() if affiliation_record.start_date else None
+                end_date = affiliation_record.end_date.as_orcid_dict() if affiliation_record.end_date else None
+
+                if (r.get("start-date") == start_date and r.get(
+                    "end-date") == end_date and r.get(
+                    "department-name") == affiliation_record.department
+                    and r.get("role-title") == affiliation_record.role
+                    and get_val(r, "organization", "name") == affiliation_record.organisation
+                    and get_val(r, "organization", "address", "city") == affiliation_record.city
+                    and get_val(r, "organization", "address", "region") == affiliation_record.state
+                    and get_val(r, "organization", "address", "country") == affiliation_record.country
+                    and get_val(r, "organization", "disambiguated-organization",
+                                "disambiguated-organization-identifier") == affiliation_record.disambiguated_id
+                    and get_val(r, "organization", "disambiguated-organization",
+                                "disambiguation-source") == affiliation_record.disambiguation_source):
+                    affiliation_record.put_code = put_code
+                    return True
+
+                if affiliation_record.put_code:
+                    return
+
                 if put_code in taken_put_codes:
                     continue
 
                 if ((r.get("start-date") is None and r.get("end-date") is None
                      and r.get("department-name") is None and r.get("role-title") is None)
-                        or (r.get("start-date") == affiliation_record.start_date
+                        or (r.get("start-date") == start_date
                             and r.get("department-name") == affiliation_record.department
                             and r.get("role-title") == affiliation_record.role)):
                     affiliation_record.put_code = put_code
@@ -743,38 +777,40 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
             try:
                 ar = task_by_user.affiliation_record
                 at = ar.affiliation_type.lower()
+                no_orcid_call = False
 
                 if at in EMP_CODES:
-                    match_put_code(employments, ar)
+                    no_orcid_call = match_put_code(employments, ar)
                     affiliation = Affiliation.EMP
                 elif at in EDU_CODES:
-                    match_put_code(educations, ar)
+                    no_orcid_call = match_put_code(educations, ar)
                     affiliation = Affiliation.EDU
                 else:
                     logger.info(f"For {user} not able to determine affiliaton type with {org}")
-                    ar.processed_at = datetime.utcnow()
                     ar.add_status_line(
                         f"Unsupported affiliation type '{at}' allowed values are: " + ', '.join(
                             at for at in AFFILIATION_TYPES))
                     ar.save()
                     continue
 
-                put_code, orcid, created = api.create_or_update_affiliation(
-                    affiliation=affiliation, **ar._data)
-                if created:
-                    ar.add_status_line(f"{str(affiliation)} record was created.")
+                if no_orcid_call:
+                    ar.add_status_line(f"{str(affiliation)} record unchanged.")
                 else:
-                    ar.add_status_line(f"{str(affiliation)} record was updated.")
-                ar.orcid = orcid
-                ar.put_code = put_code
-                ar.processed_at = datetime.utcnow()
+                    put_code, orcid, created = api.create_or_update_affiliation(
+                        affiliation=affiliation, **ar._data)
+                    if created:
+                        ar.add_status_line(f"{str(affiliation)} record was created.")
+                    else:
+                        ar.add_status_line(f"{str(affiliation)} record was updated.")
+                    ar.orcid = orcid
+                    ar.put_code = put_code
 
             except Exception as ex:
                 logger.exception(f"For {user} encountered exception")
                 ar.add_status_line(f"Exception occured processing the record: {ex}.")
-                ar.processed_at = datetime.utcnow()
 
             finally:
+                ar.processed_at = datetime.utcnow()
                 ar.save()
     else:
         for task_by_user in records:
@@ -872,7 +908,8 @@ def process_work_records(max_rows=20):
                         t.created_by,
                         t.org,
                         t.work_record.work_invitees.email,
-                        t.work_record.work_invitees.first_name, )
+                        t.work_record.work_invitees.first_name,
+                        t.work_record.work_invitees.last_name, )
             ):  # noqa: E501
                 email = k[2]
                 token_expiry_in_sec = 2600000
@@ -984,7 +1021,8 @@ def process_peer_review_records(max_rows=20):
                         t.created_by,
                         t.org,
                         t.peer_review_record.peer_review_invitee.email,
-                        t.peer_review_record.peer_review_invitee.first_name, )
+                        t.peer_review_record.peer_review_invitee.first_name,
+                        t.peer_review_record.peer_review_invitee.last_name, )
             ):  # noqa: E501
                 email = k[2]
                 token_expiry_in_sec = 2600000
@@ -1099,7 +1137,8 @@ def process_funding_records(max_rows=20):
                         t.created_by,
                         t.org,
                         t.funding_record.funding_invitees.email,
-                        t.funding_record.funding_invitees.first_name, )
+                        t.funding_record.funding_invitees.first_name,
+                        t.funding_record.funding_invitees.last_name, )
             ):  # noqa: E501
                 email = k[2]
                 token_expiry_in_sec = 2600000
@@ -1306,6 +1345,42 @@ def process_tasks(max_rows=20):
         task.expires_at = max_expiry_date
         task.save()
 
+    for current_task in Task.select():
+        total_count = 0
+        current_count = 0
+
+        model_name = current_task.record_model._meta.name
+        if model_name == 'affiliationrecord':
+            total_count = current_task.affiliation_records.select().distinct().count()
+
+            current_count = current_task.affiliation_records.select().where(
+                AffiliationRecord.processed_at.is_null(False)).distinct().count()
+        elif model_name == 'fundingrecord':
+            for funding_record in current_task.funding_records.select():
+                total_count = total_count + funding_record.funding_invitees.select().distinct().count()
+
+                current_count = current_count + funding_record.funding_invitees.select().where(
+                    FundingInvitees.processed_at.is_null(False)).distinct().count()
+        elif model_name == 'workrecord':
+            for work_record in current_task.work_records.select():
+                total_count = total_count + work_record.work_invitees.select().distinct().count()
+
+                current_count = current_count + work_record.work_invitees.select().where(
+                    WorkInvitees.processed_at.is_null(False)).distinct().count()
+        elif model_name == 'peerreviewrecord':
+            for peer_review_record in current_task.peer_review_records.select():
+                total_count = total_count + peer_review_record.peer_review_invitee.select().distinct().count()
+
+                current_count = current_count + peer_review_record.peer_review_invitee.select().where(
+                    PeerReviewInvitee.processed_at.is_null(False)).distinct().count()
+
+        completed_count = str(current_count) + "/" + str(total_count) + " (" + str(
+            round(current_count * 100 / total_count, 2) if total_count != 0 else 0) + "%)"
+
+        if not current_task.completed_count or current_task.completed_count != completed_count:
+            current_task.completed_count = completed_count
+            current_task.save()
+
     tasks = Task.select().where(
             Task.expires_at.is_null(False),
             Task.expiry_email_sent_at.is_null(),
@@ -1370,13 +1445,18 @@ def register_orcid_webhook(user, callback_url=None, delete=False):
     If URL is given, it will be used for as call-back URL.
     """
     set_server_name()
+    local_handler = (callback_url is None)
+
+    if local_handler and delete and user.organisations.where(Organisation.webhook_enabled).count() > 0:
+        return
+
     try:
         token = OrcidToken.get(org=user.organisation, scope="/webhook")
     except OrcidToken.DoesNotExist:
         token = get_client_credentials_token(org=user.organisation, scope="/webhook")
-    if callback_url is None:
+    if local_handler:
         with app.app_context():
-            callback_url = quote(url_for("update_webhook", user_id=user.id))
+            callback_url = quote(url_for("update_webhook", user_id=user.id), safe='')
     elif '/' in callback_url or ':' in callback_url:
         callback_url = quote(callback_url, safe='')
     url = f"{app.config['ORCID_API_HOST_URL']}{user.orcid}/webhook/{callback_url}"
@@ -1386,7 +1466,51 @@ def register_orcid_webhook(user, callback_url=None, delete=False):
         "Content-Length": "0"
     }
     resp = requests.delete(url, headers=headers) if delete else requests.put(url, headers=headers)
+    if local_handler and resp.status_code // 200 == 1:
+        if delete:
+            user.webhook_enabled = False
+        else:
+            user.webhook_enabled = True
+        user.save()
     return resp
+
+
+@rq.job(timeout=300)
+def invoke_webhook_handler(webhook_url=None, orcid=None, updated_at=None, message=None,
+                           attempts=3):
+    """Propagate 'updated' event to the organisation event handler URL."""
+    url = app.config["ORCID_BASE_URL"] + orcid
+    if message is None:
+        message = {
+            "orcid": orcid,
+            "updated-at": updated_at.isoformat(timespec="minutes"),
+            "url": url
+        }
+    resp = requests.post(webhook_url + '/' + orcid, json=message)
+    if resp.status_code // 200 != 1:
+        if attempts > 0:
+            invoke_webhook_handler.schedule(
+                timedelta(minutes=5), message=message, attempts=attempts - 1)
+    return resp
+
+
+@rq.job(timeout=300)
+def enable_org_webhook(org):
+    """Enable Organisation Webhook."""
+    org.webhook_enabled = True
+    org.save()
+    for u in org.users:
+        if not u.webhook_enabled:
+            register_orcid_webhook.queue(u)
+
+
+@rq.job(timeout=300)
+def disable_org_webhook(org):
+    """Disable Organisation Webhook."""
+    org.webhook_enabled = False
+    org.save()
+    for u in org.users.where(User.webhook_enabled):
+        register_orcid_webhook.queue(u, delete=True)
 
 
 def process_records(n):

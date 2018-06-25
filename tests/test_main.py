@@ -14,13 +14,16 @@ from orcid_hub.models import (Affiliation, OrcidAuthorizeCall, OrcidToken, Organ
                               OrgInvitation, Role, User, UserInvitation, UserOrg)
 
 
-def test_index(client):
+def test_index(client, monkeypatch):
     """Test the landing page."""
-    rv = client.get("/")
-    assert b"<!DOCTYPE html>" in rv.data
-    # assert b"Home" in rv.data
-    assert b"Royal Society of New Zealand" in rv.data, \
-        "'Royal Society of New Zealand' should be present on the index page."
+    with monkeypatch.context() as m:
+        m.setattr(authcontroller, "EXTERNAL_SP", "https://some.externar.sp/SP")
+        resp = client.get("/")
+        assert resp.status_code == 200
+        assert b"https://some.externar.sp/SP" in resp.data
+        assert b"<!DOCTYPE html>" in resp.data
+        assert b"Royal Society of New Zealand" in resp.data, \
+            "'Royal Society of New Zealand' should be present on the index page."
 
 
 def get_response(request_ctx):
@@ -219,35 +222,12 @@ def test_tuakiri_login_by_techical_contact_organisation_not_onboarded(client):
 def test_confirmation_token(app):
     """Test generate_confirmation_token and confirm_token."""
     app.config['SECRET_KEY'] = "SECRET"
-    app.config['SALT'] = "SALT"
     token = utils.generate_confirmation_token("TEST@ORGANISATION.COM")
     assert utils.confirm_token(token) == "TEST@ORGANISATION.COM"
 
-    app.config['SECRET_KEY'] = "SECRET"
-    app.config['SALT'] = "COMPROMISED SALT"
-    with pytest.raises(Exception) as ex_info:
-        utils.confirm_token(token)
-    # Got exception
-    assert "does not match" in ex_info.value.message
-
     app.config['SECRET_KEY'] = "COMPROMISED SECRET"
-    app.config['SALT'] = "SALT"
     with pytest.raises(Exception) as ex_info:
         utils.confirm_token(token)
-    # Got exception
-    assert "does not match" in ex_info.value.message
-
-    app.config['SECRET_KEY'] = "COMPROMISED SECRET"
-    app.config['SALT'] = "COMPROMISED SALT"
-    with pytest.raises(Exception) as ex_info:
-        utils.confirm_token(token)
-    # Got exception
-    assert "does not match" in ex_info.value.message
-
-    app.config['SECRET_KEY'] = "COMPROMISED"
-    app.config['SALT'] = "COMPROMISED"
-    with pytest.raises(Exception) as ex_info:
-        utils.confirm_token(token, 0)
     # Got exception
     assert "does not match" in ex_info.value.message
 
@@ -396,11 +376,19 @@ def test_orcid_login(request_ctx):
         organisation=org)
     UserOrg.create(user=u, org=org, is_admin=True)
     token = utils.generate_confirmation_token(email=u.email, org=org.name)
+    expired_token = utils.generate_confirmation_token(expiration=0, email=u.email, org=org.name)
     with request_ctx("/orcid/login/" + token.decode("utf-8")) as ctxx:
         rv = ctxx.app.full_dispatch_request()
         assert rv.status_code == 200
         orcid_authorize = OrcidAuthorizeCall.get(method="GET")
         assert "&email=test123%40test.test.net" in orcid_authorize.url
+    with request_ctx("/orcid/login/" + expired_token.decode("utf-8")) as ctxxx:
+        # putting sleep for token expiry.
+        import time
+        time.sleep(1)
+        resp = ctxxx.app.full_dispatch_request()
+        assert resp.status_code == 302
+        assert resp.location.startswith("/")
 
 
 def fetch_token_mock(self,
@@ -704,8 +692,10 @@ def test_link(request_ctx):
 @pytest.mark.parametrize("url", ["/faq", "/about"])
 def test_faq_and_about(client, url):
     """Test faq and about page path traversal security issue."""
-    rv = client.get(url + "?malicious_code")
-    assert rv.status_code == 403
+    resp = client.get(url + "?malicious_code")
+    assert resp.status_code == 403
+    resp = client.get(url)
+    assert resp.status_code == 200
 
 
 def test_orcid_callback(request_ctx):

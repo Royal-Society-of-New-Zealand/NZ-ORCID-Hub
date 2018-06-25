@@ -10,7 +10,6 @@ import secrets
 import traceback
 from datetime import datetime
 from io import BytesIO
-from threading import Thread
 
 import requests
 import tablib
@@ -24,20 +23,21 @@ from flask_admin.base import expose
 from flask_admin.contrib.peewee import ModelView, filters
 from flask_admin.form import SecureForm
 from flask_admin.helpers import get_redirect_target
-from flask_admin.model import typefmt
+from flask_admin.model import BaseModelView, typefmt
 from flask_login import current_user, login_required
 from jinja2 import Markup
 from playhouse.shortcuts import model_to_dict
 from werkzeug.utils import secure_filename
 from wtforms.fields import BooleanField
+from flask_rq2.job import FlaskJob
 
 from orcid_api.rest import ApiException
 
-from . import admin, app, limiter, models, orcid_client, utils
+from . import admin, app, limiter, models, orcid_client, rq, utils
 from .config import ENV, ORCID_BASE_URL, SCOPE_ACTIVITIES_UPDATE, SCOPE_READ_LIMITED
 from .forms import (ApplicationFrom, BitmapMultipleValueField, CredentialForm, EmailTemplateForm,
                     FileUploadForm, JsonOrYamlFileUploadForm, LogoForm, OrgRegistrationForm,
-                    PartialDateField, RecordForm, UserInvitationForm)
+                    PartialDateField, RecordForm, UserInvitationForm, WebhookForm)
 from .login_provider import roles_required
 from .models import (Affiliation, AffiliationRecord, CharField, Client, File, FundingInvitees,
                      FundingRecord, Grant, GroupIdRecord, ModelException, OrcidApiCall, OrcidToken,
@@ -193,10 +193,7 @@ class AppModelView(ModelView):
     column_default_sort = "id"
     column_labels = dict(org="Organisation", orcid="ORCID iD")
     column_type_formatters = dict(typefmt.BASE_FORMATTERS)
-    column_type_formatters.update({
-        datetime:
-        lambda view, value: Markup(f"""<time datetime="{value.isoformat(timespec='minutes')}" />"""),
-    })
+    column_type_formatters.update({datetime: lambda view, value: isodate(value)})
     column_type_formatters_export = dict(typefmt.EXPORT_FORMATTERS)
     column_type_formatters_export.update({PartialDate: lambda view, value: str(value)})
     column_formatters_export = dict(orcid=lambda v, c, m, p: m.orcid)
@@ -554,7 +551,7 @@ class RecordModelView(AppModelView):
     )
     can_edit = True
     can_create = False
-    can_delete = False
+    can_delete = True
     can_view_details = True
     can_export = True
 
@@ -1162,18 +1159,12 @@ class ViewMembersAdmin(AppModelView):
 
     roles_required = Role.SUPERUSER | Role.ADMIN
     list_template = "viewMembers.html"
-    form_columns = ["name", "orcid", "email", "eppn", ]
+    form_columns = ["name", "orcid", "email", "eppn"]
     form_widget_args = {c: {"readonly": True} for c in form_columns if c != "email"}
-    column_list = ("email", "orcid", "created_at", "updated_at", )
+    column_list = ["email", "orcid", "created_at", "updated_at", "orcid_updated_at"]
     column_formatters_export = dict(orcid=lambda v, c, m, p: m.orcid)
     column_exclude_list = None
-    column_searchable_list = (
-        "email",
-        "orcid",
-        "name",
-        "first_name",
-        "last_name",
-    )
+    column_searchable_list = ["email", "orcid", "name", "first_name", "last_name"]
     column_export_list = ("email", "eppn", "orcid")
     model = User
     can_edit = True
@@ -1184,6 +1175,7 @@ class ViewMembersAdmin(AppModelView):
     column_filters = (
         filters.DateBetweenFilter(column=User.created_at, name="Registration Date"),
         filters.DateBetweenFilter(column=User.updated_at, name="Update Date"),
+        filters.DateBetweenFilter(column=User.orcid_updated_at, name="ORCID Update Date"),
     )
     column_labels = {"created_at": "Registered At"}
 
@@ -1207,6 +1199,13 @@ class ViewMembersAdmin(AppModelView):
         """Delete a row and revoke all access tokens issues for the organisation."""
         org = current_user.organisation
         token_revoke_url = app.config["ORCID_BASE_URL"] + "oauth/revoke"
+
+        if UserOrg.select().where(
+                    (UserOrg.user_id == model.id) & (UserOrg.org_id == org.id) & UserOrg.is_admin).exists():
+            flash(f"Failed to delete record for {model}, As User appears to be one of the admins. "
+                  f"Please contact orcid@royalsociety.org.nz for support", "danger")
+            return False
+
         for token in OrcidToken.select().where(OrcidToken.org == org, OrcidToken.user == model):
             try:
                 resp = requests.post(
@@ -1250,6 +1249,25 @@ class ViewMembersAdmin(AppModelView):
         else:
             self.after_model_delete(model)
         return True
+
+    @action("delete", "Delete",
+            "Are you sure you want to delete selected records?")
+    def action_delete(self, ids):
+        """Delete a record for selected entries."""
+        try:
+            model_pk = getattr(self.model, self._primary_key)
+            count = 0
+
+            query = self.model.select().filter(model_pk << ids)
+
+            for m in query:
+                if self.delete_model(m):
+                    count += 1
+            if count:
+                flash(gettext('Record was successfully deleted.%(count)s records were successfully deleted.',
+                              count=count), 'success')
+        except Exception as ex:
+            flash(gettext('Failed to delete records. %(error)s', error=str(ex)), 'error')
 
 
 class GroupIdRecordAdmin(AppModelView):
@@ -1391,6 +1409,7 @@ def isodate(d, sep="&nbsp;"):
     if d and isinstance(d, datetime):
         return Markup(
             f"""<time datetime="{d.isoformat(timespec='minutes')}" """
+            f"""data-toggle="tooltip" title="{d.isoformat(timespec='minutes', sep=' ')} UTC" """
             f"""data-format="YYYY[&#8209;]MM[&#8209;]DD[{sep}]HH:mm" />""")
     return ''
 
@@ -2068,32 +2087,62 @@ def invite_user():
         resend = form.resend.data
         email = form.email_address.data.lower()
         affiliations = 0
+        invited_user = None
         if form.is_student.data:
             affiliations = Affiliation.EDU
         if form.is_employee.data:
             affiliations |= Affiliation.EMP
-        try:
-            ui = UserInvitation.get(org=org, email=email)
-            flash(
-                f"An invitation to affiliate with {org} had been already sent to {email} earlier "
-                f"at {isodate(ui.sent_at)}.", "warning" if resend else "danger")
-            if not form.resend.data:
-                break
-        except UserInvitation.DoesNotExist:
-            pass
 
-        inviter = current_user._get_current_object()
-        res = send_user_invitation.queue(
-            inviter.id,
-            org.id,
-            email=email,
-            affiliations=affiliations,
-            **{f.name: f.data
-               for f in form},
-            cc_email=(current_user.name, current_user.email))
-        flash(
-            f"An invitation to {email} was {'resent' if resend else 'sent'} successfully (task id: {res.id}).",
-            "success")
+        invited_user = User.select().where(User.email == email).first()
+        if (invited_user and OrcidToken.select().where(
+                    (OrcidToken.user_id == invited_user.id) & (OrcidToken.org_id == org.id) &
+                (OrcidToken.scope.contains("/activities/update"))).exists()):
+            try:
+                if affiliations & (Affiliation.EMP | Affiliation.EDU):
+                    api = orcid_client.MemberAPI(org, invited_user)
+                    params = {f.name: f.data for f in form if f.data != ""}
+                    for a in Affiliation:
+                        if a & affiliations:
+                            params["affiliation"] = a
+                            params["initial"] = False
+                            api.create_or_update_affiliation(**params)
+                    flash(
+                        f"The ORCID Hub was able to automatically write an affiliation with "
+                        f"{invited_user.organisation}, as the nature of the affiliation with {invited_user} "
+                        f"organisation does appear to include either Employment or Education.\n ",
+                        "success")
+                else:
+                    flash(
+                        f"The ORCID Hub was not able to automatically write an affiliation with "
+                        f"{invited_user.organisation}, as the nature of the affiliation with {invited_user} "
+                        f"organisation does not appear to include either Employment or Education.\n "
+                        f"Please select 'staff' or 'student' checkbox present on this page.", "warning")
+            except Exception as ex:
+                flash(f"Something went wrong: {ex}", "danger")
+                app.logger.exception("Failed to create affiliation record")
+        else:
+            try:
+                ui = UserInvitation.get(org=org, email=email)
+                flash(
+                    f"An invitation to affiliate with {org} had been already sent to {email} earlier "
+                    f"at {isodate(ui.sent_at)}.", "warning" if resend else "danger")
+                if not form.resend.data:
+                    break
+            except UserInvitation.DoesNotExist:
+                pass
+
+            inviter = current_user._get_current_object()
+            job = send_user_invitation.queue(
+                inviter.id,
+                org.id,
+                email=email,
+                affiliations=affiliations,
+                **{f.name: f.data
+                   for f in form},
+                cc_email=(current_user.name, current_user.email))
+            flash(
+                f"An invitation to {email} was {'resent' if resend else 'sent'} successfully (task id: {job.id}).",
+                "success")
         break
 
     return render_template("user_invitation.html", form=form)
@@ -2131,12 +2180,16 @@ def manage_email_template():
                 if form.email_template_enabled.data else default_template)
         elif form.save.data:
             # form.populate_obj(org)
-            org.email_template = form.email_template.data
-            org.email_template_enabled = form.email_template_enabled.data
-            org.save()
-            flash("Saved organisation email template'", "info")
+            if any(x in form.email_template.data for x in ['{MESSAGE}', '{INCLUDED_URL}']):
+                org.email_template = form.email_template.data
+                org.email_template_enabled = form.email_template_enabled.data
+                org.save()
+                flash("Saved organisation email template'", "info")
+            else:
+                flash("Are you sure? Without a {MESSAGE} or {INCLUDED_URL} "
+                      "your users will be unable to respond to your invitations.", "danger")
 
-    return render_template("email_template.html", form=form)
+    return render_template("email_template.html", BASE_URL=url_for("index", _external=True)[:-1], form=form)
 
 
 @app.route("/logo/<string:token>")
@@ -2359,16 +2412,204 @@ def user_orgs_org(user_id, org_id=None):
 @app.route("/services/<int:user_id>/updated", methods=["POST"])
 def update_webhook(user_id):
     """Handle webook calls."""
-    def handle_callback(user):
-        """Log the update and call client webhook callbacks."""
-        # TODO: add client webhook calls
-        pass
-
     try:
-        user = User.get(id=user_id)
-        thread = Thread(target=handle_callback, kwargs=dict(user=user))
-        thread.start()
+        updated_at = datetime.utcnow()
+        user = User.get(user_id)
+        user.orcid_updated_at = updated_at
+        user.save()
+
+        for org in user.organisations.where(Organisation.webhook_enabled):
+
+            if org.webhook_url:
+                utils.invoke_webhook_handler.queue(
+                    org.webhook_url,
+                    user.orcid,
+                    updated_at,
+                )
+
+            if org.email_notifications_enabled:
+                url = app.config["ORCID_BASE_URL"] + user.orcid
+                utils.send_email(
+                    f"""<p>User {user.name} (<a href="{url}" target="_blank">{user.orcid}</a>)
+                    profile was updated at {updated_at.isoformat(timespec="minutes", sep=' ')}.</p>""",
+                    recipient=org.notification_email or (org.tech_contact.name, org.tech_contact.email),
+                    subject=f"ORCID Profile Update ({user.orcid})",
+                    org=org)
+
     except Exception:
         app.logger.exception(f"Invalid user_id: {user_id}")
 
     return '', 204
+
+
+@app.route(
+    "/settings/webhook", methods=[
+        "GET",
+        "POST",
+    ])
+@roles_required(Role.TECHNICAL, Role.SUPERUSER)
+def org_webhook():
+    """Manage organisation invitation email template."""
+    org = current_user.organisation
+    form = WebhookForm(obj=org)
+
+    if form.validate_on_submit():
+        old_webhook_url = org.webhook_url
+        if old_webhook_url and old_webhook_url != form.webhook_url.data:
+            for u in org.users.where(User.webhook_enabled):
+                utils.register_orcid_webhook.queue(u, delete=True)
+        form.populate_obj(org)
+        org.save()
+        if form.webhook_enabled.data:
+            job = utils.enable_org_webhook.queue(org)
+            flash(f"Webhook activation was initiated (task id: {job.id})", "info")
+        else:
+            utils.disable_org_webhook.queue(org)
+            flash(f"Webhook was disabled.", "info")
+
+    return render_template("form.html", form=form, title="Organisation Webhook")
+
+
+class ScheduerView(BaseModelView):
+    """Simle Flask-RQ2 scheduled task viewer."""
+
+    can_edit = False
+    can_delete = False
+    can_create = False
+    can_view_details = True
+    column_type_formatters = {datetime: lambda view, value: isodate(value)}
+
+    def __init__(self,
+                 name=None,
+                 category=None,
+                 endpoint=None,
+                 url=None,
+                 static_folder=None,
+                 menu_class_name=None,
+                 menu_icon_type=None,
+                 menu_icon_value=None):
+        """Initialize the view."""
+        self._search_fields = []
+
+        model = FlaskJob
+        super().__init__(
+            model,
+            name,
+            category,
+            endpoint,
+            url,
+            static_folder,
+            menu_class_name=menu_class_name,
+            menu_icon_type=menu_icon_type,
+            menu_icon_value=menu_icon_value)
+
+        self._primary_key = self.scaffold_pk()
+
+    def scaffold_pk(self):  # noqa: D102
+        return "id"
+
+    def get_pk_value(self, model):  # noqa: D102
+        return model.id
+
+    def scaffold_list_columns(self):
+        """Scaffold list columns."""
+        return [
+            "description", "created_at", "origin", "enqueued_at", "timeout", "result_ttl",
+            "status", "meta"
+        ]
+
+    def scaffold_sortable_columns(self):  # noqa: D102
+        return self.scaffold_list_columns()
+
+    def init_search(self):  # noqa: D102
+        if self.column_searchable_list:
+            for p in self.column_searchable_list:
+                if isinstance(p, str):
+                    p = getattr(self.model, p)
+
+                # Check type
+                if not isinstance(p, (CharField, TextField)):
+                    raise Exception('Can only search on text columns. ' +
+                                    'Failed to setup search for "%s"' % p)
+
+                self._search_fields.append(p)
+
+        return bool(self._search_fields)
+
+    def scaffold_filters(self, name):  # noqa: D102
+        return None
+
+    def is_valid_filter(self, filter):  # noqa: D102
+        return isinstance(filter, filters.BasePeeweeFilter)
+
+    def scaffold_form(self):  # noqa: D102
+        from wtforms import Form
+        return Form()
+
+    def scaffold_inline_form_models(self, form_class):  # noqa: D102
+        converter = self.model_form_converter(self)
+        inline_converter = self.inline_model_form_converter(self)
+
+        for m in self.inline_models:
+            form_class = inline_converter.contribute(converter,
+                                                     self.model,
+                                                     form_class,
+                                                     m)
+
+        return form_class
+
+    def get_query(self):  # noqa: D102
+        return rq.get_scheduler().get_jobs()
+
+    def get_list(self, page, sort_column, sort_desc, search, filters, execute=True,
+                 page_size=None):
+        """Return records from the database.
+
+        :param page:
+            Page number
+        :param sort_column:
+            Sort column name
+        :param sort_desc:
+            Descending or ascending sort
+        :param search:
+            Search query
+        :param filters:
+            List of filter tuples
+        :param execute:
+            Execute query immediately? Default is `True`
+        :param page_size:
+            Number of results. Defaults to ModelView's page_size. Can be
+            overriden to change the page_size limit. Removing the page_size
+            limit requires setting page_size to 0 or False.
+        """
+        jobs = self.get_query()
+
+        # Get count
+        count = len(jobs)
+
+        # TODO: sort
+
+        return count, jobs
+
+    def get_one(self, job_id):
+        """Get a single job."""
+        try:
+            scheduler = rq.get_scheduler()
+            return scheduler.job_class.fetch(job_id, connection=scheduler.connection)
+        except Exception as ex:
+            flash(f"The jeb with given ID: {job_id} doesn't exist or it was deleted: {ex}.",
+                  "danger")
+            abort(404)
+
+    def is_accessible(self):
+        """Verify if the view is accessible for the current user."""
+        if not current_user.is_active or not current_user.is_authenticated:
+            return False
+
+        if current_user.has_role(Role.SUPERUSER):
+            return True
+
+        return False
+
+
+admin.add_view(ScheduerView(name="schedude", endpoint="schedude"))

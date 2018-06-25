@@ -5,7 +5,7 @@
   <meta charset="UTF-8">
   <title>Swagger UI</title>
   <link href="https://fonts.googleapis.com/css?family=Open+Sans:400,700|Source+Code+Pro:300,600|Titillium+Web:400,600,700" rel="stylesheet">
-  <link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/3.9.3/swagger-ui.css" >
+  <link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/3.17.0/swagger-ui.css" >
   <!-- link rel="icon" type="image/png" href="./favicon-32x32.png" sizes="32x32" />
   <link rel="icon" type="image/png" href="./favicon-16x16.png" sizes="16x16" /-->
   <style>
@@ -27,7 +27,7 @@
       background: #fafafa;
     }
     /*.swagger-ui .scheme-container, .swagger-ui .topbar { display: none !important; } */
-    .swagger-ui > div > div.scheme-container > section > label, .topbar { display: none !important; }
+    /*.swagger-ui > div > div.scheme-container > section > label, .topbar { display: none !important; } */
   </style>
 </head>
 
@@ -68,30 +68,52 @@
 
 <div id="swagger-ui"></div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/3.9.3/swagger-ui-bundle.js"> </script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/3.9.3/swagger-ui-standalone-preset.js"> </script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/3.17.0/swagger-ui-bundle.js"> </script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/3.17.0/swagger-ui-standalone-preset.js"> </script>
 <script>
 window.onload = function() {
 
   // Build a system
   const ui = SwaggerUIBundle({
-    url: "{{ url }}",
+    showExtensions: true,
+    showCommonExtensions: true,
+    {%- if current_user.is_superuser %}
+    urls: [
+      {
+        url: "{{ url_for('spec', _external=True) }}",
+        name: "ORCID HUB API"
+      },
+      {
+        url: "{{ url_for('Swagger.model_resources', _external=True) }}",
+        name: "ORCID HUB Data API"
+      }
+    ],
+    {% else %}
+    url: "{{  url_for('spec', _external=True) }}",
+    {% endif %}
     dom_id: '#swagger-ui',
     deepLinking: true,
     presets: [
       SwaggerUIBundle.presets.apis,
-      SwaggerUIStandalonePreset,
+      SwaggerUIStandalonePreset
     ],
     presets_config: {
        SwaggerUIStandalonePreset: {
-           TopbarPlugin: false
+         TopbarPlugin: {{ "true" if current_user.is_superuser else "false"  }}
        }
     },
     plugins: [
       SwaggerUIBundle.plugins.DownloadUrl
     ],
     layout: "StandaloneLayout"
+  });
+  {%- if client %}
+  ui.initOAuth({
+    appName: "{{ config.get('APP_NAME') }}",
+    clientId: "{{ client.client_id }}",
+    clientSecret: "{{ client.client_secret }}"
   })
+  {% endif -%}
 
   window.ui = ui
 }
