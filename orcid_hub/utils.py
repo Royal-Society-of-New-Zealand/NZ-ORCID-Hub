@@ -1427,7 +1427,7 @@ def register_orcid_webhook(user, callback_url=None, delete=False):
         "Content-Length": "0"
     }
     resp = requests.delete(url, headers=headers) if delete else requests.put(url, headers=headers)
-    if local_handler and resp.status_code // 100 == 2:
+    if local_handler and resp.status_code // 200 == 1:
         if delete:
             user.webhook_enabled = False
         else:
@@ -1437,24 +1437,21 @@ def register_orcid_webhook(user, callback_url=None, delete=False):
 
 
 @rq.job(timeout=300)
-def invoke_webhook_handler(webhook_url, orcid, updated_at, attempts=3):
+def invoke_webhook_handler(webhook_url=None, orcid=None, updated_at=None, message=None,
+                           attempts=3):
     """Propagate 'updated' event to the organisation event handler URL."""
     url = app.config["ORCID_BASE_URL"] + orcid
-    resp = requests.post(
-        webhook_url + '/' + orcid,
-        json={
+    if message is None:
+        message = {
             "orcid": orcid,
             "updated-at": updated_at.isoformat(timespec="minutes"),
             "url": url
-        })
-    if resp.status_code // 100 != 2:
+        }
+    resp = requests.post(webhook_url + '/' + orcid, json=message)
+    if resp.status_code // 200 != 1:
         if attempts > 0:
             invoke_webhook_handler.schedule(
-                timedelta(minutes=5),
-                webhook_url=webhook_url,
-                orcid=orcid,
-                updated_at=updated_at,
-                attempts=attempts - 1)
+                timedelta(minutes=5), message=message, attempts=attempts - 1)
     return resp
 
 

@@ -229,3 +229,11 @@ def test_org_webhook(app_req_ctx, monkeypatch):
             resp = ctx.app.full_dispatch_request()
             send_email.assert_called()
             assert resp.status_code == 204
+
+        monkeypatch.setattr(utils.requests, "post", lambda *args, **kwargs: SimpleObject(status_code=404))
+        with app_req_ctx(
+                f"/services/{user.id}/updated",
+                method="POST") as ctx, patch.object(utils, "send_email") as send_email:
+            resp = ctx.app.full_dispatch_request()
+            send_email.assert_called()
+            assert resp.status_code == 204
