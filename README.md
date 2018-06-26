@@ -35,15 +35,15 @@ The application image uses several environment variables which are easy to miss.
 
 ### Usage 
 
-1) run application containers: 
+1 - run application containers: 
 
     docker-compose up -d
 
-2) find container IP address: 
+2 - find container IP address: 
 
     docker inspect --format '{{.NetworkSettings.IPAddress}}' app
 
-3) verify it's running: 
+3 - verify it's running: 
 
     http $(docker inspect --format '{{.NetworkSettings.IPAddress}}' app)
 
