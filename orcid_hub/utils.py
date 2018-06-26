@@ -71,7 +71,7 @@ def send_email(template,
     :param base: the base template of the email messagess
     :param template: name of the template file in ``templates/emails`` to use
     :type recipient: :class:`tuple` (:class:`str`, :class:`str`)
-    :param recipient: 'To' (name, email)
+    :param recipient: 'To' (name, email) or just an email address
     :type sender: :class:`tuple` (:class:`str`, :class:`str`)
     :param sender: 'From' (name, email)
     :param org: organisation on which behalf the email is sent
@@ -123,6 +123,8 @@ def send_email(template,
         template = Template(template)
 
     kwargs["sender"] = _jinja2_email(*sender)
+    if isinstance(recipient, str):
+        recipient = (recipient, recipient, )
     kwargs["recipient"] = _jinja2_email(*recipient)
     if subject is not None:
         kwargs["subject"] = subject
