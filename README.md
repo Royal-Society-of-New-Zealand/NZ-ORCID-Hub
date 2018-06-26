@@ -4,13 +4,6 @@ The home of development for the New Zealand ORCID Hub.
 - [Application Docker Image](#application-docker-image)
   * [Usage](#usage)
   * [Environment Variables](#environment-variables)
-    + [ENV](#env)
-    + [SHIB_SP_DOMAINNAME](#shib-sp-domainname)
-    + [SHIB_IDP_DOMAINNAME](#shib-idp-domainname)
-    + [SHIB_SSO_DS_URL](#shib-sso-ds-url)
-    + [SHIB_METADATA_PROVIDER_URI](#shib-metadata-provider-uri)
-    + [SHIB_METADATA_CERT_FILE](#shib-metadata-cert-file)
-    + [ORCID_CLIENT_ID and ORCID_CLIENT_SECRET](#orcid-client-id-and-orcid-client-secret)
 - [Steps to execute this application](#steps-to-execute-this-application)
 - [Development Environment](#development-environment)
 
@@ -25,59 +18,57 @@ Application Docker Image ([orcidhub/app](https://hub.docker.com/r/orcidhub/app/)
  - psycopg2 (native PostgreSQL Python DB-API 2.0 driver)
  - PyPI packages necessary for the application
 
-### Usage 
-
-1. run application containers: `docker-compose up -d`
-1. find container IP address: `docker inspect --format '{{.NetworkSettings.IPAddress}}' app`
-1. verify it's running: `http $(docker inspect --format '{{.NetworkSettings.IPAddress}}' app)`
-
 ### Environment Variables
 
 The application image uses several environment variables which are easy to miss. These ariable should be set up for the specific runtime environment.
 
-#### ENV
+|   Variable                  |       Example         |       Description      |
+|-----------------------------|-----------------------|------------------------|
+|ENV                          |test | The runtime environment name |
+|SHIB_SP_DOMAINNAME           |${ENV}.<container domainname> | Your **Service Provider** domain name |
+|SHIB_IDP_DOMAINNAME          |http://directory.tuakiri.ac.nz | Your **Idendtity Provider** domain name |
+|SHIB_SSO_DS_URL              |https://${SHIB_IDP_DOMAINNAME}/ds/DS | SSO discovery service URL |
+|SHIB_METADATA_PROVIDER_URI   |https://engine.surfconext.nl/authentication/idp/metadata| **Shibboleth** SAML 2.0 meta data provider URI [NativeSPMetadataProvider](https://wiki.shibboleth.net/confluence/display/SHIB2/NativeSPMetadataProvider) |
+|SHIB_METADATA_CERT_FILE      |conf/tuakiri-test-metadata-cert.pem | Meta data signig certificate |
+|ORCID_CLIENT_ID              |0000-1234-2922-7589 |Orcid API client ID and secret |
+|ORCID_CLIENT_SECRET          |b2aab710-89a1-49e8-65e4-8df4f038dce9 |Orcid API client ID and secret |
 
-The runtime environment name (default: **test**)
+### Usage 
 
-#### SHIB_SP_DOMAINNAME
+1. run application containers: 
 
-Your **Service Provider** domain name (default: **${ENV}.<container domainname>"**)
+    docker-compose up -d
 
-#### SHIB_IDP_DOMAINNAME
+2. find container IP address: 
 
-Your **Idendtity Provider** domain name, e.g., *http://directory.tuakiri.ac.nz*
+    docker inspect --format '{{.NetworkSettings.IPAddress}}' app
 
-#### SHIB_SSO_DS_URL
+3. verify it's running: 
 
-SSO discovery service URL (default: **https://${SHIB_IDP_DOMAINNAME}/ds/DS**)
-
-#### SHIB_METADATA_PROVIDER_URI
-
-**Shibboleth** SAML 2.0 meta data provider URI (moro at: https://wiki.shibboleth.net/confluence/display/SHIB2/NativeSPMetadataProvider)
-
-#### SHIB_METADATA_CERT_FILE
-
-Meta data signig certificat
-
-#### ORCID_CLIENT_ID and ORCID_CLIENT_SECRET
-
-Orcid API client ID and secret
+    http $(docker inspect --format '{{.NetworkSettings.IPAddress}}' app)
 
 ## Steps to execute this application
 
 If you are running this application for the first time then follow steps a to d:
-	a) From the project directory run pip3 install -r requirement.txt
-	b) install run install_package.sh to install postgress and required libraries
-	c) Create database and user in postgres
-	
-> - CREATE USER orcidhub WITH PASSWORD '*****';
-> - CREATE DATABASE orcidhub;
-> - GRANT ALL PRIVILEGES ON DATABASE orcidhub to orcidhub;.
 
+* a. From the project directory run 
 
-d) Run initializedb.py to create table in postgres
+    pip3 install -r requirement.txt
 
-Run application.py
+* b. to install postgress and required libraries do
+
+    sh ./install_package.sh
+
+* c. Create database and user in postgres
+
+    CREATE USER orcidhub WITH PASSWORD '*****';
+    CREATE DATABASE orcidhub;
+    GRANT ALL PRIVILEGES ON DATABASE orcidhub to orcidhub;
+
+* d. Run initializedb.py to create table in postgres
+
+    python application.py
+
 Open link https://test.orcidhub.org.nz/index
 
 ## Development Environment
@@ -88,19 +79,14 @@ application instance for Tuakiri user authentication. For example, if the remote
 environment varliable `export EXTERNAL_SP=https://dev.orcidhub.org.nz/Tuakiri/SP`.
 
 In order to siplify the development environemt you can user Sqlite3 DB for the backend. 
-To set up the database use environment variable DATABASE_URL, e.g., 
-`export DATABASE_URL=sqlite:///data.db` and run application
-either directly invoking it with `python application.py` or using Flask CLI 
-(http://flask.pocoo.org/docs/0.12/cli/):
+To set up the database use environment variable DATABASE_URL, e.g. `export DATABASE_URL=sqlite:///data.db` and run application either directly invoking it with `python application.py` or using Flask CLI (http://flask.pocoo.org/docs/0.12/cli/):
 
-```
-export EXTERNAL_SP=https://dev.orcidhub.org.nz/Tuakiri/SP
-export DATABASE_URL=sqlite:///data.db
-export FLASK_APP=/path/to/main.py
-export PYTHONPATH=$(dirname $FLASK_APP)  ## flask run has problems with setting up search paths
-export FLASK_DEBUG=1
-flask run
-```
+    export EXTERNAL_SP=https://dev.orcidhub.org.nz/Tuakiri/SP
+    export DATABASE_URL=sqlite:///data.db
+    export FLASK_APP=/path/to/main.py
+    export PYTHONPATH=$(dirname $FLASK_APP)  ## flask run has problems with setting up search paths
+    export FLASK_DEBUG=1
+    flask run
 
 You can add these setting to you virtual environment activation script, e.g. (assuming it's located in the root directory):
 
