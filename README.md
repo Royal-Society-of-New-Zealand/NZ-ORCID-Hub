@@ -11,12 +11,12 @@ The home of development for the New Zealand ORCID Hub.
 ## Application Docker Image
 
 Application Docker Image ([orcidhub/app](https://hub.docker.com/r/orcidhub/app/)) is packaged with:
- - CentOS 7
- - Apache 2.4
- - Python 3.6
- - mod_wsgi (Pythgon/WSGI Apache module)
- - psycopg2 (native PostgreSQL Python DB-API 2.0 driver)
- - PyPI packages necessary for the application
+- CentOS 7
+- Apache 2.4
+- Python 3.6
+- mod_wsgi (Pythgon/WSGI Apache module)
+- psycopg2 (native PostgreSQL Python DB-API 2.0 driver)
+- PyPI packages necessary for the application
 
 ### Environment Variables
 
@@ -73,34 +73,29 @@ Open link https://test.orcidhub.org.nz/index
 
 ## Development Environment
 
-It is possible to run the application as stand-alone Python Flask application using another remote
-application instance for Tuakiri user authentication. For example, if the remote 
-(another application instance) url is https://dev.orcidhub.org.nz, all you need is to set up 
-environment varliable `export EXTERNAL_SP=https://dev.orcidhub.org.nz/Tuakiri/SP`.
+It is possible to run the application as stand-alone Python Flask application using another remote application instance for Tuakiri user authentication. For example, if the remote 
+(another application instance) url is https://dev.orcidhub.org.nz, all you need is to set up environment varliable `export EXTERNAL_SP=https://dev.orcidhub.org.nz/Tuakiri/SP`.
 
-In order to siplify the development environemt you can user Sqlite3 DB for the backend. 
+In order to siplify the development environment you can use Sqlite3 DB for the backend.
+
 To set up the database use environment variable DATABASE_URL, e.g. `export DATABASE_URL=sqlite:///data.db` and run application either directly invoking it with `python application.py` or using Flask CLI (http://flask.pocoo.org/docs/0.12/cli/):
 
     export EXTERNAL_SP=https://dev.orcidhub.org.nz/Tuakiri/SP
     export DATABASE_URL=sqlite:///data.db
     export FLASK_APP=/path/to/main.py
-    export PYTHONPATH=$(dirname $FLASK_APP)  ## flask run has problems with setting up search paths
+    export PYTHONPATH=$(dirname $FLASK_APP) ## flask run has problems with setting up search paths
     export FLASK_DEBUG=1
     flask run
 
 You can add these setting to you virtual environment activation script, e.g. (assuming it's located in the root directory):
 
-```
-export FLASK_APP=$(dirname $VIRTUAL_ENV)/main.py
-export PYTHONPATH=$(dirname $FLASK_APP)
-export EXTERNAL_SP=https://dev.orcidhub.org.nz/Tuakiri/SP
-export DATABASE_URL=sqlite:///data.db
-export FLASK_DEBUG=1
-```
+    export FLASK_APP=$(dirname $VIRTUAL_ENV)/main.py
+    export PYTHONPATH=$(dirname $FLASK_APP)
+    export EXTERNAL_SP=https://dev.orcidhub.org.nz/Tuakiri/SP
+    export DATABASE_URL=sqlite:///data.db
+    export FLASK_DEBUG=1
 
 To connect to the PostgreSQL node:
 
-```
-export PGHOST=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' $(docker-compose ps -q db))
-export DATABASE_URL=postgresql://orcidhub:p455w0rd@${PGHOST}:5432/orcidhub
-```
+    export PGHOST=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' $(docker-compose ps -q db))
+    export DATABASE_URL=postgresql://orcidhub:p455w0rd@${PGHOST}:5432/orcidhub
