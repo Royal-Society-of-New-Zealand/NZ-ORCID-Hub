@@ -181,6 +181,11 @@
             </li>
           {% else %}
             <li>
+              {% if config.SHIBBOLETH_DISABLED %}
+                <a href="{{orcid_login_url()|safe}}">
+                  <span class="glyphicon glyphicon-log-in"></span> <b>log in</b>
+                </a>
+              {% else %}
               <a href="#login-modal" data-toggle="modal">
                 <span class="glyphicon glyphicon-log-in"></span> <b>log in</b>
               </a>
@@ -258,6 +263,7 @@
                   </div>
                 </div>
               </div>
+              {% endif %}
             </li>
           {% endif %}
         </ul>
