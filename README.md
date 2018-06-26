@@ -35,15 +35,15 @@ The application image uses several environment variables which are easy to miss.
 
 ### Usage 
 
-1. run application containers: 
+1) run application containers: 
 
     docker-compose up -d
 
-2. find container IP address: 
+2) find container IP address: 
 
     docker inspect --format '{{.NetworkSettings.IPAddress}}' app
 
-3. verify it's running: 
+3) verify it's running: 
 
     http $(docker inspect --format '{{.NetworkSettings.IPAddress}}' app)
 
@@ -51,21 +51,21 @@ The application image uses several environment variables which are easy to miss.
 
 If you are running this application for the first time then follow steps a to d:
 
-* a. From the project directory run 
+a. From the project directory run 
 
     pip3 install -r requirement.txt
 
-* b. to install postgress and required libraries do
+b. to install postgress and required libraries do
 
     sh ./install_package.sh
 
-* c. Create database and user in postgres
+c. Create database and user in postgres
 
     CREATE USER orcidhub WITH PASSWORD '*****';
     CREATE DATABASE orcidhub;
     GRANT ALL PRIVILEGES ON DATABASE orcidhub to orcidhub;
 
-* d. Run initializedb.py to create table in postgres
+d. Run initializedb.py to create table in postgres
 
     python application.py
 
