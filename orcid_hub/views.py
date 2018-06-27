@@ -2195,7 +2195,7 @@ def manage_email_template():
                 flash("Are you sure? Without a {MESSAGE} or {INCLUDED_URL} "
                       "your users will be unable to respond to your invitations.", "danger")
 
-    return render_template("email_template.html", form=form)
+    return render_template("email_template.html", BASE_URL=url_for("index", _external=True)[:-1], form=form)
 
 
 @app.route("/logo/<string:token>")
