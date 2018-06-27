@@ -190,11 +190,14 @@ if __redis_available:
 
 @app.before_first_request
 def setup_app():
-    """Set-up logger to log to STDOUT (eventually conainer log)."""
+    """Set-up logger to log to STDOUT (eventually conainer log), set up the DB, and some other setttings."""
     app.logger.addHandler(logging.StreamHandler())
     app.logger.setLevel(logging.DEBUG if app.debug else logging.WARNING)
-    # TODO: check if DB is created
-    # TODO: seed the hub admin
+    models.create_tables()
+    if app.config.get("SHIBBOLETH_DISABLED") is None:
+        app.config["SHIBBOLETH_DISABLED"] = (
+            not ("mod_wsgi.version" in os.environ and "SHIB_IDP_DOMAINNAME" in os.environ)
+            and "EXTERNAL_SP" not in os.environ)
 
 
 @app.after_request
@@ -242,7 +245,7 @@ def initdb(create=False, drop=False, force=False, audit=True, verbose=False):
 @click.option("--orcid", help="User's ORCID iD (for the users authenticated via ORCID).")
 @click.option("-I", "--internal-org-name", help="Internal organisation name (e.g., used by IdPs).")
 @click.argument("email", nargs=1)
-def create_hub_administrator(email=False,
+def create_hub_administrator(email,
                              name=None,
                              force=False,
                              verbose=False,

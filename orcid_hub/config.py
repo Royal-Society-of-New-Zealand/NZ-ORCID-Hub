@@ -4,6 +4,7 @@
 from os import environ, getenv, path, urandom
 
 ENV = getenv("ENV", "dev")
+SHIBBOLETH_DISABLED = getenv("SHIBBOLETH_DISABLED")
 
 ORCID_API_HOST_URL = "https://api.sandbox.orcid.org/" if ENV != "prod" else "https://api.orcid.org/"
 ORCID_API_VERSION = "v2.0"
@@ -140,14 +141,7 @@ DKIP_KEY_PATH = path.join(path.dirname(path.relpath(path.relpath(__file__))), ".
 # RQ
 RQ_REDIS_URL = "redis://redis:6379/0"
 RQ_QUEUE_CLASS = "orcid_hub.queuing.ThrottledQueue"
+
 # rq-dashboard config:
 RQ_POLL_INTERVAL = 5000  #: Web interface poll period for updates in ms
 WEB_BACKGROUND = "gray"
-
-# Celery
-CELERY_BROKER_URL = "redis://localhost:6379/0"
-CELERY_RESULT_BACKEND = "redis://localhost:6379/0"
-
-# CELERY_ACCEPT_CONTENT = ["application/x-python-serialize"]
-# CELERY_TASK_SERIALIZER = "pickle"
-# CELERY_RESULT_SERIALIZER = "pickle"

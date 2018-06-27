@@ -2088,13 +2088,8 @@ def create_tables():
             Token,
     ]:
 
-        try:
+        if not model.table_exists():
             model.create_table()
-        except (ProgrammingError, OperationalError) as ex:
-            if "already exists" in str(ex):
-                app.logger.info(f"Table '{model._meta.name}' already exists")
-            else:
-                raise ex
 
 
 def create_audit_tables():
