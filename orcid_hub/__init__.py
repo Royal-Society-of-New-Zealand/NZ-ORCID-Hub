@@ -11,10 +11,9 @@
     :license: MIT, see LICENSE for more details.
 """
 
-__version__ = "4.15.0"
-
 import logging
 import os
+import pkg_resources
 import sys
 from datetime import date, datetime
 
@@ -37,6 +36,10 @@ from .failover import PgDbWithFailover
 from flask_admin import Admin
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
+
+
+dist = pkg_resources.get_distribution(__name__)
+__version__ = dist.version
 
 
 # http://docs.peewee-orm.com/en/latest/peewee/database.html#automatic-reconnect

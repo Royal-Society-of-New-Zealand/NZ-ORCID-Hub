@@ -31,19 +31,8 @@ SCOPE_READ_LIMITED = ['/read-limited']
 SCOPE_AUTHENTICATE = ['/authenticate']
 
 # Database connection url
-DATABASE_URL = getenv("DATABASE_URL")
+DATABASE_URL = getenv("DATABASE_URL", "sqlite:///data.db")
 BACKUP_DATABASE_URL = getenv("BACKUP_DATABASE_URL")
-
-if not DATABASE_URL:
-    POSTGRES_PASSWORD = getenv("POSTGRES_PASSWORD") or getenv("PGPASSWORD") or "p455w0rd"
-    DB_NAME = getenv("PGDATABASE", "orcidhub")
-    DB_USERNAME = getenv("PGUSER", "orcidhub")
-    DB_PASSWORD = POSTGRES_PASSWORD
-    DB_HOSTNAME = getenv("PGHOST", "db")
-    DATABASE_URL = "postgresql://" + DB_NAME
-    if POSTGRES_PASSWORD:
-        DATABASE_URL += ':' + POSTGRES_PASSWORD
-    DATABASE_URL += "@" + DB_HOSTNAME + ":5432/" + DB_NAME
 
 # NB! Disable in production
 if ENV in ("dev0", ):
