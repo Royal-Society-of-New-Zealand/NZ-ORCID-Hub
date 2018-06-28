@@ -80,4 +80,7 @@ echo "Starting Apache2 ..."
 ln -sfT /dev/stderr /var/log/httpd/error_log
 # ln -sfT /dev/stdout /var/log/httpd/access_log
 
+DATABASE_URL=${DATABASE_URL:-postgresql://orcidhub@db:5432/orcidhub?options='-c statement_timeout=3000'}
+export DATABASE_URL
+
 exec httpd -DFOREGROUND
