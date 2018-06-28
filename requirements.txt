@@ -15,7 +15,10 @@ pyyaml
 pykwalify
 Flask
 #flask-admin
-https://github.com/nad2000/flask-admin/archive/master.zip
+# https://github.com/nad2000/flask-admin/archive/master.zip
+# -e git+https://github.com/nad2000/flask-admin/
+# -e https://github.com/nad2000/flask-admin/archive/master.zip
+# git+git://github.com/nad2000/flask-admin/
 flask-login
 Flask-WTF
 flask-peewee==0.6.7
@@ -32,4 +35,3 @@ rq==0.10.0
 rq-scheduler
 Flask-RQ2[cli]
 rq-dashboard
-# dramatiq[redis, watch]
