@@ -6,7 +6,7 @@ services:
   - docker
 
 env:
-  - ENV=dev PGPORT=54321 USER_UID=$(id -u) USER_GID=$(id -g) DOMAIN=build.orcidhub.org.nz PROD_BRANCH=V4 UAT_BRANCH=V4 DATABASE_URL=postgresql://orcidhub@db:54321/orcidhub?options='-c statement_timeout=3000'
+  - ENV=dev PGPORT=54321 USER_UID=$(id -u) USER_GID=$(id -g) DOMAIN=build.orcidhub.org.nz PROD_BRANCH=V4 UAT_BRANCH=V4 DATABASE_URL=postgresql://orcidhub@db/orcidhub?options='-c statement_timeout=3000'
 
 before_install:
   - sudo rm /usr/local/bin/docker-compose
