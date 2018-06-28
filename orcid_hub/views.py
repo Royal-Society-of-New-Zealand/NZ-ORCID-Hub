@@ -1159,18 +1159,12 @@ class ViewMembersAdmin(AppModelView):
 
     roles_required = Role.SUPERUSER | Role.ADMIN
     list_template = "viewMembers.html"
-    form_columns = ["name", "orcid", "email", "eppn", ]
+    form_columns = ["name", "orcid", "email", "eppn"]
     form_widget_args = {c: {"readonly": True} for c in form_columns if c != "email"}
-    column_list = ("email", "orcid", "created_at", "updated_at", )
+    column_list = ["email", "orcid", "created_at", "updated_at", "orcid_updated_at"]
     column_formatters_export = dict(orcid=lambda v, c, m, p: m.orcid)
     column_exclude_list = None
-    column_searchable_list = (
-        "email",
-        "orcid",
-        "name",
-        "first_name",
-        "last_name",
-    )
+    column_searchable_list = ["email", "orcid", "name", "first_name", "last_name"]
     column_export_list = ("email", "eppn", "orcid")
     model = User
     can_edit = True
@@ -1181,6 +1175,7 @@ class ViewMembersAdmin(AppModelView):
     column_filters = (
         filters.DateBetweenFilter(column=User.created_at, name="Registration Date"),
         filters.DateBetweenFilter(column=User.updated_at, name="Update Date"),
+        filters.DateBetweenFilter(column=User.orcid_updated_at, name="ORCID Update Date"),
     )
     column_labels = {"created_at": "Registered At"}
 
@@ -1414,7 +1409,7 @@ def isodate(d, sep="&nbsp;"):
     if d and isinstance(d, datetime):
         return Markup(
             f"""<time datetime="{d.isoformat(timespec='minutes')}" """
-            f"""data-toggle="tooltip" title="{d.isoformat(timespec='minutes', sep=' ')}" """
+            f"""data-toggle="tooltip" title="{d.isoformat(timespec='minutes', sep=' ')} UTC" """
             f"""data-format="YYYY[&#8209;]MM[&#8209;]DD[{sep}]HH:mm" />""")
     return ''
 
@@ -2419,9 +2414,10 @@ def update_webhook(user_id):
     """Handle webook calls."""
     try:
         updated_at = datetime.utcnow()
-        user = User.get(id=user_id)
+        user = User.get(user_id)
         user.orcid_updated_at = updated_at
         user.save()
+
         for org in user.organisations.where(Organisation.webhook_enabled):
 
             if org.webhook_url:
@@ -2436,7 +2432,7 @@ def update_webhook(user_id):
                 utils.send_email(
                     f"""<p>User {user.name} (<a href="{url}" target="_blank">{user.orcid}</a>)
                     profile was updated at {updated_at.isoformat(timespec="minutes", sep=' ')}.</p>""",
-                    recipient=(org.tech_contact.name, org.tech_contact.email),
+                    recipient=org.notification_email or (org.tech_contact.name, org.tech_contact.email),
                     subject=f"ORCID Profile Update ({user.orcid})",
                     org=org)
 

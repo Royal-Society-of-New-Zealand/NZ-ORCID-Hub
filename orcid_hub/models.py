@@ -357,7 +357,7 @@ class AuditMixin(Model):
     # updated_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
 
     def save(self, *args, **kwargs):  # noqa: D102
-        if self.is_dirty():
+        if self.is_dirty() and self._dirty != {"orcid_updated_at"}:
             self.updated_at = datetime.utcnow()
             if current_user and hasattr(current_user, "id"):
                 if hasattr(self, "created_by") and self.created_by and hasattr(self, "updated_by"):
@@ -416,12 +416,12 @@ class Organisation(BaseModel, AuditMixin):
     can_use_api = BooleanField(null=True, help_text="The organisation can access ORCID Hub API.")
     logo = ForeignKeyField(
         File, on_delete="CASCADE", null=True, help_text="The logo of the organisation")
-    email_template = TextField(null=True, db_column="email_template")
-    email_template_enabled = BooleanField(
-        null=True, default=False, db_column="email_template_enabled")
+    email_template = TextField(null=True)
+    email_template_enabled = BooleanField(null=True, default=False)
     webhook_enabled = BooleanField(default=False, null=True)
-    email_notifications_enabled = BooleanField(default=False, null=True)
     webhook_url = CharField(max_length=100, null=True)
+    email_notifications_enabled = BooleanField(default=False, null=True)
+    notification_email = CharField(max_length=100, null=True, verbose_name="Notification Email Address")
 
     @property
     def invitation_sent_to(self):
@@ -489,16 +489,16 @@ class OrgInfo(BaseModel):
 
     name = CharField(max_length=100, unique=True, verbose_name="Organisation")
     tuakiri_name = CharField(max_length=100, unique=True, null=True, verbose_name="TUAKIRI Name")
-    title = CharField(null=True, verbose_name="Contact person tile")
-    first_name = CharField(null=True, verbose_name="Contact person's first name")
-    last_name = CharField(null=True, verbose_name="Contact person's last name")
-    role = CharField(null=True, verbose_name="Contact person's role")
-    email = CharField(null=True, verbose_name="Contact person's email")
-    phone = CharField(null=True, verbose_name="Contact person's phone")
+    title = CharField(null=True, verbose_name="Contact Person Tile")
+    first_name = CharField(null=True, verbose_name="Contact Person's First Name")
+    last_name = CharField(null=True, verbose_name="Contact Person's Last Name")
+    role = CharField(null=True, verbose_name="Contact Person's Role")
+    email = CharField(null=True, verbose_name="Contact Person's Email Address")
+    phone = CharField(null=True, verbose_name="Contact Person's Phone")
     is_public = BooleanField(
-        null=True, default=False, verbose_name="Permission to post contact information to WEB")
+        null=True, default=False, help_text="Permission to post contact information to WEB")
     country = CharField(null=True, verbose_name="Country Code", default=DEFAULT_COUNTRY)
-    city = CharField(null=True, verbose_name="City of home campus")
+    city = CharField(null=True, verbose_name="City of Home Campus")
     disambiguated_id = CharField(
         null=True, verbose_name="common:disambiguated-organization-identifier")
     disambiguation_source = CharField(null=True, verbose_name="common:disambiguation-source")
@@ -586,8 +586,8 @@ class User(BaseModel, UserMixin, AuditMixin):
     name = CharField(max_length=64, null=True)
     first_name = CharField(null=True, verbose_name="Firs Name")
     last_name = CharField(null=True, verbose_name="Last Name")
-    email = CharField(max_length=120, unique=True, null=True)
-    eppn = CharField(max_length=120, unique=True, null=True)
+    email = CharField(max_length=120, unique=True, null=True, verbose_name="Email Address")
+    eppn = CharField(max_length=120, unique=True, null=True, verbose_name="EPPN")
     # ORCiD:
     orcid = OrcidIdField(null=True, verbose_name="ORCID iD", help_text="User's ORCID iD")
     confirmed = BooleanField(default=False)
@@ -734,7 +734,9 @@ class OrgInvitation(BaseModel, AuditMixin):
     inviter = ForeignKeyField(
         User, on_delete="SET NULL", null=True, related_name="sent_org_invitations")
     org = ForeignKeyField(Organisation, on_delete="SET NULL", verbose_name="Organisation")
-    email = TextField(help_text="The email address the invitation was sent to.")
+    email = TextField(
+        help_text="The email address the invitation was sent to.",
+        verbose_name="Invitee Email Address")
     token = TextField(unique=True)
     confirmed_at = DateTimeField(null=True)
 
