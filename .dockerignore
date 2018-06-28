@@ -12,7 +12,7 @@ backup*
 masterdb
 pgdata*
 venv
-orcid
+# orcid
 htmlcov
 archive
 tests

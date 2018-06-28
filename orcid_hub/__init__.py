@@ -37,8 +37,11 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 
 
-dist = pkg_resources.get_distribution(__name__)
-__version__ = dist.version
+try:
+    dist = pkg_resources.get_distribution(__name__)
+    __version__ = dist.version
+except pkg_resources.DistributionNotFound:
+    __version__ = None
 
 
 # http://docs.peewee-orm.com/en/latest/peewee/database.html#automatic-reconnect
