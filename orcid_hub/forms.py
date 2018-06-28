@@ -8,12 +8,14 @@ from flask_wtf.file import FileAllowed, FileField, FileRequired
 from pycountry import countries
 from wtforms import (BooleanField, Field, SelectField, SelectMultipleField, StringField,
                      SubmitField, TextField, validators)
-from wtforms.fields.html5 import DateField, EmailField, URLField
-from wtforms.validators import UUID, DataRequired, Email, Regexp, Required, ValidationError, url
+from wtforms.fields.html5 import DateField, EmailField
+from wtforms.validators import UUID, DataRequired, email, Regexp, Required, ValidationError, optional, url
 from wtforms.widgets import HTMLString, TextArea, html_params
+from wtfpeewee.orm import model_form
 
-from . import models
-from .config import DEFAULT_COUNTRY
+from . import app, models
+
+DEFAULT_COUNTRY = app.config["DEFAULT_COUNTRY"]
 
 
 def validate_orcid_id_field(form, field):
@@ -262,7 +264,7 @@ class OrgRegistrationForm(FlaskForm):
     """Organisation registration/invitation form."""
 
     org_name = StringField('Organisation Name', validators=[DataRequired()])
-    org_email = EmailField('Organisation Email', validators=[DataRequired(), Email()])
+    org_email = EmailField('Organisation Email', validators=[DataRequired(), email()])
     tech_contact = BooleanField("Technical Contact", default=False)
     via_orcid = BooleanField("ORCID Authentication", default=False)
     first_name = StringField(
@@ -294,7 +296,7 @@ class OrgConfirmationForm(FlaskForm):
     """Registered organisation confirmation form."""
 
     name = StringField('Organisation Name', validators=[DataRequired()])
-    email = EmailField('Organisation EmailId', validators=[DataRequired(), Email()])
+    email = EmailField('Organisation EmailId', validators=[DataRequired(), email()])
     show_api_credentials = BooleanField("Show API Credentials", default=False)
     orcid_client_id = StringField(
         'Organisation Orcid Client Id: ',
@@ -325,7 +327,7 @@ class UserInvitationForm(FlaskForm):
 
     first_name = StringField("First Name", [validators.required()])
     last_name = StringField("Last Name", [validators.required()])
-    email_address = EmailField("Email Address", [validators.required(), Email()])
+    email_address = EmailField("Email Address", [validators.required(), email()])
     orcid_id = StringField("ORCID iD", [
         validate_orcid_id_field,
     ])
@@ -378,11 +380,28 @@ class CredentialForm(ApplicationFromBase):
     delete = SubmitField("Delete application", render_kw={"class": "btn btn-danger"})
 
 
-class WebhookForm(FlaskForm):
+class WebhookForm(
+        model_form(
+            models.Organisation,
+            base_class=FlaskForm,
+            only=[
+                "webhook_enabled",
+                "webhook_url",
+                "email_notifications_enabled",
+                "notification_email",
+            ],
+            field_args=dict(
+                notification_email=dict(
+                    render_kw={
+                        "data-toggle":
+                        "tooltip",
+                        "title":
+                        "Alternative notification e-mail address (defaut: the technical constact e-mail address)"
+                    },
+                    validators=[optional(), email()]),
+                webhook_url=dict(validators=[optional(), url()])))):
     """Webhoook form."""
 
-    webhook_url = URLField(validators=[url(), validators.required()])
-    webhook_enabled = BooleanField()
     save_webhook = SubmitField(
         "Save",
         render_kw={

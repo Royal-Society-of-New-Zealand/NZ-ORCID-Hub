@@ -5,7 +5,8 @@ LABEL maintainer="The University of Auckland" \
 	description="NZ ORCiD Hub Application Image with Development support"
 
 ADD http://download.opensuse.org/repositories/security://shibboleth/CentOS_7/security:shibboleth.repo /etc/yum.repos.d/shibboleth.repo
-
+# fix download.opensuse.org not available
+RUN sed -i 's|download|downloadcontent|g' /etc/yum.repos.d/shibboleth.repo
 COPY conf/app.wsgi /var/www/html/
 # prefix "ZZ" added, that it gest inluded the very end (after Shibboleth gets loaded)
 COPY conf/app.conf /etc/httpd/conf.d/ZZ-app.conf

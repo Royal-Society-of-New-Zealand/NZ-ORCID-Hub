@@ -399,9 +399,9 @@ def orcid_callback():
 
     Call back gets called when:
     - User authenticatest via ORCID (uses AUTHENTICATION key);
-    - User authorises an orgainisation (uses org. key);
+    - User authorises an organisation (uses org. key);
     - User completes registration (uses org. key);
-    - Administrator completes reginstration (uses org. key);
+    - Administrator completes registration (uses org. key);
     - Technical contact completes organisation registration/on-boarding (uses AUTHENTICATION key);
     """
     login = request.args.get("login")
@@ -430,7 +430,7 @@ def orcid_callback():
     try:
         state = request.args['state']
         if state != session.get('oauth_state'):
-            flash("Retry giving permissions, or if the issue persist "
+            flash("Retry giving permissions, or if the issue persists "
                   "please contact orcid@royalsociety.org.nz for support", "danger")
             app.logger.error(
                 f"For {current_user} session state was {session.get('oauth_state', 'empty')}, "
@@ -582,7 +582,7 @@ def request_orcid_credentials():
         org_name=current_user.organisation.name,
         cred_type=CRED_TYPE_PREMIUM,
         app_name=APP_NAME + " for " + current_user.organisation.name,
-        app_description=APP_DESCRIPTION + current_user.organisation.name + "and its researchers",
+        app_description=APP_DESCRIPTION + " " + current_user.organisation.name + " and its researchers.",
         app_url=APP_URL,
         redirect_uri_1=url_for("orcid_callback", _external=True))
 
@@ -620,8 +620,8 @@ def onboard_org():
             return redirect(url_for("index"))
 
         if request.method == "GET":
-            flash("""If you currently don't know Client id and Client Secret,
-            Please request these from ORCID by clicking on link 'Take me to ORCID to obtain Client iD and Client Secret'
+            flash("""If you currently don't know Client ID and Client Secret,
+            Please request these from ORCID by clicking on link 'Take me to ORCID to obtain Client ID and Client Secret'
             and come back to this form once you have them.""", "info")
 
             try:
@@ -666,7 +666,7 @@ def onboard_org():
 
         response = requests.post(TOKEN_URL, headers=headers, data=data)
         if response.status_code == 401:
-            flash("Something is wrong! The Client id and Client Secret are not valid!\n"
+            flash("Something is wrong! The Client ID and Client Secret are not valid!\n"
                   "Please recheck and contact Hub support if this error continues", "danger")
         else:
 
@@ -771,9 +771,9 @@ in order to complete the log-out.""", "warning")
 @app.route("/orcid/login/")
 @app.route("/orcid/login/<invitation_token>")
 def orcid_login(invitation_token=None):
-    """Authenticate a user vi ORCID.
+    """Authenticate a user via ORCID.
 
-    If an invitain token is presented, perform affiliation of the user or on-boarding
+    If an invitation token is presented, perform affiliation of the user or on-boarding
     of the onboarding of the organisation, if the user is the technical conatact of
     the organisation. For technical contacts the email should be made available for
     READ LIMITED scope.
@@ -876,13 +876,13 @@ def orcid_login(invitation_token=None):
 
 
 def orcid_login_callback(request):
-    """Handle call-back for user authenitcation via ORCID."""
+    """Handle call-back for user authentication via ORCID."""
     _next = get_next_url()
     state = request.args.get("state")
     invitation_token = request.args.get("invitation_token")
 
     if not state or state != session.get("oauth_state"):
-        flash("Something went wrong, Please retry giving permissions or if issue persist then, "
+        flash("Something went wrong, Please retry giving permissions or if issue persists then, "
               "Please contact orcid@royalsociety.org.nz for support", "danger")
         return redirect(url_for("index"))
 
@@ -996,7 +996,7 @@ def orcid_login_callback(request):
                         "Exception when calling MemberAPIV20Api->view_employments: %s\n" % message,
                         "danger")
                     flash(f"The Hub cannot verify your email address from your ORCID record. "
-                          f"Please, change the access level for your organisation email address "
+                          f"Please, change the visibility level for your organisation email address "
                           f"'{email}' to 'trusted parties'.", "danger")
                     return redirect(url_for("index"))
             data = json.loads(api_response.data)
@@ -1015,7 +1015,7 @@ def orcid_login_callback(request):
             else:
                 logout_user()
                 flash(f"The Hub cannot verify your email address from your ORCID record. "
-                      f"Please, change the access level for your "
+                      f"Please, change the visibility level for your "
                       f"organisation email address '{email}' to 'trusted parties'.", "danger")
                 return redirect(url_for("index"))
 
@@ -1071,7 +1071,7 @@ def orcid_login_callback(request):
                 elif not user.is_tech_contact_of(org) and user_org.is_admin and not org.confirmed:
                     flash(
                         f"Your '{org}' has not be onboarded."
-                        f"Please, try again once your technical contact onboard's your organisation on ORCIDHUB",
+                        f"Please, try again once your technical contact onboards your organisation on ORCIDHUB",
                         "warning")
                     return redirect(url_for("about"))
                 elif org.confirmed and user_org.is_admin:

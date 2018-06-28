@@ -139,7 +139,7 @@ DKIP_KEY_PATH = path.join(path.dirname(path.relpath(path.relpath(__file__))), ".
 
 # RQ
 RQ_REDIS_URL = "redis://redis:6379/0"
-RQ_QUEUE_CLASS = "orcid_hub.ThrottledQueue"
+RQ_QUEUE_CLASS = "orcid_hub.queuing.ThrottledQueue"
 # rq-dashboard config:
 RQ_POLL_INTERVAL = 5000  #: Web interface poll period for updates in ms
 WEB_BACKGROUND = "gray"

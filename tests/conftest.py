@@ -188,6 +188,7 @@ def app_req_ctx(request_ctx):
         confirmed=True,
         organisation=org)
     OrcidToken.create(user=user, org=org, access_token="ORCID-TEST-ACCESS-TOKEN")
+    UserOrg.create(user=user, org=org)
 
     User.insert_many(
         dict(
