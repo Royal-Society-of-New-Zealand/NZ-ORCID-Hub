@@ -23,7 +23,7 @@ from flask_login import UserMixin, current_user
 from peewee import BooleanField as BooleanField_
 from peewee import (JOIN, BlobField, CharField, DateTimeField, DeferredRelation, Field,
                     FixedCharField, ForeignKeyField, IntegerField, Model, OperationalError,
-                    PostgresqlDatabase, ProgrammingError, SmallIntegerField, TextField, fn)
+                    PostgresqlDatabase, SmallIntegerField, TextField, fn)
 from playhouse.shortcuts import model_to_dict
 from pycountry import countries
 from pykwalify.core import Core
