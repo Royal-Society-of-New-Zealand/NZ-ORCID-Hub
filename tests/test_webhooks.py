@@ -176,6 +176,7 @@ def test_org_webhook(app_req_ctx, monkeypatch):
     user = app_req_ctx.data["user"]
 
     monkeypatch.setattr(utils.register_orcid_webhook, "queue", utils.register_orcid_webhook)
+    monkeypatch.setattr(utils.invoke_webhook_handler, "queue", utils.invoke_webhook_handler)
 
     utils.enable_org_webhook(org)
     assert org.webhook_enabled
@@ -197,9 +198,9 @@ def test_org_webhook(app_req_ctx, monkeypatch):
                 webhook_enabled='y')) as ctx:
 
         login_user(admin)
-        assert not Organisation.get(id=org.id).webhook_enabled
+        assert not Organisation.get(org.id).webhook_enabled
         resp = ctx.app.full_dispatch_request()
-        assert Organisation.get(id=org.id).webhook_enabled
+        assert Organisation.get(org.id).webhook_enabled
         assert resp.status_code == 200
 
         with app_req_ctx(
@@ -217,11 +218,19 @@ def test_org_webhook(app_req_ctx, monkeypatch):
                 email_notifications_enabled='y')) as ctx:
 
         login_user(admin)
-        assert not Organisation.get(id=org.id).email_notifications_enabled
+        assert not Organisation.get(org.id).email_notifications_enabled
         resp = ctx.app.full_dispatch_request()
-        assert Organisation.get(id=org.id).email_notifications_enabled
+        assert Organisation.get(org.id).email_notifications_enabled
         assert resp.status_code == 200
 
+        with app_req_ctx(
+                f"/services/{user.id}/updated",
+                method="POST") as ctx, patch.object(utils, "send_email") as send_email:
+            resp = ctx.app.full_dispatch_request()
+            send_email.assert_called()
+            assert resp.status_code == 204
+
+        monkeypatch.setattr(utils.requests, "post", lambda *args, **kwargs: SimpleObject(status_code=404))
         with app_req_ctx(
                 f"/services/{user.id}/updated",
                 method="POST") as ctx, patch.object(utils, "send_email") as send_email:
