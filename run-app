@@ -18,7 +18,7 @@ echo "Shibboleth SP Domainname (\$SHIB_SP_DOMAINNAME): \"$SHIB_SP_DOMAINNAME\""
 if [ -z "$SHIB_IDP_DOMAINNAME" ] ; then
   if [ "$ENV" != "prod" ] && [ "$ENV" != "test" ]; then
     SHIB_IDP_DOMAINNAME=directory.test.tuakiri.ac.nz
-  else 
+  else
     SHIB_IDP_DOMAINNAME=directory.tuakiri.ac.nz
   fi
 fi
@@ -30,7 +30,7 @@ echo "Shibboleth SSO Discovery URL: $SHIB_SSO_DS_URL"
 if [ -z "$SHIB_METADATA_PROVIDER_URI" ] ; then
   if [ "$ENV" != "prod" ] && [ "$ENV" != "test" ]; then
     SHIB_METADATA_PROVIDER_URI=https://${SHIB_IDP_DOMAINNAME}/metadata/tuakiri-test-metadata-signed.xml
-  else 
+  else
     SHIB_METADATA_PROVIDER_URI=https://${SHIB_IDP_DOMAINNAME}/metadata/tuakiri-metadata-signed.xml
   fi
 fi
@@ -39,7 +39,7 @@ echo "Shibboleth metadata provider URI (\$SHIB_METADATA_PROVIDER_URI): $SHIB_MET
 if [ -z "$SHIB_METADATA_CERT_FILE" ] ; then
   if [ "$ENV" != "prod" ] && [ "$ENV" != "test" ]; then
     SHIB_METADATA_CERT_FILE=tuakiri-test-metadata-cert.pem
-  else 
+  else
     SHIB_METADATA_CERT_FILE=tuakiri-metadata-cert.pem
   fi
 fi

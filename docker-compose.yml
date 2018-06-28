@@ -28,6 +28,7 @@ services:
     image: orcidhub/app-dev
     environment:
       - ENV
+      - DATABASE_URL
       - SHIB_SP_DOMAINNAME
       - TOKEN_PASSWORD_SALT
       - MAIL_DEFAULT_SENDER
