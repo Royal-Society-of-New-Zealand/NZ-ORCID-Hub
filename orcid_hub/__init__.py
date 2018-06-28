@@ -21,7 +21,6 @@ import click
 from flask.json import JSONEncoder as _JSONEncoder
 from flask_login import current_user, LoginManager
 from flask import Flask, request
-from flask_debugtoolbar import DebugToolbarExtension
 from flask_oauthlib.provider import OAuth2Provider
 from flask_peewee.rest import Authentication, RestAPI
 from flask_restful import Api
@@ -315,7 +314,11 @@ if os.environ.get("ENV") == "dev0":
     app.debug = True
 
 if app.debug:
-    toolbar = DebugToolbarExtension(app)
-    # logger = logging.getLogger('peewee')
-    # logger.setLevel(logging.DEBUG)
-    # logger.addHandler(logging.StreamHandler())
+    try:
+        from flask_debugtoolbar import DebugToolbarExtension
+        toolbar = DebugToolbarExtension(app)
+        # logger = logging.getLogger('peewee')
+        # logger.setLevel(logging.DEBUG)
+        # logger.addHandler(logging.StreamHandler())
+    except ModuleNotFoundError:
+        pass
