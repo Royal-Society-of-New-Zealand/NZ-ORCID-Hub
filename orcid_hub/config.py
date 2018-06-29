@@ -17,7 +17,7 @@ SALT = "secret-salt" if ENV.startswith("dev") else (getenv("TOKEN_PASSWORD_SALT"
                                                     or urandom(5).hex())
 
 # NZ ORCIDHUB API client ID and secret
-ORCID_CLIENT_ID = getenv("ORCID_CLIENT_ID", "APP-42W3G8FS4OHGM562")
+ORCID_CLIENT_ID = getenv("ORCID_CLIENT_ID")
 ORCID_CLIENT_SECRET = getenv("ORCID_CLIENT_SECRET")
 
 # Change the URL as per the enviornment
@@ -127,8 +127,8 @@ DEFAULT_EMAIL_TEMPLATE = """<!DOCTYPE html>
 
 DKIP_KEY_PATH = path.join(path.dirname(path.relpath(path.relpath(__file__))), ".keys", "dkim.key")
 
-# RQ
-RQ_REDIS_URL = "redis://redis:6379/0"
+# RQ:
+# RQ_REDIS_URL = "redis://redis:6379/0"
 RQ_QUEUE_CLASS = "orcid_hub.queuing.ThrottledQueue"
 
 # rq-dashboard config:

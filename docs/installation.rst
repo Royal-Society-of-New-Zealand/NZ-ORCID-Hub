@@ -11,8 +11,10 @@ We recommend using the latest version of Python 3: Python3.6.
 Dependencies
 ------------
 
+In order to
 TODO: acquire ORCID API creadentials, add the link
 
+Sign up at ORCID with your email address.
 
 Optional dependencies
 ~~~~~~~~~~~~~~~~~~~~~
@@ -21,6 +23,9 @@ For the integration with Shibboleth, the application should be deployed on Apach
 TODO: set up SENTRY account...
 
 
+Minial Deployment
+-----------------
+
 Minimal runnig ORCID Hub (assuming you have created and activated Python 3.6 virtual environment):
 
 .. code-block:: bash
@@ -28,8 +33,7 @@ Minimal runnig ORCID Hub (assuming you have created and activated Python 3.6 vir
    virtualenv -p python3.6 venv
    . ./venv/bin/activate
    pip install -U 'orcid-hub'
-   orcidhub initdb
-   orcidhub cradmin myadmin@mydomain.net  # use a valid email
+   orcidhub cradmin myadmin@mydomain.net --orcid YOUR-ORCID-ID -O YOUR-ORGANISATION-NAME
    orcidhub run
 
 

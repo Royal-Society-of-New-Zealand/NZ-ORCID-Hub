@@ -17,6 +17,7 @@ Table of Contents
    :maxdepth: 2
    :name: masterdoc
 
+   installation
    writing_funding_items
    customising_email_messages
    ORCID API Specification <orcid_api_spec>

@@ -14,7 +14,6 @@
 import logging
 import os
 import pkg_resources
-import sys
 from datetime import date, datetime
 
 import click
@@ -54,7 +53,10 @@ class ReconnectablePostgresqlDatabase(RetryOperationalError, PostgresqlDatabase)
 app = Flask(__name__, instance_relative_config=True)
 app.config.from_object(config)
 if not app.config.from_pyfile("settings.cfg", silent=True) and app.debug:
-    print("*** WARNING: Failed to laod local application configuration from 'instance/settins.cfg'")
+    filename = os.path.join(app.config.root_path, "settings.cfg")
+    print(f"*** WARNING: Failed to laod local application configuration from '{filename}'")
+
+
 app.url_map.strict_slashes = False
 oauth = OAuth2Provider(app)
 api = Api(app)
@@ -264,9 +266,7 @@ def create_hub_administrator(email,
             logger.setLevel(logging.DEBUG)
             logger.addHandler(logging.StreamHandler())
     if not models.User.table_exists() or not models.Organisation.table_exists():
-        app.logger.error(
-            "Database tables doensn't exist. Please, firts initialize the datatabase.")
-        sys.exit(1)
+        models.create_tables()
 
     super_user, created = models.User.get_or_create(email=email)
 

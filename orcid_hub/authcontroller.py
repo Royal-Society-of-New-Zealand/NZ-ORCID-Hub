@@ -32,8 +32,7 @@ from . import app, db, orcid_client
 # TODO: need to read form app.config[...]
 from .config import (APP_DESCRIPTION, APP_NAME, APP_URL, AUTHORIZATION_BASE_URL, CRED_TYPE_PREMIUM,
                      MEMBER_API_FORM_BASE_URL, NOTE_ORCID, ORCID_API_BASE, ORCID_BASE_URL,
-                     ORCID_CLIENT_ID, ORCID_CLIENT_SECRET, SCOPE_ACTIVITIES_UPDATE,
-                     SCOPE_AUTHENTICATE, SCOPE_READ_LIMITED, TOKEN_URL)
+                     SCOPE_ACTIVITIES_UPDATE, SCOPE_AUTHENTICATE, SCOPE_READ_LIMITED, TOKEN_URL)
 from .forms import OrgConfirmationForm
 from .login_provider import roles_required
 from .models import (Affiliation, OrcidAuthorizeCall, OrcidToken, Organisation, OrgInfo,
@@ -784,7 +783,7 @@ def orcid_login(invitation_token=None):
     try:
         orcid_scope = SCOPE_AUTHENTICATE[:]
 
-        client_id = ORCID_CLIENT_ID
+        client_id = app.config["ORCID_CLIENT_ID"]
         if invitation_token:
             data = confirm_token(invitation_token)
             if isinstance(data, str):
@@ -894,8 +893,8 @@ def orcid_login_callback(request):
         return redirect(url_for("index"))
 
     try:
-        orcid_client_id = ORCID_CLIENT_ID
-        orcid_client_secret = ORCID_CLIENT_SECRET
+        orcid_client_id = app.config["ORCID_CLIENT_ID"]
+        orcid_client_secret = app.config["ORCID_CLIENT_SECRET"]
         email = org_name = None
 
         if invitation_token:
@@ -1084,10 +1083,10 @@ def orcid_login_callback(request):
         flash("You are not known in the Hub...", "danger")
         return redirect(url_for("index"))
     except UserOrg.DoesNotExist:
-        flash("You are not known in the Hub...", "danger")
+        flash("Your organisation is not known or the organisation data are missing...", "danger")
         return redirect(url_for("index"))
     except rfc6749.errors.MissingCodeError:
-        flash("%s cannot be invoked directly..." % request.url, "danger")
+        flash(f"{request.url} cannot be invoked directly...", "danger")
         return redirect(url_for("index"))
     except rfc6749.errors.MissingTokenError:
         flash("Missing token.", "danger")
