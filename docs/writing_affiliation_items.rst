@@ -16,7 +16,7 @@ Required
 
 +-----------------------+-------------------------------------------------------+
 | Header                | Description                                           |
-+=======================+=======================================================|
++=======================+=======================================================+
 | Affiliation type      | A value to indicate whether to write the affiliation  |
 |                       | to education or employment ("staff" or "student").    |
 +-----------------------+-------------------------------------------------------+
@@ -34,7 +34,7 @@ Optional
 
 +-----------------------+-------------------------------------------------------+
 | Header                | Description                                           |
-+=======================+=======================================================|
++=======================+=======================================================+
 | Identifier            | This can be any identifier used in your internal      |
 |                       | systems and is to allow you to match the resulting    |
 |                       | put-code from ORCID. To simplify making an update     |
@@ -82,7 +82,7 @@ Headers that aren't controlled by you
 
 +-----------------------+-------------------------------------------------------+
 | Header                | Description                                           |
-+=======================+=======================================================|
++=======================+=======================================================+
 | Put-Code              | This is an integer that ORCID creates to identify the |
 |                       | item and its place in the ORCID record. It is         |
 |                       | returned to you in the Hub's affiliation report.      |
