@@ -27,119 +27,133 @@
                                  style="font-size: large;" aria-hidden="true"></span></a></li>
           <li id="about"><a href="{{ url_for('about') }}">
               <span data-toggle="tooltip"
-                    data-placement="bottom" title="About Hub">About</span>
-            </a></li>
-            <li id="faq"><a href="{{ url_for('faq') }}">
-                <span data-toggle="tooltip"
-                      data-placement="bottom" title="Hub Frequently Asked Questions">FAQ</span>
-              </a></li>
-              {% if current_user.confirmed %}
-                {% if current_user.organisations.count() > 1 %}
-                  <li>
-                    <p class="navbar-btn">
-                    <select class="selectpicker"
-                            data-style="btn-primary" id="select-org"
-                                                     title="Current Organisation"
-                                                     onchange='location.href="/select/user_org/"+this.value'>
-                      {% for uo in current_user.userorg_set %}
-                        <option data-tokens="{{uo.id}}" value="{{uo.id}}" {{"selected" if current_user.organisation.id == uo.org_id else ''}}>{{uo.org.name}}</option>
-                      {% endfor %}
-                    </select>
-                    </p>
-                  </li>
-                {% endif %}
-                {% if current_user.organisation.confirmed %}
-                  <li id="profile"><a href="{{ url_for('link') }}">
-                      <span
-                                      data-toggle="tooltip" data-placement="bottom"
-                                                            title="Affiliate yourself using the NZ ORCID HUB or view your ORCID iD">Your ORCID</span></a></li>
-                  {% if current_user.has_role("ADMIN") %}
-                    <li class="dropdown">
-                      <a class="dropdown-toggle" data-toggle="dropdown" href="#">Affiliations<span class="caret"></span></a>
-                      <ul class="dropdown-menu">
-                        <li id="invite_user"><a href="{{ url_for('invite_user') }}" data-toggle="tooltip"
-                                                                                    title="Invite a new researcher">Invite Researcher</a></li>
-                        <li class="divider"></li>
-                        <li id="load_researcher_affiliations"><a href="{{ url_for('load_researcher_affiliations')}}" data-toggle="tooltip"
-                                                                                                                     title="Import a file of affiliation data as a new task">Upload Affiliations</a></li>
-                        <li id="load_researcher_funding"><a href="{{ url_for('load_researcher_funding')}}" data-toggle="tooltip"
-                                                                                                           title="Import a file of funding data">Upload Funding</a></li>
-                        <li id="load_researcher_works"><a href="{{ url_for('load_researcher_work')}}" data-toggle="tooltip"
-                                                                                                           title="Import a file of Researcher Work">Upload Work</a></li>
-                        <li id="load_peer_review"><a href="{{ url_for('load_researcher_peer_review')}}"  data-toggle="tooltip"
-                                                                                            title="Import a file of peer review record">Upload Peer Review</a></li>
-                        <li class="divider"></li>
-                        <li id="task.index_view"><a href="{{ url_for('task.index_view')}}"  data-toggle="tooltip"
-                                                                                            title="Review the progress and results of your current affiliation tasks">Uploaded Tasks</a></li>
-                      </ul>
+                    data-placement="bottom" title="About the Hub">About</span>
+          </a></li>
+          <li id="faq"><a href="{{ url_for('faq') }}">
+              <span data-toggle="tooltip"
+                    data-placement="bottom" title="The Hub's Frequently Asked Questions">FAQ</span>
+          </a></li>
+          {% if current_user.confirmed %}
+            {% if current_user.organisations.count() > 1 %}
+              <li>
+                <p class="navbar-btn">
+                <select class="selectpicker"
+                        data-style="btn-primary" id="select-org"
+                                                 title="Current Organisation"
+                                                 onchange='location.href="/select/user_org/"+this.value'>
+                  {% for uo in current_user.userorg_set %}
+                    <option data-tokens="{{uo.id}}" value="{{uo.id}}" {{"selected" if current_user.organisation.id == uo.org_id else ''}}>{{uo.org.name}}</option>
+                  {% endfor %}
+                </select>
+                </p>
+              </li>
+            {% endif %}
+            {% if current_user.organisation.confirmed %}
+              <li id="profile"><a href="{{ url_for('link') }}">
+                  <span
+                                  data-toggle="tooltip" data-placement="bottom"
+                                                        title="View/give your ORCID permission(s) via the Hub">Your ORCID</span></a></li>
+              {% if current_user.has_role("ADMIN") %}
+                <li class="dropdown">
+                  <a class="dropdown-toggle" data-toggle="dropdown" href="#">Your People<span class="caret"></span></a>
+                  <ul class="dropdown-menu">
+                   <li id="viewmembers.index_view"><a href="{{ url_for('viewmembers.index_view')}}">
+                      <span data-toggle="tooltip" data-placement="bottom" title="ORCID iDs/emails of all people linked with your organisation in the Hub">
+                        View/Export People
+                      </span></a>
                     </li>
-                    <li id="viewmembers.index_view"><a href="{{ url_for('viewmembers.index_view')}}">
-                        <span data-toggle="tooltip" data-placement="bottom" title="ORCID iDs of researchers at your institution">
-                          Researchers
-                        </span> </a></li>
-                      {% endif %}
-                    {% endif %}
-                    {% if current_user.is_tech_contact_of() or current_user.is_admin_of() %}
-                      <li class="dropdown">
-                        <a class="dropdown-toggle" data-toggle="dropdown" href="#">Settings
-                          <span class="caret"></span></a>
-                        <ul class="dropdown-menu">
-                          {% if current_user.is_tech_contact_of() %}
-                            <li id="onboard_org"><a href="{{ url_for('onboard_org')}}">
-                                <span data-toggle="tooltip" data-placement="left" title="View your organisation's ORCID information">Your Organisation</span></a></li>
+                    <li id="invite_user"><a href="{{ url_for('invite_user') }}" data-toggle="tooltip"
+                                                                                title="Send an invitation to a new student/staff member">New Student/Staff Invitation</a></li>
+                  </ul>
+                </li>
+                <li class="dropdown">
+                  <a class="dropdown-toggle" data-toggle="dropdown" href="#">Tasks<span class="caret"></span></a>
+                  <ul class="dropdown-menu">
+                    <li id="load_researcher_affiliations"><a href="{{ url_for('load_researcher_affiliations')}}" data-toggle="tooltip"
+                                                                                                                 title="Import an affiliations batch file">Upload Affiliations</a></li>
+                    <li id="load_researcher_funding"><a href="{{ url_for('load_researcher_funding')}}" data-toggle="tooltip"
+                                                                                                       title="Import a funding batch file">Upload Funding</a></li>
+                    <li id="load_researcher_works"><a href="{{ url_for('load_researcher_work')}}" data-toggle="tooltip"
+                                                                                                       title="Import a works batch file">Upload Works</a></li>
+                    <li id="load_peer_review"><a href="{{ url_for('load_researcher_peer_review')}}"  data-toggle="tooltip"
+                                                                                        title="Import a peer reviews batch file">Upload Peer Reviews</a></li>
+                    <li class="divider"></li>
+                    <li id="task.index_view"><a href="{{ url_for('task.index_view')}}"  data-toggle="tooltip"
+                                                                                        title="Review the progress and results of your current batch tasks">Uploaded Tasks</a></li>
+                  </ul>
+                </li>
+              {% endif %}
+            {% endif %}
+            {% if current_user.is_tech_contact_of() or current_user.is_admin_of() %}
+              <li class="dropdown">
+                <a class="dropdown-toggle" data-toggle="dropdown" href="#">Settings
+                  <span class="caret"></span></a>
+                <ul class="dropdown-menu">
+                  {% if current_user.is_tech_contact_of() %}
+                    <li id="onboard_org"><a href="{{ url_for('onboard_org')}}">
+                        <span data-toggle="tooltip" title="View/get your organisation's ORCID information">Your Organisation</span></a></li>
 
 
-                            {% if current_user.organisation.can_use_api %}
-                              <li id="applicatin"><a data-toggle="tooltip" data-placement="left" title="Register a client application or manage application credentials" href="{{ url_for('application')}}">Application Registration</a></li>
-                            {% endif %}
-                          {% endif %}
-                          <li id="logo"><a href="{{ url_for('logo')}}">
-                              <span data-toggle="tooltip" data-placement="left" title="Upload your organisation logo">Logo</span></a></li>
-                          <li id="manage_email_template"><a href="{{ url_for('manage_email_template')}}">
-                              <span data-toggle="tooltip" data-placement="left" title="Customize your organization email template">Email Template</span></a></li>
-                          <li id="groupidrecord.index_view"><a href="{{ url_for('groupidrecord.index_view')}}"  data-toggle="tooltip"
-                                                                                            title="Create or Update group id record">GroupId Record</a></li>
-                          <li id="org_webhook"><a href="{{ url_for('org_webhook')}}">
-                              <span data-toggle="tooltip" data-placement="left" title="Activate the Organisation Webhook">Webhook</span></a></li>
-                        </ul>
-                      </li>
+                    {% if current_user.organisation.can_use_api %}
+                      <li id="application"><a data-toggle="tooltip" title="Register/manage Hub API client credentials" href="{{ url_for('application')}}">Hub API Registration</a></li>
                     {% endif %}
-                    {% if current_user.has_role("SUPERUSER") %}
-                      <li id="registerOrganisation"><a href="{{ url_for('invite_organisation') }}">Register
-                          Organisation</a>
-                      </li>
-                    {% endif %}
-                    {% if current_user.is_superuser %}
-                      <li class="dropdown">
-                        <a class="dropdown-toggle" data-toggle="dropdown" href="#">Admin
-                          <span class="caret"></span></a>
-                        <ul class="dropdown-menu">
-                          <li id="user.index_view"><a data-toggle="tooltip" data-placement="left" title="Registered users" href="{{ url_for('user.index_view')}}">Users</a></li>
-                          <li id="organisation.index_view"><a data-toggle="tooltip" data-placement="left" title="Registered Organisations" href="{{ url_for('organisation.index_view')}}">Organisations</a>
-                          </li>
-                          <li id="orcidtoken.index_view"><a data-toggle="tooltip" data-placement="left" title="Registered user ORCID access tokens" href="{{ url_for('orcidtoken.index_view')}}">ORCID Tokens</a></li>
-                          <li class="divider"></li>
-                          <li id="load_org"><a data-toggle="tooltip" data-placement="left" title="Pre-load Organisation Meta-information" href="{{ url_for('load_org')}}">Upload Organisation Info</a></li>
-                          <li id="orginfo.index_view"><a data-toggle="tooltip" data-placement="left" title="Pre-loaded Organisation Meta-information" href="{{ url_for('orginfo.index_view')}}">View Organisation
-                              Info</a></li>
-                          <li class="divider"></li>
-                          <li class="dropdown-submenu">
-                            <a class="dropdown-toggle" tabindex="-1" href="#">Reports<!-- span class="caret"></span --></a>
-                            <ul class="dropdown-menu">
-                              <li id="user_summary"><a data-toggle="tooltip" data-placement="left" title="User Summary" href="{{ url_for('user_summary')}}">Users</a></li>
-                              <li id="org_invitation_summary"><a data-toggle="tooltip" data-placement="left" title="Organisation Invitation Summary" href="{{ url_for('org_invitation_summary')}}">Organisation Invitations</a></li>
-                              <li id="user_invitation_summary"><a data-toggle="tooltip" data-placement="left" title="User Invitation Summary" href="{{ url_for('user_invitation_summary')}}">User Invitations</a></li>
-                            </ul>
-                          </li>
-                          {%- if config.REDIS_URL %}
+                  {% endif %}
+                  <li class="dropdown-submenu">
+                    <a class="dropdown-toggle" tabindex="-1" href="#">Customize Email<!-- span class="caret"></span --></a>
+                    <ul class="dropdown-menu">
+
+                      <li id="logo"><a href="{{ url_for('logo')}}">
+                          <span data-toggle="tooltip" title="Upload your organisation's logo">Logo</span></a></li>
+                      <li id="manage_email_template"><a href="{{ url_for('manage_email_template')}}">
+                          <span data-toggle="tooltip" title="Customize email template with desired look and content">Template</span></a></li>
+                    </ul>
+                  </li>
+                  <li id="groupidrecord.index_view"><a href="{{ url_for('groupidrecord.index_view')}}"  data-toggle="tooltip"
+                                                                                    title="Create/update group id records for peer review">Manage GroupId Records</a></li>
+                  <li id="org_webhook"><a href="{{ url_for('org_webhook')}}">
+                      <span data-toggle="tooltip" title="Activate ORCID webhooks for your organisation">Set Webhooks</span></a></li>
+                </ul>
+              </li>
+            {% endif %}
+            {% if current_user.has_role("SUPERUSER") %}
+              <li id="registerOrganisation"><a href="{{ url_for('invite_organisation') }}">
+                <span data-toggle="tooltip" data-placement="bottom" title="Send a Tech Contact/Org Admin invitation">Onboard Organisation</span></a>
+              </li>
+              <li class="dropdown">
+                <a class="dropdown-toggle" data-toggle="dropdown" href="#">Hub Admin
+                  <span class="caret"></span></a>
+                <ul class="dropdown-menu">
+                  <li id="user.index_view"><a data-toggle="tooltip" title="User roles" href="{{ url_for('user.index_view')}}">Users</a></li>
+                  <li id="orcidtoken.index_view"><a data-toggle="tooltip" title="ORCID access tokens" href="{{ url_for('orcidtoken.index_view')}}">ORCID Tokens</a></li>
+                  <li class="divider"></li>
+                  <li id="organisation.index_view"><a data-toggle="tooltip" title="Onboarded organisations" href="{{ url_for('organisation.index_view')}}">Active Organisations</a>
+                  </li>
+                  <li class="dropdown-submenu">
+                    <a class="dropdown-toggle" tabindex="-1" href="#">Organisation Setup<!-- span class="caret"></span --></a>
+                    <ul class="dropdown-menu">
+                      <li id="load_org"><a data-toggle="tooltip" title="Bulk import organisation data for onboarding" href="{{ url_for('load_org')}}">Upload Organisation Data</a></li>
+                      <li id="orginfo.index_view"><a data-toggle="tooltip" title="Create/view/edit organisation data" href="{{ url_for('orginfo.index_view')}}">Manage Organisation
+                          Data</a></li>
+                    </ul>
+                  </li>
+                  <li class="divider"></li>
+                  <li class="dropdown-submenu">
+                    <a class="dropdown-toggle" tabindex="-1" href="#">Reports<!-- span class="caret"></span --></a>
+                    <ul class="dropdown-menu">
+                      <li id="user_summary"><a data-toggle="tooltip" title="User Summary" href="{{ url_for('user_summary')}}">Users</a></li>
+                      <li id="org_invitation_summary"><a data-toggle="tooltip" title="Summary of organisation contact invitations" href="{{ url_for('org_invitation_summary')}}">Organisation Invitations</a></li>
+                      <li id="user_invitation_summary"><a data-toggle="tooltip" title="Summary of user invitations" href="{{ url_for('user_invitation_summary')}}">User Invitations</a></li>
+                    </ul>
+                  </li>
+                  {%- if config.REDIS_URL %}
                             <li class="divider"></li>
                             <li id="rq_dashboard.overview"><a data-toggle="tooltip" data-placement="left" title="Message Queues" href="{{ url_for('rq_dashboard.overview', url=request.url)}}">Message Queues</a></li>
                             <li id="schedude.index_view"><a data-toggle="tooltip" data-placement="left" title="Scheduled Jobs" href="{{ url_for('schedude.index_view') }}">Scheduled Jobs</a></li>
-                          {% endif -%}
-                        </ul>
-                      </li>
-                    {% endif %}
-                  {% endif %}
+                  {% endif -%}
+                </ul>
+              </li>
+            {% endif %}
+          {% endif %}
         </ul>
         <ul class="nav navbar-nav navbar-right">
           {% if current_user.confirmed %}
@@ -204,56 +218,31 @@
                       <div class="row">
                         <div class="col-md-6" style="border-right: 1px solid #ddd">
                           <h3 class="text-center">Institutional credentials</h3>
-                        </div>
-                        <div class="col-md-6 center-block">
-                          <h3 class="text-center">ORCID record</h3>
-                        </div>
-                      </div>
-                      <div class="row">
-                        <div class="col-md-6" style="border-right: 1px solid #ddd">
                           <img class="center-block" alt="Login via Tuakiri" src="{{image('REANNZ_Tuakiri_service.png')}}" style="width:50%">
                           <br/>
-                        </div>
-                        <div class="col-md-6">
-                          <img class="center-block" alt="Login via Orcid" src="{{image('orcid-logo.png')}}" style="width:50%">
-                          <br/>
-                        </div>
-                      </div>
-                      <div class="row">
-                        <div class="col-md-6" style="border-right: 1px solid #ddd">
                           <p>I'm currently employed by, or studying, with a <a href="#" data-toggle="tooltip"
                                                                                         title="Tuakiri-members include: all Universities; all Crown Research Institutes (except GNS); and ARA Institute of Canterbury">
                             Tuakiri-member organisation</a></p>
-                        </div>
-                        <div class="col-md-6">
-                          <p>I'm the Tech Contact or Administrator for a Non-Tuakiri member organsation</p>
-                        </div>
-                      </div>
-                      <div class="row">
-                        <div class="col-md-6" style="border-right: 1px solid #ddd">
                           <a href="{{tuakiri_login_url()|safe}}">
                             <div class="tuakiri">
                               <div class="btn btn-primary center-block">Login&nbsp;via&nbsp;Tuakiri</div>
                             </div>
                           </a>
                           <p></p>
+                          <p><small>This log in takes you to the Tuakiri Directory Service where you can select your Home Organisation.
+                            Once returned to the Hub, you'll be able to give your organisation permission to write your affiliation to your ORCID record</small></p>
                         </div>
-
-                        <div class="col-md-6">
+                        <div class="col-md-6 center-block">
+                          <h3 class="text-center">ORCID record</h3>
+                          <img class="center-block" alt="Login via Orcid" src="{{image('orcid-logo.png')}}" style="width:50%">
+                          <br/>
+                          <p>I'm the Tech Contact or Administrator for a Non-Tuakiri member organsation</p>
                           <a href="{{orcid_login_url()|safe}}">
                             <div class="orcid">
                               <div class="btn btn-primary center-block">Login&nbsp;via&nbsp;ORCID</div>
                             </div>
                           </a>
                           <p></p>
-                        </div>
-                      </div>
-                      <div class="row">
-                        <div class="col-md-6" style="border-right: 1px solid #ddd">
-                          <p><small>This log in takes you to the Tuakiri Directory Service where you can select your Home Organisation.
-                            Once returned to the Hub, you'll be able to give your organisation permission to write your affiliation to your ORCID record</small></p>
-                        </div>
-                        <div class="col-md-6">
                           <p><small>This log in takes you to ORCID to let the Hub retrieve your ORCID iD.<br/>
                             Once you've linked your ORCID iD to an organisation using the Hub, you can use this ORCID record to log in.</small></p>
                         </div>
