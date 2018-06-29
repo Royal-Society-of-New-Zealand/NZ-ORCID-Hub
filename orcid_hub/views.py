@@ -1695,7 +1695,7 @@ def section(user_id, section_type="EMP"):
     _url = request.args.get("url") or request.referrer or url_for("viewmembers.index_view")
 
     section_type = section_type.upper()[:3]  # normalize the section type
-    if section_type not in ["EDU", "EMP", ]:
+    if section_type not in ["EDU", "EMP", "FUN"]:
         flash("Incorrect user profile section", "danger")
         return redirect(_url)
 
@@ -1723,8 +1723,10 @@ def section(user_id, section_type="EMP"):
         # Fetch all entries
         if section_type == "EMP":
             api_response = api_instance.view_employments(user.orcid)
-        else:  # section_type == "EDU
+        elif section_type == "EDU":
             api_response = api_instance.view_educations(user.orcid)
+        else:
+            api_response = api_instance.view_fundings(user.orcid)
     except ApiException as ex:
         if ex.status == 401:
             flash("User has revoked the permissions to update his/her records", "warning")
@@ -1746,7 +1748,16 @@ def section(user_id, section_type="EMP"):
         app.logger.exception(f"For {user} encountered exception")
         return redirect(_url)
     # TODO: transform data for presentation:
-    records = data.get("education_summary" if section_type == "EDU" else "employment_summary", [])
+
+    records = []
+
+    if section_type == 'FUN' and data:
+        for r in data.get("group"):
+            fs = r.get("funding_summary")[0]
+            records.append(fs)
+    else:
+        records = data.get("education_summary" if section_type == "EDU" else "employment_summary", [])
+
     return render_template(
         "section.html",
         url=_url,
