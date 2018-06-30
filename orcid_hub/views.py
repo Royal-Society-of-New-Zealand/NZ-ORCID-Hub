@@ -1750,11 +1750,18 @@ def section(user_id, section_type="EMP"):
     # TODO: transform data for presentation:
 
     records = []
-
-    if section_type == 'FUN' and data:
-        for r in data.get("group"):
-            fs = r.get("funding_summary")[0]
-            records.append(fs)
+    if section_type == 'FUN':
+        if data and data.get("group"):
+            for k in data.get("group"):
+                fs = k.get("funding_summary")[0]
+                records.append(fs)
+        return render_template(
+            "funding_section.html",
+            url=_url,
+            records=records,
+            section_type=section_type,
+            user_id=user_id,
+            org_client_id=user.organisation.orcid_client_id)
     else:
         records = data.get("education_summary" if section_type == "EDU" else "employment_summary", [])
 
