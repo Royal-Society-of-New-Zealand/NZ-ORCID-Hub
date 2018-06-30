@@ -5,7 +5,7 @@
   {% call form_tag(form) %}
     <div class="row">
       <div class="col-md-9 col-sm-8 col-xs-12">
-        <h1>{{tile or ("Education" if section_type == "EDU" else "Employment")}}</h1>
+        <h1>{{tile or ("Education" if section_type == "EDU" else "Funding" if section_type == "FUN" else "Employment")}}</h1>
       </div>
     </div>
     <div class="row">
@@ -17,8 +17,13 @@
         {{ render_field(form.disambiguated_id) }}
       </div>
       <div class="col-md-6 col-sm-6 col-xs-12">
-        {{ render_field(form.department) }}
-        {{ render_field(form.role) }}
+        {% if section_type == "FUN" %}
+          {{ render_field(form.funding_title) }}
+          {{ render_field(form.funding_translated_title) }}
+        {% else %}
+          {{ render_field(form.department) }}
+          {{ render_field(form.role) }}
+        {% endif %}
         {{ render_field(form.start_date) }}
         {{ render_field(form.end_date) }}
         {{ render_field(form.disambiguation_source) }}

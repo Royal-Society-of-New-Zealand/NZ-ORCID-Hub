@@ -181,6 +181,8 @@ class RecordForm(FlaskForm):
     end_date = PartialDateField("End date (leave blank if current)")
     disambiguated_id = StringField("Disambiguated Organisation ID")
     disambiguation_source = StringField("Disambiguation Source")
+    funding_title = StringField("Funding Title")
+    funding_translated_title = StringField("Funding Translated Title")
 
     def __init__(self, *args, form_type=None, **kwargs):
         """Create form."""

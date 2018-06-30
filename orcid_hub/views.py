@@ -1614,6 +1614,8 @@ def edit_record(user_id, section_type, put_code=None):
                     api_response = api.view_employment(user.orcid, put_code)
                 elif section_type == "EDU":
                     api_response = api.view_education(user.orcid, put_code)
+                elif section_type == "FUN":
+                    api_response = api.view_funding(user.orcid, put_code)
 
                 _data = api_response.to_dict()
                 data = dict(
@@ -1629,6 +1631,8 @@ def edit_record(user_id, section_type, put_code=None):
                     country=_data.get("organization").get("address").get("country", ""),
                     department=_data.get("department_name", ""),
                     role=_data.get("role_title", ""),
+                    funding_title=get_val(_data, "title", "title", "value"),
+                    funding_translated_title=get_val(_data, "title", "translated_title", "value"),
                     start_date=PartialDate.create(_data.get("start_date")),
                     end_date=PartialDate.create(_data.get("end_date")))
             except ApiException as e:
