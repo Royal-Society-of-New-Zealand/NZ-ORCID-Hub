@@ -1606,6 +1606,7 @@ def edit_record(user_id, section_type, put_code=None):
     api = orcid_client.MemberAPI(user=user)
 
     form = RecordForm(form_type=section_type)
+    grant_data = ""
     if request.method == "GET":
         if put_code:
             try:
@@ -1618,6 +1619,11 @@ def edit_record(user_id, section_type, put_code=None):
                     api_response = api.view_funding(user.orcid, put_code)
 
                 _data = api_response.to_dict()
+
+                # TODO: set the grant_data from external_ids list present in api response.
+                # grant_data = '{grant_number: 1, grant_url: "https://sdsd1", grant_relationship: "self"}, ' \
+                #              '{grant_number: 2, grant_url: "https://sdsd2", grant_relationship: "part_of"}'
+
                 data = dict(
                     org_name=_data.get("organization").get("name"),
                     disambiguated_id=get_val(
@@ -1660,26 +1666,33 @@ def edit_record(user_id, section_type, put_code=None):
 
     if form.validate_on_submit():
         try:
-            put_code, orcid, created = api.create_or_update_affiliation(
-                put_code=put_code,
-                affiliation=Affiliation[section_type],
-                **{f.name: f.data
-                   for f in form})
-            if put_code and created:
-                flash("Record details has been added successfully!", "success")
+            if section_type == "FUN":
+                # TODO: Add call to update the individual funding.
+                '''grant_number = request.form.getlist('grant_number')
+                grant_url = request.form.getlist('grant_url')
+                grant_relationship = request.form.getlist('grant_relationship')'''
 
-            affiliation, _ = UserOrgAffiliation.get_or_create(
-                user=user,
-                organisation=org,
-                put_code=put_code)
+            else:
+                put_code, orcid, created = api.create_or_update_affiliation(
+                    put_code=put_code,
+                    affiliation=Affiliation[section_type],
+                    **{f.name: f.data
+                       for f in form})
+                if put_code and created:
+                    flash("Record details has been added successfully!", "success")
 
-            affiliation.department_name = form.department.data
-            affiliation.department_city = form.city.data
-            affiliation.role_title = form.role.data
-            form.populate_obj(affiliation)
+                affiliation, _ = UserOrgAffiliation.get_or_create(
+                    user=user,
+                    organisation=org,
+                    put_code=put_code)
 
-            affiliation.save()
-            return redirect(_url)
+                affiliation.department_name = form.department.data
+                affiliation.department_city = form.city.data
+                affiliation.role_title = form.role.data
+                form.populate_obj(affiliation)
+
+                affiliation.save()
+                return redirect(_url)
 
         except ApiException as e:
             body = json.loads(e.body)
@@ -1695,7 +1708,7 @@ def edit_record(user_id, section_type, put_code=None):
                 "Unhandler error occured while creating or editing a profile record.")
             abort(500, ex)
 
-    return render_template("profile_entry.html", section_type=section_type, form=form, _url=_url)
+    return render_template("profile_entry.html", section_type=section_type, form=form, _url=_url, grant_data=grant_data)
 
 
 @app.route("/section/<int:user_id>/<string:section_type>/list")

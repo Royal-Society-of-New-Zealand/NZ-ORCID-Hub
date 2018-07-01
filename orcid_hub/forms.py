@@ -219,9 +219,6 @@ class RecordForm(FlaskForm):
     funding_description = TextAreaField("Funding Description")
     total_funding_amount = StringField("Total Funding Amount")
     total_funding_amount_currency = CurrencySelectField("Currency")
-    funding_grant_number = StringField("Funding Grant Number")
-    funding_grant_url = StringField("Funding Grant Url")
-    funding_grant_relationship = StringField("Funding Grant Relationship")
 
     def __init__(self, *args, form_type=None, **kwargs):
         """Create form."""
