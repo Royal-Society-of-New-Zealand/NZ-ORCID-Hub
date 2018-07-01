@@ -1633,6 +1633,12 @@ def edit_record(user_id, section_type, put_code=None):
                     role=_data.get("role_title", ""),
                     funding_title=get_val(_data, "title", "title", "value"),
                     funding_translated_title=get_val(_data, "title", "translated_title", "value"),
+                    translated_title_language=get_val(_data, "title", "translated_title", "language_code"),
+                    funding_type=get_val(_data, "type"),
+                    funding_subtype=get_val(_data, "organization_defined_type", "value"),
+                    funding_description=get_val(_data, "short_description"),
+                    total_funding_amount=get_val(_data, "amount", "value"),
+                    total_funding_amount_currency=get_val(_data, "amount", "currency_code"),
                     start_date=PartialDate.create(_data.get("start_date")),
                     end_date=PartialDate.create(_data.get("end_date")))
             except ApiException as e:

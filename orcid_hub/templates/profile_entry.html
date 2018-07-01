@@ -10,6 +10,11 @@
     </div>
     <div class="row">
       <div class="col-md-6 col-sm-6 col-xs-12">
+        {% if section_type == "FUN" %}
+          {{ render_field(form.funding_grant_number) }}
+          {{ render_field(form.funding_grant_url) }}
+          {{ render_field(form.funding_grant_relationship) }}
+        {% endif %}
         {{ render_field(form.org_name) }}
         {{ render_field(form.city) }}
         {{ render_field(form.state) }}
@@ -20,6 +25,12 @@
         {% if section_type == "FUN" %}
           {{ render_field(form.funding_title) }}
           {{ render_field(form.funding_translated_title) }}
+          {{ render_field(form.translated_title_language) }}
+          {{ render_field(form.funding_type) }}
+          {{ render_field(form.funding_subtype) }}
+          {{ render_field(form.funding_description) }}
+          {{ render_field(form.total_funding_amount) }}
+          {{ render_field(form.total_funding_amount_currency) }}
         {% else %}
           {{ render_field(form.department) }}
           {{ render_field(form.role) }}
