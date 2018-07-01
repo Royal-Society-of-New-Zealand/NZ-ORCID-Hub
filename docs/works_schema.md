@@ -1,21 +1,21 @@
 # Batch works schema in the NZ ORCID Hub for ORCID Message Schema v2.0/v2.1
 
 Batch works files to be passed through the Hub must be presented in either of the json or YAML formats, with the files following the convention for complex Hub objects, i.e.:
-* a list of items 
+* a list of items
   * with each item comprised of:
     * a list of invitees (i.e., the individuals whose ORCID records are to be affected); and,
     * the ORCID Message data that is to be asserted to each invitee's ORCID record
 
 Examples can be found here: [**works.json**](/docs/examples/works.json) and [**works.yaml**](/docs/examples/works.yaml)
 
-The Hub will consume any json or YAML file complying to the following schema.  NB additional validation will be performed when the data is sent to ORCID, and any errors in the message will be reported in the item's status field in the Hub's UI or task report. 
+The Hub will consume any json or YAML file complying to the following schema.  NB additional validation will be performed when the data is sent to ORCID, and any errors in the message will be reported in the item's status field in the Hub's UI or task report.
 
 # Works
 
 ## Properties
 Type | Description | Notes
 ------------- | ------------- | -------------
-[**list[work]**](#work) | Container for the works to be written | [required] 
+[**list[work]**](#work) | Container for the works to be written | [required]
 
 
 # Work
@@ -25,22 +25,22 @@ Minimum one - maximum unbounded
 ## Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-**invitees** | [**list[invitee]**](#invitee) | Container for individuals to be affected | [required] 
-**created-date** | [**CreatedDate**](#createddate-and-lastmodifieddate) | Container for work item's creation date | [optional, ignored] 
-**last-modified-date** | [**LastModifiedDate**](#createddate-and-lastmodifieddate) | Container for work item's last modification date | [optional, ignored] 
-**source** | [**Source**](#source) | Container for when/how the item was asserted | [optional, ignored] 
-**title** | [**WorkTitle**](#worktitle) | Container for the title(s) of the work | [required] 
-**journal-title** | [**JournalTitle**](#journaltitle) | Container for the title of the publication or group under which the work was published/presented | [optional] 
-**short-description** | **str** | An element for a few sentences describing the work, e.g., an abstract. | [optional] 
-**citation** | [**Citation**](#citation) | Container for a work citation | [optional] 
-**type** | **str** | The work's type, see [here](https://members.orcid.org/api/resources/work-types) for the 38 allowed types | [required] 
-**publication-date** | [**PublicationDate**](#publicationdate) | Container for the date(s) the work was available to the public | [optional] 
-**external-ids** | [**list[external-id]**](#externalid) | Container for the unique IDs of the work | [optional] 
-**url** | [**Url**](#url) | A container for the url representation of the work | [optional] 
-**contributors** | [**WorkContributors**](#workcontributors) | Container for the contributors of the work | [optional] 
-**language-code** | **str** | Two-Four letter language code to identify the language used in work fields | [optional] 
-**country** | [**Country**](#country) | Container to identify the work's original country of publication/presentation | [optional] 
-**visibility** | **str** | NB: Chosen by each invitee/user | [optional, ignored] 
+**invitees** | [**list[invitee]**](#invitee) | Container for individuals to be affected | [required]
+**created-date** | [**CreatedDate**](#createddate-and-lastmodifieddate) | Container for work item's creation date | [optional, ignored]
+**last-modified-date** | [**LastModifiedDate**](#createddate-and-lastmodifieddate) | Container for work item's last modification date | [optional, ignored]
+**source** | [**Source**](#source) | Container for when/how the item was asserted | [optional, ignored]
+**title** | [**WorkTitle**](#worktitle) | Container for the title(s) of the work | [required]
+**journal-title** | [**JournalTitle**](#journaltitle) | Container for the title of the publication or group under which the work was published/presented | [optional]
+**short-description** | **str** | An element for a few sentences describing the work, e.g., an abstract. | [optional]
+**citation** | [**Citation**](#citation) | Container for a work citation | [optional]
+**type** | **str** | The work's type, see [here](https://members.orcid.org/api/resources/work-types) for the 38 allowed types | [required]
+**publication-date** | [**PublicationDate**](#publicationdate) | Container for the date(s) the work was available to the public | [optional]
+**external-ids** | [**list[external-id]**](#externalid) | Container for the unique IDs of the work | [optional]
+**url** | [**Url**](#url) | A container for the url representation of the work | [optional]
+**contributors** | [**WorkContributors**](#workcontributors) | Container for the contributors of the work | [optional]
+**language-code** | **str** | Two-Four letter language code to identify the language used in work fields | [optional]
+**country** | [**Country**](#country) | Container to identify the work's original country of publication/presentation | [optional]
+**visibility** | **str** | NB: Chosen by each invitee/user | [optional, ignored]
 
 [**back to Works**](#works)
 
@@ -67,7 +67,7 @@ NB: Captured automatically by the ORCID Registry
 ## Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-**value** | **datetime** | Milliseconds of the event that have elapsed since midnight 1970-01-01; Created automatically by the ORCID Registry | [optional] 
+**value** | **datetime** | Milliseconds of the event that have elapsed since midnight 1970-01-01; Created automatically by the ORCID Registry | [optional]
 
 [**back to Work**](#work)
 
@@ -78,9 +78,9 @@ NB: Captured automatically by the ORCID Registry
 ## Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-**source-orcid** | [**SourceOrcid**](#sourceorcid-and-sourceclientid) | For legacy client applications, the ORCID iD that created the item | [optional] 
-**source-client-id** | [**SourceClientId**](#sourceorcid-and-sourceclientid) | The client id of the application that created the item | [optional] 
-**source-name** | [**SourceName**](#sourcename) | Container for the human-readable name of the client application | [optional] 
+**source-orcid** | [**SourceOrcid**](#sourceorcid-and-sourceclientid) | For legacy client applications, the ORCID iD that created the item | [optional]
+**source-client-id** | [**SourceClientId**](#sourceorcid-and-sourceclientid) | The client id of the application that created the item | [optional]
+**source-name** | [**SourceName**](#sourcename) | Container for the human-readable name of the client application | [optional]
 
 [**back to Work**](#work)
 
@@ -89,9 +89,9 @@ Name | Type | Description | Notes
 ## Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-**uri** | **str** | Source iD in URI form, i.e., URL + path | [optional] 
-**path** | **str** | Application's 16-character client id or legacy ORCID iD | [optional] 
-**host** | **str** | URL for the environment of the Source iD, i.e., https://sandbox.orcid.org or https://orcid.org | [optional] 
+**uri** | **str** | Source iD in URI form, i.e., URL + path | [optional]
+**path** | **str** | Application's 16-character client id or legacy ORCID iD | [optional]
+**host** | **str** | URL for the environment of the Source iD, i.e., https://sandbox.orcid.org or https://orcid.org | [optional]
 
 [**back to Source**](#source)
 
@@ -100,7 +100,7 @@ Name | Type | Description | Notes
 ## Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-**value** | **str** | The human-readable name of the client application | [optional] 
+**value** | **str** | The human-readable name of the client application | [optional]
 
 [**back to Source**](#source)
 
@@ -109,9 +109,9 @@ Name | Type | Description | Notes
 ## Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-**title** | [**Title**](#title-and-subtitle) | Container for the main name or title of the work | [required] 
-**subtitle** | [**Subtitle**](#title-and-subtitle) | Container for any subtitle to the work | [optional] 
-**translated-title** | [**TranslatedTitle**](#translatedtitle) | Container for any translations of the work's title | [optional] 
+**title** | [**Title**](#title-and-subtitle) | Container for the main name or title of the work | [required]
+**subtitle** | [**Subtitle**](#title-and-subtitle) | Container for any subtitle to the work | [optional]
+**translated-title** | [**TranslatedTitle**](#translatedtitle) | Container for any translations of the work's title | [optional]
 
 [**back to Work**](#work)
 
@@ -120,7 +120,7 @@ Name | Type | Description | Notes
 ## Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-**value** | **str** | The main name/title or subtitle of the work | [optional] 
+**value** | **str** | The main name/title or subtitle of the work | [optional]
 
 [**back to WorkTitle**](#worktitle)
 
@@ -129,8 +129,8 @@ Name | Type | Description | Notes
 ## Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-**value** | **str** | The main title of the work or funding translated into another language | [optional] 
-**language-code** | **str** | Two-Four letter language code to identify the language of the translation | [optional] 
+**value** | **str** | The main title of the work or funding translated into another language | [optional]
+**language-code** | **str** | Two-Four letter language code to identify the language of the translation | [optional]
 
 [**back to WorkTitle**](#worktitle)
 
@@ -139,7 +139,7 @@ Name | Type | Description | Notes
 ## Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-**value** | **str** | The title/conference name of the publication, event or group under which the work appeared | [optional] 
+**value** | **str** | The title/conference name of the publication, event or group under which the work appeared | [optional]
 
 [**back to Work**](#work)
 
@@ -159,9 +159,9 @@ Name | Type | Description | Notes
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **year** | [**Year**](#year) | Container for year value | [required]
-**month** | [**Month**](#month) | Container for month value | [optional] 
-**day** | [**Day**](#day) | Container for day value | [optional] 
-**media-type** | **str** | to indicate which version of the publication the date refers to | [optional] 
+**month** | [**Month**](#month) | Container for month value | [optional]
+**day** | [**Day**](#day) | Container for day value | [optional]
+**media-type** | **str** | to indicate which version of the publication the date refers to | [optional]
 
 [**back to Work**](#work)
 
@@ -170,7 +170,7 @@ Name | Type | Description | Notes
 ## Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-**value** | **str** | Date values; Year in YYYY, Month in MM, Day in DD | [optional] 
+**value** | **str** | Date values; Year in YYYY, Month in MM, Day in DD | [optional]
 
 [**back to PublicationDate**](#publicationdate)
 
@@ -181,8 +181,8 @@ Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **external-id-type** | **str** | The type of the given external identifier | see [here](https://pub.orcid.org/v2.0/identifiers) for supported identifier types [required]
 **external-id-value** | **str** | A reference to an external identifier to the work | [required]
-**external-id-url** | [**Url**](#url) | A container for the url value | [optional] 
-**external-id-relationship** | **str** | The relationship of this identifier to the work | "SELF" or "PART-OF" [optional] 
+**external-id-url** | [**Url**](#url) | A container for the url value | [optional]
+**external-id-relationship** | **str** | The relationship of this identifier to the work | "SELF" or "PART-OF" [optional]
 
 [**back to Work**](#work)
 
@@ -191,7 +191,7 @@ Name | Type | Description | Notes
 ## Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-**value** | **str** | An external url for the work or as specified by an external identifier | [optional] 
+**value** | **str** | An external url for the work or as specified by an external identifier | [optional]
 
 [**back to Work**](#work)
 
@@ -200,7 +200,7 @@ Name | Type | Description | Notes
 ## Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-**contributor** | [**list[Contributor]**](#contributor) | A container for the work's contributors | [optional] 
+**contributor** | [**list[Contributor]**](#contributor) | A container for the work's contributors | [optional]
 
 [**back to Work**](#work)
 
@@ -211,10 +211,10 @@ Minimum none - maximum unbounded
 ## Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-**contributor-orcid** | [**ContributorOrcid**](#contributororcid) | A container for the contributor's ORCID iD | [optional] 
-**credit-name** | [**CreditName**](#creditname) | A container for the contributor's name | [optional] 
-**contributor-email** | [**ContributorEmail**](#contributoremail) | A container for the contributor's email | [optional] 
-**contributor-attributes** | [**ContributorAttributes**](#contributorattributes) | A container for the contributor's role and order | [optional] 
+**contributor-orcid** | [**ContributorOrcid**](#contributororcid) | A container for the contributor's ORCID iD | [optional]
+**credit-name** | [**CreditName**](#creditname) | A container for the contributor's name | [optional]
+**contributor-email** | [**ContributorEmail**](#contributoremail) | A container for the contributor's email | [deprecated]
+**contributor-attributes** | [**ContributorAttributes**](#contributorattributes) | A container for the contributor's role and order | [optional]
 
 [**back to WorkContributors**](#workcontributors)
 
@@ -223,9 +223,9 @@ Name | Type | Description | Notes
 ## Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-**uri** | **str** | ORCID iD in URI form, i.e., URL + path | [preferred, at least one of uri or path must be given] 
-**path** | **str** | 16-character ORCID iD | [optional] 
-**host** | **str** | URL for the environment of the ORCID iD, i.e., https://sandbox.orcid.org or https://orcid.org | [optional] 
+**uri** | **str** | ORCID iD in URI form, i.e., URL + path | [preferred, at least one of uri or path must be given]
+**path** | **str** | 16-character ORCID iD | [optional]
+**host** | **str** | URL for the environment of the ORCID iD, i.e., https://sandbox.orcid.org or https://orcid.org | [optional]
 
 [**back to Contributor**](#contributor)
 
@@ -234,7 +234,7 @@ Name | Type | Description | Notes
 ## Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-**value** | **str** | The name to use for the researcher or contributor when credited or cited | [optional] 
+**value** | **str** | The name to use for the researcher or contributor when credited or cited | [optional]
 
 [**back to Contributor**](#contributor)
 
@@ -243,7 +243,7 @@ Name | Type | Description | Notes
 ## Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-**value** | **str** | Email of the collaborator or other contributor | [Always private, used to find and automatically add ORCID iDs; optional] 
+**value** | **str** | Email of the collaborator or other contributor | [Always private; deprecated do not use]
 
 [**back to Contributor**](#contributor)
 
@@ -262,7 +262,7 @@ Name | Type | Description | Notes
 ## Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-**value** | **str** | ISO 3166-1 alpha-2 code for the work's original country of publication/presentation | [optional] 
+**value** | **str** | ISO 3166-1 alpha-2 code for the work's original country of publication/presentation | [optional]
 
 [**back to Work**](#work)
 
