@@ -29,7 +29,7 @@ The Hub accepts batches of peer review items where each item contains an initial
 
     [{"invitees":[{invitee1}, {invitee2}, ...], peer review},{"invitees":[{invitee4}, {invitee5}, ...], peer review2}, ...]
 
-Example files can be found here: `peer_review.json <https://github.com/Royal-Society-of-New-Zealand/NZ-ORCID-Hub/blob/master/docs/examples/peer_reviews.json>`_ and `peer_reviews.yaml <https://github.com/Royal-Society-of-New-Zealand/NZ-ORCID-Hub/blob/master/docs/examples/peer_reviews.yaml>`_, while any uploaded peer review file will be validated against the `peer review schema in YAML <peer_review_schema.yaml>`_.
+Example files can be found here: `peer_review.json <https://github.com/Royal-Society-of-New-Zealand/NZ-ORCID-Hub/blob/master/docs/examples/peer_reviews.json>`_ and `peer_reviews.yaml <https://github.com/Royal-Society-of-New-Zealand/NZ-ORCID-Hub/blob/master/docs/examples/peer_reviews.yaml>`_, while any uploaded peer review file will be validated against the `peer review schema in YAML <https://github.com/Royal-Society-of-New-Zealand/NZ-ORCID-Hub/blob/master/peer_review_schema.yaml>`_.
 
 For more information on the structure of the peer review files see here: `Peer review schema for ORCID API 2.0/2.1 </peer_review_schema.html>`_
 For an overview of peer review in ORCID see here: `Workflow: Peer Review <https://members.orcid.org/api/workflow/peer-review>`_

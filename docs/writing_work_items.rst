@@ -13,7 +13,7 @@ The Hub accepts batches of works items where each item contains an initial invit
 
     [{"invitees":[{invitee1}, {invitee2}, ...], work},{"invitees":[{invitee4}, {invitee5}, ...], work2}, ...]
 
-Example files can be found here: `works.json <https://github.com/Royal-Society-of-New-Zealand/NZ-ORCID-Hub/blob/master/docs/examples/works.json>`_ and `works.yaml <https://github.com/Royal-Society-of-New-Zealand/NZ-ORCID-Hub/blob/master/docs/examples/works.yaml>`_, while any uploaded works file will be validated against the `works schema in YAML <work_schema.yaml>`_.
+Example files can be found here: `works.json <https://github.com/Royal-Society-of-New-Zealand/NZ-ORCID-Hub/blob/master/docs/examples/works.json>`_ and `works.yaml <https://github.com/Royal-Society-of-New-Zealand/NZ-ORCID-Hub/blob/master/docs/examples/works.yaml>`_, while any uploaded works file will be validated against the `works schema in YAML <https://github.com/Royal-Society-of-New-Zealand/NZ-ORCID-Hub/blob/master/work_schema.yaml>`_.
 
 For more information on the structure of the works files see here: `Works schema for ORCID API 2.0/2.1 </works_schema.html>`_
 

@@ -13,7 +13,7 @@ The Hub accepts batches of funding items where each item contains an initial inv
 
     [{"invitees":[{invitee1}, {invitee2}, ...], funding},{"invitees":[{invitee4}, {invitee5}, ...], funding2}, ...]
 
-Example files can be found here: `fundings.json <https://github.com/Royal-Society-of-New-Zealand/NZ-ORCID-Hub/blob/master/docs/examples/fundings.json>`_ and `fundings.yaml <https://github.com/Royal-Society-of-New-Zealand/NZ-ORCID-Hub/blob/master/docs/examples/fundings.yaml>`_, while any uploaded funding file will be validated against the `funding schema in YAML <funding_schema.yaml>`_.
+Example files can be found here: `fundings.json <https://github.com/Royal-Society-of-New-Zealand/NZ-ORCID-Hub/blob/master/docs/examples/fundings.json>`_ and `fundings.yaml <https://github.com/Royal-Society-of-New-Zealand/NZ-ORCID-Hub/blob/master/docs/examples/fundings.yaml>`_, while any uploaded funding file will be validated against the `funding schema in YAML <https://github.com/Royal-Society-of-New-Zealand/NZ-ORCID-Hub/blob/master/funding_schema.yaml>`_.
 
 For more information on the structure of the funding files see here: `Funding schema for ORCID API 2.0/2.1 <fundings_schema.html>`_
 
