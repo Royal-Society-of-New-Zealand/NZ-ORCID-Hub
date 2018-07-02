@@ -223,10 +223,14 @@ class RecordForm(FlaskForm):
 class FundingForm(FlaskForm):
     """User/researcher funding detail form."""
 
+    type_choices = [('GRANT', 'GRANT'), ('CONTRACT', 'CONTRACT'), ('AWARD', 'AWARD'), ('SALARY_AWARD', 'SALARY_AWARD')]
+    type_choices.sort(key=lambda e: e[1])
+    type_choices.insert(0, ("", ""))
+
     funding_title = StringField("Funding Title", [validators.required()])
     funding_translated_title = StringField("Funding Translated Title")
     translated_title_language = LanguageSelectField("Language")
-    funding_type = StringField("Funding Type", [validators.required()])
+    funding_type = SelectField(choices=type_choices, description="Funding Type", validators=[validators.required()])
     funding_subtype = StringField("Funding Subtype")
     funding_description = TextAreaField("Funding Description")
     total_funding_amount = StringField("Total Funding Amount")

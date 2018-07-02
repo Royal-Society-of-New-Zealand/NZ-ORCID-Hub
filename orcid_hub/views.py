@@ -1700,6 +1700,12 @@ def edit_record(user_id, section_type, put_code=None):
                 '''grant_number = request.form.getlist('grant_number')
                 grant_url = request.form.getlist('grant_url')
                 grant_relationship = request.form.getlist('grant_relationship')'''
+                put_code, orcid, created = api.create_or_update_individual_funding(
+                    put_code=put_code,
+                    **{f.name: f.data
+                       for f in form})
+                if put_code and created:
+                    flash("Record details has been added successfully!", "success")
 
             else:
                 put_code, orcid, created = api.create_or_update_affiliation(
@@ -1721,7 +1727,7 @@ def edit_record(user_id, section_type, put_code=None):
                 form.populate_obj(affiliation)
 
                 affiliation.save()
-                return redirect(_url)
+            return redirect(_url)
 
         except ApiException as e:
             body = json.loads(e.body)
