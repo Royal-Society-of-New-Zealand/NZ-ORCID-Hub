@@ -1633,7 +1633,7 @@ def edit_record(user_id, section_type, put_code=None):
     else:
         form = RecordForm(form_type=section_type)
 
-    grant_data = ""
+    grant_data_list = []
     if request.method == "GET":
         if put_code:
             try:
@@ -1646,10 +1646,6 @@ def edit_record(user_id, section_type, put_code=None):
                     api_response = api.view_funding(user.orcid, put_code)
 
                 _data = api_response.to_dict()
-
-                # TODO: set the grant_data from external_ids list present in api response.
-                # grant_data = '{grant_number: 1, grant_url: "https://sdsd1", grant_relationship: "self"}, ' \
-                #              '{grant_number: 2, grant_url: "https://sdsd2", grant_relationship: "part_of"}'
 
                 data = dict(
                     org_name=_data.get("organization").get("name"),
@@ -1668,6 +1664,18 @@ def edit_record(user_id, section_type, put_code=None):
                     end_date=PartialDate.create(_data.get("end_date")))
 
                 if section_type == "FUN":
+                    external_ids_list = get_val(_data, "external_ids", "external_id")
+
+                    for extid in external_ids_list:
+                        external_id_value = extid['external_id_value'] if extid['external_id_value'] else ''
+                        external_id_url = get_val(extid['external_id_url'], "value") if get_val(
+                            extid['external_id_url'], "value") else ''
+                        external_id_relationship = extid['external_id_relationship'] if extid[
+                            'external_id_relationship'] else ''
+
+                        grant_data_list.append(dict(grant_number=external_id_value, grant_url=external_id_url,
+                                                    grant_relationship=external_id_relationship))
+
                     data.update(dict(funding_title=get_val(_data, "title", "title", "value"),
                                      funding_translated_title=get_val(_data, "title", "translated_title", "value"),
                                      translated_title_language=get_val(_data, "title", "translated_title",
@@ -1698,17 +1706,23 @@ def edit_record(user_id, section_type, put_code=None):
     if form.validate_on_submit():
         try:
             if section_type == "FUN":
-                # TODO: Add call to update the individual funding.
-                '''grant_number = request.form.getlist('grant_number')
+                grant_number = request.form.getlist('grant_number')
                 grant_url = request.form.getlist('grant_url')
-                grant_relationship = request.form.getlist('grant_relationship')'''
+                grant_relationship = request.form.getlist('grant_relationship')
+
+                grant_data_list = [{'grant_number': gn, 'grant_url': gu, 'grant_relationship': gr} for gn, gu, gr in
+                                   zip(grant_number, grant_url, grant_relationship)] if list(
+                    filter(None, grant_number)) else []
+
                 put_code, orcid, created = api.create_or_update_individual_funding(
                     put_code=put_code,
+                    grant_data_list=grant_data_list,
                     **{f.name: f.data
                        for f in form})
                 if put_code and created:
                     flash("Record details has been added successfully!", "success")
-
+                else:
+                    flash("Record details has been updated successfully!", "success")
             else:
                 put_code, orcid, created = api.create_or_update_affiliation(
                     put_code=put_code,
@@ -1745,7 +1759,8 @@ def edit_record(user_id, section_type, put_code=None):
                 "Unhandler error occured while creating or editing a profile record.")
             abort(500, ex)
 
-    return render_template("profile_entry.html", section_type=section_type, form=form, _url=_url, grant_data=grant_data)
+    return render_template("profile_entry.html", section_type=section_type, form=form, _url=_url,
+                           grant_data_list=grant_data_list)
 
 
 @app.route("/section/<int:user_id>/<string:section_type>/list")

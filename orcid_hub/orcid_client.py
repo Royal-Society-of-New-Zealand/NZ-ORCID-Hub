@@ -689,7 +689,8 @@ class MemberAPI(MemberAPIV20Api):
                                             funding_description=None, total_funding_amount=None,
                                             total_funding_amount_currency=None, org_name=None, city=None, state=None,
                                             country=None, start_date=None, end_date=None, disambiguated_id=None,
-                                            disambiguation_source=None, put_code=None, *args, **kwargs):
+                                            disambiguation_source=None, grant_data_list=None, put_code=None, *args,
+                                            **kwargs):
         """Create or update individual funding record via UI."""
         rec = Funding()  # noqa: F405
         rec.source = self.source
@@ -734,8 +735,23 @@ class MemberAPI(MemberAPIV20Api):
 
         external_id_list = []
 
-        # TODO: Add external ids from UI.
-        # if external_id_list:
+        for exi in grant_data_list:
+            if exi['grant_number']:
+                # Orcid is expecting external type as 'grant_number'
+                external_id_type = "grant_number"
+                external_id_value = exi['grant_number']
+                external_id_url = None
+                if exi['grant_url']:
+                    external_id_url = Url(value=exi['grant_url'])  # noqa: F405
+                # Setting the external id relationship as 'SELF' by default, it can be either SELF/PART_OF
+                external_id_relationship = exi['grant_relationship'].upper() if exi['grant_relationship'] else "SELF"
+                external_id_list.append(
+                    ExternalID(  # noqa: F405
+                        external_id_type=external_id_type,
+                        external_id_value=external_id_value,
+                        external_id_url=external_id_url,
+                        external_id_relationship=external_id_relationship))
+
         rec.external_ids = ExternalIDs(external_id=external_id_list)  # noqa: F405
 
         try:
