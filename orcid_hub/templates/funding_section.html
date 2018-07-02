@@ -76,9 +76,7 @@
 			</tbody>
 		</table>
 		<div style="text-align:right;">
-			{% if url %}
-				<a role="button" class="btn btn-danger" href="{{url}}">Cancel</a>
-			{% endif %}
+      <a role="button" class="btn btn-danger" href="{{ url_for('viewmembers.index_view')}}">Back to View/Export People</a>
 			<a role="button" class="btn btn-primary" href="{{url_for('edit_record', user_id=user_id, section_type=section_type)}}">New...</a>
 		</div>
 	</div>

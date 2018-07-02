@@ -1553,7 +1553,7 @@ def reset_all():
 @app.route("/section/<int:user_id>/<string:section_type>/<int:put_code>/delete", methods=["POST"])
 @roles_required(Role.ADMIN)
 def delete_record(user_id, section_type, put_code):
-    """Delete an employment or education record."""
+    """Delete an employment, education or funding record."""
     _url = request.args.get("url") or request.referrer or url_for(
         "section", user_id=user_id, section_type=section_type)
     try:
@@ -1582,6 +1582,8 @@ def delete_record(user_id, section_type, put_code):
         # Delete an Employment
         if section_type == "EMP":
             api_instance.delete_employment(user.orcid, put_code)
+        elif section_type == "FUN":
+            api_instance.delete_funding(user.orcid, put_code)
         else:
             api_instance.delete_education(user.orcid, put_code)
         app.logger.info(f"For {user.orcid} '{section_type}' record was deleted by {current_user}")
