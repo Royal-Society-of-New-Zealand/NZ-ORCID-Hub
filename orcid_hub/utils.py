@@ -1502,22 +1502,22 @@ def send_orcid_update_summary(org_id=None):
         return
 
     org = Organisation.select().where(Organisation.id == org_id).first()
-    message_template = """<p>The flollowing user profiles were updated
-    from {{date_from}} until {{date_to}}:</p>
-    <ul>
-    {% for u in updated_users %}
-        <li>{{u.name}} ({{u.email}},
-          <a href="{{orcid_base_url}}{{u.orcid}}" target="_blank">{{u.orcid}}</a>,
-          updated at {{u.orcid_updated_at.isoformat(sep=" ", timespec="seconds")}});
-        </li>
-    {% endfor %}
-    </ul>
-    """
     if org and org.webhook_enabled and org.email_notifications_enabled:
         updated_users = org.users.where(User.orcid_updated_at >= previous_first,
                                         User.orcid_updated_at < first)
         recipient = org.notification_email or (org.tech_contact.name, org.tech_contact.email)
         if updated_users.exists():
+            message_template = """<p>The flollowing user profiles were updated
+            from {{date_from}} until {{date_to}}:</p>
+            <ul>
+            {% for u in updated_users %}
+                <li>{{u.name}} ({{u.email}},
+                <a href="{{orcid_base_url}}{{u.orcid}}" target="_blank">{{u.orcid}}</a>,
+                updated at {{u.orcid_updated_at.isoformat(sep=" ", timespec="seconds")}});
+                </li>
+            {% endfor %}
+            </ul>
+            """
             set_server_name()
             with app.app_context():
                 send_email(
