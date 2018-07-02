@@ -14,7 +14,7 @@ import requests
 from flask import request, url_for
 from flask_login import current_user
 from html2text import html2text
-from itsdangerous import BadSignature, TimedJSONWebSignatureSerializer
+from itsdangerous import BadSignature, SignatureExpired, TimedJSONWebSignatureSerializer
 from jinja2 import Template
 from peewee import JOIN
 
@@ -165,7 +165,7 @@ def generate_confirmation_token(*args, expiration=1300000, **kwargs):
 
     Invitation Token Expiry for Admins is 15 days, whereas for researchers the token expiry is of 30 days.
     """
-    serializer = TimedJSONWebSignatureSerializer(app.config["SECRET_KEY"], expires_in=expiration)
+    serializer = TimedJSONWebSignatureSerializer(app.secret_key, expires_in=expiration)
     if len(kwargs) == 0:
         return serializer.dumps(args[0] if len(args) == 1 else args)
     else:
@@ -174,17 +174,23 @@ def generate_confirmation_token(*args, expiration=1300000, **kwargs):
 
 def confirm_token(token, unsafe=False):
     """Genearate confirmaatin token."""
-    serializer = TimedJSONWebSignatureSerializer(app.config["SECRET_KEY"])
-    if unsafe:
-        try:
-            data = serializer.loads_unsafe(token, salt=app.config["SALT"])
-        except BadSignature:  # try again w/o the global salt
-            data = serializer.loads_unsafe(token, salt=None)
-    else:
-        try:
-            data = serializer.loads(token, salt=app.config["SALT"])
-        except BadSignature:  # try again w/o the global salt
-            data = serializer.loads(token, salt=None)
+    serializer = TimedJSONWebSignatureSerializer(app.secret_key)
+    # TODO: remove teh global SALT
+    salt = app.config.get("SALT")
+    try:
+        if unsafe:
+            try:
+                data = serializer.loads_unsafe(token, salt=salt)
+            except BadSignature:  # try again w/o the global salt
+                data = serializer.loads_unsafe(token)
+        else:
+            try:
+                data = serializer.loads(token, salt=salt)
+            except BadSignature:  # try again w/o the global salt
+                data = serializer.loads(token)
+    except SignatureExpired as ex:
+        return False, ex.payload
+
     return data
 
 

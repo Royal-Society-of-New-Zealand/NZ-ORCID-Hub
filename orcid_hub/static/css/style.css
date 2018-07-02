@@ -1,3 +1,8 @@
+html {
+    position: relative;
+    min-height: 100%;
+}
+
 body {
     padding-top: 0px;
 }
@@ -137,17 +142,24 @@ div.login-button {
 }
 
 footer {
-	width:100%;
-	/*background-color:#50748a;*/
-	background-color:#000;
-	text-align:right;
-	height:120px;
-	color:#fff;
-	bottom:0;
-	left:0;
+    width:100%;
+    line-height: normal;
+    /*background-color:#50748a;*/
+    background-color:#000;
+    text-align:right;
+    height:120px;
+    color:#fff;
+    bottom:0;
+    left:0;
 }
+@media only screen and (max-height: 899px) {
+    footer {
+        display:none;
+    }
+}
+
 footer .container {
-	padding-top:20px;
+	padding-top:11px;
 }
 
 footer a {
@@ -260,4 +272,30 @@ table.permissions, table.permissions th, table.permissions td, table.users, tabl
 .column-header {
     color: #337ab7;
     text-decoration: none;
+}
+
+#connect-orcid-button{
+	border: 1px solid #D3D3D3;
+	padding: .3em;
+	background-color: #fff;
+	border-radius: 8px;
+	box-shadow: 1px 1px 3px #999;
+	cursor: pointer;
+	color: #999;
+	font-weight: bold;
+	font-size: .8em;
+	line-height: 24px;
+	vertical-align: middle;
+}
+
+#connect-orcid-button:hover{
+	border: 1px solid #338caf;
+	color: #338caf;
+}
+
+#orcid-id-icon{
+	display: block;
+	margin: 0 .5em 0 0;
+	padding: 0;
+	float: left;
 }

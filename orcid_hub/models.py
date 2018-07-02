@@ -23,7 +23,7 @@ from flask_login import UserMixin, current_user
 from peewee import BooleanField as BooleanField_
 from peewee import (JOIN, BlobField, CharField, DateTimeField, DeferredRelation, Field,
                     FixedCharField, ForeignKeyField, IntegerField, Model, OperationalError,
-                    PostgresqlDatabase, ProgrammingError, SmallIntegerField, TextField, fn)
+                    PostgresqlDatabase, SmallIntegerField, TextField, fn)
 from playhouse.shortcuts import model_to_dict
 from pycountry import countries
 from pykwalify.core import Core
@@ -31,7 +31,10 @@ from pykwalify.errors import SchemaError
 from peewee_validates import ModelValidator
 
 from . import app, db
-from .config import DEFAULT_COUNTRY, ENV
+
+ENV = app.config["ENV"]
+DEFAULT_COUNTRY = app.config["DEFAULT_COUNTRY"]
+SCHEMA_DIR = os.path.normpath(os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "schemas"))
 
 ORCID_ID_REGEX = re.compile(r"^([X\d]{4}-?){3}[X\d]{4}$")
 PARTIAL_DATE_REGEX = re.compile(r"\d+([/\-]\d+){,2}")
@@ -572,7 +575,7 @@ class User(BaseModel, UserMixin, AuditMixin):
     """
 
     name = CharField(max_length=64, null=True)
-    first_name = CharField(null=True, verbose_name="Firs Name")
+    first_name = CharField(null=True, verbose_name="First Name")
     last_name = CharField(null=True, verbose_name="Last Name")
     email = CharField(max_length=120, unique=True, null=True, verbose_name="Email Address")
     eppn = CharField(max_length=120, unique=True, null=True, verbose_name="EPPN")
@@ -1263,7 +1266,8 @@ class FundingRecord(RecordModel):
 
                 # Adding schema valdation for funding
                 validator = Core(
-                    source_data=validation_source_data, schema_files=["funding_schema.yaml"])
+                    source_data=validation_source_data,
+                    schema_files=[os.path.join(SCHEMA_DIR, "funding_schema.yaml")])
                 validator.validate(raise_exception=True)
 
             try:
@@ -1421,7 +1425,9 @@ class PeerReviewRecord(RecordModel):
                 validation_source_data = copy.deepcopy(peer_review_data)
                 validation_source_data = del_none(validation_source_data)
 
-                validator = Core(source_data=validation_source_data, schema_files=["peer_review_schema.yaml"])
+                validator = Core(
+                    source_data=validation_source_data,
+                    schema_files=[os.path.join(SCHEMA_DIR, "peer_review_schema.yaml")])
                 validator.validate(raise_exception=True)
 
             try:
@@ -1634,7 +1640,8 @@ class WorkRecord(RecordModel):
 
                 # Adding schema valdation for Work
                 validator = Core(
-                    source_data=validation_source_data, schema_files=["work_schema.yaml"])
+                    source_data=validation_source_data,
+                    schema_files=[os.path.join(SCHEMA_DIR, "work_schema.yaml")])
                 validator.validate(raise_exception=True)
 
             try:
@@ -2103,13 +2110,8 @@ def create_tables():
             Token,
     ]:
 
-        try:
+        if not model.table_exists():
             model.create_table()
-        except (ProgrammingError, OperationalError) as ex:
-            if "already exists" in str(ex):
-                app.logger.info(f"Table '{model._meta.name}' already exists")
-            else:
-                raise ex
 
 
 def create_audit_tables():
