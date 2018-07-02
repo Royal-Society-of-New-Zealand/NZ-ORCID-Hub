@@ -12,3 +12,4 @@ def setup():
         job.delete()
 
     tasks.process_tasks.schedule(datetime.utcnow(), interval=3600)
+    tasks.send_orcid_update_summary.cron("0 0 1 * *", "orcid-update-summary")
