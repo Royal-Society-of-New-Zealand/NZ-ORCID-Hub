@@ -4,7 +4,7 @@
 import json
 import logging
 import os
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from itertools import filterfalse, groupby
 from urllib.parse import quote, urlencode, urlparse
 
@@ -1374,13 +1374,6 @@ def process_tasks(max_rows=20):
                 current_count = current_count + peer_review_record.peer_review_invitee.select().where(
                     PeerReviewInvitee.processed_at.is_null(False)).distinct().count()
 
-        completed_count = str(current_count) + "/" + str(total_count) + " (" + str(
-            round(current_count * 100 / total_count, 2) if total_count != 0 else 0) + "%)"
-
-        if not current_task.completed_count or current_task.completed_count != completed_count:
-            current_task.completed_count = completed_count
-            current_task.save()
-
     tasks = Task.select().where(
             Task.expires_at.is_null(False),
             Task.expiry_email_sent_at.is_null(),
@@ -1520,3 +1513,51 @@ def process_records(n):
     process_work_records(n)
     process_peer_review_records(n)
     # process_tasks(n)
+
+
+@rq.job(timeout=300)
+def send_orcid_update_summary(org_id=None):
+    """Send organisation researcher ORCID profile update summary report."""
+    first = date.today().replace(day=1)
+    previous_last = first - timedelta(days=1)
+    previous_first = previous_last.replace(day=1)
+
+    if org_id is None:
+        for o in (Organisation.select(Organisation.id).distinct().join(
+            UserOrg, on=UserOrg.org_id == Organisation.id).join(
+                User, on=User.id == UserOrg.user_id).where(
+                    Organisation.webhook_enabled, Organisation.email_notifications_enabled)
+                .where(
+                    User.orcid_updated_at >= previous_first,
+                    User.orcid_updated_at < first)):
+            send_orcid_update_summary.queue(o.id)
+        return
+
+    org = Organisation.select().where(Organisation.id == org_id).first()
+    if org and org.webhook_enabled and org.email_notifications_enabled:
+        updated_users = org.users.where(User.orcid_updated_at >= previous_first,
+                                        User.orcid_updated_at < first)
+        recipient = org.notification_email or (org.tech_contact.name, org.tech_contact.email)
+        if updated_users.exists():
+            message_template = """<p>The flollowing user profiles were updated
+            from {{date_from}} until {{date_to}}:</p>
+            <ul>
+            {% for u in updated_users %}
+                <li>{{u.name}} ({{u.email}},
+                <a href="{{orcid_base_url}}{{u.orcid}}" target="_blank">{{u.orcid}}</a>,
+                updated at {{u.orcid_updated_at.isoformat(sep=" ", timespec="seconds")}});
+                </li>
+            {% endfor %}
+            </ul>
+            """
+            set_server_name()
+            with app.app_context():
+                send_email(
+                    message_template,
+                    org=org,
+                    recipient=recipient,
+                    subject="Updated ORCID Profiles",
+                    date_from=previous_first,
+                    date_to=previous_last,
+                    updated_users=updated_users,
+                    orcid_base_url=app.config["ORCID_BASE_URL"])

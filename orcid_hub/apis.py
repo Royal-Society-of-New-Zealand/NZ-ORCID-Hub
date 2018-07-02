@@ -1,6 +1,7 @@
 """HUB API."""
 
 from datetime import datetime
+import re
 from urllib.parse import unquote, urlencode
 
 import jsonschema
@@ -22,6 +23,8 @@ from .models import (ORCID_ID_REGEX, AffiliationRecord, Client, OrcidToken, Part
                      Task, TaskType, User, UserOrg, validate_orcid_id)
 from .schemas import affiliation_task_schema
 from .utils import is_valid_url, register_orcid_webhook
+
+ORCID_API_VERSION_REGEX = re.compile("^v[2-3].\d+(_rc\d+)?$")
 
 
 def prefers_yaml():
@@ -53,9 +56,10 @@ class AppResource(Resource):
         """Do some pre-handling and post-handling."""
         resp = super().dispatch_request(*args, **kwargs)
         if isinstance(resp, tuple) and len(resp) == 2:
-            if isinstance(resp[0], Response) and isinstance(resp[1], int):
-                resp[0].status_code = resp[1]
-                return resp[0]
+            resp, status_code = resp
+            assert isinstance(resp, Response) and isinstance(status_code, int)
+            resp.status_code = status_code
+            return resp
         return resp
 
     def httpdate(self, dt):
@@ -196,7 +200,7 @@ class TaskResource(AppResource):
             return jsonify({"error": "The task doesn't exist."}), 404
         except Exception as ex:
             app.logger.exception(f"Failed to find the task with ID: {task_id}")
-            return jsonify({"error": "Unhandled except occured.", "exception": ex}), 400
+            return jsonify({"error": "Unhandled except occured.", "exception": str(ex)}), 400
 
         if task.created_by != current_user:
             abort(403)
@@ -249,7 +253,7 @@ class TaskResource(AppResource):
                 record_fields = AffiliationRecord._meta.fields.keys()
                 for row in data["records"]:
                     if "id" in row and request.method in ["PUT", "PATCH"]:
-                        rec = AffiliationRecord.get(id=row["id"])
+                        rec = AffiliationRecord.get(int(row["id"]))
                     else:
                         rec = AffiliationRecord(task=task)
 
@@ -1006,14 +1010,19 @@ def yamlfy(*args, **kwargs):
     return current_app.response_class((yaml.dump(data), '\n'), mimetype="text/yaml")
 
 
-@app.route("/orcid/api/<path:path>", methods=["GET", "POST", "PUT", "DELETE"])
+@app.route("/orcid/api/<string:version>/<string:orcid>", methods=["GET", "POST", "PUT", "DELETE"])
+@app.route(
+    "/orcid/api/<string:version>/<string:orcid>/<path:rest>",
+    methods=["GET", "POST", "PUT", "DELETE"])
 @oauth.require_oauth()
-def orcid_proxy(path=None):
+def orcid_proxy(version, orcid, rest=None):
     """Handle proxied request..."""
     login_user(request.oauth.user)
-    version, orcid, *rest = path.split('/')
-    # TODO: verify the version
-    # TODO: add logging ...
+    if not ORCID_API_VERSION_REGEX.match(version):
+        return jsonify({
+            "error": "Resource not found",
+            "message": f"Incorrect version: {version}"
+        }), 404
     try:
         validate_orcid_id(orcid)
     except Exception as ex:
@@ -1034,9 +1043,10 @@ def orcid_proxy(path=None):
     headers["Authorization"] = f"Bearer {token.access_token}"
     url = f"{orcid_api_host_url}{version}/{orcid}"
     if rest:
-        url += '/' + '/'.join(rest)
+        url += '/' + rest
 
-    proxy_req = requests.Request(request.method, url, data=request.stream, headers=headers).prepare()
+    proxy_req = requests.Request(
+        request.method, url, data=request.stream, headers=headers).prepare()
     session = requests.Session()
     # TODO: add timemout
     resp = session.send(proxy_req, stream=True)
@@ -1047,7 +1057,9 @@ def orcid_proxy(path=None):
             yield chunk
 
     # TODO: verify if flask can create chunked responses: Transfer-Encoding: chunked
-    proxy_headers = [(h, v) for h, v in resp.raw.headers.items() if h not in ["Transfer-Encoding", ]]
+    proxy_headers = [(h, v) for h, v in resp.raw.headers.items() if h not in [
+        "Transfer-Encoding",
+    ]]
     # import pdb; pdb.set_trace()
     proxy_resp = Response(
         stream_with_context(generate()), headers=proxy_headers, status=resp.status_code)
@@ -1063,7 +1075,7 @@ def register_webhook(orcid, callback_url=None):
     try:
         validate_orcid_id(orcid)
     except Exception as ex:
-        return jsonify({"error": str(ex), "message": "Missing or invalid ORCID iD."}), 415
+        return jsonify({"error": "Missing or invalid ORCID iD.", "message": str(ex)}), 415
     callback_url = unquote(callback_url)
     if not is_valid_url(callback_url):
         return jsonify({
@@ -1075,9 +1087,9 @@ def register_webhook(orcid, callback_url=None):
         user = User.get(orcid=orcid)
     except User.DoesNotExist:
         return jsonify({
-            "error": "Invalid ORCID ID.",
+            "error": "Invalid ORCID iD.",
             "message": f"User with given ORCID ID '{orcid}' doesn't exist."
-        }), 415
+        }), 404
 
     orcid_resp = register_orcid_webhook(user, callback_url, delete=request.method == "DELETE")
     resp = make_response('', orcid_resp.status_code)

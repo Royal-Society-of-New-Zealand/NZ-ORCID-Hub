@@ -70,6 +70,22 @@ def test_webhook_registration(app_req_ctx):
         # prevously created access token should be removed
 
     with app_req_ctx(
+            "/api/v1.0/INCORRECT/webhook/http%3A%2F%2FCALL-BACK",
+            method="PUT",
+            headers=dict(authorization=f"Bearer {token.access_token}")) as ctx:
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 415
+        assert resp.get_json()["error"] == "Missing or invalid ORCID iD."
+
+    with app_req_ctx(
+            "/api/v1.0/0000-0001-8228-7153/webhook/http%3A%2F%2FCALL-BACK",
+            method="PUT",
+            headers=dict(authorization=f"Bearer {token.access_token}")) as ctx:
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 404
+        assert resp.get_json()["error"] == "Invalid ORCID iD."
+
+    with app_req_ctx(
             f"/api/v1.0/{orcid_id}/webhook/http%3A%2F%2FCALL-BACK",
             method="PUT", headers=dict(
                 authorization=f"Bearer {token.access_token}")) as ctx, patch(
@@ -237,3 +253,31 @@ def test_org_webhook(app_req_ctx, monkeypatch):
             resp = ctx.app.full_dispatch_request()
             send_email.assert_called()
             assert resp.status_code == 204
+
+        # Test update summary:
+        monkeypatch.setattr(utils.send_orcid_update_summary, "queue", utils.send_orcid_update_summary)
+
+        with patch.object(utils, "send_email") as send_email:
+            utils.send_orcid_update_summary()
+            send_email.assert_not_called()
+
+            utils.send_orcid_update_summary(org.id)
+            send_email.assert_not_called()
+
+            utils.send_orcid_update_summary(9999999)
+            send_email.assert_not_called()
+
+        with patch.object(utils, "send_email") as send_email:
+            user.orcid_updated_at = utils.date.today().replace(day=1) - utils.timedelta(days=1)
+            user.save()
+            utils.send_orcid_update_summary()
+            send_email.assert_called()
+
+        with patch("emails.html") as mock_msg:
+            org.notification_email = "notifications@org.edu"
+            org.save()
+            utils.send_orcid_update_summary()
+            mock_msg.return_value.mail_to.append.assert_called_with((
+                "notifications@org.edu",
+                "notifications@org.edu",
+            ))

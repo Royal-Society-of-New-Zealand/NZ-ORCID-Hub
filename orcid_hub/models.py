@@ -424,35 +424,23 @@ class Organisation(BaseModel, AuditMixin):
     notification_email = CharField(max_length=100, null=True, verbose_name="Notification Email Address")
 
     @property
-    def invitation_sent_to(self):
-        """Get the most recent invitation recepient."""
-        try:
-            return (self.orginvitation_set.select(
-                OrgInvitation.invitee).where(OrgInvitation.invitee_id == self.tech_contact_id)
-                    .order_by(OrgInvitation.created_at.desc()).first().invitee)
-        except Exception:
-            return None
-
-    @property
     def invitation_sent_at(self):
         """Get the timestamp of the most recent invitation sent to the technical contact."""
-        try:
-            return (self.orginvitation_set.select(
-                fn.MAX(OrgInvitation.created_at).alias("last_sent_at")).where(
-                    OrgInvitation.invitee_id == self.tech_contact_id).first().last_sent_at)
-        except Exception:
-            return None
+        row = self.orginvitation_set.select(
+            fn.MAX(OrgInvitation.created_at).alias("last_sent_at")).where(
+                OrgInvitation.invitee_id == self.tech_contact_id).first()
+        if row:
+            return row.last_sent_at
 
     @property
     def invitation_confirmed_at(self):
         """Get the timestamp when the invitation link was opened."""
-        try:
-            return (self.orginvitation_set.select(
-                fn.MAX(OrgInvitation.created_at).alias("last_confirmed_at")).where(
-                    OrgInvitation.invitee_id == self.tech_contact_id).where(
-                        OrgInvitation.confirmed_at.is_null(False)).first().last_confirmed_at)
-        except Exception:
-            return None
+        row = self.orginvitation_set.select(
+            fn.MAX(OrgInvitation.created_at).alias("last_confirmed_at")).where(
+                OrgInvitation.invitee_id == self.tech_contact_id).where(
+                    OrgInvitation.confirmed_at.is_null(False)).first()
+        if row:
+            return row.last_confirmed_at
 
     @property
     def users(self):
@@ -602,7 +590,7 @@ class User(BaseModel, UserMixin, AuditMixin):
     # NB! depricated!
     # TODO: we still need to rememeber the rognanistiaon that last authenticated the user
     organisation = ForeignKeyField(
-        Organisation, related_name="members", on_delete="CASCADE", null=True)
+        Organisation, related_name="members", on_delete="SET NULL", null=True)
     created_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
     updated_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
 
@@ -800,7 +788,9 @@ class UserOrg(BaseModel, AuditMixin):
 class OrcidToken(BaseModel, AuditMixin):
     """For Keeping Orcid token in the table."""
 
-    user = ForeignKeyField(User, null=True, index=True)  # TODO: add validation for 3-legged authorization tokens
+    user = ForeignKeyField(
+        User, null=True, index=True,
+        on_delete="CASCADE")  # TODO: add validation for 3-legged authorization tokens
     org = ForeignKeyField(Organisation, index=True, verbose_name="Organisation")
     scope = TextField(null=True, db_column="scope")  # TODO impomenet property
     access_token = CharField(max_length=36, unique=True, null=True)
@@ -827,8 +817,9 @@ class OrcidToken(BaseModel, AuditMixin):
 class UserOrgAffiliation(BaseModel, AuditMixin):
     """For Keeping the information about the affiliation."""
 
-    user = ForeignKeyField(User)
-    organisation = ForeignKeyField(Organisation, index=True, verbose_name="Organisation")
+    user = ForeignKeyField(User, on_delete="CASCADE")
+    organisation = ForeignKeyField(
+        Organisation, index=True, on_delete="CASCADE", verbose_name="Organisation")
     disambiguated_id = CharField(verbose_name="Disambiguation ORG Id", null=True)
     disambiguation_source = CharField(verbose_name="Disambiguation ORG Source", null=True)
     name = TextField(null=True, verbose_name="Institution/employer")
@@ -851,7 +842,7 @@ class OrcidApiCall(BaseModel):
     """ORCID API call audit entry."""
 
     called_at = DateTimeField(default=datetime.utcnow)
-    user = ForeignKeyField(User, null=True)
+    user = ForeignKeyField(User, null=True, on_delete="SET NULL")
     method = TextField()
     url = TextField()
     query_params = TextField(null=True)
@@ -868,7 +859,7 @@ class OrcidAuthorizeCall(BaseModel):
     """ORCID Authorize call audit entry."""
 
     called_at = DateTimeField(default=datetime.utcnow)
-    user = ForeignKeyField(User, null=True)
+    user = ForeignKeyField(User, null=True, on_delete="SET NULL")
     method = TextField(null=True)
     url = TextField(null=True)
     token = TextField(null=True)
@@ -920,6 +911,16 @@ class Task(BaseModel, AuditMixin):
         """Get all task record query."""
         return getattr(self, TaskType(self.task_type).name.lower() + "_records")
 
+    @lazy_property
+    def completed_count(self):
+        """Get number of completd rows."""
+        return self.records.where(self.record_model.processed_at.is_null(False)).count()
+
+    @lazy_property
+    def completed_percent(self):
+        """Get the percentaage of completd rows."""
+        return (100. * self.completed_count) / self.record_count if self.record_count else 0.
+
     @property
     def error_count(self):
         """Get error count encountered during processing batch task."""
@@ -948,11 +949,12 @@ class Task(BaseModel, AuditMixin):
         if len(header) < 2:
             raise ModelException("Expected CSV or TSV format file.")
 
-        assert len(header) >= 7, \
-            "Wrong number of fields. Expected at least 7 fields " \
-            "(first name, last name, email address, organisation, " \
-            "campus/department, city, course or job title, start date, end date, student/staff). " \
-            f"Read header: {header}"
+        if len(header) < 4:
+            raise ModelException(
+                "Wrong number of fields. Expected at least 4 fields "
+                "(first name, last name, email address or another unique identifier, student/staff). "
+                f"Read header: {header}")
+
         header_rexs = [
             re.compile(ex, re.I)
             for ex in (r"first\s*(name)?", r"last\s*(name)?", "email", "organisation|^name",
@@ -1005,7 +1007,6 @@ class Task(BaseModel, AuditMixin):
 
                     # The uploaded country must be from ISO 3166-1 alpha-2
                     country = val(row, 11)
-
                     if country:
                         try:
                             country = countries.lookup(country).alpha_2
@@ -1032,10 +1033,18 @@ class Task(BaseModel, AuditMixin):
                             f"Invalid affiliation type '{affiliation_type}' in the row #{row_no+2}: {row}. "
                             f"Expected values: {', '.join(at for at in AFFILIATION_TYPES)}.")
 
+                    first_name = val(row, 0)
+                    last_name = val(row, 1)
+                    if not(first_name and last_name):
+                        raise ModelException(
+                            "Wrong number of fields. Expected at least 4 fields "
+                            "(first name, last name, email address or another unique identifier, "
+                            f"student/staff): {row}")
+
                     af = AffiliationRecord(
                         task=task,
-                        first_name=val(row, 0),
-                        last_name=val(row, 1),
+                        first_name=first_name,
+                        last_name=last_name,
                         email=email,
                         organisation=val(row, 3),
                         department=val(row, 4),
@@ -1209,6 +1218,11 @@ class TaskType(IntFlag):
 
     def __hash__(self):
         return hash(self.name)
+
+    @classmethod
+    def options(cls):
+        """Get list of all types for UI dropown option list."""
+        return [(e.value, e.name.replace('_', ' ').title()) for e in cls]
 
 
 class FundingRecord(RecordModel):
@@ -1985,7 +1999,7 @@ class Grant(BaseModel):
     #     db.String(40), db.ForeignKey('client.client_id'),
     #     nullable=False,
     # )
-    client = ForeignKeyField(Client, index=True)
+    client = ForeignKeyField(Client, index=True, on_delete="CASCADE")
     code = CharField(max_length=255, index=True)
 
     redirect_uri = CharField(max_length=255, null=True)
@@ -2019,7 +2033,7 @@ class Token(BaseModel):
     Flask-OAuthlib only comes with a bearer token.
     """
 
-    client = ForeignKeyField(Client)
+    client = ForeignKeyField(Client, on_delete="CASCADE")
     user = ForeignKeyField(User, null=True, on_delete="SET NULL")
     token_type = CharField(max_length=40)
 
