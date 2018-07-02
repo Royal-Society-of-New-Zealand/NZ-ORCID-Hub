@@ -36,7 +36,7 @@ from orcid_api.rest import ApiException
 from . import admin, app, limiter, models, orcid_client, rq, utils
 from .config import ENV, ORCID_BASE_URL, SCOPE_ACTIVITIES_UPDATE, SCOPE_READ_LIMITED
 from .forms import (ApplicationFrom, BitmapMultipleValueField, CredentialForm, EmailTemplateForm,
-                    FileUploadForm, JsonOrYamlFileUploadForm, LogoForm, OrgRegistrationForm,
+                    FileUploadForm, FundingForm, JsonOrYamlFileUploadForm, LogoForm, OrgRegistrationForm,
                     PartialDateField, RecordForm, UserInvitationForm, WebhookForm)
 from .login_provider import roles_required
 from .models import (Affiliation, AffiliationRecord, CharField, Client, File, FundingInvitees,
@@ -1605,7 +1605,11 @@ def edit_record(user_id, section_type, put_code=None):
     orcid_client.configuration.access_token = orcid_token.access_token
     api = orcid_client.MemberAPI(user=user)
 
-    form = RecordForm(form_type=section_type)
+    if section_type == "FUN":
+        form = FundingForm(form_type=section_type)
+    else:
+        form = RecordForm(form_type=section_type)
+
     grant_data = ""
     if request.method == "GET":
         if put_code:
@@ -1637,16 +1641,20 @@ def edit_record(user_id, section_type, put_code=None):
                     country=_data.get("organization").get("address").get("country", ""),
                     department=_data.get("department_name", ""),
                     role=_data.get("role_title", ""),
-                    funding_title=get_val(_data, "title", "title", "value"),
-                    funding_translated_title=get_val(_data, "title", "translated_title", "value"),
-                    translated_title_language=get_val(_data, "title", "translated_title", "language_code"),
-                    funding_type=get_val(_data, "type"),
-                    funding_subtype=get_val(_data, "organization_defined_type", "value"),
-                    funding_description=get_val(_data, "short_description"),
-                    total_funding_amount=get_val(_data, "amount", "value"),
-                    total_funding_amount_currency=get_val(_data, "amount", "currency_code"),
                     start_date=PartialDate.create(_data.get("start_date")),
                     end_date=PartialDate.create(_data.get("end_date")))
+
+                if section_type == "FUN":
+                    data.update(dict(funding_title=get_val(_data, "title", "title", "value"),
+                                     funding_translated_title=get_val(_data, "title", "translated_title", "value"),
+                                     translated_title_language=get_val(_data, "title", "translated_title",
+                                                                       "language_code"),
+                                     funding_type=get_val(_data, "type"),
+                                     funding_subtype=get_val(_data, "organization_defined_type", "value"),
+                                     funding_description=get_val(_data, "short_description"),
+                                     total_funding_amount=get_val(_data, "amount", "value"),
+                                     total_funding_amount_currency=get_val(_data, "amount", "currency_code")))
+
             except ApiException as e:
                 message = json.loads(e.body.replace("''", "\"")).get('user-messsage')
                 app.logger.error(f"Exception when calling MemberAPIV20Api->view_employment: {message}")

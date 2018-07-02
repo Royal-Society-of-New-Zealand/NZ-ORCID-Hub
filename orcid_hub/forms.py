@@ -211,6 +211,18 @@ class RecordForm(FlaskForm):
     end_date = PartialDateField("End date (leave blank if current)")
     disambiguated_id = StringField("Disambiguated Organisation ID")
     disambiguation_source = StringField("Disambiguation Source")
+
+    def __init__(self, *args, form_type=None, **kwargs):
+        """Create form."""
+        super().__init__(*args, **kwargs)
+        if form_type == "EDU":
+            self.org_name.label = "Institution"
+            self.role.label = "Course/Degree"
+
+
+class FundingForm(FlaskForm):
+    """User/researcher funding detail form."""
+
     funding_title = StringField("Funding Title", [validators.required()])
     funding_translated_title = StringField("Funding Translated Title")
     translated_title_language = LanguageSelectField("Language")
@@ -219,13 +231,14 @@ class RecordForm(FlaskForm):
     funding_description = TextAreaField("Funding Description")
     total_funding_amount = StringField("Total Funding Amount")
     total_funding_amount_currency = CurrencySelectField("Currency")
-
-    def __init__(self, *args, form_type=None, **kwargs):
-        """Create form."""
-        super().__init__(*args, **kwargs)
-        if form_type == "EDU":
-            self.org_name.name = self.org_name.label.text = "Institution"
-            self.role.name = self.role.label.text = "Course/Degree"
+    org_name = StringField("Institution/employer", [validators.required()])
+    city = StringField("City", [validators.required()])
+    state = StringField("State/region", filters=[lambda x: x or None])
+    country = CountrySelectField("Country", [validators.required()])
+    start_date = PartialDateField("Start date")
+    end_date = PartialDateField("End date (leave blank if current)")
+    disambiguated_id = StringField("Disambiguated Organisation ID")
+    disambiguation_source = StringField("Disambiguation Source")
 
 
 class FileUploadForm(FlaskForm):
