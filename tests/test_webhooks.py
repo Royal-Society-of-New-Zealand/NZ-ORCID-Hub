@@ -237,3 +237,16 @@ def test_org_webhook(app_req_ctx, monkeypatch):
             resp = ctx.app.full_dispatch_request()
             send_email.assert_called()
             assert resp.status_code == 204
+
+        # Test update summary:
+        monkeypatch.setattr(utils.send_orcid_update_summary, "queue", utils.send_orcid_update_summary)
+
+        with patch.object(utils, "send_email") as send_email:
+            utils.send_orcid_update_summary()
+            send_email.assert_not_called()
+
+        with patch.object(utils, "send_email") as send_email:
+            user.orcid_updated_at = utils.date.today().replace(day=1) - utils.timedelta(days=1)
+            user.save()
+            utils.send_orcid_update_summary()
+            send_email.assert_called()
