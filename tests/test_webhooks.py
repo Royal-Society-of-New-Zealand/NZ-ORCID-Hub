@@ -256,3 +256,12 @@ def test_org_webhook(app_req_ctx, monkeypatch):
             user.save()
             utils.send_orcid_update_summary()
             send_email.assert_called()
+
+        with patch("emails.html") as mock_msg:
+            org.notification_email = "notifications@org.edu"
+            org.save()
+            utils.send_orcid_update_summary()
+            mock_msg.return_value.mail_to.append.assert_called_with((
+                "notifications@org.edu",
+                "notifications@org.edu",
+            ))
