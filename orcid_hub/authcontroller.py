@@ -957,6 +957,12 @@ def orcid_login_callback(request):
             user.orcid = orcid_id
             if user.organisation.webhook_enabled:
                 register_orcid_webhook.queue(user)
+        elif user.orcid != orcid_id and email:
+            flash(f"This {email} is already associated with {user.orcid} and you are trying to login with {orcid_id}. "
+                  f"Please use correct ORCID iD to login. If you need help then "
+                  f"kindly contact orcid@royalsociety.org.nz support for issue", "danger")
+            logout_user()
+            return redirect(url_for("index"))
         if not user.name and token['name']:
             user.name = token['name']
         if not user.confirmed:
