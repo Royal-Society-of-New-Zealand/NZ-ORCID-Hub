@@ -425,7 +425,7 @@ def fetch_token_mock(self,
                      **kwargs):
     """Mock token fetching api call."""
     token = {
-        'orcid': '12121',
+        'orcid': '123',
         'name': 'ros',
         'access_token': 'xyz',
         'refresh_token': 'xyz',
@@ -524,7 +524,7 @@ def test_orcid_login_callback_admin_flow(patch, patch2, request_ctx):
         assert ct.location.startswith("/")
     with request_ctx():
         # User login via orcid, where organisation is not confirmed.
-        u.orcid = "12121"
+        u.orcid = "123"
         u.save()
         request.args = {"invitation_token": None, "state": "xyz"}
         session['oauth_state'] = "xyz"
