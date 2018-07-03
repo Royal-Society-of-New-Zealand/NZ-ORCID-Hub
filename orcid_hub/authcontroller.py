@@ -989,9 +989,10 @@ def orcid_login_callback(request):
                 # NB! need to add _preload_content=False to get raw response
                 api_response = api_instance.view_emails(user.orcid, _preload_content=False)
             except ApiException as ex:
-                message = json.loads(ex.body.replace("''", "\"")).get('user-messsage')
+                message = json.loads(ex.body.decode()).get('user-message')
                 if ex.status == 401:
-                    flash("User has revoked the permissions to update his/her records", "warning")
+                    flash(f"Got ORCID API Exception: {message}", "danger")
+                    logout_user()
                 else:
                     flash(
                         "Exception when calling MemberAPIV20Api->view_employments: %s\n" % message,
@@ -999,7 +1000,7 @@ def orcid_login_callback(request):
                     flash(f"The Hub cannot verify your email address from your ORCID record. "
                           f"Please, change the visibility level for your organisation email address "
                           f"'{email}' to 'trusted parties'.", "danger")
-                    return redirect(url_for("index"))
+                return redirect(url_for("index"))
             data = json.loads(api_response.data)
             if data and data.get("email") and any(
                     e.get("email").lower() == email for e in data.get("email")):
