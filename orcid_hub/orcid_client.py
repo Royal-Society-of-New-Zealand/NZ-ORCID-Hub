@@ -22,6 +22,21 @@ url = urlparse(ORCID_API_BASE)
 configuration.host = url.scheme + "://" + url.hostname
 
 
+class NestedDict(dict):
+    """Helper for traversing a nested dictionaries."""
+
+    def get(self, *keys, default=None):
+        """To get the value from uploaded fields."""
+        d = self
+        for k in keys:
+            if not d:
+                break
+            if not isinstance(d, dict):
+                return default
+            d = super(NestedDict, d).get(k, default)
+        return d
+
+
 class OrcidRESTClientObject(rest.RESTClientObject):
     """REST Client with call logging."""
 
@@ -146,7 +161,7 @@ class MemberAPI(MemberAPIV20Api):
             app.logger.info(f"Body: {resp.data.decode()}")
             return None
 
-        return json.loads(resp.data.decode())
+        return json.loads(resp.data.decode(), object_pairs_hook=NestedDict)
 
     def is_emp_or_edu_record_present(self, affiliation_type):
         """Determine if there is already an affiliation record for the user.
@@ -681,6 +696,110 @@ class MemberAPI(MemberAPIV20Api):
             raise ex
         except:
             app.logger.exception(f"For {self.user} encountered exception")
+        else:
+            return (put_code, orcid, created)
+
+    def create_or_update_individual_funding(self, funding_title=None, funding_translated_title=None,
+                                            translated_title_language=None, funding_type=None, funding_subtype=None,
+                                            funding_description=None, total_funding_amount=None,
+                                            total_funding_amount_currency=None, org_name=None, city=None, state=None,
+                                            country=None, start_date=None, end_date=None, disambiguated_id=None,
+                                            disambiguation_source=None, grant_data_list=None, put_code=None, *args,
+                                            **kwargs):
+        """Create or update individual funding record via UI."""
+        rec = Funding()  # noqa: F405
+        rec.source = self.source
+
+        title = Title(value=funding_title)  # noqa: F405
+        translated_title = None
+        if funding_translated_title:
+            translated_title = TranslatedTitle(  # noqa: F405
+                value=funding_translated_title,  # noqa: F405
+                language_code=translated_title_language)  # noqa: F405
+        rec.title = FundingTitle(title=title, translated_title=translated_title)  # noqa: F405
+
+        rec.type = funding_type
+        rec.organization_defined_type = funding_subtype
+        rec.short_description = funding_description
+
+        if total_funding_amount:
+            rec.amount = Amount(value=total_funding_amount, currency_code=total_funding_amount_currency)  # noqa: F405
+
+        organisation_address = OrganizationAddress(
+            city=city or self.org.city,
+            country=country or self.org.country,
+            region=state)
+
+        disambiguated_organization_details = None
+        disambiguated_organization_details = DisambiguatedOrganization(
+            disambiguated_organization_identifier=disambiguated_id or self.org.disambiguated_id,
+            disambiguation_source=disambiguation_source or self.org.disambiguation_source)
+
+        rec.organization = Organization(
+            name=org_name or self.org.name,
+            address=organisation_address,
+            disambiguated_organization=disambiguated_organization_details)
+
+        if put_code:
+            rec.put_code = put_code
+
+        if start_date:
+            rec.start_date = start_date.as_orcid_dict()
+        if end_date:
+            rec.end_date = end_date.as_orcid_dict()
+
+        external_id_list = []
+
+        for exi in grant_data_list:
+            if exi['grant_number']:
+                # Orcid is expecting external type as 'grant_number'
+                external_id_type = "grant_number"
+                external_id_value = exi['grant_number']
+                external_id_url = None
+                if exi['grant_url']:
+                    external_id_url = Url(value=exi['grant_url'])  # noqa: F405
+                # Setting the external id relationship as 'SELF' by default, it can be either SELF/PART_OF
+                external_id_relationship = exi['grant_relationship'].upper() if exi['grant_relationship'] else "SELF"
+                external_id_list.append(
+                    ExternalID(  # noqa: F405
+                        external_id_type=external_id_type,
+                        external_id_value=external_id_value,
+                        external_id_url=external_id_url,
+                        external_id_relationship=external_id_relationship))
+
+        rec.external_ids = ExternalIDs(external_id=external_id_list)  # noqa: F405
+
+        try:
+            api_call = self.update_funding if put_code else self.create_funding
+
+            params = dict(orcid=self.user.orcid, body=rec, _preload_content=False)
+            if put_code:
+                params["put_code"] = put_code
+            resp = api_call(**params)
+            app.logger.info(
+                f"For {self.user} the ORCID record was {'updated' if put_code else 'created'} from {self.org}"
+            )
+            created = not bool(put_code)
+            # retrieve the put-code from response Location header:
+            if resp.status == 201:
+                location = resp.headers.get("Location")
+                try:
+                    orcid, put_code = location.split("/")[-3::2]
+                    put_code = int(put_code)
+                except:
+                    app.logger.exception("Failed to get ORCID iD/put-code from the response.")
+                    raise Exception("Failed to get ORCID iD/put-code from the response.")
+            elif resp.status == 200:
+                orcid = self.user.orcid
+
+        except ApiException as apiex:
+            if apiex.status == 404:
+                app.logger.exception(
+                    f"For {self.user} encountered exception, So updating related put_code")
+            raise apiex
+        except Exception as ex:
+            app.logger.exception(f"For {self.user} encountered exception")
+            raise ex
         else:
             return (put_code, orcid, created)
 

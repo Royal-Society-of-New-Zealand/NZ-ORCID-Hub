@@ -795,7 +795,7 @@ class OrcidToken(BaseModel, AuditMixin):
         User, null=True, index=True,
         on_delete="CASCADE")  # TODO: add validation for 3-legged authorization tokens
     org = ForeignKeyField(Organisation, index=True, verbose_name="Organisation")
-    scope = TextField(null=True, db_column="scope")  # TODO impomenet property
+    scope = TextField(null=True, db_column="scope")  # TODO implement property
     access_token = CharField(max_length=36, unique=True, null=True)
     issue_time = DateTimeField(default=datetime.utcnow)
     refresh_token = CharField(max_length=36, unique=True, null=True)
