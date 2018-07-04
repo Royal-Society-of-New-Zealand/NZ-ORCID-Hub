@@ -943,6 +943,15 @@ def orcid_login_callback(request):
                 user = User.get(orcid=orcid_id)
             else:
                 user = User.get(email=email)
+                # One ORCID iD cannot be associated with two different email address of same organisation.
+                users = User.select().where(User.orcid == orcid_id, User.email != email)
+                if UserOrg.select().where(UserOrg.user.in_(users), UserOrg.org == org):
+                    flash(
+                        f"This {orcid_id} is already associated with other email address of same organisation: {org}. "
+                        f"Please use other ORCID iD to login. If you need help then "
+                        f"kindly contact orcid@royalsociety.org.nz support for issue", "danger")
+                    logout_user()
+                    return redirect(url_for("index"))
 
         except User.DoesNotExist:
             if email is None:
