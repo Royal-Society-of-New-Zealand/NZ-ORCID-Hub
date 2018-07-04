@@ -257,6 +257,14 @@ class FundingForm(FlaskForm):
     disambiguation_source = StringField("Disambiguation Source")
 
 
+class GroupIdForm(FlaskForm):
+    """GroupID record form."""
+
+    group_id_name = StringField("Group ID Name", [validators.required()])
+    page_size = StringField("Page Size")
+    page = StringField("Page")
+
+
 class FileUploadForm(AppForm):
     """Generic data (by default CSV or TSV) load form."""
 

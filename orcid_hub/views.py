@@ -35,7 +35,7 @@ from orcid_api.rest import ApiException
 
 from . import admin, app, limiter, models, orcid_client, rq, utils
 from .forms import (ApplicationFrom, BitmapMultipleValueField, CredentialForm, EmailTemplateForm,
-                    FileUploadForm, FundingForm, LogoForm, OrgRegistrationForm, PartialDateField,
+                    FileUploadForm, FundingForm, GroupIdForm, LogoForm, OrgRegistrationForm, PartialDateField,
                     RecordForm, UserInvitationForm, WebhookForm)
 from .login_provider import roles_required
 from .models import (Affiliation, AffiliationRecord, CharField, Client, File, FundingInvitees,
@@ -1285,7 +1285,7 @@ class GroupIdRecordAdmin(AppModelView):
     """GroupIdRecord model view."""
 
     roles_required = Role.SUPERUSER | Role.ADMIN
-    list_template = "admin/model/list.html"
+    list_template = "viewGroupIdRecords.html"
     can_edit = True
     can_create = True
     can_delete = True
@@ -1839,6 +1839,68 @@ def section(user_id, section_type="EMP"):
         section_type=section_type,
         user_id=user_id,
         org_client_id=user.organisation.orcid_client_id)
+
+
+@app.route("/search/group_id_record/list", methods=["GET", "POST"])
+@roles_required(Role.ADMIN)
+def search_group_id_record():
+    """Search groupID record."""
+    _url = url_for("groupidrecord.index_view")
+    form = GroupIdForm()
+    records = []
+
+    if request.method == "GET":
+        data = dict(
+            page_size="100",
+            page="1")
+
+        form.process(data=data)
+
+    if form.validate_on_submit():
+        try:
+            group_id_name = form.group_id_name.data
+            page_size = form.page_size.data
+            page = form.page.data
+
+            orcid_token = None
+            org = current_user.organisation
+            try:
+                orcid_token = OrcidToken.get(org=org, scope='/group-id-record/read')
+            except OrcidToken.DoesNotExist:
+                orcid_token = utils.get_client_credentials_token(org=org, scope="/group-id-record/read")
+            except Exception as ex:
+                flash("Something went wrong in ORCID call, "
+                      "please contact orcid@royalsociety.org.nz for support", "warning")
+                app.logger.exception(f'Exception occured {ex}')
+
+            orcid_client.configuration.access_token = orcid_token.access_token
+            api = orcid_client.MemberAPI(org=org, access_token=orcid_token.access_token)
+
+            api_response = api.view_group_id_records(page_size=page_size, page=page, name=group_id_name,
+                                                     _preload_content=False)
+            if api_response:
+                data = json.loads(api_response.data)
+                # Currently the api only gives correct response for one entry otherwise it throws 500 exception.
+                records.append(data)
+
+        except ApiException as ex:
+            if ex.status == 401:
+                orcid_token.delete_instance()
+                flash(f"Old token was expired. Please search again so that next time we will fetch latest token",
+                      "warning")
+            elif ex.status == 500:
+                flash(f"ORCID API Exception: {ex}", "warning")
+            else:
+                flash(f"Something went wrong in ORCID call, Please try again by making necessary changes, "
+                      f"In case you understand this message: {ex} or"
+                      f" else please contact orcid@royalsociety.org.nz for support", "warning")
+                app.logger.warning(f'Exception occured {ex}')
+
+        except Exception as ex:
+            app.logger.exception(f'Exception occured {ex}')
+            abort(500, ex)
+
+    return render_template("groupid_record_entries.html", form=form, _url=_url, records=records)
 
 
 @app.route("/load/org", methods=["GET", "POST"])
