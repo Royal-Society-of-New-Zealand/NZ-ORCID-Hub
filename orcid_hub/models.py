@@ -31,7 +31,10 @@ from pykwalify.errors import SchemaError
 from peewee_validates import ModelValidator
 
 from . import app, db
-from .config import DEFAULT_COUNTRY, ENV
+
+ENV = app.config["ENV"]
+DEFAULT_COUNTRY = app.config["DEFAULT_COUNTRY"]
+SCHEMA_DIR = os.path.normpath(os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "schemas"))
 
 ORCID_ID_REGEX = re.compile(r"^([X\d]{4}-?){3}[X\d]{4}$")
 PARTIAL_DATE_REGEX = re.compile(r"\d+([/\-]\d+){,2}")
@@ -1249,7 +1252,8 @@ class FundingRecord(RecordModel):
 
                 # Adding schema valdation for funding
                 validator = Core(
-                    source_data=validation_source_data, schema_files=["funding_schema.yaml"])
+                    source_data=validation_source_data,
+                    schema_files=[os.path.join(SCHEMA_DIR, "funding_schema.yaml")])
                 validator.validate(raise_exception=True)
 
             try:
@@ -1407,7 +1411,9 @@ class PeerReviewRecord(RecordModel):
                 validation_source_data = copy.deepcopy(peer_review_data)
                 validation_source_data = del_none(validation_source_data)
 
-                validator = Core(source_data=validation_source_data, schema_files=["peer_review_schema.yaml"])
+                validator = Core(
+                    source_data=validation_source_data,
+                    schema_files=[os.path.join(SCHEMA_DIR, "peer_review_schema.yaml")])
                 validator.validate(raise_exception=True)
 
             try:
@@ -1620,7 +1626,8 @@ class WorkRecord(RecordModel):
 
                 # Adding schema valdation for Work
                 validator = Core(
-                    source_data=validation_source_data, schema_files=["work_schema.yaml"])
+                    source_data=validation_source_data,
+                    schema_files=[os.path.join(SCHEMA_DIR, "work_schema.yaml")])
                 validator.validate(raise_exception=True)
 
             try:
