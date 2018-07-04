@@ -1390,6 +1390,16 @@ def test_edit_record(request_ctx):
         assert admin.name.encode() in resp.data
         view_education.assert_called_once_with("XXXX-XXXX-XXXX-0001", 1234)
     with patch.object(
+            orcid_client.MemberAPIV20Api,
+            "view_funding",
+            MagicMock(return_value=make_fake_response('{"test": "TEST1234567890"}'))
+    ) as view_funding, request_ctx(f"/section/{user.id}/FUN/1234/edit") as ctx:
+        login_user(admin)
+        resp = ctx.app.full_dispatch_request()
+        assert admin.email.encode() in resp.data
+        assert admin.name.encode() in resp.data
+        view_funding.assert_called_once_with("XXXX-XXXX-XXXX-0001", 1234)
+    with patch.object(
             orcid_client.MemberAPIV20Api, "create_education",
             MagicMock(return_value=fake_response)), request_ctx(
                 f"/section/{user.id}/EDU/new",
@@ -1406,6 +1416,27 @@ def test_edit_record(request_ctx):
         affiliation_record = UserOrgAffiliation.get(user=user)
         # checking if the UserOrgAffiliation record is updated with put_code supplied from fake response
         assert 12399 == affiliation_record.put_code
+    with patch.object(
+            orcid_client.MemberAPIV20Api, "create_funding",
+            MagicMock(return_value=fake_response)), request_ctx(
+                f"/section/{user.id}/FUN/new",
+                method="POST",
+                data={
+                    "city": "Auckland",
+                    "country": "NZ",
+                    "org_name": "TEST",
+                    "funding_title": "TEST",
+                    "funding_type": "AWARD",
+                    "translated_title_language": "hi",
+                    "total_funding_amount_currency": "NZD",
+                    "grant_url": "https://test.com",
+                    "grant_number": "TEST123",
+                    "grant_relationship": "SELF"
+                }) as ctx:
+        login_user(admin)
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 302
+        assert resp.location == f"/section/{user.id}/FUN/list"
 
 
 def test_delete_employment(request_ctx, app):
