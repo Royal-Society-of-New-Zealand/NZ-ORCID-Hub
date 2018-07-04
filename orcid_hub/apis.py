@@ -1,5 +1,6 @@
 """HUB API."""
 
+from collections import defaultdict
 from datetime import datetime
 from urllib.parse import unquote, urlencode
 
@@ -996,6 +997,7 @@ class SafeRepresenterWithISODate(SafeRepresenter):
 def yamlfy(*args, **kwargs):
     """Create respose in YAML just like jsonify does it for JSON."""
     yaml.add_representer(datetime, SafeRepresenterWithISODate.represent_datetime, Dumper=Dumper)
+    yaml.add_representer(defaultdict, SafeRepresenter.represent_dict)
     if args and kwargs:
         raise TypeError('yamlfy() behavior undefined when passed both args and kwargs')
     elif len(args) == 1:  # single args are passed directly to dumps()
