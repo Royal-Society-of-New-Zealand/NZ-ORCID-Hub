@@ -107,5 +107,38 @@ Where a field header or value is not provided, the value from your organisation 
 Disambiguation ID, and Disambiguation Source can be omitted where redundant.  This is why the Hub can write affilations without you specifying
 the fields that ORCID requires for the message, i.e., organization, city and country.
 
-Example files can be found here: `affiliations.tsv <https://github.com/Royal-Society-of-New-Zealand/NZ-ORCID-Hub/blob/master/docs/examples/affiliations.tsv>`_ and `affiliations.csv <https://github.com/Royal-Society-of-New-Zealand/NZ-ORCID-Hub/blob/master/docs/examples/affiliations.csv>`_.
 NB as Excel's csv format will silently corrupt any unicode (e.g., vowels with macrons), the tsv format is recommended for those creating their files out of Excel. The easiest way to get a unicode .tsv file from Excel is to "Save As" type "Unicode Text (\*.txt)" and then rename the file's suffix to ".tsv".
+
+Example files can be found here: :ref:`affiliation-entry-example-csv` and :ref:`affiliation-entry-example-tsv`.
+
+.. _affiliation-entry-example-csv:
+
+Example affiliation task in csv
+----------------------------
+
+.. container:: toggle
+
+    .. container:: header
+
+        **Show/Hide Code**
+
+    .. literalinclude:: examples/example_affiliations.csv
+        :language: none
+
+You can download **example_affiliations.csv** :download:`here <./examples/example_affiliations.csv>`.
+
+.. _affiliation-entry-example-tsv:
+
+Example affiliation task in tsv
+----------------------------
+
+.. container:: toggle
+
+    .. container:: header
+
+        **Show/Hide Code**
+
+    .. literalinclude:: examples/example_affiliations.csv
+        :language: none
+
+You can download **example_affiliations.tsv** :download:`here <./examples/example_affiliations.tsv>`.

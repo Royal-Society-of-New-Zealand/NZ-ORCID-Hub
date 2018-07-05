@@ -31,7 +31,7 @@ The Hub accepts batches of peer review items where each item contains an initial
 
 Example files can be found here: :ref:`peer-review-entry-example-json` and :ref:`peer-review-entry-example-yaml`, while any uploaded peer review file will be validated against the :ref:`peer-review-schema`.
 
-For more information and guidance on the structure expected of peer review task files see here: `Peer review schema for ORCID API 2.0/2.1 </peer_review_schema.html>`_
+For more information and guidance on the structure expected of peer review task files see here: `Peer review schema for ORCID API 2.0/2.1 <peer_review_schema.html>`_
 For an overview of peer review in ORCID see here: `Workflow: Peer Review <https://members.orcid.org/api/workflow/peer-review>`_
 
 
