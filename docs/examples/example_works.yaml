@@ -1,17 +1,19 @@
 ---
 - invitees:
   - identifier: '00001'
-    email: alice.333456@mailinator.com
+    email: contributor1@mailinator.com
     first-name: Alice
     last-name: Contributor 1
-    ORCID-iD: 
-    put-code: 
+    ORCID-iD: null
+    put-code: null
+    visibility: null
   - identifier: '00002'
-    email: bob.333456@mailinator.com
+    email: contributor2@mailinator.com
     first-name: Bob
     last-name: Contributor 2
-    ORCID-iD: 
-    put-code: 
+    ORCID-iD: null
+    put-code: null
+    visibility: null
   title:
     title:
       value: This is a title
@@ -45,14 +47,18 @@
   contributors:
     contributor:
     - contributor-attributes:
-        contributor-sequence: '1'
+        contributor-sequence: 'FIRST'
         contributor-role: AUTHOR
       credit-name:
         value: Associate Professor Alice
       contributor-email:
         value: alice.333456@mailinator.com
+      contributor-orcid:
+        uri: https://sandbox.orcid.org/0000-0002-9207-4933
+        path: 0000-0002-9207-4933
+        host: sandbox.orcid.org
     - contributor-attributes:
-        contributor-sequence: '2'
+        contributor-sequence: 'ADDITIONAL'
         contributor-role: AUTHOR
       credit-name:
         value: Dr Bob

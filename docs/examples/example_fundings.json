@@ -1,8 +1,8 @@
 [{
 		"invitees": [
-			{"identifier": "00001", "email": "contributor1@mailinator.com", "first-name": "Alice", "last-name": "Contributor 1", "ORCID-iD": "XXXX-XXXX-XXXX-XXX1", "put-code": 9606}, 
-			{"identifier": "00002", "email": "contributor2@mailinator.com", "first-name": "Bob", "last-name": "Contributor 2", "ORCID-iD": "XXXX-XXXX-XXXX-XXX2", "put-code": 9607}, 
-			{"identifier": "00003", "email": "contributor3@mailinator.com", "first-name": "Eve", "last-name": "Contributor 3", "ORCID-iD": "XXXX-XXXX-XXXX-XXX3", "put-code": 9608}
+			{"identifier": "00001", "email": "contributor1@mailinator.com", "first-name": "Alice", "last-name": "Contributor 1", "ORCID-iD": "0000-0002-9207-4933", "put-code": null, "visibility": "PRIVATE"}, 
+			{"identifier": "00002", "email": "contributor2@mailinator.com", "first-name": "Bob", "last-name": "Contributor 2", "ORCID-iD": null, "put-code": null, "visibility":null}, 
+			{"identifier": "00003", "email": "contributor3@mailinator.com", "first-name": "Eve", "last-name": "Contributor 3", "ORCID-iD": null, "put-code": null, "visibility":null}
 		],
 		"amount": {"currency-code": "NZD", "value": "300000"},
 		"organization-defined-type": {"value": "Fast-Start"},
@@ -18,20 +18,14 @@
 			"contributor": [{
 					"contributor-attributes": {"contributor-role": "lead"},
 					"credit-name": {"value": "Associate Professor A Contributor 1"},
-					"contributor-email": {"value": "contributor1@mailinator.com"},
 					"contributor-orcid": {
-						"uri": "https://orcid.org/XXXX-XXXX-XXXX-XXX1",
-						"path": "XXXX-XXXX-XXXX-XXX1",
-						"host": "orcid.org"
+						"uri": "https://sandbox.orcid.org/0000-0002-9207-4933",
+						"path": "0000-0002-9207-4933",
+						"host": "sandbox.orcid.org"
 					}
 				}, {
 					"contributor-attributes": {"contributor-role": "co_lead"},
-					"credit-name": {"value": "Dr B Contributor 2"},
-					"contributor-orcid": {
-						"uri": "https://orcid.org/XXXX-XXXX-XXXX-XXX2",
-						"path": "XXXX-XXXX-XXXX-XXX2",
-						"host": "orcid.org"
-					}
+					"credit-name": {"value": "Dr B Contributor 2"}
 				}, {
 					"contributor-attributes": {"contributor-role": ""},
 					"credit-name": {"value": "Dr E Contributor 3"}
@@ -49,7 +43,7 @@
 }, 
  {
 		"invitees": [
-      {"identifier": "00004", "email": "contributor4@mailinator.com", "first-name": "Felix", "last-name": "Contributor 4"}
+      {"identifier": "00004", "email": "contributor4@mailinator.com", "first-name": "Felix", "last-name": "Contributor 4", "ORCID-iD": null, "put-code": null, "visibility":null}
 		],
 		"amount": {"currency-code": "NZD", "value": "800000"},
 		"organization-defined-type": {"value": "Standard"},
@@ -64,12 +58,7 @@
 			"contributor": [{
 					"contributor-attributes": {"contributor-role": "lead"},
 					"credit-name": {"value": "Associate Professor F Contributor 4"},
-					"contributor-email": {"value": "contributor4@mailinator.com"},
-					"contributor-orcid": {
-						"uri": "https://orcid.org/XXXX-XXXX-XXXX-XXX4",
-						"path": "XXXX-XXXX-XXXX-XXX4",
-						"host": "orcid.org"
-					}
+					"contributor-email": {"value": "contributor4@mailinator.com"}
 				}
 			]
 		},

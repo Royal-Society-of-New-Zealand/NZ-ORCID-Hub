@@ -1,7 +1,7 @@
 .. _writing_works_items:
 
 Writing works items
-^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^
 
 The task of writing works is very similar to writing affiliations, i.e.,
 
@@ -13,7 +13,56 @@ The Hub accepts batches of works items where each item contains an initial invit
 
     [{"invitees":[{invitee1}, {invitee2}, ...], work},{"invitees":[{invitee4}, {invitee5}, ...], work2}, ...]
 
-Example files can be found here: `works.json <https://github.com/Royal-Society-of-New-Zealand/NZ-ORCID-Hub/blob/master/docs/examples/works.json>`_ and `works.yaml <https://github.com/Royal-Society-of-New-Zealand/NZ-ORCID-Hub/blob/master/docs/examples/works.yaml>`_, while any uploaded works file will be validated against the `works schema in YAML <https://github.com/Royal-Society-of-New-Zealand/NZ-ORCID-Hub/blob/master/work_schema.yaml>`_.
+Example files can be found here: :ref:`works-entry-example-json` and :ref:`works-entry-example-yaml`, while any uploaded works file will be validated against the :ref:`works-schema`.
 
-For more information on the structure of the works files see here: `Works schema for ORCID API 2.0/2.1 </works_schema.html>`_
+For more information and guidance on the structure expected of works task files see here: `Works schema for ORCID API 2.0/2.1 </works_schema.html>`_
 
+.. _works-entry-example-json:
+
+Example works task in json
+--------------------------
+
+.. container:: toggle
+
+    .. container:: header
+
+        **Show/Hide Code**
+
+    .. literalinclude:: examples/example_works.json
+        :language: json
+
+You can download **example_works.json** :download:`here <./examples/example_works.json>`.
+
+.. _works-entry-example-yaml:
+
+Example works task in yaml
+--------------------------
+
+.. container:: toggle
+
+    .. container:: header
+
+        **Show/Hide Code**
+
+    .. literalinclude:: examples/example_works.yaml
+        :language: yaml
+
+You can download **example_works.yaml** :download:`here <./examples/example_works.yaml>`.
+
+.. _works-schema:
+
+work_schema.yaml
+----------------
+
+Any works task file that is uploaded is first validated against the work_schema.yaml
+
+.. container:: toggle
+
+    .. container:: header
+
+        **Show/Hide Code**
+
+    .. literalinclude:: ../work_schema.yaml
+        :language: yaml
+
+You can download **work_schema.yaml** :download:`here <../work_schema.yaml>`.

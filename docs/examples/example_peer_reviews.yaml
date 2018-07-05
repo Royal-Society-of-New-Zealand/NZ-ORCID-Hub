@@ -1,17 +1,19 @@
 ---
 - invitees:
   - identifier: '00001'
-    email: contriuto7384P@mailinator.com
+    email: contributor1@mailinator.com
     first-name: Alice
     last-name: Contributor 1
-    ORCID-iD: 
-    put-code: 
+    ORCID-iD: 0000-0002-9207-4933
+    put-code: null
+    visibility: null
   - identifier: '00002'
-    email: contriutP7384P@mailinator.com
+    email: contributor2@mailinator.com
     first-name: Bob
     last-name: Contributor 2
-    ORCID-iD: 
-    put-code:   
+    ORCID-iD: null
+    put-code: null
+    visibility: null
   reviewer-role: REVIEWER
   review-identifiers:
     external-id:

@@ -1,7 +1,7 @@
 .. _writing_peer-review_items:
 
 Writing peer review items
-^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The task of writing peer review is very similar to writing works and funding, i.e.,
 
@@ -29,7 +29,59 @@ The Hub accepts batches of peer review items where each item contains an initial
 
     [{"invitees":[{invitee1}, {invitee2}, ...], peer review},{"invitees":[{invitee4}, {invitee5}, ...], peer review2}, ...]
 
-Example files can be found here: `peer_review.json <https://github.com/Royal-Society-of-New-Zealand/NZ-ORCID-Hub/blob/master/docs/examples/peer_reviews.json>`_ and `peer_reviews.yaml <https://github.com/Royal-Society-of-New-Zealand/NZ-ORCID-Hub/blob/master/docs/examples/peer_reviews.yaml>`_, while any uploaded peer review file will be validated against the `peer review schema in YAML <https://github.com/Royal-Society-of-New-Zealand/NZ-ORCID-Hub/blob/master/peer_review_schema.yaml>`_.
+Example files can be found here: :ref:`peer-review-entry-example-json` and :ref:`peer-review-entry-example-yaml`, while any uploaded peer review file will be validated against the :ref:`peer-review-schema`.
 
-For more information on the structure of the peer review files see here: `Peer review schema for ORCID API 2.0/2.1 </peer_review_schema.html>`_
+For more information and guidance on the structure expected of peer review task files see here: `Peer review schema for ORCID API 2.0/2.1 </peer_review_schema.html>`_
 For an overview of peer review in ORCID see here: `Workflow: Peer Review <https://members.orcid.org/api/workflow/peer-review>`_
+
+
+
+.. _peer-review-entry-example-json:
+
+Example peer review task in json
+--------------------------------
+
+.. container:: toggle
+
+    .. container:: header
+
+        **Show/Hide Code**
+
+    .. literalinclude:: examples/example_peer_reviews.json
+        :language: json
+
+You can download **example_peer_reviews.json** :download:`here <./examples/example_peer_reviews.json>`.
+
+.. _peer-review-entry-example-yaml:
+
+Example peer review task in yaml
+--------------------------------
+
+.. container:: toggle
+
+    .. container:: header
+
+        **Show/Hide Code**
+
+    .. literalinclude:: examples/example_peer_reviews.yaml
+        :language: yaml
+
+You can download **example_peer_reviews.yaml** :download:`here <./examples/example_peer_reviews.yaml>`.
+
+.. _peer-review-schema:
+
+peer_review_schema.yaml
+-----------------------
+
+Any peer review task file that is uploaded is first validates against the current peer_review_schema.yaml:
+
+.. container:: toggle
+
+    .. container:: header
+
+        **Show/Hide Code**
+
+    .. literalinclude:: ../peer_review_schema.yaml
+        :language: yaml
+
+You can download **peer_review_schema.yaml** :download:`here <../peer_review_schema.yaml>`.
