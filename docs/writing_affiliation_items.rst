@@ -114,7 +114,7 @@ Example files can be found here: :ref:`affiliation-entry-example-csv` and :ref:`
 .. _affiliation-entry-example-csv:
 
 Example affiliation task in csv
-----------------------------
+-------------------------------
 
 .. container:: toggle
 
@@ -130,7 +130,7 @@ You can download **example_affiliations.csv** :download:`here <./examples/exampl
 .. _affiliation-entry-example-tsv:
 
 Example affiliation task in tsv
-----------------------------
+-------------------------------
 
 .. container:: toggle
 

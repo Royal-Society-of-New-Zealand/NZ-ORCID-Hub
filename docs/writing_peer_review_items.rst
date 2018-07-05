@@ -14,12 +14,12 @@ The main difference between peer review and other complex ORCID objects is that 
 As a best practice, you should use existing group IDs (so peer review activity can be grouped on the user's ORCID record as expected) before creating a new one.  To search for the existence of a peer review group requires the use of the ORCID API.  Until we've built the search feature of the Hub, let us know the group's name and we'll () run the search for you.
 
 If you do need to create a new peer review group this can be accomplished from the '/Settings/GroupId Record' page available to Organisation Administrators.
-Select 'Create', and you'll be able to specify::
+Select 'Create', and you'll be able to specify:
 
-Name:: The name of the group. This can be the name of a journal (Journal of Criminal Justice), a publisher (Society of Criminal Justice), or non-specific description (Legal Journal) as required.
-Group ID:: The group's identifier, formatted as type:identifier, e.g. issn:12345678. This can be as specific (e.g. the journal's ISSN) or vague as required. Valid types include: issn, ringgold, orcid-generated, fundref, publons (contact ORCID if you require a different group ID type)
-Description:: A brief textual description of the group. This can be as specific or vague as required.
-Type:: One of the specified types: publisher; institution; journal; conference; newspaper; newsletter; magazine; peer-review service (contact ORCID if you require a different peer review type)
+Name: The name of the group. This can be the name of a journal (Journal of Criminal Justice), a publisher (Society of Criminal Justice), or non-specific description (Legal Journal) as required.
+Group ID: The group's identifier, formatted as type:identifier, e.g. issn:12345678. This can be as specific (e.g. the journal's ISSN) or vague as required. Valid types include: issn, ringgold, orcid-generated, fundref, publons (contact ORCID if you require a different group ID type)
+Description: A brief textual description of the group. This can be as specific or vague as required.
+Type: One of the specified types: publisher; institution; journal; conference; newspaper; newsletter; magazine; peer-review service (contact ORCID if you require a different peer review type)
 
 Once saved, from the '/Settings/GroupId Record' page, select the group you've just created and the click 'With selected' > 'Insert or Update record'.  As soon as the record shows a put code, the group's "Group Id" can be referred to in a peer-review file.
 
