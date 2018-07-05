@@ -16,8 +16,6 @@ RUN yum -y update \
             python36u-pip \
             git \
     && pip3.6 install -U pip \
-    && pip3.6 install -U git+https://github.com/Royal-Society-of-New-Zealand/zap-cli \
-    && pip3.6 install -U flake8_docstrings pytest-cov coveralls pyyaml \
     && pip3.6 install -U -r /dev_requirements.txt \
     && cd /var/lib/rpm \
     && rm -rf __db* \
