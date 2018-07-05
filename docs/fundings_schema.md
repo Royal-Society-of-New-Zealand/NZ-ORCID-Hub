@@ -6,23 +6,23 @@ Batch funding files to be passed through the Hub must be presented in either of 
     * a list of invitees (i.e., the individuals whose ORCID records are to be affected); and,
     * the ORCID Message data that is to be asserted to each invitee's ORCID record
 
-Examples can be found here: [**fundings.json**](/docs/examples/fundings.json) and [**fundings.yaml**](/docs/examples/fundings.yaml)
+Examples can be found here: [**fundings.json**](_downloads/example_fundings.json) and [**fundings.yaml**](_downloads/example_fundings.yaml)
 
 The Hub will consume any json or YAML file complying to the following schema.  NB additional validation will be performed when the data is sent to ORCID, and any errors in the message will be reported in the item's status field in the Hub's UI or task report.
 
-# Fundings
+## Fundings
 
-## Properties
+### Properties
 Type | Description | Notes
 ------------- | ------------- | -------------
 [**list[funding]**](#funding) | Container for the funding item(s) to be written | [required]
 
 
-# Funding
+## Funding
 
 Minimum one - maximum unbounded
 
-## Properties
+### Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **invitees** | [**list[invitee]**](#invitee) | Container for individuals to be affected | [required]
@@ -40,15 +40,14 @@ Name | Type | Description | Notes
 **external-ids** | [**list[external-id]**](#externalid) | A non-repeatable container for identifiers of the funding | [optional]
 **url** | [**Url**](#url) | A link to the funding or funding output (appears in the user interface under "Alternate URL") | [optional]
 **contributors** | [**FundingContributors**](#fundingcontributors) | Container for information about the recipients of the funding | [optional]
-**visibility** | **str** | NB: Chosen by each invitee/user | [optional, ignored]
 
 [**back to Fundings**](#fundings)
 
-# Invitee
+## Invitee
 
 Minimum one - maximum unbounded
 
-## Properties
+### Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **identifier** | **str** | Internal identifier from your system for the funding-person relationship | [optional]
@@ -57,25 +56,26 @@ Name | Type | Description | Notes
 **email** | **str** | The email address any permissions request will be sent to | [required unless Hub-known ORCID-iD present]
 **ORCID-iD** | **str** | ORCID path (16-character identifier) of the ORCID iD | [optional unless no email]
 **put-code** | **int** | If present the Hub will attempt to update an existing item | [optional]
+**visibility** | **str** | The privacy level chosen by record holder for this item | "PUBLIC", "LIMITED" or "PRIVATE" [optional, ignored]
 
 [**back to Funding**](#funding)
 
-# CreatedDate and LastModifiedDate
+## CreatedDate and LastModifiedDate
 
 NB: Captured automatically by the ORCID Registry
 
-## Properties
+### Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **value** | **datetime** | Milliseconds of the event that have elapsed since midnight 1970-01-01 | [optional]
 
 [**back to Funding**](#funding)
 
-# Source
+## Source
 
 NB: Captured automatically by the ORCID Registry
 
-## Properties
+### Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **source-orcid** | [**SourceOrcid**](#sourceorcid-and-sourceclientid) | For legacy client applications, the ORCID iD that created the item | [optional]
@@ -84,9 +84,9 @@ Name | Type | Description | Notes
 
 [**back to Funding**](#funding)
 
-# SourceOrcid and SourceClientId
+## SourceOrcid and SourceClientId
 
-## Properties
+### Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **uri** | **str** | Source iD in URI form, i.e., URL + path | [optional]
@@ -95,18 +95,18 @@ Name | Type | Description | Notes
 
 [**back to Source**](#source)
 
-# SourceName
+## SourceName
 
-## Properties
+### Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **value** | **str** | The human-readable name of the client application | [optional]
 
 [**back to Source**](#source)
 
-# Organization
+## Organization
 
-## Properties
+### Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **name** | **str** | The human-readable name of the funding organisation | [optional]
@@ -115,9 +115,9 @@ Name | Type | Description | Notes
 
 [**back to Funding**](#funding)
 
-# Address
+## Address
 
-## Properties
+### Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **city** | **str** | The city center of the funding organization | [required]
@@ -126,9 +126,9 @@ Name | Type | Description | Notes
 
 [**back to Organization**](#organization)
 
-# DisambiguatedOrganization
+## DisambiguatedOrganization
 
-## Properties
+### Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **disambiguated-organization-identifier** | **str** | The disambiguated organization identifier | [required]
@@ -136,9 +136,9 @@ Name | Type | Description | Notes
 
 [**back to Organization**](#organization)
 
-# FundingTitle
+## FundingTitle
 
-## Properties
+### Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **title** | [**Title**](#title-and-subtitle) | Container for the main name or title of the award/project | [required]
@@ -146,18 +146,18 @@ Name | Type | Description | Notes
 
 [**back to Funding**](#funding)
 
-# Title and Subtitle
+## Title and Subtitle
 
-## Properties
+### Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **value** | **str** | The main name/title or subtitle of the work | [optional]
 
 [**back to FundingTitle**](#fundingtitle)
 
-# TranslatedTitle
+## TranslatedTitle
 
-## Properties
+### Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **value** | **str** | The main title of the work or funding translated into another language | [optional]
@@ -165,26 +165,26 @@ Name | Type | Description | Notes
 
 [**back to FundingTitle**](#fundingtitle)
 
-# Amount
+## Amount
 
-## Properties
+### Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **value** | **str** | A numerical value for the amount of funding for the award/project | [optional]
 **currency-code** | **str** | [Three letter currency code](https://www.iso.org/iso-4217-currency-codes.html) to identify the currency the amount is denominated in| [required]
 
-## FundingSubType
+### FundingSubType
 
-## Properties
+### Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **value** | **str** | The organization's type for an external identifier | [optional]
 
 [**back to Funding**](#funding)
 
-# StartDate and EndDate
+## StartDate and EndDate
 
-## Properties
+### Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **year** | [**Year**](#year) | Container for year value | [required]
@@ -193,27 +193,27 @@ Name | Type | Description | Notes
 
 [**back to Funding**](#funding)
 
-# Year, Month and Day
+## Year, Month and Day
 
-## Properties
+### Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **value** | **str** | Date values; Year in YYYY, Month in MM, Day in DD | [optional]
 
 [**back to StartDate and EndDate**](#startdate-and-enddate)
 
-# ExternalIDs
+## ExternalIDs
 
-## Properties
+### Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **external-id** | [**list[ExternalID]**](#externalid) | Container for external identifiers to the award/project | [optional]
 
 [**back to Funding**](#funding)
 
-# ExternalID
+## ExternalID
 
-## Properties
+### Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **external-id-type** | **str** | The type of the given external identifier | see [here](https://pub.orcid.org/v2.0/identifiers) for supported identifier types [required]
@@ -223,29 +223,29 @@ Name | Type | Description | Notes
 
 [**back to Funding**](#funding)
 
-# Url
+## Url
 
-## Properties
+### Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **value** | **str** | An external url for the award/project or as specified by an external identifier | [optional]
 
 [**back to Funding**](#funding)
 
-# FundingContributors
+## FundingContributors
 
-## Properties
+### Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **contributor** | [**list[Contributor]**](#contributor) | A container for the award's/project's contributors | [optional]
 
 [**back to Funding**](#funding)
 
-# Contributor
+## Contributor
 
 Minimum none - maximum unbounded
 
-## Properties
+### Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **contributor-orcid** | [**ContributorOrcid**](#contributororcid) | A container for the contributor's ORCID iD | [optional]
@@ -255,9 +255,9 @@ Name | Type | Description | Notes
 
 [**back to FundingContributors**](#fundingcontributors)
 
-# ContributorOrcid
+## ContributorOrcid
 
-## Properties
+### Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **uri** | **str** | ORCID iD in URI form, i.e., URL + path | [preferred, at least one of uri or path must be given]
@@ -266,27 +266,27 @@ Name | Type | Description | Notes
 
 [**back to Contributor**](#contributor)
 
-# Credit-Name
+## Credit-Name
 
-## Properties
+### Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **value** | **str** | The name to use for the researcher or contributor when credited or cited | [optional]
 
 [**back to Contributor**](#contributor)
 
-# Contributor-Email
+## Contributor-Email
 
-## Properties
+### Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **value** | **str** | Email of the collaborator or other contributor | [Always private; deprecated do not use]
 
 [**back to Contributor**](#contributor)
 
-# ContributorAttributes
+## ContributorAttributes
 
-## Properties
+### Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **contributor-role** | **str** | The role performed by this contributor | "LEAD", "CO-LEAD", "SUPPORTED-BY" or "OTHER-CONTRIBUTION" [optional]
