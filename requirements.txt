@@ -15,7 +15,8 @@ pyyaml
 pykwalify
 Flask
 #flask-admin
--e git+https://github.com/nad2000/flask-admin/#egg=flask_admin
+# NB! prefix with a single space for pbr!
+ git+https://github.com/nad2000/flask-admin/#egg=flask_admin
 flask-login
 Flask-WTF
 flask-peewee==0.6.7
