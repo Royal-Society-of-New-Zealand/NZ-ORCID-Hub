@@ -202,9 +202,9 @@ def setup_app():
     app.logger.setLevel(logging.DEBUG if app.debug else logging.WARNING)
     models.create_tables()
     if app.config.get("SHIBBOLETH_DISABLED") is None:
-        app.config["SHIBBOLETH_DISABLED"] = (
-            not ("mod_wsgi.version" in os.environ and "SHIB_IDP_DOMAINNAME" in os.environ)
-            and "EXTERNAL_SP" not in os.environ)
+        app.config["SHIBBOLETH_DISABLED"] = not (
+            ("mod_wsgi.version" in request.environ and "SHIB_IDP_DOMAINNAME" in os.environ)
+            or "EXTERNAL_SP" in os.environ)
 
 
 @app.after_request
