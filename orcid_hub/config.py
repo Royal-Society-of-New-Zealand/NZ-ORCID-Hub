@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Application configuration."""
 
-from os import environ, getenv, path, urandom
+from os import environ, getenv, path
 
 ENV = getenv("ENV", "dev")
 SHIBBOLETH_DISABLED = getenv("SHIBBOLETH_DISABLED")
@@ -11,10 +11,11 @@ ORCID_API_VERSION = "v2.0"
 ORCID_API_BASE = ORCID_API_HOST_URL + ORCID_API_VERSION + '/'
 ORCID_BASE_URL = "https://sandbox.orcid.org/" if ENV != "prod" else "https://orcid.org/"
 
-SECRET_KEY = getenv("SECRET_KEY", urandom(42).hex())
+# NB! Set up the key. See: http://flask.pocoo.org/docs/latest/quickstart/#sessions
+SECRET_KEY = getenv("SECRET_KEY", b'\xe3\x94a\x14-sT`\x92\x8a0\x16\r\xe1zb')
 SENTRY_DSN = getenv("SENTRY_DSN")
-SALT = "secret-salt" if ENV.startswith("dev") else (getenv("TOKEN_PASSWORD_SALT")
-                                                    or urandom(5).hex())
+# Soon to be depricated:
+SALT = "secret-salt" if ENV.startswith("dev") else getenv("TOKEN_PASSWORD_SALT")
 
 # NZ ORCIDHUB API client ID and secret
 ORCID_CLIENT_ID = getenv("ORCID_CLIENT_ID")

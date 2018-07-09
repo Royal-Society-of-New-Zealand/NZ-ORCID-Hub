@@ -11,7 +11,14 @@ We recommend using the latest version of Python 3: Python3.6.
 Dependencies
 ------------
 
-In order to
+In order to enable authentication via ORCID you need to acquire ORCID API creadential:
+
+   - Create or login with an existing account at https://orcid.org (or https://sandbox.orcid.org)
+   - Navigate to "Developer Tools" (https://orcid.org/developer-tools or https://sandbox.orcid.org/developer-tools);
+   - Add http://127.0.0.1:5000/auth to redirect URLs and hit *Save*;
+   - Copy CLIENT_ID and CLIENT_SECRET and set up environment varliables ORCID_CLIENT_ID and ORCID_CLIENT_SECRET with these values;
+   - run :shell:`
+
 TODO: acquire ORCID API creadentials, add the link
 
 Sign up at ORCID with your email address.

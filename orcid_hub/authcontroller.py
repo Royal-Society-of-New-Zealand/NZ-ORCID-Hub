@@ -719,15 +719,6 @@ def onboard_org():
     return render_template('orgconfirmation.html', form=form, organisation=organisation)
 
 
-@app.after_request
-def remove_if_invalid(response):
-    """Remove a stale session and session cookie."""
-    if "__invalidate__" in session:
-        response.delete_cookie(app.session_cookie_name)
-        session.clear()
-    return response
-
-
 @app.route("/logout")
 def logout():
     """Log out a logged user.
@@ -741,9 +732,7 @@ def logout():
         logout_user()
     except Exception:
         app.logger.exception("Failed to log out.")
-
     session.clear()
-    session["__invalidate__"] = True
 
     if org_name:
         if EXTERNAL_SP:
@@ -755,7 +744,11 @@ def logout():
             url_for(
                 "uoa_slo" if org_name and org_name == "University of Auckland" else "index",
                 _external=True)))
-    return redirect(url_for("index", logout=True))
+
+    session.clear()
+    resp = redirect(url_for("index", logout=True))
+    resp.delete_cookie(app.session_cookie_name)
+    return resp
 
 
 @app.route("/uoa-slo")
@@ -835,12 +828,13 @@ def orcid_login(invitation_token=None):
                     family_names=user.last_name,
                     given_names=user.first_name)
 
-        oac = OrcidAuthorizeCall.create(
+        OrcidAuthorizeCall.create(
             user_id=None, method="GET", url=orcid_authenticate_url, state=state)
-        oac.save()
 
         return render_template(
-            "orcidLogoutAndCallback.html", orcid_base_url=ORCID_BASE_URL, callback_url=orcid_authenticate_url)
+            "orcidLogoutAndCallback.html",
+            orcid_base_url=ORCID_BASE_URL,
+            callback_url=orcid_authenticate_url)
 
     except SignatureExpired:
         with suppress(Exception):

@@ -203,16 +203,6 @@
                     <img id="orcid-id-icon" src="https://orcid.org/sites/default/files/images/orcid_24x24.png" width="24" height="24" alt="ORCID iD icon"/>Register or Connect your ORCID iD
                   </button>
                 </a>
-                <script type=text/javascript>
-
-                  var oauthWindow;
-                  function openORCID() {
-
-                    var oauthWindow = window.open(
-                      "{{orcid_login_url()|safe}}",
-                      "_blank", "toolbar=no, scrollbars=yes, width=500, height=600, top=500, left=500");
-                }
-                </script>
               {% else %}
               <a href="#login-modal" data-toggle="modal">
                 <span class="glyphicon glyphicon-log-in"></span> <b>log in</b>
