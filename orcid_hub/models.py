@@ -602,7 +602,7 @@ class User(BaseModel, UserMixin, AuditMixin):
     # NB! depricated!
     # TODO: we still need to rememeber the rognanistiaon that last authenticated the user
     organisation = ForeignKeyField(
-        Organisation, related_name="members", on_delete="CASCADE", null=True)
+        Organisation, related_name="members", on_delete="SET NULL", null=True)
     created_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
     updated_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
 
@@ -800,7 +800,9 @@ class UserOrg(BaseModel, AuditMixin):
 class OrcidToken(BaseModel, AuditMixin):
     """For Keeping Orcid token in the table."""
 
-    user = ForeignKeyField(User, null=True, index=True)  # TODO: add validation for 3-legged authorization tokens
+    user = ForeignKeyField(
+        User, null=True, index=True,
+        on_delete="CASCADE")  # TODO: add validation for 3-legged authorization tokens
     org = ForeignKeyField(Organisation, index=True, verbose_name="Organisation")
     scope = TextField(null=True, db_column="scope")  # TODO impomenet property
     access_token = CharField(max_length=36, unique=True, null=True)
@@ -827,8 +829,9 @@ class OrcidToken(BaseModel, AuditMixin):
 class UserOrgAffiliation(BaseModel, AuditMixin):
     """For Keeping the information about the affiliation."""
 
-    user = ForeignKeyField(User)
-    organisation = ForeignKeyField(Organisation, index=True, verbose_name="Organisation")
+    user = ForeignKeyField(User, on_delete="CASCADE")
+    organisation = ForeignKeyField(
+        Organisation, index=True, on_delete="CASCADE", verbose_name="Organisation")
     disambiguated_id = CharField(verbose_name="Disambiguation ORG Id", null=True)
     disambiguation_source = CharField(verbose_name="Disambiguation ORG Source", null=True)
     name = TextField(null=True, verbose_name="Institution/employer")
@@ -851,7 +854,7 @@ class OrcidApiCall(BaseModel):
     """ORCID API call audit entry."""
 
     called_at = DateTimeField(default=datetime.utcnow)
-    user = ForeignKeyField(User, null=True)
+    user = ForeignKeyField(User, null=True, on_delete="SET NULL")
     method = TextField()
     url = TextField()
     query_params = TextField(null=True)
@@ -868,7 +871,7 @@ class OrcidAuthorizeCall(BaseModel):
     """ORCID Authorize call audit entry."""
 
     called_at = DateTimeField(default=datetime.utcnow)
-    user = ForeignKeyField(User, null=True)
+    user = ForeignKeyField(User, null=True, on_delete="SET NULL")
     method = TextField(null=True)
     url = TextField(null=True)
     token = TextField(null=True)
@@ -1985,7 +1988,7 @@ class Grant(BaseModel):
     #     db.String(40), db.ForeignKey('client.client_id'),
     #     nullable=False,
     # )
-    client = ForeignKeyField(Client, index=True)
+    client = ForeignKeyField(Client, index=True, on_delete="CASCADE")
     code = CharField(max_length=255, index=True)
 
     redirect_uri = CharField(max_length=255, null=True)
@@ -2019,7 +2022,7 @@ class Token(BaseModel):
     Flask-OAuthlib only comes with a bearer token.
     """
 
-    client = ForeignKeyField(Client)
+    client = ForeignKeyField(Client, on_delete="CASCADE")
     user = ForeignKeyField(User, null=True, on_delete="SET NULL")
     token_type = CharField(max_length=40)
 

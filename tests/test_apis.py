@@ -3,6 +3,8 @@
 
 import copy
 import json
+import yaml
+from datetime import datetime
 
 import pytest
 from flask import url_for
@@ -10,7 +12,8 @@ from flask_login import login_user
 
 from orcid_hub.apis import yamlfy
 from orcid_hub.data_apis import plural
-from orcid_hub.models import Client, OrcidToken, Organisation, Task, TaskType, Token, User
+from orcid_hub.models import (AffiliationRecord, Client, OrcidToken, Organisation, Task, TaskType,
+                              Token, User)
 
 from unittest.mock import patch, MagicMock
 
@@ -134,7 +137,6 @@ def test_me(app_req_ctx):
         assert rv.status_code == 401
 
     # Test expired token:
-    from datetime import datetime
     token.expires = datetime(1971, 1, 1)
     token.save()
     with app_req_ctx("/api/me", headers=dict(authorization=f"Bearer {token.access_token}")) as ctx:
@@ -205,6 +207,14 @@ def test_user_and_token_api(app_req_ctx, resource, version):
     if resource == "users":  # test user listing
         with app_req_ctx(
                 f"/api/{version}/{resource}",
+                headers=dict(authorization="Bearer TEST")) as ctx:
+            resp = ctx.app.full_dispatch_request()
+            data = json.loads(resp.data)
+            assert resp.status_code == 200
+            data = json.loads(resp.data)
+            assert len(data) == 11
+        with app_req_ctx(
+                f"/api/{version}/{resource}?page=INVALID&page_size=INVALID",
                 headers=dict(authorization="Bearer TEST")) as ctx:
             resp = ctx.app.full_dispatch_request()
             data = json.loads(resp.data)
@@ -314,6 +324,9 @@ def test_yamlfy(app):
     assert isinstance(yamlfy(key_arg=42), Response)
     with pytest.raises(TypeError):
         yamlfy(1, 2, 3, key_arg=42)
+    # with app.app_context():
+    resp = yamlfy(datetime(2018, 7, 10, 16, 26, 25, 86519))
+    assert yaml.load(resp.data) == datetime(2018, 7, 10, 16, 26, 25)
 
 
 def test_api_docs(app_req_ctx):
@@ -540,6 +553,13 @@ def test_affiliation_api(client):
         data=json.dumps(new_data))
     assert resp.status_code == 404
 
+    with patch.object(Task, "get", side_effect=Exception("ERROR")):
+        resp = client.delete(
+            f"/api/v1.0/affiliations/{task_id}",
+            headers=dict(authorization=f"Bearer {access_token}"))
+        assert resp.status_code == 400
+        assert resp.get_json() == {"error": "Unhandled except occured.", "exception": "ERROR"}
+
     resp = client.delete(
         f"/api/v1.0/affiliations/{task_id}",
         headers=dict(authorization=f"Bearer {access_token}"))
@@ -633,6 +653,84 @@ records:
     task = Task.get(id=task_id)
     assert task.affiliation_records.count() == 3
 
+    resp = client.put(
+        f"/api/v1.0/affiliations/{task_id}",
+        headers=dict(authorization=f"Bearer {access_token}", accept="text/yaml"),
+        content_type="text/yaml",
+        data="""task-type: AFFILIATION
+filename: TEST42.yml
+records:
+- affiliation-type: student
+  id: 9999999999
+  city: Wellington
+  country: NZ
+  department: Research Funding
+  email: researcher.010@mailinator.com
+  first-name: Roshan
+  last-name: Pawar
+  organisation: Royal Org1
+  role: BBB
+  start-date: 2016-09
+""")
+    data = resp.get_json()
+    assert resp.status_code == 400
+    assert data["error"] == "Unhandled except occured."
+    assert "Instance matching query does not exist" in data["exception"]
+
+    with patch.object(AffiliationRecord, "get", side_effect=Exception("ERROR")):
+        resp = client.put(
+            f"/api/v1.0/affiliations/{task_id}",
+            headers=dict(authorization=f"Bearer {access_token}", accept="text/yaml"),
+            content_type="text/yaml",
+            data="""task-type: AFFILIATION
+filename: TEST42.yml
+records:
+- affiliation-type: student
+  id: 9999999999
+  city: Wellington
+  country: NZ
+  department: Research Funding
+  email: researcher.010@mailinator.com
+  first-name: Roshan
+  last-name: Pawar
+  organisation: Royal Org1
+  role: BBB
+  start-date: 2016-09
+""")
+        data = resp.get_json()
+        assert resp.status_code == 400
+        assert data == {"error": "Unhandled except occured.", "exception": "ERROR"}
+
+    resp = client.post(
+        f"/api/v1.0/affiliations/?filename=TEST42.csv",
+        headers=dict(authorization=f"Bearer {access_token}", accept="text/yaml"),
+        content_type="text/yaml",
+        data="""task-type: INCORRECT
+filename: TEST42.yml
+records:
+- affiliation-type: student
+  id: 9999999999
+""")
+    assert resp.status_code == 422
+    data = resp.get_json()
+    assert data["error"] == "Validation error."
+    assert "INCORRECT" in data["message"]
+
+    resp = client.post(
+        "/api/v1.0/affiliations/?filename=TEST_ERROR.csv",
+        headers=dict(authorization=f"Bearer {access_token}", accept="text/yaml"),
+        content_type="text/yaml",
+        data="""task-type: AFFILIATION
+filename: TEST_ERROR.yml
+records:
+- affiliation-type: student
+something fishy is going here...
+""")
+    assert resp.status_code == 415
+    data = resp.get_json()
+    assert data["error"] == "Ivalid request format. Only JSON, CSV, or TSV are acceptable."
+    assert "something fishy is going here..." in data["message"]
+
 
 def test_proxy_get_profile(app_req_ctx):
     """Test the echo endpoint."""
@@ -641,7 +739,7 @@ def test_proxy_get_profile(app_req_ctx):
     orcid_id = "0000-0000-0000-00X3"
 
     with app_req_ctx(
-            f"/orcid/api/v1.23/{orcid_id}", headers=dict(
+            f"/orcid/api/v2.23/{orcid_id}", headers=dict(
                 authorization=f"Bearer {token.access_token}")) as ctx, patch(
                         "orcid_hub.apis.requests.Session.send") as mocksend:
         mockresp = MagicMock(status_code=200)
@@ -661,14 +759,14 @@ def test_proxy_get_profile(app_req_ctx):
         assert resp.status_code == 200
         args, kwargs = mocksend.call_args
         assert kwargs["stream"]
-        assert args[0].url == f"https://api.sandbox.orcid.org/v1.23/{orcid_id}"
+        assert args[0].url == f"https://api.sandbox.orcid.org/v2.23/{orcid_id}"
         assert args[0].headers["Authorization"] == "Bearer ORCID-TEST-ACCESS-TOKEN"
 
         data = json.loads(resp.data)
         assert data == {"data": "TEST"}
 
     with app_req_ctx(
-            f"/orcid/api/v1.23/{orcid_id}", headers=dict(
+            f"/orcid/api/v2.23/{orcid_id}/SOMETHING-MORE", headers=dict(
                 authorization=f"Bearer {token.access_token}"), method="POST",
             data=b"""{"data": "REQUEST"}""") as ctx, patch(
                         "orcid_hub.apis.requests.Session.send") as mocksend:
@@ -689,7 +787,7 @@ def test_proxy_get_profile(app_req_ctx):
         assert resp.status_code == 201
         args, kwargs = mocksend.call_args
         assert kwargs["stream"]
-        assert args[0].url == f"https://api.sandbox.orcid.org/v1.23/{orcid_id}"
+        assert args[0].url == f"https://api.sandbox.orcid.org/v2.23/{orcid_id}/SOMETHING-MORE"
         assert args[0].headers["Authorization"] == "Bearer ORCID-TEST-ACCESS-TOKEN"
 
         data = json.loads(resp.data)
@@ -697,14 +795,25 @@ def test_proxy_get_profile(app_req_ctx):
 
     # malformatted ORCID ID:
     with app_req_ctx(
-            "/orcid/api/v1.23/NOT-ORCID-ID/PATH", headers=dict(
-                authorization=f"Bearer {token.access_token}")) as ctx:
+            "/orcid/api/v2.23/NOT-ORCID-ID/PATH",
+            headers=dict(authorization=f"Bearer {token.access_token}")) as ctx:
         resp = ctx.app.full_dispatch_request()
         assert resp.status_code == 415
 
+    # wrong version number:
+    with app_req_ctx(
+            f"/orcid/api/v1.23_ERROR/{orcid_id}/PATH", headers=dict(
+                authorization=f"Bearer {token.access_token}")) as ctx:
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 404
+        assert resp.get_json() == {
+            "error": "Resource not found",
+            "message": "Incorrect version: v1.23_ERROR"
+        }
+
     # no ORCID access token
     with app_req_ctx(
-            "/orcid/api/v1.23/0000-0000-0000-11X2/PATH", headers=dict(
+            "/orcid/api/v2.23/0000-0000-0000-11X2/PATH", headers=dict(
                 authorization=f"Bearer {token.access_token}")) as ctx:
         resp = ctx.app.full_dispatch_request()
         assert resp.status_code == 403
