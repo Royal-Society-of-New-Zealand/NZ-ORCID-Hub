@@ -70,6 +70,22 @@ def test_webhook_registration(app_req_ctx):
         # prevously created access token should be removed
 
     with app_req_ctx(
+            "/api/v1.0/INCORRECT/webhook/http%3A%2F%2FCALL-BACK",
+            method="PUT",
+            headers=dict(authorization=f"Bearer {token.access_token}")) as ctx:
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 415
+        assert resp.get_json()["error"] == "Missing or invalid ORCID iD."
+
+    with app_req_ctx(
+            "/api/v1.0/0000-0001-8228-7153/webhook/http%3A%2F%2FCALL-BACK",
+            method="PUT",
+            headers=dict(authorization=f"Bearer {token.access_token}")) as ctx:
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 404
+        assert resp.get_json()["error"] == "Invalid ORCID iD."
+
+    with app_req_ctx(
             f"/api/v1.0/{orcid_id}/webhook/http%3A%2F%2FCALL-BACK",
             method="PUT", headers=dict(
                 authorization=f"Bearer {token.access_token}")) as ctx, patch(
