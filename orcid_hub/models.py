@@ -424,35 +424,23 @@ class Organisation(BaseModel, AuditMixin):
     notification_email = CharField(max_length=100, null=True, verbose_name="Notification Email Address")
 
     @property
-    def invitation_sent_to(self):
-        """Get the most recent invitation recepient."""
-        try:
-            return (self.orginvitation_set.select(
-                OrgInvitation.invitee).where(OrgInvitation.invitee_id == self.tech_contact_id)
-                    .order_by(OrgInvitation.created_at.desc()).first().invitee)
-        except Exception:
-            return None
-
-    @property
     def invitation_sent_at(self):
         """Get the timestamp of the most recent invitation sent to the technical contact."""
-        try:
-            return (self.orginvitation_set.select(
-                fn.MAX(OrgInvitation.created_at).alias("last_sent_at")).where(
-                    OrgInvitation.invitee_id == self.tech_contact_id).first().last_sent_at)
-        except Exception:
-            return None
+        row = self.orginvitation_set.select(
+            fn.MAX(OrgInvitation.created_at).alias("last_sent_at")).where(
+                OrgInvitation.invitee_id == self.tech_contact_id).first()
+        if row:
+            return row.last_sent_at
 
     @property
     def invitation_confirmed_at(self):
         """Get the timestamp when the invitation link was opened."""
-        try:
-            return (self.orginvitation_set.select(
-                fn.MAX(OrgInvitation.created_at).alias("last_confirmed_at")).where(
-                    OrgInvitation.invitee_id == self.tech_contact_id).where(
-                        OrgInvitation.confirmed_at.is_null(False)).first().last_confirmed_at)
-        except Exception:
-            return None
+        row = self.orginvitation_set.select(
+            fn.MAX(OrgInvitation.created_at).alias("last_confirmed_at")).where(
+                OrgInvitation.invitee_id == self.tech_contact_id).where(
+                    OrgInvitation.confirmed_at.is_null(False)).first()
+        if row:
+            return row.last_confirmed_at
 
     @property
     def users(self):
