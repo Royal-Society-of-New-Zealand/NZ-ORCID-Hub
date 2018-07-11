@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 """Application views for reporting."""
 
-from flask import redirect, render_template, request, url_for
+from flask import make_response, redirect, render_template, request, url_for
 from peewee import JOIN, SQL, fn
 
-from . import app
+from . import app, current_user
 from .forms import DateRangeForm
 from .login_provider import roles_required
 from .models import OrcidToken, Organisation, OrgInvitation, Role, User, UserInvitation, UserOrg
@@ -122,3 +122,14 @@ def user_invitation_summary():  # noqa: D103
         title="User Invitation Summary",
         summary=summary,
         unconfirmed_invitations=unconfirmed_invitations)
+
+
+@app.route("/user_cv")
+@roles_required(Role.SUPERUSER)
+def user_cv():  # noqa: D103
+    """Create user CV using the CV templage filled with the ORCID profile data."""
+    resp = make_response(render_template("CV.rtf", user=current_user))
+    resp.headers["Content-Type"] = "application/rtf"
+    resp.headers[
+        "Content-Disposition"] = f"attachment; filename={current_user.name.replace(' ', '_')}.CV.rft"
+    return resp

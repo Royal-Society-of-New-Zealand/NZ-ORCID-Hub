@@ -8,7 +8,6 @@ from flask import abort
 from . import app, models
 from flask_login import current_user
 
-
 REDIS_URL = app.config["REDIS_URL"] = app.config.get("RQ_REDIS_URL")
 __redis_available = bool(REDIS_URL)
 
