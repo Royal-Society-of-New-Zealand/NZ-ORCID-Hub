@@ -16,45 +16,63 @@
   {% if request.endpoint == "load_researcher_affiliations" %}
     <div class="row">
       <div class="col-md-12 col-sm-12 col-xs-12">
-        <p>Please format your affiliation data as a comma-separated or tab-separated text file.<br />
-        The first row of the file must contain only headers matching any of the following allowed field names:</p>
-        <ul>
-          <li>Required:
-            <ul>
-              <li>Affiliation type: i.e., a value to indicate whether to write the affiliation to education or employment e.g., "staff" or "student"</li>
-              <li>Email: the institutional email for the individual, and where the invitation will be sent if they're not known by the Hub</li>
-              <li>First name: if the user does not have an ORCID iD, this field together with 'Last name' and email, will be used to pre-fill ORCID registration</li>
-              <li>Last name</li>
-            </ul></li>
-            <li>Optional:
-              <ul>
-                <li>Identifier: this can be any identifier used in your internal systems and is to allow you to match the resulting put-code from ORCID to simplify making future updates to the item</li>
-                <li>ORCID iD: once it has been authenticated, an ORCID iD can be used instead of an email address; however, without an email address any invitation required cannot be sent</li>
-                <li>Organisation: if different to your home campus. NB you may only write affiliations for organisations that are related to the member, e.g., historic names and subsidiaries</li>
-                <li>Department</li>
-                <li>City: if different to your home campus's city otherwise that will be used</li>
-                <li>Region</li>
-                <li>Course or Title: for an education item, the course of study or degree name; for an employment item, the role or job title</li>
-                <li>Start date: Affiliation start date in ISO 8601 format, to the known/desired level of precision</li>
-                <li>End date: Affiliation end date in ISO 8601 format, leave blank or omit field for ongoing affiliations</li>
-                <li>Country: ISO 3166-1 alpha-2 and if different to your home campus's country code otherwise that will be used, i.e. NZ.</li>
-                <li>Disambiguation ID: if different to your home campus's ID, the identifier for the Organisation that is given by the accompanying Disambiguation Source</li>
-                <li>Disambiguation Source: typically RINGGOLD or Fundref, and required if a Disambiguation ID is provided</li>
-              </ul>
-            </li>
-            <li>To update existing ORCID items:
-              <ul>
-                <li>Put-Code: this is a code ORCID uses to identify the item and is returned to you in the Hub's affiliation report. <br />
-                  With a put-code the Hub attempts to overwrite an item; while without one, a new item is created with a new put-code</li>
-              </ul>
-            </li>
-        </ul>
-        <p>
-        Note: each record in the the affiliation file must contain either an email address or, <strong>if</strong> an individual has already gone through the Hub, an ORCID iD.
-        Dates are preferred in ISO 8601 format, i.e., <strong>YYYY-MM-DD</strong> with partial dates accepted, e.g, "2017", "2017-12", and "2017-12-15" are all valid; however,
-        the Hub will try to interpret any dates provided.<br />
-        Where a field header or value is not provided, the value from your organisation will be used if it's available, e.g., Organisation, City, Country, Disambiguation ID,
-        and Disambiguation Source can be omitted where redundant.</p>
+        <p>Format your affiliation data as either a comma-separated or tab-separated text file. The first row of the file <b>must</b> contain valid field headers from the following:<br />
+           <ul>
+             <li>Required: "Affiliation type"; "First name"; "Last name"; and, "Email"</li>
+             <li>Optional: "Identifier"; "ORCID iD"; "Organisation"; "Department"; "City"; "Region"; "Country"; "Course or Title"; "Start date"; "End date";
+                 "Disambiguation ID"; "Disambiguation Source"; and "Put-Code".</li>
+           </ul>
+          Where a field's header or value is not provided, the value from your organisation will be used if available, e.g., Organisation, City, Country, Disambiguation ID,
+          and Disambiguation Source can be omitted where redundant for the item(s).<br />
+          On successful completion, the user's ORCID iD and item's put-code and visibility will be returned for each affiliation item written. The Hub attempts to identify when information<br />
+          is an update rather than a new item; however, to explicitly update an item include a field with the item's put-code to specify which item is to be overwritten.<br />
+          For more information on the affiliation tasks, including definitions and behaviour see the Hub's <a href="http://docs.orcidhub.org.nz/en/latest/writing_affiliation_items.html">documentation for affiliations</a>.</p>
+      </div>
+    </div>
+  {% endif %}
+  {% if request.endpoint == "load_researcher_funding" %}
+    <div class="row">
+      <div class="col-md-12 col-sm-12 col-xs-12">
+        <p>Format your funding data as either a json or yaml file. Multiple items can be specified but each <b>must</b> contain an invitees list together with the <br />
+        ORCID message schema compliant-data that is to be written to each invitee's ORCID record:<br />
+           <ul>
+             <li>Required for each invitee: "first-name"; "last-name"; and, "email"</li>
+             <li>Required for each funding message: "title"; "type"; and, "organization"</li>
+           </ul>
+          On successful completion, the user's ORCID iD and item's put-code and visibility will be returned for each funding item written. The Hub attempts to identify when information<br />
+          is an update rather than a new item; however, to explicitly update an item include a field with the item's put-code to specify which item is to be overwritten.<br />
+          For more information on the funding tasks, including definitions and behaviour see the Hub's <a href="http://docs.orcidhub.org.nz/en/latest/writing_funding_items.html">documentation for funding</a>.</p>
+      </div>
+    </div>
+  {% endif %}
+  {% if request.endpoint == "load_researcher_work" %}
+    <div class="row">
+      <div class="col-md-12 col-sm-12 col-xs-12">
+        <p>Format your works data as either a json or yaml file. Multiple items can be specified but each <b>must</b> contain an invitees list together with the <br />
+        ORCID message schema compliant-data that is to be written to each invitee's ORCID record:<br />
+           <ul>
+             <li>Required for each invitee: "first-name"; "last-name"; and, "email"</li>
+             <li>Required for each work message: "title"; and, "type""</li>
+           </ul>
+          On successful completion, the user's ORCID iD and item's put-code and visibility will be returned for each work item written. The Hub attempts to identify when information<br />
+          is an update rather than a new item; however, to explicitly update an item include a field with the item's put-code to specify which item is to be overwritten.<br />
+          For more information on the work tasks, including definitions and behaviour see the Hub's <a href="http://docs.orcidhub.org.nz/en/latest/writing_work_items.html">documentation for works</a>.</p>
+      </div>
+    </div>
+  {% endif %}
+  {% if request.endpoint == "load_researcher_peer_review" %}
+    <div class="row">
+      <div class="col-md-12 col-sm-12 col-xs-12">
+        <p>Format your peer review data as either a json or yaml file. Multiple items can be specified but each <b>must</b> contain an invitees list together with the <br />
+        ORCID message schema compliant-data that is to be written to each invitee's ORCID record:<br />
+           <ul>
+             <li>Required for each invitee: "first-name"; "last-name"; and, "email"</li>
+             <li>Required for each peer review message: "reviewer-role"; "review-identifiers"; "review-type"; "review-group-id", and "convening-organization"</li>
+           </ul>
+          A valid review-group-id must be specified.  NB: Review Group IDs may be created in the Hub <a href="{{ url_for('groupidrecord.index_view')}}">here</a>.<br />
+          On successful completion, the user's ORCID iD and item's put-code and visibility will be returned for each peer review item written. The Hub attempts to identify when information<br />
+          is an update rather than a new item; however, to explicitly update an item include a field with the item's put-code to specify which item is to be overwritten.<br />
+          For more information on the peer review tasks, including definitions and behaviour see the Hub's <a href="http://docs.orcidhub.org.nz/en/latest/writing_peer_review_items.html">peer review documentation</a>.</p>
       </div>
     </div>
   {% endif %}
