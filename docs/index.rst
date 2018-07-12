@@ -14,12 +14,20 @@ Because New Zealand ORCID Hub is fun to use.
 Table of Contents
 ^^^^^^^^^^^^^^^^^
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
    :name: masterdoc
 
    installation
    writing_funding_items
    customising_email_messages
+   writing_affiliation_items
+   writing_funding_items
+   fundings_schema
+   writing_work_items
+   works_schema
+   writing_peer_review_items
+   peer_review_schema
+
    ORCID API Specification <orcid_api_spec>
 
    development_env

@@ -427,35 +427,23 @@ class Organisation(BaseModel, AuditMixin):
     notification_email = CharField(max_length=100, null=True, verbose_name="Notification Email Address")
 
     @property
-    def invitation_sent_to(self):
-        """Get the most recent invitation recepient."""
-        try:
-            return (self.orginvitation_set.select(
-                OrgInvitation.invitee).where(OrgInvitation.invitee_id == self.tech_contact_id)
-                    .order_by(OrgInvitation.created_at.desc()).first().invitee)
-        except Exception:
-            return None
-
-    @property
     def invitation_sent_at(self):
         """Get the timestamp of the most recent invitation sent to the technical contact."""
-        try:
-            return (self.orginvitation_set.select(
-                fn.MAX(OrgInvitation.created_at).alias("last_sent_at")).where(
-                    OrgInvitation.invitee_id == self.tech_contact_id).first().last_sent_at)
-        except Exception:
-            return None
+        row = self.orginvitation_set.select(
+            fn.MAX(OrgInvitation.created_at).alias("last_sent_at")).where(
+                OrgInvitation.invitee_id == self.tech_contact_id).first()
+        if row:
+            return row.last_sent_at
 
     @property
     def invitation_confirmed_at(self):
         """Get the timestamp when the invitation link was opened."""
-        try:
-            return (self.orginvitation_set.select(
-                fn.MAX(OrgInvitation.created_at).alias("last_confirmed_at")).where(
-                    OrgInvitation.invitee_id == self.tech_contact_id).where(
-                        OrgInvitation.confirmed_at.is_null(False)).first().last_confirmed_at)
-        except Exception:
-            return None
+        row = self.orginvitation_set.select(
+            fn.MAX(OrgInvitation.created_at).alias("last_confirmed_at")).where(
+                OrgInvitation.invitee_id == self.tech_contact_id).where(
+                    OrgInvitation.confirmed_at.is_null(False)).first()
+        if row:
+            return row.last_confirmed_at
 
     @property
     def users(self):
@@ -954,11 +942,12 @@ class Task(BaseModel, AuditMixin):
         if len(header) < 2:
             raise ModelException("Expected CSV or TSV format file.")
 
-        assert len(header) >= 7, \
-            "Wrong number of fields. Expected at least 7 fields " \
-            "(first name, last name, email address, organisation, " \
-            "campus/department, city, course or job title, start date, end date, student/staff). " \
-            f"Read header: {header}"
+        if len(header) < 4:
+            raise ModelException(
+                "Wrong number of fields. Expected at least 4 fields "
+                "(first name, last name, email address or another unique identifier, student/staff). "
+                f"Read header: {header}")
+
         header_rexs = [
             re.compile(ex, re.I)
             for ex in (r"first\s*(name)?", r"last\s*(name)?", "email", "organisation|^name",
@@ -1011,7 +1000,6 @@ class Task(BaseModel, AuditMixin):
 
                     # The uploaded country must be from ISO 3166-1 alpha-2
                     country = val(row, 11)
-
                     if country:
                         try:
                             country = countries.lookup(country).alpha_2
@@ -1038,10 +1026,18 @@ class Task(BaseModel, AuditMixin):
                             f"Invalid affiliation type '{affiliation_type}' in the row #{row_no+2}: {row}. "
                             f"Expected values: {', '.join(at for at in AFFILIATION_TYPES)}.")
 
+                    first_name = val(row, 0)
+                    last_name = val(row, 1)
+                    if not(first_name and last_name):
+                        raise ModelException(
+                            "Wrong number of fields. Expected at least 4 fields "
+                            "(first name, last name, email address or another unique identifier, "
+                            f"student/staff): {row}")
+
                     af = AffiliationRecord(
                         task=task,
-                        first_name=val(row, 0),
-                        last_name=val(row, 1),
+                        first_name=first_name,
+                        last_name=last_name,
                         email=email,
                         organisation=val(row, 3),
                         department=val(row, 4),
@@ -1215,6 +1211,11 @@ class TaskType(IntFlag):
 
     def __hash__(self):
         return hash(self.name)
+
+    @classmethod
+    def options(cls):
+        """Get list of all types for UI dropown option list."""
+        return [(e.value, e.name.replace('_', ' ').title()) for e in cls]
 
 
 class FundingRecord(RecordModel):
