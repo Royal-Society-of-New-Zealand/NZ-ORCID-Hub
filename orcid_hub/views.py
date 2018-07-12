@@ -532,12 +532,26 @@ class TaskAdmin(AppModelView):
         "created_by.last_name",
         "org.name",
     )
+    column_list = [
+        "filename",
+        "created_at",
+        "org",
+        "completed_at",
+        "created_by",
+        "expires_at",
+        "expiry_email_sent_at",
+        "completed_count",
+    ]
+
     column_filters = (
         filters.DateBetweenFilter(column=Task.created_at, name="Uploaded Date"),
         filters.FilterEqual(column=Task.task_type, options=models.TaskType.options(), name="Task Type"),
     )
     column_formatters = dict(
-        task_type=lambda v, c, m, p: models.TaskType(m.task_type).name.replace('_', ' ').title())
+        task_type=lambda v, c, m, p: models.TaskType(m.task_type).name.replace('_', ' ').title(),
+        completed_count=lambda v, c, m, p: (
+            '' if not m.record_count else f"{m.completed_count} / {m.record_count} ({m.completed_percent:.1f})"),
+    )
 
 
 class RecordModelView(AppModelView):

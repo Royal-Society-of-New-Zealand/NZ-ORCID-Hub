@@ -884,7 +884,6 @@ class Task(BaseModel, AuditMixin):
     task_type = SmallIntegerField(default=0)
     expires_at = DateTimeField(null=True)
     expiry_email_sent_at = DateTimeField(null=True)
-    completed_count = TextField(null=True, help_text="gives the status of uploaded task")
 
     def __repr__(self):
         return self.filename or f"{TaskType(self.task_type).name.capitalize()} record processing task #{self.id}"
@@ -910,6 +909,16 @@ class Task(BaseModel, AuditMixin):
     def records(self):
         """Get all task record query."""
         return getattr(self, TaskType(self.task_type).name.lower() + "_records")
+
+    @lazy_property
+    def completed_count(self):
+        """Get number of completd rows."""
+        return self.records.where(self.record_model.processed_at.is_null(False)).count()
+
+    @lazy_property
+    def completed_percent(self):
+        """Get the percentaage of completd rows."""
+        return (100. * self.completed_count) / self.record_count if self.record_count else 0.
 
     @property
     def error_count(self):
