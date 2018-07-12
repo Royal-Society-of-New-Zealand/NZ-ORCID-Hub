@@ -550,7 +550,7 @@ class TaskAdmin(AppModelView):
     column_formatters = dict(
         task_type=lambda v, c, m, p: models.TaskType(m.task_type).name.replace('_', ' ').title(),
         completed_count=lambda v, c, m, p: (
-            '' if not m.record_count else f"{m.completed_count} / {m.record_count} ({m.completed_percent:.1f})"),
+            '' if not m.record_count else f"{m.completed_count} / {m.record_count} ({m.completed_percent:.1f}%)"),
     )
 
 
