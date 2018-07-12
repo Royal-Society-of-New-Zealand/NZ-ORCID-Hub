@@ -34,7 +34,6 @@ from flask_rq2.job import FlaskJob
 from orcid_api.rest import ApiException
 
 from . import admin, app, limiter, models, orcid_client, rq, utils
-from .config import ENV, ORCID_BASE_URL, SCOPE_ACTIVITIES_UPDATE, SCOPE_READ_LIMITED
 from .forms import (ApplicationFrom, BitmapMultipleValueField, CredentialForm, EmailTemplateForm,
                     FileUploadForm, JsonOrYamlFileUploadForm, LogoForm, OrgRegistrationForm,
                     PartialDateField, RecordForm, UserInvitationForm, WebhookForm)
@@ -49,6 +48,9 @@ from .pyinfo import info
 from .utils import generate_confirmation_token, get_next_url, send_user_invitation
 
 HEADERS = {"Accept": "application/vnd.orcid+json", "Content-type": "application/vnd.orcid+json"}
+ORCID_BASE_URL = app.config["ORCID_BASE_URL"]
+SCOPE_ACTIVITIES_UPDATE = app.config["SCOPE_ACTIVITIES_UPDATE"]
+SCOPE_READ_LIMITED = app.config["SCOPE_READ_LIMITED"]
 
 
 @app.errorhandler(401)
@@ -184,7 +186,7 @@ class AppModelView(ModelView):
         "html",
     ]
 
-    if ENV != "dev":
+    if app.config["ENV"] not in ["dev", "test", "dev0", ]:
         form_base_class = SecureForm
 
     column_formatters = dict(
@@ -519,7 +521,6 @@ class TaskAdmin(AppModelView):
 
     roles_required = Role.SUPERUSER | Role.ADMIN
     list_template = "view_tasks.html"
-    column_exclude_list = ("task_type", )
     can_edit = False
     can_create = False
     can_delete = True
@@ -530,6 +531,26 @@ class TaskAdmin(AppModelView):
         "created_by.first_name",
         "created_by.last_name",
         "org.name",
+    )
+    column_list = [
+        "filename",
+        "created_at",
+        "org",
+        "completed_at",
+        "created_by",
+        "expires_at",
+        "expiry_email_sent_at",
+        "completed_count",
+    ]
+
+    column_filters = (
+        filters.DateBetweenFilter(column=Task.created_at, name="Uploaded Date"),
+        filters.FilterEqual(column=Task.task_type, options=models.TaskType.options(), name="Task Type"),
+    )
+    column_formatters = dict(
+        task_type=lambda v, c, m, p: models.TaskType(m.task_type).name.replace('_', ' ').title(),
+        completed_count=lambda v, c, m, p: (
+            '' if not m.record_count else f"{m.completed_count} / {m.record_count} ({m.completed_percent:.1f}%)"),
     )
 
 
@@ -2189,7 +2210,7 @@ def manage_email_template():
                 flash("Are you sure? Without a {MESSAGE} or {INCLUDED_URL} "
                       "your users will be unable to respond to your invitations.", "danger")
 
-    return render_template("email_template.html", form=form)
+    return render_template("email_template.html", BASE_URL=url_for("index", _external=True)[:-1], form=form)
 
 
 @app.route("/logo/<string:token>")

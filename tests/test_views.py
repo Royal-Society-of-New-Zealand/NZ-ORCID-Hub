@@ -5,6 +5,7 @@ import datetime
 import json
 import logging
 import os
+import re
 import sys
 import time
 from itertools import product
@@ -97,9 +98,9 @@ def test_models(test_db):
 def test_superuser_view_access(request_ctx):
     """Test if SUPERUSER can access Flask-Admin"."""
     with request_ctx("/admin/schedude/") as ctx:
-        rv = ctx.app.full_dispatch_request()
-        assert rv.status_code == 403
-        assert b"403" in rv.data
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 403
+        assert b"403" in resp.data
 
     user = User.create(
         name="TEST USER",
@@ -111,47 +112,47 @@ def test_superuser_view_access(request_ctx):
     with request_ctx("/admin/user/") as ctx:
         login_user(user, remember=True)
 
-        rv = ctx.app.full_dispatch_request()
-        assert rv.status_code == 200
-        assert b"User" in rv.data
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 200
+        assert b"User" in resp.data
 
     with request_ctx(f"/admin/user/edit/?id={user.id}") as ctx:
         login_user(user, remember=True)
 
-        rv = ctx.app.full_dispatch_request()
-        assert rv.status_code == 200
-        assert b"TEST USER" in rv.data
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 200
+        assert b"TEST USER" in resp.data
 
     with request_ctx("/admin/schedude/") as ctx:
         login_user(user, remember=True)
 
-        rv = ctx.app.full_dispatch_request()
-        assert rv.status_code == 200
-        assert b"interval" in rv.data
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 200
+        assert b"interval" in resp.data
 
     jobs = rq.get_scheduler().get_jobs()
     with request_ctx(f"/admin/schedude/details/?id={jobs[0].id}") as ctx:
         login_user(user, remember=True)
 
-        rv = ctx.app.full_dispatch_request()
-        assert rv.status_code == 200
-        assert b"interval" in rv.data
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 200
+        assert b"interval" in resp.data
 
 
 def test_admin_view_access_fail(client, request_ctx):
     """Test if non SUPERUSER cannot access Flask-Admin"."""
-    rv = client.get("/admin/user/")
-    assert rv.status_code == 302
-    assert "next=" in rv.location and "admin" in rv.location
+    resp = client.get("/admin/user/")
+    assert resp.status_code == 302
+    assert "next=" in resp.location and "admin" in resp.location
 
     with request_ctx("/admin/user/") as ctx:
         test_user = User(
             name="TEST USER", email="test@test.test.net", username="test42", confirmed=True)
         login_user(test_user, remember=True)
 
-        rv = ctx.app.full_dispatch_request()
-        assert rv.status_code == 302
-        assert "next=" in rv.location and "admin" in rv.location
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 302
+        assert "next=" in resp.location and "admin" in resp.location
 
 
 def test_access(request_ctx):
@@ -170,47 +171,47 @@ def test_access(request_ctx):
         roles=Role.RESEARCHER)
 
     with request_ctx("/pyinfo") as ctx:
-        rv = ctx.app.full_dispatch_request()
-        assert rv.status_code == 302
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 302
 
     with request_ctx("/rq") as ctx:
-        rv = ctx.app.full_dispatch_request()
-        assert rv.status_code == 401
-        assert b"401" in rv.data
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 401
+        assert b"401" in resp.data
 
     with request_ctx("/rq?next=http://orcidhub.org.nz/next") as ctx:
-        rv = ctx.app.full_dispatch_request()
-        assert rv.status_code == 302
-        assert rv.location == "http://orcidhub.org.nz/next"
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 302
+        assert resp.location == "http://orcidhub.org.nz/next"
 
     with request_ctx("/pyinfo") as ctx:
         login_user(test_superuser, remember=True)
-        rv = ctx.app.full_dispatch_request()
-        assert rv.status_code == 200
-        assert bytes(sys.version, encoding="utf-8") in rv.data
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 200
+        assert bytes(sys.version, encoding="utf-8") in resp.data
 
     with request_ctx("/pyinfo") as ctx:
         login_user(test_user, remember=True)
-        rv = ctx.app.full_dispatch_request()
-        assert rv.status_code == 302
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 302
 
     with request_ctx("/rq") as ctx:
         login_user(test_superuser, remember=True)
-        rv = ctx.app.full_dispatch_request()
-        assert rv.status_code == 200
-        assert b"Queues" in rv.data
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 200
+        assert b"Queues" in resp.data
 
     with request_ctx("/rq") as ctx:
         login_user(test_user, remember=True)
-        rv = ctx.app.full_dispatch_request()
-        assert rv.status_code == 403
-        assert b"403" in rv.data
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 403
+        assert b"403" in resp.data
 
     with request_ctx("/rq?next=http://orcidhub.org.nz/next") as ctx:
         login_user(test_user, remember=True)
-        rv = ctx.app.full_dispatch_request()
-        assert rv.status_code == 302
-        assert rv.location == "http://orcidhub.org.nz/next"
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 302
+        assert resp.location == "http://orcidhub.org.nz/next"
 
 
 def test_year_range():
@@ -293,17 +294,17 @@ def test_status(client):
         result = MagicMock()
         result.fetchone.return_value = (datetime.datetime(2042, 1, 1, 0, 0), )
         db.execute_sql.return_value = result
-        rv = client.get("/status")
-        data = json.loads(rv.data)
-        assert rv.status_code == 200
+        resp = client.get("/status")
+        data = json.loads(resp.data)
+        assert resp.status_code == 200
         assert data["status"] == "Connection successful."
         assert data["db-timestamp"] == "2042-01-01T00:00:00"
 
     with patch("orcid_hub.views.db") as db:  # , request_ctx("/status") as ctx:
         db.execute_sql.side_effect = Exception("FAILURE")
-        rv = client.get("/status")
-        data = json.loads(rv.data)
-        assert rv.status_code == 503
+        resp = client.get("/status")
+        data = json.loads(resp.data)
+        assert resp.status_code == 503
         assert data["status"] == "Error"
         assert "FAILURE" in data["message"]
 
@@ -356,7 +357,7 @@ def test_application_registration(app, request_ctx):
                 "register": "Register",
             }) as ctx:  # noqa: F405
         login_user(user, remember=True)
-        rv = ctx.app.full_dispatch_request()
+        resp = ctx.app.full_dispatch_request()
         c = Client.get(name="TEST APP")
         assert c.homepage_url == "http://test.at.test"
         assert c.description == "TEST APPLICATION 123"
@@ -364,7 +365,7 @@ def test_application_registration(app, request_ctx):
         assert c.org == org
         assert c.client_id
         assert c.client_secret
-        assert rv.status_code == 302
+        assert resp.status_code == 302
 
     client = Client.get(name="TEST APP")
     with request_ctx(f"/settings/applications/{client.id}") as ctx:
@@ -573,17 +574,17 @@ def test_user_orgs(request_ctx):
 
     with request_ctx(f"/hub/api/v0.1/users/{user.id}/orgs/") as ctx:
         login_user(user, remember=True)
-        rv = ctx.app.full_dispatch_request()
-        assert rv.status_code == 200
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 200
     with request_ctx(f"/hub/api/v0.1/users/{user.id}/orgs/{org.id}") as ctx:
         login_user(user, remember=True)
-        rv = ctx.app.full_dispatch_request()
-        assert rv.status_code == 200
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 200
     with request_ctx("/hub/api/v0.1/users/1234/orgs/") as ctx:
         # failure test case, user not found
         login_user(user, remember=True)
-        rv = ctx.app.full_dispatch_request()
-        assert rv.status_code == 404
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 404
 
 
 def test_api_credentials(request_ctx):
@@ -711,8 +712,8 @@ def test_shorturl(request_ctx):
     """Test short url."""
     url = "http://localhost/xsdsdsfdds"
     with request_ctx():
-        rv = views.shorturl(url)
-        assert "http://" in rv
+        resp = views.shorturl(url)
+        assert "http://" in resp
 
 
 def test_activate_all(request_ctx):
@@ -757,16 +758,16 @@ def test_activate_all(request_ctx):
         login_user(user, remember=True)
         request.args = ImmutableMultiDict([('url', 'http://localhost/affiliation_record_activate_for_batch')])
         request.form = ImmutableMultiDict([('task_id', task1.id)])
-        rv = ctxx.app.full_dispatch_request()
-        assert rv.status_code == 302
-        assert rv.location.startswith("http://localhost/affiliation_record_activate_for_batch")
+        resp = ctxx.app.full_dispatch_request()
+        assert resp.status_code == 302
+        assert resp.location.startswith("http://localhost/affiliation_record_activate_for_batch")
     with request_ctx("/activate_all", method="POST") as ctxx:
         login_user(user, remember=True)
         request.args = ImmutableMultiDict([('url', 'http://localhost/funding_record_activate_for_batch')])
         request.form = ImmutableMultiDict([('task_id', task2.id)])
-        rv = ctxx.app.full_dispatch_request()
-        assert rv.status_code == 302
-        assert rv.location.startswith("http://localhost/funding_record_activate_for_batch")
+        resp = ctxx.app.full_dispatch_request()
+        assert resp.status_code == 302
+        assert resp.location.startswith("http://localhost/funding_record_activate_for_batch")
 
 
 def test_logo(request_ctx):
@@ -792,14 +793,14 @@ def test_logo(request_ctx):
     UserOrg.create(user=user, org=org, is_admin=True)
     with request_ctx("/settings/logo", method="POST") as ctx:
         login_user(user, remember=True)
-        rv = ctx.app.full_dispatch_request()
-        assert rv.status_code == 200
-        assert b"<!DOCTYPE html>" in rv.data, "Expected HTML content"
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 200
+        assert b"<!DOCTYPE html>" in resp.data, "Expected HTML content"
     with request_ctx("/logo/token_123") as ctx:
         login_user(user, remember=True)
-        rv = ctx.app.full_dispatch_request()
-        assert rv.status_code == 302
-        assert rv.location.endswith("images/banner-small.png")
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 302
+        assert resp.location.endswith("images/banner-small.png")
 
 
 @patch("orcid_hub.utils.send_email", side_effect=send_mail_mock)
@@ -835,9 +836,9 @@ def test_manage_email_template(patch, request_ctx):
                 "save": "Save"
             }) as ctx:
         login_user(user, remember=True)
-        rv = ctx.app.full_dispatch_request()
-        assert rv.status_code == 200
-        assert b"Are you sure?" in rv.data
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 200
+        assert b"Are you sure?" in resp.data
     with request_ctx(
             "/settings/email_template",
             method="POST",
@@ -849,9 +850,9 @@ def test_manage_email_template(patch, request_ctx):
                 "save": "Save"
             }) as ctx:
         login_user(user, remember=True)
-        rv = ctx.app.full_dispatch_request()
-        assert rv.status_code == 200
-        assert b"<!DOCTYPE html>" in rv.data, "Expected HTML content"
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 200
+        assert b"<!DOCTYPE html>" in resp.data, "Expected HTML content"
         org = Organisation.get(id=org.id)
         assert org.email_template == "enable {MESSAGE} {INCLUDED_URL}"
     with request_ctx(
@@ -864,9 +865,9 @@ def test_manage_email_template(patch, request_ctx):
                 "send": "Save"
             }) as ctx:
         login_user(user, remember=True)
-        rv = ctx.app.full_dispatch_request()
-        assert rv.status_code == 200
-        assert b"<!DOCTYPE html>" in rv.data, "Expected HTML content"
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 200
+        assert b"<!DOCTYPE html>" in resp.data, "Expected HTML content"
 
 
 def send_mail_mock(*argvs, **kwargs):
@@ -893,10 +894,10 @@ def test_invite_user(request_ctx):
         token="xyztoken")
     with request_ctx("/invite/user") as ctx:
         login_user(admin, remember=True)
-        rv = ctx.app.full_dispatch_request()
-        assert rv.status_code == 200
-        assert b"<!DOCTYPE html>" in rv.data, "Expected HTML content"
-        assert org.name.encode() in rv.data
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 200
+        assert b"<!DOCTYPE html>" in resp.data, "Expected HTML content"
+        assert org.name.encode() in resp.data
     with request_ctx(
             "/invite/user",
             method="POST",
@@ -911,10 +912,10 @@ def test_invite_user(request_ctx):
                 "city": "test"
             }) as ctx, patch("orcid_hub.views.send_user_invitation.queue") as queue_send_user_invitation:
         login_user(admin, remember=True)
-        rv = ctx.app.full_dispatch_request()
-        assert rv.status_code == 200
-        assert b"<!DOCTYPE html>" in rv.data, "Expected HTML content"
-        assert b"test123@test.test.net" in rv.data
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 200
+        assert b"<!DOCTYPE html>" in resp.data, "Expected HTML content"
+        assert b"test123@test.test.net" in resp.data
         queue_send_user_invitation.assert_called_once()
     with patch("orcid_hub.orcid_client.MemberAPI") as m, patch(
         "orcid_hub.orcid_client.SourceClientId"), request_ctx(
@@ -933,10 +934,10 @@ def test_invite_user(request_ctx):
         OrcidToken.create(access_token="ACCESS123", user=user, org=org, scope="/read-limited,/activities/update",
                           expires_in='121')
         api_mock = m.return_value
-        rv = ctx.app.full_dispatch_request()
-        assert rv.status_code == 200
-        assert b"<!DOCTYPE html>" in rv.data, "Expected HTML content"
-        assert b"test123@test.test.net" in rv.data
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 200
+        assert b"<!DOCTYPE html>" in resp.data, "Expected HTML content"
+        assert b"test123@test.test.net" in resp.data
         api_mock.create_or_update_affiliation.assert_called_once()
 
 
@@ -953,9 +954,9 @@ def test_email_template(app, request_ctx):
                 "prefill": "Pre-fill",
             }) as ctx:
         login_user(user)
-        rv = ctx.app.full_dispatch_request()
-        assert rv.status_code == 200
-        assert b"&lt;!DOCTYPE html&gt;" in rv.data
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 200
+        assert b"&lt;!DOCTYPE html&gt;" in resp.data
         org.reload()
         assert not org.email_template_enabled
 
@@ -968,8 +969,8 @@ def test_email_template(app, request_ctx):
                 "send": "Send",
             }) as ctx:
         login_user(user)
-        rv = ctx.app.full_dispatch_request()
-        assert rv.status_code == 200
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 200
         org.reload()
         assert not org.email_template_enabled
         send_email.assert_called_once_with(
@@ -992,8 +993,8 @@ def test_email_template(app, request_ctx):
                 "save": "Save",
             }) as ctx:
         login_user(user)
-        rv = ctx.app.full_dispatch_request()
-        assert rv.status_code == 200
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 200
         org.reload()
         assert org.email_template_enabled
         assert "TEST TEMPLATE TO SAVE {MESSAGE} {INCLUDED_URL}" in org.email_template
@@ -1007,8 +1008,8 @@ def test_email_template(app, request_ctx):
                 "send": "Send",
             }) as ctx:
         login_user(user)
-        rv = ctx.app.full_dispatch_request()
-        assert rv.status_code == 200
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 200
         org.reload()
         assert org.email_template_enabled
         msg_cls.assert_called_once()
@@ -1037,8 +1038,8 @@ def test_email_template(app, request_ctx):
                 "send": "Send",
             }) as ctx:
         login_user(user)
-        rv = ctx.app.full_dispatch_request()
-        assert rv.status_code == 200
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 200
         org.reload()
         assert org.email_template_enabled
         send_email.assert_called_once_with(
@@ -1086,6 +1087,66 @@ def test_logo_file(request_ctx):
         assert org.logo is None
 
 
+def test_affiliation_task_upload(client):
+    """Test affilaffiliation task upload."""
+    org = Organisation.get(name="TEST0")
+    user = User.get(email="admin@test0.edu")
+
+    client.login(user)
+    resp = client.post(
+        "/load/researcher",
+        data={
+            "save":
+            "Upload",
+            "file_": (
+                BytesIO(b"""First Name,Last Name,Email
+Roshan,Pawar,researcher.010@mailinator.com
+"""),
+                "affiliations.csv",
+            ),
+        })
+    assert resp.status_code == 200
+    assert b"Failed to load affiliation record file: Wrong number of fields." in resp.data
+
+    resp = client.post(
+        "/load/researcher",
+        data={
+            "save":
+            "Upload",
+            "file_": (
+                BytesIO(b"""First Name,Last Name,Email,Affiliation Type
+Roshan,Pawar,researcher.010@mailinator.com,Student
+Roshan,Pawar,researcher.010@mailinator.com,Staff
+"""),
+                "affiliations.csv",
+            ),
+        })
+    assert resp.status_code == 302
+    task_id = int(re.search(r"\/admin\/affiliationrecord/\?task_id=(\d+)", resp.location)[1])
+    assert task_id
+    task = Task.get(task_id)
+    assert task.org == org
+    records = list(task.affiliation_records)
+    assert len(records) == 2
+
+    url = resp.location
+    session_cookie, _ = resp.headers["Set-Cookie"].split(';', 1)
+    _, session = session_cookie.split('=', 1)
+
+    # client.set_cookie("", "session", session)
+    resp = client.get(url)
+    assert b"researcher.010@mailinator.com" in resp.data
+
+    # List all tasks with a filter (select 'affiliation' task):
+    resp = client.get("/admin/task/?flt1_1=0")
+    assert b"affiliations.csv" in resp.data
+
+    resp = client.post(
+        "/admin/task/delete/", data=dict(id=task_id, url="/admin/task/"), follow_redirects=True)
+    assert b"affiliations.csv" not in resp.data
+    assert Task.select().count() == 0
+
+
 @patch("orcid_hub.utils.send_email", side_effect=send_mail_mock)
 def test_invite_organisation(send_email, request_ctx):
     """Test invite an organisation to register."""
@@ -1107,10 +1168,10 @@ def test_invite_organisation(send_email, request_ctx):
                 "city": "xyz"
             }) as ctx:
         login_user(root, remember=True)
-        rv = ctx.app.full_dispatch_request()
-        assert rv.status_code == 200
-        assert b"<!DOCTYPE html>" in rv.data, "Expected HTML content"
-        assert b"test123@test.test.net" in rv.data
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 200
+        assert b"<!DOCTYPE html>" in resp.data, "Expected HTML content"
+        assert b"test123@test.test.net" in resp.data
         send_email.assert_called_once()
     with request_ctx(
             "/invite/organisation",
@@ -1130,10 +1191,10 @@ def test_invite_organisation(send_email, request_ctx):
         org.name = "ORG NAME"
         org.confirmed = True
         org.save()
-        rv = ctx.app.full_dispatch_request()
-        assert rv.status_code == 200
-        assert b"<!DOCTYPE html>" in rv.data, "Expected HTML content"
-        assert b"test123@test.test.net" in rv.data
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 200
+        assert b"<!DOCTYPE html>" in resp.data, "Expected HTML content"
+        assert b"test123@test.test.net" in resp.data
         send_email.assert_called_once()
 
 
@@ -1189,11 +1250,11 @@ def test_load_researcher_funding(patch, patch2, request_ctx):
                 "email": user.email
             }) as ctx:
         login_user(user, remember=True)
-        rv = ctx.app.full_dispatch_request()
-        assert rv.status_code == 302
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 302
         # Funding file successfully loaded.
-        assert "task_id" in rv.location
-        assert "funding" in rv.location
+        assert "task_id" in resp.location
+        assert "funding" in resp.location
 
 
 @patch("pykwalify.core.Core.validate", side_effect=validate)
@@ -1221,11 +1282,11 @@ def test_load_researcher_work(patch, patch2, request_ctx):
                 "email": user.email
             }) as ctx:
         login_user(user, remember=True)
-        rv = ctx.app.full_dispatch_request()
-        assert rv.status_code == 302
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 302
         # Work file successfully loaded.
-        assert "task_id" in rv.location
-        assert "work" in rv.location
+        assert "task_id" in resp.location
+        assert "work" in resp.location
 
 
 @patch("pykwalify.core.Core.validate", side_effect=validate)
@@ -1256,11 +1317,11 @@ def test_load_researcher_peer_review(patch, patch2, request_ctx):
                 "email": user.email
             }) as ctx:
         login_user(user, remember=True)
-        rv = ctx.app.full_dispatch_request()
-        assert rv.status_code == 302
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 302
         # peer-review file successfully loaded.
-        assert "task_id" in rv.location
-        assert "peer" in rv.location
+        assert "task_id" in resp.location
+        assert "peer" in resp.location
 
 
 def test_load_researcher_affiliations(request_ctx):
@@ -1289,10 +1350,10 @@ def test_load_researcher_affiliations(request_ctx):
     with request_ctx("/load/researcher", method="POST", data={"file_": "{'filename': 'xyz.json'}",
                                                               "email": user.email, form: form}) as ctxx:
         login_user(user, remember=True)
-        rv = ctxx.app.full_dispatch_request()
-        assert rv.status_code == 200
-        assert b"<!DOCTYPE html>" in rv.data, "Expected HTML content"
-        assert user.email.encode() in rv.data
+        resp = ctxx.app.full_dispatch_request()
+        assert resp.status_code == 200
+        assert b"<!DOCTYPE html>" in resp.data, "Expected HTML content"
+        assert user.email.encode() in resp.data
 
 
 def test_edit_record(request_ctx):
@@ -1671,46 +1732,46 @@ def test_reset_all(request_ctx):
         login_user(user, remember=True)
         request.args = ImmutableMultiDict([('url', 'http://localhost/affiliation_record_reset_for_batch')])
         request.form = ImmutableMultiDict([('task_id', task1.id)])
-        rv = ctxx.app.full_dispatch_request()
+        resp = ctxx.app.full_dispatch_request()
         t = Task.get(id=1)
         ar = AffiliationRecord.get(id=1)
         assert "The record was reset" in ar.status
         assert t.completed_at is None
-        assert rv.status_code == 302
-        assert rv.location.startswith("http://localhost/affiliation_record_reset_for_batch")
+        assert resp.status_code == 302
+        assert resp.location.startswith("http://localhost/affiliation_record_reset_for_batch")
     with request_ctx("/reset_all", method="POST") as ctxx:
         login_user(user, remember=True)
         request.args = ImmutableMultiDict([('url', 'http://localhost/funding_record_reset_for_batch')])
         request.form = ImmutableMultiDict([('task_id', task2.id)])
-        rv = ctxx.app.full_dispatch_request()
+        resp = ctxx.app.full_dispatch_request()
         t2 = Task.get(id=2)
         fr = FundingRecord.get(id=1)
         assert "The record was reset" in fr.status
         assert t2.completed_at is None
-        assert rv.status_code == 302
-        assert rv.location.startswith("http://localhost/funding_record_reset_for_batch")
+        assert resp.status_code == 302
+        assert resp.location.startswith("http://localhost/funding_record_reset_for_batch")
     with request_ctx("/reset_all", method="POST") as ctxx:
         login_user(user, remember=True)
         request.args = ImmutableMultiDict([('url', 'http://localhost/peer_review_record_reset_for_batch')])
         request.form = ImmutableMultiDict([('task_id', task3.id)])
-        rv = ctxx.app.full_dispatch_request()
+        resp = ctxx.app.full_dispatch_request()
         t2 = Task.get(id=3)
         pr = PeerReviewRecord.get(id=1)
         assert "The record was reset" in pr.status
         assert t2.completed_at is None
-        assert rv.status_code == 302
-        assert rv.location.startswith("http://localhost/peer_review_record_reset_for_batch")
+        assert resp.status_code == 302
+        assert resp.location.startswith("http://localhost/peer_review_record_reset_for_batch")
     with request_ctx("/reset_all", method="POST") as ctxx:
         login_user(user, remember=True)
         request.args = ImmutableMultiDict([('url', 'http://localhost/work_record_reset_for_batch')])
         request.form = ImmutableMultiDict([('task_id', work_task.id)])
-        rv = ctxx.app.full_dispatch_request()
+        resp = ctxx.app.full_dispatch_request()
         t = Task.get(id=4)
         pr = WorkRecord.get(id=1)
         assert "The record was reset" in pr.status
         assert t.completed_at is None
-        assert rv.status_code == 302
-        assert rv.location.startswith("http://localhost/work_record_reset_for_batch")
+        assert resp.status_code == 302
+        assert resp.location.startswith("http://localhost/work_record_reset_for_batch")
 
 
 def test_issue_470198698(request_ctx):

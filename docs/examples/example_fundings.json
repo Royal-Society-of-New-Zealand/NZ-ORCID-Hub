@@ -1,0 +1,76 @@
+[{
+		"invitees": [
+			{"identifier": "00001", "email": "contributor1@mailinator.com", "first-name": "Alice", "last-name": "Contributor 1", "ORCID-iD": "0000-0002-9207-4933", "put-code": null, "visibility": "PRIVATE"}, 
+			{"identifier": "00002", "email": "contributor2@mailinator.com", "first-name": "Bob", "last-name": "Contributor 2", "ORCID-iD": null, "put-code": null, "visibility":null}, 
+			{"identifier": "00003", "email": "contributor3@mailinator.com", "first-name": "Eve", "last-name": "Contributor 3", "ORCID-iD": null, "put-code": null, "visibility":null}
+		],
+		"amount": {"currency-code": "NZD", "value": "300000"},
+		"organization-defined-type": {"value": "Fast-Start"},
+		"organization": {
+			"disambiguated-organization": {
+				"disambiguated-organization-identifier": "http://dx.doi.org/10.13039/501100009193",
+				"disambiguation-source": "FUNDREF"
+			},
+			"name": "Marsden Fund",
+			"address": {"city": "Wellington", "country": "NZ"}
+		},
+		"contributors": {
+			"contributor": [{
+					"contributor-attributes": {"contributor-role": "lead"},
+					"credit-name": {"value": "Associate Professor A Contributor 1"},
+					"contributor-orcid": {
+						"uri": "https://sandbox.orcid.org/0000-0002-9207-4933",
+						"path": "0000-0002-9207-4933",
+						"host": "sandbox.orcid.org"
+					}
+				}, {
+					"contributor-attributes": {"contributor-role": "co_lead"},
+					"credit-name": {"value": "Dr B Contributor 2"}
+				}, {
+					"contributor-attributes": {"contributor-role": ""},
+					"credit-name": {"value": "Dr E Contributor 3"}
+				}
+			]
+		},
+		"title": {"title": {"value": "This is the project title"}},
+		"short-description": "This is the project abstract",
+		"end-date": {"year": {"value": "2021"}},
+		"start-date": {"year": {"value": "2018"}},
+		"type": "CONTRACT",
+		"external-ids": {"external-id": [
+      {"external-id-value": "XXX1701", "external-id-relationship": "SELF", "external-id-type": "grant_number"}
+    ]}
+}, 
+ {
+		"invitees": [
+      {"identifier": "00004", "email": "contributor4@mailinator.com", "first-name": "Felix", "last-name": "Contributor 4", "ORCID-iD": null, "put-code": null, "visibility":null}
+		],
+		"amount": {"currency-code": "NZD", "value": "800000"},
+		"organization-defined-type": {"value": "Standard"},
+		"organization": {
+			"disambiguated-organization": {
+				"disambiguated-organization-identifier": "http://dx.doi.org/10.13039/501100009193",
+				"disambiguation-source": "FUNDREF"
+			},
+			"name": "Marsden Fund",
+			"address": {"city": "Wellington","country": "NZ"}},
+		"contributors": {
+			"contributor": [{
+					"contributor-attributes": {"contributor-role": "lead"},
+					"credit-name": {"value": "Associate Professor F Contributor 4"},
+					"contributor-email": {"value": "contributor4@mailinator.com"}
+				}
+			]
+		},
+		"title": {"title": {"value": "This is another project title"}},
+		"short-description": "This is another project abstract",
+		"end-date": {"year": {"value": "2021"}},
+		"start-date": {"year": {"value": "2018"}},
+		"type": "CONTRACT",
+		"external-ids": {
+			"external-id": [
+        {"external-id-value": "XXX1702", "external-id-relationship": "SELF", "external-id-type": "grant_number"}
+			]
+		}
+	}
+]
