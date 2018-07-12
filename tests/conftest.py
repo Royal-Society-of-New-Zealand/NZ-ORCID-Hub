@@ -22,6 +22,7 @@ os.environ["DATABASE_URL"] = DATABASE_URL
 # RESTClientObject = orcid_api.api_client.RESTClientObject = MagicMock(orcid_api.api_client.RESTClientObject)
 # yapf: enable
 
+from flask.testing import FlaskClient
 
 import pytest
 from playhouse import db_url
@@ -37,6 +38,33 @@ from orcid_hub.reports import *  # noqa: F401, F403
 db = _app.db = _db = db_url.connect(DATABASE_URL, autorollback=True)
 
 
+class HubClient(FlaskClient):
+    """Extension of the default Flask test client."""
+    def login(self, user, affiliations=None):
+        """Log in with the given user."""
+        org = user.organisation
+        if affiliations is None:
+            uo = user.userorg_set.where(models.UserOrg.org == org).first()
+            if uo:
+                affiliations = ';'.join([
+                    "staff" if a == Affiliation.EMP else "student" for a in Affiliation
+                    if a & uo.affiliations
+                ])
+
+        return self.get(
+            "/Tuakiri/login",
+            headers={
+                "Auedupersonsharedtoken": "edu-person-shared-token",
+                "Sn": user.last_name,
+                'Givenname': user.first_name,
+                "Mail": user.email,
+                "O": org.tuakiri_name or org.name,
+                "Displayname": user.name,
+                "Unscoped-Affiliation": affiliations,
+                "Eppn": user.eppn,
+            })
+
+
 @pytest.yield_fixture
 def app():
     """Session-wide test `Flask` application."""
@@ -49,11 +77,12 @@ def app():
         logger.setLevel(logging.INFO)
 
     with test_database(
-            _db,
-        (File, Organisation, User, UserOrg, OrcidToken, UserOrgAffiliation, OrgInfo, Task,
-         AffiliationRecord, FundingRecord, FundingContributor, FundingInvitees, OrcidAuthorizeCall, OrcidApiCall,
-         Url, UserInvitation, OrgInvitation, ExternalId, Client, Grant, Token, WorkRecord, WorkContributor,
-         WorkExternalId, WorkInvitees, PeerReviewRecord, PeerReviewInvitee, PeerReviewExternalId), fail_silently=True):  # noqa: F405
+            _db, (File, Organisation, User, UserOrg, OrcidToken, UserOrgAffiliation, OrgInfo, Task,
+                  AffiliationRecord, FundingRecord, FundingContributor, FundingInvitees,
+                  OrcidAuthorizeCall, OrcidApiCall, Url, UserInvitation, OrgInvitation, ExternalId,
+                  Client, Grant, Token, WorkRecord, WorkContributor, WorkExternalId, WorkInvitees,
+                  PeerReviewRecord, PeerReviewInvitee, PeerReviewExternalId),
+            fail_silently=True):  # noqa: F405
         _app.db = _db
         _app.config["DATABASE_URL"] = DATABASE_URL
         _app.config["EXTERNAL_SP"] = None
@@ -65,9 +94,7 @@ def app():
 
         # Add some data:
         for org_no in range(2):
-            org = Organisation.create(
-                name=f"TEST{org_no}",
-                tuakiri_name=f"TEST ORG #{org_no}")
+            org = Organisation.create(name=f"TEST{org_no}", tuakiri_name=f"TEST ORG #{org_no}")
             if org_no == 1:
                 org.orcid_client_id = "ABC123"
                 org.orcid_secret = "SECRET-12345"
@@ -114,12 +141,17 @@ def app():
                     created_at=datetime(2018, 1, 1)) for u in User.select(User.id)
                 if u.id % 2 == 0).execute()
             if org_no == 0:
-                Client.create(org=org, user=user, client_id=org.name + "-ID", client_secret=org.name + "-SECRET")
+                Client.create(
+                    org=org,
+                    user=user,
+                    client_id=org.name + "-ID",
+                    client_secret=org.name + "-SECRET")
         UserOrg.insert_from(
             query=User.select(User.id, User.organisation_id, User.created_at).where(
                 User.email.contains("researcher")),
             fields=[UserOrg.user_id, UserOrg.org_id, UserOrg.created_at]).execute()
 
+        _app.test_client_class = HubClient
         yield _app
 
     ctx.pop()

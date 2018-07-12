@@ -6,6 +6,7 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 export PYTHONPATH=$DIR
 export FLASK_APP=orcid_hub
 export LANG=en_US.UTF-8
+export ENV=test
 
 ##   flask process
 export DATABASE_URL="sqlite:///:memory:"
