@@ -950,11 +950,12 @@ class Task(BaseModel, AuditMixin):
         if len(header) < 2:
             raise ModelException("Expected CSV or TSV format file.")
 
-        assert len(header) >= 7, \
-            "Wrong number of fields. Expected at least 7 fields " \
-            "(first name, last name, email address, organisation, " \
-            "campus/department, city, course or job title, start date, end date, student/staff). " \
-            f"Read header: {header}"
+        if len(header) < 4:
+            raise ModelException(
+                "Wrong number of fields. Expected at least 4 fields "
+                "(first name, last name, email address or another unique identifier, student/staff). "
+                f"Read header: {header}")
+
         header_rexs = [
             re.compile(ex, re.I)
             for ex in (r"first\s*(name)?", r"last\s*(name)?", "email", "organisation|^name",
@@ -1007,7 +1008,6 @@ class Task(BaseModel, AuditMixin):
 
                     # The uploaded country must be from ISO 3166-1 alpha-2
                     country = val(row, 11)
-
                     if country:
                         try:
                             country = countries.lookup(country).alpha_2
@@ -1034,10 +1034,18 @@ class Task(BaseModel, AuditMixin):
                             f"Invalid affiliation type '{affiliation_type}' in the row #{row_no+2}: {row}. "
                             f"Expected values: {', '.join(at for at in AFFILIATION_TYPES)}.")
 
+                    first_name = val(row, 0)
+                    last_name = val(row, 1)
+                    if not(first_name and last_name):
+                        raise ModelException(
+                            "Wrong number of fields. Expected at least 4 fields "
+                            "(first name, last name, email address or another unique identifier, "
+                            f"student/staff): {row}")
+
                     af = AffiliationRecord(
                         task=task,
-                        first_name=val(row, 0),
-                        last_name=val(row, 1),
+                        first_name=first_name,
+                        last_name=last_name,
                         email=email,
                         organisation=val(row, 3),
                         department=val(row, 4),
@@ -1211,6 +1219,11 @@ class TaskType(IntFlag):
 
     def __hash__(self):
         return hash(self.name)
+
+    @classmethod
+    def options(cls):
+        """Get list of all types for UI dropown option list."""
+        return [(e.value, e.name.replace('_', ' ').title()) for e in cls]
 
 
 class FundingRecord(RecordModel):
