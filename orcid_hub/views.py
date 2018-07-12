@@ -186,7 +186,7 @@ class AppModelView(ModelView):
         "html",
     ]
 
-    if app.config["ENV"] in ["dev", "test", ]:
+    if app.config["ENV"] not in ["dev", "test", "dev0", ]:
         form_base_class = SecureForm
 
     column_formatters = dict(
