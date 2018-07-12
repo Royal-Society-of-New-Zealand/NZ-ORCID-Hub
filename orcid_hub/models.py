@@ -884,6 +884,7 @@ class Task(BaseModel, AuditMixin):
     task_type = SmallIntegerField(default=0)
     expires_at = DateTimeField(null=True)
     expiry_email_sent_at = DateTimeField(null=True)
+    completed_count = TextField(null=True, help_text="gives the status of uploaded task")
 
     def __repr__(self):
         return self.filename or f"{TaskType(self.task_type).name.capitalize()} record processing task #{self.id}"
