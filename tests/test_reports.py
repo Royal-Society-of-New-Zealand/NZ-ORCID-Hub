@@ -67,7 +67,12 @@ def test_user_summary(request_ctx):
 
 def test_user_cv(client):
     """Test user CV."""
-    user = User.get(email="root@test0.edu")
+    user0 = User.get(email="root@test0.edu")
+    client.login(user0)
+    resp = client.get("/user_cv")
+    assert resp.status_code == 302
+
+    user = User.get(email="researcher101@test0.edu")
     client.login(user)
 
     resp = client.get("/user_cv")

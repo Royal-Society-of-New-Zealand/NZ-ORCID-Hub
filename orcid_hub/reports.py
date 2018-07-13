@@ -3,9 +3,10 @@
 
 from datetime import datetime
 from flask import flash, make_response, redirect, render_template, request, url_for
+from flask_login import current_user, login_required
 from peewee import JOIN, SQL, fn
 
-from . import app, current_user
+from . import app
 from .forms import DateRangeForm
 from .login_provider import roles_required
 from .models import OrcidToken, Organisation, OrgInvitation, Role, User, UserInvitation, UserOrg
@@ -127,7 +128,7 @@ def user_invitation_summary():  # noqa: D103
 
 @app.route("/user_cv")
 @app.route("/user_cv/<string:op>")
-@roles_required(Role.SUPERUSER)
+@login_required
 def user_cv(op=None):
     """Create user CV using the CV templage filled with the ORCID profile data."""
     user = current_user
