@@ -65,14 +65,23 @@ def test_user_summary(request_ctx):
         assert resp.status_code == 302
 
 
-def test_user_cv(request_ctx):
+def test_user_cv(client):
     """Test user CV."""
     user = User.get(email="root@test0.edu")
-    with request_ctx("/user_cv") as ctx:
-        login_user(user, remember=True)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 200
-        assert user.name.replace(' ', '_') in resp.headers["Content-Disposition"]
-        assert user.first_name.encode() in resp.data
-        assert user.last_name.encode() in resp.data
+    client.login(user)
 
+    resp = client.get("/user_cv")
+    assert resp.status_code == 200
+    assert b"iframe" in resp.data
+    assert user.first_name.encode() not in resp.data
+
+    resp = client.get("/user_cv/show")
+    assert resp.status_code == 200
+    assert user.first_name.encode() in resp.data
+    assert user.last_name.encode() in resp.data
+
+    resp = client.get("/user_cv/download")
+    assert resp.status_code == 200
+    assert user.name.replace(' ', '_') in resp.headers["Content-Disposition"]
+    assert user.first_name.encode() in resp.data
+    assert user.last_name.encode() in resp.data

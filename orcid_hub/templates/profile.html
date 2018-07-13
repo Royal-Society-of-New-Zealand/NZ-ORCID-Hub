@@ -40,11 +40,14 @@
       </div>
       <p>No further action from you is needed; you're welcome to log out of the Hub.</p>
       {% if session['Should_not_logout_from_ORCID'] %}
+
         <p class="text-center">To review and manage all your ORCID permissions, log into the settings page of your ORCID record here:
         <a href= '{{ profile_url + "account"}}' ><span>{{ profile_url + 'account' }}</span></a> and review the "Trusted organisations" listed.</p>
-        <button class="connect-orcid-button" onclick="location.href='{{profile_url + 'my-orcid'}}'" style="height: 50px;width: auto;">
+
+        <a class="btn btn-default btn-lg" role="button" href="{{profile_url + 'my-orcid'}}" target="_blank">
           <img class="orcid-id-logo" src="https://orcid.org/sites/default/files/images/orcid_24x24.png" width="24" height="24" alt="ORCID logo" /> Take me to my record in ORCID
-        </button>
+        </a>
+
       {% else %}
         <p class="text-center">To review and manage all your ORCID permissions, log into the settings page of your ORCID record here:
         <a onclick=logoutOrcidAccount()><span>{{ profile_url + 'account' }}</span></a> and review the "Trusted organisations" listed.</p>
@@ -52,9 +55,19 @@
           <img class="orcid-id-logo" src="https://orcid.org/sites/default/files/images/orcid_24x24.png" width="24" height="24" alt="ORCID logo" /> Manage my ORCID Record
         </button>
       {% endif %}
-      <button class="connect-orcidhub-google-group-button" onclick="location.href='/faq'" style="height: 50px;width: auto;">
+
+      <a class="btn btn-default btn-lg" role="button" href="{{url_for('faq')}}">
         <img class="orcidHub-id-logo" src="{{url_for('static', filename='images/logo.png')}}" width="24" height="24" alt="ORCID Hub logo" /> Hub FAQ
-      </button>
+      </a>
+
+      {% if current_user.orcid %}
+        <a
+          role="button"
+          class="btn btn-primary btn-lg"
+          href="{{ url_for('user_cv') }}"
+          data-toggle="tooltip"
+          title="Generated CV filled in with the data from your ORCID profile">Your CV</a>
+      {% endif %}
     </div>
   </div>
   <script>

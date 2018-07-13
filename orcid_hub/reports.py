@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 """Application views for reporting."""
 
-from flask import make_response, redirect, render_template, request, url_for
+from datetime import datetime
+from flask import flash, make_response, redirect, render_template, request, url_for
 from peewee import JOIN, SQL, fn
 
 from . import app, current_user
@@ -125,11 +126,23 @@ def user_invitation_summary():  # noqa: D103
 
 
 @app.route("/user_cv")
+@app.route("/user_cv/<string:op>")
 @roles_required(Role.SUPERUSER)
-def user_cv():  # noqa: D103
+def user_cv(op=None):
     """Create user CV using the CV templage filled with the ORCID profile data."""
-    resp = make_response(render_template("CV.rtf", user=current_user))
-    resp.headers["Content-Type"] = "application/rtf"
-    resp.headers[
-        "Content-Disposition"] = f"attachment; filename={current_user.name.replace(' ', '_')}.CV.rft"
+    user = current_user
+    if user.orcid:
+        flash("You haven't linked your account with ORCID.", "warning")
+        return redirect(request.referrer or url_for('index'))
+
+    if op is None:
+        return render_template("user_cv.html")
+    else:
+        resp = make_response(render_template("CV.html", user=user, now=datetime.now()))
+        resp.headers["Cache-Control"] = "private, max-age=60"
+        # resp.headers["Content-Type"] = "application/rtf"
+        if op == "download" or "download" in request.args:
+            resp.headers["Content-Type"] = "application/vnd.ms-word"
+            resp.headers[
+                "Content-Disposition"] = f"attachment; filename={current_user.name.replace(' ', '_')}.CV.html"
     return resp
