@@ -572,7 +572,7 @@ class User(BaseModel, UserMixin, AuditMixin):
     """
 
     name = CharField(max_length=64, null=True)
-    first_name = CharField(null=True, verbose_name="Firs Name")
+    first_name = CharField(null=True, verbose_name="First Name")
     last_name = CharField(null=True, verbose_name="Last Name")
     email = CharField(max_length=120, unique=True, null=True, verbose_name="Email Address")
     eppn = CharField(max_length=120, unique=True, null=True, verbose_name="EPPN")
