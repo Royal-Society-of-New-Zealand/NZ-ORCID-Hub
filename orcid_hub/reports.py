@@ -131,7 +131,7 @@ def user_invitation_summary():  # noqa: D103
 def user_cv(op=None):
     """Create user CV using the CV templage filled with the ORCID profile data."""
     user = current_user
-    if user.orcid:
+    if not user.orcid:
         flash("You haven't linked your account with ORCID.", "warning")
         return redirect(request.referrer or url_for('index'))
 
