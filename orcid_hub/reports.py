@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
 """Application views for reporting."""
 
-from flask import redirect, render_template, request, url_for
+from datetime import datetime
+from flask import flash, make_response, redirect, render_template, request, url_for
+from flask_login import current_user, login_required
 from peewee import JOIN, SQL, fn
 
 from . import app
@@ -122,3 +124,26 @@ def user_invitation_summary():  # noqa: D103
         title="User Invitation Summary",
         summary=summary,
         unconfirmed_invitations=unconfirmed_invitations)
+
+
+@app.route("/user_cv")
+@app.route("/user_cv/<string:op>")
+@login_required
+def user_cv(op=None):
+    """Create user CV using the CV templage filled with the ORCID profile data."""
+    user = current_user
+    if not user.orcid:
+        flash("You haven't linked your account with ORCID.", "warning")
+        return redirect(request.referrer or url_for('index'))
+
+    if op is None:
+        return render_template("user_cv.html")
+    else:
+        resp = make_response(render_template("CV.html", user=user, now=datetime.now()))
+        resp.headers["Cache-Control"] = "private, max-age=60"
+        # resp.headers["Content-Type"] = "application/rtf"
+        if op == "download" or "download" in request.args:
+            resp.headers["Content-Type"] = "application/vnd.ms-word"
+            resp.headers[
+                "Content-Disposition"] = f"attachment; filename={current_user.name.replace(' ', '_')}.CV.html"
+    return resp
