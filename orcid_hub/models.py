@@ -914,6 +914,16 @@ class Task(BaseModel, AuditMixin):
         """Get all task record query."""
         return getattr(self, TaskType(self.task_type).name.lower() + "_records")
 
+    @lazy_property
+    def completed_count(self):
+        """Get number of completd rows."""
+        return self.records.where(self.record_model.processed_at.is_null(False)).count()
+
+    @lazy_property
+    def completed_percent(self):
+        """Get the percentaage of completd rows."""
+        return (100. * self.completed_count) / self.record_count if self.record_count else 0.
+
     @property
     def error_count(self):
         """Get error count encountered during processing batch task."""

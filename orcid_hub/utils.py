@@ -1374,13 +1374,6 @@ def process_tasks(max_rows=20):
                 current_count = current_count + peer_review_record.peer_review_invitee.select().where(
                     PeerReviewInvitee.processed_at.is_null(False)).distinct().count()
 
-        completed_count = str(current_count) + "/" + str(total_count) + " (" + str(
-            round(current_count * 100 / total_count, 2) if total_count != 0 else 0) + "%)"
-
-        if not current_task.completed_count or current_task.completed_count != completed_count:
-            current_task.completed_count = completed_count
-            current_task.save()
-
     tasks = Task.select().where(
             Task.expires_at.is_null(False),
             Task.expiry_email_sent_at.is_null(),
