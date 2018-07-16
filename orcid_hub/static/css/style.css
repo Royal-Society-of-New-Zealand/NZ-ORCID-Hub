@@ -1,3 +1,8 @@
+html {
+    position: relative;
+    min-height: 100%;
+}
+
 body {
     padding-top: 0px;
 }
@@ -137,15 +142,22 @@ div.login-button {
 }
 
 footer {
-	width:100%;
-	/*background-color:#50748a;*/
-	background-color:#000;
-	text-align:right;
-	height:120px;
-	color:#fff;
-	bottom:0;
-	left:0;
+    width:100%;
+    line-height: normal;
+    /*background-color:#50748a;*/
+    background-color:#000;
+    text-align:right;
+    height:120px;
+    color:#fff;
+    bottom:0;
+    left:0;
 }
+@media only screen and (max-height: 899px) {
+    footer {
+        display:none;
+    }
+}
+
 footer .container {
 	padding-top:20px;
 }
