@@ -777,6 +777,7 @@ def orcid_login(invitation_token=None):
         orcid_scope = SCOPE_AUTHENTICATE[:]
 
         client_id = app.config["ORCID_CLIENT_ID"]
+        print(f"************   {app.config['SALT']} **********************************************\n\n\n\n")
         if invitation_token:
             data = confirm_token(invitation_token)
             if isinstance(data, str):
@@ -851,15 +852,17 @@ def orcid_login(invitation_token=None):
             if OrcidToken.select().where(OrcidToken.user == user, OrcidToken.org == org):
                 flash("You have already given permission, you can simply login on orcidhub",
                       "warning")
-                app.logger.warning(f"Failed to login via ORCID, as {user_email} from {user_org_name} organisation, "
-                                   "was trying old invitation token")
+                app.logger.warning(
+                    f"Failed to login via ORCID, as {user_email} from {user_org_name} organisation, "
+                    "was trying old invitation token")
                 return redirect(url_for("index"))
 
-        flash("It's been more than 15 days since your invitation was sent and it has expired. "
-              "Please contact the sender to issue a new one",
-              "danger")
-        app.logger.warning(f"Failed to login via ORCID, as {user_email} from {user_org_name} organisation, "
-                           "was trying old invitation token")
+        flash(
+            "It's been more than 15 days since your invitation was sent and it has expired. "
+            "Please contact the sender to issue a new one", "danger")
+        app.logger.warning(
+            f"Failed to login via ORCID, as {user_email} from {user_org_name} organisation, "
+            "was trying old invitation token")
         return redirect(url_for("index"))
     except Exception as ex:
         flash("Something went wrong. Please contact orcid@royalsociety.org.nz for support!",
