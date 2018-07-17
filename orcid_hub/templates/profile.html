@@ -17,20 +17,27 @@
             </tr>
           </thead>
           <tbody>
-            {% for user_orcid_data in users_orcid or [] %}
+            {% for d in users_orcid or [] %}
+              {% set org_name = d.org.name %}
               <tr class="active">
-                <td> {% if user_orcid_data.user.email %}{{ user_orcid_data.user.email}} {% endif %} </td>
-                <td> {% if user_orcid_data.scope %}
-                    {% if user_orcid_data.scope == "/read-limited,/activities/update" %}
-                      {{ (user_orcid_data.org|string() + ' can read and write information to your ORCID record<br/>
-                      1. ' + user_orcid_data.org|string() + ' can read your trusted-party information.<br/>
-                      2. ' + user_orcid_data.org|string() + ' can create and update research activities') | safe }}
-                    {% elif user_orcid_data.scope == "/read-limited" %}
-                      {{ user_orcid_data.org|string() + ' can read trusted-party information from your ORCID record'}}
-                    {% elif user_orcid_data.scope == "/authenticate" %}
-                      {{ user_orcid_data.org|string() + ' knows your authenticated ORCID iD'}}
+                <td> {% if d.user.email %}{{ d.user.email}} {% endif %} </td>
+                <td> {% if d.scope %}
+                    {% if d.scope == "/read-limited,/activities/update" %}
+                      <p>{{ org_name }} can read and write information to your ORCID record</p>
+                      <ol>
+                        <li>
+                          <b>{{ org_name }}</b> can read your trusted-party information.
+                        </li>
+                        <li>
+                          <b>{{ org_name }}</b> can create and update research activities.
+                        </li>
+                      </ol>
+                    {% elif d.scope == "/read-limited" %}
+                      {{ org_name }} can read trusted-party information from your ORCID record.
+                    {% elif d.scope == "/authenticate" %}
+                      {{ org_name }} knows your authenticated ORCID iD
                     {% else %}
-                      {{user_orcid_data.scope}}
+                      {{d.scope}}
                     {% endif %}
                   {% endif %} </td>
               </tr>

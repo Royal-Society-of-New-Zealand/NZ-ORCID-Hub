@@ -1,22 +1,25 @@
 # -*- coding: utf-8 -*-
 """Application configuration."""
 
-from os import environ, getenv, path, urandom
+from os import environ, getenv, path
 
 ENV = getenv("ENV", "dev")
+SHIBBOLETH_DISABLED = getenv("SHIBBOLETH_DISABLED")
 
 ORCID_API_HOST_URL = "https://api.sandbox.orcid.org/" if ENV != "prod" else "https://api.orcid.org/"
 ORCID_API_VERSION = "v2.0"
 ORCID_API_BASE = ORCID_API_HOST_URL + ORCID_API_VERSION + '/'
 ORCID_BASE_URL = "https://sandbox.orcid.org/" if ENV != "prod" else "https://orcid.org/"
 
-SECRET_KEY = getenv("SECRET_KEY", urandom(42).hex())
+# NB! Set up the key. See: http://flask.pocoo.org/docs/latest/quickstart/#sessions
+SECRET_KEY = getenv("SECRET_KEY", b'\xe3\x94a\x14-sT`\x92\x8a0\x16\r\xe1zb')
 SENTRY_DSN = getenv("SENTRY_DSN")
-SALT = "secret-salt" if ENV.startswith("dev") else (getenv("TOKEN_PASSWORD_SALT")
-                                                    or urandom(5).hex())
+
+# TODO: Soon to be depricated:
+SALT = getenv("TOKEN_PASSWORD_SALT")
 
 # NZ ORCIDHUB API client ID and secret
-ORCID_CLIENT_ID = getenv("ORCID_CLIENT_ID", "APP-42W3G8FS4OHGM562")
+ORCID_CLIENT_ID = getenv("ORCID_CLIENT_ID")
 ORCID_CLIENT_SECRET = getenv("ORCID_CLIENT_SECRET")
 
 # Change the URL as per the enviornment
@@ -30,19 +33,8 @@ SCOPE_READ_LIMITED = ['/read-limited']
 SCOPE_AUTHENTICATE = ['/authenticate']
 
 # Database connection url
-DATABASE_URL = getenv("DATABASE_URL")
+DATABASE_URL = getenv("DATABASE_URL", "sqlite:///data.db")
 BACKUP_DATABASE_URL = getenv("BACKUP_DATABASE_URL")
-
-if not DATABASE_URL:
-    POSTGRES_PASSWORD = getenv("POSTGRES_PASSWORD") or getenv("PGPASSWORD") or "p455w0rd"
-    DB_NAME = getenv("PGDATABASE", "orcidhub")
-    DB_USERNAME = getenv("PGUSER", "orcidhub")
-    DB_PASSWORD = POSTGRES_PASSWORD
-    DB_HOSTNAME = getenv("PGHOST", "db")
-    DATABASE_URL = "postgresql://" + DB_NAME
-    if POSTGRES_PASSWORD:
-        DATABASE_URL += ':' + POSTGRES_PASSWORD
-    DATABASE_URL += "@" + DB_HOSTNAME + ":5432/" + DB_NAME
 
 # NB! Disable in production
 if ENV in ("dev0", ):
@@ -137,17 +129,10 @@ DEFAULT_EMAIL_TEMPLATE = """<!DOCTYPE html>
 
 DKIP_KEY_PATH = path.join(path.dirname(path.relpath(path.relpath(__file__))), ".keys", "dkim.key")
 
-# RQ
-RQ_REDIS_URL = "redis://redis:6379/0"
+# RQ:
+RQ_REDIS_URL = getenv("RQ_REDIS_URL")
 RQ_QUEUE_CLASS = "orcid_hub.queuing.ThrottledQueue"
+
 # rq-dashboard config:
 RQ_POLL_INTERVAL = 5000  #: Web interface poll period for updates in ms
 WEB_BACKGROUND = "gray"
-
-# Celery
-CELERY_BROKER_URL = "redis://localhost:6379/0"
-CELERY_RESULT_BACKEND = "redis://localhost:6379/0"
-
-# CELERY_ACCEPT_CONTENT = ["application/x-python-serialize"]
-# CELERY_TASK_SERIALIZER = "pickle"
-# CELERY_RESULT_SERIALIZER = "pickle"
