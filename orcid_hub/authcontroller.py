@@ -779,6 +779,11 @@ def orcid_login(invitation_token=None):
         client_id = app.config["ORCID_CLIENT_ID"]
         if invitation_token:
             data = confirm_token(invitation_token)
+            if isinstance(data, tuple):
+                is_valid, data = data
+                if not is_valid:
+                    flash("The inviation token is invalid!", "danger")
+                    return redirect(_next or url_for("index"))
             if isinstance(data, str):
                 email, org_name = data.split(';')
             else:

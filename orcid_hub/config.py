@@ -14,8 +14,9 @@ ORCID_BASE_URL = "https://sandbox.orcid.org/" if ENV != "prod" else "https://orc
 # NB! Set up the key. See: http://flask.pocoo.org/docs/latest/quickstart/#sessions
 SECRET_KEY = getenv("SECRET_KEY", b'\xe3\x94a\x14-sT`\x92\x8a0\x16\r\xe1zb')
 SENTRY_DSN = getenv("SENTRY_DSN")
-# Soon to be depricated:
-SALT = "secret-salt" if ENV.startswith("dev") else getenv("TOKEN_PASSWORD_SALT")
+
+# TODO: Soon to be depricated:
+SALT = getenv("TOKEN_PASSWORD_SALT")
 
 # NZ ORCIDHUB API client ID and secret
 ORCID_CLIENT_ID = getenv("ORCID_CLIENT_ID")
