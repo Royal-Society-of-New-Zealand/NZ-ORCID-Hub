@@ -32,8 +32,7 @@ from . import app, db, orcid_client
 # TODO: need to read form app.config[...]
 from .config import (APP_DESCRIPTION, APP_NAME, APP_URL, AUTHORIZATION_BASE_URL, CRED_TYPE_PREMIUM,
                      MEMBER_API_FORM_BASE_URL, NOTE_ORCID, ORCID_API_BASE, ORCID_BASE_URL,
-                     ORCID_CLIENT_ID, ORCID_CLIENT_SECRET, SCOPE_ACTIVITIES_UPDATE,
-                     SCOPE_AUTHENTICATE, SCOPE_READ_LIMITED, TOKEN_URL)
+                     SCOPE_ACTIVITIES_UPDATE, SCOPE_AUTHENTICATE, SCOPE_READ_LIMITED, TOKEN_URL)
 from .forms import OrgConfirmationForm
 from .login_provider import roles_required
 from .models import (Affiliation, OrcidAuthorizeCall, OrcidToken, Organisation, OrgInfo,
@@ -720,15 +719,6 @@ def onboard_org():
     return render_template('orgconfirmation.html', form=form, organisation=organisation)
 
 
-@app.after_request
-def remove_if_invalid(response):
-    """Remove a stale session and session cookie."""
-    if "__invalidate__" in session:
-        response.delete_cookie(app.session_cookie_name)
-        session.clear()
-    return response
-
-
 @app.route("/logout")
 def logout():
     """Log out a logged user.
@@ -742,9 +732,7 @@ def logout():
         logout_user()
     except Exception:
         app.logger.exception("Failed to log out.")
-
     session.clear()
-    session["__invalidate__"] = True
 
     if org_name:
         if EXTERNAL_SP:
@@ -756,7 +744,11 @@ def logout():
             url_for(
                 "uoa_slo" if org_name and org_name == "University of Auckland" else "index",
                 _external=True)))
-    return redirect(url_for("index", logout=True))
+
+    session.clear()
+    resp = redirect(url_for("index", logout=True))
+    resp.delete_cookie(app.session_cookie_name)
+    return resp
 
 
 @app.route("/uoa-slo")
@@ -784,9 +776,14 @@ def orcid_login(invitation_token=None):
     try:
         orcid_scope = SCOPE_AUTHENTICATE[:]
 
-        client_id = ORCID_CLIENT_ID
+        client_id = app.config["ORCID_CLIENT_ID"]
         if invitation_token:
             data = confirm_token(invitation_token)
+            if isinstance(data, tuple):
+                is_valid, data = data
+                if not is_valid:
+                    flash("The inviation token is invalid!", "danger")
+                    return redirect(_next or url_for("index"))
             if isinstance(data, str):
                 email, org_name = data.split(';')
             else:
@@ -836,12 +833,13 @@ def orcid_login(invitation_token=None):
                     family_names=user.last_name,
                     given_names=user.first_name)
 
-        oac = OrcidAuthorizeCall.create(
+        OrcidAuthorizeCall.create(
             user_id=None, method="GET", url=orcid_authenticate_url, state=state)
-        oac.save()
 
         return render_template(
-            "orcidLogoutAndCallback.html", orcid_base_url=ORCID_BASE_URL, callback_url=orcid_authenticate_url)
+            "orcidLogoutAndCallback.html",
+            orcid_base_url=ORCID_BASE_URL,
+            callback_url=orcid_authenticate_url)
 
     except SignatureExpired:
         with suppress(Exception):
@@ -858,15 +856,17 @@ def orcid_login(invitation_token=None):
             if OrcidToken.select().where(OrcidToken.user == user, OrcidToken.org == org):
                 flash("You have already given permission, you can simply login on orcidhub",
                       "warning")
-                app.logger.warning(f"Failed to login via ORCID, as {user_email} from {user_org_name} organisation, "
-                                   "was trying old invitation token")
+                app.logger.warning(
+                    f"Failed to login via ORCID, as {user_email} from {user_org_name} organisation, "
+                    "was trying old invitation token")
                 return redirect(url_for("index"))
 
-        flash("It's been more than 15 days since your invitation was sent and it has expired. "
-              "Please contact the sender to issue a new one",
-              "danger")
-        app.logger.warning(f"Failed to login via ORCID, as {user_email} from {user_org_name} organisation, "
-                           "was trying old invitation token")
+        flash(
+            "It's been more than 15 days since your invitation was sent and it has expired. "
+            "Please contact the sender to issue a new one", "danger")
+        app.logger.warning(
+            f"Failed to login via ORCID, as {user_email} from {user_org_name} organisation, "
+            "was trying old invitation token")
         return redirect(url_for("index"))
     except Exception as ex:
         flash("Something went wrong. Please contact orcid@royalsociety.org.nz for support!",
@@ -894,8 +894,8 @@ def orcid_login_callback(request):
         return redirect(url_for("index"))
 
     try:
-        orcid_client_id = ORCID_CLIENT_ID
-        orcid_client_secret = ORCID_CLIENT_SECRET
+        orcid_client_id = app.config["ORCID_CLIENT_ID"]
+        orcid_client_secret = app.config["ORCID_CLIENT_SECRET"]
         email = org_name = None
 
         if invitation_token:
@@ -1084,10 +1084,10 @@ def orcid_login_callback(request):
         flash("You are not known in the Hub...", "danger")
         return redirect(url_for("index"))
     except UserOrg.DoesNotExist:
-        flash("You are not known in the Hub...", "danger")
+        flash("Your organisation is not known or the organisation data are missing...", "danger")
         return redirect(url_for("index"))
     except rfc6749.errors.MissingCodeError:
-        flash("%s cannot be invoked directly..." % request.url, "danger")
+        flash(f"{request.url} cannot be invoked directly...", "danger")
         return redirect(url_for("index"))
     except rfc6749.errors.MissingTokenError:
         flash("Missing token.", "danger")

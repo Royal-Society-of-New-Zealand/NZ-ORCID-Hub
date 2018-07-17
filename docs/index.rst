@@ -17,6 +17,8 @@ Table of Contents
    :maxdepth: 1
    :name: masterdoc
 
+   installation
+   writing_funding_items
    customising_email_messages
    writing_affiliation_items
    writing_funding_items
