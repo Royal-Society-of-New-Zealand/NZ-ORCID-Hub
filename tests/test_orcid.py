@@ -11,9 +11,19 @@ from flask import session, url_for
 from flask_login import login_user
 
 from orcid_hub.models import Affiliation, OrcidApiCall, OrcidToken, Organisation, User, UserOrg  # noqa:E404
-from orcid_hub.orcid_client import ApiException, MemberAPI, api_client, configuration  # noqa:E404
+from orcid_hub.orcid_client import ApiException, MemberAPI, api_client, configuration, NestedDict  # noqa:E404
 
 fake_time = time.time()
+
+
+def test_nested_dict():
+    """Test nested dict."""
+    d = json.loads(
+            """{"root": {"sub-root": {"node": "VALUE"}}}""",
+            object_pairs_hook=NestedDict)
+    assert d.get("root", "sub-root", "node") == "VALUE"
+    assert d.get("root", "sub-root", "node2") is None
+    assert d.get("root", "sub-root", "node", "missing", default="DEFAULT") == "DEFAULT"
 
 
 def test_member_api(app, mocker):
