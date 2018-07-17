@@ -91,6 +91,33 @@ class HubClient(FlaskClient):
             })
 
 
+class HubClient(FlaskClient):
+    """Extension of the default Flask test client."""
+    def login(self, user, affiliations=None):
+        """Log in with the given user."""
+        org = user.organisation
+        if affiliations is None:
+            uo = user.userorg_set.where(models.UserOrg.org == org).first()
+            if uo:
+                affiliations = ';'.join([
+                    "staff" if a == Affiliation.EMP else "student" for a in Affiliation
+                    if a & uo.affiliations
+                ])
+
+        return self.get(
+            "/Tuakiri/login",
+            headers={
+                "Auedupersonsharedtoken": "edu-person-shared-token",
+                "Sn": user.last_name,
+                'Givenname': user.first_name,
+                "Mail": user.email,
+                "O": org.tuakiri_name or org.name,
+                "Displayname": user.name,
+                "Unscoped-Affiliation": affiliations,
+                "Eppn": user.eppn,
+            })
+
+
 @pytest.yield_fixture
 def app():
     """Session-wide test `Flask` application."""
