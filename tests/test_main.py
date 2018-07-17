@@ -3,6 +3,7 @@
 
 import pprint
 from unittest.mock import patch, Mock
+from urllib.parse import urlparse
 
 import pytest
 from flask import request, session
@@ -387,7 +388,8 @@ def test_orcid_login(client):
     resp = client.get("/orcid/login/" + expired_token.decode("utf-8"))
     # putting sleep for token expiry.
     assert resp.status_code == 302
-    assert resp.location == "http://localhost/"
+    url = urlparse(resp.location)
+    assert url.path == '/'
 
 
 def fetch_token_mock(self,
