@@ -777,7 +777,6 @@ def orcid_login(invitation_token=None):
         orcid_scope = SCOPE_AUTHENTICATE[:]
 
         client_id = app.config["ORCID_CLIENT_ID"]
-        print(f"************   {app.config['SALT']} **********************************************\n\n\n\n")
         if invitation_token:
             data = confirm_token(invitation_token)
             if isinstance(data, str):

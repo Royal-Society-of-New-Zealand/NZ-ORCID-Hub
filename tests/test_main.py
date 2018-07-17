@@ -377,8 +377,10 @@ def test_orcid_login(client):
         organisation=org)
 
     UserOrg.create(user=u, org=org, is_admin=True)
-    token = utils.generate_confirmation_token(email=u.email, org=org.name)
 
+    # with SALT
+    client.application.config["SALT"] = "TEST-SALT"
+    token = utils.generate_confirmation_token(email=u.email, org=org.name)
     resp = client.get("/orcid/login/" + token.decode("utf-8"))
     assert resp.status_code == 200
     orcid_authorize = OrcidAuthorizeCall.get(method="GET")
@@ -390,6 +392,22 @@ def test_orcid_login(client):
     assert resp.status_code == 302
     url = urlparse(resp.location)
     assert url.path == '/'
+
+    # w/o SALT:
+    client.application.config["SALT"] = None
+    token = utils.generate_confirmation_token(email=u.email, org=org.name)
+    resp = client.get("/orcid/login/" + token.decode("utf-8"))
+    assert resp.status_code == 200
+    orcid_authorize = OrcidAuthorizeCall.get(method="GET")
+    assert "&email=test123%40test.test.net" in orcid_authorize.url
+
+    expired_token = utils.generate_confirmation_token(expiration=-1, email=u.email, org=org.name)
+    resp = client.get("/orcid/login/" + expired_token.decode("utf-8"))
+    # putting sleep for token expiry.
+    assert resp.status_code == 302
+    url = urlparse(resp.location)
+    assert url.path == '/'
+
 
 
 def fetch_token_mock(self,
