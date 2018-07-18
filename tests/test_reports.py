@@ -11,11 +11,11 @@ def test_admin_view_access(request_ctx):
     user = User.get(email="root@test0.edu")
     with request_ctx("/org_invitatin_summary") as ctx:
         login_user(user, remember=True)
-        rv = ctx.app.full_dispatch_request()
-        assert rv.status_code == 200
-        assert b"<!DOCTYPE html>" in rv.data, "Expected HTML content"
-        assert b"Organisation Invitation Summary" in rv.data
-        assert b"root@test0.edu" in rv.data
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 200
+        assert b"<!DOCTYPE html>" in resp.data, "Expected HTML content"
+        assert b"Organisation Invitation Summary" in resp.data
+        assert b"root@test0.edu" in resp.data
 
 
 def test_user_invitation_summary(request_ctx):
@@ -23,11 +23,11 @@ def test_user_invitation_summary(request_ctx):
     user = User.get(email="root@test0.edu")
     with request_ctx("/user_invitatin_summary") as ctx:
         login_user(user, remember=True)
-        rv = ctx.app.full_dispatch_request()
-        assert rv.status_code == 200
-        assert b"<!DOCTYPE html>" in rv.data, "Expected HTML content"
-        assert b"User Invitation Summary" in rv.data
-        assert b"root@test0.edu" in rv.data
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 200
+        assert b"<!DOCTYPE html>" in resp.data, "Expected HTML content"
+        assert b"User Invitation Summary" in resp.data
+        assert b"root@test0.edu" in resp.data
 
 
 def test_user_summary(request_ctx):
@@ -63,3 +63,30 @@ def test_user_summary(request_ctx):
         login_user(user, remember=True)
         resp = ctx.app.full_dispatch_request()
         assert resp.status_code == 302
+
+
+def test_user_cv(client):
+    """Test user CV."""
+    user0 = User.get(email="root@test0.edu")
+    client.login(user0)
+    resp = client.get("/user_cv")
+    assert resp.status_code == 302
+
+    user = User.get(email="researcher101@test0.edu")
+    client.login(user)
+
+    resp = client.get("/user_cv")
+    assert resp.status_code == 200
+    assert b"iframe" in resp.data
+    assert user.first_name.encode() not in resp.data
+
+    resp = client.get("/user_cv/show")
+    assert resp.status_code == 200
+    assert user.first_name.encode() in resp.data
+    assert user.last_name.encode() in resp.data
+
+    resp = client.get("/user_cv/download")
+    assert resp.status_code == 200
+    assert user.name.replace(' ', '_') in resp.headers["Content-Disposition"]
+    assert user.first_name.encode() in resp.data
+    assert user.last_name.encode() in resp.data

@@ -5,6 +5,7 @@ LABEL maintainer="The University of Auckland" \
 
 COPY dev_requirements.txt /dev_requirements.txt
 COPY requirements.txt /requirements.txt
+COPY run-app /usr/local/bin/
 
 RUN yum -y update \
     && yum -y install  install https://download.postgresql.org/pub/repos/yum/9.6/redhat/rhel-7-x86_64/pgdg-redhat96-9.6-3.noarch.rpm \
@@ -15,8 +16,6 @@ RUN yum -y update \
             python36u-pip \
             git \
     && pip3.6 install -U pip \
-    && pip3.6 install -U git+https://github.com/Royal-Society-of-New-Zealand/zap-cli \
-    && pip3.6 install -U flake8_docstrings pytest-cov coveralls pyyaml \
     && pip3.6 install -U -r /dev_requirements.txt \
     && cd /var/lib/rpm \
     && rm -rf __db* \

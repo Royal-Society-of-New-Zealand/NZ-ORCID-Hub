@@ -6,7 +6,7 @@ services:
   - docker
 
 env:
-  - ENV=dev PGPORT=54321 USER_UID=$(id -u) USER_GID=$(id -g) DOMAIN=build.orcidhub.org.nz PROD_BRANCH=V4 UAT_BRANCH=V4
+  - ENV=dev PGPORT=54321 USER_UID=$(id -u) USER_GID=$(id -g) DOMAIN=build.orcidhub.org.nz PROD_BRANCH=V4 UAT_BRANCH=V4 DATABASE_URL=postgresql://orcidhub@db/orcidhub?options='-c statement_timeout=3000'
 
 before_install:
   - sudo rm /usr/local/bin/docker-compose
@@ -32,6 +32,7 @@ script:
   - docker-compose exec app curl -k -s https://localhost/pyinfo -o /dev/null && echo "WSGI is working..."
   - docker-compose exec app w3c_validator https://localhost https://localhost/about https://localhost/faq
   - docker-compose exec app ./pytest.sh
+  - docker-compose logs app
   # - docker-compose exec app env PATH="/tmp/OpenJDK-1.8.0.141-x86_64-bin/bin":$PATH ZAP_PATH="/tmp/ZAP_2.6.0/" LANG=en_US.UTF-8 zap-cli --verbose --port 8099 --api-key 12345 quick-scan -s xss,sqli --self-contained -o '-config api.key=12345' --spider -r http://127.0.0.1:5000/
 
 after_success:

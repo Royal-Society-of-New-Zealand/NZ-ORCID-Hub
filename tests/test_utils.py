@@ -44,12 +44,10 @@ def test_generate_confirmation_token():
     data = utils.confirm_token(token)
     # Test positive testcase
     assert 'testemail@example.com' == data[0]
-    import time
-    time.sleep(1)
-    with pytest.raises(Exception) as ex_info:
-        utils.confirm_token(token)
-    # Got exception
-    assert "Signature expired" in ex_info.value.message
+
+    token = utils.generate_confirmation_token(["testemail@example.com"], expiration=-1)
+    is_valid, token = utils.confirm_token(token)
+    assert not is_valid
 
     _salt = utils.app.config["SALT"]
     utils.app.config["SALT"] = None
