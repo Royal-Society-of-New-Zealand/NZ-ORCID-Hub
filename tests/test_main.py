@@ -409,7 +409,6 @@ def test_orcid_login(client):
     assert url.path == '/'
 
 
-
 def fetch_token_mock(self,
                      token_url=None,
                      code=None,
