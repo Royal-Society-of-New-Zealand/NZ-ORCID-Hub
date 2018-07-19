@@ -233,11 +233,12 @@ def handle_login():
             user.eppn = eppn
     else:
 
-        if ENV != "dev" and not (unscoped_affiliation & {"faculty", "staff", "student"}):
-            msg = f"Access Denied! Your account (email: {email}, eppn: {eppn}) is not affiliated with '{shib_org_name}'"
-            app.logger.error(msg)
-            flash(msg, "danger")
-            return redirect(url_for("index"))
+        if not (unscoped_affiliation & {"faculty", "staff", "student"}):
+            msg = f"You cannot automatically have your association with '{shib_org_name}' recognised as your " \
+                  f"relationship according to your identity provider is '{unscoped_affiliation}' and not one " \
+                  f"eligible: 'staff', 'faculty' or 'student'. If this is incorrect please contact your organisation."
+            app.logger.warning(msg)
+            flash(msg, "warning")
 
         user = User.create(
             email=email,
