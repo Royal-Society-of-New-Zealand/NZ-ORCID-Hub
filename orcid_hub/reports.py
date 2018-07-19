@@ -10,6 +10,7 @@ from . import app
 from .forms import DateRangeForm
 from .login_provider import roles_required
 from .models import OrcidToken, Organisation, OrgInvitation, Role, User, UserInvitation, UserOrg
+from .orcid_client import MemberAPI
 
 
 @app.route("/user_summary")
@@ -134,12 +135,37 @@ def user_cv(op=None):
     user = current_user
     if not user.orcid:
         flash("You haven't linked your account with ORCID.", "warning")
-        return redirect(request.referrer or url_for('index'))
+        return redirect(request.referrer or url_for("index"))
+    token = OrcidToken.select(OrcidToken.access_token).where(
+            OrcidToken.user_id == user.id,
+            OrcidToken.scope.contains("read-limited")).first()
+    if token is None:
+        flash("You haven't granted your organisation necessary access to your profile..", "danger")
+        return redirect(request.referrer or url_for("link"))
 
     if op is None:
         return render_template("user_cv.html")
     else:
-        resp = make_response(render_template("CV.html", user=user, now=datetime.now()))
+        api = MemberAPI(user=user, access_token=token.access_token)
+        record = api.get_record()
+        # import pdb; pdb.set_trace()
+
+        works = [
+            w for g in record.get("activities-summary", "works", "group")
+            for w in g.get("work-summary")
+        ]
+        educations = record.get("activities-summary", "educations", "education-summary")
+        employments = record.get("activities-summary", "employments", "employment-summary")
+
+        resp = make_response(
+            render_template(
+                "CV.html",
+                user=user,
+                now=datetime.now(),
+                record=record,
+                works=works,
+                educations=educations,
+                employments=employments))
         resp.headers["Cache-Control"] = "private, max-age=60"
         # resp.headers["Content-Type"] = "application/rtf"
         if op == "download" or "download" in request.args:
