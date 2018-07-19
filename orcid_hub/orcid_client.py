@@ -22,6 +22,21 @@ url = urlparse(ORCID_API_BASE)
 configuration.host = url.scheme + "://" + url.hostname
 
 
+class NestedDict(dict):
+    """Helper for traversing a nested dictionaries."""
+
+    def get(self, *keys, default=None):
+        """To get the value from uploaded fields."""
+        d = self
+        for k in keys:
+            if not d:
+                break
+            if not isinstance(d, dict):
+                return default
+            d = super(NestedDict, d).get(k, default)
+        return d
+
+
 class OrcidRESTClientObject(rest.RESTClientObject):
     """REST Client with call logging."""
 
@@ -146,7 +161,7 @@ class MemberAPI(MemberAPIV20Api):
             app.logger.info(f"Body: {resp.data.decode()}")
             return None
 
-        return json.loads(resp.data.decode())
+        return json.loads(resp.data.decode(), object_pairs_hook=NestedDict)
 
     def is_emp_or_edu_record_present(self, affiliation_type):
         """Determine if there is already an affiliation record for the user.

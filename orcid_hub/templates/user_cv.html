@@ -16,6 +16,10 @@
         <span class="pull-right" style="padding-bottom: 40px;">
           <a
 					  role="button"
+						class="btn btn-default"
+						href="{{ url_for('user_cv', op='show') }}">Preview</a>
+          <a
+					  role="button"
 						class="btn btn-primary"
 						href="{{ url_for('user_cv', op='download') }}">Download</a>
         </span>

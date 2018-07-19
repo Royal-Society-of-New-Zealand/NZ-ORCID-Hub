@@ -1404,17 +1404,19 @@ admin.add_view(GroupIdRecordAdmin(GroupIdRecord))
 def year_range(entry):
     """Show an interval of employment in years."""
     val = ""
-    if entry.get("start_date") is None or entry["start_date"]["year"]["value"] is None:
-        val = "unknown"
-    else:
-        val = entry["start_date"]["year"]["value"]
 
+    start_date = entry.get("start_date") or entry.get("start-date")
+    if start_date and start_date["year"]["value"]:
+        val = start_date["year"]["value"]
+    else:
+        val = "unknown"
     val += "-"
 
-    if entry.get("end_date") is None or entry["end_date"]["year"]["value"] is None:
-        val += "present"
+    end_date = entry.get("end_date") or entry.get("entry-date")
+    if end_date and end_date["year"]["value"]:
+        val += end_date["year"]["value"]
     else:
-        val += entry["end_date"]["year"]["value"]
+        val += "present"
     return val
 
 
