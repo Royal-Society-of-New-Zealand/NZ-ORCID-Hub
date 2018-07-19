@@ -2,8 +2,10 @@
 """Tests for core functions."""
 
 from flask_login import login_user
+from unittest.mock import Mock, patch
+from urllib.parse import urlparse
 
-from orcid_hub.models import User
+from orcid_hub.models import OrcidToken, User
 
 
 def test_admin_view_access(request_ctx):
@@ -65,7 +67,8 @@ def test_user_summary(request_ctx):
         assert resp.status_code == 302
 
 
-def test_user_cv(client):
+@patch("orcid_hub.reports.MemberAPI")
+def test_user_cv(mock, client):
     """Test user CV."""
     user0 = User.get(email="root@test0.edu")
     client.login(user0)
@@ -76,6 +79,17 @@ def test_user_cv(client):
     client.login(user)
 
     resp = client.get("/user_cv")
+    assert resp.status_code == 302
+    url = urlparse(resp.location)
+    assert url.path == '/link'
+
+    OrcidToken.create(
+        access_token="ABC1234567890",
+        user=user,
+        org=user.organisation,
+        scope="/scope/read-limited")
+
+    resp = client.get("/user_cv")
     assert resp.status_code == 200
     assert b"iframe" in resp.data
     assert user.first_name.encode() not in resp.data
@@ -84,9 +98,14 @@ def test_user_cv(client):
     assert resp.status_code == 200
     assert user.first_name.encode() in resp.data
     assert user.last_name.encode() in resp.data
+    mock.assert_called_once_with(access_token="ABC1234567890", user=user)
+    mock.return_value.get_record.assert_called_once_with()
 
+    mock.reset_mock()
     resp = client.get("/user_cv/download")
     assert resp.status_code == 200
     assert user.name.replace(' ', '_') in resp.headers["Content-Disposition"]
     assert user.first_name.encode() in resp.data
     assert user.last_name.encode() in resp.data
+    mock.assert_called_once_with(access_token="ABC1234567890", user=user)
+    mock.return_value.get_record.assert_called_once_with()

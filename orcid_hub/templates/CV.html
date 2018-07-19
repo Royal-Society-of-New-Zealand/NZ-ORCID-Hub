@@ -3,13 +3,80 @@
 <head>
 	<meta http-equiv="content-type" content="text/html; charset=utf-8"/>
 	<title></title>
+  <meta charset="UTF-8">
   <meta name="generator" content="{{config.APP_NAME}}"/>
-	<meta name="created" content="00:00:00"/>
-	<meta name="changed" content="00:00:00"/>
+  <meta name="created" content="{{ now.isoformat(timespec='seconds') }}"/>
+  <meta name="date.created" content="{{ now.date().isoformat() }}"/>
+  <meta name="description" content="New Zealand Standard Curriculum Vitae Template">
+  <meta name="keywords" content="CV,Curriculum Vitae,Resume">
+  <meta name="author" content="{{config.APP_NAME}}">
 	<style type="text/css">
-		@page { size: 21.59cm 27.94cm; margin-left: 3.18cm; margin-right: 3.18cm; margin-top: 2.54cm; margin-bottom: 2.54cm }
+
 		p { margin-bottom: 0.25cm; line-height: 120% }
 		a:link { so-language: zxx }
+    /* defaults  for screen */
+    #print-head, #print-foot {
+      display: none;
+    }
+
+    @page {
+      size: 21.59cm 27.94cm;
+      margin-left: 3.18cm;
+      margin-right: 3.18cm; margin-top: 2.54cm; margin-bottom: 2.54cm;
+      @top-left-corner {content:"";}
+      @top-left {content:"";}
+      @top-center {content:"";}
+      @top-right {content:"";}
+      @top-right-corner {content:"";}
+      @bottom-left-corner {content:"";}
+      @bottom-left {
+        content: counter(page) "/" counter(pages);
+      }
+      @bottom-center {content:"";}
+      @bottom-right {content:"";}
+      @bottom-right-corner {content:"";}
+    }
+    /* print only */
+    @media print {
+
+      h1 {
+         page-break-before: always;
+         padding-top: 2em;
+      }
+
+      body {
+        counter-reset: page;
+      }
+
+      h1:first-child {
+        page-break-before: avoid;
+      }
+
+      #print-head {
+          display: block;
+          position: fixed;
+          top: 0pt;
+          left:0pt;
+          right: 0pt;
+
+          font-size: 200%;
+          text-align: center;
+      }
+
+      #print-foot {
+         display: block;
+         position: fixed;
+         bottom: 0pt;
+         right: 0pt;
+
+        font-size: 200%;
+      }
+
+      #print-foot:after {
+          content: counter(page);
+          counter-increment: page;
+      }
+  }
 	</style>
 </head>
 <body lang="en-NZ" dir="ltr">
@@ -67,7 +134,6 @@ italics should be deleted before you submit your CV.</span></i></font></font></p
 		</td>
 		<td colspan="7" width="409" style="border: 1px solid #000001; padding: 0cm 0.19cm">
 			<p style="font-style: normal; font-weight: normal"><br/>
-
 			</p>
 		</td>
 	</tr>
@@ -76,9 +142,7 @@ italics should be deleted before you submit your CV.</span></i></font></font></p
 			<p><font face="Arial, serif"><font size="3" style="font-size: 12pt"><span style="font-style: normal"><b>Organisation/Employer</b></span></font></font></p>
 		</td>
 		<td colspan="7" width="409" style="border: 1px solid #000001; padding: 0cm 0.19cm">
-			<p style="font-style: normal; font-weight: normal"><br/>
-
-			</p>
+      <p style="font-style: normal; font-weight: normal">{{ user.organisation.name }}</p>
 		</td>
 	</tr>
 	<tr valign="top">
@@ -139,9 +203,7 @@ italics should be deleted before you submit your CV.</span></i></font></font></p
 			<p><font face="Arial, serif"><font size="3" style="font-size: 12pt"><span style="font-style: normal"><b>Email</b></span></font></font></p>
 		</td>
 		<td colspan="9" width="448" style="border: 1px solid #000001; padding: 0cm 0.19cm">
-			<p style="font-style: normal; font-weight: normal"><br/>
-
-			</p>
+      <p style="font-style: normal; font-weight: normal">{{ user.email }}</p>
 		</td>
 	</tr>
 	<tr valign="top">
@@ -167,15 +229,18 @@ italics should be deleted before you submit your CV.</span></i></font></font></p
 		</td>
 	</tr>
 </table>
+
 <p style="margin-bottom: 0cm; line-height: 100%"><font face="Arial, serif"><font size="3" style="font-size: 12pt"><i><span style="font-weight: normal">Delete
 and start typing here.  List in reverse date order.  Start each
 qualification on a new line as per the example:</span></i></font></font></p>
 <p style="margin-bottom: 0cm; line-height: 100%"><font face="Arial, serif"><font size="3" style="font-size: 12pt"><i><span style="font-weight: normal">e.g.
 Year conferred, qualification, discipline, university/institute.</span></i></font></font></p>
-<p style="margin-bottom: 0cm; font-style: normal; font-weight: normal; line-height: 100%">
-<br/>
+<ul>
+{% for e in educations %}
+  <li>{{ e | year_range }}, {{ e.get("role-title") }}, {{ e.get("organization", "name") }}, {{ e.get("department-name") }}</li>
+{% endfor %}
+</ul>
 
-</p>
 <table width="612" cellpadding="7" cellspacing="0">
 	<col width="596">
 	<tr>
@@ -190,10 +255,12 @@ and start typing here.  List in reverse date order.  Start each
 position on a new line as per the example:</span></i></font></font></p>
 <p style="margin-bottom: 0cm; line-height: 100%"><font face="Arial, serif"><font size="3" style="font-size: 12pt"><i><span style="font-weight: normal">e.g.
 Year-year, job title, organisation.</span></i></font></font></p>
-<p style="margin-bottom: 0cm; font-style: normal; font-weight: normal; line-height: 100%">
-<br/>
+<ul>
+{% for e in employments %}
+  <li>{{ e | year_range }}, {{ e.get("role-title") }}, {{ e.get("organization", "name") }}, {{ e.get("department-name") }}</li>
+{% endfor %}
+</ul>
 
-</p>
 <table width="612" cellpadding="7" cellspacing="0">
 	<col width="596">
 	<tr>
@@ -323,12 +390,13 @@ The following sections should not total more than three pages.</span></i></font>
 	<tr>
 		<td width="596" valign="top" bgcolor="#e0e0e0" style="border: 1px solid #000001; padding: 0cm 0.19cm">
 			<p><font face="Arial, serif"><font size="3" style="font-size: 12pt"><span style="font-style: normal"><b>2a.
-			  Research publications and dissemination </b></span></font></font>
+			  Research publications and dissemination</b></span></font></font>
 			</p>
 		</td>
 	</tr>
 </table>
-<p style="margin-bottom: 0cm; line-height: 100%"><font face="Arial, serif"><font size="3" style="font-size: 12pt"><i><span style="font-weight: normal">Expand/reduce
+<p style="margin-bottom: 0cm; line-height: 100%">
+        <font face="Arial, serif"><font size="3" style="font-size: 12pt"><i><span style="font-weight: normal">Expand/reduce
 the following table as needed, listing publications relevant to your
 proposal.  List in reverse date order.  </span></i></font></font><font face="Arial, serif"><font size="3" style="font-size: 12pt"><i><b>Bold</b></i></font></font><font face="Arial, serif"><font size="3" style="font-size: 12pt"><i><span style="font-weight: normal">
 your name in lists of authors.</span></i></font></font></p>
@@ -494,17 +562,12 @@ and expand box below as necessary.</span></i></font></font></p>
 		</td>
 	</tr>
 </table>
-<p style="margin-bottom: 0cm; font-style: normal; line-height: 100%"><br/>
 
-</p>
-<p style="margin-bottom: 0.21cm; font-style: normal; font-weight: normal; line-height: 0.46cm">
-<br/>
-<br/>
-
-</p>
-<p style="margin-bottom: 0.35cm; line-height: 115%"><br/>
-<br/>
-
-</p>
+<div id="print-head">
+  Heading for paged media
+</div>
+<div id="print-foot">
+  Page:
+</div>
 </body>
 </html>
