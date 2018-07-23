@@ -2,7 +2,7 @@
 """Tests for core functions."""
 
 from flask_login import login_user
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 from urllib.parse import urlparse
 
 from orcid_hub.models import OrcidToken, User
