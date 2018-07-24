@@ -1,0 +1,29 @@
+{% extends "layout.html" %}
+{% block content %}
+  <div class="container">
+    <div class="row">
+      <div class="col-md-12">
+        <h2 class="display-2">Your Curriculum Vitae</h2>
+      </div>
+		</div>
+    <div class="row">
+      <div class="col-md-12">
+        <iframe src="{{url_for('user_cv', op='show')}}" width="100%" height="300"></iframe>
+      </div>
+		</div>
+    <div class="row">
+      <div class="col-md-12">
+        <span class="pull-right" style="padding-bottom: 40px;">
+          <a
+					  role="button"
+						class="btn btn-default"
+						href="{{ url_for('user_cv', op='show') }}">Preview</a>
+          <a
+					  role="button"
+						class="btn btn-primary"
+						href="{{ url_for('user_cv', op='download') }}">Download</a>
+        </span>
+      </div>
+    </div>
+  </div>
+{% endblock %}

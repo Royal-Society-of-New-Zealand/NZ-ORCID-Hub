@@ -173,13 +173,13 @@ def test_orcid_validation(test_form):  # noqa
     orcid_id.data = "INVALID FORMAT"
     with pytest.raises(ValueError) as excinfo:
         validate_orcid_id_field(test_form, orcid_id)
-    assert "Invalid ORCID iD. It should be in the form of 'xxxx-xxxx-xxxx-xxxx' where x is a digit." in str(
-        excinfo.value)
+    assert f"Invalid ORCID iD {orcid_id.data}. It should be in the form of 'xxxx-xxxx-xxxx-xxxx' where x is a digit." \
+           in str(excinfo.value)
 
     orcid_id.data = "0000-0001-8228-7154"
     with pytest.raises(ValueError) as excinfo:
         validate_orcid_id_field(test_form, orcid_id)
-    assert "Invalid ORCID iD checksum. Make sure you have entered correct ORCID iD." in str(
+    assert f"Invalid ORCID iD {orcid_id.data} checksum. Make sure you have entered correct ORCID iD." in str(
         excinfo.value)
 
 

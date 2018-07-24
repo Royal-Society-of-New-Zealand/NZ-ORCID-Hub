@@ -1,0 +1,187 @@
+name: Work Schema
+desc: This schema is added to validate correct work input from research organisation admin
+type: map
+mapping:
+    invitees:
+        type: seq
+        sequence:
+          -
+            type: map
+            mapping:
+                identifier:
+                    type: str
+                email:
+                    type: str
+                first-name:
+                    type: str
+                last-name:
+                    type: str
+                ORCID-iD:
+                    type: str
+                put-code:
+                    type: int
+                visibility:
+                    type: str
+    created-date:
+        type: map
+        mapping:
+            value:
+                type: timestamp
+    last-modified-date:
+        type: map
+        mapping:
+            value:
+                type: timestamp
+    source:
+        type: map
+        mapping:
+            source-orcid:
+                type: map
+                mapping:
+                    uri:
+                        type: str
+                    path:
+                        type: str
+                    host:
+                        type: str
+            source-client-id:
+                type: map
+                mapping:
+                    uri:
+                        type: str
+                    path:
+                        type: str
+                    host:
+                        type: str
+            source-name:
+                type: map
+                mapping:
+                    value:
+                        type: str
+    path:
+        type: str
+    title:
+        required: True
+        type: map
+        mapping:
+            title:
+                type: map
+                mapping:
+                    value:
+                        type: str
+            subtitle:
+                type: map
+                mapping:
+                    value:
+                        type: str
+            translated-title:
+                type: map
+                mapping:
+                    value:
+                        type: str
+                    language-code:
+                        type: str
+    journal-title:
+                type: map
+                mapping:
+                    value:
+                        type: str
+    short-description:
+        type: str
+    citation:
+        type: map
+        mapping:
+            citation-type:
+                type: str
+            citation-value:
+                type: str
+    type:
+        type: str
+        required: True
+    publication-date:
+        type: map
+        mapping:
+            year:
+                type: map
+                mapping:
+                    value:
+                        type: str
+            month:
+                type: map
+                mapping:
+                    value:
+                        type: str
+            day:
+                type: map
+                mapping:
+                    value:
+                        type: str
+            media-type:
+                type: str
+    external-ids:
+        type: map
+        mapping:
+            external-id:
+                type: seq
+                sequence:
+                    -
+                        type: map
+                        mapping:
+                            external-id-type:
+                                type: str
+                            external-id-value:
+                                type: str
+                            external-id-url:
+                                type: map
+                                mapping:
+                                    value:
+                                        type: str
+                            external-id-relationship:
+                                type: str
+    url:
+        type: map
+        mapping:
+            value:
+                type: str
+    contributors:
+        type: map
+        mapping:
+            contributor:
+                type: seq
+                sequence:
+                    -
+                        type: map
+                        mapping:
+                            contributor-orcid:
+                                type: map
+                                mapping:
+                                    uri:
+                                        type: str
+                                    path:
+                                        type: str
+                                    host:
+                                        type: str
+                            credit-name:
+                                type: map
+                                mapping:
+                                    value:
+                                        type: str
+                            contributor-email:
+                                type: map
+                                mapping:
+                                    value:
+                                        type: str
+                            contributor-attributes:
+                                type: map
+                                mapping:
+                                    contributor-sequence:
+                                        type: str
+                                    contributor-role:
+                                        type: str
+    language-code:
+        type: str
+    country:
+        type: map
+        mapping:
+            value:
+                type: str

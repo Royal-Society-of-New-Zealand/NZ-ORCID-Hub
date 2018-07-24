@@ -52,7 +52,7 @@
       <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.min.js"></script>
       <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
       <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-select/1.12.4/js/bootstrap-select.min.js"></script>
-      <!-- script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-select/1.12.4/js/i18n/defaults-*.min.js"></script -->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.20.1/moment.min.js"></script>
       {% block footer %}{% endblock %}
 
       <script>
@@ -74,6 +74,11 @@ function safeConfirm(msg) {
 }
 
 $(document).ready(function(){
+  $("time").each(function () {
+     var el = $(this);
+     var dt = moment.utc(el.attr("datetime")).local();
+     el.html(dt.format(el.data("format") || "YYYY[&#8209;]MM[&#8209;]DD[&nbsp;]HH:mm"));
+  });
   $('[data-toggle="tooltip"]').tooltip();
   $("#{{request.endpoint}}").addClass("active");
   // Google Analytics

@@ -7,32 +7,40 @@
     regardless of technical resources. The technology partner, with oversight from
     the IT Advisory Group, lead agency and ORCID, will develop and maintain the Hub.
 
-    :copyright: (c) 2017 Royal Society of New Zealand.
+    :copyright: (c) 2017, 2018 Royal Society of New Zealand.
     :license: MIT, see LICENSE for more details.
 """
 
-__version__ = "4.1.2"
-
 import logging
 import os
-import sys
+import pkg_resources
+from datetime import date, datetime
 
 import click
+from flask.json import JSONEncoder as _JSONEncoder
 from flask_login import current_user, LoginManager
 from flask import Flask, request
-from flask_debugtoolbar import DebugToolbarExtension
 from flask_oauthlib.provider import OAuth2Provider
 from flask_peewee.rest import Authentication, RestAPI
+from flask_restful import Api
 from peewee import PostgresqlDatabase
 from playhouse import db_url
 # from playhouse.shortcuts import RetryOperationalError
 # disable Sentry if there is no SENTRY_DSN:
 from raven.contrib.flask import Sentry
 
-from .config import *  # noqa: F401, F403
+from . import config
 from .failover import PgDbWithFailover
 from flask_admin import Admin
 from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+
+
+try:
+    dist = pkg_resources.get_distribution(__name__)
+    __version__ = dist.version
+except pkg_resources.DistributionNotFound:
+    __version__ = None
 
 
 # http://docs.peewee-orm.com/en/latest/peewee/database.html#automatic-reconnect
@@ -43,16 +51,21 @@ from flask_limiter import Limiter
 
 
 app = Flask(__name__, instance_relative_config=True)
-app.config.from_object(__name__)
+app.config.from_object(config)
 if not app.config.from_pyfile("settings.cfg", silent=True) and app.debug:
-    print("*** WARNING: Faile to laod local application configuration from 'instance/settins.cfg'")
+    filename = os.path.join(app.config.root_path, "settings.cfg")
+    print(f"*** WARNING: Failed to laod local application configuration from '{filename}'")
+
+
 app.url_map.strict_slashes = False
 oauth = OAuth2Provider(app)
+api = Api(app)
 limiter = Limiter(
     app,
+    key_func=get_remote_address,
     headers_enabled=True,
     default_limits=[
-        "40 per second",  # burst
+        "40 per second",  # burst: 40/sec
         "1440 per minute",  # allowed max: 24/sec
     ])
 DATABASE_URL = app.config.get("DATABASE_URL")
@@ -64,6 +77,21 @@ if DATABASE_URL.startswith("sqlite"):
     db = db_url.connect(DATABASE_URL, autorollback=True)
 else:
     db = db_url.connect(DATABASE_URL, autorollback=True, connect_timeout=3)
+
+
+class JSONEncoder(_JSONEncoder):
+    """date and datetime encoding into ISO format for JSON payload."""
+
+    def default(self, o):
+        """Provide default endocing for date and datetime."""
+        if isinstance(o, datetime):
+            return o.isoformat(timespec="seconds")
+        elif isinstance(o, date):
+            return o.isoformat()
+        return super().default(o)
+
+
+app.json_encoder = JSONEncoder
 
 
 class UserAuthentication(Authentication):
@@ -131,7 +159,7 @@ class DataRestAPI(RestAPI):
 
 
 default_auth = AppAuthentication(app_auth=True)
-api = DataRestAPI(app, prefix="/data/api/v0.1", default_auth=default_auth, name="data_api")
+data_api = DataRestAPI(app, prefix="/data/api/v0.1", default_auth=default_auth, name="data_api")
 
 admin = Admin(
     app, name="NZ ORCiD Hub", template_mode="bootstrap3", base_template="admin/master.html")
@@ -147,26 +175,43 @@ login_manager.login_view = "index"
 login_manager.login_message_category = "info"
 login_manager.init_app(app)
 
+from .queuing import __redis_available, rq  # noqa: F401
 from . import models  # noqa: F401
-from .api import *  # noqa: F401,F403
+from .apis import *  # noqa: F401,F403
+from .data_apis import *  # noqa: F401,F403
 from .authcontroller import *  # noqa: F401,F403
 from .views import *  # noqa: F401,F403
 from .oauth import *  # noqa: F401,F403
 from .reports import *  # noqa: F401,F403
 
+
+from .utils import process_records  # noqa: E402
 if app.testing:
     from .mocks import mocks
     app.register_blueprint(mocks)
 
-from .utils import (process_affiliation_records, process_funding_records,
-                    process_tasks)  # noqa: E402
+if __redis_available:
+    from . import schedule  # noqa: E402
+    schedule.setup()
 
 
 @app.before_first_request
-def setup_logging():
-    """Set-up logger to log to STDOUT (eventually conainer log)."""
+def setup_app():
+    """Set-up logger to log to STDOUT (eventually conainer log), set up the DB, and some other setttings."""
     app.logger.addHandler(logging.StreamHandler())
     app.logger.setLevel(logging.DEBUG if app.debug else logging.WARNING)
+    models.create_tables()
+    if app.config.get("SHIBBOLETH_DISABLED") is None:
+        app.config["SHIBBOLETH_DISABLED"] = not (
+            ("mod_wsgi.version" in request.environ and "SHIB_IDP_DOMAINNAME" in os.environ)
+            or "EXTERNAL_SP" in os.environ)
+
+
+@app.after_request
+def apply_x_frame(response):
+    """Include X-frame header in http response to protect against clickhiJacking."""
+    response.headers["X-Frame-Options"] = "SAMEORIGIN"
+    return response
 
 
 @app.cli.command()
@@ -207,7 +252,7 @@ def initdb(create=False, drop=False, force=False, audit=True, verbose=False):
 @click.option("--orcid", help="User's ORCID iD (for the users authenticated via ORCID).")
 @click.option("-I", "--internal-org-name", help="Internal organisation name (e.g., used by IdPs).")
 @click.argument("email", nargs=1)
-def create_hub_administrator(email=False,
+def create_hub_administrator(email,
                              name=None,
                              force=False,
                              verbose=False,
@@ -221,9 +266,7 @@ def create_hub_administrator(email=False,
             logger.setLevel(logging.DEBUG)
             logger.addHandler(logging.StreamHandler())
     if not models.User.table_exists() or not models.Organisation.table_exists():
-        app.logger.error(
-            "Database tables doensn't exist. Please, firts initialize the datatabase.")
-        sys.exit(1)
+        models.create_tables()
 
     super_user, created = models.User.get_or_create(email=email)
 
@@ -263,10 +306,8 @@ def org_info(input):
 @app.cli.command()
 @click.option("-n", default=20, help="Max number of rows to process.")
 def process(n):
-    """Process uploaded affiliation and funding records."""
-    process_affiliation_records(n)
-    process_funding_records(n)
-    process_tasks(n)
+    """Process uploaded records."""
+    process_records(n)
 
 
 if os.environ.get("ENV") == "dev0":
@@ -276,7 +317,11 @@ if os.environ.get("ENV") == "dev0":
     app.debug = True
 
 if app.debug:
-    toolbar = DebugToolbarExtension(app)
-    # logger = logging.getLogger('peewee')
-    # logger.setLevel(logging.DEBUG)
-    # logger.addHandler(logging.StreamHandler())
+    try:
+        from flask_debugtoolbar import DebugToolbarExtension
+        toolbar = DebugToolbarExtension(app)
+        # logger = logging.getLogger('peewee')
+        # logger.setLevel(logging.DEBUG)
+        # logger.addHandler(logging.StreamHandler())
+    except ModuleNotFoundError:
+        pass

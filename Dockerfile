@@ -2,11 +2,11 @@ FROM centos:centos7
 ENV LANG=en_US.UTF-8
 
 LABEL maintainer="The University of Auckland" \
-	version="4.4" \
 	description="NZ ORCiD Hub Application Image with Development support"
 
 ADD http://download.opensuse.org/repositories/security://shibboleth/CentOS_7/security:shibboleth.repo /etc/yum.repos.d/shibboleth.repo
-
+# fix download.opensuse.org not available
+RUN sed -i 's|download|downloadcontent|g' /etc/yum.repos.d/shibboleth.repo
 COPY conf/app.wsgi /var/www/html/
 # prefix "ZZ" added, that it gest inluded the very end (after Shibboleth gets loaded)
 COPY conf/app.conf /etc/httpd/conf.d/ZZ-app.conf
@@ -14,6 +14,7 @@ COPY requirements.txt /
 # COPY setup.py /
 # COPY orcid_api /orcid_api
 # COPY orcid_hub /orcid_hub
+COPY setup.* orcid* /
 COPY run-app /usr/local/bin/
 COPY ./conf /conf
 
@@ -28,8 +29,7 @@ RUN yum -y update \
         python36u.x86_64 \
         python36u-devel.x86_64 \
         python36u-pip \
-    && pip3.6 install mod_wsgi psycopg2 \
-    && pip3.6 install -U -r /requirements.txt \
+    && pip3.6 install -U pip mod_wsgi psycopg2-binary . \
     && /usr/bin/mod_wsgi-express module-config >/etc/httpd/conf.modules.d/10-wsgi.conf \
     && [ -d /var/run/lock ] || mkdir -p /var/run/lock \
     && [ -d /var/lock/subsys/ ] || mkdir -p /var/lock/subsys/ \
@@ -89,8 +89,7 @@ RUN yum -y update \
     && rm -rf /var/cache/yum \
     && rm -rf $HOME/.pip/cache \
     && rm -rf /var/cache/*/* /anaconda-post.log \
-    && rm -rf /requirements.txt /orcid_api \
-    && rm -rf /swagger_client.egg-info /orcid
+    && rm -rf /requirements.txt /swagger_client.egg-info /setup.* /orcid_*
 
 
 EXPOSE 80 443

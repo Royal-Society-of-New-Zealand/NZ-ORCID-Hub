@@ -18,7 +18,7 @@ echo "Shibboleth SP Domainname (\$SHIB_SP_DOMAINNAME): \"$SHIB_SP_DOMAINNAME\""
 if [ -z "$SHIB_IDP_DOMAINNAME" ] ; then
   if [ "$ENV" != "prod" ] && [ "$ENV" != "test" ]; then
     SHIB_IDP_DOMAINNAME=directory.test.tuakiri.ac.nz
-  else 
+  else
     SHIB_IDP_DOMAINNAME=directory.tuakiri.ac.nz
   fi
 fi
@@ -30,7 +30,7 @@ echo "Shibboleth SSO Discovery URL: $SHIB_SSO_DS_URL"
 if [ -z "$SHIB_METADATA_PROVIDER_URI" ] ; then
   if [ "$ENV" != "prod" ] && [ "$ENV" != "test" ]; then
     SHIB_METADATA_PROVIDER_URI=https://${SHIB_IDP_DOMAINNAME}/metadata/tuakiri-test-metadata-signed.xml
-  else 
+  else
     SHIB_METADATA_PROVIDER_URI=https://${SHIB_IDP_DOMAINNAME}/metadata/tuakiri-metadata-signed.xml
   fi
 fi
@@ -39,7 +39,7 @@ echo "Shibboleth metadata provider URI (\$SHIB_METADATA_PROVIDER_URI): $SHIB_MET
 if [ -z "$SHIB_METADATA_CERT_FILE" ] ; then
   if [ "$ENV" != "prod" ] && [ "$ENV" != "test" ]; then
     SHIB_METADATA_CERT_FILE=tuakiri-test-metadata-cert.pem
-  else 
+  else
     SHIB_METADATA_CERT_FILE=tuakiri-metadata-cert.pem
   fi
 fi
@@ -79,5 +79,11 @@ echo "Starting Apache2 ..."
 # Re-direct all errors to container logs:
 ln -sfT /dev/stderr /var/log/httpd/error_log
 # ln -sfT /dev/stdout /var/log/httpd/access_log
+
+[ -z $DATABASE_URL ] && DATABASE_URL=postgresql://orcidhub@db:5432/orcidhub?options='-c statement_timeout=3000'
+export DATABASE_URL
+
+[ -z $RQ_REDIS_URL ] && RQ_REDIS_URL=redis://redis:6379/0
+export RQ_REDIS_URL
 
 exec httpd -DFOREGROUND

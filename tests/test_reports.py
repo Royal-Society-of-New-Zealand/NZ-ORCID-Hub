@@ -2,29 +2,110 @@
 """Tests for core functions."""
 
 from flask_login import login_user
+from unittest.mock import patch
+from urllib.parse import urlparse
 
-from orcid_hub.models import User
+from orcid_hub.models import OrcidToken, User
 
 
 def test_admin_view_access(request_ctx):
     """Test if SUPERUSER can run reports."""
-    user = User.get(email="root@test.edu")
+    user = User.get(email="root@test0.edu")
     with request_ctx("/org_invitatin_summary") as ctx:
         login_user(user, remember=True)
-        rv = ctx.app.full_dispatch_request()
-        assert rv.status_code == 200
-        assert b"<!DOCTYPE html>" in rv.data, "Expected HTML content"
-        assert b"Organisation Invitation Summary" in rv.data
-        assert b"root@test.edu" in rv.data
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 200
+        assert b"<!DOCTYPE html>" in resp.data, "Expected HTML content"
+        assert b"Organisation Invitation Summary" in resp.data
+        assert b"root@test0.edu" in resp.data
 
 
 def test_user_invitation_summary(request_ctx):
     """Test user invitation summary."""
-    user = User.get(email="root@test.edu")
+    user = User.get(email="root@test0.edu")
     with request_ctx("/user_invitatin_summary") as ctx:
         login_user(user, remember=True)
-        rv = ctx.app.full_dispatch_request()
-        assert rv.status_code == 200
-        assert b"<!DOCTYPE html>" in rv.data, "Expected HTML content"
-        assert b"User Invitation Summary" in rv.data
-        assert b"root@test.edu" in rv.data
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 200
+        assert b"<!DOCTYPE html>" in resp.data, "Expected HTML content"
+        assert b"User Invitation Summary" in resp.data
+        assert b"root@test0.edu" in resp.data
+
+
+def test_user_summary(request_ctx):
+    """Test user summary."""
+    user = User.get(email="root@test0.edu")
+    with request_ctx("/user_summary?from_date=2017-01-01&to_date=2018-02-28") as ctx:
+        login_user(user, remember=True)
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 200
+        assert b"<!DOCTYPE html>" in resp.data, "Expected HTML content"
+        assert b"TEST0" in resp.data
+        assert b"root@test0.edu" in resp.data
+        assert b"4 / 9 (44%)" in resp.data
+    with request_ctx("/user_summary?from_date=2017-01-01&to_date=2017-12-31") as ctx:
+        login_user(user, remember=True)
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 200
+        assert b"<!DOCTYPE html>" in resp.data, "Expected HTML content"
+        assert b"TEST0" in resp.data
+        assert b"root@test0.edu" in resp.data
+        assert b"0 / 9 (0%)" in resp.data
+    for (sort, desc) in [(0, 0), (0, 1), (1, 0), (1, 1)]:
+        with request_ctx(
+                f"/user_summary?from_date=2017-01-01&to_date=2018-12-31&sort={sort}&desc={desc}"
+        ) as ctx:
+            login_user(user, remember=True)
+            resp = ctx.app.full_dispatch_request()
+            assert resp.status_code == 200
+            data = resp.data.decode()
+            assert f"&sort={0 if sort else 1}&desc=0" in data
+            assert f"&sort={sort}&desc={0 if desc else 1}" in data
+    with request_ctx("/user_summary") as ctx:
+        login_user(user, remember=True)
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 302
+
+
+@patch("orcid_hub.reports.MemberAPI")
+def test_user_cv(mock, client):
+    """Test user CV."""
+    user0 = User.get(email="root@test0.edu")
+    client.login(user0)
+    resp = client.get("/user_cv")
+    assert resp.status_code == 302
+
+    user = User.get(email="researcher101@test0.edu")
+    client.login(user)
+
+    resp = client.get("/user_cv")
+    assert resp.status_code == 302
+    url = urlparse(resp.location)
+    assert url.path == '/link'
+
+    OrcidToken.create(
+        access_token="ABC1234567890",
+        user=user,
+        org=user.organisation,
+        scope="/scope/read-limited")
+
+    resp = client.get("/user_cv")
+    assert resp.status_code == 200
+    assert b"iframe" in resp.data
+    assert user.first_name.encode() not in resp.data
+
+    resp = client.get("/user_cv/show")
+    assert resp.status_code == 200
+    assert user.first_name.encode() in resp.data
+    assert user.last_name.encode() in resp.data
+    mock.assert_called_once_with(access_token="ABC1234567890", user=user)
+    mock.return_value.get_record.assert_called_once_with()
+
+    mock.reset_mock()
+    resp = client.get("/user_cv/download")
+    assert resp.status_code == 200
+    assert user.name.replace(' ', '_') in resp.headers["Content-Disposition"]
+    assert user.first_name.encode() in resp.data
+    assert user.last_name.encode() in resp.data
+    mock.assert_called_once_with(access_token="ABC1234567890", user=user)
+    mock.return_value.get_record.assert_called_once_with()

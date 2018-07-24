@@ -1,0 +1,67 @@
+---
+- invitees:
+  - identifier: '00001'
+    email: contributor1@mailinator.com
+    first-name: Alice
+    last-name: Contributor 1
+    ORCID-iD: null
+    put-code: null
+    visibility: null
+  - identifier: '00002'
+    email: contributor2@mailinator.com
+    first-name: Bob
+    last-name: Contributor 2
+    ORCID-iD: null
+    put-code: null
+    visibility: null
+  title:
+    title:
+      value: This is a title
+    subtitle: 
+    translated-title:
+      value: हिंदी
+      language-code: hi
+  journal-title:
+    value: This is a journal title
+  short-description: xyz this is short description
+  citation:
+    citation-type: FORMATTED_UNSPECIFIED
+    citation-value: This is citation value
+  type: BOOK_CHAPTER
+  publication-date:
+    year:
+      value: '2001'
+    month:
+      value: '1'
+    day:
+      value: '12'
+    media-type: 
+  external-ids:
+    external-id:
+    - external-id-type: bibcode
+      external-id-value: sdsds
+      external-id-url:
+        value: http://url.edu/abs/ghjghghj
+      external-id-relationship: SELF
+  url: 
+  contributors:
+    contributor:
+    - contributor-attributes:
+        contributor-sequence: 'FIRST'
+        contributor-role: AUTHOR
+      credit-name:
+        value: Associate Professor Alice
+      contributor-email:
+        value: alice.333456@mailinator.com
+      contributor-orcid:
+        uri: https://sandbox.orcid.org/0000-0002-9207-4933
+        path: 0000-0002-9207-4933
+        host: sandbox.orcid.org
+    - contributor-attributes:
+        contributor-sequence: 'ADDITIONAL'
+        contributor-role: AUTHOR
+      credit-name:
+        value: Dr Bob
+  language-code: en
+  country:
+    value: NZ

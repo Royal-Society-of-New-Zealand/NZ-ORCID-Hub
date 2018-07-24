@@ -3,6 +3,7 @@
 
 import pprint
 from unittest.mock import patch, Mock
+from urllib.parse import urlparse
 
 import pytest
 from flask import request, session
@@ -14,27 +15,30 @@ from orcid_hub.models import (Affiliation, OrcidAuthorizeCall, OrcidToken, Organ
                               OrgInvitation, Role, User, UserInvitation, UserOrg)
 
 
-def test_index(client):
+def test_index(client, monkeypatch):
     """Test the landing page."""
-    rv = client.get("/")
-    assert b"<!DOCTYPE html>" in rv.data
-    # assert b"Home" in rv.data
-    assert b"Royal Society of New Zealand" in rv.data, \
-        "'Royal Society of New Zealand' should be present on the index page."
+    with monkeypatch.context() as m:
+        m.setattr(authcontroller, "EXTERNAL_SP", "https://some.externar.sp/SP")
+        resp = client.get("/")
+        assert resp.status_code == 200
+        assert b"https://some.externar.sp/SP" in resp.data
+        assert b"<!DOCTYPE html>" in resp.data
+        assert b"Royal Society of New Zealand" in resp.data, \
+            "'Royal Society of New Zealand' should be present on the index page."
 
 
 def get_response(request_ctx):
     """Return response within the request context.  It should be used with the request context."""
-    # TODO: it can be replace with a sinble line: rv = ctx.app.full_dispatch_request()
+    # TODO: it can be replace with a single line: resp = ctx.app.full_dispatch_request()
     app = request_ctx.app
     # call the before funcs
-    rv = app.preprocess_request()
-    if rv is not None:
-        response = app.make_response(rv)
+    resp = app.preprocess_request()
+    if resp is not None:
+        response = app.make_response(resp)
     else:
         # do the main dispatch
-        rv = app.dispatch_request()
-        response = app.make_response(rv)
+        resp = app.dispatch_request()
+        response = app.make_response(resp)
 
         # now do the after funcs
         response = app.process_response(response)
@@ -49,24 +53,24 @@ def test_login(request_ctx):
             name="TEST USER", email="test@test.test.net", username="test42", confirmed=True)
         login_user(test_user, remember=True)
 
-        rv = get_response(ctx)
-        assert b"<!DOCTYPE html>" in rv.data, "Expected HTML content"
-        assert b"TEST USER" in rv.data, "Expected to have the user name on the page"
-        assert b"test@test.test.net" in rv.data, "Expected to have the user email on the page"
+        resp = get_response(ctx)
+        assert b"<!DOCTYPE html>" in resp.data, "Expected HTML content"
+        assert b"TEST USER" in resp.data, "Expected to have the user name on the page"
+        assert b"test@test.test.net" in resp.data, "Expected to have the user email on the page"
 
 
 @pytest.mark.parametrize("url",
                          ["/link", "/auth", "/pyinfo", "/invite/organisation", "/invite/user"])
 def test_access(url, client):
     """Test access to the app for unauthorized user."""
-    rv = client.get(url)
-    assert rv.status_code == 302
-    assert "Location" in rv.headers, pprint.pformat(rv.headers, indent=4)
-    assert "next=" in rv.location
-    rv = client.get(url, follow_redirects=True)
-    assert rv.status_code == 200
-    assert b"<!DOCTYPE html>" in rv.data, "Expected HTML content"
-    assert b"Please log in to access this page." in rv.data
+    resp = client.get(url)
+    assert resp.status_code == 302
+    assert "Location" in resp.headers, pprint.pformat(resp.headers, indent=4)
+    assert "next=" in resp.location
+    resp = client.get(url, follow_redirects=True)
+    assert resp.status_code == 200
+    assert b"<!DOCTYPE html>" in resp.data, "Expected HTML content"
+    assert b"Please log in to access this page." in resp.data
 
 
 def test_tuakiri_login(client):
@@ -75,7 +79,7 @@ def test_tuakiri_login(client):
 
     After getting logged in a new user entry shoulg be created.
     """
-    rv = client.get(
+    resp = client.get(
         "/Tuakiri/login",
         headers={
             "Auedupersonsharedtoken": "ABC123",
@@ -88,7 +92,7 @@ def test_tuakiri_login(client):
             "Eppn": "user@test.test.net"
         })
 
-    assert rv.status_code == 302
+    assert resp.status_code == 302
     u = User.get(email="user@test.test.net")
     assert u.name == "TEST USER FROM 123", "Expected to have the user in the DB"
     assert u.first_name == "FIRST NAME/GIVEN NAME"
@@ -103,7 +107,7 @@ def test_tuakiri_login_usgin_eppn(client):
         email="something_else@test.test.net", eppn="eppn123@test.test.net", roles=Role.RESEARCHER)
     user.save()
 
-    rv = client.get(
+    resp = client.get(
         "/Tuakiri/login",
         headers={
             "Auedupersonsharedtoken": "ABC123",
@@ -116,7 +120,7 @@ def test_tuakiri_login_usgin_eppn(client):
             "Eppn": "eppn123@test.test.net"
         })
 
-    assert rv.status_code == 302
+    assert resp.status_code == 302
     u = User.get(eppn="eppn123@test.test.net")
     assert u.email == "something_else@test.test.net"
     assert u.name == "TEST USER FROM 123", "Expected to have the user in the DB"
@@ -132,7 +136,7 @@ def test_tuakiri_login_wo_org(client):
     onboared, the user should be informed about that and
     redirected to the login page.
     """
-    rv = client.get(
+    resp = client.get(
         "/Tuakiri/login",
         headers={
             "Auedupersonsharedtoken": "ABC999",
@@ -150,7 +154,7 @@ def test_tuakiri_login_wo_org(client):
     assert u is not None
     assert u.eppn == "user@test.test.net"
     assert b"Your organisation (INCOGNITO) is not yet using the Hub, " \
-           b"see your Technical Contact for a timeline" in rv.data
+           b"see your Technical Contact for a timeline" in resp.data
 
 
 def test_tuakiri_login_with_org(client):
@@ -164,7 +168,7 @@ def test_tuakiri_login_with_org(client):
     org = Organisation(tuakiri_name="THE ORGANISATION", confirmed=True)
     org.save()
 
-    rv = client.get(
+    resp = client.get(
         "/Tuakiri/login",
         headers={
             "Auedupersonsharedtoken": "ABC111",
@@ -181,7 +185,7 @@ def test_tuakiri_login_with_org(client):
     u = User.get(email="user111@test.test.net")
     assert u.organisation == org
     assert org in u.organisations
-    assert b"Your organisation (THE ORGANISATION) is not onboarded" not in rv.data
+    assert b"Your organisation (THE ORGANISATION) is not onboarded" not in resp.data
     uo = UserOrg.get(user=u, org=org)
     assert not uo.is_admin
 
@@ -195,7 +199,7 @@ def test_tuakiri_login_by_techical_contact_organisation_not_onboarded(client):
     org.save()
 
     UserOrg(user=u, org=org, is_admin=True)
-    rv = client.get(
+    resp = client.get(
         "/Tuakiri/login",
         headers={
             "Auedupersonsharedtoken": "ABC11s1",
@@ -212,42 +216,19 @@ def test_tuakiri_login_by_techical_contact_organisation_not_onboarded(client):
     assert u.organisation == org
     assert not org.confirmed
     assert u.is_tech_contact_of(org)
-    assert rv.status_code == 200
-    assert b"<!DOCTYPE html>" in rv.data, "Expected HTML content"
+    assert resp.status_code == 200
+    assert b"<!DOCTYPE html>" in resp.data, "Expected HTML content"
 
 
 def test_confirmation_token(app):
     """Test generate_confirmation_token and confirm_token."""
     app.config['SECRET_KEY'] = "SECRET"
-    app.config['SALT'] = "SALT"
     token = utils.generate_confirmation_token("TEST@ORGANISATION.COM")
     assert utils.confirm_token(token) == "TEST@ORGANISATION.COM"
 
-    app.config['SECRET_KEY'] = "SECRET"
-    app.config['SALT'] = "COMPROMISED SALT"
-    with pytest.raises(Exception) as ex_info:
-        utils.confirm_token(token)
-    # Got exception
-    assert "does not match" in ex_info.value.message
-
     app.config['SECRET_KEY'] = "COMPROMISED SECRET"
-    app.config['SALT'] = "SALT"
     with pytest.raises(Exception) as ex_info:
         utils.confirm_token(token)
-    # Got exception
-    assert "does not match" in ex_info.value.message
-
-    app.config['SECRET_KEY'] = "COMPROMISED SECRET"
-    app.config['SALT'] = "COMPROMISED SALT"
-    with pytest.raises(Exception) as ex_info:
-        utils.confirm_token(token)
-    # Got exception
-    assert "does not match" in ex_info.value.message
-
-    app.config['SECRET_KEY'] = "COMPROMISED"
-    app.config['SALT'] = "COMPROMISED"
-    with pytest.raises(Exception) as ex_info:
-        utils.confirm_token(token, 0)
     # Got exception
     assert "does not match" in ex_info.value.message
 
@@ -270,13 +251,13 @@ def test_login_provider_load_user(request_ctx):  # noqa: D103
     with request_ctx("/"):
 
         login_user(u)
-        rv = login_provider.roles_required(Role.RESEARCHER)(lambda: "SUCCESS")()
-        assert rv == "SUCCESS"
+        resp = login_provider.roles_required(Role.RESEARCHER)(lambda: "SUCCESS")()
+        assert resp == "SUCCESS"
 
-        rv = login_provider.roles_required(Role.SUPERUSER)(lambda: "SUCCESS")()
-        assert rv != "SUCCESS"
-        assert rv.status_code == 302
-        assert rv.location.startswith("/")
+        resp = login_provider.roles_required(Role.SUPERUSER)(lambda: "SUCCESS")()
+        assert resp != "SUCCESS"
+        assert resp.status_code == 302
+        assert resp.location.startswith("/")
 
 
 def test_onboard_org(request_ctx):
@@ -319,17 +300,17 @@ def test_onboard_org(request_ctx):
         login_user(u)
         u.save()
         assert u.is_tech_contact_of(org)
-        rv = ctx.app.full_dispatch_request()
-        assert rv.status_code == 200
-        assert b"<!DOCTYPE html>" in rv.data, "Expected HTML content"
-        assert b"Take me to ORCID to obtain my Client ID and Client Secret" in rv.data,\
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 200
+        assert b"<!DOCTYPE html>" in resp.data, "Expected HTML content"
+        assert b"Take me to ORCID to obtain my Client ID and Client Secret" in resp.data,\
             "Expected Button on the confirmation page"
     with request_ctx("/confirm/organisation") as ctxx:
         second_user.save()
         login_user(second_user)
-        rv = ctxx.app.full_dispatch_request()
-        assert rv.status_code == 302
-        assert rv.location.startswith("/admin/viewmembers/")
+        resp = ctxx.app.full_dispatch_request()
+        assert resp.status_code == 302
+        assert resp.location.startswith("/admin/viewmembers/")
     with request_ctx(
             "/confirm/organisation",
             method="POST",
@@ -346,9 +327,9 @@ def test_onboard_org(request_ctx):
         u.save()
         with patch("orcid_hub.authcontroller.requests") as requests:
             requests.post.return_value = Mock(data=b'XXXX', status_code=200)
-            rv = cttxx.app.full_dispatch_request()
-            assert rv.status_code == 302
-            assert rv.location.startswith("/link")
+            resp = cttxx.app.full_dispatch_request()
+            assert resp.status_code == 302
+            assert resp.location.startswith("/link")
 
 
 def test_logout(request_ctx):
@@ -368,13 +349,13 @@ def test_logout(request_ctx):
         # UoA user:
         login_user(user)
         session["shib_O"] = "University of Auckland"
-        rv = ctx.app.full_dispatch_request()
-        assert rv.status_code == 302
-        assert "Shibboleth.sso" in rv.location
-        assert "uoa-slo" in rv.location
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 302
+        assert "Shibboleth.sso" in resp.location
+        assert "uoa-slo" in resp.location
 
 
-def test_orcid_login(request_ctx):
+def test_orcid_login(client):
     """Test login from orcid."""
     org = Organisation.create(
         name="THE ORGANISATION",
@@ -394,14 +375,38 @@ def test_orcid_login(request_ctx):
         orcid="123",
         confirmed=True,
         organisation=org)
-    UserOrg.create(user=u, org=org, is_admin=True)
-    token = utils.generate_confirmation_token(email=u.email, org=org.name)
 
-    with request_ctx("/orcid/login/" + token) as ctxx:
-        rv = ctxx.app.full_dispatch_request()
-        assert rv.status_code == 302
-        orcid_authorize = OrcidAuthorizeCall.get(method="GET")
-        assert "&email=test123%40test.test.net" in orcid_authorize.url
+    UserOrg.create(user=u, org=org, is_admin=True)
+
+    # with SALT
+    client.application.config["SALT"] = "TEST-SALT"
+    token = utils.generate_confirmation_token(email=u.email, org=org.name)
+    resp = client.get("/orcid/login/" + token.decode("utf-8"))
+    assert resp.status_code == 200
+    orcid_authorize = OrcidAuthorizeCall.get(method="GET")
+    assert "&email=test123%40test.test.net" in orcid_authorize.url
+
+    expired_token = utils.generate_confirmation_token(expiration=-1, email=u.email, org=org.name)
+    resp = client.get("/orcid/login/" + expired_token.decode("utf-8"))
+    # putting sleep for token expiry.
+    assert resp.status_code == 302
+    url = urlparse(resp.location)
+    assert url.path == '/'
+
+    # w/o SALT:
+    client.application.config["SALT"] = None
+    token = utils.generate_confirmation_token(email=u.email, org=org.name)
+    resp = client.get("/orcid/login/" + token.decode("utf-8"))
+    assert resp.status_code == 200
+    orcid_authorize = OrcidAuthorizeCall.get(method="GET")
+    assert "&email=test123%40test.test.net" in orcid_authorize.url
+
+    expired_token = utils.generate_confirmation_token(expiration=-1, email=u.email, org=org.name)
+    resp = client.get("/orcid/login/" + expired_token.decode("utf-8"))
+    # putting sleep for token expiry.
+    assert resp.status_code == 302
+    url = urlparse(resp.location)
+    assert url.path == '/'
 
 
 def fetch_token_mock(self,
@@ -424,7 +429,8 @@ def fetch_token_mock(self,
         'name': 'ros',
         'access_token': 'xyz',
         'refresh_token': 'xyz',
-        'scope': '/activities/update'
+        'scope': '/activities/update',
+        'expires_in': '12121'
     }
     return token
 
@@ -646,8 +652,8 @@ def test_select_user_org(request_ctx):
     user_org2 = UserOrg.create(user=user, org=org2, is_admin=True)
     with request_ctx(f"/select/user_org/{user_org2.id}") as ctx:
         login_user(user, remember=True)
-        rv = ctx.app.full_dispatch_request()
-        assert rv.status_code == 302
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 302
         assert user.organisation_id != org.id
         # Current users organisation has been changes from 1 to 2
         assert user.organisation_id == org2.id
@@ -657,18 +663,18 @@ def test_shib_sp(request_ctx):
     """Test shibboleth SP."""
     with request_ctx("/Tuakiri/SP") as ctxx:
         request.args = {'key': '123', 'url': '/profile'}
-        rv = ctxx.app.full_dispatch_request()
-        assert rv.status_code == 302
-        assert rv.location.startswith("/profile")
+        resp = ctxx.app.full_dispatch_request()
+        assert resp.status_code == 302
+        assert resp.location.startswith("/profile")
 
 
 def test_get_attributes(request_ctx):
     """Test shibboleth SP."""
     key = "xyz"
     with request_ctx("/sp/attributes/" + key) as ctxx:
-        rv = ctxx.app.full_dispatch_request()
+        resp = ctxx.app.full_dispatch_request()
         # No such file name 'xyz'
-        assert rv.status_code == 403
+        assert resp.status_code == 403
 
 
 def test_link(request_ctx):
@@ -696,9 +702,18 @@ def test_link(request_ctx):
     with request_ctx("/link") as ctx:
         login_user(user, remember=True)
         request.args = ImmutableMultiDict([('error', 'access_denied')])
-        rv = ctx.app.full_dispatch_request()
-        assert rv.status_code == 200
-        assert b"<!DOCTYPE html>" in rv.data, "Expected HTML content"
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 200
+        assert b"<!DOCTYPE html>" in resp.data, "Expected HTML content"
+
+
+@pytest.mark.parametrize("url", ["/faq", "/about"])
+def test_faq_and_about(client, url):
+    """Test faq and about page path traversal security issue."""
+    resp = client.get(url + "?malicious_code")
+    assert resp.status_code == 403
+    resp = client.get(url)
+    assert resp.status_code == 200
 
 
 def test_orcid_callback(request_ctx):
@@ -727,6 +742,6 @@ def test_orcid_callback(request_ctx):
     with request_ctx("/auth") as ctx:
         login_user(user, remember=True)
         request.args = ImmutableMultiDict([('error', 'access_denied'), ('login', '2')])
-        rv = ctx.app.full_dispatch_request()
-        assert rv.status_code == 302
-        assert rv.location.startswith("/link")
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 302
+        assert resp.location.startswith("/link")

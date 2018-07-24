@@ -18,7 +18,7 @@ from orcid_hub.models import (Affiliation, AffiliationRecord, ModelException, Or
 def test_process_task_from_csv_with_failures(request_ctx):
     """Test task loading and processing with failures."""
     org = Organisation.get(name="TEST0")
-    super_user = User.get(email="admin@test.edu")
+    super_user = User.get(email="admin@test0.edu")
     with patch("emails.html") as mock_msg, request_ctx("/") as ctx:
         login_user(super_user)
         # flake8: noqa
@@ -37,20 +37,36 @@ def test_process_task_from_csv_with_failures(request_ctx):
         assert rec.processed_at is not None
 
 
+def test_upload_affiliation_with_wrong_country(request_ctx):
+    """Test task loading and processing with failures."""
+    org = Organisation.get(name="TEST0")
+    super_user = User.get(email="admin@test0.edu")
+    with patch("emails.html") as mock_msg, request_ctx("/") as ctx:
+        login_user(super_user)
+        # flake8: noqa
+        with pytest.raises(ModelException):
+            task = Task.load_from_csv(
+                """First name\tLast name\temail address\tOrganisation\tCampus/Department\tCity\tCourse or Job title\tStart date\tEnd date\tStudent/Staff\tCountry
+FNA\tLBA\taaa.lnb@test.com\tTEST1\tResearch Funding\tWellington\tProgramme Manager - ORCID\t2016-09 19:00:00 PM\t\tStaff\tNO COUNTRY
+        """,
+                filename="TEST.tsv",
+                org=org)
+
+
 def test_process_tasks(request_ctx):
     """Test expiration data setting and deletion of the exprired tasks."""
     org = Organisation.get(name="TEST0")
-    super_user = User.get(email="admin@test.edu")
+    super_user = User.get(email="admin@test0.edu")
     with patch("orcid_hub.utils.send_email") as send_email, request_ctx("/") as ctx:
         login_user(super_user)
         # flake8: noqa
         task = Task.load_from_csv(
-            """First name	Last name	email address	Organisation	Campus/Department	City	Course or Job title	Start date	End date	Student/Staff
-    FNA	LBA	aaa.lnb123@test.com	TEST1	Research Funding	Wellington	Programme Manager - ORCID	2016-09		Staff
+            """First name	Last name	email address	Organisation	Campus/Department	City	Course or Job title\tStart date	End date	Student/Staff\tCountry
+    FNA	LBA	aaa.lnb123@test.com	TEST1	Research Funding	Wellington	Programme Manager - ORCID	2016-09		Staff\tNew Zealand
     """,
             filename="TEST_TASK.tsv",
             org=org)
-        Task.update(created_at=datetime(1999, 1, 1)).execute()
+        Task.update(created_at=datetime(1999, 1, 1), updated_at=datetime(1999, 1, 1)).execute()
         utils.process_tasks()
         assert Task.select().count() == 1
         assert not Task.select().where(Task.expires_at.is_null()).exists()
@@ -82,6 +98,7 @@ def test_process_tasks(request_ctx):
             updated_by=super_user,
             task_type=TaskType.FUNDING.value)
 
+        Task.update(updated_at=datetime(1999, 1, 1)).execute()
         assert Task.select().where(Task.expires_at.is_null()).count() == 1
         utils.process_tasks()
         assert Task.select().count() == 1
@@ -110,6 +127,7 @@ def test_process_tasks(request_ctx):
             updated_by=super_user,
             task_type=-12345)
 
+        Task.update(updated_at=datetime(1999, 1, 1)).execute()
         with pytest.raises(Exception, message="Unexpeced task type: -12345 (ERROR.err)."):
             utils.process_tasks()
         task.delete().execute()
@@ -122,6 +140,7 @@ def test_process_tasks(request_ctx):
                 filename="FILE.file",
                 created_by=super_user,
                 updated_by=super_user)
+            Task.update(updated_at=datetime(1999, 1, 1)).execute()
             assert Task.select().count() == 1
             utils.process_tasks()
             utils.process_tasks()

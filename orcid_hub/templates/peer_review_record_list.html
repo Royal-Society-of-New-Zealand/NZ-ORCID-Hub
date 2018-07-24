@@ -1,0 +1,89 @@
+{% extends 'admin/model/list.html' %}
+{% block body %}
+<h1>{{task.filename}}</h1>
+<table class="table table-hover table-bordered searchable">
+    <tbody>
+    <tr>
+        <td>
+            <b>Task Filename</b>
+        </td>
+        <td>
+            {{task.filename}}
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <b>Organisation</b>
+        </td>
+        <td>
+            {{task.org.name}}
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <b>Completed At</b>
+        </td>
+        <td>
+            {% if task.completed_at %}
+            {{task.completed_at|isodate}}
+            {% else %}
+            &nbsp;
+            {% endif %}
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <b>Submitted At</b>
+        </td>
+        <td>
+            {{task.created_at|isodate}}
+        </td>
+    </tr>
+    </tbody>
+</table>
+<span class="pull-right">
+      <div style="width:auto">
+          <div style="float: left; width: auto">
+                <form class="icon" method="POST" action="{{url_for('activate_all')}}">
+                  <input id="task_id" name="task_id" type="hidden" value="{{task.id}}">
+                  <button onclick="return safeConfirm('Are you sure you want to activate every record in this batch for processing?\n\nBy clicking &quot;OK&quot;'+
+                  ' you are affirming that the peer review to be written are, to the \nbest of your knowledge, correct!');"
+                          data-toggle="tooltip"
+                          data-placement="bottom"
+                          title="Activate all records for batch processing..."
+                          class="btn btn-info">Activate all</button> <br>
+                </form>
+          </div>
+          <div style="float: right; width: auto">
+                <form class="icon" method="POST"
+                      action="{{url_for('reset_all')}}">
+                  <input id="task_idd" name="task_id" type="hidden" value="{{task.id}}">
+                  <button onclick="return safeConfirm('Are you sure you want to reset every record in this batch for processing?\n\nBy clicking &quot;OK&quot;'+
+                  ' you are affirming that the peer review to be written are, to the \nbest of your knowledge, correct!');"
+                          data-toggle="tooltip"
+                          data-placement="bottom"
+                          title="Reset all records for batch processing..."
+                          class="btn btn-info">
+                    Reset all
+                  </button>
+                   <a role="button" class="btn btn-primary"
+                      href="{{ request.args.get('url') or url_for('task.index_view') }}">Back</a>
+                </form>
+              </div>
+          </div>
+  </span>
+{{ super() }}
+{% endblock %}
+{% block list_row_actions %}
+{{ super() }}
+<div class="list-buttons-column">
+    <a class="icon" href="{{ url_for('peerreviewinvitee.index_view', peer_review_record_id=row.id, url=request.url) }}"
+       title="Peer Review Invitees">
+        <spam class="fa fa-envelope"></spam>
+    </a>
+    <a class="icon" href="{{ url_for('peerreviewexternalid.index_view', peer_review_record_id=row.id, url=request.url) }}"
+       title="Peer Review ExternalId">
+        <spam class="fa fa-external-link glyphicon glyphicon-users icon"></spam>
+    </a>
+</div>
+{% endblock %}

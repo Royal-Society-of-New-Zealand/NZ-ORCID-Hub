@@ -8,6 +8,8 @@ Minimal runnig ORCID Hub (assuming you have created and activated Python 3.6 vir
 
 .. code-block:: bash
 
+   virtualenv -p python3.6 venv
+   . ./venv/bin/activate
    pip install -U 'orcid-hub[dev]'
    orcidhub initdb
    orcidhub cradmin myadmin@mydomain.net  # use a valid email
@@ -24,15 +26,15 @@ You can customize the backend specifying *DATABASE_URL* (defaul: *sqlite:///orci
 
 
 It is possible to run the application as stand-alone Python Flask application using another remote
-application instance for Tuakiri user authentication. For example, if the remote 
-(another application instance) url is https://dev.orcidhub.org.nz, all you need is to set up 
+application instance for Tuakiri user authentication. For example, if the remote
+(another application instance) url is https://dev.orcidhub.org.nz, all you need is to set up
 environment varliable `export EXTERNAL_SP=https://dev.orcidhub.org.nz/Tuakiri/SP`.
 
 .. code-block:: bash
 
    export EXTERNAL_SP=https://dev.orcidhub.org.nz/Tuakiri/SP
    export DATABASE_URL=sqlite:///data.db
-   export FLASK_DEBUG=1
+   export FLASK_ENV=development
    orcidhub run
 
 

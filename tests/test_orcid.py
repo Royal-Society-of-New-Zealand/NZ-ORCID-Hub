@@ -11,9 +11,19 @@ from flask import session, url_for
 from flask_login import login_user
 
 from orcid_hub.models import Affiliation, OrcidApiCall, OrcidToken, Organisation, User, UserOrg  # noqa:E404
-from orcid_hub.orcid_client import ApiException, MemberAPI, api_client, configuration  # noqa:E404
+from orcid_hub.orcid_client import ApiException, MemberAPI, api_client, configuration, NestedDict  # noqa:E404
 
 fake_time = time.time()
+
+
+def test_nested_dict():
+    """Test nested dict."""
+    d = json.loads(
+            """{"root": {"sub-root": {"node": "VALUE"}}}""",
+            object_pairs_hook=NestedDict)
+    assert d.get("root", "sub-root", "node") == "VALUE"
+    assert d.get("root", "sub-root", "node2") is None
+    assert d.get("root", "sub-root", "node", "missing", default="DEFAULT") == "DEFAULT"
 
 
 def test_member_api(app, mocker):
@@ -38,7 +48,7 @@ def test_member_api(app, mocker):
     assert configuration.access_token == 'ACCESS000'
 
     OrcidToken.create(
-        access_token="ACCESS123", user=user, org=org, scope="/read-limited,/activities/update")
+        access_token="ACCESS123", user=user, org=org, scope="/read-limited,/activities/update", expires_in='121')
     api = MemberAPI(user=user, org=org)
     assert configuration.access_token == "ACCESS123"
 
@@ -140,42 +150,49 @@ def test_is_emp_or_edu_record_present(app, mocker):
 
     api = MemberAPI(user=user, org=org)
 
-    with patch.object(
-            api_client.ApiClient,
-            "call_api",
-            return_value=(
-                Mock(data=b"""{"mock": "data"}"""),
-                200,
-                [],
-            )) as call_api:
-        api.is_emp_or_edu_record_present(Affiliation.EDU)
-        call_api.assert_called_with(
-            "/v2.0/{orcid}/educations",
-            "GET", {"orcid": "1001-0001-0001-0001"}, {}, {"Accept": "application/json"},
-            _preload_content=False,
-            _request_timeout=None,
-            _return_http_data_only=True,
-            auth_settings=["orcid_auth"],
-            body=None,
-            callback=None,
-            collection_formats={},
-            files={},
-            post_params=[],
-            response_type="Educations")
-        api.is_emp_or_edu_record_present(Affiliation.EMP)
-        call_api.assert_called_with(
-            "/v2.0/{orcid}/employments",
-            "GET", {"orcid": "1001-0001-0001-0001"}, {}, {"Accept": "application/json"},
-            _preload_content=False,
-            _request_timeout=None,
-            _return_http_data_only=True,
-            auth_settings=["orcid_auth"],
-            body=None,
-            callback=None,
-            collection_formats={},
-            files={},
-            post_params=[],
-            response_type="Employments")
+    test_responses = [
+        None,
+        """{"mock": "data"}""",
+        """{
+            "employment-summary": [{"source": {"source-client-id": {"path": "CLIENT000"}}, "put-code": 123}],
+            "education-summary": [{"source": {"source-client-id": {"path": "CLIENT000"}}, "put-code": 456}]
+        }""",
+        """{"employment-summary": [], "education-summary": []}"""
+    ]
+
+    for data in test_responses:
+        with patch.object(
+                api_client.ApiClient,
+                "call_api",
+                return_value=Mock(data=data)) as call_api:
+            api.is_emp_or_edu_record_present(Affiliation.EDU)
+            call_api.assert_called_with(
+                "/v2.0/{orcid}/educations",
+                "GET", {"orcid": "1001-0001-0001-0001"}, {}, {"Accept": "application/json"},
+                _preload_content=False,
+                _request_timeout=None,
+                _return_http_data_only=True,
+                auth_settings=["orcid_auth"],
+                body=None,
+                callback=None,
+                collection_formats={},
+                files={},
+                post_params=[],
+                response_type="Educations")
+            api.is_emp_or_edu_record_present(Affiliation.EMP)
+            call_api.assert_called_with(
+                "/v2.0/{orcid}/employments",
+                "GET", {"orcid": "1001-0001-0001-0001"}, {}, {"Accept": "application/json"},
+                _preload_content=False,
+                _request_timeout=None,
+                _return_http_data_only=True,
+                auth_settings=["orcid_auth"],
+                body=None,
+                callback=None,
+                collection_formats={},
+                files={},
+                post_params=[],
+                response_type="Employments")
 
     with patch.object(
             api_client.ApiClient, "call_api", side_effect=ApiException(
@@ -264,6 +281,7 @@ def test_link_already_affiliated(request_ctx):
     access_token="ABC123",
     orcid="ABC-123-456-789",
     scope=['/read-limited'],
+    expires_in="1212",
     refresh_token="ABC1235"))
 def test_link_orcid_auth_callback(name, request_ctx):
     """Test ORCID callback - the user authorized the organisation access to the ORCID profile."""
@@ -304,6 +322,7 @@ def test_link_orcid_auth_callback(name, request_ctx):
     access_token="ABC123",
     orcid="ABC-123-456-789",
     scope=['/read-limited,/activities/update'],
+    expires_in="1212",
     refresh_token="ABC1235"))
 def test_link_orcid_auth_callback_with_affiliation(name, request_ctx):
     """Test ORCID callback - the user authorized the organisation access to the ORCID profile."""

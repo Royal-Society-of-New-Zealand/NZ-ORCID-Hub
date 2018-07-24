@@ -1,7 +1,7 @@
 # pip install -U -r requirements.txt
 requests
 requests_oauthlib
-psycopg2
+psycopg2-binary
 peewee>3.0.0
 peewee-validates
 python-slugify
@@ -15,14 +15,21 @@ pyyaml
 pykwalify
 Flask
 #flask-admin
-https://github.com/nad2000/flask-admin/archive/master.zip
+# NB! prefix with a single space for pbr!
+ git+https://github.com/nad2000/flask-admin/#egg=flask_admin
 flask-login
 Flask-WTF
 flask-peewee
 Flask-OAuthlib
-raven
 raven[flask]
 flask-peewee-swagger>=1.1.5
 flask-limiter>=1.0.0,<2.0.0
 flask-swagger
-
+flask-restful
+jsonschema>=2.6.0,<3.0.0
+validators
+croniter==0.3.20
+rq==0.10.0
+rq-scheduler
+Flask-RQ2[cli]
+rq-dashboard
