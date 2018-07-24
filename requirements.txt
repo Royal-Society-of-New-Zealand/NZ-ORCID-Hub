@@ -3,7 +3,8 @@ requests
 requests_oauthlib
 psycopg2-binary
 peewee>3.0.0
-peewee-validates
+#peewee-validates
+ git+https://github.com/nad2000/peewee-validates/#egg=peewee_validates
 python-slugify
 emails
 wtf-peewee

@@ -9,6 +9,9 @@ import os
 import sys
 import logging
 from datetime import datetime
+from peewee import SqliteDatabase
+from itertools import product
+
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 # sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # flake8: noqa
@@ -26,7 +29,6 @@ from flask.testing import FlaskClient
 
 import pytest
 from playhouse import db_url
-from playhouse.test_utils import test_database
 
 from orcid_hub import app as _app
 _app.config["DATABASE_URL"] = DATABASE_URL
@@ -91,7 +93,241 @@ class HubClient(FlaskClient):
             })
 
 
-@pytest.yield_fixture
+@pytest.fixture
+def test_db():
+    """Peewee Test DB context.
+
+    Example:
+
+    def test_NAME(test_db):
+        u = models.User(email="test@test.org", name="TESTER TESTERON")
+        u.save()
+        asser modls.User.count() == 1
+    """
+    _db = SqliteDatabase(":memory:")
+    with _db.bind_ctx(MODELS):  # noqa: F405
+        _app.db = _db
+        _app.config["DATABASE_URL"] = "sqlite:///:memory:"
+        _app.config["EXTERNAL_SP"] = None
+        _app.config["SENTRY_DSN"] = None
+        _app.config["WTF_CSRF_ENABLED"] = False
+        _app.config["DEBUG_TB_ENABLED"] = False
+        _app.config["SERVER_NAME"] = "ORCIDHUB"
+        _app.sentry = None
+        _db.create_tables(MODELS)
+
+        yield _db
+
+    return
+
+
+@pytest.fixture
+def test_models(test_db):
+
+    Organisation.insert_many((dict(
+        name="Organisation #%d" % i,
+        tuakiri_name="Organisation #%d" % i,
+        orcid_client_id="client-%d" % i,
+        orcid_secret="secret-%d" % i,
+        confirmed=(i % 2 == 0)) for i in range(10))).execute()
+
+    User.insert_many((dict(
+        name="Test User #%d" % i,
+        first_name="Test_%d" % i,
+        last_name="User_%d" % i,
+        email="user%d@org%d.org.nz" % (i, i * 4 % 10),
+        confirmed=(i % 3 != 0),
+        roles=Role.SUPERUSER if i % 42 == 0 else Role.ADMIN if i % 13 == 0 else Role.RESEARCHER)
+                      for i in range(60))).execute()
+
+    User.insert_many((dict(
+        name="Test User with ORCID ID 'ABC-123' #%d" % i,
+        orcid="ABC-123",
+        first_name="Test_%d" % i,
+        last_name="User_%d" % i,
+        email="user_the_same_id_%d@org%d.org.nz" % (i, i),
+        confirmed=True,
+        roles=Role.RESEARCHER) for i in range(3))).execute()
+
+    UserOrg.insert_many((dict(is_admin=((u + o) % 23 == 0), user=u, org=o)
+                         for (u, o) in product(range(2, 60, 4), range(2, 10)))).execute()
+
+    UserOrg.insert_many((dict(is_admin=True, user=43, org=o) for o in range(1, 11))).execute()
+
+    OrcidToken.insert_many((dict(
+        user=User.get(id=1),
+        org=Organisation.get(id=1),
+        scope="/read-limited",
+        access_token="Test_%d" % i) for i in range(60))).execute()
+
+    UserOrgAffiliation.insert_many((dict(
+        user=User.get(id=1),
+        organisation=Organisation.get(id=1),
+        department_name="Test_%d" % i,
+        department_city="Test_%d" % i,
+        role_title="Test_%d" % i,
+        path="Test_%d" % i,
+        put_code="%d" % i) for i in range(30))).execute()
+
+    Task.insert_many((dict(
+        org=Organisation.get(id=1),
+        created_by=User.get(id=1),
+        updated_by=User.get(id=1),
+        filename="Test_%d" % i,
+        task_type=0) for i in range(30))).execute()
+
+    AffiliationRecord.insert_many((dict(
+        is_active=False,
+        task=Task.get(id=1),
+        put_code=90,
+        external_id="Test_%d" % i,
+        status="Test_%d" % i,
+        first_name="Test_%d" % i,
+        last_name="Test_%d" % i,
+        email="Test_%d" % i,
+        orcid="123112311231%d" % i,
+        organisation="Test_%d" % i,
+        affiliation_type="Test_%d" % i,
+        role="Test_%d" % i,
+        department="Test_%d" % i,
+        city="Test_%d" % i,
+        state="Test_%d" % i,
+        country="Test_%d" % i,
+        disambiguated_id="Test_%d" % i,
+        disambiguation_source="Test_%d" % i) for i in range(10))).execute()
+
+    FundingRecord.insert_many((dict(
+        task=Task.get(id=1),
+        title="Test_%d" % i,
+        translated_title="Test_%d" % i,
+        translated_title_language_code="Test_%d" % i,
+        type="Test_%d" % i,
+        organization_defined_type="Test_%d" % i,
+        short_description="Test_%d" % i,
+        amount="Test_%d" % i,
+        currency="Test_%d" % i,
+        org_name="Test_%d" % i,
+        city="Test_%d" % i,
+        region="Test_%d" % i,
+        country="Test_%d" % i,
+        disambiguated_org_identifier="Test_%d" % i,
+        disambiguation_source="Test_%d" % i,
+        is_active=False,
+        status="Test_%d" % i) for i in range(10))).execute()
+
+    FundingContributor.insert_many((dict(
+        funding_record=FundingRecord.get(id=1),
+        orcid="123112311231%d" % i,
+        name="Test_%d" % i,
+        role="Test_%d" % i) for i in range(10))).execute()
+
+    FundingInvitees.insert_many((dict(
+        funding_record=FundingRecord.get(id=1),
+        orcid="123112311231%d" % i,
+        first_name="Test_%d" % i,
+        last_name="Test_%d" % i,
+        put_code=i,
+        status="Test_%d" % i,
+        identifier="%d" % i,
+        visibility="Test_%d" % i,
+        email="Test_%d" % i) for i in range(10))).execute()
+
+    ExternalId.insert_many((dict(
+        funding_record=FundingRecord.get(id=1),
+        type="Test_%d" % i,
+        value="Test_%d" % i,
+        url="Test_%d" % i,
+        relationship="Test_%d" % i) for i in range(10))).execute()
+
+    PeerReviewRecord.insert_many((dict(
+        task=Task.get(id=1),
+        review_group_id="issn:1212_%d" % i,
+        reviewer_role="reviewer_%d" % i,
+        review_url="xyz_%d" % i,
+        review_type="REVIEW_%d" % i,
+        subject_external_id_type="doi_%d" % i,
+        subject_external_id_value="1212_%d" % i,
+        subject_external_id_url="url/SELF_%d" % i,
+        subject_external_id_relationship="SELF_%d" % i,
+        subject_container_name="Journal title_%d" % i,
+        subject_type="JOURNAL_ARTICLE_%d" % i,
+        subject_name_title="name_%d" % i,
+        subject_name_subtitle="subtitle_%d" % i,
+        subject_name_translated_title_lang_code="en",
+        subject_name_translated_title="sdsd_%d" % i,
+        subject_url="url_%d" % i,
+        convening_org_name="THE ORGANISATION_%d" % i,
+        convening_org_city="auckland_%d" % i,
+        convening_org_region="auckland_%d" % i,
+        convening_org_country="nz_%d" % i,
+        convening_org_disambiguated_identifier="123_%d" % i,
+        convening_org_disambiguation_source="1212_%d" % i,
+        is_active=False) for i in range(10))).execute()
+
+    PeerReviewExternalId.insert_many((dict(
+        peer_review_record=PeerReviewRecord.get(id=1),
+        type="Test1_%d" % i,
+        value="Test1_%d" % i,
+        url="Test1_%d" % i,
+        relationship="Test1_%d" % i) for i in range(10))).execute()
+
+    PeerReviewInvitee.insert_many((dict(
+        peer_review_record=PeerReviewRecord.get(id=1),
+        orcid="1231123112311%d" % i,
+        first_name="Test1_%d" % i,
+        last_name="Test1_%d" % i,
+        put_code=i,
+        status="Test1_%d" % i,
+        identifier="1%d" % i,
+        visibility = "PUBLIC",
+        email="Test1_%d" % i) for i in range(10))).execute()
+
+    WorkRecord.insert_many((dict(
+        task=Task.get(id=1),
+        title="Test_%d" % i,
+        sub_title="Test_%d" % i,
+        translated_title="Test_%d" % i,
+        translated_title_language_code="Test_%d" % i,
+        journal_title="Test_%d" % i,
+        short_description="Test_%d" % i,
+        citation_type="Test_%d" % i,
+        citation_value="Test_%d" % i,
+        type="Test_%d" % i,
+        url="Test_%d" % i,
+        language_code="Test_%d" % i,
+        country="Test_%d" % i,
+        is_active=False,
+        status="Test_%d" % i) for i in range(10))).execute()
+
+    WorkContributor.insert_many((dict(
+        work_record=WorkRecord.get(id=1),
+        orcid="123112311231%d" % i,
+        name="Test_%d" % i,
+        contributor_sequence="%d" % i,
+        role="Test_%d" % i) for i in range(10))).execute()
+
+    WorkExternalId.insert_many((dict(
+        work_record=WorkRecord.get(id=1),
+        type="Test_%d" % i,
+        value="Test_%d" % i,
+        url="Test_%d" % i,
+        relationship="Test_%d" % i) for i in range(10))).execute()
+
+    WorkInvitees.insert_many((dict(
+        work_record=WorkRecord.get(id=1),
+        orcid="123112311231%d" % i,
+        first_name="Test_%d" % i,
+        last_name="Test_%d" % i,
+        put_code=i,
+        status="Test_%d" % i,
+        identifier="%d" % i,
+        visibility="Test_%d" % i,
+        email="Test_%d" % i) for i in range(10))).execute()
+
+    yield test_db
+
+
+@pytest.fixture
 def app():
     """Session-wide test `Flask` application."""
     # Establish an application context before running the tests.
@@ -102,13 +338,7 @@ def app():
     if logger:
         logger.setLevel(logging.INFO)
 
-    with test_database(
-            _db, (File, Organisation, User, UserOrg, OrcidToken, UserOrgAffiliation, OrgInfo, Task,
-                  AffiliationRecord, FundingRecord, FundingContributor, FundingInvitees,
-                  OrcidAuthorizeCall, OrcidApiCall, Url, UserInvitation, OrgInvitation, ExternalId,
-                  Client, Grant, Token, WorkRecord, WorkContributor, WorkExternalId, WorkInvitees,
-                  PeerReviewRecord, PeerReviewInvitee, PeerReviewExternalId),
-            fail_silently=True):  # noqa: F405
+    with _db.bind_ctx(MODELS):  # noqa: F405
         _app.db = _db
         _app.config["DATABASE_URL"] = DATABASE_URL
         _app.config["EXTERNAL_SP"] = None
@@ -117,6 +347,7 @@ def app():
         _app.config["DEBUG_TB_ENABLED"] = False
         #_app.config["SERVER_NAME"] = "ORCIDHUB"
         _app.sentry = None
+        _db.create_tables(MODELS)
 
         # Add some data:
         for org_no in range(2):

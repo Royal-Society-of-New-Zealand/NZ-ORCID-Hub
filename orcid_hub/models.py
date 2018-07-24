@@ -593,7 +593,7 @@ class User(BaseModel, UserMixin, AuditMixin):
     # NB! depricated!
     # TODO: we still need to rememeber the rognanistiaon that last authenticated the user
     organisation = ForeignKeyField(
-        Organisation, related_name="members", on_delete="SET NULL", null=True)
+        Organisation, backref="members", on_delete="SET NULL", null=True)
     created_by = ForeignKeyField("self", on_delete="SET NULL", backref="created_users", null=True)
     updated_by = ForeignKeyField("self", on_delete="SET NULL", backref="updated_users", null=True)
 
@@ -881,7 +881,7 @@ class Task(BaseModel, AuditMixin):
     created_by = ForeignKeyField(
         User, on_delete="SET NULL", null=True, backref="created_tasks")
     updated_by = ForeignKeyField(
-        User, on_delete="SET NULL", null=True, related_name="updated_tasks")
+        User, on_delete="SET NULL", null=True, backref="updated_tasks")
     task_type = SmallIntegerField(default=0)
     expires_at = DateTimeField(null=True)
     expiry_email_sent_at = DateTimeField(null=True)
@@ -1157,7 +1157,7 @@ class GroupIdRecord(RecordModel):
                      help_text="One of the specified types: publisher; institution; journal; conference; newspaper; "
                                "newsletter; magazine; peer-review service.")
     organisation = ForeignKeyField(
-        Organisation, related_name="organisation", on_delete="CASCADE", null=True)
+        Organisation, backref="organisation", on_delete="CASCADE", null=True)
 
     class Meta:  # noqa: D101,D106
         db_table = "group_id_record"
@@ -1169,7 +1169,7 @@ class AffiliationRecord(RecordModel):
 
     is_active = BooleanField(
         default=False, help_text="The record is marked 'active' for batch processing", null=True)
-    task = ForeignKeyField(Task, related_name="affiliation_records", on_delete="CASCADE")
+    task = ForeignKeyField(Task, backref="affiliation_records", on_delete="CASCADE")
     put_code = IntegerField(null=True)
     external_id = CharField(
         max_length=100,
@@ -1384,7 +1384,7 @@ class FundingRecord(RecordModel):
 class PeerReviewRecord(RecordModel):
     """Peer Review record loaded from Json file for batch processing."""
 
-    task = ForeignKeyField(Task, related_name="peer_review_records", on_delete="CASCADE")
+    task = ForeignKeyField(Task, backref="peer_review_records", on_delete="CASCADE")
     review_group_id = CharField(max_length=255)
     reviewer_role = CharField(null=True, max_length=255)
     review_url = CharField(null=True, max_length=255)
@@ -1603,7 +1603,7 @@ class PeerReviewRecord(RecordModel):
 class WorkRecord(RecordModel):
     """Work record loaded from Json file for batch processing."""
 
-    task = ForeignKeyField(Task, related_name="work_records", on_delete="CASCADE")
+    task = ForeignKeyField(Task, backref="work_records", on_delete="CASCADE")
     title = CharField(max_length=255)
     sub_title = CharField(null=True, max_length=255)
     translated_title = CharField(null=True, max_length=255)
@@ -1771,7 +1771,7 @@ class WorkContributor(ContributorModel):
     """Researcher or contributor - related to work."""
 
     work_record = ForeignKeyField(
-        WorkRecord, related_name="work_contributors", on_delete="CASCADE")
+        WorkRecord, backref="work_contributors", on_delete="CASCADE")
     contributor_sequence = CharField(max_length=120, null=True)
 
     class Meta:  # noqa: D101,D106
@@ -1815,7 +1815,7 @@ class PeerReviewInvitee(InviteesModel):
     """Researcher or Invitee - related to peer review."""
 
     peer_review_record = ForeignKeyField(
-        PeerReviewRecord, related_name="peer_review_invitee", on_delete="CASCADE")
+        PeerReviewRecord, backref="peer_review_invitee", on_delete="CASCADE")
 
     class Meta:  # noqa: D101,D106
         table_name = "peer_review_invitee"
@@ -1826,7 +1826,7 @@ class WorkInvitees(InviteesModel):
     """Researcher or Invitees - related to work."""
 
     work_record = ForeignKeyField(
-        WorkRecord, related_name="work_invitees", on_delete="CASCADE")
+        WorkRecord, backref="work_invitees", on_delete="CASCADE")
 
     class Meta:  # noqa: D101,D106
         table_name = "work_invitees"
@@ -1837,7 +1837,7 @@ class FundingInvitees(InviteesModel):
     """Researcher or Invitees - related to funding."""
 
     funding_record = ForeignKeyField(
-        FundingRecord, related_name="funding_invitees", on_delete="CASCADE")
+        FundingRecord, backref="funding_invitees", on_delete="CASCADE")
 
     class Meta:  # noqa: D101,D106
         table_name = "funding_invitees"
@@ -1857,7 +1857,7 @@ class WorkExternalId(ExternalIdModel):
     """Work ExternalId loaded for batch processing."""
 
     work_record = ForeignKeyField(
-        WorkRecord, related_name="external_ids", on_delete="CASCADE")
+        WorkRecord, backref="external_ids", on_delete="CASCADE")
 
     class Meta:  # noqa: D101,D106
         table_name = "work_external_id"
@@ -1868,7 +1868,7 @@ class PeerReviewExternalId(ExternalIdModel):
     """Peer Review ExternalId loaded for batch processing."""
 
     peer_review_record = ForeignKeyField(
-        PeerReviewRecord, related_name="external_ids", on_delete="CASCADE")
+        PeerReviewRecord, backref="external_ids", on_delete="CASCADE")
 
     class Meta:  # noqa: D101,D106
         table_name = "peer_review_external_id"
@@ -1879,7 +1879,7 @@ class ExternalId(ExternalIdModel):
     """Funding ExternalId loaded for batch processing."""
 
     funding_record = ForeignKeyField(
-        FundingRecord, related_name="external_ids", on_delete="CASCADE")
+        FundingRecord, backref="external_ids", on_delete="CASCADE")
 
     class Meta:  # noqa: D101,D106
         table_name = "external_id"
@@ -2071,6 +2071,39 @@ def readup_file(input_file):
     return raw.decode("latin-1")
 
 
+MODELS = [
+    File,
+    Organisation,
+    User,
+    UserOrg,
+    OrcidToken,
+    UserOrgAffiliation,
+    OrgInfo,
+    OrcidApiCall,
+    OrcidAuthorizeCall,
+    Task,
+    AffiliationRecord,
+    GroupIdRecord,
+    OrgInvitation,
+    Url,
+    UserInvitation,
+    FundingRecord,
+    WorkRecord,
+    WorkContributor,
+    WorkExternalId,
+    WorkInvitees,
+    FundingContributor,
+    FundingInvitees,
+    ExternalId,
+    PeerReviewRecord,
+    PeerReviewInvitee,
+    PeerReviewExternalId,
+    Client,
+    Grant,
+    Token,
+]
+
+
 def create_tables():
     """Create all DB tables."""
     try:
@@ -2078,38 +2111,7 @@ def create_tables():
     except OperationalError:
         pass
 
-    for model in [
-            File,
-            Organisation,
-            User,
-            UserOrg,
-            OrcidToken,
-            UserOrgAffiliation,
-            OrgInfo,
-            OrcidApiCall,
-            OrcidAuthorizeCall,
-            Task,
-            AffiliationRecord,
-            GroupIdRecord,
-            OrgInvitation,
-            Url,
-            UserInvitation,
-            FundingRecord,
-            WorkRecord,
-            WorkContributor,
-            WorkExternalId,
-            WorkInvitees,
-            FundingContributor,
-            FundingInvitees,
-            ExternalId,
-            PeerReviewRecord,
-            PeerReviewInvitee,
-            PeerReviewExternalId,
-            Client,
-            Grant,
-            Token,
-    ]:
-
+    for model in MODELS:
         if not model.table_exists():
             model.create_table()
 

@@ -8,91 +8,26 @@ import os
 import re
 import sys
 import time
-from itertools import product
-from unittest.mock import MagicMock, patch
 from io import BytesIO
+from unittest.mock import MagicMock, patch
 
 import pytest
-from flask import request, make_response
+from flask import make_response, request
 from flask_login import login_user
-from peewee import SqliteDatabase
-from playhouse.test_utils import test_database
 from werkzeug.datastructures import ImmutableMultiDict
 
 from orcid_hub import app, orcid_client, rq, views
 from orcid_hub.config import ORCID_BASE_URL
 from orcid_hub.forms import FileUploadForm
-from orcid_hub.models import UserOrgAffiliation  # noqa: E128
 from orcid_hub.models import (Affiliation, AffiliationRecord, Client, File, FundingRecord,
-                              OrcidToken, Organisation, OrgInfo, Role, Task, Token, Url, User,
-                              UserInvitation, UserOrg, PeerReviewRecord, WorkRecord)
+                              OrcidToken, Organisation, OrgInfo, PeerReviewRecord, Role, Task,
+                              Token, Url, User, UserInvitation, UserOrg, UserOrgAffiliation,
+                              WorkRecord)
 
 fake_time = time.time()
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 logger.addHandler(logging.StreamHandler())
-
-
-@pytest.fixture
-def test_db():
-    """Test to check db."""
-    _db = SqliteDatabase(":memory:")
-    with test_database(
-            _db, (
-                Organisation,
-                User,
-                UserOrg,
-                OrcidToken,
-                UserOrgAffiliation,
-                Task,
-                AffiliationRecord,
-            ),
-            fail_silently=True) as _test_db:
-        yield _test_db
-
-    return
-
-
-@pytest.fixture
-def test_models(test_db):
-    """Test to check models."""
-    Organisation.insert_many((dict(
-        name="Organisation #%d" % i,
-        tuakiri_name="Organisation #%d" % i,
-        orcid_client_id="client-%d" % i,
-        orcid_secret="secret-%d" % i,
-        confirmed=(i % 2 == 0)) for i in range(10))).execute()
-
-    User.insert_many((dict(
-        name="Test User #%d" % i,
-        first_name="Test_%d" % i,
-        last_name="User_%d" % i,
-        email="user%d@org%d.org.nz" % (i, i * 4 % 10),
-        confirmed=(i % 3 != 0),
-        roles=Role.SUPERUSER if i % 42 == 0 else Role.ADMIN if i % 13 == 0 else Role.RESEARCHER)
-                      for i in range(60))).execute()
-
-    UserOrg.insert_many((dict(is_admin=((u + o) % 23 == 0), user=u, org=o)
-                         for (u, o) in product(range(2, 60, 4), range(2, 10)))).execute()
-
-    UserOrg.insert_many((dict(is_admin=True, user=43, org=o) for o in range(1, 11))).execute()
-
-    OrcidToken.insert_many((dict(
-        user=User.get(id=1),
-        org=Organisation.get(id=1),
-        scope="/read-limited",
-        access_token="Test_%d" % i) for i in range(60))).execute()
-
-    UserOrgAffiliation.insert_many((dict(
-        user=User.get(id=1),
-        organisation=Organisation.get(id=1),
-        department_name="Test_%d" % i,
-        department_city="Test_%d" % i,
-        role_title="Test_%d" % i,
-        path="Test_%d" % i,
-        put_code="%d" % i) for i in range(30))).execute()
-
-    yield test_db
 
 
 def test_superuser_view_access(request_ctx):
