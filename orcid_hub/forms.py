@@ -168,6 +168,18 @@ class BitmapMultipleValueField(SelectMultipleField):
                         dict(value=d))
 
 
+class AppForm(FlaskForm):
+    """Application Flask-WTForm extension."""
+
+    @models.lazy_property
+    def enctype(self):
+        """Return form's encoding type based on the fields.
+
+        If there is at least one FileField the encoding type will be set to "multipart/form-data".
+        """
+        return "multipart/form-data" if any(f.type == "FileField" for f in self) else ''
+
+
 class RecordForm(FlaskForm):
     """User/researcher employment detail form."""
 
@@ -190,12 +202,13 @@ class RecordForm(FlaskForm):
             self.role.name = self.role.label.text = "Course/Degree"
 
 
-class FileUploadForm(FlaskForm):
+class FileUploadForm(AppForm):
     """Organisation info pre-loading form."""
 
     file_ = FileField(
         validators=[FileRequired(),
                     FileAllowed(["csv", "tsv"], 'CSV or TSV files only!')])
+    upload = SubmitField("Upload", render_kw={"class": "btn btn-primary"})
 
 
 class JsonOrYamlFileUploadForm(FlaskForm):

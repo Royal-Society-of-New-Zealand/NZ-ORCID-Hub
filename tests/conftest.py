@@ -115,6 +115,7 @@ def app():
         _app.config["SENTRY_DSN"] = None
         _app.config["WTF_CSRF_ENABLED"] = False
         _app.config["DEBUG_TB_ENABLED"] = False
+        _app.config["LOAD_TEST"] = True
         #_app.config["SERVER_NAME"] = "ORCIDHUB"
         _app.sentry = None
 

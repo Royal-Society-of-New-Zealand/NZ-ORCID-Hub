@@ -745,3 +745,29 @@ def test_orcid_callback(request_ctx):
         resp = ctx.app.full_dispatch_request()
         assert resp.status_code == 302
         assert resp.location.startswith("/link")
+
+
+def test_login0(client):
+    """Test login from orcid."""
+    from orcid_hub import current_user
+    resp = client.get("/login0")
+    assert resp.status_code == 401
+
+    u = User.select().where(User.orcid.is_null(False)).first()
+    email = u.email
+    import itsdangerous
+    signature = itsdangerous.Signer(client.application.secret_key).get_signature(email).decode()
+    auth = email + ':' + signature
+
+    resp = client.get(f"/login0/{auth}")
+    assert resp.status_code == 302
+    assert current_user.email == email
+
+    resp = client.get("/login0", headers={"Authorization": auth})
+    assert resp.status_code == 302
+    assert current_user.email == email
+
+    from base64 import b64encode
+    resp = client.get("/login0", headers={"Authorization": b64encode(auth.encode()).decode()})
+    assert resp.status_code == 302
+    assert current_user.email == email

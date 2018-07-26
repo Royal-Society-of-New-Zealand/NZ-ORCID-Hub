@@ -54,6 +54,17 @@ def is_valid_url(url):
         return False
 
 
+def read_uploaded_file(form):
+    """Read up the whole content and deconde it and return the whole content."""
+    raw = request.files[form.file_.name].read()
+    for encoding in "utf-8", "utf-8-sig", "utf-16":
+        try:
+            return raw.decode(encoding)
+        except UnicodeDecodeError:
+            continue
+    return raw.decode("latin-1")
+
+
 def send_email(template,
                recipient,
                cc_email=None,

@@ -45,7 +45,8 @@ from .models import (Affiliation, AffiliationRecord, CharField, Client, File, Fu
                      UserOrg, UserOrgAffiliation, WorkInvitees, WorkRecord, db, get_val)
 # NB! Should be disabled in production
 from .pyinfo import info
-from .utils import generate_confirmation_token, get_next_url, send_user_invitation
+from .utils import generate_confirmation_token, get_next_url, read_uploaded_file, send_user_invitation
+
 
 HEADERS = {"Accept": "application/vnd.orcid+json", "Content-type": "application/vnd.orcid+json"}
 ORCID_BASE_URL = app.config["ORCID_BASE_URL"]
@@ -151,17 +152,6 @@ def short_url(short_id):
         return redirect(u.url)
     except Url.DoesNotExist:
         abort(404)
-
-
-def read_uploaded_file(form):
-    """Read up the whole content and deconde it and return the whole content."""
-    raw = request.files[form.file_.name].read()
-    for encoding in "utf-8", "utf-8-sig", "utf-16":
-        try:
-            return raw.decode(encoding)
-        except UnicodeDecodeError:
-            continue
-    return raw.decode("latin-1")
 
 
 def orcid_link_formatter(view, context, model, name):

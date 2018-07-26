@@ -17,14 +17,15 @@ from os import path, remove
 from tempfile import gettempdir
 from time import time
 from urllib.parse import quote, unquote, urlparse
-from itsdangerous import SignatureExpired
 
 import requests
-from flask import abort, current_app, flash, redirect, render_template, request, session, url_for
+from flask import abort, current_app, flash, redirect, render_template, request, Response, session, url_for
 from flask_login import current_user, login_required, login_user, logout_user
+from itsdangerous import SignatureExpired, Signer
 from oauthlib.oauth2 import rfc6749
 from requests_oauthlib import OAuth2Session
 from werkzeug.urls import iri_to_uri
+from werkzeug.utils import secure_filename
 
 from orcid_api.rest import ApiException
 
@@ -33,11 +34,11 @@ from . import app, db, orcid_client
 from .config import (APP_DESCRIPTION, APP_NAME, APP_URL, AUTHORIZATION_BASE_URL, CRED_TYPE_PREMIUM,
                      MEMBER_API_FORM_BASE_URL, NOTE_ORCID, ORCID_API_BASE, ORCID_BASE_URL,
                      SCOPE_ACTIVITIES_UPDATE, SCOPE_AUTHENTICATE, SCOPE_READ_LIMITED, TOKEN_URL)
-from .forms import OrgConfirmationForm
+from .forms import FileUploadForm, OrgConfirmationForm
 from .login_provider import roles_required
 from .models import (Affiliation, OrcidAuthorizeCall, OrcidToken, Organisation, OrgInfo,
                      OrgInvitation, Role, Url, User, UserInvitation, UserOrg)
-from .utils import append_qs, confirm_token, get_next_url, register_orcid_webhook
+from .utils import append_qs, confirm_token, get_next_url, read_uploaded_file, register_orcid_webhook
 
 HEADERS = {'Accept': 'application/vnd.orcid+json', 'Content-type': 'application/vnd.orcid+json'}
 ENV = app.config.get("ENV")
@@ -295,6 +296,77 @@ def handle_login():
         app.logger.info("User %r organisation is not onboarded", user)
 
     return redirect(url_for("index"))
+
+
+def login0(auth=None):
+    """Handle secure login for performance and stress testing.
+
+    Signature is the signature of email value with the application key.
+    """
+    if not auth:
+        auth = request.headers.get("Authorization")
+        if not auth:
+            resp = Response()
+            resp.headers["WWW-Authenticate"] = 'Basic realm="Access to the load-testing login"'
+            resp.status_code = 401
+            return resp
+        if ':' not in auth:
+            auth = base64.b64decode(auth).decode()
+
+    email, signature = auth.split(':')
+    s = Signer(app.secret_key)
+    if s.validate(email + '.' + signature):
+        try:
+            u = User.get(email=email)
+            login_user(u)
+            return redirect(get_next_url() or url_for("index"))
+        except User.DoesNotExist:
+            return handle_login()
+    abort(403)
+
+
+@roles_required(Role.SUPERUSER)
+def test_data():
+    """Generate the test data for the stress/performance tests."""
+    org_count = int(
+        request.args.get("orgs") or request.args.get("org_count") or request.args.get("org-count")
+        or 100)
+    user_count = int(
+        request.args.get("users") or request.args.get("user_count")
+        or request.args.get("user-count") or 400)
+    import faker
+
+    f = faker.Faker()
+    orgs = [f'"{f.company()}"' for _ in range(org_count)]
+
+    def content():
+        s = Signer(app.secret_key)
+        for n in range(user_count):
+            email = f.email()
+            yield ','.join([
+                s.get_signature(email).decode(),
+                email,
+                f.user_name(),
+                f.password(),
+                orgs[n % org_count],
+                f.first_name(),
+                f.last_name(),
+                [
+                    "staff",
+                    "student",
+                ][n % 2],
+            ])
+            yield '\n'
+
+    resp = Response(content(), mimetype="text/csv")
+    resp.headers["Content-Disposition"] = "attachment; filename=signed-test-data.csv"
+    return resp
+
+
+if app.config.get("LOAD_TEST"):
+    app.add_url_rule("/test-data", "test_data", test_data)
+    app.add_url_rule("/login0/<string:auth>", "login0", login0)
+    app.add_url_rule("/login0", "login0", login0)
 
 
 @app.route("/link")
