@@ -56,6 +56,8 @@ def is_valid_url(url):
 
 def read_uploaded_file(form):
     """Read up the whole content and deconde it and return the whole content."""
+    if "file_" not in request.files:
+        return
     raw = request.files[form.file_.name].read()
     for encoding in "utf-8", "utf-8-sig", "utf-16":
         try:

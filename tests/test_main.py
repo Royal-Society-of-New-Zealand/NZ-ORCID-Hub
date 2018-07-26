@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """Tests for core functions."""
 
+from io import BytesIO
 import pprint
 from unittest.mock import patch, Mock
 from urllib.parse import urlparse
@@ -771,3 +772,44 @@ def test_login0(client):
     resp = client.get("/login0", headers={"Authorization": b64encode(auth.encode()).decode()})
     assert resp.status_code == 302
     assert current_user.email == email
+
+
+def test_test_data(client):
+    """Test load test data generation."""
+    client.login_root()
+
+    resp = client.get("/test-data")
+    assert resp.status_code == 200
+    assert b"Load Test Date Generation" in resp.data
+    resp = client.post("/test-data?user_count=123")
+    assert resp.data.count(b'\n') == 123
+
+    import itsdangerous
+    signature = itsdangerous.Signer(
+        client.application.secret_key).get_signature("abc123@gmail.com")
+    resp = client.post(
+        "/test-data",
+        data={
+            "file_": (
+                BytesIO(
+                    b"""nks98991100099999981,paw01,ros1,abc123@gmail.com,The University of Auckland,Rosha1
+nks011,paw01,ros1,2orcid100110009001@gmail.com,The University of Auckland,Rosha1,abc456@auckland.ac.nz,faculty
+"""),
+                "DATA.csv",
+            ),
+        })
+    assert resp.status_code == 200
+    assert signature in resp.data
+    assert "DATA_SIGNED.csv" in resp.headers["Content-Disposition"]
+
+    resp = client.post(
+        "/test-data",
+        data={
+            "file_": (
+                BytesIO(b"abc123@gmail.com\tUniversity\nanother@gmail.com\tThe University of Auckland"),
+                "DATA_WITH_TABS.csv",
+            ),
+        })
+    assert resp.status_code == 200
+    assert signature in resp.data
+    assert "DATA_WITH_TABS_SIGNED.csv" in resp.headers["Content-Disposition"]

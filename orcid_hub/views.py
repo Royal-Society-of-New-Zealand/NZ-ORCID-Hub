@@ -35,8 +35,8 @@ from orcid_api.rest import ApiException
 
 from . import admin, app, limiter, models, orcid_client, rq, utils
 from .forms import (ApplicationFrom, BitmapMultipleValueField, CredentialForm, EmailTemplateForm,
-                    FileUploadForm, JsonOrYamlFileUploadForm, LogoForm, OrgRegistrationForm,
-                    PartialDateField, RecordForm, UserInvitationForm, WebhookForm)
+                    FileUploadForm, LogoForm, OrgRegistrationForm, PartialDateField, RecordForm,
+                    UserInvitationForm, WebhookForm)
 from .login_provider import roles_required
 from .models import (Affiliation, AffiliationRecord, CharField, Client, File, FundingInvitees,
                      FundingRecord, Grant, GroupIdRecord, ModelException, OrcidApiCall, OrcidToken,
@@ -1780,7 +1780,7 @@ def load_org():
         flash("Successfully loaded %d rows." % row_count, "success")
         return redirect(url_for("orginfo.index_view"))
 
-    return render_template("fileUpload.html", form=form, form_title="Organisation")
+    return render_template("fileUpload.html", form=form, title="Organisation")
 
 
 @app.route("/load/researcher", methods=["GET", "POST"])
@@ -1801,14 +1801,14 @@ def load_researcher_affiliations():
             flash(f"Failed to load affiliation record file: {ex}", "danger")
             app.logger.exception("Failed to load affiliation records.")
 
-    return render_template("fileUpload.html", form=form, form_title="Researcher")
+    return render_template("fileUpload.html", form=form, title="Researcher Info Upload")
 
 
 @app.route("/load/researcher/funding", methods=["GET", "POST"])
 @roles_required(Role.ADMIN)
 def load_researcher_funding():
     """Preload organisation data."""
-    form = JsonOrYamlFileUploadForm()
+    form = FileUploadForm(extensions=["json", "yaml"])
     if form.validate_on_submit():
         filename = secure_filename(form.file_.data.filename)
         try:
@@ -1819,14 +1819,14 @@ def load_researcher_funding():
             flash(f"Failed to load funding record file: {ex}", "danger")
             app.logger.exception("Failed to load funding records.")
 
-    return render_template("fileUpload.html", form=form, form_title="Funding")
+    return render_template("fileUpload.html", form=form, title="Funding Info Upload")
 
 
 @app.route("/load/researcher/work", methods=["GET", "POST"])
 @roles_required(Role.ADMIN)
 def load_researcher_work():
     """Preload researcher's work data."""
-    form = JsonOrYamlFileUploadForm()
+    form = FileUploadForm(extensions=["json", "yaml"])
     if form.validate_on_submit():
         filename = secure_filename(form.file_.data.filename)
         try:
@@ -1837,14 +1837,14 @@ def load_researcher_work():
             flash(f"Failed to load work record file: {ex}", "danger")
             app.logger.exception("Failed to load work records.")
 
-    return render_template("fileUpload.html", form=form, form_title="Work")
+    return render_template("fileUpload.html", form=form, title="Work Info Upload")
 
 
 @app.route("/load/researcher/peer_review", methods=["GET", "POST"])
 @roles_required(Role.ADMIN)
 def load_researcher_peer_review():
     """Preload researcher's peer review data."""
-    form = JsonOrYamlFileUploadForm()
+    form = FileUploadForm(extensions=["json", "yaml"])
     if form.validate_on_submit():
         filename = secure_filename(form.file_.data.filename)
         try:
@@ -1855,7 +1855,7 @@ def load_researcher_peer_review():
             flash(f"Failed to load peer review record file: {ex}", "danger")
             app.logger.exception("Failed to load peer review records.")
 
-    return render_template("fileUpload.html", form=form, form_title="Peer Review")
+    return render_template("fileUpload.html", form=form, title="Peer Review Info Upload")
 
 
 @app.route("/orcid_api_rep", methods=["GET", "POST"])

@@ -90,6 +90,11 @@ class HubClient(FlaskClient):
                 "Eppn": user.eppn,
             })
 
+    def login_root(self):
+        """Log in with the first found Hub admin user."""
+        root = User.select().where(User.roles.bin_and(Role.SUPERUSER)).first()
+        self.login(root)
+
 
 @pytest.yield_fixture
 def app():

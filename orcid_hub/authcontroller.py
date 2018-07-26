@@ -17,9 +17,11 @@ from os import path, remove
 from tempfile import gettempdir
 from time import time
 from urllib.parse import quote, unquote, urlparse
+import validators
 
 import requests
-from flask import abort, current_app, flash, redirect, render_template, request, Response, session, url_for
+from flask import (abort, current_app, flash, redirect, render_template, request, Response,
+                   session, stream_with_context, url_for)
 from flask_login import current_user, login_required, login_user, logout_user
 from itsdangerous import SignatureExpired, Signer
 from oauthlib.oauth2 import rfc6749
@@ -328,43 +330,73 @@ def login0(auth=None):
 @roles_required(Role.SUPERUSER)
 def test_data():
     """Generate the test data for the stress/performance tests."""
-    org_count = int(
-        request.args.get("orgs") or request.args.get("org_count") or request.args.get("org-count")
-        or 100)
-    user_count = int(
-        request.args.get("users") or request.args.get("user_count")
-        or request.args.get("user-count") or 400)
-    import faker
+    form = FileUploadForm(optional=True)
 
-    f = faker.Faker()
-    orgs = [f'"{f.company()}"' for _ in range(org_count)]
+    if form.validate_on_submit():
+        data = read_uploaded_file(form)
+        if form.file_.data:
+            filename, _ = path.splitext(secure_filename(form.file_.data.filename))
+        else:
+            filename = "test-data"
 
-    def content():
-        s = Signer(app.secret_key)
-        for n in range(user_count):
-            email = f.email()
-            yield ','.join([
-                s.get_signature(email).decode(),
-                email,
-                f.user_name(),
-                f.password(),
-                orgs[n % org_count],
-                f.first_name(),
-                f.last_name(),
-                [
-                    "staff",
-                    "student",
-                ][n % 2],
-            ])
-            yield '\n'
+        @stream_with_context
+        def content(data=None):
+            s = Signer(app.secret_key)
+            if data:
+                sep = '\t' if '\t' in data else ','
+                for line in data.splitlines():
+                    values = [v.strip() for v in line.split(sep)]
+                    for v in values:
+                        if '@' in v:
+                            try:
+                                validators.email(v)
+                                email = v
+                                break
+                            except validators.ValidationFailure:
+                                pass
+                    else:
+                        flash("Missing email address in the file", "danger")
+                        abort(500)
+                    yield s.get_signature(email).decode() + sep + sep.join(values)
+                    yield '\n'
+            else:
+                org_count = int(
+                    request.args.get("orgs") or request.args.get("org_count") or request.args.get("org-count")
+                    or 100)
+                user_count = int(
+                    request.args.get("users") or request.args.get("user_count")
+                    or request.args.get("user-count") or 400)
 
-    resp = Response(content(), mimetype="text/csv")
-    resp.headers["Content-Disposition"] = "attachment; filename=signed-test-data.csv"
-    return resp
+                import faker
+                f = faker.Faker()
+                orgs = [f'"{f.company()}"' for _ in range(org_count)]
+
+                for n in range(user_count):
+                    email = f.email()
+                    yield ','.join([
+                        s.get_signature(email).decode(),
+                        email,
+                        f.user_name(),
+                        f.password(),
+                        orgs[n % org_count],
+                        f.first_name(),
+                        f.last_name(),
+                        [
+                            "staff",
+                            "student",
+                        ][n % 2],
+                    ])
+                    yield '\n'
+
+        resp = Response(content(data), mimetype="text/csv")
+        resp.headers["Content-Disposition"] = f"attachment; filename={filename}_SIGNED.csv"
+        return resp
+
+    return render_template("form.html", form=form, title="Load Test Date Generation")
 
 
 if app.config.get("LOAD_TEST"):
-    app.add_url_rule("/test-data", "test_data", test_data)
+    app.add_url_rule("/test-data", "test_data", test_data, methods=["GET", "POST"])
     app.add_url_rule("/login0/<string:auth>", "login0", login0)
     app.add_url_rule("/login0", "login0", login0)
 

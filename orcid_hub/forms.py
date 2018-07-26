@@ -205,18 +205,29 @@ class RecordForm(FlaskForm):
 class FileUploadForm(AppForm):
     """Organisation info pre-loading form."""
 
-    file_ = FileField(
-        validators=[FileRequired(),
-                    FileAllowed(["csv", "tsv"], 'CSV or TSV files only!')])
+    file_ = FileField()
     upload = SubmitField("Upload", render_kw={"class": "btn btn-primary"})
 
-
-class JsonOrYamlFileUploadForm(FlaskForm):
-    """Funding info pre-loading form."""
-
-    file_ = FileField(
-        validators=[FileRequired(),
-                    FileAllowed(["json", "yaml"], 'JSON or YAML file only!')])
+    def __init__(self, *args, optional=None, extensions=None, **kwargs):
+        """Customize the form."""
+        super().__init__(*args, **kwargs)
+        if not optional:
+            self.file_.validators.append(FileRequired())
+            self.file_.flags.required = True
+        if extensions is None:
+            extensions = ["csv", "tsv"]
+        accept_attr = ", ".join('.' + e for e in extensions)
+        if self.file_.render_kw:
+            self.file_.render_kw["accept"] = accept_attr
+        else:
+            self.file_.render_kw = {
+                "accept": accept_attr,
+            }
+        extensions_ = [e.upper() for e in extensions]
+        self.file_.validators.append(
+            FileAllowed(
+                extensions, " or ".join(
+                    (", ".join(extensions_[:-1]), extensions_[-1])) + " file(-s) only"))
 
 
 class LogoForm(FlaskForm):
