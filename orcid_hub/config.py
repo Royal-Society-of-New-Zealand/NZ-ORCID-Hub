@@ -35,6 +35,7 @@ SCOPE_AUTHENTICATE = ['/authenticate']
 # Database connection url
 DATABASE_URL = getenv("DATABASE_URL", "sqlite:///data.db")
 BACKUP_DATABASE_URL = getenv("BACKUP_DATABASE_URL")
+LOAD_TEST = getenv("LOAD_TEST")
 
 # NB! Disable in production
 if ENV in ("dev0", ):

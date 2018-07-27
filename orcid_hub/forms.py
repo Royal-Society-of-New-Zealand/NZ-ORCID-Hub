@@ -8,7 +8,7 @@ from flask_wtf.file import FileAllowed, FileField, FileRequired
 from pycountry import countries
 from wtforms import (BooleanField, Field, SelectField, SelectMultipleField, StringField,
                      SubmitField, TextField, validators)
-from wtforms.fields.html5 import DateField, EmailField
+from wtforms.fields.html5 import DateField, EmailField, IntegerField
 from wtforms.validators import UUID, DataRequired, email, Regexp, Required, ValidationError, optional, url
 from wtforms.widgets import HTMLString, TextArea, html_params
 from wtfpeewee.orm import model_form
@@ -168,6 +168,18 @@ class BitmapMultipleValueField(SelectMultipleField):
                         dict(value=d))
 
 
+class AppForm(FlaskForm):
+    """Application Flask-WTForm extension."""
+
+    @models.lazy_property
+    def enctype(self):
+        """Return form's encoding type based on the fields.
+
+        If there is at least one FileField the encoding type will be set to "multipart/form-data".
+        """
+        return "multipart/form-data" if any(f.type == "FileField" for f in self) else ''
+
+
 class RecordForm(FlaskForm):
     """User/researcher employment detail form."""
 
@@ -190,20 +202,42 @@ class RecordForm(FlaskForm):
             self.role.name = self.role.label.text = "Course/Degree"
 
 
-class FileUploadForm(FlaskForm):
-    """Organisation info pre-loading form."""
+class FileUploadForm(AppForm):
+    """Generic data (by default CSV or TSV) load form."""
 
-    file_ = FileField(
-        validators=[FileRequired(),
-                    FileAllowed(["csv", "tsv"], 'CSV or TSV files only!')])
+    file_ = FileField()
+    upload = SubmitField("Upload", render_kw={"class": "btn btn-primary"})
+
+    def __init__(self, *args, optional=None, extensions=None, **kwargs):
+        """Customize the form."""
+        super().__init__(*args, **kwargs)
+        if not optional:
+            self.file_.validators.append(FileRequired())
+            self.file_.flags.required = True
+        if extensions is None:
+            extensions = ["csv", "tsv"]
+        accept_attr = ", ".join('.' + e for e in extensions)
+        self.file_.render_kw = {
+            "accept": accept_attr,
+        }
+        extensions_ = [e.upper() for e in extensions]
+        self.file_.validators.append(
+            FileAllowed(
+                extensions, " or ".join(
+                    (", ".join(extensions_[:-1]), extensions_[-1])) + " file(-s) only"))
 
 
-class JsonOrYamlFileUploadForm(FlaskForm):
-    """Funding info pre-loading form."""
+class TestDataForm(FileUploadForm):
+    """Load testing data upload and/or generation form."""
 
-    file_ = FileField(
-        validators=[FileRequired(),
-                    FileAllowed(["json", "yaml"], 'JSON or YAML file only!')])
+    org_count = IntegerField(
+        label="Organisation Count",
+        default=100,
+        render_kw=dict(style="width: 10%; max-width: 10em;"))
+    user_count = IntegerField(
+        label="Organisation Count",
+        default=400,
+        render_kw=dict(style="width: 10%; max-width: 10em;"))
 
 
 class LogoForm(FlaskForm):

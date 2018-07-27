@@ -261,73 +261,26 @@ def test_user_org_link_org_constraint(test_models):
         uo.save()
 
 
-def test_org_count(test_models):
+def test_test_database(test_models):
+    """Test of the consitency of the test database."""
     assert Organisation.select().count() == 10
-
-
-def test_user_count(test_models):
     assert User.select().count() == 63
-
-
-def test_orcidtoken_count(test_models):
     assert OrcidToken.select().count() == 60
-
-
-def test_AffiliationRecord_count(test_models):
     assert AffiliationRecord.select().count() == 10
-
-
-def test_FundingRecord_count(test_models):
     assert FundingRecord.select().count() == 10
-
-
-def test_FundingContributor_count(test_models):
     assert FundingContributor.select().count() == 10
-
-
-def test_FundingInvitees_count(test_models):
     assert FundingInvitees.select().count() == 10
-
-
-def test_ExternalId_count(test_models):
     assert ExternalId.select().count() == 10
-
-
-def test_WorkRecord_count(test_models):
     assert WorkRecord.select().count() == 10
-
-
-def test_WorkContributor_count(test_models):
     assert WorkContributor.select().count() == 10
-
-
-def test_WorkExternalId_count(test_models):
     assert WorkExternalId.select().count() == 10
-
-
-def test_WorkInvitees_count(test_models):
     assert WorkInvitees.select().count() == 10
-
-
-def test_PeerReviewRecord_count(test_models):
     assert PeerReviewRecord.select().count() == 10
-
-
-def test_PeerReviewExternalId_count(test_models):
     assert PeerReviewExternalId.select().count() == 10
-
-def test_PeerReviewInvitees_count(test_models):
     assert PeerReviewInvitee.select().count() == 10
-
-def test_Task_count(test_models):
     assert Task.select().count() == 30
-
-
-def test_user_oganisation_affiliation_count(test_models):
     assert UserOrgAffiliation.select().count() == 30
 
-
-def test_user_org_link(test_models):
     assert User.get(id=43).admin_for.count() == 10
     assert User.get(id=1).admin_for.count() == 0
     assert User.get(id=42).admin_for.count() > 0
@@ -342,7 +295,7 @@ def test_user_org_link(test_models):
     assert available_organisations.count() == 10
 
 
-def test_roles(test_models):
+def test_roles():
     assert Role.RESEARCHER == "RESEARCHER"
     assert Role.RESEARCHER == Role["RESEARCHER"]
     assert Role.RESEARCHER != "ADMIN"
