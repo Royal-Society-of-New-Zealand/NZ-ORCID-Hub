@@ -35,8 +35,8 @@ from orcid_api.rest import ApiException
 
 from . import admin, app, limiter, models, orcid_client, rq, utils
 from .forms import (ApplicationFrom, BitmapMultipleValueField, CredentialForm, EmailTemplateForm,
-                    FileUploadForm, FundingForm, JsonOrYamlFileUploadForm, LogoForm, OrgRegistrationForm,
-                    PartialDateField, RecordForm, UserInvitationForm, WebhookForm)
+                    FileUploadForm, FundingForm, LogoForm, OrgRegistrationForm, PartialDateField,
+                    RecordForm, UserInvitationForm, WebhookForm)
 from .login_provider import roles_required
 from .models import (Affiliation, AffiliationRecord, CharField, Client, File, FundingInvitees,
                      FundingRecord, Grant, GroupIdRecord, ModelException, OrcidApiCall, OrcidToken,
