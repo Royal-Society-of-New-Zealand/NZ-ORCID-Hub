@@ -36,7 +36,7 @@ from . import app, db, orcid_client
 from .config import (APP_DESCRIPTION, APP_NAME, APP_URL, AUTHORIZATION_BASE_URL, CRED_TYPE_PREMIUM,
                      MEMBER_API_FORM_BASE_URL, NOTE_ORCID, ORCID_API_BASE, ORCID_BASE_URL,
                      SCOPE_ACTIVITIES_UPDATE, SCOPE_AUTHENTICATE, SCOPE_READ_LIMITED, TOKEN_URL)
-from .forms import FileUploadForm, OrgConfirmationForm
+from .forms import OrgConfirmationForm, TestDataForm
 from .login_provider import roles_required
 from .models import (Affiliation, OrcidAuthorizeCall, OrcidToken, Organisation, OrgInfo,
                      OrgInvitation, Role, Url, User, UserInvitation, UserOrg)
@@ -330,7 +330,7 @@ def login0(auth=None):
 @roles_required(Role.SUPERUSER)
 def test_data():
     """Generate the test data for the stress/performance tests."""
-    form = FileUploadForm(optional=True)
+    form = TestDataForm(optional=True)
 
     if form.validate_on_submit():
         data = read_uploaded_file(form)
@@ -361,11 +361,11 @@ def test_data():
                     yield '\n'
             else:
                 org_count = int(
-                    request.args.get("orgs") or request.args.get("org_count") or request.args.get("org-count")
-                    or 100)
+                    request.args.get("orgs") or request.args.get("org_count")
+                    or request.args.get("org-count") or form.org_count.data or 100)
                 user_count = int(
                     request.args.get("users") or request.args.get("user_count")
-                    or request.args.get("user-count") or 400)
+                    or request.args.get("user-count") or form.user_count.data or 400)
 
                 import faker
                 f = faker.Faker()

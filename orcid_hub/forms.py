@@ -8,7 +8,7 @@ from flask_wtf.file import FileAllowed, FileField, FileRequired
 from pycountry import countries
 from wtforms import (BooleanField, Field, SelectField, SelectMultipleField, StringField,
                      SubmitField, TextField, validators)
-from wtforms.fields.html5 import DateField, EmailField
+from wtforms.fields.html5 import DateField, EmailField, IntegerField
 from wtforms.validators import UUID, DataRequired, email, Regexp, Required, ValidationError, optional, url
 from wtforms.widgets import HTMLString, TextArea, html_params
 from wtfpeewee.orm import model_form
@@ -203,7 +203,7 @@ class RecordForm(FlaskForm):
 
 
 class FileUploadForm(AppForm):
-    """Organisation info pre-loading form."""
+    """Generic data (by default CSV or TSV) load form."""
 
     file_ = FileField()
     upload = SubmitField("Upload", render_kw={"class": "btn btn-primary"})
@@ -228,6 +228,13 @@ class FileUploadForm(AppForm):
             FileAllowed(
                 extensions, " or ".join(
                     (", ".join(extensions_[:-1]), extensions_[-1])) + " file(-s) only"))
+
+
+class TestDataForm(FileUploadForm):
+    """Load testing data upload and/or generation form."""
+
+    org_count = IntegerField(label="Organisation Count", default=100)
+    user_count = IntegerField(label="Organisation Count", default=400)
 
 
 class LogoForm(FlaskForm):

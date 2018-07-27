@@ -781,8 +781,12 @@ def test_test_data(client):
     resp = client.get("/test-data")
     assert resp.status_code == 200
     assert b"Load Test Date Generation" in resp.data
+
     resp = client.post("/test-data?user_count=123")
     assert resp.data.count(b'\n') == 123
+
+    resp = client.post("/test-data")
+    assert resp.data.count(b'\n') == 400
 
     import itsdangerous
     signature = itsdangerous.Signer(
