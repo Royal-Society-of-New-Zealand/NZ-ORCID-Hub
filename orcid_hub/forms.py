@@ -233,8 +233,14 @@ class FileUploadForm(AppForm):
 class TestDataForm(FileUploadForm):
     """Load testing data upload and/or generation form."""
 
-    org_count = IntegerField(label="Organisation Count", default=100)
-    user_count = IntegerField(label="Organisation Count", default=400)
+    org_count = IntegerField(
+        label="Organisation Count",
+        default=100,
+        render_kw=dict(style="width: 10%; max-width: 10em;"))
+    user_count = IntegerField(
+        label="Organisation Count",
+        default=400,
+        render_kw=dict(style="width: 10%; max-width: 10em;"))
 
 
 class LogoForm(FlaskForm):
