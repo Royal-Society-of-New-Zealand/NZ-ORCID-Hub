@@ -54,6 +54,19 @@ def is_valid_url(url):
         return False
 
 
+def read_uploaded_file(form):
+    """Read up the whole content and deconde it and return the whole content."""
+    if "file_" not in request.files:
+        return
+    raw = request.files[form.file_.name].read()
+    for encoding in "utf-8", "utf-8-sig", "utf-16":
+        try:
+            return raw.decode(encoding)
+        except UnicodeDecodeError:
+            continue
+    return raw.decode("latin-1")
+
+
 def send_email(template,
                recipient,
                cc_email=None,
@@ -262,7 +275,11 @@ def send_work_funding_peer_review_invitation(inviter, org, email, first_name=Non
         user.roles |= Role.RESEARCHER
         token = generate_confirmation_token(expiration=token_expiry_in_sec, email=email, org=org.name)
         with app.app_context():
-            url = flask.url_for('orcid_login', invitation_token=token, _external=True)
+            url = flask.url_for(
+                "orcid_login",
+                invitation_token=token,
+                _external=True,
+                _scheme=None if app.debug else "https")
             invitation_url = flask.url_for(
                 "short_url", short_id=Url.shorten(url).short_id, _external=True)
             send_email(
@@ -620,7 +637,11 @@ def send_user_invitation(inviter,
         user.roles |= Role.RESEARCHER
         token = generate_confirmation_token(expiration=token_expiry_in_sec, email=email, org=org.name)
         with app.app_context():
-            url = flask.url_for('orcid_login', invitation_token=token, _external=True)
+            url = flask.url_for(
+                "orcid_login",
+                invitation_token=token,
+                _external=True,
+                _scheme=None if app.debug else "https")
             invitation_url = flask.url_for(
                 "short_url", short_id=Url.shorten(url).short_id, _external=True)
             send_email(
@@ -825,7 +846,11 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
             user_org = UserOrg.get(user=user, org=task_by_user.org)
             token = generate_confirmation_token(email=user.email, org=org.name)
             with app.app_context():
-                url = flask.url_for('orcid_login', invitation_token=token, _external=True)
+                url = flask.url_for(
+                    "orcid_login",
+                    invitation_token=token,
+                    _external=True,
+                    _scheme=None if app.debug else "https")
                 invitation_url = flask.url_for(
                     "short_url", short_id=Url.shorten(url).short_id, _external=True)
                 send_email(
@@ -961,13 +986,10 @@ def process_work_records(max_rows=20):
             row_count = task.record_count
 
             with app.app_context():
-                protocol_scheme = 'http'
-                if not EXTERNAL_SP:
-                    protocol_scheme = 'https'
                 export_url = flask.url_for(
                     "workrecord.export",
                     export_type="json",
-                    _scheme=protocol_scheme,
+                    _scheme=None if EXTERNAL_SP else "https",
                     task_id=task.id,
                     _external=True)
                 send_email(
@@ -1075,13 +1097,10 @@ def process_peer_review_records(max_rows=20):
             row_count = task.record_count
 
             with app.app_context():
-                protocol_scheme = 'http'
-                if not EXTERNAL_SP:
-                    protocol_scheme = 'https'
                 export_url = flask.url_for(
                     "peerreviewrecord.export",
                     export_type="json",
-                    _scheme=protocol_scheme,
+                    _scheme=None if EXTERNAL_SP else "https",
                     task_id=task.id,
                     _external=True)
                 send_email(
@@ -1191,13 +1210,10 @@ def process_funding_records(max_rows=20):
             row_count = task.record_count
 
             with app.app_context():
-                protocol_scheme = 'http'
-                if not EXTERNAL_SP:
-                    protocol_scheme = 'https'
                 export_url = flask.url_for(
                     "fundingrecord.export",
                     export_type="json",
-                    _scheme=protocol_scheme,
+                    _scheme=None if EXTERNAL_SP else "https",
                     task_id=task.id,
                     _external=True)
                 send_email(
@@ -1294,13 +1310,10 @@ def process_affiliation_records(max_rows=20):
                 AffiliationRecord.orcid).distinct().count()
 
             with app.app_context():
-                protocol_scheme = 'http'
-                if not EXTERNAL_SP:
-                    protocol_scheme = 'https'
                 export_url = flask.url_for(
                     "affiliationrecord.export",
                     export_type="csv",
-                    _scheme=protocol_scheme,
+                    _scheme=None if EXTERNAL_SP else "https",
                     task_id=task.id,
                     _external=True)
                 try:
@@ -1393,13 +1406,10 @@ def process_tasks(max_rows=20):
 
         set_server_name()
         with app.app_context():
-            protocol_scheme = 'http'
-            if not EXTERNAL_SP:
-                protocol_scheme = 'https'
             export_url = flask.url_for(
                 export_model,
                 export_type="csv",
-                _scheme=protocol_scheme,
+                _scheme=None if EXTERNAL_SP else "https",
                 task_id=task.id,
                 _external=True)
             send_email(

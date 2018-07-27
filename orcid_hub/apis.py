@@ -136,6 +136,8 @@ class AppResourceList(AppResource):
         resp.headers["Pagination-Page-Size"] = self.page_size
         resp.headers["Pagination-Count"] = len(records)
         resp.headers["Link"] = f'<{request.full_path}>;rel="self"'
+        if self.page != 1:
+            resp.headers["Link"] += f', <{self.first_link}>;rel="first"'
         if self.previous_link:
             resp.headers["Link"] += f', <{self.previous_link}>;rel="prev"'
         if len(records) == self.page_size and self.next_link:
@@ -903,6 +905,7 @@ class TokenAPI(MethodView):
         return jsonify({
             "access_token": token.access_token,
             "refresh_token": token.refresh_token,
+            "scopes": token.scope,
             "issue_time": token.issue_time.isoformat(),
             "expires_in": token.expires_in,
         }), 200

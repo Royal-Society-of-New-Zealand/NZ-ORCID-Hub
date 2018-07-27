@@ -1,6 +1,6 @@
 {# Render a form tag taht contains a CSRF token and all hiddedn fields. #}
 {%- macro form_tag(form, endpoint, fid='', css_class='', method="POST", enctype='') -%}
-<form{% if endpoint %}action="{{ url_for(endpoint, **kwargs) }}"{%endif%} method="{{ method }}"{% if fid %} id="{{ fid }}"{%endif%}{%if css_class%} class="{{ css_class }}"{%endif%}{% if enctype%} enctype="{{ enctype }}"{%endif%}>
+<form{% if endpoint %}action="{{ url_for(endpoint, **kwargs) }}"{%endif%} method="{{ method }}"{% if fid %} id="{{ fid }}"{%endif%}{%if css_class%} class="{{ css_class }}"{%endif%}{% if enctype or form.enctype %} enctype="{{ enctype or form.enctype }}"{%endif%}>
   {{ form.hidden_tag() }}
   {{ caller () }}
 </form>

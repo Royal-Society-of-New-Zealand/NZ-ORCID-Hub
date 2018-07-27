@@ -90,8 +90,17 @@ class HubClient(FlaskClient):
                 "Eppn": user.eppn,
             })
 
+    def logout(self):
+        """Perform log-out."""
+        return self.get("/logout")
 
-@pytest.yield_fixture
+    def login_root(self):
+        """Log in with the first found Hub admin user."""
+        root = User.select().where(User.roles.bin_and(Role.SUPERUSER)).first()
+        return self.login(root)
+
+
+@pytest.fixture
 def app():
     """Session-wide test `Flask` application."""
     # Establish an application context before running the tests.
@@ -115,6 +124,7 @@ def app():
         _app.config["SENTRY_DSN"] = None
         _app.config["WTF_CSRF_ENABLED"] = False
         _app.config["DEBUG_TB_ENABLED"] = False
+        _app.config["LOAD_TEST"] = True
         #_app.config["SERVER_NAME"] = "ORCIDHUB"
         _app.sentry = None
 
