@@ -816,4 +816,19 @@ nks011,paw01,ros1,2orcid100110009001@gmail.com,The University of Auckland,Rosha1
         })
     assert resp.status_code == 200
     assert signature in resp.data
+    assert resp.data.count(b'\n') == 2
     assert "DATA_WITH_TABS_SIGNED.csv" in resp.headers["Content-Disposition"]
+
+    resp = client.post(
+        "/test-data",
+        data={
+            "file_": (
+                BytesIO(b"email\tname\nabc123@gmail.com\tUniversity\nanother@gmail.com\tThe University of Auckland"),
+                "DATA_WITH_TABS_AND_HEADERS.csv",
+            ),
+        })
+    assert resp.status_code == 200
+    assert signature in resp.data
+    assert resp.data.count(b'\n') == 2
+
+    assert "DATA_WITH_TABS_AND_HEADERS_SIGNED.csv" in resp.headers["Content-Disposition"]

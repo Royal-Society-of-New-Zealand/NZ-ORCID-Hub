@@ -344,7 +344,7 @@ def test_data():
             s = Signer(app.secret_key)
             if data:
                 sep = '\t' if '\t' in data else ','
-                for line in data.splitlines():
+                for line_no, line in enumerate(data.splitlines()):
                     values = [v.strip() for v in line.split(sep)]
                     for v in values:
                         if '@' in v:
@@ -355,8 +355,10 @@ def test_data():
                             except validators.ValidationFailure:
                                 pass
                     else:
+                        if line_no == 0:
+                            continue
                         flash("Missing email address in the file", "danger")
-                        abort(500)
+                        abort(400)
                     yield s.get_signature(email).decode() + sep + sep.join(values)
                     yield '\n'
             else:
