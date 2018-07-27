@@ -11,5 +11,8 @@
     <a class="icon" href="{{ url_for('section', user_id=row.id, section_type='EDU', url=request.url) }}" title="Education">
       <spam class="fa fa-graduation-cap glyphicon glyphicon-education icon"></spam>
     </a>
+    <a class="icon" href="{{ url_for('section', user_id=row.id, section_type='FUNDING', url=request.url) }}" title="Funding">
+      <spam class="fa fa-money glyphicon glyphicon-money icon"></spam>
+    </a>
   {% endif %}
 {% endblock %}

@@ -4,7 +4,6 @@
 import datetime
 import json
 import logging
-import os
 import re
 import sys
 import time
@@ -22,10 +21,10 @@ from werkzeug.datastructures import ImmutableMultiDict
 from orcid_hub import app, orcid_client, rq, views
 from orcid_hub.config import ORCID_BASE_URL
 from orcid_hub.forms import FileUploadForm
-from orcid_hub.models import UserOrgAffiliation  # noqa: E128
 from orcid_hub.models import (Affiliation, AffiliationRecord, Client, File, FundingRecord,
-                              OrcidToken, Organisation, OrgInfo, Role, Task, Token, Url, User,
-                              UserInvitation, UserOrg, PeerReviewRecord, WorkRecord)
+                              GroupIdRecord, OrcidToken, Organisation, OrgInfo, OrgInvitation,
+                              Role, Task, Token, Url, User, UserOrgAffiliation, UserInvitation,
+                              UserOrg, PeerReviewRecord, WorkRecord)
 
 fake_time = time.time()
 logger = logging.getLogger(__name__)
@@ -474,26 +473,121 @@ def test_short_url(request_ctx):
         assert resp.status_code == 404
 
 
-def test_load_org(request_ctx):
+def test_load_org(client):
     """Test load organisation."""
-    root = User.get(email="root@test0.edu")
-    with request_ctx("/load/org") as ctx:
-        login_user(root, remember=True)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 200
-        assert b"<!DOCTYPE html>" in resp.data, "Expected HTML content"
+    resp = client.get("/load/org", follow_redirects=True)
+    assert b"Please log in to access this page." in resp.data
 
+    client.login_root()
+    with pytest.raises(AssertionError):
+        resp = client.post(
+            "/load/org",
+            follow_redirects=True,
+            data={
+                "save":
+                "Upload",
+                "file_": (
+                    BytesIO(b"Name\nAgResearch Ltd\nAqualinc Research Ltd\n"),
+                    "incorrect-raw-org-data.csv",
+                ),
+            })
 
-def test_read_uploaded_file(request_ctx):
-    """Test Uploading File."""
-    with request_ctx() as ctxx:
-        form = FileUploadForm()
-        form.file_.name = "conftest.py"
-        with open(os.path.join(os.path.dirname(os.path.realpath(__file__)), 'conftest.py'),
-                  'rb') as f:
-            request.files = {'conftest.py': f}
-            ctxx = views.read_uploaded_file(form)
-        assert "@pytest.fixture" in ctxx
+    resp = client.post(
+        "/load/org",
+        follow_redirects=True,
+        data={
+            "save":
+            "Upload",
+            "file_": (
+                BytesIO(b"""Name,Disambiguated Id,Disambiguation Source
+AgResearch Ltd,3713,RINGGOLD
+Aqualinc Research Ltd,9429035717133,NZBN
+Ara Institute of Canterbury,6006,Education Organisation Number
+Auckland District Health Board,1387,RINGGOLD
+Auckland University of Technology,1410,RINGGOLD
+Bay of Plenty District Health Board,7854,RINGGOLD
+Capital and Coast District Health Board,8458,RINGGOLD
+Cawthron Institute,5732,RINGGOLD
+CRL Energy Ltd,9429038654381,NZBN
+Health Research Council,http://dx.doi.org/10.13039/501100001505,FUNDREF
+Hutt Valley District Health Board,161292,RINGGOLD
+Institute of Environmental Science and Research,8480,RINGGOLD
+Institute of Geological & Nuclear Sciences Ltd,5180,RINGGOLD
+"""),
+                "raw-org-data.csv",
+            ),
+        })
+    assert resp.status_code == 200
+    assert OrgInfo.select().count() == 13
+    assert b"CRL Energy Ltd" in resp.data
+
+    resp = client.post(
+        "/load/org",
+        follow_redirects=True,
+        data={
+            "save":
+            "Upload",
+            "file_": (
+                BytesIO(
+                    b"Name,Disambiguated Id,Disambiguation Source\n"
+                    b"CRL Energy Ltd,8888,NZBN\nLandcare Research,2243,RINGGOLD"
+                ),
+                "raw-org-data.csv",
+            ),
+        })
+    assert OrgInfo.select().count() == 14, "A new entry should be added."
+    assert b"8888" not in resp.data, "Etry should be updated."
+    assert b"Landcare Research" in resp.data
+
+    resp = client.post(
+        "/admin/orginfo/action/",
+        follow_redirects=True,
+        data=dict(
+            url="/admin/orginfo/",
+            action="delete",
+            rowid=OrgInfo.select().limit(1).first().id,
+        ))
+    assert OrgInfo.select().count() == 13
+
+    resp = client.post(
+        "/admin/orginfo/action/",
+        follow_redirects=True,
+        data=dict(
+            url="/admin/orginfo/",
+            action="delete",
+            rowid=[r.id for r in OrgInfo.select()],
+        ))
+    assert OrgInfo.select().count() == 0
+
+    resp = client.post(
+        "/load/org",
+        follow_redirects=True,
+        data={
+            "save":
+            "Upload",
+            "file_": (
+                BytesIO(
+                    b"Name,Disambiguated Id,Disambiguation Source,Email\n"
+                    b"ORG #1,,,test@org1.net\n"
+                    b"ORG #2,,,test@org2.net\n"
+                    b"ORG #3,,,test@org3.net\n"
+                ),
+                "raw-org-data.csv",
+            ),
+        })
+    assert OrgInfo.select().count() == 3
+
+    with patch("orcid_hub.views.utils") as utils:
+        client.post(
+            "/admin/orginfo/action/",
+            follow_redirects=True,
+            data=dict(
+                url="/admin/orginfo/",
+                action="invite",
+                rowid=[r.id for r in OrgInfo.select()],
+            ))
+        utils.send_email.assert_called()
+        assert OrgInvitation.select().count() == 3
 
 
 def test_user_orgs_org(request_ctx):
@@ -1390,6 +1484,16 @@ def test_edit_record(request_ctx):
         assert admin.name.encode() in resp.data
         view_education.assert_called_once_with("XXXX-XXXX-XXXX-0001", 1234)
     with patch.object(
+            orcid_client.MemberAPIV20Api,
+            "view_funding",
+            MagicMock(return_value=make_fake_response('{"test": "TEST1234567890"}'))
+    ) as view_funding, request_ctx(f"/section/{user.id}/FUN/1234/edit") as ctx:
+        login_user(admin)
+        resp = ctx.app.full_dispatch_request()
+        assert admin.email.encode() in resp.data
+        assert admin.name.encode() in resp.data
+        view_funding.assert_called_once_with("XXXX-XXXX-XXXX-0001", 1234)
+    with patch.object(
             orcid_client.MemberAPIV20Api, "create_education",
             MagicMock(return_value=fake_response)), request_ctx(
                 f"/section/{user.id}/EDU/new",
@@ -1406,6 +1510,27 @@ def test_edit_record(request_ctx):
         affiliation_record = UserOrgAffiliation.get(user=user)
         # checking if the UserOrgAffiliation record is updated with put_code supplied from fake response
         assert 12399 == affiliation_record.put_code
+    with patch.object(
+            orcid_client.MemberAPIV20Api, "create_funding",
+            MagicMock(return_value=fake_response)), request_ctx(
+                f"/section/{user.id}/FUN/new",
+                method="POST",
+                data={
+                    "city": "Auckland",
+                    "country": "NZ",
+                    "org_name": "TEST",
+                    "funding_title": "TEST",
+                    "funding_type": "AWARD",
+                    "translated_title_language": "hi",
+                    "total_funding_amount_currency": "NZD",
+                    "grant_url": "https://test.com",
+                    "grant_number": "TEST123",
+                    "grant_relationship": "SELF"
+                }) as ctx:
+        login_user(admin)
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 302
+        assert resp.location == f"/section/{user.id}/FUN/list"
 
 
 def test_delete_employment(request_ctx, app):
@@ -1606,6 +1731,37 @@ def test_viewmembers_delete(request_ctx):
         assert data["client_secret"] == "SECRET-12345"
         assert data["token"].startswith("TOKEN-1")
         assert OrcidToken.select().where(OrcidToken.org == org, OrcidToken.user == researcher1).count() == 0
+
+
+def test_action_insert_update_group_id(request_ctx):
+    """Test update or insert of group id."""
+    admin = User.get(email="admin@test0.edu")
+    admin.organisation.orcid_client_id = "ABC123"
+    admin.organisation.save()
+    user = User.get(email="researcher100@test0.edu")
+    gr = GroupIdRecord.create(name="xyz", group_id="issn:test", description="TEST", type="journal",
+                              organisation=user.organisation)
+    gr.save()
+    fake_response = make_response
+    fake_response.status = 201
+    fake_response.headers = {'Location': '12344/xyz/12399'}
+    OrcidToken.create(org=user.organisation, access_token="ABC123", scope="/group-id-record/update")
+    with patch.object(
+        orcid_client.MemberAPIV20Api, "create_group_id_record",
+        MagicMock(return_value=fake_response)), request_ctx(
+        f"/admin/groupidrecord/action/",
+        method="POST",
+        data={
+            "rowid": str(gr.id),
+            "action": "Insert/Update Record",
+            "url": "/admin/groupidrecord/"}) as ctx:
+        login_user(admin)
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 302
+        assert resp.location == "/admin/groupidrecord/"
+        group_id_record = GroupIdRecord.get(id=gr.id)
+        # checking if the GroupID Record is updated with put_code supplied from fake response
+        assert 12399 == group_id_record.put_code
 
 
 def test_reset_all(request_ctx):

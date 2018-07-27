@@ -35,8 +35,8 @@ from orcid_api.rest import ApiException
 
 from . import admin, app, limiter, models, orcid_client, rq, utils
 from .forms import (ApplicationFrom, BitmapMultipleValueField, CredentialForm, EmailTemplateForm,
-                    FileUploadForm, JsonOrYamlFileUploadForm, LogoForm, OrgRegistrationForm,
-                    PartialDateField, RecordForm, UserInvitationForm, WebhookForm)
+                    FileUploadForm, FundingForm, LogoForm, OrgRegistrationForm, PartialDateField,
+                    RecordForm, UserInvitationForm, WebhookForm)
 from .login_provider import roles_required
 from .models import (Affiliation, AffiliationRecord, CharField, Client, File, FundingInvitees,
                      FundingRecord, Grant, GroupIdRecord, ModelException, OrcidApiCall, OrcidToken,
@@ -45,7 +45,8 @@ from .models import (Affiliation, AffiliationRecord, CharField, Client, File, Fu
                      UserOrg, UserOrgAffiliation, WorkInvitees, WorkRecord, db, get_val)
 # NB! Should be disabled in production
 from .pyinfo import info
-from .utils import generate_confirmation_token, get_next_url, send_user_invitation
+from .utils import generate_confirmation_token, get_next_url, read_uploaded_file, send_user_invitation
+
 
 HEADERS = {"Accept": "application/vnd.orcid+json", "Content-type": "application/vnd.orcid+json"}
 ORCID_BASE_URL = app.config["ORCID_BASE_URL"]
@@ -153,17 +154,6 @@ def short_url(short_id):
         abort(404)
 
 
-def read_uploaded_file(form):
-    """Read up the whole content and deconde it and return the whole content."""
-    raw = request.files[form.file_.name].read()
-    for encoding in "utf-8", "utf-8-sig", "utf-16":
-        try:
-            return raw.decode(encoding)
-        except UnicodeDecodeError:
-            continue
-    return raw.decode("latin-1")
-
-
 def orcid_link_formatter(view, context, model, name):
     """Format ORCID ID for ModelViews."""
     if not model.orcid:
@@ -186,7 +176,7 @@ class AppModelView(ModelView):
         "html",
     ]
 
-    if app.config["ENV"] not in ["dev", "test", "dev0", ]:
+    if app.config["ENV"] not in ["dev", "test", "dev0", ] and not app.debug:
         form_base_class = SecureForm
 
     column_formatters = dict(
@@ -1404,17 +1394,19 @@ admin.add_view(GroupIdRecordAdmin(GroupIdRecord))
 def year_range(entry):
     """Show an interval of employment in years."""
     val = ""
-    if entry.get("start_date") is None or entry["start_date"]["year"]["value"] is None:
-        val = "unknown"
-    else:
-        val = entry["start_date"]["year"]["value"]
 
+    start_date = entry.get("start_date") or entry.get("start-date")
+    if start_date and start_date["year"]["value"]:
+        val = start_date["year"]["value"]
+    else:
+        val = "unknown"
     val += "-"
 
-    if entry.get("end_date") is None or entry["end_date"]["year"]["value"] is None:
-        val += "present"
+    end_date = entry.get("end_date") or entry.get("entry-date")
+    if end_date and end_date["year"]["value"]:
+        val += end_date["year"]["value"]
     else:
-        val += entry["end_date"]["year"]["value"]
+        val += "present"
     return val
 
 
@@ -1553,7 +1545,7 @@ def reset_all():
 @app.route("/section/<int:user_id>/<string:section_type>/<int:put_code>/delete", methods=["POST"])
 @roles_required(Role.ADMIN)
 def delete_record(user_id, section_type, put_code):
-    """Delete an employment or education record."""
+    """Delete an employment, education or funding record."""
     _url = request.args.get("url") or request.referrer or url_for(
         "section", user_id=user_id, section_type=section_type)
     try:
@@ -1582,6 +1574,8 @@ def delete_record(user_id, section_type, put_code):
         # Delete an Employment
         if section_type == "EMP":
             api_instance.delete_employment(user.orcid, put_code)
+        elif section_type == "FUN":
+            api_instance.delete_funding(user.orcid, put_code)
         else:
             api_instance.delete_education(user.orcid, put_code)
         app.logger.info(f"For {user.orcid} '{section_type}' record was deleted by {current_user}")
@@ -1626,7 +1620,12 @@ def edit_record(user_id, section_type, put_code=None):
     orcid_client.configuration.access_token = orcid_token.access_token
     api = orcid_client.MemberAPI(user=user)
 
-    form = RecordForm(form_type=section_type)
+    if section_type == "FUN":
+        form = FundingForm(form_type=section_type)
+    else:
+        form = RecordForm(form_type=section_type)
+
+    grant_data_list = []
     if request.method == "GET":
         if put_code:
             try:
@@ -1635,8 +1634,11 @@ def edit_record(user_id, section_type, put_code=None):
                     api_response = api.view_employment(user.orcid, put_code)
                 elif section_type == "EDU":
                     api_response = api.view_education(user.orcid, put_code)
+                elif section_type == "FUN":
+                    api_response = api.view_funding(user.orcid, put_code)
 
                 _data = api_response.to_dict()
+
                 data = dict(
                     org_name=_data.get("organization").get("name"),
                     disambiguated_id=get_val(
@@ -1652,6 +1654,30 @@ def edit_record(user_id, section_type, put_code=None):
                     role=_data.get("role_title", ""),
                     start_date=PartialDate.create(_data.get("start_date")),
                     end_date=PartialDate.create(_data.get("end_date")))
+
+                if section_type == "FUN":
+                    external_ids_list = get_val(_data, "external_ids", "external_id")
+
+                    for extid in external_ids_list:
+                        external_id_value = extid['external_id_value'] if extid['external_id_value'] else ''
+                        external_id_url = get_val(extid['external_id_url'], "value") if get_val(
+                            extid['external_id_url'], "value") else ''
+                        external_id_relationship = extid['external_id_relationship'] if extid[
+                            'external_id_relationship'] else ''
+
+                        grant_data_list.append(dict(grant_number=external_id_value, grant_url=external_id_url,
+                                                    grant_relationship=external_id_relationship))
+
+                    data.update(dict(funding_title=get_val(_data, "title", "title", "value"),
+                                     funding_translated_title=get_val(_data, "title", "translated_title", "value"),
+                                     translated_title_language=get_val(_data, "title", "translated_title",
+                                                                       "language_code"),
+                                     funding_type=get_val(_data, "type"),
+                                     funding_subtype=get_val(_data, "organization_defined_type", "value"),
+                                     funding_description=get_val(_data, "short_description"),
+                                     total_funding_amount=get_val(_data, "amount", "value"),
+                                     total_funding_amount_currency=get_val(_data, "amount", "currency_code")))
+
             except ApiException as e:
                 message = json.loads(e.body.replace("''", "\"")).get('user-messsage')
                 app.logger.error(f"Exception when calling MemberAPIV20Api->view_employment: {message}")
@@ -1671,25 +1697,44 @@ def edit_record(user_id, section_type, put_code=None):
 
     if form.validate_on_submit():
         try:
-            put_code, orcid, created = api.create_or_update_affiliation(
-                put_code=put_code,
-                affiliation=Affiliation[section_type],
-                **{f.name: f.data
-                   for f in form})
-            if put_code and created:
-                flash("Record details has been added successfully!", "success")
+            if section_type == "FUN":
+                grant_number = request.form.getlist('grant_number')
+                grant_url = request.form.getlist('grant_url')
+                grant_relationship = request.form.getlist('grant_relationship')
 
-            affiliation, _ = UserOrgAffiliation.get_or_create(
-                user=user,
-                organisation=org,
-                put_code=put_code)
+                grant_data_list = [{'grant_number': gn, 'grant_url': gu, 'grant_relationship': gr} for gn, gu, gr in
+                                   zip(grant_number, grant_url, grant_relationship)] if list(
+                    filter(None, grant_number)) else []
 
-            affiliation.department_name = form.department.data
-            affiliation.department_city = form.city.data
-            affiliation.role_title = form.role.data
-            form.populate_obj(affiliation)
+                put_code, orcid, created = api.create_or_update_individual_funding(
+                    put_code=put_code,
+                    grant_data_list=grant_data_list,
+                    **{f.name: f.data
+                       for f in form})
+                if put_code and created:
+                    flash("Record details has been added successfully!", "success")
+                else:
+                    flash("Record details has been updated successfully!", "success")
+            else:
+                put_code, orcid, created = api.create_or_update_affiliation(
+                    put_code=put_code,
+                    affiliation=Affiliation[section_type],
+                    **{f.name: f.data
+                       for f in form})
+                if put_code and created:
+                    flash("Record details has been added successfully!", "success")
 
-            affiliation.save()
+                affiliation, _ = UserOrgAffiliation.get_or_create(
+                    user=user,
+                    organisation=org,
+                    put_code=put_code)
+
+                affiliation.department_name = form.department.data
+                affiliation.department_city = form.city.data
+                affiliation.role_title = form.role.data
+                form.populate_obj(affiliation)
+
+                affiliation.save()
             return redirect(_url)
 
         except ApiException as e:
@@ -1706,7 +1751,8 @@ def edit_record(user_id, section_type, put_code=None):
                 "Unhandler error occured while creating or editing a profile record.")
             abort(500, ex)
 
-    return render_template("profile_entry.html", section_type=section_type, form=form, _url=_url)
+    return render_template("profile_entry.html", section_type=section_type, form=form, _url=_url,
+                           grant_data_list=grant_data_list)
 
 
 @app.route("/section/<int:user_id>/<string:section_type>/list")
@@ -1716,7 +1762,7 @@ def section(user_id, section_type="EMP"):
     _url = request.args.get("url") or request.referrer or url_for("viewmembers.index_view")
 
     section_type = section_type.upper()[:3]  # normalize the section type
-    if section_type not in ["EDU", "EMP", ]:
+    if section_type not in ["EDU", "EMP", "FUN"]:
         flash("Incorrect user profile section", "danger")
         return redirect(_url)
 
@@ -1744,8 +1790,10 @@ def section(user_id, section_type="EMP"):
         # Fetch all entries
         if section_type == "EMP":
             api_response = api_instance.view_employments(user.orcid)
-        else:  # section_type == "EDU
+        elif section_type == "EDU":
             api_response = api_instance.view_educations(user.orcid)
+        else:
+            api_response = api_instance.view_fundings(user.orcid)
     except ApiException as ex:
         if ex.status == 401:
             flash("User has revoked the permissions to update his/her records", "warning")
@@ -1767,7 +1815,23 @@ def section(user_id, section_type="EMP"):
         app.logger.exception(f"For {user} encountered exception")
         return redirect(_url)
     # TODO: transform data for presentation:
-    records = data.get("education_summary" if section_type == "EDU" else "employment_summary", [])
+
+    records = []
+    if section_type == 'FUN':
+        if data and data.get("group"):
+            for k in data.get("group"):
+                fs = k.get("funding_summary")[0]
+                records.append(fs)
+        return render_template(
+            "funding_section.html",
+            url=_url,
+            records=records,
+            section_type=section_type,
+            user_id=user_id,
+            org_client_id=user.organisation.orcid_client_id)
+    else:
+        records = data.get("education_summary" if section_type == "EDU" else "employment_summary", [])
+
     return render_template(
         "section.html",
         url=_url,
@@ -1788,7 +1852,7 @@ def load_org():
         flash("Successfully loaded %d rows." % row_count, "success")
         return redirect(url_for("orginfo.index_view"))
 
-    return render_template("fileUpload.html", form=form, form_title="Organisation")
+    return render_template("fileUpload.html", form=form, title="Organisation")
 
 
 @app.route("/load/researcher", methods=["GET", "POST"])
@@ -1809,14 +1873,14 @@ def load_researcher_affiliations():
             flash(f"Failed to load affiliation record file: {ex}", "danger")
             app.logger.exception("Failed to load affiliation records.")
 
-    return render_template("fileUpload.html", form=form, form_title="Researcher")
+    return render_template("fileUpload.html", form=form, title="Researcher Info Upload")
 
 
 @app.route("/load/researcher/funding", methods=["GET", "POST"])
 @roles_required(Role.ADMIN)
 def load_researcher_funding():
     """Preload organisation data."""
-    form = JsonOrYamlFileUploadForm()
+    form = FileUploadForm(extensions=["json", "yaml"])
     if form.validate_on_submit():
         filename = secure_filename(form.file_.data.filename)
         try:
@@ -1827,14 +1891,14 @@ def load_researcher_funding():
             flash(f"Failed to load funding record file: {ex}", "danger")
             app.logger.exception("Failed to load funding records.")
 
-    return render_template("fileUpload.html", form=form, form_title="Funding")
+    return render_template("fileUpload.html", form=form, title="Funding Info Upload")
 
 
 @app.route("/load/researcher/work", methods=["GET", "POST"])
 @roles_required(Role.ADMIN)
 def load_researcher_work():
     """Preload researcher's work data."""
-    form = JsonOrYamlFileUploadForm()
+    form = FileUploadForm(extensions=["json", "yaml"])
     if form.validate_on_submit():
         filename = secure_filename(form.file_.data.filename)
         try:
@@ -1845,14 +1909,14 @@ def load_researcher_work():
             flash(f"Failed to load work record file: {ex}", "danger")
             app.logger.exception("Failed to load work records.")
 
-    return render_template("fileUpload.html", form=form, form_title="Work")
+    return render_template("fileUpload.html", form=form, title="Work Info Upload")
 
 
 @app.route("/load/researcher/peer_review", methods=["GET", "POST"])
 @roles_required(Role.ADMIN)
 def load_researcher_peer_review():
     """Preload researcher's peer review data."""
-    form = JsonOrYamlFileUploadForm()
+    form = FileUploadForm(extensions=["json", "yaml"])
     if form.validate_on_submit():
         filename = secure_filename(form.file_.data.filename)
         try:
@@ -1863,7 +1927,7 @@ def load_researcher_peer_review():
             flash(f"Failed to load peer review record file: {ex}", "danger")
             app.logger.exception("Failed to load peer review records.")
 
-    return render_template("fileUpload.html", form=form, form_title="Peer Review")
+    return render_template("fileUpload.html", form=form, title="Peer Review Info Upload")
 
 
 @app.route("/orcid_api_rep", methods=["GET", "POST"])
