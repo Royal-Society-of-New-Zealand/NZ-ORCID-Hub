@@ -943,6 +943,15 @@ def orcid_login_callback(request):
                 user = User.get(orcid=orcid_id)
             else:
                 user = User.get(email=email)
+                # One ORCID iD cannot be associated with two different email address of same organisation.
+                users = User.select().where(User.orcid == orcid_id, User.email != email)
+                if UserOrg.select().where(UserOrg.user.in_(users), UserOrg.org == org):
+                    flash(
+                        f"This {orcid_id} is already associated with other email address of same organisation: {org}. "
+                        f"Please use other ORCID iD to login. If you need help then "
+                        f"kindly contact orcid@royalsociety.org.nz support for issue", "danger")
+                    logout_user()
+                    return redirect(url_for("index"))
 
         except User.DoesNotExist:
             if email is None:
@@ -957,6 +966,12 @@ def orcid_login_callback(request):
             user.orcid = orcid_id
             if user.organisation.webhook_enabled:
                 register_orcid_webhook.queue(user)
+        elif user.orcid != orcid_id and email:
+            flash(f"This {email} is already associated with {user.orcid} and you are trying to login with {orcid_id}. "
+                  f"Please use correct ORCID iD to login. If you need help then "
+                  f"kindly contact orcid@royalsociety.org.nz support for issue", "danger")
+            logout_user()
+            return redirect(url_for("index"))
         if not user.name and token['name']:
             user.name = token['name']
         if not user.confirmed:
@@ -989,9 +1004,10 @@ def orcid_login_callback(request):
                 # NB! need to add _preload_content=False to get raw response
                 api_response = api_instance.view_emails(user.orcid, _preload_content=False)
             except ApiException as ex:
-                message = json.loads(ex.body.replace("''", "\"")).get('user-messsage')
+                message = json.loads(ex.body.decode()).get('user-message')
                 if ex.status == 401:
-                    flash("User has revoked the permissions to update his/her records", "warning")
+                    flash(f"Got ORCID API Exception: {message}", "danger")
+                    logout_user()
                 else:
                     flash(
                         "Exception when calling MemberAPIV20Api->view_employments: %s\n" % message,
@@ -999,7 +1015,7 @@ def orcid_login_callback(request):
                     flash(f"The Hub cannot verify your email address from your ORCID record. "
                           f"Please, change the visibility level for your organisation email address "
                           f"'{email}' to 'trusted parties'.", "danger")
-                    return redirect(url_for("index"))
+                return redirect(url_for("index"))
             data = json.loads(api_response.data)
             if data and data.get("email") and any(
                     e.get("email").lower() == email for e in data.get("email")):
