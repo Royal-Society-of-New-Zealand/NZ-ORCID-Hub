@@ -811,7 +811,9 @@ nks011,paw01,ros1,2orcid100110009001@gmail.com,The University of Auckland,Rosha1
         "/test-data",
         data={
             "file_": (
-                BytesIO(b"abc123@gmail.com\tUniversity\nanother@gmail.com\tThe University of Auckland"),
+                BytesIO(
+                    "abc123@gmail.com\tUniversity\nanother@gmail.com\tThe University of Auckland".
+                    encode("utf-16")),
                 "DATA_WITH_TABS.csv",
             ),
         })

@@ -217,12 +217,9 @@ class FileUploadForm(AppForm):
         if extensions is None:
             extensions = ["csv", "tsv"]
         accept_attr = ", ".join('.' + e for e in extensions)
-        if self.file_.render_kw:
-            self.file_.render_kw["accept"] = accept_attr
-        else:
-            self.file_.render_kw = {
-                "accept": accept_attr,
-            }
+        self.file_.render_kw = {
+            "accept": accept_attr,
+        }
         extensions_ = [e.upper() for e in extensions]
         self.file_.validators.append(
             FileAllowed(

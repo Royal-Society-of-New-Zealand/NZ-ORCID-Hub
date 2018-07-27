@@ -21,10 +21,10 @@ from werkzeug.datastructures import ImmutableMultiDict
 from orcid_hub import app, orcid_client, rq, views
 from orcid_hub.config import ORCID_BASE_URL
 from orcid_hub.forms import FileUploadForm
-from orcid_hub.models import UserOrgAffiliation  # noqa: E128
 from orcid_hub.models import (Affiliation, AffiliationRecord, Client, File, FundingRecord,
-                              OrcidToken, Organisation, OrgInfo, Role, Task, Token, Url, User,
-                              UserInvitation, UserOrg, PeerReviewRecord, WorkRecord)
+                              OrcidToken, Organisation, OrgInfo, OrgInvitation, Role, Task, Token,
+                              Url, User, UserOrgAffiliation, UserInvitation, UserOrg,
+                              PeerReviewRecord, WorkRecord)
 
 fake_time = time.time()
 logger = logging.getLogger(__name__)
@@ -538,6 +538,56 @@ Institute of Geological & Nuclear Sciences Ltd,5180,RINGGOLD
     assert OrgInfo.select().count() == 14, "A new entry should be added."
     assert b"8888" not in resp.data, "Etry should be updated."
     assert b"Landcare Research" in resp.data
+
+    resp = client.post(
+        "/admin/orginfo/action/",
+        follow_redirects=True,
+        data=dict(
+            url="/admin/orginfo/",
+            action="delete",
+            rowid=OrgInfo.select().limit(1).first().id,
+        ))
+    assert OrgInfo.select().count() == 13
+
+    resp = client.post(
+        "/admin/orginfo/action/",
+        follow_redirects=True,
+        data=dict(
+            url="/admin/orginfo/",
+            action="delete",
+            rowid=[r.id for r in OrgInfo.select()],
+        ))
+    assert OrgInfo.select().count() == 0
+
+    resp = client.post(
+        "/load/org",
+        follow_redirects=True,
+        data={
+            "save":
+            "Upload",
+            "file_": (
+                BytesIO(
+                    b"Name,Disambiguated Id,Disambiguation Source,Email\n"
+                    b"ORG #1,,,test@org1.net\n"
+                    b"ORG #2,,,test@org2.net\n"
+                    b"ORG #3,,,test@org3.net\n"
+                ),
+                "raw-org-data.csv",
+            ),
+        })
+    assert OrgInfo.select().count() == 3
+
+    with patch("orcid_hub.views.utils") as utils:
+        client.post(
+            "/admin/orginfo/action/",
+            follow_redirects=True,
+            data=dict(
+                url="/admin/orginfo/",
+                action="invite",
+                rowid=[r.id for r in OrgInfo.select()],
+            ))
+        utils.send_email.assert_called()
+        assert OrgInvitation.select().count() == 3
 
 
 def test_user_orgs_org(request_ctx):
