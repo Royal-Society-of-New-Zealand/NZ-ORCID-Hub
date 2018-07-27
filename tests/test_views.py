@@ -536,7 +536,7 @@ Institute of Geological & Nuclear Sciences Ltd,5180,RINGGOLD
             ),
         })
     assert OrgInfo.select().count() == 14, "A new entry should be added."
-    assert b"888" not in resp.data, "Etry should be updated."
+    assert b"8888" not in resp.data, "Etry should be updated."
     assert b"Landcare Research" in resp.data
 
 

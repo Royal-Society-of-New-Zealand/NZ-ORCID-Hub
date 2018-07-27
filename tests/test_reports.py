@@ -74,6 +74,7 @@ def test_user_cv(mock, client):
     client.login(user0)
     resp = client.get("/user_cv")
     assert resp.status_code == 302
+    client.logout()
 
     user = User.get(email="researcher101@test0.edu")
     client.login(user)
@@ -84,7 +85,7 @@ def test_user_cv(mock, client):
     assert url.path == '/link'
 
     OrcidToken.create(
-        access_token="ABC1234567890",
+        access_token="ABC12345678901",
         user=user,
         org=user.organisation,
         scope="/scope/read-limited")
@@ -98,7 +99,7 @@ def test_user_cv(mock, client):
     assert resp.status_code == 200
     assert user.first_name.encode() in resp.data
     assert user.last_name.encode() in resp.data
-    mock.assert_called_once_with(access_token="ABC1234567890", user=user)
+    mock.assert_called_once_with(access_token="ABC12345678901", user=user)
     mock.return_value.get_record.assert_called_once_with()
 
     mock.reset_mock()
@@ -107,5 +108,5 @@ def test_user_cv(mock, client):
     assert user.name.replace(' ', '_') in resp.headers["Content-Disposition"]
     assert user.first_name.encode() in resp.data
     assert user.last_name.encode() in resp.data
-    mock.assert_called_once_with(access_token="ABC1234567890", user=user)
+    mock.assert_called_once_with(access_token="ABC12345678901", user=user)
     mock.return_value.get_record.assert_called_once_with()

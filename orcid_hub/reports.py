@@ -132,7 +132,7 @@ def user_invitation_summary():  # noqa: D103
 @login_required
 def user_cv(op=None):
     """Create user CV using the CV templage filled with the ORCID profile data."""
-    user = current_user
+    user = User.get(current_user.id)
     if not user.orcid:
         flash("You haven't linked your account with ORCID.", "warning")
         return redirect(request.referrer or url_for("index"))
@@ -148,8 +148,6 @@ def user_cv(op=None):
     else:
         api = MemberAPI(user=user, access_token=token.access_token)
         record = api.get_record()
-        # import pdb; pdb.set_trace()
-
         works = [
             w for g in record.get("activities-summary", "works", "group")
             for w in g.get("work-summary")

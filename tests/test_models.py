@@ -281,7 +281,6 @@ def test_test_database(test_models):
     assert Task.select().count() == 30
     assert UserOrgAffiliation.select().count() == 30
 
-
     assert User.get(id=43).admin_for.count() == 10
     assert User.get(id=1).admin_for.count() == 0
     assert User.get(id=42).admin_for.count() > 0

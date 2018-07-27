@@ -774,8 +774,9 @@ def test_login0(client):
     assert current_user.email == email
 
 
-def test_test_data(client):
+def test_load_test_data(app):
     """Test load test data generation."""
+    client = app.test_client()
     client.login_root()
 
     resp = client.get("/test-data")
@@ -832,3 +833,5 @@ nks011,paw01,ros1,2orcid100110009001@gmail.com,The University of Auckland,Rosha1
     assert resp.data.count(b'\n') == 2
 
     assert "DATA_WITH_TABS_AND_HEADERS_SIGNED.csv" in resp.headers["Content-Disposition"]
+
+    client.logout()
