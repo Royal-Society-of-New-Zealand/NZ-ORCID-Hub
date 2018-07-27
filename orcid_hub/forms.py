@@ -5,9 +5,9 @@ from datetime import date
 
 from flask_wtf import FlaskForm
 from flask_wtf.file import FileAllowed, FileField, FileRequired
-from pycountry import countries
+from pycountry import countries, languages, currencies
 from wtforms import (BooleanField, Field, SelectField, SelectMultipleField, StringField,
-                     SubmitField, TextField, validators)
+                     SubmitField, TextField, TextAreaField, validators)
 from wtforms.fields.html5 import DateField, EmailField, IntegerField
 from wtforms.validators import UUID, DataRequired, email, Regexp, Required, ValidationError, optional, url
 from wtforms.widgets import HTMLString, TextArea, html_params
@@ -118,6 +118,36 @@ class CountrySelectField(SelectField):
         super().__init__(*args, choices=self.country_choices, **kwargs)
 
 
+class LanguageSelectField(SelectField):
+    """Languages dropdown widget."""
+
+    # Order the languages list by the name and add a default (Null) value
+    language_choices = [(l.alpha_2, l.name) for l in languages if hasattr(l, "alpha_2")]
+    language_choices.sort(key=lambda e: e[1])
+    language_choices.insert(0, ("", "Language"))
+
+    def __init__(self, *args, **kwargs):
+        """Set up the value list."""
+        if len(args) == 0 and "label" not in kwargs:
+            kwargs["label"] = "Language"
+        super().__init__(*args, choices=self.language_choices, **kwargs)
+
+
+class CurrencySelectField(SelectField):
+    """currencies dropdown widget."""
+
+    # Order the currencies list by the name and add a default (Null) value
+    currency_choices = [(l.alpha_3, l.name) for l in currencies]
+    currency_choices.sort(key=lambda e: e[1])
+    currency_choices.insert(0, ("", "Currency"))
+
+    def __init__(self, *args, **kwargs):
+        """Set up the value list."""
+        if len(args) == 0 and "label" not in kwargs:
+            kwargs["label"] = "Currency"
+        super().__init__(*args, choices=self.currency_choices, **kwargs)
+
+
 class BitmapMultipleValueField(SelectMultipleField):
     """Multiple value selection widget.
 
@@ -198,8 +228,33 @@ class RecordForm(FlaskForm):
         """Create form."""
         super().__init__(*args, **kwargs)
         if form_type == "EDU":
-            self.org_name.name = self.org_name.label.text = "Institution"
-            self.role.name = self.role.label.text = "Course/Degree"
+            self.org_name.label = "Institution"
+            self.role.label = "Course/Degree"
+
+
+class FundingForm(FlaskForm):
+    """User/researcher funding detail form."""
+
+    type_choices = [('GRANT', 'GRANT'), ('CONTRACT', 'CONTRACT'), ('AWARD', 'AWARD'), ('SALARY_AWARD', 'SALARY_AWARD')]
+    type_choices.sort(key=lambda e: e[1])
+    type_choices.insert(0, ("", ""))
+
+    funding_title = StringField("Funding Title", [validators.required()])
+    funding_translated_title = StringField("Funding Translated Title")
+    translated_title_language = LanguageSelectField("Language")
+    funding_type = SelectField(choices=type_choices, description="Funding Type", validators=[validators.required()])
+    funding_subtype = StringField("Funding Subtype")
+    funding_description = TextAreaField("Funding Description")
+    total_funding_amount = StringField("Total Funding Amount")
+    total_funding_amount_currency = CurrencySelectField("Currency")
+    org_name = StringField("Institution/employer", [validators.required()])
+    city = StringField("City", [validators.required()])
+    state = StringField("State/region", filters=[lambda x: x or None])
+    country = CountrySelectField("Country", [validators.required()])
+    start_date = PartialDateField("Start date")
+    end_date = PartialDateField("End date (leave blank if current)")
+    disambiguated_id = StringField("Disambiguated Organisation ID")
+    disambiguation_source = StringField("Disambiguation Source")
 
 
 class FileUploadForm(AppForm):
