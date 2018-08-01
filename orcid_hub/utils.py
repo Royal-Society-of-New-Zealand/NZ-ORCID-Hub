@@ -279,7 +279,7 @@ def send_work_funding_peer_review_invitation(inviter, org, email, first_name=Non
                 "orcid_login",
                 invitation_token=token,
                 _external=True,
-                _scheme=None if app.debug else "https")
+                _scheme="http" if app.debug else "https")
             invitation_url = flask.url_for(
                 "short_url", short_id=Url.shorten(url).short_id, _external=True)
             send_email(
@@ -641,7 +641,7 @@ def send_user_invitation(inviter,
                 "orcid_login",
                 invitation_token=token,
                 _external=True,
-                _scheme=None if app.debug else "https")
+                _scheme="http" if app.debug else "https")
             invitation_url = flask.url_for(
                 "short_url", short_id=Url.shorten(url).short_id, _external=True)
             send_email(
@@ -850,7 +850,7 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
                     "orcid_login",
                     invitation_token=token,
                     _external=True,
-                    _scheme=None if app.debug else "https")
+                    _scheme="http" if app.debug else "https")
                 invitation_url = flask.url_for(
                     "short_url", short_id=Url.shorten(url).short_id, _external=True)
                 send_email(
@@ -989,7 +989,7 @@ def process_work_records(max_rows=20):
                 export_url = flask.url_for(
                     "workrecord.export",
                     export_type="json",
-                    _scheme=None if EXTERNAL_SP else "https",
+                    _scheme="http" if EXTERNAL_SP else "https",
                     task_id=task.id,
                     _external=True)
                 send_email(
@@ -1100,7 +1100,7 @@ def process_peer_review_records(max_rows=20):
                 export_url = flask.url_for(
                     "peerreviewrecord.export",
                     export_type="json",
-                    _scheme=None if EXTERNAL_SP else "https",
+                    _scheme="http" if EXTERNAL_SP else "https",
                     task_id=task.id,
                     _external=True)
                 send_email(
@@ -1213,7 +1213,7 @@ def process_funding_records(max_rows=20):
                 export_url = flask.url_for(
                     "fundingrecord.export",
                     export_type="json",
-                    _scheme=None if EXTERNAL_SP else "https",
+                    _scheme="http" if EXTERNAL_SP else "https",
                     task_id=task.id,
                     _external=True)
                 send_email(
@@ -1313,7 +1313,7 @@ def process_affiliation_records(max_rows=20):
                 export_url = flask.url_for(
                     "affiliationrecord.export",
                     export_type="csv",
-                    _scheme=None if EXTERNAL_SP else "https",
+                    _scheme="http" if EXTERNAL_SP else "https",
                     task_id=task.id,
                     _external=True)
                 try:
@@ -1409,7 +1409,7 @@ def process_tasks(max_rows=20):
             export_url = flask.url_for(
                 export_model,
                 export_type="csv",
-                _scheme=None if EXTERNAL_SP else "https",
+                _scheme="http" if EXTERNAL_SP else "https",
                 task_id=task.id,
                 _external=True)
             send_email(
