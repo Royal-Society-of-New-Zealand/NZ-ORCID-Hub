@@ -41,7 +41,7 @@
                         data-style="btn-primary" id="select-org"
                                                  title="Current Organisation"
                                                  onchange='location.href="/select/user_org/"+this.value'>
-                  {% for uo in current_user.userorg_set %}
+                  {% for uo in current_user.org_links %}
                     <option data-tokens="{{uo.id}}" value="{{uo.id}}" {{"selected" if current_user.organisation.id == uo.org_id else ''}}>{{uo.org.name}}</option>
                   {% endfor %}
                 </select>

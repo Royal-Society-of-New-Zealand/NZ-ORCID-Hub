@@ -288,7 +288,7 @@ def test_test_database(test_models):
     assert Organisation.get(id=1).admins.count() == 1
     assert Organisation.get(id=5).users.count() > 0
     assert Organisation.get(id=5).admins.count() > 0
-    assert len(User.get(email="user_the_same_id_0@org0.org.nz").linked_accounts) == 3
+    assert len(User.get(email="user_the_same_id_0@org0.org.nz").org_links) == 3
 
     user = User.get(email="user0@org0.org.nz")
     available_organisations = user.available_organisations
