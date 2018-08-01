@@ -1856,7 +1856,34 @@ def search_group_id_record():
 
         form.process(data=data)
 
-    if form.validate_on_submit():
+    if request.method == "POST" and request.form.get('group_id'):
+        group_id = request.form.get('group_id')
+        name = request.form.get('name')
+        description = request.form.get('description')
+        type = request.form.get('type')
+        put_code = request.form.get('put_code')
+
+        with db.atomic():
+            try:
+                gir, created = GroupIdRecord.get_or_create(organisation=current_user.organisation,
+                                                           group_id=group_id, name=name, description=description,
+                                                           type=type)
+                gir.put_code = put_code
+
+                if created:
+                    gir.add_status_line(f"Successfully added {group_id} from ORCID.")
+                    flash(f"Successfully added {group_id}.", "success")
+                else:
+                    flash(f"The GroupID Record {group_id} is already existing in your list.", "success")
+                gir.save()
+
+            except Exception as ex:
+                db.rollback()
+                flash(f"Failed to save GroupID Record: {ex}", "warning")
+                app.logger.exception(f"Failed to save GroupID Record: {ex}")
+
+        return redirect(_url)
+    elif form.validate_on_submit():
         try:
             group_id_name = form.group_id_name.data
             page_size = form.page_size.data
@@ -1882,7 +1909,6 @@ def search_group_id_record():
                 data = json.loads(api_response.data)
                 # Currently the api only gives correct response for one entry otherwise it throws 500 exception.
                 records.append(data)
-
         except ApiException as ex:
             if ex.status == 401:
                 orcid_token.delete_instance()
