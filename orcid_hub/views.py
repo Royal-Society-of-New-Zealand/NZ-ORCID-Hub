@@ -1856,7 +1856,7 @@ def search_group_id_record():
 
         form.process(data=data)
 
-    if request.method == "POST" and request.form.get('group_id'):
+    if request.method == "POST" and not form.search.data:
         group_id = request.form.get('group_id')
         name = request.form.get('name')
         description = request.form.get('description')

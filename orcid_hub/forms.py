@@ -263,6 +263,7 @@ class GroupIdForm(FlaskForm):
     group_id_name = StringField("Group ID Name", [validators.required()])
     page_size = StringField("Page Size")
     page = StringField("Page")
+    search = SubmitField("Search", render_kw={"class": "btn btn-primary"})
 
 
 class FileUploadForm(AppForm):
