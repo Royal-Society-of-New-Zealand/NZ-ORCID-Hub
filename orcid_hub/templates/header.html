@@ -34,15 +34,15 @@
                     data-placement="bottom" title="The Hub's Frequently Asked Questions">FAQ</span>
           </a></li>
           {% if current_user.confirmed %}
-            {% if current_user.organisations.count() > 1 %}
+            {% if current_user.org_links|length > 1 %}
               <li>
                 <p class="navbar-btn">
                 <select class="selectpicker"
                         data-style="btn-primary" id="select-org"
                                                  title="Current Organisation"
                                                  onchange='location.href="/select/user_org/"+this.value'>
-                  {% for uo in current_user.userorg_set %}
-                    <option data-tokens="{{uo.id}}" value="{{uo.id}}" {{"selected" if current_user.organisation.id == uo.org_id else ''}}>{{uo.org.name}}</option>
+                  {% for ol in current_user.org_links %}
+                    <option data-tokens="{{ol.id}}" value="{{ol.id}}" {{"selected" if current_user.organisation.id == ol.org_id else ''}}>{{ol.org_name}}</option>
                   {% endfor %}
                 </select>
                 </p>
