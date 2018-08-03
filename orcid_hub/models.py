@@ -611,19 +611,25 @@ class User(BaseModel, UserMixin, AuditMixin):
                 UserOrg, on=((UserOrg.org_id == Organisation.id) & (UserOrg.user_id == self.id)))
                 .naive())
 
-    @property
+    @lazy_property
     def org_links(self):
         """Get all user organisation linked direct and undirect."""
         if self.orcid:
-            return UserOrg.select().join(
+            q = UserOrg.select().join(
                 User,
                 on=((User.id == UserOrg.user_id) &
-                    ((User.email == self.email)
-                     | (User.orcid == self.orcid)))).where((UserOrg.user_id == self.id)
-                                                           | (User.email == self.email)
-                                                           | (User.orcid == self.orcid))
+                    ((User.email == self.email) |
+                     (User.orcid == self.orcid)))).where((UserOrg.user_id == self.id)
+                                                         | (User.email == self.email)
+                                                         | (User.orcid == self.orcid))
         else:
-            return self.userorg_set
+            q = self.userorg_set
+
+        return [
+            r for r in q.select(UserOrg.id, UserOrg.org_id, Organisation.name.alias("org_name"))
+            .join(Organisation, on=(
+                Organisation.id == UserOrg.org_id)).order_by(Organisation.name).naive()
+        ]
 
     @property
     def available_organisations(self):

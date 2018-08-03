@@ -112,11 +112,12 @@ def app():
         logger.setLevel(logging.INFO)
 
     with test_database(
-            _db, (File, Organisation, User, UserOrg, OrcidToken, UserOrgAffiliation, OrgInfo, Task,
-                  AffiliationRecord, FundingRecord, FundingContributor, FundingInvitees,
-                  OrcidAuthorizeCall, OrcidApiCall, Url, UserInvitation, OrgInvitation, ExternalId,
-                  Client, Grant, Token, WorkRecord, WorkContributor, WorkExternalId, WorkInvitees,
-                  PeerReviewRecord, PeerReviewInvitee, PeerReviewExternalId),
+            _db,
+        (File, Organisation, User, UserOrg, OrcidToken, UserOrgAffiliation, OrgInfo, Task,
+         AffiliationRecord, FundingRecord, FundingContributor, FundingInvitees, GroupIdRecord,
+         OrcidAuthorizeCall, OrcidApiCall, Url, UserInvitation, OrgInvitation, ExternalId, Client,
+         Grant, Token, WorkRecord, WorkContributor, WorkExternalId, WorkInvitees, PeerReviewRecord,
+         PeerReviewInvitee, PeerReviewExternalId),
             fail_silently=True):  # noqa: F405
         _app.db = _db
         _app.config["DATABASE_URL"] = DATABASE_URL

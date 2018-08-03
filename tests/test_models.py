@@ -62,7 +62,12 @@ def test_models(test_db):
         last_name="User_%d" % i,
         email="user_the_same_id_%d@org%d.org.nz" % (i, i),
         confirmed=True,
+        organisation=(i + 1),
         roles=Role.RESEARCHER) for i in range(3))).execute()
+
+    UserOrg.insert_many(
+        dict(user=u.id, org=u.organisation_id)
+        for u in User.select().where(User.orcid == "ABC-123")).execute()
 
     UserOrg.insert_many((dict(is_admin=((u + o) % 23 == 0), user=u, org=o)
                          for (u, o) in product(range(2, 60, 4), range(2, 10)))).execute()
@@ -288,6 +293,8 @@ def test_test_database(test_models):
     assert Organisation.get(id=1).admins.count() == 1
     assert Organisation.get(id=5).users.count() > 0
     assert Organisation.get(id=5).admins.count() > 0
+    assert User.select().where(User.orcid == User.get(
+        email="user_the_same_id_0@org0.org.nz").orcid).count() == 3
     assert len(User.get(email="user_the_same_id_0@org0.org.nz").org_links) == 3
 
     user = User.get(email="user0@org0.org.nz")
