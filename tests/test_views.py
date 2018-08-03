@@ -10,6 +10,7 @@ import time
 from itertools import product
 from unittest.mock import MagicMock, patch
 from io import BytesIO
+from urllib.parse import urlparse
 
 import pytest
 from flask import request, make_response
@@ -1733,32 +1734,43 @@ def test_viewmembers_delete(request_ctx):
         assert OrcidToken.select().where(OrcidToken.org == org, OrcidToken.user == researcher1).count() == 0
 
 
-def test_action_insert_update_group_id(request_ctx):
+def test_action_insert_update_group_id(client):
     """Test update or insert of group id."""
     admin = User.get(email="admin@test0.edu")
-    admin.organisation.orcid_client_id = "ABC123"
-    admin.organisation.save()
-    user = User.get(email="researcher100@test0.edu")
-    gr = GroupIdRecord.create(name="xyz", group_id="issn:test", description="TEST", type="journal",
-                              organisation=user.organisation)
-    gr.save()
+    org = admin.organisation
+    org.orcid_client_id = "ABC123"
+    org.save()
+
+    gr = GroupIdRecord.create(
+        name="xyz",
+        group_id="issn:test",
+        description="TEST",
+        type="journal",
+        organisation=org,
+    )
+
     fake_response = make_response
     fake_response.status = 201
     fake_response.headers = {'Location': '12344/xyz/12399'}
-    OrcidToken.create(org=user.organisation, access_token="ABC123", scope="/group-id-record/update")
+
+    OrcidToken.create(org=org, access_token="ABC123", scope="/group-id-record/update")
+
+    client.login(admin)
+
     with patch.object(
-        orcid_client.MemberAPIV20Api, "create_group_id_record",
-        MagicMock(return_value=fake_response)), request_ctx(
-        f"/admin/groupidrecord/action/",
-        method="POST",
-        data={
-            "rowid": str(gr.id),
-            "action": "Insert/Update Record",
-            "url": "/admin/groupidrecord/"}) as ctx:
-        login_user(admin)
-        resp = ctx.app.full_dispatch_request()
+            orcid_client.MemberAPIV20Api,
+            "create_group_id_record",
+            MagicMock(return_value=fake_response)):
+
+        resp = client.post(
+            "/admin/groupidrecord/action/",
+            data={
+                "rowid": str(gr.id),
+                "action": "Insert/Update Record",
+                "url": "/admin/groupidrecord/"
+            })
         assert resp.status_code == 302
-        assert resp.location == "/admin/groupidrecord/"
+        assert urlparse(resp.location).path == "/admin/groupidrecord/"
         group_id_record = GroupIdRecord.get(id=gr.id)
         # checking if the GroupID Record is updated with put_code supplied from fake response
         assert 12399 == group_id_record.put_code
