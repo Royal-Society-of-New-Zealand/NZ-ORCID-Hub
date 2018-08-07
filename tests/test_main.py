@@ -8,7 +8,8 @@ from urllib.parse import urlparse
 
 import pytest
 from flask import request, session
-from flask_login import login_user
+from flask_login import current_user, login_user, logout_user
+from peewee import fn
 from werkzeug.datastructures import ImmutableMultiDict
 
 from orcid_hub import authcontroller, login_provider, utils
@@ -58,6 +59,30 @@ def test_login(request_ctx):
         assert b"<!DOCTYPE html>" in resp.data, "Expected HTML content"
         assert b"TEST USER" in resp.data, "Expected to have the user name on the page"
         assert b"test@test.test.net" in resp.data, "Expected to have the user email on the page"
+
+        logout_user()
+        resp = get_response(ctx)
+        assert b"test@test.test.net" not in resp.data
+
+
+def test_org_switch(client):
+    """Test organisation switching."""
+    user = User.get(orcid=User.select(fn.COUNT(User.orcid).alias("id_count"), User.orcid).group_by(
+        User.orcid).having(fn.COUNT(User.orcid) > 1).naive().first().orcid)
+    resp = client.login(user, follow_redirects=True)
+
+    assert user.email.encode() in resp.data
+    assert len(user.org_links) > 1
+    assert current_user == user
+
+    for ol in user.org_links:
+        assert ol.org.name.encode() in resp.data
+        if ol.org.id != user.organisation.id:
+            next_ol = ol
+
+    resp = client.get(f"/select/user_org/{next_ol.id}", follow_redirects=True)
+    next_user = UserOrg.get(next_ol.id).user
+    assert next_user != user
 
 
 @pytest.mark.parametrize("url",
