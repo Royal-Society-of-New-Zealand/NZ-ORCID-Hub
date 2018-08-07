@@ -90,8 +90,17 @@ class HubClient(FlaskClient):
                 "Eppn": user.eppn,
             })
 
+    def logout(self):
+        """Perform log-out."""
+        return self.get("/logout")
 
-@pytest.yield_fixture
+    def login_root(self):
+        """Log in with the first found Hub admin user."""
+        root = User.select().where(User.roles.bin_and(Role.SUPERUSER)).first()
+        return self.login(root)
+
+
+@pytest.fixture
 def app():
     """Session-wide test `Flask` application."""
     # Establish an application context before running the tests.
@@ -103,11 +112,12 @@ def app():
         logger.setLevel(logging.INFO)
 
     with test_database(
-            _db, (File, Organisation, User, UserOrg, OrcidToken, UserOrgAffiliation, OrgInfo, Task,
-                  AffiliationRecord, FundingRecord, FundingContributor, FundingInvitees,
-                  OrcidAuthorizeCall, OrcidApiCall, Url, UserInvitation, OrgInvitation, ExternalId,
-                  Client, Grant, Token, WorkRecord, WorkContributor, WorkExternalId, WorkInvitees,
-                  PeerReviewRecord, PeerReviewInvitee, PeerReviewExternalId),
+            _db,
+        (File, Organisation, User, UserOrg, OrcidToken, UserOrgAffiliation, OrgInfo, Task,
+         AffiliationRecord, FundingRecord, FundingContributor, FundingInvitees, GroupIdRecord,
+         OrcidAuthorizeCall, OrcidApiCall, Url, UserInvitation, OrgInvitation, ExternalId, Client,
+         Grant, Token, WorkRecord, WorkContributor, WorkExternalId, WorkInvitees, PeerReviewRecord,
+         PeerReviewInvitee, PeerReviewExternalId),
             fail_silently=True):  # noqa: F405
         _app.db = _db
         _app.config["DATABASE_URL"] = DATABASE_URL
@@ -115,6 +125,7 @@ def app():
         _app.config["SENTRY_DSN"] = None
         _app.config["WTF_CSRF_ENABLED"] = False
         _app.config["DEBUG_TB_ENABLED"] = False
+        _app.config["LOAD_TEST"] = True
         #_app.config["SERVER_NAME"] = "ORCIDHUB"
         _app.sentry = None
 

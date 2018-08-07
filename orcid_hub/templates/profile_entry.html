@@ -1,24 +1,84 @@
-{% extends "base.html" %}
+{% extends "layout.html" %}
 {% from "macros.html" import render_field, form_tag %}
 
 {% block content %}
+  <script type="text/javascript" src="//ajax.googleapis.com/ajax/libs/angularjs/1.3.9/angular.min.js"></script>
+    <script type="text/javascript">
+        var app = angular.module('MyApp', [])
+        app.config(['$interpolateProvider', function($interpolateProvider) {
+        $interpolateProvider.startSymbol('{a');
+        $interpolateProvider.endSymbol('a}'); }]);
+
+        app.controller('MyController', function ($scope, $window) {
+            $scope.externalids = {{grant_data_list | safe}};
+            $scope.grant_number = ''
+            $scope.url = ''
+            $scope.relationship = ''
+
+            $scope.Add = function () {
+                //Add the new item to the Array.
+                var externalid = {};
+                externalid.grant_number = $scope.grant_number;
+                externalid.grant_url = $scope.grant_url;
+                externalid.grant_relationship = $scope.grant_relationship;
+                $scope.externalids.push(externalid);
+            };
+
+            $scope.Remove = function (index) {
+                //Find the record using Index from Array.
+                if ($window.confirm("Do you want to delete")) {
+                    //Remove the item from Array using Index.
+                    $scope.externalids.splice(index, 1);
+                }
+            }
+        });
+    </script>
   {% call form_tag(form) %}
     <div class="row">
       <div class="col-md-9 col-sm-8 col-xs-12">
-        <h1>{{tile or ("Education" if section_type == "EDU" else "Employment")}}</h1>
+        <h1>{{tile or ("Education" if section_type == "EDU" else "Funding" if section_type == "FUN" else "Employment")}}</h1>
       </div>
     </div>
-    <div class="row">
+    <div class="row" ng-app="MyApp" ng-controller="MyController">
       <div class="col-md-6 col-sm-6 col-xs-12">
         {{ render_field(form.org_name) }}
         {{ render_field(form.city) }}
         {{ render_field(form.state) }}
         {{ render_field(form.country) }}
         {{ render_field(form.disambiguated_id) }}
+        {% if section_type == "FUN" %}
+          <input type="button" class="btn btn-danger" ng-click="Add()" value="Add Atleast One Grant / External Identifier Info" /><br>
+          <div ng-repeat="m in externalids">
+            <strong>{{"Funding Grant Number"}}</strong><br>
+            <input type="text" class="form-control" name="grant_number" value="{a m.grant_number a}" /><br>
+            <strong>{{"Funding Grant Url"}}</strong><br>
+            <input type="text" class="form-control" name="grant_url" value="{a m.grant_url a}" /><br>
+            <strong>{{"Funding Grant Relationship"}}</strong><br>
+            <input type="text" class="form-control" name="grant_relationship" value="{a m.grant_relationship a}" /><br>
+            <input type="button" class="btn btn-danger" ng-click="Remove($index)" value="Remove" /><br>
+          </div>
+          <strong>{{"Funding Grant Number"}}</strong><br>
+          <input type="text" class="form-control" name="grant_number" ng-model="grant_number" /><br>
+          <strong>{{"Funding Grant Url"}}</strong><br>
+          <input type="text" class="form-control" name="grant_url" ng-model="grant_url" /><br>
+          <strong>{{"Funding Grant Relationship"}}</strong><br>
+          <input type="text" class="form-control" name="grant_relationship" ng-model="grant_relationship" /><br>
+        {% endif %}
       </div>
       <div class="col-md-6 col-sm-6 col-xs-12">
-        {{ render_field(form.department) }}
-        {{ render_field(form.role) }}
+        {% if section_type == "FUN" %}
+          {{ render_field(form.funding_title) }}
+          {{ render_field(form.funding_translated_title) }}
+          {{ render_field(form.translated_title_language) }}
+          {{ render_field(form.funding_type) }}
+          {{ render_field(form.funding_subtype) }}
+          {{ render_field(form.funding_description) }}
+          {{ render_field(form.total_funding_amount) }}
+          {{ render_field(form.total_funding_amount_currency) }}
+        {% else %}
+          {{ render_field(form.department) }}
+          {{ render_field(form.role) }}
+        {% endif %}
         {{ render_field(form.start_date) }}
         {{ render_field(form.end_date) }}
         {{ render_field(form.disambiguation_source) }}

@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """Tests for core functions."""
 
+from io import BytesIO
 import pprint
 from unittest.mock import patch, Mock
 from urllib.parse import urlparse
@@ -425,7 +426,7 @@ def fetch_token_mock(self,
                      **kwargs):
     """Mock token fetching api call."""
     token = {
-        'orcid': '12121',
+        'orcid': '123',
         'name': 'ros',
         'access_token': 'xyz',
         'refresh_token': 'xyz',
@@ -524,7 +525,7 @@ def test_orcid_login_callback_admin_flow(patch, patch2, request_ctx):
         assert ct.location.startswith("/")
     with request_ctx():
         # User login via orcid, where organisation is not confirmed.
-        u.orcid = "12121"
+        u.orcid = "123"
         u.save()
         request.args = {"invitation_token": None, "state": "xyz"}
         session['oauth_state'] = "xyz"
@@ -745,3 +746,94 @@ def test_orcid_callback(request_ctx):
         resp = ctx.app.full_dispatch_request()
         assert resp.status_code == 302
         assert resp.location.startswith("/link")
+
+
+def test_login0(client):
+    """Test login from orcid."""
+    from orcid_hub import current_user
+    resp = client.get("/login0")
+    assert resp.status_code == 401
+
+    u = User.select().where(User.orcid.is_null(False)).first()
+    email = u.email
+    import itsdangerous
+    signature = itsdangerous.Signer(client.application.secret_key).get_signature(email).decode()
+    auth = email + ':' + signature
+
+    resp = client.get(f"/login0/{auth}")
+    assert resp.status_code == 302
+    assert current_user.email == email
+
+    resp = client.get("/login0", headers={"Authorization": auth})
+    assert resp.status_code == 302
+    assert current_user.email == email
+
+    from base64 import b64encode
+    resp = client.get("/login0", headers={"Authorization": b64encode(auth.encode()).decode()})
+    assert resp.status_code == 302
+    assert current_user.email == email
+
+
+def test_load_test_data(app):
+    """Test load test data generation."""
+    client = app.test_client()
+    client.login_root()
+
+    resp = client.get("/test-data")
+    assert resp.status_code == 200
+    assert b"Load Test Date Generation" in resp.data
+
+    resp = client.post("/test-data?user_count=123")
+    assert resp.data.count(b'\n') == 123
+
+    resp = client.post("/test-data")
+    assert resp.data.count(b'\n') == 400
+
+    import itsdangerous
+    signature = itsdangerous.Signer(
+        client.application.secret_key).get_signature("abc123@gmail.com")
+    resp = client.post(
+        "/test-data",
+        data={
+            "file_": (
+                BytesIO(
+                    b"""nks98991100099999981,paw01,ros1,abc123@gmail.com,The University of Auckland,Rosha1
+nks011,paw01,ros1,2orcid100110009001@gmail.com,The University of Auckland,Rosha1,abc456@auckland.ac.nz,faculty
+"""),
+                "DATA.csv",
+            ),
+        })
+    assert resp.status_code == 200
+    assert signature in resp.data
+    assert "DATA_SIGNED.csv" in resp.headers["Content-Disposition"]
+
+    resp = client.post(
+        "/test-data",
+        data={
+            "file_": (
+                BytesIO(
+                    "abc123@gmail.com\tUniversity\nanother@gmail.com\tThe University of Auckland".
+                    encode("utf-16")),
+                "DATA_WITH_TABS.csv",
+            ),
+        })
+    assert resp.status_code == 200
+    assert signature in resp.data
+    assert resp.data.count(b'\n') == 2
+    assert "DATA_WITH_TABS_SIGNED.csv" in resp.headers["Content-Disposition"]
+
+    resp = client.post(
+        "/test-data",
+        data={
+            "file_": (
+                BytesIO(b"email\tname\nabc123@gmail.com\tUniversity\nanother@gmail.com\tThe University of Auckland"),
+                "DATA_WITH_TABS_AND_HEADERS.csv",
+            ),
+        })
+    assert resp.status_code == 200
+    assert signature in resp.data
+    assert resp.data.count(b'\n') == 2
+
+    assert "DATA_WITH_TABS_AND_HEADERS_SIGNED.csv" in resp.headers["Content-Disposition"]
+
+    client.logout()

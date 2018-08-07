@@ -134,14 +134,6 @@ italics should be deleted before you submit your CV.</span></i></font></font></p
 		</td>
 		<td colspan="7" width="409" style="border: 1px solid #000001; padding: 0cm 0.19cm">
 			<p style="font-style: normal; font-weight: normal"><br/>
-			</p>
-		</td>
-	</tr>
-	<tr valign="top">
-		<td colspan="4" width="173" bgcolor="#e0e0e0" style="border: 1px solid #000001; padding: 0cm 0.19cm">
-			<p><font face="Arial, serif"><font size="3" style="font-size: 12pt"><span style="font-style: normal"><b>Organisation/Employer</b></span></font></font></p>
-		</td>
-		<td colspan="7" width="409" style="border: 1px solid #000001; padding: 0cm 0.19cm">
       <p style="font-style: normal; font-weight: normal">{{ user.organisation.name }}</p>
 		</td>
 	</tr>
@@ -229,18 +221,11 @@ italics should be deleted before you submit your CV.</span></i></font></font></p
 		</td>
 	</tr>
 </table>
-
-<p style="margin-bottom: 0cm; line-height: 100%"><font face="Arial, serif"><font size="3" style="font-size: 12pt"><i><span style="font-weight: normal">Delete
-and start typing here.  List in reverse date order.  Start each
-qualification on a new line as per the example:</span></i></font></font></p>
-<p style="margin-bottom: 0cm; line-height: 100%"><font face="Arial, serif"><font size="3" style="font-size: 12pt"><i><span style="font-weight: normal">e.g.
-Year conferred, qualification, discipline, university/institute.</span></i></font></font></p>
 <ul>
 {% for e in educations %}
   <li>{{ e | year_range }}, {{ e.get("role-title") }}, {{ e.get("organization", "name") }}, {{ e.get("department-name") }}</li>
 {% endfor %}
 </ul>
-
 <table width="612" cellpadding="7" cellspacing="0">
 	<col width="596">
 	<tr>

@@ -1,0 +1,21 @@
+{% extends 'admin/model/list.html' %}
+{% block body %}
+<span class="pull-right">
+      <div style="width:auto">
+          <div style="float: left; width: auto">
+                <form class="icon" method="GET" action="{{url_for('search_group_id_record')}}">
+                  <button onclick="return safeConfirm('Are you sure you want to search for existing Group ID Records on ORCID?\n\nBy clicking &quot;OK&quot;'+
+                  ' you will redirected to page where you can search already existing Group ID Records!');"
+                          data-toggle="tooltip"
+                          data-placement="bottom"
+                          title="Search Existing Group ID Records..."
+                          class="btn btn-info">Search Existing Group ID Records</button> <br>
+                </form>
+          </div>
+      </div>
+</span>
+  {{ super() }}
+{% endblock %}
+{% block list_row_actions %}
+  {{ super() }}
+{% endblock %}
