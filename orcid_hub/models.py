@@ -1167,7 +1167,7 @@ class GroupIdRecord(RecordModel):
                          help_text="The group's identifier, formatted as type:identifier, e.g. issn:12345678. "
                                    "This can be as specific (e.g. the journal's ISSN) or vague as required. "
                                    "Valid types include: issn, ringgold, orcid-generated, fundref, publons.")
-    description = CharField(max_length=120,
+    description = CharField(max_length=1000,
                             help_text="A brief textual description of the group. "
                                       "This can be as specific or vague as required.")
     type = CharField(max_length=80, choices=type_choices,
