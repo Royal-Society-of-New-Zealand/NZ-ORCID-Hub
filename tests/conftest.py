@@ -134,6 +134,16 @@ def app():
         # Add some data:
         for org_no in range(2):
             org = Organisation.create(name=f"TEST{org_no}", tuakiri_name=f"TEST ORG #{org_no}")
+            User.create(
+                created_at=datetime(2017, 11, 16),
+                email=f"researcher_across_orgs@test{org_no}.edu",
+                name="TEST USER ACROSS ORGS",
+                first_name="FIRST_NAME",
+                last_name="LAST_NAME",
+                roles=Role.RESEARCHER,
+                orcid="1981-2981-3981-00X3",
+                confirmed=True,
+                organisation=org)
             if org_no == 1:
                 org.orcid_client_id = "ABC123"
                 org.orcid_secret = "SECRET-12345"
@@ -185,16 +195,6 @@ def app():
                     user=user,
                     client_id=org.name + "-ID",
                     client_secret=org.name + "-SECRET")
-            User.create(
-                created_at=datetime(2017, 11, 27),
-                email=f"researcher_across_orgs@test{org_no}.edu",
-                name="TEST USER ACROSS ORGS",
-                first_name="FIRST_NAME",
-                last_name="LAST_NAME",
-                roles=Role.RESEARCHER,
-                orcid="1981-2981-3981-00X3",
-                confirmed=True,
-                organisation=org)
 
         UserOrg.insert_from(
             query=User.select(User.id, User.organisation_id, User.created_at).where(

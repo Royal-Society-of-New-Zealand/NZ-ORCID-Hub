@@ -40,9 +40,9 @@ def test_user_summary(request_ctx):
         resp = ctx.app.full_dispatch_request()
         assert resp.status_code == 200
         assert b"<!DOCTYPE html>" in resp.data, "Expected HTML content"
-        assert b"TEST0" in resp.data
+        assert b"TEST0" in resp.data and b"TEST1" in resp.data
         assert b"root@test0.edu" in resp.data
-        assert b"4 / 9 (44%)" in resp.data
+        assert b"4 / 10 (40%)" in resp.data
     with request_ctx("/user_summary?from_date=2017-01-01&to_date=2017-12-31") as ctx:
         login_user(user, remember=True)
         resp = ctx.app.full_dispatch_request()
@@ -50,7 +50,7 @@ def test_user_summary(request_ctx):
         assert b"<!DOCTYPE html>" in resp.data, "Expected HTML content"
         assert b"TEST0" in resp.data
         assert b"root@test0.edu" in resp.data
-        assert b"0 / 9 (0%)" in resp.data
+        assert b"0 / 10 (0%)" in resp.data
     for (sort, desc) in [(0, 0), (0, 1), (1, 0), (1, 1)]:
         with request_ctx(
                 f"/user_summary?from_date=2017-01-01&to_date=2018-12-31&sort={sort}&desc={desc}"
