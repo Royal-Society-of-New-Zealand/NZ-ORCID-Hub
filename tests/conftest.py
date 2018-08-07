@@ -66,7 +66,7 @@ ORCIDS = [
 
 class HubClient(FlaskClient):
     """Extension of the default Flask test client."""
-    def login(self, user, affiliations=None):
+    def login(self, user, affiliations=None, **kwargs):
         """Log in with the given user."""
         org = user.organisation
         if affiliations is None:
@@ -76,19 +76,21 @@ class HubClient(FlaskClient):
                     "staff" if a == Affiliation.EMP else "student" for a in Affiliation
                     if a & uo.affiliations
                 ])
-
-        return self.get(
-            "/Tuakiri/login",
-            headers={
-                "Auedupersonsharedtoken": "edu-person-shared-token",
-                "Sn": user.last_name,
-                'Givenname': user.first_name,
-                "Mail": user.email,
-                "O": org.tuakiri_name or org.name,
-                "Displayname": user.name,
-                "Unscoped-Affiliation": affiliations,
-                "Eppn": user.eppn,
-            })
+        headers = {
+            k: v
+            for k, v in [
+                ("Auedupersonsharedtoken", "edu-person-shared-token"),
+                ("Sn", user.last_name),
+                ("Givenname", user.first_name),
+                ("Mail", user.email),
+                ("O", org.tuakiri_name or org.name),
+                ("Displayname", user.name),
+                ("Unscoped-Affiliation", affiliations),
+                ("Eppn", user.eppn or user.email),
+            ] if v is not None
+        }
+        headers.update(kwargs)
+        return self.get("/Tuakiri/login", headers=headers)
 
     def logout(self):
         """Perform log-out."""

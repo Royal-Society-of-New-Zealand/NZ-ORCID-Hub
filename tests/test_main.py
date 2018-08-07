@@ -333,6 +333,36 @@ def test_onboard_org(request_ctx):
             assert resp.location.startswith("/link")
 
 
+@patch("orcid_hub.utils.send_email")
+def test_invite_tech_contact(send_email, client):
+    """Test on-boarding of an org."""
+    pass
+
+    client.login_root()
+    email = "tech.contact@a.new.org"
+    client.post(
+        "/invite/organisation",
+        data={
+            "org_name": "A NEW ORGANISATION",
+            "org_email": email,
+            "tech_contact": "y",
+        })
+    u = User.get(email=email)
+    oi = OrgInvitation.get(invitee=u)
+
+    assert not u.confirmed
+    assert oi.org.name == "A NEW ORGANISATION"
+    assert oi.org.tech_contact is None
+    send_email.assert_called_once()
+    client.logout()
+
+    # Test invited user login:
+    client.login(u, **{"Sn": "Surname", "Givenname": "Givenname", "Displayname": "Test User"})
+    u = User.get(email=email)
+    assert u.confirmed
+    assert u.organisation.tech_contact == u
+
+
 def test_logout(request_ctx):
     """Test to logout."""
     user = User.create(

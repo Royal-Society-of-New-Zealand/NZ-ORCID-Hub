@@ -272,6 +272,12 @@ def handle_login():
 
     if not user.confirmed:
         user.confirmed = True
+        if user.has_role(Role.TECHNICAL):
+            oi = OrgInvitation.select().where(OrgInvitation.invitee == user).order_by(
+                OrgInvitation.created_at.desc()).limit(1).first()
+            if oi and oi.tech_contact and oi.org.tech_contact != user:
+                oi.org.tech_contact = user
+                oi.org.save()
 
     try:
         user.save()
@@ -1082,6 +1088,13 @@ def orcid_login_callback(request):
             user.name = token['name']
         if not user.confirmed:
             user.confirmed = True
+            if user.has_role(Role.TECHNICAL):
+                oi = OrgInvitation.select().where(OrgInvitation.invitee == user).order_by(
+                    OrgInvitation.created_at.desc()).limit(1).first()
+                if oi and oi.tech_contact and oi.org.tech_contact != user:
+                    oi.org.tech_contact = user
+                    oi.org.save()
+
         login_user(user)
         oac.user_id = current_user.id
         oac.save()
