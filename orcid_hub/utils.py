@@ -282,7 +282,7 @@ def send_work_funding_peer_review_invitation(inviter, org, email, first_name=Non
                 "orcid_login",
                 invitation_token=token,
                 _external=True,
-                _scheme="http" if app.debug else "https")
+                _scheme=None if app.debug else "https")
             invitation_url = flask.url_for(
                 "short_url", short_id=Url.shorten(url).short_id, _external=True)
             send_email(
