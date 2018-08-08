@@ -282,7 +282,7 @@ def send_work_funding_peer_review_invitation(inviter, org, email, first_name=Non
                 "orcid_login",
                 invitation_token=token,
                 _external=True,
-                _scheme=None if app.debug else "https")
+                _scheme="http" if app.debug else "https")
             invitation_url = flask.url_for(
                 "short_url", short_id=Url.shorten(url).short_id, _external=True)
             send_email(
@@ -915,7 +915,8 @@ def process_work_records(max_rows=20):
                       on=(WorkRecord.id == WorkInvitees.work_record_id)).join(
                           User, JOIN.LEFT_OUTER,
                           on=((User.email == WorkInvitees.email) | (User.orcid == WorkInvitees.orcid)))
-             .join(Organisation, JOIN.LEFT_OUTER, on=(Organisation.id == Task.org_id)).join(
+             .join(Organisation, JOIN.LEFT_OUTER, on=(Organisation.id == Task.org_id))
+             .join(UserOrg, JOIN.INNER, on=((UserOrg.user_id == User.id) & (UserOrg.org_id == Organisation.id))).join(
                  UserInvitation,
                  JOIN.LEFT_OUTER,
                  on=((UserInvitation.email == WorkInvitees.email)
@@ -1025,7 +1026,8 @@ def process_peer_review_records(max_rows=20):
                       on=(PeerReviewRecord.id == PeerReviewInvitee.peer_review_record_id)).join(
                           User, JOIN.LEFT_OUTER,
                           on=((User.email == PeerReviewInvitee.email) | (User.orcid == PeerReviewInvitee.orcid)))
-             .join(Organisation, JOIN.LEFT_OUTER, on=(Organisation.id == Task.org_id)).join(
+             .join(Organisation, JOIN.LEFT_OUTER, on=(Organisation.id == Task.org_id))
+             .join(UserOrg, JOIN.INNER, on=((UserOrg.user_id == User.id) & (UserOrg.org_id == Organisation.id))).join(
                  UserInvitation,
                  JOIN.LEFT_OUTER,
                  on=((UserInvitation.email == PeerReviewInvitee.email)
@@ -1138,7 +1140,8 @@ def process_funding_records(max_rows=20):
                           JOIN.LEFT_OUTER,
                           on=((User.email == FundingInvitees.email) |
                               (User.orcid == FundingInvitees.orcid)))
-             .join(Organisation, JOIN.LEFT_OUTER, on=(Organisation.id == Task.org_id)).join(
+             .join(Organisation, JOIN.LEFT_OUTER, on=(Organisation.id == Task.org_id))
+             .join(UserOrg, JOIN.INNER, on=((UserOrg.user_id == User.id) & (UserOrg.org_id == Organisation.id))).join(
                  UserInvitation,
                  JOIN.LEFT_OUTER,
                  on=((UserInvitation.email == FundingInvitees.email)
@@ -1249,6 +1252,7 @@ def process_affiliation_records(max_rows=20):
                        on=((User.email == AffiliationRecord.email) |
                            (User.orcid == AffiliationRecord.orcid))).join(
                                Organisation, JOIN.LEFT_OUTER, on=(Organisation.id == Task.org_id))
+             .join(UserOrg, JOIN.INNER, on=((UserOrg.user_id == User.id) & (UserOrg.org_id == Organisation.id)))
              .join(
                  UserInvitation,
                  JOIN.LEFT_OUTER,
