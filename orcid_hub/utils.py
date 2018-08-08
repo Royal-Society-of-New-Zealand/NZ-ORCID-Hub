@@ -915,7 +915,8 @@ def process_work_records(max_rows=20):
                       on=(WorkRecord.id == WorkInvitees.work_record_id)).join(
                           User, JOIN.LEFT_OUTER,
                           on=((User.email == WorkInvitees.email) | (User.orcid == WorkInvitees.orcid)))
-             .join(Organisation, JOIN.LEFT_OUTER, on=(Organisation.id == Task.org_id)).join(
+             .join(Organisation, JOIN.LEFT_OUTER, on=(Organisation.id == Task.org_id))
+             .join(UserOrg, JOIN.INNER, on=((UserOrg.user_id == User.id) & (UserOrg.org_id == Organisation.id))).join(
                  UserInvitation,
                  JOIN.LEFT_OUTER,
                  on=((UserInvitation.email == WorkInvitees.email)
@@ -1139,7 +1140,8 @@ def process_funding_records(max_rows=20):
                           JOIN.LEFT_OUTER,
                           on=((User.email == FundingInvitees.email) |
                               (User.orcid == FundingInvitees.orcid)))
-             .join(Organisation, JOIN.LEFT_OUTER, on=(Organisation.id == Task.org_id)).join(
+             .join(Organisation, JOIN.LEFT_OUTER, on=(Organisation.id == Task.org_id))
+             .join(UserOrg, JOIN.INNER, on=((UserOrg.user_id == User.id) & (UserOrg.org_id == Organisation.id))).join(
                  UserInvitation,
                  JOIN.LEFT_OUTER,
                  on=((UserInvitation.email == FundingInvitees.email)
@@ -1250,6 +1252,7 @@ def process_affiliation_records(max_rows=20):
                        on=((User.email == AffiliationRecord.email) |
                            (User.orcid == AffiliationRecord.orcid))).join(
                                Organisation, JOIN.LEFT_OUTER, on=(Organisation.id == Task.org_id))
+             .join(UserOrg, JOIN.INNER, on=((UserOrg.user_id == User.id) & (UserOrg.org_id == Organisation.id)))
              .join(
                  UserInvitation,
                  JOIN.LEFT_OUTER,
