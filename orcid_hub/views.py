@@ -1228,7 +1228,7 @@ class ViewMembersAdmin(AppModelView):
                         token=token.access_token))
 
                 if resp.status_code != 200:
-                    flash("Failed to revoke token {tokne.access_token}: {ex}", "error")
+                    flash("Failed to revoke token {token.access_token}: {ex}", "error")
                     return False
 
                 token.delete_instance(recursive=True)
@@ -2087,10 +2087,12 @@ def register_org(org_name,
         except User.DoesNotExist:
             user = User.create(
                 email=email,
-                confirmed=True,  # In order to let the user in...
                 organisation=org)
 
         user.roles |= Role.ADMIN
+        if tech_contact:
+            user.roles |= Role.TECHNICAL
+
         if via_orcid:
             if not user.orcid and orcid_id:
                 user.orcid = orcid_id
@@ -2105,16 +2107,6 @@ def register_org(org_name,
             app.logger.exception("Failed to save user data")
             raise
 
-        if tech_contact:
-            user.roles |= Role.TECHNICAL
-            org.tech_contact = user
-            try:
-                user.save()
-                org.save()
-            except Exception:
-                app.logger.exception(
-                    "Failed to assign the user as the technical contact to the organisation")
-                raise
         try:
             user_org = UserOrg.get(user=user, org=org)
             user_org.is_admin = True
@@ -2155,7 +2147,12 @@ def register_org(org_name,
             raise
 
         OrgInvitation.create(
-            inviter_id=current_user.id, invitee_id=user.id, email=user.email, org=org, token=token)
+            inviter_id=current_user.id,
+            invitee_id=user.id,
+            email=user.email,
+            org=org,
+            token=token,
+            tech_contact=tech_contact)
 
 
 # TODO: user can be admin for multiple org and org can have multiple admins:
