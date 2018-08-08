@@ -11,7 +11,6 @@ import pickle
 import re
 import secrets
 import zlib
-from contextlib import suppress
 from datetime import datetime
 from os import path, remove
 from tempfile import gettempdir
@@ -23,7 +22,7 @@ import requests
 from flask import (abort, current_app, flash, redirect, render_template, request, Response,
                    session, stream_with_context, url_for)
 from flask_login import current_user, login_required, login_user, logout_user
-from itsdangerous import SignatureExpired, Signer
+from itsdangerous import Signer
 from oauthlib.oauth2 import rfc6749
 from requests_oauthlib import OAuth2Session
 from werkzeug.urls import iri_to_uri
@@ -895,8 +894,30 @@ def orcid_login(invitation_token=None):
             if isinstance(data, tuple):
                 is_valid, data = data
                 if not is_valid:
-                    flash("The inviation token is invalid!", "danger")
-                    return redirect(_next or url_for("index"))
+                    if isinstance(data, str):
+                        user_email, user_org_name = data.split(';')
+                    else:
+                        user_email, user_org_name = data.get("email"), data.get("org")
+                    user = User.get(email=user_email)
+                    org = Organisation.get(name=user_org_name or user.organisation.name)
+
+                    # if we are able to find token then show the message of permission already given
+                    if OrcidToken.select().where(OrcidToken.user == user, OrcidToken.org == org):
+                        flash("You have already given permission, you can simply login on orcidhub",
+                              "warning")
+                        app.logger.warning(
+                            f"Failed to login via ORCID, as {user_email} from {user_org_name} organisation, "
+                            "was trying old invitation token")
+                        return redirect(url_for("index"))
+
+                    flash(
+                        "It's been more than 15 days since your invitation was sent and it has expired. "
+                        "Please contact the sender to issue a new one", "danger")
+                    app.logger.warning(
+                        f"Failed to login via ORCID, as {user_email} from {user_org_name} organisation, "
+                        "was trying old invitation token")
+                    return redirect(url_for("index"))
+
             if isinstance(data, str):
                 email, org_name = data.split(';')
             else:
@@ -954,33 +975,6 @@ def orcid_login(invitation_token=None):
             orcid_base_url=ORCID_BASE_URL,
             callback_url=orcid_authenticate_url)
 
-    except SignatureExpired:
-        with suppress(Exception):
-            _, data = confirm_token(invitation_token, unsafe=True)
-
-            if isinstance(data, str):
-                user_email, user_org_name = data.split(';')
-            else:
-                user_email, user_org_name = data.get("email"), data.get("org")
-            user = User.get(email=user_email)
-            org = Organisation.get(name=user_org_name or user.organisation.name)
-
-            # if we are able to find token then show the message of permission already given
-            if OrcidToken.select().where(OrcidToken.user == user, OrcidToken.org == org):
-                flash("You have already given permission, you can simply login on orcidhub",
-                      "warning")
-                app.logger.warning(
-                    f"Failed to login via ORCID, as {user_email} from {user_org_name} organisation, "
-                    "was trying old invitation token")
-                return redirect(url_for("index"))
-
-        flash(
-            "It's been more than 15 days since your invitation was sent and it has expired. "
-            "Please contact the sender to issue a new one", "danger")
-        app.logger.warning(
-            f"Failed to login via ORCID, as {user_email} from {user_org_name} organisation, "
-            "was trying old invitation token")
-        return redirect(url_for("index"))
     except Exception as ex:
         flash("Something went wrong. Please contact orcid@royalsociety.org.nz for support!",
               "danger")
