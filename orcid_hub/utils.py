@@ -1025,7 +1025,8 @@ def process_peer_review_records(max_rows=20):
                       on=(PeerReviewRecord.id == PeerReviewInvitee.peer_review_record_id)).join(
                           User, JOIN.LEFT_OUTER,
                           on=((User.email == PeerReviewInvitee.email) | (User.orcid == PeerReviewInvitee.orcid)))
-             .join(Organisation, JOIN.LEFT_OUTER, on=(Organisation.id == Task.org_id)).join(
+             .join(Organisation, JOIN.LEFT_OUTER, on=(Organisation.id == Task.org_id))
+             .join(UserOrg, JOIN.INNER, on=((UserOrg.user_id == User.id) & (UserOrg.org_id == Organisation.id))).join(
                  UserInvitation,
                  JOIN.LEFT_OUTER,
                  on=((UserInvitation.email == PeerReviewInvitee.email)
