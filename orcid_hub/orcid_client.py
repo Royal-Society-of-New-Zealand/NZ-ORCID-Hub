@@ -926,7 +926,7 @@ class MemberAPI(MemberAPIV20Api):
             return (put_code, orcid, created)
 
     def get_webhook_access_token(self):
-        """Retrieve the ORCID webhook access tokne and store it."""
+        """Retrieve the ORCID webhook access tonke and store it."""
         pass
 
     def register_webhook(self, user=None, orcid=None):

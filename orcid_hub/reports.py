@@ -137,8 +137,7 @@ def user_cv(op=None):
         flash("You haven't linked your account with ORCID.", "warning")
         return redirect(request.referrer or url_for("index"))
     token = OrcidToken.select(OrcidToken.access_token).where(
-            OrcidToken.user_id == user.id,
-            OrcidToken.scope.contains("read-limited")).first()
+        OrcidToken.user_id == user.id, OrcidToken.scope.contains("read-limited")).first()
     if token is None:
         flash("You haven't granted your organisation necessary access to your profile..", "danger")
         return redirect(request.referrer or url_for("link"))
@@ -165,7 +164,6 @@ def user_cv(op=None):
                 educations=educations,
                 employments=employments))
         resp.headers["Cache-Control"] = "private, max-age=60"
-        # resp.headers["Content-Type"] = "application/rtf"
         if op == "download" or "download" in request.args:
             resp.headers["Content-Type"] = "application/vnd.ms-word"
             resp.headers[

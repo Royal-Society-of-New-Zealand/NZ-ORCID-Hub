@@ -24,7 +24,7 @@ def test_process_task_from_csv_with_failures(request_ctx):
         # flake8: noqa
         task = Task.load_from_csv(
             """First name	Last name	email address	Organisation	Campus/Department	City	Course or Job title	Start date	End date	Student/Staff
-    FNA	LBA	aaa.lnb@test.com	TEST1	Research Funding	Wellington	Programme Manager - ORCID	2016-09		Staff
+    FNA	LBA	admin@test0.edu	TEST1	Research Funding	Wellington	Programme Manager - ORCID	2016-09		Staff
     """,
             filename="TEST.tsv",
             org=org)

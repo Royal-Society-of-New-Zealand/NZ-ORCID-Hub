@@ -745,6 +745,10 @@ class OrgInvitation(BaseModel, AuditMixin):
         verbose_name="Invitee Email Address")
     token = TextField(unique=True)
     confirmed_at = DateTimeField(null=True)
+    tech_contact = BooleanField(
+        null=True,
+        help_text="The invitee is the techical contact of the organisation.",
+        verbose_name="Is Tech.contact")
 
     @property
     def sent_at(self):
