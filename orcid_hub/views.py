@@ -1228,7 +1228,7 @@ class ViewMembersAdmin(AppModelView):
                         token=token.access_token))
 
                 if resp.status_code != 200:
-                    flash("Failed to revoke token {tokne.access_token}: {ex}", "error")
+                    flash("Failed to revoke token {token.access_token}: {ex}", "error")
                     return False
 
                 token.delete_instance(recursive=True)

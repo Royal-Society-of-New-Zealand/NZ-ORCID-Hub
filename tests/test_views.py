@@ -1644,94 +1644,94 @@ def test_viewmembers(request_ctx):
         assert resp.status_code == 403
 
 
-def test_viewmembers_delete(request_ctx):
+@patch("orcid_hub.views.requests.post")
+def test_viewmembers_delete(mockpost, client):
     """Test affilated researcher deletion via the view."""
     admin0 = User.get(email="admin@test0.edu")
     admin1 = User.get(email="admin@test1.edu")
     researcher0 = User.get(email="researcher100@test0.edu")
     researcher1 = User.get(email="researcher100@test1.edu")
 
-    with request_ctx(
-            "/admin/viewmembers/delete/",
-            method="POST",
-            data={
-                "id": str(researcher1.id),
-                "url": "/admin/viewmembers/",
-            }) as ctx:  # noqa: F405
-        login_user(admin0)
-        resp = ctx.app.full_dispatch_request()
+    # admin0 cannot deleted researcher1:
+    client.login(admin0)
+    resp = client.post(
+        "/admin/viewmembers/delete/",
+        data={
+            "id": str(researcher1.id),
+            "url": "/admin/viewmembers/",
+        })
     assert resp.status_code == 403
 
-    with request_ctx(
+    with patch(
+            "orcid_hub.views.AppModelView.on_model_delete",
+            create=True,
+            side_effect=Exception("FAILURED")), patch(
+                "orcid_hub.views.AppModelView.handle_view_exception",
+                create=True,
+                return_value=False):  # noqa: F405
+        resp = client.post(
             "/admin/viewmembers/delete/",
-            method="POST",
             data={
                 "id": str(researcher0.id),
                 "url": "/admin/viewmembers/",
-            }) as ctx, patch(
-                "orcid_hub.views.AppModelView.on_model_delete",
-                create=True,
-                side_effect=Exception("FAILURED")), patch(
-                    "orcid_hub.views.AppModelView.handle_view_exception",
-                    create=True,
-                    return_value=False):  # noqa: F405
-        login_user(admin0)
-        resp = ctx.app.full_dispatch_request()
+            })
     assert resp.status_code == 302
-    assert resp.location == "/admin/viewmembers/"
+    assert urlparse(resp.location).path == "/admin/viewmembers/"
     assert User.select().where(User.id == researcher0.id).count() == 1
 
-    with request_ctx(
-            "/admin/viewmembers/delete/",
-            method="POST",
-            data={
-                "id": str(researcher0.id),
-                "url": "/admin/viewmembers/",
-            }) as ctx:  # noqa: F405
-        login_user(admin0)
-        resp = ctx.app.full_dispatch_request()
-    assert resp.status_code == 302
+    mockpost.return_value = MagicMock(status_code=200)
+    resp = client.post(
+        "/admin/viewmembers/delete/",
+        method="POST",
+        follow_redirects=True,
+        data={
+            "id": str(researcher0.id),
+            "url": "/admin/viewmembers/",
+        })
+    assert resp.status_code == 200
     with pytest.raises(User.DoesNotExist):
         User.get(id=researcher0.id)
 
+    client.logout()
     UserOrg.create(org=admin0.organisation, user=researcher1)
     OrcidToken.create(org=admin0.organisation, user=researcher1, access_token="ABC123")
-    with request_ctx(
-            "/admin/viewmembers/delete/",
-            method="POST",
-            data={
-                "id": str(researcher1.id),
-                "url": "/admin/viewmembers/",
-            }) as ctx, patch("orcid_hub.views.requests.post") as mockpost:  # noqa: F405
-        org = researcher1.organisation
-        mockpost.return_value = MagicMock(status_code=400)
-        login_user(admin1)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 302
-        assert User.select().where(User.id == researcher1.id).count() == 1
-        assert UserOrg.select().where(UserOrg.user == researcher1).count() == 2
-        assert OrcidToken.select().where(OrcidToken.org == org, OrcidToken.user == researcher1).count() == 1
+    client.login(admin1)
+    payload = {
+        "id": str(researcher1.id),
+        "url": "/admin/viewmembers/",
+    }
+    org = researcher1.organisation
+    mockpost.return_value = MagicMock(status_code=400)
 
-        mockpost.side_effect = Exception("FAILURE")
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 302
-        assert User.select().where(User.id == researcher1.id).count() == 1
-        assert UserOrg.select().where(UserOrg.user == researcher1).count() == 2
-        assert OrcidToken.select().where(OrcidToken.org == org, OrcidToken.user == researcher1).count() == 1
+    resp = client.post("/admin/viewmembers/delete/", data=payload)
+    assert resp.status_code == 302
+    assert User.select().where(User.id == researcher1.id).count() == 1
+    assert UserOrg.select().where(UserOrg.user == researcher1).count() == 2
+    assert OrcidToken.select().where(OrcidToken.org == org,
+                                     OrcidToken.user == researcher1).count() == 1
 
-        mockpost.reset_mock(side_effect=True)
-        mockpost.return_value = MagicMock(status_code=200)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 302
-        assert User.select().where(User.id == researcher1.id).count() == 1
-        assert UserOrg.select().where(UserOrg.user == researcher1).count() == 1
-        args, kwargs = mockpost.call_args
-        assert args[0] == ctx.app.config["ORCID_BASE_URL"] + "oauth/revoke"
-        data = kwargs["data"]
-        assert data["client_id"] == "ABC123"
-        assert data["client_secret"] == "SECRET-12345"
-        assert data["token"].startswith("TOKEN-1")
-        assert OrcidToken.select().where(OrcidToken.org == org, OrcidToken.user == researcher1).count() == 0
+    mockpost.side_effect = Exception("FAILURE")
+    resp = client.post("/admin/viewmembers/delete/", data=payload)
+    assert resp.status_code == 302
+    assert User.select().where(User.id == researcher1.id).count() == 1
+    assert UserOrg.select().where(UserOrg.user == researcher1).count() == 2
+    assert OrcidToken.select().where(OrcidToken.org == org,
+                                     OrcidToken.user == researcher1).count() == 1
+
+    mockpost.reset_mock(side_effect=True)
+    mockpost.return_value = MagicMock(status_code=200)
+    resp = client.post("/admin/viewmembers/delete/", data=payload)
+    assert resp.status_code == 302
+    assert User.select().where(User.id == researcher1.id).count() == 1
+    assert UserOrg.select().where(UserOrg.user == researcher1).count() == 1
+    args, kwargs = mockpost.call_args
+    assert args[0] == client.application.config["ORCID_BASE_URL"] + "oauth/revoke"
+    data = kwargs["data"]
+    assert data["client_id"] == "ABC123"
+    assert data["client_secret"] == "SECRET-12345"
+    assert data["token"].startswith("TOKEN-1")
+    assert OrcidToken.select().where(OrcidToken.org == org,
+                                     OrcidToken.user == researcher1).count() == 0
 
 
 def test_action_insert_update_group_id(client):
