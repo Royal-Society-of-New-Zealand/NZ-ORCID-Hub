@@ -195,6 +195,7 @@ class AppModelView(ModelView):
     )
     form_overrides = dict(start_date=PartialDateField, end_date=PartialDateField)
     form_widget_args = {c: {"readonly": True} for c in column_exclude_list}
+    form_excluded_columns = ["created_at", "updated_at", "created_by", "updated_by"]
 
     def __init__(self, model=None, *args, **kwargs):
         """Pick the model based on the ModelView class name assuming it is ModelClass + "Admin"."""
@@ -404,12 +405,19 @@ class OrganisationAdmin(AppModelView):
         "email_template",
         "email_template_enabled",
     )
-    form_excluded_columns = ("logo", )
+    form_excluded_columns = AppModelView.form_excluded_columns[:]
+    form_excluded_columns.append("logo")
     column_searchable_list = (
         "name",
         "tuakiri_name",
         "city",
     )
+    form_ajax_refs = {
+        "tech_contact": {
+            "fields": (User.name, User.email),
+            "page_size": 5
+        },
+    }
     edit_template = "admin/organisation_edit.html"
     form_widget_args = AppModelView.form_widget_args
     form_widget_args["api_credentials_requested_at"] = {"readonly": True}
