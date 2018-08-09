@@ -95,64 +95,88 @@ def test_models(test_db):
     yield test_db
 
 
-def test_superuser_view_access(request_ctx):
+def test_superuser_view_access(client):
     """Test if SUPERUSER can access Flask-Admin"."""
-    with request_ctx("/admin/schedude/") as ctx:
-        resp = ctx.app.full_dispatch_request()
+    resp = client.get("/admin/schedude/")
+    assert resp.status_code == 403
+    assert b"403" in resp.data
+
+    users = User.select().where(User.email << ["admin@test0.edu", "researcher0@test0.edu"])[:]
+    for u in users:
+        client.login(u)
+        resp = client.get("/admin/user/")
+        assert resp.status_code == 302
+        assert "next=" in resp.location and "admin" in resp.location
+
+        resp = client.get("/admin/organisation/")
+        assert resp.status_code == 302
+        assert "next=" in resp.location and "admin" in resp.location
+
+        resp = client.get("/admin/orcidtoken/")
+        assert resp.status_code == 302
+        assert "next=" in resp.location and "admin" in resp.location
+
+        resp = client.get("/admin/orginfo/")
+        assert resp.status_code == 302
+        assert "next=" in resp.location and "admin" in resp.location
+
+        resp = client.get("/admin/userorg/")
+        assert resp.status_code == 302
+        assert "next=" in resp.location and "admin" in resp.location
+
+        resp = client.get("/admin/schedude/")
         assert resp.status_code == 403
         assert b"403" in resp.data
 
-    user = User.create(
-        name="TEST USER",
-        email="test@test.test.net",
-        roles=Role.SUPERUSER,
-        username="test42",
-        confirmed=True)
+        client.logout()
 
-    with request_ctx("/admin/user/") as ctx:
-        login_user(user, remember=True)
+    client.login_root()
 
-        resp = ctx.app.full_dispatch_request()
+    resp = client.get("/admin/user/")
+    assert resp.status_code == 200
+    assert b"User" in resp.data
+
+    resp = client.get("/admin/organisation/")
+    assert resp.status_code == 200
+
+    resp = client.get("/admin/orcidtoken/")
+    assert resp.status_code == 200
+
+    resp = client.get("/admin/orginfo/")
+    assert resp.status_code == 200
+
+    resp = client.get("/admin/userorg/")
+    assert resp.status_code == 200
+
+    for u in users:
+        resp = client.get(f"/admin/user/edit/?id={u.id}")
         assert resp.status_code == 200
-        assert b"User" in resp.data
+        assert u.name.encode() in resp.data
+        resp = client.post(
+            f"/admin/user/edit/?id={u.id}&url=%2Fadmin%2Fuser%2F",
+            data=dict(
+                name=u.name + "_NEW",
+                first_name=u.first_name,
+                last_name=u.last_name,
+                email="NEW_" + u.email,
+                eppn='',
+                orcid="0000-0000-XXXX-XXXX",
+                confirmed="y",
+                webhook_enabled="y",
+            ))
+        user = User.get(u.id)
+        assert user.orcid == "0000-0000-XXXX-XXXX"
+        assert user.email == "NEW_" + u.email
+        assert user.name == u.name + "_NEW"
 
-    with request_ctx(f"/admin/user/edit/?id={user.id}") as ctx:
-        login_user(user, remember=True)
-
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 200
-        assert b"TEST USER" in resp.data
-
-    with request_ctx("/admin/schedude/") as ctx:
-        login_user(user, remember=True)
-
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 200
-        assert b"interval" in resp.data
+    resp = client.get("/admin/schedude/")
+    assert resp.status_code == 200
+    assert b"interval" in resp.data
 
     jobs = rq.get_scheduler().get_jobs()
-    with request_ctx(f"/admin/schedude/details/?id={jobs[0].id}") as ctx:
-        login_user(user, remember=True)
-
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 200
-        assert b"interval" in resp.data
-
-
-def test_admin_view_access_fail(client, request_ctx):
-    """Test if non SUPERUSER cannot access Flask-Admin"."""
-    resp = client.get("/admin/user/")
-    assert resp.status_code == 302
-    assert "next=" in resp.location and "admin" in resp.location
-
-    with request_ctx("/admin/user/") as ctx:
-        test_user = User(
-            name="TEST USER", email="test@test.test.net", username="test42", confirmed=True)
-        login_user(test_user, remember=True)
-
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 302
-        assert "next=" in resp.location and "admin" in resp.location
+    resp = client.get(f"/admin/schedude/details/?id={jobs[0].id}")
+    assert resp.status_code == 200
+    assert b"interval" in resp.data
 
 
 def test_access(request_ctx):
