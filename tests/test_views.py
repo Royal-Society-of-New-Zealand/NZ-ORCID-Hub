@@ -101,7 +101,11 @@ def test_superuser_view_access(client):
     assert resp.status_code == 403
     assert b"403" in resp.data
 
-    users = User.select().where(User.email << ["admin@test0.edu", "researcher0@test0.edu"])[:]
+    resp = client.get("/admin/user/")
+    assert resp.status_code == 302
+    assert "next=" in resp.location and "admin" in resp.location
+
+    users = User.select().where(User.email << ["admin@test0.edu", "researcher100@test0.edu"])[:]
     for u in users:
         client.login(u)
         resp = client.get("/admin/user/")
@@ -136,8 +140,40 @@ def test_superuser_view_access(client):
     assert resp.status_code == 200
     assert b"User" in resp.data
 
+    resp = client.get("/admin/user/?search=TEST+ORG+%23+1")
+    assert resp.status_code == 200
+    assert b"root@test0.edu" in resp.data
+
     resp = client.get("/admin/organisation/")
     assert resp.status_code == 200
+
+    org = Organisation.select().limit(1).first()
+    resp = client.get(f"/admin/organisation/edit/?id={org.id}")
+    assert resp.status_code == 200
+
+    # Change the technical contact:
+    admin = org.tech_contact
+    new_admin = User.select().where(User.id != org.tech_contact_id, User.email ** "admin%").first()
+    data = {k: v for k, v in org.to_dict(recurse=False).items() if not isinstance(v, dict) and 'at' not in k}
+    data["tech_contact"] = new_admin.id
+    resp = client.post(f"/admin/organisation/edit/?id={org.id}", data=data, follow_redirects=True)
+    assert resp.status_code == 200
+    assert admin.email.encode() not in resp.data
+    assert Organisation.get(org.id).tech_contact != admin
+
+    # Change the technical contact to a non-admin:
+    user = User.get(email="researcher100@test0.edu")
+    data["tech_contact"] = user.id
+    resp = client.post(f"/admin/organisation/edit/?id={org.id}", data=data, follow_redirects=True)
+    assert resp.status_code == 200
+    assert user.email.encode() in resp.data
+    assert Organisation.get(org.id).tech_contact == user
+    assert User.get(user.id).roles & Role.TECHNICAL
+
+    resp = client.get("/admin/organisation/edit/?id=999999")
+    assert resp.status_code == 404
+    assert b"404" in resp.data
+    assert b"The record with given ID: 999999 doesn't exist or it was deleted." in resp.data
 
     resp = client.get("/admin/orcidtoken/")
     assert resp.status_code == 200
@@ -1706,44 +1742,54 @@ def test_delete_employment(request_ctx, app):
         delete_education.assert_called_once_with("XXXX-XXXX-XXXX-0001", 54321)
 
 
-def test_viewmembers(request_ctx):
+def test_viewmembers(client):
     """Test affilated researcher view."""
+    resp = client.get("/admin/viewmembers")
+    assert resp.status_code == 302
+
     non_admin = User.get(email="researcher100@test0.edu")
-    with request_ctx("/admin/viewmembers") as ctx:
-        login_user(non_admin)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 302
+    client.login(non_admin)
+    resp = client.get("/admin/viewmembers")
+    assert resp.status_code == 302
+    client.logout()
 
     admin = User.get(email="admin@test0.edu")
-    with request_ctx("/admin/viewmembers") as ctx:
-        login_user(admin)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 200
-        assert b"researcher100@test0.edu" in resp.data
+    client.login(admin)
+    resp = client.get("/admin/viewmembers")
+    assert resp.status_code == 200
+    assert b"researcher100@test0.edu" in resp.data
 
-    with request_ctx("/admin/viewmembers/?flt1_0=2018-05-01+to+2018-05-31&flt2_1=2018-05-01+to+2018-05-31") as ctx:
-        login_user(admin)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 200
-        assert b"researcher100@test0.edu" not in resp.data
+    resp = client.get("/admin/viewmembers/?flt1_0=2018-05-01+to+2018-05-31&flt2_1=2018-05-01+to+2018-05-31")
+    assert resp.status_code == 200
+    assert b"researcher100@test0.edu" not in resp.data
 
-    with request_ctx(f"/admin/viewmembers/edit/?id={non_admin.id}") as ctx:
-        login_user(admin)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 200
-        assert non_admin.email.encode() in resp.data
-        assert non_admin.name.encode() in resp.data
+    resp = client.get(f"/admin/viewmembers/edit/?id={non_admin.id}")
+    assert resp.status_code == 200
+    assert non_admin.email.encode() in resp.data
+    assert non_admin.name.encode() in resp.data
 
-    with request_ctx(f"/admin/viewmembers/edit/?id=9999999999") as ctx:
-        login_user(admin)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 404
+    resp = client.post(
+        f"/admin/viewmembers/edit/?id={non_admin.id}&url=%2Fadmin%2Fviewmembers%2F",
+        data={
+            "name": non_admin.name,
+            "email": "NEW_EMAIL@test0.edu",
+            "eppn": non_admin.eppn,
+            "orcid": non_admin.orcid,
+        },
+        follow_redirects=True)
+    assert b"NEW_EMAIL@test0.edu" in resp.data
+    assert User.get(non_admin.id).email == "NEW_EMAIL@test0.edu"
+
+    resp = client.get(f"/admin/viewmembers/edit/?id=9999999999")
+    assert resp.status_code == 404
 
     user2 = User.get(email="researcher100@test1.edu")
-    with request_ctx(f"/admin/viewmembers/edit/?id={user2.id}") as ctx:
-        login_user(admin)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 403
+    resp = client.get(f"/admin/viewmembers/edit/?id={user2.id}")
+    assert resp.status_code == 403
+
+    client.logout()
+    client.login_root()
+    resp = client.get("/admin/viewmembers")
 
 
 @patch("orcid_hub.views.requests.post")
