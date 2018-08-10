@@ -1206,7 +1206,7 @@ def test_logo_file(request_ctx):
         assert org.logo is None
 
 
-def test_affiliation_task_upload(client):
+def test_affiliation_tasks(client):
     """Test affilaffiliation task upload."""
     org = Organisation.get(name="TEST0")
     user = User.get(email="admin@test0.edu")
@@ -1236,6 +1236,8 @@ Roshan,Pawar,researcher.010@mailinator.com
                 BytesIO(b"""First Name,Last Name,Email,Affiliation Type
 Roshan,Pawar,researcher.010@mailinator.com,Student
 Roshan,Pawar,researcher.010@mailinator.com,Staff
+Rad,Cirskis,researcher.990@mailinator.com,Staff
+Rad,Cirskis,researcher.990@mailinator.com,Student
 """),
                 "affiliations.csv",
             ),
@@ -1246,7 +1248,8 @@ Roshan,Pawar,researcher.010@mailinator.com,Staff
     task = Task.get(task_id)
     assert task.org == org
     records = list(task.affiliation_records)
-    assert len(records) == 2
+    assert len(records) == 4
+    assert AffiliationRecord.select().where(AffiliationRecord.task_id == task_id).count() == 4
 
     url = resp.location
     session_cookie, _ = resp.headers["Set-Cookie"].split(';', 1)
@@ -1260,10 +1263,85 @@ Roshan,Pawar,researcher.010@mailinator.com,Staff
     resp = client.get("/admin/task/?flt1_1=0")
     assert b"affiliations.csv" in resp.data
 
+    # Activate a single record:
+    id = records[0].id
+    resp = client.post(
+        "/admin/affiliationrecord/action/",
+        follow_redirects=True,
+        data={
+            "url": f"/admin/affiliationrecord/?task_id={task_id}",
+            "action": "activate",
+            "rowid": id,
+        })
+    assert AffiliationRecord.select().where(AffiliationRecord.task_id == task_id,
+                                            AffiliationRecord.is_active).count() == 1
+
+    # Activate all:
+    resp = client.post("/activate_all", follow_redirects=True, data=dict(task_id=task_id))
+    assert AffiliationRecord.select().where(AffiliationRecord.task_id == task_id,
+                                            AffiliationRecord.is_active).count() == 4
+
+    # Reste a single record
+    AffiliationRecord.update(processed_at=datetime.datetime(2018, 1, 1)).execute()
+    resp = client.post(
+        "/admin/affiliationrecord/action/",
+        follow_redirects=True,
+        data={
+            "url": f"/admin/affiliationrecord/?task_id={task_id}",
+            "action": "reset",
+            "rowid": id,
+        })
+    assert AffiliationRecord.select().where(AffiliationRecord.task_id == task_id,
+                                            AffiliationRecord.processed_at.is_null()).count() == 1
+
+    # Reset all:
+    resp = client.post("/reset_all", follow_redirects=True, data=dict(task_id=task_id))
+    assert AffiliationRecord.select().where(AffiliationRecord.task_id == task_id,
+                                            AffiliationRecord.processed_at.is_null()).count() == 4
+
+    # Exporting:
+    for export_type in ["csv", "xls", "tsv", "yaml", "json", "xlsx", "ods", "html"]:
+        resp = client.get(f"/admin/affiliationrecord/export/{export_type}/?task_id={task_id}")
+        ct = resp.headers["Content-Type"]
+        assert (export_type in ct or (export_type == "xls" and "application/vnd.ms-excel" == ct)
+                or (export_type == "tsv" and "text/tab-separated-values" in ct)
+                or (export_type == "yaml" and "application/octet-stream" in ct)
+                or (export_type == "xlsx"
+                    and "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" == ct)
+                or
+                (export_type == "ods" and "application/vnd.oasis.opendocument.spreadsheet" == ct))
+        assert re.match(f"attachment;filename=affiliations_20.*\\.{export_type}",
+                        resp.headers["Content-Disposition"])
+        if export_type not in ["xlsx", "ods"]:
+            assert b"researcher.010@mailinator.com" in resp.data
+
+    # Delete records:
+    resp = client.post(
+        "/admin/affiliationrecord/action/",
+        follow_redirects=True,
+        data={
+            "url": f"/admin/affiliationrecord/?task_id={task_id}",
+            "action": "delete",
+            "rowid": id,
+        })
+    assert AffiliationRecord.select().where(AffiliationRecord.task_id == task_id).count() == 3
+
+    # Delete more records:
+    resp = client.post(
+        "/admin/affiliationrecord/action/",
+        follow_redirects=True,
+        data={
+            "url": f"/admin/affiliationrecord/?task_id={task_id}",
+            "action": "delete",
+            "rowid": [ar.id for ar in records[1:-1]],
+        })
+    assert AffiliationRecord.select().where(AffiliationRecord.task_id == task_id).count() == 1
+
     resp = client.post(
         "/admin/task/delete/", data=dict(id=task_id, url="/admin/task/"), follow_redirects=True)
     assert b"affiliations.csv" not in resp.data
     assert Task.select().count() == 0
+    assert AffiliationRecord.select().where(AffiliationRecord.task_id == task_id).count() == 0
 
 
 @patch("orcid_hub.utils.send_email", side_effect=send_mail_mock)
