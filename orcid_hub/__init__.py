@@ -204,7 +204,7 @@ def setup_app():
     if app.config.get("SHIBBOLETH_DISABLED") is None:
         app.config["SHIBBOLETH_DISABLED"] = not (
             ("mod_wsgi.version" in request.environ and "SHIB_IDP_DOMAINNAME" in os.environ)
-            or "EXTERNAL_SP" in os.environ)
+            or "EXTERNAL_SP" in app.config)
 
 
 @app.after_request

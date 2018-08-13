@@ -13,6 +13,7 @@ Because New Zealand ORCID Hub is fun to use.
 
 Table of Contents
 ^^^^^^^^^^^^^^^^^
+
 .. toctree::
    :maxdepth: 1
    :name: masterdoc
@@ -30,6 +31,7 @@ Table of Contents
 
    ORCID API Specification <orcid_api_spec>
 
+   app_registration
    development_env
    docker
    sendmail

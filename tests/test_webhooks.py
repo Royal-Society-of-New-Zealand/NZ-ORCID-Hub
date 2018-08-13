@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
 """Tests for webhooks functions."""
 
-import logging
 import json
+import logging
 from types import SimpleNamespace as SimpleObject
+from urllib.parse import urlparse
 
 from flask_login import login_user
 from unittest.mock import MagicMock, patch
@@ -43,54 +44,56 @@ def test_get_client_credentials_token(request_ctx):
         assert token.scope == "/webhook"
 
 
-def test_webhook_registration(app_req_ctx):
+def test_webhook_registration(client):
     """Test webhook registration."""
+    test_client = client
     user = User.get(email="app123@test0.edu")
+    test_client.login(user)
     org = user.organisation
     orcid_id = "0000-0000-0000-00X3"
     client = Client.get(org=org)
-    with app_req_ctx(
-            "/oauth/token",
-            method="POST",
-            data=dict(
-                grant_type="client_credentials",
-                client_id=client.client_id,
-                client_secret=client.client_secret,
-                scope="/webhook")) as ctx:
-        login_user(user)
-        rv = ctx.app.full_dispatch_request()
-        assert rv.status_code == 200
-        data = json.loads(rv.data)
-        token = Token.get(user=user, _scopes="/webhook")
-        client = Client.get(client_id="CLIENT_ID")
-        token = Token.get(client=client)
-        assert data["access_token"] == token.access_token
-        assert data["expires_in"] == ctx.app.config["OAUTH2_PROVIDER_TOKEN_EXPIRES_IN"]
-        assert data["token_type"] == token.token_type
-        # prevously created access token should be removed
 
-    with app_req_ctx(
-            "/api/v1.0/INCORRECT/webhook/http%3A%2F%2FCALL-BACK",
-            method="PUT",
-            headers=dict(authorization=f"Bearer {token.access_token}")) as ctx:
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 415
-        assert resp.get_json()["error"] == "Missing or invalid ORCID iD."
+    resp = test_client.post(
+        "/oauth/token",
+        method="POST",
+        data=dict(
+            grant_type="client_credentials",
+            client_id=client.client_id,
+            client_secret=client.client_secret,
+            scope="/webhook"))
+    assert resp.status_code == 200
+    data = json.loads(resp.data)
+    token = Token.get(user=user, _scopes="/webhook")
+    client = Client.get(client_id="CLIENT_ID")
+    token = Token.get(client=client)
+    assert data["access_token"] == token.access_token
+    assert data["expires_in"] == test_client.application.config["OAUTH2_PROVIDER_TOKEN_EXPIRES_IN"]
+    assert data["token_type"] == token.token_type
+    # prevously created access token should be removed
 
-    with app_req_ctx(
-            "/api/v1.0/0000-0001-8228-7153/webhook/http%3A%2F%2FCALL-BACK",
-            method="PUT",
-            headers=dict(authorization=f"Bearer {token.access_token}")) as ctx:
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 404
-        assert resp.get_json()["error"] == "Invalid ORCID iD."
+    resp = test_client.put(
+        "/api/v1.0/INCORRECT/webhook/http%3A%2F%2FCALL-BACK",
+        headers=dict(authorization=f"Bearer {token.access_token}"))
+    assert resp.status_code == 415
+    assert json.loads(resp.data)["error"] == "Missing or invalid ORCID iD."
 
-    with app_req_ctx(
-            f"/api/v1.0/{orcid_id}/webhook/http%3A%2F%2FCALL-BACK",
-            method="PUT", headers=dict(
-                authorization=f"Bearer {token.access_token}")) as ctx, patch(
-                            "orcid_hub.utils.requests.post") as mockpost, patch(
-                            "orcid_hub.utils.requests.put") as mockput:
+    resp = test_client.put(
+        "/api/v1.0/0000-0001-8228-7153/webhook/http%3A%2F%2FCALL-BACK",
+        headers=dict(authorization=f"Bearer {token.access_token}"))
+    assert resp.status_code == 404
+    assert json.loads(resp.data)["error"] == "Invalid ORCID iD."
+
+    resp = test_client.put(
+        f"/api/v1.0/{orcid_id}/webhook/INCORRECT-WEBHOOK-URL",
+        headers=dict(authorization=f"Bearer {token.access_token}"))
+    assert resp.status_code == 415
+    assert json.loads(resp.data) == {
+        "error": "Invalid call-back URL",
+        "message": "Invalid call-back URL: INCORRECT-WEBHOOK-URL"
+    }
+
+    with patch("orcid_hub.utils.requests.post") as mockpost, patch(
+            "orcid_hub.utils.requests.put") as mockput:
         # Access toke request resp:
         mockresp = MagicMock(status_code=201)
         mockresp.json.return_value = {
@@ -105,13 +108,16 @@ def test_webhook_registration(app_req_ctx):
         # Webhook registration response:
         mockresp = MagicMock(status_code=201, data=b'')
         mockresp.headers = {
-                "Server": "TEST123",
+                "Seresper": "TEST123",
                 "Connection": "keep-alive",
                 "Pragma": "no-cache",
                 "Expires": "0",
         }
         mockput.return_value = mockresp
-        resp = ctx.app.full_dispatch_request()
+        resp = test_client.put(
+            f"/api/v1.0/{orcid_id}/webhook/http%3A%2F%2FCALL-BACK",
+            headers=dict(authorization=f"Bearer {token.access_token}"))
+
         assert resp.status_code == 201
         args, kwargs = mockpost.call_args
         assert args[0] == "https://sandbox.orcid.org/oauth/token"
@@ -139,27 +145,26 @@ def test_webhook_registration(app_req_ctx):
         assert orcid_token.expires_in == 99999
         assert orcid_token.scope == "/webhook"
 
-    with app_req_ctx(
-            f"/api/v1.0/{orcid_id}/webhook/http%3A%2F%2FCALL-BACK",
-            method="DELETE", headers=dict(
-                authorization=f"Bearer {token.access_token}")) as ctx, patch(
-                            "orcid_hub.utils.requests.delete") as mockdelete:
+    with patch("orcid_hub.utils.requests.delete") as mockdelete:
         # Webhook deletion response:
         mockresp = MagicMock(status_code=204, data=b'')
         mockresp.headers = {
-                "Server": "TEST123",
-                "Connection": "keep-alive",
-                "Location": "TEST-LOCATION",
-                "Pragma": "no-cache",
-                "Expires": "0",
+            "Seresper": "TEST123",
+            "Connection": "keep-alive",
+            "Location": "TEST-LOCATION",
+            "Pragma": "no-cache",
+            "Expires": "0",
         }
         mockdelete.return_value = mockresp
-        resp = ctx.app.full_dispatch_request()
+        resp = test_client.delete(
+            f"/api/v1.0/{orcid_id}/webhook/http%3A%2F%2FCALL-BACK",
+            headers=dict(authorization=f"Bearer {token.access_token}"))
         assert resp.status_code == 204
-        assert resp.headers["Location"] == "TEST-LOCATION"
+        assert urlparse(resp.location).path == "/TEST-LOCATION"
 
         args, kwargs = mockput.call_args
-        assert args[0] == "https://api.sandbox.orcid.org/0000-0000-0000-00X3/webhook/http%3A%2F%2FCALL-BACK"
+        assert args[
+            0] == "https://api.sandbox.orcid.org/0000-0000-0000-00X3/webhook/http%3A%2F%2FCALL-BACK"
         assert kwargs["headers"] == {
             "Accept": "application/json",
             "Authorization": "Bearer ACCESS-TOKEN-123",
@@ -175,7 +180,7 @@ def test_webhook_registration(app_req_ctx):
         assert token.scope == "/webhook"
 
 
-def test_org_webhook(app_req_ctx, monkeypatch):
+def test_org_webhook(req_ctx, monkeypatch):
     """Test Organisation webhooks."""
     monkeypatch.setattr(
         utils.requests, "post",
@@ -185,9 +190,9 @@ def test_org_webhook(app_req_ctx, monkeypatch):
     monkeypatch.setattr(utils.requests, "put", lambda *args, **kwargs: SimpleObject(status_code=201))
     monkeypatch.setattr(utils.requests, "delete", lambda *args, **kwargs: SimpleObject(status_code=204))
 
-    org = app_req_ctx.data["org"]
+    org = req_ctx.data["org"]
     admin = org.tech_contact
-    user = app_req_ctx.data["user"]
+    user = req_ctx.data["user"]
 
     monkeypatch.setattr(utils.register_orcid_webhook, "queue", utils.register_orcid_webhook)
     monkeypatch.setattr(utils.invoke_webhook_handler, "queue", utils.invoke_webhook_handler)
@@ -200,12 +205,12 @@ def test_org_webhook(app_req_ctx, monkeypatch):
     assert not org.webhook_enabled
     assert org.users.where(User.orcid.is_null(False), User.webhook_enabled).count() == 0
 
-    with app_req_ctx(
+    with req_ctx(
             f"/services/{user.id}/updated",
             method="POST") as ctx, patch.object(utils, "send_email") as send_email:
         send_email.assert_not_called()
 
-    with app_req_ctx(
+    with req_ctx(
             "/settings/webhook", method="POST",
             data=dict(
                 webhook_url="https://ORG.org/HANDLE",
@@ -217,14 +222,14 @@ def test_org_webhook(app_req_ctx, monkeypatch):
         assert Organisation.get(org.id).webhook_enabled
         assert resp.status_code == 200
 
-        with app_req_ctx(
+        with req_ctx(
                 f"/services/{user.id}/updated",
                 method="POST") as ctx, patch.object(utils, "send_email") as send_email:
             resp = ctx.app.full_dispatch_request()
             send_email.assert_not_called()
             assert resp.status_code == 204
 
-    with app_req_ctx(
+    with req_ctx(
             "/settings/webhook", method="POST",
             data=dict(
                 webhook_url="https://ORG.org/HANDLE",
@@ -237,7 +242,7 @@ def test_org_webhook(app_req_ctx, monkeypatch):
         assert Organisation.get(org.id).email_notifications_enabled
         assert resp.status_code == 200
 
-        with app_req_ctx(
+        with req_ctx(
                 f"/services/{user.id}/updated",
                 method="POST") as ctx, patch.object(utils, "send_email") as send_email:
             resp = ctx.app.full_dispatch_request()
@@ -245,7 +250,7 @@ def test_org_webhook(app_req_ctx, monkeypatch):
             assert resp.status_code == 204
 
         monkeypatch.setattr(utils.requests, "post", lambda *args, **kwargs: SimpleObject(status_code=404))
-        with app_req_ctx(
+        with req_ctx(
                 f"/services/{user.id}/updated",
                 method="POST") as ctx, patch.object(utils, "send_email") as send_email:
             resp = ctx.app.full_dispatch_request()
