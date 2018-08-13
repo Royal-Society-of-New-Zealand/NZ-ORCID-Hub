@@ -1762,7 +1762,7 @@ def section(user_id, section_type="EMP"):
     _url = request.args.get("url") or request.referrer or url_for("viewmembers.index_view")
 
     section_type = section_type.upper()[:3]  # normalize the section type
-    if section_type not in ["EDU", "EMP", "FUN"]:
+    if section_type not in ["EDU", "EMP", "FUN", "PRR"]:
         flash("Incorrect user profile section", "danger")
         return redirect(_url)
 
@@ -1792,8 +1792,10 @@ def section(user_id, section_type="EMP"):
             api_response = api_instance.view_employments(user.orcid)
         elif section_type == "EDU":
             api_response = api_instance.view_educations(user.orcid)
-        else:
+        elif section_type == "FUN":
             api_response = api_instance.view_fundings(user.orcid)
+        else:
+            api_response = api_instance.view_peer_reviews(user.orcid)
     except ApiException as ex:
         if ex.status == 401:
             flash("User has revoked the permissions to update his/her records", "warning")
@@ -1824,6 +1826,18 @@ def section(user_id, section_type="EMP"):
                 records.append(fs)
         return render_template(
             "funding_section.html",
+            url=_url,
+            records=records,
+            section_type=section_type,
+            user_id=user_id,
+            org_client_id=user.organisation.orcid_client_id)
+    elif section_type == 'PRR':
+        if data and data.get("group"):
+            for k in data.get("group"):
+                fs = k.get("peer-review-summary")[0]
+                records.append(fs)
+        return render_template(
+            "peer_review_section.html",
             url=_url,
             records=records,
             section_type=section_type,
