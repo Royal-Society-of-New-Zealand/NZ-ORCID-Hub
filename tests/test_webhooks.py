@@ -180,7 +180,7 @@ def test_webhook_registration(client):
         assert token.scope == "/webhook"
 
 
-def test_org_webhook(req_ctx, monkeypatch):
+def test_org_webhook(request_ctx, monkeypatch):
     """Test Organisation webhooks."""
     monkeypatch.setattr(
         utils.requests, "post",
@@ -190,9 +190,9 @@ def test_org_webhook(req_ctx, monkeypatch):
     monkeypatch.setattr(utils.requests, "put", lambda *args, **kwargs: SimpleObject(status_code=201))
     monkeypatch.setattr(utils.requests, "delete", lambda *args, **kwargs: SimpleObject(status_code=204))
 
-    org = req_ctx.data["org"]
+    org = request_ctx.data["org"]
     admin = org.tech_contact
-    user = req_ctx.data["user"]
+    user = request_ctx.data["user"]
 
     monkeypatch.setattr(utils.register_orcid_webhook, "queue", utils.register_orcid_webhook)
     monkeypatch.setattr(utils.invoke_webhook_handler, "queue", utils.invoke_webhook_handler)
@@ -205,12 +205,12 @@ def test_org_webhook(req_ctx, monkeypatch):
     assert not org.webhook_enabled
     assert org.users.where(User.orcid.is_null(False), User.webhook_enabled).count() == 0
 
-    with req_ctx(
+    with request_ctx(
             f"/services/{user.id}/updated",
             method="POST") as ctx, patch.object(utils, "send_email") as send_email:
         send_email.assert_not_called()
 
-    with req_ctx(
+    with request_ctx(
             "/settings/webhook", method="POST",
             data=dict(
                 webhook_url="https://ORG.org/HANDLE",
@@ -222,14 +222,14 @@ def test_org_webhook(req_ctx, monkeypatch):
         assert Organisation.get(org.id).webhook_enabled
         assert resp.status_code == 200
 
-        with req_ctx(
+        with request_ctx(
                 f"/services/{user.id}/updated",
                 method="POST") as ctx, patch.object(utils, "send_email") as send_email:
             resp = ctx.app.full_dispatch_request()
             send_email.assert_not_called()
             assert resp.status_code == 204
 
-    with req_ctx(
+    with request_ctx(
             "/settings/webhook", method="POST",
             data=dict(
                 webhook_url="https://ORG.org/HANDLE",
@@ -242,7 +242,7 @@ def test_org_webhook(req_ctx, monkeypatch):
         assert Organisation.get(org.id).email_notifications_enabled
         assert resp.status_code == 200
 
-        with req_ctx(
+        with request_ctx(
                 f"/services/{user.id}/updated",
                 method="POST") as ctx, patch.object(utils, "send_email") as send_email:
             resp = ctx.app.full_dispatch_request()
@@ -250,7 +250,7 @@ def test_org_webhook(req_ctx, monkeypatch):
             assert resp.status_code == 204
 
         monkeypatch.setattr(utils.requests, "post", lambda *args, **kwargs: SimpleObject(status_code=404))
-        with req_ctx(
+        with request_ctx(
                 f"/services/{user.id}/updated",
                 method="POST") as ctx, patch.object(utils, "send_email") as send_email:
             resp = ctx.app.full_dispatch_request()

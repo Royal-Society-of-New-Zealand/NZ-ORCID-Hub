@@ -31,9 +31,9 @@ def test_plural():
     assert plural("carrot") == "carrots"
 
 
-def test_get_oauth_access_token(req_ctx):
+def test_get_oauth_access_token(request_ctx):
     """Test the acquisition of OAuth access token."""
-    with req_ctx(
+    with request_ctx(
             "/oauth/token",
             method="POST",
             data=dict(
@@ -51,7 +51,7 @@ def test_get_oauth_access_token(req_ctx):
         # prevously created access token should be removed
         assert not Token.select().where(Token.access_token == "TEST").exists()
 
-    with req_ctx(
+    with request_ctx(
             "/oauth/token",
             method="POST",
             data=dict(
@@ -64,7 +64,7 @@ def test_get_oauth_access_token(req_ctx):
         data = json.loads(rv.data)
         assert data["error"] == "invalid_client"
 
-    with req_ctx(
+    with request_ctx(
             "/oauth/token",
             method="POST",
             data=dict(
@@ -77,7 +77,7 @@ def test_get_oauth_access_token(req_ctx):
         data = json.loads(rv.data)
         assert data["error"] == "invalid_client"
 
-    with req_ctx(
+    with request_ctx(
             "/oauth/token",
             method="POST",
             data=dict(
@@ -91,9 +91,9 @@ def test_get_oauth_access_token(req_ctx):
         assert data["error"] == "unsupported_grant_type"
 
 
-# def test_revoke_access_token(req_ctx):
+# def test_revoke_access_token(request_ctx):
 #     """Test the acquisition of OAuth access token."""
-#     with req_ctx(
+#     with request_ctx(
 #             "/oauth/token",
 #             method="POST",
 #             data=dict(
@@ -107,7 +107,7 @@ def test_get_oauth_access_token(req_ctx):
 #         token = Token.get(client=client)
 #         assert data["access_token"] == token.access_token
 
-#     with req_ctx(
+#     with request_ctx(
 #             "/oauth/token",
 #             method="POST",
 #             data=dict(
@@ -119,11 +119,11 @@ def test_get_oauth_access_token(req_ctx):
 #         data = json.loads(rv.data)
 
 
-def test_me(req_ctx):
+def test_me(request_ctx):
     """Test the echo endpoint."""
     user = User.get(email="app123@test0.edu")
     token = Token.get(user=user)
-    with req_ctx("/api/me", headers=dict(authorization=f"Bearer {token.access_token}")) as ctx:
+    with request_ctx("/api/me", headers=dict(authorization=f"Bearer {token.access_token}")) as ctx:
         rv = ctx.app.full_dispatch_request()
         assert rv.status_code == 200
         data = json.loads(rv.data)
@@ -131,7 +131,7 @@ def test_me(req_ctx):
         assert data["name"] == user.name
 
     # Test invalid token:
-    with req_ctx("/api/me", headers=dict(authorization="Bearer INVALID")) as ctx:
+    with request_ctx("/api/me", headers=dict(authorization="Bearer INVALID")) as ctx:
         user = User.get(email="app123@test0.edu")
         rv = ctx.app.full_dispatch_request()
         assert rv.status_code == 401
@@ -139,7 +139,7 @@ def test_me(req_ctx):
     # Test expired token:
     token.expires = datetime(1971, 1, 1)
     token.save()
-    with req_ctx("/api/me", headers=dict(authorization=f"Bearer {token.access_token}")) as ctx:
+    with request_ctx("/api/me", headers=dict(authorization=f"Bearer {token.access_token}")) as ctx:
         rv = ctx.app.full_dispatch_request()
         assert rv.status_code == 401
 
@@ -151,18 +151,18 @@ def test_me(req_ctx):
 @pytest.mark.parametrize("version", [
     "v1.0",
 ])
-def test_user_and_token_api(req_ctx, resource, version):
+def test_user_and_token_api(request_ctx, resource, version):
     """Test the echo endpoint."""
     user = User.get(email="researcher@test0.edu")
     org2_user = User.get(email="researcher@org2.edu")
-    with req_ctx(
+    with request_ctx(
             f"/api/{version}/{resource}/ABC123", headers=dict(authorization="Bearer TEST")) as ctx:
         resp = ctx.app.full_dispatch_request()
         assert resp.status_code == 400
         data = json.loads(resp.data)
         assert "error" in data
         assert "incorrect identifier" in data["error"].lower()
-    with req_ctx(
+    with request_ctx(
             f"/api/{version}/{resource}/0000-0000-0000-0000",
             headers=dict(authorization="Bearer TEST")) as ctx:
         resp = ctx.app.full_dispatch_request()
@@ -170,7 +170,7 @@ def test_user_and_token_api(req_ctx, resource, version):
         data = json.loads(resp.data)
         assert "error" in data
         assert "incorrect identifier" in data["error"].lower()
-    with req_ctx(
+    with request_ctx(
             f"/api/{version}/{resource}/abc123@some.org",
             headers=dict(authorization="Bearer TEST")) as ctx:
         resp = ctx.app.full_dispatch_request()
@@ -178,7 +178,7 @@ def test_user_and_token_api(req_ctx, resource, version):
         data = json.loads(resp.data)
         assert "error" in data
         assert "not found" in data["error"].lower()
-    with req_ctx(
+    with request_ctx(
             f"/api/{version}/{resource}/0000-0000-0000-0001",
             headers=dict(authorization="Bearer TEST")) as ctx:
         resp = ctx.app.full_dispatch_request()
@@ -190,7 +190,7 @@ def test_user_and_token_api(req_ctx, resource, version):
             user.email,
             user.orcid,
     ]:
-        with req_ctx(
+        with request_ctx(
                 f"/api/{version}/{resource}/{identifier}",
                 headers=dict(authorization="Bearer TEST")) as ctx:
             resp = ctx.app.full_dispatch_request()
@@ -205,7 +205,7 @@ def test_user_and_token_api(req_ctx, resource, version):
                 token = OrcidToken.get(user_id=user.id)
                 assert data["access_token"] == token.access_token
     if resource == "users":  # test user listing
-        with req_ctx(
+        with request_ctx(
                 f"/api/{version}/{resource}",
                 headers=dict(authorization="Bearer TEST")) as ctx:
             resp = ctx.app.full_dispatch_request()
@@ -213,7 +213,7 @@ def test_user_and_token_api(req_ctx, resource, version):
             assert resp.status_code == 200
             data = json.loads(resp.data)
             assert len(data) == 11
-        with req_ctx(
+        with request_ctx(
                 f"/api/{version}/{resource}?page=INVALID&page_size=INVALID",
                 headers=dict(authorization="Bearer TEST")) as ctx:
             resp = ctx.app.full_dispatch_request()
@@ -221,7 +221,7 @@ def test_user_and_token_api(req_ctx, resource, version):
             assert resp.status_code == 200
             data = json.loads(resp.data)
             assert len(data) == 11
-        with req_ctx(
+        with request_ctx(
                 f"/api/{version}/{resource}?page=2&page_size=3",
                 headers=dict(authorization="Bearer TEST")) as ctx:
             resp = ctx.app.full_dispatch_request()
@@ -229,7 +229,7 @@ def test_user_and_token_api(req_ctx, resource, version):
             assert resp.status_code == 200
             data = json.loads(resp.data)
             assert len(data) == 3
-        with req_ctx(
+        with request_ctx(
                 f"/api/{version}/{resource}?page_size=3",
                 headers=dict(authorization="Bearer TEST")) as ctx:
             resp = ctx.app.full_dispatch_request()
@@ -237,7 +237,7 @@ def test_user_and_token_api(req_ctx, resource, version):
             assert resp.status_code == 200
             data = json.loads(resp.data)
             assert len(data) == 3
-        with req_ctx(
+        with request_ctx(
                 f"/api/{version}/{resource}?page=42",
                 headers=dict(authorization="Bearer TEST")) as ctx:
             resp = ctx.app.full_dispatch_request()
@@ -245,13 +245,13 @@ def test_user_and_token_api(req_ctx, resource, version):
             assert resp.status_code == 200
             data = json.loads(resp.data)
             assert len(data) == 0
-        with req_ctx(
+        with request_ctx(
                 f"/api/{version}/{resource}?from_date=ABCD",
                 headers=dict(authorization="Bearer TEST")) as ctx:
             resp = ctx.app.full_dispatch_request()
             data = json.loads(resp.data)
             assert resp.status_code == 422
-        with req_ctx(
+        with request_ctx(
                 f"/api/{version}/{resource}?from_date=2018-01-01",
                 headers=dict(authorization="Bearer TEST")) as ctx:
             resp = ctx.app.full_dispatch_request()
@@ -259,7 +259,7 @@ def test_user_and_token_api(req_ctx, resource, version):
             assert resp.status_code == 200
             data = json.loads(resp.data)
             assert len(data) == 4
-        with req_ctx(
+        with request_ctx(
                 f"/api/{version}/{resource}?to_date=2018-01-01",
                 headers=dict(authorization="Bearer TEST")) as ctx:
             resp = ctx.app.full_dispatch_request()
@@ -267,7 +267,7 @@ def test_user_and_token_api(req_ctx, resource, version):
             assert resp.status_code == 200
             data = json.loads(resp.data)
             assert len(data) == 7
-        with req_ctx(
+        with request_ctx(
                 f"/api/{version}/{resource}?from_date=2017-12-20&to_date=2017-12-21",
                 headers=dict(authorization="Bearer TEST")) as ctx:
             resp = ctx.app.full_dispatch_request()
@@ -282,7 +282,7 @@ def test_user_and_token_api(req_ctx, resource, version):
                 user2.email,
                 user2.orcid,
         ]:
-            with req_ctx(
+            with request_ctx(
                     f"/api/{version}/tokens/{identifier}",
                     headers=dict(authorization="Bearer TEST")) as ctx:
                 resp = ctx.app.full_dispatch_request()
@@ -290,7 +290,7 @@ def test_user_and_token_api(req_ctx, resource, version):
                 data = json.loads(resp.data)
                 assert "error" in data
 
-    with req_ctx(
+    with request_ctx(
             f"/api/{version}/{resource}/{org2_user.email}",
             headers=dict(authorization="Bearer TEST")) as ctx:
         resp = ctx.app.full_dispatch_request()
@@ -329,12 +329,12 @@ def test_yamlfy(app):
     assert yaml.load(resp.data) == datetime(2018, 7, 10, 16, 26, 25)
 
 
-def test_api_docs(req_ctx):
+def test_api_docs(request_ctx):
     """Test API docs."""
-    data = req_ctx.data
+    data = request_ctx.data
     tech_contact = data["tech_contact"]
     super_user = data["super_user"]
-    with req_ctx("/api-docs") as ctx:
+    with request_ctx("/api-docs") as ctx:
         spec_url = url_for("spec", _external=True)
         data_api_spec_url = url_for("Swagger.model_resources", _external=True)
         login_user(tech_contact)
@@ -343,7 +343,7 @@ def test_api_docs(req_ctx):
         assert spec_url.encode("utf-8") in rv.data
         assert data_api_spec_url.encode("utf-8") not in rv.data
 
-    with req_ctx("/api-docs") as ctx:
+    with request_ctx("/api-docs") as ctx:
         login_user(super_user)
         rv = ctx.app.full_dispatch_request()
         assert rv.status_code == 200
@@ -351,9 +351,9 @@ def test_api_docs(req_ctx):
         assert data_api_spec_url.encode("utf-8") in rv.data
 
 
-def test_db_api(req_ctx):
+def test_db_api(request_ctx):
     """Test DB API."""
-    with req_ctx(
+    with request_ctx(
             "/data/api/v0.1/organisations/", headers=dict(authorization="Bearer TEST")) as ctx:
         rv = ctx.app.full_dispatch_request()
         assert rv.status_code == 200
@@ -361,7 +361,7 @@ def test_db_api(req_ctx):
         assert "objects" in data
         assert len(data["objects"]) == 4
 
-    with req_ctx("/data/api/v0.1/tasks/", headers=dict(authorization="Bearer TEST")) as ctx:
+    with request_ctx("/data/api/v0.1/tasks/", headers=dict(authorization="Bearer TEST")) as ctx:
         rv = ctx.app.full_dispatch_request()
         assert rv.status_code == 200
         data = json.loads(rv.data)
@@ -369,7 +369,7 @@ def test_db_api(req_ctx):
         assert len(data["objects"]) == 0
 
     org = Organisation.get(id=1)
-    with req_ctx(
+    with request_ctx(
             f"/data/api/v0.1/organisations/{org.id}",
             headers=dict(authorization="Bearer TEST")) as ctx:
         rv = ctx.app.full_dispatch_request()
@@ -379,7 +379,7 @@ def test_db_api(req_ctx):
         assert data["tuakiri_name"] == org.tuakiri_name
 
     org = Organisation.get(id=2)
-    with req_ctx(
+    with request_ctx(
             f"/data/api/v0.1/organisations/{org.id}",
             headers=dict(authorization="Bearer TEST")) as ctx:
         rv = ctx.app.full_dispatch_request()
@@ -732,13 +732,13 @@ something fishy is going here...
     assert "something fishy is going here..." in data["message"]
 
 
-def test_proxy_get_profile(req_ctx):
+def test_proxy_get_profile(request_ctx):
     """Test the echo endpoint."""
     user = User.get(email="app123@test0.edu")
     token = Token.get(user=user)
     orcid_id = "0000-0000-0000-00X3"
 
-    with req_ctx(
+    with request_ctx(
             f"/orcid/api/v2.23/{orcid_id}", headers=dict(
                 authorization=f"Bearer {token.access_token}")) as ctx, patch(
                         "orcid_hub.apis.requests.Session.send") as mocksend:
@@ -765,7 +765,7 @@ def test_proxy_get_profile(req_ctx):
         data = json.loads(resp.data)
         assert data == {"data": "TEST"}
 
-    with req_ctx(
+    with request_ctx(
             f"/orcid/api/v2.23/{orcid_id}/SOMETHING-MORE", headers=dict(
                 authorization=f"Bearer {token.access_token}"), method="POST",
             data=b"""{"data": "REQUEST"}""") as ctx, patch(
@@ -795,14 +795,14 @@ def test_proxy_get_profile(req_ctx):
         assert data == {"data": "TEST"}
 
     # malformatted ORCID ID:
-    with req_ctx(
+    with request_ctx(
             "/orcid/api/v2.23/NOT-ORCID-ID/PATH",
             headers=dict(authorization=f"Bearer {token.access_token}")) as ctx:
         resp = ctx.app.full_dispatch_request()
         assert resp.status_code == 415
 
     # wrong version number:
-    with req_ctx(
+    with request_ctx(
             f"/orcid/api/v1.23_ERROR/{orcid_id}/PATH", headers=dict(
                 authorization=f"Bearer {token.access_token}")) as ctx:
         resp = ctx.app.full_dispatch_request()
@@ -813,7 +813,7 @@ def test_proxy_get_profile(req_ctx):
         }
 
     # no ORCID access token
-    with req_ctx(
+    with request_ctx(
             "/orcid/api/v2.23/0000-0000-0000-11X2/PATH", headers=dict(
                 authorization=f"Bearer {token.access_token}")) as ctx:
         resp = ctx.app.full_dispatch_request()
