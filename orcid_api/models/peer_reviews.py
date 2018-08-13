@@ -31,8 +31,8 @@ class PeerReviews(object):
                                   and the value is json key in definition.
         """
         self.swagger_types = {
-            'last_modified_date': 'LastModifiedDate',
-            'group': 'list[PeerReviewGroup]',
+            'last_modified_date': 'object',
+            'group': 'list[object]',
             'path': 'str'
         }
 
@@ -52,7 +52,7 @@ class PeerReviews(object):
         Gets the last_modified_date of this PeerReviews.
 
         :return: The last_modified_date of this PeerReviews.
-        :rtype: LastModifiedDate
+        :rtype: object
         """
         return self._last_modified_date
 
@@ -62,7 +62,7 @@ class PeerReviews(object):
         Sets the last_modified_date of this PeerReviews.
 
         :param last_modified_date: The last_modified_date of this PeerReviews.
-        :type: LastModifiedDate
+        :type: object
         """
 
         self._last_modified_date = last_modified_date
@@ -73,7 +73,7 @@ class PeerReviews(object):
         Gets the group of this PeerReviews.
 
         :return: The group of this PeerReviews.
-        :rtype: list[PeerReviewGroup]
+        :rtype: list[object]
         """
         return self._group
 
@@ -83,7 +83,7 @@ class PeerReviews(object):
         Sets the group of this PeerReviews.
 
         :param group: The group of this PeerReviews.
-        :type: list[PeerReviewGroup]
+        :type: list[object]
         """
 
         self._group = group
