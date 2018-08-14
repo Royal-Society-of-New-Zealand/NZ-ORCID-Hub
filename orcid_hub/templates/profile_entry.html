@@ -34,11 +34,12 @@
         });
     </script>
   {% call form_tag(form) %}
-    <div class="row">
-      <div class="col-md-9 col-sm-8 col-xs-12">
-        <h1>{{tile or ("Education" if section_type == "EDU" else "Funding" if section_type == "FUN" else "Employment")}}</h1>
-      </div>
-    </div>
+<div class="row">
+  <div class="col-md-9 col-sm-8 col-xs-12">
+    <h1>{{tile or ("Education" if section_type == "EDU" else "Funding" if section_type == "FUN" else "Peer Review" if
+      section_type == "PRR" else "Employment")}}</h1>
+  </div>
+</div>
     <div class="row" ng-app="MyApp" ng-controller="MyController">
       <div class="col-md-6 col-sm-6 col-xs-12">
         {{ render_field(form.org_name) }}
@@ -66,21 +67,40 @@
         {% endif %}
       </div>
       <div class="col-md-6 col-sm-6 col-xs-12">
-        {% if section_type == "FUN" %}
-          {{ render_field(form.funding_title) }}
-          {{ render_field(form.funding_translated_title) }}
-          {{ render_field(form.translated_title_language) }}
-          {{ render_field(form.funding_type) }}
-          {{ render_field(form.funding_subtype) }}
-          {{ render_field(form.funding_description) }}
-          {{ render_field(form.total_funding_amount) }}
-          {{ render_field(form.total_funding_amount_currency) }}
+        {% if section_type == "PRR" %}
+          {{ render_field(form.reviewer_role) }}
+          {{ render_field(form.review_url) }}
+          {{ render_field(form.review_type) }}
+          {{ render_field(form.review_group_id) }}
+          {{ render_field(form.subject_external_identifier_type) }}
+          {{ render_field(form.subject_external_identifier_value) }}
+          {{ render_field(form.subject_external_identifier_url) }}
+          {{ render_field(form.subject_external_identifier_relationship) }}
+          {{ render_field(form.subject_container_name) }}
+          {{ render_field(form.subject_type) }}
+          {{ render_field(form.subject_title) }}
+          {{ render_field(form.subject_subtitle) }}
+          {{ render_field(form.subject_translated_title) }}
+          {{ render_field(form.subject_translated_title_language_code) }}
+          {{ render_field(form.subject_url) }}
+          {{ render_field(form.review_completion_date) }}
         {% else %}
-          {{ render_field(form.department) }}
-          {{ render_field(form.role) }}
+          {% if section_type == "FUN" %}
+            {{ render_field(form.funding_title) }}
+            {{ render_field(form.funding_translated_title) }}
+            {{ render_field(form.translated_title_language) }}
+            {{ render_field(form.funding_type) }}
+            {{ render_field(form.funding_subtype) }}
+            {{ render_field(form.funding_description) }}
+            {{ render_field(form.total_funding_amount) }}
+            {{ render_field(form.total_funding_amount_currency) }}
+          {% else %}
+            {{ render_field(form.department) }}
+            {{ render_field(form.role) }}
+          {% endif %}
+          {{ render_field(form.start_date) }}
+          {{ render_field(form.end_date) }}
         {% endif %}
-        {{ render_field(form.start_date) }}
-        {{ render_field(form.end_date) }}
         {{ render_field(form.disambiguation_source) }}
         <button type="submit" class="btn btn-primary" value="Save">Save</button>
         <a role="button" class="btn btn-default" href="{{_url}}">Cancel</a>
