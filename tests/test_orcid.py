@@ -7,7 +7,7 @@ from unittest.mock import DEFAULT, MagicMock, Mock, call, patch
 
 import pytest
 import requests_oauthlib
-from flask import session, url_for
+from flask import session
 from flask_login import login_user
 
 from orcid_hub.models import Affiliation, OrcidApiCall, OrcidToken, Organisation, User, UserOrg  # noqa:E404
@@ -29,7 +29,7 @@ def test_nested_dict():
 def test_member_api(app, mocker):
     """Test MemberAPI extension and wrapper of ORCID API."""
     mocker.patch.multiple("orcid_hub.app.logger", error=DEFAULT, exception=DEFAULT, info=DEFAULT)
-    org = Organisation.create(name="THE ORGANISATION", confirmed=True, orcid_client_id="CLIENT000")
+    org = Organisation.get(name="THE ORGANISATION")
     user = User.create(
         orcid="1001-0001-0001-0001",
         name="TEST USER 123",
@@ -139,7 +139,7 @@ def test_member_api(app, mocker):
 def test_is_emp_or_edu_record_present(app, mocker):
     """Test 'is_emp_or_edu_record_present' method."""
     mocker.patch.multiple("orcid_hub.app.logger", error=DEFAULT, exception=DEFAULT, info=DEFAULT)
-    org = Organisation.create(name="THE ORGANISATION", confirmed=True, orcid_client_id="CLIENT000")
+    org = Organisation.get(name="THE ORGANISATION")
     user = User.create(
         orcid="1001-0001-0001-0001",
         name="TEST USER 123",
@@ -214,7 +214,7 @@ def test_is_emp_or_edu_record_present(app, mocker):
 def test_link(request_ctx):
     """Test a user affiliation initialization."""
     with request_ctx("/link") as ctx:
-        org = Organisation.create(name="THE ORGANISATION", confirmed=True)
+        org = Organisation.get(name="THE ORGANISATION")
         test_user = User.create(
             name="TEST USER 123", email="test123@test.test.net", organisation=org, confirmed=True)
         login_user(test_user, remember=True)
@@ -231,8 +231,9 @@ def test_link(request_ctx):
 def test_link_with_unconfirmed_org(request_ctx):
     """Test a user affiliation initialization if the user Organisation isn't registered yet."""
     with request_ctx("/link") as ctx:
-        org = Organisation(
-            name="THE ORGANISATION", confirmed=False, orcid_client_id="Test Client id")
+        org = Organisation.get(name="THE ORGANISATION")
+        org.confirmed = False
+        org.orcid_client_id = "Test Client id"
         org.save()
         test_user = User(
             name="TEST USER", email="test@test.test.net", confirmed=True, organisation=org)
@@ -248,8 +249,7 @@ def test_link_with_unconfirmed_org(request_ctx):
 def test_link_already_affiliated(request_ctx):
     """Test a user affiliation initialization if the uerer is already affilated."""
     with request_ctx("/link") as ctx:
-        org = Organisation(name="THE ORGANISATION", confirmed=True, orcid_client_id="ABC123")
-        org.save()
+        org = Organisation.get(name="THE ORGANISATION")
         test_user = User(
             email="test123@test.test.net",
             name="TEST USER",
@@ -286,9 +286,7 @@ def test_link_already_affiliated(request_ctx):
 def test_link_orcid_auth_callback(name, request_ctx):
     """Test ORCID callback - the user authorized the organisation access to the ORCID profile."""
     with request_ctx("/auth?state=xyz") as ctx:
-        org = Organisation(name="THE ORGANISATION", confirmed=True)
-        org.save()
-
+        org = Organisation.get(name="THE ORGANISATION")
         test_user = User.create(
             name=name,
             email="test123@test.test.net",
@@ -328,15 +326,7 @@ def test_link_orcid_auth_callback_with_affiliation(name, request_ctx):
     """Test ORCID callback - the user authorized the organisation access to the ORCID profile."""
     with patch("orcid_hub.orcid_client.MemberAPI") as m, patch(
             "orcid_hub.orcid_client.SourceClientId"), request_ctx("/auth?state=xyz") as ctx:
-        org = Organisation.create(
-            name="THE ORGANISATION",
-            confirmed=True,
-            orcid_client_id="CLIENT ID",
-            city="CITY",
-            country="COUNTRY",
-            disambiguated_id="ID",
-            disambiguation_source="SOURCE")
-
+        org = Organisation.get(name="THE ORGANISATION")
         test_user = User.create(
             name=name,
             email="test123@test.test.net",
@@ -378,37 +368,23 @@ def make_fake_response(text, *args, **kwargs):
 
 @patch.object(requests_oauthlib.OAuth2Session, "get",
               lambda self, *args, **kwargs: make_fake_response('{"test": "TEST1234567890"}'))
-def test_profile(request_ctx):
-    """Test an affilated user profile and ORCID data retrieval."""
-    with request_ctx("/profile") as ctx:
-        org = Organisation(name="THE ORGANISATION", confirmed=True)
-        org.save()
-        test_user = User(
-            email="test123@test.test.net", organisation=org, orcid="ABC123", confirmed=True)
-        test_user.save()
-        orcidtoken = OrcidToken(
-            user=test_user,
-            org=org,
-            scope="/read-limited,/activities/update",
-            access_token="ABC1234")
-        orcidtoken.save()
-        login_user(test_user, remember=True)
+def test_profile(client):
+    """Test an affilated user profile and ORCID data retrieval and a user profile that doesn't hava an ORCID."""
+    org = Organisation.get(name="THE ORGANISATION")
+    test_user = User.create(
+        email="test123@test.test.net", organisation=org, orcid="ABC123", confirmed=True)
+    OrcidToken.create(
+        user=test_user, org=org, scope="/read-limited,/activities/update", access_token="ABC1234")
+    resp = client.login(test_user, follow_redirects=True)
+    resp = client.get("/profile", follow_redirects=True)
 
-        rv = ctx.app.full_dispatch_request()
-        assert rv.status_code == 200
-        assert b"ABC123" in rv.data
+    assert resp.status_code == 200
+    assert b"ABC123" in resp.data
+    client.logout()
 
-
-def test_profile_wo_orcid(request_ctx):
-    """Test a user profile that doesn't hava an ORCID."""
-    with request_ctx("/profile") as ctx:
-        org = Organisation(name="THE ORGANISATION", confirmed=True)
-        org.save()
-        test_user = User(
-            email="test123@test.test.net", organisation=org, orcid=None, confirmed=True)
-        test_user.save()
-        login_user(test_user, remember=True)
-
-        rv = ctx.app.full_dispatch_request()
-        assert rv.status_code == 302
-        assert rv.location == url_for("link")
+    # Test a user profile that doesn't hava an ORCID.
+    user = User.select().where(User.organisation == org, User.orcid.is_null()).first()
+    resp = client.login(user, follow_redirects=True)
+    resp = client.get("/profile")
+    assert resp.status_code == 302
+    assert "/link" in resp.location

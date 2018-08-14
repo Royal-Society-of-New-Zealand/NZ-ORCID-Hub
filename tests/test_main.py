@@ -286,76 +286,100 @@ def test_login_provider_load_user(request_ctx):  # noqa: D103
 
 def test_onboard_org(client):
     """Test to organisation onboarding."""
-    # org = Organisation.get(name="THE ORGANISATION")
-    org = Organisation.create(
-        name="THE ORGANISATION (FULL)",
-        tuakiri_name="THE ORGANISATION (FULL)",
-        confirmed=False,
-        orcid_client_id="CLIENT ID",
-        orcid_secret="Client Secret",
-        city="CITY",
-        country="COUNTRY",
-        disambiguated_id="ID",
-        disambiguation_source="SOURCE",
-        is_email_sent=True)
-    u = User.create(
-        email="test123@test.test.net",
-        name="TEST USER",
-        roles=Role.TECHNICAL,
-        orcid="123",
-        confirmed=True,
-        organisation=org)
-    second_user = User.create(
-        email="test1234@test.test.net",
-        name="TEST USER",
-        roles=Role.ADMIN,
-        orcid="1243",
-        confirmed=True,
-        organisation=org)
-    UserOrg.create(user=second_user, org=org, is_admin=True)
-
     OrgInfo.create(
-        name="THE ORGANISATION (FULL)",
-        tuakiri_name="THE ORGANISATION (FULL)",
-        tech_contact=u,
-        disambiguated_id="ID",
-        disambiguation_source="SOURCE",
-    )
-    org.tech_contact = u
-    org.save()
+        name="A NEW ORGANISATION",
+        tuakiri_name="NEW ORGANISATION",
+        email="test123@test.test.net",
+        disambiguated_id="DISAMBIGUATED-ID-123",
+        disambiguation_source="DISAMBIGUATION-SOURCE-ABC")
 
-    OrgInvitation.get_or_create(email=u.email, org=org, token="SDSDDSD")
-    UserOrg.create(user=u, org=org, is_admin=True)
-
-    resp = client.login(second_user, follow_redirects=True)
-    resp = client.get("/confirm/organisation")
-    assert resp.status_code == 302
-    assert urlparse(resp.location).path == "/admin/viewmembers/"
+    client.login_root()
+    with patch("orcid_hub.utils.send_email"):
+        resp = client.post(
+            "/invite/organisation",
+            data=dict(org_name="A NEW ORGANISATION", org_email="test_abc_123@test.test.net"))
+        assert User.select().where(User.email == "test_abc_123@test.test.net").exists()
+        resp = client.post(
+            "/invite/organisation",
+            data=dict(
+                org_name="A NEW ORGANISATION", org_email="test123@test.test.net",
+                tech_contact='y'))
+        assert User.select().where(User.email == "test123@test.test.net").exists()
+    org = Organisation.get(name="A NEW ORGANISATION")
+    user = User.get(email="test123@test.test.net")
+    assert user.name is None
+    assert org.tech_contact is None
     client.logout()
 
-    client.login(u)
+    resp = client.login(
+        user,
+        **{
+            "Sn": "TECHNICAL",
+            "Givenname": "CONTACT",
+            "Displayname": "Test User",
+            "shib_O": "NEW ORGANISATION"
+        },
+        follow_redirects=True)
+    user = User.get(email="test123@test.test.net")
+    org = user.organisation
+    assert user.is_tech_contact_of(org)
+
     resp = client.get("/confirm/organisation")
-    assert u.is_tech_contact_of(org)
     assert resp.status_code == 200
+    org = Organisation.get(org.id)
     assert b"<!DOCTYPE html>" in resp.data, "Expected HTML content"
-    assert b"Take me to ORCID to change my Client" in resp.data,\
-        "Expected Button on the confirmation page"
+    assert b"Take me to ORCID to obtain my Client ID and Client Secret" in resp.data
+    assert b"DISAMBIGUATED-ID-123" in resp.data
+    assert b"DISAMBIGUATION-SOURCE-ABC" in resp.data
 
     with patch("orcid_hub.authcontroller.requests") as requests:
         requests.post.return_value = Mock(data=b'XXXX', status_code=200)
         resp = client.post(
             "/confirm/organisation",
             data={
-                "orcid_client_id": "APP-FDFN3F52J3M4L34S",
-                "orcid_secret": "4916c2d7-085e-487e-94d0-32450a9cfe6c",
+                "orcid_client_id": "APP-1234567890ABCDEF",
+                "orcid_secret": "12345678-1234-1234-1234-1234567890ab",
                 "country": "NZ",
                 "city": "Auckland",
-                "disambiguated_id": "xyz",
-                "disambiguation_source": "xyz",
-                "name": "THE ORGANISATION"
+                "disambiguated_id": "XYZ123",
+                "disambiguation_source": "XYZ",
+                "name": org.name,
+                "email": user.email,
             })
-        assert resp.status_code == 302
-        assert urlparse(resp.location).path == "/link"
+    assert resp.status_code == 302
+    url = urlparse(resp.location).path
+    assert url == "/link"
+    resp = client.get(url)
+    client.logout()
+    org = Organisation.get(org.id)
+    assert org.disambiguated_id == "XYZ123"
+    assert org.disambiguation_source == "XYZ"
+    assert org.orcid_client_id == "APP-1234567890ABCDEF"
+    assert org.orcid_secret == "12345678-1234-1234-1234-1234567890ab"
+
+    user = User.get(email="test_abc_123@test.test.net")
+    resp = client.login(
+        user,
+        **{
+            "Sn": "NEW ORGANISATION",
+            "Givenname": "ADMINISTRATOR",
+            "Displayname": "Admin User",
+            "shib_O": "NEW ORGANISATION"
+        },
+        follow_redirects=True)
+    assert b"Take me to ORCID to allow A NEW ORGANISATION permission to access my ORCID record" in resp.data
+
+    resp = client.get("/confirm/organisation")
+    assert resp.status_code == 302
+    assert urlparse(resp.location).path == "/admin/viewmembers/"
+
+    resp = client.get("/admin/viewmembers/")
+    assert b"test123@test.test.net" in resp.data
+
+    resp = client.get("/admin/viewmembers/export/csv/")
+    assert resp.headers["Content-Type"] == "text/csv; charset=utf-8"
+    assert b"test123@test.test.net" in resp.data
+    assert b"test_abc_123@test.test.net" in resp.data
 
 
 @patch("orcid_hub.utils.send_email")
@@ -388,42 +412,27 @@ def test_invite_tech_contact(send_email, client):
     assert u.organisation.tech_contact == u
 
 
-def test_logout(request_ctx):
+def test_logout(client):
     """Test to logout."""
-    user = User.create(
-        email="test@test.test.net",
-        name="TEST USER",
-        roles=Role.TECHNICAL,
-        confirmed=True,
-        organisation=Organisation.create(
-            name="THE ORGANISATION",
-            tuakiri_name="THE ORGANISATION",
-            confirmed=True,
-            is_email_sent=True))
+    user = client.data["user"]
+    client.login(user)
 
-    with request_ctx("/logout") as ctx:
-        # UoA user:
-        login_user(user)
-        session["shib_O"] = "University of Auckland"
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 302
-        assert "Shibboleth.sso" in resp.location
-        assert "uoa-slo" in resp.location
+    resp = client.get("/logout")
+    assert resp.status_code == 302
+    assert "Shibboleth.sso" in resp.location
+    assert "uoa-slo" not in resp.location
+    client.logout()
+
+    client.login(user, **{"O": "University of Auckland"})
+    resp = client.get("/logout")
+    assert resp.status_code == 302
+    assert "Shibboleth.sso" in resp.location
+    assert "uoa-slo" in resp.location
 
 
 def test_orcid_login(client):
     """Test login from orcid."""
-    org = Organisation.create(
-        name="THE ORGANISATION",
-        tuakiri_name="THE ORGANISATION",
-        confirmed=False,
-        orcid_client_id="CLIENT ID",
-        orcid_secret="Client Secret",
-        city="CITY",
-        country="COUNTRY",
-        disambiguated_id="ID",
-        disambiguation_source="SOURCE",
-        is_email_sent=True)
+    org = Organisation.get(name="THE ORGANISATION")
     u = User.create(
         email="test123@test.test.net",
         name="TEST USER",
@@ -501,17 +510,7 @@ def get_record_mock(self, orcid=None, **kwargs):
 @patch("orcid_hub.orcid_client.MemberAPIV20Api.view_emails", side_effect=get_record_mock)
 def test_orcid_login_callback_admin_flow(patch, patch2, request_ctx):
     """Test login from orcid callback function for Organisation Technical contact."""
-    org = Organisation.create(
-        name="THE ORGANISATION",
-        tuakiri_name="THE ORGANISATION",
-        confirmed=False,
-        orcid_client_id="CLIENT ID",
-        orcid_secret="Client Secret",
-        city="CITY",
-        country="COUNTRY",
-        disambiguated_id="ID",
-        disambiguation_source="SOURCE",
-        is_email_sent=True)
+    org = Organisation.get(name="THE ORGANISATION")
     u = User.create(
         email="test123@test.test.net",
         roles=Role.TECHNICAL,
@@ -586,7 +585,7 @@ def test_orcid_login_callback_admin_flow(patch, patch2, request_ctx):
         session['oauth_state'] = "xyz"
         resp = authcontroller.orcid_login_callback(request)
         assert resp.status_code == 302
-        assert resp.location.startswith("/about")
+        assert resp.location.startswith("/admin/viewmembers/")
     with request_ctx():
         # User login via orcid, where organisation is confirmed, so showing viewmembers page.
         org.tech_contact = u
@@ -637,17 +636,7 @@ def affiliation_mock(
     "orcid_hub.orcid_client.MemberAPI.create_or_update_affiliation", side_effect=affiliation_mock)
 def test_orcid_login_callback_researcher_flow(patch, patch2, request_ctx):
     """Test login from orcid callback function for researcher and display profile."""
-    org = Organisation.create(
-        name="THE ORGANISATION",
-        tuakiri_name="THE ORGANISATION",
-        confirmed=True,
-        orcid_client_id="CLIENT ID",
-        orcid_secret="Client Secret",
-        city="CITY",
-        country="COUNTRY",
-        disambiguated_id="ID",
-        disambiguation_source="SOURCE",
-        is_email_sent=True)
+    org = Organisation.get(name="THE ORGANISATION")
     u = User.create(
         email="test123@test.test.net",
         name="TEST USER",
@@ -670,18 +659,7 @@ def test_orcid_login_callback_researcher_flow(patch, patch2, request_ctx):
 
 def test_select_user_org(request_ctx):
     """Test organisation switch of current user."""
-    org = Organisation.create(
-        name="THE ORGANISATION",
-        tuakiri_name="THE ORGANISATION",
-        confirmed=True,
-        orcid_client_id="CLIENT ID",
-        orcid_secret="Client Secret",
-        city="CITY",
-        country="COUNTRY",
-        disambiguated_id="ID",
-        disambiguation_source="SOURCE",
-        is_email_sent=True)
-
+    org = Organisation.get(name="THE ORGANISATION")
     org2 = Organisation.create(
         name="THE ORGANISATION2",
         tuakiri_name="THE ORGANISATION2",
@@ -735,18 +713,7 @@ def test_get_attributes(request_ctx):
 
 def test_link(request_ctx):
     """Test orcid profile linking."""
-    org = Organisation.create(
-        name="THE ORGANISATION",
-        tuakiri_name="THE ORGANISATION",
-        confirmed=True,
-        orcid_client_id="CLIENT ID",
-        orcid_secret="Client Secret",
-        city="CITY",
-        country="COUNTRY",
-        disambiguated_id="ID",
-        disambiguation_source="SOURCE",
-        is_email_sent=True)
-
+    org = Organisation.get(name="THE ORGANISATION")
     user = User.create(
         email="test123@test.test.net",
         name="TEST USER",

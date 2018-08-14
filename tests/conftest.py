@@ -84,7 +84,7 @@ class HubClient(FlaskClient):
                 ("Givenname", user.first_name or "GIVENNAME"),
                 ("Mail", user.email),
                 ("O", org.tuakiri_name or org.name),
-                ("Displayname", user.name),
+                ("Displayname", user.name or "FULL NAME"),
                 ("Unscoped-Affiliation", affiliations),
                 ("Eppn", user.eppn or user.email),
             ] if v is not None
@@ -128,7 +128,7 @@ def app():
         _app.config["WTF_CSRF_ENABLED"] = False
         _app.config["DEBUG_TB_ENABLED"] = False
         _app.config["LOAD_TEST"] = True
-        #_app.config["SERVER_NAME"] = "ORCIDHUB"
+        # _app.config["SERVER_NAME"] = "ORCIDHUB"
         _app.sentry = None
 
         # Add some data:
@@ -203,12 +203,29 @@ def app():
 
         _app.test_client_class = HubClient
 
+        Organisation.create(
+            name="The University of Auckland",
+            tuakiri_name="University of Auckland",
+            orcid_client_id="APP-1234567890",
+            orcid_secret="CLIENT-SECRET-123",
+            confirmed=True,
+            city="Auckland",
+            country="NZ")
+
+        logo_file = File.create(
+            filename="LOGO.png",
+            data=b"000000000000000000000",
+            mimetype="image/png",
+            token="TOKEN000")
+
         org = Organisation.create(
             name="THE ORGANISATION",
             tuakiri_name="THE ORGANISATION",
             orcid_client_id="APP-12345678",
             orcid_secret="CLIENT-SECRET",
+            logo=logo_file,
             confirmed=True,
+            can_use_api=True,
             city="CITY",
             country="COUNTRY")
 

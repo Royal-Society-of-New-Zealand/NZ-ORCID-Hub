@@ -12,8 +12,8 @@ from peewee import JOIN
 
 from orcid_hub import utils
 from orcid_hub.models import (
-    AffiliationRecord, ExternalId, File, FundingContributor, FundingInvitees, FundingRecord,
-    OrcidToken, Organisation, Role, Task, User, UserInvitation, UserOrg, WorkRecord, WorkInvitees,
+    AffiliationRecord, ExternalId, FundingContributor, FundingInvitees, FundingRecord, OrcidToken,
+    Organisation, Role, Task, User, UserInvitation, UserOrg, WorkRecord, WorkInvitees,
     WorkExternalId, WorkContributor, PeerReviewRecord, PeerReviewInvitee, PeerReviewExternalId)
 
 logger = logging.getLogger(__name__)
@@ -100,47 +100,31 @@ def send_mail_mock(*argvs, **kwargs):
 
 
 @patch("orcid_hub.utils.send_email", side_effect=send_mail_mock)
-def test_send_user_invitation(test_db, request_ctx):
+def test_send_user_invitation(send_email, client):
     """Test to send user invitation."""
-    org = Organisation.create(
-        name="THE ORGANISATION",
-        tuakiri_name="THE ORGANISATION",
-        confirmed=True,
-        orcid_client_id="CLIENT ID",
-        orcid_secret="Client Secret",
-        city="CITY",
-        country="COUNTRY",
-        disambiguation_org_id="ID",
-        disambiguation_org_source="SOURCE")
-
+    org = Organisation.get(name="THE ORGANISATION")
     inviter = User.create(
         email="test123@mailinator.com",
         name="TEST USER",
-        username="test123",
         roles=Role.RESEARCHER,
         orcid=None,
         confirmed=True,
         organisation=org)
-
-    u = User(
+    u = User.create(
         email="test123445@mailinator.com",
         name="TEST USER",
-        username="test123",
         roles=Role.RESEARCHER,
         orcid=None,
         confirmed=True,
         organisation=org)
-    u.save()
-    user_org = UserOrg(user=u, org=org)
-    user_org.save()
-    task = Task(id=123, org=org)
-    task.save()
+    UserOrg.create(user=u, org=org)
+
+    task = Task.create(org=org)
     email = "test123445@mailinator.com"
     first_name = "TEST"
     last_name = "Test"
     affiliation_types = {"staff"}
-    with patch("smtplib.SMTP") as mock_smtp, request_ctx("/") as ctxx:
-
+    with patch("smtplib.SMTP") as mock_smtp:
         instance = mock_smtp.return_value
         error = {email: (450, "Requested mail action not taken: mailbox unavailable")}
         instance.utils.send_user_invitation.return_value = error
@@ -152,8 +136,8 @@ def test_send_user_invitation(test_db, request_ctx):
             last_name=last_name,
             affiliation_types=affiliation_types,
             task_id=task.id)
-        rv = ctxx.app.full_dispatch_request()
-        assert rv.status_code == 200
+        resp = client.get("/")
+        assert resp.status_code == 200
         assert instance.utils.send_user_invitation.called  # noqa: E712
         assert (450, 'Requested mail action not taken: mailbox unavailable') == result[email]
 
@@ -462,19 +446,9 @@ def create_or_update_aff_mock(affiliation=None, task_by_user=None, *args, **kwar
 @patch("orcid_hub.utils.send_email", side_effect=send_mail_mock)
 @patch("orcid_api.MemberAPIV20Api.create_funding", side_effect=create_or_update_fund_mock)
 @patch("orcid_hub.orcid_client.MemberAPI.get_record", side_effect=get_record_mock)
-def test_create_or_update_funding(email_patch, patch, test_db, request_ctx):
+def test_create_or_update_funding(send_email, create_funding, get_record, app):
     """Test create or update funding."""
-    org = Organisation.create(
-        name="THE ORGANISATION",
-        tuakiri_name="THE ORGANISATION",
-        confirmed=True,
-        orcid_client_id="APP-5ZVH4JRQ0C27RVH5",
-        orcid_secret="Client Secret",
-        city="CITY",
-        country="COUNTRY",
-        disambiguation_org_id="ID",
-        disambiguation_org_source="SOURCE")
-
+    org = Organisation.get(name="THE ORGANISATION")
     u = User.create(
         email="test1234456@mailinator.com",
         name="TEST USER",
@@ -483,9 +457,7 @@ def test_create_or_update_funding(email_patch, patch, test_db, request_ctx):
         orcid="123",
         confirmed=True,
         organisation=org)
-
     UserOrg.create(user=u, org=org)
-
     t = Task.create(org=org, filename="xyz.json", created_by=u, updated_by=u, task_type=1)
 
     fr = FundingRecord.create(
@@ -531,27 +503,17 @@ def test_create_or_update_funding(email_patch, patch, test_db, request_ctx):
         user=u, org=org, scope="/read-limited,/activities/update", access_token="Test_token")
 
     utils.process_funding_records()
-    funding_invitees = FundingInvitees.get(orcid=12344)
-    assert 12399 == funding_invitees.put_code
-    assert "12344" == funding_invitees.orcid
+    funding_invitees = FundingInvitees.get(orcid="12344")
+    assert funding_invitees.put_code == 12399
+    assert funding_invitees.orcid == "12344"
 
 
 @patch("orcid_hub.utils.send_email", side_effect=send_mail_mock)
 @patch("orcid_api.MemberAPIV20Api.create_work", side_effect=create_or_update_fund_mock)
 @patch("orcid_hub.orcid_client.MemberAPI.get_record", side_effect=get_record_mock)
-def test_create_or_update_work(email_patch, patch, test_db, request_ctx):
+def test_create_or_update_work(send_email, create_work, get_record, app):
     """Test create or update work."""
-    org = Organisation.create(
-        name="THE ORGANISATION",
-        tuakiri_name="THE ORGANISATION",
-        confirmed=True,
-        orcid_client_id="APP-5ZVH4JRQ0C27RVH5",
-        orcid_secret="Client Secret",
-        city="CITY",
-        country="COUNTRY",
-        disambiguation_org_id="ID",
-        disambiguation_org_source="SOURCE")
-
+    org = Organisation.get(name="THE ORGANISATION")
     u = User.create(
         email="test1234456@mailinator.com",
         name="TEST USER",
@@ -560,9 +522,7 @@ def test_create_or_update_work(email_patch, patch, test_db, request_ctx):
         orcid="12344",
         confirmed=True,
         organisation=org)
-
     UserOrg.create(user=u, org=org)
-
     t = Task.create(org=org, filename="xyz.json", created_by=u, updated_by=u, task_type=2)
 
     wr = WorkRecord.create(
@@ -595,7 +555,12 @@ def test_create_or_update_work(email_patch, patch, test_db, request_ctx):
         work_record=wr, type="Test_type", value="Test_value", url="Test", relationship="SELF")
 
     WorkContributor.create(
-        work_record=wr, contributor_sequence="1", orcid="1213", role="LEAD", name="xyz", email="xyz@mailiantor.com")
+        work_record=wr,
+        contributor_sequence="1",
+        orcid="1213",
+        role="LEAD",
+        name="xyz",
+        email="xyz@mailiantor.com")
 
     UserInvitation.create(
         invitee=u,
@@ -617,19 +582,9 @@ def test_create_or_update_work(email_patch, patch, test_db, request_ctx):
 @patch("orcid_hub.utils.send_email", side_effect=send_mail_mock)
 @patch("orcid_api.MemberAPIV20Api.create_peer_review", side_effect=create_or_update_fund_mock)
 @patch("orcid_hub.orcid_client.MemberAPI.get_record", side_effect=get_record_mock)
-def test_create_or_update_peer_review(email_patch, patch, test_db, request_ctx):
+def test_create_or_update_peer_review(send_email, create_peer_review, get_record, app):
     """Test create or update peer review."""
-    org = Organisation.create(
-        name="THE ORGANISATION",
-        tuakiri_name="THE ORGANISATION",
-        confirmed=True,
-        orcid_client_id="APP-5ZVH4JRQ0C27RVH5",
-        orcid_secret="Client Secret",
-        city="CITY",
-        country="COUNTRY",
-        disambiguation_org_id="ID",
-        disambiguation_org_source="SOURCE")
-
+    org = Organisation.get(name="THE ORGANISATION")
     u = User.create(
         email="test1234456@mailinator.com",
         name="TEST USER",
@@ -638,7 +593,6 @@ def test_create_or_update_peer_review(email_patch, patch, test_db, request_ctx):
         orcid="12344",
         confirmed=True,
         organisation=org)
-
     UserOrg.create(user=u, org=org)
 
     t = Task.create(id=12, org=org, filename="xyz.json", created_by=u, updated_by=u, task_type=3)
@@ -696,18 +650,9 @@ def test_create_or_update_peer_review(email_patch, patch, test_db, request_ctx):
 
 @patch("orcid_api.MemberAPIV20Api.update_employment", side_effect=create_or_update_aff_mock)
 @patch("orcid_hub.orcid_client.MemberAPI.get_record", side_effect=get_record_mock)
-def test_create_or_update_affiliation(patch, test_db, request_ctx):
+def test_create_or_update_affiliation(update_employment, get_record, app):
     """Test create or update affiliation."""
-    org = Organisation.create(
-        name="THE ORGANISATION",
-        tuakiri_name="THE ORGANISATION",
-        confirmed=True,
-        orcid_client_id="APP-5ZVH4JRQ0C27RVH5",
-        orcid_secret="Client Secret",
-        city="CITY",
-        country="COUNTRY",
-        disambiguation_org_id="ID",
-        disambiguation_org_source="SOURCE")
+    org = Organisation.get(name="THE ORGANISATION")
     u = User.create(
         email="test1234456@mailinator.com",
         name="TEST USER",
@@ -719,7 +664,6 @@ def test_create_or_update_affiliation(patch, test_db, request_ctx):
     UserOrg.create(user=u, org=org)
 
     t = Task.create(org=org, filename="xyz.json", created_by=u, updated_by=u, task_type=0)
-
     AffiliationRecord.create(
         is_active=True,
         task=t,
@@ -778,9 +722,10 @@ def test_create_or_update_affiliation(patch, test_db, request_ctx):
             t.org_id,
             t.affiliation_record.user, )):
         utils.create_or_update_affiliations(user=user, org_id=org_id, records=tasks_by_user)
+
     affiliation_record = AffiliationRecord.get(task=t)
-    assert 12399 == affiliation_record.put_code
-    assert "12344" == affiliation_record.orcid
+    assert affiliation_record.put_code == 12399
+    assert affiliation_record.orcid == "12344"
     assert "Employment record was updated" in affiliation_record.status
 
 
@@ -825,22 +770,7 @@ def test_send_email(app):
 
             # User organisation's logo
             msg.reset_mock()
-            logo_file = File.create(
-                filename="LOGO.png",
-                data=b"000000000000000000000",
-                mimetype="image/png",
-                token="TOKEN000")
-            org = Organisation.create(
-                name="THE ORGANISATION",
-                tuakiri_name="THE ORGANISATION",
-                confirmed=True,
-                orcid_client_id="APP-5ZVH4JRQ0C27RVH5",
-                orcid_secret="Client Secret",
-                city="CITY",
-                logo=logo_file,
-                country="COUNTRY",
-                disambiguation_org_id="ID",
-                disambiguation_org_source="SOURCE")
+            org = Organisation.get(name="THE ORGANISATION")
             utils.send_email(
                 "template", (
                     "TEST USER",

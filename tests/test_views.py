@@ -369,19 +369,9 @@ def test_status(client):
         assert "FAILURE" in data["message"]
 
 
-def test_application_registration(app, request_ctx):
+def test_application_registration(client):
     """Test application registration."""
-    org = Organisation.create(
-        can_use_api=True,
-        name="THE ORGANISATION",
-        tuakiri_name="THE ORGANISATION",
-        confirmed=True,
-        orcid_client_id="CLIENT ID",
-        orcid_secret="Client Secret",
-        city="CITY",
-        country="COUNTRY",
-        disambiguated_id="ID",
-        disambiguation_source="SOURCE")
+    org = Organisation.get(name="THE ORGANISATION")
     user = User.create(
         email="test123@test.test.net",
         name="TEST USER",
@@ -393,114 +383,94 @@ def test_application_registration(app, request_ctx):
     UserOrg.create(user=user, org=org, is_admin=True)
     org.update(tech_contact=user).execute()
 
-    with request_ctx(
-            "/settings/applications",
-            method="POST",
-            data={
-                "homepage_url": "http://test.at.test",
-                "description": "TEST APPLICATION 123",
-                "register": "Register",
-            }) as ctx:  # noqa: F405
-        login_user(user, remember=True)
-        resp = ctx.app.full_dispatch_request()
-        with pytest.raises(Client.DoesNotExist):
-            Client.get(name="TEST APP")
-        assert resp.status_code == 200
+    resp = client.login(user, follow_redirects=True)
+    resp = client.post(
+        "/settings/applications",
+        follow_redirects=True,
+        data={
+            "homepage_url": "http://test.at.test",
+            "description": "TEST APPLICATION 123",
+            "register": "Register",
+        })
+    with pytest.raises(Client.DoesNotExist):
+        Client.get(name="TEST APP")
+    assert resp.status_code == 200
 
-    with request_ctx(
-            "/settings/applications",
-            method="POST",
-            data={
-                "name": "TEST APP",
-                "homepage_url": "http://test.at.test",
-                "description": "TEST APPLICATION 123",
-                "register": "Register",
-            }) as ctx:  # noqa: F405
-        login_user(user, remember=True)
-        resp = ctx.app.full_dispatch_request()
-        c = Client.get(name="TEST APP")
-        assert c.homepage_url == "http://test.at.test"
-        assert c.description == "TEST APPLICATION 123"
-        assert c.user == user
-        assert c.org == org
-        assert c.client_id
-        assert c.client_secret
-        assert resp.status_code == 302
+    resp = client.post(
+        "/settings/applications",
+        data={
+            "name": "TEST APP",
+            "homepage_url": "http://test.at.test",
+            "description": "TEST APPLICATION 123",
+            "register": "Register",
+        })
+    c = Client.get(name="TEST APP")
+    assert c.homepage_url == "http://test.at.test"
+    assert c.description == "TEST APPLICATION 123"
+    assert c.user == user
+    assert c.org == org
+    assert c.client_id
+    assert c.client_secret
+    assert resp.status_code == 302
 
-    client = Client.get(name="TEST APP")
-    with request_ctx(f"/settings/applications/{client.id}") as ctx:
+    resp = client.get(f"/settings/applications/{c.id}")
+    assert resp.status_code == 302
+    assert urlparse(resp.location).path == f"/settings/credentials/{c.id}"
 
-        login_user(user, remember=True)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 302
-        assert resp.location == f"/settings/credentials/{client.id}"
+    resp = client.get("/settings/credentials")
+    assert resp.status_code == 200
 
-    with request_ctx("/settings/credentials") as ctx:
-        login_user(user, remember=True)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 200
+    resp = client.get(f"/settings/credentials/{c.id}")
+    assert resp.status_code == 200
 
-    with request_ctx(f"/settings/credentials/{client.id}") as ctx:
-        login_user(user, remember=True)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 200
+    resp = client.get("/settings/credentials/99999999999999")
+    assert resp.status_code == 302
+    assert urlparse(resp.location).path == "/settings/applications"
 
-    with request_ctx("/settings/credentials/99999999999999") as ctx:
-        login_user(user, remember=True)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 302
-        assert resp.location == "/settings/applications"
+    Token.create(client=c, token_type="TEST", access_token="TEST000")
+    resp = client.post(
+        f"/settings/credentials/{c.id}", data={
+            "revoke": "Revoke",
+            "name": c.name,
+        })
+    assert resp.status_code == 200
+    assert Token.select().where(Token.client == c).count() == 0
 
-    with request_ctx(
-            f"/settings/credentials/{client.id}", method="POST", data={
-                "revoke": "Revoke",
-                "name": client.name,
-            }) as ctx:
-        login_user(user, remember=True)
-        Token.create(client=client, token_type="TEST", access_token="TEST000")
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 200
-        assert Token.select().where(Token.client == client).count() == 0
+    old_client = c
+    resp = client.post(
+        f"/settings/credentials/{c.id}", data={
+            "reset": "Reset",
+            "name": c.name,
+        })
+    c = Client.get(name="TEST APP")
+    assert resp.status_code == 200
+    assert c.client_id != old_client.client_id
+    assert c.client_secret != old_client.client_secret
 
-    with request_ctx(
-            f"/settings/credentials/{client.id}", method="POST", data={
-                "reset": "Reset",
-                "name": client.name,
-            }) as ctx:
-        login_user(user, remember=True)
-        old_client = client
-        resp = ctx.app.full_dispatch_request()
-        client = Client.get(name="TEST APP")
-        assert resp.status_code == 200
-        assert client.client_id != old_client.client_id
-        assert client.client_secret != old_client.client_secret
+    old_client = c
+    resp = client.post(
+        f"/settings/credentials/{c.id}",
+        follow_redirects=True,
+        data={
+            "update_app": "Update",
+            "name": "NEW APP NAME",
+            "homepage_url": "http://test.test0.edu",
+            "description": "DESCRIPTION",
+            "callback_urls": "http://test0.edu/callback",
+        })
+    c = Client.get(c.id)
+    assert resp.status_code == 200
+    assert c.name == "NEW APP NAME"
 
-    with request_ctx(
-            f"/settings/credentials/{client.id}", method="POST", data={
-                "update_app": "Update",
-                "name": "NEW APP NAME",
-                "homepage_url": "http://test.test0.edu",
-                "description": "DESCRIPTION",
-                "callback_urls": "http://test0.edu/callback",
-            }) as ctx:
-        login_user(user, remember=True)
-        old_client = client
-        resp = ctx.app.full_dispatch_request()
-        client = Client.get(id=client.id)
-        assert resp.status_code == 200
-        assert client.name == "NEW APP NAME"
-
-    with request_ctx(
-            f"/settings/credentials/{client.id}", method="POST", data={
-                "delete": "Delete",
-                "name": "NEW APP NAME",
-            }) as ctx:
-        login_user(user, remember=True)
-        old_client = client
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 302
-        assert resp.location == "/settings/applications"
-        assert not Client.select().where(Client.id == client.id).exists()
+    old_client = c
+    resp = client.post(
+        f"/settings/credentials/{c.id}", data={
+            "delete": "Delete",
+            "name": "NEW APP NAME",
+        })
+    assert resp.status_code == 302
+    assert urlparse(resp.location).path == "/settings/applications"
+    assert not Client.select().where(Client.id == c.id).exists()
 
 
 def make_fake_response(text, *args, **kwargs):
@@ -651,73 +621,63 @@ Institute of Geological & Nuclear Sciences Ltd,5180,RINGGOLD
         assert OrgInvitation.select().count() == 3
 
 
-def test_user_orgs_org(request_ctx):
+def test_user_orgs_org(client):
     """Test add an organisation to the user."""
-    org = Organisation.create(
-        name="THE ORGANISATION",
-        tuakiri_name="THE ORGANISATION",
-        confirmed=False,
-        orcid_client_id="CLIENT ID",
-        orcid_secret="Client Secret",
-        city="CITY",
-        country="COUNTRY",
-        disambiguated_id="ID",
-        disambiguation_source="SOURCE",
-        is_email_sent=True)
+    org = Organisation.get(name="THE ORGANISATION")
+    org0 = Organisation.select().where(Organisation.name != "THE ORGANISATION").first()
     user = User.create(
         email="test123@test.test.net",
         name="TEST USER",
         roles=Role.SUPERUSER,
         orcid="123",
         confirmed=True,
-        organisation=org)
-    with request_ctx(
-            f"/hub/api/v0.1/users/{user.id}/orgs/",
-            data=json.dumps({
-                "id": org.id,
-                "name": org.name,
-                "is_admin": True,
-                "is_tech_contact": True
-            }),
-            method="POST",
-            content_type="application/json") as ctx:
-        login_user(user, remember=True)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 201
-        assert User.get(id=user.id).roles & Role.ADMIN
-        organisation = Organisation.get(name="THE ORGANISATION")
-        # User becomes the technical contact of the organisation.
-        assert organisation.tech_contact == user
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 200
-        assert UserOrg.select().where(UserOrg.user == user, UserOrg.org == org,
-                                      UserOrg.is_admin).exists()
-    with request_ctx(f"/hub/api/v0.1/users/{user.id}/orgs/{org.id}", method="DELETE") as ctx:
-        # Delete user and organisation association
-        login_user(user, remember=True)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 204
-        data = json.loads(resp.data)
-        user = User.get(id=user.id)
-        assert data["status"] == "DELETED"
-        assert user.organisation_id is None
-        assert not (user.roles & Role.ADMIN)
-        assert not UserOrg.select().where(UserOrg.user == user, UserOrg.org == org).exists()
+        organisation=org0)
+    client.login(user)
+    resp = client.post(
+        f"/hub/api/v0.1/users/{user.id}/orgs/",
+        data=json.dumps({
+            "id": org.id,
+            "name": org.name,
+            "is_admin": True,
+            "is_tech_contact": True
+        }),
+        content_type="application/json")
+    assert resp.status_code == 201
+    assert User.get(user.id).roles & Role.ADMIN
+    org = Organisation.get(org.id)
+    # User becomes the technical contact of the organisation.
+    assert org.tech_contact == user
+
+    resp = client.post(
+        f"/hub/api/v0.1/users/{user.id}/orgs/",
+        data=json.dumps({
+            "id": org.id,
+            "name": org.name,
+            "is_admin": True,
+            "is_tech_contact": True
+        }),
+        content_type="application/json")
+    assert resp.status_code == 200
+    assert UserOrg.select().where(UserOrg.user == user, UserOrg.org == org,
+                                  UserOrg.is_admin).exists()
+
+    resp = client.delete(f"/hub/api/v0.1/users/{user.id}/orgs/{org.id}")
+    # Delete user and organisation association
+    assert resp.status_code == 204
+    user = User.get(user.id)
+    resp = client.delete(f"/hub/api/v0.1/users/{user.id}/orgs/{org0.id}")
+    assert user.organisation_id is not None
+    # Delete user and organisation association
+    assert resp.status_code == 204
+    user = User.get(user.id)
+    assert user.organisation_id is None
+    assert not (user.roles & Role.ADMIN)
+    assert not UserOrg.select().where(UserOrg.user == user, UserOrg.org == org).exists()
 
 
-def test_user_orgs(request_ctx):
+def test_user_orgs(client):
     """Test add an organisation to the user."""
-    org = Organisation.create(
-        name="THE ORGANISATION",
-        tuakiri_name="THE ORGANISATION",
-        confirmed=False,
-        orcid_client_id="CLIENT ID",
-        orcid_secret="Client Secret",
-        city="CITY",
-        country="COUNTRY",
-        disambiguated_id="ID",
-        disambiguation_source="SOURCE",
-        is_email_sent=True)
+    org = Organisation.get(name="THE ORGANISATION")
     user = User.create(
         email="test123@test.test.net",
         name="TEST USER",
@@ -726,35 +686,21 @@ def test_user_orgs(request_ctx):
         confirmed=True,
         organisation=org)
     UserOrg.create(user=user, org=org, is_admin=True)
+    client.login(user)
 
-    with request_ctx(f"/hub/api/v0.1/users/{user.id}/orgs/") as ctx:
-        login_user(user, remember=True)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 200
-    with request_ctx(f"/hub/api/v0.1/users/{user.id}/orgs/{org.id}") as ctx:
-        login_user(user, remember=True)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 200
-    with request_ctx("/hub/api/v0.1/users/1234/orgs/") as ctx:
-        # failure test case, user not found
-        login_user(user, remember=True)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 404
+    resp = client.get(f"/hub/api/v0.1/users/{user.id}/orgs/")
+    assert resp.status_code == 200
+
+    resp = client.get(f"/hub/api/v0.1/users/{user.id}/orgs/{org.id}")
+    assert resp.status_code == 200
+
+    resp = client.get("/hub/api/v0.1/users/1234/orgs/")
+    assert resp.status_code == 404
 
 
-def test_api_credentials(request_ctx):
+def test_api_credentials(client):
     """Test manage API credentials.."""
-    org = Organisation.create(
-        name="THE ORGANISATION",
-        tuakiri_name="THE ORGANISATION",
-        confirmed=False,
-        orcid_client_id="CLIENT ID",
-        orcid_secret="Client Secret",
-        city="CITY",
-        country="COUNTRY",
-        disambiguated_id="ID",
-        disambiguation_source="SOURCE",
-        is_email_sent=True)
+    org = Organisation.get(name="THE ORGANISATION")
     user = User.create(
         email="test123@test.test.net",
         name="TEST USER",
@@ -763,32 +709,33 @@ def test_api_credentials(request_ctx):
         confirmed=True,
         organisation=org)
     UserOrg.create(user=user, org=org, is_admin=True)
-    Client.create(
+    c = Client.create(
         name="Test_client",
         user=user,
         org=org,
         client_id="requestd_client_id",
-        client_secret="xyz",
+        client_secret="XYZ123",
         is_confidential="public",
         grant_type="client_credentials",
         response_type="xyz")
-    with request_ctx(
-            method="POST",
-            data={
-                "name": "TEST APP",
-                "homepage_url": "http://test.at.test",
-                "description": "TEST APPLICATION 123",
-                "register": "Register",
-                "reset": "xyz"
-            }):
-        login_user(user, remember=True)
-        resp = views.api_credentials()
-        assert "test123@test.test.net" in resp
-    with request_ctx(method="POST", data={"name": "TEST APP", "delete": "xyz"}):
-        login_user(user, remember=True)
-        resp = views.api_credentials()
-        assert resp.status_code == 302
-        assert "application" in resp.location
+
+    client.login(user)
+    resp = client.post(
+        "/settings/applications",
+        follow_redirects=True,
+        data={
+            "name": "TEST APP",
+            "homepage_url": "http://test.at.test",
+            "description": "TEST APPLICATION 123",
+            "register": "Register",
+        })
+    assert b"You aready have registered application" in resp.data
+    assert b"test123@test.test.net" in resp.data
+
+    resp = client.post(f"settings/credentials/{c.id}", data={"name": "TEST APP", "delete": "Delete"})
+    assert resp.status_code == 302
+    assert "application" in resp.location
+    assert not Client.select().where(Client.id == c.id).exists()
 
 
 def test_page_not_found(request_ctx):
@@ -818,51 +765,6 @@ def send_mail_mock(*argvs, **kwargs):
     return True
 
 
-@patch("orcid_hub.utils.send_email", side_effect=send_mail_mock)
-def test_action_invite(patch, request_ctx):
-    """Test handle nonexistin pages."""
-    org = Organisation.create(
-        name="THE ORGANISATION",
-        tuakiri_name="THE ORGANISATION",
-        confirmed=False,
-        orcid_client_id="CLIENT ID",
-        orcid_secret="Client Secret",
-        city="CITY",
-        country="COUNTRY",
-        disambiguated_id="ID",
-        disambiguation_source="SOURCE",
-        is_email_sent=True)
-    user = User.create(
-        email="test123@test.test.net",
-        name="TEST USER",
-        roles=Role.TECHNICAL,
-        orcid="123",
-        confirmed=True,
-        organisation=org)
-    UserOrg.create(user=user, org=org, is_admin=True)
-    org_info = OrgInfo.create(
-        name="Test_client",
-        tuakiri_name="xyz",
-        title="mr",
-        first_name="xyz",
-        last_name="xyz",
-        role="lead",
-        email="test123@test.test.net",
-        phone="121",
-        is_public=True,
-        country="NZ",
-        city="Auckland",
-        disambiguated_id="123",
-        disambiguation_source="ringgold")
-    with request_ctx():
-        login_user(user, remember=True)
-        views.OrgInfoAdmin.action_invite(OrgInfo, ids=[org_info.id])
-        # New organisation is created from OrgInfo and user is added with Admin role
-        org2 = Organisation.get(name="Test_client")
-        assert user.is_admin_of(org2)
-        assert Role.ADMIN in user.roles
-
-
 def test_shorturl(request_ctx):
     """Test short url."""
     url = "http://localhost/xsdsdsfdds"
@@ -873,17 +775,7 @@ def test_shorturl(request_ctx):
 
 def test_activate_all(request_ctx):
     """Test batch registraion of users."""
-    org = Organisation.create(
-        name="THE ORGANISATION",
-        tuakiri_name="THE ORGANISATION",
-        confirmed=False,
-        orcid_client_id="CLIENT ID",
-        orcid_secret="Client Secret",
-        city="CITY",
-        country="COUNTRY",
-        disambiguated_id="ID",
-        disambiguation_source="SOURCE",
-        is_email_sent=True)
+    org = Organisation.get(name="THE ORGANISATION")
     user = User.create(
         email="test123@test.test.net",
         name="TEST USER",
@@ -927,17 +819,7 @@ def test_activate_all(request_ctx):
 
 def test_logo(request_ctx):
     """Test manage organisation 'logo'."""
-    org = Organisation.create(
-        name="THE ORGANISATION",
-        tuakiri_name="THE ORGANISATION",
-        confirmed=False,
-        orcid_client_id="CLIENT ID",
-        orcid_secret="Client Secret",
-        city="CITY",
-        country="COUNTRY",
-        disambiguated_id="ID",
-        disambiguation_source="SOURCE",
-        is_email_sent=True)
+    org = Organisation.get(name="THE ORGANISATION")
     user = User.create(
         email="test123@test.test.net",
         name="TEST USER",
@@ -961,17 +843,7 @@ def test_logo(request_ctx):
 @patch("orcid_hub.utils.send_email", side_effect=send_mail_mock)
 def test_manage_email_template(patch, request_ctx):
     """Test manage organisation invitation email template."""
-    org = Organisation.create(
-        name="THE ORGANISATION",
-        tuakiri_name="THE ORGANISATION",
-        confirmed=False,
-        orcid_client_id="CLIENT ID",
-        orcid_secret="Client Secret",
-        city="CITY",
-        country="COUNTRY",
-        disambiguated_id="ID",
-        disambiguation_source="SOURCE",
-        is_email_sent=True)
+    org = Organisation.get(name="THE ORGANISATION")
     user = User.create(
         email="test123@test.test.net",
         name="TEST USER",
@@ -1447,17 +1319,7 @@ def validate(self=None, raise_exception=True):
 @patch("pykwalify.core.Core.__init__", side_effect=core_mock)
 def test_load_researcher_funding(patch, patch2, request_ctx):
     """Test preload organisation data."""
-    org = Organisation.create(
-        name="THE ORGANISATION",
-        tuakiri_name="THE ORGANISATION",
-        confirmed=False,
-        orcid_client_id="CLIENT ID",
-        orcid_secret="Client Secret",
-        city="CITY",
-        country="COUNTRY",
-        disambiguated_id="ID",
-        disambiguation_source="SOURCE",
-        is_email_sent=True)
+    org = Organisation.get(name="THE ORGANISATION")
     user = User.create(
         email="test123@test.test.net",
         name="TEST USER",
@@ -1926,17 +1788,7 @@ def test_action_insert_update_group_id(client):
 
 def test_reset_all(request_ctx):
     """Test reset batch process."""
-    org = Organisation.create(
-        name="THE ORGANISATION",
-        tuakiri_name="THE ORGANISATION",
-        confirmed=False,
-        orcid_client_id="CLIENT ID",
-        orcid_secret="Client Secret",
-        city="CITY",
-        country="COUNTRY",
-        disambiguated_id="ID",
-        disambiguation_source="SOURCE",
-        is_email_sent=True)
+    org = Organisation.get(name="THE ORGANISATION")
 
     user = User.create(
         email="test123@test.test.net",
