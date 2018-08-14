@@ -80,8 +80,8 @@ class HubClient(FlaskClient):
             k: v
             for k, v in [
                 ("Auedupersonsharedtoken", "edu-person-shared-token"),
-                ("Sn", user.last_name),
-                ("Givenname", user.first_name),
+                ("Sn", user.last_name or "SURNAME"),
+                ("Givenname", user.first_name or "GIVENNAME"),
                 ("Mail", user.email),
                 ("O", org.tuakiri_name or org.name),
                 ("Displayname", user.name),
@@ -202,7 +202,6 @@ def app():
             fields=[UserOrg.user_id, UserOrg.org_id, UserOrg.created_at]).execute()
 
         _app.test_client_class = HubClient
-
 
         org = Organisation.create(
             name="THE ORGANISATION",

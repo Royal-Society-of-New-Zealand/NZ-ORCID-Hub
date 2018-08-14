@@ -43,7 +43,6 @@ from .utils import append_qs, confirm_token, get_next_url, read_uploaded_file, r
 
 HEADERS = {'Accept': 'application/vnd.orcid+json', 'Content-type': 'application/vnd.orcid+json'}
 ENV = app.config.get("ENV")
-EXTERNAL_SP = app.config.get("EXTERNAL_SP")
 
 
 @app.context_processor
@@ -60,6 +59,7 @@ def utility_processor():  # noqa: D202
 
     def tuakiri_login_url():
         _next = get_next_url()
+        EXTERNAL_SP = app.config.get("EXTERNAL_SP")
         if EXTERNAL_SP:
             session["auth_secret"] = secret_token = secrets.token_urlsafe()
             _next = url_for("handle_login", _next=_next, _external=True)
@@ -164,6 +164,7 @@ def handle_login():
     _next = get_next_url()
 
     # TODO: make it secret
+    EXTERNAL_SP = app.config.get("EXTERNAL_SP")
     if EXTERNAL_SP:
         if "auth_secret" not in session:
             return redirect(url_for("index"))
@@ -414,6 +415,7 @@ def link():
     """Link the user's account with ORCID (i.e. affiliates user with his/her org on ORCID)."""
     # TODO: handle organisation that are not on-boarded
     redirect_uri = url_for("orcid_callback", _external=True)
+    EXTERNAL_SP = app.config.get("EXTERNAL_SP")
     if EXTERNAL_SP:
         sp_url = urlparse(EXTERNAL_SP)
         redirect_uri = sp_url.scheme + "://" + sp_url.netloc + "/auth/" + quote(redirect_uri)
@@ -847,6 +849,7 @@ def logout():
     session.clear()
 
     if org_name:
+        EXTERNAL_SP = app.config.get("EXTERNAL_SP")
         if EXTERNAL_SP:
             sp_url = urlparse(EXTERNAL_SP)
             sso_url_base = sp_url.scheme + "://" + sp_url.netloc
@@ -943,6 +946,7 @@ def orcid_login(invitation_token=None):
                 )
                 return redirect(url_for("index"))
 
+        EXTERNAL_SP = app.config.get("EXTERNAL_SP")
         if EXTERNAL_SP:
             sp_url = urlparse(EXTERNAL_SP)
             u = Url.shorten(redirect_uri)

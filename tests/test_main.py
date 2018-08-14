@@ -191,9 +191,7 @@ def test_tuakiri_login_with_org(client):
     onboared, the user should be informed about that and
     redirected to the login page.
     """
-    org = Organisation(tuakiri_name="THE ORGANISATION", confirmed=True)
-    org.save()
-
+    org = Organisation.get(tuakiri_name="THE ORGANISATION")
     resp = client.get(
         "/Tuakiri/login",
         headers={
@@ -286,11 +284,12 @@ def test_login_provider_load_user(request_ctx):  # noqa: D103
         assert resp.location.startswith("/")
 
 
-def test_onboard_org(request_ctx):
+def test_onboard_org(client):
     """Test to organisation onboarding."""
+    # org = Organisation.get(name="THE ORGANISATION")
     org = Organisation.create(
-        name="THE ORGANISATION",
-        tuakiri_name="THE ORGANISATION",
+        name="THE ORGANISATION (FULL)",
+        tuakiri_name="THE ORGANISATION (FULL)",
         confirmed=False,
         orcid_client_id="CLIENT ID",
         orcid_secret="Client Secret",
@@ -313,33 +312,39 @@ def test_onboard_org(request_ctx):
         orcid="1243",
         confirmed=True,
         organisation=org)
-    org_info = OrgInfo.create(
-        name="THE ORGANISATION", tuakiri_name="THE ORGANISATION")
+    UserOrg.create(user=second_user, org=org, is_admin=True)
+
+    OrgInfo.create(
+        name="THE ORGANISATION (FULL)",
+        tuakiri_name="THE ORGANISATION (FULL)",
+        tech_contact=u,
+        disambiguated_id="ID",
+        disambiguation_source="SOURCE",
+    )
     org.tech_contact = u
-    org_info.save()
     org.save()
 
-    OrgInvitation.get_or_create(email=u.email, org=org, token="sdsddsd")
+    OrgInvitation.get_or_create(email=u.email, org=org, token="SDSDDSD")
     UserOrg.create(user=u, org=org, is_admin=True)
 
-    with request_ctx("/confirm/organisation") as ctx:
-        login_user(u)
-        u.save()
-        assert u.is_tech_contact_of(org)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 200
-        assert b"<!DOCTYPE html>" in resp.data, "Expected HTML content"
-        assert b"Take me to ORCID to obtain my Client ID and Client Secret" in resp.data,\
-            "Expected Button on the confirmation page"
-    with request_ctx("/confirm/organisation") as ctxx:
-        second_user.save()
-        login_user(second_user)
-        resp = ctxx.app.full_dispatch_request()
-        assert resp.status_code == 302
-        assert resp.location.startswith("/admin/viewmembers/")
-    with request_ctx(
+    resp = client.login(second_user, follow_redirects=True)
+    resp = client.get("/confirm/organisation")
+    assert resp.status_code == 302
+    assert urlparse(resp.location).path == "/admin/viewmembers/"
+    client.logout()
+
+    client.login(u)
+    resp = client.get("/confirm/organisation")
+    assert u.is_tech_contact_of(org)
+    assert resp.status_code == 200
+    assert b"<!DOCTYPE html>" in resp.data, "Expected HTML content"
+    assert b"Take me to ORCID to change my Client" in resp.data,\
+        "Expected Button on the confirmation page"
+
+    with patch("orcid_hub.authcontroller.requests") as requests:
+        requests.post.return_value = Mock(data=b'XXXX', status_code=200)
+        resp = client.post(
             "/confirm/organisation",
-            method="POST",
             data={
                 "orcid_client_id": "APP-FDFN3F52J3M4L34S",
                 "orcid_secret": "4916c2d7-085e-487e-94d0-32450a9cfe6c",
@@ -348,14 +353,9 @@ def test_onboard_org(request_ctx):
                 "disambiguated_id": "xyz",
                 "disambiguation_source": "xyz",
                 "name": "THE ORGANISATION"
-            }) as cttxx:
-        login_user(u)
-        u.save()
-        with patch("orcid_hub.authcontroller.requests") as requests:
-            requests.post.return_value = Mock(data=b'XXXX', status_code=200)
-            resp = cttxx.app.full_dispatch_request()
-            assert resp.status_code == 302
-            assert resp.location.startswith("/link")
+            })
+        assert resp.status_code == 302
+        assert urlparse(resp.location).path == "/link"
 
 
 @patch("orcid_hub.utils.send_email")
