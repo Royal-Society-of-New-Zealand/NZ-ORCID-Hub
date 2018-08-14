@@ -121,7 +121,7 @@ italics should be deleted before you submit your CV.</span></i></font></font></p
 		</td>
 		</td>
 		<td colspan="4" width="164" style="border: 1px solid #000001; padding: 0cm 0.19cm">
-      <p><i>Second name(s)</i></p>
+      <p>[<i>Second name(s)</i>]</p>
 		</td>
 		<td colspan="2" width="116" style="border: 1px solid #000001; padding: 0cm 0.19cm">
       <p>{{user.last_name}}</p>
@@ -230,11 +230,10 @@ italics should be deleted before you submit your CV.</span></i></font></font></p
 	</tr>
 </table>
 
-<p style="margin-bottom: 0cm; line-height: 100%"><font face="Arial, serif"><font size="3" style="font-size: 12pt"><i><span style="font-weight: normal">Delete
-and start typing here.  List in reverse date order.  Start each
-qualification on a new line as per the example:</span></i></font></font></p>
-<p style="margin-bottom: 0cm; line-height: 100%"><font face="Arial, serif"><font size="3" style="font-size: 12pt"><i><span style="font-weight: normal">e.g.
-Year conferred, qualification, discipline, university/institute.</span></i></font></font></p>
+<p style="margin-bottom: 0cm; line-height: 100%"><font face="Arial, serif" size="3" style="font-size: 12pt">[<i><span style="font-weight: normal">
+Delete and start typing here. List in reverse date order.Start each qualification on a new line as per the example:</span></i>]</font></p>
+<p style="margin-bottom: 0cm; line-height: 100%"><font face="Arial, serif" size="3" style="font-size: 12pt">[<i><span style="font-weight: normal">e.g.
+Year conferred, qualification, discipline, university/institute.</span></i>]</font></p>
 <ul>
 {% for e in educations %}
   <li>{{ e | year_range }}, {{ e.get("role-title") }}, {{ e.get("organization", "name") }}, {{ e.get("department-name") }}</li>
@@ -269,8 +268,7 @@ Year-year, job title, organisation.</span></i></font></font></p>
 		</td>
 	</tr>
 </table>
-<p style="margin-bottom: 0cm; line-height: 100%"><font face="Arial, serif"><font size="3" style="font-size: 12pt"><i><span style="font-weight: normal">Delete
-and start typing here.</span></i></font></font></p>
+<p style="margin-bottom: 0cm; line-height: 100%"><font face="Arial, serif" size="3" style="font-size: 12pt">[<i><span style="font-weight: normal">Delete and start typing here.</span></i>]</font></p>
 <p style="margin-bottom: 0cm; font-style: normal; font-weight: normal; line-height: 100%">
 <br/>
 
@@ -284,13 +282,11 @@ and start typing here.</span></i></font></font></p>
 			  Total years research experience</b></span></font></font></p>
 		</td>
 		<td width="229" style="border: 1px solid #000001; padding: 0cm 0.19cm">
-			<p align="right"><font face="Arial, serif"><font size="3" style="font-size: 12pt"><span style="font-style: normal"><span style="font-weight: normal">years</span></span></font></font></p>
+      <p align="right"><font face="Arial, serif"><font size="3" style="font-size: 12pt"><span style="font-style: normal"><span style="font-weight: normal"><i>[years]</i></span></span></font></font></p>
 		</td>
 	</tr>
 </table>
-<p style="margin-bottom: 0cm; line-height: 100%"><font face="Arial, serif"><font size="3" style="font-size: 12pt"><i><span style="font-weight: normal">List
-any significant interruptions to your career (e.g. sickness, parental
-leave). Delete and start typing here.</span></i></font></font></p>
+<p style="margin-bottom: 0cm; line-height: 100%"><font face="Arial, serif"><font size="3" style="font-size: 12pt"><i><span style="font-weight: normal">List any significant interruptions to your career (e.g. sickness, parental leave). Delete and start typing here.</span></i></font></font></p>
 <table width="612" cellpadding="7" cellspacing="0">
 	<col width="596">
 	<tr>
@@ -301,8 +297,7 @@ leave). Delete and start typing here.</span></i></font></font></p>
 		</td>
 	</tr>
 </table>
-<p style="margin-bottom: 0cm; line-height: 100%"><font face="Arial, serif"><font size="3" style="font-size: 12pt"><i><span style="font-weight: normal">Delete
-and start typing here.  List in reverse date order.  Start each
+<p style="margin-bottom: 0cm; line-height: 100%"><font face="Arial, serif"><font size="3" style="font-size: 12pt"><i><span style="font-weight: normal">Delete and start typing here.  List in reverse date order. Start each
 professional distinction on a new line as per the example:</span></i></font></font></p>
 <p style="margin-bottom: 0cm; line-height: 100%"><font face="Arial, serif"><font size="3" style="font-size: 12pt"><i><span style="font-weight: normal">e.g.
 Year / year-year, distinction.</span></i></font></font></p>
