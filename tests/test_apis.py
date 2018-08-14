@@ -780,6 +780,7 @@ def test_proxy_get_profile(app_req_ctx):
                 "Access-Control-Allow-Origin": "*",
                 "Cache-Control": "no -cache, no-store, max-age=0, must-revalidate",
                 "Pragma": "no-cache",
+                "Loction": "TEST-LOCATION",
                 "Expires": "0",
         }
         mocksend.return_value = mockresp

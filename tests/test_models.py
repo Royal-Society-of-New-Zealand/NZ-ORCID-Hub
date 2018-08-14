@@ -5,31 +5,31 @@ import pytest
 from peewee import Model, SqliteDatabase
 from playhouse.test_utils import test_database
 
-from orcid_hub.models import (Affiliation, AffiliationRecord, BaseModel, BooleanField, ExternalId,
-                              FundingContributor, FundingRecord, FundingInvitees, ModelException, OrcidToken,
-                              Organisation, OrgInfo, PartialDate, PartialDateField, Role, Task,
-                              TextField, User, UserOrg, UserOrgAffiliation, WorkRecord, WorkContributor, WorkExternalId,
-                              WorkInvitees, PeerReviewRecord, PeerReviewInvitee, PeerReviewExternalId,
-                              create_tables, drop_tables, validate_orcid_id)
+from orcid_hub.models import (
+    Affiliation, AffiliationRecord, BaseModel, BooleanField, ExternalId, File, FundingContributor,
+    FundingRecord, FundingInvitees, ModelException, OrcidToken, Organisation, OrgInfo, PartialDate,
+    PartialDateField, Role, Task, TextField, User, UserInvitation, UserOrg, UserOrgAffiliation,
+    WorkRecord, WorkContributor, WorkExternalId, WorkInvitees, PeerReviewRecord, PeerReviewInvitee,
+    PeerReviewExternalId, create_tables, drop_tables, validate_orcid_id)
 
 
 @pytest.fixture
-def test_db():
+def testdb():
     """Peewee Test DB context.
 
     Example:
 
-    def test_NAME(test_db):
+    def test_NAME(testdb):
         u = models.User(email="test@test.org", name="TESTER TESTERON")
         u.save()
         asser modls.User.count() == 1
     """
-    _db = SqliteDatabase(":memory:")
+    _db = SqliteDatabase(":memory:", pragmas=[("foreign_keys", "on")])
     with test_database(
-            _db, (Organisation, User, UserOrg, OrgInfo, OrcidToken, UserOrgAffiliation, Task,
-                  AffiliationRecord, ExternalId, FundingRecord, FundingContributor, FundingInvitees,
-                  WorkRecord, WorkContributor, WorkExternalId, WorkInvitees, PeerReviewRecord, PeerReviewExternalId,
-                  PeerReviewInvitee),
+            _db, (Organisation, File, User, UserInvitation, UserOrg, OrgInfo, OrcidToken,
+                  UserOrgAffiliation, Task, AffiliationRecord, ExternalId, FundingRecord,
+                  FundingContributor, FundingInvitees, WorkRecord, WorkContributor, WorkExternalId,
+                  WorkInvitees, PeerReviewRecord, PeerReviewExternalId, PeerReviewInvitee),
             fail_silently=True) as _test_db:
         yield _test_db
 
@@ -37,7 +37,7 @@ def test_db():
 
 
 @pytest.fixture
-def test_models(test_db):
+def models(testdb):
 
     Organisation.insert_many((dict(
         name="Organisation #%d" % i,
@@ -62,7 +62,12 @@ def test_models(test_db):
         last_name="User_%d" % i,
         email="user_the_same_id_%d@org%d.org.nz" % (i, i),
         confirmed=True,
+        organisation=(i + 1),
         roles=Role.RESEARCHER) for i in range(3))).execute()
+
+    UserOrg.insert_many(
+        dict(user=u.id, org=u.organisation_id)
+        for u in User.select().where(User.orcid == "ABC-123")).execute()
 
     UserOrg.insert_many((dict(is_admin=((u + o) % 23 == 0), user=u, org=o)
                          for (u, o) in product(range(2, 60, 4), range(2, 10)))).execute()
@@ -239,7 +244,7 @@ def test_models(test_db):
         visibility="Test_%d" % i,
         email="Test_%d" % i) for i in range(10))).execute()
 
-    yield test_db
+    yield testdb
 
 
 def test_user_uuid():
@@ -247,87 +252,40 @@ def test_user_uuid():
     assert str(u.uuid) == "8428e5f6-38c6-530f-8339-9aeffb99e022"
 
 
-def test_user_org_link_user_constraint(test_models):
+def test_user_org_link_user_constraint(models):
     org = Organisation.get(id=1)
     uo = UserOrg(user_id=999999, org=org)
     with pytest.raises(User.DoesNotExist):
         uo.save()
 
 
-def test_user_org_link_org_constraint(test_models):
+def test_user_org_link_org_constraint(models):
     user = User.get(id=1)
     uo = UserOrg(user=user, org_id=999999)
     with pytest.raises(Organisation.DoesNotExist):
         uo.save()
 
 
-def test_org_count(test_models):
+def test_test_database(models):
+    """Test of the consitency of the test database."""
     assert Organisation.select().count() == 10
-
-
-def test_user_count(test_models):
     assert User.select().count() == 63
-
-
-def test_orcidtoken_count(test_models):
     assert OrcidToken.select().count() == 60
-
-
-def test_AffiliationRecord_count(test_models):
     assert AffiliationRecord.select().count() == 10
-
-
-def test_FundingRecord_count(test_models):
     assert FundingRecord.select().count() == 10
-
-
-def test_FundingContributor_count(test_models):
     assert FundingContributor.select().count() == 10
-
-
-def test_FundingInvitees_count(test_models):
     assert FundingInvitees.select().count() == 10
-
-
-def test_ExternalId_count(test_models):
     assert ExternalId.select().count() == 10
-
-
-def test_WorkRecord_count(test_models):
     assert WorkRecord.select().count() == 10
-
-
-def test_WorkContributor_count(test_models):
     assert WorkContributor.select().count() == 10
-
-
-def test_WorkExternalId_count(test_models):
     assert WorkExternalId.select().count() == 10
-
-
-def test_WorkInvitees_count(test_models):
     assert WorkInvitees.select().count() == 10
-
-
-def test_PeerReviewRecord_count(test_models):
     assert PeerReviewRecord.select().count() == 10
-
-
-def test_PeerReviewExternalId_count(test_models):
     assert PeerReviewExternalId.select().count() == 10
-
-def test_PeerReviewInvitees_count(test_models):
     assert PeerReviewInvitee.select().count() == 10
-
-def test_Task_count(test_models):
     assert Task.select().count() == 30
-
-
-def test_user_oganisation_affiliation_count(test_models):
     assert UserOrgAffiliation.select().count() == 30
 
-
-def test_user_org_link(test_models):
     assert User.get(id=43).admin_for.count() == 10
     assert User.get(id=1).admin_for.count() == 0
     assert User.get(id=42).admin_for.count() > 0
@@ -335,14 +293,25 @@ def test_user_org_link(test_models):
     assert Organisation.get(id=1).admins.count() == 1
     assert Organisation.get(id=5).users.count() > 0
     assert Organisation.get(id=5).admins.count() > 0
-    assert len(User.get(email="user_the_same_id_0@org0.org.nz").linked_accounts) == 3
+    assert User.select().where(User.orcid == User.get(
+        email="user_the_same_id_0@org0.org.nz").orcid).count() == 3
+    assert len(User.get(email="user_the_same_id_0@org0.org.nz").org_links) == 3
 
     user = User.get(email="user0@org0.org.nz")
     available_organisations = user.available_organisations
     assert available_organisations.count() == 10
 
+    admin = User.create(email="admin@org0.org.nz", organisation=user.organisation, confirmed=True,
+            first_name="TEST", last_name="ADMIN", roles=Role.ADMIN)
+    ui = UserInvitation.create(email=user.email, invitee=user, inviter=admin, token="TOKEN-123")
+    admin.delete_instance()
+    ui = UserInvitation.get(ui.id)
+    assert ui.inviter_id is None
+    user.delete_instance()
+    assert not UserInvitation.select().where(UserInvitation.id == ui.id).exists()
 
-def test_roles(test_models):
+
+def test_roles():
     assert Role.RESEARCHER == "RESEARCHER"
     assert Role.RESEARCHER == Role["RESEARCHER"]
     assert Role.RESEARCHER != "ADMIN"
@@ -350,7 +319,7 @@ def test_roles(test_models):
     assert hash(Role.RESEARCHER) == hash("RESEARCHER")
 
 
-def test_user_roles(test_models):
+def test_user_roles(models):
     user = User(
         name="Test User ABC123",
         first_name="ABC",
@@ -377,7 +346,7 @@ def test_user_roles(test_models):
     assert not user.has_role(1.1234)
 
 
-def test_admin_is_admin(test_models):
+def test_admin_is_admin(models):
     user = User(
         name="Test User ABC123",
         first_name="ABC",
@@ -389,14 +358,14 @@ def test_admin_is_admin(test_models):
     assert user.is_admin
 
 
-def test_drop_tables(test_models):
+def test_drop_tables(models):
     drop_tables()
     assert not User.table_exists()
     assert not Organisation.table_exists()
     assert not UserOrg.table_exists()
 
 
-def test_create_tables(test_models):
+def test_create_tables(models):
     drop_tables()
     create_tables()
     assert User.table_exists()
@@ -493,7 +462,7 @@ def test_pd_field():
     assert res[4] == PartialDate(1997)
 
 
-def test_load_org_info_from_csv(test_models):
+def test_load_org_info_from_csv(models):
     # flake8: noqa
     OrgInfo.load_from_csv(
         """Organisation,Title,First Name,Last Name,Role,Email,Phone,Permission to post to web,Country Code,City of home campus,common:disambiguated-organization-identifier,common:disambiguation-source
@@ -505,7 +474,7 @@ Organisation_1,Title_1,First Name_1,Last Name_1,Role_1,Email_1,Phone_1,yes,Count
     assert oi.is_public
 
 
-def test_affiliations(test_models):
+def test_affiliations(models):
     assert Affiliation.EDU == "EDU"
     assert Affiliation.EMP == "EMP"
     assert Affiliation.EMP == Affiliation["EMP"]
@@ -513,7 +482,7 @@ def test_affiliations(test_models):
     assert str(Affiliation.EDU | Affiliation.EMP) == "Education, Employment"
 
 
-def test_field_is_updated(test_db):
+def test_field_is_updated(testdb):
     u = User.create(email="test@test.com", name="TESTER")
     u.save()
     assert not u.field_is_updated("name")
@@ -521,7 +490,7 @@ def test_field_is_updated(test_db):
     assert u.field_is_updated("name")
 
 
-def test_load_task_from_csv(test_models):
+def test_load_task_from_csv(models):
     org = Organisation.create(name="TEST0")
     # flake8: noqa
     test = Task.load_from_csv(

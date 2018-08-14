@@ -60,13 +60,13 @@ ORCIDS = [
     "1842-2842-3842-00X3", "1850-2850-3850-00X3", "1869-2869-3869-00X3", "1877-2877-3877-00X3",
     "1885-2885-3885-00X3", "1893-2893-3893-00X3", "1906-2906-3906-00X3", "1914-2914-3914-00X3",
     "1922-2922-3922-00X3", "1930-2930-3930-00X3", "1949-2949-3949-00X3", "1957-2957-3957-00X3",
-    "1965-2965-3965-00X3", "1973-2973-3973-00X3", "1981-2981-3981-00X3"
+    "1965-2965-3965-00X3", "1973-2973-3973-00X3"
 ]
 
 
 class HubClient(FlaskClient):
     """Extension of the default Flask test client."""
-    def login(self, user, affiliations=None):
+    def login(self, user, affiliations=None, follow_redirects=False, **kwargs):
         """Log in with the given user."""
         org = user.organisation
         if affiliations is None:
@@ -76,22 +76,33 @@ class HubClient(FlaskClient):
                     "staff" if a == Affiliation.EMP else "student" for a in Affiliation
                     if a & uo.affiliations
                 ])
+        headers = {
+            k: v
+            for k, v in [
+                ("Auedupersonsharedtoken", "edu-person-shared-token"),
+                ("Sn", user.last_name),
+                ("Givenname", user.first_name),
+                ("Mail", user.email),
+                ("O", org.tuakiri_name or org.name),
+                ("Displayname", user.name),
+                ("Unscoped-Affiliation", affiliations),
+                ("Eppn", user.eppn or user.email),
+            ] if v is not None
+        }
+        headers.update(kwargs)
+        return self.get("/Tuakiri/login", headers=headers, follow_redirects=follow_redirects)
 
-        return self.get(
-            "/Tuakiri/login",
-            headers={
-                "Auedupersonsharedtoken": "edu-person-shared-token",
-                "Sn": user.last_name,
-                'Givenname': user.first_name,
-                "Mail": user.email,
-                "O": org.tuakiri_name or org.name,
-                "Displayname": user.name,
-                "Unscoped-Affiliation": affiliations,
-                "Eppn": user.eppn,
-            })
+    def logout(self):
+        """Perform log-out."""
+        return self.get("/logout")
+
+    def login_root(self):
+        """Log in with the first found Hub admin user."""
+        root = User.select().where(User.roles.bin_and(Role.SUPERUSER)).first()
+        return self.login(root)
 
 
-@pytest.yield_fixture
+@pytest.fixture
 def app():
     """Session-wide test `Flask` application."""
     # Establish an application context before running the tests.
@@ -103,11 +114,12 @@ def app():
         logger.setLevel(logging.INFO)
 
     with test_database(
-            _db, (File, Organisation, User, UserOrg, OrcidToken, UserOrgAffiliation, OrgInfo, Task,
-                  AffiliationRecord, FundingRecord, FundingContributor, FundingInvitees,
-                  OrcidAuthorizeCall, OrcidApiCall, Url, UserInvitation, OrgInvitation, ExternalId,
-                  Client, Grant, Token, WorkRecord, WorkContributor, WorkExternalId, WorkInvitees,
-                  PeerReviewRecord, PeerReviewInvitee, PeerReviewExternalId),
+            _db,
+        (File, Organisation, User, UserOrg, OrcidToken, UserOrgAffiliation, OrgInfo, Task,
+         AffiliationRecord, FundingRecord, FundingContributor, FundingInvitees, GroupIdRecord,
+         OrcidAuthorizeCall, OrcidApiCall, Url, UserInvitation, OrgInvitation, ExternalId, Client,
+         Grant, Token, WorkRecord, WorkContributor, WorkExternalId, WorkInvitees, PeerReviewRecord,
+         PeerReviewInvitee, PeerReviewExternalId),
             fail_silently=True):  # noqa: F405
         _app.db = _db
         _app.config["DATABASE_URL"] = DATABASE_URL
@@ -115,17 +127,27 @@ def app():
         _app.config["SENTRY_DSN"] = None
         _app.config["WTF_CSRF_ENABLED"] = False
         _app.config["DEBUG_TB_ENABLED"] = False
+        _app.config["LOAD_TEST"] = True
         #_app.config["SERVER_NAME"] = "ORCIDHUB"
         _app.sentry = None
 
         # Add some data:
         for org_no in range(2):
             org = Organisation.create(name=f"TEST{org_no}", tuakiri_name=f"TEST ORG #{org_no}")
+            User.create(
+                created_at=datetime(2017, 11, 16),
+                email=f"researcher_across_orgs@test{org_no}.edu",
+                name="TEST USER ACROSS ORGS",
+                first_name="FIRST_NAME",
+                last_name="LAST_NAME",
+                roles=Role.RESEARCHER,
+                orcid="1981-2981-3981-00X3",
+                confirmed=True,
+                organisation=org)
             if org_no == 1:
                 org.orcid_client_id = "ABC123"
                 org.orcid_secret = "SECRET-12345"
                 org.save()
-
             # An org.admin
             user = User.create(
                 created_at=datetime(2017, 11, 28),
@@ -173,6 +195,7 @@ def app():
                     user=user,
                     client_id=org.name + "-ID",
                     client_secret=org.name + "-SECRET")
+
         UserOrg.insert_from(
             query=User.select(User.id, User.organisation_id, User.created_at).where(
                 User.email.contains("researcher")),

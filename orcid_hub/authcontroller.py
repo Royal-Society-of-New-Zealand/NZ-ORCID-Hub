@@ -11,20 +11,22 @@ import pickle
 import re
 import secrets
 import zlib
-from contextlib import suppress
 from datetime import datetime
 from os import path, remove
 from tempfile import gettempdir
 from time import time
 from urllib.parse import quote, unquote, urlparse
-from itsdangerous import SignatureExpired
+import validators
 
 import requests
-from flask import abort, current_app, flash, redirect, render_template, request, session, url_for
+from flask import (abort, current_app, flash, redirect, render_template, request, Response,
+                   session, stream_with_context, url_for)
 from flask_login import current_user, login_required, login_user, logout_user
+from itsdangerous import Signer
 from oauthlib.oauth2 import rfc6749
 from requests_oauthlib import OAuth2Session
 from werkzeug.urls import iri_to_uri
+from werkzeug.utils import secure_filename
 
 from orcid_api.rest import ApiException
 
@@ -33,11 +35,11 @@ from . import app, db, orcid_client
 from .config import (APP_DESCRIPTION, APP_NAME, APP_URL, AUTHORIZATION_BASE_URL, CRED_TYPE_PREMIUM,
                      MEMBER_API_FORM_BASE_URL, NOTE_ORCID, ORCID_API_BASE, ORCID_BASE_URL,
                      SCOPE_ACTIVITIES_UPDATE, SCOPE_AUTHENTICATE, SCOPE_READ_LIMITED, TOKEN_URL)
-from .forms import OrgConfirmationForm
+from .forms import OrgConfirmationForm, TestDataForm
 from .login_provider import roles_required
 from .models import (Affiliation, OrcidAuthorizeCall, OrcidToken, Organisation, OrgInfo,
                      OrgInvitation, Role, Url, User, UserInvitation, UserOrg)
-from .utils import append_qs, confirm_token, get_next_url, register_orcid_webhook
+from .utils import append_qs, confirm_token, get_next_url, read_uploaded_file, register_orcid_webhook
 
 HEADERS = {'Accept': 'application/vnd.orcid+json', 'Content-type': 'application/vnd.orcid+json'}
 ENV = app.config.get("ENV")
@@ -269,6 +271,12 @@ def handle_login():
 
     if not user.confirmed:
         user.confirmed = True
+        if user.has_role(Role.TECHNICAL):
+            oi = OrgInvitation.select().where(OrgInvitation.invitee == user).order_by(
+                OrgInvitation.created_at.desc()).limit(1).first()
+            if oi and oi.tech_contact and oi.org.tech_contact != user:
+                oi.org.tech_contact = user
+                oi.org.save()
 
     try:
         user.save()
@@ -295,6 +303,109 @@ def handle_login():
         app.logger.info("User %r organisation is not onboarded", user)
 
     return redirect(url_for("index"))
+
+
+def login0(auth=None):
+    """Handle secure login for performance and stress testing.
+
+    Signature is the signature of email value with the application key.
+    """
+    if not auth:
+        auth = request.headers.get("Authorization")
+        if not auth:
+            resp = Response()
+            resp.headers["WWW-Authenticate"] = 'Basic realm="Access to the load-testing login"'
+            resp.status_code = 401
+            return resp
+        if ':' not in auth:
+            auth = base64.b64decode(auth).decode()
+
+    email, signature = auth.split(':')
+    s = Signer(app.secret_key)
+    if s.validate(email + '.' + signature):
+        try:
+            u = User.get(email=email)
+            login_user(u)
+            return redirect(get_next_url() or url_for("index"))
+        except User.DoesNotExist:
+            return handle_login()
+    abort(403)
+
+
+@roles_required(Role.SUPERUSER)
+def test_data():
+    """Generate the test data for the stress/performance tests."""
+    form = TestDataForm(optional=True)
+
+    if form.validate_on_submit():
+        data = read_uploaded_file(form)
+        if form.file_.data:
+            filename, _ = path.splitext(secure_filename(form.file_.data.filename))
+        else:
+            filename = "test-data"
+
+        @stream_with_context
+        def content(data=None):
+            s = Signer(app.secret_key)
+            if data:
+                sep = '\t' if '\t' in data else ','
+                for line_no, line in enumerate(data.splitlines()):
+                    values = [v.strip() for v in line.split(sep)]
+                    for v in values:
+                        if '@' in v:
+                            try:
+                                validators.email(v)
+                                email = v
+                                break
+                            except validators.ValidationFailure:
+                                pass
+                    else:
+                        if line_no == 0:
+                            continue
+                        flash("Missing email address in the file", "danger")
+                        abort(400)
+                    yield s.get_signature(email).decode() + sep + sep.join(values)
+                    yield '\n'
+            else:
+                org_count = int(
+                    request.args.get("orgs") or request.args.get("org_count")
+                    or request.args.get("org-count") or form.org_count.data or 100)
+                user_count = int(
+                    request.args.get("users") or request.args.get("user_count")
+                    or request.args.get("user-count") or form.user_count.data or 400)
+
+                import faker
+                f = faker.Faker()
+                orgs = [f'"{f.company()}"' for _ in range(org_count)]
+
+                for n in range(user_count):
+                    email = f.email()
+                    yield ','.join([
+                        s.get_signature(email).decode(),
+                        email,
+                        f.user_name(),
+                        f.password(),
+                        orgs[n % org_count],
+                        f.first_name(),
+                        f.last_name(),
+                        [
+                            "staff",
+                            "student",
+                        ][n % 2],
+                    ])
+                    yield '\n'
+
+        resp = Response(content(data), mimetype="text/csv")
+        resp.headers["Content-Disposition"] = f"attachment; filename={filename}_SIGNED.csv"
+        return resp
+
+    return render_template("form.html", form=form, title="Load Test Date Generation")
+
+
+if app.config.get("LOAD_TEST"):
+    app.add_url_rule("/test-data", "test_data", test_data, methods=["GET", "POST"])
+    app.add_url_rule("/login0/<string:auth>", "login0", login0)
+    app.add_url_rule("/login0", "login0", login0)
 
 
 @app.route("/link")
@@ -783,8 +894,30 @@ def orcid_login(invitation_token=None):
             if isinstance(data, tuple):
                 is_valid, data = data
                 if not is_valid:
-                    flash("The inviation token is invalid!", "danger")
-                    return redirect(_next or url_for("index"))
+                    if isinstance(data, str):
+                        user_email, user_org_name = data.split(';')
+                    else:
+                        user_email, user_org_name = data.get("email"), data.get("org")
+                    user = User.get(email=user_email)
+                    org = Organisation.get(name=user_org_name or user.organisation.name)
+
+                    # if we are able to find token then show the message of permission already given
+                    if OrcidToken.select().where(OrcidToken.user == user, OrcidToken.org == org):
+                        flash("You have already given permission, you can simply login on orcidhub",
+                              "warning")
+                        app.logger.warning(
+                            f"Failed to login via ORCID, as {user_email} from {user_org_name} organisation, "
+                            "was trying old invitation token")
+                        return redirect(url_for("index"))
+
+                    flash(
+                        "It's been more than 15 days since your invitation was sent and it has expired. "
+                        "Please contact the sender to issue a new one", "danger")
+                    app.logger.warning(
+                        f"Failed to login via ORCID, as {user_email} from {user_org_name} organisation, "
+                        "was trying old invitation token")
+                    return redirect(url_for("index"))
+
             if isinstance(data, str):
                 email, org_name = data.split(';')
             else:
@@ -842,33 +975,6 @@ def orcid_login(invitation_token=None):
             orcid_base_url=ORCID_BASE_URL,
             callback_url=orcid_authenticate_url)
 
-    except SignatureExpired:
-        with suppress(Exception):
-            _, data = confirm_token(invitation_token, unsafe=True)
-
-            if isinstance(data, str):
-                user_email, user_org_name = data.split(';')
-            else:
-                user_email, user_org_name = data.get("email"), data.get("org")
-            user = User.get(email=user_email)
-            org = Organisation.get(name=user_org_name or user.organisation.name)
-
-            # if we are able to find token then show the message of permission already given
-            if OrcidToken.select().where(OrcidToken.user == user, OrcidToken.org == org):
-                flash("You have already given permission, you can simply login on orcidhub",
-                      "warning")
-                app.logger.warning(
-                    f"Failed to login via ORCID, as {user_email} from {user_org_name} organisation, "
-                    "was trying old invitation token")
-                return redirect(url_for("index"))
-
-        flash(
-            "It's been more than 15 days since your invitation was sent and it has expired. "
-            "Please contact the sender to issue a new one", "danger")
-        app.logger.warning(
-            f"Failed to login via ORCID, as {user_email} from {user_org_name} organisation, "
-            "was trying old invitation token")
-        return redirect(url_for("index"))
     except Exception as ex:
         flash("Something went wrong. Please contact orcid@royalsociety.org.nz for support!",
               "danger")
@@ -943,6 +1049,15 @@ def orcid_login_callback(request):
                 user = User.get(orcid=orcid_id)
             else:
                 user = User.get(email=email)
+                # One ORCID iD cannot be associated with two different email address of same organisation.
+                users = User.select().where(User.orcid == orcid_id, User.email != email)
+                if UserOrg.select().where(UserOrg.user.in_(users), UserOrg.org == org):
+                    flash(
+                        f"This {orcid_id} is already associated with other email address of same organisation: {org}. "
+                        f"Please use other ORCID iD to login. If you need help then "
+                        f"kindly contact orcid@royalsociety.org.nz support for issue", "danger")
+                    logout_user()
+                    return redirect(url_for("index"))
 
         except User.DoesNotExist:
             if email is None:
@@ -957,10 +1072,23 @@ def orcid_login_callback(request):
             user.orcid = orcid_id
             if user.organisation.webhook_enabled:
                 register_orcid_webhook.queue(user)
+        elif user.orcid != orcid_id and email:
+            flash(f"This {email} is already associated with {user.orcid} and you are trying to login with {orcid_id}. "
+                  f"Please use correct ORCID iD to login. If you need help then "
+                  f"kindly contact orcid@royalsociety.org.nz support for issue", "danger")
+            logout_user()
+            return redirect(url_for("index"))
         if not user.name and token['name']:
             user.name = token['name']
         if not user.confirmed:
             user.confirmed = True
+            if user.has_role(Role.TECHNICAL):
+                oi = OrgInvitation.select().where(OrgInvitation.invitee == user).order_by(
+                    OrgInvitation.created_at.desc()).limit(1).first()
+                if oi and oi.tech_contact and oi.org.tech_contact != user:
+                    oi.org.tech_contact = user
+                    oi.org.save()
+
         login_user(user)
         oac.user_id = current_user.id
         oac.save()
@@ -989,9 +1117,10 @@ def orcid_login_callback(request):
                 # NB! need to add _preload_content=False to get raw response
                 api_response = api_instance.view_emails(user.orcid, _preload_content=False)
             except ApiException as ex:
-                message = json.loads(ex.body.replace("''", "\"")).get('user-messsage')
+                message = json.loads(ex.body.decode()).get('user-message')
                 if ex.status == 401:
-                    flash("User has revoked the permissions to update his/her records", "warning")
+                    flash(f"Got ORCID API Exception: {message}", "danger")
+                    logout_user()
                 else:
                     flash(
                         "Exception when calling MemberAPIV20Api->view_employments: %s\n" % message,
@@ -999,7 +1128,7 @@ def orcid_login_callback(request):
                     flash(f"The Hub cannot verify your email address from your ORCID record. "
                           f"Please, change the visibility level for your organisation email address "
                           f"'{email}' to 'trusted parties'.", "danger")
-                    return redirect(url_for("index"))
+                return redirect(url_for("index"))
             data = json.loads(api_response.data)
             if data and data.get("email") and any(
                     e.get("email").lower() == email for e in data.get("email")):

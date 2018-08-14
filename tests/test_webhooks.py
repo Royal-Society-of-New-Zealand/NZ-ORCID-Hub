@@ -104,11 +104,9 @@ def test_webhook_registration(app_req_ctx):
         mockpost.return_value = mockresp
         # Webhook registration response:
         mockresp = MagicMock(status_code=201, data=b'')
-        # mockresp.raw.stream = lambda *args, **kwargs: iter([b"""{"data": "TEST"}"""])
-        mockresp.raw.headers = {
+        mockresp.headers = {
                 "Server": "TEST123",
                 "Connection": "keep-alive",
-                "Location": "LOCATION",
                 "Pragma": "no-cache",
                 "Expires": "0",
         }
@@ -148,17 +146,17 @@ def test_webhook_registration(app_req_ctx):
                             "orcid_hub.utils.requests.delete") as mockdelete:
         # Webhook deletion response:
         mockresp = MagicMock(status_code=204, data=b'')
-        # mockresp.raw.stream = lambda *args, **kwargs: iter([b"""{"data": "TEST"}"""])
-        mockresp.raw.headers = {
+        mockresp.headers = {
                 "Server": "TEST123",
                 "Connection": "keep-alive",
-                "Location": "LOCATION",
+                "Location": "TEST-LOCATION",
                 "Pragma": "no-cache",
                 "Expires": "0",
         }
         mockdelete.return_value = mockresp
         resp = ctx.app.full_dispatch_request()
         assert resp.status_code == 204
+        assert resp.headers["Location"] == "TEST-LOCATION"
 
         args, kwargs = mockput.call_args
         assert args[0] == "https://api.sandbox.orcid.org/0000-0000-0000-00X3/webhook/http%3A%2F%2FCALL-BACK"

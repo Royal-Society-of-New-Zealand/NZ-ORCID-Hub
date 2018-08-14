@@ -37,6 +37,7 @@ services:
       - ORCID_CLIENT_ID
       - ORCID_CLIENT_SECRET
       - SENTRY_DSN
+      - LOAD_TEST
     domainname: orcidhub.org.nz
     hostname: app
     ports:

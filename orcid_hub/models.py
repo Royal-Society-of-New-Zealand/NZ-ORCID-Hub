@@ -611,10 +611,25 @@ class User(BaseModel, UserMixin, AuditMixin):
                 UserOrg, on=((UserOrg.org_id == Organisation.id) & (UserOrg.user_id == self.id)))
                 .naive())
 
-    @property
-    def linked_accounts(self):
-        """Get all linked accounts - accounts sharing the same ORCID ID."""
-        return [u for u in User.select().where(User.orcid == self.orcid)] if self.orcid else [self]
+    @lazy_property
+    def org_links(self):
+        """Get all user organisation linked direct and undirect."""
+        if self.orcid:
+            q = UserOrg.select().join(
+                User,
+                on=((User.id == UserOrg.user_id) &
+                    ((User.email == self.email) |
+                     (User.orcid == self.orcid)))).where((UserOrg.user_id == self.id)
+                                                         | (User.email == self.email)
+                                                         | (User.orcid == self.orcid))
+        else:
+            q = self.userorg_set
+
+        return [
+            r for r in q.select(UserOrg.id, UserOrg.org_id, Organisation.name.alias("org_name"))
+            .join(Organisation, on=(
+                Organisation.id == UserOrg.org_id)).order_by(Organisation.name).naive()
+        ]
 
     @property
     def available_organisations(self):
@@ -730,6 +745,10 @@ class OrgInvitation(BaseModel, AuditMixin):
         verbose_name="Invitee Email Address")
     token = TextField(unique=True)
     confirmed_at = DateTimeField(null=True)
+    tech_contact = BooleanField(
+        null=True,
+        help_text="The invitee is the techical contact of the organisation.",
+        verbose_name="Is Tech.contact")
 
     @property
     def sent_at(self):
@@ -795,7 +814,7 @@ class OrcidToken(BaseModel, AuditMixin):
         User, null=True, index=True,
         on_delete="CASCADE")  # TODO: add validation for 3-legged authorization tokens
     org = ForeignKeyField(Organisation, index=True, verbose_name="Organisation")
-    scope = TextField(null=True, db_column="scope")  # TODO implement property
+    scope = TextField(null=True)  # TODO implement property
     access_token = CharField(max_length=36, unique=True, null=True)
     issue_time = DateTimeField(default=datetime.utcnow)
     refresh_token = CharField(max_length=36, unique=True, null=True)
@@ -877,7 +896,7 @@ class Task(BaseModel, AuditMixin):
     """Batch processing task created form CSV/TSV file."""
 
     org = ForeignKeyField(
-        Organisation, index=True, verbose_name="Organisation", on_delete="SET NULL")
+        Organisation, index=True, verbose_name="Organisation", on_delete="CASCADE")
     completed_at = DateTimeField(null=True)
     filename = TextField(null=True)
     created_by = ForeignKeyField(
@@ -1152,7 +1171,7 @@ class GroupIdRecord(RecordModel):
                          help_text="The group's identifier, formatted as type:identifier, e.g. issn:12345678. "
                                    "This can be as specific (e.g. the journal's ISSN) or vague as required. "
                                    "Valid types include: issn, ringgold, orcid-generated, fundref, publons.")
-    description = CharField(max_length=120,
+    description = CharField(max_length=1000,
                             help_text="A brief textual description of the group. "
                                       "This can be as specific or vague as required.")
     type = CharField(max_length=80, choices=type_choices,
@@ -2132,8 +2151,11 @@ def create_audit_tables():
 
 def drop_tables():
     """Drop all model tables."""
-    for m in (Organisation, User, UserOrg, OrcidToken, UserOrgAffiliation, OrgInfo, OrgInvitation,
-              OrcidApiCall, OrcidAuthorizeCall, Task, AffiliationRecord, Url, UserInvitation):
+    for m in (File, User, UserOrg, OrcidToken, UserOrgAffiliation, OrgInfo, OrgInvitation,
+              OrcidApiCall, OrcidAuthorizeCall, FundingContributor, FundingInvitees, FundingRecord,
+              PeerReviewInvitee, PeerReviewExternalId, PeerReviewRecord, WorkInvitees,
+              WorkExternalId, WorkContributor, WorkRecord, AffiliationRecord, ExternalId, Url,
+              UserInvitation, Task, Organisation):
         if m.table_exists():
             try:
                 m.drop_table(fail_silently=True, cascade=m._meta.database.drop_cascade)
