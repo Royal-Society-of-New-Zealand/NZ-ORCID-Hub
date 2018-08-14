@@ -257,6 +257,33 @@ class FundingForm(FlaskForm):
     disambiguation_source = StringField("Disambiguation Source")
 
 
+class PeerReviewForm(FlaskForm):
+    """User/researcher Peer review detail form."""
+
+    org_name = StringField("Institution", [validators.required()])
+    disambiguated_id = StringField("Disambiguated Organisation ID")
+    disambiguation_source = StringField("Disambiguation Source")
+    city = StringField("City", [validators.required()])
+    state = StringField("State/region", filters=[lambda x: x or None])
+    country = CountrySelectField("Country", [validators.required()])
+    reviewer_role = StringField("Peer Review Reviewer Role")
+    review_url = StringField("Peer Review Review Url")
+    review_type = StringField("Peer Review Review Type")
+    review_group_id = StringField("Peer Review Group Id")
+    subject_external_identifier_type = StringField("Peer Review Subject External Identifier Type")
+    subject_external_identifier_value = StringField("Peer Review Subject External Identifier Value")
+    subject_external_identifier_url = StringField("Peer Review Subject External Identifier Url")
+    subject_external_identifier_relationship = StringField("Peer Review Subject External Identifier Relationship")
+    subject_container_name = StringField("Peer Review Subject Container Name")
+    subject_type = StringField("Peer Review Subject Type")
+    subject_title = StringField("Peer Review Subject Title")
+    subject_subtitle = StringField("Peer Review Subject Subtitle")
+    subject_translated_title = StringField("Peer Review Subject Translated Title")
+    subject_translated_title_language_code = LanguageSelectField("Language")
+    subject_url = StringField("Peer Review Subject Url")
+    review_completion_date = PartialDateField("Review Completion date")
+
+
 class GroupIdForm(FlaskForm):
     """GroupID record form."""
 

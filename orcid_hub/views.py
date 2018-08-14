@@ -36,7 +36,7 @@ from orcid_api.rest import ApiException
 from . import admin, app, limiter, models, orcid_client, rq, utils
 from .forms import (ApplicationFrom, BitmapMultipleValueField, CredentialForm, EmailTemplateForm,
                     FileUploadForm, FundingForm, GroupIdForm, LogoForm, OrgRegistrationForm, PartialDateField,
-                    RecordForm, UserInvitationForm, WebhookForm)
+                    PeerReviewForm, RecordForm, UserInvitationForm, WebhookForm)
 from .login_provider import roles_required
 from .models import (Affiliation, AffiliationRecord, CharField, Client, File, FundingInvitees,
                      FundingRecord, Grant, GroupIdRecord, ModelException, OrcidApiCall, OrcidToken,
@@ -1622,11 +1622,14 @@ def edit_record(user_id, section_type, put_code=None):
 
     if section_type == "FUN":
         form = FundingForm(form_type=section_type)
+    elif section_type == "PRR":
+        form = PeerReviewForm(form_type=section_type)
     else:
         form = RecordForm(form_type=section_type)
 
     grant_data_list = []
     if request.method == "GET":
+        data = {}
         if put_code:
             try:
                 # Fetch an Employment
@@ -1636,47 +1639,84 @@ def edit_record(user_id, section_type, put_code=None):
                     api_response = api.view_education(user.orcid, put_code)
                 elif section_type == "FUN":
                     api_response = api.view_funding(user.orcid, put_code)
+                elif section_type == "PRR":
+                    api_response = api.view_peer_review(user.orcid, put_code)
 
                 _data = api_response.to_dict()
 
-                data = dict(
-                    org_name=_data.get("organization").get("name"),
-                    disambiguated_id=get_val(
-                        _data, "organization", "disambiguated_organization",
-                        "disambiguated_organization_identifier"),
-                    disambiguation_source=get_val(
-                        _data, "organization", "disambiguated_organization",
-                        "disambiguation_source"),
-                    city=_data.get("organization").get("address").get("city", ""),
-                    state=_data.get("organization").get("address").get("region", ""),
-                    country=_data.get("organization").get("address").get("country", ""),
-                    department=_data.get("department_name", ""),
-                    role=_data.get("role_title", ""),
-                    start_date=PartialDate.create(_data.get("start_date")),
-                    end_date=PartialDate.create(_data.get("end_date")))
+                if section_type == "PRR":
 
-                if section_type == "FUN":
-                    external_ids_list = get_val(_data, "external_ids", "external_id")
+                    data = dict(
+                        org_name=get_val(_data, "convening_organization", "name"),
+                        disambiguated_id=get_val(
+                            _data, "convening_organization", "disambiguated-organization",
+                            "disambiguated-organization-identifier"),
+                        disambiguation_source=get_val(
+                            _data, "convening_organization", "disambiguated-organization",
+                            "disambiguation-source"),
+                        city=get_val(_data, "convening_organization", "address", "city"),
+                        state=get_val(_data, "convening_organization", "address", "region"),
+                        country=get_val(_data, "convening_organization", "address", "country"),
+                        reviewer_role=_data.get("reviewer_role", ""),
+                        review_url=get_val(_data, "review_url", "value"),
+                        review_type=_data.get("review_type", ""),
+                        review_group_id=_data.get("review_group_id", ""),
+                        subject_external_identifier_type=get_val(_data, "subject_external_identifier",
+                                                                 "external-id-type"),
+                        subject_external_identifier_value=get_val(_data, "subject_external_identifier",
+                                                                  "external-id-value"),
+                        subject_external_identifier_url=get_val(_data, "subject_external_identifier", "external-id-url",
+                                                                "value"),
+                        subject_external_identifier_relationship=get_val(_data, "subject_external_identifier",
+                                                                         "external-id-relationship"),
+                        subject_container_name=get_val(_data, "subject_container_name", "value"),
+                        subject_type=_data.get("subject_type", ""),
+                        subject_title=get_val(_data, "subject_name", "title", "value"),
+                        subject_subtitle=get_val(_data, "subject_name", "subtitle"),
+                        subject_translated_title=get_val(_data, "subject_name", "translated-title", "value"),
+                        subject_translated_title_language_code=get_val(_data, "subject_name", "language-code"),
+                        subject_url=get_val(_data, "subject_url", "value"),
+                        review_completion_date=PartialDate.create(_data.get("review_completion_date")))
 
-                    for extid in external_ids_list:
-                        external_id_value = extid['external_id_value'] if extid['external_id_value'] else ''
-                        external_id_url = get_val(extid['external_id_url'], "value") if get_val(
-                            extid['external_id_url'], "value") else ''
-                        external_id_relationship = extid['external_id_relationship'] if extid[
-                            'external_id_relationship'] else ''
+                else:
+                    data = dict(
+                        org_name=_data.get("organization").get("name"),
+                        disambiguated_id=get_val(
+                            _data, "organization", "disambiguated_organization",
+                            "disambiguated_organization_identifier"),
+                        disambiguation_source=get_val(
+                            _data, "organization", "disambiguated_organization",
+                            "disambiguation_source"),
+                        city=_data.get("organization").get("address").get("city", ""),
+                        state=_data.get("organization").get("address").get("region", ""),
+                        country=_data.get("organization").get("address").get("country", ""),
+                        department=_data.get("department_name", ""),
+                        role=_data.get("role_title", ""),
+                        start_date=PartialDate.create(_data.get("start_date")),
+                        end_date=PartialDate.create(_data.get("end_date")))
 
-                        grant_data_list.append(dict(grant_number=external_id_value, grant_url=external_id_url,
-                                                    grant_relationship=external_id_relationship))
+                    if section_type == "FUN":
+                        external_ids_list = get_val(_data, "external_ids", "external_id")
 
-                    data.update(dict(funding_title=get_val(_data, "title", "title", "value"),
-                                     funding_translated_title=get_val(_data, "title", "translated_title", "value"),
-                                     translated_title_language=get_val(_data, "title", "translated_title",
-                                                                       "language_code"),
-                                     funding_type=get_val(_data, "type"),
-                                     funding_subtype=get_val(_data, "organization_defined_type", "value"),
-                                     funding_description=get_val(_data, "short_description"),
-                                     total_funding_amount=get_val(_data, "amount", "value"),
-                                     total_funding_amount_currency=get_val(_data, "amount", "currency_code")))
+                        for extid in external_ids_list:
+                            external_id_value = extid['external_id_value'] if extid['external_id_value'] else ''
+                            external_id_url = get_val(extid['external_id_url'], "value") if get_val(
+                                extid['external_id_url'], "value") else ''
+                            external_id_relationship = extid['external_id_relationship'] if extid[
+                                'external_id_relationship'] else ''
+
+                            grant_data_list.append(dict(grant_number=external_id_value, grant_url=external_id_url,
+                                                        grant_relationship=external_id_relationship))
+
+                        data.update(dict(funding_title=get_val(_data, "title", "title", "value"),
+                                         funding_translated_title=get_val(_data, "title", "translated_title", "value"),
+                                         translated_title_language=get_val(_data, "title", "translated_title",
+                                                                           "language_code"),
+                                         funding_type=get_val(_data, "type"),
+                                         funding_subtype=get_val(_data, "organization_defined_type", "value"),
+                                         funding_description=get_val(_data, "short_description"),
+                                         total_funding_amount=get_val(_data, "amount", "value"),
+                                         total_funding_amount_currency=get_val(_data, "amount", "currency_code")))
 
             except ApiException as e:
                 message = json.loads(e.body.replace("''", "\"")).get('user-messsage')
