@@ -1645,7 +1645,17 @@ def edit_record(user_id, section_type, put_code=None):
                 _data = api_response.to_dict()
 
                 if section_type == "PRR":
+                    external_ids_list = get_val(_data, "review_identifiers", "external-id")
 
+                    for extid in external_ids_list:
+                        external_id_value = extid['external-id-value'] if extid['external-id-value'] else ''
+                        external_id_url = get_val(extid['external-id-url'], "value") if get_val(
+                            extid['external-id-url'], "value") else ''
+                        external_id_relationship = extid['external-id-relationship'] if extid[
+                            'external-id-relationship'] else ''
+
+                        grant_data_list.append(dict(grant_number=external_id_value, grant_url=external_id_url,
+                                                    grant_relationship=external_id_relationship))
                     data = dict(
                         org_name=get_val(_data, "convening_organization", "name"),
                         disambiguated_id=get_val(
@@ -1674,7 +1684,8 @@ def edit_record(user_id, section_type, put_code=None):
                         subject_title=get_val(_data, "subject_name", "title", "value"),
                         subject_subtitle=get_val(_data, "subject_name", "subtitle"),
                         subject_translated_title=get_val(_data, "subject_name", "translated-title", "value"),
-                        subject_translated_title_language_code=get_val(_data, "subject_name", "language-code"),
+                        subject_translated_title_language_code=get_val(_data, "subject_name", "translated-title",
+                                                                       "language-code"),
                         subject_url=get_val(_data, "subject_url", "value"),
                         review_completion_date=PartialDate.create(_data.get("review_completion_date")))
 

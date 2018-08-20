@@ -47,23 +47,24 @@
         {{ render_field(form.state) }}
         {{ render_field(form.country) }}
         {{ render_field(form.disambiguated_id) }}
-        {% if section_type == "FUN" %}
-          <input type="button" class="btn btn-danger" ng-click="Add()" value="Add Atleast One Grant / External Identifier Info" /><br>
-          <div ng-repeat="m in externalids">
-            <strong>{{"Funding Grant Number"}}</strong><br>
-            <input type="text" class="form-control" name="grant_number" value="{a m.grant_number a}" /><br>
-            <strong>{{"Funding Grant Url"}}</strong><br>
-            <input type="text" class="form-control" name="grant_url" value="{a m.grant_url a}" /><br>
-            <strong>{{"Funding Grant Relationship"}}</strong><br>
-            <input type="text" class="form-control" name="grant_relationship" value="{a m.grant_relationship a}" /><br>
-            <input type="button" class="btn btn-danger" ng-click="Remove($index)" value="Remove" /><br>
-          </div>
-          <strong>{{"Funding Grant Number"}}</strong><br>
-          <input type="text" class="form-control" name="grant_number" ng-model="grant_number" /><br>
-          <strong>{{"Funding Grant Url"}}</strong><br>
-          <input type="text" class="form-control" name="grant_url" ng-model="grant_url" /><br>
-          <strong>{{"Funding Grant Relationship"}}</strong><br>
-          <input type="text" class="form-control" name="grant_relationship" ng-model="grant_relationship" /><br>
+        {% if section_type == "FUN" or section_type == "PRR"%}
+        <input type="button" class="btn btn-danger" ng-click="Add()"
+               value="External Identifier Info (Atleast add one info)"/><br>
+        <div ng-repeat="m in externalids">
+          <strong>{{"External ID" if section_type == "PRR" else "Funding Grant Number"}}</strong><br>
+          <input type="text" class="form-control" name="grant_number" value="{a m.grant_number a}"/><br>
+          <strong>{{"External ID Url" if section_type == "PRR" else "Funding Grant Url"}}</strong><br>
+          <input type="text" class="form-control" name="grant_url" value="{a m.grant_url a}"/><br>
+          <strong>{{"External ID Relationship" if section_type == "PRR" else "Funding Grant Relationship"}}</strong><br>
+          <input type="text" class="form-control" name="grant_relationship" value="{a m.grant_relationship a}"/><br>
+          <input type="button" class="btn btn-danger" ng-click="Remove($index)" value="Remove"/><br>
+        </div>
+        <strong>{{"External ID" if section_type == "PRR" else "Funding Grant Number"}}</strong><br>
+        <input type="text" class="form-control" name="grant_number" ng-model="grant_number"/><br>
+        <strong>{{"External ID Url" if section_type == "PRR" else "Funding Grant Url"}}</strong><br>
+        <input type="text" class="form-control" name="grant_url" ng-model="grant_url"/><br>
+        <strong>{{"External ID Relationship" if section_type == "PRR" else "Funding Grant Relationship"}}</strong><br>
+        <input type="text" class="form-control" name="grant_relationship" ng-model="grant_relationship"/><br>
         {% endif %}
       </div>
       <div class="col-md-6 col-sm-6 col-xs-12">
