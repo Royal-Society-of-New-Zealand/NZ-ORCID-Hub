@@ -303,9 +303,11 @@ class PeerReviewForm(FlaskForm):
     city = StringField("City", [validators.required()])
     state = StringField("State/region", filters=[lambda x: x or None])
     country = CountrySelectField("Country", [validators.required()])
-    reviewer_role = SelectField(choices=reviewer_role_choices, description="Peer Review Reviewer Role")
+    reviewer_role = SelectField(choices=reviewer_role_choices, description="Peer Review Reviewer Role",
+                                validators=[validators.required()])
     review_url = StringField("Peer Review Review Url")
-    review_type = SelectField(choices=review_type_choices, description="Peer Review Review Type")
+    review_type = SelectField(choices=review_type_choices, description="Peer Review Review Type",
+                              validators=[validators.required()])
     review_group_id = StringField("Peer Review Group Id", [validators.required()])
     subject_external_identifier_type = StringField("Peer Review Subject External Identifier Type")
     subject_external_identifier_value = StringField("Peer Review Subject External Identifier Value")
@@ -313,13 +315,14 @@ class PeerReviewForm(FlaskForm):
     subject_external_identifier_relationship = SelectField(choices=subject_external_id_relationship_choices,
                                                            description="Peer Review Subject External Id Relationship")
     subject_container_name = StringField("Peer Review Subject Container Name")
-    subject_type = SelectField(choices=subject_type_choices, description="Peer Review Subject Type")
-    subject_title = StringField("Peer Review Subject Title")
+    subject_type = SelectField(choices=subject_type_choices, description="Peer Review Subject Type",
+                               validators=[validators.required()])
+    subject_title = StringField("Peer Review Subject Title", [validators.required()])
     subject_subtitle = StringField("Peer Review Subject Subtitle")
     subject_translated_title = StringField("Peer Review Subject Translated Title")
     subject_translated_title_language_code = LanguageSelectField("Language")
     subject_url = StringField("Peer Review Subject Url")
-    review_completion_date = PartialDateField("Review Completion date")
+    review_completion_date = PartialDateField("Review Completion date", validators=[validators.required()])
 
 
 class GroupIdForm(FlaskForm):
