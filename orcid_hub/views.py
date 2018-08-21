@@ -1545,7 +1545,7 @@ def reset_all():
 @app.route("/section/<int:user_id>/<string:section_type>/<int:put_code>/delete", methods=["POST"])
 @roles_required(Role.ADMIN)
 def delete_record(user_id, section_type, put_code):
-    """Delete an employment, education or funding record."""
+    """Delete an employment, education peer review or funding record."""
     _url = request.args.get("url") or request.referrer or url_for(
         "section", user_id=user_id, section_type=section_type)
     try:
@@ -1576,6 +1576,8 @@ def delete_record(user_id, section_type, put_code):
             api_instance.delete_employment(user.orcid, put_code)
         elif section_type == "FUN":
             api_instance.delete_funding(user.orcid, put_code)
+        elif section_type == "PRR":
+            api_instance.delete_peer_review(user.orcid, put_code)
         else:
             api_instance.delete_education(user.orcid, put_code)
         app.logger.info(f"For {user.orcid} '{section_type}' record was deleted by {current_user}")
@@ -1748,7 +1750,7 @@ def edit_record(user_id, section_type, put_code=None):
 
     if form.validate_on_submit():
         try:
-            if section_type == "FUN":
+            if section_type == "FUN" or section_type == "PRR":
                 grant_number = request.form.getlist('grant_number')
                 grant_url = request.form.getlist('grant_url')
                 grant_relationship = request.form.getlist('grant_relationship')
@@ -1757,11 +1759,18 @@ def edit_record(user_id, section_type, put_code=None):
                                    zip(grant_number, grant_url, grant_relationship)] if list(
                     filter(None, grant_number)) else []
 
-                put_code, orcid, created = api.create_or_update_individual_funding(
-                    put_code=put_code,
-                    grant_data_list=grant_data_list,
-                    **{f.name: f.data
-                       for f in form})
+                if section_type == "FUN":
+                    put_code, orcid, created = api.create_or_update_individual_funding(
+                        put_code=put_code,
+                        grant_data_list=grant_data_list,
+                        **{f.name: f.data
+                           for f in form})
+                else:
+                    put_code, orcid, created = api.create_or_update_individual_peer_review(
+                        put_code=put_code,
+                        grant_data_list=grant_data_list,
+                        **{f.name: f.data
+                           for f in form})
                 if put_code and created:
                     flash("Record details has been added successfully!", "success")
                 else:
