@@ -14,11 +14,13 @@
             $scope.grant_number = ''
             $scope.url = ''
             $scope.relationship = ''
+            $scope.grant_type = ''
 
             $scope.Add = function () {
                 //Add the new item to the Array.
                 var externalid = {};
                 externalid.grant_number = $scope.grant_number;
+                externalid.grant_type = $scope.grant_type;
                 externalid.grant_url = $scope.grant_url;
                 externalid.grant_relationship = $scope.grant_relationship;
                 $scope.externalids.push(externalid);
@@ -51,6 +53,8 @@
         <input type="button" class="btn btn-danger" ng-click="Add()"
                value="External Identifier Info (Atleast add one info)"/><br>
         <div ng-repeat="m in externalids">
+          <strong>{{"External ID Type" if section_type == "PRR" else "Funding Grant Type"}}</strong><br>
+          <input type="text" class="form-control" name="grant_type" value="{a m.grant_type a}"/><br>
           <strong>{{"External ID" if section_type == "PRR" else "Funding Grant Number"}}</strong><br>
           <input type="text" class="form-control" name="grant_number" value="{a m.grant_number a}"/><br>
           <strong>{{"External ID Url" if section_type == "PRR" else "Funding Grant Url"}}</strong><br>
@@ -59,6 +63,8 @@
           <input type="text" class="form-control" name="grant_relationship" value="{a m.grant_relationship a}"/><br>
           <input type="button" class="btn btn-danger" ng-click="Remove($index)" value="Remove"/><br>
         </div>
+        <strong>{{"External ID Type" if section_type == "PRR" else "Funding Grant Type"}}</strong><br>
+        <input type="text" class="form-control" name="grant_type" ng-model="grant_type"/><br>
         <strong>{{"External ID" if section_type == "PRR" else "Funding Grant Number"}}</strong><br>
         <input type="text" class="form-control" name="grant_number" ng-model="grant_number"/><br>
         <strong>{{"External ID Url" if section_type == "PRR" else "Funding Grant Url"}}</strong><br>

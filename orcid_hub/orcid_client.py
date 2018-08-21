@@ -753,7 +753,7 @@ class MemberAPI(MemberAPIV20Api):
         for exi in grant_data_list:
             if exi['grant_number']:
                 # Orcid is expecting external type as 'grant_number'
-                external_id_type = "grant_number"
+                external_id_type = exi['grant_type'] if exi['grant_type'] else "grant_number"
                 external_id_value = exi['grant_number']
                 external_id_url = None
                 if exi['grant_url']:
@@ -826,7 +826,7 @@ class MemberAPI(MemberAPIV20Api):
 
         rec.review_type = review_type
 
-        if review_completion_date:
+        if review_completion_date.as_orcid_dict():
             rec.review_completion_date = review_completion_date.as_orcid_dict()
 
         rec.review_group_id = review_group_id
@@ -846,22 +846,22 @@ class MemberAPI(MemberAPIV20Api):
         if subject_container_name:
             rec.subject_container_name = Title(value=subject_container_name)  # noqa: F405
 
-        rec.subject_type = subject_type
-
-        title = None
-        subtitle = None
-        translated_title = None
+        if subject_type:
+            rec.subject_type = subject_type
 
         if subject_title:
+            subtitle = None
+            translated_title = None
             title = Title(value=subject_title)  # noqa: F405
-        if subject_subtitle:
-            subtitle = Subtitle(value=subject_subtitle)     # noqa: F405
+            if subject_subtitle:
+                subtitle = Subtitle(value=subject_subtitle)     # noqa: F405
 
-        if subject_translated_title:
-            translated_title = TranslatedTitle(value=subject_translated_title,  # noqa: F405
-                                               language_code=subject_translated_title_language_code)  # noqa: F405
+            if subject_translated_title and subject_translated_title_language_code:
+                translated_title = TranslatedTitle(value=subject_translated_title,  # noqa: F405
+                                                   language_code=subject_translated_title_language_code)  # noqa: F405
 
-        rec.subject_name = WorkTitle(title=title, subtitle=subtitle, translated_title=translated_title)     # noqa: F405
+            rec.subject_name = WorkTitle(title=title, subtitle=subtitle,          # noqa: F405
+                                         translated_title=translated_title)
 
         if subject_url:
             rec.subject_url = Url(value=subject_url)        # noqa: F405
@@ -888,8 +888,8 @@ class MemberAPI(MemberAPIV20Api):
 
         for exi in grant_data_list:
             if exi['grant_number']:
-                # Orcid is expecting external type as 'source_work_id'
-                external_id_type = "source-work-id"
+                # Orcid is expecting external type as 'source-work-id'
+                external_id_type = exi['grant_type'] if exi['grant_type'] else "source-work-id"
                 external_id_value = exi['grant_number']
                 external_id_url = None
                 if exi['grant_url']:

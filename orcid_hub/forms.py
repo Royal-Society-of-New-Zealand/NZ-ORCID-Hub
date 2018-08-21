@@ -315,9 +315,8 @@ class PeerReviewForm(FlaskForm):
     subject_external_identifier_relationship = SelectField(choices=subject_external_id_relationship_choices,
                                                            description="Peer Review Subject External Id Relationship")
     subject_container_name = StringField("Peer Review Subject Container Name")
-    subject_type = SelectField(choices=subject_type_choices, description="Peer Review Subject Type",
-                               validators=[validators.required()])
-    subject_title = StringField("Peer Review Subject Title", [validators.required()])
+    subject_type = SelectField(choices=subject_type_choices, description="Peer Review Subject Type")
+    subject_title = StringField("Peer Review Subject Title")
     subject_subtitle = StringField("Peer Review Subject Subtitle")
     subject_translated_title = StringField("Peer Review Subject Translated Title")
     subject_translated_title_language_code = LanguageSelectField("Language")

@@ -1655,9 +1655,12 @@ def edit_record(user_id, section_type, put_code=None):
                             extid['external-id-url'], "value") else ''
                         external_id_relationship = extid['external-id-relationship'] if extid[
                             'external-id-relationship'] else ''
+                        external_id_type = extid['external-id-type'] if extid[
+                            'external-id-relationship'] else ''
 
                         grant_data_list.append(dict(grant_number=external_id_value, grant_url=external_id_url,
-                                                    grant_relationship=external_id_relationship))
+                                                    grant_relationship=external_id_relationship,
+                                                    grant_type=external_id_type))
                     data = dict(
                         org_name=get_val(_data, "convening_organization", "name"),
                         disambiguated_id=get_val(
@@ -1717,9 +1720,12 @@ def edit_record(user_id, section_type, put_code=None):
                                 extid['external_id_url'], "value") else ''
                             external_id_relationship = extid['external_id_relationship'] if extid[
                                 'external_id_relationship'] else ''
+                            external_id_type = extid['external_id_type'] if extid[
+                                'external_id_relationship'] else ''
 
                             grant_data_list.append(dict(grant_number=external_id_value, grant_url=external_id_url,
-                                                        grant_relationship=external_id_relationship))
+                                                        grant_relationship=external_id_relationship,
+                                                        grant_type=external_id_type))
 
                         data.update(dict(funding_title=get_val(_data, "title", "title", "value"),
                                          funding_translated_title=get_val(_data, "title", "translated_title", "value"),
@@ -1751,12 +1757,14 @@ def edit_record(user_id, section_type, put_code=None):
     if form.validate_on_submit():
         try:
             if section_type == "FUN" or section_type == "PRR":
+                grant_type = request.form.getlist('grant_type')
                 grant_number = request.form.getlist('grant_number')
                 grant_url = request.form.getlist('grant_url')
                 grant_relationship = request.form.getlist('grant_relationship')
 
-                grant_data_list = [{'grant_number': gn, 'grant_url': gu, 'grant_relationship': gr} for gn, gu, gr in
-                                   zip(grant_number, grant_url, grant_relationship)] if list(
+                grant_data_list = [{'grant_number': gn, 'grant_type': gt, 'grant_url': gu, 'grant_relationship': gr} for
+                                   gn, gt, gu, gr in
+                                   zip(grant_number, grant_type, grant_url, grant_relationship)] if list(
                     filter(None, grant_number)) else []
 
                 if section_type == "FUN":
@@ -1800,12 +1808,13 @@ def edit_record(user_id, section_type, put_code=None):
         except ApiException as e:
             body = json.loads(e.body)
             message = body.get("user-message")
+            dev_message = body.get("developer-message")
             more_info = body.get("more-info")
-            flash(f"Failed to update the entry: {message}", "danger")
+            flash(f"Failed to update the entry: {message}; {dev_message}", "danger")
             if more_info:
                 flash(f'You can find more information at <a href="{more_info}">{more_info}</a>', "info")
 
-            app.logger.exception(f"For {user} exception encountered")
+            app.logger.exception(f"For {user} exception encountered; {dev_message}")
         except Exception as ex:
             app.logger.exception(
                 "Unhandler error occured while creating or editing a profile record.")
@@ -1894,8 +1903,8 @@ def section(user_id, section_type="EMP"):
     elif section_type == 'PRR':
         if data and data.get("group"):
             for k in data.get("group"):
-                fs = k.get("peer-review-summary")[0]
-                records.append(fs)
+                for ps in k.get("peer-review-summary"):
+                    records.append(ps)
         return render_template(
             "peer_review_section.html",
             url=_url,
