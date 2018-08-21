@@ -63,14 +63,6 @@
           <input type="text" class="form-control" name="grant_relationship" value="{a m.grant_relationship a}"/><br>
           <input type="button" class="btn btn-danger" ng-click="Remove($index)" value="Remove"/><br>
         </div>
-        <strong>{{"External ID Type" if section_type == "PRR" else "Funding Grant Type"}}</strong><br>
-        <input type="text" class="form-control" name="grant_type" ng-model="grant_type"/><br>
-        <strong>{{"External ID" if section_type == "PRR" else "Funding Grant Number"}}</strong><br>
-        <input type="text" class="form-control" name="grant_number" ng-model="grant_number"/><br>
-        <strong>{{"External ID Url" if section_type == "PRR" else "Funding Grant Url"}}</strong><br>
-        <input type="text" class="form-control" name="grant_url" ng-model="grant_url"/><br>
-        <strong>{{"External ID Relationship" if section_type == "PRR" else "Funding Grant Relationship"}}</strong><br>
-        <input type="text" class="form-control" name="grant_relationship" ng-model="grant_relationship"/><br>
         {% endif %}
       </div>
       <div class="col-md-6 col-sm-6 col-xs-12">
