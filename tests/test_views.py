@@ -1419,19 +1419,9 @@ def test_load_researcher_peer_review(patch, patch2, request_ctx):
         assert "peer" in resp.location
 
 
-def test_load_researcher_affiliations(request_ctx):
+def test_load_researcher_affiliations(client):
     """Test preload organisation data."""
-    org = Organisation.create(
-        name="THE ORGANISATION",
-        tuakiri_name="THE ORGANISATION",
-        confirmed=False,
-        orcid_client_id="CLIENT ID",
-        orcid_secret="Client Secret",
-        city="CITY",
-        country="COUNTRY",
-        disambiguated_id="ID",
-        disambiguation_source="SOURCE",
-        is_email_sent=True)
+    org = Organisation.get(name="THE ORGANISATION")
     user = User.create(
         email="test123@test.test.net",
         name="TEST USER",
@@ -1442,13 +1432,17 @@ def test_load_researcher_affiliations(request_ctx):
     UserOrg.create(user=user, org=org, is_admin=True)
     form = FileUploadForm()
     form.file_.name = "conftest.py"
-    with request_ctx("/load/researcher", method="POST", data={"file_": "{'filename': 'xyz.json'}",
-                                                              "email": user.email, form: form}) as ctxx:
-        login_user(user, remember=True)
-        resp = ctxx.app.full_dispatch_request()
-        assert resp.status_code == 200
-        assert b"<!DOCTYPE html>" in resp.data, "Expected HTML content"
-        assert user.email.encode() in resp.data
+    client.login(user)
+    resp = client.post(
+        "/load/researcher",
+        data={
+            "file_": "{'filename': 'xyz.json'}",
+            "email": user.email,
+            form: form
+        })
+    assert resp.status_code == 200
+    assert b"<!DOCTYPE html>" in resp.data, "Expected HTML content"
+    assert user.email.encode() in resp.data
 
 
 def test_edit_record(request_ctx):

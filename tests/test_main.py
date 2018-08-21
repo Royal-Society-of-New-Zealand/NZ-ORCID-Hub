@@ -394,8 +394,6 @@ def test_onboard_org(client):
 @patch("orcid_hub.utils.send_email")
 def test_invite_tech_contact(send_email, client):
     """Test on-boarding of an org."""
-    pass
-
     client.login_root()
     email = "tech.contact@a.new.org"
     client.post(

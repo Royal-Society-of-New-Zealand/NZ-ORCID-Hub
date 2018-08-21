@@ -96,10 +96,10 @@ class HubClient(FlaskClient):
         """Perform log-out."""
         return self.get("/logout")
 
-    def login_root(self):
+    def login_root(self, *args, **kwargs):
         """Log in with the first found Hub admin user."""
         root = User.select().where(User.roles.bin_and(Role.SUPERUSER)).first()
-        return self.login(root)
+        return self.login(root, *args, **kwargs)
 
 
 @pytest.fixture
@@ -312,6 +312,13 @@ def app():
 @pytest.fixture
 def client(app):
     """A Flask test client. An instance of :class:`flask.testing.TestClient` by default."""
+    class Response(app.response_class):
+        """Custom response with a few helpers."""
+        @lazy_property
+        def json(self):
+            return json.loads(self.data)
+    app.response_class = Response
+
     with app.test_client() as client:
         client.data = app.data
         yield client

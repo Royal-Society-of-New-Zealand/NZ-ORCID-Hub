@@ -731,91 +731,88 @@ def test_create_or_update_affiliation(update_employment, get_record, app):
 
 def test_send_email(app):
     """Test emailing."""
-    with app.app_context():
+    app.config["SERVER_NAME"] = "ORCIDHUB"
+    with app.app_context, patch("emails.message.Message") as msg_cls, patch("flask.current_app.jinja_env"):
+        msg = msg_cls.return_value = Mock()
+        utils.send_email(
+            "template.html", (
+                "TEST USER",
+                "test123@test0.edu",
+            ), subject="TEST")
 
-        # app.config["SERVER_NAME"] = "ORCIDHUB"
+        msg_cls.assert_called_once()
+        msg.send.assert_called_once()
 
-        with patch("emails.message.Message") as msg_cls, patch("flask.current_app.jinja_env"):
-            msg = msg_cls.return_value = Mock()
-            utils.send_email(
-                "template.html", (
-                    "TEST USER",
-                    "test123@test0.edu",
-                ), subject="TEST")
+        msg.reset_mock()
+        dkip_key_path = app.config["DKIP_KEY_PATH"]
+        app.config["DKIP_KEY_PATH"] = __file__
+        utils.send_email(
+            "template", (
+                "TEST USER",
+                "test123@test0.edu",
+            ), base="BASE", subject="TEST")
+        msg.dkim.assert_called_once()
+        msg.send.assert_called_once()
 
-            msg_cls.assert_called_once()
-            msg.send.assert_called_once()
+        msg.reset_mock()
+        app.config["DKIP_KEY_PATH"] = "NON-EXISTING FILE..."
+        utils.send_email(
+            "template", (
+                "TEST USER",
+                "test123@test0.edu",
+            ), base="BASE", subject="TEST")
+        msg.dkim.assert_not_called()
+        msg.send.assert_called_once()
+        app.config["DKIP_KEY_PATH"] = dkip_key_path
 
-            msg.reset_mock()
-            dkip_key_path = app.config["DKIP_KEY_PATH"]
-            app.config["DKIP_KEY_PATH"] = __file__
-            utils.send_email(
-                "template", (
-                    "TEST USER",
-                    "test123@test0.edu",
-                ), base="BASE", subject="TEST")
-            msg.dkim.assert_called_once()
-            msg.send.assert_called_once()
+        # User organisation's logo
+        msg.reset_mock()
+        org = Organisation.get(name="THE ORGANISATION")
+        utils.send_email(
+            "template", (
+                "TEST USER",
+                "test123@test0.edu",
+            ),
+            base="BASE {LOGO}",
+            subject="TEST WITH BASE AND LOGO",
+            org=org)
+        msg.send.assert_called_once()
+        _, kwargs = msg_cls.call_args
+        assert kwargs["subject"] == "TEST WITH BASE AND LOGO"
+        assert kwargs["mail_from"] == (
+            "NZ ORCID HUB",
+            "no-reply@orcidhub.org.nz",
+        )
+        expected_html = f"BASE http://{app.config['SERVER_NAME'].lower()}/logo/TOKEN000"
+        assert kwargs["html"] == expected_html
+        assert kwargs["text"] == expected_html + "\n\n"
 
-            msg.reset_mock()
-            app.config["DKIP_KEY_PATH"] = "NON-EXISTING FILE..."
-            utils.send_email(
-                "template", (
-                    "TEST USER",
-                    "test123@test0.edu",
-                ), base="BASE", subject="TEST")
-            msg.dkim.assert_not_called()
-            msg.send.assert_called_once()
-            app.config["DKIP_KEY_PATH"] = dkip_key_path
-
-            # User organisation's logo
-            msg.reset_mock()
-            org = Organisation.get(name="THE ORGANISATION")
-            utils.send_email(
-                "template", (
-                    "TEST USER",
-                    "test123@test0.edu",
-                ),
-                base="BASE {LOGO}",
-                subject="TEST WITH BASE AND LOGO",
-                org=org)
-            msg.send.assert_called_once()
-            _, kwargs = msg_cls.call_args
-            assert kwargs["subject"] == "TEST WITH BASE AND LOGO"
-            assert kwargs["mail_from"] == (
-                "NZ ORCID HUB",
-                "no-reply@orcidhub.org.nz",
-            )
-            expected_html = f"BASE http://{app.config['SERVER_NAME'].lower()}/logo/TOKEN000"
-            assert kwargs["html"] == expected_html
-            assert kwargs["text"] == expected_html + "\n\n"
-
-            # Using organisation template
-            msg.reset_mock()
-            org.email_template = "TEMPLATE {LOGO}"
-            org.email_template_enabled = True
-            org.save()
-            utils.send_email(
-                "template", (
-                    "TEST USER",
-                    "test123@test0.edu",
-                ),
-                sender=(
-                    None,
-                    None,
-                ),
-                subject="TEST WITH ORG BASE AND LOGO",
-                org=org)
-            msg.send.assert_called_once()
-            _, kwargs = msg_cls.call_args
-            assert kwargs["subject"] == "TEST WITH ORG BASE AND LOGO"
-            assert kwargs["mail_from"] == (
-                "NZ ORCID HUB",
-                "no-reply@orcidhub.org.nz",
-            )
-            expected_html = f"TEMPLATE http://{app.config['SERVER_NAME'].lower()}/logo/TOKEN000"
-            assert kwargs["html"] == expected_html
-            assert kwargs["text"] == expected_html + "\n\n"
+        # Using organisation template
+        msg.reset_mock()
+        org.email_template = "TEMPLATE {LOGO}"
+        org.email_template_enabled = True
+        org.save()
+        utils.send_email(
+            "template", (
+                "TEST USER",
+                "test123@test0.edu",
+            ),
+            sender=(
+                None,
+                None,
+            ),
+            subject="TEST WITH ORG BASE AND LOGO",
+            org=org)
+        msg.send.assert_called_once()
+        _, kwargs = msg_cls.call_args
+        assert kwargs["subject"] == "TEST WITH ORG BASE AND LOGO"
+        assert kwargs["mail_from"] == (
+            "NZ ORCID HUB",
+            "no-reply@orcidhub.org.nz",
+        )
+        expected_html = f"TEMPLATE http://{app.config['SERVER_NAME'].lower()}/logo/TOKEN000"
+        assert kwargs["html"] == expected_html
+        assert kwargs["text"] == expected_html + "\n\n"
 
         # temlates w/o extension and missing template file
         # login_user(super_user)
