@@ -408,7 +408,7 @@ def test_data():
         resp.headers["Content-Disposition"] = f"attachment; filename={filename}_SIGNED.csv"
         return resp
 
-    return render_template("form.html", form=form, title="Load Test Date Generation")
+    return render_template("form.html", form=form, title="Load Test Data Generation")
 
 
 if app.config.get("LOAD_TEST"):
