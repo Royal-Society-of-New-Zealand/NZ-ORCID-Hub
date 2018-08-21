@@ -35,8 +35,8 @@ from orcid_api.rest import ApiException
 
 from . import admin, app, limiter, models, orcid_client, rq, utils
 from .forms import (ApplicationFrom, BitmapMultipleValueField, CredentialForm, EmailTemplateForm,
-                    FileUploadForm, LogoForm, OrgRegistrationForm, PartialDateField, RecordForm,
-                    UserInvitationForm, WebhookForm)
+                    FileUploadForm, FundingForm, GroupIdForm, LogoForm, OrgRegistrationForm, PartialDateField,
+                    RecordForm, UserInvitationForm, WebhookForm)
 from .login_provider import roles_required
 from .models import (Affiliation, AffiliationRecord, CharField, Client, File, FundingInvitees,
                      FundingRecord, Grant, GroupIdRecord, ModelException, OrcidApiCall, OrcidToken,
@@ -195,6 +195,7 @@ class AppModelView(ModelView):
     )
     form_overrides = dict(start_date=PartialDateField, end_date=PartialDateField)
     form_widget_args = {c: {"readonly": True} for c in column_exclude_list}
+    form_excluded_columns = ["created_at", "updated_at", "created_by", "updated_by"]
 
     def __init__(self, model=None, *args, **kwargs):
         """Pick the model based on the ModelView class name assuming it is ModelClass + "Admin"."""
@@ -404,12 +405,19 @@ class OrganisationAdmin(AppModelView):
         "email_template",
         "email_template_enabled",
     )
-    form_excluded_columns = ("logo", )
+    form_excluded_columns = AppModelView.form_excluded_columns[:]
+    form_excluded_columns.append("logo")
     column_searchable_list = (
         "name",
         "tuakiri_name",
         "city",
     )
+    form_ajax_refs = {
+        "tech_contact": {
+            "fields": (User.name, User.email),
+            "page_size": 5
+        },
+    }
     edit_template = "admin/organisation_edit.html"
     form_widget_args = AppModelView.form_widget_args
     form_widget_args["api_credentials_requested_at"] = {"readonly": True}
@@ -1228,7 +1236,7 @@ class ViewMembersAdmin(AppModelView):
                         token=token.access_token))
 
                 if resp.status_code != 200:
-                    flash("Failed to revoke token {tokne.access_token}: {ex}", "error")
+                    flash("Failed to revoke token {token.access_token}: {ex}", "error")
                     return False
 
                 token.delete_instance(recursive=True)
@@ -1285,7 +1293,7 @@ class GroupIdRecordAdmin(AppModelView):
     """GroupIdRecord model view."""
 
     roles_required = Role.SUPERUSER | Role.ADMIN
-    list_template = "admin/model/list.html"
+    list_template = "viewGroupIdRecords.html"
     can_edit = True
     can_create = True
     can_delete = True
@@ -1545,7 +1553,7 @@ def reset_all():
 @app.route("/section/<int:user_id>/<string:section_type>/<int:put_code>/delete", methods=["POST"])
 @roles_required(Role.ADMIN)
 def delete_record(user_id, section_type, put_code):
-    """Delete an employment or education record."""
+    """Delete an employment, education or funding record."""
     _url = request.args.get("url") or request.referrer or url_for(
         "section", user_id=user_id, section_type=section_type)
     try:
@@ -1574,6 +1582,8 @@ def delete_record(user_id, section_type, put_code):
         # Delete an Employment
         if section_type == "EMP":
             api_instance.delete_employment(user.orcid, put_code)
+        elif section_type == "FUN":
+            api_instance.delete_funding(user.orcid, put_code)
         else:
             api_instance.delete_education(user.orcid, put_code)
         app.logger.info(f"For {user.orcid} '{section_type}' record was deleted by {current_user}")
@@ -1618,7 +1628,12 @@ def edit_record(user_id, section_type, put_code=None):
     orcid_client.configuration.access_token = orcid_token.access_token
     api = orcid_client.MemberAPI(user=user)
 
-    form = RecordForm(form_type=section_type)
+    if section_type == "FUN":
+        form = FundingForm(form_type=section_type)
+    else:
+        form = RecordForm(form_type=section_type)
+
+    grant_data_list = []
     if request.method == "GET":
         if put_code:
             try:
@@ -1627,8 +1642,11 @@ def edit_record(user_id, section_type, put_code=None):
                     api_response = api.view_employment(user.orcid, put_code)
                 elif section_type == "EDU":
                     api_response = api.view_education(user.orcid, put_code)
+                elif section_type == "FUN":
+                    api_response = api.view_funding(user.orcid, put_code)
 
                 _data = api_response.to_dict()
+
                 data = dict(
                     org_name=_data.get("organization").get("name"),
                     disambiguated_id=get_val(
@@ -1644,6 +1662,30 @@ def edit_record(user_id, section_type, put_code=None):
                     role=_data.get("role_title", ""),
                     start_date=PartialDate.create(_data.get("start_date")),
                     end_date=PartialDate.create(_data.get("end_date")))
+
+                if section_type == "FUN":
+                    external_ids_list = get_val(_data, "external_ids", "external_id")
+
+                    for extid in external_ids_list:
+                        external_id_value = extid['external_id_value'] if extid['external_id_value'] else ''
+                        external_id_url = get_val(extid['external_id_url'], "value") if get_val(
+                            extid['external_id_url'], "value") else ''
+                        external_id_relationship = extid['external_id_relationship'] if extid[
+                            'external_id_relationship'] else ''
+
+                        grant_data_list.append(dict(grant_number=external_id_value, grant_url=external_id_url,
+                                                    grant_relationship=external_id_relationship))
+
+                    data.update(dict(funding_title=get_val(_data, "title", "title", "value"),
+                                     funding_translated_title=get_val(_data, "title", "translated_title", "value"),
+                                     translated_title_language=get_val(_data, "title", "translated_title",
+                                                                       "language_code"),
+                                     funding_type=get_val(_data, "type"),
+                                     funding_subtype=get_val(_data, "organization_defined_type", "value"),
+                                     funding_description=get_val(_data, "short_description"),
+                                     total_funding_amount=get_val(_data, "amount", "value"),
+                                     total_funding_amount_currency=get_val(_data, "amount", "currency_code")))
+
             except ApiException as e:
                 message = json.loads(e.body.replace("''", "\"")).get('user-messsage')
                 app.logger.error(f"Exception when calling MemberAPIV20Api->view_employment: {message}")
@@ -1663,25 +1705,44 @@ def edit_record(user_id, section_type, put_code=None):
 
     if form.validate_on_submit():
         try:
-            put_code, orcid, created = api.create_or_update_affiliation(
-                put_code=put_code,
-                affiliation=Affiliation[section_type],
-                **{f.name: f.data
-                   for f in form})
-            if put_code and created:
-                flash("Record details has been added successfully!", "success")
+            if section_type == "FUN":
+                grant_number = request.form.getlist('grant_number')
+                grant_url = request.form.getlist('grant_url')
+                grant_relationship = request.form.getlist('grant_relationship')
 
-            affiliation, _ = UserOrgAffiliation.get_or_create(
-                user=user,
-                organisation=org,
-                put_code=put_code)
+                grant_data_list = [{'grant_number': gn, 'grant_url': gu, 'grant_relationship': gr} for gn, gu, gr in
+                                   zip(grant_number, grant_url, grant_relationship)] if list(
+                    filter(None, grant_number)) else []
 
-            affiliation.department_name = form.department.data
-            affiliation.department_city = form.city.data
-            affiliation.role_title = form.role.data
-            form.populate_obj(affiliation)
+                put_code, orcid, created = api.create_or_update_individual_funding(
+                    put_code=put_code,
+                    grant_data_list=grant_data_list,
+                    **{f.name: f.data
+                       for f in form})
+                if put_code and created:
+                    flash("Record details has been added successfully!", "success")
+                else:
+                    flash("Record details has been updated successfully!", "success")
+            else:
+                put_code, orcid, created = api.create_or_update_affiliation(
+                    put_code=put_code,
+                    affiliation=Affiliation[section_type],
+                    **{f.name: f.data
+                       for f in form})
+                if put_code and created:
+                    flash("Record details has been added successfully!", "success")
 
-            affiliation.save()
+                affiliation, _ = UserOrgAffiliation.get_or_create(
+                    user=user,
+                    organisation=org,
+                    put_code=put_code)
+
+                affiliation.department_name = form.department.data
+                affiliation.department_city = form.city.data
+                affiliation.role_title = form.role.data
+                form.populate_obj(affiliation)
+
+                affiliation.save()
             return redirect(_url)
 
         except ApiException as e:
@@ -1698,7 +1759,8 @@ def edit_record(user_id, section_type, put_code=None):
                 "Unhandler error occured while creating or editing a profile record.")
             abort(500, ex)
 
-    return render_template("profile_entry.html", section_type=section_type, form=form, _url=_url)
+    return render_template("profile_entry.html", section_type=section_type, form=form, _url=_url,
+                           grant_data_list=grant_data_list)
 
 
 @app.route("/section/<int:user_id>/<string:section_type>/list")
@@ -1708,7 +1770,7 @@ def section(user_id, section_type="EMP"):
     _url = request.args.get("url") or request.referrer or url_for("viewmembers.index_view")
 
     section_type = section_type.upper()[:3]  # normalize the section type
-    if section_type not in ["EDU", "EMP", ]:
+    if section_type not in ["EDU", "EMP", "FUN"]:
         flash("Incorrect user profile section", "danger")
         return redirect(_url)
 
@@ -1736,8 +1798,10 @@ def section(user_id, section_type="EMP"):
         # Fetch all entries
         if section_type == "EMP":
             api_response = api_instance.view_employments(user.orcid)
-        else:  # section_type == "EDU
+        elif section_type == "EDU":
             api_response = api_instance.view_educations(user.orcid)
+        else:
+            api_response = api_instance.view_fundings(user.orcid)
     except ApiException as ex:
         if ex.status == 401:
             flash("User has revoked the permissions to update his/her records", "warning")
@@ -1759,7 +1823,23 @@ def section(user_id, section_type="EMP"):
         app.logger.exception(f"For {user} encountered exception")
         return redirect(_url)
     # TODO: transform data for presentation:
-    records = data.get("education_summary" if section_type == "EDU" else "employment_summary", [])
+
+    records = []
+    if section_type == 'FUN':
+        if data and data.get("group"):
+            for k in data.get("group"):
+                fs = k.get("funding_summary")[0]
+                records.append(fs)
+        return render_template(
+            "funding_section.html",
+            url=_url,
+            records=records,
+            section_type=section_type,
+            user_id=user_id,
+            org_client_id=user.organisation.orcid_client_id)
+    else:
+        records = data.get("education_summary" if section_type == "EDU" else "employment_summary", [])
+
     return render_template(
         "section.html",
         url=_url,
@@ -1767,6 +1847,94 @@ def section(user_id, section_type="EMP"):
         section_type=section_type,
         user_id=user_id,
         org_client_id=user.organisation.orcid_client_id)
+
+
+@app.route("/search/group_id_record/list", methods=["GET", "POST"])
+@roles_required(Role.ADMIN)
+def search_group_id_record():
+    """Search groupID record."""
+    _url = url_for("groupidrecord.index_view")
+    form = GroupIdForm()
+    records = []
+
+    if request.method == "GET":
+        data = dict(
+            page_size="100",
+            page="1")
+
+        form.process(data=data)
+
+    if request.method == "POST" and not form.search.data:
+        group_id = request.form.get('group_id')
+        name = request.form.get('name')
+        description = request.form.get('description')
+        type = request.form.get('type')
+        put_code = request.form.get('put_code')
+
+        with db.atomic():
+            try:
+                gir, created = GroupIdRecord.get_or_create(organisation=current_user.organisation,
+                                                           group_id=group_id, name=name, description=description,
+                                                           type=type)
+                gir.put_code = put_code
+
+                if created:
+                    gir.add_status_line(f"Successfully added {group_id} from ORCID.")
+                    flash(f"Successfully added {group_id}.", "success")
+                else:
+                    flash(f"The GroupID Record {group_id} is already existing in your list.", "success")
+                gir.save()
+
+            except Exception as ex:
+                db.rollback()
+                flash(f"Failed to save GroupID Record: {ex}", "warning")
+                app.logger.exception(f"Failed to save GroupID Record: {ex}")
+
+        return redirect(_url)
+    elif form.validate_on_submit():
+        try:
+            group_id_name = form.group_id_name.data
+            page_size = form.page_size.data
+            page = form.page.data
+
+            orcid_token = None
+            org = current_user.organisation
+            try:
+                orcid_token = OrcidToken.get(org=org, scope='/group-id-record/read')
+            except OrcidToken.DoesNotExist:
+                orcid_token = utils.get_client_credentials_token(org=org, scope="/group-id-record/read")
+            except Exception as ex:
+                flash("Something went wrong in ORCID call, "
+                      "please contact orcid@royalsociety.org.nz for support", "warning")
+                app.logger.exception(f'Exception occured {ex}')
+
+            orcid_client.configuration.access_token = orcid_token.access_token
+            api = orcid_client.MemberAPI(org=org, access_token=orcid_token.access_token)
+
+            api_response = api.view_group_id_records(page_size=page_size, page=page, name=group_id_name,
+                                                     _preload_content=False)
+            if api_response:
+                data = json.loads(api_response.data)
+                # Currently the api only gives correct response for one entry otherwise it throws 500 exception.
+                records.append(data)
+        except ApiException as ex:
+            if ex.status == 401:
+                orcid_token.delete_instance()
+                flash(f"Old token was expired. Please search again so that next time we will fetch latest token",
+                      "warning")
+            elif ex.status == 500:
+                flash(f"ORCID API Exception: {ex}", "warning")
+            else:
+                flash(f"Something went wrong in ORCID call, Please try again by making necessary changes, "
+                      f"In case you understand this message: {ex} or"
+                      f" else please contact orcid@royalsociety.org.nz for support", "warning")
+                app.logger.warning(f'Exception occured {ex}')
+
+        except Exception as ex:
+            app.logger.exception(f'Exception occured {ex}')
+            abort(500, ex)
+
+    return render_template("groupid_record_entries.html", form=form, _url=_url, records=records)
 
 
 @app.route("/load/org", methods=["GET", "POST"])
@@ -1927,10 +2095,12 @@ def register_org(org_name,
         except User.DoesNotExist:
             user = User.create(
                 email=email,
-                confirmed=True,  # In order to let the user in...
                 organisation=org)
 
         user.roles |= Role.ADMIN
+        if tech_contact:
+            user.roles |= Role.TECHNICAL
+
         if via_orcid:
             if not user.orcid and orcid_id:
                 user.orcid = orcid_id
@@ -1945,16 +2115,6 @@ def register_org(org_name,
             app.logger.exception("Failed to save user data")
             raise
 
-        if tech_contact:
-            user.roles |= Role.TECHNICAL
-            org.tech_contact = user
-            try:
-                user.save()
-                org.save()
-            except Exception:
-                app.logger.exception(
-                    "Failed to assign the user as the technical contact to the organisation")
-                raise
         try:
             user_org = UserOrg.get(user=user, org=org)
             user_org.is_admin = True
@@ -1995,7 +2155,12 @@ def register_org(org_name,
             raise
 
         OrgInvitation.create(
-            inviter_id=current_user.id, invitee_id=user.id, email=user.email, org=org, token=token)
+            inviter_id=current_user.id,
+            invitee_id=user.id,
+            email=user.email,
+            org=org,
+            token=token,
+            tech_contact=tech_contact)
 
 
 # TODO: user can be admin for multiple org and org can have multiple admins:

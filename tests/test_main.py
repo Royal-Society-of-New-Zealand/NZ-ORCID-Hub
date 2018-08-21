@@ -8,7 +8,8 @@ from urllib.parse import urlparse
 
 import pytest
 from flask import request, session
-from flask_login import login_user
+from flask_login import current_user, login_user, logout_user
+from peewee import fn
 from werkzeug.datastructures import ImmutableMultiDict
 
 from orcid_hub import authcontroller, login_provider, utils
@@ -58,6 +59,30 @@ def test_login(request_ctx):
         assert b"<!DOCTYPE html>" in resp.data, "Expected HTML content"
         assert b"TEST USER" in resp.data, "Expected to have the user name on the page"
         assert b"test@test.test.net" in resp.data, "Expected to have the user email on the page"
+
+        logout_user()
+        resp = get_response(ctx)
+        assert b"test@test.test.net" not in resp.data
+
+
+def test_org_switch(client):
+    """Test organisation switching."""
+    user = User.get(orcid=User.select(fn.COUNT(User.orcid).alias("id_count"), User.orcid).group_by(
+        User.orcid).having(fn.COUNT(User.orcid) > 1).naive().first().orcid)
+    resp = client.login(user, follow_redirects=True)
+
+    assert user.email.encode() in resp.data
+    assert len(user.org_links) > 1
+    assert current_user == user
+
+    for ol in user.org_links:
+        assert ol.org.name.encode() in resp.data
+        if ol.org.id != user.organisation.id:
+            next_ol = ol
+
+    resp = client.get(f"/select/user_org/{next_ol.id}", follow_redirects=True)
+    next_user = UserOrg.get(next_ol.id).user
+    assert next_user != user
 
 
 @pytest.mark.parametrize("url",
@@ -333,6 +358,36 @@ def test_onboard_org(request_ctx):
             assert resp.location.startswith("/link")
 
 
+@patch("orcid_hub.utils.send_email")
+def test_invite_tech_contact(send_email, client):
+    """Test on-boarding of an org."""
+    pass
+
+    client.login_root()
+    email = "tech.contact@a.new.org"
+    client.post(
+        "/invite/organisation",
+        data={
+            "org_name": "A NEW ORGANISATION",
+            "org_email": email,
+            "tech_contact": "y",
+        })
+    u = User.get(email=email)
+    oi = OrgInvitation.get(invitee=u)
+
+    assert not u.confirmed
+    assert oi.org.name == "A NEW ORGANISATION"
+    assert oi.org.tech_contact is None
+    send_email.assert_called_once()
+    client.logout()
+
+    # Test invited user login:
+    client.login(u, **{"Sn": "Surname", "Givenname": "Givenname", "Displayname": "Test User"})
+    u = User.get(email=email)
+    assert u.confirmed
+    assert u.organisation.tech_contact == u
+
+
 def test_logout(request_ctx):
     """Test to logout."""
     user = User.create(
@@ -426,7 +481,7 @@ def fetch_token_mock(self,
                      **kwargs):
     """Mock token fetching api call."""
     token = {
-        'orcid': '12121',
+        'orcid': '123',
         'name': 'ros',
         'access_token': 'xyz',
         'refresh_token': 'xyz',
@@ -525,7 +580,7 @@ def test_orcid_login_callback_admin_flow(patch, patch2, request_ctx):
         assert ct.location.startswith("/")
     with request_ctx():
         # User login via orcid, where organisation is not confirmed.
-        u.orcid = "12121"
+        u.orcid = "123"
         u.save()
         request.args = {"invitation_token": None, "state": "xyz"}
         session['oauth_state'] = "xyz"

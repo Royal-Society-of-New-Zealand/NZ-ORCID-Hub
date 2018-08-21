@@ -2,6 +2,7 @@
 """Various utilities."""
 
 import json
+import chardet
 import logging
 import os
 from datetime import date, datetime, timedelta
@@ -59,7 +60,9 @@ def read_uploaded_file(form):
     if "file_" not in request.files:
         return
     raw = request.files[form.file_.name].read()
-    for encoding in "utf-8", "utf-8-sig", "utf-16":
+    # Added extra way of detecting encoding, However Doesnt detect correct encoding 100% of the time.
+    detected_encoding = chardet.detect(raw).get('encoding')
+    for encoding in "utf-8", detected_encoding, "utf-8-sig", "utf-16":
         try:
             return raw.decode(encoding)
         except UnicodeDecodeError:
@@ -279,7 +282,7 @@ def send_work_funding_peer_review_invitation(inviter, org, email, first_name=Non
                 "orcid_login",
                 invitation_token=token,
                 _external=True,
-                _scheme=None if app.debug else "https")
+                _scheme="http" if app.debug else "https")
             invitation_url = flask.url_for(
                 "short_url", short_id=Url.shorten(url).short_id, _external=True)
             send_email(
@@ -641,7 +644,7 @@ def send_user_invitation(inviter,
                 "orcid_login",
                 invitation_token=token,
                 _external=True,
-                _scheme=None if app.debug else "https")
+                _scheme="http" if app.debug else "https")
             invitation_url = flask.url_for(
                 "short_url", short_id=Url.shorten(url).short_id, _external=True)
             send_email(
@@ -850,7 +853,7 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
                     "orcid_login",
                     invitation_token=token,
                     _external=True,
-                    _scheme=None if app.debug else "https")
+                    _scheme="http" if app.debug else "https")
                 invitation_url = flask.url_for(
                     "short_url", short_id=Url.shorten(url).short_id, _external=True)
                 send_email(
@@ -912,7 +915,8 @@ def process_work_records(max_rows=20):
                       on=(WorkRecord.id == WorkInvitees.work_record_id)).join(
                           User, JOIN.LEFT_OUTER,
                           on=((User.email == WorkInvitees.email) | (User.orcid == WorkInvitees.orcid)))
-             .join(Organisation, JOIN.LEFT_OUTER, on=(Organisation.id == Task.org_id)).join(
+             .join(Organisation, JOIN.LEFT_OUTER, on=(Organisation.id == Task.org_id))
+             .join(UserOrg, JOIN.INNER, on=((UserOrg.user_id == User.id) & (UserOrg.org_id == Organisation.id))).join(
                  UserInvitation,
                  JOIN.LEFT_OUTER,
                  on=((UserInvitation.email == WorkInvitees.email)
@@ -989,7 +993,7 @@ def process_work_records(max_rows=20):
                 export_url = flask.url_for(
                     "workrecord.export",
                     export_type="json",
-                    _scheme=None if EXTERNAL_SP else "https",
+                    _scheme="http" if EXTERNAL_SP else "https",
                     task_id=task.id,
                     _external=True)
                 send_email(
@@ -1022,7 +1026,8 @@ def process_peer_review_records(max_rows=20):
                       on=(PeerReviewRecord.id == PeerReviewInvitee.peer_review_record_id)).join(
                           User, JOIN.LEFT_OUTER,
                           on=((User.email == PeerReviewInvitee.email) | (User.orcid == PeerReviewInvitee.orcid)))
-             .join(Organisation, JOIN.LEFT_OUTER, on=(Organisation.id == Task.org_id)).join(
+             .join(Organisation, JOIN.LEFT_OUTER, on=(Organisation.id == Task.org_id))
+             .join(UserOrg, JOIN.INNER, on=((UserOrg.user_id == User.id) & (UserOrg.org_id == Organisation.id))).join(
                  UserInvitation,
                  JOIN.LEFT_OUTER,
                  on=((UserInvitation.email == PeerReviewInvitee.email)
@@ -1100,7 +1105,7 @@ def process_peer_review_records(max_rows=20):
                 export_url = flask.url_for(
                     "peerreviewrecord.export",
                     export_type="json",
-                    _scheme=None if EXTERNAL_SP else "https",
+                    _scheme="http" if EXTERNAL_SP else "https",
                     task_id=task.id,
                     _external=True)
                 send_email(
@@ -1135,7 +1140,8 @@ def process_funding_records(max_rows=20):
                           JOIN.LEFT_OUTER,
                           on=((User.email == FundingInvitees.email) |
                               (User.orcid == FundingInvitees.orcid)))
-             .join(Organisation, JOIN.LEFT_OUTER, on=(Organisation.id == Task.org_id)).join(
+             .join(Organisation, JOIN.LEFT_OUTER, on=(Organisation.id == Task.org_id))
+             .join(UserOrg, JOIN.INNER, on=((UserOrg.user_id == User.id) & (UserOrg.org_id == Organisation.id))).join(
                  UserInvitation,
                  JOIN.LEFT_OUTER,
                  on=((UserInvitation.email == FundingInvitees.email)
@@ -1213,7 +1219,7 @@ def process_funding_records(max_rows=20):
                 export_url = flask.url_for(
                     "fundingrecord.export",
                     export_type="json",
-                    _scheme=None if EXTERNAL_SP else "https",
+                    _scheme="http" if EXTERNAL_SP else "https",
                     task_id=task.id,
                     _external=True)
                 send_email(
@@ -1246,6 +1252,7 @@ def process_affiliation_records(max_rows=20):
                        on=((User.email == AffiliationRecord.email) |
                            (User.orcid == AffiliationRecord.orcid))).join(
                                Organisation, JOIN.LEFT_OUTER, on=(Organisation.id == Task.org_id))
+             .join(UserOrg, JOIN.INNER, on=((UserOrg.user_id == User.id) & (UserOrg.org_id == Organisation.id)))
              .join(
                  UserInvitation,
                  JOIN.LEFT_OUTER,
@@ -1313,7 +1320,7 @@ def process_affiliation_records(max_rows=20):
                 export_url = flask.url_for(
                     "affiliationrecord.export",
                     export_type="csv",
-                    _scheme=None if EXTERNAL_SP else "https",
+                    _scheme="http" if EXTERNAL_SP else "https",
                     task_id=task.id,
                     _external=True)
                 try:
@@ -1409,7 +1416,7 @@ def process_tasks(max_rows=20):
             export_url = flask.url_for(
                 export_model,
                 export_type="csv",
-                _scheme=None if EXTERNAL_SP else "https",
+                _scheme="http" if EXTERNAL_SP else "https",
                 task_id=task.id,
                 _external=True)
             send_email(
