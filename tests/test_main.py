@@ -836,7 +836,7 @@ def test_load_test_data(app):
 
     resp = client.get("/test-data")
     assert resp.status_code == 200
-    assert b"Load Test Date Generation" in resp.data
+    assert b"Load Test Data Generation" in resp.data
 
     resp = client.post("/test-data?user_count=123")
     assert resp.data.count(b'\n') == 123

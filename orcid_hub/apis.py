@@ -319,10 +319,13 @@ class TaskList(TaskResource, AppResourceList):
                 format: date-time
         parameters:
           - name: "type"
-            in: "path"
-            description: "The task type: AFFILIATION, FUNDING."
+            in: "query"
             required: false
+            description: "The task type: AFFILIATION, FUNDING."
             type: "string"
+            enum:
+              - AFFILIATION
+              - FUNDING
           - in: query
             name: page
             description: The number of the page of retrievd data starting counting from 1
@@ -338,10 +341,10 @@ class TaskList(TaskResource, AppResourceList):
         responses:
           200:
             description: "successful operation"
-            type: array
-            items:
-              type: object
-              $ref: "#/definitions/Task"
+            schema:
+              type: array
+              items:
+                $ref: "#/definitions/Task"
           403:
             description: "Access Denied"
         """
@@ -366,6 +369,26 @@ class AffiliationListAPI(TaskResource):
         - application/json
         - text/csv
         - text/yaml
+        produces:
+        - application/json
+        parameters:
+        - name: "filename"
+          required: false
+          in: "query"
+          description: "The batch process filename."
+          type: "string"
+        - name: body
+          in: body
+          description: "Affiliation task."
+          schema:
+            $ref: "#/definitions/AffiliationTask"
+        responses:
+          200:
+            description: "successful operation"
+            schema:
+              $ref: "#/definitions/AffiliationTask"
+          403:
+            description: "Access Denied"
         definitions:
         - schema:
             id: AffiliationTask
@@ -392,10 +415,14 @@ class AffiliationListAPI(TaskResource):
               records:
                 type: array
                 items:
-                  type: object
                   $ref: "#/definitions/AffiliationTaskRecord"
         - schema:
             id: AffiliationTaskRecord
+            required:
+              - email
+              - first-name
+              - last-name
+              - affiliation-type
             properties:
               id:
                 type: integer
@@ -408,13 +435,10 @@ class AffiliationListAPI(TaskResource):
                 type: boolean
               email:
                 type: string
-                required: true
               first-name:
                 type: string
-                required: true
               last-name:
                 type: string
-                required: true
               role:
                 type: string
               organisation:
@@ -433,46 +457,22 @@ class AffiliationListAPI(TaskResource):
                 type: string
               affiliation-type:
                 type: string
-                required: true
+                enum:
+                  - student
+                  - staff
               start-date:
                 type: string
-                required: false
               end-date:
                 type: string
-                required: false
               processed-at:
                 type: string
                 format: date-time
-                required: false
               status:
                 type: string
-                required: false
               orcid:
                 type: string
                 format: "^[0-9]{4}-?[0-9]{4}-?[0-9]{4}-?[0-9]{4}$"
                 description: "User ORCID ID"
-                required: false
-        produces:
-        - application/json
-        parameters:
-        - name: "filename"
-          in: "path"
-          description: "The batch process filename."
-          required: false
-          type: "string"
-        - name: body
-          in: body
-          description: "Affiliation task."
-          required: true
-          schema:
-            $ref: "#/definitions/AffiliationTask"
-        responses:
-          200:
-            description: "successful operation"
-            schema:
-              $ref: "#/definitions/AffiliationTask"
-          403:
-            description: "Access Denied"
         """
         login_user(request.oauth.user)
         if request.content_type in ["text/csv", "text/tsv"]:
@@ -497,9 +497,9 @@ class AffiliationAPI(TaskResource):
           - "application/json"
         parameters:
           - name: "task_id"
+            required: true
             in: "path"
             description: "Affiliation task ID."
-            required: true
             type: "integer"
         responses:
           200:
