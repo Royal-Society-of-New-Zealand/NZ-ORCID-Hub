@@ -95,64 +95,124 @@ def test_models(test_db):
     yield test_db
 
 
-def test_superuser_view_access(request_ctx):
+def test_superuser_view_access(client):
     """Test if SUPERUSER can access Flask-Admin"."""
-    with request_ctx("/admin/schedude/") as ctx:
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 403
-        assert b"403" in resp.data
+    resp = client.get("/admin/schedude/")
+    assert resp.status_code == 403
+    assert b"403" in resp.data
 
-    user = User.create(
-        name="TEST USER",
-        email="test@test.test.net",
-        roles=Role.SUPERUSER,
-        username="test42",
-        confirmed=True)
-
-    with request_ctx("/admin/user/") as ctx:
-        login_user(user, remember=True)
-
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 200
-        assert b"User" in resp.data
-
-    with request_ctx(f"/admin/user/edit/?id={user.id}") as ctx:
-        login_user(user, remember=True)
-
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 200
-        assert b"TEST USER" in resp.data
-
-    with request_ctx("/admin/schedude/") as ctx:
-        login_user(user, remember=True)
-
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 200
-        assert b"interval" in resp.data
-
-    jobs = rq.get_scheduler().get_jobs()
-    with request_ctx(f"/admin/schedude/details/?id={jobs[0].id}") as ctx:
-        login_user(user, remember=True)
-
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 200
-        assert b"interval" in resp.data
-
-
-def test_admin_view_access_fail(client, request_ctx):
-    """Test if non SUPERUSER cannot access Flask-Admin"."""
     resp = client.get("/admin/user/")
     assert resp.status_code == 302
     assert "next=" in resp.location and "admin" in resp.location
 
-    with request_ctx("/admin/user/") as ctx:
-        test_user = User(
-            name="TEST USER", email="test@test.test.net", username="test42", confirmed=True)
-        login_user(test_user, remember=True)
-
-        resp = ctx.app.full_dispatch_request()
+    users = User.select().where(User.email << ["admin@test0.edu", "researcher100@test0.edu"])[:]
+    for u in users:
+        client.login(u)
+        resp = client.get("/admin/user/")
         assert resp.status_code == 302
         assert "next=" in resp.location and "admin" in resp.location
+
+        resp = client.get("/admin/organisation/")
+        assert resp.status_code == 302
+        assert "next=" in resp.location and "admin" in resp.location
+
+        resp = client.get("/admin/orcidtoken/")
+        assert resp.status_code == 302
+        assert "next=" in resp.location and "admin" in resp.location
+
+        resp = client.get("/admin/orginfo/")
+        assert resp.status_code == 302
+        assert "next=" in resp.location and "admin" in resp.location
+
+        resp = client.get("/admin/userorg/")
+        assert resp.status_code == 302
+        assert "next=" in resp.location and "admin" in resp.location
+
+        resp = client.get("/admin/schedude/")
+        assert resp.status_code == 403
+        assert b"403" in resp.data
+
+        client.logout()
+
+    client.login_root()
+
+    resp = client.get("/admin/user/")
+    assert resp.status_code == 200
+    assert b"User" in resp.data
+
+    resp = client.get("/admin/user/?search=TEST+ORG+%23+1")
+    assert resp.status_code == 200
+    assert b"root@test0.edu" in resp.data
+
+    resp = client.get("/admin/organisation/")
+    assert resp.status_code == 200
+
+    org = Organisation.select().limit(1).first()
+    resp = client.get(f"/admin/organisation/edit/?id={org.id}")
+    assert resp.status_code == 200
+
+    # Change the technical contact:
+    admin = org.tech_contact
+    new_admin = User.select().where(User.id != org.tech_contact_id, User.email ** "admin%").first()
+    data = {k: v for k, v in org.to_dict(recurse=False).items() if not isinstance(v, dict) and 'at' not in k}
+    data["tech_contact"] = new_admin.id
+    resp = client.post(f"/admin/organisation/edit/?id={org.id}", data=data, follow_redirects=True)
+    assert resp.status_code == 200
+    assert admin.email.encode() not in resp.data
+    assert Organisation.get(org.id).tech_contact != admin
+
+    # Change the technical contact to a non-admin:
+    user = User.get(email="researcher100@test0.edu")
+    data["tech_contact"] = user.id
+    resp = client.post(f"/admin/organisation/edit/?id={org.id}", data=data, follow_redirects=True)
+    assert resp.status_code == 200
+    assert user.email.encode() in resp.data
+    assert Organisation.get(org.id).tech_contact == user
+    assert User.get(user.id).roles & Role.TECHNICAL
+
+    resp = client.get("/admin/organisation/edit/?id=999999")
+    assert resp.status_code == 404
+    assert b"404" in resp.data
+    assert b"The record with given ID: 999999 doesn't exist or it was deleted." in resp.data
+
+    resp = client.get("/admin/orcidtoken/")
+    assert resp.status_code == 200
+
+    resp = client.get("/admin/orginfo/")
+    assert resp.status_code == 200
+
+    resp = client.get("/admin/userorg/")
+    assert resp.status_code == 200
+
+    for u in users:
+        resp = client.get(f"/admin/user/edit/?id={u.id}")
+        assert resp.status_code == 200
+        assert u.name.encode() in resp.data
+        resp = client.post(
+            f"/admin/user/edit/?id={u.id}&url=%2Fadmin%2Fuser%2F",
+            data=dict(
+                name=u.name + "_NEW",
+                first_name=u.first_name,
+                last_name=u.last_name,
+                email="NEW_" + u.email,
+                eppn='',
+                orcid="0000-0000-XXXX-XXXX",
+                confirmed="y",
+                webhook_enabled="y",
+            ))
+        user = User.get(u.id)
+        assert user.orcid == "0000-0000-XXXX-XXXX"
+        assert user.email == "NEW_" + u.email
+        assert user.name == u.name + "_NEW"
+
+    resp = client.get("/admin/schedude/")
+    assert resp.status_code == 200
+    assert b"interval" in resp.data
+
+    jobs = rq.get_scheduler().get_jobs()
+    resp = client.get(f"/admin/schedude/details/?id={jobs[0].id}")
+    assert resp.status_code == 200
+    assert b"interval" in resp.data
 
 
 def test_access(request_ctx):
@@ -1182,7 +1242,7 @@ def test_logo_file(request_ctx):
         assert org.logo is None
 
 
-def test_affiliation_task_upload(client):
+def test_affiliation_tasks(client):
     """Test affilaffiliation task upload."""
     org = Organisation.get(name="TEST0")
     user = User.get(email="admin@test0.edu")
@@ -1212,6 +1272,8 @@ Roshan,Pawar,researcher.010@mailinator.com
                 BytesIO(b"""First Name,Last Name,Email,Affiliation Type
 Roshan,Pawar,researcher.010@mailinator.com,Student
 Roshan,Pawar,researcher.010@mailinator.com,Staff
+Rad,Cirskis,researcher.990@mailinator.com,Staff
+Rad,Cirskis,researcher.990@mailinator.com,Student
 """),
                 "affiliations.csv",
             ),
@@ -1222,7 +1284,8 @@ Roshan,Pawar,researcher.010@mailinator.com,Staff
     task = Task.get(task_id)
     assert task.org == org
     records = list(task.affiliation_records)
-    assert len(records) == 2
+    assert len(records) == 4
+    assert AffiliationRecord.select().where(AffiliationRecord.task_id == task_id).count() == 4
 
     url = resp.location
     session_cookie, _ = resp.headers["Set-Cookie"].split(';', 1)
@@ -1236,10 +1299,85 @@ Roshan,Pawar,researcher.010@mailinator.com,Staff
     resp = client.get("/admin/task/?flt1_1=0")
     assert b"affiliations.csv" in resp.data
 
+    # Activate a single record:
+    id = records[0].id
+    resp = client.post(
+        "/admin/affiliationrecord/action/",
+        follow_redirects=True,
+        data={
+            "url": f"/admin/affiliationrecord/?task_id={task_id}",
+            "action": "activate",
+            "rowid": id,
+        })
+    assert AffiliationRecord.select().where(AffiliationRecord.task_id == task_id,
+                                            AffiliationRecord.is_active).count() == 1
+
+    # Activate all:
+    resp = client.post("/activate_all", follow_redirects=True, data=dict(task_id=task_id))
+    assert AffiliationRecord.select().where(AffiliationRecord.task_id == task_id,
+                                            AffiliationRecord.is_active).count() == 4
+
+    # Reste a single record
+    AffiliationRecord.update(processed_at=datetime.datetime(2018, 1, 1)).execute()
+    resp = client.post(
+        "/admin/affiliationrecord/action/",
+        follow_redirects=True,
+        data={
+            "url": f"/admin/affiliationrecord/?task_id={task_id}",
+            "action": "reset",
+            "rowid": id,
+        })
+    assert AffiliationRecord.select().where(AffiliationRecord.task_id == task_id,
+                                            AffiliationRecord.processed_at.is_null()).count() == 1
+
+    # Reset all:
+    resp = client.post("/reset_all", follow_redirects=True, data=dict(task_id=task_id))
+    assert AffiliationRecord.select().where(AffiliationRecord.task_id == task_id,
+                                            AffiliationRecord.processed_at.is_null()).count() == 4
+
+    # Exporting:
+    for export_type in ["csv", "xls", "tsv", "yaml", "json", "xlsx", "ods", "html"]:
+        resp = client.get(f"/admin/affiliationrecord/export/{export_type}/?task_id={task_id}")
+        ct = resp.headers["Content-Type"]
+        assert (export_type in ct or (export_type == "xls" and "application/vnd.ms-excel" == ct)
+                or (export_type == "tsv" and "text/tab-separated-values" in ct)
+                or (export_type == "yaml" and "application/octet-stream" in ct)
+                or (export_type == "xlsx"
+                    and "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" == ct)
+                or
+                (export_type == "ods" and "application/vnd.oasis.opendocument.spreadsheet" == ct))
+        assert re.match(f"attachment;filename=affiliations_20.*\\.{export_type}",
+                        resp.headers["Content-Disposition"])
+        if export_type not in ["xlsx", "ods"]:
+            assert b"researcher.010@mailinator.com" in resp.data
+
+    # Delete records:
+    resp = client.post(
+        "/admin/affiliationrecord/action/",
+        follow_redirects=True,
+        data={
+            "url": f"/admin/affiliationrecord/?task_id={task_id}",
+            "action": "delete",
+            "rowid": id,
+        })
+    assert AffiliationRecord.select().where(AffiliationRecord.task_id == task_id).count() == 3
+
+    # Delete more records:
+    resp = client.post(
+        "/admin/affiliationrecord/action/",
+        follow_redirects=True,
+        data={
+            "url": f"/admin/affiliationrecord/?task_id={task_id}",
+            "action": "delete",
+            "rowid": [ar.id for ar in records[1:-1]],
+        })
+    assert AffiliationRecord.select().where(AffiliationRecord.task_id == task_id).count() == 1
+
     resp = client.post(
         "/admin/task/delete/", data=dict(id=task_id, url="/admin/task/"), follow_redirects=True)
     assert b"affiliations.csv" not in resp.data
     assert Task.select().count() == 0
+    assert AffiliationRecord.select().where(AffiliationRecord.task_id == task_id).count() == 0
 
 
 @patch("orcid_hub.utils.send_email", side_effect=send_mail_mock)
@@ -1604,44 +1742,54 @@ def test_delete_employment(request_ctx, app):
         delete_education.assert_called_once_with("XXXX-XXXX-XXXX-0001", 54321)
 
 
-def test_viewmembers(request_ctx):
+def test_viewmembers(client):
     """Test affilated researcher view."""
+    resp = client.get("/admin/viewmembers")
+    assert resp.status_code == 302
+
     non_admin = User.get(email="researcher100@test0.edu")
-    with request_ctx("/admin/viewmembers") as ctx:
-        login_user(non_admin)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 302
+    client.login(non_admin)
+    resp = client.get("/admin/viewmembers")
+    assert resp.status_code == 302
+    client.logout()
 
     admin = User.get(email="admin@test0.edu")
-    with request_ctx("/admin/viewmembers") as ctx:
-        login_user(admin)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 200
-        assert b"researcher100@test0.edu" in resp.data
+    client.login(admin)
+    resp = client.get("/admin/viewmembers")
+    assert resp.status_code == 200
+    assert b"researcher100@test0.edu" in resp.data
 
-    with request_ctx("/admin/viewmembers/?flt1_0=2018-05-01+to+2018-05-31&flt2_1=2018-05-01+to+2018-05-31") as ctx:
-        login_user(admin)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 200
-        assert b"researcher100@test0.edu" not in resp.data
+    resp = client.get("/admin/viewmembers/?flt1_0=2018-05-01+to+2018-05-31&flt2_1=2018-05-01+to+2018-05-31")
+    assert resp.status_code == 200
+    assert b"researcher100@test0.edu" not in resp.data
 
-    with request_ctx(f"/admin/viewmembers/edit/?id={non_admin.id}") as ctx:
-        login_user(admin)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 200
-        assert non_admin.email.encode() in resp.data
-        assert non_admin.name.encode() in resp.data
+    resp = client.get(f"/admin/viewmembers/edit/?id={non_admin.id}")
+    assert resp.status_code == 200
+    assert non_admin.email.encode() in resp.data
+    assert non_admin.name.encode() in resp.data
 
-    with request_ctx(f"/admin/viewmembers/edit/?id=9999999999") as ctx:
-        login_user(admin)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 404
+    resp = client.post(
+        f"/admin/viewmembers/edit/?id={non_admin.id}&url=%2Fadmin%2Fviewmembers%2F",
+        data={
+            "name": non_admin.name,
+            "email": "NEW_EMAIL@test0.edu",
+            "eppn": non_admin.eppn,
+            "orcid": non_admin.orcid,
+        },
+        follow_redirects=True)
+    assert b"NEW_EMAIL@test0.edu" in resp.data
+    assert User.get(non_admin.id).email == "NEW_EMAIL@test0.edu"
+
+    resp = client.get(f"/admin/viewmembers/edit/?id=9999999999")
+    assert resp.status_code == 404
 
     user2 = User.get(email="researcher100@test1.edu")
-    with request_ctx(f"/admin/viewmembers/edit/?id={user2.id}") as ctx:
-        login_user(admin)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 403
+    resp = client.get(f"/admin/viewmembers/edit/?id={user2.id}")
+    assert resp.status_code == 403
+
+    client.logout()
+    client.login_root()
+    resp = client.get("/admin/viewmembers")
 
 
 @patch("orcid_hub.views.requests.post")
