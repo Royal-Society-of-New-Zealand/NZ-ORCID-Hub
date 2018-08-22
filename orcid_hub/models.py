@@ -896,7 +896,7 @@ class Task(BaseModel, AuditMixin):
     """Batch processing task created form CSV/TSV file."""
 
     org = ForeignKeyField(
-        Organisation, index=True, verbose_name="Organisation", on_delete="SET NULL")
+        Organisation, index=True, verbose_name="Organisation", on_delete="CASCADE")
     completed_at = DateTimeField(null=True)
     filename = TextField(null=True)
     created_by = ForeignKeyField(
@@ -2151,8 +2151,11 @@ def create_audit_tables():
 
 def drop_tables():
     """Drop all model tables."""
-    for m in (Organisation, User, UserOrg, OrcidToken, UserOrgAffiliation, OrgInfo, OrgInvitation,
-              OrcidApiCall, OrcidAuthorizeCall, Task, AffiliationRecord, Url, UserInvitation):
+    for m in (File, User, UserOrg, OrcidToken, UserOrgAffiliation, OrgInfo, OrgInvitation,
+              OrcidApiCall, OrcidAuthorizeCall, FundingContributor, FundingInvitees, FundingRecord,
+              PeerReviewInvitee, PeerReviewExternalId, PeerReviewRecord, WorkInvitees,
+              WorkExternalId, WorkContributor, WorkRecord, AffiliationRecord, ExternalId, Url,
+              UserInvitation, Task, Organisation):
         if m.table_exists():
             try:
                 m.drop_table(fail_silently=True, cascade=m._meta.database.drop_cascade)
