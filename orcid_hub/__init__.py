@@ -68,6 +68,9 @@ limiter = Limiter(
         "40 per second",  # burst: 40/sec
         "1440 per minute",  # allowed max: 24/sec
     ])
+if app.config.get("LOAD_TEST"):
+    limiter.enabled = False
+
 DATABASE_URL = app.config.get("DATABASE_URL")
 
 # TODO: implement connection factory
