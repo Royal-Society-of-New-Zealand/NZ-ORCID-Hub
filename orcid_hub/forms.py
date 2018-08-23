@@ -365,6 +365,7 @@ class TestDataForm(FileUploadForm):
         label="Organisation Count",
         default=100,
         render_kw=dict(style="width: 10%; max-width: 10em;"))
+    use_known_orgs = BooleanField(label="Use Existing Confirmed Organisations", default=False)
     user_count = IntegerField(
         label="Organisation Count",
         default=400,

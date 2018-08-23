@@ -367,6 +367,8 @@ def test_data():
                     yield s.get_signature(email).decode() + sep + sep.join(values)
                     yield '\n'
             else:
+                use_known_orgs = bool(
+                    request.args.get("use-known-orgs") or form.use_known_orgs.data)
                 org_count = int(
                     request.args.get("orgs") or request.args.get("org_count")
                     or request.args.get("org-count") or form.org_count.data or 100)
@@ -376,7 +378,14 @@ def test_data():
 
                 import faker
                 f = faker.Faker()
-                orgs = [f'"{f.company()}"' for _ in range(org_count)]
+                if use_known_orgs:
+                    orgs = [
+                        f'"{o.name}"' for o in Organisation.select().where(Organisation.confirmed)
+                        .limit(org_count)
+                    ]
+                    org_count = len(orgs)
+                else:
+                    orgs = [f'"{f.company()}"' for _ in range(org_count)]
 
                 for n in range(user_count):
                     email = f.email()
@@ -399,7 +408,7 @@ def test_data():
         resp.headers["Content-Disposition"] = f"attachment; filename={filename}_SIGNED.csv"
         return resp
 
-    return render_template("form.html", form=form, title="Load Test Date Generation")
+    return render_template("form.html", form=form, title="Load Test Data Generation")
 
 
 if app.config.get("LOAD_TEST"):
