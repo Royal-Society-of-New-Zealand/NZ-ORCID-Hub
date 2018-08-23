@@ -68,6 +68,9 @@ limiter = Limiter(
         "40 per second",  # burst: 40/sec
         "1440 per minute",  # allowed max: 24/sec
     ])
+if app.config.get("LOAD_TEST"):
+    limiter.enabled = False
+
 DATABASE_URL = app.config.get("DATABASE_URL")
 
 # TODO: implement connection factory
@@ -204,7 +207,7 @@ def setup_app():
     if app.config.get("SHIBBOLETH_DISABLED") is None:
         app.config["SHIBBOLETH_DISABLED"] = not (
             ("mod_wsgi.version" in request.environ and "SHIB_IDP_DOMAINNAME" in os.environ)
-            or "EXTERNAL_SP" in os.environ)
+            or "EXTERNAL_SP" in app.config)
 
 
 @app.after_request
