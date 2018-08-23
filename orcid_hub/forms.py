@@ -257,6 +257,73 @@ class FundingForm(FlaskForm):
     disambiguation_source = StringField("Disambiguation Source")
 
 
+class PeerReviewForm(FlaskForm):
+    """User/researcher Peer review detail form."""
+
+    reviewer_role_choices = [('MEMBER', 'MEMBER'), ('REVIEWER', 'REVIEWER'), ('ORGANIZER', 'ORGANIZER'),
+                             ('EDITOR', 'EDITOR'), ('CHAIR', 'CHAIR')]
+    reviewer_role_choices.sort(key=lambda e: e[1])
+    reviewer_role_choices.insert(0, ("", ""))
+
+    review_type_choices = [('REVIEW', 'REVIEW'), ('EVALUATION', 'EVALUATION')]
+    review_type_choices.sort(key=lambda e: e[1])
+    review_type_choices.insert(0, ("", ""))
+
+    subject_external_id_relationship_choices = [('PART_OF', 'PART_OF'), ('SELF', 'SELF')]
+    subject_external_id_relationship_choices.sort(key=lambda e: e[1])
+    subject_external_id_relationship_choices.insert(0, ("", ""))
+
+    subject_type_choices = [('MANUAL', 'MANUAL'), ('CONFERENCE_PAPER', 'CONFERENCE_PAPER'),
+                            ('RESEARCH_TECHNIQUE', 'RESEARCH_TECHNIQUE'),
+                            ('SUPERVISED_STUDENT_PUBLICATION', 'SUPERVISED_STUDENT_PUBLICATION'),
+                            ('INVENTION', 'INVENTION'), ('NEWSLETTER_ARTICLE', 'NEWSLETTER_ARTICLE'),
+                            ('TRANSLATION', 'TRANSLATION'), ('TEST', 'TEST'), ('DISSERTATION', 'DISSERTATION'),
+                            ('BOOK_CHAPTER', 'BOOK_CHAPTER'), ('LICENSE', 'LICENSE'),
+                            ('STANDARDS_AND_POLICY', 'STANDARDS_AND_POLICY'),
+                            ('CONFERENCE_ABSTRACT', 'CONFERENCE_ABSTRACT'), ('PATENT', 'PATENT'),
+                            ('DICTIONARY_ENTRY', 'DICTIONARY_ENTRY'), ('REGISTERED_COPYRIGHT', 'REGISTERED_COPYRIGHT'),
+                            ('MAGAZINE_ARTICLE', 'MAGAZINE_ARTICLE'), ('DISCLOSURE', 'DISCLOSURE'),
+                            ('BOOK_REVIEW', 'BOOK_REVIEW'), ('UNDEFINED', 'UNDEFINED'),
+                            ('ARTISTIC_PERFORMANCE', 'ARTISTIC_PERFORMANCE'),
+                            ('ENCYCLOPEDIA_ENTRY', 'ENCYCLOPEDIA_ENTRY'), ('REPORT', 'REPORT'),
+                            ('ONLINE_RESOURCE', 'ONLINE_RESOURCE'), ('WEBSITE', 'WEBSITE'),
+                            ('RESEARCH_TOOL', 'RESEARCH_TOOL'), ('WORKING_PAPER', 'WORKING_PAPER'),
+                            ('EDITED_BOOK', 'EDITED_BOOK'), ('TRADEMARK', 'TRADEMARK'),
+                            ('LECTURE_SPEECH', 'LECTURE_SPEECH'), ('BOOK', 'BOOK'), ('DATA_SET', 'DATA_SET'),
+                            ('JOURNAL_ARTICLE', 'JOURNAL_ARTICLE'), ('SPIN_OFF_COMPANY', 'SPIN_OFF_COMPANY'),
+                            ('TECHNICAL_STANDARD', 'TECHNICAL_STANDARD'), ('CONFERENCE_POSTER', 'CONFERENCE_POSTER'),
+                            ('JOURNAL_ISSUE', 'JOURNAL_ISSUE'), ('NEWSPAPER_ARTICLE', 'NEWSPAPER_ARTICLE'),
+                            ('OTHER', 'OTHER')]
+    subject_type_choices.sort(key=lambda e: e[1])
+    subject_type_choices.insert(0, ("", ""))
+
+    org_name = StringField("Institution", [validators.required()])
+    disambiguated_id = StringField("Disambiguated Organisation ID")
+    disambiguation_source = StringField("Disambiguation Source")
+    city = StringField("City", [validators.required()])
+    state = StringField("State/region", filters=[lambda x: x or None])
+    country = CountrySelectField("Country", [validators.required()])
+    reviewer_role = SelectField(choices=reviewer_role_choices, description="Peer Review Reviewer Role",
+                                validators=[validators.required()])
+    review_url = StringField("Peer Review Review Url")
+    review_type = SelectField(choices=review_type_choices, description="Peer Review Review Type",
+                              validators=[validators.required()])
+    review_group_id = StringField("Peer Review Group Id", [validators.required()])
+    subject_external_identifier_type = StringField("Peer Review Subject External Identifier Type")
+    subject_external_identifier_value = StringField("Peer Review Subject External Identifier Value")
+    subject_external_identifier_url = StringField("Peer Review Subject External Identifier Url")
+    subject_external_identifier_relationship = SelectField(choices=subject_external_id_relationship_choices,
+                                                           description="Peer Review Subject External Id Relationship")
+    subject_container_name = StringField("Peer Review Subject Container Name")
+    subject_type = SelectField(choices=subject_type_choices, description="Peer Review Subject Type")
+    subject_title = StringField("Peer Review Subject Title")
+    subject_subtitle = StringField("Peer Review Subject Subtitle")
+    subject_translated_title = StringField("Peer Review Subject Translated Title")
+    subject_translated_title_language_code = LanguageSelectField("Language")
+    subject_url = StringField("Peer Review Subject Url")
+    review_completion_date = PartialDateField("Review Completion date", validators=[validators.required()])
+
+
 class GroupIdForm(FlaskForm):
     """GroupID record form."""
 

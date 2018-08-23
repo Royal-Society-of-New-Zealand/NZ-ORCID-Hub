@@ -36,7 +36,7 @@ from orcid_api.rest import ApiException
 from . import admin, app, limiter, models, orcid_client, rq, utils
 from .forms import (ApplicationFrom, BitmapMultipleValueField, CredentialForm, EmailTemplateForm,
                     FileUploadForm, FundingForm, GroupIdForm, LogoForm, OrgRegistrationForm, PartialDateField,
-                    RecordForm, UserInvitationForm, WebhookForm)
+                    PeerReviewForm, RecordForm, UserInvitationForm, WebhookForm)
 from .login_provider import roles_required
 from .models import (Affiliation, AffiliationRecord, CharField, Client, File, FundingInvitees,
                      FundingRecord, Grant, GroupIdRecord, ModelException, OrcidApiCall, OrcidToken,
@@ -1553,7 +1553,7 @@ def reset_all():
 @app.route("/section/<int:user_id>/<string:section_type>/<int:put_code>/delete", methods=["POST"])
 @roles_required(Role.ADMIN)
 def delete_record(user_id, section_type, put_code):
-    """Delete an employment, education or funding record."""
+    """Delete an employment, education peer review or funding record."""
     _url = request.args.get("url") or request.referrer or url_for(
         "section", user_id=user_id, section_type=section_type)
     try:
@@ -1584,6 +1584,8 @@ def delete_record(user_id, section_type, put_code):
             api_instance.delete_employment(user.orcid, put_code)
         elif section_type == "FUN":
             api_instance.delete_funding(user.orcid, put_code)
+        elif section_type == "PRR":
+            api_instance.delete_peer_review(user.orcid, put_code)
         else:
             api_instance.delete_education(user.orcid, put_code)
         app.logger.info(f"For {user.orcid} '{section_type}' record was deleted by {current_user}")
@@ -1630,11 +1632,14 @@ def edit_record(user_id, section_type, put_code=None):
 
     if section_type == "FUN":
         form = FundingForm(form_type=section_type)
+    elif section_type == "PRR":
+        form = PeerReviewForm(form_type=section_type)
     else:
         form = RecordForm(form_type=section_type)
 
     grant_data_list = []
     if request.method == "GET":
+        data = {}
         if put_code:
             try:
                 # Fetch an Employment
@@ -1644,47 +1649,101 @@ def edit_record(user_id, section_type, put_code=None):
                     api_response = api.view_education(user.orcid, put_code)
                 elif section_type == "FUN":
                     api_response = api.view_funding(user.orcid, put_code)
+                elif section_type == "PRR":
+                    api_response = api.view_peer_review(user.orcid, put_code)
 
                 _data = api_response.to_dict()
 
-                data = dict(
-                    org_name=_data.get("organization").get("name"),
-                    disambiguated_id=get_val(
-                        _data, "organization", "disambiguated_organization",
-                        "disambiguated_organization_identifier"),
-                    disambiguation_source=get_val(
-                        _data, "organization", "disambiguated_organization",
-                        "disambiguation_source"),
-                    city=_data.get("organization").get("address").get("city", ""),
-                    state=_data.get("organization").get("address").get("region", ""),
-                    country=_data.get("organization").get("address").get("country", ""),
-                    department=_data.get("department_name", ""),
-                    role=_data.get("role_title", ""),
-                    start_date=PartialDate.create(_data.get("start_date")),
-                    end_date=PartialDate.create(_data.get("end_date")))
-
-                if section_type == "FUN":
-                    external_ids_list = get_val(_data, "external_ids", "external_id")
+                if section_type == "PRR":
+                    external_ids_list = get_val(_data, "review_identifiers", "external-id")
 
                     for extid in external_ids_list:
-                        external_id_value = extid['external_id_value'] if extid['external_id_value'] else ''
-                        external_id_url = get_val(extid['external_id_url'], "value") if get_val(
-                            extid['external_id_url'], "value") else ''
-                        external_id_relationship = extid['external_id_relationship'] if extid[
-                            'external_id_relationship'] else ''
+                        external_id_value = extid['external-id-value'] if extid['external-id-value'] else ''
+                        external_id_url = get_val(extid['external-id-url'], "value") if get_val(
+                            extid['external-id-url'], "value") else ''
+                        external_id_relationship = extid['external-id-relationship'] if extid[
+                            'external-id-relationship'] else ''
+                        external_id_type = extid['external-id-type'] if extid[
+                            'external-id-relationship'] else ''
 
                         grant_data_list.append(dict(grant_number=external_id_value, grant_url=external_id_url,
-                                                    grant_relationship=external_id_relationship))
+                                                    grant_relationship=external_id_relationship,
+                                                    grant_type=external_id_type))
+                    data = dict(
+                        org_name=get_val(_data, "convening_organization", "name"),
+                        disambiguated_id=get_val(
+                            _data, "convening_organization", "disambiguated-organization",
+                            "disambiguated-organization-identifier"),
+                        disambiguation_source=get_val(
+                            _data, "convening_organization", "disambiguated-organization",
+                            "disambiguation-source"),
+                        city=get_val(_data, "convening_organization", "address", "city"),
+                        state=get_val(_data, "convening_organization", "address", "region"),
+                        country=get_val(_data, "convening_organization", "address", "country"),
+                        reviewer_role=_data.get("reviewer_role", ""),
+                        review_url=get_val(_data, "review_url", "value"),
+                        review_type=_data.get("review_type", ""),
+                        review_group_id=_data.get("review_group_id", ""),
+                        subject_external_identifier_type=get_val(_data, "subject_external_identifier",
+                                                                 "external-id-type"),
+                        subject_external_identifier_value=get_val(_data, "subject_external_identifier",
+                                                                  "external-id-value"),
+                        subject_external_identifier_url=get_val(_data, "subject_external_identifier", "external-id-url",
+                                                                "value"),
+                        subject_external_identifier_relationship=get_val(_data, "subject_external_identifier",
+                                                                         "external-id-relationship"),
+                        subject_container_name=get_val(_data, "subject_container_name", "value"),
+                        subject_type=_data.get("subject_type", ""),
+                        subject_title=get_val(_data, "subject_name", "title", "value"),
+                        subject_subtitle=get_val(_data, "subject_name", "subtitle"),
+                        subject_translated_title=get_val(_data, "subject_name", "translated-title", "value"),
+                        subject_translated_title_language_code=get_val(_data, "subject_name", "translated-title",
+                                                                       "language-code"),
+                        subject_url=get_val(_data, "subject_url", "value"),
+                        review_completion_date=PartialDate.create(_data.get("review_completion_date")))
 
-                    data.update(dict(funding_title=get_val(_data, "title", "title", "value"),
-                                     funding_translated_title=get_val(_data, "title", "translated_title", "value"),
-                                     translated_title_language=get_val(_data, "title", "translated_title",
-                                                                       "language_code"),
-                                     funding_type=get_val(_data, "type"),
-                                     funding_subtype=get_val(_data, "organization_defined_type", "value"),
-                                     funding_description=get_val(_data, "short_description"),
-                                     total_funding_amount=get_val(_data, "amount", "value"),
-                                     total_funding_amount_currency=get_val(_data, "amount", "currency_code")))
+                else:
+                    data = dict(
+                        org_name=_data.get("organization").get("name"),
+                        disambiguated_id=get_val(
+                            _data, "organization", "disambiguated_organization",
+                            "disambiguated_organization_identifier"),
+                        disambiguation_source=get_val(
+                            _data, "organization", "disambiguated_organization",
+                            "disambiguation_source"),
+                        city=_data.get("organization").get("address").get("city", ""),
+                        state=_data.get("organization").get("address").get("region", ""),
+                        country=_data.get("organization").get("address").get("country", ""),
+                        department=_data.get("department_name", ""),
+                        role=_data.get("role_title", ""),
+                        start_date=PartialDate.create(_data.get("start_date")),
+                        end_date=PartialDate.create(_data.get("end_date")))
+
+                    if section_type == "FUN":
+                        external_ids_list = get_val(_data, "external_ids", "external_id")
+
+                        for extid in external_ids_list:
+                            external_id_value = extid['external_id_value'] if extid['external_id_value'] else ''
+                            external_id_url = get_val(extid['external_id_url'], "value") if get_val(
+                                extid['external_id_url'], "value") else ''
+                            external_id_relationship = extid['external_id_relationship'] if extid[
+                                'external_id_relationship'] else ''
+                            external_id_type = extid['external_id_type'] if extid[
+                                'external_id_relationship'] else ''
+
+                            grant_data_list.append(dict(grant_number=external_id_value, grant_url=external_id_url,
+                                                        grant_relationship=external_id_relationship,
+                                                        grant_type=external_id_type))
+
+                        data.update(dict(funding_title=get_val(_data, "title", "title", "value"),
+                                         funding_translated_title=get_val(_data, "title", "translated_title", "value"),
+                                         translated_title_language=get_val(_data, "title", "translated_title",
+                                                                           "language_code"),
+                                         funding_type=get_val(_data, "type"),
+                                         funding_subtype=get_val(_data, "organization_defined_type", "value"),
+                                         funding_description=get_val(_data, "short_description"),
+                                         total_funding_amount=get_val(_data, "amount", "value"),
+                                         total_funding_amount_currency=get_val(_data, "amount", "currency_code")))
 
             except ApiException as e:
                 message = json.loads(e.body.replace("''", "\"")).get('user-messsage')
@@ -1705,20 +1764,29 @@ def edit_record(user_id, section_type, put_code=None):
 
     if form.validate_on_submit():
         try:
-            if section_type == "FUN":
+            if section_type == "FUN" or section_type == "PRR":
+                grant_type = request.form.getlist('grant_type')
                 grant_number = request.form.getlist('grant_number')
                 grant_url = request.form.getlist('grant_url')
                 grant_relationship = request.form.getlist('grant_relationship')
 
-                grant_data_list = [{'grant_number': gn, 'grant_url': gu, 'grant_relationship': gr} for gn, gu, gr in
-                                   zip(grant_number, grant_url, grant_relationship)] if list(
+                grant_data_list = [{'grant_number': gn, 'grant_type': gt, 'grant_url': gu, 'grant_relationship': gr} for
+                                   gn, gt, gu, gr in
+                                   zip(grant_number, grant_type, grant_url, grant_relationship)] if list(
                     filter(None, grant_number)) else []
 
-                put_code, orcid, created = api.create_or_update_individual_funding(
-                    put_code=put_code,
-                    grant_data_list=grant_data_list,
-                    **{f.name: f.data
-                       for f in form})
+                if section_type == "FUN":
+                    put_code, orcid, created = api.create_or_update_individual_funding(
+                        put_code=put_code,
+                        grant_data_list=grant_data_list,
+                        **{f.name: f.data
+                           for f in form})
+                else:
+                    put_code, orcid, created = api.create_or_update_individual_peer_review(
+                        put_code=put_code,
+                        grant_data_list=grant_data_list,
+                        **{f.name: f.data
+                           for f in form})
                 if put_code and created:
                     flash("Record details has been added successfully!", "success")
                 else:
@@ -1748,12 +1816,13 @@ def edit_record(user_id, section_type, put_code=None):
         except ApiException as e:
             body = json.loads(e.body)
             message = body.get("user-message")
+            dev_message = body.get("developer-message")
             more_info = body.get("more-info")
-            flash(f"Failed to update the entry: {message}", "danger")
+            flash(f"Failed to update the entry: {message}; {dev_message}", "danger")
             if more_info:
                 flash(f'You can find more information at <a href="{more_info}">{more_info}</a>', "info")
 
-            app.logger.exception(f"For {user} exception encountered")
+            app.logger.exception(f"For {user} exception encountered; {dev_message}")
         except Exception as ex:
             app.logger.exception(
                 "Unhandler error occured while creating or editing a profile record.")
@@ -1770,7 +1839,7 @@ def section(user_id, section_type="EMP"):
     _url = request.args.get("url") or request.referrer or url_for("viewmembers.index_view")
 
     section_type = section_type.upper()[:3]  # normalize the section type
-    if section_type not in ["EDU", "EMP", "FUN"]:
+    if section_type not in ["EDU", "EMP", "FUN", "PRR"]:
         flash("Incorrect user profile section", "danger")
         return redirect(_url)
 
@@ -1800,8 +1869,10 @@ def section(user_id, section_type="EMP"):
             api_response = api_instance.view_employments(user.orcid)
         elif section_type == "EDU":
             api_response = api_instance.view_educations(user.orcid)
-        else:
+        elif section_type == "FUN":
             api_response = api_instance.view_fundings(user.orcid)
+        else:
+            api_response = api_instance.view_peer_reviews(user.orcid)
     except ApiException as ex:
         if ex.status == 401:
             flash("User has revoked the permissions to update his/her records", "warning")
@@ -1832,6 +1903,18 @@ def section(user_id, section_type="EMP"):
                 records.append(fs)
         return render_template(
             "funding_section.html",
+            url=_url,
+            records=records,
+            section_type=section_type,
+            user_id=user_id,
+            org_client_id=user.organisation.orcid_client_id)
+    elif section_type == 'PRR':
+        if data and data.get("group"):
+            for k in data.get("group"):
+                for ps in k.get("peer-review-summary"):
+                    records.append(ps)
+        return render_template(
+            "peer_review_section.html",
             url=_url,
             records=records,
             section_type=section_type,

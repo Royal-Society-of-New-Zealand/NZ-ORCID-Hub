@@ -31,21 +31,21 @@ class PeerReview(object):
                                   and the value is json key in definition.
         """
         self.swagger_types = {
-            'created_date': 'CreatedDate',
-            'last_modified_date': 'LastModifiedDate',
-            'source': 'Source',
-            'reviewer_role': 'str',
-            'review_identifiers': 'ExternalIDs',
-            'review_url': 'Url',
-            'review_type': 'str',
-            'review_completion_date': 'FuzzyDate',
+            'created_date': 'object',
+            'last_modified_date': 'object',
+            'source': 'object',
+            'reviewer_role': 'object',
+            'review_identifiers': 'object',
+            'review_url': 'object',
+            'review_type': 'object',
+            'review_completion_date': 'object',
             'review_group_id': 'str',
-            'subject_external_identifier': 'ExternalID',
-            'subject_container_name': 'Title',
-            'subject_type': 'str',
-            'subject_name': 'WorkTitle',
-            'subject_url': 'Url',
-            'convening_organization': 'Organization',
+            'subject_external_identifier': 'object',
+            'subject_container_name': 'object',
+            'subject_type': 'object',
+            'subject_name': 'object',
+            'subject_url': 'object',
+            'convening_organization': 'object',
             'visibility': 'str',
             'put_code': 'int',
             'path': 'str'
@@ -97,7 +97,7 @@ class PeerReview(object):
         Gets the created_date of this PeerReview.
 
         :return: The created_date of this PeerReview.
-        :rtype: CreatedDate
+        :rtype: object
         """
         return self._created_date
 
@@ -107,7 +107,7 @@ class PeerReview(object):
         Sets the created_date of this PeerReview.
 
         :param created_date: The created_date of this PeerReview.
-        :type: CreatedDate
+        :type: object
         """
 
         self._created_date = created_date
@@ -118,7 +118,7 @@ class PeerReview(object):
         Gets the last_modified_date of this PeerReview.
 
         :return: The last_modified_date of this PeerReview.
-        :rtype: LastModifiedDate
+        :rtype: object
         """
         return self._last_modified_date
 
@@ -128,7 +128,7 @@ class PeerReview(object):
         Sets the last_modified_date of this PeerReview.
 
         :param last_modified_date: The last_modified_date of this PeerReview.
-        :type: LastModifiedDate
+        :type: object
         """
 
         self._last_modified_date = last_modified_date
@@ -139,7 +139,7 @@ class PeerReview(object):
         Gets the source of this PeerReview.
 
         :return: The source of this PeerReview.
-        :rtype: Source
+        :rtype: object
         """
         return self._source
 
@@ -149,7 +149,7 @@ class PeerReview(object):
         Sets the source of this PeerReview.
 
         :param source: The source of this PeerReview.
-        :type: Source
+        :type: object
         """
 
         self._source = source
@@ -160,7 +160,7 @@ class PeerReview(object):
         Gets the reviewer_role of this PeerReview.
 
         :return: The reviewer_role of this PeerReview.
-        :rtype: str
+        :rtype: object
         """
         return self._reviewer_role
 
@@ -170,14 +170,8 @@ class PeerReview(object):
         Sets the reviewer_role of this PeerReview.
 
         :param reviewer_role: The reviewer_role of this PeerReview.
-        :type: str
+        :type: object
         """
-        allowed_values = ["REVIEWER", "EDITOR", "MEMBER", "CHAIR", "ORGANIZER"]
-        if reviewer_role not in allowed_values:
-            raise ValueError(
-                "Invalid value for `reviewer_role` ({0}), must be one of {1}"
-                .format(reviewer_role, allowed_values)
-            )
 
         self._reviewer_role = reviewer_role
 
@@ -187,7 +181,7 @@ class PeerReview(object):
         Gets the review_identifiers of this PeerReview.
 
         :return: The review_identifiers of this PeerReview.
-        :rtype: ExternalIDs
+        :rtype: object
         """
         return self._review_identifiers
 
@@ -197,7 +191,7 @@ class PeerReview(object):
         Sets the review_identifiers of this PeerReview.
 
         :param review_identifiers: The review_identifiers of this PeerReview.
-        :type: ExternalIDs
+        :type: object
         """
 
         self._review_identifiers = review_identifiers
@@ -208,7 +202,7 @@ class PeerReview(object):
         Gets the review_url of this PeerReview.
 
         :return: The review_url of this PeerReview.
-        :rtype: Url
+        :rtype: object
         """
         return self._review_url
 
@@ -218,7 +212,7 @@ class PeerReview(object):
         Sets the review_url of this PeerReview.
 
         :param review_url: The review_url of this PeerReview.
-        :type: Url
+        :type: object
         """
 
         self._review_url = review_url
@@ -229,7 +223,7 @@ class PeerReview(object):
         Gets the review_type of this PeerReview.
 
         :return: The review_type of this PeerReview.
-        :rtype: str
+        :rtype: object
         """
         return self._review_type
 
@@ -239,14 +233,8 @@ class PeerReview(object):
         Sets the review_type of this PeerReview.
 
         :param review_type: The review_type of this PeerReview.
-        :type: str
+        :type: object
         """
-        allowed_values = ["REVIEW", "EVALUATION"]
-        if review_type not in allowed_values:
-            raise ValueError(
-                "Invalid value for `review_type` ({0}), must be one of {1}"
-                .format(review_type, allowed_values)
-            )
 
         self._review_type = review_type
 
@@ -256,7 +244,7 @@ class PeerReview(object):
         Gets the review_completion_date of this PeerReview.
 
         :return: The review_completion_date of this PeerReview.
-        :rtype: FuzzyDate
+        :rtype: object
         """
         return self._review_completion_date
 
@@ -266,7 +254,7 @@ class PeerReview(object):
         Sets the review_completion_date of this PeerReview.
 
         :param review_completion_date: The review_completion_date of this PeerReview.
-        :type: FuzzyDate
+        :type: object
         """
 
         self._review_completion_date = review_completion_date
@@ -300,7 +288,7 @@ class PeerReview(object):
         Gets the subject_external_identifier of this PeerReview.
 
         :return: The subject_external_identifier of this PeerReview.
-        :rtype: ExternalID
+        :rtype: object
         """
         return self._subject_external_identifier
 
@@ -310,7 +298,7 @@ class PeerReview(object):
         Sets the subject_external_identifier of this PeerReview.
 
         :param subject_external_identifier: The subject_external_identifier of this PeerReview.
-        :type: ExternalID
+        :type: object
         """
 
         self._subject_external_identifier = subject_external_identifier
@@ -321,7 +309,7 @@ class PeerReview(object):
         Gets the subject_container_name of this PeerReview.
 
         :return: The subject_container_name of this PeerReview.
-        :rtype: Title
+        :rtype: object
         """
         return self._subject_container_name
 
@@ -331,7 +319,7 @@ class PeerReview(object):
         Sets the subject_container_name of this PeerReview.
 
         :param subject_container_name: The subject_container_name of this PeerReview.
-        :type: Title
+        :type: object
         """
 
         self._subject_container_name = subject_container_name
@@ -342,7 +330,7 @@ class PeerReview(object):
         Gets the subject_type of this PeerReview.
 
         :return: The subject_type of this PeerReview.
-        :rtype: str
+        :rtype: object
         """
         return self._subject_type
 
@@ -352,14 +340,8 @@ class PeerReview(object):
         Sets the subject_type of this PeerReview.
 
         :param subject_type: The subject_type of this PeerReview.
-        :type: str
+        :type: object
         """
-        allowed_values = ["ARTISTIC_PERFORMANCE", "BOOK_CHAPTER", "BOOK_REVIEW", "BOOK", "CONFERENCE_ABSTRACT", "CONFERENCE_PAPER", "CONFERENCE_POSTER", "DATA_SET", "DICTIONARY_ENTRY", "DISCLOSURE", "DISSERTATION", "EDITED_BOOK", "ENCYCLOPEDIA_ENTRY", "INVENTION", "JOURNAL_ARTICLE", "JOURNAL_ISSUE", "LECTURE_SPEECH", "LICENSE", "MAGAZINE_ARTICLE", "MANUAL", "NEWSLETTER_ARTICLE", "NEWSPAPER_ARTICLE", "ONLINE_RESOURCE", "OTHER", "PATENT", "REGISTERED_COPYRIGHT", "REPORT", "RESEARCH_TECHNIQUE", "RESEARCH_TOOL", "SPIN_OFF_COMPANY", "STANDARDS_AND_POLICY", "SUPERVISED_STUDENT_PUBLICATION", "TECHNICAL_STANDARD", "TEST", "TRADEMARK", "TRANSLATION", "WEBSITE", "WORKING_PAPER", "UNDEFINED"]
-        if subject_type not in allowed_values:
-            raise ValueError(
-                "Invalid value for `subject_type` ({0}), must be one of {1}"
-                .format(subject_type, allowed_values)
-            )
 
         self._subject_type = subject_type
 
@@ -369,7 +351,7 @@ class PeerReview(object):
         Gets the subject_name of this PeerReview.
 
         :return: The subject_name of this PeerReview.
-        :rtype: WorkTitle
+        :rtype: object
         """
         return self._subject_name
 
@@ -379,7 +361,7 @@ class PeerReview(object):
         Sets the subject_name of this PeerReview.
 
         :param subject_name: The subject_name of this PeerReview.
-        :type: WorkTitle
+        :type: object
         """
 
         self._subject_name = subject_name
@@ -390,7 +372,7 @@ class PeerReview(object):
         Gets the subject_url of this PeerReview.
 
         :return: The subject_url of this PeerReview.
-        :rtype: Url
+        :rtype: object
         """
         return self._subject_url
 
@@ -400,7 +382,7 @@ class PeerReview(object):
         Sets the subject_url of this PeerReview.
 
         :param subject_url: The subject_url of this PeerReview.
-        :type: Url
+        :type: object
         """
 
         self._subject_url = subject_url
@@ -411,7 +393,7 @@ class PeerReview(object):
         Gets the convening_organization of this PeerReview.
 
         :return: The convening_organization of this PeerReview.
-        :rtype: Organization
+        :rtype: object
         """
         return self._convening_organization
 
@@ -421,7 +403,7 @@ class PeerReview(object):
         Sets the convening_organization of this PeerReview.
 
         :param convening_organization: The convening_organization of this PeerReview.
-        :type: Organization
+        :type: object
         """
         if convening_organization is None:
             raise ValueError("Invalid value for `convening_organization`, must not be `None`")
