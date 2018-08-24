@@ -24,7 +24,7 @@
           </elementProp>
           <elementProp name="USER_COUNT" elementType="Argument">
             <stringProp name="Argument.name">USER_COUNT</stringProp>
-            <stringProp name="Argument.value">5</stringProp>
+            <stringProp name="Argument.value">10000</stringProp>
             <stringProp name="Argument.metadata">=</stringProp>
           </elementProp>
           <elementProp name="LOOPS" elementType="Argument">
