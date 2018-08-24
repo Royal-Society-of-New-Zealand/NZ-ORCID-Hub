@@ -158,7 +158,7 @@ def orcid_link_formatter(view, context, model, name):
     """Format ORCID ID for ModelViews."""
     if not model.orcid:
         return ""
-    return Markup(f'<a href="{ORCID_BASE_URL}/{model.orcid}" target="_blank">{model.orcid}</a>')
+    return Markup(f'<a href="{ORCID_BASE_URL}{model.orcid}" target="_blank">{model.orcid}</a>')
 
 
 class AppModelView(ModelView):
