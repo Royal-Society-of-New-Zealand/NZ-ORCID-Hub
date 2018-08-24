@@ -177,16 +177,19 @@ def handle_login():
         data = request.headers
 
     try:
-        last_name = data['Sn'].encode("latin-1").decode("utf-8")
-        first_name = data['Givenname'].encode("latin-1").decode("utf-8")
-        email, *secondary_emails = re.split("[,; \t]",
-                                            data['Mail'].encode("latin-1").decode("utf-8").lower())
-        session["shib_O"] = shib_org_name = data['O'].encode("latin-1").decode("utf-8")
-        name = data.get('Displayname').encode("latin-1").decode("utf-8")
-        eppn = data.get('Eppn').encode("latin-1").decode("utf-8")
-        unscoped_affiliation = set(a.strip()
-                                   for a in data.get("Unscoped-Affiliation", '').encode("latin-1")
-                                   .decode("utf-8").replace(',', ';').split(';'))
+        data = {
+            k: v.encode("latin-1").decode("utf-8")
+            for k, v in data.items() if k in
+            ["Sn", "Givenname", "O", "Mail", "Displayname", "Eppn", "Unscoped-Affiliation"]
+        }
+        last_name = data.get("Sn")
+        first_name = data.get("Givenname")
+        email, *secondary_emails = re.split("[,; \t]", data.get("Mail", '').lower())
+        session["shib_O"] = shib_org_name = data.get("O")
+        name = data.get("Displayname")
+        eppn = data.get("Eppn")
+        unscoped_affiliation = set(
+            a.strip() for a in data.get("Unscoped-Affiliation", '').replace(',', ';').split(';'))
         app.logger.info(
             f"User with email address {email} (eppn: {eppn} is trying "
             f"to login having affiliation as {unscoped_affiliation} with {shib_org_name}")

@@ -34,6 +34,8 @@ from orcid_hub.models import *  # noqa: F401, F403
 from orcid_hub.authcontroller import *  # noqa: F401, F403
 from orcid_hub.views import *  # noqa: F401, F403
 from orcid_hub.reports import *  # noqa: F401, F403
+from orcid_hub import models
+
 
 db = _app.db = _db = db_url.connect(DATABASE_URL, autorollback=True)
 
@@ -304,6 +306,8 @@ def app():
         _app.data = locals()
 
         yield _app
+        if models.current_user:
+            models.current_user = None
 
     ctx.pop()
     return

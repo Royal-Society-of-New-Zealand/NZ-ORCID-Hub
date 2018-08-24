@@ -7,8 +7,6 @@ import yaml
 from datetime import datetime
 
 import pytest
-from flask import url_for
-from flask_login import login_user
 
 from orcid_hub.apis import yamlfy
 from orcid_hub.data_apis import plural
