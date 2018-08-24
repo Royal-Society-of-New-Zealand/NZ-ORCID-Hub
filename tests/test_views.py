@@ -23,7 +23,7 @@ from orcid_hub import app, orcid_client, rq, views
 from orcid_hub.config import ORCID_BASE_URL
 from orcid_hub.forms import FileUploadForm
 from orcid_hub.models import (Affiliation, AffiliationRecord, Client, File, FundingRecord,
-                              GroupIdRecord, OrcidToken, Organisation, OrgInfo, OrgInvitation,
+                              GroupIdRecord, OrcidToken, Organisation, OrgInfo, OrgInvitation, PartialDate,
                               Role, Task, Token, Url, User, UserOrgAffiliation, UserInvitation,
                               UserOrg, PeerReviewRecord, WorkRecord)
 
@@ -1633,6 +1633,16 @@ def test_edit_record(request_ctx):
         assert admin.name.encode() in resp.data
         view_funding.assert_called_once_with("XXXX-XXXX-XXXX-0001", 1234)
     with patch.object(
+        orcid_client.MemberAPIV20Api,
+        "view_peer_review",
+        MagicMock(return_value=make_fake_response('{"test": "TEST1234567890"}'))
+    ) as view_peer_review, request_ctx(f"/section/{user.id}/PRR/1234/edit") as ctx:
+        login_user(admin)
+        resp = ctx.app.full_dispatch_request()
+        assert admin.email.encode() in resp.data
+        assert admin.name.encode() in resp.data
+        view_peer_review.assert_called_once_with("XXXX-XXXX-XXXX-0001", 1234)
+    with patch.object(
             orcid_client.MemberAPIV20Api, "create_education",
             MagicMock(return_value=fake_response)), request_ctx(
                 f"/section/{user.id}/EDU/new",
@@ -1670,6 +1680,31 @@ def test_edit_record(request_ctx):
         resp = ctx.app.full_dispatch_request()
         assert resp.status_code == 302
         assert resp.location == f"/section/{user.id}/FUN/list"
+    with patch.object(
+            orcid_client.MemberAPIV20Api, "create_peer_review",
+            MagicMock(return_value=fake_response)), request_ctx(
+                f"/section/{user.id}/PRR/new",
+                method="POST",
+                data={
+                    "city": "Auckland",
+                    "country": "NZ",
+                    "org_name": "TEST",
+                    "reviewer_role": "REVIEWER",
+                    "review_type": "REVIEW",
+                    "review_completion_date": PartialDate.create("2003-07-14"),
+                    "review_group_id": "Test",
+                    "subject_external_identifier_relationship": "PART_OF",
+                    "subject_type": "OTHER",
+                    "subject_translated_title_language_code": "en",
+                    "grant_type": "https://test.com",
+                    "grant_url": "https://test.com",
+                    "grant_number": "TEST123",
+                    "grant_relationship": "SELF"
+                }) as ctx:
+        login_user(admin)
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 302
+        assert resp.location == f"/section/{user.id}/PRR/list"
 
 
 def test_delete_employment(request_ctx, app):
