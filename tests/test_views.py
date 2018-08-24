@@ -1678,6 +1678,7 @@ def test_edit_record(request_ctx):
                     "funding_type": "AWARD",
                     "translated_title_language": "hi",
                     "total_funding_amount_currency": "NZD",
+                    "grant_type": "https://test.com",
                     "grant_url": "https://test.com",
                     "grant_number": "TEST123",
                     "grant_relationship": "SELF"
@@ -1704,6 +1705,15 @@ def test_edit_record(request_ctx):
                     "subject_translated_title_language_code": "en",
                     "grant_type": "https://test.com",
                     "grant_url": "https://test.com",
+                    "review_url": "test",
+                    "subject_external_identifier_type": "test",
+                    "subject_external_identifier_value": "test",
+                    "subject_container_name": "test",
+                    "subject_title": "test",
+                    "subject_subtitle": "test",
+                    "subject_translated_title": "test",
+                    "subject_url": "test",
+                    "subject_external_identifier_url": "test",
                     "grant_number": "TEST123",
                     "grant_relationship": "SELF"
                 }) as ctx:
