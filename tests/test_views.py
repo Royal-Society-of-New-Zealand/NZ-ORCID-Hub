@@ -2043,7 +2043,7 @@ def test_action_insert_update_group_id(client, request_ctx):
         login_user(admin)
         resp = ctx.app.full_dispatch_request()
         assert resp.status_code == 200
-        assert b'new_group_id' in resp.data
+        assert b"<!DOCTYPE html>" in resp.data, "Expected HTML content"
 
 
 def test_reset_all(request_ctx):
