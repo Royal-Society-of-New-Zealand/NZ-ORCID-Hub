@@ -509,6 +509,8 @@ def make_fake_response(text, *args, **kwargs):
     mm.text = text
     if "json" in kwargs:
         mm.json.return_value = kwargs["json"]
+    elif "dict" in kwargs:
+        mm.to_dict.return_value = kwargs["dict"]
     else:
         mm.json.return_value = json.loads(text)
     if "status_code" in kwargs:
@@ -1625,7 +1627,9 @@ def test_edit_record(request_ctx):
     with patch.object(
             orcid_client.MemberAPIV20Api,
             "view_funding",
-            MagicMock(return_value=make_fake_response('{"test": "TEST1234567890"}'))
+            MagicMock(return_value=make_fake_response('{"test":123}', dict={"external_ids": {"external_id": [
+            {"external_id_type": "test", "external_id_value": "test", "external_id_url": {"value": "test"},
+             "external_id_relationship": "SELF"}]}}))
     ) as view_funding, request_ctx(f"/section/{user.id}/FUN/1234/edit") as ctx:
         login_user(admin)
         resp = ctx.app.full_dispatch_request()
@@ -1635,7 +1639,9 @@ def test_edit_record(request_ctx):
     with patch.object(
         orcid_client.MemberAPIV20Api,
         "view_peer_review",
-        MagicMock(return_value=make_fake_response('{"test": "TEST1234567890"}'))
+        MagicMock(return_value=make_fake_response('{"test":123}', dict={"review_identifiers": {"external-id": [
+            {"external-id-type": "test", "external-id-value": "test", "external-id-url": {"value": "test"},
+             "external-id-relationship": "SELF"}]}}))
     ) as view_peer_review, request_ctx(f"/section/{user.id}/PRR/1234/edit") as ctx:
         login_user(admin)
         resp = ctx.app.full_dispatch_request()
@@ -1775,6 +1781,24 @@ def test_delete_employment(request_ctx, app):
         resp = ctx.app.full_dispatch_request()
         assert resp.status_code == 302
         delete_education.assert_called_once_with("XXXX-XXXX-XXXX-0001", 54321)
+    with patch.object(
+        orcid_client.MemberAPIV20Api,
+        "delete_funding",
+            MagicMock(return_value='{"test": "TEST1234567890"}')) as delete_funding, request_ctx(
+                f"/section/{user.id}/FUN/54321/delete", method="POST") as ctx:
+        login_user(admin)
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 302
+        delete_funding.assert_called_once_with("XXXX-XXXX-XXXX-0001", 54321)
+    with patch.object(
+        orcid_client.MemberAPIV20Api,
+        "delete_peer_review",
+            MagicMock(return_value='{"test": "TEST1234567890"}')) as delete_peer_review, request_ctx(
+                f"/section/{user.id}/PRR/54321/delete", method="POST") as ctx:
+        login_user(admin)
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 302
+        delete_peer_review.assert_called_once_with("XXXX-XXXX-XXXX-0001", 54321)
 
 
 def test_viewmembers(client):

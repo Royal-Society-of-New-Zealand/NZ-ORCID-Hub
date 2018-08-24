@@ -1704,16 +1704,16 @@ def edit_record(user_id, section_type, put_code=None):
 
                 else:
                     data = dict(
-                        org_name=_data.get("organization").get("name"),
+                        org_name=get_val(_data, "organization", "name"),
                         disambiguated_id=get_val(
                             _data, "organization", "disambiguated_organization",
                             "disambiguated_organization_identifier"),
                         disambiguation_source=get_val(
                             _data, "organization", "disambiguated_organization",
                             "disambiguation_source"),
-                        city=_data.get("organization").get("address").get("city", ""),
-                        state=_data.get("organization").get("address").get("region", ""),
-                        country=_data.get("organization").get("address").get("country", ""),
+                        city=get_val(_data, "organization", "address", "city"),
+                        state=get_val(_data, "organization", "address", "region"),
+                        country=get_val(_data, "organization", "address", "country"),
                         department=_data.get("department_name", ""),
                         role=_data.get("role_title", ""),
                         start_date=PartialDate.create(_data.get("start_date")),
