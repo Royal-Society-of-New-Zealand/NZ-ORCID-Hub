@@ -346,6 +346,26 @@ def test_show_record_section(request_ctx):
         assert admin.email.encode() in resp.data
         assert admin.name.encode() in resp.data
         view_educations.assert_called_once_with("XXXX-XXXX-XXXX-0001")
+    with patch.object(
+            orcid_client.MemberAPIV20Api,
+            "view_peer_reviews",
+            MagicMock(return_value=make_fake_response('{"test": "TEST1234567890"}'))
+    ) as view_peer_reviews, request_ctx(f"/section/{user.id}/PRR/list") as ctx:
+        login_user(admin)
+        resp = ctx.app.full_dispatch_request()
+        assert admin.email.encode() in resp.data
+        assert admin.name.encode() in resp.data
+        view_peer_reviews.assert_called_once_with("XXXX-XXXX-XXXX-0001")
+    with patch.object(
+            orcid_client.MemberAPIV20Api,
+            "view_fundings",
+            MagicMock(return_value=make_fake_response('{"test": "TEST1234567890"}'))
+    ) as view_fundings, request_ctx(f"/section/{user.id}/FUN/list") as ctx:
+        login_user(admin)
+        resp = ctx.app.full_dispatch_request()
+        assert admin.email.encode() in resp.data
+        assert admin.name.encode() in resp.data
+        view_fundings.assert_called_once_with("XXXX-XXXX-XXXX-0001")
 
 
 def test_status(client):
@@ -1951,7 +1971,7 @@ def test_viewmembers_delete(mockpost, client):
                                      OrcidToken.user == researcher1).count() == 0
 
 
-def test_action_insert_update_group_id(client):
+def test_action_insert_update_group_id(client, request_ctx):
     """Test update or insert of group id."""
     admin = User.get(email="admin@test0.edu")
     org = admin.organisation
@@ -1968,9 +1988,11 @@ def test_action_insert_update_group_id(client):
 
     fake_response = make_response
     fake_response.status = 201
+    fake_response.data = '{"group_id": "new_group_id"}'
     fake_response.headers = {'Location': '12344/xyz/12399'}
 
     OrcidToken.create(org=org, access_token="ABC123", scope="/group-id-record/update")
+    OrcidToken.create(org=org, access_token="ABC123112", scope="/group-id-record/read")
 
     client.login(admin)
 
@@ -1991,6 +2013,37 @@ def test_action_insert_update_group_id(client):
         group_id_record = GroupIdRecord.get(id=gr.id)
         # checking if the GroupID Record is updated with put_code supplied from fake response
         assert 12399 == group_id_record.put_code
+    # Save selected groupid record into existing group id record list.
+    with patch.object(
+        orcid_client.MemberAPIV20Api, "view_group_id_records",
+        MagicMock(return_value=fake_response)), request_ctx(
+        "/search/group_id_record/list",
+        method="POST",
+        data={
+            "group_id": "test",
+            "name": "test",
+            "description": "TEST",
+            "type": "TEST"}) as ctx:
+        login_user(admin)
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 302
+        assert resp.location == f"/admin/groupidrecord/"
+    # Search the group id record from ORCID
+    with patch.object(
+        orcid_client.MemberAPIV20Api, "view_group_id_records",
+        MagicMock(return_value=fake_response)), request_ctx(
+        "/search/group_id_record/list",
+        method="POST",
+        data={
+            "group_id": "test",
+            "group_id_name": "test",
+            "description": "TEST",
+            "search": True,
+            "type": "TEST"}) as ctx:
+        login_user(admin)
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 200
+        assert b'new_group_id' in resp.data
 
 
 def test_reset_all(request_ctx):
