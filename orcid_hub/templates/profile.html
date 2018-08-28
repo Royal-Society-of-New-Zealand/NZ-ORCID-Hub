@@ -67,7 +67,7 @@
         <img class="orcidHub-id-logo" src="{{url_for('static', filename='images/logo.png')}}" width="24" height="24" alt="ORCID Hub logo" /> Hub FAQ
       </a>
 
-      {% if current_user.orcid %}
+      {% if current_user.orcid and config.ENV not in ["prod", "test"] %}
         <a
           role="button"
           class="btn btn-primary btn-lg"
