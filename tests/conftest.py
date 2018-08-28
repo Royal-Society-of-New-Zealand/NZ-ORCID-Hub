@@ -228,6 +228,7 @@ def app():
             logo=logo_file,
             confirmed=True,
             can_use_api=True,
+            is_email_sent=True,
             city="CITY",
             country="COUNTRY")
 

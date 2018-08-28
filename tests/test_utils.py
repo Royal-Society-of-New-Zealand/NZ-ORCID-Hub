@@ -648,10 +648,15 @@ def test_create_or_update_peer_review(send_email, create_peer_review, get_record
     assert "12344" == peer_review_invitees.orcid
 
 
-@patch("orcid_api.MemberAPIV20Api.update_employment", side_effect=create_or_update_aff_mock)
+# @patch("orcid_api.MemberAPIV20Api.update_employment", side_effect=create_or_update_aff_mock)
+@patch("orcid_api.ApiClient.call_api")
 @patch("orcid_hub.orcid_client.MemberAPI.get_record", side_effect=get_record_mock)
-def test_create_or_update_affiliation(update_employment, get_record, app):
+def test_create_or_update_affiliation(get_record, call_api, app):
     """Test create or update affiliation."""
+    mock_resp = make_response()
+    mock_resp.status_code = 201
+    mock_resp.headers = {'Location': '12344/xyz/12399'}
+    call_api.return_value = mock_resp
     org = Organisation.get(name="THE ORGANISATION")
     u = User.create(
         email="test1234456@mailinator.com",
@@ -721,6 +726,7 @@ def test_create_or_update_affiliation(update_employment, get_record, app):
             t.id,
             t.org_id,
             t.affiliation_record.user, )):
+
         utils.create_or_update_affiliations(user=user, org_id=org_id, records=tasks_by_user)
 
     affiliation_record = AffiliationRecord.get(task=t)

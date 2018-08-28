@@ -846,6 +846,7 @@ class MemberAPI(MemberAPIV20Api):
             app.logger.warning("Missing affiliation value.")
             raise Exception("Missing affiliation value.")
 
+        import pdb; pdb.set_trace()
         if initial:
             put_code = self.is_emp_or_edu_record_present(affiliation)
             if put_code:
