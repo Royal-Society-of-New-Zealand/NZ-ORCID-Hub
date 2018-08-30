@@ -537,7 +537,7 @@ def orcid_callback():
         error = request.args["error"]
         error_description = request.args.get("error_description")
         if error == "access_denied":
-            flash("You have denied {current_user.organisation.name} access to your ORCID record."
+            flash(f"You have denied {current_user.organisation.name} access to your ORCID record."
                   " Please choose from one of the four options below.", "warning")
         else:
             flash(
@@ -891,8 +891,7 @@ def orcid_login(invitation_token=None):
     the organisation. For technical contacts the email should be made available for
     READ LIMITED scope.
     """
-    _next = get_next_url()
-    redirect_uri = url_for("orcid_callback", _next=_next, _external=True)
+    redirect_uri = url_for("orcid_callback", _external=True)
 
     try:
         orcid_scope = SCOPE_AUTHENTICATE[:]
@@ -993,7 +992,6 @@ def orcid_login(invitation_token=None):
 
 def orcid_login_callback(request):
     """Handle call-back for user authentication via ORCID."""
-    _next = get_next_url()
     state = request.args.get("state")
     invitation_token = request.args.get("invitation_token")
 
@@ -1143,7 +1141,7 @@ def orcid_login_callback(request):
                     e.get("email").lower() == email for e in data.get("email")):
                 user.save()
                 if not org.confirmed and user.is_tech_contact_of(org):
-                    return redirect(_next or url_for("onboard_org"))
+                    return redirect(url_for("onboard_org"))
                 elif not org.confirmed and not user.is_tech_contact_of(org):
                     flash(
                         f"Your '{org}' has not be onboarded. Please, try again once your technical contact"
@@ -1199,24 +1197,21 @@ def orcid_login_callback(request):
                 flash(f"Something went wrong: {ex}", "danger")
                 app.logger.exception("Failed to create affiliation record")
 
-        if _next:
-            return redirect(_next)
-        else:
-            try:
-                OrcidToken.get(user=user, org=org)
-            except OrcidToken.DoesNotExist:
-                if user.is_tech_contact_of(org) and not org.confirmed:
-                    return redirect(url_for("onboard_org"))
-                elif not user.is_tech_contact_of(org) and user_org.is_admin and not org.confirmed:
-                    flash(
-                        f"Your '{org}' has not be onboarded."
-                        f"Please, try again once your technical contact onboards your organisation on ORCIDHUB",
-                        "warning")
-                    return redirect(url_for("about"))
-                elif org.confirmed and user_org.is_admin:
-                    return redirect(url_for('viewmembers.index_view'))
-                else:
-                    return redirect(url_for("link"))
+        try:
+            OrcidToken.get(user=user, org=org)
+        except OrcidToken.DoesNotExist:
+            if user.is_tech_contact_of(org) and not org.confirmed:
+                return redirect(url_for("onboard_org"))
+            elif not user.is_tech_contact_of(org) and user_org.is_admin and not org.confirmed:
+                flash(
+                    f"Your '{org}' has not be onboarded."
+                    f"Please, try again once your technical contact onboards your organisation on ORCIDHUB",
+                    "warning")
+                return redirect(url_for("about"))
+            elif org.confirmed and user_org.is_admin:
+                return redirect(url_for('viewmembers.index_view'))
+            else:
+                return redirect(url_for("link"))
         return redirect(url_for("profile"))
 
     except User.DoesNotExist:
