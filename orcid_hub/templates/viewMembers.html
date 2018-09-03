@@ -17,5 +17,8 @@
     <a class="icon" href="{{ url_for('section', user_id=row.id, section_type='PRR', url=request.url) }}" title="Peer Review Record">
       <span class="fa fa-users"></span>
     </a>
+    <a class="icon" href="{{ url_for('section', user_id=row.id, section_type='WOR', url=request.url) }}" title="Work Record">
+      <span class="fa fa-print"></span>
+    </a>
   {% endif %}
 {% endblock %}

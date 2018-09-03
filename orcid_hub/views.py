@@ -1839,7 +1839,7 @@ def section(user_id, section_type="EMP"):
     _url = request.args.get("url") or request.referrer or url_for("viewmembers.index_view")
 
     section_type = section_type.upper()[:3]  # normalize the section type
-    if section_type not in ["EDU", "EMP", "FUN", "PRR"]:
+    if section_type not in ["EDU", "EMP", "FUN", "PRR", "WOR"]:
         flash("Incorrect user profile section", "danger")
         return redirect(_url)
 
@@ -1871,6 +1871,8 @@ def section(user_id, section_type="EMP"):
             api_response = api_instance.view_educations(user.orcid)
         elif section_type == "FUN":
             api_response = api_instance.view_fundings(user.orcid)
+        elif section_type == "WOR":
+            api_response = api_instance.view_works(user.orcid)
         else:
             api_response = api_instance.view_peer_reviews(user.orcid)
     except ApiException as ex:
@@ -1915,6 +1917,18 @@ def section(user_id, section_type="EMP"):
                     records.append(ps)
         return render_template(
             "peer_review_section.html",
+            url=_url,
+            records=records,
+            section_type=section_type,
+            user_id=user_id,
+            org_client_id=user.organisation.orcid_client_id)
+    elif section_type == 'WOR':
+        if data and data.get("group"):
+            for k in data.get("group"):
+                for ps in k.get("work-summary"):
+                    records.append(ps)
+        return render_template(
+            "work_section.html",
             url=_url,
             records=records,
             section_type=section_type,
