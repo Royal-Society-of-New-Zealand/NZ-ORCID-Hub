@@ -862,15 +862,9 @@ class MemberAPI(MemberAPIV20Api):
         elif org_name == self.org.name:
             disambiguation_source = self.org.disambiguation_source
 
-        if not disambiguated_id and org_name == self.org.name:
-            disambiguated_id = self.org.disambiguated_id
-
-        if disambiguated_id and disambiguation_source:
-            disambiguated_organization_details = DisambiguatedOrganization(
-                disambiguated_organization_identifier=disambiguated_id,
-                disambiguation_source=disambiguation_source)
-        else:
-            disambiguated_organization_details = None
+        disambiguated_organization_details = DisambiguatedOrganization(
+            disambiguated_organization_identifier=disambiguated_id or self.org.disambiguated_id,
+            disambiguation_source=disambiguation_source) if disambiguation_source else None
 
         if affiliation == Affiliation.EMP:
             rec = Employment()
