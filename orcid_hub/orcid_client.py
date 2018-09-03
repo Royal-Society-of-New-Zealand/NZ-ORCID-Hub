@@ -99,6 +99,15 @@ class MemberAPI(MemberAPIV20Api):
             org = user.organisation
         self.org = org
         self.user = user
+
+        url = urlparse(ORCID_BASE_URL)
+        self.source_clientid = SourceClientId(
+            host=url.hostname,
+            path=org.orcid_client_id,
+            uri="http://" + url.hostname + "/client/" + org.orcid_client_id)
+        self.source = Source(
+            source_orcid=None, source_client_id=self.source_clientid, source_name=org.name)
+
         if access_token is None:
             try:
                 orcid_token = OrcidToken.get(
@@ -106,21 +115,13 @@ class MemberAPI(MemberAPIV20Api):
                     org_id=org.id,
                     scope=SCOPE_READ_LIMITED[0] + "," + SCOPE_ACTIVITIES_UPDATE[0])
             except Exception:
+                configuration.access_token = None
                 app.logger.exception("Exception occured while retriving ORCID Token")
                 return None
 
             configuration.access_token = orcid_token.access_token
         else:
             configuration.access_token = access_token
-
-        url = urlparse(ORCID_BASE_URL)
-        self.source_clientid = SourceClientId(
-            host=url.hostname,
-            path=org.orcid_client_id,
-            uri="http://" + url.hostname + "/client/" + org.orcid_client_id)
-
-        self.source = Source(
-            source_orcid=None, source_client_id=self.source_clientid, source_name=org.name)
 
     def get_record(self):
         """Fetch record details. (The generated one is broken)."""
@@ -856,8 +857,10 @@ class MemberAPI(MemberAPIV20Api):
             country=country or self.org.country,
             region=state or region or self.org.state)
 
-        disambiguation_source = (lambda source: source.upper() if source else source)(
-            disambiguation_source or self.org.disambiguation_source)
+        if disambiguation_source:
+            disambiguation_source = disambiguation_source.upper()
+        elif org_name == self.org.name:
+            disambiguation_source = self.org.disambiguation_source
 
         disambiguated_organization_details = DisambiguatedOrganization(
             disambiguated_organization_identifier=disambiguated_id or self.org.disambiguated_id,
