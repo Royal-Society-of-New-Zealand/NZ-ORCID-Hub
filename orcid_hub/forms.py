@@ -307,6 +307,30 @@ class PeerReviewForm(FlaskForm):
     review_completion_date = PartialDateField("Review Completion date", validators=[validators.required()])
 
 
+class WorkForm(FlaskForm):
+    """User/researcher Work detail form."""
+
+    work_type_choices = [(v, v) for v in ['JOURNAL_ARTICLE', 'REVIEWER', 'ORGANIZER', 'EDITOR', 'CHAIR', '']]
+    work_type_choices.sort(key=lambda e: e[1])
+
+    citation_type_choices = [(v, v) for v in ['FORMATTED_CHICAGO', 'REVIEWER', 'ORGANIZER', 'EDITOR', 'CHAIR', '']]
+    citation_type_choices.sort(key=lambda e: e[1])
+
+    work_type = SelectField(choices=work_type_choices, description="Work Type", validators=[validators.required()])
+    title = StringField("Title")
+    subtitle = StringField("Subtitle")
+    translated_title = StringField("Translated Title")
+    translated_title_language_code = LanguageSelectField("Language")
+    journal_title = StringField("Work Type Title")
+    short_description = StringField("Short Description")
+    citation_type = SelectField(choices=citation_type_choices, description="Citation Type")
+    citation = StringField("Citation Value")
+    publication_date = PartialDateField("Publication date")
+    url = StringField("Url")
+    language_code = LanguageSelectField("Language used in this form")
+    country = CountrySelectField("Country of publication", [validators.required()])
+
+
 class GroupIdForm(FlaskForm):
     """GroupID record form."""
 

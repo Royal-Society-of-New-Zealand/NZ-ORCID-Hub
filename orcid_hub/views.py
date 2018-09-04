@@ -36,7 +36,7 @@ from orcid_api.rest import ApiException
 from . import admin, app, limiter, models, orcid_client, rq, utils
 from .forms import (ApplicationFrom, BitmapMultipleValueField, CredentialForm, EmailTemplateForm,
                     FileUploadForm, FundingForm, GroupIdForm, LogoForm, OrgRegistrationForm, PartialDateField,
-                    PeerReviewForm, RecordForm, UserInvitationForm, WebhookForm)
+                    PeerReviewForm, RecordForm, UserInvitationForm, WebhookForm, WorkForm)
 from .login_provider import roles_required
 from .models import (Affiliation, AffiliationRecord, CharField, Client, File, FundingInvitees,
                      FundingRecord, Grant, GroupIdRecord, ModelException, OrcidApiCall, OrcidToken,
@@ -1634,6 +1634,8 @@ def edit_record(user_id, section_type, put_code=None):
         form = FundingForm(form_type=section_type)
     elif section_type == "PRR":
         form = PeerReviewForm(form_type=section_type)
+    elif section_type == "WOR":
+        form = WorkForm(form_type=section_type)
     else:
         form = RecordForm(form_type=section_type)
 
@@ -1649,13 +1651,19 @@ def edit_record(user_id, section_type, put_code=None):
                     api_response = api.view_education(user.orcid, put_code)
                 elif section_type == "FUN":
                     api_response = api.view_funding(user.orcid, put_code)
+                elif section_type == "WOR":
+                    api_response = api.view_work(user.orcid, put_code)
                 elif section_type == "PRR":
                     api_response = api.view_peer_review(user.orcid, put_code)
 
                 _data = api_response.to_dict()
 
-                if section_type == "PRR":
-                    external_ids_list = get_val(_data, "review_identifiers", "external-id")
+                if section_type == "PRR" or section_type == "WOR":
+
+                    if section_type == "PRR":
+                        external_ids_list = get_val(_data, "review_identifiers", "external-id")
+                    else:
+                        external_ids_list = get_val(_data, "external_ids", "external-id")
 
                     for extid in external_ids_list:
                         external_id_value = extid['external-id-value'] if extid['external-id-value'] else ''
@@ -1669,38 +1677,55 @@ def edit_record(user_id, section_type, put_code=None):
                         grant_data_list.append(dict(grant_number=external_id_value, grant_url=external_id_url,
                                                     grant_relationship=external_id_relationship,
                                                     grant_type=external_id_type))
-                    data = dict(
-                        org_name=get_val(_data, "convening_organization", "name"),
-                        disambiguated_id=get_val(
-                            _data, "convening_organization", "disambiguated-organization",
-                            "disambiguated-organization-identifier"),
-                        disambiguation_source=get_val(
-                            _data, "convening_organization", "disambiguated-organization",
-                            "disambiguation-source"),
-                        city=get_val(_data, "convening_organization", "address", "city"),
-                        state=get_val(_data, "convening_organization", "address", "region"),
-                        country=get_val(_data, "convening_organization", "address", "country"),
-                        reviewer_role=_data.get("reviewer_role", ""),
-                        review_url=get_val(_data, "review_url", "value"),
-                        review_type=_data.get("review_type", ""),
-                        review_group_id=_data.get("review_group_id", ""),
-                        subject_external_identifier_type=get_val(_data, "subject_external_identifier",
-                                                                 "external-id-type"),
-                        subject_external_identifier_value=get_val(_data, "subject_external_identifier",
-                                                                  "external-id-value"),
-                        subject_external_identifier_url=get_val(_data, "subject_external_identifier", "external-id-url",
-                                                                "value"),
-                        subject_external_identifier_relationship=get_val(_data, "subject_external_identifier",
-                                                                         "external-id-relationship"),
-                        subject_container_name=get_val(_data, "subject_container_name", "value"),
-                        subject_type=_data.get("subject_type", ""),
-                        subject_title=get_val(_data, "subject_name", "title", "value"),
-                        subject_subtitle=get_val(_data, "subject_name", "subtitle"),
-                        subject_translated_title=get_val(_data, "subject_name", "translated-title", "value"),
-                        subject_translated_title_language_code=get_val(_data, "subject_name", "translated-title",
-                                                                       "language-code"),
-                        subject_url=get_val(_data, "subject_url", "value"),
-                        review_completion_date=PartialDate.create(_data.get("review_completion_date")))
+
+                    if section_type == "WOR":
+                        data = dict(work_type=get_val(_data, "type"),
+                                    title=get_val(_data, "title", "title", "value"),
+                                    subtitle=get_val(_data, "title", "subtitle", "value"),
+                                    translated_title=get_val(_data, "title", "translated-title", "value"),
+                                    translated_title_language_code=get_val(_data, "title", "translated-title",
+                                                                           "language-code"),
+                                    journal_title=get_val(_data, "journal_title", "value"),
+                                    short_description=get_val(_data, "short_description"),
+                                    citation_type=get_val(_data, "citation", "citation_type"),
+                                    citation=get_val(_data, "citation", "citation_value"),
+                                    url=get_val(_data, "url", "value"),
+                                    language_code=get_val(_data, "language_code"),
+                                    country=get_val(_data, "country", "value"))
+                    else:
+                        data = dict(
+                            org_name=get_val(_data, "convening_organization", "name"),
+                            disambiguated_id=get_val(
+                                _data, "convening_organization", "disambiguated-organization",
+                                "disambiguated-organization-identifier"),
+                            disambiguation_source=get_val(
+                                _data, "convening_organization", "disambiguated-organization",
+                                "disambiguation-source"),
+                            city=get_val(_data, "convening_organization", "address", "city"),
+                            state=get_val(_data, "convening_organization", "address", "region"),
+                            country=get_val(_data, "convening_organization", "address", "country"),
+                            reviewer_role=_data.get("reviewer_role", ""),
+                            review_url=get_val(_data, "review_url", "value"),
+                            review_type=_data.get("review_type", ""),
+                            review_group_id=_data.get("review_group_id", ""),
+                            subject_external_identifier_type=get_val(_data, "subject_external_identifier",
+                                                                     "external-id-type"),
+                            subject_external_identifier_value=get_val(_data, "subject_external_identifier",
+                                                                      "external-id-value"),
+                            subject_external_identifier_url=get_val(_data, "subject_external_identifier",
+                                                                    "external-id-url",
+                                                                    "value"),
+                            subject_external_identifier_relationship=get_val(_data, "subject_external_identifier",
+                                                                             "external-id-relationship"),
+                            subject_container_name=get_val(_data, "subject_container_name", "value"),
+                            subject_type=_data.get("subject_type", ""),
+                            subject_title=get_val(_data, "subject_name", "title", "value"),
+                            subject_subtitle=get_val(_data, "subject_name", "subtitle"),
+                            subject_translated_title=get_val(_data, "subject_name", "translated-title", "value"),
+                            subject_translated_title_language_code=get_val(_data, "subject_name", "translated-title",
+                                                                           "language-code"),
+                            subject_url=get_val(_data, "subject_url", "value"),
+                            review_completion_date=PartialDate.create(_data.get("review_completion_date")))
 
                 else:
                     data = dict(

@@ -44,29 +44,45 @@
 </div>
     <div class="row" ng-app="MyApp" ng-controller="MyController">
       <div class="col-md-6 col-sm-6 col-xs-12">
-        {{ render_field(form.org_name) }}
-        {{ render_field(form.city) }}
-        {{ render_field(form.state) }}
+        {% if section_type == "WOR" %}
+          {{ render_field(form.work_type) }}
+          {{ render_field(form.title) }}
+          {{ render_field(form.subtitle) }}
+          {{ render_field(form.translated_title) }}
+          {{ render_field(form.translated_title_language_code) }}
+        {% else %}
+          {{ render_field(form.org_name) }}
+          {{ render_field(form.city) }}
+          {{ render_field(form.state) }}
+          {{ render_field(form.disambiguated_id) }}
+        {% endif %}
         {{ render_field(form.country) }}
-        {{ render_field(form.disambiguated_id) }}
-        {% if section_type == "FUN" or section_type == "PRR"%}
+        {% if section_type == "FUN" or section_type == "PRR" or section_type == "WOR"%}
         <input type="button" class="btn btn-danger" ng-click="Add()"
                value="External Identifier Info (Atleast add one info)"/><br>
         <div ng-repeat="m in externalids">
-          <strong>{{"External ID Type" if section_type == "PRR" else "Funding Grant Type"}}</strong><br>
+          <strong>{{"External ID Type" if section_type != "FUN" else "Funding Grant Type"}}</strong><br>
           <input type="text" class="form-control" name="grant_type" value="{a m.grant_type a}"/><br>
-          <strong>{{"External ID" if section_type == "PRR" else "Funding Grant Number"}}</strong><br>
+          <strong>{{"External ID" if section_type != "FUN" else "Funding Grant Number"}}</strong><br>
           <input type="text" class="form-control" name="grant_number" value="{a m.grant_number a}"/><br>
-          <strong>{{"External ID Url" if section_type == "PRR" else "Funding Grant Url"}}</strong><br>
+          <strong>{{"External ID Url" if section_type != "FUN" else "Funding Grant Url"}}</strong><br>
           <input type="text" class="form-control" name="grant_url" value="{a m.grant_url a}"/><br>
-          <strong>{{"External ID Relationship" if section_type == "PRR" else "Funding Grant Relationship"}}</strong><br>
+          <strong>{{"External ID Relationship" if section_type != "FUN" else "Funding Grant Relationship"}}</strong><br>
           <input type="text" class="form-control" name="grant_relationship" value="{a m.grant_relationship a}"/><br>
           <input type="button" class="btn btn-danger" ng-click="Remove($index)" value="Remove"/><br>
         </div>
         {% endif %}
       </div>
       <div class="col-md-6 col-sm-6 col-xs-12">
-        {% if section_type == "PRR" %}
+        {% if section_type == "WOR" %}
+          {{ render_field(form.journal_title) }}
+          {{ render_field(form.short_description) }}
+          {{ render_field(form.citation_type) }}
+          {{ render_field(form.citation) }}
+          {{ render_field(form.publication_date) }}
+          {{ render_field(form.url) }}
+          {{ render_field(form.language_code) }}
+        {% elif section_type == "PRR" %}
           {{ render_field(form.reviewer_role) }}
           {{ render_field(form.review_url) }}
           {{ render_field(form.review_type) }}
@@ -83,6 +99,7 @@
           {{ render_field(form.subject_translated_title_language_code) }}
           {{ render_field(form.subject_url) }}
           {{ render_field(form.review_completion_date) }}
+          {{ render_field(form.disambiguation_source) }}
         {% else %}
           {% if section_type == "FUN" %}
             {{ render_field(form.funding_title) }}
@@ -99,8 +116,8 @@
           {% endif %}
           {{ render_field(form.start_date) }}
           {{ render_field(form.end_date) }}
+          {{ render_field(form.disambiguation_source) }}
         {% endif %}
-        {{ render_field(form.disambiguation_source) }}
         <button type="submit" class="btn btn-primary" value="Save">Save</button>
         <a role="button" class="btn btn-default" href="{{_url}}">Cancel</a>
       </div>
