@@ -310,25 +310,35 @@ class PeerReviewForm(FlaskForm):
 class WorkForm(FlaskForm):
     """User/researcher Work detail form."""
 
-    work_type_choices = [(v, v) for v in ['JOURNAL_ARTICLE', 'REVIEWER', 'ORGANIZER', 'EDITOR', 'CHAIR', '']]
+    work_type_choices = [(v, v) for v in
+                         ['MANUAL', 'CONFERENCE_PAPER', 'RESEARCH_TECHNIQUE', 'SUPERVISED_STUDENT_PUBLICATION',
+                          'INVENTION', 'NEWSLETTER_ARTICLE', 'TRANSLATION', 'TEST', 'DISSERTATION', 'BOOK_CHAPTER',
+                          'LICENSE', 'STANDARDS_AND_POLICY', 'CONFERENCE_ABSTRACT', 'PATENT', 'DICTIONARY_ENTRY',
+                          'REGISTERED_COPYRIGHT', 'MAGAZINE_ARTICLE', 'DISCLOSURE, BOOK_REVIEW',
+                          'UNDEFINED, ARTISTIC_PERFORMANCE', 'ENCYCLOPEDIA_ENTRY', 'REPORT', 'ONLINE_RESOURCE',
+                          'WEBSITE', 'RESEARCH_TOOL', 'WORKING_PAPER', 'EDITED_BOOK', 'TRADEMARK', 'LECTURE_SPEECH',
+                          'BOOK', 'DATA_SET', 'JOURNAL_ARTICLE', 'SPIN_OFF_COMPANY', 'TECHNICAL_STANDARD',
+                          'CONFERENCE_POSTER', 'JOURNAL_ISSUE', 'NEWSPAPER_ARTICLE', 'OTHER', '']]
     work_type_choices.sort(key=lambda e: e[1])
 
-    citation_type_choices = [(v, v) for v in ['FORMATTED_CHICAGO', 'REVIEWER', 'ORGANIZER', 'EDITOR', 'CHAIR', '']]
+    citation_type_choices = [(v, v) for v in
+                             ['FORMATTED_HARVARD', 'FORMATTED_UNSPECIFIED', 'FORMATTED_CHICAGO', 'FORMATTED_VANCOUVER',
+                              'RIS', 'FORMATTED_IEEE, BIBTEX', 'FORMATTED_MLA', 'FORMATTED_APA', '']]
     citation_type_choices.sort(key=lambda e: e[1])
 
     work_type = SelectField(choices=work_type_choices, description="Work Type", validators=[validators.required()])
-    title = StringField("Title")
+    title = StringField("Title", [validators.required()])
     subtitle = StringField("Subtitle")
     translated_title = StringField("Translated Title")
     translated_title_language_code = LanguageSelectField("Language")
     journal_title = StringField("Work Type Title")
-    short_description = StringField("Short Description")
+    short_description = TextAreaField(description="Short Description")
     citation_type = SelectField(choices=citation_type_choices, description="Citation Type")
     citation = StringField("Citation Value")
     publication_date = PartialDateField("Publication date")
     url = StringField("Url")
     language_code = LanguageSelectField("Language used in this form")
-    country = CountrySelectField("Country of publication", [validators.required()])
+    country = CountrySelectField("Country of publication")
 
 
 class GroupIdForm(FlaskForm):

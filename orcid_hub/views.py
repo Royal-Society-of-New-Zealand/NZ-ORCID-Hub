@@ -1553,7 +1553,7 @@ def reset_all():
 @app.route("/section/<int:user_id>/<string:section_type>/<int:put_code>/delete", methods=["POST"])
 @roles_required(Role.ADMIN)
 def delete_record(user_id, section_type, put_code):
-    """Delete an employment, education peer review or funding record."""
+    """Delete an employment, education, peer review, works or funding record."""
     _url = request.args.get("url") or request.referrer or url_for(
         "section", user_id=user_id, section_type=section_type)
     try:
@@ -1586,6 +1586,8 @@ def delete_record(user_id, section_type, put_code):
             api_instance.delete_funding(user.orcid, put_code)
         elif section_type == "PRR":
             api_instance.delete_peer_review(user.orcid, put_code)
+        elif section_type == "WOR":
+            api_instance.delete_work(user.orcid, put_code)
         else:
             api_instance.delete_education(user.orcid, put_code)
         app.logger.info(f"For {user.orcid} '{section_type}' record was deleted by {current_user}")
@@ -1691,6 +1693,10 @@ def edit_record(user_id, section_type, put_code=None):
                                     citation=get_val(_data, "citation", "citation_value"),
                                     url=get_val(_data, "url", "value"),
                                     language_code=get_val(_data, "language_code"),
+                                    # Removing key 'media-type' from the publication_date dict.
+                                    publication_date=PartialDate.create(
+                                        {date_key: _data.get("publication_date")[date_key] for date_key in
+                                         ('day', 'month', 'year')}) if _data.get("publication_date") else None,
                                     country=get_val(_data, "country", "value"))
                     else:
                         data = dict(
@@ -1789,7 +1795,7 @@ def edit_record(user_id, section_type, put_code=None):
 
     if form.validate_on_submit():
         try:
-            if section_type == "FUN" or section_type == "PRR":
+            if section_type == "FUN" or section_type == "PRR" or section_type == "WOR":
                 grant_type = request.form.getlist('grant_type')
                 grant_number = request.form.getlist('grant_number')
                 grant_url = request.form.getlist('grant_url')
@@ -1802,6 +1808,12 @@ def edit_record(user_id, section_type, put_code=None):
 
                 if section_type == "FUN":
                     put_code, orcid, created = api.create_or_update_individual_funding(
+                        put_code=put_code,
+                        grant_data_list=grant_data_list,
+                        **{f.name: f.data
+                           for f in form})
+                elif section_type == "WOR":
+                    put_code, orcid, created = api.create_or_update_individual_work(
                         put_code=put_code,
                         grant_data_list=grant_data_list,
                         **{f.name: f.data
