@@ -357,6 +357,16 @@ def test_show_record_section(request_ctx):
         assert admin.name.encode() in resp.data
         view_peer_reviews.assert_called_once_with("XXXX-XXXX-XXXX-0001")
     with patch.object(
+        orcid_client.MemberAPIV20Api,
+        "view_works",
+        MagicMock(return_value=make_fake_response('{"test": "TEST1234567890"}'))
+    ) as view_works, request_ctx(f"/section/{user.id}/WOR/list") as ctx:
+        login_user(admin)
+        resp = ctx.app.full_dispatch_request()
+        assert admin.email.encode() in resp.data
+        assert admin.name.encode() in resp.data
+        view_works.assert_called_once_with("XXXX-XXXX-XXXX-0001")
+    with patch.object(
             orcid_client.MemberAPIV20Api,
             "view_fundings",
             MagicMock(return_value=make_fake_response('{"test": "TEST1234567890"}'))
@@ -1669,6 +1679,18 @@ def test_edit_record(request_ctx):
         assert admin.name.encode() in resp.data
         view_peer_review.assert_called_once_with("XXXX-XXXX-XXXX-0001", 1234)
     with patch.object(
+        orcid_client.MemberAPIV20Api,
+        "view_work",
+        MagicMock(return_value=make_fake_response('{"test":123}', dict={"external_ids": {"external-id": [
+            {"external-id-type": "test", "external-id-value": "test", "external-id-url": {"value": "test"},
+             "external-id-relationship": "SELF"}]}}))
+    ) as view_work, request_ctx(f"/section/{user.id}/WOR/1234/edit") as ctx:
+        login_user(admin)
+        resp = ctx.app.full_dispatch_request()
+        assert admin.email.encode() in resp.data
+        assert admin.name.encode() in resp.data
+        view_work.assert_called_once_with("XXXX-XXXX-XXXX-0001", 1234)
+    with patch.object(
             orcid_client.MemberAPIV20Api, "create_education",
             MagicMock(return_value=fake_response)), request_ctx(
                 f"/section/{user.id}/EDU/new",
@@ -1741,6 +1763,34 @@ def test_edit_record(request_ctx):
         resp = ctx.app.full_dispatch_request()
         assert resp.status_code == 302
         assert resp.location == f"/section/{user.id}/PRR/list"
+    with patch.object(
+            orcid_client.MemberAPIV20Api, "create_work",
+            MagicMock(return_value=fake_response)), request_ctx(
+                f"/section/{user.id}/WOR/new",
+                method="POST",
+                data={
+                    "translated_title": "Auckland",
+                    "country": "NZ",
+                    "subtitle": "TEST",
+                    "title": "test",
+                    "work_type": "MANUAL",
+                    "publication_date": PartialDate.create("2003-07-14"),
+                    "translated_title_language_code": "en",
+                    "journal_title": "test",
+                    "short_description": "OTHER",
+                    "citation_type": "FORMATTED_UNSPECIFIED",
+                    "citation": "test",
+                    "grant_number": "TEST123",
+                    "grant_relationship": "SELF",
+                    "grant_type": "https://test.com",
+                    "grant_url": "https://test.com",
+                    "url": "test",
+                    "language_code": "en"
+                }) as ctx:
+        login_user(admin)
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 302
+        assert resp.location == f"/section/{user.id}/WOR/list"
 
 
 def test_delete_employment(request_ctx, app):
@@ -1829,6 +1879,15 @@ def test_delete_employment(request_ctx, app):
         resp = ctx.app.full_dispatch_request()
         assert resp.status_code == 302
         delete_peer_review.assert_called_once_with("XXXX-XXXX-XXXX-0001", 54321)
+    with patch.object(
+        orcid_client.MemberAPIV20Api,
+        "delete_work",
+            MagicMock(return_value='{"test": "TEST1234567890"}')) as delete_work, request_ctx(
+                f"/section/{user.id}/WOR/54321/delete", method="POST") as ctx:
+        login_user(admin)
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 302
+        delete_work.assert_called_once_with("XXXX-XXXX-XXXX-0001", 54321)
 
 
 def test_viewmembers(client):
