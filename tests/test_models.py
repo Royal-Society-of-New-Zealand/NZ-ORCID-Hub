@@ -5,12 +5,13 @@ import pytest
 from peewee import Model, SqliteDatabase
 from playhouse.test_utils import test_database
 
-from orcid_hub.models import (
-    Affiliation, AffiliationRecord, BaseModel, BooleanField, ExternalId, File, FundingContributor,
-    FundingRecord, FundingInvitees, ModelException, OrcidToken, Organisation, OrgInfo, PartialDate,
-    PartialDateField, Role, Task, TextField, User, UserInvitation, UserOrg, UserOrgAffiliation,
-    WorkRecord, WorkContributor, WorkExternalId, WorkInvitees, PeerReviewRecord, PeerReviewInvitee,
-    PeerReviewExternalId, create_tables, drop_tables, validate_orcid_id)
+from orcid_hub.models import (Affiliation, AffiliationRecord, BaseModel, BooleanField, ExternalId,
+                              File, FundingContributor, FundingRecord, FundingInvitees,
+                              ModelException, OrcidToken, Organisation, OrgInfo, PartialDate,
+                              PartialDateField, Role, Task, Log, TextField, User, UserInvitation,
+                              UserOrg, UserOrgAffiliation, WorkRecord, WorkContributor,
+                              WorkExternalId, WorkInvitees, PeerReviewRecord, PeerReviewInvitee,
+                              PeerReviewExternalId, create_tables, drop_tables, validate_orcid_id)
 
 
 @pytest.fixture

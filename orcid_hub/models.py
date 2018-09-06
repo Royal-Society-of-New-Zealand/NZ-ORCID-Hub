@@ -2142,6 +2142,7 @@ def create_tables():
             OrcidApiCall,
             OrcidAuthorizeCall,
             Task,
+            Log,
             AffiliationRecord,
             GroupIdRecord,
             OrgInvitation,

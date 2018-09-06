@@ -1247,7 +1247,8 @@ def test_affiliation_tasks(client):
     org = Organisation.get(name="TEST0")
     user = User.get(email="admin@test0.edu")
 
-    client.login(user)
+    resp = client.login(user, follow_redirects=True)
+    assert b"log in" not in resp.data
     resp = client.post(
         "/load/researcher",
         data={
@@ -1801,7 +1802,9 @@ def test_viewmembers_delete(mockpost, client):
     researcher1 = User.get(email="researcher100@test1.edu")
 
     # admin0 cannot deleted researcher1:
-    client.login(admin0)
+    resp = client.login(admin0, follow_redirects=True)
+    assert b"log in" not in resp.data
+
     resp = client.post(
         "/admin/viewmembers/delete/",
         data={
