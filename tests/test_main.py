@@ -19,14 +19,14 @@ from orcid_hub.models import (Affiliation, OrcidAuthorizeCall, OrcidToken, Organ
 
 def test_index(client, monkeypatch):
     """Test the landing page."""
-    with monkeypatch.context() as m:
-        m.setattr(authcontroller, "EXTERNAL_SP", "https://some.externar.sp/SP")
-        resp = client.get("/")
-        assert resp.status_code == 200
-        assert b"https://some.externar.sp/SP" in resp.data
-        assert b"<!DOCTYPE html>" in resp.data
-        assert b"Royal Society of New Zealand" in resp.data, \
-            "'Royal Society of New Zealand' should be present on the index page."
+    client.application.config["EXTERNAL_SP"] = "https://some.externar.sp/SP"
+    resp = client.get("/")
+    assert resp.status_code == 200
+    assert b"https://some.externar.sp/SP" in resp.data
+    assert b"<!DOCTYPE html>" in resp.data
+    assert b"Royal Society of New Zealand" in resp.data, \
+        "'Royal Society of New Zealand' should be present on the index page."
+    client.application.config["EXTERNAL_SP"] = None
 
 
 def get_response(request_ctx):
