@@ -734,7 +734,7 @@ def unique_everseen(iterable, key=None):
 def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
     """Create or update affiliation record of a user.
 
-    1. Retries user edurcation and employment surramy from ORCID;
+    1. Retries user edurcation and employment summamy from ORCID;
     2. Match the recodrs with the summary;
     3. If there is match update the record;
     4. If no match create a new one.
@@ -791,11 +791,12 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
                 if put_code in taken_put_codes:
                     continue
 
-                if ((r.get("start-date") is None and r.get("end-date") is None
-                     and r.get("department-name") is None and r.get("role-title") is None)
-                        or (r.get("start-date") == start_date
-                            and r.get("department-name") == affiliation_record.department
-                            and r.get("role-title") == affiliation_record.role)):
+                if (((r.get("start-date") is None and r.get("end-date") is None
+                      and r.get("department-name") is None and r.get("role-title") is None) or
+                     (r.get("start-date") == start_date
+                      and r.get("department-name") == affiliation_record.department
+                      and r.get("role-title") == affiliation_record.role))
+                        and affiliation_record.organisation == r.get("organization", "name")):
                     affiliation_record.put_code = put_code
                     taken_put_codes.add(put_code)
                     app.logger.debug(
