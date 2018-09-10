@@ -2782,6 +2782,55 @@ def org_webhook():
     return render_template("form.html", form=form, title="Organisation Webhook")
 
 
+@app.route("/remove/orcid/linkage", methods=["POST"])
+@login_required
+def remove_linkage():
+    """Delete an ORCID Token and ORCiD iD."""
+    _url = request.args.get("url") or request.referrer or url_for("link")
+    org = current_user.organisation
+    token_revoke_url = app.config["ORCID_BASE_URL"] + "oauth/revoke"
+
+    if UserOrg.select().where(
+                (UserOrg.user_id == current_user.id) & (UserOrg.org_id == org.id) & UserOrg.is_admin).exists():
+        flash(f"Failed to remove linkage for {current_user}, As User appears to be one of the admins. "
+              f"Please contact orcid@royalsociety.org.nz for support", "danger")
+        redirect(_url)
+
+    for token in OrcidToken.select().where(OrcidToken.org_id == org.id, OrcidToken.user_id == current_user.id):
+        try:
+            resp = requests.post(
+                token_revoke_url,
+                headers={"Accepts": "application/json"},
+                data=dict(
+                    client_id=org.orcid_client_id,
+                    client_secret=org.orcid_secret,
+                    token=token.access_token))
+
+            if resp.status_code != 200:
+                flash("Failed to revoke token {token.access_token}: {ex}", "error")
+                redirect(_url)
+
+            token.delete_instance()
+
+        except Exception as ex:
+            flash(f"Failed to revoke token {token.access_token}: {ex}", "error")
+            app.logger.exception('Failed to delete record.')
+            redirect(_url)
+    # Check if the User is Admin for other organisation or has given permissions to other organisations.
+    if UserOrg.select().where(
+            (UserOrg.user_id == current_user.id) & UserOrg.is_admin).exists() or OrcidToken.select().where(
+            OrcidToken.user_id == current_user.id).exists():
+        flash(
+            f"We have removed the Access token related to {org},However did not removed the stored ORCiD ID as "
+            f"{current_user} is either an admin or has given permission to other organisation.",
+            "warning")
+    else:
+        current_user.orcid = None
+        current_user.save()
+        flash(f"We have removed the Access token and storied ORCiD ID for {current_user}.", "success")
+    return redirect(_url)
+
+
 class ScheduerView(BaseModelView):
     """Simle Flask-RQ2 scheduled task viewer."""
 
