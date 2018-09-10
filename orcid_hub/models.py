@@ -48,9 +48,9 @@ AFFILIATION_TYPES = (
 )
 
 try:
-    from enum import IntFlag
+    from enum import IntFlag, IntEnum
 except ImportError:  # pragma: no cover
-    from enum import IntEnum as IntFlag
+    from enum import IntEnum as IntFlag, IntEnum
 
 
 class ModelException(Exception):
@@ -378,6 +378,9 @@ class File(BaseModel):
     mimetype = CharField(max_length=30, db_column="mime_type")
     token = FixedCharField(max_length=8, unique=True, default=lambda: secrets.token_urlsafe(8)[:8])
 
+    class Meta:  # noqa: D101,D106
+        table_alias = "f"
+
 
 class Organisation(BaseModel, AuditMixin):
     """Research oranisation."""
@@ -473,6 +476,9 @@ class Organisation(BaseModel, AuditMixin):
                     app.logger.info(f"Added TECHNICAL role to user {self.tech_contact}")
 
         super().save(*args, **kwargs)
+
+    class Meta:  # noqa: D101,D106
+        table_alias = "o"
 
 
 class OrgInfo(BaseModel):
@@ -757,6 +763,7 @@ class OrgInvitation(BaseModel, AuditMixin):
 
     class Meta:  # noqa: D101,D106
         db_table = "org_invitation"
+        table_alias = "oi"
 
 
 class UserOrg(BaseModel, AuditMixin):
@@ -835,6 +842,10 @@ class OrcidToken(BaseModel, AuditMixin):
         else:
             self.scope = ','.join(value)
 
+    class Meta:  # noqa: D101,D106
+        db_table = "orcid_token"
+        table_alias = "ot"
+
 
 class UserOrgAffiliation(BaseModel, AuditMixin):
     """For Keeping the information about the affiliation."""
@@ -875,6 +886,7 @@ class OrcidApiCall(BaseModel):
 
     class Meta:  # noqa: D101,D106
         db_table = "orcid_api_call"
+        table_alias = "oac"
 
 
 class OrcidAuthorizeCall(BaseModel):
@@ -890,6 +902,7 @@ class OrcidAuthorizeCall(BaseModel):
 
     class Meta:  # noqa: D101,D106
         db_table = "orcid_authorize_call"
+        table_alias = "oac"
 
 
 class Task(BaseModel, AuditMixin):
@@ -1097,6 +1110,26 @@ class Task(BaseModel, AuditMixin):
         table_alias = "t"
 
 
+class Log(BaseModel):
+    """Task log entries."""
+
+    created_at = DateTimeField(default=datetime.utcnow)
+    created_by = ForeignKeyField(
+        User, on_delete="SET NULL", null=True, related_name="created_task_log_entries")
+    task = ForeignKeyField(Task, on_delete="CASCADE", null=True, index=True, verbose_name="Task")
+    message = TextField(null=True)
+
+    class Meta:  # noqa: D101,D106
+        table_alias = "l"
+
+    def save(self, *args, **kwargs):  # noqa: D102
+        if self.is_dirty():
+            if current_user and hasattr(current_user, "id"):
+                if hasattr(self, "created_by"):
+                    self.created_by_id = current_user.id
+        return super().save(*args, **kwargs)
+
+
 class UserInvitation(BaseModel, AuditMixin):
     """Organisation invitation to on-board the Hub."""
 
@@ -1223,13 +1256,14 @@ class AffiliationRecord(RecordModel):
         table_alias = "ar"
 
 
-class TaskType(IntFlag):
+class TaskType(IntEnum):
     """Enum used to represent Task type."""
 
     AFFILIATION = 0  # Affilation of employment/education
     FUNDING = 1  # Funding
     WORK = 2
     PEER_REVIEW = 3
+    VERIFICATION = 11
 
     def __eq__(self, other):
         if isinstance(other, TaskType):
@@ -2108,6 +2142,7 @@ def create_tables():
             OrcidApiCall,
             OrcidAuthorizeCall,
             Task,
+            Log,
             AffiliationRecord,
             GroupIdRecord,
             OrgInvitation,

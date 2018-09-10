@@ -694,9 +694,14 @@ def test_create_or_update_peer_review(email_patch, patch, test_db, request_ctx):
     assert "12344" == peer_review_invitees.orcid
 
 
-@patch("orcid_api.MemberAPIV20Api.update_employment", side_effect=create_or_update_aff_mock)
-@patch("orcid_hub.orcid_client.MemberAPI.get_record", side_effect=get_record_mock)
-def test_create_or_update_affiliation(patch, test_db, request_ctx):
+@patch(
+    "orcid_api.MemberAPIV20Api.update_employment",
+    return_value=Mock(status=201, headers={'Location': '12344/XYZ/12399'}))
+@patch(
+    "orcid_api.MemberAPIV20Api.create_employment",
+    return_value=Mock(status=201, headers={'Location': '12344/XYZ/12399'}))
+@patch("orcid_hub.utils.send_email")
+def test_create_or_update_affiliation(send_email, update_employment, create_employment, app):
     """Test create or update affiliation."""
     org = Organisation.create(
         name="THE ORGANISATION",
@@ -717,8 +722,25 @@ def test_create_or_update_affiliation(patch, test_db, request_ctx):
         confirmed=True,
         organisation=org)
     UserOrg.create(user=u, org=org)
-
     t = Task.create(org=org, filename="xyz.json", created_by=u, updated_by=u, task_type=0)
+    OrcidToken.create(
+        user=u, org=org, scope="/read-limited,/activities/update", access_token="Test_token")
+    UserInvitation.create(
+        invitee=u,
+        inviter=u,
+        org=org,
+        task=t,
+        email="test1234456@mailinator.com",
+        token="xyztoken")
+
+    u = User.create(
+        email="test1234456_2@mailinator.com",
+        name="TEST USER 2",
+        username="test123-2",
+        roles=Role.RESEARCHER,
+        confirmed=True,
+        organisation=org)
+    UserOrg.create(user=u, org=org)
 
     AffiliationRecord.create(
         is_active=True,
@@ -737,51 +759,79 @@ def test_create_or_update_affiliation(patch, test_db, request_ctx):
         country="Test",
         disambiguated_id="Test",
         disambiguation_source="Test")
-
-    UserInvitation.create(
-        invitee=u,
-        inviter=u,
-        org=org,
+    AffiliationRecord.create(
+        is_active=True,
         task=t,
+        external_id="Test",
+        first_name="Test",
+        last_name="Test",
         email="test1234456@mailinator.com",
-        token="xyztoken")
-
-    OrcidToken.create(
-        user=u, org=org, scope="/read-limited,/activities/update", access_token="Test_token")
+        orcid="123112311231",
+        organisation=org.name,
+        affiliation_type="staff",
+        role="Test",
+        department="Test",
+        city="Test",
+        state="Test",
+        country="Test")
+    AffiliationRecord.create(
+        is_active=True,
+        task=t,
+        external_id="Test",
+        first_name="Test",
+        last_name="Test",
+        email="test1234456@mailinator.com",
+        orcid="123112311231",
+        organisation="ANOTHER ORG",
+        affiliation_type="staff",
+        role="Test",
+        department="Test",
+        city="Test",
+        state="Test",
+        country="Test")
+    AffiliationRecord.create(
+        is_active=True,
+        task=t,
+        external_id="Test#2",
+        first_name="Test2",
+        last_name="Test2",
+        email="test1234456_2@mailinator.com",
+        organisation=org.name,
+        affiliation_type="staff")
 
     tasks = (Task.select(
-        Task, AffiliationRecord, User, UserInvitation.id.alias("invitation_id"), OrcidToken).where(
-            AffiliationRecord.processed_at.is_null(), AffiliationRecord.is_active,
-            ((User.id.is_null(False) & User.orcid.is_null(False) & OrcidToken.id.is_null(False)) |
-             ((User.id.is_null() | User.orcid.is_null() | OrcidToken.id.is_null()) &
-              UserInvitation.id.is_null() &
-              (AffiliationRecord.status.is_null()
-               | AffiliationRecord.status.contains("sent").__invert__())))).join(
-                   AffiliationRecord, on=(Task.id == AffiliationRecord.task_id)).join(
-                       User,
-                       JOIN.LEFT_OUTER,
-                       on=((User.email == AffiliationRecord.email) |
-                           (User.orcid == AffiliationRecord.orcid))).join(
-                               Organisation, JOIN.LEFT_OUTER, on=(Organisation.id == Task.org_id))
-             .join(
-                 UserInvitation,
-                 JOIN.LEFT_OUTER,
-                 on=((UserInvitation.email == AffiliationRecord.email) &
-                     (UserInvitation.task_id == Task.id))).join(
-                         OrcidToken,
-                         JOIN.LEFT_OUTER,
-                         on=((OrcidToken.user_id == User.id) &
-                             (OrcidToken.org_id == Organisation.id) &
-                             (OrcidToken.scope.contains("/activities/update")))).limit(20))
+        Task, AffiliationRecord, User, UserInvitation.id.alias("invitation_id"), OrcidToken).join(
+            AffiliationRecord, on=(Task.id == AffiliationRecord.task_id)).join(
+                User,
+                JOIN.LEFT_OUTER,
+                on=((User.email == AffiliationRecord.email) |
+                    (User.orcid == AffiliationRecord.orcid))).join(
+                        Organisation, JOIN.LEFT_OUTER, on=(Organisation.id == Task.org_id)).join(
+                            UserInvitation,
+                            JOIN.LEFT_OUTER,
+                            on=((UserInvitation.email == AffiliationRecord.email) &
+                                (UserInvitation.task_id == Task.id))).join(
+                                    OrcidToken,
+                                    JOIN.LEFT_OUTER,
+                                    on=((OrcidToken.user_id == User.id) &
+                                        (OrcidToken.org_id == Organisation.id) &
+                                        (OrcidToken.scope.contains("/activities/update")))))
+    app.config["SERVER_NAME"] = "orcidhub"
     for (task_id, org_id, user), tasks_by_user in groupby(tasks, lambda t: (
             t.id,
             t.org_id,
             t.affiliation_record.user, )):
-        utils.create_or_update_affiliations(user=user, org_id=org_id, records=tasks_by_user)
-    affiliation_record = AffiliationRecord.get(task=t)
+        with patch(
+                "orcid_hub.orcid_client.MemberAPI.get_record",
+                return_value=get_record_mock() if user.orcid else None) as get_record:
+            utils.create_or_update_affiliations(user=user, org_id=org_id, records=tasks_by_user)
+            get_record.assert_any_call()
+    affiliation_record = AffiliationRecord.select().order_by(AffiliationRecord.id).limit(1).first()
     assert 12399 == affiliation_record.put_code
     assert "12344" == affiliation_record.orcid
-    assert "Employment record was updated" in affiliation_record.status
+    assert ("Employment record was updated" in affiliation_record.status
+            or "Employment record was created" in affiliation_record.status)
+    send_email.assert_called_once()
 
 
 def test_send_email(app):

@@ -36,7 +36,7 @@ from orcid_api.rest import ApiException
 from . import admin, app, limiter, models, orcid_client, rq, utils
 from .forms import (ApplicationFrom, BitmapMultipleValueField, CredentialForm, EmailTemplateForm,
                     FileUploadForm, FundingForm, GroupIdForm, LogoForm, OrgRegistrationForm, PartialDateField,
-                    PeerReviewForm, RecordForm, UserInvitationForm, WebhookForm)
+                    PeerReviewForm, RecordForm, UserInvitationForm, WebhookForm, WorkForm)
 from .login_provider import roles_required
 from .models import (Affiliation, AffiliationRecord, CharField, Client, File, FundingInvitees,
                      FundingRecord, Grant, GroupIdRecord, ModelException, OrcidApiCall, OrcidToken,
@@ -1553,7 +1553,7 @@ def reset_all():
 @app.route("/section/<int:user_id>/<string:section_type>/<int:put_code>/delete", methods=["POST"])
 @roles_required(Role.ADMIN)
 def delete_record(user_id, section_type, put_code):
-    """Delete an employment, education peer review or funding record."""
+    """Delete an employment, education, peer review, works or funding record."""
     _url = request.args.get("url") or request.referrer or url_for(
         "section", user_id=user_id, section_type=section_type)
     try:
@@ -1586,6 +1586,8 @@ def delete_record(user_id, section_type, put_code):
             api_instance.delete_funding(user.orcid, put_code)
         elif section_type == "PRR":
             api_instance.delete_peer_review(user.orcid, put_code)
+        elif section_type == "WOR":
+            api_instance.delete_work(user.orcid, put_code)
         else:
             api_instance.delete_education(user.orcid, put_code)
         app.logger.info(f"For {user.orcid} '{section_type}' record was deleted by {current_user}")
@@ -1634,6 +1636,8 @@ def edit_record(user_id, section_type, put_code=None):
         form = FundingForm(form_type=section_type)
     elif section_type == "PRR":
         form = PeerReviewForm(form_type=section_type)
+    elif section_type == "WOR":
+        form = WorkForm(form_type=section_type)
     else:
         form = RecordForm(form_type=section_type)
 
@@ -1649,13 +1653,19 @@ def edit_record(user_id, section_type, put_code=None):
                     api_response = api.view_education(user.orcid, put_code)
                 elif section_type == "FUN":
                     api_response = api.view_funding(user.orcid, put_code)
+                elif section_type == "WOR":
+                    api_response = api.view_work(user.orcid, put_code)
                 elif section_type == "PRR":
                     api_response = api.view_peer_review(user.orcid, put_code)
 
                 _data = api_response.to_dict()
 
-                if section_type == "PRR":
-                    external_ids_list = get_val(_data, "review_identifiers", "external-id")
+                if section_type == "PRR" or section_type == "WOR":
+
+                    if section_type == "PRR":
+                        external_ids_list = get_val(_data, "review_identifiers", "external-id")
+                    else:
+                        external_ids_list = get_val(_data, "external_ids", "external-id")
 
                     for extid in external_ids_list:
                         external_id_value = extid['external-id-value'] if extid['external-id-value'] else ''
@@ -1669,38 +1679,59 @@ def edit_record(user_id, section_type, put_code=None):
                         grant_data_list.append(dict(grant_number=external_id_value, grant_url=external_id_url,
                                                     grant_relationship=external_id_relationship,
                                                     grant_type=external_id_type))
-                    data = dict(
-                        org_name=get_val(_data, "convening_organization", "name"),
-                        disambiguated_id=get_val(
-                            _data, "convening_organization", "disambiguated-organization",
-                            "disambiguated-organization-identifier"),
-                        disambiguation_source=get_val(
-                            _data, "convening_organization", "disambiguated-organization",
-                            "disambiguation-source"),
-                        city=get_val(_data, "convening_organization", "address", "city"),
-                        state=get_val(_data, "convening_organization", "address", "region"),
-                        country=get_val(_data, "convening_organization", "address", "country"),
-                        reviewer_role=_data.get("reviewer_role", ""),
-                        review_url=get_val(_data, "review_url", "value"),
-                        review_type=_data.get("review_type", ""),
-                        review_group_id=_data.get("review_group_id", ""),
-                        subject_external_identifier_type=get_val(_data, "subject_external_identifier",
-                                                                 "external-id-type"),
-                        subject_external_identifier_value=get_val(_data, "subject_external_identifier",
-                                                                  "external-id-value"),
-                        subject_external_identifier_url=get_val(_data, "subject_external_identifier", "external-id-url",
-                                                                "value"),
-                        subject_external_identifier_relationship=get_val(_data, "subject_external_identifier",
-                                                                         "external-id-relationship"),
-                        subject_container_name=get_val(_data, "subject_container_name", "value"),
-                        subject_type=_data.get("subject_type", ""),
-                        subject_title=get_val(_data, "subject_name", "title", "value"),
-                        subject_subtitle=get_val(_data, "subject_name", "subtitle"),
-                        subject_translated_title=get_val(_data, "subject_name", "translated-title", "value"),
-                        subject_translated_title_language_code=get_val(_data, "subject_name", "translated-title",
-                                                                       "language-code"),
-                        subject_url=get_val(_data, "subject_url", "value"),
-                        review_completion_date=PartialDate.create(_data.get("review_completion_date")))
+
+                    if section_type == "WOR":
+                        data = dict(work_type=get_val(_data, "type"),
+                                    title=get_val(_data, "title", "title", "value"),
+                                    subtitle=get_val(_data, "title", "subtitle", "value"),
+                                    translated_title=get_val(_data, "title", "translated-title", "value"),
+                                    translated_title_language_code=get_val(_data, "title", "translated-title",
+                                                                           "language-code"),
+                                    journal_title=get_val(_data, "journal_title", "value"),
+                                    short_description=get_val(_data, "short_description"),
+                                    citation_type=get_val(_data, "citation", "citation_type"),
+                                    citation=get_val(_data, "citation", "citation_value"),
+                                    url=get_val(_data, "url", "value"),
+                                    language_code=get_val(_data, "language_code"),
+                                    # Removing key 'media-type' from the publication_date dict.
+                                    publication_date=PartialDate.create(
+                                        {date_key: _data.get("publication_date")[date_key] for date_key in
+                                         ('day', 'month', 'year')}) if _data.get("publication_date") else None,
+                                    country=get_val(_data, "country", "value"))
+                    else:
+                        data = dict(
+                            org_name=get_val(_data, "convening_organization", "name"),
+                            disambiguated_id=get_val(
+                                _data, "convening_organization", "disambiguated-organization",
+                                "disambiguated-organization-identifier"),
+                            disambiguation_source=get_val(
+                                _data, "convening_organization", "disambiguated-organization",
+                                "disambiguation-source"),
+                            city=get_val(_data, "convening_organization", "address", "city"),
+                            state=get_val(_data, "convening_organization", "address", "region"),
+                            country=get_val(_data, "convening_organization", "address", "country"),
+                            reviewer_role=_data.get("reviewer_role", ""),
+                            review_url=get_val(_data, "review_url", "value"),
+                            review_type=_data.get("review_type", ""),
+                            review_group_id=_data.get("review_group_id", ""),
+                            subject_external_identifier_type=get_val(_data, "subject_external_identifier",
+                                                                     "external-id-type"),
+                            subject_external_identifier_value=get_val(_data, "subject_external_identifier",
+                                                                      "external-id-value"),
+                            subject_external_identifier_url=get_val(_data, "subject_external_identifier",
+                                                                    "external-id-url",
+                                                                    "value"),
+                            subject_external_identifier_relationship=get_val(_data, "subject_external_identifier",
+                                                                             "external-id-relationship"),
+                            subject_container_name=get_val(_data, "subject_container_name", "value"),
+                            subject_type=_data.get("subject_type", ""),
+                            subject_title=get_val(_data, "subject_name", "title", "value"),
+                            subject_subtitle=get_val(_data, "subject_name", "subtitle"),
+                            subject_translated_title=get_val(_data, "subject_name", "translated-title", "value"),
+                            subject_translated_title_language_code=get_val(_data, "subject_name", "translated-title",
+                                                                           "language-code"),
+                            subject_url=get_val(_data, "subject_url", "value"),
+                            review_completion_date=PartialDate.create(_data.get("review_completion_date")))
 
                 else:
                     data = dict(
@@ -1764,7 +1795,7 @@ def edit_record(user_id, section_type, put_code=None):
 
     if form.validate_on_submit():
         try:
-            if section_type == "FUN" or section_type == "PRR":
+            if section_type == "FUN" or section_type == "PRR" or section_type == "WOR":
                 grant_type = request.form.getlist('grant_type')
                 grant_number = request.form.getlist('grant_number')
                 grant_url = request.form.getlist('grant_url')
@@ -1777,6 +1808,12 @@ def edit_record(user_id, section_type, put_code=None):
 
                 if section_type == "FUN":
                     put_code, orcid, created = api.create_or_update_individual_funding(
+                        put_code=put_code,
+                        grant_data_list=grant_data_list,
+                        **{f.name: f.data
+                           for f in form})
+                elif section_type == "WOR":
+                    put_code, orcid, created = api.create_or_update_individual_work(
                         put_code=put_code,
                         grant_data_list=grant_data_list,
                         **{f.name: f.data
@@ -1839,7 +1876,7 @@ def section(user_id, section_type="EMP"):
     _url = request.args.get("url") or request.referrer or url_for("viewmembers.index_view")
 
     section_type = section_type.upper()[:3]  # normalize the section type
-    if section_type not in ["EDU", "EMP", "FUN", "PRR"]:
+    if section_type not in ["EDU", "EMP", "FUN", "PRR", "WOR"]:
         flash("Incorrect user profile section", "danger")
         return redirect(_url)
 
@@ -1871,6 +1908,8 @@ def section(user_id, section_type="EMP"):
             api_response = api_instance.view_educations(user.orcid)
         elif section_type == "FUN":
             api_response = api_instance.view_fundings(user.orcid)
+        elif section_type == "WOR":
+            api_response = api_instance.view_works(user.orcid)
         else:
             api_response = api_instance.view_peer_reviews(user.orcid)
     except ApiException as ex:
@@ -1915,6 +1954,18 @@ def section(user_id, section_type="EMP"):
                     records.append(ps)
         return render_template(
             "peer_review_section.html",
+            url=_url,
+            records=records,
+            section_type=section_type,
+            user_id=user_id,
+            org_client_id=user.organisation.orcid_client_id)
+    elif section_type == 'WOR':
+        if data and data.get("group"):
+            for k in data.get("group"):
+                for ps in k.get("work-summary"):
+                    records.append(ps)
+        return render_template(
+            "work_section.html",
             url=_url,
             records=records,
             section_type=section_type,
