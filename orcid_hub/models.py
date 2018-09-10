@@ -922,7 +922,8 @@ class Task(BaseModel, AuditMixin):
     completed_count = TextField(null=True, help_text="gives the status of uploaded task")
 
     def __repr__(self):
-        return self.filename or f"{TaskType(self.task_type).name.capitalize()} record processing task #{self.id}"
+        return ("Synchronization task" if self.task_type != TaskType.SYNC else self.filename or
+                f"{TaskType(self.task_type).name.capitalize()} record processing task #{self.id}")
 
     @property
     def is_expiry_email_sent(self):
@@ -1263,7 +1264,7 @@ class TaskType(IntEnum):
     FUNDING = 1  # Funding
     WORK = 2
     PEER_REVIEW = 3
-    VERIFICATION = 11
+    SYNC = 11
 
     def __eq__(self, other):
         if isinstance(other, TaskType):

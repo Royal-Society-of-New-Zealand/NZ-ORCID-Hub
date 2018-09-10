@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """Tests for util functions."""
 
+import json
 import logging
 from itertools import groupby
 from unittest.mock import Mock, patch
@@ -10,11 +11,12 @@ from flask import make_response
 from flask_login import login_user
 from peewee import JOIN
 
-from orcid_hub import utils
-from orcid_hub.models import (
-    AffiliationRecord, ExternalId, File, FundingContributor, FundingInvitees, FundingRecord,
-    OrcidToken, Organisation, Role, Task, User, UserInvitation, UserOrg, WorkRecord, WorkInvitees,
-    WorkExternalId, WorkContributor, PeerReviewRecord, PeerReviewInvitee, PeerReviewExternalId)
+from orcid_hub import orcid_client, utils
+from orcid_hub.models import (AffiliationRecord, ExternalId, File, FundingContributor,
+                              FundingInvitees, FundingRecord, Log, OrcidToken, Organisation,
+                              PeerReviewExternalId, PeerReviewInvitee, PeerReviewRecord, Role,
+                              Task, TaskType, User, UserInvitation, UserOrg, WorkContributor,
+                              WorkExternalId, WorkInvitees, WorkRecord)
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -223,14 +225,53 @@ def test_send_work_funding_peer_review_invitation(test_db, request_ctx):
 
 def get_record_mock():
     """Mock profile api call."""
-    return {
+    resp = {
         'activities-summary': {
             'last-modified-date': {
                 'value': 1513136293368
             },  # noqa: E127
             'educations': {
                 'last-modified-date': None,
-                'education-summary': [],
+                'education-summary': [
+                    {
+                        "created-date": {
+                            "value": 1532322530230
+                        },
+                        "last-modified-date": {
+                            "value": 1532322530230
+                        },
+                        "source": {
+                            "source-orcid": None,
+                            "source-client-id": {
+                                "uri": "http://sandbox.orcid.org/client/APP-5ZVH4JRQ0C27RVH5",
+                                "path": "APP-5ZVH4JRQ0C27RVH5",
+                                "host": "sandbox.orcid.org"
+                            },
+                            "source-name": {
+                                "value": "The University of Auckland - MyORCiD"
+                            }
+                        },
+                        "department-name": None,
+                        "role-title": None,
+                        "start-date": None,
+                        "end-date": None,
+                        "organization": {
+                            "name": "The University of Auckland",
+                            "address": {
+                                "city": "Auckland",
+                                "region": "Auckland",
+                                "country": "NZ"
+                            },
+                            "disambiguated-organization": {
+                                "disambiguated-organization-identifier": None,
+                                "disambiguation-source": "RINGGOLD"
+                            }
+                        },
+                        "visibility": "PUBLIC",
+                        "put-code": 31136,
+                        "path": "/0000-0001-8228-7153/education/31136"
+                    },
+                ],
                 'path': '/0000-0002-3879-2651/educations'
             },
             "employments": {
@@ -441,6 +482,7 @@ def get_record_mock():
         },
         'path': '/0000-0002-3879-2651'
     }
+    return json.loads(json.dumps(resp), object_pairs_hook=orcid_client.NestedDict)
 
 
 def create_or_update_fund_mock(self=None, orcid=None, **kwargs):
@@ -957,3 +999,65 @@ def test_is_valid_url():
     assert utils.is_valid_url("http://www.orcidhub.org.nz")
     assert not utils.is_valid_url("www.orcidhub.org.nz/some_path")
     assert not utils.is_valid_url(12345)
+
+
+def test_sync_profile(app, mocker):
+    """Test sync_profile."""
+    mocker.patch(
+        "orcid_api.MemberAPIV20Api.update_employment",
+        return_value=Mock(status=201, headers={'Location': '12344/XYZ/54321'}))
+    mocker.patch(
+        "orcid_api.MemberAPIV20Api.update_education",
+        return_value=Mock(status=201, headers={'Location': '12344/XYZ/12345'}))
+    mocker.patch("orcid_hub.utils.sync_profile.queue", utils.sync_profile)
+    org = Organisation.create(
+        name="THE ORGANISATION",
+        tuakiri_name="THE ORGANISATION",
+        confirmed=True,
+        orcid_client_id="APP-5ZVH4JRQ0C27RVH5",
+        orcid_secret="Client Secret",
+        city="CITY",
+        country="COUNTRY",
+        disambiguated_id="ID",
+        disambiguation_source="SOURCE")
+    u = User.create(
+        email="test1234456@mailinator.com",
+        name="TEST USER",
+        username="test123",
+        roles=Role.RESEARCHER,
+        orcid="12344",
+        confirmed=True,
+        organisation=org)
+    UserOrg.create(user=u, org=org)
+    t = Task.create(org=org, task_type=TaskType.SYNC)
+
+    mocker.patch("orcid_hub.orcid_client.MemberAPI.get_record", lambda *args: None)
+    utils.sync_profile(task_id=t.id)
+    utils.sync_profile(task_id=t.id, user_id=u.id)
+
+    OrcidToken.create(user=u, org=org, scope="/read-limited,/activities/update")
+    mocker.patch("orcid_hub.orcid_client.MemberAPI.get_record", lambda *args: None)
+    utils.sync_profile(task_id=t.id, user_id=u.id)
+
+    resp = get_record_mock()
+    mocker.patch("orcid_hub.orcid_client.MemberAPI.get_record", lambda *args: resp)
+    utils.sync_profile(task_id=t.id)
+
+    resp["activities-summary"]["educations"]["education-summary"] = []
+    mocker.patch("orcid_hub.orcid_client.MemberAPI.get_record", lambda *args: resp)
+    utils.sync_profile(task_id=t.id)
+
+    mocker.patch(
+        "orcid_hub.orcid_client.MemberAPI.update_employment", side_effect=Exception("FAILED"))
+    utils.sync_profile(task_id=t.id)
+
+    resp["activities-summary"]["employments"]["employment-summary"][0]["source"] = None
+    resp["activities-summary"]["employments"]["employment-summary"][0]["source"] = None
+    mocker.patch("orcid_hub.orcid_client.MemberAPI.get_record", lambda *args: resp)
+    utils.sync_profile(task_id=t.id)
+
+    org.disambiguated_id = None
+    org.save()
+    utils.sync_profile(task_id=t.id)
+
+    assert Log.select().count() > 0

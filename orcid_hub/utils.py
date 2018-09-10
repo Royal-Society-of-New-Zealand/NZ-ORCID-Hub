@@ -21,9 +21,9 @@ from peewee import JOIN
 
 from . import app, orcid_client, rq
 from .models import (AFFILIATION_TYPES, Affiliation, AffiliationRecord, FundingInvitees,
-                     FundingRecord, OrcidToken, Organisation, PartialDate, PeerReviewExternalId,
-                     PeerReviewInvitee, PeerReviewRecord, Role, Task, Url, User, UserInvitation,
-                     UserOrg, WorkInvitees, WorkRecord, get_val)
+                     FundingRecord, Log, OrcidToken, Organisation, PartialDate,
+                     PeerReviewExternalId, PeerReviewInvitee, PeerReviewRecord, Role, Task, Url,
+                     User, UserInvitation, UserOrg, WorkInvitees, WorkRecord, get_val)
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -933,7 +933,8 @@ def process_work_records(max_rows=20):
             t.org_id,
             t.work_record.id,
             t.work_record.work_invitees.user,)):
-        """If we have the token associated to the user then update the work record, otherwise send him an invite"""
+        # If we have the token associated to the user then update the work record,
+        # otherwise send him an invite
         if (user.id is None or user.orcid is None or not OrcidToken.select().where(
             (OrcidToken.user_id == user.id) & (OrcidToken.org_id == org_id) &
             (OrcidToken.scope.contains("/activities/update"))).exists()):  # noqa: E127, E129
@@ -1587,3 +1588,60 @@ def send_orcid_update_summary(org_id=None):
                     date_to=previous_last,
                     updated_users=updated_users,
                     orcid_base_url=app.config["ORCID_BASE_URL"])
+
+
+@rq.job(timeout=300)
+def sync_profile(task_id, user_id=None):
+    """Verify and sync the user profile."""
+    task = Task.get(task_id)
+    org = task.org
+
+    if not user_id:
+        if not org.disambiguated_id:
+            return
+        for u in task.org.users.select().where(User.orcid.is_null(False)):
+            if not OrcidToken.select().where(
+                    OrcidToken.user == u, OrcidToken.org == org,
+                    OrcidToken.scope.contains("/activities/update")).exists():
+                continue
+            sync_profile.queue(task_id, u.id)
+        return
+
+    user = User.get(user_id)
+    ot = OrcidToken.select().where(
+        OrcidToken.user == user_id, OrcidToken.org == org,
+        OrcidToken.scope.contains("/activities/update")).limit(1).first()
+    if not ot:
+        return
+    api = orcid_client.MemberAPI(user=user, org=org, access_token=ot.access_token)
+    profile = api.get_record()
+    if not profile:
+        Log.create(task=task_id, message=f"The user {user} doesn't have ORCID profile.")
+        return
+    for k, s in [
+        ["educations", "education-summary"],
+        ["employments", "employment-summary"],
+    ]:
+        entries = profile.get("activities-summary", k, s)
+        if not entries:
+            continue
+        for e in entries:
+            source = e.get("source")
+            if not source:
+                continue
+
+            if source.get("source-client-id", "path") == org.orcid_client_id:
+                do = e.get("organization", "disambiguated-organization")
+                if not (do and do.get("disambiguated-organization-identifier")
+                        and do.get("disambiguation-source")):
+                    e["organization"]["disambiguated-organization"] = {
+                        "disambiguated-organization-identifier": org.disambiguated_id,
+                        "disambiguation-source": org.disambiguation_source,
+                    }
+                    api_call = api.update_employment if k == "employments" else api.update_education
+
+                    try:
+                        api_call(orcid=user.orcid, put_code=e.get("put-code"), body=e)
+                        Log.create(task=task_id, message=f"Successfully update entry: {e}.")
+                    except Exception as ex:
+                        Log.create(task=task_id, message=f"Failed to update the entry: {ex}.")
