@@ -1650,3 +1650,4 @@ def sync_profile(task_id, user_id=None):
                         Log.create(task=task_id, message=f"Successfully update entry: {e}.")
                     except Exception as ex:
                         Log.create(task=task_id, message=f"Failed to update the entry: {ex}.")
+    Log.create(task=task_id, message=f"The user {user} porfile was processed.")
