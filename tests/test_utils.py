@@ -1029,6 +1029,9 @@ def test_sync_profile(app, mocker):
         confirmed=True,
         organisation=org)
     UserOrg.create(user=u, org=org)
+
+    utils.sync_profile(task_id=999999)
+
     t = Task.create(org=org, task_type=TaskType.SYNC)
 
     mocker.patch("orcid_hub.orcid_client.MemberAPI.get_record", lambda *args: None)

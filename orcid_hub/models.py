@@ -10,7 +10,6 @@ import re
 import secrets
 import string
 import uuid
-import validators
 from collections import namedtuple
 from datetime import datetime
 from hashlib import md5
@@ -18,17 +17,19 @@ from io import StringIO
 from itertools import zip_longest
 from urllib.parse import urlencode
 
+import validators
 import yaml
 from flask_login import UserMixin, current_user
+from peewee import JOIN, BlobField
 from peewee import BooleanField as BooleanField_
-from peewee import (JOIN, BlobField, CharField, DateTimeField, DeferredRelation, Field,
-                    FixedCharField, ForeignKeyField, IntegerField, Model, OperationalError,
-                    PostgresqlDatabase, SmallIntegerField, TextField, fn)
+from peewee import (CharField, DateTimeField, DeferredRelation, Field, FixedCharField,
+                    ForeignKeyField, IntegerField, Model, OperationalError, PostgresqlDatabase,
+                    SmallIntegerField, TextField, fn)
+from peewee_validates import ModelValidator
 from playhouse.shortcuts import model_to_dict
 from pycountry import countries
 from pykwalify.core import Core
 from pykwalify.errors import SchemaError
-from peewee_validates import ModelValidator
 
 from . import app, db
 
@@ -1117,7 +1118,13 @@ class Log(BaseModel):
     created_at = DateTimeField(default=datetime.utcnow)
     created_by = ForeignKeyField(
         User, on_delete="SET NULL", null=True, related_name="created_task_log_entries")
-    task = ForeignKeyField(Task, on_delete="CASCADE", null=True, index=True, verbose_name="Task")
+    task = ForeignKeyField(
+        Task,
+        on_delete="CASCADE",
+        null=True,
+        index=True,
+        verbose_name="Task",
+        related_name="log_entries")
     message = TextField(null=True)
 
     class Meta:  # noqa: D101,D106

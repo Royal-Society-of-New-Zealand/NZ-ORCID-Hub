@@ -35,14 +35,14 @@ from orcid_api.rest import ApiException
 
 from . import admin, app, limiter, models, orcid_client, rq, utils
 from .forms import (ApplicationFrom, BitmapMultipleValueField, CredentialForm, EmailTemplateForm,
-                    FileUploadForm, FundingForm, GroupIdForm, LogoForm, OrgRegistrationForm, PartialDateField,
-                    RecordForm, UserInvitationForm, WebhookForm)
+                    FileUploadForm, FundingForm, GroupIdForm, LogoForm, OrgRegistrationForm,
+                    PartialDateField, ProfileSyncForm, RecordForm, UserInvitationForm, WebhookForm)
 from .login_provider import roles_required
-from .models import (Affiliation, AffiliationRecord, CharField, Client, File, FundingInvitees,
-                     FundingRecord, Grant, GroupIdRecord, ModelException, OrcidApiCall, OrcidToken,
-                     Organisation, OrgInfo, OrgInvitation, PartialDate, PeerReviewInvitee,
-                     PeerReviewRecord, Role, Task, TextField, Token, Url, User, UserInvitation,
-                     UserOrg, UserOrgAffiliation, WorkInvitees, WorkRecord, db, get_val)
+from .models import (
+    Affiliation, AffiliationRecord, CharField, Client, File, FundingInvitees, FundingRecord, Grant,
+    GroupIdRecord, ModelException, OrcidApiCall, OrcidToken, Organisation, OrgInfo, OrgInvitation,
+    PartialDate, PeerReviewInvitee, PeerReviewRecord, Role, Task, TaskType, TextField, Token, Url,
+    User, UserInvitation, UserOrg, UserOrgAffiliation, WorkInvitees, WorkRecord, db, get_val)
 # NB! Should be disabled in production
 from .pyinfo import info
 from .utils import generate_confirmation_token, get_next_url, read_uploaded_file, send_user_invitation
@@ -2646,6 +2646,36 @@ def org_webhook():
             flash(f"Webhook was disabled.", "info")
 
     return render_template("form.html", form=form, title="Organisation Webhook")
+
+
+@app.route(
+    "/sync_profiles", methods=[
+        "GET",
+        "POST",
+    ])
+@roles_required(Role.TECHNICAL, Role.SUPERUSER)
+def sync_profiles():
+    """Start research profile synchronization."""
+    org = current_user.organisation
+    task = Task.select().where(
+            Task.task_type == TaskType.SYNC,
+            Task.org == org).order_by(Task.created_at.desc()).limit(1).first()
+    form = ProfileSyncForm(obj=task)
+
+    if form.validate_on_submit():
+        if form.close.data:
+            _next = get_next_url() or url_for("index")
+            return redirect(_next)
+        if task and not form.restart.data:
+            flash(f"There is already na active profile synchronization task", "warning")
+        else:
+            Task.delete().where(Task.org == org, Task.task_type == TaskType.SYNC).execute()
+            task = Task.create(org=org, task_type=TaskType.SYNC)
+            job = utils.sync_profile.queue(task_id=task.id)
+            flash(f"Profile synchronization task was initiated (job id: {job.id})", "info")
+            return redirect(url_for("sync_profiles"))
+
+    return render_template("profile_sync.html", form=form, title="Profile Synchronization", task=task)
 
 
 class ScheduerView(BaseModelView):

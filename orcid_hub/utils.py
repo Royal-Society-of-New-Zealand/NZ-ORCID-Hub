@@ -1593,18 +1593,23 @@ def send_orcid_update_summary(org_id=None):
 @rq.job(timeout=300)
 def sync_profile(task_id, user_id=None):
     """Verify and sync the user profile."""
-    task = Task.get(task_id)
-    org = task.org
+    if not task_id:
+        return
+    try:
+        task = Task.get(task_id)
+    except Task.DoesNotExist:
+        return
 
+    org = task.org
     if not user_id:
         if not org.disambiguated_id:
             return
-        for u in task.org.users.select().where(User.orcid.is_null(False)):
-            if not OrcidToken.select().where(
-                    OrcidToken.user == u, OrcidToken.org == org,
-                    OrcidToken.scope.contains("/activities/update")).exists():
-                continue
-            sync_profile.queue(task_id, u.id)
+        for u in task.org.users.where(User.orcid.is_null(False)).join(
+                OrcidToken,
+                on=((OrcidToken.user_id == User.id) & OrcidToken.scope.contains("/activities/update"))):
+            job = sync_profile.queue(task_id, u.id)
+            Log.create(
+                task=task_id, message=f"Added a profile sync job for {u} / {u.orcid}: {job.id}.")
         return
 
     user = User.get(user_id)
