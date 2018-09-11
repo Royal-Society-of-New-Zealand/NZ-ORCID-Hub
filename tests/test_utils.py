@@ -1009,7 +1009,12 @@ def test_sync_profile(app, mocker):
     mocker.patch(
         "orcid_api.MemberAPIV20Api.update_education",
         return_value=Mock(status=201, headers={'Location': '12344/XYZ/12345'}))
-    mocker.patch("orcid_hub.utils.sync_profile.queue", utils.sync_profile)
+
+    def sync_profile_mock(*args, **kwargs):
+        utils.sync_profile(*args, **kwargs)
+        return Mock(id="test-test-test-test")
+    mocker.patch("orcid_hub.utils.sync_profile.queue", sync_profile_mock)
+
     org = Organisation.create(
         name="THE ORGANISATION",
         tuakiri_name="THE ORGANISATION",
