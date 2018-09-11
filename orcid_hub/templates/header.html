@@ -188,7 +188,7 @@
                           {% if current_user.orcid %}
                             <form class="icon" method="POST" action="{{url_for('remove_linkage')}}">
                             <button onclick="return safeConfirm('Are you sure you want to remove the ORCID ID and token associated with this account?\n\nBy clicking &quot;OK&quot;'+
-                            ' we will remove the access token given to this organisation!');"
+                            ' we will remove the access token given to this organisation! \n\n You may not be able to login again because you are deleting your associated ORCiD iD!');"
                               data-toggle="tooltip"
                               data-placement="bottom"
                               title="Remove Erroneous Linkage..."

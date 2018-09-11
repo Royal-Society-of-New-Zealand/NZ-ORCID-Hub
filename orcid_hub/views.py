@@ -2792,9 +2792,9 @@ def remove_linkage():
 
     if UserOrg.select().where(
                 (UserOrg.user_id == current_user.id) & (UserOrg.org_id == org.id) & UserOrg.is_admin).exists():
-        flash(f"Failed to remove linkage for {current_user}, As User appears to be one of the admins. "
+        flash(f"Failed to remove linkage for {current_user}, as this user appears to be one of the admins for {org}. "
               f"Please contact orcid@royalsociety.org.nz for support", "danger")
-        redirect(_url)
+        return redirect(_url)
 
     for token in OrcidToken.select().where(OrcidToken.org_id == org.id, OrcidToken.user_id == current_user.id):
         try:
@@ -2808,26 +2808,30 @@ def remove_linkage():
 
             if resp.status_code != 200:
                 flash("Failed to revoke token {token.access_token}: {ex}", "error")
-                redirect(_url)
+                return redirect(_url)
 
             token.delete_instance()
 
         except Exception as ex:
             flash(f"Failed to revoke token {token.access_token}: {ex}", "error")
             app.logger.exception('Failed to delete record.')
-            redirect(_url)
+            return redirect(_url)
     # Check if the User is Admin for other organisation or has given permissions to other organisations.
     if UserOrg.select().where(
             (UserOrg.user_id == current_user.id) & UserOrg.is_admin).exists() or OrcidToken.select().where(
             OrcidToken.user_id == current_user.id).exists():
         flash(
-            f"We have removed the Access token related to {org},However did not removed the stored ORCiD ID as "
-            f"{current_user} is either an admin or has given permission to other organisation.",
+            f"We have removed the Access token related to {org}, However we did not remove the stored ORCiD ID as "
+            f"{current_user} is either an admin of other organisation or has given permission to other organisation.",
             "warning")
     else:
         current_user.orcid = None
         current_user.save()
-        flash(f"We have removed the Access token and storied ORCiD ID for {current_user}.", "success")
+        flash(
+            f"We have removed the Access token and storied ORCiD ID for {current_user}. "
+            f"If you logout now without giving permissions, you may not be able to login again. "
+            f"Please press the below button to give permissions to {org}",
+            "success")
     return redirect(_url)
 
 
