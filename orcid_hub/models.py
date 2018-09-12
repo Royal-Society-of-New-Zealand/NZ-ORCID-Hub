@@ -934,6 +934,8 @@ class Task(BaseModel, AuditMixin):
     @lazy_property
     def record_count(self):
         """Get count of the loaded recoreds."""
+        if self.task_type == TaskType.SYNC:
+            return 0
         return self.records.count()
 
     @property
@@ -946,6 +948,8 @@ class Task(BaseModel, AuditMixin):
     @lazy_property
     def records(self):
         """Get all task record query."""
+        if self.task_type == TaskType.SYNC:
+            return None
         return getattr(self, TaskType(self.task_type).name.lower() + "_records")
 
     @lazy_property

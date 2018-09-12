@@ -30,7 +30,8 @@
       </div>
     </div>
   {% endcall %}
-  {% if task and task.log_entries.count() > 0 %}
+  {% if task and page_count > 0 %}
+    <div class="table-responsive">
     <table class="table table-striped table-bordered table-hover model-list">
         <thead>
           <tr>
@@ -39,7 +40,7 @@
           </tr>
         </thead>
         <tbody>
-        {% for e in task.log_entries %}
+        {% for e in task.log_entries.offset((page-1)*page_size).limit(page_size) %}
           <tr>
             <td class="col-created_at">{{ e.created_at | isodate }}</td>
             <td class="col-message">{{ e.message }}</td>
@@ -47,5 +48,51 @@
         {% endfor %}
         </tbody>
     </table>
+    </div>
+    {% if page_count > 1%}
+      <ul class="pagination">
+        {% if page == 1 %}
+          <li class="disabled">
+            <a href="javascript:void(0)">«</a>
+          </li>
+          <li class="disabled">
+            <a href="javascript:void(0)">&lt;</a>
+          </li>
+        {% else %}
+          <li>
+            <a href="?page=1">«</a>
+          </li>
+          <li>
+            <a href="?page={{page-1}}">&lt;</a>
+          </li>
+        {% endif %}
+        {% for p in range(1, page_count+1) %}
+          {%  if page == p %}
+            <li class="active">
+              <a href="javascript:void(0)">{{page}}</a>
+            </li>
+          {% else %}
+            <li>
+              <a href="?page={{p}}">{{p}}</a>
+            </li>
+          {% endif %}
+        {% endfor %}
+        {% if page == page_count %}
+          <li class="disabled">
+            <a href="javascript:void(0)">&gt;</a>
+          </li>
+          <li class="disabled">
+            <a href="javascript:void(0)">»</a>
+          </li>
+        {% else %}
+          <li>
+            <a href="?page={{page+1}}">&gt;</a>
+          </li>
+          <li>
+            <a href="?page={{page_count}}">»</a>
+          </li>
+        {% endif %}
+      </ul>
+    {% endif %}
   {% endif %}
 {% endblock %}

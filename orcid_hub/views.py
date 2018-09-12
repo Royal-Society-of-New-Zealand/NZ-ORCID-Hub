@@ -4,6 +4,7 @@
 import copy
 import csv
 import json
+import math
 import mimetypes
 import os
 import secrets
@@ -2645,7 +2646,17 @@ def sync_profiles():
             flash(f"Profile synchronization task was initiated (job id: {job.id})", "info")
             return redirect(url_for("sync_profiles"))
 
-    return render_template("profile_sync.html", form=form, title="Profile Synchronization", task=task)
+    page_size = 20
+    page = int(request.args.get("page", 1))
+    page_count = math.ceil(task.log_entries.count() / page_size) if task else 0
+    return render_template(
+        "profile_sync.html",
+        form=form,
+        title="Profile Synchronization",
+        task=task,
+        page=page,
+        page_size=page_size,
+        page_count=page_count)
 
 
 class ScheduerView(BaseModelView):
