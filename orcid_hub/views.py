@@ -2633,7 +2633,7 @@ def sync_profiles():
             Task.org == org).order_by(Task.created_at.desc()).limit(1).first()
     form = ProfileSyncForm(obj=task)
 
-    if form.validate_on_submit():
+    if form.is_submitted():
         if form.close.data:
             _next = get_next_url() or url_for("index")
             return redirect(_next)
@@ -2646,7 +2646,7 @@ def sync_profiles():
             flash(f"Profile synchronization task was initiated (job id: {job.id})", "info")
             return redirect(url_for("sync_profiles"))
 
-    page_size = 20
+    page_size = 10
     page = int(request.args.get("page", 1))
     page_count = math.ceil(task.log_entries.count() / page_size) if task else 0
     return render_template(
