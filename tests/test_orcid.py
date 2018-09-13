@@ -10,7 +10,8 @@ import requests_oauthlib
 from flask import session, url_for
 from flask_login import login_user
 
-from orcid_hub.models import Affiliation, OrcidApiCall, OrcidToken, Organisation, User, UserOrg  # noqa:E404
+from orcid_hub.models import (Affiliation, Log, OrcidApiCall, OrcidToken, Organisation, Role, Task,
+                              TaskType, User, UserOrg)  # noqa:E404
 from orcid_hub.orcid_client import ApiException, MemberAPI, api_client, configuration, NestedDict  # noqa:E404
 
 fake_time = time.time()
@@ -412,3 +413,47 @@ def test_profile_wo_orcid(request_ctx):
         rv = ctx.app.full_dispatch_request()
         assert rv.status_code == 302
         assert rv.location == url_for("link")
+
+
+def test_sync_profile(app, mocker):
+    """Test sync_profile."""
+    mocker.patch(
+        "orcid_api.MemberAPIV20Api.update_employment",
+        return_value=Mock(status=201, headers={'Location': '12344/XYZ/54321'}))
+    mocker.patch(
+        "orcid_api.MemberAPIV20Api.update_education",
+        return_value=Mock(status=201, headers={'Location': '12344/XYZ/12345'}))
+
+    org = Organisation.create(
+        name="THE ORGANISATION",
+        tuakiri_name="THE ORGANISATION",
+        confirmed=True,
+        orcid_client_id="APP-5ZVH4JRQ0C27RVH5",
+        orcid_secret="Client Secret",
+        city="CITY",
+        country="COUNTRY",
+        disambiguated_id="ID",
+        disambiguation_source="SOURCE")
+    u = User.create(
+        email="test1234456@mailinator.com",
+        name="TEST USER",
+        username="test123",
+        roles=Role.RESEARCHER,
+        orcid="12344",
+        confirmed=True,
+        organisation=org)
+    UserOrg.create(user=u, org=org)
+    access_token = "ACCESS-TOKEN"
+
+    t = Task.create(org=org, task_type=TaskType.SYNC)
+    api = MemberAPI(org=org)
+    api.sync_profile(task=t, user=u, access_token=access_token)
+
+    mocker.patch("orcid_hub.orcid_client.MemberAPI.get_record", lambda *args: None)
+    api.sync_profile(task=t, user=u, access_token=access_token)
+
+    OrcidToken.create(user=u, org=org, scope="/read-limited,/activities/update")
+    mocker.patch("orcid_hub.orcid_client.MemberAPI.get_record", lambda *args: None)
+    api.sync_profile(task=t, user=u, access_token=access_token)
+
+    assert Log.select().count() > 0

@@ -1041,11 +1041,6 @@ def test_sync_profile(app, mocker):
 
     mocker.patch("orcid_hub.orcid_client.MemberAPI.get_record", lambda *args: None)
     utils.sync_profile(task_id=t.id)
-    utils.sync_profile(task_id=t.id, user_id=u.id)
-
-    OrcidToken.create(user=u, org=org, scope="/read-limited,/activities/update")
-    mocker.patch("orcid_hub.orcid_client.MemberAPI.get_record", lambda *args: None)
-    utils.sync_profile(task_id=t.id, user_id=u.id)
 
     resp = get_record_mock()
     mocker.patch("orcid_hub.orcid_client.MemberAPI.get_record", lambda *args: resp)

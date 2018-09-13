@@ -7,8 +7,9 @@ isort:skip_file
 
 from .config import ORCID_API_BASE, SCOPE_READ_LIMITED, SCOPE_ACTIVITIES_UPDATE, ORCID_BASE_URL
 from flask_login import current_user
-from .models import (OrcidApiCall, Affiliation, OrcidToken, FundingContributor as FundingCont,
-                     ExternalId as ExternalIdModel, WorkContributor as WorkCont, WorkExternalId, PeerReviewExternalId)
+from .models import (OrcidApiCall, Affiliation, OrcidToken, FundingContributor as FundingCont, Log,
+                     ExternalId as ExternalIdModel, WorkContributor as WorkCont, WorkExternalId,
+                     PeerReviewExternalId)
 from orcid_api import (configuration, rest, api_client, MemberAPIV20Api, SourceClientId, Source,
                        OrganizationAddress, DisambiguatedOrganization, Employment, Education,
                        Organization)
@@ -108,7 +109,7 @@ class MemberAPI(MemberAPIV20Api):
         self.source = Source(
             source_orcid=None, source_client_id=self.source_clientid, source_name=org.name)
 
-        if access_token is None:
+        if access_token is None and user:
             try:
                 orcid_token = OrcidToken.get(
                     user_id=user.id,
@@ -120,7 +121,7 @@ class MemberAPI(MemberAPIV20Api):
                 return None
 
             configuration.access_token = orcid_token.access_token
-        else:
+        elif access_token:
             configuration.access_token = access_token
 
     def get_record(self):
@@ -877,7 +878,6 @@ class MemberAPI(MemberAPIV20Api):
                 f"Unsupported affiliation type '{affiliation}' for {self.user} affiliaton type with {self.org}"
             )
 
-        rec.source = self.source
         rec.organization = Organization(
             name=organisation or org_name or self.org.name,
             address=organisation_address,
@@ -935,6 +935,42 @@ class MemberAPI(MemberAPIV20Api):
     def register_webhook(self, user=None, orcid=None):
         """Register a webhook for the given ORCID ID or user."""
         pass
+
+    def sync_profile(self, task, user, access_token):
+        """Synchronize the user profile."""
+        self.set_config(user=user, org=self.org, access_token=access_token)
+        profile = self.get_record()
+
+        if not profile:
+            Log.create(task=task, message=f"The user {user} doesn't have ORCID profile.")
+            return
+        for k, s in [
+            ["educations", "education-summary"],
+            ["employments", "employment-summary"],
+        ]:
+            entries = profile.get("activities-summary", k, s)
+            if not entries:
+                continue
+            for e in entries:
+                source = e.get("source")
+                if not source:
+                    continue
+
+                if source.get("source-client-id", "path") == self.org.orcid_client_id:
+                    do = e.get("organization", "disambiguated-organization")
+                    if not (do and do.get("disambiguated-organization-identifier")
+                            and do.get("disambiguation-source")):
+                        e["organization"]["disambiguated-organization"] = {
+                            "disambiguated-organization-identifier": self.org.disambiguated_id,
+                            "disambiguation-source": self.org.disambiguation_source,
+                        }
+                        api_call = self.update_employment if k == "employments" else self.update_education
+
+                        try:
+                            api_call(orcid=user.orcid, put_code=e.get("put-code"), body=e)
+                            Log.create(task=task, message=f"Successfully update entry: {e}.")
+                        except Exception as ex:
+                            Log.create(task=task, message=f"Failed to update the entry: {ex}.")
 
 
 # yapf: disable
