@@ -4,6 +4,7 @@
 import copy
 import csv
 import json
+import math
 import mimetypes
 import os
 import secrets
@@ -35,14 +36,14 @@ from orcid_api.rest import ApiException
 
 from . import admin, app, limiter, models, orcid_client, rq, utils
 from .forms import (ApplicationFrom, BitmapMultipleValueField, CredentialForm, EmailTemplateForm,
-                    FileUploadForm, FundingForm, GroupIdForm, LogoForm, OrgRegistrationForm, PartialDateField,
-                    RecordForm, UserInvitationForm, WebhookForm)
+                    FileUploadForm, FundingForm, GroupIdForm, LogoForm, OrgRegistrationForm,
+                    PartialDateField, ProfileSyncForm, RecordForm, UserInvitationForm, WebhookForm)
 from .login_provider import roles_required
-from .models import (Affiliation, AffiliationRecord, CharField, Client, File, FundingInvitees,
-                     FundingRecord, Grant, GroupIdRecord, ModelException, OrcidApiCall, OrcidToken,
-                     Organisation, OrgInfo, OrgInvitation, PartialDate, PeerReviewInvitee,
-                     PeerReviewRecord, Role, Task, TextField, Token, Url, User, UserInvitation,
-                     UserOrg, UserOrgAffiliation, WorkInvitees, WorkRecord, db, get_val)
+from .models import (
+    Affiliation, AffiliationRecord, CharField, Client, File, FundingInvitees, FundingRecord, Grant,
+    GroupIdRecord, ModelException, OrcidApiCall, OrcidToken, Organisation, OrgInfo, OrgInvitation,
+    PartialDate, PeerReviewInvitee, PeerReviewRecord, Role, Task, TaskType, TextField, Token, Url,
+    User, UserInvitation, UserOrg, UserOrgAffiliation, WorkInvitees, WorkRecord, db, get_val)
 # NB! Should be disabled in production
 from .pyinfo import info
 from .utils import generate_confirmation_token, get_next_url, read_uploaded_file, send_user_invitation
@@ -354,36 +355,6 @@ class UserAdmin(AppModelView):
         },
     }
     can_export = True
-
-    def update_model(self, form, model):
-        """Added prevalidation of the form."""
-        if "roles" not in self.form_excluded_columns and form.roles.data != model.roles:
-            if bool(form.roles.data & Role.ADMIN) != UserOrg.select().where(
-                (UserOrg.user_id == model.id) & UserOrg.is_admin).exists():  # noqa: E125
-                if form.roles.data & Role.ADMIN:
-                    flash(f"Cannot add ADMIN role to {model} "
-                          "since there is no organisation the user is an administrator for.",
-                          "danger")
-                else:
-                    flash(f"Cannot revoke ADMIN role from {model} "
-                          "since there is an organisation the user is an administrator for.",
-                          "danger")
-                form.roles.data = model.roles
-                return False
-            if bool(form.roles.data & Role.TECHNICAL) != Organisation.select().where(
-                    Organisation.tech_contact_id == model.id).exists():
-                if model.has_role(Role.TECHNICAL):
-                    flash(f"Cannot revoke TECHNICAL role from {model} "
-                          "since there is an organisation the user is the technical contact for.",
-                          "danger")
-                else:
-                    flash(f"Cannot add TECHNICAL role to {model} "
-                          "since there is no organisation the user is the technical contact for.",
-                          "danger")
-                form.roles.data = model.roles
-                return False
-
-        return super().update_model(form, model)
 
 
 class OrganisationAdmin(AppModelView):
@@ -2646,6 +2617,46 @@ def org_webhook():
             flash(f"Webhook was disabled.", "info")
 
     return render_template("form.html", form=form, title="Organisation Webhook")
+
+
+@app.route(
+    "/sync_profiles", methods=[
+        "GET",
+        "POST",
+    ])
+@roles_required(Role.TECHNICAL, Role.SUPERUSER)
+def sync_profiles():
+    """Start research profile synchronization."""
+    org = current_user.organisation
+    task = Task.select().where(
+            Task.task_type == TaskType.SYNC,
+            Task.org == org).order_by(Task.created_at.desc()).limit(1).first()
+    form = ProfileSyncForm(obj=task)
+
+    if form.is_submitted():
+        if form.close.data:
+            _next = get_next_url() or url_for("index")
+            return redirect(_next)
+        if task and not form.restart.data:
+            flash(f"There is already na active profile synchronization task", "warning")
+        else:
+            Task.delete().where(Task.org == org, Task.task_type == TaskType.SYNC).execute()
+            task = Task.create(org=org, task_type=TaskType.SYNC)
+            job = utils.sync_profile.queue(task_id=task.id)
+            flash(f"Profile synchronization task was initiated (job id: {job.id})", "info")
+            return redirect(url_for("sync_profiles"))
+
+    page_size = 10
+    page = int(request.args.get("page", 1))
+    page_count = math.ceil(task.log_entries.count() / page_size) if task else 0
+    return render_template(
+        "profile_sync.html",
+        form=form,
+        title="Profile Synchronization",
+        task=task,
+        page=page,
+        page_size=page_size,
+        page_count=page_count)
 
 
 class ScheduerView(BaseModelView):

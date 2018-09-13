@@ -8,7 +8,7 @@ import re
 import sys
 import time
 from itertools import product
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, Mock, patch
 from io import BytesIO
 from urllib.parse import urlparse
 
@@ -19,13 +19,13 @@ from peewee import SqliteDatabase
 from playhouse.test_utils import test_database
 from werkzeug.datastructures import ImmutableMultiDict
 
-from orcid_hub import app, orcid_client, rq, views
+from orcid_hub import app, orcid_client, rq, views, utils
 from orcid_hub.config import ORCID_BASE_URL
 from orcid_hub.forms import FileUploadForm
 from orcid_hub.models import (Affiliation, AffiliationRecord, Client, File, FundingRecord,
                               GroupIdRecord, OrcidToken, Organisation, OrgInfo, OrgInvitation,
-                              Role, Task, Token, Url, User, UserOrgAffiliation, UserInvitation,
-                              UserOrg, PeerReviewRecord, WorkRecord)
+                              Role, Task, TaskType, Token, Url, User, UserOrgAffiliation,
+                              UserInvitation, UserOrg, PeerReviewRecord, WorkRecord)
 
 fake_time = time.time()
 logger = logging.getLogger(__name__)
@@ -2133,3 +2133,27 @@ def test_issue_470198698(request_ctx):
         login_user(admin)
         resp = ctx.app.full_dispatch_request()
     assert resp.status_code == 404
+
+
+def test_sync_profiles(client, mocker):
+    """Test organisation switching."""
+    def sync_profile_mock(*args, **kwargs):
+        utils.sync_profile(*args, **kwargs)
+        return Mock(id="test-test-test-test")
+
+    mocker.patch("orcid_hub.utils.sync_profile.queue", sync_profile_mock)
+
+    user = User.get(email="admin@test1.edu")
+    resp = client.login(user, follow_redirects=True)
+
+    resp = client.get("/sync_profiles")
+
+    resp = client.post("/sync_profiles", data={"start": "Start"}, follow_redirects=True)
+    assert Task.select(Task.task_type == TaskType.SYNC).count() == 1
+
+    resp = client.post("/sync_profiles", data={"restart": "Restart"}, follow_redirects=True)
+    assert Task.select(Task.task_type == TaskType.SYNC).count() == 1
+
+    resp = client.post("/sync_profiles", data={"close": "Close"})
+    assert resp.status_code == 302
+    assert urlparse(resp.location).path == '/'
