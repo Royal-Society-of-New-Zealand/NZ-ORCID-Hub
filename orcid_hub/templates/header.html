@@ -188,6 +188,16 @@
                         {% if current_user.organisation.confirmed %}
                           <a href="{{url_for('profile')}}"
                              class="btn btn-primary btn-block btn-sm">Profile</a>
+                          {% if current_user.orcid %}
+                            <form class="icon" method="POST" action="{{url_for('remove_linkage')}}">
+                            <button onclick="return safeConfirm('Are you sure you want to remove the ORCID ID and token associated with this account?\n\nBy clicking &quot;OK&quot;'+
+                            ' we will remove the access token given to this organisation! \n\n You may not be able to login again because you are deleting your associated ORCiD iD!');"
+                              data-toggle="tooltip"
+                              data-placement="bottom"
+                              title="Remove Erroneous Linkage..."
+                              class="btn btn-danger">Remove ORCID Linkage</button> <br>
+                            </form>
+                          {% endif %}
                         {% endif %}
                         </p>
                       </div>
