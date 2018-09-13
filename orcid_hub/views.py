@@ -2792,7 +2792,7 @@ def sync_profiles():
         page_size=page_size,
         page_count=page_count)
 
- 
+
 @app.route("/remove/orcid/linkage", methods=["POST"])
 @login_required
 def remove_linkage():
