@@ -2619,23 +2619,29 @@ def org_webhook():
     return render_template("form.html", form=form, title="Organisation Webhook")
 
 
+@app.route("/sync_profile/<int:task_id>", methods=["GET", "POST"])
 @app.route(
     "/sync_profiles", methods=[
         "GET",
         "POST",
     ])
 @roles_required(Role.TECHNICAL, Role.SUPERUSER)
-def sync_profiles():
+def sync_profiles(task_id=None):
     """Start research profile synchronization."""
-    org = current_user.organisation
-    task = Task.select().where(
-            Task.task_type == TaskType.SYNC,
-            Task.org == org).order_by(Task.created_at.desc()).limit(1).first()
-    form = ProfileSyncForm(obj=task)
+    if not task_id:
+        task_id = request.args.get("task_id")
+    if task_id:
+        task = Task.get(task_id)
+        org = task.org
+    else:
+        org = current_user.organisation
+        task = Task.select().where(Task.task_type == TaskType.SYNC, Task.org == org).order_by(
+            Task.created_at.desc()).limit(1).first()
+    form = ProfileSyncForm()
 
     if form.is_submitted():
         if form.close.data:
-            _next = get_next_url() or url_for("index")
+            _next = get_next_url() or url_for("task.index_view")
             return redirect(_next)
         if task and not form.restart.data:
             flash(f"There is already na active profile synchronization task", "warning")

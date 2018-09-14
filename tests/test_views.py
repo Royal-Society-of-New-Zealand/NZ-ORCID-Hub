@@ -2138,7 +2138,7 @@ def test_issue_470198698(request_ctx):
 def test_sync_profiles(client, mocker):
     """Test organisation switching."""
     def sync_profile_mock(*args, **kwargs):
-        utils.sync_profile(*args, **kwargs)
+        utils.sync_profile(*args, **kwargs, delay=0)
         return Mock(id="test-test-test-test")
 
     mocker.patch("orcid_hub.utils.sync_profile.queue", sync_profile_mock)
@@ -2156,4 +2156,4 @@ def test_sync_profiles(client, mocker):
 
     resp = client.post("/sync_profiles", data={"close": "Close"})
     assert resp.status_code == 302
-    assert urlparse(resp.location).path == '/'
+    assert urlparse(resp.location).path == "/admin/task/"

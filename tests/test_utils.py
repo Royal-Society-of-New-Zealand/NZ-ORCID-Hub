@@ -1040,27 +1040,27 @@ def test_sync_profile(app, mocker):
     t = Task.create(org=org, task_type=TaskType.SYNC)
 
     mocker.patch("orcid_hub.orcid_client.MemberAPI.get_record", lambda *args: None)
-    utils.sync_profile(task_id=t.id)
+    utils.sync_profile(task_id=t.id, delay=0)
 
     resp = get_record_mock()
     mocker.patch("orcid_hub.orcid_client.MemberAPI.get_record", lambda *args: resp)
-    utils.sync_profile(task_id=t.id)
+    utils.sync_profile(task_id=t.id, delay=0)
 
     resp["activities-summary"]["educations"]["education-summary"] = []
     mocker.patch("orcid_hub.orcid_client.MemberAPI.get_record", lambda *args: resp)
-    utils.sync_profile(task_id=t.id)
+    utils.sync_profile(task_id=t.id, delay=0)
 
     mocker.patch(
         "orcid_hub.orcid_client.MemberAPI.update_employment", side_effect=Exception("FAILED"))
-    utils.sync_profile(task_id=t.id)
+    utils.sync_profile(task_id=t.id, delay=0)
 
     resp["activities-summary"]["employments"]["employment-summary"][0]["source"] = None
     resp["activities-summary"]["employments"]["employment-summary"][0]["source"] = None
     mocker.patch("orcid_hub.orcid_client.MemberAPI.get_record", lambda *args: resp)
-    utils.sync_profile(task_id=t.id)
+    utils.sync_profile(task_id=t.id, delay=0)
 
     org.disambiguated_id = None
     org.save()
-    utils.sync_profile(task_id=t.id)
+    utils.sync_profile(task_id=t.id, delay=0)
 
     assert Log.select().count() > 0
