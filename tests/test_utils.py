@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 """Tests for util functions."""
 
-import json
 import logging
 from itertools import groupby
 from unittest.mock import Mock, patch
@@ -11,7 +10,7 @@ from flask import make_response
 from flask_login import login_user
 from peewee import JOIN
 
-from orcid_hub import orcid_client, utils
+from orcid_hub import utils
 from orcid_hub.models import (AffiliationRecord, ExternalId, File, FundingContributor,
                               FundingInvitees, FundingRecord, Log, OrcidToken, Organisation,
                               PeerReviewExternalId, PeerReviewInvitee, PeerReviewRecord, Role,
@@ -101,7 +100,7 @@ def send_mail_mock(*argvs, **kwargs):
     return True
 
 
-@patch("orcid_hub.utils.send_email", side_effect=send_mail_mock)
+@patch("orcid_hub.utils.send_email", send_mail_mock)
 def test_send_user_invitation(test_db, request_ctx):
     """Test to send user invitation."""
     org = Organisation.create(
@@ -223,268 +222,6 @@ def test_send_work_funding_peer_review_invitation(test_db, request_ctx):
         assert rv.status_code == 200
 
 
-def get_record_mock():
-    """Mock profile api call."""
-    resp = {
-        'activities-summary': {
-            'last-modified-date': {
-                'value': 1513136293368
-            },  # noqa: E127
-            'educations': {
-                'last-modified-date': None,
-                'education-summary': [
-                    {
-                        "created-date": {
-                            "value": 1532322530230
-                        },
-                        "last-modified-date": {
-                            "value": 1532322530230
-                        },
-                        "source": {
-                            "source-orcid": None,
-                            "source-client-id": {
-                                "uri": "http://sandbox.orcid.org/client/APP-5ZVH4JRQ0C27RVH5",
-                                "path": "APP-5ZVH4JRQ0C27RVH5",
-                                "host": "sandbox.orcid.org"
-                            },
-                            "source-name": {
-                                "value": "The University of Auckland - MyORCiD"
-                            }
-                        },
-                        "department-name": None,
-                        "role-title": None,
-                        "start-date": None,
-                        "end-date": None,
-                        "organization": {
-                            "name": "The University of Auckland",
-                            "address": {
-                                "city": "Auckland",
-                                "region": "Auckland",
-                                "country": "NZ"
-                            },
-                            "disambiguated-organization": {
-                                "disambiguated-organization-identifier": None,
-                                "disambiguation-source": "RINGGOLD"
-                            }
-                        },
-                        "visibility": "PUBLIC",
-                        "put-code": 31136,
-                        "path": "/0000-0001-8228-7153/education/31136"
-                    },
-                ],
-                'path': '/0000-0002-3879-2651/educations'
-            },
-            "employments": {
-                "last-modified-date": {
-                    "value": 1511401310144
-                },
-                "employment-summary": [{
-                    "created-date": {
-                        "value": 1511401310144
-                    },
-                    "last-modified-date": {
-                        "value": 1511401310144
-                    },
-                    "source": {
-                        "source-orcid": None,
-                        "source-client-id": {
-                            "uri": "http://sandbox.orcid.org/client/APP-5ZVH4JRQ0C27RVH5",
-                            "path": "APP-5ZVH4JRQ0C27RVH5",
-                            "host": "sandbox.orcid.org"
-                        },
-                        "source-name": {
-                            "value": "The University of Auckland - MyORCiD"
-                        }
-                    },
-                    "department-name": None,
-                    "role-title": None,
-                    "start-date": None,
-                    "end-date": None,
-                    "organization": {
-                        "name": "The University of Auckland",
-                        "address": {
-                            "city": "Auckland",
-                            "region": None,
-                            "country": "NZ"
-                        },
-                        "disambiguated-organization": None
-                    },
-                    "visibility": "PUBLIC",
-                    "put-code": 29272,
-                    "path": "/0000-0003-1255-9023/employment/29272"
-                }],
-                "path":
-                "/0000-0003-1255-9023/employments"
-            },
-            'fundings': {
-                'last-modified-date': {
-                    'value': 1513136293368
-                },
-                'group': [{
-                    'last-modified-date': {
-                        'value': 1513136293368
-                    },
-                    'external-ids': {
-                        'external-id': [{
-                            'external-id-type': 'grant_number',
-                            'external-id-value': 'GNS1701',
-                            'external-id-url': None,
-                            'external-id-relationship': 'SELF'
-                        }, {
-                            'external-id-type': 'grant_number',
-                            'external-id-value': '17-GNS-022',
-                            'external-id-url': None,
-                            'external-id-relationship': 'SELF'
-                        }]
-                    },
-                    'funding-summary': [{
-                        'created-date': {
-                            'value': 1511935227017
-                        },
-                        'last-modified-date': {
-                            'value': 1513136293368
-                        },
-                        'source': {
-                            'source-orcid': None,
-                            'source-client-id': {
-                                'uri': 'http://sandbox.orcid.org/client/APP-5ZVH4JRQ0C27RVH5',
-                                'path': 'APP-5ZVH4JRQ0C27RVH5',
-                                'host': 'sandbox.orcid.org'
-                            },
-                            'source-name': {
-                                'value': 'The University of Auckland - MyORCiD'
-                            }
-                        },
-                        'title': {
-                            'title': {
-                                'value': 'Probing the crust with zirco'
-                            },
-                            'translated-title': {
-                                'value': 'नमस्ते',
-                                'language-code': 'hi'
-                            }
-                        },
-                        'type': 'CONTRACT',
-                        'start-date': None,
-                        'end-date': {
-                            'year': {
-                                'value': '2025'
-                            },
-                            'month': None,
-                            'day': None
-                        },
-                        'organization': {
-                            'name': 'Royal Society Te Apārangi'
-                        },
-                        'put-code': 9597,
-                        'path': '/0000-0002-3879-2651/funding/9597'
-                    }]
-                }],
-                'path':
-                '/0000-0002-3879-2651/fundings'
-            },
-            "peer-reviews": {
-                "group": [
-                    {
-                        "external-ids": {
-                            "external-id": [
-                                {
-                                    "external-id-type": "peer-review",
-                                    "external-id-value": "issn:12131",
-                                    "external-id-url": None,
-                                    "external-id-relationship": None
-                                }
-                            ]
-                        },
-                        "peer-review-summary": [
-                            {
-                                "source": {
-                                    "source-orcid": None,
-                                    "source-client-id": {
-                                        "uri": "http://sandbox.orcid.org/client/APP-5ZVH4JRQ0C27RVH5",
-                                        "path": "APP-5ZVH4JRQ0C27RVH5",
-                                        "host": "sandbox.orcid.org"
-                                    },
-                                    "source-name": {
-                                        "value": "The University of Auckland - MyORCiD"
-                                    }
-                                },
-                                "external-ids": {
-                                    "external-id": [
-                                        {
-                                            "external-id-type": "source-work-id",
-                                            "external-id-value": "122334",
-                                            "external-id-url": {
-                                                "value": "https://localsystem.org/1234"
-                                            },
-                                            "external-id-relationship": "SELF"
-                                        }
-                                    ]
-                                },
-                                "review-group-id": "issn:12131",
-                                "convening-organization": {
-                                    "name": "The University of Auckland",
-                                    "address": {
-                                        "city": "Auckland",
-                                        "region": "Auckland",
-                                        "country": "NZ"
-                                    },
-                                    "disambiguated-organization": None
-                                },
-                                "visibility": "PUBLIC",
-                                "put-code": 2622,
-                            }
-                        ]
-                    }
-                ],
-                "path": "/0000-0003-1255-9023/peer-reviews"
-            },
-            'works': {
-                'group': [{
-                    'external-ids': {
-                        'external-id': [{
-                            'external-id-type': 'grant_number',
-                            'external-id-value': 'GNS1701',
-                            'external-id-url': None,
-                            'external-id-relationship': 'SELF'
-                        }]
-                    },
-                    'work-summary': [{
-                        'source': {
-                            'source-orcid': None,
-                            'source-client-id': {
-                                'uri': 'http://sandbox.orcid.org/client/APP-5ZVH4JRQ0C27RVH5',
-                                'path': 'APP-5ZVH4JRQ0C27RVH5',
-                                'host': 'sandbox.orcid.org'
-                            },
-                            'source-name': {
-                                'value': 'The University of Auckland - MyORCiD'
-                            }
-                        },
-                        'title': {
-                            'title': {
-                                'value': 'Test titile2'
-                            },
-                            'translated-title': {
-                                'value': 'नमस्ते',
-                                'language-code': 'hi'
-                            }
-                        },
-                        'type': 'BOOK_CHAPTER',
-                        'put-code': 9597,
-                        'path': '/0000-0002-3879-2651/works/9597'
-                    }]
-                }],
-                'path':
-                    '/0000-0002-3879-2651/works'
-            },
-            'path': '/0000-0002-3879-2651/activities'
-        },
-        'path': '/0000-0002-3879-2651'
-    }
-    return json.loads(json.dumps(resp), object_pairs_hook=orcid_client.NestedDict)
-
-
 def create_or_update_fund_mock(self=None, orcid=None, **kwargs):
     """Mock funding api call."""
     v = make_response
@@ -501,11 +238,13 @@ def create_or_update_aff_mock(affiliation=None, task_by_user=None, *args, **kwar
     return v
 
 
-@patch("orcid_hub.utils.send_email", side_effect=send_mail_mock)
-@patch("orcid_api.MemberAPIV20Api.create_funding", side_effect=create_or_update_fund_mock)
-@patch("orcid_hub.orcid_client.MemberAPI.get_record", side_effect=get_record_mock)
-def test_create_or_update_funding(email_patch, patch, test_db, request_ctx):
+def test_create_or_update_funding(request_ctx, profile, mocker):
     """Test create or update funding."""
+    mocker.patch("orcid_hub.utils.send_email", send_mail_mock)
+    mocker.patch(
+        "orcid_api.MemberAPIV20Api.create_funding", create_or_update_fund_mock)
+    mocker.patch("orcid_hub.orcid_client.MemberAPI.get_record", profile())
+
     org = Organisation.create(
         name="THE ORGANISATION",
         tuakiri_name="THE ORGANISATION",
@@ -578,11 +317,11 @@ def test_create_or_update_funding(email_patch, patch, test_db, request_ctx):
     assert "12344" == funding_invitees.orcid
 
 
-@patch("orcid_hub.utils.send_email", side_effect=send_mail_mock)
-@patch("orcid_api.MemberAPIV20Api.create_work", side_effect=create_or_update_fund_mock)
-@patch("orcid_hub.orcid_client.MemberAPI.get_record", side_effect=get_record_mock)
-def test_create_or_update_work(email_patch, patch, test_db, request_ctx):
+def test_create_or_update_work(request_ctx, profile, mocker):
     """Test create or update work."""
+    mocker.patch("orcid_hub.utils.send_email", send_mail_mock)
+    mocker.patch("orcid_api.MemberAPIV20Api.create_work", create_or_update_fund_mock)
+    mocker.patch("orcid_hub.orcid_client.MemberAPI.get_record", profile())
     org = Organisation.create(
         name="THE ORGANISATION",
         tuakiri_name="THE ORGANISATION",
@@ -656,10 +395,11 @@ def test_create_or_update_work(email_patch, patch, test_db, request_ctx):
     assert "12344" == work_invitees.orcid
 
 
-@patch("orcid_hub.utils.send_email", side_effect=send_mail_mock)
-@patch("orcid_api.MemberAPIV20Api.create_peer_review", side_effect=create_or_update_fund_mock)
-@patch("orcid_hub.orcid_client.MemberAPI.get_record", side_effect=get_record_mock)
-def test_create_or_update_peer_review(email_patch, patch, test_db, request_ctx):
+def test_create_or_update_peer_review(request_ctx, profile, mocker):
+    """Test create or update work."""
+    mocker.patch("orcid_hub.utils.send_email", send_mail_mock)
+    mocker.patch("orcid_api.MemberAPIV20Api.create_peer_review", create_or_update_fund_mock)
+    mocker.patch("orcid_hub.orcid_client.MemberAPI.get_record", profile())
     """Test create or update peer review."""
     org = Organisation.create(
         name="THE ORGANISATION",
@@ -743,7 +483,7 @@ def test_create_or_update_peer_review(email_patch, patch, test_db, request_ctx):
     "orcid_api.MemberAPIV20Api.create_employment",
     return_value=Mock(status=201, headers={'Location': '12344/XYZ/12399'}))
 @patch("orcid_hub.utils.send_email")
-def test_create_or_update_affiliation(send_email, update_employment, create_employment, app):
+def test_create_or_update_affiliation(send_email, update_employment, create_employment, app, profile):
     """Test create or update affiliation."""
     org = Organisation.create(
         name="THE ORGANISATION",
@@ -865,7 +605,7 @@ def test_create_or_update_affiliation(send_email, update_employment, create_empl
             t.affiliation_record.user, )):
         with patch(
                 "orcid_hub.orcid_client.MemberAPI.get_record",
-                return_value=get_record_mock() if user.orcid else None) as get_record:
+                return_value=profile() if user.orcid else None) as get_record:
             utils.create_or_update_affiliations(user=user, org_id=org_id, records=tasks_by_user)
             get_record.assert_any_call()
     affiliation_record = AffiliationRecord.select().order_by(AffiliationRecord.id).limit(1).first()
@@ -1001,7 +741,7 @@ def test_is_valid_url():
     assert not utils.is_valid_url(12345)
 
 
-def test_sync_profile(app, mocker):
+def test_sync_profile(app, mocker, profile):
     """Test sync_profile."""
     mocker.patch(
         "orcid_api.MemberAPIV20Api.update_employment",
@@ -1042,7 +782,7 @@ def test_sync_profile(app, mocker):
     mocker.patch("orcid_hub.orcid_client.MemberAPI.get_record", lambda *args: None)
     utils.sync_profile(task_id=t.id, delay=0)
 
-    resp = get_record_mock()
+    resp = profile()
     mocker.patch("orcid_hub.orcid_client.MemberAPI.get_record", lambda *args: resp)
     utils.sync_profile(task_id=t.id, delay=0)
 

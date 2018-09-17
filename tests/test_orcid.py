@@ -24,6 +24,7 @@ def test_nested_dict():
             object_pairs_hook=NestedDict)
     assert d.get("root", "sub-root", "node") == "VALUE"
     assert d.get("root", "sub-root", "node2") is None
+    assert d.get("root", "sub-root", "node-2", "node-3") is None
     assert d.get("root", "sub-root", "node", "missing", default="DEFAULT") == "DEFAULT"
 
 

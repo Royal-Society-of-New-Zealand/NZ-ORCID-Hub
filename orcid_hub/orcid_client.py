@@ -30,7 +30,7 @@ class NestedDict(dict):
         """To get the value from uploaded fields."""
         d = self
         for k in keys:
-            if not d:
+            if d is default:
                 break
             if not isinstance(d, dict):
                 return default

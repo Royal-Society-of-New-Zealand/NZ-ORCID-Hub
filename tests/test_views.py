@@ -2140,7 +2140,6 @@ def test_sync_profiles(client, mocker):
     def sync_profile_mock(*args, **kwargs):
         utils.sync_profile(*args, **kwargs, delay=0)
         return Mock(id="test-test-test-test")
-
     mocker.patch("orcid_hub.utils.sync_profile.queue", sync_profile_mock)
 
     user = User.get(email="admin@test1.edu")
