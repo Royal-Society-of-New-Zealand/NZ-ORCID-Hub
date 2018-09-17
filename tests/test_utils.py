@@ -734,7 +734,7 @@ def test_is_valid_url():
     assert not utils.is_valid_url(12345)
 
 
-def test_sync_profile(app, mocker, profile):
+def test_sync_profile(app, mocker):
     """Test sync_profile."""
     mocker.patch(
         "orcid_api.MemberAPIV20Api.update_employment",
