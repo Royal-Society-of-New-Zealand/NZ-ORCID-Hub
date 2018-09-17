@@ -17,6 +17,8 @@ from orcid_hub.models import (AffiliationRecord, ExternalId, File, FundingContri
                               Task, TaskType, User, UserInvitation, UserOrg, WorkContributor,
                               WorkExternalId, WorkInvitees, WorkRecord)
 
+from tests.utils import get_profile
+
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 logger.addHandler(logging.StreamHandler())
@@ -100,9 +102,9 @@ def send_mail_mock(*argvs, **kwargs):
     return True
 
 
-@patch("orcid_hub.utils.send_email", send_mail_mock)
-def test_send_user_invitation(test_db, request_ctx):
+def test_send_user_invitation(app, mocker):
     """Test to send user invitation."""
+    send_email = mocker.patch("orcid_hub.utils.send_email")
     org = Organisation.create(
         name="THE ORGANISATION",
         tuakiri_name="THE ORGANISATION",
@@ -123,61 +125,55 @@ def test_send_user_invitation(test_db, request_ctx):
         confirmed=True,
         organisation=org)
 
-    u = User(
-        email="test123445@mailinator.com",
+    email = "test123445@mailinator.com"
+    first_name = "TEST"
+    last_name = "Test"
+    affiliation_types = {"staff"}
+    u = User.create(
+        email=email,
         name="TEST USER",
         username="test123",
         roles=Role.RESEARCHER,
         orcid=None,
         confirmed=True,
         organisation=org)
-    u.save()
-    user_org = UserOrg(user=u, org=org)
-    user_org.save()
-    task = Task(id=123, org=org)
-    task.save()
-    email = "test123445@mailinator.com"
-    first_name = "TEST"
-    last_name = "Test"
-    affiliation_types = {"staff"}
-    with patch("smtplib.SMTP") as mock_smtp, request_ctx("/") as ctxx:
+    UserOrg.create(user=u, org=org)
+    task = Task.create(org=org)
 
-        instance = mock_smtp.return_value
-        error = {email: (450, "Requested mail action not taken: mailbox unavailable")}
-        instance.utils.send_user_invitation.return_value = error
-        result = instance.utils.send_user_invitation(
-            inviter=inviter,
-            org=org,
-            email=email,
-            first_name=first_name,
-            last_name=last_name,
-            affiliation_types=affiliation_types,
-            task_id=task.id)
-        rv = ctxx.app.full_dispatch_request()
-        assert rv.status_code == 200
-        assert instance.utils.send_user_invitation.called  # noqa: E712
-        assert (450, 'Requested mail action not taken: mailbox unavailable') == result[email]
+    mock_smtp = mocker.patch("smtplib.SMTP").return_value
+    instance = mock_smtp.return_value
+    error = {email: (450, "Requested mail action not taken: mailbox unavailable")}
+    instance.utils.send_user_invitation.return_value = error
+    result = instance.utils.send_user_invitation(
+        inviter=inviter,
+        org=org,
+        email=email,
+        first_name=first_name,
+        last_name=last_name,
+        affiliation_types=affiliation_types,
+        task_id=task.id)
+    assert instance.utils.send_user_invitation.called  # noqa: E712
+    assert (450, 'Requested mail action not taken: mailbox unavailable') == result[email]
 
-    with patch("orcid_hub.utils.send_email") as send_email:
-        result = utils.send_user_invitation(
-            inviter=inviter.id,
-            org=org.id,
-            email=email,
-            first_name=first_name,
-            last_name=last_name,
-            affiliation_types=affiliation_types,
-            start_date=[1971, 1, 1],
-            end_date=[2018, 5, 29],
-            task_id=task.id)
-        send_email.assert_called_once()
-        assert result == UserInvitation.select().order_by(UserInvitation.id.desc()).first().id
+    send_email = mocker.patch("orcid_hub.utils.send_email")
+    result = utils.send_user_invitation(
+        inviter=inviter.id,
+        org=org.id,
+        email=email,
+        first_name=first_name,
+        last_name=last_name,
+        affiliation_types=affiliation_types,
+        start_date=[1971, 1, 1],
+        end_date=[2018, 5, 29],
+        task_id=task.id)
+    send_email.assert_called_once()
+    assert result == UserInvitation.select().order_by(UserInvitation.id.desc()).first().id
 
 
-@patch("orcid_hub.utils.send_email", side_effect=send_mail_mock)
-def test_send_work_funding_peer_review_invitation(test_db, request_ctx):
+def test_send_work_funding_peer_review_invitation(app, mocker):
     """Test to send user invitation."""
-    org = Organisation(
-        id=1,
+    send_email = mocker.patch("orcid_hub.utils.send_email")
+    org = Organisation.create(
         name="THE ORGANISATION",
         tuakiri_name="THE ORGANISATION",
         confirmed=True,
@@ -188,7 +184,7 @@ def test_send_work_funding_peer_review_invitation(test_db, request_ctx):
         disambiguation_org_id="ID",
         disambiguation_org_source="SOURCE")
 
-    inviter = User(
+    inviter = User.create(
         email="test1as237@mailinator.com",
         name="TEST USER",
         username="test123",
@@ -197,29 +193,26 @@ def test_send_work_funding_peer_review_invitation(test_db, request_ctx):
         confirmed=True,
         organisation=org)
 
-    u = User(
-        email="test1234456@mailinator.com",
+    email = "test1234456@mailinator.com"
+    u = User.create(
+        email=email,
         name="TEST USER",
         username="test123",
         roles=Role.RESEARCHER,
         orcid=None,
         confirmed=True,
         organisation=org)
-    u.save()
-    user_org = UserOrg(user=u, org=org)
-    user_org.save()
-    task = Task(org=org, task_type=1)
-    task.save()
-    email = "test1234456@mailinator.com"
-    fr = FundingRecord(task=task.id, title="xyz", type="Award")
-    fr.save()
-    fc = FundingInvitees(funding_record=fr.id, email=email, first_name="Alice", last_name="Bob")
-    fc.save()
-    with request_ctx("/") as ctxx:
-        utils.send_work_funding_peer_review_invitation(
-            inviter=inviter, org=org, email=email, name=u.name, task_id=task.id)
-        rv = ctxx.app.full_dispatch_request()
-        assert rv.status_code == 200
+    UserOrg.create(user=u, org=org)
+    task = Task.create(org=org, task_type=1)
+    fr = FundingRecord.create(task=task, title="xyz", type="Award")
+    FundingInvitees.create(funding_record=fr.id, email=email, first_name="Alice", last_name="Bob")
+
+    server_name = app.config.get("SERVER_NAME")
+    app.config["SERVER_NAME"] = "abc.orcidhub.org.nz"
+    utils.send_work_funding_peer_review_invitation(
+        inviter=inviter, org=org, email=email, name=u.name, task_id=task.id)
+    app.config["SERVER_NAME"] = server_name
+    send_email.assert_called_once()
 
 
 def create_or_update_fund_mock(self=None, orcid=None, **kwargs):
@@ -238,12 +231,12 @@ def create_or_update_aff_mock(affiliation=None, task_by_user=None, *args, **kwar
     return v
 
 
-def test_create_or_update_funding(request_ctx, profile, mocker):
+def test_create_or_update_funding(app, mocker):
     """Test create or update funding."""
     mocker.patch("orcid_hub.utils.send_email", send_mail_mock)
     mocker.patch(
         "orcid_api.MemberAPIV20Api.create_funding", create_or_update_fund_mock)
-    mocker.patch("orcid_hub.orcid_client.MemberAPI.get_record", profile())
+    mocker.patch("orcid_hub.orcid_client.MemberAPI.get_record", return_value=get_profile())
 
     org = Organisation.create(
         name="THE ORGANISATION",
@@ -317,11 +310,11 @@ def test_create_or_update_funding(request_ctx, profile, mocker):
     assert "12344" == funding_invitees.orcid
 
 
-def test_create_or_update_work(request_ctx, profile, mocker):
+def test_create_or_update_work(request_ctx, mocker):
     """Test create or update work."""
     mocker.patch("orcid_hub.utils.send_email", send_mail_mock)
     mocker.patch("orcid_api.MemberAPIV20Api.create_work", create_or_update_fund_mock)
-    mocker.patch("orcid_hub.orcid_client.MemberAPI.get_record", profile())
+    mocker.patch("orcid_hub.orcid_client.MemberAPI.get_record", return_value=get_profile())
     org = Organisation.create(
         name="THE ORGANISATION",
         tuakiri_name="THE ORGANISATION",
@@ -395,11 +388,11 @@ def test_create_or_update_work(request_ctx, profile, mocker):
     assert "12344" == work_invitees.orcid
 
 
-def test_create_or_update_peer_review(request_ctx, profile, mocker):
+def test_create_or_update_peer_review(request_ctx, mocker):
     """Test create or update work."""
     mocker.patch("orcid_hub.utils.send_email", send_mail_mock)
     mocker.patch("orcid_api.MemberAPIV20Api.create_peer_review", create_or_update_fund_mock)
-    mocker.patch("orcid_hub.orcid_client.MemberAPI.get_record", profile())
+    mocker.patch("orcid_hub.orcid_client.MemberAPI.get_record", return_value=get_profile())
     """Test create or update peer review."""
     org = Organisation.create(
         name="THE ORGANISATION",
@@ -483,7 +476,7 @@ def test_create_or_update_peer_review(request_ctx, profile, mocker):
     "orcid_api.MemberAPIV20Api.create_employment",
     return_value=Mock(status=201, headers={'Location': '12344/XYZ/12399'}))
 @patch("orcid_hub.utils.send_email")
-def test_create_or_update_affiliation(send_email, update_employment, create_employment, app, profile):
+def test_create_or_update_affiliation(send_email, update_employment, create_employment, app):
     """Test create or update affiliation."""
     org = Organisation.create(
         name="THE ORGANISATION",
@@ -605,7 +598,7 @@ def test_create_or_update_affiliation(send_email, update_employment, create_empl
             t.affiliation_record.user, )):
         with patch(
                 "orcid_hub.orcid_client.MemberAPI.get_record",
-                return_value=profile() if user.orcid else None) as get_record:
+                return_value=get_profile() if user.orcid else None) as get_record:
             utils.create_or_update_affiliations(user=user, org_id=org_id, records=tasks_by_user)
             get_record.assert_any_call()
     affiliation_record = AffiliationRecord.select().order_by(AffiliationRecord.id).limit(1).first()
@@ -782,7 +775,7 @@ def test_sync_profile(app, mocker, profile):
     mocker.patch("orcid_hub.orcid_client.MemberAPI.get_record", lambda *args: None)
     utils.sync_profile(task_id=t.id, delay=0)
 
-    resp = profile()
+    resp = get_profile()
     mocker.patch("orcid_hub.orcid_client.MemberAPI.get_record", lambda *args: resp)
     utils.sync_profile(task_id=t.id, delay=0)
 
