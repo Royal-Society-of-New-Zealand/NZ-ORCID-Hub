@@ -512,10 +512,7 @@ class OrgInfo(BaseModel):
     def load_from_csv(cls, source):
         """Load data from CSV file or a string."""
         if isinstance(source, str):
-            if '\n' in source:
-                source = StringIO(source)
-            else:
-                source = open(source)
+            source = StringIO(source)
         reader = csv.reader(source)
         header = next(reader)
 
