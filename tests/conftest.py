@@ -80,8 +80,8 @@ class HubClient(FlaskClient):
             k: v
             for k, v in [
                 ("Auedupersonsharedtoken", "edu-person-shared-token"),
-                ("Sn", user.last_name),
-                ("Givenname", user.first_name),
+                ("Sn", user.last_name or "SURNAME"),
+                ("Givenname", user.first_name or "GIVENNAME"),
                 ("Mail", user.email),
                 ("O", org.tuakiri_name or org.name),
                 ("Displayname", user.name),
@@ -91,6 +91,16 @@ class HubClient(FlaskClient):
         }
         headers.update(kwargs)
         return self.get("/Tuakiri/login", headers=headers, follow_redirects=follow_redirects)
+
+    def open(self, *args, **kwargs):
+        """Save the last response."""
+        self.resp = super().open(*args, **kwargs)
+        return self.resp
+
+    def save_resp(self):
+        """Save the response into 'output.html' file."""
+        with open("output.html", "wb") as output:
+            output.write(self.resp.data)
 
     def logout(self):
         """Perform log-out."""

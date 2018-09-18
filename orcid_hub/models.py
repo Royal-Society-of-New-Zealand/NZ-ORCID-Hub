@@ -278,7 +278,7 @@ class BaseModel(Model):
     @classmethod
     def get(cls, *query, **kwargs):
         """Get a single model instance."""
-        if query and not kwargs and len(query) == 1 and isinstance(query[0], int):
+        if query and not kwargs and len(query) == 1 and isinstance(query[0], (int, str, )):
             return super().get(id=query[0])
         return super().get(*query, **kwargs)
 

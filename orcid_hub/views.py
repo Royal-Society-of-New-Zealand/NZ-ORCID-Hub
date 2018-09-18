@@ -2474,11 +2474,6 @@ def user_orgs(user_id, org_id=None):
         return jsonify({"user-orgs": list(u.organisations.dicts())})
     except User.DoesNotExist:
         return jsonify({"error": f"Not Found user with ID: {user_id}"}), 404
-    except Exception as ex:
-        app.logger.exception(f"Failed to retrieve user (ID: {user_id}) organisations.")
-        return jsonify({
-            "error": f"Failed to retrieve user (ID: {user_id}) organisations: {ex}."
-        }), 500
 
 
 @app.route(
@@ -2534,7 +2529,7 @@ def user_orgs_org(user_id, org_id=None):
             "status": "DELETED",
         }), 204
     else:
-        org = Organisation.get(id=org_id)
+        org = Organisation.get(org_id)
         uo, created = UserOrg.get_or_create(user_id=user_id, org_id=org_id)
         if "is_admin" in data:
             uo.is_admin = data["is_admin"]
@@ -2619,7 +2614,7 @@ def org_webhook():
     return render_template("form.html", form=form, title="Organisation Webhook")
 
 
-@app.route("/sync_profile/<int:task_id>", methods=["GET", "POST"])
+@app.route("/sync_profiles/<int:task_id>", methods=["GET", "POST"])
 @app.route(
     "/sync_profiles", methods=[
         "GET",
@@ -2644,7 +2639,7 @@ def sync_profiles(task_id=None):
             _next = get_next_url() or url_for("task.index_view")
             return redirect(_next)
         if task and not form.restart.data:
-            flash(f"There is already na active profile synchronization task", "warning")
+            flash(f"There is already an active profile synchronization task", "warning")
         else:
             Task.delete().where(Task.org == org, Task.task_type == TaskType.SYNC).execute()
             task = Task.create(org=org, task_type=TaskType.SYNC)

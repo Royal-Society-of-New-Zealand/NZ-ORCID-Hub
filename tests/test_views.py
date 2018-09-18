@@ -209,10 +209,18 @@ def test_superuser_view_access(client):
     assert resp.status_code == 200
     assert b"interval" in resp.data
 
+    resp = client.get("/admin/schedude/?search=TEST")
+    assert resp.status_code == 200
+    assert b"interval" in resp.data
+
     jobs = rq.get_scheduler().get_jobs()
     resp = client.get(f"/admin/schedude/details/?id={jobs[0].id}")
     assert resp.status_code == 200
     assert b"interval" in resp.data
+
+    resp = client.get("/admin/schedude/details/?id=99999999")
+    assert resp.status_code == 404
+    assert b"404" in resp.data
 
 
 def test_access(request_ctx):
@@ -383,10 +391,10 @@ def test_application_registration(app, request_ctx):
         disambiguated_id="ID",
         disambiguation_source="SOURCE")
     user = User.create(
-        email="test123@test.test.net",
+        email="test123456@test.test.net",
         name="TEST USER",
         roles=Role.TECHNICAL,
-        orcid="123",
+        orcid="123-456-789-098",
         organisation_id=1,
         confirmed=True,
         organisation=org)
@@ -651,7 +659,7 @@ Institute of Geological & Nuclear Sciences Ltd,5180,RINGGOLD
         assert OrgInvitation.select().count() == 3
 
 
-def test_user_orgs_org(request_ctx):
+def test_user_orgs_org(client):
     """Test add an organisation to the user."""
     org = Organisation.create(
         name="THE ORGANISATION",
@@ -664,14 +672,23 @@ def test_user_orgs_org(request_ctx):
         disambiguated_id="ID",
         disambiguation_source="SOURCE",
         is_email_sent=True)
-    user = User.create(
-        email="test123@test.test.net",
+    root = User.create(
+        email="root1234567890@test.test.net",
         name="TEST USER",
         roles=Role.SUPERUSER,
-        orcid="123",
+        orcid="123-456-789-098",
         confirmed=True,
         organisation=org)
-    with request_ctx(
+    user = User.create(
+        email="user1234567890@test.test.net",
+        name="TEST USER",
+        roles=Role.SUPERUSER,
+        orcid="123-456-789-098",
+        confirmed=True,
+        organisation=org)
+    resp = client.login(root, follow_redirects=True)
+
+    resp = client.post(
             f"/hub/api/v0.1/users/{user.id}/orgs/",
             data=json.dumps({
                 "id": org.id,
@@ -679,33 +696,37 @@ def test_user_orgs_org(request_ctx):
                 "is_admin": True,
                 "is_tech_contact": True
             }),
-            method="POST",
-            content_type="application/json") as ctx:
-        login_user(user, remember=True)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 201
-        assert User.get(id=user.id).roles & Role.ADMIN
-        organisation = Organisation.get(name="THE ORGANISATION")
-        # User becomes the technical contact of the organisation.
-        assert organisation.tech_contact == user
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 200
-        assert UserOrg.select().where(UserOrg.user == user, UserOrg.org == org,
-                                      UserOrg.is_admin).exists()
-    with request_ctx(f"/hub/api/v0.1/users/{user.id}/orgs/{org.id}", method="DELETE") as ctx:
-        # Delete user and organisation association
-        login_user(user, remember=True)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 204
-        data = json.loads(resp.data)
-        user = User.get(id=user.id)
-        assert data["status"] == "DELETED"
-        assert user.organisation_id is None
-        assert not (user.roles & Role.ADMIN)
-        assert not UserOrg.select().where(UserOrg.user == user, UserOrg.org == org).exists()
+            content_type="application/json")
+    assert resp.status_code == 201
+    assert User.get(id=user.id).roles & Role.ADMIN
+    organisation = Organisation.get(name="THE ORGANISATION")
+    # User becomes the technical contact of the organisation.
+    assert organisation.tech_contact == user
+
+    resp = client.post(
+            f"/hub/api/v0.1/users/{user.id}/orgs/",
+            data=json.dumps({
+                "id": org.id,
+                "name": org.name,
+                "is_admin": True,
+                "is_tech_contact": True
+            }),
+            content_type="application/json")
+    assert resp.status_code == 200
+    assert UserOrg.select().where(
+            UserOrg.user == user, UserOrg.org == org,
+            UserOrg.is_admin).exists()
+
+    # Delete user and organisation association
+    resp = client.delete(f"/hub/api/v0.1/users/{user.id}/orgs/{org.id}", method="DELETE")
+    assert resp.status_code == 204
+    user = User.get(user.id)
+    assert user.organisation_id is None
+    assert not (user.roles & Role.ADMIN)
+    assert not UserOrg.select().where(UserOrg.user == user, UserOrg.org == org).exists()
 
 
-def test_user_orgs(request_ctx):
+def test_user_orgs(client, mocker):
     """Test add an organisation to the user."""
     org = Organisation.create(
         name="THE ORGANISATION",
@@ -726,20 +747,21 @@ def test_user_orgs(request_ctx):
         confirmed=True,
         organisation=org)
     UserOrg.create(user=user, org=org, is_admin=True)
+    resp = client.login(user)
 
-    with request_ctx(f"/hub/api/v0.1/users/{user.id}/orgs/") as ctx:
-        login_user(user, remember=True)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 200
-    with request_ctx(f"/hub/api/v0.1/users/{user.id}/orgs/{org.id}") as ctx:
-        login_user(user, remember=True)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 200
-    with request_ctx("/hub/api/v0.1/users/1234/orgs/") as ctx:
-        # failure test case, user not found
-        login_user(user, remember=True)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 404
+    resp = client.get(f"/hub/api/v0.1/users/{user.id}/orgs/")
+    assert resp.status_code == 200
+
+    resp = client.get(f"/hub/api/v0.1/users/{user.id}/orgs/{org.id}")
+    assert resp.status_code == 200
+
+    resp = client.get("/hub/api/v0.1/users/1234/orgs/")
+    assert resp.status_code == 404
+    assert "Not Found" in json.loads(resp.data)["error"]
+
+    resp = client.get(f"/hub/api/v0.1/users/{user.id}/orgs/999999999")
+    assert resp.status_code == 404
+    assert "Not Found" in json.loads(resp.data)["error"]
 
 
 def test_api_credentials(request_ctx):
@@ -2149,6 +2171,16 @@ def test_sync_profiles(client, mocker):
 
     resp = client.post("/sync_profiles", data={"start": "Start"}, follow_redirects=True)
     assert Task.select(Task.task_type == TaskType.SYNC).count() == 1
+
+    task = Task.get(task_type=TaskType.SYNC, org=user.organisation)
+    resp = client.get(f"/sync_profiles/{task.id}")
+    assert resp.status_code == 200
+
+    resp = client.get(f"/sync_profiles/?task_id={task.id}")
+    assert resp.status_code == 200
+
+    resp = client.post("/sync_profiles", data={"start": "Start"}, follow_redirects=True)
+    assert b"already" in resp.data
 
     resp = client.post("/sync_profiles", data={"restart": "Restart"}, follow_redirects=True)
     assert Task.select(Task.task_type == TaskType.SYNC).count() == 1
