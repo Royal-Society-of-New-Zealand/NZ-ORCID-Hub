@@ -1,9 +1,12 @@
 # -*- coding: utf-8 -*-
 """Tests for core functions."""
 
-from io import BytesIO
+import base64
+import pickle
 import pprint
-from unittest.mock import patch, Mock
+import zlib
+from io import BytesIO
+from unittest.mock import Mock, patch
 from urllib.parse import urlparse
 
 import pytest
@@ -715,13 +718,19 @@ def test_select_user_org(request_ctx):
         assert user.organisation_id == org2.id
 
 
-def test_shib_sp(request_ctx):
+def test_shib_sp(client):
     """Test shibboleth SP."""
-    with request_ctx("/Tuakiri/SP") as ctxx:
-        request.args = {'key': '123', 'url': '/profile'}
-        resp = ctxx.app.full_dispatch_request()
-        assert resp.status_code == 302
-        assert resp.location.startswith("/profile")
+    resp = client.get("/Tuakiri/SP?key=123ABC&url=/profile", headers={"USER": "TEST123ABC"})
+    assert resp.status_code == 302
+    assert "/profile" in resp.location
+
+    resp = client.get("/sp/attributes/123ABC")
+    assert resp.status_code == 200
+    data = pickle.loads(zlib.decompress(base64.b64decode(resp.data)))
+    assert data["User"] == "TEST123ABC"
+
+    resp = client.get("/Tuakiri/SP?key=123&url=https://harmfull.one/profile")
+    assert resp.status_code == 403
 
 
 def test_get_attributes(request_ctx):
