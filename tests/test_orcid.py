@@ -31,7 +31,8 @@ def test_nested_dict():
 def test_member_api(app, mocker):
     """Test MemberAPI extension and wrapper of ORCID API."""
     mocker.patch.multiple("orcid_hub.app.logger", error=DEFAULT, exception=DEFAULT, info=DEFAULT)
-    org = Organisation.create(name="THE ORGANISATION", confirmed=True, orcid_client_id="CLIENT000")
+    org = Organisation.create(
+        name="THE ORGANISATION:test_member_ap", confirmed=True, orcid_client_id="CLIENT000")
     user = User.create(
         orcid="1001-0001-0001-0001",
         name="TEST USER 123",
@@ -141,7 +142,10 @@ def test_member_api(app, mocker):
 def test_is_emp_or_edu_record_present(app, mocker):
     """Test 'is_emp_or_edu_record_present' method."""
     mocker.patch.multiple("orcid_hub.app.logger", error=DEFAULT, exception=DEFAULT, info=DEFAULT)
-    org = Organisation.create(name="THE ORGANISATION", confirmed=True, orcid_client_id="CLIENT000")
+    org = Organisation.create(
+        name="THE ORGANISATION:st_is_emp_or_edu_record_prese",
+        confirmed=True,
+        orcid_client_id="CLIENT000")
     user = User.create(
         orcid="1001-0001-0001-0001",
         name="TEST USER 123",
@@ -216,7 +220,7 @@ def test_is_emp_or_edu_record_present(app, mocker):
 def test_link(request_ctx):
     """Test a user affiliation initialization."""
     with request_ctx("/link") as ctx:
-        org = Organisation.create(name="THE ORGANISATION", confirmed=True)
+        org = Organisation.create(name="THE ORGANISATION:test_link", confirmed=True)
         test_user = User.create(
             name="TEST USER 123", email="test123@test.test.net", organisation=org, confirmed=True)
         login_user(test_user, remember=True)
@@ -234,7 +238,7 @@ def test_link_with_unconfirmed_org(request_ctx):
     """Test a user affiliation initialization if the user Organisation isn't registered yet."""
     with request_ctx("/link") as ctx:
         org = Organisation(
-            name="THE ORGANISATION", confirmed=False, orcid_client_id="Test Client id")
+            name="THE ORGANISATION:test_link", confirmed=False, orcid_client_id="Test Client id")
         org.save()
         test_user = User(
             name="TEST USER", email="test@test.test.net", confirmed=True, organisation=org)
@@ -250,7 +254,8 @@ def test_link_with_unconfirmed_org(request_ctx):
 def test_link_already_affiliated(request_ctx):
     """Test a user affiliation initialization if the uerer is already affilated."""
     with request_ctx("/link") as ctx:
-        org = Organisation(name="THE ORGANISATION", confirmed=True, orcid_client_id="ABC123")
+        org = Organisation(
+            name="THE ORGANISATION:test_link", confirmed=True, orcid_client_id="ABC123")
         org.save()
         test_user = User(
             email="test123@test.test.net",
@@ -288,7 +293,7 @@ def test_link_already_affiliated(request_ctx):
 def test_link_orcid_auth_callback(name, request_ctx):
     """Test ORCID callback - the user authorized the organisation access to the ORCID profile."""
     with request_ctx("/auth?state=xyz") as ctx:
-        org = Organisation(name="THE ORGANISATION", confirmed=True)
+        org = Organisation(name="THE ORGANISATION:test_link", confirmed=True)
         org.save()
 
         test_user = User.create(
@@ -331,21 +336,19 @@ def test_link_orcid_auth_callback_with_affiliation(name, request_ctx):
     with patch("orcid_hub.orcid_client.MemberAPI") as m, patch(
             "orcid_hub.orcid_client.SourceClientId"), request_ctx("/auth?state=xyz") as ctx:
         org = Organisation.create(
-            name="THE ORGANISATION",
+            name="THE ORGANISATION:test_link",
             confirmed=True,
             orcid_client_id="CLIENT ID",
             city="CITY",
             country="COUNTRY",
             disambiguated_id="ID",
             disambiguation_source="SOURCE")
-
         test_user = User.create(
             name=name,
             email="test123@test.test.net",
             organisation=org,
             orcid="ABC123",
             confirmed=True)
-
         UserOrg.create(user=test_user, org=org, affiliations=Affiliation.EMP | Affiliation.EDU)
 
         login_user(test_user, remember=True)
@@ -383,7 +386,7 @@ def make_fake_response(text, *args, **kwargs):
 def test_profile(request_ctx):
     """Test an affilated user profile and ORCID data retrieval."""
     with request_ctx("/profile") as ctx:
-        org = Organisation(name="THE ORGANISATION", confirmed=True)
+        org = Organisation(name="THE ORGANISATION:test_profile", confirmed=True)
         org.save()
         test_user = User(
             email="test123@test.test.net", organisation=org, orcid="ABC123", confirmed=True)
@@ -404,7 +407,7 @@ def test_profile(request_ctx):
 def test_profile_wo_orcid(request_ctx):
     """Test a user profile that doesn't hava an ORCID."""
     with request_ctx("/profile") as ctx:
-        org = Organisation(name="THE ORGANISATION", confirmed=True)
+        org = Organisation(name="THE ORGANISATION:test_profile", confirmed=True)
         org.save()
         test_user = User(
             email="test123@test.test.net", organisation=org, orcid=None, confirmed=True)
@@ -426,8 +429,8 @@ def test_sync_profile(app, mocker):
         return_value=Mock(status=201, headers={'Location': '12344/XYZ/12345'}))
 
     org = Organisation.create(
-        name="THE ORGANISATION",
-        tuakiri_name="THE ORGANISATION",
+        name="THE ORGANISATION:test_sync_profile",
+        tuakiri_name="THE ORGANISATION:test_sync_profile",
         confirmed=True,
         orcid_client_id="APP-5ZVH4JRQ0C27RVH5",
         orcid_secret="Client Secret",

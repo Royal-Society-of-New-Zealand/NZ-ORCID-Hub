@@ -66,6 +66,8 @@ ORCIDS = [
 
 class HubClient(FlaskClient):
     """Extension of the default Flask test client."""
+
+    resp_no = 0
     def login(self, user, affiliations=None, follow_redirects=False, **kwargs):
         """Log in with the given user."""
         org = user.organisation
@@ -95,11 +97,14 @@ class HubClient(FlaskClient):
     def open(self, *args, **kwargs):
         """Save the last response."""
         self.resp = super().open(*args, **kwargs)
+        if hasattr(self.resp, "data"):
+            self.save_resp()
+            self.resp_no += 1
         return self.resp
 
     def save_resp(self):
         """Save the response into 'output.html' file."""
-        with open("output.html", "wb") as output:
+        with open(f"output{self.resp_no:02d}.html", "wb") as output:
             output.write(self.resp.data)
 
     def logout(self):

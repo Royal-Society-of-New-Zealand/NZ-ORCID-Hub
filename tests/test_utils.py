@@ -105,17 +105,7 @@ def send_mail_mock(*argvs, **kwargs):
 def test_send_user_invitation(app, mocker):
     """Test to send user invitation."""
     send_email = mocker.patch("orcid_hub.utils.send_email")
-    org = Organisation.create(
-        name="THE ORGANISATION",
-        tuakiri_name="THE ORGANISATION",
-        confirmed=True,
-        orcid_client_id="CLIENT ID",
-        orcid_secret="Client Secret",
-        city="CITY",
-        country="COUNTRY",
-        disambiguation_org_id="ID",
-        disambiguation_org_source="SOURCE")
-
+    org = app.data["org"]
     inviter = User.create(
         email="test123@mailinator.com",
         name="TEST USER",
@@ -173,17 +163,7 @@ def test_send_user_invitation(app, mocker):
 def test_send_work_funding_peer_review_invitation(app, mocker):
     """Test to send user invitation."""
     send_email = mocker.patch("orcid_hub.utils.send_email")
-    org = Organisation.create(
-        name="THE ORGANISATION",
-        tuakiri_name="THE ORGANISATION",
-        confirmed=True,
-        orcid_client_id="CLIENT ID",
-        orcid_secret="Client Secret",
-        city="CITY",
-        country="COUNTRY",
-        disambiguation_org_id="ID",
-        disambiguation_org_source="SOURCE")
-
+    org = app.data["org"]
     inviter = User.create(
         email="test1as237@mailinator.com",
         name="TEST USER",
@@ -238,17 +218,7 @@ def test_create_or_update_funding(app, mocker):
         "orcid_api.MemberAPIV20Api.create_funding", create_or_update_fund_mock)
     mocker.patch("orcid_hub.orcid_client.MemberAPI.get_record", return_value=get_profile())
 
-    org = Organisation.create(
-        name="THE ORGANISATION",
-        tuakiri_name="THE ORGANISATION",
-        confirmed=True,
-        orcid_client_id="APP-5ZVH4JRQ0C27RVH5",
-        orcid_secret="Client Secret",
-        city="CITY",
-        country="COUNTRY",
-        disambiguation_org_id="ID",
-        disambiguation_org_source="SOURCE")
-
+    org = app.data["org"]
     u = User.create(
         email="test1234456@mailinator.com",
         name="TEST USER",
@@ -315,17 +285,8 @@ def test_create_or_update_work(request_ctx, mocker):
     mocker.patch("orcid_hub.utils.send_email", send_mail_mock)
     mocker.patch("orcid_api.MemberAPIV20Api.create_work", create_or_update_fund_mock)
     mocker.patch("orcid_hub.orcid_client.MemberAPI.get_record", return_value=get_profile())
-    org = Organisation.create(
-        name="THE ORGANISATION",
-        tuakiri_name="THE ORGANISATION",
-        confirmed=True,
-        orcid_client_id="APP-5ZVH4JRQ0C27RVH5",
-        orcid_secret="Client Secret",
-        city="CITY",
-        country="COUNTRY",
-        disambiguation_org_id="ID",
-        disambiguation_org_source="SOURCE")
 
+    org = request_ctx.data["org"]
     u = User.create(
         email="test1234456@mailinator.com",
         name="TEST USER",
@@ -389,22 +350,11 @@ def test_create_or_update_work(request_ctx, mocker):
 
 
 def test_create_or_update_peer_review(request_ctx, mocker):
-    """Test create or update work."""
+    """Test create or update peer review."""
     mocker.patch("orcid_hub.utils.send_email", send_mail_mock)
     mocker.patch("orcid_api.MemberAPIV20Api.create_peer_review", create_or_update_fund_mock)
     mocker.patch("orcid_hub.orcid_client.MemberAPI.get_record", return_value=get_profile())
-    """Test create or update peer review."""
-    org = Organisation.create(
-        name="THE ORGANISATION",
-        tuakiri_name="THE ORGANISATION",
-        confirmed=True,
-        orcid_client_id="APP-5ZVH4JRQ0C27RVH5",
-        orcid_secret="Client Secret",
-        city="CITY",
-        country="COUNTRY",
-        disambiguation_org_id="ID",
-        disambiguation_org_source="SOURCE")
-
+    org = request_ctx.data["org"]
     u = User.create(
         email="test1234456@mailinator.com",
         name="TEST USER",
@@ -478,16 +428,7 @@ def test_create_or_update_peer_review(request_ctx, mocker):
 @patch("orcid_hub.utils.send_email")
 def test_create_or_update_affiliation(send_email, update_employment, create_employment, app):
     """Test create or update affiliation."""
-    org = Organisation.create(
-        name="THE ORGANISATION",
-        tuakiri_name="THE ORGANISATION",
-        confirmed=True,
-        orcid_client_id="APP-5ZVH4JRQ0C27RVH5",
-        orcid_secret="Client Secret",
-        city="CITY",
-        country="COUNTRY",
-        disambiguation_org_id="ID",
-        disambiguation_org_source="SOURCE")
+    org = app.data["org"]
     u = User.create(
         email="test1234456@mailinator.com",
         name="TEST USER",
@@ -614,9 +555,11 @@ def test_send_email(app):
     with app.app_context():
 
         # app.config["SERVER_NAME"] = "ORCIDHUB"
+        app.config["SERVER_NAME"] = "abc.orcidhub.org.nz"
 
         with patch("emails.message.Message") as msg_cls, patch("flask.current_app.jinja_env"):
             msg = msg_cls.return_value = Mock()
+            app.config["SERVER_NAME"] = "abc.orcidhub.org.nz"
             utils.send_email(
                 "template.html", (
                     "TEST USER",
@@ -748,16 +691,7 @@ def test_sync_profile(app, mocker):
         return Mock(id="test-test-test-test")
     mocker.patch("orcid_hub.utils.sync_profile.queue", sync_profile_mock)
 
-    org = Organisation.create(
-        name="THE ORGANISATION",
-        tuakiri_name="THE ORGANISATION",
-        confirmed=True,
-        orcid_client_id="APP-5ZVH4JRQ0C27RVH5",
-        orcid_secret="Client Secret",
-        city="CITY",
-        country="COUNTRY",
-        disambiguated_id="ID",
-        disambiguation_source="SOURCE")
+    org = app.data["org"]
     u = User.create(
         email="test1234456@mailinator.com",
         name="TEST USER",

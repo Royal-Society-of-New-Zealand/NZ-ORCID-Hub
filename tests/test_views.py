@@ -379,17 +379,7 @@ def test_status(client):
 
 def test_application_registration(app, request_ctx):
     """Test application registration."""
-    org = Organisation.create(
-        can_use_api=True,
-        name="THE ORGANISATION",
-        tuakiri_name="THE ORGANISATION",
-        confirmed=True,
-        orcid_client_id="CLIENT ID",
-        orcid_secret="Client Secret",
-        city="CITY",
-        country="COUNTRY",
-        disambiguated_id="ID",
-        disambiguation_source="SOURCE")
+    org = app.data["org"]
     user = User.create(
         email="test123456@test.test.net",
         name="TEST USER",
@@ -661,17 +651,7 @@ Institute of Geological & Nuclear Sciences Ltd,5180,RINGGOLD
 
 def test_user_orgs_org(client):
     """Test add an organisation to the user."""
-    org = Organisation.create(
-        name="THE ORGANISATION",
-        tuakiri_name="THE ORGANISATION",
-        confirmed=False,
-        orcid_client_id="CLIENT ID",
-        orcid_secret="Client Secret",
-        city="CITY",
-        country="COUNTRY",
-        disambiguated_id="ID",
-        disambiguation_source="SOURCE",
-        is_email_sent=True)
+    org = client.data["org"]
     root = User.create(
         email="root1234567890@test.test.net",
         name="TEST USER",
@@ -728,17 +708,7 @@ def test_user_orgs_org(client):
 
 def test_user_orgs(client, mocker):
     """Test add an organisation to the user."""
-    org = Organisation.create(
-        name="THE ORGANISATION",
-        tuakiri_name="THE ORGANISATION",
-        confirmed=False,
-        orcid_client_id="CLIENT ID",
-        orcid_secret="Client Secret",
-        city="CITY",
-        country="COUNTRY",
-        disambiguated_id="ID",
-        disambiguation_source="SOURCE",
-        is_email_sent=True)
+    org = client.data["org"]
     user = User.create(
         email="test123@test.test.net",
         name="TEST USER",
@@ -766,17 +736,7 @@ def test_user_orgs(client, mocker):
 
 def test_api_credentials(request_ctx):
     """Test manage API credentials.."""
-    org = Organisation.create(
-        name="THE ORGANISATION",
-        tuakiri_name="THE ORGANISATION",
-        confirmed=False,
-        orcid_client_id="CLIENT ID",
-        orcid_secret="Client Secret",
-        city="CITY",
-        country="COUNTRY",
-        disambiguated_id="ID",
-        disambiguation_source="SOURCE",
-        is_email_sent=True)
+    org = request_ctx.data["org"]
     user = User.create(
         email="test123@test.test.net",
         name="TEST USER",
@@ -843,17 +803,7 @@ def send_mail_mock(*argvs, **kwargs):
 @patch("orcid_hub.utils.send_email", side_effect=send_mail_mock)
 def test_action_invite(patch, request_ctx):
     """Test handle nonexistin pages."""
-    org = Organisation.create(
-        name="THE ORGANISATION",
-        tuakiri_name="THE ORGANISATION",
-        confirmed=False,
-        orcid_client_id="CLIENT ID",
-        orcid_secret="Client Secret",
-        city="CITY",
-        country="COUNTRY",
-        disambiguated_id="ID",
-        disambiguation_source="SOURCE",
-        is_email_sent=True)
+    org = request_ctx.data["org"]
     user = User.create(
         email="test123@test.test.net",
         name="TEST USER",
@@ -895,17 +845,7 @@ def test_shorturl(request_ctx):
 
 def test_activate_all(request_ctx):
     """Test batch registraion of users."""
-    org = Organisation.create(
-        name="THE ORGANISATION",
-        tuakiri_name="THE ORGANISATION",
-        confirmed=False,
-        orcid_client_id="CLIENT ID",
-        orcid_secret="Client Secret",
-        city="CITY",
-        country="COUNTRY",
-        disambiguated_id="ID",
-        disambiguation_source="SOURCE",
-        is_email_sent=True)
+    org = request_ctx.data["org"]
     user = User.create(
         email="test123@test.test.net",
         name="TEST USER",
@@ -949,17 +889,7 @@ def test_activate_all(request_ctx):
 
 def test_logo(request_ctx):
     """Test manage organisation 'logo'."""
-    org = Organisation.create(
-        name="THE ORGANISATION",
-        tuakiri_name="THE ORGANISATION",
-        confirmed=False,
-        orcid_client_id="CLIENT ID",
-        orcid_secret="Client Secret",
-        city="CITY",
-        country="COUNTRY",
-        disambiguated_id="ID",
-        disambiguation_source="SOURCE",
-        is_email_sent=True)
+    org = request_ctx.data["org"]
     user = User.create(
         email="test123@test.test.net",
         name="TEST USER",
@@ -983,17 +913,7 @@ def test_logo(request_ctx):
 @patch("orcid_hub.utils.send_email", side_effect=send_mail_mock)
 def test_manage_email_template(patch, request_ctx):
     """Test manage organisation invitation email template."""
-    org = Organisation.create(
-        name="THE ORGANISATION",
-        tuakiri_name="THE ORGANISATION",
-        confirmed=False,
-        orcid_client_id="CLIENT ID",
-        orcid_secret="Client Secret",
-        city="CITY",
-        country="COUNTRY",
-        disambiguated_id="ID",
-        disambiguation_source="SOURCE",
-        is_email_sent=True)
+    org = request_ctx.data["org"]
     user = User.create(
         email="test123@test.test.net",
         name="TEST USER",
@@ -1470,17 +1390,7 @@ def validate(self=None, raise_exception=True):
 @patch("pykwalify.core.Core.__init__", side_effect=core_mock)
 def test_load_researcher_funding(patch, patch2, request_ctx):
     """Test preload organisation data."""
-    org = Organisation.create(
-        name="THE ORGANISATION",
-        tuakiri_name="THE ORGANISATION",
-        confirmed=False,
-        orcid_client_id="CLIENT ID",
-        orcid_secret="Client Secret",
-        city="CITY",
-        country="COUNTRY",
-        disambiguated_id="ID",
-        disambiguation_source="SOURCE",
-        is_email_sent=True)
+    org = request_ctx.data["org"]
     user = User.create(
         email="test123@test.test.net",
         name="TEST USER",
@@ -1582,17 +1492,7 @@ def test_load_researcher_peer_review(patch, patch2, request_ctx):
 
 def test_load_researcher_affiliations(request_ctx):
     """Test preload organisation data."""
-    org = Organisation.create(
-        name="THE ORGANISATION",
-        tuakiri_name="THE ORGANISATION",
-        confirmed=False,
-        orcid_client_id="CLIENT ID",
-        orcid_secret="Client Secret",
-        city="CITY",
-        country="COUNTRY",
-        disambiguated_id="ID",
-        disambiguation_source="SOURCE",
-        is_email_sent=True)
+    org = request_ctx.data["org"]
     user = User.create(
         email="test123@test.test.net",
         name="TEST USER",
@@ -1951,18 +1851,7 @@ def test_action_insert_update_group_id(client):
 
 def test_reset_all(request_ctx):
     """Test reset batch process."""
-    org = Organisation.create(
-        name="THE ORGANISATION",
-        tuakiri_name="THE ORGANISATION",
-        confirmed=False,
-        orcid_client_id="CLIENT ID",
-        orcid_secret="Client Secret",
-        city="CITY",
-        country="COUNTRY",
-        disambiguated_id="ID",
-        disambiguation_source="SOURCE",
-        is_email_sent=True)
-
+    org = request_ctx.data["org"]
     user = User.create(
         email="test123@test.test.net",
         name="TEST USER",
