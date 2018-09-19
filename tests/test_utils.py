@@ -599,8 +599,8 @@ def test_send_email(app):
                 mimetype="image/png",
                 token="TOKEN000")
             org = Organisation.create(
-                name="THE ORGANISATION",
-                tuakiri_name="THE ORGANISATION",
+                name="THE ORGANISATION:test_send_email",
+                tuakiri_name="THE ORGANISATION:test_send_email",
                 confirmed=True,
                 orcid_client_id="APP-5ZVH4JRQ0C27RVH5",
                 orcid_secret="Client Secret",
@@ -691,7 +691,16 @@ def test_sync_profile(app, mocker):
         return Mock(id="test-test-test-test")
     mocker.patch("orcid_hub.utils.sync_profile.queue", sync_profile_mock)
 
-    org = app.data["org"]
+    org = Organisation.create(
+        name="THE ORGANISATION:test_sync_profile",
+        tuakiri_name="THE ORGANISATION:test_sync_profile",
+        confirmed=True,
+        orcid_client_id="APP-5ZVH4JRQ0C27RVH5",
+        orcid_secret="Client Secret",
+        city="CITY",
+        country="COUNTRY",
+        disambiguated_id="ID",
+        disambiguation_source="SOURCE")
     u = User.create(
         email="test1234456@mailinator.com",
         name="TEST USER",

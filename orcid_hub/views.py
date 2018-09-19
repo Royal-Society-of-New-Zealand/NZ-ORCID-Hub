@@ -224,6 +224,14 @@ class AppModelView(ModelView):
 
         return query
 
+    def get_one(self, id):
+        """Handle missing data."""
+        try:
+            return super().get_one(id)
+        except self.model.DoesNotExist:
+            flash(f"The record with given ID: {id} doesn't exist or it was deleted.", "danger")
+            abort(404)
+
     def init_search(self):
         """Include linked columns in the search if they are defined with 'liked_table.column'."""
         if self.column_searchable_list:
