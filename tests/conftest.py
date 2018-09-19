@@ -312,7 +312,7 @@ def request_ctx(app):
     def make_ctx(*args, **kwargs):
         return app.test_request_context(*args, **kwargs)
 
-    request_ctx.data = app.data
+    make_ctx.data = app.data
     return make_ctx
 
 
