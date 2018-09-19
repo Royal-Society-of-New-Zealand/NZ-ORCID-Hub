@@ -224,24 +224,6 @@ class AppModelView(ModelView):
 
         return query
 
-    def get_pk_value(self, model):
-        """Get correct value for composite keys."""
-        if self.model._meta.composite_key:
-            return tuple([
-                model._data[field_name] for field_name in self.model._meta.primary_key.field_names
-            ])
-        return super().get_pk_value(model)
-
-    def get_one(self, id):
-        """Fix for composite keys."""
-        try:
-            if self.model._meta.composite_key:
-                return self.model.get(**dict(zip(self.model._meta.primary_key.field_names, id)))
-            return super().get_one(id)
-        except self.model.DoesNotExist:
-            flash(f"The record with given ID: {id} doesn't exist or it was deleted.", "danger")
-            abort(404)
-
     def init_search(self):
         """Include linked columns in the search if they are defined with 'liked_table.column'."""
         if self.column_searchable_list:
