@@ -552,10 +552,11 @@ def test_create_or_update_affiliation(send_email, update_employment, create_empl
 
 def test_send_email(app):
     """Test emailing."""
+    server_name = app.config.get("SERVER_NAME")
+    app.config["SERVER_NAME"] = "abc.orcidhub.org.nz"
     with app.app_context():
 
         # app.config["SERVER_NAME"] = "ORCIDHUB"
-        app.config["SERVER_NAME"] = "abc.orcidhub.org.nz"
 
         with patch("emails.message.Message") as msg_cls, patch("flask.current_app.jinja_env"):
             msg = msg_cls.return_value = Mock()
