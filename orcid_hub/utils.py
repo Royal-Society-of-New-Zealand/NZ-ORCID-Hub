@@ -1613,4 +1613,4 @@ def sync_profile(task_id, delay=0.1):
         api.sync_profile(user=u, access_token=u.access_token, task=task)
         count += 1
         time.sleep(delay)
-    Log.create(task=task_id, message=f"Total {count} user profile were synchronized.")
+    Log.create(task=task_id, message=f"In total, {count} user profiles were synchronized.")
