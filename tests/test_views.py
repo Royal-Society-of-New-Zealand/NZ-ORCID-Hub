@@ -1355,60 +1355,113 @@ Rad,Cirskis,researcher.990@mailinator.com,Student
     assert AffiliationRecord.select().where(AffiliationRecord.task_id == task_id).count() == 0
 
 
-@patch("orcid_hub.utils.send_email", side_effect=send_mail_mock)
-def test_invite_organisation(send_email, request_ctx):
+def test_invite_organisation(client, mocker):
     """Test invite an organisation to register."""
+    html = mocker.patch(
+        "emails.html", return_value=Mock(send=lambda *args, **kwargs: Mock(success=False)))
     org = Organisation.get(name="TEST0")
-    root = User.get(email="root@test0.edu")
     user = User.create(
-        email="test123@test.test.net", name="TEST USER", confirmed=True, organisation=org)
+        email="test123_test_invite_organisation@test.test.net",
+        name="TEST USER",
+        confirmed=True,
+        organisation=org)
     UserOrg.create(user=user, org=org, is_admin=True)
-    with request_ctx(
+
+    client.login_root()
+
+    resp = client.post(
             "/invite/organisation",
-            method="POST",
+            data={
+                "org_name": "THE ORGANISATION ABC1",
+                "org_email": user.email,
+                "tech_contact": "True",
+                "via_orcid": "True",
+                "first_name": "XYZ",
+                "last_name": "XYZ",
+                "city": "XYZ"
+            })
+    html.assert_called_once()
+    _, kwargs = html.call_args
+    assert "Technical Contact" in kwargs["html"]
+    assert "Organisation Administrator" not in kwargs["html"]
+
+    resp = client.post(
+            "/invite/organisation",
+            data={
+                "org_name": "THE ORGANISATION ABC2",
+                "org_email": user.email,
+                "first_name": "xyz",
+                "last_name": "xyz",
+                "city": "xyz"
+            })
+    _, kwargs = html.call_args
+    assert "Organisation Administrator" in kwargs["html"]
+    assert "Technical Contact" not in kwargs["html"]
+
+    send_email = mocker.patch("orcid_hub.utils.send_email")
+    resp = client.post(
+            "/invite/organisation",
             data={
                 "org_name": "THE ORGANISATION",
-                "org_email": "test123@test.test.net",
+                "org_email": user.email,
                 "tech_contact": "True",
                 "via_orcid": "True",
                 "first_name": "xyz",
                 "last_name": "xyz",
                 "city": "xyz"
-            }) as ctx:
-        login_user(root, remember=True)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 200
-        assert b"<!DOCTYPE html>" in resp.data, "Expected HTML content"
-        assert b"test123@test.test.net" in resp.data
-        send_email.assert_called_once()
-    with request_ctx(
-            "/invite/organisation",
-            method="POST",
-            data={
-                "org_name": "ORG NAME",
-                "org_email": "test123@test.test.net",
-                "tech_contact": "True",
-                "via_orcid": "True",
-                "first_name": "xyz",
-                "last_name": "xyz",
-                "city": "xyz"
-            }) as ctx:
-        send_email.reset_mock()
-        login_user(root, remember=True)
-        org = Organisation.get(id=1)
-        org.name = "ORG NAME"
-        org.confirmed = True
-        org.save()
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 200
-        assert b"<!DOCTYPE html>" in resp.data, "Expected HTML content"
-        assert b"test123@test.test.net" in resp.data
-        send_email.assert_called_once()
+            })
+    assert resp.status_code == 200
+    assert b"<!DOCTYPE html>" in resp.data, "Expected HTML content"
+    assert user.email.encode() in resp.data
+    send_email.assert_called_once()
+
+    send_email.reset_mock()
+    org = Organisation.get()
+    org.name = "ORG NAME"
+    org.confirmed = True
+    org.save()
+    resp = client.post(
+        "/invite/organisation",
+        data={
+            "org_name": "ORG NAME",
+            "org_email": user.email,
+            "tech_contact": "True",
+            "via_orcid": "True",
+            "first_name": "xyz",
+            "last_name": "xyz",
+            "city": "xyz"
+        })
+    assert resp.status_code == 200
+    assert b"<!DOCTYPE html>" in resp.data, "Expected HTML content"
+    assert user.email.encode() in resp.data
+    send_email.assert_called_once()
+
+    resp = client.post(
+        "/invite/organisation",
+        data={
+            "org_name": "ORG NAME",
+            "org_email": user.email,
+            "tech_contact": "True",
+            "via_orcid": "True",
+            "first_name": "xyz",
+            "last_name": "xyz",
+            "city": "xyz"
+        })
+    assert resp.status_code == 200
+    assert b"Warning" in resp.data
 
 
-def core_mock(self=None, source_file=None, schema_files=None, source_data=None, schema_data=None, extensions=None,
-              strict_rule_validation=False,
-              fix_ruby_style_regex=False, allow_assertions=False, ):
+def core_mock(
+        self=None,
+        source_file=None,
+        schema_files=None,
+        source_data=None,
+        schema_data=None,
+        extensions=None,
+        strict_rule_validation=False,
+        fix_ruby_style_regex=False,
+        allow_assertions=False,
+):
     """Mock validation api call."""
     return None
 

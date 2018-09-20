@@ -2233,14 +2233,21 @@ def register_org(org_name,
         else:
             invitation_url = url_for("index", _external=True)
 
+        oi = OrgInvitation.create(
+            inviter_id=current_user.id,
+            invitee_id=user.id,
+            email=user.email,
+            org=org,
+            token=token,
+            tech_contact=tech_contact,
+            url=invitation_url)
+
         utils.send_email(
             "email/org_invitation.html",
+            invitation=oi,
             recipient=(org_name, email),
             reply_to=(current_user.name, current_user.email),
-            cc_email=(current_user.name, current_user.email),
-            invitation_url=invitation_url,
-            org_name=org_name,
-            user=user)
+            cc_email=(current_user.name, current_user.email))
 
         org.is_email_sent = True
         try:
@@ -2248,14 +2255,6 @@ def register_org(org_name,
         except Exception:
             app.logger.exception("Failed to save organisation data")
             raise
-
-        OrgInvitation.create(
-            inviter_id=current_user.id,
-            invitee_id=user.id,
-            email=user.email,
-            org=org,
-            token=token,
-            tech_contact=tech_contact)
 
 
 # TODO: user can be admin for multiple org and org can have multiple admins:
@@ -2308,13 +2307,13 @@ def invite_organisation():
                     flash("New Technical contact has been Invited Successfully! "
                           "An email has been sent to the Technical contact", "success")
                     app.logger.info(
-                        f"For Organisation '{org_name}' , "
+                        f"For Organisation '{org_name}', "
                         f"New Technical Contact '{email}' has been invited successfully.")
                 else:
                     flash("New Organisation Admin has been Invited Successfully! "
                           "An email has been sent to the Organisation Admin", "success")
                     app.logger.info(
-                        f"For Organisation '{org_name}' , "
+                        f"For Organisation '{org_name}', "
                         f"New Organisation Admin '{email}' has been invited successfully.")
             else:
                 flash("Organisation Invited Successfully! "
