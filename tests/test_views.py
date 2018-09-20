@@ -2258,3 +2258,21 @@ def test_sync_profiles(client, mocker):
     resp = client.post("/sync_profiles", data={"close": "Close"})
     assert resp.status_code == 302
     assert urlparse(resp.location).path == "/admin/task/"
+
+    client.logout()
+    user = User.get(email="researcher100@test0.edu")
+    client.login(user)
+    resp = client.get("/sync_profiles")
+    assert resp.status_code == 302
+
+    client.logout()
+    user.roles += Role.TECHNICAL
+    user.save()
+    client.login(user)
+    resp = client.get("/sync_profiles")
+    assert resp.status_code == 403
+
+    client.logout()
+    client.login_root()
+    resp = client.get("/sync_profiles")
+    assert resp.status_code == 200
