@@ -278,8 +278,10 @@ class BaseModel(Model):
     @classmethod
     def get(cls, *query, **kwargs):
         """Get a single model instance."""
-        if query and not kwargs and len(query) == 1 and isinstance(query[0], int):
+        if query and not kwargs and len(query) == 1 and isinstance(query[0], (int, str, )):
             return super().get(id=query[0])
+        elif not query and not kwargs:
+            return super().select().limit(1).first()
         return super().get(*query, **kwargs)
 
     @classmethod
@@ -512,10 +514,7 @@ class OrgInfo(BaseModel):
     def load_from_csv(cls, source):
         """Load data from CSV file or a string."""
         if isinstance(source, str):
-            if '\n' in source:
-                source = StringIO(source)
-            else:
-                source = open(source)
+            source = StringIO(source)
         reader = csv.reader(source)
         header = next(reader)
 
@@ -756,6 +755,7 @@ class OrgInvitation(BaseModel, AuditMixin):
         null=True,
         help_text="The invitee is the techical contact of the organisation.",
         verbose_name="Is Tech.contact")
+    url = CharField(null=True)
 
     @property
     def sent_at(self):

@@ -8,7 +8,7 @@ from flask_wtf.file import FileAllowed, FileField, FileRequired
 from pycountry import countries, languages, currencies
 from wtforms import (BooleanField, Field, SelectField, SelectMultipleField, StringField,
                      SubmitField, TextField, TextAreaField, validators)
-from wtforms.fields.html5 import DateField, DateTimeField, EmailField, IntegerField
+from wtforms.fields.html5 import DateField, EmailField, IntegerField
 from wtforms.validators import UUID, DataRequired, email, Regexp, Required, ValidationError, optional, url
 from wtforms.widgets import HTMLString, TextArea, html_params
 from wtfpeewee.orm import model_form
@@ -235,9 +235,8 @@ class RecordForm(FlaskForm):
 class FundingForm(FlaskForm):
     """User/researcher funding detail form."""
 
-    type_choices = [('GRANT', 'GRANT'), ('CONTRACT', 'CONTRACT'), ('AWARD', 'AWARD'), ('SALARY_AWARD', 'SALARY_AWARD')]
+    type_choices = [(v, v.replace('_', ' ').title()) for v in ['GRANT', 'CONTRACT', 'AWARD', 'SALARY_AWARD', '']]
     type_choices.sort(key=lambda e: e[1])
-    type_choices.insert(0, ("", ""))
 
     funding_title = StringField("Funding Title", [validators.required()])
     funding_translated_title = StringField("Funding Translated Title")
@@ -266,10 +265,10 @@ class PeerReviewForm(FlaskForm):
     review_type_choices = [(v, v) for v in ['REVIEW', 'EVALUATION', '']]
     review_type_choices.sort(key=lambda e: e[1])
 
-    subject_external_id_relationship_choices = [(v, v) for v in ['PART_OF', 'SELF', '']]
+    subject_external_id_relationship_choices = [(v, v.replace('_', ' ').title()) for v in ['PART_OF', 'SELF', '']]
     subject_external_id_relationship_choices.sort(key=lambda e: e[1])
 
-    subject_type_choices = [(v, v) for v in
+    subject_type_choices = [(v, v.replace('_', ' ').title()) for v in
                             ['MANUAL', 'CONFERENCE_PAPER', 'RESEARCH_TECHNIQUE', 'SUPERVISED_STUDENT_PUBLICATION',
                              'INVENTION', 'NEWSLETTER_ARTICLE', 'TRANSLATION', 'TEST', 'DISSERTATION', 'BOOK_CHAPTER',
                              'LICENSE', 'STANDARDS_AND_POLICY', 'CONFERENCE_ABSTRACT', 'PATENT', 'DICTIONARY_ENTRY',
@@ -310,20 +309,20 @@ class PeerReviewForm(FlaskForm):
 class WorkForm(FlaskForm):
     """User/researcher Work detail form."""
 
-    work_type_choices = [(v, v) for v in
+    work_type_choices = [(v, v.replace('_', ' ').title()) for v in
                          ['MANUAL', 'CONFERENCE_PAPER', 'RESEARCH_TECHNIQUE', 'SUPERVISED_STUDENT_PUBLICATION',
                           'INVENTION', 'NEWSLETTER_ARTICLE', 'TRANSLATION', 'TEST', 'DISSERTATION', 'BOOK_CHAPTER',
                           'LICENSE', 'STANDARDS_AND_POLICY', 'CONFERENCE_ABSTRACT', 'PATENT', 'DICTIONARY_ENTRY',
-                          'REGISTERED_COPYRIGHT', 'MAGAZINE_ARTICLE', 'DISCLOSURE, BOOK_REVIEW',
-                          'UNDEFINED, ARTISTIC_PERFORMANCE', 'ENCYCLOPEDIA_ENTRY', 'REPORT', 'ONLINE_RESOURCE',
+                          'REGISTERED_COPYRIGHT', 'MAGAZINE_ARTICLE', 'DISCLOSURE', 'BOOK_REVIEW',
+                          'UNDEFINED', 'ARTISTIC_PERFORMANCE', 'ENCYCLOPEDIA_ENTRY', 'REPORT', 'ONLINE_RESOURCE',
                           'WEBSITE', 'RESEARCH_TOOL', 'WORKING_PAPER', 'EDITED_BOOK', 'TRADEMARK', 'LECTURE_SPEECH',
                           'BOOK', 'DATA_SET', 'JOURNAL_ARTICLE', 'SPIN_OFF_COMPANY', 'TECHNICAL_STANDARD',
                           'CONFERENCE_POSTER', 'JOURNAL_ISSUE', 'NEWSPAPER_ARTICLE', 'OTHER', '']]
     work_type_choices.sort(key=lambda e: e[1])
 
-    citation_type_choices = [(v, v) for v in
+    citation_type_choices = [(v, v.replace('_', ' ').title()) for v in
                              ['FORMATTED_HARVARD', 'FORMATTED_UNSPECIFIED', 'FORMATTED_CHICAGO', 'FORMATTED_VANCOUVER',
-                              'RIS', 'FORMATTED_IEEE, BIBTEX', 'FORMATTED_MLA', 'FORMATTED_APA', '']]
+                              'RIS', 'FORMATTED_IEEE', 'BIBTEX', 'FORMATTED_MLA', 'FORMATTED_APA', '']]
     citation_type_choices.sort(key=lambda e: e[1])
 
     work_type = SelectField(choices=work_type_choices, description="Work Type", validators=[validators.required()])
@@ -597,7 +596,6 @@ class WebhookForm(
 class ProfileSyncForm(FlaskForm):
     """Profile sync form."""
 
-    created_at = DateTimeField("Task Submitted At", render_kw={'readonly': True})
     start = SubmitField(
         "Start",
         render_kw={

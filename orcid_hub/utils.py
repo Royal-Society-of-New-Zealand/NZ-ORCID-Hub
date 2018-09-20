@@ -2,13 +2,14 @@
 """Various utilities."""
 
 import json
-import chardet
 import logging
 import os
+import time
 from datetime import date, datetime, timedelta
 from itertools import filterfalse, groupby
 from urllib.parse import quote, urlencode, urlparse
 
+import chardet
 import emails
 import flask
 import requests
@@ -173,7 +174,9 @@ def send_email(template,
         msg.cc.append(cc_email)
     msg.set_headers({"reply-to": reply_to})
     msg.mail_to.append(recipient)
-    msg.send(smtp=dict(host=app.config["MAIL_SERVER"], port=app.config["MAIL_PORT"]))
+    resp = msg.send(smtp=dict(host=app.config["MAIL_SERVER"], port=app.config["MAIL_PORT"]))
+    if not resp.success:
+        raise Exception("Failed to email the message. Please contact a Hub administrator!")
 
 
 def generate_confirmation_token(*args, expiration=1300000, **kwargs):
@@ -914,7 +917,8 @@ def process_work_records(max_rows=20):
                       WorkInvitees,
                       on=(WorkRecord.id == WorkInvitees.work_record_id)).join(
                           User, JOIN.LEFT_OUTER,
-                          on=((User.email == WorkInvitees.email) | (User.orcid == WorkInvitees.orcid)))
+                          on=((User.email == WorkInvitees.email)
+                              | ((User.orcid == WorkInvitees.orcid) & (User.organisation_id == Task.org_id))))
              .join(Organisation, JOIN.LEFT_OUTER, on=(Organisation.id == Task.org_id))
              .join(UserOrg, JOIN.LEFT_OUTER, on=((UserOrg.user_id == User.id) & (UserOrg.org_id == Organisation.id)))
              .join(
@@ -1027,7 +1031,8 @@ def process_peer_review_records(max_rows=20):
                       PeerReviewInvitee,
                       on=(PeerReviewRecord.id == PeerReviewInvitee.peer_review_record_id)).join(
                           User, JOIN.LEFT_OUTER,
-                          on=((User.email == PeerReviewInvitee.email) | (User.orcid == PeerReviewInvitee.orcid)))
+                          on=((User.email == PeerReviewInvitee.email)
+                              | ((User.orcid == PeerReviewInvitee.orcid) & (User.organisation_id == Task.org_id))))
              .join(Organisation, JOIN.LEFT_OUTER, on=(Organisation.id == Task.org_id))
              .join(UserOrg, JOIN.LEFT_OUTER, on=((UserOrg.user_id == User.id) & (UserOrg.org_id == Organisation.id)))
              .join(
@@ -1142,7 +1147,7 @@ def process_funding_records(max_rows=20):
                           User,
                           JOIN.LEFT_OUTER,
                           on=((User.email == FundingInvitees.email) |
-                              (User.orcid == FundingInvitees.orcid)))
+                              ((User.orcid == FundingInvitees.orcid) & (User.organisation_id == Task.org_id))))
              .join(Organisation, JOIN.LEFT_OUTER, on=(Organisation.id == Task.org_id))
              .join(UserOrg, JOIN.LEFT_OUTER, on=((UserOrg.user_id == User.id) & (UserOrg.org_id == Organisation.id)))
              .join(
@@ -1591,7 +1596,7 @@ def send_orcid_update_summary(org_id=None):
 
 
 @rq.job(timeout=300)
-def sync_profile(task_id, user_id=None):
+def sync_profile(task_id, delay=0.1):
     """Verify and sync the user profile."""
     if not task_id:
         return
@@ -1599,55 +1604,17 @@ def sync_profile(task_id, user_id=None):
         task = Task.get(task_id)
     except Task.DoesNotExist:
         return
-
     org = task.org
-    if not user_id:
-        if not org.disambiguated_id:
-            return
-        for u in task.org.users.where(User.orcid.is_null(False)).join(
-                OrcidToken,
-                on=((OrcidToken.user_id == User.id) & OrcidToken.scope.contains("/activities/update"))):
-            job = sync_profile.queue(task_id, u.id)
-            Log.create(
-                task=task_id, message=f"Added a profile sync job for {u} / {u.orcid}: {job.id}.")
+    if not org.disambiguated_id:
         return
-
-    user = User.get(user_id)
-    ot = OrcidToken.select().where(
-        OrcidToken.user == user_id, OrcidToken.org == org,
-        OrcidToken.scope.contains("/activities/update")).limit(1).first()
-    if not ot:
-        return
-    api = orcid_client.MemberAPI(user=user, org=org, access_token=ot.access_token)
-    profile = api.get_record()
-    if not profile:
-        Log.create(task=task_id, message=f"The user {user} doesn't have ORCID profile.")
-        return
-    for k, s in [
-        ["educations", "education-summary"],
-        ["employments", "employment-summary"],
-    ]:
-        entries = profile.get("activities-summary", k, s)
-        if not entries:
-            continue
-        for e in entries:
-            source = e.get("source")
-            if not source:
-                continue
-
-            if source.get("source-client-id", "path") == org.orcid_client_id:
-                do = e.get("organization", "disambiguated-organization")
-                if not (do and do.get("disambiguated-organization-identifier")
-                        and do.get("disambiguation-source")):
-                    e["organization"]["disambiguated-organization"] = {
-                        "disambiguated-organization-identifier": org.disambiguated_id,
-                        "disambiguation-source": org.disambiguation_source,
-                    }
-                    api_call = api.update_employment if k == "employments" else api.update_education
-
-                    try:
-                        api_call(orcid=user.orcid, put_code=e.get("put-code"), body=e)
-                        Log.create(task=task_id, message=f"Successfully update entry: {e}.")
-                    except Exception as ex:
-                        Log.create(task=task_id, message=f"Failed to update the entry: {ex}.")
-    Log.create(task=task_id, message=f"The user {user} porfile was processed.")
+    api = orcid_client.MemberAPI(org=org)
+    count = 0
+    for u in task.org.users.select(User, OrcidToken.access_token.alias("access_token")).where(
+            User.orcid.is_null(False)).join(
+            OrcidToken,
+            on=((OrcidToken.user_id == User.id) & OrcidToken.scope.contains("/activities/update"))).naive():
+        Log.create(task=task_id, message=f"Processing user {u} / {u.orcid} profile.")
+        api.sync_profile(user=u, access_token=u.access_token, task=task)
+        count += 1
+        time.sleep(delay)
+    Log.create(task=task_id, message=f"In total, {count} user profiles were synchronized.")

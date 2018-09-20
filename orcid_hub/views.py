@@ -224,19 +224,9 @@ class AppModelView(ModelView):
 
         return query
 
-    def get_pk_value(self, model):
-        """Get correct value for composite keys."""
-        if self.model._meta.composite_key:
-            return tuple([
-                model._data[field_name] for field_name in self.model._meta.primary_key.field_names
-            ])
-        return super().get_pk_value(model)
-
     def get_one(self, id):
-        """Fix for composite keys."""
+        """Handle missing data."""
         try:
-            if self.model._meta.composite_key:
-                return self.model.get(**dict(zip(self.model._meta.primary_key.field_names, id)))
             return super().get_one(id)
         except self.model.DoesNotExist:
             flash(f"The record with given ID: {id} doesn't exist or it was deleted.", "danger")
@@ -2243,14 +2233,21 @@ def register_org(org_name,
         else:
             invitation_url = url_for("index", _external=True)
 
+        oi = OrgInvitation.create(
+            inviter_id=current_user.id,
+            invitee_id=user.id,
+            email=user.email,
+            org=org,
+            token=token,
+            tech_contact=tech_contact,
+            url=invitation_url)
+
         utils.send_email(
             "email/org_invitation.html",
+            invitation=oi,
             recipient=(org_name, email),
             reply_to=(current_user.name, current_user.email),
-            cc_email=(current_user.name, current_user.email),
-            invitation_url=invitation_url,
-            org_name=org_name,
-            user=user)
+            cc_email=(current_user.name, current_user.email))
 
         org.is_email_sent = True
         try:
@@ -2258,14 +2255,6 @@ def register_org(org_name,
         except Exception:
             app.logger.exception("Failed to save organisation data")
             raise
-
-        OrgInvitation.create(
-            inviter_id=current_user.id,
-            invitee_id=user.id,
-            email=user.email,
-            org=org,
-            token=token,
-            tech_contact=tech_contact)
 
 
 # TODO: user can be admin for multiple org and org can have multiple admins:
@@ -2318,13 +2307,13 @@ def invite_organisation():
                     flash("New Technical contact has been Invited Successfully! "
                           "An email has been sent to the Technical contact", "success")
                     app.logger.info(
-                        f"For Organisation '{org_name}' , "
+                        f"For Organisation '{org_name}', "
                         f"New Technical Contact '{email}' has been invited successfully.")
                 else:
                     flash("New Organisation Admin has been Invited Successfully! "
                           "An email has been sent to the Organisation Admin", "success")
                     app.logger.info(
-                        f"For Organisation '{org_name}' , "
+                        f"For Organisation '{org_name}', "
                         f"New Organisation Admin '{email}' has been invited successfully.")
             else:
                 flash("Organisation Invited Successfully! "
@@ -2608,11 +2597,6 @@ def user_orgs(user_id, org_id=None):
         return jsonify({"user-orgs": list(u.organisations.dicts())})
     except User.DoesNotExist:
         return jsonify({"error": f"Not Found user with ID: {user_id}"}), 404
-    except Exception as ex:
-        app.logger.exception(f"Failed to retrieve user (ID: {user_id}) organisations.")
-        return jsonify({
-            "error": f"Failed to retrieve user (ID: {user_id}) organisations: {ex}."
-        }), 500
 
 
 @app.route(
@@ -2668,7 +2652,7 @@ def user_orgs_org(user_id, org_id=None):
             "status": "DELETED",
         }), 204
     else:
-        org = Organisation.get(id=org_id)
+        org = Organisation.get(org_id)
         uo, created = UserOrg.get_or_create(user_id=user_id, org_id=org_id)
         if "is_admin" in data:
             uo.is_admin = data["is_admin"]
@@ -2753,26 +2737,38 @@ def org_webhook():
     return render_template("form.html", form=form, title="Organisation Webhook")
 
 
+@app.route("/sync_profiles/<int:task_id>", methods=["GET", "POST"])
 @app.route(
     "/sync_profiles", methods=[
         "GET",
         "POST",
     ])
 @roles_required(Role.TECHNICAL, Role.SUPERUSER)
-def sync_profiles():
+def sync_profiles(task_id=None):
     """Start research profile synchronization."""
-    org = current_user.organisation
-    task = Task.select().where(
-            Task.task_type == TaskType.SYNC,
-            Task.org == org).order_by(Task.created_at.desc()).limit(1).first()
-    form = ProfileSyncForm(obj=task)
+    if not current_user.is_tech_contact_of() and not current_user.is_superuser:
+        flash(
+            f"Access Denied! You must be the technical conatact of '{current_user.organisation}'",
+            "danger")
+        abort(403)
+    if not task_id:
+        task_id = request.args.get("task_id")
+    if task_id:
+        task = Task.get(task_id)
+        org = task.org
+    else:
+        org = current_user.organisation
+        task = Task.select().where(Task.task_type == TaskType.SYNC, Task.org == org).order_by(
+            Task.created_at.desc()).limit(1).first()
+
+    form = ProfileSyncForm()
 
     if form.is_submitted():
         if form.close.data:
-            _next = get_next_url() or url_for("index")
+            _next = get_next_url() or url_for("task.index_view")
             return redirect(_next)
         if task and not form.restart.data:
-            flash(f"There is already na active profile synchronization task", "warning")
+            flash(f"There is already an active profile synchronization task", "warning")
         else:
             Task.delete().where(Task.org == org, Task.task_type == TaskType.SYNC).execute()
             task = Task.create(org=org, task_type=TaskType.SYNC)
