@@ -8,7 +8,7 @@ from flask_wtf.file import FileAllowed, FileField, FileRequired
 from pycountry import countries, languages, currencies
 from wtforms import (BooleanField, Field, SelectField, SelectMultipleField, StringField,
                      SubmitField, TextField, TextAreaField, validators)
-from wtforms.fields.html5 import DateField, DateTimeField, EmailField, IntegerField
+from wtforms.fields.html5 import DateField, EmailField, IntegerField
 from wtforms.validators import UUID, DataRequired, email, Regexp, Required, ValidationError, optional, url
 from wtforms.widgets import HTMLString, TextArea, html_params
 from wtfpeewee.orm import model_form
@@ -597,7 +597,6 @@ class WebhookForm(
 class ProfileSyncForm(FlaskForm):
     """Profile sync form."""
 
-    created_at = DateTimeField("Task Submitted At", render_kw={'readonly': True})
     start = SubmitField(
         "Start",
         render_kw={
