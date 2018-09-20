@@ -2,13 +2,14 @@
 """Various utilities."""
 
 import json
-import chardet
 import logging
 import os
+import time
 from datetime import date, datetime, timedelta
 from itertools import filterfalse, groupby
 from urllib.parse import quote, urlencode, urlparse
 
+import chardet
 import emails
 import flask
 import requests
@@ -1591,7 +1592,7 @@ def send_orcid_update_summary(org_id=None):
 
 
 @rq.job(timeout=300)
-def sync_profile(task_id, user_id=None):
+def sync_profile(task_id, delay=0.1):
     """Verify and sync the user profile."""
     if not task_id:
         return
@@ -1599,55 +1600,17 @@ def sync_profile(task_id, user_id=None):
         task = Task.get(task_id)
     except Task.DoesNotExist:
         return
-
     org = task.org
-    if not user_id:
-        if not org.disambiguated_id:
-            return
-        for u in task.org.users.where(User.orcid.is_null(False)).join(
-                OrcidToken,
-                on=((OrcidToken.user_id == User.id) & OrcidToken.scope.contains("/activities/update"))):
-            job = sync_profile.queue(task_id, u.id)
-            Log.create(
-                task=task_id, message=f"Added a profile sync job for {u} / {u.orcid}: {job.id}.")
+    if not org.disambiguated_id:
         return
-
-    user = User.get(user_id)
-    ot = OrcidToken.select().where(
-        OrcidToken.user == user_id, OrcidToken.org == org,
-        OrcidToken.scope.contains("/activities/update")).limit(1).first()
-    if not ot:
-        return
-    api = orcid_client.MemberAPI(user=user, org=org, access_token=ot.access_token)
-    profile = api.get_record()
-    if not profile:
-        Log.create(task=task_id, message=f"The user {user} doesn't have ORCID profile.")
-        return
-    for k, s in [
-        ["educations", "education-summary"],
-        ["employments", "employment-summary"],
-    ]:
-        entries = profile.get("activities-summary", k, s)
-        if not entries:
-            continue
-        for e in entries:
-            source = e.get("source")
-            if not source:
-                continue
-
-            if source.get("source-client-id", "path") == org.orcid_client_id:
-                do = e.get("organization", "disambiguated-organization")
-                if not (do and do.get("disambiguated-organization-identifier")
-                        and do.get("disambiguation-source")):
-                    e["organization"]["disambiguated-organization"] = {
-                        "disambiguated-organization-identifier": org.disambiguated_id,
-                        "disambiguation-source": org.disambiguation_source,
-                    }
-                    api_call = api.update_employment if k == "employments" else api.update_education
-
-                    try:
-                        api_call(orcid=user.orcid, put_code=e.get("put-code"), body=e)
-                        Log.create(task=task_id, message=f"Successfully update entry: {e}.")
-                    except Exception as ex:
-                        Log.create(task=task_id, message=f"Failed to update the entry: {ex}.")
-    Log.create(task=task_id, message=f"The user {user} porfile was processed.")
+    api = orcid_client.MemberAPI(org=org)
+    count = 0
+    for u in task.org.users.select(User, OrcidToken.access_token.alias("access_token")).where(
+            User.orcid.is_null(False)).join(
+            OrcidToken,
+            on=((OrcidToken.user_id == User.id) & OrcidToken.scope.contains("/activities/update"))).naive():
+        Log.create(task=task_id, message=f"Processing user {u} / {u.orcid} profile.")
+        api.sync_profile(user=u, access_token=u.access_token, task=task)
+        count += 1
+        time.sleep(delay)
+    Log.create(task=task_id, message=f"Total {count} user profile were synchronized.")

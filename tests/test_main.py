@@ -1,9 +1,12 @@
 # -*- coding: utf-8 -*-
 """Tests for core functions."""
 
-from io import BytesIO
+import base64
+import pickle
 import pprint
-from unittest.mock import patch, Mock
+import zlib
+from io import BytesIO
+from unittest.mock import Mock, patch
 from urllib.parse import urlparse
 
 import pytest
@@ -191,9 +194,7 @@ def test_tuakiri_login_with_org(client):
     onboared, the user should be informed about that and
     redirected to the login page.
     """
-    org = Organisation(tuakiri_name="THE ORGANISATION", confirmed=True)
-    org.save()
-
+    org = client.data.get("org")
     resp = client.get(
         "/Tuakiri/login",
         headers={
@@ -286,11 +287,11 @@ def test_login_provider_load_user(request_ctx):  # noqa: D103
         assert resp.location.startswith("/")
 
 
-def test_onboard_org(request_ctx):
+def test_onboard_org(client):
     """Test to organisation onboarding."""
     org = Organisation.create(
-        name="THE ORGANISATION",
-        tuakiri_name="THE ORGANISATION",
+        name="THE ORGANISATION:test_onboard_org",
+        tuakiri_name="THE ORGANISATION:test_onboard_org",
         confirmed=False,
         orcid_client_id="CLIENT ID",
         orcid_secret="Client Secret",
@@ -313,8 +314,9 @@ def test_onboard_org(request_ctx):
         orcid="1243",
         confirmed=True,
         organisation=org)
+    UserOrg.create(user=second_user, org=org, is_admin=True)
     org_info = OrgInfo.create(
-        name="THE ORGANISATION", tuakiri_name="THE ORGANISATION")
+        name="THE ORGANISATION:test_onboard_org", tuakiri_name="THE ORGANISATION:test_onboard_org")
     org.tech_contact = u
     org_info.save()
     org.save()
@@ -322,40 +324,35 @@ def test_onboard_org(request_ctx):
     OrgInvitation.get_or_create(email=u.email, org=org, token="sdsddsd")
     UserOrg.create(user=u, org=org, is_admin=True)
 
-    with request_ctx("/confirm/organisation") as ctx:
-        login_user(u)
-        u.save()
-        assert u.is_tech_contact_of(org)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 200
-        assert b"<!DOCTYPE html>" in resp.data, "Expected HTML content"
-        assert b"Take me to ORCID to obtain my Client ID and Client Secret" in resp.data,\
-            "Expected Button on the confirmation page"
-    with request_ctx("/confirm/organisation") as ctxx:
-        second_user.save()
-        login_user(second_user)
-        resp = ctxx.app.full_dispatch_request()
-        assert resp.status_code == 302
-        assert resp.location.startswith("/admin/viewmembers/")
-    with request_ctx(
+    client.login(u, follow_redirects=True)
+    assert u.is_tech_contact_of(org)
+    resp = client.get("/confirm/organisation")
+    assert resp.status_code == 200
+    assert b"<!DOCTYPE html>" in resp.data, "Expected HTML content"
+    assert b"Take me to ORCID to obtain my Client ID and Client Secret" in resp.data,\
+        "Expected Button on the confirmation page"
+
+    with patch("orcid_hub.authcontroller.requests") as requests:
+        requests.post.return_value = Mock(data=b'XXXX', status_code=200)
+        resp = client.post(
             "/confirm/organisation",
-            method="POST",
             data={
                 "orcid_client_id": "APP-FDFN3F52J3M4L34S",
                 "orcid_secret": "4916c2d7-085e-487e-94d0-32450a9cfe6c",
                 "country": "NZ",
                 "city": "Auckland",
                 "disambiguated_id": "xyz",
-                "disambiguation_source": "xyz",
-                "name": "THE ORGANISATION"
-            }) as cttxx:
-        login_user(u)
-        u.save()
-        with patch("orcid_hub.authcontroller.requests") as requests:
-            requests.post.return_value = Mock(data=b'XXXX', status_code=200)
-            resp = cttxx.app.full_dispatch_request()
-            assert resp.status_code == 302
-            assert resp.location.startswith("/link")
+                "disambiguation_source": "abc",
+                "name": "THE ORGANISATION:test_onboard_org"
+            })
+        assert resp.status_code == 302
+        assert "/link" in resp.location
+
+    client.login(second_user, follow_redirects=True)
+    resp = client.get("/confirm/organisation")
+    assert resp.status_code == 302
+    assert "/admin/viewmembers/" in resp.location
+    client.logout()
 
 
 @patch("orcid_hub.utils.send_email")
@@ -388,34 +385,42 @@ def test_invite_tech_contact(send_email, client):
     assert u.organisation.tech_contact == u
 
 
-def test_logout(request_ctx):
+def test_logout(client):
     """Test to logout."""
+    org = Organisation.create(
+        name="THE ORGANISATION:test_logout",
+        tuakiri_name="University of Auckland",
+        confirmed=True,
+        is_email_sent=True)
     user = User.create(
         email="test@test.test.net",
         name="TEST USER",
         roles=Role.TECHNICAL,
         confirmed=True,
-        organisation=Organisation.create(
-            name="THE ORGANISATION",
-            tuakiri_name="THE ORGANISATION",
-            confirmed=True,
-            is_email_sent=True))
+        organisation=org)
 
-    with request_ctx("/logout") as ctx:
-        # UoA user:
-        login_user(user)
-        session["shib_O"] = "University of Auckland"
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 302
-        assert "Shibboleth.sso" in resp.location
-        assert "uoa-slo" in resp.location
+    client.login(user)
+    resp = client.get("/logout")
+    # UoA user:
+    assert resp.status_code == 302
+    assert "Shibboleth.sso" in resp.location
+    assert "uoa-slo" in resp.location
+
+    org.tuakiri_name = org.name
+    org.save()
+    client.login(user)
+    resp = client.get("/logout")
+    # non-UoA user:
+    assert resp.status_code == 302
+    assert "Shibboleth.sso" in resp.location
+    assert "uoa-slo" not in resp.location
 
 
 def test_orcid_login(client):
     """Test login from orcid."""
     org = Organisation.create(
-        name="THE ORGANISATION",
-        tuakiri_name="THE ORGANISATION",
+        name="THE ORGANISATION:test_orcid_login",
+        tuakiri_name="THE ORGANISATION:test_orcid_login",
         confirmed=False,
         orcid_client_id="CLIENT ID",
         orcid_secret="Client Secret",
@@ -425,13 +430,12 @@ def test_orcid_login(client):
         disambiguation_source="SOURCE",
         is_email_sent=True)
     u = User.create(
-        email="test123@test.test.net",
+        email="test123_test_orcid_login@test.test.net",
         name="TEST USER",
         roles=Role.TECHNICAL,
         orcid="123",
         confirmed=True,
         organisation=org)
-
     UserOrg.create(user=u, org=org, is_admin=True)
 
     # with SALT
@@ -440,7 +444,7 @@ def test_orcid_login(client):
     resp = client.get("/orcid/login/" + token.decode("utf-8"))
     assert resp.status_code == 200
     orcid_authorize = OrcidAuthorizeCall.get(method="GET")
-    assert "&email=test123%40test.test.net" in orcid_authorize.url
+    assert "&email=test123_test_orcid_login%40test.test.net" in orcid_authorize.url
 
     expired_token = utils.generate_confirmation_token(expiration=-1, email=u.email, org=org.name)
     resp = client.get("/orcid/login/" + expired_token.decode("utf-8"))
@@ -455,7 +459,7 @@ def test_orcid_login(client):
     resp = client.get("/orcid/login/" + token.decode("utf-8"))
     assert resp.status_code == 200
     orcid_authorize = OrcidAuthorizeCall.get(method="GET")
-    assert "&email=test123%40test.test.net" in orcid_authorize.url
+    assert "&email=test123_test_orcid_login%40test.test.net" in orcid_authorize.url
 
     expired_token = utils.generate_confirmation_token(expiration=-1, email=u.email, org=org.name)
     resp = client.get("/orcid/login/" + expired_token.decode("utf-8"))
@@ -502,8 +506,8 @@ def get_record_mock(self, orcid=None, **kwargs):
 def test_orcid_login_callback_admin_flow(patch, patch2, request_ctx):
     """Test login from orcid callback function for Organisation Technical contact."""
     org = Organisation.create(
-        name="THE ORGANISATION",
-        tuakiri_name="THE ORGANISATION",
+        name="THE ORGANISATION:test_orcid_login_callback_admin_flow",
+        tuakiri_name="THE ORGANISATION:test_orcid_login_callback_admin_flow",
         confirmed=False,
         orcid_client_id="CLIENT ID",
         orcid_secret="Client Secret",
@@ -638,8 +642,8 @@ def affiliation_mock(
 def test_orcid_login_callback_researcher_flow(patch, patch2, request_ctx):
     """Test login from orcid callback function for researcher and display profile."""
     org = Organisation.create(
-        name="THE ORGANISATION",
-        tuakiri_name="THE ORGANISATION",
+        name="THE ORGANISATION:test_orcid_login_callback_researcher_flow",
+        tuakiri_name="THE ORGANISATION:test_orcid_login_callback_researcher_flow",
         confirmed=True,
         orcid_client_id="CLIENT ID",
         orcid_secret="Client Secret",
@@ -671,8 +675,8 @@ def test_orcid_login_callback_researcher_flow(patch, patch2, request_ctx):
 def test_select_user_org(request_ctx):
     """Test organisation switch of current user."""
     org = Organisation.create(
-        name="THE ORGANISATION",
-        tuakiri_name="THE ORGANISATION",
+        name="THE ORGANISATION:test_select_user_org",
+        tuakiri_name="THE ORGANISATION:test_select_user_org",
         confirmed=True,
         orcid_client_id="CLIENT ID",
         orcid_secret="Client Secret",
@@ -683,8 +687,8 @@ def test_select_user_org(request_ctx):
         is_email_sent=True)
 
     org2 = Organisation.create(
-        name="THE ORGANISATION2",
-        tuakiri_name="THE ORGANISATION2",
+        name="THE ORGANISATION2:test_select_user_org",
+        tuakiri_name="THE ORGANISATION2:test_select_user_org",
         confirmed=True,
         orcid_client_id="CLIENT ID",
         orcid_secret="Client Secret",
@@ -715,13 +719,19 @@ def test_select_user_org(request_ctx):
         assert user.organisation_id == org2.id
 
 
-def test_shib_sp(request_ctx):
+def test_shib_sp(client):
     """Test shibboleth SP."""
-    with request_ctx("/Tuakiri/SP") as ctxx:
-        request.args = {'key': '123', 'url': '/profile'}
-        resp = ctxx.app.full_dispatch_request()
-        assert resp.status_code == 302
-        assert resp.location.startswith("/profile")
+    resp = client.get("/Tuakiri/SP?key=123ABC&url=/profile", headers={"USER": "TEST123ABC"})
+    assert resp.status_code == 302
+    assert "/profile" in resp.location
+
+    resp = client.get("/sp/attributes/123ABC")
+    assert resp.status_code == 200
+    data = pickle.loads(zlib.decompress(base64.b64decode(resp.data)))
+    assert data["User"] == "TEST123ABC"
+
+    resp = client.get("/Tuakiri/SP?key=123&url=https://harmfull.one/profile")
+    assert resp.status_code == 403
 
 
 def test_get_attributes(request_ctx):
@@ -736,8 +746,8 @@ def test_get_attributes(request_ctx):
 def test_link(request_ctx):
     """Test orcid profile linking."""
     org = Organisation.create(
-        name="THE ORGANISATION",
-        tuakiri_name="THE ORGANISATION",
+        name="THE ORGANISATION:test_link",
+        tuakiri_name="THE ORGANISATION:test_link",
         confirmed=True,
         orcid_client_id="CLIENT ID",
         orcid_secret="Client Secret",
@@ -746,7 +756,6 @@ def test_link(request_ctx):
         disambiguated_id="ID",
         disambiguation_source="SOURCE",
         is_email_sent=True)
-
     user = User.create(
         email="test123@test.test.net",
         name="TEST USER",
@@ -772,11 +781,11 @@ def test_faq_and_about(client, url):
     assert resp.status_code == 200
 
 
-def test_orcid_callback(request_ctx):
+def test_orcid_callback(client):
     """Test orcid researcher deny flow."""
     org = Organisation.create(
-        name="THE ORGANISATION",
-        tuakiri_name="THE ORGANISATION",
+        name="THE ORGANISATION:test_orcid_callback",
+        tuakiri_name="THE ORGANISATION:test_orcid_callback",
         confirmed=True,
         orcid_client_id="CLIENT ID",
         orcid_secret="Client Secret",
@@ -785,9 +794,8 @@ def test_orcid_callback(request_ctx):
         disambiguated_id="ID",
         disambiguation_source="SOURCE",
         is_email_sent=True)
-
     user = User.create(
-        email="test123@test.test.net",
+        email="test123_test_orcid_callback@test.test.net",
         name="TEST USER",
         roles=Role.TECHNICAL,
         orcid="123",
@@ -795,12 +803,10 @@ def test_orcid_callback(request_ctx):
         organisation=org)
     UserOrg.create(user=user, org=org, is_admin=True)
 
-    with request_ctx("/auth") as ctx:
-        login_user(user, remember=True)
-        request.args = ImmutableMultiDict([('error', 'access_denied'), ('login', '2')])
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 302
-        assert resp.location.startswith("/link")
+    client.login(user)
+    resp = client.get("/auth?error=access_denied&login=2")
+    assert resp.status_code == 302
+    assert "/link" in resp.location
 
 
 def test_login0(client):
