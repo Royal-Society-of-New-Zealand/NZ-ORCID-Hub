@@ -78,6 +78,9 @@
                     <li id="load_peer_review"><a href="{{ url_for('load_researcher_peer_review')}}"  data-toggle="tooltip"
                                                                                         title="Import a peer reviews batch file">Upload Peer Reviews</a></li>
                     <li class="divider"></li>
+                    <li id="load_peer_review"><a href="{{ url_for('sync_profiles')}}"  data-toggle="tooltip"
+                                                                                        title="Synchronize researcher porfiles">Sync Profiles</a></li>
+                    <li class="divider"></li>
                     <li id="task.index_view"><a href="{{ url_for('task.index_view')}}"  data-toggle="tooltip"
                                                                                         title="Review the progress and results of your current batch tasks">Uploaded Tasks</a></li>
                   </ul>
@@ -185,6 +188,16 @@
                         {% if current_user.organisation.confirmed %}
                           <a href="{{url_for('profile')}}"
                              class="btn btn-primary btn-block btn-sm">Profile</a>
+                          {% if current_user.orcid %}
+                            <form class="icon" method="POST" action="{{url_for('remove_linkage')}}">
+                            <button onclick="return safeConfirm('Are you sure you want to remove the ORCID ID and token associated with this account?\n\nBy clicking &quot;OK&quot;'+
+                            ' we will remove the access token given to this organisation! \n\n You may not be able to login again because you are deleting your associated ORCiD iD!');"
+                              data-toggle="tooltip"
+                              data-placement="bottom"
+                              title="Remove Erroneous Linkage..."
+                              class="btn btn-danger">Remove ORCID Linkage</button> <br>
+                            </form>
+                          {% endif %}
                         {% endif %}
                         </p>
                       </div>
