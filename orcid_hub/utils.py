@@ -915,7 +915,8 @@ def process_work_records(max_rows=20):
                       WorkInvitees,
                       on=(WorkRecord.id == WorkInvitees.work_record_id)).join(
                           User, JOIN.LEFT_OUTER,
-                          on=((User.email == WorkInvitees.email) | (User.orcid == WorkInvitees.orcid)))
+                          on=((User.email == WorkInvitees.email)
+                              | ((User.orcid == WorkInvitees.orcid) & (User.organisation_id == Task.org_id))))
              .join(Organisation, JOIN.LEFT_OUTER, on=(Organisation.id == Task.org_id))
              .join(UserOrg, JOIN.LEFT_OUTER, on=((UserOrg.user_id == User.id) & (UserOrg.org_id == Organisation.id)))
              .join(
@@ -1028,7 +1029,8 @@ def process_peer_review_records(max_rows=20):
                       PeerReviewInvitee,
                       on=(PeerReviewRecord.id == PeerReviewInvitee.peer_review_record_id)).join(
                           User, JOIN.LEFT_OUTER,
-                          on=((User.email == PeerReviewInvitee.email) | (User.orcid == PeerReviewInvitee.orcid)))
+                          on=((User.email == PeerReviewInvitee.email)
+                              | ((User.orcid == PeerReviewInvitee.orcid) & (User.organisation_id == Task.org_id))))
              .join(Organisation, JOIN.LEFT_OUTER, on=(Organisation.id == Task.org_id))
              .join(UserOrg, JOIN.LEFT_OUTER, on=((UserOrg.user_id == User.id) & (UserOrg.org_id == Organisation.id)))
              .join(
@@ -1143,7 +1145,7 @@ def process_funding_records(max_rows=20):
                           User,
                           JOIN.LEFT_OUTER,
                           on=((User.email == FundingInvitees.email) |
-                              (User.orcid == FundingInvitees.orcid)))
+                              ((User.orcid == FundingInvitees.orcid) & (User.organisation_id == Task.org_id))))
              .join(Organisation, JOIN.LEFT_OUTER, on=(Organisation.id == Task.org_id))
              .join(UserOrg, JOIN.LEFT_OUTER, on=((UserOrg.user_id == User.id) & (UserOrg.org_id == Organisation.id)))
              .join(
