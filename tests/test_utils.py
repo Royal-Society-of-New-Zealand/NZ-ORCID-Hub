@@ -556,8 +556,6 @@ def test_send_email(app):
     app.config["SERVER_NAME"] = "abc.orcidhub.org.nz"
     with app.app_context():
 
-        # app.config["SERVER_NAME"] = "ORCIDHUB"
-
         with patch("emails.message.Message") as msg_cls, patch("flask.current_app.jinja_env"):
             msg = msg_cls.return_value = Mock()
             app.config["SERVER_NAME"] = "abc.orcidhub.org.nz"
@@ -668,6 +666,7 @@ def test_send_email(app):
                 ),
                 logo="LOGO",
                 subject="TEST")
+    app.config["SERVER_NAME"] = server_name
 
 
 def test_is_valid_url():

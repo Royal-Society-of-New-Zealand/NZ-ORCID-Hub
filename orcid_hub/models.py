@@ -280,6 +280,8 @@ class BaseModel(Model):
         """Get a single model instance."""
         if query and not kwargs and len(query) == 1 and isinstance(query[0], (int, str, )):
             return super().get(id=query[0])
+        elif not query and not kwargs:
+            return super().select().limit(1).first()
         return super().get(*query, **kwargs)
 
     @classmethod
@@ -753,6 +755,7 @@ class OrgInvitation(BaseModel, AuditMixin):
         null=True,
         help_text="The invitee is the techical contact of the organisation.",
         verbose_name="Is Tech.contact")
+    url = CharField(null=True)
 
     @property
     def sent_at(self):

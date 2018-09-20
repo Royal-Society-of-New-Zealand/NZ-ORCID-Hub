@@ -174,7 +174,9 @@ def send_email(template,
         msg.cc.append(cc_email)
     msg.set_headers({"reply-to": reply_to})
     msg.mail_to.append(recipient)
-    msg.send(smtp=dict(host=app.config["MAIL_SERVER"], port=app.config["MAIL_PORT"]))
+    resp = msg.send(smtp=dict(host=app.config["MAIL_SERVER"], port=app.config["MAIL_PORT"]))
+    if not resp.success:
+        raise Exception("Failed to email the message. Please contact a Hub administrator!")
 
 
 def generate_confirmation_token(*args, expiration=1300000, **kwargs):
