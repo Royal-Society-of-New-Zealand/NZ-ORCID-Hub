@@ -728,6 +728,7 @@ def test_user_orgs_org(client):
     assert UserOrg.select().where(
             UserOrg.user == user, UserOrg.org == org,
             UserOrg.is_admin).exists()
+<<<<<<< HEAD
 
     # Delete user and organisation association
     resp = client.delete(f"/hub/api/v0.1/users/{user.id}/orgs/{org.id}", method="DELETE")
@@ -737,6 +738,17 @@ def test_user_orgs_org(client):
     assert not (user.roles & Role.ADMIN)
     assert not UserOrg.select().where(UserOrg.user == user, UserOrg.org == org).exists()
 
+=======
+
+    # Delete user and organisation association
+    resp = client.delete(f"/hub/api/v0.1/users/{user.id}/orgs/{org.id}", method="DELETE")
+    assert resp.status_code == 204
+    user = User.get(user.id)
+    assert user.organisation_id is None
+    assert not (user.roles & Role.ADMIN)
+    assert not UserOrg.select().where(UserOrg.user == user, UserOrg.org == org).exists()
+
+>>>>>>> origin/V4
 
 def test_user_orgs(client, mocker):
     """Test add an organisation to the user."""
@@ -2258,3 +2270,21 @@ def test_sync_profiles(client, mocker):
     resp = client.post("/sync_profiles", data={"close": "Close"})
     assert resp.status_code == 302
     assert urlparse(resp.location).path == "/admin/task/"
+
+    client.logout()
+    user = User.get(email="researcher100@test0.edu")
+    client.login(user)
+    resp = client.get("/sync_profiles")
+    assert resp.status_code == 302
+
+    client.logout()
+    user.roles += Role.TECHNICAL
+    user.save()
+    client.login(user)
+    resp = client.get("/sync_profiles")
+    assert resp.status_code == 403
+
+    client.logout()
+    client.login_root()
+    resp = client.get("/sync_profiles")
+    assert resp.status_code == 200

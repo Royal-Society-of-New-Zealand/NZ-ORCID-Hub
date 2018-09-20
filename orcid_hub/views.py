@@ -2747,6 +2747,11 @@ def org_webhook():
 @roles_required(Role.TECHNICAL, Role.SUPERUSER)
 def sync_profiles(task_id=None):
     """Start research profile synchronization."""
+    if not current_user.is_tech_contact_of() and not current_user.is_superuser:
+        flash(
+            f"Access Denied! You must be the technical conatact of '{current_user.organisation}'",
+            "danger")
+        abort(403)
     if not task_id:
         task_id = request.args.get("task_id")
     if task_id:
@@ -2756,6 +2761,7 @@ def sync_profiles(task_id=None):
         org = current_user.organisation
         task = Task.select().where(Task.task_type == TaskType.SYNC, Task.org == org).order_by(
             Task.created_at.desc()).limit(1).first()
+
     form = ProfileSyncForm()
 
     if form.is_submitted():
