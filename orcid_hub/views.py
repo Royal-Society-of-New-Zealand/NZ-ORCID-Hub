@@ -451,7 +451,7 @@ class OrcidTokenAdmin(AppModelView):
     can_create = False
 
 
-class OrcidApiCallAmin(AppModelView):
+class OrcidApiCallAdmin(AppModelView):
     """ORCID API calls."""
 
     can_export = True
@@ -466,7 +466,7 @@ class OrcidApiCallAmin(AppModelView):
     )
 
 
-class UserOrgAmin(AppModelView):
+class UserOrgAdmin(AppModelView):
     """User Organisations."""
 
     column_searchable_list = (
@@ -1335,7 +1335,7 @@ admin.add_view(UserAdmin(User))
 admin.add_view(OrganisationAdmin(Organisation))
 admin.add_view(OrcidTokenAdmin(OrcidToken))
 admin.add_view(OrgInfoAdmin(OrgInfo))
-admin.add_view(OrcidApiCallAmin(OrcidApiCall))
+admin.add_view(OrcidApiCallAdmin(OrcidApiCall))
 admin.add_view(TaskAdmin(Task))
 admin.add_view(AffiliationRecordAdmin())
 admin.add_view(FundingRecordAdmin())
@@ -1352,7 +1352,7 @@ admin.add_view(PeerReviewExternalIdAdmin())
 admin.add_view(AppModelView(UserInvitation))
 admin.add_view(ViewMembersAdmin(name="viewmembers", endpoint="viewmembers"))
 
-admin.add_view(UserOrgAmin(UserOrg))
+admin.add_view(UserOrgAdmin(UserOrg))
 admin.add_view(AppModelView(Client))
 admin.add_view(AppModelView(Grant))
 admin.add_view(AppModelView(Token))
