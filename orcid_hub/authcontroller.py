@@ -43,7 +43,6 @@ from .utils import append_qs, confirm_token, get_next_url, read_uploaded_file, r
 
 HEADERS = {'Accept': 'application/vnd.orcid+json', 'Content-type': 'application/vnd.orcid+json'}
 ENV = app.config.get("ENV")
-EXTERNAL_SP = app.config.get("EXTERNAL_SP")
 
 
 @app.context_processor
@@ -60,10 +59,11 @@ def utility_processor():  # noqa: D202
 
     def tuakiri_login_url():
         _next = get_next_url()
-        if EXTERNAL_SP:
+        external_sp = app.config.get("EXTERNAL_SP")
+        if external_sp:
             session["auth_secret"] = secret_token = secrets.token_urlsafe()
             _next = url_for("handle_login", _next=_next, _external=True)
-            login_url = append_qs(EXTERNAL_SP, _next=_next, key=secret_token)
+            login_url = append_qs(external_sp, _next=_next, key=secret_token)
         else:
             login_url = url_for("handle_login", _next=_next)
         return login_url
@@ -164,10 +164,11 @@ def handle_login():
     _next = get_next_url()
 
     # TODO: make it secret
-    if EXTERNAL_SP:
+    external_sp = app.config.get("EXTERNAL_SP")
+    if external_sp:
         if "auth_secret" not in session:
             return redirect(url_for("index"))
-        sp_url = urlparse(EXTERNAL_SP)
+        sp_url = urlparse(external_sp)
         attr_url = sp_url.scheme + "://" + sp_url.netloc + "/sp/attributes/" + session.get(
             "auth_secret")
         data = requests.get(attr_url, verify=False).text
@@ -367,6 +368,8 @@ def test_data():
                     yield s.get_signature(email).decode() + sep + sep.join(values)
                     yield '\n'
             else:
+                use_known_orgs = bool(
+                    request.args.get("use-known-orgs") or form.use_known_orgs.data)
                 org_count = int(
                     request.args.get("orgs") or request.args.get("org_count")
                     or request.args.get("org-count") or form.org_count.data or 100)
@@ -376,7 +379,14 @@ def test_data():
 
                 import faker
                 f = faker.Faker()
-                orgs = [f'"{f.company()}"' for _ in range(org_count)]
+                if use_known_orgs:
+                    orgs = [
+                        f'"{o.name}"' for o in Organisation.select().where(Organisation.confirmed)
+                        .limit(org_count)
+                    ]
+                    org_count = len(orgs)
+                else:
+                    orgs = [f'"{f.company()}"' for _ in range(org_count)]
 
                 for n in range(user_count):
                     email = f.email()
@@ -399,7 +409,7 @@ def test_data():
         resp.headers["Content-Disposition"] = f"attachment; filename={filename}_SIGNED.csv"
         return resp
 
-    return render_template("form.html", form=form, title="Load Test Date Generation")
+    return render_template("form.html", form=form, title="Load Test Data Generation")
 
 
 if app.config.get("LOAD_TEST"):
@@ -414,8 +424,9 @@ def link():
     """Link the user's account with ORCID (i.e. affiliates user with his/her org on ORCID)."""
     # TODO: handle organisation that are not on-boarded
     redirect_uri = url_for("orcid_callback", _external=True)
-    if EXTERNAL_SP:
-        sp_url = urlparse(EXTERNAL_SP)
+    external_sp = app.config.get("EXTERNAL_SP")
+    if external_sp:
+        sp_url = urlparse(external_sp)
         redirect_uri = sp_url.scheme + "://" + sp_url.netloc + "/auth/" + quote(redirect_uri)
 
     if current_user.organisation and not current_user.organisation.confirmed:
@@ -528,7 +539,7 @@ def orcid_callback():
         error = request.args["error"]
         error_description = request.args.get("error_description")
         if error == "access_denied":
-            flash("You have denied {current_user.organisation.name} access to your ORCID record."
+            flash(f"You have denied {current_user.organisation.name} access to your ORCID record."
                   " Please choose from one of the four options below.", "warning")
         else:
             flash(
@@ -847,8 +858,9 @@ def logout():
     session.clear()
 
     if org_name:
-        if EXTERNAL_SP:
-            sp_url = urlparse(EXTERNAL_SP)
+        external_sp = app.config.get("EXTERNAL_SP")
+        if external_sp:
+            sp_url = urlparse(external_sp)
             sso_url_base = sp_url.scheme + "://" + sp_url.netloc
         else:
             sso_url_base = ''
@@ -882,8 +894,7 @@ def orcid_login(invitation_token=None):
     the organisation. For technical contacts the email should be made available for
     READ LIMITED scope.
     """
-    _next = get_next_url()
-    redirect_uri = url_for("orcid_callback", _next=_next, _external=True)
+    redirect_uri = url_for("orcid_callback", _external=True)
 
     try:
         orcid_scope = SCOPE_AUTHENTICATE[:]
@@ -943,8 +954,9 @@ def orcid_login(invitation_token=None):
                 )
                 return redirect(url_for("index"))
 
-        if EXTERNAL_SP:
-            sp_url = urlparse(EXTERNAL_SP)
+        external_sp = app.config.get("EXTERNAL_SP")
+        if external_sp:
+            sp_url = urlparse(external_sp)
             u = Url.shorten(redirect_uri)
             redirect_uri = url_for("short_url", short_id=u.short_id, _external=True)
             redirect_uri = sp_url.scheme + "://" + sp_url.netloc + "/auth/" + quote(redirect_uri)
@@ -984,7 +996,6 @@ def orcid_login(invitation_token=None):
 
 def orcid_login_callback(request):
     """Handle call-back for user authentication via ORCID."""
-    _next = get_next_url()
     state = request.args.get("state")
     invitation_token = request.args.get("invitation_token")
 
@@ -1134,7 +1145,7 @@ def orcid_login_callback(request):
                     e.get("email").lower() == email for e in data.get("email")):
                 user.save()
                 if not org.confirmed and user.is_tech_contact_of(org):
-                    return redirect(_next or url_for("onboard_org"))
+                    return redirect(url_for("onboard_org"))
                 elif not org.confirmed and not user.is_tech_contact_of(org):
                     flash(
                         f"Your '{org}' has not be onboarded. Please, try again once your technical contact"
@@ -1190,24 +1201,21 @@ def orcid_login_callback(request):
                 flash(f"Something went wrong: {ex}", "danger")
                 app.logger.exception("Failed to create affiliation record")
 
-        if _next:
-            return redirect(_next)
-        else:
-            try:
-                OrcidToken.get(user=user, org=org)
-            except OrcidToken.DoesNotExist:
-                if user.is_tech_contact_of(org) and not org.confirmed:
-                    return redirect(url_for("onboard_org"))
-                elif not user.is_tech_contact_of(org) and user_org.is_admin and not org.confirmed:
-                    flash(
-                        f"Your '{org}' has not be onboarded."
-                        f"Please, try again once your technical contact onboards your organisation on ORCIDHUB",
-                        "warning")
-                    return redirect(url_for("about"))
-                elif org.confirmed and user_org.is_admin:
-                    return redirect(url_for('viewmembers.index_view'))
-                else:
-                    return redirect(url_for("link"))
+        try:
+            OrcidToken.get(user=user, org=org)
+        except OrcidToken.DoesNotExist:
+            if user.is_tech_contact_of(org) and not org.confirmed:
+                return redirect(url_for("onboard_org"))
+            elif not user.is_tech_contact_of(org) and user_org.is_admin and not org.confirmed:
+                flash(
+                    f"Your '{org}' has not be onboarded."
+                    f"Please, try again once your technical contact onboards your organisation on ORCIDHUB",
+                    "warning")
+                return redirect(url_for("about"))
+            elif org.confirmed and user_org.is_admin:
+                return redirect(url_for('viewmembers.index_view'))
+            else:
+                return redirect(url_for("link"))
         return redirect(url_for("profile"))
 
     except User.DoesNotExist:

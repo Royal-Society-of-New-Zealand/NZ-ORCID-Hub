@@ -6,11 +6,12 @@ from peewee import Model, SqliteDatabase
 from playhouse.test_utils import test_database
 
 from orcid_hub.models import (
-    Affiliation, AffiliationRecord, BaseModel, BooleanField, ExternalId, File, FundingContributor,
-    FundingRecord, FundingInvitees, ModelException, OrcidToken, Organisation, OrgInfo, PartialDate,
-    PartialDateField, Role, Task, TextField, User, UserInvitation, UserOrg, UserOrgAffiliation,
-    WorkRecord, WorkContributor, WorkExternalId, WorkInvitees, PeerReviewRecord, PeerReviewInvitee,
-    PeerReviewExternalId, create_tables, drop_tables, validate_orcid_id)
+    Affiliation, AffiliationRecord, BaseModel, BooleanField, ExternalId, File, ForeignKeyField,
+    FundingContributor, FundingRecord, FundingInvitees, ModelException, OrcidToken, Organisation,
+    OrgInfo, PartialDate, PartialDateField, Role, Task, Log, TextField, User, UserInvitation,
+    UserOrg, UserOrgAffiliation, WorkRecord, WorkContributor, WorkExternalId, WorkInvitees,
+    PeerReviewRecord, PeerReviewInvitee, PeerReviewExternalId, create_tables, drop_tables,
+    validate_orcid_id)
 
 
 @pytest.fixture
@@ -310,6 +311,14 @@ def test_test_database(models):
     user.delete_instance()
     assert not UserInvitation.select().where(UserInvitation.id == ui.id).exists()
 
+    org = Organisation.select().limit(1).first()
+    user = User.select().limit(1).first()
+    ot = OrcidToken.create(user=user, org=org, scope="S1,S2,S3")
+    assert len(ot.scopes) == 3
+
+    ot.scopes = ["A", "B", "C", "D"]
+    assert ot.scope == "A,B,C,D"
+
 
 def test_roles():
     assert Role.RESEARCHER == "RESEARCHER"
@@ -553,17 +562,30 @@ def test_boolean_field():
 
 def test_base_model_to_dict():
     """Test base model features."""
+    db = SqliteDatabase(":memory:")
+
     class TestTable(BaseModel):
         test_field = TextField()
 
         class Meta:
-            database = SqliteDatabase(":memory:")
+            database = db
+
+    class Child(BaseModel):
+        parent = ForeignKeyField(TestTable)
+
+        class Meta:
+            database = db
 
     TestTable.create_table()
-    TestTable.create(test_field="ABC123")
+    Child.create_table()
 
-    rec = TestTable.select().first()
-    assert rec.to_dict() == {"id": 1, "test_field": "ABC123"}
+    parent = TestTable.create(test_field="ABC123")
+
+    assert parent.to_dict() == {"id": 1, "test_field": "ABC123"}
+
+    child = Child.create(parent=parent)
+    parent = TestTable.get(parent.id)
+    assert parent.to_dict(backrefs=True) == {"id": 1, "test_field": "ABC123", "child_set": [{"id": 1}]}
 
     rec = TestTable.get(1)
     assert rec.test_field == "ABC123"

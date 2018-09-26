@@ -8,7 +8,7 @@ import re
 import sys
 import time
 from itertools import product
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, Mock, patch
 from io import BytesIO
 from urllib.parse import urlparse
 
@@ -19,13 +19,13 @@ from peewee import SqliteDatabase
 from playhouse.test_utils import test_database
 from werkzeug.datastructures import ImmutableMultiDict
 
-from orcid_hub import app, orcid_client, rq, views
+from orcid_hub import app, orcid_client, rq, views, utils
 from orcid_hub.config import ORCID_BASE_URL
 from orcid_hub.forms import FileUploadForm
 from orcid_hub.models import (Affiliation, AffiliationRecord, Client, File, FundingRecord,
-                              GroupIdRecord, OrcidToken, Organisation, OrgInfo, OrgInvitation,
-                              Role, Task, Token, Url, User, UserOrgAffiliation, UserInvitation,
-                              UserOrg, PeerReviewRecord, WorkRecord)
+                              GroupIdRecord, OrcidToken, Organisation, OrgInfo, OrgInvitation, PartialDate,
+                              Role, Task, TaskType, Token, Url, User, UserOrgAffiliation,
+                              UserInvitation, UserOrg, PeerReviewRecord, WorkRecord)
 
 fake_time = time.time()
 logger = logging.getLogger(__name__)
@@ -209,10 +209,18 @@ def test_superuser_view_access(client):
     assert resp.status_code == 200
     assert b"interval" in resp.data
 
+    resp = client.get("/admin/schedude/?search=TEST")
+    assert resp.status_code == 200
+    assert b"interval" in resp.data
+
     jobs = rq.get_scheduler().get_jobs()
     resp = client.get(f"/admin/schedude/details/?id={jobs[0].id}")
     assert resp.status_code == 200
     assert b"interval" in resp.data
+
+    resp = client.get("/admin/schedude/details/?id=99999999")
+    assert resp.status_code == 404
+    assert b"404" in resp.data
 
 
 def test_access(request_ctx):
@@ -346,6 +354,36 @@ def test_show_record_section(request_ctx):
         assert admin.email.encode() in resp.data
         assert admin.name.encode() in resp.data
         view_educations.assert_called_once_with("XXXX-XXXX-XXXX-0001")
+    with patch.object(
+            orcid_client.MemberAPIV20Api,
+            "view_peer_reviews",
+            MagicMock(return_value=make_fake_response('{"test": "TEST1234567890"}'))
+    ) as view_peer_reviews, request_ctx(f"/section/{user.id}/PRR/list") as ctx:
+        login_user(admin)
+        resp = ctx.app.full_dispatch_request()
+        assert admin.email.encode() in resp.data
+        assert admin.name.encode() in resp.data
+        view_peer_reviews.assert_called_once_with("XXXX-XXXX-XXXX-0001")
+    with patch.object(
+        orcid_client.MemberAPIV20Api,
+        "view_works",
+        MagicMock(return_value=make_fake_response('{"test": "TEST1234567890"}'))
+    ) as view_works, request_ctx(f"/section/{user.id}/WOR/list") as ctx:
+        login_user(admin)
+        resp = ctx.app.full_dispatch_request()
+        assert admin.email.encode() in resp.data
+        assert admin.name.encode() in resp.data
+        view_works.assert_called_once_with("XXXX-XXXX-XXXX-0001")
+    with patch.object(
+            orcid_client.MemberAPIV20Api,
+            "view_fundings",
+            MagicMock(return_value=make_fake_response('{"test": "TEST1234567890"}'))
+    ) as view_fundings, request_ctx(f"/section/{user.id}/FUN/list") as ctx:
+        login_user(admin)
+        resp = ctx.app.full_dispatch_request()
+        assert admin.email.encode() in resp.data
+        assert admin.name.encode() in resp.data
+        view_fundings.assert_called_once_with("XXXX-XXXX-XXXX-0001")
 
 
 def test_status(client):
@@ -371,22 +409,12 @@ def test_status(client):
 
 def test_application_registration(app, request_ctx):
     """Test application registration."""
-    org = Organisation.create(
-        can_use_api=True,
-        name="THE ORGANISATION",
-        tuakiri_name="THE ORGANISATION",
-        confirmed=True,
-        orcid_client_id="CLIENT ID",
-        orcid_secret="Client Secret",
-        city="CITY",
-        country="COUNTRY",
-        disambiguated_id="ID",
-        disambiguation_source="SOURCE")
+    org = app.data["org"]
     user = User.create(
-        email="test123@test.test.net",
+        email="test123456@test.test.net",
         name="TEST USER",
         roles=Role.TECHNICAL,
-        orcid="123",
+        orcid="123-456-789-098",
         organisation_id=1,
         confirmed=True,
         organisation=org)
@@ -509,6 +537,8 @@ def make_fake_response(text, *args, **kwargs):
     mm.text = text
     if "json" in kwargs:
         mm.json.return_value = kwargs["json"]
+    elif "dict" in kwargs:
+        mm.to_dict.return_value = kwargs["dict"]
     else:
         mm.json.return_value = json.loads(text)
     if "status_code" in kwargs:
@@ -651,27 +681,26 @@ Institute of Geological & Nuclear Sciences Ltd,5180,RINGGOLD
         assert OrgInvitation.select().count() == 3
 
 
-def test_user_orgs_org(request_ctx):
+def test_user_orgs_org(client):
     """Test add an organisation to the user."""
-    org = Organisation.create(
-        name="THE ORGANISATION",
-        tuakiri_name="THE ORGANISATION",
-        confirmed=False,
-        orcid_client_id="CLIENT ID",
-        orcid_secret="Client Secret",
-        city="CITY",
-        country="COUNTRY",
-        disambiguated_id="ID",
-        disambiguation_source="SOURCE",
-        is_email_sent=True)
-    user = User.create(
-        email="test123@test.test.net",
+    org = client.data["org"]
+    root = User.create(
+        email="root1234567890@test.test.net",
         name="TEST USER",
         roles=Role.SUPERUSER,
-        orcid="123",
+        orcid="123-456-789-098",
         confirmed=True,
         organisation=org)
-    with request_ctx(
+    user = User.create(
+        email="user1234567890@test.test.net",
+        name="TEST USER",
+        roles=Role.SUPERUSER,
+        orcid="123-456-789-098",
+        confirmed=True,
+        organisation=org)
+    resp = client.login(root, follow_redirects=True)
+
+    resp = client.post(
             f"/hub/api/v0.1/users/{user.id}/orgs/",
             data=json.dumps({
                 "id": org.id,
@@ -679,45 +708,39 @@ def test_user_orgs_org(request_ctx):
                 "is_admin": True,
                 "is_tech_contact": True
             }),
-            method="POST",
-            content_type="application/json") as ctx:
-        login_user(user, remember=True)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 201
-        assert User.get(id=user.id).roles & Role.ADMIN
-        organisation = Organisation.get(name="THE ORGANISATION")
-        # User becomes the technical contact of the organisation.
-        assert organisation.tech_contact == user
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 200
-        assert UserOrg.select().where(UserOrg.user == user, UserOrg.org == org,
-                                      UserOrg.is_admin).exists()
-    with request_ctx(f"/hub/api/v0.1/users/{user.id}/orgs/{org.id}", method="DELETE") as ctx:
-        # Delete user and organisation association
-        login_user(user, remember=True)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 204
-        data = json.loads(resp.data)
-        user = User.get(id=user.id)
-        assert data["status"] == "DELETED"
-        assert user.organisation_id is None
-        assert not (user.roles & Role.ADMIN)
-        assert not UserOrg.select().where(UserOrg.user == user, UserOrg.org == org).exists()
+            content_type="application/json")
+    assert resp.status_code == 201
+    assert User.get(id=user.id).roles & Role.ADMIN
+    organisation = Organisation.get(name="THE ORGANISATION")
+    # User becomes the technical contact of the organisation.
+    assert organisation.tech_contact == user
+
+    resp = client.post(
+            f"/hub/api/v0.1/users/{user.id}/orgs/",
+            data=json.dumps({
+                "id": org.id,
+                "name": org.name,
+                "is_admin": True,
+                "is_tech_contact": True
+            }),
+            content_type="application/json")
+    assert resp.status_code == 200
+    assert UserOrg.select().where(
+            UserOrg.user == user, UserOrg.org == org,
+            UserOrg.is_admin).exists()
+
+    # Delete user and organisation association
+    resp = client.delete(f"/hub/api/v0.1/users/{user.id}/orgs/{org.id}", method="DELETE")
+    assert resp.status_code == 204
+    user = User.get(user.id)
+    assert user.organisation_id is None
+    assert not (user.roles & Role.ADMIN)
+    assert not UserOrg.select().where(UserOrg.user == user, UserOrg.org == org).exists()
 
 
-def test_user_orgs(request_ctx):
+def test_user_orgs(client, mocker):
     """Test add an organisation to the user."""
-    org = Organisation.create(
-        name="THE ORGANISATION",
-        tuakiri_name="THE ORGANISATION",
-        confirmed=False,
-        orcid_client_id="CLIENT ID",
-        orcid_secret="Client Secret",
-        city="CITY",
-        country="COUNTRY",
-        disambiguated_id="ID",
-        disambiguation_source="SOURCE",
-        is_email_sent=True)
+    org = client.data["org"]
     user = User.create(
         email="test123@test.test.net",
         name="TEST USER",
@@ -726,35 +749,26 @@ def test_user_orgs(request_ctx):
         confirmed=True,
         organisation=org)
     UserOrg.create(user=user, org=org, is_admin=True)
+    resp = client.login(user)
 
-    with request_ctx(f"/hub/api/v0.1/users/{user.id}/orgs/") as ctx:
-        login_user(user, remember=True)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 200
-    with request_ctx(f"/hub/api/v0.1/users/{user.id}/orgs/{org.id}") as ctx:
-        login_user(user, remember=True)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 200
-    with request_ctx("/hub/api/v0.1/users/1234/orgs/") as ctx:
-        # failure test case, user not found
-        login_user(user, remember=True)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 404
+    resp = client.get(f"/hub/api/v0.1/users/{user.id}/orgs/")
+    assert resp.status_code == 200
+
+    resp = client.get(f"/hub/api/v0.1/users/{user.id}/orgs/{org.id}")
+    assert resp.status_code == 200
+
+    resp = client.get("/hub/api/v0.1/users/1234/orgs/")
+    assert resp.status_code == 404
+    assert "Not Found" in json.loads(resp.data)["error"]
+
+    resp = client.get(f"/hub/api/v0.1/users/{user.id}/orgs/999999999")
+    assert resp.status_code == 404
+    assert "Not Found" in json.loads(resp.data)["error"]
 
 
 def test_api_credentials(request_ctx):
     """Test manage API credentials.."""
-    org = Organisation.create(
-        name="THE ORGANISATION",
-        tuakiri_name="THE ORGANISATION",
-        confirmed=False,
-        orcid_client_id="CLIENT ID",
-        orcid_secret="Client Secret",
-        city="CITY",
-        country="COUNTRY",
-        disambiguated_id="ID",
-        disambiguation_source="SOURCE",
-        is_email_sent=True)
+    org = request_ctx.data["org"]
     user = User.create(
         email="test123@test.test.net",
         name="TEST USER",
@@ -821,17 +835,7 @@ def send_mail_mock(*argvs, **kwargs):
 @patch("orcid_hub.utils.send_email", side_effect=send_mail_mock)
 def test_action_invite(patch, request_ctx):
     """Test handle nonexistin pages."""
-    org = Organisation.create(
-        name="THE ORGANISATION",
-        tuakiri_name="THE ORGANISATION",
-        confirmed=False,
-        orcid_client_id="CLIENT ID",
-        orcid_secret="Client Secret",
-        city="CITY",
-        country="COUNTRY",
-        disambiguated_id="ID",
-        disambiguation_source="SOURCE",
-        is_email_sent=True)
+    org = request_ctx.data["org"]
     user = User.create(
         email="test123@test.test.net",
         name="TEST USER",
@@ -873,17 +877,7 @@ def test_shorturl(request_ctx):
 
 def test_activate_all(request_ctx):
     """Test batch registraion of users."""
-    org = Organisation.create(
-        name="THE ORGANISATION",
-        tuakiri_name="THE ORGANISATION",
-        confirmed=False,
-        orcid_client_id="CLIENT ID",
-        orcid_secret="Client Secret",
-        city="CITY",
-        country="COUNTRY",
-        disambiguated_id="ID",
-        disambiguation_source="SOURCE",
-        is_email_sent=True)
+    org = request_ctx.data["org"]
     user = User.create(
         email="test123@test.test.net",
         name="TEST USER",
@@ -927,17 +921,7 @@ def test_activate_all(request_ctx):
 
 def test_logo(request_ctx):
     """Test manage organisation 'logo'."""
-    org = Organisation.create(
-        name="THE ORGANISATION",
-        tuakiri_name="THE ORGANISATION",
-        confirmed=False,
-        orcid_client_id="CLIENT ID",
-        orcid_secret="Client Secret",
-        city="CITY",
-        country="COUNTRY",
-        disambiguated_id="ID",
-        disambiguation_source="SOURCE",
-        is_email_sent=True)
+    org = request_ctx.data["org"]
     user = User.create(
         email="test123@test.test.net",
         name="TEST USER",
@@ -961,17 +945,7 @@ def test_logo(request_ctx):
 @patch("orcid_hub.utils.send_email", side_effect=send_mail_mock)
 def test_manage_email_template(patch, request_ctx):
     """Test manage organisation invitation email template."""
-    org = Organisation.create(
-        name="THE ORGANISATION",
-        tuakiri_name="THE ORGANISATION",
-        confirmed=False,
-        orcid_client_id="CLIENT ID",
-        orcid_secret="Client Secret",
-        city="CITY",
-        country="COUNTRY",
-        disambiguated_id="ID",
-        disambiguation_source="SOURCE",
-        is_email_sent=True)
+    org = request_ctx.data["org"]
     user = User.create(
         email="test123@test.test.net",
         name="TEST USER",
@@ -1247,7 +1221,8 @@ def test_affiliation_tasks(client):
     org = Organisation.get(name="TEST0")
     user = User.get(email="admin@test0.edu")
 
-    client.login(user)
+    resp = client.login(user, follow_redirects=True)
+    assert b"log in" not in resp.data
     resp = client.post(
         "/load/researcher",
         data={
@@ -1380,60 +1355,113 @@ Rad,Cirskis,researcher.990@mailinator.com,Student
     assert AffiliationRecord.select().where(AffiliationRecord.task_id == task_id).count() == 0
 
 
-@patch("orcid_hub.utils.send_email", side_effect=send_mail_mock)
-def test_invite_organisation(send_email, request_ctx):
+def test_invite_organisation(client, mocker):
     """Test invite an organisation to register."""
+    html = mocker.patch(
+        "emails.html", return_value=Mock(send=lambda *args, **kwargs: Mock(success=False)))
     org = Organisation.get(name="TEST0")
-    root = User.get(email="root@test0.edu")
     user = User.create(
-        email="test123@test.test.net", name="TEST USER", confirmed=True, organisation=org)
+        email="test123_test_invite_organisation@test.test.net",
+        name="TEST USER",
+        confirmed=True,
+        organisation=org)
     UserOrg.create(user=user, org=org, is_admin=True)
-    with request_ctx(
+
+    client.login_root()
+
+    resp = client.post(
             "/invite/organisation",
-            method="POST",
+            data={
+                "org_name": "THE ORGANISATION ABC1",
+                "org_email": user.email,
+                "tech_contact": "True",
+                "via_orcid": "True",
+                "first_name": "XYZ",
+                "last_name": "XYZ",
+                "city": "XYZ"
+            })
+    html.assert_called_once()
+    _, kwargs = html.call_args
+    assert "Technical Contact" in kwargs["html"]
+    assert "Organisation Administrator" not in kwargs["html"]
+
+    resp = client.post(
+            "/invite/organisation",
+            data={
+                "org_name": "THE ORGANISATION ABC2",
+                "org_email": user.email,
+                "first_name": "xyz",
+                "last_name": "xyz",
+                "city": "xyz"
+            })
+    _, kwargs = html.call_args
+    assert "Organisation Administrator" in kwargs["html"]
+    assert "Technical Contact" not in kwargs["html"]
+
+    send_email = mocker.patch("orcid_hub.utils.send_email")
+    resp = client.post(
+            "/invite/organisation",
             data={
                 "org_name": "THE ORGANISATION",
-                "org_email": "test123@test.test.net",
+                "org_email": user.email,
                 "tech_contact": "True",
                 "via_orcid": "True",
                 "first_name": "xyz",
                 "last_name": "xyz",
                 "city": "xyz"
-            }) as ctx:
-        login_user(root, remember=True)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 200
-        assert b"<!DOCTYPE html>" in resp.data, "Expected HTML content"
-        assert b"test123@test.test.net" in resp.data
-        send_email.assert_called_once()
-    with request_ctx(
-            "/invite/organisation",
-            method="POST",
-            data={
-                "org_name": "ORG NAME",
-                "org_email": "test123@test.test.net",
-                "tech_contact": "True",
-                "via_orcid": "True",
-                "first_name": "xyz",
-                "last_name": "xyz",
-                "city": "xyz"
-            }) as ctx:
-        send_email.reset_mock()
-        login_user(root, remember=True)
-        org = Organisation.get(id=1)
-        org.name = "ORG NAME"
-        org.confirmed = True
-        org.save()
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 200
-        assert b"<!DOCTYPE html>" in resp.data, "Expected HTML content"
-        assert b"test123@test.test.net" in resp.data
-        send_email.assert_called_once()
+            })
+    assert resp.status_code == 200
+    assert b"<!DOCTYPE html>" in resp.data, "Expected HTML content"
+    assert user.email.encode() in resp.data
+    send_email.assert_called_once()
+
+    send_email.reset_mock()
+    org = Organisation.get()
+    org.name = "ORG NAME"
+    org.confirmed = True
+    org.save()
+    resp = client.post(
+        "/invite/organisation",
+        data={
+            "org_name": "ORG NAME",
+            "org_email": user.email,
+            "tech_contact": "True",
+            "via_orcid": "True",
+            "first_name": "xyz",
+            "last_name": "xyz",
+            "city": "xyz"
+        })
+    assert resp.status_code == 200
+    assert b"<!DOCTYPE html>" in resp.data, "Expected HTML content"
+    assert user.email.encode() in resp.data
+    send_email.assert_called_once()
+
+    resp = client.post(
+        "/invite/organisation",
+        data={
+            "org_name": "ORG NAME",
+            "org_email": user.email,
+            "tech_contact": "True",
+            "via_orcid": "True",
+            "first_name": "xyz",
+            "last_name": "xyz",
+            "city": "xyz"
+        })
+    assert resp.status_code == 200
+    assert b"Warning" in resp.data
 
 
-def core_mock(self=None, source_file=None, schema_files=None, source_data=None, schema_data=None, extensions=None,
-              strict_rule_validation=False,
-              fix_ruby_style_regex=False, allow_assertions=False, ):
+def core_mock(
+        self=None,
+        source_file=None,
+        schema_files=None,
+        source_data=None,
+        schema_data=None,
+        extensions=None,
+        strict_rule_validation=False,
+        fix_ruby_style_regex=False,
+        allow_assertions=False,
+):
     """Mock validation api call."""
     return None
 
@@ -1447,17 +1475,7 @@ def validate(self=None, raise_exception=True):
 @patch("pykwalify.core.Core.__init__", side_effect=core_mock)
 def test_load_researcher_funding(patch, patch2, request_ctx):
     """Test preload organisation data."""
-    org = Organisation.create(
-        name="THE ORGANISATION",
-        tuakiri_name="THE ORGANISATION",
-        confirmed=False,
-        orcid_client_id="CLIENT ID",
-        orcid_secret="Client Secret",
-        city="CITY",
-        country="COUNTRY",
-        disambiguated_id="ID",
-        disambiguation_source="SOURCE",
-        is_email_sent=True)
+    org = request_ctx.data["org"]
     user = User.create(
         email="test123@test.test.net",
         name="TEST USER",
@@ -1559,17 +1577,7 @@ def test_load_researcher_peer_review(patch, patch2, request_ctx):
 
 def test_load_researcher_affiliations(request_ctx):
     """Test preload organisation data."""
-    org = Organisation.create(
-        name="THE ORGANISATION",
-        tuakiri_name="THE ORGANISATION",
-        confirmed=False,
-        orcid_client_id="CLIENT ID",
-        orcid_secret="Client Secret",
-        city="CITY",
-        country="COUNTRY",
-        disambiguated_id="ID",
-        disambiguation_source="SOURCE",
-        is_email_sent=True)
+    org = request_ctx.data["org"]
     user = User.create(
         email="test123@test.test.net",
         name="TEST USER",
@@ -1625,13 +1633,39 @@ def test_edit_record(request_ctx):
     with patch.object(
             orcid_client.MemberAPIV20Api,
             "view_funding",
-            MagicMock(return_value=make_fake_response('{"test": "TEST1234567890"}'))
+            MagicMock(return_value=make_fake_response('{"test":123}', dict={"external_ids": {"external_id": [
+            {"external_id_type": "test", "external_id_value": "test", "external_id_url": {"value": "test"},
+             "external_id_relationship": "SELF"}]}}))
     ) as view_funding, request_ctx(f"/section/{user.id}/FUN/1234/edit") as ctx:
         login_user(admin)
         resp = ctx.app.full_dispatch_request()
         assert admin.email.encode() in resp.data
         assert admin.name.encode() in resp.data
         view_funding.assert_called_once_with("XXXX-XXXX-XXXX-0001", 1234)
+    with patch.object(
+        orcid_client.MemberAPIV20Api,
+        "view_peer_review",
+        MagicMock(return_value=make_fake_response('{"test":123}', dict={"review_identifiers": {"external-id": [
+            {"external-id-type": "test", "external-id-value": "test", "external-id-url": {"value": "test"},
+             "external-id-relationship": "SELF"}]}}))
+    ) as view_peer_review, request_ctx(f"/section/{user.id}/PRR/1234/edit") as ctx:
+        login_user(admin)
+        resp = ctx.app.full_dispatch_request()
+        assert admin.email.encode() in resp.data
+        assert admin.name.encode() in resp.data
+        view_peer_review.assert_called_once_with("XXXX-XXXX-XXXX-0001", 1234)
+    with patch.object(
+        orcid_client.MemberAPIV20Api,
+        "view_work",
+        MagicMock(return_value=make_fake_response('{"test":123}', dict={"external_ids": {"external-id": [
+            {"external-id-type": "test", "external-id-value": "test", "external-id-url": {"value": "test"},
+             "external-id-relationship": "SELF"}]}}))
+    ) as view_work, request_ctx(f"/section/{user.id}/WOR/1234/edit") as ctx:
+        login_user(admin)
+        resp = ctx.app.full_dispatch_request()
+        assert admin.email.encode() in resp.data
+        assert admin.name.encode() in resp.data
+        view_work.assert_called_once_with("XXXX-XXXX-XXXX-0001", 1234)
     with patch.object(
             orcid_client.MemberAPIV20Api, "create_education",
             MagicMock(return_value=fake_response)), request_ctx(
@@ -1662,6 +1696,7 @@ def test_edit_record(request_ctx):
                     "funding_type": "AWARD",
                     "translated_title_language": "hi",
                     "total_funding_amount_currency": "NZD",
+                    "grant_type": "https://test.com",
                     "grant_url": "https://test.com",
                     "grant_number": "TEST123",
                     "grant_relationship": "SELF"
@@ -1670,6 +1705,68 @@ def test_edit_record(request_ctx):
         resp = ctx.app.full_dispatch_request()
         assert resp.status_code == 302
         assert resp.location == f"/section/{user.id}/FUN/list"
+    with patch.object(
+            orcid_client.MemberAPIV20Api, "create_peer_review",
+            MagicMock(return_value=fake_response)), request_ctx(
+                f"/section/{user.id}/PRR/new",
+                method="POST",
+                data={
+                    "city": "Auckland",
+                    "country": "NZ",
+                    "org_name": "TEST",
+                    "reviewer_role": "REVIEWER",
+                    "review_type": "REVIEW",
+                    "review_completion_date": PartialDate.create("2003-07-14"),
+                    "review_group_id": "Test",
+                    "subject_external_identifier_relationship": "PART_OF",
+                    "subject_type": "OTHER",
+                    "subject_translated_title_language_code": "en",
+                    "grant_type": "https://test.com",
+                    "grant_url": "https://test.com",
+                    "review_url": "test",
+                    "subject_external_identifier_type": "test",
+                    "subject_external_identifier_value": "test",
+                    "subject_container_name": "test",
+                    "subject_title": "test",
+                    "subject_subtitle": "test",
+                    "subject_translated_title": "test",
+                    "subject_url": "test",
+                    "subject_external_identifier_url": "test",
+                    "grant_number": "TEST123",
+                    "grant_relationship": "SELF"
+                }) as ctx:
+        login_user(admin)
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 302
+        assert resp.location == f"/section/{user.id}/PRR/list"
+    with patch.object(
+            orcid_client.MemberAPIV20Api, "create_work",
+            MagicMock(return_value=fake_response)), request_ctx(
+                f"/section/{user.id}/WOR/new",
+                method="POST",
+                data={
+                    "translated_title": "Auckland",
+                    "country": "NZ",
+                    "subtitle": "TEST",
+                    "title": "test",
+                    "work_type": "MANUAL",
+                    "publication_date": PartialDate.create("2003-07-14"),
+                    "translated_title_language_code": "en",
+                    "journal_title": "test",
+                    "short_description": "OTHER",
+                    "citation_type": "FORMATTED_UNSPECIFIED",
+                    "citation": "test",
+                    "grant_number": "TEST123",
+                    "grant_relationship": "SELF",
+                    "grant_type": "https://test.com",
+                    "grant_url": "https://test.com",
+                    "url": "test",
+                    "language_code": "en"
+                }) as ctx:
+        login_user(admin)
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 302
+        assert resp.location == f"/section/{user.id}/WOR/list"
 
 
 def test_delete_employment(request_ctx, app):
@@ -1740,6 +1837,33 @@ def test_delete_employment(request_ctx, app):
         resp = ctx.app.full_dispatch_request()
         assert resp.status_code == 302
         delete_education.assert_called_once_with("XXXX-XXXX-XXXX-0001", 54321)
+    with patch.object(
+        orcid_client.MemberAPIV20Api,
+        "delete_funding",
+            MagicMock(return_value='{"test": "TEST1234567890"}')) as delete_funding, request_ctx(
+                f"/section/{user.id}/FUN/54321/delete", method="POST") as ctx:
+        login_user(admin)
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 302
+        delete_funding.assert_called_once_with("XXXX-XXXX-XXXX-0001", 54321)
+    with patch.object(
+        orcid_client.MemberAPIV20Api,
+        "delete_peer_review",
+            MagicMock(return_value='{"test": "TEST1234567890"}')) as delete_peer_review, request_ctx(
+                f"/section/{user.id}/PRR/54321/delete", method="POST") as ctx:
+        login_user(admin)
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 302
+        delete_peer_review.assert_called_once_with("XXXX-XXXX-XXXX-0001", 54321)
+    with patch.object(
+        orcid_client.MemberAPIV20Api,
+        "delete_work",
+            MagicMock(return_value='{"test": "TEST1234567890"}')) as delete_work, request_ctx(
+                f"/section/{user.id}/WOR/54321/delete", method="POST") as ctx:
+        login_user(admin)
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 302
+        delete_work.assert_called_once_with("XXXX-XXXX-XXXX-0001", 54321)
 
 
 def test_viewmembers(client):
@@ -1801,7 +1925,9 @@ def test_viewmembers_delete(mockpost, client):
     researcher1 = User.get(email="researcher100@test1.edu")
 
     # admin0 cannot deleted researcher1:
-    client.login(admin0)
+    resp = client.login(admin0, follow_redirects=True)
+    assert b"log in" not in resp.data
+
     resp = client.post(
         "/admin/viewmembers/delete/",
         data={
@@ -1882,7 +2008,7 @@ def test_viewmembers_delete(mockpost, client):
                                      OrcidToken.user == researcher1).count() == 0
 
 
-def test_action_insert_update_group_id(client):
+def test_action_insert_update_group_id(client, request_ctx):
     """Test update or insert of group id."""
     admin = User.get(email="admin@test0.edu")
     org = admin.organisation
@@ -1899,9 +2025,11 @@ def test_action_insert_update_group_id(client):
 
     fake_response = make_response
     fake_response.status = 201
+    fake_response.data = '{"group_id": "new_group_id"}'
     fake_response.headers = {'Location': '12344/xyz/12399'}
 
     OrcidToken.create(org=org, access_token="ABC123", scope="/group-id-record/update")
+    OrcidToken.create(org=org, access_token="ABC123112", scope="/group-id-record/read")
 
     client.login(admin)
 
@@ -1922,22 +2050,42 @@ def test_action_insert_update_group_id(client):
         group_id_record = GroupIdRecord.get(id=gr.id)
         # checking if the GroupID Record is updated with put_code supplied from fake response
         assert 12399 == group_id_record.put_code
+    # Save selected groupid record into existing group id record list.
+    with patch.object(
+        orcid_client.MemberAPIV20Api, "view_group_id_records",
+        MagicMock(return_value=fake_response)), request_ctx(
+        "/search/group_id_record/list",
+        method="POST",
+        data={
+            "group_id": "test",
+            "name": "test",
+            "description": "TEST",
+            "type": "TEST"}) as ctx:
+        login_user(admin)
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 302
+        assert resp.location == f"/admin/groupidrecord/"
+    # Search the group id record from ORCID
+    with patch.object(
+        orcid_client.MemberAPIV20Api, "view_group_id_records",
+        MagicMock(return_value=fake_response)), request_ctx(
+        "/search/group_id_record/list",
+        method="POST",
+        data={
+            "group_id": "test",
+            "group_id_name": "test",
+            "description": "TEST",
+            "search": True,
+            "type": "TEST"}) as ctx:
+        login_user(admin)
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 200
+        assert b"<!DOCTYPE html>" in resp.data, "Expected HTML content"
 
 
 def test_reset_all(request_ctx):
     """Test reset batch process."""
-    org = Organisation.create(
-        name="THE ORGANISATION",
-        tuakiri_name="THE ORGANISATION",
-        confirmed=False,
-        orcid_client_id="CLIENT ID",
-        orcid_secret="Client Secret",
-        city="CITY",
-        country="COUNTRY",
-        disambiguated_id="ID",
-        disambiguation_source="SOURCE",
-        is_email_sent=True)
-
+    org = request_ctx.data["org"]
     user = User.create(
         email="test123@test.test.net",
         name="TEST USER",
@@ -2130,3 +2278,54 @@ def test_issue_470198698(request_ctx):
         login_user(admin)
         resp = ctx.app.full_dispatch_request()
     assert resp.status_code == 404
+
+
+def test_sync_profiles(client, mocker):
+    """Test organisation switching."""
+    def sync_profile_mock(*args, **kwargs):
+        utils.sync_profile(*args, **kwargs, delay=0)
+        return Mock(id="test-test-test-test")
+    mocker.patch("orcid_hub.utils.sync_profile.queue", sync_profile_mock)
+
+    user = User.get(email="admin@test1.edu")
+    resp = client.login(user, follow_redirects=True)
+
+    resp = client.get("/sync_profiles")
+
+    resp = client.post("/sync_profiles", data={"start": "Start"}, follow_redirects=True)
+    assert Task.select(Task.task_type == TaskType.SYNC).count() == 1
+
+    task = Task.get(task_type=TaskType.SYNC, org=user.organisation)
+    resp = client.get(f"/sync_profiles/{task.id}")
+    assert resp.status_code == 200
+
+    resp = client.get(f"/sync_profiles/?task_id={task.id}")
+    assert resp.status_code == 200
+
+    resp = client.post("/sync_profiles", data={"start": "Start"}, follow_redirects=True)
+    assert b"already" in resp.data
+
+    resp = client.post("/sync_profiles", data={"restart": "Restart"}, follow_redirects=True)
+    assert Task.select(Task.task_type == TaskType.SYNC).count() == 1
+
+    resp = client.post("/sync_profiles", data={"close": "Close"})
+    assert resp.status_code == 302
+    assert urlparse(resp.location).path == "/admin/task/"
+
+    client.logout()
+    user = User.get(email="researcher100@test0.edu")
+    client.login(user)
+    resp = client.get("/sync_profiles")
+    assert resp.status_code == 302
+
+    client.logout()
+    user.roles += Role.TECHNICAL
+    user.save()
+    client.login(user)
+    resp = client.get("/sync_profiles")
+    assert resp.status_code == 403
+
+    client.logout()
+    client.login_root()
+    resp = client.get("/sync_profiles")
+    assert resp.status_code == 200

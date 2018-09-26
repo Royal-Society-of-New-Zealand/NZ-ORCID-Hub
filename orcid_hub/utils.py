@@ -2,13 +2,14 @@
 """Various utilities."""
 
 import json
-import chardet
 import logging
 import os
+import time
 from datetime import date, datetime, timedelta
 from itertools import filterfalse, groupby
 from urllib.parse import quote, urlencode, urlparse
 
+import chardet
 import emails
 import flask
 import requests
@@ -21,9 +22,9 @@ from peewee import JOIN
 
 from . import app, orcid_client, rq
 from .models import (AFFILIATION_TYPES, Affiliation, AffiliationRecord, FundingInvitees,
-                     FundingRecord, OrcidToken, Organisation, PartialDate, PeerReviewExternalId,
-                     PeerReviewInvitee, PeerReviewRecord, Role, Task, Url, User, UserInvitation,
-                     UserOrg, WorkInvitees, WorkRecord, get_val)
+                     FundingRecord, Log, OrcidToken, Organisation, PartialDate,
+                     PeerReviewExternalId, PeerReviewInvitee, PeerReviewRecord, Role, Task, Url,
+                     User, UserInvitation, UserOrg, WorkInvitees, WorkRecord, get_val)
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -173,7 +174,9 @@ def send_email(template,
         msg.cc.append(cc_email)
     msg.set_headers({"reply-to": reply_to})
     msg.mail_to.append(recipient)
-    msg.send(smtp=dict(host=app.config["MAIL_SERVER"], port=app.config["MAIL_PORT"]))
+    resp = msg.send(smtp=dict(host=app.config["MAIL_SERVER"], port=app.config["MAIL_PORT"]))
+    if not resp.success:
+        raise Exception("Failed to email the message. Please contact a Hub administrator!")
 
 
 def generate_confirmation_token(*args, expiration=1300000, **kwargs):
@@ -734,7 +737,7 @@ def unique_everseen(iterable, key=None):
 def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
     """Create or update affiliation record of a user.
 
-    1. Retries user edurcation and employment surramy from ORCID;
+    1. Retries user edurcation and employment summamy from ORCID;
     2. Match the recodrs with the summary;
     3. If there is match update the record;
     4. If no match create a new one.
@@ -791,11 +794,12 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
                 if put_code in taken_put_codes:
                     continue
 
-                if ((r.get("start-date") is None and r.get("end-date") is None
-                     and r.get("department-name") is None and r.get("role-title") is None)
-                        or (r.get("start-date") == start_date
-                            and r.get("department-name") == affiliation_record.department
-                            and r.get("role-title") == affiliation_record.role)):
+                if (((r.get("start-date") is None and r.get("end-date") is None
+                      and r.get("department-name") is None and r.get("role-title") is None) or
+                     (r.get("start-date") == start_date
+                      and r.get("department-name") == affiliation_record.department
+                      and r.get("role-title") == affiliation_record.role))
+                        and affiliation_record.organisation == r.get("organization", "name")):
                     affiliation_record.put_code = put_code
                     taken_put_codes.add(put_code)
                     app.logger.debug(
@@ -894,7 +898,6 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
             return
 
 
-@rq.job(timeout=300)
 def process_work_records(max_rows=20):
     """Process uploaded work records."""
     set_server_name()
@@ -914,9 +917,11 @@ def process_work_records(max_rows=20):
                       WorkInvitees,
                       on=(WorkRecord.id == WorkInvitees.work_record_id)).join(
                           User, JOIN.LEFT_OUTER,
-                          on=((User.email == WorkInvitees.email) | (User.orcid == WorkInvitees.orcid)))
+                          on=((User.email == WorkInvitees.email)
+                              | ((User.orcid == WorkInvitees.orcid) & (User.organisation_id == Task.org_id))))
              .join(Organisation, JOIN.LEFT_OUTER, on=(Organisation.id == Task.org_id))
-             .join(UserOrg, JOIN.INNER, on=((UserOrg.user_id == User.id) & (UserOrg.org_id == Organisation.id))).join(
+             .join(UserOrg, JOIN.LEFT_OUTER, on=((UserOrg.user_id == User.id) & (UserOrg.org_id == Organisation.id)))
+             .join(
                  UserInvitation,
                  JOIN.LEFT_OUTER,
                  on=((UserInvitation.email == WorkInvitees.email)
@@ -932,7 +937,8 @@ def process_work_records(max_rows=20):
             t.org_id,
             t.work_record.id,
             t.work_record.work_invitees.user,)):
-        """If we have the token associated to the user then update the work record, otherwise send him an invite"""
+        # If we have the token associated to the user then update the work record,
+        # otherwise send him an invite
         if (user.id is None or user.orcid is None or not OrcidToken.select().where(
             (OrcidToken.user_id == user.id) & (OrcidToken.org_id == org_id) &
             (OrcidToken.scope.contains("/activities/update"))).exists()):  # noqa: E127, E129
@@ -1025,9 +1031,11 @@ def process_peer_review_records(max_rows=20):
                       PeerReviewInvitee,
                       on=(PeerReviewRecord.id == PeerReviewInvitee.peer_review_record_id)).join(
                           User, JOIN.LEFT_OUTER,
-                          on=((User.email == PeerReviewInvitee.email) | (User.orcid == PeerReviewInvitee.orcid)))
+                          on=((User.email == PeerReviewInvitee.email)
+                              | ((User.orcid == PeerReviewInvitee.orcid) & (User.organisation_id == Task.org_id))))
              .join(Organisation, JOIN.LEFT_OUTER, on=(Organisation.id == Task.org_id))
-             .join(UserOrg, JOIN.INNER, on=((UserOrg.user_id == User.id) & (UserOrg.org_id == Organisation.id))).join(
+             .join(UserOrg, JOIN.LEFT_OUTER, on=((UserOrg.user_id == User.id) & (UserOrg.org_id == Organisation.id)))
+             .join(
                  UserInvitation,
                  JOIN.LEFT_OUTER,
                  on=((UserInvitation.email == PeerReviewInvitee.email)
@@ -1139,9 +1147,10 @@ def process_funding_records(max_rows=20):
                           User,
                           JOIN.LEFT_OUTER,
                           on=((User.email == FundingInvitees.email) |
-                              (User.orcid == FundingInvitees.orcid)))
+                              ((User.orcid == FundingInvitees.orcid) & (User.organisation_id == Task.org_id))))
              .join(Organisation, JOIN.LEFT_OUTER, on=(Organisation.id == Task.org_id))
-             .join(UserOrg, JOIN.INNER, on=((UserOrg.user_id == User.id) & (UserOrg.org_id == Organisation.id))).join(
+             .join(UserOrg, JOIN.LEFT_OUTER, on=((UserOrg.user_id == User.id) & (UserOrg.org_id == Organisation.id)))
+             .join(
                  UserInvitation,
                  JOIN.LEFT_OUTER,
                  on=((UserInvitation.email == FundingInvitees.email)
@@ -1252,7 +1261,7 @@ def process_affiliation_records(max_rows=20):
                        on=((User.email == AffiliationRecord.email) |
                            (User.orcid == AffiliationRecord.orcid))).join(
                                Organisation, JOIN.LEFT_OUTER, on=(Organisation.id == Task.org_id))
-             .join(UserOrg, JOIN.INNER, on=((UserOrg.user_id == User.id) & (UserOrg.org_id == Organisation.id)))
+             .join(UserOrg, JOIN.LEFT_OUTER, on=((UserOrg.user_id == User.id) & (UserOrg.org_id == Organisation.id)))
              .join(
                  UserInvitation,
                  JOIN.LEFT_OUTER,
@@ -1584,3 +1593,28 @@ def send_orcid_update_summary(org_id=None):
                     date_to=previous_last,
                     updated_users=updated_users,
                     orcid_base_url=app.config["ORCID_BASE_URL"])
+
+
+@rq.job(timeout=300)
+def sync_profile(task_id, delay=0.1):
+    """Verify and sync the user profile."""
+    if not task_id:
+        return
+    try:
+        task = Task.get(task_id)
+    except Task.DoesNotExist:
+        return
+    org = task.org
+    if not org.disambiguated_id:
+        return
+    api = orcid_client.MemberAPI(org=org)
+    count = 0
+    for u in task.org.users.select(User, OrcidToken.access_token.alias("access_token")).where(
+            User.orcid.is_null(False)).join(
+            OrcidToken,
+            on=((OrcidToken.user_id == User.id) & OrcidToken.scope.contains("/activities/update"))).naive():
+        Log.create(task=task_id, message=f"Processing user {u} / {u.orcid} profile.")
+        api.sync_profile(user=u, access_token=u.access_token, task=task)
+        count += 1
+        time.sleep(delay)
+    Log.create(task=task_id, message=f"In total, {count} user profiles were synchronized.")

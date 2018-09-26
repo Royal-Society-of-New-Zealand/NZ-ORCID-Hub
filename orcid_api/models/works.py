@@ -31,8 +31,8 @@ class Works(object):
                                   and the value is json key in definition.
         """
         self.swagger_types = {
-            'last_modified_date': 'LastModifiedDate',
-            'group': 'list[WorkGroup]',
+            'last_modified_date': 'object',
+            'group': 'list[object]',
             'path': 'str'
         }
 
@@ -52,7 +52,7 @@ class Works(object):
         Gets the last_modified_date of this Works.
 
         :return: The last_modified_date of this Works.
-        :rtype: LastModifiedDate
+        :rtype: object
         """
         return self._last_modified_date
 
@@ -62,7 +62,7 @@ class Works(object):
         Sets the last_modified_date of this Works.
 
         :param last_modified_date: The last_modified_date of this Works.
-        :type: LastModifiedDate
+        :type: object
         """
 
         self._last_modified_date = last_modified_date
@@ -73,7 +73,7 @@ class Works(object):
         Gets the group of this Works.
 
         :return: The group of this Works.
-        :rtype: list[WorkGroup]
+        :rtype: list[object]
         """
         return self._group
 
@@ -83,7 +83,7 @@ class Works(object):
         Sets the group of this Works.
 
         :param group: The group of this Works.
-        :type: list[WorkGroup]
+        :type: list[object]
         """
 
         self._group = group

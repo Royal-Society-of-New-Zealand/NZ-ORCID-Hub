@@ -31,22 +31,22 @@ class Work(object):
                                   and the value is json key in definition.
         """
         self.swagger_types = {
-            'created_date': 'CreatedDate',
-            'last_modified_date': 'LastModifiedDate',
-            'source': 'Source',
+            'created_date': 'object',
+            'last_modified_date': 'object',
+            'source': 'object',
             'put_code': 'int',
             'path': 'str',
-            'title': 'WorkTitle',
-            'journal_title': 'Title',
+            'title': 'object',
+            'journal_title': 'object',
             'short_description': 'str',
             'citation': 'Citation',
-            'type': 'str',
-            'publication_date': 'PublicationDate',
-            'external_ids': 'ExternalIDs',
-            'url': 'Url',
-            'contributors': 'WorkContributors',
+            'type': 'object',
+            'publication_date': 'object',
+            'external_ids': 'object',
+            'url': 'object',
+            'contributors': 'object',
             'language_code': 'str',
-            'country': 'Country',
+            'country': 'object',
             'visibility': 'str'
         }
 
@@ -94,7 +94,7 @@ class Work(object):
         Gets the created_date of this Work.
 
         :return: The created_date of this Work.
-        :rtype: CreatedDate
+        :rtype: object
         """
         return self._created_date
 
@@ -104,7 +104,7 @@ class Work(object):
         Sets the created_date of this Work.
 
         :param created_date: The created_date of this Work.
-        :type: CreatedDate
+        :type: object
         """
 
         self._created_date = created_date
@@ -115,7 +115,7 @@ class Work(object):
         Gets the last_modified_date of this Work.
 
         :return: The last_modified_date of this Work.
-        :rtype: LastModifiedDate
+        :rtype: object
         """
         return self._last_modified_date
 
@@ -125,7 +125,7 @@ class Work(object):
         Sets the last_modified_date of this Work.
 
         :param last_modified_date: The last_modified_date of this Work.
-        :type: LastModifiedDate
+        :type: object
         """
 
         self._last_modified_date = last_modified_date
@@ -136,7 +136,7 @@ class Work(object):
         Gets the source of this Work.
 
         :return: The source of this Work.
-        :rtype: Source
+        :rtype: object
         """
         return self._source
 
@@ -146,7 +146,7 @@ class Work(object):
         Sets the source of this Work.
 
         :param source: The source of this Work.
-        :type: Source
+        :type: object
         """
 
         self._source = source
@@ -199,7 +199,7 @@ class Work(object):
         Gets the title of this Work.
 
         :return: The title of this Work.
-        :rtype: WorkTitle
+        :rtype: object
         """
         return self._title
 
@@ -209,7 +209,7 @@ class Work(object):
         Sets the title of this Work.
 
         :param title: The title of this Work.
-        :type: WorkTitle
+        :type: object
         """
 
         self._title = title
@@ -220,7 +220,7 @@ class Work(object):
         Gets the journal_title of this Work.
 
         :return: The journal_title of this Work.
-        :rtype: Title
+        :rtype: object
         """
         return self._journal_title
 
@@ -230,7 +230,7 @@ class Work(object):
         Sets the journal_title of this Work.
 
         :param journal_title: The journal_title of this Work.
-        :type: Title
+        :type: object
         """
 
         self._journal_title = journal_title
@@ -283,7 +283,7 @@ class Work(object):
         Gets the type of this Work.
 
         :return: The type of this Work.
-        :rtype: str
+        :rtype: object
         """
         return self._type
 
@@ -293,14 +293,8 @@ class Work(object):
         Sets the type of this Work.
 
         :param type: The type of this Work.
-        :type: str
+        :type: object
         """
-        allowed_values = ["ARTISTIC_PERFORMANCE", "BOOK_CHAPTER", "BOOK_REVIEW", "BOOK", "CONFERENCE_ABSTRACT", "CONFERENCE_PAPER", "CONFERENCE_POSTER", "DATA_SET", "DICTIONARY_ENTRY", "DISCLOSURE", "DISSERTATION", "EDITED_BOOK", "ENCYCLOPEDIA_ENTRY", "INVENTION", "JOURNAL_ARTICLE", "JOURNAL_ISSUE", "LECTURE_SPEECH", "LICENSE", "MAGAZINE_ARTICLE", "MANUAL", "NEWSLETTER_ARTICLE", "NEWSPAPER_ARTICLE", "ONLINE_RESOURCE", "OTHER", "PATENT", "REGISTERED_COPYRIGHT", "REPORT", "RESEARCH_TECHNIQUE", "RESEARCH_TOOL", "SPIN_OFF_COMPANY", "STANDARDS_AND_POLICY", "SUPERVISED_STUDENT_PUBLICATION", "TECHNICAL_STANDARD", "TEST", "TRADEMARK", "TRANSLATION", "WEBSITE", "WORKING_PAPER", "UNDEFINED"]
-        if type not in allowed_values:
-            raise ValueError(
-                "Invalid value for `type` ({0}), must be one of {1}"
-                .format(type, allowed_values)
-            )
 
         self._type = type
 
@@ -310,7 +304,7 @@ class Work(object):
         Gets the publication_date of this Work.
 
         :return: The publication_date of this Work.
-        :rtype: PublicationDate
+        :rtype: object
         """
         return self._publication_date
 
@@ -320,7 +314,7 @@ class Work(object):
         Sets the publication_date of this Work.
 
         :param publication_date: The publication_date of this Work.
-        :type: PublicationDate
+        :type: object
         """
 
         self._publication_date = publication_date
@@ -331,7 +325,7 @@ class Work(object):
         Gets the external_ids of this Work.
 
         :return: The external_ids of this Work.
-        :rtype: ExternalIDs
+        :rtype: object
         """
         return self._external_ids
 
@@ -341,7 +335,7 @@ class Work(object):
         Sets the external_ids of this Work.
 
         :param external_ids: The external_ids of this Work.
-        :type: ExternalIDs
+        :type: object
         """
 
         self._external_ids = external_ids
@@ -352,7 +346,7 @@ class Work(object):
         Gets the url of this Work.
 
         :return: The url of this Work.
-        :rtype: Url
+        :rtype: object
         """
         return self._url
 
@@ -362,7 +356,7 @@ class Work(object):
         Sets the url of this Work.
 
         :param url: The url of this Work.
-        :type: Url
+        :type: object
         """
 
         self._url = url
@@ -373,7 +367,7 @@ class Work(object):
         Gets the contributors of this Work.
 
         :return: The contributors of this Work.
-        :rtype: WorkContributors
+        :rtype: object
         """
         return self._contributors
 
@@ -383,7 +377,7 @@ class Work(object):
         Sets the contributors of this Work.
 
         :param contributors: The contributors of this Work.
-        :type: WorkContributors
+        :type: object
         """
 
         self._contributors = contributors
@@ -415,7 +409,7 @@ class Work(object):
         Gets the country of this Work.
 
         :return: The country of this Work.
-        :rtype: Country
+        :rtype: object
         """
         return self._country
 
@@ -425,7 +419,7 @@ class Work(object):
         Sets the country of this Work.
 
         :param country: The country of this Work.
-        :type: Country
+        :type: object
         """
 
         self._country = country

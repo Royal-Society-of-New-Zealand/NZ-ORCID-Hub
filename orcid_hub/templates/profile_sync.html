@@ -1,0 +1,60 @@
+{% extends "layout.html" %}
+{% from "macros.html" import render_field, form_tag, pager %}
+{% block content %}
+  {% call form_tag(form) %}
+    {%- if title %}
+    <div class="row">
+      <div class="col-md-9 col-sm-8 col-xs-12">
+        <h1>{{ title or form_title }}</h1>
+      </div>
+    </div>
+    {% endif -%}
+    {% for f in form %}
+      {% if f.type != "SubmitField" and f.type != "CSRFTokenField" %}
+				<div class="row">
+					<div class="col-md-10 col-sm-10 col-xs-12">
+						{{ render_field(f) }}
+					</div>
+				</div>
+      {% endif %}
+    {% endfor %}
+    <div class="row">
+				<div class="col-md-10 col-sm-10 col-xs-12">
+					<div class="panel panel-primary">
+						<div class="panel-heading">Task Submitted At</div>
+						<div class="panel-body">{% if task %}{{ task.created_at | isodate }}{% endif %}</div>
+					</div>
+          <div class="form-group " style="float: right; width: auto">
+						{% for f in form %}
+							{% if f.type == "SubmitField" %}
+								{{ f }}
+							{% endif %}
+						{% endfor %}
+					</div>
+      </div>
+    </div>
+  {% endcall %}
+  {% if task and page_count > 0 %}
+    {% set pager_content = pager(page, page_count) %}
+    {{ pager_content }}
+    <div class="table-responsive">
+    <table class="table table-striped table-bordered table-hover model-list">
+        <thead>
+          <tr>
+            <th class="column-header">&nbsp;</th>
+            <th class="column-header">Message</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for e in task.log_entries.offset((page-1)*page_size).limit(page_size) %}
+          <tr>
+            <td class="col-created_at">{{ e.created_at | isodate }}</td>
+            <td class="col-message">{{ e.message }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    </div>
+    {{ pager_content }}
+  {% endif %}
+{% endblock %}
