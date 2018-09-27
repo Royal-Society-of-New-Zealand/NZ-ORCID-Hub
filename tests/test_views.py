@@ -1508,6 +1508,36 @@ def test_load_researcher_funding(patch, patch2, request_ctx):
         assert "funding" in resp.location
 
 
+def test_load_funding_csv(client, mocker):
+    """Test preload organisation data."""
+    org = client.data["org"]
+    user = User.create(
+        email="test123@test.test.net",
+        name="TEST USER",
+        roles=Role.ADMIN,
+        orcid="123",
+        confirmed=True,
+        organisation=org)
+    UserOrg.create(user=user, org=org, is_admin=True)
+    client.login(user)
+    resp = client.post(
+        "/load/researcher/funding",
+        data={
+            "file_": (
+                BytesIO(
+                    """title,translated title,language,type,org type,short description,amount,aurrency,start,end,org name,city,region,country,disambiguated organisation identifier,disambiguation source,orcid id,name,role,email,external identifier type,external identifier value,external identifier url,external identifier relationship
+THIS IS A TITLE, नमस्ते,hi,	CONTRACT,MY TYPE,Minerals unde.,300000,NZD.,,2025,Royal Society Te Apārangi,Wellington,,New Zealand,210126,RINGGOLD,1914-2914-3914-00X3, GivenName Surname, LEAD, test123@org1.edu,grant_number,GNS1706900961,https://www.grant-url2.com,PART_OF
+THIS IS A TITLE #2, नमस्ते #2,hi,	CONTRACT,MY TYPE,Minerals unde.,900000,USD.,,2025,,,,,210126,RINGGOLD,1914-2914-3914-00X3, GivenName Surname, LEAD, test123@org1.edu,,,,""".encode()  # noqa: E501
+                ),  # noqa: E501
+                "fundings.csv",
+            ),
+        })
+    assert resp.status_code == 302
+    # Funding file successfully loaded.
+    assert "task_id" in resp.location
+    assert "funding" in resp.location
+
+
 @patch("pykwalify.core.Core.validate", side_effect=validate)
 @patch("pykwalify.core.Core.__init__", side_effect=core_mock)
 def test_load_researcher_work(patch, patch2, request_ctx):

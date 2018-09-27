@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Application views."""
 
 import copy
@@ -2071,11 +2070,17 @@ def load_researcher_affiliations():
 @roles_required(Role.ADMIN)
 def load_researcher_funding():
     """Preload organisation data."""
-    form = FileUploadForm(extensions=["json", "yaml"])
+    form = FileUploadForm(extensions=["json", "yaml", "csv", "tsv"])
     if form.validate_on_submit():
         filename = secure_filename(form.file_.data.filename)
+        content_type = form.file_.data.content_type
+        import pdb; pdb.set_trace()
         try:
-            task = FundingRecord.load_from_json(read_uploaded_file(form), filename=filename)
+            if content_type in ["text/tab-separated-values", "text/csv"]:
+                task = FundingRecord.load_from_csv(
+                    read_uploaded_file(form), filename=filename)
+            else:
+                task = FundingRecord.load_from_json(read_uploaded_file(form), filename=filename)
             flash(f"Successfully loaded {task.record_count} rows.")
             return redirect(url_for("fundingrecord.index_view", task_id=task.id))
         except Exception as ex:
