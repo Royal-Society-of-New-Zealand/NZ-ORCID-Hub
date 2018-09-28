@@ -291,9 +291,7 @@ class BaseModel(Model):
 
     def __to_dashes(self, o):
         """Replace '_' with '-' in the dict keys."""
-        if isinstance(o, (list, tuple)):
-            return [self.__to_dashes(e) for e in o]
-        elif isinstance(o, dict):
+        if isinstance(o, dict):
             return {k.replace('_', '-'): self.__to_dashes(v) for k, v in o.items()}
         return o
 
@@ -549,7 +547,7 @@ class OrgInfo(BaseModel):
 
         for row in reader:
             # skip empty lines:
-            if row is None or (len(row) == 1 and row[0].strip() == ''):
+            if not row or row is None or len(row) == 0 or (len(row) == 1 and row[0].strip() == ''):
                 continue
 
             name = val(row, 0)
@@ -1337,12 +1335,6 @@ class FundingRecord(RecordModel):
         if len(header) < 2:
             raise ModelException("Expected CSV or TSV format file.")
 
-        if len(header) < 4:
-            raise ModelException(
-                "Wrong number of fields. Expected at least 4 fields "
-                "(first name, last name, email address or another unique identifier, student/staff). "
-                f"Read header: {header}")
-
         header_rexs = [
             re.compile(ex, re.I) for ex in [
                 "(external)?\s*id(entifier)?$", "title$", "translated\s+(title)?",
@@ -1462,9 +1454,6 @@ class FundingRecord(RecordModel):
                             value=external_id_value,
                             url=val(row, 24),
                             relationship=val(row, 25))
-                        validator = ModelValidator(ei)
-                        if not validator.validate():
-                            raise ModelException(f"Invalid external ID: {validator.errors}")
                         ei.save()
 
                 return task
