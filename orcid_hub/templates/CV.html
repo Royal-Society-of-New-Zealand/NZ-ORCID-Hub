@@ -114,10 +114,14 @@ italics should be deleted before you submit your CV.</span></i></font></font></p
 			<p><font face="Arial, serif"><font size="3" style="font-size: 12pt"><span style="font-style: normal"><b>Full name</b></span></font></font></p>
 		</td>
 		<td colspan="2" width="57" style="border: 1px solid #000001; padding: 0cm 0.19cm">
-      <p><i>Title</i></p>
+      <p><font face="Arial, serif"><font size="2" style="font-size: 9pt"><i>Title</i></font></font></p>
 		</td>
 		<td colspan="2" width="105" style="border: 1px solid #000001; padding: 0cm 0.19cm">
-      <p>{{user.first_name}}</p>
+      {% if person_data.get("first_name") %}
+        <p><font face="Arial, serif"><font style="font-size: 12pt">{{person_data.get("first_name", "")}}</font></font></p>
+      {% else %}
+        <p><font face="Arial, serif"><font style="font-size: 9pt"><i>First Name</i></font></font></p>
+      {% endif %}
 		</td>
 		</td>
 		<td colspan="4" width="164" style="border: 1px solid #000001; padding: 0cm 0.19cm">

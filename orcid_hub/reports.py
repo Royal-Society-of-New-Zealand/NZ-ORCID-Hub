@@ -154,12 +154,15 @@ def user_cv(op=None):
         educations = record.get("activities-summary", "educations", "education-summary")
         employments = record.get("activities-summary", "employments", "employment-summary")
 
+        person_data = dict(first_name=record.get("person", "name", "given-names", "value", default=user.first_name))
+
         resp = make_response(
             render_template(
                 "CV.html",
                 user=user,
                 now=datetime.now(),
                 record=record,
+                person_data=person_data,
                 works=works,
                 educations=educations,
                 employments=employments))
