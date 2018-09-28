@@ -1531,11 +1531,18 @@ THIS IS A TITLE #2, नमस्ते #2,hi,	CONTRACT,MY TYPE,Minerals unde.,90
                 ),  # noqa: E501
                 "fundings.csv",
             ),
-        })
-    assert resp.status_code == 302
+        },
+        follow_redirects=True)
+    assert resp.status_code == 200
     # Funding file successfully loaded.
-    assert "task_id" in resp.location
-    assert "funding" in resp.location
+    # assert "task_id" in resp.location
+    # assert "funding" in resp.location
+    assert b"THIS IS A TITLE" in resp.data
+    assert b"THIS IS A TITLE #2" in resp.data
+    assert b"fundings.csv" in resp.data
+    assert Task.select().where(Task.task_type == TaskType.FUNDING).count() == 1
+    task = Task.select().where(Task.task_type == TaskType.FUNDING).first()
+    assert task.funding_records.count() == 2
 
 
 @patch("pykwalify.core.Core.validate", side_effect=validate)

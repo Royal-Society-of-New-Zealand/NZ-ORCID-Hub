@@ -2074,7 +2074,6 @@ def load_researcher_funding():
     if form.validate_on_submit():
         filename = secure_filename(form.file_.data.filename)
         content_type = form.file_.data.content_type
-        import pdb; pdb.set_trace()
         try:
             if content_type in ["text/tab-separated-values", "text/csv"]:
                 task = FundingRecord.load_from_csv(

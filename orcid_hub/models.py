@@ -1345,14 +1345,14 @@ class FundingRecord(RecordModel):
 
         header_rexs = [
             re.compile(ex, re.I) for ex in [
-                "(external)?\s*id(entifier)?", "title", "translated\s+(title)?",
-                "(translated)?\s*(title)?\s*language\s+(code)?", "type",
-                "org(ani[sz]ation)?\s*(defined)?\s*type", "(short\s*|description\s*)+", "amount",
-                "aurrency", "start\s+(date)?", "end\s+(date)?", "(org(gani[zs]ation)?)?\s*name",
-                "city", "region", "country",
-                "disambiguated\s+(org(gani[zs]ation)?)?\s+id(entifier)?",
-                "disambiguation\s+source", "(is)?\s*active", "orcid\s*(id)?", "name", "role",
-                "email", "(external)?\s*id(entifier)\s+type", "(external)?\s*id(entifier)\s+value",
+                "(external)?\s*id(entifier)?$", "title$", "translated\s+(title)?",
+                "(translated)?\s*(title)?\s*language\s*(code)?", "type$",
+                "org(ani[sz]ation)?\s*(defined)?\s*type", "(short\s*|description\s*)+$", "amount",
+                "currency", "start\s*(date)?", "end\s*(date)?", "(org(gani[zs]ation)?)?\s*name$",
+                "city", "region|state", "country",
+                "disambiguated\s*(org(ani[zs]ation)?)?\s*id(entifier)?",
+                "disambiguation\s+source$", "(is)?\s*active$", "orcid\s*(id)?$", "name$", "role$",
+                "email", "(external)?\s*id(entifier)\s+type$", "(external)?\s*id(entifier)\s+value$",
                 "(external)?\s*(identifier)\s*url", "(external)?\s*(identifier)\s*rel(ationship)?"
             ]
         ]
@@ -1374,7 +1374,7 @@ class FundingRecord(RecordModel):
             org = current_user.organisation if current_user else None
 
         def val(row, i, default=None):
-            if idxs[i] is None or idxs[i] >= len(row):
+            if len(row) <= i or idxs[i] is None or idxs[i] >= len(row):
                 return default
             else:
                 v = row[idxs[i]].strip()
@@ -1382,7 +1382,6 @@ class FundingRecord(RecordModel):
 
         with db.atomic():
             try:
-                import pdb; pdb.set_trace()
                 task = Task.create(org=org, filename=filename, task_type=TaskType.FUNDING)
                 for row_no, row in enumerate(reader):
                     # skip empty lines:
@@ -1423,12 +1422,12 @@ class FundingRecord(RecordModel):
                         organization_defined_type=val(row, 5),
                         short_description=val(row, 6),
                         amount=val(row, 7),
-                        aurrency=val(row, 8),
-                        start_date=val(row, 9),
-                        end_date=val(row, 10),
+                        currency=val(row, 8),
+                        start_date=PartialDate.create(val(row, 9)),
+                        end_date=PartialDate.create(val(row, 10)),
                         org_name=val(row, 11) or org.name,
                         city=val(row, 12) or org.city,
-                        region=val(row, 13) or org.region,
+                        region=val(row, 13) or org.state,
                         country=country or org.country,
                         disambiguated_org_identifier=val(row, 15) or org.disambiguated_id,
                         disambiguation_source=val(row, 16) or org.disambiguation_source)
@@ -1441,32 +1440,34 @@ class FundingRecord(RecordModel):
                         fc = FundingContributor(
                             funding_record=fr,
                             orcid=orcid,
-                            name=val(row, 20),
-                            role=val(row, 21),
+                            name=val(row, 19),
+                            role=val(row, 20),
                             email=email)
                         validator = ModelValidator(fc)
                         if not validator.validate():
                             raise ModelException(f"Invalid contributor record: {validator.errors}")
                         fc.save()
 
-                    external_id_type = val(row, 24)
-                    external_id_value = val(row, 25)
+                    external_id_type = val(row, 22)
+                    external_id_value = val(row, 23)
                     if bool(external_id_type) != bool(external_id_value):
                         raise ModelException(
                             f"Invalid external ID. Type: {external_id_type}, Value: {external_id_value}"
                         )
 
-                    ei = ExternalId(
-                        funding_record=fr,
-                        type=external_id_type,
-                        value=external_id_value,
-                        url=val(row, 26),
-                        relationship=val(row, 27))
-                    validator = ModelValidator(ei)
-                    if not validator.validate():
-                        raise ModelException(f"Invalid external ID: {validator.errors}")
+                    if external_id_type and external_id_value:
+                        ei = ExternalId(
+                            funding_record=fr,
+                            type=external_id_type,
+                            value=external_id_value,
+                            url=val(row, 24),
+                            relationship=val(row, 25))
+                        validator = ModelValidator(ei)
+                        if not validator.validate():
+                            raise ModelException(f"Invalid external ID: {validator.errors}")
+                        ei.save()
 
-                    ei.save()
+                return task
 
             except Exception:
                 db.rollback()
