@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """Application views for reporting."""
 
+import re
 from datetime import datetime
 from flask import flash, make_response, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
@@ -154,7 +155,18 @@ def user_cv(op=None):
         educations = record.get("activities-summary", "educations", "education-summary")
         employments = record.get("activities-summary", "employments", "employment-summary")
 
-        person_data = dict(first_name=record.get("person", "name", "given-names", "value", default=user.first_name))
+        first_name, *second_names = re.split("[,; \t]", record.get("person", "name", "given-names", "value",
+                                                                   default=user.first_name))
+        countries = [a.get("country", "value") for a in record.get("person", "addresses", "address")]
+
+        emails = [e.get("email") for e in record.get("person", "emails", "email")] if record.get(
+            "person", "emails", "email") else [user.email]
+
+        researcher_urls = [r.get("url", "value") for r in record.get("person", "researcher-urls", "researcher-url")]
+
+        person_data = dict(first_name=first_name, second_names=second_names,
+                           family_name=record.get("person", "name", "family-name", "value", default=user.last_name),
+                           address=countries, emails=emails, researcher_urls=researcher_urls)
 
         resp = make_response(
             render_template(

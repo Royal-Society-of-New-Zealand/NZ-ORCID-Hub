@@ -125,10 +125,20 @@ italics should be deleted before you submit your CV.</span></i></font></font></p
 		</td>
 		</td>
 		<td colspan="4" width="164" style="border: 1px solid #000001; padding: 0cm 0.19cm">
-      <p>[<i>Second name(s)</i>]</p>
+      {% if person_data.get("second_names") %}
+        {% for s in person_data.get("second_names") %}
+          <p><font face="Arial, serif"><font style="font-size: 12pt">{{s}}</font></font></p>
+        {% endfor %}
+      {% else %}
+        <p><font face="Arial, serif"><font style="font-size: 9pt"><i>Second name(s)</i></font></font></p>
+      {% endif %}
 		</td>
 		<td colspan="2" width="116" style="border: 1px solid #000001; padding: 0cm 0.19cm">
-      <p>{{user.last_name}}</p>
+      {% if person_data.get("family_name") %}
+        <p><font face="Arial, serif"><font style="font-size: 12pt">{{person_data.get("family_name", "")}}</font></font></p>
+      {% else %}
+        <p><font face="Arial, serif"><font style="font-size: 9pt"><i>Family Name</i></font></font></p>
+      {% endif %}
 		</td>
 	</tr>
 	<tr valign="top">
@@ -146,27 +156,29 @@ italics should be deleted before you submit your CV.</span></i></font></font></p
 			<p><font face="Arial, serif"><font size="3" style="font-size: 12pt"><span style="font-style: normal"><b>Organisation/Employer</b></span></font></font></p>
 		</td>
 		<td colspan="7" width="409" style="border: 1px solid #000001; padding: 0cm 0.19cm">
-      <p style="font-style: normal; font-weight: normal">{{ user.organisation.name }}</p>
+      <p><font face="Arial, serif"><font style="font-size: 12pt">{{ user.organisation.name }}</font></font></p>
 		</td>
 	</tr>
 	<tr valign="top">
-		<td rowspan="3" colspan="2" width="134" height="4" bgcolor="#e0e0e0" style="border: 1px solid #000001; padding: 0cm 0.19cm">
+		<td rowspan="{{person_data.get('address')|length + 2}}" colspan="2" width="134" height="4" bgcolor="#e0e0e0" style="border: 1px solid #000001; padding: 0cm 0.19cm">
 			<p><font face="Arial, serif"><font size="3" style="font-size: 12pt"><span style="font-style: normal"><b>Contact
 			Address</b></span></font></font></p>
 		</td>
-		<td colspan="9" width="448" style="border: 1px solid #000001; padding: 0cm 0.19cm">
+    <td colspan="9" width="448" style="border: 1px solid #000001; padding: 0cm 0.19cm">
 			<p style="font-style: normal; font-weight: normal"><br/>
 
 			</p>
 		</td>
 	</tr>
-	<tr valign="top">
-		<td colspan="9" width="448" style="border: 1px solid #000001; padding: 0cm 0.19cm">
-			<p style="font-style: normal; font-weight: normal"><br/>
+  {% for c in person_data.get("address") %}
+    <tr valign="top">
+      <td colspan="9" width="448" style="border: 1px solid #000001; padding: 0cm 0.19cm">
+        <p><font face="Arial, serif"><font style="font-size: 12pt">Country: {{c}}.<br/>
 
-			</p>
-		</td>
-	</tr>
+        </font></font></p>
+      </td>
+    </tr>
+  {% endfor %}
 	<tr valign="top">
 		<td colspan="5" width="259" style="border: 1px solid #000001; padding: 0cm 0.19cm">
 			<p style="font-style: normal; font-weight: normal"><br/>
@@ -207,7 +219,9 @@ italics should be deleted before you submit your CV.</span></i></font></font></p
 			<p><font face="Arial, serif"><font size="3" style="font-size: 12pt"><span style="font-style: normal"><b>Email</b></span></font></font></p>
 		</td>
 		<td colspan="9" width="448" style="border: 1px solid #000001; padding: 0cm 0.19cm">
-      <p style="font-style: normal; font-weight: normal">{{ user.email }}</p>
+      {% for e in person_data.get("emails") %}
+          <p><font face="Arial, serif"><font style="font-size: 12pt">{{e}}</font></font></p>
+      {% endfor %}
 		</td>
 	</tr>
 	<tr valign="top">
@@ -216,7 +230,13 @@ italics should be deleted before you submit your CV.</span></i></font></font></p
 			website (if applicable)</b></span></font></font></p>
 		</td>
 		<td colspan="9" width="448" style="border: 1px solid #000001; padding: 0cm 0.19cm">
-			<p><a href=""><font color="#0000ff"><font face="Arial, serif"><font size="3" style="font-size: 12pt"><span style="font-style: normal"><u><span style="font-weight: normal">http://</span></u></span></font></font></font></a></p>
+      {% if person_data.get("researcher_urls") %}
+        {% for r in person_data.get("researcher_urls") %}
+          <p><a href="{{r}}"><font face="Arial, serif"><font style="font-size: 12pt">{{r}}</font></font></a></p>
+        {% endfor %}
+      {% else %}
+        <p><a href=""><font face="Arial, serif"><font style="font-size: 9pt"><i>http://</i></font></font></a></p>
+      {% endif %}
 		</td>
 	</tr>
 </table>
