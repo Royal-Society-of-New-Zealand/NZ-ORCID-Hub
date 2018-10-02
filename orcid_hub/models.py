@@ -1206,7 +1206,6 @@ class GroupIdRecord(RecordModel):
                     ('magazine', 'magazine'), ('peer-review service', 'peer-review service')]
     type_choices.sort(key=lambda e: e[1])
     type_choices.insert(0, ("", ""))
-    put_code = IntegerField(null=True)
     processed_at = DateTimeField(null=True)
     status = TextField(null=True, help_text="Record processing status.")
     name = CharField(max_length=120,
