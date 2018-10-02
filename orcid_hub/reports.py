@@ -152,6 +152,27 @@ def user_cv(op=None):
             w for g in record.get("activities-summary", "works", "group")
             for w in g.get("work-summary")
         ]
+        work_type_journal = []
+        work_type_books = []
+        work_type_book_chapter = []
+        work_type_conference = []
+        work_type_patent = []
+        work_type_other = []
+
+        for w in works:
+            if w.get("type") in ['JOURNAL_ARTICLE', 'JOURNAL_ISSUE']:
+                work_type_journal.append(w)
+            elif w.get("type") in ['BOOK', 'BOOK_REVIEW']:
+                work_type_books.append(w)
+            elif w.get("type") in ['BOOK_CHAPTER', 'EDITED_BOOK']:
+                work_type_book_chapter.append(w)
+            elif w.get("type") in ['CONFERENCE_PAPER', 'CONFERENCE_ABSTRACT', 'CONFERENCE_POSTER']:
+                work_type_conference.append(w)
+            elif w.get("type") in ['PATENT']:
+                work_type_patent.append(w)
+            else:
+                work_type_other.append(w)
+
         educations = record.get("activities-summary", "educations", "education-summary")
         employments = record.get("activities-summary", "employments", "employment-summary")
 
@@ -175,7 +196,12 @@ def user_cv(op=None):
                 now=datetime.now(),
                 record=record,
                 person_data=person_data,
-                works=works,
+                work_type_books=work_type_books,
+                work_type_book_chapter=work_type_book_chapter,
+                work_type_journal=work_type_journal,
+                work_type_conference=work_type_conference,
+                work_type_patent=work_type_patent,
+                work_type_other=work_type_other,
                 educations=educations,
                 employments=employments))
         resp.headers["Cache-Control"] = "private, max-age=60"
