@@ -291,9 +291,7 @@ class BaseModel(Model):
 
     def __to_dashes(self, o):
         """Replace '_' with '-' in the dict keys."""
-        if isinstance(o, (list, tuple)):
-            return [self.__to_dashes(e) for e in o]
-        elif isinstance(o, dict):
+        if isinstance(o, dict):
             return {k.replace('_', '-'): self.__to_dashes(v) for k, v in o.items()}
         return o
 
@@ -549,7 +547,7 @@ class OrgInfo(BaseModel):
 
         for row in reader:
             # skip empty lines:
-            if row is None or (len(row) == 1 and row[0].strip() == ''):
+            if not row or row is None or len(row) == 0 or (len(row) == 1 and row[0].strip() == ''):
                 continue
 
             name = val(row, 0)
@@ -923,8 +921,9 @@ class Task(BaseModel, AuditMixin):
     completed_count = TextField(null=True, help_text="gives the status of uploaded task")
 
     def __repr__(self):
-        return ("Synchronization task" if self.task_type != TaskType.SYNC else self.filename or
-                f"{TaskType(self.task_type).name.capitalize()} record processing task #{self.id}")
+        return ("Synchronization task" if self.task_type == TaskType.SYNC else (
+            self.filename
+            or f"{TaskType(self.task_type).name.capitalize()} record processing task #{self.id}"))
 
     @property
     def is_expiry_email_sent(self):
@@ -1215,7 +1214,7 @@ class GroupIdRecord(RecordModel):
     group_id = CharField(max_length=120,
                          help_text="The group's identifier, formatted as type:identifier, e.g. issn:12345678. "
                                    "This can be as specific (e.g. the journal's ISSN) or vague as required. "
-                                   "Valid types include: issn, ringgold, orcid-generated, fundref, publons.")
+                                   "Valid types include: issn, ringold, orcid-generated, fundref, publons.")
     description = CharField(max_length=1000,
                             help_text="A brief textual description of the group. "
                                       "This can be as specific or vague as required.")
@@ -1319,6 +1318,152 @@ class FundingRecord(RecordModel):
     status = TextField(null=True, help_text="Record processing status.")
 
     @classmethod
+    def load_from_csv(cls, source, filename=None, org=None):
+        """Load data from CSV/TSV file or a string."""
+        if isinstance(source, str):
+            source = StringIO(source)
+        if filename is None:
+            filename = datetime.utcnow().isoformat(timespec="seconds")
+        reader = csv.reader(source)
+        header = next(reader)
+
+        if len(header) == 1 and '\t' in header[0]:
+            source.seek(0)
+            reader = csv.reader(source, delimiter='\t')
+            header = next(reader)
+
+        if len(header) < 2:
+            raise ModelException("Expected CSV or TSV format file.")
+
+        header_rexs = [
+            re.compile(ex, re.I) for ex in [
+                "(external)?\s*id(entifier)?$", "title$", "translated\s+(title)?",
+                "(translated)?\s*(title)?\s*language\s*(code)?", "type$",
+                "org(ani[sz]ation)?\s*(defined)?\s*type", "(short\s*|description\s*)+$", "amount",
+                "currency", "start\s*(date)?", "end\s*(date)?", "(org(gani[zs]ation)?)?\s*name$",
+                "city", "region|state", "country",
+                "disambiguated\s*(org(ani[zs]ation)?)?\s*id(entifier)?",
+                "disambiguation\s+source$", "(is)?\s*active$", "orcid\s*(id)?$", "name$", "role$",
+                "email", "(external)?\s*id(entifier)\s+type$", "(external)?\s*id(entifier)\s+value$",
+                "(external)?\s*(identifier)\s*url", "(external)?\s*(identifier)\s*rel(ationship)?"
+            ]
+        ]
+
+        def index(rex):
+            """Return first header column index matching the given regex."""
+            for i, column in enumerate(header):
+                if rex.match(column):
+                    return i
+            else:
+                return None
+
+        idxs = [index(rex) for rex in header_rexs]
+
+        if all(idx is None for idx in idxs):
+            raise ModelException(f"Failed to map fields based on the header of the file: {header}")
+
+        if org is None:
+            org = current_user.organisation if current_user else None
+
+        def val(row, i, default=None):
+            if len(row) <= i or idxs[i] is None or idxs[i] >= len(row):
+                return default
+            else:
+                v = row[idxs[i]].strip()
+                return default if v == '' else v
+
+        with db.atomic():
+            try:
+                task = Task.create(org=org, filename=filename, task_type=TaskType.FUNDING)
+                for row_no, row in enumerate(reader):
+                    # skip empty lines:
+                    if len(row) == 0:
+                        continue
+                    if len(row) == 1 and row[0].strip() == '':
+                        continue
+
+                    funding_type = val(row, 4)
+                    if not funding_type:
+                        raise ModelException(
+                            f"Funding type is mandatory, #{row_no+2}: {row}. Header: {header}")
+
+                    # The uploaded country must be from ISO 3166-1 alpha-2
+                    country = val(row, 14)
+                    if country:
+                        try:
+                            country = countries.lookup(country).alpha_2
+                        except Exception:
+                            raise ModelException(
+                                f" (Country must be 2 character from ISO 3166-1 alpha-2) in the row "
+                                f"#{row_no+2}: {row}. Header: {header}")
+
+                    orcid, email = val(row, 18), val(row, 21)
+                    if orcid:
+                        validate_orcid_id(orcid)
+                    if email and not validators.email(email):
+                        raise ValueError(
+                            f"Invalid email address '{email}'  in the row #{row_no+2}: {row}")
+
+                    fr = cls(
+                        task=task,
+                        # external_identifier = val(row, 0),
+                        title=val(row, 1),
+                        translated_title=val(row, 2),
+                        translated_title_language_code=val(row, 3),
+                        type=funding_type,
+                        organization_defined_type=val(row, 5),
+                        short_description=val(row, 6),
+                        amount=val(row, 7),
+                        currency=val(row, 8),
+                        start_date=PartialDate.create(val(row, 9)),
+                        end_date=PartialDate.create(val(row, 10)),
+                        org_name=val(row, 11) or org.name,
+                        city=val(row, 12) or org.city,
+                        region=val(row, 13) or org.state,
+                        country=country or org.country,
+                        disambiguated_org_identifier=val(row, 15) or org.disambiguated_id,
+                        disambiguation_source=val(row, 16) or org.disambiguation_source)
+                    validator = ModelValidator(fr)
+                    if not validator.validate():
+                        raise ModelException(f"Invalid record: {validator.errors}")
+                    fr.save()
+
+                    if orcid:
+                        fc = FundingContributor(
+                            funding_record=fr,
+                            orcid=orcid,
+                            name=val(row, 19),
+                            role=val(row, 20),
+                            email=email)
+                        validator = ModelValidator(fc)
+                        if not validator.validate():
+                            raise ModelException(f"Invalid contributor record: {validator.errors}")
+                        fc.save()
+
+                    external_id_type = val(row, 22)
+                    external_id_value = val(row, 23)
+                    if bool(external_id_type) != bool(external_id_value):
+                        raise ModelException(
+                            f"Invalid external ID. Type: {external_id_type}, Value: {external_id_value}"
+                        )
+
+                    if external_id_type and external_id_value:
+                        ei = ExternalId(
+                            funding_record=fr,
+                            type=external_id_type,
+                            value=external_id_value,
+                            url=val(row, 24),
+                            relationship=val(row, 25))
+                        ei.save()
+
+                return task
+
+            except Exception:
+                db.rollback()
+                app.logger.exception("Failed to load funding file.")
+                raise
+
+    @classmethod
     def load_from_json(cls, source, filename=None, org=None):
         """Load data from json file or a string."""
         if isinstance(source, str):
@@ -1361,7 +1506,7 @@ class FundingRecord(RecordModel):
                     disambiguation_source = get_val(funding_data, "organization", "disambiguated-organization",
                                                     "disambiguation-source")
 
-                    funding_record = FundingRecord.create(
+                    funding_record = cls.create(
                         task=task,
                         title=title,
                         translated_title=translated_title,

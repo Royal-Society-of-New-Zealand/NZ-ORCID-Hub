@@ -1,5 +1,6 @@
 from datetime import datetime
 from itertools import product
+from io import StringIO
 
 import pytest
 from peewee import Model, SqliteDatabase
@@ -481,6 +482,25 @@ Organisation_1,Title_1,First Name_1,Last Name_1,Role_1,Email_1,Phone_1,yes,Count
     assert OrgInfo.select().count() == 2
     oi = OrgInfo.get(name="Organisation_1")
     assert oi.is_public
+
+    OrgInfo.load_from_csv(
+        StringIO("""Name,Disambiguated Id,Disambiguation Source
+AgResearch Ltd,3713,RINGGOLD
+Aqualinc Research Ltd,9429035717133,NZBN
+Ara Institute of Canterbury,6006,Education Organisation Number
+Auckland District Health Board,1387,RINGGOLD
+Auckland University of Technology,1410,RINGGOLD
+Bay of Plenty District Health Board,7854,RINGGOLD
+Capital and Coast District Health Board,8458,RINGGOLD
+Cawthron Institute,5732,RINGGOLD
+CRL Energy Ltd,9429038654381,NZBN
+
+Health Research Council,http://dx.doi.org/10.13039/501100001505,FUNDREF
+Hutt Valley District Health Board,161292,RINGGOLD
+Institute of Environmental Science and Research,8480,RINGGOLD
+Institute of Geological & Nuclear Sciences Ltd,5180,RINGGOLD
+"""))
+    assert OrgInfo.select().count() == 15
 
 
 def test_affiliations(models):
