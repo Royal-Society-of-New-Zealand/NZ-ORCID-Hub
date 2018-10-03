@@ -47,7 +47,6 @@ from .models import (
 from .pyinfo import info
 from .utils import generate_confirmation_token, get_next_url, read_uploaded_file, send_user_invitation
 
-
 HEADERS = {"Accept": "application/vnd.orcid+json", "Content-type": "application/vnd.orcid+json"}
 ORCID_BASE_URL = app.config["ORCID_BASE_URL"]
 SCOPE_ACTIVITIES_UPDATE = app.config["SCOPE_ACTIVITIES_UPDATE"]
