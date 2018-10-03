@@ -224,7 +224,7 @@ def app():
             orcid_secret="CLIENT-SECRET",
             confirmed=True,
             city="CITY",
-            country="COUNTRY")
+            country="NZ")
 
         admin = User.create(
             email="app123@test0.edu",

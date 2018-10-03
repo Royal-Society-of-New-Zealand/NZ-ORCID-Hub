@@ -38,11 +38,12 @@ from .forms import (ApplicationFrom, BitmapMultipleValueField, CredentialForm, E
                     FileUploadForm, FundingForm, GroupIdForm, LogoForm, OrgRegistrationForm, PartialDateField,
                     PeerReviewForm, ProfileSyncForm, RecordForm, UserInvitationForm, WebhookForm, WorkForm)
 from .login_provider import roles_required
-from .models import (
-    Affiliation, AffiliationRecord, CharField, Client, File, FundingInvitees, FundingRecord, Grant,
-    GroupIdRecord, ModelException, OrcidApiCall, OrcidToken, Organisation, OrgInfo, OrgInvitation,
-    PartialDate, PeerReviewInvitee, PeerReviewRecord, Role, Task, TaskType, TextField, Token, Url,
-    User, UserInvitation, UserOrg, UserOrgAffiliation, WorkInvitees, WorkRecord, db, get_val)
+from .models import (JOIN, Affiliation, AffiliationRecord, CharField, Client, ExternalId, File,
+                     FundingContributor, FundingInvitees, FundingRecord, Grant, GroupIdRecord,
+                     ModelException, OrcidApiCall, OrcidToken, Organisation, OrgInfo,
+                     OrgInvitation, PartialDate, PeerReviewInvitee, PeerReviewRecord, Role, Task,
+                     TaskType, TextField, Token, Url, User, UserInvitation, UserOrg,
+                     UserOrgAffiliation, WorkInvitees, WorkRecord, db, get_val)
 # NB! Should be disabled in production
 from .pyinfo import info
 from .utils import generate_confirmation_token, get_next_url, read_uploaded_file, send_user_invitation
@@ -491,6 +492,7 @@ class TaskAdmin(AppModelView):
         "org.name",
     )
     column_list = [
+        "task_type",
         "filename",
         "created_at",
         "org",
@@ -860,7 +862,6 @@ class FundingWorkCommonModelView(RecordModelView):
             return redirect(return_url)
 
         filename = self.get_export_name(export_type)
-
         disposition = 'attachment;filename=%s' % (secure_filename(filename), )
 
         mimetype, encoding = mimetypes.guess_type(filename)
@@ -980,6 +981,145 @@ class FundingWorkCommonModelView(RecordModelView):
         else:
             return self._export_tablib(export_type, return_url)
 
+
+class FundingRecordAdmin(FundingWorkCommonModelView):
+    """Funding record model view."""
+
+    column_searchable_list = ("title",)
+    list_template = "funding_record_list.html"
+    column_export_list = (
+        "put_code",
+        "title",
+        "translated_title",
+        "translated_title_language_code",
+        "type",
+        "organization_defined_type",
+        "short_description",
+        "amount",
+        "currency",
+        "start_date",
+        "end_date",
+        "org_name",
+        "city",
+        "region",
+        "country",
+        "disambiguated_org_identifier",
+        "disambiguation_source",
+        "visibility",
+        "orcid",
+        "email",
+        "name",
+        "role",
+        "external_id_type",
+        "external_id_value",
+        "external_id_url",
+        "external_id_relationship",
+        "status",)
+
+    def _export_csv(self, return_url, export_type):
+        """Export a CSV or tsv of records as a stream."""
+        delimiter = ","
+        if export_type == 'tsv':
+            delimiter = "\t"
+
+        # Grab parameters from URL
+        view_args = self._get_list_extra_args()
+
+        # Map column index to column name
+        sort_column = self._get_column_by_idx(view_args.sort)
+        if sort_column is not None:
+            sort_column = sort_column[0]
+
+        # count, data = self._export_data()
+        # count, data = super()._export_data()
+        # Get count and data
+        count, query = self.get_list(
+            0,
+            sort_column,
+            view_args.sort_desc,
+            view_args.search,
+            view_args.filters,
+            page_size=self.export_max_rows,
+            execute=False)
+        query = query.select(
+            FundingRecord,
+            FundingContributor,
+            # FundingContribut.orcid,
+            # FundingContribut.name,
+            # FundingContribut.role,
+            # FundingContribut.email,
+            ExternalId.type.alias("external_id_type"),
+            ExternalId.value.alias("external_id_value"),
+            ExternalId.url.alias("external_id_url"),
+            ExternalId.relationship.alias("external_id_relationship")).join(
+                FundingContributor,
+                JOIN.LEFT_OUTER,
+                on=(FundingContributor.funding_record_id == FundingRecord.id)).join(
+                    ExternalId,
+                    JOIN.LEFT_OUTER,
+                    on=(ExternalId.funding_record_id == FundingRecord.id)).naive()
+
+        # https://docs.djangoproject.com/en/1.8/howto/outputting-csv/
+        class Echo(object):
+            """An object that implements just the write method of the file-like interface."""
+
+            def write(self, value):
+                """Write the value by returning it, instead of storing in a buffer."""
+                return value
+
+        writer = csv.writer(Echo(), delimiter=delimiter)
+
+        def generate():
+            # Append the column titles at the beginning
+            titles = [csv_encode(c[1]) for c in self._export_columns]
+            yield writer.writerow(titles)
+
+            for row in query:
+                vals = [csv_encode(self.get_export_value(row, c[0]))
+                        for c in self._export_columns]
+                yield writer.writerow(vals)
+
+        filename = self.get_export_name(export_type=export_type)
+
+        disposition = 'attachment;filename=%s' % (secure_filename(filename), )
+
+        return Response(
+            stream_with_context(generate()),
+            headers={'Content-Disposition': disposition},
+            mimetype='text/' + export_type)
+
+
+class WorkRecordAdmin(FundingWorkCommonModelView):
+    """Work record model view."""
+
+    column_searchable_list = ("title",)
+    list_template = "work_record_list.html"
+    form_overrides = dict(publication_date=PartialDateField)
+
+    column_export_exclude_list = (
+        "title",
+        "sub_title",
+        "translated_title",
+        "translated_title_language_code",
+        "journal_title",
+        "short_description",
+        "citation_type",
+        "citation_value"
+        "type",
+        "publication_date",
+        "publication_media_type",
+        "url",
+        "language_code",
+        "country",
+        "visibility",
+    )
+    column_export_list = (
+        "work id",
+        "work_invitees",
+    )
+    column_csv_export_list = ("work id", "identifier", "email", "first_name", "last_name", "orcid",
+                              "put_code", "status")
+
     def _export_csv(self, return_url, export_type):
         """Export a CSV or tsv of records as a stream."""
         delimiter = ","
@@ -1021,71 +1161,6 @@ class FundingWorkCommonModelView(RecordModelView):
             stream_with_context(generate()),
             headers={'Content-Disposition': disposition},
             mimetype='text/' + export_type)
-
-
-class FundingRecordAdmin(FundingWorkCommonModelView):
-    """Funding record model view."""
-
-    column_searchable_list = ("title",)
-    list_template = "funding_record_list.html"
-    column_export_exclude_list = (
-        "title",
-        "translated_title",
-        "translated_title_language_code",
-        "type",
-        "organization_defined_type",
-        "short_description",
-        "amount",
-        "currency",
-        "start_date",
-        "end_date",
-        "org_name",
-        "city",
-        "region",
-        "country",
-        "disambiguated_org_identifier",
-        "disambiguation_source",
-        "visibility",
-    )
-
-    column_export_list = (
-        "funding id",
-        "funding_invitees",
-    )
-    column_csv_export_list = ("funding id", "identifier", "email", "first_name", "last_name", "orcid",
-                              "put_code", "status")
-
-
-class WorkRecordAdmin(FundingWorkCommonModelView):
-    """Work record model view."""
-
-    column_searchable_list = ("title",)
-    list_template = "work_record_list.html"
-    form_overrides = dict(publication_date=PartialDateField)
-
-    column_export_exclude_list = (
-        "title",
-        "sub_title",
-        "translated_title",
-        "translated_title_language_code",
-        "journal_title",
-        "short_description",
-        "citation_type",
-        "citation_value"
-        "type",
-        "publication_date",
-        "publication_media_type",
-        "url",
-        "language_code",
-        "country",
-        "visibility",
-    )
-    column_export_list = (
-        "work id",
-        "work_invitees",
-    )
-    column_csv_export_list = ("work id", "identifier", "email", "first_name", "last_name", "orcid",
-                              "put_code", "status")
 
 
 class PeerReviewRecordAdmin(FundingWorkCommonModelView):
