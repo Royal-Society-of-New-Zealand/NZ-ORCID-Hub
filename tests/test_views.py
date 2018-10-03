@@ -2397,7 +2397,7 @@ THIS IS A TITLE #2, नमस्ते #2,hi,	CONTRACT,MY TYPE,Minerals unde.,90
     assert task.funding_records.count() == 2
     fr = task.funding_records.where(FundingRecord.title == 'THIS IS A TITLE').first()
     assert fr.contributors.count() == 2
-    assert fr.external_ids.count() == 2
+    assert fr.external_ids.count() == 4
 
     resp = client.post(
         "/load/researcher/funding",
@@ -2416,23 +2416,20 @@ THIS IS A TITLE #4	 नमस्ते #2	hi	CONTRACT	MY TYPE	Minerals unde.	900
     assert b"THIS IS A TITLE #3" in resp.data
     assert b"THIS IS A TITLE #4" in resp.data
     assert b"fundings.tsv" in resp.data
-    assert Task.select().where(Task.task_type == TaskType.FUNDING).count() == 4
+
+    assert Task.select().where(Task.task_type == TaskType.FUNDING).count() == 2
     task = Task.select().where(Task.task_type == TaskType.FUNDING).order_by(Task.id.desc()).first()
     assert task.funding_records.count() == 2
 
-    records = list(task.funding_records.order_by(FundingRecord.id))
     resp = client.post(
-        f"/admin/fundingrecord/delete/",
+        "/admin/task/delete/",
         data={
-            "id": f"{records[1].id,
-            "url": f"/admin/fundingrecord/?task_id={task.id}"
-        },) # follow_redirects=True)
+            "id": task.id,
+            "url": "/admin/task/"
+        },
+        follow_redirects=True)
     assert resp.status_code == 200
-    assert b"THIS IS A TITLE #3" in resp.data
-    assert b"THIS IS A TITLE #4" not in resp.data
-    assert b"fundings.tsv" in resp.data
-    task = Task.get(task.id)
-    assert task.funding_records.count() == 1
+    assert not Task.select().where(Task.id == task.id).exists()
 
     resp = client.post(
         "/load/researcher/funding",

@@ -1346,7 +1346,9 @@ class FundingRecord(RecordModel):
                 r"disambiguation\s+source$", "(is)?\s*active$", r"orcid\s*(id)?$", "name$",
                 "role$", "email", r"(external)?\s*id(entifier)?\s+type$",
                 r"(external)?\s*id(entifier)?\s+value$", r"(external)?\s*id(entifier)?\s*url",
-                r"(external)?\s*id(entifier)?\s*rel(ationship)?", "put.code"
+                r"(external)?\s*id(entifier)?\s*rel(ationship)?", "put.code",
+                r"(is)?\s*visib(bility|le)?", r"first\s*(name)?", r"(last|sur)\s*(name)?",
+                "identifier"
             ]
         ]
 
@@ -1409,11 +1411,14 @@ class FundingRecord(RecordModel):
                 raise ModelException(
                     f"Invalid external ID the row #{row_no}. Type: {external_id_type}, Value: {external_id_value}")
 
+            name, first_name, last_name = val(row, 19), val(row, 28), val(row, 29)
+            if not name and first_name and last_name:
+                name = first_name + ' ' + last_name
+
             rows.append(
                 dict(
                     funding=dict(
                         # external_identifier = val(row, 0),
-                        put_code=val(row, 26),
                         title=val(row, 1),
                         translated_title=val(row, 2),
                         translated_title_language_code=val(row, 3),
@@ -1436,6 +1441,15 @@ class FundingRecord(RecordModel):
                         name=val(row, 19),
                         role=val(row, 20),
                         email=email,
+                    ),
+                    invitee=dict(
+                        identifier=val(row, 30),
+                        email=email,
+                        first_name=val(row, 28),
+                        last_name=val(row, 29),
+                        orcid=orcid,
+                        put_code=val(row, 26),
+                        visibility=val(row, 27),
                     ),
                     external_id=dict(
                         type=external_id_type,
@@ -1469,6 +1483,12 @@ class FundingRecord(RecordModel):
                             if r["external_id"]["type"] and r["external_id"]["value"]):
                         ei = ExternalId(funding_record=fr, **dict(external_id))
                         ei.save()
+
+                    for invitee in set(
+                            tuple(r["invitee"].items()) for r in records
+                            if r["invitee"]["orcid"] and r["invitee"]["email"]):
+                        rec = FundingInvitees(funding_record=fr, **dict(invitee))
+                        rec.save()
                 return task
 
             except Exception:
