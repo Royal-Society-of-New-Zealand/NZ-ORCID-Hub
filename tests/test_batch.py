@@ -76,8 +76,8 @@ def test_process_tasks(request_ctx):
         assert "email/task_expiration.html" in args
         assert kwargs["error_count"] == 0
         hostname = ctx.request.host
-        assert kwargs["export_url"] == (
-            f"https://{hostname}/admin/affiliationrecord/export/csv/?task_id={task.id}")
+        assert kwargs["export_url"].endswith(
+            f"//{hostname}/admin/affiliationrecord/export/csv/?task_id={task.id}")
         assert kwargs["recipient"] == (
             super_user.name,
             super_user.email,
@@ -109,8 +109,8 @@ def test_process_tasks(request_ctx):
         assert "email/task_expiration.html" in args
         assert kwargs["error_count"] == 0
         hostname = ctx.request.host
-        assert kwargs["export_url"] == (
-            f"https://{hostname}/admin/fundingrecord/export/csv/?task_id={task.id}")
+        assert kwargs["export_url"].endswith(
+            f"//{hostname}/admin/fundingrecord/export/csv/?task_id={task.id}")
         assert kwargs["recipient"] == (
             super_user.name,
             super_user.email,
