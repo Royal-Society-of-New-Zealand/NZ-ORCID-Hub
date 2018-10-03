@@ -1511,146 +1511,6 @@ def test_load_researcher_funding(patch, patch2, request_ctx):
         assert "funding" in resp.location
 
 
-def test_load_funding_csv(client, mocker):
-    """Test preload organisation data."""
-    org = client.data["org"]
-    user = User.create(
-        email="test123@test.test.net",
-        name="TEST USER",
-        roles=Role.ADMIN,
-        orcid="123",
-        confirmed=True,
-        organisation=org)
-    UserOrg.create(user=user, org=org, is_admin=True)
-    client.login(user)
-    resp = client.post(
-        "/load/researcher/funding",
-        data={
-            "file_": (
-                BytesIO(
-                    """title,translated title,language,type,org type,short description,amount,aurrency,start,end,org name,city,region,country,disambiguated organisation identifier,disambiguation source,orcid id,name,role,email,external identifier type,external identifier value,external identifier url,external identifier relationship
-
-THIS IS A TITLE, नमस्ते,hi,	CONTRACT,MY TYPE,Minerals unde.,300000,NZD.,,2025,Royal Society Te Apārangi,Wellington,,New Zealand,210126,RINGGOLD,1914-2914-3914-00X3, GivenName Surname, LEAD, test123@org1.edu,grant_number,GNS1706900961,https://www.grant-url2.com,PART_OF
-THIS IS A TITLE #2, नमस्ते #2,hi,	CONTRACT,MY TYPE,Minerals unde.,900000,USD.,,2025,,,,,210126,RINGGOLD,1914-2914-3914-00X3, GivenName Surname, LEAD, test123@org1.edu,,,,""".encode()  # noqa: E501
-                ),  # noqa: E501
-                "fundings.csv",
-            ),
-        },
-        follow_redirects=True)
-    assert resp.status_code == 200
-    assert b"THIS IS A TITLE" in resp.data
-    assert b"THIS IS A TITLE #2" in resp.data
-    assert b"fundings.csv" in resp.data
-    assert Task.select().where(Task.task_type == TaskType.FUNDING).count() == 1
-    task = Task.select().where(Task.task_type == TaskType.FUNDING).first()
-    assert task.funding_records.count() == 2
-
-    resp = client.post(
-        "/load/researcher/funding",
-        data={
-            "file_": (
-                BytesIO(
-                    """title	translated title	language	type	org type	short description	amount	aurrency	start	end	org name	city	region	country	disambiguated organisation identifier	disambiguation source	orcid id	name	role	email	external identifier type	external identifier value	external identifier url	external identifier relationship
-THIS IS A TITLE #3	 नमस्ते	hi	CONTRACT	MY TYPE	Minerals unde.	300000	NZD.		2025	Royal Society Te Apārangi	Wellington		New Zealand	210126	RINGGOLD	1914-2914-3914-00X3	 GivenName Surname	 LEAD	 test123@org1.edu	grant_number	GNS1706900961	https://www.grant-url2.com	PART_OF
-THIS IS A TITLE #4	 नमस्ते #2	hi	CONTRACT	MY TYPE	Minerals unde.	900000	USD.		2025					210126	RINGGOLD	1914-2914-3914-00X3	 GivenName Surname	 LEAD	 test123@org1.edu				""".encode()  # noqa: E501
-                ),  # noqa: E501
-                "fundings.tsv",
-            ),
-        },
-        follow_redirects=True)
-    assert resp.status_code == 200
-    assert b"THIS IS A TITLE #3" in resp.data
-    assert b"THIS IS A TITLE #4" in resp.data
-    assert b"fundings.tsv" in resp.data
-    assert Task.select().where(Task.task_type == TaskType.FUNDING).count() == 2
-    task = Task.select().where(Task.task_type == TaskType.FUNDING).first()
-    assert task.funding_records.count() == 2
-
-    resp = client.post(
-        "/load/researcher/funding",
-        data={
-            "file_": (
-                BytesIO(
-                    """title,translated title,language,type,org type,short description,amount,aurrency,start,end,org name,city,region,country,disambiguated organisation identifier,disambiguation source,orcid id,name,role,email,external identifier type,external identifier value,external identifier url,external identifier relationship
-THIS IS A TITLE, नमस्ते,hi,,MY TYPE,Minerals unde.,300000,NZD.,,2025,Royal Society Te Apārangi,Wellington,,New Zealand,210126,RINGGOLD,1914-2914-3914-00X3, GivenName Surname, LEAD, test123@org1.edu,grant_number,GNS1706900961,https://www.grant-url2.com,PART_OF
-
-""".encode()  # noqa: E501
-                ),  # noqa: E501
-                "error.csv",
-            ),
-        },
-        follow_redirects=True)
-    assert resp.status_code == 200
-    assert b"Failed to load funding record file" in resp.data
-    assert b"type is mandatory" in resp.data
-
-    resp = client.post(
-        "/load/researcher/funding",
-        data={"file_": (BytesIO(b"title\nVAL"), "error.csv")},
-        follow_redirects=True)
-    assert resp.status_code == 200
-    assert b"Failed to load funding record file" in resp.data
-    assert b"Expected CSV or TSV format file." in resp.data
-
-    resp = client.post(
-        "/load/researcher/funding",
-        data={"file_": (BytesIO(b"header1,header2,header2\n1,2,3"), "error.csv")},
-        follow_redirects=True)
-    assert resp.status_code == 200
-    assert b"Failed to load funding record file" in resp.data
-    assert b"Failed to map fields based on the header of the file" in resp.data
-
-    resp = client.post(
-        "/load/researcher/funding",
-        data={
-            "file_": (
-                BytesIO(
-                    """title,translated title,language,type,org type,short description,amount,aurrency,start,end,org name,city,region,country,disambiguated organisation identifier,disambiguation source,orcid id,name,role,email,external identifier type,external identifier value,external identifier url,external identifier relationship
-THIS IS A TITLE #2, नमस्ते #2,hi,	CONTRACT,MY TYPE,Minerals unde.,900000,USD.,,**ERROR**,,,,,210126,RINGGOLD,1914-2914-3914-00X3, GivenName Surname, LEAD, test123@org1.edu,,,,""".encode()  # noqa: E501
-                ),  # noqa: E501
-                "fundings.csv",
-            ),
-        },
-        follow_redirects=True)
-    assert resp.status_code == 200
-    assert b"Failed to load funding record file" in resp.data
-    assert b"Wrong partial date value '**ERROR**'" in resp.data
-
-    resp = client.post(
-        "/load/researcher/funding",
-        data={
-            "file_": (
-                BytesIO(
-                    """title,translated title,language,type,org type,short description,amount,aurrency,start,end,org name,city,region,country,disambiguated organisation identifier,disambiguation source,orcid id,name,role,email,external identifier type,external identifier value,external identifier url,external identifier relationship
-
-THIS IS A TITLE, नमस्ते,hi,	CONTRACT,MY TYPE,Minerals unde.,300000,NZD.,,2025,Royal Society Te Apārangi,Wellington,,New Zealand,210126,RINGGOLD,1914-2914-3914-00X3, GivenName Surname, LEAD,**ERROR**,grant_number,GNS1706900961,https://www.grant-url2.com,PART_OF """.encode()  # noqa: E501
-                ),  # noqa: E501
-                "fundings.csv",
-            ),
-        },
-        follow_redirects=True)
-    assert resp.status_code == 200
-    assert b"Failed to load funding record file" in resp.data
-    assert b"Invalid email address '**ERROR**'" in resp.data
-
-    resp = client.post(
-        "/load/researcher/funding",
-        data={
-            "file_": (
-                BytesIO(
-                    """title,translated title,language,type,org type,short description,amount,aurrency,start,end,org name,city,region,country,disambiguated organisation identifier,disambiguation source,orcid id,name,role,email,external identifier type,external identifier value,external identifier url,external identifier relationship
-
-THIS IS A TITLE, नमस्ते,hi,	CONTRACT,MY TYPE,Minerals unde.,300000,NZD.,,2025,Royal Society Te Apārangi,Wellington,,New Zealand,210126,RINGGOLD,ERRO-R914-3914-00X3, GivenName Surname, LEAD,user1234@test123.edu,grant_number,GNS1706900961,https://www.grant-url2.com,PART_OF """.encode()  # noqa: E501
-                ),  # noqa: E501
-                "fundings.csv",
-            ),
-        },
-        follow_redirects=True)
-    assert resp.status_code == 200
-    assert b"Failed to load funding record file" in resp.data
-    assert b"Invalid ORCID iD ERRO-R" in resp.data
-
-
 @patch("pykwalify.core.Core.validate", side_effect=validate)
 @patch("pykwalify.core.Core.__init__", side_effect=core_mock)
 def test_load_researcher_work(patch, patch2, request_ctx):
@@ -2472,3 +2332,152 @@ def test_sync_profiles(client, mocker):
     client.login_root()
     resp = client.get("/sync_profiles")
     assert resp.status_code == 200
+
+
+def test_load_funding_csv(client, mocker):
+    """Test preload organisation data."""
+    user = client.data["admin"]
+    client.login(user)
+
+    resp = client.post(
+        "/load/researcher/funding",
+        data={
+            "file_": (
+                BytesIO(
+                    """title,translated title,language,type,org type,short description,amount,aurrency,start,end,org name,city,region,country,disambiguated organisation identifier,disambiguation source,orcid id,name,role,email,external identifier type,external identifier value,external identifier url,external identifier relationship
+
+THIS IS A TITLE, नमस्ते,hi,	CONTRACT,MY TYPE,Minerals unde.,300000,NZD.,,2025,Royal Society Te Apārangi,Wellington,,New Zealand,210126,RINGGOLD,1914-2914-3914-00X3, GivenName Surname, LEAD, test123@org1.edu,grant_number,GNS1706900961,https://www.grant-url2.com,PART_OF
+THIS IS A TITLE, नमस्ते,hi,	CONTRACT,MY TYPE,Minerals unde.,300000,NZD.,,2025,Royal Society Te Apārangi,Wellington,,New Zealand,210126,RINGGOLD,1885-2885-3885-00X3, GivenName Surname #2, LEAD, test123_2@org1.edu,grant_number,GNS1706900961,https://www.grant-url2.com,PART_OF
+THIS IS A TITLE, नमस्ते,hi,	CONTRACT,MY TYPE,Minerals unde.,300000,NZD.,,2025,Royal Society Te Apārangi,Wellington,,New Zealand,210126,RINGGOLD,1914-2914-3914-00X3, GivenName Surname, LEAD, test123@org1.edu,type2,GNS9999999999,https://www.grant-url2.com,PART_OF
+THIS IS A TITLE, नमस्ते,hi,	CONTRACT,MY TYPE,Minerals unde.,300000,NZD.,,2025,Royal Society Te Apārangi,Wellington,,New Zealand,210126,RINGGOLD,1885-2885-3885-00X3, GivenName Surname #2, LEAD, test123_2@org1.edu,type2,GNS9999999999,https://www.grant-url2.com,PART_OF
+THIS IS A TITLE #2, नमस्ते #2,hi,	CONTRACT,MY TYPE,Minerals unde.,900000,USD.,,2025,,,,,210126,RINGGOLD,1914-2914-3914-00X3, GivenName Surname, LEAD, test123@org1.edu,,,,""".encode()  # noqa: E501
+                ),  # noqa: E501
+                "fundings.csv",
+            ),
+        },
+        follow_redirects=True)
+    assert resp.status_code == 200
+    assert b"THIS IS A TITLE" in resp.data
+    assert b"THIS IS A TITLE #2" in resp.data
+    assert b"fundings.csv" in resp.data
+    assert Task.select().where(Task.task_type == TaskType.FUNDING).count() == 1
+    task = Task.select().where(Task.task_type == TaskType.FUNDING).first()
+    assert task.funding_records.count() == 2
+    fr = task.funding_records.where(FundingRecord.title == 'THIS IS A TITLE').first()
+    assert fr.contributors.count() == 2
+    assert fr.external_ids.count() == 4
+
+    resp = client.post(
+        "/load/researcher/funding",
+        data={
+            "file_": (
+                BytesIO(
+                    """title	translated title	language	type	org type	short description	amount	aurrency	start	end	org name	city	region	country	disambiguated organisation identifier	disambiguation source	orcid id	name	role	email	external identifier type	external identifier value	external identifier url	external identifier relationship
+THIS IS A TITLE #3	 नमस्ते	hi	CONTRACT	MY TYPE	Minerals unde.	300000	NZD.		2025	Royal Society Te Apārangi	Wellington		New Zealand	210126	RINGGOLD	1914-2914-3914-00X3	 GivenName Surname	 LEAD	 test123@org1.edu	grant_number	GNS1706900961	https://www.grant-url2.com	PART_OF
+THIS IS A TITLE #4	 नमस्ते #2	hi	CONTRACT	MY TYPE	Minerals unde.	900000	USD.		2025					210126	RINGGOLD	1914-2914-3914-00X3	 GivenName Surname	 LEAD	 test123@org1.edu				""".encode()  # noqa: E501
+                ),  # noqa: E501
+                "fundings.tsv",
+            ),
+        },
+        follow_redirects=True)
+    assert resp.status_code == 200
+    assert b"THIS IS A TITLE #3" in resp.data
+    assert b"THIS IS A TITLE #4" in resp.data
+    assert b"fundings.tsv" in resp.data
+    assert Task.select().where(Task.task_type == TaskType.FUNDING).count() == 2
+    task = Task.select().where(Task.task_type == TaskType.FUNDING).order_by(Task.id.desc()).first()
+    assert task.funding_records.count() == 2
+
+    resp = client.post(
+        "/admin/task/delete/",
+        data={
+            "id": task.id,
+            "url": "/admin/task/"
+        },
+        follow_redirects=True)
+    assert resp.status_code == 200
+    assert not Task.select().where(Task.id == task.id).exists()
+
+    resp = client.post(
+        "/load/researcher/funding",
+        data={
+            "file_": (
+                BytesIO(
+                    """title,translated title,language,type,org type,short description,amount,aurrency,start,end,org name,city,region,country,disambiguated organisation identifier,disambiguation source,orcid id,name,role,email,external identifier type,external identifier value,external identifier url,external identifier relationship
+THIS IS A TITLE, नमस्ते,hi,,MY TYPE,Minerals unde.,300000,NZD.,,2025,Royal Society Te Apārangi,Wellington,,New Zealand,210126,RINGGOLD,1914-2914-3914-00X3, GivenName Surname, LEAD, test123@org1.edu,grant_number,GNS1706900961,https://www.grant-url2.com,PART_OF
+
+""".encode()  # noqa: E501
+                ),  # noqa: E501
+                "error.csv",
+            ),
+        },
+        follow_redirects=True)
+    assert resp.status_code == 200
+    assert b"Failed to load funding record file" in resp.data
+    assert b"type is mandatory" in resp.data
+
+    resp = client.post(
+        "/load/researcher/funding",
+        data={"file_": (BytesIO(b"title\nVAL"), "error.csv")},
+        follow_redirects=True)
+    assert resp.status_code == 200
+    assert b"Failed to load funding record file" in resp.data
+    assert b"Expected CSV or TSV format file." in resp.data
+
+    resp = client.post(
+        "/load/researcher/funding",
+        data={"file_": (BytesIO(b"header1,header2,header2\n1,2,3"), "error.csv")},
+        follow_redirects=True)
+    assert resp.status_code == 200
+    assert b"Failed to load funding record file" in resp.data
+    assert b"Failed to map fields based on the header of the file" in resp.data
+
+    resp = client.post(
+        "/load/researcher/funding",
+        data={
+            "file_": (
+                BytesIO(
+                    """title,translated title,language,type,org type,short description,amount,aurrency,start,end,org name,city,region,country,disambiguated organisation identifier,disambiguation source,orcid id,name,role,email,external identifier type,external identifier value,external identifier url,external identifier relationship
+THIS IS A TITLE #2, नमस्ते #2,hi,	CONTRACT,MY TYPE,Minerals unde.,900000,USD.,,**ERROR**,,,,,210126,RINGGOLD,1914-2914-3914-00X3, GivenName Surname, LEAD, test123@org1.edu,,,,""".encode()  # noqa: E501
+                ),  # noqa: E501
+                "fundings.csv",
+            ),
+        },
+        follow_redirects=True)
+    assert resp.status_code == 200
+    assert b"Failed to load funding record file" in resp.data
+    assert b"Wrong partial date value '**ERROR**'" in resp.data
+
+    resp = client.post(
+        "/load/researcher/funding",
+        data={
+            "file_": (
+                BytesIO(
+                    """title,translated title,language,type,org type,short description,amount,aurrency,start,end,org name,city,region,country,disambiguated organisation identifier,disambiguation source,orcid id,name,role,email,external identifier type,external identifier value,external identifier url,external identifier relationship
+
+THIS IS A TITLE, नमस्ते,hi,	CONTRACT,MY TYPE,Minerals unde.,300000,NZD.,,2025,Royal Society Te Apārangi,Wellington,,New Zealand,210126,RINGGOLD,1914-2914-3914-00X3, GivenName Surname, LEAD,**ERROR**,grant_number,GNS1706900961,https://www.grant-url2.com,PART_OF """.encode()  # noqa: E501
+                ),  # noqa: E501
+                "fundings.csv",
+            ),
+        },
+        follow_redirects=True)
+    assert resp.status_code == 200
+    assert b"Failed to load funding record file" in resp.data
+    assert b"Invalid email address '**ERROR**'" in resp.data
+
+    resp = client.post(
+        "/load/researcher/funding",
+        data={
+            "file_": (
+                BytesIO(
+                    """title,translated title,language,type,org type,short description,amount,aurrency,start,end,org name,city,region,country,disambiguated organisation identifier,disambiguation source,orcid id,name,role,email,external identifier type,external identifier value,external identifier url,external identifier relationship
+
+THIS IS A TITLE, नमस्ते,hi,	CONTRACT,MY TYPE,Minerals unde.,300000,NZD.,,2025,Royal Society Te Apārangi,Wellington,,New Zealand,210126,RINGGOLD,ERRO-R914-3914-00X3, GivenName Surname, LEAD,user1234@test123.edu,grant_number,GNS1706900961,https://www.grant-url2.com,PART_OF """.encode()  # noqa: E501
+                ),  # noqa: E501
+                "fundings.csv",
+            ),
+        },
+        follow_redirects=True)
+    assert resp.status_code == 200
+    assert b"Failed to load funding record file" in resp.data
+    assert b"Invalid ORCID iD ERRO-R" in resp.data

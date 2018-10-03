@@ -14,7 +14,7 @@ from collections import namedtuple
 from datetime import datetime
 from hashlib import md5
 from io import StringIO
-from itertools import zip_longest
+from itertools import groupby, zip_longest
 from urllib.parse import urlencode
 
 import validators
@@ -1337,22 +1337,25 @@ class FundingRecord(RecordModel):
 
         header_rexs = [
             re.compile(ex, re.I) for ex in [
-                "(external)?\s*id(entifier)?$", "title$", "translated\s+(title)?",
-                "(translated)?\s*(title)?\s*language\s*(code)?", "type$",
-                "org(ani[sz]ation)?\s*(defined)?\s*type", "(short\s*|description\s*)+$", "amount",
-                "currency", "start\s*(date)?", "end\s*(date)?", "(org(gani[zs]ation)?)?\s*name$",
-                "city", "region|state", "country",
-                "disambiguated\s*(org(ani[zs]ation)?)?\s*id(entifier)?",
-                "disambiguation\s+source$", "(is)?\s*active$", "orcid\s*(id)?$", "name$", "role$",
-                "email", "(external)?\s*id(entifier)\s+type$", "(external)?\s*id(entifier)\s+value$",
-                "(external)?\s*(identifier)\s*url", "(external)?\s*(identifier)\s*rel(ationship)?"
+                r"(external)?\s*id(entifier)?$", "title$", r"translated\s+(title)?",
+                r"(translated)?\s*(title)?\s*language\s*(code)?", "type$",
+                r"org(ani[sz]ation)?\s*(defined)?\s*type", r"(short\s*|description\s*)+$",
+                "amount", "currency", r"start\s*(date)?", r"end\s*(date)?",
+                r"(org(gani[zs]ation)?)?\s*name$", "city", "region|state", "country",
+                r"disambiguated\s*(org(ani[zs]ation)?)?\s*id(entifier)?",
+                r"disambiguation\s+source$", "(is)?\s*active$", r"orcid\s*(id)?$", "name$",
+                "role$", "email", r"(external)?\s*id(entifier)?\s+type$",
+                r"(external)?\s*id(entifier)?\s+value$", r"(external)?\s*id(entifier)?\s*url",
+                r"(external)?\s*id(entifier)?\s*rel(ationship)?", "put.code",
+                r"(is)?\s*visib(bility|le)?", r"first\s*(name)?", r"(last|sur)\s*(name)?",
+                "identifier"
             ]
         ]
 
         def index(rex):
             """Return first header column index matching the given regex."""
             for i, column in enumerate(header):
-                if rex.match(column):
+                if rex.match(column.strip()):
                     return i
             else:
                 return None
@@ -1370,42 +1373,51 @@ class FundingRecord(RecordModel):
                 return default
             else:
                 v = row[idxs[i]].strip()
-                return default if v == '' else v
+            return default if v == '' else v
 
-        with db.atomic():
-            try:
-                task = Task.create(org=org, filename=filename, task_type=TaskType.FUNDING)
-                for row_no, row in enumerate(reader):
-                    # skip empty lines:
-                    if len(row) == 0:
-                        continue
-                    if len(row) == 1 and row[0].strip() == '':
-                        continue
+        rows = []
+        for row_no, row in enumerate(reader):
+            # skip empty lines:
+            if len(row) == 0:
+                continue
+            if len(row) == 1 and row[0].strip() == '':
+                continue
 
-                    funding_type = val(row, 4)
-                    if not funding_type:
-                        raise ModelException(
-                            f"Funding type is mandatory, #{row_no+2}: {row}. Header: {header}")
+            funding_type = val(row, 4)
+            if not funding_type:
+                raise ModelException(
+                    f"Funding type is mandatory, #{row_no+2}: {row}. Header: {header}")
 
-                    # The uploaded country must be from ISO 3166-1 alpha-2
-                    country = val(row, 14)
-                    if country:
-                        try:
-                            country = countries.lookup(country).alpha_2
-                        except Exception:
-                            raise ModelException(
-                                f" (Country must be 2 character from ISO 3166-1 alpha-2) in the row "
-                                f"#{row_no+2}: {row}. Header: {header}")
+            # The uploaded country must be from ISO 3166-1 alpha-2
+            country = val(row, 14)
+            if country:
+                try:
+                    country = countries.lookup(country).alpha_2
+                except Exception:
+                    raise ModelException(
+                        f" (Country must be 2 character from ISO 3166-1 alpha-2) in the row "
+                        f"#{row_no+2}: {row}. Header: {header}")
 
-                    orcid, email = val(row, 18), val(row, 21)
-                    if orcid:
-                        validate_orcid_id(orcid)
-                    if email and not validators.email(email):
-                        raise ValueError(
-                            f"Invalid email address '{email}'  in the row #{row_no+2}: {row}")
+            orcid, email = val(row, 18), val(row, 21)
+            if orcid:
+                validate_orcid_id(orcid)
+            if email and not validators.email(email):
+                raise ValueError(
+                    f"Invalid email address '{email}'  in the row #{row_no+2}: {row}")
 
-                    fr = cls(
-                        task=task,
+            external_id_type = val(row, 22)
+            external_id_value = val(row, 23)
+            if bool(external_id_type) != bool(external_id_value):
+                raise ModelException(
+                    f"Invalid external ID the row #{row_no}. Type: {external_id_type}, Value: {external_id_value}")
+
+            name, first_name, last_name = val(row, 19), val(row, 28), val(row, 29)
+            if not name and first_name and last_name:
+                name = first_name + ' ' + last_name
+
+            rows.append(
+                dict(
+                    funding=dict(
                         # external_identifier = val(row, 0),
                         title=val(row, 1),
                         translated_title=val(row, 2),
@@ -1422,38 +1434,60 @@ class FundingRecord(RecordModel):
                         region=val(row, 13) or org.state,
                         country=country or org.country,
                         disambiguated_org_identifier=val(row, 15) or org.disambiguated_id,
-                        disambiguation_source=val(row, 16) or org.disambiguation_source)
+                        disambiguation_source=val(row, 16) or org.disambiguation_source
+                    ),
+                    contributor=dict(
+                        orcid=orcid,
+                        name=val(row, 19),
+                        role=val(row, 20),
+                        email=email,
+                    ),
+                    invitee=dict(
+                        identifier=val(row, 30),
+                        email=email,
+                        first_name=val(row, 28),
+                        last_name=val(row, 29),
+                        orcid=orcid,
+                        put_code=val(row, 26),
+                        visibility=val(row, 27),
+                    ),
+                    external_id=dict(
+                        type=external_id_type,
+                        value=external_id_value,
+                        url=val(row, 24),
+                        relationship=val(row, 25))))
+
+        with db.atomic():
+            try:
+                task = Task.create(org=org, filename=filename, task_type=TaskType.FUNDING)
+                for funding, records in groupby(rows, key=lambda row: row["funding"].items()):
+                    records = list(records)
+
+                    fr = cls(task=task, **dict(funding))
                     validator = ModelValidator(fr)
                     if not validator.validate():
                         raise ModelException(f"Invalid record: {validator.errors}")
                     fr.save()
 
-                    if orcid:
-                        fc = FundingContributor(
-                            funding_record=fr,
-                            orcid=orcid,
-                            name=val(row, 19),
-                            role=val(row, 20),
-                            email=email)
+                    for contributor in set(
+                            tuple(r["contributor"].items()) for r in records
+                            if r["contributor"]["orcid"] or r["contributor"]["email"]):
+                        fc = FundingContributor(funding_record=fr, **dict(contributor))
                         validator = ModelValidator(fc)
                         if not validator.validate():
                             raise ModelException(f"Invalid contributor record: {validator.errors}")
                         fc.save()
 
-                    external_id_type = val(row, 22)
-                    external_id_value = val(row, 23)
-                    if bool(external_id_type) != bool(external_id_value):
-                        raise ModelException(
-                            f"Invalid external ID. Type: {external_id_type}, Value: {external_id_value}"
-                        )
+                    for external_id in set(
+                            tuple(r["external_id"].items()) for r in records
+                            if r["external_id"]["type"] and r["external_id"]["value"]):
+                        ei = ExternalId(funding_record=fr, **dict(external_id))
+                        ei.save()
 
-                    if external_id_type and external_id_value:
-                        ei = ExternalId(
-                            funding_record=fr,
-                            type=external_id_type,
-                            value=external_id_value,
-                            url=val(row, 24),
-                            relationship=val(row, 25))
+                    for invitee in set(
+                            tuple(r["invitee"].items()) for r in records
+                            if r["invitee"]["orcid"] and r["invitee"]["email"]):
+                        ei = ExternalId(funding_record=fr, **dict(external_id))
                         ei.save()
 
                 return task
