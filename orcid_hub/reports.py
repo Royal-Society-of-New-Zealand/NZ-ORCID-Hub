@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """Application views for reporting."""
 
+import re
 from datetime import datetime
 from flask import flash, make_response, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
@@ -151,8 +152,43 @@ def user_cv(op=None):
             w for g in record.get("activities-summary", "works", "group")
             for w in g.get("work-summary")
         ]
+        work_type_journal = []
+        work_type_books = []
+        work_type_book_chapter = []
+        work_type_conference = []
+        work_type_patent = []
+        work_type_other = []
+
+        for w in works:
+            if w.get("type") in ['JOURNAL_ARTICLE', 'JOURNAL_ISSUE']:
+                work_type_journal.append(w)
+            elif w.get("type") in ['BOOK', 'BOOK_REVIEW']:
+                work_type_books.append(w)
+            elif w.get("type") in ['BOOK_CHAPTER', 'EDITED_BOOK']:
+                work_type_book_chapter.append(w)
+            elif w.get("type") in ['CONFERENCE_PAPER', 'CONFERENCE_ABSTRACT', 'CONFERENCE_POSTER']:
+                work_type_conference.append(w)
+            elif w.get("type") in ['PATENT']:
+                work_type_patent.append(w)
+            else:
+                work_type_other.append(w)
+
         educations = record.get("activities-summary", "educations", "education-summary")
         employments = record.get("activities-summary", "employments", "employment-summary")
+
+        first_name, *second_names = re.split("[,; \t]", str(
+            record.get("person", "name", "given-names", "value", default=user.first_name)))
+
+        countries = [a.get("country", "value") for a in record.get("person", "addresses", "address")]
+
+        emails = [e.get("email") for e in record.get("person", "emails", "email")] if record.get(
+            "person", "emails", "email") else [user.email]
+
+        researcher_urls = [r.get("url", "value") for r in record.get("person", "researcher-urls", "researcher-url")]
+
+        person_data = dict(first_name=first_name, second_names=second_names,
+                           family_name=record.get("person", "name", "family-name", "value", default=user.last_name),
+                           address=countries, emails=emails, researcher_urls=researcher_urls)
 
         resp = make_response(
             render_template(
@@ -160,7 +196,13 @@ def user_cv(op=None):
                 user=user,
                 now=datetime.now(),
                 record=record,
-                works=works,
+                person_data=person_data,
+                work_type_books=work_type_books,
+                work_type_book_chapter=work_type_book_chapter,
+                work_type_journal=work_type_journal,
+                work_type_conference=work_type_conference,
+                work_type_patent=work_type_patent,
+                work_type_other=work_type_other,
                 educations=educations,
                 employments=employments))
         resp.headers["Cache-Control"] = "private, max-age=60"
