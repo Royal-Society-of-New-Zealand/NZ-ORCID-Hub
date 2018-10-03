@@ -393,7 +393,7 @@ Year / year-year, distinction.</span></i></font></font></p>
 
 </p>
 <p style="margin-bottom: 0cm; line-height: 100%; page-break-before: always">
-<font face="Arial, serif"><font size="3" style="font-size: 12pt"><i><span style="font-weight: normal">Part
+<font face="Arial, serif"><font size="3" style="font-size: 9pt"><i><span style="font-weight: normal">Part
 2 should include information pertinent to your research proposal.
 The following sections should not total more than three pages.</span></i></font></font></p>
 <p style="margin-bottom: 0cm; line-height: 100%"><font face="Arial, serif"><font size="3" style="font-size: 12pt"><span style="font-style: normal"><b>PART
@@ -409,29 +409,32 @@ The following sections should not total more than three pages.</span></i></font>
 	</tr>
 </table>
 <p style="margin-bottom: 0cm; line-height: 100%">
-        <font face="Arial, serif"><font size="3" style="font-size: 12pt"><i><span style="font-weight: normal">Expand/reduce
+        <font face="Arial, serif"><font size="3" style="font-size: 9pt"><i><span style="font-weight: normal">Expand/reduce
 the following table as needed, listing publications relevant to your
-proposal.  List in reverse date order.  </span></i></font></font><font face="Arial, serif"><font size="3" style="font-size: 12pt"><i><b>Bold</b></i></font></font><font face="Arial, serif"><font size="3" style="font-size: 12pt"><i><span style="font-weight: normal">
+proposal.  List in reverse date order.  </span></i></font></font><font face="Arial, serif"><font size="3" style="font-size: 9pt"><i><b>Bold</b></i></font></font><font face="Arial, serif"><font size="3" style="font-size: 9pt"><i><span style="font-weight: normal">
 your name in lists of authors.</span></i></font></font></p>
 <table width="612" cellpadding="7" cellspacing="0">
 	<col width="596">
 	<tr>
 		<td width="596" valign="top" bgcolor="#e0e0e0" style="border: 1px solid #000001; padding: 0cm 0.19cm">
-			<p><font face="Arial, serif"><font size="2" style="font-size: 11pt"><span style="font-style: normal"><span style="font-weight: normal">Peer-reviewed
+			<p><font face="Arial, serif"><font size="2" style="font-size: 12pt"><span style="font-style: normal"><span style="font-weight: normal">Peer-reviewed
 			journal articles</span></span></font></font></p>
 		</td>
 	</tr>
 	<tr>
 		<td width="596" valign="top" style="border: 1px solid #000001; padding: 0cm 0.19cm">
-			<p style="margin-bottom: 0cm; font-style: normal; font-weight: normal">
+      <ul>
+        {% for j in work_type_journal %}
+        <li><font face="Arial, serif"><font style="font-size: 12pt">{{ j.get("publication-date", "year", "value")}}, {{
+          j.get("title", "title", "value") }}, <font style="font-size: 11pt"><i>{{ j.get("type") }}</i>
+            {% for e in j.get("external-ids", "external-id") %}
+            , {{ e.get("external-id-type")|upper}}: {{ e.get("external-id-value") }}
+            {% endfor %}
+          </font></font></font></li>
+        {% endfor %}
+      </ul>
+      <p style="margin-bottom: 1cm; font-style: normal; font-weight: normal">
 			<br/>
-
-			</p>
-			<p style="margin-bottom: 0cm; font-style: normal; font-weight: normal">
-			<br/>
-
-			</p>
-			<p style="font-style: normal; font-weight: normal"><br/>
 
 			</p>
 		</td>
@@ -444,15 +447,18 @@ your name in lists of authors.</span></i></font></font></p>
 	</tr>
 	<tr>
 		<td width="596" valign="top" style="border: 1px solid #000001; padding: 0cm 0.19cm">
-			<p style="margin-bottom: 0cm; font-style: normal; font-weight: normal">
+      <ul>
+        {% for j in work_type_books %}
+        <li><font face="Arial, serif"><font style="font-size: 12pt">{{ j.get("publication-date", "year", "value")}}, {{
+          j.get("title", "title", "value") }}, <font style="font-size: 11pt"><i>{{ j.get("type") }}</i>
+            {% for e in j.get("external-ids", "external-id") %}
+            , {{ e.get("external-id-type")|upper}}: {{ e.get("external-id-value") }}
+            {% endfor %}
+          </font></font></font></li>
+        {% endfor %}
+      </ul>
+      <p style="margin-bottom: 1cm; font-style: normal; font-weight: normal">
 			<br/>
-
-			</p>
-			<p style="margin-bottom: 0cm; font-style: normal; font-weight: normal">
-			<br/>
-
-			</p>
-			<p style="font-style: normal; font-weight: normal"><br/>
 
 			</p>
 		</td>
@@ -465,15 +471,18 @@ your name in lists of authors.</span></i></font></font></p>
 	</tr>
 	<tr>
 		<td width="596" valign="top" style="border: 1px solid #000001; padding: 0cm 0.19cm">
-			<p style="margin-bottom: 0cm; font-style: normal; font-weight: normal">
+      <ul>
+        {% for j in work_type_book_chapter %}
+        <li><font face="Arial, serif"><font style="font-size: 12pt">{{ j.get("publication-date", "year", "value")}}, {{
+          j.get("title", "title", "value") }}, <font style="font-size: 11pt"><i>{{ j.get("type") }}</i>
+            {% for e in j.get("external-ids", "external-id") %}
+            , {{ e.get("external-id-type")|upper}}: {{ e.get("external-id-value") }}
+            {% endfor %}
+          </font></font></font></li>
+        {% endfor %}
+      </ul>
+      <p style="margin-bottom: 1cm; font-style: normal; font-weight: normal">
 			<br/>
-
-			</p>
-			<p style="margin-bottom: 0cm; font-style: normal; font-weight: normal">
-			<br/>
-
-			</p>
-			<p style="font-style: normal; font-weight: normal"><br/>
 
 			</p>
 		</td>
@@ -486,15 +495,18 @@ your name in lists of authors.</span></i></font></font></p>
 	</tr>
 	<tr>
 		<td width="596" valign="top" style="border: 1px solid #000001; padding: 0cm 0.19cm">
-			<p style="margin-bottom: 0cm; font-style: normal; font-weight: normal">
+      <ul>
+        {% for j in work_type_conference %}
+        <li><font face="Arial, serif"><font style="font-size: 12pt">{{ j.get("publication-date", "year", "value")}}, {{
+          j.get("title", "title", "value") }}, <font style="font-size: 11pt"><i>{{ j.get("type") }}</i>
+            {% for e in j.get("external-ids", "external-id") %}
+            , {{ e.get("external-id-type")|upper}}: {{ e.get("external-id-value") }}
+            {% endfor %}
+          </font></font></font></li>
+        {% endfor %}
+      </ul>
+      <p style="margin-bottom: 1cm; font-style: normal; font-weight: normal">
 			<br/>
-
-			</p>
-			<p style="margin-bottom: 0cm; font-style: normal; font-weight: normal">
-			<br/>
-
-			</p>
-			<p style="font-style: normal; font-weight: normal"><br/>
 
 			</p>
 		</td>
@@ -506,15 +518,18 @@ your name in lists of authors.</span></i></font></font></p>
 	</tr>
 	<tr>
 		<td width="596" valign="top" style="border: 1px solid #000001; padding: 0cm 0.19cm">
-			<p style="margin-bottom: 0cm; font-style: normal; font-weight: normal">
+      <ul>
+        {% for j in work_type_patent %}
+        <li><font face="Arial, serif"><font style="font-size: 12pt">{{ j.get("publication-date", "year", "value")}}, {{
+          j.get("title", "title", "value") }}, <font style="font-size: 11pt"><i>{{ j.get("type") }}</i>
+            {% for e in j.get("external-ids", "external-id") %}
+            , {{ e.get("external-id-type")|upper}}: {{ e.get("external-id-value") }}
+            {% endfor %}
+          </font></font></font></li>
+        {% endfor %}
+      </ul>
+      <p style="margin-bottom: 1cm; font-style: normal; font-weight: normal">
 			<br/>
-
-			</p>
-			<p style="margin-bottom: 0cm; font-style: normal; font-weight: normal">
-			<br/>
-
-			</p>
-			<p style="font-style: normal; font-weight: normal"><br/>
 
 			</p>
 		</td>
@@ -528,15 +543,18 @@ your name in lists of authors.</span></i></font></font></p>
 	</tr>
 	<tr>
 		<td width="596" valign="top" style="border: 1px solid #000001; padding: 0cm 0.19cm">
-			<p style="margin-bottom: 0cm; font-style: normal; font-weight: normal">
+      <ul>
+        {% for j in work_type_other %}
+        <li><font face="Arial, serif"><font style="font-size: 12pt">{{ j.get("publication-date", "year", "value")}}, {{
+          j.get("title", "title", "value") }}, <font style="font-size: 11pt"><i>{{ j.get("type") }}</i>
+            {% for e in j.get("external-ids", "external-id") %}
+            , {{ e.get("external-id-type")|upper}}: {{ e.get("external-id-value") }}
+            {% endfor %}
+          </font></font></font></li>
+        {% endfor %}
+      </ul>
+      <p style="margin-bottom: 1cm; font-style: normal; font-weight: normal">
 			<br/>
-
-			</p>
-			<p style="margin-bottom: 0cm; font-style: normal; font-weight: normal">
-			<br/>
-
-			</p>
-			<p style="font-style: normal; font-weight: normal"><br/>
 
 			</p>
 		</td>
@@ -554,7 +572,7 @@ your name in lists of authors.</span></i></font></font></p>
 		</td>
 	</tr>
 </table>
-<p style="margin-bottom: 0cm; line-height: 100%"><font face="Arial, serif"><font size="3" style="font-size: 12pt"><i><span style="font-weight: normal">Repeat
+<p style="margin-bottom: 0cm; line-height: 100%"><font face="Arial, serif"><font size="3" style="font-size: 9pt"><i><span style="font-weight: normal">Repeat
 and expand box below as necessary.</span></i></font></font></p>
 <table width="612" cellpadding="7" cellspacing="0">
 	<col width="596">
@@ -575,12 +593,5 @@ and expand box below as necessary.</span></i></font></font></p>
 		</td>
 	</tr>
 </table>
-
-<div id="print-head">
-  Heading for paged media
-</div>
-<div id="print-foot">
-  Page:
-</div>
 </body>
 </html>

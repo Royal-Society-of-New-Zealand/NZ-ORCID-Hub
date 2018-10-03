@@ -176,8 +176,9 @@ def user_cv(op=None):
         educations = record.get("activities-summary", "educations", "education-summary")
         employments = record.get("activities-summary", "employments", "employment-summary")
 
-        first_name, *second_names = re.split("[,; \t]", record.get("person", "name", "given-names", "value",
-                                                                   default=user.first_name))
+        first_name, *second_names = re.split("[,; \t]", str(
+            record.get("person", "name", "given-names", "value", default=user.first_name)))
+
         countries = [a.get("country", "value") for a in record.get("person", "addresses", "address")]
 
         emails = [e.get("email") for e in record.get("person", "emails", "email")] if record.get(
