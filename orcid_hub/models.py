@@ -1484,7 +1484,7 @@ class FundingRecord(RecordModel):
                         ei = ExternalId(funding_record=fr, **dict(external_id))
                         ei.save()
 
-                    for invitee in set(
+                        for invitee in set(
                             tuple(r["invitee"].items()) for r in records
                             if r["invitee"]["orcid"] and r["invitee"]["email"]):
                         rec = FundingInvitees(funding_record=fr, **dict(invitee))
