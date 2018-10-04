@@ -1370,7 +1370,7 @@ def year_range(entry):
         val = "unknown"
     val += "-"
 
-    end_date = entry.get("end_date") or entry.get("entry-date")
+    end_date = entry.get("end_date") or entry.get("end-date")
     if end_date and end_date["year"]["value"]:
         val += end_date["year"]["value"]
     else:
