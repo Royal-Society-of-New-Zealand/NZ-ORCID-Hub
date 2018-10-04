@@ -1337,7 +1337,7 @@ class FundingRecord(RecordModel):
 
         header_rexs = [
             re.compile(ex, re.I) for ex in [
-                r"(external)?\s*id(entifier)?$", "title$", r"translated\s+(title)?",
+                r"ext(ernal)?\s*id(entifier)?$", "title$", r"translated\s+(title)?",
                 r"(translated)?\s*(title)?\s*language\s*(code)?", "type$",
                 r"org(ani[sz]ation)?\s*(defined)?\s*type", r"(short\s*|description\s*)+$",
                 "amount", "currency", r"start\s*(date)?", r"end\s*(date)?",
@@ -1346,7 +1346,7 @@ class FundingRecord(RecordModel):
                 r"disambiguation\s+source$", "(is)?\s*active$", r"orcid\s*(id)?$", "name$",
                 "role$", "email", r"(external)?\s*id(entifier)?\s+type$",
                 r"(external)?\s*id(entifier)?\s+value$", r"(external)?\s*id(entifier)?\s*url",
-                r"(external)?\s*id(entifier)?\s*rel(ationship)?", "put.code",
+                r"(external)?\s*id(entifier)?\s*rel(ationship)?", "put.*code",
                 r"(is)?\s*visib(bility|le)?", r"first\s*(name)?", r"(last|sur)\s*(name)?",
                 "identifier"
             ]
@@ -1369,7 +1369,7 @@ class FundingRecord(RecordModel):
             org = current_user.organisation if current_user else None
 
         def val(row, i, default=None):
-            if len(row) <= i or idxs[i] is None or idxs[i] >= len(row):
+            if len(idxs) <= i or idxs[i] is None or idxs[i] >= len(row):
                 return default
             else:
                 v = row[idxs[i]].strip()
@@ -1438,7 +1438,7 @@ class FundingRecord(RecordModel):
                     ),
                     contributor=dict(
                         orcid=orcid,
-                        name=val(row, 19),
+                        name=name,
                         role=val(row, 20),
                         email=email,
                     ),
@@ -1485,9 +1485,11 @@ class FundingRecord(RecordModel):
                         ei.save()
 
                     for invitee in set(
-                            tuple(r["invitee"].items()) for r in records
-                            if r["invitee"]["orcid"] and r["invitee"]["email"]):
+                            tuple(r["invitee"].items()) for r in records if r["invitee"]["email"]):
                         rec = FundingInvitees(funding_record=fr, **dict(invitee))
+                        validator = ModelValidator(rec)
+                        if not validator.validate():
+                            raise ModelException(f"Invalid invitee record: {validator.errors}")
                         rec.save()
 
                 return task

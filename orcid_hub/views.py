@@ -490,6 +490,7 @@ class TaskAdmin(AppModelView):
         "org.name",
     )
     column_list = [
+        "task_type",
         "filename",
         "created_at",
         "org",
