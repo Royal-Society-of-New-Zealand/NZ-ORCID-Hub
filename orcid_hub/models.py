@@ -1434,8 +1434,7 @@ class FundingRecord(RecordModel):
                         region=val(row, 13) or org.state,
                         country=country or org.country,
                         disambiguated_org_identifier=val(row, 15) or org.disambiguated_id,
-                        disambiguation_source=val(row, 16) or org.disambiguation_source
-                    ),
+                        disambiguation_source=val(row, 16) or org.disambiguation_source),
                     contributor=dict(
                         orcid=orcid,
                         name=name,
