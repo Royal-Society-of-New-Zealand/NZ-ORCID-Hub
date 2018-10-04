@@ -47,7 +47,6 @@ from .models import (
 from .pyinfo import info
 from .utils import generate_confirmation_token, get_next_url, read_uploaded_file, send_user_invitation
 
-
 HEADERS = {"Accept": "application/vnd.orcid+json", "Content-type": "application/vnd.orcid+json"}
 ORCID_BASE_URL = app.config["ORCID_BASE_URL"]
 SCOPE_ACTIVITIES_UPDATE = app.config["SCOPE_ACTIVITIES_UPDATE"]
@@ -1370,7 +1369,7 @@ def year_range(entry):
         val = "unknown"
     val += "-"
 
-    end_date = entry.get("end_date") or entry.get("entry-date")
+    end_date = entry.get("end_date") or entry.get("end-date")
     if end_date and end_date["year"]["value"]:
         val += end_date["year"]["value"]
     else:
