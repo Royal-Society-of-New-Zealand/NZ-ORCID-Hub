@@ -26,6 +26,7 @@ from flask_admin.helpers import get_redirect_target
 from flask_admin.model import BaseModelView, typefmt
 from flask_login import current_user, login_required
 from jinja2 import Markup
+from peewee import SQL
 from playhouse.shortcuts import model_to_dict
 from werkzeug.utils import secure_filename
 from wtforms.fields import BooleanField
@@ -987,6 +988,8 @@ class FundingRecordAdmin(FundingWorkCommonModelView):
     column_searchable_list = ("title",)
     list_template = "funding_record_list.html"
     column_export_list = (
+        "funding_id",
+        "identifier",
         "put_code",
         "title",
         "translated_title",
@@ -1010,7 +1013,6 @@ class FundingRecordAdmin(FundingWorkCommonModelView):
         "name",
         "role",
         "external_id_type",
-        "external_id_value",
         "external_id_url",
         "external_id_relationship",
         "status",)
@@ -1040,23 +1042,63 @@ class FundingRecordAdmin(FundingWorkCommonModelView):
             view_args.filters,
             page_size=self.export_max_rows,
             execute=False)
+
+        sq = (FundingInvitees.select(
+            FundingInvitees.funding_record,
+            FundingInvitees.email,
+            FundingInvitees.orcid,
+            SQL("NULL").alias("name"),
+            SQL("NULL").alias("role"),
+            FundingInvitees.identifier,
+            FundingInvitees.first_name,
+            FundingInvitees.last_name,
+            FundingInvitees.put_code,
+            FundingInvitees.visibility,
+            FundingInvitees.status,
+            FundingInvitees.processed_at,
+        ) | FundingContributor.select(
+            FundingContributor.funding_record,
+            FundingContributor.email,
+            FundingContributor.orcid,
+            FundingContributor.name,
+            FundingContributor.role,
+            SQL("NULL").alias("identifier"),
+            SQL("NULL").alias("first_name"),
+            SQL("NULL").alias("last_name"),
+            SQL("NULL").alias("put_code"),
+            SQL("NULL").alias("visibility"),
+            SQL("NULL").alias("status"),
+            SQL("NULL").alias("processed_at"),
+        ).join(
+            FundingInvitees,
+            JOIN.LEFT_OUTER,
+            on=((FundingInvitees.email == FundingContributor.email) |
+                (FundingInvitees.orcid == FundingContributor.orcid))).join(
+                    User,
+                    JOIN.LEFT_OUTER,
+                    on=((User.email == FundingContributor.email) |
+                        (User.orcid == FundingContributor.orcid))).where(
+                            (User.id.is_null() | FundingInvitees.id.is_null()))).alias("sq")
+
         query = query.select(
             FundingRecord,
-            FundingContributor,
-            # FundingContribut.orcid,
-            # FundingContribut.name,
-            # FundingContribut.role,
-            # FundingContribut.email,
+            sq.c.email,
+            sq.c.orcid,
+            sq.c.name,
+            sq.c.role,
+            sq.c.identifier,
+            sq.c.first_name,
+            sq.c.last_name,
+            sq.c.put_code,
+            sq.c.visibility,
+            sq.c.status,
             ExternalId.type.alias("external_id_type"),
-            ExternalId.value.alias("external_id_value"),
+            ExternalId.value.alias("funding_id"),
             ExternalId.url.alias("external_id_url"),
             ExternalId.relationship.alias("external_id_relationship")).join(
-                FundingContributor,
-                JOIN.LEFT_OUTER,
-                on=(FundingContributor.funding_record_id == FundingRecord.id)).join(
-                    ExternalId,
-                    JOIN.LEFT_OUTER,
-                    on=(ExternalId.funding_record_id == FundingRecord.id)).naive()
+                ExternalId, JOIN.LEFT_OUTER,
+                on=(ExternalId.funding_record_id == FundingRecord.id)).join(
+                    sq, JOIN.LEFT_OUTER, on=(sq.c.funding_record_id == FundingRecord.id)).naive()
 
         # https://docs.djangoproject.com/en/1.8/howto/outputting-csv/
         class Echo(object):
