@@ -1348,7 +1348,7 @@ class FundingRecord(RecordModel):
                 r"(external)?\s*id(entifier)?\s+value$", r"(external)?\s*id(entifier)?\s*url",
                 r"(external)?\s*id(entifier)?\s*rel(ationship)?", "put.*code",
                 r"(is)?\s*visib(bility|le)?", r"first\s*(name)?", r"(last|sur)\s*(name)?",
-                "identifier"
+                "identifier", "excluded?(\s+from(\s+profile)?)?"
             ]
         ]
 
@@ -1415,8 +1415,12 @@ class FundingRecord(RecordModel):
             if not name and first_name and last_name:
                 name = first_name + ' ' + last_name
 
+            # exclude the record from the profile
+            excluded = val(row, 31)
+            excluded = bool(excluded and excluded.lower() in ["y", "yes", "true", "1"])
             rows.append(
                 dict(
+                    excluded=excluded,
                     funding=dict(
                         # external_identifier = val(row, 0),
                         title=val(row, 1),
@@ -1484,7 +1488,8 @@ class FundingRecord(RecordModel):
                         ei.save()
 
                     for invitee in set(
-                            tuple(r["invitee"].items()) for r in records if r["invitee"]["email"]):
+                            tuple(r["invitee"].items()) for r in records
+                            if r["invitee"]["email"] and not r["excluded"]):
                         rec = FundingInvitees(funding_record=fr, **dict(invitee))
                         validator = ModelValidator(rec)
                         if not validator.validate():
