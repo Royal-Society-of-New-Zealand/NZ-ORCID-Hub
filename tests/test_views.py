@@ -2334,10 +2334,10 @@ def test_sync_profiles(client, mocker):
     assert resp.status_code == 200
 
 
-def test_load_funding_csv(client, mocker):
+def test_load_funding_csv(client):
     """Test preload organisation data."""
     user = client.data["admin"]
-    client.login(user)
+    client.login(user, follow_redirects=True)
 
     resp = client.post(
         "/load/researcher/funding",
@@ -2572,10 +2572,10 @@ THIS IS A TITLE EX	 नमस्ते	hi	CONTRACT	MY TYPE	Minerals unde.	900000
         assert r.funding_invitees.count() == 0
 
 
-def test_researcher_work(client, mocker):
+def test_researcher_work(client):
     """Test preload work data."""
     user = client.data["admin"]
-    client.login(user)
+    client.login(user, follow_redirects=True)
     resp = client.post(
         "/load/researcher/work",
         data={
