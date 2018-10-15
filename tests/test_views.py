@@ -2516,6 +2516,7 @@ THIS IS A TITLE, नमस्ते,hi,	CONTRACT,MY TYPE,Minerals unde.,300000,N
     assert b"Failed to load funding record file" in resp.data
     assert b"Invalid ORCID iD ERRO-R" in resp.data
 
+    # with "excluded"
     resp = client.post(
         "/load/researcher/funding",
         data={
@@ -2547,3 +2548,25 @@ THIS IS A TITLE, नमस्ते,hi,	CONTRACT,MY TYPE,Minerals unde.,300000,N
     resp = client.get(f"/admin/fundingrecord/export/tsv/?task_id={task.id}")
     assert resp.headers["Content-Type"] == "text/tsv; charset=utf-8"
     assert len(resp.data.splitlines()) == 6
+
+    resp = client.post(
+        "/load/researcher/funding",
+        data={
+            "file_": (
+                BytesIO(
+                    """title	translated title	language	type	org type	short description	amount	aurrency	start	end	org name	city	region	country	disambiguated organisation identifier	disambiguation source	orcid id	name	role	email	external identifier type	external identifier value	external identifier url	external identifier relationship    	exclude
+THIS IS A TITLE EX	 नमस्ते	hi	CONTRACT	MY TYPE	Minerals unde.	300000	NZD.		2025	Royal Society Te Apārangi	Wellington		New Zealand	210126	RINGGOLD	1914-2914-3914-00X3	 GivenName Surname	 LEAD	 test123@org1.edu	grant_number	GNS1706900961	https://www.grant-url2.com	PART_OF	Y
+THIS IS A TITLE EX	 नमस्ते	hi	CONTRACT	MY TYPE	Minerals unde.	900000	USD.		2025					210126	RINGGOLD	1914-2914-3914-00X3	 GivenName Surname	 LEAD	 test123@org1.edu				    	Y""".encode()  # noqa: E501
+                ),  # noqa: E501
+                "fundings_ex.tsv",
+            ),
+        },
+        follow_redirects=True)
+    assert resp.status_code == 200
+    assert b"THIS IS A TITLE EX" in resp.data
+    assert b"fundings_ex.tsv" in resp.data
+    assert Task.select().where(Task.task_type == TaskType.FUNDING).count() == 2
+    task = Task.select().where(Task.task_type == TaskType.FUNDING).order_by(Task.id.desc()).first()
+    assert task.funding_records.count() == 2
+    for r in task.funding_records:
+        assert r.funding_invitees.count() == 0
