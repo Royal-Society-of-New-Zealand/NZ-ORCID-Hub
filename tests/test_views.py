@@ -2570,3 +2570,46 @@ THIS IS A TITLE EX	 नमस्ते	hi	CONTRACT	MY TYPE	Minerals unde.	900000
     assert task.funding_records.count() == 2
     for r in task.funding_records:
         assert r.funding_invitees.count() == 0
+
+
+def test_researcher_work(client, mocker):
+    """Test preload work data."""
+    user = client.data["admin"]
+    client.login(user)
+    resp = client.post(
+        "/load/researcher/work",
+        data={
+            "file_": (
+                BytesIO(
+                    b'[{"invitees": [{"identifier":"00001", "email": "marco.232323newwjwewkppp@mailinator.com",'
+                    b'"first-name": "Alice", "last-name": "Contributor 1", "ORCID-iD": null, "put-code":null}],'
+                    b'"title": { "title": { "value": "WORK TITLE #1"}}, "citation": {"citation-type": '
+                    b'"FORMATTED_UNSPECIFIED", "citation-value": "This is citation value"}, "type": "BOOK_CHR",'
+                    b'"contributors": {"contributor": [{"contributor-attributes": {"contributor-role": '
+                    b'"AUTHOR", "contributor-sequence" : "1"},"credit-name": {"value": "firentini"}}]}'
+                    b', "external-ids": {"external-id": [{"external-id-value": '
+                    b'"GNS170661","external-id-type": "grant_number"}]}}]'),
+                "work001.json",
+            ),
+            "email":
+            user.email
+        },
+        follow_redirects=True)
+    assert resp.status_code == 200
+    # Work file successfully loaded.
+    assert b"WORK TITLE #1" in resp.data
+    assert b"BOOK_CHR" in resp.data
+    task = Task.get(filename="work001.json")
+    assert task.records.count() == 1
+    rec = task.records.first()
+    assert rec.external_ids.count() == 1
+    assert rec.work_contributors.count() == 1
+    assert rec.work_invitees.count() == 1
+
+    resp = client.get(f"/admin/workrecord/export/csv/?task_id={task.id}")
+    assert resp.headers["Content-Type"] == "text/csv; charset=utf-8"
+    assert len(resp.data.splitlines()) == 3
+
+    resp = client.get(f"/admin/workrecord/export/csv/?task_id={task.id}")
+    assert resp.headers["Content-Type"] == "text/csv; charset=utf-8"
+    assert len(resp.data.splitlines()) == 3
