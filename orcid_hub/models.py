@@ -1183,8 +1183,6 @@ class UserInvitation(BaseModel, AuditMixin):
 class RecordModel(BaseModel):
     """Commond model bits of the task records."""
 
-    put_code = IntegerField(null=True)
-
     def save(self, *args, **kwargs):
         """Update related batch task when changing the record."""
         if self.is_dirty() and hasattr(self, "task"):
@@ -1206,6 +1204,7 @@ class GroupIdRecord(RecordModel):
                     ('magazine', 'magazine'), ('peer-review service', 'peer-review service')]
     type_choices.sort(key=lambda e: e[1])
     type_choices.insert(0, ("", ""))
+    put_code = IntegerField(null=True)
     processed_at = DateTimeField(null=True)
     status = TextField(null=True, help_text="Record processing status.")
     name = CharField(max_length=120,
@@ -1236,6 +1235,7 @@ class AffiliationRecord(RecordModel):
     is_active = BooleanField(
         default=False, help_text="The record is marked 'active' for batch processing", null=True)
     task = ForeignKeyField(Task, related_name="affiliation_records", on_delete="CASCADE")
+    put_code = IntegerField(null=True)
     external_id = CharField(
         max_length=100,
         null=True,

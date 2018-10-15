@@ -299,7 +299,6 @@ def app():
         _app.data = locals()
         yield _app
 
-    logout_user()
     ctx.pop()
     return
 
