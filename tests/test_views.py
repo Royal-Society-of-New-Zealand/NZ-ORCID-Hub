@@ -2385,7 +2385,7 @@ THIS IS A TITLE #2, नमस्ते #2,hi,	CONTRACT,MY TYPE,Minerals unde.,90
 
     resp = client.get(f"/admin/fundingrecord/export/csv/?task_id={task.id}")
     assert resp.headers["Content-Type"] == "text/csv; charset=utf-8"
-    assert len(resp.data.splitlines()) == 11
+    assert len(resp.data.splitlines()) == 16
 
     resp = client.post(
         "/load/researcher/funding",
