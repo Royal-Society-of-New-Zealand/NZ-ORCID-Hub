@@ -2565,7 +2565,7 @@ THIS IS A TITLE EX	 नमस्ते	hi	CONTRACT	MY TYPE	Minerals unde.	900000
     assert resp.status_code == 200
     assert b"THIS IS A TITLE EX" in resp.data
     assert b"fundings_ex.tsv" in resp.data
-    assert Task.select().where(Task.task_type == TaskType.FUNDING).count() == 2
+    assert Task.select().where(Task.task_type == TaskType.FUNDING).count() == 5
     task = Task.select().where(Task.task_type == TaskType.FUNDING).order_by(Task.id.desc()).first()
     assert task.funding_records.count() == 2
     for r in task.funding_records:

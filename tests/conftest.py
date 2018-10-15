@@ -309,6 +309,7 @@ def client(app):
     with app.test_client() as client:
         client.data = app.data
         yield client
+        client.logout()
 
 
 @pytest.fixture
