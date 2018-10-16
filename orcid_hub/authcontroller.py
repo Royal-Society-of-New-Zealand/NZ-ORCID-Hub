@@ -102,6 +102,7 @@ def faq():
     return render_template("faq.html")
 
 
+@app.route("/sso/sp")
 @app.route("/Tuakiri/SP")
 def shib_sp():
     """Remote Shibboleth authenitication handler.
@@ -136,6 +137,7 @@ def get_attributes(key):
     return data
 
 
+@app.route("/sso/login")
 @app.route("/Tuakiri/login")
 def handle_login():
     """Shibboleth and Rapid Connect authenitcation handler.
