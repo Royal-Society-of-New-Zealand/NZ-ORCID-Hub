@@ -23,6 +23,7 @@ os.environ["DATABASE_URL"] = DATABASE_URL
 # yapf: enable
 
 from flask.testing import FlaskClient
+from flask import _request_ctx_stack
 
 import pytest
 from playhouse import db_url
@@ -109,7 +110,9 @@ class HubClient(FlaskClient):
 
     def logout(self):
         """Perform log-out."""
-        return self.get("/logout")
+        resp = self.get("/logout", follow_redirects=True)
+        _request_ctx_stack.pop()
+        return resp
 
     def login_root(self):
         """Log in with the first found Hub admin user."""
@@ -309,6 +312,7 @@ def client(app):
     with app.test_client() as client:
         client.data = app.data
         yield client
+    client.logout()
 
 
 @pytest.fixture
