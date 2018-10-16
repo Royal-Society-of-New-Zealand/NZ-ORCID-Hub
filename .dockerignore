@@ -24,3 +24,4 @@ gen-keys
 migrations
 *egg*
 dist
+load_testing

@@ -1034,8 +1034,6 @@ class FundingRecordAdmin(FundingWorkCommonModelView):
         if sort_column is not None:
             sort_column = sort_column[0]
 
-        # count, data = self._export_data()
-        # count, data = super()._export_data()
         # Get count and data
         count, query = self.get_list(
             0,
