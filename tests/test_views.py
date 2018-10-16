@@ -2334,10 +2334,10 @@ def test_sync_profiles(client, mocker):
     assert resp.status_code == 200
 
 
-def test_load_funding_csv(client, mocker):
+def test_load_funding_csv(client):
     """Test preload organisation data."""
     user = client.data["admin"]
-    client.login(user)
+    client.login(user, follow_redirects=True)
 
     resp = client.post(
         "/load/researcher/funding",
@@ -2363,9 +2363,42 @@ THIS IS A TITLE #2, नमस्ते #2,hi,	CONTRACT,MY TYPE,Minerals unde.,90
     assert Task.select().where(Task.task_type == TaskType.FUNDING).count() == 1
     task = Task.select().where(Task.task_type == TaskType.FUNDING).first()
     assert task.funding_records.count() == 2
-    fr = task.funding_records.where(FundingRecord.title == 'THIS IS A TITLE').first()
+    fr = task.funding_records.where(FundingRecord.title == "THIS IS A TITLE").first()
     assert fr.contributors.count() == 2
     assert fr.external_ids.count() == 2
+
+    resp = client.get(f"/admin/fundingrecord/export/tsv/?task_id={task.id}")
+    assert resp.headers["Content-Type"] == "text/tsv; charset=utf-8"
+    assert len(resp.data.splitlines()) == 11
+
+    resp = client.post(
+        "/load/researcher/funding",
+        data={"file_": (BytesIO(resp.data), "funding000.tsv")},
+        follow_redirects=True)
+    assert Task.select().where(Task.task_type == TaskType.FUNDING).count() == 2
+    task = Task.select().where(Task.filename == "funding000.tsv",
+                               Task.task_type == TaskType.FUNDING).first()
+    assert task.funding_records.count() == 2
+    fr = task.funding_records.where(FundingRecord.title == 'THIS IS A TITLE').first()
+    assert fr.contributors.count() == 4
+    assert fr.external_ids.count() == 2
+
+    resp = client.get(f"/admin/fundingrecord/export/csv/?task_id={task.id}")
+    assert resp.headers["Content-Type"] == "text/csv; charset=utf-8"
+    assert len(resp.data.splitlines()) == 16
+
+    resp = client.post(
+        "/load/researcher/funding",
+        data={"file_": (BytesIO(resp.data), "funding001.csv")},
+        follow_redirects=True)
+    assert Task.select().where(Task.task_type == TaskType.FUNDING).count() == 3
+    task = Task.select().where(Task.filename == "funding001.csv",
+                               Task.task_type == TaskType.FUNDING).first()
+    assert task.funding_records.count() == 2
+    fr = task.funding_records.where(FundingRecord.title == 'THIS IS A TITLE').first()
+    assert fr.contributors.count() == 4
+    assert fr.external_ids.count() == 2
+    assert fr.funding_invitees.count() == 2
 
     resp = client.post(
         "/load/researcher/funding",
@@ -2384,7 +2417,8 @@ THIS IS A TITLE #4	 नमस्ते #2	hi	CONTRACT	MY TYPE	Minerals unde.	900
     assert b"THIS IS A TITLE #3" in resp.data
     assert b"THIS IS A TITLE #4" in resp.data
     assert b"fundings.tsv" in resp.data
-    assert Task.select().where(Task.task_type == TaskType.FUNDING).count() == 2
+
+    assert Task.select().where(Task.task_type == TaskType.FUNDING).count() == 4
     task = Task.select().where(Task.task_type == TaskType.FUNDING).order_by(Task.id.desc()).first()
     assert task.funding_records.count() == 2
 
@@ -2488,6 +2522,38 @@ THIS IS A TITLE, नमस्ते,hi,	CONTRACT,MY TYPE,Minerals unde.,300000,N
         data={
             "file_": (
                 BytesIO(
+                    """Put Code,Title,Translated Title,Translated Title Language Code,Type,Organization Defined Type,Short Description,Amount,Currency,Start Date,End Date,Org Name,City,Region,Country,Disambiguated Org Identifier,Disambiguation Source,Visibility,ORCID iD,Email,First Name,Last Name,Name,Role,External Id Type,External Id Value,External Id Url,External Id Relationship,Identifier
+,This is the project title,,,CONTRACT,Fast-Start,This is the project abstract,300000,NZD,2018,2021,Marsden Fund,Wellington,,NZ,http://dx.doi.org/10.13039/501100009193,FUNDREF,,0000-0002-9207-4933,,,,Associate Professor A Contributor 1,lead,grant_number,XXX1701,,SELF,
+,This is the project title,,,CONTRACT,Fast-Start,This is the project abstract,300000,NZD,2018,2021,Marsden Fund,Wellington,,NZ,http://dx.doi.org/10.13039/501100009193,FUNDREF,,,,,,Dr B Contributor 2,co_lead,grant_number,XXX1701,,SELF,
+,This is the project title,,,CONTRACT,Fast-Start,This is the project abstract,300000,NZD,2018,2021,Marsden Fund,Wellington,,NZ,http://dx.doi.org/10.13039/501100009193,FUNDREF,,,,,,Dr E Contributor 3,,grant_number,XXX1701,,SELF,
+,This is another project title,,,CONTRACT,Standard,This is another project abstract,800000,NZD,2018,2021,Marsden Fund,Wellington,,NZ,http://dx.doi.org/10.13039/501100009193,FUNDREF,,,contributor4@mailinator.com,,,Associate Professor F Contributor 4,lead,grant_number,XXX1702,,SELF,9999
+,This is another project title,,,CONTRACT,Standard,This is another project abstract,800000,NZD,2018,2021,Marsden Fund,Wellington,,NZ,http://dx.doi.org/10.13039/501100009193,FUNDREF,,,contributor5@mailinator.com,John,Doe,,co_lead,grant_number,XXX1702,,SELF,8888 """.encode()  # noqa: E501
+                ),  # noqa: E501
+                "fundings042.csv",
+            ),
+        },
+        follow_redirects=True)
+    assert resp.status_code == 200
+    assert b"This is the project title" in resp.data
+    assert b"This is another project title" in resp.data
+    assert b"fundings042.csv" in resp.data
+    assert Task.select().where(Task.task_type == TaskType.FUNDING).count() == 4
+    task = Task.select().where(Task.filename == "fundings042.csv").first()
+    assert task.funding_records.count() == 2
+    fr = task.funding_records.where(FundingRecord.title == "This is another project title").first()
+    assert fr.contributors.count() == 2
+    assert fr.external_ids.count() == 1
+    assert fr.funding_invitees.count() == 2
+
+    resp = client.get(f"/admin/fundingrecord/export/tsv/?task_id={task.id}")
+    assert resp.headers["Content-Type"] == "text/tsv; charset=utf-8"
+    assert len(resp.data.splitlines()) == 6
+
+    resp = client.post(
+        "/load/researcher/funding",
+        data={
+            "file_": (
+                BytesIO(
                     """title	translated title	language	type	org type	short description	amount	aurrency	start	end	org name	city	region	country	disambiguated organisation identifier	disambiguation source	orcid id	name	role	email	external identifier type	external identifier value	external identifier url	external identifier relationship    	exclude
 THIS IS A TITLE EX	 नमस्ते	hi	CONTRACT	MY TYPE	Minerals unde.	300000	NZD.		2025	Royal Society Te Apārangi	Wellington		New Zealand	210126	RINGGOLD	1914-2914-3914-00X3	 GivenName Surname	 LEAD	 test123@org1.edu	grant_number	GNS1706900961	https://www.grant-url2.com	PART_OF	Y
 THIS IS A TITLE EX	 नमस्ते	hi	CONTRACT	MY TYPE	Minerals unde.	900000	USD.		2025					210126	RINGGOLD	1914-2914-3914-00X3	 GivenName Surname	 LEAD	 test123@org1.edu				    	Y""".encode()  # noqa: E501
@@ -2499,8 +2565,51 @@ THIS IS A TITLE EX	 नमस्ते	hi	CONTRACT	MY TYPE	Minerals unde.	900000
     assert resp.status_code == 200
     assert b"THIS IS A TITLE EX" in resp.data
     assert b"fundings_ex.tsv" in resp.data
-    assert Task.select().where(Task.task_type == TaskType.FUNDING).count() == 2
+    assert Task.select().where(Task.task_type == TaskType.FUNDING).count() == 5
     task = Task.select().where(Task.task_type == TaskType.FUNDING).order_by(Task.id.desc()).first()
     assert task.funding_records.count() == 2
     for r in task.funding_records:
         assert r.funding_invitees.count() == 0
+
+
+def test_researcher_work(client):
+    """Test preload work data."""
+    user = client.data["admin"]
+    client.login(user, follow_redirects=True)
+    resp = client.post(
+        "/load/researcher/work",
+        data={
+            "file_": (
+                BytesIO(
+                    b'[{"invitees": [{"identifier":"00001", "email": "marco.232323newwjwewkppp@mailinator.com",'
+                    b'"first-name": "Alice", "last-name": "Contributor 1", "ORCID-iD": null, "put-code":null}],'
+                    b'"title": { "title": { "value": "WORK TITLE #1"}}, "citation": {"citation-type": '
+                    b'"FORMATTED_UNSPECIFIED", "citation-value": "This is citation value"}, "type": "BOOK_CHR",'
+                    b'"contributors": {"contributor": [{"contributor-attributes": {"contributor-role": '
+                    b'"AUTHOR", "contributor-sequence" : "1"},"credit-name": {"value": "firentini"}}]}'
+                    b', "external-ids": {"external-id": [{"external-id-value": '
+                    b'"GNS170661","external-id-type": "grant_number"}]}}]'),
+                "work001.json",
+            ),
+            "email":
+            user.email
+        },
+        follow_redirects=True)
+    assert resp.status_code == 200
+    # Work file successfully loaded.
+    assert b"WORK TITLE #1" in resp.data
+    assert b"BOOK_CHR" in resp.data
+    task = Task.get(filename="work001.json")
+    assert task.records.count() == 1
+    rec = task.records.first()
+    assert rec.external_ids.count() == 1
+    assert rec.work_contributors.count() == 1
+    assert rec.work_invitees.count() == 1
+
+    resp = client.get(f"/admin/workrecord/export/csv/?task_id={task.id}")
+    assert resp.headers["Content-Type"] == "text/csv; charset=utf-8"
+    assert len(resp.data.splitlines()) == 3
+
+    resp = client.get(f"/admin/workrecord/export/csv/?task_id={task.id}")
+    assert resp.headers["Content-Type"] == "text/csv; charset=utf-8"
+    assert len(resp.data.splitlines()) == 3

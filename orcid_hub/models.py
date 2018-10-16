@@ -1345,7 +1345,8 @@ class FundingRecord(RecordModel):
                 r"disambiguated\s*(org(ani[zs]ation)?)?\s*id(entifier)?",
                 r"disambiguation\s+source$", "(is)?\s*active$", r"orcid\s*(id)?$", "name$",
                 "role$", "email", r"(external)?\s*id(entifier)?\s+type$",
-                r"(external)?\s*id(entifier)?\s+value$", r"(external)?\s*id(entifier)?\s*url",
+                r"((external)?\s*id(entifier)?\s+value|funding.*id)$",
+                r"(external)?\s*id(entifier)?\s*url",
                 r"(external)?\s*id(entifier)?\s*rel(ationship)?", "put.*code",
                 r"(is)?\s*visib(bility|le)?", r"first\s*(name)?", r"(last|sur)\s*(name)?",
                 "identifier", "excluded?(\s+from(\s+profile)?)?"
