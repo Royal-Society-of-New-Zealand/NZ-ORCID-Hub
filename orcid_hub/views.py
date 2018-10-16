@@ -1283,48 +1283,6 @@ class WorkRecordAdmin(FundingWorkCommonModelView):
             headers={'Content-Disposition': disposition},
             mimetype='text/' + export_type)
 
-    def _export_csv(self, return_url, export_type):
-        """Export a CSV or tsv of records as a stream."""
-        delimiter = ","
-        if export_type == 'tsv':
-            delimiter = "\t"
-
-        count, data = self._export_data()
-
-        # https://docs.djangoproject.com/en/1.8/howto/outputting-csv/
-        class Echo(object):
-            """An object that implements just the write method of the file-like interface."""
-
-            def write(self, value):
-                """Write the value by returning it, instead of storing in a buffer."""
-                return value
-
-        writer = csv.writer(Echo(), delimiter=delimiter)
-
-        def generate():
-            # Append the column titles at the beginning
-            titles = [csv_encode(c) for c in self.column_csv_export_list]
-            yield writer.writerow(titles)
-
-            for row in data:
-                external_id_list, invitees_list = self.get_external_id_invitees(row)
-                for external_ids in external_id_list:
-                    for cont in invitees_list:
-                        vals = []
-                        vals.append(external_ids['value'])
-                        for col in self.column_csv_export_list[1:]:
-                            vals.append(cont.get(col))
-                        yield writer.writerow(vals)
-
-        filename = self.get_export_name(export_type=export_type)
-
-        disposition = 'attachment;filename=%s' % (secure_filename(filename), )
-
-        return Response(
-            stream_with_context(generate()),
-            headers={'Content-Disposition': disposition},
-            mimetype='text/' + export_type)
-
 
 class PeerReviewRecordAdmin(FundingWorkCommonModelView):
     """Peer Review record model view."""
