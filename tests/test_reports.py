@@ -91,8 +91,7 @@ def test_user_cv(mock, client):
 
     resp = client.get("/user_cv/show")
     assert resp.status_code == 200
-    assert user.first_name.encode() in resp.data
-    assert user.last_name.encode() in resp.data
+    assert user.name.encode() in resp.data
     mock.assert_called_once_with(access_token="ABC12345678901", user=user)
     mock.return_value.get_record.assert_called_once_with()
 
@@ -100,7 +99,6 @@ def test_user_cv(mock, client):
     resp = client.get("/user_cv/download")
     assert resp.status_code == 200
     assert user.name.replace(' ', '_') in resp.headers["Content-Disposition"]
-    assert user.first_name.encode() in resp.data
-    assert user.last_name.encode() in resp.data
+    assert user.name.encode() in resp.data
     mock.assert_called_once_with(access_token="ABC12345678901", user=user)
     mock.return_value.get_record.assert_called_once_with()
