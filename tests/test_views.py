@@ -2346,11 +2346,11 @@ def test_load_funding_csv(client):
                 BytesIO(
                     """title,translated title,language,type,org type,short description,amount,aurrency,start,end,org name,city,region,country,disambiguated organisation identifier,disambiguation source,orcid id,name,role,email,external identifier type,external identifier value,external identifier url,external identifier relationship
 
-THIS IS A TITLE, नमस्ते,hi,	CONTRACT,MY TYPE,Minerals unde.,300000,NZD.,,2025,Royal Society Te Apārangi,Wellington,,New Zealand,210126,RINGGOLD,1914-2914-3914-00X3, GivenName Surname, LEAD, test123@org1.edu,grant_number,GNS1706900961,https://www.grant-url2.com,PART_OF
-THIS IS A TITLE, नमस्ते,hi,	CONTRACT,MY TYPE,Minerals unde.,300000,NZD.,,2025,Royal Society Te Apārangi,Wellington,,New Zealand,210126,RINGGOLD,1885-2885-3885-00X3, GivenName Surname #2, LEAD, test123_2@org1.edu,grant_number,GNS1706900961,https://www.grant-url2.com,PART_OF
-THIS IS A TITLE, नमस्ते,hi,	CONTRACT,MY TYPE,Minerals unde.,300000,NZD.,,2025,Royal Society Te Apārangi,Wellington,,New Zealand,210126,RINGGOLD,1914-2914-3914-00X3, GivenName Surname, LEAD, test123@org1.edu,type2,GNS9999999999,https://www.grant-url2.com,PART_OF
-THIS IS A TITLE, नमस्ते,hi,	CONTRACT,MY TYPE,Minerals unde.,300000,NZD.,,2025,Royal Society Te Apārangi,Wellington,,New Zealand,210126,RINGGOLD,1885-2885-3885-00X3, GivenName Surname #2, LEAD, test123_2@org1.edu,type2,GNS9999999999,https://www.grant-url2.com,PART_OF
-THIS IS A TITLE #2, नमस्ते #2,hi,	CONTRACT,MY TYPE,Minerals unde.,900000,USD.,,2025,,,,,210126,RINGGOLD,1914-2914-3914-00X3, GivenName Surname, LEAD, test123@org1.edu,,,,""".encode()  # noqa: E501
+THIS IS A TITLE, नमस्ते,hi,  CONTRACT,MY TYPE,Minerals unde.,300000,NZD.,,2025,Royal Society Te Apārangi,Wellington,,New Zealand,210126,RINGGOLD,1914-2914-3914-00X3, GivenName Surname, LEAD, test123@org1.edu,grant_number,GNS1706900961,https://www.grant-url2.com,PART_OF
+THIS IS A TITLE, नमस्ते,hi,  CONTRACT,MY TYPE,Minerals unde.,300000,NZD.,,2025,Royal Society Te Apārangi,Wellington,,New Zealand,210126,RINGGOLD,1885-2885-3885-00X3, GivenName Surname #2, LEAD, test123_2@org1.edu,grant_number,GNS1706900961,https://www.grant-url2.com,PART_OF
+THIS IS A TITLE, नमस्ते,hi,  CONTRACT,MY TYPE,Minerals unde.,300000,NZD.,,2025,Royal Society Te Apārangi,Wellington,,New Zealand,210126,RINGGOLD,1914-2914-3914-00X3, GivenName Surname, LEAD, test123@org1.edu,type2,GNS9999999999,https://www.grant-url2.com,PART_OF
+THIS IS A TITLE, नमस्ते,hi,  CONTRACT,MY TYPE,Minerals unde.,300000,NZD.,,2025,Royal Society Te Apārangi,Wellington,,New Zealand,210126,RINGGOLD,1885-2885-3885-00X3, GivenName Surname #2, LEAD, test123_2@org1.edu,type2,GNS9999999999,https://www.grant-url2.com,PART_OF
+THIS IS A TITLE #2, नमस्ते #2,hi,  CONTRACT,MY TYPE,Minerals unde.,900000,USD.,,2025,,,,,210126,RINGGOLD,1914-2914-3914-00X3, GivenName Surname, LEAD, test123@org1.edu,,,,""".encode()  # noqa: E501
                 ),  # noqa: E501
                 "fundings.csv",
             ),
@@ -2405,9 +2405,9 @@ THIS IS A TITLE #2, नमस्ते #2,hi,	CONTRACT,MY TYPE,Minerals unde.,90
         data={
             "file_": (
                 BytesIO(
-                    """title	translated title	language	type	org type	short description	amount	aurrency	start	end	org name	city	region	country	disambiguated organisation identifier	disambiguation source	orcid id	name	role	email	external identifier type	external identifier value	external identifier url	external identifier relationship
-THIS IS A TITLE #3	 नमस्ते	hi	CONTRACT	MY TYPE	Minerals unde.	300000	NZD.		2025	Royal Society Te Apārangi	Wellington		New Zealand	210126	RINGGOLD	1914-2914-3914-00X3	 GivenName Surname	 LEAD	 test123@org1.edu	grant_number	GNS1706900961	https://www.grant-url2.com	PART_OF
-THIS IS A TITLE #4	 नमस्ते #2	hi	CONTRACT	MY TYPE	Minerals unde.	900000	USD.		2025					210126	RINGGOLD	1914-2914-3914-00X3	 GivenName Surname	 LEAD	 test123@org1.edu				""".encode()  # noqa: E501
+                    """title  translated title  language  type  org type  short description  amount  aurrency  start  end  org name  city  region  country  disambiguated organisation identifier  disambiguation source  orcid id  name  role  email  external identifier type  external identifier value  external identifier url  external identifier relationship
+THIS IS A TITLE #3   नमस्ते  hi  CONTRACT  MY TYPE  Minerals unde.  300000  NZD.    2025  Royal Society Te Apārangi  Wellington    New Zealand  210126  RINGGOLD  1914-2914-3914-00X3   GivenName Surname   LEAD   test123@org1.edu  grant_number  GNS1706900961  https://www.grant-url2.com  PART_OF
+THIS IS A TITLE #4   नमस्ते #2  hi  CONTRACT  MY TYPE  Minerals unde.  900000  USD.    2025          210126  RINGGOLD  1914-2914-3914-00X3   GivenName Surname   LEAD   test123@org1.edu        """.encode()  # noqa: E501
                 ),  # noqa: E501
                 "fundings.tsv",
             ),
@@ -2472,7 +2472,7 @@ THIS IS A TITLE, नमस्ते,hi,,MY TYPE,Minerals unde.,300000,NZD.,,2025
             "file_": (
                 BytesIO(
                     """title,translated title,language,type,org type,short description,amount,aurrency,start,end,org name,city,region,country,disambiguated organisation identifier,disambiguation source,orcid id,name,role,email,external identifier type,external identifier value,external identifier url,external identifier relationship
-THIS IS A TITLE #2, नमस्ते #2,hi,	CONTRACT,MY TYPE,Minerals unde.,900000,USD.,,**ERROR**,,,,,210126,RINGGOLD,1914-2914-3914-00X3, GivenName Surname, LEAD, test123@org1.edu,,,,""".encode()  # noqa: E501
+THIS IS A TITLE #2, नमस्ते #2,hi,  CONTRACT,MY TYPE,Minerals unde.,900000,USD.,,**ERROR**,,,,,210126,RINGGOLD,1914-2914-3914-00X3, GivenName Surname, LEAD, test123@org1.edu,,,,""".encode()  # noqa: E501
                 ),  # noqa: E501
                 "fundings.csv",
             ),
@@ -2489,7 +2489,7 @@ THIS IS A TITLE #2, नमस्ते #2,hi,	CONTRACT,MY TYPE,Minerals unde.,90
                 BytesIO(
                     """title,translated title,language,type,org type,short description,amount,aurrency,start,end,org name,city,region,country,disambiguated organisation identifier,disambiguation source,orcid id,name,role,email,external identifier type,external identifier value,external identifier url,external identifier relationship
 
-THIS IS A TITLE, नमस्ते,hi,	CONTRACT,MY TYPE,Minerals unde.,300000,NZD.,,2025,Royal Society Te Apārangi,Wellington,,New Zealand,210126,RINGGOLD,1914-2914-3914-00X3, GivenName Surname, LEAD,**ERROR**,grant_number,GNS1706900961,https://www.grant-url2.com,PART_OF """.encode()  # noqa: E501
+THIS IS A TITLE, नमस्ते,hi,  CONTRACT,MY TYPE,Minerals unde.,300000,NZD.,,2025,Royal Society Te Apārangi,Wellington,,New Zealand,210126,RINGGOLD,1914-2914-3914-00X3, GivenName Surname, LEAD,**ERROR**,grant_number,GNS1706900961,https://www.grant-url2.com,PART_OF """.encode()  # noqa: E501
                 ),  # noqa: E501
                 "fundings.csv",
             ),
@@ -2506,7 +2506,7 @@ THIS IS A TITLE, नमस्ते,hi,	CONTRACT,MY TYPE,Minerals unde.,300000,N
                 BytesIO(
                     """title,translated title,language,type,org type,short description,amount,aurrency,start,end,org name,city,region,country,disambiguated organisation identifier,disambiguation source,orcid id,name,role,email,external identifier type,external identifier value,external identifier url,external identifier relationship
 
-THIS IS A TITLE, नमस्ते,hi,	CONTRACT,MY TYPE,Minerals unde.,300000,NZD.,,2025,Royal Society Te Apārangi,Wellington,,New Zealand,210126,RINGGOLD,ERRO-R914-3914-00X3, GivenName Surname, LEAD,user1234@test123.edu,grant_number,GNS1706900961,https://www.grant-url2.com,PART_OF """.encode()  # noqa: E501
+THIS IS A TITLE, नमस्ते,hi,  CONTRACT,MY TYPE,Minerals unde.,300000,NZD.,,2025,Royal Society Te Apārangi,Wellington,,New Zealand,210126,RINGGOLD,ERRO-R914-3914-00X3, GivenName Surname, LEAD,user1234@test123.edu,grant_number,GNS1706900961,https://www.grant-url2.com,PART_OF """.encode()  # noqa: E501
                 ),  # noqa: E501
                 "fundings.csv",
             ),
@@ -2554,9 +2554,9 @@ THIS IS A TITLE, नमस्ते,hi,	CONTRACT,MY TYPE,Minerals unde.,300000,N
         data={
             "file_": (
                 BytesIO(
-                    """title	translated title	language	type	org type	short description	amount	aurrency	start	end	org name	city	region	country	disambiguated organisation identifier	disambiguation source	orcid id	name	role	email	external identifier type	external identifier value	external identifier url	external identifier relationship    	exclude
-THIS IS A TITLE EX	 नमस्ते	hi	CONTRACT	MY TYPE	Minerals unde.	300000	NZD.		2025	Royal Society Te Apārangi	Wellington		New Zealand	210126	RINGGOLD	1914-2914-3914-00X3	 GivenName Surname	 LEAD	 test123@org1.edu	grant_number	GNS1706900961	https://www.grant-url2.com	PART_OF	Y
-THIS IS A TITLE EX	 नमस्ते	hi	CONTRACT	MY TYPE	Minerals unde.	900000	USD.		2025					210126	RINGGOLD	1914-2914-3914-00X3	 GivenName Surname	 LEAD	 test123@org1.edu				    	Y""".encode()  # noqa: E501
+                    """title  translated title  language  type  org type  short description  amount  aurrency  start  end  org name  city  region  country  disambiguated organisation identifier  disambiguation source  orcid id  name  role  email  external identifier type  external identifier value  external identifier url  external identifier relationship      exclude
+THIS IS A TITLE EX   नमस्ते  hi  CONTRACT  MY TYPE  Minerals unde.  300000  NZD.    2025  Royal Society Te Apārangi  Wellington    New Zealand  210126  RINGGOLD  1914-2914-3914-00X3   GivenName Surname   LEAD   test123@org1.edu  grant_number  GNS1706900961  https://www.grant-url2.com  PART_OF  Y
+THIS IS A TITLE EX   नमस्ते  hi  CONTRACT  MY TYPE  Minerals unde.  900000  USD.    2025          210126  RINGGOLD  1914-2914-3914-00X3   GivenName Surname   LEAD   test123@org1.edu              Y""".encode()  # noqa: E501
                 ),  # noqa: E501
                 "fundings_ex.tsv",
             ),
@@ -2613,3 +2613,164 @@ def test_researcher_work(client):
     resp = client.get(f"/admin/workrecord/export/csv/?task_id={task.id}")
     assert resp.headers["Content-Type"] == "text/csv; charset=utf-8"
     assert len(resp.data.splitlines()) == 3
+
+    resp = client.post(
+        "/load/researcher/work",
+        data={
+            "file_": (
+                BytesIO("""[{
+    "invitees": [
+      {
+        "identifier": "00001", "email": "contributor1@mailinator.com",
+        "first-name": "Alice", "last-name": "Contributor 1",
+        "ORCID-iD": "0000-0002-9207-4933", "put-code": null, "visibility": null
+      },
+      {
+        "identifier": "00002", "email": "contributor2@mailinator.com",
+        "first-name": "Bob", "last-name": "Contributor 2", "ORCID-iD": null,
+        "put-code": null, "visibility": null
+      }
+    ],
+    "path": null,
+    "title": {
+      "title": {"value": "This is a title"},
+      "subtitle": null,
+      "translated-title": {"value": "हिंदी","language-code": "hi"}
+    },
+    "journal-title": {"value": "This is a journal title"},
+    "short-description": "xyz this is short description",
+    "citation": {"citation-type": "FORMATTED_UNSPECIFIED", "citation-value": "This is citation value"},
+    "type": "BOOK_CHAPTER",
+    "publication-date": {
+      "year": {"value": "2001"},
+      "month": {"value": "1"},
+      "day": {"value": "12"},
+      "media-type": null
+    },
+    "external-ids": {
+      "external-id": [{
+          "external-id-type": "bibcode",
+          "external-id-value": "sdsds",
+          "external-id-url": {"value": "http://url.edu/abs/ghjghghj"},
+          "external-id-relationship": "SELF"
+        }
+      ]
+    },
+    "url": null,
+    "contributors": {
+      "contributor": [
+        {"contributor-attributes": {"contributor-sequence": "FIRST", "contributor-role": "AUTHOR"},
+          "credit-name": {"value": "Associate Professor Alice"},
+          "contributor-orcid": {
+            "uri": "https://sandbox.orcid.org/0000-0002-9207-4933",
+            "path": "0000-0002-9207-4933",
+            "host": "sandbox.orcid.org"
+          }
+        },
+        {"contributor-attributes": {"contributor-sequence": "ADDITIONAL", "contributor-role": "AUTHOR"},
+          "credit-name": {"value": "Dr Bob"}
+        }
+      ]
+    },
+    "language-code": "en",
+    "country": {"value": "NZ"}
+  }
+]""".encode()),
+                "work002.json",
+            ),
+            "email": user.email
+        },
+        follow_redirects=True)
+    assert resp.status_code == 200
+    # Work file successfully loaded.
+    assert b"FORMATTED_UNSPECIFIED" in resp.data
+    task = Task.get(filename="work002.json")
+    assert task.records.count() == 1
+    rec = task.records.first()
+    assert rec.external_ids.count() == 1
+    assert rec.work_contributors.count() == 2
+    assert rec.work_invitees.count() == 2
+
+    resp = client.get(f"/admin/workrecord/export/csv/?task_id={task.id}")
+    assert resp.headers["Content-Type"] == "text/csv; charset=utf-8"
+    assert len(resp.data.splitlines()) == 5
+
+    resp = client.post(
+        "/load/researcher/work",
+        data={"file_": (BytesIO(resp.data), "work003.csv")},
+        follow_redirects=True)
+    assert Task.select().where(Task.task_type == TaskType.WORK).count() == 3
+    task = Task.select().where(Task.filename == "work003.csv",
+                               Task.task_type == TaskType.WORK).first()
+    assert task.records.count() == 1
+    rec = task.records.first()
+    assert rec.external_ids.count() == 1
+    assert rec.work_contributors.count() == 3  # TODO: 2...
+    assert rec.work_invitees.count() == 2
+
+    resp = client.post(
+        "/load/researcher/work",
+        data={"file_": (BytesIO(b"title\nVAL"), "error.csv")},
+        follow_redirects=True)
+    assert resp.status_code == 200
+    assert b"Failed to load work record file" in resp.data
+    assert b"Expected CSV or TSV format file." in resp.data
+
+    resp = client.post(
+        "/load/researcher/work",
+        data={"file_": (BytesIO(b"header1,header2,header2\n1,2,3"), "error.csv")},
+        follow_redirects=True)
+    assert resp.status_code == 200
+    assert b"Failed to load work record file" in resp.data
+    assert b"Failed to map fields based on the header of the file" in resp.data
+
+    resp = client.post(
+        "/load/researcher/work",
+        data={
+            "file_": (
+                BytesIO(
+                    """Work Id,Put Code,Title,Sub Title,Translated Title,Translated Title Language Code,Journal Title,Short Description,Citation Type,Citation Value,Type,Publication Date,Publication Media Type,Url,Language Code,Country,Visibility,ORCID iD,Email,First Name,Last Name,Name,Role,Excluded,External Id Type,External Id Url,External Id Relationship
+sdsds,,This is a title,,,hi,This is a journal title,xyz this is short description,FORMATTED_UNSPECIFIED,This is citation value,BOOK_CHAPTER,**ERROR**,,,en,NZ,,0000-0002-9207-4933,contributor1@mailinator.com,Alice,Contributor 1,,,,bibcode,http://url.edu/abs/ghjghghj,SELF
+sdsds,,This is a title,,,hi,This is a journal title,xyz this is short description,FORMATTED_UNSPECIFIED,This is citation value,BOOK_CHAPTER,2001-01-12,,,en,NZ,,0000-0002-9207-4933,,,,Associate Professor Alice,AUTHOR,Y,bibcode,http://url.edu/abs/ghjghghj,SELF""".encode()  # noqa: E501
+                ),  # noqa: E501
+                "work.csv",
+            ),
+        },
+        follow_redirects=True)
+    assert resp.status_code == 200
+    assert b"Failed to load work record file" in resp.data
+    assert b"Wrong partial date value '**ERROR**'" in resp.data
+
+    resp = client.post(
+        "/load/researcher/work",
+        data={
+            "file_": (
+                BytesIO(
+                    """Work Id,Put Code,Title,Sub Title,Translated Title,Translated Title Language Code,Journal Title,Short Description,Citation Type,Citation Value,Type,Publication Date,Publication Media Type,Url,Language Code,Country,Visibility,ORCID iD,Email,First Name,Last Name,Name,Role,Excluded,External Id Type,External Id Url,External Id Relationship
+sdsds,,This is a title,,,hi,This is a journal title,xyz this is short description,FORMATTED_UNSPECIFIED,This is citation value,BOOK_CHAPTER,,,,en,NZ,,0000-0002-9207-4933,**ERROR**,Alice,Contributor 1,,,,bibcode,http://url.edu/abs/ghjghghj,SELF
+sdsds,,This is a title,,,hi,This is a journal title,xyz this is short description,FORMATTED_UNSPECIFIED,This is citation value,BOOK_CHAPTER,2001-01-12,,,en,NZ,,0000-0002-9207-4933,,,,Associate Professor Alice,AUTHOR,Y,bibcode,http://url.edu/abs/ghjghghj,SELF""".encode()  # noqa: E501
+                ),  # noqa: E501
+                "work.csv",
+            ),
+        },
+        follow_redirects=True)
+    assert resp.status_code == 200
+    assert b"Failed to load work record file" in resp.data
+    assert b"Invalid email address '**ERROR**'" in resp.data
+
+    resp = client.post(
+        "/load/researcher/work",
+        data={
+            "file_": (
+                BytesIO(
+                    """Work Id,Put Code,Title,Sub Title,Translated Title,Translated Title Language Code,Journal Title,Short Description,Citation Type,Citation Value,Type,Publication Date,Publication Media Type,Url,Language Code,Country,Visibility,ORCID iD,Email,First Name,Last Name,Name,Role,Excluded,External Id Type,External Id Url,External Id Relationship
+sdsds,,This is a title,,,hi,This is a journal title,xyz this is short description,FORMATTED_UNSPECIFIED,This is citation value,BOOK_CHAPTER,,,,en,NZ,,**ERROR**,alice@test.edu,Alice,Contributor 1,,,,bibcode,http://url.edu/abs/ghjghghj,SELF
+sdsds,,This is a title,,,hi,This is a journal title,xyz this is short description,FORMATTED_UNSPECIFIED,This is citation value,BOOK_CHAPTER,2001-01-12,,,en,NZ,,0000-0002-9207-4933,,,,Associate Professor Alice,AUTHOR,Y,bibcode,http://url.edu/abs/ghjghghj,SELF""".encode()  # noqa: E501
+                ),  # noqa: E501
+                "work.csv",
+            ),
+        },
+        follow_redirects=True)
+    assert resp.status_code == 200
+    assert b"Failed to load work record file" in resp.data
+    assert b"Invalid ORCID iD **ERROR**" in resp.data

@@ -1142,7 +1142,7 @@ class WorkRecordAdmin(FundingWorkCommonModelView):
     form_overrides = dict(publication_date=PartialDateField)
 
     column_export_list = [
-        "work id",
+        "work_id",
         "put_code",
         "title",
         "sub_title",
@@ -1225,13 +1225,14 @@ class WorkRecordAdmin(FundingWorkCommonModelView):
         ).join(
             WorkInvitees,
             JOIN.LEFT_OUTER,
-            on=((WorkInvitees.email == WorkContributor.email) |
-                (WorkInvitees.orcid == WorkContributor.orcid))).join(
-                    User,
-                    JOIN.LEFT_OUTER,
-                    on=((User.email == WorkContributor.email) |
-                        (User.orcid == WorkContributor.orcid))).where(
-                            (User.id.is_null() | WorkInvitees.id.is_null()))).alias("sq")
+            on=((WorkInvitees.work_record_id == WorkContributor.work_record_id) &
+                ((WorkInvitees.email == WorkContributor.email) |
+                 (WorkInvitees.orcid == WorkContributor.orcid)))).join(
+                     User,
+                     JOIN.LEFT_OUTER,
+                     on=((User.email == WorkContributor.email) |
+                         (User.orcid == WorkContributor.orcid))).where(
+                             (User.id.is_null() | WorkInvitees.id.is_null()))).alias("sq")
 
         query = query.select(
             WorkRecord,
@@ -1247,7 +1248,7 @@ class WorkRecordAdmin(FundingWorkCommonModelView):
             sq.c.visibility,
             sq.c.status,
             WorkExternalId.type.alias("external_id_type"),
-            WorkExternalId.value.alias("funding_id"),
+            WorkExternalId.value.alias("work_id"),
             WorkExternalId.url.alias("external_id_url"),
             WorkExternalId.relationship.alias("external_id_relationship")).join(
                 WorkExternalId, JOIN.LEFT_OUTER,
@@ -2289,11 +2290,16 @@ def load_researcher_funding():
 @roles_required(Role.ADMIN)
 def load_researcher_work():
     """Preload researcher's work data."""
-    form = FileUploadForm(extensions=["json", "yaml"])
+    form = FileUploadForm(extensions=["json", "yaml", "csv", "tsv"])
     if form.validate_on_submit():
         filename = secure_filename(form.file_.data.filename)
+        content_type = form.file_.data.content_type
         try:
-            task = WorkRecord.load_from_json(read_uploaded_file(form), filename=filename)
+            if content_type in ["text/tab-separated-values", "text/csv"]:
+                task = WorkRecord.load_from_csv(
+                    read_uploaded_file(form), filename=filename)
+            else:
+                task = WorkRecord.load_from_json(read_uploaded_file(form), filename=filename)
             flash(f"Successfully loaded {task.record_count} rows.")
             return redirect(url_for("workrecord.index_view", task_id=task.id))
         except Exception as ex:
