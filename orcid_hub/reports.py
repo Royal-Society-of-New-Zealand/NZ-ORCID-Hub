@@ -2,8 +2,10 @@
 """Application views for reporting."""
 
 import re
+import zipstream
+
 from datetime import datetime
-from flask import flash, make_response, redirect, render_template, request, url_for
+from flask import flash, make_response, Response, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
 from peewee import JOIN, SQL, fn
 
@@ -207,7 +209,40 @@ def user_cv(op=None):
                 employments=employments))
         resp.headers["Cache-Control"] = "private, max-age=60"
         if op == "download" or "download" in request.args:
-            resp.headers["Content-Type"] = "application/vnd.ms-word"
-            resp.headers[
-                "Content-Disposition"] = f"attachment; filename={current_user.name.replace(' ', '_')}.CV.html"
+            meta_xml_data = render_template("CV/meta.xml", user=user, now=datetime.now())
+            content_xml_data = render_template("CV/content.xml", user=user, now=datetime.now(), record=record,
+                                               person_data=person_data, work_type_books=work_type_books,
+                                               work_type_book_chapter=work_type_book_chapter,
+                                               work_type_journal=work_type_journal,
+                                               work_type_conference=work_type_conference,
+                                               work_type_patent=work_type_patent, work_type_other=work_type_other,
+                                               educations=educations, employments=employments)
+
+            response = Response(cv_generator(meta_xml_data, content_xml_data),
+                                mimetype='application/vnd.oasis.opendocument.text')
+            response.headers["Content-Type"] = "application/vnd.oasis.opendocument.text"
+            response.headers[
+                'Content-Disposition'] = f"attachment; filename={current_user.name.replace(' ', '_')}_CV.odt"
+
+            return response
+
     return resp
+
+
+def cv_generator(meta_xml_data, content_xml_data):
+    """Zip all CV XML files into one odt file."""
+    z = zipstream.ZipFile(mode='w', compression=zipstream.ZIP_DEFLATED)
+
+    z.writestr("content.xml", content_xml_data.encode("UTF-8"))
+    z.writestr("meta.xml", meta_xml_data.encode("UTF-8"))
+
+    z.write(app.root_path + "/templates/CV/META-INF/manifest.xml", "/META-INF/manifest.xml")
+    z.write(app.root_path + "/templates/CV/layout-cache", "layout-cache")
+    z.write(app.root_path + "/templates/CV/manifest.rdf", "manifest.rdf")
+    z.write(app.root_path + "/templates/CV/mimetype", "mimetype")
+    z.write(app.root_path + "/templates/CV/settings.xml", "settings.xml")
+    z.write(app.root_path + "/templates/CV/styles.xml", "styles.xml")
+
+    for chunk in z:
+        yield chunk
+    z.close()

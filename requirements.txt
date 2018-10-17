@@ -33,3 +33,4 @@ rq==0.10.0
 rq-scheduler
 Flask-RQ2[cli]
 rq-dashboard
+zipstream
