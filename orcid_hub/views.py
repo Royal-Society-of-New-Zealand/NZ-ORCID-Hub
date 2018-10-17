@@ -1075,13 +1075,14 @@ class FundingRecordAdmin(FundingWorkCommonModelView):
         ).join(
             FundingInvitees,
             JOIN.LEFT_OUTER,
-            on=((FundingInvitees.email == FundingContributor.email) |
-                (FundingInvitees.orcid == FundingContributor.orcid))).join(
-                    User,
-                    JOIN.LEFT_OUTER,
-                    on=((User.email == FundingContributor.email) |
-                        (User.orcid == FundingContributor.orcid))).where(
-                            (User.id.is_null() | FundingInvitees.id.is_null()))).alias("sq")
+            on=((FundingInvitees.funding_record_id == FundingContributor.funding_record_id) &
+                ((FundingInvitees.email == FundingContributor.email) |
+                 (FundingInvitees.orcid == FundingContributor.orcid)))).join(
+                     User,
+                     JOIN.LEFT_OUTER,
+                     on=((User.email == FundingContributor.email) |
+                         (User.orcid == FundingContributor.orcid))).where(
+                             (User.id.is_null() | FundingInvitees.id.is_null()))).alias("sq")
 
         query = query.select(
             FundingRecord,

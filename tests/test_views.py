@@ -2405,9 +2405,9 @@ THIS IS A TITLE #2, नमस्ते #2,hi,  CONTRACT,MY TYPE,Minerals unde.,9
         data={
             "file_": (
                 BytesIO(
-                    """title  translated title  language  type  org type  short description  amount  aurrency  start  end  org name  city  region  country  disambiguated organisation identifier  disambiguation source  orcid id  name  role  email  external identifier type  external identifier value  external identifier url  external identifier relationship
-THIS IS A TITLE #3   नमस्ते  hi  CONTRACT  MY TYPE  Minerals unde.  300000  NZD.    2025  Royal Society Te Apārangi  Wellington    New Zealand  210126  RINGGOLD  1914-2914-3914-00X3   GivenName Surname   LEAD   test123@org1.edu  grant_number  GNS1706900961  https://www.grant-url2.com  PART_OF
-THIS IS A TITLE #4   नमस्ते #2  hi  CONTRACT  MY TYPE  Minerals unde.  900000  USD.    2025          210126  RINGGOLD  1914-2914-3914-00X3   GivenName Surname   LEAD   test123@org1.edu        """.encode()  # noqa: E501
+                    """title	translated title	language	type	org type	short description	amount	aurrency	start	end	org name	city	region	country	disambiguated organisation identifier	disambiguation source	orcid id	name	role	email	external identifier type	external identifier value	external identifier url	external identifier relationship
+THIS IS A TITLE #3	 नमस्ते	hi	CONTRACT	MY TYPE	Minerals unde.	300000	NZD.		2025	Royal Society Te Apārangi	Wellington		New Zealand	210126	RINGGOLD	1914-2914-3914-00X3	 GivenName Surname	 LEAD	 test123@org1.edu	grant_number	GNS1706900961	https://www.grant-url2.com	PART_OF
+THIS IS A TITLE #4	 नमस्ते #2	hi	CONTRACT	MY TYPE	Minerals unde.	900000	USD.		2025					210126	RINGGOLD	1914-2914-3914-00X3	 GivenName Surname	 LEAD	 test123@org1.edu				""".encode()  # noqa: E501
                 ),  # noqa: E501
                 "fundings.tsv",
             ),
@@ -2472,7 +2472,7 @@ THIS IS A TITLE, नमस्ते,hi,,MY TYPE,Minerals unde.,300000,NZD.,,2025
             "file_": (
                 BytesIO(
                     """title,translated title,language,type,org type,short description,amount,aurrency,start,end,org name,city,region,country,disambiguated organisation identifier,disambiguation source,orcid id,name,role,email,external identifier type,external identifier value,external identifier url,external identifier relationship
-THIS IS A TITLE #2, नमस्ते #2,hi,  CONTRACT,MY TYPE,Minerals unde.,900000,USD.,,**ERROR**,,,,,210126,RINGGOLD,1914-2914-3914-00X3, GivenName Surname, LEAD, test123@org1.edu,,,,""".encode()  # noqa: E501
+THIS IS A TITLE #2, नमस्ते #2,hi, CONTRACT,MY TYPE,Minerals unde.,900000,USD.,,**ERROR**,,,,,210126,RINGGOLD,1914-2914-3914-00X3, GivenName Surname, LEAD, test123@org1.edu,,,,""".encode()  # noqa: E501
                 ),  # noqa: E501
                 "fundings.csv",
             ),
@@ -2553,18 +2553,18 @@ THIS IS A TITLE, नमस्ते,hi,  CONTRACT,MY TYPE,Minerals unde.,300000,
         "/load/researcher/funding",
         data={
             "file_": (
-                BytesIO(
-                    """title  translated title  language  type  org type  short description  amount  aurrency  start  end  org name  city  region  country  disambiguated organisation identifier  disambiguation source  orcid id  name  role  email  external identifier type  external identifier value  external identifier url  external identifier relationship      exclude
-THIS IS A TITLE EX   नमस्ते  hi  CONTRACT  MY TYPE  Minerals unde.  300000  NZD.    2025  Royal Society Te Apārangi  Wellington    New Zealand  210126  RINGGOLD  1914-2914-3914-00X3   GivenName Surname   LEAD   test123@org1.edu  grant_number  GNS1706900961  https://www.grant-url2.com  PART_OF  Y
-THIS IS A TITLE EX   नमस्ते  hi  CONTRACT  MY TYPE  Minerals unde.  900000  USD.    2025          210126  RINGGOLD  1914-2914-3914-00X3   GivenName Surname   LEAD   test123@org1.edu              Y""".encode()  # noqa: E501
+                BytesIO(b"""Funding Id,Identifier,Put Code,Title,Translated Title,Translated Title Language Code,Type,Organization Defined Type,Short Description,Amount,Currency,Start Date,End Date,Org Name,City,Region,Country,Disambiguated Org Identifier,Disambiguation Source,Visibility,ORCID iD,Email,First Name,Last Name,Name,Role,Excluded,External Id Type,External Id Url,External Id Relationship
+XXX1701,00002,,This is the project title,,,CONTRACT,Fast-Start,This is the project abstract,300000,NZD,2018,2021,Marsden Fund,Wellington,,NZ,http://dx.doi.org/10.13039/501100009193,FUNDREF,,,contributor2@mailinator.com,Bob,Contributor 2,,,Y,grant_number,,SELF
+XXX1701,00003,,This is the project title,,,CONTRACT,Fast-Start,This is the project abstract,300000,NZD,2018,2021,Marsden Fund,Wellington,,NZ,http://dx.doi.org/10.13039/501100009193,FUNDREF,,,contributor3@mailinator.com,Eve,Contributor 3,,,Y,grant_number,,SELF
+XXX1702,00004,,This is another project title,,,CONTRACT,Standard,This is another project abstract,800000,NZD,2018,2021,Marsden Fund,Wellington,,NZ,http://dx.doi.org/10.13039/501100009193,FUNDREF,,,contributor4@mailinator.com,Felix,Contributor 4,,,Y,grant_number,,SELF"""  # noqa: E501
                 ),  # noqa: E501
-                "fundings_ex.tsv",
+                "fundings_ex.csv",
             ),
         },
         follow_redirects=True)
     assert resp.status_code == 200
-    assert b"THIS IS A TITLE EX" in resp.data
-    assert b"fundings_ex.tsv" in resp.data
+    assert b"the project title" in resp.data
+    assert b"fundings_ex.csv" in resp.data
     assert Task.select().where(Task.task_type == TaskType.FUNDING).count() == 5
     task = Task.select().where(Task.task_type == TaskType.FUNDING).order_by(Task.id.desc()).first()
     assert task.funding_records.count() == 2
