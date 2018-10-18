@@ -1,14 +1,14 @@
 NAME = orcidhub/app
-VERSION = 4.15
+VERSION = 4.18
 
 .PHONY: all build test tag
 
 all: build
 
 build:
-	docker build --label version=$(VERSION) -t $(NAME) .
+	docker build --squash --label version=$(VERSION) -t $(NAME) .
 build-dev:
-	docker build --label version=$(VERSION) -f Dockerfile.dev -t $(NAME)-dev .
+	docker build --squash --label version=$(VERSION) -f Dockerfile.dev -t $(NAME)-dev .
 
 tag: build
 	docker tag $(NAME) $(NAME):$(VERSION)

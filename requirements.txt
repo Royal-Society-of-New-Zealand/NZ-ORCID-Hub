@@ -31,6 +31,6 @@ validators
 croniter==0.3.20
 rq==0.10.0
 rq-scheduler
-Flask-RQ2[cli]
+Flask-RQ2[cli]==18.0
 rq-dashboard
 zipstream
