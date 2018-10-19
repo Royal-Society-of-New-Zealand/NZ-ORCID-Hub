@@ -897,9 +897,9 @@
                     <table:table-cell table:style-name="Table1.D2" table:number-columns-spanned="2"
                                       office:value-type="string">
                         {% if person_data.get('first_name') %}
-                        <text:p text:style-name="P9">{{person_data.get('first_name', '')}}</text:p>
+                            <text:p text:style-name="P9">{{person_data.get('first_name', '')}}</text:p>
                         {% else %}
-                        <text:p text:style-name="P8">First Name</text:p>
+                            <text:p text:style-name="P8">First Name</text:p>
                         {% endif %}
                     </table:table-cell>
                     <table:covered-table-cell/>
@@ -907,7 +907,7 @@
                                       office:value-type="string">
                         {% if person_data.get('second_names') %}
                             {% for s in person_data.get('second_names') %}
-                            <text:p text:style-name="P9">{{s}}</text:p>
+                                <text:p text:style-name="P9">{{s}}</text:p>
                             {% endfor %}
                         {% else %}
                             <text:p text:style-name="P8">Second name(s)</text:p>
@@ -916,12 +916,11 @@
                     <table:covered-table-cell/>
                     <table:covered-table-cell/>
                     <table:table-cell table:style-name="Table1.I2" office:value-type="string">
-                        <text:p text:style-name="Table_20_Contents">{% if person_data.get('family_name') %}
-                        </text:p>
-                        <text:p text:style-name="P9">{{person_data.get('family_name', '')}}</text:p>
-                        <text:p text:style-name="Table_20_Contents">{% else %}</text:p>
-                        <text:p text:style-name="P8">Family Name</text:p>
-                        <text:p text:style-name="Table_20_Contents">{% endif %}</text:p>
+                        {% if person_data.get('family_name') %}
+                            <text:p text:style-name="P9">{{person_data.get('family_name', '')}}</text:p>
+                        {% else %}
+                            <text:p text:style-name="P8">Family Name</text:p>
+                        {% endif %}
                     </table:table-cell>
                 </table:table-row>
                 <table:table-row>
@@ -974,45 +973,27 @@
                     <table:covered-table-cell/>
                     <table:covered-table-cell/>
                 </table:table-row>
-                <table:table-row>
-                    {% for c in person_data.get('address')%}
-                    <table:table-cell table:style-name="Table1.A6" table:number-columns-spanned="8"
-                                      office:value-type="string">
-                        <text:p text:style-name="P9">Country: {{c}}.</text:p>
-                    </table:table-cell>
-                    {% endfor %}
-                    <table:covered-table-cell/>
-                    <table:covered-table-cell/>
-                    <table:covered-table-cell/>
-                    <table:covered-table-cell/>
-                    <table:covered-table-cell/>
-                    <table:covered-table-cell/>
-                    <table:covered-table-cell/>
-                    <table:table-cell table:style-name="Table1.I6" office:value-type="string">
-                        <text:p text:style-name="P10"/>
-                    </table:table-cell>
-                </table:table-row>
-                <table:table-row>
-                    <table:table-cell table:style-name="Table1.A7" table:number-columns-spanned="5"
-                                      office:value-type="string">
-                        <text:p text:style-name="Table_20_Contents"/>
-                    </table:table-cell>
-                    <table:covered-table-cell/>
-                    <table:covered-table-cell/>
-                    <table:covered-table-cell/>
-                    <table:covered-table-cell/>
-                    <table:table-cell table:style-name="Table1.A1" table:number-columns-spanned="2"
-                                      office:value-type="string">
-                        <text:p text:style-name="P2">Post code</text:p>
-                    </table:table-cell>
-                    <table:covered-table-cell/>
-                    <table:table-cell table:style-name="Table1.H7" office:value-type="string">
-                        <text:p text:style-name="Table_20_Contents"/>
-                    </table:table-cell>
-                    <table:table-cell table:style-name="Table1.I7" office:value-type="string">
-                        <text:p text:style-name="P10"/>
-                    </table:table-cell>
-                </table:table-row>
+                {% for c in person_data.get('address')%}
+                    <table:table-row>
+                        <table:table-cell table:style-name="Table1.C8" table:number-columns-spanned="6"
+                                          office:value-type="string">
+                            <text:p text:style-name="Table_20_Contents">Country: {{c}}.</text:p>
+                        </table:table-cell>
+                        <table:covered-table-cell/>
+                        <table:covered-table-cell/>
+                        <table:covered-table-cell/>
+                        <table:covered-table-cell/>
+                        <table:covered-table-cell/>
+                        <table:table-cell table:style-name="Table1.A1" office:value-type="string">
+                            <text:p text:style-name="P2">Post code</text:p>
+                        </table:table-cell>
+                        <table:table-cell table:style-name="Table1.H8" table:number-columns-spanned="2"
+                                          office:value-type="string">
+                            <text:p text:style-name="Table_20_Contents"/>
+                        </table:table-cell>
+                        <table:covered-table-cell/>
+                    </table:table-row>
+                {% endfor %}
                 <table:table-row>
                     <table:table-cell table:style-name="Table1.A1" table:number-columns-spanned="2"
                                       office:value-type="string">
@@ -1065,7 +1046,7 @@
                         {% if person_data.get('researcher_urls')%}
                         {% for r in person_data.get('researcher_urls') %}
                         <text:p text:style-name="Table_20_Contents">
-                            <text:a xlink:type="simple" xlink:href="../%7B%7Br%7D%7D" text:style-name="Internet_20_link"
+                            <text:a xlink:type="simple" xlink:href="{{r}}" text:style-name="Internet_20_link"
                                     text:visited-style-name="Visited_20_Internet_20_Link">
                                 <text:span text:style-name="T2">{{r}}</text:span>
                             </text:a>
@@ -1103,6 +1084,7 @@
             <text:p text:style-name="P30">[<text:span text:style-name="T9">e.g. Year conferred, qualification,
                 discipline, university/institute.</text:span>]
             </text:p>
+            <text:p text:style-name="P32"/>
             <text:list xml:id="list1179305154478262520" text:style-name="L1">
                 <text:list-header>
                 </text:list-header>
@@ -1129,7 +1111,8 @@
                 on a new line as per the example:
             </text:p>
             <text:p text:style-name="P29">e.g. Year-year, job title, organisation.</text:p>
-            <text:list xml:id="list6633136904849268246" text:style-name="L2">
+            <text:p text:style-name="P32"/>
+            <text:list xml:id="list6633136904849268246" text:style-name="L1">
                 <text:list-header>
                 </text:list-header>
                 {% for e in employments %}
