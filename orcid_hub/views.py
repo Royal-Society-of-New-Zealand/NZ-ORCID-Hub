@@ -26,6 +26,7 @@ from flask_admin.helpers import get_redirect_target
 from flask_admin.model import BaseModelView, typefmt
 from flask_login import current_user, login_required
 from jinja2 import Markup
+from peewee import SQL
 from playhouse.shortcuts import model_to_dict
 from werkzeug.utils import secure_filename
 from wtforms.fields import BooleanField
@@ -39,10 +40,11 @@ from .forms import (ApplicationFrom, BitmapMultipleValueField, CredentialForm, E
                     PeerReviewForm, ProfileSyncForm, RecordForm, UserInvitationForm, WebhookForm, WorkForm)
 from .login_provider import roles_required
 from .models import (
-    Affiliation, AffiliationRecord, CharField, Client, File, FundingInvitees, FundingRecord, Grant,
-    GroupIdRecord, ModelException, OrcidApiCall, OrcidToken, Organisation, OrgInfo, OrgInvitation,
-    PartialDate, PeerReviewInvitee, PeerReviewRecord, Role, Task, TaskType, TextField, Token, Url,
-    User, UserInvitation, UserOrg, UserOrgAffiliation, WorkInvitees, WorkRecord, db, get_val)
+    JOIN, Affiliation, AffiliationRecord, CharField, Client, ExternalId, File, FundingContributor,
+    FundingInvitees, FundingRecord, Grant, GroupIdRecord, ModelException, OrcidApiCall, OrcidToken,
+    Organisation, OrgInfo, OrgInvitation, PartialDate, PeerReviewInvitee, PeerReviewRecord, Role,
+    Task, TaskType, TextField, Token, Url, User, UserInvitation, UserOrg, UserOrgAffiliation,
+    WorkContributor, WorkExternalId, WorkInvitees, WorkRecord, db, get_val)
 # NB! Should be disabled in production
 from .pyinfo import info
 from .utils import generate_confirmation_token, get_next_url, read_uploaded_file, send_user_invitation
@@ -490,6 +492,7 @@ class TaskAdmin(AppModelView):
         "org.name",
     )
     column_list = [
+        "task_type",
         "filename",
         "created_at",
         "org",
@@ -859,7 +862,6 @@ class FundingWorkCommonModelView(RecordModelView):
             return redirect(return_url)
 
         filename = self.get_export_name(export_type)
-
         disposition = 'attachment;filename=%s' % (secure_filename(filename), )
 
         mimetype, encoding = mimetypes.guess_type(filename)
@@ -979,55 +981,16 @@ class FundingWorkCommonModelView(RecordModelView):
         else:
             return self._export_tablib(export_type, return_url)
 
-    def _export_csv(self, return_url, export_type):
-        """Export a CSV or tsv of records as a stream."""
-        delimiter = ","
-        if export_type == 'tsv':
-            delimiter = "\t"
-
-        count, data = self._export_data()
-
-        # https://docs.djangoproject.com/en/1.8/howto/outputting-csv/
-        class Echo(object):
-            """An object that implements just the write method of the file-like interface."""
-
-            def write(self, value):
-                """Write the value by returning it, instead of storing in a buffer."""
-                return value
-
-        writer = csv.writer(Echo(), delimiter=delimiter)
-
-        def generate():
-            # Append the column titles at the beginning
-            titles = [csv_encode(c) for c in self.column_csv_export_list]
-            yield writer.writerow(titles)
-
-            for row in data:
-                external_id_list, invitees_list = self.get_external_id_invitees(row)
-                for external_ids in external_id_list:
-                    for cont in invitees_list:
-                        vals = []
-                        vals.append(external_ids['value'])
-                        for col in self.column_csv_export_list[1:]:
-                            vals.append(cont.get(col))
-                        yield writer.writerow(vals)
-
-        filename = self.get_export_name(export_type=export_type)
-
-        disposition = 'attachment;filename=%s' % (secure_filename(filename), )
-
-        return Response(
-            stream_with_context(generate()),
-            headers={'Content-Disposition': disposition},
-            mimetype='text/' + export_type)
-
 
 class FundingRecordAdmin(FundingWorkCommonModelView):
     """Funding record model view."""
 
     column_searchable_list = ("title",)
     list_template = "funding_record_list.html"
-    column_export_exclude_list = (
+    column_export_list = (
+        "funding_id",
+        "identifier",
+        "put_code",
         "title",
         "translated_title",
         "translated_title_language_code",
@@ -1045,14 +1008,131 @@ class FundingRecordAdmin(FundingWorkCommonModelView):
         "disambiguated_org_identifier",
         "disambiguation_source",
         "visibility",
-    )
+        "orcid",
+        "email",
+        "first_name",
+        "last_name",
+        "name",
+        "role",
+        "excluded",
+        "external_id_type",
+        "external_id_url",
+        "external_id_relationship",
+        "status",)
 
-    column_export_list = (
-        "funding id",
-        "funding_invitees",
-    )
-    column_csv_export_list = ("funding id", "identifier", "email", "first_name", "last_name", "orcid",
-                              "put_code", "status")
+    def _export_csv(self, return_url, export_type):
+        """Export a CSV or tsv of records as a stream."""
+        delimiter = ","
+        if export_type == 'tsv':
+            delimiter = "\t"
+
+        # Grab parameters from URL
+        view_args = self._get_list_extra_args()
+
+        # Map column index to column name
+        sort_column = self._get_column_by_idx(view_args.sort)
+        if sort_column is not None:
+            sort_column = sort_column[0]
+
+        # Get count and data
+        count, query = self.get_list(
+            0,
+            sort_column,
+            view_args.sort_desc,
+            view_args.search,
+            view_args.filters,
+            page_size=self.export_max_rows,
+            execute=False)
+
+        sq = (FundingInvitees.select(
+            FundingInvitees.funding_record,
+            FundingInvitees.email,
+            FundingInvitees.orcid,
+            SQL("NULL").alias("name"),
+            SQL("NULL").alias("role"),
+            FundingInvitees.identifier,
+            FundingInvitees.first_name,
+            FundingInvitees.last_name,
+            SQL("NULL").alias("excluded"),
+            FundingInvitees.put_code,
+            FundingInvitees.visibility,
+            FundingInvitees.status,
+            FundingInvitees.processed_at,
+        ) | FundingContributor.select(
+            FundingContributor.funding_record,
+            FundingContributor.email,
+            FundingContributor.orcid,
+            FundingContributor.name,
+            FundingContributor.role,
+            SQL("NULL").alias("identifier"),
+            SQL("NULL").alias("first_name"),
+            SQL("NULL").alias("last_name"),
+            SQL("'Y'").alias("excluded"),
+            SQL("NULL").alias("put_code"),
+            SQL("NULL").alias("visibility"),
+            SQL("NULL").alias("status"),
+            SQL("NULL").alias("processed_at"),
+        ).join(
+            FundingInvitees,
+            JOIN.LEFT_OUTER,
+            on=((FundingInvitees.funding_record_id == FundingContributor.funding_record_id) &
+                ((FundingInvitees.email == FundingContributor.email) |
+                 (FundingInvitees.orcid == FundingContributor.orcid)))).join(
+                     User,
+                     JOIN.LEFT_OUTER,
+                     on=((User.email == FundingContributor.email) |
+                         (User.orcid == FundingContributor.orcid))).where(
+                             (User.id.is_null() | FundingInvitees.id.is_null()))).alias("sq")
+
+        query = query.select(
+            FundingRecord,
+            sq.c.email,
+            sq.c.orcid,
+            sq.c.name,
+            sq.c.role,
+            sq.c.identifier,
+            sq.c.first_name,
+            sq.c.last_name,
+            sq.c.excluded,
+            sq.c.put_code,
+            sq.c.visibility,
+            sq.c.status,
+            ExternalId.type.alias("external_id_type"),
+            ExternalId.value.alias("funding_id"),
+            ExternalId.url.alias("external_id_url"),
+            ExternalId.relationship.alias("external_id_relationship")).join(
+                ExternalId, JOIN.LEFT_OUTER,
+                on=(ExternalId.funding_record_id == FundingRecord.id)).join(
+                    sq, JOIN.LEFT_OUTER, on=(sq.c.funding_record_id == FundingRecord.id)).naive()
+
+        # https://docs.djangoproject.com/en/1.8/howto/outputting-csv/
+        class Echo(object):
+            """An object that implements just the write method of the file-like interface."""
+
+            def write(self, value):
+                """Write the value by returning it, instead of storing in a buffer."""
+                return value
+
+        writer = csv.writer(Echo(), delimiter=delimiter)
+
+        def generate():
+            # Append the column titles at the beginning
+            titles = [csv_encode(c[1]) for c in self._export_columns]
+            yield writer.writerow(titles)
+
+            for row in query:
+                vals = [csv_encode(self.get_export_value(row, c[0]))
+                        for c in self._export_columns]
+                yield writer.writerow(vals)
+
+        filename = self.get_export_name(export_type=export_type)
+
+        disposition = 'attachment;filename=%s' % (secure_filename(filename), )
+
+        return Response(
+            stream_with_context(generate()),
+            headers={'Content-Disposition': disposition},
+            mimetype='text/' + export_type)
 
 
 class WorkRecordAdmin(FundingWorkCommonModelView):
@@ -1062,7 +1142,9 @@ class WorkRecordAdmin(FundingWorkCommonModelView):
     list_template = "work_record_list.html"
     form_overrides = dict(publication_date=PartialDateField)
 
-    column_export_exclude_list = (
+    column_export_list = [
+        "work_id",
+        "put_code",
         "title",
         "sub_title",
         "translated_title",
@@ -1070,7 +1152,7 @@ class WorkRecordAdmin(FundingWorkCommonModelView):
         "journal_title",
         "short_description",
         "citation_type",
-        "citation_value"
+        "citation_value",
         "type",
         "publication_date",
         "publication_media_type",
@@ -1078,13 +1160,130 @@ class WorkRecordAdmin(FundingWorkCommonModelView):
         "language_code",
         "country",
         "visibility",
-    )
-    column_export_list = (
-        "work id",
-        "work_invitees",
-    )
-    column_csv_export_list = ("work id", "identifier", "email", "first_name", "last_name", "orcid",
-                              "put_code", "status")
+        "orcid",
+        "email",
+        "first_name",
+        "last_name",
+        "name",
+        "role",
+        "excluded",
+        "external_id_type",
+        "external_id_url",
+        "external_id_relationship",
+        "status",
+    ]
+
+    def _export_csv(self, return_url, export_type):
+        """Export a CSV or tsv of records as a stream."""
+        delimiter = "\t" if export_type == 'tsv' else ","
+
+        # Grab parameters from URL
+        view_args = self._get_list_extra_args()
+
+        # Map column index to column name
+        sort_column = self._get_column_by_idx(view_args.sort)
+        if sort_column is not None:
+            sort_column = sort_column[0]
+
+        # Get count and data
+        count, query = self.get_list(
+            0,
+            sort_column,
+            view_args.sort_desc,
+            view_args.search,
+            view_args.filters,
+            page_size=self.export_max_rows,
+            execute=False)
+
+        sq = (WorkInvitees.select(
+            WorkInvitees.work_record,
+            WorkInvitees.email,
+            WorkInvitees.orcid,
+            SQL("NULL").alias("name"),
+            SQL("NULL").alias("role"),
+            WorkInvitees.identifier,
+            WorkInvitees.first_name,
+            WorkInvitees.last_name,
+            SQL("NULL").alias("excluded"),
+            WorkInvitees.put_code,
+            WorkInvitees.visibility,
+            WorkInvitees.status,
+            WorkInvitees.processed_at,
+        ) | WorkContributor.select(
+            WorkContributor.work_record,
+            WorkContributor.email,
+            WorkContributor.orcid,
+            WorkContributor.name,
+            WorkContributor.role,
+            SQL("NULL").alias("identifier"),
+            SQL("NULL").alias("first_name"),
+            SQL("NULL").alias("last_name"),
+            SQL("'Y'").alias("excluded"),
+            SQL("NULL").alias("put_code"),
+            SQL("NULL").alias("visibility"),
+            SQL("NULL").alias("status"),
+            SQL("NULL").alias("processed_at"),
+        ).join(
+            WorkInvitees,
+            JOIN.LEFT_OUTER,
+            on=((WorkInvitees.work_record_id == WorkContributor.work_record_id) &
+                ((WorkInvitees.email == WorkContributor.email) |
+                 (WorkInvitees.orcid == WorkContributor.orcid)))).join(
+                     User,
+                     JOIN.LEFT_OUTER,
+                     on=((User.email == WorkContributor.email) |
+                         (User.orcid == WorkContributor.orcid))).where(
+                             (User.id.is_null() | WorkInvitees.id.is_null()))).alias("sq")
+
+        query = query.select(
+            WorkRecord,
+            sq.c.email,
+            sq.c.orcid,
+            sq.c.name,
+            sq.c.role,
+            sq.c.identifier,
+            sq.c.first_name,
+            sq.c.last_name,
+            sq.c.excluded,
+            sq.c.put_code,
+            sq.c.visibility,
+            sq.c.status,
+            WorkExternalId.type.alias("external_id_type"),
+            WorkExternalId.value.alias("work_id"),
+            WorkExternalId.url.alias("external_id_url"),
+            WorkExternalId.relationship.alias("external_id_relationship")).join(
+                WorkExternalId, JOIN.LEFT_OUTER,
+                on=(WorkExternalId.work_record_id == WorkRecord.id)).join(
+                    sq, JOIN.LEFT_OUTER, on=(sq.c.work_record_id == WorkRecord.id)).naive()
+
+        # https://docs.djangoproject.com/en/1.8/howto/outputting-csv/
+        class Echo(object):
+            """An object that implements just the write method of the file-like interface."""
+
+            def write(self, value):
+                """Write the value by returning it, instead of storing in a buffer."""
+                return value
+
+        writer = csv.writer(Echo(), delimiter=delimiter)
+
+        def generate():
+            # Append the column titles at the beginning
+            titles = [csv_encode(c[1]) for c in self._export_columns]
+            yield writer.writerow(titles)
+
+            for row in query:
+                vals = [csv_encode(self.get_export_value(row, c[0]))
+                        for c in self._export_columns]
+                yield writer.writerow(vals)
+
+        filename = self.get_export_name(export_type=export_type)
+
+        disposition = 'attachment;filename=%s' % (secure_filename(filename), )
+
+        return Response(
+            stream_with_context(generate()),
+            headers={'Content-Disposition': disposition},
+            mimetype='text/' + export_type)
 
 
 class PeerReviewRecordAdmin(FundingWorkCommonModelView):
@@ -2092,11 +2291,16 @@ def load_researcher_funding():
 @roles_required(Role.ADMIN)
 def load_researcher_work():
     """Preload researcher's work data."""
-    form = FileUploadForm(extensions=["json", "yaml"])
+    form = FileUploadForm(extensions=["json", "yaml", "csv", "tsv"])
     if form.validate_on_submit():
         filename = secure_filename(form.file_.data.filename)
+        content_type = form.file_.data.content_type
         try:
-            task = WorkRecord.load_from_json(read_uploaded_file(form), filename=filename)
+            if content_type in ["text/tab-separated-values", "text/csv"]:
+                task = WorkRecord.load_from_csv(
+                    read_uploaded_file(form), filename=filename)
+            else:
+                task = WorkRecord.load_from_json(read_uploaded_file(form), filename=filename)
             flash(f"Successfully loaded {task.record_count} rows.")
             return redirect(url_for("workrecord.index_view", task_id=task.id))
         except Exception as ex:

@@ -119,9 +119,6 @@
               </li>
             {% endif %}
             {% if current_user.has_role("SUPERUSER") %}
-              <li id="registerOrganisation"><a href="{{ url_for('invite_organisation') }}">
-                <span data-toggle="tooltip" data-placement="bottom" title="Send a Tech Contact/Org Admin invitation">Onboard Organisation</span></a>
-              </li>
               <li class="dropdown">
                 <a class="dropdown-toggle" data-toggle="dropdown" href="#">Hub Admin
                   <span class="caret"></span></a>
@@ -129,6 +126,9 @@
                   <li id="user.index_view"><a data-toggle="tooltip" title="User roles" href="{{ url_for('user.index_view')}}">Users</a></li>
                   <li id="orcidtoken.index_view"><a data-toggle="tooltip" title="ORCID access tokens" href="{{ url_for('orcidtoken.index_view')}}">ORCID Tokens</a></li>
                   <li class="divider"></li>
+                  <li id="registerOrganisation"><a href="{{ url_for('invite_organisation') }}">
+                    <span data-toggle="tooltip" title="Send a Tech Contact/Org Admin invitation">Onboard Organisation</span></a>
+                  </li>
                   <li id="organisation.index_view"><a data-toggle="tooltip" title="Onboarded organisations" href="{{ url_for('organisation.index_view')}}">Active Organisations</a>
                   </li>
                   <li class="dropdown-submenu">
