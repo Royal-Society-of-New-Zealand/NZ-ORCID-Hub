@@ -520,18 +520,18 @@ def test_create_or_update_affiliation(send_email, update_employment, create_empl
             AffiliationRecord, on=(Task.id == AffiliationRecord.task_id)).join(
                 User,
                 JOIN.LEFT_OUTER,
-                on=((User.email == AffiliationRecord.email) |
-                    (User.orcid == AffiliationRecord.orcid))).join(
+                on=((User.email == AffiliationRecord.email)
+                    | (User.orcid == AffiliationRecord.orcid))).join(
                         Organisation, JOIN.LEFT_OUTER, on=(Organisation.id == Task.org_id)).join(
                             UserInvitation,
                             JOIN.LEFT_OUTER,
-                            on=((UserInvitation.email == AffiliationRecord.email) &
-                                (UserInvitation.task_id == Task.id))).join(
+                            on=((UserInvitation.email == AffiliationRecord.email)
+                                & (UserInvitation.task_id == Task.id))).join(
                                     OrcidToken,
                                     JOIN.LEFT_OUTER,
-                                    on=((OrcidToken.user_id == User.id) &
-                                        (OrcidToken.org_id == Organisation.id) &
-                                        (OrcidToken.scope.contains("/activities/update")))))
+                                    on=((OrcidToken.user_id == User.id)
+                                        & (OrcidToken.org_id == Organisation.id)
+                                        & (OrcidToken.scope.contains("/activities/update")))))
     app.config["SERVER_NAME"] = "orcidhub"
     for (task_id, org_id, user), tasks_by_user in groupby(tasks, lambda t: (
             t.id,
