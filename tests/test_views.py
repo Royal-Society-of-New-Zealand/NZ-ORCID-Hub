@@ -1322,8 +1322,7 @@ Rad,Cirskis,researcher.990@mailinator.com,Student
                 or (export_type == "yaml" and "application/octet-stream" in ct)
                 or (export_type == "xlsx"
                     and "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" == ct)
-                or
-                (export_type == "ods" and "application/vnd.oasis.opendocument.spreadsheet" == ct))
+                or (export_type == "ods" and "application/vnd.oasis.opendocument.spreadsheet" == ct))
         assert re.match(f"attachment;filename=affiliations_20.*\\.{export_type}",
                         resp.headers["Content-Disposition"])
         if export_type not in ["xlsx", "ods"]:
@@ -2774,3 +2773,101 @@ sdsds,,This is a title,,,hi,This is a journal title,xyz this is short descriptio
     assert resp.status_code == 200
     assert b"Failed to load work record file" in resp.data
     assert b"Invalid ORCID iD **ERROR**" in resp.data
+
+
+def test_peer_reviews(client):
+    """Test peer review data management."""
+    user = client.data["admin"]
+    client.login(user, follow_redirects=True)
+    resp = client.post(
+        "/load/researcher/peer_review",
+        data={
+            "file_": (
+                BytesIO(b"""[{
+  "invitees": [
+  {
+    "identifier":"00001",
+    "email": "contributor1@mailinator.com",
+    "first-name": "Alice", "last-name": "Contributor 1",
+    "ORCID-iD": "0000-0002-9207-4933"},
+  {
+    "identifier":"00002",
+    "email": "contributor2@mailinator.com",
+    "first-name": "Bob", "last-name": "Contributor 2"}],
+  "reviewer-role": "REVIEWER",
+  "review-identifiers": {
+    "external-id": [{
+      "external-id-type": "source-work-id",
+      "external-id-value": "1212221",
+      "external-id-url": {
+        "value": "https://localsystem.org/1234"
+      },
+      "external-id-relationship": "SELF"
+    }]
+  },
+  "review-url": {
+    "value": "https://alt-url.com"
+  },
+  "review-type": "REVIEW",
+  "review-completion-date": {
+    "year": {
+      "value": "2012"
+    },
+    "month": {
+      "value": "08"
+    },
+    "day": {
+      "value": "01"
+    }
+  },
+  "review-group-id": "issn:12131",
+  "subject-external-identifier": {
+    "external-id-type": "doi",
+    "external-id-value": "10.1087/20120404",
+    "external-id-url": {
+      "value": "https://doi.org/10.1087/20120404"
+    },
+    "external-id-relationship": "SELF"
+  },
+  "subject-container-name": {
+    "value": "Journal title"
+  },
+  "subject-type": "JOURNAL_ARTICLE",
+  "subject-name": {
+    "title": {
+      "value": "Name of the paper reviewed"
+    },
+    "subtitle": {
+      "value": "Subtitle of the paper reviewed"
+    },
+    "translated-title": {
+      "language-code": "en",
+      "value": "Translated title"
+    }
+  },
+  "subject-url": {
+    "value": "https://subject-alt-url.com"
+  },
+  "convening-organization": {
+    "name": "The University of Auckland",
+    "address": {
+      "city": "Auckland",
+      "region": "Auckland",
+      "country": "NZ"
+    },
+    "disambiguated-organization": {
+      "disambiguated-organization-identifier": "385488",
+      "disambiguation-source": "RINGGOLD"
+    }
+  }
+}]"""),
+                "peer_reviews_001.json",
+            ),
+        },
+        follow_redirects=True)
+    assert resp.status_code == 200
+    assert b"https://doi.org/10.1087/20120404" in resp.data
+    task = Task.get(filename="peer_reviews_001.json")
+    assert task.records.count() == 1
+    rec = task.records.first()
+    assert rec.external_ids.count() == 1
