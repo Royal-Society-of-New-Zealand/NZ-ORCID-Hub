@@ -1262,9 +1262,11 @@
                                         }},
                                     </text:span>
                                     <text:span text:style-name="T8">{{ j.get('type') }}</text:span>
-                                    <text:span text:style-name="T7">{% for e in j.get('external-ids', 'external-id')
-                                        %} , {{ e.get('external-id-type')|upper}}: {{ e.get('external-id-value')
-                                        }} {% endfor %}</text:span>
+                                    {% if j.get('external-ids') and  j.get('external-ids', 'external-id') %}
+                                        <text:span text:style-name="T7">{% for e in j.get('external-ids', 'external-id')
+                                            %} , {{ e.get('external-id-type')|upper}}: {{ e.get('external-id-value')
+                                            }} {% endfor %}</text:span>
+                                    {% endif %}
                                 </text:p>
                             </text:list-item>
                             {% endfor %}
@@ -1290,9 +1292,11 @@
                                         }},
                                     </text:span>
                                     <text:span text:style-name="T8">{{ j.get('type') }}</text:span>
-                                    <text:span text:style-name="T7">{% for e in j.get('external-ids', 'external-id')
-                                        %} , {{ e.get('external-id-type')|upper}}: {{ e.get('external-id-value')
-                                        }} {% endfor %}</text:span>
+                                    {% if j.get('external-ids') and  j.get('external-ids', 'external-id') %}
+                                        <text:span text:style-name="T7">{% for e in j.get('external-ids', 'external-id')
+                                            %} , {{ e.get('external-id-type')|upper}}: {{ e.get('external-id-value')
+                                            }} {% endfor %}</text:span>
+                                    {% endif %}
                                 </text:p>
                             </text:list-item>
                             {% endfor %}
@@ -1318,9 +1322,11 @@
                                         }},
                                     </text:span>
                                     <text:span text:style-name="T8">{{ j.get('type') }}</text:span>
-                                    <text:span text:style-name="T7">{% for e in j.get('external-ids', 'external-id')
-                                        %} , {{ e.get('external-id-type')|upper}}: {{ e.get('external-id-value')
-                                        }} {% endfor %}</text:span>
+                                    {% if j.get('external-ids') and  j.get('external-ids', 'external-id') %}
+                                        <text:span text:style-name="T7">{% for e in j.get('external-ids', 'external-id')
+                                            %} , {{ e.get('external-id-type')|upper}}: {{ e.get('external-id-value')
+                                            }} {% endfor %}</text:span>
+                                    {% endif %}
                                 </text:p>
                             </text:list-item>
                             {% endfor %}
@@ -1346,9 +1352,11 @@
                                         }},
                                     </text:span>
                                     <text:span text:style-name="T8">{{ j.get('type') }}</text:span>
-                                    <text:span text:style-name="T7">{% for e in j.get('external-ids', 'external-id')
-                                        %} , {{ e.get('external-id-type')|upper}}: {{ e.get('external-id-value')
-                                        }} {% endfor %}</text:span>
+                                    {% if j.get('external-ids') and  j.get('external-ids', 'external-id') %}
+                                        <text:span text:style-name="T7">{% for e in j.get('external-ids', 'external-id')
+                                            %} , {{ e.get('external-id-type')|upper}}: {{ e.get('external-id-value')
+                                            }} {% endfor %}</text:span>
+                                    {% endif %}
                                 </text:p>
                             </text:list-item>
                             {% endfor %}
@@ -1374,9 +1382,11 @@
                                         }},
                                     </text:span>
                                     <text:span text:style-name="T8">{{ j.get('type') }}</text:span>
-                                    <text:span text:style-name="T7">{% for e in j.get('external-ids', 'external-id')
-                                        %} , {{ e.get('external-id-type')|upper}}: {{ e.get('external-id-value')
-                                        }} {% endfor %}</text:span>
+                                    {% if j.get('external-ids') and  j.get('external-ids', 'external-id') %}
+                                        <text:span text:style-name="T7">{% for e in j.get('external-ids', 'external-id')
+                                            %} , {{ e.get('external-id-type')|upper}}: {{ e.get('external-id-value')
+                                            }} {% endfor %}</text:span>
+                                    {% endif %}
                                 </text:p>
                             </text:list-item>
                             {% endfor %}
@@ -1404,9 +1414,11 @@
                                         }},
                                     </text:span>
                                     <text:span text:style-name="T8">{{ j.get('type') }}</text:span>
-                                    <text:span text:style-name="T7">{% for e in j.get('external-ids', 'external-id')
-                                        %} , {{ e.get('external-id-type')|upper}}: {{ e.get('external-id-value')
-                                        }} {% endfor %}</text:span>
+                                    {% if j.get('external-ids') and  j.get('external-ids', 'external-id') %}
+                                        <text:span text:style-name="T7">{% for e in j.get('external-ids', 'external-id')
+                                            %} , {{ e.get('external-id-type')|upper}}: {{ e.get('external-id-value')
+                                            }} {% endfor %}</text:span>
+                                    {% endif %}
                                 </text:p>
                             </text:list-item>
                             {% endfor %}

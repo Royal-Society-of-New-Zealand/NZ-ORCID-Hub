@@ -426,9 +426,11 @@ your name in lists of authors.</span></i></font></font></p>
         {% for j in work_type_journal %}
         <li><font face="Arial, serif"><font style="font-size: 12pt">{{ j.get('publication-date', 'year', 'value')}}, {{
           j.get('title', 'title', 'value') }}, <font style="font-size: 11pt"><i>{{ j.get('type') }}</i>
-            {% for e in j.get('external-ids', 'external-id') %}
-            , {{ e.get('external-id-type')|upper}}: {{ e.get('external-id-value') }}
-            {% endfor %}
+            {% if j.get('external-ids') and  j.get('external-ids', 'external-id') %}
+              {% for e in j.get('external-ids', 'external-id') %}
+              , {{ e.get('external-id-type')|upper}}: {{ e.get('external-id-value') }}
+              {% endfor %}
+            {% endif %}
           </font></font></font></li>
         {% endfor %}
       </ul>
@@ -450,9 +452,11 @@ your name in lists of authors.</span></i></font></font></p>
         {% for j in work_type_books %}
         <li><font face="Arial, serif"><font style="font-size: 12pt">{{ j.get('publication-date', 'year', 'value')}}, {{
           j.get('title', 'title', 'value') }}, <font style="font-size: 11pt"><i>{{ j.get('type') }}</i>
-            {% for e in j.get('external-ids', 'external-id') %}
-            , {{ e.get('external-id-type')|upper}}: {{ e.get('external-id-value') }}
-            {% endfor %}
+            {% if j.get('external-ids') and  j.get('external-ids', 'external-id') %}
+              {% for e in j.get('external-ids', 'external-id') %}
+              , {{ e.get('external-id-type')|upper}}: {{ e.get('external-id-value') }}
+              {% endfor %}
+            {% endif %}
           </font></font></font></li>
         {% endfor %}
       </ul>
@@ -474,9 +478,11 @@ your name in lists of authors.</span></i></font></font></p>
         {% for j in work_type_book_chapter %}
         <li><font face="Arial, serif"><font style="font-size: 12pt">{{ j.get('publication-date', 'year', 'value')}}, {{
           j.get('title', 'title', 'value') }}, <font style="font-size: 11pt"><i>{{ j.get('type') }}</i>
-            {% for e in j.get('external-ids', 'external-id') %}
-            , {{ e.get('external-id-type')|upper}}: {{ e.get('external-id-value') }}
-            {% endfor %}
+            {% if j.get('external-ids') and  j.get('external-ids', 'external-id') %}
+              {% for e in j.get('external-ids', 'external-id') %}
+              , {{ e.get('external-id-type')|upper}}: {{ e.get('external-id-value') }}
+              {% endfor %}
+            {% endif %}
           </font></font></font></li>
         {% endfor %}
       </ul>
@@ -498,9 +504,11 @@ your name in lists of authors.</span></i></font></font></p>
         {% for j in work_type_conference %}
         <li><font face="Arial, serif"><font style="font-size: 12pt">{{ j.get('publication-date', 'year', 'value')}}, {{
           j.get('title', 'title', 'value') }}, <font style="font-size: 11pt"><i>{{ j.get('type') }}</i>
-            {% for e in j.get('external-ids', 'external-id') %}
-            , {{ e.get('external-id-type')|upper}}: {{ e.get('external-id-value') }}
-            {% endfor %}
+            {% if j.get('external-ids') and  j.get('external-ids', 'external-id') %}
+              {% for e in j.get('external-ids', 'external-id') %}
+              , {{ e.get('external-id-type')|upper}}: {{ e.get('external-id-value') }}
+              {% endfor %}
+            {% endif %}
           </font></font></font></li>
         {% endfor %}
       </ul>
@@ -521,9 +529,11 @@ your name in lists of authors.</span></i></font></font></p>
         {% for j in work_type_patent %}
         <li><font face="Arial, serif"><font style="font-size: 12pt">{{ j.get('publication-date', 'year', 'value')}}, {{
           j.get('title', 'title', 'value') }}, <font style="font-size: 11pt"><i>{{ j.get('type') }}</i>
-            {% for e in j.get('external-ids', 'external-id') %}
-            , {{ e.get('external-id-type')|upper}}: {{ e.get('external-id-value') }}
-            {% endfor %}
+            {% if j.get('external-ids') and  j.get('external-ids', 'external-id') %}
+              {% for e in j.get('external-ids', 'external-id') %}
+              , {{ e.get('external-id-type')|upper}}: {{ e.get('external-id-value') }}
+              {% endfor %}
+            {% endif %}
           </font></font></font></li>
         {% endfor %}
       </ul>
@@ -546,9 +556,11 @@ your name in lists of authors.</span></i></font></font></p>
         {% for j in work_type_other %}
         <li><font face="Arial, serif"><font style="font-size: 12pt">{{ j.get('publication-date', 'year', 'value')}}, {{
           j.get('title', 'title', 'value') }}, <font style="font-size: 11pt"><i>{{ j.get('type') }}</i>
-            {% for e in j.get('external-ids', 'external-id') %}
-            , {{ e.get('external-id-type')|upper}}: {{ e.get('external-id-value') }}
-            {% endfor %}
+            {% if j.get('external-ids') and  j.get('external-ids', 'external-id') %}
+              {% for e in j.get('external-ids', 'external-id') %}
+              , {{ e.get('external-id-type')|upper}}: {{ e.get('external-id-value') }}
+              {% endfor %}
+            {% endif %}
           </font></font></font></li>
         {% endfor %}
       </ul>
