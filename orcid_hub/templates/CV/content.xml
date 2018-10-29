@@ -854,7 +854,6 @@
                 <text:sequence-decl text:display-outline-level="0" text:name="Text"/>
                 <text:sequence-decl text:display-outline-level="0" text:name="Drawing"/>
             </text:sequence-decls>
-            <text:p text:style-name="P25">{{now}}</text:p>
             <text:p text:style-name="P28">
                 <text:span text:style-name="T1">New Zealand Standard Curriculum Vitae Template</text:span>
             </text:p>
@@ -933,7 +932,14 @@
                     <table:covered-table-cell/>
                     <table:table-cell table:style-name="Table1.E3" table:number-columns-spanned="5"
                                       office:value-type="string">
-                        <text:p text:style-name="Table_20_Contents"/>
+                        {% if employments %}
+                            <text:p text:style-name="P9">{{ employments[0] | year_range }}, {{
+                                employments[0].get('role-title') }}, {{ employments[0].get('department-name') }}, {{
+                                employments[0].get('organization', 'name') }}
+                            </text:p>
+                        {% else %}
+                            <text:p text:style-name="Table_20_Contents"/>
+                        {% endif %}
                     </table:table-cell>
                     <table:covered-table-cell/>
                     <table:covered-table-cell/>
@@ -977,7 +983,7 @@
                     <table:table-row>
                         <table:table-cell table:style-name="Table1.C8" table:number-columns-spanned="6"
                                           office:value-type="string">
-                            <text:p text:style-name="Table_20_Contents">Country: {{c}}.</text:p>
+                            <text:p text:style-name="P9">Country: {{c}}.</text:p>
                         </table:table-cell>
                         <table:covered-table-cell/>
                         <table:covered-table-cell/>
@@ -1136,7 +1142,11 @@
             </table:table>
             <text:p text:style-name="P30">[<text:span text:style-name="T9">Delete and start typing here.</text:span>]
             </text:p>
-            <text:p text:style-name="P32"/>
+            {% if record.get("person", "biography", "content") %}
+                <text:p text:style-name="P9">{{record.get("person", "biography", "content")}}</text:p>
+            {% else %}
+                <text:p text:style-name="P32"/>
+            {% endif %}
             <table:table table:name="Table5" table:style-name="Table5">
                 <table:table-column table:style-name="Table5.A"/>
                 <table:table-column table:style-name="Table5.B"/>

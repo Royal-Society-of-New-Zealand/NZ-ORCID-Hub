@@ -79,7 +79,6 @@
 	</style>
 </head>
 <body lang="en-NZ" dir="ltr">
-  <pre>{{now}}</pre>
   <p align="center" style="margin-bottom: 0.21cm; line-height: 0.46cm"><font face="Arial, serif"><font size="4" style="font-size: 14pt">
       <b>New Zealand Standard Curriculum Vitae Template</b>
     </font></font></p>
@@ -145,11 +144,17 @@ italics should be deleted before you submit your CV.</span></i></font></font></p
 			<p><font face="Arial, serif"><font size="3" style="font-size: 12pt"><span style="font-style: normal"><b>Present
 			position</b></span></font></font></p>
 		</td>
-		<td colspan="7" width="409" style="border: 1px solid #000001; padding: 0cm 0.19cm">
-			<p style="font-style: normal; font-weight: normal"><br/>
-			</p>
-		</td>
-	</tr>
+    <td colspan="7" width="409" style="border: 1px solid #000001; padding: 0cm 0.19cm">
+      <p>
+        {% if employments %}
+        <font face="Arial, serif"><font style="font-size: 12pt">{{ employments[0] | year_range }}, {{
+          employments[0].get('role-title') }}, {{ employments[0].get('department-name') }}, {{
+          employments[0].get('organization', 'name') }}</font></font>
+        {% endif %}
+        </br>
+      </p>
+    </td>
+  </tr>
 	<tr valign="top">
 		<td colspan="4" width="173" bgcolor="#e0e0e0" style="border: 1px solid #000001; padding: 0cm 0.19cm">
 			<p><font face="Arial, serif"><font size="3" style="font-size: 12pt"><span style="font-style: normal"><b>Organisation/Employer</b></span></font></font></p>
@@ -292,7 +297,12 @@ Year-year, job title, organisation.</span></i></font></font></p>
 	</tr>
 </table>
 <p style="margin-bottom: 0cm; line-height: 100%"><font face="Arial, serif" size="3" style="font-size: 9pt">[<i><span style="font-weight: normal">Delete and start typing here.</span></i>]</font></p>
-<p style="margin-bottom: 0cm; font-style: normal; font-weight: normal; line-height: 100%"><br/></p>
+  <p>
+    {% if record.get("person", "biography", "content") %}
+    <font face="Arial, serif"><font style="font-size: 12pt">{{record.get("person", "biography",
+      "content")}}</font></font>
+    {% endif %}<br/>
+  </p>
 <table width="612" cellpadding="7" cellspacing="0">
 	<col width="353">
 	<col width="229">
