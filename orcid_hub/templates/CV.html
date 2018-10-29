@@ -298,7 +298,7 @@ Year-year, job title, organisation.</span></i></font></font></p>
 </table>
 <p style="margin-bottom: 0cm; line-height: 100%"><font face="Arial, serif" size="3" style="font-size: 9pt">[<i><span style="font-weight: normal">Delete and start typing here.</span></i>]</font></p>
   <p>
-    {% if record.get("person", "biography", "content") %}
+    {% if record and record.get("person", "biography", "content") %}
     <font face="Arial, serif"><font style="font-size: 12pt">{{record.get("person", "biography",
       "content")}}</font></font>
     {% endif %}<br/>

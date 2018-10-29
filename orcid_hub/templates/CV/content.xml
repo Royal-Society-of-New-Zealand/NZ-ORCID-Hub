@@ -1142,7 +1142,7 @@
             </table:table>
             <text:p text:style-name="P30">[<text:span text:style-name="T9">Delete and start typing here.</text:span>]
             </text:p>
-            {% if record.get("person", "biography", "content") %}
+            {% if record and record.get("person", "biography", "content") %}
                 <text:p text:style-name="P9">{{record.get("person", "biography", "content")}}</text:p>
             {% else %}
                 <text:p text:style-name="P32"/>

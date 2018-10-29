@@ -143,55 +143,63 @@ def user_cv(op=None):
         OrcidToken.user_id == user.id, OrcidToken.scope.contains("read-limited")).first()
     if token is None:
         flash("You haven't granted your organisation necessary access to your profile..", "danger")
-        return redirect(request.referrer or url_for("link"))
+        return redirect(url_for("link"))
 
     if op is None:
         return render_template("user_cv.html")
     else:
         api = MemberAPI(user=user, access_token=token.access_token)
         record = api.get_record()
-        works = [
-            w for g in record.get("activities-summary", "works", "group")
-            for w in g.get("work-summary")
-        ]
+
         work_type_journal = []
         work_type_books = []
         work_type_book_chapter = []
         work_type_conference = []
         work_type_patent = []
         work_type_other = []
+        educations = []
+        employments = []
+        first_name = None
+        second_names = None
+        family_name = None
+        countries = []
+        emails = []
+        researcher_urls = []
 
-        for w in works:
-            if w.get("type") in ['JOURNAL_ARTICLE', 'JOURNAL_ISSUE']:
-                work_type_journal.append(w)
-            elif w.get("type") in ['BOOK', 'BOOK_REVIEW']:
-                work_type_books.append(w)
-            elif w.get("type") in ['BOOK_CHAPTER', 'EDITED_BOOK']:
-                work_type_book_chapter.append(w)
-            elif w.get("type") in ['CONFERENCE_PAPER', 'CONFERENCE_ABSTRACT', 'CONFERENCE_POSTER']:
-                work_type_conference.append(w)
-            elif w.get("type") in ['PATENT']:
-                work_type_patent.append(w)
-            else:
-                work_type_other.append(w)
+        if record:
+            works = [w for g in record.get("activities-summary", "works", "group") for w in g.get("work-summary")]
 
-        educations = record.get("activities-summary", "educations", "education-summary")
-        employments = record.get("activities-summary", "employments", "employment-summary")
+            for w in works:
+                if w.get("type") in ['JOURNAL_ARTICLE', 'JOURNAL_ISSUE']:
+                    work_type_journal.append(w)
+                elif w.get("type") in ['BOOK', 'BOOK_REVIEW']:
+                    work_type_books.append(w)
+                elif w.get("type") in ['BOOK_CHAPTER', 'EDITED_BOOK']:
+                    work_type_book_chapter.append(w)
+                elif w.get("type") in ['CONFERENCE_PAPER', 'CONFERENCE_ABSTRACT', 'CONFERENCE_POSTER']:
+                    work_type_conference.append(w)
+                elif w.get("type") in ['PATENT']:
+                    work_type_patent.append(w)
+                else:
+                    work_type_other.append(w)
 
-        first_name, *second_names = re.split("[,; \t]", str(
-            record.get("person", "name", "given-names", "value", default=user.first_name)))
+            educations = record.get("activities-summary", "educations", "education-summary")
+            employments = record.get("activities-summary", "employments", "employment-summary")
 
-        countries = [a.get("country", "value") for a in record.get("person", "addresses", "address")]
+            first_name, *second_names = re.split("[,; \t]", str(
+                record.get("person", "name", "given-names", "value", default=user.first_name)))
 
-        emails = [e.get("email") for e in record.get("person", "emails", "email")] if record.get(
-            "person", "emails", "email") else [user.email]
+            family_name = record.get("person", "name", "family-name", "value", default=user.last_name)
 
-        researcher_urls = [r.get("url", "value") for r in record.get("person", "researcher-urls", "researcher-url")]
+            countries = [a.get("country", "value") for a in record.get("person", "addresses", "address")]
 
-        person_data = dict(first_name=first_name, second_names=second_names,
-                           family_name=record.get("person", "name", "family-name", "value", default=user.last_name),
-                           address=countries, emails=emails, researcher_urls=researcher_urls)
+            emails = [e.get("email") for e in record.get("person", "emails", "email")] if record.get(
+                "person", "emails", "email") else [user.email]
 
+            researcher_urls = [r.get("url", "value") for r in record.get("person", "researcher-urls", "researcher-url")]
+
+        person_data = dict(first_name=first_name, second_names=second_names, family_name=family_name, address=countries,
+                           emails=emails, researcher_urls=researcher_urls)
         resp = make_response(
             render_template(
                 "CV.html",
