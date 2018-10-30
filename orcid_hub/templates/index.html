@@ -1,0 +1,46 @@
+{% extends "layout.html" %}
+{% block content %}
+  <div class="container">
+    <h2 class="display-2"><img class="orcidHub-id-logo" src="{{url_for('static', filename='images/logo.png')}}"  width="48" height="48" alt="ORCID Hub logo" />&nbsp;Welcome to the NZ&nbsp;ORCID&nbsp;Hub</h2>
+    <div class="row">
+      <div class="col-sm-12">
+        <p><br/>The NZ ORCID Hub connects research staff and students with the organisations where they study, are employed, or that they receive funding from.</p>
+        <p>Staff and students can use the Hub to give permission to their institution(s) to access their ORCID records and, in return,
+        NZ ORCID Consortium members can use the Hub to assert these relationships in their staff, students’, and recipients' ORCID records.<br/>
+        </p>
+        <p>For information on the Hub's background and development see the <a href="{{ url_for('about') }}">About</a> page.  If you would like more detail and links to resources, visit the
+        <a href="https://royalsociety.org.nz/orcid-in-new-zealand/new-zealand-orcid-consortium/who-is-involved-with-the-new-zealand-orcid-consortium/new-zealand-orcid-hub/">Hub pages</a>
+        of the Royal&nbsp;Society&nbsp;Te&nbsp;Apārangi’s website.</p>
+        <p>To find out if your organisation is a member of the NZ ORCID Consortium, see the current membership list here:
+        <a href="https://royalsociety.org.nz/orcid-in-new-zealand/new-zealand-orcid-consortium/who-is-involved-with-the-new-zealand-orcid-consortium/nz-orcid-consortium-members/">
+          NZ ORCID Consortium Members</a>
+        </p>
+      </div>
+    </div>
+    <div class="onboarding-block" style="padding-top: 20px">
+      {% if onboarded_organisations() %}
+        <h3>Organisations using the Hub:</h3>
+        <div class="row">
+          <div class="col-sm-6">
+            <h4>Tuakiri Members</h4>
+            {% for r in onboarded_organisations() %}
+              {% if (r.tuakiri_name != None and not(r.name == 'Royal Society Te Apārangi')) %}
+                <p>{{ r.name }}</p>
+              {% endif %}
+            {% endfor %}
+          </div>
+          <div class="col-sm-6">
+            <h4>Non-Tuakiri Members</h4>
+            <p>Royal Society Te Apārangi</p>
+            {% for r in onboarded_organisations() %}
+              {% if r.tuakiri_name == None %}
+                <p>{{ r.name }}</p>
+              {% endif %}
+            {% endfor %}
+          </div>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+{% endblock %}

@@ -1,22 +1,68 @@
 [run]
+branch = True
 omit =
-    tests_*.py
+    tests/*
+    orcid/*
+    orcid_api/*
+    venv/*
+    tuakiri_mock/*
+    orcid_hub/test_*.py
     main.py
     monitor.py
-    pyinfo.py
+    orcid_hub/pyinfo.py
     initializedb.py
-    conftest.py
+    orcid_hub/conftest.py
+    orcid_hub/config.py
+    run.py
+    application.py
     config.py
     create.py
-
+    setup.py
+    orcid_hub/mocks/*
+    orcid_hub/__init__.py
+    orcid_hub/cli.py
+    orcid_hub/failover.py
+    instance/settings.cfg
 [report]
 omit =
-    tests_*.py
+    tests/*
+    orcid/*
+    orcid_api/*
+    venv/*
+    tuakiri_mock/*
+    orcid_hub/test_*.py
     main.py
     monitor.py
-    pyinfo.py
+    orcid_hub/pyinfo.py
     initializedb.py
-    conftest.py
+    orcid_hub/conftest.py
+    orcid_hub/config.py
+    run.py
+    application.py
     config.py
     create.py
+    setup.py
+    orcid_hub/mocks/*
+    orcid_hub/__init__.py
+    orcid_hub/cli.py
+    orcid_hub/failover.py
+    instance/settings.cfg
 
+# Regexes for lines to exclude from consideration
+exclude_lines =
+    # Have to re-enable the standard pragma
+    pragma: no cover
+
+    # Don't complain about missing debug-only code:
+    def __repr__
+    if self\.debug
+
+    # Don't complain if tests don't hit defensive assertion code:
+    raise AssertionError
+    raise NotImplementedError
+
+    # Don't complain if non-runnable code isn't run:
+    if 0:
+    if __name__ == .__main__.:
+
+ignore_errors = True

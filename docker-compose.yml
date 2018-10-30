@@ -1,7 +1,9 @@
-version: '2.1'
+version: '3.5'
+
 services:
+
   db:
-    image: postgres:9.6.3
+    image: postgres:10.4
     environment:
       - POSTGRES_PASSWORD
       - PGPASSWORD
@@ -17,22 +19,25 @@ services:
       - ./archive:/archive
       - ${HOME}:${HOME}
     user: "${USER_UID:-500}:${USER_GID:-500}"
-    restart: always
+    # restart: always
 
   app:
     depends_on:
       - db
+      - redis
     image: orcidhub/app-dev
     environment:
       - ENV
+      - DATABASE_URL
       - SHIB_SP_DOMAINNAME
       - TOKEN_PASSWORD_SALT
       - MAIL_DEFAULT_SENDER
       - TOKEN_SECRET_KEY
-      - DATABASE_URL
       - SECRET_KEY
       - ORCID_CLIENT_ID
       - ORCID_CLIENT_SECRET
+      - SENTRY_DSN
+      - LOAD_TEST
     domainname: orcidhub.org.nz
     hostname: app
     ports:
@@ -48,4 +53,42 @@ services:
       - ./tuakiri-metadata-cert.pem:/etc/shibboleth/tuakiri-metadata-cert.pem
       - ./.keys:/.keys
       - ./conf:/conf
+    # restart: always
+
+  redis:
+    image: redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./data/redis:/data
     restart: always
+
+  worker:
+    image: orcidhub/app-dev
+    depends_on:
+      - redis
+      - db
+    command: ["./worker.sh"]
+    environment:
+      - ENV
+      - MAIL_DEFAULT_SENDER
+      - TOKEN_SECRET_KEY
+      - SECRET_KEY
+    volumes:
+      - .:/src
+    restart: always
+
+  scheduler:
+    image: orcidhub/app-dev
+    depends_on:
+      - redis
+      - db
+    command: ["./scheduler.sh"]
+    environment:
+      - ENV
+      - MAIL_DEFAULT_SENDER
+      - TOKEN_SECRET_KEY
+      - SECRET_KEY
+    volumes:
+      - .:/src
+    # restart: always

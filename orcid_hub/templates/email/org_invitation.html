@@ -1,0 +1,14 @@
+<h2 class="display-2">Welcome to the NZ ORCID Hub</h2>
+{% if invitation.tech_contact %}
+  <p>Welcome!</p>
+  {% if invitation.org.confirmed %}
+    <p>Please click on the link below to confirm your role as the new technical contact for {{invitation.org.name}}:<br>
+  {% else %}
+    <p>{{invitation.org.name}} is just one step from being onboarded onto the NZ ORCID Hub.</p>
+    <p>Please click on the link below to confirm your role as this organisation's Technical Contact:<br>
+  {% endif %}
+{% else %}
+  <p>You are invited to be an Organisation Administrator for {{invitation.org.name}} on the NZ ORCID Hub.</p>
+  <p>To confirm your acceptance of this role, please click on the link below:<br>
+{% endif %}
+<a href="{{ invitation.url }}">{{ invitation.url }}</a><br>

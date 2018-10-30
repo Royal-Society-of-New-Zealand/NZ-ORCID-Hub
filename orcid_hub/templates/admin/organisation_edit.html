@@ -1,0 +1,50 @@
+{% extends 'admin/model/edit.html' %}
+{% block body %}
+  {% if model %}
+    <h1>
+      {% if model.logo %}
+        <a href="{{url_for('logo_image', token=model.logo.token)}}">
+          <img style="max-height: 100px; max-width: 100px;" src="{{url_for('logo_image', token=model.logo.token)}}" alt="the logo of {{model.name}}">
+        </a>
+      {% endif %}
+        {{model.name}}
+    </h1>
+    <table class="table table-hover table-bordered searchable">
+      <tbody>
+        <tr>
+          <td>
+            <strong>Invited At</strong>
+          </td>
+          <td>
+            {{model.invitation_sent_at|isodate}}
+          </td>
+        </tr>
+        <tr>
+          <td>
+            <strong>Email Confirmed</strong>
+          </td>
+          <td>
+            {{model.invitation_confirmed_at|isodate}}
+          </td>
+        </tr>
+        <tr>
+          <td>
+            <strong>API Request Button Clicked</strong>
+          </td>
+          <td>
+            {{model.api_credentials_requested_at|isodate}}
+          </td>
+        </tr>
+        <tr>
+          <td>
+            <strong>API Credentials entered successfully</strong>
+          </td>
+          <td>
+            {{model.api_credentials_entered_at|isodate}}
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  {% endif %}
+  {{ super() }}
+{% endblock %}

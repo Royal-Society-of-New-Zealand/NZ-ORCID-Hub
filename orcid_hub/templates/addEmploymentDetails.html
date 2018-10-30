@@ -1,0 +1,44 @@
+{% extends "layout.html" %}
+{% from "macros.html" import render_field, form_tag %}
+{% block content %}
+<h1>ADD EMPLOYMENT</h1>
+{% call form_tag(form) %}
+    <div class="form-group">
+      <label for="org_name">Institution Name:</label>
+      {{ form.institution(size=30, class="form-control", id="institution") }}
+    </div>
+    <div class="form-group">
+      <label for="org_name">Department:</label>
+      {{ form.department(size=30, class="form-control", id="department") }}
+    </div>
+    <div class="form-group">
+      <label for="org_name">Country:</label>
+      {{ form.country }}
+    </div>
+    <div class="form-group">
+      <label for="org_name">State:</label>
+      {{ form.state(size=30, class="form-control", id="state") }}
+    </div>
+    <div class="form-group">
+      <label for="org_name">City:</label>
+      {{ form.city(size=30, class="form-control", id="city") }}
+    </div>
+    <div class="form-group">
+      <label for="org_name">Role:</label>
+      {{ form.role(size=30, class="form-control", id="role") }}
+    </div>
+    <div class="form-group">
+      <label for="org_name">Title:</label>
+      {{ form.title(size=30, class="form-control", id="title") }}
+    </div>
+    <div class="form-group">
+      <label for="org_name">Start Date:</label>
+      {{ form.start_date(class="dtpick") }}
+    </div>
+    <div class="form-group">
+      <label for="org_name">End Date:</label>
+      {{ form.end_date(class="dtpick") }}
+    </div>
+    <button type="submit" class="btn btn-default" value="Onboard Organisation">Add Details</button>
+{% endcall %}
+{% endblock %}

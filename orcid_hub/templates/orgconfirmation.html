@@ -1,0 +1,38 @@
+{% extends "layout.html" %}
+{% from "macros.html" import render_field, form_tag %}
+
+{% block content %}
+  <h1>Organisation Confirmation Form</h1>
+    {% call form_tag(form) %}
+    {{ render_field(form.name) }}
+    {{ render_field(form.email) }}
+    <div class="form-group">
+      <p>
+        {% if organisation.confirmed %}
+          <a id="connect-orcid-button" class="btn btn-default" data-toggle="tooltip" data-placement="bottom" title="For example, because you need to change the organisation name or wish to add another redirect URI" href="{{url_for('request_orcid_credentials')}}" target="_blank" role="button">
+            <img id="orcid-id-logo" src="https://orcid.org/sites/default/files/images/orcid_24x24.png" width='24'
+                                    height='24' alt="ORCID logo"/>&nbsp;Take me to ORCID to change my Client details </a>
+        {% else %}
+          <a id="connect-orcid-button-update" class="btn btn-default" href="{{url_for('request_orcid_credentials')}}" target="_blank" role="button">
+            <img id="orcid-id-logo-update" src="https://orcid.org/sites/default/files/images/orcid_24x24.png" width='24'
+                                    height='24' alt="ORCID logo"/>&nbsp;Take me to ORCID to obtain my Client ID and Client Secret </a>
+        {% endif %}
+      </p>
+    </div>
+    {% if organisation.confirmed %}
+      {{ render_field(form.show_api_credentials, data_toggle="collapse", data_target="#show-details") }}
+      <div class="{{'' if form.show_api_credentials.data else 'collapse'}}" id="show-details">
+          {{ render_field(form.orcid_client_id) }}
+          {{ render_field(form.orcid_secret) }}
+      </div>
+    {% else %}
+      {{ render_field(form.orcid_client_id) }}
+      {{ render_field(form.orcid_secret) }}
+    {% endif %}
+    {{ render_field(form.country) }}
+    {{ render_field(form.city) }}
+    {{ render_field(form.disambiguated_id, **{"data-toggle": "tooltip", "title": "The best id to use for your organisation, e.g. one of the following: RINGGOLD, FUNDREF, NZBN or EON"}) }}
+    {{ render_field(form.disambiguation_source, **{"data-toggle": "tooltip", "title": "The source of your organisation's disambiguated ID"}) }}
+    <button type="submit" class="btn btn-default" value="Confirmation">Confirmation</button>
+  {% endcall %}
+{% endblock %}

@@ -1,0 +1,43 @@
+channels:
+  - conda-forge
+name: py36
+dependencies:
+- openssl
+- pip
+- python=3.6
+- readline
+- setuptools
+- sqlite
+- wheel
+- zlib
+- pip:
+  - emails
+  - fake-factory
+  - Flask
+  - flask-admin
+  - flask-debugtoolbar
+  - flask-login
+  - flask_mail
+  - Flask-OAuthlib
+  - flask-peewee
+  - flask-swagger
+  - Flask-WTF
+  - html2text
+  - peewee
+  - peewee-validates
+  - psycopg2
+  - pycountry
+  - pykwalify
+  - python-slugify
+  - pyyaml
+  - raven
+  - raven[flask]
+  - recommonmark
+  - requests
+  - requests_oauthlib
+  - sphinx
+  - sphinx-autobuild
+  - m2r
+  - tablib
+  - testpath
+  - wtf-peewee

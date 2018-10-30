@@ -1,0 +1,210 @@
+name: Funding Schema
+desc: This schema is added to validate correct funding input from research organisation admin
+type: map
+mapping:
+    invitees:
+        type: seq
+        sequence:
+          -
+            type: map
+            mapping:
+                identifier:
+                    type: str
+                email:
+                    type: str
+                first-name:
+                    type: str
+                last-name:
+                    type: str
+                ORCID-iD:
+                    type: str
+                put-code:
+                    type: int
+                visibility:
+                    type: str
+    created-date:
+        type: map
+        mapping:
+            value:
+                type: timestamp
+    last-modified-date:
+        type: map
+        mapping:
+            value:
+                type: timestamp
+    source:
+        type: map
+        mapping:
+            source-orcid:
+                type: map
+                mapping:
+                    uri:
+                        type: str
+                    path:
+                        type: str
+                    host:
+                        type: str
+            source-client-id:
+                type: map
+                mapping:
+                    uri:
+                        type: str
+                    path:
+                        type: str
+                    host:
+                        type: str
+            source-name:
+                type: map
+                mapping:
+                    value:
+                        type: str
+    path:
+        type: str
+    type:
+        type: str
+        required: True
+    organization-defined-type:
+        type: map
+        mapping:
+            value:
+                type: str
+    title:
+        required: True
+        type: map
+        mapping:
+            title:
+                type: map
+                mapping:
+                    value:
+                        type: str
+            translated-title:
+                type: map
+                mapping:
+                    value:
+                        type: str
+                    language-code:
+                        type: str
+    short-description:
+        type: str
+    amount:
+        type: map
+        mapping:
+            value:
+                type: str
+            currency-code:
+                type: str
+    url:
+        type: map
+        mapping:
+            value:
+                type: str
+    start-date:
+        type: map
+        mapping:
+            year:
+                type: map
+                mapping:
+                    value:
+                        type: str
+            month:
+                type: map
+                mapping:
+                    value:
+                        type: str
+            day:
+                type: map
+                mapping:
+                    value:
+                        type: str
+    end-date:
+        type: map
+        mapping:
+            year:
+                type: map
+                mapping:
+                    value:
+                        type: str
+            month:
+                type: map
+                mapping:
+                    value:
+                        type: str
+            day:
+                type: map
+                mapping:
+                    value:
+                        type: str
+    external-ids:
+        type: map
+        mapping:
+            external-id:
+                type: seq
+                sequence:
+                    -
+                        type: map
+                        mapping:
+                            external-id-type:
+                                type: str
+                            external-id-value:
+                                type: str
+                            external-id-url:
+                                type: map
+                                mapping:
+                                    value:
+                                        type: str
+                            external-id-relationship:
+                                type: str
+    contributors:
+        type: map
+        mapping:
+            contributor:
+                type: seq
+                sequence:
+                    -
+                        type: map
+                        mapping:
+                            contributor-orcid:
+                                type: map
+                                mapping:
+                                    uri:
+                                        type: str
+                                    path:
+                                        type: str
+                                    host:
+                                        type: str
+                            credit-name:
+                                type: map
+                                mapping:
+                                    value:
+                                        type: str
+                            contributor-email:
+                                type: map
+                                mapping:
+                                    value:
+                                        type: str
+                            contributor-attributes:
+                                type: map
+                                mapping:
+                                    contributor-role:
+                                        type: str
+    organization:
+        type: map
+        mapping:
+            name:
+                type: str
+            address:
+                type: map
+                mapping:
+                    city:
+                        type: str
+                    region:
+                        type: str
+                    country:
+                        type: str
+            disambiguated-organization:
+                type: map
+                mapping:
+                    disambiguated-organization-identifier:
+                        type: str
+                    disambiguation-source:
+                        type: str

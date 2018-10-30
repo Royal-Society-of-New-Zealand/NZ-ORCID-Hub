@@ -1,0 +1,39 @@
+{% extends 'admin/model/list.html' %}
+{% block body %}
+  {% if data %}
+    {% set funding_record = data[0].funding_record %}
+    <h1>{{funding_record.filename}}</h1>
+    <table class="table table-hover table-bordered searchable">
+      <tbody>
+        <tr>
+          <td>
+            <b>Funding Title</b>
+          </td>
+          <td>
+            {{funding_record.title}}
+          </td>
+        </tr>
+        <tr>
+          <td>
+            <b>Funding Type</b>
+          </td>
+          <td>
+            {{funding_record.type}}
+         </td>
+        </tr>
+        <tr>
+          <td>
+            <b>Task Filename</b>
+          </td>
+          <td>
+            <a href="{{ url_for('fundingrecord.index_view', task_id=funding_record.task_id) }}">{{funding_record.task.filename}}</a>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+    <span class="pull-right">
+      <a role="button" class="btn btn-primary" href="{{ request.args.get('url') or url_for('fundingrecord.index_view', task_id=funding_record.task_id) }}">Back</a>
+    </span>
+  {% endif %}
+  {{ super() }}
+{% endblock %}

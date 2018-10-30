@@ -1,0 +1,22 @@
+{% extends "layout.html" %}
+{% from "macros.html" import render_field, form_tag %}
+
+{% block content %}
+  {% call form_tag(form) %}
+    <div class="row">
+      <div class="col-md-9 col-sm-8 col-xs-12">
+        <h1>Register a new OAuth application</h1>
+      </div>
+    </div>
+    <div class="row">
+      <div class="col-md-6 col-sm-6 col-xs-12">
+        {{ render_field(form.name) }}
+        {{ render_field(form.homepage_url) }}
+        {{ render_field(form.description) }}
+        {{ render_field(form.callback_urls) }}
+        {{ form.register }}
+        {{ form.cancel }}
+      </div>
+    </div>
+  {% endcall %}
+{% endblock %}

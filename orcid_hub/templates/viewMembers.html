@@ -1,0 +1,24 @@
+{% extends 'admin/model/list.html' %}
+{% block body %}
+  {{ super() }}
+{% endblock %}
+{% block list_row_actions %}
+  {{ super() }}
+  {% if row.orcid %}
+    <a class="icon" href="{{ url_for('section', user_id=row.id, section_type='EMP', url=request.url) }}" title="Employment">
+      <span class="fa fa-briefcase glyphicon glyphicon-briefcase icon"></span>
+    </a>
+    <a class="icon" href="{{ url_for('section', user_id=row.id, section_type='EDU', url=request.url) }}" title="Education">
+      <span class="fa fa-graduation-cap glyphicon glyphicon-education icon"></span>
+    </a>
+    <a class="icon" href="{{ url_for('section', user_id=row.id, section_type='FUNDING', url=request.url) }}" title="Funding">
+      <span class="fa fa-money glyphicon glyphicon-money icon"></span>
+    </a>
+    <a class="icon" href="{{ url_for('section', user_id=row.id, section_type='PRR', url=request.url) }}" title="Peer Review Record">
+      <span class="fa fa-users"></span>
+    </a>
+    <a class="icon" href="{{ url_for('section', user_id=row.id, section_type='WOR', url=request.url) }}" title="Work Record">
+      <span class="fa fa-print"></span>
+    </a>
+  {% endif %}
+{% endblock %}

@@ -1,0 +1,69 @@
+{% extends "form.html" %}
+{% from "macros.html" import render_field, form_tag %}
+
+{% block content %}
+  {{ super() }}
+  {% if request.endpoint == "load_researcher_affiliations" %}
+    <div class="row">
+      <div class="col-md-12 col-sm-12 col-xs-12">
+        <p>Format your affiliation data as either a comma-separated or tab-separated text file. The first row of the file <b>must</b> contain valid field headers from the following:<br />
+           <ul>
+             <li>Required: "Affiliation type"; "First name"; "Last name"; and, "Email"</li>
+             <li>Optional: "Identifier"; "ORCID iD"; "Organisation"; "Department"; "City"; "Region"; "Country"; "Course or Title"; "Start date"; "End date";
+                 "Disambiguation ID"; "Disambiguation Source"; and "Put-Code".</li>
+           </ul>
+          Where a field's header or value is not provided, the value from your organisation will be used if available, e.g., Organisation, City, Country, Disambiguation ID,
+          and Disambiguation Source can be omitted where redundant for the item(s).<br />
+          On successful completion, the user's ORCID iD and item's put-code and visibility will be returned for each affiliation item written. The Hub attempts to identify when information<br />
+          is an update rather than a new item; however, to explicitly update an item include a field with the item's put-code to specify which item is to be overwritten.<br />
+          For more information on the affiliation tasks, including definitions and behaviour see the Hub's <a href="http://docs.orcidhub.org.nz/en/latest/writing_affiliation_items.html">documentation for affiliations</a>.</p>
+      </div>
+    </div>
+  {% endif %}
+  {% if request.endpoint == "load_researcher_funding" %}
+    <div class="row">
+      <div class="col-md-12 col-sm-12 col-xs-12">
+        <p>Format your funding data as either a json or yaml file. Multiple items can be specified but each <b>must</b> contain an invitees list together with the <br />
+        ORCID message schema compliant-data that is to be written to each invitee's ORCID record:<br />
+           <ul>
+             <li>Required for each invitee: "first-name"; "last-name"; and, "email"</li>
+             <li>Required for each funding message: "title"; "type"; and, "organization"</li>
+           </ul>
+          On successful completion, the user's ORCID iD and item's put-code and visibility will be returned for each funding item written. The Hub attempts to identify when information<br />
+          is an update rather than a new item; however, to explicitly update an item include a field with the item's put-code to specify which item is to be overwritten.<br />
+          For more information on the funding tasks, including definitions and behaviour see the Hub's <a href="http://docs.orcidhub.org.nz/en/latest/writing_funding_items.html">documentation for funding</a>.</p>
+      </div>
+    </div>
+  {% endif %}
+  {% if request.endpoint == "load_researcher_work" %}
+    <div class="row">
+      <div class="col-md-12 col-sm-12 col-xs-12">
+        <p>Format your works data as either a json or yaml file. Multiple items can be specified but each <b>must</b> contain an invitees list together with the <br />
+        ORCID message schema compliant-data that is to be written to each invitee's ORCID record:<br />
+           <ul>
+             <li>Required for each invitee: "first-name"; "last-name"; and, "email"</li>
+             <li>Required for each work message: "title"; and, "type""</li>
+           </ul>
+          On successful completion, the user's ORCID iD and item's put-code and visibility will be returned for each work item written. The Hub attempts to identify when information<br />
+          is an update rather than a new item; however, to explicitly update an item include a field with the item's put-code to specify which item is to be overwritten.<br />
+          For more information on the work tasks, including definitions and behaviour see the Hub's <a href="http://docs.orcidhub.org.nz/en/latest/writing_work_items.html">documentation for works</a>.</p>
+      </div>
+    </div>
+  {% endif %}
+  {% if request.endpoint == "load_researcher_peer_review" %}
+    <div class="row">
+      <div class="col-md-12 col-sm-12 col-xs-12">
+        <p>Format your peer review data as either a json or yaml file. Multiple items can be specified but each <b>must</b> contain an invitees list together with the <br />
+        ORCID message schema compliant-data that is to be written to each invitee's ORCID record:<br />
+           <ul>
+             <li>Required for each invitee: "first-name"; "last-name"; and, "email"</li>
+             <li>Required for each peer review message: "reviewer-role"; "review-identifiers"; "review-type"; "review-group-id", and "convening-organization"</li>
+           </ul>
+          A valid review-group-id must be specified.  NB: Review Group IDs may be created in the Hub <a href="{{ url_for('groupidrecord.index_view')}}">here</a>.<br />
+          On successful completion, the user's ORCID iD and item's put-code and visibility will be returned for each peer review item written. The Hub attempts to identify when information<br />
+          is an update rather than a new item; however, to explicitly update an item include a field with the item's put-code to specify which item is to be overwritten.<br />
+          For more information on the peer review tasks, including definitions and behaviour see the Hub's <a href="http://docs.orcidhub.org.nz/en/latest/writing_peer_review_items.html">peer review documentation</a>.</p>
+      </div>
+    </div>
+  {% endif %}
+{% endblock %}

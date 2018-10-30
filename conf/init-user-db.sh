@@ -21,15 +21,20 @@ primary_conninfo = 'host=MASTER_SERVER_IP port=5432 user=postgres'
 trigger_file = '$PGDATA/pg_failover_trigger.00'
 EOF
 
+
+sed -i '/host all all all md5/d' $PGDATA/pg_hba.conf
 cat >>$PGDATA/pg_hba.conf <<EOF
 
 # Add here the access from the "slave" DB servers:
-local   replication     postgres                                    trust
-host    replication     postgres        34.225.18.251/32            trust
-host    all             all             34.225.18.251/32            trust
+local   replication     postgres                            trust
+host    replication     postgres        34.225.18.251/32    trust
+host    all             all             34.225.18.251/32    trust
+host    orcidhub        orcidhub        $(hostname -I|tr -d ' \n')/24     trust
+# host    all             all             gateway             trust
 EOF
 
 createdb -U "$POSTGRES_USER" orcidhub
+createdb -U "$POSTGRES_USER" sentry
 
 psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d orcidhub <<-EOSQL
   CREATE USER orcidhub WITH PASSWORD '${POSTGRES_PASSWORD}';

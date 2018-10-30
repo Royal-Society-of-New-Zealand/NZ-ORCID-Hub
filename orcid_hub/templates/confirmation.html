@@ -1,0 +1,11 @@
+{% extends "layout.html" %}
+{% from "macros.html" import render_field, form_tag %}
+
+{% block content %}
+  <h1>Please complete the fields below</h1>
+  {% call form_tag(form, name="login") %}
+    <p>Enter Organisation Name:{{ form.orgName(size=20) }}</p><br>
+    <p>Enter Organisation Email:{{ form.orgEmailid(size=20) }}</p><br>
+    <p><input type="submit" value="Confirm"></p>
+  {% endcall %}
+{% endblock %}

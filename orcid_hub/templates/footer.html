@@ -1,0 +1,30 @@
+<!--  Footer Details -->
+<footer class="footer">
+  <div class="container">
+    {% if request.endpoint in ["index", "login", "about", "faq"] %}
+      <div class="row">
+        <div class="col-sm-6">
+          <p class="contact">
+          <small>
+            Contact details for the NZ ORCID Hub<br>
+            Phone: +64 (04) 472 7421<br>
+            PO Box 598, Wellington 6140<br>
+            New Zealand<br>
+            <b><a href="mailto:orcid@royalsociety.org.nz">orcid@royalsociety.org.nz</a></b>
+          </small>
+          </p>
+        </div>
+        <div class="col-sm-6">
+          <p class="copyright">
+          <small>
+            2017 Royal Society of New Zealand<br/><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank"><img src="{{url_for('static', filename='images/CC-BY-icon-88x31.png')}}" alt="CC-BY"></a>
+          </small>
+          </p>
+        </div>
+      </div>
+    {% else %}
+      <p class="contact">2017 Royal Society of New Zealand</p>
+      <p class="copyright"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank"><img src="{{url_for('static', filename='images/CC-BY-icon-80x15.png')}}" alt="CC-BY"></a></p>
+    {% endif %}
+  </div>
+</footer>

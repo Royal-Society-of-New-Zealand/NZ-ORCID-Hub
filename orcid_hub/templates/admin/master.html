@@ -1,0 +1,36 @@
+{# extention of Flask-Admin base template
+for integration of the common menu and header.
+The extension based on the version v1.5.#}
+{% extends 'admin/base.html' %}
+{% block head_css %}
+  {{ super() }}
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.6.3/css/font-awesome.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-select/1.12.4/css/bootstrap-select.min.css">
+  <link href="{{url_for('static', filename='css/sticky-footer.css')}}" rel="stylesheet">
+  <link href="{{url_for('static', filename='css/style.css')}}" rel="stylesheet">
+{% endblock %}
+{% block page_body %}
+  {% include 'header.html' %}
+  <div class="container-fluid">
+    {# store the jinja2 context for form_rules rendering logic #}
+    {% set render_ctx = h.resolve_ctx() %}
+
+    {% block body %}{% endblock %}
+
+  </div>
+{% endblock %}
+{% block tail_js %}
+  {{ super() }}
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-select/1.12.4/js/bootstrap-select.min.js"></script>
+  <script>
+$(document).ready(function(){
+  $("time").each(function () {
+     var el = $(this);
+     var dt = moment.utc(el.attr("datetime")).local();
+     el.html(dt.format(el.data("format") || "YYYY[&#8209;]MM[&#8209;]DD[&nbsp;]HH:mm"));
+  });
+  $('[data-toggle="tooltip"]').tooltip();
+  $("#{{request.endpoint.replace('.', '\\\\.')}}").addClass("active");
+});
+  </script>
+{% endblock %}

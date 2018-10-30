@@ -1,0 +1,32 @@
+{% extends 'admin/model/list.html' %}
+{% block body %}
+  {{ super() }}
+{% endblock %}
+{% block list_row_actions %}
+{% if row.task_type == 0 %}
+    <a class="icon" href="{{ url_for('affiliationrecord.index_view', task_id=row.id, url=request.url) }}" title="View Details">
+      <span class="fa fa-eye glyphicon glyphicon-eye-open"></span>
+      <!-- spam class="fa fa-graduation-cap glyphicon glyphicon-education icon"></spam -->
+    </a>
+{% elif row.task_type == 1 %}
+    <a class="icon" href="{{ url_for('fundingrecord.index_view', task_id=row.id, url=request.url) }}" title="View Details">
+      <span class="fa fa-eye glyphicon glyphicon-eye-open"></span>
+      <!-- spam class="fa fa-graduation-cap glyphicon glyphicon-education icon"></spam -->
+    </a>
+{% elif row.task_type == 2 %}
+    <a class="icon" href="{{ url_for('workrecord.index_view', task_id=row.id, url=request.url) }}" title="View Details">
+      <span class="fa fa-eye glyphicon glyphicon-eye-open"></span>
+      <!-- spam class="fa fa-graduation-cap glyphicon glyphicon-education icon"></spam -->
+    </a>
+{% elif row.task_type == 3 %}
+    <a class="icon" href="{{ url_for('peerreviewrecord.index_view', task_id=row.id, url=request.url) }}" title="View Details">
+      <span class="fa fa-eye glyphicon glyphicon-eye-open"></span>
+    </a>
+{% elif row.task_type == 11 %}
+    <a class="icon" href="{{ url_for('sync_profiles', task_id=row.id, url=request.url) }}" title="View Details">
+      <span class="fa fa-eye glyphicon glyphicon-eye-open"></span>
+    </a>
+{% else %}
+{% endif %}
+  {{ super() }}
+{% endblock %}

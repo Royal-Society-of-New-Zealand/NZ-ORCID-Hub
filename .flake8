@@ -1,0 +1,5 @@
+[flake8]
+ignore = E126,W503,D105,E722,D205,D208,D400
+exclude = .git,__pycache__,venv,orcid_api,migrations,SAML,docs,swagger_client,orcid,setup.py,dist,build
+max-line-length = 120
+# max-complexity = 10

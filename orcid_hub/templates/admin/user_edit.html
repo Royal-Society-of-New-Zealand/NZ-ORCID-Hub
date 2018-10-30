@@ -1,0 +1,154 @@
+{% extends "admin/model/edit.html" %}
+{% block head_tail %}
+  {{super()}}
+  {%- if config.debug %}
+  <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+  {% else %}
+  <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.min.js"></script>
+  {% endif -%}
+  <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lodash@4.17.10/lodash.min.js" integrity="sha256-/GKyJ0BQJD8c8UYgf7ziBrs/QgcikS7Fv/SaArgBcEI=" crossorigin="anonymous"></script>
+{% endblock %}
+
+{% block navlinks %}
+  <ul class="nav nav-tabs">
+    <li>
+      <a href="{{ return_url }}">{{ _gettext('List') }}</a>
+    </li>
+    {%- if admin_view.can_create -%}
+    <li>
+      <a href="{{ get_url('.create_view', url=return_url) }}">{{ _gettext('Create') }}</a>
+    </li>
+    {%- endif -%}
+    <li class="active">
+      <a data-toggle="tab"  href="#edit-tab">{{ _gettext('Edit') }}</a>
+    </li>
+    <li>
+      <a data-toggle="tab" href="#user-orgs-tab">
+        <span data-toggle="tooltip" title="User Organisations">{{ _gettext('Organisations') }}</span></a>
+    </li>
+    {%- if admin_view.can_view_details -%}
+    <li>
+      <a href="{{ get_url('.details_view', id=request.args.get('id'), url=return_url) }}">{{ _gettext('Details') }}</a>
+    </li>
+    {%- endif -%}
+  </ul>
+{% endblock %}
+
+{% block edit_form %}
+  <div class="tab-content">
+    <div id="edit-tab" class="tab-pane active">
+      <h3>Details</h3>
+      {{ lib.render_form(form, return_url, extra(), form_opts) }}
+    </div>
+    <div id="user-orgs-tab" class="tab-pane">
+      <h3>User Organisations</h3>
+      <div class="form-group">
+        <div class="row">
+          <div class="col-md-10">
+            <label for="sel_org">Select an ogranisation to add:</label>
+            <select class="form-control" id="org-select" v-model="selected_org" v-on:change="add_org()">
+              <option disabled value="">-- Choose an Organisation to add... --</option>
+              {% raw %}
+              <option v-for="o in orderedAvailableOrgs" v-bind:value="o" :key="o.id">{{o.name}}</option>
+              {% endraw %}
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="row">
+        <div class="col-md-10">
+          <table id="user-org-table" class="table table-striped table-bordered table-hover model-list">
+            <thead>
+              <tr>
+                <th class="column-header">Remove</th>
+                <th class="column-header">Name</th>
+                <th class="column-header">Is Admin</th>
+                <th class="column-header">Is Tech.Contact</th>
+              </tr>
+            </thead>
+            {% raw %}
+            <tbody>
+              <tr v-for="r in orderedUserOrgs" :key="r.id">
+                <td class="col-name">
+                  <button
+                    title="Delete record"
+                    class="remove-org"
+                    v-bind:data-org_id="r.id"
+                    data-toggle="confirmation">
+                    <span class="fa fa-trash glyphicon glyphicon-trash"></span>
+                  </button>
+                </td>
+                <td class="col-name">{{r.name}}</td>
+                <td class="col-name"><input type="checkbox" v-on:change="change(r)" v-model="r.is_admin"></td>
+                <td class="col-name"><input type="checkbox" v-on:change="change(r)" v-model="r.is_tech_contact"></td>
+              </tr>
+            </tbody>
+            {% endraw %}
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock %}
+
+{% block tail_js %}
+  {{ super() }}
+<script src="{{ url_for('static', filename='js/bootstrap-confirmation.min.js') }}"></script>
+<script>
+  $(function() {
+  $("#user-org-table").confirmation({
+    selector: '[data-toggle="confirmation"]',
+    onConfirm: function(e, target) {
+      vm.delete_org(target.context.dataset.org_id);
+    },
+  });
+});
+var vm = new Vue({
+  el: "#user-orgs-tab",
+  data: {
+    available_orgs: {{ model.available_organisations.dicts()| list | tojson }},
+    user_orgs: {{ model.organisations.dicts() | list | tojson }},
+    selected_org: ''
+  },
+  computed: {
+    orderedAvailableOrgs: function() {
+      return _.orderBy(this.available_orgs, "name");
+    },
+    orderedUserOrgs: function() {
+      return _.orderBy(this.user_orgs, "name");
+    }
+  },
+  methods: {
+    add_org: function() {
+      if (!this.selected_org) {
+        return;
+      }
+      var org = {id: this.selected_org.id, name: this.selected_org.name, is_admin: false, is_tech_contact: false};
+      this.user_orgs.push(org);
+      for (var i in this.available_orgs) {
+        if (this.available_orgs[i].id == this.selected_org.id) {
+          this.available_orgs.splice(i, 1);
+          this.selected_org = '';
+          break;
+        }
+      }
+      axios.post("{{ url_for('user_orgs_org', user_id=request.args.get('id')) }}", org);
+    },
+    change: function(user_org) {
+      axios.put("{{ url_for('user_orgs_org', user_id=request.args.get('id')) }}", user_org);
+    },
+    delete_org: function(org_id) {
+      for (var i in this.user_orgs) {
+        if (this.user_orgs[i].id == org_id) {
+          var org = this.user_orgs.splice(i, 1).pop();
+          this.available_orgs.push(org);
+          axios.delete( "{{ url_for('user_orgs_org', user_id=request.args.get('id')) }}" + org_id);
+          break;
+        }
+      }
+    }
+  }
+});
+</script>
+{% endblock %}
