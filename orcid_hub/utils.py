@@ -795,13 +795,10 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
                 if put_code in taken_put_codes:
                     continue
 
-                if (((r.get("start-date") is None and r.get("end-date") is None
-                      and r.get("department-name") is None and r.get("role-title") is None)
-                     or (
-                         r.get("start-date") == start_date
-                         and r.get("department-name") == affiliation_record.department
-                         and r.get("role-title") == affiliation_record.role))
-                        and affiliation_record.organisation == r.get("organization", "name")):
+                if ((r.get("start-date") is None and r.get("end-date") is None and r.get(
+                    "department-name") is None and r.get("role-title") is None)
+                    or (r.get("start-date") == start_date and r.get("department-name") == affiliation_record.department
+                        and r.get("role-title") == affiliation_record.role)):
                     affiliation_record.put_code = put_code
                     taken_put_codes.add(put_code)
                     app.logger.debug(

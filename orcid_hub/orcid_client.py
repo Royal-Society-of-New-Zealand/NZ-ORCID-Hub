@@ -1099,8 +1099,8 @@ class MemberAPI(MemberAPIV20Api):
 
         if disambiguation_source:
             disambiguation_source = disambiguation_source.upper()
-        elif org_name == self.org.name:
-            disambiguation_source = self.org.disambiguation_source
+        elif self.org.disambiguation_source:
+            disambiguation_source = self.org.disambiguation_source.upper()
 
         disambiguated_organization_details = DisambiguatedOrganization(
             disambiguated_organization_identifier=disambiguated_id or self.org.disambiguated_id,
