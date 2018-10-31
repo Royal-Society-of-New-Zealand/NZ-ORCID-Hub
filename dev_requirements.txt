@@ -7,7 +7,6 @@ recommonmark
 pyyaml
 coverage>=4.4.1
 coveralls>=1.2.0
-fake-factory>=9999.9.9
 flake8>=3.4.1
 flake8-docstrings>=1.1.0
 flake8-polyfill>=1.0.1
