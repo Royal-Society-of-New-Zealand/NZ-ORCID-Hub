@@ -1099,7 +1099,7 @@ class MemberAPI(MemberAPIV20Api):
 
         if disambiguation_source:
             disambiguation_source = disambiguation_source.upper()
-        else:
+        elif self.org.disambiguation_source:
             disambiguation_source = self.org.disambiguation_source.upper()
 
         disambiguated_organization_details = DisambiguatedOrganization(
