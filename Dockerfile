@@ -31,7 +31,8 @@ RUN yum -y update \
         python36u-pip \
         git \
     && echo $'RPMs installed...' \
-    && pip install -U pip mod_wsgi psycopg2-binary \
+    && pip3.6 install -U pip \
+    && pip install -U mod_wsgi psycopg2-binary \
     && pip install -U -r requirements.txt \
     && /usr/bin/mod_wsgi-express module-config >/etc/httpd/conf.modules.d/10-wsgi.conf \
     && [ -d /var/run/lock ] || mkdir -p /var/run/lock \
