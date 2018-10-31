@@ -981,6 +981,45 @@ class CompositeRecordModelView(RecordModelView):
         else:
             return self._export_tablib(export_type, return_url)
 
+
+class FundingRecordAdmin(FundingWorkCommonModelView):
+    """Funding record model view."""
+
+    column_searchable_list = ("title",)
+    list_template = "funding_record_list.html"
+    column_export_list = (
+        "funding_id",
+        "identifier",
+        "put_code",
+        "title",
+        "translated_title",
+        "translated_title_language_code",
+        "type",
+        "organization_defined_type",
+        "short_description",
+        "amount",
+        "currency",
+        "start_date",
+        "end_date",
+        "org_name",
+        "city",
+        "region",
+        "country",
+        "disambiguated_org_identifier",
+        "disambiguation_source",
+        "visibility",
+        "orcid",
+        "email",
+        "first_name",
+        "last_name",
+        "name",
+        "role",
+        "excluded",
+        "external_id_type",
+        "external_id_url",
+        "external_id_relationship",
+        "status",)
+
     def _export_csv(self, return_url, export_type):
         """Export a CSV or tsv of records as a stream."""
         delimiter = ","

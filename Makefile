@@ -25,4 +25,3 @@ push: tag tag-dev
 push-dev: tag-dev
 	docker push $(NAME)-dev:$(VERSION)
 	docker push $(NAME)-dev:latest
-
