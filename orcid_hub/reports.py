@@ -139,8 +139,9 @@ def user_cv(op=None):
     if not user.orcid:
         flash("You haven't linked your account with ORCID.", "warning")
         return redirect(request.referrer or url_for("index"))
-    token = OrcidToken.select(OrcidToken.access_token).where(
-        OrcidToken.user_id == user.id, OrcidToken.scope.contains("read-limited")).first()
+    token = OrcidToken.select(OrcidToken.access_token).where(OrcidToken.user_id == user.id,
+                                                             OrcidToken.org_id == user.organisation_id,
+                                                             OrcidToken.scope.contains("read-limited")).first()
     if token is None:
         flash("You haven't granted your organisation necessary access to your profile..", "danger")
         return redirect(url_for("link"))
