@@ -1300,7 +1300,8 @@ def process_affiliation_records(max_rows=20):
                            User,
                            JOIN.LEFT_OUTER,
                            on=((User.email == AffiliationRecord.email)
-                               | (User.orcid == AffiliationRecord.orcid))).join(
+                               | ((User.orcid == AffiliationRecord.orcid)
+                                  & (User.organisation_id == Task.org_id)))).join(
                                    Organisation,
                                    JOIN.LEFT_OUTER,
                                    on=(Organisation.id == Task.org_id)).join(
