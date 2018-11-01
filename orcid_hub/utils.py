@@ -23,8 +23,8 @@ from peewee import JOIN
 from . import app, orcid_client, rq
 from .models import (AFFILIATION_TYPES, Affiliation, AffiliationRecord, FundingInvitees,
                      FundingRecord, Log, OrcidToken, Organisation, PartialDate,
-                     PeerReviewExternalId, PeerReviewInvitee, PeerReviewRecord, Role, Task, Url,
-                     User, UserInvitation, UserOrg, WorkInvitees, WorkRecord, get_val)
+                     PeerReviewExternalId, PeerReviewInvitee, PeerReviewRecord, Role, TaskType,
+                     Task, Url, User, UserInvitation, UserOrg, WorkInvitees, WorkRecord, get_val)
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -1434,25 +1434,24 @@ def process_tasks(max_rows=20):
         total_count = 0
         current_count = 0
 
-        model_name = current_task.record_model._meta.name
-        if model_name == 'affiliationrecord':
+        task_type = TaskType(current_task.task_type)
+        if task_type == TaskType.AFFILIATION:
             total_count = current_task.affiliation_records.select().distinct().count()
-
             current_count = current_task.affiliation_records.select().where(
                 AffiliationRecord.processed_at.is_null(False)).distinct().count()
-        elif model_name == 'fundingrecord':
+        elif task_type == TaskType.FUNDING:
             for funding_record in current_task.funding_records.select():
                 total_count = total_count + funding_record.funding_invitees.select().distinct().count()
 
                 current_count = current_count + funding_record.funding_invitees.select().where(
                     FundingInvitees.processed_at.is_null(False)).distinct().count()
-        elif model_name == 'workrecord':
+        elif task_type == TaskType.WORK:
             for work_record in current_task.work_records.select():
                 total_count = total_count + work_record.work_invitees.select().distinct().count()
 
                 current_count = current_count + work_record.work_invitees.select().where(
                     WorkInvitees.processed_at.is_null(False)).distinct().count()
-        elif model_name == 'peerreviewrecord':
+        elif task_type == TaskType.PEER_REVIEW:
             for peer_review_record in current_task.peer_review_records.select():
                 total_count = total_count + peer_review_record.peer_review_invitee.select().distinct().count()
 
@@ -1466,6 +1465,9 @@ def process_tasks(max_rows=20):
     if max_rows and max_rows > 0:
         tasks = tasks.limit(max_rows)
     for task in tasks:
+
+        if task.task_type == TaskType.SYNC.value:
+            continue
 
         export_model = task.record_model._meta.name + ".export"
         error_count = task.error_count
