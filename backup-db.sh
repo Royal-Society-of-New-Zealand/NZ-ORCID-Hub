@@ -8,4 +8,4 @@ docker-compose exec -T db psql -U postgres -c "VACUUM FULL ANALYZE;"
 docker-compose exec -T db psql -U postgres -c "SELECT pg_start_backup('$TS_LABEL', false);"
 tar cjf ./backup/$TS_LABEL.tar.bz2 ./pgdata ; mv ./backup/$TS_LABEL.tar.bz2 ./archive/
 docker-compose exec -T db psql -U postgres -c "SELECT pg_stop_backup();"
-0 7 * * * find ~/archive -ctime +10 -exec rm {} \;
+find ~/archive -mtime +10 -exec rm {} \;

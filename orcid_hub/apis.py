@@ -25,7 +25,7 @@ from .models import (ORCID_ID_REGEX, AffiliationRecord, Client, OrcidToken, Part
 from .schemas import affiliation_task_schema
 from .utils import is_valid_url, register_orcid_webhook
 
-ORCID_API_VERSION_REGEX = re.compile("^v[2-3].\d+(_rc\d+)?$")
+ORCID_API_VERSION_REGEX = re.compile(r"^v[2-3].\d+(_rc\d+)?$")
 
 
 def prefers_yaml():

@@ -520,18 +520,18 @@ def test_create_or_update_affiliation(send_email, update_employment, create_empl
             AffiliationRecord, on=(Task.id == AffiliationRecord.task_id)).join(
                 User,
                 JOIN.LEFT_OUTER,
-                on=((User.email == AffiliationRecord.email) |
-                    (User.orcid == AffiliationRecord.orcid))).join(
+                on=((User.email == AffiliationRecord.email)
+                    | (User.orcid == AffiliationRecord.orcid))).join(
                         Organisation, JOIN.LEFT_OUTER, on=(Organisation.id == Task.org_id)).join(
                             UserInvitation,
                             JOIN.LEFT_OUTER,
-                            on=((UserInvitation.email == AffiliationRecord.email) &
-                                (UserInvitation.task_id == Task.id))).join(
+                            on=((UserInvitation.email == AffiliationRecord.email)
+                                & (UserInvitation.task_id == Task.id))).join(
                                     OrcidToken,
                                     JOIN.LEFT_OUTER,
-                                    on=((OrcidToken.user_id == User.id) &
-                                        (OrcidToken.org_id == Organisation.id) &
-                                        (OrcidToken.scope.contains("/activities/update")))))
+                                    on=((OrcidToken.user_id == User.id)
+                                        & (OrcidToken.org_id == Organisation.id)
+                                        & (OrcidToken.scope.contains("/activities/update")))))
     app.config["SERVER_NAME"] = "orcidhub"
     for (task_id, org_id, user), tasks_by_user in groupby(tasks, lambda t: (
             t.id,
@@ -740,3 +740,30 @@ def test_sync_profile(app, mocker):
     utils.sync_profile(task_id=t.id, delay=0)
 
     assert Log.select().count() > 0
+
+
+def test_process_tasks(app, mocker):
+    """Test task hanging."""
+    send_email = mocker.patch("orcid_hub.utils.send_email")
+    org = Organisation.select().first()
+    Task.insert_many(dict(
+        org=org,
+        updated_at=utils.datetime.utcnow(),
+        filename=tt.name,
+        task_type=tt.value) for tt in TaskType).execute()
+    utils.process_tasks()
+    send_email.assert_not_called()
+
+    Task.insert_many(dict(
+        org=org,
+        created_by=org.tech_contact,
+        created_at=utils.datetime(2017, 1, 1),
+        updated_at=utils.datetime(2017, 1, 1),
+        filename=tt.name,
+        task_type=tt.value) for tt in TaskType).execute()
+    utils.process_tasks()
+    send_email.assert_called()
+
+    task_count = Task.select().count()
+    utils.process_tasks()
+    assert Task.select().count() == task_count // 2

@@ -621,11 +621,11 @@ class User(BaseModel, UserMixin, AuditMixin):
         if self.orcid:
             q = UserOrg.select().join(
                 User,
-                on=((User.id == UserOrg.user_id) &
-                    ((User.email == self.email) |
-                     (User.orcid == self.orcid)))).where((UserOrg.user_id == self.id)
-                                                         | (User.email == self.email)
-                                                         | (User.orcid == self.orcid))
+                on=((User.id == UserOrg.user_id)
+                    & ((User.email == self.email)
+                       | (User.orcid == self.orcid)))).where((UserOrg.user_id == self.id)
+                                                             | (User.email == self.email)
+                                                             | (User.orcid == self.orcid))
         else:
             q = self.userorg_set
 
@@ -940,6 +940,8 @@ class Task(BaseModel, AuditMixin):
     @property
     def record_model(self):
         """Get record model class."""
+        if self.task_type == TaskType.SYNC:
+            return None
         _, models = self.records.get_query_meta()
         model, = models.keys()
         return model
@@ -1343,13 +1345,13 @@ class FundingRecord(RecordModel):
                 "amount", "currency", r"start\s*(date)?", r"end\s*(date)?",
                 r"(org(gani[zs]ation)?)?\s*name$", "city", "region|state", "country",
                 r"disambiguated\s*(org(ani[zs]ation)?)?\s*id(entifier)?",
-                r"disambiguation\s+source$", "(is)?\s*active$", r"orcid\s*(id)?$", "name$",
+                r"disambiguation\s+source$", r"(is)?\s*active$", r"orcid\s*(id)?$", "name$",
                 "role$", "email", r"(external)?\s*id(entifier)?\s+type$",
                 r"((external)?\s*id(entifier)?\s+value|funding.*id)$",
                 r"(external)?\s*id(entifier)?\s*url",
                 r"(external)?\s*id(entifier)?\s*rel(ationship)?", "put.*code",
                 r"(is)?\s*visib(bility|le)?", r"first\s*(name)?", r"(last|sur)\s*(name)?",
-                "identifier", "excluded?(\s+from(\s+profile)?)?"
+                "identifier", r"excluded?(\s+from(\s+profile)?)?"
             ]
         ]
 
@@ -1912,7 +1914,7 @@ class WorkRecord(RecordModel):
                 r"url",
                 r"lang(uage)?.*(code)?",
                 r"country",
-                "(is)?\s*active$",
+                r"(is)?\s*active$",
                 r"orcid\s*(id)?$",
                 "name$",
                 "role$",
@@ -1926,7 +1928,7 @@ class WorkRecord(RecordModel):
                 r"first\s*(name)?",
                 r"(last|sur)\s*(name)?",
                 "identifier",
-                "excluded?(\s+from(\s+profile)?)?"
+                r"excluded?(\s+from(\s+profile)?)?"
             ]
         ]
 

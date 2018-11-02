@@ -183,8 +183,10 @@ class MemberAPI(MemberAPIV20Api):
                 records = data.get("employment-summary"
                                    if affiliation_type == Affiliation.EMP else "education-summary")
                 for r in records:
-                    if ("source-client-id" in r.get("source") and r.get("source").get("source-client-id") and
-                            self.org.orcid_client_id == r.get("source").get("source-client-id").get("path")):
+                    if ("source-client-id" in r.get("source")
+                            and r.get("source").get("source-client-id")
+                            and self.org.orcid_client_id == r.get("source").get(
+                                "source-client-id").get("path")):
                         app.logger.info(f"For {self.user} there is {affiliation_type!s} "
                                         "present on ORCID profile.")
                         return r["put-code"]
@@ -1097,8 +1099,8 @@ class MemberAPI(MemberAPIV20Api):
 
         if disambiguation_source:
             disambiguation_source = disambiguation_source.upper()
-        elif org_name == self.org.name:
-            disambiguation_source = self.org.disambiguation_source
+        elif self.org.disambiguation_source:
+            disambiguation_source = self.org.disambiguation_source.upper()
 
         disambiguated_organization_details = DisambiguatedOrganization(
             disambiguated_organization_identifier=disambiguated_id or self.org.disambiguated_id,

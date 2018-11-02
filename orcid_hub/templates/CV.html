@@ -5,7 +5,6 @@
   <title>{{user.name}} Curriculum Vitae</title>
   <meta charset="UTF-8">
   <meta name="generator" content="{{config.APP_NAME}}"/>
-  <meta name="created" content="{{ now.isoformat(timespec='seconds') }}"/>
   <meta name="date.created" content="{{ now.date().isoformat() }}"/>
   <meta name="description" content="New Zealand Standard Curriculum Vitae Template">
   <meta name="keywords" content="CV,Curriculum Vitae,Resume">
@@ -80,7 +79,6 @@
 	</style>
 </head>
 <body lang="en-NZ" dir="ltr">
-  <pre>{{now}}</pre>
   <p align="center" style="margin-bottom: 0.21cm; line-height: 0.46cm"><font face="Arial, serif"><font size="4" style="font-size: 14pt">
       <b>New Zealand Standard Curriculum Vitae Template</b>
     </font></font></p>
@@ -117,16 +115,16 @@ italics should be deleted before you submit your CV.</span></i></font></font></p
       <p><font face="Arial, serif"><font size="2" style="font-size: 9pt"><i>Title</i></font></font></p>
 		</td>
 		<td colspan="2" width="105" style="border: 1px solid #000001; padding: 0cm 0.19cm">
-      {% if person_data.get("first_name") %}
-        <p><font face="Arial, serif"><font style="font-size: 12pt">{{person_data.get("first_name", "")}}</font></font></p>
+      {% if person_data.get('first_name') %}
+        <p><font face="Arial, serif"><font style="font-size: 12pt">{{person_data.get('first_name', '')}}</font></font></p>
       {% else %}
         <p><font face="Arial, serif"><font style="font-size: 9pt"><i>First Name</i></font></font></p>
       {% endif %}
 		</td>
 		</td>
 		<td colspan="4" width="164" style="border: 1px solid #000001; padding: 0cm 0.19cm">
-      {% if person_data.get("second_names") %}
-        {% for s in person_data.get("second_names") %}
+      {% if person_data.get('second_names') %}
+        {% for s in person_data.get('second_names') %}
           <p><font face="Arial, serif"><font style="font-size: 12pt">{{s}}</font></font></p>
         {% endfor %}
       {% else %}
@@ -134,8 +132,8 @@ italics should be deleted before you submit your CV.</span></i></font></font></p
       {% endif %}
 		</td>
 		<td colspan="2" width="116" style="border: 1px solid #000001; padding: 0cm 0.19cm">
-      {% if person_data.get("family_name") %}
-        <p><font face="Arial, serif"><font style="font-size: 12pt">{{person_data.get("family_name", "")}}</font></font></p>
+      {% if person_data.get('family_name') %}
+        <p><font face="Arial, serif"><font style="font-size: 12pt">{{person_data.get('family_name', '')}}</font></font></p>
       {% else %}
         <p><font face="Arial, serif"><font style="font-size: 9pt"><i>Family Name</i></font></font></p>
       {% endif %}
@@ -146,11 +144,17 @@ italics should be deleted before you submit your CV.</span></i></font></font></p
 			<p><font face="Arial, serif"><font size="3" style="font-size: 12pt"><span style="font-style: normal"><b>Present
 			position</b></span></font></font></p>
 		</td>
-		<td colspan="7" width="409" style="border: 1px solid #000001; padding: 0cm 0.19cm">
-			<p style="font-style: normal; font-weight: normal"><br/>
-			</p>
-		</td>
-	</tr>
+    <td colspan="7" width="409" style="border: 1px solid #000001; padding: 0cm 0.19cm">
+      <p>
+        {% if employments %}
+        <font face="Arial, serif"><font style="font-size: 12pt">{{ employments[0] | year_range }}, {{
+          employments[0].get('role-title') }}, {{ employments[0].get('department-name') }}, {{
+          employments[0].get('organization', 'name') }}</font></font>
+        {% endif %}
+        </br>
+      </p>
+    </td>
+  </tr>
 	<tr valign="top">
 		<td colspan="4" width="173" bgcolor="#e0e0e0" style="border: 1px solid #000001; padding: 0cm 0.19cm">
 			<p><font face="Arial, serif"><font size="3" style="font-size: 12pt"><span style="font-style: normal"><b>Organisation/Employer</b></span></font></font></p>
@@ -170,7 +174,7 @@ italics should be deleted before you submit your CV.</span></i></font></font></p
 			</p>
 		</td>
 	</tr>
-  {% for c in person_data.get("address") %}
+  {% for c in person_data.get('address') %}
     <tr valign="top">
       <td colspan="9" width="448" style="border: 1px solid #000001; padding: 0cm 0.19cm">
         <p><font face="Arial, serif"><font style="font-size: 12pt">Country: {{c}}.<br/>
@@ -219,7 +223,7 @@ italics should be deleted before you submit your CV.</span></i></font></font></p
 			<p><font face="Arial, serif"><font size="3" style="font-size: 12pt"><span style="font-style: normal"><b>Email</b></span></font></font></p>
 		</td>
 		<td colspan="9" width="448" style="border: 1px solid #000001; padding: 0cm 0.19cm">
-      {% for e in person_data.get("emails") %}
+      {% for e in person_data.get('emails') %}
           <p><font face="Arial, serif"><font style="font-size: 12pt">{{e}}</font></font></p>
       {% endfor %}
 		</td>
@@ -230,8 +234,8 @@ italics should be deleted before you submit your CV.</span></i></font></font></p
 			website (if applicable)</b></span></font></font></p>
 		</td>
 		<td colspan="9" width="448" style="border: 1px solid #000001; padding: 0cm 0.19cm">
-      {% if person_data.get("researcher_urls") %}
-        {% for r in person_data.get("researcher_urls") %}
+      {% if person_data.get('researcher_urls') %}
+        {% for r in person_data.get('researcher_urls') %}
           <p><a href="{{r}}"><font face="Arial, serif"><font style="font-size: 12pt">{{r}}</font></font></a></p>
         {% endfor %}
       {% else %}
@@ -249,7 +253,7 @@ italics should be deleted before you submit your CV.</span></i></font></font></p
 	<tr>
 		<td width="596" valign="top" bgcolor="#e0e0e0" style="border: 1px solid #000001; padding: 0cm 0.19cm">
 			<p><font face="Arial, serif"><font size="3" style="font-size: 12pt"><span style="font-style: normal"><b>1b.
-			  Academic qualifications</b></span></font></font></p>
+        Academic qualifications</b></span></font></font></p>
 		</td>
 	</tr>
 </table>
@@ -260,7 +264,7 @@ Delete and start typing here. List in reverse date order.Start each qualificatio
 Year conferred, qualification, discipline, university/institute.</span></i>]</font></p>
 <ul>
 {% for e in educations %}
-  <li><font face="Arial, serif"><font style="font-size: 12pt">{{ e | year_range }}, {{ e.get("role-title") }}, {{ e.get("department-name") }}, {{ e.get("organization", "name") }}</font></font></li>
+  <li><font face="Arial, serif"><font style="font-size: 12pt">{{ e | year_range }}, {{ e.get('role-title') }}, {{ e.get('department-name') }}, {{ e.get('organization', 'name') }}</font></font></li>
 {% endfor %}
 </ul>
 <table width="612" cellpadding="7" cellspacing="0">
@@ -279,7 +283,7 @@ position on a new line as per the example:</span></i></font></font></p>
 Year-year, job title, organisation.</span></i></font></font></p>
 <ul>
 {% for e in employments %}
-  <li><font face="Arial, serif"><font style="font-size: 12pt">{{ e | year_range }}, {{ e.get("role-title") }}, {{ e.get("department-name") }}, {{ e.get("organization", "name") }}</font></font></li>
+  <li><font face="Arial, serif"><font style="font-size: 12pt">{{ e | year_range }}, {{ e.get('role-title') }}, {{ e.get('department-name') }}, {{ e.get('organization', 'name') }}</font></font></li>
 {% endfor %}
 </ul>
 
@@ -293,7 +297,12 @@ Year-year, job title, organisation.</span></i></font></font></p>
 	</tr>
 </table>
 <p style="margin-bottom: 0cm; line-height: 100%"><font face="Arial, serif" size="3" style="font-size: 9pt">[<i><span style="font-weight: normal">Delete and start typing here.</span></i>]</font></p>
-<p style="margin-bottom: 0cm; font-style: normal; font-weight: normal; line-height: 100%"><br/></p>
+  <p>
+    {% if record and record.get("person", "biography", "content") %}
+    <font face="Arial, serif"><font style="font-size: 12pt">{{record.get("person", "biography",
+      "content")}}</font></font>
+    {% endif %}<br/>
+  </p>
 <table width="612" cellpadding="7" cellspacing="0">
 	<col width="353">
 	<col width="229">
@@ -425,11 +434,13 @@ your name in lists of authors.</span></i></font></font></p>
 		<td width="596" valign="top" style="border: 1px solid #000001; padding: 0cm 0.19cm">
       <ul>
         {% for j in work_type_journal %}
-        <li><font face="Arial, serif"><font style="font-size: 12pt">{{ j.get("publication-date", "year", "value")}}, {{
-          j.get("title", "title", "value") }}, <font style="font-size: 11pt"><i>{{ j.get("type") }}</i>
-            {% for e in j.get("external-ids", "external-id") %}
-            , {{ e.get("external-id-type")|upper}}: {{ e.get("external-id-value") }}
-            {% endfor %}
+        <li><font face="Arial, serif"><font style="font-size: 12pt">{{ j.get('publication-date', 'year', 'value')}}, {{
+          j.get('title', 'title', 'value') }}, <font style="font-size: 11pt"><i>{{ j.get('type') }}</i>
+            {% if j.get('external-ids') and  j.get('external-ids', 'external-id') %}
+              {% for e in j.get('external-ids', 'external-id') %}
+              , {{ e.get('external-id-type')|upper}}: {{ e.get('external-id-value') }}
+              {% endfor %}
+            {% endif %}
           </font></font></font></li>
         {% endfor %}
       </ul>
@@ -449,11 +460,13 @@ your name in lists of authors.</span></i></font></font></p>
 		<td width="596" valign="top" style="border: 1px solid #000001; padding: 0cm 0.19cm">
       <ul>
         {% for j in work_type_books %}
-        <li><font face="Arial, serif"><font style="font-size: 12pt">{{ j.get("publication-date", "year", "value")}}, {{
-          j.get("title", "title", "value") }}, <font style="font-size: 11pt"><i>{{ j.get("type") }}</i>
-            {% for e in j.get("external-ids", "external-id") %}
-            , {{ e.get("external-id-type")|upper}}: {{ e.get("external-id-value") }}
-            {% endfor %}
+        <li><font face="Arial, serif"><font style="font-size: 12pt">{{ j.get('publication-date', 'year', 'value')}}, {{
+          j.get('title', 'title', 'value') }}, <font style="font-size: 11pt"><i>{{ j.get('type') }}</i>
+            {% if j.get('external-ids') and  j.get('external-ids', 'external-id') %}
+              {% for e in j.get('external-ids', 'external-id') %}
+              , {{ e.get('external-id-type')|upper}}: {{ e.get('external-id-value') }}
+              {% endfor %}
+            {% endif %}
           </font></font></font></li>
         {% endfor %}
       </ul>
@@ -473,11 +486,13 @@ your name in lists of authors.</span></i></font></font></p>
 		<td width="596" valign="top" style="border: 1px solid #000001; padding: 0cm 0.19cm">
       <ul>
         {% for j in work_type_book_chapter %}
-        <li><font face="Arial, serif"><font style="font-size: 12pt">{{ j.get("publication-date", "year", "value")}}, {{
-          j.get("title", "title", "value") }}, <font style="font-size: 11pt"><i>{{ j.get("type") }}</i>
-            {% for e in j.get("external-ids", "external-id") %}
-            , {{ e.get("external-id-type")|upper}}: {{ e.get("external-id-value") }}
-            {% endfor %}
+        <li><font face="Arial, serif"><font style="font-size: 12pt">{{ j.get('publication-date', 'year', 'value')}}, {{
+          j.get('title', 'title', 'value') }}, <font style="font-size: 11pt"><i>{{ j.get('type') }}</i>
+            {% if j.get('external-ids') and  j.get('external-ids', 'external-id') %}
+              {% for e in j.get('external-ids', 'external-id') %}
+              , {{ e.get('external-id-type')|upper}}: {{ e.get('external-id-value') }}
+              {% endfor %}
+            {% endif %}
           </font></font></font></li>
         {% endfor %}
       </ul>
@@ -497,11 +512,13 @@ your name in lists of authors.</span></i></font></font></p>
 		<td width="596" valign="top" style="border: 1px solid #000001; padding: 0cm 0.19cm">
       <ul>
         {% for j in work_type_conference %}
-        <li><font face="Arial, serif"><font style="font-size: 12pt">{{ j.get("publication-date", "year", "value")}}, {{
-          j.get("title", "title", "value") }}, <font style="font-size: 11pt"><i>{{ j.get("type") }}</i>
-            {% for e in j.get("external-ids", "external-id") %}
-            , {{ e.get("external-id-type")|upper}}: {{ e.get("external-id-value") }}
-            {% endfor %}
+        <li><font face="Arial, serif"><font style="font-size: 12pt">{{ j.get('publication-date', 'year', 'value')}}, {{
+          j.get('title', 'title', 'value') }}, <font style="font-size: 11pt"><i>{{ j.get('type') }}</i>
+            {% if j.get('external-ids') and  j.get('external-ids', 'external-id') %}
+              {% for e in j.get('external-ids', 'external-id') %}
+              , {{ e.get('external-id-type')|upper}}: {{ e.get('external-id-value') }}
+              {% endfor %}
+            {% endif %}
           </font></font></font></li>
         {% endfor %}
       </ul>
@@ -520,11 +537,13 @@ your name in lists of authors.</span></i></font></font></p>
 		<td width="596" valign="top" style="border: 1px solid #000001; padding: 0cm 0.19cm">
       <ul>
         {% for j in work_type_patent %}
-        <li><font face="Arial, serif"><font style="font-size: 12pt">{{ j.get("publication-date", "year", "value")}}, {{
-          j.get("title", "title", "value") }}, <font style="font-size: 11pt"><i>{{ j.get("type") }}</i>
-            {% for e in j.get("external-ids", "external-id") %}
-            , {{ e.get("external-id-type")|upper}}: {{ e.get("external-id-value") }}
-            {% endfor %}
+        <li><font face="Arial, serif"><font style="font-size: 12pt">{{ j.get('publication-date', 'year', 'value')}}, {{
+          j.get('title', 'title', 'value') }}, <font style="font-size: 11pt"><i>{{ j.get('type') }}</i>
+            {% if j.get('external-ids') and  j.get('external-ids', 'external-id') %}
+              {% for e in j.get('external-ids', 'external-id') %}
+              , {{ e.get('external-id-type')|upper}}: {{ e.get('external-id-value') }}
+              {% endfor %}
+            {% endif %}
           </font></font></font></li>
         {% endfor %}
       </ul>
@@ -545,11 +564,13 @@ your name in lists of authors.</span></i></font></font></p>
 		<td width="596" valign="top" style="border: 1px solid #000001; padding: 0cm 0.19cm">
       <ul>
         {% for j in work_type_other %}
-        <li><font face="Arial, serif"><font style="font-size: 12pt">{{ j.get("publication-date", "year", "value")}}, {{
-          j.get("title", "title", "value") }}, <font style="font-size: 11pt"><i>{{ j.get("type") }}</i>
-            {% for e in j.get("external-ids", "external-id") %}
-            , {{ e.get("external-id-type")|upper}}: {{ e.get("external-id-value") }}
-            {% endfor %}
+        <li><font face="Arial, serif"><font style="font-size: 12pt">{{ j.get('publication-date', 'year', 'value')}}, {{
+          j.get('title', 'title', 'value') }}, <font style="font-size: 11pt"><i>{{ j.get('type') }}</i>
+            {% if j.get('external-ids') and  j.get('external-ids', 'external-id') %}
+              {% for e in j.get('external-ids', 'external-id') %}
+              , {{ e.get('external-id-type')|upper}}: {{ e.get('external-id-value') }}
+              {% endfor %}
+            {% endif %}
           </font></font></font></li>
         {% endfor %}
       </ul>
