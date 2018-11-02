@@ -940,6 +940,8 @@ class Task(BaseModel, AuditMixin):
     @property
     def record_model(self):
         """Get record model class."""
+        if self.task_type == TaskType.SYNC:
+            return None
         _, models = self.records.get_query_meta()
         model, = models.keys()
         return model

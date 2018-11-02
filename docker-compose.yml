@@ -3,7 +3,7 @@ version: '3.5'
 services:
 
   db:
-    image: postgres:10.4
+    image: postgres:10.5
     environment:
       - POSTGRES_PASSWORD
       - PGPASSWORD
