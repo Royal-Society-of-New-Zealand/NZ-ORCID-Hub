@@ -2,10 +2,11 @@
 """Tests for core functions."""
 
 from flask_login import login_user
-from unittest.mock import patch
 from urllib.parse import urlparse
 
 from orcid_hub.models import OrcidToken, User
+from orcid_hub.orcid_client import NestedDict
+import json
 
 
 def test_admin_view_access(request_ctx):
@@ -61,8 +62,7 @@ def test_user_summary(client):
     assert resp.status_code == 302
 
 
-@patch("orcid_hub.reports.MemberAPI")
-def test_user_cv(mock, client):
+def test_user_cv(client, mocker):
     """Test user CV."""
     user0 = User.get(email="root@test0.edu")
     client.login(user0)
@@ -70,8 +70,8 @@ def test_user_cv(mock, client):
     assert resp.status_code == 302
     client.logout()
 
-    user = User.get(email="researcher101@test0.edu")
-    client.login(user)
+    user = User.get(email="researcher101@test1.edu")
+    client.login(user, follow_redirects=True)
 
     resp = client.get("/user_cv")
     assert resp.status_code == 302
@@ -84,6 +84,154 @@ def test_user_cv(mock, client):
         org=user.organisation,
         scope="/scope/read-limited")
 
+    mocker.patch("orcid_hub.reports.MemberAPI.get_record", side_effect=Exception("ERROR!!!"))
+    resp = client.get("/user_cv", follow_redirects=True)
+    assert resp.status_code == 200
+    assert b"iframe" not in resp.data
+    assert b"ERROR!!!" in resp.data
+
+    get_record = mocker.patch(
+        "orcid_hub.reports.MemberAPI.get_record",
+        return_value=json.loads(
+            json.dumps({
+                "orcid-identifier": {
+                    "uri": "http://sandbox.orcid.org/0000-0001-7027-8698",
+                    "path": "0000-0001-7027-8698",
+                    "host": "sandbox.orcid.org"
+                },
+                "preferences": {
+                    "locale": "EN"
+                },
+                "history": {
+                    "creation-method": "MEMBER_REFERRED",
+                    "completion-date": None,
+                    "submission-date": {
+                        "value": 1505964892638
+                    },
+                    "last-modified-date": {
+                        "value": 1505965202659
+                    },
+                    "claimed": True,
+                    "source": None,
+                    "deactivation-date": None,
+                    "verified-email": False,
+                    "verified-primary-email": False
+                },
+                "person": {
+                    "last-modified-date": {
+                        "value": 1505964892861
+                    },
+                    "name": {
+                        "created-date": {
+                            "value": 1505964892638
+                        },
+                        "last-modified-date": {
+                            "value": 1505964892861
+                        },
+                        "given-names": {
+                            "value": "Sally"
+                        },
+                        "family-name": {
+                            "value": "Simpsond"
+                        },
+                        "credit-name": None,
+                        "source": None,
+                        "visibility": "PUBLIC",
+                        "path": "0000-0001-7027-8698"
+                    },
+                    "other-names": {
+                        "last-modified-date": None,
+                        "other-name": [],
+                        "path": "/0000-0001-7027-8698/other-names"
+                    },
+                    "biography": None,
+                    "researcher-urls": {
+                        "last-modified-date": None,
+                        "researcher-url": [],
+                        "path": "/0000-0001-7027-8698/researcher-urls"
+                    },
+                    "emails": {
+                        "last-modified-date": {
+                            "value": 1505964892861
+                        },
+                        "email": [{
+                            "created-date": {
+                                "value": 1505964892861
+                            },
+                            "last-modified-date": {
+                                "value": 1505964892861
+                            },
+                            "source": {
+                                "source-orcid": {
+                                    "uri": "http://sandbox.orcid.org/0000-0001-7027-8698",
+                                    "path": "0000-0001-7027-8698",
+                                    "host": "sandbox.orcid.org"
+                                },
+                                "source-client-id": None,
+                                "source-name": {
+                                    "value": "Sally Simpson"
+                                }
+                            },
+                            "email": "researcher101@test1.edu",
+                            "path": None,
+                            "visibility": "LIMITED",
+                            "verified": False,
+                            "primary": True,
+                            "put-code": None
+                        }],
+                        "path":
+                        "/0000-0001-7027-8698/email"
+                    },
+                    "addresses": {
+                        "last-modified-date": None,
+                        "address": [],
+                        "path": "/0000-0001-7027-8698/address"
+                    },
+                    "keywords": {
+                        "last-modified-date": None,
+                        "keyword": [],
+                        "path": "/0000-0001-7027-8698/keywords"
+                    },
+                    "external-identifiers": {
+                        "last-modified-date": None,
+                        "external-identifier": [],
+                        "path": "/0000-0001-7027-8698/external-identifiers"
+                    },
+                    "path": "/0000-0001-7027-8698/person"
+                },
+                "activities-summary": {
+                    "last-modified-date": None,
+                    "educations": {
+                        "last-modified-date": None,
+                        "education-summary": [],
+                        "path": "/0000-0001-7027-8698/educations"
+                    },
+                    "employments": {
+                        "last-modified-date": None,
+                        "employment-summary": [],
+                        "path": "/0000-0001-7027-8698/employments"
+                    },
+                    "fundings": {
+                        "last-modified-date": None,
+                        "group": [],
+                        "path": "/0000-0001-7027-8698/fundings"
+                    },
+                    "peer-reviews": {
+                        "last-modified-date": None,
+                        "group": [],
+                        "path": "/0000-0001-7027-8698/peer-reviews"
+                    },
+                    "works": {
+                        "last-modified-date": None,
+                        "group": [],
+                        "path": "/0000-0001-7027-8698/works"
+                    },
+                    "path": "/0000-0001-7027-8698/activities"
+                },
+                "path": "/0000-0001-7027-8698"
+            }),
+            object_pairs_hook=NestedDict))
+
     resp = client.get("/user_cv")
     assert resp.status_code == 200
     assert b"iframe" in resp.data
@@ -92,13 +240,11 @@ def test_user_cv(mock, client):
     resp = client.get("/user_cv/show")
     assert resp.status_code == 200
     assert user.name.encode() in resp.data
-    mock.assert_called_once_with(access_token="ABC12345678901", user=user)
-    mock.return_value.get_record.assert_called_once_with()
+    get_record.assert_called_once_with()
 
-    mock.reset_mock()
+    get_record.reset_mock()
     resp = client.get("/user_cv/download")
     assert resp.status_code == 200
     assert user.name.replace(' ', '_') in resp.headers["Content-Disposition"]
     assert b"content.xml" in resp.data
-    mock.assert_called_once_with(access_token="ABC12345678901", user=user)
-    mock.return_value.get_record.assert_called_once_with()
+    get_record.asser_not_called()
