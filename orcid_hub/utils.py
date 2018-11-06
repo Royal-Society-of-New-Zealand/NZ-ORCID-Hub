@@ -61,13 +61,15 @@ def read_uploaded_file(form):
     if "file_" not in request.files:
         return
     raw = request.files[form.file_.name].read()
-    # Added extra way of detecting encoding, However Doesnt detect correct encoding 100% of the time.
     detected_encoding = chardet.detect(raw).get('encoding')
-    for encoding in "utf-8", detected_encoding, "utf-8-sig", "utf-16":
-        try:
-            return raw.decode(encoding)
-        except UnicodeDecodeError:
-            continue
+    if detected_encoding:
+        return raw.decode(detected_encoding)
+    else:
+        for encoding in "utf-8", "utf-8-sig", "utf-16":
+            try:
+                return raw.decode(encoding)
+            except UnicodeDecodeError:
+                continue
     return raw.decode("latin-1")
 
 
