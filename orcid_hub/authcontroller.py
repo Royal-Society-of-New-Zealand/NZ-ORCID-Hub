@@ -442,6 +442,7 @@ def link():
         redirect_uri=redirect_uri)
     authorization_url_write, state = client_write.authorization_url(
         AUTHORIZATION_BASE_URL, state=session.get("oauth_state"))
+    app.logger.info(f"*** State: {state}")
     session["oauth_state"] = state
 
     orcid_url_write = append_qs(
@@ -970,6 +971,7 @@ def orcid_login(invitation_token=None):
 
         authorization_url, state = client_write.authorization_url(
             AUTHORIZATION_BASE_URL, state=session.get("oauth_state"))
+        app.logger.info(f"*** State: {state}")
         # if the inviation token is preset use it as OAuth state
         session["oauth_state"] = state
 
