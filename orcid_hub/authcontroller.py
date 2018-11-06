@@ -440,8 +440,9 @@ def link():
         current_user.organisation.orcid_client_id,
         scope=SCOPE_ACTIVITIES_UPDATE + SCOPE_READ_LIMITED,
         redirect_uri=redirect_uri)
-    authorization_url_write, state = client_write.authorization_url(AUTHORIZATION_BASE_URL)
-    session['oauth_state'] = state
+    authorization_url_write, state = client_write.authorization_url(
+        AUTHORIZATION_BASE_URL, state=session.get("oauth_state"))
+    session["oauth_state"] = state
 
     orcid_url_write = append_qs(
         iri_to_uri(authorization_url_write),
@@ -967,9 +968,10 @@ def orcid_login(invitation_token=None):
 
         client_write = OAuth2Session(client_id, scope=orcid_scope, redirect_uri=redirect_uri)
 
-        authorization_url, state = client_write.authorization_url(AUTHORIZATION_BASE_URL)
+        authorization_url, state = client_write.authorization_url(
+            AUTHORIZATION_BASE_URL, state=session.get("oauth_state"))
         # if the inviation token is preset use it as OAuth state
-        session['oauth_state'] = state
+        session["oauth_state"] = state
 
         orcid_authenticate_url = iri_to_uri(authorization_url)
         if invitation_token:
