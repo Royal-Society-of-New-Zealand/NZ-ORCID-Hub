@@ -772,7 +772,11 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
         def match_put_code(records, affiliation_record):
             """Match and asign put-code to a single affiliation record and the existing ORCID records."""
             for r in records:
-                put_code = r.get("put-code")
+                try:
+                    orcid, put_code = r.get('path').split("/")[-3::2]
+                except Exception:
+                    app.logger.exception("Failed to get ORCID iD/put-code from the response.")
+                    raise Exception("Failed to get ORCID iD/put-code from the response.")
                 start_date = affiliation_record.start_date.as_orcid_dict() if affiliation_record.start_date else None
                 end_date = affiliation_record.end_date.as_orcid_dict() if affiliation_record.end_date else None
 
@@ -789,6 +793,7 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
                     and get_val(r, "organization", "disambiguated-organization",
                                 "disambiguation-source") == affiliation_record.disambiguation_source):
                     affiliation_record.put_code = put_code
+                    affiliation_record.orcid = orcid
                     return True
 
                 if affiliation_record.put_code:
@@ -802,6 +807,7 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
                     or (r.get("start-date") == start_date and r.get("department-name") == affiliation_record.department
                         and r.get("role-title") == affiliation_record.role)):
                     affiliation_record.put_code = put_code
+                    affiliation_record.orcid = orcid
                     taken_put_codes.add(put_code)
                     app.logger.debug(
                         f"put-code {put_code} was asigned to the affiliation record "

@@ -34,7 +34,7 @@ from .failover import PgDbWithFailover
 from flask_admin import Admin
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
-
+from werkzeug.contrib.cache import SimpleCache
 
 try:
     dist = pkg_resources.get_distribution(__name__)
@@ -50,6 +50,7 @@ class ReconnectablePostgresqlDatabase(RetryOperationalError, PostgresqlDatabase)
     pass
 
 
+cache = SimpleCache()
 app = Flask(__name__, instance_relative_config=True)
 app.config.from_object(config)
 if not app.config.from_pyfile("settings.cfg", silent=True) and app.debug:
