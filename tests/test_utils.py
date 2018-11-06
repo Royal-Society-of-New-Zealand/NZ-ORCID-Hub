@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
 """Tests for util functions."""
 
+import codecs
 import logging
+from io import BytesIO
 from itertools import groupby
 from unittest.mock import Mock, patch
 
@@ -13,8 +15,8 @@ from peewee import JOIN
 from orcid_hub import utils
 from orcid_hub.models import (AffiliationRecord, ExternalId, File, FundingContributor,
                               FundingInvitees, FundingRecord, Log, OrcidToken, Organisation,
-                              PeerReviewExternalId, PeerReviewInvitee, PeerReviewRecord, Role,
-                              Task, TaskType, User, UserInvitation, UserOrg, WorkContributor,
+                              OrgInfo, PeerReviewExternalId, PeerReviewInvitee, PeerReviewRecord,
+                              Role, Task, TaskType, User, UserInvitation, UserOrg, WorkContributor,
                               WorkExternalId, WorkInvitees, WorkRecord)
 
 from tests.utils import get_profile
@@ -767,3 +769,32 @@ def test_process_tasks(app, mocker):
     task_count = Task.select().count()
     utils.process_tasks()
     assert Task.select().count() == task_count // 2
+
+
+def test_file_upload_with_encodings(client, mocker):
+    """Test BOM handling in the uploaded file."""
+    client.login_root()
+    for no, (e, bom) in enumerate([
+            ("utf-8", None),
+            ("utf-8", codecs.BOM_UTF8),
+            ("utf-16", None),
+            ("utf-16", codecs.BOM_UTF16),
+            ("utf-32", None),
+            ("utf-32", codecs.BOM_UTF32),
+    ]):
+        data = f"disambiguated id,disambiguation source,name\n123,ABC,대학 #{no} WITH {e}".encode(e)
+        if bom:
+            data = bom + data
+        resp = client.post(
+            "/load/org",
+            follow_redirects=True,
+            data={
+                "save":
+                "Upload",
+                "file_": (
+                    BytesIO(data),
+                    "raw-org-data-with-bom.csv",
+                ),
+            })
+        assert resp.status_code == 200
+        assert OrgInfo.select().count() == no + 1
