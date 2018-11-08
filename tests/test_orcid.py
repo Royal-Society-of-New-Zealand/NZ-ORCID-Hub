@@ -216,7 +216,7 @@ def test_is_emp_or_edu_record_present(app, mocker):
 
 
 @patch.object(requests_oauthlib.OAuth2Session, "authorization_url",
-              lambda self, base_url: ("URL_123", None))
+              lambda self, *args, **kwargs: ("URL_123", None))
 def test_link(request_ctx):
     """Test a user affiliation initialization."""
     with request_ctx("/link") as ctx:
@@ -233,7 +233,7 @@ def test_link(request_ctx):
 
 
 @patch.object(requests_oauthlib.OAuth2Session, "authorization_url",
-              lambda self, base_url: ("URL_123", None))
+              lambda self, base_url, *args, **kwargs: ("URL_123", None))
 def test_link_with_unconfirmed_org(request_ctx):
     """Test a user affiliation initialization if the user Organisation isn't registered yet."""
     with request_ctx("/link") as ctx:
@@ -250,7 +250,7 @@ def test_link_with_unconfirmed_org(request_ctx):
 
 
 @patch.object(requests_oauthlib.OAuth2Session, "authorization_url",
-              lambda self, base_url: ("URL_123", None))
+              lambda self, base_url, *args, **kwargs: ("URL_123", None))
 def test_link_already_affiliated(request_ctx):
     """Test a user affiliation initialization if the uerer is already affilated."""
     with request_ctx("/link") as ctx:
