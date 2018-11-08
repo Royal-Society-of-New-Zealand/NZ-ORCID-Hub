@@ -2048,7 +2048,10 @@ def edit_record(user_id, section_type, put_code=None):
             app.logger.exception(
                 "Unhandler error occured while creating or editing a profile record.")
             abort(500, ex)
-
+    if not grant_data_list:
+        grant_data_list.append(dict(grant_number='', grant_url='',
+                                    grant_relationship='',
+                                    grant_type=''))
     return render_template("profile_entry.html", section_type=section_type, form=form, _url=_url,
                            grant_data_list=grant_data_list)
 
