@@ -1,12 +1,14 @@
 # -*- coding: utf-8 -*-
 """Various utilities."""
 
+from datetime import date, datetime, timedelta
+from itertools import filterfalse, groupby
 import json
 import logging
 import os
+import random
 import time
-from datetime import date, datetime, timedelta
-from itertools import filterfalse, groupby
+import string
 from urllib.parse import quote, urlencode, urlparse
 
 import chardet
@@ -24,7 +26,7 @@ from . import app, orcid_client, rq
 from .models import (AFFILIATION_TYPES, Affiliation, AffiliationRecord, FundingInvitees,
                      FundingRecord, Log, OrcidToken, Organisation, PartialDate,
                      PeerReviewExternalId, PeerReviewInvitee, PeerReviewRecord, Role, TaskType,
-                     Task, Url, User, UserInvitation, UserOrg, WorkInvitees, WorkRecord, get_val)
+                     Task, User, UserInvitation, UserOrg, WorkInvitees, WorkRecord, get_val)
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -61,13 +63,15 @@ def read_uploaded_file(form):
     if "file_" not in request.files:
         return
     raw = request.files[form.file_.name].read()
-    # Added extra way of detecting encoding, However Doesnt detect correct encoding 100% of the time.
     detected_encoding = chardet.detect(raw).get('encoding')
-    for encoding in "utf-8", detected_encoding, "utf-8-sig", "utf-16":
-        try:
-            return raw.decode(encoding)
-        except UnicodeDecodeError:
-            continue
+    if detected_encoding:
+        return raw.decode(detected_encoding)
+    else:
+        for encoding in "utf-8", "utf-8-sig", "utf-16":
+            try:
+                return raw.decode(encoding)
+            except UnicodeDecodeError:
+                continue
     return raw.decode("latin-1")
 
 
@@ -279,15 +283,13 @@ def send_work_funding_peer_review_invitation(inviter, org, email, first_name=Non
 
         user.organisation = org
         user.roles |= Role.RESEARCHER
-        token = generate_confirmation_token(expiration=token_expiry_in_sec, email=email, org=org.name)
+        token = ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(5))
         with app.app_context():
-            url = flask.url_for(
+            invitation_url = flask.url_for(
                 "orcid_login",
                 invitation_token=token,
                 _external=True,
                 _scheme="http" if app.debug else "https")
-            invitation_url = flask.url_for(
-                "short_url", short_id=Url.shorten(url).short_id, _external=True)
             send_email(
                 invitation_template,
                 recipient=(user.organisation.name, user.email),
@@ -642,15 +644,13 @@ def send_user_invitation(inviter,
             user.last_name = last_name
         user.organisation = org
         user.roles |= Role.RESEARCHER
-        token = generate_confirmation_token(expiration=token_expiry_in_sec, email=email, org=org.name)
+        token = ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(5))
         with app.app_context():
-            url = flask.url_for(
+            invitation_url = flask.url_for(
                 "orcid_login",
                 invitation_token=token,
                 _external=True,
                 _scheme="http" if app.debug else "https")
-            invitation_url = flask.url_for(
-                "short_url", short_id=Url.shorten(url).short_id, _external=True)
             send_email(
                 "email/researcher_invitation.html",
                 recipient=(user.organisation.name, user.email),
@@ -856,15 +856,13 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
             user = User.get(
                 email=task_by_user.affiliation_record.email, organisation=task_by_user.org)
             user_org = UserOrg.get(user=user, org=task_by_user.org)
-            token = generate_confirmation_token(email=user.email, org=org.name)
+            token = ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(5))
             with app.app_context():
-                url = flask.url_for(
+                invitation_url = flask.url_for(
                     "orcid_login",
                     invitation_token=token,
                     _external=True,
                     _scheme="http" if app.debug else "https")
-                invitation_url = flask.url_for(
-                    "short_url", short_id=Url.shorten(url).short_id, _external=True)
                 send_email(
                     "email/researcher_reinvitation.html",
                     recipient=(user.organisation.name, user.email),

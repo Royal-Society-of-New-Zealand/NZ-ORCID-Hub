@@ -6,7 +6,9 @@ import json
 import math
 import mimetypes
 import os
+import random
 import secrets
+import string
 import traceback
 from datetime import datetime
 from io import BytesIO
@@ -47,7 +49,7 @@ from .models import (
     UserOrgAffiliation, WorkContributor, WorkExternalId, WorkInvitees, WorkRecord, db, get_val)
 # NB! Should be disabled in production
 from .pyinfo import info
-from .utils import generate_confirmation_token, get_next_url, read_uploaded_file, send_user_invitation
+from .utils import get_next_url, read_uploaded_file, send_user_invitation
 
 HEADERS = {"Accept": "application/vnd.orcid+json", "Content-type": "application/vnd.orcid+json"}
 ORCID_BASE_URL = app.config["ORCID_BASE_URL"]
@@ -2460,13 +2462,13 @@ def register_org(org_name,
             user_org = UserOrg.create(user=user, org=org, is_admin=True)
 
         app.logger.info(f"Ready to send an ivitation to '{org_name} <{email}>'.")
-        token = generate_confirmation_token(email=email, org=org_name)
+        token = ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(5))
         # TODO: for via_orcid constact direct link to ORCID with callback like to HUB
         if via_orcid:
-            short_id = Url.shorten(
-                url_for("orcid_login", invitation_token=token,
-                        _next=url_for("onboard_org"))).short_id
-            invitation_url = url_for("short_url", short_id=short_id, _external=True)
+            invitation_url = url_for(
+                "orcid_login",
+                invitation_token=token,
+                _next=url_for("onboard_org", _external=True))
         else:
             invitation_url = url_for("index", _external=True)
 

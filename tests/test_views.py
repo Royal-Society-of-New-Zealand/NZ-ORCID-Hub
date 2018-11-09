@@ -10,10 +10,10 @@ import time
 from itertools import product
 from unittest.mock import MagicMock, Mock, patch
 from io import BytesIO
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 
 import pytest
-from flask import request, make_response
+from flask import request, make_response, session
 from flask_login import login_user
 from peewee import SqliteDatabase
 from playhouse.test_utils import test_database
@@ -1071,6 +1071,59 @@ def test_invite_user(request_ctx):
         assert b"<!DOCTYPE html>" in resp.data, "Expected HTML content"
         assert b"test123@test.test.net" in resp.data
         api_mock.create_or_update_affiliation.assert_called_once()
+
+
+def test_researcher_invitation(client, mocker):
+    """Test full researcher invitation flow."""
+    mocker.patch(
+        "orcid_hub.views.send_user_invitation.queue",
+        lambda *args, **kwargs: (views.send_user_invitation(*args, **kwargs) and Mock()))
+    send_email = mocker.patch("orcid_hub.utils.send_email")
+    admin = User.get(email="admin@test1.edu")
+    # org = admin.organisation
+    resp = client.login(admin)
+    resp = client.post(
+            "/invite/user",
+            data={
+                "name": "TEST APP",
+                "is_employee": "false",
+                "email_address": "test123abc@test.test.net",
+                "resend": "enable",
+                "is_student": "true",
+                "first_name": "test",
+                "last_name": "test",
+                "city": "test"
+            })
+    assert resp.status_code == 200
+    assert b"<!DOCTYPE html>" in resp.data, "Expected HTML content"
+    assert b"test123abc@test.test.net" in resp.data
+    send_email.assert_called_once()
+    _, kwargs = send_email.call_args
+    invitation_url = urlparse(kwargs["invitation_url"]).path
+    client.logout()
+    client.cookie_jar.clear()
+
+    # Attempt to login via ORCID with the invitation token
+    resp = client.get(invitation_url)
+    auth_url = re.search(r"window.location='([^']*)'", resp.data.decode()).group(1)
+    qs = parse_qs(urlparse(auth_url).query)
+    redirect_uri = qs["redirect_uri"][0]
+    oauth_state = qs["state"][0]
+    callback_url = redirect_uri + "&state=" + oauth_state
+    assert session["oauth_state"] == oauth_state
+    mocker.patch(
+        "orcid_hub.authcontroller.OAuth2Session.fetch_token",
+        return_value={
+            "orcid": "0123-1234-5678-0123",
+            "name": "TESTER TESTERON",
+            "access_token": "xyz",
+            "refresh_token": "xyz",
+            "scope": "/activities/update",
+            "expires_in": "12121"
+        })
+    resp = client.get(callback_url, follow_redirects=True)
+    user = User.get(email="test123abc@test.test.net")
+    assert user.orcid == "0123-1234-5678-0123"
 
 
 def test_email_template(app, request_ctx):

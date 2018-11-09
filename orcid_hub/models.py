@@ -12,6 +12,7 @@ import string
 import uuid
 from collections import namedtuple
 from datetime import datetime
+from enum import IntFlag, IntEnum
 from hashlib import md5
 from io import StringIO
 from itertools import groupby, zip_longest
@@ -47,11 +48,6 @@ AFFILIATION_TYPES = (
     "staff",
     "employment",
 )
-
-try:
-    from enum import IntFlag, IntEnum
-except ImportError:  # pragma: no cover
-    from enum import IntEnum as IntFlag, IntEnum
 
 
 class ModelException(Exception):
@@ -1197,6 +1193,11 @@ class RecordModel(BaseModel):
         ts = datetime.utcnow().isoformat(timespec="seconds")
         self.status = (self.status + "\n" if self.status else '') + ts + ": " + line
 
+    @classmethod
+    def get_field_regxes(cls):
+        """Retun map of compliled field name regex to the model fields."""
+        return {f: re.compile(e, re.I) for (f, e) in cls._field_regex_map}
+
 
 class GroupIdRecord(RecordModel):
     """GroupID records."""
@@ -1267,6 +1268,26 @@ class AffiliationRecord(RecordModel):
     class Meta:  # noqa: D101,D106
         db_table = "affiliation_record"
         table_alias = "ar"
+
+    _regex_field_map = [
+        ("first_name", r"first\s*(name)?"),
+        ("last_name", r"last\s*(name)?"),
+        ("email", "email"),
+        ("organisation", "organisation|^name"),
+        ("department", "campus|department"),
+        ("city", "city"),
+        ("state", "state|region"),
+        ("role", "course|title|role"),
+        ("start_date", r"start\s*(date)?"),
+        ("end_date", r"end\s*(date)?"),
+        ("affiliation_type", r"affiliation(s)?\s*(type)?|student|staff"),
+        ("country", "country"),
+        ("disambiguated_id", r"disambiguat.*id"),
+        ("disambiguation_source", r"disambiguat.*source"),
+        ("put_code", r"put|code"),
+        ("orcid", "orcid.*"),
+        ("external_id", "external.*|.*identifier"),
+    ]
 
 
 class TaskType(IntEnum):
@@ -1666,6 +1687,183 @@ class PeerReviewRecord(RecordModel):
         default=False, help_text="The record is marked for batch processing", null=True)
     processed_at = DateTimeField(null=True)
     status = TextField(null=True, help_text="Record processing status.")
+
+    @classmethod
+    def load_from_csv(cls, source, filename=None, org=None):
+        """Load data from CSV/TSV file or a string."""
+        if isinstance(source, str):
+            source = StringIO(source)
+        if filename is None:
+            filename = datetime.utcnow().isoformat(timespec="seconds")
+        reader = csv.reader(source)
+        header = next(reader)
+
+        if len(header) == 1 and '\t' in header[0]:
+            source.seek(0)
+            reader = csv.reader(source, delimiter='\t')
+            header = next(reader)
+
+        if len(header) < 2:
+            raise ModelException("Expected CSV or TSV format file.")
+
+        header_rexs = [
+            re.compile(ex, re.I) for ex in [
+            ]
+        ]
+
+        def index(rex):
+            """Return first header column index matching the given regex."""
+            for i, column in enumerate(header):
+                if rex.match(column.strip()):
+                    return i
+            else:
+                return None
+
+        idxs = [index(rex) for rex in header_rexs]
+
+        if all(idx is None for idx in idxs):
+            raise ModelException(f"Failed to map fields based on the header of the file: {header}")
+
+        if org is None:
+            org = current_user.organisation if current_user else None
+
+        def val(row, i, default=None):
+            if len(idxs) <= i or idxs[i] is None or idxs[i] >= len(row):
+                return default
+            else:
+                v = row[idxs[i]].strip()
+            return default if v == '' else v
+
+        rows = []
+        for row_no, row in enumerate(reader):
+            # skip empty lines:
+            if len(row) == 0:
+                continue
+            if len(row) == 1 and row[0].strip() == '':
+                continue
+
+            work_type = val(row, 6)
+            if not work_type:
+                raise ModelException(
+                    f"Funding type is mandatory, #{row_no+2}: {row}. Header: {header}")
+
+            # The uploaded country must be from ISO 3166-1 alpha-2
+            country = val(row, 14)
+            if country:
+                try:
+                    country = countries.lookup(country).alpha_2
+                except Exception:
+                    raise ModelException(
+                        f" (Country must be 2 character from ISO 3166-1 alpha-2) in the row "
+                        f"#{row_no+2}: {row}. Header: {header}")
+
+            orcid, email = val(row, 16), val(row, 19)
+            if orcid:
+                validate_orcid_id(orcid)
+            if email and not validators.email(email):
+                raise ValueError(
+                    f"Invalid email address '{email}'  in the row #{row_no+2}: {row}")
+
+            external_id_type = val(row, 20)
+            external_id_value = val(row, 21)
+            if bool(external_id_type) != bool(external_id_value):
+                raise ModelException(
+                    f"Invalid external ID the row #{row_no}. Type: {external_id_type}, Value: {external_id_value}")
+
+            name, first_name, last_name = val(row, 17), val(row, 26), val(row, 29)
+            if not name and first_name and last_name:
+                name = first_name + ' ' + last_name
+
+            # exclude the record from the profile
+            excluded = val(row, 29)
+            excluded = bool(excluded and excluded.lower() in ["y", "yes", "true", "1"])
+            publication_date = val(row, 10)
+            if publication_date:
+                publication_date = PartialDate.create(publication_date)
+            rows.append(
+                dict(
+                    excluded=excluded,
+                    work=dict(
+                        # external_identifier = val(row, 0),
+                        title=val(row, 1),
+                        sub_title=val(row, 2),
+                        translated_title=val(row, 3),
+                        translated_title_language_code=val(row, 4),
+                        journal_title=val(row, 5),
+                        type=work_type,
+                        short_description=val(row, 7),
+                        citation_type=val(row, 8),
+                        citation_value=val(row, 9),
+                        publication_date=publication_date,
+                        publication_media_type=val(row, 11),
+                        url=val(row, 12),
+                        language_code=val(row, 13),
+                        country=val(row, 14),
+                        is_active=val(row, 15),
+                    ),
+                    contributor=dict(
+                        orcid=orcid,
+                        name=name,
+                        role=val(row, 18),
+                        email=email,
+                    ),
+                    invitee=dict(
+                        identifier=val(row, 28),
+                        email=email,
+                        first_name=first_name,
+                        last_name=last_name,
+                        orcid=orcid,
+                        put_code=val(row, 24),
+                        visibility=val(row, 25),
+                    ),
+                    external_id=dict(
+                        type=external_id_type,
+                        value=external_id_value,
+                        url=val(row, 22),
+                        relationship=val(row, 23))))
+
+        with db.atomic():
+            try:
+                task = Task.create(org=org, filename=filename, task_type=TaskType.WORK)
+                for work, records in groupby(rows, key=lambda row: row["work"].items()):
+                    records = list(records)
+
+                    wr = cls(task=task, **dict(work))
+                    validator = ModelValidator(wr)
+                    if not validator.validate():
+                        raise ModelException(f"Invalid record: {validator.errors}")
+                    wr.save()
+
+                    for contributor in set(
+                            tuple(r["contributor"].items()) for r in records
+                            if r["contributor"]["orcid"] or r["contributor"]["email"]):
+                        fc = WorkContributor(work_record=wr, **dict(contributor))
+                        validator = ModelValidator(fc)
+                        if not validator.validate():
+                            raise ModelException(f"Invalid contributor record: {validator.errors}")
+                        fc.save()
+
+                    for external_id in set(
+                            tuple(r["external_id"].items()) for r in records
+                            if r["external_id"]["type"] and r["external_id"]["value"]):
+                        ei = WorkExternalId(work_record=wr, **dict(external_id))
+                        ei.save()
+
+                    for invitee in set(
+                            tuple(r["invitee"].items()) for r in records
+                            if r["invitee"]["email"] and not r["excluded"]):
+                        rec = WorkInvitees(work_record=wr, **dict(invitee))
+                        validator = ModelValidator(rec)
+                        if not validator.validate():
+                            raise ModelException(f"Invalid invitee record: {validator.errors}")
+                        rec.save()
+
+                return task
+
+            except Exception:
+                db.rollback()
+                app.logger.exception("Failed to load peer review file.")
+                raise
 
     @classmethod
     def load_from_json(cls, source, filename=None, org=None):
