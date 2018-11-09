@@ -2459,7 +2459,7 @@ def register_org(org_name,
             user_org = UserOrg.create(user=user, org=org, is_admin=True)
 
         app.logger.info(f"Ready to send an ivitation to '{org_name} <{email}>'.")
-        token = ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(5))
+        token = utils.new_invitation_token()
         # TODO: for via_orcid constact direct link to ORCID with callback like to HUB
         if via_orcid:
             invitation_url = url_for(

@@ -1149,9 +1149,9 @@ class UserInvitation(BaseModel, AuditMixin):
     org = ForeignKeyField(
         Organisation, on_delete="CASCADE", null=True, verbose_name="Organisation")
     task = ForeignKeyField(Task, on_delete="CASCADE", null=True, index=True, verbose_name="Task")
-
     email = CharField(
-        index=True, max_length=80, help_text="The email address the invitation was sent to.")
+        index=True, null=True, max_length=80,
+        help_text="The email address the invitation was sent to.")
     first_name = TextField(null=True, verbose_name="First Name")
     last_name = TextField(null=True, verbose_name="Last Name")
     orcid = OrcidIdField(null=True)
@@ -2559,11 +2559,10 @@ class Url(BaseModel, AuditMixin):
             while True:
                 short_id = ''.join(
                     random.choice(string.ascii_letters + string.digits) for _ in range(5))
-                try:
-                    cls.get(short_id=short_id)
-                except cls.DoesNotExist:
-                    u = cls.create(short_id=short_id, url=url)
-                    return u
+                if not cls.select().where(cls.short_id == short_id).exists():
+                    break
+            u = cls.create(short_id=short_id, url=url)
+            return u
         return u
 
 
