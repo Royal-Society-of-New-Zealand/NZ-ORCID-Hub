@@ -437,19 +437,23 @@ def test_orcid_login(client):
         orcid="123",
         confirmed=True,
         organisation=org)
-    UserOrg.create(user=u, org=org, is_admin=True)
+    user_org = UserOrg.create(user=u, org=org, is_admin=True)
     token = "TOKEN-1234567"
     ui = UserInvitation.create(org=org, invitee=u, email=u.email, token=token)
-
     resp = client.get(f"/orcid/login/{token}")
     assert resp.status_code == 200
     orcid_authorize = OrcidAuthorizeCall.get(method="GET")
     assert "&email=test123_test_orcid_login%40test.test.net" in orcid_authorize.url
-
     ui.created_at -= timedelta(days=100)
     ui.save()
     resp = client.get(f"/orcid/login/{token}")
-    # putting sleep for token expiry.
+    assert resp.status_code == 302
+    url = urlparse(resp.location)
+    assert url.path == '/'
+    # Testing the expired token flow for researcher
+    user_org.is_admin = False
+    user_org.save()
+    resp = client.get(f"/orcid/login/{token}")
     assert resp.status_code == 302
     url = urlparse(resp.location)
     assert url.path == '/'

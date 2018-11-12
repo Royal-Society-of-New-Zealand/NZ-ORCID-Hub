@@ -922,17 +922,25 @@ def orcid_login(invitation_token=None):
                     "was trying old invitation token")
                 return redirect(url_for("index"))
 
-            if invitation.created_at < datetime.utcnow() - timedelta(days=15):
-                flash(
-                    "It's been more than 15 days since your invitation was sent and it has expired. "
-                    "Please contact the sender to issue a new one", "danger")
-                app.logger.warning(
-                    f"Failed to login via ORCID, as {user.email} from {org.name} organisation, "
-                    "was trying old invitation token")
-                return redirect(url_for("index"))
-
             try:
                 user_org = UserOrg.get(user=user, org=org)
+
+                if invitation.created_at < datetime.utcnow() - timedelta(weeks=4) and not user_org.is_admin:
+                    flash(
+                        "It's been more than 4 weeks since your invitation was sent and it has expired. "
+                        "Please contact the sender to issue a new one", "danger")
+                    app.logger.warning(
+                        f"Failed to login via ORCID, as {user.email} from {org.name} organisation, "
+                        "was trying old invitation token")
+                    return redirect(url_for("index"))
+                elif invitation.created_at < datetime.utcnow() - timedelta(weeks=2) and user_org.is_admin:
+                    flash(
+                        "It's been more than 2 weeks since your invitation was sent and it has expired. "
+                        "Please contact the sender to issue a new one", "danger")
+                    app.logger.warning(
+                        f"Failed to login via ORCID, as {user.email} from {org.name} organisation, "
+                        "was trying old invitation token")
+                    return redirect(url_for("index"))
 
                 if org.orcid_client_id and not user_org.is_admin:
                     client_id = org.orcid_client_id
@@ -942,7 +950,7 @@ def orcid_login(invitation_token=None):
 
                 redirect_uri = append_qs(redirect_uri, invitation_token=invitation_token)
             except Organisation.DoesNotExist:
-                flash("Organisation '{org_name}' doesn't exist in the Hub!", "danger")
+                flash("Organisation '{org.name}' doesn't exist in the Hub!", "danger")
                 app.logger.error(
                     f"User '{user}' attempted to affiliate with non-existing organisation {org.name}"
                 )

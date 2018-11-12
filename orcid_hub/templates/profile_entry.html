@@ -15,6 +15,28 @@
             $scope.url = ''
             $scope.relationship = ''
             $scope.grant_type = ''
+            $scope.grant_type_list = [{'label': 'Agricola', 'value': 'agr'}, {'label': 'Archival Resource Key Identifier', 'value': 'ark'},
+            {'label': 'ArXiv', 'value': 'arxiv'}, {'label': 'Amazon Standard Identification Number', 'value': 'asin'},
+            {'label': 'ASIN top-level domain', 'value': 'asin-tld'}, {'label': 'AuthenticusID', 'value': 'authenticusid'},
+            {'label': 'Bibcode', 'value': 'bibcode'}, {'label': 'Chinese Biological Abstracts', 'value': 'cba'},
+            {'label': 'Ciência-IUL Identifier', 'value': 'cienciaiul'}, {'label': 'CiteSeer', 'value': 'cit'},
+            {'label': 'CiteExplore submission', 'value': 'ctx'}, {'label': 'German National Library identifier', 'value': 'dnb'},
+            {'label': 'Digital object identifier', 'value': 'doi'}, {'label': 'Scopus Identifier', 'value': 'eid'},
+            {'label': 'EThOS Peristent ID', 'value': 'ethos'}, {'label': 'grant number', 'value': 'grant_number'},
+            {'label': 'Handle', 'value': 'handle'}, {'label': 'Chinese Biological Abstracts', 'value': 'cba'},
+            {'label': 'NHS Evidence', 'value': 'hir'}, {'label': 'International Standard Book Number', 'value': 'isbn'},
+            {'label': 'International Standard Serial Number. Includes print and electronic ISSN', 'value': 'issn'},
+            {'label': 'Jahrbuch über die Fortschritte der Mathematik', 'value': 'jfm'}, {'label': 'JSTOR abstract', 'value': 'jstor'},
+            {'label': 'KoreaMed Unique Identifier', 'value': 'kuid'}, {'label': 'Mathematical Reviews', 'value': 'mr'},
+            {'label': 'Online Computer Library Center', 'value': 'oclc'}, {'label': 'Open Library', 'value': 'ol'},
+            {'label': 'Office of Scientific and Technical Information', 'value': 'osti'}, {'label': 'Other identifier type', 'value': 'other-id'},
+            {'label': 'Patent number', 'value': 'pat'}, {'label': 'Protein Data Bank identifier', 'value': 'pdb'},
+            {'label': 'PubMed Central article number', 'value': 'pmc'}, {'label': 'PubMed Unique Identifier', 'value': 'pmid'},
+            {'label': 'Request for Comments', 'value': 'rfc'}, {'label': 'Research Resource IDentifier', 'value': 'rrid'},
+            {'label': 'Non-standard ID from work data source', 'value': 'source-work-id'}, {'label': 'Social Science Research Network', 'value': 'ssrn'},
+            {'label': ' URI', 'value': 'uri'}, {'label': 'URN', 'value': 'urn'}, {'label': 'Web of Science™ identifier', 'value': 'wosuid'},
+            {'label': 'Zentralblatt MATH', 'value': 'zbl'}];
+            $scope.grant_relationship_list = [{'label': 'Part Of', 'value': 'PART_OF'}, {'label': 'Self', 'value': 'SELF'}];
 
             $scope.Add = function () {
                 //Add the new item to the Array.
@@ -39,7 +61,7 @@
 <div class="row">
   <div class="col-md-9 col-sm-8 col-xs-12">
     <h1>{{tile or ("Education" if section_type == "EDU" else "Funding" if section_type == "FUN" else "Peer Review" if
-      section_type == "PRR"  else "Work" if section_type == "WOR" else "Employment")}}</h1>
+      section_type == "PRR" else "Work" if section_type == "WOR" else "Employment")}}</h1>
   </div>
 </div>
     <div class="row" ng-app="MyApp" ng-controller="MyController">
@@ -62,13 +84,23 @@
                value="External Identifier Info (Atleast add one info)"/><br>
         <div ng-repeat="m in externalids">
           <strong>{{"External ID Type" if section_type != "FUN" else "Funding Grant Type"}}</strong><br>
-          <input type="text" class="form-control" name="grant_type" value="{a m.grant_type a}"/><br>
+          <select ng-model="selectedGrantvalue" class="form-control" name="grant_type">
+            <option value="">-- Select --</option>
+            <option ng-repeat="gtl in grant_type_list" ng-selected="m.grant_type == gtl.value"
+                    value="{a gtl.value a}">{a gtl.label a}
+            </option>
+          </select>
           <strong>{{"External ID" if section_type != "FUN" else "Funding Grant Number"}}</strong><br>
           <input type="text" class="form-control" name="grant_number" value="{a m.grant_number a}"/><br>
           <strong>{{"External ID Url" if section_type != "FUN" else "Funding Grant Url"}}</strong><br>
           <input type="text" class="form-control" name="grant_url" value="{a m.grant_url a}"/><br>
           <strong>{{"External ID Relationship" if section_type != "FUN" else "Funding Grant Relationship"}}</strong><br>
-          <input type="text" class="form-control" name="grant_relationship" value="{a m.grant_relationship a}"/><br>
+          <select ng-model="selectedItemvalue" class="form-control" name="grant_relationship">
+            <option value="">-- Select --</option>
+            <option ng-repeat="grl in grant_relationship_list" ng-selected="m.grant_relationship == grl.value"
+                    value="{a grl.value a}">{a grl.label a}
+            </option>
+          </select>
           <input type="button" class="btn btn-danger" ng-click="Remove($index)" value="Remove"/><br>
         </div>
         {% endif %}
