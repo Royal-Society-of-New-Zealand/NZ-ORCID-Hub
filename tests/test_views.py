@@ -19,6 +19,8 @@ from peewee import SqliteDatabase
 from playhouse.test_utils import test_database
 from werkzeug.datastructures import ImmutableMultiDict
 
+from orcid_api.rest import ApiException
+
 from orcid_hub import app, orcid_client, rq, views, utils
 from orcid_hub.config import ORCID_BASE_URL
 from orcid_hub.forms import FileUploadForm
@@ -669,7 +671,7 @@ Institute of Geological & Nuclear Sciences Ltd,5180,RINGGOLD
         })
     assert OrgInfo.select().count() == 3
 
-    with patch("orcid_hub.views.utils") as utils:
+    with patch("orcid_hub.views.utils.send_email") as send_email:
         client.post(
             "/admin/orginfo/action/",
             follow_redirects=True,
@@ -678,7 +680,7 @@ Institute of Geological & Nuclear Sciences Ltd,5180,RINGGOLD
                 action="invite",
                 rowid=[r.id for r in OrgInfo.select()],
             ))
-        utils.send_email.assert_called()
+        send_email.assert_called()
         assert OrgInvitation.select().count() == 3
         oi = OrgInvitation.select().first()
         assert oi.sent_at == oi.created_at
@@ -1423,7 +1425,6 @@ def test_invite_organisation(client, mocker):
     UserOrg.create(user=user, org=org, is_admin=True)
 
     client.login_root()
-
     resp = client.post(
             "/invite/organisation",
             data={
@@ -1454,6 +1455,41 @@ def test_invite_organisation(client, mocker):
     assert "Technical Contact" not in kwargs["html"]
 
     send_email = mocker.patch("orcid_hub.utils.send_email")
+    org = Organisation.create(name="ORG NAME", confirmed=True)
+    resp = client.post(
+        "/invite/organisation",
+        data={
+            "org_name": org.name,
+            "org_email": user.email,
+            "tech_contact": "True",
+            "via_orcid": "True",
+            "first_name": "xyz",
+            "last_name": "xyz",
+            "city": "xyz"
+        })
+    assert resp.status_code == 200
+    assert b"<!DOCTYPE html>" in resp.data, "Expected HTML content"
+    assert user.email.encode() in resp.data
+    send_email.assert_called_once()
+
+    org.tech_contact = user
+    org.save()
+
+    resp = client.post(
+        "/invite/organisation",
+        data={
+            "org_name": org.name,
+            "org_email": "test1234@test0.edu",
+            "tech_contact": "True",
+            "via_orcid": "True",
+            "first_name": "xyz",
+            "last_name": "xyz",
+            "city": "xyz"
+        })
+    assert resp.status_code == 200
+    assert b"Warning" in resp.data
+
+    send_email.reset_mock()
     resp = client.post(
             "/invite/organisation",
             data={
@@ -1469,41 +1505,112 @@ def test_invite_organisation(client, mocker):
     assert b"<!DOCTYPE html>" in resp.data, "Expected HTML content"
     assert user.email.encode() in resp.data
     send_email.assert_called_once()
+    _, args = send_email.call_args
+    invitation = args.get("invitation")
+    invitation_url = urlparse(invitation.url).path
+    assert invitation_url.endswith(invitation.token)
+    client.logout()
 
-    send_email.reset_mock()
-    org = Organisation.get()
-    org.name = "ORG NAME"
-    org.confirmed = True
-    org.save()
-    resp = client.post(
-        "/invite/organisation",
-        data={
-            "org_name": "ORG NAME",
-            "org_email": user.email,
-            "tech_contact": "True",
-            "via_orcid": "True",
-            "first_name": "xyz",
-            "last_name": "xyz",
-            "city": "xyz"
+    # Attempt to login via ORCID with the invitation token
+    resp = client.get(invitation_url)
+    auth_url = re.search(r"window.location='([^']*)'", resp.data.decode()).group(1)
+    qs = parse_qs(urlparse(auth_url).query)
+    redirect_uri = qs["redirect_uri"][0]
+    oauth_state = qs["state"][0]
+    callback_url = redirect_uri + "&state=" + oauth_state
+    assert session["oauth_state"] == oauth_state
+    mocker.patch(
+        "orcid_hub.authcontroller.OAuth2Session.fetch_token",
+        return_value={
+            "orcid": "3210-4321-8765-3210",
+            "name": "ADMIN ADMINISTRATOR",
+            "access_token": "xyz",
+            "refresh_token": "xyz",
+            "scope": "/activities/update",
+            "expires_in": "12121"
         })
+
+    mocker.patch.object(
+            orcid_client.MemberAPIV20Api,
+            "view_emails",
+            side_effect=Exception("ERROR"))
+    resp = client.get(callback_url, follow_redirects=True)
+    assert b"ERROR" in resp.data
+
+    mocker.patch.object(
+            orcid_client.MemberAPIV20Api,
+            "view_emails",
+            side_effect=ApiException(status=401, http_resp=Mock(data=b'{"user-message": "USER ERROR MESSAGE"}')))
+    resp = client.get(callback_url, follow_redirects=True)
+    assert b"USER ERROR MESSAGE" in resp.data
+
+    mocker.patch.object(
+            orcid_client.MemberAPIV20Api,
+            "view_emails",
+            return_value=Mock(data="""{"email": [{"email": "some_ones_else@test.edu"}]}"""))
+    resp = client.get(callback_url, follow_redirects=True)
+    assert b"cannot verify your email address" in resp.data
+    assert user.orcid is None
+
+    mocker.patch.object(
+        orcid_client.MemberAPIV20Api,
+        "view_emails",
+        return_value=Mock(data=json.dumps(dict(email=[dict(email=user.email)]))))
+    resp = client.get(callback_url)
+    user = User.get(user.id)
+    assert user.orcid == "3210-4321-8765-3210"
+    assert "viewmembers" in resp.location
+
+    # New non-onboarded organisation
+    email = "new_org_via_orcid@new.edu"
+    client.login_root()
+    send_email.reset_mock()
+    resp = client.post(
+            "/invite/organisation",
+            data={
+                "org_name": "NEW ORGANISATION (via ORCID)",
+                "org_email": email,
+                "tech_contact": "True",
+                "via_orcid": "True",
+                "first_name": "BRAND",
+                "last_name": "NEW",
+                "city": "Some City"
+            })
     assert resp.status_code == 200
     assert b"<!DOCTYPE html>" in resp.data, "Expected HTML content"
-    assert user.email.encode() in resp.data
+    assert email.encode() in resp.data
     send_email.assert_called_once()
+    _, args = send_email.call_args
+    invitation = args.get("invitation")
+    invitation_url = urlparse(invitation.url).path
+    assert invitation_url.endswith(invitation.token)
+    client.logout()
 
-    resp = client.post(
-        "/invite/organisation",
-        data={
-            "org_name": "ORG NAME",
-            "org_email": user.email,
-            "tech_contact": "True",
-            "via_orcid": "True",
-            "first_name": "xyz",
-            "last_name": "xyz",
-            "city": "xyz"
+    resp = client.get(invitation_url)
+    auth_url = re.search(r"window.location='([^']*)'", resp.data.decode()).group(1)
+    qs = parse_qs(urlparse(auth_url).query)
+    redirect_uri = qs["redirect_uri"][0]
+    oauth_state = qs["state"][0]
+    callback_url = redirect_uri + "&state=" + oauth_state
+    assert session["oauth_state"] == oauth_state
+    mocker.patch(
+        "orcid_hub.authcontroller.OAuth2Session.fetch_token",
+        return_value={
+            "orcid": "3210-4321-8765-8888",
+            "name": "ADMIN ADMINISTRATOR",
+            "access_token": "xyz",
+            "refresh_token": "xyz",
+            "scope": "/activities/update",
+            "expires_in": "12121"
         })
-    assert resp.status_code == 200
-    assert b"Warning" in resp.data
+    mocker.patch.object(
+        orcid_client.MemberAPIV20Api,
+        "view_emails",
+        return_value=Mock(data=json.dumps(dict(email=[dict(email=email)]))))
+    resp = client.get(callback_url)
+    user = User.get(email=email)
+    assert user.orcid == "3210-4321-8765-8888"
+    assert "confirm/organisation" in resp.location
 
 
 def core_mock(

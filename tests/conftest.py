@@ -112,6 +112,7 @@ class HubClient(FlaskClient):
         """Perform log-out."""
         resp = self.get("/logout", follow_redirects=True)
         _request_ctx_stack.pop()
+        self.cookie_jar.clear()
         return resp
 
     def login_root(self):

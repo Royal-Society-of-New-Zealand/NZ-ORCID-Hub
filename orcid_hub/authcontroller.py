@@ -507,7 +507,7 @@ def link():
 @app.route("/orcid/auth/<path:url>")
 @app.route("/auth/<path:url>")
 def orcid_callback_proxy(url):
-    """Redirect to the original invokator."""
+    """Redirect to the original invocator."""
     url = unquote(url)
     return redirect(append_qs(url, **request.args))
 
@@ -1142,8 +1142,11 @@ def orcid_login_callback(request):
                 data = json.loads(api_response.data)
                 if data and data.get("email") and any(
                         e.get("email").lower() == email for e in data.get("email")):
+                    if invitation.tech_contact and org.tech_contact != user:
+                        org.tech_contact = user
+                        org.save()
                     user.save()
-                    if not org.confirmed and user.is_tech_contact_of(org):
+                    if not (org.confirmed and org.orcid_client_id) and user.is_tech_contact_of(org):
                         return redirect(url_for("onboard_org"))
                     elif not org.confirmed and not user.is_tech_contact_of(org):
                         flash(
