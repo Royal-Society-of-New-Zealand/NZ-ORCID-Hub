@@ -671,7 +671,7 @@ Institute of Geological & Nuclear Sciences Ltd,5180,RINGGOLD
         })
     assert OrgInfo.select().count() == 3
 
-    with patch("orcid_hub.views.utils") as utils:
+    with patch("orcid_hub.views.utils.send_email") as send_email:
         client.post(
             "/admin/orginfo/action/",
             follow_redirects=True,
@@ -680,7 +680,7 @@ Institute of Geological & Nuclear Sciences Ltd,5180,RINGGOLD
                 action="invite",
                 rowid=[r.id for r in OrgInfo.select()],
             ))
-        utils.send_email.assert_called()
+        send_email.assert_called()
         assert OrgInvitation.select().count() == 3
         oi = OrgInvitation.select().first()
         assert oi.sent_at == oi.created_at
