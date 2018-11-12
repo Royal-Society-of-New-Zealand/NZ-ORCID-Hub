@@ -5,6 +5,8 @@ import codecs
 import logging
 from io import BytesIO
 from itertools import groupby
+import random
+import string
 from unittest.mock import Mock, patch
 
 import pytest
@@ -798,3 +800,18 @@ def test_file_upload_with_encodings(client, mocker):
             })
         assert resp.status_code == 200
         assert OrgInfo.select().count() == no + 1
+
+
+def test_new_invitation_token(app):
+    """Test if the tokens are realy unique."""
+    random.seed(42)
+    token0 = ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(5))
+    random.seed(42)
+    token = utils.new_invitation_token()
+    assert token == token0
+    org, user, admin = [app.data[n] for n in ["org", "user", "admin"]]
+
+    UserInvitation.create(org=org, invitee=user, inviter=admin, token=token)
+    random.seed(42)
+    token2 = utils.new_invitation_token()
+    assert token2 != token

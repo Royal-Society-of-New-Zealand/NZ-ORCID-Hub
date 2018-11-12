@@ -1,14 +1,14 @@
 # -*- coding: utf-8 -*-
 """Various utilities."""
 
-from datetime import date, datetime, timedelta
-from itertools import filterfalse, groupby
 import json
 import logging
 import os
 import random
-import time
 import string
+import time
+from datetime import date, datetime, timedelta
+from itertools import filterfalse, groupby
 from urllib.parse import quote, urlencode, urlparse
 
 import chardet
@@ -18,15 +18,15 @@ import requests
 from flask import request, url_for
 from flask_login import current_user
 from html2text import html2text
-from itsdangerous import BadSignature, SignatureExpired, TimedJSONWebSignatureSerializer
+from itsdangerous import (BadSignature, SignatureExpired, TimedJSONWebSignatureSerializer)
 from jinja2 import Template
-from peewee import JOIN
+from peewee import JOIN, SQL
 
 from . import app, orcid_client, rq
 from .models import (AFFILIATION_TYPES, Affiliation, AffiliationRecord, FundingInvitees,
-                     FundingRecord, Log, OrcidToken, Organisation, PartialDate,
-                     PeerReviewExternalId, PeerReviewInvitee, PeerReviewRecord, Role, TaskType,
-                     Task, User, UserInvitation, UserOrg, WorkInvitees, WorkRecord, get_val)
+                     FundingRecord, Log, OrcidToken, Organisation, OrgInvitation, PartialDate,
+                     PeerReviewExternalId, PeerReviewInvitee, PeerReviewRecord, Role, Task,
+                     TaskType, User, UserInvitation, UserOrg, WorkInvitees, WorkRecord, get_val)
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -183,6 +183,16 @@ def send_email(template,
         raise Exception("Failed to email the message. Please contact a Hub administrator!")
 
 
+def new_invitation_token(length=5):
+    """Generate a unique invitation token."""
+    while True:
+        token = ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(length))
+        if not (UserInvitation.select(SQL("1")).where(UserInvitation.token == token)
+                | OrgInvitation.select(SQL("1")).where(OrgInvitation.token == token)).exists():
+            break
+    return token
+
+
 def generate_confirmation_token(*args, expiration=1300000, **kwargs):
     """Generate Organisation registration confirmation token.
 
@@ -283,7 +293,7 @@ def send_work_funding_peer_review_invitation(inviter, org, email, first_name=Non
 
         user.organisation = org
         user.roles |= Role.RESEARCHER
-        token = ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(5))
+        token = new_invitation_token()
         with app.app_context():
             invitation_url = flask.url_for(
                 "orcid_login",
@@ -644,7 +654,7 @@ def send_user_invitation(inviter,
             user.last_name = last_name
         user.organisation = org
         user.roles |= Role.RESEARCHER
-        token = ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(5))
+        token = new_invitation_token()
         with app.app_context():
             invitation_url = flask.url_for(
                 "orcid_login",
@@ -856,7 +866,7 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
             user = User.get(
                 email=task_by_user.affiliation_record.email, organisation=task_by_user.org)
             user_org = UserOrg.get(user=user, org=task_by_user.org)
-            token = ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(5))
+            token = new_invitation_token()
             with app.app_context():
                 invitation_url = flask.url_for(
                     "orcid_login",
