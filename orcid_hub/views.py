@@ -6,9 +6,7 @@ import json
 import math
 import mimetypes
 import os
-import random
 import secrets
-import string
 import traceback
 from datetime import datetime
 from io import BytesIO
@@ -2462,10 +2460,7 @@ def register_org(org_name,
         token = utils.new_invitation_token()
         # TODO: for via_orcid constact direct link to ORCID with callback like to HUB
         if via_orcid:
-            invitation_url = url_for(
-                "orcid_login",
-                invitation_token=token,
-                _next=url_for("onboard_org", _external=True))
+            invitation_url = url_for("orcid_login", invitation_token=token, _external=True)
         else:
             invitation_url = url_for("index", _external=True)
 
