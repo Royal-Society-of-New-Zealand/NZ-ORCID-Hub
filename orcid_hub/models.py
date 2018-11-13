@@ -1498,7 +1498,7 @@ class FundingRecord(RecordModel):
 
                     for contributor in set(
                             tuple(r["contributor"].items()) for r in records
-                            if r["contributor"]["orcid"] or r["contributor"]["email"]):
+                            if r["excluded"]):
                         fc = FundingContributor(funding_record=fr, **dict(contributor))
                         validator = ModelValidator(fc)
                         if not validator.validate():
@@ -2189,7 +2189,7 @@ class WorkRecord(RecordModel):
                 raise ModelException(
                     f"Invalid external ID the row #{row_no}. Type: {external_id_type}, Value: {external_id_value}")
 
-            name, first_name, last_name = val(row, 17), val(row, 26), val(row, 29)
+            name, first_name, last_name = val(row, 17), val(row, 26), val(row, 27)
             if not name and first_name and last_name:
                 name = first_name + ' ' + last_name
 
@@ -2218,7 +2218,7 @@ class WorkRecord(RecordModel):
                         url=val(row, 12),
                         language_code=val(row, 13),
                         country=val(row, 14),
-                        is_active=val(row, 15),
+                        is_active=False,
                     ),
                     contributor=dict(
                         orcid=orcid,
@@ -2255,7 +2255,7 @@ class WorkRecord(RecordModel):
 
                     for contributor in set(
                             tuple(r["contributor"].items()) for r in records
-                            if r["contributor"]["orcid"] or r["contributor"]["email"]):
+                            if r["excluded"]):
                         fc = WorkContributor(work_record=wr, **dict(contributor))
                         validator = ModelValidator(fc)
                         if not validator.validate():
