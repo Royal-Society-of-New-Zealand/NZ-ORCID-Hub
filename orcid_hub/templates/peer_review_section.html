@@ -61,8 +61,13 @@
 						<td>{{r["convening-organization"]["address"].get("region", "")|default("", True)}}</td>
 						<td>{{r["convening-organization"]["address"].get("country", "")|default("", True)}}</td>
 						<td>{{r["completion-date"]["year"].get("value", "")|default("", True)}}</td>
-            <td>{{r["convening-organization"]["disambiguated-organization"].get("disambiguated-organization-identifier", "")|default("", True)}}</td>
-            <td>{{r["convening-organization"]["disambiguated-organization"].get("disambiguation-source", "")|default("", True)}}</td>
+            {% if r.get("convening-organization").get("disambiguated-organization") %}
+              <td>{{r.get("convening-organization").get("disambiguated-organization").get("disambiguated-organization-identifier", "")|default("", True)}}</td>
+              <td>{{r.get("convening-organization").get("disambiguated-organization").get("disambiguation-source", "")|default("", True)}}</td>
+            {% else %}
+              <td></td>
+              <td></td>
+            {% endif %}
 						<td>{{r.get("put-code")}}</td>
 					</tr>
 				{% endfor %}
