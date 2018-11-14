@@ -918,8 +918,8 @@ def orcid_login(invitation_token=None):
                 flash("You have already given permission, you can simply login on orcidhub",
                       "warning")
                 app.logger.warning(
-                    f"Failed to login via ORCID, as {user.email} from {org.name} organisation, "
-                    "was trying old invitation token")
+                    f"The User {user.email} from {org.name} organisation has already given permission, "
+                    f"but still was trying to login via invitation link.")
                 return redirect(url_for("index"))
 
             try:
