@@ -1498,7 +1498,7 @@ class FundingRecord(RecordModel):
 
                     for contributor in set(
                             tuple(r["contributor"].items()) for r in records
-                            if r["contributor"]["orcid"] or r["contributor"]["email"]):
+                            if r["excluded"]):
                         fc = FundingContributor(funding_record=fr, **dict(contributor))
                         validator = ModelValidator(fc)
                         if not validator.validate():
@@ -1708,8 +1708,40 @@ class PeerReviewRecord(RecordModel):
 
         header_rexs = [
             re.compile(ex, re.I) for ex in [
-            ]
-        ]
+                r"review\s*group\s*id(entifier)?$",
+                r"(reviewer)?\s*role$",
+                r"review\s*url$",
+                r"review\s*type$",
+                r"(review\s*completion)?.*date",
+                r"subject\s+external\s*id(entifier)?\s+type$",
+                r"subject\s+external\s*id(entifier)?\s+value$",
+                r"subject\s+external\s*id(entifier)?\s+url$",
+                r"subject\s+external\s*id(entifier)?\s+rel(ationship)?$",
+                r"subject\s+container\s+name$",
+                r"(subject)?\s*type$",
+                r"(subject)?\s*(name)?\s*title$",
+                r"(subject)?\s*(name)?\s*subtitle$",
+                r"(subject)?\s*(name)?\s*(translated)?\s*(title)?\s*lang(uage)?.*(code)?",
+                r"(subject)?\s*(name)?\s*translated\s*title$",
+                r"(subject)?\s*url$",
+                r"(convening)?\s*org(ani[zs]ation)?\s*name$",
+                r"(convening)?\s*org(ani[zs]ation)?\s*city",
+                r"(convening)?\s*org(ani[zs]ation)?\s*region$",
+                r"(convening)?\s*org(ani[zs]ation)?\s*country$",
+                r"(convening)?\s*(org(ani[zs]ation)?)?\s*disambiguated\s*id(entifier)?",
+                r"(convening)?\s*(org(ani[zs]ation)?)?\s*disambiguation\s*source$",
+                "email",
+                r"orcid\s*(id)?$",
+                "identifier",
+                r"first\s*(name)?",
+                r"(last|sur)\s*(name)?",
+                "put.*code",
+                r"(is)?\s*visib(ility|le)?",
+                r"(external)?\s*id(entifier)?\s+type$",
+                r"((external)?\s*id(entifier)?\s+value|peer\s*review.*id)$",
+                r"(external)?\s*id(entifier)?\s*url",
+                r"(external)?\s*id(entifier)?\s*rel(ationship)?",
+                r"(is)?\s*active$", ]]
 
         def index(rex):
             """Return first header column index matching the given regex."""
@@ -1742,117 +1774,106 @@ class PeerReviewRecord(RecordModel):
             if len(row) == 1 and row[0].strip() == '':
                 continue
 
-            work_type = val(row, 6)
-            if not work_type:
+            review_group_id = val(row, 0)
+            if not review_group_id:
                 raise ModelException(
-                    f"Funding type is mandatory, #{row_no+2}: {row}. Header: {header}")
+                    f"Review Group ID is mandatory, #{row_no+2}: {row}. Header: {header}")
+
+            convening_org_name = val(row, 16)
+            convening_org_city = val(row, 17)
+            convening_org_country = val(row, 19)
+
+            if not (convening_org_name and convening_org_city and convening_org_country):
+                raise ModelException(
+                    f"Information about Convening Organisation (Name, City and Country) is mandatory, "
+                    f"#{row_no+2}: {row}. Header: {header}")
 
             # The uploaded country must be from ISO 3166-1 alpha-2
-            country = val(row, 14)
-            if country:
+            if convening_org_country:
                 try:
-                    country = countries.lookup(country).alpha_2
+                    convening_org_country = countries.lookup(convening_org_country).alpha_2
                 except Exception:
                     raise ModelException(
-                        f" (Country must be 2 character from ISO 3166-1 alpha-2) in the row "
+                        f" (Convening Org Country must be 2 character from ISO 3166-1 alpha-2) in the row "
                         f"#{row_no+2}: {row}. Header: {header}")
 
-            orcid, email = val(row, 16), val(row, 19)
+            orcid, email = val(row, 23), val(row, 22)
             if orcid:
                 validate_orcid_id(orcid)
             if email and not validators.email(email):
                 raise ValueError(
                     f"Invalid email address '{email}'  in the row #{row_no+2}: {row}")
 
-            external_id_type = val(row, 20)
-            external_id_value = val(row, 21)
+            external_id_type = val(row, 29)
+            external_id_value = val(row, 30)
             if bool(external_id_type) != bool(external_id_value):
                 raise ModelException(
-                    f"Invalid external ID the row #{row_no}. Type: {external_id_type}, Value: {external_id_value}")
+                    f"Invalid External ID the row #{row_no}.Type:{external_id_type},Peer Review Id:{external_id_value}")
 
-            name, first_name, last_name = val(row, 17), val(row, 26), val(row, 29)
-            if not name and first_name and last_name:
-                name = first_name + ' ' + last_name
+            review_completion_date = val(row, 4)
 
-            # exclude the record from the profile
-            excluded = val(row, 29)
-            excluded = bool(excluded and excluded.lower() in ["y", "yes", "true", "1"])
-            publication_date = val(row, 10)
-            if publication_date:
-                publication_date = PartialDate.create(publication_date)
+            if review_completion_date:
+                review_completion_date = PartialDate.create(review_completion_date)
             rows.append(
                 dict(
-                    excluded=excluded,
-                    work=dict(
-                        # external_identifier = val(row, 0),
-                        title=val(row, 1),
-                        sub_title=val(row, 2),
-                        translated_title=val(row, 3),
-                        translated_title_language_code=val(row, 4),
-                        journal_title=val(row, 5),
-                        type=work_type,
-                        short_description=val(row, 7),
-                        citation_type=val(row, 8),
-                        citation_value=val(row, 9),
-                        publication_date=publication_date,
-                        publication_media_type=val(row, 11),
-                        url=val(row, 12),
-                        language_code=val(row, 13),
-                        country=val(row, 14),
-                        is_active=val(row, 15),
-                    ),
-                    contributor=dict(
-                        orcid=orcid,
-                        name=name,
-                        role=val(row, 18),
-                        email=email,
+                    peer_review=dict(
+                        review_group_id=review_group_id,
+                        reviewer_role=val(row, 1),
+                        review_url=val(row, 2),
+                        review_type=val(row, 3),
+                        review_completion_date=review_completion_date,
+                        subject_external_id_type=val(row, 5),
+                        subject_external_id_value=val(row, 6),
+                        subject_external_id_url=val(row, 7),
+                        subject_external_id_relationship=val(row, 8),
+                        subject_container_name=val(row, 9),
+                        subject_type=val(row, 10),
+                        subject_name_title=val(row, 11),
+                        subject_name_subtitle=val(row, 12),
+                        subject_name_translated_title_lang_code=val(row, 13),
+                        subject_name_translated_title=val(row, 14),
+                        subject_url=val(row, 15),
+                        convening_org_name=convening_org_name,
+                        convening_org_city=convening_org_city,
+                        convening_org_region=val(row, 18),
+                        convening_org_country=convening_org_country,
+                        convening_org_disambiguated_identifier=val(row, 20),
+                        convening_org_disambiguation_source=val(row, 21),
                     ),
                     invitee=dict(
-                        identifier=val(row, 28),
-                        email=email,
-                        first_name=first_name,
-                        last_name=last_name,
+                        email=email.lower(),
                         orcid=orcid,
-                        put_code=val(row, 24),
-                        visibility=val(row, 25),
+                        identifier=val(row, 24),
+                        first_name=val(row, 25),
+                        last_name=val(row, 26),
+                        put_code=val(row, 27),
+                        visibility=val(row, 28),
                     ),
                     external_id=dict(
                         type=external_id_type,
                         value=external_id_value,
-                        url=val(row, 22),
-                        relationship=val(row, 23))))
+                        url=val(row, 31),
+                        relationship=val(row, 32))))
 
         with db.atomic():
             try:
-                task = Task.create(org=org, filename=filename, task_type=TaskType.WORK)
-                for work, records in groupby(rows, key=lambda row: row["work"].items()):
+                task = Task.create(org=org, filename=filename, task_type=TaskType.PEER_REVIEW)
+                for peer_review, records in groupby(rows, key=lambda row: row["peer_review"].items()):
                     records = list(records)
 
-                    wr = cls(task=task, **dict(work))
-                    validator = ModelValidator(wr)
+                    prr = cls(task=task, **dict(peer_review))
+                    validator = ModelValidator(prr)
                     if not validator.validate():
                         raise ModelException(f"Invalid record: {validator.errors}")
-                    wr.save()
+                    prr.save()
 
-                    for contributor in set(
-                            tuple(r["contributor"].items()) for r in records
-                            if r["contributor"]["orcid"] or r["contributor"]["email"]):
-                        fc = WorkContributor(work_record=wr, **dict(contributor))
-                        validator = ModelValidator(fc)
-                        if not validator.validate():
-                            raise ModelException(f"Invalid contributor record: {validator.errors}")
-                        fc.save()
-
-                    for external_id in set(
-                            tuple(r["external_id"].items()) for r in records
-                            if r["external_id"]["type"] and r["external_id"]["value"]):
-                        ei = WorkExternalId(work_record=wr, **dict(external_id))
+                    for external_id in set(tuple(r["external_id"].items()) for r in records if
+                                           r["external_id"]["type"] and r["external_id"]["value"]):
+                        ei = PeerReviewExternalId(peer_review_record=prr, **dict(external_id))
                         ei.save()
 
-                    for invitee in set(
-                            tuple(r["invitee"].items()) for r in records
-                            if r["invitee"]["email"] and not r["excluded"]):
-                        rec = WorkInvitees(work_record=wr, **dict(invitee))
+                    for invitee in set(tuple(r["invitee"].items()) for r in records if r["invitee"]["email"]):
+                        rec = PeerReviewInvitee(peer_review_record=prr, **dict(invitee))
                         validator = ModelValidator(rec)
                         if not validator.validate():
                             raise ModelException(f"Invalid invitee record: {validator.errors}")
@@ -2189,7 +2210,7 @@ class WorkRecord(RecordModel):
                 raise ModelException(
                     f"Invalid external ID the row #{row_no}. Type: {external_id_type}, Value: {external_id_value}")
 
-            name, first_name, last_name = val(row, 17), val(row, 26), val(row, 29)
+            name, first_name, last_name = val(row, 17), val(row, 26), val(row, 27)
             if not name and first_name and last_name:
                 name = first_name + ' ' + last_name
 
@@ -2218,7 +2239,7 @@ class WorkRecord(RecordModel):
                         url=val(row, 12),
                         language_code=val(row, 13),
                         country=val(row, 14),
-                        is_active=val(row, 15),
+                        is_active=False,
                     ),
                     contributor=dict(
                         orcid=orcid,
@@ -2255,7 +2276,7 @@ class WorkRecord(RecordModel):
 
                     for contributor in set(
                             tuple(r["contributor"].items()) for r in records
-                            if r["contributor"]["orcid"] or r["contributor"]["email"]):
+                            if r["excluded"]):
                         fc = WorkContributor(work_record=wr, **dict(contributor))
                         validator = ModelValidator(fc)
                         if not validator.validate():

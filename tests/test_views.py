@@ -2497,19 +2497,18 @@ def test_load_funding_csv(client):
     """Test preload organisation data."""
     user = client.data["admin"]
     client.login(user, follow_redirects=True)
-
     resp = client.post(
         "/load/researcher/funding",
         data={
             "file_": (
                 BytesIO(
-                    """title,translated title,language,type,org type,short description,amount,aurrency,start,end,org name,city,region,country,disambiguated organisation identifier,disambiguation source,orcid id,name,role,email,external identifier type,external identifier value,external identifier url,external identifier relationship
+                    """title,translated title,language,type,org type,short description,amount,currency,start,end,org name,city,region,country,disambiguated organisation identifier,disambiguation source,orcid id,name,role,email,external identifier type,external identifier value,external identifier url,external identifier relationship
 
-THIS IS A TITLE, नमस्ते,hi,  CONTRACT,MY TYPE,Minerals unde.,300000,NZD.,,2025,Royal Society Te Apārangi,Wellington,,New Zealand,210126,RINGGOLD,1914-2914-3914-00X3, GivenName Surname, LEAD, test123@org1.edu,grant_number,GNS1706900961,https://www.grant-url2.com,PART_OF
-THIS IS A TITLE, नमस्ते,hi,  CONTRACT,MY TYPE,Minerals unde.,300000,NZD.,,2025,Royal Society Te Apārangi,Wellington,,New Zealand,210126,RINGGOLD,1885-2885-3885-00X3, GivenName Surname #2, LEAD, test123_2@org1.edu,grant_number,GNS1706900961,https://www.grant-url2.com,PART_OF
-THIS IS A TITLE, नमस्ते,hi,  CONTRACT,MY TYPE,Minerals unde.,300000,NZD.,,2025,Royal Society Te Apārangi,Wellington,,New Zealand,210126,RINGGOLD,1914-2914-3914-00X3, GivenName Surname, LEAD, test123@org1.edu,type2,GNS9999999999,https://www.grant-url2.com,PART_OF
-THIS IS A TITLE, नमस्ते,hi,  CONTRACT,MY TYPE,Minerals unde.,300000,NZD.,,2025,Royal Society Te Apārangi,Wellington,,New Zealand,210126,RINGGOLD,1885-2885-3885-00X3, GivenName Surname #2, LEAD, test123_2@org1.edu,type2,GNS9999999999,https://www.grant-url2.com,PART_OF
-THIS IS A TITLE #2, नमस्ते #2,hi,  CONTRACT,MY TYPE,Minerals unde.,900000,USD.,,2025,,,,,210126,RINGGOLD,1914-2914-3914-00X3, GivenName Surname, LEAD, test123@org1.edu,,,,""".encode()  # noqa: E501
+THIS IS A TITLE, नमस्ते,hi,  CONTRACT,MY TYPE,Minerals unde.,300000,NZD,,2025,Royal Society Te Apārangi,Wellington,,New Zealand,210126,RINGGOLD,1914-2914-3914-00X3, GivenName Surname, LEAD, test123@org1.edu,grant_number,GNS1706900961,https://www.grant-url2.com,PART_OF
+THIS IS A TITLE, नमस्ते,hi,  CONTRACT,MY TYPE,Minerals unde.,300000,NZD,,2025,Royal Society Te Apārangi,Wellington,,New Zealand,210126,RINGGOLD,1885-2885-3885-00X3, GivenName Surname #2, LEAD, test123_2@org1.edu,grant_number,GNS1706900961,https://www.grant-url2.com,PART_OF
+THIS IS A TITLE, नमस्ते,hi,  CONTRACT,MY TYPE,Minerals unde.,300000,NZD,,2025,Royal Society Te Apārangi,Wellington,,New Zealand,210126,RINGGOLD,1914-2914-3914-00X3, GivenName Surname, LEAD, test123@org1.edu,type2,GNS9999999999,https://www.grant-url2.com,PART_OF
+THIS IS A TITLE, नमस्ते,hi,  CONTRACT,MY TYPE,Minerals unde.,300000,NZD,,2025,Royal Society Te Apārangi,Wellington,,New Zealand,210126,RINGGOLD,1885-2885-3885-00X3, GivenName Surname #2, LEAD, test123_2@org1.edu,type2,GNS9999999999,https://www.grant-url2.com,PART_OF
+THIS IS A TITLE #2, नमस्ते #2,hi,  CONTRACT,MY TYPE,Minerals unde.,900000,USD,,2025,,,,,210126,RINGGOLD,1914-2914-3914-00X3, GivenName Surname, LEAD, test123@org1.edu,,,,""".encode()  # noqa: E501
                 ),  # noqa: E501
                 "fundings.csv",
             ),
@@ -2523,12 +2522,12 @@ THIS IS A TITLE #2, नमस्ते #2,hi,  CONTRACT,MY TYPE,Minerals unde.,9
     task = Task.select().where(Task.task_type == TaskType.FUNDING).first()
     assert task.funding_records.count() == 2
     fr = task.funding_records.where(FundingRecord.title == "THIS IS A TITLE").first()
-    assert fr.contributors.count() == 2
+    assert fr.contributors.count() == 0
     assert fr.external_ids.count() == 2
 
     resp = client.get(f"/admin/fundingrecord/export/tsv/?task_id={task.id}")
     assert resp.headers["Content-Type"] == "text/tsv; charset=utf-8"
-    assert len(resp.data.splitlines()) == 11
+    assert len(resp.data.splitlines()) == 6
 
     resp = client.post(
         "/load/researcher/funding",
@@ -2539,12 +2538,12 @@ THIS IS A TITLE #2, नमस्ते #2,hi,  CONTRACT,MY TYPE,Minerals unde.,9
                                Task.task_type == TaskType.FUNDING).first()
     assert task.funding_records.count() == 2
     fr = task.funding_records.where(FundingRecord.title == 'THIS IS A TITLE').first()
-    assert fr.contributors.count() == 4
+    assert fr.contributors.count() == 0
     assert fr.external_ids.count() == 2
 
     resp = client.get(f"/admin/fundingrecord/export/csv/?task_id={task.id}")
     assert resp.headers["Content-Type"] == "text/csv; charset=utf-8"
-    assert len(resp.data.splitlines()) == 16
+    assert len(resp.data.splitlines()) == 6
 
     resp = client.post(
         "/load/researcher/funding",
@@ -2555,7 +2554,7 @@ THIS IS A TITLE #2, नमस्ते #2,hi,  CONTRACT,MY TYPE,Minerals unde.,9
                                Task.task_type == TaskType.FUNDING).first()
     assert task.funding_records.count() == 2
     fr = task.funding_records.where(FundingRecord.title == 'THIS IS A TITLE').first()
-    assert fr.contributors.count() == 4
+    assert fr.contributors.count() == 0
     assert fr.external_ids.count() == 2
     assert fr.funding_invitees.count() == 2
 
@@ -2565,8 +2564,8 @@ THIS IS A TITLE #2, नमस्ते #2,hi,  CONTRACT,MY TYPE,Minerals unde.,9
             "file_": (
                 BytesIO(
                     """title	translated title	language	type	org type	short description	amount	aurrency	start	end	org name	city	region	country	disambiguated organisation identifier	disambiguation source	orcid id	name	role	email	external identifier type	external identifier value	external identifier url	external identifier relationship
-THIS IS A TITLE #3	 नमस्ते	hi	CONTRACT	MY TYPE	Minerals unde.	300000	NZD.		2025	Royal Society Te Apārangi	Wellington		New Zealand	210126	RINGGOLD	1914-2914-3914-00X3	 GivenName Surname	 LEAD	 test123@org1.edu	grant_number	GNS1706900961	https://www.grant-url2.com	PART_OF
-THIS IS A TITLE #4	 नमस्ते #2	hi	CONTRACT	MY TYPE	Minerals unde.	900000	USD.		2025					210126	RINGGOLD	1914-2914-3914-00X3	 GivenName Surname	 LEAD	 test123@org1.edu				""".encode()  # noqa: E501
+THIS IS A TITLE #3	 नमस्ते	hi	CONTRACT	MY TYPE	Minerals unde.	300000	NZD		2025	Royal Society Te Apārangi	Wellington		New Zealand	210126	RINGGOLD	1914-2914-3914-00X3	 GivenName Surname	 LEAD	 test123@org1.edu	grant_number	GNS1706900961	https://www.grant-url2.com	PART_OF
+THIS IS A TITLE #4	 नमस्ते #2	hi	CONTRACT	MY TYPE	Minerals unde.	900000	USD		2025					210126	RINGGOLD	1914-2914-3914-00X3	 GivenName Surname	 LEAD	 test123@org1.edu				""".encode()  # noqa: E501
                 ),  # noqa: E501
                 "fundings.tsv",
             ),
@@ -2675,7 +2674,7 @@ THIS IS A TITLE, नमस्ते,hi,  CONTRACT,MY TYPE,Minerals unde.,300000,
     assert b"Failed to load funding record file" in resp.data
     assert b"Invalid ORCID iD ERRO-R" in resp.data
 
-    # with "excluded"
+    # without "excluded"
     resp = client.post(
         "/load/researcher/funding",
         data={
@@ -2700,13 +2699,13 @@ THIS IS A TITLE, नमस्ते,hi,  CONTRACT,MY TYPE,Minerals unde.,300000,
     task = Task.select().where(Task.filename == "fundings042.csv").first()
     assert task.funding_records.count() == 2
     fr = task.funding_records.where(FundingRecord.title == "This is another project title").first()
-    assert fr.contributors.count() == 2
+    assert fr.contributors.count() == 0
     assert fr.external_ids.count() == 1
     assert fr.funding_invitees.count() == 2
 
     resp = client.get(f"/admin/fundingrecord/export/tsv/?task_id={task.id}")
     assert resp.headers["Content-Type"] == "text/tsv; charset=utf-8"
-    assert len(resp.data.splitlines()) == 6
+    assert len(resp.data.splitlines()) == 4
 
     resp = client.post(
         "/load/researcher/funding",
@@ -2864,7 +2863,7 @@ def test_researcher_work(client):
     assert task.records.count() == 1
     rec = task.records.first()
     assert rec.external_ids.count() == 1
-    assert rec.work_contributors.count() == 3  # TODO: 2...
+    assert rec.work_contributors.count() == 2
     assert rec.work_invitees.count() == 2
 
     resp = client.post(

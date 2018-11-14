@@ -2344,11 +2344,16 @@ def load_researcher_work():
 @roles_required(Role.ADMIN)
 def load_researcher_peer_review():
     """Preload researcher's peer review data."""
-    form = FileUploadForm(extensions=["json", "yaml"])
+    form = FileUploadForm(extensions=["json", "yaml", "csv", "tsv"])
     if form.validate_on_submit():
         filename = secure_filename(form.file_.data.filename)
+        content_type = form.file_.data.content_type
         try:
-            task = PeerReviewRecord.load_from_json(read_uploaded_file(form), filename=filename)
+            if content_type in ["text/tab-separated-values", "text/csv"]:
+                task = PeerReviewRecord.load_from_csv(
+                    read_uploaded_file(form), filename=filename)
+            else:
+                task = PeerReviewRecord.load_from_json(read_uploaded_file(form), filename=filename)
             flash(f"Successfully loaded {task.record_count} rows.")
             return redirect(url_for("peerreviewrecord.index_view", task_id=task.id))
         except Exception as ex:
