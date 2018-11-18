@@ -33,7 +33,7 @@ from . import config
 from .failover import PgDbWithFailover
 from flask_admin import Admin
 from flask_limiter import Limiter
-from flask_limiter.util import get_remote_address
+from flask_limiter.util import get_ipaddr
 from werkzeug.contrib.cache import SimpleCache
 from werkzeug.contrib.fixers import ProxyFix
 
@@ -62,12 +62,9 @@ if not app.config.from_pyfile("settings.cfg", silent=True) and app.debug:
 app.url_map.strict_slashes = False
 oauth = OAuth2Provider(app)
 api = Api(app)
-# Fix if the app is behingd a proxy
-if not app.config.get("NOPROXY"):
-    app.wsgi_app = ProxyFix(app.wsgi_app, num_proxies=1)
 limiter = Limiter(
     app,
-    key_func=get_remote_address,
+    key_func=get_ipaddr,
     headers_enabled=True,
     default_limits=[
         "40 per second",  # burst: 40/sec
