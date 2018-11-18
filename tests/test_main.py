@@ -2,6 +2,7 @@
 """Tests for core functions."""
 
 import base64
+from datetime import timedelta
 import pickle
 import pprint
 import zlib
@@ -436,34 +437,23 @@ def test_orcid_login(client):
         orcid="123",
         confirmed=True,
         organisation=org)
-    UserOrg.create(user=u, org=org, is_admin=True)
-
-    # with SALT
-    client.application.config["SALT"] = "TEST-SALT"
-    token = utils.generate_confirmation_token(email=u.email, org=org.name)
-    resp = client.get("/orcid/login/" + token.decode("utf-8"))
+    user_org = UserOrg.create(user=u, org=org, is_admin=True)
+    token = "TOKEN-1234567"
+    ui = UserInvitation.create(org=org, invitee=u, email=u.email, token=token)
+    resp = client.get(f"/orcid/login/{token}")
     assert resp.status_code == 200
     orcid_authorize = OrcidAuthorizeCall.get(method="GET")
     assert "&email=test123_test_orcid_login%40test.test.net" in orcid_authorize.url
-
-    expired_token = utils.generate_confirmation_token(expiration=-1, email=u.email, org=org.name)
-    resp = client.get("/orcid/login/" + expired_token.decode("utf-8"))
-    # putting sleep for token expiry.
+    ui.created_at -= timedelta(days=100)
+    ui.save()
+    resp = client.get(f"/orcid/login/{token}")
     assert resp.status_code == 302
     url = urlparse(resp.location)
     assert url.path == '/'
-
-    # w/o SALT:
-    client.application.config["SALT"] = None
-    token = utils.generate_confirmation_token(email=u.email, org=org.name)
-    resp = client.get("/orcid/login/" + token.decode("utf-8"))
-    assert resp.status_code == 200
-    orcid_authorize = OrcidAuthorizeCall.get(method="GET")
-    assert "&email=test123_test_orcid_login%40test.test.net" in orcid_authorize.url
-
-    expired_token = utils.generate_confirmation_token(expiration=-1, email=u.email, org=org.name)
-    resp = client.get("/orcid/login/" + expired_token.decode("utf-8"))
-    # putting sleep for token expiry.
+    # Testing the expired token flow for researcher
+    user_org.is_admin = False
+    user_org.save()
+    resp = client.get(f"/orcid/login/{token}")
     assert resp.status_code == 302
     url = urlparse(resp.location)
     assert url.path == '/'
@@ -586,8 +576,8 @@ def test_orcid_login_callback_admin_flow(patch, patch2, request_ctx):
         # User login via orcid, where organisation is not confirmed.
         u.orcid = "123"
         u.save()
-        request.args = {"invitation_token": None, "state": "xyz"}
-        session['oauth_state'] = "xyz"
+        request.args = {"invitation_token": None, "state": "xyz-about"}
+        session['oauth_state'] = "xyz-about"
         resp = authcontroller.orcid_login_callback(request)
         assert resp.status_code == 302
         assert resp.location.startswith("/about")
@@ -662,7 +652,7 @@ def test_orcid_login_callback_researcher_flow(patch, patch2, request_ctx):
     UserOrg.create(user=u, org=org, is_admin=False)
     token = utils.generate_confirmation_token(email=u.email, org=org.name)
     UserInvitation.create(email=u.email, token=token, affiliations=Affiliation.EMP)
-    OrcidToken.create(user=u, org=org, scope='/read-limited,/activities/update')
+    OrcidToken.create(user=u, org=org, scope="/read-limited,/activities/update")
     with request_ctx():
         request.args = {"invitation_token": token, "state": "xyz"}
         session['oauth_state'] = "xyz"

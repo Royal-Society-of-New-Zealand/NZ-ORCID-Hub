@@ -47,7 +47,7 @@ from .models import (
     UserOrgAffiliation, WorkContributor, WorkExternalId, WorkInvitees, WorkRecord, db, get_val)
 # NB! Should be disabled in production
 from .pyinfo import info
-from .utils import generate_confirmation_token, get_next_url, read_uploaded_file, send_user_invitation
+from .utils import get_next_url, read_uploaded_file, send_user_invitation
 
 HEADERS = {"Accept": "application/vnd.orcid+json", "Content-type": "application/vnd.orcid+json"}
 ORCID_BASE_URL = app.config["ORCID_BASE_URL"]
@@ -116,7 +116,7 @@ def favicon():
 
 
 @app.route("/status")
-@limiter.limit("10/minute")
+@limiter.limit("30/minute")
 def status():
     """Check the application health status attempting to connect to the DB.
 
@@ -2048,7 +2048,10 @@ def edit_record(user_id, section_type, put_code=None):
             app.logger.exception(
                 "Unhandler error occured while creating or editing a profile record.")
             abort(500, ex)
-
+    if not grant_data_list:
+        grant_data_list.append(dict(grant_number='', grant_url='',
+                                    grant_relationship='',
+                                    grant_type=''))
     return render_template("profile_entry.html", section_type=section_type, form=form, _url=_url,
                            grant_data_list=grant_data_list)
 
@@ -2341,11 +2344,16 @@ def load_researcher_work():
 @roles_required(Role.ADMIN)
 def load_researcher_peer_review():
     """Preload researcher's peer review data."""
-    form = FileUploadForm(extensions=["json", "yaml"])
+    form = FileUploadForm(extensions=["json", "yaml", "csv", "tsv"])
     if form.validate_on_submit():
         filename = secure_filename(form.file_.data.filename)
+        content_type = form.file_.data.content_type
         try:
-            task = PeerReviewRecord.load_from_json(read_uploaded_file(form), filename=filename)
+            if content_type in ["text/tab-separated-values", "text/csv"]:
+                task = PeerReviewRecord.load_from_csv(
+                    read_uploaded_file(form), filename=filename)
+            else:
+                task = PeerReviewRecord.load_from_json(read_uploaded_file(form), filename=filename)
             flash(f"Successfully loaded {task.record_count} rows.")
             return redirect(url_for("peerreviewrecord.index_view", task_id=task.id))
         except Exception as ex:
@@ -2457,13 +2465,10 @@ def register_org(org_name,
             user_org = UserOrg.create(user=user, org=org, is_admin=True)
 
         app.logger.info(f"Ready to send an ivitation to '{org_name} <{email}>'.")
-        token = generate_confirmation_token(email=email, org=org_name)
+        token = utils.new_invitation_token()
         # TODO: for via_orcid constact direct link to ORCID with callback like to HUB
         if via_orcid:
-            short_id = Url.shorten(
-                url_for("orcid_login", invitation_token=token,
-                        _next=url_for("onboard_org"))).short_id
-            invitation_url = url_for("short_url", short_id=short_id, _external=True)
+            invitation_url = url_for("orcid_login", invitation_token=token, _external=True)
         else:
             invitation_url = url_for("index", _external=True)
 

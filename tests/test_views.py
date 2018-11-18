@@ -10,14 +10,16 @@ import time
 from itertools import product
 from unittest.mock import MagicMock, Mock, patch
 from io import BytesIO
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 
 import pytest
-from flask import request, make_response
+from flask import request, make_response, session
 from flask_login import login_user
 from peewee import SqliteDatabase
 from playhouse.test_utils import test_database
 from werkzeug.datastructures import ImmutableMultiDict
+
+from orcid_api.rest import ApiException
 
 from orcid_hub import app, orcid_client, rq, views, utils
 from orcid_hub.config import ORCID_BASE_URL
@@ -669,7 +671,7 @@ Institute of Geological & Nuclear Sciences Ltd,5180,RINGGOLD
         })
     assert OrgInfo.select().count() == 3
 
-    with patch("orcid_hub.views.utils") as utils:
+    with patch("orcid_hub.views.utils.send_email") as send_email:
         client.post(
             "/admin/orginfo/action/",
             follow_redirects=True,
@@ -678,7 +680,7 @@ Institute of Geological & Nuclear Sciences Ltd,5180,RINGGOLD
                 action="invite",
                 rowid=[r.id for r in OrgInfo.select()],
             ))
-        utils.send_email.assert_called()
+        send_email.assert_called()
         assert OrgInvitation.select().count() == 3
         oi = OrgInvitation.select().first()
         assert oi.sent_at == oi.created_at
@@ -1073,6 +1075,59 @@ def test_invite_user(request_ctx):
         api_mock.create_or_update_affiliation.assert_called_once()
 
 
+def test_researcher_invitation(client, mocker):
+    """Test full researcher invitation flow."""
+    mocker.patch(
+        "orcid_hub.views.send_user_invitation.queue",
+        lambda *args, **kwargs: (views.send_user_invitation(*args, **kwargs) and Mock()))
+    send_email = mocker.patch("orcid_hub.utils.send_email")
+    admin = User.get(email="admin@test1.edu")
+    # org = admin.organisation
+    resp = client.login(admin)
+    resp = client.post(
+            "/invite/user",
+            data={
+                "name": "TEST APP",
+                "is_employee": "false",
+                "email_address": "test123abc@test.test.net",
+                "resend": "enable",
+                "is_student": "true",
+                "first_name": "test",
+                "last_name": "test",
+                "city": "test"
+            })
+    assert resp.status_code == 200
+    assert b"<!DOCTYPE html>" in resp.data, "Expected HTML content"
+    assert b"test123abc@test.test.net" in resp.data
+    send_email.assert_called_once()
+    _, kwargs = send_email.call_args
+    invitation_url = urlparse(kwargs["invitation_url"]).path
+    client.logout()
+    client.cookie_jar.clear()
+
+    # Attempt to login via ORCID with the invitation token
+    resp = client.get(invitation_url)
+    auth_url = re.search(r"window.location='([^']*)'", resp.data.decode()).group(1)
+    qs = parse_qs(urlparse(auth_url).query)
+    redirect_uri = qs["redirect_uri"][0]
+    oauth_state = qs["state"][0]
+    callback_url = redirect_uri + "&state=" + oauth_state
+    assert session["oauth_state"] == oauth_state
+    mocker.patch(
+        "orcid_hub.authcontroller.OAuth2Session.fetch_token",
+        return_value={
+            "orcid": "0123-1234-5678-0123",
+            "name": "TESTER TESTERON",
+            "access_token": "xyz",
+            "refresh_token": "xyz",
+            "scope": "/activities/update",
+            "expires_in": "12121"
+        })
+    resp = client.get(callback_url, follow_redirects=True)
+    user = User.get(email="test123abc@test.test.net")
+    assert user.orcid == "0123-1234-5678-0123"
+
+
 def test_email_template(app, request_ctx):
     """Test email maintenance."""
     org = Organisation.get(name="TEST0")
@@ -1370,7 +1425,6 @@ def test_invite_organisation(client, mocker):
     UserOrg.create(user=user, org=org, is_admin=True)
 
     client.login_root()
-
     resp = client.post(
             "/invite/organisation",
             data={
@@ -1401,6 +1455,41 @@ def test_invite_organisation(client, mocker):
     assert "Technical Contact" not in kwargs["html"]
 
     send_email = mocker.patch("orcid_hub.utils.send_email")
+    org = Organisation.create(name="ORG NAME", confirmed=True)
+    resp = client.post(
+        "/invite/organisation",
+        data={
+            "org_name": org.name,
+            "org_email": user.email,
+            "tech_contact": "True",
+            "via_orcid": "True",
+            "first_name": "xyz",
+            "last_name": "xyz",
+            "city": "xyz"
+        })
+    assert resp.status_code == 200
+    assert b"<!DOCTYPE html>" in resp.data, "Expected HTML content"
+    assert user.email.encode() in resp.data
+    send_email.assert_called_once()
+
+    org.tech_contact = user
+    org.save()
+
+    resp = client.post(
+        "/invite/organisation",
+        data={
+            "org_name": org.name,
+            "org_email": "test1234@test0.edu",
+            "tech_contact": "True",
+            "via_orcid": "True",
+            "first_name": "xyz",
+            "last_name": "xyz",
+            "city": "xyz"
+        })
+    assert resp.status_code == 200
+    assert b"Warning" in resp.data
+
+    send_email.reset_mock()
     resp = client.post(
             "/invite/organisation",
             data={
@@ -1416,41 +1505,112 @@ def test_invite_organisation(client, mocker):
     assert b"<!DOCTYPE html>" in resp.data, "Expected HTML content"
     assert user.email.encode() in resp.data
     send_email.assert_called_once()
+    _, args = send_email.call_args
+    invitation = args.get("invitation")
+    invitation_url = urlparse(invitation.url).path
+    assert invitation_url.endswith(invitation.token)
+    client.logout()
 
-    send_email.reset_mock()
-    org = Organisation.get()
-    org.name = "ORG NAME"
-    org.confirmed = True
-    org.save()
-    resp = client.post(
-        "/invite/organisation",
-        data={
-            "org_name": "ORG NAME",
-            "org_email": user.email,
-            "tech_contact": "True",
-            "via_orcid": "True",
-            "first_name": "xyz",
-            "last_name": "xyz",
-            "city": "xyz"
+    # Attempt to login via ORCID with the invitation token
+    resp = client.get(invitation_url)
+    auth_url = re.search(r"window.location='([^']*)'", resp.data.decode()).group(1)
+    qs = parse_qs(urlparse(auth_url).query)
+    redirect_uri = qs["redirect_uri"][0]
+    oauth_state = qs["state"][0]
+    callback_url = redirect_uri + "&state=" + oauth_state
+    assert session["oauth_state"] == oauth_state
+    mocker.patch(
+        "orcid_hub.authcontroller.OAuth2Session.fetch_token",
+        return_value={
+            "orcid": "3210-4321-8765-3210",
+            "name": "ADMIN ADMINISTRATOR",
+            "access_token": "xyz",
+            "refresh_token": "xyz",
+            "scope": "/activities/update",
+            "expires_in": "12121"
         })
+
+    mocker.patch.object(
+            orcid_client.MemberAPIV20Api,
+            "view_emails",
+            side_effect=Exception("ERROR"))
+    resp = client.get(callback_url, follow_redirects=True)
+    assert b"ERROR" in resp.data
+
+    mocker.patch.object(
+            orcid_client.MemberAPIV20Api,
+            "view_emails",
+            side_effect=ApiException(status=401, http_resp=Mock(data=b'{"user-message": "USER ERROR MESSAGE"}')))
+    resp = client.get(callback_url, follow_redirects=True)
+    assert b"USER ERROR MESSAGE" in resp.data
+
+    mocker.patch.object(
+            orcid_client.MemberAPIV20Api,
+            "view_emails",
+            return_value=Mock(data="""{"email": [{"email": "some_ones_else@test.edu"}]}"""))
+    resp = client.get(callback_url, follow_redirects=True)
+    assert b"cannot verify your email address" in resp.data
+    assert user.orcid is None
+
+    mocker.patch.object(
+        orcid_client.MemberAPIV20Api,
+        "view_emails",
+        return_value=Mock(data=json.dumps(dict(email=[dict(email=user.email)]))))
+    resp = client.get(callback_url)
+    user = User.get(user.id)
+    assert user.orcid == "3210-4321-8765-3210"
+    assert "viewmembers" in resp.location
+
+    # New non-onboarded organisation
+    email = "new_org_via_orcid@new.edu"
+    client.login_root()
+    send_email.reset_mock()
+    resp = client.post(
+            "/invite/organisation",
+            data={
+                "org_name": "NEW ORGANISATION (via ORCID)",
+                "org_email": email,
+                "tech_contact": "True",
+                "via_orcid": "True",
+                "first_name": "BRAND",
+                "last_name": "NEW",
+                "city": "Some City"
+            })
     assert resp.status_code == 200
     assert b"<!DOCTYPE html>" in resp.data, "Expected HTML content"
-    assert user.email.encode() in resp.data
+    assert email.encode() in resp.data
     send_email.assert_called_once()
+    _, args = send_email.call_args
+    invitation = args.get("invitation")
+    invitation_url = urlparse(invitation.url).path
+    assert invitation_url.endswith(invitation.token)
+    client.logout()
 
-    resp = client.post(
-        "/invite/organisation",
-        data={
-            "org_name": "ORG NAME",
-            "org_email": user.email,
-            "tech_contact": "True",
-            "via_orcid": "True",
-            "first_name": "xyz",
-            "last_name": "xyz",
-            "city": "xyz"
+    resp = client.get(invitation_url)
+    auth_url = re.search(r"window.location='([^']*)'", resp.data.decode()).group(1)
+    qs = parse_qs(urlparse(auth_url).query)
+    redirect_uri = qs["redirect_uri"][0]
+    oauth_state = qs["state"][0]
+    callback_url = redirect_uri + "&state=" + oauth_state
+    assert session["oauth_state"] == oauth_state
+    mocker.patch(
+        "orcid_hub.authcontroller.OAuth2Session.fetch_token",
+        return_value={
+            "orcid": "3210-4321-8765-8888",
+            "name": "ADMIN ADMINISTRATOR",
+            "access_token": "xyz",
+            "refresh_token": "xyz",
+            "scope": "/activities/update",
+            "expires_in": "12121"
         })
-    assert resp.status_code == 200
-    assert b"Warning" in resp.data
+    mocker.patch.object(
+        orcid_client.MemberAPIV20Api,
+        "view_emails",
+        return_value=Mock(data=json.dumps(dict(email=[dict(email=email)]))))
+    resp = client.get(callback_url)
+    user = User.get(email=email)
+    assert user.orcid == "3210-4321-8765-8888"
+    assert "confirm/organisation" in resp.location
 
 
 def core_mock(
@@ -2333,23 +2493,51 @@ def test_sync_profiles(client, mocker):
     assert resp.status_code == 200
 
 
+def test_load_peer_review_csv(client):
+    """Test preload peer review data."""
+    user = client.data["admin"]
+    client.login(user, follow_redirects=True)
+    resp = client.post(
+        "/load/researcher/peer_review",
+        data={
+            "file_": (
+                BytesIO(
+                    """Review Group Id,Reviewer Role,Review Url,Review Type,Review Completion Date,Subject External Id Type,Subject External Id Value,Subject External Id Url,Subject External Id Relationship,Subject Container Name,Subject Type,Subject Name Title,Subject Name Subtitle,Subject Name Translated Title Lang Code,Subject Name Translated Title,Subject Url,Convening Org Name,Convening Org City,Convening Org Region,Convening Org Country,Convening Org Disambiguated Identifier,Convening Org Disambiguation Source,Email,ORCID iD,Identifier,First Name,Last Name,Put Code,Visibility,External Id Type,Peer Review Id,External Id Url,External Id Relationship
+issn:1213199811,REVIEWER,https://alt-url.com,REVIEW,2012-08-01,doi,10.1087/20120404,https://doi.org/10.1087/20120404,SELF,Journal title,JOURNAL_ARTICLE,Name of the paper reviewed,Subtitle of the paper reviewed,en,Translated title,https://subject-alt-url.com,The University of Auckland,Auckland,Auckland,NZ,385488,RINGGOLD,rad4wwww299ssspppw99pos@mailinator.com,,00001,sdsd,sds1,,PUBLIC,grant_number,GNS1706900961,https://www.grant-url.com2,PART_OF
+issn:1213199811,REVIEWER,https://alt-url.com,REVIEW,2012-08-01,doi,10.1087/20120404,https://doi.org/10.1087/20120404,SELF,Journal title,JOURNAL_ARTICLE,Name of the paper reviewed,Subtitle of the paper reviewed,en,Translated title,https://subject-alt-url.com,The University of Auckland,Auckland,Auckland,NZ,385488,RINGGOLD,radsdsd22@mailinator.com,,00032,sdsssd,ffww,,PUBLIC,grant_number,GNS1706900961,https://www.grant-url.com2,PART_OF
+issn:1213199811,REVIEWER,https://alt-url.com,REVIEW,2012-08-01,doi,10.1087/20120404,https://doi.org/10.1087/20120404,SELF,Journal title,JOURNAL_ARTICLE,Name of the paper reviewed,Subtitle of the paper reviewed,en,Translated title,https://subject-alt-url.com,The University of Auckland,Auckland,Auckland,NZ,385488,RINGGOLD,rad4wwww299ssspppw99pos@mailinator.com,,00001,sdsd,sds1,,PUBLIC,source-work-id,232xxx22fff,https://localsystem.org/1234,SELF
+issn:1213199811,REVIEWER,https://alt-url.com,REVIEW,2012-08-01,doi,10.1087/20120404,https://doi.org/10.1087/20120404,SELF,Journal title,JOURNAL_ARTICLE,Name of the paper reviewed,Subtitle of the paper reviewed,en,Translated title,https://subject-alt-url.com,The University of Auckland,Auckland,Auckland,NZ,385488,RINGGOLD,radsdsd22@mailinator.com,,00032,sdsssd,ffww,,PUBLIC,source-work-id,232xxx22fff,https://localsystem.org/1234,SELF""".encode()  # noqa: E501
+                ),  # noqa: E501
+                "peer_review.csv",
+            ),
+        },
+        follow_redirects=True)
+    assert resp.status_code == 200
+    assert b"issn:1213199811" in resp.data
+    assert b"peer_review.csv" in resp.data
+    assert Task.select().where(Task.task_type == TaskType.PEER_REVIEW).count() == 1
+    task = Task.select().where(Task.task_type == TaskType.PEER_REVIEW).first()
+    prr = task.peer_review_records.where(PeerReviewRecord.review_group_id == "issn:1213199811").first()
+    assert prr.external_ids.count() == 2
+    assert prr.peer_review_invitee.count() == 2
+
+
 def test_load_funding_csv(client):
     """Test preload organisation data."""
     user = client.data["admin"]
     client.login(user, follow_redirects=True)
-
     resp = client.post(
         "/load/researcher/funding",
         data={
             "file_": (
                 BytesIO(
-                    """title,translated title,language,type,org type,short description,amount,aurrency,start,end,org name,city,region,country,disambiguated organisation identifier,disambiguation source,orcid id,name,role,email,external identifier type,external identifier value,external identifier url,external identifier relationship
+                    """title,translated title,language,type,org type,short description,amount,currency,start,end,org name,city,region,country,disambiguated organisation identifier,disambiguation source,orcid id,name,role,email,external identifier type,external identifier value,external identifier url,external identifier relationship
 
-THIS IS A TITLE, नमस्ते,hi,  CONTRACT,MY TYPE,Minerals unde.,300000,NZD.,,2025,Royal Society Te Apārangi,Wellington,,New Zealand,210126,RINGGOLD,1914-2914-3914-00X3, GivenName Surname, LEAD, test123@org1.edu,grant_number,GNS1706900961,https://www.grant-url2.com,PART_OF
-THIS IS A TITLE, नमस्ते,hi,  CONTRACT,MY TYPE,Minerals unde.,300000,NZD.,,2025,Royal Society Te Apārangi,Wellington,,New Zealand,210126,RINGGOLD,1885-2885-3885-00X3, GivenName Surname #2, LEAD, test123_2@org1.edu,grant_number,GNS1706900961,https://www.grant-url2.com,PART_OF
-THIS IS A TITLE, नमस्ते,hi,  CONTRACT,MY TYPE,Minerals unde.,300000,NZD.,,2025,Royal Society Te Apārangi,Wellington,,New Zealand,210126,RINGGOLD,1914-2914-3914-00X3, GivenName Surname, LEAD, test123@org1.edu,type2,GNS9999999999,https://www.grant-url2.com,PART_OF
-THIS IS A TITLE, नमस्ते,hi,  CONTRACT,MY TYPE,Minerals unde.,300000,NZD.,,2025,Royal Society Te Apārangi,Wellington,,New Zealand,210126,RINGGOLD,1885-2885-3885-00X3, GivenName Surname #2, LEAD, test123_2@org1.edu,type2,GNS9999999999,https://www.grant-url2.com,PART_OF
-THIS IS A TITLE #2, नमस्ते #2,hi,  CONTRACT,MY TYPE,Minerals unde.,900000,USD.,,2025,,,,,210126,RINGGOLD,1914-2914-3914-00X3, GivenName Surname, LEAD, test123@org1.edu,,,,""".encode()  # noqa: E501
+THIS IS A TITLE, नमस्ते,hi,  CONTRACT,MY TYPE,Minerals unde.,300000,NZD,,2025,Royal Society Te Apārangi,Wellington,,New Zealand,210126,RINGGOLD,1914-2914-3914-00X3, GivenName Surname, LEAD, test123@org1.edu,grant_number,GNS1706900961,https://www.grant-url2.com,PART_OF
+THIS IS A TITLE, नमस्ते,hi,  CONTRACT,MY TYPE,Minerals unde.,300000,NZD,,2025,Royal Society Te Apārangi,Wellington,,New Zealand,210126,RINGGOLD,1885-2885-3885-00X3, GivenName Surname #2, LEAD, test123_2@org1.edu,grant_number,GNS1706900961,https://www.grant-url2.com,PART_OF
+THIS IS A TITLE, नमस्ते,hi,  CONTRACT,MY TYPE,Minerals unde.,300000,NZD,,2025,Royal Society Te Apārangi,Wellington,,New Zealand,210126,RINGGOLD,1914-2914-3914-00X3, GivenName Surname, LEAD, test123@org1.edu,type2,GNS9999999999,https://www.grant-url2.com,PART_OF
+THIS IS A TITLE, नमस्ते,hi,  CONTRACT,MY TYPE,Minerals unde.,300000,NZD,,2025,Royal Society Te Apārangi,Wellington,,New Zealand,210126,RINGGOLD,1885-2885-3885-00X3, GivenName Surname #2, LEAD, test123_2@org1.edu,type2,GNS9999999999,https://www.grant-url2.com,PART_OF
+THIS IS A TITLE #2, नमस्ते #2,hi,  CONTRACT,MY TYPE,Minerals unde.,900000,USD,,2025,,,,,210126,RINGGOLD,1914-2914-3914-00X3, GivenName Surname, LEAD, test123@org1.edu,,,,""".encode()  # noqa: E501
                 ),  # noqa: E501
                 "fundings.csv",
             ),
@@ -2363,12 +2551,12 @@ THIS IS A TITLE #2, नमस्ते #2,hi,  CONTRACT,MY TYPE,Minerals unde.,9
     task = Task.select().where(Task.task_type == TaskType.FUNDING).first()
     assert task.funding_records.count() == 2
     fr = task.funding_records.where(FundingRecord.title == "THIS IS A TITLE").first()
-    assert fr.contributors.count() == 2
+    assert fr.contributors.count() == 0
     assert fr.external_ids.count() == 2
 
     resp = client.get(f"/admin/fundingrecord/export/tsv/?task_id={task.id}")
     assert resp.headers["Content-Type"] == "text/tsv; charset=utf-8"
-    assert len(resp.data.splitlines()) == 11
+    assert len(resp.data.splitlines()) == 6
 
     resp = client.post(
         "/load/researcher/funding",
@@ -2379,12 +2567,12 @@ THIS IS A TITLE #2, नमस्ते #2,hi,  CONTRACT,MY TYPE,Minerals unde.,9
                                Task.task_type == TaskType.FUNDING).first()
     assert task.funding_records.count() == 2
     fr = task.funding_records.where(FundingRecord.title == 'THIS IS A TITLE').first()
-    assert fr.contributors.count() == 4
+    assert fr.contributors.count() == 0
     assert fr.external_ids.count() == 2
 
     resp = client.get(f"/admin/fundingrecord/export/csv/?task_id={task.id}")
     assert resp.headers["Content-Type"] == "text/csv; charset=utf-8"
-    assert len(resp.data.splitlines()) == 16
+    assert len(resp.data.splitlines()) == 6
 
     resp = client.post(
         "/load/researcher/funding",
@@ -2395,7 +2583,7 @@ THIS IS A TITLE #2, नमस्ते #2,hi,  CONTRACT,MY TYPE,Minerals unde.,9
                                Task.task_type == TaskType.FUNDING).first()
     assert task.funding_records.count() == 2
     fr = task.funding_records.where(FundingRecord.title == 'THIS IS A TITLE').first()
-    assert fr.contributors.count() == 4
+    assert fr.contributors.count() == 0
     assert fr.external_ids.count() == 2
     assert fr.funding_invitees.count() == 2
 
@@ -2405,8 +2593,8 @@ THIS IS A TITLE #2, नमस्ते #2,hi,  CONTRACT,MY TYPE,Minerals unde.,9
             "file_": (
                 BytesIO(
                     """title	translated title	language	type	org type	short description	amount	aurrency	start	end	org name	city	region	country	disambiguated organisation identifier	disambiguation source	orcid id	name	role	email	external identifier type	external identifier value	external identifier url	external identifier relationship
-THIS IS A TITLE #3	 नमस्ते	hi	CONTRACT	MY TYPE	Minerals unde.	300000	NZD.		2025	Royal Society Te Apārangi	Wellington		New Zealand	210126	RINGGOLD	1914-2914-3914-00X3	 GivenName Surname	 LEAD	 test123@org1.edu	grant_number	GNS1706900961	https://www.grant-url2.com	PART_OF
-THIS IS A TITLE #4	 नमस्ते #2	hi	CONTRACT	MY TYPE	Minerals unde.	900000	USD.		2025					210126	RINGGOLD	1914-2914-3914-00X3	 GivenName Surname	 LEAD	 test123@org1.edu				""".encode()  # noqa: E501
+THIS IS A TITLE #3	 नमस्ते	hi	CONTRACT	MY TYPE	Minerals unde.	300000	NZD		2025	Royal Society Te Apārangi	Wellington		New Zealand	210126	RINGGOLD	1914-2914-3914-00X3	 GivenName Surname	 LEAD	 test123@org1.edu	grant_number	GNS1706900961	https://www.grant-url2.com	PART_OF
+THIS IS A TITLE #4	 नमस्ते #2	hi	CONTRACT	MY TYPE	Minerals unde.	900000	USD		2025					210126	RINGGOLD	1914-2914-3914-00X3	 GivenName Surname	 LEAD	 test123@org1.edu				""".encode()  # noqa: E501
                 ),  # noqa: E501
                 "fundings.tsv",
             ),
@@ -2515,7 +2703,7 @@ THIS IS A TITLE, नमस्ते,hi,  CONTRACT,MY TYPE,Minerals unde.,300000,
     assert b"Failed to load funding record file" in resp.data
     assert b"Invalid ORCID iD ERRO-R" in resp.data
 
-    # with "excluded"
+    # without "excluded"
     resp = client.post(
         "/load/researcher/funding",
         data={
@@ -2540,13 +2728,13 @@ THIS IS A TITLE, नमस्ते,hi,  CONTRACT,MY TYPE,Minerals unde.,300000,
     task = Task.select().where(Task.filename == "fundings042.csv").first()
     assert task.funding_records.count() == 2
     fr = task.funding_records.where(FundingRecord.title == "This is another project title").first()
-    assert fr.contributors.count() == 2
+    assert fr.contributors.count() == 0
     assert fr.external_ids.count() == 1
     assert fr.funding_invitees.count() == 2
 
     resp = client.get(f"/admin/fundingrecord/export/tsv/?task_id={task.id}")
     assert resp.headers["Content-Type"] == "text/tsv; charset=utf-8"
-    assert len(resp.data.splitlines()) == 6
+    assert len(resp.data.splitlines()) == 4
 
     resp = client.post(
         "/load/researcher/funding",
@@ -2704,7 +2892,7 @@ def test_researcher_work(client):
     assert task.records.count() == 1
     rec = task.records.first()
     assert rec.external_ids.count() == 1
-    assert rec.work_contributors.count() == 3  # TODO: 2...
+    assert rec.work_contributors.count() == 2
     assert rec.work_invitees.count() == 2
 
     resp = client.post(

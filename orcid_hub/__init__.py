@@ -33,8 +33,9 @@ from . import config
 from .failover import PgDbWithFailover
 from flask_admin import Admin
 from flask_limiter import Limiter
-from flask_limiter.util import get_remote_address
-
+from flask_limiter.util import get_ipaddr
+from werkzeug.contrib.cache import SimpleCache
+from werkzeug.contrib.fixers import ProxyFix
 
 try:
     dist = pkg_resources.get_distribution(__name__)
@@ -50,6 +51,7 @@ class ReconnectablePostgresqlDatabase(RetryOperationalError, PostgresqlDatabase)
     pass
 
 
+cache = SimpleCache()
 app = Flask(__name__, instance_relative_config=True)
 app.config.from_object(config)
 if not app.config.from_pyfile("settings.cfg", silent=True) and app.debug:
@@ -62,7 +64,7 @@ oauth = OAuth2Provider(app)
 api = Api(app)
 limiter = Limiter(
     app,
-    key_func=get_remote_address,
+    key_func=get_ipaddr,
     headers_enabled=True,
     default_limits=[
         "40 per second",  # burst: 40/sec
