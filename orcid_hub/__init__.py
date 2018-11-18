@@ -35,7 +35,6 @@ from flask_admin import Admin
 from flask_limiter import Limiter
 from flask_limiter.util import get_ipaddr
 from werkzeug.contrib.cache import SimpleCache
-from werkzeug.contrib.fixers import ProxyFix
 
 try:
     dist = pkg_resources.get_distribution(__name__)
