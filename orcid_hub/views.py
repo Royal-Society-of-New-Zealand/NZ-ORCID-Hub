@@ -116,7 +116,7 @@ def favicon():
 
 
 @app.route("/status")
-@limiter.limit("10/minute")
+@limiter.limit("30/minute")
 def status():
     """Check the application health status attempting to connect to the DB.
 
