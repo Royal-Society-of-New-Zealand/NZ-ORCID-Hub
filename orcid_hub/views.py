@@ -466,6 +466,39 @@ class OrcidApiCallAmin(AppModelView):
     )
 
 
+class UserInvitationAdmin(AppModelView):
+    """User Invitations."""
+
+    can_export = True
+    can_edit = False
+    can_delete = False
+    can_create = False
+    column_searchable_list = (
+        "email",
+        "organisation",
+        "department",
+        "first_name",
+        "last_name",
+        "token",
+        "inviter.name",
+    )
+
+
+class OrgInvitationAdmin(AppModelView):
+    """User Invitations."""
+
+    can_export = True
+    can_edit = False
+    can_delete = False
+    can_create = False
+    column_searchable_list = (
+        "email",
+        "org.name",
+        "token",
+        "inviter.name",
+    )
+
+
 class UserOrgAmin(AppModelView):
     """User Organisations."""
 
@@ -1558,6 +1591,9 @@ admin.add_view(OrganisationAdmin(Organisation))
 admin.add_view(OrcidTokenAdmin(OrcidToken))
 admin.add_view(OrgInfoAdmin(OrgInfo))
 admin.add_view(OrcidApiCallAmin(OrcidApiCall))
+admin.add_view(UserInvitationAdmin())
+admin.add_view(OrgInvitationAdmin())
+
 admin.add_view(TaskAdmin(Task))
 admin.add_view(AffiliationRecordAdmin())
 admin.add_view(FundingRecordAdmin())
@@ -1571,7 +1607,6 @@ admin.add_view(WorkRecordAdmin())
 admin.add_view(PeerReviewRecordAdmin())
 admin.add_view(PeerReviewInviteeAdmin())
 admin.add_view(PeerReviewExternalIdAdmin())
-admin.add_view(AppModelView(UserInvitation))
 admin.add_view(ViewMembersAdmin(name="viewmembers", endpoint="viewmembers"))
 
 admin.add_view(UserOrgAmin(UserOrg))
