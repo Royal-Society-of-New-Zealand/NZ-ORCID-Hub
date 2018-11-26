@@ -1,6 +1,5 @@
 """Application views."""
 
-import copy
 import csv
 import json
 import math
@@ -902,23 +901,23 @@ class CompositeRecordModelView(RecordModelView):
             mimetype = 'application/octet-stream'
         if encoding:
             mimetype = '%s; charset=%s' % (mimetype, encoding)
-
+        if self.model == PeerReviewRecord:
+            self._export_columns = [(v, v.replace('_', '-')) for v in
+                                    ['invitees', 'review_group_id', 'review_url', 'reviewer_role', 'review_type',
+                                     'review_completion_date', 'subject_external_identifier', 'subject_container_name',
+                                     'subject_type', 'subject_name', 'subject_url', 'convening_organization',
+                                     'review_identifiers']]
         ds = tablib.Dataset(headers=[c[1] for c in self._export_columns])
 
         count, data = self._export_data()
 
         for row in data:
-            external_id_list, invitees_list = self.get_external_id_invitees(row)
-            for external_ids in external_id_list:
-                vals = []
-                vals.append(external_ids['value'])
-                vals.append(invitees_list)
-                ds.append(vals)
+            vals = self.expected_format(row)
+            ds.append(vals)
 
         try:
             try:
-                ds.yaml = yaml.safe_dump(
-                    json.loads(ds.json.replace("]\\", "]").replace("\\n", " ")))
+                ds.yaml = yaml.safe_dump(json.loads(ds.json.replace("]\\", "]").replace("\\n", " ")))
                 response_data = ds.export(format=export_type)
             except AttributeError:
                 response_data = getattr(ds, export_type)
@@ -932,27 +931,12 @@ class CompositeRecordModelView(RecordModelView):
             mimetype=mimetype,
         )
 
-    def get_external_id_invitees(self, row):
-        """Get funding/work/peer_review invitees with external ids."""
+    def expected_format(self, row):
+        """Get expected export format for funding/work/peer_review records."""
         vals = []
-        invitees_list = []
-        external_id_list = []
-        record_id = "funding_record_id"
-        funding_work_peer_review_id = "funding id"
-        invitees = "funding_invitees"
-
-        if self.model == WorkRecord:
-            record_id = "work_record_id"
-            funding_work_peer_review_id = "work id"
-            invitees = "work_invitees"
-        elif self.model == PeerReviewRecord:
-            record_id = "peer_review_record_id"
-            funding_work_peer_review_id = "Peer Review id"
-            invitees = "peer_review_invitee"
-
-        exclude_list = ['id', record_id, 'processed_at']
         for c in self._export_columns:
-            if c[0] == invitees:
+            if c[0] == "invitees":
+                invitees_list = []
                 if self.model == WorkRecord:
                     invitees_data = row.work_invitees
                 elif self.model == PeerReviewRecord:
@@ -962,43 +946,69 @@ class CompositeRecordModelView(RecordModelView):
 
                 for f in invitees_data:
                     invitees_rec = {}
-                    for col in f._meta.columns.keys():
-                        if col not in exclude_list:
-                            invitees_rec[col] = self._get_list_value(
-                                None,
-                                f,
-                                col,
-                                self.column_formatters_export,
-                                self.column_type_formatters_export,
-                            )
+                    invitees_rec['identifier'] = self.get_export_value(f, 'identifier')
+                    invitees_rec['email'] = self.get_export_value(f, 'email')
+                    invitees_rec['first-name'] = self.get_export_value(f, 'first_name')
+                    invitees_rec['last-name'] = self.get_export_value(f, 'last_name')
+                    invitees_rec['ORCID-iD'] = self.get_export_value(f, 'orcid')
+                    invitees_rec['put-code'] = int(self.get_export_value(f, 'put_code')) if \
+                        self.get_export_value(f, 'put_code') else None
+                    invitees_rec['visibility'] = self.get_export_value(f, 'visibility')
                     invitees_list.append(invitees_rec)
-            elif c[0] == funding_work_peer_review_id:
-                external_id_relation_part_of = {}
-                for f in row.external_ids:
-                    external_id_rec = {}
-                    for col in f._meta.columns.keys():
-                        if col not in exclude_list:
-                            external_id_rec[col] = self._get_list_value(
-                                None,
-                                f,
-                                col,
-                                self.column_formatters_export,
-                                self.column_type_formatters_export,
-                            )
-                    # Get the first external id from extrnal id list with 'SELF' relationship for funding/work export
-                    if not external_id_list and external_id_rec.get(
-                            'relationship') and external_id_rec.get(
-                                'relationship').lower() == 'self':
-                        external_id_list.append(external_id_rec)
-                    elif not external_id_list and not external_id_relation_part_of and external_id_rec.get(
-                            'relationship').lower() == 'part_of':
-                        external_id_relation_part_of = copy.deepcopy(external_id_rec)
-                # Also if there no external id with relation 'Self' take first one from 'part_of'
-                if not external_id_list and external_id_relation_part_of:
-                    external_id_list.append(external_id_relation_part_of)
+                vals.append(invitees_list)
+            elif c[0] == "review_completion_date":
+                vals.append(PartialDate.create(self.get_export_value(row, c[0])).as_orcid_dict())
+            elif c[0] == "subject_external_identifier":
+                subject_dict = {}
+                subject_dict['external-id-type'] = self.get_export_value(row, 'subject_external_id_type')
+                subject_dict['external-id-value'] = self.get_export_value(row, 'subject_external_id_value')
+                subject_dict['external-id-url'] = dict(value=self.get_export_value(row, 'subject_external_id_url'))
+                subject_dict['external-id-relationship'] = self.get_export_value(row,
+                                                                                 'subject_external_id_relationship')
+                vals.append(subject_dict)
+            elif c[0] == "subject_name":
+                subject_name_dict = dict()
+                translated_title = dict()
+                subject_name_dict['title'] = dict(value=self.get_export_value(row, 'subject_name_title'))
+                subject_name_dict['subtitle'] = dict(value=self.get_export_value(row, 'subject_name_subtitle'))
+                translated_title['language-code'] = self.get_export_value(row,
+                                                                          'subject_name_translated_title_lang_code')
+                translated_title['value'] = self.get_export_value(row, 'subject_name_translated_title')
+                subject_name_dict['translated-title'] = translated_title
+                vals.append(subject_name_dict)
+            elif c[0] == "convening_organization":
+                convening_org_dict = dict()
+                disambiguated_dict = dict()
+                convening_org_dict['name'] = self.get_export_value(row, 'convening_org_name')
+                convening_org_dict['address'] = dict(city=self.get_export_value(row, 'convening_org_city'),
+                                                     region=self.get_export_value(row, 'convening_org_region'),
+                                                     country=self.get_export_value(row, 'convening_org_country'))
+                disambiguated_dict['disambiguated-organization-identifier'] = self.get_export_value(
+                    row, 'convening_org_disambiguated_identifier')
+                disambiguated_dict['disambiguation-source'] = self.get_export_value(
+                    row, 'convening_org_disambiguation_source')
+                convening_org_dict['disambiguated-organization'] = disambiguated_dict
+                vals.append(convening_org_dict)
+            elif c[0] == "review_identifiers":
+                external_ids_list = []
+                external_dict = {}
+                external_ids_data = row.external_ids
+                for f in external_ids_data:
+                    external_id_dict = {}
+                    external_id_dict['external-id-type'] = self.get_export_value(f, 'type')
+                    external_id_dict['external-id-value'] = self.get_export_value(f, 'value')
+                    external_id_dict['external-id-relationship'] = self.get_export_value(f, 'relationship')
+                    external_id_dict['external-id-url'] = dict(value=self.get_export_value(f, 'url'))
+                    external_ids_list.append(external_id_dict)
+                external_dict['external-id'] = external_ids_list
+                vals.append(external_dict)
             else:
-                vals.append(self.get_export_value(row, c[0]))
-        return (external_id_list, invitees_list)
+                requires_nested_value = ['review_url', 'subject_container_name', 'subject_url']
+                if c[0] in requires_nested_value:
+                    vals.append(dict(value=self.get_export_value(row, c[0])))
+                else:
+                    vals.append(csv_encode(self.get_export_value(row, c[0])))
+        return vals
 
     @expose('/export/<export_type>/')
     def export(self, export_type):
