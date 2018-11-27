@@ -2684,7 +2684,7 @@ THIS IS A TITLE, नमस्ते,hi,  CONTRACT,MY TYPE,Minerals unde.,300000,
         follow_redirects=True)
     assert resp.status_code == 200
     assert b"Failed to load funding record file" in resp.data
-    assert b"Invalid email address '**ERROR**'" in resp.data
+    assert b"Invalid email address '**error**'" in resp.data
 
     resp = client.post(
         "/load/researcher/funding",
@@ -2943,7 +2943,7 @@ sdsds,,This is a title,,,hi,This is a journal title,xyz this is short descriptio
         follow_redirects=True)
     assert resp.status_code == 200
     assert b"Failed to load work record file" in resp.data
-    assert b"Invalid email address '**ERROR**'" in resp.data
+    assert b"Invalid email address '**error**'" in resp.data
 
     resp = client.post(
         "/load/researcher/work",
