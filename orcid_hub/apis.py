@@ -952,30 +952,190 @@ def get_spec(app):
             ]
         },
     ]
+    swag["tags"] = [
+        {
+            "name": "affiliations",
+            "description": "Affiliation data management APIs",
+            "externalDocs": {
+                "url": "http://docs.orcidhub.org.nz/en/latest/writing_affiliation_items.html"
+            },
+        },
+        {
+            "name": "orcid-proxy",
+            "description": "ORCID API proxy",
+            "externalDocs": {
+                "url": "https://api.sandbox.orcid.org"
+            },
+        },
+    ]
+    # Proxy:
+    swag["paths"]["/orcid/api/{version}/{orcid}/{path}"] = {
+        "parameters": [
+            {
+                "name": "orcid",
+                "in": "path",
+                "required": True,
+                "type": "string",
+                "description": "User ORCID ID.",
+                "format": "^[0-9]{4}-?[0-9]{4}-?[0-9]{4}-?[0-9]{4}$",
+            },
+            {
+                "name": "version",
+                "in": "path",
+                "required": True,
+                "description": "ORCID API version",
+                "type": "string",
+                "enum": [
+                    "v2.0",
+                    "v2.1",
+                    "v3.0_rc1",
+                    "v3.0_rc2s",
+                    "v3.0",
+                ],
+            },
+            {
+                "name": "path",
+                "in": "path",
+                "required": False,
+                "type": "string",
+                "description": "The rest of the ORCID API entry point URL.",
+            },
+        ],
+        "delete": {
+            "tags": ["orcid-proxy"],
+            "produces": [
+                "application/vnd.orcid+xml; qs=5", "application/orcid+xml; qs=3",
+                "application/xml", "application/vnd.orcid+json; qs=4",
+                "application/orcid+json; qs=2", "application/json"
+            ],
+            "responses": {
+                "204": {
+                    "description": "Record deleted",
+                    "schema": {
+                        "type": "object"
+                    }
+                },
+                "403": {
+                    "description": "The user hasn't granted acceess to the profile."
+                },
+                "404": {
+                    "description": "Resource not found"
+                },
+                "415": {
+                    "description": "Missing or invalid ORCID iD."
+                },
+            },
+        },
+        "get": {
+            "tags": ["orcid-proxy"],
+            "produces": [
+                "application/vnd.orcid+xml; qs=5", "application/orcid+xml; qs=3",
+                "application/xml", "application/vnd.orcid+json; qs=4",
+                "application/orcid+json; qs=2", "application/json"
+            ],
+            "responses": {
+                "200": {
+                    "description": "Successful operation",
+                    "schema": {
+                        "type": "object"
+                    }
+                },
+                "403": {
+                    "description": "The user hasn't granted acceess to the profile."
+                },
+                "404": {
+                    "description": "Resource not found"
+                },
+                "415": {
+                    "description": "Missing or invalid ORCID iD."
+                },
+            },
+        },
+        "post": {
+            "tags": ["orcid-proxy"],
+            "consumes": [
+                "application/vnd.orcid+xml; qs=5", "application/orcid+xml; qs=3",
+                "application/xml", "application/vnd.orcid+json; qs=4",
+                "application/orcid+json; qs=2", "application/json"
+            ],
+            "produces": [
+                "application/vnd.orcid+xml; qs=5", "application/orcid+xml; qs=3",
+                "application/xml", "application/vnd.orcid+json; qs=4",
+                "application/orcid+json; qs=2", "application/json"
+            ],
+            "parameters": [{
+                "in": "body",
+                "name": "body",
+                "required": False,
+                "schema": {
+                    "type": "object"
+                }
+            }],
+            "responses": {
+                "200": {
+                    "description": "successful operation",
+                    "schema": {
+                        "type": "object"
+                    }
+                },
+                "403": {
+                    "description": "The user hasn't granted acceess to the profile."
+                },
+                "404": {
+                    "description": "Resource not found"
+                },
+                "415": {
+                    "description": "Missing or invalid ORCID iD."
+                },
+            },
+        },
+        "put": {
+            "tags": ["orcid-proxy"],
+            "consumes": [
+                "application/vnd.orcid+xml; qs=5", "application/orcid+xml; qs=3",
+                "application/xml", "application/vnd.orcid+json; qs=4",
+                "application/orcid+json; qs=2", "application/json"
+            ],
+            "parameters": [{
+                "in": "body",
+                "name": "body",
+                "required": False,
+                "schema": {
+                    "type": "object"
+                }
+            }],
+            "responses": {
+                "200": {
+                    "description": "successful operation",
+                    "schema": {
+                        "type": "object"
+                    }
+                },
+                "403": {
+                    "description": "The user hasn't granted acceess to the profile."
+                },
+                "404": {
+                    "description": "Resource not found"
+                },
+                "415": {
+                    "description": "Missing or invalid ORCID iD."
+                },
+            }
+        }
+    }
     return swag
 
 
 @app.route("/spec.json")
-def json_spec():
-    """Return the specification of the API."""
-    swag = get_spec(app)
-    return jsonify(swag)
-
-
 @app.route("/spec.yml")
 @app.route("/spec.yaml")
-def yaml_spec():
-    """Return the specification of the API."""
-    swag = get_spec(app)
-    return yamlfy(swag)
-
-
 @app.route("/spec")
 def spec():
     """Return the specification of the API."""
     swag = get_spec(app)
     best = request.accept_mimetypes.best_match(["text/yaml", "application/x-yaml"])
-    if (best in (
+    path = request.path
+    if path.endswith(".yaml") or path.endswith(".yml") or (best in (
             "text/yaml",
             "application/x-yaml",
     ) and request.accept_mimetypes[best] > request.accept_mimetypes["application/json"]):
