@@ -912,6 +912,11 @@ class CompositeRecordModelView(RecordModelView):
                                     ['invitees', 'title', 'type', 'organization_defined_type', 'short_description',
                                      'amount', 'start_date', 'end_date', 'organization', 'contributors',
                                      'external_ids']]
+        elif self.model == WorkRecord:
+            self._export_columns = [(v, v.replace('_', '-')) for v in
+                                    ['invitees', 'title', 'journal_title', 'short_description', 'citation', 'type',
+                                     'publication_date', 'url', 'language_code', 'country', 'contributors',
+                                     'external_ids']]
         ds = tablib.Dataset(headers=[c[1] for c in self._export_columns])
 
         count, data = self._export_data()
@@ -961,7 +966,7 @@ class CompositeRecordModelView(RecordModelView):
                     invitees_rec['visibility'] = self.get_export_value(f, 'visibility')
                     invitees_list.append(invitees_rec)
                 vals.append(invitees_list)
-            elif c[0] in ['review_completion_date', 'start_date', 'end_date']:
+            elif c[0] in ['review_completion_date', 'start_date', 'end_date', 'publication_date']:
                 vals.append(PartialDate.create(self.get_export_value(row, c[0])).as_orcid_dict())
             elif c[0] == "subject_external_identifier":
                 subject_dict = {}
@@ -1015,6 +1020,8 @@ class CompositeRecordModelView(RecordModelView):
                 title_dict = dict()
                 translated_title = dict()
                 title_dict['title'] = dict(value=self.get_export_value(row, 'title'))
+                if self.model == WorkRecord:
+                    title_dict['subtitle'] = dict(value=self.get_export_value(row, 'sub_title'))
                 translated_title['language-code'] = self.get_export_value(row, 'translated_title_language_code')
                 translated_title['value'] = csv_encode(self.get_export_value(row, 'translated_title'))
                 title_dict['translated-title'] = translated_title
@@ -1024,6 +1031,11 @@ class CompositeRecordModelView(RecordModelView):
                 amount_dict['currency-code'] = self.get_export_value(row, 'currency')
                 amount_dict['value'] = csv_encode(self.get_export_value(row, 'amount'))
                 vals.append(amount_dict)
+            elif c[0] == "citation":
+                citation_dict = dict()
+                citation_dict['citation-type'] = self.get_export_value(row, 'citation_type')
+                citation_dict['citation-value'] = csv_encode(self.get_export_value(row, 'citation_value'))
+                vals.append(citation_dict)
             elif c[0] == "contributors":
                 contributors_list = []
                 contributors_dict = {}
@@ -1034,6 +1046,9 @@ class CompositeRecordModelView(RecordModelView):
                 for f in contributors_data:
                     contributor_dict = {}
                     contributor_dict['contributor-attributes'] = {'contributor-role': self.get_export_value(f, 'role')}
+                    if self.model == WorkRecord:
+                        contributor_dict['contributor-attributes'].update(
+                            {'contributor-sequence': self.get_export_value(f, 'contributor_sequence')})
                     contributor_dict['contributor-email'] = dict(value=self.get_export_value(f, 'email'))
                     contributor_dict['credit-name'] = dict(value=self.get_export_value(f, 'name'))
                     contributor_dict['contributor-orcid'] = dict(path=self.get_export_value(f, 'orcid'))
@@ -1041,8 +1056,8 @@ class CompositeRecordModelView(RecordModelView):
                 contributors_dict['contributor'] = contributors_list
                 vals.append(contributors_dict)
             else:
-                requires_nested_value = ['review_url', 'subject_container_name', 'subject_url',
-                                         'organization_defined_type']
+                requires_nested_value = ['review_url', 'subject_container_name', 'subject_url', 'journal_title', 'url',
+                                         'organization_defined_type', 'country']
                 if c[0] in requires_nested_value:
                     vals.append(dict(value=self.get_export_value(row, c[0])))
                 else:
