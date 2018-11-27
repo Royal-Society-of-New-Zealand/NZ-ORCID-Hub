@@ -907,6 +907,11 @@ class CompositeRecordModelView(RecordModelView):
                                      'review_completion_date', 'subject_external_identifier', 'subject_container_name',
                                      'subject_type', 'subject_name', 'subject_url', 'convening_organization',
                                      'review_identifiers']]
+        elif self.model == FundingRecord:
+            self._export_columns = [(v, v.replace('_', '-')) for v in
+                                    ['invitees', 'title', 'type', 'organization_defined_type', 'short_description',
+                                     'amount', 'start_date', 'end_date', 'organization', 'contributors',
+                                     'external_ids']]
         ds = tablib.Dataset(headers=[c[1] for c in self._export_columns])
 
         count, data = self._export_data()
@@ -956,7 +961,7 @@ class CompositeRecordModelView(RecordModelView):
                     invitees_rec['visibility'] = self.get_export_value(f, 'visibility')
                     invitees_list.append(invitees_rec)
                 vals.append(invitees_list)
-            elif c[0] == "review_completion_date":
+            elif c[0] in ['review_completion_date', 'start_date', 'end_date']:
                 vals.append(PartialDate.create(self.get_export_value(row, c[0])).as_orcid_dict())
             elif c[0] == "subject_external_identifier":
                 subject_dict = {}
@@ -973,23 +978,27 @@ class CompositeRecordModelView(RecordModelView):
                 subject_name_dict['subtitle'] = dict(value=self.get_export_value(row, 'subject_name_subtitle'))
                 translated_title['language-code'] = self.get_export_value(row,
                                                                           'subject_name_translated_title_lang_code')
-                translated_title['value'] = self.get_export_value(row, 'subject_name_translated_title')
+                translated_title['value'] = csv_encode(self.get_export_value(row, 'subject_name_translated_title'))
                 subject_name_dict['translated-title'] = translated_title
                 vals.append(subject_name_dict)
-            elif c[0] == "convening_organization":
+            elif c[0] in ["convening_organization", "organization"]:
                 convening_org_dict = dict()
                 disambiguated_dict = dict()
-                convening_org_dict['name'] = self.get_export_value(row, 'convening_org_name')
-                convening_org_dict['address'] = dict(city=self.get_export_value(row, 'convening_org_city'),
-                                                     region=self.get_export_value(row, 'convening_org_region'),
-                                                     country=self.get_export_value(row, 'convening_org_country'))
-                disambiguated_dict['disambiguated-organization-identifier'] = self.get_export_value(
-                    row, 'convening_org_disambiguated_identifier')
+                convening_org_dict['name'] = self.get_export_value(row, 'convening_org_name') or self.get_export_value(
+                    row, 'org_name')
+                convening_org_dict['address'] = dict(
+                    city=self.get_export_value(row, 'convening_org_city') or self.get_export_value(row, 'city'),
+                    region=self.get_export_value(row, 'convening_org_region') or self.get_export_value(row, 'region'),
+                    country=self.get_export_value(row, 'convening_org_country') or self.get_export_value(row,
+                                                                                                         'country'))
+                disambiguated_dict['disambiguated-organization-identifier'] = \
+                    self.get_export_value(row, 'convening_org_disambiguated_identifier') or \
+                    self.get_export_value(row, 'disambiguated_org_identifier')
                 disambiguated_dict['disambiguation-source'] = self.get_export_value(
-                    row, 'convening_org_disambiguation_source')
+                    row, 'convening_org_disambiguation_source') or self.get_export_value(row, 'disambiguation_source')
                 convening_org_dict['disambiguated-organization'] = disambiguated_dict
                 vals.append(convening_org_dict)
-            elif c[0] == "review_identifiers":
+            elif c[0] in ["review_identifiers", "external_ids"]:
                 external_ids_list = []
                 external_dict = {}
                 external_ids_data = row.external_ids
@@ -1002,8 +1011,38 @@ class CompositeRecordModelView(RecordModelView):
                     external_ids_list.append(external_id_dict)
                 external_dict['external-id'] = external_ids_list
                 vals.append(external_dict)
+            elif c[0] == "title":
+                title_dict = dict()
+                translated_title = dict()
+                title_dict['title'] = dict(value=self.get_export_value(row, 'title'))
+                translated_title['language-code'] = self.get_export_value(row, 'translated_title_language_code')
+                translated_title['value'] = csv_encode(self.get_export_value(row, 'translated_title'))
+                title_dict['translated-title'] = translated_title
+                vals.append(title_dict)
+            elif c[0] == "amount":
+                amount_dict = dict()
+                amount_dict['currency-code'] = self.get_export_value(row, 'currency')
+                amount_dict['value'] = csv_encode(self.get_export_value(row, 'amount'))
+                vals.append(amount_dict)
+            elif c[0] == "contributors":
+                contributors_list = []
+                contributors_dict = {}
+                if self.model == WorkRecord:
+                    contributors_data = row.work_contributors
+                else:
+                    contributors_data = row.contributors
+                for f in contributors_data:
+                    contributor_dict = {}
+                    contributor_dict['contributor-attributes'] = {'contributor-role': self.get_export_value(f, 'role')}
+                    contributor_dict['contributor-email'] = dict(value=self.get_export_value(f, 'email'))
+                    contributor_dict['credit-name'] = dict(value=self.get_export_value(f, 'name'))
+                    contributor_dict['contributor-orcid'] = dict(path=self.get_export_value(f, 'orcid'))
+                    contributors_list.append(contributor_dict)
+                contributors_dict['contributor'] = contributors_list
+                vals.append(contributors_dict)
             else:
-                requires_nested_value = ['review_url', 'subject_container_name', 'subject_url']
+                requires_nested_value = ['review_url', 'subject_container_name', 'subject_url',
+                                         'organization_defined_type']
                 if c[0] in requires_nested_value:
                     vals.append(dict(value=self.get_export_value(row, c[0])))
                 else:
