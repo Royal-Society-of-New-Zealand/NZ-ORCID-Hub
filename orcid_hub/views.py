@@ -967,7 +967,8 @@ class CompositeRecordModelView(RecordModelView):
                     invitees_list.append(invitees_rec)
                 vals.append(invitees_list)
             elif c[0] in ['review_completion_date', 'start_date', 'end_date', 'publication_date']:
-                vals.append(PartialDate.create(self.get_export_value(row, c[0])).as_orcid_dict())
+                vals.append(PartialDate.create(self.get_export_value(row, c[0])).as_orcid_dict()
+                            if self.get_export_value(row, c[0]) else None)
             elif c[0] == "subject_external_identifier":
                 subject_dict = {}
                 subject_dict['external-id-type'] = self.get_export_value(row, 'subject_external_id_type')
