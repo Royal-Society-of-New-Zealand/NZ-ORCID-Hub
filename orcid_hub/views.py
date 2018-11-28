@@ -2411,7 +2411,7 @@ def load_researcher_funding():
             flash(f"Successfully loaded {task.record_count} rows.")
             return redirect(url_for("fundingrecord.index_view", task_id=task.id))
         except Exception as ex:
-            flash(f"Failed to load funding record file: {ex}", "danger")
+            flash(f"Failed to load funding record file: {ex.args}", "danger")
             app.logger.exception("Failed to load funding records.")
 
     return render_template("fileUpload.html", form=form, title="Funding Info Upload")
@@ -2434,7 +2434,7 @@ def load_researcher_work():
             flash(f"Successfully loaded {task.record_count} rows.")
             return redirect(url_for("workrecord.index_view", task_id=task.id))
         except Exception as ex:
-            flash(f"Failed to load work record file: {ex}", "danger")
+            flash(f"Failed to load work record file: {ex.args}", "danger")
             app.logger.exception("Failed to load work records.")
 
     return render_template("fileUpload.html", form=form, title="Work Info Upload")
@@ -2457,7 +2457,7 @@ def load_researcher_peer_review():
             flash(f"Successfully loaded {task.record_count} rows.")
             return redirect(url_for("peerreviewrecord.index_view", task_id=task.id))
         except Exception as ex:
-            flash(f"Failed to load peer review record file: {ex}", "danger")
+            flash(f"Failed to load peer review record file: {ex.args}", "danger")
             app.logger.exception("Failed to load peer review records.")
 
     return render_template("fileUpload.html", form=form, title="Peer Review Info Upload")
