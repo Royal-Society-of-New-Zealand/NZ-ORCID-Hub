@@ -1658,7 +1658,7 @@ def test_load_researcher_funding(patch, patch2, request_ctx):
                             b'"contributors": {"contributor": [{"contributor-attributes": {"contributor-role": '
                             b'"co_lead"},"credit-name": {"value": "firentini"}}]}'
                             b', "external-ids": {"external-id": [{"external-id-value": '
-                            b'"GNS170661","external-id-type": "grant_number"}]}}]'),
+                            b'"GNS170661","external-id-type": "grant_number", "external-id-relationship": "SELF"}]}}]'),
                         "logo.json",),
                 "email": user.email
             }) as ctx:
@@ -1690,7 +1690,7 @@ def test_load_researcher_work(patch, patch2, request_ctx):
                             b'"contributors": {"contributor": [{"contributor-attributes": {"contributor-role": '
                             b'"AUTHOR", "contributor-sequence" : "1"},"credit-name": {"value": "firentini"}}]}'
                             b', "external-ids": {"external-id": [{"external-id-value": '
-                            b'"GNS170661","external-id-type": "grant_number"}]}}]'),
+                            b'"GNS170661","external-id-type": "grant_number", "external-id-relationship": "SELF"}]}}]'),
                         "logo.json",),
                 "email": user.email
             }) as ctx:
@@ -2781,7 +2781,7 @@ def test_researcher_work(client):
                     b'"contributors": {"contributor": [{"contributor-attributes": {"contributor-role": '
                     b'"AUTHOR", "contributor-sequence" : "1"},"credit-name": {"value": "firentini"}}]}'
                     b', "external-ids": {"external-id": [{"external-id-value": '
-                    b'"GNS170661","external-id-type": "grant_number"}]}}]'),
+                    b'"GNS170661","external-id-type": "grant_number", "external-id-relationship": "SELF"}]}}]'),
                 "work001.json",
             ),
             "email":
