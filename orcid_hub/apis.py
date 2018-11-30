@@ -668,6 +668,265 @@ api.add_resource(AffiliationListAPI, "/api/v1.0/affiliations")
 api.add_resource(AffiliationAPI, "/api/v1.0/affiliations/<int:task_id>")
 
 
+class FundListAPI(TaskResource):
+    """Fund list API."""
+
+    def post(self, *args, **kwargs):
+        """Upload the fund task.
+
+        ---
+        tags:
+          - "funds"
+        summary: "Post the fund list task."
+        description: "Post the fund list task."
+        consumes:
+        - application/json
+        - text/csv
+        - text/yaml
+        produces:
+        - application/json
+        parameters:
+        - name: "filename"
+          required: false
+          in: "query"
+          description: "The batch process filename."
+          type: "string"
+        - name: body
+          in: body
+          description: "Fund task."
+          schema:
+            $ref: "#/definitions/FundTask"
+        responses:
+          200:
+            description: "successful operation"
+            schema:
+              $ref: "#/definitions/FundTask"
+          403:
+            description: "Access Denied"
+        definitions:
+        - schema:
+            id: FundTask
+            properties:
+              id:
+                type: integer
+                format: int64
+              filename:
+                type: string
+              task-type:
+                type: string
+                enum:
+                - fund
+                - FUNDING
+              created-at:
+                type: string
+                format: date-time
+              expires-at:
+                type: string
+                format: date-time
+              completed-at:
+                type: string
+                format: date-time
+              records:
+                type: array
+                items:
+                  $ref: "#/definitions/FundTaskRecord"
+        - schema:
+            id: FundTaskRecord
+            type: object
+        """
+        login_user(request.oauth.user)
+        if request.content_type in ["text/csv", "text/tsv"]:
+            task = Task.load_from_csv(request.data.decode("utf-8"), filename=self.filename)
+            return self.jsonify_task(task)
+        return self.handle_fund_task()
+
+
+class FundAPI(TaskResource):
+    """Fund task services."""
+
+    def get(self, task_id):
+        """
+        Retrieve the specified fund task.
+
+        ---
+        tags:
+          - "funds"
+        summary: "Retrieve the specified fund task."
+        description: "Retrieve the specified fund task."
+        produces:
+          - "application/json"
+        parameters:
+          - name: "task_id"
+            required: true
+            in: "path"
+            description: "Fund task ID."
+            type: "integer"
+        responses:
+          200:
+            description: "successful operation"
+            schema:
+              $ref: "#/definitions/FundTask"
+          403:
+            description: "Access Denied"
+        """
+        return self.jsonify_task(task_id)
+
+    def post(self, task_id):
+        """Upload the task and completely override the fund task.
+
+        ---
+        tags:
+          - "funds"
+        summary: "Update the fund task."
+        description: "Update the fund task."
+        consumes:
+          - application/json
+          - text/yaml
+        definitions:
+        parameters:
+          - name: "task_id"
+            in: "path"
+            description: "Fund task ID."
+            required: true
+            type: "integer"
+          - in: body
+            name: fundTask
+            description: "Fund task."
+            schema:
+              $ref: "#/definitions/FundTask"
+        produces:
+          - "application/json"
+        responses:
+          200:
+            description: "successful operation"
+            schema:
+              $ref: "#/definitions/FundTask"
+          403:
+            description: "Access Denied"
+        """
+        return self.handle_fund_task(task_id)
+
+    def put(self, task_id):
+        """Update the fund task.
+
+        ---
+        tags:
+          - "funds"
+        summary: "Update the fund task."
+        description: "Update the fund task."
+        consumes:
+          - application/json
+          - text/yaml
+        parameters:
+          - name: "task_id"
+            in: "path"
+            description: "Fund task ID."
+            required: true
+            type: "integer"
+          - in: body
+            name: fundTask
+            description: "Fund task."
+            schema:
+              $ref: "#/definitions/FundTask"
+        produces:
+          - "application/json"
+        responses:
+          200:
+            description: "successful operation"
+            schema:
+              $ref: "#/definitions/FundTask"
+          403:
+            description: "Access Denied"
+        """
+        return self.handle_fund_task(task_id)
+
+    def patch(self, task_id):
+        """Update the fund task.
+
+        ---
+        tags:
+          - "funds"
+        summary: "Update the fund task."
+        description: "Update the fund task."
+        consumes:
+          - application/json
+          - text/yaml
+        parameters:
+          - name: "task_id"
+            in: "path"
+            description: "Fund task ID."
+            required: true
+            type: "integer"
+          - in: body
+            name: fundTask
+            description: "Fund task."
+            schema:
+              $ref: "#/definitions/FundTask"
+        produces:
+          - "application/json"
+        responses:
+          200:
+            description: "successful operation"
+            schema:
+              $ref: "#/definitions/FundTask"
+          403:
+            description: "Access Denied"
+        """
+        return self.handle_fund_task(task_id)
+
+    def delete(self, task_id):
+        """Delete the specified fund task.
+
+        ---
+        tags:
+          - "funds"
+        summary: "Delete the specified fund task."
+        description: "Delete the specified fund task."
+        parameters:
+          - name: "task_id"
+            in: "path"
+            description: "Fund task ID."
+            required: true
+            type: "integer"
+        produces:
+          - "application/json"
+        responses:
+          200:
+            description: "Successful operation"
+          403:
+            description: "Access Denied"
+        """
+        return self.delete_task(task_id)
+
+    def head(self, task_id):
+        """Handle HEAD request.
+
+        ---
+        tags:
+          - "funds"
+        summary: "Return task update time-stamp."
+        description: "Return task update time-stamp."
+        parameters:
+          - name: "task_id"
+            in: "path"
+            description: "Fund task ID."
+            required: true
+            type: "integer"
+        produces:
+          - "application/json"
+        responses:
+          200:
+            description: "Successful operation"
+          403:
+            description: "Access Denied"
+        """
+        return self.jsonify_task(task_id)
+
+
+api.add_resource(FundListAPI, "/api/v1.0/funds")
+api.add_resource(FundAPI, "/api/v1.0/funds/<int:task_id>")
+
+
 class UserListAPI(AppResourceList):
     """User list data service."""
 
@@ -958,6 +1217,13 @@ def get_spec(app):
             "description": "Affiliation data management APIs",
             "externalDocs": {
                 "url": "http://docs.orcidhub.org.nz/en/latest/writing_affiliation_items.html"
+            },
+        },
+        {
+            "name": "funds",
+            "description": "Fund data management APIs",
+            "externalDocs": {
+                "url": "http://docs.orcidhub.org.nz/en/latest/writing_funding_items.html"
             },
         },
         {

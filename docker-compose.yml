@@ -57,6 +57,9 @@ services:
     volumes:
       - ./data/redis:/data
     restart: always
+    networks:
+        default:
+            ipv4_address: ${SUBNET}.0.88
 
   worker:
     image: orcidhub/app-dev
