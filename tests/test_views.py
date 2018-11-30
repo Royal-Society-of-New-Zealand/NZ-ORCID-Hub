@@ -2587,6 +2587,12 @@ THIS IS A TITLE #2, नमस्ते #2,hi,  CONTRACT,MY TYPE,Minerals unde.,9
     assert fr.external_ids.count() == 2
     assert fr.funding_invitees.count() == 2
 
+    export_resp = client.get(f"/admin/fundingrecord/export/json/?task_id={task.id}")
+    assert export_resp.status_code == 200
+    assert b'"type": "CONTRACT"' in export_resp.data
+    assert b'"title": {"title": {"value": "THIS IS A TITLE"}' in export_resp.data
+    assert b'"title": {"title": {"value": "THIS IS A TITLE #2"}' in export_resp.data
+
     resp = client.post(
         "/load/researcher/funding",
         data={
@@ -2684,7 +2690,7 @@ THIS IS A TITLE, नमस्ते,hi,  CONTRACT,MY TYPE,Minerals unde.,300000,
         follow_redirects=True)
     assert resp.status_code == 200
     assert b"Failed to load funding record file" in resp.data
-    assert b"Invalid email address '**ERROR**'" in resp.data
+    assert b"Invalid email address '**error**'" in resp.data
 
     resp = client.post(
         "/load/researcher/funding",
@@ -2911,6 +2917,11 @@ def test_researcher_work(client):
     assert b"Failed to load work record file" in resp.data
     assert b"Failed to map fields based on the header of the file" in resp.data
 
+    export_resp = client.get(f"/admin/workrecord/export/json/?task_id={task.id}")
+    assert export_resp.status_code == 200
+    assert b"BOOK_CHAPTER" in export_resp.data
+    assert b'journal-title": {"value": "This is a journal title"}' in export_resp.data
+
     resp = client.post(
         "/load/researcher/work",
         data={
@@ -2943,7 +2954,7 @@ sdsds,,This is a title,,,hi,This is a journal title,xyz this is short descriptio
         follow_redirects=True)
     assert resp.status_code == 200
     assert b"Failed to load work record file" in resp.data
-    assert b"Invalid email address '**ERROR**'" in resp.data
+    assert b"Invalid email address '**error**'" in resp.data
 
     resp = client.post(
         "/load/researcher/work",
@@ -3059,3 +3070,9 @@ def test_peer_reviews(client):
     assert task.records.count() == 1
     rec = task.records.first()
     assert rec.external_ids.count() == 1
+
+    resp = client.get(f"/admin/peerreviewrecord/export/json/?task_id={task.id}")
+    assert resp.status_code == 200
+    assert b'"review-type": "REVIEW"' in resp.data
+    assert b'"invitees": [' in resp.data
+    assert b'"review-group-id": "issn:12131"' in resp.data

@@ -1422,7 +1422,7 @@ class FundingRecord(RecordModel):
                         f" (Country must be 2 character from ISO 3166-1 alpha-2) in the row "
                         f"#{row_no+2}: {row}. Header: {header}")
 
-            orcid, email = val(row, 18), val(row, 21)
+            orcid, email = val(row, 18), val(row, 21, "").lower()
             if orcid:
                 validate_orcid_id(orcid)
             if email and not validators.email(email):
@@ -1797,7 +1797,7 @@ class PeerReviewRecord(RecordModel):
                         f" (Convening Org Country must be 2 character from ISO 3166-1 alpha-2) in the row "
                         f"#{row_no+2}: {row}. Header: {header}")
 
-            orcid, email = val(row, 23), val(row, 22)
+            orcid, email = val(row, 23), val(row, 22, "").lower()
             if orcid:
                 validate_orcid_id(orcid)
             if email and not validators.email(email):
@@ -1841,7 +1841,7 @@ class PeerReviewRecord(RecordModel):
                         convening_org_disambiguation_source=val(row, 21),
                     ),
                     invitee=dict(
-                        email=email.lower(),
+                        email=email,
                         orcid=orcid,
                         identifier=val(row, 24),
                         first_name=val(row, 25),
@@ -2197,7 +2197,7 @@ class WorkRecord(RecordModel):
                         f" (Country must be 2 character from ISO 3166-1 alpha-2) in the row "
                         f"#{row_no+2}: {row}. Header: {header}")
 
-            orcid, email = val(row, 16), val(row, 19)
+            orcid, email = val(row, 16), val(row, 19, "").lower()
             if orcid:
                 validate_orcid_id(orcid)
             if email and not validators.email(email):
@@ -2483,6 +2483,12 @@ class InviteesModel(BaseModel):
     visibility = CharField(null=True, max_length=100)
     status = TextField(null=True, help_text="Record processing status.")
     processed_at = DateTimeField(null=True)
+
+    def save(self, *args, **kwargs):
+        """Consitency validation and saving."""
+        if self.is_dirty() and self.email and self.field_is_updated("email"):
+            self.email = self.email.lower()
+        return super().save(*args, **kwargs)
 
     def add_status_line(self, line):
         """Add a text line to the status for logging processing progress."""
