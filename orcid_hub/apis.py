@@ -321,11 +321,13 @@ class TaskList(TaskResource, AppResourceList):
           - name: "type"
             in: "query"
             required: false
-            description: "The task type: AFFILIATION, FUNDING."
+            description: "The task type: AFFILIATION, FUNDING, etc."
             type: "string"
             enum:
               - AFFILIATION
               - FUNDING
+              - PEER_REVIEW
+              - WORK
           - in: query
             name: page
             description: The number of the page of retrievd data starting counting from 1
@@ -349,9 +351,11 @@ class TaskList(TaskResource, AppResourceList):
             description: "Access Denied"
         """
         login_user(request.oauth.user)
-        return self.api_response(
-            Task.select().where(Task.org_id == current_user.organisation_id),
-            exclude=[Task.created_by, Task.updated_by, Task.org])
+        query = Task.select().where(Task.org_id == current_user.organisation_id)
+        task_type = request.args.get("type")
+        if task_type:
+            query = query.where(Task.task_type == TaskType[task_type.upper()].value)
+        return self.api_response(query, exclude=[Task.created_by, Task.updated_by, Task.org])
 
 
 class AffiliationListAPI(TaskResource):

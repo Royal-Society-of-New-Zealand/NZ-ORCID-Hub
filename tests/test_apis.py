@@ -419,6 +419,17 @@ def test_affiliation_api(client):
     tasks = json.loads(resp.data)
     assert tasks[0]["id"] == task_id
 
+    resp = client.get(
+        "/api/v1.0/tasks?type=AFFILIATION", headers=dict(authorization=f"Bearer {access_token}"))
+    tasks = json.loads(resp.data)
+    assert tasks[0]["id"] == task_id
+
+    resp = client.get(
+        "/api/v1.0/tasks?type=AFFILIATION&page=1&page_size=20",
+        headers=dict(authorization=f"Bearer {access_token}"))
+    tasks = json.loads(resp.data)
+    assert tasks[0]["id"] == task_id
+
     task_copy = copy.deepcopy(data)
     del(task_copy["id"])
     task_copy["filename"] = "TASK-COPY.csv"
