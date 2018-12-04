@@ -2532,14 +2532,12 @@ class FundingInvitees(InviteesModel):
 class ExternalIdModel(BaseModel):
     """Common model bits of the ExternalId records."""
 
-    relationship_choices = [(v, v.replace('_', ' ').title()) for v in ['PART_OF', 'SELF', '']]
-    relationship_choices.sort(key=lambda e: e[1])
+    relationship_choices = [(v, v.replace('_', ' ').title()) for v in ['', 'PART_OF', 'SELF']]
     type_choices = [(v, v.replace('_', ' ').replace('-', ' ').title()) for v in
-                    ['agr', 'ark', 'arxiv', 'asin', 'asin-tld', 'authenticusid', 'bibcode', 'cba', 'cienciaiul', 'cit',
-                     'ctx', 'dnb', 'doi', 'eid', 'ethos', 'grant_number', 'handle', 'hir', 'isbn', 'issn', 'jfm',
+                    ['', 'agr', 'ark', 'arxiv', 'asin', 'asin-tld', 'authenticusid', 'bibcode', 'cba', 'cienciaiul',
+                     'cit', 'ctx', 'dnb', 'doi', 'eid', 'ethos', 'grant_number', 'handle', 'hir', 'isbn', 'issn', 'jfm',
                      'jstor', 'kuid', 'lccn', 'lensid', 'mr', 'oclc', 'ol', 'osti', 'other-id', 'pat', 'pdb', 'pmc',
-                     'pmid', 'rfc', 'rrid', 'source-work-id', 'ssrn', 'uri', 'urn', 'wosuid', 'zbl', '']]
-    type_choices.sort(key=lambda e: e[1])
+                     'pmid', 'rfc', 'rrid', 'source-work-id', 'ssrn', 'uri', 'urn', 'wosuid', 'zbl']]
 
     type = CharField(max_length=255, choices=type_choices)
     value = CharField(max_length=255)
