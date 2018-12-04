@@ -19,7 +19,7 @@ services:
       - ./archive:/archive
       - ${HOME}:${HOME}
     user: "${USER_UID:-500}:${USER_GID:-500}"
-    # restart: always
+    restart: always
 
   app:
     depends_on:
@@ -47,7 +47,7 @@ services:
       - ./tuakiri-metadata-cert.pem:/etc/shibboleth/tuakiri-metadata-cert.pem
       - ./.keys:/.keys
       - ./conf:/conf
-    # restart: always
+    restart: always
     networks:
         default:
             ipv4_address: ${SUBNET}.0.99
@@ -84,7 +84,7 @@ services:
       - ENV
     volumes:
       - .:/src
-    # restart: always
+    restart: always
 
 networks:
     default:

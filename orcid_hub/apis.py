@@ -308,6 +308,8 @@ class TaskList(TaskResource, AppResourceList):
                 enum:
                 - AFFILIATION
                 - FUNDING
+                - PEER_REVIEW
+                - WORK
               created-at:
                 type: string
                 format: date-time

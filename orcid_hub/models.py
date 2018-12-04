@@ -315,6 +315,8 @@ class BaseModel(Model):
         for k, v in o.items():
             if isinstance(v, PartialDate):
                 o[k] = str(v)
+            elif k == "task_type":
+                o[k] = TaskType(v).name
         if to_dashes:
             return self.__to_dashes(o)
         return o
