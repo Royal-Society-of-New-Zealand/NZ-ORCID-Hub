@@ -49,7 +49,7 @@
 {%- macro orcid_url(user, full_url=False, target="_blank") -%}
   {%- if user.orcid -%}
   <a href="{{user|orcid}}" target="{{target}}" class="orcid">
-      <img alt="ORCID iD" src="{{url_for('static', filename='images/orcid_16x16.gif')}}" style="width:16px; height:16px; margin-right:4px">{{user|orcid if full_url else config.ORCID_BASE_URL.split('/', 2)[2] + user.orcid}}</a>
+      <img alt="ORCID iD" src="{{url_for('static', filename='images/orcid_16x16.gif')}}" style="width:16px; height:16px; margin-right:4px">{{user|orcid if full_url else config.ORCID_BASE_URL + user.orcid}}</a>
   {%- else %}&nbsp;{% endif -%}
 {%- endmacro -%}
 
