@@ -323,7 +323,8 @@ class MemberAPI(MemberAPIV20Api):
             rec.visibility = pi.visibility
 
         external_id_list = []
-        external_ids = PeerReviewExternalId.select().where(PeerReviewExternalId.peer_review_record_id == pr.id)
+        external_ids = PeerReviewExternalId.select().where(
+            PeerReviewExternalId.peer_review_record_id == pr.id).order_by(PeerReviewExternalId.id)
 
         for exi in external_ids:
             external_id_type = exi.type
@@ -477,7 +478,7 @@ class MemberAPI(MemberAPIV20Api):
         rec.contributors = WorkContributors(contributor=work_contributor_list)  # noqa: F405
 
         external_id_list = []
-        external_ids = WorkExternalId.select().where(WorkExternalId.work_record_id == wr.id)
+        external_ids = WorkExternalId.select().where(WorkExternalId.work_record_id == wr.id).order_by(WorkExternalId.id)
 
         for exi in external_ids:
             external_id_type = exi.type
@@ -646,7 +647,8 @@ class MemberAPI(MemberAPIV20Api):
             rec.contributors = FundingContributors(contributor=funding_contributor_list)  # noqa: F405
         external_id_list = []
 
-        external_ids = ExternalIdModel.select().where(ExternalIdModel.funding_record_id == fr.id)
+        external_ids = ExternalIdModel.select().where(ExternalIdModel.funding_record_id == fr.id).order_by(
+            ExternalIdModel.id)
 
         for exi in external_ids:
             # Orcid is expecting external type as 'grant_number'

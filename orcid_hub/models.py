@@ -2532,10 +2532,17 @@ class FundingInvitees(InviteesModel):
 class ExternalIdModel(BaseModel):
     """Common model bits of the ExternalId records."""
 
-    type = CharField(max_length=255)
+    relationship_choices = [(v, v.replace('_', ' ').title()) for v in ['', 'PART_OF', 'SELF']]
+    type_choices = [(v, v.replace('_', ' ').replace('-', ' ').title()) for v in
+                    ['', 'agr', 'ark', 'arxiv', 'asin', 'asin-tld', 'authenticusid', 'bibcode', 'cba', 'cienciaiul',
+                     'cit', 'ctx', 'dnb', 'doi', 'eid', 'ethos', 'grant_number', 'handle', 'hir', 'isbn', 'issn', 'jfm',
+                     'jstor', 'kuid', 'lccn', 'lensid', 'mr', 'oclc', 'ol', 'osti', 'other-id', 'pat', 'pdb', 'pmc',
+                     'pmid', 'rfc', 'rrid', 'source-work-id', 'ssrn', 'uri', 'urn', 'wosuid', 'zbl']]
+
+    type = CharField(max_length=255, choices=type_choices)
     value = CharField(max_length=255)
     url = CharField(max_length=200, null=True)
-    relationship = CharField(max_length=255, null=True)
+    relationship = CharField(max_length=255, choices=relationship_choices)
 
 
 class WorkExternalId(ExternalIdModel):
