@@ -2449,6 +2449,14 @@ class ContributorModel(BaseModel):
     role = CharField(max_length=120, null=True)
     email = CharField(max_length=120, null=True)
 
+    def to_export_dict(self):
+        """Map the contributor record to dict for exprt into JSON/YAML."""
+        return {
+                "contributor-attributes": {"contributor-role": self.role},
+                "contributor-email": dict(value=self.email),
+                "credit-name": dict(value=self.name),
+                "contributor-orcid": dict(path=self.orcid), }
+
 
 class WorkContributor(ContributorModel):
     """Researcher or contributor - related to work."""
@@ -2460,6 +2468,12 @@ class WorkContributor(ContributorModel):
     class Meta:  # noqa: D101,D106
         db_table = "work_contributor"
         table_alias = "wc"
+
+    def to_export_dict(self):
+        """Map the contributor record to dict for exprt into JSON/YAML."""
+        d = super().to_export_dict()
+        d["contributor-attributes"].update({"contributor-sequence": self.contributor_sequence})
+        return d
 
 
 class FundingContributor(ContributorModel):
