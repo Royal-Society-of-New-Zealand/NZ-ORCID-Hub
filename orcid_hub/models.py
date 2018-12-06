@@ -1345,6 +1345,44 @@ class FundingRecord(RecordModel):
     processed_at = DateTimeField(null=True)
     status = TextField(null=True, help_text="Record processing status.")
 
+    def to_export_dict(self):
+        """Map the funding record to dict for exprt into JSON/YAML."""
+        org = self.task.org
+        return {
+            "start-date": self.start_date.as_orcid_dict(),
+            "end-date": self.end_date.as_orcid_dict(),
+            "title": {
+                "title": {
+                    "value": self.title,
+                },
+                "translated-title": {
+                    "value": self.translated_title,
+                    "language-code": self.translated_title_language_code,
+                }
+            },
+            "amount": {
+                "currency-code": self.currency,
+                "value": self.amount,
+            },
+            "organisation": {
+                "disambiguated-organization": {
+                    "disambiguated-organization-identifier":
+                    self.disambiguated_org_identifier or org.disambiguated_org_identifier,
+                    "disambiguation-source":
+                    self.disambiguation_source or org.disambiguation_source,
+                },
+                "name": "Royal Society Te Apārangi",
+                "address": {
+                    "city": self.org_name,
+                    "region": self.region,
+                    "country": self.country,
+                },
+            },
+            "invitees": [r.to_export_dict() for r in self.funding_invitees],
+            "contributors": [r.to_export_dict() for r in self.contributors],
+            "external-id": [r.to_export_dict() for r in self.external_ids],
+        }
+
     @classmethod
     def load_from_csv(cls, source, filename=None, org=None):
         """Load data from CSV/TSV file or a string."""
@@ -2526,8 +2564,7 @@ class InviteesModel(BaseModel):
                 self.__class__.last_name,
                 self.__class__.orcid,
                 self.__class__.put_code,
-                self.__class__.visibility,
-            ],
+                self.__class__.visibility],
             recurse=False)
 
 
@@ -2567,17 +2604,30 @@ class FundingInvitees(InviteesModel):
 class ExternalIdModel(BaseModel):
     """Common model bits of the ExternalId records."""
 
-    relationship_choices = [(v, v.replace('_', ' ').title()) for v in ['', 'PART_OF', 'SELF']]
-    type_choices = [(v, v.replace('_', ' ').replace('-', ' ').title()) for v in
-                    ['', 'agr', 'ark', 'arxiv', 'asin', 'asin-tld', 'authenticusid', 'bibcode', 'cba', 'cienciaiul',
-                     'cit', 'ctx', 'dnb', 'doi', 'eid', 'ethos', 'grant_number', 'handle', 'hir', 'isbn', 'issn', 'jfm',
-                     'jstor', 'kuid', 'lccn', 'lensid', 'mr', 'oclc', 'ol', 'osti', 'other-id', 'pat', 'pdb', 'pmc',
-                     'pmid', 'rfc', 'rrid', 'source-work-id', 'ssrn', 'uri', 'urn', 'wosuid', 'zbl']]
+    relationship_choices = [(v, v.replace('_', ' ').title()) for v in ['', "PART_OF", "SELF"]]
+    type_choices = [(v, v.replace("_", " ").replace("-", " ").title()) for v in [
+        '', "agr", "ark", "arxiv", "asin", "asin-tld", "authenticusid", "bibcode", "cba",
+        "cienciaiul", "cit", "ctx", "dnb", "doi", "eid", "ethos", "grant_number", "handle", "hir",
+        "isbn", "issn", "jfm", "jstor", "kuid", "lccn", "lensid", "mr", "oclc", "ol", "osti",
+        "other-id", "pat", "pdb", "pmc", "pmid", "rfc", "rrid", "source-work-id", "ssrn", "uri",
+        "urn", "wosuid", "zbl"
+    ]]
 
     type = CharField(max_length=255, choices=type_choices)
     value = CharField(max_length=255)
     url = CharField(max_length=200, null=True)
     relationship = CharField(max_length=255, choices=relationship_choices)
+
+    def to_export_dict(self):
+        """Map the external ID record to dict for exprt into JSON/YAML."""
+        d = {
+            "external-id-type": self.type,
+            "external-id-value": self.value,
+            "external-id-relationship": self.relationship,
+        }
+        if self.url:
+            d["external-id-url"] = {"value": self.url}
+        return d
 
 
 class WorkExternalId(ExternalIdModel):
