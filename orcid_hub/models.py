@@ -293,6 +293,7 @@ class BaseModel(Model):
 
     def to_dict(self,
                 to_dashes=False,
+                exclude_nulls=False,
                 recurse=True,
                 backrefs=False,
                 only=None,
@@ -312,6 +313,8 @@ class BaseModel(Model):
             extra_attrs=extra_attrs,
             fields_from_query=fields_from_query,
             max_depth=max_depth)
+        if exclude_nulls:
+            o = {k: v for (k, v) in o.items() if v is not None}
         for k, v in o.items():
             if isinstance(v, PartialDate):
                 o[k] = str(v)
@@ -2510,6 +2513,22 @@ class InviteesModel(BaseModel):
         """Add a text line to the status for logging processing progress."""
         ts = datetime.utcnow().isoformat(timespec="seconds")
         self.status = (self.status + "\n" if self.status else '') + ts + ": " + line
+
+    def to_export_dict(self):
+        """Get row representation suitable for export to JSON/YAML."""
+        return self.to_dict(
+            to_dashes=True,
+            exclude_nulls=True,
+            only=[
+                self.__class__.identifier,
+                self.__class__.email,
+                self.__class__.first_name,
+                self.__class__.last_name,
+                self.__class__.orcid,
+                self.__class__.put_code,
+                self.__class__.visibility,
+            ],
+            recurse=False)
 
 
 class PeerReviewInvitee(InviteesModel):
