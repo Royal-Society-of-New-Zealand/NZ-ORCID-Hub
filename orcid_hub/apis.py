@@ -1240,38 +1240,74 @@ def get_spec(app):
             },
         },
     ]
+    swag["parameters"] = {
+        "orcidParam": {
+            "in": "path",
+            "name": "orcid",
+            "required": True,
+            "type": "string",
+            "description": "User ORCID ID.",
+            "format": "^[0-9]{4}-?[0-9]{4}-?[0-9]{4}-?[0-9]{4}$",
+        },
+        "versionParam": {
+            "in": "path",
+            "name": "version",
+            "required": True,
+            "description": "ORCID API version",
+            "type": "string",
+            "enum": [
+                "v2.0",
+                "v2.1",
+                "v3.0_rc1",
+                "v3.0_rc2s",
+                "v3.0",
+            ],
+        },
+        "pathParam": {
+            "in": "path",
+            "name": "path",
+            "required": True,
+            "type": "string",
+            "description": "The rest of the ORCID API entry point URL.",
+        },
+    }
     # Proxy:
+    swag["paths"]["/orcid/api/{version}/{orcid}"] = {
+        "parameters": [
+            {"$ref": "#/parameters/versionParam"},
+            {"$ref": "#/parameters/orcidParam"},
+        ],
+        "get": {
+            "tags": ["orcid-proxy"],
+            "produces": [
+                "application/vnd.orcid+xml; qs=5", "application/orcid+xml; qs=3",
+                "application/xml", "application/vnd.orcid+json; qs=4",
+                "application/orcid+json; qs=2", "application/json"
+            ],
+            "responses": {
+                "200": {
+                    "description": "Successful operation",
+                    "schema": {
+                        "type": "object"
+                    }
+                },
+                "403": {
+                    "description": "The user hasn't granted acceess to the profile."
+                },
+                "404": {
+                    "description": "Resource not found"
+                },
+                "415": {
+                    "description": "Missing or invalid ORCID iD."
+                },
+            },
+        },
+    }
     swag["paths"]["/orcid/api/{version}/{orcid}/{path}"] = {
         "parameters": [
-            {
-                "name": "orcid",
-                "in": "path",
-                "required": True,
-                "type": "string",
-                "description": "User ORCID ID.",
-                "format": "^[0-9]{4}-?[0-9]{4}-?[0-9]{4}-?[0-9]{4}$",
-            },
-            {
-                "name": "version",
-                "in": "path",
-                "required": True,
-                "description": "ORCID API version",
-                "type": "string",
-                "enum": [
-                    "v2.0",
-                    "v2.1",
-                    "v3.0_rc1",
-                    "v3.0_rc2s",
-                    "v3.0",
-                ],
-            },
-            {
-                "name": "path",
-                "in": "path",
-                "required": False,
-                "type": "string",
-                "description": "The rest of the ORCID API entry point URL.",
-            },
+            {"$ref": "#/parameters/versionParam"},
+            {"$ref": "#/parameters/orcidParam"},
+            {"$ref": "#/parameters/pathParam"},
         ],
         "delete": {
             "tags": ["orcid-proxy"],
@@ -1479,7 +1515,8 @@ def orcid_proxy(version, orcid, rest=None):
     }
     headers["Authorization"] = f"Bearer {token.access_token}"
     url = f"{orcid_api_host_url}{version}/{orcid}"
-    if rest:
+    # Swagger-UI sets 'path' to 'undefined':
+    if rest and rest != "undefined":
         url += '/' + rest
 
     proxy_req = requests.Request(
