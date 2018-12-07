@@ -178,16 +178,18 @@ class TaskResource(AppResource):
                 recurse=False,
                 to_dashes=True,
                 exclude=[Task.created_by, Task.updated_by, Task.org, Task.task_type])
-            task_dict["task-type"] = TaskType(task.task_type).name
-            if TaskType(task.task_type) == TaskType.AFFILIATION:
-                # import pdb; pdb.set_trace()
+            task_type = TaskType(task.task_type)
+            task_dict["task-type"] = task_type.name
+            if task_type == TaskType.AFFILIATION:
                 records = task.affiliation_records
+                task_dict["records"] = [
+                    r.to_dict(to_dashes=True, recurse=False, exclude=[AffiliationRecord.task])
+                    for r in records
+                ]
             else:
                 records = task.funding_records
-            task_dict["records"] = [
-                r.to_dict(to_dashes=True, recurse=False, exclude=[AffiliationRecord.task])
-                for r in records
-            ]
+                task_dict["records"] = [r.to_export_dict() for r in records]
+
             resp = jsonify(task_dict)
         else:
             resp = jsonify({"updated-at": task.updated_at})
