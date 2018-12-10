@@ -1191,15 +1191,9 @@ def get_spec(app):
     swag["info"]["title"] = "ORCID HUB API"
     # swag["basePath"] = "/api/v1.0"
     swag["host"] = request.host  # "dev.orcidhub.org.nz"
-    swag["consumes"] = [
-        "application/json",
-    ]
-    swag["produces"] = [
-        "application/json",
-    ]
-    swag["schemes"] = [
-        request.scheme,
-    ]
+    swag["consumes"] = ["application/json"]
+    swag["produces"] = ["application/json"]
+    swag["schemes"] = [request.scheme]
     swag["securityDefinitions"] = {
         "application": {
             "type": "oauth2",
@@ -1241,6 +1235,13 @@ def get_spec(app):
                 "url": "https://api.sandbox.orcid.org"
             },
         },
+        {
+            "name": "webhooks",
+            "description": "ORCID Webhook management",
+            "externalDocs": {
+                "url": "https://members.orcid.org/api/tutorial/webhooks"
+            },
+        },
     ]
     swag["parameters"] = {
         "orcidParam": {
@@ -1272,6 +1273,96 @@ def get_spec(app):
             "type": "string",
             "description": "The rest of the ORCID API entry point URL.",
         },
+    }
+    swag["definitions"]["Error"] = {
+        "schema": {
+            "id": "Error",
+            "properties": {
+                "error": {
+                    "type": "string",
+                    "description": "Error type/name."
+                },
+                "message": {
+                    "type": "string",
+                    "description": "Error details explaining message."
+                },
+            }
+        }
+    }
+    # Webhooks:
+    swag["paths"]["/api/v1.0/{orcid}/webhook"] = {
+        "parameters": [
+            {
+                "$ref": "#/parameters/orcidParam"
+            },
+        ],
+        "put": {
+            "tags": ["webhooks"],
+            "responses": {
+                "$ref": "#/paths/~1api~1v1.0~1{orcid}~1webhook~1{callback_url}/put/responses"
+            },
+        },
+        "delete": {
+            "tags": ["webhooks"],
+            "responses": {
+                "$ref": "#/paths/~1api~1v1.0~1{orcid}~1webhook~1{callback_url}/delete/responses"
+            }
+        }
+    }
+    swag["paths"]["/api/v1.0/{orcid}/webhook/{callback_url}"] = {
+        "parameters": [
+            {
+                "$ref": "#/parameters/orcidParam"
+            },
+            {
+                "in": "path",
+                "name": "callback_url",
+                "required": False,
+                "type": "string",
+                "description": ("The call-back URL that will receive a POST request "
+                                "when an update of a ORCID profile occurs."),
+            },
+        ],
+        "put": {
+            "tags": ["webhooks"],
+            "responses": {
+                "201": {
+                    "description": "A webhoook successfully set up.",
+                },
+                "415": {
+                    "description": "Invalid call-back URL or missing ORCID iD.",
+                    "schema": {
+                        "$rer": "#/definitions/Error"
+                    },
+                },
+                "404": {
+                    "description": "Invalid ORCID iD.",
+                    "schema": {
+                        "$rer": "#/definitions/Error"
+                    },
+                },
+            },
+        },
+        "delete": {
+            "tags": ["webhooks"],
+            "responses": {
+                "204": {
+                    "description": "A webhoook successfully unregistered.",
+                },
+                "415": {
+                    "description": "Invalid call-back URL or missing ORCID iD.",
+                    "schema": {
+                        "$rer": "#/definitions/Error"
+                    },
+                },
+                "404": {
+                    "description": "Invalid ORCID iD.",
+                    "schema": {
+                        "$rer": "#/definitions/Error"
+                    },
+                },
+            }
+        }
     }
     # Proxy:
     swag["paths"]["/orcid/api/{version}/{orcid}"] = {
@@ -1542,6 +1633,7 @@ def orcid_proxy(version, orcid, rest=None):
     return proxy_resp
 
 
+@app.route("/api/v1.0/<string:orcid>/webhook", methods=["PUT", "DELETE"])
 @app.route("/api/v1.0/<string:orcid>/webhook/<path:callback_url>", methods=["PUT", "DELETE"])
 @oauth.require_oauth()
 def register_webhook(orcid, callback_url=None):
@@ -1552,12 +1644,15 @@ def register_webhook(orcid, callback_url=None):
         validate_orcid_id(orcid)
     except Exception as ex:
         return jsonify({"error": "Missing or invalid ORCID iD.", "message": str(ex)}), 415
-    callback_url = unquote(callback_url)
-    if not is_valid_url(callback_url):
-        return jsonify({
-            "error": "Invalid call-back URL",
-            "message": f"Invalid call-back URL: {callback_url}"
-        }), 415
+    if callback_url == "undefined":
+        callback_url = None
+    if callback_url:
+        callback_url = unquote(callback_url)
+        if not is_valid_url(callback_url):
+            return jsonify({
+                "error": "Invalid call-back URL",
+                "message": f"Invalid call-back URL: {callback_url}"
+            }), 415
 
     try:
         user = User.get(orcid=orcid)
@@ -1568,8 +1663,8 @@ def register_webhook(orcid, callback_url=None):
         }), 404
 
     orcid_resp = register_orcid_webhook(user, callback_url, delete=request.method == "DELETE")
-    resp = make_response('', orcid_resp.status_code)
-    if "Location" in orcid_resp.headers:
+    resp = make_response('', orcid_resp.status_code if orcid_resp else 204)
+    if orcid_resp and "Location" in orcid_resp.headers:
         resp.headers["Location"] = orcid_resp.headers["Location"]
 
     return resp
