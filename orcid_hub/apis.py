@@ -20,8 +20,8 @@ from yaml.representer import SafeRepresenter
 
 from . import api, app, db, models, oauth
 from .login_provider import roles_required
-from .models import (ORCID_ID_REGEX, AffiliationRecord, Client, OrcidToken, PartialDate, Role,
-                     Task, TaskType, User, UserOrg, validate_orcid_id)
+from .models import (ORCID_ID_REGEX, AffiliationRecord, Client, FundingRecord, OrcidToken,
+                     PartialDate, Role, Task, TaskType, User, UserOrg, validate_orcid_id)
 from .schemas import affiliation_task_schema
 from .utils import is_valid_url, register_orcid_webhook
 
@@ -280,6 +280,19 @@ class TaskResource(AppResource):
 
         return self.jsonify_task(task)
 
+    def handle_fund_task(self):
+        """Handle PUT, POST, or PATCH request. Request body expected to be encoded in JSON."""
+        try:
+            login_user(request.oauth.user)
+            task = FundingRecord.load_from_json(
+                request.data.decode("utf-8"), filename=self.filename)
+        except Exception as ex:
+            db.rollback()
+            app.logger.exception("Failed to hadle affiliation API request.")
+            return jsonify({"error": "Unhandled except occured.", "exception": str(ex)}), 400
+
+        return self.jsonify_task(task)
+
 
 class TaskList(TaskResource, AppResourceList):
     """Task list services."""
@@ -351,8 +364,12 @@ class TaskList(TaskResource, AppResourceList):
               type: array
               items:
                 $ref: "#/definitions/Task"
+          401:
+            $ref: "#/responses/Unauthorized"
           403:
-            description: "Access Denied"
+            $ref: "#/responses/AccessDenied"
+          404:
+            $ref: "#/responses/NotFound"
         """
         login_user(request.oauth.user)
         query = Task.select().where(Task.org_id == current_user.organisation_id)
@@ -395,8 +412,12 @@ class AffiliationListAPI(TaskResource):
             description: "successful operation"
             schema:
               $ref: "#/definitions/AffiliationTask"
+          401:
+            $ref: "#/responses/Unauthorized"
           403:
-            description: "Access Denied"
+            $ref: "#/responses/AccessDenied"
+          404:
+            $ref: "#/responses/NotFound"
         definitions:
         - schema:
             id: AffiliationTask
@@ -514,8 +535,12 @@ class AffiliationAPI(TaskResource):
             description: "successful operation"
             schema:
               $ref: "#/definitions/AffiliationTask"
+          401:
+            $ref: "#/responses/Unauthorized"
           403:
-            description: "Access Denied"
+            $ref: "#/responses/AccessDenied"
+          404:
+            $ref: "#/responses/NotFound"
         """
         return self.jsonify_task(task_id)
 
@@ -549,8 +574,12 @@ class AffiliationAPI(TaskResource):
             description: "successful operation"
             schema:
               $ref: "#/definitions/AffiliationTask"
+          401:
+            $ref: "#/responses/Unauthorized"
           403:
-            description: "Access Denied"
+            $ref: "#/responses/AccessDenied"
+          404:
+            $ref: "#/responses/NotFound"
         """
         return self.handle_affiliation_task(task_id)
 
@@ -583,8 +612,12 @@ class AffiliationAPI(TaskResource):
             description: "successful operation"
             schema:
               $ref: "#/definitions/AffiliationTask"
+          401:
+            $ref: "#/responses/Unauthorized"
           403:
-            description: "Access Denied"
+            $ref: "#/responses/AccessDenied"
+          404:
+            $ref: "#/responses/NotFound"
         """
         return self.handle_affiliation_task(task_id)
 
@@ -617,8 +650,12 @@ class AffiliationAPI(TaskResource):
             description: "successful operation"
             schema:
               $ref: "#/definitions/AffiliationTask"
+          401:
+            $ref: "#/responses/Unauthorized"
           403:
-            description: "Access Denied"
+            $ref: "#/responses/AccessDenied"
+          404:
+            $ref: "#/responses/NotFound"
         """
         return self.handle_affiliation_task(task_id)
 
@@ -641,8 +678,12 @@ class AffiliationAPI(TaskResource):
         responses:
           200:
             description: "Successful operation"
+          401:
+            $ref: "#/responses/Unauthorized"
           403:
-            description: "Access Denied"
+            $ref: "#/responses/AccessDenied"
+          404:
+            $ref: "#/responses/NotFound"
         """
         return self.delete_task(task_id)
 
@@ -665,8 +706,12 @@ class AffiliationAPI(TaskResource):
         responses:
           200:
             description: "Successful operation"
+          401:
+            $ref: "#/responses/Unauthorized"
           403:
-            description: "Access Denied"
+            $ref: "#/responses/AccessDenied"
+          404:
+            $ref: "#/responses/NotFound"
         """
         return self.jsonify_task(task_id)
 
@@ -709,8 +754,12 @@ class FundListAPI(TaskResource):
             description: "successful operation"
             schema:
               $ref: "#/definitions/FundTask"
+          401:
+            $ref: "#/responses/Unauthorized"
           403:
-            description: "Access Denied"
+            $ref: "#/responses/AccessDenied"
+          404:
+            $ref: "#/responses/NotFound"
         definitions:
         - schema:
             id: FundTask
@@ -744,7 +793,7 @@ class FundListAPI(TaskResource):
         """
         login_user(request.oauth.user)
         if request.content_type in ["text/csv", "text/tsv"]:
-            task = Task.load_from_csv(request.data.decode("utf-8"), filename=self.filename)
+            task = FundingRecord.load_from_csv(request.data.decode("utf-8"), filename=self.filename)
             return self.jsonify_task(task)
         return self.handle_fund_task()
 
@@ -774,8 +823,12 @@ class FundAPI(TaskResource):
             description: "successful operation"
             schema:
               $ref: "#/definitions/FundTask"
+          401:
+            $ref: "#/responses/Unauthorized"
           403:
-            description: "Access Denied"
+            $ref: "#/responses/AccessDenied"
+          404:
+            $ref: "#/responses/NotFound"
         """
         return self.jsonify_task(task_id)
 
@@ -809,8 +862,12 @@ class FundAPI(TaskResource):
             description: "successful operation"
             schema:
               $ref: "#/definitions/FundTask"
+          401:
+            $ref: "#/responses/Unauthorized"
           403:
-            description: "Access Denied"
+            $ref: "#/responses/AccessDenied"
+          404:
+            $ref: "#/responses/NotFound"
         """
         return self.handle_fund_task(task_id)
 
@@ -843,8 +900,12 @@ class FundAPI(TaskResource):
             description: "successful operation"
             schema:
               $ref: "#/definitions/FundTask"
+          401:
+            $ref: "#/responses/Unauthorized"
           403:
-            description: "Access Denied"
+            $ref: "#/responses/AccessDenied"
+          404:
+            $ref: "#/responses/NotFound"
         """
         return self.handle_fund_task(task_id)
 
@@ -877,8 +938,12 @@ class FundAPI(TaskResource):
             description: "successful operation"
             schema:
               $ref: "#/definitions/FundTask"
+          401:
+            $ref: "#/responses/Unauthorized"
           403:
-            description: "Access Denied"
+            $ref: "#/responses/AccessDenied"
+          404:
+            $ref: "#/responses/NotFound"
         """
         return self.handle_fund_task(task_id)
 
@@ -901,8 +966,12 @@ class FundAPI(TaskResource):
         responses:
           200:
             description: "Successful operation"
+          401:
+            $ref: "#/responses/Unauthorized"
           403:
-            description: "Access Denied"
+            $ref: "#/responses/AccessDenied"
+          404:
+            $ref: "#/responses/NotFound"
         """
         return self.delete_task(task_id)
 
@@ -925,8 +994,12 @@ class FundAPI(TaskResource):
         responses:
           200:
             description: "Successful operation"
+          401:
+            $ref: "#/responses/Unauthorized"
           403:
-            description: "Access Denied"
+            $ref: "#/responses/AccessDenied"
+          404:
+            $ref: "#/responses/NotFound"
         """
         return self.jsonify_task(task_id)
 
@@ -990,8 +1063,12 @@ class UserListAPI(AppResourceList):
                     type: "string"
                   eppn:
                     type: "string"
+          401:
+            $ref: "#/responses/Unauthorized"
           403:
-            description: "Access Denied"
+            $ref: "#/responses/AccessDenied"
+          404:
+            $ref: "#/responses/NotFound"
           422:
             description: "Unprocessable Entity"
         """
@@ -1133,10 +1210,12 @@ class TokenAPI(MethodView):
                   type: "integer"
           400:
             description: "Invalid identifier supplied"
+          401:
+            $ref: "#/responses/Unauthorized"
           403:
-            description: "Access Denied"
+            $ref: "#/responses/AccessDenied"
           404:
-            description: "User not found"
+            $ref: "#/responses/NotFound"
         """
         identifier = identifier.strip()
         if validators.email(identifier):
@@ -1274,19 +1353,31 @@ def get_spec(app):
             "description": "The rest of the ORCID API entry point URL.",
         },
     }
+    # Common responses:
+    swag["responses"] = {
+            "AccessDenied": {
+                "description": "Access Denied",
+                "schema": {"$ref": "#/definitions/Error"}
+            },
+            "Unauthorized": {
+                "description": "Unauthorized",
+                "schema": {"$ref": "#/definitions/Error"}
+            },
+            "NotFound": {
+                "description": "The specified resource was not found",
+                "schema": {"$ref": "#/definitions/Error"}
+            },
+    }
     swag["definitions"]["Error"] = {
-        "schema": {
-            "id": "Error",
-            "properties": {
-                "error": {
-                    "type": "string",
-                    "description": "Error type/name."
-                },
-                "message": {
-                    "type": "string",
-                    "description": "Error details explaining message."
-                },
-            }
+        "properties": {
+            "error": {
+                "type": "string",
+                "description": "Error type/name."
+            },
+            "message": {
+                "type": "string",
+                "description": "Error details explaining message."
+            },
         }
     }
     # Webhooks:
@@ -1385,13 +1476,16 @@ def get_spec(app):
                     }
                 },
                 "403": {
-                    "description": "The user hasn't granted acceess to the profile."
+                    "description": "The user hasn't granted acceess to the profile.",
+                    "schema": {"$ref": "#/definitions/Error"}
                 },
                 "404": {
-                    "description": "Resource not found"
+                    "description": "Resource not found",
+                    "schema": {"$ref": "#/definitions/Error"}
                 },
                 "415": {
-                    "description": "Missing or invalid ORCID iD."
+                    "description": "Missing or invalid ORCID iD.",
+                    "schema": {"$ref": "#/definitions/Error"}
                 },
             },
         },
@@ -1417,13 +1511,16 @@ def get_spec(app):
                     }
                 },
                 "403": {
-                    "description": "The user hasn't granted acceess to the profile."
+                    "description": "The user hasn't granted acceess to the profile.",
+                    "schema": {"$ref": "#/definitions/Error"}
                 },
                 "404": {
-                    "description": "Resource not found"
+                    "description": "Resource not found",
+                    "schema": {"$ref": "#/definitions/Error"}
                 },
                 "415": {
-                    "description": "Missing or invalid ORCID iD."
+                    "description": "Missing or invalid ORCID iD.",
+                    "schema": {"$ref": "#/definitions/Error"}
                 },
             },
         },
@@ -1442,13 +1539,16 @@ def get_spec(app):
                     }
                 },
                 "403": {
-                    "description": "The user hasn't granted acceess to the profile."
+                    "description": "The user hasn't granted acceess to the profile.",
+                    "schema": {"$ref": "#/definitions/Error"}
                 },
                 "404": {
-                    "description": "Resource not found"
+                    "description": "Resource not found",
+                    "schema": {"$ref": "#/definitions/Error"}
                 },
                 "415": {
-                    "description": "Missing or invalid ORCID iD."
+                    "description": "Missing or invalid ORCID iD.",
+                    "schema": {"$ref": "#/definitions/Error"}
                 },
             },
         },
@@ -1480,13 +1580,16 @@ def get_spec(app):
                     }
                 },
                 "403": {
-                    "description": "The user hasn't granted acceess to the profile."
+                    "description": "The user hasn't granted acceess to the profile.",
+                    "schema": {"$ref": "#/definitions/Error"}
                 },
                 "404": {
-                    "description": "Resource not found"
+                    "description": "Resource not found",
+                    "schema": {"$ref": "#/definitions/Error"}
                 },
                 "415": {
-                    "description": "Missing or invalid ORCID iD."
+                    "description": "Missing or invalid ORCID iD.",
+                    "schema": {"$ref": "#/definitions/Error"}
                 },
             },
         },
@@ -1513,13 +1616,16 @@ def get_spec(app):
                     }
                 },
                 "403": {
-                    "description": "The user hasn't granted acceess to the profile."
+                    "description": "The user hasn't granted acceess to the profile.",
+                    "schema": {"$ref": "#/definitions/Error"}
                 },
                 "404": {
-                    "description": "Resource not found"
+                    "description": "Resource not found",
+                    "schema": {"$ref": "#/definitions/Error"}
                 },
                 "415": {
-                    "description": "Missing or invalid ORCID iD."
+                    "description": "Missing or invalid ORCID iD.",
+                    "schema": {"$ref": "#/definitions/Error"}
                 },
             }
         }

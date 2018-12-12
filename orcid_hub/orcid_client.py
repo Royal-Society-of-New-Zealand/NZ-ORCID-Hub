@@ -8,8 +8,8 @@ isort:skip_file
 from .config import ORCID_API_BASE, SCOPE_READ_LIMITED, SCOPE_ACTIVITIES_UPDATE, ORCID_BASE_URL
 from flask_login import current_user
 from .models import (OrcidApiCall, Affiliation, OrcidToken, FundingContributor as FundingCont, Log,
-                     ExternalId as ExternalIdModel, WorkContributor as WorkCont, WorkExternalId,
-                     PeerReviewExternalId)
+                     ExternalId as ExternalIdModel, NestedDict, WorkContributor as WorkCont,
+                     WorkExternalId, PeerReviewExternalId)
 from orcid_api import (configuration, rest, api_client, MemberAPIV20Api, SourceClientId, Source,
                        OrganizationAddress, DisambiguatedOrganization, Employment, Education,
                        Organization)
@@ -21,21 +21,6 @@ import json
 
 url = urlparse(ORCID_API_BASE)
 configuration.host = url.scheme + "://" + url.hostname
-
-
-class NestedDict(dict):
-    """Helper for traversing a nested dictionaries."""
-
-    def get(self, *keys, default=None):
-        """To get the value from uploaded fields."""
-        d = self
-        for k in keys:
-            if d is default:
-                break
-            if not isinstance(d, dict):
-                return default
-            d = super(NestedDict, d).get(k, default)
-        return d
 
 
 class OrcidRESTClientObject(rest.RESTClientObject):

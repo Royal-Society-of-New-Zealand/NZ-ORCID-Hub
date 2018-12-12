@@ -56,6 +56,21 @@ class ModelException(Exception):
     pass
 
 
+class NestedDict(dict):
+    """Helper for traversing a nested dictionaries."""
+
+    def get(self, *keys, default=None):
+        """To get the value from uploaded fields."""
+        d = self
+        for k in keys:
+            if d is default:
+                break
+            if not isinstance(d, dict):
+                return default
+            d = super(NestedDict, d).get(k, default)
+        return d
+
+
 def validate_orcid_id(value):
     """Validate ORCID iD (both format and the check-sum)."""
     if not value:
@@ -1349,6 +1364,7 @@ class FundingRecord(RecordModel):
         """Map the funding record to dict for exprt into JSON/YAML."""
         org = self.task.org
         return {
+            "type": self.type,
             "start-date": self.start_date.as_orcid_dict(),
             "end-date": self.end_date.as_orcid_dict(),
             "title": {
@@ -1364,7 +1380,7 @@ class FundingRecord(RecordModel):
                 "currency-code": self.currency,
                 "value": self.amount,
             },
-            "organisation": {
+            "organization": {
                 "disambiguated-organization": {
                     "disambiguated-organization-identifier":
                     self.disambiguated_org_identifier or org.disambiguated_org_identifier,
@@ -1379,8 +1395,8 @@ class FundingRecord(RecordModel):
                 },
             },
             "invitees": [r.to_export_dict() for r in self.funding_invitees],
-            "contributors": [r.to_export_dict() for r in self.contributors],
-            "external-id": [r.to_export_dict() for r in self.external_ids],
+            "contributors": {"contributor": [r.to_export_dict() for r in self.contributors]},
+            "external-ids": {"external-id": [r.to_export_dict() for r in self.external_ids]},
         }
 
     @classmethod
@@ -1573,45 +1589,48 @@ class FundingRecord(RecordModel):
     @classmethod
     def load_from_json(cls, source, filename=None, org=None):
         """Load data from json file or a string."""
-        if isinstance(source, str):
-            # import data from file based on its extension; either it is yaml or json
-            funding_data_list = load_yaml_json(filename=filename, source=source)
+        # import data from file based on its extension; either it is yaml or json
+        data = load_yaml_json(filename=filename, source=source)
+        records = data["records"] if isinstance(data, dict) else data
 
-            for funding_data in funding_data_list:
-                validation_source_data = copy.deepcopy(funding_data)
-                validation_source_data = del_none(validation_source_data)
+        for r in records:
+            validation_source_data = copy.deepcopy(r)
+            validation_source_data = del_none(validation_source_data)
 
-                # Adding schema valdation for funding
-                validator = Core(
-                    source_data=validation_source_data,
-                    schema_files=[os.path.join(SCHEMA_DIR, "funding_schema.yaml")])
-                validator.validate(raise_exception=True)
+            # Adding schema valdation for funding
+            validator = Core(
+                source_data=validation_source_data,
+                schema_files=[os.path.join(SCHEMA_DIR, "funding_schema.yaml")])
+            validator.validate(raise_exception=True)
 
+        with db.atomic():
             try:
                 if org is None:
                     org = current_user.organisation if current_user else None
                 task = Task.create(org=org, filename=filename, task_type=TaskType.FUNDING)
 
-                for funding_data in funding_data_list:
+                for r in records:
 
-                    title = get_val(funding_data, "title", "title", "value")
-                    translated_title = get_val(funding_data, "title", "translated-title", "value")
-                    translated_title_language_code = get_val(funding_data, "title", "translated-title", "language-code")
-                    type = funding_data.get("type")
-                    organization_defined_type = get_val(funding_data, "organization-defined-type", "value")
-                    short_description = funding_data.get("short-description")
-                    amount = get_val(funding_data, "amount", "value")
-                    currency = get_val(funding_data, "amount", "currency-code")
-                    start_date = PartialDate.create(funding_data.get("start-date"))
-                    end_date = PartialDate.create(funding_data.get("end-date"))
-                    org_name = get_val(funding_data, "organization", "name")
-                    city = get_val(funding_data, "organization", "address", "city")
-                    region = get_val(funding_data, "organization", "address", "region")
-                    country = get_val(funding_data, "organization", "address", "country")
-                    disambiguated_org_identifier = get_val(funding_data, "organization", "disambiguated-organization",
-                                                           "disambiguated-organization-identifier")
-                    disambiguation_source = get_val(funding_data, "organization", "disambiguated-organization",
-                                                    "disambiguation-source")
+                    title = r.get("title", "title", "value")
+                    translated_title = r.get("title", "translated-title", "value")
+                    translated_title_language_code = r.get("title", "translated-title",
+                                                           "language-code")
+                    type = r.get("type")
+                    organization_defined_type = r.get("organization-defined-type", "value")
+                    short_description = r.get("short-description")
+                    amount = r.get("amount", "value")
+                    currency = r.get("amount", "currency-code")
+                    start_date = PartialDate.create(r.get("start-date"))
+                    end_date = PartialDate.create(r.get("end-date"))
+                    org_name = r.get("organization", "name")
+                    city = r.get("organization", "address", "city")
+                    region = r.get("organization", "address", "region")
+                    country = r.get("organization", "address", "country")
+                    disambiguated_org_identifier = r.get("organization",
+                                                         "disambiguated-organization",
+                                                         "disambiguated-organization-identifier")
+                    disambiguation_source = r.get("organization", "disambiguated-organization",
+                                                  "disambiguation-source")
 
                     funding_record = cls.create(
                         task=task,
@@ -1632,9 +1651,9 @@ class FundingRecord(RecordModel):
                         start_date=start_date,
                         end_date=end_date)
 
-                    invitees_list = funding_data.get("invitees") if funding_data.get("invitees") else None
-                    if invitees_list:
-                        for invitee in invitees_list:
+                    invitees = r.get("invitees", default=[])
+                    if invitees:
+                        for invitee in invitees:
                             identifier = invitee.get("identifier")
                             email = invitee.get("email")
                             first_name = invitee.get("first-name")
@@ -1656,14 +1675,13 @@ class FundingRecord(RecordModel):
                         raise SchemaError(u"Schema validation failed:\n - "
                                           u"Expecting Invitees for which the funding record will be written")
 
-                    contributors_list = funding_data.get("contributors").get("contributor") if \
-                        funding_data.get("contributors") else None
-                    if contributors_list:
-                        for contributor in contributors_list:
-                            orcid_id = get_val(contributor, "contributor-orcid", "path")
-                            name = get_val(contributor, "credit-name", "value")
-                            email = get_val(contributor, "contributor-email", "value")
-                            role = get_val(contributor, "contributor-attributes", "contributor-role")
+                    contributors = r.get("contributors", "contributor", default=[])
+                    if contributors:
+                        for contributor in contributors:
+                            orcid_id = contributor.get("contributor-orcid", "path")
+                            name = contributor.get("credit-name", "value")
+                            email = contributor.get("contributor-email", "value")
+                            role = contributor.get("contributor-attributes", "contributor-role")
 
                             FundingContributor.create(
                                 funding_record=funding_record,
@@ -1672,13 +1690,12 @@ class FundingRecord(RecordModel):
                                 email=email,
                                 role=role)
 
-                    external_ids_list = funding_data.get("external-ids").get("external-id") if \
-                        funding_data.get("external-ids") else None
-                    if external_ids_list:
-                        for external_id in external_ids_list:
+                    external_ids = r.get("external-ids", "external-id", default=[])
+                    if external_ids:
+                        for external_id in external_ids:
                             type = external_id.get("external-id-type")
                             value = external_id.get("external-id-value")
-                            url = get_val(external_id, "external-id-url", "value")
+                            url = external_id.get("external-id-url", "value")
                             relationship = external_id.get("external-id-relationship")
                             ExternalId.create(
                                 funding_record=funding_record,
@@ -2923,17 +2940,17 @@ def drop_tables():
 
 def load_yaml_json(filename, source):
     """Create a common way of loading json or yaml file."""
-    if os.path.splitext(filename)[1][1:] == "yaml" or os.path.splitext(
-            filename)[1][1:] == "yml":
-        data_list = yaml.load(source)
+    _, ext = os.path.splitext(filename)
+    if ext.lower() in [".yaml", ".yml"]:
+        data = yaml.load(source)
     else:
-        data_list = json.loads(source)
+        data = json.loads(source, object_pairs_hook=NestedDict)
 
     # Removing None for correct schema validation
-    if not isinstance(data_list, list):
+    if not isinstance(data, list) and not (isinstance(data, dict) and "records" in data):
         raise SchemaError(
             u"Schema validation failed:\n - Expecting a list of Records")
-    return data_list
+    return data
 
 
 def del_none(d):
