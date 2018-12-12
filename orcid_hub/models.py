@@ -2973,6 +2973,8 @@ def del_none(d):
 
 def get_val(d, *keys, default=None):
     """To get the value from uploaded fields."""
+    if isinstance(d, NestedDict):
+        return d.get(*keys, default=default)
     for k in keys:
         if not d:
             break
