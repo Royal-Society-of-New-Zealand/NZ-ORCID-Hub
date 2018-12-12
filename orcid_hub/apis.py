@@ -154,12 +154,18 @@ class TaskResource(AppResource):
         """Do some pre-handling..."""
         parser = reqparse.RequestParser()
         parser.add_argument(
-            "type", type=str, help="Task type: " + ", ".join(self.available_task_types))
-        parser.add_argument(
-            "filename", type=str, help="Filename of the task.")
-        parsed_args = parser.parse_args()
-        task_type = parsed_args.get("type")
-        self.filename = parsed_args.get("filename")
+            "type", type=str, required=False,
+            help="Task type: " + ", ".join(self.available_task_types))
+        parser.add_argument("filename", type=str, help="Filename of the task.")
+        # TODO: fix Flask-Restful
+        try:
+            parsed_args = parser.parse_args()
+            task_type = parsed_args.get("type")
+            filename = parsed_args.get("filename")
+        # TODO: fix Flask-Restful
+        except ValueError:
+            filename, task_type = request.args.get("filename"), None
+        self.filename = filename
         self.task_type = None if task_type is None else TaskType[task_type]
         return super().dispatch_request(*args, **kwargs)
 

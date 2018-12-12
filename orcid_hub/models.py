@@ -1363,10 +1363,8 @@ class FundingRecord(RecordModel):
     def to_export_dict(self):
         """Map the funding record to dict for exprt into JSON/YAML."""
         org = self.task.org
-        return {
+        d = {
             "type": self.type,
-            "start-date": self.start_date.as_orcid_dict(),
-            "end-date": self.end_date.as_orcid_dict(),
             "title": {
                 "title": {
                     "value": self.title,
@@ -1398,6 +1396,11 @@ class FundingRecord(RecordModel):
             "contributors": {"contributor": [r.to_export_dict() for r in self.contributors]},
             "external-ids": {"external-id": [r.to_export_dict() for r in self.external_ids]},
         }
+        if self.start_date:
+            d["start-date"] = self.start_date.as_orcid_dict()
+        if self.end_date:
+            d["end-date"] = self.end_date.as_orcid_dict()
+        return d
 
     @classmethod
     def load_from_csv(cls, source, filename=None, org=None):
