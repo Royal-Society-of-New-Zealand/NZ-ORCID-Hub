@@ -797,6 +797,40 @@ def test_funding_api(client):
     assert resp.status_code == 200
     assert Task.select().count() == 2
 
+    records = data["records"]
+    resp = client.post(
+        "/api/v1.0/funds/?filename=fundings444.json",
+        headers=dict(authorization=f"Bearer {access_token}"),
+        content_type="application/json",
+        data=json.dumps(records))
+    assert resp.status_code == 200
+    assert Task.select().count() == 3
+
+    resp = client.post(
+        f"/api/v1.0/funds/{task_id}",
+        headers=dict(authorization=f"Bearer {access_token}"),
+        content_type="application/json",
+        data=json.dumps(records))
+    assert resp.status_code == 200
+    assert Task.select().count() == 3
+
+    resp = client.head(
+        f"/api/v1.0/funds/{task_id}",
+        headers=dict(authorization=f"Bearer {access_token}"))
+    assert "Last-Modified" in resp.headers
+    assert resp.status_code == 200
+
+    resp = client.delete(
+        f"/api/v1.0/funds/{task_id}",
+        headers=dict(authorization=f"Bearer {access_token}"))
+    assert resp.status_code == 200
+    assert Task.select().count() == 2
+
+    resp = client.head(
+        f"/api/v1.0/funds/{task_id}",
+        headers=dict(authorization=f"Bearer {access_token}"))
+    assert resp.status_code == 404
+
 
 def test_proxy_get_profile(app_req_ctx):
     """Test the echo endpoint."""

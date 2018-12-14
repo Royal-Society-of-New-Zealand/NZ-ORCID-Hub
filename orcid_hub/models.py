@@ -1590,7 +1590,7 @@ class FundingRecord(RecordModel):
                 raise
 
     @classmethod
-    def load_from_json(cls, source, filename=None, org=None):
+    def load_from_json(cls, source, filename=None, org=None, task=None):
         """Load data from json file or a string."""
         # import data from file based on its extension; either it is yaml or json
         data = load_yaml_json(filename=filename, source=source)
@@ -1610,7 +1610,10 @@ class FundingRecord(RecordModel):
             try:
                 if org is None:
                     org = current_user.organisation if current_user else None
-                task = Task.create(org=org, filename=filename, task_type=TaskType.FUNDING)
+                if not task:
+                    task = Task.create(org=org, filename=filename, task_type=TaskType.FUNDING)
+                else:
+                    FundingRecord.delete().where(FundingRecord.task == task).execute()
 
                 for r in records:
 

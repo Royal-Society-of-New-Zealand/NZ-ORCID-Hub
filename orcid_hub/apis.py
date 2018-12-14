@@ -161,12 +161,18 @@ class TaskResource(AppResource):
         try:
             parsed_args = parser.parse_args()
             task_type = parsed_args.get("type")
+            if task_type:
+                task_type = task_type.upper()
             filename = parsed_args.get("filename")
         # TODO: fix Flask-Restful
+        # TODO: Remove when the fix gets merged in
         except ValueError:
             filename, task_type = request.args.get("filename"), None
         self.filename = filename
-        self.task_type = None if task_type is None else TaskType[task_type]
+        if task_type and any(task_type == t.name for t in TaskType):
+            self.task_type = TaskType[task_type]
+        else:
+            self.task_type = None
         return super().dispatch_request(*args, **kwargs)
 
     def jsonify_task(self, task):
@@ -268,7 +274,6 @@ class TaskResource(AppResource):
                     else:
                         rec = AffiliationRecord(task=task)
 
-                    # import pdb; pdb.set_trace()
                     for k, v in row.items():
                         if k == "id":
                             continue
@@ -286,12 +291,23 @@ class TaskResource(AppResource):
 
         return self.jsonify_task(task)
 
-    def handle_fund_task(self):
+    def handle_fund_task(self, task_id=None):
         """Handle PUT, POST, or PATCH request. Request body expected to be encoded in JSON."""
         try:
             login_user(request.oauth.user)
+            if task_id:
+                try:
+                    task = Task.get(id=task_id)
+                    if not self.filename:
+                        self.filename = task.filename
+                except Task.DoesNotExist:
+                    return jsonify({"error": "The task doesn't exist."}), 404
+                if task.created_by != current_user:
+                    return jsonify({"error": "Access denied."}), 403
+            else:
+                task = None
             task = FundingRecord.load_from_json(
-                request.data.decode("utf-8"), filename=self.filename)
+                request.data.decode("utf-8"), filename=self.filename, task=task)
         except Exception as ex:
             db.rollback()
             app.logger.exception("Failed to hadle affiliation API request.")
@@ -850,82 +866,6 @@ class FundAPI(TaskResource):
           - application/json
           - text/yaml
         definitions:
-        parameters:
-          - name: "task_id"
-            in: "path"
-            description: "Fund task ID."
-            required: true
-            type: "integer"
-          - in: body
-            name: fundTask
-            description: "Fund task."
-            schema:
-              $ref: "#/definitions/FundTask"
-        produces:
-          - "application/json"
-        responses:
-          200:
-            description: "successful operation"
-            schema:
-              $ref: "#/definitions/FundTask"
-          401:
-            $ref: "#/responses/Unauthorized"
-          403:
-            $ref: "#/responses/AccessDenied"
-          404:
-            $ref: "#/responses/NotFound"
-        """
-        return self.handle_fund_task(task_id)
-
-    def put(self, task_id):
-        """Update the fund task.
-
-        ---
-        tags:
-          - "funds"
-        summary: "Update the fund task."
-        description: "Update the fund task."
-        consumes:
-          - application/json
-          - text/yaml
-        parameters:
-          - name: "task_id"
-            in: "path"
-            description: "Fund task ID."
-            required: true
-            type: "integer"
-          - in: body
-            name: fundTask
-            description: "Fund task."
-            schema:
-              $ref: "#/definitions/FundTask"
-        produces:
-          - "application/json"
-        responses:
-          200:
-            description: "successful operation"
-            schema:
-              $ref: "#/definitions/FundTask"
-          401:
-            $ref: "#/responses/Unauthorized"
-          403:
-            $ref: "#/responses/AccessDenied"
-          404:
-            $ref: "#/responses/NotFound"
-        """
-        return self.handle_fund_task(task_id)
-
-    def patch(self, task_id):
-        """Update the fund task.
-
-        ---
-        tags:
-          - "funds"
-        summary: "Update the fund task."
-        description: "Update the fund task."
-        consumes:
-          - application/json
-          - text/yaml
         parameters:
           - name: "task_id"
             in: "path"
@@ -1739,7 +1679,6 @@ def orcid_proxy(version, orcid, rest=None):
     proxy_headers = [(h, v) for h, v in resp.raw.headers.items() if h not in [
         "Transfer-Encoding",
     ]]
-    # import pdb; pdb.set_trace()
     proxy_resp = Response(
         stream_with_context(generate()), headers=proxy_headers, status=resp.status_code)
     return proxy_resp
