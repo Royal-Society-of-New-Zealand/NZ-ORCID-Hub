@@ -20,8 +20,8 @@ from yaml.representer import SafeRepresenter
 
 from . import api, app, db, models, oauth
 from .login_provider import roles_required
-from .models import (ORCID_ID_REGEX, AffiliationRecord, Client, OrcidToken, PartialDate, Role,
-                     Task, TaskType, User, UserOrg, validate_orcid_id)
+from .models import (ORCID_ID_REGEX, AffiliationRecord, Client, FundingRecord, OrcidToken,
+                     PartialDate, Role, Task, TaskType, User, UserOrg, validate_orcid_id)
 from .schemas import affiliation_task_schema
 from .utils import is_valid_url, register_orcid_webhook
 
@@ -154,13 +154,25 @@ class TaskResource(AppResource):
         """Do some pre-handling..."""
         parser = reqparse.RequestParser()
         parser.add_argument(
-            "type", type=str, help="Task type: " + ", ".join(self.available_task_types))
-        parser.add_argument(
-            "filename", type=str, help="Filename of the task.")
-        parsed_args = parser.parse_args()
-        task_type = parsed_args.get("type")
-        self.filename = parsed_args.get("filename")
-        self.task_type = None if task_type is None else TaskType[task_type]
+            "type", type=str, required=False,
+            help="Task type: " + ", ".join(self.available_task_types))
+        parser.add_argument("filename", type=str, help="Filename of the task.")
+        # TODO: fix Flask-Restful
+        try:
+            parsed_args = parser.parse_args()
+            task_type = parsed_args.get("type")
+            if task_type:
+                task_type = task_type.upper()
+            filename = parsed_args.get("filename")
+        # TODO: fix Flask-Restful
+        # TODO: Remove when the fix gets merged in
+        except ValueError:
+            filename, task_type = request.args.get("filename"), None
+        self.filename = filename
+        if task_type and any(task_type == t.name for t in TaskType):
+            self.task_type = TaskType[task_type]
+        else:
+            self.task_type = None
         return super().dispatch_request(*args, **kwargs)
 
     def jsonify_task(self, task):
@@ -178,16 +190,18 @@ class TaskResource(AppResource):
                 recurse=False,
                 to_dashes=True,
                 exclude=[Task.created_by, Task.updated_by, Task.org, Task.task_type])
-            task_dict["task-type"] = TaskType(task.task_type).name
-            if TaskType(task.task_type) == TaskType.AFFILIATION:
-                # import pdb; pdb.set_trace()
+            task_type = TaskType(task.task_type)
+            task_dict["task-type"] = task_type.name
+            if task_type == TaskType.AFFILIATION:
                 records = task.affiliation_records
+                task_dict["records"] = [
+                    r.to_dict(to_dashes=True, recurse=False, exclude=[AffiliationRecord.task])
+                    for r in records
+                ]
             else:
                 records = task.funding_records
-            task_dict["records"] = [
-                r.to_dict(to_dashes=True, recurse=False, exclude=[AffiliationRecord.task])
-                for r in records
-            ]
+                task_dict["records"] = [r.to_export_dict() for r in records]
+
             resp = jsonify(task_dict)
         else:
             resp = jsonify({"updated-at": task.updated_at})
@@ -260,7 +274,6 @@ class TaskResource(AppResource):
                     else:
                         rec = AffiliationRecord(task=task)
 
-                    # import pdb; pdb.set_trace()
                     for k, v in row.items():
                         if k == "id":
                             continue
@@ -275,6 +288,30 @@ class TaskResource(AppResource):
                 db.rollback()
                 app.logger.exception("Failed to hadle affiliation API request.")
                 return jsonify({"error": "Unhandled except occured.", "exception": str(ex)}), 400
+
+        return self.jsonify_task(task)
+
+    def handle_fund_task(self, task_id=None):
+        """Handle PUT, POST, or PATCH request. Request body expected to be encoded in JSON."""
+        try:
+            login_user(request.oauth.user)
+            if task_id:
+                try:
+                    task = Task.get(id=task_id)
+                    if not self.filename:
+                        self.filename = task.filename
+                except Task.DoesNotExist:
+                    return jsonify({"error": "The task doesn't exist."}), 404
+                if task.created_by != current_user:
+                    return jsonify({"error": "Access denied."}), 403
+            else:
+                task = None
+            task = FundingRecord.load_from_json(
+                request.data.decode("utf-8"), filename=self.filename, task=task)
+        except Exception as ex:
+            db.rollback()
+            app.logger.exception("Failed to hadle affiliation API request.")
+            return jsonify({"error": "Unhandled except occured.", "exception": str(ex)}), 400
 
         return self.jsonify_task(task)
 
@@ -308,6 +345,8 @@ class TaskList(TaskResource, AppResourceList):
                 enum:
                 - AFFILIATION
                 - FUNDING
+                - PEER_REVIEW
+                - WORK
               created-at:
                 type: string
                 format: date-time
@@ -321,11 +360,13 @@ class TaskList(TaskResource, AppResourceList):
           - name: "type"
             in: "query"
             required: false
-            description: "The task type: AFFILIATION, FUNDING."
+            description: "The task type: AFFILIATION, FUNDING, etc."
             type: "string"
             enum:
               - AFFILIATION
               - FUNDING
+              - PEER_REVIEW
+              - WORK
           - in: query
             name: page
             description: The number of the page of retrievd data starting counting from 1
@@ -345,13 +386,19 @@ class TaskList(TaskResource, AppResourceList):
               type: array
               items:
                 $ref: "#/definitions/Task"
+          401:
+            $ref: "#/responses/Unauthorized"
           403:
-            description: "Access Denied"
+            $ref: "#/responses/AccessDenied"
+          404:
+            $ref: "#/responses/NotFound"
         """
         login_user(request.oauth.user)
-        return self.api_response(
-            Task.select().where(Task.org_id == current_user.organisation_id),
-            exclude=[Task.created_by, Task.updated_by, Task.org])
+        query = Task.select().where(Task.org_id == current_user.organisation_id)
+        task_type = request.args.get("type")
+        if task_type:
+            query = query.where(Task.task_type == TaskType[task_type.upper()].value)
+        return self.api_response(query, exclude=[Task.created_by, Task.updated_by, Task.org])
 
 
 class AffiliationListAPI(TaskResource):
@@ -387,8 +434,12 @@ class AffiliationListAPI(TaskResource):
             description: "successful operation"
             schema:
               $ref: "#/definitions/AffiliationTask"
+          401:
+            $ref: "#/responses/Unauthorized"
           403:
-            description: "Access Denied"
+            $ref: "#/responses/AccessDenied"
+          404:
+            $ref: "#/responses/NotFound"
         definitions:
         - schema:
             id: AffiliationTask
@@ -506,8 +557,12 @@ class AffiliationAPI(TaskResource):
             description: "successful operation"
             schema:
               $ref: "#/definitions/AffiliationTask"
+          401:
+            $ref: "#/responses/Unauthorized"
           403:
-            description: "Access Denied"
+            $ref: "#/responses/AccessDenied"
+          404:
+            $ref: "#/responses/NotFound"
         """
         return self.jsonify_task(task_id)
 
@@ -541,8 +596,12 @@ class AffiliationAPI(TaskResource):
             description: "successful operation"
             schema:
               $ref: "#/definitions/AffiliationTask"
+          401:
+            $ref: "#/responses/Unauthorized"
           403:
-            description: "Access Denied"
+            $ref: "#/responses/AccessDenied"
+          404:
+            $ref: "#/responses/NotFound"
         """
         return self.handle_affiliation_task(task_id)
 
@@ -575,8 +634,12 @@ class AffiliationAPI(TaskResource):
             description: "successful operation"
             schema:
               $ref: "#/definitions/AffiliationTask"
+          401:
+            $ref: "#/responses/Unauthorized"
           403:
-            description: "Access Denied"
+            $ref: "#/responses/AccessDenied"
+          404:
+            $ref: "#/responses/NotFound"
         """
         return self.handle_affiliation_task(task_id)
 
@@ -609,8 +672,12 @@ class AffiliationAPI(TaskResource):
             description: "successful operation"
             schema:
               $ref: "#/definitions/AffiliationTask"
+          401:
+            $ref: "#/responses/Unauthorized"
           403:
-            description: "Access Denied"
+            $ref: "#/responses/AccessDenied"
+          404:
+            $ref: "#/responses/NotFound"
         """
         return self.handle_affiliation_task(task_id)
 
@@ -633,8 +700,12 @@ class AffiliationAPI(TaskResource):
         responses:
           200:
             description: "Successful operation"
+          401:
+            $ref: "#/responses/Unauthorized"
           403:
-            description: "Access Denied"
+            $ref: "#/responses/AccessDenied"
+          404:
+            $ref: "#/responses/NotFound"
         """
         return self.delete_task(task_id)
 
@@ -657,8 +728,12 @@ class AffiliationAPI(TaskResource):
         responses:
           200:
             description: "Successful operation"
+          401:
+            $ref: "#/responses/Unauthorized"
           403:
-            description: "Access Denied"
+            $ref: "#/responses/AccessDenied"
+          404:
+            $ref: "#/responses/NotFound"
         """
         return self.jsonify_task(task_id)
 
@@ -666,6 +741,217 @@ class AffiliationAPI(TaskResource):
 api.add_resource(TaskList, "/api/v1.0/tasks")
 api.add_resource(AffiliationListAPI, "/api/v1.0/affiliations")
 api.add_resource(AffiliationAPI, "/api/v1.0/affiliations/<int:task_id>")
+
+
+class FundListAPI(TaskResource):
+    """Fund list API."""
+
+    def post(self, *args, **kwargs):
+        """Upload the fund task.
+
+        ---
+        tags:
+          - "funds"
+        summary: "Post the fund list task."
+        description: "Post the fund list task."
+        consumes:
+        - application/json
+        - text/csv
+        - text/yaml
+        produces:
+        - application/json
+        parameters:
+        - name: "filename"
+          required: false
+          in: "query"
+          description: "The batch process filename."
+          type: "string"
+        - name: body
+          in: body
+          description: "Fund task."
+          schema:
+            $ref: "#/definitions/FundTask"
+        responses:
+          200:
+            description: "successful operation"
+            schema:
+              $ref: "#/definitions/FundTask"
+          401:
+            $ref: "#/responses/Unauthorized"
+          403:
+            $ref: "#/responses/AccessDenied"
+          404:
+            $ref: "#/responses/NotFound"
+        definitions:
+        - schema:
+            id: FundTask
+            properties:
+              id:
+                type: integer
+                format: int64
+              filename:
+                type: string
+              task-type:
+                type: string
+                enum:
+                - fund
+                - FUNDING
+              created-at:
+                type: string
+                format: date-time
+              expires-at:
+                type: string
+                format: date-time
+              completed-at:
+                type: string
+                format: date-time
+              records:
+                type: array
+                items:
+                  $ref: "#/definitions/FundTaskRecord"
+        - schema:
+            id: FundTaskRecord
+            type: object
+        """
+        login_user(request.oauth.user)
+        if request.content_type in ["text/csv", "text/tsv"]:
+            task = FundingRecord.load_from_csv(request.data.decode("utf-8"), filename=self.filename)
+            return self.jsonify_task(task)
+        return self.handle_fund_task()
+
+
+class FundAPI(TaskResource):
+    """Fund task services."""
+
+    def get(self, task_id):
+        """
+        Retrieve the specified fund task.
+
+        ---
+        tags:
+          - "funds"
+        summary: "Retrieve the specified fund task."
+        description: "Retrieve the specified fund task."
+        produces:
+          - "application/json"
+        parameters:
+          - name: "task_id"
+            required: true
+            in: "path"
+            description: "Fund task ID."
+            type: "integer"
+        responses:
+          200:
+            description: "successful operation"
+            schema:
+              $ref: "#/definitions/FundTask"
+          401:
+            $ref: "#/responses/Unauthorized"
+          403:
+            $ref: "#/responses/AccessDenied"
+          404:
+            $ref: "#/responses/NotFound"
+        """
+        return self.jsonify_task(task_id)
+
+    def post(self, task_id):
+        """Upload the task and completely override the fund task.
+
+        ---
+        tags:
+          - "funds"
+        summary: "Update the fund task."
+        description: "Update the fund task."
+        consumes:
+          - application/json
+          - text/yaml
+        definitions:
+        parameters:
+          - name: "task_id"
+            in: "path"
+            description: "Fund task ID."
+            required: true
+            type: "integer"
+          - in: body
+            name: fundTask
+            description: "Fund task."
+            schema:
+              $ref: "#/definitions/FundTask"
+        produces:
+          - "application/json"
+        responses:
+          200:
+            description: "successful operation"
+            schema:
+              $ref: "#/definitions/FundTask"
+          401:
+            $ref: "#/responses/Unauthorized"
+          403:
+            $ref: "#/responses/AccessDenied"
+          404:
+            $ref: "#/responses/NotFound"
+        """
+        return self.handle_fund_task(task_id)
+
+    def delete(self, task_id):
+        """Delete the specified fund task.
+
+        ---
+        tags:
+          - "funds"
+        summary: "Delete the specified fund task."
+        description: "Delete the specified fund task."
+        parameters:
+          - name: "task_id"
+            in: "path"
+            description: "Fund task ID."
+            required: true
+            type: "integer"
+        produces:
+          - "application/json"
+        responses:
+          200:
+            description: "Successful operation"
+          401:
+            $ref: "#/responses/Unauthorized"
+          403:
+            $ref: "#/responses/AccessDenied"
+          404:
+            $ref: "#/responses/NotFound"
+        """
+        return self.delete_task(task_id)
+
+    def head(self, task_id):
+        """Handle HEAD request.
+
+        ---
+        tags:
+          - "funds"
+        summary: "Return task update time-stamp."
+        description: "Return task update time-stamp."
+        parameters:
+          - name: "task_id"
+            in: "path"
+            description: "Fund task ID."
+            required: true
+            type: "integer"
+        produces:
+          - "application/json"
+        responses:
+          200:
+            description: "Successful operation"
+          401:
+            $ref: "#/responses/Unauthorized"
+          403:
+            $ref: "#/responses/AccessDenied"
+          404:
+            $ref: "#/responses/NotFound"
+        """
+        return self.jsonify_task(task_id)
+
+
+api.add_resource(FundListAPI, "/api/v1.0/funds")
+api.add_resource(FundAPI, "/api/v1.0/funds/<int:task_id>")
 
 
 class UserListAPI(AppResourceList):
@@ -723,8 +1009,12 @@ class UserListAPI(AppResourceList):
                     type: "string"
                   eppn:
                     type: "string"
+          401:
+            $ref: "#/responses/Unauthorized"
           403:
-            description: "Access Denied"
+            $ref: "#/responses/AccessDenied"
+          404:
+            $ref: "#/responses/NotFound"
           422:
             description: "Unprocessable Entity"
         """
@@ -866,10 +1156,12 @@ class TokenAPI(MethodView):
                   type: "integer"
           400:
             description: "Invalid identifier supplied"
+          401:
+            $ref: "#/responses/Unauthorized"
           403:
-            description: "Access Denied"
+            $ref: "#/responses/AccessDenied"
           404:
-            description: "User not found"
+            $ref: "#/responses/NotFound"
         """
         identifier = identifier.strip()
         if validators.email(identifier):
@@ -924,15 +1216,9 @@ def get_spec(app):
     swag["info"]["title"] = "ORCID HUB API"
     # swag["basePath"] = "/api/v1.0"
     swag["host"] = request.host  # "dev.orcidhub.org.nz"
-    swag["consumes"] = [
-        "application/json",
-    ]
-    swag["produces"] = [
-        "application/json",
-    ]
-    swag["schemes"] = [
-        request.scheme,
-    ]
+    swag["consumes"] = ["application/json"]
+    swag["produces"] = ["application/json"]
+    swag["schemes"] = [request.scheme]
     swag["securityDefinitions"] = {
         "application": {
             "type": "oauth2",
@@ -961,45 +1247,200 @@ def get_spec(app):
             },
         },
         {
+            "name": "funds",
+            "description": "Fund data management APIs",
+            "externalDocs": {
+                "url": "http://docs.orcidhub.org.nz/en/latest/writing_funding_items.html"
+            },
+        },
+        {
             "name": "orcid-proxy",
             "description": "ORCID API proxy",
             "externalDocs": {
                 "url": "https://api.sandbox.orcid.org"
             },
         },
+        {
+            "name": "webhooks",
+            "description": "ORCID Webhook management",
+            "externalDocs": {
+                "url": "https://members.orcid.org/api/tutorial/webhooks"
+            },
+        },
     ]
-    # Proxy:
-    swag["paths"]["/orcid/api/{version}/{orcid}/{path}"] = {
+    swag["parameters"] = {
+        "orcidParam": {
+            "in": "path",
+            "name": "orcid",
+            "required": True,
+            "type": "string",
+            "description": "User ORCID ID.",
+            "format": "^[0-9]{4}-?[0-9]{4}-?[0-9]{4}-?[0-9]{4}$",
+        },
+        "versionParam": {
+            "in": "path",
+            "name": "version",
+            "required": True,
+            "description": "ORCID API version",
+            "type": "string",
+            "enum": [
+                "v2.0",
+                "v2.1",
+                "v3.0_rc1",
+                "v3.0_rc2s",
+                "v3.0",
+            ],
+        },
+        "pathParam": {
+            "in": "path",
+            "name": "path",
+            "required": True,
+            "type": "string",
+            "description": "The rest of the ORCID API entry point URL.",
+        },
+    }
+    # Common responses:
+    swag["responses"] = {
+            "AccessDenied": {
+                "description": "Access Denied",
+                "schema": {"$ref": "#/definitions/Error"}
+            },
+            "Unauthorized": {
+                "description": "Unauthorized",
+                "schema": {"$ref": "#/definitions/Error"}
+            },
+            "NotFound": {
+                "description": "The specified resource was not found",
+                "schema": {"$ref": "#/definitions/Error"}
+            },
+    }
+    swag["definitions"]["Error"] = {
+        "properties": {
+            "error": {
+                "type": "string",
+                "description": "Error type/name."
+            },
+            "message": {
+                "type": "string",
+                "description": "Error details explaining message."
+            },
+        }
+    }
+    # Webhooks:
+    swag["paths"]["/api/v1.0/{orcid}/webhook"] = {
         "parameters": [
             {
-                "name": "orcid",
-                "in": "path",
-                "required": True,
-                "type": "string",
-                "description": "User ORCID ID.",
-                "format": "^[0-9]{4}-?[0-9]{4}-?[0-9]{4}-?[0-9]{4}$",
+                "$ref": "#/parameters/orcidParam"
+            },
+        ],
+        "put": {
+            "tags": ["webhooks"],
+            "responses": {
+                "$ref": "#/paths/~1api~1v1.0~1{orcid}~1webhook~1{callback_url}/put/responses"
+            },
+        },
+        "delete": {
+            "tags": ["webhooks"],
+            "responses": {
+                "$ref": "#/paths/~1api~1v1.0~1{orcid}~1webhook~1{callback_url}/delete/responses"
+            }
+        }
+    }
+    swag["paths"]["/api/v1.0/{orcid}/webhook/{callback_url}"] = {
+        "parameters": [
+            {
+                "$ref": "#/parameters/orcidParam"
             },
             {
-                "name": "version",
                 "in": "path",
-                "required": True,
-                "description": "ORCID API version",
-                "type": "string",
-                "enum": [
-                    "v2.0",
-                    "v2.1",
-                    "v3.0_rc1",
-                    "v3.0_rc2s",
-                    "v3.0",
-                ],
-            },
-            {
-                "name": "path",
-                "in": "path",
+                "name": "callback_url",
                 "required": False,
                 "type": "string",
-                "description": "The rest of the ORCID API entry point URL.",
+                "description": ("The call-back URL that will receive a POST request "
+                                "when an update of a ORCID profile occurs."),
             },
+        ],
+        "put": {
+            "tags": ["webhooks"],
+            "responses": {
+                "201": {
+                    "description": "A webhoook successfully set up.",
+                },
+                "415": {
+                    "description": "Invalid call-back URL or missing ORCID iD.",
+                    "schema": {
+                        "$rer": "#/definitions/Error"
+                    },
+                },
+                "404": {
+                    "description": "Invalid ORCID iD.",
+                    "schema": {
+                        "$rer": "#/definitions/Error"
+                    },
+                },
+            },
+        },
+        "delete": {
+            "tags": ["webhooks"],
+            "responses": {
+                "204": {
+                    "description": "A webhoook successfully unregistered.",
+                },
+                "415": {
+                    "description": "Invalid call-back URL or missing ORCID iD.",
+                    "schema": {
+                        "$rer": "#/definitions/Error"
+                    },
+                },
+                "404": {
+                    "description": "Invalid ORCID iD.",
+                    "schema": {
+                        "$rer": "#/definitions/Error"
+                    },
+                },
+            }
+        }
+    }
+    # Proxy:
+    swag["paths"]["/orcid/api/{version}/{orcid}"] = {
+        "parameters": [
+            {"$ref": "#/parameters/versionParam"},
+            {"$ref": "#/parameters/orcidParam"},
+        ],
+        "get": {
+            "tags": ["orcid-proxy"],
+            "produces": [
+                "application/vnd.orcid+xml; qs=5", "application/orcid+xml; qs=3",
+                "application/xml", "application/vnd.orcid+json; qs=4",
+                "application/orcid+json; qs=2", "application/json"
+            ],
+            "responses": {
+                "200": {
+                    "description": "Successful operation",
+                    "schema": {
+                        "type": "object"
+                    }
+                },
+                "403": {
+                    "description": "The user hasn't granted acceess to the profile.",
+                    "schema": {"$ref": "#/definitions/Error"}
+                },
+                "404": {
+                    "description": "Resource not found",
+                    "schema": {"$ref": "#/definitions/Error"}
+                },
+                "415": {
+                    "description": "Missing or invalid ORCID iD.",
+                    "schema": {"$ref": "#/definitions/Error"}
+                },
+            },
+        },
+    }
+    swag["paths"]["/orcid/api/{version}/{orcid}/{path}"] = {
+        "parameters": [
+            {"$ref": "#/parameters/versionParam"},
+            {"$ref": "#/parameters/orcidParam"},
+            {"$ref": "#/parameters/pathParam"},
         ],
         "delete": {
             "tags": ["orcid-proxy"],
@@ -1016,13 +1457,16 @@ def get_spec(app):
                     }
                 },
                 "403": {
-                    "description": "The user hasn't granted acceess to the profile."
+                    "description": "The user hasn't granted acceess to the profile.",
+                    "schema": {"$ref": "#/definitions/Error"}
                 },
                 "404": {
-                    "description": "Resource not found"
+                    "description": "Resource not found",
+                    "schema": {"$ref": "#/definitions/Error"}
                 },
                 "415": {
-                    "description": "Missing or invalid ORCID iD."
+                    "description": "Missing or invalid ORCID iD.",
+                    "schema": {"$ref": "#/definitions/Error"}
                 },
             },
         },
@@ -1041,13 +1485,16 @@ def get_spec(app):
                     }
                 },
                 "403": {
-                    "description": "The user hasn't granted acceess to the profile."
+                    "description": "The user hasn't granted acceess to the profile.",
+                    "schema": {"$ref": "#/definitions/Error"}
                 },
                 "404": {
-                    "description": "Resource not found"
+                    "description": "Resource not found",
+                    "schema": {"$ref": "#/definitions/Error"}
                 },
                 "415": {
-                    "description": "Missing or invalid ORCID iD."
+                    "description": "Missing or invalid ORCID iD.",
+                    "schema": {"$ref": "#/definitions/Error"}
                 },
             },
         },
@@ -1079,13 +1526,16 @@ def get_spec(app):
                     }
                 },
                 "403": {
-                    "description": "The user hasn't granted acceess to the profile."
+                    "description": "The user hasn't granted acceess to the profile.",
+                    "schema": {"$ref": "#/definitions/Error"}
                 },
                 "404": {
-                    "description": "Resource not found"
+                    "description": "Resource not found",
+                    "schema": {"$ref": "#/definitions/Error"}
                 },
                 "415": {
-                    "description": "Missing or invalid ORCID iD."
+                    "description": "Missing or invalid ORCID iD.",
+                    "schema": {"$ref": "#/definitions/Error"}
                 },
             },
         },
@@ -1112,13 +1562,16 @@ def get_spec(app):
                     }
                 },
                 "403": {
-                    "description": "The user hasn't granted acceess to the profile."
+                    "description": "The user hasn't granted acceess to the profile.",
+                    "schema": {"$ref": "#/definitions/Error"}
                 },
                 "404": {
-                    "description": "Resource not found"
+                    "description": "Resource not found",
+                    "schema": {"$ref": "#/definitions/Error"}
                 },
                 "415": {
-                    "description": "Missing or invalid ORCID iD."
+                    "description": "Missing or invalid ORCID iD.",
+                    "schema": {"$ref": "#/definitions/Error"}
                 },
             }
         }
@@ -1207,7 +1660,8 @@ def orcid_proxy(version, orcid, rest=None):
     }
     headers["Authorization"] = f"Bearer {token.access_token}"
     url = f"{orcid_api_host_url}{version}/{orcid}"
-    if rest:
+    # Swagger-UI sets 'path' to 'undefined':
+    if rest and rest != "undefined":
         url += '/' + rest
 
     proxy_req = requests.Request(
@@ -1225,12 +1679,12 @@ def orcid_proxy(version, orcid, rest=None):
     proxy_headers = [(h, v) for h, v in resp.raw.headers.items() if h not in [
         "Transfer-Encoding",
     ]]
-    # import pdb; pdb.set_trace()
     proxy_resp = Response(
         stream_with_context(generate()), headers=proxy_headers, status=resp.status_code)
     return proxy_resp
 
 
+@app.route("/api/v1.0/<string:orcid>/webhook", methods=["PUT", "DELETE"])
 @app.route("/api/v1.0/<string:orcid>/webhook/<path:callback_url>", methods=["PUT", "DELETE"])
 @oauth.require_oauth()
 def register_webhook(orcid, callback_url=None):
@@ -1241,12 +1695,15 @@ def register_webhook(orcid, callback_url=None):
         validate_orcid_id(orcid)
     except Exception as ex:
         return jsonify({"error": "Missing or invalid ORCID iD.", "message": str(ex)}), 415
-    callback_url = unquote(callback_url)
-    if not is_valid_url(callback_url):
-        return jsonify({
-            "error": "Invalid call-back URL",
-            "message": f"Invalid call-back URL: {callback_url}"
-        }), 415
+    if callback_url == "undefined":
+        callback_url = None
+    if callback_url:
+        callback_url = unquote(callback_url)
+        if not is_valid_url(callback_url):
+            return jsonify({
+                "error": "Invalid call-back URL",
+                "message": f"Invalid call-back URL: {callback_url}"
+            }), 415
 
     try:
         user = User.get(orcid=orcid)
@@ -1257,8 +1714,8 @@ def register_webhook(orcid, callback_url=None):
         }), 404
 
     orcid_resp = register_orcid_webhook(user, callback_url, delete=request.method == "DELETE")
-    resp = make_response('', orcid_resp.status_code)
-    if "Location" in orcid_resp.headers:
+    resp = make_response('', orcid_resp.status_code if orcid_resp else 204)
+    if orcid_resp and "Location" in orcid_resp.headers:
         resp.headers["Location"] = orcid_resp.headers["Location"]
 
     return resp

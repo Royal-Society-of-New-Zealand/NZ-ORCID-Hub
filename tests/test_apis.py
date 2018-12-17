@@ -5,6 +5,7 @@ import copy
 import json
 import yaml
 from datetime import datetime
+from io import BytesIO
 
 import pytest
 from flask import url_for
@@ -419,6 +420,17 @@ def test_affiliation_api(client):
     tasks = json.loads(resp.data)
     assert tasks[0]["id"] == task_id
 
+    resp = client.get(
+        "/api/v1.0/tasks?type=AFFILIATION", headers=dict(authorization=f"Bearer {access_token}"))
+    tasks = json.loads(resp.data)
+    assert tasks[0]["id"] == task_id
+
+    resp = client.get(
+        "/api/v1.0/tasks?type=AFFILIATION&page=1&page_size=20",
+        headers=dict(authorization=f"Bearer {access_token}"))
+    tasks = json.loads(resp.data)
+    assert tasks[0]["id"] == task_id
+
     task_copy = copy.deepcopy(data)
     del(task_copy["id"])
     task_copy["filename"] = "TASK-COPY.csv"
@@ -730,6 +742,94 @@ something fishy is going here...
     data = resp.get_json()
     assert data["error"] == "Ivalid request format. Only JSON, CSV, or TSV are acceptable."
     assert "something fishy is going here..." in data["message"]
+
+
+def test_funding_api(client):
+    """Test funding API in various formats."""
+    admin = client.data.get("admin")
+    resp = client.login(admin, follow_redirects=True)
+    resp = client.post(
+        "/load/researcher/funding",
+        data={
+            "file_": (
+                BytesIO(
+                    """Put Code,Title,Translated Title,Translated Title Language Code,Type,Organization Defined Type,Short Description,Amount,Currency,Start Date,End Date,Org Name,City,Region,Country,Disambiguated Org Identifier,Disambiguation Source,Visibility,ORCID iD,Email,First Name,Last Name,Name,Role,External Id Type,External Id Value,External Id Url,External Id Relationship,Identifier
+,This is the project title,,,CONTRACT,Fast-Start,This is the project abstract,300000,NZD,2018,2021,Marsden Fund,Wellington,,NZ,http://dx.doi.org/10.13039/501100009193,FUNDREF,,0000-0002-9207-4933,,,,Associate Professor A Contributor 1,lead,grant_number,XXX1701,,SELF,
+,This is the project title,,,CONTRACT,Fast-Start,This is the project abstract,300000,NZD,2018,2021,Marsden Fund,Wellington,,NZ,http://dx.doi.org/10.13039/501100009193,FUNDREF,,,,,,Dr B Contributor 2,co_lead,grant_number,XXX1701,,SELF,
+,This is the project title,,,CONTRACT,Fast-Start,This is the project abstract,300000,NZD,2018,2021,Marsden Fund,Wellington,,NZ,http://dx.doi.org/10.13039/501100009193,FUNDREF,,,,,,Dr E Contributor 3,,grant_number,XXX1701,,SELF,
+,This is the project title,,,CONTRACT,Fast-Start,This is the project abstract,300000,NZD,2018,2021,Marsden Fund,Wellington,,NZ,http://dx.doi.org/10.13039/501100009193,FUNDREF,,,contributor@test.eud,FN,LN,Dr E Contributor 4,,grant_number,XXX1701,,SELF,
+,This is another project title,,,CONTRACT,Standard,This is another project abstract,800000,NZD,2018,2021,Marsden Fund,Wellington,,NZ,http://dx.doi.org/10.13039/501100009193,FUNDREF,,,contributor4@mailinator.com,,,Associate Professor F Contributor 4,lead,grant_number,XXX1702,,SELF,9999
+,This is another project title,,,CONTRACT,Standard,This is another project abstract,800000,NZD,2018,2021,Marsden Fund,Wellington,,NZ,http://dx.doi.org/10.13039/501100009193,FUNDREF,,,contributor5@mailinator.com,John,Doe,,co_lead,grant_number,XXX1702,,SELF,8888 """.encode()  # noqa: E501
+                ),  # noqa: E501
+                "fundings042.csv",
+            ),
+        },
+        follow_redirects=True)
+    assert resp.status_code == 200
+    assert Task.select().count() == 1
+
+    # TODO: factor it out
+    resp = client.post(
+        "/oauth/token",
+        content_type="application/x-www-form-urlencoded",
+        data=b"grant_type=client_credentials&client_id=CLIENT_ID&client_secret=CLIENT_SECRET")
+    data = json.loads(resp.data)
+    access_token = data["access_token"]
+
+    resp = client.get(
+        "/api/v1.0/tasks?type=FUNDING",
+        headers=dict(authorization=f"Bearer {access_token}"))
+    data = json.loads(resp.data)
+    task_id = int(data[0]["id"])
+
+    resp = client.get(
+        f"/api/v1.0/funds/{task_id}",
+        headers=dict(authorization=f"Bearer {access_token}"))
+    data = json.loads(resp.data)
+    assert len(data["records"]) == 2
+    assert data["filename"] == "fundings042.csv"
+
+    resp = client.post(
+        "/api/v1.0/funds/?filename=fundings333.json",
+        headers=dict(authorization=f"Bearer {access_token}"),
+        content_type="application/json",
+        data=json.dumps(data))
+    assert resp.status_code == 200
+    assert Task.select().count() == 2
+
+    records = data["records"]
+    resp = client.post(
+        "/api/v1.0/funds/?filename=fundings444.json",
+        headers=dict(authorization=f"Bearer {access_token}"),
+        content_type="application/json",
+        data=json.dumps(records))
+    assert resp.status_code == 200
+    assert Task.select().count() == 3
+
+    resp = client.post(
+        f"/api/v1.0/funds/{task_id}",
+        headers=dict(authorization=f"Bearer {access_token}"),
+        content_type="application/json",
+        data=json.dumps(records))
+    assert resp.status_code == 200
+    assert Task.select().count() == 3
+
+    resp = client.head(
+        f"/api/v1.0/funds/{task_id}",
+        headers=dict(authorization=f"Bearer {access_token}"))
+    assert "Last-Modified" in resp.headers
+    assert resp.status_code == 200
+
+    resp = client.delete(
+        f"/api/v1.0/funds/{task_id}",
+        headers=dict(authorization=f"Bearer {access_token}"))
+    assert resp.status_code == 200
+    assert Task.select().count() == 2
+
+    resp = client.head(
+        f"/api/v1.0/funds/{task_id}",
+        headers=dict(authorization=f"Bearer {access_token}"))
+    assert resp.status_code == 404
 
 
 def test_proxy_get_profile(app_req_ctx):
