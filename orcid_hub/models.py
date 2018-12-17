@@ -731,13 +731,13 @@ class User(BaseModel, UserMixin, AuditMixin):
             return Affiliation.NONE
 
     def is_tech_contact_of(self, org=None):
-        """Indicates if the user is the technical contact of the organisation."""
+        """Indicate if the user is the technical contact of the organisation."""
         if org is None:
             org = self.organisation
         return org and org.tech_contact and org.tech_contact_id == self.id
 
     def is_admin_of(self, org=None):
-        """Indicates if the user is the technical contact of the organisation."""
+        """Indicate if the user is the technical contact of the organisation."""
         if org is None:
             org = self.organisation
         return org and UserOrg.select().where(UserOrg.user == self, UserOrg.org == org, UserOrg.is_admin).exists()
