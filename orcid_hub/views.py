@@ -34,6 +34,7 @@ from flask_rq2.job import FlaskJob
 from orcid_api.rest import ApiException
 
 from . import admin, app, limiter, models, orcid_client, rq, utils
+from .apis import yamlfy
 from .forms import (ApplicationFrom, BitmapMultipleValueField, CredentialForm, EmailTemplateForm,
                     FileUploadForm, FundingForm, GroupIdForm, LogoForm, OrgRegistrationForm, PartialDateField,
                     PeerReviewForm, ProfileSyncForm, RecordForm, UserInvitationForm, WebhookForm, WorkForm)
@@ -1453,6 +1454,50 @@ class AffiliationRecordAdmin(RecordModelView):
         "is_active",
     )
 
+    @expose("/export/<export_type>/")
+    def export(self, export_type):
+        """Check the export type whether it is csv, tsv or other format."""
+        if export_type not in ["json", "yaml", "yml"]:
+            return super().export(export_type)
+        return_url = get_redirect_target() or self.get_url(".index_view")
+
+        task_id = request.args.get("task_id")
+        if not task_id:
+            flash("Missing task ID.", "danger")
+            return redirect(return_url)
+
+        try:
+            data = Task.get(int(task_id)).to_dict(
+                to_dashes=True,
+                exclude_nulls=True,
+                recurse=False,
+                only=[Task.filename, Task.task_type, Task.created_at, Task.updated_at])
+        except Exception as ex:
+            flash(ex, "danger")
+            return redirect(return_url)
+
+        _, records = self._export_data()
+        data["records"] = [
+            r.to_dict(
+                to_dashes=True,
+                exclude_nulls=True,
+                recurse=False,
+                exclude=[self.model.task_id, self.model.id]) for r in records
+        ]
+
+        if not self.can_export or (export_type not in self.export_types):
+            flash("Permission denied.", "danger")
+            return redirect(return_url)
+
+        if export_type == "json":
+            resp = jsonify(data)
+        else:
+            resp = yamlfy(data)
+
+        resp.headers[
+            "Content-Disposition"] = f"attachment;filename={secure_filename(self.get_export_name(export_type))}"
+        return resp
+
 
 class ViewMembersAdmin(AppModelView):
     """Organisation member model (User beloging to the current org.admin oganisation) view."""
@@ -1517,13 +1562,13 @@ class ViewMembersAdmin(AppModelView):
                         token=token.access_token))
 
                 if resp.status_code != 200:
-                    flash("Failed to revoke token {token.access_token}: {ex}", "error")
+                    flash("Failed to revoke token {token.access_token}: {ex}", "danger")
                     return False
 
                 token.delete_instance(recursive=True)
 
             except Exception as ex:
-                flash(f"Failed to revoke token {token.access_token}: {ex}", "error")
+                flash(f"Failed to revoke token {token.access_token}: {ex}", "danger")
                 app.logger.exception('Failed to delete record.')
                 return False
 
@@ -1542,7 +1587,7 @@ class ViewMembersAdmin(AppModelView):
 
         except Exception as ex:
             if not self.handle_view_exception(ex):
-                flash(gettext('Failed to delete record. %(error)s', error=str(ex)), 'error')
+                flash(gettext('Failed to delete record. %(error)s', error=str(ex)), 'danger')
                 app.logger.exception('Failed to delete record.')
 
             return False
@@ -1567,7 +1612,7 @@ class ViewMembersAdmin(AppModelView):
                 flash(gettext('Record was successfully deleted.%(count)s records were successfully deleted.',
                               count=count), 'success')
         except Exception as ex:
-            flash(gettext('Failed to delete records. %(error)s', error=str(ex)), 'error')
+            flash(gettext('Failed to delete records. %(error)s', error=str(ex)), 'danger')
 
 
 class GroupIdRecordAdmin(AppModelView):
@@ -3153,13 +3198,13 @@ def remove_linkage():
                     token=token.access_token))
 
             if resp.status_code != 200:
-                flash("Failed to revoke token {token.access_token}: {ex}", "error")
+                flash("Failed to revoke token {token.access_token}: {ex}", "danger")
                 return redirect(_url)
 
             token.delete_instance()
 
         except Exception as ex:
-            flash(f"Failed to revoke token {token.access_token}: {ex}", "error")
+            flash(f"Failed to revoke token {token.access_token}: {ex}", "danger")
             app.logger.exception('Failed to delete record.')
             return redirect(_url)
     # Check if the User is Admin for other organisation or has given permissions to other organisations.
