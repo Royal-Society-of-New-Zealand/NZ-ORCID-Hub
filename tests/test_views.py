@@ -1370,6 +1370,20 @@ Rad,Cirskis,researcher.990@mailinator.com,Student
 
     # Exporting:
     for export_type in ["csv", "xls", "tsv", "yaml", "json", "xlsx", "ods", "html"]:
+        # Missing ID:
+        resp = client.get(f"/admin/affiliationrecord/export/{export_type}", follow_redirects=True)
+        assert b"Cannot invoke the task view without task ID" in resp.data
+
+        # Non-existing task:
+        resp = client.get(f"/admin/affiliationrecord/export/{export_type}/?task_id=9999999")
+        assert b"The task deesn't exist." in resp.data
+
+        # Incorrect task ID:
+        resp = client.get(
+            f"/admin/affiliationrecord/export/{export_type}/?task_id=ERROR-9999999",
+            follow_redirects=True)
+        assert b"invalid" in resp.data
+
         resp = client.get(f"/admin/affiliationrecord/export/{export_type}/?task_id={task_id}")
         ct = resp.headers["Content-Type"]
         assert (export_type in ct or (export_type == "xls" and "application/vnd.ms-excel" == ct)

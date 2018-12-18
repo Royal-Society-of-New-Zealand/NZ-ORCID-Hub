@@ -618,6 +618,10 @@ class RecordModelView(AppModelView):
             flash("The task deesn't exist.", "danger")
             abort(404)
 
+        except ValueError as ex:
+            flash(str(ex), "danger")
+            return False
+
         return True
 
     def get_export_name(self, export_type='csv'):
@@ -1466,17 +1470,14 @@ class AffiliationRecordAdmin(RecordModelView):
             flash("Missing task ID.", "danger")
             return redirect(return_url)
 
-        try:
-            data = Task.get(int(task_id)).to_dict(
-                to_dashes=True,
-                exclude_nulls=True,
-                recurse=False,
-                only=[Task.filename, Task.task_type, Task.created_at, Task.updated_at])
-        except Exception as ex:
-            flash(ex, "danger")
-            return redirect(return_url)
+        data = Task.get(int(task_id)).to_dict(
+            to_dashes=True,
+            exclude_nulls=True,
+            recurse=False,
+            only=[Task.filename, Task.task_type, Task.created_at, Task.updated_at])
 
-        _, records = self._export_data()
+        record_count, records = self._export_data()
+        data["count"] = record_count
         data["records"] = [
             r.to_dict(
                 to_dashes=True,
