@@ -4,6 +4,7 @@
 import copy
 import csv
 import json
+import jsonschema
 import os
 import random
 import re
@@ -33,6 +34,7 @@ from pykwalify.core import Core
 from pykwalify.errors import SchemaError
 
 from . import app, db
+from .schemas import affiliation_task_schema
 
 ENV = app.config["ENV"]
 DEFAULT_COUNTRY = app.config["DEFAULT_COUNTRY"]
@@ -1308,6 +1310,25 @@ class AffiliationRecord(RecordModel):
         ("orcid", "orcid.*"),
         ("external_id", "external.*|.*identifier"),
     ]
+
+    @classmethod
+    def load(cls, data):
+        jsonschema.validate(data, affiliation_task_schema)
+        if "id" in data:
+            task = Task.select().where(Task.id == data["id"])
+        with db.atomic():
+            try:
+                if not task:
+                    task = Task.create(filename=data.get("filename"), task_type=TaskType.AFFILIATION)
+                else:
+                    AffiliationRecord.delete().where(AffiliationRecord.task == task).execute()
+                for r in data.get("records"):
+                    rec = {k.replace("-", "_"): v for (k, v) in r.items()}
+                    AffiliationRecord.create(**rec)
+            except:
+                db.rollback()
+                app.logger.exception("Failed to load affiliation record task file.")
+                raise
 
 
 class TaskType(IntEnum):
