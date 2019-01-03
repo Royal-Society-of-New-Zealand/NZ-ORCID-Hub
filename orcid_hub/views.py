@@ -1470,26 +1470,11 @@ class AffiliationRecordAdmin(RecordModelView):
             flash("Missing task ID.", "danger")
             return redirect(return_url)
 
-        data = Task.get(int(task_id)).to_dict(
-            to_dashes=True,
-            exclude_nulls=True,
-            recurse=False,
-            only=[Task.filename, Task.task_type, Task.created_at, Task.updated_at])
-
-        record_count, records = self._export_data()
-        data["count"] = record_count
-        data["records"] = [
-            r.to_dict(
-                to_dashes=True,
-                exclude_nulls=True,
-                recurse=False,
-                exclude=[self.model.task_id, self.model.id]) for r in records
-        ]
-
         if not self.can_export or (export_type not in self.export_types):
             flash("Permission denied.", "danger")
             return redirect(return_url)
 
+        data = Task.get(int(task_id)).to_dict()
         if export_type == "json":
             resp = jsonify(data)
         else:

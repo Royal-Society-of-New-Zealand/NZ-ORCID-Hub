@@ -1131,21 +1131,16 @@ class Task(BaseModel, AuditMixin):
 
         return task
 
-    def jsonify_task(self):
+    def to_dict(self):
         """Create a dict represenatation of the task suitable for serialization into JSON or YAML."""
         # TODO: expand for the othe types of the tasks
         task_dict = super().to_dict(
             recurse=False,
             to_dashes=True,
-            exclude=[Task.created_by, Task.updated_by, Task.org, Task.task_type])
-        task_type = TaskType(self.task_type)
-        task_dict["task-type"] = task_type.name
-        if task_type == TaskType.AFFILIATION:
-            records = self.records
-            task_dict["records"] = [
-                r.to_dict(to_dashes=True, recurse=False, exclude=[AffiliationRecord.task])
-                for r in records
-            ]
+            only=[Task.filename, Task.task_type, Task.created_at, Task.updated_at])
+        task_dict["records"] = [
+            r.to_dict(to_dashes=True, recurse=False, exclude=[self._meta.fields["task"]])
+            for r in self.records]
         return task_dict
 
     class Meta:  # noqa: D101,D106
