@@ -20,8 +20,8 @@ from yaml.representer import SafeRepresenter
 
 from . import api, app, db, models, oauth
 from .login_provider import roles_required
-from .models import (ORCID_ID_REGEX, AffiliationRecord, Client, FundingRecord, OrcidToken,
-                     PartialDate, Role, Task, TaskType, User, UserOrg, validate_orcid_id)
+from .models import (ORCID_ID_REGEX, AffiliationRecord, Client, FundingRecord, OrcidToken, Role,
+                     Task, TaskType, User, UserOrg, validate_orcid_id)
 from .schemas import affiliation_task_schema
 from .utils import is_valid_url, register_orcid_webhook
 
@@ -186,23 +186,7 @@ class TaskResource(AppResource):
             if task.created_by != current_user:
                 return jsonify({"error": "Access denied."}), 403
         if request.method != "HEAD":
-            task_dict = task.to_dict(
-                recurse=False,
-                to_dashes=True,
-                exclude=[Task.created_by, Task.updated_by, Task.org, Task.task_type])
-            task_type = TaskType(task.task_type)
-            task_dict["task-type"] = task_type.name
-            if task_type == TaskType.AFFILIATION:
-                records = task.affiliation_records
-                task_dict["records"] = [
-                    r.to_dict(to_dashes=True, recurse=False, exclude=[AffiliationRecord.task])
-                    for r in records
-                ]
-            else:
-                records = task.funding_records
-                task_dict["records"] = [r.to_export_dict() for r in records]
-
-            resp = jsonify(task_dict)
+            resp = jsonify(task.to_dict())
         else:
             resp = jsonify({"updated-at": task.updated_at})
         resp.headers["Last-Modified"] = self.httpdate(task.updated_at or task.created_at)
@@ -251,43 +235,25 @@ class TaskResource(AppResource):
         if "records" not in data:
             return jsonify({"error": "Validation error.", "message": "Missing affiliation records."}), 422
 
-        with db.atomic():
+        filename = (data.get("filename") or self.filename or datetime.utcnow().isoformat(timespec="seconds"))
+        if task_id:
             try:
-                filename = (data.get("filename") or self.filename or datetime.utcnow().isoformat(timespec="seconds"))
-                if task_id:
-                    try:
-                        task = Task.get(id=task_id)
-                    except Task.DoesNotExist:
-                        return jsonify({"error": "The task doesn't exist."}), 404
-                    if task.created_by != current_user:
-                        return jsonify({"error": "Access denied."}), 403
-                else:
-                    task = Task.create(filename=filename, user=current_user, org=current_user.organisation)
-
-                if request.method == "POST" and task_id:
-                    AffiliationRecord.delete().where(AffiliationRecord.task_id == task_id).execute()
-
-                record_fields = AffiliationRecord._meta.fields.keys()
-                for row in data["records"]:
-                    if "id" in row and request.method in ["PUT", "PATCH"]:
-                        rec = AffiliationRecord.get(int(row["id"]))
-                    else:
-                        rec = AffiliationRecord(task=task)
-
-                    for k, v in row.items():
-                        if k == "id":
-                            continue
-                        k = k.replace('-', '_')
-                        if k in record_fields and rec._data.get(k) != v:
-                            rec._data[k] = PartialDate.create(v) if k.endswith("date") else v
-                            rec._dirty.add(k)
-                    if rec.is_dirty():
-                        rec.save()
-
-            except Exception as ex:
-                db.rollback()
-                app.logger.exception("Failed to hadle affiliation API request.")
-                return jsonify({"error": "Unhandled except occured.", "exception": str(ex)}), 400
+                task = Task.get(id=task_id)
+            except Task.DoesNotExist:
+                return jsonify({"error": "The task doesn't exist."}), 404
+            if task.created_by != current_user:
+                return jsonify({"error": "Access denied."}), 403
+        try:
+            task = AffiliationRecord.load(
+                data,
+                filename=filename,
+                task_id=task_id,
+                skip_schema_validation=True,
+                override=(request.method != "POST"))
+        except Exception as ex:
+            db.rollback()
+            app.logger.exception("Failed to hadle affiliation API request.")
+            return jsonify({"error": "Unhandled except occured.", "exception": str(ex)}), 400
 
         return self.jsonify_task(task)
 

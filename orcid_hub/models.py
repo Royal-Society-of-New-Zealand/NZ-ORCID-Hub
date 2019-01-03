@@ -1131,6 +1131,23 @@ class Task(BaseModel, AuditMixin):
 
         return task
 
+    def jsonify_task(self):
+        """Create a dict represenatation of the task suitable for serialization into JSON or YAML."""
+        # TODO: expand for the othe types of the tasks
+        task_dict = super().to_dict(
+            recurse=False,
+            to_dashes=True,
+            exclude=[Task.created_by, Task.updated_by, Task.org, Task.task_type])
+        task_type = TaskType(self.task_type)
+        task_dict["task-type"] = task_type.name
+        if task_type == TaskType.AFFILIATION:
+            records = self.records
+            task_dict["records"] = [
+                r.to_dict(to_dashes=True, recurse=False, exclude=[AffiliationRecord.task])
+                for r in records
+            ]
+        return task_dict
+
     class Meta:  # noqa: D101,D106
         table_alias = "t"
 
@@ -1312,23 +1329,44 @@ class AffiliationRecord(RecordModel):
     ]
 
     @classmethod
-    def load(cls, data):
-        jsonschema.validate(data, affiliation_task_schema)
-        if "id" in data:
-            task = Task.select().where(Task.id == data["id"])
+    def load(cls, data, task=None, task_id=None, filename=None, override=True,
+             skip_schema_validation=False):
+        """Load afffiliation record task form JSON/YAML. Data shoud be already deserialize."""
+        if not skip_schema_validation:
+            jsonschema.validate(data, affiliation_task_schema)
+        if not task and task_id:
+            task = Task.select().where(Task.id == task_id)
+        if not task and "id" in data:
+            task_id = int(data["id"])
+            task = Task.select().where(Task.id == task_id).first()
         with db.atomic():
             try:
                 if not task:
-                    task = Task.create(filename=data.get("filename"), task_type=TaskType.AFFILIATION)
-                else:
+                    filename = (filename or data.get("filename")
+                                or datetime.utcnow().isoformat(timespec="seconds"))
+                    task = Task.create(filename=filename, task_type=TaskType.AFFILIATION)
+                elif override:
                     AffiliationRecord.delete().where(AffiliationRecord.task == task).execute()
+                record_fields = AffiliationRecord._meta.fields.keys()
                 for r in data.get("records"):
-                    rec = {k.replace("-", "_"): v for (k, v) in r.items()}
-                    AffiliationRecord.create(**rec)
+                    if "id" in r and not override:
+                        rec = AffiliationRecord.get(int(r["id"]))
+                    else:
+                        rec = AffiliationRecord(task=task)
+                    for k, v in r.items():
+                        if k == "id":
+                            continue
+                        k = k.replace('-', '_')
+                        if k in record_fields and rec._data.get(k) != v:
+                            rec._data[k] = PartialDate.create(v) if k.endswith("date") else v
+                            rec._dirty.add(k)
+                    if rec.is_dirty():
+                        rec.save()
             except:
                 db.rollback()
                 app.logger.exception("Failed to load affiliation record task file.")
                 raise
+        return task
 
 
 class TaskType(IntEnum):
