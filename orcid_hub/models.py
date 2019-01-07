@@ -1139,12 +1139,14 @@ class Task(BaseModel, AuditMixin):
             to_dashes=to_dashes,
             exclude=exclude,
             only=[Task.id, Task.filename, Task.task_type, Task.created_at, Task.updated_at])
-        task_dict["records"] = [
-            r.to_dict(
-                to_dashes=to_dashes,
-                recurse=recurse,
-                exclude=[self.records.model_class._meta.fields["task"]]) for r in self.records
-        ]
+        # TODO: refactor for funding task to get records here not in API or export
+        if TaskType(self.task_type) != TaskType.FUNDING:
+            task_dict["records"] = [
+                r.to_dict(
+                    to_dashes=to_dashes,
+                    recurse=recurse,
+                    exclude=[self.records.model_class._meta.fields["task"]]) for r in self.records
+            ]
         return task_dict
 
     class Meta:  # noqa: D101,D106

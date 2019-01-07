@@ -186,7 +186,19 @@ class TaskResource(AppResource):
             if task.created_by != current_user:
                 return jsonify({"error": "Access denied."}), 403
         if request.method != "HEAD":
-            resp = jsonify(task.to_dict())
+            task_type = TaskType(task.task_type)
+            if task_type == TaskType.AFFILIATION:
+                resp = jsonify(task.to_dict())
+            # TODO: refactor to_export_dict to to_dict for funding tasks.
+            elif task_type == TaskType.FUNDING:
+                task_dict = task.to_dict(
+                    recurse=False,
+                    to_dashes=True,
+                    exclude=[Task.created_by, Task.updated_by, Task.org, Task.task_type])
+                task_dict["task-type"] = task_type.name
+                task_dict["records"] = [r.to_export_dict() for r in task.records]
+                resp = jsonify(task_dict)
+
         else:
             resp = jsonify({"updated-at": task.updated_at})
         resp.headers["Last-Modified"] = self.httpdate(task.updated_at or task.created_at)
