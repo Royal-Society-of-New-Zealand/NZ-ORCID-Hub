@@ -1131,16 +1131,20 @@ class Task(BaseModel, AuditMixin):
 
         return task
 
-    def to_dict(self):
+    def to_dict(self, to_dashes=True, recurse=False, exclude=None):
         """Create a dict represenatation of the task suitable for serialization into JSON or YAML."""
         # TODO: expand for the othe types of the tasks
         task_dict = super().to_dict(
-            recurse=False,
-            to_dashes=True,
-            only=[Task.filename, Task.task_type, Task.created_at, Task.updated_at])
+            recurse=False if recurse is None else recurse,
+            to_dashes=to_dashes,
+            exclude=exclude,
+            only=[Task.id, Task.filename, Task.task_type, Task.created_at, Task.updated_at])
         task_dict["records"] = [
-            r.to_dict(to_dashes=True, recurse=False, exclude=[self._meta.fields["task"]])
-            for r in self.records]
+            r.to_dict(
+                to_dashes=to_dashes,
+                recurse=recurse,
+                exclude=[self.records.model_class._meta.fields["task"]]) for r in self.records
+        ]
         return task_dict
 
     class Meta:  # noqa: D101,D106
@@ -1325,12 +1329,14 @@ class AffiliationRecord(RecordModel):
 
     @classmethod
     def load(cls, data, task=None, task_id=None, filename=None, override=True,
-             skip_schema_validation=False):
+             skip_schema_validation=False, org=None):
         """Load afffiliation record task form JSON/YAML. Data shoud be already deserialize."""
+        if org is None:
+            org = current_user.organisation if current_user else None
         if not skip_schema_validation:
             jsonschema.validate(data, affiliation_task_schema)
         if not task and task_id:
-            task = Task.select().where(Task.id == task_id)
+            task = Task.select().where(Task.id == task_id).first()
         if not task and "id" in data:
             task_id = int(data["id"])
             task = Task.select().where(Task.id == task_id).first()
@@ -1339,7 +1345,8 @@ class AffiliationRecord(RecordModel):
                 if not task:
                     filename = (filename or data.get("filename")
                                 or datetime.utcnow().isoformat(timespec="seconds"))
-                    task = Task.create(filename=filename, task_type=TaskType.AFFILIATION)
+                    task = Task.create(
+                            org=org, filename=filename, task_type=TaskType.AFFILIATION)
                 elif override:
                     AffiliationRecord.delete().where(AffiliationRecord.task == task).execute()
                 record_fields = AffiliationRecord._meta.fields.keys()

@@ -249,7 +249,7 @@ class TaskResource(AppResource):
                 filename=filename,
                 task_id=task_id,
                 skip_schema_validation=True,
-                override=(request.method != "POST"))
+                override=(request.method == "POST"))
         except Exception as ex:
             db.rollback()
             app.logger.exception("Failed to hadle affiliation API request.")
