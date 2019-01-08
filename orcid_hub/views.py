@@ -2408,11 +2408,16 @@ def load_org():
 @roles_required(Role.ADMIN)
 def load_researcher_affiliations():
     """Preload organisation data."""
-    form = FileUploadForm()
+    form = FileUploadForm(extensions=["csv", "tsv", "json", "yaml", "yml"])
     if form.validate_on_submit():
-        filename = secure_filename(form.file_.data.filename)
         try:
-            task = Task.load_from_csv(read_uploaded_file(form), filename=filename)
+            filename = secure_filename(form.file_.data.filename)
+            content_type = form.file_.data.content_type
+            content = read_uploaded_file(form)
+            if content_type in ["text/tab-separated-values", "text/csv"]:
+                task = Task.load_from_csv(content, filename=filename)
+            else:
+                task = AffiliationRecord.load(content, filename=filename)
             flash(f"Successfully loaded {task.record_count} rows.")
             return redirect(url_for("affiliationrecord.index_view", task_id=task.id))
         except (

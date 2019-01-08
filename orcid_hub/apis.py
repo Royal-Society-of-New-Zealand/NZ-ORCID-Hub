@@ -1,6 +1,5 @@
 """HUB API."""
 
-from collections import defaultdict
 from datetime import datetime
 import re
 from urllib.parse import unquote, urlencode
@@ -15,15 +14,13 @@ from flask.views import MethodView
 from flask_login import current_user, login_user
 from flask_restful import Resource, reqparse
 from flask_swagger import swagger
-from yaml.dumper import Dumper
-from yaml.representer import SafeRepresenter
 
 from . import api, app, db, models, oauth
 from .login_provider import roles_required
 from .models import (ORCID_ID_REGEX, AffiliationRecord, Client, FundingRecord, OrcidToken, Role,
                      Task, TaskType, User, UserOrg, validate_orcid_id)
 from .schemas import affiliation_task_schema
-from .utils import is_valid_url, register_orcid_webhook
+from .utils import dump_yaml, is_valid_url, register_orcid_webhook
 
 ORCID_API_VERSION_REGEX = re.compile(r"^v[2-3].\d+(_rc\d+)?$")
 
@@ -1583,19 +1580,8 @@ def api_docs():
     return render_template("swaggerui.html", client=client)
 
 
-class SafeRepresenterWithISODate(SafeRepresenter):
-    """Customized representer for datetaime rendering in ISO format."""
-
-    def represent_datetime(self, data):
-        """Customize datetime rendering in ISO format."""
-        value = data.isoformat(timespec="seconds")
-        return self.represent_scalar('tag:yaml.org,2002:timestamp', value)
-
-
 def yamlfy(*args, **kwargs):
     """Create respose in YAML just like jsonify does it for JSON."""
-    yaml.add_representer(datetime, SafeRepresenterWithISODate.represent_datetime, Dumper=Dumper)
-    yaml.add_representer(defaultdict, SafeRepresenter.represent_dict)
     if args and kwargs:
         raise TypeError('yamlfy() behavior undefined when passed both args and kwargs')
     elif len(args) == 1:  # single args are passed directly to dumps()
@@ -1603,7 +1589,7 @@ def yamlfy(*args, **kwargs):
     else:
         data = args or kwargs
 
-    return current_app.response_class((yaml.dump(data), '\n'), mimetype="text/yaml")
+    return current_app.response_class((dump_yaml(data), '\n'), mimetype="text/yaml")
 
 
 @app.route("/orcid/api/<string:version>/<string:orcid>", methods=["GET", "POST", "PUT", "DELETE"])

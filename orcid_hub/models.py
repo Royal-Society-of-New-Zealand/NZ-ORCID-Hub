@@ -1333,6 +1333,8 @@ class AffiliationRecord(RecordModel):
     def load(cls, data, task=None, task_id=None, filename=None, override=True,
              skip_schema_validation=False, org=None):
         """Load afffiliation record task form JSON/YAML. Data shoud be already deserialize."""
+        if isinstance(data, str):
+            data = json.loads(data) if filename.lower().endswith(".json") else yaml.load(data)
         if org is None:
             org = current_user.organisation if current_user else None
         if not skip_schema_validation:
