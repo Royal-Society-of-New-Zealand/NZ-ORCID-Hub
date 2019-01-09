@@ -18,6 +18,7 @@ Table of Contents
    :name: masterdoc
 
    installation
+   shibboleth
    customising_email_messages
    writing_affiliation_items
    writing_funding_items

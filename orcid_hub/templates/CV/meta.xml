@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<office:document-meta xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0"
+                      xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:dc="http://purl.org/dc/elements/1.1/"
+                      xmlns:meta="urn:oasis:names:tc:opendocument:xmlns:meta:1.0"
+                      xmlns:ooo="http://openoffice.org/2004/office" xmlns:grddl="http://www.w3.org/2003/g/data-view#"
+                      office:version="1.2">
+    <office:meta>
+        <dc:title>{{user.name}} Curriculum Vitae</dc:title>
+        <dc:description>New Zealand Standard Curriculum Vitae Template</dc:description>
+        <meta:keyword>CV</meta:keyword>
+        <meta:keyword>Curriculum Vitae</meta:keyword>
+        <meta:keyword>Resume</meta:keyword>
+        <meta:initial-creator>{{config.APP_NAME}}</meta:initial-creator>
+        <meta:document-statistic meta:table-count="11" meta:image-count="0" meta:object-count="0" meta:page-count="2"
+                                 meta:paragraph-count="97" meta:word-count="716" meta:character-count="5100"
+                                 meta:non-whitespace-character-count="4460"/>
+        <meta:generator>LibreOffice/5.1.6.2$Linux_X86_64 LibreOffice_project/10m0$Build-2</meta:generator>
+        <meta:user-defined meta:name=""/>
+        <meta:user-defined meta:name="date.created">{{ now.date().isoformat() }}</meta:user-defined>
+    </office:meta>
+</office:document-meta>

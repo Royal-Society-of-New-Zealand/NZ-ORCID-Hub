@@ -1,6 +1,6 @@
 {# Render a form tag taht contains a CSRF token and all hiddedn fields. #}
 {%- macro form_tag(form, endpoint, fid='', css_class='', method="POST", enctype='') -%}
-<form{% if endpoint %}action="{{ url_for(endpoint, **kwargs) }}"{%endif%} method="{{ method }}"{% if fid %} id="{{ fid }}"{%endif%}{%if css_class%} class="{{ css_class }}"{%endif%}{% if enctype%} enctype="{{ enctype }}"{%endif%}>
+<form{% if endpoint %}action="{{ url_for(endpoint, **kwargs) }}"{%endif%} method="{{ method }}"{% if fid %} id="{{ fid }}"{%endif%}{%if css_class%} class="{{ css_class }}"{%endif%}{% if enctype or form.enctype %} enctype="{{ enctype or form.enctype }}"{%endif%}>
   {{ form.hidden_tag() }}
   {{ caller () }}
 </form>
@@ -49,11 +49,60 @@
 {%- macro orcid_url(user, full_url=False, target="_blank") -%}
   {%- if user.orcid -%}
   <a href="{{user|orcid}}" target="{{target}}" class="orcid">
-      <img alt="ORCID iD" src="{{url_for('static', filename='images/orcid_16x16.gif')}}" style="width:16px; height:16px; margin-right:4px">{{user|orcid if full_url else config.ORCID_BASE_URL.split('/', 2)[2] + user.orcid}}</a>
+      <img alt="ORCID iD" src="{{url_for('static', filename='images/orcid_16x16.gif')}}" style="width:16px; height:16px; margin-right:4px">{{user|orcid if full_url else config.ORCID_BASE_URL + user.orcid}}</a>
   {%- else %}&nbsp;{% endif -%}
 {%- endmacro -%}
 
 {# Render a satic image link. #}
 {%- macro image(filename) -%}
   {{url_for('static', filename='images/' + filename)}}
+{%- endmacro -%}
+
+{# Pager #}
+{% macro pager(page, page_count) -%}
+  {% if page_count > 1%}
+    <ul class="pagination">
+      {% if page == 1 %}
+        <li class="disabled">
+          <a href="javascript:void(0)">«</a>
+        </li>
+        <li class="disabled">
+          <a href="javascript:void(0)">&lt;</a>
+        </li>
+      {% else %}
+        <li>
+          <a href="?page=1">«</a>
+        </li>
+        <li>
+          <a href="?page={{page-1}}">&lt;</a>
+        </li>
+      {% endif %}
+      {% for p in range(1, page_count+1) %}
+        {%  if page == p %}
+          <li class="active">
+            <a href="javascript:void(0)">{{page}}</a>
+          </li>
+        {% else %}
+          <li>
+            <a href="?page={{p}}">{{p}}</a>
+          </li>
+        {% endif %}
+      {% endfor %}
+      {% if page == page_count %}
+        <li class="disabled">
+          <a href="javascript:void(0)">&gt;</a>
+        </li>
+        <li class="disabled">
+          <a href="javascript:void(0)">»</a>
+        </li>
+      {% else %}
+        <li>
+          <a href="?page={{page+1}}">&gt;</a>
+        </li>
+        <li>
+          <a href="?page={{page_count}}">»</a>
+        </li>
+      {% endif %}
+    </ul>
+  {% endif %}
 {%- endmacro -%}

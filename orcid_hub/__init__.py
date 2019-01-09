@@ -32,8 +32,8 @@ from . import config
 from .failover import PgDbWithFailover
 from flask_admin import Admin
 from flask_limiter import Limiter
-from flask_limiter.util import get_remote_address
-
+from flask_limiter.util import get_ipaddr
+from werkzeug.contrib.cache import SimpleCache
 
 try:
     dist = pkg_resources.get_distribution(__name__)
@@ -49,6 +49,7 @@ except pkg_resources.DistributionNotFound:
 #     pass
 
 
+cache = SimpleCache()
 app = Flask(__name__, instance_relative_config=True)
 app.config.from_object(config)
 if not app.config.from_pyfile("settings.cfg", silent=True) and app.debug:
@@ -61,12 +62,15 @@ oauth = OAuth2Provider(app)
 api = Api(app)
 limiter = Limiter(
     app,
-    key_func=get_remote_address,
+    key_func=get_ipaddr,
     headers_enabled=True,
     default_limits=[
         "40 per second",  # burst: 40/sec
         "1440 per minute",  # allowed max: 24/sec
     ])
+if app.config.get("LOAD_TEST"):
+    limiter.enabled = False
+
 DATABASE_URL = app.config.get("DATABASE_URL")
 
 # TODO: implement connection factory
@@ -203,7 +207,7 @@ def setup_app():
     if app.config.get("SHIBBOLETH_DISABLED") is None:
         app.config["SHIBBOLETH_DISABLED"] = not (
             ("mod_wsgi.version" in request.environ and "SHIB_IDP_DOMAINNAME" in os.environ)
-            or "EXTERNAL_SP" in os.environ)
+            or "EXTERNAL_SP" in app.config)
 
 
 @app.after_request

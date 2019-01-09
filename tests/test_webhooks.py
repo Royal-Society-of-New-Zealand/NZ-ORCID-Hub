@@ -75,7 +75,8 @@ def test_webhook_registration(app_req_ctx):
             headers=dict(authorization=f"Bearer {token.access_token}")) as ctx:
         resp = ctx.app.full_dispatch_request()
         assert resp.status_code == 415
-        assert resp.get_json()["error"] == "Missing or invalid ORCID iD."
+        data = json.loads(resp.data)
+        assert data["error"] == "Missing or invalid ORCID iD."
 
     with app_req_ctx(
             "/api/v1.0/0000-0001-8228-7153/webhook/http%3A%2F%2FCALL-BACK",
@@ -83,7 +84,8 @@ def test_webhook_registration(app_req_ctx):
             headers=dict(authorization=f"Bearer {token.access_token}")) as ctx:
         resp = ctx.app.full_dispatch_request()
         assert resp.status_code == 404
-        assert resp.get_json()["error"] == "Invalid ORCID iD."
+        data = json.loads(resp.data)
+        assert data["error"] == "Invalid ORCID iD."
 
     with app_req_ctx(
             f"/api/v1.0/{orcid_id}/webhook/http%3A%2F%2FCALL-BACK",
@@ -175,22 +177,22 @@ def test_webhook_registration(app_req_ctx):
         assert token.scope == "/webhook"
 
 
-def test_org_webhook(app_req_ctx, monkeypatch):
+def test_org_webhook(client, mocker):
     """Test Organisation webhooks."""
-    monkeypatch.setattr(
+    mocker.patch.object(
         utils.requests, "post",
         lambda *args, **kwargs: SimpleObject(
             status_code=201,
             json=lambda: dict(access_token="ABC123", refresh_token="REFRESS_ME", expires_in=123456789)))
-    monkeypatch.setattr(utils.requests, "put", lambda *args, **kwargs: SimpleObject(status_code=201))
-    monkeypatch.setattr(utils.requests, "delete", lambda *args, **kwargs: SimpleObject(status_code=204))
+    mocker.patch.object(utils.requests, "put", lambda *args, **kwargs: SimpleObject(status_code=201))
+    mocker.patch.object(utils.requests, "delete", lambda *args, **kwargs: SimpleObject(status_code=204))
 
-    org = app_req_ctx.data["org"]
+    org = client.data["org"]
     admin = org.tech_contact
-    user = app_req_ctx.data["user"]
+    user = client.data["user"]
 
-    monkeypatch.setattr(utils.register_orcid_webhook, "queue", utils.register_orcid_webhook)
-    monkeypatch.setattr(utils.invoke_webhook_handler, "queue", utils.invoke_webhook_handler)
+    mocker.patch.object(utils.register_orcid_webhook, "queue", utils.register_orcid_webhook)
+    mocker.patch.object(utils.invoke_webhook_handler, "queue", utils.invoke_webhook_handler)
 
     utils.enable_org_webhook(org)
     assert org.webhook_enabled
@@ -200,82 +202,63 @@ def test_org_webhook(app_req_ctx, monkeypatch):
     assert not org.webhook_enabled
     assert org.users.where(User.orcid.is_null(False), User.webhook_enabled).count() == 0
 
-    with app_req_ctx(
-            f"/services/{user.id}/updated",
-            method="POST") as ctx, patch.object(utils, "send_email") as send_email:
-        send_email.assert_not_called()
+    resp = client.login(admin)
+    resp = client.post(f"/services/{user.id}/updated")
+    send_email = mocker.patch.object(utils, "send_email")
+    send_email.assert_not_called()
 
-    with app_req_ctx(
-            "/settings/webhook", method="POST",
-            data=dict(
-                webhook_url="https://ORG.org/HANDLE",
-                webhook_enabled='y')) as ctx:
+    assert not Organisation.get(org.id).webhook_enabled
+    resp = client.post(
+        "/settings/webhook", data=dict(webhook_url="https://ORG.org/HANDLE", webhook_enabled='y'))
+    assert Organisation.get(org.id).webhook_enabled
+    assert resp.status_code == 200
 
-        login_user(admin)
-        assert not Organisation.get(org.id).webhook_enabled
-        resp = ctx.app.full_dispatch_request()
-        assert Organisation.get(org.id).webhook_enabled
-        assert resp.status_code == 200
+    resp = client.post(f"/services/{user.id}/updated")
+    send_email.assert_not_called()
+    assert resp.status_code == 204
 
-        with app_req_ctx(
-                f"/services/{user.id}/updated",
-                method="POST") as ctx, patch.object(utils, "send_email") as send_email:
-            resp = ctx.app.full_dispatch_request()
-            send_email.assert_not_called()
-            assert resp.status_code == 204
-
-    with app_req_ctx(
-            "/settings/webhook", method="POST",
-            data=dict(
+    assert not Organisation.get(org.id).email_notifications_enabled
+    resp = client.post("/settings/webhook", data=dict(
                 webhook_url="https://ORG.org/HANDLE",
                 webhook_enabled='y',
-                email_notifications_enabled='y')) as ctx:
+                email_notifications_enabled='y'))
+    assert Organisation.get(org.id).email_notifications_enabled
+    assert resp.status_code == 200
 
-        login_user(admin)
-        assert not Organisation.get(org.id).email_notifications_enabled
-        resp = ctx.app.full_dispatch_request()
-        assert Organisation.get(org.id).email_notifications_enabled
-        assert resp.status_code == 200
+    resp = client.post(f"/services/{user.id}/updated")
+    send_email.assert_called()
+    assert resp.status_code == 204
 
-        with app_req_ctx(
-                f"/services/{user.id}/updated",
-                method="POST") as ctx, patch.object(utils, "send_email") as send_email:
-            resp = ctx.app.full_dispatch_request()
-            send_email.assert_called()
-            assert resp.status_code == 204
+    mocker.patch.object(utils.requests, "post", lambda *args, **kwargs: SimpleObject(status_code=404))
+    resp = client.post(f"/services/{user.id}/updated")
+    send_email.assert_called()
+    assert resp.status_code == 204
 
-        monkeypatch.setattr(utils.requests, "post", lambda *args, **kwargs: SimpleObject(status_code=404))
-        with app_req_ctx(
-                f"/services/{user.id}/updated",
-                method="POST") as ctx, patch.object(utils, "send_email") as send_email:
-            resp = ctx.app.full_dispatch_request()
-            send_email.assert_called()
-            assert resp.status_code == 204
+    # Test update summary:
+    mocker.patch.object(utils.send_orcid_update_summary, "queue", utils.send_orcid_update_summary)
 
-        # Test update summary:
-        monkeypatch.setattr(utils.send_orcid_update_summary, "queue", utils.send_orcid_update_summary)
+    send_email.reset_mock()
+    utils.send_orcid_update_summary()
+    send_email.assert_not_called()
 
-        with patch.object(utils, "send_email") as send_email:
-            utils.send_orcid_update_summary()
-            send_email.assert_not_called()
+    utils.send_orcid_update_summary(org.id)
+    send_email.assert_not_called()
 
-            utils.send_orcid_update_summary(org.id)
-            send_email.assert_not_called()
+    utils.send_orcid_update_summary(9999999)
+    send_email.assert_not_called()
 
-            utils.send_orcid_update_summary(9999999)
-            send_email.assert_not_called()
+    user.orcid_updated_at = utils.date.today().replace(day=1) - utils.timedelta(days=1)
+    user.save()
+    utils.send_orcid_update_summary()
+    send_email.assert_called()
 
-        with patch.object(utils, "send_email") as send_email:
-            user.orcid_updated_at = utils.date.today().replace(day=1) - utils.timedelta(days=1)
-            user.save()
-            utils.send_orcid_update_summary()
-            send_email.assert_called()
+    send_email.reset_mock()
+    org.notification_email = "notifications@org.edu"
+    org.save()
+    utils.send_orcid_update_summary()
+    send_email.assert_called_once()
 
-        with patch("emails.html") as mock_msg:
-            org.notification_email = "notifications@org.edu"
-            org.save()
-            utils.send_orcid_update_summary()
-            mock_msg.return_value.mail_to.append.assert_called_with((
-                "notifications@org.edu",
-                "notifications@org.edu",
-            ))
+    resp = client.post("/settings/webhook", data=dict(save_webhook="Save"))
+    assert resp.status_code == 200
+    assert not Organisation.get(org.id).webhook_enabled
+    assert not Organisation.get(org.id).email_notifications_enabled

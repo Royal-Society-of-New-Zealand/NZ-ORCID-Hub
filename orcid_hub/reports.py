@@ -1,12 +1,15 @@
 # -*- coding: utf-8 -*-
 """Application views for reporting."""
 
+import re
+import zipstream
+
 from datetime import datetime
-from flask import flash, make_response, redirect, render_template, request, url_for
+from flask import flash, make_response, Response, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
 from peewee import JOIN, SQL, fn
 
-from . import app
+from . import app, cache
 from .forms import DateRangeForm
 from .login_provider import roles_required
 from .models import OrcidToken, Organisation, OrgInvitation, Role, User, UserInvitation, UserOrg
@@ -132,44 +135,132 @@ def user_invitation_summary():  # noqa: D103
 @login_required
 def user_cv(op=None):
     """Create user CV using the CV templage filled with the ORCID profile data."""
-    user = current_user
+    user = User.get(current_user.id)
     if not user.orcid:
         flash("You haven't linked your account with ORCID.", "warning")
         return redirect(request.referrer or url_for("index"))
-    token = OrcidToken.select(OrcidToken.access_token).where(
-            OrcidToken.user_id == user.id,
+
+    record = cache.get(user.orcid)
+    if not record:
+        token = OrcidToken.select(OrcidToken.access_token).where(
+            OrcidToken.user_id == user.id, OrcidToken.org_id == user.organisation_id,
             OrcidToken.scope.contains("read-limited")).first()
-    if token is None:
-        flash("You haven't granted your organisation necessary access to your profile..", "danger")
-        return redirect(request.referrer or url_for("link"))
+        if token is None:
+            flash("You haven't granted your organisation necessary access to your profile..",
+                  "danger")
+            return redirect(url_for("link"))
+        api = MemberAPI(user=user, access_token=token.access_token)
+        try:
+            record = api.get_record()
+            cache.set(user.orcid, record)
+        except Exception as ex:
+            flash(f"Failed to retrieve the profile: {ex}", "danger")
+            return redirect(url_for("link"))
 
     if op is None:
         return render_template("user_cv.html")
     else:
-        api = MemberAPI(user=user, access_token=token.access_token)
-        record = api.get_record()
-        # import pdb; pdb.set_trace()
 
-        works = [
-            w for g in record.get("activities-summary", "works", "group")
-            for w in g.get("work-summary")
-        ]
-        educations = record.get("activities-summary", "educations", "education-summary")
-        employments = record.get("activities-summary", "employments", "employment-summary")
+        work_type_journal = []
+        work_type_books = []
+        work_type_book_chapter = []
+        work_type_conference = []
+        work_type_patent = []
+        work_type_other = []
+        educations = []
+        employments = []
+        first_name = None
+        second_names = None
+        family_name = None
+        countries = []
+        emails = []
+        researcher_urls = []
 
+        if record:
+            works = [w for g in record.get("activities-summary", "works", "group") for w in g.get("work-summary")]
+
+            for w in works:
+                if w.get("type") in ['JOURNAL_ARTICLE', 'JOURNAL_ISSUE']:
+                    work_type_journal.append(w)
+                elif w.get("type") in ['BOOK', 'BOOK_REVIEW']:
+                    work_type_books.append(w)
+                elif w.get("type") in ['BOOK_CHAPTER', 'EDITED_BOOK']:
+                    work_type_book_chapter.append(w)
+                elif w.get("type") in ['CONFERENCE_PAPER', 'CONFERENCE_ABSTRACT', 'CONFERENCE_POSTER']:
+                    work_type_conference.append(w)
+                elif w.get("type") in ['PATENT']:
+                    work_type_patent.append(w)
+                else:
+                    work_type_other.append(w)
+
+            educations = record.get("activities-summary", "educations", "education-summary")
+            employments = record.get("activities-summary", "employments", "employment-summary")
+
+            first_name, *second_names = re.split("[,; \t]", str(
+                record.get("person", "name", "given-names", "value", default=user.first_name)))
+
+            family_name = record.get("person", "name", "family-name", "value", default=user.last_name)
+
+            countries = [a.get("country", "value") for a in record.get("person", "addresses", "address")]
+
+            emails = [e.get("email") for e in record.get("person", "emails", "email")] if record.get(
+                "person", "emails", "email") else [user.email]
+
+            researcher_urls = [r.get("url", "value") for r in record.get("person", "researcher-urls", "researcher-url")]
+
+        person_data = dict(first_name=first_name, second_names=second_names, family_name=family_name, address=countries,
+                           emails=emails, researcher_urls=researcher_urls)
         resp = make_response(
             render_template(
                 "CV.html",
                 user=user,
                 now=datetime.now(),
                 record=record,
-                works=works,
+                person_data=person_data,
+                work_type_books=work_type_books,
+                work_type_book_chapter=work_type_book_chapter,
+                work_type_journal=work_type_journal,
+                work_type_conference=work_type_conference,
+                work_type_patent=work_type_patent,
+                work_type_other=work_type_other,
                 educations=educations,
                 employments=employments))
         resp.headers["Cache-Control"] = "private, max-age=60"
-        # resp.headers["Content-Type"] = "application/rtf"
         if op == "download" or "download" in request.args:
-            resp.headers["Content-Type"] = "application/vnd.ms-word"
-            resp.headers[
-                "Content-Disposition"] = f"attachment; filename={current_user.name.replace(' ', '_')}.CV.html"
+            meta_xml_data = render_template("CV/meta.xml", user=user, now=datetime.now())
+            content_xml_data = render_template("CV/content.xml", user=user, now=datetime.now(), record=record,
+                                               person_data=person_data, work_type_books=work_type_books,
+                                               work_type_book_chapter=work_type_book_chapter,
+                                               work_type_journal=work_type_journal,
+                                               work_type_conference=work_type_conference,
+                                               work_type_patent=work_type_patent, work_type_other=work_type_other,
+                                               educations=educations, employments=employments)
+
+            response = Response(cv_generator(meta_xml_data, content_xml_data),
+                                mimetype='application/vnd.oasis.opendocument.text')
+            response.headers["Content-Type"] = "application/vnd.oasis.opendocument.text"
+            response.headers[
+                'Content-Disposition'] = f"attachment; filename={current_user.name.replace(' ', '_')}_CV.odt"
+
+            return response
+
     return resp
+
+
+def cv_generator(meta_xml_data, content_xml_data):
+    """Zip all CV XML files into one odt file."""
+    z = zipstream.ZipFile(mode='w', compression=zipstream.ZIP_DEFLATED)
+
+    z.writestr("content.xml", content_xml_data.encode("UTF-8"))
+    z.writestr("meta.xml", meta_xml_data.encode("UTF-8"))
+
+    z.write(app.root_path + "/templates/CV/META-INF/manifest.xml", "/META-INF/manifest.xml")
+    z.write(app.root_path + "/templates/CV/layout-cache", "layout-cache")
+    z.write(app.root_path + "/templates/CV/manifest.rdf", "manifest.rdf")
+    z.write(app.root_path + "/templates/CV/mimetype", "mimetype")
+    z.write(app.root_path + "/templates/CV/settings.xml", "settings.xml")
+    z.write(app.root_path + "/templates/CV/styles.xml", "styles.xml")
+
+    for chunk in z:
+        yield chunk
+    z.close()

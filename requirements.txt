@@ -30,7 +30,9 @@ flask-restful
 jsonschema>=2.6.0,<3.0.0
 validators
 croniter==0.3.20
+redis>=2.10.6,<3.0.0
 rq==0.10.0
-rq-scheduler
-Flask-RQ2[cli]
+rq-scheduler>=0.8.3,<0.9
+Flask-RQ2[cli]==18.0
 rq-dashboard
+zipstream

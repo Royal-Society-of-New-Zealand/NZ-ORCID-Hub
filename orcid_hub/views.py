@@ -1,9 +1,8 @@
-# -*- coding: utf-8 -*-
 """Application views."""
 
-import copy
 import csv
 import json
+import math
 import mimetypes
 import os
 import secrets
@@ -26,6 +25,7 @@ from flask_admin.helpers import get_redirect_target
 from flask_admin.model import BaseModelView, typefmt
 from flask_login import current_user, login_required
 from jinja2 import Markup
+from peewee import SQL
 from playhouse.shortcuts import model_to_dict
 from werkzeug.utils import secure_filename
 from wtforms.fields import BooleanField
@@ -34,18 +34,20 @@ from flask_rq2.job import FlaskJob
 from orcid_api.rest import ApiException
 
 from . import admin, app, limiter, models, orcid_client, rq, utils
+from .apis import yamlfy
 from .forms import (ApplicationFrom, BitmapMultipleValueField, CredentialForm, EmailTemplateForm,
-                    FileUploadForm, JsonOrYamlFileUploadForm, LogoForm, OrgRegistrationForm,
-                    PartialDateField, RecordForm, UserInvitationForm, WebhookForm)
+                    FileUploadForm, FundingForm, GroupIdForm, LogoForm, OrgRegistrationForm, PartialDateField,
+                    PeerReviewForm, ProfileSyncForm, RecordForm, UserInvitationForm, WebhookForm, WorkForm)
 from .login_provider import roles_required
-from .models import (Affiliation, AffiliationRecord, CharField, Client, File, FundingInvitees,
-                     FundingRecord, Grant, GroupIdRecord, ModelException, OrcidApiCall, OrcidToken,
-                     Organisation, OrgInfo, OrgInvitation, PartialDate, PeerReviewInvitee,
-                     PeerReviewRecord, Role, Task, TextField, Token, Url, User, UserInvitation,
-                     UserOrg, UserOrgAffiliation, WorkInvitees, WorkRecord, db, get_val)
+from .models import (
+    JOIN, Affiliation, AffiliationRecord, CharField, Client, ExternalId, File, FundingContributor,
+    FundingInvitees, FundingRecord, Grant, GroupIdRecord, ModelException, OrcidApiCall, OrcidToken,
+    Organisation, OrgInfo, OrgInvitation, PartialDate, PeerReviewExternalId, PeerReviewInvitee,
+    PeerReviewRecord, Role, Task, TaskType, TextField, Token, Url, User, UserInvitation, UserOrg,
+    UserOrgAffiliation, WorkContributor, WorkExternalId, WorkInvitees, WorkRecord, db, get_val)
 # NB! Should be disabled in production
 from .pyinfo import info
-from .utils import generate_confirmation_token, get_next_url, send_user_invitation
+from .utils import get_next_url, read_uploaded_file, send_user_invitation
 
 HEADERS = {"Accept": "application/vnd.orcid+json", "Content-type": "application/vnd.orcid+json"}
 ORCID_BASE_URL = app.config["ORCID_BASE_URL"]
@@ -114,7 +116,7 @@ def favicon():
 
 
 @app.route("/status")
-@limiter.limit("10/minute")
+@limiter.limit("30/minute")
 def status():
     """Check the application health status attempting to connect to the DB.
 
@@ -153,22 +155,11 @@ def short_url(short_id):
         abort(404)
 
 
-def read_uploaded_file(form):
-    """Read up the whole content and deconde it and return the whole content."""
-    raw = request.files[form.file_.name].read()
-    for encoding in "utf-8", "utf-8-sig", "utf-16":
-        try:
-            return raw.decode(encoding)
-        except UnicodeDecodeError:
-            continue
-    return raw.decode("latin-1")
-
-
 def orcid_link_formatter(view, context, model, name):
     """Format ORCID ID for ModelViews."""
     if not model.orcid:
         return ""
-    return Markup(f'<a href="{ORCID_BASE_URL}/{model.orcid}" target="_blank">{model.orcid}</a>')
+    return Markup(f'<a href="{ORCID_BASE_URL}{model.orcid}" target="_blank">{model.orcid}</a>')
 
 
 class AppModelView(ModelView):
@@ -186,7 +177,7 @@ class AppModelView(ModelView):
         "html",
     ]
 
-    if app.config["ENV"] not in ["dev", "test", "dev0", ]:
+    if app.config["ENV"] not in ["dev", "test", "dev0", ] and not app.debug:
         form_base_class = SecureForm
 
     column_formatters = dict(
@@ -205,6 +196,7 @@ class AppModelView(ModelView):
     )
     form_overrides = dict(start_date=PartialDateField, end_date=PartialDateField)
     form_widget_args = {c: {"readonly": True} for c in column_exclude_list}
+    form_excluded_columns = ["created_at", "updated_at", "created_by", "updated_by"]
 
     def __init__(self, model=None, *args, **kwargs):
         """Pick the model based on the ModelView class name assuming it is ModelClass + "Admin"."""
@@ -232,19 +224,9 @@ class AppModelView(ModelView):
 
         return query
 
-    def get_pk_value(self, model):
-        """Get correct value for composite keys."""
-        if self.model._meta.composite_key:
-            return tuple([
-                model.__data__[field_name] for field_name in self.model._meta.primary_key.field_names
-            ])
-        return super().get_pk_value(model)
-
     def get_one(self, id):
-        """Fix for composite keys."""
+        """Handle missing data."""
         try:
-            if self.model._meta.composite_key:
-                return self.model.get(**dict(zip(self.model._meta.primary_key.field_names, id)))
             return super().get_one(id)
         except self.model.DoesNotExist:
             flash(f"The record with given ID: {id} doesn't exist or it was deleted.", "danger")
@@ -267,8 +249,8 @@ class AppModelView(ModelView):
                         CharField,
                         TextField,
                 )):
-                    raise Exception('Can only search on text columns. ' +
-                                    'Failed to setup search for "%s"' % p)
+                    raise Exception(
+                        f'Can only search on text columns. Failed to setup search for "{p}"')
 
                 self._search_fields.append(p)
 
@@ -364,36 +346,6 @@ class UserAdmin(AppModelView):
     }
     can_export = True
 
-    def update_model(self, form, model):
-        """Added prevalidation of the form."""
-        if "roles" not in self.form_excluded_columns and form.roles.data != model.roles:
-            if bool(form.roles.data & Role.ADMIN) != UserOrg.select().where(
-                (UserOrg.user_id == model.id) & UserOrg.is_admin).exists():  # noqa: E125
-                if form.roles.data & Role.ADMIN:
-                    flash(f"Cannot add ADMIN role to {model} "
-                          "since there is no organisation the user is an administrator for.",
-                          "danger")
-                else:
-                    flash(f"Cannot revoke ADMIN role from {model} "
-                          "since there is an organisation the user is an administrator for.",
-                          "danger")
-                form.roles.data = model.roles
-                return False
-            if bool(form.roles.data & Role.TECHNICAL) != Organisation.select().where(
-                    Organisation.tech_contact_id == model.id).exists():
-                if model.has_role(Role.TECHNICAL):
-                    flash(f"Cannot revoke TECHNICAL role from {model} "
-                          "since there is an organisation the user is the technical contact for.",
-                          "danger")
-                else:
-                    flash(f"Cannot add TECHNICAL role to {model} "
-                          "since there is no organisation the user is the technical contact for.",
-                          "danger")
-                form.roles.data = model.roles
-                return False
-
-        return super().update_model(form, model)
-
 
 class OrganisationAdmin(AppModelView):
     """Organisation model view."""
@@ -414,12 +366,19 @@ class OrganisationAdmin(AppModelView):
         "email_template",
         "email_template_enabled",
     )
-    form_excluded_columns = ("logo", )
+    form_excluded_columns = AppModelView.form_excluded_columns[:]
+    form_excluded_columns.append("logo")
     column_searchable_list = (
         "name",
         "tuakiri_name",
         "city",
     )
+    form_ajax_refs = {
+        "tech_contact": {
+            "fields": (User.name, User.email),
+            "page_size": 5
+        },
+    }
     edit_template = "admin/organisation_edit.html"
     form_widget_args = AppModelView.form_widget_args
     form_widget_args["api_credentials_requested_at"] = {"readonly": True}
@@ -507,6 +466,39 @@ class OrcidApiCallAmin(AppModelView):
     )
 
 
+class UserInvitationAdmin(AppModelView):
+    """User Invitations."""
+
+    can_export = True
+    can_edit = False
+    can_delete = False
+    can_create = False
+    column_searchable_list = (
+        "email",
+        "organisation",
+        "department",
+        "first_name",
+        "last_name",
+        "token",
+        "inviter.name",
+    )
+
+
+class OrgInvitationAdmin(AppModelView):
+    """User Invitations."""
+
+    can_export = True
+    can_edit = False
+    can_delete = False
+    can_create = False
+    column_searchable_list = (
+        "email",
+        "org.name",
+        "token",
+        "inviter.name",
+    )
+
+
 class UserOrgAmin(AppModelView):
     """User Organisations."""
 
@@ -533,6 +525,7 @@ class TaskAdmin(AppModelView):
         "org.name",
     )
     column_list = [
+        "task_type",
         "filename",
         "created_at",
         "org",
@@ -624,6 +617,10 @@ class RecordModelView(AppModelView):
         except Task.DoesNotExist:
             flash("The task deesn't exist.", "danger")
             abort(404)
+
+        except ValueError as ex:
+            flash(str(ex), "danger")
+            return False
 
         return True
 
@@ -876,7 +873,7 @@ class PeerReviewInviteeAdmin(InviteesModelAdmin):
     column_exclude_list = ("peer_review_record", )
 
 
-class FundingWorkCommonModelView(RecordModelView):
+class CompositeRecordModelView(RecordModelView):
     """Common view for Funding, Work and Peer review model."""
 
     column_export_exclude_list = (
@@ -902,7 +899,6 @@ class FundingWorkCommonModelView(RecordModelView):
             return redirect(return_url)
 
         filename = self.get_export_name(export_type)
-
         disposition = 'attachment;filename=%s' % (secure_filename(filename), )
 
         mimetype, encoding = mimetypes.guess_type(filename)
@@ -910,23 +906,33 @@ class FundingWorkCommonModelView(RecordModelView):
             mimetype = 'application/octet-stream'
         if encoding:
             mimetype = '%s; charset=%s' % (mimetype, encoding)
-
+        if self.model == PeerReviewRecord:
+            self._export_columns = [(v, v.replace('_', '-')) for v in
+                                    ['invitees', 'review_group_id', 'review_url', 'reviewer_role', 'review_type',
+                                     'review_completion_date', 'subject_external_identifier', 'subject_container_name',
+                                     'subject_type', 'subject_name', 'subject_url', 'convening_organization',
+                                     'review_identifiers']]
+        elif self.model == FundingRecord:
+            self._export_columns = [(v, v.replace('_', '-')) for v in
+                                    ['invitees', 'title', 'type', 'organization_defined_type', 'short_description',
+                                     'amount', 'start_date', 'end_date', 'organization', 'contributors',
+                                     'external_ids']]
+        elif self.model == WorkRecord:
+            self._export_columns = [(v, v.replace('_', '-')) for v in
+                                    ['invitees', 'title', 'journal_title', 'short_description', 'citation', 'type',
+                                     'publication_date', 'url', 'language_code', 'country', 'contributors',
+                                     'external_ids']]
         ds = tablib.Dataset(headers=[c[1] for c in self._export_columns])
 
         count, data = self._export_data()
 
         for row in data:
-            external_id_list, invitees_list = self.get_external_id_invitees(row)
-            for external_ids in external_id_list:
-                vals = []
-                vals.append(external_ids['value'])
-                vals.append(invitees_list)
-                ds.append(vals)
+            vals = self.expected_format(row)
+            ds.append(vals)
 
         try:
             try:
-                ds.yaml = yaml.safe_dump(
-                    json.loads(ds.json.replace("]\\", "]").replace("\\n", " ")))
+                ds.yaml = yaml.safe_dump(json.loads(ds.json.replace("]\\", "]").replace("\\n", " ")))
                 response_data = ds.export(format=export_type)
             except AttributeError:
                 response_data = getattr(ds, export_type)
@@ -940,27 +946,12 @@ class FundingWorkCommonModelView(RecordModelView):
             mimetype=mimetype,
         )
 
-    def get_external_id_invitees(self, row):
-        """Get funding/work/peer_review invitees with external ids."""
+    def expected_format(self, row):
+        """Get expected export format for funding/work/peer_review records."""
         vals = []
-        invitees_list = []
-        external_id_list = []
-        record_id = "funding_record_id"
-        funding_work_peer_review_id = "funding id"
-        invitees = "funding_invitees"
-
-        if self.model == WorkRecord:
-            record_id = "work_record_id"
-            funding_work_peer_review_id = "work id"
-            invitees = "work_invitees"
-        elif self.model == PeerReviewRecord:
-            record_id = "peer_review_record_id"
-            funding_work_peer_review_id = "Peer Review id"
-            invitees = "peer_review_invitee"
-
-        exclude_list = ['id', record_id, 'processed_at']
         for c in self._export_columns:
-            if c[0] == invitees:
+            if c[0] == "invitees":
+                invitees_list = []
                 if self.model == WorkRecord:
                     invitees_data = row.work_invitees
                 elif self.model == PeerReviewRecord:
@@ -970,43 +961,114 @@ class FundingWorkCommonModelView(RecordModelView):
 
                 for f in invitees_data:
                     invitees_rec = {}
-                    for col in f._meta.columns.keys():
-                        if col not in exclude_list:
-                            invitees_rec[col] = self._get_list_value(
-                                None,
-                                f,
-                                col,
-                                self.column_formatters_export,
-                                self.column_type_formatters_export,
-                            )
+                    invitees_rec['identifier'] = self.get_export_value(f, 'identifier')
+                    invitees_rec['email'] = self.get_export_value(f, 'email')
+                    invitees_rec['first-name'] = self.get_export_value(f, 'first_name')
+                    invitees_rec['last-name'] = self.get_export_value(f, 'last_name')
+                    invitees_rec['ORCID-iD'] = self.get_export_value(f, 'orcid')
+                    invitees_rec['put-code'] = int(self.get_export_value(f, 'put_code')) if \
+                        self.get_export_value(f, 'put_code') else None
+                    invitees_rec['visibility'] = self.get_export_value(f, 'visibility')
                     invitees_list.append(invitees_rec)
-            elif c[0] == funding_work_peer_review_id:
-                external_id_relation_part_of = {}
-                for f in row.external_ids:
-                    external_id_rec = {}
-                    for col in f._meta.columns.keys():
-                        if col not in exclude_list:
-                            external_id_rec[col] = self._get_list_value(
-                                None,
-                                f,
-                                col,
-                                self.column_formatters_export,
-                                self.column_type_formatters_export,
-                            )
-                    # Get the first external id from extrnal id list with 'SELF' relationship for funding/work export
-                    if not external_id_list and external_id_rec.get(
-                            'relationship') and external_id_rec.get(
-                                'relationship').lower() == 'self':
-                        external_id_list.append(external_id_rec)
-                    elif not external_id_list and not external_id_relation_part_of and external_id_rec.get(
-                            'relationship').lower() == 'part_of':
-                        external_id_relation_part_of = copy.deepcopy(external_id_rec)
-                # Also if there no external id with relation 'Self' take first one from 'part_of'
-                if not external_id_list and external_id_relation_part_of:
-                    external_id_list.append(external_id_relation_part_of)
+                vals.append(invitees_list)
+            elif c[0] in ['review_completion_date', 'start_date', 'end_date', 'publication_date']:
+                vals.append(PartialDate.create(self.get_export_value(row, c[0])).as_orcid_dict()
+                            if self.get_export_value(row, c[0]) else None)
+            elif c[0] == "subject_external_identifier":
+                subject_dict = {}
+                subject_dict['external-id-type'] = self.get_export_value(row, 'subject_external_id_type')
+                subject_dict['external-id-value'] = self.get_export_value(row, 'subject_external_id_value')
+                subject_dict['external-id-url'] = dict(value=self.get_export_value(row, 'subject_external_id_url'))
+                subject_dict['external-id-relationship'] = self.get_export_value(row,
+                                                                                 'subject_external_id_relationship')
+                vals.append(subject_dict)
+            elif c[0] == "subject_name":
+                subject_name_dict = dict()
+                translated_title = dict()
+                subject_name_dict['title'] = dict(value=self.get_export_value(row, 'subject_name_title'))
+                subject_name_dict['subtitle'] = dict(value=self.get_export_value(row, 'subject_name_subtitle'))
+                translated_title['language-code'] = self.get_export_value(row,
+                                                                          'subject_name_translated_title_lang_code')
+                translated_title['value'] = csv_encode(self.get_export_value(row, 'subject_name_translated_title'))
+                subject_name_dict['translated-title'] = translated_title
+                vals.append(subject_name_dict)
+            elif c[0] in ["convening_organization", "organization"]:
+                convening_org_dict = dict()
+                disambiguated_dict = dict()
+                convening_org_dict['name'] = self.get_export_value(row, 'convening_org_name') or self.get_export_value(
+                    row, 'org_name')
+                convening_org_dict['address'] = dict(
+                    city=self.get_export_value(row, 'convening_org_city') or self.get_export_value(row, 'city'),
+                    region=self.get_export_value(row, 'convening_org_region') or self.get_export_value(row, 'region'),
+                    country=self.get_export_value(row, 'convening_org_country') or self.get_export_value(row,
+                                                                                                         'country'))
+                disambiguated_dict['disambiguated-organization-identifier'] = \
+                    self.get_export_value(row, 'convening_org_disambiguated_identifier') or \
+                    self.get_export_value(row, 'disambiguated_org_identifier')
+                disambiguated_dict['disambiguation-source'] = self.get_export_value(
+                    row, 'convening_org_disambiguation_source') or self.get_export_value(row, 'disambiguation_source')
+                convening_org_dict['disambiguated-organization'] = disambiguated_dict
+                vals.append(convening_org_dict)
+            elif c[0] in ["review_identifiers", "external_ids"]:
+                external_ids_list = []
+                external_dict = {}
+                external_ids_data = row.external_ids
+                for f in external_ids_data:
+                    external_id_dict = {}
+                    external_id_dict['external-id-type'] = self.get_export_value(f, 'type')
+                    external_id_dict['external-id-value'] = self.get_export_value(f, 'value')
+                    external_id_dict['external-id-relationship'] = self.get_export_value(f, 'relationship')
+                    external_id_dict['external-id-url'] = dict(value=self.get_export_value(f, 'url'))
+                    external_ids_list.append(external_id_dict)
+                external_dict['external-id'] = external_ids_list
+                vals.append(external_dict)
+            elif c[0] == "title":
+                title_dict = dict()
+                translated_title = dict()
+                title_dict['title'] = dict(value=self.get_export_value(row, 'title'))
+                if self.model == WorkRecord:
+                    title_dict['subtitle'] = dict(value=self.get_export_value(row, 'sub_title'))
+                translated_title['language-code'] = self.get_export_value(row, 'translated_title_language_code')
+                translated_title['value'] = csv_encode(self.get_export_value(row, 'translated_title'))
+                title_dict['translated-title'] = translated_title
+                vals.append(title_dict)
+            elif c[0] == "amount":
+                amount_dict = dict()
+                amount_dict['currency-code'] = self.get_export_value(row, 'currency')
+                amount_dict['value'] = csv_encode(self.get_export_value(row, 'amount'))
+                vals.append(amount_dict)
+            elif c[0] == "citation":
+                citation_dict = dict()
+                citation_dict['citation-type'] = self.get_export_value(row, 'citation_type')
+                citation_dict['citation-value'] = csv_encode(self.get_export_value(row, 'citation_value'))
+                vals.append(citation_dict)
+            elif c[0] == "contributors":
+                contributors_list = []
+                contributors_dict = {}
+                if self.model == WorkRecord:
+                    contributors_data = row.work_contributors
+                else:
+                    contributors_data = row.contributors
+                for f in contributors_data:
+                    contributor_dict = {}
+                    contributor_dict['contributor-attributes'] = {'contributor-role': self.get_export_value(f, 'role')}
+                    if self.model == WorkRecord:
+                        contributor_dict['contributor-attributes'].update(
+                            {'contributor-sequence': self.get_export_value(f, 'contributor_sequence')})
+                    contributor_dict['contributor-email'] = dict(value=self.get_export_value(f, 'email'))
+                    contributor_dict['credit-name'] = dict(value=self.get_export_value(f, 'name'))
+                    contributor_dict['contributor-orcid'] = dict(path=self.get_export_value(f, 'orcid'))
+                    contributors_list.append(contributor_dict)
+                contributors_dict['contributor'] = contributors_list
+                vals.append(contributors_dict)
             else:
-                vals.append(self.get_export_value(row, c[0]))
-        return (external_id_list, invitees_list)
+                requires_nested_value = ['review_url', 'subject_container_name', 'subject_url', 'journal_title', 'url',
+                                         'organization_defined_type', 'country']
+                if c[0] in requires_nested_value:
+                    vals.append(dict(value=self.get_export_value(row, c[0])))
+                else:
+                    vals.append(csv_encode(self.get_export_value(row, c[0])))
+        return vals
 
     @expose('/export/<export_type>/')
     def export(self, export_type):
@@ -1028,7 +1090,23 @@ class FundingWorkCommonModelView(RecordModelView):
         if export_type == 'tsv':
             delimiter = "\t"
 
-        count, data = self._export_data()
+        # Grab parameters from URL
+        view_args = self._get_list_extra_args()
+
+        # Map column index to column name
+        sort_column = self._get_column_by_idx(view_args.sort)
+        if sort_column is not None:
+            sort_column = sort_column[0]
+
+        # Get count and data
+        count, query = self.get_record_list(
+            0,
+            sort_column,
+            view_args.sort_desc,
+            view_args.search,
+            view_args.filters,
+            page_size=self.export_max_rows,
+            execute=False)
 
         # https://docs.djangoproject.com/en/1.8/howto/outputting-csv/
         class Echo(object):
@@ -1042,18 +1120,13 @@ class FundingWorkCommonModelView(RecordModelView):
 
         def generate():
             # Append the column titles at the beginning
-            titles = [csv_encode(c) for c in self.column_csv_export_list]
+            titles = [csv_encode(c[1]) for c in self._export_columns]
             yield writer.writerow(titles)
 
-            for row in data:
-                external_id_list, invitees_list = self.get_external_id_invitees(row)
-                for external_ids in external_id_list:
-                    for cont in invitees_list:
-                        vals = []
-                        vals.append(external_ids['value'])
-                        for col in self.column_csv_export_list[1:]:
-                            vals.append(cont.get(col))
-                        yield writer.writerow(vals)
+            for row in query:
+                vals = [csv_encode(self.get_export_value(row, c[0]))
+                        for c in self._export_columns]
+                yield writer.writerow(vals)
 
         filename = self.get_export_name(export_type=export_type)
 
@@ -1065,12 +1138,15 @@ class FundingWorkCommonModelView(RecordModelView):
             mimetype='text/' + export_type)
 
 
-class FundingRecordAdmin(FundingWorkCommonModelView):
+class FundingRecordAdmin(CompositeRecordModelView):
     """Funding record model view."""
 
     column_searchable_list = ("title",)
     list_template = "funding_record_list.html"
-    column_export_exclude_list = (
+    column_export_list = (
+        "funding_id",
+        "identifier",
+        "put_code",
         "title",
         "translated_title",
         "translated_title_language_code",
@@ -1088,24 +1164,101 @@ class FundingRecordAdmin(FundingWorkCommonModelView):
         "disambiguated_org_identifier",
         "disambiguation_source",
         "visibility",
-    )
+        "orcid",
+        "email",
+        "first_name",
+        "last_name",
+        "name",
+        "role",
+        "excluded",
+        "external_id_type",
+        "external_id_url",
+        "external_id_relationship",
+        "status",)
 
-    column_export_list = (
-        "funding id",
-        "funding_invitees",
-    )
-    column_csv_export_list = ("funding id", "identifier", "email", "first_name", "last_name", "orcid",
-                              "put_code", "status")
+    def get_record_list(self, page, sort_column, sort_desc, search, filters, execute=True, page_size=None):
+        """Return records and realated to the record data."""
+        count, query = self.get_list(
+            0,
+            sort_column,
+            sort_desc,
+            search,
+            filters,
+            page_size=page_size,
+            execute=False)
+
+        sq = (FundingInvitees.select(
+            FundingInvitees.funding_record,
+            FundingInvitees.email,
+            FundingInvitees.orcid,
+            SQL("NULL").alias("name"),
+            SQL("NULL").alias("role"),
+            FundingInvitees.identifier,
+            FundingInvitees.first_name,
+            FundingInvitees.last_name,
+            SQL("NULL").alias("excluded"),
+            FundingInvitees.put_code,
+            FundingInvitees.visibility,
+            FundingInvitees.status,
+            FundingInvitees.processed_at,
+        ) | FundingContributor.select(
+            FundingContributor.funding_record,
+            FundingContributor.email,
+            FundingContributor.orcid,
+            FundingContributor.name,
+            FundingContributor.role,
+            SQL("NULL").alias("identifier"),
+            SQL("NULL").alias("first_name"),
+            SQL("NULL").alias("last_name"),
+            SQL("'Y'").alias("excluded"),
+            SQL("NULL").alias("put_code"),
+            SQL("NULL").alias("visibility"),
+            SQL("NULL").alias("status"),
+            SQL("NULL").alias("processed_at"),
+        ).join(
+            FundingInvitees,
+            JOIN.LEFT_OUTER,
+            on=((FundingInvitees.funding_record_id == FundingContributor.funding_record_id)
+                & ((FundingInvitees.email == FundingContributor.email)
+                   | (FundingInvitees.orcid == FundingContributor.orcid)))).join(
+                       User,
+                       JOIN.LEFT_OUTER,
+                       on=((User.email == FundingContributor.email)
+                           | (User.orcid == FundingContributor.orcid))).where(
+                               (User.id.is_null() | FundingInvitees.id.is_null()))).alias("sq")
+
+        return count, query.select(
+            FundingRecord,
+            sq.c.email,
+            sq.c.orcid,
+            sq.c.name,
+            sq.c.role,
+            sq.c.identifier,
+            sq.c.first_name,
+            sq.c.last_name,
+            sq.c.excluded,
+            sq.c.put_code,
+            sq.c.visibility,
+            sq.c.status,
+            ExternalId.type.alias("external_id_type"),
+            ExternalId.value.alias("funding_id"),
+            ExternalId.url.alias("external_id_url"),
+            ExternalId.relationship.alias("external_id_relationship")).join(
+                ExternalId, JOIN.LEFT_OUTER,
+                on=(ExternalId.funding_record_id == FundingRecord.id)).join(
+                    sq, JOIN.LEFT_OUTER, on=(sq.c.funding_record_id == FundingRecord.id)).naive()
 
 
-class WorkRecordAdmin(FundingWorkCommonModelView):
+class WorkRecordAdmin(CompositeRecordModelView):
     """Work record model view."""
 
     column_searchable_list = ("title",)
     list_template = "work_record_list.html"
     form_overrides = dict(publication_date=PartialDateField)
 
-    column_export_exclude_list = (
+    column_export_list = [
+        "work_id",
+        "put_code",
         "title",
         "sub_title",
         "translated_title",
@@ -1113,7 +1266,7 @@ class WorkRecordAdmin(FundingWorkCommonModelView):
         "journal_title",
         "short_description",
         "citation_type",
-        "citation_value"
+        "citation_value",
         "type",
         "publication_date",
         "publication_media_type",
@@ -1121,36 +1274,167 @@ class WorkRecordAdmin(FundingWorkCommonModelView):
         "language_code",
         "country",
         "visibility",
-    )
-    column_export_list = (
-        "work id",
-        "work_invitees",
-    )
-    column_csv_export_list = ("work id", "identifier", "email", "first_name", "last_name", "orcid",
-                              "put_code", "status")
+        "orcid",
+        "email",
+        "first_name",
+        "last_name",
+        "name",
+        "role",
+        "excluded",
+        "external_id_type",
+        "external_id_url",
+        "external_id_relationship",
+        "status",
+    ]
+
+    def get_record_list(self, page, sort_column, sort_desc, search, filters, execute=True, page_size=None):
+        """Return records and realated to the record data."""
+        count, query = self.get_list(
+            0,
+            sort_column,
+            sort_desc,
+            search,
+            filters,
+            page_size=page_size,
+            execute=False)
+
+        sq = (WorkInvitees.select(
+            WorkInvitees.work_record,
+            WorkInvitees.email,
+            WorkInvitees.orcid,
+            SQL("NULL").alias("name"),
+            SQL("NULL").alias("role"),
+            WorkInvitees.identifier,
+            WorkInvitees.first_name,
+            WorkInvitees.last_name,
+            SQL("NULL").alias("excluded"),
+            WorkInvitees.put_code,
+            WorkInvitees.visibility,
+            WorkInvitees.status,
+            WorkInvitees.processed_at,
+        ) | WorkContributor.select(
+            WorkContributor.work_record,
+            WorkContributor.email,
+            WorkContributor.orcid,
+            WorkContributor.name,
+            WorkContributor.role,
+            SQL("NULL").alias("identifier"),
+            SQL("NULL").alias("first_name"),
+            SQL("NULL").alias("last_name"),
+            SQL("'Y'").alias("excluded"),
+            SQL("NULL").alias("put_code"),
+            SQL("NULL").alias("visibility"),
+            SQL("NULL").alias("status"),
+            SQL("NULL").alias("processed_at"),
+        ).join(
+            WorkInvitees,
+            JOIN.LEFT_OUTER,
+            on=((WorkInvitees.work_record_id == WorkContributor.work_record_id)
+                & ((WorkInvitees.email == WorkContributor.email)
+                   | (WorkInvitees.orcid == WorkContributor.orcid)))).join(
+                       User,
+                       JOIN.LEFT_OUTER,
+                       on=((User.email == WorkContributor.email)
+                           | (User.orcid == WorkContributor.orcid))).where(
+                               (User.id.is_null() | WorkInvitees.id.is_null()))).alias("sq")
+
+        return count, query.select(
+            WorkRecord,
+            sq.c.email,
+            sq.c.orcid,
+            sq.c.name,
+            sq.c.role,
+            sq.c.identifier,
+            sq.c.first_name,
+            sq.c.last_name,
+            sq.c.excluded,
+            sq.c.put_code,
+            sq.c.visibility,
+            sq.c.status,
+            WorkExternalId.type.alias("external_id_type"),
+            WorkExternalId.value.alias("work_id"),
+            WorkExternalId.url.alias("external_id_url"),
+            WorkExternalId.relationship.alias("external_id_relationship")).join(
+                WorkExternalId, JOIN.LEFT_OUTER,
+                on=(WorkExternalId.work_record_id == WorkRecord.id)).join(
+                    sq, JOIN.LEFT_OUTER, on=(sq.c.work_record_id == WorkRecord.id)).naive()
 
 
-class PeerReviewRecordAdmin(FundingWorkCommonModelView):
+class PeerReviewRecordAdmin(CompositeRecordModelView):
     """Peer Review record model view."""
 
-    column_searchable_list = ("review_group_id",)
+    column_searchable_list = ("review_group_id", )
     list_template = "peer_review_record_list.html"
     form_overrides = dict(review_completion_date=PartialDateField)
 
-    column_export_exclude_list = (
+    column_export_list = [
         "review_group_id",
         "reviewer_role",
+        "review_url",
         "review_type",
-        "subject_type",
         "review_completion_date",
+        "subject_external_id_type",
+        "subject_external_id_value",
+        "subject_external_id_url",
+        "subject_external_id_relationship",
+        "subject_container_name",
+        "subject_type",
+        "subject_name_title",
+        "subject_name_subtitle",
+        "subject_name_translated_title_lang_code",
+        "subject_name_translated_title",
+        "subject_url",
+        "convening_org_name",
+        "convening_org_city",
+        "convening_org_region",
+        "convening_org_country",
+        "convening_org_disambiguated_identifier",
+        "convening_org_disambiguation_source",
+        "email",
+        "orcid",
+        "identifier",
+        "first_name",
+        "last_name",
+        "put_code",
         "visibility",
-    )
-    column_export_list = (
-        "Peer Review id",
-        "peer_review_invitee",
-    )
-    column_csv_export_list = ("Peer Review id", "identifier", "email", "first_name", "last_name", "orcid",
-                              "put_code", "status")
+        "external_id_type",
+        "peer_review_id",
+        "external_id_url",
+        "external_id_relationship",
+    ]
+
+    def get_record_list(self,
+                        page,
+                        sort_column,
+                        sort_desc,
+                        search,
+                        filters,
+                        execute=True,
+                        page_size=None):
+        """Return records and realated to the record data."""
+        count, query = self.get_list(
+            0, sort_column, sort_desc, search, filters, page_size=page_size, execute=False)
+
+        return count, query.select(
+            self.model,
+            PeerReviewInvitee.email,
+            PeerReviewInvitee.orcid,
+            PeerReviewInvitee.identifier,
+            PeerReviewInvitee.first_name,
+            PeerReviewInvitee.last_name,
+            PeerReviewInvitee.put_code,
+            PeerReviewInvitee.visibility,
+            PeerReviewExternalId.type.alias("external_id_type"),
+            PeerReviewExternalId.value.alias("peer_review_id"),
+            PeerReviewExternalId.url.alias("external_id_url"),
+            PeerReviewExternalId.relationship.alias("external_id_relationship"),
+        ).join(
+            PeerReviewExternalId,
+            JOIN.LEFT_OUTER,
+            on=(PeerReviewExternalId.peer_review_record_id == self.model.id)).join(
+                PeerReviewInvitee,
+                JOIN.LEFT_OUTER,
+                on=(PeerReviewInvitee.peer_review_record_id == self.model.id)).naive()
 
 
 class AffiliationRecordAdmin(RecordModelView):
@@ -1173,6 +1457,32 @@ class AffiliationRecordAdmin(RecordModelView):
         "task",
         "is_active",
     )
+
+    @expose("/export/<export_type>/")
+    def export(self, export_type):
+        """Check the export type whether it is csv, tsv or other format."""
+        if export_type not in ["json", "yaml", "yml"]:
+            return super().export(export_type)
+        return_url = get_redirect_target() or self.get_url(".index_view")
+
+        task_id = request.args.get("task_id")
+        if not task_id:
+            flash("Missing task ID.", "danger")
+            return redirect(return_url)
+
+        if not self.can_export or (export_type not in self.export_types):
+            flash("Permission denied.", "danger")
+            return redirect(return_url)
+
+        data = Task.get(int(task_id)).to_dict()
+        if export_type == "json":
+            resp = jsonify(data)
+        else:
+            resp = yamlfy(data)
+
+        resp.headers[
+            "Content-Disposition"] = f"attachment;filename={secure_filename(self.get_export_name(export_type))}"
+        return resp
 
 
 class ViewMembersAdmin(AppModelView):
@@ -1238,13 +1548,13 @@ class ViewMembersAdmin(AppModelView):
                         token=token.access_token))
 
                 if resp.status_code != 200:
-                    flash("Failed to revoke token {tokne.access_token}: {ex}", "error")
+                    flash("Failed to revoke token {token.access_token}: {ex}", "danger")
                     return False
 
                 token.delete_instance(recursive=True)
 
             except Exception as ex:
-                flash(f"Failed to revoke token {token.access_token}: {ex}", "error")
+                flash(f"Failed to revoke token {token.access_token}: {ex}", "danger")
                 app.logger.exception('Failed to delete record.')
                 return False
 
@@ -1263,7 +1573,7 @@ class ViewMembersAdmin(AppModelView):
 
         except Exception as ex:
             if not self.handle_view_exception(ex):
-                flash(gettext('Failed to delete record. %(error)s', error=str(ex)), 'error')
+                flash(gettext('Failed to delete record. %(error)s', error=str(ex)), 'danger')
                 app.logger.exception('Failed to delete record.')
 
             return False
@@ -1288,14 +1598,14 @@ class ViewMembersAdmin(AppModelView):
                 flash(gettext('Record was successfully deleted.%(count)s records were successfully deleted.',
                               count=count), 'success')
         except Exception as ex:
-            flash(gettext('Failed to delete records. %(error)s', error=str(ex)), 'error')
+            flash(gettext('Failed to delete records. %(error)s', error=str(ex)), 'danger')
 
 
 class GroupIdRecordAdmin(AppModelView):
     """GroupIdRecord model view."""
 
     roles_required = Role.SUPERUSER | Role.ADMIN
-    list_template = "admin/model/list.html"
+    list_template = "viewGroupIdRecords.html"
     can_edit = True
     can_create = True
     can_delete = True
@@ -1377,6 +1687,9 @@ admin.add_view(OrganisationAdmin(Organisation))
 admin.add_view(OrcidTokenAdmin(OrcidToken))
 admin.add_view(OrgInfoAdmin(OrgInfo))
 admin.add_view(OrcidApiCallAmin(OrcidApiCall))
+admin.add_view(UserInvitationAdmin())
+admin.add_view(OrgInvitationAdmin())
+
 admin.add_view(TaskAdmin(Task))
 admin.add_view(AffiliationRecordAdmin())
 admin.add_view(FundingRecordAdmin())
@@ -1390,7 +1703,6 @@ admin.add_view(WorkRecordAdmin())
 admin.add_view(PeerReviewRecordAdmin())
 admin.add_view(PeerReviewInviteeAdmin())
 admin.add_view(PeerReviewExternalIdAdmin())
-admin.add_view(AppModelView(UserInvitation))
 admin.add_view(ViewMembersAdmin(name="viewmembers", endpoint="viewmembers"))
 
 admin.add_view(UserOrgAmin(UserOrg))
@@ -1412,7 +1724,7 @@ def year_range(entry):
         val = "unknown"
     val += "-"
 
-    end_date = entry.get("end_date") or entry.get("entry-date")
+    end_date = entry.get("end_date") or entry.get("end-date")
     if end_date and end_date["year"]["value"]:
         val += end_date["year"]["value"]
     else:
@@ -1555,7 +1867,7 @@ def reset_all():
 @app.route("/section/<int:user_id>/<string:section_type>/<int:put_code>/delete", methods=["POST"])
 @roles_required(Role.ADMIN)
 def delete_record(user_id, section_type, put_code):
-    """Delete an employment or education record."""
+    """Delete an employment, education, peer review, works or funding record."""
     _url = request.args.get("url") or request.referrer or url_for(
         "section", user_id=user_id, section_type=section_type)
     try:
@@ -1584,13 +1896,20 @@ def delete_record(user_id, section_type, put_code):
         # Delete an Employment
         if section_type == "EMP":
             api_instance.delete_employment(user.orcid, put_code)
+        elif section_type == "FUN":
+            api_instance.delete_funding(user.orcid, put_code)
+        elif section_type == "PRR":
+            api_instance.delete_peer_review(user.orcid, put_code)
+        elif section_type == "WOR":
+            api_instance.delete_work(user.orcid, put_code)
         else:
             api_instance.delete_education(user.orcid, put_code)
         app.logger.info(f"For {user.orcid} '{section_type}' record was deleted by {current_user}")
         flash("The record was successfully deleted.", "success")
     except ApiException as e:
-        flash("Failed to delete the entry: " +
-              json.loads(e.body.replace("''", "\"")).get('user-messsage'), "danger")
+        flash(
+            "Failed to delete the entry: " + json.loads(e.body.replace(
+                "''", "\"")).get('user-messsage'), "danger")
     except Exception as ex:
         app.logger.error("For %r encountered exception: %r", user, ex)
         abort(500, ex)
@@ -1628,8 +1947,18 @@ def edit_record(user_id, section_type, put_code=None):
     orcid_client.configuration.access_token = orcid_token.access_token
     api = orcid_client.MemberAPI(user=user)
 
-    form = RecordForm(form_type=section_type)
+    if section_type == "FUN":
+        form = FundingForm(form_type=section_type)
+    elif section_type == "PRR":
+        form = PeerReviewForm(form_type=section_type)
+    elif section_type == "WOR":
+        form = WorkForm(form_type=section_type)
+    else:
+        form = RecordForm(form_type=section_type)
+
+    grant_data_list = []
     if request.method == "GET":
+        data = {}
         if put_code:
             try:
                 # Fetch an Employment
@@ -1637,23 +1966,131 @@ def edit_record(user_id, section_type, put_code=None):
                     api_response = api.view_employment(user.orcid, put_code)
                 elif section_type == "EDU":
                     api_response = api.view_education(user.orcid, put_code)
+                elif section_type == "FUN":
+                    api_response = api.view_funding(user.orcid, put_code)
+                elif section_type == "WOR":
+                    api_response = api.view_work(user.orcid, put_code)
+                elif section_type == "PRR":
+                    api_response = api.view_peer_review(user.orcid, put_code)
 
                 _data = api_response.to_dict()
-                data = dict(
-                    org_name=_data.get("organization").get("name"),
-                    disambiguated_id=get_val(
-                        _data, "organization", "disambiguated_organization",
-                        "disambiguated_organization_identifier"),
-                    disambiguation_source=get_val(
-                        _data, "organization", "disambiguated_organization",
-                        "disambiguation_source"),
-                    city=_data.get("organization").get("address").get("city", ""),
-                    state=_data.get("organization").get("address").get("region", ""),
-                    country=_data.get("organization").get("address").get("country", ""),
-                    department=_data.get("department_name", ""),
-                    role=_data.get("role_title", ""),
-                    start_date=PartialDate.create(_data.get("start_date")),
-                    end_date=PartialDate.create(_data.get("end_date")))
+
+                if section_type == "PRR" or section_type == "WOR":
+
+                    if section_type == "PRR":
+                        external_ids_list = get_val(_data, "review_identifiers", "external-id")
+                    else:
+                        external_ids_list = get_val(_data, "external_ids", "external-id")
+
+                    for extid in external_ids_list:
+                        external_id_value = extid['external-id-value'] if extid['external-id-value'] else ''
+                        external_id_url = get_val(extid['external-id-url'], "value") if get_val(
+                            extid['external-id-url'], "value") else ''
+                        external_id_relationship = extid['external-id-relationship'] if extid[
+                            'external-id-relationship'] else ''
+                        external_id_type = extid['external-id-type'] if extid[
+                            'external-id-relationship'] else ''
+
+                        grant_data_list.append(dict(grant_number=external_id_value, grant_url=external_id_url,
+                                                    grant_relationship=external_id_relationship,
+                                                    grant_type=external_id_type))
+
+                    if section_type == "WOR":
+                        data = dict(work_type=get_val(_data, "type"),
+                                    title=get_val(_data, "title", "title", "value"),
+                                    subtitle=get_val(_data, "title", "subtitle", "value"),
+                                    translated_title=get_val(_data, "title", "translated-title", "value"),
+                                    translated_title_language_code=get_val(_data, "title", "translated-title",
+                                                                           "language-code"),
+                                    journal_title=get_val(_data, "journal_title", "value"),
+                                    short_description=get_val(_data, "short_description"),
+                                    citation_type=get_val(_data, "citation", "citation_type"),
+                                    citation=get_val(_data, "citation", "citation_value"),
+                                    url=get_val(_data, "url", "value"),
+                                    language_code=get_val(_data, "language_code"),
+                                    # Removing key 'media-type' from the publication_date dict.
+                                    publication_date=PartialDate.create(
+                                        {date_key: _data.get("publication_date")[date_key] for date_key in
+                                         ('day', 'month', 'year')}) if _data.get("publication_date") else None,
+                                    country=get_val(_data, "country", "value"))
+                    else:
+                        data = dict(
+                            org_name=get_val(_data, "convening_organization", "name"),
+                            disambiguated_id=get_val(
+                                _data, "convening_organization", "disambiguated-organization",
+                                "disambiguated-organization-identifier"),
+                            disambiguation_source=get_val(
+                                _data, "convening_organization", "disambiguated-organization",
+                                "disambiguation-source"),
+                            city=get_val(_data, "convening_organization", "address", "city"),
+                            state=get_val(_data, "convening_organization", "address", "region"),
+                            country=get_val(_data, "convening_organization", "address", "country"),
+                            reviewer_role=_data.get("reviewer_role", ""),
+                            review_url=get_val(_data, "review_url", "value"),
+                            review_type=_data.get("review_type", ""),
+                            review_group_id=_data.get("review_group_id", ""),
+                            subject_external_identifier_type=get_val(_data, "subject_external_identifier",
+                                                                     "external-id-type"),
+                            subject_external_identifier_value=get_val(_data, "subject_external_identifier",
+                                                                      "external-id-value"),
+                            subject_external_identifier_url=get_val(_data, "subject_external_identifier",
+                                                                    "external-id-url",
+                                                                    "value"),
+                            subject_external_identifier_relationship=get_val(_data, "subject_external_identifier",
+                                                                             "external-id-relationship"),
+                            subject_container_name=get_val(_data, "subject_container_name", "value"),
+                            subject_type=_data.get("subject_type", ""),
+                            subject_title=get_val(_data, "subject_name", "title", "value"),
+                            subject_subtitle=get_val(_data, "subject_name", "subtitle"),
+                            subject_translated_title=get_val(_data, "subject_name", "translated-title", "value"),
+                            subject_translated_title_language_code=get_val(_data, "subject_name", "translated-title",
+                                                                           "language-code"),
+                            subject_url=get_val(_data, "subject_url", "value"),
+                            review_completion_date=PartialDate.create(_data.get("review_completion_date")))
+
+                else:
+                    data = dict(
+                        org_name=get_val(_data, "organization", "name"),
+                        disambiguated_id=get_val(
+                            _data, "organization", "disambiguated_organization",
+                            "disambiguated_organization_identifier"),
+                        disambiguation_source=get_val(
+                            _data, "organization", "disambiguated_organization",
+                            "disambiguation_source"),
+                        city=get_val(_data, "organization", "address", "city"),
+                        state=get_val(_data, "organization", "address", "region"),
+                        country=get_val(_data, "organization", "address", "country"),
+                        department=_data.get("department_name", ""),
+                        role=_data.get("role_title", ""),
+                        start_date=PartialDate.create(_data.get("start_date")),
+                        end_date=PartialDate.create(_data.get("end_date")))
+
+                    if section_type == "FUN":
+                        external_ids_list = get_val(_data, "external_ids", "external_id")
+
+                        for extid in external_ids_list:
+                            external_id_value = extid['external_id_value'] if extid['external_id_value'] else ''
+                            external_id_url = get_val(extid['external_id_url'], "value") if get_val(
+                                extid['external_id_url'], "value") else ''
+                            external_id_relationship = extid['external_id_relationship'] if extid[
+                                'external_id_relationship'] else ''
+                            external_id_type = extid['external_id_type'] if extid[
+                                'external_id_relationship'] else ''
+
+                            grant_data_list.append(dict(grant_number=external_id_value, grant_url=external_id_url,
+                                                        grant_relationship=external_id_relationship,
+                                                        grant_type=external_id_type))
+
+                        data.update(dict(funding_title=get_val(_data, "title", "title", "value"),
+                                         funding_translated_title=get_val(_data, "title", "translated_title", "value"),
+                                         translated_title_language=get_val(_data, "title", "translated_title",
+                                                                           "language_code"),
+                                         funding_type=get_val(_data, "type"),
+                                         funding_subtype=get_val(_data, "organization_defined_type", "value"),
+                                         funding_description=get_val(_data, "short_description"),
+                                         total_funding_amount=get_val(_data, "amount", "value"),
+                                         total_funding_amount_currency=get_val(_data, "amount", "currency_code")))
+
             except ApiException as e:
                 message = json.loads(e.body.replace("''", "\"")).get('user-messsage')
                 app.logger.error(f"Exception when calling MemberAPIV20Api->view_employment: {message}")
@@ -1673,42 +2110,81 @@ def edit_record(user_id, section_type, put_code=None):
 
     if form.validate_on_submit():
         try:
-            put_code, orcid, created = api.create_or_update_affiliation(
-                put_code=put_code,
-                affiliation=Affiliation[section_type],
-                **{f.name: f.data
-                   for f in form})
-            if put_code and created:
-                flash("Record details has been added successfully!", "success")
+            if section_type == "FUN" or section_type == "PRR" or section_type == "WOR":
+                grant_type = request.form.getlist('grant_type')
+                grant_number = request.form.getlist('grant_number')
+                grant_url = request.form.getlist('grant_url')
+                grant_relationship = request.form.getlist('grant_relationship')
 
-            affiliation, _ = UserOrgAffiliation.get_or_create(
-                user=user,
-                organisation=org,
-                put_code=put_code)
+                grant_data_list = [{'grant_number': gn, 'grant_type': gt, 'grant_url': gu, 'grant_relationship': gr} for
+                                   gn, gt, gu, gr in
+                                   zip(grant_number, grant_type, grant_url, grant_relationship)] if list(
+                    filter(None, grant_number)) else []
 
-            affiliation.department_name = form.department.data
-            affiliation.department_city = form.city.data
-            affiliation.role_title = form.role.data
-            form.populate_obj(affiliation)
+                if section_type == "FUN":
+                    put_code, orcid, created = api.create_or_update_individual_funding(
+                        put_code=put_code,
+                        grant_data_list=grant_data_list,
+                        **{f.name: f.data
+                           for f in form})
+                elif section_type == "WOR":
+                    put_code, orcid, created = api.create_or_update_individual_work(
+                        put_code=put_code,
+                        grant_data_list=grant_data_list,
+                        **{f.name: f.data
+                           for f in form})
+                else:
+                    put_code, orcid, created = api.create_or_update_individual_peer_review(
+                        put_code=put_code,
+                        grant_data_list=grant_data_list,
+                        **{f.name: f.data
+                           for f in form})
+                if put_code and created:
+                    flash("Record details has been added successfully!", "success")
+                else:
+                    flash("Record details has been updated successfully!", "success")
+            else:
+                put_code, orcid, created = api.create_or_update_affiliation(
+                    put_code=put_code,
+                    affiliation=Affiliation[section_type],
+                    **{f.name: f.data
+                       for f in form})
+                if put_code and created:
+                    flash("Record details has been added successfully!", "success")
 
-            affiliation.save()
+                affiliation, _ = UserOrgAffiliation.get_or_create(
+                    user=user,
+                    organisation=org,
+                    put_code=put_code)
+
+                affiliation.department_name = form.department.data
+                affiliation.department_city = form.city.data
+                affiliation.role_title = form.role.data
+                form.populate_obj(affiliation)
+
+                affiliation.save()
             return redirect(_url)
 
         except ApiException as e:
             body = json.loads(e.body)
             message = body.get("user-message")
+            dev_message = body.get("developer-message")
             more_info = body.get("more-info")
-            flash(f"Failed to update the entry: {message}", "danger")
+            flash(f"Failed to update the entry: {message}; {dev_message}", "danger")
             if more_info:
                 flash(f'You can find more information at <a href="{more_info}">{more_info}</a>', "info")
 
-            app.logger.exception(f"For {user} exception encountered")
+            app.logger.exception(f"For {user} exception encountered; {dev_message}")
         except Exception as ex:
             app.logger.exception(
                 "Unhandler error occured while creating or editing a profile record.")
             abort(500, ex)
-
-    return render_template("profile_entry.html", section_type=section_type, form=form, _url=_url)
+    if not grant_data_list:
+        grant_data_list.append(dict(grant_number='', grant_url='',
+                                    grant_relationship='',
+                                    grant_type=''))
+    return render_template("profile_entry.html", section_type=section_type, form=form, _url=_url,
+                           grant_data_list=grant_data_list)
 
 
 @app.route("/section/<int:user_id>/<string:section_type>/list")
@@ -1718,7 +2194,7 @@ def section(user_id, section_type="EMP"):
     _url = request.args.get("url") or request.referrer or url_for("viewmembers.index_view")
 
     section_type = section_type.upper()[:3]  # normalize the section type
-    if section_type not in ["EDU", "EMP", ]:
+    if section_type not in ["EDU", "EMP", "FUN", "PRR", "WOR"]:
         flash("Incorrect user profile section", "danger")
         return redirect(_url)
 
@@ -1746,14 +2222,21 @@ def section(user_id, section_type="EMP"):
         # Fetch all entries
         if section_type == "EMP":
             api_response = api_instance.view_employments(user.orcid)
-        else:  # section_type == "EDU
+        elif section_type == "EDU":
             api_response = api_instance.view_educations(user.orcid)
+        elif section_type == "FUN":
+            api_response = api_instance.view_fundings(user.orcid)
+        elif section_type == "WOR":
+            api_response = api_instance.view_works(user.orcid)
+        else:
+            api_response = api_instance.view_peer_reviews(user.orcid)
     except ApiException as ex:
         if ex.status == 401:
             flash("User has revoked the permissions to update his/her records", "warning")
         else:
-            flash("Exception when calling ORCID API: \n" +
-                  json.loads(ex.body.replace("''", "\"")).get('user-messsage'), "danger")
+            flash(
+                "Exception when calling ORCID API: \n" + json.loads(ex.body.replace(
+                    "''", "\"")).get('user-messsage'), "danger")
         return redirect(_url)
     except Exception as ex:
         abort(500, ex)
@@ -1769,7 +2252,47 @@ def section(user_id, section_type="EMP"):
         app.logger.exception(f"For {user} encountered exception")
         return redirect(_url)
     # TODO: transform data for presentation:
-    records = data.get("education_summary" if section_type == "EDU" else "employment_summary", [])
+
+    records = []
+    if section_type == 'FUN':
+        if data and data.get("group"):
+            for k in data.get("group"):
+                fs = k.get("funding_summary")[0]
+                records.append(fs)
+        return render_template(
+            "funding_section.html",
+            url=_url,
+            records=records,
+            section_type=section_type,
+            user_id=user_id,
+            org_client_id=user.organisation.orcid_client_id)
+    elif section_type == 'PRR':
+        if data and data.get("group"):
+            for k in data.get("group"):
+                for ps in k.get("peer-review-summary"):
+                    records.append(ps)
+        return render_template(
+            "peer_review_section.html",
+            url=_url,
+            records=records,
+            section_type=section_type,
+            user_id=user_id,
+            org_client_id=user.organisation.orcid_client_id)
+    elif section_type == 'WOR':
+        if data and data.get("group"):
+            for k in data.get("group"):
+                for ps in k.get("work-summary"):
+                    records.append(ps)
+        return render_template(
+            "work_section.html",
+            url=_url,
+            records=records,
+            section_type=section_type,
+            user_id=user_id,
+            org_client_id=user.organisation.orcid_client_id)
+    else:
+        records = data.get("education_summary" if section_type == "EDU" else "employment_summary", [])
+
     return render_template(
         "section.html",
         url=_url,
@@ -1777,6 +2300,94 @@ def section(user_id, section_type="EMP"):
         section_type=section_type,
         user_id=user_id,
         org_client_id=user.organisation.orcid_client_id)
+
+
+@app.route("/search/group_id_record/list", methods=["GET", "POST"])
+@roles_required(Role.ADMIN)
+def search_group_id_record():
+    """Search groupID record."""
+    _url = url_for("groupidrecord.index_view")
+    form = GroupIdForm()
+    records = []
+
+    if request.method == "GET":
+        data = dict(
+            page_size="100",
+            page="1")
+
+        form.process(data=data)
+
+    if request.method == "POST" and not form.search.data:
+        group_id = request.form.get('group_id')
+        name = request.form.get('name')
+        description = request.form.get('description')
+        type = request.form.get('type')
+        put_code = request.form.get('put_code')
+
+        with db.atomic():
+            try:
+                gir, created = GroupIdRecord.get_or_create(organisation=current_user.organisation,
+                                                           group_id=group_id, name=name, description=description,
+                                                           type=type)
+                gir.put_code = put_code
+
+                if created:
+                    gir.add_status_line(f"Successfully added {group_id} from ORCID.")
+                    flash(f"Successfully added {group_id}.", "success")
+                else:
+                    flash(f"The GroupID Record {group_id} is already existing in your list.", "success")
+                gir.save()
+
+            except Exception as ex:
+                db.rollback()
+                flash(f"Failed to save GroupID Record: {ex}", "warning")
+                app.logger.exception(f"Failed to save GroupID Record: {ex}")
+
+        return redirect(_url)
+    elif form.validate_on_submit():
+        try:
+            group_id_name = form.group_id_name.data
+            page_size = form.page_size.data
+            page = form.page.data
+
+            orcid_token = None
+            org = current_user.organisation
+            try:
+                orcid_token = OrcidToken.get(org=org, scope='/group-id-record/read')
+            except OrcidToken.DoesNotExist:
+                orcid_token = utils.get_client_credentials_token(org=org, scope="/group-id-record/read")
+            except Exception as ex:
+                flash("Something went wrong in ORCID call, "
+                      "please contact orcid@royalsociety.org.nz for support", "warning")
+                app.logger.exception(f'Exception occured {ex}')
+
+            orcid_client.configuration.access_token = orcid_token.access_token
+            api = orcid_client.MemberAPI(org=org, access_token=orcid_token.access_token)
+
+            api_response = api.view_group_id_records(page_size=page_size, page=page, name=group_id_name,
+                                                     _preload_content=False)
+            if api_response:
+                data = json.loads(api_response.data)
+                # Currently the api only gives correct response for one entry otherwise it throws 500 exception.
+                records.append(data)
+        except ApiException as ex:
+            if ex.status == 401:
+                orcid_token.delete_instance()
+                flash(f"Old token was expired. Please search again so that next time we will fetch latest token",
+                      "warning")
+            elif ex.status == 500:
+                flash(f"ORCID API Exception: {ex}", "warning")
+            else:
+                flash(f"Something went wrong in ORCID call, Please try again by making necessary changes, "
+                      f"In case you understand this message: {ex} or"
+                      f" else please contact orcid@royalsociety.org.nz for support", "warning")
+                app.logger.warning(f'Exception occured {ex}')
+
+        except Exception as ex:
+            app.logger.exception(f'Exception occured {ex}')
+            abort(500, ex)
+
+    return render_template("groupid_record_entries.html", form=form, _url=_url, records=records)
 
 
 @app.route("/load/org", methods=["GET", "POST"])
@@ -1790,18 +2401,23 @@ def load_org():
         flash("Successfully loaded %d rows." % row_count, "success")
         return redirect(url_for("orginfo.index_view"))
 
-    return render_template("fileUpload.html", form=form, form_title="Organisation")
+    return render_template("fileUpload.html", form=form, title="Organisation")
 
 
 @app.route("/load/researcher", methods=["GET", "POST"])
 @roles_required(Role.ADMIN)
 def load_researcher_affiliations():
     """Preload organisation data."""
-    form = FileUploadForm()
+    form = FileUploadForm(extensions=["csv", "tsv", "json", "yaml", "yml"])
     if form.validate_on_submit():
-        filename = secure_filename(form.file_.data.filename)
         try:
-            task = Task.load_from_csv(read_uploaded_file(form), filename=filename)
+            filename = secure_filename(form.file_.data.filename)
+            content_type = form.file_.data.content_type
+            content = read_uploaded_file(form)
+            if content_type in ["text/tab-separated-values", "text/csv"]:
+                task = Task.load_from_csv(content, filename=filename)
+            else:
+                task = AffiliationRecord.load(content, filename=filename)
             flash(f"Successfully loaded {task.record_count} rows.")
             return redirect(url_for("affiliationrecord.index_view", task_id=task.id))
         except (
@@ -1811,61 +2427,76 @@ def load_researcher_affiliations():
             flash(f"Failed to load affiliation record file: {ex}", "danger")
             app.logger.exception("Failed to load affiliation records.")
 
-    return render_template("fileUpload.html", form=form, form_title="Researcher")
+    return render_template("fileUpload.html", form=form, title="Researcher Info Upload")
 
 
 @app.route("/load/researcher/funding", methods=["GET", "POST"])
 @roles_required(Role.ADMIN)
 def load_researcher_funding():
     """Preload organisation data."""
-    form = JsonOrYamlFileUploadForm()
+    form = FileUploadForm(extensions=["json", "yaml", "csv", "tsv"])
     if form.validate_on_submit():
         filename = secure_filename(form.file_.data.filename)
+        content_type = form.file_.data.content_type
         try:
-            task = FundingRecord.load_from_json(read_uploaded_file(form), filename=filename)
+            if content_type in ["text/tab-separated-values", "text/csv"]:
+                task = FundingRecord.load_from_csv(
+                    read_uploaded_file(form), filename=filename)
+            else:
+                task = FundingRecord.load_from_json(read_uploaded_file(form), filename=filename)
             flash(f"Successfully loaded {task.record_count} rows.")
             return redirect(url_for("fundingrecord.index_view", task_id=task.id))
         except Exception as ex:
-            flash(f"Failed to load funding record file: {ex}", "danger")
+            flash(f"Failed to load funding record file: {ex.args}", "danger")
             app.logger.exception("Failed to load funding records.")
 
-    return render_template("fileUpload.html", form=form, form_title="Funding")
+    return render_template("fileUpload.html", form=form, title="Funding Info Upload")
 
 
 @app.route("/load/researcher/work", methods=["GET", "POST"])
 @roles_required(Role.ADMIN)
 def load_researcher_work():
     """Preload researcher's work data."""
-    form = JsonOrYamlFileUploadForm()
+    form = FileUploadForm(extensions=["json", "yaml", "csv", "tsv"])
     if form.validate_on_submit():
         filename = secure_filename(form.file_.data.filename)
+        content_type = form.file_.data.content_type
         try:
-            task = WorkRecord.load_from_json(read_uploaded_file(form), filename=filename)
+            if content_type in ["text/tab-separated-values", "text/csv"]:
+                task = WorkRecord.load_from_csv(
+                    read_uploaded_file(form), filename=filename)
+            else:
+                task = WorkRecord.load_from_json(read_uploaded_file(form), filename=filename)
             flash(f"Successfully loaded {task.record_count} rows.")
             return redirect(url_for("workrecord.index_view", task_id=task.id))
         except Exception as ex:
-            flash(f"Failed to load work record file: {ex}", "danger")
+            flash(f"Failed to load work record file: {ex.args}", "danger")
             app.logger.exception("Failed to load work records.")
 
-    return render_template("fileUpload.html", form=form, form_title="Work")
+    return render_template("fileUpload.html", form=form, title="Work Info Upload")
 
 
 @app.route("/load/researcher/peer_review", methods=["GET", "POST"])
 @roles_required(Role.ADMIN)
 def load_researcher_peer_review():
     """Preload researcher's peer review data."""
-    form = JsonOrYamlFileUploadForm()
+    form = FileUploadForm(extensions=["json", "yaml", "csv", "tsv"])
     if form.validate_on_submit():
         filename = secure_filename(form.file_.data.filename)
+        content_type = form.file_.data.content_type
         try:
-            task = PeerReviewRecord.load_from_json(read_uploaded_file(form), filename=filename)
+            if content_type in ["text/tab-separated-values", "text/csv"]:
+                task = PeerReviewRecord.load_from_csv(
+                    read_uploaded_file(form), filename=filename)
+            else:
+                task = PeerReviewRecord.load_from_json(read_uploaded_file(form), filename=filename)
             flash(f"Successfully loaded {task.record_count} rows.")
             return redirect(url_for("peerreviewrecord.index_view", task_id=task.id))
         except Exception as ex:
-            flash(f"Failed to load peer review record file: {ex}", "danger")
+            flash(f"Failed to load peer review record file: {ex.args}", "danger")
             app.logger.exception("Failed to load peer review records.")
 
-    return render_template("fileUpload.html", form=form, form_title="Peer Review")
+    return render_template("fileUpload.html", form=form, title="Peer Review Info Upload")
 
 
 @app.route("/orcid_api_rep", methods=["GET", "POST"])
@@ -1937,10 +2568,12 @@ def register_org(org_name,
         except User.DoesNotExist:
             user = User.create(
                 email=email,
-                confirmed=True,  # In order to let the user in...
                 organisation=org)
 
         user.roles |= Role.ADMIN
+        if tech_contact:
+            user.roles |= Role.TECHNICAL
+
         if via_orcid:
             if not user.orcid and orcid_id:
                 user.orcid = orcid_id
@@ -1955,16 +2588,6 @@ def register_org(org_name,
             app.logger.exception("Failed to save user data")
             raise
 
-        if tech_contact:
-            user.roles |= Role.TECHNICAL
-            org.tech_contact = user
-            try:
-                user.save()
-                org.save()
-            except Exception:
-                app.logger.exception(
-                    "Failed to assign the user as the technical contact to the organisation")
-                raise
         try:
             user_org = UserOrg.get(user=user, org=org)
             user_org.is_admin = True
@@ -1978,24 +2601,28 @@ def register_org(org_name,
             user_org = UserOrg.create(user=user, org=org, is_admin=True)
 
         app.logger.info(f"Ready to send an ivitation to '{org_name} <{email}>'.")
-        token = generate_confirmation_token(email=email, org=org_name)
+        token = utils.new_invitation_token()
         # TODO: for via_orcid constact direct link to ORCID with callback like to HUB
         if via_orcid:
-            short_id = Url.shorten(
-                url_for("orcid_login", invitation_token=token,
-                        _next=url_for("onboard_org"))).short_id
-            invitation_url = url_for("short_url", short_id=short_id, _external=True)
+            invitation_url = url_for("orcid_login", invitation_token=token, _external=True)
         else:
             invitation_url = url_for("index", _external=True)
 
+        oi = OrgInvitation.create(
+            inviter_id=current_user.id,
+            invitee_id=user.id,
+            email=user.email,
+            org=org,
+            token=token,
+            tech_contact=tech_contact,
+            url=invitation_url)
+
         utils.send_email(
             "email/org_invitation.html",
+            invitation=oi,
             recipient=(org_name, email),
             reply_to=(current_user.name, current_user.email),
-            cc_email=(current_user.name, current_user.email),
-            invitation_url=invitation_url,
-            org_name=org_name,
-            user=user)
+            cc_email=(current_user.name, current_user.email))
 
         org.is_email_sent = True
         try:
@@ -2003,9 +2630,6 @@ def register_org(org_name,
         except Exception:
             app.logger.exception("Failed to save organisation data")
             raise
-
-        OrgInvitation.create(
-            inviter_id=current_user.id, invitee_id=user.id, email=user.email, org=org, token=token)
 
 
 # TODO: user can be admin for multiple org and org can have multiple admins:
@@ -2058,13 +2682,13 @@ def invite_organisation():
                     flash("New Technical contact has been Invited Successfully! "
                           "An email has been sent to the Technical contact", "success")
                     app.logger.info(
-                        f"For Organisation '{org_name}' , "
+                        f"For Organisation '{org_name}', "
                         f"New Technical Contact '{email}' has been invited successfully.")
                 else:
                     flash("New Organisation Admin has been Invited Successfully! "
                           "An email has been sent to the Organisation Admin", "success")
                     app.logger.info(
-                        f"For Organisation '{org_name}' , "
+                        f"For Organisation '{org_name}', "
                         f"New Organisation Admin '{email}' has been invited successfully.")
             else:
                 flash("Organisation Invited Successfully! "
@@ -2118,8 +2742,8 @@ def invite_user():
 
         invited_user = User.select().where(User.email == email).first()
         if (invited_user and OrcidToken.select().where(
-                    (OrcidToken.user_id == invited_user.id) & (OrcidToken.org_id == org.id) &
-                (OrcidToken.scope.contains("/activities/update"))).exists()):
+            (OrcidToken.user_id == invited_user.id) & (OrcidToken.org_id == org.id)
+                & (OrcidToken.scope.contains("/activities/update"))).exists()):
             try:
                 if affiliations & (Affiliation.EMP | Affiliation.EDU):
                     api = orcid_client.MemberAPI(org, invited_user)
@@ -2348,11 +2972,6 @@ def user_orgs(user_id, org_id=None):
         return jsonify({"user-orgs": list(u.organisations.dicts())})
     except User.DoesNotExist:
         return jsonify({"error": f"Not Found user with ID: {user_id}"}), 404
-    except Exception as ex:
-        app.logger.exception(f"Failed to retrieve user (ID: {user_id}) organisations.")
-        return jsonify({
-            "error": f"Failed to retrieve user (ID: {user_id}) organisations: {ex}."
-        }), 500
 
 
 @app.route(
@@ -2408,7 +3027,7 @@ def user_orgs_org(user_id, org_id=None):
             "status": "DELETED",
         }), 204
     else:
-        org = Organisation.get(id=org_id)
+        org = Organisation.get(org_id)
         uo, created = UserOrg.get_or_create(user_id=user_id, org_id=org_id)
         if "is_admin" in data:
             uo.is_admin = data["is_admin"]
@@ -2493,6 +3112,111 @@ def org_webhook():
     return render_template("form.html", form=form, title="Organisation Webhook")
 
 
+@app.route("/sync_profiles/<int:task_id>", methods=["GET", "POST"])
+@app.route(
+    "/sync_profiles", methods=[
+        "GET",
+        "POST",
+    ])
+@roles_required(Role.TECHNICAL, Role.SUPERUSER)
+def sync_profiles(task_id=None):
+    """Start research profile synchronization."""
+    if not current_user.is_tech_contact_of() and not current_user.is_superuser:
+        flash(
+            f"Access Denied! You must be the technical conatact of '{current_user.organisation}'",
+            "danger")
+        abort(403)
+    if not task_id:
+        task_id = request.args.get("task_id")
+    if task_id:
+        task = Task.get(task_id)
+        org = task.org
+    else:
+        org = current_user.organisation
+        task = Task.select().where(Task.task_type == TaskType.SYNC, Task.org == org).order_by(
+            Task.created_at.desc()).limit(1).first()
+
+    form = ProfileSyncForm()
+
+    if form.is_submitted():
+        if form.close.data:
+            _next = get_next_url() or url_for("task.index_view")
+            return redirect(_next)
+        if task and not form.restart.data:
+            flash(f"There is already an active profile synchronization task", "warning")
+        else:
+            Task.delete().where(Task.org == org, Task.task_type == TaskType.SYNC).execute()
+            task = Task.create(org=org, task_type=TaskType.SYNC)
+            job = utils.sync_profile.queue(task_id=task.id)
+            flash(f"Profile synchronization task was initiated (job id: {job.id})", "info")
+            return redirect(url_for("sync_profiles"))
+
+    page_size = 10
+    page = int(request.args.get("page", 1))
+    page_count = math.ceil(task.log_entries.count() / page_size) if task else 0
+    return render_template(
+        "profile_sync.html",
+        form=form,
+        title="Profile Synchronization",
+        task=task,
+        page=page,
+        page_size=page_size,
+        page_count=page_count)
+
+
+@app.route("/remove/orcid/linkage", methods=["POST"])
+@login_required
+def remove_linkage():
+    """Delete an ORCID Token and ORCiD iD."""
+    _url = request.args.get("url") or request.referrer or url_for("link")
+    org = current_user.organisation
+    token_revoke_url = app.config["ORCID_BASE_URL"] + "oauth/revoke"
+
+    if UserOrg.select().where(
+                (UserOrg.user_id == current_user.id) & (UserOrg.org_id == org.id) & UserOrg.is_admin).exists():
+        flash(f"Failed to remove linkage for {current_user}, as this user appears to be one of the admins for {org}. "
+              f"Please contact orcid@royalsociety.org.nz for support", "danger")
+        return redirect(_url)
+
+    for token in OrcidToken.select().where(OrcidToken.org_id == org.id, OrcidToken.user_id == current_user.id):
+        try:
+            resp = requests.post(
+                token_revoke_url,
+                headers={"Accepts": "application/json"},
+                data=dict(
+                    client_id=org.orcid_client_id,
+                    client_secret=org.orcid_secret,
+                    token=token.access_token))
+
+            if resp.status_code != 200:
+                flash("Failed to revoke token {token.access_token}: {ex}", "danger")
+                return redirect(_url)
+
+            token.delete_instance()
+
+        except Exception as ex:
+            flash(f"Failed to revoke token {token.access_token}: {ex}", "danger")
+            app.logger.exception('Failed to delete record.')
+            return redirect(_url)
+    # Check if the User is Admin for other organisation or has given permissions to other organisations.
+    if UserOrg.select().where(
+            (UserOrg.user_id == current_user.id) & UserOrg.is_admin).exists() or OrcidToken.select().where(
+            OrcidToken.user_id == current_user.id).exists():
+        flash(
+            f"We have removed the Access token related to {org}, However we did not remove the stored ORCiD ID as "
+            f"{current_user} is either an admin of other organisation or has given permission to other organisation.",
+            "warning")
+    else:
+        current_user.orcid = None
+        current_user.save()
+        flash(
+            f"We have removed the Access token and storied ORCiD ID for {current_user}. "
+            f"If you logout now without giving permissions, you may not be able to login again. "
+            f"Please press the below button to give permissions to {org}",
+            "success")
+    return redirect(_url)
+
+
 class ScheduerView(BaseModelView):
     """Simle Flask-RQ2 scheduled task viewer."""
 
@@ -2552,8 +3276,8 @@ class ScheduerView(BaseModelView):
 
                 # Check type
                 if not isinstance(p, (CharField, TextField)):
-                    raise Exception('Can only search on text columns. ' +
-                                    'Failed to setup search for "%s"' % p)
+                    raise Exception(
+                        f'Can only search on text columns. Failed to setup search for "{p}"')
 
                 self._search_fields.append(p)
 

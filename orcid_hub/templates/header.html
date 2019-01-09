@@ -34,15 +34,15 @@
                     data-placement="bottom" title="The Hub's Frequently Asked Questions">FAQ</span>
           </a></li>
           {% if current_user.confirmed %}
-            {% if current_user.organisations.count() > 1 %}
+            {% if current_user.org_links|length > 1 %}
               <li>
                 <p class="navbar-btn">
                 <select class="selectpicker"
                         data-style="btn-primary" id="select-org"
                                                  title="Current Organisation"
                                                  onchange='location.href="/select/user_org/"+this.value'>
-                  {% for uo in current_user.userorg_set %}
-                    <option data-tokens="{{uo.id}}" value="{{uo.id}}" {{"selected" if current_user.organisation.id == uo.org_id else ''}}>{{uo.org.name}}</option>
+                  {% for ol in current_user.org_links %}
+                    <option data-tokens="{{ol.id}}" value="{{ol.id}}" {{"selected" if current_user.organisation.id == ol.org_id else ''}}>{{ol.org_name}}</option>
                   {% endfor %}
                 </select>
                 </p>
@@ -77,6 +77,9 @@
                                                                                                        title="Import a works batch file">Upload Works</a></li>
                     <li id="load_peer_review"><a href="{{ url_for('load_researcher_peer_review')}}"  data-toggle="tooltip"
                                                                                         title="Import a peer reviews batch file">Upload Peer Reviews</a></li>
+                    <li class="divider"></li>
+                    <li id="sync_profiles"><a href="{{ url_for('sync_profiles')}}"  data-toggle="tooltip"
+                                                                                        title="Synchronize researcher porfiles">Sync Profiles</a></li>
                     <li class="divider"></li>
                     <li id="task.index_view"><a href="{{ url_for('task.index_view')}}"  data-toggle="tooltip"
                                                                                         title="Review the progress and results of your current batch tasks">Uploaded Tasks</a></li>
@@ -116,9 +119,6 @@
               </li>
             {% endif %}
             {% if current_user.has_role("SUPERUSER") %}
-              <li id="registerOrganisation"><a href="{{ url_for('invite_organisation') }}">
-                <span data-toggle="tooltip" data-placement="bottom" title="Send a Tech Contact/Org Admin invitation">Onboard Organisation</span></a>
-              </li>
               <li class="dropdown">
                 <a class="dropdown-toggle" data-toggle="dropdown" href="#">Hub Admin
                   <span class="caret"></span></a>
@@ -126,6 +126,9 @@
                   <li id="user.index_view"><a data-toggle="tooltip" title="User roles" href="{{ url_for('user.index_view')}}">Users</a></li>
                   <li id="orcidtoken.index_view"><a data-toggle="tooltip" title="ORCID access tokens" href="{{ url_for('orcidtoken.index_view')}}">ORCID Tokens</a></li>
                   <li class="divider"></li>
+                  <li id="registerOrganisation"><a href="{{ url_for('invite_organisation') }}">
+                    <span data-toggle="tooltip" title="Send a Tech Contact/Org Admin invitation or replace the existing Technical Contact of an organisation.">Onboard Organisation</span></a>
+                  </li>
                   <li id="organisation.index_view"><a data-toggle="tooltip" title="Onboarded organisations" href="{{ url_for('organisation.index_view')}}">Active Organisations</a>
                   </li>
                   <li class="dropdown-submenu">
@@ -150,6 +153,8 @@
                             <li id="rq_dashboard.overview"><a data-toggle="tooltip" data-placement="left" title="Message Queues" href="{{ url_for('rq_dashboard.overview', url=request.url)}}">Message Queues</a></li>
                             <li id="schedude.index_view"><a data-toggle="tooltip" data-placement="left" title="Scheduled Jobs" href="{{ url_for('schedude.index_view') }}">Scheduled Jobs</a></li>
                   {% endif -%}
+                  <li id="userinvitation.index_view"><a data-toggle="tooltip" title="The User Invitations recently sent." href="{{ url_for('userinvitation.index_view')}}">User Invitations</a></li>
+                  <li id="orginvitation.index_view"><a data-toggle="tooltip" title="The Organisation On-boarding Invitations recently sent." href="{{ url_for('orginvitation.index_view')}}">Organisation Invitations</a></li>
                 </ul>
               </li>
             {% endif %}
@@ -185,6 +190,16 @@
                         {% if current_user.organisation.confirmed %}
                           <a href="{{url_for('profile')}}"
                              class="btn btn-primary btn-block btn-sm">Profile</a>
+                          {% if current_user.orcid %}
+                            <form class="icon" method="POST" action="{{url_for('remove_linkage')}}">
+                            <button onclick="return safeConfirm('Are you sure you want to remove the ORCID ID and token associated with this account?\n\nBy clicking &quot;OK&quot;'+
+                            ' we will remove the access token given to this organisation! \n\n You may not be able to login again because you are deleting your associated ORCiD iD!');"
+                              data-toggle="tooltip"
+                              data-placement="bottom"
+                              title="Remove Erroneous Linkage..."
+                              class="btn btn-danger">Remove ORCID Linkage</button> <br>
+                            </form>
+                          {% endif %}
                         {% endif %}
                         </p>
                       </div>

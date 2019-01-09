@@ -26,6 +26,7 @@ os.environ["DATABASE_URL"] = DATABASE_URL
 # yapf: enable
 
 from flask.testing import FlaskClient
+from flask import _request_ctx_stack
 
 import pytest
 from playhouse import db_url
@@ -62,13 +63,15 @@ ORCIDS = [
     "1842-2842-3842-00X3", "1850-2850-3850-00X3", "1869-2869-3869-00X3", "1877-2877-3877-00X3",
     "1885-2885-3885-00X3", "1893-2893-3893-00X3", "1906-2906-3906-00X3", "1914-2914-3914-00X3",
     "1922-2922-3922-00X3", "1930-2930-3930-00X3", "1949-2949-3949-00X3", "1957-2957-3957-00X3",
-    "1965-2965-3965-00X3", "1973-2973-3973-00X3", "1981-2981-3981-00X3"
+    "1965-2965-3965-00X3", "1973-2973-3973-00X3"
 ]
 
 
 class HubClient(FlaskClient):
     """Extension of the default Flask test client."""
-    def login(self, user, affiliations=None):
+
+    resp_no = 0
+    def login(self, user, affiliations=None, follow_redirects=False, **kwargs):
         """Log in with the given user."""
         org = user.organisation
         if affiliations is None:
@@ -78,19 +81,46 @@ class HubClient(FlaskClient):
                     "staff" if a == Affiliation.EMP else "student" for a in Affiliation
                     if a & uo.affiliations
                 ])
+        headers = {
+            k: v
+            for k, v in [
+                ("Auedupersonsharedtoken", "edu-person-shared-token"),
+                ("Sn", user.last_name or "SURNAME"),
+                ("Givenname", user.first_name or "GIVENNAME"),
+                ("Mail", user.email),
+                ("O", org.tuakiri_name or org.name),
+                ("Displayname", user.name),
+                ("Unscoped-Affiliation", affiliations),
+                ("Eppn", user.eppn or user.email),
+            ] if v is not None
+        }
+        headers.update(kwargs)
+        return self.get("/Tuakiri/login", headers=headers, follow_redirects=follow_redirects)
 
-        return self.get(
-            "/Tuakiri/login",
-            headers={
-                "Auedupersonsharedtoken": "edu-person-shared-token",
-                "Sn": user.last_name,
-                'Givenname': user.first_name,
-                "Mail": user.email,
-                "O": org.tuakiri_name or org.name,
-                "Displayname": user.name,
-                "Unscoped-Affiliation": affiliations,
-                "Eppn": user.eppn,
-            })
+    def open(self, *args, **kwargs):
+        """Save the last response."""
+        self.resp = super().open(*args, **kwargs)
+        if hasattr(self.resp, "data"):
+            self.save_resp()
+            self.resp_no += 1
+        return self.resp
+
+    def save_resp(self):
+        """Save the response into 'output.html' file."""
+        with open(f"output{self.resp_no:02d}.html", "wb") as output:
+            output.write(self.resp.data)
+
+    def logout(self):
+        """Perform log-out."""
+        resp = self.get("/logout", follow_redirects=True)
+        _request_ctx_stack.pop()
+        self.cookie_jar.clear()
+        return resp
+
+    def login_root(self):
+        """Log in with the first found Hub admin user."""
+        root = User.select().where(User.roles.bin_and(Role.SUPERUSER)).first()
+        return self.login(root)
 
 
 @pytest.fixture
@@ -345,6 +375,7 @@ def app():
         _app.config["SENTRY_DSN"] = None
         _app.config["WTF_CSRF_ENABLED"] = False
         _app.config["DEBUG_TB_ENABLED"] = False
+        _app.config["LOAD_TEST"] = True
         #_app.config["SERVER_NAME"] = "ORCIDHUB"
         _app.sentry = None
         _db.create_tables(MODELS)
@@ -352,11 +383,20 @@ def app():
         # Add some data:
         for org_no in range(2):
             org = Organisation.create(name=f"TEST{org_no}", tuakiri_name=f"TEST ORG #{org_no}")
+            User.create(
+                created_at=datetime(2017, 11, 16),
+                email=f"researcher_across_orgs@test{org_no}.edu",
+                name="TEST USER ACROSS ORGS",
+                first_name="FIRST_NAME",
+                last_name="LAST_NAME",
+                roles=Role.RESEARCHER,
+                orcid="1981-2981-3981-00X3",
+                confirmed=True,
+                organisation=org)
             if org_no == 1:
                 org.orcid_client_id = "ABC123"
                 org.orcid_secret = "SECRET-12345"
                 org.save()
-
             # An org.admin
             user = User.create(
                 created_at=datetime(2017, 11, 28),
@@ -404,12 +444,93 @@ def app():
                     user=user,
                     client_id=org.name + "-ID",
                     client_secret=org.name + "-SECRET")
+
         UserOrg.insert_from(
             query=User.select(User.id, User.organisation_id, User.created_at).where(
                 User.email.contains("researcher")),
             fields=[UserOrg.user_id, UserOrg.org_id, UserOrg.created_at]).execute()
 
         _app.test_client_class = HubClient
+        org = Organisation.create(
+            name="THE ORGANISATION",
+            tuakiri_name="THE ORGANISATION",
+            orcid_client_id="APP-12345678",
+            orcid_secret="CLIENT-SECRET",
+            confirmed=True,
+            city="CITY",
+            country="NZ")
+
+        admin = User.create(
+            email="app123@test0.edu",
+            name="TEST USER WITH AN APP",
+            roles=Role.TECHNICAL,
+            orcid="1001-0001-0001-0001",
+            confirmed=True,
+            organisation=org)
+        tech_contact = admin
+
+        UserOrg.create(user=admin, org=org, is_admin=True)
+        org.tech_contact = admin
+        org.save()
+        request_ctx.org = org
+
+        client = Client.create(
+            name="TEST_CLIENT",
+            user=admin,
+            org=org,
+            client_id="CLIENT_ID",
+            client_secret="CLIENT_SECRET",
+            is_confidential="public",
+            grant_type="client_credentials",
+            response_type="XYZ")
+
+        Token.create(client=client, user=admin, access_token="TEST", token_type="Bearer")
+
+        user = User.create(
+            email="researcher@test0.edu",
+            eppn="eppn@test0.edu",
+            name="TEST REASEARCHER",
+            orcid="0000-0000-0000-00X3",
+            confirmed=True,
+            organisation=org)
+        OrcidToken.create(user=user, org=org, access_token="ORCID-TEST-ACCESS-TOKEN")
+        UserOrg.create(user=user, org=org)
+
+        User.insert_many(
+            dict(
+                email=f"researcher{i}@test0.edu",
+                name=f"TEST RESEARCHER #{i}",
+                first_name=f"FIRST_NAME #{i}",
+                last_name=f"LAST_NAME #{i}",
+                confirmed=True,
+                organisation=org,
+                created_at=datetime(2017, 12, i % 31 + 1),
+                updated_at=datetime(2017, 12, i % 31 + 1)) for i in range(200, 207)).execute()
+
+        User.create(
+            email="researcher2@test0.edu",
+            eppn="eppn2@test0.edu",
+            name="TEST REASEARCHER W/O ORCID ACCESS TOKEN",
+            orcid="0000-0000-0000-11X2",
+            confirmed=True,
+            organisation=org)
+
+        org2 = Organisation.create(
+            name="THE ORGANISATION #2",
+            tuakiri_name="THE ORGANISATION #2",
+            confirmed=True,
+            city="CITY")
+        User.create(
+            email="researcher@org2.edu",
+            eppn="eppn123@org2.edu",
+            name="TEST REASEARCHER #2",
+            orcid="9999-9999-9999-9999",
+            confirmed=True,
+            organisation=org2)
+        super_user = User.create(
+            email="super_user@test0.edu", organisation=org, roles=Role.SUPERUSER, confirmed=True)
+
+        _app.data = locals()
         yield _app
 
     ctx.pop()
@@ -420,7 +541,9 @@ def app():
 def client(app):
     """A Flask test client. An instance of :class:`flask.testing.TestClient` by default."""
     with app.test_client() as client:
+        client.data = app.data
         yield client
+    client.logout()
 
 
 @pytest.fixture
@@ -429,92 +552,12 @@ def request_ctx(app):
     def make_ctx(*args, **kwargs):
         return app.test_request_context(*args, **kwargs)
 
+    make_ctx.data = app.data
     return make_ctx
 
 
 @pytest.fixture
 def app_req_ctx(request_ctx):
     """Create the fixture for the reques with a test organisation and a test tech.contatct."""
-    org = Organisation.create(
-        name="THE ORGANISATION",
-        tuakiri_name="THE ORGANISATION",
-        orcid_client_id="APP-12345678",
-        orcid_secret="CLIENT-SECRET",
-        confirmed=True,
-        city="CITY",
-        country="COUNTRY")
-
-    admin = User.create(
-        email="app123@test0.edu",
-        name="TEST USER WITH AN APP",
-        roles=Role.TECHNICAL,
-        orcid="1001-0001-0001-0001",
-        confirmed=True,
-        organisation=org)
-    tech_contact = admin
-
-    UserOrg.create(user=admin, org=org, is_admin=True)
-    org.tech_contact = admin
-    org.save()
-    request_ctx.org = org
-
-    client = Client.create(
-        name="TEST_CLIENT",
-        user=admin,
-        org=org,
-        client_id="CLIENT_ID",
-        client_secret="CLIENT_SECRET",
-        is_confidential="public",
-        grant_type="client_credentials",
-        response_type="XYZ")
-
-    Token.create(client=client, user=admin, access_token="TEST", token_type="Bearer")
-
-    user = User.create(
-        email="researcher@test0.edu",
-        eppn="eppn@test0.edu",
-        name="TEST REASEARCHER",
-        orcid="0000-0000-0000-00X3",
-        confirmed=True,
-        organisation=org)
-    OrcidToken.create(user=user, org=org, access_token="ORCID-TEST-ACCESS-TOKEN")
-    UserOrg.create(user=user, org=org)
-
-    User.insert_many(
-        dict(
-            email=f"researcher{i}@test0.edu",
-            name=f"TEST RESEARCHER #{i}",
-            first_name=f"FIRST_NAME #{i}",
-            last_name=f"LAST_NAME #{i}",
-            confirmed=True,
-            organisation=org,
-            created_at=datetime(2017, 12, i % 31 + 1),
-            updated_at=datetime(2017, 12, i % 31 + 1)) for i in range(200, 207)).execute()
-
-    User.create(
-        email="researcher2@test0.edu",
-        eppn="eppn2@test0.edu",
-        name="TEST REASEARCHER W/O ORCID ACCESS TOKEN",
-        orcid="0000-0000-0000-11X2",
-        confirmed=True,
-        organisation=org)
-
-    org2 = Organisation.create(
-        name="THE ORGANISATION #2",
-        tuakiri_name="THE ORGANISATION #2",
-        confirmed=True,
-        city="CITY")
-    User.create(
-        email="researcher@org2.edu",
-        eppn="eppn123@org2.edu",
-        name="TEST REASEARCHER #2",
-        orcid="9999-9999-9999-9999",
-        confirmed=True,
-        organisation=org2)
-
-    super_user = User.create(
-        email="super_user@test0.edu", organisation=org, roles=Role.SUPERUSER, confirmed=True)
-
-    request_ctx.data = locals()
-
+    app_req_ctx.data = request_ctx.data
     return request_ctx

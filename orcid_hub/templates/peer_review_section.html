@@ -1,0 +1,81 @@
+{% extends "layout.html" %}
+{% block content %}
+	<div class="table-responsive">
+		<table class="table table-striped table-bordered table-hover model-list">
+			<thead>
+				<tr class="info">
+					<th class="col-md-1">&nbsp;</th>
+          <th class="column-header">Institution/Peer Review Agency</th>
+          <th class="column-header">Review Group Id</th>
+          <th class="column-header">City</th>
+					<th class="column-header">State/region</th>
+					<th class="column-header">Country</th>
+					<th class="column-header">Completion Date</th>
+					<th class="column-header">Disambiguated Id</th>
+					<th class="column-header">Disambiguation Source</th>
+					<th class="column-header">Put-code</th>
+				</tr>
+			</thead>
+
+			<tbody>
+				{% if not records %}
+					<tr>
+						<td colspan="999">
+							<div class="text-center">
+								There are no records.
+							</div>
+						</td>
+					</tr>
+				{% endif %}
+				{% for r in records %}
+					<tr>
+						{% if org_client_id in r["source"]["source-client-id"]["path"] %}
+							<td class="list-buttons-column">
+								<a class="icon"
+					 href="{{url_for('edit_record', user_id=user_id, section_type=section_type, put_code=r['put-code']) }}?url={{url_for('section', user_id=user_id, section_type=section_type)}}"
+			title="Edit Record">
+									<span class="fa fa-pencil glyphicon glyphicon-pencil"></span>
+								</a>
+								<form class="icon" method="POST"
+													 action="{{url_for('delete_record', user_id=user_id, section_type=section_type, put_code=r['put-code'])}}">
+									<input id="put-code" name="put_code" type="hidden" value="{{r['put-code']}}">
+									<input id="section-type" name="section_type" type="hidden" value="{{section_type}}">
+									<button onclick="return safeConfirm('Are you sure you want to delete this record?');"
+								 title="Delete record">
+										<span class="fa fa-trash glyphicon glyphicon-trash"></span>
+									</button>
+								</form>
+							</td>
+						{% else %}
+							<td class="list-buttons-column"></td>
+						{% endif %}
+
+						<td>
+							{{r["convening-organization"]["name"]}}<br/>
+							<span class="small">
+								Source: {{r["source"]["source-name"]["value"]}}
+							</span>
+						</td>
+            <td>{{r.get("review-group-id", "")|default("", True)}}</td>
+            <td>{{r["convening-organization"]["address"].get("city", "")|default("", True)}}</td>
+						<td>{{r["convening-organization"]["address"].get("region", "")|default("", True)}}</td>
+						<td>{{r["convening-organization"]["address"].get("country", "")|default("", True)}}</td>
+						<td>{{r["completion-date"]["year"].get("value", "")|default("", True)}}</td>
+            {% if r.get("convening-organization").get("disambiguated-organization") %}
+              <td>{{r.get("convening-organization").get("disambiguated-organization").get("disambiguated-organization-identifier", "")|default("", True)}}</td>
+              <td>{{r.get("convening-organization").get("disambiguated-organization").get("disambiguation-source", "")|default("", True)}}</td>
+            {% else %}
+              <td></td>
+              <td></td>
+            {% endif %}
+						<td>{{r.get("put-code")}}</td>
+					</tr>
+				{% endfor %}
+			</tbody>
+		</table>
+		<div style="text-align:right;">
+      <a role="button" class="btn btn-danger" href="{{ url_for('viewmembers.index_view')}}">Back to View/Export People</a>
+			<a role="button" class="btn btn-primary" href="{{url_for('edit_record', user_id=user_id, section_type=section_type)}}">New...</a>
+		</div>
+	</div>
+{% endblock %}

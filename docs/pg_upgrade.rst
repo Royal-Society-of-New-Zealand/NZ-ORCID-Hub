@@ -1,21 +1,22 @@
-PostgreSQL Upgrade From Version 9.6 to 10.4
-===========================================
+PostgreSQL Upgrade From Version 9.6 to 10.x, 11.x
+=================================================
 
 Please follow the steps bellow:
 
-1. Modify DB schema executing script bellow.
-2. Dump DB using PostgreSQL 10.4 **pg_dump**: ``pg_dump --disable-triggers -h orcidhub.org.nz -d orcidhub -U orcidhub > full.sql``.
-3. Stop and drop existing containers and remove ``/var/lib/docker``.
-4. Upgrade docker and docker-compose (1.21.0) following https://docs.docker.com/install/linux/docker-ce/centos/#os-requirements:
+#. Modify DB schema executing script bellow.
+#. Dump DB using the current PostgreSQL version **pg_dump**: ``pg_dump --disable-triggers -d orcidhub -U orcidhub > full.sql``
+#. Stop and drop existing containers and remove ``/var/lib/docker``.
+#. Upgrade docker and docker-compose (1.23.0) following https://docs.docker.com/install/linux/docker-ce/centos/#os-requirements
 
-.. code-block:: shell
+    .. code-block:: shell
 
- sudo curl -L https://github.com/docker/compose/releases/download/1.21.0/docker-compose-$(uname -s)-$(uname -m) -o /usr/local/bin/docker-compose
- sudo chmod +x /usr/local/bin/docker-compose
-  
-5. Recreate solution: ``docker-compose up -d``
-6. Restored DB: ``psql -d orcidhub -U postgres -f full.sql &>log.log``
-7. And finaly restart the solution.
+     sudo curl -L https://github.com/docker/compose/releases/download/1.23.0/docker-compose-$(uname -s)-$(uname -m) -o /usr/local/bin/docker-compose
+     sudo chmod +x /usr/local/bin/docker-compose
+#. Move **pgdata** directory and recreate it: ``mv pgdata pgdata_; mkdir pgdata``
+#. Recreate solution: ``docker-compose up -d``
+#. Restored DB: ``psql -d orcidhub -U postgres -f full.sql &>log.log``
+#. If you had costomized the configuration, copy your configuration files form the backup directory **pgdata_**
+#. And finaly restart the solution.
 
 Database upgrade script:
 

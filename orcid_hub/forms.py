@@ -5,10 +5,10 @@ from datetime import date
 
 from flask_wtf import FlaskForm
 from flask_wtf.file import FileAllowed, FileField, FileRequired
-from pycountry import countries
+from pycountry import countries, languages, currencies
 from wtforms import (BooleanField, Field, SelectField, SelectMultipleField, StringField,
-                     SubmitField, TextField, validators)
-from wtforms.fields.html5 import DateField, EmailField
+                     SubmitField, TextField, TextAreaField, validators)
+from wtforms.fields.html5 import DateField, EmailField, IntegerField
 from wtforms.validators import UUID, DataRequired, email, Regexp, Required, ValidationError, optional, url
 from wtforms.widgets import HTMLString, TextArea, html_params
 from wtfpeewee.orm import model_form
@@ -118,6 +118,36 @@ class CountrySelectField(SelectField):
         super().__init__(*args, choices=self.country_choices, **kwargs)
 
 
+class LanguageSelectField(SelectField):
+    """Languages dropdown widget."""
+
+    # Order the languages list by the name and add a default (Null) value
+    language_choices = [(l.alpha_2, l.name) for l in languages if hasattr(l, "alpha_2")]
+    language_choices.sort(key=lambda e: e[1])
+    language_choices.insert(0, ("", "Language"))
+
+    def __init__(self, *args, **kwargs):
+        """Set up the value list."""
+        if len(args) == 0 and "label" not in kwargs:
+            kwargs["label"] = "Language"
+        super().__init__(*args, choices=self.language_choices, **kwargs)
+
+
+class CurrencySelectField(SelectField):
+    """currencies dropdown widget."""
+
+    # Order the currencies list by the name and add a default (Null) value
+    currency_choices = [(l.alpha_3, l.name) for l in currencies]
+    currency_choices.sort(key=lambda e: e[1])
+    currency_choices.insert(0, ("", "Currency"))
+
+    def __init__(self, *args, **kwargs):
+        """Set up the value list."""
+        if len(args) == 0 and "label" not in kwargs:
+            kwargs["label"] = "Currency"
+        super().__init__(*args, choices=self.currency_choices, **kwargs)
+
+
 class BitmapMultipleValueField(SelectMultipleField):
     """Multiple value selection widget.
 
@@ -168,6 +198,18 @@ class BitmapMultipleValueField(SelectMultipleField):
                         dict(value=d))
 
 
+class AppForm(FlaskForm):
+    """Application Flask-WTForm extension."""
+
+    @models.lazy_property
+    def enctype(self):
+        """Return form's encoding type based on the fields.
+
+        If there is at least one FileField the encoding type will be set to "multipart/form-data".
+        """
+        return "multipart/form-data" if any(f.type == "FileField" for f in self) else ''
+
+
 class RecordForm(FlaskForm):
     """User/researcher employment detail form."""
 
@@ -186,24 +228,164 @@ class RecordForm(FlaskForm):
         """Create form."""
         super().__init__(*args, **kwargs)
         if form_type == "EDU":
-            self.org_name.name = self.org_name.label.text = "Institution"
-            self.role.name = self.role.label.text = "Course/Degree"
+            self.org_name.label = "Institution"
+            self.role.label = "Course/Degree"
 
 
-class FileUploadForm(FlaskForm):
-    """Organisation info pre-loading form."""
+class FundingForm(FlaskForm):
+    """User/researcher funding detail form."""
 
-    file_ = FileField(
-        validators=[FileRequired(),
-                    FileAllowed(["csv", "tsv"], 'CSV or TSV files only!')])
+    type_choices = [(v, v.replace('_', ' ').title()) for v in ['GRANT', 'CONTRACT', 'AWARD', 'SALARY_AWARD', '']]
+    type_choices.sort(key=lambda e: e[1])
+
+    funding_title = StringField("Funding Title", [validators.required()])
+    funding_translated_title = StringField("Funding Translated Title")
+    translated_title_language = LanguageSelectField("Language")
+    funding_type = SelectField(choices=type_choices, description="Funding Type", validators=[validators.required()])
+    funding_subtype = StringField("Funding Subtype")
+    funding_description = TextAreaField("Funding Description")
+    total_funding_amount = StringField("Total Funding Amount")
+    total_funding_amount_currency = CurrencySelectField("Currency")
+    org_name = StringField("Institution/employer", [validators.required()])
+    city = StringField("City", [validators.required()])
+    state = StringField("State/region", filters=[lambda x: x or None])
+    country = CountrySelectField("Country", [validators.required()])
+    start_date = PartialDateField("Start date")
+    end_date = PartialDateField("End date (leave blank if current)")
+    disambiguated_id = StringField("Disambiguated Organisation ID")
+    disambiguation_source = StringField("Disambiguation Source")
 
 
-class JsonOrYamlFileUploadForm(FlaskForm):
-    """Funding info pre-loading form."""
+class PeerReviewForm(FlaskForm):
+    """User/researcher Peer review detail form."""
 
-    file_ = FileField(
-        validators=[FileRequired(),
-                    FileAllowed(["json", "yaml"], 'JSON or YAML file only!')])
+    reviewer_role_choices = [(v, v) for v in ['MEMBER', 'REVIEWER', 'ORGANIZER', 'EDITOR', 'CHAIR', '']]
+    reviewer_role_choices.sort(key=lambda e: e[1])
+
+    review_type_choices = [(v, v) for v in ['REVIEW', 'EVALUATION', '']]
+    review_type_choices.sort(key=lambda e: e[1])
+
+    subject_external_id_relationship_choices = [(v, v.replace('_', ' ').title()) for v in ['PART_OF', 'SELF', '']]
+    subject_external_id_relationship_choices.sort(key=lambda e: e[1])
+
+    subject_type_choices = [(v, v.replace('_', ' ').title()) for v in
+                            ['MANUAL', 'CONFERENCE_PAPER', 'RESEARCH_TECHNIQUE', 'SUPERVISED_STUDENT_PUBLICATION',
+                             'INVENTION', 'NEWSLETTER_ARTICLE', 'TRANSLATION', 'TEST', 'DISSERTATION', 'BOOK_CHAPTER',
+                             'LICENSE', 'STANDARDS_AND_POLICY', 'CONFERENCE_ABSTRACT', 'PATENT', 'DICTIONARY_ENTRY',
+                             'REGISTERED_COPYRIGHT', 'MAGAZINE_ARTICLE', 'DISCLOSURE', 'BOOK_REVIEW', 'UNDEFINED',
+                             'ARTISTIC_PERFORMANCE', 'ENCYCLOPEDIA_ENTRY', 'REPORT', 'ONLINE_RESOURCE', 'WEBSITE',
+                             'RESEARCH_TOOL', 'WORKING_PAPER', 'EDITED_BOOK', 'TRADEMARK', 'LECTURE_SPEECH', 'BOOK',
+                             'DATA_SET', 'JOURNAL_ARTICLE', 'SPIN_OFF_COMPANY', 'TECHNICAL_STANDARD',
+                             'CONFERENCE_POSTER', 'JOURNAL_ISSUE', 'NEWSPAPER_ARTICLE', 'OTHER', '']]
+    subject_type_choices.sort(key=lambda e: e[1])
+
+    org_name = StringField("Institution", [validators.required()])
+    disambiguated_id = StringField("Disambiguated Organisation ID")
+    disambiguation_source = StringField("Disambiguation Source")
+    city = StringField("City", [validators.required()])
+    state = StringField("State/region", filters=[lambda x: x or None])
+    country = CountrySelectField("Country", [validators.required()])
+    reviewer_role = SelectField(choices=reviewer_role_choices, description="Reviewer Role",
+                                validators=[validators.required()])
+    review_url = StringField("Review Url")
+    review_type = SelectField(choices=review_type_choices, description="Review Type",
+                              validators=[validators.required()])
+    review_group_id = StringField("Peer Review Group Id", [validators.required()])
+    subject_external_identifier_type = StringField("Subject External Identifier Type")
+    subject_external_identifier_value = StringField("Subject External Identifier Value")
+    subject_external_identifier_url = StringField("Subject External Identifier Url")
+    subject_external_identifier_relationship = SelectField(choices=subject_external_id_relationship_choices,
+                                                           description="Subject External Id Relationship")
+    subject_container_name = StringField("Subject Container Name")
+    subject_type = SelectField(choices=subject_type_choices, description="Subject Type")
+    subject_title = StringField("Subject Title")
+    subject_subtitle = StringField("Subject Subtitle")
+    subject_translated_title = StringField("Subject Translated Title")
+    subject_translated_title_language_code = LanguageSelectField("Language")
+    subject_url = StringField("Subject Url")
+    review_completion_date = PartialDateField("Review Completion date", validators=[validators.required()])
+
+
+class WorkForm(FlaskForm):
+    """User/researcher Work detail form."""
+
+    work_type_choices = [(v, v.replace('_', ' ').title()) for v in
+                         ['MANUAL', 'CONFERENCE_PAPER', 'RESEARCH_TECHNIQUE', 'SUPERVISED_STUDENT_PUBLICATION',
+                          'INVENTION', 'NEWSLETTER_ARTICLE', 'TRANSLATION', 'TEST', 'DISSERTATION', 'BOOK_CHAPTER',
+                          'LICENSE', 'STANDARDS_AND_POLICY', 'CONFERENCE_ABSTRACT', 'PATENT', 'DICTIONARY_ENTRY',
+                          'REGISTERED_COPYRIGHT', 'MAGAZINE_ARTICLE', 'DISCLOSURE', 'BOOK_REVIEW',
+                          'UNDEFINED', 'ARTISTIC_PERFORMANCE', 'ENCYCLOPEDIA_ENTRY', 'REPORT', 'ONLINE_RESOURCE',
+                          'WEBSITE', 'RESEARCH_TOOL', 'WORKING_PAPER', 'EDITED_BOOK', 'TRADEMARK', 'LECTURE_SPEECH',
+                          'BOOK', 'DATA_SET', 'JOURNAL_ARTICLE', 'SPIN_OFF_COMPANY', 'TECHNICAL_STANDARD',
+                          'CONFERENCE_POSTER', 'JOURNAL_ISSUE', 'NEWSPAPER_ARTICLE', 'OTHER', '']]
+    work_type_choices.sort(key=lambda e: e[1])
+
+    citation_type_choices = [(v, v.replace('_', ' ').title()) for v in
+                             ['FORMATTED_HARVARD', 'FORMATTED_UNSPECIFIED', 'FORMATTED_CHICAGO', 'FORMATTED_VANCOUVER',
+                              'RIS', 'FORMATTED_IEEE', 'BIBTEX', 'FORMATTED_MLA', 'FORMATTED_APA', '']]
+    citation_type_choices.sort(key=lambda e: e[1])
+
+    work_type = SelectField(choices=work_type_choices, description="Work Type", validators=[validators.required()])
+    title = StringField("Title", [validators.required()])
+    subtitle = StringField("Subtitle")
+    translated_title = StringField("Translated Title")
+    translated_title_language_code = LanguageSelectField("Language")
+    journal_title = StringField("Work Type Title")
+    short_description = TextAreaField(description="Short Description")
+    citation_type = SelectField(choices=citation_type_choices, description="Citation Type")
+    citation = StringField("Citation Value")
+    publication_date = PartialDateField("Publication date")
+    url = StringField("Url")
+    language_code = LanguageSelectField("Language used in this form")
+    country = CountrySelectField("Country of publication")
+
+
+class GroupIdForm(FlaskForm):
+    """GroupID record form."""
+
+    group_id_name = StringField("Group ID Name", [validators.required()])
+    page_size = StringField("Page Size")
+    page = StringField("Page")
+    search = SubmitField("Search", render_kw={"class": "btn btn-primary"})
+
+
+class FileUploadForm(AppForm):
+    """Generic data (by default CSV or TSV) load form."""
+
+    file_ = FileField()
+    upload = SubmitField("Upload", render_kw={"class": "btn btn-primary"})
+
+    def __init__(self, *args, optional=None, extensions=None, **kwargs):
+        """Customize the form."""
+        super().__init__(*args, **kwargs)
+        if not optional:
+            self.file_.validators.append(FileRequired())
+            self.file_.flags.required = True
+        if extensions is None:
+            extensions = ["csv", "tsv"]
+        accept_attr = ", ".join('.' + e for e in extensions)
+        self.file_.render_kw = {
+            "accept": accept_attr,
+        }
+        extensions_ = [e.upper() for e in extensions]
+        self.file_.validators.append(
+            FileAllowed(
+                extensions, " or ".join(
+                    (", ".join(extensions_[:-1]), extensions_[-1])) + " file(-s) only"))
+
+
+class TestDataForm(FileUploadForm):
+    """Load testing data upload and/or generation form."""
+
+    org_count = IntegerField(
+        label="Organisation Count",
+        default=100,
+        render_kw=dict(style="width: 10%; max-width: 10em;"))
+    use_known_orgs = BooleanField(label="Use Existing Confirmed Organisations", default=False)
+    user_count = IntegerField(
+        label="Organisation Count",
+        default=400,
+        render_kw=dict(style="width: 10%; max-width: 10em;"))
 
 
 class LogoForm(FlaskForm):
@@ -408,4 +590,30 @@ class WebhookForm(
             "class": "btn btn-success",
             "data-toggle": "tooltip",
             "title": "Save Organisation webhook"
+        })
+
+
+class ProfileSyncForm(FlaskForm):
+    """Profile sync form."""
+
+    start = SubmitField(
+        "Start",
+        render_kw={
+            "class": "btn btn-primary mr-2",
+            "data-toggle": "tooltip",
+            "title": "Start profile synchronization"
+        })
+    restart = SubmitField(
+        "Restart",
+        render_kw={
+            "class": "btn btn-secondary mr-2",
+            "data-toggle": "tooltip",
+            "title": "Re-start profile synchronization"
+        })
+    close = SubmitField(
+        "Close",
+        render_kw={
+            "class": "btn btn-invisible",
+            "data-toggle": "tooltip",
+            "title": "Cancel profile synchronization"
         })

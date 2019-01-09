@@ -35,6 +35,7 @@ SCOPE_AUTHENTICATE = ['/authenticate']
 # Database connection url
 DATABASE_URL = getenv("DATABASE_URL", "sqlite:///data.db")
 BACKUP_DATABASE_URL = getenv("BACKUP_DATABASE_URL")
+LOAD_TEST = getenv("LOAD_TEST")
 
 # NB! Disable in production
 if ENV in ("dev0", ):
@@ -101,6 +102,9 @@ DEFAULT_EMAIL_TEMPLATE = """<!DOCTYPE html>
       <p>If you received this email in error, or you have questions about the responsibilities
       involved, please contact: <a href="mailto:orcid@royalsociety.org.nz">
       orcid@royalsociety.org.nz</a></p>
+      <p>For information about ORCID go to the
+      <a href="https://royalsociety.org.nz/orcid-in-new-zealand/what-is-orcid/orcid-for-researchers/">What is ORCID?</a>
+       page of our website.</p>
       <hr>
       <p>This email was sent to <a href="mailto:{EMAIL}">{EMAIL}</a></p>
       <!--  Footer Details -->
