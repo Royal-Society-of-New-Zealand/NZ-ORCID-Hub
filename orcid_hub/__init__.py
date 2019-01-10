@@ -23,7 +23,8 @@ from flask import Flask, request
 from flask_oauthlib.provider import OAuth2Provider
 from flask_peewee.rest import Authentication, RestAPI
 from flask_restful import Api
-from playhouse import db_url
+# from playhouse import db_url
+from playhouse.flask_utils import FlaskDB
 # from playhouse.shortcuts import RetryOperationalError
 # disable Sentry if there is no SENTRY_DSN:
 from raven.contrib.flask import Sentry
@@ -71,15 +72,16 @@ limiter = Limiter(
 if app.config.get("LOAD_TEST"):
     limiter.enabled = False
 
-DATABASE_URL = app.config.get("DATABASE_URL")
+DATABASE = app.config.get("DATABASE_URL")
+db = FlaskDB(app)
 
-# TODO: implement connection factory
-db_url.register_database(PgDbWithFailover, "pg+failover", "postgres+failover")
-# db_url.PostgresqlDatabase = ReconnectablePostgresqlDatabase
-if DATABASE_URL.startswith("sqlite"):
-    db = db_url.connect(DATABASE_URL, autorollback=True)
-else:
-    db = db_url.connect(DATABASE_URL, autorollback=True, connect_timeout=3)
+# # TODO: implement connection factory
+# db_url.register_database(PgDbWithFailover, "pg+failover", "postgres+failover")
+# # db_url.PostgresqlDatabase = ReconnectablePostgresqlDatabase
+# if DATABASE.startswith("sqlite"):
+#     db = db_url.connect(DATABASE, autorollback=True)
+# else:
+#     db = db_url.connect(DATABASE, autorollback=True, connect_timeout=3)
 
 
 class JSONEncoder(_JSONEncoder):

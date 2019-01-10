@@ -24,7 +24,7 @@ import yaml
 from flask_login import UserMixin, current_user
 from peewee import JOIN, BlobField
 from peewee import BooleanField as BooleanField_
-from peewee import (CharField, DateTimeField, DeferredRelation, Field, FixedCharField,
+from peewee import (CharField, DateTimeField, DeferredForeignKey, Field, FixedCharField,
                     ForeignKeyField, IntegerField, Model, OperationalError, PostgresqlDatabase,
                     SmallIntegerField, TextField, fn)
 from peewee_validates import ModelValidator
@@ -281,7 +281,7 @@ class Affiliation(IntFlag):
         }[a] for a in Affiliation if a & self)
 
 
-class BaseModel(Model):
+class BaseModel(db.Model):
     """Encapsulate commont bits and pieces of the model classes."""
 
     def field_is_updated(self, field_name):
@@ -352,21 +352,6 @@ class BaseModel(Model):
     class Meta:  # noqa: D101,D106
         database = db
         only_save_dirty = True
-
-
-# class ModelDeferredRelation(DeferredRelation):
-#     """Fixed DefferedRelation to allow inheritance and mixins."""
-
-#     def set_model(self, rel_model):
-#         """Include model in the generated "backref" to make it unique."""
-#         for model, field, name in self.fields:
-#             if isinstance(field, ForeignKeyField) and not field._related_name:
-#                 field._related_name = "%s_%s_set" % (model.model_class_name(), name)
-
-#         super().set_model(rel_model)
-
-
-# DeferredUser = ModelDeferredRelation()
 
 
 class AuditMixin(Model):
@@ -1045,7 +1030,7 @@ class Task(BaseModel, AuditMixin):
                 v = row[idxs[i]].strip()
                 return default if v == '' else v
 
-        with db.atomic():
+        with db.database.atomic():
             try:
                 task = cls.create(org=org, filename=filename)
                 for row_no, row in enumerate(reader):
@@ -1123,7 +1108,7 @@ class Task(BaseModel, AuditMixin):
                         raise ModelException(f"Invalid record: {validator.errors}")
                     af.save()
             except Exception:
-                db.rollback()
+                db.database.rollback()
                 app.logger.exception("Failed to load affiliation file.")
                 raise
 
@@ -1342,7 +1327,7 @@ class AffiliationRecord(RecordModel):
         if not task and "id" in data:
             task_id = int(data["id"])
             task = Task.select().where(Task.id == task_id).first()
-        with db.atomic():
+        with db.database.atomic():
             try:
                 if not task:
                     filename = (filename or data.get("filename")
@@ -1367,7 +1352,7 @@ class AffiliationRecord(RecordModel):
                     if rec.is_dirty():
                         rec.save()
             except:
-                db.rollback()
+                db.database.rollback()
                 app.logger.exception("Failed to load affiliation record task file.")
                 raise
         return task
@@ -1609,7 +1594,7 @@ class FundingRecord(RecordModel):
                         url=val(row, 24),
                         relationship=val(row, 25))))
 
-        with db.atomic():
+        with db.database.atomic():
             try:
                 task = Task.create(org=org, filename=filename, task_type=TaskType.FUNDING)
                 for funding, records in groupby(rows, key=lambda row: row["funding"].items()):
@@ -1648,7 +1633,7 @@ class FundingRecord(RecordModel):
                 return task
 
             except Exception:
-                db.rollback()
+                db.database.rollback()
                 app.logger.exception("Failed to load funding file.")
                 raise
 
@@ -1669,7 +1654,7 @@ class FundingRecord(RecordModel):
                 schema_files=[os.path.join(SCHEMA_DIR, "funding_schema.yaml")])
             validator.validate(raise_exception=True)
 
-        with db.atomic():
+        with db.database.atomic():
             try:
                 if org is None:
                     org = current_user.organisation if current_user else None
@@ -1777,7 +1762,7 @@ class FundingRecord(RecordModel):
                 return task
 
             except Exception:
-                db.rollback()
+                db.database.rollback()
                 app.logger.exception("Failed to load funding file.")
                 raise
 
@@ -1984,7 +1969,7 @@ class PeerReviewRecord(RecordModel):
                         url=val(row, 31),
                         relationship=val(row, 32))))
 
-        with db.atomic():
+        with db.database.atomic():
             try:
                 task = Task.create(org=org, filename=filename, task_type=TaskType.PEER_REVIEW)
                 for peer_review, records in groupby(rows, key=lambda row: row["peer_review"].items()):
@@ -2011,7 +1996,7 @@ class PeerReviewRecord(RecordModel):
                 return task
 
             except Exception:
-                db.rollback()
+                db.database.rollback()
                 app.logger.exception("Failed to load peer review file.")
                 raise
 
@@ -2194,7 +2179,7 @@ class PeerReviewRecord(RecordModel):
 
                 return task
             except Exception:
-                db.rollback()
+                db.database.rollback()
                 app.logger.exception("Failed to load peer review file.")
                 raise
 
@@ -2391,7 +2376,7 @@ class WorkRecord(RecordModel):
                         url=val(row, 22),
                         relationship=val(row, 23))))
 
-        with db.atomic():
+        with db.database.atomic():
             try:
                 task = Task.create(org=org, filename=filename, task_type=TaskType.WORK)
                 for work, records in groupby(rows, key=lambda row: row["work"].items()):
@@ -2430,7 +2415,7 @@ class WorkRecord(RecordModel):
                 return task
 
             except Exception:
-                db.rollback()
+                db.database.rollback()
                 app.logger.exception("Failed to load work file.")
                 raise
 
@@ -2559,7 +2544,7 @@ class WorkRecord(RecordModel):
 
                 return task
             except Exception:
-                db.rollback()
+                db.database.rollback()
                 app.logger.exception("Failed to load work record file.")
                 raise
 
@@ -2865,11 +2850,6 @@ class Grant(BaseModel):
     """
 
     user = ForeignKeyField(User, on_delete="CASCADE")
-
-    # client_id = db.Column(
-    #     db.String(40), db.ForeignKey('client.client_id'),
-    #     nullable=False,
-    # )
     client = ForeignKeyField(Client, index=True, on_delete="CASCADE")
     code = CharField(max_length=255, index=True)
 
@@ -2972,7 +2952,7 @@ MODELS = [
 def create_tables():
     """Create all DB tables."""
     try:
-        db.connect()
+        db.database.connect()
     except OperationalError:
         pass
 
@@ -2984,16 +2964,16 @@ def create_tables():
 def create_audit_tables():
     """Create all DB audit tables for PostgreSQL DB."""
     try:
-        db.connect()
+        db.database.connect()
     except OperationalError:
         pass
 
     if isinstance(db, PostgresqlDatabase):
         with open(os.path.join(os.path.dirname(__file__), "sql", "auditing.sql"), 'br') as input_file:
             sql = readup_file(input_file)
-            with db.cursor() as cr:
+            with db.database.cursor() as cr:
                 cr.execute(sql)
-            db.commit()
+            db.database.commit()
 
 
 def drop_tables():
