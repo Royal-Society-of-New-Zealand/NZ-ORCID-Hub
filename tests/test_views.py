@@ -7,27 +7,27 @@ import logging
 import re
 import sys
 import time
+from io import BytesIO
 from itertools import product
 from unittest.mock import MagicMock, Mock, patch
-from io import BytesIO
 from urllib.parse import parse_qs, urlparse
 
 import pytest
-from flask import request, make_response, session
+import yaml
+from flask import make_response, request, session
 from flask_login import login_user
 from peewee import SqliteDatabase
 from playhouse.test_utils import test_database
 from werkzeug.datastructures import ImmutableMultiDict
 
 from orcid_api.rest import ApiException
-
-from orcid_hub import app, orcid_client, rq, views, utils
+from orcid_hub import app, orcid_client, rq, utils, views
 from orcid_hub.config import ORCID_BASE_URL
 from orcid_hub.forms import FileUploadForm
 from orcid_hub.models import (Affiliation, AffiliationRecord, Client, File, FundingRecord,
-                              GroupIdRecord, OrcidToken, Organisation, OrgInfo, OrgInvitation, PartialDate,
-                              Role, Task, TaskType, Token, Url, User, UserOrgAffiliation,
-                              UserInvitation, UserOrg, PeerReviewRecord, WorkRecord)
+                              GroupIdRecord, OrcidToken, Organisation, OrgInfo, OrgInvitation,
+                              PartialDate, PeerReviewRecord, Role, Task, TaskType, Token, Url,
+                              User, UserInvitation, UserOrg, UserOrgAffiliation, WorkRecord)
 
 fake_time = time.time()
 logger = logging.getLogger(__name__)
@@ -1370,6 +1370,20 @@ Rad,Cirskis,researcher.990@mailinator.com,Student
 
     # Exporting:
     for export_type in ["csv", "xls", "tsv", "yaml", "json", "xlsx", "ods", "html"]:
+        # Missing ID:
+        resp = client.get(f"/admin/affiliationrecord/export/{export_type}", follow_redirects=True)
+        assert b"Cannot invoke the task view without task ID" in resp.data
+
+        # Non-existing task:
+        resp = client.get(f"/admin/affiliationrecord/export/{export_type}/?task_id=9999999")
+        assert b"The task deesn't exist." in resp.data
+
+        # Incorrect task ID:
+        resp = client.get(
+            f"/admin/affiliationrecord/export/{export_type}/?task_id=ERROR-9999999",
+            follow_redirects=True)
+        assert b"invalid" in resp.data
+
         resp = client.get(f"/admin/affiliationrecord/export/{export_type}/?task_id={task_id}")
         ct = resp.headers["Content-Type"]
         assert (export_type in ct or (export_type == "xls" and "application/vnd.ms-excel" == ct)
@@ -1382,6 +1396,38 @@ Rad,Cirskis,researcher.990@mailinator.com,Student
                         resp.headers["Content-Disposition"])
         if export_type not in ["xlsx", "ods"]:
             assert b"researcher.010@mailinator.com" in resp.data
+
+    # Retrieve a copy of the task and attempt to reupload it:
+    for export_type in ["yaml", "json"]:
+        task_count = Task.select().count()
+        resp = client.get(f"/admin/affiliationrecord/export/{export_type}/?task_id={task_id}")
+        if export_type == "json":
+            data = json.loads(resp.data)
+        else:
+            data = yaml.load(resp.data)
+        del(data["id"])
+
+        def default(o):
+            if isinstance(o, datetime.datetime):
+                return o.isoformat(timespec="seconds")
+            elif isinstance(o, datetime.date):
+                return o.isoformat()
+
+        import_type = "json" if export_type == "yaml" else "yaml"
+        resp = client.post(
+            "/load/researcher",
+            data={
+                "save":
+                "Upload",
+                "file_": (
+                    BytesIO((json.dumps(data, default=default)
+                             if import_type == "json" else utils.dump_yaml(data)).encode()),
+                    f"affiliations_004456.{import_type}",
+                ),
+            })
+        assert resp.status_code == 302
+        assert Task.select().count() == task_count + 1
+        assert Task.select().order_by(Task.id.desc()).first().records.count() == 4
 
     # Delete records:
     resp = client.post(
@@ -1408,7 +1454,7 @@ Rad,Cirskis,researcher.990@mailinator.com,Student
     resp = client.post(
         "/admin/task/delete/", data=dict(id=task_id, url="/admin/task/"), follow_redirects=True)
     assert b"affiliations.csv" not in resp.data
-    assert Task.select().count() == 0
+    assert Task.select().count() == 2
     assert AffiliationRecord.select().where(AffiliationRecord.task_id == task_id).count() == 0
 
 
