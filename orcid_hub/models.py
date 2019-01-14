@@ -33,7 +33,7 @@ from pycountry import countries
 from pykwalify.core import Core
 from pykwalify.errors import SchemaError
 
-from . import app, db
+from . import app, db, db_wrapper
 from .schemas import affiliation_task_schema
 
 ENV = app.config["ENV"]
@@ -281,7 +281,7 @@ class Affiliation(IntFlag):
         }[a] for a in Affiliation if a & self)
 
 
-class BaseModel(db.Model):
+class BaseModel(db_wrapper.Model):
     """Encapsulate commont bits and pieces of the model classes."""
 
     def field_is_updated(self, field_name):
@@ -635,7 +635,7 @@ class User(BaseModel, UserMixin, AuditMixin):
         return [
             r for r in q.select(UserOrg.id, UserOrg.org_id, Organisation.name.alias("org_name"))
             .join(Organisation, on=(
-                Organisation.id == UserOrg.org_id)).order_by(Organisation.name).naive()
+                Organisation.id == UserOrg.org_id)).order_by(Organisation.name).objects()
         ]
 
     @property
@@ -1030,7 +1030,7 @@ class Task(BaseModel, AuditMixin):
                 v = row[idxs[i]].strip()
                 return default if v == '' else v
 
-        with db.database.atomic():
+        with db.atomic():
             try:
                 task = cls.create(org=org, filename=filename)
                 for row_no, row in enumerate(reader):
@@ -1108,7 +1108,7 @@ class Task(BaseModel, AuditMixin):
                         raise ModelException(f"Invalid record: {validator.errors}")
                     af.save()
             except Exception:
-                db.database.rollback()
+                db.rollback()
                 app.logger.exception("Failed to load affiliation file.")
                 raise
 
@@ -1327,7 +1327,7 @@ class AffiliationRecord(RecordModel):
         if not task and "id" in data:
             task_id = int(data["id"])
             task = Task.select().where(Task.id == task_id).first()
-        with db.database.atomic():
+        with db.atomic():
             try:
                 if not task:
                     filename = (filename or data.get("filename")
@@ -1352,7 +1352,7 @@ class AffiliationRecord(RecordModel):
                     if rec.is_dirty():
                         rec.save()
             except:
-                db.database.rollback()
+                db.rollback()
                 app.logger.exception("Failed to load affiliation record task file.")
                 raise
         return task
@@ -1594,7 +1594,7 @@ class FundingRecord(RecordModel):
                         url=val(row, 24),
                         relationship=val(row, 25))))
 
-        with db.database.atomic():
+        with db.atomic():
             try:
                 task = Task.create(org=org, filename=filename, task_type=TaskType.FUNDING)
                 for funding, records in groupby(rows, key=lambda row: row["funding"].items()):
@@ -1633,7 +1633,7 @@ class FundingRecord(RecordModel):
                 return task
 
             except Exception:
-                db.database.rollback()
+                db.rollback()
                 app.logger.exception("Failed to load funding file.")
                 raise
 
@@ -1654,7 +1654,7 @@ class FundingRecord(RecordModel):
                 schema_files=[os.path.join(SCHEMA_DIR, "funding_schema.yaml")])
             validator.validate(raise_exception=True)
 
-        with db.database.atomic():
+        with db.atomic():
             try:
                 if org is None:
                     org = current_user.organisation if current_user else None
@@ -1762,7 +1762,7 @@ class FundingRecord(RecordModel):
                 return task
 
             except Exception:
-                db.database.rollback()
+                db.rollback()
                 app.logger.exception("Failed to load funding file.")
                 raise
 
@@ -1969,7 +1969,7 @@ class PeerReviewRecord(RecordModel):
                         url=val(row, 31),
                         relationship=val(row, 32))))
 
-        with db.database.atomic():
+        with db.atomic():
             try:
                 task = Task.create(org=org, filename=filename, task_type=TaskType.PEER_REVIEW)
                 for peer_review, records in groupby(rows, key=lambda row: row["peer_review"].items()):
@@ -1996,7 +1996,7 @@ class PeerReviewRecord(RecordModel):
                 return task
 
             except Exception:
-                db.database.rollback()
+                db.rollback()
                 app.logger.exception("Failed to load peer review file.")
                 raise
 
@@ -2179,7 +2179,7 @@ class PeerReviewRecord(RecordModel):
 
                 return task
             except Exception:
-                db.database.rollback()
+                db.rollback()
                 app.logger.exception("Failed to load peer review file.")
                 raise
 
@@ -2376,7 +2376,7 @@ class WorkRecord(RecordModel):
                         url=val(row, 22),
                         relationship=val(row, 23))))
 
-        with db.database.atomic():
+        with db.atomic():
             try:
                 task = Task.create(org=org, filename=filename, task_type=TaskType.WORK)
                 for work, records in groupby(rows, key=lambda row: row["work"].items()):
@@ -2415,7 +2415,7 @@ class WorkRecord(RecordModel):
                 return task
 
             except Exception:
-                db.database.rollback()
+                db.rollback()
                 app.logger.exception("Failed to load work file.")
                 raise
 
@@ -2544,7 +2544,7 @@ class WorkRecord(RecordModel):
 
                 return task
             except Exception:
-                db.database.rollback()
+                db.rollback()
                 app.logger.exception("Failed to load work record file.")
                 raise
 
@@ -2952,7 +2952,7 @@ MODELS = [
 def create_tables():
     """Create all DB tables."""
     try:
-        db.database.connect()
+        db.connect()
     except OperationalError:
         pass
 
@@ -2964,16 +2964,16 @@ def create_tables():
 def create_audit_tables():
     """Create all DB audit tables for PostgreSQL DB."""
     try:
-        db.database.connect()
+        db.connect()
     except OperationalError:
         pass
 
     if isinstance(db, PostgresqlDatabase):
         with open(os.path.join(os.path.dirname(__file__), "sql", "auditing.sql"), 'br') as input_file:
             sql = readup_file(input_file)
-            with db.database.cursor() as cr:
+            with db.cursor() as cr:
                 cr.execute(sql)
-            db.database.commit()
+            db.commit()
 
 
 def drop_tables():

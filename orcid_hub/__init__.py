@@ -30,7 +30,7 @@ from playhouse.flask_utils import FlaskDB
 from raven.contrib.flask import Sentry
 
 from . import config
-from .failover import PgDbWithFailover
+# from .failover import PgDbWithFailover
 from flask_admin import Admin
 from flask_limiter import Limiter
 from flask_limiter.util import get_ipaddr
@@ -72,8 +72,8 @@ limiter = Limiter(
 if app.config.get("LOAD_TEST"):
     limiter.enabled = False
 
-DATABASE = app.config.get("DATABASE_URL")
-db = FlaskDB(app)
+db_wrapper = FlaskDB(app)
+db = db_wrapper.database
 
 # # TODO: implement connection factory
 # db_url.register_database(PgDbWithFailover, "pg+failover", "postgres+failover")

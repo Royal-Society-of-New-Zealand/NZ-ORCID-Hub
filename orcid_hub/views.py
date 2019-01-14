@@ -1246,7 +1246,7 @@ class FundingRecordAdmin(CompositeRecordModelView):
             ExternalId.relationship.alias("external_id_relationship")).join(
                 ExternalId, JOIN.LEFT_OUTER,
                 on=(ExternalId.funding_record_id == FundingRecord.id)).join(
-                    sq, JOIN.LEFT_OUTER, on=(sq.c.funding_record_id == FundingRecord.id)).naive()
+                    sq, JOIN.LEFT_OUTER, on=(sq.c.funding_record_id == FundingRecord.id)).objects()
 
 
 class WorkRecordAdmin(CompositeRecordModelView):
@@ -1357,7 +1357,7 @@ class WorkRecordAdmin(CompositeRecordModelView):
             WorkExternalId.relationship.alias("external_id_relationship")).join(
                 WorkExternalId, JOIN.LEFT_OUTER,
                 on=(WorkExternalId.work_record_id == WorkRecord.id)).join(
-                    sq, JOIN.LEFT_OUTER, on=(sq.c.work_record_id == WorkRecord.id)).naive()
+                    sq, JOIN.LEFT_OUTER, on=(sq.c.work_record_id == WorkRecord.id)).objects()
 
 
 class PeerReviewRecordAdmin(CompositeRecordModelView):
@@ -1434,7 +1434,7 @@ class PeerReviewRecordAdmin(CompositeRecordModelView):
             on=(PeerReviewExternalId.peer_review_record_id == self.model.id)).join(
                 PeerReviewInvitee,
                 JOIN.LEFT_OUTER,
-                on=(PeerReviewInvitee.peer_review_record_id == self.model.id)).naive()
+                on=(PeerReviewInvitee.peer_review_record_id == self.model.id)).objects()
 
 
 class AffiliationRecordAdmin(RecordModelView):
@@ -2712,7 +2712,7 @@ def user_organisations(user_id):
         Organisation.id, Organisation.name,
         (Organisation.tech_contact_id == user_id).alias("is_tech_contact"), UserOrg.is_admin).join(
             UserOrg, on=((UserOrg.org_id == Organisation.id) & (UserOrg.user_id == user_id)))
-                 .naive())
+                 .objects())
     return render_template("user_organisations.html", user_orgs=user_orgs)
 
 

@@ -33,7 +33,7 @@ SCOPE_READ_LIMITED = ['/read-limited']
 SCOPE_AUTHENTICATE = ['/authenticate']
 
 # Database connection url
-DATABASE = getenv("DATABASE_URL", "sqlite:///data.db")
+DATABASE = getenv("DATABASE", getenv("DATABASE_URL", "sqlite:///data.db"))
 BACKUP_DATABASE = getenv("BACKUP_DATABASE_URL")
 LOAD_TEST = getenv("LOAD_TEST")
 
