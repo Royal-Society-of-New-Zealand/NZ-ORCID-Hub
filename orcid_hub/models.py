@@ -3013,7 +3013,7 @@ def load_yaml_json(filename, source):
     """Create a common way of loading json or yaml file."""
     _, ext = os.path.splitext(filename)
     if ext.lower() in [".yaml", ".yml"]:
-        data = yaml.load(source)
+        data = json.loads(json.dumps(yaml.load(source)), object_pairs_hook=NestedDict)
     else:
         data = json.loads(source, object_pairs_hook=NestedDict)
 
