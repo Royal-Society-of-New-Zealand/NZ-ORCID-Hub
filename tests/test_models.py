@@ -7,39 +7,7 @@ from io import StringIO
 
 import pytest
 from peewee import Model, SqliteDatabase
-from playhouse.test_utils import test_database
-
-from orcid_hub.models import (
-    Affiliation, AffiliationRecord, BaseModel, BooleanField, ExternalId, File, ForeignKeyField,
-    FundingContributor, FundingRecord, FundingInvitees, ModelException, OrcidToken, Organisation,
-    OrgInfo, PartialDate, PartialDateField, Role, Task, Log, TextField, User, UserInvitation,
-    UserOrg, UserOrgAffiliation, WorkRecord, WorkContributor, WorkExternalId, WorkInvitees,
-    PeerReviewRecord, PeerReviewInvitee, PeerReviewExternalId, create_tables, drop_tables,
-    validate_orcid_id)
-
-
-@pytest.fixture
-def testdb():
-    """Peewee Test DB context.
-
-    Example:
-
-    def test_NAME(testdb):
-        u = models.User(email="test@test.org", name="TESTER TESTERON")
-        u.save()
-        asser modls.User.count() == 1
-    """
-    _db = SqliteDatabase(":memory:", pragmas=[("foreign_keys", "on")])
-    with test_database(
-            _db, (Organisation, File, User, UserInvitation, UserOrg, OrgInfo, OrcidToken,
-                  UserOrgAffiliation, Task, AffiliationRecord, ExternalId, FundingRecord,
-                  FundingContributor, FundingInvitees, WorkRecord, WorkContributor, WorkExternalId,
-                  WorkInvitees, PeerReviewRecord, PeerReviewExternalId, PeerReviewInvitee),
-            fail_silently=True) as _test_db:
-        yield _test_db
-
-    return
-
+from orcid_hub.models import *
 
 @pytest.fixture
 def models(testdb):

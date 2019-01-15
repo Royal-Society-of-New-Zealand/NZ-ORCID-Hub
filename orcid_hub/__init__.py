@@ -66,7 +66,7 @@ limiter = Limiter(
     key_func=get_ipaddr,
     headers_enabled=True,
     default_limits=[
-        "40 per second",  # burst: 40/sec
+        "40 per second",    # burst: 40/sec
         "1440 per minute",  # allowed max: 24/sec
     ])
 if app.config.get("LOAD_TEST"):

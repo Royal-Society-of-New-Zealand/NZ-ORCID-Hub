@@ -16,9 +16,9 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 # sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # flake8: noqa
 from orcid_hub import config
-DATABASE_URL = os.environ.get("TEST_DATABASE_URL") or "sqlite:///:memory:"
-config.DATABASE_URL = DATABASE_URL
-os.environ["DATABASE_URL"] = DATABASE_URL
+DATABASE = os.environ.get("TEST_DATABASE_URL") or "sqlite:///:memory:"
+config.DATABASEL = DATABASE
+os.environ["DATABASE_URL"] = DATABASE
 # Patch it before is gets patched by 'orcid_client'
 # import orcid_api
 # from unittest.mock import MagicMock
@@ -29,16 +29,15 @@ from flask.testing import FlaskClient
 from flask import _request_ctx_stack
 
 import pytest
-from playhouse import db_url
 
 from orcid_hub import app as _app
-_app.config["DATABASE_URL"] = DATABASE_URL
+_app.config["DATABASE"] = DATABASE
 from orcid_hub.models import *  # noqa: F401, F403
 from orcid_hub.authcontroller import *  # noqa: F401, F403
 from orcid_hub.views import *  # noqa: F401, F403
 from orcid_hub.reports import *  # noqa: F401, F403
 
-db = _app.db = _db = db_url.connect(DATABASE_URL, autorollback=True)
+## db = _app.db = _db = db_url.connect(DATABASE_URL, autorollback=True)
 
 ORCIDS = [
     "1009-2009-3009-00X3", "1017-2017-3017-00X3", "1025-2025-3025-00X3", "1033-2033-3033-00X3",
@@ -124,20 +123,20 @@ class HubClient(FlaskClient):
 
 
 @pytest.fixture
-def test_db():
+def testdb():
     """Peewee Test DB context.
 
     Example:
 
-    def test_NAME(test_db):
+    def test_NAME(testdb):
         u = models.User(email="test@test.org", name="TESTER TESTERON")
         u.save()
         asser modls.User.count() == 1
     """
-    _db = SqliteDatabase(":memory:")
+    _db = SqliteDatabase(":memory:", pragmas=[("foreign_keys", "on")])
     with _db.bind_ctx(MODELS):  # noqa: F405
         _app.db = _db
-        _app.config["DATABASE_URL"] = "sqlite:///:memory:"
+        _app.config["DATABASE"] = "sqlite:///:memory:"
         _app.config["EXTERNAL_SP"] = None
         _app.config["SENTRY_DSN"] = None
         _app.config["WTF_CSRF_ENABLED"] = False
@@ -152,7 +151,7 @@ def test_db():
 
 
 @pytest.fixture
-def test_models(test_db):
+def test_models(testdb):
 
     Organisation.insert_many((dict(
         name="Organisation #%d" % i,
@@ -370,7 +369,7 @@ def app():
 
     with _db.bind_ctx(MODELS):  # noqa: F405
         _app.db = _db
-        _app.config["DATABASE_URL"] = DATABASE_URL
+        _app.config["DATABASE"] = DATABASE
         _app.config["EXTERNAL_SP"] = None
         _app.config["SENTRY_DSN"] = None
         _app.config["WTF_CSRF_ENABLED"] = False

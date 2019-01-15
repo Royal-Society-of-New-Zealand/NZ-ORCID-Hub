@@ -22,7 +22,7 @@ from urllib.parse import urlencode
 import validators
 import yaml
 from flask_login import UserMixin, current_user
-from peewee import JOIN, BlobField
+from peewee import BlobField, JOIN, SqliteDatabase
 from peewee import BooleanField as BooleanField_
 from peewee import (CharField, DateTimeField, DeferredForeignKey, Field, FixedCharField,
                     ForeignKeyField, IntegerField, Model, OperationalError, PostgresqlDatabase,
@@ -2978,14 +2978,14 @@ def create_audit_tables():
 
 def drop_tables():
     """Drop all model tables."""
-    for m in (File, User, UserOrg, OrcidToken, UserOrgAffiliation, OrgInfo, OrgInvitation,
-              OrcidApiCall, OrcidAuthorizeCall, FundingContributor, FundingInvitees, FundingRecord,
-              PeerReviewInvitee, PeerReviewExternalId, PeerReviewRecord, WorkInvitees,
-              WorkExternalId, WorkContributor, WorkRecord, AffiliationRecord, ExternalId, Url,
-              UserInvitation, Task, Organisation):
+    is_sqlite = isinstance(db, SqliteDatabase)
+    for m in MODELS[::-1]:
         if m.table_exists():
             try:
-                m.drop_table(fail_silently=True, cascade=m._meta.database.drop_cascade)
+                if is_sqlite:
+                    m.drop_table(fail_silently=True)
+                else:
+                    m.drop_table(fail_silently=True, cascade=True)
             except OperationalError:
                 pass
 
