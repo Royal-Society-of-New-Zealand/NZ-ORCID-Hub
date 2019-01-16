@@ -191,8 +191,8 @@ def new_invitation_token(length=5):
     """Generate a unique invitation token."""
     while True:
         token = ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(length))
-        if not (UserInvitation.select(SQL("1")).where(UserInvitation.token == token)
-                | OrgInvitation.select(SQL("1")).where(OrgInvitation.token == token)).exists():
+        if not (UserInvitation.select().where(UserInvitation.token == token).exists()
+                or OrgInvitation.select().where(OrgInvitation.token == token).exists()):
             break
     return token
 

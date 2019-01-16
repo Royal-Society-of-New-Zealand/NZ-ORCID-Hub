@@ -136,12 +136,14 @@ def testdb():
     _db = SqliteDatabase(":memory:", pragmas=[("foreign_keys", "on")])
     with _db.bind_ctx(MODELS):  # noqa: F405
         _app.db = _db
+        _app.config["TESTING"] = True
         _app.config["DATABASE"] = "sqlite:///:memory:"
         _app.config["EXTERNAL_SP"] = None
         _app.config["SENTRY_DSN"] = None
         _app.config["WTF_CSRF_ENABLED"] = False
         _app.config["DEBUG_TB_ENABLED"] = False
-        _app.config["SERVER_NAME"] = "ORCIDHUB"
+        # _app.config["SERVER_NAME"] = "ORCIDHUB"
+        _app.config["LOAD_TEST"] = True
         _app.sentry = None
         _db.create_tables(MODELS)
 
@@ -353,184 +355,169 @@ def test_models(testdb):
         visibility="Test_%d" % i,
         email="Test_%d" % i) for i in range(10))).execute()
 
-    yield test_db
+    yield testdb
 
 
 @pytest.fixture
-def app():
+def app(testdb):
     """Session-wide test `Flask` application."""
     # Establish an application context before running the tests.
     ctx = _app.app_context()
     ctx.push()
-    _app.config['TESTING'] = True
-    logger = logging.getLogger("peewee")
-    if logger:
-        logger.setLevel(logging.INFO)
 
-    with _db.bind_ctx(MODELS):  # noqa: F405
-        _app.db = _db
-        _app.config["DATABASE"] = DATABASE
-        _app.config["EXTERNAL_SP"] = None
-        _app.config["SENTRY_DSN"] = None
-        _app.config["WTF_CSRF_ENABLED"] = False
-        _app.config["DEBUG_TB_ENABLED"] = False
-        _app.config["LOAD_TEST"] = True
-        #_app.config["SERVER_NAME"] = "ORCIDHUB"
-        _app.sentry = None
-        _db.create_tables(MODELS)
-
-        # Add some data:
-        for org_no in range(2):
-            org = Organisation.create(name=f"TEST{org_no}", tuakiri_name=f"TEST ORG #{org_no}")
-            User.create(
-                created_at=datetime(2017, 11, 16),
-                email=f"researcher_across_orgs@test{org_no}.edu",
-                name="TEST USER ACROSS ORGS",
-                first_name="FIRST_NAME",
-                last_name="LAST_NAME",
-                roles=Role.RESEARCHER,
-                orcid="1981-2981-3981-00X3",
-                confirmed=True,
-                organisation=org)
-            if org_no == 1:
-                org.orcid_client_id = "ABC123"
-                org.orcid_secret = "SECRET-12345"
-                org.save()
-            # An org.admin
-            user = User.create(
-                created_at=datetime(2017, 11, 28),
-                email=f"admin@test{org_no}.edu",
-                name=f"TEST ORG #{org_no} ADMIN",
-                first_name="FIRST_NAME",
-                last_name="LAST_NAME",
-                can_use_api=(org_no == 0),
-                confirmed=True,
-                organisation=org)
-            UserOrg.create(user=user, org=org, is_admin=True)
-            org.tech_contact = user
+    # TODO: fator out test data fixture and reuse it with app fixture
+    # Add some data:
+    for org_no in range(2):
+        org = Organisation.create(name=f"TEST{org_no}", tuakiri_name=f"TEST ORG #{org_no}")
+        User.create(
+            created_at=datetime(2017, 11, 16),
+            email=f"researcher_across_orgs@test{org_no}.edu",
+            name="TEST USER ACROSS ORGS",
+            first_name="FIRST_NAME",
+            last_name="LAST_NAME",
+            roles=Role.RESEARCHER,
+            orcid="1981-2981-3981-00X3",
+            confirmed=True,
+            organisation=org)
+        if org_no == 1:
+            org.orcid_client_id = "ABC123"
+            org.orcid_secret = "SECRET-12345"
             org.save()
-            # Hub admin:
-            User.create(
-                created_at=datetime(2017, 11, 27),
-                email=f"root@test{org_no}.edu",
-                name="TEST HUB ADMIN",
-                first_name="FIRST_NAME",
-                last_name="LAST_NAME",
-                roles=Role.SUPERUSER,
-                confirmed=True,
-                organisation=org)
-            User.insert_many(
-                dict(
-                    email=f"researcher{i}@test{org_no}.edu",
-                    name=f"TEST RESEARCHER #{i} OF {org_no} ",
-                    first_name=f"FIRST_NAME #{i}",
-                    last_name=f"LAST_NAME #{i}",
-                    orcid=ORCIDS[org_no * 10 + i - 100] if (org_no * 10 + i) % 2 else None,
-                    confirmed=True,
-                    organisation=org,
-                    created_at=datetime(2017, 12, i % 31 + 1)) for i in range(100, 107)).execute()
-            OrcidToken.insert_many(
-                dict(
-                    access_token=f"TOKEN-{org_no}-{u.id}",
-                    org=org,
-                    user=u,
-                    expires_in=0,
-                    created_at=datetime(2018, 1, 1)) for u in User.select(User.id)
-                if u.id % 2 == 0).execute()
-            if org_no == 0:
-                Client.create(
-                    org=org,
-                    user=user,
-                    client_id=org.name + "-ID",
-                    client_secret=org.name + "-SECRET")
-
-        UserOrg.insert_from(
-            query=User.select(User.id, User.organisation_id, User.created_at).where(
-                User.email.contains("researcher")),
-            fields=[UserOrg.user_id, UserOrg.org_id, UserOrg.created_at]).execute()
-
-        _app.test_client_class = HubClient
-        org = Organisation.create(
-            name="THE ORGANISATION",
-            tuakiri_name="THE ORGANISATION",
-            orcid_client_id="APP-12345678",
-            orcid_secret="CLIENT-SECRET",
-            confirmed=True,
-            city="CITY",
-            country="NZ")
-
-        admin = User.create(
-            email="app123@test0.edu",
-            name="TEST USER WITH AN APP",
-            roles=Role.TECHNICAL,
-            orcid="1001-0001-0001-0001",
-            confirmed=True,
-            organisation=org)
-        tech_contact = admin
-
-        UserOrg.create(user=admin, org=org, is_admin=True)
-        org.tech_contact = admin
-        org.save()
-        request_ctx.org = org
-
-        client = Client.create(
-            name="TEST_CLIENT",
-            user=admin,
-            org=org,
-            client_id="CLIENT_ID",
-            client_secret="CLIENT_SECRET",
-            is_confidential="public",
-            grant_type="client_credentials",
-            response_type="XYZ")
-
-        Token.create(client=client, user=admin, access_token="TEST", token_type="Bearer")
-
+        # An org.admin
         user = User.create(
-            email="researcher@test0.edu",
-            eppn="eppn@test0.edu",
-            name="TEST REASEARCHER",
-            orcid="0000-0000-0000-00X3",
+            created_at=datetime(2017, 11, 28),
+            email=f"admin@test{org_no}.edu",
+            name=f"TEST ORG #{org_no} ADMIN",
+            first_name="FIRST_NAME",
+            last_name="LAST_NAME",
+            can_use_api=(org_no == 0),
             confirmed=True,
             organisation=org)
-        OrcidToken.create(user=user, org=org, access_token="ORCID-TEST-ACCESS-TOKEN")
-        UserOrg.create(user=user, org=org)
-
+        UserOrg.create(user=user, org=org, is_admin=True)
+        org.tech_contact = user
+        org.save()
+        # Hub admin:
+        User.create(
+            created_at=datetime(2017, 11, 27),
+            email=f"root@test{org_no}.edu",
+            name="TEST HUB ADMIN",
+            first_name="FIRST_NAME",
+            last_name="LAST_NAME",
+            roles=Role.SUPERUSER,
+            confirmed=True,
+            organisation=org)
         User.insert_many(
             dict(
-                email=f"researcher{i}@test0.edu",
-                name=f"TEST RESEARCHER #{i}",
+                email=f"researcher{i}@test{org_no}.edu",
+                name=f"TEST RESEARCHER #{i} OF {org_no} ",
                 first_name=f"FIRST_NAME #{i}",
                 last_name=f"LAST_NAME #{i}",
+                orcid=ORCIDS[org_no * 10 + i - 100] if (org_no * 10 + i) % 2 else None,
                 confirmed=True,
                 organisation=org,
-                created_at=datetime(2017, 12, i % 31 + 1),
-                updated_at=datetime(2017, 12, i % 31 + 1)) for i in range(200, 207)).execute()
+                created_at=datetime(2017, 12, i % 31 + 1)) for i in range(100, 107)).execute()
+        OrcidToken.insert_many(
+            dict(
+                access_token=f"TOKEN-{org_no}-{u.id}",
+                org=org,
+                user=u,
+                expires_in=0,
+                created_at=datetime(2018, 1, 1)) for u in User.select(User.id)
+            if u.id % 2 == 0).execute()
+        if org_no == 0:
+            Client.create(
+                org=org,
+                user=user,
+                client_id=org.name + "-ID",
+                client_secret=org.name + "-SECRET")
 
-        User.create(
-            email="researcher2@test0.edu",
-            eppn="eppn2@test0.edu",
-            name="TEST REASEARCHER W/O ORCID ACCESS TOKEN",
-            orcid="0000-0000-0000-11X2",
-            confirmed=True,
-            organisation=org)
+    UserOrg.insert_from(
+        query=User.select(User.id, User.organisation_id, User.created_at).where(
+            User.email.contains("researcher")),
+        fields=[UserOrg.user_id, UserOrg.org_id, UserOrg.created_at]).execute()
 
-        org2 = Organisation.create(
-            name="THE ORGANISATION #2",
-            tuakiri_name="THE ORGANISATION #2",
-            confirmed=True,
-            city="CITY")
-        User.create(
-            email="researcher@org2.edu",
-            eppn="eppn123@org2.edu",
-            name="TEST REASEARCHER #2",
-            orcid="9999-9999-9999-9999",
-            confirmed=True,
-            organisation=org2)
-        super_user = User.create(
-            email="super_user@test0.edu", organisation=org, roles=Role.SUPERUSER, confirmed=True)
+    org = Organisation.create(
+        name="THE ORGANISATION",
+        tuakiri_name="THE ORGANISATION",
+        orcid_client_id="APP-12345678",
+        orcid_secret="CLIENT-SECRET",
+        confirmed=True,
+        city="CITY",
+        country="NZ")
 
-        _app.data = locals()
-        yield _app
+    admin = User.create(
+        email="app123@test0.edu",
+        name="TEST USER WITH AN APP",
+        roles=Role.TECHNICAL,
+        orcid="1001-0001-0001-0001",
+        confirmed=True,
+        organisation=org)
+    tech_contact = admin
+
+    UserOrg.create(user=admin, org=org, is_admin=True)
+    org.tech_contact = admin
+    org.save()
+    request_ctx.org = org
+
+    client = Client.create(
+        name="TEST_CLIENT",
+        user=admin,
+        org=org,
+        client_id="CLIENT_ID",
+        client_secret="CLIENT_SECRET",
+        is_confidential="public",
+        grant_type="client_credentials",
+        response_type="XYZ")
+
+    Token.create(client=client, user=admin, access_token="TEST", token_type="Bearer")
+
+    user = User.create(
+        email="researcher@test0.edu",
+        eppn="eppn@test0.edu",
+        name="TEST REASEARCHER",
+        orcid="0000-0000-0000-00X3",
+        confirmed=True,
+        organisation=org)
+    OrcidToken.create(user=user, org=org, access_token="ORCID-TEST-ACCESS-TOKEN")
+    UserOrg.create(user=user, org=org)
+
+    User.insert_many(
+        dict(
+            email=f"researcher{i}@test0.edu",
+            name=f"TEST RESEARCHER #{i}",
+            first_name=f"FIRST_NAME #{i}",
+            last_name=f"LAST_NAME #{i}",
+            confirmed=True,
+            organisation=org,
+            created_at=datetime(2017, 12, i % 31 + 1),
+            updated_at=datetime(2017, 12, i % 31 + 1)) for i in range(200, 207)).execute()
+
+    User.create(
+        email="researcher2@test0.edu",
+        eppn="eppn2@test0.edu",
+        name="TEST REASEARCHER W/O ORCID ACCESS TOKEN",
+        orcid="0000-0000-0000-11X2",
+        confirmed=True,
+        organisation=org)
+
+    org2 = Organisation.create(
+        name="THE ORGANISATION #2",
+        tuakiri_name="THE ORGANISATION #2",
+        confirmed=True,
+        city="CITY")
+    User.create(
+        email="researcher@org2.edu",
+        eppn="eppn123@org2.edu",
+        name="TEST REASEARCHER #2",
+        orcid="9999-9999-9999-9999",
+        confirmed=True,
+        organisation=org2)
+    super_user = User.create(
+        email="super_user@test0.edu", organisation=org, roles=Role.SUPERUSER, confirmed=True)
+
+    _app.test_client_class = HubClient
+    _app.data = locals()
+    yield _app
 
     ctx.pop()
     return
