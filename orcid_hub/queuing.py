@@ -44,17 +44,17 @@ if __redis_available:
     except:
         __redis_available = False
 
-else:
+if not __redis_available:
     from functools import wraps
 
-    class RQ:
+    class RQ:  # noqa: F811
         """Fake RQ."""
 
         def __init__(self, *args, **kwargs):
             """Create a fake wrapper."""
             pass
 
-        def job(*args, **kwargs):  # noqa: D202
+        def job(*args, **kwags):  # noqa: D202
             """Docorate a function to emulate queueing into a queue."""
 
             def wrapper(fn):
