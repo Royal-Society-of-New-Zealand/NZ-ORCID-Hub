@@ -1484,7 +1484,7 @@ def process_tasks(max_rows=20):
         tasks = tasks.limit(max_rows)
     for task in tasks:
 
-        if task.task_type == TaskType.SYNC.value:
+        if task.records is None:
             continue
 
         export_model = task.record_model._meta.name + ".export"

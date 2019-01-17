@@ -255,7 +255,7 @@ class TaskType(IntEnum):
     @classmethod
     def options(cls):
         """Get list of all types for UI dropown option list."""
-        return [(e.value, e.name.replace('_', ' ').title()) for e in cls]
+        return [(e, e.name.replace('_', ' ').title()) for e in cls]
 
 
 class TaskTypeField(SmallIntegerField):
@@ -271,6 +271,8 @@ class TaskTypeField(SmallIntegerField):
             elif isinstance(value, int):
                 return value
             elif isinstance(value, str):
+                if str.isdigit(value):
+                    return int(value)
                 return TaskType[value.upper()].value
             else:
                 raise ValueError("Unknow TaskType: '%s'", value)
@@ -1009,16 +1011,16 @@ class Task(BaseModel, AuditMixin):
     @lazy_property
     def record_count(self):
         """Get count of the loaded recoreds."""
-        return self.records.count() if self.records else 0
+        return 0 if self.records is None else self.records.count()
 
     @property
     def record_model(self):
         """Get record model class."""
-        if self.task_type == TaskType.SYNC:
-            return None
-        _, models = self.records.get_query_meta()
-        model, = models.keys()
-        return model
+        if self.records is not None:
+            _, models = self.records.get_query_meta()
+            model, = models.keys()
+            return model
+        return None
 
     @lazy_property
     def records(self):

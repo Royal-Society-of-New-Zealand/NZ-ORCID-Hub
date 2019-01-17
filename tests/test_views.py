@@ -1329,7 +1329,7 @@ Rad,Cirskis,researcher.990@mailinator.com,Student
     assert b"researcher.010@mailinator.com" in resp.data
 
     # List all tasks with a filter (select 'affiliation' task):
-    resp = client.get("/admin/task/?flt1_1=0")
+    resp = client.get("/admin/task/?flt1_1=4")
     assert b"affiliations.csv" in resp.data
 
     # Activate a single record:
