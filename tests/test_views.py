@@ -899,7 +899,7 @@ def test_activate_all(request_ctx):
         filename="xyz.txt",
         created_by=user,
         updated_by=user,
-        task_type=0)
+        task_type=TaskType.AFFILIATION)
     task2 = Task.create(
         org=org,
         completed_at="12/12/12",
@@ -2299,19 +2299,17 @@ def test_reset_all(request_ctx):
         name="TEST USER",
         roles=Role.TECHNICAL,
         orcid=123,
-        organisation_id=1,
         confirmed=True,
         organisation=org)
     UserOrg.create(user=user, org=org, is_admin=True)
 
     task1 = Task.create(
-        id=1,
         org=org,
         completed_at="12/12/12",
         filename="xyz.txt",
         created_by=user,
         updated_by=user,
-        task_type=0)
+        task_type=TaskType.AFFILIATION)
 
     AffiliationRecord.create(
         is_active=True,
@@ -2340,7 +2338,6 @@ def test_reset_all(request_ctx):
         token="xyztoken")
 
     task2 = Task.create(
-        id=2,
         org=org,
         completed_at="12/12/12",
         filename="xyz.txt",
@@ -2368,7 +2365,6 @@ def test_reset_all(request_ctx):
         visibility="Test_visibity")
 
     task3 = Task.create(
-        id=3,
         org=org,
         completed_at="12/12/12",
         filename="xyz.txt",
@@ -2377,14 +2373,12 @@ def test_reset_all(request_ctx):
         task_type=3)
 
     PeerReviewRecord.create(
-        id=1,
         task=task3,
         review_group_id=1212,
         is_active=True,
         visibility="Test_visibity")
 
     work_task = Task.create(
-        id=4,
         org=org,
         completed_at="12/12/12",
         filename="xyz.txt",
@@ -2393,7 +2387,6 @@ def test_reset_all(request_ctx):
         task_type=2)
 
     WorkRecord.create(
-        id=1,
         task=work_task,
         title=1212,
         is_active=True,
@@ -2405,9 +2398,9 @@ def test_reset_all(request_ctx):
         request.args = ImmutableMultiDict([('url', 'http://localhost/affiliation_record_reset_for_batch')])
         request.form = ImmutableMultiDict([('task_id', task1.id)])
         resp = ctxx.app.full_dispatch_request()
-        t = Task.get(id=1)
-        ar = AffiliationRecord.get(id=1)
-        assert "The record was reset" in ar.status
+        t = Task.get(id=task1.id)
+        rec = t.records.first()
+        assert "The record was reset" in rec.status
         assert t.completed_at is None
         assert resp.status_code == 302
         assert resp.location.startswith("http://localhost/affiliation_record_reset_for_batch")
@@ -2416,10 +2409,10 @@ def test_reset_all(request_ctx):
         request.args = ImmutableMultiDict([('url', 'http://localhost/funding_record_reset_for_batch')])
         request.form = ImmutableMultiDict([('task_id', task2.id)])
         resp = ctxx.app.full_dispatch_request()
-        t2 = Task.get(id=2)
-        fr = FundingRecord.get(id=1)
-        assert "The record was reset" in fr.status
-        assert t2.completed_at is None
+        t = Task.get(id=task2.id)
+        rec = t.records.first()
+        assert "The record was reset" in rec.status
+        assert t.completed_at is None
         assert resp.status_code == 302
         assert resp.location.startswith("http://localhost/funding_record_reset_for_batch")
     with request_ctx("/reset_all", method="POST") as ctxx:
@@ -2427,10 +2420,10 @@ def test_reset_all(request_ctx):
         request.args = ImmutableMultiDict([('url', 'http://localhost/peer_review_record_reset_for_batch')])
         request.form = ImmutableMultiDict([('task_id', task3.id)])
         resp = ctxx.app.full_dispatch_request()
-        t2 = Task.get(id=3)
-        pr = PeerReviewRecord.get(id=1)
-        assert "The record was reset" in pr.status
-        assert t2.completed_at is None
+        t = Task.get(id=task3.id)
+        rec = PeerReviewRecord.get(id=1)
+        assert "The record was reset" in rec.status
+        assert t.completed_at is None
         assert resp.status_code == 302
         assert resp.location.startswith("http://localhost/peer_review_record_reset_for_batch")
     with request_ctx("/reset_all", method="POST") as ctxx:
