@@ -54,7 +54,7 @@ if not __redis_available:
             """Create a fake wrapper."""
             pass
 
-        def job(*args, **kwags):  # noqa: D202
+        def job(*args, **kwargs):  # noqa: D202
             """Docorate a function to emulate queueing into a queue."""
 
             def wrapper(fn):
