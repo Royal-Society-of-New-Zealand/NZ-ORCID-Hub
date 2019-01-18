@@ -541,7 +541,7 @@ class TaskAdmin(AppModelView):
         filters.FilterEqual(column=Task.task_type, options=models.TaskType.options(), name="Task Type"),
     )
     column_formatters = dict(
-        task_type=lambda v, c, m, p: models.TaskType(m.task_type).name.replace('_', ' ').title(),
+        task_type=lambda v, c, m, p: m.task_type.name.replace('_', ' ').title(),
         completed_count=lambda v, c, m, p: (
             '' if not m.record_count else f"{m.completed_count} / {m.record_count} ({m.completed_percent:.1f}%)"),
     )
@@ -1764,22 +1764,9 @@ def activate_all():
     task_id = request.form.get('task_id')
     task = Task.get(id=task_id)
     try:
-        if task.task_type == 0:
-            count = AffiliationRecord.update(is_active=True).where(
-                AffiliationRecord.task_id == task_id,
-                AffiliationRecord.is_active == False).execute()  # noqa: E712
-        elif task.task_type == 1:
-            count = FundingRecord.update(is_active=True).where(
-                FundingRecord.task_id == task_id,
-                FundingRecord.is_active == False).execute()  # noqa: E712
-        elif task.task_type == 2:
-            count = WorkRecord.update(is_active=True).where(
-                WorkRecord.task_id == task_id,
-                WorkRecord.is_active == False).execute()  # noqa: E712
-        elif task.task_type == 3:
-            count = PeerReviewRecord.update(is_active=True).where(
-                PeerReviewRecord.task_id == task_id,
-                PeerReviewRecord.is_active == False).execute()  # noqa: E712
+        count = task.record_model.update(is_active=True).where(
+            task.record_model.task_id == task_id,
+            task.record_model.is_active == False).execute()  # noqa: E712
     except Exception as ex:
         flash(f"Failed to activate the selected records: {ex}")
         app.logger.exception("Failed to activate the selected records")
@@ -1799,10 +1786,11 @@ def reset_all():
     with db.atomic():
         try:
             status = "The record was reset at " + datetime.now().isoformat(timespec="seconds")
-            if task.task_type == 0:
-                count = AffiliationRecord.update(processed_at=None, status=status).where(
-                    AffiliationRecord.task_id == task_id,
-                    AffiliationRecord.is_active == True).execute()  # noqa: E712
+            tt = task.task_type
+            if tt == TaskType.AFFILIATION:
+                count = task.record_model.update(processed_at=None, status=status).where(
+                    task.record_model.task_id == task_id,
+                    task.record_model.is_active == True).execute()  # noqa: E712
 
                 for user_invitation in UserInvitation.select().where(UserInvitation.task == task):
                     try:
@@ -1810,7 +1798,7 @@ def reset_all():
                     except UserInvitation.DoesNotExist:
                         pass
 
-            elif task.task_type == 1:
+            elif tt == TaskType.FUNDING:
                 for funding_record in FundingRecord.select().where(FundingRecord.task_id == task_id,
                                                                    FundingRecord.is_active == True):    # noqa: E712
                     funding_record.processed_at = None
@@ -1822,7 +1810,7 @@ def reset_all():
                     funding_record.save()
                     count = count + 1
 
-            elif task.task_type == 2:
+            elif tt == TaskType.WORK:
                 for work_record in WorkRecord.select().where(WorkRecord.task_id == task_id,
                                                                    WorkRecord.is_active == True):    # noqa: E712
                     work_record.processed_at = None
@@ -1833,7 +1821,7 @@ def reset_all():
                         WorkInvitees.work_record == work_record.id).execute()
                     work_record.save()
                     count = count + 1
-            elif task.task_type == 3:
+            elif tt == TaskType.PEER_REVIEW:
                 for peer_review_record in PeerReviewRecord.select().where(PeerReviewRecord.task_id == task_id,
                                                                    PeerReviewRecord.is_active == True):    # noqa: E712
                     peer_review_record.processed_at = None

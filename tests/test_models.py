@@ -9,6 +9,7 @@ import pytest
 from peewee import Model, SqliteDatabase
 from orcid_hub.models import *
 
+
 @pytest.fixture
 def models(testdb):
 
@@ -410,6 +411,29 @@ def test_partial_date():
 
     pd = PartialDate()
     assert str(pd) == ""
+
+
+def test_task_type_field():
+
+    db = SqliteDatabase(":memory:")
+
+    class TestModel(Model):
+        tt = TaskTypeField(null=True)
+
+        class Meta:
+            database = db
+
+    TestModel.create_table()
+    for v in TaskType:
+        TestModel.create(tt=v)
+        TestModel.create(tt=str(v.value))
+        TestModel.create(tt=v.value)
+        TestModel.create(tt=v.name)
+    TestModel(pf=None).save()
+    res = {r[0]:r[1] for r in db.execute_sql(
+        "SELECT tt, count(*) AS rc FROM testmodel GROUP BY tt ORDER BY 1").fetchall()}
+    assert all(res[v.value] == 4 for v in TaskType)
+    assert res[None] == 1
 
 
 def test_pd_field():

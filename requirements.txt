@@ -1,7 +1,7 @@
 # pip install -U -r requirements.txt
+oauthlib==2.1.0
 requests
 requests_oauthlib<1.2.0
-psycopg2-binary
 peewee>3.7.0,<3.8.0
 #peewee-validates
  git+https://github.com/nad2000/peewee-validates/#egg=peewee_validates
@@ -20,8 +20,8 @@ Flask
  git+https://github.com/nad2000/flask-admin/#egg=flask_admin
 flask-login
 Flask-WTF
-flask-peewee
-Flask-OAuthlib
+flask-peewee==0.6.7
+Flask-OAuthlib==0.9.5
 raven[flask]
 flask-peewee-swagger>=1.1.5
 flask-limiter>=1.0.0,<2.0.0
