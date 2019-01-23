@@ -374,6 +374,7 @@ class AuditMixin(Model):
 
     created_at = DateTimeField(default=datetime.utcnow)
     updated_at = DateTimeField(null=True, default=None)
+    is_deleted = BooleanField(null=True, default=False)
 
     # created_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
     # updated_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
@@ -387,6 +388,14 @@ class AuditMixin(Model):
                 elif hasattr(self, "created_by"):
                     self.created_by_id = current_user.id
         return super().save(*args, **kwargs)
+
+    def delete_instance(self, *args, **kwargs):  # noqa: D102
+        """Mark the entry id_deleted and save (with the link to the user
+        that invoked the deletion) for audit trail.
+        """
+        self.is_deleted = True
+        self.save()
+        return super().delete_instance(*args, **kwargs)
 
 
 class File(BaseModel):
