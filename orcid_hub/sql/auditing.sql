@@ -46,8 +46,8 @@ BEGIN
 	v_sql := format('CREATE TABLE IF NOT EXISTS audit.%2$I AS
 		SELECT NULL::timestamp without time zone AS ts, NULL::char(1) AS op,
 		source.* FROM %1$I.%2$I AS source WHERE 1=0;
-		',
-		r.schemaname, r.tablename);
+		ALTER TABLE audit.%2$I OWNER TO %3$I;',
+		r.schemaname, r.tablename, r.tableowner);
 		RAISE NOTICE 'EXECUTING %', v_sql;
 		EXECUTE v_sql;
 		EXECUTE format('DROP TRIGGER IF EXISTS %3$I ON %1$I.%2$I;',
