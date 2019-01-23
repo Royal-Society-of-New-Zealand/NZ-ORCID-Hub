@@ -211,13 +211,13 @@ class PartialDateField(Field):
         """Convert into partial ISO date textual representation: YYYY-**-**, YYYY-MM-**, or YYYY-MM-DD."""
         if value is None or not value.year:
             return None
+
+        res = "%04d" % int(value.year)
+        if value.month:
+            res += "-%02d" % int(value.month)
         else:
-            res = "%04d" % int(value.year)
-            if value.month:
-                res += "-%02d" % int(value.month)
-            else:
-                return res + "-**-**"
-            return res + "-%02d" % int(value.day) if value.day else res + "-**"
+            return res + "-**-**"
+        return res + "-%02d" % int(value.day) if value.day else res + "-**"
 
     def python_value(self, value):
         """Parse partial ISO date textual representation."""
@@ -230,6 +230,66 @@ class PartialDateField(Field):
             "month",
             "day",
         ), parts)))
+
+
+class TaskType(IntEnum):
+    """Enum used to represent Task type."""
+
+    NONE = 0
+    AFFILIATION = 4  # Affilation of employment/education
+    FUNDING = 1  # Funding
+    WORK = 2
+    PEER_REVIEW = 3
+    SYNC = 11
+
+    def __eq__(self, other):
+        if isinstance(other, TaskType):
+            return self.value == other.value
+        elif isinstance(other, int):
+            return self.value == other
+        return (self.name == other or self.name == getattr(other, "name", None))
+
+    def __hash__(self):
+        return hash(self.name)
+
+    @classmethod
+    def options(cls):
+        """Get list of all types for UI dropown option list."""
+        return [(e, e.name.replace('_', ' ').title()) for e in cls]
+
+
+class TaskTypeField(SmallIntegerField):
+    """Partial date custom DB data field mapped to varchar(10)."""
+
+    def db_value(self, value):
+        """Change enum value to small int."""
+        if value is None:
+            return None
+        try:
+            if isinstance(value, TaskType):
+                return value.value
+            elif isinstance(value, int):
+                return value
+            elif isinstance(value, str):
+                if str.isdigit(value):
+                    return int(value)
+                return TaskType[value.upper()].value
+            else:
+                raise ValueError("Unknow TaskType: '%s'", value)
+        except:
+            app.logger.exception("Failed to coerce the TaskType value, choosing NULL.")
+            return None
+
+    def python_value(self, value):
+        """Parse partial ISO date textual representation."""
+        if value is None:
+            return None
+        try:
+            return TaskType(value)
+        except:
+            app.logger.exception(
+                    f"Failed to map DB value {value} to TaskType, choosing None.")
+            return None
 
 
 class Role(IntFlag):
@@ -336,7 +396,7 @@ class BaseModel(Model):
             if isinstance(v, PartialDate):
                 o[k] = str(v)
             elif k == "task_type":
-                o[k] = TaskType(v).name
+                o[k] = v.name
         if to_dashes:
             return self.__to_dashes(o)
         return o
@@ -932,7 +992,7 @@ class Task(BaseModel, AuditMixin):
         User, on_delete="SET NULL", null=True, related_name="created_tasks")
     updated_by = ForeignKeyField(
         User, on_delete="SET NULL", null=True, related_name="updated_tasks")
-    task_type = SmallIntegerField(default=0)
+    task_type = TaskTypeField(default=TaskType.NONE)
     expires_at = DateTimeField(null=True)
     expiry_email_sent_at = DateTimeField(null=True)
     completed_count = TextField(null=True, help_text="gives the status of uploaded task")
@@ -950,25 +1010,23 @@ class Task(BaseModel, AuditMixin):
     @lazy_property
     def record_count(self):
         """Get count of the loaded recoreds."""
-        if self.task_type == TaskType.SYNC:
-            return 0
-        return self.records.count()
+        return 0 if self.records is None else self.records.count()
 
     @property
     def record_model(self):
         """Get record model class."""
-        if self.task_type == TaskType.SYNC:
-            return None
-        _, models = self.records.get_query_meta()
-        model, = models.keys()
-        return model
+        if self.records is not None:
+            _, models = self.records.get_query_meta()
+            model, = models.keys()
+            return model
+        return None
 
     @lazy_property
     def records(self):
         """Get all task record query."""
-        if self.task_type == TaskType.SYNC:
+        if self.task_type in [TaskType.SYNC, TaskType.NONE]:
             return None
-        return getattr(self, TaskType(self.task_type).name.lower() + "_records")
+        return getattr(self, self.task_type.name.lower() + "_records")
 
     @lazy_property
     def completed_count(self):
@@ -988,6 +1046,7 @@ class Task(BaseModel, AuditMixin):
         model, = models.keys()
         return self.records.where(self.record_model.status ** "%error%").count()
 
+    # TODO: move this one to AffiliationRecord
     @classmethod
     def load_from_csv(cls, source, filename=None, org=None):
         """Load affiliation record data from CSV/TSV file or a string."""
@@ -1048,7 +1107,7 @@ class Task(BaseModel, AuditMixin):
 
         with db.atomic():
             try:
-                task = cls.create(org=org, filename=filename)
+                task = cls.create(org=org, filename=filename, task_type=TaskType.AFFILIATION)
                 for row_no, row in enumerate(reader):
                     # skip empty lines:
                     if len(row) == 0:
@@ -1372,31 +1431,6 @@ class AffiliationRecord(RecordModel):
                 app.logger.exception("Failed to load affiliation record task file.")
                 raise
         return task
-
-
-class TaskType(IntEnum):
-    """Enum used to represent Task type."""
-
-    AFFILIATION = 0  # Affiliation of employment/education
-    FUNDING = 1  # Funding
-    WORK = 2
-    PEER_REVIEW = 3
-    SYNC = 11
-
-    def __eq__(self, other):
-        if isinstance(other, TaskType):
-            return self.value == other.value
-        elif isinstance(other, int):
-            return self.value == other
-        return (self.name == other or self.name == getattr(other, "name", None))
-
-    def __hash__(self):
-        return hash(self.name)
-
-    @classmethod
-    def options(cls):
-        """Get list of all types for UI drop-down option list."""
-        return [(e.value, e.name.replace('_', ' ').title()) for e in cls]
 
 
 class FundingRecord(RecordModel):
