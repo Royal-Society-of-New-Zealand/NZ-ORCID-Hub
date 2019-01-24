@@ -8,8 +8,8 @@ isort:skip_file
 from .config import ORCID_API_BASE, SCOPE_READ_LIMITED, SCOPE_ACTIVITIES_UPDATE, ORCID_BASE_URL
 from flask_login import current_user
 from .models import (OrcidApiCall, Affiliation, OrcidToken, FundingContributor as FundingCont, Log,
-                     ExternalId as ExternalIdModel, WorkContributor as WorkCont, WorkExternalId,
-                     PeerReviewExternalId)
+                     ExternalId as ExternalIdModel, NestedDict, WorkContributor as WorkCont,
+                     WorkExternalId, PeerReviewExternalId)
 from orcid_api import (configuration, rest, api_client, MemberAPIV20Api, SourceClientId, Source,
                        OrganizationAddress, DisambiguatedOrganization, Employment, Education,
                        Organization)
@@ -21,21 +21,6 @@ import json
 
 url = urlparse(ORCID_API_BASE)
 configuration.host = url.scheme + "://" + url.hostname
-
-
-class NestedDict(dict):
-    """Helper for traversing a nested dictionaries."""
-
-    def get(self, *keys, default=None):
-        """To get the value from uploaded fields."""
-        d = self
-        for k in keys:
-            if d is default:
-                break
-            if not isinstance(d, dict):
-                return default
-            d = super(NestedDict, d).get(k, default)
-        return d
 
 
 class OrcidRESTClientObject(rest.RESTClientObject):
@@ -323,7 +308,8 @@ class MemberAPI(MemberAPIV20Api):
             rec.visibility = pi.visibility
 
         external_id_list = []
-        external_ids = PeerReviewExternalId.select().where(PeerReviewExternalId.peer_review_record_id == pr.id)
+        external_ids = PeerReviewExternalId.select().where(
+            PeerReviewExternalId.peer_review_record_id == pr.id).order_by(PeerReviewExternalId.id)
 
         for exi in external_ids:
             external_id_type = exi.type
@@ -477,7 +463,7 @@ class MemberAPI(MemberAPIV20Api):
         rec.contributors = WorkContributors(contributor=work_contributor_list)  # noqa: F405
 
         external_id_list = []
-        external_ids = WorkExternalId.select().where(WorkExternalId.work_record_id == wr.id)
+        external_ids = WorkExternalId.select().where(WorkExternalId.work_record_id == wr.id).order_by(WorkExternalId.id)
 
         for exi in external_ids:
             external_id_type = exi.type
@@ -646,7 +632,8 @@ class MemberAPI(MemberAPIV20Api):
             rec.contributors = FundingContributors(contributor=funding_contributor_list)  # noqa: F405
         external_id_list = []
 
-        external_ids = ExternalIdModel.select().where(ExternalIdModel.funding_record_id == fr.id)
+        external_ids = ExternalIdModel.select().where(ExternalIdModel.funding_record_id == fr.id).order_by(
+            ExternalIdModel.id)
 
         for exi in external_ids:
             # Orcid is expecting external type as 'grant_number'

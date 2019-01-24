@@ -127,7 +127,7 @@
                   <li id="orcidtoken.index_view"><a data-toggle="tooltip" title="ORCID access tokens" href="{{ url_for('orcidtoken.index_view')}}">ORCID Tokens</a></li>
                   <li class="divider"></li>
                   <li id="registerOrganisation"><a href="{{ url_for('invite_organisation') }}">
-                    <span data-toggle="tooltip" title="Send a Tech Contact/Org Admin invitation">Onboard Organisation</span></a>
+                    <span data-toggle="tooltip" title="Send a Tech Contact/Org Admin invitation or replace the existing Technical Contact of an organisation.">Onboard Organisation</span></a>
                   </li>
                   <li id="organisation.index_view"><a data-toggle="tooltip" title="Onboarded organisations" href="{{ url_for('organisation.index_view')}}">Active Organisations</a>
                   </li>
@@ -153,6 +153,8 @@
                             <li id="rq_dashboard.overview"><a data-toggle="tooltip" data-placement="left" title="Message Queues" href="{{ url_for('rq_dashboard.overview', url=request.url)}}">Message Queues</a></li>
                             <li id="schedude.index_view"><a data-toggle="tooltip" data-placement="left" title="Scheduled Jobs" href="{{ url_for('schedude.index_view') }}">Scheduled Jobs</a></li>
                   {% endif -%}
+                  <li id="userinvitation.index_view"><a data-toggle="tooltip" title="The User Invitations recently sent." href="{{ url_for('userinvitation.index_view')}}">User Invitations</a></li>
+                  <li id="orginvitation.index_view"><a data-toggle="tooltip" title="The Organisation On-boarding Invitations recently sent." href="{{ url_for('orginvitation.index_view')}}">Organisation Invitations</a></li>
                 </ul>
               </li>
             {% endif %}

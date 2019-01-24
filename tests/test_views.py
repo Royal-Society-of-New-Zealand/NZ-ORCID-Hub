@@ -7,27 +7,27 @@ import logging
 import re
 import sys
 import time
+from io import BytesIO
 from itertools import product
 from unittest.mock import MagicMock, Mock, patch
-from io import BytesIO
 from urllib.parse import parse_qs, urlparse
 
 import pytest
-from flask import request, make_response, session
+import yaml
+from flask import make_response, request, session
 from flask_login import login_user
 from peewee import SqliteDatabase
 from playhouse.test_utils import test_database
 from werkzeug.datastructures import ImmutableMultiDict
 
 from orcid_api.rest import ApiException
-
-from orcid_hub import app, orcid_client, rq, views, utils
+from orcid_hub import app, orcid_client, rq, utils, views
 from orcid_hub.config import ORCID_BASE_URL
 from orcid_hub.forms import FileUploadForm
 from orcid_hub.models import (Affiliation, AffiliationRecord, Client, File, FundingRecord,
-                              GroupIdRecord, OrcidToken, Organisation, OrgInfo, OrgInvitation, PartialDate,
-                              Role, Task, TaskType, Token, Url, User, UserOrgAffiliation,
-                              UserInvitation, UserOrg, PeerReviewRecord, WorkRecord)
+                              GroupIdRecord, OrcidToken, Organisation, OrgInfo, OrgInvitation,
+                              PartialDate, PeerReviewRecord, Role, Task, TaskType, Token, Url,
+                              User, UserInvitation, UserOrg, UserOrgAffiliation, WorkRecord)
 
 fake_time = time.time()
 logger = logging.getLogger(__name__)
@@ -1370,6 +1370,20 @@ Rad,Cirskis,researcher.990@mailinator.com,Student
 
     # Exporting:
     for export_type in ["csv", "xls", "tsv", "yaml", "json", "xlsx", "ods", "html"]:
+        # Missing ID:
+        resp = client.get(f"/admin/affiliationrecord/export/{export_type}", follow_redirects=True)
+        assert b"Cannot invoke the task view without task ID" in resp.data
+
+        # Non-existing task:
+        resp = client.get(f"/admin/affiliationrecord/export/{export_type}/?task_id=9999999")
+        assert b"The task deesn't exist." in resp.data
+
+        # Incorrect task ID:
+        resp = client.get(
+            f"/admin/affiliationrecord/export/{export_type}/?task_id=ERROR-9999999",
+            follow_redirects=True)
+        assert b"invalid" in resp.data
+
         resp = client.get(f"/admin/affiliationrecord/export/{export_type}/?task_id={task_id}")
         ct = resp.headers["Content-Type"]
         assert (export_type in ct or (export_type == "xls" and "application/vnd.ms-excel" == ct)
@@ -1382,6 +1396,38 @@ Rad,Cirskis,researcher.990@mailinator.com,Student
                         resp.headers["Content-Disposition"])
         if export_type not in ["xlsx", "ods"]:
             assert b"researcher.010@mailinator.com" in resp.data
+
+    # Retrieve a copy of the task and attempt to reupload it:
+    for export_type in ["yaml", "json"]:
+        task_count = Task.select().count()
+        resp = client.get(f"/admin/affiliationrecord/export/{export_type}/?task_id={task_id}")
+        if export_type == "json":
+            data = json.loads(resp.data)
+        else:
+            data = yaml.load(resp.data)
+        del(data["id"])
+
+        def default(o):
+            if isinstance(o, datetime.datetime):
+                return o.isoformat(timespec="seconds")
+            elif isinstance(o, datetime.date):
+                return o.isoformat()
+
+        import_type = "json" if export_type == "yaml" else "yaml"
+        resp = client.post(
+            "/load/researcher",
+            data={
+                "save":
+                "Upload",
+                "file_": (
+                    BytesIO((json.dumps(data, default=default)
+                             if import_type == "json" else utils.dump_yaml(data)).encode()),
+                    f"affiliations_004456.{import_type}",
+                ),
+            })
+        assert resp.status_code == 302
+        assert Task.select().count() == task_count + 1
+        assert Task.select().order_by(Task.id.desc()).first().records.count() == 4
 
     # Delete records:
     resp = client.post(
@@ -1408,7 +1454,7 @@ Rad,Cirskis,researcher.990@mailinator.com,Student
     resp = client.post(
         "/admin/task/delete/", data=dict(id=task_id, url="/admin/task/"), follow_redirects=True)
     assert b"affiliations.csv" not in resp.data
-    assert Task.select().count() == 0
+    assert Task.select().count() == 2
     assert AffiliationRecord.select().where(AffiliationRecord.task_id == task_id).count() == 0
 
 
@@ -1658,7 +1704,7 @@ def test_load_researcher_funding(patch, patch2, request_ctx):
                             b'"contributors": {"contributor": [{"contributor-attributes": {"contributor-role": '
                             b'"co_lead"},"credit-name": {"value": "firentini"}}]}'
                             b', "external-ids": {"external-id": [{"external-id-value": '
-                            b'"GNS170661","external-id-type": "grant_number"}]}}]'),
+                            b'"GNS170661","external-id-type": "grant_number", "external-id-relationship": "SELF"}]}}]'),
                         "logo.json",),
                 "email": user.email
             }) as ctx:
@@ -1690,7 +1736,7 @@ def test_load_researcher_work(patch, patch2, request_ctx):
                             b'"contributors": {"contributor": [{"contributor-attributes": {"contributor-role": '
                             b'"AUTHOR", "contributor-sequence" : "1"},"credit-name": {"value": "firentini"}}]}'
                             b', "external-ids": {"external-id": [{"external-id-value": '
-                            b'"GNS170661","external-id-type": "grant_number"}]}}]'),
+                            b'"GNS170661","external-id-type": "grant_number", "external-id-relationship": "SELF"}]}}]'),
                         "logo.json",),
                 "email": user.email
             }) as ctx:
@@ -2587,6 +2633,12 @@ THIS IS A TITLE #2, नमस्ते #2,hi,  CONTRACT,MY TYPE,Minerals unde.,9
     assert fr.external_ids.count() == 2
     assert fr.funding_invitees.count() == 2
 
+    export_resp = client.get(f"/admin/fundingrecord/export/json/?task_id={task.id}")
+    assert export_resp.status_code == 200
+    assert b'"type": "CONTRACT"' in export_resp.data
+    assert b'"title": {"title": {"value": "THIS IS A TITLE"}' in export_resp.data
+    assert b'"title": {"title": {"value": "THIS IS A TITLE #2"}' in export_resp.data
+
     resp = client.post(
         "/load/researcher/funding",
         data={
@@ -2684,7 +2736,7 @@ THIS IS A TITLE, नमस्ते,hi,  CONTRACT,MY TYPE,Minerals unde.,300000,
         follow_redirects=True)
     assert resp.status_code == 200
     assert b"Failed to load funding record file" in resp.data
-    assert b"Invalid email address '**ERROR**'" in resp.data
+    assert b"Invalid email address '**error**'" in resp.data
 
     resp = client.post(
         "/load/researcher/funding",
@@ -2775,7 +2827,7 @@ def test_researcher_work(client):
                     b'"contributors": {"contributor": [{"contributor-attributes": {"contributor-role": '
                     b'"AUTHOR", "contributor-sequence" : "1"},"credit-name": {"value": "firentini"}}]}'
                     b', "external-ids": {"external-id": [{"external-id-value": '
-                    b'"GNS170661","external-id-type": "grant_number"}]}}]'),
+                    b'"GNS170661","external-id-type": "grant_number", "external-id-relationship": "SELF"}]}}]'),
                 "work001.json",
             ),
             "email":
@@ -2911,6 +2963,11 @@ def test_researcher_work(client):
     assert b"Failed to load work record file" in resp.data
     assert b"Failed to map fields based on the header of the file" in resp.data
 
+    export_resp = client.get(f"/admin/workrecord/export/json/?task_id={task.id}")
+    assert export_resp.status_code == 200
+    assert b"BOOK_CHAPTER" in export_resp.data
+    assert b'journal-title": {"value": "This is a journal title"}' in export_resp.data
+
     resp = client.post(
         "/load/researcher/work",
         data={
@@ -2943,7 +3000,7 @@ sdsds,,This is a title,,,hi,This is a journal title,xyz this is short descriptio
         follow_redirects=True)
     assert resp.status_code == 200
     assert b"Failed to load work record file" in resp.data
-    assert b"Invalid email address '**ERROR**'" in resp.data
+    assert b"Invalid email address '**error**'" in resp.data
 
     resp = client.post(
         "/load/researcher/work",
@@ -3059,3 +3116,9 @@ def test_peer_reviews(client):
     assert task.records.count() == 1
     rec = task.records.first()
     assert rec.external_ids.count() == 1
+
+    resp = client.get(f"/admin/peerreviewrecord/export/json/?task_id={task.id}")
+    assert resp.status_code == 200
+    assert b'"review-type": "REVIEW"' in resp.data
+    assert b'"invitees": [' in resp.data
+    assert b'"review-group-id": "issn:12131"' in resp.data

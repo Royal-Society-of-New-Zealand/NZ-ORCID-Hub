@@ -1,6 +1,5 @@
 """Application views."""
 
-import copy
 import csv
 import json
 import math
@@ -35,6 +34,7 @@ from flask_rq2.job import FlaskJob
 from orcid_api.rest import ApiException
 
 from . import admin, app, limiter, models, orcid_client, rq, utils
+from .apis import yamlfy
 from .forms import (ApplicationFrom, BitmapMultipleValueField, CredentialForm, EmailTemplateForm,
                     FileUploadForm, FundingForm, GroupIdForm, LogoForm, OrgRegistrationForm, PartialDateField,
                     PeerReviewForm, ProfileSyncForm, RecordForm, UserInvitationForm, WebhookForm, WorkForm)
@@ -466,6 +466,39 @@ class OrcidApiCallAmin(AppModelView):
     )
 
 
+class UserInvitationAdmin(AppModelView):
+    """User Invitations."""
+
+    can_export = True
+    can_edit = False
+    can_delete = False
+    can_create = False
+    column_searchable_list = (
+        "email",
+        "organisation",
+        "department",
+        "first_name",
+        "last_name",
+        "token",
+        "inviter.name",
+    )
+
+
+class OrgInvitationAdmin(AppModelView):
+    """User Invitations."""
+
+    can_export = True
+    can_edit = False
+    can_delete = False
+    can_create = False
+    column_searchable_list = (
+        "email",
+        "org.name",
+        "token",
+        "inviter.name",
+    )
+
+
 class UserOrgAmin(AppModelView):
     """User Organisations."""
 
@@ -584,6 +617,10 @@ class RecordModelView(AppModelView):
         except Task.DoesNotExist:
             flash("The task deesn't exist.", "danger")
             abort(404)
+
+        except ValueError as ex:
+            flash(str(ex), "danger")
+            return False
 
         return True
 
@@ -869,23 +906,33 @@ class CompositeRecordModelView(RecordModelView):
             mimetype = 'application/octet-stream'
         if encoding:
             mimetype = '%s; charset=%s' % (mimetype, encoding)
-
+        if self.model == PeerReviewRecord:
+            self._export_columns = [(v, v.replace('_', '-')) for v in
+                                    ['invitees', 'review_group_id', 'review_url', 'reviewer_role', 'review_type',
+                                     'review_completion_date', 'subject_external_identifier', 'subject_container_name',
+                                     'subject_type', 'subject_name', 'subject_url', 'convening_organization',
+                                     'review_identifiers']]
+        elif self.model == FundingRecord:
+            self._export_columns = [(v, v.replace('_', '-')) for v in
+                                    ['invitees', 'title', 'type', 'organization_defined_type', 'short_description',
+                                     'amount', 'start_date', 'end_date', 'organization', 'contributors',
+                                     'external_ids']]
+        elif self.model == WorkRecord:
+            self._export_columns = [(v, v.replace('_', '-')) for v in
+                                    ['invitees', 'title', 'journal_title', 'short_description', 'citation', 'type',
+                                     'publication_date', 'url', 'language_code', 'country', 'contributors',
+                                     'external_ids']]
         ds = tablib.Dataset(headers=[c[1] for c in self._export_columns])
 
         count, data = self._export_data()
 
         for row in data:
-            external_id_list, invitees_list = self.get_external_id_invitees(row)
-            for external_ids in external_id_list:
-                vals = []
-                vals.append(external_ids['value'])
-                vals.append(invitees_list)
-                ds.append(vals)
+            vals = self.expected_format(row)
+            ds.append(vals)
 
         try:
             try:
-                ds.yaml = yaml.safe_dump(
-                    json.loads(ds.json.replace("]\\", "]").replace("\\n", " ")))
+                ds.yaml = yaml.safe_dump(json.loads(ds.json.replace("]\\", "]").replace("\\n", " ")))
                 response_data = ds.export(format=export_type)
             except AttributeError:
                 response_data = getattr(ds, export_type)
@@ -899,27 +946,12 @@ class CompositeRecordModelView(RecordModelView):
             mimetype=mimetype,
         )
 
-    def get_external_id_invitees(self, row):
-        """Get funding/work/peer_review invitees with external ids."""
+    def expected_format(self, row):
+        """Get expected export format for funding/work/peer_review records."""
         vals = []
-        invitees_list = []
-        external_id_list = []
-        record_id = "funding_record_id"
-        funding_work_peer_review_id = "funding id"
-        invitees = "funding_invitees"
-
-        if self.model == WorkRecord:
-            record_id = "work_record_id"
-            funding_work_peer_review_id = "work id"
-            invitees = "work_invitees"
-        elif self.model == PeerReviewRecord:
-            record_id = "peer_review_record_id"
-            funding_work_peer_review_id = "Peer Review id"
-            invitees = "peer_review_invitee"
-
-        exclude_list = ['id', record_id, 'processed_at']
         for c in self._export_columns:
-            if c[0] == invitees:
+            if c[0] == "invitees":
+                invitees_list = []
                 if self.model == WorkRecord:
                     invitees_data = row.work_invitees
                 elif self.model == PeerReviewRecord:
@@ -929,43 +961,114 @@ class CompositeRecordModelView(RecordModelView):
 
                 for f in invitees_data:
                     invitees_rec = {}
-                    for col in f._meta.columns.keys():
-                        if col not in exclude_list:
-                            invitees_rec[col] = self._get_list_value(
-                                None,
-                                f,
-                                col,
-                                self.column_formatters_export,
-                                self.column_type_formatters_export,
-                            )
+                    invitees_rec['identifier'] = self.get_export_value(f, 'identifier')
+                    invitees_rec['email'] = self.get_export_value(f, 'email')
+                    invitees_rec['first-name'] = self.get_export_value(f, 'first_name')
+                    invitees_rec['last-name'] = self.get_export_value(f, 'last_name')
+                    invitees_rec['ORCID-iD'] = self.get_export_value(f, 'orcid')
+                    invitees_rec['put-code'] = int(self.get_export_value(f, 'put_code')) if \
+                        self.get_export_value(f, 'put_code') else None
+                    invitees_rec['visibility'] = self.get_export_value(f, 'visibility')
                     invitees_list.append(invitees_rec)
-            elif c[0] == funding_work_peer_review_id:
-                external_id_relation_part_of = {}
-                for f in row.external_ids:
-                    external_id_rec = {}
-                    for col in f._meta.columns.keys():
-                        if col not in exclude_list:
-                            external_id_rec[col] = self._get_list_value(
-                                None,
-                                f,
-                                col,
-                                self.column_formatters_export,
-                                self.column_type_formatters_export,
-                            )
-                    # Get the first external id from extrnal id list with 'SELF' relationship for funding/work export
-                    if not external_id_list and external_id_rec.get(
-                            'relationship') and external_id_rec.get(
-                                'relationship').lower() == 'self':
-                        external_id_list.append(external_id_rec)
-                    elif not external_id_list and not external_id_relation_part_of and external_id_rec.get(
-                            'relationship').lower() == 'part_of':
-                        external_id_relation_part_of = copy.deepcopy(external_id_rec)
-                # Also if there no external id with relation 'Self' take first one from 'part_of'
-                if not external_id_list and external_id_relation_part_of:
-                    external_id_list.append(external_id_relation_part_of)
+                vals.append(invitees_list)
+            elif c[0] in ['review_completion_date', 'start_date', 'end_date', 'publication_date']:
+                vals.append(PartialDate.create(self.get_export_value(row, c[0])).as_orcid_dict()
+                            if self.get_export_value(row, c[0]) else None)
+            elif c[0] == "subject_external_identifier":
+                subject_dict = {}
+                subject_dict['external-id-type'] = self.get_export_value(row, 'subject_external_id_type')
+                subject_dict['external-id-value'] = self.get_export_value(row, 'subject_external_id_value')
+                subject_dict['external-id-url'] = dict(value=self.get_export_value(row, 'subject_external_id_url'))
+                subject_dict['external-id-relationship'] = self.get_export_value(row,
+                                                                                 'subject_external_id_relationship')
+                vals.append(subject_dict)
+            elif c[0] == "subject_name":
+                subject_name_dict = dict()
+                translated_title = dict()
+                subject_name_dict['title'] = dict(value=self.get_export_value(row, 'subject_name_title'))
+                subject_name_dict['subtitle'] = dict(value=self.get_export_value(row, 'subject_name_subtitle'))
+                translated_title['language-code'] = self.get_export_value(row,
+                                                                          'subject_name_translated_title_lang_code')
+                translated_title['value'] = csv_encode(self.get_export_value(row, 'subject_name_translated_title'))
+                subject_name_dict['translated-title'] = translated_title
+                vals.append(subject_name_dict)
+            elif c[0] in ["convening_organization", "organization"]:
+                convening_org_dict = dict()
+                disambiguated_dict = dict()
+                convening_org_dict['name'] = self.get_export_value(row, 'convening_org_name') or self.get_export_value(
+                    row, 'org_name')
+                convening_org_dict['address'] = dict(
+                    city=self.get_export_value(row, 'convening_org_city') or self.get_export_value(row, 'city'),
+                    region=self.get_export_value(row, 'convening_org_region') or self.get_export_value(row, 'region'),
+                    country=self.get_export_value(row, 'convening_org_country') or self.get_export_value(row,
+                                                                                                         'country'))
+                disambiguated_dict['disambiguated-organization-identifier'] = \
+                    self.get_export_value(row, 'convening_org_disambiguated_identifier') or \
+                    self.get_export_value(row, 'disambiguated_org_identifier')
+                disambiguated_dict['disambiguation-source'] = self.get_export_value(
+                    row, 'convening_org_disambiguation_source') or self.get_export_value(row, 'disambiguation_source')
+                convening_org_dict['disambiguated-organization'] = disambiguated_dict
+                vals.append(convening_org_dict)
+            elif c[0] in ["review_identifiers", "external_ids"]:
+                external_ids_list = []
+                external_dict = {}
+                external_ids_data = row.external_ids
+                for f in external_ids_data:
+                    external_id_dict = {}
+                    external_id_dict['external-id-type'] = self.get_export_value(f, 'type')
+                    external_id_dict['external-id-value'] = self.get_export_value(f, 'value')
+                    external_id_dict['external-id-relationship'] = self.get_export_value(f, 'relationship')
+                    external_id_dict['external-id-url'] = dict(value=self.get_export_value(f, 'url'))
+                    external_ids_list.append(external_id_dict)
+                external_dict['external-id'] = external_ids_list
+                vals.append(external_dict)
+            elif c[0] == "title":
+                title_dict = dict()
+                translated_title = dict()
+                title_dict['title'] = dict(value=self.get_export_value(row, 'title'))
+                if self.model == WorkRecord:
+                    title_dict['subtitle'] = dict(value=self.get_export_value(row, 'sub_title'))
+                translated_title['language-code'] = self.get_export_value(row, 'translated_title_language_code')
+                translated_title['value'] = csv_encode(self.get_export_value(row, 'translated_title'))
+                title_dict['translated-title'] = translated_title
+                vals.append(title_dict)
+            elif c[0] == "amount":
+                amount_dict = dict()
+                amount_dict['currency-code'] = self.get_export_value(row, 'currency')
+                amount_dict['value'] = csv_encode(self.get_export_value(row, 'amount'))
+                vals.append(amount_dict)
+            elif c[0] == "citation":
+                citation_dict = dict()
+                citation_dict['citation-type'] = self.get_export_value(row, 'citation_type')
+                citation_dict['citation-value'] = csv_encode(self.get_export_value(row, 'citation_value'))
+                vals.append(citation_dict)
+            elif c[0] == "contributors":
+                contributors_list = []
+                contributors_dict = {}
+                if self.model == WorkRecord:
+                    contributors_data = row.work_contributors
+                else:
+                    contributors_data = row.contributors
+                for f in contributors_data:
+                    contributor_dict = {}
+                    contributor_dict['contributor-attributes'] = {'contributor-role': self.get_export_value(f, 'role')}
+                    if self.model == WorkRecord:
+                        contributor_dict['contributor-attributes'].update(
+                            {'contributor-sequence': self.get_export_value(f, 'contributor_sequence')})
+                    contributor_dict['contributor-email'] = dict(value=self.get_export_value(f, 'email'))
+                    contributor_dict['credit-name'] = dict(value=self.get_export_value(f, 'name'))
+                    contributor_dict['contributor-orcid'] = dict(path=self.get_export_value(f, 'orcid'))
+                    contributors_list.append(contributor_dict)
+                contributors_dict['contributor'] = contributors_list
+                vals.append(contributors_dict)
             else:
-                vals.append(self.get_export_value(row, c[0]))
-        return (external_id_list, invitees_list)
+                requires_nested_value = ['review_url', 'subject_container_name', 'subject_url', 'journal_title', 'url',
+                                         'organization_defined_type', 'country']
+                if c[0] in requires_nested_value:
+                    vals.append(dict(value=self.get_export_value(row, c[0])))
+                else:
+                    vals.append(csv_encode(self.get_export_value(row, c[0])))
+        return vals
 
     @expose('/export/<export_type>/')
     def export(self, export_type):
@@ -1355,6 +1458,32 @@ class AffiliationRecordAdmin(RecordModelView):
         "is_active",
     )
 
+    @expose("/export/<export_type>/")
+    def export(self, export_type):
+        """Check the export type whether it is csv, tsv or other format."""
+        if export_type not in ["json", "yaml", "yml"]:
+            return super().export(export_type)
+        return_url = get_redirect_target() or self.get_url(".index_view")
+
+        task_id = request.args.get("task_id")
+        if not task_id:
+            flash("Missing task ID.", "danger")
+            return redirect(return_url)
+
+        if not self.can_export or (export_type not in self.export_types):
+            flash("Permission denied.", "danger")
+            return redirect(return_url)
+
+        data = Task.get(int(task_id)).to_dict()
+        if export_type == "json":
+            resp = jsonify(data)
+        else:
+            resp = yamlfy(data)
+
+        resp.headers[
+            "Content-Disposition"] = f"attachment;filename={secure_filename(self.get_export_name(export_type))}"
+        return resp
+
 
 class ViewMembersAdmin(AppModelView):
     """Organisation member model (User beloging to the current org.admin oganisation) view."""
@@ -1419,13 +1548,13 @@ class ViewMembersAdmin(AppModelView):
                         token=token.access_token))
 
                 if resp.status_code != 200:
-                    flash("Failed to revoke token {token.access_token}: {ex}", "error")
+                    flash("Failed to revoke token {token.access_token}: {ex}", "danger")
                     return False
 
                 token.delete_instance(recursive=True)
 
             except Exception as ex:
-                flash(f"Failed to revoke token {token.access_token}: {ex}", "error")
+                flash(f"Failed to revoke token {token.access_token}: {ex}", "danger")
                 app.logger.exception('Failed to delete record.')
                 return False
 
@@ -1444,7 +1573,7 @@ class ViewMembersAdmin(AppModelView):
 
         except Exception as ex:
             if not self.handle_view_exception(ex):
-                flash(gettext('Failed to delete record. %(error)s', error=str(ex)), 'error')
+                flash(gettext('Failed to delete record. %(error)s', error=str(ex)), 'danger')
                 app.logger.exception('Failed to delete record.')
 
             return False
@@ -1469,7 +1598,7 @@ class ViewMembersAdmin(AppModelView):
                 flash(gettext('Record was successfully deleted.%(count)s records were successfully deleted.',
                               count=count), 'success')
         except Exception as ex:
-            flash(gettext('Failed to delete records. %(error)s', error=str(ex)), 'error')
+            flash(gettext('Failed to delete records. %(error)s', error=str(ex)), 'danger')
 
 
 class GroupIdRecordAdmin(AppModelView):
@@ -1558,6 +1687,9 @@ admin.add_view(OrganisationAdmin(Organisation))
 admin.add_view(OrcidTokenAdmin(OrcidToken))
 admin.add_view(OrgInfoAdmin(OrgInfo))
 admin.add_view(OrcidApiCallAmin(OrcidApiCall))
+admin.add_view(UserInvitationAdmin())
+admin.add_view(OrgInvitationAdmin())
+
 admin.add_view(TaskAdmin(Task))
 admin.add_view(AffiliationRecordAdmin())
 admin.add_view(FundingRecordAdmin())
@@ -1571,7 +1703,6 @@ admin.add_view(WorkRecordAdmin())
 admin.add_view(PeerReviewRecordAdmin())
 admin.add_view(PeerReviewInviteeAdmin())
 admin.add_view(PeerReviewExternalIdAdmin())
-admin.add_view(AppModelView(UserInvitation))
 admin.add_view(ViewMembersAdmin(name="viewmembers", endpoint="viewmembers"))
 
 admin.add_view(UserOrgAmin(UserOrg))
@@ -2277,11 +2408,16 @@ def load_org():
 @roles_required(Role.ADMIN)
 def load_researcher_affiliations():
     """Preload organisation data."""
-    form = FileUploadForm()
+    form = FileUploadForm(extensions=["csv", "tsv", "json", "yaml", "yml"])
     if form.validate_on_submit():
-        filename = secure_filename(form.file_.data.filename)
         try:
-            task = Task.load_from_csv(read_uploaded_file(form), filename=filename)
+            filename = secure_filename(form.file_.data.filename)
+            content_type = form.file_.data.content_type
+            content = read_uploaded_file(form)
+            if content_type in ["text/tab-separated-values", "text/csv"]:
+                task = Task.load_from_csv(content, filename=filename)
+            else:
+                task = AffiliationRecord.load(content, filename=filename)
             flash(f"Successfully loaded {task.record_count} rows.")
             return redirect(url_for("affiliationrecord.index_view", task_id=task.id))
         except (
@@ -2311,7 +2447,7 @@ def load_researcher_funding():
             flash(f"Successfully loaded {task.record_count} rows.")
             return redirect(url_for("fundingrecord.index_view", task_id=task.id))
         except Exception as ex:
-            flash(f"Failed to load funding record file: {ex}", "danger")
+            flash(f"Failed to load funding record file: {ex.args}", "danger")
             app.logger.exception("Failed to load funding records.")
 
     return render_template("fileUpload.html", form=form, title="Funding Info Upload")
@@ -2334,7 +2470,7 @@ def load_researcher_work():
             flash(f"Successfully loaded {task.record_count} rows.")
             return redirect(url_for("workrecord.index_view", task_id=task.id))
         except Exception as ex:
-            flash(f"Failed to load work record file: {ex}", "danger")
+            flash(f"Failed to load work record file: {ex.args}", "danger")
             app.logger.exception("Failed to load work records.")
 
     return render_template("fileUpload.html", form=form, title="Work Info Upload")
@@ -2357,7 +2493,7 @@ def load_researcher_peer_review():
             flash(f"Successfully loaded {task.record_count} rows.")
             return redirect(url_for("peerreviewrecord.index_view", task_id=task.id))
         except Exception as ex:
-            flash(f"Failed to load peer review record file: {ex}", "danger")
+            flash(f"Failed to load peer review record file: {ex.args}", "danger")
             app.logger.exception("Failed to load peer review records.")
 
     return render_template("fileUpload.html", form=form, title="Peer Review Info Upload")
@@ -3053,13 +3189,13 @@ def remove_linkage():
                     token=token.access_token))
 
             if resp.status_code != 200:
-                flash("Failed to revoke token {token.access_token}: {ex}", "error")
+                flash("Failed to revoke token {token.access_token}: {ex}", "danger")
                 return redirect(_url)
 
             token.delete_instance()
 
         except Exception as ex:
-            flash(f"Failed to revoke token {token.access_token}: {ex}", "error")
+            flash(f"Failed to revoke token {token.access_token}: {ex}", "danger")
             app.logger.exception('Failed to delete record.')
             return redirect(_url)
     # Check if the User is Admin for other organisation or has given permissions to other organisations.
