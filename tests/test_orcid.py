@@ -63,6 +63,8 @@ def test_member_api(app, mocker):
             app.logger.error.assert_called_with("ApiException Occured: (401)\nReason: FAILURE\n")
             call_api.assert_called_once()
             delete.assert_called_once()
+            # keywords:
+            api.get_keywords()
 
     with patch.object(
             api_client.ApiClient,
@@ -70,6 +72,8 @@ def test_member_api(app, mocker):
             side_effect=ApiException(reason="FAILURE 999", status=999)) as call_api:
         api.get_record()
         app.logger.error.assert_called_with("ApiException Occured: (999)\nReason: FAILURE 999\n")
+        # keywords:
+        api.get_keywords()
 
     with patch.object(
             api_client.ApiClient, "call_api", side_effect=ApiException(
@@ -80,6 +84,9 @@ def test_member_api(app, mocker):
                 "Exception occured while retriving ORCID Token")
             call_api.assert_called_once()
             get.assert_called_once()
+            # keywords:
+            data = api.get_keywords()
+            assert data is None
 
     with patch.object(
             api_client.ApiClient,
@@ -97,6 +104,16 @@ def test_member_api(app, mocker):
             auth_settings=["orcid_auth"],
             header_params={"Accept": "application/json"},
             response_type=None)
+        # keywords:
+        data = api.get_keywords()
+        call_api.assert_called_with(
+            f"/v2.0/{user.orcid}/keywords",
+            "GET",
+            _preload_content=False,
+            auth_settings=["orcid_auth"],
+            header_params={"Accept": "application/json"},
+            response_type=None)
+        assert "mock" in data
 
     # Test API call auditing:
     with patch.object(

@@ -73,6 +73,8 @@ class OrcidRESTClientObject(rest.RESTClientObject):
 class MemberAPI(MemberAPIV20Api):
     """ORCID Mmeber API extension."""
 
+    content_type = "application/json"
+
     def __init__(self, org=None, user=None, access_token=None, *args, **kwargs):
         """Set up the configuration with the access token given to the org. by the user."""
         super().__init__(*args, **kwargs)
@@ -112,19 +114,11 @@ class MemberAPI(MemberAPIV20Api):
     def get_record(self):
         """Fetch record details. (The generated one is broken)."""
         # import pdb; pdb.set_trace()
-        header_params = {
-            "Accept":
-            self.api_client.select_header_content_type([
-                'application/vnd.orcid+xml; qs=5', 'application/orcid+xml; qs=3',
-                'application/xml', 'application/vnd.orcid+json; qs=4',
-                'application/orcid+json; qs=2', 'application/json'
-            ])
-        }
         try:
             resp, code, headers = self.api_client.call_api(
                 f"/v2.0/{self.user.orcid}",
                 "GET",
-                header_params=header_params,
+                header_params={"Accept": self.content_type},
                 response_type=None,
                 auth_settings=["orcid_auth"],
                 _preload_content=False)
@@ -1197,6 +1191,20 @@ class MemberAPI(MemberAPIV20Api):
                             Log.create(task=task, message=f"Successfully update entry: {e}.")
                         except Exception as ex:
                             Log.create(task=task, message=f"Failed to update the entry: {ex}.")
+
+    def get_keywords(self):
+        """Retrieve all the keywords of a record."""
+        resp, status, _ = self.api_client.call_api(
+            f"/v2.1/{self.user.orcid}/keywords",
+            "GET",
+            header_params={"Accept": self.content_type},
+            auth_settings=["orcid_auth"],
+            _preload_content=False)
+        return json.loads(resp.data) if status == 200 else None
+
+    def create_or_update_keywords(self, org=None, keywords=None):
+        """Create or update the list of keywords of a record."""
+        pass
 
 
 # yapf: disable
