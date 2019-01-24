@@ -1,6 +1,7 @@
 # pip install -U -r requirements.txt
+oauthlib==2.1.0
 requests
-requests_oauthlib
+requests-oauthlib==1.0.0
 psycopg2-binary
 peewee>=2.10.0,<3.0.0
 peewee-validates
@@ -20,7 +21,7 @@ Flask
 flask-login
 Flask-WTF
 flask-peewee==0.6.7
-Flask-OAuthlib
+Flask-OAuthlib==0.9.5
 raven[flask]
 flask-peewee-swagger>=1.1.5
 flask-limiter>=1.0.0,<2.0.0
