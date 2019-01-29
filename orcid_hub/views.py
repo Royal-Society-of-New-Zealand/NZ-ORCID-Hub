@@ -1514,6 +1514,15 @@ class ViewMembersAdmin(AppModelView):
         """Get quiery for the user belonging to the organistation of the current user."""
         return current_user.organisation.users
 
+    def _order_by(self, query, joins, order):
+        """Add ID for determenistic order of rows if sorting is by NULLable field."""
+        query, joins = super()._order_by(query, joins, order)
+        if all(f.null for (f, _) in order):  # if all fiels are NULLable
+            clauses = query._order_by
+            clauses.append(self.model.id.desc() if order[0][1] else self.model.id)
+            query = query.order_by(*clauses)
+        return query, joins
+
     def get_one(self, id):
         """Limit access only to the userers belonging to the current organisation."""
         try:

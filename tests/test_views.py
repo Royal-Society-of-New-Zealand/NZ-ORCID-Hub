@@ -2091,6 +2091,22 @@ def test_viewmembers(client):
     assert resp.status_code == 200
     assert b"researcher100@test0.edu" in resp.data
 
+    resp = client.get("/admin/viewmembers?sort=1")
+    assert resp.status_code == 200
+    assert b"researcher100@test0.edu" in resp.data
+
+    resp = client.get("/admin/viewmembers?sort=1&desc=1")
+    assert resp.status_code == 200
+    assert b"researcher100@test0.edu" in resp.data
+
+    resp = client.get("/admin/viewmembers?sort=0")
+    assert resp.status_code == 200
+    assert b"researcher100@test0.edu" in resp.data
+
+    resp = client.get("/admin/viewmembers?sort=0&desc=1")
+    assert resp.status_code == 200
+    assert b"researcher100@test0.edu" in resp.data
+
     resp = client.get("/admin/viewmembers/?flt1_0=2018-05-01+to+2018-05-31&flt2_1=2018-05-01+to+2018-05-31")
     assert resp.status_code == 200
     assert b"researcher100@test0.edu" not in resp.data
