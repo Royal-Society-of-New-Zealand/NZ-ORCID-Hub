@@ -34,6 +34,7 @@ from flask_rq2.job import FlaskJob
 from orcid_api.rest import ApiException
 
 from . import admin, app, limiter, models, orcid_client, rq, utils
+from .apis import yamlfy
 from .forms import (ApplicationFrom, BitmapMultipleValueField, CredentialForm, EmailTemplateForm,
                     FileUploadForm, FundingForm, GroupIdForm, LogoForm, OrgRegistrationForm, PartialDateField,
                     PeerReviewForm, ProfileSyncForm, RecordForm, UserInvitationForm, WebhookForm, WorkForm)
@@ -540,7 +541,7 @@ class TaskAdmin(AppModelView):
         filters.FilterEqual(column=Task.task_type, options=models.TaskType.options(), name="Task Type"),
     )
     column_formatters = dict(
-        task_type=lambda v, c, m, p: models.TaskType(m.task_type).name.replace('_', ' ').title(),
+        task_type=lambda v, c, m, p: m.task_type.name.replace('_', ' ').title(),
         completed_count=lambda v, c, m, p: (
             '' if not m.record_count else f"{m.completed_count} / {m.record_count} ({m.completed_percent:.1f}%)"),
     )
@@ -616,6 +617,10 @@ class RecordModelView(AppModelView):
         except Task.DoesNotExist:
             flash("The task deesn't exist.", "danger")
             abort(404)
+
+        except ValueError as ex:
+            flash(str(ex), "danger")
+            return False
 
         return True
 
@@ -1453,6 +1458,32 @@ class AffiliationRecordAdmin(RecordModelView):
         "is_active",
     )
 
+    @expose("/export/<export_type>/")
+    def export(self, export_type):
+        """Check the export type whether it is csv, tsv or other format."""
+        if export_type not in ["json", "yaml", "yml"]:
+            return super().export(export_type)
+        return_url = get_redirect_target() or self.get_url(".index_view")
+
+        task_id = request.args.get("task_id")
+        if not task_id:
+            flash("Missing task ID.", "danger")
+            return redirect(return_url)
+
+        if not self.can_export or (export_type not in self.export_types):
+            flash("Permission denied.", "danger")
+            return redirect(return_url)
+
+        data = Task.get(int(task_id)).to_dict()
+        if export_type == "json":
+            resp = jsonify(data)
+        else:
+            resp = yamlfy(data)
+
+        resp.headers[
+            "Content-Disposition"] = f"attachment;filename={secure_filename(self.get_export_name(export_type))}"
+        return resp
+
 
 class ViewMembersAdmin(AppModelView):
     """Organisation member model (User beloging to the current org.admin oganisation) view."""
@@ -1517,13 +1548,13 @@ class ViewMembersAdmin(AppModelView):
                         token=token.access_token))
 
                 if resp.status_code != 200:
-                    flash("Failed to revoke token {token.access_token}: {ex}", "error")
+                    flash("Failed to revoke token {token.access_token}: {ex}", "danger")
                     return False
 
                 token.delete_instance(recursive=True)
 
             except Exception as ex:
-                flash(f"Failed to revoke token {token.access_token}: {ex}", "error")
+                flash(f"Failed to revoke token {token.access_token}: {ex}", "danger")
                 app.logger.exception('Failed to delete record.')
                 return False
 
@@ -1542,7 +1573,7 @@ class ViewMembersAdmin(AppModelView):
 
         except Exception as ex:
             if not self.handle_view_exception(ex):
-                flash(gettext('Failed to delete record. %(error)s', error=str(ex)), 'error')
+                flash(gettext('Failed to delete record. %(error)s', error=str(ex)), 'danger')
                 app.logger.exception('Failed to delete record.')
 
             return False
@@ -1567,7 +1598,7 @@ class ViewMembersAdmin(AppModelView):
                 flash(gettext('Record was successfully deleted.%(count)s records were successfully deleted.',
                               count=count), 'success')
         except Exception as ex:
-            flash(gettext('Failed to delete records. %(error)s', error=str(ex)), 'error')
+            flash(gettext('Failed to delete records. %(error)s', error=str(ex)), 'danger')
 
 
 class GroupIdRecordAdmin(AppModelView):
@@ -1733,22 +1764,9 @@ def activate_all():
     task_id = request.form.get('task_id')
     task = Task.get(id=task_id)
     try:
-        if task.task_type == 0:
-            count = AffiliationRecord.update(is_active=True).where(
-                AffiliationRecord.task_id == task_id,
-                AffiliationRecord.is_active == False).execute()  # noqa: E712
-        elif task.task_type == 1:
-            count = FundingRecord.update(is_active=True).where(
-                FundingRecord.task_id == task_id,
-                FundingRecord.is_active == False).execute()  # noqa: E712
-        elif task.task_type == 2:
-            count = WorkRecord.update(is_active=True).where(
-                WorkRecord.task_id == task_id,
-                WorkRecord.is_active == False).execute()  # noqa: E712
-        elif task.task_type == 3:
-            count = PeerReviewRecord.update(is_active=True).where(
-                PeerReviewRecord.task_id == task_id,
-                PeerReviewRecord.is_active == False).execute()  # noqa: E712
+        count = task.record_model.update(is_active=True).where(
+            task.record_model.task_id == task_id,
+            task.record_model.is_active == False).execute()  # noqa: E712
     except Exception as ex:
         flash(f"Failed to activate the selected records: {ex}")
         app.logger.exception("Failed to activate the selected records")
@@ -1768,10 +1786,11 @@ def reset_all():
     with db.atomic():
         try:
             status = "The record was reset at " + datetime.now().isoformat(timespec="seconds")
-            if task.task_type == 0:
-                count = AffiliationRecord.update(processed_at=None, status=status).where(
-                    AffiliationRecord.task_id == task_id,
-                    AffiliationRecord.is_active == True).execute()  # noqa: E712
+            tt = task.task_type
+            if tt == TaskType.AFFILIATION:
+                count = task.record_model.update(processed_at=None, status=status).where(
+                    task.record_model.task_id == task_id,
+                    task.record_model.is_active == True).execute()  # noqa: E712
 
                 for user_invitation in UserInvitation.select().where(UserInvitation.task == task):
                     try:
@@ -1779,7 +1798,7 @@ def reset_all():
                     except UserInvitation.DoesNotExist:
                         pass
 
-            elif task.task_type == 1:
+            elif tt == TaskType.FUNDING:
                 for funding_record in FundingRecord.select().where(FundingRecord.task_id == task_id,
                                                                    FundingRecord.is_active == True):    # noqa: E712
                     funding_record.processed_at = None
@@ -1791,7 +1810,7 @@ def reset_all():
                     funding_record.save()
                     count = count + 1
 
-            elif task.task_type == 2:
+            elif tt == TaskType.WORK:
                 for work_record in WorkRecord.select().where(WorkRecord.task_id == task_id,
                                                                    WorkRecord.is_active == True):    # noqa: E712
                     work_record.processed_at = None
@@ -1802,7 +1821,7 @@ def reset_all():
                         WorkInvitees.work_record == work_record.id).execute()
                     work_record.save()
                     count = count + 1
-            elif task.task_type == 3:
+            elif tt == TaskType.PEER_REVIEW:
                 for peer_review_record in PeerReviewRecord.select().where(PeerReviewRecord.task_id == task_id,
                                                                    PeerReviewRecord.is_active == True):    # noqa: E712
                     peer_review_record.processed_at = None
@@ -2377,11 +2396,16 @@ def load_org():
 @roles_required(Role.ADMIN)
 def load_researcher_affiliations():
     """Preload organisation data."""
-    form = FileUploadForm()
+    form = FileUploadForm(extensions=["csv", "tsv", "json", "yaml", "yml"])
     if form.validate_on_submit():
-        filename = secure_filename(form.file_.data.filename)
         try:
-            task = Task.load_from_csv(read_uploaded_file(form), filename=filename)
+            filename = secure_filename(form.file_.data.filename)
+            content_type = form.file_.data.content_type
+            content = read_uploaded_file(form)
+            if content_type in ["text/tab-separated-values", "text/csv"]:
+                task = Task.load_from_csv(content, filename=filename)
+            else:
+                task = AffiliationRecord.load(content, filename=filename)
             flash(f"Successfully loaded {task.record_count} rows.")
             return redirect(url_for("affiliationrecord.index_view", task_id=task.id))
         except (
@@ -3153,13 +3177,13 @@ def remove_linkage():
                     token=token.access_token))
 
             if resp.status_code != 200:
-                flash("Failed to revoke token {token.access_token}: {ex}", "error")
+                flash("Failed to revoke token {token.access_token}: {ex}", "danger")
                 return redirect(_url)
 
             token.delete_instance()
 
         except Exception as ex:
-            flash(f"Failed to revoke token {token.access_token}: {ex}", "error")
+            flash(f"Failed to revoke token {token.access_token}: {ex}", "danger")
             app.logger.exception('Failed to delete record.')
             return redirect(_url)
     # Check if the User is Admin for other organisation or has given permissions to other organisations.

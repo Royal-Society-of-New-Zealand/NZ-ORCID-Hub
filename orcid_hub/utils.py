@@ -7,6 +7,7 @@ import os
 import random
 import string
 import time
+from collections import defaultdict
 from datetime import date, datetime, timedelta
 from itertools import filterfalse, groupby
 from urllib.parse import quote, urlencode, urlparse
@@ -15,12 +16,15 @@ import chardet
 import emails
 import flask
 import requests
+import yaml
 from flask import request, url_for
 from flask_login import current_user
 from html2text import html2text
 from itsdangerous import (BadSignature, SignatureExpired, TimedJSONWebSignatureSerializer)
 from jinja2 import Template
 from peewee import JOIN, SQL
+from yaml.dumper import Dumper
+from yaml.representer import SafeRepresenter
 
 from . import app, orcid_client, rq
 from .models import (AFFILIATION_TYPES, Affiliation, AffiliationRecord, FundingInvitees,
@@ -1480,7 +1484,7 @@ def process_tasks(max_rows=20):
         tasks = tasks.limit(max_rows)
     for task in tasks:
 
-        if task.task_type == TaskType.SYNC.value:
+        if task.records is None:
             continue
 
         export_model = task.record_model._meta.name + ".export"
@@ -1684,3 +1688,19 @@ def sync_profile(task_id, delay=0.1):
         count += 1
         time.sleep(delay)
     Log.create(task=task_id, message=f"In total, {count} user profiles were synchronized.")
+
+
+class SafeRepresenterWithISODate(SafeRepresenter):
+    """Customized representer for datetaime rendering in ISO format."""
+
+    def represent_datetime(self, data):
+        """Customize datetime rendering in ISO format."""
+        value = data.isoformat(timespec="seconds")
+        return self.represent_scalar('tag:yaml.org,2002:timestamp', value)
+
+
+def dump_yaml(data):
+    """Dump the objects into YAML representation."""
+    yaml.add_representer(datetime, SafeRepresenterWithISODate.represent_datetime, Dumper=Dumper)
+    yaml.add_representer(defaultdict, SafeRepresenter.represent_dict)
+    return yaml.dump(data)

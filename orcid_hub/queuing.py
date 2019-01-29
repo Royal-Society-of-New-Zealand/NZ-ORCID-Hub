@@ -44,10 +44,10 @@ if __redis_available:
     except:
         __redis_available = False
 
-else:
+if not __redis_available:
     from functools import wraps
 
-    class RQ:
+    class RQ:  # noqa: F811
         """Fake RQ."""
 
         def __init__(self, *args, **kwargs):

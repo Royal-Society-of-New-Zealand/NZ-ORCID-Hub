@@ -4,6 +4,7 @@
 import copy
 import csv
 import json
+import jsonschema
 import os
 import random
 import re
@@ -33,6 +34,7 @@ from pykwalify.core import Core
 from pykwalify.errors import SchemaError
 
 from . import app, db
+from .schemas import affiliation_task_schema
 
 ENV = app.config["ENV"]
 DEFAULT_COUNTRY = app.config["DEFAULT_COUNTRY"]
@@ -209,13 +211,13 @@ class PartialDateField(Field):
         """Convert into partial ISO date textual representation: YYYY-**-**, YYYY-MM-**, or YYYY-MM-DD."""
         if value is None or not value.year:
             return None
+
+        res = "%04d" % int(value.year)
+        if value.month:
+            res += "-%02d" % int(value.month)
         else:
-            res = "%04d" % int(value.year)
-            if value.month:
-                res += "-%02d" % int(value.month)
-            else:
-                return res + "-**-**"
-            return res + "-%02d" % int(value.day) if value.day else res + "-**"
+            return res + "-**-**"
+        return res + "-%02d" % int(value.day) if value.day else res + "-**"
 
     def python_value(self, value):
         """Parse partial ISO date textual representation."""
@@ -228,6 +230,66 @@ class PartialDateField(Field):
             "month",
             "day",
         ), parts)))
+
+
+class TaskType(IntEnum):
+    """Enum used to represent Task type."""
+
+    NONE = 0
+    AFFILIATION = 4  # Affilation of employment/education
+    FUNDING = 1  # Funding
+    WORK = 2
+    PEER_REVIEW = 3
+    SYNC = 11
+
+    def __eq__(self, other):
+        if isinstance(other, TaskType):
+            return self.value == other.value
+        elif isinstance(other, int):
+            return self.value == other
+        return (self.name == other or self.name == getattr(other, "name", None))
+
+    def __hash__(self):
+        return hash(self.name)
+
+    @classmethod
+    def options(cls):
+        """Get list of all types for UI dropown option list."""
+        return [(e, e.name.replace('_', ' ').title()) for e in cls]
+
+
+class TaskTypeField(SmallIntegerField):
+    """Partial date custom DB data field mapped to varchar(10)."""
+
+    def db_value(self, value):
+        """Change enum value to small int."""
+        if value is None:
+            return None
+        try:
+            if isinstance(value, TaskType):
+                return value.value
+            elif isinstance(value, int):
+                return value
+            elif isinstance(value, str):
+                if str.isdigit(value):
+                    return int(value)
+                return TaskType[value.upper()].value
+            else:
+                raise ValueError("Unknow TaskType: '%s'", value)
+        except:
+            app.logger.exception("Failed to coerce the TaskType value, choosing NULL.")
+            return None
+
+    def python_value(self, value):
+        """Parse partial ISO date textual representation."""
+        if value is None:
+            return None
+        try:
+            return TaskType(value)
+        except:
+            app.logger.exception(
+                    f"Failed to map DB value {value} to TaskType, choosing None.")
+            return None
 
 
 class Role(IntFlag):
@@ -334,7 +396,7 @@ class BaseModel(Model):
             if isinstance(v, PartialDate):
                 o[k] = str(v)
             elif k == "task_type":
-                o[k] = TaskType(v).name
+                o[k] = v.name
         if to_dashes:
             return self.__to_dashes(o)
         return o
@@ -372,6 +434,7 @@ class AuditMixin(Model):
 
     created_at = DateTimeField(default=datetime.utcnow)
     updated_at = DateTimeField(null=True, default=None)
+    is_deleted = BooleanField(null=True, default=False)
 
     # created_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
     # updated_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
@@ -385,6 +448,14 @@ class AuditMixin(Model):
                 elif hasattr(self, "created_by"):
                     self.created_by_id = current_user.id
         return super().save(*args, **kwargs)
+
+    def delete_instance(self, *args, **kwargs):  # noqa: D102
+        """Mark the entry id_deleted and save (with the link to the user
+        that invoked the deletion) for audit trail.
+        """
+        self.is_deleted = True
+        self.save()
+        return super().delete_instance(*args, **kwargs)
 
 
 class File(BaseModel):
@@ -930,7 +1001,7 @@ class Task(BaseModel, AuditMixin):
         User, on_delete="SET NULL", null=True, related_name="created_tasks")
     updated_by = ForeignKeyField(
         User, on_delete="SET NULL", null=True, related_name="updated_tasks")
-    task_type = SmallIntegerField(default=0)
+    task_type = TaskTypeField(default=TaskType.NONE)
     expires_at = DateTimeField(null=True)
     expiry_email_sent_at = DateTimeField(null=True)
     completed_count = TextField(null=True, help_text="gives the status of uploaded task")
@@ -948,25 +1019,23 @@ class Task(BaseModel, AuditMixin):
     @lazy_property
     def record_count(self):
         """Get count of the loaded recoreds."""
-        if self.task_type == TaskType.SYNC:
-            return 0
-        return self.records.count()
+        return 0 if self.records is None else self.records.count()
 
     @property
     def record_model(self):
         """Get record model class."""
-        if self.task_type == TaskType.SYNC:
-            return None
-        _, models = self.records.get_query_meta()
-        model, = models.keys()
-        return model
+        if self.records is not None:
+            _, models = self.records.get_query_meta()
+            model, = models.keys()
+            return model
+        return None
 
     @lazy_property
     def records(self):
         """Get all task record query."""
-        if self.task_type == TaskType.SYNC:
+        if self.task_type in [TaskType.SYNC, TaskType.NONE]:
             return None
-        return getattr(self, TaskType(self.task_type).name.lower() + "_records")
+        return getattr(self, self.task_type.name.lower() + "_records")
 
     @lazy_property
     def completed_count(self):
@@ -986,6 +1055,7 @@ class Task(BaseModel, AuditMixin):
         model, = models.keys()
         return self.records.where(self.record_model.status ** "%error%").count()
 
+    # TODO: move this one to AffiliationRecord
     @classmethod
     def load_from_csv(cls, source, filename=None, org=None):
         """Load affiliation record data from CSV/TSV file or a string."""
@@ -1046,7 +1116,7 @@ class Task(BaseModel, AuditMixin):
 
         with db.atomic():
             try:
-                task = cls.create(org=org, filename=filename)
+                task = cls.create(org=org, filename=filename, task_type=TaskType.AFFILIATION)
                 for row_no, row in enumerate(reader):
                     # skip empty lines:
                     if len(row) == 0:
@@ -1127,6 +1197,24 @@ class Task(BaseModel, AuditMixin):
                 raise
 
         return task
+
+    def to_dict(self, to_dashes=True, recurse=False, exclude=None):
+        """Create a dict represenatation of the task suitable for serialization into JSON or YAML."""
+        # TODO: expand for the othe types of the tasks
+        task_dict = super().to_dict(
+            recurse=False if recurse is None else recurse,
+            to_dashes=to_dashes,
+            exclude=exclude,
+            only=[Task.id, Task.filename, Task.task_type, Task.created_at, Task.updated_at])
+        # TODO: refactor for funding task to get records here not in API or export
+        if TaskType(self.task_type) != TaskType.FUNDING:
+            task_dict["records"] = [
+                r.to_dict(
+                    to_dashes=to_dashes,
+                    recurse=recurse,
+                    exclude=[self.records.model_class._meta.fields["task"]]) for r in self.records
+            ]
+        return task_dict
 
     class Meta:  # noqa: D101,D106
         table_alias = "t"
@@ -1308,30 +1396,50 @@ class AffiliationRecord(RecordModel):
         ("external_id", "external.*|.*identifier"),
     ]
 
-
-class TaskType(IntEnum):
-    """Enum used to represent Task type."""
-
-    AFFILIATION = 0  # Affiliation of employment/education
-    FUNDING = 1  # Funding
-    WORK = 2
-    PEER_REVIEW = 3
-    SYNC = 11
-
-    def __eq__(self, other):
-        if isinstance(other, TaskType):
-            return self.value == other.value
-        elif isinstance(other, int):
-            return self.value == other
-        return (self.name == other or self.name == getattr(other, "name", None))
-
-    def __hash__(self):
-        return hash(self.name)
-
     @classmethod
-    def options(cls):
-        """Get list of all types for UI drop-down option list."""
-        return [(e.value, e.name.replace('_', ' ').title()) for e in cls]
+    def load(cls, data, task=None, task_id=None, filename=None, override=True,
+             skip_schema_validation=False, org=None):
+        """Load afffiliation record task form JSON/YAML. Data shoud be already deserialize."""
+        if isinstance(data, str):
+            data = json.loads(data) if filename.lower().endswith(".json") else yaml.load(data)
+        if org is None:
+            org = current_user.organisation if current_user else None
+        if not skip_schema_validation:
+            jsonschema.validate(data, affiliation_task_schema)
+        if not task and task_id:
+            task = Task.select().where(Task.id == task_id).first()
+        if not task and "id" in data:
+            task_id = int(data["id"])
+            task = Task.select().where(Task.id == task_id).first()
+        with db.atomic():
+            try:
+                if not task:
+                    filename = (filename or data.get("filename")
+                                or datetime.utcnow().isoformat(timespec="seconds"))
+                    task = Task.create(
+                            org=org, filename=filename, task_type=TaskType.AFFILIATION)
+                elif override:
+                    AffiliationRecord.delete().where(AffiliationRecord.task == task).execute()
+                record_fields = AffiliationRecord._meta.fields.keys()
+                for r in data.get("records"):
+                    if "id" in r and not override:
+                        rec = AffiliationRecord.get(int(r["id"]))
+                    else:
+                        rec = AffiliationRecord(task=task)
+                    for k, v in r.items():
+                        if k == "id":
+                            continue
+                        k = k.replace('-', '_')
+                        if k in record_fields and rec._data.get(k) != v:
+                            rec._data[k] = PartialDate.create(v) if k.endswith("date") else v
+                            rec._dirty.add(k)
+                    if rec.is_dirty():
+                        rec.save()
+            except:
+                db.rollback()
+                app.logger.exception("Failed to load affiliation record task file.")
+                raise
+        return task
 
 
 class FundingRecord(RecordModel):
@@ -2947,7 +3055,7 @@ def load_yaml_json(filename, source):
     """Create a common way of loading JSON or YAML file."""
     _, ext = os.path.splitext(filename)
     if ext.lower() in [".yaml", ".yml"]:
-        data = yaml.load(source)
+        data = json.loads(json.dumps(yaml.load(source)), object_pairs_hook=NestedDict)
     else:
         data = json.loads(source, object_pairs_hook=NestedDict)
 
