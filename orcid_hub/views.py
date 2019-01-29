@@ -1517,7 +1517,8 @@ class ViewMembersAdmin(AppModelView):
     def _order_by(self, query, joins, order):
         """Add ID for determenistic order of rows if sorting is by NULLable field."""
         query, joins = super()._order_by(query, joins, order)
-        if all(f.null for (f, _) in order):  # if all fiels are NULLable
+        # add ID only if all fields are NULLable (exlcude ones given by str):
+        if all(not isinstance(f, str) and f.null for (f, _) in order):
             clauses = query._order_by
             clauses.append(self.model.id.desc() if order[0][1] else self.model.id)
             query = query.order_by(*clauses)
