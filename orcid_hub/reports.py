@@ -142,7 +142,6 @@ def user_cv(op=None):
         return redirect(request.referrer or url_for("index"))
 
     record = cache.get(user.orcid)
-
     if not record:
         token = OrcidToken.select(OrcidToken.access_token).where(
             OrcidToken.user_id == user.id, OrcidToken.org_id == user.organisation_id,
@@ -152,7 +151,6 @@ def user_cv(op=None):
                   "danger")
             return redirect(url_for("link"))
         api = MemberAPI(user=user, access_token=token.access_token)
-
         try:
             record = api.get_record()
             works = [w for g in record.get("activities-summary", "works", "group") for w in g.get("work-summary")]
