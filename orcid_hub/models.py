@@ -2266,9 +2266,73 @@ class ResearcherUrlRecord(RecordModel):
         pass
 
     @classmethod
-    def load_from_json(cls, source, filename=None, org=None):
+    def load_from_json(cls, source, filename=None, org=None, task=None):
         """Load data from JSON file or a string."""
-        pass
+        # import data from file based on its extension; either it is YAML or JSON
+        data = load_yaml_json(filename=filename, source=source)
+        records = data["records"] if isinstance(data, dict) else data
+
+        for r in records:
+            validation_source_data = copy.deepcopy(r)
+            validation_source_data = del_none(validation_source_data)
+
+            # TODO: validation of researcher url upload.
+            """validator = Core(
+                source_data=validation_source_data,
+                schema_files=[os.path.join(SCHEMA_DIR, "researcher_url_schema.yaml")])
+            validator.validate(raise_exception=True)"""
+
+        with db.atomic():
+            try:
+                if org is None:
+                    org = current_user.organisation if current_user else None
+                if not task:
+                    task = Task.create(org=org, filename=filename, task_type=TaskType.RESEARCHER_URL)
+                # else:
+                #   ResearcherUrlRecord.delete().where(ResearcherUrlRecord.task == task).execute()
+
+                for r in records:
+
+                    url_name = r.get("url-name")
+                    url_value = r.get("url", "value")
+                    display_index = r.get("display-index")
+
+                    researcher_url_record = cls.create(
+                        task=task,
+                        url_name=url_name,
+                        url_value=url_value,
+                        display_index=display_index)
+
+                    invitees = r.get("invitees", default=[])
+                    if invitees:
+                        for invitee in invitees:
+                            identifier = invitee.get("identifier")
+                            email = invitee.get("email")
+                            first_name = invitee.get("first-name")
+                            last_name = invitee.get("last-name")
+                            orcid_id = invitee.get("ORCID-iD")
+                            put_code = invitee.get("put-code")
+                            visibility = invitee.get("visibility")
+
+                            ResearcherUrlInvitee.create(
+                                researcher_url_record=researcher_url_record,
+                                identifier=identifier,
+                                email=email.lower(),
+                                first_name=first_name,
+                                last_name=last_name,
+                                orcid=orcid_id,
+                                visibility=visibility,
+                                put_code=put_code)
+                    else:
+                        raise SchemaError(u"Schema validation failed:\n - "
+                                          u"Expecting Invitees for which the researcher url record will be written")
+
+                return task
+
+            except Exception:
+                db.rollback()
+                app.logger.exception("Failed to load Researcher Url file.")
+                raise
 
     class Meta:  # noqa: D101,D106
         db_table = "researcher_url_record"

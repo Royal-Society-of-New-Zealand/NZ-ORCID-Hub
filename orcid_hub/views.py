@@ -43,8 +43,8 @@ from .models import (
     JOIN, Affiliation, AffiliationRecord, CharField, Client, ExternalId, File, FundingContributor,
     FundingInvitees, FundingRecord, Grant, GroupIdRecord, ModelException, OrcidApiCall, OrcidToken,
     Organisation, OrgInfo, OrgInvitation, PartialDate, PeerReviewExternalId, PeerReviewInvitee, PeerReviewRecord,
-    ResearcherUrlRecord, Role, Task, TaskType, TextField, Token, Url, User, UserInvitation, UserOrg,
-    UserOrgAffiliation, WorkContributor, WorkExternalId, WorkInvitees, WorkRecord, db, get_val)
+    ResearcherUrlRecord, ResearcherUrlInvitee, Role, Task, TaskType, TextField, Token, Url, User, UserInvitation,
+    UserOrg, UserOrgAffiliation, WorkContributor, WorkExternalId, WorkInvitees, WorkRecord, db, get_val)
 # NB! Should be disabled in production
 from .pyinfo import info
 from .utils import get_next_url, read_uploaded_file, send_user_invitation
@@ -691,6 +691,10 @@ to the best of your knowledge, correct!""")
                     count = PeerReviewInvitee.update(
                         processed_at=None, status=status).where(
                         PeerReviewInvitee.peer_review_record.in_(ids)).execute()
+                elif self.model == ResearcherUrlRecord:
+                    count = ResearcherUrlInvitee.update(
+                        processed_at=None, status=status).where(
+                        ResearcherUrlInvitee.researcher_url_record.in_(ids)).execute()
                 elif self.model == AffiliationRecord:
                     # Delete the userInvitation token for selected reset items.
                     for user_invitation in UserInvitation.select().where(UserInvitation.email.in_(
@@ -713,6 +717,8 @@ to the best of your knowledge, correct!""")
                     flash(f"{count} Work Invitee records were reset for batch processing.")
                 elif self.model == PeerReviewRecord:
                     flash(f"{count} Peer Review Invitee records were reset for batch processing.")
+                elif self.model == ResearcherUrlRecord:
+                    flash(f"{count} Researcher Url records were reset for batch processing.")
                 else:
                     flash(f"{count} Affiliation records were reset for batch processing.")
 
@@ -839,15 +845,23 @@ class InviteesModelAdmin(AppModelView):
                     PeerReviewRecord.update(
                         processed_at=None, status=status).where(
                         PeerReviewRecord.is_active, PeerReviewRecord.id == peer_review_record_id).execute()
+                elif self.model == ResearcherUrlInvitee:
+                    researcher_url_record_id = self.model.select().where(
+                        self.model.id.in_(ids))[0].researcher_url_record_id
+                    ResearcherUrlRecord.update(
+                        processed_at=None, status=status).where(
+                        ResearcherUrlRecord.is_active, ResearcherUrlRecord.id == researcher_url_record_id).execute()
             except Exception as ex:
                 db.rollback()
                 flash(f"Failed to activate the selected records: {ex}")
                 app.logger.exception("Failed to activate the selected records")
             else:
                 if self.model == FundingInvitees:
-                    flash(f"{count} Funding Invitees records were reset for batch processing.")
+                    flash(f"{count} Funding Invitee records were reset for batch processing.")
                 elif self.model == PeerReviewInvitee:
-                    flash(f"{count} Peer Review Invitees records were reset for batch processing.")
+                    flash(f"{count} Peer Review Invitee records were reset for batch processing.")
+                elif self.model == ResearcherUrlInvitee:
+                    flash(f"{count} Researcher Url Invitee records were reset for batch processing.")
                 else:
                     flash(f"{count} Work Invitees records were reset for batch processing.")
 
@@ -871,6 +885,13 @@ class PeerReviewInviteeAdmin(InviteesModelAdmin):
 
     list_template = "peer_review_externalid_invitees_list.html"
     column_exclude_list = ("peer_review_record", )
+
+
+class ResearcherUrlInviteeAdmin(InviteesModelAdmin):
+    """Researcher Url invitee record model view."""
+
+    list_template = "researcher_url_invitee_list.html"
+    column_exclude_list = ("researcher_url_record", )
 
 
 class CompositeRecordModelView(RecordModelView):
@@ -1437,6 +1458,13 @@ class PeerReviewRecordAdmin(CompositeRecordModelView):
                 on=(PeerReviewInvitee.peer_review_record_id == self.model.id)).naive()
 
 
+class ResearcherUrlRecordAdmin(CompositeRecordModelView):
+    """Researcher Url record model view."""
+
+    column_searchable_list = ("url_name", )
+    list_template = "researcher_url_record_list.html"
+
+
 class AffiliationRecordAdmin(RecordModelView):
     """Affiliation record model view."""
 
@@ -1703,6 +1731,8 @@ admin.add_view(WorkRecordAdmin())
 admin.add_view(PeerReviewRecordAdmin())
 admin.add_view(PeerReviewInviteeAdmin())
 admin.add_view(PeerReviewExternalIdAdmin())
+admin.add_view(ResearcherUrlRecordAdmin())
+admin.add_view(ResearcherUrlInviteeAdmin())
 admin.add_view(ViewMembersAdmin(name="viewmembers", endpoint="viewmembers"))
 
 admin.add_view(UserOrgAmin(UserOrg))
@@ -1832,6 +1862,18 @@ def reset_all():
                         PeerReviewInvitee.peer_review_record == peer_review_record.id).execute()
                     peer_review_record.save()
                     count = count + 1
+            elif tt == TaskType.RESEARCHER_URL:
+                for researcher_url_record in ResearcherUrlRecord.select().where(ResearcherUrlRecord.task_id == task_id,
+                                                                   ResearcherUrlRecord.is_active == True):  # noqa: E712
+                    researcher_url_record.processed_at = None
+                    researcher_url_record.status = status
+
+                    ResearcherUrlInvitee.update(
+                        processed_at=None, status=status).where(
+                        ResearcherUrlInvitee.researcher_url_record == researcher_url_record.id).execute()
+                    researcher_url_record.save()
+                    count = count + 1
+
         except Exception as ex:
             db.rollback()
             flash(f"Failed to reset the selected records: {ex}")
@@ -1847,6 +1889,8 @@ def reset_all():
                 flash(f"{count} Work records were reset for batch processing.")
             elif task.task_type == 3:
                 flash(f"{count} Peer Review records were reset for batch processing.")
+            elif task.task_type == 5:
+                flash(f"{count} Researcher Url records were reset for batch processing.")
             else:
                 flash(f"{count} Affiliation records were reset for batch processing.")
     return redirect(_url)

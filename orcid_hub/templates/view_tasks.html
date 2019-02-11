@@ -22,6 +22,10 @@
     <a class="icon" href="{{ url_for('peerreviewrecord.index_view', task_id=row.id, url=request.url) }}" title="View Details">
       <span class="fa fa-eye glyphicon glyphicon-eye-open"></span>
     </a>
+{% elif row.task_type == 5 %}
+    <a class="icon" href="{{ url_for('researcherurlrecord.index_view', task_id=row.id, url=request.url) }}" title="View Details">
+      <span class="fa fa-eye glyphicon glyphicon-eye-open"></span>
+    </a>
 {% elif row.task_type == 11 %}
     <a class="icon" href="{{ url_for('sync_profiles', task_id=row.id, url=request.url) }}" title="View Details">
       <span class="fa fa-eye glyphicon glyphicon-eye-open"></span>
