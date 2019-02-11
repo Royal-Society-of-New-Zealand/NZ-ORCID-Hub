@@ -62,7 +62,7 @@ def get_next_url():
     _next = request.args.get("next") or request.args.get("_next") or request.referrer
 
     if _next and ("orcidhub.org.nz" in _next or _next.startswith("/") or "127.0" in _next
-                  or "c9users.io" in _next):
+                  or "c9users.io" in _next or "localhost" in _next):
         return _next
     return None
 
