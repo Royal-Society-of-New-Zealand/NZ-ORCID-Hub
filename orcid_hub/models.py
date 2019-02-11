@@ -240,6 +240,7 @@ class TaskType(IntEnum):
     FUNDING = 1  # Funding
     WORK = 2
     PEER_REVIEW = 3
+    RESEARCHER_URL = 5
     SYNC = 11
 
     def __eq__(self, other):
@@ -2247,6 +2248,33 @@ class PeerReviewRecord(RecordModel):
         table_alias = "pr"
 
 
+class ResearcherUrlRecord(RecordModel):
+    """Researcher Url record loaded from Json file for batch processing."""
+
+    task = ForeignKeyField(Task, related_name="researcher_url_records", on_delete="CASCADE")
+    url_name = CharField(max_length=255)
+    url_value = CharField(max_length=255)
+    display_index = IntegerField(null=True)
+    is_active = BooleanField(
+        default=False, help_text="The record is marked for batch processing", null=True)
+    processed_at = DateTimeField(null=True)
+    status = TextField(null=True, help_text="Record processing status.")
+
+    @classmethod
+    def load_from_csv(cls, source, filename=None, org=None):
+        """Load data from CSV/TSV file or a string."""
+        pass
+
+    @classmethod
+    def load_from_json(cls, source, filename=None, org=None):
+        """Load data from JSON file or a string."""
+        pass
+
+    class Meta:  # noqa: D101,D106
+        db_table = "researcher_url_record"
+        table_alias = "ru"
+
+
 class WorkRecord(RecordModel):
     """Work record loaded from Json file for batch processing."""
 
@@ -2698,6 +2726,17 @@ class InviteesModel(BaseModel):
             recurse=False)
 
 
+class ResearcherUrlInvitee(InviteesModel):
+    """Researcher or Invitee - related to Researcher Url upload."""
+
+    researcher_url_record = ForeignKeyField(
+        ResearcherUrlRecord, related_name="researcher_url_invitee", on_delete="CASCADE")
+
+    class Meta:  # noqa: D101,D106
+        db_table = "researcher_url_invitee"
+        table_alias = "ri"
+
+
 class PeerReviewInvitee(InviteesModel):
     """Researcher or Invitee - related to peer review."""
 
@@ -3012,6 +3051,8 @@ def create_tables():
             PeerReviewRecord,
             PeerReviewInvitee,
             PeerReviewExternalId,
+            ResearcherUrlRecord,
+            ResearcherUrlInvitee,
             Client,
             Grant,
             Token,
@@ -3041,8 +3082,8 @@ def drop_tables():
     """Drop all model tables."""
     for m in (File, User, UserOrg, OrcidToken, UserOrgAffiliation, OrgInfo, OrgInvitation,
               OrcidApiCall, OrcidAuthorizeCall, FundingContributor, FundingInvitees, FundingRecord,
-              PeerReviewInvitee, PeerReviewExternalId, PeerReviewRecord, WorkInvitees,
-              WorkExternalId, WorkContributor, WorkRecord, AffiliationRecord, ExternalId, Url,
+              PeerReviewInvitee, PeerReviewExternalId, PeerReviewRecord, ResearcherUrlRecord, ResearcherUrlInvitee,
+              WorkInvitees, WorkExternalId, WorkContributor, WorkRecord, AffiliationRecord, ExternalId, Url,
               UserInvitation, Task, Organisation):
         if m.table_exists():
             try:

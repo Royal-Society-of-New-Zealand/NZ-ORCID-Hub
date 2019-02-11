@@ -42,8 +42,8 @@ from .login_provider import roles_required
 from .models import (
     JOIN, Affiliation, AffiliationRecord, CharField, Client, ExternalId, File, FundingContributor,
     FundingInvitees, FundingRecord, Grant, GroupIdRecord, ModelException, OrcidApiCall, OrcidToken,
-    Organisation, OrgInfo, OrgInvitation, PartialDate, PeerReviewExternalId, PeerReviewInvitee,
-    PeerReviewRecord, Role, Task, TaskType, TextField, Token, Url, User, UserInvitation, UserOrg,
+    Organisation, OrgInfo, OrgInvitation, PartialDate, PeerReviewExternalId, PeerReviewInvitee, PeerReviewRecord,
+    ResearcherUrlRecord, Role, Task, TaskType, TextField, Token, Url, User, UserInvitation, UserOrg,
     UserOrgAffiliation, WorkContributor, WorkExternalId, WorkInvitees, WorkRecord, db, get_val)
 # NB! Should be disabled in production
 from .pyinfo import info
@@ -2485,6 +2485,29 @@ def load_researcher_peer_review():
             app.logger.exception("Failed to load peer review records.")
 
     return render_template("fileUpload.html", form=form, title="Peer Review Info Upload")
+
+
+@app.route("/load/researcher/urls", methods=["GET", "POST"])
+@roles_required(Role.ADMIN)
+def load_researcher_urls():
+    """Preload researcher's url data."""
+    form = FileUploadForm(extensions=["json", "yaml", "csv", "tsv"])
+    if form.validate_on_submit():
+        filename = secure_filename(form.file_.data.filename)
+        content_type = form.file_.data.content_type
+        try:
+            if content_type in ["text/tab-separated-values", "text/csv"]:
+                task = ResearcherUrlRecord.load_from_csv(
+                    read_uploaded_file(form), filename=filename)
+            else:
+                task = ResearcherUrlRecord.load_from_json(read_uploaded_file(form), filename=filename)
+            flash(f"Successfully loaded {task.record_count} rows.")
+            return redirect(url_for("researcherurlrecord.index_view", task_id=task.id))
+        except Exception as ex:
+            flash(f"Failed to load researcher url record file: {ex.args}", "danger")
+            app.logger.exception("Failed to load researcher url records.")
+
+    return render_template("fileUpload.html", form=form, title="Researcher Urls Info Upload")
 
 
 @app.route("/orcid_api_rep", methods=["GET", "POST"])
