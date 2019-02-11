@@ -1,101 +1,45 @@
 Application Docker Image
 ------------------------
 
-Application Docker Image (`orcidhub/app`_) is packaged with: - CentOS 7
-- Apache 2.4 - Python 3.6 - mod_wsgi (Pythgon/WSGI Apache module) -
-psycopg2 (native PostgreSQL Python DB-API 2.0 driver) - PyPI packages
-necessary for the application
+Application Docker Image (`orcidhub/app`_) is packaged with:
+
+ - CentOS 7
+ - Apache 2.4
+ - Python 3.6
+ - mod_wsgi (Pythgon/WSGI Apache module)
+ - psycopg2 (native PostgreSQL Python DB-API 2.0 driver)
+ - PyPI packages necessary for the application
 
 Usage
 ~~~~~
 
-1. create directories: ``mkdir -p archive/ pgdata/ data/redis/``
-1. create the environment conviguration file **.env** form **.env.sample**
-1. run application containers: ``docker-compose up -d``
-1. find container IP address:
-   ``docker inspect --format '{{.NetworkSettings.IPAddress}}' app``
-1. verify it’s running:
-   ``http $(docker inspect --format '{{.NetworkSettings.IPAddress}}' app)``
+#. create directories: ``mkdir -p archive/ backup/ pgdata/ data/redis/``
+#. create the environment conviguration file **.env** from **.env.sample**
+#. run application containers: ``docker-compose up -d``
+#. find container IP address: ``docker inspect --format '{{.NetworkSettings.IPAddress}}' app``
+#. verify it’s running: ``http $(docker inspect --format '{{.NetworkSettings.IPAddress}}' app)``
 
 Environment Variables
 ~~~~~~~~~~~~~~~~~~~~~
 
 The application image uses several environment variables which are easy
 to miss. These ariable should be set up for the specific runtime
-environment.
+environment. The configuration should set up in the *.env* file:
 
-ENV
-^^^
-
-The runtime environment name (default: *test*)
-
-SHIB_SP_DOMAINNAME
-^^^^^^^^^^^^^^^^^^
-
-Your *Service Provider* domain name (default: \*${ENV}.“*)
-
-SHIB_IDP_DOMAINNAME
-^^^^^^^^^^^^^^^^^^^
-
-Your *Idendtity Provider* domain name, e.g.,
-*http://directory.tuakiri.ac.nz*
-
-SHIB_SSO_DS_URL
-^^^^^^^^^^^^^^^
-
-SSO discovery service URL (default:
-*https://${SHIB_IDP_DOMAINNAME}/ds/DS*)
-
-SHIB_METADATA_PROVIDER_URI
-^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-*Shibboleth* SAML 2.0 meta data provider URI (more at:
-https://wiki.shibboleth.net/confluence/display/SHIB2/NativeSPMetadataProvider)
-
-SHIB_METADATA_CERT_FILE
-^^^^^^^^^^^^^^^^^^^^^^^
-
-Meta data signig certificat
-
-ORCID_CLIENT_ID and ORCID_CLIENT_SECRET
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Orcid API client ID and secret
-
-Steps to execute this application
----------------------------------
-
-If you are running this application for the first time then follow steps
-a to d:
-
-a) From the project directory run pip3 install -r requirement.txt
-b) install run install_package.sh to install postgress and required libraries
-c) Create database and user in postgres
-
-.. code-block:: sql
-
-    CREATE USER orcidhub WITH PASSWORD ‘***’;
-    CREATE DATABASE orcidhub;
-    GRANT ALL PRIVILEGES ON DATABASE orcidhub to orcidhub;
-
-
-d) Run `orcidhub initdb` to create the tables in the application database.
-
-.. _Application Docker Image: #application-docker-image
-.. _Usage: #usage
-.. _Environment Variables: #environment-variables
-.. _ENV: #env
-.. _SHIB_SP_DOMAINNAME: #shib-sp-domainname
-.. _SHIB_IDP_DOMAINNAME: #shib-idp-domainname
-.. _SHIB_SSO_DS_URL: #shib-sso-ds-url
-.. _SHIB_METADATA_PROVIDER_URI: #shib-metadata-provider-uri
-.. _SHIB_METADATA_CERT_FILE: #shib-metadata-cert-file
-.. _ORCID_CLIENT_ID and ORCID_CLIENT_SECRET: #orcid-client-id-and-orcid-client-secret
-.. _Steps to execute this application: #steps-to-execute-this-application
-.. _Development Environment: #development-environment
-.. _orcidhub/app: https://hub.docker.com/r/orcidhub/app/
-
-.. |Build Status| image:: https://travis-ci.org/Royal-Society-of-New-Zealand/NZ-ORCID-Hub.svg?branch=master
-   :target: https://travis-ci.org/Royal-Society-of-New-Zealand/NZ-ORCID-Hub
-.. |Coverage Status| image:: https://coveralls.io/repos/github/Royal-Society-of-New-Zealand/NZ-ORCID-Hub/badge.svg
-   :target: https://coveralls.io/github/Royal-Society-of-New-Zealand/NZ-ORCID-Hub
+==========================  ==================
+Variable                    Description
+==========================  ==================
+ENV                         The runtime environment name (default: *test*)
+SHIB_IDP_DOMAINNAME         Your **Idendtity Provider** domain name (default: *http://directory.tuakiri.ac.nz*)
+SHIB_METADATA_CERT_FILE     Meta data signig certificate (default: *conf/tuakiri-test-metadata-cert.pem*)
+SHIB_METADATA_PROVIDER_URI  **Shibboleth** SAML 2.0 meta data provider URI [NativeSPMetadataProvider](https://wiki.shibboleth.net/confluence/display/SHIB2/NativeSPMetadataProvider) (default: *https://engine.surfconext.nl/authentication/idp/metadata*)
+SHIB_SP_DOMAINNAME          Your **Service Provider** domain name (default: *${ENV}.<container domainname>*)
+SHIB_SSO_DS_URL             SSO discovery service URL (default: *https://${SHIB_IDP_DOMAINNAME}/ds/DS*)
+ORCID_CLIENT_ID             Orcid API client ID and secret, e.g., *0000-1234-2922-7589*
+ORCID_CLIENT_SECRET         Orcid API client ID and secret, e.g., *b25ab710-89b1-49e8-65f4-8df4f038dce9*
+PGPASSWORD                  PostgreSQL password
+PGPORT                      The port on which PostgreSQL should be mapped to (should be unique) (default: 5432)
+SECRET_KEY                  Hub secret key for data encryption
+SENTRY_DSN                  Sentry DSN (optional)
+SUBNET                      2 first octets (it should be unique for each enviroment run on the same machine), e.g., *172.33*
+==========================  ==================

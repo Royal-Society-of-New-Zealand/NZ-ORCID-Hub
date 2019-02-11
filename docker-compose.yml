@@ -5,8 +5,8 @@ services:
   db:
     image: postgres:11.1
     environment:
-      - POSTGRES_PASSWORD
       - PGPASSWORD
+      - POSTGRES_PASSWORD="${PGPASSWORD:-p455w0rd}"
     domainname: orcidhub.org.nz
     hostname: db
     ports:
