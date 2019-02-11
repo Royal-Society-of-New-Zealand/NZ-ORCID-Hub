@@ -9,10 +9,12 @@ necessary for the application
 Usage
 ~~~~~
 
+1. create directories: ``mkdir -p archive/ pgdata/ data/redis/``
+1. create the environment conviguration file **.env** form **.env.sample**
 1. run application containers: ``docker-compose up -d``
-2. find container IP address:
+1. find container IP address:
    ``docker inspect --format '{{.NetworkSettings.IPAddress}}' app``
-3. verify it’s running:
+1. verify it’s running:
    ``http $(docker inspect --format '{{.NetworkSettings.IPAddress}}' app)``
 
 Environment Variables
