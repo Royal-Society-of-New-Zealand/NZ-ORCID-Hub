@@ -56,7 +56,7 @@ def test_login(request_ctx):
     """Test login function."""
     with request_ctx("/") as ctx:
         test_user = User(
-            name="TEST USER", email="test@test.test.net", username="test42", confirmed=True)
+            name="TEST USER", email="test@test.test.net", confirmed=True)
         login_user(test_user, remember=True)
 
         resp = get_response(ctx)
@@ -266,7 +266,6 @@ def test_login_provider_load_user(request_ctx):  # noqa: D103
     u = User(
         email="test123@test.test.net",
         name="TEST USER",
-        username="test123",
         roles=Role.RESEARCHER,
         orcid=None,
         confirmed=True)

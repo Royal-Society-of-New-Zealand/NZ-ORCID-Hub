@@ -230,13 +230,11 @@ def test_access(request_ctx):
     test_superuser = User.create(
         name="TEST SUPERUSER",
         email="super@test.test.net",
-        username="test42",
         confirmed=True,
         roles=Role.SUPERUSER)
     test_user = User.create(
         name="TEST SUPERUSER",
         email="user123456789@test.test.net",
-        username="test123456789",
         confirmed=True,
         roles=Role.RESEARCHER)
 
@@ -317,7 +315,6 @@ def test_user_orcid_id_url():
     u = User(
         email="test123@test.test.net",
         name="TEST USER",
-        username="test123",
         roles=Role.RESEARCHER,
         orcid="123",
         confirmed=True)
