@@ -2255,6 +2255,12 @@ class ResearcherUrlRecord(RecordModel):
     url_name = CharField(max_length=255)
     url_value = CharField(max_length=255)
     display_index = IntegerField(null=True)
+    email = CharField(max_length=120)
+    first_name = CharField(max_length=120)
+    last_name = CharField(max_length=120)
+    orcid = OrcidIdField(null=True)
+    put_code = IntegerField(null=True)
+    visibility = CharField(null=True, max_length=100)
     is_active = BooleanField(
         default=False, help_text="The record is marked for batch processing", null=True)
     processed_at = DateTimeField(null=True)
@@ -2294,38 +2300,26 @@ class ResearcherUrlRecord(RecordModel):
                 for r in records:
 
                     url_name = r.get("url-name")
-                    url_value = r.get("url", "value")
+                    url_value = r.get("url", "value") or r.get("url-value")
                     display_index = r.get("display-index")
+                    email = r.get("email")
+                    first_name = r.get("first-name")
+                    last_name = r.get("last-name")
+                    orcid_id = r.get("ORCID-iD") or r.get("orcid")
+                    put_code = r.get("put-code")
+                    visibility = r.get("visibility")
 
-                    researcher_url_record = cls.create(
+                    cls.create(
                         task=task,
                         url_name=url_name,
                         url_value=url_value,
-                        display_index=display_index)
-
-                    invitees = r.get("invitees", default=[])
-                    if invitees:
-                        for invitee in invitees:
-                            identifier = invitee.get("identifier")
-                            email = invitee.get("email")
-                            first_name = invitee.get("first-name")
-                            last_name = invitee.get("last-name")
-                            orcid_id = invitee.get("ORCID-iD")
-                            put_code = invitee.get("put-code")
-                            visibility = invitee.get("visibility")
-
-                            ResearcherUrlInvitee.create(
-                                researcher_url_record=researcher_url_record,
-                                identifier=identifier,
-                                email=email.lower(),
-                                first_name=first_name,
-                                last_name=last_name,
-                                orcid=orcid_id,
-                                visibility=visibility,
-                                put_code=put_code)
-                    else:
-                        raise SchemaError(u"Schema validation failed:\n - "
-                                          u"Expecting Invitees for which the researcher url record will be written")
+                        display_index=display_index,
+                        email=email.lower(),
+                        first_name=first_name,
+                        last_name=last_name,
+                        orcid=orcid_id,
+                        visibility=visibility,
+                        put_code=put_code)
 
                 return task
 
@@ -2790,17 +2784,6 @@ class InviteesModel(BaseModel):
             recurse=False)
 
 
-class ResearcherUrlInvitee(InviteesModel):
-    """Researcher or Invitee - related to Researcher Url upload."""
-
-    researcher_url_record = ForeignKeyField(
-        ResearcherUrlRecord, related_name="researcher_url_invitee", on_delete="CASCADE")
-
-    class Meta:  # noqa: D101,D106
-        db_table = "researcher_url_invitee"
-        table_alias = "ri"
-
-
 class PeerReviewInvitee(InviteesModel):
     """Researcher or Invitee - related to peer review."""
 
@@ -3116,7 +3099,6 @@ def create_tables():
             PeerReviewInvitee,
             PeerReviewExternalId,
             ResearcherUrlRecord,
-            ResearcherUrlInvitee,
             Client,
             Grant,
             Token,
@@ -3146,7 +3128,7 @@ def drop_tables():
     """Drop all model tables."""
     for m in (File, User, UserOrg, OrcidToken, UserOrgAffiliation, OrgInfo, OrgInvitation,
               OrcidApiCall, OrcidAuthorizeCall, FundingContributor, FundingInvitees, FundingRecord,
-              PeerReviewInvitee, PeerReviewExternalId, PeerReviewRecord, ResearcherUrlRecord, ResearcherUrlInvitee,
+              PeerReviewInvitee, PeerReviewExternalId, PeerReviewRecord, ResearcherUrlRecord,
               WorkInvitees, WorkExternalId, WorkContributor, WorkRecord, AffiliationRecord, ExternalId, Url,
               UserInvitation, Task, Organisation):
         if m.table_exists():

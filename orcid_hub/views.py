@@ -43,7 +43,7 @@ from .models import (
     JOIN, Affiliation, AffiliationRecord, CharField, Client, ExternalId, File, FundingContributor,
     FundingInvitees, FundingRecord, Grant, GroupIdRecord, ModelException, OrcidApiCall, OrcidToken,
     Organisation, OrgInfo, OrgInvitation, PartialDate, PeerReviewExternalId, PeerReviewInvitee, PeerReviewRecord,
-    ResearcherUrlRecord, ResearcherUrlInvitee, Role, Task, TaskType, TextField, Token, Url, User, UserInvitation,
+    ResearcherUrlRecord, Role, Task, TaskType, TextField, Token, Url, User, UserInvitation,
     UserOrg, UserOrgAffiliation, WorkContributor, WorkExternalId, WorkInvitees, WorkRecord, db, get_val)
 # NB! Should be disabled in production
 from .pyinfo import info
@@ -691,11 +691,7 @@ to the best of your knowledge, correct!""")
                     count = PeerReviewInvitee.update(
                         processed_at=None, status=status).where(
                         PeerReviewInvitee.peer_review_record.in_(ids)).execute()
-                elif self.model == ResearcherUrlRecord:
-                    count = ResearcherUrlInvitee.update(
-                        processed_at=None, status=status).where(
-                        ResearcherUrlInvitee.researcher_url_record.in_(ids)).execute()
-                elif self.model == AffiliationRecord:
+                elif self.model == AffiliationRecord or self.model == ResearcherUrlRecord:
                     # Delete the userInvitation token for selected reset items.
                     for user_invitation in UserInvitation.select().where(UserInvitation.email.in_(
                             self.model.select(self.model.email).where(self.model.id.in_(ids)))):
@@ -845,12 +841,6 @@ class InviteesModelAdmin(AppModelView):
                     PeerReviewRecord.update(
                         processed_at=None, status=status).where(
                         PeerReviewRecord.is_active, PeerReviewRecord.id == peer_review_record_id).execute()
-                elif self.model == ResearcherUrlInvitee:
-                    researcher_url_record_id = self.model.select().where(
-                        self.model.id.in_(ids))[0].researcher_url_record_id
-                    ResearcherUrlRecord.update(
-                        processed_at=None, status=status).where(
-                        ResearcherUrlRecord.is_active, ResearcherUrlRecord.id == researcher_url_record_id).execute()
             except Exception as ex:
                 db.rollback()
                 flash(f"Failed to activate the selected records: {ex}")
@@ -860,8 +850,6 @@ class InviteesModelAdmin(AppModelView):
                     flash(f"{count} Funding Invitee records were reset for batch processing.")
                 elif self.model == PeerReviewInvitee:
                     flash(f"{count} Peer Review Invitee records were reset for batch processing.")
-                elif self.model == ResearcherUrlInvitee:
-                    flash(f"{count} Researcher Url Invitee records were reset for batch processing.")
                 else:
                     flash(f"{count} Work Invitees records were reset for batch processing.")
 
@@ -885,13 +873,6 @@ class PeerReviewInviteeAdmin(InviteesModelAdmin):
 
     list_template = "peer_review_externalid_invitees_list.html"
     column_exclude_list = ("peer_review_record", )
-
-
-class ResearcherUrlInviteeAdmin(InviteesModelAdmin):
-    """Researcher Url invitee record model view."""
-
-    list_template = "researcher_url_invitee_list.html"
-    column_exclude_list = ("researcher_url_record", )
 
 
 class CompositeRecordModelView(RecordModelView):
@@ -1458,13 +1439,6 @@ class PeerReviewRecordAdmin(CompositeRecordModelView):
                 on=(PeerReviewInvitee.peer_review_record_id == self.model.id)).naive()
 
 
-class ResearcherUrlRecordAdmin(CompositeRecordModelView):
-    """Researcher Url record model view."""
-
-    column_searchable_list = ("url_name", )
-    list_template = "researcher_url_record_list.html"
-
-
 class AffiliationRecordAdmin(RecordModelView):
     """Affiliation record model view."""
 
@@ -1511,6 +1485,12 @@ class AffiliationRecordAdmin(RecordModelView):
         resp.headers[
             "Content-Disposition"] = f"attachment;filename={secure_filename(self.get_export_name(export_type))}"
         return resp
+
+
+class ResearcherUrlRecordAdmin(AffiliationRecordAdmin):
+    """Researcher Url record model view."""
+
+    column_searchable_list = ("url_name", "first_name", "last_name", "email",)
 
 
 class ViewMembersAdmin(AppModelView):
@@ -1732,7 +1712,6 @@ admin.add_view(PeerReviewRecordAdmin())
 admin.add_view(PeerReviewInviteeAdmin())
 admin.add_view(PeerReviewExternalIdAdmin())
 admin.add_view(ResearcherUrlRecordAdmin())
-admin.add_view(ResearcherUrlInviteeAdmin())
 admin.add_view(ViewMembersAdmin(name="viewmembers", endpoint="viewmembers"))
 
 admin.add_view(UserOrgAmin(UserOrg))
@@ -1817,7 +1796,7 @@ def reset_all():
         try:
             status = "The record was reset at " + datetime.now().isoformat(timespec="seconds")
             tt = task.task_type
-            if tt == TaskType.AFFILIATION:
+            if tt == TaskType.AFFILIATION or tt == TaskType.RESEARCHER_URL:
                 count = task.record_model.update(processed_at=None, status=status).where(
                     task.record_model.task_id == task_id,
                     task.record_model.is_active == True).execute()  # noqa: E712
@@ -1861,17 +1840,6 @@ def reset_all():
                         processed_at=None, status=status).where(
                         PeerReviewInvitee.peer_review_record == peer_review_record.id).execute()
                     peer_review_record.save()
-                    count = count + 1
-            elif tt == TaskType.RESEARCHER_URL:
-                for researcher_url_record in ResearcherUrlRecord.select().where(ResearcherUrlRecord.task_id == task_id,
-                                                                   ResearcherUrlRecord.is_active == True):  # noqa: E712
-                    researcher_url_record.processed_at = None
-                    researcher_url_record.status = status
-
-                    ResearcherUrlInvitee.update(
-                        processed_at=None, status=status).where(
-                        ResearcherUrlInvitee.researcher_url_record == researcher_url_record.id).execute()
-                    researcher_url_record.save()
                     count = count + 1
 
         except Exception as ex:
