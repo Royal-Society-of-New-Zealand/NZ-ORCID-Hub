@@ -40,6 +40,7 @@ RUN yum -y install https://centos7.iuscommunity.org/ius-release.rpm \
     && [ -d /var/run/lock ] || mkdir -p /var/run/lock \
     && [ -d /var/lock/subsys/ ] || mkdir -p /var/lock/subsys/ \
     && echo $'export LD_LIBRARY_PATH=/opt/shibboleth/lib64:$LD_LIBRARY_PATH\n' > /etc/sysconfig/shibd \
+    && chmod +x /etc/shibboleth/shibd-redhat \
     && yum erase -y \
         alsa-lib \
         apr-util-devel \

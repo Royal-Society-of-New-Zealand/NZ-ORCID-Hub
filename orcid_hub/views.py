@@ -135,10 +135,13 @@ def status():
         }), 503  # Service Unavailable
 
 
+@app.route("/pyinfo/<message>")
 @app.route("/pyinfo")
 @roles_required(Role.SUPERUSER)
-def pyinfo():
-    """Show Python and runtime environment and settings."""
+def pyinfo(message=None):
+    """Show Python and runtime environment and settings or test exeption handling."""
+    if message:
+        raise Exception(message)
     return render_template("pyinfo.html", **info)
 
 
