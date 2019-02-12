@@ -13,8 +13,8 @@ from io import BytesIO
 import requests
 import tablib
 import yaml
-from flask import (Response, abort, flash, g, jsonify, redirect, render_template, request,
-                   send_file, send_from_directory, stream_with_context, url_for)
+from flask import (Response, abort, flash, jsonify, redirect, render_template, request, send_file,
+                   send_from_directory, stream_with_context, url_for)
 from flask_admin._compat import csv_encode
 from flask_admin.actions import action
 from flask_admin.babel import gettext
@@ -103,12 +103,6 @@ def internal_error(error):
             sentry_event_id=last_event_id())
     else:
         return render_template("500.html", trace=trace, error_message=str(error))
-
-
-@app.route("/fail")
-@login_required
-def fail():
-    abort(500)
 
 
 @app.route("/favicon.ico")
