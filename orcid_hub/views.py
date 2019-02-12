@@ -33,7 +33,7 @@ from flask_rq2.job import FlaskJob
 
 from orcid_api.rest import ApiException
 
-from . import admin, app, limiter, models, orcid_client, rq, utils
+from . import admin, app, limiter, models, orcid_client, rq, utils, SENTRY_DSN
 from .apis import yamlfy
 from .forms import (ApplicationFrom, BitmapMultipleValueField, CredentialForm, EmailTemplateForm,
                     FileUploadForm, FundingForm, GroupIdForm, LogoForm, OrgRegistrationForm, PartialDateField,
@@ -94,16 +94,21 @@ def page_not_found(e):
 def internal_error(error):
     """Handle internal error."""
     trace = traceback.format_exc()
-    try:
-        from . import sentry
+    if SENTRY_DSN:
+        from sentry_sdk import last_event_id
         return render_template(
             "500.html",
             trace=trace,
             error_message=str(error),
-            event_id=g.sentry_event_id,
-            public_dsn=sentry.client.get_public_dsn("https"))
-    except:
+            sentry_event_id=last_event_id())
+    else:
         return render_template("500.html", trace=trace, error_message=str(error))
+
+
+@app.route("/fail")
+@login_required
+def fail():
+    abort(500)
 
 
 @app.route("/favicon.ico")
