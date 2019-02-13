@@ -9,6 +9,7 @@ import os
 import sys
 import logging
 from datetime import datetime
+from flask_login import logout_user
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 # sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # flake8: noqa
@@ -313,7 +314,13 @@ def client(app):
     with app.test_client() as client:
         client.data = app.data
         yield client
-    client.logout()
+        try:
+            if "EXTERNAL_SP" not in app.config:
+                client.logout()
+            else:
+                logout_user()
+        except:
+            pass
 
 
 @pytest.fixture
