@@ -29,7 +29,7 @@ from yaml.representer import SafeRepresenter
 from . import app, orcid_client, rq
 from .models import (AFFILIATION_TYPES, Affiliation, AffiliationRecord, FundingInvitees,
                      FundingRecord, Log, OrcidToken, Organisation, OrgInvitation, PartialDate,
-                     PeerReviewExternalId, PeerReviewInvitee, PeerReviewRecord, Role, Task,
+                     PeerReviewExternalId, PeerReviewInvitee, PeerReviewRecord, ResearcherUrlRecord, Role, Task,
                      TaskType, User, UserInvitation, UserOrg, WorkInvitees, WorkRecord, get_val)
 
 logger = logging.getLogger(__name__)
@@ -1415,6 +1415,107 @@ def process_affiliation_records(max_rows=20):
                         "Failed to send batch process comletion notification message.")
 
 
+def process_researcher_url_records(max_rows=20):
+    """Process uploaded researcher_url records."""
+    set_server_name()
+    # TODO: optimize removing redundant fields
+    # TODO: perhaps it should be broken into 2 queries
+    task_ids = set()
+    tasks = (Task.select(
+        Task, ResearcherUrlRecord, User, UserInvitation.id.alias("invitation_id"), OrcidToken).where(
+            ResearcherUrlRecord.processed_at.is_null(), ResearcherUrlRecord.is_active,
+            ((User.id.is_null(False) & User.orcid.is_null(False) & OrcidToken.id.is_null(False))
+             | ((User.id.is_null() | User.orcid.is_null() | OrcidToken.id.is_null())
+                & UserInvitation.id.is_null()
+                & (ResearcherUrlRecord.status.is_null()
+                   | ResearcherUrlRecord.status.contains("sent").__invert__())))).join(
+                       ResearcherUrlRecord, on=(Task.id == ResearcherUrlRecord.task_id)).join(
+                           User,
+                           JOIN.LEFT_OUTER,
+                           on=((User.email == ResearcherUrlRecord.email)
+                               | ((User.orcid == ResearcherUrlRecord.orcid)
+                                  & (User.organisation_id == Task.org_id)))).join(
+                                   Organisation,
+                                   JOIN.LEFT_OUTER,
+                                   on=(Organisation.id == Task.org_id)).join(
+                                       UserOrg,
+                                       JOIN.LEFT_OUTER,
+                                       on=((UserOrg.user_id == User.id)
+                                           & (UserOrg.org_id == Organisation.id))).
+             join(
+                 UserInvitation,
+                 JOIN.LEFT_OUTER,
+                 on=((UserInvitation.email == ResearcherUrlRecord.email)
+                     & (UserInvitation.task_id == Task.id))).join(
+                         OrcidToken,
+                         JOIN.LEFT_OUTER,
+                         on=((OrcidToken.user_id == User.id)
+                             & (OrcidToken.org_id == Organisation.id)
+                             & (OrcidToken.scope.contains("/person/update")))).limit(max_rows))
+    for (task_id, org_id, user), tasks_by_user in groupby(tasks, lambda t: (
+            t.id,
+            t.org_id,
+            t.researcher_url_record.user, )):
+        if (user.id is None or user.orcid is None or not OrcidToken.select().where(
+            (OrcidToken.user_id == user.id) & (OrcidToken.org_id == org_id)
+                & (OrcidToken.scope.contains("/person/update"))).exists()):  # noqa: E127, E129
+            for k, tasks in groupby(
+                    tasks_by_user,
+                    lambda t: (t.created_by, t.org, t.researcher_url_record.email, t.researcher_url_record.first_name,
+                               t.researcher_url_record.last_name)):  # noqa: E501
+                try:
+                    email = k[2]
+                    send_work_funding_peer_review_invitation(
+                        *k,
+                        task_id=task_id,
+                        invitation_template="email/researcher_url_invitation.html")
+                    status = "The invitation sent at " + datetime.utcnow().isoformat(timespec="seconds")
+                    (ResearcherUrlRecord.update(status=ResearcherUrlRecord.status + "\n" + status).where(
+                        ResearcherUrlRecord.status.is_null(False), ResearcherUrlRecord.email == email).execute())
+                    (ResearcherUrlRecord.update(status=status).where(ResearcherUrlRecord.status.is_null(),
+                                                                     ResearcherUrlRecord.email == email).execute())
+                except Exception as ex:
+                    (ResearcherUrlRecord.update(
+                        processed_at=datetime.utcnow(),
+                        status=f"Failed to send an invitation: {ex}.").where(
+                            ResearcherUrlRecord.task_id == task_id, ResearcherUrlRecord.email == email,
+                            ResearcherUrlRecord.processed_at.is_null())).execute()
+        # else:
+        # create_or_update_researcher_url(user, org_id, tasks_by_user)
+        task_ids.add(task_id)
+    for task in Task.select().where(Task.id << task_ids):
+        # The task is completed (all recores are processed):
+        if not (ResearcherUrlRecord.select().where(
+                ResearcherUrlRecord.task_id == task.id,
+                ResearcherUrlRecord.processed_at.is_null()).exists()):
+            task.completed_at = datetime.utcnow()
+            task.save()
+            error_count = ResearcherUrlRecord.select().where(
+                ResearcherUrlRecord.task_id == task.id, ResearcherUrlRecord.status**"%error%").count()
+            row_count = task.record_count
+
+            with app.app_context():
+                export_url = flask.url_for(
+                    "researcherurlrecord.export",
+                    export_type="json",
+                    _scheme="http" if EXTERNAL_SP else "https",
+                    task_id=task.id,
+                    _external=True)
+                try:
+                    send_email(
+                        "email/work_task_completed.html",
+                        subject="Researcher Url Record Process Update",
+                        recipient=(task.created_by.name, task.created_by.email),
+                        error_count=error_count,
+                        row_count=row_count,
+                        export_url=export_url,
+                        task_name="Researcher Url",
+                        filename=task.filename)
+                except Exception:
+                    logger.exception(
+                        "Failed to send batch process completion notification message.")
+
+
 @rq.job(timeout=300)
 def process_tasks(max_rows=20):
     """Handle batch task expiration.
@@ -1614,6 +1715,7 @@ def process_records(n):
     process_funding_records(n)
     process_work_records(n)
     process_peer_review_records(n)
+    process_researcher_url_records(n)
     # process_tasks(n)
 
 

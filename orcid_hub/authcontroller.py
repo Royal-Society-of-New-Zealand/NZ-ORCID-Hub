@@ -34,11 +34,11 @@ from . import app, db, orcid_client
 # TODO: need to read form app.config[...]
 from .config import (APP_DESCRIPTION, APP_NAME, APP_URL, AUTHORIZATION_BASE_URL, CRED_TYPE_PREMIUM,
                      MEMBER_API_FORM_BASE_URL, NOTE_ORCID, ORCID_API_BASE, ORCID_BASE_URL,
-                     SCOPE_ACTIVITIES_UPDATE, SCOPE_AUTHENTICATE, SCOPE_READ_LIMITED, TOKEN_URL)
+                     SCOPE_ACTIVITIES_UPDATE, SCOPE_AUTHENTICATE, SCOPE_PERSON_UPDATE, SCOPE_READ_LIMITED, TOKEN_URL)
 from .forms import OrgConfirmationForm, TestDataForm
 from .login_provider import roles_required
 from .models import (Affiliation, OrcidAuthorizeCall, OrcidToken, Organisation, OrgInfo,
-                     OrgInvitation, Role, Url, User, UserInvitation, UserOrg)
+                     OrgInvitation, Role, Task, TaskType, Url, User, UserInvitation, UserOrg)
 from .utils import append_qs, get_next_url, read_uploaded_file, register_orcid_webhook
 
 HEADERS = {'Accept': 'application/vnd.orcid+json', 'Content-type': 'application/vnd.orcid+json'}
@@ -475,6 +475,14 @@ def link():
                     family_names=current_user.last_name,
                     given_names=current_user.first_name,
                     email=current_user.email)
+                client_write.scope = SCOPE_PERSON_UPDATE + SCOPE_READ_LIMITED
+                authorization_url_person_update, state = client_write.authorization_url(
+                    AUTHORIZATION_BASE_URL, state)
+                orcid_url_person_update = append_qs(
+                    iri_to_uri(authorization_url_person_update),
+                    family_names=current_user.last_name,
+                    given_names=current_user.first_name,
+                    email=current_user.email)
                 client_write.scope = SCOPE_AUTHENTICATE
                 authorization_url_authenticate, state = client_write.authorization_url(
                     AUTHORIZATION_BASE_URL, state)
@@ -492,6 +500,7 @@ def link():
                     orcid_url_write=orcid_url_write,
                     orcid_url_read_limited=orcid_url_read,
                     orcid_url_authenticate=orcid_url_authenticate,
+                    orcid_url_person_update=orcid_url_person_update,
                     error=error)
         oac = OrcidAuthorizeCall.create(
             user_id=current_user.id, method="GET", url=orcid_url_write, state=state)
@@ -622,7 +631,7 @@ def orcid_callback():
     app.logger.info("User %r authorized %r to have %r access to the profile "
                     "and now trying to update employment or education record", user,
                     user.organisation, scope)
-    if scope == SCOPE_READ_LIMITED[0] + "," + SCOPE_ACTIVITIES_UPDATE[0] and orcid_token_found:
+    if SCOPE_ACTIVITIES_UPDATE[0] in scope and orcid_token_found:
         api = orcid_client.MemberAPI(user=user, access_token=orcid_token.access_token)
 
         for a in Affiliation:
@@ -913,8 +922,19 @@ def orcid_login(invitation_token=None):
             if not user:
                 user = User.get(email=invitation.email)
 
-            # if we are able to find token then show the message of permission already given
-            if OrcidToken.select().where(OrcidToken.user == user, OrcidToken.org == org).exists():
+            scope_person_update_query = Task.select().where(Task.id == invitation.task_id).where(
+                Task.task_type == TaskType.RESEARCHER_URL)
+            if scope_person_update_query and OrcidToken.select().where(
+                    OrcidToken.user == user, OrcidToken.org == org,
+                    OrcidToken.scope.contains("/person/update")).exists():
+                flash(
+                    "You have already given permission with scope '/person/update' which allows organisation to write, "
+                    "update and delete items in the other-names, keywords, countries, researcher-urls, websites, "
+                    "and personal external identifiers sections of the record.Now you can simply login on orcidhub",
+                    "warning")
+                return redirect(url_for("index"))
+            elif not scope_person_update_query and OrcidToken.select().where(OrcidToken.user == user,
+                                                                             OrcidToken.org == org).exists():
                 flash("You have already given permission, you can simply login on orcidhub",
                       "warning")
                 return redirect(url_for("index"))
@@ -941,7 +961,10 @@ def orcid_login(invitation_token=None):
 
                 if org.orcid_client_id and not user_org.is_admin:
                     client_id = org.orcid_client_id
-                    orcid_scope = SCOPE_ACTIVITIES_UPDATE + SCOPE_READ_LIMITED
+                    if scope_person_update_query:
+                        orcid_scope = SCOPE_PERSON_UPDATE + SCOPE_READ_LIMITED
+                    else:
+                        orcid_scope = SCOPE_ACTIVITIES_UPDATE + SCOPE_READ_LIMITED
                 else:
                     orcid_scope += SCOPE_READ_LIMITED
 

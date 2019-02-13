@@ -31,6 +31,7 @@ TOKEN_URL = 'https://sandbox.orcid.org/oauth/token' if ENV != "prod" else "https
 SCOPE_ACTIVITIES_UPDATE = ['/activities/update']
 SCOPE_READ_LIMITED = ['/read-limited']
 SCOPE_AUTHENTICATE = ['/authenticate']
+SCOPE_PERSON_UPDATE = ['/person/update']
 
 # Database connection url
 DATABASE_URL = getenv("DATABASE_URL", "sqlite:///data.db")
