@@ -9,12 +9,12 @@ necessary for the application
 Usage
 ~~~~~
 
-1. create directories: ``mkdir -p archive/ pgdata/ data/redis/``
-1. create the environment conviguration file **.env** form **.env.sample**
-1. run application containers: ``docker-compose up -d``
-1. find container IP address:
-   ``docker inspect --format '{{.NetworkSettings.IPAddress}}' app``
-1. verify it’s running:
+ #. create directories: ``mkdir -p archive/ pgdata/ data/redis/``
+ #. create the environment conviguration file **.env** form **.env.sample**
+ #. run application containers: ``docker-compose up -d``
+ #. find container IP address:
+   ``docker inspect --format '{{.NetworkSettings.IPAddress}}' app`` 
+ #. verify it’s running:
    ``http $(docker inspect --format '{{.NetworkSettings.IPAddress}}' app)``
 
 Environment Variables
