@@ -314,10 +314,9 @@ def client(app):
     with app.test_client() as client:
         client.data = app.data
         yield client
-        if "EXTERNAL_SP" in app.config:
-            client.logout(follow_redirects=False)
-        else:
-            client.logout()
+    if "EXTERNAL_SP" in app.config:
+        del(app.config["EXTERNAL_SP"])
+    client.logout()
 
 
 @pytest.fixture
