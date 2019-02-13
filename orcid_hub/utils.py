@@ -22,6 +22,7 @@ from flask_login import current_user
 from html2text import html2text
 from itsdangerous import (BadSignature, SignatureExpired, TimedJSONWebSignatureSerializer)
 from jinja2 import Template
+from orcid_api.rest import ApiException
 from peewee import JOIN, SQL
 from yaml.dumper import Dumper
 from yaml.representer import SafeRepresenter
@@ -747,6 +748,102 @@ def unique_everseen(iterable, key=None):
             if k not in seen:
                 seen_add(k)
                 yield element
+
+
+def create_or_update_researcher_url(user, org_id, records, *args, **kwargs):
+    """Create or update researcher url record of a user."""
+    records = list(unique_everseen(records, key=lambda t: t.researcher_url_record.id))
+    org = Organisation.get(id=org_id)
+    client_id = org.orcid_client_id
+    profile_record = None
+    token = OrcidToken.select(OrcidToken.access_token).where(OrcidToken.user_id == user.id, OrcidToken.org_id == org.id,
+                                                             OrcidToken.scope.contains("/person/update")).first()
+    if token:
+        api = orcid_client.MemberAPI(org, user, access_token=token.access_token)
+        profile_record = api.get_record()
+    if profile_record:
+        activities = profile_record.get("person")
+
+        def is_org_rec(rec):
+            return (rec.get("source").get("source-client-id")
+                    and rec.get("source").get("source-client-id").get("path") == client_id)
+
+        researcher_urls = [
+            r for r in (activities.get("researcher-urls").get("researcher-url")) if is_org_rec(r)
+        ]
+
+        taken_put_codes = {
+            r.researcher_url_record.put_code
+            for r in records if r.researcher_url_record.put_code
+        }
+
+        def match_put_code(records, researcher_url_record):
+            """Match and assign put-code to the existing ORCID records."""
+            for r in records:
+                try:
+                    orcid, put_code = r.get('path').split("/")[-3::2]
+                except Exception:
+                    app.logger.exception("Failed to get ORCID iD/put-code from the response.")
+                    raise Exception("Failed to get ORCID iD/put-code from the response.")
+
+                if (r.get("url-name") == researcher_url_record.url_name
+                    and get_val(r, "url", "value") == researcher_url_record.url_value
+                    and get_val(r, "visibility") == researcher_url_record.visibility
+                    and get_val(r, "display-index") == researcher_url_record.display_index):         # noqa: E129
+                    researcher_url_record.put_code = put_code
+                    researcher_url_record.orcid = orcid
+                    return True
+
+                if researcher_url_record.put_code:
+                    return
+
+                if put_code in taken_put_codes:
+                    continue
+
+                if ((r.get("url-name") is None and get_val(r, "url", "value") is None)
+                    or (r.get("url-name") == researcher_url_record.url_name
+                        and get_val(r, "url", "value") == researcher_url_record.url_value)):
+                    researcher_url_record.put_code = put_code
+                    researcher_url_record.orcid = orcid
+                    taken_put_codes.add(put_code)
+                    app.logger.debug(
+                        f"put-code {put_code} was asigned to the researcher url record "
+                        f"(ID: {researcher_url_record.id}, Task ID: {researcher_url_record.task_id})")
+                    break
+
+        for task_by_user in records:
+            try:
+                rr = task_by_user.researcher_url_record
+                no_orcid_call = match_put_code(researcher_urls, rr)
+
+                if no_orcid_call:
+                    rr.add_status_line("Researcher url record unchanged.")
+                else:
+                    put_code, orcid, created = api.create_or_update_researcher_url(**rr._data)
+                    if created:
+                        rr.add_status_line("Researcher Url record was created.")
+                    else:
+                        rr.add_status_line("Researcher Url record was updated.")
+                    rr.orcid = orcid
+                    rr.put_code = put_code
+            except ApiException as ex:
+                if ex.status == 404:
+                    rr.put_code = None
+                elif ex.status == 401:
+                    token.delete_instance()
+                logger.exception(f'Exception occured {ex}')
+                rr.add_status_line(f"ApiException: {ex}")
+            except Exception as ex:
+                logger.exception(f"For {user} encountered exception")
+                rr.add_status_line(f"Exception occured processing the record: {ex}.")
+
+            finally:
+                rr.processed_at = datetime.utcnow()
+                rr.save()
+    else:
+        # TODO: Invitation resend in case user revokes organisation permissions
+        app.logger.debug(f"Should resend an invite to the researcher asking for permissions")
+        return
 
 
 def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
@@ -1480,8 +1577,8 @@ def process_researcher_url_records(max_rows=20):
                         status=f"Failed to send an invitation: {ex}.").where(
                             ResearcherUrlRecord.task_id == task_id, ResearcherUrlRecord.email == email,
                             ResearcherUrlRecord.processed_at.is_null())).execute()
-        # else:
-        # create_or_update_researcher_url(user, org_id, tasks_by_user)
+        else:
+            create_or_update_researcher_url(user, org_id, tasks_by_user)
         task_ids.add(task_id)
     for task in Task.select().where(Task.id << task_ids):
         # The task is completed (all recores are processed):
