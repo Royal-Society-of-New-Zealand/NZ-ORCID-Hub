@@ -109,9 +109,9 @@ class HubClient(FlaskClient):
         with open(f"output{self.resp_no:02d}.html", "wb") as output:
             output.write(self.resp.data)
 
-    def logout(self):
+    def logout(self, follow_redirects=True):
         """Perform log-out."""
-        resp = self.get("/logout", follow_redirects=True)
+        resp = self.get("/logout", follow_redirects=follow_redirects)
         _request_ctx_stack.pop()
         self.cookie_jar.clear()
         return resp
@@ -314,13 +314,10 @@ def client(app):
     with app.test_client() as client:
         client.data = app.data
         yield client
-        try:
-            if "EXTERNAL_SP" not in app.config:
-                client.logout()
-            else:
-                logout_user()
-        except:
-            pass
+        if "EXTERNAL_SP" in app.config:
+            client.logout(follow_redirects=False)
+        else:
+            client.logout()
 
 
 @pytest.fixture

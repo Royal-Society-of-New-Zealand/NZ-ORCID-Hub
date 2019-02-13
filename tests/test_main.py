@@ -114,7 +114,7 @@ def test_tuakiri_login(client):
         "Sn": "LAST NAME/SURNAME/FAMILY NAME",
         'Givenname': "FIRST NAME/GIVEN NAME",
         "Mail": "user@test.test.net",
-        "O": client.data["org"].name,
+        "O": "ORGANISATION 123",
         "Displayname": "TEST USER FROM 123",
         "Unscoped-Affiliation": "staff",
         "Eppn": "user@test.test.net"
