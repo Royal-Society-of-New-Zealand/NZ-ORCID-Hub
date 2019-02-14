@@ -38,6 +38,9 @@ services:
       - EXTERNAL_SP
     domainname: orcidhub.org.nz
     hostname: app
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
     volumes:
       - .:/src
       - .:/var/www/orcidhub/
@@ -50,14 +53,8 @@ services:
       - ./conf:/conf
     restart: always
     networks:
-        default:
-            ipv4_address: ${SUBNET}.0.99
-
-  webapp:
-    extends: app
-    ports:
-      - "80:80"
-      - "443:443"
+      default:
+        ipv4_address: ${SUBNET}.0.99
 
   redis:
     image: redis
@@ -65,8 +62,8 @@ services:
       - ./data/redis:/data
     restart: always
     networks:
-        default:
-            ipv4_address: ${SUBNET}.0.88
+      default:
+        ipv4_address: ${SUBNET}.0.88
 
   worker:
     image: orcidhub/app-dev
@@ -94,8 +91,8 @@ services:
     restart: always
 
 networks:
-    default:
-        ipam:
-            driver: default
-            config:
-                - subnet: ${SUBNET}.0.0/16
+  default:
+    ipam:
+      driver: default
+      config:
+        - subnet: ${SUBNET}.0.0/16
