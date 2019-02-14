@@ -35,6 +35,7 @@ services:
       - ORCID_CLIENT_SECRET
       - SENTRY_DSN
       - LOAD_TEST
+      - EXTERNAL_SP
     domainname: orcidhub.org.nz
     hostname: app
     volumes:
@@ -51,6 +52,12 @@ services:
     networks:
         default:
             ipv4_address: ${SUBNET}.0.99
+
+  webapp:
+    extends: app
+    ports:
+      - "80:80"
+      - "443:443"
 
   redis:
     image: redis
