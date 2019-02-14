@@ -225,18 +225,28 @@ def test_superuser_view_access(client):
     assert b"404" in resp.data
 
 
+def test_pyinfo(client):
+    """Test /pyinfo."""
+    app.config["PYINFO_TEST_42"] = "Life, the Universe and Everything"
+    client.login_root()
+    resp = client.get("/pyinfo")
+    assert b"PYINFO_TEST_42" in resp.data
+    assert b"Life, the Universe and Everything" in resp.data
+    with pytest.raises(Exception) as exinfo:
+        resp = client.get("/pyinfo/expected an exception")
+    assert str(exinfo.value) == "expected an exception"
+
+
 def test_access(request_ctx):
     """Test access to differente resources."""
     test_superuser = User.create(
         name="TEST SUPERUSER",
         email="super@test.test.net",
-        username="test42",
         confirmed=True,
         roles=Role.SUPERUSER)
     test_user = User.create(
         name="TEST SUPERUSER",
         email="user123456789@test.test.net",
-        username="test123456789",
         confirmed=True,
         roles=Role.RESEARCHER)
 
@@ -317,7 +327,6 @@ def test_user_orcid_id_url():
     u = User(
         email="test123@test.test.net",
         name="TEST USER",
-        username="test123",
         roles=Role.RESEARCHER,
         orcid="123",
         confirmed=True)
