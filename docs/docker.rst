@@ -16,10 +16,12 @@ Usage
 #. Install **git** and **docker-compose**: `sudo apt install -y git docker-compose`
 #. Clone the project repository: `git clone https://github.com/Royal-Society-of-New-Zealand/NZ-ORCID-Hub.git`
 #. Change the current directory: `cd NZ-ORCID-Hub`
-#. create the environment conviguration file **.env** from **.env.sample**
-#. run application containers: ``docker-compose up -d``
-#. find container IP address: ``docker inspect --format '{{.NetworkSettings.IPAddress}}' app``
-#. verify it’s running: ``http $(docker inspect --format '{{.NetworkSettings.IPAddress}}' app)``
+#. Create the environment conviguration file **.env** from **.env.sample**
+#. Generate SSL the server key and a self signed certificata, e.g., `./gen-keys/genkey.sh dev`
+#. Copy the generated files, e.g., **dev-server.key** and **dev-server.crt** into **.keys** directory
+#. Run application containers: ``docker-compose up -d webapp``
+#. Find container IP address: ``docker inspect --format '{{.NetworkSettings.IPAddress}}' app``
+#. Verify it’s running: ``http $(docker inspect --format '{{.NetworkSettings.IPAddress}}' app)``
 
 Environment Variables
 ~~~~~~~~~~~~~~~~~~~~~
