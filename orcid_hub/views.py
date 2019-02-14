@@ -41,7 +41,7 @@ from .forms import (ApplicationFrom, BitmapMultipleValueField, CredentialForm, E
 from .login_provider import roles_required
 from .models import (
     JOIN, Affiliation, AffiliationRecord, CharField, Client, ExternalId, File, FundingContributor,
-    FundingInvitees, FundingRecord, Grant, GroupIdRecord, ModelException, OrcidApiCall, OrcidToken,
+    FundingInvitees, FundingRecord, Grant, GroupIdRecord, ModelException, OtherNameRecord, OrcidApiCall, OrcidToken,
     Organisation, OrgInfo, OrgInvitation, PartialDate, PeerReviewExternalId, PeerReviewInvitee, PeerReviewRecord,
     ResearcherUrlRecord, Role, Task, TaskType, TextField, Token, Url, User, UserInvitation,
     UserOrg, UserOrgAffiliation, WorkContributor, WorkExternalId, WorkInvitees, WorkRecord, db, get_val)
@@ -691,7 +691,8 @@ to the best of your knowledge, correct!""")
                     count = PeerReviewInvitee.update(
                         processed_at=None, status=status).where(
                         PeerReviewInvitee.peer_review_record.in_(ids)).execute()
-                elif self.model == AffiliationRecord or self.model == ResearcherUrlRecord:
+                elif self.model == AffiliationRecord or \
+                        self.model == ResearcherUrlRecord or self.model == OtherNameRecord:
                     # Delete the userInvitation token for selected reset items.
                     for user_invitation in UserInvitation.select().where(UserInvitation.email.in_(
                             self.model.select(self.model.email).where(self.model.id.in_(ids)))):
@@ -715,6 +716,8 @@ to the best of your knowledge, correct!""")
                     flash(f"{count} Peer Review Invitee records were reset for batch processing.")
                 elif self.model == ResearcherUrlRecord:
                     flash(f"{count} Researcher Url records were reset for batch processing.")
+                elif self.model == OtherNameRecord:
+                    flash(f"{count} Other Name records were reset for batch processing.")
                 else:
                     flash(f"{count} Affiliation records were reset for batch processing.")
 
@@ -1493,6 +1496,12 @@ class ResearcherUrlRecordAdmin(AffiliationRecordAdmin):
     column_searchable_list = ("url_name", "first_name", "last_name", "email",)
 
 
+class OtherNameRecordAdmin(AffiliationRecordAdmin):
+    """Other Name record model view."""
+
+    column_searchable_list = ("content", "first_name", "last_name", "email",)
+
+
 class ViewMembersAdmin(AppModelView):
     """Organisation member model (User beloging to the current org.admin oganisation) view."""
 
@@ -1712,6 +1721,7 @@ admin.add_view(PeerReviewRecordAdmin())
 admin.add_view(PeerReviewInviteeAdmin())
 admin.add_view(PeerReviewExternalIdAdmin())
 admin.add_view(ResearcherUrlRecordAdmin())
+admin.add_view(OtherNameRecordAdmin())
 admin.add_view(ViewMembersAdmin(name="viewmembers", endpoint="viewmembers"))
 
 admin.add_view(UserOrgAmin(UserOrg))
@@ -1796,7 +1806,7 @@ def reset_all():
         try:
             status = "The record was reset at " + datetime.now().isoformat(timespec="seconds")
             tt = task.task_type
-            if tt == TaskType.AFFILIATION or tt == TaskType.RESEARCHER_URL:
+            if tt == TaskType.AFFILIATION or tt == TaskType.RESEARCHER_URL or tt == TaskType.OTHER_NAME:
                 count = task.record_model.update(processed_at=None, status=status).where(
                     task.record_model.task_id == task_id,
                     task.record_model.is_active == True).execute()  # noqa: E712
@@ -1859,6 +1869,8 @@ def reset_all():
                 flash(f"{count} Peer Review records were reset for batch processing.")
             elif task.task_type == 5:
                 flash(f"{count} Researcher Url records were reset for batch processing.")
+            elif task.task_type == 6:
+                flash(f"{count} Other Name records were reset for batch processing.")
             else:
                 flash(f"{count} Affiliation records were reset for batch processing.")
     return redirect(_url)
@@ -2520,6 +2532,29 @@ def load_researcher_urls():
             app.logger.exception("Failed to load researcher url records.")
 
     return render_template("fileUpload.html", form=form, title="Researcher Urls Info Upload")
+
+
+@app.route("/load/other/names", methods=["GET", "POST"])
+@roles_required(Role.ADMIN)
+def load_other_names():
+    """Preload Other Name data."""
+    form = FileUploadForm(extensions=["json", "yaml", "csv", "tsv"])
+    if form.validate_on_submit():
+        filename = secure_filename(form.file_.data.filename)
+        content_type = form.file_.data.content_type
+        try:
+            if content_type in ["text/tab-separated-values", "text/csv"]:
+                task = OtherNameRecord.load_from_csv(
+                    read_uploaded_file(form), filename=filename)
+            else:
+                task = OtherNameRecord.load_from_json(read_uploaded_file(form), filename=filename)
+            flash(f"Successfully loaded {task.record_count} rows.")
+            return redirect(url_for("othernamerecord.index_view", task_id=task.id))
+        except Exception as ex:
+            flash(f"Failed to load Other Name record file: {ex.args}", "danger")
+            app.logger.exception("Failed to load Other Name records.")
+
+    return render_template("fileUpload.html", form=form, title="Other Names Info Upload")
 
 
 @app.route("/orcid_api_rep", methods=["GET", "POST"])

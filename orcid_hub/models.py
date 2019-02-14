@@ -241,6 +241,7 @@ class TaskType(IntEnum):
     WORK = 2
     PEER_REVIEW = 3
     RESEARCHER_URL = 5
+    OTHER_NAME = 6
     SYNC = 11
 
     def __eq__(self, other):
@@ -2333,6 +2334,87 @@ class ResearcherUrlRecord(RecordModel):
         table_alias = "ru"
 
 
+class OtherNameRecord(RecordModel):
+    """Other Name record loaded from Json file for batch processing."""
+
+    task = ForeignKeyField(Task, related_name="other_name_records", on_delete="CASCADE")
+    content = CharField(max_length=255)
+    display_index = IntegerField(null=True)
+    email = CharField(max_length=120)
+    first_name = CharField(max_length=120)
+    last_name = CharField(max_length=120)
+    orcid = OrcidIdField(null=True)
+    put_code = IntegerField(null=True)
+    visibility = CharField(null=True, max_length=100)
+    is_active = BooleanField(
+        default=False, help_text="The record is marked for batch processing", null=True)
+    processed_at = DateTimeField(null=True)
+    status = TextField(null=True, help_text="Record processing status.")
+
+    @classmethod
+    def load_from_csv(cls, source, filename=None, org=None):
+        """Load data from CSV/TSV file or a string."""
+        pass
+
+    @classmethod
+    def load_from_json(cls, source, filename=None, org=None, task=None):
+        """Load data from JSON file or a string."""
+        # import data from file based on its extension; either it is YAML or JSON
+        data = load_yaml_json(filename=filename, source=source)
+        records = data["records"] if isinstance(data, dict) else data
+
+        for r in records:
+            validation_source_data = copy.deepcopy(r)
+            validation_source_data = del_none(validation_source_data)
+
+            # TODO: validation of other name upload.
+            """validator = Core(
+                source_data=validation_source_data,
+                schema_files=[os.path.join(SCHEMA_DIR, "other_name_schema.yaml")])
+            validator.validate(raise_exception=True)"""
+
+        with db.atomic():
+            try:
+                if org is None:
+                    org = current_user.organisation if current_user else None
+                if not task:
+                    task = Task.create(org=org, filename=filename, task_type=TaskType.OTHER_NAME)
+                # else:
+                #   OtherNameRecord.delete().where(OtherNameRecord.task == task).execute()
+
+                for r in records:
+                    content = r.get("content")
+                    display_index = r.get("display-index")
+                    email = r.get("email")
+                    first_name = r.get("first-name")
+                    last_name = r.get("last-name")
+                    orcid_id = r.get("ORCID-iD") or r.get("orcid")
+                    put_code = r.get("put-code")
+                    visibility = r.get("visibility")
+
+                    cls.create(
+                        task=task,
+                        content=content,
+                        display_index=display_index,
+                        email=email.lower(),
+                        first_name=first_name,
+                        last_name=last_name,
+                        orcid=orcid_id,
+                        visibility=visibility,
+                        put_code=put_code)
+
+                return task
+
+            except Exception:
+                db.rollback()
+                app.logger.exception("Failed to load Other Name Record file.")
+                raise
+
+    class Meta:  # noqa: D101,D106
+        db_table = "other_name_record"
+        table_alias = "onr"
+
+
 class WorkRecord(RecordModel):
     """Work record loaded from Json file for batch processing."""
 
@@ -3099,6 +3181,7 @@ def create_tables():
             PeerReviewInvitee,
             PeerReviewExternalId,
             ResearcherUrlRecord,
+            OtherNameRecord,
             Client,
             Grant,
             Token,
@@ -3126,7 +3209,7 @@ def create_audit_tables():
 
 def drop_tables():
     """Drop all model tables."""
-    for m in (File, User, UserOrg, OrcidToken, UserOrgAffiliation, OrgInfo, OrgInvitation,
+    for m in (File, User, UserOrg, OtherNameRecord, OrcidToken, UserOrgAffiliation, OrgInfo, OrgInvitation,
               OrcidApiCall, OrcidAuthorizeCall, FundingContributor, FundingInvitees, FundingRecord,
               PeerReviewInvitee, PeerReviewExternalId, PeerReviewRecord, ResearcherUrlRecord,
               WorkInvitees, WorkExternalId, WorkContributor, WorkRecord, AffiliationRecord, ExternalId, Url,
