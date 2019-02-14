@@ -56,7 +56,7 @@ chown root /etc/pki/tls/certs/server.crt
 cp /.keys/CA.crt /etc/pki/tls/certs/CA.crt
 chown root /etc/pki/tls/certs/CA.crt
 
-if [ -z "$EXTERNAL_SP"] ; then
+if [ -z "$EXTERNAL_SP" ] ; then
     cp /.keys/${ENV}-sp.key /etc/shibboleth/sp-key.pem
     cp /./.keys/${ENV}-sp.crt /etc/shibboleth/sp-cert.pem
     if [ ! -f /etc/shibboleth/sp-key.pem ] || [ ! -f /etc/shibboleth/sp-cert.pem ] ; then

@@ -7,7 +7,7 @@ services:
     environment:
       - PGPASSWORD
       - POSTGRES_PASSWORD="${PGPASSWORD:-p455w0rd}"
-    domainname: orcidhub.org.nz
+    domainname: ${DOMAINNAME:-orcidhub.org.nz}
     hostname: db
     ports:
       - "${PGPORT:-5432}:5432"
@@ -28,7 +28,7 @@ services:
     image: orcidhub/app-dev
     environment:
       - ENV
-      - SHIB_SP_DOMAINNAME
+      # - SHIB_SP_DOMAINNAME
       - MAIL_DEFAULT_SENDER
       - SECRET_KEY
       - ORCID_CLIENT_ID
@@ -36,7 +36,7 @@ services:
       - SENTRY_DSN
       - LOAD_TEST
       - EXTERNAL_SP
-    domainname: orcidhub.org.nz
+    domainname: ${DOMAINNAME:-orcidhub.org.nz}
     hostname: app
     ports:
       - "${HTTP_PORT:-80}:80"
