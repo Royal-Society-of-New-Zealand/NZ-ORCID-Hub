@@ -25,7 +25,6 @@ from jinja2 import Template
 from peewee import JOIN, SQL
 from yaml.dumper import Dumper
 from yaml.representer import SafeRepresenter
-from urllib.parse import urlparse
 
 from . import app, orcid_client, rq
 from .models import (AFFILIATION_TYPES, Affiliation, AffiliationRecord, Delegate, FundingInvitees,
