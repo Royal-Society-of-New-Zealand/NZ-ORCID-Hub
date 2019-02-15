@@ -25,9 +25,10 @@ from jinja2 import Template
 from peewee import JOIN, SQL
 from yaml.dumper import Dumper
 from yaml.representer import SafeRepresenter
+from urllib.parse import urlparse
 
 from . import app, orcid_client, rq
-from .models import (AFFILIATION_TYPES, Affiliation, AffiliationRecord, FundingInvitees,
+from .models import (AFFILIATION_TYPES, Affiliation, AffiliationRecord, Delegate, FundingInvitees,
                      FundingRecord, Log, OrcidToken, Organisation, OrgInvitation, PartialDate,
                      PeerReviewExternalId, PeerReviewInvitee, PeerReviewRecord, Role, Task,
                      TaskType, User, UserInvitation, UserOrg, WorkInvitees, WorkRecord, get_val)
@@ -50,6 +51,13 @@ def get_next_url():
     if _next and ("orcidhub.org.nz" in _next or _next.startswith("/") or "127.0" in _next
                   or "c9users.io" in _next):
         return _next
+
+    try:
+        if Delegate.select().where(Delegate.hostname ** f"%{urlparse(_next).netloc}%").exists():
+            return _next
+    except:
+        pass
+
     return None
 
 
