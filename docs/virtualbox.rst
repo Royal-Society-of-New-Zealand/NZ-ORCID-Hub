@@ -1,5 +1,5 @@
-#. Download Ubutnu Server ISO: 
-#. Create VM with NAT (Adapter 1) and Host-only Adapter (Adapter 2) networking settings;
+#. Download Ubutnu Server ISO: https://www.ubuntu.com/download/server
+#. Create VM with a NAT (Adapter 1) and a Host-only Adapter (Adapter 2) networking settings;
 #. (Optional) if you want to provide access to your VM form the "outside world", you need to add a "Bridge Adatpter" and ensure that you firewall allows connections to you host machine (port 80 and 443).
 #. Mount the CD media (Ubuntu Server ISO), start up VM and install the server system;
 #. Loging and install the extension pack and VM exensions on your server following https://www.mobilefish.com/developer/virtualbox/virtualbox_quickguide_install_virtualbox_guest_editions_ubuntu.html
