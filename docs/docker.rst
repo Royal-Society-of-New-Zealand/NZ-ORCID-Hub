@@ -12,6 +12,9 @@ Application Docker Image (`orcidhub/app`_) is packaged with:
 
 Usage
 ~~~~~
+
+The following steps will set up a local ORCID Hub application instance using docker.
+
 #. Install **docker** following the instruction at https://docs.docker.com/install/linux/docker-ce/ubuntu/
 #. Install **git** and **docker-compose**: `sudo apt install -y git docker-compose`
 #. Clone the project repository: `git clone https://github.com/Royal-Society-of-New-Zealand/NZ-ORCID-Hub.git`
@@ -21,8 +24,8 @@ Usage
 #. Generate SSL the server key and a self signed certificata in **.keys** directory, e.g., `cd .keys; ./gen-keys/genkey.sh dev.orcidhub.org.nz; cd -`
 #. Create PostgreSQL instace folder and set up permissions: `mkdir pgdata; chmod 700 pgdata`
 #. Run application containers: ``docker-compose up -d``
-#. Find container IP address: ``docker inspect --format '{{.NetworkSettings.IPAddress}}' app``
-#. Verify it’s running: ``http $(docker inspect --format '{{.NetworkSettings.IPAddress}}' app)``
+#. Register a Hub administrator, e.g., ``docker-compose exec app ./flask.sh cradmin -V  rad42@mailinator.com`
+#. Open the Hub Appliction in a browser using http://localhost.
 
 Environment Variables
 ~~~~~~~~~~~~~~~~~~~~~
@@ -46,5 +49,5 @@ PGPASSWORD                  PostgreSQL password
 PGPORT                      The port on which PostgreSQL should be mapped to (should be unique) (default: 5432)
 SECRET_KEY                  Hub secret key for data encryption
 SENTRY_DSN                  Sentry DSN (optional)
-SUBNET                      2 first octets (it should be unique for each enviroment run on the same machine), e.g., *172.33*
+SUBNET                      2 first octets (it should be unique for each enviroment run on the same machine), (default: *172.33*)
 ==========================  ==================
