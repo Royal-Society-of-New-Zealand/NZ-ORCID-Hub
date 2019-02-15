@@ -18,7 +18,7 @@ services:
       - ./backup:/backup
       - ./archive:/archive
       - ${HOME}:${HOME}
-    user: "${USER_UID:-500}:${USER_GID:-500}"
+    user: "${UID:-500}:${GID:-500}"
     restart: always
 
   app:
