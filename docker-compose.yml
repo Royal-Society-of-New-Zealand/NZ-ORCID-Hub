@@ -54,7 +54,7 @@ services:
     restart: always
     networks:
       default:
-        ipv4_address: ${SUBNET}.0.99
+        ipv4_address: ${SUBNET:-172.33}.0.99
 
   redis:
     image: redis
@@ -63,7 +63,7 @@ services:
     restart: always
     networks:
       default:
-        ipv4_address: ${SUBNET}.0.88
+        ipv4_address: ${SUBNET:-172.33}.0.88
 
   worker:
     image: orcidhub/app-dev
@@ -95,4 +95,4 @@ networks:
     ipam:
       driver: default
       config:
-        - subnet: ${SUBNET}.0.0/16
+        - subnet: ${SUBNET:-172.33}.0.0/16
