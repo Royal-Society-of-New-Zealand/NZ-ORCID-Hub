@@ -16,7 +16,7 @@ before_install:
 
 install:
   - gen-keys/genkey.sh $DOMAIN
-  - ll
+  - ls -l
   - for t in sp server; do cp build*.key .keys/${ENV}-$t.key; cp build*.crt .keys/${ENV}-$t.crt; done
   - mkdir pgdata
   - export UID
