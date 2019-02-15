@@ -769,9 +769,9 @@ class User(BaseModel, UserMixin, AuditMixin):
     def is_superuser(self, value):  # noqa: D401
         """Sets user as a HUB admin."""
         if value:
-            self.roles |= Role.SUPERUSER
+            self.roles |= Role.SUPERUSER.value
         else:
-            self.roles &= ~Role.SUPERUSER
+            self.roles &= ~Role.SUPERUSER.value
 
     @property
     def is_admin(self):
