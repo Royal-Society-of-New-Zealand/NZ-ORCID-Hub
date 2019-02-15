@@ -922,8 +922,10 @@ def orcid_login(invitation_token=None):
             if not user:
                 user = User.get(email=invitation.email)
 
-            scope_person_update_query = Task.select().where(Task.id == invitation.task_id).where(
-                Task.task_type == TaskType.RESEARCHER_URL)
+            scope_person_update_query = Task.select().where(
+                Task.id == invitation.task_id, Task.task_type == TaskType.RESEARCHER_URL) or Task.select().where(
+                Task.id == invitation.task_id, Task.task_type == TaskType.OTHER_NAME)
+
             if scope_person_update_query and OrcidToken.select().where(
                     OrcidToken.user == user, OrcidToken.org == org,
                     OrcidToken.scope.contains("/person/update")).exists():
@@ -1170,6 +1172,11 @@ def orcid_login_callback(request):
                 data = json.loads(api_response.data)
                 if data and data.get("email") and any(
                         e.get("email").lower() == email for e in data.get("email")):
+                    # Check if it is an org_invitation or user_invitation.
+                    if not hasattr(invitation, "tech_contact"):
+                        flash(f"Your are an Administrator of '{org}'.So you dont have to invite yourself "
+                              f"like a researcher. Just go to 'Your ORCID' tab to give permissions", "warning")
+                        return redirect(url_for("about"))
                     if invitation.tech_contact and org.tech_contact != user:
                         org.tech_contact = user
                         org.save()

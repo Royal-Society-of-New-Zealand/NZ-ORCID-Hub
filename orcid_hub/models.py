@@ -2275,20 +2275,10 @@ class ResearcherUrlRecord(RecordModel):
     @classmethod
     def load_from_json(cls, source, filename=None, org=None, task=None):
         """Load data from JSON file or a string."""
-        # import data from file based on its extension; either it is YAML or JSON
         data = load_yaml_json(filename=filename, source=source)
         records = data["records"] if isinstance(data, dict) else data
 
-        for r in records:
-            validation_source_data = copy.deepcopy(r)
-            validation_source_data = del_none(validation_source_data)
-
-            # TODO: validation of researcher url upload.
-            """validator = Core(
-                source_data=validation_source_data,
-                schema_files=[os.path.join(SCHEMA_DIR, "researcher_url_schema.yaml")])
-            validator.validate(raise_exception=True)"""
-
+        # TODO: validation of researcher url upload.
         with db.atomic():
             try:
                 if org is None:
@@ -2359,20 +2349,10 @@ class OtherNameRecord(RecordModel):
     @classmethod
     def load_from_json(cls, source, filename=None, org=None, task=None):
         """Load data from JSON file or a string."""
-        # import data from file based on its extension; either it is YAML or JSON
         data = load_yaml_json(filename=filename, source=source)
         records = data["records"] if isinstance(data, dict) else data
 
-        for r in records:
-            validation_source_data = copy.deepcopy(r)
-            validation_source_data = del_none(validation_source_data)
-
-            # TODO: validation of other name upload.
-            """validator = Core(
-                source_data=validation_source_data,
-                schema_files=[os.path.join(SCHEMA_DIR, "other_name_schema.yaml")])
-            validator.validate(raise_exception=True)"""
-
+        # TODO: Add validation of other name upload.
         with db.atomic():
             try:
                 if org is None:
