@@ -693,6 +693,11 @@ class User(BaseModel, UserMixin, AuditMixin):
         return self.name or self.email or self.orcid or super().__repr__()
 
     @property
+    def username(self):
+        """Usename for comlying with Flask-Login API"""
+        return self.orcid or self.email
+
+    @property
     def organisations(self):
         """Get all linked to the user organisation query."""
         return (Organisation.select(

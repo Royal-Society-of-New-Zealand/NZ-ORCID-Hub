@@ -13,8 +13,8 @@ from io import BytesIO
 import requests
 import tablib
 import yaml
-from flask import (Response, abort, flash, g, jsonify, redirect, render_template, request,
-                   send_file, send_from_directory, stream_with_context, url_for)
+from flask import (Response, abort, flash, jsonify, redirect, render_template, request, send_file,
+                   send_from_directory, stream_with_context, url_for)
 from flask_admin._compat import csv_encode
 from flask_admin.actions import action
 from flask_admin.babel import gettext
@@ -33,7 +33,7 @@ from flask_rq2.job import FlaskJob
 
 from orcid_api.rest import ApiException
 
-from . import admin, app, limiter, models, orcid_client, rq, utils
+from . import admin, app, limiter, models, orcid_client, rq, utils, SENTRY_DSN
 from .apis import yamlfy
 from .forms import (ApplicationFrom, BitmapMultipleValueField, CredentialForm, EmailTemplateForm,
                     FileUploadForm, FundingForm, GroupIdForm, LogoForm, OrgRegistrationForm, PartialDateField,
@@ -95,15 +95,14 @@ def page_not_found(e):
 def internal_error(error):
     """Handle internal error."""
     trace = traceback.format_exc()
-    try:
-        from . import sentry
+    if SENTRY_DSN:
+        from sentry_sdk import last_event_id
         return render_template(
             "500.html",
             trace=trace,
             error_message=str(error),
-            event_id=g.sentry_event_id,
-            public_dsn=sentry.client.get_public_dsn("https"))
-    except:
+            sentry_event_id=last_event_id())
+    else:
         return render_template("500.html", trace=trace, error_message=str(error))
 
 
@@ -137,10 +136,13 @@ def status():
         }), 503  # Service Unavailable
 
 
+@app.route("/pyinfo/<message>")
 @app.route("/pyinfo")
 @roles_required(Role.SUPERUSER)
-def pyinfo():
-    """Show Python and runtime environment and settings."""
+def pyinfo(message=None):
+    """Show Python and runtime environment and settings or test exeption handling."""
+    if message:
+        raise Exception(message)
     return render_template("pyinfo.html", **info)
 
 
@@ -1514,6 +1516,16 @@ class ViewMembersAdmin(AppModelView):
     def get_query(self):
         """Get quiery for the user belonging to the organistation of the current user."""
         return current_user.organisation.users
+
+    def _order_by(self, query, joins, order):
+        """Add ID for determenistic order of rows if sorting is by NULLable field."""
+        query, joins = super()._order_by(query, joins, order)
+        # add ID only if all fields are NULLable (exlcude ones given by str):
+        if all(not isinstance(f, str) and f.null for (f, _) in order):
+            clauses = query._order_by
+            clauses.append(self.model.id.desc() if order[0][1] else self.model.id)
+            query = query.order_by(*clauses)
+        return query, joins
 
     def get_one(self, id):
         """Limit access only to the userers belonging to the current organisation."""

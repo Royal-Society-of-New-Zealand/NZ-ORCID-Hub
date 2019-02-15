@@ -75,7 +75,6 @@ def test_track_event(request_ctx):
     u = User.create(
         email="test123@test.test.net",
         name="TEST USER",
-        username="test123",
         roles=Role.RESEARCHER,
         confirmed=True)
 
@@ -114,7 +113,6 @@ def test_send_user_invitation(app, mocker):
     inviter = User.create(
         email="test123@mailinator.com",
         name="TEST USER",
-        username="test123",
         roles=Role.RESEARCHER,
         orcid=None,
         confirmed=True,
@@ -127,7 +125,6 @@ def test_send_user_invitation(app, mocker):
     u = User.create(
         email=email,
         name="TEST USER",
-        username="test123",
         roles=Role.RESEARCHER,
         orcid=None,
         confirmed=True,
@@ -172,7 +169,6 @@ def test_send_work_funding_peer_review_invitation(app, mocker):
     inviter = User.create(
         email="test1as237@mailinator.com",
         name="TEST USER",
-        username="test123",
         roles=Role.RESEARCHER,
         orcid=None,
         confirmed=True,
@@ -182,7 +178,6 @@ def test_send_work_funding_peer_review_invitation(app, mocker):
     u = User.create(
         email=email,
         name="TEST USER",
-        username="test123",
         roles=Role.RESEARCHER,
         orcid=None,
         confirmed=True,
@@ -227,7 +222,6 @@ def test_create_or_update_funding(app, mocker):
     u = User.create(
         email="test1234456@mailinator.com",
         name="TEST USER",
-        username="test123",
         roles=Role.RESEARCHER,
         orcid="123",
         confirmed=True,
@@ -295,7 +289,6 @@ def test_create_or_update_work(request_ctx, mocker):
     u = User.create(
         email="test1234456@mailinator.com",
         name="TEST USER",
-        username="test123",
         roles=Role.RESEARCHER,
         orcid="12344",
         confirmed=True,
@@ -363,7 +356,6 @@ def test_create_or_update_peer_review(request_ctx, mocker):
     u = User.create(
         email="test1234456@mailinator.com",
         name="TEST USER",
-        username="test123",
         roles=Role.RESEARCHER,
         orcid="12344",
         confirmed=True,
@@ -437,7 +429,6 @@ def test_create_or_update_affiliation(send_email, update_employment, create_empl
     u = User.create(
         email="test1234456@mailinator.com",
         name="TEST USER",
-        username="test123",
         roles=Role.RESEARCHER,
         orcid="123",
         confirmed=True,
@@ -457,7 +448,6 @@ def test_create_or_update_affiliation(send_email, update_employment, create_empl
     u = User.create(
         email="test1234456_2@mailinator.com",
         name="TEST USER 2",
-        username="test123-2",
         roles=Role.RESEARCHER,
         confirmed=True,
         organisation=org)
@@ -709,7 +699,6 @@ def test_sync_profile(app, mocker):
     u = User.create(
         email="test1234456@mailinator.com",
         name="TEST USER",
-        username="test123",
         roles=Role.RESEARCHER,
         orcid="12344",
         confirmed=True,

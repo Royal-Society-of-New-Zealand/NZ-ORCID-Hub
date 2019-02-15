@@ -900,7 +900,7 @@ def orcid_login(invitation_token=None):
     try:
         orcid_scope = SCOPE_AUTHENTICATE[:]
 
-        client_id = app.config["ORCID_CLIENT_ID"]
+        client_id = app.config.get("ORCID_CLIENT_ID")
         if invitation_token:
             invitation = UserInvitation.select().where(
                 UserInvitation.token == invitation_token).first() or OrgInvitation.select().where(
@@ -954,7 +954,7 @@ def orcid_login(invitation_token=None):
                 return redirect(url_for("index"))
 
         external_sp = app.config.get("EXTERNAL_SP")
-        if external_sp:
+        if external_sp and not client_id:
             sp_url = urlparse(external_sp)
             u = Url.shorten(redirect_uri)
             redirect_uri = url_for("short_url", short_id=u.short_id, _external=True)
