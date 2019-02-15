@@ -19,7 +19,8 @@ Usage
 #. Create the environment conviguration file **.env** from **.env.sample**
 #. Set up environment variables UID and GID: `export GID=$(id -g) UID`
 #. Generate SSL the server key and a self signed certificata in **.keys** directory, e.g., `cd .keys; ./gen-keys/genkey.sh dev.orcidhub.org.nz; cd -`
-#. Run application containers: ``docker-compose up -d webapp``
+#. Create PostgreSQL instace folder and set up permissions: `mkdir pgdata; chmod 700 pgdata`
+#. Run application containers: ``docker-compose up -d``
 #. Find container IP address: ``docker inspect --format '{{.NetworkSettings.IPAddress}}' app``
 #. Verify it’s running: ``http $(docker inspect --format '{{.NetworkSettings.IPAddress}}' app)``
 
