@@ -16,6 +16,7 @@ before_install:
 
 install:
   - gen-keys/genkey.sh $DOMAIN
+  - ll
   - for t in sp server; do cp build*.key .keys/${ENV}-$t.key; cp build*.crt .keys/${ENV}-$t.crt; done
   - mkdir pgdata
   - docker-compose up -d
