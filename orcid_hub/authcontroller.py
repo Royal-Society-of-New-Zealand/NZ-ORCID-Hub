@@ -922,21 +922,23 @@ def orcid_login(invitation_token=None):
             if not user:
                 user = User.get(email=invitation.email)
 
-            scope_person_update_query = Task.select().where(
-                Task.id == invitation.task_id, Task.task_type == TaskType.RESEARCHER_URL) or Task.select().where(
-                Task.id == invitation.task_id, Task.task_type == TaskType.OTHER_NAME)
+            is_scope_person_update = False
+            if hasattr(invitation, "task_id"):
+                is_scope_person_update = Task.select().where(
+                    Task.id == invitation.task_id, Task.task_type == TaskType.RESEARCHER_URL).exists() or Task.select()\
+                    .where(Task.id == invitation.task_id, Task.task_type == TaskType.OTHER_NAME).exists()
 
-            if scope_person_update_query and OrcidToken.select().where(
+            if is_scope_person_update and OrcidToken.select().where(
                     OrcidToken.user == user, OrcidToken.org == org,
                     OrcidToken.scope.contains("/person/update")).exists():
                 flash(
                     "You have already given permission with scope '/person/update' which allows organisation to write, "
                     "update and delete items in the other-names, keywords, countries, researcher-urls, websites, "
-                    "and personal external identifiers sections of the record.Now you can simply login on orcidhub",
+                    "and personal external identifiers sections of the record. Now you can simply login on orcidhub",
                     "warning")
                 return redirect(url_for("index"))
-            elif not scope_person_update_query and OrcidToken.select().where(OrcidToken.user == user,
-                                                                             OrcidToken.org == org).exists():
+            elif not is_scope_person_update and OrcidToken.select().where(
+                    OrcidToken.user == user, OrcidToken.org == org).exists():
                 flash("You have already given permission, you can simply login on orcidhub",
                       "warning")
                 return redirect(url_for("index"))
@@ -963,7 +965,7 @@ def orcid_login(invitation_token=None):
 
                 if org.orcid_client_id and not user_org.is_admin:
                     client_id = org.orcid_client_id
-                    if scope_person_update_query:
+                    if is_scope_person_update:
                         orcid_scope = SCOPE_PERSON_UPDATE + SCOPE_READ_LIMITED
                     else:
                         orcid_scope = SCOPE_ACTIVITIES_UPDATE + SCOPE_READ_LIMITED
