@@ -62,7 +62,7 @@ def utility_processor():  # noqa: D202
         external_sp = app.config.get("EXTERNAL_SP")
         if external_sp:
             session["auth_secret"] = secret_token = secrets.token_urlsafe()
-            _next = url_for("handle_login", _next=_next, _external=True)
+            _next = url_for("sso-login", _next=_next, _external=True)
             login_url = append_qs(external_sp, _next=_next, key=secret_token)
         else:
             login_url = url_for("handle_login", _next=_next)
@@ -137,7 +137,7 @@ def get_attributes(key):
     return data
 
 
-@app.route("/sso/login")
+@app.route("/sso/login", endpoint="sso-login")
 @app.route("/Tuakiri/login")
 def handle_login():
     """Shibboleth and Rapid Connect authenitcation handler.
