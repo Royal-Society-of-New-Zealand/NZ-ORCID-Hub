@@ -441,7 +441,6 @@ def test_sync_profile(app, mocker):
     u = User.create(
         email="test1234456@mailinator.com",
         name="TEST USER",
-        username="test123",
         roles=Role.RESEARCHER,
         orcid="12344",
         confirmed=True,

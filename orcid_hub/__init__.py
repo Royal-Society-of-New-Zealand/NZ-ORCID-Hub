@@ -27,7 +27,8 @@ from peewee import PostgresqlDatabase
 from playhouse import db_url
 from playhouse.shortcuts import RetryOperationalError
 # disable Sentry if there is no SENTRY_DSN:
-from raven.contrib.flask import Sentry
+import sentry_sdk
+from sentry_sdk.integrations.flask import FlaskIntegration
 
 from . import config
 from .failover import PgDbWithFailover
@@ -169,11 +170,14 @@ data_api = DataRestAPI(app, prefix="/data/api/v0.1", default_auth=default_auth, 
 admin = Admin(
     app, name="NZ ORCiD Hub", template_mode="bootstrap3", base_template="admin/master.html")
 
-# https://sentry.io/orcid-hub/nz-orcid-hub-dev/getting-started/python-flask/
 SENTRY_DSN = app.config.get("SENTRY_DSN")
 if SENTRY_DSN:
-    sentry = Sentry(
-        app, dsn=SENTRY_DSN, logging=True, level=logging.DEBUG if app.debug else logging.WARNING)
+    sentry_sdk.init(
+        SENTRY_DSN,
+        integrations=[FlaskIntegration()],
+        debug=app.debug,
+        environment=app.config.get("ENV"),
+        send_default_pii=True)
 
 login_manager = LoginManager()
 login_manager.login_view = "index"

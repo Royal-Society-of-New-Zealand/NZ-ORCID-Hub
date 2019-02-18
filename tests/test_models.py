@@ -9,10 +9,10 @@ from playhouse.test_utils import test_database
 from orcid_hub.models import (
     Affiliation, AffiliationRecord, BaseModel, BooleanField, ExternalId, File, ForeignKeyField,
     FundingContributor, FundingRecord, FundingInvitees, ModelException, OrcidToken, Organisation,
-    OrgInfo, PartialDate, PartialDateField, Role, Task, Log, TextField, User, UserInvitation,
-    UserOrg, UserOrgAffiliation, WorkRecord, WorkContributor, WorkExternalId, WorkInvitees,
-    PeerReviewRecord, PeerReviewInvitee, PeerReviewExternalId, create_tables, drop_tables,
-    validate_orcid_id)
+    OrgInfo, PartialDate, PartialDateField, Role, Task, TaskType, TaskTypeField, Log, TextField,
+    User, UserInvitation, UserOrg, UserOrgAffiliation, WorkRecord, WorkContributor, WorkExternalId,
+    WorkInvitees, PeerReviewRecord, PeerReviewInvitee, PeerReviewExternalId, create_tables,
+    drop_tables, validate_orcid_id)
 
 
 @pytest.fixture
@@ -439,6 +439,29 @@ def test_partial_date():
 
     pd = PartialDate()
     assert str(pd) == ""
+
+
+def test_task_type_field():
+
+    db = SqliteDatabase(":memory:")
+
+    class TestModel(Model):
+        tt = TaskTypeField(null=True)
+
+        class Meta:
+            database = db
+
+    TestModel.create_table()
+    for v in TaskType:
+        TestModel.create(tt=v)
+        TestModel.create(tt=str(v.value))
+        TestModel.create(tt=v.value)
+        TestModel.create(tt=v.name)
+    TestModel(pf=None).save()
+    res = {r[0]:r[1] for r in db.execute_sql(
+        "SELECT tt, count(*) AS rc FROM testmodel GROUP BY tt ORDER BY 1").fetchall()}
+    assert all(res[v.value] == 4 for v in TaskType)
+    assert res[None] == 1
 
 
 def test_pd_field():

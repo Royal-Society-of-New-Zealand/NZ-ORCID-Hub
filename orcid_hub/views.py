@@ -13,8 +13,8 @@ from io import BytesIO
 import requests
 import tablib
 import yaml
-from flask import (Response, abort, flash, g, jsonify, redirect, render_template, request,
-                   send_file, send_from_directory, stream_with_context, url_for)
+from flask import (Response, abort, flash, jsonify, redirect, render_template, request, send_file,
+                   send_from_directory, stream_with_context, url_for)
 from flask_admin._compat import csv_encode
 from flask_admin.actions import action
 from flask_admin.babel import gettext
@@ -33,7 +33,7 @@ from flask_rq2.job import FlaskJob
 
 from orcid_api.rest import ApiException
 
-from . import admin, app, limiter, models, orcid_client, rq, utils
+from . import admin, app, limiter, models, orcid_client, rq, utils, SENTRY_DSN
 from .apis import yamlfy
 from .forms import (ApplicationFrom, BitmapMultipleValueField, CredentialForm, EmailTemplateForm,
                     FileUploadForm, FundingForm, GroupIdForm, LogoForm, OrgRegistrationForm, PartialDateField,
@@ -94,15 +94,14 @@ def page_not_found(e):
 def internal_error(error):
     """Handle internal error."""
     trace = traceback.format_exc()
-    try:
-        from . import sentry
+    if SENTRY_DSN:
+        from sentry_sdk import last_event_id
         return render_template(
             "500.html",
             trace=trace,
             error_message=str(error),
-            event_id=g.sentry_event_id,
-            public_dsn=sentry.client.get_public_dsn("https"))
-    except:
+            sentry_event_id=last_event_id())
+    else:
         return render_template("500.html", trace=trace, error_message=str(error))
 
 
@@ -136,10 +135,13 @@ def status():
         }), 503  # Service Unavailable
 
 
+@app.route("/pyinfo/<message>")
 @app.route("/pyinfo")
 @roles_required(Role.SUPERUSER)
-def pyinfo():
-    """Show Python and runtime environment and settings."""
+def pyinfo(message=None):
+    """Show Python and runtime environment and settings or test exeption handling."""
+    if message:
+        raise Exception(message)
     return render_template("pyinfo.html", **info)
 
 
@@ -541,7 +543,7 @@ class TaskAdmin(AppModelView):
         filters.FilterEqual(column=Task.task_type, options=models.TaskType.options(), name="Task Type"),
     )
     column_formatters = dict(
-        task_type=lambda v, c, m, p: models.TaskType(m.task_type).name.replace('_', ' ').title(),
+        task_type=lambda v, c, m, p: m.task_type.name.replace('_', ' ').title(),
         completed_count=lambda v, c, m, p: (
             '' if not m.record_count else f"{m.completed_count} / {m.record_count} ({m.completed_percent:.1f}%)"),
     )
@@ -1514,6 +1516,16 @@ class ViewMembersAdmin(AppModelView):
         """Get quiery for the user belonging to the organistation of the current user."""
         return current_user.organisation.users
 
+    def _order_by(self, query, joins, order):
+        """Add ID for determenistic order of rows if sorting is by NULLable field."""
+        query, joins = super()._order_by(query, joins, order)
+        # add ID only if all fields are NULLable (exlcude ones given by str):
+        if all(not isinstance(f, str) and f.null for (f, _) in order):
+            clauses = query._order_by
+            clauses.append(self.model.id.desc() if order[0][1] else self.model.id)
+            query = query.order_by(*clauses)
+        return query, joins
+
     def get_one(self, id):
         """Limit access only to the userers belonging to the current organisation."""
         try:
@@ -1764,22 +1776,9 @@ def activate_all():
     task_id = request.form.get('task_id')
     task = Task.get(id=task_id)
     try:
-        if task.task_type == 0:
-            count = AffiliationRecord.update(is_active=True).where(
-                AffiliationRecord.task_id == task_id,
-                AffiliationRecord.is_active == False).execute()  # noqa: E712
-        elif task.task_type == 1:
-            count = FundingRecord.update(is_active=True).where(
-                FundingRecord.task_id == task_id,
-                FundingRecord.is_active == False).execute()  # noqa: E712
-        elif task.task_type == 2:
-            count = WorkRecord.update(is_active=True).where(
-                WorkRecord.task_id == task_id,
-                WorkRecord.is_active == False).execute()  # noqa: E712
-        elif task.task_type == 3:
-            count = PeerReviewRecord.update(is_active=True).where(
-                PeerReviewRecord.task_id == task_id,
-                PeerReviewRecord.is_active == False).execute()  # noqa: E712
+        count = task.record_model.update(is_active=True).where(
+            task.record_model.task_id == task_id,
+            task.record_model.is_active == False).execute()  # noqa: E712
     except Exception as ex:
         flash(f"Failed to activate the selected records: {ex}")
         app.logger.exception("Failed to activate the selected records")
@@ -1799,10 +1798,11 @@ def reset_all():
     with db.atomic():
         try:
             status = "The record was reset at " + datetime.now().isoformat(timespec="seconds")
-            if task.task_type == 0:
-                count = AffiliationRecord.update(processed_at=None, status=status).where(
-                    AffiliationRecord.task_id == task_id,
-                    AffiliationRecord.is_active == True).execute()  # noqa: E712
+            tt = task.task_type
+            if tt == TaskType.AFFILIATION:
+                count = task.record_model.update(processed_at=None, status=status).where(
+                    task.record_model.task_id == task_id,
+                    task.record_model.is_active == True).execute()  # noqa: E712
 
                 for user_invitation in UserInvitation.select().where(UserInvitation.task == task):
                     try:
@@ -1810,7 +1810,7 @@ def reset_all():
                     except UserInvitation.DoesNotExist:
                         pass
 
-            elif task.task_type == 1:
+            elif tt == TaskType.FUNDING:
                 for funding_record in FundingRecord.select().where(FundingRecord.task_id == task_id,
                                                                    FundingRecord.is_active == True):    # noqa: E712
                     funding_record.processed_at = None
@@ -1822,7 +1822,7 @@ def reset_all():
                     funding_record.save()
                     count = count + 1
 
-            elif task.task_type == 2:
+            elif tt == TaskType.WORK:
                 for work_record in WorkRecord.select().where(WorkRecord.task_id == task_id,
                                                                    WorkRecord.is_active == True):    # noqa: E712
                     work_record.processed_at = None
@@ -1833,7 +1833,7 @@ def reset_all():
                         WorkInvitees.work_record == work_record.id).execute()
                     work_record.save()
                     count = count + 1
-            elif task.task_type == 3:
+            elif tt == TaskType.PEER_REVIEW:
                 for peer_review_record in PeerReviewRecord.select().where(PeerReviewRecord.task_id == task_id,
                                                                    PeerReviewRecord.is_active == True):    # noqa: E712
                     peer_review_record.processed_at = None

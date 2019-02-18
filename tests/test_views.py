@@ -225,18 +225,28 @@ def test_superuser_view_access(client):
     assert b"404" in resp.data
 
 
+def test_pyinfo(client):
+    """Test /pyinfo."""
+    app.config["PYINFO_TEST_42"] = "Life, the Universe and Everything"
+    client.login_root()
+    resp = client.get("/pyinfo")
+    assert b"PYINFO_TEST_42" in resp.data
+    assert b"Life, the Universe and Everything" in resp.data
+    with pytest.raises(Exception) as exinfo:
+        resp = client.get("/pyinfo/expected an exception")
+    assert str(exinfo.value) == "expected an exception"
+
+
 def test_access(request_ctx):
     """Test access to differente resources."""
     test_superuser = User.create(
         name="TEST SUPERUSER",
         email="super@test.test.net",
-        username="test42",
         confirmed=True,
         roles=Role.SUPERUSER)
     test_user = User.create(
         name="TEST SUPERUSER",
         email="user123456789@test.test.net",
-        username="test123456789",
         confirmed=True,
         roles=Role.RESEARCHER)
 
@@ -317,7 +327,6 @@ def test_user_orcid_id_url():
     u = User(
         email="test123@test.test.net",
         name="TEST USER",
-        username="test123",
         roles=Role.RESEARCHER,
         orcid="123",
         confirmed=True)
@@ -899,7 +908,7 @@ def test_activate_all(request_ctx):
         filename="xyz.txt",
         created_by=user,
         updated_by=user,
-        task_type=0)
+        task_type=TaskType.AFFILIATION)
     task2 = Task.create(
         org=org,
         completed_at="12/12/12",
@@ -1329,7 +1338,7 @@ Rad,Cirskis,researcher.990@mailinator.com,Student
     assert b"researcher.010@mailinator.com" in resp.data
 
     # List all tasks with a filter (select 'affiliation' task):
-    resp = client.get("/admin/task/?flt1_1=0")
+    resp = client.get("/admin/task/?flt1_1=4")
     assert b"affiliations.csv" in resp.data
 
     # Activate a single record:
@@ -2091,6 +2100,22 @@ def test_viewmembers(client):
     assert resp.status_code == 200
     assert b"researcher100@test0.edu" in resp.data
 
+    resp = client.get("/admin/viewmembers?sort=1")
+    assert resp.status_code == 200
+    assert b"researcher100@test0.edu" in resp.data
+
+    resp = client.get("/admin/viewmembers?sort=1&desc=1")
+    assert resp.status_code == 200
+    assert b"researcher100@test0.edu" in resp.data
+
+    resp = client.get("/admin/viewmembers?sort=0")
+    assert resp.status_code == 200
+    assert b"researcher100@test0.edu" in resp.data
+
+    resp = client.get("/admin/viewmembers?sort=0&desc=1")
+    assert resp.status_code == 200
+    assert b"researcher100@test0.edu" in resp.data
+
     resp = client.get("/admin/viewmembers/?flt1_0=2018-05-01+to+2018-05-31&flt2_1=2018-05-01+to+2018-05-31")
     assert resp.status_code == 200
     assert b"researcher100@test0.edu" not in resp.data
@@ -2299,19 +2324,17 @@ def test_reset_all(request_ctx):
         name="TEST USER",
         roles=Role.TECHNICAL,
         orcid=123,
-        organisation_id=1,
         confirmed=True,
         organisation=org)
     UserOrg.create(user=user, org=org, is_admin=True)
 
     task1 = Task.create(
-        id=1,
         org=org,
         completed_at="12/12/12",
         filename="xyz.txt",
         created_by=user,
         updated_by=user,
-        task_type=0)
+        task_type=TaskType.AFFILIATION)
 
     AffiliationRecord.create(
         is_active=True,
@@ -2340,7 +2363,6 @@ def test_reset_all(request_ctx):
         token="xyztoken")
 
     task2 = Task.create(
-        id=2,
         org=org,
         completed_at="12/12/12",
         filename="xyz.txt",
@@ -2368,7 +2390,6 @@ def test_reset_all(request_ctx):
         visibility="Test_visibity")
 
     task3 = Task.create(
-        id=3,
         org=org,
         completed_at="12/12/12",
         filename="xyz.txt",
@@ -2377,14 +2398,12 @@ def test_reset_all(request_ctx):
         task_type=3)
 
     PeerReviewRecord.create(
-        id=1,
         task=task3,
         review_group_id=1212,
         is_active=True,
         visibility="Test_visibity")
 
     work_task = Task.create(
-        id=4,
         org=org,
         completed_at="12/12/12",
         filename="xyz.txt",
@@ -2393,7 +2412,6 @@ def test_reset_all(request_ctx):
         task_type=2)
 
     WorkRecord.create(
-        id=1,
         task=work_task,
         title=1212,
         is_active=True,
@@ -2405,9 +2423,9 @@ def test_reset_all(request_ctx):
         request.args = ImmutableMultiDict([('url', 'http://localhost/affiliation_record_reset_for_batch')])
         request.form = ImmutableMultiDict([('task_id', task1.id)])
         resp = ctxx.app.full_dispatch_request()
-        t = Task.get(id=1)
-        ar = AffiliationRecord.get(id=1)
-        assert "The record was reset" in ar.status
+        t = Task.get(id=task1.id)
+        rec = t.records.first()
+        assert "The record was reset" in rec.status
         assert t.completed_at is None
         assert resp.status_code == 302
         assert resp.location.startswith("http://localhost/affiliation_record_reset_for_batch")
@@ -2416,10 +2434,10 @@ def test_reset_all(request_ctx):
         request.args = ImmutableMultiDict([('url', 'http://localhost/funding_record_reset_for_batch')])
         request.form = ImmutableMultiDict([('task_id', task2.id)])
         resp = ctxx.app.full_dispatch_request()
-        t2 = Task.get(id=2)
-        fr = FundingRecord.get(id=1)
-        assert "The record was reset" in fr.status
-        assert t2.completed_at is None
+        t = Task.get(id=task2.id)
+        rec = t.records.first()
+        assert "The record was reset" in rec.status
+        assert t.completed_at is None
         assert resp.status_code == 302
         assert resp.location.startswith("http://localhost/funding_record_reset_for_batch")
     with request_ctx("/reset_all", method="POST") as ctxx:
@@ -2427,10 +2445,10 @@ def test_reset_all(request_ctx):
         request.args = ImmutableMultiDict([('url', 'http://localhost/peer_review_record_reset_for_batch')])
         request.form = ImmutableMultiDict([('task_id', task3.id)])
         resp = ctxx.app.full_dispatch_request()
-        t2 = Task.get(id=3)
-        pr = PeerReviewRecord.get(id=1)
-        assert "The record was reset" in pr.status
-        assert t2.completed_at is None
+        t = Task.get(id=task3.id)
+        rec = PeerReviewRecord.get(id=1)
+        assert "The record was reset" in rec.status
+        assert t.completed_at is None
         assert resp.status_code == 302
         assert resp.location.startswith("http://localhost/peer_review_record_reset_for_batch")
     with request_ctx("/reset_all", method="POST") as ctxx:

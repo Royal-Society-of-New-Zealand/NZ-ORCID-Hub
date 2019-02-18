@@ -56,7 +56,7 @@ def test_login(request_ctx):
     """Test login function."""
     with request_ctx("/") as ctx:
         test_user = User(
-            name="TEST USER", email="test@test.test.net", username="test42", confirmed=True)
+            name="TEST USER", email="test@test.test.net", confirmed=True)
         login_user(test_user, remember=True)
 
         resp = get_response(ctx)
@@ -109,24 +109,52 @@ def test_tuakiri_login(client):
 
     After getting logged in a new user entry shoulg be created.
     """
-    resp = client.get(
-        "/Tuakiri/login",
-        headers={
-            "Auedupersonsharedtoken": "ABC123",
-            "Sn": "LAST NAME/SURNAME/FAMILY NAME",
-            'Givenname': "FIRST NAME/GIVEN NAME",
-            "Mail": "user@test.test.net",
-            "O": "ORGANISATION 123",
-            "Displayname": "TEST USER FROM 123",
-            "Unscoped-Affiliation": "staff",
-            "Eppn": "user@test.test.net"
-        })
+    data = {
+        "Auedupersonsharedtoken": "ABC123",
+        "Sn": "LAST NAME/SURNAME/FAMILY NAME",
+        'Givenname': "FIRST NAME/GIVEN NAME",
+        "Mail": "user@test.test.net",
+        "O": "ORGANISATION 123",
+        "Displayname": "TEST USER FROM 123",
+        "Unscoped-Affiliation": "staff",
+        "Eppn": "user@test.test.net"
+    }
+
+    resp = client.get("/sso/login", headers=data)
 
     assert resp.status_code == 302
     u = User.get(email="user@test.test.net")
     assert u.name == "TEST USER FROM 123", "Expected to have the user in the DB"
     assert u.first_name == "FIRST NAME/GIVEN NAME"
     assert u.last_name == "LAST NAME/SURNAME/FAMILY NAME"
+
+
+def test_sso_loging_with_external_sp(client, mocker):
+    """Test with EXTERNAL_SP."""
+    data = {
+        "Auedupersonsharedtoken": "ABC123",
+        "Sn": "LAST NAME/SURNAME/FAMILY NAME",
+        'Givenname': "FIRST NAME/GIVEN NAME",
+        "Mail": "test_external_sp@test.ac.nz;secondory@test.edu",
+        "O": client.data["org"].name,
+        "Displayname": "TEST USER #42",
+        "Unscoped-Affiliation": "staff",
+        "Eppn": "user@test.test.net"
+    }
+
+    client.application.config["EXTERNAL_SP"] = "https://exernal.ac.nz/SP"
+    resp = client.get("/index")
+    assert b"https://exernal.ac.nz/SP" in resp.data
+    get = mocker.patch(
+        "requests.get",
+        return_value=Mock(text=base64.b64encode(zlib.compress(pickle.dumps(data)))))
+
+    resp = client.get("/sso/login", follow_redirects=True)
+    get.assert_called_once()
+    assert b"TEST USER #42" in resp.data
+    assert b"test_external_sp@test.ac.nz" in resp.data
+    u = User.get(email="test_external_sp@test.ac.nz")
+    assert u.name == "TEST USER #42"
 
 
 def test_tuakiri_login_usgin_eppn(client):
@@ -266,7 +294,6 @@ def test_login_provider_load_user(request_ctx):  # noqa: D103
     u = User(
         email="test123@test.test.net",
         name="TEST USER",
-        username="test123",
         roles=Role.RESEARCHER,
         orcid=None,
         confirmed=True)
