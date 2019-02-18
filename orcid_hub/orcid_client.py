@@ -5,7 +5,7 @@ Swagger generated client 'monkey-patch' for logging API requests.
 isort:skip_file
 """
 
-from .config import ORCID_API_BASE, SCOPE_READ_LIMITED, SCOPE_ACTIVITIES_UPDATE, ORCID_BASE_URL
+from .config import ORCID_API_BASE, ORCID_BASE_URL
 from flask_login import current_user
 from .models import (OrcidApiCall, Affiliation, OrcidToken, FundingContributor as FundingCont, Log,
                      ExternalId as ExternalIdModel, NestedDict, WorkContributor as WorkCont,
@@ -21,6 +21,11 @@ import json
 
 url = urlparse(ORCID_API_BASE)
 configuration.host = url.scheme + "://" + url.hostname
+
+# ORCID API Scopes:
+ACTIVITIES_UPDATE = "/activities/update"
+READ_LIMITED = "/read-limited"
+AUTHENTICATE = "/authenticate"
 
 
 class OrcidRESTClientObject(rest.RESTClientObject):
@@ -73,6 +78,8 @@ class OrcidRESTClientObject(rest.RESTClientObject):
 class MemberAPI(MemberAPIV20Api):
     """ORCID Mmeber API extension."""
 
+    content_type = "application/json"
+
     def __init__(self, org=None, user=None, access_token=None, *args, **kwargs):
         """Set up the configuration with the access token given to the org. by the user."""
         super().__init__(*args, **kwargs)
@@ -99,7 +106,7 @@ class MemberAPI(MemberAPIV20Api):
                 orcid_token = OrcidToken.get(
                     user_id=user.id,
                     org_id=org.id,
-                    scope=SCOPE_READ_LIMITED[0] + "," + SCOPE_ACTIVITIES_UPDATE[0])
+                    scope=READ_LIMITED + "," + ACTIVITIES_UPDATE)
             except Exception:
                 configuration.access_token = None
                 app.logger.exception("Exception occured while retriving ORCID Token")
@@ -112,19 +119,11 @@ class MemberAPI(MemberAPIV20Api):
     def get_record(self):
         """Fetch record details. (The generated one is broken)."""
         # import pdb; pdb.set_trace()
-        header_params = {
-            "Accept":
-            self.api_client.select_header_content_type([
-                'application/vnd.orcid+xml; qs=5', 'application/orcid+xml; qs=3',
-                'application/xml', 'application/vnd.orcid+json; qs=4',
-                'application/orcid+json; qs=2', 'application/json'
-            ])
-        }
         try:
             resp, code, headers = self.api_client.call_api(
                 f"/v2.0/{self.user.orcid}",
                 "GET",
-                header_params=header_params,
+                header_params={"Accept": self.content_type},
                 response_type=None,
                 auth_settings=["orcid_auth"],
                 _preload_content=False)
@@ -134,7 +133,7 @@ class MemberAPI(MemberAPIV20Api):
                     orcid_token = OrcidToken.get(
                         user_id=self.user.id,
                         org_id=self.org.id,
-                        scope=SCOPE_READ_LIMITED[0] + "," + SCOPE_ACTIVITIES_UPDATE[0])
+                        scope=READ_LIMITED + "," + ACTIVITIES_UPDATE)
                     orcid_token.delete_instance()
                 except Exception:
                     app.logger.exception("Exception occured while retriving ORCID Token")
@@ -1197,6 +1196,20 @@ class MemberAPI(MemberAPIV20Api):
                             Log.create(task=task, message=f"Successfully update entry: {e}.")
                         except Exception as ex:
                             Log.create(task=task, message=f"Failed to update the entry: {ex}.")
+
+    def get_keywords(self):
+        """Retrieve all the keywords of a record."""
+        resp, status, _ = self.api_client.call_api(
+            f"/v2.1/{self.user.orcid}/keywords",
+            "GET",
+            header_params={"Accept": self.content_type},
+            auth_settings=["orcid_auth"],
+            _preload_content=False)
+        return json.loads(resp.data) if status == 200 else None
+
+    def create_or_update_keywords(self, org=None, keywords=None):
+        """Create or update the list of keywords of a record."""
+        pass
 
 
 # yapf: disable

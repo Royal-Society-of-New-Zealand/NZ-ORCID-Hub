@@ -52,8 +52,6 @@ from .utils import get_next_url, read_uploaded_file, send_user_invitation
 
 HEADERS = {"Accept": "application/vnd.orcid+json", "Content-type": "application/vnd.orcid+json"}
 ORCID_BASE_URL = app.config["ORCID_BASE_URL"]
-SCOPE_ACTIVITIES_UPDATE = app.config["SCOPE_ACTIVITIES_UPDATE"]
-SCOPE_READ_LIMITED = app.config["SCOPE_READ_LIMITED"]
 
 
 @app.errorhandler(401)
@@ -1886,7 +1884,7 @@ def delete_record(user_id, section_type, put_code):
         orcid_token = OrcidToken.get(
             user=user,
             org=user.organisation,
-            scope=SCOPE_READ_LIMITED[0] + "," + SCOPE_ACTIVITIES_UPDATE[0])
+            scope=orcid_client.READ_LIMITED + "," + orcid_client.ACTIVITIES_UPDATE)
     except Exception:
         flash("The user hasn't authorized you to delete records", "warning")
         return redirect(_url)
@@ -1942,7 +1940,7 @@ def edit_record(user_id, section_type, put_code=None):
     orcid_token = None
     try:
         orcid_token = OrcidToken.get(
-            user=user, org=org, scope=SCOPE_READ_LIMITED[0] + "," + SCOPE_ACTIVITIES_UPDATE[0])
+            user=user, org=org, scope=orcid_client.READ_LIMITED + "," + orcid_client.ACTIVITIES_UPDATE)
     except Exception:
         flash("The user hasn't authorized you to Add records", "warning")
         return redirect(_url)
