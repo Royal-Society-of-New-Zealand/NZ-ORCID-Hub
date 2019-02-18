@@ -1,3 +1,6 @@
+VirtualBox Set-up
+-----------------
+
 #. Download Ubutnu Server ISO: https://www.ubuntu.com/download/server
 #. Create VM with a NAT (Adapter 1) and a Host-only Adapter (Adapter 2) networking settings;
 #. (Optional) if you want to provide access to your VM form the "outside world", you need to add a "Bridge Adatpter" and ensure that you firewall allows connections to you host machine (port 80 and 443).

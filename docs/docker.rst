@@ -1,7 +1,7 @@
 Application Docker Image
 ------------------------
 
-Application Docker Image (`orcidhub/app`_) is packaged with:
+Application Docker Image (`orcidhub/app`) is packaged with:
 
  - CentOS 7
  - Apache 2.4
