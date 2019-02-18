@@ -10,15 +10,54 @@ from io import BytesIO
 from unittest.mock import Mock, patch
 from urllib.parse import urlparse
 
+from click.testing import CliRunner
 import pytest
 from flask import request, session
 from flask_login import current_user, login_user, logout_user
 from peewee import fn
 from werkzeug.datastructures import ImmutableMultiDict
 
-from orcid_hub import authcontroller, login_provider, utils
+from orcid_hub import authcontroller, create_hub_administrator, login_provider, utils
 from orcid_hub.models import (Affiliation, OrcidAuthorizeCall, OrcidToken, Organisation, OrgInfo,
                               OrgInvitation, Role, User, UserInvitation, UserOrg)
+
+
+def test_create_hub_administrator(app):
+    """Test creation of the Hub administrators."""
+    org = app.data["org"]
+    runner = CliRunner()
+    runner.invoke(create_hub_administrator, ["root000@test.ac.nz"])
+    assert User.select().where(User.email == "root000@test.ac.nz").exists()
+    assert Organisation.select().where(Organisation.name == "ORCID Hub").exists()
+    runner.invoke(create_hub_administrator, ["root000@test.ac.nz", "-O", "NEW ORGANISATION #0"])
+    assert Organisation.select().where(Organisation.name == "NEW ORGANISATION #0").exists()
+    assert User.get(email="root000@test.ac.nz").organisation.name == "NEW ORGANISATION #0"
+
+    runner.invoke(create_hub_administrator, ["root001@test.ac.nz", "-O", "NEW ORG"])
+    assert Organisation.select().where(Organisation.name == "NEW ORG").exists()
+    assert User.get(email="root001@test.ac.nz").organisation.name == "NEW ORG"
+
+    org_count = Organisation.select().count()
+    runner.invoke(create_hub_administrator, ["root002@test.ac.nz", "-O", org.name])
+    assert Organisation.select().count() == org_count
+    assert User.get(email="root002@test.ac.nz").organisation.name == org.name
+
+    runner.invoke(create_hub_administrator, ["root010@test.ac.nz", "-I", "INTERNAL NAME 111"])
+    assert User.select().where(User.email == "root010@test.ac.nz").exists()
+    assert Organisation.select().where(Organisation.name == "ORCID Hub",
+                                       Organisation.tuakiri_name == "INTERNAL NAME 111").exists()
+    assert User.get(email="root010@test.ac.nz").organisation.tuakiri_name == "INTERNAL NAME 111"
+
+    runner.invoke(create_hub_administrator,
+                  ["root011@test.ac.nz", "-O", "NEW ORG", "-I", "INTERNAL NAME 222"])
+    assert Organisation.select().where(Organisation.name == "NEW ORG",
+                                       Organisation.tuakiri_name == "INTERNAL NAME 222").exists()
+    assert User.get(email="root011@test.ac.nz").organisation.tuakiri_name == "INTERNAL NAME 222"
+
+    org_count = Organisation.select().count()
+    runner.invoke(create_hub_administrator, ["root012@test.ac.nz", "-O", org.name, "-I", "INTERNAL NAME 333"])
+    assert Organisation.select().count() == org_count
+    assert User.get(email="root012@test.ac.nz").organisation.tuakiri_name == "INTERNAL NAME 333"
 
 
 def test_index(client, monkeypatch):

@@ -283,14 +283,17 @@ def create_hub_administrator(email,
     super_user.is_superuser = True
     super_user.orcid = orcid
 
-    if org_name:
-        org, _ = models.Organisation.get_or_create(name=org_name)
-        if internal_org_name:
-            org.tuakiri_name = internal_org_name
-        org.confirmed = True
-        org.save()
-        models.UserOrg.get_or_create(user=super_user, org=org)
+    if not org_name and super_user.organisation:
+        org_name = super_user.organisation.name
 
+    org, _ = models.Organisation.get_or_create(name=org_name or "ORCID Hub")
+    if internal_org_name:
+        org.tuakiri_name = internal_org_name
+    org.confirmed = True
+    org.save()
+    models.UserOrg.get_or_create(user=super_user, org=org)
+
+    if not super_user.organisation or super_user.organisation != org:
         super_user.organisation = org
 
     super_user.save()
