@@ -695,6 +695,11 @@ class User(BaseModel, UserMixin, AuditMixin):
         return self.name or self.email or self.orcid or super().__repr__()
 
     @property
+    def username(self):
+        """Usename for comlying with Flask-Login API"""
+        return self.orcid or self.email
+
+    @property
     def organisations(self):
         """Get all linked to the user organisation query."""
         return (Organisation.select(
@@ -771,9 +776,9 @@ class User(BaseModel, UserMixin, AuditMixin):
     def is_superuser(self, value):  # noqa: D401
         """Sets user as a HUB admin."""
         if value:
-            self.roles |= Role.SUPERUSER
+            self.roles |= Role.SUPERUSER.value
         else:
-            self.roles &= ~Role.SUPERUSER
+            self.roles &= ~Role.SUPERUSER.value
 
     @property
     def is_admin(self):
@@ -2832,17 +2837,13 @@ class InviteesModel(BaseModel):
 
     def to_export_dict(self):
         """Get row representation suitable for export to JSON/YAML."""
+        c = self.__class__
         return self.to_dict(
             to_dashes=True,
             exclude_nulls=True,
             only=[
-                self.__class__.identifier,
-                self.__class__.email,
-                self.__class__.first_name,
-                self.__class__.last_name,
-                self.__class__.orcid,
-                self.__class__.put_code,
-                self.__class__.visibility],
+                c.identifier, c.email, c.first_name, c.last_name, c.orcid, c.put_code, c.visibility
+            ],
             recurse=False)
 
 
@@ -2939,6 +2940,12 @@ class ExternalId(ExternalIdModel):
     class Meta:  # noqa: D101,D106
         db_table = "external_id"
         table_alias = "ei"
+
+
+class Delegate(BaseModel):
+    """External applications that can be redirected to."""
+
+    hostname = CharField()
 
 
 class Url(BaseModel, AuditMixin):
@@ -3165,6 +3172,7 @@ def create_tables():
             Client,
             Grant,
             Token,
+            Delegate,
     ]:
 
         if not model.table_exists():

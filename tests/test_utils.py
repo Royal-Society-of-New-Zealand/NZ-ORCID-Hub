@@ -13,6 +13,7 @@ import pytest
 from flask import make_response
 from flask_login import login_user
 from peewee import JOIN
+from urllib.parse import quote
 
 from orcid_hub import utils
 from orcid_hub.models import (AffiliationRecord, ExternalId, File, FundingContributor,
@@ -74,7 +75,6 @@ def test_track_event(request_ctx):
     u = User.create(
         email="test123@test.test.net",
         name="TEST USER",
-        username="test123",
         roles=Role.RESEARCHER,
         confirmed=True)
 
@@ -113,7 +113,6 @@ def test_send_user_invitation(app, mocker):
     inviter = User.create(
         email="test123@mailinator.com",
         name="TEST USER",
-        username="test123",
         roles=Role.RESEARCHER,
         orcid=None,
         confirmed=True,
@@ -126,7 +125,6 @@ def test_send_user_invitation(app, mocker):
     u = User.create(
         email=email,
         name="TEST USER",
-        username="test123",
         roles=Role.RESEARCHER,
         orcid=None,
         confirmed=True,
@@ -171,7 +169,6 @@ def test_send_work_funding_peer_review_invitation(app, mocker):
     inviter = User.create(
         email="test1as237@mailinator.com",
         name="TEST USER",
-        username="test123",
         roles=Role.RESEARCHER,
         orcid=None,
         confirmed=True,
@@ -181,7 +178,6 @@ def test_send_work_funding_peer_review_invitation(app, mocker):
     u = User.create(
         email=email,
         name="TEST USER",
-        username="test123",
         roles=Role.RESEARCHER,
         orcid=None,
         confirmed=True,
@@ -226,7 +222,6 @@ def test_create_or_update_funding(app, mocker):
     u = User.create(
         email="test1234456@mailinator.com",
         name="TEST USER",
-        username="test123",
         roles=Role.RESEARCHER,
         orcid="123",
         confirmed=True,
@@ -294,7 +289,6 @@ def test_create_or_update_work(request_ctx, mocker):
     u = User.create(
         email="test1234456@mailinator.com",
         name="TEST USER",
-        username="test123",
         roles=Role.RESEARCHER,
         orcid="12344",
         confirmed=True,
@@ -362,7 +356,6 @@ def test_create_or_update_peer_review(request_ctx, mocker):
     u = User.create(
         email="test1234456@mailinator.com",
         name="TEST USER",
-        username="test123",
         roles=Role.RESEARCHER,
         orcid="12344",
         confirmed=True,
@@ -436,7 +429,6 @@ def test_create_or_update_affiliation(send_email, update_employment, create_empl
     u = User.create(
         email="test1234456@mailinator.com",
         name="TEST USER",
-        username="test123",
         roles=Role.RESEARCHER,
         orcid="123",
         confirmed=True,
@@ -456,7 +448,6 @@ def test_create_or_update_affiliation(send_email, update_employment, create_empl
     u = User.create(
         email="test1234456_2@mailinator.com",
         name="TEST USER 2",
-        username="test123-2",
         roles=Role.RESEARCHER,
         confirmed=True,
         organisation=org)
@@ -708,7 +699,6 @@ def test_sync_profile(app, mocker):
     u = User.create(
         email="test1234456@mailinator.com",
         name="TEST USER",
-        username="test123",
         roles=Role.RESEARCHER,
         orcid="12344",
         confirmed=True,
@@ -815,3 +805,26 @@ def test_new_invitation_token(app):
     random.seed(42)
     token2 = utils.new_invitation_token()
     assert token2 != token
+
+
+def test_get_next_url(client):
+    """Test 'get_next_url'."""
+    client.login_root()
+    client.post(
+            "/admin/delegate/new/", data=dict(hostname="test.delegate.com"), follow_redirects=True)
+
+    for url in [
+            "/admin/delegate/",
+            "http://test.orcidhub.org.nz/ABC",
+            "http://127.0.0.1/TEST",
+            "http://c9users.io/test",
+            "http://delegate.com/test",
+    ]:
+        with client.get(f"/?_next={quote(url)}"):
+            assert utils.get_next_url() == url
+
+    for url in [
+            "https://test.malicious.org.nz/ABC",
+    ]:
+        with client.get(f"/?_next={quote(url)}"):
+            assert utils.get_next_url() is None
