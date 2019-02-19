@@ -22,7 +22,7 @@ The following steps will set up a local ORCID Hub application instance using doc
 #. Create the environment conviguration file **.env** from **.env.sample**
 #. Set up environment variables UID and GID: `export GID=$(id -g) UID`
 #. Generate SSL the server key and a self signed certificata in **.keys** directory, e.g., `cd .keys; ./gen-keys/genkey.sh dev.orcidhub.org.nz; cd -`
-#. Create PostgreSQL instace folder: `mkdir pgdata`
+#. Create PostgreSQL instace folder: `mkdir -p pgdata data/redis`
 #. Run application containers: `docker-compose up -d`
 #. Register a Hub administrator, e.g., `docker-compose exec app ./flask.sh cradmin -V rad42@mailinator.com` (more options available: `docker-compose exec app ./flask.sh cradmin --help`)
 #. Open the Hub Appliction in a browser using http://localhost.
