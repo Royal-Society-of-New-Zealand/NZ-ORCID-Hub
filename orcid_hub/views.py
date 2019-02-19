@@ -13,8 +13,8 @@ from io import BytesIO
 import requests
 import tablib
 import yaml
-from flask import (Response, abort, flash, g, jsonify, redirect, render_template, request,
-                   send_file, send_from_directory, stream_with_context, url_for)
+from flask import (Response, abort, flash, jsonify, redirect, render_template, request, send_file,
+                   send_from_directory, stream_with_context, url_for)
 from flask_admin._compat import csv_encode
 from flask_admin.actions import action
 from flask_admin.babel import gettext
@@ -33,26 +33,25 @@ from flask_rq2.job import FlaskJob
 
 from orcid_api.rest import ApiException
 
-from . import admin, app, limiter, models, orcid_client, rq, utils
+from . import admin, app, limiter, models, orcid_client, rq, utils, SENTRY_DSN
 from .apis import yamlfy
 from .forms import (ApplicationFrom, BitmapMultipleValueField, CredentialForm, EmailTemplateForm,
                     FileUploadForm, FundingForm, GroupIdForm, LogoForm, OrgRegistrationForm, PartialDateField,
                     PeerReviewForm, ProfileSyncForm, RecordForm, UserInvitationForm, WebhookForm, WorkForm)
 from .login_provider import roles_required
-from .models import (
-    JOIN, Affiliation, AffiliationRecord, CharField, Client, ExternalId, File, FundingContributor,
-    FundingInvitees, FundingRecord, Grant, GroupIdRecord, ModelException, OrcidApiCall, OrcidToken,
-    Organisation, OrgInfo, OrgInvitation, PartialDate, PeerReviewExternalId, PeerReviewInvitee,
-    PeerReviewRecord, Role, Task, TaskType, TextField, Token, Url, User, UserInvitation, UserOrg,
-    UserOrgAffiliation, WorkContributor, WorkExternalId, WorkInvitees, WorkRecord, db, get_val)
+from .models import (JOIN, Affiliation, AffiliationRecord, CharField, Client, Delegate, ExternalId,
+                     File, FundingContributor, FundingInvitees, FundingRecord, Grant,
+                     GroupIdRecord, ModelException, OrcidApiCall, OrcidToken, Organisation,
+                     OrgInfo, OrgInvitation, PartialDate, PeerReviewExternalId, PeerReviewInvitee,
+                     PeerReviewRecord, Role, Task, TaskType, TextField, Token, Url, User,
+                     UserInvitation, UserOrg, UserOrgAffiliation, WorkContributor, WorkExternalId,
+                     WorkInvitees, WorkRecord, db, get_val)
 # NB! Should be disabled in production
 from .pyinfo import info
 from .utils import get_next_url, read_uploaded_file, send_user_invitation
 
 HEADERS = {"Accept": "application/vnd.orcid+json", "Content-type": "application/vnd.orcid+json"}
 ORCID_BASE_URL = app.config["ORCID_BASE_URL"]
-SCOPE_ACTIVITIES_UPDATE = app.config["SCOPE_ACTIVITIES_UPDATE"]
-SCOPE_READ_LIMITED = app.config["SCOPE_READ_LIMITED"]
 
 
 @app.errorhandler(401)
@@ -94,15 +93,14 @@ def page_not_found(e):
 def internal_error(error):
     """Handle internal error."""
     trace = traceback.format_exc()
-    try:
-        from . import sentry
+    if SENTRY_DSN:
+        from sentry_sdk import last_event_id
         return render_template(
             "500.html",
             trace=trace,
             error_message=str(error),
-            event_id=g.sentry_event_id,
-            public_dsn=sentry.client.get_public_dsn("https"))
-    except:
+            sentry_event_id=last_event_id())
+    else:
         return render_template("500.html", trace=trace, error_message=str(error))
 
 
@@ -136,10 +134,13 @@ def status():
         }), 503  # Service Unavailable
 
 
+@app.route("/pyinfo/<message>")
 @app.route("/pyinfo")
 @roles_required(Role.SUPERUSER)
-def pyinfo():
-    """Show Python and runtime environment and settings."""
+def pyinfo(message=None):
+    """Show Python and runtime environment and settings or test exeption handling."""
+    if message:
+        raise Exception(message)
     return render_template("pyinfo.html", **info)
 
 
@@ -1719,6 +1720,7 @@ admin.add_view(UserOrgAmin(UserOrg))
 admin.add_view(AppModelView(Client))
 admin.add_view(AppModelView(Grant))
 admin.add_view(AppModelView(Token))
+admin.add_view(AppModelView(Delegate))
 admin.add_view(GroupIdRecordAdmin(GroupIdRecord))
 
 
@@ -1882,7 +1884,7 @@ def delete_record(user_id, section_type, put_code):
         orcid_token = OrcidToken.get(
             user=user,
             org=user.organisation,
-            scope=SCOPE_READ_LIMITED[0] + "," + SCOPE_ACTIVITIES_UPDATE[0])
+            scope=orcid_client.READ_LIMITED + "," + orcid_client.ACTIVITIES_UPDATE)
     except Exception:
         flash("The user hasn't authorized you to delete records", "warning")
         return redirect(_url)
@@ -1938,7 +1940,7 @@ def edit_record(user_id, section_type, put_code=None):
     orcid_token = None
     try:
         orcid_token = OrcidToken.get(
-            user=user, org=org, scope=SCOPE_READ_LIMITED[0] + "," + SCOPE_ACTIVITIES_UPDATE[0])
+            user=user, org=org, scope=orcid_client.READ_LIMITED + "," + orcid_client.ACTIVITIES_UPDATE)
     except Exception:
         flash("The user hasn't authorized you to Add records", "warning")
         return redirect(_url)
