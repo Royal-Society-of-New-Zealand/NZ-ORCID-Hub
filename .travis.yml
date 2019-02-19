@@ -18,7 +18,7 @@ install:
   - gen-keys/genkey.sh $DOMAIN
   - ls -l
   - for t in sp server; do cp build-server.key .keys/${ENV}-$t.key; cp build-server.crt .keys/${ENV}-$t.crt; done
-  - mkdir pgdata
+  - mkdir -p pgdata data/redis
   - export UID
   - docker-compose up -d
 
