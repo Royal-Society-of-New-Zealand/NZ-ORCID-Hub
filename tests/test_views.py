@@ -134,6 +134,10 @@ def test_superuser_view_access(client):
         assert resp.status_code == 403
         assert b"403" in resp.data
 
+        resp = client.get("/admin/delegate/")
+        assert resp.status_code == 302
+        assert "next=" in resp.location and "admin" in resp.location
+
         client.logout()
 
     client.login_root()
@@ -223,6 +227,14 @@ def test_superuser_view_access(client):
     resp = client.get("/admin/schedude/details/?id=99999999")
     assert resp.status_code == 404
     assert b"404" in resp.data
+
+    resp = client.get("/admin/delegate/")
+    assert resp.status_code == 200
+
+    resp = client.post(
+        "/admin/delegate/new/", data=dict(hostname="TEST HOST NAME"), follow_redirects=True)
+    assert resp.status_code == 200
+    assert b"TEST HOST NAME" in resp.data
 
 
 def test_pyinfo(client):

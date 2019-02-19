@@ -331,6 +331,6 @@ def request_ctx(app):
 
 @pytest.fixture
 def app_req_ctx(request_ctx):
-    """Create the fixture for the reques with a test organisation and a test tech.contatct."""
+    """Create the fixture for the request with a test organisation and a test tech.contatct."""
     app_req_ctx.data = request_ctx.data
     return request_ctx

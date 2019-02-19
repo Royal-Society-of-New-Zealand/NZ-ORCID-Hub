@@ -13,6 +13,7 @@ import pytest
 from flask import make_response
 from flask_login import login_user
 from peewee import JOIN
+from urllib.parse import quote
 
 from orcid_hub import utils
 from orcid_hub.models import (AffiliationRecord, ExternalId, File, FundingContributor,
@@ -804,3 +805,26 @@ def test_new_invitation_token(app):
     random.seed(42)
     token2 = utils.new_invitation_token()
     assert token2 != token
+
+
+def test_get_next_url(client):
+    """Test 'get_next_url'."""
+    client.login_root()
+    client.post(
+            "/admin/delegate/new/", data=dict(hostname="test.delegate.com"), follow_redirects=True)
+
+    for url in [
+            "/admin/delegate/",
+            "http://test.orcidhub.org.nz/ABC",
+            "http://127.0.0.1/TEST",
+            "http://c9users.io/test",
+            "http://delegate.com/test",
+    ]:
+        with client.get(f"/?_next={quote(url)}"):
+            assert utils.get_next_url() == url
+
+    for url in [
+            "https://test.malicious.org.nz/ABC",
+    ]:
+        with client.get(f"/?_next={quote(url)}"):
+            assert utils.get_next_url() is None

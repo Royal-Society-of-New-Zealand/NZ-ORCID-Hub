@@ -33,6 +33,7 @@ Table of Contents
 
    development_env
    docker
+   virtualbox
    sendmail
    troubleshooting
    db_recovery

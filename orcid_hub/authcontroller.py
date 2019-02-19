@@ -31,10 +31,11 @@ from werkzeug.utils import secure_filename
 from orcid_api.rest import ApiException
 
 from . import app, db, orcid_client
+from . import orcid_client as scopes
 # TODO: need to read form app.config[...]
 from .config import (APP_DESCRIPTION, APP_NAME, APP_URL, AUTHORIZATION_BASE_URL, CRED_TYPE_PREMIUM,
                      MEMBER_API_FORM_BASE_URL, NOTE_ORCID, ORCID_API_BASE, ORCID_BASE_URL,
-                     SCOPE_ACTIVITIES_UPDATE, SCOPE_AUTHENTICATE, SCOPE_READ_LIMITED, TOKEN_URL)
+                     TOKEN_URL)
 from .forms import OrgConfirmationForm, TestDataForm
 from .login_provider import roles_required
 from .models import (Affiliation, OrcidAuthorizeCall, OrcidToken, Organisation, OrgInfo,
@@ -62,7 +63,7 @@ def utility_processor():  # noqa: D202
         external_sp = app.config.get("EXTERNAL_SP")
         if external_sp:
             session["auth_secret"] = secret_token = secrets.token_urlsafe()
-            _next = url_for("handle_login", _next=_next, _external=True)
+            _next = url_for("sso-login", _next=_next, _external=True)
             login_url = append_qs(external_sp, _next=_next, key=secret_token)
         else:
             login_url = url_for("handle_login", _next=_next)
@@ -137,7 +138,7 @@ def get_attributes(key):
     return data
 
 
-@app.route("/sso/login")
+@app.route("/sso/login", endpoint="sso-login")
 @app.route("/Tuakiri/login")
 def handle_login():
     """Shibboleth and Rapid Connect authenitcation handler.
@@ -438,7 +439,7 @@ def link():
 
     client_write = OAuth2Session(
         current_user.organisation.orcid_client_id,
-        scope=SCOPE_ACTIVITIES_UPDATE + SCOPE_READ_LIMITED,
+        scope=[scopes.ACTIVITIES_UPDATE, scopes.READ_LIMITED],
         redirect_uri=redirect_uri)
     authorization_url_write, state = client_write.authorization_url(
         AUTHORIZATION_BASE_URL, state=session.get("oauth_state"))
@@ -467,7 +468,7 @@ def link():
                 app.logger.info(
                     "User %r has denied permissions to %r in the flow and will try to give permissions again",
                     current_user.id, current_user.organisation)
-                client_write.scope = SCOPE_READ_LIMITED
+                client_write.scope = [scopes.READ_LIMITED]
                 authorization_url_read, state = client_write.authorization_url(
                     AUTHORIZATION_BASE_URL, state)
                 orcid_url_read = append_qs(
@@ -475,7 +476,7 @@ def link():
                     family_names=current_user.last_name,
                     given_names=current_user.first_name,
                     email=current_user.email)
-                client_write.scope = SCOPE_AUTHENTICATE
+                client_write.scope = [scopes.AUTHENTICATE]
                 authorization_url_authenticate, state = client_write.authorization_url(
                     AUTHORIZATION_BASE_URL, state)
                 orcid_url_authenticate = append_qs(
@@ -622,7 +623,7 @@ def orcid_callback():
     app.logger.info("User %r authorized %r to have %r access to the profile "
                     "and now trying to update employment or education record", user,
                     user.organisation, scope)
-    if scope == SCOPE_READ_LIMITED[0] + "," + SCOPE_ACTIVITIES_UPDATE[0] and orcid_token_found:
+    if scope == scopes.READ_LIMITED + "," + scopes.ACTIVITIES_UPDATE and orcid_token_found:
         api = orcid_client.MemberAPI(user=user, access_token=orcid_token.access_token)
 
         for a in Affiliation:
@@ -898,7 +899,7 @@ def orcid_login(invitation_token=None):
     redirect_uri = url_for("orcid_callback", _external=True)
 
     try:
-        orcid_scope = SCOPE_AUTHENTICATE[:]
+        orcid_scopes = [scopes.AUTHENTICATE]
 
         client_id = app.config.get("ORCID_CLIENT_ID")
         if invitation_token:
@@ -941,9 +942,9 @@ def orcid_login(invitation_token=None):
 
                 if org.orcid_client_id and not user_org.is_admin:
                     client_id = org.orcid_client_id
-                    orcid_scope = SCOPE_ACTIVITIES_UPDATE + SCOPE_READ_LIMITED
+                    orcid_scopes = [scopes.ACTIVITIES_UPDATE, scopes.READ_LIMITED]
                 else:
-                    orcid_scope += SCOPE_READ_LIMITED
+                    orcid_scopes.append(scopes.READ_LIMITED)
 
                 redirect_uri = append_qs(redirect_uri, invitation_token=invitation_token)
             except Organisation.DoesNotExist:
@@ -962,7 +963,7 @@ def orcid_login(invitation_token=None):
         # if the invitation token is missing perform only authentication (in the call back handler)
         redirect_uri = append_qs(redirect_uri, login="1")
 
-        client_write = OAuth2Session(client_id, scope=orcid_scope, redirect_uri=redirect_uri)
+        client_write = OAuth2Session(client_id, scope=orcid_scopes, redirect_uri=redirect_uri)
 
         authorization_url, state = client_write.authorization_url(
             AUTHORIZATION_BASE_URL, state=session.get("oauth_state"))
