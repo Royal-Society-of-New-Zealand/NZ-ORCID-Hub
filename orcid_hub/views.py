@@ -39,20 +39,19 @@ from .forms import (ApplicationFrom, BitmapMultipleValueField, CredentialForm, E
                     FileUploadForm, FundingForm, GroupIdForm, LogoForm, OrgRegistrationForm, PartialDateField,
                     PeerReviewForm, ProfileSyncForm, RecordForm, UserInvitationForm, WebhookForm, WorkForm)
 from .login_provider import roles_required
-from .models import (
-    JOIN, Affiliation, AffiliationRecord, CharField, Client, ExternalId, File, FundingContributor,
-    FundingInvitees, FundingRecord, Grant, GroupIdRecord, ModelException, OrcidApiCall, OrcidToken,
-    Organisation, OrgInfo, OrgInvitation, PartialDate, PeerReviewExternalId, PeerReviewInvitee,
-    PeerReviewRecord, Role, Task, TaskType, TextField, Token, Url, User, UserInvitation, UserOrg,
-    UserOrgAffiliation, WorkContributor, WorkExternalId, WorkInvitees, WorkRecord, db, get_val)
+from .models import (JOIN, Affiliation, AffiliationRecord, CharField, Client, Delegate, ExternalId,
+                     File, FundingContributor, FundingInvitees, FundingRecord, Grant,
+                     GroupIdRecord, ModelException, OrcidApiCall, OrcidToken, Organisation,
+                     OrgInfo, OrgInvitation, PartialDate, PeerReviewExternalId, PeerReviewInvitee,
+                     PeerReviewRecord, Role, Task, TaskType, TextField, Token, Url, User,
+                     UserInvitation, UserOrg, UserOrgAffiliation, WorkContributor, WorkExternalId,
+                     WorkInvitees, WorkRecord, db, get_val)
 # NB! Should be disabled in production
 from .pyinfo import info
 from .utils import get_next_url, read_uploaded_file, send_user_invitation
 
 HEADERS = {"Accept": "application/vnd.orcid+json", "Content-type": "application/vnd.orcid+json"}
 ORCID_BASE_URL = app.config["ORCID_BASE_URL"]
-SCOPE_ACTIVITIES_UPDATE = app.config["SCOPE_ACTIVITIES_UPDATE"]
-SCOPE_READ_LIMITED = app.config["SCOPE_READ_LIMITED"]
 
 
 @app.errorhandler(401)
@@ -1721,6 +1720,7 @@ admin.add_view(UserOrgAmin(UserOrg))
 admin.add_view(AppModelView(Client))
 admin.add_view(AppModelView(Grant))
 admin.add_view(AppModelView(Token))
+admin.add_view(AppModelView(Delegate))
 admin.add_view(GroupIdRecordAdmin(GroupIdRecord))
 
 
@@ -1884,7 +1884,7 @@ def delete_record(user_id, section_type, put_code):
         orcid_token = OrcidToken.get(
             user=user,
             org=user.organisation,
-            scope=SCOPE_READ_LIMITED[0] + "," + SCOPE_ACTIVITIES_UPDATE[0])
+            scope=orcid_client.READ_LIMITED + "," + orcid_client.ACTIVITIES_UPDATE)
     except Exception:
         flash("The user hasn't authorized you to delete records", "warning")
         return redirect(_url)
@@ -1940,7 +1940,7 @@ def edit_record(user_id, section_type, put_code=None):
     orcid_token = None
     try:
         orcid_token = OrcidToken.get(
-            user=user, org=org, scope=SCOPE_READ_LIMITED[0] + "," + SCOPE_ACTIVITIES_UPDATE[0])
+            user=user, org=org, scope=orcid_client.READ_LIMITED + "," + orcid_client.ACTIVITIES_UPDATE)
     except Exception:
         flash("The user hasn't authorized you to Add records", "warning")
         return redirect(_url)
