@@ -162,18 +162,15 @@ class MemberAPI(MemberAPIV20Api):
             else:
                 resp = self.view_educations(self.user.orcid, _preload_content=False)
 
-            if resp:
-                data = json.loads(resp.data)
-                records = data.get("employment-summary"
-                                   if affiliation_type == Affiliation.EMP else "education-summary")
-                for r in records:
-                    if ("source-client-id" in r.get("source")
-                            and r.get("source").get("source-client-id")
-                            and self.org.orcid_client_id == r.get("source").get(
-                                "source-client-id").get("path")):
-                        app.logger.info(f"For {self.user} there is {affiliation_type!s} "
-                                        "present on ORCID profile.")
-                        return r["put-code"]
+            data = json.loads(resp.data)
+            records = data.get("employment-summary"
+                               if affiliation_type == Affiliation.EMP else "education-summary")
+            for r in records:
+                if (r.get("source", "source-client-id") and self.org.orcid_client_id == r.get(
+                        "source").get("source-client-id").get("path")):
+                    app.logger.info(f"For {self.user} there is {affiliation_type!s} "
+                                    "present on ORCID profile.")
+                    return r["put-code"]
 
         except ApiException as apiex:
             app.logger.error(
