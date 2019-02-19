@@ -34,7 +34,7 @@ from pykwalify.core import Core
 from pykwalify.errors import SchemaError
 
 from . import app, db
-from .schemas import affiliation_task_schema
+from .schemas import affiliation_task_schema, researcher_url_task_schema, other_name_task_schema
 
 ENV = app.config["ENV"]
 DEFAULT_COUNTRY = app.config["DEFAULT_COUNTRY"]
@@ -2278,12 +2278,12 @@ class ResearcherUrlRecord(RecordModel):
         pass
 
     @classmethod
-    def load_from_json(cls, source, filename=None, org=None, task=None):
+    def load_from_json(cls, source, filename=None, org=None, task=None, skip_schema_validation=False):
         """Load data from JSON file or a string."""
         data = load_yaml_json(filename=filename, source=source)
+        if not skip_schema_validation:
+            jsonschema.validate(data, researcher_url_task_schema)
         records = data["records"] if isinstance(data, dict) else data
-
-        # TODO: validation of researcher url upload.
         with db.atomic():
             try:
                 if org is None:
@@ -2352,12 +2352,12 @@ class OtherNameRecord(RecordModel):
         pass
 
     @classmethod
-    def load_from_json(cls, source, filename=None, org=None, task=None):
+    def load_from_json(cls, source, filename=None, org=None, task=None, skip_schema_validation=False):
         """Load data from JSON file or a string."""
         data = load_yaml_json(filename=filename, source=source)
+        if not skip_schema_validation:
+            jsonschema.validate(data, other_name_task_schema)
         records = data["records"] if isinstance(data, dict) else data
-
-        # TODO: Add validation of other name upload.
         with db.atomic():
             try:
                 if org is None:

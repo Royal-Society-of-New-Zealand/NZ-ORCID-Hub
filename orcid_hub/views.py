@@ -2539,7 +2539,7 @@ def load_researcher_urls():
             flash(f"Successfully loaded {task.record_count} rows.")
             return redirect(url_for("researcherurlrecord.index_view", task_id=task.id))
         except Exception as ex:
-            flash(f"Failed to load researcher url record file: {ex.args}", "danger")
+            flash(f"Failed to load researcher url record file: {ex}", "danger")
             app.logger.exception("Failed to load researcher url records.")
 
     return render_template("fileUpload.html", form=form, title="Researcher Urls Info Upload")
@@ -2562,7 +2562,7 @@ def load_other_names():
             flash(f"Successfully loaded {task.record_count} rows.")
             return redirect(url_for("othernamerecord.index_view", task_id=task.id))
         except Exception as ex:
-            flash(f"Failed to load Other Name record file: {ex.args}", "danger")
+            flash(f"Failed to load Other Name record file: {ex}", "danger")
             app.logger.exception("Failed to load Other Name records.")
 
     return render_template("fileUpload.html", form=form, title="Other Names Info Upload")
