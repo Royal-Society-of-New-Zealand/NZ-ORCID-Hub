@@ -13,6 +13,58 @@ def get_profile(org=None, user=None):
     else:
         client_id = "APP-5ZVH4JRQ0C27RVH5"
     resp = {
+        "person": {
+            "other-names": {
+                "other-name": [
+                    {
+                        "source": {
+                            "source-orcid": None,
+                            "source-client-id": {
+                                "uri": f"https://sandbox.orcid.org/client/{client_id}",
+                                "path": client_id,
+                                "host": "sandbox.orcid.org"
+                            },
+                            "source-name": {
+                                "value": "The University of Auckland - MyORCiD"
+                            }
+                        },
+                        "content": "dummy 4",
+                        "visibility": "PUBLIC",
+                        "path": f"/{orcid}/other-names/16871",
+                        "put-code": 16871,
+                        "display-index": 2
+                    }
+                ],
+                "path": f"/{orcid}/other-names"
+            },
+            "researcher-urls": {
+                "researcher-url": [
+                    {
+                        "source": {
+                            "source-orcid": None,
+                            "source-client-id": {
+                                "uri": f"http://sandbox.orcid.org/client/{client_id}",
+                                "path": client_id,
+                                "host": "sandbox.orcid.org"
+                            },
+                            "source-name": {
+                                "value": "The University of Auckland - MyORCiD"
+                            }
+                        },
+                        "url-name": "xyzurl",
+                        "url": {
+                            "value": "https://fb.com"
+                        },
+                        "visibility": "PUBLIC",
+                        "path": f"/{orcid}/researcher-urls/43944",
+                        "put-code": 43944,
+                        "display-index": 0
+                    }
+                ],
+                "path": f"/{orcid}/researcher-urls"
+            },
+            "path": f"/{orcid}/person"
+        },
         'activities-summary': {
             'last-modified-date': {
                 'value': 1513136293368

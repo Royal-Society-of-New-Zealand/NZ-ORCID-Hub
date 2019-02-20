@@ -8,8 +8,8 @@ from playhouse.test_utils import test_database
 
 from orcid_hub.models import (
     Affiliation, AffiliationRecord, BaseModel, BooleanField, ExternalId, File, ForeignKeyField,
-    FundingContributor, FundingRecord, FundingInvitees, ModelException, OrcidToken, Organisation,
-    OrgInfo, PartialDate, PartialDateField, Role, Task, TaskType, TaskTypeField, Log, TextField,
+    FundingContributor, FundingRecord, FundingInvitees, ModelException, OtherNameRecord, OrcidToken, Organisation,
+    OrgInfo, PartialDate, PartialDateField, ResearcherUrlRecord, Role, Task, TaskType, TaskTypeField, Log, TextField,
     User, UserInvitation, UserOrg, UserOrgAffiliation, WorkRecord, WorkContributor, WorkExternalId,
     WorkInvitees, PeerReviewRecord, PeerReviewInvitee, PeerReviewExternalId, create_tables,
     drop_tables, validate_orcid_id)
@@ -28,10 +28,10 @@ def testdb():
     """
     _db = SqliteDatabase(":memory:", pragmas=[("foreign_keys", "on")])
     with test_database(
-            _db, (Organisation, File, User, UserInvitation, UserOrg, OrgInfo, OrcidToken,
+            _db, (Organisation, File, User, UserInvitation, UserOrg, OtherNameRecord, OrgInfo, OrcidToken,
                   UserOrgAffiliation, Task, AffiliationRecord, ExternalId, FundingRecord,
                   FundingContributor, FundingInvitees, WorkRecord, WorkContributor, WorkExternalId,
-                  WorkInvitees, PeerReviewRecord, PeerReviewExternalId, PeerReviewInvitee),
+                  WorkInvitees, PeerReviewRecord, PeerReviewExternalId, PeerReviewInvitee, ResearcherUrlRecord),
             fail_silently=True) as _test_db:
         yield _test_db
 
@@ -117,6 +117,33 @@ def models(testdb):
         country="Test_%d" % i,
         disambiguated_id="Test_%d" % i,
         disambiguation_source="Test_%d" % i) for i in range(10))).execute()
+
+    ResearcherUrlRecord.insert_many((dict(
+        is_active=False,
+        task=Task.get(id=1),
+        put_code=90,
+        status="Test_%d" % i,
+        first_name="Test_%d" % i,
+        last_name="Test_%d" % i,
+        email="Test_%d" % i,
+        orcid="123112311231%d" % i,
+        url_name="Test_%d" % i,
+        url_value="Test_%d" % i,
+        visibility="Test_%d" % i,
+        display_index=i) for i in range(10))).execute()
+
+    OtherNameRecord.insert_many((dict(
+        is_active=False,
+        task=Task.get(id=1),
+        put_code=90,
+        status="Test_%d" % i,
+        first_name="Test_%d" % i,
+        last_name="Test_%d" % i,
+        email="Test_%d" % i,
+        orcid="123112311231%d" % i,
+        content="Test_%d" % i,
+        visibility="Test_%d" % i,
+        display_index=i) for i in range(10))).execute()
 
     FundingRecord.insert_many((dict(
         task=Task.get(id=1),
@@ -285,6 +312,8 @@ def test_test_database(models):
     assert PeerReviewRecord.select().count() == 10
     assert PeerReviewExternalId.select().count() == 10
     assert PeerReviewInvitee.select().count() == 10
+    assert ResearcherUrlRecord.select().count() == 10
+    assert OtherNameRecord.select().count() == 10
     assert Task.select().count() == 30
     assert UserOrgAffiliation.select().count() == 30
 
