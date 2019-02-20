@@ -3230,8 +3230,9 @@ def test_other_names(client):
 
     resp = client.get(f"/admin/othernamerecord/export/json/?task_id={task.id}")
     assert resp.status_code == 200
-    assert b'"email": "xyzz@mailinator.com"' in resp.data
-    assert b'"content": "dummy 10"' in resp.data
+    assert b'xyzz@mailinator.com' in resp.data
+    assert b'dummy 1220' in resp.data
+    assert b'dummy 10' in resp.data
 
 
 def test_researcher_url(client):
@@ -3265,9 +3266,7 @@ def test_researcher_url(client):
       "url-name": "xyzurl",
       "url-value": "https://fdhfdasa112j.com",
       "visibility": "PUBLIC"
-    }
-  ]
-}"""),
+    }]}"""),
                 "researcher_url_001.json",
             ),
         },
@@ -3279,5 +3278,5 @@ def test_researcher_url(client):
 
     resp = client.get(f"/admin/researcherurlrecord/export/json/?task_id={task.id}")
     assert resp.status_code == 200
-    assert b'"url-name": "xyzurl"' in resp.data
-    assert b'"url-value": "https://fdhfdasa112j.com"' in resp.data
+    assert b'xyzzz@mailinator.com' in resp.data
+    assert b'https://fdhfdasa112j.com' in resp.data
