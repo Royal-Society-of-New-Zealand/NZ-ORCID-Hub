@@ -12,6 +12,7 @@ backup*
 masterdb
 pgdata*
 venv
+venv7
 # orcid
 htmlcov
 archive
