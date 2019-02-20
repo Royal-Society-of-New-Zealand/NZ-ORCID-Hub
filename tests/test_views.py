@@ -26,7 +26,7 @@ from orcid_hub.config import ORCID_BASE_URL
 from orcid_hub.forms import FileUploadForm
 from orcid_hub.models import (Affiliation, AffiliationRecord, Client, File, FundingRecord,
                               GroupIdRecord, OrcidToken, Organisation, OrgInfo, OrgInvitation,
-                              PartialDate, PeerReviewRecord, Role, Task, TaskType, Token, Url,
+                              PartialDate, PeerReviewRecord, ResearcherUrlRecord, Role, Task, TaskType, Token, Url,
                               User, UserInvitation, UserOrg, UserOrgAffiliation, WorkRecord)
 
 fake_time = time.time()
@@ -2430,6 +2430,32 @@ def test_reset_all(request_ctx):
         citation_type="Test_citation_type",
         citation_value="Test_visibity")
 
+    researcher_url_task = Task.create(id=12, org=org, filename="xyz.json", created_by=user, updated_by=user,
+                                      task_type=5, completed_at="12/12/12")
+
+    ResearcherUrlRecord.create(
+        task=researcher_url_task,
+        is_active=True,
+        status="email sent",
+        first_name="Test",
+        last_name="Test",
+        email="test1234456@mailinator.com",
+        visibility="PUBLIC",
+        url_name="url name",
+        url_value="https://www.xyz.com",
+        display_index=0)
+
+    with request_ctx("/reset_all", method="POST") as ctxx:
+        login_user(user, remember=True)
+        request.args = ImmutableMultiDict([('url', 'http://localhost/researcher_url_record_reset_for_batch')])
+        request.form = ImmutableMultiDict([('task_id', researcher_url_task.id)])
+        resp = ctxx.app.full_dispatch_request()
+        t = Task.get(id=researcher_url_task.id)
+        rec = t.records.first()
+        assert "The record was reset" in rec.status
+        assert t.completed_at is None
+        assert resp.status_code == 302
+        assert resp.location.startswith("http://localhost/researcher_url_record_reset_for_batch")
     with request_ctx("/reset_all", method="POST") as ctxx:
         login_user(user, remember=True)
         request.args = ImmutableMultiDict([('url', 'http://localhost/affiliation_record_reset_for_batch')])
@@ -3152,3 +3178,105 @@ def test_peer_reviews(client):
     assert b'"review-type": "REVIEW"' in resp.data
     assert b'"invitees": [' in resp.data
     assert b'"review-group-id": "issn:12131"' in resp.data
+
+
+def test_other_names(client):
+    """Test researcher other name data management."""
+    user = client.data["admin"]
+    client.login(user, follow_redirects=True)
+    resp = client.post(
+        "/load/other/names",
+        data={
+            "file_": (
+                BytesIO(b"""{
+  "created-at": "2019-02-15T04:39:23",
+  "filename": "othernames_sample_latest.json",
+  "records": [
+    {
+      "content": "dummy 1220",
+      "display-index": 0,
+      "email": "rad42@mailinator.com",
+      "first-name": "sdsd",
+      "last-name": "sds1",
+      "orcid": null,
+      "processed-at": null,
+      "put-code": null,
+      "status": "The record was reset at 2019-02-20T08:31:49",
+      "visibility": "PUBLIC"
+    },
+    {
+      "content": "dummy 10",
+      "display-index": 0,
+      "email": "xyzz@mailinator.com",
+      "first-name": "sdsd",
+      "last-name": "sds1",
+      "orcid": "0000-0002-0146-7409",
+      "processed-at": null,
+      "put-code": 16878,
+      "status": "The record was reset at 2019-02-20T08:31:49",
+      "visibility": "PUBLIC"
+    }
+  ],
+  "task-type": "OTHER_NAME",
+  "updated-at": "2019-02-19T19:31:49"}"""),
+                "othernames_sample_latest.json",
+            ),
+        },
+        follow_redirects=True)
+    assert resp.status_code == 200
+    assert b"dummy 1220" in resp.data
+    task = Task.get(filename="othernames_sample_latest.json")
+    assert task.records.count() == 2
+
+    resp = client.get(f"/admin/othernamerecord/export/json/?task_id={task.id}")
+    assert resp.status_code == 200
+    assert b'xyzz@mailinator.com' in resp.data
+    assert b'dummy 1220' in resp.data
+    assert b'dummy 10' in resp.data
+
+
+def test_researcher_url(client):
+    """Test researcher url data management."""
+    user = client.data["admin"]
+    client.login(user, follow_redirects=True)
+    resp = client.post(
+        "/load/researcher/urls",
+        data={
+            "file_": (
+                BytesIO(b"""{
+  "records": [
+    {
+      "display-index": 0,
+      "email": "xyzzz@mailinator.com",
+      "first-name": "sdksdsd",
+      "last-name": "sds1",
+      "orcid": "0000-0001-6817-9711",
+      "put-code": 43959,
+      "url-name": "xyzurl",
+      "url-value": "https://fdhfdasa112j.com",
+      "visibility": "PUBLIC"
+    },
+    {
+      "display-index": 10,
+      "email": "dsjdh11222@mailinator.com",
+      "first-name": "sdksasadsd",
+      "last-name": "sds1",
+      "put-code": null,
+      "orcid": null,
+      "url-name": "xyzurl",
+      "url-value": "https://fdhfdasa112j.com",
+      "visibility": "PUBLIC"
+    }]}"""),
+                "researcher_url_001.json",
+            ),
+        },
+        follow_redirects=True)
+    assert resp.status_code == 200
+    assert b"https://fdhfdasa112j.com" in resp.data
+    task = Task.get(filename="researcher_url_001.json")
+    assert task.records.count() == 2
+
+    resp = client.get(f"/admin/researcherurlrecord/export/json/?task_id={task.id}")
+    assert resp.status_code == 200
+    assert b'xyzzz@mailinator.com' in resp.data
+    assert b'https://fdhfdasa112j.com' in resp.data

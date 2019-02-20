@@ -22,14 +22,15 @@ from flask_login import current_user
 from html2text import html2text
 from itsdangerous import (BadSignature, SignatureExpired, TimedJSONWebSignatureSerializer)
 from jinja2 import Template
+from orcid_api.rest import ApiException
 from peewee import JOIN, SQL
 from yaml.dumper import Dumper
 from yaml.representer import SafeRepresenter
 
 from . import app, orcid_client, rq
 from .models import (AFFILIATION_TYPES, Affiliation, AffiliationRecord, Delegate, FundingInvitees,
-                     FundingRecord, Log, OrcidToken, Organisation, OrgInvitation, PartialDate,
-                     PeerReviewExternalId, PeerReviewInvitee, PeerReviewRecord, Role, Task,
+                     FundingRecord, Log, OtherNameRecord, OrcidToken, Organisation, OrgInvitation, PartialDate,
+                     PeerReviewExternalId, PeerReviewInvitee, PeerReviewRecord, ResearcherUrlRecord, Role, Task,
                      TaskType, User, UserInvitation, UserOrg, WorkInvitees, WorkRecord, get_val)
 
 logger = logging.getLogger(__name__)
@@ -757,6 +758,195 @@ def unique_everseen(iterable, key=None):
                 yield element
 
 
+def create_or_update_researcher_url(user, org_id, records, *args, **kwargs):
+    """Create or update researcher url record of a user."""
+    records = list(unique_everseen(records, key=lambda t: t.researcher_url_record.id))
+    org = Organisation.get(id=org_id)
+    client_id = org.orcid_client_id
+    profile_record = None
+    token = OrcidToken.select(OrcidToken.access_token).where(OrcidToken.user_id == user.id, OrcidToken.org_id == org.id,
+                                                             OrcidToken.scope.contains("/person/update")).first()
+    if token:
+        api = orcid_client.MemberAPI(org, user, access_token=token.access_token)
+        profile_record = api.get_record()
+    if profile_record:
+        activities = profile_record.get("person")
+
+        def is_org_rec(rec):
+            return (rec.get("source").get("source-client-id")
+                    and rec.get("source").get("source-client-id").get("path") == client_id)
+
+        researcher_urls = [
+            r for r in (activities.get("researcher-urls").get("researcher-url")) if is_org_rec(r)
+        ]
+
+        taken_put_codes = {
+            r.researcher_url_record.put_code
+            for r in records if r.researcher_url_record.put_code
+        }
+
+        def match_put_code(records, researcher_url_record):
+            """Match and assign put-code to the existing ORCID records."""
+            for r in records:
+                try:
+                    orcid, put_code = r.get('path').split("/")[-3::2]
+                except Exception:
+                    app.logger.exception("Failed to get ORCID iD/put-code from the response.")
+                    raise Exception("Failed to get ORCID iD/put-code from the response.")
+
+                if (r.get("url-name") == researcher_url_record.url_name
+                    and get_val(r, "url", "value") == researcher_url_record.url_value
+                    and get_val(r, "visibility") == researcher_url_record.visibility
+                    and get_val(r, "display-index") == researcher_url_record.display_index):         # noqa: E129
+                    researcher_url_record.put_code = put_code
+                    researcher_url_record.orcid = orcid
+                    return True
+
+                if researcher_url_record.put_code:
+                    return
+
+                if put_code in taken_put_codes:
+                    continue
+
+                if ((r.get("url-name") is None and get_val(r, "url", "value") is None)
+                    or (r.get("url-name") == researcher_url_record.url_name
+                        and get_val(r, "url", "value") == researcher_url_record.url_value)):
+                    researcher_url_record.put_code = put_code
+                    researcher_url_record.orcid = orcid
+                    taken_put_codes.add(put_code)
+                    app.logger.debug(
+                        f"put-code {put_code} was asigned to the researcher url record "
+                        f"(ID: {researcher_url_record.id}, Task ID: {researcher_url_record.task_id})")
+                    break
+
+        for task_by_user in records:
+            try:
+                rr = task_by_user.researcher_url_record
+                no_orcid_call = match_put_code(researcher_urls, rr)
+
+                if no_orcid_call:
+                    rr.add_status_line("Researcher url record unchanged.")
+                else:
+                    put_code, orcid, created = api.create_or_update_researcher_url(**rr._data)
+                    if created:
+                        rr.add_status_line("Researcher Url record was created.")
+                    else:
+                        rr.add_status_line("Researcher Url record was updated.")
+                    rr.orcid = orcid
+                    rr.put_code = put_code
+            except ApiException as ex:
+                if ex.status == 404:
+                    rr.put_code = None
+                elif ex.status == 401:
+                    token.delete_instance()
+                logger.exception(f'Exception occured {ex}')
+                rr.add_status_line(f"ApiException: {ex}")
+            except Exception as ex:
+                logger.exception(f"For {user} encountered exception")
+                rr.add_status_line(f"Exception occured processing the record: {ex}.")
+
+            finally:
+                rr.processed_at = datetime.utcnow()
+                rr.save()
+    else:
+        # TODO: Invitation resend in case user revokes organisation permissions
+        app.logger.debug(f"Should resend an invite to the researcher asking for permissions")
+        return
+
+
+def create_or_update_other_name(user, org_id, records, *args, **kwargs):
+    """Create or update Other name record of a user."""
+    records = list(unique_everseen(records, key=lambda t: t.other_name_record.id))
+    org = Organisation.get(id=org_id)
+    client_id = org.orcid_client_id
+    profile_record = None
+    token = OrcidToken.select(OrcidToken.access_token).where(OrcidToken.user_id == user.id, OrcidToken.org_id == org.id,
+                                                             OrcidToken.scope.contains("/person/update")).first()
+    if token:
+        api = orcid_client.MemberAPI(org, user, access_token=token.access_token)
+        profile_record = api.get_record()
+    if profile_record:
+        activities = profile_record.get("person")
+
+        def is_org_rec(rec):
+            return (rec.get("source").get("source-client-id")
+                    and rec.get("source").get("source-client-id").get("path") == client_id)
+
+        other_name_records = [
+            r for r in (activities.get("other-names").get("other-name")) if is_org_rec(r)
+        ]
+
+        taken_put_codes = {
+            r.other_name_record.put_code
+            for r in records if r.other_name_record.put_code
+        }
+
+        def match_put_code(records, other_name_record):
+            """Match and assign put-code to the existing ORCID records."""
+            for r in records:
+                try:
+                    orcid, put_code = r.get('path').split("/")[-3::2]
+                except Exception:
+                    app.logger.exception("Failed to get ORCID iD/put-code from the response.")
+                    raise Exception("Failed to get ORCID iD/put-code from the response.")
+
+                if (r.get("content") == other_name_record.content
+                    and get_val(r, "visibility") == other_name_record.visibility
+                    and get_val(r, "display-index") == other_name_record.display_index):         # noqa: E129
+                    other_name_record.put_code = put_code
+                    other_name_record.orcid = orcid
+                    return True
+
+                if other_name_record.put_code:
+                    return
+
+                if put_code in taken_put_codes:
+                    continue
+
+                if (r.get("content") is None or r.get("content") == other_name_record.content):
+                    other_name_record.put_code = put_code
+                    other_name_record.orcid = orcid
+                    taken_put_codes.add(put_code)
+                    app.logger.debug(
+                        f"put-code {put_code} was asigned to the other name record "
+                        f"(ID: {other_name_record.id}, Task ID: {other_name_record.task_id})")
+                    break
+
+        for task_by_user in records:
+            try:
+                rr = task_by_user.other_name_record
+                no_orcid_call = match_put_code(other_name_records, rr)
+
+                if no_orcid_call:
+                    rr.add_status_line("Other Name url record unchanged.")
+                else:
+                    put_code, orcid, created = api.create_or_update_other_name(**rr._data)
+                    if created:
+                        rr.add_status_line("Other Name record was created.")
+                    else:
+                        rr.add_status_line("Other Name record was updated.")
+                    rr.orcid = orcid
+                    rr.put_code = put_code
+            except ApiException as ex:
+                if ex.status == 404:
+                    rr.put_code = None
+                elif ex.status == 401:
+                    token.delete_instance()
+                logger.exception(f'Exception occured {ex}')
+                rr.add_status_line(f"ApiException: {ex}")
+            except Exception as ex:
+                logger.exception(f"For {user} encountered exception")
+                rr.add_status_line(f"Exception occured processing the record: {ex}.")
+
+            finally:
+                rr.processed_at = datetime.utcnow()
+                rr.save()
+    else:
+        # TODO: Invitation resend in case user revokes organisation permissions
+        app.logger.debug(f"Should resend an invite to the researcher asking for permissions")
+        return
+
+
 def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
     """Create or update affiliation record of a user.
 
@@ -1423,6 +1613,207 @@ def process_affiliation_records(max_rows=20):
                         "Failed to send batch process comletion notification message.")
 
 
+def process_researcher_url_records(max_rows=20):
+    """Process uploaded researcher_url records."""
+    set_server_name()
+    # TODO: optimize removing redundant fields
+    # TODO: perhaps it should be broken into 2 queries
+    task_ids = set()
+    tasks = (Task.select(
+        Task, ResearcherUrlRecord, User, UserInvitation.id.alias("invitation_id"), OrcidToken).where(
+            ResearcherUrlRecord.processed_at.is_null(), ResearcherUrlRecord.is_active,
+            ((User.id.is_null(False) & User.orcid.is_null(False) & OrcidToken.id.is_null(False))
+             | ((User.id.is_null() | User.orcid.is_null() | OrcidToken.id.is_null())
+                & UserInvitation.id.is_null()
+                & (ResearcherUrlRecord.status.is_null()
+                   | ResearcherUrlRecord.status.contains("sent").__invert__())))).join(
+                       ResearcherUrlRecord, on=(Task.id == ResearcherUrlRecord.task_id)).join(
+                           User,
+                           JOIN.LEFT_OUTER,
+                           on=((User.email == ResearcherUrlRecord.email)
+                               | ((User.orcid == ResearcherUrlRecord.orcid)
+                                  & (User.organisation_id == Task.org_id)))).join(
+                                   Organisation,
+                                   JOIN.LEFT_OUTER,
+                                   on=(Organisation.id == Task.org_id)).join(
+                                       UserOrg,
+                                       JOIN.LEFT_OUTER,
+                                       on=((UserOrg.user_id == User.id)
+                                           & (UserOrg.org_id == Organisation.id))).
+             join(
+                 UserInvitation,
+                 JOIN.LEFT_OUTER,
+                 on=((UserInvitation.email == ResearcherUrlRecord.email)
+                     & (UserInvitation.task_id == Task.id))).join(
+                         OrcidToken,
+                         JOIN.LEFT_OUTER,
+                         on=((OrcidToken.user_id == User.id)
+                             & (OrcidToken.org_id == Organisation.id)
+                             & (OrcidToken.scope.contains("/person/update")))).limit(max_rows))
+    for (task_id, org_id, user), tasks_by_user in groupby(tasks, lambda t: (
+            t.id,
+            t.org_id,
+            t.researcher_url_record.user, )):
+        if (user.id is None or user.orcid is None or not OrcidToken.select().where(
+            (OrcidToken.user_id == user.id) & (OrcidToken.org_id == org_id)
+                & (OrcidToken.scope.contains("/person/update"))).exists()):  # noqa: E127, E129
+            for k, tasks in groupby(
+                    tasks_by_user,
+                    lambda t: (t.created_by, t.org, t.researcher_url_record.email, t.researcher_url_record.first_name,
+                               t.researcher_url_record.last_name)):  # noqa: E501
+                try:
+                    email = k[2]
+                    send_work_funding_peer_review_invitation(
+                        *k,
+                        task_id=task_id,
+                        invitation_template="email/researcher_url_invitation.html")
+                    status = "The invitation sent at " + datetime.utcnow().isoformat(timespec="seconds")
+                    (ResearcherUrlRecord.update(status=ResearcherUrlRecord.status + "\n" + status).where(
+                        ResearcherUrlRecord.status.is_null(False), ResearcherUrlRecord.email == email).execute())
+                    (ResearcherUrlRecord.update(status=status).where(ResearcherUrlRecord.status.is_null(),
+                                                                     ResearcherUrlRecord.email == email).execute())
+                except Exception as ex:
+                    (ResearcherUrlRecord.update(
+                        processed_at=datetime.utcnow(),
+                        status=f"Failed to send an invitation: {ex}.").where(
+                            ResearcherUrlRecord.task_id == task_id, ResearcherUrlRecord.email == email,
+                            ResearcherUrlRecord.processed_at.is_null())).execute()
+        else:
+            create_or_update_researcher_url(user, org_id, tasks_by_user)
+        task_ids.add(task_id)
+    for task in Task.select().where(Task.id << task_ids):
+        # The task is completed (all recores are processed):
+        if not (ResearcherUrlRecord.select().where(
+                ResearcherUrlRecord.task_id == task.id,
+                ResearcherUrlRecord.processed_at.is_null()).exists()):
+            task.completed_at = datetime.utcnow()
+            task.save()
+            error_count = ResearcherUrlRecord.select().where(
+                ResearcherUrlRecord.task_id == task.id, ResearcherUrlRecord.status**"%error%").count()
+            row_count = task.record_count
+
+            with app.app_context():
+                export_url = flask.url_for(
+                    "researcherurlrecord.export",
+                    export_type="json",
+                    _scheme="http" if EXTERNAL_SP else "https",
+                    task_id=task.id,
+                    _external=True)
+                try:
+                    send_email(
+                        "email/work_task_completed.html",
+                        subject="Researcher Url Record Process Update",
+                        recipient=(task.created_by.name, task.created_by.email),
+                        error_count=error_count,
+                        row_count=row_count,
+                        export_url=export_url,
+                        task_name="Researcher Url",
+                        filename=task.filename)
+                except Exception:
+                    logger.exception(
+                        "Failed to send batch process completion notification message.")
+
+
+def process_other_name_records(max_rows=20):
+    """Process uploaded Other Name records."""
+    set_server_name()
+    # TODO: optimize
+    task_ids = set()
+    tasks = (Task.select(
+        Task, OtherNameRecord, User, UserInvitation.id.alias("invitation_id"), OrcidToken).where(
+            OtherNameRecord.processed_at.is_null(), OtherNameRecord.is_active,
+            ((User.id.is_null(False) & User.orcid.is_null(False) & OrcidToken.id.is_null(False))
+             | ((User.id.is_null() | User.orcid.is_null() | OrcidToken.id.is_null())
+                & UserInvitation.id.is_null()
+                & (OtherNameRecord.status.is_null()
+                   | OtherNameRecord.status.contains("sent").__invert__())))).join(
+                       OtherNameRecord, on=(Task.id == OtherNameRecord.task_id)).join(
+                           User,
+                           JOIN.LEFT_OUTER,
+                           on=((User.email == OtherNameRecord.email)
+                               | ((User.orcid == OtherNameRecord.orcid)
+                                  & (User.organisation_id == Task.org_id)))).join(
+                                   Organisation,
+                                   JOIN.LEFT_OUTER,
+                                   on=(Organisation.id == Task.org_id)).join(
+                                       UserOrg,
+                                       JOIN.LEFT_OUTER,
+                                       on=((UserOrg.user_id == User.id)
+                                           & (UserOrg.org_id == Organisation.id))).
+             join(
+                 UserInvitation,
+                 JOIN.LEFT_OUTER,
+                 on=((UserInvitation.email == OtherNameRecord.email)
+                     & (UserInvitation.task_id == Task.id))).join(
+                         OrcidToken,
+                         JOIN.LEFT_OUTER,
+                         on=((OrcidToken.user_id == User.id)
+                             & (OrcidToken.org_id == Organisation.id)
+                             & (OrcidToken.scope.contains("/person/update")))).limit(max_rows))
+    for (task_id, org_id, user), tasks_by_user in groupby(tasks, lambda t: (
+            t.id,
+            t.org_id,
+            t.other_name_record.user, )):
+        if (user.id is None or user.orcid is None or not OrcidToken.select().where(
+            (OrcidToken.user_id == user.id) & (OrcidToken.org_id == org_id)
+                & (OrcidToken.scope.contains("/person/update"))).exists()):  # noqa: E127, E129
+            for k, tasks in groupby(
+                    tasks_by_user,
+                    lambda t: (t.created_by, t.org, t.other_name_record.email, t.other_name_record.first_name,
+                               t.other_name_record.last_name)):  # noqa: E501
+                try:
+                    email = k[2]
+                    send_work_funding_peer_review_invitation(
+                        *k,
+                        task_id=task_id,
+                        invitation_template="email/other_name_invitation.html")
+                    status = "The invitation sent at " + datetime.utcnow().isoformat(timespec="seconds")
+                    (OtherNameRecord.update(status=OtherNameRecord.status + "\n" + status).where(
+                        OtherNameRecord.status.is_null(False), OtherNameRecord.email == email).execute())
+                    (OtherNameRecord.update(status=status).where(OtherNameRecord.status.is_null(),
+                                                                 OtherNameRecord.email == email).execute())
+                except Exception as ex:
+                    (OtherNameRecord.update(
+                        processed_at=datetime.utcnow(),
+                        status=f"Failed to send an invitation: {ex}.").where(
+                            OtherNameRecord.task_id == task_id, OtherNameRecord.email == email,
+                            OtherNameRecord.processed_at.is_null())).execute()
+        else:
+            create_or_update_other_name(user, org_id, tasks_by_user)
+        task_ids.add(task_id)
+    for task in Task.select().where(Task.id << task_ids):
+        # The task is completed (all recores are processed):
+        if not (OtherNameRecord.select().where(
+                OtherNameRecord.task_id == task.id,
+                OtherNameRecord.processed_at.is_null()).exists()):
+            task.completed_at = datetime.utcnow()
+            task.save()
+            error_count = OtherNameRecord.select().where(
+                OtherNameRecord.task_id == task.id, OtherNameRecord.status**"%error%").count()
+            row_count = task.record_count
+
+            with app.app_context():
+                export_url = flask.url_for(
+                    "othernamerecord.export",
+                    export_type="json",
+                    _scheme="http" if EXTERNAL_SP else "https",
+                    task_id=task.id,
+                    _external=True)
+                try:
+                    send_email(
+                        "email/work_task_completed.html",
+                        subject="Other Name Record Process Update",
+                        recipient=(task.created_by.name, task.created_by.email),
+                        error_count=error_count,
+                        row_count=row_count,
+                        export_url=export_url,
+                        task_name="Other Name",
+                        filename=task.filename)
+                except Exception:
+                    logger.exception(
+                        "Failed to send batch process completion notification message.")
+
+
 @rq.job(timeout=300)
 def process_tasks(max_rows=20):
     """Handle batch task expiration.
@@ -1622,6 +2013,8 @@ def process_records(n):
     process_funding_records(n)
     process_work_records(n)
     process_peer_review_records(n)
+    process_researcher_url_records(n)
+    process_other_name_records(n)
     # process_tasks(n)
 
 
