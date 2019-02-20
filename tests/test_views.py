@@ -219,7 +219,7 @@ def test_superuser_view_access(client):
     assert resp.status_code == 200
     assert b"interval" in resp.data
 
-    jobs = rq.get_scheduler().get_jobs()
+    jobs = list(rq.get_scheduler().get_jobs())
     resp = client.get(f"/admin/schedude/details/?id={jobs[0].id}")
     assert resp.status_code == 200
     assert b"interval" in resp.data

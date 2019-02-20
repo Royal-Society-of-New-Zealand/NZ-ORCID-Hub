@@ -3398,7 +3398,7 @@ class ScheduerView(BaseModelView):
             overriden to change the page_size limit. Removing the page_size
             limit requires setting page_size to 0 or False.
         """
-        jobs = self.get_query()
+        jobs = list(self.get_query())
 
         # Get count
         count = len(jobs)
