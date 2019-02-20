@@ -126,6 +126,7 @@ def send_email(template,
     """
     if not org and current_user and not current_user.is_anonymous:
         org = current_user.organisation
+    app = flask.current_app
     jinja_env = flask.current_app.jinja_env
 
     if logo is None:
@@ -191,7 +192,7 @@ def send_email(template,
     msg.mail_to.append(recipient)
     resp = msg.send(smtp=dict(host=app.config["MAIL_SERVER"], port=app.config["MAIL_PORT"]))
     if not resp.success:
-        raise Exception("Failed to email the message. Please contact a Hub administrator!")
+        raise Exception(f"Failed to email the message: {resp.error}. Please contact a Hub administrator!")
 
 
 def new_invitation_token(length=5):
