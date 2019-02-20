@@ -25,7 +25,7 @@ Grant **relay** access from the docker container network editing
 
 And don't forget to rebuild the configuration and restart *sendmail*:
 
-::bash
+.. code-block:: bash
 
     sudo m4 /etc/mail/sendmail.mc > /etc/mail/sendmail.cf
     sudo chmod 644 /etc/mail/sendmail.cf
