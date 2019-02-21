@@ -22,3 +22,11 @@ Grant **relay** access from the docker container network editing
     Connect:127.0.0.1                       RELAY
     Connect:172                             RELAY
 
+
+And don't forget to rebuild the configuration and restart *sendmail*:
+
+.. code-block:: bash
+
+    sudo m4 /etc/mail/sendmail.mc > /etc/mail/sendmail.cf
+    sudo chmod 644 /etc/mail/sendmail.cf
+    sudo /etc/init.d/sendmail restart

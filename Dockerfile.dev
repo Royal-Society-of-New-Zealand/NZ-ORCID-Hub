@@ -16,7 +16,7 @@ RUN yum -y update \
             python36u-pip \
             git \
     && pip3.6 install -U pip \
-    && pip3.6 install -U -r /dev_requirements.txt \
+    && pip install -U -r /dev_requirements.txt \
     && cd /var/lib/rpm \
     && rm -rf __db* \
     && rpm --rebuilddb \

@@ -9,6 +9,7 @@ import os
 import sys
 import logging
 from datetime import datetime
+from flask_login import logout_user
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 # sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # flake8: noqa
@@ -23,6 +24,7 @@ os.environ["DATABASE_URL"] = DATABASE_URL
 # yapf: enable
 
 from flask.testing import FlaskClient
+from flask import _request_ctx_stack
 
 import pytest
 from playhouse import db_url
@@ -34,8 +36,6 @@ from orcid_hub.models import *  # noqa: F401, F403
 from orcid_hub.authcontroller import *  # noqa: F401, F403
 from orcid_hub.views import *  # noqa: F401, F403
 from orcid_hub.reports import *  # noqa: F401, F403
-from orcid_hub import models
-
 
 db = _app.db = _db = db_url.connect(DATABASE_URL, autorollback=True)
 
@@ -72,7 +72,7 @@ class HubClient(FlaskClient):
         """Log in with the given user."""
         org = user.organisation
         if affiliations is None:
-            uo = user.userorg_set.where(models.UserOrg.org == org).first()
+            uo = user.userorg_set.where(UserOrg.org == org).first()
             if uo and uo.affiliations:
                 affiliations = ';'.join([
                     "staff" if a == Affiliation.EMP else "student" for a in Affiliation
@@ -94,14 +94,30 @@ class HubClient(FlaskClient):
         headers.update(kwargs)
         return self.get("/Tuakiri/login", headers=headers, follow_redirects=follow_redirects)
 
-    def logout(self):
-        """Perform log-out."""
-        return self.get("/logout")
+    def open(self, *args, **kwargs):
+        """Save the last response."""
+        self.resp = super().open(*args, **kwargs)
+        if hasattr(self.resp, "data"):
+            self.save_resp()
+            self.resp_no += 1
+        return self.resp
 
-    def login_root(self, *args, **kwargs):
+    def save_resp(self):
+        """Save the response into 'output.html' file."""
+        with open(f"output{self.resp_no:02d}.html", "wb") as output:
+            output.write(self.resp.data)
+
+    def logout(self, follow_redirects=True):
+        """Perform log-out."""
+        resp = self.get("/logout", follow_redirects=follow_redirects)
+        _request_ctx_stack.pop()
+        self.cookie_jar.clear()
+        return resp
+
+    def login_root(self):
         """Log in with the first found Hub admin user."""
         root = User.select().where(User.roles.bin_and(Role.SUPERUSER)).first()
-        return self.login(root, *args, **kwargs)
+        return self.login(root)
 
 
 @pytest.fixture
@@ -117,11 +133,11 @@ def app():
 
     with test_database(
             _db,
-        (File, Organisation, User, UserOrg, OrcidToken, UserOrgAffiliation, OrgInfo, Task,
+        (File, Organisation, User, UserOrg, OrcidToken, UserOrgAffiliation, OrgInfo, Task, Log,
          AffiliationRecord, FundingRecord, FundingContributor, FundingInvitees, GroupIdRecord,
          OrcidAuthorizeCall, OrcidApiCall, Url, UserInvitation, OrgInvitation, ExternalId, Client,
          Grant, Token, WorkRecord, WorkContributor, WorkExternalId, WorkInvitees, PeerReviewRecord,
-         PeerReviewInvitee, PeerReviewExternalId),
+         PeerReviewInvitee, PeerReviewExternalId, ResearcherUrlRecord, OtherNameRecord),
             fail_silently=True):  # noqa: F405
         _app.db = _db
         _app.config["DATABASE_URL"] = DATABASE_URL
@@ -130,7 +146,7 @@ def app():
         _app.config["WTF_CSRF_ENABLED"] = False
         _app.config["DEBUG_TB_ENABLED"] = False
         _app.config["LOAD_TEST"] = True
-        # _app.config["SERVER_NAME"] = "ORCIDHUB"
+        #_app.config["SERVER_NAME"] = "ORCIDHUB"
         _app.sentry = None
 
         # Add some data:
@@ -204,33 +220,14 @@ def app():
             fields=[UserOrg.user_id, UserOrg.org_id, UserOrg.created_at]).execute()
 
         _app.test_client_class = HubClient
-
-        Organisation.create(
-            name="The University of Auckland",
-            tuakiri_name="University of Auckland",
-            orcid_client_id="APP-1234567890",
-            orcid_secret="CLIENT-SECRET-123",
-            confirmed=True,
-            city="Auckland",
-            country="NZ")
-
-        logo_file = File.create(
-            filename="LOGO.png",
-            data=b"000000000000000000000",
-            mimetype="image/png",
-            token="TOKEN000")
-
         org = Organisation.create(
             name="THE ORGANISATION",
             tuakiri_name="THE ORGANISATION",
             orcid_client_id="APP-12345678",
             orcid_secret="CLIENT-SECRET",
-            logo=logo_file,
             confirmed=True,
-            can_use_api=True,
-            is_email_sent=True,
             city="CITY",
-            country="COUNTRY")
+            country="NZ")
 
         admin = User.create(
             email="app123@test0.edu",
@@ -239,7 +236,6 @@ def app():
             orcid="1001-0001-0001-0001",
             confirmed=True,
             organisation=org)
-
         tech_contact = admin
 
         UserOrg.create(user=admin, org=org, is_admin=True)
@@ -300,15 +296,11 @@ def app():
             orcid="9999-9999-9999-9999",
             confirmed=True,
             organisation=org2)
-
         super_user = User.create(
             email="super_user@test0.edu", organisation=org, roles=Role.SUPERUSER, confirmed=True)
 
         _app.data = locals()
-
         yield _app
-        if models.current_user:
-            models.current_user = None
 
     ctx.pop()
     return
@@ -317,16 +309,12 @@ def app():
 @pytest.fixture
 def client(app):
     """A Flask test client. An instance of :class:`flask.testing.TestClient` by default."""
-    class Response(app.response_class):
-        """Custom response with a few helpers."""
-        @lazy_property
-        def json(self):
-            return json.loads(self.data)
-    app.response_class = Response
-
     with app.test_client() as client:
         client.data = app.data
         yield client
+    if "EXTERNAL_SP" in app.config:
+        del(app.config["EXTERNAL_SP"])
+    client.logout()
 
 
 @pytest.fixture
@@ -337,3 +325,10 @@ def request_ctx(app):
 
     make_ctx.data = app.data
     return make_ctx
+
+
+@pytest.fixture
+def app_req_ctx(request_ctx):
+    """Create the fixture for the request with a test organisation and a test tech.contatct."""
+    app_req_ctx.data = request_ctx.data
+    return request_ctx

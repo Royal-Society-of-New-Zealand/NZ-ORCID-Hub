@@ -5,6 +5,7 @@ omit =
     orcid/*
     orcid_api/*
     venv/*
+    venv7/*
     tuakiri_mock/*
     orcid_hub/test_*.py
     main.py
@@ -27,6 +28,7 @@ omit =
 omit =
     tests/*
     orcid/*
+    venv7/*
     orcid_api/*
     venv/*
     tuakiri_mock/*

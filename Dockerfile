@@ -4,9 +4,10 @@ ENV LANG=en_US.UTF-8
 LABEL maintainer="The University of Auckland" \
 	description="NZ ORCiD Hub Application Image with Development support"
 
-ADD http://download.opensuse.org/repositories/security://shibboleth/CentOS_7/security:shibboleth.repo /etc/yum.repos.d/shibboleth.repo
+# ADD http://download.opensuse.org/repositories/security://shibboleth/CentOS_7/security:shibboleth.repo /etc/yum.repos.d/shibboleth.repo
+ADD https://shibboleth.net/cgi-bin/sp_repo.cgi?platform=CentOS_7 /etc/yum.repos.d/shibboleth.repo
 # fix download.opensuse.org not available
-RUN sed -i 's|download|downloadcontent|g' /etc/yum.repos.d/shibboleth.repo
+##RUN sed -i 's|download|downloadcontent|g' /etc/yum.repos.d/shibboleth.repo
 COPY conf/app.wsgi /var/www/html/
 # prefix "ZZ" added, that it gest inluded the very end (after Shibboleth gets loaded)
 COPY conf/app.conf /etc/httpd/conf.d/ZZ-app.conf
@@ -18,10 +19,11 @@ COPY setup.* orcid* /
 COPY run-app /usr/local/bin/
 COPY ./conf /conf
 
-RUN yum -y update \
-    && yum -y install https://centos7.iuscommunity.org/ius-release.rpm \
+# && chmod +x /etc/sysconfig/shibd /etc/shibboleth/shibd-redhat \
+RUN yum -y install https://centos7.iuscommunity.org/ius-release.rpm \
+    && yum -y update \
     && yum -y install \
-    	shibboleth.x86_64 \
+        shibboleth.x86_64 \
     	httpd \
         mod_ssl \
     	gcc.x86_64 \
@@ -29,12 +31,16 @@ RUN yum -y update \
         python36u.x86_64 \
         python36u-devel.x86_64 \
         python36u-pip \
-    && pip3.6 install -U pip mod_wsgi psycopg2-binary . \
+        git \
+    && echo $'RPMs installed...' \
+    && pip3.6 install -U pip \
+    && pip install -U mod_wsgi psycopg2-binary \
+    && pip install -U -r requirements.txt \
     && /usr/bin/mod_wsgi-express module-config >/etc/httpd/conf.modules.d/10-wsgi.conf \
     && [ -d /var/run/lock ] || mkdir -p /var/run/lock \
     && [ -d /var/lock/subsys/ ] || mkdir -p /var/lock/subsys/ \
     && echo $'export LD_LIBRARY_PATH=/opt/shibboleth/lib64:$LD_LIBRARY_PATH\n' > /etc/sysconfig/shibd \
-    && chmod +x /etc/sysconfig/shibd /etc/shibboleth/shibd-redhat \
+    && chmod +x /etc/shibboleth/shibd-redhat \
     && yum erase -y \
         alsa-lib \
         apr-util-devel \
@@ -47,6 +53,7 @@ RUN yum -y update \
         freetype \
         gcc \
         giflib \
+        git \
         glibc-devel \
         glibc-headers \
         httpd-devel \

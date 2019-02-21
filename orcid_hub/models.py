@@ -4,33 +4,37 @@
 import copy
 import csv
 import json
+import jsonschema
 import os
 import random
 import re
 import secrets
 import string
 import uuid
-import validators
 from collections import namedtuple
 from datetime import datetime
+from enum import IntFlag, IntEnum
 from hashlib import md5
 from io import StringIO
-from itertools import zip_longest
+from itertools import groupby, zip_longest
 from urllib.parse import urlencode
 
+import validators
 import yaml
 from flask_login import UserMixin, current_user
+from peewee import JOIN, BlobField
 from peewee import BooleanField as BooleanField_
-from peewee import (JOIN, BlobField, CharField, DateTimeField, DeferredRelation, Field,
-                    FixedCharField, ForeignKeyField, IntegerField, Model, OperationalError,
-                    PostgresqlDatabase, SmallIntegerField, TextField, fn)
+from peewee import (CharField, DateTimeField, DeferredRelation, Field, FixedCharField,
+                    ForeignKeyField, IntegerField, Model, OperationalError, PostgresqlDatabase,
+                    SmallIntegerField, TextField, fn)
+from peewee_validates import ModelValidator
 from playhouse.shortcuts import model_to_dict
 from pycountry import countries
 from pykwalify.core import Core
 from pykwalify.errors import SchemaError
-from peewee_validates import ModelValidator
 
 from . import app, db
+from .schemas import affiliation_task_schema, researcher_url_task_schema, other_name_task_schema
 
 ENV = app.config["ENV"]
 DEFAULT_COUNTRY = app.config["DEFAULT_COUNTRY"]
@@ -47,16 +51,26 @@ AFFILIATION_TYPES = (
     "employment",
 )
 
-try:
-    from enum import IntFlag
-except ImportError:  # pragma: no cover
-    from enum import IntEnum as IntFlag
-
 
 class ModelException(Exception):
-    """Applicaton model exception."""
+    """Application model exception."""
 
     pass
+
+
+class NestedDict(dict):
+    """Helper for traversing a nested dictionaries."""
+
+    def get(self, *keys, default=None):
+        """To get the value from uploaded fields."""
+        d = self
+        for k in keys:
+            if d is default:
+                break
+            if not isinstance(d, dict):
+                return default
+            d = super(NestedDict, d).get(k, default)
+        return d
 
 
 def validate_orcid_id(value):
@@ -197,13 +211,13 @@ class PartialDateField(Field):
         """Convert into partial ISO date textual representation: YYYY-**-**, YYYY-MM-**, or YYYY-MM-DD."""
         if value is None or not value.year:
             return None
+
+        res = "%04d" % int(value.year)
+        if value.month:
+            res += "-%02d" % int(value.month)
         else:
-            res = "%04d" % int(value.year)
-            if value.month:
-                res += "-%02d" % int(value.month)
-            else:
-                return res + "-**-**"
-            return res + "-%02d" % int(value.day) if value.day else res + "-**"
+            return res + "-**-**"
+        return res + "-%02d" % int(value.day) if value.day else res + "-**"
 
     def python_value(self, value):
         """Parse partial ISO date textual representation."""
@@ -216,6 +230,68 @@ class PartialDateField(Field):
             "month",
             "day",
         ), parts)))
+
+
+class TaskType(IntEnum):
+    """Enum used to represent Task type."""
+
+    NONE = 0
+    AFFILIATION = 4  # Affilation of employment/education
+    FUNDING = 1  # Funding
+    WORK = 2
+    PEER_REVIEW = 3
+    RESEARCHER_URL = 5
+    OTHER_NAME = 6
+    SYNC = 11
+
+    def __eq__(self, other):
+        if isinstance(other, TaskType):
+            return self.value == other.value
+        elif isinstance(other, int):
+            return self.value == other
+        return (self.name == other or self.name == getattr(other, "name", None))
+
+    def __hash__(self):
+        return hash(self.name)
+
+    @classmethod
+    def options(cls):
+        """Get list of all types for UI dropown option list."""
+        return [(e, e.name.replace('_', ' ').title()) for e in cls]
+
+
+class TaskTypeField(SmallIntegerField):
+    """Partial date custom DB data field mapped to varchar(10)."""
+
+    def db_value(self, value):
+        """Change enum value to small int."""
+        if value is None:
+            return None
+        try:
+            if isinstance(value, TaskType):
+                return value.value
+            elif isinstance(value, int):
+                return value
+            elif isinstance(value, str):
+                if str.isdigit(value):
+                    return int(value)
+                return TaskType[value.upper()].value
+            else:
+                raise ValueError("Unknow TaskType: '%s'", value)
+        except:
+            app.logger.exception("Failed to coerce the TaskType value, choosing NULL.")
+            return None
+
+    def python_value(self, value):
+        """Parse partial ISO date textual representation."""
+        if value is None:
+            return None
+        try:
+            return TaskType(value)
+        except:
+            app.logger.exception(
+                    f"Failed to map DB value {value} to TaskType, choosing None.")
+            return None
 
 
 class Role(IntFlag):
@@ -268,7 +344,7 @@ class Affiliation(IntFlag):
 
 
 class BaseModel(Model):
-    """Encapsulate commont bits and pieces of the model classes."""
+    """Encapsulate common bits and pieces of the model classes."""
 
     def field_is_updated(self, field_name):
         """Test if field is 'dirty'."""
@@ -277,8 +353,10 @@ class BaseModel(Model):
     @classmethod
     def get(cls, *query, **kwargs):
         """Get a single model instance."""
-        if query and not kwargs and len(query) == 1 and isinstance(query[0], int):
+        if query and not kwargs and len(query) == 1 and isinstance(query[0], (int, str, )):
             return super().get(id=query[0])
+        elif not query and not kwargs:
+            return super().select().limit(1).first()
         return super().get(*query, **kwargs)
 
     @classmethod
@@ -288,14 +366,13 @@ class BaseModel(Model):
 
     def __to_dashes(self, o):
         """Replace '_' with '-' in the dict keys."""
-        if isinstance(o, (list, tuple)):
-            return [self.__to_dashes(e) for e in o]
-        elif isinstance(o, dict):
+        if isinstance(o, dict):
             return {k.replace('_', '-'): self.__to_dashes(v) for k, v in o.items()}
         return o
 
     def to_dict(self,
                 to_dashes=False,
+                exclude_nulls=False,
                 recurse=True,
                 backrefs=False,
                 only=None,
@@ -315,9 +392,13 @@ class BaseModel(Model):
             extra_attrs=extra_attrs,
             fields_from_query=fields_from_query,
             max_depth=max_depth)
+        if exclude_nulls:
+            o = {k: v for (k, v) in o.items() if v is not None}
         for k, v in o.items():
             if isinstance(v, PartialDate):
                 o[k] = str(v)
+            elif k == "task_type":
+                o[k] = v.name
         if to_dashes:
             return self.__to_dashes(o)
         return o
@@ -351,10 +432,11 @@ DeferredUser = ModelDeferredRelation()
 
 
 class AuditMixin(Model):
-    """Mixing for getting data necessary for data change audit trail maintenace."""
+    """Mixing for getting data necessary for data change audit trail maintenance."""
 
     created_at = DateTimeField(default=datetime.utcnow)
     updated_at = DateTimeField(null=True, default=None)
+    is_deleted = BooleanField(null=True, default=False)
 
     # created_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
     # updated_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
@@ -369,6 +451,14 @@ class AuditMixin(Model):
                     self.created_by_id = current_user.id
         return super().save(*args, **kwargs)
 
+    def delete_instance(self, *args, **kwargs):  # noqa: D102
+        """Mark the entry id_deleted and save (with the link to the user
+        that invoked the deletion) for audit trail.
+        """
+        self.is_deleted = True
+        self.save()
+        return super().delete_instance(*args, **kwargs)
+
 
 class File(BaseModel):
     """Uploaded image files."""
@@ -378,9 +468,12 @@ class File(BaseModel):
     mimetype = CharField(max_length=30, db_column="mime_type")
     token = FixedCharField(max_length=8, unique=True, default=lambda: secrets.token_urlsafe(8)[:8])
 
+    class Meta:  # noqa: D101,D106
+        table_alias = "f"
+
 
 class Organisation(BaseModel, AuditMixin):
-    """Research oranisation."""
+    """Research organisation."""
 
     country_choices = [(c.alpha_2, c.name) for c in countries]
     country_choices.sort(key=lambda e: e[1])
@@ -453,14 +546,14 @@ class Organisation(BaseModel, AuditMixin):
 
     @property
     def admins(self):
-        """Get organisation's adminstrator query."""
+        """Get organisation's administrator query."""
         return self.users.where(UserOrg.is_admin)
 
     def __repr__(self):
         return self.name or self.tuakiri_name
 
     def save(self, *args, **kwargs):
-        """Handle data consitency validation and saving."""
+        """Handle data consistency validation and saving."""
         if self.is_dirty():
 
             if self.name is None:
@@ -473,6 +566,9 @@ class Organisation(BaseModel, AuditMixin):
                     app.logger.info(f"Added TECHNICAL role to user {self.tech_contact}")
 
             super().save(*args, **kwargs)
+
+    class Meta:  # noqa: D101,D106
+        table_alias = "o"
 
 
 class OrgInfo(BaseModel):
@@ -505,10 +601,7 @@ class OrgInfo(BaseModel):
     def load_from_csv(cls, source):
         """Load data from CSV file or a string."""
         if isinstance(source, str):
-            if '\n' in source:
-                source = StringIO(source)
-            else:
-                source = open(source)
+            source = StringIO(source)
         reader = csv.reader(source)
         header = next(reader)
 
@@ -543,7 +636,7 @@ class OrgInfo(BaseModel):
 
         for row in reader:
             # skip empty lines:
-            if row is None or (len(row) == 1 and row[0].strip() == ''):
+            if not row or row is None or len(row) == 0 or (len(row) == 1 and row[0].strip() == ''):
                 continue
 
             name = val(row, 0)
@@ -571,7 +664,7 @@ class User(BaseModel, UserMixin, AuditMixin):
     """
     ORCiD Hub user.
 
-    It's a gneric user including researchers, organisation administrators, hub administrators, etc.
+    It's a generic user including researchers, organisation administrators, hub administrators, etc.
     """
 
     name = CharField(max_length=64, null=True)
@@ -579,7 +672,6 @@ class User(BaseModel, UserMixin, AuditMixin):
     last_name = CharField(null=True, verbose_name="Last Name")
     email = CharField(max_length=120, unique=True, null=True, verbose_name="Email Address")
     eppn = CharField(max_length=120, unique=True, null=True, verbose_name="EPPN")
-    # ORCiD:
     orcid = OrcidIdField(null=True, verbose_name="ORCID iD", help_text="User's ORCID iD")
     confirmed = BooleanField(default=False)
     # Role bit-map:
@@ -590,8 +682,8 @@ class User(BaseModel, UserMixin, AuditMixin):
     orcid_updated_at = DateTimeField(null=True, default=None)
 
     # TODO: many-to-many
-    # NB! depricated!
-    # TODO: we still need to rememeber the rognanistiaon that last authenticated the user
+    # NB! Deprecated!
+    # TODO: we still need to remember the organisation that last authenticated the user
     organisation = ForeignKeyField(
         Organisation, related_name="members", on_delete="SET NULL", null=True)
     created_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
@@ -601,6 +693,11 @@ class User(BaseModel, UserMixin, AuditMixin):
         if self.name and (self.eppn or self.email):
             return "%s (%s)" % (self.name, self.email or self.eppn)
         return self.name or self.email or self.orcid or super().__repr__()
+
+    @property
+    def username(self):
+        """Usename for comlying with Flask-Login API"""
+        return self.orcid or self.email
 
     @property
     def organisations(self):
@@ -613,15 +710,15 @@ class User(BaseModel, UserMixin, AuditMixin):
 
     @lazy_property
     def org_links(self):
-        """Get all user organisation linked direct and undirect."""
+        """Get all user organisation linked directly and indirectly."""
         if self.orcid:
             q = UserOrg.select().join(
                 User,
-                on=((User.id == UserOrg.user_id) &
-                    ((User.email == self.email) |
-                     (User.orcid == self.orcid)))).where((UserOrg.user_id == self.id)
-                                                         | (User.email == self.email)
-                                                         | (User.orcid == self.orcid))
+                on=((User.id == UserOrg.user_id)
+                    & ((User.email == self.email)
+                       | (User.orcid == self.orcid)))).where((UserOrg.user_id == self.id)
+                                                             | (User.email == self.email)
+                                                             | (User.orcid == self.orcid))
         else:
             q = self.userorg_set
 
@@ -648,8 +745,8 @@ class User(BaseModel, UserMixin, AuditMixin):
     def is_active(self):
         """Get 'is_active' based on confirmed for Flask-Login.
 
-        TODO: confirmed - user that email is cunfimed either by IdP or by confirmation email
-        ins't the same as "is active".
+        TODO: confirmed - user that email is confirmed either by IdP or by confirmation email
+        isn't the same as "is active".
         """
         return self.confirmed
 
@@ -679,9 +776,9 @@ class User(BaseModel, UserMixin, AuditMixin):
     def is_superuser(self, value):  # noqa: D401
         """Sets user as a HUB admin."""
         if value:
-            self.roles |= Role.SUPERUSER
+            self.roles |= Role.SUPERUSER.value
         else:
-            self.roles &= ~Role.SUPERUSER
+            self.roles &= ~Role.SUPERUSER.value
 
     @property
     def is_admin(self):
@@ -712,20 +809,20 @@ class User(BaseModel, UserMixin, AuditMixin):
             return Affiliation.NONE
 
     def is_tech_contact_of(self, org=None):
-        """Indicats if the user is the technical contact of the organisation."""
+        """Indicate if the user is the technical contact of the organisation."""
         if org is None:
             org = self.organisation
         return org and org.tech_contact and org.tech_contact_id == self.id
 
     def is_admin_of(self, org=None):
-        """Indicats if the user is the technical contact of the organisation."""
+        """Indicate if the user is the technical contact of the organisation."""
         if org is None:
             org = self.organisation
         return org and UserOrg.select().where(UserOrg.user == self, UserOrg.org == org, UserOrg.is_admin).exists()
 
     @property
     def uuid(self):
-        """Generate UUID for the user basee on the the primary email."""
+        """Generate UUID for the user based on the primary email."""
         return uuid.uuid5(uuid.NAMESPACE_URL, "mailto:" + (self.email or self.eppn))
 
 
@@ -747,8 +844,9 @@ class OrgInvitation(BaseModel, AuditMixin):
     confirmed_at = DateTimeField(null=True)
     tech_contact = BooleanField(
         null=True,
-        help_text="The invitee is the techical contact of the organisation.",
+        help_text="The invitee is the technical contact of the organisation.",
         verbose_name="Is Tech.contact")
+    url = CharField(null=True)
 
     @property
     def sent_at(self):
@@ -757,6 +855,7 @@ class OrgInvitation(BaseModel, AuditMixin):
 
     class Meta:  # noqa: D101,D106
         db_table = "org_invitation"
+        table_alias = "oi"
 
 
 class UserOrg(BaseModel, AuditMixin):
@@ -780,9 +879,9 @@ class UserOrg(BaseModel, AuditMixin):
     # access_token = CharField(max_length=120, unique=True, null=True)
 
     def save(self, *args, **kwargs):
-        """Enforce foriegn key contraints and consolidate user roles with the linked organisations.
+        """Enforce foreign key constraints and consolidate user roles with the linked organisations.
 
-        Enforce foriegn key contraints and consolidate user roles with the linked organisations
+        Enforce foreign key constraints and consolidate user roles with the linked organisations
         before saving data.
         """
         if self.is_dirty():
@@ -808,7 +907,7 @@ class UserOrg(BaseModel, AuditMixin):
 
 
 class OrcidToken(BaseModel, AuditMixin):
-    """For Keeping Orcid token in the table."""
+    """For Keeping ORCID token in the table."""
 
     user = ForeignKeyField(
         User, null=True, index=True,
@@ -834,6 +933,10 @@ class OrcidToken(BaseModel, AuditMixin):
             self.scope = value
         else:
             self.scope = ','.join(value)
+
+    class Meta:  # noqa: D101,D106
+        db_table = "orcid_token"
+        table_alias = "ot"
 
 
 class UserOrgAffiliation(BaseModel, AuditMixin):
@@ -875,6 +978,7 @@ class OrcidApiCall(BaseModel):
 
     class Meta:  # noqa: D101,D106
         db_table = "orcid_api_call"
+        table_alias = "oac"
 
 
 class OrcidAuthorizeCall(BaseModel):
@@ -890,6 +994,7 @@ class OrcidAuthorizeCall(BaseModel):
 
     class Meta:  # noqa: D101,D106
         db_table = "orcid_authorize_call"
+        table_alias = "oac"
 
 
 class Task(BaseModel, AuditMixin):
@@ -903,13 +1008,15 @@ class Task(BaseModel, AuditMixin):
         User, on_delete="SET NULL", null=True, related_name="created_tasks")
     updated_by = ForeignKeyField(
         User, on_delete="SET NULL", null=True, related_name="updated_tasks")
-    task_type = SmallIntegerField(default=0)
+    task_type = TaskTypeField(default=TaskType.NONE)
     expires_at = DateTimeField(null=True)
     expiry_email_sent_at = DateTimeField(null=True)
     completed_count = TextField(null=True, help_text="gives the status of uploaded task")
 
     def __repr__(self):
-        return self.filename or f"{TaskType(self.task_type).name.capitalize()} record processing task #{self.id}"
+        return ("Synchronization task" if self.task_type == TaskType.SYNC else (
+            self.filename
+            or f"{TaskType(self.task_type).name.capitalize()} record processing task #{self.id}"))
 
     @property
     def is_expiry_email_sent(self):
@@ -919,28 +1026,32 @@ class Task(BaseModel, AuditMixin):
     @lazy_property
     def record_count(self):
         """Get count of the loaded recoreds."""
-        return self.records.count()
+        return 0 if self.records is None else self.records.count()
 
     @property
     def record_model(self):
         """Get record model class."""
-        _, models = self.records.get_query_meta()
-        model, = models.keys()
-        return model
+        if self.records is not None:
+            _, models = self.records.get_query_meta()
+            model, = models.keys()
+            return model
+        return None
 
     @lazy_property
     def records(self):
         """Get all task record query."""
-        return getattr(self, TaskType(self.task_type).name.lower() + "_records")
+        if self.task_type in [TaskType.SYNC, TaskType.NONE]:
+            return None
+        return getattr(self, self.task_type.name.lower() + "_records")
 
     @lazy_property
     def completed_count(self):
-        """Get number of completd rows."""
+        """Get number of completed rows."""
         return self.records.where(self.record_model.processed_at.is_null(False)).count()
 
     @lazy_property
     def completed_percent(self):
-        """Get the percentaage of completd rows."""
+        """Get the percentage of completed rows."""
         return (100. * self.completed_count) / self.record_count if self.record_count else 0.
 
     @property
@@ -951,6 +1062,7 @@ class Task(BaseModel, AuditMixin):
         model, = models.keys()
         return self.records.where(self.record_model.status ** "%error%").count()
 
+    # TODO: move this one to AffiliationRecord
     @classmethod
     def load_from_csv(cls, source, filename=None, org=None):
         """Load affiliation record data from CSV/TSV file or a string."""
@@ -1011,7 +1123,7 @@ class Task(BaseModel, AuditMixin):
 
         with db.atomic():
             try:
-                task = cls.create(org=org, filename=filename)
+                task = cls.create(org=org, filename=filename, task_type=TaskType.AFFILIATION)
                 for row_no, row in enumerate(reader):
                     # skip empty lines:
                     if len(row) == 0:
@@ -1024,7 +1136,7 @@ class Task(BaseModel, AuditMixin):
                     external_id = val(row, 16)
 
                     if not email and not orcid and external_id and validators.email(external_id):
-                        # if email is missing and exernal ID is given as a valid email, use it:
+                        # if email is missing and external ID is given as a valid email, use it:
                         email = external_id
 
                     # The uploaded country must be from ISO 3166-1 alpha-2
@@ -1093,8 +1205,52 @@ class Task(BaseModel, AuditMixin):
 
         return task
 
+    def to_dict(self, to_dashes=True, recurse=False, exclude=None):
+        """Create a dict represenatation of the task suitable for serialization into JSON or YAML."""
+        # TODO: expand for the othe types of the tasks
+        task_dict = super().to_dict(
+            recurse=False if recurse is None else recurse,
+            to_dashes=to_dashes,
+            exclude=exclude,
+            only=[Task.id, Task.filename, Task.task_type, Task.created_at, Task.updated_at])
+        # TODO: refactor for funding task to get records here not in API or export
+        if TaskType(self.task_type) != TaskType.FUNDING:
+            task_dict["records"] = [
+                r.to_dict(
+                    to_dashes=to_dashes,
+                    recurse=recurse,
+                    exclude=[self.records.model_class._meta.fields["task"]]) for r in self.records
+            ]
+        return task_dict
+
     class Meta:  # noqa: D101,D106
         table_alias = "t"
+
+
+class Log(BaseModel):
+    """Task log entries."""
+
+    created_at = DateTimeField(default=datetime.utcnow)
+    created_by = ForeignKeyField(
+        User, on_delete="SET NULL", null=True, related_name="created_task_log_entries")
+    task = ForeignKeyField(
+        Task,
+        on_delete="CASCADE",
+        null=True,
+        index=True,
+        verbose_name="Task",
+        related_name="log_entries")
+    message = TextField(null=True)
+
+    class Meta:  # noqa: D101,D106
+        table_alias = "l"
+
+    def save(self, *args, **kwargs):  # noqa: D102
+        if self.is_dirty():
+            if current_user and hasattr(current_user, "id"):
+                if hasattr(self, "created_by"):
+                    self.created_by_id = current_user.id
+        return super().save(*args, **kwargs)
 
 
 class UserInvitation(BaseModel, AuditMixin):
@@ -1107,9 +1263,9 @@ class UserInvitation(BaseModel, AuditMixin):
     org = ForeignKeyField(
         Organisation, on_delete="CASCADE", null=True, verbose_name="Organisation")
     task = ForeignKeyField(Task, on_delete="CASCADE", null=True, index=True, verbose_name="Task")
-
     email = CharField(
-        index=True, max_length=80, help_text="The email address the invitation was sent to.")
+        index=True, null=True, max_length=80,
+        help_text="The email address the invitation was sent to.")
     first_name = TextField(null=True, verbose_name="First Name")
     last_name = TextField(null=True, verbose_name="Last Name")
     orcid = OrcidIdField(null=True)
@@ -1137,7 +1293,7 @@ class UserInvitation(BaseModel, AuditMixin):
 
 
 class RecordModel(BaseModel):
-    """Commond model bits of the task records."""
+    """Common model bits of the task records."""
 
     def save(self, *args, **kwargs):
         """Update related batch task when changing the record."""
@@ -1150,6 +1306,11 @@ class RecordModel(BaseModel):
         """Add a text line to the status for logging processing progress."""
         ts = datetime.utcnow().isoformat(timespec="seconds")
         self.status = (self.status + "\n" if self.status else '') + ts + ": " + line
+
+    @classmethod
+    def get_field_regxes(cls):
+        """Return map of compiled field name regex to the model fields."""
+        return {f: re.compile(e, re.I) for (f, e) in cls._field_regex_map}
 
 
 class GroupIdRecord(RecordModel):
@@ -1170,7 +1331,7 @@ class GroupIdRecord(RecordModel):
     group_id = CharField(max_length=120,
                          help_text="The group's identifier, formatted as type:identifier, e.g. issn:12345678. "
                                    "This can be as specific (e.g. the journal's ISSN) or vague as required. "
-                                   "Valid types include: issn, ringgold, orcid-generated, fundref, publons.")
+                                   "Valid types include: issn, ringold, orcid-generated, fundref, publons.")
     description = CharField(max_length=1000,
                             help_text="A brief textual description of the group. "
                                       "This can be as specific or vague as required.")
@@ -1222,33 +1383,74 @@ class AffiliationRecord(RecordModel):
         db_table = "affiliation_record"
         table_alias = "ar"
 
-
-class TaskType(IntFlag):
-    """Enum used to represent Task type."""
-
-    AFFILIATION = 0  # Affilation of employment/education
-    FUNDING = 1  # Funding
-    WORK = 2
-    PEER_REVIEW = 3
-
-    def __eq__(self, other):
-        if isinstance(other, TaskType):
-            return self.value == other.value
-        elif isinstance(other, int):
-            return self.value == other
-        return (self.name == other or self.name == getattr(other, "name", None))
-
-    def __hash__(self):
-        return hash(self.name)
+    _regex_field_map = [
+        ("first_name", r"first\s*(name)?"),
+        ("last_name", r"last\s*(name)?"),
+        ("email", "email"),
+        ("organisation", "organisation|^name"),
+        ("department", "campus|department"),
+        ("city", "city"),
+        ("state", "state|region"),
+        ("role", "course|title|role"),
+        ("start_date", r"start\s*(date)?"),
+        ("end_date", r"end\s*(date)?"),
+        ("affiliation_type", r"affiliation(s)?\s*(type)?|student|staff"),
+        ("country", "country"),
+        ("disambiguated_id", r"disambiguat.*id"),
+        ("disambiguation_source", r"disambiguat.*source"),
+        ("put_code", r"put|code"),
+        ("orcid", "orcid.*"),
+        ("external_id", "external.*|.*identifier"),
+    ]
 
     @classmethod
-    def options(cls):
-        """Get list of all types for UI dropown option list."""
-        return [(e.value, e.name.replace('_', ' ').title()) for e in cls]
+    def load(cls, data, task=None, task_id=None, filename=None, override=True,
+             skip_schema_validation=False, org=None):
+        """Load afffiliation record task form JSON/YAML. Data shoud be already deserialize."""
+        if isinstance(data, str):
+            data = json.loads(data) if filename.lower().endswith(".json") else yaml.load(data)
+        if org is None:
+            org = current_user.organisation if current_user else None
+        if not skip_schema_validation:
+            jsonschema.validate(data, affiliation_task_schema)
+        if not task and task_id:
+            task = Task.select().where(Task.id == task_id).first()
+        if not task and "id" in data:
+            task_id = int(data["id"])
+            task = Task.select().where(Task.id == task_id).first()
+        with db.atomic():
+            try:
+                if not task:
+                    filename = (filename or data.get("filename")
+                                or datetime.utcnow().isoformat(timespec="seconds"))
+                    task = Task.create(
+                            org=org, filename=filename, task_type=TaskType.AFFILIATION)
+                elif override:
+                    AffiliationRecord.delete().where(AffiliationRecord.task == task).execute()
+                record_fields = AffiliationRecord._meta.fields.keys()
+                for r in data.get("records"):
+                    if "id" in r and not override:
+                        rec = AffiliationRecord.get(int(r["id"]))
+                    else:
+                        rec = AffiliationRecord(task=task)
+                    for k, v in r.items():
+                        if k == "id":
+                            continue
+                        k = k.replace('-', '_')
+                        if k in record_fields and rec._data.get(k) != v:
+                            rec._data[k] = PartialDate.create(v) if k.endswith("date") else v
+                            rec._dirty.add(k)
+                    if rec.is_dirty():
+                        rec.save()
+            except:
+                db.rollback()
+                app.logger.exception("Failed to load affiliation record task file.")
+                raise
+        return task
 
 
 class FundingRecord(RecordModel):
-    """Funding record loaded from Json file for batch processing."""
+    """Funding record loaded from JSON file for batch processing."""
 
     task = ForeignKeyField(Task, related_name="funding_records", on_delete="CASCADE")
     title = CharField(max_length=255)
@@ -1272,50 +1474,285 @@ class FundingRecord(RecordModel):
     processed_at = DateTimeField(null=True)
     status = TextField(null=True, help_text="Record processing status.")
 
+    def to_export_dict(self):
+        """Map the funding record to dict for export into JSON/YAML."""
+        org = self.task.org
+        d = {
+            "type": self.type,
+            "title": {
+                "title": {
+                    "value": self.title,
+                },
+                "translated-title": {
+                    "value": self.translated_title,
+                    "language-code": self.translated_title_language_code,
+                }
+            },
+            "amount": {
+                "currency-code": self.currency,
+                "value": self.amount,
+            },
+            "organization": {
+                "disambiguated-organization": {
+                    "disambiguated-organization-identifier":
+                    self.disambiguated_org_identifier or org.disambiguated_org_identifier,
+                    "disambiguation-source":
+                    self.disambiguation_source or org.disambiguation_source,
+                },
+                "name": "Royal Society Te Apārangi",
+                "address": {
+                    "city": self.org_name,
+                    "region": self.region,
+                    "country": self.country,
+                },
+            },
+            "invitees": [r.to_export_dict() for r in self.funding_invitees],
+            "contributors": {"contributor": [r.to_export_dict() for r in self.contributors]},
+            "external-ids": {"external-id": [r.to_export_dict() for r in self.external_ids]},
+        }
+        if self.start_date:
+            d["start-date"] = self.start_date.as_orcid_dict()
+        if self.end_date:
+            d["end-date"] = self.end_date.as_orcid_dict()
+        return d
+
     @classmethod
-    def load_from_json(cls, source, filename=None, org=None):
-        """Load data from json file or a string."""
+    def load_from_csv(cls, source, filename=None, org=None):
+        """Load data from CSV/TSV file or a string."""
         if isinstance(source, str):
-            # import data from file based on its extension; either it is yaml or json
-            funding_data_list = load_yaml_json(filename=filename, source=source)
+            source = StringIO(source)
+        if filename is None:
+            filename = datetime.utcnow().isoformat(timespec="seconds")
+        reader = csv.reader(source)
+        header = next(reader)
 
-            for funding_data in funding_data_list:
-                validation_source_data = copy.deepcopy(funding_data)
-                validation_source_data = del_none(validation_source_data)
+        if len(header) == 1 and '\t' in header[0]:
+            source.seek(0)
+            reader = csv.reader(source, delimiter='\t')
+            header = next(reader)
 
-                # Adding schema valdation for funding
-                validator = Core(
-                    source_data=validation_source_data,
-                    schema_files=[os.path.join(SCHEMA_DIR, "funding_schema.yaml")])
-                validator.validate(raise_exception=True)
+        if len(header) < 2:
+            raise ModelException("Expected CSV or TSV format file.")
 
+        header_rexs = [
+            re.compile(ex, re.I) for ex in [
+                r"ext(ernal)?\s*id(entifier)?$", "title$", r"translated\s+(title)?",
+                r"(translated)?\s*(title)?\s*language\s*(code)?", "type$",
+                r"org(ani[sz]ation)?\s*(defined)?\s*type", r"(short\s*|description\s*)+$",
+                "amount", "currency", r"start\s*(date)?", r"end\s*(date)?",
+                r"(org(gani[zs]ation)?)?\s*name$", "city", "region|state", "country",
+                r"disambiguated\s*(org(ani[zs]ation)?)?\s*id(entifier)?",
+                r"disambiguation\s+source$", r"(is)?\s*active$", r"orcid\s*(id)?$", "name$",
+                "role$", "email", r"(external)?\s*id(entifier)?\s+type$",
+                r"((external)?\s*id(entifier)?\s+value|funding.*id)$",
+                r"(external)?\s*id(entifier)?\s*url",
+                r"(external)?\s*id(entifier)?\s*rel(ationship)?", "put.*code",
+                r"(is)?\s*visib(bility|le)?", r"first\s*(name)?", r"(last|sur)\s*(name)?",
+                "identifier", r"excluded?(\s+from(\s+profile)?)?"
+            ]
+        ]
+
+        def index(rex):
+            """Return first header column index matching the given regex."""
+            for i, column in enumerate(header):
+                if rex.match(column.strip()):
+                    return i
+            else:
+                return None
+
+        idxs = [index(rex) for rex in header_rexs]
+
+        if all(idx is None for idx in idxs):
+            raise ModelException(f"Failed to map fields based on the header of the file: {header}")
+
+        if org is None:
+            org = current_user.organisation if current_user else None
+
+        def val(row, i, default=None):
+            if len(idxs) <= i or idxs[i] is None or idxs[i] >= len(row):
+                return default
+            else:
+                v = row[idxs[i]].strip()
+            return default if v == '' else v
+
+        rows = []
+        for row_no, row in enumerate(reader):
+            # skip empty lines:
+            if len(row) == 0:
+                continue
+            if len(row) == 1 and row[0].strip() == '':
+                continue
+
+            funding_type = val(row, 4)
+            if not funding_type:
+                raise ModelException(
+                    f"Funding type is mandatory, #{row_no+2}: {row}. Header: {header}")
+
+            # The uploaded country must be from ISO 3166-1 alpha-2
+            country = val(row, 14)
+            if country:
+                try:
+                    country = countries.lookup(country).alpha_2
+                except Exception:
+                    raise ModelException(
+                        f" (Country must be 2 character from ISO 3166-1 alpha-2) in the row "
+                        f"#{row_no+2}: {row}. Header: {header}")
+
+            orcid, email = val(row, 18), val(row, 21, "").lower()
+            if orcid:
+                validate_orcid_id(orcid)
+            if email and not validators.email(email):
+                raise ValueError(
+                    f"Invalid email address '{email}'  in the row #{row_no+2}: {row}")
+
+            external_id_type = val(row, 22)
+            external_id_value = val(row, 23)
+            if bool(external_id_type) != bool(external_id_value):
+                raise ModelException(
+                    f"Invalid external ID the row #{row_no}. Type: {external_id_type}, Value: {external_id_value}")
+
+            name, first_name, last_name = val(row, 19), val(row, 28), val(row, 29)
+            if not name and first_name and last_name:
+                name = first_name + ' ' + last_name
+
+            # exclude the record from the profile
+            excluded = val(row, 31)
+            excluded = bool(excluded and excluded.lower() in ["y", "yes", "true", "1"])
+            rows.append(
+                dict(
+                    excluded=excluded,
+                    funding=dict(
+                        # external_identifier = val(row, 0),
+                        title=val(row, 1),
+                        translated_title=val(row, 2),
+                        translated_title_language_code=val(row, 3),
+                        type=funding_type,
+                        organization_defined_type=val(row, 5),
+                        short_description=val(row, 6),
+                        amount=val(row, 7),
+                        currency=val(row, 8),
+                        start_date=PartialDate.create(val(row, 9)),
+                        end_date=PartialDate.create(val(row, 10)),
+                        org_name=val(row, 11) or org.name,
+                        city=val(row, 12) or org.city,
+                        region=val(row, 13) or org.state,
+                        country=country or org.country,
+                        disambiguated_org_identifier=val(row, 15) or org.disambiguated_id,
+                        disambiguation_source=val(row, 16) or org.disambiguation_source),
+                    contributor=dict(
+                        orcid=orcid,
+                        name=name,
+                        role=val(row, 20),
+                        email=email,
+                    ),
+                    invitee=dict(
+                        identifier=val(row, 30),
+                        email=email,
+                        first_name=val(row, 28),
+                        last_name=val(row, 29),
+                        orcid=orcid,
+                        put_code=val(row, 26),
+                        visibility=val(row, 27),
+                    ),
+                    external_id=dict(
+                        type=external_id_type,
+                        value=external_id_value,
+                        url=val(row, 24),
+                        relationship=val(row, 25))))
+
+        with db.atomic():
+            try:
+                task = Task.create(org=org, filename=filename, task_type=TaskType.FUNDING)
+                for funding, records in groupby(rows, key=lambda row: row["funding"].items()):
+                    records = list(records)
+
+                    fr = cls(task=task, **dict(funding))
+                    validator = ModelValidator(fr)
+                    if not validator.validate():
+                        raise ModelException(f"Invalid record: {validator.errors}")
+                    fr.save()
+
+                    for contributor in set(
+                            tuple(r["contributor"].items()) for r in records
+                            if r["excluded"]):
+                        fc = FundingContributor(funding_record=fr, **dict(contributor))
+                        validator = ModelValidator(fc)
+                        if not validator.validate():
+                            raise ModelException(f"Invalid contributor record: {validator.errors}")
+                        fc.save()
+
+                    for external_id in set(
+                            tuple(r["external_id"].items()) for r in records
+                            if r["external_id"]["type"] and r["external_id"]["value"]):
+                        ei = ExternalId(funding_record=fr, **dict(external_id))
+                        ei.save()
+
+                    for invitee in set(
+                            tuple(r["invitee"].items()) for r in records
+                            if r["invitee"]["email"] and not r["excluded"]):
+                        rec = FundingInvitees(funding_record=fr, **dict(invitee))
+                        validator = ModelValidator(rec)
+                        if not validator.validate():
+                            raise ModelException(f"Invalid invitee record: {validator.errors}")
+                        rec.save()
+
+                return task
+
+            except Exception:
+                db.rollback()
+                app.logger.exception("Failed to load funding file.")
+                raise
+
+    @classmethod
+    def load_from_json(cls, source, filename=None, org=None, task=None):
+        """Load data from JSON file or a string."""
+        # import data from file based on its extension; either it is YAML or JSON
+        data = load_yaml_json(filename=filename, source=source)
+        records = data["records"] if isinstance(data, dict) else data
+
+        for r in records:
+            validation_source_data = copy.deepcopy(r)
+            validation_source_data = del_none(validation_source_data)
+
+            # Adding schema validation for funding
+            validator = Core(
+                source_data=validation_source_data,
+                schema_files=[os.path.join(SCHEMA_DIR, "funding_schema.yaml")])
+            validator.validate(raise_exception=True)
+
+        with db.atomic():
             try:
                 if org is None:
                     org = current_user.organisation if current_user else None
-                task = Task.create(org=org, filename=filename, task_type=TaskType.FUNDING)
+                if not task:
+                    task = Task.create(org=org, filename=filename, task_type=TaskType.FUNDING)
+                else:
+                    FundingRecord.delete().where(FundingRecord.task == task).execute()
 
-                for funding_data in funding_data_list:
+                for r in records:
 
-                    title = get_val(funding_data, "title", "title", "value")
-                    translated_title = get_val(funding_data, "title", "translated-title", "value")
-                    translated_title_language_code = get_val(funding_data, "title", "translated-title", "language-code")
-                    type = funding_data.get("type")
-                    organization_defined_type = get_val(funding_data, "organization-defined-type", "value")
-                    short_description = funding_data.get("short-description")
-                    amount = get_val(funding_data, "amount", "value")
-                    currency = get_val(funding_data, "amount", "currency-code")
-                    start_date = PartialDate.create(funding_data.get("start-date"))
-                    end_date = PartialDate.create(funding_data.get("end-date"))
-                    org_name = get_val(funding_data, "organization", "name")
-                    city = get_val(funding_data, "organization", "address", "city")
-                    region = get_val(funding_data, "organization", "address", "region")
-                    country = get_val(funding_data, "organization", "address", "country")
-                    disambiguated_org_identifier = get_val(funding_data, "organization", "disambiguated-organization",
-                                                           "disambiguated-organization-identifier")
-                    disambiguation_source = get_val(funding_data, "organization", "disambiguated-organization",
-                                                    "disambiguation-source")
+                    title = r.get("title", "title", "value")
+                    translated_title = r.get("title", "translated-title", "value")
+                    translated_title_language_code = r.get("title", "translated-title",
+                                                           "language-code")
+                    type = r.get("type")
+                    organization_defined_type = r.get("organization-defined-type", "value")
+                    short_description = r.get("short-description")
+                    amount = r.get("amount", "value")
+                    currency = r.get("amount", "currency-code")
+                    start_date = PartialDate.create(r.get("start-date"))
+                    end_date = PartialDate.create(r.get("end-date"))
+                    org_name = r.get("organization", "name")
+                    city = r.get("organization", "address", "city")
+                    region = r.get("organization", "address", "region")
+                    country = r.get("organization", "address", "country")
+                    disambiguated_org_identifier = r.get("organization",
+                                                         "disambiguated-organization",
+                                                         "disambiguated-organization-identifier")
+                    disambiguation_source = r.get("organization", "disambiguated-organization",
+                                                  "disambiguation-source")
 
-                    funding_record = FundingRecord.create(
+                    funding_record = cls.create(
                         task=task,
                         title=title,
                         translated_title=translated_title,
@@ -1334,9 +1771,9 @@ class FundingRecord(RecordModel):
                         start_date=start_date,
                         end_date=end_date)
 
-                    invitees_list = funding_data.get("invitees") if funding_data.get("invitees") else None
-                    if invitees_list:
-                        for invitee in invitees_list:
+                    invitees = r.get("invitees", default=[])
+                    if invitees:
+                        for invitee in invitees:
                             identifier = invitee.get("identifier")
                             email = invitee.get("email")
                             first_name = invitee.get("first-name")
@@ -1358,14 +1795,13 @@ class FundingRecord(RecordModel):
                         raise SchemaError(u"Schema validation failed:\n - "
                                           u"Expecting Invitees for which the funding record will be written")
 
-                    contributors_list = funding_data.get("contributors").get("contributor") if \
-                        funding_data.get("contributors") else None
-                    if contributors_list:
-                        for contributor in contributors_list:
-                            orcid_id = get_val(contributor, "contributor-orcid", "path")
-                            name = get_val(contributor, "credit-name", "value")
-                            email = get_val(contributor, "contributor-email", "value")
-                            role = get_val(contributor, "contributor-attributes", "contributor-role")
+                    contributors = r.get("contributors", "contributor", default=[])
+                    if contributors:
+                        for contributor in contributors:
+                            orcid_id = contributor.get("contributor-orcid", "path")
+                            name = contributor.get("credit-name", "value")
+                            email = contributor.get("contributor-email", "value")
+                            role = contributor.get("contributor-attributes", "contributor-role")
 
                             FundingContributor.create(
                                 funding_record=funding_record,
@@ -1374,13 +1810,12 @@ class FundingRecord(RecordModel):
                                 email=email,
                                 role=role)
 
-                    external_ids_list = funding_data.get("external-ids").get("external-id") if \
-                        funding_data.get("external-ids") else None
-                    if external_ids_list:
-                        for external_id in external_ids_list:
+                    external_ids = r.get("external-ids", "external-id", default=[])
+                    if external_ids:
+                        for external_id in external_ids:
                             type = external_id.get("external-id-type")
                             value = external_id.get("external-id-value")
-                            url = get_val(external_id, "external-id-url", "value")
+                            url = external_id.get("external-id-url", "value")
                             relationship = external_id.get("external-id-relationship")
                             ExternalId.create(
                                 funding_record=funding_record,
@@ -1434,10 +1869,208 @@ class PeerReviewRecord(RecordModel):
     status = TextField(null=True, help_text="Record processing status.")
 
     @classmethod
+    def load_from_csv(cls, source, filename=None, org=None):
+        """Load data from CSV/TSV file or a string."""
+        if isinstance(source, str):
+            source = StringIO(source)
+        if filename is None:
+            filename = datetime.utcnow().isoformat(timespec="seconds")
+        reader = csv.reader(source)
+        header = next(reader)
+
+        if len(header) == 1 and '\t' in header[0]:
+            source.seek(0)
+            reader = csv.reader(source, delimiter='\t')
+            header = next(reader)
+
+        if len(header) < 2:
+            raise ModelException("Expected CSV or TSV format file.")
+
+        header_rexs = [
+            re.compile(ex, re.I) for ex in [
+                r"review\s*group\s*id(entifier)?$",
+                r"(reviewer)?\s*role$",
+                r"review\s*url$",
+                r"review\s*type$",
+                r"(review\s*completion)?.*date",
+                r"subject\s+external\s*id(entifier)?\s+type$",
+                r"subject\s+external\s*id(entifier)?\s+value$",
+                r"subject\s+external\s*id(entifier)?\s+url$",
+                r"subject\s+external\s*id(entifier)?\s+rel(ationship)?$",
+                r"subject\s+container\s+name$",
+                r"(subject)?\s*type$",
+                r"(subject)?\s*(name)?\s*title$",
+                r"(subject)?\s*(name)?\s*subtitle$",
+                r"(subject)?\s*(name)?\s*(translated)?\s*(title)?\s*lang(uage)?.*(code)?",
+                r"(subject)?\s*(name)?\s*translated\s*title$",
+                r"(subject)?\s*url$",
+                r"(convening)?\s*org(ani[zs]ation)?\s*name$",
+                r"(convening)?\s*org(ani[zs]ation)?\s*city",
+                r"(convening)?\s*org(ani[zs]ation)?\s*region$",
+                r"(convening)?\s*org(ani[zs]ation)?\s*country$",
+                r"(convening)?\s*(org(ani[zs]ation)?)?\s*disambiguated\s*id(entifier)?",
+                r"(convening)?\s*(org(ani[zs]ation)?)?\s*disambiguation\s*source$",
+                "email",
+                r"orcid\s*(id)?$",
+                "identifier",
+                r"first\s*(name)?",
+                r"(last|sur)\s*(name)?",
+                "put.*code",
+                r"(is)?\s*visib(ility|le)?",
+                r"(external)?\s*id(entifier)?\s+type$",
+                r"((external)?\s*id(entifier)?\s+value|peer\s*review.*id)$",
+                r"(external)?\s*id(entifier)?\s*url",
+                r"(external)?\s*id(entifier)?\s*rel(ationship)?",
+                r"(is)?\s*active$", ]]
+
+        def index(rex):
+            """Return first header column index matching the given regex."""
+            for i, column in enumerate(header):
+                if rex.match(column.strip()):
+                    return i
+            else:
+                return None
+
+        idxs = [index(rex) for rex in header_rexs]
+
+        if all(idx is None for idx in idxs):
+            raise ModelException(f"Failed to map fields based on the header of the file: {header}")
+
+        if org is None:
+            org = current_user.organisation if current_user else None
+
+        def val(row, i, default=None):
+            if len(idxs) <= i or idxs[i] is None or idxs[i] >= len(row):
+                return default
+            else:
+                v = row[idxs[i]].strip()
+            return default if v == '' else v
+
+        rows = []
+        for row_no, row in enumerate(reader):
+            # skip empty lines:
+            if len(row) == 0:
+                continue
+            if len(row) == 1 and row[0].strip() == '':
+                continue
+
+            review_group_id = val(row, 0)
+            if not review_group_id:
+                raise ModelException(
+                    f"Review Group ID is mandatory, #{row_no+2}: {row}. Header: {header}")
+
+            convening_org_name = val(row, 16)
+            convening_org_city = val(row, 17)
+            convening_org_country = val(row, 19)
+
+            if not (convening_org_name and convening_org_city and convening_org_country):
+                raise ModelException(
+                    f"Information about Convening Organisation (Name, City and Country) is mandatory, "
+                    f"#{row_no+2}: {row}. Header: {header}")
+
+            # The uploaded country must be from ISO 3166-1 alpha-2
+            if convening_org_country:
+                try:
+                    convening_org_country = countries.lookup(convening_org_country).alpha_2
+                except Exception:
+                    raise ModelException(
+                        f" (Convening Org Country must be 2 character from ISO 3166-1 alpha-2) in the row "
+                        f"#{row_no+2}: {row}. Header: {header}")
+
+            orcid, email = val(row, 23), val(row, 22, "").lower()
+            if orcid:
+                validate_orcid_id(orcid)
+            if email and not validators.email(email):
+                raise ValueError(
+                    f"Invalid email address '{email}'  in the row #{row_no+2}: {row}")
+
+            external_id_type = val(row, 29)
+            external_id_value = val(row, 30)
+            if bool(external_id_type) != bool(external_id_value):
+                raise ModelException(
+                    f"Invalid External ID the row #{row_no}.Type:{external_id_type},Peer Review Id:{external_id_value}")
+
+            review_completion_date = val(row, 4)
+
+            if review_completion_date:
+                review_completion_date = PartialDate.create(review_completion_date)
+            rows.append(
+                dict(
+                    peer_review=dict(
+                        review_group_id=review_group_id,
+                        reviewer_role=val(row, 1),
+                        review_url=val(row, 2),
+                        review_type=val(row, 3),
+                        review_completion_date=review_completion_date,
+                        subject_external_id_type=val(row, 5),
+                        subject_external_id_value=val(row, 6),
+                        subject_external_id_url=val(row, 7),
+                        subject_external_id_relationship=val(row, 8),
+                        subject_container_name=val(row, 9),
+                        subject_type=val(row, 10),
+                        subject_name_title=val(row, 11),
+                        subject_name_subtitle=val(row, 12),
+                        subject_name_translated_title_lang_code=val(row, 13),
+                        subject_name_translated_title=val(row, 14),
+                        subject_url=val(row, 15),
+                        convening_org_name=convening_org_name,
+                        convening_org_city=convening_org_city,
+                        convening_org_region=val(row, 18),
+                        convening_org_country=convening_org_country,
+                        convening_org_disambiguated_identifier=val(row, 20),
+                        convening_org_disambiguation_source=val(row, 21),
+                    ),
+                    invitee=dict(
+                        email=email,
+                        orcid=orcid,
+                        identifier=val(row, 24),
+                        first_name=val(row, 25),
+                        last_name=val(row, 26),
+                        put_code=val(row, 27),
+                        visibility=val(row, 28),
+                    ),
+                    external_id=dict(
+                        type=external_id_type,
+                        value=external_id_value,
+                        url=val(row, 31),
+                        relationship=val(row, 32))))
+
+        with db.atomic():
+            try:
+                task = Task.create(org=org, filename=filename, task_type=TaskType.PEER_REVIEW)
+                for peer_review, records in groupby(rows, key=lambda row: row["peer_review"].items()):
+                    records = list(records)
+
+                    prr = cls(task=task, **dict(peer_review))
+                    validator = ModelValidator(prr)
+                    if not validator.validate():
+                        raise ModelException(f"Invalid record: {validator.errors}")
+                    prr.save()
+
+                    for external_id in set(tuple(r["external_id"].items()) for r in records if
+                                           r["external_id"]["type"] and r["external_id"]["value"]):
+                        ei = PeerReviewExternalId(peer_review_record=prr, **dict(external_id))
+                        ei.save()
+
+                    for invitee in set(tuple(r["invitee"].items()) for r in records if r["invitee"]["email"]):
+                        rec = PeerReviewInvitee(peer_review_record=prr, **dict(invitee))
+                        validator = ModelValidator(rec)
+                        if not validator.validate():
+                            raise ModelException(f"Invalid invitee record: {validator.errors}")
+                        rec.save()
+
+                return task
+
+            except Exception:
+                db.rollback()
+                app.logger.exception("Failed to load peer review file.")
+                raise
+
+    @classmethod
     def load_from_json(cls, source, filename=None, org=None):
         """Load data from JSON file or a string."""
         if isinstance(source, str):
-            # import data from file based on its extension; either it is yaml or json
+            # import data from file based on its extension; either it is YAML or JSON
             peer_review_data_list = load_yaml_json(filename=filename, source=source)
 
             for peer_review_data in peer_review_data_list:
@@ -1621,6 +2254,152 @@ class PeerReviewRecord(RecordModel):
         table_alias = "pr"
 
 
+class ResearcherUrlRecord(RecordModel):
+    """Researcher Url record loaded from Json file for batch processing."""
+
+    task = ForeignKeyField(Task, related_name="researcher_url_records", on_delete="CASCADE")
+    url_name = CharField(max_length=255)
+    url_value = CharField(max_length=255)
+    display_index = IntegerField(null=True)
+    email = CharField(max_length=120)
+    first_name = CharField(max_length=120)
+    last_name = CharField(max_length=120)
+    orcid = OrcidIdField(null=True)
+    put_code = IntegerField(null=True)
+    visibility = CharField(null=True, max_length=100)
+    is_active = BooleanField(
+        default=False, help_text="The record is marked for batch processing", null=True)
+    processed_at = DateTimeField(null=True)
+    status = TextField(null=True, help_text="Record processing status.")
+
+    @classmethod
+    def load_from_csv(cls, source, filename=None, org=None):
+        """Load data from CSV/TSV file or a string."""
+        pass
+
+    @classmethod
+    def load_from_json(cls, source, filename=None, org=None, task=None, skip_schema_validation=False):
+        """Load data from JSON file or a string."""
+        data = load_yaml_json(filename=filename, source=source)
+        if not skip_schema_validation:
+            jsonschema.validate(data, researcher_url_task_schema)
+        records = data["records"] if isinstance(data, dict) else data
+        with db.atomic():
+            try:
+                if org is None:
+                    org = current_user.organisation if current_user else None
+                if not task:
+                    task = Task.create(org=org, filename=filename, task_type=TaskType.RESEARCHER_URL)
+                # else:
+                #   ResearcherUrlRecord.delete().where(ResearcherUrlRecord.task == task).execute()
+
+                for r in records:
+
+                    url_name = r.get("url-name")
+                    url_value = r.get("url", "value") or r.get("url-value")
+                    display_index = r.get("display-index")
+                    email = r.get("email")
+                    first_name = r.get("first-name")
+                    last_name = r.get("last-name")
+                    orcid_id = r.get("ORCID-iD") or r.get("orcid")
+                    put_code = r.get("put-code")
+                    visibility = r.get("visibility")
+
+                    cls.create(
+                        task=task,
+                        url_name=url_name,
+                        url_value=url_value,
+                        display_index=display_index,
+                        email=email.lower(),
+                        first_name=first_name,
+                        last_name=last_name,
+                        orcid=orcid_id,
+                        visibility=visibility,
+                        put_code=put_code)
+
+                return task
+
+            except Exception:
+                db.rollback()
+                app.logger.exception("Failed to load Researcher Url file.")
+                raise
+
+    class Meta:  # noqa: D101,D106
+        db_table = "researcher_url_record"
+        table_alias = "ru"
+
+
+class OtherNameRecord(RecordModel):
+    """Other Name record loaded from Json file for batch processing."""
+
+    task = ForeignKeyField(Task, related_name="other_name_records", on_delete="CASCADE")
+    content = CharField(max_length=255)
+    display_index = IntegerField(null=True)
+    email = CharField(max_length=120)
+    first_name = CharField(max_length=120)
+    last_name = CharField(max_length=120)
+    orcid = OrcidIdField(null=True)
+    put_code = IntegerField(null=True)
+    visibility = CharField(null=True, max_length=100)
+    is_active = BooleanField(
+        default=False, help_text="The record is marked for batch processing", null=True)
+    processed_at = DateTimeField(null=True)
+    status = TextField(null=True, help_text="Record processing status.")
+
+    @classmethod
+    def load_from_csv(cls, source, filename=None, org=None):
+        """Load data from CSV/TSV file or a string."""
+        pass
+
+    @classmethod
+    def load_from_json(cls, source, filename=None, org=None, task=None, skip_schema_validation=False):
+        """Load data from JSON file or a string."""
+        data = load_yaml_json(filename=filename, source=source)
+        if not skip_schema_validation:
+            jsonschema.validate(data, other_name_task_schema)
+        records = data["records"] if isinstance(data, dict) else data
+        with db.atomic():
+            try:
+                if org is None:
+                    org = current_user.organisation if current_user else None
+                if not task:
+                    task = Task.create(org=org, filename=filename, task_type=TaskType.OTHER_NAME)
+                # else:
+                #   OtherNameRecord.delete().where(OtherNameRecord.task == task).execute()
+
+                for r in records:
+                    content = r.get("content")
+                    display_index = r.get("display-index")
+                    email = r.get("email")
+                    first_name = r.get("first-name")
+                    last_name = r.get("last-name")
+                    orcid_id = r.get("ORCID-iD") or r.get("orcid")
+                    put_code = r.get("put-code")
+                    visibility = r.get("visibility")
+
+                    cls.create(
+                        task=task,
+                        content=content,
+                        display_index=display_index,
+                        email=email.lower(),
+                        first_name=first_name,
+                        last_name=last_name,
+                        orcid=orcid_id,
+                        visibility=visibility,
+                        put_code=put_code)
+
+                return task
+
+            except Exception:
+                db.rollback()
+                app.logger.exception("Failed to load Other Name Record file.")
+                raise
+
+    class Meta:  # noqa: D101,D106
+        db_table = "other_name_record"
+        table_alias = "onr"
+
+
 class WorkRecord(RecordModel):
     """Work record loaded from Json file for batch processing."""
 
@@ -1646,10 +2425,217 @@ class WorkRecord(RecordModel):
     status = TextField(null=True, help_text="Record processing status.")
 
     @classmethod
+    def load_from_csv(cls, source, filename=None, org=None):
+        """Load data from CSV/TSV file or a string."""
+        if isinstance(source, str):
+            source = StringIO(source)
+        if filename is None:
+            filename = datetime.utcnow().isoformat(timespec="seconds")
+        reader = csv.reader(source)
+        header = next(reader)
+
+        if len(header) == 1 and '\t' in header[0]:
+            source.seek(0)
+            reader = csv.reader(source, delimiter='\t')
+            header = next(reader)
+
+        if len(header) < 2:
+            raise ModelException("Expected CSV or TSV format file.")
+
+        header_rexs = [
+            re.compile(ex, re.I) for ex in [
+                r"ext(ernal)?\s*id(entifier)?$",
+                "title$",
+                r"sub.*(title)?$",
+                r"translated\s+(title)?",
+                r"(translated)?\s*(title)?\s*language\s*(code)?",
+                r"journal",
+                "type$",
+                r"(short\s*|description\s*)+$",
+                r"citat(ion)?.*type",
+                r"citat(ion)?.*value",
+                r"(publication)?.*date",
+                r"(publ(ication?))?.*media.*(type)?",
+                r"url",
+                r"lang(uage)?.*(code)?",
+                r"country",
+                r"(is)?\s*active$",
+                r"orcid\s*(id)?$",
+                "name$",
+                "role$",
+                "email",
+                r"(external)?\s*id(entifier)?\s+type$",
+                r"((external)?\s*id(entifier)?\s+value|work.*id)$",
+                r"(external)?\s*id(entifier)?\s*url",
+                r"(external)?\s*id(entifier)?\s*rel(ationship)?",
+                "put.*code",
+                r"(is)?\s*visib(bility|le)?",
+                r"first\s*(name)?",
+                r"(last|sur)\s*(name)?",
+                "identifier",
+                r"excluded?(\s+from(\s+profile)?)?"
+            ]
+        ]
+
+        def index(rex):
+            """Return first header column index matching the given regex."""
+            for i, column in enumerate(header):
+                if rex.match(column.strip()):
+                    return i
+            else:
+                return None
+
+        idxs = [index(rex) for rex in header_rexs]
+
+        if all(idx is None for idx in idxs):
+            raise ModelException(f"Failed to map fields based on the header of the file: {header}")
+
+        if org is None:
+            org = current_user.organisation if current_user else None
+
+        def val(row, i, default=None):
+            if len(idxs) <= i or idxs[i] is None or idxs[i] >= len(row):
+                return default
+            else:
+                v = row[idxs[i]].strip()
+            return default if v == '' else v
+
+        rows = []
+        for row_no, row in enumerate(reader):
+            # skip empty lines:
+            if len(row) == 0:
+                continue
+            if len(row) == 1 and row[0].strip() == '':
+                continue
+
+            work_type = val(row, 6)
+            if not work_type:
+                raise ModelException(
+                    f"Funding type is mandatory, #{row_no+2}: {row}. Header: {header}")
+
+            # The uploaded country must be from ISO 3166-1 alpha-2
+            country = val(row, 14)
+            if country:
+                try:
+                    country = countries.lookup(country).alpha_2
+                except Exception:
+                    raise ModelException(
+                        f" (Country must be 2 character from ISO 3166-1 alpha-2) in the row "
+                        f"#{row_no+2}: {row}. Header: {header}")
+
+            orcid, email = val(row, 16), val(row, 19, "").lower()
+            if orcid:
+                validate_orcid_id(orcid)
+            if email and not validators.email(email):
+                raise ValueError(
+                    f"Invalid email address '{email}'  in the row #{row_no+2}: {row}")
+
+            external_id_type = val(row, 20)
+            external_id_value = val(row, 21)
+            if bool(external_id_type) != bool(external_id_value):
+                raise ModelException(
+                    f"Invalid external ID the row #{row_no}. Type: {external_id_type}, Value: {external_id_value}")
+
+            name, first_name, last_name = val(row, 17), val(row, 26), val(row, 27)
+            if not name and first_name and last_name:
+                name = first_name + ' ' + last_name
+
+            # exclude the record from the profile
+            excluded = val(row, 29)
+            excluded = bool(excluded and excluded.lower() in ["y", "yes", "true", "1"])
+            publication_date = val(row, 10)
+            if publication_date:
+                publication_date = PartialDate.create(publication_date)
+            rows.append(
+                dict(
+                    excluded=excluded,
+                    work=dict(
+                        # external_identifier = val(row, 0),
+                        title=val(row, 1),
+                        sub_title=val(row, 2),
+                        translated_title=val(row, 3),
+                        translated_title_language_code=val(row, 4),
+                        journal_title=val(row, 5),
+                        type=work_type,
+                        short_description=val(row, 7),
+                        citation_type=val(row, 8),
+                        citation_value=val(row, 9),
+                        publication_date=publication_date,
+                        publication_media_type=val(row, 11),
+                        url=val(row, 12),
+                        language_code=val(row, 13),
+                        country=val(row, 14),
+                        is_active=False,
+                    ),
+                    contributor=dict(
+                        orcid=orcid,
+                        name=name,
+                        role=val(row, 18),
+                        email=email,
+                    ),
+                    invitee=dict(
+                        identifier=val(row, 28),
+                        email=email,
+                        first_name=first_name,
+                        last_name=last_name,
+                        orcid=orcid,
+                        put_code=val(row, 24),
+                        visibility=val(row, 25),
+                    ),
+                    external_id=dict(
+                        type=external_id_type,
+                        value=external_id_value,
+                        url=val(row, 22),
+                        relationship=val(row, 23))))
+
+        with db.atomic():
+            try:
+                task = Task.create(org=org, filename=filename, task_type=TaskType.WORK)
+                for work, records in groupby(rows, key=lambda row: row["work"].items()):
+                    records = list(records)
+
+                    wr = cls(task=task, **dict(work))
+                    validator = ModelValidator(wr)
+                    if not validator.validate():
+                        raise ModelException(f"Invalid record: {validator.errors}")
+                    wr.save()
+
+                    for contributor in set(
+                            tuple(r["contributor"].items()) for r in records
+                            if r["excluded"]):
+                        fc = WorkContributor(work_record=wr, **dict(contributor))
+                        validator = ModelValidator(fc)
+                        if not validator.validate():
+                            raise ModelException(f"Invalid contributor record: {validator.errors}")
+                        fc.save()
+
+                    for external_id in set(
+                            tuple(r["external_id"].items()) for r in records
+                            if r["external_id"]["type"] and r["external_id"]["value"]):
+                        ei = WorkExternalId(work_record=wr, **dict(external_id))
+                        ei.save()
+
+                    for invitee in set(
+                            tuple(r["invitee"].items()) for r in records
+                            if r["invitee"]["email"] and not r["excluded"]):
+                        rec = WorkInvitees(work_record=wr, **dict(invitee))
+                        validator = ModelValidator(rec)
+                        if not validator.validate():
+                            raise ModelException(f"Invalid invitee record: {validator.errors}")
+                        rec.save()
+
+                return task
+
+            except Exception:
+                db.rollback()
+                app.logger.exception("Failed to load work file.")
+                raise
+
+    @classmethod
     def load_from_json(cls, source, filename=None, org=None):
         """Load data from JSON file or a string."""
         if isinstance(source, str):
-            # import data from file based on its extension; either it is yaml or json
+            # import data from file based on its extension; either it is YAML or JSON
             work_data_list = load_yaml_json(filename=filename, source=source)
 
             # TODO: validation of uploaded work file
@@ -1657,7 +2643,7 @@ class WorkRecord(RecordModel):
                 validation_source_data = copy.deepcopy(work_data)
                 validation_source_data = del_none(validation_source_data)
 
-                # Adding schema valdation for Work
+                # Adding schema validation for Work
                 validator = Core(
                     source_data=validation_source_data,
                     schema_files=[os.path.join(SCHEMA_DIR, "work_schema.yaml")])
@@ -1787,6 +2773,14 @@ class ContributorModel(BaseModel):
     role = CharField(max_length=120, null=True)
     email = CharField(max_length=120, null=True)
 
+    def to_export_dict(self):
+        """Map the contributor record to dict for export into JSON/YAML."""
+        return {
+                "contributor-attributes": {"contributor-role": self.role},
+                "contributor-email": dict(value=self.email),
+                "credit-name": dict(value=self.name),
+                "contributor-orcid": dict(path=self.orcid), }
+
 
 class WorkContributor(ContributorModel):
     """Researcher or contributor - related to work."""
@@ -1799,9 +2793,15 @@ class WorkContributor(ContributorModel):
         db_table = "work_contributor"
         table_alias = "wc"
 
+    def to_export_dict(self):
+        """Map the contributor record to dict for export into JSON/YAML."""
+        d = super().to_export_dict()
+        d["contributor-attributes"].update({"contributor-sequence": self.contributor_sequence})
+        return d
+
 
 class FundingContributor(ContributorModel):
-    """Researcher or contributor - reciever of the funding."""
+    """Researcher or contributor - receiver of the funding."""
 
     funding_record = ForeignKeyField(
         FundingRecord, related_name="contributors", on_delete="CASCADE")
@@ -1824,10 +2824,27 @@ class InviteesModel(BaseModel):
     status = TextField(null=True, help_text="Record processing status.")
     processed_at = DateTimeField(null=True)
 
+    def save(self, *args, **kwargs):
+        """Consistency validation and saving."""
+        if self.is_dirty() and self.email and self.field_is_updated("email"):
+            self.email = self.email.lower()
+        return super().save(*args, **kwargs)
+
     def add_status_line(self, line):
         """Add a text line to the status for logging processing progress."""
         ts = datetime.utcnow().isoformat(timespec="seconds")
         self.status = (self.status + "\n" if self.status else '') + ts + ": " + line
+
+    def to_export_dict(self):
+        """Get row representation suitable for export to JSON/YAML."""
+        c = self.__class__
+        return self.to_dict(
+            to_dashes=True,
+            exclude_nulls=True,
+            only=[
+                c.identifier, c.email, c.first_name, c.last_name, c.orcid, c.put_code, c.visibility
+            ],
+            recurse=False)
 
 
 class PeerReviewInvitee(InviteesModel):
@@ -1866,10 +2883,30 @@ class FundingInvitees(InviteesModel):
 class ExternalIdModel(BaseModel):
     """Common model bits of the ExternalId records."""
 
-    type = CharField(max_length=255)
+    relationship_choices = [(v, v.replace('_', ' ').title()) for v in ['', "PART_OF", "SELF"]]
+    type_choices = [(v, v.replace("_", " ").replace("-", " ").title()) for v in [
+        '', "agr", "ark", "arxiv", "asin", "asin-tld", "authenticusid", "bibcode", "cba",
+        "cienciaiul", "cit", "ctx", "dnb", "doi", "eid", "ethos", "grant_number", "handle", "hir",
+        "isbn", "issn", "jfm", "jstor", "kuid", "lccn", "lensid", "mr", "oclc", "ol", "osti",
+        "other-id", "pat", "pdb", "pmc", "pmid", "rfc", "rrid", "source-work-id", "ssrn", "uri",
+        "urn", "wosuid", "zbl"
+    ]]
+
+    type = CharField(max_length=255, choices=type_choices)
     value = CharField(max_length=255)
     url = CharField(max_length=200, null=True)
-    relationship = CharField(max_length=255, null=True)
+    relationship = CharField(max_length=255, choices=relationship_choices)
+
+    def to_export_dict(self):
+        """Map the external ID record to dict for exprt into JSON/YAML."""
+        d = {
+            "external-id-type": self.type,
+            "external-id-value": self.value,
+            "external-id-relationship": self.relationship,
+        }
+        if self.url:
+            d["external-id-url"] = {"value": self.url}
+        return d
 
 
 class WorkExternalId(ExternalIdModel):
@@ -1905,6 +2942,12 @@ class ExternalId(ExternalIdModel):
         table_alias = "ei"
 
 
+class Delegate(BaseModel):
+    """External applications that can be redirected to."""
+
+    hostname = CharField()
+
+
 class Url(BaseModel, AuditMixin):
     """Shortened URLs."""
 
@@ -1913,18 +2956,17 @@ class Url(BaseModel, AuditMixin):
 
     @classmethod
     def shorten(cls, url):
-        """Create a shorten url or retrievs an exiting one."""
+        """Create a shorten URL or retrieves an exiting one."""
         try:
             u = cls.get(url=url)
         except cls.DoesNotExist:
             while True:
                 short_id = ''.join(
                     random.choice(string.ascii_letters + string.digits) for _ in range(5))
-                try:
-                    cls.get(short_id=short_id)
-                except cls.DoesNotExist:
-                    u = cls.create(short_id=short_id, url=url)
-                    return u
+                if not cls.select().where(cls.short_id == short_id).exists():
+                    break
+            u = cls.create(short_id=short_id, url=url)
+            return u
         return u
 
 
@@ -2080,7 +3122,7 @@ class Token(BaseModel):
 
 
 def readup_file(input_file):
-    """Read up the whole content and deconde it and return the whole content."""
+    """Read up the whole content and decode it and return the whole content."""
     raw = input_file.read()
     for encoding in "utf-8-sig", "utf-8", "utf-16":
         try:
@@ -2108,6 +3150,7 @@ def create_tables():
             OrcidApiCall,
             OrcidAuthorizeCall,
             Task,
+            Log,
             AffiliationRecord,
             GroupIdRecord,
             OrgInvitation,
@@ -2124,9 +3167,12 @@ def create_tables():
             PeerReviewRecord,
             PeerReviewInvitee,
             PeerReviewExternalId,
+            ResearcherUrlRecord,
+            OtherNameRecord,
             Client,
             Grant,
             Token,
+            Delegate,
     ]:
 
         if not model.table_exists():
@@ -2151,10 +3197,10 @@ def create_audit_tables():
 
 def drop_tables():
     """Drop all model tables."""
-    for m in (File, User, UserOrg, OrcidToken, UserOrgAffiliation, OrgInfo, OrgInvitation,
+    for m in (File, User, UserOrg, OtherNameRecord, OrcidToken, UserOrgAffiliation, OrgInfo, OrgInvitation,
               OrcidApiCall, OrcidAuthorizeCall, FundingContributor, FundingInvitees, FundingRecord,
-              PeerReviewInvitee, PeerReviewExternalId, PeerReviewRecord, WorkInvitees,
-              WorkExternalId, WorkContributor, WorkRecord, AffiliationRecord, ExternalId, Url,
+              PeerReviewInvitee, PeerReviewExternalId, PeerReviewRecord, ResearcherUrlRecord,
+              WorkInvitees, WorkExternalId, WorkContributor, WorkRecord, AffiliationRecord, ExternalId, Url,
               UserInvitation, Task, Organisation):
         if m.table_exists():
             try:
@@ -2164,18 +3210,18 @@ def drop_tables():
 
 
 def load_yaml_json(filename, source):
-    """Create a common way of loading json or yaml file."""
-    if os.path.splitext(filename)[1][1:] == "yaml" or os.path.splitext(
-            filename)[1][1:] == "yml":
-        data_list = yaml.load(source)
+    """Create a common way of loading JSON or YAML file."""
+    _, ext = os.path.splitext(filename)
+    if ext.lower() in [".yaml", ".yml"]:
+        data = json.loads(json.dumps(yaml.load(source)), object_pairs_hook=NestedDict)
     else:
-        data_list = json.loads(source)
+        data = json.loads(source, object_pairs_hook=NestedDict)
 
     # Removing None for correct schema validation
-    if not isinstance(data_list, list):
+    if not isinstance(data, list) and not (isinstance(data, dict) and "records" in data):
         raise SchemaError(
             u"Schema validation failed:\n - Expecting a list of Records")
-    return data_list
+    return data
 
 
 def del_none(d):
@@ -2198,6 +3244,8 @@ def del_none(d):
 
 def get_val(d, *keys, default=None):
     """To get the value from uploaded fields."""
+    if isinstance(d, NestedDict):
+        return d.get(*keys, default=default)
     for k in keys:
         if not d:
             break

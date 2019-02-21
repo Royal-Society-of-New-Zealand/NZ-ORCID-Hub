@@ -34,6 +34,7 @@ Table of Contents
    app_registration
    development_env
    docker
+   virtualbox
    sendmail
    troubleshooting
    db_recovery

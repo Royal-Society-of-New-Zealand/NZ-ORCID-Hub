@@ -27,14 +27,15 @@ from peewee import PostgresqlDatabase
 from playhouse import db_url
 from playhouse.shortcuts import RetryOperationalError
 # disable Sentry if there is no SENTRY_DSN:
-from raven.contrib.flask import Sentry
+import sentry_sdk
+from sentry_sdk.integrations.flask import FlaskIntegration
 
 from . import config
 from .failover import PgDbWithFailover
 from flask_admin import Admin
 from flask_limiter import Limiter
-from flask_limiter.util import get_remote_address
-
+from flask_limiter.util import get_ipaddr
+from werkzeug.contrib.cache import SimpleCache
 
 try:
     dist = pkg_resources.get_distribution(__name__)
@@ -50,6 +51,7 @@ class ReconnectablePostgresqlDatabase(RetryOperationalError, PostgresqlDatabase)
     pass
 
 
+cache = SimpleCache()
 app = Flask(__name__, instance_relative_config=True)
 app.config.from_object(config)
 if not app.config.from_pyfile("settings.cfg", silent=True) and app.debug:
@@ -62,7 +64,7 @@ oauth = OAuth2Provider(app)
 api = Api(app)
 limiter = Limiter(
     app,
-    key_func=get_remote_address,
+    key_func=get_ipaddr,
     headers_enabled=True,
     default_limits=[
         "40 per second",  # burst: 40/sec
@@ -167,11 +169,14 @@ data_api = DataRestAPI(app, prefix="/data/api/v0.1", default_auth=default_auth, 
 admin = Admin(
     app, name="NZ ORCiD Hub", template_mode="bootstrap3", base_template="admin/master.html")
 
-# https://sentry.io/orcid-hub/nz-orcid-hub-dev/getting-started/python-flask/
 SENTRY_DSN = app.config.get("SENTRY_DSN")
 if SENTRY_DSN:
-    sentry = Sentry(
-        app, dsn=SENTRY_DSN, logging=True, level=logging.DEBUG if app.debug else logging.WARNING)
+    sentry_sdk.init(
+        SENTRY_DSN,
+        integrations=[FlaskIntegration()],
+        debug=app.debug,
+        environment=app.config.get("ENV"),
+        send_default_pii=True)
 
 login_manager = LoginManager()
 login_manager.login_view = "index"
@@ -278,14 +283,17 @@ def create_hub_administrator(email,
     super_user.is_superuser = True
     super_user.orcid = orcid
 
-    if org_name:
-        org, _ = models.Organisation.get_or_create(name=org_name)
-        if internal_org_name:
-            org.tuakiri_name = internal_org_name
-        org.confirmed = True
-        org.save()
-        models.UserOrg.get_or_create(user=super_user, org=org)
+    if not org_name and super_user.organisation:
+        org_name = super_user.organisation.name
 
+    org, _ = models.Organisation.get_or_create(name=org_name or "ORCID Hub")
+    if internal_org_name:
+        org.tuakiri_name = internal_org_name
+    org.confirmed = True
+    org.save()
+    models.UserOrg.get_or_create(user=super_user, org=org)
+
+    if not super_user.organisation or super_user.organisation != org:
         super_user.organisation = org
 
     super_user.save()

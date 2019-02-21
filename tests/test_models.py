@@ -1,16 +1,18 @@
 from datetime import datetime
 from itertools import product
+from io import StringIO
 
 import pytest
 from peewee import Model, SqliteDatabase
 from playhouse.test_utils import test_database
 
 from orcid_hub.models import (
-    Affiliation, AffiliationRecord, BaseModel, BooleanField, ExternalId, File, FundingContributor,
-    FundingRecord, FundingInvitees, ModelException, OrcidToken, Organisation, OrgInfo, PartialDate,
-    PartialDateField, Role, Task, TextField, User, UserInvitation, UserOrg, UserOrgAffiliation,
-    WorkRecord, WorkContributor, WorkExternalId, WorkInvitees, PeerReviewRecord, PeerReviewInvitee,
-    PeerReviewExternalId, create_tables, drop_tables, validate_orcid_id)
+    Affiliation, AffiliationRecord, BaseModel, BooleanField, ExternalId, File, ForeignKeyField,
+    FundingContributor, FundingRecord, FundingInvitees, ModelException, OtherNameRecord, OrcidToken, Organisation,
+    OrgInfo, PartialDate, PartialDateField, ResearcherUrlRecord, Role, Task, TaskType, TaskTypeField, Log, TextField,
+    User, UserInvitation, UserOrg, UserOrgAffiliation, WorkRecord, WorkContributor, WorkExternalId,
+    WorkInvitees, PeerReviewRecord, PeerReviewInvitee, PeerReviewExternalId, create_tables,
+    drop_tables, validate_orcid_id)
 
 
 @pytest.fixture
@@ -26,10 +28,10 @@ def testdb():
     """
     _db = SqliteDatabase(":memory:", pragmas=[("foreign_keys", "on")])
     with test_database(
-            _db, (Organisation, File, User, UserInvitation, UserOrg, OrgInfo, OrcidToken,
+            _db, (Organisation, File, User, UserInvitation, UserOrg, OtherNameRecord, OrgInfo, OrcidToken,
                   UserOrgAffiliation, Task, AffiliationRecord, ExternalId, FundingRecord,
                   FundingContributor, FundingInvitees, WorkRecord, WorkContributor, WorkExternalId,
-                  WorkInvitees, PeerReviewRecord, PeerReviewExternalId, PeerReviewInvitee),
+                  WorkInvitees, PeerReviewRecord, PeerReviewExternalId, PeerReviewInvitee, ResearcherUrlRecord),
             fail_silently=True) as _test_db:
         yield _test_db
 
@@ -115,6 +117,33 @@ def models(testdb):
         country="Test_%d" % i,
         disambiguated_id="Test_%d" % i,
         disambiguation_source="Test_%d" % i) for i in range(10))).execute()
+
+    ResearcherUrlRecord.insert_many((dict(
+        is_active=False,
+        task=Task.get(id=1),
+        put_code=90,
+        status="Test_%d" % i,
+        first_name="Test_%d" % i,
+        last_name="Test_%d" % i,
+        email="Test_%d" % i,
+        orcid="123112311231%d" % i,
+        url_name="Test_%d" % i,
+        url_value="Test_%d" % i,
+        visibility="Test_%d" % i,
+        display_index=i) for i in range(10))).execute()
+
+    OtherNameRecord.insert_many((dict(
+        is_active=False,
+        task=Task.get(id=1),
+        put_code=90,
+        status="Test_%d" % i,
+        first_name="Test_%d" % i,
+        last_name="Test_%d" % i,
+        email="Test_%d" % i,
+        orcid="123112311231%d" % i,
+        content="Test_%d" % i,
+        visibility="Test_%d" % i,
+        display_index=i) for i in range(10))).execute()
 
     FundingRecord.insert_many((dict(
         task=Task.get(id=1),
@@ -283,6 +312,8 @@ def test_test_database(models):
     assert PeerReviewRecord.select().count() == 10
     assert PeerReviewExternalId.select().count() == 10
     assert PeerReviewInvitee.select().count() == 10
+    assert ResearcherUrlRecord.select().count() == 10
+    assert OtherNameRecord.select().count() == 10
     assert Task.select().count() == 30
     assert UserOrgAffiliation.select().count() == 30
 
@@ -309,6 +340,14 @@ def test_test_database(models):
     assert ui.inviter_id is None
     user.delete_instance()
     assert not UserInvitation.select().where(UserInvitation.id == ui.id).exists()
+
+    org = Organisation.select().limit(1).first()
+    user = User.select().limit(1).first()
+    ot = OrcidToken.create(user=user, org=org, scope="S1,S2,S3")
+    assert len(ot.scopes) == 3
+
+    ot.scopes = ["A", "B", "C", "D"]
+    assert ot.scope == "A,B,C,D"
 
 
 def test_roles():
@@ -431,6 +470,29 @@ def test_partial_date():
     assert str(pd) == ""
 
 
+def test_task_type_field():
+
+    db = SqliteDatabase(":memory:")
+
+    class TestModel(Model):
+        tt = TaskTypeField(null=True)
+
+        class Meta:
+            database = db
+
+    TestModel.create_table()
+    for v in TaskType:
+        TestModel.create(tt=v)
+        TestModel.create(tt=str(v.value))
+        TestModel.create(tt=v.value)
+        TestModel.create(tt=v.name)
+    TestModel(pf=None).save()
+    res = {r[0]:r[1] for r in db.execute_sql(
+        "SELECT tt, count(*) AS rc FROM testmodel GROUP BY tt ORDER BY 1").fetchall()}
+    assert all(res[v.value] == 4 for v in TaskType)
+    assert res[None] == 1
+
+
 def test_pd_field():
 
     db = SqliteDatabase(":memory:")
@@ -472,6 +534,25 @@ Organisation_1,Title_1,First Name_1,Last Name_1,Role_1,Email_1,Phone_1,yes,Count
     assert OrgInfo.select().count() == 2
     oi = OrgInfo.get(name="Organisation_1")
     assert oi.is_public
+
+    OrgInfo.load_from_csv(
+        StringIO("""Name,Disambiguated Id,Disambiguation Source
+AgResearch Ltd,3713,RINGGOLD
+Aqualinc Research Ltd,9429035717133,NZBN
+Ara Institute of Canterbury,6006,Education Organisation Number
+Auckland District Health Board,1387,RINGGOLD
+Auckland University of Technology,1410,RINGGOLD
+Bay of Plenty District Health Board,7854,RINGGOLD
+Capital and Coast District Health Board,8458,RINGGOLD
+Cawthron Institute,5732,RINGGOLD
+CRL Energy Ltd,9429038654381,NZBN
+
+Health Research Council,http://dx.doi.org/10.13039/501100001505,FUNDREF
+Hutt Valley District Health Board,161292,RINGGOLD
+Institute of Environmental Science and Research,8480,RINGGOLD
+Institute of Geological & Nuclear Sciences Ltd,5180,RINGGOLD
+"""))
+    assert OrgInfo.select().count() == 15
 
 
 def test_affiliations(models):
@@ -553,17 +634,30 @@ def test_boolean_field():
 
 def test_base_model_to_dict():
     """Test base model features."""
+    db = SqliteDatabase(":memory:")
+
     class TestTable(BaseModel):
         test_field = TextField()
 
         class Meta:
-            database = SqliteDatabase(":memory:")
+            database = db
+
+    class Child(BaseModel):
+        parent = ForeignKeyField(TestTable)
+
+        class Meta:
+            database = db
 
     TestTable.create_table()
-    TestTable.create(test_field="ABC123")
+    Child.create_table()
 
-    rec = TestTable.select().first()
-    assert rec.to_dict() == {"id": 1, "test_field": "ABC123"}
+    parent = TestTable.create(test_field="ABC123")
+
+    assert parent.to_dict() == {"id": 1, "test_field": "ABC123"}
+
+    child = Child.create(parent=parent)
+    parent = TestTable.get(parent.id)
+    assert parent.to_dict(backrefs=True) == {"id": 1, "test_field": "ABC123", "child_set": [{"id": 1}]}
 
     rec = TestTable.get(1)
     assert rec.test_field == "ABC123"

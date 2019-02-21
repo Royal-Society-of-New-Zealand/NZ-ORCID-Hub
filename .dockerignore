@@ -1,7 +1,7 @@
 .*
 *.db
 *.json
-__pycache__
+**/__pycache__
 SAML
 *.csv
 *.md
@@ -12,6 +12,7 @@ backup*
 masterdb
 pgdata*
 venv
+venv7
 # orcid
 htmlcov
 archive
@@ -24,3 +25,4 @@ gen-keys
 migrations
 *egg*
 dist
+load_testing

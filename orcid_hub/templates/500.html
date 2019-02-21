@@ -12,19 +12,20 @@
         <pre>{{trace}}</pre>
       </div>
     {% endif %}
-    {% if event_id %}
-      <script src="https://cdn.ravenjs.com/2.3.0/raven.min.js"></script>
+    <!-- {{ sentry_event_id }} -->
+    {% if sentry_event_id %}
+      <script src="https://browser.sentry-cdn.com/4.5.3/bundle.min.js" crossorigin="anonymous"></script>
       <script>
-      Raven.showReportDialog({
-        eventId: '{{ event_id }}',
-        dsn: '{{ public_dsn }}'
-        {% if current_user.is_authenticated %},
-          user: {
-              name: '{{ current_user.name }}',
-              email: '{{ current_user.email }}'
-          }
-        {% endif %}
-      });
+        Sentry.init({ dsn: '{{ config.SENTRY_DSN }}' });
+        Sentry.showReportDialog({
+          eventId: '{{ sentry_event_id }}'
+          {% if current_user.is_authenticated %},
+            user: {
+                name: '{{ current_user.name }}',
+                email: '{{ current_user.email }}'
+            }
+          {% endif %}
+        });
       </script>
     {% endif %}
   </div>

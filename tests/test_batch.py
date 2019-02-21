@@ -41,7 +41,7 @@ def test_upload_affiliation_with_wrong_country(request_ctx):
     """Test task loading and processing with failures."""
     org = Organisation.get(name="TEST0")
     super_user = User.get(email="admin@test0.edu")
-    with patch("emails.html") as mock_msg, request_ctx("/") as ctx:
+    with request_ctx("/") as ctx:
         login_user(super_user)
         # flake8: noqa
         with pytest.raises(ModelException):
@@ -51,6 +51,16 @@ FNA\tLBA\taaa.lnb@test.com\tTEST1\tResearch Funding\tWellington\tProgramme Manag
         """,
                 filename="TEST.tsv",
                 org=org)
+
+        # this should work:
+        task = Task.load_from_csv(
+            """First name\tLast name\temail address\tOrganisation\tCampus/Department\tCity\tCourse or Job title\tStart date\tEnd date\tStudent/Staff\tCountry
+FNA\tLBA\taaa.lnb@test.com\tTEST1\tResearch Funding\tWellington\tProgramme Manager - ORCID\t2016-09 19:00:00 PM\t\tStaff\t
+    """,
+            filename="TEST-2.tsv",
+            org=org)
+        rec = task.records.first()
+        assert rec.country is None
 
 
 def test_process_tasks(request_ctx):
@@ -76,8 +86,8 @@ def test_process_tasks(request_ctx):
         assert "email/task_expiration.html" in args
         assert kwargs["error_count"] == 0
         hostname = ctx.request.host
-        assert kwargs["export_url"] == (
-            f"https://{hostname}/admin/affiliationrecord/export/csv/?task_id={task.id}")
+        assert kwargs["export_url"].endswith(
+            f"//{hostname}/admin/affiliationrecord/export/csv/?task_id={task.id}")
         assert kwargs["recipient"] == (
             super_user.name,
             super_user.email,
@@ -109,8 +119,8 @@ def test_process_tasks(request_ctx):
         assert "email/task_expiration.html" in args
         assert kwargs["error_count"] == 0
         hostname = ctx.request.host
-        assert kwargs["export_url"] == (
-            f"https://{hostname}/admin/fundingrecord/export/csv/?task_id={task.id}")
+        assert kwargs["export_url"].endswith(
+            f"//{hostname}/admin/fundingrecord/export/csv/?task_id={task.id}")
         assert kwargs["recipient"] == (
             super_user.name,
             super_user.email,

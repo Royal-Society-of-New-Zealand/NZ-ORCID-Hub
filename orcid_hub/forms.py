@@ -235,9 +235,8 @@ class RecordForm(FlaskForm):
 class FundingForm(FlaskForm):
     """User/researcher funding detail form."""
 
-    type_choices = [('GRANT', 'GRANT'), ('CONTRACT', 'CONTRACT'), ('AWARD', 'AWARD'), ('SALARY_AWARD', 'SALARY_AWARD')]
+    type_choices = [(v, v.replace('_', ' ').title()) for v in ['GRANT', 'CONTRACT', 'AWARD', 'SALARY_AWARD', '']]
     type_choices.sort(key=lambda e: e[1])
-    type_choices.insert(0, ("", ""))
 
     funding_title = StringField("Funding Title", [validators.required()])
     funding_translated_title = StringField("Funding Translated Title")
@@ -255,6 +254,90 @@ class FundingForm(FlaskForm):
     end_date = PartialDateField("End date (leave blank if current)")
     disambiguated_id = StringField("Disambiguated Organisation ID")
     disambiguation_source = StringField("Disambiguation Source")
+
+
+class PeerReviewForm(FlaskForm):
+    """User/researcher Peer review detail form."""
+
+    reviewer_role_choices = [(v, v) for v in ['MEMBER', 'REVIEWER', 'ORGANIZER', 'EDITOR', 'CHAIR', '']]
+    reviewer_role_choices.sort(key=lambda e: e[1])
+
+    review_type_choices = [(v, v) for v in ['REVIEW', 'EVALUATION', '']]
+    review_type_choices.sort(key=lambda e: e[1])
+
+    subject_external_id_relationship_choices = [(v, v.replace('_', ' ').title()) for v in ['PART_OF', 'SELF', '']]
+    subject_external_id_relationship_choices.sort(key=lambda e: e[1])
+
+    subject_type_choices = [(v, v.replace('_', ' ').title()) for v in
+                            ['MANUAL', 'CONFERENCE_PAPER', 'RESEARCH_TECHNIQUE', 'SUPERVISED_STUDENT_PUBLICATION',
+                             'INVENTION', 'NEWSLETTER_ARTICLE', 'TRANSLATION', 'TEST', 'DISSERTATION', 'BOOK_CHAPTER',
+                             'LICENSE', 'STANDARDS_AND_POLICY', 'CONFERENCE_ABSTRACT', 'PATENT', 'DICTIONARY_ENTRY',
+                             'REGISTERED_COPYRIGHT', 'MAGAZINE_ARTICLE', 'DISCLOSURE', 'BOOK_REVIEW', 'UNDEFINED',
+                             'ARTISTIC_PERFORMANCE', 'ENCYCLOPEDIA_ENTRY', 'REPORT', 'ONLINE_RESOURCE', 'WEBSITE',
+                             'RESEARCH_TOOL', 'WORKING_PAPER', 'EDITED_BOOK', 'TRADEMARK', 'LECTURE_SPEECH', 'BOOK',
+                             'DATA_SET', 'JOURNAL_ARTICLE', 'SPIN_OFF_COMPANY', 'TECHNICAL_STANDARD',
+                             'CONFERENCE_POSTER', 'JOURNAL_ISSUE', 'NEWSPAPER_ARTICLE', 'OTHER', '']]
+    subject_type_choices.sort(key=lambda e: e[1])
+
+    org_name = StringField("Institution", [validators.required()])
+    disambiguated_id = StringField("Disambiguated Organisation ID")
+    disambiguation_source = StringField("Disambiguation Source")
+    city = StringField("City", [validators.required()])
+    state = StringField("State/region", filters=[lambda x: x or None])
+    country = CountrySelectField("Country", [validators.required()])
+    reviewer_role = SelectField(choices=reviewer_role_choices, description="Reviewer Role",
+                                validators=[validators.required()])
+    review_url = StringField("Review Url")
+    review_type = SelectField(choices=review_type_choices, description="Review Type",
+                              validators=[validators.required()])
+    review_group_id = StringField("Peer Review Group Id", [validators.required()])
+    subject_external_identifier_type = StringField("Subject External Identifier Type")
+    subject_external_identifier_value = StringField("Subject External Identifier Value")
+    subject_external_identifier_url = StringField("Subject External Identifier Url")
+    subject_external_identifier_relationship = SelectField(choices=subject_external_id_relationship_choices,
+                                                           description="Subject External Id Relationship")
+    subject_container_name = StringField("Subject Container Name")
+    subject_type = SelectField(choices=subject_type_choices, description="Subject Type")
+    subject_title = StringField("Subject Title")
+    subject_subtitle = StringField("Subject Subtitle")
+    subject_translated_title = StringField("Subject Translated Title")
+    subject_translated_title_language_code = LanguageSelectField("Language")
+    subject_url = StringField("Subject Url")
+    review_completion_date = PartialDateField("Review Completion date", validators=[validators.required()])
+
+
+class WorkForm(FlaskForm):
+    """User/researcher Work detail form."""
+
+    work_type_choices = [(v, v.replace('_', ' ').title()) for v in
+                         ['MANUAL', 'CONFERENCE_PAPER', 'RESEARCH_TECHNIQUE', 'SUPERVISED_STUDENT_PUBLICATION',
+                          'INVENTION', 'NEWSLETTER_ARTICLE', 'TRANSLATION', 'TEST', 'DISSERTATION', 'BOOK_CHAPTER',
+                          'LICENSE', 'STANDARDS_AND_POLICY', 'CONFERENCE_ABSTRACT', 'PATENT', 'DICTIONARY_ENTRY',
+                          'REGISTERED_COPYRIGHT', 'MAGAZINE_ARTICLE', 'DISCLOSURE', 'BOOK_REVIEW',
+                          'UNDEFINED', 'ARTISTIC_PERFORMANCE', 'ENCYCLOPEDIA_ENTRY', 'REPORT', 'ONLINE_RESOURCE',
+                          'WEBSITE', 'RESEARCH_TOOL', 'WORKING_PAPER', 'EDITED_BOOK', 'TRADEMARK', 'LECTURE_SPEECH',
+                          'BOOK', 'DATA_SET', 'JOURNAL_ARTICLE', 'SPIN_OFF_COMPANY', 'TECHNICAL_STANDARD',
+                          'CONFERENCE_POSTER', 'JOURNAL_ISSUE', 'NEWSPAPER_ARTICLE', 'OTHER', '']]
+    work_type_choices.sort(key=lambda e: e[1])
+
+    citation_type_choices = [(v, v.replace('_', ' ').title()) for v in
+                             ['FORMATTED_HARVARD', 'FORMATTED_UNSPECIFIED', 'FORMATTED_CHICAGO', 'FORMATTED_VANCOUVER',
+                              'RIS', 'FORMATTED_IEEE', 'BIBTEX', 'FORMATTED_MLA', 'FORMATTED_APA', '']]
+    citation_type_choices.sort(key=lambda e: e[1])
+
+    work_type = SelectField(choices=work_type_choices, description="Work Type", validators=[validators.required()])
+    title = StringField("Title", [validators.required()])
+    subtitle = StringField("Subtitle")
+    translated_title = StringField("Translated Title")
+    translated_title_language_code = LanguageSelectField("Language")
+    journal_title = StringField("Work Type Title")
+    short_description = TextAreaField(description="Short Description")
+    citation_type = SelectField(choices=citation_type_choices, description="Citation Type")
+    citation = StringField("Citation Value")
+    publication_date = PartialDateField("Publication date")
+    url = StringField("Url")
+    language_code = LanguageSelectField("Language used in this form")
+    country = CountrySelectField("Country of publication")
 
 
 class GroupIdForm(FlaskForm):
@@ -514,4 +597,30 @@ class WebhookForm(
             "class": "btn btn-success",
             "data-toggle": "tooltip",
             "title": "Save Organisation webhook"
+        })
+
+
+class ProfileSyncForm(FlaskForm):
+    """Profile sync form."""
+
+    start = SubmitField(
+        "Start",
+        render_kw={
+            "class": "btn btn-primary mr-2",
+            "data-toggle": "tooltip",
+            "title": "Start profile synchronization"
+        })
+    restart = SubmitField(
+        "Restart",
+        render_kw={
+            "class": "btn btn-secondary mr-2",
+            "data-toggle": "tooltip",
+            "title": "Re-start profile synchronization"
+        })
+    close = SubmitField(
+        "Close",
+        render_kw={
+            "class": "btn btn-invisible",
+            "data-toggle": "tooltip",
+            "title": "Cancel profile synchronization"
         })

@@ -26,11 +26,6 @@ ORCID_CLIENT_SECRET = getenv("ORCID_CLIENT_SECRET")
 AUTHORIZATION_BASE_URL = 'https://sandbox.orcid.org/oauth/authorize' \
     if ENV != "prod" else "https://orcid.org/oauth/authorize"
 TOKEN_URL = 'https://sandbox.orcid.org/oauth/token' if ENV != "prod" else "https://orcid.org/oauth/token"
-# TODO: technically it shouldn't be part of configuration.
-# TODO: These constans need to be oved to orcid_client.
-SCOPE_ACTIVITIES_UPDATE = ['/activities/update']
-SCOPE_READ_LIMITED = ['/read-limited']
-SCOPE_AUTHENTICATE = ['/authenticate']
 
 # Database connection url
 DATABASE_URL = getenv("DATABASE_URL", "sqlite:///data.db")
@@ -102,6 +97,9 @@ DEFAULT_EMAIL_TEMPLATE = """<!DOCTYPE html>
       <p>If you received this email in error, or you have questions about the responsibilities
       involved, please contact: <a href="mailto:orcid@royalsociety.org.nz">
       orcid@royalsociety.org.nz</a></p>
+      <p>For information about ORCID go to the
+      <a href="https://royalsociety.org.nz/orcid-in-new-zealand/what-is-orcid/orcid-for-researchers/">What is ORCID?</a>
+       page of our website.</p>
       <hr>
       <p>This email was sent to <a href="mailto:{EMAIL}">{EMAIL}</a></p>
       <!--  Footer Details -->
