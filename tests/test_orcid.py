@@ -395,16 +395,14 @@ def test_profile(client):
 def test_profile_wo_orcid(request_ctx):
     """Test a user profile that doesn't hava an ORCID."""
     with request_ctx("/profile") as ctx:
-        org = Organisation(name="THE ORGANISATION", confirmed=True)
-        org.save()
-        test_user = User(
+        org = Organisation.create(name="THE ORGANISATION:test_profile", confirmed=True)
+        test_user = User.create(
             email="test123@test.test.net", organisation=org, orcid=None, confirmed=True)
-        test_user.save()
         login_user(test_user, remember=True)
 
-        rv = ctx.app.full_dispatch_request()
-        assert rv.status_code == 302
-        assert rv.location == url_for("link")
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 302
+        assert resp.location == url_for("link")
 
 
 def test_sync_profile(app, mocker):
