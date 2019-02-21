@@ -307,7 +307,7 @@ def test_db_api(client):
     resp = client.get("/data/api/v0.1/organisations/", headers=dict(authorization="Bearer TEST"))
     assert resp.status_code == 200
     assert "objects" in resp.json
-    assert len(resp.json["objects"]) == 5
+    assert len(resp.json["objects"]) == 4
 
     resp = client.get("/data/api/v0.1/tasks/", headers=dict(authorization="Bearer TEST"))
     assert resp.status_code == 200
