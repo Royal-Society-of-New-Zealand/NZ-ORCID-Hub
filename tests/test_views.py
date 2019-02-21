@@ -669,7 +669,7 @@ Institute of Geological & Nuclear Sciences Ltd,5180,RINGGOLD
         })
     assert OrgInfo.select().count() == 3
 
-    with patch("orcid_hub.views.utils") as utils:
+    with patch("orcid_hub.views.utils.send_email") as send_email:
         client.post(
             "/admin/orginfo/action/",
             follow_redirects=True,
@@ -678,8 +678,10 @@ Institute of Geological & Nuclear Sciences Ltd,5180,RINGGOLD
                 action="invite",
                 rowid=[r.id for r in OrgInfo.select()],
             ))
-        utils.send_email.assert_called()
+        send_email.assert_called()
         assert OrgInvitation.select().count() == 3
+        oi = OrgInvitation.select().first()
+        assert oi.sent_at == oi.created_at
 
 
 def test_user_orgs_org(client):
@@ -2288,7 +2290,7 @@ def test_action_insert_update_group_id(client):
                 "type": "TEST"
             })
         assert resp.status_code == 302
-        assert resp.location == f"/admin/groupidrecord/"
+        assert urlparse(resp.location).path == "/admin/groupidrecord/"
     # Search the group id record from ORCID
     with patch.object(orcid_client.MemberAPIV20Api, "view_group_id_records",
                       MagicMock(return_value=fake_response)):
