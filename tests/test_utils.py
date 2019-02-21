@@ -163,7 +163,6 @@ def test_send_work_funding_peer_review_invitation(app, mocker):
     inviter = User.create(
         email="test1as237@mailinator.com",
         name="TEST USER",
-        username="test123",
         roles=Role.RESEARCHER,
         orcid=None,
         confirmed=True,
@@ -173,7 +172,6 @@ def test_send_work_funding_peer_review_invitation(app, mocker):
     u = User.create(
         email=email,
         name="TEST USER",
-        username="test123",
         roles=Role.RESEARCHER,
         orcid=None,
         confirmed=True,
@@ -440,7 +438,6 @@ def test_create_or_update_funding(app, mocker):
     u = User.create(
         email="test1234456@mailinator.com",
         name="TEST USER",
-        username="test123",
         roles=Role.RESEARCHER,
         orcid="123",
         confirmed=True,
