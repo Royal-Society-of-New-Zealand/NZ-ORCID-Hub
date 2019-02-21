@@ -68,6 +68,8 @@ ORCIDS = [
 
 class HubClient(FlaskClient):
     """Extension of the default Flask test client."""
+
+    resp_no = 0
     def login(self, user, affiliations=None, follow_redirects=False, **kwargs):
         """Log in with the given user."""
         org = user.organisation
