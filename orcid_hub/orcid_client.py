@@ -26,6 +26,7 @@ configuration.host = url.scheme + "://" + url.hostname
 ACTIVITIES_UPDATE = "/activities/update"
 READ_LIMITED = "/read-limited"
 AUTHENTICATE = "/authenticate"
+PERSON_UPDATE = "/person/update"
 
 
 class OrcidRESTClientObject(rest.RESTClientObject):
@@ -118,7 +119,6 @@ class MemberAPI(MemberAPIV20Api):
 
     def get_record(self):
         """Fetch record details. (The generated one is broken)."""
-        # import pdb; pdb.set_trace()
         try:
             resp, code, headers = self.api_client.call_api(
                 f"/v2.0/{self.user.orcid}",
@@ -1128,6 +1128,92 @@ class MemberAPI(MemberAPIV20Api):
             app.logger.info(
                 f"For {self.user} the ORCID record was {'updated' if put_code else 'created'} from {self.org}"
             )
+            created = not bool(put_code)
+            # retrieve the put-code from response Location header:
+            if resp.status == 201:
+                location = resp.headers.get("Location")
+                try:
+                    orcid, put_code = location.split("/")[-3::2]
+                    put_code = int(put_code)
+                except Exception:
+                    app.logger.exception("Failed to get ORCID iD/put-code from the response.")
+                    raise Exception("Failed to get ORCID iD/put-code from the response.")
+            elif resp.status == 200:
+                orcid = self.user.orcid
+
+        except ApiException as apiex:
+            app.logger.exception(f"For {self.user} encountered exception: {apiex}")
+            raise apiex
+        except Exception as ex:
+            app.logger.exception(f"For {self.user} encountered exception")
+            raise ex
+        else:
+            return (put_code, orcid, created)
+
+    def create_or_update_researcher_url(self, url_name=None, url_value=None, display_index=None, orcid=None,
+                                        put_code=None, visibility=None, *args, **kwargs):
+        """Create or update researcher url record of a user."""
+        rec = ResearcherUrl()       # noqa: F405
+
+        if put_code:
+            rec.put_code = put_code
+        if url_name:
+            rec.url_name = url_name
+        if url_value:
+            rec.url = Url(value=url_value)      # noqa: F405
+        if visibility:
+            rec.visibility = visibility
+        if display_index:
+            rec.display_index = display_index
+
+        try:
+            api_call = self.edit_researcher_url if put_code else self.create_researcher_url
+            params = dict(orcid=self.user.orcid, body=rec, _preload_content=False)
+            if put_code:
+                params["put_code"] = put_code
+            resp = api_call(**params)
+            created = not bool(put_code)
+            # retrieve the put-code from response Location header:
+            if resp.status == 201:
+                location = resp.headers.get("Location")
+                try:
+                    orcid, put_code = location.split("/")[-3::2]
+                    put_code = int(put_code)
+                except Exception:
+                    app.logger.exception("Failed to get ORCID iD/put-code from the response.")
+                    raise Exception("Failed to get ORCID iD/put-code from the response.")
+            elif resp.status == 200:
+                orcid = self.user.orcid
+
+        except ApiException as apiex:
+            app.logger.exception(f"For {self.user} encountered exception: {apiex}")
+            raise apiex
+        except Exception as ex:
+            app.logger.exception(f"For {self.user} encountered exception")
+            raise ex
+        else:
+            return (put_code, orcid, created)
+
+    def create_or_update_other_name(self, content=None, display_index=None, orcid=None, put_code=None,
+                                    visibility=None, *args, **kwargs):
+        """Create or update other name record of a user."""
+        rec = OtherName()       # noqa: F405
+
+        if put_code:
+            rec.put_code = put_code
+        if content:
+            rec.content = content
+        if visibility:
+            rec.visibility = visibility
+        if display_index:
+            rec.display_index = display_index
+
+        try:
+            api_call = self.edit_other_name if put_code else self.create_other_name
+            params = dict(orcid=self.user.orcid, body=rec, _preload_content=False)
+            if put_code:
+                params["put_code"] = put_code
+            resp = api_call(**params)
             created = not bool(put_code)
             # retrieve the put-code from response Location header:
             if resp.status == 201:
