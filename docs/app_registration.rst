@@ -3,11 +3,13 @@
 ORCID Hub API Appliction Registration
 =====================================
 
-In order to user ORCID Hub API you first need to register your application navigating to `Settings -> Hub API Registration`:
+In order to user ORCID Hub API you first need to register your application navigating to ``Settings → Hub API Registration``:
 
 .. image:: images/api_app_registration.png
 
+
 .. image:: images/app_registration_form.png
+
 
 When you register your appliction the Hub generates application credentials, a pair of keys: *CLIENT_ID* and *CLIENT_SECRET*:
 
