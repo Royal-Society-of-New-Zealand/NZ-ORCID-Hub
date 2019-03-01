@@ -985,8 +985,8 @@ class OrcidAuthorizeCall(BaseModel):
     """ORCID Authorize call audit entry."""
 
     called_at = DateTimeField(default=datetime.utcnow)
-    user = ForeignKeyField(User, null=True, on_delete="SET NULL")
-    method = TextField(null=True)
+    user = ForeignKeyField(User, null=True, default=None, on_delete="SET NULL")
+    method = TextField(null=True, default="GET")
     url = TextField(null=True)
     token = TextField(null=True)
     state = TextField(null=True)

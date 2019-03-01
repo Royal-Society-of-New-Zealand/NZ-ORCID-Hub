@@ -11,7 +11,6 @@ from unittest.mock import Mock, patch
 
 import pytest
 from flask import make_response
-from flask_login import login_user
 from peewee import JOIN
 from urllib.parse import quote
 

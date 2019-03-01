@@ -906,7 +906,6 @@ def orcid_login(invitation_token=None):
     READ LIMITED scope.
     """
     redirect_uri = url_for("orcid_callback", _external=True)
-
     try:
         orcid_scopes = [scopes.AUTHENTICATE]
 
@@ -996,23 +995,20 @@ def orcid_login(invitation_token=None):
             AUTHORIZATION_BASE_URL, state=session.get("oauth_state"))
         # if the inviation token is preset use it as OAuth state
         session["oauth_state"] = state
-        orcid_authenticate_url = iri_to_uri(authorization_url)
+        # ORCID authorization URL:
+        orcid_auth_url = iri_to_uri(authorization_url)
         if invitation_token:
-            orcid_authenticate_url = append_qs(orcid_authenticate_url, email=user.email)
+            orcid_auth_url = append_qs(orcid_auth_url, email=user.email)
             # For funding record, we dont have first name and Last Name
             if user.last_name and user.first_name:
-                orcid_authenticate_url = append_qs(
-                    orcid_authenticate_url,
+                orcid_auth_url = append_qs(
+                    orcid_auth_url,
                     family_names=user.last_name,
                     given_names=user.first_name)
 
-        OrcidAuthorizeCall.create(
-            user_id=None, method="GET", url=orcid_authenticate_url, state=state)
+        OrcidAuthorizeCall.create(url=orcid_auth_url, state=state)
 
-        return render_template(
-            "orcidLogoutAndCallback.html",
-            orcid_base_url=ORCID_BASE_URL,
-            callback_url=orcid_authenticate_url)
+        return render_template("orcidLogoutAndCallback.html", callback_url=orcid_auth_url)
 
     except Exception as ex:
         flash("Something went wrong. Please contact orcid@royalsociety.org.nz for support!",
