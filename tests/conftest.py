@@ -139,7 +139,7 @@ def app():
          AffiliationRecord, FundingRecord, FundingContributor, FundingInvitees, GroupIdRecord,
          OrcidAuthorizeCall, OrcidApiCall, Url, UserInvitation, OrgInvitation, ExternalId, Client,
          Grant, Token, WorkRecord, WorkContributor, WorkExternalId, WorkInvitees, PeerReviewRecord,
-         PeerReviewInvitee, PeerReviewExternalId),
+         PeerReviewInvitee, PeerReviewExternalId, ResearcherUrlRecord, OtherNameRecord),
             fail_silently=True):  # noqa: F405
         _app.db = _db
         _app.config["DATABASE_URL"] = DATABASE_URL
