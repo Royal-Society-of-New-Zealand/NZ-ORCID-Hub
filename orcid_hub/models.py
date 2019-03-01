@@ -34,7 +34,7 @@ from pykwalify.core import Core
 from pykwalify.errors import SchemaError
 
 from . import app, db
-from .schemas import affiliation_task_schema
+from .schemas import affiliation_task_schema, researcher_url_task_schema, other_name_task_schema
 
 ENV = app.config["ENV"]
 DEFAULT_COUNTRY = app.config["DEFAULT_COUNTRY"]
@@ -240,6 +240,8 @@ class TaskType(IntEnum):
     FUNDING = 1  # Funding
     WORK = 2
     PEER_REVIEW = 3
+    RESEARCHER_URL = 5
+    OTHER_NAME = 6
     SYNC = 11
 
     def __eq__(self, other):
@@ -983,8 +985,8 @@ class OrcidAuthorizeCall(BaseModel):
     """ORCID Authorize call audit entry."""
 
     called_at = DateTimeField(default=datetime.utcnow)
-    user = ForeignKeyField(User, null=True, on_delete="SET NULL")
-    method = TextField(null=True)
+    user = ForeignKeyField(User, null=True, default=None, on_delete="SET NULL")
+    method = TextField(null=True, default="GET")
     url = TextField(null=True)
     token = TextField(null=True)
     state = TextField(null=True)
@@ -2252,6 +2254,152 @@ class PeerReviewRecord(RecordModel):
         table_alias = "pr"
 
 
+class ResearcherUrlRecord(RecordModel):
+    """Researcher Url record loaded from Json file for batch processing."""
+
+    task = ForeignKeyField(Task, related_name="researcher_url_records", on_delete="CASCADE")
+    url_name = CharField(max_length=255)
+    url_value = CharField(max_length=255)
+    display_index = IntegerField(null=True)
+    email = CharField(max_length=120)
+    first_name = CharField(max_length=120)
+    last_name = CharField(max_length=120)
+    orcid = OrcidIdField(null=True)
+    put_code = IntegerField(null=True)
+    visibility = CharField(null=True, max_length=100)
+    is_active = BooleanField(
+        default=False, help_text="The record is marked for batch processing", null=True)
+    processed_at = DateTimeField(null=True)
+    status = TextField(null=True, help_text="Record processing status.")
+
+    @classmethod
+    def load_from_csv(cls, source, filename=None, org=None):
+        """Load data from CSV/TSV file or a string."""
+        pass
+
+    @classmethod
+    def load_from_json(cls, source, filename=None, org=None, task=None, skip_schema_validation=False):
+        """Load data from JSON file or a string."""
+        data = load_yaml_json(filename=filename, source=source)
+        if not skip_schema_validation:
+            jsonschema.validate(data, researcher_url_task_schema)
+        records = data["records"] if isinstance(data, dict) else data
+        with db.atomic():
+            try:
+                if org is None:
+                    org = current_user.organisation if current_user else None
+                if not task:
+                    task = Task.create(org=org, filename=filename, task_type=TaskType.RESEARCHER_URL)
+                # else:
+                #   ResearcherUrlRecord.delete().where(ResearcherUrlRecord.task == task).execute()
+
+                for r in records:
+
+                    url_name = r.get("url-name")
+                    url_value = r.get("url", "value") or r.get("url-value")
+                    display_index = r.get("display-index")
+                    email = r.get("email")
+                    first_name = r.get("first-name")
+                    last_name = r.get("last-name")
+                    orcid_id = r.get("ORCID-iD") or r.get("orcid")
+                    put_code = r.get("put-code")
+                    visibility = r.get("visibility")
+
+                    cls.create(
+                        task=task,
+                        url_name=url_name,
+                        url_value=url_value,
+                        display_index=display_index,
+                        email=email.lower(),
+                        first_name=first_name,
+                        last_name=last_name,
+                        orcid=orcid_id,
+                        visibility=visibility,
+                        put_code=put_code)
+
+                return task
+
+            except Exception:
+                db.rollback()
+                app.logger.exception("Failed to load Researcher Url file.")
+                raise
+
+    class Meta:  # noqa: D101,D106
+        db_table = "researcher_url_record"
+        table_alias = "ru"
+
+
+class OtherNameRecord(RecordModel):
+    """Other Name record loaded from Json file for batch processing."""
+
+    task = ForeignKeyField(Task, related_name="other_name_records", on_delete="CASCADE")
+    content = CharField(max_length=255)
+    display_index = IntegerField(null=True)
+    email = CharField(max_length=120)
+    first_name = CharField(max_length=120)
+    last_name = CharField(max_length=120)
+    orcid = OrcidIdField(null=True)
+    put_code = IntegerField(null=True)
+    visibility = CharField(null=True, max_length=100)
+    is_active = BooleanField(
+        default=False, help_text="The record is marked for batch processing", null=True)
+    processed_at = DateTimeField(null=True)
+    status = TextField(null=True, help_text="Record processing status.")
+
+    @classmethod
+    def load_from_csv(cls, source, filename=None, org=None):
+        """Load data from CSV/TSV file or a string."""
+        pass
+
+    @classmethod
+    def load_from_json(cls, source, filename=None, org=None, task=None, skip_schema_validation=False):
+        """Load data from JSON file or a string."""
+        data = load_yaml_json(filename=filename, source=source)
+        if not skip_schema_validation:
+            jsonschema.validate(data, other_name_task_schema)
+        records = data["records"] if isinstance(data, dict) else data
+        with db.atomic():
+            try:
+                if org is None:
+                    org = current_user.organisation if current_user else None
+                if not task:
+                    task = Task.create(org=org, filename=filename, task_type=TaskType.OTHER_NAME)
+                # else:
+                #   OtherNameRecord.delete().where(OtherNameRecord.task == task).execute()
+
+                for r in records:
+                    content = r.get("content")
+                    display_index = r.get("display-index")
+                    email = r.get("email")
+                    first_name = r.get("first-name")
+                    last_name = r.get("last-name")
+                    orcid_id = r.get("ORCID-iD") or r.get("orcid")
+                    put_code = r.get("put-code")
+                    visibility = r.get("visibility")
+
+                    cls.create(
+                        task=task,
+                        content=content,
+                        display_index=display_index,
+                        email=email.lower(),
+                        first_name=first_name,
+                        last_name=last_name,
+                        orcid=orcid_id,
+                        visibility=visibility,
+                        put_code=put_code)
+
+                return task
+
+            except Exception:
+                db.rollback()
+                app.logger.exception("Failed to load Other Name Record file.")
+                raise
+
+    class Meta:  # noqa: D101,D106
+        db_table = "other_name_record"
+        table_alias = "onr"
+
+
 class WorkRecord(RecordModel):
     """Work record loaded from Json file for batch processing."""
 
@@ -3019,6 +3167,8 @@ def create_tables():
             PeerReviewRecord,
             PeerReviewInvitee,
             PeerReviewExternalId,
+            ResearcherUrlRecord,
+            OtherNameRecord,
             Client,
             Grant,
             Token,
@@ -3047,10 +3197,10 @@ def create_audit_tables():
 
 def drop_tables():
     """Drop all model tables."""
-    for m in (File, User, UserOrg, OrcidToken, UserOrgAffiliation, OrgInfo, OrgInvitation,
+    for m in (File, User, UserOrg, OtherNameRecord, OrcidToken, UserOrgAffiliation, OrgInfo, OrgInvitation,
               OrcidApiCall, OrcidAuthorizeCall, FundingContributor, FundingInvitees, FundingRecord,
-              PeerReviewInvitee, PeerReviewExternalId, PeerReviewRecord, WorkInvitees,
-              WorkExternalId, WorkContributor, WorkRecord, AffiliationRecord, ExternalId, Url,
+              PeerReviewInvitee, PeerReviewExternalId, PeerReviewRecord, ResearcherUrlRecord,
+              WorkInvitees, WorkExternalId, WorkContributor, WorkRecord, AffiliationRecord, ExternalId, Url,
               UserInvitation, Task, Organisation):
         if m.table_exists():
             try:
