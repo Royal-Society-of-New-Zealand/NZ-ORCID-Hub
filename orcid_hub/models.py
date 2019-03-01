@@ -34,7 +34,7 @@ from pykwalify.core import Core
 from pykwalify.errors import SchemaError
 
 from . import app, db
-from .schemas import affiliation_task_schema
+from .schemas import affiliation_task_schema, researcher_url_task_schema, other_name_task_schema
 
 ENV = app.config["ENV"]
 DEFAULT_COUNTRY = app.config["DEFAULT_COUNTRY"]
@@ -53,7 +53,7 @@ AFFILIATION_TYPES = (
 
 
 class ModelException(Exception):
-    """Applicaton model exception."""
+    """Application model exception."""
 
     pass
 
@@ -211,13 +211,13 @@ class PartialDateField(Field):
         """Convert into partial ISO date textual representation: YYYY-**-**, YYYY-MM-**, or YYYY-MM-DD."""
         if value is None or not value.year:
             return None
+
+        res = "%04d" % int(value.year)
+        if value.month:
+            res += "-%02d" % int(value.month)
         else:
-            res = "%04d" % int(value.year)
-            if value.month:
-                res += "-%02d" % int(value.month)
-            else:
-                return res + "-**-**"
-            return res + "-%02d" % int(value.day) if value.day else res + "-**"
+            return res + "-**-**"
+        return res + "-%02d" % int(value.day) if value.day else res + "-**"
 
     def python_value(self, value):
         """Parse partial ISO date textual representation."""
@@ -230,6 +230,68 @@ class PartialDateField(Field):
             "month",
             "day",
         ), parts)))
+
+
+class TaskType(IntEnum):
+    """Enum used to represent Task type."""
+
+    NONE = 0
+    AFFILIATION = 4  # Affilation of employment/education
+    FUNDING = 1  # Funding
+    WORK = 2
+    PEER_REVIEW = 3
+    RESEARCHER_URL = 5
+    OTHER_NAME = 6
+    SYNC = 11
+
+    def __eq__(self, other):
+        if isinstance(other, TaskType):
+            return self.value == other.value
+        elif isinstance(other, int):
+            return self.value == other
+        return (self.name == other or self.name == getattr(other, "name", None))
+
+    def __hash__(self):
+        return hash(self.name)
+
+    @classmethod
+    def options(cls):
+        """Get list of all types for UI dropown option list."""
+        return [(e, e.name.replace('_', ' ').title()) for e in cls]
+
+
+class TaskTypeField(SmallIntegerField):
+    """Partial date custom DB data field mapped to varchar(10)."""
+
+    def db_value(self, value):
+        """Change enum value to small int."""
+        if value is None:
+            return None
+        try:
+            if isinstance(value, TaskType):
+                return value.value
+            elif isinstance(value, int):
+                return value
+            elif isinstance(value, str):
+                if str.isdigit(value):
+                    return int(value)
+                return TaskType[value.upper()].value
+            else:
+                raise ValueError("Unknow TaskType: '%s'", value)
+        except:
+            app.logger.exception("Failed to coerce the TaskType value, choosing NULL.")
+            return None
+
+    def python_value(self, value):
+        """Parse partial ISO date textual representation."""
+        if value is None:
+            return None
+        try:
+            return TaskType(value)
+        except:
+            app.logger.exception(
+                    f"Failed to map DB value {value} to TaskType, choosing None.")
+            return None
 
 
 class Role(IntFlag):
@@ -282,7 +344,7 @@ class Affiliation(IntFlag):
 
 
 class BaseModel(Model):
-    """Encapsulate commont bits and pieces of the model classes."""
+    """Encapsulate common bits and pieces of the model classes."""
 
     def field_is_updated(self, field_name):
         """Test if field is 'dirty'."""
@@ -336,7 +398,7 @@ class BaseModel(Model):
             if isinstance(v, PartialDate):
                 o[k] = str(v)
             elif k == "task_type":
-                o[k] = TaskType(v).name
+                o[k] = v.name
         if to_dashes:
             return self.__to_dashes(o)
         return o
@@ -370,10 +432,11 @@ DeferredUser = ModelDeferredRelation()
 
 
 class AuditMixin(Model):
-    """Mixing for getting data necessary for data change audit trail maintenace."""
+    """Mixing for getting data necessary for data change audit trail maintenance."""
 
     created_at = DateTimeField(default=datetime.utcnow)
     updated_at = DateTimeField(null=True, default=None)
+    is_deleted = BooleanField(null=True, default=False)
 
     # created_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
     # updated_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
@@ -387,6 +450,14 @@ class AuditMixin(Model):
                 elif hasattr(self, "created_by"):
                     self.created_by_id = current_user.id
         return super().save(*args, **kwargs)
+
+    def delete_instance(self, *args, **kwargs):  # noqa: D102
+        """Mark the entry id_deleted and save (with the link to the user
+        that invoked the deletion) for audit trail.
+        """
+        self.is_deleted = True
+        self.save()
+        return super().delete_instance(*args, **kwargs)
 
 
 class File(BaseModel):
@@ -402,7 +473,7 @@ class File(BaseModel):
 
 
 class Organisation(BaseModel, AuditMixin):
-    """Research oranisation."""
+    """Research organisation."""
 
     country_choices = [(c.alpha_2, c.name) for c in countries]
     country_choices.sort(key=lambda e: e[1])
@@ -475,14 +546,14 @@ class Organisation(BaseModel, AuditMixin):
 
     @property
     def admins(self):
-        """Get organisation's adminstrator query."""
+        """Get organisation's administrator query."""
         return self.users.where(UserOrg.is_admin)
 
     def __repr__(self):
         return self.name or self.tuakiri_name
 
     def save(self, *args, **kwargs):
-        """Handle data consitency validation and saving."""
+        """Handle data consistency validation and saving."""
         if self.is_dirty():
 
             if self.name is None:
@@ -593,7 +664,7 @@ class User(BaseModel, UserMixin, AuditMixin):
     """
     ORCiD Hub user.
 
-    It's a gneric user including researchers, organisation administrators, hub administrators, etc.
+    It's a generic user including researchers, organisation administrators, hub administrators, etc.
     """
 
     name = CharField(max_length=64, null=True)
@@ -601,7 +672,6 @@ class User(BaseModel, UserMixin, AuditMixin):
     last_name = CharField(null=True, verbose_name="Last Name")
     email = CharField(max_length=120, unique=True, null=True, verbose_name="Email Address")
     eppn = CharField(max_length=120, unique=True, null=True, verbose_name="EPPN")
-    # ORCiD:
     orcid = OrcidIdField(null=True, verbose_name="ORCID iD", help_text="User's ORCID iD")
     confirmed = BooleanField(default=False)
     # Role bit-map:
@@ -612,8 +682,8 @@ class User(BaseModel, UserMixin, AuditMixin):
     orcid_updated_at = DateTimeField(null=True, default=None)
 
     # TODO: many-to-many
-    # NB! depricated!
-    # TODO: we still need to rememeber the rognanistiaon that last authenticated the user
+    # NB! Deprecated!
+    # TODO: we still need to remember the organisation that last authenticated the user
     organisation = ForeignKeyField(
         Organisation, related_name="members", on_delete="SET NULL", null=True)
     created_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
@@ -623,6 +693,11 @@ class User(BaseModel, UserMixin, AuditMixin):
         if self.name and (self.eppn or self.email):
             return "%s (%s)" % (self.name, self.email or self.eppn)
         return self.name or self.email or self.orcid or super().__repr__()
+
+    @property
+    def username(self):
+        """Usename for comlying with Flask-Login API"""
+        return self.orcid or self.email
 
     @property
     def organisations(self):
@@ -635,7 +710,7 @@ class User(BaseModel, UserMixin, AuditMixin):
 
     @lazy_property
     def org_links(self):
-        """Get all user organisation linked direct and undirect."""
+        """Get all user organisation linked directly and indirectly."""
         if self.orcid:
             q = UserOrg.select().join(
                 User,
@@ -670,8 +745,8 @@ class User(BaseModel, UserMixin, AuditMixin):
     def is_active(self):
         """Get 'is_active' based on confirmed for Flask-Login.
 
-        TODO: confirmed - user that email is cunfimed either by IdP or by confirmation email
-        ins't the same as "is active".
+        TODO: confirmed - user that email is confirmed either by IdP or by confirmation email
+        isn't the same as "is active".
         """
         return self.confirmed
 
@@ -701,9 +776,9 @@ class User(BaseModel, UserMixin, AuditMixin):
     def is_superuser(self, value):  # noqa: D401
         """Sets user as a HUB admin."""
         if value:
-            self.roles |= Role.SUPERUSER
+            self.roles |= Role.SUPERUSER.value
         else:
-            self.roles &= ~Role.SUPERUSER
+            self.roles &= ~Role.SUPERUSER.value
 
     @property
     def is_admin(self):
@@ -734,20 +809,20 @@ class User(BaseModel, UserMixin, AuditMixin):
             return Affiliation.NONE
 
     def is_tech_contact_of(self, org=None):
-        """Indicats if the user is the technical contact of the organisation."""
+        """Indicate if the user is the technical contact of the organisation."""
         if org is None:
             org = self.organisation
         return org and org.tech_contact and org.tech_contact_id == self.id
 
     def is_admin_of(self, org=None):
-        """Indicats if the user is the technical contact of the organisation."""
+        """Indicate if the user is the technical contact of the organisation."""
         if org is None:
             org = self.organisation
         return org and UserOrg.select().where(UserOrg.user == self, UserOrg.org == org, UserOrg.is_admin).exists()
 
     @property
     def uuid(self):
-        """Generate UUID for the user basee on the the primary email."""
+        """Generate UUID for the user based on the primary email."""
         return uuid.uuid5(uuid.NAMESPACE_URL, "mailto:" + (self.email or self.eppn))
 
 
@@ -769,7 +844,7 @@ class OrgInvitation(BaseModel, AuditMixin):
     confirmed_at = DateTimeField(null=True)
     tech_contact = BooleanField(
         null=True,
-        help_text="The invitee is the techical contact of the organisation.",
+        help_text="The invitee is the technical contact of the organisation.",
         verbose_name="Is Tech.contact")
     url = CharField(null=True)
 
@@ -804,9 +879,9 @@ class UserOrg(BaseModel, AuditMixin):
     # access_token = CharField(max_length=120, unique=True, null=True)
 
     def save(self, *args, **kwargs):
-        """Enforce foriegn key contraints and consolidate user roles with the linked organisations.
+        """Enforce foreign key constraints and consolidate user roles with the linked organisations.
 
-        Enforce foriegn key contraints and consolidate user roles with the linked organisations
+        Enforce foreign key constraints and consolidate user roles with the linked organisations
         before saving data.
         """
         if self.is_dirty():
@@ -832,7 +907,7 @@ class UserOrg(BaseModel, AuditMixin):
 
 
 class OrcidToken(BaseModel, AuditMixin):
-    """For Keeping Orcid token in the table."""
+    """For Keeping ORCID token in the table."""
 
     user = ForeignKeyField(
         User, null=True, index=True,
@@ -910,8 +985,8 @@ class OrcidAuthorizeCall(BaseModel):
     """ORCID Authorize call audit entry."""
 
     called_at = DateTimeField(default=datetime.utcnow)
-    user = ForeignKeyField(User, null=True, on_delete="SET NULL")
-    method = TextField(null=True)
+    user = ForeignKeyField(User, null=True, default=None, on_delete="SET NULL")
+    method = TextField(null=True, default="GET")
     url = TextField(null=True)
     token = TextField(null=True)
     state = TextField(null=True)
@@ -933,7 +1008,7 @@ class Task(BaseModel, AuditMixin):
         User, on_delete="SET NULL", null=True, related_name="created_tasks")
     updated_by = ForeignKeyField(
         User, on_delete="SET NULL", null=True, related_name="updated_tasks")
-    task_type = SmallIntegerField(default=0)
+    task_type = TaskTypeField(default=TaskType.NONE)
     expires_at = DateTimeField(null=True)
     expiry_email_sent_at = DateTimeField(null=True)
     completed_count = TextField(null=True, help_text="gives the status of uploaded task")
@@ -951,34 +1026,32 @@ class Task(BaseModel, AuditMixin):
     @lazy_property
     def record_count(self):
         """Get count of the loaded recoreds."""
-        if self.task_type == TaskType.SYNC:
-            return 0
-        return self.records.count()
+        return 0 if self.records is None else self.records.count()
 
     @property
     def record_model(self):
         """Get record model class."""
-        if self.task_type == TaskType.SYNC:
-            return None
-        _, models = self.records.get_query_meta()
-        model, = models.keys()
-        return model
+        if self.records is not None:
+            _, models = self.records.get_query_meta()
+            model, = models.keys()
+            return model
+        return None
 
     @lazy_property
     def records(self):
         """Get all task record query."""
-        if self.task_type == TaskType.SYNC:
+        if self.task_type in [TaskType.SYNC, TaskType.NONE]:
             return None
-        return getattr(self, TaskType(self.task_type).name.lower() + "_records")
+        return getattr(self, self.task_type.name.lower() + "_records")
 
     @lazy_property
     def completed_count(self):
-        """Get number of completd rows."""
+        """Get number of completed rows."""
         return self.records.where(self.record_model.processed_at.is_null(False)).count()
 
     @lazy_property
     def completed_percent(self):
-        """Get the percentaage of completd rows."""
+        """Get the percentage of completed rows."""
         return (100. * self.completed_count) / self.record_count if self.record_count else 0.
 
     @property
@@ -989,6 +1062,7 @@ class Task(BaseModel, AuditMixin):
         model, = models.keys()
         return self.records.where(self.record_model.status ** "%error%").count()
 
+    # TODO: move this one to AffiliationRecord
     @classmethod
     def load_from_csv(cls, source, filename=None, org=None):
         """Load affiliation record data from CSV/TSV file or a string."""
@@ -1049,7 +1123,7 @@ class Task(BaseModel, AuditMixin):
 
         with db.atomic():
             try:
-                task = cls.create(org=org, filename=filename)
+                task = cls.create(org=org, filename=filename, task_type=TaskType.AFFILIATION)
                 for row_no, row in enumerate(reader):
                     # skip empty lines:
                     if len(row) == 0:
@@ -1062,7 +1136,7 @@ class Task(BaseModel, AuditMixin):
                     external_id = val(row, 16)
 
                     if not email and not orcid and external_id and validators.email(external_id):
-                        # if email is missing and exernal ID is given as a valid email, use it:
+                        # if email is missing and external ID is given as a valid email, use it:
                         email = external_id
 
                     # The uploaded country must be from ISO 3166-1 alpha-2
@@ -1219,7 +1293,7 @@ class UserInvitation(BaseModel, AuditMixin):
 
 
 class RecordModel(BaseModel):
-    """Commond model bits of the task records."""
+    """Common model bits of the task records."""
 
     def save(self, *args, **kwargs):
         """Update related batch task when changing the record."""
@@ -1235,7 +1309,7 @@ class RecordModel(BaseModel):
 
     @classmethod
     def get_field_regxes(cls):
-        """Retun map of compliled field name regex to the model fields."""
+        """Return map of compiled field name regex to the model fields."""
         return {f: re.compile(e, re.I) for (f, e) in cls._field_regex_map}
 
 
@@ -1375,33 +1449,8 @@ class AffiliationRecord(RecordModel):
         return task
 
 
-class TaskType(IntEnum):
-    """Enum used to represent Task type."""
-
-    AFFILIATION = 0  # Affilation of employment/education
-    FUNDING = 1  # Funding
-    WORK = 2
-    PEER_REVIEW = 3
-    SYNC = 11
-
-    def __eq__(self, other):
-        if isinstance(other, TaskType):
-            return self.value == other.value
-        elif isinstance(other, int):
-            return self.value == other
-        return (self.name == other or self.name == getattr(other, "name", None))
-
-    def __hash__(self):
-        return hash(self.name)
-
-    @classmethod
-    def options(cls):
-        """Get list of all types for UI dropown option list."""
-        return [(e.value, e.name.replace('_', ' ').title()) for e in cls]
-
-
 class FundingRecord(RecordModel):
-    """Funding record loaded from Json file for batch processing."""
+    """Funding record loaded from JSON file for batch processing."""
 
     task = ForeignKeyField(Task, related_name="funding_records", on_delete="CASCADE")
     title = CharField(max_length=255)
@@ -1426,7 +1475,7 @@ class FundingRecord(RecordModel):
     status = TextField(null=True, help_text="Record processing status.")
 
     def to_export_dict(self):
-        """Map the funding record to dict for exprt into JSON/YAML."""
+        """Map the funding record to dict for export into JSON/YAML."""
         org = self.task.org
         d = {
             "type": self.type,
@@ -1656,8 +1705,8 @@ class FundingRecord(RecordModel):
 
     @classmethod
     def load_from_json(cls, source, filename=None, org=None, task=None):
-        """Load data from json file or a string."""
-        # import data from file based on its extension; either it is yaml or json
+        """Load data from JSON file or a string."""
+        # import data from file based on its extension; either it is YAML or JSON
         data = load_yaml_json(filename=filename, source=source)
         records = data["records"] if isinstance(data, dict) else data
 
@@ -1665,7 +1714,7 @@ class FundingRecord(RecordModel):
             validation_source_data = copy.deepcopy(r)
             validation_source_data = del_none(validation_source_data)
 
-            # Adding schema valdation for funding
+            # Adding schema validation for funding
             validator = Core(
                 source_data=validation_source_data,
                 schema_files=[os.path.join(SCHEMA_DIR, "funding_schema.yaml")])
@@ -2021,7 +2070,7 @@ class PeerReviewRecord(RecordModel):
     def load_from_json(cls, source, filename=None, org=None):
         """Load data from JSON file or a string."""
         if isinstance(source, str):
-            # import data from file based on its extension; either it is yaml or json
+            # import data from file based on its extension; either it is YAML or JSON
             peer_review_data_list = load_yaml_json(filename=filename, source=source)
 
             for peer_review_data in peer_review_data_list:
@@ -2203,6 +2252,152 @@ class PeerReviewRecord(RecordModel):
     class Meta:  # noqa: D101,D106
         db_table = "peer_review_record"
         table_alias = "pr"
+
+
+class ResearcherUrlRecord(RecordModel):
+    """Researcher Url record loaded from Json file for batch processing."""
+
+    task = ForeignKeyField(Task, related_name="researcher_url_records", on_delete="CASCADE")
+    url_name = CharField(max_length=255)
+    url_value = CharField(max_length=255)
+    display_index = IntegerField(null=True)
+    email = CharField(max_length=120)
+    first_name = CharField(max_length=120)
+    last_name = CharField(max_length=120)
+    orcid = OrcidIdField(null=True)
+    put_code = IntegerField(null=True)
+    visibility = CharField(null=True, max_length=100)
+    is_active = BooleanField(
+        default=False, help_text="The record is marked for batch processing", null=True)
+    processed_at = DateTimeField(null=True)
+    status = TextField(null=True, help_text="Record processing status.")
+
+    @classmethod
+    def load_from_csv(cls, source, filename=None, org=None):
+        """Load data from CSV/TSV file or a string."""
+        pass
+
+    @classmethod
+    def load_from_json(cls, source, filename=None, org=None, task=None, skip_schema_validation=False):
+        """Load data from JSON file or a string."""
+        data = load_yaml_json(filename=filename, source=source)
+        if not skip_schema_validation:
+            jsonschema.validate(data, researcher_url_task_schema)
+        records = data["records"] if isinstance(data, dict) else data
+        with db.atomic():
+            try:
+                if org is None:
+                    org = current_user.organisation if current_user else None
+                if not task:
+                    task = Task.create(org=org, filename=filename, task_type=TaskType.RESEARCHER_URL)
+                # else:
+                #   ResearcherUrlRecord.delete().where(ResearcherUrlRecord.task == task).execute()
+
+                for r in records:
+
+                    url_name = r.get("url-name")
+                    url_value = r.get("url", "value") or r.get("url-value")
+                    display_index = r.get("display-index")
+                    email = r.get("email")
+                    first_name = r.get("first-name")
+                    last_name = r.get("last-name")
+                    orcid_id = r.get("ORCID-iD") or r.get("orcid")
+                    put_code = r.get("put-code")
+                    visibility = r.get("visibility")
+
+                    cls.create(
+                        task=task,
+                        url_name=url_name,
+                        url_value=url_value,
+                        display_index=display_index,
+                        email=email.lower(),
+                        first_name=first_name,
+                        last_name=last_name,
+                        orcid=orcid_id,
+                        visibility=visibility,
+                        put_code=put_code)
+
+                return task
+
+            except Exception:
+                db.rollback()
+                app.logger.exception("Failed to load Researcher Url file.")
+                raise
+
+    class Meta:  # noqa: D101,D106
+        db_table = "researcher_url_record"
+        table_alias = "ru"
+
+
+class OtherNameRecord(RecordModel):
+    """Other Name record loaded from Json file for batch processing."""
+
+    task = ForeignKeyField(Task, related_name="other_name_records", on_delete="CASCADE")
+    content = CharField(max_length=255)
+    display_index = IntegerField(null=True)
+    email = CharField(max_length=120)
+    first_name = CharField(max_length=120)
+    last_name = CharField(max_length=120)
+    orcid = OrcidIdField(null=True)
+    put_code = IntegerField(null=True)
+    visibility = CharField(null=True, max_length=100)
+    is_active = BooleanField(
+        default=False, help_text="The record is marked for batch processing", null=True)
+    processed_at = DateTimeField(null=True)
+    status = TextField(null=True, help_text="Record processing status.")
+
+    @classmethod
+    def load_from_csv(cls, source, filename=None, org=None):
+        """Load data from CSV/TSV file or a string."""
+        pass
+
+    @classmethod
+    def load_from_json(cls, source, filename=None, org=None, task=None, skip_schema_validation=False):
+        """Load data from JSON file or a string."""
+        data = load_yaml_json(filename=filename, source=source)
+        if not skip_schema_validation:
+            jsonschema.validate(data, other_name_task_schema)
+        records = data["records"] if isinstance(data, dict) else data
+        with db.atomic():
+            try:
+                if org is None:
+                    org = current_user.organisation if current_user else None
+                if not task:
+                    task = Task.create(org=org, filename=filename, task_type=TaskType.OTHER_NAME)
+                # else:
+                #   OtherNameRecord.delete().where(OtherNameRecord.task == task).execute()
+
+                for r in records:
+                    content = r.get("content")
+                    display_index = r.get("display-index")
+                    email = r.get("email")
+                    first_name = r.get("first-name")
+                    last_name = r.get("last-name")
+                    orcid_id = r.get("ORCID-iD") or r.get("orcid")
+                    put_code = r.get("put-code")
+                    visibility = r.get("visibility")
+
+                    cls.create(
+                        task=task,
+                        content=content,
+                        display_index=display_index,
+                        email=email.lower(),
+                        first_name=first_name,
+                        last_name=last_name,
+                        orcid=orcid_id,
+                        visibility=visibility,
+                        put_code=put_code)
+
+                return task
+
+            except Exception:
+                db.rollback()
+                app.logger.exception("Failed to load Other Name Record file.")
+                raise
+
+    class Meta:  # noqa: D101,D106
+        db_table = "other_name_record"
+        table_alias = "onr"
 
 
 class WorkRecord(RecordModel):
@@ -2440,7 +2635,7 @@ class WorkRecord(RecordModel):
     def load_from_json(cls, source, filename=None, org=None):
         """Load data from JSON file or a string."""
         if isinstance(source, str):
-            # import data from file based on its extension; either it is yaml or json
+            # import data from file based on its extension; either it is YAML or JSON
             work_data_list = load_yaml_json(filename=filename, source=source)
 
             # TODO: validation of uploaded work file
@@ -2448,7 +2643,7 @@ class WorkRecord(RecordModel):
                 validation_source_data = copy.deepcopy(work_data)
                 validation_source_data = del_none(validation_source_data)
 
-                # Adding schema valdation for Work
+                # Adding schema validation for Work
                 validator = Core(
                     source_data=validation_source_data,
                     schema_files=[os.path.join(SCHEMA_DIR, "work_schema.yaml")])
@@ -2579,7 +2774,7 @@ class ContributorModel(BaseModel):
     email = CharField(max_length=120, null=True)
 
     def to_export_dict(self):
-        """Map the contributor record to dict for exprt into JSON/YAML."""
+        """Map the contributor record to dict for export into JSON/YAML."""
         return {
                 "contributor-attributes": {"contributor-role": self.role},
                 "contributor-email": dict(value=self.email),
@@ -2599,14 +2794,14 @@ class WorkContributor(ContributorModel):
         table_alias = "wc"
 
     def to_export_dict(self):
-        """Map the contributor record to dict for exprt into JSON/YAML."""
+        """Map the contributor record to dict for export into JSON/YAML."""
         d = super().to_export_dict()
         d["contributor-attributes"].update({"contributor-sequence": self.contributor_sequence})
         return d
 
 
 class FundingContributor(ContributorModel):
-    """Researcher or contributor - reciever of the funding."""
+    """Researcher or contributor - receiver of the funding."""
 
     funding_record = ForeignKeyField(
         FundingRecord, related_name="contributors", on_delete="CASCADE")
@@ -2630,7 +2825,7 @@ class InviteesModel(BaseModel):
     processed_at = DateTimeField(null=True)
 
     def save(self, *args, **kwargs):
-        """Consitency validation and saving."""
+        """Consistency validation and saving."""
         if self.is_dirty() and self.email and self.field_is_updated("email"):
             self.email = self.email.lower()
         return super().save(*args, **kwargs)
@@ -2642,17 +2837,13 @@ class InviteesModel(BaseModel):
 
     def to_export_dict(self):
         """Get row representation suitable for export to JSON/YAML."""
+        c = self.__class__
         return self.to_dict(
             to_dashes=True,
             exclude_nulls=True,
             only=[
-                self.__class__.identifier,
-                self.__class__.email,
-                self.__class__.first_name,
-                self.__class__.last_name,
-                self.__class__.orcid,
-                self.__class__.put_code,
-                self.__class__.visibility],
+                c.identifier, c.email, c.first_name, c.last_name, c.orcid, c.put_code, c.visibility
+            ],
             recurse=False)
 
 
@@ -2751,6 +2942,12 @@ class ExternalId(ExternalIdModel):
         table_alias = "ei"
 
 
+class Delegate(BaseModel):
+    """External applications that can be redirected to."""
+
+    hostname = CharField()
+
+
 class Url(BaseModel, AuditMixin):
     """Shortened URLs."""
 
@@ -2759,7 +2956,7 @@ class Url(BaseModel, AuditMixin):
 
     @classmethod
     def shorten(cls, url):
-        """Create a shorten url or retrievs an exiting one."""
+        """Create a shorten URL or retrieves an exiting one."""
         try:
             u = cls.get(url=url)
         except cls.DoesNotExist:
@@ -2925,7 +3122,7 @@ class Token(BaseModel):
 
 
 def readup_file(input_file):
-    """Read up the whole content and deconde it and return the whole content."""
+    """Read up the whole content and decode it and return the whole content."""
     raw = input_file.read()
     for encoding in "utf-8-sig", "utf-8", "utf-16":
         try:
@@ -2970,9 +3167,12 @@ def create_tables():
             PeerReviewRecord,
             PeerReviewInvitee,
             PeerReviewExternalId,
+            ResearcherUrlRecord,
+            OtherNameRecord,
             Client,
             Grant,
             Token,
+            Delegate,
     ]:
 
         if not model.table_exists():
@@ -2997,10 +3197,10 @@ def create_audit_tables():
 
 def drop_tables():
     """Drop all model tables."""
-    for m in (File, User, UserOrg, OrcidToken, UserOrgAffiliation, OrgInfo, OrgInvitation,
+    for m in (File, User, UserOrg, OtherNameRecord, OrcidToken, UserOrgAffiliation, OrgInfo, OrgInvitation,
               OrcidApiCall, OrcidAuthorizeCall, FundingContributor, FundingInvitees, FundingRecord,
-              PeerReviewInvitee, PeerReviewExternalId, PeerReviewRecord, WorkInvitees,
-              WorkExternalId, WorkContributor, WorkRecord, AffiliationRecord, ExternalId, Url,
+              PeerReviewInvitee, PeerReviewExternalId, PeerReviewRecord, ResearcherUrlRecord,
+              WorkInvitees, WorkExternalId, WorkContributor, WorkRecord, AffiliationRecord, ExternalId, Url,
               UserInvitation, Task, Organisation):
         if m.table_exists():
             try:
@@ -3010,10 +3210,10 @@ def drop_tables():
 
 
 def load_yaml_json(filename, source):
-    """Create a common way of loading json or yaml file."""
+    """Create a common way of loading JSON or YAML file."""
     _, ext = os.path.splitext(filename)
     if ext.lower() in [".yaml", ".yml"]:
-        data = yaml.load(source)
+        data = json.loads(json.dumps(yaml.load(source)), object_pairs_hook=NestedDict)
     else:
         data = json.loads(source, object_pairs_hook=NestedDict)
 

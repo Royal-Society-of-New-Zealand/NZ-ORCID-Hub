@@ -1,4 +1,4 @@
-/* Create audit log  trigger and all tables: */
+﻿/* Create audit log  trigger and all tables: */
 CREATE SCHEMA IF NOT EXISTS audit;
 
 CREATE OR REPLACE FUNCTION log_changes() RETURNS TRIGGER AS $$
@@ -31,39 +31,42 @@ DROP TRIGGER IF EXISTS task_update_tr ON task;
 DO $$
 DECLARE r RECORD; v_sql text;
 BEGIN
-	FOR r IN (SELECT table_schema, table_name
-		FROM information_schema.tables
-		WHERE table_catalog = 'orcidhub' AND table_schema = 'public'
-		AND table_name IN (
+	FOR r IN (SELECT  tablename, schemaname, tableowner
+		FROM pg_tables
+		WHERE schemaname= 'public'
+		AND tablename IN (
 			'user',
 			'user_org',
 			'orcidtoken',
 			'organisation',
 			'affiliation_record',
-			'user_organisation_affiliation')) LOOP
+			'user_organisation_affiliation',
+			'task',
+			'client')) LOOP
 	v_sql := format('CREATE TABLE IF NOT EXISTS audit.%2$I AS
 		SELECT NULL::timestamp without time zone AS ts, NULL::char(1) AS op,
-		source.* FROM %1$I.%2$I AS source WHERE 1=0;',
-		r.table_schema, r.table_name);
+		source.* FROM %1$I.%2$I AS source WHERE 1=0;
+		ALTER TABLE audit.%2$I OWNER TO %3$I;',
+		r.schemaname, r.tablename, r.tableowner);
 		RAISE NOTICE 'EXECUTING %', v_sql;
 		EXECUTE v_sql;
 		EXECUTE format('DROP TRIGGER IF EXISTS %3$I ON %1$I.%2$I;',
-			r.table_schema, r.table_name, r.table_name||'_audit_update_tr');
+			r.schemaname, r.tablename, r.tablename||'_audit_update_tr');
 		v_sql := format('CREATE TRIGGER %3$I
 			AFTER UPDATE ON %1$I.%2$I
 			FOR EACH ROW
 			WHEN (OLD.* IS DISTINCT FROM NEW.*)
 			EXECUTE PROCEDURE log_changes();',
-			r.table_schema, r.table_name, r.table_name||'_audit_update_tr');
+			r.schemaname, r.tablename, r.tablename||'_audit_update_tr');
 		RAISE NOTICE 'EXECUTING %', v_sql;
 		EXECUTE v_sql;
 		EXECUTE format('DROP TRIGGER IF EXISTS %3$I ON %1$I.%2$I;',
-			r.table_schema, r.table_name, r.table_name||'_audit_delete_tr');
+			r.schemaname, r.tablename, r.tablename||'_audit_delete_tr');
 		v_sql := format('CREATE TRIGGER %3$I
 			AFTER DELETE ON %1$I.%2$I
 			FOR EACH ROW
 			EXECUTE PROCEDURE log_changes();',
-			r.table_schema, r.table_name, r.table_name||'_audit_delete_tr');
+			r.schemaname, r.tablename, r.tablename||'_audit_delete_tr');
 		RAISE NOTICE 'EXECUTING %', v_sql;
 		EXECUTE v_sql;
 	END LOOP;

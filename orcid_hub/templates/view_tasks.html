@@ -3,7 +3,7 @@
   {{ super() }}
 {% endblock %}
 {% block list_row_actions %}
-{% if row.task_type == 0 %}
+{% if row.task_type == 4 %}
     <a class="icon" href="{{ url_for('affiliationrecord.index_view', task_id=row.id, url=request.url) }}" title="View Details">
       <span class="fa fa-eye glyphicon glyphicon-eye-open"></span>
       <!-- spam class="fa fa-graduation-cap glyphicon glyphicon-education icon"></spam -->
@@ -20,6 +20,14 @@
     </a>
 {% elif row.task_type == 3 %}
     <a class="icon" href="{{ url_for('peerreviewrecord.index_view', task_id=row.id, url=request.url) }}" title="View Details">
+      <span class="fa fa-eye glyphicon glyphicon-eye-open"></span>
+    </a>
+{% elif row.task_type == 5 %}
+    <a class="icon" href="{{ url_for('researcherurlrecord.index_view', task_id=row.id, url=request.url) }}" title="View Details">
+      <span class="fa fa-eye glyphicon glyphicon-eye-open"></span>
+    </a>
+{% elif row.task_type == 6 %}
+    <a class="icon" href="{{ url_for('othernamerecord.index_view', task_id=row.id, url=request.url) }}" title="View Details">
       <span class="fa fa-eye glyphicon glyphicon-eye-open"></span>
     </a>
 {% elif row.task_type == 11 %}

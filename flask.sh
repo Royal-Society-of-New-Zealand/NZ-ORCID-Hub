@@ -7,7 +7,10 @@ export PYTHONPATH=$DIR
 export FLASK_APP=orcid_hub
 export LANG=en_US.UTF-8
 
-# [ -z $RQ_REDIS_URL ] && RQ_REDIS_URL=redis://redis:6379/0
-# export RQ_REDIS_URL
+[ -z $RQ_REDIS_URL ] && RQ_REDIS_URL=redis://redis:6379/0
+export RQ_REDIS_URL
+
+[ -z "$DATABASE_URL" ] && DATABASE_URL=postgresql://orcidhub@db:5432/orcidhub?options='-c statement_timeout=3000'
+export DATABASE_URL
 
 exec flask $@

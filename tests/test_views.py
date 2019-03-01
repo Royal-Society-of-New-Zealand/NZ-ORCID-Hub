@@ -26,7 +26,7 @@ from orcid_hub.config import ORCID_BASE_URL
 from orcid_hub.forms import FileUploadForm
 from orcid_hub.models import (Affiliation, AffiliationRecord, Client, File, FundingRecord,
                               GroupIdRecord, OrcidToken, Organisation, OrgInfo, OrgInvitation,
-                              PartialDate, PeerReviewRecord, Role, Task, TaskType, Token, Url,
+                              PartialDate, PeerReviewRecord, ResearcherUrlRecord, Role, Task, TaskType, Token, Url,
                               User, UserInvitation, UserOrg, UserOrgAffiliation, WorkRecord)
 
 fake_time = time.time()
@@ -134,6 +134,10 @@ def test_superuser_view_access(client):
         assert resp.status_code == 403
         assert b"403" in resp.data
 
+        resp = client.get("/admin/delegate/")
+        assert resp.status_code == 302
+        assert "next=" in resp.location and "admin" in resp.location
+
         client.logout()
 
     client.login_root()
@@ -215,7 +219,7 @@ def test_superuser_view_access(client):
     assert resp.status_code == 200
     assert b"interval" in resp.data
 
-    jobs = rq.get_scheduler().get_jobs()
+    jobs = list(rq.get_scheduler().get_jobs())
     resp = client.get(f"/admin/schedude/details/?id={jobs[0].id}")
     assert resp.status_code == 200
     assert b"interval" in resp.data
@@ -224,19 +228,37 @@ def test_superuser_view_access(client):
     assert resp.status_code == 404
     assert b"404" in resp.data
 
+    resp = client.get("/admin/delegate/")
+    assert resp.status_code == 200
+
+    resp = client.post(
+        "/admin/delegate/new/", data=dict(hostname="TEST HOST NAME"), follow_redirects=True)
+    assert resp.status_code == 200
+    assert b"TEST HOST NAME" in resp.data
+
+
+def test_pyinfo(client):
+    """Test /pyinfo."""
+    app.config["PYINFO_TEST_42"] = "Life, the Universe and Everything"
+    client.login_root()
+    resp = client.get("/pyinfo")
+    assert b"PYINFO_TEST_42" in resp.data
+    assert b"Life, the Universe and Everything" in resp.data
+    with pytest.raises(Exception) as exinfo:
+        resp = client.get("/pyinfo/expected an exception")
+    assert str(exinfo.value) == "expected an exception"
+
 
 def test_access(request_ctx):
     """Test access to differente resources."""
     test_superuser = User.create(
         name="TEST SUPERUSER",
         email="super@test.test.net",
-        username="test42",
         confirmed=True,
         roles=Role.SUPERUSER)
     test_user = User.create(
         name="TEST SUPERUSER",
         email="user123456789@test.test.net",
-        username="test123456789",
         confirmed=True,
         roles=Role.RESEARCHER)
 
@@ -317,7 +339,6 @@ def test_user_orcid_id_url():
     u = User(
         email="test123@test.test.net",
         name="TEST USER",
-        username="test123",
         roles=Role.RESEARCHER,
         orcid="123",
         confirmed=True)
@@ -899,7 +920,7 @@ def test_activate_all(request_ctx):
         filename="xyz.txt",
         created_by=user,
         updated_by=user,
-        task_type=0)
+        task_type=TaskType.AFFILIATION)
     task2 = Task.create(
         org=org,
         completed_at="12/12/12",
@@ -1329,7 +1350,7 @@ Rad,Cirskis,researcher.990@mailinator.com,Student
     assert b"researcher.010@mailinator.com" in resp.data
 
     # List all tasks with a filter (select 'affiliation' task):
-    resp = client.get("/admin/task/?flt1_1=0")
+    resp = client.get("/admin/task/?flt1_1=4")
     assert b"affiliations.csv" in resp.data
 
     # Activate a single record:
@@ -2091,6 +2112,22 @@ def test_viewmembers(client):
     assert resp.status_code == 200
     assert b"researcher100@test0.edu" in resp.data
 
+    resp = client.get("/admin/viewmembers?sort=1")
+    assert resp.status_code == 200
+    assert b"researcher100@test0.edu" in resp.data
+
+    resp = client.get("/admin/viewmembers?sort=1&desc=1")
+    assert resp.status_code == 200
+    assert b"researcher100@test0.edu" in resp.data
+
+    resp = client.get("/admin/viewmembers?sort=0")
+    assert resp.status_code == 200
+    assert b"researcher100@test0.edu" in resp.data
+
+    resp = client.get("/admin/viewmembers?sort=0&desc=1")
+    assert resp.status_code == 200
+    assert b"researcher100@test0.edu" in resp.data
+
     resp = client.get("/admin/viewmembers/?flt1_0=2018-05-01+to+2018-05-31&flt2_1=2018-05-01+to+2018-05-31")
     assert resp.status_code == 200
     assert b"researcher100@test0.edu" not in resp.data
@@ -2299,19 +2336,17 @@ def test_reset_all(request_ctx):
         name="TEST USER",
         roles=Role.TECHNICAL,
         orcid=123,
-        organisation_id=1,
         confirmed=True,
         organisation=org)
     UserOrg.create(user=user, org=org, is_admin=True)
 
     task1 = Task.create(
-        id=1,
         org=org,
         completed_at="12/12/12",
         filename="xyz.txt",
         created_by=user,
         updated_by=user,
-        task_type=0)
+        task_type=TaskType.AFFILIATION)
 
     AffiliationRecord.create(
         is_active=True,
@@ -2340,7 +2375,6 @@ def test_reset_all(request_ctx):
         token="xyztoken")
 
     task2 = Task.create(
-        id=2,
         org=org,
         completed_at="12/12/12",
         filename="xyz.txt",
@@ -2368,7 +2402,6 @@ def test_reset_all(request_ctx):
         visibility="Test_visibity")
 
     task3 = Task.create(
-        id=3,
         org=org,
         completed_at="12/12/12",
         filename="xyz.txt",
@@ -2377,14 +2410,12 @@ def test_reset_all(request_ctx):
         task_type=3)
 
     PeerReviewRecord.create(
-        id=1,
         task=task3,
         review_group_id=1212,
         is_active=True,
         visibility="Test_visibity")
 
     work_task = Task.create(
-        id=4,
         org=org,
         completed_at="12/12/12",
         filename="xyz.txt",
@@ -2393,21 +2424,46 @@ def test_reset_all(request_ctx):
         task_type=2)
 
     WorkRecord.create(
-        id=1,
         task=work_task,
         title=1212,
         is_active=True,
         citation_type="Test_citation_type",
         citation_value="Test_visibity")
 
+    researcher_url_task = Task.create(id=12, org=org, filename="xyz.json", created_by=user, updated_by=user,
+                                      task_type=5, completed_at="12/12/12")
+
+    ResearcherUrlRecord.create(
+        task=researcher_url_task,
+        is_active=True,
+        status="email sent",
+        first_name="Test",
+        last_name="Test",
+        email="test1234456@mailinator.com",
+        visibility="PUBLIC",
+        url_name="url name",
+        url_value="https://www.xyz.com",
+        display_index=0)
+
+    with request_ctx("/reset_all", method="POST") as ctxx:
+        login_user(user, remember=True)
+        request.args = ImmutableMultiDict([('url', 'http://localhost/researcher_url_record_reset_for_batch')])
+        request.form = ImmutableMultiDict([('task_id', researcher_url_task.id)])
+        resp = ctxx.app.full_dispatch_request()
+        t = Task.get(id=researcher_url_task.id)
+        rec = t.records.first()
+        assert "The record was reset" in rec.status
+        assert t.completed_at is None
+        assert resp.status_code == 302
+        assert resp.location.startswith("http://localhost/researcher_url_record_reset_for_batch")
     with request_ctx("/reset_all", method="POST") as ctxx:
         login_user(user, remember=True)
         request.args = ImmutableMultiDict([('url', 'http://localhost/affiliation_record_reset_for_batch')])
         request.form = ImmutableMultiDict([('task_id', task1.id)])
         resp = ctxx.app.full_dispatch_request()
-        t = Task.get(id=1)
-        ar = AffiliationRecord.get(id=1)
-        assert "The record was reset" in ar.status
+        t = Task.get(id=task1.id)
+        rec = t.records.first()
+        assert "The record was reset" in rec.status
         assert t.completed_at is None
         assert resp.status_code == 302
         assert resp.location.startswith("http://localhost/affiliation_record_reset_for_batch")
@@ -2416,10 +2472,10 @@ def test_reset_all(request_ctx):
         request.args = ImmutableMultiDict([('url', 'http://localhost/funding_record_reset_for_batch')])
         request.form = ImmutableMultiDict([('task_id', task2.id)])
         resp = ctxx.app.full_dispatch_request()
-        t2 = Task.get(id=2)
-        fr = FundingRecord.get(id=1)
-        assert "The record was reset" in fr.status
-        assert t2.completed_at is None
+        t = Task.get(id=task2.id)
+        rec = t.records.first()
+        assert "The record was reset" in rec.status
+        assert t.completed_at is None
         assert resp.status_code == 302
         assert resp.location.startswith("http://localhost/funding_record_reset_for_batch")
     with request_ctx("/reset_all", method="POST") as ctxx:
@@ -2427,10 +2483,10 @@ def test_reset_all(request_ctx):
         request.args = ImmutableMultiDict([('url', 'http://localhost/peer_review_record_reset_for_batch')])
         request.form = ImmutableMultiDict([('task_id', task3.id)])
         resp = ctxx.app.full_dispatch_request()
-        t2 = Task.get(id=3)
-        pr = PeerReviewRecord.get(id=1)
-        assert "The record was reset" in pr.status
-        assert t2.completed_at is None
+        t = Task.get(id=task3.id)
+        rec = PeerReviewRecord.get(id=1)
+        assert "The record was reset" in rec.status
+        assert t.completed_at is None
         assert resp.status_code == 302
         assert resp.location.startswith("http://localhost/peer_review_record_reset_for_batch")
     with request_ctx("/reset_all", method="POST") as ctxx:
@@ -3122,3 +3178,105 @@ def test_peer_reviews(client):
     assert b'"review-type": "REVIEW"' in resp.data
     assert b'"invitees": [' in resp.data
     assert b'"review-group-id": "issn:12131"' in resp.data
+
+
+def test_other_names(client):
+    """Test researcher other name data management."""
+    user = client.data["admin"]
+    client.login(user, follow_redirects=True)
+    resp = client.post(
+        "/load/other/names",
+        data={
+            "file_": (
+                BytesIO(b"""{
+  "created-at": "2019-02-15T04:39:23",
+  "filename": "othernames_sample_latest.json",
+  "records": [
+    {
+      "content": "dummy 1220",
+      "display-index": 0,
+      "email": "rad42@mailinator.com",
+      "first-name": "sdsd",
+      "last-name": "sds1",
+      "orcid": null,
+      "processed-at": null,
+      "put-code": null,
+      "status": "The record was reset at 2019-02-20T08:31:49",
+      "visibility": "PUBLIC"
+    },
+    {
+      "content": "dummy 10",
+      "display-index": 0,
+      "email": "xyzz@mailinator.com",
+      "first-name": "sdsd",
+      "last-name": "sds1",
+      "orcid": "0000-0002-0146-7409",
+      "processed-at": null,
+      "put-code": 16878,
+      "status": "The record was reset at 2019-02-20T08:31:49",
+      "visibility": "PUBLIC"
+    }
+  ],
+  "task-type": "OTHER_NAME",
+  "updated-at": "2019-02-19T19:31:49"}"""),
+                "othernames_sample_latest.json",
+            ),
+        },
+        follow_redirects=True)
+    assert resp.status_code == 200
+    assert b"dummy 1220" in resp.data
+    task = Task.get(filename="othernames_sample_latest.json")
+    assert task.records.count() == 2
+
+    resp = client.get(f"/admin/othernamerecord/export/json/?task_id={task.id}")
+    assert resp.status_code == 200
+    assert b'xyzz@mailinator.com' in resp.data
+    assert b'dummy 1220' in resp.data
+    assert b'dummy 10' in resp.data
+
+
+def test_researcher_url(client):
+    """Test researcher url data management."""
+    user = client.data["admin"]
+    client.login(user, follow_redirects=True)
+    resp = client.post(
+        "/load/researcher/urls",
+        data={
+            "file_": (
+                BytesIO(b"""{
+  "records": [
+    {
+      "display-index": 0,
+      "email": "xyzzz@mailinator.com",
+      "first-name": "sdksdsd",
+      "last-name": "sds1",
+      "orcid": "0000-0001-6817-9711",
+      "put-code": 43959,
+      "url-name": "xyzurl",
+      "url-value": "https://fdhfdasa112j.com",
+      "visibility": "PUBLIC"
+    },
+    {
+      "display-index": 10,
+      "email": "dsjdh11222@mailinator.com",
+      "first-name": "sdksasadsd",
+      "last-name": "sds1",
+      "put-code": null,
+      "orcid": null,
+      "url-name": "xyzurl",
+      "url-value": "https://fdhfdasa112j.com",
+      "visibility": "PUBLIC"
+    }]}"""),
+                "researcher_url_001.json",
+            ),
+        },
+        follow_redirects=True)
+    assert resp.status_code == 200
+    assert b"https://fdhfdasa112j.com" in resp.data
+    task = Task.get(filename="researcher_url_001.json")
+    assert task.records.count() == 2
+
+    resp = client.get(f"/admin/researcherurlrecord/export/json/?task_id={task.id}")
+    assert resp.status_code == 200
+    assert b'xyzzz@mailinator.com' in resp.data
+    assert b'https://fdhfdasa112j.com' in resp.data

@@ -10,15 +10,54 @@ from io import BytesIO
 from unittest.mock import Mock, patch
 from urllib.parse import urlparse
 
+from click.testing import CliRunner
 import pytest
 from flask import request, session
 from flask_login import current_user, login_user, logout_user
 from peewee import fn
 from werkzeug.datastructures import ImmutableMultiDict
 
-from orcid_hub import authcontroller, login_provider, utils
+from orcid_hub import authcontroller, create_hub_administrator, login_provider, utils
 from orcid_hub.models import (Affiliation, OrcidAuthorizeCall, OrcidToken, Organisation, OrgInfo,
                               OrgInvitation, Role, User, UserInvitation, UserOrg)
+
+
+def test_create_hub_administrator(app):
+    """Test creation of the Hub administrators."""
+    org = app.data["org"]
+    runner = CliRunner()
+    runner.invoke(create_hub_administrator, ["root000@test.ac.nz"])
+    assert User.select().where(User.email == "root000@test.ac.nz").exists()
+    assert Organisation.select().where(Organisation.name == "ORCID Hub").exists()
+    runner.invoke(create_hub_administrator, ["root000@test.ac.nz", "-O", "NEW ORGANISATION #0"])
+    assert Organisation.select().where(Organisation.name == "NEW ORGANISATION #0").exists()
+    assert User.get(email="root000@test.ac.nz").organisation.name == "NEW ORGANISATION #0"
+
+    runner.invoke(create_hub_administrator, ["root001@test.ac.nz", "-O", "NEW ORG"])
+    assert Organisation.select().where(Organisation.name == "NEW ORG").exists()
+    assert User.get(email="root001@test.ac.nz").organisation.name == "NEW ORG"
+
+    org_count = Organisation.select().count()
+    runner.invoke(create_hub_administrator, ["root002@test.ac.nz", "-O", org.name])
+    assert Organisation.select().count() == org_count
+    assert User.get(email="root002@test.ac.nz").organisation.name == org.name
+
+    runner.invoke(create_hub_administrator, ["root010@test.ac.nz", "-I", "INTERNAL NAME 111"])
+    assert User.select().where(User.email == "root010@test.ac.nz").exists()
+    assert Organisation.select().where(Organisation.name == "ORCID Hub",
+                                       Organisation.tuakiri_name == "INTERNAL NAME 111").exists()
+    assert User.get(email="root010@test.ac.nz").organisation.tuakiri_name == "INTERNAL NAME 111"
+
+    runner.invoke(create_hub_administrator,
+                  ["root011@test.ac.nz", "-O", "NEW ORG", "-I", "INTERNAL NAME 222"])
+    assert Organisation.select().where(Organisation.name == "NEW ORG",
+                                       Organisation.tuakiri_name == "INTERNAL NAME 222").exists()
+    assert User.get(email="root011@test.ac.nz").organisation.tuakiri_name == "INTERNAL NAME 222"
+
+    org_count = Organisation.select().count()
+    runner.invoke(create_hub_administrator, ["root012@test.ac.nz", "-O", org.name, "-I", "INTERNAL NAME 333"])
+    assert Organisation.select().count() == org_count
+    assert User.get(email="root012@test.ac.nz").organisation.tuakiri_name == "INTERNAL NAME 333"
 
 
 def test_index(client, monkeypatch):
@@ -56,7 +95,7 @@ def test_login(request_ctx):
     """Test login function."""
     with request_ctx("/") as ctx:
         test_user = User(
-            name="TEST USER", email="test@test.test.net", username="test42", confirmed=True)
+            name="TEST USER", email="test@test.test.net", confirmed=True)
         login_user(test_user, remember=True)
 
         resp = get_response(ctx)
@@ -109,24 +148,52 @@ def test_tuakiri_login(client):
 
     After getting logged in a new user entry shoulg be created.
     """
-    resp = client.get(
-        "/Tuakiri/login",
-        headers={
-            "Auedupersonsharedtoken": "ABC123",
-            "Sn": "LAST NAME/SURNAME/FAMILY NAME",
-            'Givenname': "FIRST NAME/GIVEN NAME",
-            "Mail": "user@test.test.net",
-            "O": "ORGANISATION 123",
-            "Displayname": "TEST USER FROM 123",
-            "Unscoped-Affiliation": "staff",
-            "Eppn": "user@test.test.net"
-        })
+    data = {
+        "Auedupersonsharedtoken": "ABC123",
+        "Sn": "LAST NAME/SURNAME/FAMILY NAME",
+        'Givenname': "FIRST NAME/GIVEN NAME",
+        "Mail": "user@test.test.net",
+        "O": "ORGANISATION 123",
+        "Displayname": "TEST USER FROM 123",
+        "Unscoped-Affiliation": "staff",
+        "Eppn": "user@test.test.net"
+    }
+
+    resp = client.get("/sso/login", headers=data)
 
     assert resp.status_code == 302
     u = User.get(email="user@test.test.net")
     assert u.name == "TEST USER FROM 123", "Expected to have the user in the DB"
     assert u.first_name == "FIRST NAME/GIVEN NAME"
     assert u.last_name == "LAST NAME/SURNAME/FAMILY NAME"
+
+
+def test_sso_loging_with_external_sp(client, mocker):
+    """Test with EXTERNAL_SP."""
+    data = {
+        "Auedupersonsharedtoken": "ABC123",
+        "Sn": "LAST NAME/SURNAME/FAMILY NAME",
+        'Givenname': "FIRST NAME/GIVEN NAME",
+        "Mail": "test_external_sp@test.ac.nz;secondory@test.edu",
+        "O": client.data["org"].name,
+        "Displayname": "TEST USER #42",
+        "Unscoped-Affiliation": "staff",
+        "Eppn": "user@test.test.net"
+    }
+
+    client.application.config["EXTERNAL_SP"] = "https://exernal.ac.nz/SP"
+    resp = client.get("/index")
+    assert b"https://exernal.ac.nz/SP" in resp.data
+    get = mocker.patch(
+        "requests.get",
+        return_value=Mock(text=base64.b64encode(zlib.compress(pickle.dumps(data)))))
+
+    resp = client.get("/sso/login", follow_redirects=True)
+    get.assert_called_once()
+    assert b"TEST USER #42" in resp.data
+    assert b"test_external_sp@test.ac.nz" in resp.data
+    u = User.get(email="test_external_sp@test.ac.nz")
+    assert u.name == "TEST USER #42"
 
 
 def test_tuakiri_login_usgin_eppn(client):
@@ -266,7 +333,6 @@ def test_login_provider_load_user(request_ctx):  # noqa: D103
     u = User(
         email="test123@test.test.net",
         name="TEST USER",
-        username="test123",
         roles=Role.RESEARCHER,
         orcid=None,
         confirmed=True)

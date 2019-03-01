@@ -56,23 +56,28 @@ chown root /etc/pki/tls/certs/server.crt
 cp /.keys/CA.crt /etc/pki/tls/certs/CA.crt
 chown root /etc/pki/tls/certs/CA.crt
 
-cp /.keys/${ENV}-sp.key /etc/shibboleth/sp-key.pem
-cp /./.keys/${ENV}-sp.crt /etc/shibboleth/sp-cert.pem
-if [ ! -f /etc/shibboleth/sp-key.pem ] || [ ! -f /etc/shibboleth/sp-cert.pem ] ; then
-  cd /etc/shibboleth
-  ./keygen.sh -f -h $SHIB_SP_DOMAINNAME -e https://$SHIB_SP_DOMAINNAME/shibboleth
-fi
+if [ -z "$EXTERNAL_SP" ] ; then
+    cp /.keys/${ENV}-sp.key /etc/shibboleth/sp-key.pem
+    cp /./.keys/${ENV}-sp.crt /etc/shibboleth/sp-cert.pem
+    if [ ! -f /etc/shibboleth/sp-key.pem ] || [ ! -f /etc/shibboleth/sp-cert.pem ] ; then
+    cd /etc/shibboleth
+    ./keygen.sh -f -h $SHIB_SP_DOMAINNAME -e https://$SHIB_SP_DOMAINNAME/shibboleth
+    fi
 
-echo "Rendering Shibboleth configuration template ..."
-/conf/render_template /conf/templates/shibboleth2.xml >/etc/shibboleth/shibboleth2.xml
+    echo "Rendering Shibboleth configuration template ..."
+    /conf/render_template /conf/templates/shibboleth2.xml >/etc/shibboleth/shibboleth2.xml
+
+    # Run Shibboleth:
+    echo "Starting Shibboleth ..."
+
+    /etc/shibboleth/shibd-redhat start
+fi
 
 # Create a dirctory for application logs:
 mkdir -p /var/log/orcidhub
 chown -R apache:apache /var/log/orcidhub
 
-# Run Shibboleth and Apache:
-echo "Starting Shibboleth ..."
-/etc/shibboleth/shibd-redhat start
+# Run Apache:
 rm -f /run/httpd/httpd.pid /usr/local/apache2/logs/httpd.pid /var/lock/subsys/shibd
 echo "Starting Apache2 ..."
 

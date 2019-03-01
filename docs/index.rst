@@ -27,11 +27,13 @@ Table of Contents
    works_schema
    writing_peer_review_items
    peer_review_schema
+   webhooks
 
    ORCID API Specification <orcid_api_spec>
 
    development_env
    docker
+   virtualbox
    sendmail
    troubleshooting
    db_recovery

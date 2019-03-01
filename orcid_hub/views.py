@@ -13,8 +13,8 @@ from io import BytesIO
 import requests
 import tablib
 import yaml
-from flask import (Response, abort, flash, g, jsonify, redirect, render_template, request,
-                   send_file, send_from_directory, stream_with_context, url_for)
+from flask import (Response, abort, flash, jsonify, redirect, render_template, request, send_file,
+                   send_from_directory, stream_with_context, url_for)
 from flask_admin._compat import csv_encode
 from flask_admin.actions import action
 from flask_admin.babel import gettext
@@ -33,26 +33,24 @@ from flask_rq2.job import FlaskJob
 
 from orcid_api.rest import ApiException
 
-from . import admin, app, limiter, models, orcid_client, rq, utils
+from . import admin, app, limiter, models, orcid_client, rq, utils, SENTRY_DSN
 from .apis import yamlfy
 from .forms import (ApplicationFrom, BitmapMultipleValueField, CredentialForm, EmailTemplateForm,
                     FileUploadForm, FundingForm, GroupIdForm, LogoForm, OrgRegistrationForm, PartialDateField,
                     PeerReviewForm, ProfileSyncForm, RecordForm, UserInvitationForm, WebhookForm, WorkForm)
 from .login_provider import roles_required
-from .models import (
-    JOIN, Affiliation, AffiliationRecord, CharField, Client, ExternalId, File, FundingContributor,
-    FundingInvitees, FundingRecord, Grant, GroupIdRecord, ModelException, OrcidApiCall, OrcidToken,
-    Organisation, OrgInfo, OrgInvitation, PartialDate, PeerReviewExternalId, PeerReviewInvitee,
-    PeerReviewRecord, Role, Task, TaskType, TextField, Token, Url, User, UserInvitation, UserOrg,
-    UserOrgAffiliation, WorkContributor, WorkExternalId, WorkInvitees, WorkRecord, db, get_val)
+from .models import (JOIN, Affiliation, AffiliationRecord, CharField, Client, Delegate, ExternalId,
+                     File, FundingContributor, FundingInvitees, FundingRecord, Grant,
+                     GroupIdRecord, ModelException, OtherNameRecord, OrcidApiCall, OrcidToken, Organisation,
+                     OrgInfo, OrgInvitation, PartialDate, PeerReviewExternalId, PeerReviewInvitee, PeerReviewRecord,
+                     ResearcherUrlRecord, Role, Task, TaskType, TextField, Token, Url, User, UserInvitation, UserOrg,
+                     UserOrgAffiliation, WorkContributor, WorkExternalId, WorkInvitees, WorkRecord, db, get_val)
 # NB! Should be disabled in production
 from .pyinfo import info
 from .utils import get_next_url, read_uploaded_file, send_user_invitation
 
 HEADERS = {"Accept": "application/vnd.orcid+json", "Content-type": "application/vnd.orcid+json"}
 ORCID_BASE_URL = app.config["ORCID_BASE_URL"]
-SCOPE_ACTIVITIES_UPDATE = app.config["SCOPE_ACTIVITIES_UPDATE"]
-SCOPE_READ_LIMITED = app.config["SCOPE_READ_LIMITED"]
 
 
 @app.errorhandler(401)
@@ -94,15 +92,14 @@ def page_not_found(e):
 def internal_error(error):
     """Handle internal error."""
     trace = traceback.format_exc()
-    try:
-        from . import sentry
+    if SENTRY_DSN:
+        from sentry_sdk import last_event_id
         return render_template(
             "500.html",
             trace=trace,
             error_message=str(error),
-            event_id=g.sentry_event_id,
-            public_dsn=sentry.client.get_public_dsn("https"))
-    except:
+            sentry_event_id=last_event_id())
+    else:
         return render_template("500.html", trace=trace, error_message=str(error))
 
 
@@ -136,10 +133,13 @@ def status():
         }), 503  # Service Unavailable
 
 
+@app.route("/pyinfo/<message>")
 @app.route("/pyinfo")
 @roles_required(Role.SUPERUSER)
-def pyinfo():
-    """Show Python and runtime environment and settings."""
+def pyinfo(message=None):
+    """Show Python and runtime environment and settings or test exeption handling."""
+    if message:
+        raise Exception(message)
     return render_template("pyinfo.html", **info)
 
 
@@ -541,7 +541,7 @@ class TaskAdmin(AppModelView):
         filters.FilterEqual(column=Task.task_type, options=models.TaskType.options(), name="Task Type"),
     )
     column_formatters = dict(
-        task_type=lambda v, c, m, p: models.TaskType(m.task_type).name.replace('_', ' ').title(),
+        task_type=lambda v, c, m, p: m.task_type.name.replace('_', ' ').title(),
         completed_count=lambda v, c, m, p: (
             '' if not m.record_count else f"{m.completed_count} / {m.record_count} ({m.completed_percent:.1f}%)"),
     )
@@ -691,7 +691,8 @@ to the best of your knowledge, correct!""")
                     count = PeerReviewInvitee.update(
                         processed_at=None, status=status).where(
                         PeerReviewInvitee.peer_review_record.in_(ids)).execute()
-                elif self.model == AffiliationRecord:
+                elif self.model == AffiliationRecord or \
+                        self.model == ResearcherUrlRecord or self.model == OtherNameRecord:
                     # Delete the userInvitation token for selected reset items.
                     for user_invitation in UserInvitation.select().where(UserInvitation.email.in_(
                             self.model.select(self.model.email).where(self.model.id.in_(ids)))):
@@ -713,6 +714,10 @@ to the best of your knowledge, correct!""")
                     flash(f"{count} Work Invitee records were reset for batch processing.")
                 elif self.model == PeerReviewRecord:
                     flash(f"{count} Peer Review Invitee records were reset for batch processing.")
+                elif self.model == ResearcherUrlRecord:
+                    flash(f"{count} Researcher Url records were reset for batch processing.")
+                elif self.model == OtherNameRecord:
+                    flash(f"{count} Other Name records were reset for batch processing.")
                 else:
                     flash(f"{count} Affiliation records were reset for batch processing.")
 
@@ -845,9 +850,9 @@ class InviteesModelAdmin(AppModelView):
                 app.logger.exception("Failed to activate the selected records")
             else:
                 if self.model == FundingInvitees:
-                    flash(f"{count} Funding Invitees records were reset for batch processing.")
+                    flash(f"{count} Funding Invitee records were reset for batch processing.")
                 elif self.model == PeerReviewInvitee:
-                    flash(f"{count} Peer Review Invitees records were reset for batch processing.")
+                    flash(f"{count} Peer Review Invitee records were reset for batch processing.")
                 else:
                     flash(f"{count} Work Invitees records were reset for batch processing.")
 
@@ -1485,6 +1490,18 @@ class AffiliationRecordAdmin(RecordModelView):
         return resp
 
 
+class ResearcherUrlRecordAdmin(AffiliationRecordAdmin):
+    """Researcher Url record model view."""
+
+    column_searchable_list = ("url_name", "first_name", "last_name", "email",)
+
+
+class OtherNameRecordAdmin(AffiliationRecordAdmin):
+    """Other Name record model view."""
+
+    column_searchable_list = ("content", "first_name", "last_name", "email",)
+
+
 class ViewMembersAdmin(AppModelView):
     """Organisation member model (User beloging to the current org.admin oganisation) view."""
 
@@ -1513,6 +1530,16 @@ class ViewMembersAdmin(AppModelView):
     def get_query(self):
         """Get quiery for the user belonging to the organistation of the current user."""
         return current_user.organisation.users
+
+    def _order_by(self, query, joins, order):
+        """Add ID for determenistic order of rows if sorting is by NULLable field."""
+        query, joins = super()._order_by(query, joins, order)
+        # add ID only if all fields are NULLable (exlcude ones given by str):
+        if all(not isinstance(f, str) and f.null for (f, _) in order):
+            clauses = query._order_by
+            clauses.append(self.model.id.desc() if order[0][1] else self.model.id)
+            query = query.order_by(*clauses)
+        return query, joins
 
     def get_one(self, id):
         """Limit access only to the userers belonging to the current organisation."""
@@ -1703,12 +1730,15 @@ admin.add_view(WorkRecordAdmin())
 admin.add_view(PeerReviewRecordAdmin())
 admin.add_view(PeerReviewInviteeAdmin())
 admin.add_view(PeerReviewExternalIdAdmin())
+admin.add_view(ResearcherUrlRecordAdmin())
+admin.add_view(OtherNameRecordAdmin())
 admin.add_view(ViewMembersAdmin(name="viewmembers", endpoint="viewmembers"))
 
 admin.add_view(UserOrgAmin(UserOrg))
 admin.add_view(AppModelView(Client))
 admin.add_view(AppModelView(Grant))
 admin.add_view(AppModelView(Token))
+admin.add_view(AppModelView(Delegate))
 admin.add_view(GroupIdRecordAdmin(GroupIdRecord))
 
 
@@ -1764,22 +1794,9 @@ def activate_all():
     task_id = request.form.get('task_id')
     task = Task.get(id=task_id)
     try:
-        if task.task_type == 0:
-            count = AffiliationRecord.update(is_active=True).where(
-                AffiliationRecord.task_id == task_id,
-                AffiliationRecord.is_active == False).execute()  # noqa: E712
-        elif task.task_type == 1:
-            count = FundingRecord.update(is_active=True).where(
-                FundingRecord.task_id == task_id,
-                FundingRecord.is_active == False).execute()  # noqa: E712
-        elif task.task_type == 2:
-            count = WorkRecord.update(is_active=True).where(
-                WorkRecord.task_id == task_id,
-                WorkRecord.is_active == False).execute()  # noqa: E712
-        elif task.task_type == 3:
-            count = PeerReviewRecord.update(is_active=True).where(
-                PeerReviewRecord.task_id == task_id,
-                PeerReviewRecord.is_active == False).execute()  # noqa: E712
+        count = task.record_model.update(is_active=True).where(
+            task.record_model.task_id == task_id,
+            task.record_model.is_active == False).execute()  # noqa: E712
     except Exception as ex:
         flash(f"Failed to activate the selected records: {ex}")
         app.logger.exception("Failed to activate the selected records")
@@ -1799,10 +1816,11 @@ def reset_all():
     with db.atomic():
         try:
             status = "The record was reset at " + datetime.now().isoformat(timespec="seconds")
-            if task.task_type == 0:
-                count = AffiliationRecord.update(processed_at=None, status=status).where(
-                    AffiliationRecord.task_id == task_id,
-                    AffiliationRecord.is_active == True).execute()  # noqa: E712
+            tt = task.task_type
+            if tt == TaskType.AFFILIATION or tt == TaskType.RESEARCHER_URL or tt == TaskType.OTHER_NAME:
+                count = task.record_model.update(processed_at=None, status=status).where(
+                    task.record_model.task_id == task_id,
+                    task.record_model.is_active == True).execute()  # noqa: E712
 
                 for user_invitation in UserInvitation.select().where(UserInvitation.task == task):
                     try:
@@ -1810,7 +1828,7 @@ def reset_all():
                     except UserInvitation.DoesNotExist:
                         pass
 
-            elif task.task_type == 1:
+            elif tt == TaskType.FUNDING:
                 for funding_record in FundingRecord.select().where(FundingRecord.task_id == task_id,
                                                                    FundingRecord.is_active == True):    # noqa: E712
                     funding_record.processed_at = None
@@ -1822,7 +1840,7 @@ def reset_all():
                     funding_record.save()
                     count = count + 1
 
-            elif task.task_type == 2:
+            elif tt == TaskType.WORK:
                 for work_record in WorkRecord.select().where(WorkRecord.task_id == task_id,
                                                                    WorkRecord.is_active == True):    # noqa: E712
                     work_record.processed_at = None
@@ -1833,7 +1851,7 @@ def reset_all():
                         WorkInvitees.work_record == work_record.id).execute()
                     work_record.save()
                     count = count + 1
-            elif task.task_type == 3:
+            elif tt == TaskType.PEER_REVIEW:
                 for peer_review_record in PeerReviewRecord.select().where(PeerReviewRecord.task_id == task_id,
                                                                    PeerReviewRecord.is_active == True):    # noqa: E712
                     peer_review_record.processed_at = None
@@ -1844,6 +1862,7 @@ def reset_all():
                         PeerReviewInvitee.peer_review_record == peer_review_record.id).execute()
                     peer_review_record.save()
                     count = count + 1
+
         except Exception as ex:
             db.rollback()
             flash(f"Failed to reset the selected records: {ex}")
@@ -1859,6 +1878,10 @@ def reset_all():
                 flash(f"{count} Work records were reset for batch processing.")
             elif task.task_type == 3:
                 flash(f"{count} Peer Review records were reset for batch processing.")
+            elif task.task_type == 5:
+                flash(f"{count} Researcher Url records were reset for batch processing.")
+            elif task.task_type == 6:
+                flash(f"{count} Other Name records were reset for batch processing.")
             else:
                 flash(f"{count} Affiliation records were reset for batch processing.")
     return redirect(_url)
@@ -1884,7 +1907,7 @@ def delete_record(user_id, section_type, put_code):
         orcid_token = OrcidToken.get(
             user=user,
             org=user.organisation,
-            scope=SCOPE_READ_LIMITED[0] + "," + SCOPE_ACTIVITIES_UPDATE[0])
+            scope=orcid_client.READ_LIMITED + "," + orcid_client.ACTIVITIES_UPDATE)
     except Exception:
         flash("The user hasn't authorized you to delete records", "warning")
         return redirect(_url)
@@ -1940,7 +1963,7 @@ def edit_record(user_id, section_type, put_code=None):
     orcid_token = None
     try:
         orcid_token = OrcidToken.get(
-            user=user, org=org, scope=SCOPE_READ_LIMITED[0] + "," + SCOPE_ACTIVITIES_UPDATE[0])
+            user=user, org=org, scope=orcid_client.READ_LIMITED + "," + orcid_client.ACTIVITIES_UPDATE)
     except Exception:
         flash("The user hasn't authorized you to Add records", "warning")
         return redirect(_url)
@@ -2497,6 +2520,52 @@ def load_researcher_peer_review():
             app.logger.exception("Failed to load peer review records.")
 
     return render_template("fileUpload.html", form=form, title="Peer Review Info Upload")
+
+
+@app.route("/load/researcher/urls", methods=["GET", "POST"])
+@roles_required(Role.ADMIN)
+def load_researcher_urls():
+    """Preload researcher's url data."""
+    form = FileUploadForm(extensions=["json", "yaml", "csv", "tsv"])
+    if form.validate_on_submit():
+        filename = secure_filename(form.file_.data.filename)
+        content_type = form.file_.data.content_type
+        try:
+            if content_type in ["text/tab-separated-values", "text/csv"]:
+                task = ResearcherUrlRecord.load_from_csv(
+                    read_uploaded_file(form), filename=filename)
+            else:
+                task = ResearcherUrlRecord.load_from_json(read_uploaded_file(form), filename=filename)
+            flash(f"Successfully loaded {task.record_count} rows.")
+            return redirect(url_for("researcherurlrecord.index_view", task_id=task.id))
+        except Exception as ex:
+            flash(f"Failed to load researcher url record file: {ex}", "danger")
+            app.logger.exception("Failed to load researcher url records.")
+
+    return render_template("fileUpload.html", form=form, title="Researcher Urls Info Upload")
+
+
+@app.route("/load/other/names", methods=["GET", "POST"])
+@roles_required(Role.ADMIN)
+def load_other_names():
+    """Preload Other Name data."""
+    form = FileUploadForm(extensions=["json", "yaml", "csv", "tsv"])
+    if form.validate_on_submit():
+        filename = secure_filename(form.file_.data.filename)
+        content_type = form.file_.data.content_type
+        try:
+            if content_type in ["text/tab-separated-values", "text/csv"]:
+                task = OtherNameRecord.load_from_csv(
+                    read_uploaded_file(form), filename=filename)
+            else:
+                task = OtherNameRecord.load_from_json(read_uploaded_file(form), filename=filename)
+            flash(f"Successfully loaded {task.record_count} rows.")
+            return redirect(url_for("othernamerecord.index_view", task_id=task.id))
+        except Exception as ex:
+            flash(f"Failed to load Other Name record file: {ex}", "danger")
+            app.logger.exception("Failed to load Other Name records.")
+
+    return render_template("fileUpload.html", form=form, title="Other Names Info Upload")
 
 
 @app.route("/orcid_api_rep", methods=["GET", "POST"])
@@ -3329,7 +3398,7 @@ class ScheduerView(BaseModelView):
             overriden to change the page_size limit. Removing the page_size
             limit requires setting page_size to 0 or False.
         """
-        jobs = self.get_query()
+        jobs = list(self.get_query())
 
         # Get count
         count = len(jobs)

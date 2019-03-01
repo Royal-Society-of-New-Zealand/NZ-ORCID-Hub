@@ -32,6 +32,16 @@
                           <b>{{ org_name }}</b> can create and update research activities.
                         </li>
                       </ol>
+                    {% elif d.scope == "/read-limited,/person/update" %}
+                      <p>{{ org_name }} can read and write other information about you (country, researcher-urls, keywords, etc.) to your ORCID record</p>
+                      <ol>
+                        <li>
+                          <b>{{ org_name }}</b> can read your trusted-party information.
+                        </li>
+                        <li>
+                          <b>{{ org_name }}</b> can add/update other information about you (country, keywords, etc.)
+                        </li>
+                      </ol>
                     {% elif d.scope == "/read-limited" %}
                       {{ org_name }} can read trusted-party information from your ORCID record.
                     {% elif d.scope == "/authenticate" %}

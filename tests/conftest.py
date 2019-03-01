@@ -9,6 +9,7 @@ import os
 import sys
 import logging
 from datetime import datetime
+from flask_login import logout_user
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 # sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # flake8: noqa
@@ -108,9 +109,9 @@ class HubClient(FlaskClient):
         with open(f"output{self.resp_no:02d}.html", "wb") as output:
             output.write(self.resp.data)
 
-    def logout(self):
+    def logout(self, follow_redirects=True):
         """Perform log-out."""
-        resp = self.get("/logout", follow_redirects=True)
+        resp = self.get("/logout", follow_redirects=follow_redirects)
         _request_ctx_stack.pop()
         self.cookie_jar.clear()
         return resp
@@ -138,7 +139,7 @@ def app():
          AffiliationRecord, FundingRecord, FundingContributor, FundingInvitees, GroupIdRecord,
          OrcidAuthorizeCall, OrcidApiCall, Url, UserInvitation, OrgInvitation, ExternalId, Client,
          Grant, Token, WorkRecord, WorkContributor, WorkExternalId, WorkInvitees, PeerReviewRecord,
-         PeerReviewInvitee, PeerReviewExternalId),
+         PeerReviewInvitee, PeerReviewExternalId, ResearcherUrlRecord, OtherNameRecord),
             fail_silently=True):  # noqa: F405
         _app.db = _db
         _app.config["DATABASE_URL"] = DATABASE_URL
@@ -313,6 +314,8 @@ def client(app):
     with app.test_client() as client:
         client.data = app.data
         yield client
+    if "EXTERNAL_SP" in app.config:
+        del(app.config["EXTERNAL_SP"])
     client.logout()
 
 
@@ -328,6 +331,6 @@ def request_ctx(app):
 
 @pytest.fixture
 def app_req_ctx(request_ctx):
-    """Create the fixture for the reques with a test organisation and a test tech.contatct."""
+    """Create the fixture for the request with a test organisation and a test tech.contatct."""
     app_req_ctx.data = request_ctx.data
     return request_ctx

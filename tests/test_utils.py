@@ -11,13 +11,13 @@ from unittest.mock import Mock, patch
 
 import pytest
 from flask import make_response
-from flask_login import login_user
 from peewee import JOIN
+from urllib.parse import quote
 
 from orcid_hub import utils
 from orcid_hub.models import (AffiliationRecord, ExternalId, File, FundingContributor,
-                              FundingInvitees, FundingRecord, Log, OrcidToken, Organisation,
-                              OrgInfo, PeerReviewExternalId, PeerReviewInvitee, PeerReviewRecord,
+                              FundingInvitees, FundingRecord, Log, OtherNameRecord, OrcidToken, Organisation,
+                              OrgInfo, PeerReviewExternalId, PeerReviewInvitee, PeerReviewRecord, ResearcherUrlRecord,
                               Role, Task, TaskType, User, UserInvitation, UserOrg, WorkContributor,
                               WorkExternalId, WorkInvitees, WorkRecord)
 
@@ -64,24 +64,18 @@ def test_generate_confirmation_token():
     assert 'testemail123@example.com' == data[0]
 
 
-def test_track_event(request_ctx):
+def test_track_event(client, mocker):
     """Test to track event."""
     category = "test"
     action = "test"
     label = None
     value = 0
+    post = mocker.patch("requests.post", return_value=Mock(status_code=200))
 
-    u = User.create(
-        email="test123@test.test.net",
-        name="TEST USER",
-        username="test123",
-        roles=Role.RESEARCHER,
-        confirmed=True)
-
-    with request_ctx("/"):
-        login_user(u)
+    with client.login(client.data["user"]):
         resp = utils.track_event(category, action, label, value)
         assert resp.status_code == 200
+    post.assert_called_once()
 
 
 def test_set_server_name(app):
@@ -113,7 +107,6 @@ def test_send_user_invitation(app, mocker):
     inviter = User.create(
         email="test123@mailinator.com",
         name="TEST USER",
-        username="test123",
         roles=Role.RESEARCHER,
         orcid=None,
         confirmed=True,
@@ -126,7 +119,6 @@ def test_send_user_invitation(app, mocker):
     u = User.create(
         email=email,
         name="TEST USER",
-        username="test123",
         roles=Role.RESEARCHER,
         orcid=None,
         confirmed=True,
@@ -171,7 +163,6 @@ def test_send_work_funding_peer_review_invitation(app, mocker):
     inviter = User.create(
         email="test1as237@mailinator.com",
         name="TEST USER",
-        username="test123",
         roles=Role.RESEARCHER,
         orcid=None,
         confirmed=True,
@@ -181,7 +172,6 @@ def test_send_work_funding_peer_review_invitation(app, mocker):
     u = User.create(
         email=email,
         name="TEST USER",
-        username="test123",
         roles=Role.RESEARCHER,
         orcid=None,
         confirmed=True,
@@ -226,7 +216,6 @@ def test_create_or_update_funding(app, mocker):
     u = User.create(
         email="test1234456@mailinator.com",
         name="TEST USER",
-        username="test123",
         roles=Role.RESEARCHER,
         orcid="123",
         confirmed=True,
@@ -284,17 +273,16 @@ def test_create_or_update_funding(app, mocker):
     assert "12344" == funding_invitees.orcid
 
 
-def test_create_or_update_work(request_ctx, mocker):
+def test_create_or_update_work(app, mocker):
     """Test create or update work."""
     mocker.patch("orcid_hub.utils.send_email", send_mail_mock)
     mocker.patch("orcid_api.MemberAPIV20Api.create_work", create_or_update_fund_mock)
     mocker.patch("orcid_hub.orcid_client.MemberAPI.get_record", return_value=get_profile())
 
-    org = request_ctx.data["org"]
+    org = app.data["org"]
     u = User.create(
         email="test1234456@mailinator.com",
         name="TEST USER",
-        username="test123",
         roles=Role.RESEARCHER,
         orcid="12344",
         confirmed=True,
@@ -353,16 +341,15 @@ def test_create_or_update_work(request_ctx, mocker):
     assert "12344" == work_invitees.orcid
 
 
-def test_create_or_update_peer_review(request_ctx, mocker):
+def test_create_or_update_peer_review(app, mocker):
     """Test create or update peer review."""
     mocker.patch("orcid_hub.utils.send_email", send_mail_mock)
     mocker.patch("orcid_api.MemberAPIV20Api.create_peer_review", create_or_update_fund_mock)
     mocker.patch("orcid_hub.orcid_client.MemberAPI.get_record", return_value=get_profile())
-    org = request_ctx.data["org"]
+    org = app.data["org"]
     u = User.create(
         email="test1234456@mailinator.com",
         name="TEST USER",
-        username="test123",
         roles=Role.RESEARCHER,
         orcid="12344",
         confirmed=True,
@@ -423,6 +410,99 @@ def test_create_or_update_peer_review(request_ctx, mocker):
     assert "12344" == peer_review_invitees.orcid
 
 
+def test_create_or_update_researcher_url(app, mocker):
+    """Test create or update researcher url."""
+    mocker.patch("orcid_hub.utils.send_email", send_mail_mock)
+    mocker.patch("orcid_api.MemberAPIV20Api.create_researcher_url", create_or_update_fund_mock)
+    mocker.patch("orcid_hub.orcid_client.MemberAPI.get_record", return_value=get_profile())
+    org = app.data["org"]
+    u = User.create(
+        email="test1234456@mailinator.com",
+        name="TEST USER",
+        roles=Role.RESEARCHER,
+        orcid="12344",
+        confirmed=True,
+        organisation=org)
+
+    UserOrg.create(user=u, org=org)
+
+    t = Task.create(id=12, org=org, filename="xyz.json", created_by=u, updated_by=u, task_type=5)
+
+    ResearcherUrlRecord.create(
+        task=t,
+        is_active=True,
+        status="email sent",
+        first_name="Test",
+        last_name="Test",
+        email="test1234456@mailinator.com",
+        visibility="PUBLIC",
+        url_name="url name",
+        url_value="https://www.xyz.com",
+        display_index=0)
+
+    UserInvitation.create(
+        invitee=u,
+        inviter=u,
+        org=org,
+        task=t,
+        email="test1234456@mailinator.com",
+        token="xyztoken")
+
+    OrcidToken.create(
+        user=u, org=org, scope="/read-limited,/person/update", access_token="Test_token")
+
+    utils.process_researcher_url_records()
+    researcher_url_record = ResearcherUrlRecord.get(email="test1234456@mailinator.com")
+    assert 12399 == researcher_url_record.put_code
+    assert "12344" == researcher_url_record.orcid
+
+
+def test_create_or_update_other_name(app, mocker):
+    """Test create or update researcher other name."""
+    mocker.patch("orcid_hub.utils.send_email", send_mail_mock)
+    mocker.patch("orcid_api.MemberAPIV20Api.create_other_name", create_or_update_fund_mock)
+    mocker.patch("orcid_hub.orcid_client.MemberAPI.get_record", return_value=get_profile())
+    org = app.data["org"]
+    u = User.create(
+        email="test1234456@mailinator.com",
+        name="TEST USER",
+        roles=Role.RESEARCHER,
+        orcid="12344",
+        confirmed=True,
+        organisation=org)
+
+    UserOrg.create(user=u, org=org)
+
+    t = Task.create(id=12, org=org, filename="xyz.json", created_by=u, updated_by=u, task_type=5)
+
+    OtherNameRecord.create(
+        task=t,
+        is_active=True,
+        status="email sent",
+        first_name="Test",
+        last_name="Test",
+        email="test1234456@mailinator.com",
+        visibility="PUBLIC",
+        content="dummy name",
+        display_index=0)
+
+    UserInvitation.create(
+        invitee=u,
+        inviter=u,
+        org=org,
+        task=t,
+        email="test1234456@mailinator.com",
+        token="xyztoken")
+
+    OrcidToken.create(
+        user=u, org=org, scope="/read-limited,/person/update", access_token="Test_token")
+
+    utils.process_other_name_records()
+    other_name_record = OtherNameRecord.get(email="test1234456@mailinator.com")
+    assert 12399 == other_name_record.put_code
+    assert "12344" == other_name_record.orcid
+
+
 @patch(
     "orcid_api.MemberAPIV20Api.update_employment",
     return_value=Mock(status=201, headers={'Location': '12344/XYZ/12399'}))
@@ -436,7 +516,6 @@ def test_create_or_update_affiliation(send_email, update_employment, create_empl
     u = User.create(
         email="test1234456@mailinator.com",
         name="TEST USER",
-        username="test123",
         roles=Role.RESEARCHER,
         orcid="123",
         confirmed=True,
@@ -456,7 +535,6 @@ def test_create_or_update_affiliation(send_email, update_employment, create_empl
     u = User.create(
         email="test1234456_2@mailinator.com",
         name="TEST USER 2",
-        username="test123-2",
         roles=Role.RESEARCHER,
         confirmed=True,
         organisation=org)
@@ -708,7 +786,6 @@ def test_sync_profile(app, mocker):
     u = User.create(
         email="test1234456@mailinator.com",
         name="TEST USER",
-        username="test123",
         roles=Role.RESEARCHER,
         orcid="12344",
         confirmed=True,
@@ -815,3 +892,26 @@ def test_new_invitation_token(app):
     random.seed(42)
     token2 = utils.new_invitation_token()
     assert token2 != token
+
+
+def test_get_next_url(client):
+    """Test 'get_next_url'."""
+    client.login_root()
+    client.post(
+            "/admin/delegate/new/", data=dict(hostname="test.delegate.com"), follow_redirects=True)
+
+    for url in [
+            "/admin/delegate/",
+            "http://test.orcidhub.org.nz/ABC",
+            "http://127.0.0.1/TEST",
+            "http://c9users.io/test",
+            "http://delegate.com/test",
+    ]:
+        with client.get(f"/?_next={quote(url)}"):
+            assert utils.get_next_url() == url
+
+    for url in [
+            "https://test.malicious.org.nz/ABC",
+    ]:
+        with client.get(f"/?_next={quote(url)}"):
+            assert utils.get_next_url() is None
