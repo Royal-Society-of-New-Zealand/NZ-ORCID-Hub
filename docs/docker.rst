@@ -22,7 +22,7 @@ The following steps will set up a local ORCID Hub application instance using doc
 #. Clone the project repository: `git clone https://github.com/Royal-Society-of-New-Zealand/NZ-ORCID-Hub.git`
 #. Change the current directory: `cd NZ-ORCID-Hub`
 #. Create the environment conviguration file **.env** from **.env.sample**
-#. Set up environment variables UID and GID: `export GID=$(id -g) UID`
+#. Set up environment variables UID and GID: `export GID=$(id -g) UID` (it would be helpful to add this to your user shell run command script, e.g., *.bashrc*)
 #. Generate SSL the server key and a self signed certificata in **.keys** directory, e.g., `cd .keys; ../gen-keys/genkey.sh dev.orcidhub.org.nz; cd -`
 #. Create PostgreSQL instace folder: `mkdir -p pgdata data/redis`
 #. Run application containers: `docker-compose up -d`
