@@ -1,5 +1,7 @@
 
-NZ-ORCID-Hub 
+NZ-ORCID-Hub
+============
+
 .. image:: https://travis-ci.org/Royal-Society-of-New-Zealand/NZ-ORCID-Hub.svg?branch=master
    :target: https://travis-ci.org/Royal-Society-of-New-Zealand/NZ-ORCID-Hub
    :alt: Build Status
@@ -12,7 +14,6 @@ NZ-ORCID-Hub
    :target: http://docs.orcidhub.org.nz/
    :alt: RTD Status
 
-========================================================================================================================================================================================================================================================================================================================================================================================================================================================================================================================================================
 
 Work undertaken as part of the MBIE-led ORCID Working Group confirmed the view that New Zealand's research organisations exist in a wide range of sizes and ability to access IT support. As a consequence, the ability of organisations to respond to the ORCID Joint Statement of Principle that New Zealand adopt ORCID as the national researcher identifier also varied widely. In recognition that assisting all Consortia-eligible organisations to productively engage with ORCID would lead to national benefits, the Ministry has provided support for the development of the New Zealand ORCID Hub. As designed, the core function of the Hub is to provide all New Zealand ORCID Consortium members with the ability to make authoritative assertions of their relationship with researchers on the researcher's ORCID record, irrespective of their size or technical resource.
 
