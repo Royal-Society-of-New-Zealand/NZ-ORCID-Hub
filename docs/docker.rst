@@ -17,12 +17,14 @@ The following steps will set up a local ORCID Hub application instance using doc
 
 #. Install **docker** following the instruction at https://docs.docker.com/install/linux/docker-ce/ubuntu/
 #. Install **git** and **docker-compose**: `sudo apt install -y git docker-compose`
+#. Add your user to the **docker** user group: https://docs.docker.com/install/linux/linux-postinstall/#manage-docker-as-a-non-root-user
+#. And configure Docker to start on boot: https://docs.docker.com/install/linux/linux-postinstall/#configure-docker-to-start-on-boot
 #. Clone the project repository: `git clone https://github.com/Royal-Society-of-New-Zealand/NZ-ORCID-Hub.git`
 #. Change the current directory: `cd NZ-ORCID-Hub`
 #. Create the environment conviguration file **.env** from **.env.sample**
 #. Set up environment variables UID and GID: `export GID=$(id -g) UID`
 #. Generate SSL the server key and a self signed certificata in **.keys** directory, e.g., `cd .keys; ./gen-keys/genkey.sh dev.orcidhub.org.nz; cd -`
-#. Create PostgreSQL instace folder: `mkdir -p pgdata data/redis`
+#. Create PostgreSQL instace folder: `mkdir -p pgdata data/redis archive backup`
 #. Run application containers: `docker-compose up -d`
 #. Register a Hub administrator, e.g., `docker-compose exec app ./flask.sh cradmin -V rad42@mailinator.com` (more options available: `docker-compose exec app ./flask.sh cradmin --help`)
 #. Open the Hub Appliction in a browser using http://localhost.
