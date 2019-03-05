@@ -1,5 +1,3 @@
-.. _webhooks:
-
 Webhooks
 ========
 

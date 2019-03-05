@@ -539,8 +539,6 @@ def orcid_callback():
     - Technical contact completes organisation registration/on-boarding (uses AUTHENTICATION key);
     """
     login = request.args.get("login")
-    # invitation_token = request.args.get("invitation_token")
-
     if login != "1":
         if not current_user.is_authenticated:
             return current_app.login_manager.unauthorized()
@@ -551,7 +549,7 @@ def orcid_callback():
         error = request.args["error"]
         error_description = request.args.get("error_description")
         if error == "access_denied":
-            flash("You have denied {current_user.organisation.name} access to your ORCID record."
+            flash(f"You have denied {current_user.organisation.name} access to your ORCID record."
                   " Please choose from one of the four options below.", "warning")
         else:
             flash(
@@ -903,7 +901,7 @@ def orcid_login(invitation_token=None):
     """Authenticate a user via ORCID.
 
     If an invitation token is presented, perform affiliation of the user or on-boarding
-    of the onboarding of the organisation, if the user is the technical conatact of
+    of the organisation, if the user is the technical conatact of
     the organisation. For technical contacts the email should be made available for
     READ LIMITED scope.
     """
@@ -999,23 +997,20 @@ def orcid_login(invitation_token=None):
             AUTHORIZATION_BASE_URL, state=session.get("oauth_state"))
         # if the inviation token is preset use it as OAuth state
         session["oauth_state"] = state
-        orcid_authenticate_url = iri_to_uri(authorization_url)
+        # ORCID authorization URL:
+        orcid_auth_url = iri_to_uri(authorization_url)
         if invitation_token:
-            orcid_authenticate_url = append_qs(orcid_authenticate_url, email=user.email)
+            orcid_auth_url = append_qs(orcid_auth_url, email=user.email)
             # For funding record, we dont have first name and Last Name
             if user.last_name and user.first_name:
-                orcid_authenticate_url = append_qs(
-                    orcid_authenticate_url,
+                orcid_auth_url = append_qs(
+                    orcid_auth_url,
                     family_names=user.last_name,
                     given_names=user.first_name)
 
-        OrcidAuthorizeCall.create(
-            user_id=None, method="GET", url=orcid_authenticate_url, state=state)
+        OrcidAuthorizeCall.create(url=orcid_auth_url, state=state)
 
-        return render_template(
-            "orcidLogoutAndCallback.html",
-            orcid_base_url=ORCID_BASE_URL,
-            callback_url=orcid_authenticate_url)
+        return render_template("orcidLogoutAndCallback.html", callback_url=orcid_auth_url)
 
     except Exception as ex:
         flash("Something went wrong. Please contact orcid@royalsociety.org.nz for support!",
@@ -1227,12 +1222,6 @@ def orcid_login_callback(request):
                         flash(f"Failed to save data: {ex}")
                         app.logger.exception("Failed to save token.")
 
-            orcid_token, orcid_token_found = OrcidToken.get_or_create(
-                user_id=user.id, org=org, scope=scope)
-            orcid_token.access_token = token["access_token"]
-            orcid_token.refresh_token = token["refresh_token"]
-            orcid_token.expires_in = token["expires_in"]
-            with db.atomic():
                 try:
                     ui = UserInvitation.get(token=invitation_token)
                     if ui.affiliations & (Affiliation.EMP | Affiliation.EDU):
@@ -1249,7 +1238,6 @@ def orcid_login_callback(request):
                 except UserInvitation.DoesNotExist:
                     pass
                 except Exception as ex:
-                    db.rollback()
                     flash(f"Something went wrong: {ex}", "danger")
                     app.logger.exception("Failed to create affiliation record")
 
