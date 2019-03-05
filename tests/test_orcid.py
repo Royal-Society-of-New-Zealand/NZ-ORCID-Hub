@@ -14,6 +14,7 @@ from orcid_hub.models import (Affiliation, Log, OrcidApiCall, OrcidToken, Organi
                               TaskType, User, UserOrg)  # noqa:E404
 from orcid_hub.orcid_client import ApiException, MemberAPI, api_client, configuration, NestedDict  # noqa:E404
 
+from tests.utils import get_profile
 fake_time = time.time()
 
 
@@ -436,7 +437,6 @@ def test_sync_profile(app, mocker):
 
     t = Task.create(org=org, task_type=TaskType.SYNC)
     api = MemberAPI(org=org)
-    api.sync_profile(task=t, user=u, access_token=access_token)
 
     mocker.patch("orcid_hub.orcid_client.MemberAPI.get_record", lambda *args: None)
     api.sync_profile(task=t, user=u, access_token=access_token)
@@ -444,5 +444,9 @@ def test_sync_profile(app, mocker):
     OrcidToken.create(user=u, org=org, scope="/read-limited,/activities/update")
     mocker.patch("orcid_hub.orcid_client.MemberAPI.get_record", lambda *args: None)
     api.sync_profile(task=t, user=u, access_token=access_token)
-
     assert Log.select().count() > 0
+
+    mocker.patch("orcid_hub.orcid_client.MemberAPI.get_record", return_value=get_profile())
+    api.sync_profile(task=t, user=u, access_token=access_token)
+    last_log = Log.select().order_by(Log.id.desc()).first()
+    assert "Successfully update" in last_log.message

@@ -2575,6 +2575,44 @@ def test_sync_profiles(client, mocker):
     assert resp.status_code == 200
 
 
+def test_load_researcher_url_csv(client):
+    """Test preload researcher url data."""
+    user = client.data["admin"]
+    client.login(user, follow_redirects=True)
+    resp = client.post(
+        "/load/researcher/urls",
+        data={
+            "file_": (BytesIO("""Url Name,Url Value,Display Index,Email,First Name,Last Name,ORCID iD,Put Code,Visibility,Processed At,Status
+xyzurl,https://test.com,0,xyz@mailinator.com,sdksdsd,sds1,0000-0001-6817-9711,43959,PUBLIC,,
+xyzurlinfo,https://test123.com,10,xyz1@mailinator.com,sdksasadsd,sds1,,,PUBLIC,,""".encode()), "researcher_urls.csv",),
+        }, follow_redirects=True)
+    assert resp.status_code == 200
+    assert b"https://test.com" in resp.data
+    assert b"researcher_urls.csv" in resp.data
+    assert Task.select().where(Task.task_type == TaskType.RESEARCHER_URL).count() == 1
+    task = Task.select().where(Task.task_type == TaskType.RESEARCHER_URL).first()
+    assert task.researcher_url_records.count() == 2
+
+
+def test_load_other_names_csv(client):
+    """Test preload other names data."""
+    user = client.data["admin"]
+    client.login(user, follow_redirects=True)
+    resp = client.post(
+        "/load/other/names",
+        data={
+            "file_": (BytesIO("""Content,Display Index,Email,First Name,Last Name,ORCID iD,Put Code,Visibility,Processed At,Status
+dummy 1220,0,rad42@mailinator.com,sdsd,sds1,,,PUBLIC,,
+dummy 10,0,raosti12dckerpr13233jsdpos8jj2@mailinator.com,sdsd,sds1,0000-0002-0146-7409,16878,PUBLIC,,""".encode()),
+                      "other_names.csv",), }, follow_redirects=True)
+    assert resp.status_code == 200
+    assert b"dummy 1220" in resp.data
+    assert b"other_names.csv" in resp.data
+    assert Task.select().where(Task.task_type == TaskType.OTHER_NAME).count() == 1
+    task = Task.select().where(Task.task_type == TaskType.OTHER_NAME).first()
+    assert task.other_name_records.count() == 2
+
+
 def test_load_peer_review_csv(client):
     """Test preload peer review data."""
     user = client.data["admin"]

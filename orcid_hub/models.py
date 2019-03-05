@@ -2275,7 +2275,114 @@ class ResearcherUrlRecord(RecordModel):
     @classmethod
     def load_from_csv(cls, source, filename=None, org=None):
         """Load data from CSV/TSV file or a string."""
-        pass
+        if isinstance(source, str):
+            source = StringIO(source)
+        if filename is None:
+            if hasattr(source, "name"):
+                filename = source.name
+            else:
+                filename = datetime.utcnow().isoformat(timespec="seconds")
+        reader = csv.reader(source)
+        header = next(reader)
+
+        if len(header) == 1 and '\t' in header[0]:
+            source.seek(0)
+            reader = csv.reader(source, delimiter='\t')
+            header = next(reader)
+
+        if len(header) < 2:
+            raise ModelException("Expected CSV or TSV format file.")
+
+        if len(header) < 5:
+            raise ModelException(
+                "Wrong number of fields. Expected at least 5 fields "
+                "(first name, last name, email address or another unique identifier, url name, url value). "
+                f"Read header: {header}")
+
+        header_rexs = [
+            re.compile(ex, re.I) for ex in (r"(url)?.*name", r"(url)?.*value", r"(display)?.*index",
+                                            "email", r"first\s*(name)?", r"(last|sur)\s*(name)?",
+                                            "orcid.*", r"put|code", r"(is)?\s*visib(bility|le)?")]
+
+        def index(rex):
+            """Return first header column index matching the given regex."""
+            for i, column in enumerate(header):
+                if rex.match(column.strip()):
+                    return i
+            else:
+                return None
+
+        idxs = [index(rex) for rex in header_rexs]
+
+        if all(idx is None for idx in idxs):
+            raise ModelException(f"Failed to map fields based on the header of the file: {header}")
+
+        if org is None:
+            org = current_user.organisation if current_user else None
+
+        def val(row, i, default=None):
+            if len(idxs) <= i or idxs[i] is None or idxs[i] >= len(row):
+                return default
+            else:
+                v = row[idxs[i]].strip()
+            return default if v == '' else v
+
+        with db.atomic():
+            try:
+                task = Task.create(org=org, filename=filename, task_type=TaskType.RESEARCHER_URL)
+                for row_no, row in enumerate(reader):
+                    # skip empty lines:
+                    if len(row) == 0:
+                        continue
+                    if len(row) == 1 and row[0].strip() == '':
+                        continue
+
+                    email = val(row, 3, "").lower()
+                    orcid = val(row, 6)
+
+                    if not (email or orcid):
+                        raise ModelException(
+                            f"Missing user identifier (email address or ORCID iD) in the row "
+                            f"#{row_no+2}: {row}. Header: {header}")
+
+                    if orcid:
+                        validate_orcid_id(orcid)
+
+                    if not email or not validators.email(email):
+                        raise ValueError(
+                            f"Invalid email address '{email}'  in the row #{row_no+2}: {row}")
+
+                    url_name = val(row, 0, "")
+                    url_value = val(row, 1, "")
+                    first_name = val(row, 4)
+                    last_name = val(row, 5)
+
+                    if not (url_name and url_value and first_name and last_name):
+                        raise ModelException(
+                            "Wrong number of fields. Expected at least 5 fields (url name, url value, first name, "
+                            f"last name, email address or another unique identifier): {row}")
+
+                    rr = cls(
+                        task=task,
+                        url_name=url_name,
+                        url_value=url_value,
+                        display_index=val(row, 2),
+                        email=email,
+                        first_name=first_name,
+                        last_name=last_name,
+                        orcid=orcid,
+                        put_code=val(row, 7),
+                        visibility=val(row, 8))
+                    validator = ModelValidator(rr)
+                    if not validator.validate():
+                        raise ModelException(f"Invalid record: {validator.errors}")
+                    rr.save()
+            except Exception:
+                db.rollback()
+                app.logger.exception("Failed to load Researcher Url Record file.")
+                raise
+
+        return task
 
     @classmethod
     def load_from_json(cls, source, filename=None, org=None, task=None, skip_schema_validation=False):
@@ -2348,8 +2455,112 @@ class OtherNameRecord(RecordModel):
 
     @classmethod
     def load_from_csv(cls, source, filename=None, org=None):
-        """Load data from CSV/TSV file or a string."""
-        pass
+        """Load other names data from CSV/TSV file or a string."""
+        if isinstance(source, str):
+            source = StringIO(source)
+        if filename is None:
+            if hasattr(source, "name"):
+                filename = source.name
+            else:
+                filename = datetime.utcnow().isoformat(timespec="seconds")
+        reader = csv.reader(source)
+        header = next(reader)
+
+        if len(header) == 1 and '\t' in header[0]:
+            source.seek(0)
+            reader = csv.reader(source, delimiter='\t')
+            header = next(reader)
+
+        if len(header) < 2:
+            raise ModelException("Expected CSV or TSV format file.")
+
+        if len(header) < 4:
+            raise ModelException(
+                "Wrong number of fields. Expected at least 4 fields (first name, last name, email address "
+                f"or another unique identifier, content). Read header: {header}")
+
+        header_rexs = [
+            re.compile(ex, re.I) for ex in ("content", r"(display)?.*index", "email", r"first\s*(name)?",
+                                            r"(last|sur)\s*(name)?", "orcid.*", r"put|code",
+                                            r"(is)?\s*visib(bility|le)?")]
+
+        def index(rex):
+            """Return first header column index matching the given regex."""
+            for i, column in enumerate(header):
+                if rex.match(column.strip()):
+                    return i
+            else:
+                return None
+
+        idxs = [index(rex) for rex in header_rexs]
+
+        if all(idx is None for idx in idxs):
+            raise ModelException(f"Failed to map fields based on the header of the file: {header}")
+
+        if org is None:
+            org = current_user.organisation if current_user else None
+
+        def val(row, i, default=None):
+            if len(idxs) <= i or idxs[i] is None or idxs[i] >= len(row):
+                return default
+            else:
+                v = row[idxs[i]].strip()
+            return default if v == '' else v
+
+        with db.atomic():
+            try:
+                task = Task.create(org=org, filename=filename, task_type=TaskType.OTHER_NAME)
+                for row_no, row in enumerate(reader):
+                    # skip empty lines:
+                    if len(row) == 0:
+                        continue
+                    if len(row) == 1 and row[0].strip() == '':
+                        continue
+
+                    email = val(row, 2, "").lower()
+                    orcid = val(row, 5)
+
+                    if not (email or orcid):
+                        raise ModelException(
+                            f"Missing user identifier (email address or ORCID iD) in the row "
+                            f"#{row_no+2}: {row}. Header: {header}")
+
+                    if orcid:
+                        validate_orcid_id(orcid)
+
+                    if not email or not validators.email(email):
+                        raise ValueError(
+                            f"Invalid email address '{email}'  in the row #{row_no+2}: {row}")
+
+                    content = val(row, 0, "")
+                    first_name = val(row, 3)
+                    last_name = val(row, 4)
+
+                    if not (content and first_name and last_name):
+                        raise ModelException(
+                            "Wrong number of fields. Expected at least 4 fields (content, first name, last name, "
+                            f"email address or another unique identifier): {row}")
+
+                    ot = cls(
+                        task=task,
+                        content=content,
+                        display_index=val(row, 1),
+                        email=email,
+                        first_name=first_name,
+                        last_name=last_name,
+                        orcid=orcid,
+                        put_code=val(row, 6),
+                        visibility=val(row, 7))
+                    validator = ModelValidator(ot)
+                    if not validator.validate():
+                        raise ModelException(f"Invalid record: {validator.errors}")
+                    ot.save()
+            except Exception:
+                db.rollback()
+                app.logger.exception("Failed to load Researcher Url Record file.")
+                raise
+
+        return task
 
     @classmethod
     def load_from_json(cls, source, filename=None, org=None, task=None, skip_schema_validation=False):
