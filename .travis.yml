@@ -1,57 +1,67 @@
 sudo: required
-
 language: generic
-
 services:
-  - docker
-
+- docker
 env:
-  - ENV=dev PGPORT=54321 GID=$(id -g) DOMAIN=build.orcidhub.org.nz PROD_BRANCH=prod UAT_BRANCH=prod DATABASE_URL=postgresql://orcidhub@db/orcidhub?options='-c statement_timeout=3000'
-
+- ENV=dev PGPORT=54321 GID=$(id -g) DOMAIN=build.orcidhub.org.nz PROD_BRANCH=prod
+  UAT_BRANCH=prod DATABASE_URL=postgresql://orcidhub@db/orcidhub?options='-c statement_timeout=3000'
 before_install:
-  - sudo rm /usr/local/bin/docker-compose
-  - curl -L "https://github.com/docker/compose/releases/download/1.20.0/docker-compose-$(uname -s)-$(uname -m)" -o docker-compose
-  - chmod +x docker-compose
-  - sudo mv docker-compose /usr/local/bin
-
+- sudo rm /usr/local/bin/docker-compose
+- curl -L "https://github.com/docker/compose/releases/download/1.20.0/docker-compose-$(uname
+  -s)-$(uname -m)" -o docker-compose
+- chmod +x docker-compose
+- sudo mv docker-compose /usr/local/bin
 install:
-  - gen-keys/genkey.sh $DOMAIN
-  - ls -l
-  - for t in sp server; do cp build-server.key .keys/${ENV}-$t.key; cp build-server.crt .keys/${ENV}-$t.crt; done
-  - mkdir -p pgdata data/redis
-  - export UID
-  - docker-compose up -d
+- gen-keys/genkey.sh $DOMAIN
+- ls -l
+- for t in sp server; do cp build-server.key .keys/${ENV}-$t.key; cp build-server.crt
+  .keys/${ENV}-$t.crt; done
+- mkdir -p pgdata data/redis
+- export UID
+- docker-compose up -d
 
 script:
-  - wait_pg_up() { until docker-compose exec db psql -U postgres -l; do echo "Waiting for postgres to start..."; sleep 1; done }
-  - docker-compose exec app find -name '__pycache__' -exec rm -rf {} \; || true
-  - docker-compose exec app flake8 orcid_hub
-  - grep -m1 -q 'PostgreSQL init process complete; ready for start up.' <(docker-compose logs -f db); wait_pg_up
-  - docker-compose exec db psql -U postgres -c "SELECT 1" && echo "DB IS RUNNING"
-  - docker-compose exec db psql -U orcidhub -d orcidhub -c "SELECT 1" && echo "DB orcidhub IS RUNNING"
-  - docker-compose exec app curl -k -s https://localhost/pyinfo -o /dev/null && echo "WSGI is working..."
-  - docker-compose exec app w3c_validator https://localhost https://localhost/about https://localhost/faq
-  - docker-compose exec app ./pytest.sh
-  - docker-compose logs app
-  # - docker-compose exec app env PATH="/tmp/OpenJDK-1.8.0.141-x86_64-bin/bin":$PATH ZAP_PATH="/tmp/ZAP_2.6.0/" LANG=en_US.UTF-8 zap-cli --verbose --port 8099 --api-key 12345 quick-scan -s xss,sqli --self-contained -o '-config api.key=12345' --spider -r http://127.0.0.1:5000/
+- wait_pg_up() { until docker-compose exec db psql -U postgres -l; do echo "Waiting
+  for postgres to start..."; sleep 1; done }
+- docker-compose exec app find -name '__pycache__' -exec rm -rf {} \; || true
+- docker-compose exec app flake8 orcid_hub
+- grep -m1 -q 'PostgreSQL init process complete; ready for start up.' <(docker-compose
+  logs -f db); wait_pg_up
+- docker-compose exec db psql -U postgres -c "SELECT 1" && echo "DB IS RUNNING"
+- docker-compose exec db psql -U orcidhub -d orcidhub -c "SELECT 1" && echo "DB orcidhub
+  IS RUNNING"
+- docker-compose exec app curl -k -s https://localhost/pyinfo -o /dev/null && echo
+  "WSGI is working..."
+- docker-compose exec app w3c_validator https://localhost https://localhost/about
+  https://localhost/faq
+- docker-compose exec app ./pytest.sh
+- docker-compose logs app
 
 after_success:
-  - echo "*** Deploying from $(curl ipv4.icanhazip.com)"
-  - docker-compose exec app coveralls
-  - eval "$(ssh-agent -s)"
-  - openssl rsa -in .travis/.deploy.key -out .travis/deploy.key -passin env:DEPLOY_KEY_PASSPHRASE
-  - chmod 400 .travis/deploy.key
-  - ssh-add .travis/deploy.key
-  - git remote add deploy ssh://ec2-user@dev.orcidhub.org.nz/~/repo.git
-  - git remote add test ssh://ec2-user@test.orcidhub.org.nz/~/repo.git
-  - git push deploy HEAD:$TRAVIS_BRANCH
-  - test "$TRAVIS_BRANCH" == "$UAT_BRANCH" -a "$TRAVIS_EVENT_TYPE" == "push" && git push test HEAD:$TRAVIS_BRANCH  # Deploy the prod.branc to UAT env
-  - rm -f .travis/deploy.key
+- echo "*** Deploying from $(curl ipv4.icanhazip.com)"
+- docker-compose exec app coveralls
+- eval "$(ssh-agent -s)"
+- openssl rsa -in .travis/.deploy.key -out .travis/deploy.key -passin env:DEPLOY_KEY_PASSPHRASE
+- chmod 400 .travis/deploy.key
+- ssh-add .travis/deploy.key
+- git remote add deploy ssh://ec2-user@dev.orcidhub.org.nz/~/repo.git
+- git remote add test ssh://ec2-user@test.orcidhub.org.nz/~/repo.git
+- git push deploy HEAD:$TRAVIS_BRANCH
+- test "$TRAVIS_BRANCH" == "$UAT_BRANCH" -a "$TRAVIS_EVENT_TYPE" == "push" && git
+  push test HEAD:$TRAVIS_BRANCH
+- rm -f .travis/deploy.key
 
+deploy:
+  provider: pypi
+  user: orcidhub
+  password:
+    secure: hVrtzyI6rAZvKVlm7U6WdMF8drG5xA57+V9ZizWw3XLZvbgauGcr3JZe3E2k+GIbEnF8CTIc00KB1TkdZtDxb6ebnB2Kh048TvS6SynJiwRNEmf1CzIpy0ZGv0v/BLY/xFs4Slb5q1O4+jF3NBdLzx3SpSPd2cFYu8IlpWaCCI+BoM/mKl3UO72wjwV0gN1S6UmxhBwr8WMljb01ng5jX7jatWBQ2DfNQ7AzVlISSIQSzxkmWSpBfgQT2OmG3/S0T6xg9Km+mg2yWIWX/4iy7t4L7/PidcCvSk4gAp0vRW4dPa/4VAFRaqz6Nc4cIE6aIaiHtdr+BIfS8nt5+Vfo6C1fHKxvHVrJeP0n6zbIDIJ8tmJ2DZl7M+e1pEUDcmKM/slfhBFa2FINOp3nqwTbplAFX2GoQ3gqWCZH61pQVpv3J0qo2+k/zo4ZfDgsuUngXAKoIsnUeuEAzLnb3ztnlDUYrSW/KWACi2TlGO3LSywfELL4/kU8mRJ3C2Q/MSdS62K8MwGy31UsTi2iE45vQHFNgmn/9iDeRPUCyy/iEXk9QPkR78ycfTN2X5irXgZeC+5ijBYmcbRSwi+u4nZNcBYLNCY4MpkB3hNlncFLEaQ8SmauFJBbGaOM9D3P6JnUi1eAMwtWKKH2IkC6DavBEl2/8Gl6RRwocyFKJk5XJlk=
+  skip_existing: true
 notifications:
   hipchat:
     rooms:
-      - 051c5fee1d651e83b133c1b117d5c9@Nz-orcid-hub
+    - 051c5fee1d651e83b133c1b117d5c9@Nz-orcid-hub
     template:
-      - '%{repository}#%{build_number} (%{branch} - %{commit} : %{author}): %{message} (<a href="%{build_url}">Details</a>/<a href="%{compare_url}">Change view</a>)'
+    - '%{repository}#%{build_number} (%{branch} - %{commit} : %{author}): %{message}
+      (<a href="%{build_url}">Details</a>/<a href="%{compare_url}">Change view</a>)'
     format: html
