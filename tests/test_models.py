@@ -289,10 +289,10 @@ def test_user_org_link_user_constraint(models):
 
 
 def test_user_org_link_org_constraint(models):
-    user = User.get(id=1)
-    uo = UserOrg(user=user, org_id=999999)
-    with pytest.raises(Organisation.DoesNotExist):
-        uo.save()
+    user = User.select().limit(1).first()
+    from peewee import IntegrityError
+    with pytest.raises(IntegrityError):
+        UserOrg.create(user=user, org_id=999999)
 
 
 def test_test_database(models):

@@ -189,6 +189,228 @@ def test_send_work_funding_peer_review_invitation(app, mocker):
     send_email.assert_called_once()
 
 
+def get_record_mock():
+    """Mock profile api call."""
+    return {
+        'activities-summary': {
+            'last-modified-date': {
+                'value': 1513136293368
+            },  # noqa: E127
+            'educations': {
+                'last-modified-date': None,
+                'education-summary': [],
+                'path': '/0000-0002-3879-2651/educations'
+            },
+            "employments": {
+                "last-modified-date": {
+                    "value": 1511401310144
+                },
+                "employment-summary": [{
+                    "created-date": {
+                        "value": 1511401310144
+                    },
+                    "last-modified-date": {
+                        "value": 1511401310144
+                    },
+                    "source": {
+                        "source-orcid": None,
+                        "source-client-id": {
+                            "uri": "http://sandbox.orcid.org/client/APP-5ZVH4JRQ0C27RVH5",
+                            "path": "APP-5ZVH4JRQ0C27RVH5",
+                            "host": "sandbox.orcid.org"
+                        },
+                        "source-name": {
+                            "value": "The University of Auckland - MyORCiD"
+                        }
+                    },
+                    "department-name": None,
+                    "role-title": None,
+                    "start-date": None,
+                    "end-date": None,
+                    "organization": {
+                        "name": "The University of Auckland",
+                        "address": {
+                            "city": "Auckland",
+                            "region": None,
+                            "country": "NZ"
+                        },
+                        "disambiguated-organization": None
+                    },
+                    "visibility": "PUBLIC",
+                    "put-code": 29272,
+                    "path": "/0000-0003-1255-9023/employment/29272"
+                }],
+                "path":
+                "/0000-0003-1255-9023/employments"
+            },
+            'fundings': {
+                'last-modified-date': {
+                    'value': 1513136293368
+                },
+                'group': [{
+                    'last-modified-date': {
+                        'value': 1513136293368
+                    },
+                    'external-ids': {
+                        'external-id': [{
+                            'external-id-type': 'grant_number',
+                            'external-id-value': 'GNS1701',
+                            'external-id-url': None,
+                            'external-id-relationship': 'SELF'
+                        }, {
+                            'external-id-type': 'grant_number',
+                            'external-id-value': '17-GNS-022',
+                            'external-id-url': None,
+                            'external-id-relationship': 'SELF'
+                        }]
+                    },
+                    'funding-summary': [{
+                        'created-date': {
+                            'value': 1511935227017
+                        },
+                        'last-modified-date': {
+                            'value': 1513136293368
+                        },
+                        'source': {
+                            'source-orcid': None,
+                            'source-client-id': {
+                                'uri': 'http://sandbox.orcid.org/client/APP-5ZVH4JRQ0C27RVH5',
+                                'path': 'APP-5ZVH4JRQ0C27RVH5',
+                                'host': 'sandbox.orcid.org'
+                            },
+                            'source-name': {
+                                'value': 'The University of Auckland - MyORCiD'
+                            }
+                        },
+                        'title': {
+                            'title': {
+                                'value': 'Probing the crust with zirco'
+                            },
+                            'translated-title': {
+                                'value': 'नमस्ते',
+                                'language-code': 'hi'
+                            }
+                        },
+                        'type': 'CONTRACT',
+                        'start-date': None,
+                        'end-date': {
+                            'year': {
+                                'value': '2025'
+                            },
+                            'month': None,
+                            'day': None
+                        },
+                        'organization': {
+                            'name': 'Royal Society Te Apārangi'
+                        },
+                        'put-code': 9597,
+                        'path': '/0000-0002-3879-2651/funding/9597'
+                    }]
+                }],
+                'path':
+                '/0000-0002-3879-2651/fundings'
+            },
+            "peer-reviews": {
+                "group": [
+                    {
+                        "external-ids": {
+                            "external-id": [
+                                {
+                                    "external-id-type": "peer-review",
+                                    "external-id-value": "issn:12131",
+                                    "external-id-url": None,
+                                    "external-id-relationship": None
+                                }
+                            ]
+                        },
+                        "peer-review-summary": [
+                            {
+                                "source": {
+                                    "source-orcid": None,
+                                    "source-client-id": {
+                                        "uri": "http://sandbox.orcid.org/client/APP-5ZVH4JRQ0C27RVH5",
+                                        "path": "APP-5ZVH4JRQ0C27RVH5",
+                                        "host": "sandbox.orcid.org"
+                                    },
+                                    "source-name": {
+                                        "value": "The University of Auckland - MyORCiD"
+                                    }
+                                },
+                                "external-ids": {
+                                    "external-id": [
+                                        {
+                                            "external-id-type": "source-work-id",
+                                            "external-id-value": "122334",
+                                            "external-id-url": {
+                                                "value": "https://localsystem.org/1234"
+                                            },
+                                            "external-id-relationship": "SELF"
+                                        }
+                                    ]
+                                },
+                                "review-group-id": "issn:12131",
+                                "convening-organization": {
+                                    "name": "The University of Auckland",
+                                    "address": {
+                                        "city": "Auckland",
+                                        "region": "Auckland",
+                                        "country": "NZ"
+                                    },
+                                    "disambiguated-organization": None
+                                },
+                                "visibility": "PUBLIC",
+                                "put-code": 2622,
+                            }
+                        ]
+                    }
+                ],
+                "path": "/0000-0003-1255-9023/peer-reviews"
+            },
+            'works': {
+                'group': [{
+                    'external-ids': {
+                        'external-id': [{
+                            'external-id-type': 'grant_number',
+                            'external-id-value': 'GNS1701',
+                            'external-id-url': None,
+                            'external-id-relationship': 'SELF'
+                        }]
+                    },
+                    'work-summary': [{
+                        'source': {
+                            'source-orcid': None,
+                            'source-client-id': {
+                                'uri': 'http://sandbox.orcid.org/client/APP-5ZVH4JRQ0C27RVH5',
+                                'path': 'APP-5ZVH4JRQ0C27RVH5',
+                                'host': 'sandbox.orcid.org'
+                            },
+                            'source-name': {
+                                'value': 'The University of Auckland - MyORCiD'
+                            }
+                        },
+                        'title': {
+                            'title': {
+                                'value': 'Test titile2'
+                            },
+                            'translated-title': {
+                                'value': 'नमस्ते',
+                                'language-code': 'hi'
+                            }
+                        },
+                        'type': 'BOOK_CHAPTER',
+                        'put-code': 9597,
+                        'path': '/0000-0002-3879-2651/works/9597'
+                    }]
+                }],
+                'path':
+                    '/0000-0002-3879-2651/works'
+            },
+            'path': '/0000-0002-3879-2651/activities'
+        },
+        'path': '/0000-0002-3879-2651'
+    }
+
+
 def create_or_update_fund_mock(self=None, orcid=None, **kwargs):
     """Mock funding api call."""
     v = make_response

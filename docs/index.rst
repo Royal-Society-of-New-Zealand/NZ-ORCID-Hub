@@ -24,6 +24,7 @@ Because New Zealand ORCID Hub is fun to use.
 
 Table of Contents
 ^^^^^^^^^^^^^^^^^
+
 .. toctree::
    :maxdepth: 1
    :name: masterdoc
@@ -38,9 +39,12 @@ Table of Contents
    works_schema
    writing_peer_review_items
    peer_review_schema
-   webhooks
 
    ORCID API Specification <orcid_api_spec>
+
+   app_registration
+   orcid_api_proxy
+   webhooks
 
    development_env
    docker

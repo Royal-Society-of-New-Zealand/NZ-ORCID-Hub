@@ -53,7 +53,8 @@ class ReconnectablePostgresqlDatabase(RetryOperationalError, PostgresqlDatabase)
 
 
 cache = SimpleCache()
-app = Flask(__name__, instance_relative_config=True)
+# instance_relative_config=True  ## Instance directory relative to the app scrip or app module
+app = Flask(__name__, instance_path=os.path.join(os.getcwd(), "instance"))
 app.config.from_object(config)
 if not app.config.from_pyfile("settings.cfg", silent=True) and app.debug:
     filename = os.path.join(app.config.root_path, "settings.cfg")

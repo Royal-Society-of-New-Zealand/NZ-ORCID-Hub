@@ -565,7 +565,7 @@ class Organisation(BaseModel, AuditMixin):
                     self.tech_contact.save()
                     app.logger.info(f"Added TECHNICAL role to user {self.tech_contact}")
 
-        super().save(*args, **kwargs)
+            super().save(*args, **kwargs)
 
     class Meta:  # noqa: D101,D106
         table_alias = "o"
@@ -885,8 +885,8 @@ class UserOrg(BaseModel, AuditMixin):
         before saving data.
         """
         if self.is_dirty():
-            if self.field_is_updated("org"):
-                self.org  # just enforce re-querying
+            # if self.field_is_updated("org"):
+            #     self.org  # just enforce re-querying
             user = self.user
             if self.is_admin != user.is_admin:
                 if self.is_admin or UserOrg.select().where((UserOrg.user_id == self.user_id) & (
@@ -898,7 +898,7 @@ class UserOrg(BaseModel, AuditMixin):
                     app.logger.info(f"Revoked ADMIN role from user {user}")
                 user.save()
 
-        return super().save(*args, **kwargs)
+            return super().save(*args, **kwargs)
 
     class Meta:  # noqa: D101,D106
         db_table = "user_org"

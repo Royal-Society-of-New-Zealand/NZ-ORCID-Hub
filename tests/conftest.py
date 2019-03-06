@@ -74,7 +74,7 @@ class HubClient(FlaskClient):
         """Log in with the given user."""
         org = user.organisation
         if affiliations is None:
-            uo = user.userorg_set.where(models.UserOrg.org == org).first()
+            uo = user.userorg_set.where(UserOrg.org == org).first()
             if uo and uo.affiliations:
                 affiliations = ';'.join([
                     "staff" if a == Affiliation.EMP else "student" for a in Affiliation
@@ -88,7 +88,7 @@ class HubClient(FlaskClient):
                 ("Givenname", user.first_name or "GIVENNAME"),
                 ("Mail", user.email),
                 ("O", org.tuakiri_name or org.name),
-                ("Displayname", user.name),
+                ("Displayname", user.name or "FULL NAME"),
                 ("Unscoped-Affiliation", affiliations),
                 ("Eppn", user.eppn or user.email),
             ] if v is not None

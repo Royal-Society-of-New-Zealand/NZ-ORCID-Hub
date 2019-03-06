@@ -74,6 +74,7 @@ services:
     environment:
       - ENV
       - MAIL_DEFAULT_SENDER
+      - SECRET_KEY
     volumes:
       - .:/src
     restart: always
