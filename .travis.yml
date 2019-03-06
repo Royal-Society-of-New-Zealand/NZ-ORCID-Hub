@@ -59,11 +59,3 @@ deploy:
   skip_existing: true
   on:
     all_branches: true
-notifications:
-  hipchat:
-    rooms:
-    - 051c5fee1d651e83b133c1b117d5c9@Nz-orcid-hub
-    template:
-    - '%{repository}#%{build_number} (%{branch} - %{commit} : %{author}): %{message}
-      (<a href="%{build_url}">Details</a>/<a href="%{compare_url}">Change view</a>)'
-    format: html
