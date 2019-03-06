@@ -19,7 +19,6 @@ install:
 - mkdir -p pgdata data/redis
 - export UID
 - docker-compose up -d
-
 script:
 - wait_pg_up() { until docker-compose exec db psql -U postgres -l; do echo "Waiting
   for postgres to start..."; sleep 1; done }
@@ -36,7 +35,6 @@ script:
   https://localhost/faq
 - docker-compose exec app ./pytest.sh
 - docker-compose logs app
-
 after_success:
 - echo "*** Deploying from $(curl ipv4.icanhazip.com)"
 - docker-compose exec app coveralls
@@ -50,12 +48,11 @@ after_success:
 - test "$TRAVIS_BRANCH" == "$UAT_BRANCH" -a "$TRAVIS_EVENT_TYPE" == "push" && git
   push test HEAD:$TRAVIS_BRANCH
 - rm -f .travis/deploy.key
-
 deploy:
   provider: pypi
   user: orcidhub
   password:
-    secure: hVrtzyI6rAZvKVlm7U6WdMF8drG5xA57+V9ZizWw3XLZvbgauGcr3JZe3E2k+GIbEnF8CTIc00KB1TkdZtDxb6ebnB2Kh048TvS6SynJiwRNEmf1CzIpy0ZGv0v/BLY/xFs4Slb5q1O4+jF3NBdLzx3SpSPd2cFYu8IlpWaCCI+BoM/mKl3UO72wjwV0gN1S6UmxhBwr8WMljb01ng5jX7jatWBQ2DfNQ7AzVlISSIQSzxkmWSpBfgQT2OmG3/S0T6xg9Km+mg2yWIWX/4iy7t4L7/PidcCvSk4gAp0vRW4dPa/4VAFRaqz6Nc4cIE6aIaiHtdr+BIfS8nt5+Vfo6C1fHKxvHVrJeP0n6zbIDIJ8tmJ2DZl7M+e1pEUDcmKM/slfhBFa2FINOp3nqwTbplAFX2GoQ3gqWCZH61pQVpv3J0qo2+k/zo4ZfDgsuUngXAKoIsnUeuEAzLnb3ztnlDUYrSW/KWACi2TlGO3LSywfELL4/kU8mRJ3C2Q/MSdS62K8MwGy31UsTi2iE45vQHFNgmn/9iDeRPUCyy/iEXk9QPkR78ycfTN2X5irXgZeC+5ijBYmcbRSwi+u4nZNcBYLNCY4MpkB3hNlncFLEaQ8SmauFJBbGaOM9D3P6JnUi1eAMwtWKKH2IkC6DavBEl2/8Gl6RRwocyFKJk5XJlk=
+    secure: dwd5a+lmgT+ssXrbTTMAKdpUeN/bL9jNvJWpUpFIS1LzIyzmwC++hHEua76FTraW53JqcfU/EE9lz0/2sag4KBHMO7zHTs9gHefaBEKUJKwqH+8yKhY+Bfq3CAPvv5WbO0IHiNptQavJ+yuds7yZCSmEu2QoD1RV9SCoO/RILA5ApqalAFd226oaQfaK+3b1QmAmkrS3I+tEhaky0soYcbTk+Tnke2iTzpdvIZrMwjUbLu6BEUdvB1b5oUeHFCUxN1SDdsdFcpJ2ZKTaO+Qdxfg1SIx8SKYVMG7bv4S1DtGokp41iblRKT8GRpcQySm8iF7Urrl2cYAM2nyNBpWmUGgLzPrZWwJxQh8xMir1J9hpoSlu5QPU5Jth56eADfI2Bp7YeIav60xQBMxEv2sKbSAX9XbxbOKOo+rY35TSp9liX3KBvoO2wfUG4S2akJncnKkwjIGAnU8zUUKvG/bcBH5dReJvMSa7wSmOhOqhLA89l0jgyJtzapKVWQwm2P4bsS6FYCrts6R3vkq1XCuWckHW0iI8qpJm2LZF1Bn/ioMCKJAiYCDjlt8L1FHuWpHBQl+pcibyxpr8uBFQfj3W8cFiqoydegTtGybOLhnoflKEHTiX1ck1GheJmki7SIrnwYRS90+l4D8aDckhkpFLXyHvAG2U7w7+0HPlUIm7CgY=
   skip_existing: true
   on:
     all_branches: true
