@@ -7,7 +7,7 @@ import pickle
 import pprint
 import zlib
 from io import BytesIO
-from unittest.mock import Mock, patch
+from unittest.mock import patch, Mock
 from urllib.parse import urlparse
 
 from click.testing import CliRunner
@@ -388,45 +388,95 @@ def test_onboard_org(client):
     org_info.save()
     org.save()
 
-    OrgInvitation.get_or_create(email=u.email, org=org, token="sdsddsd")
-    UserOrg.create(user=u, org=org, is_admin=True)
+    client.login_root()
+    with patch("orcid_hub.utils.send_email"):
+        resp = client.post(
+            "/invite/organisation",
+            data=dict(org_name="A NEW ORGANISATION", org_email="test_abc_123@test.test.net"))
+        assert User.select().where(User.email == "test_abc_123@test.test.net").exists()
+        resp = client.post(
+            "/invite/organisation",
+            data=dict(
+                org_name="A NEW ORGANISATION", org_email="test12345@test.test.net",
+                tech_contact='y'))
+        assert User.select().where(User.email == "test12345@test.test.net").exists()
+    org = Organisation.get(name="A NEW ORGANISATION")
+    user = User.get(email="test12345@test.test.net")
+    assert user.name is None
+    assert org.tech_contact is None
+    client.logout()
 
-    client.login(u, follow_redirects=True)
-    assert u.is_tech_contact_of(org)
+    resp = client.login(
+        user,
+        **{
+            "Sn": "TECHNICAL",
+            "Givenname": "CONTACT",
+            "Displayname": "Test User",
+            "shib_O": "NEW ORGANISATION"
+        },
+        follow_redirects=True)
+    user = User.get(email="test12345@test.test.net")
+    org = user.organisation
+    assert user.is_tech_contact_of(org)
     resp = client.get("/confirm/organisation")
     assert resp.status_code == 200
+    org = Organisation.get(org.id)
     assert b"<!DOCTYPE html>" in resp.data, "Expected HTML content"
-    assert b"Take me to ORCID to obtain my Client ID and Client Secret" in resp.data,\
-        "Expected Button on the confirmation page"
+    assert b"Take me to ORCID to obtain my Client ID and Client Secret" in resp.data
 
     with patch("orcid_hub.authcontroller.requests") as requests:
         requests.post.return_value = Mock(data=b'XXXX', status_code=200)
         resp = client.post(
             "/confirm/organisation",
             data={
-                "orcid_client_id": "APP-FDFN3F52J3M4L34S",
-                "orcid_secret": "4916c2d7-085e-487e-94d0-32450a9cfe6c",
+                "orcid_client_id": "APP-1234567890ABCDEF",
+                "orcid_secret": "12345678-1234-1234-1234-1234567890ab",
                 "country": "NZ",
                 "city": "Auckland",
-                "disambiguated_id": "xyz",
-                "disambiguation_source": "abc",
-                "name": "THE ORGANISATION:test_onboard_org"
+                "disambiguated_id": "XYZ123",
+                "disambiguation_source": "XYZ",
+                "name": org.name,
+                "email": user.email,
             })
-        assert resp.status_code == 302
-        assert "/link" in resp.location
+    assert resp.status_code == 302
+    url = urlparse(resp.location).path
+    assert url == "/link"
+    resp = client.get(url)
+    client.logout()
+    org = Organisation.get(org.id)
+    assert org.disambiguated_id == "XYZ123"
+    assert org.disambiguation_source == "XYZ"
+    assert org.orcid_client_id == "APP-1234567890ABCDEF"
+    assert org.orcid_secret == "12345678-1234-1234-1234-1234567890ab"
 
-    client.login(second_user, follow_redirects=True)
+    user = User.get(email="test_abc_123@test.test.net")
+    resp = client.login(
+        user,
+        **{
+            "Sn": "NEW ORGANISATION",
+            "Givenname": "ADMINISTRATOR",
+            "Displayname": "Admin User",
+            "shib_O": "NEW ORGANISATION"
+        },
+        follow_redirects=True)
+    assert b"Take me to ORCID to allow A NEW ORGANISATION permission to access my ORCID record" in resp.data
+
     resp = client.get("/confirm/organisation")
     assert resp.status_code == 302
-    assert "/admin/viewmembers/" in resp.location
-    client.logout()
+    assert urlparse(resp.location).path == "/admin/viewmembers/"
+
+    resp = client.get("/admin/viewmembers/")
+    assert b"test12345@test.test.net" in resp.data
+
+    resp = client.get("/admin/viewmembers/export/csv/")
+    assert resp.headers["Content-Type"] == "text/csv; charset=utf-8"
+    assert b"test12345@test.test.net" in resp.data
+    assert b"test_abc_123@test.test.net" in resp.data
 
 
 @patch("orcid_hub.utils.send_email")
 def test_invite_tech_contact(send_email, client):
     """Test on-boarding of an org."""
-    pass
-
     client.login_root()
     email = "tech.contact@a.new.org"
     client.post(
@@ -485,17 +535,7 @@ def test_logout(client):
 
 def test_orcid_login(client):
     """Test login from orcid."""
-    org = Organisation.create(
-        name="THE ORGANISATION:test_orcid_login",
-        tuakiri_name="THE ORGANISATION:test_orcid_login",
-        confirmed=False,
-        orcid_client_id="CLIENT ID",
-        orcid_secret="Client Secret",
-        city="CITY",
-        country="COUNTRY",
-        disambiguated_id="ID",
-        disambiguation_source="SOURCE",
-        is_email_sent=True)
+    org = Organisation.get(name="THE ORGANISATION")
     u = User.create(
         email="test123_test_orcid_login@test.test.net",
         name="TEST USER",
@@ -741,7 +781,6 @@ def test_select_user_org(request_ctx):
         disambiguated_id="ID",
         disambiguation_source="SOURCE",
         is_email_sent=True)
-
     org2 = Organisation.create(
         name="THE ORGANISATION2:test_select_user_org",
         tuakiri_name="THE ORGANISATION2:test_select_user_org",

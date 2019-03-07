@@ -386,6 +386,13 @@ class TestDataForm(FileUploadForm):
         label="Organisation Count",
         default=400,
         render_kw=dict(style="width: 10%; max-width: 10em;"))
+    upload = SubmitField(
+        "Upload or Generate",
+        render_kw={
+            "class": "btn btn-primary",
+            "data-toggle": "tooltip",
+            "title": "Sign the uploaded data entries or generate them from the scratch"
+        })
 
 
 class LogoForm(FlaskForm):

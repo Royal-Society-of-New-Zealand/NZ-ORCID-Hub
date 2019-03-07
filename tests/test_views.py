@@ -430,7 +430,7 @@ def test_status(client):
         assert "FAILURE" in data["message"]
 
 
-def test_application_registration(app, request_ctx):
+def test_application_registration(client):
     """Test application registration."""
     org = app.data["org"]
     user = User.create(
@@ -444,114 +444,94 @@ def test_application_registration(app, request_ctx):
     UserOrg.create(user=user, org=org, is_admin=True)
     org.update(tech_contact=user).execute()
 
-    with request_ctx(
-            "/settings/applications",
-            method="POST",
-            data={
-                "homepage_url": "http://test.at.test",
-                "description": "TEST APPLICATION 123",
-                "register": "Register",
-            }) as ctx:  # noqa: F405
-        login_user(user, remember=True)
-        resp = ctx.app.full_dispatch_request()
-        with pytest.raises(Client.DoesNotExist):
-            Client.get(name="TEST APP")
-        assert resp.status_code == 200
+    resp = client.login(user, follow_redirects=True)
+    resp = client.post(
+        "/settings/applications",
+        follow_redirects=True,
+        data={
+            "homepage_url": "http://test.at.test",
+            "description": "TEST APPLICATION 123",
+            "register": "Register",
+        })
+    with pytest.raises(Client.DoesNotExist):
+        Client.get(name="TEST APP")
+    assert resp.status_code == 200
 
-    with request_ctx(
-            "/settings/applications",
-            method="POST",
-            data={
-                "name": "TEST APP",
-                "homepage_url": "http://test.at.test",
-                "description": "TEST APPLICATION 123",
-                "register": "Register",
-            }) as ctx:  # noqa: F405
-        login_user(user, remember=True)
-        resp = ctx.app.full_dispatch_request()
-        c = Client.get(name="TEST APP")
-        assert c.homepage_url == "http://test.at.test"
-        assert c.description == "TEST APPLICATION 123"
-        assert c.user == user
-        assert c.org == org
-        assert c.client_id
-        assert c.client_secret
-        assert resp.status_code == 302
+    resp = client.post(
+        "/settings/applications",
+        data={
+            "name": "TEST APP",
+            "homepage_url": "http://test.at.test",
+            "description": "TEST APPLICATION 123",
+            "register": "Register",
+        })
+    c = Client.get(name="TEST APP")
+    assert c.homepage_url == "http://test.at.test"
+    assert c.description == "TEST APPLICATION 123"
+    assert c.user == user
+    assert c.org == org
+    assert c.client_id
+    assert c.client_secret
+    assert resp.status_code == 302
 
-    client = Client.get(name="TEST APP")
-    with request_ctx(f"/settings/applications/{client.id}") as ctx:
+    resp = client.get(f"/settings/applications/{c.id}")
+    assert resp.status_code == 302
+    assert urlparse(resp.location).path == f"/settings/credentials/{c.id}"
 
-        login_user(user, remember=True)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 302
-        assert resp.location == f"/settings/credentials/{client.id}"
+    resp = client.get("/settings/credentials")
+    assert resp.status_code == 200
 
-    with request_ctx("/settings/credentials") as ctx:
-        login_user(user, remember=True)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 200
+    resp = client.get(f"/settings/credentials/{c.id}")
+    assert resp.status_code == 200
 
-    with request_ctx(f"/settings/credentials/{client.id}") as ctx:
-        login_user(user, remember=True)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 200
+    resp = client.get("/settings/credentials/99999999999999")
+    assert resp.status_code == 302
+    assert urlparse(resp.location).path == "/settings/applications"
 
-    with request_ctx("/settings/credentials/99999999999999") as ctx:
-        login_user(user, remember=True)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 302
-        assert resp.location == "/settings/applications"
+    Token.create(client=c, token_type="TEST", access_token="TEST000")
+    resp = client.post(
+        f"/settings/credentials/{c.id}", data={
+            "revoke": "Revoke",
+            "name": c.name,
+        })
+    assert resp.status_code == 200
+    assert Token.select().where(Token.client == c).count() == 0
 
-    with request_ctx(
-            f"/settings/credentials/{client.id}", method="POST", data={
-                "revoke": "Revoke",
-                "name": client.name,
-            }) as ctx:
-        login_user(user, remember=True)
-        Token.create(client=client, token_type="TEST", access_token="TEST000")
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 200
-        assert Token.select().where(Token.client == client).count() == 0
+    old_client = c
+    resp = client.post(
+        f"/settings/credentials/{c.id}", data={
+            "reset": "Reset",
+            "name": c.name,
+        })
+    c = Client.get(name="TEST APP")
+    assert resp.status_code == 200
+    assert c.client_id != old_client.client_id
+    assert c.client_secret != old_client.client_secret
 
-    with request_ctx(
-            f"/settings/credentials/{client.id}", method="POST", data={
-                "reset": "Reset",
-                "name": client.name,
-            }) as ctx:
-        login_user(user, remember=True)
-        old_client = client
-        resp = ctx.app.full_dispatch_request()
-        client = Client.get(name="TEST APP")
-        assert resp.status_code == 200
-        assert client.client_id != old_client.client_id
-        assert client.client_secret != old_client.client_secret
+    old_client = c
+    resp = client.post(
+        f"/settings/credentials/{c.id}",
+        follow_redirects=True,
+        data={
+            "update_app": "Update",
+            "name": "NEW APP NAME",
+            "homepage_url": "http://test.test0.edu",
+            "description": "DESCRIPTION",
+            "callback_urls": "http://test0.edu/callback",
+        })
+    c = Client.get(c.id)
+    assert resp.status_code == 200
+    assert c.name == "NEW APP NAME"
 
-    with request_ctx(
-            f"/settings/credentials/{client.id}", method="POST", data={
-                "update_app": "Update",
-                "name": "NEW APP NAME",
-                "homepage_url": "http://test.test0.edu",
-                "description": "DESCRIPTION",
-                "callback_urls": "http://test0.edu/callback",
-            }) as ctx:
-        login_user(user, remember=True)
-        old_client = client
-        resp = ctx.app.full_dispatch_request()
-        client = Client.get(id=client.id)
-        assert resp.status_code == 200
-        assert client.name == "NEW APP NAME"
-
-    with request_ctx(
-            f"/settings/credentials/{client.id}", method="POST", data={
-                "delete": "Delete",
-                "name": "NEW APP NAME",
-            }) as ctx:
-        login_user(user, remember=True)
-        old_client = client
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 302
-        assert resp.location == "/settings/applications"
-        assert not Client.select().where(Client.id == client.id).exists()
+    old_client = c
+    resp = client.post(
+        f"/settings/credentials/{c.id}", data={
+            "delete": "Delete",
+            "name": "NEW APP NAME",
+        })
+    assert resp.status_code == 302
+    assert urlparse(resp.location).path == "/settings/applications"
+    assert not Client.select().where(Client.id == c.id).exists()
 
 
 def make_fake_response(text, *args, **kwargs):
@@ -560,8 +540,6 @@ def make_fake_response(text, *args, **kwargs):
     mm.text = text
     if "json" in kwargs:
         mm.json.return_value = kwargs["json"]
-    elif "dict" in kwargs:
-        mm.to_dict.return_value = kwargs["dict"]
     else:
         mm.json.return_value = json.loads(text)
     if "status_code" in kwargs:
@@ -623,7 +601,6 @@ Bay of Plenty District Health Board,7854,RINGGOLD
 Capital and Coast District Health Board,8458,RINGGOLD
 Cawthron Institute,5732,RINGGOLD
 CRL Energy Ltd,9429038654381,NZBN
-
 Health Research Council,http://dx.doi.org/10.13039/501100001505,FUNDREF
 Hutt Valley District Health Board,161292,RINGGOLD
 Institute of Environmental Science and Research,8480,RINGGOLD
@@ -791,10 +768,13 @@ def test_user_orgs(client, mocker):
     assert resp.status_code == 404
     assert "Not Found" in json.loads(resp.data)["error"]
 
+    resp = client.get("/hub/api/v0.1/users/1234/orgs/")
+    assert resp.status_code == 404
 
-def test_api_credentials(request_ctx):
+
+def test_api_credentials(client):
     """Test manage API credentials.."""
-    org = request_ctx.data["org"]
+    org = Organisation.get(name="THE ORGANISATION")
     user = User.create(
         email="test123@test.test.net",
         name="TEST USER",
@@ -803,32 +783,33 @@ def test_api_credentials(request_ctx):
         confirmed=True,
         organisation=org)
     UserOrg.create(user=user, org=org, is_admin=True)
-    Client.create(
+    c = Client.create(
         name="Test_client",
         user=user,
         org=org,
         client_id="requestd_client_id",
-        client_secret="xyz",
+        client_secret="XYZ123",
         is_confidential="public",
         grant_type="client_credentials",
         response_type="xyz")
-    with request_ctx(
-            method="POST",
-            data={
-                "name": "TEST APP",
-                "homepage_url": "http://test.at.test",
-                "description": "TEST APPLICATION 123",
-                "register": "Register",
-                "reset": "xyz"
-            }):
-        login_user(user, remember=True)
-        resp = views.api_credentials()
-        assert "test123@test.test.net" in resp
-    with request_ctx(method="POST", data={"name": "TEST APP", "delete": "xyz"}):
-        login_user(user, remember=True)
-        resp = views.api_credentials()
-        assert resp.status_code == 302
-        assert "application" in resp.location
+
+    client.login(user)
+    resp = client.post(
+        "/settings/applications",
+        follow_redirects=True,
+        data={
+            "name": "TEST APP",
+            "homepage_url": "http://test.at.test",
+            "description": "TEST APPLICATION 123",
+            "register": "Register",
+        })
+    assert b"You aready have registered application" in resp.data
+    assert b"test123@test.test.net" in resp.data
+
+    resp = client.post(f"settings/credentials/{c.id}", data={"name": "TEST APP", "delete": "Delete"})
+    assert resp.status_code == 302
+    assert "application" in resp.location
+    assert not Client.select().where(Client.id == c.id).exists()
 
 
 def test_page_not_found(request_ctx):
@@ -1559,6 +1540,7 @@ def test_invite_organisation(client, mocker):
     send_email.reset_mock()
     resp = client.post(
             "/invite/organisation",
+            method="POST",
             data={
                 "org_name": "THE ORGANISATION",
                 "org_email": user.email,
@@ -2253,7 +2235,7 @@ def test_viewmembers_delete(mockpost, client):
                                      OrcidToken.user == researcher1).count() == 0
 
 
-def test_action_insert_update_group_id(client, request_ctx):
+def test_action_insert_update_group_id(client):
     """Test update or insert of group id."""
     admin = User.get(email="admin@test0.edu")
     org = admin.organisation
@@ -2296,34 +2278,32 @@ def test_action_insert_update_group_id(client, request_ctx):
         # checking if the GroupID Record is updated with put_code supplied from fake response
         assert 12399 == group_id_record.put_code
     # Save selected groupid record into existing group id record list.
-    with patch.object(
-        orcid_client.MemberAPIV20Api, "view_group_id_records",
-        MagicMock(return_value=fake_response)), request_ctx(
-        "/search/group_id_record/list",
-        method="POST",
-        data={
-            "group_id": "test",
-            "name": "test",
-            "description": "TEST",
-            "type": "TEST"}) as ctx:
-        login_user(admin)
-        resp = ctx.app.full_dispatch_request()
+    with patch.object(orcid_client.MemberAPIV20Api, "view_group_id_records",
+                      MagicMock(return_value=fake_response)):
+        client.login(admin)
+        resp = client.post(
+            "/search/group_id_record/list",
+            data={
+                "group_id": "test",
+                "name": "test",
+                "description": "TEST",
+                "type": "TEST"
+            })
         assert resp.status_code == 302
-        assert resp.location == f"/admin/groupidrecord/"
+        assert urlparse(resp.location).path == "/admin/groupidrecord/"
     # Search the group id record from ORCID
-    with patch.object(
-        orcid_client.MemberAPIV20Api, "view_group_id_records",
-        MagicMock(return_value=fake_response)), request_ctx(
-        "/search/group_id_record/list",
-        method="POST",
-        data={
-            "group_id": "test",
-            "group_id_name": "test",
-            "description": "TEST",
-            "search": True,
-            "type": "TEST"}) as ctx:
-        login_user(admin)
-        resp = ctx.app.full_dispatch_request()
+    with patch.object(orcid_client.MemberAPIV20Api, "view_group_id_records",
+                      MagicMock(return_value=fake_response)):
+        client.login(admin)
+        resp = client.post(
+            "/search/group_id_record/list",
+            data={
+                "group_id": "test",
+                "group_id_name": "test",
+                "description": "TEST",
+                "search": True,
+                "type": "TEST"
+            })
         assert resp.status_code == 200
         assert b"<!DOCTYPE html>" in resp.data, "Expected HTML content"
 
@@ -2593,6 +2573,44 @@ def test_sync_profiles(client, mocker):
     client.login_root()
     resp = client.get("/sync_profiles")
     assert resp.status_code == 200
+
+
+def test_load_researcher_url_csv(client):
+    """Test preload researcher url data."""
+    user = client.data["admin"]
+    client.login(user, follow_redirects=True)
+    resp = client.post(
+        "/load/researcher/urls",
+        data={
+            "file_": (BytesIO("""Url Name,Url Value,Display Index,Email,First Name,Last Name,ORCID iD,Put Code,Visibility,Processed At,Status
+xyzurl,https://test.com,0,xyz@mailinator.com,sdksdsd,sds1,0000-0001-6817-9711,43959,PUBLIC,,
+xyzurlinfo,https://test123.com,10,xyz1@mailinator.com,sdksasadsd,sds1,,,PUBLIC,,""".encode()), "researcher_urls.csv",),
+        }, follow_redirects=True)
+    assert resp.status_code == 200
+    assert b"https://test.com" in resp.data
+    assert b"researcher_urls.csv" in resp.data
+    assert Task.select().where(Task.task_type == TaskType.RESEARCHER_URL).count() == 1
+    task = Task.select().where(Task.task_type == TaskType.RESEARCHER_URL).first()
+    assert task.researcher_url_records.count() == 2
+
+
+def test_load_other_names_csv(client):
+    """Test preload other names data."""
+    user = client.data["admin"]
+    client.login(user, follow_redirects=True)
+    resp = client.post(
+        "/load/other/names",
+        data={
+            "file_": (BytesIO("""Content,Display Index,Email,First Name,Last Name,ORCID iD,Put Code,Visibility,Processed At,Status
+dummy 1220,0,rad42@mailinator.com,sdsd,sds1,,,PUBLIC,,
+dummy 10,0,raosti12dckerpr13233jsdpos8jj2@mailinator.com,sdsd,sds1,0000-0002-0146-7409,16878,PUBLIC,,""".encode()),
+                      "other_names.csv",), }, follow_redirects=True)
+    assert resp.status_code == 200
+    assert b"dummy 1220" in resp.data
+    assert b"other_names.csv" in resp.data
+    assert Task.select().where(Task.task_type == TaskType.OTHER_NAME).count() == 1
+    task = Task.select().where(Task.task_type == TaskType.OTHER_NAME).first()
+    assert task.other_name_records.count() == 2
 
 
 def test_load_peer_review_csv(client):

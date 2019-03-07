@@ -15,8 +15,8 @@ Please follow the steps bellow:
 #. Move **pgdata** directory and recreate it: ``mv pgdata pgdata_; mkdir pgdata``
 #. Recreate solution: ``docker-compose up -d``
 #. Restored DB: ``psql -d orcidhub -U postgres -f full.sql &>log.log``
-#. If you had costomized the configuration, copy your configuration files form the backup directory **pgdata_**
-#. And finaly restart the solution.
+#. If you had customized the configuration, copy your configuration files form the backup directory **pgdata_**
+#. And finally restart the solution.
 
 Database upgrade script:
 

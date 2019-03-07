@@ -81,7 +81,7 @@ researcher_url_task_schema = {
     "properties": {
         "id": {"type": "integer", "format": "int64"},
         "filename": {"type": ["string", "null"]},
-        "task-type": {"type": ["string", "null"], "enum": ["RESEARCHER_URL", "FUNDING", ]},
+        "task-type": {"type": ["string", "null"], "enum": ["RESEARCHER_URL", "RESEARCHER URL", ]},
         "created-at": {"type": ["string", "null"], "format": "date-time"},
         "updated-at": {"type": ["string", "null"], "format": "date-time"},
         "expires-at": {"type": ["string", "null"], "format": "date-time"},
@@ -123,7 +123,7 @@ other_name_task_schema = {
     "properties": {
         "id": {"type": "integer", "format": "int64"},
         "filename": {"type": ["string", "null"]},
-        "task-type": {"type": ["string", "null"], "enum": ["OTHER_NAME", ]},
+        "task-type": {"type": ["string", "null"], "enum": ["OTHER_NAME", "OTHER NAME", ]},
         "created-at": {"type": ["string", "null"], "format": "date-time"},
         "updated-at": {"type": ["string", "null"], "format": "date-time"},
         "expires-at": {"type": ["string", "null"], "format": "date-time"},
