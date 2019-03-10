@@ -274,6 +274,15 @@ table.permissions, table.permissions th, table.permissions td, table.users, tabl
     text-decoration: none;
 }
 
+.profile-subnav-content {
+    display: none;
+}
+
+.profile-subnav:hover .profile-subnav-content {
+    display: inline-block;
+    margin: 0 12px;
+}
+
 #connect-orcid-button{
 	border: 1px solid #D3D3D3;
 	padding: .3em;
