@@ -266,7 +266,7 @@ class TaskResource(AppResource):
 
         return self.jsonify_task(task)
 
-    def handle_fund_task(self, task_id=None):
+    def handle_task(self, task_id=None):
         """Handle PUT, POST, or PATCH request. Request body expected to be encoded in JSON."""
         try:
             login_user(request.oauth.user)
@@ -281,11 +281,9 @@ class TaskResource(AppResource):
                     return jsonify({"error": "Access denied."}), 403
             else:
                 task = None
-            task = FundingRecord.load_from_json(
-                request.data.decode("utf-8"), filename=self.filename, task=task)
+            task = self.load_from_json(task=task)
         except Exception as ex:
-            db.rollback()
-            app.logger.exception("Failed to hadle affiliation API request.")
+            app.logger.exception("Failed to hadle funding API request.")
             return jsonify({"error": "Unhandled except occured.", "exception": str(ex)}), 400
 
         return self.jsonify_task(task)
@@ -718,7 +716,142 @@ api.add_resource(AffiliationListAPI, "/api/v1.0/affiliations")
 api.add_resource(AffiliationAPI, "/api/v1.0/affiliations/<int:task_id>")
 
 
-class FundListAPI(TaskResource):
+class FundAPI(TaskResource):
+    """Fund task services."""
+
+    def load_from_json(self, task=None):
+        """Load Funding records form the JSON upload."""
+        return FundingRecord.load_from_json(
+            request.data.decode("utf-8"), filename=self.filename, task=task)
+
+    def get(self, task_id):
+        """
+        Retrieve the specified fund task.
+
+        ---
+        tags:
+          - "funds"
+        summary: "Retrieve the specified fund task."
+        description: "Retrieve the specified fund task."
+        produces:
+          - "application/json"
+        parameters:
+          - name: "task_id"
+            required: true
+            in: "path"
+            description: "Fund task ID."
+            type: "integer"
+        responses:
+          200:
+            description: "successful operation"
+            schema:
+              $ref: "#/definitions/FundTask"
+          401:
+            $ref: "#/responses/Unauthorized"
+          403:
+            $ref: "#/responses/AccessDenied"
+          404:
+            $ref: "#/responses/NotFound"
+        """
+        return self.jsonify_task(task_id)
+
+    def post(self, task_id):
+        """Upload the task and completely override the fund task.
+
+        ---
+        tags:
+          - "funds"
+        summary: "Update the fund task."
+        description: "Update the fund task."
+        consumes:
+          - application/json
+          - text/yaml
+        definitions:
+        parameters:
+          - name: "task_id"
+            in: "path"
+            description: "Fund task ID."
+            required: true
+            type: "integer"
+          - in: body
+            name: fundTask
+            description: "Fund task."
+            schema:
+              $ref: "#/definitions/FundTask"
+        produces:
+          - "application/json"
+        responses:
+          200:
+            description: "successful operation"
+            schema:
+              $ref: "#/definitions/FundTask"
+          401:
+            $ref: "#/responses/Unauthorized"
+          403:
+            $ref: "#/responses/AccessDenied"
+          404:
+            $ref: "#/responses/NotFound"
+        """
+        return self.handle_task(task_id)
+
+    def delete(self, task_id):
+        """Delete the specified fund task.
+
+        ---
+        tags:
+          - "funds"
+        summary: "Delete the specified fund task."
+        description: "Delete the specified fund task."
+        parameters:
+          - name: "task_id"
+            in: "path"
+            description: "Fund task ID."
+            required: true
+            type: "integer"
+        produces:
+          - "application/json"
+        responses:
+          200:
+            description: "Successful operation"
+          401:
+            $ref: "#/responses/Unauthorized"
+          403:
+            $ref: "#/responses/AccessDenied"
+          404:
+            $ref: "#/responses/NotFound"
+        """
+        return self.delete_task(task_id)
+
+    def head(self, task_id):
+        """Handle HEAD request.
+
+        ---
+        tags:
+          - "funds"
+        summary: "Return task update time-stamp."
+        description: "Return task update time-stamp."
+        parameters:
+          - name: "task_id"
+            in: "path"
+            description: "Fund task ID."
+            required: true
+            type: "integer"
+        produces:
+          - "application/json"
+        responses:
+          200:
+            description: "Successful operation"
+          401:
+            $ref: "#/responses/Unauthorized"
+          403:
+            $ref: "#/responses/AccessDenied"
+          404:
+            $ref: "#/responses/NotFound"
+        """
+        return self.jsonify_task(task_id)
+
+
+class FundListAPI(FundAPI):
     """Fund list API."""
 
     def post(self, *args, **kwargs):
@@ -792,137 +925,7 @@ class FundListAPI(TaskResource):
         if request.content_type in ["text/csv", "text/tsv"]:
             task = FundingRecord.load_from_csv(request.data.decode("utf-8"), filename=self.filename)
             return self.jsonify_task(task)
-        return self.handle_fund_task()
-
-
-class FundAPI(TaskResource):
-    """Fund task services."""
-
-    def get(self, task_id):
-        """
-        Retrieve the specified fund task.
-
-        ---
-        tags:
-          - "funds"
-        summary: "Retrieve the specified fund task."
-        description: "Retrieve the specified fund task."
-        produces:
-          - "application/json"
-        parameters:
-          - name: "task_id"
-            required: true
-            in: "path"
-            description: "Fund task ID."
-            type: "integer"
-        responses:
-          200:
-            description: "successful operation"
-            schema:
-              $ref: "#/definitions/FundTask"
-          401:
-            $ref: "#/responses/Unauthorized"
-          403:
-            $ref: "#/responses/AccessDenied"
-          404:
-            $ref: "#/responses/NotFound"
-        """
-        return self.jsonify_task(task_id)
-
-    def post(self, task_id):
-        """Upload the task and completely override the fund task.
-
-        ---
-        tags:
-          - "funds"
-        summary: "Update the fund task."
-        description: "Update the fund task."
-        consumes:
-          - application/json
-          - text/yaml
-        definitions:
-        parameters:
-          - name: "task_id"
-            in: "path"
-            description: "Fund task ID."
-            required: true
-            type: "integer"
-          - in: body
-            name: fundTask
-            description: "Fund task."
-            schema:
-              $ref: "#/definitions/FundTask"
-        produces:
-          - "application/json"
-        responses:
-          200:
-            description: "successful operation"
-            schema:
-              $ref: "#/definitions/FundTask"
-          401:
-            $ref: "#/responses/Unauthorized"
-          403:
-            $ref: "#/responses/AccessDenied"
-          404:
-            $ref: "#/responses/NotFound"
-        """
-        return self.handle_fund_task(task_id)
-
-    def delete(self, task_id):
-        """Delete the specified fund task.
-
-        ---
-        tags:
-          - "funds"
-        summary: "Delete the specified fund task."
-        description: "Delete the specified fund task."
-        parameters:
-          - name: "task_id"
-            in: "path"
-            description: "Fund task ID."
-            required: true
-            type: "integer"
-        produces:
-          - "application/json"
-        responses:
-          200:
-            description: "Successful operation"
-          401:
-            $ref: "#/responses/Unauthorized"
-          403:
-            $ref: "#/responses/AccessDenied"
-          404:
-            $ref: "#/responses/NotFound"
-        """
-        return self.delete_task(task_id)
-
-    def head(self, task_id):
-        """Handle HEAD request.
-
-        ---
-        tags:
-          - "funds"
-        summary: "Return task update time-stamp."
-        description: "Return task update time-stamp."
-        parameters:
-          - name: "task_id"
-            in: "path"
-            description: "Fund task ID."
-            required: true
-            type: "integer"
-        produces:
-          - "application/json"
-        responses:
-          200:
-            description: "Successful operation"
-          401:
-            $ref: "#/responses/Unauthorized"
-          403:
-            $ref: "#/responses/AccessDenied"
-          404:
-            $ref: "#/responses/NotFound"
-        """
-        return self.jsonify_task(task_id)
+        return self.handle_task()
 
 
 api.add_resource(FundListAPI, "/api/v1.0/funds")
