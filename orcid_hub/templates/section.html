@@ -33,45 +33,45 @@
 							</div>
 						</td>
 					</tr>
-				{% endif %}
-				{% for r in records %}
-					<tr>
-						{% if r.get("source", "source-client-id") and org_client_id in r.get("source", "source-client-id", "path") %}
-							<td class="list-buttons-column">
-								<a class="icon"
-					 href="{{url_for('edit_record', user_id=user_id, section_type=section_type, put_code=r.get('put-code')) }}?url={{url_for('section', user_id=user_id, section_type=section_type)}}"
-			title="Edit Record">
-									<span class="fa fa-pencil glyphicon glyphicon-pencil"></span>
-								</a>
-								<form class="icon" method="POST"
-													 action="{{url_for('delete_record', user_id=user_id, section_type=section_type, put_code=r.get('put-code'))}}">
-									<input id="put-code" name="put_code" type="hidden" value="{{r.get('put-code')}}">
-									<input id="section-type" name="section_type" type="hidden" value="{{section_type}}">
-									<button onclick="return safeConfirm('Are you sure you want to delete this record?');"
-								 title="Delete record">
-										<span class="fa fa-trash glyphicon glyphicon-trash"></span>
-									</button>
-								</form>
-							</td>
-						{% else %}
-							<td class="list-buttons-column"></td>
-						{% endif %}
+        {% else %}
+          {% for r in records %}
+            <tr>
+              {% if r.get("source", "source-client-id") and org_client_id in r.get("source", "source-client-id", "path") %}
+                <td class="list-buttons-column">
+                  <a class="icon"
+             href="{{url_for('edit_record', user_id=user_id, section_type=section_type, put_code=r.get('put-code')) }}?url={{url_for('section', user_id=user_id, section_type=section_type)}}" title="Edit Record">
+                    <span class="fa fa-pencil glyphicon glyphicon-pencil"></span>
+                  </a>
+                  <form class="icon" method="POST"
+                             action="{{url_for('delete_record', user_id=user_id, section_type=section_type, put_code=r.get('put-code'))}}">
+                    <input id="put-code" name="put_code" type="hidden" value="{{r.get('put-code')}}">
+                    <input id="section-type" name="section_type" type="hidden" value="{{section_type}}">
+                    <button onclick="return safeConfirm('Are you sure you want to delete this record?');"
+                   title="Delete record">
+                      <span class="fa fa-trash glyphicon glyphicon-trash"></span>
+                    </button>
+                  </form>
+                </td>
+              {% else %}
+                <td class="list-buttons-column"></td>
+              {% endif %}
 
-						<td>
-							{{r.get("organization", "name")|default("", True)}}<br/>
-							<span class="small">
-								Source: {{r.get("source", "source-name", "value")|default("", True)}}
-							</span>
-						</td>
-						<td>{{r.get("organization", "address", "city")|default("", True)}}</td>
-						<td>{{r.get("organization", "address", "region")|default("", True)}}</td>
-						<td>{{r.get("organization", "address", "country")|default("", True)}}</td>
-						<td>{{r.get("department-name")|default("", True)}}</td>
-						<td>{{r.get("role-title")|default("", True)}}</td>
-						<td>{{r|year_range}}</td>
-						<td>{{r.get("put-code")|default("", True)}}</td>
-					</tr>
-				{% endfor %}
+              <td>
+                {{r.get("organization", "name")|default("", True)}}<br/>
+                <span class="small">
+                  Source: {{r.get("source", "source-name", "value")|default("", True)}}
+                </span>
+              </td>
+              <td>{{r.get("organization", "address", "city")|default("", True)}}</td>
+              <td>{{r.get("organization", "address", "region")|default("", True)}}</td>
+              <td>{{r.get("organization", "address", "country")|default("", True)}}</td>
+              <td>{{r.get("department-name")|default("", True)}}</td>
+              <td>{{r.get("role-title")|default("", True)}}</td>
+              <td>{{r|year_range}}</td>
+              <td>{{r.get("put-code")|default("", True)}}</td>
+            </tr>
+          {% endfor %}
+        {% endif %}
 			</tbody>
 		</table>
 		<div style="text-align:right;">

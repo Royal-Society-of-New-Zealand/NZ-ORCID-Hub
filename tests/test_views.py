@@ -360,23 +360,23 @@ def test_show_record_section(request_ctx):
     with patch.object(
             orcid_client.MemberAPIV20Api,
             "view_employments",
-            MagicMock(return_value=make_fake_response('{"test": "TEST1234567890"}'))
+            MagicMock(return_value=Mock(data="""{"test": "TEST1234567890"}"""))
     ) as view_employments, request_ctx(f"/section/{user.id}/EMP/list") as ctx:
         login_user(admin)
         resp = ctx.app.full_dispatch_request()
         assert admin.email.encode() in resp.data
         assert admin.name.encode() in resp.data
-        view_employments.assert_called_once_with("XXXX-XXXX-XXXX-0001")
+        view_employments.assert_called_once_with("XXXX-XXXX-XXXX-0001", _preload_content=False)
     with patch.object(
             orcid_client.MemberAPIV20Api,
             "view_educations",
-            MagicMock(return_value=make_fake_response('{"test": "TEST1234567890"}'))
+            MagicMock(return_value=Mock(data="""{"test": "TEST1234567890"}"""))
     ) as view_educations, request_ctx(f"/section/{user.id}/EDU/list") as ctx:
         login_user(admin)
         resp = ctx.app.full_dispatch_request()
         assert admin.email.encode() in resp.data
         assert admin.name.encode() in resp.data
-        view_educations.assert_called_once_with("XXXX-XXXX-XXXX-0001")
+        view_educations.assert_called_once_with("XXXX-XXXX-XXXX-0001", _preload_content=False)
     with patch.object(
             orcid_client.MemberAPIV20Api,
             "view_peer_reviews",
