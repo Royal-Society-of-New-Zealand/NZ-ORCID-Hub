@@ -719,6 +719,11 @@ api.add_resource(AffiliationAPI, "/api/v1.0/affiliations/<int:task_id>")
 class FundListAPI(TaskResource):
     """Fund list API."""
 
+    def load_from_json(self, task=None):
+        """Load Funding records form the JSON upload."""
+        return FundingRecord.load_from_json(
+            request.data.decode("utf-8"), filename=self.filename, task=task)
+
     def post(self, *args, **kwargs):
         """Upload the fund task.
 
@@ -795,11 +800,6 @@ class FundListAPI(TaskResource):
 
 class FundAPI(FundListAPI):
     """Fund task services."""
-
-    def load_from_json(self, task=None):
-        """Load Funding records form the JSON upload."""
-        return FundingRecord.load_from_json(
-            request.data.decode("utf-8"), filename=self.filename, task=task)
 
     def get(self, task_id):
         """
