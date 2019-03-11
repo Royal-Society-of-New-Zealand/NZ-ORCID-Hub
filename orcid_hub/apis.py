@@ -18,7 +18,7 @@ from flask_swagger import swagger
 from . import api, app, db, models, oauth
 from .login_provider import roles_required
 from .models import (ORCID_ID_REGEX, AffiliationRecord, Client, FundingRecord, OrcidToken, Role,
-                     Task, TaskType, User, UserOrg, validate_orcid_id)
+                     Task, TaskType, User, UserOrg, validate_orcid_id, WorkRecord)
 from .schemas import affiliation_task_schema
 from .utils import dump_yaml, is_valid_url, register_orcid_webhook
 
@@ -716,7 +716,84 @@ api.add_resource(AffiliationListAPI, "/api/v1.0/affiliations")
 api.add_resource(AffiliationAPI, "/api/v1.0/affiliations/<int:task_id>")
 
 
-class FundAPI(TaskResource):
+class FundListAPI(TaskResource):
+    """Fund list API."""
+
+    def post(self, *args, **kwargs):
+        """Upload the fund task.
+
+        ---
+        tags:
+          - "funds"
+        summary: "Post the fund list task."
+        description: "Post the fund list task."
+        consumes:
+        - application/json
+        - text/csv
+        - text/yaml
+        produces:
+        - application/json
+        parameters:
+        - name: "filename"
+          required: false
+          in: "query"
+          description: "The batch process filename."
+          type: "string"
+        - name: body
+          in: body
+          description: "Fund task."
+          schema:
+            $ref: "#/definitions/FundTask"
+        responses:
+          200:
+            description: "successful operation"
+            schema:
+              $ref: "#/definitions/FundTask"
+          401:
+            $ref: "#/responses/Unauthorized"
+          403:
+            $ref: "#/responses/AccessDenied"
+          404:
+            $ref: "#/responses/NotFound"
+        definitions:
+        - schema:
+            id: FundTask
+            properties:
+              id:
+                type: integer
+                format: int64
+              filename:
+                type: string
+              task-type:
+                type: string
+                enum:
+                - fund
+                - FUNDING
+              created-at:
+                type: string
+                format: date-time
+              expires-at:
+                type: string
+                format: date-time
+              completed-at:
+                type: string
+                format: date-time
+              records:
+                type: array
+                items:
+                  $ref: "#/definitions/FundTaskRecord"
+        - schema:
+            id: FundTaskRecord
+            type: object
+        """
+        login_user(request.oauth.user)
+        if request.content_type in ["text/csv", "text/tsv"]:
+            task = FundingRecord.load_from_csv(request.data.decode("utf-8"), filename=self.filename)
+            return self.jsonify_task(task)
+        return self.handle_task()
+
+
+class FundAPI(FundListAPI):
     """Fund task services."""
 
     def load_from_json(self, task=None):
@@ -851,17 +928,21 @@ class FundAPI(TaskResource):
         return self.jsonify_task(task_id)
 
 
-class FundListAPI(FundAPI):
-    """Fund list API."""
+api.add_resource(FundListAPI, "/api/v1.0/funds")
+api.add_resource(FundAPI, "/api/v1.0/funds/<int:task_id>")
+
+
+class WorkListAPI(TaskResource):
+    """Work list API."""
 
     def post(self, *args, **kwargs):
-        """Upload the fund task.
+        """Upload the work task.
 
         ---
         tags:
-          - "funds"
-        summary: "Post the fund list task."
-        description: "Post the fund list task."
+          - "works"
+        summary: "Post the work list task."
+        description: "Post the work list task."
         consumes:
         - application/json
         - text/csv
@@ -876,14 +957,14 @@ class FundListAPI(FundAPI):
           type: "string"
         - name: body
           in: body
-          description: "Fund task."
+          description: "Work task."
           schema:
-            $ref: "#/definitions/FundTask"
+            $ref: "#/definitions/WorkTask"
         responses:
           200:
             description: "successful operation"
             schema:
-              $ref: "#/definitions/FundTask"
+              $ref: "#/definitions/WorkTask"
           401:
             $ref: "#/responses/Unauthorized"
           403:
@@ -892,7 +973,7 @@ class FundListAPI(FundAPI):
             $ref: "#/responses/NotFound"
         definitions:
         - schema:
-            id: FundTask
+            id: WorkTask
             properties:
               id:
                 type: integer
@@ -902,8 +983,8 @@ class FundListAPI(FundAPI):
               task-type:
                 type: string
                 enum:
-                - fund
-                - FUNDING
+                - work
+                - workING
               created-at:
                 type: string
                 format: date-time
@@ -916,20 +997,155 @@ class FundListAPI(FundAPI):
               records:
                 type: array
                 items:
-                  $ref: "#/definitions/FundTaskRecord"
+                  $ref: "#/definitions/WorkTaskRecord"
         - schema:
-            id: FundTaskRecord
+            id: WorkTaskRecord
             type: object
         """
         login_user(request.oauth.user)
         if request.content_type in ["text/csv", "text/tsv"]:
-            task = FundingRecord.load_from_csv(request.data.decode("utf-8"), filename=self.filename)
+            task = WorkRecord.load_from_csv(request.data.decode("utf-8"), filename=self.filename)
             return self.jsonify_task(task)
         return self.handle_task()
 
 
-api.add_resource(FundListAPI, "/api/v1.0/funds")
-api.add_resource(FundAPI, "/api/v1.0/funds/<int:task_id>")
+class WorkAPI(WorkListAPI):
+    """Work task services."""
+
+    def load_from_json(self, task=None):
+        """Load Working records form the JSON upload."""
+        return WorkRecord.load_from_json(
+            request.data.decode("utf-8"), filename=self.filename, task=task)
+
+    def get(self, task_id):
+        """
+        Retrieve the specified work task.
+
+        ---
+        tags:
+          - "works"
+        summary: "Retrieve the specified work task."
+        description: "Retrieve the specified work task."
+        produces:
+          - "application/json"
+        parameters:
+          - name: "task_id"
+            required: true
+            in: "path"
+            description: "Work task ID."
+            type: "integer"
+        responses:
+          200:
+            description: "successful operation"
+            schema:
+              $ref: "#/definitions/WorkTask"
+          401:
+            $ref: "#/responses/Unauthorized"
+          403:
+            $ref: "#/responses/AccessDenied"
+          404:
+            $ref: "#/responses/NotFound"
+        """
+        return self.jsonify_task(task_id)
+
+    def post(self, task_id):
+        """Upload the task and completely override the work task.
+
+        ---
+        tags:
+          - "works"
+        summary: "Update the work task."
+        description: "Update the work task."
+        consumes:
+          - application/json
+          - text/yaml
+        definitions:
+        parameters:
+          - name: "task_id"
+            in: "path"
+            description: "Work task ID."
+            required: true
+            type: "integer"
+          - in: body
+            name: workTask
+            description: "Work task."
+            schema:
+              $ref: "#/definitions/WorkTask"
+        produces:
+          - "application/json"
+        responses:
+          200:
+            description: "successful operation"
+            schema:
+              $ref: "#/definitions/WorkTask"
+          401:
+            $ref: "#/responses/Unauthorized"
+          403:
+            $ref: "#/responses/AccessDenied"
+          404:
+            $ref: "#/responses/NotFound"
+        """
+        return self.handle_task(task_id)
+
+    def delete(self, task_id):
+        """Delete the specified work task.
+
+        ---
+        tags:
+          - "works"
+        summary: "Delete the specified work task."
+        description: "Delete the specified work task."
+        parameters:
+          - name: "task_id"
+            in: "path"
+            description: "Work task ID."
+            required: true
+            type: "integer"
+        produces:
+          - "application/json"
+        responses:
+          200:
+            description: "Successful operation"
+          401:
+            $ref: "#/responses/Unauthorized"
+          403:
+            $ref: "#/responses/AccessDenied"
+          404:
+            $ref: "#/responses/NotFound"
+        """
+        return self.delete_task(task_id)
+
+    def head(self, task_id):
+        """Handle HEAD request.
+
+        ---
+        tags:
+          - "works"
+        summary: "Return task update time-stamp."
+        description: "Return task update time-stamp."
+        parameters:
+          - name: "task_id"
+            in: "path"
+            description: "Work task ID."
+            required: true
+            type: "integer"
+        produces:
+          - "application/json"
+        responses:
+          200:
+            description: "Successful operation"
+          401:
+            $ref: "#/responses/Unauthorized"
+          403:
+            $ref: "#/responses/AccessDenied"
+          404:
+            $ref: "#/responses/NotFound"
+        """
+        return self.jsonify_task(task_id)
+
+
+api.add_resource(WorkListAPI, "/api/v1.0/works")
+api.add_resource(WorkAPI, "/api/v1.0/works/<int:task_id>")
 
 
 class UserListAPI(AppResourceList):
