@@ -41,7 +41,7 @@ from .forms import (ApplicationFrom, BitmapMultipleValueField, CredentialForm, E
 from .login_provider import roles_required
 from .models import (JOIN, Affiliation, AffiliationRecord, CharField, Client, Delegate, ExternalId,
                      File, FundingContributor, FundingInvitees, FundingRecord, Grant,
-                     GroupIdRecord, ModelException, OtherNameRecord, OrcidApiCall, OrcidToken, Organisation,
+                     GroupIdRecord, ModelException, NestedDict, OtherNameRecord, OrcidApiCall, OrcidToken, Organisation,
                      OrgInfo, OrgInvitation, PartialDate, PeerReviewExternalId, PeerReviewInvitee, PeerReviewRecord,
                      ResearcherUrlRecord, Role, Task, TaskType, TextField, Token, Url, User, UserInvitation, UserOrg,
                      UserOrgAffiliation, WorkContributor, WorkExternalId, WorkInvitees, WorkRecord, db, get_val)
@@ -2217,7 +2217,7 @@ def section(user_id, section_type="EMP"):
     _url = request.args.get("url") or request.referrer or url_for("viewmembers.index_view")
 
     section_type = section_type.upper()[:3]  # normalize the section type
-    if section_type not in ["EDU", "EMP", "FUN", "PRR", "WOR"]:
+    if section_type not in ["EDU", "EMP", "FUN", "PRR", "WOR", "RUR", "ONR"]:
         flash("Incorrect user profile section", "danger")
         return redirect(_url)
 
@@ -2243,10 +2243,15 @@ def section(user_id, section_type="EMP"):
     api_instance = orcid_client.MemberAPIV20Api()
     try:
         # Fetch all entries
+        # NB! need to add _preload_content=False to get raw response
         if section_type == "EMP":
-            api_response = api_instance.view_employments(user.orcid)
+            api_response = api_instance.view_employments(user.orcid, _preload_content=False)
         elif section_type == "EDU":
-            api_response = api_instance.view_educations(user.orcid)
+            api_response = api_instance.view_educations(user.orcid, _preload_content=False)
+        elif section_type == "RUR":
+            api_response = api_instance.view_researcher_urls(user.orcid, _preload_content=False)
+        elif section_type == "ONR":
+            api_response = api_instance.view_other_names(user.orcid, _preload_content=False)
         elif section_type == "FUN":
             api_response = api_instance.view_fundings(user.orcid)
         elif section_type == "WOR":
@@ -2268,7 +2273,10 @@ def section(user_id, section_type="EMP"):
     # TODO: Organisation has access to the employment records
     # TODO: retrieve and tranform for presentation (order, etc)
     try:
-        data = api_response.to_dict()
+        if section_type in ["EMP", "EDU", "RUR", "ONR"]:
+            data = json.loads(api_response.data, object_pairs_hook=NestedDict)
+        else:
+            data = api_response.to_dict()
     except Exception as ex:
         flash("User didn't give permissions to update his/her records", "warning")
         flash("Unhandled exception occured while retrieving ORCID data: %s" % ex, "danger")
@@ -2314,7 +2322,9 @@ def section(user_id, section_type="EMP"):
             user_id=user_id,
             org_client_id=user.organisation.orcid_client_id)
     else:
-        records = data.get("education_summary" if section_type == "EDU" else "employment_summary", [])
+        records = data.get("education-summary" if section_type == "EDU" else
+                           "employment-summary" if section_type == "EMP" else
+                           "researcher-url" if section_type == "RUR" else "other-name")
 
     return render_template(
         "section.html",

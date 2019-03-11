@@ -28,6 +28,14 @@
            title="Work Record">
           <span class="fa fa-print"></span>
         </a>
+        <a class="icon" href="{{ url_for('section', user_id=row.id, section_type='RUR', url=request.url) }}"
+           title="Researcher Url Record">
+          <span class="fa fa-at"></span>
+        </a>
+        <a class="icon" href="{{ url_for('section', user_id=row.id, section_type='ONR', url=request.url) }}"
+           title="Other Name Record">
+          <span class="fa fa-user-plus"></span>
+        </a>
       </div>
       {% endif %}
     </div>
