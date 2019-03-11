@@ -504,7 +504,7 @@ def test_affiliation_api(client):
             f"/api/v1.0/affiliations/{task_id}",
             headers=dict(authorization=f"Bearer {access_token}"))
         assert resp.status_code == 400
-        assert resp.json == {"error": "Unhandled except occured.", "exception": "ERROR"}
+        assert resp.json == {"error": "Unhandled exception occurred.", "exception": "ERROR"}
 
     resp = client.delete(
         f"/api/v1.0/affiliations/{task_id}",
@@ -618,7 +618,7 @@ records:
   start-date: 2016-09
 """)
     assert resp.status_code == 400
-    assert resp.json["error"] == "Unhandled except occured."
+    assert resp.json["error"] == "Unhandled exception occurred."
     assert "Instance matching query does not exist" in resp.json["exception"]
 
     with patch.object(AffiliationRecord, "get", side_effect=Exception("ERROR")):
@@ -642,7 +642,7 @@ records:
   start-date: 2016-09
 """)
         assert resp.status_code == 400
-        assert resp.json == {"error": "Unhandled except occured.", "exception": "ERROR"}
+        assert resp.json == {"error": "Unhandled exception occurred.", "exception": "ERROR"}
 
     resp = client.post(
         f"/api/v1.0/affiliations/?filename=TEST42.csv",
@@ -669,7 +669,7 @@ records:
 something fishy is going here...
 """)
     assert resp.status_code == 415
-    assert resp.json["error"] == "Ivalid request format. Only JSON, CSV, or TSV are acceptable."
+    assert resp.json["error"] == "Invalid request format. Only JSON, CSV, or TSV are acceptable."
     assert "something fishy is going here..." in resp.json["message"]
 
 

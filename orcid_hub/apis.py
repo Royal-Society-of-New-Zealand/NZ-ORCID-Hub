@@ -240,7 +240,7 @@ class TaskResource(AppResource):
         except jsonschema.exceptions.ValidationError as ex:
             return jsonify({"error": "Validation error.", "message": ex.message}), 422
         except Exception as ex:
-            return jsonify({"error": "Unhandled except occurred.", "exception": ex}), 400
+            return jsonify({"error": "Unhandled exception occurred.", "exception": ex}), 400
         if "records" not in data:
             return jsonify({"error": "Validation error.", "message": "Missing affiliation records."}), 422
 
@@ -262,7 +262,7 @@ class TaskResource(AppResource):
         except Exception as ex:
             db.rollback()
             app.logger.exception("Failed to handle affiliation API request.")
-            return jsonify({"error": "Unhandled except occurred.", "exception": str(ex)}), 400
+            return jsonify({"error": "Unhandled exception occurred.", "exception": str(ex)}), 400
 
         return self.jsonify_task(task)
 
@@ -284,7 +284,7 @@ class TaskResource(AppResource):
             task = self.load_from_json(task=task)
         except Exception as ex:
             app.logger.exception("Failed to handle funding API request.")
-            return jsonify({"error": "Unhandled except occurred.", "exception": str(ex)}), 400
+            return jsonify({"error": "Unhandled exception occurred.", "exception": str(ex)}), 400
 
         return self.jsonify_task(task)
 
