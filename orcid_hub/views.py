@@ -1961,14 +1961,24 @@ def edit_record(user_id, section_type, put_code=None):
         return redirect(_url)
 
     orcid_token = None
-    try:
-        orcid_token = OrcidToken.get(
-            user=user, org=org, scope=orcid_client.READ_LIMITED + "," + orcid_client.ACTIVITIES_UPDATE)
-    except Exception:
-        flash("The user hasn't authorized you to Add records", "warning")
-        return redirect(_url)
-    orcid_client.configuration.access_token = orcid_token.access_token
-    api = orcid_client.MemberAPI(user=user)
+    if section_type in ["RUR", "ONR"]:
+        orcid_token = OrcidToken.select(OrcidToken.access_token).where(OrcidToken.user_id == user.id,
+                                                                       OrcidToken.org_id == org.id,
+                                                                       OrcidToken.scope.contains(
+                                                                           orcid_client.PERSON_UPDATE)).first()
+        if not orcid_token:
+            flash("The user hasn't given 'PERSON/UPDATE' permission to you to Add/Update these records", "warning")
+            return redirect(_url)
+    else:
+        orcid_token = OrcidToken.select(OrcidToken.access_token).where(OrcidToken.user_id == user.id,
+                                                                       OrcidToken.org_id == org.id,
+                                                                       OrcidToken.scope.contains(
+                                                                           orcid_client.ACTIVITIES_UPDATE)).first()
+        if not orcid_token:
+            flash("The user hasn't given 'ACTIVITIES/UPDATE' permission to you to Add/Update these records", "warning")
+            return redirect(_url)
+
+    api = orcid_client.MemberAPI(user=user, access_token=orcid_token.access_token)
 
     if section_type == "FUN":
         form = FundingForm(form_type=section_type)
@@ -2162,18 +2172,12 @@ def edit_record(user_id, section_type, put_code=None):
                         grant_data_list=grant_data_list,
                         **{f.name: f.data
                            for f in form})
-                if put_code and created:
-                    flash("Record details has been added successfully!", "success")
-                else:
-                    flash("Record details has been updated successfully!", "success")
             else:
                 put_code, orcid, created = api.create_or_update_affiliation(
                     put_code=put_code,
                     affiliation=Affiliation[section_type],
                     **{f.name: f.data
                        for f in form})
-                if put_code and created:
-                    flash("Record details has been added successfully!", "success")
 
                 affiliation, _ = UserOrgAffiliation.get_or_create(
                     user=user,
@@ -2186,6 +2190,10 @@ def edit_record(user_id, section_type, put_code=None):
                 form.populate_obj(affiliation)
 
                 affiliation.save()
+            if put_code and created:
+                flash("Record details has been added successfully!", "success")
+            else:
+                flash("Record details has been updated successfully!", "success")
             return redirect(_url)
 
         except ApiException as e:
