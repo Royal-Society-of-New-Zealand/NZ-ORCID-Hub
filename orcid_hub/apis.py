@@ -183,19 +183,10 @@ class TaskResource(AppResource):
             if task.created_by != current_user:
                 return jsonify({"error": "Access denied."}), 403
         if request.method != "HEAD":
-            task_type = TaskType(task.task_type)
-            if task_type == TaskType.AFFILIATION:
-                resp = jsonify(task.to_dict())
-            # TODO: refactor to_export_dict to to_dict for funding tasks.
-            elif task_type == TaskType.FUNDING:
-                task_dict = task.to_dict(
-                    recurse=False,
-                    to_dashes=True,
-                    exclude=[Task.created_by, Task.updated_by, Task.org, Task.task_type])
-                task_dict["task-type"] = task_type.name
-                task_dict["records"] = [r.to_export_dict() for r in task.records]
-                resp = jsonify(task_dict)
-
+            if task.task_type in [TaskType.AFFILIATION, TaskType.FUNDING, TaskType.WORK]:
+                resp = jsonify(task.to_export_dict())
+            else:
+                raise Exception(f"Suppor for {task} has not yet been implemented.")
         else:
             resp = jsonify({"updated-at": task.updated_at})
         resp.headers["Last-Modified"] = self.httpdate(task.updated_at or task.created_at)
@@ -935,6 +926,11 @@ api.add_resource(FundAPI, "/api/v1.0/funds/<int:task_id>")
 class WorkListAPI(TaskResource):
     """Work list API."""
 
+    def load_from_json(self, task=None):
+        """Load Working records form the JSON upload."""
+        return WorkRecord.load_from_json(
+            request.data.decode("utf-8"), filename=self.filename, task=task)
+
     def post(self, *args, **kwargs):
         """Upload the work task.
 
@@ -1011,11 +1007,6 @@ class WorkListAPI(TaskResource):
 
 class WorkAPI(WorkListAPI):
     """Work task services."""
-
-    def load_from_json(self, task=None):
-        """Load Working records form the JSON upload."""
-        return WorkRecord.load_from_json(
-            request.data.decode("utf-8"), filename=self.filename, task=task)
 
     def get(self, task_id):
         """

@@ -40,11 +40,11 @@ from .forms import (ApplicationFrom, BitmapMultipleValueField, CredentialForm, E
                     PeerReviewForm, ProfileSyncForm, RecordForm, UserInvitationForm, WebhookForm, WorkForm)
 from .login_provider import roles_required
 from .models import (JOIN, Affiliation, AffiliationRecord, CharField, Client, Delegate, ExternalId,
-                     File, FundingContributor, FundingInvitees, FundingRecord, Grant,
+                     File, FundingContributor, FundingInvitee, FundingRecord, Grant,
                      GroupIdRecord, ModelException, OtherNameRecord, OrcidApiCall, OrcidToken, Organisation,
                      OrgInfo, OrgInvitation, PartialDate, PeerReviewExternalId, PeerReviewInvitee, PeerReviewRecord,
                      ResearcherUrlRecord, Role, Task, TaskType, TextField, Token, Url, User, UserInvitation, UserOrg,
-                     UserOrgAffiliation, WorkContributor, WorkExternalId, WorkInvitees, WorkRecord, db, get_val)
+                     UserOrgAffiliation, WorkContributor, WorkExternalId, WorkInvitee, WorkRecord, db, get_val)
 # NB! Should be disabled in production
 from .pyinfo import info
 from .utils import get_next_url, read_uploaded_file, send_user_invitation
@@ -680,13 +680,13 @@ to the best of your knowledge, correct!""")
                                                             self.model.id.in_(ids)).execute()
 
                 if self.model == FundingRecord:
-                    count = FundingInvitees.update(
+                    count = FundingInvitee.update(
                         processed_at=None, status=status).where(
-                            FundingInvitees.funding_record.in_(ids)).execute()
+                            FundingInvitee.funding_record.in_(ids)).execute()
                 elif self.model == WorkRecord:
-                    count = WorkInvitees.update(
+                    count = WorkInvitee.update(
                         processed_at=None, status=status).where(
-                        WorkInvitees.work_record.in_(ids)).execute()
+                        WorkInvitee.work_record.in_(ids)).execute()
                 elif self.model == PeerReviewRecord:
                     count = PeerReviewInvitee.update(
                         processed_at=None, status=status).where(
@@ -799,7 +799,7 @@ class WorkContributorAdmin(ContributorModelAdmin):
     column_exclude_list = ("work_record", )
 
 
-class InviteesModelAdmin(AppModelView):
+class InviteeModelAdmin(AppModelView):
     """Combine Invitees record model view."""
 
     roles_required = Role.SUPERUSER | Role.ADMIN
@@ -826,13 +826,13 @@ class InviteesModelAdmin(AppModelView):
                 status = " The record was reset at " + datetime.utcnow().isoformat(timespec="seconds")
                 count = self.model.update(
                     processed_at=None, status=status).where(self.model.id.in_(ids)).execute()
-                if self.model == FundingInvitees:
+                if self.model == FundingInvitee:
                     funding_record_id = self.model.select().where(
                         self.model.id.in_(ids))[0].funding_record_id
                     FundingRecord.update(
                         processed_at=None, status=status).where(
                             FundingRecord.is_active, FundingRecord.id == funding_record_id).execute()
-                elif self.model == WorkInvitees:
+                elif self.model == WorkInvitee:
                     work_record_id = self.model.select().where(
                         self.model.id.in_(ids))[0].work_record_id
                     WorkRecord.update(
@@ -849,7 +849,7 @@ class InviteesModelAdmin(AppModelView):
                 flash(f"Failed to activate the selected records: {ex}")
                 app.logger.exception("Failed to activate the selected records")
             else:
-                if self.model == FundingInvitees:
+                if self.model == FundingInvitee:
                     flash(f"{count} Funding Invitee records were reset for batch processing.")
                 elif self.model == PeerReviewInvitee:
                     flash(f"{count} Peer Review Invitee records were reset for batch processing.")
@@ -857,21 +857,21 @@ class InviteesModelAdmin(AppModelView):
                     flash(f"{count} Work Invitees records were reset for batch processing.")
 
 
-class WorkInviteesAdmin(InviteesModelAdmin):
+class WorkInviteeAdmin(InviteeModelAdmin):
     """Work invitees record model view."""
 
     list_template = "work_invitees_list.html"
     column_exclude_list = ("work_record", )
 
 
-class FundingInviteesAdmin(InviteesModelAdmin):
+class FundingInviteeAdmin(InviteeModelAdmin):
     """Funding invitees record model view."""
 
     list_template = "funding_invitees_list.html"
     column_exclude_list = ("funding_record", )
 
 
-class PeerReviewInviteeAdmin(InviteesModelAdmin):
+class PeerReviewInviteeAdmin(InviteeModelAdmin):
     """Peer Review invitee record model view."""
 
     list_template = "peer_review_externalid_invitees_list.html"
@@ -958,11 +958,11 @@ class CompositeRecordModelView(RecordModelView):
             if c[0] == "invitees":
                 invitees_list = []
                 if self.model == WorkRecord:
-                    invitees_data = row.work_invitees
+                    invitees_data = row.invitees
                 elif self.model == PeerReviewRecord:
                     invitees_data = row.peer_review_invitee
                 else:
-                    invitees_data = row.funding_invitees
+                    invitees_data = row.invitees
 
                 for f in invitees_data:
                     invitees_rec = {}
@@ -1050,10 +1050,7 @@ class CompositeRecordModelView(RecordModelView):
             elif c[0] == "contributors":
                 contributors_list = []
                 contributors_dict = {}
-                if self.model == WorkRecord:
-                    contributors_data = row.work_contributors
-                else:
-                    contributors_data = row.contributors
+                contributors_data = row.contributors
                 for f in contributors_data:
                     contributor_dict = {}
                     contributor_dict['contributor-attributes'] = {'contributor-role': self.get_export_value(f, 'role')}
@@ -1192,20 +1189,20 @@ class FundingRecordAdmin(CompositeRecordModelView):
             page_size=page_size,
             execute=False)
 
-        sq = (FundingInvitees.select(
-            FundingInvitees.funding_record,
-            FundingInvitees.email,
-            FundingInvitees.orcid,
+        sq = (FundingInvitee.select(
+            FundingInvitee.funding_record,
+            FundingInvitee.email,
+            FundingInvitee.orcid,
             SQL("NULL").alias("name"),
             SQL("NULL").alias("role"),
-            FundingInvitees.identifier,
-            FundingInvitees.first_name,
-            FundingInvitees.last_name,
+            FundingInvitee.identifier,
+            FundingInvitee.first_name,
+            FundingInvitee.last_name,
             SQL("NULL").alias("excluded"),
-            FundingInvitees.put_code,
-            FundingInvitees.visibility,
-            FundingInvitees.status,
-            FundingInvitees.processed_at,
+            FundingInvitee.put_code,
+            FundingInvitee.visibility,
+            FundingInvitee.status,
+            FundingInvitee.processed_at,
         ) | FundingContributor.select(
             FundingContributor.funding_record,
             FundingContributor.email,
@@ -1221,16 +1218,16 @@ class FundingRecordAdmin(CompositeRecordModelView):
             SQL("NULL").alias("status"),
             SQL("NULL").alias("processed_at"),
         ).join(
-            FundingInvitees,
+            FundingInvitee,
             JOIN.LEFT_OUTER,
-            on=((FundingInvitees.funding_record_id == FundingContributor.funding_record_id)
-                & ((FundingInvitees.email == FundingContributor.email)
-                   | (FundingInvitees.orcid == FundingContributor.orcid)))).join(
+            on=((FundingInvitee.funding_record_id == FundingContributor.funding_record_id)
+                & ((FundingInvitee.email == FundingContributor.email)
+                   | (FundingInvitee.orcid == FundingContributor.orcid)))).join(
                        User,
                        JOIN.LEFT_OUTER,
                        on=((User.email == FundingContributor.email)
                            | (User.orcid == FundingContributor.orcid))).where(
-                               (User.id.is_null() | FundingInvitees.id.is_null()))).alias("sq")
+                               (User.id.is_null() | FundingInvitee.id.is_null()))).alias("sq")
 
         return count, query.select(
             FundingRecord,
@@ -1303,20 +1300,20 @@ class WorkRecordAdmin(CompositeRecordModelView):
             page_size=page_size,
             execute=False)
 
-        sq = (WorkInvitees.select(
-            WorkInvitees.work_record,
-            WorkInvitees.email,
-            WorkInvitees.orcid,
+        sq = (WorkInvitee.select(
+            WorkInvitee.work_record,
+            WorkInvitee.email,
+            WorkInvitee.orcid,
             SQL("NULL").alias("name"),
             SQL("NULL").alias("role"),
-            WorkInvitees.identifier,
-            WorkInvitees.first_name,
-            WorkInvitees.last_name,
+            WorkInvitee.identifier,
+            WorkInvitee.first_name,
+            WorkInvitee.last_name,
             SQL("NULL").alias("excluded"),
-            WorkInvitees.put_code,
-            WorkInvitees.visibility,
-            WorkInvitees.status,
-            WorkInvitees.processed_at,
+            WorkInvitee.put_code,
+            WorkInvitee.visibility,
+            WorkInvitee.status,
+            WorkInvitee.processed_at,
         ) | WorkContributor.select(
             WorkContributor.work_record,
             WorkContributor.email,
@@ -1332,16 +1329,16 @@ class WorkRecordAdmin(CompositeRecordModelView):
             SQL("NULL").alias("status"),
             SQL("NULL").alias("processed_at"),
         ).join(
-            WorkInvitees,
+            WorkInvitee,
             JOIN.LEFT_OUTER,
-            on=((WorkInvitees.work_record_id == WorkContributor.work_record_id)
-                & ((WorkInvitees.email == WorkContributor.email)
-                   | (WorkInvitees.orcid == WorkContributor.orcid)))).join(
+            on=((WorkInvitee.work_record_id == WorkContributor.work_record_id)
+                & ((WorkInvitee.email == WorkContributor.email)
+                   | (WorkInvitee.orcid == WorkContributor.orcid)))).join(
                        User,
                        JOIN.LEFT_OUTER,
                        on=((User.email == WorkContributor.email)
                            | (User.orcid == WorkContributor.orcid))).where(
-                               (User.id.is_null() | WorkInvitees.id.is_null()))).alias("sq")
+                               (User.id.is_null() | WorkInvitee.id.is_null()))).alias("sq")
 
         return count, query.select(
             WorkRecord,
@@ -1721,11 +1718,11 @@ admin.add_view(TaskAdmin(Task))
 admin.add_view(AffiliationRecordAdmin())
 admin.add_view(FundingRecordAdmin())
 admin.add_view(FundingContributorAdmin())
-admin.add_view(FundingInviteesAdmin())
+admin.add_view(FundingInviteeAdmin())
 admin.add_view(ExternalIdAdmin())
 admin.add_view(WorkContributorAdmin())
 admin.add_view(WorkExternalIdAdmin())
-admin.add_view(WorkInviteesAdmin())
+admin.add_view(WorkInviteeAdmin())
 admin.add_view(WorkRecordAdmin())
 admin.add_view(PeerReviewRecordAdmin())
 admin.add_view(PeerReviewInviteeAdmin())
@@ -1834,9 +1831,9 @@ def reset_all():
                     funding_record.processed_at = None
                     funding_record.status = status
 
-                    FundingInvitees.update(
+                    FundingInvitee.update(
                         processed_at=None, status=status).where(
-                        FundingInvitees.funding_record == funding_record.id).execute()
+                        FundingInvitee.funding_record == funding_record.id).execute()
                     funding_record.save()
                     count = count + 1
 
@@ -1846,9 +1843,9 @@ def reset_all():
                     work_record.processed_at = None
                     work_record.status = status
 
-                    WorkInvitees.update(
+                    WorkInvitee.update(
                         processed_at=None, status=status).where(
-                        WorkInvitees.work_record == work_record.id).execute()
+                        WorkInvitee.work_record == work_record.id).execute()
                     work_record.save()
                     count = count + 1
             elif tt == TaskType.PEER_REVIEW:
