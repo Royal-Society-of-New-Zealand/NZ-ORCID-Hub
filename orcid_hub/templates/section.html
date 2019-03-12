@@ -5,22 +5,34 @@
 			<thead>
 				<tr class="info">
 					<th class="col-md-1">&nbsp;</th>
-          {% if section_type == "EDU" %}
-            <th class="column-header">Institution</th>
+          {% if section_type in ["RUR", "ONR"] %}
+            <th class="column-header">Record Source</th>
+            {% if section_type == "RUR" %}
+              <th class="column-header">Url Name</th>
+              <th class="column-header">Url Value</th>
+            {% else %}
+              <th class="column-header">Content</th>
+            {% endif %}
+            <th class="column-header">Display Index</th>
+            <th class="column-header">Visibility</th>
           {% else %}
-            <th class="column-header">Institution/employer</th>
+            {% if section_type == "EDU" %}
+              <th class="column-header">Institution</th>
+            {% else %}
+              <th class="column-header">Institution/employer</th>
+            {% endif %}
+            <th class="column-header">City</th>
+            <th class="column-header">State/region</th>
+            <th class="column-header">Country</th>
+            <th class="column-header">Department</th>
+            {% if section_type == "EDU" %}
+              <th class="column-header">Degree</th>
+            {% else %}
+              <th class="column-header">Role</th>
+            {% endif %}
+            <th class="column-header"></th>
           {% endif %}
-					<th class="column-header">City</th>
-					<th class="column-header">State/region</th>
-					<th class="column-header">Country</th>
-					<th class="column-header">Department</th>
-          {% if section_type == "EDU" %}
-            <th class="column-header">Degree</th>
-          {% else %}
-            <th class="column-header">Role</th>
-          {% endif %}
-					<th class="column-header"></th>
-					<th class="column-header">Put-code</th>
+          <th class="column-header">Put-code</th>
 				</tr>
 			</thead>
 
@@ -55,19 +67,30 @@
               {% else %}
                 <td class="list-buttons-column"></td>
               {% endif %}
-
-              <td>
-                {{r.get("organization", "name")|default("", True)}}<br/>
-                <span class="small">
-                  Source: {{r.get("source", "source-name", "value")|default("", True)}}
-                </span>
-              </td>
-              <td>{{r.get("organization", "address", "city")|default("", True)}}</td>
-              <td>{{r.get("organization", "address", "region")|default("", True)}}</td>
-              <td>{{r.get("organization", "address", "country")|default("", True)}}</td>
-              <td>{{r.get("department-name")|default("", True)}}</td>
-              <td>{{r.get("role-title")|default("", True)}}</td>
-              <td>{{r|year_range}}</td>
+              {% if section_type in ["RUR", "ONR"] %}
+                <td>{{r.get("source", "source-name", "value")|default("", True)}}</td>
+                {% if section_type == "RUR" %}
+                  <td>{{r.get("url-name")|default("", True)}}</td>
+                  <td>{{r.get("url", "value")|default("", True)}}</td>
+                {% else %}
+                  <td>{{r.get("content")|default("", True)}}</td>
+                {% endif %}
+                <td>{{r.get("display-index")}}</td>
+                <td>{{r.get("visibility")|default("", True)}}</td>
+              {% else %}
+                <td>
+                  {{r.get("organization", "name")|default("", True)}}<br/>
+                  <span class="small">
+                    Source: {{r.get("source", "source-name", "value")|default("", True)}}
+                  </span>
+                </td>
+                <td>{{r.get("organization", "address", "city")|default("", True)}}</td>
+                <td>{{r.get("organization", "address", "region")|default("", True)}}</td>
+                <td>{{r.get("organization", "address", "country")|default("", True)}}</td>
+                <td>{{r.get("department-name")|default("", True)}}</td>
+                <td>{{r.get("role-title")|default("", True)}}</td>
+                <td>{{r|year_range}}</td>
+              {% endif %}
               <td>{{r.get("put-code")|default("", True)}}</td>
             </tr>
           {% endfor %}
