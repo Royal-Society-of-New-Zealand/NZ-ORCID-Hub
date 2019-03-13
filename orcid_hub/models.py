@@ -1205,7 +1205,7 @@ class Task(BaseModel, AuditMixin):
 
         return task
 
-    def to_dict(self, to_dashes=True, recurse=False, exclude=None, include_records=False):
+    def to_dict(self, to_dashes=True, recurse=False, exclude=None, include_records=True):
         """Create a dict represenatation of the task suitable for serialization into JSON or YAML."""
         # TODO: expand for the othe types of the tasks
         task_dict = super().to_dict(
@@ -1226,11 +1226,12 @@ class Task(BaseModel, AuditMixin):
     def to_export_dict(self):
         """Create a dictionary representation for export."""
         if self.task_type == TaskType.AFFILIATION:
-            task_dict = self.to_dict(include_records=True)
+            task_dict = self.to_dict()
         else:
             task_dict = self.to_dict(
                 recurse=False,
                 to_dashes=True,
+                include_records=False,
                 exclude=[Task.created_by, Task.updated_by, Task.org, Task.task_type])
             task_dict["task-type"] = self.task_type.name
             task_dict["records"] = [r.to_export_dict() for r in self.records]

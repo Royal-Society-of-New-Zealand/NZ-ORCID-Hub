@@ -279,6 +279,36 @@ class TaskResource(AppResource):
 
         return self.jsonify_task(task)
 
+    def head(self, task_id):
+        """Handle HEAD request.
+
+        ---
+        tags:
+        - "affiliations"
+        - "works"
+        - "funds"
+        summary: "Return task update time-stamp."
+        description: "Return record processing task update time-stamp."
+        parameters:
+          - name: "task_id"
+            in: "path"
+            description: "Task ID."
+            required: true
+            type: "integer"
+        produces:
+          - "application/json"
+        responses:
+          200:
+            description: "Successful operation"
+          401:
+            $ref: "#/responses/Unauthorized"
+          403:
+            $ref: "#/responses/AccessDenied"
+          404:
+            $ref: "#/responses/NotFound"
+        """
+        return self.jsonify_task(task_id)
+
 
 class TaskList(TaskResource, AppResourceList):
     """Task list services."""
@@ -673,34 +703,6 @@ class AffiliationAPI(TaskResource):
         """
         return self.delete_task(task_id)
 
-    def head(self, task_id):
-        """Handle HEAD request.
-
-        ---
-        tags:
-          - "affiliations"
-        summary: "Return task update time-stamp."
-        description: "Return task update time-stamp."
-        parameters:
-          - name: "task_id"
-            in: "path"
-            description: "Affiliation task ID."
-            required: true
-            type: "integer"
-        produces:
-          - "application/json"
-        responses:
-          200:
-            description: "Successful operation"
-          401:
-            $ref: "#/responses/Unauthorized"
-          403:
-            $ref: "#/responses/AccessDenied"
-          404:
-            $ref: "#/responses/NotFound"
-        """
-        return self.jsonify_task(task_id)
-
 
 api.add_resource(TaskList, "/api/v1.0/tasks")
 api.add_resource(AffiliationListAPI, "/api/v1.0/affiliations")
@@ -890,34 +892,6 @@ class FundAPI(FundListAPI):
         """
         return self.delete_task(task_id)
 
-    def head(self, task_id):
-        """Handle HEAD request.
-
-        ---
-        tags:
-          - "funds"
-        summary: "Return task update time-stamp."
-        description: "Return task update time-stamp."
-        parameters:
-          - name: "task_id"
-            in: "path"
-            description: "Fund task ID."
-            required: true
-            type: "integer"
-        produces:
-          - "application/json"
-        responses:
-          200:
-            description: "Successful operation"
-          401:
-            $ref: "#/responses/Unauthorized"
-          403:
-            $ref: "#/responses/AccessDenied"
-          404:
-            $ref: "#/responses/NotFound"
-        """
-        return self.jsonify_task(task_id)
-
 
 api.add_resource(FundListAPI, "/api/v1.0/funds")
 api.add_resource(FundAPI, "/api/v1.0/funds/<int:task_id>")
@@ -932,13 +906,13 @@ class WorkListAPI(TaskResource):
             request.data.decode("utf-8"), filename=self.filename, task=task)
 
     def post(self, *args, **kwargs):
-        """Upload the work task.
+        """Upload the work record processing task.
 
         ---
         tags:
           - "works"
         summary: "Post the work list task."
-        description: "Post the work list task."
+        description: "Post the work record processing task."
         consumes:
         - application/json
         - text/csv
@@ -1006,17 +980,17 @@ class WorkListAPI(TaskResource):
 
 
 class WorkAPI(WorkListAPI):
-    """Work task services."""
+    """Work record processing task services."""
 
     def get(self, task_id):
         """
-        Retrieve the specified work task.
+        Retrieve the specified work record processing task.
 
         ---
         tags:
           - "works"
         summary: "Retrieve the specified work task."
-        description: "Retrieve the specified work task."
+        description: "Retrieve the specified work record processing task."
         produces:
           - "application/json"
         parameters:
@@ -1040,13 +1014,13 @@ class WorkAPI(WorkListAPI):
         return self.jsonify_task(task_id)
 
     def post(self, task_id):
-        """Upload the task and completely override the work task.
+        """Upload the task and completely override the work record processing task.
 
         ---
         tags:
           - "works"
         summary: "Update the work task."
-        description: "Update the work task."
+        description: "Update the work record processing task."
         consumes:
           - application/json
           - text/yaml
@@ -1085,7 +1059,7 @@ class WorkAPI(WorkListAPI):
         tags:
           - "works"
         summary: "Delete the specified work task."
-        description: "Delete the specified work task."
+        description: "Delete the specified work record processing task."
         parameters:
           - name: "task_id"
             in: "path"
@@ -1105,34 +1079,6 @@ class WorkAPI(WorkListAPI):
             $ref: "#/responses/NotFound"
         """
         return self.delete_task(task_id)
-
-    def head(self, task_id):
-        """Handle HEAD request.
-
-        ---
-        tags:
-          - "works"
-        summary: "Return task update time-stamp."
-        description: "Return task update time-stamp."
-        parameters:
-          - name: "task_id"
-            in: "path"
-            description: "Work task ID."
-            required: true
-            type: "integer"
-        produces:
-          - "application/json"
-        responses:
-          200:
-            description: "Successful operation"
-          401:
-            $ref: "#/responses/Unauthorized"
-          403:
-            $ref: "#/responses/AccessDenied"
-          404:
-            $ref: "#/responses/NotFound"
-        """
-        return self.jsonify_task(task_id)
 
 
 api.add_resource(WorkListAPI, "/api/v1.0/works")
