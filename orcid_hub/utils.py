@@ -28,10 +28,11 @@ from yaml.dumper import Dumper
 from yaml.representer import SafeRepresenter
 
 from . import app, orcid_client, rq
-from .models import (AFFILIATION_TYPES, Affiliation, AffiliationRecord, Delegate, FundingInvitees,
-                     FundingRecord, Log, OtherNameRecord, OrcidToken, Organisation, OrgInvitation, PartialDate,
-                     PeerReviewExternalId, PeerReviewInvitee, PeerReviewRecord, ResearcherUrlRecord, Role, Task,
-                     TaskType, User, UserInvitation, UserOrg, WorkInvitees, WorkRecord, get_val)
+from .models import (AFFILIATION_TYPES, Affiliation, AffiliationRecord, Delegate, FundingInvitee,
+                     FundingRecord, Log, OtherNameRecord, OrcidToken, Organisation, OrgInvitation,
+                     PartialDate, PeerReviewExternalId, PeerReviewInvitee, PeerReviewRecord,
+                     ResearcherUrlRecord, Role, Task, TaskType, User, UserInvitation, UserOrg,
+                     WorkInvitee, WorkRecord, get_val)
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -1121,19 +1122,19 @@ def process_work_records(max_rows=20):
     """This query is to retrieve Tasks associated with work records, which are not processed but are active"""
 
     tasks = (Task.select(
-        Task, WorkRecord, WorkInvitees, User,
+        Task, WorkRecord, WorkInvitee, User,
         UserInvitation.id.alias("invitation_id"), OrcidToken).where(
-            WorkRecord.processed_at.is_null(), WorkInvitees.processed_at.is_null(),
+            WorkRecord.processed_at.is_null(), WorkInvitee.processed_at.is_null(),
             WorkRecord.is_active,
             (OrcidToken.id.is_null(False)
-             | ((WorkInvitees.status.is_null())
-                | (WorkInvitees.status.contains("sent").__invert__())))).join(
+             | ((WorkInvitee.status.is_null())
+                | (WorkInvitee.status.contains("sent").__invert__())))).join(
                     WorkRecord, on=(Task.id == WorkRecord.task_id)).join(
-                        WorkInvitees, on=(WorkRecord.id == WorkInvitees.work_record_id)).join(
+                        WorkInvitee, on=(WorkRecord.id == WorkInvitee.work_record_id)).join(
                             User,
                             JOIN.LEFT_OUTER,
-                            on=((User.email == WorkInvitees.email)
-                                | ((User.orcid == WorkInvitees.orcid)
+                            on=((User.email == WorkInvitee.email)
+                                | ((User.orcid == WorkInvitee.orcid)
                                    & (User.organisation_id == Task.org_id)))).join(
                                        Organisation,
                                        JOIN.LEFT_OUTER,
@@ -1144,7 +1145,7 @@ def process_work_records(max_rows=20):
                                                & (UserOrg.org_id == Organisation.id))).join(
                                                    UserInvitation,
                                                    JOIN.LEFT_OUTER,
-                                                   on=((UserInvitation.email == WorkInvitees.email)
+                                                   on=((UserInvitation.email == WorkInvitee.email)
                                                        & (UserInvitation.task_id == Task.id))).
              join(
                  OrcidToken,
@@ -1179,8 +1180,8 @@ def process_work_records(max_rows=20):
                     timespec="seconds")
                 try:
                     # For researcher invitation the expiry is 30 days, if it is reset then it is 2 weeks.
-                    if WorkInvitees.select().where(WorkInvitees.email == email, WorkInvitees.status
-                                                   ** "%reset%").count() != 0:
+                    if WorkInvitee.select().where(
+                            WorkInvitee.email == email, WorkInvitee.status ** "%reset%").count() != 0:
                         token_expiry_in_sec = 1300000
                     send_work_funding_peer_review_invitation(
                         *k,
@@ -1188,16 +1189,16 @@ def process_work_records(max_rows=20):
                         token_expiry_in_sec=token_expiry_in_sec,
                         invitation_template="email/work_invitation.html")
 
-                    (WorkInvitees.update(status=WorkInvitees.status + "\n" + status).where(
-                        WorkInvitees.status.is_null(False), WorkInvitees.email == email).execute())
-                    (WorkInvitees.update(status=status).where(
-                        WorkInvitees.status.is_null(), WorkInvitees.email == email).execute())
+                    (WorkInvitee.update(status=WorkInvitee.status + "\n" + status).where(
+                        WorkInvitee.status.is_null(False), WorkInvitee.email == email).execute())
+                    (WorkInvitee.update(status=status).where(
+                        WorkInvitee.status.is_null(), WorkInvitee.email == email).execute())
                 except Exception as ex:
-                    (WorkInvitees.update(
+                    (WorkInvitee.update(
                         processed_at=datetime.utcnow(),
                         status=f"Failed to send an invitation: {ex}.").where(
-                            WorkInvitees.email == email,
-                            WorkInvitees.processed_at.is_null())).execute()
+                            WorkInvitee.email == email,
+                            WorkInvitee.processed_at.is_null())).execute()
         else:
             create_or_update_work(user, org_id, tasks_by_user)
         task_ids.add(task_id)
@@ -1205,9 +1206,9 @@ def process_work_records(max_rows=20):
 
     for work_record in WorkRecord.select().where(WorkRecord.id << work_ids):
         # The Work record is processed for all invitees
-        if not (WorkInvitees.select().where(
-                WorkInvitees.work_record_id == work_record.id,
-                WorkInvitees.processed_at.is_null()).exists()):
+        if not (WorkInvitee.select().where(
+                WorkInvitee.work_record_id == work_record.id,
+                WorkInvitee.processed_at.is_null()).exists()):
             work_record.processed_at = datetime.utcnow()
             if not work_record.status or "error" not in work_record.status:
                 work_record.add_status_line("Work record is processed.")
@@ -1377,20 +1378,20 @@ def process_funding_records(max_rows=20):
     funding_ids = set()
     """This query is to retrieve Tasks associated with funding records, which are not processed but are active"""
     tasks = (Task.select(
-        Task, FundingRecord, FundingInvitees, User,
+        Task, FundingRecord, FundingInvitee, User,
         UserInvitation.id.alias("invitation_id"), OrcidToken).where(
-            FundingRecord.processed_at.is_null(), FundingInvitees.processed_at.is_null(),
+            FundingRecord.processed_at.is_null(), FundingInvitee.processed_at.is_null(),
             FundingRecord.is_active,
             (OrcidToken.id.is_null(False)
-             | ((FundingInvitees.status.is_null())
-                | (FundingInvitees.status.contains("sent").__invert__())))).join(
+             | ((FundingInvitee.status.is_null())
+                | (FundingInvitee.status.contains("sent").__invert__())))).join(
                     FundingRecord, on=(Task.id == FundingRecord.task_id)).join(
-                        FundingInvitees,
-                        on=(FundingRecord.id == FundingInvitees.funding_record_id)).join(
+                        FundingInvitee,
+                        on=(FundingRecord.id == FundingInvitee.funding_record_id)).join(
                             User,
                             JOIN.LEFT_OUTER,
-                            on=((User.email == FundingInvitees.email)
-                                | ((User.orcid == FundingInvitees.orcid)
+                            on=((User.email == FundingInvitee.email)
+                                | ((User.orcid == FundingInvitee.orcid)
                                    & (User.organisation_id == Task.org_id)))).join(
                                        Organisation,
                                        JOIN.LEFT_OUTER,
@@ -1402,7 +1403,7 @@ def process_funding_records(max_rows=20):
              join(
                  UserInvitation,
                  JOIN.LEFT_OUTER,
-                 on=((UserInvitation.email == FundingInvitees.email)
+                 on=((UserInvitation.email == FundingInvitee.email)
                      & (UserInvitation.task_id == Task.id))).join(
                          OrcidToken,
                          JOIN.LEFT_OUTER,
@@ -1434,9 +1435,9 @@ def process_funding_records(max_rows=20):
                 status = "The invitation sent at " + datetime.utcnow().isoformat(
                     timespec="seconds")
                 try:
-                    if FundingInvitees.select().where(FundingInvitees.email == email,
-                                                      FundingInvitees.status
-                                                      ** "%reset%").count() != 0:
+                    if FundingInvitee.select().where(
+                            FundingInvitee.email == email,
+                            FundingInvitee.status ** "%reset%").count() != 0:
                         token_expiry_in_sec = 1300000
                     send_work_funding_peer_review_invitation(
                         *k,
@@ -1444,18 +1445,18 @@ def process_funding_records(max_rows=20):
                         token_expiry_in_sec=token_expiry_in_sec,
                         invitation_template="email/funding_invitation.html")
 
-                    (FundingInvitees.update(status=FundingInvitees.status + "\n" + status).where(
-                        FundingInvitees.status.is_null(False),
-                        FundingInvitees.email == email).execute())
-                    (FundingInvitees.update(status=status).where(
-                        FundingInvitees.status.is_null(),
-                        FundingInvitees.email == email).execute())
+                    (FundingInvitee.update(status=FundingInvitee.status + "\n" + status).where(
+                        FundingInvitee.status.is_null(False),
+                        FundingInvitee.email == email).execute())
+                    (FundingInvitee.update(status=status).where(
+                        FundingInvitee.status.is_null(),
+                        FundingInvitee.email == email).execute())
                 except Exception as ex:
-                    (FundingInvitees.update(
+                    (FundingInvitee.update(
                         processed_at=datetime.utcnow(),
                         status=f"Failed to send an invitation: {ex}.").where(
-                            FundingInvitees.email == email,
-                            FundingInvitees.processed_at.is_null())).execute()
+                            FundingInvitee.email == email,
+                            FundingInvitee.processed_at.is_null())).execute()
         else:
             create_or_update_funding(user, org_id, tasks_by_user)
         task_ids.add(task_id)
@@ -1463,9 +1464,9 @@ def process_funding_records(max_rows=20):
 
     for funding_record in FundingRecord.select().where(FundingRecord.id << funding_ids):
         # The funding record is processed for all invitees
-        if not (FundingInvitees.select().where(
-                FundingInvitees.funding_record_id == funding_record.id,
-                FundingInvitees.processed_at.is_null()).exists()):
+        if not (FundingInvitee.select().where(
+                FundingInvitee.funding_record_id == funding_record.id,
+                FundingInvitee.processed_at.is_null()).exists()):
             funding_record.processed_at = datetime.utcnow()
             if not funding_record.status or "error" not in funding_record.status:
                 funding_record.add_status_line("Funding record is processed.")
@@ -1861,13 +1862,13 @@ def process_tasks(max_rows=20):
                 total_count = total_count + funding_record.funding_invitees.select().distinct().count()
 
                 current_count = current_count + funding_record.funding_invitees.select().where(
-                    FundingInvitees.processed_at.is_null(False)).distinct().count()
+                    FundingInvitee.processed_at.is_null(False)).distinct().count()
         elif task_type == TaskType.WORK:
             for work_record in current_task.work_records.select():
                 total_count = total_count + work_record.work_invitees.select().distinct().count()
 
                 current_count = current_count + work_record.work_invitees.select().where(
-                    WorkInvitees.processed_at.is_null(False)).distinct().count()
+                    WorkInvitee.processed_at.is_null(False)).distinct().count()
         elif task_type == TaskType.PEER_REVIEW:
             for peer_review_record in current_task.peer_review_records.select():
                 total_count = total_count + peer_review_record.peer_review_invitee.select().distinct().count()
