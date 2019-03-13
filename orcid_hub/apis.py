@@ -188,7 +188,7 @@ class TaskResource(AppResource):
             else:
                 raise Exception(f"Suppor for {task} has not yet been implemented.")
         else:
-            resp = jsonify({"updated-at": task.updated_at})
+            resp = Response()
         resp.headers["Last-Modified"] = self.httpdate(task.updated_at or task.created_at)
         return resp
 
@@ -285,8 +285,8 @@ class TaskResource(AppResource):
         ---
         tags:
         - "affiliations"
-        - "works"
         - "funds"
+        - "works"
         summary: "Return task update time-stamp."
         description: "Return record processing task update time-stamp."
         parameters:
