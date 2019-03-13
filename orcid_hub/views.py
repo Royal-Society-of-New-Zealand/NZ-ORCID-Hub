@@ -1904,7 +1904,7 @@ def delete_record(user_id, section_type, put_code):
         return redirect(_url)
 
     orcid_token = None
-    if section_type in ["RUR", "ONR"]:
+    if section_type in ["RUR", "ONR", "KWR"]:
         orcid_token = OrcidToken.select(OrcidToken.access_token).where(OrcidToken.user_id == user.id,
                                                                        OrcidToken.org_id == user.organisation_id,
                                                                        OrcidToken.scope.contains(
@@ -1937,6 +1937,8 @@ def delete_record(user_id, section_type, put_code):
             api_instance.delete_researcher_url(user.orcid, put_code)
         elif section_type == "ONR":
             api_instance.delete_other_name(user.orcid, put_code)
+        elif section_type == "KWR":
+            api_instance.delete_keyword(user.orcid, put_code)
         else:
             api_instance.delete_education(user.orcid, put_code)
         app.logger.info(f"For {user.orcid} '{section_type}' record was deleted by {current_user}")
