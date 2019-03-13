@@ -36,8 +36,9 @@ from orcid_api.rest import ApiException
 from . import admin, app, limiter, models, orcid_client, rq, utils, SENTRY_DSN
 from .apis import yamlfy
 from .forms import (ApplicationFrom, BitmapMultipleValueField, CredentialForm, EmailTemplateForm,
-                    FileUploadForm, FundingForm, GroupIdForm, LogoForm, OrgRegistrationForm, PartialDateField,
-                    PeerReviewForm, ProfileSyncForm, RecordForm, UserInvitationForm, WebhookForm, WorkForm)
+                    FileUploadForm, FundingForm, GroupIdForm, LogoForm, OtherNameForm, OrgRegistrationForm,
+                    PartialDateField, PeerReviewForm, ProfileSyncForm, RecordForm, ResearcherUrlForm,
+                    UserInvitationForm, WebhookForm, WorkForm)
 from .login_provider import roles_required
 from .models import (JOIN, Affiliation, AffiliationRecord, CharField, Client, Delegate, ExternalId,
                      File, FundingContributor, FundingInvitees, FundingRecord, Grant,
@@ -1903,17 +1904,24 @@ def delete_record(user_id, section_type, put_code):
         return redirect(_url)
 
     orcid_token = None
-    try:
-        orcid_token = OrcidToken.get(
-            user=user,
-            org=user.organisation,
-            scope=orcid_client.READ_LIMITED + "," + orcid_client.ACTIVITIES_UPDATE)
-    except Exception:
-        flash("The user hasn't authorized you to delete records", "warning")
-        return redirect(_url)
+    if section_type in ["RUR", "ONR"]:
+        orcid_token = OrcidToken.select(OrcidToken.access_token).where(OrcidToken.user_id == user.id,
+                                                                       OrcidToken.org_id == user.organisation_id,
+                                                                       OrcidToken.scope.contains(
+                                                                           orcid_client.PERSON_UPDATE)).first()
+        if not orcid_token:
+            flash("The user hasn't given 'PERSON/UPDATE' permission to delete this record", "warning")
+            return redirect(_url)
+    else:
+        orcid_token = OrcidToken.select(OrcidToken.access_token).where(OrcidToken.user_id == user.id,
+                                                                       OrcidToken.org_id == user.organisation_id,
+                                                                       OrcidToken.scope.contains(
+                                                                           orcid_client.ACTIVITIES_UPDATE)).first()
+        if not orcid_token:
+            flash("The user hasn't given 'ACTIVITIES/UPDATE' permission to delete this record", "warning")
+            return redirect(_url)
 
-    orcid_client.configuration.access_token = orcid_token.access_token
-    api_instance = orcid_client.MemberAPIV20Api()
+    api_instance = orcid_client.MemberAPI(user=user, access_token=orcid_token.access_token)
 
     try:
         # Delete an Employment
@@ -1925,6 +1933,10 @@ def delete_record(user_id, section_type, put_code):
             api_instance.delete_peer_review(user.orcid, put_code)
         elif section_type == "WOR":
             api_instance.delete_work(user.orcid, put_code)
+        elif section_type == "RUR":
+            api_instance.delete_researcher_url(user.orcid, put_code)
+        elif section_type == "ONR":
+            api_instance.delete_other_name(user.orcid, put_code)
         else:
             api_instance.delete_education(user.orcid, put_code)
         app.logger.info(f"For {user.orcid} '{section_type}' record was deleted by {current_user}")
@@ -1986,6 +1998,10 @@ def edit_record(user_id, section_type, put_code=None):
         form = PeerReviewForm(form_type=section_type)
     elif section_type == "WOR":
         form = WorkForm(form_type=section_type)
+    elif section_type == "RUR":
+        form = ResearcherUrlForm(form_type=section_type)
+    elif section_type == "ONR":
+        form = OtherNameForm(form_type=section_type)
     else:
         form = RecordForm(form_type=section_type)
 
@@ -2005,8 +2021,15 @@ def edit_record(user_id, section_type, put_code=None):
                     api_response = api.view_work(user.orcid, put_code)
                 elif section_type == "PRR":
                     api_response = api.view_peer_review(user.orcid, put_code)
+                elif section_type == "RUR":
+                    api_response = api.view_researcher_url(user.orcid, put_code, _preload_content=False)
+                elif section_type == "ONR":
+                    api_response = api.view_other_name(user.orcid, put_code, _preload_content=False)
 
-                _data = api_response.to_dict()
+                if section_type in ["RUR", "ONR"]:
+                    _data = json.loads(api_response.data, object_pairs_hook=NestedDict)
+                else:
+                    _data = api_response.to_dict()
 
                 if section_type == "PRR" or section_type == "WOR":
 
@@ -2080,7 +2103,12 @@ def edit_record(user_id, section_type, put_code=None):
                                                                            "language-code"),
                             subject_url=get_val(_data, "subject_url", "value"),
                             review_completion_date=PartialDate.create(_data.get("review_completion_date")))
-
+                elif section_type in ["RUR", "ONR"]:
+                    data = dict(visibility=_data.get("visibility"), display_index=_data.get("display-index"))
+                    if section_type == "RUR":
+                        data.update(dict(url_name=_data.get("url-name"), url_value=_data.get("url", "value")))
+                    else:
+                        data.update(dict(content=_data.get("content")))
                 else:
                     data = dict(
                         org_name=get_val(_data, "organization", "name"),
@@ -2172,6 +2200,16 @@ def edit_record(user_id, section_type, put_code=None):
                         grant_data_list=grant_data_list,
                         **{f.name: f.data
                            for f in form})
+            elif section_type == "RUR":
+                put_code, orcid, created = api.create_or_update_researcher_url(
+                    put_code=put_code,
+                    **{f.name: f.data
+                       for f in form})
+            elif section_type == "ONR":
+                put_code, orcid, created = api.create_or_update_other_name(
+                    put_code=put_code,
+                    **{f.name: f.data
+                       for f in form})
             else:
                 put_code, orcid, created = api.create_or_update_affiliation(
                     put_code=put_code,

@@ -61,24 +61,30 @@
 <div class="row">
   <div class="col-md-9 col-sm-8 col-xs-12">
     <h1>{{tile or ("Education" if section_type == "EDU" else "Funding" if section_type == "FUN" else "Peer Review" if
-      section_type == "PRR" else "Work" if section_type == "WOR" else "Employment")}}</h1>
+      section_type == "PRR" else "Work" if section_type == "WOR" else "Researcher Url" if section_type == "RUR" else
+      "Other Name" if section_type == "ONR" else "Employment")}}</h1>
   </div>
 </div>
     <div class="row" ng-app="MyApp" ng-controller="MyController">
       <div class="col-md-6 col-sm-6 col-xs-12">
-        {% if section_type == "WOR" %}
-          {{ render_field(form.work_type) }}
-          {{ render_field(form.title) }}
-          {{ render_field(form.subtitle) }}
-          {{ render_field(form.translated_title) }}
-          {{ render_field(form.translated_title_language_code) }}
+        {% if section_type in ["RUR", "ONR"] %}
+          {{ render_field(form.display_index) }}
+          {{ render_field(form.visibility) }}
         {% else %}
-          {{ render_field(form.org_name) }}
-          {{ render_field(form.city) }}
-          {{ render_field(form.state) }}
-          {{ render_field(form.disambiguated_id) }}
+          {% if section_type == "WOR" %}
+            {{ render_field(form.work_type) }}
+            {{ render_field(form.title) }}
+            {{ render_field(form.subtitle) }}
+            {{ render_field(form.translated_title) }}
+            {{ render_field(form.translated_title_language_code) }}
+          {% else %}
+            {{ render_field(form.org_name) }}
+            {{ render_field(form.city) }}
+            {{ render_field(form.state) }}
+            {{ render_field(form.disambiguated_id) }}
+          {% endif %}
+          {{ render_field(form.country) }}
         {% endif %}
-        {{ render_field(form.country) }}
         {% if section_type == "FUN" or section_type == "PRR" or section_type == "WOR"%}
         <input type="button" class="btn btn-danger" ng-click="Add()"
                value="External Identifier Info (Atleast add one info)"/><br>
@@ -132,6 +138,11 @@
           {{ render_field(form.subject_url) }}
           {{ render_field(form.review_completion_date) }}
           {{ render_field(form.disambiguation_source) }}
+        {% elif section_type == "RUR" %}
+          {{ render_field(form.url_name) }}
+          {{ render_field(form.url_value) }}
+        {% elif section_type == "ONR" %}
+          {{ render_field(form.content) }}
         {% else %}
           {% if section_type == "FUN" %}
             {{ render_field(form.funding_title) }}
