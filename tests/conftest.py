@@ -72,7 +72,7 @@ class HubClient(FlaskClient):
     resp_no = 0
     def login(self, user, affiliations=None, follow_redirects=False, **kwargs):
         """Log in with the given user."""
-        org = user.organisation
+        org = user.organisation or user.organisations.first()
         if affiliations is None:
             uo = user.userorg_set.where(UserOrg.org == org).first()
             if uo and uo.affiliations:

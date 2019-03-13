@@ -249,61 +249,64 @@ def test_pyinfo(client):
     assert str(exinfo.value) == "expected an exception"
 
 
-def test_access(request_ctx):
+def test_access(client):
     """Test access to differente resources."""
-    test_superuser = User.create(
-        name="TEST SUPERUSER",
-        email="super@test.test.net",
+    org = client.data["org"]
+    user = client.data["user"]
+    tech_contact = client.data["tech_contact"]
+    root = User.select().where(User.email ** "root%").first()
+    admin = User.create(
+        name="ADMIN USER",
+        email="admin123456789@test.test.net",
         confirmed=True,
-        roles=Role.SUPERUSER)
-    test_user = User.create(
-        name="TEST SUPERUSER",
-        email="user123456789@test.test.net",
-        confirmed=True,
-        roles=Role.RESEARCHER)
+        roles=Role.ADMIN)
+    UserOrg.create(user=admin, org=org, is_admin=True)
 
-    with request_ctx("/pyinfo") as ctx:
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 302
+    resp = client.get("/pyinfo")
+    assert resp.status_code == 302
 
-    with request_ctx("/rq") as ctx:
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 401
-        assert b"401" in resp.data
+    resp = client.get("/rq")
+    assert resp.status_code == 401
+    assert b"401" in resp.data
 
-    with request_ctx("/rq?next=http://orcidhub.org.nz/next") as ctx:
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 302
-        assert resp.location == "http://orcidhub.org.nz/next"
+    resp = client.get("/rq?next=http://orcidhub.org.nz/next")
+    assert resp.status_code == 302
+    assert resp.location == "http://orcidhub.org.nz/next"
 
-    with request_ctx("/pyinfo") as ctx:
-        login_user(test_superuser, remember=True)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 200
-        assert bytes(sys.version, encoding="utf-8") in resp.data
+    resp = client.login(root, follow_redirects=True)
+    resp = client.get("/pyinfo")
+    assert resp.status_code == 200
+    assert bytes(sys.version, encoding="utf-8") in resp.data
+    client.logout()
 
-    with request_ctx("/pyinfo") as ctx:
-        login_user(test_user, remember=True)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 302
+    resp = client.login(user)
+    resp = client.get("/pyinfo")
+    assert resp.status_code == 302
+    client.logout()
 
-    with request_ctx("/rq") as ctx:
-        login_user(test_superuser, remember=True)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 200
-        assert b"Queues" in resp.data
+    resp = client.login(root, follow_redirects=True)
+    resp = client.get("/rq")
+    assert resp.status_code == 200
+    assert b"Queues" in resp.data
+    client.logout()
 
-    with request_ctx("/rq") as ctx:
-        login_user(test_user, remember=True)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 403
-        assert b"403" in resp.data
+    resp = client.login(user)
+    resp = client.get("/rq")
+    assert resp.status_code == 403
+    assert b"403" in resp.data
 
-    with request_ctx("/rq?next=http://orcidhub.org.nz/next") as ctx:
-        login_user(test_user, remember=True)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 302
-        assert resp.location == "http://orcidhub.org.nz/next"
+    resp = client.get("/rq?next=http://orcidhub.org.nz/next")
+    assert resp.status_code == 302
+    assert resp.location == "http://orcidhub.org.nz/next"
+    client.logout()
+
+    resp = client.login(admin, follow_redirects=True)
+    resp = client.get("/settings/webhook")
+    assert resp.status_code == 302
+
+    resp = client.login(tech_contact, follow_redirects=True)
+    resp = client.get("/settings/webhook")
+    assert resp.status_code == 200
 
 
 def test_year_range():
@@ -3264,26 +3267,14 @@ def test_researcher_url(client):
                 BytesIO(b"""{
   "records": [
     {
-      "display-index": 0,
-      "email": "xyzzz@mailinator.com",
-      "first-name": "sdksdsd",
-      "last-name": "sds1",
-      "orcid": "0000-0001-6817-9711",
-      "put-code": 43959,
-      "url-name": "xyzurl",
-      "url-value": "https://fdhfdasa112j.com",
-      "visibility": "PUBLIC"
+      "display-index": 0, "email": "xyzzz@mailinator.com", "first-name": "sdksdsd", "last-name": "sds1",
+      "orcid": "0000-0001-6817-9711", "put-code": 43959, "url-name": "xyzurl",
+      "url-value": "https://fdhfdasa112j.com", "visibility": "PUBLIC"
     },
     {
-      "display-index": 10,
-      "email": "dsjdh11222@mailinator.com",
-      "first-name": "sdksasadsd",
-      "last-name": "sds1",
-      "put-code": null,
-      "orcid": null,
-      "url-name": "xyzurl",
-      "url-value": "https://fdhfdasa112j.com",
-      "visibility": "PUBLIC"
+      "display-index": 10, "email": "dsjdh11222@mailinator.com", "first-name": "sdksasadsd",
+      "last-name": "sds1", "put-code": null, "orcid": null, "url-name": "xyzurl",
+      "url-value": "https://fdhfdasa112j.com", "visibility": "PUBLIC"
     }]}"""),
                 "researcher_url_001.json",
             ),
