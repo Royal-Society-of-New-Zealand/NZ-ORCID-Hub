@@ -16,10 +16,10 @@ from urllib.parse import quote
 
 from orcid_hub import utils
 from orcid_hub.models import (AffiliationRecord, ExternalId, File, FundingContributor,
-                              FundingInvitees, FundingRecord, Log, OtherNameRecord, OrcidToken, Organisation,
+                              FundingInvitee, FundingRecord, Log, OtherNameRecord, OrcidToken, Organisation,
                               OrgInfo, PeerReviewExternalId, PeerReviewInvitee, PeerReviewRecord, ResearcherUrlRecord,
                               Role, Task, TaskType, User, UserInvitation, UserOrg, WorkContributor,
-                              WorkExternalId, WorkInvitees, WorkRecord)
+                              WorkExternalId, WorkInvitee, WorkRecord)
 
 from tests.utils import get_profile
 
@@ -179,7 +179,7 @@ def test_send_work_funding_peer_review_invitation(app, mocker):
     UserOrg.create(user=u, org=org)
     task = Task.create(org=org, task_type=1)
     fr = FundingRecord.create(task=task, title="xyz", type="Award")
-    FundingInvitees.create(funding_record=fr.id, email=email, first_name="Alice", last_name="Bob")
+    FundingInvitee.create(funding_record=fr.id, email=email, first_name="Alice", last_name="Bob")
 
     server_name = app.config.get("SERVER_NAME")
     app.config["SERVER_NAME"] = "abc.orcidhub.org.nz"
@@ -465,7 +465,7 @@ def test_create_or_update_funding(app, mocker):
         disambiguation_source="Test_source",
         is_active=True)
 
-    FundingInvitees.create(
+    FundingInvitee.create(
         funding_record=fr,
         first_name="Test",
         email="test1234456@mailinator.com",
@@ -490,7 +490,7 @@ def test_create_or_update_funding(app, mocker):
         user=u, org=org, scope="/read-limited,/activities/update", access_token="Test_token")
 
     utils.process_funding_records()
-    funding_invitees = FundingInvitees.get(orcid=12344)
+    funding_invitees = FundingInvitee.get(orcid=12344)
     assert 12399 == funding_invitees.put_code
     assert "12344" == funding_invitees.orcid
 
@@ -533,7 +533,7 @@ def test_create_or_update_work(app, mocker):
         region="Test",
         is_active=True)
 
-    WorkInvitees.create(
+    WorkInvitee.create(
         work_record=wr,
         first_name="Test",
         email="test1234456@mailinator.com",
@@ -558,7 +558,7 @@ def test_create_or_update_work(app, mocker):
         user=u, org=org, scope="/read-limited,/activities/update", access_token="Test_token")
 
     utils.process_work_records()
-    work_invitees = WorkInvitees.get(orcid=12344)
+    work_invitees = WorkInvitee.get(orcid=12344)
     assert 12399 == work_invitees.put_code
     assert "12344" == work_invitees.orcid
 

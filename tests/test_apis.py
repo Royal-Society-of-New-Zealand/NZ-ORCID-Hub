@@ -6,6 +6,7 @@ import json
 import yaml
 from datetime import datetime
 from io import BytesIO
+import os
 
 import pytest
 
@@ -504,7 +505,7 @@ def test_affiliation_api(client):
             f"/api/v1.0/affiliations/{task_id}",
             headers=dict(authorization=f"Bearer {access_token}"))
         assert resp.status_code == 400
-        assert resp.json == {"error": "Unhandled except occured.", "exception": "ERROR"}
+        assert resp.json == {"error": "Unhandled exception occurred.", "exception": "ERROR"}
 
     resp = client.delete(
         f"/api/v1.0/affiliations/{task_id}",
@@ -618,7 +619,7 @@ records:
   start-date: 2016-09
 """)
     assert resp.status_code == 400
-    assert resp.json["error"] == "Unhandled except occured."
+    assert resp.json["error"] == "Unhandled exception occurred."
     assert "Instance matching query does not exist" in resp.json["exception"]
 
     with patch.object(AffiliationRecord, "get", side_effect=Exception("ERROR")):
@@ -642,7 +643,7 @@ records:
   start-date: 2016-09
 """)
         assert resp.status_code == 400
-        assert resp.json == {"error": "Unhandled except occured.", "exception": "ERROR"}
+        assert resp.json == {"error": "Unhandled exception occurred.", "exception": "ERROR"}
 
     resp = client.post(
         f"/api/v1.0/affiliations/?filename=TEST42.csv",
@@ -669,7 +670,7 @@ records:
 something fishy is going here...
 """)
     assert resp.status_code == 415
-    assert resp.json["error"] == "Ivalid request format. Only JSON, CSV, or TSV are acceptable."
+    assert resp.json["error"] == "Invalid request format. Only JSON, CSV, or TSV are acceptable."
     assert "something fishy is going here..." in resp.json["message"]
 
 
@@ -757,6 +758,79 @@ def test_funding_api(client):
 
     resp = client.head(
         f"/api/v1.0/funds/{task_id}",
+        headers=dict(authorization=f"Bearer {access_token}"))
+    assert resp.status_code == 404
+
+
+def test_work_api(client):
+    """Test work API in various formats."""
+    admin = client.data.get("admin")
+    resp = client.login(admin, follow_redirects=True)
+    resp = client.post(
+        "/load/researcher/work",
+        data={
+            "file_": (open(os.path.join(os.path.dirname(__file__), "data", "example_works.json"), "rb"),
+                      "works042.json"),
+        },
+        follow_redirects=True)
+    assert resp.status_code == 200
+    assert Task.select().count() == 1
+
+    access_token = client.get_access_token()
+
+    resp = client.get(
+        "/api/v1.0/tasks?type=work",
+        headers=dict(authorization=f"Bearer {access_token}"))
+    data = json.loads(resp.data)
+    task_id = int(data[0]["id"])
+
+    resp = client.get(
+        f"/api/v1.0/works/{task_id}",
+        headers=dict(authorization=f"Bearer {access_token}"))
+    data = json.loads(resp.data)
+    assert len(data["records"]) == 1
+    assert data["filename"] == "works042.json"
+
+    del(data["id"])
+    resp = client.post(
+        "/api/v1.0/works/?filename=works333.json",
+        headers=dict(authorization=f"Bearer {access_token}"),
+        content_type="application/json",
+        data=json.dumps(data))
+    assert resp.status_code == 200
+    assert Task.select().count() == 2
+
+    records = data["records"]
+    resp = client.post(
+        "/api/v1.0/works/?filename=works444.json",
+        headers=dict(authorization=f"Bearer {access_token}"),
+        content_type="application/json",
+        data=json.dumps(records))
+    assert resp.status_code == 200
+    assert Task.select().count() == 3
+
+    resp = client.post(
+        f"/api/v1.0/works/{task_id}",
+        headers=dict(authorization=f"Bearer {access_token}"),
+        content_type="application/json",
+        data=json.dumps(records))
+    assert resp.status_code == 200
+    assert Task.select().count() == 3
+
+    resp = client.head(
+        f"/api/v1.0/works/{task_id}",
+        headers=dict(authorization=f"Bearer {access_token}"))
+    assert "Last-Modified" in resp.headers
+    assert resp.status_code == 200
+
+    resp = client.delete(
+        f"/api/v1.0/works/{task_id}",
+        headers=dict(authorization=f"Bearer {access_token}"))
+    assert resp.status_code == 200
+    assert Task.select().count() == 2
+
+    resp = client.head(
+        f"/api/v1.0/works/{task_id}",
         headers=dict(authorization=f"Bearer {access_token}"))
     assert resp.status_code == 404
 
