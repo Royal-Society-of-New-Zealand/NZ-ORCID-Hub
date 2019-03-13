@@ -340,7 +340,7 @@ class WorkForm(FlaskForm):
     country = CountrySelectField("Country of publication")
 
 
-class ResearcherUrlOtherNameForm(FlaskForm):
+class ResearcherUrlOtherNameKeywordForm(FlaskForm):
     """User/researcher Url and Other Name Common form."""
 
     visibility_choices = [(v, v.replace('_', ' ').title()) for v in ['PUBLIC', 'PRIVATE', 'REGISTERED_ONLY', 'LIMITED']]
@@ -348,14 +348,14 @@ class ResearcherUrlOtherNameForm(FlaskForm):
     visibility = SelectField(choices=visibility_choices, description="Visibility")
 
 
-class ResearcherUrlForm(ResearcherUrlOtherNameForm):
+class ResearcherUrlForm(ResearcherUrlOtherNameKeywordForm):
     """User/researcher Url detail form."""
 
     url_name = StringField("Url Name", [validators.required()])
     url_value = StringField("Url Value", [validators.required()])
 
 
-class OtherNameForm(ResearcherUrlOtherNameForm):
+class OtherNameKeywordForm(ResearcherUrlOtherNameKeywordForm):
     """User/researcher other name detail form."""
 
     content = StringField("Content", [validators.required()])

@@ -36,7 +36,7 @@ from orcid_api.rest import ApiException
 from . import admin, app, limiter, models, orcid_client, rq, utils, SENTRY_DSN
 from .apis import yamlfy
 from .forms import (ApplicationFrom, BitmapMultipleValueField, CredentialForm, EmailTemplateForm,
-                    FileUploadForm, FundingForm, GroupIdForm, LogoForm, OtherNameForm, OrgRegistrationForm,
+                    FileUploadForm, FundingForm, GroupIdForm, LogoForm, OtherNameKeywordForm, OrgRegistrationForm,
                     PartialDateField, PeerReviewForm, ProfileSyncForm, RecordForm, ResearcherUrlForm,
                     UserInvitationForm, WebhookForm, WorkForm)
 from .login_provider import roles_required
@@ -1973,7 +1973,7 @@ def edit_record(user_id, section_type, put_code=None):
         return redirect(_url)
 
     orcid_token = None
-    if section_type in ["RUR", "ONR"]:
+    if section_type in ["RUR", "ONR", "KWR"]:
         orcid_token = OrcidToken.select(OrcidToken.access_token).where(OrcidToken.user_id == user.id,
                                                                        OrcidToken.org_id == org.id,
                                                                        OrcidToken.scope.contains(
@@ -2000,8 +2000,8 @@ def edit_record(user_id, section_type, put_code=None):
         form = WorkForm(form_type=section_type)
     elif section_type == "RUR":
         form = ResearcherUrlForm(form_type=section_type)
-    elif section_type == "ONR":
-        form = OtherNameForm(form_type=section_type)
+    elif section_type in ["ONR", "KWR"]:
+        form = OtherNameKeywordForm(form_type=section_type)
     else:
         form = RecordForm(form_type=section_type)
 
@@ -2025,8 +2025,10 @@ def edit_record(user_id, section_type, put_code=None):
                     api_response = api.view_researcher_url(user.orcid, put_code, _preload_content=False)
                 elif section_type == "ONR":
                     api_response = api.view_other_name(user.orcid, put_code, _preload_content=False)
+                elif section_type == "KWR":
+                    api_response = api.view_keyword(user.orcid, put_code, _preload_content=False)
 
-                if section_type in ["RUR", "ONR"]:
+                if section_type in ["RUR", "ONR", "KWR"]:
                     _data = json.loads(api_response.data, object_pairs_hook=NestedDict)
                 else:
                     _data = api_response.to_dict()
@@ -2103,7 +2105,7 @@ def edit_record(user_id, section_type, put_code=None):
                                                                            "language-code"),
                             subject_url=get_val(_data, "subject_url", "value"),
                             review_completion_date=PartialDate.create(_data.get("review_completion_date")))
-                elif section_type in ["RUR", "ONR"]:
+                elif section_type in ["RUR", "ONR", "KWR"]:
                     data = dict(visibility=_data.get("visibility"), display_index=_data.get("display-index"))
                     if section_type == "RUR":
                         data.update(dict(url_name=_data.get("url-name"), url_value=_data.get("url", "value")))
@@ -2210,6 +2212,11 @@ def edit_record(user_id, section_type, put_code=None):
                     put_code=put_code,
                     **{f.name: f.data
                        for f in form})
+            elif section_type == "KWR":
+                put_code, orcid, created = api.create_or_update_keyword(
+                    put_code=put_code,
+                    **{f.name: f.data
+                       for f in form})
             else:
                 put_code, orcid, created = api.create_or_update_affiliation(
                     put_code=put_code,
@@ -2263,7 +2270,7 @@ def section(user_id, section_type="EMP"):
     _url = request.args.get("url") or request.referrer or url_for("viewmembers.index_view")
 
     section_type = section_type.upper()[:3]  # normalize the section type
-    if section_type not in ["EDU", "EMP", "FUN", "PRR", "WOR", "RUR", "ONR"]:
+    if section_type not in ["EDU", "EMP", "FUN", "PRR", "WOR", "RUR", "ONR", "KWR"]:
         flash("Incorrect user profile section", "danger")
         return redirect(_url)
 
@@ -2298,6 +2305,8 @@ def section(user_id, section_type="EMP"):
             api_response = api_instance.view_researcher_urls(user.orcid, _preload_content=False)
         elif section_type == "ONR":
             api_response = api_instance.view_other_names(user.orcid, _preload_content=False)
+        elif section_type == "KWR":
+            api_response = api_instance.view_keywords(user.orcid, _preload_content=False)
         elif section_type == "FUN":
             api_response = api_instance.view_fundings(user.orcid)
         elif section_type == "WOR":
@@ -2319,7 +2328,7 @@ def section(user_id, section_type="EMP"):
     # TODO: Organisation has access to the employment records
     # TODO: retrieve and tranform for presentation (order, etc)
     try:
-        if section_type in ["EMP", "EDU", "RUR", "ONR"]:
+        if section_type in ["EMP", "EDU", "RUR", "ONR", "KWR"]:
             data = json.loads(api_response.data, object_pairs_hook=NestedDict)
         else:
             data = api_response.to_dict()
@@ -2370,7 +2379,8 @@ def section(user_id, section_type="EMP"):
     else:
         records = data.get("education-summary" if section_type == "EDU" else
                            "employment-summary" if section_type == "EMP" else
-                           "researcher-url" if section_type == "RUR" else "other-name")
+                           "researcher-url" if section_type == "RUR" else
+                           "keyword" if section_type == "KWR" else "other-name")
 
     return render_template(
         "section.html",

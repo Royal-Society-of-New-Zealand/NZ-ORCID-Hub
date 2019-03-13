@@ -36,6 +36,10 @@
            title="Other Name Record">
           <span class="fa fa-user-plus"></span>
         </a>
+        <a class="icon" href="{{ url_for('section', user_id=row.id, section_type='KWR', url=request.url) }}"
+           title="Keyword Record">
+          <span class="fa fa-key"></span>
+        </a>
       </div>
       {% endif %}
     </div>

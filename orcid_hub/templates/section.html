@@ -5,7 +5,7 @@
 			<thead>
 				<tr class="info">
 					<th class="col-md-1">&nbsp;</th>
-          {% if section_type in ["RUR", "ONR"] %}
+          {% if section_type in ["RUR", "ONR", "KWR"] %}
             <th class="column-header">Record Source</th>
             {% if section_type == "RUR" %}
               <th class="column-header">Url Name</th>
@@ -67,7 +67,7 @@
               {% else %}
                 <td class="list-buttons-column"></td>
               {% endif %}
-              {% if section_type in ["RUR", "ONR"] %}
+              {% if section_type in ["RUR", "ONR", "KWR"] %}
                 <td>{{r.get("source", "source-name", "value")|default("", True)}}</td>
                 {% if section_type == "RUR" %}
                   <td>{{r.get("url-name")|default("", True)}}</td>
