@@ -2265,7 +2265,7 @@ def edit_record(user_id, section_type, put_code=None):
                            grant_data_list=grant_data_list)
 
 
-@app.route("/section/<int:user_id>/<string:section_type>/list")
+@app.route("/section/<int:user_id>/<string:section_type>/list", methods=["GET", "POST"])
 @login_required
 def section(user_id, section_type="EMP"):
     """Show all user profile section list (either 'Education' or 'Employment')."""
@@ -2287,8 +2287,51 @@ def section(user_id, section_type="EMP"):
         return redirect(_url)
 
     orcid_token = None
+    if request.method == "POST" and section_type in ["RUR", "ONR", "KWR"]:
+        try:
+            orcid_token = OrcidToken.select(OrcidToken.access_token).where(OrcidToken.user_id == user.id,
+                                                                           OrcidToken.org_id == user.organisation_id,
+                                                                           OrcidToken.scope.contains(
+                                                                               orcid_client.PERSON_UPDATE)).first()
+            if orcid_token:
+                flash(
+                    "There is no need to send an invite as you already have the token with 'PERSON/UPDATE' permission",
+                    "success")
+            else:
+                app.logger.info(f"Ready to send an ivitation to '{user.email}'.")
+                token = utils.new_invitation_token()
+
+                invitation_url = url_for("orcid_login", invitation_token=token, _external=True)
+
+                ui = UserInvitation.create(
+                    is_person_update_invite=True,
+                    invitee_id=user.id,
+                    inviter_id=current_user.id,
+                    org=current_user.organisation,
+                    email=user.email,
+                    first_name=user.first_name,
+                    last_name=user.last_name,
+                    organisation=current_user.organisation,
+                    disambiguated_id=current_user.organisation.disambiguated_id,
+                    disambiguation_source=current_user.organisation.disambiguation_source,
+                    affiliations=0,
+                    token=token)
+
+                utils.send_email(
+                    "email/person_update_invitation.html",
+                    invitation=ui,
+                    invitation_url=invitation_url,
+                    recipient=(current_user.organisation.name, user.email),
+                    reply_to=(current_user.name, current_user.email),
+                    cc_email=(current_user.name, current_user.email))
+                flash("Invitation requesting 'PERSON/UPDATE' as been sent.", "success")
+        except Exception as ex:
+            flash(f"Exception occured while sending mails {ex}", "danger")
+            app.logger.exception(f"For {user} encountered exception")
+            return redirect(_url)
     try:
-        orcid_token = OrcidToken.get(user=user, org=current_user.organisation)
+        if not orcid_token:
+            orcid_token = OrcidToken.get(user=user, org=current_user.organisation)
     except Exception:
         flash("User didn't give permissions to update his/her records", "warning")
         return redirect(_url)
