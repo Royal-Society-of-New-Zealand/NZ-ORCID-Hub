@@ -2549,7 +2549,7 @@ def load_researcher_affiliations():
             content_type = form.file_.data.content_type
             content = read_uploaded_file(form)
             if content_type in ["text/tab-separated-values", "text/csv"] or (
-                    filename and filename.endswith(('.csv', '.tsv'))):
+                    filename and filename.lower().endswith(('.csv', '.tsv'))):
                 task = Task.load_from_csv(content, filename=filename)
             else:
                 task = AffiliationRecord.load(content, filename=filename)
@@ -2575,7 +2575,7 @@ def load_researcher_funding():
         content_type = form.file_.data.content_type
         try:
             if content_type in ["text/tab-separated-values", "text/csv"] or (
-                    filename and filename.endswith(('.csv', '.tsv'))):
+                    filename and filename.lower().endswith(('.csv', '.tsv'))):
                 task = FundingRecord.load_from_csv(
                     read_uploaded_file(form), filename=filename)
             else:
@@ -2599,7 +2599,7 @@ def load_researcher_work():
         content_type = form.file_.data.content_type
         try:
             if content_type in ["text/tab-separated-values", "text/csv"] or (
-                    filename and filename.endswith(('.csv', '.tsv'))):
+                    filename and filename.lower().endswith(('.csv', '.tsv'))):
                 task = WorkRecord.load_from_csv(
                     read_uploaded_file(form), filename=filename)
             else:
@@ -2623,7 +2623,7 @@ def load_researcher_peer_review():
         content_type = form.file_.data.content_type
         try:
             if content_type in ["text/tab-separated-values", "text/csv"] or (
-                    filename and filename.endswith(('.csv', '.tsv'))):
+                    filename and filename.lower().endswith(('.csv', '.tsv'))):
                 task = PeerReviewRecord.load_from_csv(
                     read_uploaded_file(form), filename=filename)
             else:
@@ -2647,7 +2647,7 @@ def load_researcher_urls():
         content_type = form.file_.data.content_type
         try:
             if content_type in ["text/tab-separated-values", "text/csv"] or (
-                    filename and filename.endswith(('.csv', '.tsv'))):
+                    filename and filename.lower().endswith(('.csv', '.tsv'))):
                 task = ResearcherUrlRecord.load_from_csv(
                     read_uploaded_file(form), filename=filename)
             else:
@@ -2671,7 +2671,7 @@ def load_other_names():
         content_type = form.file_.data.content_type
         try:
             if content_type in ["text/tab-separated-values", "text/csv"] or (
-                    filename and filename.endswith(('.csv', '.tsv'))):
+                    filename and filename.lower().endswith(('.csv', '.tsv'))):
                 task = OtherNameRecord.load_from_csv(
                     read_uploaded_file(form), filename=filename)
             else:
