@@ -485,16 +485,17 @@ def test_task_type_field():
             database = db
 
     TestModel.create_table()
+    TestModel.create(tt=None)
     for v in TaskType:
         TestModel.create(tt=v)
         TestModel.create(tt=str(v.value))
         TestModel.create(tt=v.value)
         TestModel.create(tt=v.name)
-    TestModel(pf=None).save()
+    TestModel.create(tt=dict())
     res = {r[0]:r[1] for r in db.execute_sql(
         "SELECT tt, count(*) AS rc FROM testmodel GROUP BY tt ORDER BY 1").fetchall()}
     assert all(res[v.value] == 4 for v in TaskType)
-    assert res[None] == 1
+    assert res[None] == 2
 
 
 def test_pd_field():
@@ -569,6 +570,7 @@ def test_affiliations(models):
 
 def test_field_is_updated(testdb):
     u = User.create(email="test@test.com", name="TESTER")
+    u.save()
     u.save()
     assert not u.field_is_updated("name")
     u.name = "NEW VALUE"
@@ -684,4 +686,7 @@ def test_base_model_to_dict():
     assert parent.to_dict(backrefs=True) == {"id": 1, "test_field": "ABC123", "child_set": [{"id": 1}]}
 
     rec = TestTable.get(1)
+    assert rec.test_field == "ABC123"
+
+    rec = TestTable.get()
     assert rec.test_field == "ABC123"
