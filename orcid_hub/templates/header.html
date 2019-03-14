@@ -117,8 +117,10 @@
                   </li>
                   <li id="groupidrecord.index_view"><a href="{{ url_for('groupidrecord.index_view')}}"  data-toggle="tooltip"
                                                                                     title="Create/update group id records for peer review">Manage GroupId Records</a></li>
-                  <li id="org_webhook"><a href="{{ url_for('org_webhook')}}">
-                      <span data-toggle="tooltip" title="Activate ORCID webhooks for your organisation">Set Webhooks</span></a></li>
+                  {% if current_user.is_tech_contact_of() %}
+                    <li id="org_webhook"><a href="{{ url_for('org_webhook')}}">
+                        <span data-toggle="tooltip" title="Activate ORCID webhooks for your organisation">Set Webhooks</span></a></li>
+                  {% endif %}
                 </ul>
               </li>
             {% endif %}

@@ -4,6 +4,7 @@
 import datetime
 import json
 import logging
+import os
 import re
 import sys
 import time
@@ -24,10 +25,10 @@ from orcid_api.rest import ApiException
 from orcid_hub import app, orcid_client, rq, utils, views
 from orcid_hub.config import ORCID_BASE_URL
 from orcid_hub.forms import FileUploadForm
-from orcid_hub.models import (Affiliation, AffiliationRecord, Client, File, FundingRecord,
-                              GroupIdRecord, OrcidToken, Organisation, OrgInfo, OrgInvitation,
-                              PartialDate, PeerReviewRecord, ResearcherUrlRecord, Role, Task, TaskType, Token, Url,
-                              User, UserInvitation, UserOrg, UserOrgAffiliation, WorkRecord)
+from orcid_hub.models import (
+    Affiliation, AffiliationRecord, Client, File, FundingRecord, GroupIdRecord, OrcidToken,
+    Organisation, OrgInfo, OrgInvitation, PartialDate, PeerReviewRecord, ResearcherUrlRecord, Role,
+    Task, TaskType, Token, Url, User, UserInvitation, UserOrg, UserOrgAffiliation, WorkRecord)
 
 fake_time = time.time()
 logger = logging.getLogger(__name__)
@@ -249,61 +250,64 @@ def test_pyinfo(client):
     assert str(exinfo.value) == "expected an exception"
 
 
-def test_access(request_ctx):
+def test_access(client):
     """Test access to differente resources."""
-    test_superuser = User.create(
-        name="TEST SUPERUSER",
-        email="super@test.test.net",
+    org = client.data["org"]
+    user = client.data["user"]
+    tech_contact = client.data["tech_contact"]
+    root = User.select().where(User.email ** "root%").first()
+    admin = User.create(
+        name="ADMIN USER",
+        email="admin123456789@test.test.net",
         confirmed=True,
-        roles=Role.SUPERUSER)
-    test_user = User.create(
-        name="TEST SUPERUSER",
-        email="user123456789@test.test.net",
-        confirmed=True,
-        roles=Role.RESEARCHER)
+        roles=Role.ADMIN)
+    UserOrg.create(user=admin, org=org, is_admin=True)
 
-    with request_ctx("/pyinfo") as ctx:
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 302
+    resp = client.get("/pyinfo")
+    assert resp.status_code == 302
 
-    with request_ctx("/rq") as ctx:
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 401
-        assert b"401" in resp.data
+    resp = client.get("/rq")
+    assert resp.status_code == 401
+    assert b"401" in resp.data
 
-    with request_ctx("/rq?next=http://orcidhub.org.nz/next") as ctx:
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 302
-        assert resp.location == "http://orcidhub.org.nz/next"
+    resp = client.get("/rq?next=http://orcidhub.org.nz/next")
+    assert resp.status_code == 302
+    assert resp.location == "http://orcidhub.org.nz/next"
 
-    with request_ctx("/pyinfo") as ctx:
-        login_user(test_superuser, remember=True)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 200
-        assert bytes(sys.version, encoding="utf-8") in resp.data
+    resp = client.login(root, follow_redirects=True)
+    resp = client.get("/pyinfo")
+    assert resp.status_code == 200
+    assert bytes(sys.version, encoding="utf-8") in resp.data
+    client.logout()
 
-    with request_ctx("/pyinfo") as ctx:
-        login_user(test_user, remember=True)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 302
+    resp = client.login(user)
+    resp = client.get("/pyinfo")
+    assert resp.status_code == 302
+    client.logout()
 
-    with request_ctx("/rq") as ctx:
-        login_user(test_superuser, remember=True)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 200
-        assert b"Queues" in resp.data
+    resp = client.login(root, follow_redirects=True)
+    resp = client.get("/rq")
+    assert resp.status_code == 200
+    assert b"Queues" in resp.data
+    client.logout()
 
-    with request_ctx("/rq") as ctx:
-        login_user(test_user, remember=True)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 403
-        assert b"403" in resp.data
+    resp = client.login(user)
+    resp = client.get("/rq")
+    assert resp.status_code == 403
+    assert b"403" in resp.data
 
-    with request_ctx("/rq?next=http://orcidhub.org.nz/next") as ctx:
-        login_user(test_user, remember=True)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 302
-        assert resp.location == "http://orcidhub.org.nz/next"
+    resp = client.get("/rq?next=http://orcidhub.org.nz/next")
+    assert resp.status_code == 302
+    assert resp.location == "http://orcidhub.org.nz/next"
+    client.logout()
+
+    resp = client.login(admin, follow_redirects=True)
+    resp = client.get("/settings/webhook")
+    assert resp.status_code == 302
+
+    resp = client.login(tech_contact, follow_redirects=True)
+    resp = client.get("/settings/webhook")
+    assert resp.status_code == 200
 
 
 def test_year_range():
@@ -2705,7 +2709,7 @@ THIS IS A TITLE #2, नमस्ते #2,hi,  CONTRACT,MY TYPE,Minerals unde.,9
     fr = task.funding_records.where(FundingRecord.title == 'THIS IS A TITLE').first()
     assert fr.contributors.count() == 0
     assert fr.external_ids.count() == 2
-    assert fr.funding_invitees.count() == 2
+    assert fr.invitees.count() == 2
 
     export_resp = client.get(f"/admin/fundingrecord/export/json/?task_id={task.id}")
     assert export_resp.status_code == 200
@@ -2856,7 +2860,7 @@ THIS IS A TITLE, नमस्ते,hi,  CONTRACT,MY TYPE,Minerals unde.,300000,
     fr = task.funding_records.where(FundingRecord.title == "This is another project title").first()
     assert fr.contributors.count() == 0
     assert fr.external_ids.count() == 1
-    assert fr.funding_invitees.count() == 2
+    assert fr.invitees.count() == 2
 
     resp = client.get(f"/admin/fundingrecord/export/tsv/?task_id={task.id}")
     assert resp.headers["Content-Type"] == "text/tsv; charset=utf-8"
@@ -2882,7 +2886,7 @@ XXX1702,00004,,This is another project title,,,CONTRACT,Standard,This is another
     task = Task.select().where(Task.task_type == TaskType.FUNDING).order_by(Task.id.desc()).first()
     assert task.funding_records.count() == 2
     for r in task.funding_records:
-        assert r.funding_invitees.count() == 0
+        assert r.invitees.count() == 0
 
 
 def test_researcher_work(client):
@@ -2916,8 +2920,8 @@ def test_researcher_work(client):
     assert task.records.count() == 1
     rec = task.records.first()
     assert rec.external_ids.count() == 1
-    assert rec.work_contributors.count() == 1
-    assert rec.work_invitees.count() == 1
+    assert rec.contributors.count() == 1
+    assert rec.invitees.count() == 1
 
     resp = client.get(f"/admin/workrecord/export/csv/?task_id={task.id}")
     assert resp.headers["Content-Type"] == "text/csv; charset=utf-8"
@@ -3001,8 +3005,8 @@ def test_researcher_work(client):
     assert task.records.count() == 1
     rec = task.records.first()
     assert rec.external_ids.count() == 1
-    assert rec.work_contributors.count() == 2
-    assert rec.work_invitees.count() == 2
+    assert rec.contributors.count() == 2
+    assert rec.invitees.count() == 2
 
     resp = client.get(f"/admin/workrecord/export/csv/?task_id={task.id}")
     assert resp.headers["Content-Type"] == "text/csv; charset=utf-8"
@@ -3018,8 +3022,8 @@ def test_researcher_work(client):
     assert task.records.count() == 1
     rec = task.records.first()
     assert rec.external_ids.count() == 1
-    assert rec.work_contributors.count() == 2
-    assert rec.work_invitees.count() == 2
+    assert rec.contributors.count() == 2
+    assert rec.invitees.count() == 2
 
     resp = client.post(
         "/load/researcher/work",
@@ -3092,6 +3096,19 @@ sdsds,,This is a title,,,hi,This is a journal title,xyz this is short descriptio
     assert resp.status_code == 200
     assert b"Failed to load work record file" in resp.data
     assert b"Invalid ORCID iD **ERROR**" in resp.data
+
+    # Conten and extension mismatch:
+    Task.delete().execute()
+    resp = client.post(
+        "/load/researcher/work",
+        data={
+            "file_": (open(os.path.join(os.path.dirname(__file__), "data", "example_works.json"), "rb"),
+                      "works042.csv"),
+        },
+        follow_redirects=True)
+    assert resp.status_code == 200
+    assert Task.select().count() == 0
+    assert b"Failed to load work record file" in resp.data
 
 
 def test_peer_reviews(client):
@@ -3264,26 +3281,14 @@ def test_researcher_url(client):
                 BytesIO(b"""{
   "records": [
     {
-      "display-index": 0,
-      "email": "xyzzz@mailinator.com",
-      "first-name": "sdksdsd",
-      "last-name": "sds1",
-      "orcid": "0000-0001-6817-9711",
-      "put-code": 43959,
-      "url-name": "xyzurl",
-      "url-value": "https://fdhfdasa112j.com",
-      "visibility": "PUBLIC"
+      "display-index": 0, "email": "xyzzz@mailinator.com", "first-name": "sdksdsd", "last-name": "sds1",
+      "orcid": "0000-0001-6817-9711", "put-code": 43959, "url-name": "xyzurl",
+      "url-value": "https://fdhfdasa112j.com", "visibility": "PUBLIC"
     },
     {
-      "display-index": 10,
-      "email": "dsjdh11222@mailinator.com",
-      "first-name": "sdksasadsd",
-      "last-name": "sds1",
-      "put-code": null,
-      "orcid": null,
-      "url-name": "xyzurl",
-      "url-value": "https://fdhfdasa112j.com",
-      "visibility": "PUBLIC"
+      "display-index": 10, "email": "dsjdh11222@mailinator.com", "first-name": "sdksasadsd",
+      "last-name": "sds1", "put-code": null, "orcid": null, "url-name": "xyzurl",
+      "url-value": "https://fdhfdasa112j.com", "visibility": "PUBLIC"
     }]}"""),
                 "researcher_url_001.json",
             ),

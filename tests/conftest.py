@@ -72,7 +72,7 @@ class HubClient(FlaskClient):
     resp_no = 0
     def login(self, user, affiliations=None, follow_redirects=False, **kwargs):
         """Log in with the given user."""
-        org = user.organisation
+        org = user.organisation or user.organisations.first()
         if affiliations is None:
             uo = user.userorg_set.where(UserOrg.org == org).first()
             if uo and uo.affiliations:
@@ -121,6 +121,19 @@ class HubClient(FlaskClient):
         root = User.select().where(User.roles.bin_and(Role.SUPERUSER)).first()
         return self.login(root)
 
+    def get_access_token(self, client_id=None, client_secret=None):
+        """Retrieve client credential access token for Hub API."""
+        if client_id is None:
+            client_id = "CLIENT_ID"
+        if client_secret is None:
+            client_secret = "CLIENT_SECRET"
+        resp = self.post(
+            "/oauth/token",
+            content_type="application/x-www-form-urlencoded",
+            data=f"grant_type=client_credentials&client_id={client_id}&client_secret={client_secret}")
+        data = json.loads(resp.data)
+        return data["access_token"]
+
 
 @pytest.fixture
 def app():
@@ -136,9 +149,9 @@ def app():
     with test_database(
             _db,
         (File, Organisation, User, UserOrg, OrcidToken, UserOrgAffiliation, OrgInfo, Task, Log,
-         AffiliationRecord, FundingRecord, FundingContributor, FundingInvitees, GroupIdRecord,
+         AffiliationRecord, FundingRecord, FundingContributor, FundingInvitee, GroupIdRecord,
          OrcidAuthorizeCall, OrcidApiCall, Url, UserInvitation, OrgInvitation, ExternalId, Client,
-         Grant, Token, WorkRecord, WorkContributor, WorkExternalId, WorkInvitees, PeerReviewRecord,
+         Grant, Token, WorkRecord, WorkContributor, WorkExternalId, WorkInvitee, PeerReviewRecord,
          PeerReviewInvitee, PeerReviewExternalId, ResearcherUrlRecord, OtherNameRecord),
             fail_silently=True):  # noqa: F405
         _app.db = _db
