@@ -1236,6 +1236,48 @@ class MemberAPI(MemberAPIV20Api):
         else:
             return (put_code, orcid, created)
 
+    def create_or_update_keyword(self, content=None, display_index=None, orcid=None, put_code=None,
+                                 visibility=None, *args, **kwargs):
+        """Create or update Keyword record of a user."""
+        rec = Keyword()       # noqa: F405
+
+        if put_code:
+            rec.put_code = put_code
+        if content:
+            rec.content = content
+        if visibility:
+            rec.visibility = visibility
+        if display_index:
+            rec.display_index = display_index
+
+        try:
+            api_call = self.edit_keyword if put_code else self.create_keyword
+            params = dict(orcid=self.user.orcid, body=rec, _preload_content=False)
+            if put_code:
+                params["put_code"] = put_code
+            resp = api_call(**params)
+            created = not bool(put_code)
+            # retrieve the put-code from response Location header:
+            if resp.status == 201:
+                location = resp.headers.get("Location")
+                try:
+                    orcid, put_code = location.split("/")[-3::2]
+                    put_code = int(put_code)
+                except Exception:
+                    app.logger.exception("Failed to get ORCID iD/put-code from the response.")
+                    raise Exception("Failed to get ORCID iD/put-code from the response.")
+            elif resp.status == 200:
+                orcid = self.user.orcid
+
+        except ApiException as apiex:
+            app.logger.exception(f"For {self.user} encountered exception: {apiex}")
+            raise apiex
+        except Exception as ex:
+            app.logger.exception(f"For {self.user} encountered exception")
+            raise ex
+        else:
+            return (put_code, orcid, created)
+
     def get_webhook_access_token(self):
         """Retrieve the ORCID webhook access tonke and store it."""
         pass

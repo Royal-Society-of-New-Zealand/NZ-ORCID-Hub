@@ -924,8 +924,10 @@ def orcid_login(invitation_token=None):
             if not user:
                 user = User.get(email=invitation.email)
 
-            is_scope_person_update = False
-            if hasattr(invitation, "task_id"):
+            is_scope_person_update = invitation.is_person_update_invite if hasattr(
+                invitation, "is_person_update_invite") else False
+
+            if hasattr(invitation, "task_id") and invitation.task_id:
                 is_scope_person_update = Task.select().where(
                     Task.id == invitation.task_id, Task.task_type == TaskType.RESEARCHER_URL).exists() or Task.select()\
                     .where(Task.id == invitation.task_id, Task.task_type == TaskType.OTHER_NAME).exists()
