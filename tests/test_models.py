@@ -15,7 +15,7 @@ from orcid_hub.models import (
     Organisation, OrgInfo, OtherNameRecord, PartialDate, PartialDateField, PeerReviewExternalId,
     PeerReviewInvitee, PeerReviewRecord, ResearcherUrlRecord, Role, Task, TaskType, TaskTypeField,
     TextField, User, UserInvitation, UserOrg, UserOrgAffiliation, WorkContributor, WorkExternalId,
-    WorkInvitee, WorkRecord, create_tables, drop_tables, load_yaml_json, validate_orcid_id)
+    WorkInvitee, WorkRecord, app, create_tables, drop_tables, load_yaml_json, validate_orcid_id)
 
 
 @pytest.fixture
@@ -474,7 +474,7 @@ def test_partial_date():
     assert str(pd) == ""
 
 
-def test_task_type_field():
+def test_task_type_field(mocker):
 
     db = SqliteDatabase(":memory:")
 
@@ -484,6 +484,7 @@ def test_task_type_field():
         class Meta:
             database = db
 
+    exception = mocker.patch.object(app.logger, "exception")
     TestModel.create_table()
     TestModel.create(tt=None)
     for v in TaskType:
@@ -492,6 +493,7 @@ def test_task_type_field():
         TestModel.create(tt=v.value)
         TestModel.create(tt=v.name)
     TestModel.create(tt=dict())
+    exception.assert_called_once()
     res = {r[0]:r[1] for r in db.execute_sql(
         "SELECT tt, count(*) AS rc FROM testmodel GROUP BY tt ORDER BY 1").fetchall()}
     assert all(res[v.value] == 4 for v in TaskType)

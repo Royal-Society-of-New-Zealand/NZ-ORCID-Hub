@@ -332,8 +332,9 @@ def test_db_api(client):
     assert resp.json["tuakiri_name"] == org.tuakiri_name
 
 
-def test_affiliation_api(client):
+def test_affiliation_api(client, mocker):
     """Test affiliation API in various formats."""
+    exception = mocker.patch.object(client.application.logger, "exception")
     resp = client.post(
         "/oauth/token",
         content_type="application/x-www-form-urlencoded",
@@ -672,6 +673,7 @@ something fishy is going here...
     assert resp.status_code == 415
     assert resp.json["error"] == "Invalid request format. Only JSON, CSV, or TSV are acceptable."
     assert "something fishy is going here..." in resp.json["message"]
+    exception.assert_called()
 
 
 def test_funding_api(client):

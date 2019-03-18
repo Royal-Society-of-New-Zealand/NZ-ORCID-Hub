@@ -238,7 +238,7 @@ def test_superuser_view_access(client):
     assert b"TEST HOST NAME" in resp.data
 
 
-def test_pyinfo(client):
+def test_pyinfo(client, mocker):
     """Test /pyinfo."""
     app.config["PYINFO_TEST_42"] = "Life, the Universe and Everything"
     client.login_root()
@@ -1083,6 +1083,7 @@ def test_invite_user(request_ctx):
 
 def test_researcher_invitation(client, mocker):
     """Test full researcher invitation flow."""
+    exception = mocker.patch.object(app.logger, "exception")
     mocker.patch(
         "orcid_hub.views.send_user_invitation.queue",
         lambda *args, **kwargs: (views.send_user_invitation(*args, **kwargs) and Mock()))
@@ -1132,6 +1133,7 @@ def test_researcher_invitation(client, mocker):
     resp = client.get(callback_url, follow_redirects=True)
     user = User.get(email="test123abc@test.test.net")
     assert user.orcid == "0123-1234-5678-0123"
+    exception.assert_called()
 
 
 def test_email_template(app, request_ctx):
@@ -1466,6 +1468,7 @@ Rad,Cirskis,researcher.990@mailinator.com,Student
 
 def test_invite_organisation(client, mocker):
     """Test invite an organisation to register."""
+    exception = mocker.patch.object(app.logger, "exception")
     html = mocker.patch(
         "emails.html", return_value=Mock(send=lambda *args, **kwargs: Mock(success=False)))
     org = Organisation.get(name="TEST0")
@@ -1664,6 +1667,7 @@ def test_invite_organisation(client, mocker):
     user = User.get(email=email)
     assert user.orcid == "3210-4321-8765-8888"
     assert "confirm/organisation" in resp.location
+    exception.assert_called()
 
 
 def core_mock(
@@ -2889,8 +2893,9 @@ XXX1702,00004,,This is another project title,,,CONTRACT,Standard,This is another
         assert r.invitees.count() == 0
 
 
-def test_researcher_work(client):
+def test_researcher_work(client, mocker):
     """Test preload work data."""
+    exception = mocker.patch.object(client.application.logger, "exception")
     user = client.data["admin"]
     client.login(user, follow_redirects=True)
     resp = client.post(
@@ -3109,6 +3114,7 @@ sdsds,,This is a title,,,hi,This is a journal title,xyz this is short descriptio
     assert resp.status_code == 200
     assert Task.select().count() == 0
     assert b"Failed to load work record file" in resp.data
+    exception.assert_called()
 
 
 def test_peer_reviews(client):

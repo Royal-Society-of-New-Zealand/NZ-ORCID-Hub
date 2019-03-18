@@ -37,11 +37,12 @@ def test_process_task_from_csv_with_failures(request_ctx):
         assert rec.processed_at is not None
 
 
-def test_upload_affiliation_with_wrong_country(request_ctx):
+def test_upload_affiliation_with_wrong_country(request_ctx, mocker):
     """Test task loading and processing with failures."""
     org = Organisation.get(name="TEST0")
     super_user = User.get(email="admin@test0.edu")
     with request_ctx("/") as ctx:
+        licationexception = mocker.patch.object(ctx.app.logger, "exception")
         login_user(super_user)
         # flake8: noqa
         with pytest.raises(ModelException):
@@ -61,6 +62,7 @@ FNA\tLBA\taaa.lnb@test.com\tTEST1\tResearch Funding\tWellington\tProgramme Manag
             org=org)
         rec = task.records.first()
         assert rec.country is None
+    exception.assert_called_once()
 
 
 def test_process_tasks(request_ctx):
