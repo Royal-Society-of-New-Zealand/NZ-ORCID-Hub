@@ -2744,7 +2744,7 @@ class WorkRecord(RecordModel):
             work_type = val(row, 6)
             if not work_type:
                 raise ModelException(
-                    f"Funding type is mandatory, #{row_no+2}: {row}. Header: {header}")
+                    f"Work type is mandatory, #{row_no+2}: {row}. Header: {header}")
 
             # The uploaded country must be from ISO 3166-1 alpha-2
             country = val(row, 14)
@@ -2996,7 +2996,7 @@ class WorkRecord(RecordModel):
                 raise
 
     def to_export_dict(self):
-        """Map the funding record to dict for export into JSON/YAML."""
+        """Map the work record to dict for export into JSON/YAML."""
         d = super().to_export_dict()
         if self.journal_title:
             d["journal-title"] = dict(value=self.journal_title)
