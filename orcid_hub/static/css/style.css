@@ -283,6 +283,12 @@ table.permissions, table.permissions th, table.permissions td, table.users, tabl
     margin: 0 12px;
 }
 
+.form-horizontal .form-group {
+    margin-top: 15px;
+    margin-right: 40%;
+    margin-left: 10%;
+}
+
 #connect-orcid-button{
 	border: 1px solid #D3D3D3;
 	padding: .3em;

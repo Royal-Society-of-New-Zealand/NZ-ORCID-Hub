@@ -811,6 +811,8 @@ def onboard_org():
                 flash("Organisation information updated successfully!", "success")
 
             form.populate_obj(organisation)
+            organisation.disambiguated_id = organisation.disambiguated_id.strip()
+            organisation.disambiguation_source = organisation.disambiguation_source.strip()
             organisation.api_credentials_entered_at = datetime.utcnow()
             try:
                 organisation.save()
