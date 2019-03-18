@@ -9,11 +9,12 @@ from .config import ORCID_API_BASE, ORCID_BASE_URL
 from flask_login import current_user
 from .models import (OrcidApiCall, Affiliation, OrcidToken, FundingContributor as FundingCont, Log,
                      ExternalId as ExternalIdModel, NestedDict, WorkContributor as WorkCont,
-                     WorkExternalId, PeerReviewExternalId)
+                     WorkExternalId, PeerReviewExternalId, User)
 from orcid_api import (configuration, rest, api_client, MemberAPIV20Api, SourceClientId, Source,
                        OrganizationAddress, DisambiguatedOrganization, Employment, Education,
                        Organization)
 from orcid_api.rest import ApiException
+from orcid_api_v3 import orcid_api3 as v3
 from time import time
 from urllib.parse import urlparse
 from . import app
@@ -1293,6 +1294,29 @@ class MemberAPI(MemberAPIV20Api):
     def create_or_update_keywords(self, org=None, keywords=None):
         """Create or update the list of keywords of a record."""
         pass
+
+
+def get_profile(orcid, org=None, cache=None):
+    """Retrieve a user profile (with caching if a cache is given)."""
+    if cache:
+        record = cache.get(orcid)
+    if not cache or not record:
+        user = User.get(orcid=orcid)
+        if not org:
+            org = User.get(orcid=orcid).organisation
+        token = OrcidToken.select(OrcidToken.access_token).where(
+                OrcidToken.user == user, OrcidToken.org == org,
+                OrcidToken.scope.contains("read-limited")).first()
+        if token is None:
+            raise ApiException("You haven't granted your organisation necessary access to your profile...")
+        api = MemberAPI(user=user, access_token=token.access_token)
+        try:
+            record = api.get_record()
+            if cache:
+                cache.set(user.orcid, record)
+        except Exception as ex:
+            raise ApiException(f"Failed to retrieve the profile: {ex}")
+    return record
 
 
 # yapf: disable

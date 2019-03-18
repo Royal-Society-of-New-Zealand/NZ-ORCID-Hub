@@ -33,7 +33,7 @@ from flask_rq2.job import FlaskJob
 
 from orcid_api.rest import ApiException
 
-from . import admin, app, limiter, models, orcid_client, rq, utils, SENTRY_DSN
+from . import admin, app, cache, limiter, models, orcid_client, rq, utils, SENTRY_DSN
 from .apis import yamlfy
 from .forms import (ApplicationFrom, BitmapMultipleValueField, CredentialForm, EmailTemplateForm,
                     FileUploadForm, FundingForm, GroupIdForm, LogoForm, OrgRegistrationForm,
@@ -2216,7 +2216,7 @@ def section(user_id, section_type="EMP"):
     _url = request.args.get("url") or request.referrer or url_for("viewmembers.index_view")
 
     section_type = section_type.upper()[:3]  # normalize the section type
-    if section_type not in ["EDU", "EMP", "FUN", "PRR", "WOR"]:
+    if section_type not in ["AFF", "EDU", "EMP", "FUN", "PRR", "WOR"]:
         flash("Incorrect user profile section", "danger")
         return redirect(_url)
 
@@ -2238,20 +2238,25 @@ def section(user_id, section_type="EMP"):
         return redirect(_url)
 
     orcid_client.configuration.access_token = orcid_token.access_token
-    # create an instance of the API class
-    api_instance = orcid_client.MemberAPIV20Api()
     try:
         # Fetch all entries
-        if section_type == "EMP":
-            api_response = api_instance.view_employments(user.orcid)
-        elif section_type == "EDU":
-            api_response = api_instance.view_educations(user.orcid)
-        elif section_type == "FUN":
-            api_response = api_instance.view_fundings(user.orcid)
-        elif section_type == "WOR":
-            api_response = api_instance.view_works(user.orcid)
+        if section_type == "AFF":
+            if not cache.has(user.orcid):
+                api_instance = orcid_client.MemberAPIV20Api()
+                data = orcid_client.get_profile(
+                    user.orcid, org=current_user.organisation, cache=cache)
         else:
-            api_response = api_instance.view_peer_reviews(user.orcid)
+            api_instance = orcid_client.MemberAPIV20Api()
+            if section_type == "EMP":
+                data = api_instance.view_employments(user.orcid)
+            elif section_type == "EDU":
+                data = api_instance.view_educations(user.orcid)
+            elif section_type == "FUN":
+                data = api_instance.view_fundings(user.orcid)
+            elif section_type == "WOR":
+                data = api_instance.view_works(user.orcid)
+            else:
+                data = api_instance.view_peer_reviews(user.orcid)
     except ApiException as ex:
         if ex.status == 401:
             flash("User has revoked the permissions to update his/her records", "warning")
@@ -2262,18 +2267,6 @@ def section(user_id, section_type="EMP"):
         return redirect(_url)
     except Exception as ex:
         abort(500, ex)
-
-    # TODO: Organisation has read token
-    # TODO: Organisation has access to the employment records
-    # TODO: retrieve and tranform for presentation (order, etc)
-    try:
-        data = api_response.to_dict()
-    except Exception as ex:
-        flash("User didn't give permissions to update his/her records", "warning")
-        flash("Unhandled exception occured while retrieving ORCID data: %s" % ex, "danger")
-        app.logger.exception(f"For {user} encountered exception")
-        return redirect(_url)
-    # TODO: transform data for presentation:
 
     records = []
     if section_type == 'FUN':
@@ -2312,6 +2305,18 @@ def section(user_id, section_type="EMP"):
             section_type=section_type,
             user_id=user_id,
             org_client_id=user.organisation.orcid_client_id)
+    elif section_type == "AFF":  # Combined affiliation entries
+        records = cache[user.orcid]
+        if not records:
+            records = {
+                affiliation_type: api_response.get("activities-summary", el_name + 's',
+                                                   el_name + "-summary")
+                for (el_name, affiliation_type) in [
+                    ("education", "EDU"),
+                    ("employment", "EMP"),
+                ]
+            }
+            cache[user.orcid] = records
     else:
         records = data.get("education_summary" if section_type == "EDU" else "employment_summary", [])
 
