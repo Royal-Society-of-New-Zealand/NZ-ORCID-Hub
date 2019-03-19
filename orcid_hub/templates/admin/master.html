@@ -11,9 +11,7 @@ The extension based on the version v1.5.#}
 {% endblock %}
 {% block page_body %}
   {% include 'header.html' %}
-  <div class="container">
-    {% block messages %}{{ layout.messages() }}{% endblock %}
-
+  <div class="container-fluid">
     {# store the jinja2 context for form_rules rendering logic #}
     {% set render_ctx = h.resolve_ctx() %}
 

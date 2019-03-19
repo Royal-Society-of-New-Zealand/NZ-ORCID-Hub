@@ -811,6 +811,8 @@ def onboard_org():
                 flash("Organisation information updated successfully!", "success")
 
             form.populate_obj(organisation)
+            organisation.disambiguated_id = organisation.disambiguated_id.strip()
+            organisation.disambiguation_source = organisation.disambiguation_source.strip()
             organisation.api_credentials_entered_at = datetime.utcnow()
             try:
                 organisation.save()
@@ -924,8 +926,10 @@ def orcid_login(invitation_token=None):
             if not user:
                 user = User.get(email=invitation.email)
 
-            is_scope_person_update = False
-            if hasattr(invitation, "task_id"):
+            is_scope_person_update = invitation.is_person_update_invite if hasattr(
+                invitation, "is_person_update_invite") else False
+
+            if hasattr(invitation, "task_id") and invitation.task_id:
                 is_scope_person_update = Task.select().where(
                     Task.id == invitation.task_id, Task.task_type == TaskType.RESEARCHER_URL).exists() or Task.select()\
                     .where(Task.id == invitation.task_id, Task.task_type == TaskType.OTHER_NAME).exists()

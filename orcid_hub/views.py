@@ -36,17 +36,16 @@ from orcid_api.rest import ApiException
 from . import admin, app, limiter, models, orcid_client, rq, utils, SENTRY_DSN
 from .apis import yamlfy
 from .forms import (ApplicationFrom, BitmapMultipleValueField, CredentialForm, EmailTemplateForm,
-                    FileUploadForm, FundingForm, GroupIdForm, LogoForm, OrgRegistrationForm,
-                    PartialDateField, PeerReviewForm, ProfileSyncForm, RecordForm,
+                    FileUploadForm, FundingForm, GroupIdForm, LogoForm, OtherNameKeywordForm, OrgRegistrationForm,
+                    PartialDateField, PeerReviewForm, ProfileSyncForm, RecordForm, ResearcherUrlForm,
                     UserInvitationForm, WebhookForm, WorkForm)
 from .login_provider import roles_required
 from .models import (JOIN, Affiliation, AffiliationRecord, CharField, Client, Delegate, ExternalId,
-                     File, FundingContributor, FundingInvitee, FundingRecord, Grant, GroupIdRecord,
-                     ModelException, OtherNameRecord, OrcidApiCall, OrcidToken, Organisation,
-                     OrgInfo, OrgInvitation, PartialDate, PeerReviewExternalId, PeerReviewInvitee,
-                     PeerReviewRecord, ResearcherUrlRecord, Role, Task, TaskType, TextField, Token,
-                     Url, User, UserInvitation, UserOrg, UserOrgAffiliation, WorkContributor,
-                     WorkExternalId, WorkInvitee, WorkRecord, db, get_val)
+                     File, FundingContributor, FundingInvitee, FundingRecord, Grant,
+                     GroupIdRecord, ModelException, NestedDict, OtherNameRecord, OrcidApiCall, OrcidToken, Organisation,
+                     OrgInfo, OrgInvitation, PartialDate, PeerReviewExternalId, PeerReviewInvitee, PeerReviewRecord,
+                     ResearcherUrlRecord, Role, Task, TaskType, TextField, Token, Url, User, UserInvitation, UserOrg,
+                     UserOrgAffiliation, WorkContributor, WorkExternalId, WorkInvitee, WorkRecord, db, get_val)
 # NB! Should be disabled in production
 from .pyinfo import info
 from .utils import get_next_url, read_uploaded_file, send_user_invitation
@@ -1902,17 +1901,24 @@ def delete_record(user_id, section_type, put_code):
         return redirect(_url)
 
     orcid_token = None
-    try:
-        orcid_token = OrcidToken.get(
-            user=user,
-            org=user.organisation,
-            scope=orcid_client.READ_LIMITED + "," + orcid_client.ACTIVITIES_UPDATE)
-    except Exception:
-        flash("The user hasn't authorized you to delete records", "warning")
-        return redirect(_url)
+    if section_type in ["RUR", "ONR", "KWR"]:
+        orcid_token = OrcidToken.select(OrcidToken.access_token).where(OrcidToken.user_id == user.id,
+                                                                       OrcidToken.org_id == user.organisation_id,
+                                                                       OrcidToken.scope.contains(
+                                                                           orcid_client.PERSON_UPDATE)).first()
+        if not orcid_token:
+            flash("The user hasn't given 'PERSON/UPDATE' permission to delete this record", "warning")
+            return redirect(_url)
+    else:
+        orcid_token = OrcidToken.select(OrcidToken.access_token).where(OrcidToken.user_id == user.id,
+                                                                       OrcidToken.org_id == user.organisation_id,
+                                                                       OrcidToken.scope.contains(
+                                                                           orcid_client.ACTIVITIES_UPDATE)).first()
+        if not orcid_token:
+            flash("The user hasn't given 'ACTIVITIES/UPDATE' permission to delete this record", "warning")
+            return redirect(_url)
 
-    orcid_client.configuration.access_token = orcid_token.access_token
-    api_instance = orcid_client.MemberAPIV20Api()
+    api_instance = orcid_client.MemberAPI(user=user, access_token=orcid_token.access_token)
 
     try:
         # Delete an Employment
@@ -1924,6 +1930,12 @@ def delete_record(user_id, section_type, put_code):
             api_instance.delete_peer_review(user.orcid, put_code)
         elif section_type == "WOR":
             api_instance.delete_work(user.orcid, put_code)
+        elif section_type == "RUR":
+            api_instance.delete_researcher_url(user.orcid, put_code)
+        elif section_type == "ONR":
+            api_instance.delete_other_name(user.orcid, put_code)
+        elif section_type == "KWR":
+            api_instance.delete_keyword(user.orcid, put_code)
         else:
             api_instance.delete_education(user.orcid, put_code)
         app.logger.info(f"For {user.orcid} '{section_type}' record was deleted by {current_user}")
@@ -1960,14 +1972,24 @@ def edit_record(user_id, section_type, put_code=None):
         return redirect(_url)
 
     orcid_token = None
-    try:
-        orcid_token = OrcidToken.get(
-            user=user, org=org, scope=orcid_client.READ_LIMITED + "," + orcid_client.ACTIVITIES_UPDATE)
-    except Exception:
-        flash("The user hasn't authorized you to Add records", "warning")
-        return redirect(_url)
-    orcid_client.configuration.access_token = orcid_token.access_token
-    api = orcid_client.MemberAPI(user=user)
+    if section_type in ["RUR", "ONR", "KWR"]:
+        orcid_token = OrcidToken.select(OrcidToken.access_token).where(OrcidToken.user_id == user.id,
+                                                                       OrcidToken.org_id == org.id,
+                                                                       OrcidToken.scope.contains(
+                                                                           orcid_client.PERSON_UPDATE)).first()
+        if not orcid_token:
+            flash("The user hasn't given 'PERSON/UPDATE' permission to you to Add/Update these records", "warning")
+            return redirect(_url)
+    else:
+        orcid_token = OrcidToken.select(OrcidToken.access_token).where(OrcidToken.user_id == user.id,
+                                                                       OrcidToken.org_id == org.id,
+                                                                       OrcidToken.scope.contains(
+                                                                           orcid_client.ACTIVITIES_UPDATE)).first()
+        if not orcid_token:
+            flash("The user hasn't given 'ACTIVITIES/UPDATE' permission to you to Add/Update these records", "warning")
+            return redirect(_url)
+
+    api = orcid_client.MemberAPI(user=user, access_token=orcid_token.access_token)
 
     if section_type == "FUN":
         form = FundingForm(form_type=section_type)
@@ -1975,6 +1997,10 @@ def edit_record(user_id, section_type, put_code=None):
         form = PeerReviewForm(form_type=section_type)
     elif section_type == "WOR":
         form = WorkForm(form_type=section_type)
+    elif section_type == "RUR":
+        form = ResearcherUrlForm(form_type=section_type)
+    elif section_type in ["ONR", "KWR"]:
+        form = OtherNameKeywordForm(form_type=section_type)
     else:
         form = RecordForm(form_type=section_type)
 
@@ -1994,8 +2020,17 @@ def edit_record(user_id, section_type, put_code=None):
                     api_response = api.view_work(user.orcid, put_code)
                 elif section_type == "PRR":
                     api_response = api.view_peer_review(user.orcid, put_code)
+                elif section_type == "RUR":
+                    api_response = api.view_researcher_url(user.orcid, put_code, _preload_content=False)
+                elif section_type == "ONR":
+                    api_response = api.view_other_name(user.orcid, put_code, _preload_content=False)
+                elif section_type == "KWR":
+                    api_response = api.view_keyword(user.orcid, put_code, _preload_content=False)
 
-                _data = api_response.to_dict()
+                if section_type in ["RUR", "ONR", "KWR"]:
+                    _data = json.loads(api_response.data, object_pairs_hook=NestedDict)
+                else:
+                    _data = api_response.to_dict()
 
                 if section_type == "PRR" or section_type == "WOR":
 
@@ -2069,7 +2104,12 @@ def edit_record(user_id, section_type, put_code=None):
                                                                            "language-code"),
                             subject_url=get_val(_data, "subject_url", "value"),
                             review_completion_date=PartialDate.create(_data.get("review_completion_date")))
-
+                elif section_type in ["RUR", "ONR", "KWR"]:
+                    data = dict(visibility=_data.get("visibility"), display_index=_data.get("display-index"))
+                    if section_type == "RUR":
+                        data.update(dict(url_name=_data.get("url-name"), url_value=_data.get("url", "value")))
+                    else:
+                        data.update(dict(content=_data.get("content")))
                 else:
                     data = dict(
                         org_name=get_val(_data, "organization", "name"),
@@ -2161,18 +2201,27 @@ def edit_record(user_id, section_type, put_code=None):
                         grant_data_list=grant_data_list,
                         **{f.name: f.data
                            for f in form})
-                if put_code and created:
-                    flash("Record details has been added successfully!", "success")
-                else:
-                    flash("Record details has been updated successfully!", "success")
+            elif section_type == "RUR":
+                put_code, orcid, created = api.create_or_update_researcher_url(
+                    put_code=put_code,
+                    **{f.name: f.data
+                       for f in form})
+            elif section_type == "ONR":
+                put_code, orcid, created = api.create_or_update_other_name(
+                    put_code=put_code,
+                    **{f.name: f.data
+                       for f in form})
+            elif section_type == "KWR":
+                put_code, orcid, created = api.create_or_update_keyword(
+                    put_code=put_code,
+                    **{f.name: f.data
+                       for f in form})
             else:
                 put_code, orcid, created = api.create_or_update_affiliation(
                     put_code=put_code,
                     affiliation=Affiliation[section_type],
                     **{f.name: f.data
                        for f in form})
-                if put_code and created:
-                    flash("Record details has been added successfully!", "success")
 
                 affiliation, _ = UserOrgAffiliation.get_or_create(
                     user=user,
@@ -2185,6 +2234,10 @@ def edit_record(user_id, section_type, put_code=None):
                 form.populate_obj(affiliation)
 
                 affiliation.save()
+            if put_code and created:
+                flash("Record details has been added successfully!", "success")
+            else:
+                flash("Record details has been updated successfully!", "success")
             return redirect(_url)
 
         except ApiException as e:
@@ -2209,14 +2262,14 @@ def edit_record(user_id, section_type, put_code=None):
                            grant_data_list=grant_data_list)
 
 
-@app.route("/section/<int:user_id>/<string:section_type>/list")
+@app.route("/section/<int:user_id>/<string:section_type>/list", methods=["GET", "POST"])
 @login_required
 def section(user_id, section_type="EMP"):
     """Show all user profile section list (either 'Education' or 'Employment')."""
     _url = request.args.get("url") or request.referrer or url_for("viewmembers.index_view")
 
     section_type = section_type.upper()[:3]  # normalize the section type
-    if section_type not in ["EDU", "EMP", "FUN", "PRR", "WOR"]:
+    if section_type not in ["EDU", "EMP", "FUN", "PRR", "WOR", "RUR", "ONR", "KWR"]:
         flash("Incorrect user profile section", "danger")
         return redirect(_url)
 
@@ -2231,8 +2284,51 @@ def section(user_id, section_type="EMP"):
         return redirect(_url)
 
     orcid_token = None
+    if request.method == "POST" and section_type in ["RUR", "ONR", "KWR"]:
+        try:
+            orcid_token = OrcidToken.select(OrcidToken.access_token).where(OrcidToken.user_id == user.id,
+                                                                           OrcidToken.org_id == user.organisation_id,
+                                                                           OrcidToken.scope.contains(
+                                                                               orcid_client.PERSON_UPDATE)).first()
+            if orcid_token:
+                flash(
+                    "There is no need to send an invite as you already have the token with 'PERSON/UPDATE' permission",
+                    "success")
+            else:
+                app.logger.info(f"Ready to send an ivitation to '{user.email}'.")
+                token = utils.new_invitation_token()
+
+                invitation_url = url_for("orcid_login", invitation_token=token, _external=True)
+
+                ui = UserInvitation.create(
+                    is_person_update_invite=True,
+                    invitee_id=user.id,
+                    inviter_id=current_user.id,
+                    org=current_user.organisation,
+                    email=user.email,
+                    first_name=user.first_name,
+                    last_name=user.last_name,
+                    organisation=current_user.organisation,
+                    disambiguated_id=current_user.organisation.disambiguated_id,
+                    disambiguation_source=current_user.organisation.disambiguation_source,
+                    affiliations=0,
+                    token=token)
+
+                utils.send_email(
+                    "email/person_update_invitation.html",
+                    invitation=ui,
+                    invitation_url=invitation_url,
+                    recipient=(current_user.organisation.name, user.email),
+                    reply_to=(current_user.name, current_user.email),
+                    cc_email=(current_user.name, current_user.email))
+                flash("Invitation requesting 'PERSON/UPDATE' as been sent.", "success")
+        except Exception as ex:
+            flash(f"Exception occured while sending mails {ex}", "danger")
+            app.logger.exception(f"For {user} encountered exception")
+            return redirect(_url)
     try:
-        orcid_token = OrcidToken.get(user=user, org=current_user.organisation)
+        if not orcid_token:
+            orcid_token = OrcidToken.get(user=user, org=current_user.organisation)
     except Exception:
         flash("User didn't give permissions to update his/her records", "warning")
         return redirect(_url)
@@ -2242,10 +2338,17 @@ def section(user_id, section_type="EMP"):
     api_instance = orcid_client.MemberAPIV20Api()
     try:
         # Fetch all entries
+        # NB! need to add _preload_content=False to get raw response
         if section_type == "EMP":
-            api_response = api_instance.view_employments(user.orcid)
+            api_response = api_instance.view_employments(user.orcid, _preload_content=False)
         elif section_type == "EDU":
-            api_response = api_instance.view_educations(user.orcid)
+            api_response = api_instance.view_educations(user.orcid, _preload_content=False)
+        elif section_type == "RUR":
+            api_response = api_instance.view_researcher_urls(user.orcid, _preload_content=False)
+        elif section_type == "ONR":
+            api_response = api_instance.view_other_names(user.orcid, _preload_content=False)
+        elif section_type == "KWR":
+            api_response = api_instance.view_keywords(user.orcid, _preload_content=False)
         elif section_type == "FUN":
             api_response = api_instance.view_fundings(user.orcid)
         elif section_type == "WOR":
@@ -2267,7 +2370,10 @@ def section(user_id, section_type="EMP"):
     # TODO: Organisation has access to the employment records
     # TODO: retrieve and tranform for presentation (order, etc)
     try:
-        data = api_response.to_dict()
+        if section_type in ["EMP", "EDU", "RUR", "ONR", "KWR"]:
+            data = json.loads(api_response.data, object_pairs_hook=NestedDict)
+        else:
+            data = api_response.to_dict()
     except Exception as ex:
         flash("User didn't give permissions to update his/her records", "warning")
         flash("Unhandled exception occured while retrieving ORCID data: %s" % ex, "danger")
@@ -2313,7 +2419,10 @@ def section(user_id, section_type="EMP"):
             user_id=user_id,
             org_client_id=user.organisation.orcid_client_id)
     else:
-        records = data.get("education_summary" if section_type == "EDU" else "employment_summary", [])
+        records = data.get("education-summary" if section_type == "EDU" else
+                           "employment-summary" if section_type == "EMP" else
+                           "researcher-url" if section_type == "RUR" else
+                           "keyword" if section_type == "KWR" else "other-name")
 
     return render_template(
         "section.html",
@@ -2436,7 +2545,8 @@ def load_researcher_affiliations():
             filename = secure_filename(form.file_.data.filename)
             content_type = form.file_.data.content_type
             content = read_uploaded_file(form)
-            if content_type in ["text/tab-separated-values", "text/csv"]:
+            if content_type in ["text/tab-separated-values", "text/csv"] or (
+                    filename and filename.lower().endswith(('.csv', '.tsv'))):
                 task = Task.load_from_csv(content, filename=filename)
             else:
                 task = AffiliationRecord.load(content, filename=filename)
@@ -2461,7 +2571,8 @@ def load_researcher_funding():
         filename = secure_filename(form.file_.data.filename)
         content_type = form.file_.data.content_type
         try:
-            if content_type in ["text/tab-separated-values", "text/csv"]:
+            if content_type in ["text/tab-separated-values", "text/csv"] or (
+                    filename and filename.lower().endswith(('.csv', '.tsv'))):
                 task = FundingRecord.load_from_csv(
                     read_uploaded_file(form), filename=filename)
             else:
@@ -2484,7 +2595,8 @@ def load_researcher_work():
         filename = secure_filename(form.file_.data.filename)
         content_type = form.file_.data.content_type
         try:
-            if content_type in ["text/tab-separated-values", "text/csv"]:
+            if content_type in ["text/tab-separated-values", "text/csv"] or (
+                    filename and filename.lower().endswith(('.csv', '.tsv'))):
                 task = WorkRecord.load_from_csv(
                     read_uploaded_file(form), filename=filename)
             else:
@@ -2507,7 +2619,8 @@ def load_researcher_peer_review():
         filename = secure_filename(form.file_.data.filename)
         content_type = form.file_.data.content_type
         try:
-            if content_type in ["text/tab-separated-values", "text/csv"]:
+            if content_type in ["text/tab-separated-values", "text/csv"] or (
+                    filename and filename.lower().endswith(('.csv', '.tsv'))):
                 task = PeerReviewRecord.load_from_csv(
                     read_uploaded_file(form), filename=filename)
             else:
@@ -2530,7 +2643,8 @@ def load_researcher_urls():
         filename = secure_filename(form.file_.data.filename)
         content_type = form.file_.data.content_type
         try:
-            if content_type in ["text/tab-separated-values", "text/csv"]:
+            if content_type in ["text/tab-separated-values", "text/csv"] or (
+                    filename and filename.lower().endswith(('.csv', '.tsv'))):
                 task = ResearcherUrlRecord.load_from_csv(
                     read_uploaded_file(form), filename=filename)
             else:
@@ -2553,7 +2667,8 @@ def load_other_names():
         filename = secure_filename(form.file_.data.filename)
         content_type = form.file_.data.content_type
         try:
-            if content_type in ["text/tab-separated-values", "text/csv"]:
+            if content_type in ["text/tab-separated-values", "text/csv"] or (
+                    filename and filename.lower().endswith(('.csv', '.tsv'))):
                 task = OtherNameRecord.load_from_csv(
                     read_uploaded_file(form), filename=filename)
             else:
