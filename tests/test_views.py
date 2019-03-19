@@ -1086,12 +1086,12 @@ def test_invite_user(request_ctx):
 def test_researcher_invitation(client, mocker):
     """Test full researcher invitation flow."""
     exception = mocker.patch.object(app.logger, "exception")
+    mocker.patch("sentry_sdk.transport.HttpTransport.capture_event")
     mocker.patch(
         "orcid_hub.views.send_user_invitation.queue",
         lambda *args, **kwargs: (views.send_user_invitation(*args, **kwargs) and Mock()))
     send_email = mocker.patch("orcid_hub.utils.send_email")
     admin = User.get(email="admin@test1.edu")
-    # org = admin.organisation
     resp = client.login(admin)
     resp = client.post(
             "/invite/user",
