@@ -42,7 +42,7 @@ def test_upload_affiliation_with_wrong_country(request_ctx, mocker):
     org = Organisation.get(name="TEST0")
     super_user = User.get(email="admin@test0.edu")
     with request_ctx("/") as ctx:
-        licationexception = mocker.patch.object(ctx.app.logger, "exception")
+        exception = mocker.patch.object(ctx.app.logger, "exception")
         login_user(super_user)
         # flake8: noqa
         with pytest.raises(ModelException):
