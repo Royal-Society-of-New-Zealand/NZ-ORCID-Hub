@@ -1859,15 +1859,15 @@ def process_tasks(max_rows=20):
                 AffiliationRecord.processed_at.is_null(False)).distinct().count()
         elif task_type == TaskType.FUNDING:
             for funding_record in current_task.funding_records.select():
-                total_count = total_count + funding_record.funding_invitees.select().distinct().count()
+                total_count = total_count + funding_record.invitees.select().distinct().count()
 
-                current_count = current_count + funding_record.funding_invitees.select().where(
+                current_count = current_count + funding_record.invitees.select().where(
                     FundingInvitee.processed_at.is_null(False)).distinct().count()
         elif task_type == TaskType.WORK:
             for work_record in current_task.work_records.select():
-                total_count = total_count + work_record.work_invitees.select().distinct().count()
+                total_count = total_count + work_record.invitees.select().distinct().count()
 
-                current_count = current_count + work_record.work_invitees.select().where(
+                current_count = current_count + work_record.invitees.select().where(
                     WorkInvitee.processed_at.is_null(False)).distinct().count()
         elif task_type == TaskType.PEER_REVIEW:
             for peer_review_record in current_task.peer_review_records.select():
