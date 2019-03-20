@@ -1126,7 +1126,7 @@ class Task(BaseModel, AuditMixin):
                 task = cls.create(org=org, filename=filename, task_type=TaskType.AFFILIATION)
                 for row_no, row in enumerate(reader):
                     # skip empty lines:
-                    if len([item for item in row if item.strip() is not '']) == 0:
+                    if len([item for item in row if item and item.strip()]) == 0:
                         continue
                     if len(row) == 1 and row[0].strip() == '':
                         continue
@@ -1601,7 +1601,7 @@ class FundingRecord(RecordModel):
         rows = []
         for row_no, row in enumerate(reader):
             # skip empty lines:
-            if len([item for item in row if item.strip() is not '']) == 0:
+            if len([item for item in row if item and item.strip()]) == 0:
                 continue
             if len(row) == 1 and row[0].strip() == '':
                 continue
@@ -1972,7 +1972,7 @@ class PeerReviewRecord(RecordModel):
         rows = []
         for row_no, row in enumerate(reader):
             # skip empty lines:
-            if len([item for item in row if item.strip() is not '']) == 0:
+            if len([item for item in row if item and item.strip()]) == 0:
                 continue
             if len(row) == 1 and row[0].strip() == '':
                 continue
@@ -2354,7 +2354,7 @@ class ResearcherUrlRecord(RecordModel):
                 task = Task.create(org=org, filename=filename, task_type=TaskType.RESEARCHER_URL)
                 for row_no, row in enumerate(reader):
                     # skip empty lines:
-                    if len([item for item in row if item.strip() is not '']) == 0:
+                    if len([item for item in row if item and item.strip()]) == 0:
                         continue
                     if len(row) == 1 and row[0].strip() == '':
                         continue
@@ -2534,7 +2534,7 @@ class OtherNameRecord(RecordModel):
                 task = Task.create(org=org, filename=filename, task_type=TaskType.OTHER_NAME)
                 for row_no, row in enumerate(reader):
                     # skip empty lines:
-                    if len([item for item in row if item.strip() is not '']) == 0:
+                    if len([item for item in row if item and item.strip()]) == 0:
                         continue
                     if len(row) == 1 and row[0].strip() == '':
                         continue
@@ -2736,7 +2736,7 @@ class WorkRecord(RecordModel):
         rows = []
         for row_no, row in enumerate(reader):
             # skip empty lines:
-            if len([item for item in row if item.strip() is not '']) == 0:
+            if len([item for item in row if item and item.strip()]) == 0:
                 continue
             if len(row) == 1 and row[0].strip() == '':
                 continue
