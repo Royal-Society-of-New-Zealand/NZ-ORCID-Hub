@@ -216,15 +216,6 @@ recommended python virtual environment, and install the Hub's requirements:
    pip install -U pip
    pip install -U -r dev_requirements.txt
 
-Create a self-signed SSL certificate to enable https
-
-.. code-block:: bash
-
-   cd .keys; ../gen-keys/genkey.sh dev.orcidhub.org.nz; cd -
-
-NB is you receive the OPENSSL error "unable to write random state", ~/.rnd is likely
-owned by root.  You can clear this error with `sudo rm ~/.rnd` and retrying.
-
 Set environment variables, and (optionally) create and configure instance/settings.cfg.
 NB by pulling source code the instance folder will have been created with a
 settings.sample.cfg that can be used as a guide.
