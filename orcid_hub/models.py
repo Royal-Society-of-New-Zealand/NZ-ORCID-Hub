@@ -1126,7 +1126,7 @@ class Task(BaseModel, AuditMixin):
                 task = cls.create(org=org, filename=filename, task_type=TaskType.AFFILIATION)
                 for row_no, row in enumerate(reader):
                     # skip empty lines:
-                    if len(row) == 0:
+                    if len([item for item in row if item and item.strip()]) == 0:
                         continue
                     if len(row) == 1 and row[0].strip() == '':
                         continue
@@ -1601,7 +1601,7 @@ class FundingRecord(RecordModel):
         rows = []
         for row_no, row in enumerate(reader):
             # skip empty lines:
-            if len(row) == 0:
+            if len([item for item in row if item and item.strip()]) == 0:
                 continue
             if len(row) == 1 and row[0].strip() == '':
                 continue
@@ -1972,7 +1972,7 @@ class PeerReviewRecord(RecordModel):
         rows = []
         for row_no, row in enumerate(reader):
             # skip empty lines:
-            if len(row) == 0:
+            if len([item for item in row if item and item.strip()]) == 0:
                 continue
             if len(row) == 1 and row[0].strip() == '':
                 continue
@@ -2354,7 +2354,7 @@ class ResearcherUrlRecord(RecordModel):
                 task = Task.create(org=org, filename=filename, task_type=TaskType.RESEARCHER_URL)
                 for row_no, row in enumerate(reader):
                     # skip empty lines:
-                    if len(row) == 0:
+                    if len([item for item in row if item and item.strip()]) == 0:
                         continue
                     if len(row) == 1 and row[0].strip() == '':
                         continue
@@ -2534,7 +2534,7 @@ class OtherNameRecord(RecordModel):
                 task = Task.create(org=org, filename=filename, task_type=TaskType.OTHER_NAME)
                 for row_no, row in enumerate(reader):
                     # skip empty lines:
-                    if len(row) == 0:
+                    if len([item for item in row if item and item.strip()]) == 0:
                         continue
                     if len(row) == 1 and row[0].strip() == '':
                         continue
@@ -2643,8 +2643,8 @@ class WorkRecord(RecordModel):
     translated_title_language_code = CharField(null=True, max_length=10)
     journal_title = CharField(null=True, max_length=255)
     short_description = CharField(null=True, max_length=4000)
-    citation_type = CharField(max_length=255)
-    citation_value = CharField(max_length=255)
+    citation_type = CharField(null=True, max_length=255)
+    citation_value = CharField(null=True, max_length=255)
     type = CharField(null=True, max_length=255)
     publication_date = PartialDateField(null=True)
     publication_media_type = CharField(null=True, max_length=255)
@@ -2736,7 +2736,7 @@ class WorkRecord(RecordModel):
         rows = []
         for row_no, row in enumerate(reader):
             # skip empty lines:
-            if len(row) == 0:
+            if len([item for item in row if item and item.strip()]) == 0:
                 continue
             if len(row) == 1 and row[0].strip() == '':
                 continue
@@ -2744,7 +2744,7 @@ class WorkRecord(RecordModel):
             work_type = val(row, 6)
             if not work_type:
                 raise ModelException(
-                    f"Funding type is mandatory, #{row_no+2}: {row}. Header: {header}")
+                    f"Work type is mandatory, #{row_no+2}: {row}. Header: {header}")
 
             # The uploaded country must be from ISO 3166-1 alpha-2
             country = val(row, 14)
@@ -2996,7 +2996,7 @@ class WorkRecord(RecordModel):
                 raise
 
     def to_export_dict(self):
-        """Map the funding record to dict for export into JSON/YAML."""
+        """Map the work record to dict for export into JSON/YAML."""
         d = super().to_export_dict()
         if self.journal_title:
             d["journal-title"] = dict(value=self.journal_title)
