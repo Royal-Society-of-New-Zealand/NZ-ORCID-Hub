@@ -11,10 +11,12 @@ from datetime import datetime
 from io import BytesIO
 
 import requests
-import tablib
 import yaml
-from flask import (Response, abort, flash, jsonify, redirect, render_template, request, send_file,
-                   send_from_directory, stream_with_context, url_for)
+
+import tablib
+from flask import (Response, abort, flash, jsonify, redirect, render_template,
+                   request, send_file, send_from_directory,
+                   stream_with_context, url_for)
 from flask_admin._compat import csv_encode
 from flask_admin.actions import action
 from flask_admin.babel import gettext
@@ -24,28 +26,29 @@ from flask_admin.form import SecureForm
 from flask_admin.helpers import get_redirect_target
 from flask_admin.model import BaseModelView, typefmt
 from flask_login import current_user, login_required
+from flask_rq2.job import FlaskJob
 from jinja2 import Markup
+from orcid_api.rest import ApiException
 from peewee import SQL
 from playhouse.shortcuts import model_to_dict
 from werkzeug.utils import secure_filename
 from wtforms.fields import BooleanField
-from flask_rq2.job import FlaskJob
 
-from orcid_api.rest import ApiException
-
-from . import admin, app, limiter, models, orcid_client, rq, utils, SENTRY_DSN
+from . import SENTRY_DSN, admin, app, limiter, models, orcid_client, rq, utils
 from .apis import yamlfy
 from .forms import (ApplicationFrom, BitmapMultipleValueField, CredentialForm, EmailTemplateForm,
-                    FileUploadForm, FundingForm, GroupIdForm, LogoForm, OtherNameKeywordForm, OrgRegistrationForm,
-                    PartialDateField, PeerReviewForm, ProfileSyncForm, RecordForm, ResearcherUrlForm,
-                    UserInvitationForm, WebhookForm, WorkForm)
+                    FileUploadForm, FundingForm, GroupIdForm, LogoForm, OrgRegistrationForm,
+                    OtherNameKeywordForm, PartialDateField, PeerReviewForm, ProfileSyncForm,
+                    RecordForm, ResearcherUrlForm, UserInvitationForm, WebhookForm, WorkForm)
 from .login_provider import roles_required
 from .models import (JOIN, Affiliation, AffiliationRecord, CharField, Client, Delegate, ExternalId,
-                     File, FundingContributor, FundingInvitee, FundingRecord, Grant,
-                     GroupIdRecord, ModelException, NestedDict, OtherNameRecord, OrcidApiCall, OrcidToken, Organisation,
-                     OrgInfo, OrgInvitation, PartialDate, PeerReviewExternalId, PeerReviewInvitee, PeerReviewRecord,
-                     ResearcherUrlRecord, Role, Task, TaskType, TextField, Token, Url, User, UserInvitation, UserOrg,
-                     UserOrgAffiliation, WorkContributor, WorkExternalId, WorkInvitee, WorkRecord, db, get_val)
+                     File, FixedCharField, FundingContributor, FundingInvitee, FundingRecord,
+                     Grant, GroupIdRecord, ModelException, NestedDict, OrcidApiCall, OrcidToken,
+                     Organisation, OrgInfo, OrgInvitation, OtherNameRecord, PartialDate,
+                     PeerReviewExternalId, PeerReviewInvitee, PeerReviewRecord,
+                     ResearcherUrlRecord, Role, Task, TaskType, TextField, Token, Url, User,
+                     UserInvitation, UserOrg, UserOrgAffiliation, WorkContributor, WorkExternalId,
+                     WorkInvitee, WorkRecord, audit_models, db, get_val)
 # NB! Should be disabled in production
 from .pyinfo import info
 from .utils import get_next_url, read_uploaded_file, send_user_invitation
@@ -237,13 +240,14 @@ class AppModelView(ModelView):
         """Include linked columns in the search if they are defined with 'liked_table.column'."""
         if self.column_searchable_list:
             for p in self.column_searchable_list:
-                if "." in p:
-                    m, p = p.split('.')
-                    m = getattr(self.model, m).rel_model
-                    p = getattr(m, p)
 
-                elif isinstance(p, str):
-                    p = getattr(self.model, p)
+                if isinstance(p, str):
+                    if "." in p:
+                        m, p = p.split('.')
+                        m = getattr(self.model, m).rel_model
+                        p = getattr(m, p)
+                    else:
+                        p = getattr(self.model, p)
 
                 # Check type
                 if not isinstance(p, (
@@ -308,6 +312,31 @@ class AppModelView(ModelView):
         }
         view_args.extra_args = extra_args
         return view_args
+
+
+class AuditLogModelView(AppModelView):
+    """Audit Log model view."""
+
+    can_edit = False
+    can_delete = False
+    can_create = False
+    can_view_details = False
+    roles = {1: "Superuser", 2: "Administrator", 4: "Researcher", 8: "Technical Contact"}
+
+    def __init__(self, model, *args, **kwargs):
+        """Set up the search list."""
+        self.column_searchable_list = [
+            f for f in model._meta.fields.values() if isinstance(f, (CharField, FixedCharField, TextField))
+        ]
+        self.column_filters = [
+            filters.DateBetweenFilter(column=model.ts, name="Time-stamp"),
+            filters.FilterEqual(
+                column=model.op,
+                options=[("U", "Updated"), ("D", "Deleted")],
+                name="Operation"),
+        ]
+
+        super().__init__(model, *args, **kwargs)
 
 
 class UserAdmin(AppModelView):
@@ -1738,6 +1767,11 @@ admin.add_view(AppModelView(Grant))
 admin.add_view(AppModelView(Token))
 admin.add_view(AppModelView(Delegate))
 admin.add_view(GroupIdRecordAdmin(GroupIdRecord))
+
+for (name, cls) in audit_models.items():
+    if not cls._meta.schema:
+        cls._meta.schema = "audit"
+    admin.add_view(AuditLogModelView(cls, name=name + "_log", endpoint=name + "_log"))
 
 
 @app.template_filter("year_range")

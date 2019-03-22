@@ -28,6 +28,7 @@ from peewee import (CharField, DateTimeField, DeferredRelation, Field, FixedChar
                     ForeignKeyField, IntegerField, Model, OperationalError, PostgresqlDatabase,
                     SmallIntegerField, TextField, fn)
 from peewee_validates import ModelValidator
+from playhouse.reflection import Introspector
 from playhouse.shortcuts import model_to_dict
 from pycountry import countries
 from pykwalify.core import Core
@@ -3515,3 +3516,6 @@ def get_val(d, *keys, default=None):
             break
         d = d.get(k, default)
     return d
+
+
+audit_models = Introspector.from_database(db, schema="audit").generate_models()
