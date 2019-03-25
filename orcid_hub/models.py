@@ -2706,7 +2706,8 @@ class WorkRecord(RecordModel):
                 r"first\s*(name)?",
                 r"(last|sur)\s*(name)?",
                 "identifier",
-                r"excluded?(\s+from(\s+profile)?)?"
+                r"excluded?(\s+from(\s+profile)?)?",
+                r".*sequence$",
             ]
         ]
 
@@ -2805,6 +2806,7 @@ class WorkRecord(RecordModel):
                         name=name,
                         role=val(row, 18),
                         email=email,
+                        contributor_sequence=val(row, 30)
                     ),
                     invitee=dict(
                         identifier=val(row, 28),
@@ -2869,7 +2871,7 @@ class WorkRecord(RecordModel):
         """Load data from JSON file or a string."""
         if isinstance(source, str):
             # import data from file based on its extension; either it is YAML or JSON
-            work_data_list = load_yaml_json(filename=filename, source=source, content_type="json")
+            work_data_list = load_yaml_json(filename=filename, source=source)
             if not filename:
                 filename = work_data_list.get("filename")
             if isinstance(work_data_list, dict):
