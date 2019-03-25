@@ -1330,7 +1330,7 @@ class RecordModel(BaseModel):
     def to_export_dict(self):
         """Map the common record parts to dict for export into JSON/YAML."""
         org = self.task.org
-        d = {"type": self.type}
+        d = {"type": self.type} if hasattr(self, "type") else {}
         if hasattr(self, "org_name"):
             d["organization"] = {
                 "disambiguated-organization": {
@@ -2270,6 +2270,33 @@ class PeerReviewRecord(RecordModel):
                 db.rollback()
                 app.logger.exception("Failed to load peer review file.")
                 raise
+
+    def to_export_dict(self):
+        """Map the peer-review record to dict for export into JSON/YAML."""
+        d = super().to_export_dict()
+        d["review-type"] = self.review_type
+        d["reviewer-role"] = self.reviewer_role
+        if self.subject_external_id_relationship or self.subject_external_id_value:
+            d["subject-external-identifier"] = {
+                "external-id-type": self.subject_external_id_type,
+                "external-id-value": self.subject_external_id_value,
+                "external-id-url": {
+                    "value": self.subject_external_id_url
+                },
+                "external-id-relationship": self.subject_external_id_relationship
+            }
+        if self.subject_container_name:
+            d["subject-container-name"] = {"value": self.subject_container_name}
+        if self.subject_type:
+            d["subject-type"] = self.subject_type
+        if self.review_completion_date:
+            cd = self.review_completion_date.as_orcid_dict()
+            d["review-completion-date"] = cd
+        if self.review_url:
+            d["review-url"] = {"value": self.review_url}
+        if self.review_group_id:
+            d["review-group-id"] = self.review_group_id
+        return d
 
     class Meta:  # noqa: D101,D106
         db_table = "peer_review_record"

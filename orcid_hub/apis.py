@@ -184,7 +184,9 @@ class TaskResource(AppResource):
             if task.created_by != current_user:
                 return jsonify({"error": "Access denied."}), 403
         if request.method != "HEAD":
-            if task.task_type in [TaskType.AFFILIATION, TaskType.FUNDING, TaskType.WORK]:
+            if task.task_type in [
+                    TaskType.AFFILIATION, TaskType.FUNDING, TaskType.PEER_REVIEW, TaskType.WORK
+            ]:
                 resp = jsonify(task.to_export_dict())
             else:
                 raise Exception(f"Suppor for {task} has not yet been implemented.")
