@@ -1291,8 +1291,11 @@ def select_user_org(user_org_id):
         uo = UserOrg.get(id=user_org_id)
         if (uo.user.orcid == current_user.orcid or uo.user.email == current_user.email
                 or uo.user.eppn == current_user.eppn):
-            current_user.organisation_id = uo.org_id
-            current_user.save()
+            if uo.user_id != current_user.id:
+                login_user(uo.user)
+            if current_user.organisation_id != uo.org_id:
+                current_user.organisation_id = uo.org_id
+                current_user.save()
         else:
             flash("You cannot switch your user to this organisation", "danger")
     except UserOrg.DoesNotExist:

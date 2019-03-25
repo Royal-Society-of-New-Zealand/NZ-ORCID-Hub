@@ -230,9 +230,10 @@ def app():
                     client_secret=org.name + "-SECRET")
 
         UserOrg.insert_from(
-            query=User.select(User.id, User.organisation_id, User.created_at).where(
+            query=User.select(User.id, User.organisation_id, User.created_at, SQL('0')).where(
                 User.email.contains("researcher")),
-            fields=[UserOrg.user_id, UserOrg.org_id, UserOrg.created_at]).execute()
+            fields=[UserOrg.user_id, UserOrg.org_id, UserOrg.created_at,
+                    UserOrg.affiliations]).execute()
 
         _app.test_client_class = HubClient
         org = Organisation.create(
