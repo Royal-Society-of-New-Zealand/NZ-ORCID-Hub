@@ -447,7 +447,12 @@ class MemberAPI(MemberAPIV20Api):
 
             if w.role and w.contributor_sequence:
                 contributor_attributes = ContributorAttributes(  # noqa: F405
-                    contributor_role=w.role.upper(), contributor_sequence=w.contributor_sequence)
+                    contributor_role=w.role.upper(), contributor_sequence=w.contributor_sequence.upper())
+            elif w.role:
+                contributor_attributes = ContributorAttributes(contributor_role=w.role.upper())  # noqa: F405
+            elif w.contributor_sequence:
+                contributor_attributes = ContributorAttributes(     # noqa: F405
+                    contributor_sequence=w.contributor_sequence.upper())
 
             work_contributor_list.append(
                 Contributor(  # noqa: F405
