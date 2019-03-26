@@ -106,7 +106,16 @@ class HubClient(FlaskClient):
 
     def save_resp(self):
         """Save the response into 'output.html' file."""
-        with open(f"output{self.resp_no:02d}.html", "wb") as output:
+        ext = "html"
+        content_type = self.resp.headers.get("Content-Type")
+        if content_type:
+            if "json" in content_type:
+                ext = "json"
+            elif "yaml" in content_type:
+                ext = "yaml"
+            elif "csv" in content_type:
+                ext = "csv"
+        with open(f"output{self.resp_no:02d}.{ext}", "wb") as output:
             output.write(self.resp.data)
 
     def logout(self, follow_redirects=True):

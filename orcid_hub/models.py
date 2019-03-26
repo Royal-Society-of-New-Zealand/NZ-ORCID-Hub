@@ -26,7 +26,7 @@ from peewee import JOIN, BlobField
 from peewee import BooleanField as BooleanField_
 from peewee import (CharField, DateTimeField, DeferredRelation, Field, FixedCharField,
                     ForeignKeyField, IntegerField, Model, OperationalError, PostgresqlDatabase,
-                    SmallIntegerField, TextField, fn)
+                    SmallIntegerField, SqliteDatabase, TextField, fn)
 from peewee_validates import ModelValidator
 from playhouse.shortcuts import model_to_dict
 from pycountry import countries
@@ -2090,11 +2090,15 @@ class PeerReviewRecord(RecordModel):
                 raise
 
     @classmethod
-    def load_from_json(cls, source, filename=None, org=None):
+    def load_from_json(cls, source, filename=None, org=None, task=None, **kwargs):
         """Load data from JSON file or a string."""
         if isinstance(source, str):
             # import data from file based on its extension; either it is YAML or JSON
             peer_review_data_list = load_yaml_json(filename=filename, source=source)
+            if not filename:
+                filename = peer_review_data_list.get("filename")
+            if isinstance(peer_review_data_list, dict):
+                peer_review_data_list = peer_review_data_list.get("records")
 
             for peer_review_data in peer_review_data_list:
                 validation_source_data = copy.deepcopy(peer_review_data)
@@ -3478,6 +3482,8 @@ def create_audit_tables():
             with db.get_cursor() as cr:
                 cr.execute(sql)
             db.commit()
+    elif isinstance(db, SqliteDatabase):
+        db.execute_sql("ATTACH DATABASE ':memory:' AS audit")
 
 
 def drop_tables():
