@@ -3403,6 +3403,61 @@ def test_other_names(client):
     assert b'dummy 10' in resp.data
 
 
+def test_keyword(client):
+    """Test researcher keyword data management."""
+    user = client.data["admin"]
+    client.login(user, follow_redirects=True)
+    resp = client.post(
+        "/load/keyword",
+        data={
+            "file_": (
+                BytesIO(b"""{
+  "created-at": "2019-02-15T04:39:23",
+  "filename": "keyword_sample_latest.json",
+  "records": [
+    {
+      "content": "keyword 1",
+      "display-index": 0,
+      "email": "rad42@mailinator.com",
+      "first-name": "sdsd",
+      "last-name": "sds1",
+      "orcid": null,
+      "processed-at": null,
+      "put-code": null,
+      "status": "The record was reset at 2019-02-20T08:31:49",
+      "visibility": "PUBLIC"
+    },
+    {
+      "content": "keyword 2",
+      "display-index": 0,
+      "email": "xyzz@mailinator.com",
+      "first-name": "sdsd",
+      "last-name": "sds1",
+      "orcid": "0000-0002-0146-7409",
+      "processed-at": null,
+      "put-code": 16878,
+      "status": "The record was reset at 2019-02-20T08:31:49",
+      "visibility": "PUBLIC"
+    }
+  ],
+  "task-type": "KEYWORD",
+  "updated-at": "2019-02-19T19:31:49"}"""),
+                "keyword_sample_latest.json",
+            ),
+        },
+        follow_redirects=True)
+    assert resp.status_code == 200
+    assert b"keyword 2" in resp.data
+    task = Task.get(filename="keyword_sample_latest.json")
+    assert task.records.count() == 2
+
+    resp = client.get(f"/admin/keywordrecord/export/json/?task_id={task.id}")
+    assert resp.status_code == 200
+    assert b'xyzz@mailinator.com' in resp.data
+    assert b'"keyword 2' in resp.data
+    assert b'"keyword 1' in resp.data
+
+
 def test_researcher_url(client):
     """Test researcher url data management."""
     user = client.data["admin"]
