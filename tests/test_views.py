@@ -411,6 +411,36 @@ def test_show_record_section(request_ctx):
         assert admin.email.encode() in resp.data
         assert admin.name.encode() in resp.data
         view_fundings.assert_called_once_with("XXXX-XXXX-XXXX-0001")
+    with patch.object(
+        orcid_client.MemberAPIV20Api,
+        "view_researcher_urls",
+        MagicMock(return_value=Mock(data="""{"test": "TEST1234567890"}"""))
+    ) as view_researcher_urls, request_ctx(f"/section/{user.id}/RUR/list") as ctx:
+        login_user(admin)
+        resp = ctx.app.full_dispatch_request()
+        assert admin.email.encode() in resp.data
+        assert admin.name.encode() in resp.data
+        view_researcher_urls.assert_called_once_with("XXXX-XXXX-XXXX-0001", _preload_content=False)
+    with patch.object(
+        orcid_client.MemberAPIV20Api,
+        "view_other_names",
+        MagicMock(return_value=Mock(data="""{"test": "TEST1234567890"}"""))
+    ) as view_other_names, request_ctx(f"/section/{user.id}/ONR/list") as ctx:
+        login_user(admin)
+        resp = ctx.app.full_dispatch_request()
+        assert admin.email.encode() in resp.data
+        assert admin.name.encode() in resp.data
+        view_other_names.assert_called_once_with("XXXX-XXXX-XXXX-0001", _preload_content=False)
+    with patch.object(
+        orcid_client.MemberAPIV20Api,
+        "view_keywords",
+        MagicMock(return_value=Mock(data="""{"test": "TEST1234567890"}"""))
+    ) as view_keywords, request_ctx(f"/section/{user.id}/KWR/list") as ctx:
+        login_user(admin)
+        resp = ctx.app.full_dispatch_request()
+        assert admin.email.encode() in resp.data
+        assert admin.name.encode() in resp.data
+        view_keywords.assert_called_once_with("XXXX-XXXX-XXXX-0001", _preload_content=False)
 
 
 def test_status(client):
@@ -1825,6 +1855,7 @@ def test_edit_record(request_ctx):
     fake_response.status = 201
     fake_response.headers = {'Location': '12344/xyz/12399'}
     OrcidToken.create(user=user, org=user.organisation, access_token="ABC123", scope="/read-limited,/activities/update")
+    OrcidToken.create(user=user, org=user.organisation, access_token="ABC1234", scope="/read-limited,/person/update")
     with patch.object(
             orcid_client.MemberAPIV20Api,
             "view_employment",
@@ -1881,6 +1912,36 @@ def test_edit_record(request_ctx):
         assert admin.email.encode() in resp.data
         assert admin.name.encode() in resp.data
         view_work.assert_called_once_with("XXXX-XXXX-XXXX-0001", 1234)
+    with patch.object(
+        orcid_client.MemberAPIV20Api,
+        "view_researcher_url",
+        MagicMock(return_value=Mock(data="""{"visibility": "PUBLIC"}"""))
+    ) as view_researcher_url, request_ctx(f"/section/{user.id}/RUR/1234/edit") as ctx:
+        login_user(admin)
+        resp = ctx.app.full_dispatch_request()
+        assert admin.email.encode() in resp.data
+        assert admin.name.encode() in resp.data
+        view_researcher_url.assert_called_once_with("XXXX-XXXX-XXXX-0001", 1234, _preload_content=False)
+    with patch.object(
+        orcid_client.MemberAPIV20Api,
+        "view_other_name",
+        MagicMock(return_value=Mock(data="""{"visibility": "PUBLIC", "content": "xyz"}"""))
+    ) as view_other_name, request_ctx(f"/section/{user.id}/ONR/1234/edit") as ctx:
+        login_user(admin)
+        resp = ctx.app.full_dispatch_request()
+        assert admin.email.encode() in resp.data
+        assert admin.name.encode() in resp.data
+        view_other_name.assert_called_once_with("XXXX-XXXX-XXXX-0001", 1234, _preload_content=False)
+    with patch.object(
+        orcid_client.MemberAPIV20Api,
+        "view_keyword",
+        MagicMock(return_value=Mock(data="""{"visibility": "PUBLIC"}"""))
+    ) as view_keyword, request_ctx(f"/section/{user.id}/KWR/1234/edit") as ctx:
+        login_user(admin)
+        resp = ctx.app.full_dispatch_request()
+        assert admin.email.encode() in resp.data
+        assert admin.name.encode() in resp.data
+        view_keyword.assert_called_once_with("XXXX-XXXX-XXXX-0001", 1234, _preload_content=False)
     with patch.object(
             orcid_client.MemberAPIV20Api, "create_education",
             MagicMock(return_value=fake_response)), request_ctx(
@@ -1982,6 +2043,49 @@ def test_edit_record(request_ctx):
         resp = ctx.app.full_dispatch_request()
         assert resp.status_code == 302
         assert resp.location == f"/section/{user.id}/WOR/list"
+    with patch.object(
+            orcid_client.MemberAPIV20Api, "create_researcher_url",
+            MagicMock(return_value=fake_response)), request_ctx(
+                f"/section/{user.id}/RUR/new",
+                method="POST",
+                data={
+                    "url_name": "xyz",
+                    "url_value": "https://www.xyz.com",
+                    "visibility": "PUBLIC",
+                    "display_index": "FIRST",
+                }) as ctx:
+        login_user(admin)
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 302
+        assert resp.location == f"/section/{user.id}/RUR/list"
+    with patch.object(
+            orcid_client.MemberAPIV20Api, "create_other_name",
+            MagicMock(return_value=fake_response)), request_ctx(
+                f"/section/{user.id}/ONR/new",
+                method="POST",
+                data={
+                    "content": "xyz",
+                    "visibility": "PUBLIC",
+                    "display_index": "FIRST",
+                }) as ctx:
+        login_user(admin)
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 302
+        assert resp.location == f"/section/{user.id}/ONR/list"
+    with patch.object(
+            orcid_client.MemberAPIV20Api, "create_keyword",
+            MagicMock(return_value=fake_response)), request_ctx(
+                f"/section/{user.id}/KWR/new",
+                method="POST",
+                data={
+                    "content": "xyz",
+                    "visibility": "PUBLIC",
+                    "display_index": "FIRST",
+                }) as ctx:
+        login_user(admin)
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 302
+        assert resp.location == f"/section/{user.id}/KWR/list"
 
 
 def test_delete_employment(request_ctx, app):
@@ -2079,6 +2183,35 @@ def test_delete_employment(request_ctx, app):
         resp = ctx.app.full_dispatch_request()
         assert resp.status_code == 302
         delete_work.assert_called_once_with("XXXX-XXXX-XXXX-0001", 54321)
+    token.scope = "/read-limited,/person/update"
+    token.save()
+    with patch.object(
+            orcid_client.MemberAPIV20Api,
+            "delete_researcher_url",
+            MagicMock(return_value='{"test": "TEST1234567890"}')) as delete_researcher_url, request_ctx(
+                f"/section/{user.id}/RUR/54321/delete", method="POST") as ctx:
+        login_user(admin)
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 302
+        delete_researcher_url.assert_called_once_with("XXXX-XXXX-XXXX-0001", 54321)
+    with patch.object(
+            orcid_client.MemberAPIV20Api,
+            "delete_other_name",
+            MagicMock(return_value='{"test": "TEST1234567890"}')) as delete_other_name, request_ctx(
+                f"/section/{user.id}/ONR/54321/delete", method="POST") as ctx:
+        login_user(admin)
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 302
+        delete_other_name.assert_called_once_with("XXXX-XXXX-XXXX-0001", 54321)
+    with patch.object(
+            orcid_client.MemberAPIV20Api,
+            "delete_keyword",
+            MagicMock(return_value='{"test": "TEST1234567890"}')) as delete_keyword, request_ctx(
+                f"/section/{user.id}/KWR/54321/delete", method="POST") as ctx:
+        login_user(admin)
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 302
+        delete_keyword.assert_called_once_with("XXXX-XXXX-XXXX-0001", 54321)
 
 
 def test_viewmembers(client):
@@ -3268,6 +3401,61 @@ def test_other_names(client):
     assert b'xyzz@mailinator.com' in resp.data
     assert b'dummy 1220' in resp.data
     assert b'dummy 10' in resp.data
+
+
+def test_keyword(client):
+    """Test researcher keyword data management."""
+    user = client.data["admin"]
+    client.login(user, follow_redirects=True)
+    resp = client.post(
+        "/load/keyword",
+        data={
+            "file_": (
+                BytesIO(b"""{
+  "created-at": "2019-02-15T04:39:23",
+  "filename": "keyword_sample_latest.json",
+  "records": [
+    {
+      "content": "keyword 1",
+      "display-index": 0,
+      "email": "rad42@mailinator.com",
+      "first-name": "sdsd",
+      "last-name": "sds1",
+      "orcid": null,
+      "processed-at": null,
+      "put-code": null,
+      "status": "The record was reset at 2019-02-20T08:31:49",
+      "visibility": "PUBLIC"
+    },
+    {
+      "content": "keyword 2",
+      "display-index": 0,
+      "email": "xyzz@mailinator.com",
+      "first-name": "sdsd",
+      "last-name": "sds1",
+      "orcid": "0000-0002-0146-7409",
+      "processed-at": null,
+      "put-code": 16878,
+      "status": "The record was reset at 2019-02-20T08:31:49",
+      "visibility": "PUBLIC"
+    }
+  ],
+  "task-type": "KEYWORD",
+  "updated-at": "2019-02-19T19:31:49"}"""),
+                "keyword_sample_latest.json",
+            ),
+        },
+        follow_redirects=True)
+    assert resp.status_code == 200
+    assert b"keyword 2" in resp.data
+    task = Task.get(filename="keyword_sample_latest.json")
+    assert task.records.count() == 2
+
+    resp = client.get(f"/admin/keywordrecord/export/json/?task_id={task.id}")
+    assert resp.status_code == 200
+    assert b'xyzz@mailinator.com' in resp.data
+    assert b'"keyword 2' in resp.data
+    assert b'"keyword 1' in resp.data
 
 
 def test_researcher_url(client):

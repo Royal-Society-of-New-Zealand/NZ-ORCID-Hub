@@ -1337,10 +1337,6 @@ class MemberAPI(MemberAPIV20Api):
             _preload_content=False)
         return json.loads(resp.data) if status == 200 else None
 
-    def create_or_update_keywords(self, org=None, keywords=None):
-        """Create or update the list of keywords of a record."""
-        pass
-
 
 # yapf: disable
 from orcid_api import *  # noqa: F401,F403,F405

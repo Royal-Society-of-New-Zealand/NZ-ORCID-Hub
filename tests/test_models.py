@@ -11,7 +11,7 @@ from playhouse.test_utils import test_database
 from orcid_hub import JSONEncoder
 from orcid_hub.models import (
     Affiliation, AffiliationRecord, BaseModel, BooleanField, ExternalId, File, ForeignKeyField,
-    FundingContributor, FundingInvitee, FundingRecord, Log, ModelException, NestedDict, OrcidToken,
+    FundingContributor, FundingInvitee, FundingRecord, KeywordRecord, Log, ModelException, NestedDict, OrcidToken,
     Organisation, OrgInfo, OtherNameRecord, PartialDate, PartialDateField, PeerReviewExternalId,
     PeerReviewInvitee, PeerReviewRecord, ResearcherUrlRecord, Role, Task, TaskType, TaskTypeField,
     TextField, User, UserInvitation, UserOrg, UserOrgAffiliation, WorkContributor, WorkExternalId,
@@ -31,7 +31,7 @@ def testdb():
     """
     _db = SqliteDatabase(":memory:", pragmas=[("foreign_keys", "on")])
     with test_database(
-            _db, (Organisation, File, User, UserInvitation, UserOrg, OtherNameRecord, OrgInfo,
+            _db, (Organisation, File, KeywordRecord, User, UserInvitation, UserOrg, OtherNameRecord, OrgInfo,
                   OrcidToken, UserOrgAffiliation, Task, AffiliationRecord, ExternalId,
                   FundingRecord, FundingContributor, FundingInvitee, WorkRecord, WorkContributor,
                   WorkExternalId, WorkInvitee, PeerReviewRecord, PeerReviewExternalId,
@@ -137,6 +137,19 @@ def models(testdb):
         display_index=i) for i in range(10))).execute()
 
     OtherNameRecord.insert_many((dict(
+        is_active=False,
+        task=Task.get(id=1),
+        put_code=90,
+        status="Test_%d" % i,
+        first_name="Test_%d" % i,
+        last_name="Test_%d" % i,
+        email="Test_%d" % i,
+        orcid="123112311231%d" % i,
+        content="Test_%d" % i,
+        visibility="Test_%d" % i,
+        display_index=i) for i in range(10))).execute()
+
+    KeywordRecord.insert_many((dict(
         is_active=False,
         task=Task.get(id=1),
         put_code=90,
@@ -318,6 +331,7 @@ def test_test_database(models):
     assert PeerReviewInvitee.select().count() == 10
     assert ResearcherUrlRecord.select().count() == 10
     assert OtherNameRecord.select().count() == 10
+    assert KeywordRecord.select().count() == 10
     assert Task.select().count() == 30
     assert UserOrgAffiliation.select().count() == 30
 
