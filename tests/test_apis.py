@@ -884,12 +884,20 @@ def test_peer_review_api(client):
     assert Task.select().count() == 3
 
     resp = client.post(
+        "/api/v1.0/peer-reviews",
+        headers=dict(authorization=f"Bearer {access_token}"),
+        content_type="application/json",
+        data=json.dumps(records))
+    assert resp.status_code == 200
+    assert Task.select().count() == 4
+
+    resp = client.post(
         f"/api/v1.0/peer-reviews/{task_id}",
         headers=dict(authorization=f"Bearer {access_token}"),
         content_type="application/json",
         data=json.dumps(records))
     assert resp.status_code == 200
-    assert Task.select().count() == 3
+    assert Task.select().count() == 4
 
     resp = client.head(
         f"/api/v1.0/peer-reviews/{task_id}",
@@ -901,7 +909,7 @@ def test_peer_review_api(client):
         f"/api/v1.0/peer-reviews/{task_id}",
         headers=dict(authorization=f"Bearer {access_token}"))
     assert resp.status_code == 200
-    assert Task.select().count() == 2
+    assert Task.select().count() == 3
 
     resp = client.head(
         f"/api/v1.0/peer-reviews/{task_id}",

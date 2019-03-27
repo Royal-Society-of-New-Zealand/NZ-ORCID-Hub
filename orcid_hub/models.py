@@ -2108,7 +2108,10 @@ class PeerReviewRecord(RecordModel):
             # import data from file based on its extension; either it is YAML or JSON
             peer_review_data_list = load_yaml_json(filename=filename, source=source)
             if not filename:
-                filename = peer_review_data_list.get("filename")
+                if isinstance(peer_review_data_list, dict):
+                    filename = peer_review_data_list.get("filename")
+                else:
+                    filename = "peer_review_" + datetime.utcnow().isoformat(timespec="seconds") + ".json"
             if isinstance(peer_review_data_list, dict):
                 peer_review_data_list = peer_review_data_list.get("records")
 
