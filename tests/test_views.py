@@ -2643,7 +2643,7 @@ issn:1213199811,REVIEWER,https://alt-url.com,REVIEW,2012-08-01,doi,10.1087/20120
     task = Task.select().where(Task.task_type == TaskType.PEER_REVIEW).first()
     prr = task.peer_review_records.where(PeerReviewRecord.review_group_id == "issn:1213199811").first()
     assert prr.external_ids.count() == 2
-    assert prr.peer_review_invitee.count() == 2
+    assert prr.invitees.count() == 2
 
 
 def test_load_funding_csv(client):
