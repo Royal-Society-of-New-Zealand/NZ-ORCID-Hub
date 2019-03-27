@@ -41,8 +41,8 @@ from .forms import (ApplicationFrom, BitmapMultipleValueField, CredentialForm, E
                     UserInvitationForm, WebhookForm, WorkForm)
 from .login_provider import roles_required
 from .models import (JOIN, Affiliation, AffiliationRecord, CharField, Client, Delegate, ExternalId,
-                     File, FundingContributor, FundingInvitee, FundingRecord, Grant,
-                     GroupIdRecord, ModelException, NestedDict, OtherNameRecord, OrcidApiCall, OrcidToken, Organisation,
+                     File, FundingContributor, FundingInvitee, FundingRecord, Grant, GroupIdRecord, KeywordRecord,
+                     ModelException, NestedDict, OtherNameRecord, OrcidApiCall, OrcidToken, Organisation,
                      OrgInfo, OrgInvitation, PartialDate, PeerReviewExternalId, PeerReviewInvitee, PeerReviewRecord,
                      ResearcherUrlRecord, Role, Task, TaskType, TextField, Token, Url, User, UserInvitation, UserOrg,
                      UserOrgAffiliation, WorkContributor, WorkExternalId, WorkInvitee, WorkRecord, db, get_val)
@@ -1505,6 +1505,12 @@ class OtherNameRecordAdmin(AffiliationRecordAdmin):
     column_searchable_list = ("content", "first_name", "last_name", "email",)
 
 
+class KeywordRecordAdmin(AffiliationRecordAdmin):
+    """Keyword record model view."""
+
+    column_searchable_list = ("content", "first_name", "last_name", "email",)
+
+
 class ViewMembersAdmin(AppModelView):
     """Organisation member model (User beloging to the current org.admin oganisation) view."""
 
@@ -1735,6 +1741,7 @@ admin.add_view(PeerReviewInviteeAdmin())
 admin.add_view(PeerReviewExternalIdAdmin())
 admin.add_view(ResearcherUrlRecordAdmin())
 admin.add_view(OtherNameRecordAdmin())
+admin.add_view(KeywordRecordAdmin())
 admin.add_view(ViewMembersAdmin(name="viewmembers", endpoint="viewmembers"))
 
 admin.add_view(UserOrgAmin(UserOrg))
@@ -2207,6 +2214,7 @@ def edit_record(user_id, section_type, put_code=None):
                         **{f.name: f.data
                            for f in form})
             elif section_type == "RUR":
+
                 put_code, orcid, created = api.create_or_update_researcher_url(
                     put_code=put_code,
                     **{f.name: f.data
@@ -2685,6 +2693,31 @@ def load_other_names():
             app.logger.exception("Failed to load Other Name records.")
 
     return render_template("fileUpload.html", form=form, title="Other Names Info Upload")
+
+
+@app.route("/load/keyword", methods=["GET", "POST"])
+@roles_required(Role.ADMIN)
+def load_keyword():
+    """Preload Keywords data."""
+    form = FileUploadForm(extensions=["json", "yaml", "csv", "tsv"])
+    if form.validate_on_submit():
+        filename = secure_filename(form.file_.data.filename)
+        content_type = form.file_.data.content_type
+        try:
+            if content_type in ["text/tab-separated-values", "text/csv"] or (
+                    filename and filename.lower().endswith(('.csv', '.tsv'))):
+                task = KeywordRecord.load_from_csv(
+                    read_uploaded_file(form), filename=filename, task_type=TaskType.KEYWORD)
+            else:
+                task = KeywordRecord.load_from_json(
+                    read_uploaded_file(form), filename=filename, task_type=TaskType.KEYWORD)
+            flash(f"Successfully loaded {task.record_count} rows.")
+            return redirect(url_for("keywordrecord.index_view", task_id=task.id))
+        except Exception as ex:
+            flash(f"Failed to load Keyword record file: {ex}", "danger")
+            app.logger.exception("Failed to load Keyword records.")
+
+    return render_template("fileUpload.html", form=form, title="Keyword Info Upload")
 
 
 @app.route("/orcid_api_rep", methods=["GET", "POST"])

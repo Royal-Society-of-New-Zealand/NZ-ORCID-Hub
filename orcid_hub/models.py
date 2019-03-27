@@ -34,7 +34,7 @@ from pykwalify.core import Core
 from pykwalify.errors import SchemaError
 
 from . import app, db
-from .schemas import affiliation_task_schema, researcher_url_task_schema, other_name_task_schema
+from .schemas import affiliation_task_schema, researcher_url_task_schema, other_name_keyword_task_schema
 
 ENV = app.config["ENV"]
 DEFAULT_COUNTRY = app.config["DEFAULT_COUNTRY"]
@@ -242,6 +242,7 @@ class TaskType(IntEnum):
     PEER_REVIEW = 3
     RESEARCHER_URL = 5
     OTHER_NAME = 6
+    KEYWORD = 7
     SYNC = 11
 
     def __eq__(self, other):
@@ -2458,26 +2459,25 @@ class ResearcherUrlRecord(RecordModel):
         table_alias = "ru"
 
 
-class OtherNameRecord(RecordModel):
-    """Other Name record loaded from Json file for batch processing."""
+class OtherNameKeywordModel(RecordModel):
+    """Other Name and Keyword Model for batch processing."""
 
-    task = ForeignKeyField(Task, related_name="other_name_records", on_delete="CASCADE")
     content = CharField(max_length=255)
     display_index = IntegerField(null=True)
+    visibility = CharField(null=True, max_length=100)
     email = CharField(max_length=120)
     first_name = CharField(max_length=120)
     last_name = CharField(max_length=120)
     orcid = OrcidIdField(null=True)
     put_code = IntegerField(null=True)
-    visibility = CharField(null=True, max_length=100)
     is_active = BooleanField(
         default=False, help_text="The record is marked for batch processing", null=True)
     processed_at = DateTimeField(null=True)
     status = TextField(null=True, help_text="Record processing status.")
 
     @classmethod
-    def load_from_csv(cls, source, filename=None, org=None):
-        """Load other names data from CSV/TSV file or a string."""
+    def load_from_csv(cls, source, filename=None, org=None, task_type=TaskType.OTHER_NAME):
+        """Load keyword and Other Name data from CSV/TSV file."""
         if isinstance(source, str):
             source = StringIO(source)
         if filename is None:
@@ -2531,7 +2531,7 @@ class OtherNameRecord(RecordModel):
 
         with db.atomic():
             try:
-                task = Task.create(org=org, filename=filename, task_type=TaskType.OTHER_NAME)
+                task = Task.create(org=org, filename=filename, task_type=task_type)
                 for row_no, row in enumerate(reader):
                     # skip empty lines:
                     if len([item for item in row if item and item.strip()]) == 0:
@@ -2585,20 +2585,19 @@ class OtherNameRecord(RecordModel):
         return task
 
     @classmethod
-    def load_from_json(cls, source, filename=None, org=None, task=None, skip_schema_validation=False):
+    def load_from_json(cls, source, filename=None, org=None, task=None, skip_schema_validation=False,
+                       task_type=TaskType.OTHER_NAME):
         """Load data from JSON file or a string."""
         data = load_yaml_json(filename=filename, source=source)
         if not skip_schema_validation:
-            jsonschema.validate(data, other_name_task_schema)
+            jsonschema.validate(data, other_name_keyword_task_schema)
         records = data["records"] if isinstance(data, dict) else data
         with db.atomic():
             try:
                 if org is None:
                     org = current_user.organisation if current_user else None
                 if not task:
-                    task = Task.create(org=org, filename=filename, task_type=TaskType.OTHER_NAME)
-                # else:
-                #   OtherNameRecord.delete().where(OtherNameRecord.task == task).execute()
+                    task = Task.create(org=org, filename=filename, task_type=task_type)
 
                 for r in records:
                     content = r.get("content")
@@ -2627,6 +2626,22 @@ class OtherNameRecord(RecordModel):
                 db.rollback()
                 app.logger.exception("Failed to load Other Name Record file.")
                 raise
+
+
+class KeywordRecord(OtherNameKeywordModel):
+    """Keyword record loaded for batch processing."""
+
+    task = ForeignKeyField(Task, related_name="keyword_records", on_delete="CASCADE")
+
+    class Meta:  # noqa: D101,D106
+        db_table = "keyword_record"
+        table_alias = "onr"
+
+
+class OtherNameRecord(OtherNameKeywordModel):
+    """Other Name record loaded for batch processing."""
+
+    task = ForeignKeyField(Task, related_name="other_name_records", on_delete="CASCADE")
 
     class Meta:  # noqa: D101,D106
         db_table = "other_name_record"
