@@ -2111,7 +2111,8 @@ class PeerReviewRecord(RecordModel):
                 if isinstance(peer_review_data_list, dict):
                     filename = peer_review_data_list.get("filename")
                 else:
-                    filename = "peer_review_" + datetime.utcnow().isoformat(timespec="seconds") + ".json"
+                    filename = "peer_review_" + datetime.utcnow().isoformat(
+                        timespec="seconds") + ".json"
             if isinstance(peer_review_data_list, dict):
                 peer_review_data_list = peer_review_data_list.get("records")
 
