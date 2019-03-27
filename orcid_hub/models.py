@@ -3444,6 +3444,7 @@ def create_tables():
             PeerReviewExternalId,
             ResearcherUrlRecord,
             OtherNameRecord,
+            KeywordRecord,
             Client,
             Grant,
             Token,
@@ -3474,7 +3475,7 @@ def drop_tables():
     """Drop all model tables."""
     for m in (File, User, UserOrg, OtherNameRecord, OrcidToken, UserOrgAffiliation, OrgInfo, OrgInvitation,
               OrcidApiCall, OrcidAuthorizeCall, FundingContributor, FundingInvitee, FundingRecord,
-              PeerReviewInvitee, PeerReviewExternalId, PeerReviewRecord, ResearcherUrlRecord,
+              PeerReviewInvitee, PeerReviewExternalId, PeerReviewRecord, ResearcherUrlRecord, KeywordRecord,
               WorkInvitee, WorkExternalId, WorkContributor, WorkRecord, AffiliationRecord, ExternalId, Url,
               UserInvitation, Task, Organisation):
         if m.table_exists():
