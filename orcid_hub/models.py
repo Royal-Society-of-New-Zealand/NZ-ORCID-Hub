@@ -26,7 +26,7 @@ from peewee import JOIN, BlobField
 from peewee import BooleanField as BooleanField_
 from peewee import (CharField, DateTimeField, DeferredRelation, Field, FixedCharField,
                     ForeignKeyField, IntegerField, Model, OperationalError, PostgresqlDatabase,
-                    SmallIntegerField, TextField, fn)
+                    SmallIntegerField, SqliteDatabase, TextField, fn)
 from peewee_validates import ModelValidator
 from playhouse.shortcuts import model_to_dict
 from pycountry import countries
@@ -1323,6 +1323,10 @@ class RecordModel(BaseModel):
         ts = datetime.utcnow().isoformat(timespec="seconds")
         self.status = (self.status + "\n" if self.status else '') + ts + ": " + line
 
+    def key_name(self, name):
+        """Map key-name to a model class key name for export."""
+        return name
+
     @classmethod
     def get_field_regxes(cls):
         """Return map of compiled field name regex to the model fields."""
@@ -1331,7 +1335,7 @@ class RecordModel(BaseModel):
     def to_export_dict(self):
         """Map the common record parts to dict for export into JSON/YAML."""
         org = self.task.org
-        d = {"type": self.type}
+        d = {"type": self.type} if hasattr(self, "type") else {}
         if hasattr(self, "org_name"):
             d["organization"] = {
                 "disambiguated-organization": {
@@ -1362,7 +1366,9 @@ class RecordModel(BaseModel):
         if hasattr(self, "contributors") and self.contributors:
             d["contributors"] = {"contributor": [r.to_export_dict() for r in self.contributors]}
         if hasattr(self, "external_ids") and self.external_ids:
-            d["external-ids"] = {"external-id": [r.to_export_dict() for r in self.external_ids]}
+            d[self.key_name("external-ids")] = {
+                "external-id": [r.to_export_dict() for r in self.external_ids]
+            }
         if hasattr(self, "start_date") and self.start_date:
             d["start-date"] = self.start_date.as_orcid_dict()
         if hasattr(self, "end_date") and self.end_date:
@@ -1892,6 +1898,12 @@ class PeerReviewRecord(RecordModel):
     processed_at = DateTimeField(null=True)
     status = TextField(null=True, help_text="Record processing status.")
 
+    def key_name(self, name):
+        """Map key-name to a model class key name for export."""
+        if name == "external-ids":
+            return "review-identifiers"
+        return name
+
     @classmethod
     def load_from_csv(cls, source, filename=None, org=None):
         """Load data from CSV/TSV file or a string."""
@@ -2091,11 +2103,19 @@ class PeerReviewRecord(RecordModel):
                 raise
 
     @classmethod
-    def load_from_json(cls, source, filename=None, org=None):
+    def load_from_json(cls, source, filename=None, org=None, task=None, **kwargs):
         """Load data from JSON file or a string."""
         if isinstance(source, str):
             # import data from file based on its extension; either it is YAML or JSON
             peer_review_data_list = load_yaml_json(filename=filename, source=source)
+            if not filename:
+                if isinstance(peer_review_data_list, dict):
+                    filename = peer_review_data_list.get("filename")
+                else:
+                    filename = "peer_review_" + datetime.utcnow().isoformat(
+                        timespec="seconds") + ".json"
+            if isinstance(peer_review_data_list, dict):
+                peer_review_data_list = peer_review_data_list.get("records")
 
             for peer_review_data in peer_review_data_list:
                 validation_source_data = copy.deepcopy(peer_review_data)
@@ -2109,7 +2129,10 @@ class PeerReviewRecord(RecordModel):
             try:
                 if org is None:
                     org = current_user.organisation if current_user else None
-                task = Task.create(org=org, filename=filename, task_type=TaskType.PEER_REVIEW)
+                if task:
+                    cls.delete().where(cls.task == task).execute()
+                else:
+                    task = Task.create(org=org, filename=filename, task_type=TaskType.PEER_REVIEW)
 
                 for peer_review_data in peer_review_data_list:
 
@@ -2199,7 +2222,7 @@ class PeerReviewRecord(RecordModel):
                         "convening-organization") and peer_review_data.get("convening-organization").get(
                         "disambiguated-organization") else None
 
-                    peer_review_record = PeerReviewRecord.create(
+                    peer_review_record = cls.create(
                         task=task,
                         review_group_id=review_group_id,
                         reviewer_role=reviewer_role,
@@ -2271,6 +2294,62 @@ class PeerReviewRecord(RecordModel):
                 db.rollback()
                 app.logger.exception("Failed to load peer review file.")
                 raise
+
+    def to_export_dict(self):
+        """Map the peer-review record to dict for export into JSON/YAML."""
+        d = super().to_export_dict()
+        d["review-type"] = self.review_type
+        d["reviewer-role"] = self.reviewer_role
+        if self.subject_external_id_relationship or self.subject_external_id_value:
+            d["subject-external-identifier"] = {
+                "external-id-type": self.subject_external_id_type,
+                "external-id-value": self.subject_external_id_value,
+                "external-id-url": {
+                    "value": self.subject_external_id_url
+                },
+                "external-id-relationship": self.subject_external_id_relationship
+            }
+        if self.subject_container_name:
+            d["subject-container-name"] = {"value": self.subject_container_name}
+        if self.subject_type:
+            d["subject-type"] = self.subject_type
+        if self.review_completion_date:
+            cd = self.review_completion_date.as_orcid_dict()
+            d["review-completion-date"] = cd
+        if self.review_url:
+            d["review-url"] = {"value": self.review_url}
+        if self.review_group_id:
+            d["review-group-id"] = self.review_group_id
+        if self.subject_name_title:
+            sn = {"title": {"value": self.subject_name_title}}
+            if self.subject_name_subtitle:
+                sn["subtitle"] = {"value": self.subject_name_subtitle}
+            if self.subject_name_translated_title:
+                sn["translated-title"] = {"value": self.subject_name_translated_title}
+                if self.subject_name_translated_title_lang_code:
+                    sn["translated-title"]["language-code"] = self.subject_name_translated_title_lang_code
+            d["subject-name"] = sn
+        if self.subject_url:
+            d["subject-url"] = dict(value=self.subject_url)
+        if self.convening_org_name:
+            co = {
+                "name": self.convening_org_name,
+                "address": {
+                    "city": self.convening_org_city,
+                    "region": self.convening_org_region,
+                    "country": self.convening_org_country,
+                }
+            }
+            if self.convening_org_disambiguated_identifier:
+                pass
+                co["disambiguated-organization"] = {
+                    "disambiguated-organization-identifier":
+                    self.convening_org_disambiguated_identifier,
+                    "disambiguation-source":
+                    self.convening_org_disambiguation_source,
+                }
+            d["convening-organization"] = co
+        return d
 
     class Meta:  # noqa: D101,D106
         db_table = "peer_review_record"
@@ -3126,7 +3205,7 @@ class PeerReviewInvitee(InviteeModel):
     """Researcher or Invitee - related to peer review."""
 
     peer_review_record = ForeignKeyField(
-        PeerReviewRecord, related_name="peer_review_invitee", on_delete="CASCADE")
+        PeerReviewRecord, related_name="invitees", on_delete="CASCADE")
 
     class Meta:  # noqa: D101,D106
         db_table = "peer_review_invitee"
@@ -3469,6 +3548,8 @@ def create_audit_tables():
             with db.get_cursor() as cr:
                 cr.execute(sql)
             db.commit()
+    elif isinstance(db, SqliteDatabase):
+        db.execute_sql("ATTACH DATABASE ':memory:' AS audit")
 
 
 def drop_tables():

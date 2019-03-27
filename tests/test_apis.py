@@ -835,6 +835,88 @@ def test_work_api(client):
     assert resp.status_code == 404
 
 
+def test_peer_review_api(client):
+    """Test peer review API in various formats."""
+    admin = client.data.get("admin")
+    resp = client.login(admin, follow_redirects=True)
+    resp = client.post(
+        "/load/researcher/peer_review",
+        data={
+            "file_": (open(
+                os.path.join(os.path.dirname(__file__), "data", "example_peer_reviews.json"),
+                "rb"), "peer-reviews042.json"),
+        },
+        follow_redirects=True)
+    assert resp.status_code == 200
+    assert Task.select().count() == 1
+
+    access_token = client.get_access_token()
+
+    resp = client.get(
+        "/api/v1.0/tasks?type=PEER_REVIEW",
+        headers=dict(authorization=f"Bearer {access_token}"))
+    data = json.loads(resp.data)
+    task_id = int(data[0]["id"])
+
+    resp = client.get(
+        f"/api/v1.0/peer-reviews/{task_id}",
+        headers=dict(authorization=f"Bearer {access_token}"))
+    data = json.loads(resp.data)
+    assert len(data["records"]) == 1
+    assert data["filename"] == "peer-reviews042.json"
+
+    del(data["id"])
+    resp = client.post(
+        "/api/v1.0/peer-reviews/?filename=peer_reviews333.json",
+        headers=dict(authorization=f"Bearer {access_token}"),
+        content_type="application/json",
+        data=json.dumps(data))
+    assert resp.status_code == 200
+    assert Task.select().count() == 2
+
+    records = data["records"]
+    resp = client.post(
+        "/api/v1.0/peer-reviews/?filename=peer_reviews444.json",
+        headers=dict(authorization=f"Bearer {access_token}"),
+        content_type="application/json",
+        data=json.dumps(records))
+    assert resp.status_code == 200
+    assert Task.select().count() == 3
+
+    resp = client.post(
+        "/api/v1.0/peer-reviews",
+        headers=dict(authorization=f"Bearer {access_token}"),
+        content_type="application/json",
+        data=json.dumps(records))
+    assert resp.status_code == 200
+    assert Task.select().count() == 4
+
+    resp = client.post(
+        f"/api/v1.0/peer-reviews/{task_id}",
+        headers=dict(authorization=f"Bearer {access_token}"),
+        content_type="application/json",
+        data=json.dumps(records))
+    assert resp.status_code == 200
+    assert Task.select().count() == 4
+
+    resp = client.head(
+        f"/api/v1.0/peer-reviews/{task_id}",
+        headers=dict(authorization=f"Bearer {access_token}"))
+    assert "Last-Modified" in resp.headers
+    assert resp.status_code == 200
+
+    resp = client.delete(
+        f"/api/v1.0/peer-reviews/{task_id}",
+        headers=dict(authorization=f"Bearer {access_token}"))
+    assert resp.status_code == 200
+    assert Task.select().count() == 3
+
+    resp = client.head(
+        f"/api/v1.0/peer-reviews/{task_id}",
+        headers=dict(authorization=f"Bearer {access_token}"))
+    assert resp.status_code == 404
+
+
 def test_proxy_get_profile(client):
     """Test the echo endpoint."""
     user = User.get(email="app123@test0.edu")

@@ -2776,7 +2776,7 @@ issn:1213199811,REVIEWER,https://alt-url.com,REVIEW,2012-08-01,doi,10.1087/20120
     task = Task.select().where(Task.task_type == TaskType.PEER_REVIEW).first()
     prr = task.peer_review_records.where(PeerReviewRecord.review_group_id == "issn:1213199811").first()
     assert prr.external_ids.count() == 2
-    assert prr.peer_review_invitee.count() == 2
+    assert prr.invitees.count() == 2
 
 
 def test_load_funding_csv(client):
@@ -2871,6 +2871,36 @@ THIS IS A TITLE #4	 नमस्ते #2	hi	CONTRACT	MY TYPE	Minerals unde.	900
     assert Task.select().where(Task.task_type == TaskType.FUNDING).count() == 4
     task = Task.select().where(Task.task_type == TaskType.FUNDING).order_by(Task.id.desc()).first()
     assert task.funding_records.count() == 2
+
+    # Activate a single record:
+    resp = client.post(
+        "/admin/fundingrecord/action/",
+        follow_redirects=True,
+        data={
+            "url": f"/admin/fundingrecord/?task_id={task.id}",
+            "action": "activate",
+            "rowid": task.records.first().id,
+        })
+    assert FundingRecord.select().where(FundingRecord.task_id == task.id,
+                                        FundingRecord.is_active).count() == 1
+
+    # Activate all:
+    resp = client.post("/activate_all", follow_redirects=True, data=dict(task_id=task.id))
+    assert FundingRecord.select().where(FundingRecord.task_id == task.id,
+                                        FundingRecord.is_active).count() == 2
+
+    # Reste a single record
+    FundingRecord.update(processed_at=datetime.datetime(2018, 1, 1)).execute()
+    resp = client.post(
+        "/admin/fundingrecord/action/",
+        follow_redirects=True,
+        data={
+            "url": f"/admin/fundingrecord/?task_id={task.id}",
+            "action": "reset",
+            "rowid": task.records.first().id,
+        })
+    assert FundingRecord.select().where(FundingRecord.task_id == task.id,
+                                        FundingRecord.processed_at.is_null()).count() == 1
 
     resp = client.post(
         "/admin/task/delete/",
@@ -3055,6 +3085,36 @@ def test_researcher_work(client):
     assert rec.external_ids.count() == 1
     assert rec.contributors.count() == 1
     assert rec.invitees.count() == 1
+
+    # Activate a single record:
+    resp = client.post(
+        "/admin/workrecord/action/",
+        follow_redirects=True,
+        data={
+            "url": f"/admin/workrecord/?task_id={task.id}",
+            "action": "activate",
+            "rowid": task.records.first().id,
+        })
+    assert WorkRecord.select().where(WorkRecord.task_id == task.id,
+                                     WorkRecord.is_active).count() == 1
+
+    # Activate all:
+    resp = client.post("/activate_all", follow_redirects=True, data=dict(task_id=task.id))
+    assert WorkRecord.select().where(WorkRecord.task_id == task.id,
+                                     WorkRecord.is_active).count() == 1
+
+    # Reste a single record
+    WorkRecord.update(processed_at=datetime.datetime(2018, 1, 1)).execute()
+    resp = client.post(
+        "/admin/workrecord/action/",
+        follow_redirects=True,
+        data={
+            "url": f"/admin/fundingrecord/?task_id={task.id}",
+            "action": "reset",
+            "rowid": task.records.first().id,
+        })
+    assert WorkRecord.select().where(WorkRecord.task_id == task.id,
+                                     WorkRecord.processed_at.is_null()).count() == 1
 
     resp = client.get(f"/admin/workrecord/export/csv/?task_id={task.id}")
     assert resp.headers["Content-Type"] == "text/csv; charset=utf-8"
@@ -3340,6 +3400,41 @@ def test_peer_reviews(client):
     assert task.records.count() == 1
     rec = task.records.first()
     assert rec.external_ids.count() == 1
+
+    # Activate a single record:
+    resp = client.post(
+        "/admin/peerreviewrecord/action/",
+        follow_redirects=True,
+        data={
+            "url": f"/admin/peerreviewrecord/?task_id={task.id}",
+            "action": "activate",
+            "rowid": task.records.first().id,
+        })
+    assert PeerReviewRecord.select().where(PeerReviewRecord.task_id == task.id,
+                                           PeerReviewRecord.is_active).count() == 1
+
+    # Activate all:
+    resp = client.post("/activate_all", follow_redirects=True, data=dict(task_id=task.id))
+    assert PeerReviewRecord.select().where(PeerReviewRecord.task_id == task.id,
+                                           PeerReviewRecord.is_active).count() == 1
+
+    # Reste a single record
+    PeerReviewRecord.update(processed_at=datetime.datetime(2018, 1, 1)).execute()
+    resp = client.post(
+        "/admin/peerreviewrecord/action/",
+        follow_redirects=True,
+        data={
+            "url": f"/admin/peerreviewrecord/?task_id={task.id}",
+            "action": "reset",
+            "rowid": task.records.first().id,
+        })
+    assert PeerReviewRecord.select().where(PeerReviewRecord.task_id == task.id,
+                                           PeerReviewRecord.processed_at.is_null()).count() == 1
+
+    # Reset all:
+    resp = client.post("/reset_all", follow_redirects=True, data=dict(task_id=task.id))
+    assert PeerReviewRecord.select().where(PeerReviewRecord.task_id == task.id,
+                                           PeerReviewRecord.is_active).count() == 1
 
     resp = client.get(f"/admin/peerreviewrecord/export/json/?task_id={task.id}")
     assert resp.status_code == 200
