@@ -1871,9 +1871,9 @@ def process_tasks(max_rows=20):
                     WorkInvitee.processed_at.is_null(False)).distinct().count()
         elif task_type == TaskType.PEER_REVIEW:
             for peer_review_record in current_task.peer_review_records.select():
-                total_count = total_count + peer_review_record.peer_review_invitee.select().distinct().count()
+                total_count = total_count + peer_review_record.invitees.select().distinct().count()
 
-                current_count = current_count + peer_review_record.peer_review_invitee.select().where(
+                current_count = current_count + peer_review_record.invitees.select().where(
                     PeerReviewInvitee.processed_at.is_null(False)).distinct().count()
 
     tasks = Task.select().where(

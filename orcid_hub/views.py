@@ -961,8 +961,6 @@ class CompositeRecordModelView(RecordModelView):
                 if self.model == WorkRecord:
                     invitees_data = row.invitees
                 elif self.model == PeerReviewRecord:
-                    invitees_data = row.peer_review_invitee
-                else:
                     invitees_data = row.invitees
 
                 for f in invitees_data:

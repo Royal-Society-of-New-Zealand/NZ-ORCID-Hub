@@ -225,7 +225,7 @@ class MemberAPI(MemberAPIV20Api):
     def create_or_update_peer_review(self, task_by_user, *args, **kwargs):
         """Create or update peer review record of a user."""
         pr = task_by_user.peer_review_record
-        pi = pr.invitees
+        pi = pr.peer_review_invitee
 
         rec = PeerReview()    # noqa: F405
 
