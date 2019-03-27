@@ -958,12 +958,8 @@ class CompositeRecordModelView(RecordModelView):
         for c in self._export_columns:
             if c[0] == "invitees":
                 invitees_list = []
-                if self.model == WorkRecord:
-                    invitees_data = row.invitees
-                elif self.model == PeerReviewRecord:
-                    invitees_data = row.invitees
 
-                for f in invitees_data:
+                for f in row.invitees:
                     invitees_rec = {}
                     invitees_rec['identifier'] = self.get_export_value(f, 'identifier')
                     invitees_rec['email'] = self.get_export_value(f, 'email')
