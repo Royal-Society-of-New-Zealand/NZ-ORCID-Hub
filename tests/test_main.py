@@ -112,20 +112,36 @@ def test_org_switch(client):
     """Test organisation switching."""
     user = User.get(orcid=User.select(fn.COUNT(User.orcid).alias("id_count"), User.orcid).group_by(
         User.orcid).having(fn.COUNT(User.orcid) > 1).naive().first().orcid)
-    resp = client.login(user, follow_redirects=True)
+    user_orgs = UserOrg.select().join(User).where(User.orcid == user.orcid)
+    new_org = Organisation.select().where(Organisation.id.not_in([uo.org_id for uo in user_orgs])).first()
+    UserOrg.create(user=user, org=new_org, affiliations=0)
 
+    resp = client.login(user, follow_redirects=True)
     assert user.email.encode() in resp.data
     assert len(user.org_links) > 1
     assert current_user == user
 
+    # Nothing changes if it is the same organisation
+    uo = user.userorg_set.where(UserOrg.org_id == user.organisation_id).first()
+    resp = client.get(f"/select/user_org/{uo.id}", follow_redirects=True)
+    assert User.get(user.id).organisation_id == user.organisation_id
+    assert user.email.encode() in resp.data
+
+    # The current org changes if it's a dirrerent org on the list
+    uo = user.userorg_set.where(UserOrg.org_id != user.organisation_id).first()
+    resp = client.get(f"/select/user_org/{uo.id}", follow_redirects=True)
+    assert User.get(user.id).organisation_id != user.organisation_id
+    assert User.get(user.id).organisation_id == uo.org_id
+
     for ol in user.org_links:
         assert ol.org.name.encode() in resp.data
-        if ol.org.id != user.organisation.id:
+        if UserOrg.get(ol.id).user.id != user.id:
             next_ol = ol
 
+    # Shoud be a totally different user account:
     resp = client.get(f"/select/user_org/{next_ol.id}", follow_redirects=True)
     next_user = UserOrg.get(next_ol.id).user
-    assert next_user != user
+    assert next_user.id != user.id
 
 
 @pytest.mark.parametrize("url",

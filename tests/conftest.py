@@ -72,7 +72,7 @@ class HubClient(FlaskClient):
     resp_no = 0
     def login(self, user, affiliations=None, follow_redirects=False, **kwargs):
         """Log in with the given user."""
-        org = user.organisation
+        org = user.organisation or user.organisations.first()
         if affiliations is None:
             uo = user.userorg_set.where(UserOrg.org == org).first()
             if uo and uo.affiliations:
@@ -106,7 +106,16 @@ class HubClient(FlaskClient):
 
     def save_resp(self):
         """Save the response into 'output.html' file."""
-        with open(f"output{self.resp_no:02d}.html", "wb") as output:
+        ext = "html"
+        content_type = self.resp.headers.get("Content-Type")
+        if content_type:
+            if "json" in content_type:
+                ext = "json"
+            elif "yaml" in content_type:
+                ext = "yaml"
+            elif "csv" in content_type:
+                ext = "csv"
+        with open(f"output{self.resp_no:02d}.{ext}", "wb") as output:
             output.write(self.resp.data)
 
     def logout(self, follow_redirects=True):
@@ -120,6 +129,19 @@ class HubClient(FlaskClient):
         """Log in with the first found Hub admin user."""
         root = User.select().where(User.roles.bin_and(Role.SUPERUSER)).first()
         return self.login(root)
+
+    def get_access_token(self, client_id=None, client_secret=None):
+        """Retrieve client credential access token for Hub API."""
+        if client_id is None:
+            client_id = "CLIENT_ID"
+        if client_secret is None:
+            client_secret = "CLIENT_SECRET"
+        resp = self.post(
+            "/oauth/token",
+            content_type="application/x-www-form-urlencoded",
+            data=f"grant_type=client_credentials&client_id={client_id}&client_secret={client_secret}")
+        data = json.loads(resp.data)
+        return data["access_token"]
 
 
 @pytest.fixture
@@ -136,10 +158,10 @@ def app():
     with test_database(
             _db,
         (File, Organisation, User, UserOrg, OrcidToken, UserOrgAffiliation, OrgInfo, Task, Log,
-         AffiliationRecord, FundingRecord, FundingContributor, FundingInvitees, GroupIdRecord,
+         AffiliationRecord, FundingRecord, FundingContributor, FundingInvitee, GroupIdRecord,
          OrcidAuthorizeCall, OrcidApiCall, Url, UserInvitation, OrgInvitation, ExternalId, Client,
-         Grant, Token, WorkRecord, WorkContributor, WorkExternalId, WorkInvitees, PeerReviewRecord,
-         PeerReviewInvitee, PeerReviewExternalId, ResearcherUrlRecord, OtherNameRecord),
+         Grant, Token, WorkRecord, WorkContributor, WorkExternalId, WorkInvitee, PeerReviewRecord,
+         PeerReviewInvitee, PeerReviewExternalId, ResearcherUrlRecord, OtherNameRecord, KeywordRecord),
             fail_silently=True):  # noqa: F405
         _app.db = _db
         _app.config["DATABASE_URL"] = DATABASE_URL
@@ -217,9 +239,10 @@ def app():
                     client_secret=org.name + "-SECRET")
 
         UserOrg.insert_from(
-            query=User.select(User.id, User.organisation_id, User.created_at).where(
+            query=User.select(User.id, User.organisation_id, User.created_at, SQL('0')).where(
                 User.email.contains("researcher")),
-            fields=[UserOrg.user_id, UserOrg.org_id, UserOrg.created_at]).execute()
+            fields=[UserOrg.user_id, UserOrg.org_id, UserOrg.created_at,
+                    UserOrg.affiliations]).execute()
 
         _app.test_client_class = HubClient
         org = Organisation.create(

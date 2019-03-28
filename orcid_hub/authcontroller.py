@@ -811,6 +811,8 @@ def onboard_org():
                 flash("Organisation information updated successfully!", "success")
 
             form.populate_obj(organisation)
+            organisation.disambiguated_id = organisation.disambiguated_id.strip()
+            organisation.disambiguation_source = organisation.disambiguation_source.strip()
             organisation.api_credentials_entered_at = datetime.utcnow()
             try:
                 organisation.save()
@@ -924,11 +926,14 @@ def orcid_login(invitation_token=None):
             if not user:
                 user = User.get(email=invitation.email)
 
-            is_scope_person_update = False
-            if hasattr(invitation, "task_id"):
+            is_scope_person_update = invitation.is_person_update_invite if hasattr(
+                invitation, "is_person_update_invite") else False
+
+            if hasattr(invitation, "task_id") and invitation.task_id:
                 is_scope_person_update = Task.select().where(
                     Task.id == invitation.task_id, Task.task_type == TaskType.RESEARCHER_URL).exists() or Task.select()\
-                    .where(Task.id == invitation.task_id, Task.task_type == TaskType.OTHER_NAME).exists()
+                    .where(Task.id == invitation.task_id, Task.task_type == TaskType.OTHER_NAME).exists() or Task.\
+                    select().where(Task.id == invitation.task_id, Task.task_type == TaskType.KEYWORD).exists()
 
             if is_scope_person_update and OrcidToken.select().where(
                     OrcidToken.user == user, OrcidToken.org == org,
@@ -1287,8 +1292,11 @@ def select_user_org(user_org_id):
         uo = UserOrg.get(id=user_org_id)
         if (uo.user.orcid == current_user.orcid or uo.user.email == current_user.email
                 or uo.user.eppn == current_user.eppn):
-            current_user.organisation_id = uo.org_id
-            current_user.save()
+            if uo.user_id != current_user.id:
+                login_user(uo.user)
+            if current_user.organisation_id != uo.org_id:
+                current_user.organisation_id = uo.org_id
+                current_user.save()
         else:
             flash("You cannot switch your user to this organisation", "danger")
     except UserOrg.DoesNotExist:

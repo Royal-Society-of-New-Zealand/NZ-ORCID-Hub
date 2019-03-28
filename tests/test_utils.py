@@ -15,11 +15,11 @@ from peewee import JOIN
 from urllib.parse import quote
 
 from orcid_hub import utils
-from orcid_hub.models import (AffiliationRecord, ExternalId, File, FundingContributor,
-                              FundingInvitees, FundingRecord, Log, OtherNameRecord, OrcidToken, Organisation,
+from orcid_hub.models import (AffiliationRecord, ExternalId, File, FundingContributor, FundingInvitee,
+                              FundingRecord, KeywordRecord, Log, OtherNameRecord, OrcidToken, Organisation,
                               OrgInfo, PeerReviewExternalId, PeerReviewInvitee, PeerReviewRecord, ResearcherUrlRecord,
                               Role, Task, TaskType, User, UserInvitation, UserOrg, WorkContributor,
-                              WorkExternalId, WorkInvitees, WorkRecord)
+                              WorkExternalId, WorkInvitee, WorkRecord)
 
 from tests.utils import get_profile
 
@@ -179,7 +179,7 @@ def test_send_work_funding_peer_review_invitation(app, mocker):
     UserOrg.create(user=u, org=org)
     task = Task.create(org=org, task_type=1)
     fr = FundingRecord.create(task=task, title="xyz", type="Award")
-    FundingInvitees.create(funding_record=fr.id, email=email, first_name="Alice", last_name="Bob")
+    FundingInvitee.create(funding_record=fr.id, email=email, first_name="Alice", last_name="Bob")
 
     server_name = app.config.get("SERVER_NAME")
     app.config["SERVER_NAME"] = "abc.orcidhub.org.nz"
@@ -465,7 +465,7 @@ def test_create_or_update_funding(app, mocker):
         disambiguation_source="Test_source",
         is_active=True)
 
-    FundingInvitees.create(
+    FundingInvitee.create(
         funding_record=fr,
         first_name="Test",
         email="test1234456@mailinator.com",
@@ -490,7 +490,7 @@ def test_create_or_update_funding(app, mocker):
         user=u, org=org, scope="/read-limited,/activities/update", access_token="Test_token")
 
     utils.process_funding_records()
-    funding_invitees = FundingInvitees.get(orcid=12344)
+    funding_invitees = FundingInvitee.get(orcid=12344)
     assert 12399 == funding_invitees.put_code
     assert "12344" == funding_invitees.orcid
 
@@ -533,7 +533,7 @@ def test_create_or_update_work(app, mocker):
         region="Test",
         is_active=True)
 
-    WorkInvitees.create(
+    WorkInvitee.create(
         work_record=wr,
         first_name="Test",
         email="test1234456@mailinator.com",
@@ -558,7 +558,7 @@ def test_create_or_update_work(app, mocker):
         user=u, org=org, scope="/read-limited,/activities/update", access_token="Test_token")
 
     utils.process_work_records()
-    work_invitees = WorkInvitees.get(orcid=12344)
+    work_invitees = WorkInvitee.get(orcid=12344)
     assert 12399 == work_invitees.put_code
     assert "12344" == work_invitees.orcid
 
@@ -695,7 +695,7 @@ def test_create_or_update_other_name(app, mocker):
 
     UserOrg.create(user=u, org=org)
 
-    t = Task.create(id=12, org=org, filename="xyz.json", created_by=u, updated_by=u, task_type=5)
+    t = Task.create(id=12, org=org, filename="xyz.json", created_by=u, updated_by=u, task_type=6)
 
     OtherNameRecord.create(
         task=t,
@@ -723,6 +723,52 @@ def test_create_or_update_other_name(app, mocker):
     other_name_record = OtherNameRecord.get(email="test1234456@mailinator.com")
     assert 12399 == other_name_record.put_code
     assert "12344" == other_name_record.orcid
+
+
+def test_create_or_update_keyword(app, mocker):
+    """Test create or update researcher keyword."""
+    mocker.patch("orcid_hub.utils.send_email", send_mail_mock)
+    mocker.patch("orcid_api.MemberAPIV20Api.create_keyword", create_or_update_fund_mock)
+    mocker.patch("orcid_hub.orcid_client.MemberAPI.get_record", return_value=get_profile())
+    org = app.data["org"]
+    u = User.create(
+        email="test1234456@mailinator.com",
+        name="TEST USER",
+        roles=Role.RESEARCHER,
+        orcid="12344",
+        confirmed=True,
+        organisation=org)
+
+    UserOrg.create(user=u, org=org)
+
+    t = Task.create(id=12, org=org, filename="xyz.json", created_by=u, updated_by=u, task_type=7)
+
+    KeywordRecord.create(
+        task=t,
+        is_active=True,
+        status="email sent",
+        first_name="Test",
+        last_name="Test",
+        email="test1234456@mailinator.com",
+        visibility="PUBLIC",
+        content="dummy name",
+        display_index=0)
+
+    UserInvitation.create(
+        invitee=u,
+        inviter=u,
+        org=org,
+        task=t,
+        email="test1234456@mailinator.com",
+        token="xyztoken")
+
+    OrcidToken.create(
+        user=u, org=org, scope="/read-limited,/person/update", access_token="Test_token")
+
+    utils.process_keyword_records()
+    keyword_record = KeywordRecord.get(email="test1234456@mailinator.com")
+    assert 12399 == keyword_record.put_code
+    assert "12344" == keyword_record.orcid
 
 
 @patch(

@@ -81,6 +81,8 @@
                                                                                         title="Import a researcher urls batch file">Upload Researcher Urls</a></li>
                     <li id="load_other_names"><a href="{{ url_for('load_other_names')}}"  data-toggle="tooltip"
                                                                                         title="Import researcher other names batch file">Upload Researcher Other Names</a></li>
+                    <li id="load_keyword"><a href="{{ url_for('load_keyword')}}"  data-toggle="tooltip"
+                                                                                        title="Import researcher keyword batch file">Upload Researcher Keyword</a></li>
                     <li class="divider"></li>
                     <li id="sync_profiles"><a href="{{ url_for('sync_profiles')}}"  data-toggle="tooltip"
                                                                                         title="Synchronize researcher porfiles">Sync Profiles</a></li>
@@ -117,8 +119,10 @@
                   </li>
                   <li id="groupidrecord.index_view"><a href="{{ url_for('groupidrecord.index_view')}}"  data-toggle="tooltip"
                                                                                     title="Create/update group id records for peer review">Manage GroupId Records</a></li>
-                  <li id="org_webhook"><a href="{{ url_for('org_webhook')}}">
-                      <span data-toggle="tooltip" title="Activate ORCID webhooks for your organisation">Set Webhooks</span></a></li>
+                  {% if current_user.is_tech_contact_of() %}
+                    <li id="org_webhook"><a href="{{ url_for('org_webhook')}}">
+                        <span data-toggle="tooltip" title="Activate ORCID webhooks for your organisation">Set Webhooks</span></a></li>
+                  {% endif %}
                 </ul>
               </li>
             {% endif %}

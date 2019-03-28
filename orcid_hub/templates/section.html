@@ -5,22 +5,34 @@
 			<thead>
 				<tr class="info">
 					<th class="col-md-1">&nbsp;</th>
-          {% if section_type == "EDU" %}
-            <th class="column-header">Institution</th>
+          {% if section_type in ["RUR", "ONR", "KWR"] %}
+            <th class="column-header">Record Source</th>
+            {% if section_type == "RUR" %}
+              <th class="column-header">Url Name</th>
+              <th class="column-header">Url Value</th>
+            {% else %}
+              <th class="column-header">Content</th>
+            {% endif %}
+            <th class="column-header">Display Index</th>
+            <th class="column-header">Visibility</th>
           {% else %}
-            <th class="column-header">Institution/employer</th>
+            {% if section_type == "EDU" %}
+              <th class="column-header">Institution</th>
+            {% else %}
+              <th class="column-header">Institution/employer</th>
+            {% endif %}
+            <th class="column-header">City</th>
+            <th class="column-header">State/region</th>
+            <th class="column-header">Country</th>
+            <th class="column-header">Department</th>
+            {% if section_type == "EDU" %}
+              <th class="column-header">Degree</th>
+            {% else %}
+              <th class="column-header">Role</th>
+            {% endif %}
+            <th class="column-header"></th>
           {% endif %}
-					<th class="column-header">City</th>
-					<th class="column-header">State/region</th>
-					<th class="column-header">Country</th>
-					<th class="column-header">Department</th>
-          {% if section_type == "EDU" %}
-            <th class="column-header">Degree</th>
-          {% else %}
-            <th class="column-header">Role</th>
-          {% endif %}
-					<th class="column-header"></th>
-					<th class="column-header">Put-code</th>
+          <th class="column-header">Put-code</th>
 				</tr>
 			</thead>
 
@@ -33,45 +45,56 @@
 							</div>
 						</td>
 					</tr>
-				{% endif %}
-				{% for r in records %}
-					<tr>
-						{% if org_client_id in r["source"]["source_client_id"]["path"] %}
-							<td class="list-buttons-column">
-								<a class="icon"
-					 href="{{url_for('edit_record', user_id=user_id, section_type=section_type, put_code=r['put_code']) }}?url={{url_for('section', user_id=user_id, section_type=section_type)}}"
-			title="Edit Record">
-									<span class="fa fa-pencil glyphicon glyphicon-pencil"></span>
-								</a>
-								<form class="icon" method="POST"
-													 action="{{url_for('delete_record', user_id=user_id, section_type=section_type, put_code=r['put_code'])}}">
-									<input id="put-code" name="put_code" type="hidden" value="{{r['put_code']}}">
-									<input id="section-type" name="section_type" type="hidden" value="{{section_type}}">
-									<button onclick="return safeConfirm('Are you sure you want to delete this record?');"
-								 title="Delete record">
-										<span class="fa fa-trash glyphicon glyphicon-trash"></span>
-									</button>
-								</form>
-							</td>
-						{% else %}
-							<td class="list-buttons-column"></td>
-						{% endif %}
-
-						<td>
-							{{r["organization"]["name"]}}<br/>
-							<span class="small">
-								Source: {{r["source"]["source_name"]["value"]}}
-							</span>
-						</td>
-						<td>{{r["organization"]["address"].get("city")|default("", True)}}</td>
-						<td>{{r["organization"]["address"].get("region", "")|default("", True)}}</td>
-						<td>{{r["organization"]["address"].get("country", "")}}</td>
-						<td>{{r.get("department_name", "")|default("", True)}}</td>
-						<td>{{r.get("role_title", "")|default("", True)}}</td>
-						<td>{{r|year_range}}</td>
-						<td>{{r.get("put_code")}}</td>
-					</tr>
-				{% endfor %}
+        {% else %}
+          {% for r in records %}
+            <tr>
+              {% if r.get("source", "source-client-id") and org_client_id in r.get("source", "source-client-id", "path") %}
+                <td class="list-buttons-column">
+                  <a class="icon"
+             href="{{url_for('edit_record', user_id=user_id, section_type=section_type, put_code=r.get('put-code')) }}?url={{url_for('section', user_id=user_id, section_type=section_type)}}" title="Edit Record">
+                    <span class="fa fa-pencil glyphicon glyphicon-pencil"></span>
+                  </a>
+                  <form class="icon" method="POST"
+                             action="{{url_for('delete_record', user_id=user_id, section_type=section_type, put_code=r.get('put-code'))}}">
+                    <input id="put-code" name="put_code" type="hidden" value="{{r.get('put-code')}}">
+                    <input id="section-type" name="section_type" type="hidden" value="{{section_type}}">
+                    <button onclick="return safeConfirm('Are you sure you want to delete this record?');"
+                   title="Delete record">
+                      <span class="fa fa-trash glyphicon glyphicon-trash"></span>
+                    </button>
+                  </form>
+                </td>
+              {% else %}
+                <td class="list-buttons-column"></td>
+              {% endif %}
+              {% if section_type in ["RUR", "ONR", "KWR"] %}
+                <td>{{r.get("source", "source-name", "value")|default("", True)}}</td>
+                {% if section_type == "RUR" %}
+                  <td>{{r.get("url-name")|default("", True)}}</td>
+                  <td>{{r.get("url", "value")|default("", True)}}</td>
+                {% else %}
+                  <td>{{r.get("content")|default("", True)}}</td>
+                {% endif %}
+                <td>{{r.get("display-index")}}</td>
+                <td>{{r.get("visibility")|default("", True)}}</td>
+              {% else %}
+                <td>
+                  {{r.get("organization", "name")|default("", True)}}<br/>
+                  <span class="small">
+                    Source: {{r.get("source", "source-name", "value")|default("", True)}}
+                  </span>
+                </td>
+                <td>{{r.get("organization", "address", "city")|default("", True)}}</td>
+                <td>{{r.get("organization", "address", "region")|default("", True)}}</td>
+                <td>{{r.get("organization", "address", "country")|default("", True)}}</td>
+                <td>{{r.get("department-name")|default("", True)}}</td>
+                <td>{{r.get("role-title")|default("", True)}}</td>
+                <td>{{r|year_range}}</td>
+              {% endif %}
+              <td>{{r.get("put-code")|default("", True)}}</td>
+            </tr>
+          {% endfor %}
+        {% endif %}
 			</tbody>
 		</table>
 		<div style="text-align:right;">
@@ -79,6 +102,18 @@
 				<a role="button" class="btn btn-danger" href="{{url}}">Cancel</a>
 			{% endif %}
 			<a role="button" class="btn btn-primary" href="{{url_for('edit_record', user_id=user_id, section_type=section_type)}}">New...</a>
+      {% if section_type in ["RUR", "ONR", "KWR"] %}
+        <div style="float: left; width: auto">
+                  <form class="icon" method="POST" action="{{url_for('section', user_id=user_id, section_type=section_type)}}">
+                    <button onclick="return safeConfirm('Are you sure you want to send an invite to researcher to get 'PERSON/UPDATE' Permissions?\n\nBy clicking &quot;OK&quot;'+
+                    ' you are confirming that you have send researcher an invite!');"
+                            data-toggle="tooltip"
+                            data-placement="bottom"
+                            title="Send researcher an invite to get 'PERSON/UPDATE' permission..."
+                            class="btn btn-info">Send Invite</button> <br>
+                  </form>
+        </div>
+      {% endif %}
 		</div>
 	</div>
 {% endblock %}

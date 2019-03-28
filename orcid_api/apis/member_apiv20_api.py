@@ -6244,6 +6244,11 @@ class MemberAPIV20Api(object):
         local_var_files = {}
 
         body_params = None
+	# HTTP header `Accept`
+        header_params['Accept'] = self.api_client. \
+            select_header_accept(['application/vnd.orcid+xml; qs=5', 'application/orcid+xml; qs=3', 'application/xml',
+                                  'application/vnd.orcid+json; qs=4', 'application/orcid+json; qs=2',
+                                  'application/json'])
         # Authentication setting
         auth_settings = ['orcid_auth']
 
@@ -6343,6 +6348,11 @@ class MemberAPIV20Api(object):
         local_var_files = {}
 
         body_params = None
+	# HTTP header `Accept`
+        header_params['Accept'] = self.api_client. \
+            select_header_accept(['application/vnd.orcid+xml; qs=5', 'application/orcid+xml; qs=3', 'application/xml',
+                                  'application/vnd.orcid+json; qs=4', 'application/orcid+json; qs=2',
+                                  'application/json'])
         # Authentication setting
         auth_settings = ['orcid_auth']
 
@@ -6449,6 +6459,11 @@ class MemberAPIV20Api(object):
         local_var_files = {}
 
         body_params = None
+	# HTTP header `Accept`
+        header_params['Accept'] = self.api_client. \
+            select_header_accept(['application/vnd.orcid+xml; qs=5', 'application/orcid+xml; qs=3', 'application/xml',
+                                  'application/vnd.orcid+json; qs=4', 'application/orcid+json; qs=2',
+                                  'application/json'])
         # Authentication setting
         auth_settings = ['orcid_auth']
 
@@ -6548,6 +6563,11 @@ class MemberAPIV20Api(object):
         local_var_files = {}
 
         body_params = None
+	# HTTP header `Accept`
+        header_params['Accept'] = self.api_client. \
+            select_header_accept(['application/vnd.orcid+xml; qs=5', 'application/orcid+xml; qs=3', 'application/xml',
+                                  'application/vnd.orcid+json; qs=4', 'application/orcid+json; qs=2',
+                                  'application/json'])
         # Authentication setting
         auth_settings = ['orcid_auth']
 
@@ -7390,6 +7410,11 @@ class MemberAPIV20Api(object):
         local_var_files = {}
 
         body_params = None
+	# HTTP header `Accept`
+        header_params['Accept'] = self.api_client. \
+            select_header_accept(['application/vnd.orcid+xml; qs=5', 'application/orcid+xml; qs=3', 'application/xml',
+                                  'application/vnd.orcid+json; qs=4', 'application/orcid+json; qs=2',
+                                  'application/json'])
         # Authentication setting
         auth_settings = ['orcid_auth']
 
