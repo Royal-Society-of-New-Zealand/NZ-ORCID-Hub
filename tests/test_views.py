@@ -2653,6 +2653,7 @@ def test_issue_470198698(request_ctx):
             orcid=f"XXXX-XXXX-XXXX-{i:04d}" if i % 2 else None,
             first_name=f"FN #{i}",
             last_name=f"LF #{i}",
+            affiliation_type=["student", "staff"][i % 2],
             email=f"test{i}") for i in range(10)).execute()
 
     with request_ctx(f"/admin/affiliationrecord/?task_id={task.id}") as ctx:
