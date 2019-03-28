@@ -5,7 +5,18 @@
 
 Welcome to ORCID Hub's documentation!
 =====================================
-|Build Status|\ |Coverage Status|
+
+.. image:: https://travis-ci.org/Royal-Society-of-New-Zealand/NZ-ORCID-Hub.svg?branch=master
+   :target: https://travis-ci.org/Royal-Society-of-New-Zealand/NZ-ORCID-Hub
+   :alt: Build Status
+
+.. image:: https://coveralls.io/repos/github/Royal-Society-of-New-Zealand/NZ-ORCID-Hub/badge.svg
+   :target: https://coveralls.io/github/Royal-Society-of-New-Zealand/NZ-ORCID-Hub
+   :alt: Coverage Status
+
+.. image:: https://readthedocs.org/projects/nz-orcid-hub/badge/
+   :target: http://docs.orcidhub.org.nz/
+   :alt: RTD Status
 
 The home of development for the New Zealand ORCID Hub.
 
@@ -13,6 +24,7 @@ Because New Zealand ORCID Hub is fun to use.
 
 Table of Contents
 ^^^^^^^^^^^^^^^^^
+
 .. toctree::
    :maxdepth: 1
    :name: masterdoc
@@ -27,9 +39,12 @@ Table of Contents
    works_schema
    writing_peer_review_items
    peer_review_schema
-   webhooks
 
    ORCID API Specification <orcid_api_spec>
+
+   app_registration
+   orcid_api_proxy
+   webhooks
 
    development_env
    docker

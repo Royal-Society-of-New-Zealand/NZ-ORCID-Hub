@@ -37,6 +37,29 @@ def get_profile(org=None, user=None):
                 ],
                 "path": f"/{orcid}/other-names"
             },
+            "keywords": {
+                "keyword": [
+                   {
+                       "source": {
+                           "source-orcid": None,
+                           "source-client-id": {
+                               "uri": "https://sandbox.orcid.org/client/{client_id}",
+                               "path": client_id,
+                               "host": "sandbox.orcid.org"
+                           },
+                           "source-name": {
+                               "value": "The University of Auckland - MyORCiD"
+                           }
+                       },
+                       "content": "xyz",
+                       "visibility": "PUBLIC",
+                       "path": "/{orcid}/keywords/43944",
+                       "put-code": 43944,
+                       "display-index": 0
+                   }
+               ],
+               "path": "/0000-0002-6765-5429/keywords"
+           },
             "researcher-urls": {
                 "researcher-url": [
                     {

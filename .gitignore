@@ -134,3 +134,4 @@ tests/vi
 tuakiri-test-metadata-signed.xml
 tuakiri_mock/
 tags.tmp
+load_testing/*.csv

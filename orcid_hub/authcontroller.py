@@ -516,7 +516,7 @@ def link():
 @app.route("/orcid/auth/<path:url>")
 @app.route("/auth/<path:url>")
 def orcid_callback_proxy(url):
-    """Redirect to the original invocator."""
+    """Redirect to the original invokator."""
     url = unquote(url)
     return redirect(append_qs(url, **request.args))
 
@@ -560,8 +560,8 @@ def orcid_callback():
     client = OAuth2Session(current_user.organisation.orcid_client_id)
 
     try:
-        state = request.args["state"]
-        if state != session.get("oauth_state"):
+        state = request.args['state']
+        if state != session.get('oauth_state'):
             flash("Retry giving permissions, or if the issue persists "
                   "please contact orcid@royalsociety.org.nz for support", "danger")
             app.logger.error(
@@ -811,6 +811,8 @@ def onboard_org():
                 flash("Organisation information updated successfully!", "success")
 
             form.populate_obj(organisation)
+            organisation.disambiguated_id = organisation.disambiguated_id.strip()
+            organisation.disambiguation_source = organisation.disambiguation_source.strip()
             organisation.api_credentials_entered_at = datetime.utcnow()
             try:
                 organisation.save()
@@ -905,7 +907,9 @@ def orcid_login(invitation_token=None):
     the organisation. For technical contacts the email should be made available for
     READ LIMITED scope.
     """
-    redirect_uri = url_for("orcid_callback", _external=True)
+    _next = get_next_url()
+    redirect_uri = url_for("orcid_callback", _next=_next, _external=True)
+
     try:
         orcid_scopes = [scopes.AUTHENTICATE]
 
@@ -922,11 +926,14 @@ def orcid_login(invitation_token=None):
             if not user:
                 user = User.get(email=invitation.email)
 
-            is_scope_person_update = False
-            if hasattr(invitation, "task_id"):
+            is_scope_person_update = invitation.is_person_update_invite if hasattr(
+                invitation, "is_person_update_invite") else False
+
+            if hasattr(invitation, "task_id") and invitation.task_id:
                 is_scope_person_update = Task.select().where(
                     Task.id == invitation.task_id, Task.task_type == TaskType.RESEARCHER_URL).exists() or Task.select()\
-                    .where(Task.id == invitation.task_id, Task.task_type == TaskType.OTHER_NAME).exists()
+                    .where(Task.id == invitation.task_id, Task.task_type == TaskType.OTHER_NAME).exists() or Task.\
+                    select().where(Task.id == invitation.task_id, Task.task_type == TaskType.KEYWORD).exists()
 
             if is_scope_person_update and OrcidToken.select().where(
                     OrcidToken.user == user, OrcidToken.org == org,
@@ -1019,6 +1026,7 @@ def orcid_login(invitation_token=None):
 
 def orcid_login_callback(request):
     """Handle call-back for user authentication via ORCID."""
+    _next = get_next_url()
     state = request.args.get("state")
     invitation_token = request.args.get("invitation_token")
 
@@ -1175,20 +1183,20 @@ def orcid_login_callback(request):
                     if not hasattr(invitation, "tech_contact"):
                         flash(f"Your are an Administrator of '{org}'.So you dont have to invite yourself "
                               f"like a researcher. Just go to 'Your ORCID' tab to give permissions", "warning")
-                        return redirect(url_for("about"))
+                        return redirect(_next or url_for("about"))
                     if invitation.tech_contact and org.tech_contact != user:
                         org.tech_contact = user
                         org.save()
                     user.save()
                     if not (org.confirmed and org.orcid_client_id) and user.is_tech_contact_of(org):
-                        return redirect(url_for("onboard_org"))
+                        return redirect(_next or url_for("onboard_org"))
                     elif not org.confirmed and not user.is_tech_contact_of(org):
                         flash(
                             f"Your '{org}' has not be onboarded. Please, try again once your technical contact"
                             f" onboards your organisation on ORCIDHUB", "warning")
                         return redirect(url_for("about"))
                     elif org.confirmed:
-                        return redirect(url_for('viewmembers.index_view'))
+                        return redirect(_next or url_for('viewmembers.index_view'))
                 else:
                     logout_user()
                     flash(
@@ -1284,8 +1292,11 @@ def select_user_org(user_org_id):
         uo = UserOrg.get(id=user_org_id)
         if (uo.user.orcid == current_user.orcid or uo.user.email == current_user.email
                 or uo.user.eppn == current_user.eppn):
-            current_user.organisation_id = uo.org_id
-            current_user.save()
+            if uo.user_id != current_user.id:
+                login_user(uo.user)
+            if current_user.organisation_id != uo.org_id:
+                current_user.organisation_id = uo.org_id
+                current_user.save()
         else:
             flash("You cannot switch your user to this organisation", "danger")
     except UserOrg.DoesNotExist:

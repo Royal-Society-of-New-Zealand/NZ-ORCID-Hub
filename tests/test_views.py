@@ -4,6 +4,7 @@
 import datetime
 import json
 import logging
+import os
 import re
 import sys
 import time
@@ -24,10 +25,10 @@ from orcid_api.rest import ApiException
 from orcid_hub import app, orcid_client, rq, utils, views
 from orcid_hub.config import ORCID_BASE_URL
 from orcid_hub.forms import FileUploadForm
-from orcid_hub.models import (Affiliation, AffiliationRecord, Client, File, FundingRecord,
-                              GroupIdRecord, OrcidToken, Organisation, OrgInfo, OrgInvitation,
-                              PartialDate, PeerReviewRecord, ResearcherUrlRecord, Role, Task, TaskType, Token, Url,
-                              User, UserInvitation, UserOrg, UserOrgAffiliation, WorkRecord)
+from orcid_hub.models import (
+    Affiliation, AffiliationRecord, Client, File, FundingRecord, GroupIdRecord, OrcidToken,
+    Organisation, OrgInfo, OrgInvitation, PartialDate, PeerReviewRecord, ResearcherUrlRecord, Role,
+    Task, TaskType, Token, Url, User, UserInvitation, UserOrg, UserOrgAffiliation, WorkRecord)
 
 fake_time = time.time()
 logger = logging.getLogger(__name__)
@@ -249,61 +250,64 @@ def test_pyinfo(client):
     assert str(exinfo.value) == "expected an exception"
 
 
-def test_access(request_ctx):
+def test_access(client):
     """Test access to differente resources."""
-    test_superuser = User.create(
-        name="TEST SUPERUSER",
-        email="super@test.test.net",
+    org = client.data["org"]
+    user = client.data["user"]
+    tech_contact = client.data["tech_contact"]
+    root = User.select().where(User.email ** "root%").first()
+    admin = User.create(
+        name="ADMIN USER",
+        email="admin123456789@test.test.net",
         confirmed=True,
-        roles=Role.SUPERUSER)
-    test_user = User.create(
-        name="TEST SUPERUSER",
-        email="user123456789@test.test.net",
-        confirmed=True,
-        roles=Role.RESEARCHER)
+        roles=Role.ADMIN)
+    UserOrg.create(user=admin, org=org, is_admin=True)
 
-    with request_ctx("/pyinfo") as ctx:
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 302
+    resp = client.get("/pyinfo")
+    assert resp.status_code == 302
 
-    with request_ctx("/rq") as ctx:
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 401
-        assert b"401" in resp.data
+    resp = client.get("/rq")
+    assert resp.status_code == 401
+    assert b"401" in resp.data
 
-    with request_ctx("/rq?next=http://orcidhub.org.nz/next") as ctx:
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 302
-        assert resp.location == "http://orcidhub.org.nz/next"
+    resp = client.get("/rq?next=http://orcidhub.org.nz/next")
+    assert resp.status_code == 302
+    assert resp.location == "http://orcidhub.org.nz/next"
 
-    with request_ctx("/pyinfo") as ctx:
-        login_user(test_superuser, remember=True)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 200
-        assert bytes(sys.version, encoding="utf-8") in resp.data
+    resp = client.login(root, follow_redirects=True)
+    resp = client.get("/pyinfo")
+    assert resp.status_code == 200
+    assert bytes(sys.version, encoding="utf-8") in resp.data
+    client.logout()
 
-    with request_ctx("/pyinfo") as ctx:
-        login_user(test_user, remember=True)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 302
+    resp = client.login(user)
+    resp = client.get("/pyinfo")
+    assert resp.status_code == 302
+    client.logout()
 
-    with request_ctx("/rq") as ctx:
-        login_user(test_superuser, remember=True)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 200
-        assert b"Queues" in resp.data
+    resp = client.login(root, follow_redirects=True)
+    resp = client.get("/rq")
+    assert resp.status_code == 200
+    assert b"Queues" in resp.data
+    client.logout()
 
-    with request_ctx("/rq") as ctx:
-        login_user(test_user, remember=True)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 403
-        assert b"403" in resp.data
+    resp = client.login(user)
+    resp = client.get("/rq")
+    assert resp.status_code == 403
+    assert b"403" in resp.data
 
-    with request_ctx("/rq?next=http://orcidhub.org.nz/next") as ctx:
-        login_user(test_user, remember=True)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 302
-        assert resp.location == "http://orcidhub.org.nz/next"
+    resp = client.get("/rq?next=http://orcidhub.org.nz/next")
+    assert resp.status_code == 302
+    assert resp.location == "http://orcidhub.org.nz/next"
+    client.logout()
+
+    resp = client.login(admin, follow_redirects=True)
+    resp = client.get("/settings/webhook")
+    assert resp.status_code == 302
+
+    resp = client.login(tech_contact, follow_redirects=True)
+    resp = client.get("/settings/webhook")
+    assert resp.status_code == 200
 
 
 def test_year_range():
@@ -360,23 +364,23 @@ def test_show_record_section(request_ctx):
     with patch.object(
             orcid_client.MemberAPIV20Api,
             "view_employments",
-            MagicMock(return_value=make_fake_response('{"test": "TEST1234567890"}'))
+            MagicMock(return_value=Mock(data="""{"test": "TEST1234567890"}"""))
     ) as view_employments, request_ctx(f"/section/{user.id}/EMP/list") as ctx:
         login_user(admin)
         resp = ctx.app.full_dispatch_request()
         assert admin.email.encode() in resp.data
         assert admin.name.encode() in resp.data
-        view_employments.assert_called_once_with("XXXX-XXXX-XXXX-0001")
+        view_employments.assert_called_once_with("XXXX-XXXX-XXXX-0001", _preload_content=False)
     with patch.object(
             orcid_client.MemberAPIV20Api,
             "view_educations",
-            MagicMock(return_value=make_fake_response('{"test": "TEST1234567890"}'))
+            MagicMock(return_value=Mock(data="""{"test": "TEST1234567890"}"""))
     ) as view_educations, request_ctx(f"/section/{user.id}/EDU/list") as ctx:
         login_user(admin)
         resp = ctx.app.full_dispatch_request()
         assert admin.email.encode() in resp.data
         assert admin.name.encode() in resp.data
-        view_educations.assert_called_once_with("XXXX-XXXX-XXXX-0001")
+        view_educations.assert_called_once_with("XXXX-XXXX-XXXX-0001", _preload_content=False)
     with patch.object(
             orcid_client.MemberAPIV20Api,
             "view_peer_reviews",
@@ -407,6 +411,36 @@ def test_show_record_section(request_ctx):
         assert admin.email.encode() in resp.data
         assert admin.name.encode() in resp.data
         view_fundings.assert_called_once_with("XXXX-XXXX-XXXX-0001")
+    with patch.object(
+        orcid_client.MemberAPIV20Api,
+        "view_researcher_urls",
+        MagicMock(return_value=Mock(data="""{"test": "TEST1234567890"}"""))
+    ) as view_researcher_urls, request_ctx(f"/section/{user.id}/RUR/list") as ctx:
+        login_user(admin)
+        resp = ctx.app.full_dispatch_request()
+        assert admin.email.encode() in resp.data
+        assert admin.name.encode() in resp.data
+        view_researcher_urls.assert_called_once_with("XXXX-XXXX-XXXX-0001", _preload_content=False)
+    with patch.object(
+        orcid_client.MemberAPIV20Api,
+        "view_other_names",
+        MagicMock(return_value=Mock(data="""{"test": "TEST1234567890"}"""))
+    ) as view_other_names, request_ctx(f"/section/{user.id}/ONR/list") as ctx:
+        login_user(admin)
+        resp = ctx.app.full_dispatch_request()
+        assert admin.email.encode() in resp.data
+        assert admin.name.encode() in resp.data
+        view_other_names.assert_called_once_with("XXXX-XXXX-XXXX-0001", _preload_content=False)
+    with patch.object(
+        orcid_client.MemberAPIV20Api,
+        "view_keywords",
+        MagicMock(return_value=Mock(data="""{"test": "TEST1234567890"}"""))
+    ) as view_keywords, request_ctx(f"/section/{user.id}/KWR/list") as ctx:
+        login_user(admin)
+        resp = ctx.app.full_dispatch_request()
+        assert admin.email.encode() in resp.data
+        assert admin.name.encode() in resp.data
+        view_keywords.assert_called_once_with("XXXX-XXXX-XXXX-0001", _preload_content=False)
 
 
 def test_status(client):
@@ -430,7 +464,7 @@ def test_status(client):
         assert "FAILURE" in data["message"]
 
 
-def test_application_registration(app, request_ctx):
+def test_application_registration(client):
     """Test application registration."""
     org = app.data["org"]
     user = User.create(
@@ -444,114 +478,94 @@ def test_application_registration(app, request_ctx):
     UserOrg.create(user=user, org=org, is_admin=True)
     org.update(tech_contact=user).execute()
 
-    with request_ctx(
-            "/settings/applications",
-            method="POST",
-            data={
-                "homepage_url": "http://test.at.test",
-                "description": "TEST APPLICATION 123",
-                "register": "Register",
-            }) as ctx:  # noqa: F405
-        login_user(user, remember=True)
-        resp = ctx.app.full_dispatch_request()
-        with pytest.raises(Client.DoesNotExist):
-            Client.get(name="TEST APP")
-        assert resp.status_code == 200
+    resp = client.login(user, follow_redirects=True)
+    resp = client.post(
+        "/settings/applications",
+        follow_redirects=True,
+        data={
+            "homepage_url": "http://test.at.test",
+            "description": "TEST APPLICATION 123",
+            "register": "Register",
+        })
+    with pytest.raises(Client.DoesNotExist):
+        Client.get(name="TEST APP")
+    assert resp.status_code == 200
 
-    with request_ctx(
-            "/settings/applications",
-            method="POST",
-            data={
-                "name": "TEST APP",
-                "homepage_url": "http://test.at.test",
-                "description": "TEST APPLICATION 123",
-                "register": "Register",
-            }) as ctx:  # noqa: F405
-        login_user(user, remember=True)
-        resp = ctx.app.full_dispatch_request()
-        c = Client.get(name="TEST APP")
-        assert c.homepage_url == "http://test.at.test"
-        assert c.description == "TEST APPLICATION 123"
-        assert c.user == user
-        assert c.org == org
-        assert c.client_id
-        assert c.client_secret
-        assert resp.status_code == 302
+    resp = client.post(
+        "/settings/applications",
+        data={
+            "name": "TEST APP",
+            "homepage_url": "http://test.at.test",
+            "description": "TEST APPLICATION 123",
+            "register": "Register",
+        })
+    c = Client.get(name="TEST APP")
+    assert c.homepage_url == "http://test.at.test"
+    assert c.description == "TEST APPLICATION 123"
+    assert c.user == user
+    assert c.org == org
+    assert c.client_id
+    assert c.client_secret
+    assert resp.status_code == 302
 
-    client = Client.get(name="TEST APP")
-    with request_ctx(f"/settings/applications/{client.id}") as ctx:
+    resp = client.get(f"/settings/applications/{c.id}")
+    assert resp.status_code == 302
+    assert urlparse(resp.location).path == f"/settings/credentials/{c.id}"
 
-        login_user(user, remember=True)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 302
-        assert resp.location == f"/settings/credentials/{client.id}"
+    resp = client.get("/settings/credentials")
+    assert resp.status_code == 200
 
-    with request_ctx("/settings/credentials") as ctx:
-        login_user(user, remember=True)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 200
+    resp = client.get(f"/settings/credentials/{c.id}")
+    assert resp.status_code == 200
 
-    with request_ctx(f"/settings/credentials/{client.id}") as ctx:
-        login_user(user, remember=True)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 200
+    resp = client.get("/settings/credentials/99999999999999")
+    assert resp.status_code == 302
+    assert urlparse(resp.location).path == "/settings/applications"
 
-    with request_ctx("/settings/credentials/99999999999999") as ctx:
-        login_user(user, remember=True)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 302
-        assert resp.location == "/settings/applications"
+    Token.create(client=c, token_type="TEST", access_token="TEST000")
+    resp = client.post(
+        f"/settings/credentials/{c.id}", data={
+            "revoke": "Revoke",
+            "name": c.name,
+        })
+    assert resp.status_code == 200
+    assert Token.select().where(Token.client == c).count() == 0
 
-    with request_ctx(
-            f"/settings/credentials/{client.id}", method="POST", data={
-                "revoke": "Revoke",
-                "name": client.name,
-            }) as ctx:
-        login_user(user, remember=True)
-        Token.create(client=client, token_type="TEST", access_token="TEST000")
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 200
-        assert Token.select().where(Token.client == client).count() == 0
+    old_client = c
+    resp = client.post(
+        f"/settings/credentials/{c.id}", data={
+            "reset": "Reset",
+            "name": c.name,
+        })
+    c = Client.get(name="TEST APP")
+    assert resp.status_code == 200
+    assert c.client_id != old_client.client_id
+    assert c.client_secret != old_client.client_secret
 
-    with request_ctx(
-            f"/settings/credentials/{client.id}", method="POST", data={
-                "reset": "Reset",
-                "name": client.name,
-            }) as ctx:
-        login_user(user, remember=True)
-        old_client = client
-        resp = ctx.app.full_dispatch_request()
-        client = Client.get(name="TEST APP")
-        assert resp.status_code == 200
-        assert client.client_id != old_client.client_id
-        assert client.client_secret != old_client.client_secret
+    old_client = c
+    resp = client.post(
+        f"/settings/credentials/{c.id}",
+        follow_redirects=True,
+        data={
+            "update_app": "Update",
+            "name": "NEW APP NAME",
+            "homepage_url": "http://test.test0.edu",
+            "description": "DESCRIPTION",
+            "callback_urls": "http://test0.edu/callback",
+        })
+    c = Client.get(c.id)
+    assert resp.status_code == 200
+    assert c.name == "NEW APP NAME"
 
-    with request_ctx(
-            f"/settings/credentials/{client.id}", method="POST", data={
-                "update_app": "Update",
-                "name": "NEW APP NAME",
-                "homepage_url": "http://test.test0.edu",
-                "description": "DESCRIPTION",
-                "callback_urls": "http://test0.edu/callback",
-            }) as ctx:
-        login_user(user, remember=True)
-        old_client = client
-        resp = ctx.app.full_dispatch_request()
-        client = Client.get(id=client.id)
-        assert resp.status_code == 200
-        assert client.name == "NEW APP NAME"
-
-    with request_ctx(
-            f"/settings/credentials/{client.id}", method="POST", data={
-                "delete": "Delete",
-                "name": "NEW APP NAME",
-            }) as ctx:
-        login_user(user, remember=True)
-        old_client = client
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 302
-        assert resp.location == "/settings/applications"
-        assert not Client.select().where(Client.id == client.id).exists()
+    old_client = c
+    resp = client.post(
+        f"/settings/credentials/{c.id}", data={
+            "delete": "Delete",
+            "name": "NEW APP NAME",
+        })
+    assert resp.status_code == 302
+    assert urlparse(resp.location).path == "/settings/applications"
+    assert not Client.select().where(Client.id == c.id).exists()
 
 
 def make_fake_response(text, *args, **kwargs):
@@ -560,8 +574,6 @@ def make_fake_response(text, *args, **kwargs):
     mm.text = text
     if "json" in kwargs:
         mm.json.return_value = kwargs["json"]
-    elif "dict" in kwargs:
-        mm.to_dict.return_value = kwargs["dict"]
     else:
         mm.json.return_value = json.loads(text)
     if "status_code" in kwargs:
@@ -623,7 +635,6 @@ Bay of Plenty District Health Board,7854,RINGGOLD
 Capital and Coast District Health Board,8458,RINGGOLD
 Cawthron Institute,5732,RINGGOLD
 CRL Energy Ltd,9429038654381,NZBN
-
 Health Research Council,http://dx.doi.org/10.13039/501100001505,FUNDREF
 Hutt Valley District Health Board,161292,RINGGOLD
 Institute of Environmental Science and Research,8480,RINGGOLD
@@ -791,10 +802,13 @@ def test_user_orgs(client, mocker):
     assert resp.status_code == 404
     assert "Not Found" in json.loads(resp.data)["error"]
 
+    resp = client.get("/hub/api/v0.1/users/1234/orgs/")
+    assert resp.status_code == 404
 
-def test_api_credentials(request_ctx):
+
+def test_api_credentials(client):
     """Test manage API credentials.."""
-    org = request_ctx.data["org"]
+    org = Organisation.get(name="THE ORGANISATION")
     user = User.create(
         email="test123@test.test.net",
         name="TEST USER",
@@ -803,32 +817,33 @@ def test_api_credentials(request_ctx):
         confirmed=True,
         organisation=org)
     UserOrg.create(user=user, org=org, is_admin=True)
-    Client.create(
+    c = Client.create(
         name="Test_client",
         user=user,
         org=org,
         client_id="requestd_client_id",
-        client_secret="xyz",
+        client_secret="XYZ123",
         is_confidential="public",
         grant_type="client_credentials",
         response_type="xyz")
-    with request_ctx(
-            method="POST",
-            data={
-                "name": "TEST APP",
-                "homepage_url": "http://test.at.test",
-                "description": "TEST APPLICATION 123",
-                "register": "Register",
-                "reset": "xyz"
-            }):
-        login_user(user, remember=True)
-        resp = views.api_credentials()
-        assert "test123@test.test.net" in resp
-    with request_ctx(method="POST", data={"name": "TEST APP", "delete": "xyz"}):
-        login_user(user, remember=True)
-        resp = views.api_credentials()
-        assert resp.status_code == 302
-        assert "application" in resp.location
+
+    client.login(user)
+    resp = client.post(
+        "/settings/applications",
+        follow_redirects=True,
+        data={
+            "name": "TEST APP",
+            "homepage_url": "http://test.at.test",
+            "description": "TEST APPLICATION 123",
+            "register": "Register",
+        })
+    assert b"You aready have registered application" in resp.data
+    assert b"test123@test.test.net" in resp.data
+
+    resp = client.post(f"settings/credentials/{c.id}", data={"name": "TEST APP", "delete": "Delete"})
+    assert resp.status_code == 302
+    assert "application" in resp.location
+    assert not Client.select().where(Client.id == c.id).exists()
 
 
 def test_page_not_found(request_ctx):
@@ -1559,6 +1574,7 @@ def test_invite_organisation(client, mocker):
     send_email.reset_mock()
     resp = client.post(
             "/invite/organisation",
+            method="POST",
             data={
                 "org_name": "THE ORGANISATION",
                 "org_email": user.email,
@@ -1839,6 +1855,7 @@ def test_edit_record(request_ctx):
     fake_response.status = 201
     fake_response.headers = {'Location': '12344/xyz/12399'}
     OrcidToken.create(user=user, org=user.organisation, access_token="ABC123", scope="/read-limited,/activities/update")
+    OrcidToken.create(user=user, org=user.organisation, access_token="ABC1234", scope="/read-limited,/person/update")
     with patch.object(
             orcid_client.MemberAPIV20Api,
             "view_employment",
@@ -1895,6 +1912,36 @@ def test_edit_record(request_ctx):
         assert admin.email.encode() in resp.data
         assert admin.name.encode() in resp.data
         view_work.assert_called_once_with("XXXX-XXXX-XXXX-0001", 1234)
+    with patch.object(
+        orcid_client.MemberAPIV20Api,
+        "view_researcher_url",
+        MagicMock(return_value=Mock(data="""{"visibility": "PUBLIC"}"""))
+    ) as view_researcher_url, request_ctx(f"/section/{user.id}/RUR/1234/edit") as ctx:
+        login_user(admin)
+        resp = ctx.app.full_dispatch_request()
+        assert admin.email.encode() in resp.data
+        assert admin.name.encode() in resp.data
+        view_researcher_url.assert_called_once_with("XXXX-XXXX-XXXX-0001", 1234, _preload_content=False)
+    with patch.object(
+        orcid_client.MemberAPIV20Api,
+        "view_other_name",
+        MagicMock(return_value=Mock(data="""{"visibility": "PUBLIC", "content": "xyz"}"""))
+    ) as view_other_name, request_ctx(f"/section/{user.id}/ONR/1234/edit") as ctx:
+        login_user(admin)
+        resp = ctx.app.full_dispatch_request()
+        assert admin.email.encode() in resp.data
+        assert admin.name.encode() in resp.data
+        view_other_name.assert_called_once_with("XXXX-XXXX-XXXX-0001", 1234, _preload_content=False)
+    with patch.object(
+        orcid_client.MemberAPIV20Api,
+        "view_keyword",
+        MagicMock(return_value=Mock(data="""{"visibility": "PUBLIC"}"""))
+    ) as view_keyword, request_ctx(f"/section/{user.id}/KWR/1234/edit") as ctx:
+        login_user(admin)
+        resp = ctx.app.full_dispatch_request()
+        assert admin.email.encode() in resp.data
+        assert admin.name.encode() in resp.data
+        view_keyword.assert_called_once_with("XXXX-XXXX-XXXX-0001", 1234, _preload_content=False)
     with patch.object(
             orcid_client.MemberAPIV20Api, "create_education",
             MagicMock(return_value=fake_response)), request_ctx(
@@ -1996,6 +2043,49 @@ def test_edit_record(request_ctx):
         resp = ctx.app.full_dispatch_request()
         assert resp.status_code == 302
         assert resp.location == f"/section/{user.id}/WOR/list"
+    with patch.object(
+            orcid_client.MemberAPIV20Api, "create_researcher_url",
+            MagicMock(return_value=fake_response)), request_ctx(
+                f"/section/{user.id}/RUR/new",
+                method="POST",
+                data={
+                    "url_name": "xyz",
+                    "url_value": "https://www.xyz.com",
+                    "visibility": "PUBLIC",
+                    "display_index": "FIRST",
+                }) as ctx:
+        login_user(admin)
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 302
+        assert resp.location == f"/section/{user.id}/RUR/list"
+    with patch.object(
+            orcid_client.MemberAPIV20Api, "create_other_name",
+            MagicMock(return_value=fake_response)), request_ctx(
+                f"/section/{user.id}/ONR/new",
+                method="POST",
+                data={
+                    "content": "xyz",
+                    "visibility": "PUBLIC",
+                    "display_index": "FIRST",
+                }) as ctx:
+        login_user(admin)
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 302
+        assert resp.location == f"/section/{user.id}/ONR/list"
+    with patch.object(
+            orcid_client.MemberAPIV20Api, "create_keyword",
+            MagicMock(return_value=fake_response)), request_ctx(
+                f"/section/{user.id}/KWR/new",
+                method="POST",
+                data={
+                    "content": "xyz",
+                    "visibility": "PUBLIC",
+                    "display_index": "FIRST",
+                }) as ctx:
+        login_user(admin)
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 302
+        assert resp.location == f"/section/{user.id}/KWR/list"
 
 
 def test_delete_employment(request_ctx, app):
@@ -2093,6 +2183,35 @@ def test_delete_employment(request_ctx, app):
         resp = ctx.app.full_dispatch_request()
         assert resp.status_code == 302
         delete_work.assert_called_once_with("XXXX-XXXX-XXXX-0001", 54321)
+    token.scope = "/read-limited,/person/update"
+    token.save()
+    with patch.object(
+            orcid_client.MemberAPIV20Api,
+            "delete_researcher_url",
+            MagicMock(return_value='{"test": "TEST1234567890"}')) as delete_researcher_url, request_ctx(
+                f"/section/{user.id}/RUR/54321/delete", method="POST") as ctx:
+        login_user(admin)
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 302
+        delete_researcher_url.assert_called_once_with("XXXX-XXXX-XXXX-0001", 54321)
+    with patch.object(
+            orcid_client.MemberAPIV20Api,
+            "delete_other_name",
+            MagicMock(return_value='{"test": "TEST1234567890"}')) as delete_other_name, request_ctx(
+                f"/section/{user.id}/ONR/54321/delete", method="POST") as ctx:
+        login_user(admin)
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 302
+        delete_other_name.assert_called_once_with("XXXX-XXXX-XXXX-0001", 54321)
+    with patch.object(
+            orcid_client.MemberAPIV20Api,
+            "delete_keyword",
+            MagicMock(return_value='{"test": "TEST1234567890"}')) as delete_keyword, request_ctx(
+                f"/section/{user.id}/KWR/54321/delete", method="POST") as ctx:
+        login_user(admin)
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 302
+        delete_keyword.assert_called_once_with("XXXX-XXXX-XXXX-0001", 54321)
 
 
 def test_viewmembers(client):
@@ -2253,7 +2372,7 @@ def test_viewmembers_delete(mockpost, client):
                                      OrcidToken.user == researcher1).count() == 0
 
 
-def test_action_insert_update_group_id(client, request_ctx):
+def test_action_insert_update_group_id(client):
     """Test update or insert of group id."""
     admin = User.get(email="admin@test0.edu")
     org = admin.organisation
@@ -2296,34 +2415,32 @@ def test_action_insert_update_group_id(client, request_ctx):
         # checking if the GroupID Record is updated with put_code supplied from fake response
         assert 12399 == group_id_record.put_code
     # Save selected groupid record into existing group id record list.
-    with patch.object(
-        orcid_client.MemberAPIV20Api, "view_group_id_records",
-        MagicMock(return_value=fake_response)), request_ctx(
-        "/search/group_id_record/list",
-        method="POST",
-        data={
-            "group_id": "test",
-            "name": "test",
-            "description": "TEST",
-            "type": "TEST"}) as ctx:
-        login_user(admin)
-        resp = ctx.app.full_dispatch_request()
+    with patch.object(orcid_client.MemberAPIV20Api, "view_group_id_records",
+                      MagicMock(return_value=fake_response)):
+        client.login(admin)
+        resp = client.post(
+            "/search/group_id_record/list",
+            data={
+                "group_id": "test",
+                "name": "test",
+                "description": "TEST",
+                "type": "TEST"
+            })
         assert resp.status_code == 302
-        assert resp.location == f"/admin/groupidrecord/"
+        assert urlparse(resp.location).path == "/admin/groupidrecord/"
     # Search the group id record from ORCID
-    with patch.object(
-        orcid_client.MemberAPIV20Api, "view_group_id_records",
-        MagicMock(return_value=fake_response)), request_ctx(
-        "/search/group_id_record/list",
-        method="POST",
-        data={
-            "group_id": "test",
-            "group_id_name": "test",
-            "description": "TEST",
-            "search": True,
-            "type": "TEST"}) as ctx:
-        login_user(admin)
-        resp = ctx.app.full_dispatch_request()
+    with patch.object(orcid_client.MemberAPIV20Api, "view_group_id_records",
+                      MagicMock(return_value=fake_response)):
+        client.login(admin)
+        resp = client.post(
+            "/search/group_id_record/list",
+            data={
+                "group_id": "test",
+                "group_id_name": "test",
+                "description": "TEST",
+                "search": True,
+                "type": "TEST"
+            })
         assert resp.status_code == 200
         assert b"<!DOCTYPE html>" in resp.data, "Expected HTML content"
 
@@ -2595,6 +2712,44 @@ def test_sync_profiles(client, mocker):
     assert resp.status_code == 200
 
 
+def test_load_researcher_url_csv(client):
+    """Test preload researcher url data."""
+    user = client.data["admin"]
+    client.login(user, follow_redirects=True)
+    resp = client.post(
+        "/load/researcher/urls",
+        data={
+            "file_": (BytesIO("""Url Name,Url Value,Display Index,Email,First Name,Last Name,ORCID iD,Put Code,Visibility,Processed At,Status
+xyzurl,https://test.com,0,xyz@mailinator.com,sdksdsd,sds1,0000-0001-6817-9711,43959,PUBLIC,,
+xyzurlinfo,https://test123.com,10,xyz1@mailinator.com,sdksasadsd,sds1,,,PUBLIC,,""".encode()), "researcher_urls.csv",),
+        }, follow_redirects=True)
+    assert resp.status_code == 200
+    assert b"https://test.com" in resp.data
+    assert b"researcher_urls.csv" in resp.data
+    assert Task.select().where(Task.task_type == TaskType.RESEARCHER_URL).count() == 1
+    task = Task.select().where(Task.task_type == TaskType.RESEARCHER_URL).first()
+    assert task.researcher_url_records.count() == 2
+
+
+def test_load_other_names_csv(client):
+    """Test preload other names data."""
+    user = client.data["admin"]
+    client.login(user, follow_redirects=True)
+    resp = client.post(
+        "/load/other/names",
+        data={
+            "file_": (BytesIO("""Content,Display Index,Email,First Name,Last Name,ORCID iD,Put Code,Visibility,Processed At,Status
+dummy 1220,0,rad42@mailinator.com,sdsd,sds1,,,PUBLIC,,
+dummy 10,0,raosti12dckerpr13233jsdpos8jj2@mailinator.com,sdsd,sds1,0000-0002-0146-7409,16878,PUBLIC,,""".encode()),
+                      "other_names.csv",), }, follow_redirects=True)
+    assert resp.status_code == 200
+    assert b"dummy 1220" in resp.data
+    assert b"other_names.csv" in resp.data
+    assert Task.select().where(Task.task_type == TaskType.OTHER_NAME).count() == 1
+    task = Task.select().where(Task.task_type == TaskType.OTHER_NAME).first()
+    assert task.other_name_records.count() == 2
+
+
 def test_load_peer_review_csv(client):
     """Test preload peer review data."""
     user = client.data["admin"]
@@ -2621,7 +2776,7 @@ issn:1213199811,REVIEWER,https://alt-url.com,REVIEW,2012-08-01,doi,10.1087/20120
     task = Task.select().where(Task.task_type == TaskType.PEER_REVIEW).first()
     prr = task.peer_review_records.where(PeerReviewRecord.review_group_id == "issn:1213199811").first()
     assert prr.external_ids.count() == 2
-    assert prr.peer_review_invitee.count() == 2
+    assert prr.invitees.count() == 2
 
 
 def test_load_funding_csv(client):
@@ -2687,7 +2842,7 @@ THIS IS A TITLE #2, नमस्ते #2,hi,  CONTRACT,MY TYPE,Minerals unde.,9
     fr = task.funding_records.where(FundingRecord.title == 'THIS IS A TITLE').first()
     assert fr.contributors.count() == 0
     assert fr.external_ids.count() == 2
-    assert fr.funding_invitees.count() == 2
+    assert fr.invitees.count() == 2
 
     export_resp = client.get(f"/admin/fundingrecord/export/json/?task_id={task.id}")
     assert export_resp.status_code == 200
@@ -2716,6 +2871,36 @@ THIS IS A TITLE #4	 नमस्ते #2	hi	CONTRACT	MY TYPE	Minerals unde.	900
     assert Task.select().where(Task.task_type == TaskType.FUNDING).count() == 4
     task = Task.select().where(Task.task_type == TaskType.FUNDING).order_by(Task.id.desc()).first()
     assert task.funding_records.count() == 2
+
+    # Activate a single record:
+    resp = client.post(
+        "/admin/fundingrecord/action/",
+        follow_redirects=True,
+        data={
+            "url": f"/admin/fundingrecord/?task_id={task.id}",
+            "action": "activate",
+            "rowid": task.records.first().id,
+        })
+    assert FundingRecord.select().where(FundingRecord.task_id == task.id,
+                                        FundingRecord.is_active).count() == 1
+
+    # Activate all:
+    resp = client.post("/activate_all", follow_redirects=True, data=dict(task_id=task.id))
+    assert FundingRecord.select().where(FundingRecord.task_id == task.id,
+                                        FundingRecord.is_active).count() == 2
+
+    # Reste a single record
+    FundingRecord.update(processed_at=datetime.datetime(2018, 1, 1)).execute()
+    resp = client.post(
+        "/admin/fundingrecord/action/",
+        follow_redirects=True,
+        data={
+            "url": f"/admin/fundingrecord/?task_id={task.id}",
+            "action": "reset",
+            "rowid": task.records.first().id,
+        })
+    assert FundingRecord.select().where(FundingRecord.task_id == task.id,
+                                        FundingRecord.processed_at.is_null()).count() == 1
 
     resp = client.post(
         "/admin/task/delete/",
@@ -2838,7 +3023,7 @@ THIS IS A TITLE, नमस्ते,hi,  CONTRACT,MY TYPE,Minerals unde.,300000,
     fr = task.funding_records.where(FundingRecord.title == "This is another project title").first()
     assert fr.contributors.count() == 0
     assert fr.external_ids.count() == 1
-    assert fr.funding_invitees.count() == 2
+    assert fr.invitees.count() == 2
 
     resp = client.get(f"/admin/fundingrecord/export/tsv/?task_id={task.id}")
     assert resp.headers["Content-Type"] == "text/tsv; charset=utf-8"
@@ -2864,7 +3049,7 @@ XXX1702,00004,,This is another project title,,,CONTRACT,Standard,This is another
     task = Task.select().where(Task.task_type == TaskType.FUNDING).order_by(Task.id.desc()).first()
     assert task.funding_records.count() == 2
     for r in task.funding_records:
-        assert r.funding_invitees.count() == 0
+        assert r.invitees.count() == 0
 
 
 def test_researcher_work(client):
@@ -2898,8 +3083,38 @@ def test_researcher_work(client):
     assert task.records.count() == 1
     rec = task.records.first()
     assert rec.external_ids.count() == 1
-    assert rec.work_contributors.count() == 1
-    assert rec.work_invitees.count() == 1
+    assert rec.contributors.count() == 1
+    assert rec.invitees.count() == 1
+
+    # Activate a single record:
+    resp = client.post(
+        "/admin/workrecord/action/",
+        follow_redirects=True,
+        data={
+            "url": f"/admin/workrecord/?task_id={task.id}",
+            "action": "activate",
+            "rowid": task.records.first().id,
+        })
+    assert WorkRecord.select().where(WorkRecord.task_id == task.id,
+                                     WorkRecord.is_active).count() == 1
+
+    # Activate all:
+    resp = client.post("/activate_all", follow_redirects=True, data=dict(task_id=task.id))
+    assert WorkRecord.select().where(WorkRecord.task_id == task.id,
+                                     WorkRecord.is_active).count() == 1
+
+    # Reste a single record
+    WorkRecord.update(processed_at=datetime.datetime(2018, 1, 1)).execute()
+    resp = client.post(
+        "/admin/workrecord/action/",
+        follow_redirects=True,
+        data={
+            "url": f"/admin/fundingrecord/?task_id={task.id}",
+            "action": "reset",
+            "rowid": task.records.first().id,
+        })
+    assert WorkRecord.select().where(WorkRecord.task_id == task.id,
+                                     WorkRecord.processed_at.is_null()).count() == 1
 
     resp = client.get(f"/admin/workrecord/export/csv/?task_id={task.id}")
     assert resp.headers["Content-Type"] == "text/csv; charset=utf-8"
@@ -2983,8 +3198,8 @@ def test_researcher_work(client):
     assert task.records.count() == 1
     rec = task.records.first()
     assert rec.external_ids.count() == 1
-    assert rec.work_contributors.count() == 2
-    assert rec.work_invitees.count() == 2
+    assert rec.contributors.count() == 2
+    assert rec.invitees.count() == 2
 
     resp = client.get(f"/admin/workrecord/export/csv/?task_id={task.id}")
     assert resp.headers["Content-Type"] == "text/csv; charset=utf-8"
@@ -3000,8 +3215,8 @@ def test_researcher_work(client):
     assert task.records.count() == 1
     rec = task.records.first()
     assert rec.external_ids.count() == 1
-    assert rec.work_contributors.count() == 2
-    assert rec.work_invitees.count() == 2
+    assert rec.contributors.count() == 2
+    assert rec.invitees.count() == 2
 
     resp = client.post(
         "/load/researcher/work",
@@ -3074,6 +3289,19 @@ sdsds,,This is a title,,,hi,This is a journal title,xyz this is short descriptio
     assert resp.status_code == 200
     assert b"Failed to load work record file" in resp.data
     assert b"Invalid ORCID iD **ERROR**" in resp.data
+
+    # Conten and extension mismatch:
+    Task.delete().execute()
+    resp = client.post(
+        "/load/researcher/work",
+        data={
+            "file_": (open(os.path.join(os.path.dirname(__file__), "data", "example_works.json"), "rb"),
+                      "works042.csv"),
+        },
+        follow_redirects=True)
+    assert resp.status_code == 200
+    assert Task.select().count() == 0
+    assert b"Failed to load work record file" in resp.data
 
 
 def test_peer_reviews(client):
@@ -3173,6 +3401,41 @@ def test_peer_reviews(client):
     rec = task.records.first()
     assert rec.external_ids.count() == 1
 
+    # Activate a single record:
+    resp = client.post(
+        "/admin/peerreviewrecord/action/",
+        follow_redirects=True,
+        data={
+            "url": f"/admin/peerreviewrecord/?task_id={task.id}",
+            "action": "activate",
+            "rowid": task.records.first().id,
+        })
+    assert PeerReviewRecord.select().where(PeerReviewRecord.task_id == task.id,
+                                           PeerReviewRecord.is_active).count() == 1
+
+    # Activate all:
+    resp = client.post("/activate_all", follow_redirects=True, data=dict(task_id=task.id))
+    assert PeerReviewRecord.select().where(PeerReviewRecord.task_id == task.id,
+                                           PeerReviewRecord.is_active).count() == 1
+
+    # Reste a single record
+    PeerReviewRecord.update(processed_at=datetime.datetime(2018, 1, 1)).execute()
+    resp = client.post(
+        "/admin/peerreviewrecord/action/",
+        follow_redirects=True,
+        data={
+            "url": f"/admin/peerreviewrecord/?task_id={task.id}",
+            "action": "reset",
+            "rowid": task.records.first().id,
+        })
+    assert PeerReviewRecord.select().where(PeerReviewRecord.task_id == task.id,
+                                           PeerReviewRecord.processed_at.is_null()).count() == 1
+
+    # Reset all:
+    resp = client.post("/reset_all", follow_redirects=True, data=dict(task_id=task.id))
+    assert PeerReviewRecord.select().where(PeerReviewRecord.task_id == task.id,
+                                           PeerReviewRecord.is_active).count() == 1
+
     resp = client.get(f"/admin/peerreviewrecord/export/json/?task_id={task.id}")
     assert resp.status_code == 200
     assert b'"review-type": "REVIEW"' in resp.data
@@ -3235,6 +3498,61 @@ def test_other_names(client):
     assert b'dummy 10' in resp.data
 
 
+def test_keyword(client):
+    """Test researcher keyword data management."""
+    user = client.data["admin"]
+    client.login(user, follow_redirects=True)
+    resp = client.post(
+        "/load/keyword",
+        data={
+            "file_": (
+                BytesIO(b"""{
+  "created-at": "2019-02-15T04:39:23",
+  "filename": "keyword_sample_latest.json",
+  "records": [
+    {
+      "content": "keyword 1",
+      "display-index": 0,
+      "email": "rad42@mailinator.com",
+      "first-name": "sdsd",
+      "last-name": "sds1",
+      "orcid": null,
+      "processed-at": null,
+      "put-code": null,
+      "status": "The record was reset at 2019-02-20T08:31:49",
+      "visibility": "PUBLIC"
+    },
+    {
+      "content": "keyword 2",
+      "display-index": 0,
+      "email": "xyzz@mailinator.com",
+      "first-name": "sdsd",
+      "last-name": "sds1",
+      "orcid": "0000-0002-0146-7409",
+      "processed-at": null,
+      "put-code": 16878,
+      "status": "The record was reset at 2019-02-20T08:31:49",
+      "visibility": "PUBLIC"
+    }
+  ],
+  "task-type": "KEYWORD",
+  "updated-at": "2019-02-19T19:31:49"}"""),
+                "keyword_sample_latest.json",
+            ),
+        },
+        follow_redirects=True)
+    assert resp.status_code == 200
+    assert b"keyword 2" in resp.data
+    task = Task.get(filename="keyword_sample_latest.json")
+    assert task.records.count() == 2
+
+    resp = client.get(f"/admin/keywordrecord/export/json/?task_id={task.id}")
+    assert resp.status_code == 200
+    assert b'xyzz@mailinator.com' in resp.data
+    assert b'"keyword 2' in resp.data
+    assert b'"keyword 1' in resp.data
+
+
 def test_researcher_url(client):
     """Test researcher url data management."""
     user = client.data["admin"]
@@ -3246,26 +3564,14 @@ def test_researcher_url(client):
                 BytesIO(b"""{
   "records": [
     {
-      "display-index": 0,
-      "email": "xyzzz@mailinator.com",
-      "first-name": "sdksdsd",
-      "last-name": "sds1",
-      "orcid": "0000-0001-6817-9711",
-      "put-code": 43959,
-      "url-name": "xyzurl",
-      "url-value": "https://fdhfdasa112j.com",
-      "visibility": "PUBLIC"
+      "display-index": 0, "email": "xyzzz@mailinator.com", "first-name": "sdksdsd", "last-name": "sds1",
+      "orcid": "0000-0001-6817-9711", "put-code": 43959, "url-name": "xyzurl",
+      "url-value": "https://fdhfdasa112j.com", "visibility": "PUBLIC"
     },
     {
-      "display-index": 10,
-      "email": "dsjdh11222@mailinator.com",
-      "first-name": "sdksasadsd",
-      "last-name": "sds1",
-      "put-code": null,
-      "orcid": null,
-      "url-name": "xyzurl",
-      "url-value": "https://fdhfdasa112j.com",
-      "visibility": "PUBLIC"
+      "display-index": 10, "email": "dsjdh11222@mailinator.com", "first-name": "sdksasadsd",
+      "last-name": "sds1", "put-code": null, "orcid": null, "url-name": "xyzurl",
+      "url-value": "https://fdhfdasa112j.com", "visibility": "PUBLIC"
     }]}"""),
                 "researcher_url_001.json",
             ),
