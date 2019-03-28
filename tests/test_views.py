@@ -11,7 +11,7 @@ import time
 from io import BytesIO
 from itertools import product
 from unittest.mock import MagicMock, Mock, patch
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, quote, urlparse
 
 import pytest
 import yaml
@@ -1368,15 +1368,35 @@ Rad,Cirskis,researcher.990@mailinator.com,Student
     resp = client.get("/admin/task/?flt1_1=4")
     assert b"affiliations.csv" in resp.data
 
-    # Activate a single record:
-    id = records[0].id
+    # Add a new record:
+    url = quote(f"/url/?task_id={task_id}", safe='')
+    resp = client.post(
+        f"/admin/affiliationrecord/new/?url={url}",
+        follow_redirects=True,
+        data={
+            "external_id": "EX1234567890",
+            "first_name": "TEST FN",
+            "last_name": "TEST LN",
+            "email": "test@test.test.test.org",
+            "affiliation_type": "student",
+            "role": "ROLE",
+            "department": "DEP",
+            "start_date:year": "1990",
+            "end_date:year": "2024",
+            "city": "Auckland City",
+            "state": "Auckland",
+            "country": "NZ",
+        })
+
+    # Activate a single record:,
+    rec_id = records[0].id
     resp = client.post(
         "/admin/affiliationrecord/action/",
         follow_redirects=True,
         data={
             "url": f"/admin/affiliationrecord/?task_id={task_id}",
             "action": "activate",
-            "rowid": id,
+            "rowid": rec_id,
         })
     assert AffiliationRecord.select().where(AffiliationRecord.task_id == task_id,
                                             AffiliationRecord.is_active).count() == 1
@@ -1384,7 +1404,7 @@ Rad,Cirskis,researcher.990@mailinator.com,Student
     # Activate all:
     resp = client.post("/activate_all", follow_redirects=True, data=dict(task_id=task_id))
     assert AffiliationRecord.select().where(AffiliationRecord.task_id == task_id,
-                                            AffiliationRecord.is_active).count() == 4
+                                            AffiliationRecord.is_active).count() == 5
 
     # Reste a single record
     AffiliationRecord.update(processed_at=datetime.datetime(2018, 1, 1)).execute()
@@ -1394,7 +1414,7 @@ Rad,Cirskis,researcher.990@mailinator.com,Student
         data={
             "url": f"/admin/affiliationrecord/?task_id={task_id}",
             "action": "reset",
-            "rowid": id,
+            "rowid": rec_id,
         })
     assert AffiliationRecord.select().where(AffiliationRecord.task_id == task_id,
                                             AffiliationRecord.processed_at.is_null()).count() == 1
@@ -1402,7 +1422,7 @@ Rad,Cirskis,researcher.990@mailinator.com,Student
     # Reset all:
     resp = client.post("/reset_all", follow_redirects=True, data=dict(task_id=task_id))
     assert AffiliationRecord.select().where(AffiliationRecord.task_id == task_id,
-                                            AffiliationRecord.processed_at.is_null()).count() == 4
+                                            AffiliationRecord.processed_at.is_null()).count() == 5
 
     # Exporting:
     for export_type in ["csv", "xls", "tsv", "yaml", "json", "xlsx", "ods", "html"]:
@@ -1418,7 +1438,7 @@ Rad,Cirskis,researcher.990@mailinator.com,Student
         resp = client.get(
             f"/admin/affiliationrecord/export/{export_type}/?task_id=ERROR-9999999",
             follow_redirects=True)
-        assert b"invalid" in resp.data
+        assert b"Missing or incorrect task ID value" in resp.data
 
         resp = client.get(f"/admin/affiliationrecord/export/{export_type}/?task_id={task_id}")
         ct = resp.headers["Content-Type"]
@@ -1463,7 +1483,7 @@ Rad,Cirskis,researcher.990@mailinator.com,Student
             })
         assert resp.status_code == 302
         assert Task.select().count() == task_count + 1
-        assert Task.select().order_by(Task.id.desc()).first().records.count() == 4
+        assert Task.select().order_by(Task.id.desc()).first().records.count() == 5
 
     # Delete records:
     resp = client.post(
@@ -1472,9 +1492,9 @@ Rad,Cirskis,researcher.990@mailinator.com,Student
         data={
             "url": f"/admin/affiliationrecord/?task_id={task_id}",
             "action": "delete",
-            "rowid": id,
+            "rowid": rec_id,
         })
-    assert AffiliationRecord.select().where(AffiliationRecord.task_id == task_id).count() == 3
+    assert AffiliationRecord.select().where(AffiliationRecord.task_id == task_id).count() == 4
 
     # Delete more records:
     resp = client.post(
@@ -1485,7 +1505,7 @@ Rad,Cirskis,researcher.990@mailinator.com,Student
             "action": "delete",
             "rowid": [ar.id for ar in records[1:-1]],
         })
-    assert AffiliationRecord.select().where(AffiliationRecord.task_id == task_id).count() == 1
+    assert AffiliationRecord.select().where(AffiliationRecord.task_id == task_id).count() == 2
 
     resp = client.post(
         "/admin/task/delete/", data=dict(id=task_id, url="/admin/task/"), follow_redirects=True)

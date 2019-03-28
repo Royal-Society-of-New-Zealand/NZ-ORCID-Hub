@@ -20,32 +20,36 @@ from flask_admin.actions import action
 from flask_admin.babel import gettext
 from flask_admin.base import expose
 from flask_admin.contrib.peewee import ModelView, filters
+from flask_admin.contrib.peewee.view import save_inline
 from flask_admin.form import SecureForm
 from flask_admin.helpers import get_redirect_target
 from flask_admin.model import BaseModelView, typefmt
 from flask_login import current_user, login_required
+from flask_rq2.job import FlaskJob
 from jinja2 import Markup
 from peewee import SQL
 from playhouse.shortcuts import model_to_dict
 from werkzeug.utils import secure_filename
 from wtforms.fields import BooleanField
-from flask_rq2.job import FlaskJob
+from urllib.parse import parse_qs, urlparse
 
 from orcid_api.rest import ApiException
 
-from . import admin, app, limiter, models, orcid_client, rq, utils, SENTRY_DSN
+from . import SENTRY_DSN, admin, app, limiter, models, orcid_client, rq, utils
 from .apis import yamlfy
 from .forms import (ApplicationFrom, BitmapMultipleValueField, CredentialForm, EmailTemplateForm,
-                    FileUploadForm, FundingForm, GroupIdForm, LogoForm, OtherNameKeywordForm, OrgRegistrationForm,
-                    PartialDateField, PeerReviewForm, ProfileSyncForm, RecordForm, ResearcherUrlForm,
-                    UserInvitationForm, WebhookForm, WorkForm)
+                    FileUploadForm, FundingForm, GroupIdForm, LogoForm, OrgRegistrationForm,
+                    OtherNameKeywordForm, PartialDateField, PeerReviewForm, ProfileSyncForm,
+                    RecordForm, ResearcherUrlForm, UserInvitationForm, WebhookForm, WorkForm)
 from .login_provider import roles_required
 from .models import (JOIN, Affiliation, AffiliationRecord, CharField, Client, Delegate, ExternalId,
-                     File, FundingContributor, FundingInvitee, FundingRecord, Grant, GroupIdRecord, KeywordRecord,
-                     ModelException, NestedDict, OtherNameRecord, OrcidApiCall, OrcidToken, Organisation,
-                     OrgInfo, OrgInvitation, PartialDate, PeerReviewExternalId, PeerReviewInvitee, PeerReviewRecord,
-                     ResearcherUrlRecord, Role, Task, TaskType, TextField, Token, Url, User, UserInvitation, UserOrg,
-                     UserOrgAffiliation, WorkContributor, WorkExternalId, WorkInvitee, WorkRecord, db, get_val)
+                     File, FundingContributor, FundingInvitee, FundingRecord, Grant, GroupIdRecord,
+                     KeywordRecord, ModelException, NestedDict, OrcidApiCall, OrcidToken,
+                     Organisation, OrgInfo, OrgInvitation, OtherNameRecord, PartialDate,
+                     PeerReviewExternalId, PeerReviewInvitee, PeerReviewRecord,
+                     ResearcherUrlRecord, Role, Task, TaskType, TextField, Token, Url, User,
+                     UserInvitation, UserOrg, UserOrgAffiliation, WorkContributor, WorkExternalId,
+                     WorkInvitee, WorkRecord, db, get_val)
 # NB! Should be disabled in production
 from .pyinfo import info
 from .utils import get_next_url, read_uploaded_file, send_user_invitation
@@ -556,10 +560,12 @@ class RecordModelView(AppModelView):
         "task",
         "organisation",
     )
-    form_excluded_columns = (
+    form_excluded_columns = [
         "task",
         "organisation",
-    )
+        "processed_at",
+        "status",
+    ]
     column_export_exclude_list = (
         "task",
         "is_active",
@@ -600,11 +606,12 @@ class RecordModelView(AppModelView):
             rowid = int(request.form.get("rowid"))
             task_id = self.model.get(id=rowid).task_id
         else:
-            task_id = request.args.get("task_id")
+            task_id = self.current_task_id
             if not task_id:
                 _id = request.args.get("id")
                 if not _id:
                     flash("Cannot invoke the task view without task ID", "danger")
+                    flash("Missing or incorrect task ID value", "danger")
                     return False
                 else:
                     task_id = self.model.get(id=_id).task_id
@@ -722,6 +729,67 @@ to the best of your knowledge, correct!""")
                     flash(f"{count} Keyword records were reset for batch processing.")
                 else:
                     flash(f"{count} Affiliation records were reset for batch processing.")
+
+    def create_form(self):
+        """Prefill form with organisation default values."""
+        form = super().create_form()
+        org = current_user.organisation
+        if hasattr(form, "city"):
+            form.city.data = org.city
+        if hasattr(form, "state"):
+            form.state.data = org.state
+        if hasattr(form, "country"):
+            form.country.data = org.country
+        if hasattr(form, "disambiguated_id"):
+            form.disambiguated_id.data = org.disambiguated_id
+        if hasattr(form, "disambiguation_source"):
+            form.disambiguation_source.data = org.disambiguation_source
+        return form
+
+    @property
+    def current_task_id(self):
+        """Get task_id form the query pameter task_id or url."""
+        try:
+            task_id = request.args.get("task_id")
+            if task_id:
+                return int(task_id)
+            url = request.args.get("url")
+            if not url:
+                flash("Missing return URL.", "danger")
+                return False
+            qs = parse_qs(urlparse(url).query)
+            task_id = qs.get("task_id", [None])[0]
+            if task_id:
+                return int(task_id)
+        except:
+            return None
+
+    def create_model(self, form):
+        """Link model to the current task."""
+        task_id = self.current_task_id
+        if not task_id:
+            flash("Missing task ID.", "danger")
+            return False
+
+        try:
+            model = self.model()
+            form.populate_obj(model)
+            model.task_id = task_id
+            self._on_model_change(form, model, True)
+            model.save()
+
+            # For peewee have to save inline forms after model was saved
+            save_inline(form, model)
+        except Exception as ex:
+            if not self.handle_view_exception(ex):
+                flash(f"Failed to create record: {ex}", "danger")
+                app.log.exception("Failed to create record.")
+
+            return False
+        else:
+            self.after_model_change(form, model, True)
+
+        return model
 
 
 class ExternalIdModelView(AppModelView):
@@ -1443,6 +1511,7 @@ class PeerReviewRecordAdmin(CompositeRecordModelView):
 class AffiliationRecordAdmin(RecordModelView):
     """Affiliation record model view."""
 
+    can_create = True
     list_template = "affiliation_record_list.html"
     column_exclude_list = (
         "task",
@@ -1460,6 +1529,7 @@ class AffiliationRecordAdmin(RecordModelView):
         "task",
         "is_active",
     )
+    form_widget_args = {"task": {"readonly": True}}
 
     @expose("/export/<export_type>/")
     def export(self, export_type):
@@ -1468,7 +1538,7 @@ class AffiliationRecordAdmin(RecordModelView):
             return super().export(export_type)
         return_url = get_redirect_target() or self.get_url(".index_view")
 
-        task_id = request.args.get("task_id")
+        task_id = self.current_task_id
         if not task_id:
             flash("Missing task ID.", "danger")
             return redirect(return_url)
