@@ -25,10 +25,11 @@ from orcid_api.rest import ApiException
 from orcid_hub import app, orcid_client, rq, utils, views
 from orcid_hub.config import ORCID_BASE_URL
 from orcid_hub.forms import FileUploadForm
-from orcid_hub.models import (
-    Affiliation, AffiliationRecord, Client, File, FundingRecord, GroupIdRecord, OrcidToken,
-    Organisation, OrgInfo, OrgInvitation, PartialDate, PeerReviewRecord, ResearcherUrlRecord, Role,
-    Task, TaskType, Token, Url, User, UserInvitation, UserOrg, UserOrgAffiliation, WorkRecord)
+from orcid_hub.models import (Affiliation, AffiliationRecord, Client, File, FundingContributor,
+                              FundingRecord, GroupIdRecord, OrcidToken, Organisation, OrgInfo,
+                              OrgInvitation, PartialDate, PeerReviewRecord, ResearcherUrlRecord,
+                              Role, Task, TaskType, Token, Url, User, UserInvitation, UserOrg,
+                              UserOrgAffiliation, WorkRecord)
 
 fake_time = time.time()
 logger = logging.getLogger(__name__)
@@ -2827,8 +2828,8 @@ THIS IS A TITLE #2, नमस्ते #2,hi,  CONTRACT,MY TYPE,Minerals unde.,9
     assert b"fundings.csv" in resp.data
     assert Task.select().where(Task.task_type == TaskType.FUNDING).count() == 1
     task = Task.select().where(Task.task_type == TaskType.FUNDING).first()
-    assert task.funding_records.count() == 2
-    fr = task.funding_records.where(FundingRecord.title == "THIS IS A TITLE").first()
+    assert task.records.count() == 2
+    fr = task.records.where(FundingRecord.title == "THIS IS A TITLE").first()
     assert fr.contributors.count() == 0
     assert fr.external_ids.count() == 2
 
@@ -2843,8 +2844,8 @@ THIS IS A TITLE #2, नमस्ते #2,hi,  CONTRACT,MY TYPE,Minerals unde.,9
     assert Task.select().where(Task.task_type == TaskType.FUNDING).count() == 2
     task = Task.select().where(Task.filename == "funding000.tsv",
                                Task.task_type == TaskType.FUNDING).first()
-    assert task.funding_records.count() == 2
-    fr = task.funding_records.where(FundingRecord.title == 'THIS IS A TITLE').first()
+    assert task.records.count() == 2
+    fr = task.records.where(FundingRecord.title == 'THIS IS A TITLE').first()
     assert fr.contributors.count() == 0
     assert fr.external_ids.count() == 2
 
@@ -2859,8 +2860,8 @@ THIS IS A TITLE #2, नमस्ते #2,hi,  CONTRACT,MY TYPE,Minerals unde.,9
     assert Task.select().where(Task.task_type == TaskType.FUNDING).count() == 3
     task = Task.select().where(Task.filename == "funding001.csv",
                                Task.task_type == TaskType.FUNDING).first()
-    assert task.funding_records.count() == 2
-    fr = task.funding_records.where(FundingRecord.title == 'THIS IS A TITLE').first()
+    assert task.records.count() == 2
+    fr = task.records.where(FundingRecord.title == 'THIS IS A TITLE').first()
     assert fr.contributors.count() == 0
     assert fr.external_ids.count() == 2
     assert fr.invitees.count() == 2
@@ -2891,7 +2892,7 @@ THIS IS A TITLE #4	 नमस्ते #2	hi	CONTRACT	MY TYPE	Minerals unde.	900
 
     assert Task.select().where(Task.task_type == TaskType.FUNDING).count() == 4
     task = Task.select().where(Task.task_type == TaskType.FUNDING).order_by(Task.id.desc()).first()
-    assert task.funding_records.count() == 2
+    assert task.records.count() == 2
 
     # Activate a single record:
     resp = client.post(
@@ -3040,8 +3041,8 @@ THIS IS A TITLE, नमस्ते,hi,  CONTRACT,MY TYPE,Minerals unde.,300000,
     assert b"fundings042.csv" in resp.data
     assert Task.select().where(Task.task_type == TaskType.FUNDING).count() == 4
     task = Task.select().where(Task.filename == "fundings042.csv").first()
-    assert task.funding_records.count() == 2
-    fr = task.funding_records.where(FundingRecord.title == "This is another project title").first()
+    assert task.records.count() == 2
+    fr = task.records.where(FundingRecord.title == "This is another project title").first()
     assert fr.contributors.count() == 0
     assert fr.external_ids.count() == 1
     assert fr.invitees.count() == 2
@@ -3068,9 +3069,59 @@ XXX1702,00004,,This is another project title,,,CONTRACT,Standard,This is another
     assert b"fundings_ex.csv" in resp.data
     assert Task.select().where(Task.task_type == TaskType.FUNDING).count() == 5
     task = Task.select().where(Task.task_type == TaskType.FUNDING).order_by(Task.id.desc()).first()
-    assert task.funding_records.count() == 2
-    for r in task.funding_records:
+    assert task.records.count() == 2
+    for r in task.records:
         assert r.invitees.count() == 0
+
+    # Change invitees:
+    record = task.records.first()
+    invitee_count = record.invitees.count()
+    url = quote(f"/url/?record_id={record.id}", safe='')
+    resp = client.post(
+        f"/admin/fundinginvitee/new/?url={url}",
+        data={
+            "email": "test@test.test.test.org",
+            "first_name": "TEST FN",
+            "last_name": "TEST LN",
+            "visibility": "PUBLIC",
+        })
+    assert record.invitees.count() > invitee_count
+
+    invitee = record.invitees.first()
+    resp = client.post(
+        f"/admin/fundinginvitee/edit/?id={invitee.id}&url={url}",
+        data={
+            "email": "test_new@test.test.test.org",
+            "first_name": invitee.first_name + "NEW",
+            "visibility": "PUBLIC",
+        })
+    assert record.invitees.count() > invitee_count
+    assert record.invitees.first().first_name == invitee.first_name + "NEW"
+    assert record.invitees.first().email == "test_new@test.test.test.org"
+
+    # Change contributors:
+    record = task.records.first()
+    contributor_count = record.invitees.count()
+    url = quote(f"/url/?record_id={record.id}", safe='')
+    resp = client.post(
+        f"/admin/fundingcontributor/new/?url={url}",
+        data={
+            "email": "contributor123@test.test.test.org",
+            "name": "FN LN",
+            "role": "ROLE",
+        })
+    assert record.contributors.count() > contributor_count
+
+    contributor = record.contributors.first()
+    resp = client.post(
+        f"/admin/fundingcontributor/edit/?id={contributor.id}&url={url}",
+        data={
+            "email": "contributor_new@test.test.test.org",
+            "orcid": "AAAA-2738-3738-00X3",
+        })
+    c = FundingContributor.get(contributor.id)
+    assert c.email == "contributor_new@test.test.test.org"
+    assert c.orcid == "AAAA-2738-3738-00X3"
 
 
 def test_researcher_work(client):

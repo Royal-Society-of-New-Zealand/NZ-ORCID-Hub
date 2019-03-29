@@ -690,7 +690,7 @@ to the best of your knowledge, correct!""")
                 if self.model == FundingRecord:
                     count = FundingInvitee.update(
                         processed_at=None, status=status).where(
-                            FundingInvitee.funding_record.in_(ids)).execute()
+                            FundingInvitee.record.in_(ids)).execute()
                 elif self.model == WorkRecord:
                     count = WorkInvitee.update(
                         processed_at=None, status=status).where(
@@ -817,7 +817,7 @@ class ExternalIdAdmin(ExternalIdModelView):
     """ExternalId model view."""
 
     list_template = "funding_externalid_list.html"
-    column_exclude_list = ("funding_record", )
+    column_exclude_list = ("record", )
 
 
 class WorkExternalIdAdmin(ExternalIdModelView):
@@ -834,17 +834,76 @@ class PeerReviewExternalIdAdmin(ExternalIdModelView):
     column_exclude_list = ("peer_review_record", )
 
 
-class ContributorModelAdmin(AppModelView):
-    """Combine contributor record model view."""
+class RecordChildModeAdmin(AppModelView):
+    """Batch processing record child model common bits."""
 
     roles_required = Role.SUPERUSER | Role.ADMIN
 
     can_edit = True
-    can_create = False
-    can_delete = False
+    can_create = True
+    can_delete = True
     can_view_details = True
 
-    form_widget_args = {"external_id": {"readonly": True}}
+    column_exclude_list = ["record"]
+    form_excluded_columns = ["record", "record", "status", "processed_at"]
+    column_details_exclude_list = ["record"]
+
+    def is_accessible(self):
+        """Verify if the view is accessible for the current user."""
+        if not super().is_accessible():
+            flash("Access denied! You cannot access this record.", "danger")
+            return False
+
+        return True
+
+    @property
+    def current_record_id(self):
+        """Get record_id form the query pameter record_id or url."""
+        try:
+            record_id = request.args.get("record_id")
+            if record_id:
+                return int(record_id)
+            url = request.args.get("url")
+            if not url:
+                flash("Missing return URL.", "danger")
+                return None
+            qs = parse_qs(urlparse(url).query)
+            record_id = qs.get("record_id", [None])[0]
+            if record_id:
+                return int(record_id)
+        except:
+            return None
+
+    def create_model(self, form):
+        """Link model to the current record."""
+        record_id = self.current_record_id
+        if not record_id:
+            flash("Missing record ID.", "danger")
+            return False
+
+        try:
+            model = self.model()
+            form.populate_obj(model)
+            model.record_id = record_id
+            self._on_model_change(form, model, True)
+            model.save()
+
+            # For peewee have to save inline forms after model was saved
+            save_inline(form, model)
+        except Exception as ex:
+            if not self.handle_view_exception(ex):
+                flash(f"Failed to create record: {ex}", "danger")
+                app.log.exception("Failed to create record.")
+
+            return False
+        else:
+            self.after_model_change(form, model, True)
+
+        return model
+
+
+class ContributorModelAdmin(RecordChildModeAdmin):
+    """Combine contributor record model view."""
 
     def is_accessible(self):
         """Verify if the contributor view is accessible for the current user."""
@@ -858,8 +917,8 @@ class ContributorModelAdmin(AppModelView):
 class FundingContributorAdmin(ContributorModelAdmin):
     """Funding contributor record model view."""
 
-    list_template = "funding_contributor_list.html"
-    column_exclude_list = ("funding_record", )
+    list_template = "contributor_list.html"
+    column_exclude_list = ("record", )
 
 
 class WorkContributorAdmin(ContributorModelAdmin):
@@ -869,23 +928,8 @@ class WorkContributorAdmin(ContributorModelAdmin):
     column_exclude_list = ("work_record", )
 
 
-class InviteeModelAdmin(AppModelView):
+class InviteeModelAdmin(RecordChildModeAdmin):
     """Combine Invitees record model view."""
-
-    roles_required = Role.SUPERUSER | Role.ADMIN
-
-    can_edit = True
-    can_create = False
-    can_delete = False
-    can_view_details = True
-
-    def is_accessible(self):
-        """Verify if the invitees view is accessible for the current user."""
-        if not super().is_accessible():
-            flash("Access denied! You cannot access this task.", "danger")
-            return False
-
-        return True
 
     @action("reset", "Reset for processing",
             "Are you sure you want to reset the selected records for batch processing?")
@@ -897,11 +941,11 @@ class InviteeModelAdmin(AppModelView):
                 count = self.model.update(
                     processed_at=None, status=status).where(self.model.id.in_(ids)).execute()
                 if self.model == FundingInvitee:
-                    funding_record_id = self.model.select().where(
-                        self.model.id.in_(ids))[0].funding_record_id
+                    record_id = self.model.select().where(
+                        self.model.id.in_(ids))[0].record_id
                     FundingRecord.update(
                         processed_at=None, status=status).where(
-                            FundingRecord.is_active, FundingRecord.id == funding_record_id).execute()
+                            FundingRecord.is_active, FundingRecord.id == record_id).execute()
                 elif self.model == WorkInvitee:
                     work_record_id = self.model.select().where(
                         self.model.id.in_(ids))[0].work_record_id
@@ -937,8 +981,7 @@ class WorkInviteeAdmin(InviteeModelAdmin):
 class FundingInviteeAdmin(InviteeModelAdmin):
     """Funding invitees record model view."""
 
-    list_template = "funding_invitees_list.html"
-    column_exclude_list = ("funding_record", )
+    list_template = "invitees_list.html"
 
 
 class PeerReviewInviteeAdmin(InviteeModelAdmin):
@@ -1254,7 +1297,7 @@ class FundingRecordAdmin(CompositeRecordModelView):
             execute=False)
 
         sq = (FundingInvitee.select(
-            FundingInvitee.funding_record,
+            FundingInvitee.record,
             FundingInvitee.email,
             FundingInvitee.orcid,
             SQL("NULL").alias("name"),
@@ -1268,7 +1311,7 @@ class FundingRecordAdmin(CompositeRecordModelView):
             FundingInvitee.status,
             FundingInvitee.processed_at,
         ) | FundingContributor.select(
-            FundingContributor.funding_record,
+            FundingContributor.record,
             FundingContributor.email,
             FundingContributor.orcid,
             FundingContributor.name,
@@ -1284,7 +1327,7 @@ class FundingRecordAdmin(CompositeRecordModelView):
         ).join(
             FundingInvitee,
             JOIN.LEFT_OUTER,
-            on=((FundingInvitee.funding_record_id == FundingContributor.funding_record_id)
+            on=((FundingInvitee.record_id == FundingContributor.record_id)
                 & ((FundingInvitee.email == FundingContributor.email)
                    | (FundingInvitee.orcid == FundingContributor.orcid)))).join(
                        User,
@@ -1311,8 +1354,8 @@ class FundingRecordAdmin(CompositeRecordModelView):
             ExternalId.url.alias("external_id_url"),
             ExternalId.relationship.alias("external_id_relationship")).join(
                 ExternalId, JOIN.LEFT_OUTER,
-                on=(ExternalId.funding_record_id == FundingRecord.id)).join(
-                    sq, JOIN.LEFT_OUTER, on=(sq.c.funding_record_id == FundingRecord.id)).naive()
+                on=(ExternalId.record_id == FundingRecord.id)).join(
+                    sq, JOIN.LEFT_OUTER, on=(sq.c.record_id == FundingRecord.id)).naive()
 
 
 class WorkRecordAdmin(CompositeRecordModelView):
@@ -1904,15 +1947,15 @@ def reset_all():
                         pass
 
             elif tt == TaskType.FUNDING:
-                for funding_record in FundingRecord.select().where(FundingRecord.task_id == task_id,
+                for record in FundingRecord.select().where(FundingRecord.task_id == task_id,
                                                                    FundingRecord.is_active == True):    # noqa: E712
-                    funding_record.processed_at = None
-                    funding_record.status = status
+                    record.processed_at = None
+                    record.status = status
 
                     FundingInvitee.update(
                         processed_at=None, status=status).where(
-                        FundingInvitee.funding_record == funding_record.id).execute()
-                    funding_record.save()
+                        FundingInvitee.record == record.id).execute()
+                    record.save()
                     count = count + 1
 
             elif tt == TaskType.WORK:

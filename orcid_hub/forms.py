@@ -343,7 +343,7 @@ class WorkForm(FlaskForm):
 class ResearcherUrlOtherNameKeywordForm(FlaskForm):
     """User/researcher Url and Other Name Common form."""
 
-    visibility_choices = [(v, v.replace('_', ' ').title()) for v in ['PUBLIC', 'PRIVATE', 'REGISTERED_ONLY', 'LIMITED']]
+    visibility_choices = [(v, v.replace('_', ' ').title()) for v in models.VISIBILITIES]
     display_index = StringField("Display Index")
     visibility = SelectField(choices=visibility_choices, description="Visibility")
 

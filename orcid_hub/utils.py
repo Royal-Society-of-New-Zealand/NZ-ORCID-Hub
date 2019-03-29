@@ -537,7 +537,7 @@ def create_or_update_peer_review(user, org_id, records, *args, **kwargs):
 
 def create_or_update_funding(user, org_id, records, *args, **kwargs):
     """Create or update funding record of a user."""
-    records = list(unique_everseen(records, key=lambda t: t.funding_record.id))
+    records = list(unique_everseen(records, key=lambda t: t.record.id))
     org = Organisation.get(id=org_id)
     client_id = org.orcid_client_id
     api = orcid_client.MemberAPI(org, user)
@@ -559,11 +559,11 @@ def create_or_update_funding(user, org_id, records, *args, **kwargs):
                 fundings.append(fs)
 
         taken_put_codes = {
-            r.funding_record.funding_invitees.put_code
-            for r in records if r.funding_record.funding_invitees.put_code
+            r.record.funding_invitees.put_code
+            for r in records if r.record.funding_invitees.put_code
         }
 
-        def match_put_code(records, funding_record, funding_invitees):
+        def match_put_code(records, record, funding_invitees):
             """Match and asign put-code to a single funding record and the existing ORCID records."""
             if funding_invitees.put_code:
                 return
@@ -576,24 +576,24 @@ def create_or_update_funding(user, org_id, records, *args, **kwargs):
                      and r.get("title").get("title").get("value") is None and r.get("type") is None
                      and r.get("organization") is None
                      and r.get("organization").get("name") is None)
-                        or (r.get("title").get("title").get("value") == funding_record.title
-                            and r.get("type") == funding_record.type
-                            and r.get("organization").get("name") == funding_record.org_name)):
+                        or (r.get("title").get("title").get("value") == record.title
+                            and r.get("type") == record.type
+                            and r.get("organization").get("name") == record.org_name)):
                     funding_invitees.put_code = put_code
                     funding_invitees.save()
                     taken_put_codes.add(put_code)
                     app.logger.debug(
                         f"put-code {put_code} was asigned to the funding record "
-                        f"(ID: {funding_record.id}, Task ID: {funding_record.task_id})")
+                        f"(ID: {record.id}, Task ID: {record.task_id})")
                     break
 
         for task_by_user in records:
-            fr = task_by_user.funding_record
-            fi = task_by_user.funding_record.funding_invitees
+            fr = task_by_user.record
+            fi = task_by_user.record.funding_invitees
             match_put_code(fundings, fr, fi)
 
         for task_by_user in records:
-            fi = task_by_user.funding_record.funding_invitees
+            fi = task_by_user.record.funding_invitees
 
             try:
                 put_code, orcid, created = api.create_or_update_funding(task_by_user)
@@ -1480,7 +1480,7 @@ def process_funding_records(max_rows=20):
                 | (FundingInvitee.status.contains("sent").__invert__())))).join(
                     FundingRecord, on=(Task.id == FundingRecord.task_id)).join(
                         FundingInvitee,
-                        on=(FundingRecord.id == FundingInvitee.funding_record_id)).join(
+                        on=(FundingRecord.id == FundingInvitee.record_id)).join(
                             User,
                             JOIN.LEFT_OUTER,
                             on=((User.email == FundingInvitee.email)
@@ -1504,11 +1504,11 @@ def process_funding_records(max_rows=20):
                              & (OrcidToken.org_id == Organisation.id)
                              & (OrcidToken.scope.contains("/activities/update")))).limit(max_rows))
 
-    for (task_id, org_id, funding_record_id, user), tasks_by_user in groupby(tasks, lambda t: (
+    for (task_id, org_id, record_id, user), tasks_by_user in groupby(tasks, lambda t: (
             t.id,
             t.org_id,
-            t.funding_record.id,
-            t.funding_record.funding_invitees.user,)):
+            t.record.id,
+            t.record.funding_invitees.user,)):
         """If we have the token associated to the user then update the funding record, otherwise send him an invite"""
         if (user.id is None or user.orcid is None or not OrcidToken.select().where(
             (OrcidToken.user_id == user.id) & (OrcidToken.org_id == org_id)
@@ -1519,9 +1519,9 @@ def process_funding_records(max_rows=20):
                     lambda t: (
                         t.created_by,
                         t.org,
-                        t.funding_record.funding_invitees.email,
-                        t.funding_record.funding_invitees.first_name,
-                        t.funding_record.funding_invitees.last_name, )
+                        t.record.funding_invitees.email,
+                        t.record.funding_invitees.first_name,
+                        t.record.funding_invitees.last_name, )
             ):  # noqa: E501
                 email = k[2]
                 token_expiry_in_sec = 2600000
@@ -1553,17 +1553,17 @@ def process_funding_records(max_rows=20):
         else:
             create_or_update_funding(user, org_id, tasks_by_user)
         task_ids.add(task_id)
-        funding_ids.add(funding_record_id)
+        funding_ids.add(record_id)
 
-    for funding_record in FundingRecord.select().where(FundingRecord.id << funding_ids):
+    for record in FundingRecord.select().where(FundingRecord.id << funding_ids):
         # The funding record is processed for all invitees
         if not (FundingInvitee.select().where(
-                FundingInvitee.funding_record_id == funding_record.id,
+                FundingInvitee.record_id == record.id,
                 FundingInvitee.processed_at.is_null()).exists()):
-            funding_record.processed_at = datetime.utcnow()
-            if not funding_record.status or "error" not in funding_record.status:
-                funding_record.add_status_line("Funding record is processed.")
-            funding_record.save()
+            record.processed_at = datetime.utcnow()
+            if not record.status or "error" not in record.status:
+                record.add_status_line("Funding record is processed.")
+            record.save()
 
     for task in Task.select().where(Task.id << task_ids):
         # The task is completed (Once all records are processed):
@@ -2051,10 +2051,10 @@ def process_tasks(max_rows=20):
             current_count = current_task.affiliation_records.select().where(
                 AffiliationRecord.processed_at.is_null(False)).distinct().count()
         elif task_type == TaskType.FUNDING:
-            for funding_record in current_task.funding_records.select():
-                total_count = total_count + funding_record.invitees.select().distinct().count()
+            for record in current_task.records.select():
+                total_count = total_count + record.invitees.select().distinct().count()
 
-                current_count = current_count + funding_record.invitees.select().where(
+                current_count = current_count + record.invitees.select().where(
                     FundingInvitee.processed_at.is_null(False)).distinct().count()
         elif task_type == TaskType.WORK:
             for work_record in current_task.work_records.select():

@@ -50,6 +50,7 @@ AFFILIATION_TYPES = (
     "staff",
     "employment",
 )
+VISIBILITIES = ["PUBLIC", "PRIVATE", "REGISTERED_ONLY", "LIMITED"]
 
 
 class ModelException(Exception):
@@ -1704,7 +1705,7 @@ class FundingRecord(RecordModel):
                     for contributor in set(
                             tuple(r["contributor"].items()) for r in records
                             if r["excluded"]):
-                        fc = FundingContributor(funding_record=fr, **dict(contributor))
+                        fc = FundingContributor(record=fr, **dict(contributor))
                         validator = ModelValidator(fc)
                         if not validator.validate():
                             raise ModelException(f"Invalid contributor record: {validator.errors}")
@@ -1713,13 +1714,13 @@ class FundingRecord(RecordModel):
                     for external_id in set(
                             tuple(r["external_id"].items()) for r in records
                             if r["external_id"]["type"] and r["external_id"]["value"]):
-                        ei = ExternalId(funding_record=fr, **dict(external_id))
+                        ei = ExternalId(record=fr, **dict(external_id))
                         ei.save()
 
                     for invitee in set(
                             tuple(r["invitee"].items()) for r in records
                             if r["invitee"]["email"] and not r["excluded"]):
-                        rec = FundingInvitee(funding_record=fr, **dict(invitee))
+                        rec = FundingInvitee(record=fr, **dict(invitee))
                         validator = ModelValidator(rec)
                         if not validator.validate():
                             raise ModelException(f"Invalid invitee record: {validator.errors}")
@@ -3155,8 +3156,7 @@ class WorkContributor(ContributorModel):
 class FundingContributor(ContributorModel):
     """Researcher or contributor - receiver of the funding."""
 
-    funding_record = ForeignKeyField(
-        FundingRecord, related_name="contributors", on_delete="CASCADE")
+    record = ForeignKeyField(FundingRecord, related_name="contributors", on_delete="CASCADE")
 
     class Meta:  # noqa: D101,D106
         db_table = "funding_contributor"
@@ -3166,13 +3166,15 @@ class FundingContributor(ContributorModel):
 class InviteeModel(BaseModel):
     """Common model bits of the invitees records."""
 
+    visibility_choices = [(v, v.replace('_', ' ').title()) for v in VISIBILITIES]
+
     identifier = CharField(max_length=120, null=True)
-    email = CharField(max_length=120, null=True)
+    email = CharField(max_length=120)
     first_name = CharField(max_length=120, null=True)
     last_name = CharField(max_length=120, null=True)
     orcid = OrcidIdField(null=True)
     put_code = IntegerField(null=True)
-    visibility = CharField(null=True, max_length=100)
+    visibility = CharField(null=True, max_length=100, choices=visibility_choices)
     status = TextField(null=True, help_text="Record processing status.")
     processed_at = DateTimeField(null=True)
 
@@ -3225,7 +3227,7 @@ class WorkInvitee(InviteeModel):
 class FundingInvitee(InviteeModel):
     """Researcher or Invitee - related to funding."""
 
-    funding_record = ForeignKeyField(
+    record = ForeignKeyField(
         FundingRecord, related_name="invitees", on_delete="CASCADE")
 
     class Meta:  # noqa: D101,D106
@@ -3287,8 +3289,7 @@ class PeerReviewExternalId(ExternalIdModel):
 class ExternalId(ExternalIdModel):
     """Funding ExternalId loaded for batch processing."""
 
-    funding_record = ForeignKeyField(
-        FundingRecord, related_name="external_ids", on_delete="CASCADE")
+    record = ForeignKeyField(FundingRecord, related_name="external_ids", on_delete="CASCADE")
 
     class Meta:  # noqa: D101,D106
         db_table = "external_id"
