@@ -13,6 +13,7 @@ Application Docker Image (`orcidhub/app`) is packaged with:
 Usage
 ~~~~~
 
+The following steps will set up a local ORCID Hub application instance using docker.
 
 #. Install **docker** following the instruction at https://docs.docker.com/install/linux/docker-ce/ubuntu/
 #. Install **git** and **docker-compose**: `sudo apt install -y git docker-compose`
