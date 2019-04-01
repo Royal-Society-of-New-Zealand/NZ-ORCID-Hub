@@ -47,7 +47,7 @@
                 <form class="icon" method="POST" action="{{url_for('activate_all')}}">
                   <input id="task_id" name="task_id" type="hidden" value="{{task.id}}">
                   <button onclick="return safeConfirm('Are you sure you want to activate every record in this batch for processing?\n\nBy clicking &quot;OK&quot;'+
-                  ' you are affirming that the affiliations to be written are, to the \nbest of your knowledge, correct!');"
+                  ' you are affirming that the below records to be written are, to the \nbest of your knowledge, correct!');"
                           data-toggle="tooltip"
                           data-placement="bottom"
                           title="Activate all records for batch processing..."
@@ -59,7 +59,7 @@
                       action="{{url_for('reset_all')}}">
                   <input id="task_idd" name="task_id" type="hidden" value="{{task.id}}">
                   <button onclick="return safeConfirm('Are you sure you want to reset every record in this batch for processing?\n\nBy clicking &quot;OK&quot;'+
-                  ' you are affirming that the affiliations to be written are, to the \nbest of your knowledge, correct!');"
+                  ' you are affirming that the below records to be written are, to the \nbest of your knowledge, correct!');"
                           data-toggle="tooltip"
                           data-placement="bottom"
                           title="Reset all records for batch processing..."

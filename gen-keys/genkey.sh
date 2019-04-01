@@ -4,6 +4,7 @@ if [ -z "$DOMAIN" ]; then
   echo "Usage: $(basename $0) <domain>"
   exit 11
 fi
+HOST="${DOMAIN%%.*}"
 
 fail_if_error() {
   [ $1 != 0 ] && {
@@ -60,11 +61,11 @@ cp $DOMAIN.key $DOMAIN.key._
 fail_if_error $?
 
 # Strip the passphrase from our RSA-key to not get prompted when Apache (or any other webserver) starts:
-openssl rsa -in $DOMAIN.key._ -out $DOMAIN.key -passin env:PASSPHRASE
+openssl rsa -in $DOMAIN.key._ -out $HOST-server.key -passin env:PASSPHRASE
 fail_if_error $?
 
 # Create a self-signed certificate:
-openssl x509 -req -days 1365 -in $DOMAIN.csr -signkey $DOMAIN.key -out $DOMAIN.crt -extensions ext -extfile $SSLCNF
+openssl x509 -req -days 1365 -in $DOMAIN.csr -signkey $HOST-server.key -out $HOST-server.crt -extensions ext -extfile $SSLCNF
 fail_if_error $?
 
 [ ! -d CSR ] && mkdir CSR

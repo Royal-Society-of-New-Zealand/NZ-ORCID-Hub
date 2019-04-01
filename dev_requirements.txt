@@ -29,3 +29,4 @@ pycrypto>=2.6.1
 python-dotenv>=0.6.3
 Faker
 Online-W3C-Validator>=0.3.2
+twine

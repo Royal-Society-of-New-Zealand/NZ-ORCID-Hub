@@ -17,8 +17,9 @@ from flask_swagger import swagger
 
 from . import api, app, db, models, oauth
 from .login_provider import roles_required
-from .models import (ORCID_ID_REGEX, AffiliationRecord, Client, FundingRecord, OrcidToken, Role,
-                     Task, TaskType, User, UserOrg, validate_orcid_id)
+from .models import (ORCID_ID_REGEX, AffiliationRecord, Client, FundingRecord, OrcidToken,
+                     PeerReviewRecord, Role, Task, TaskType, User, UserOrg, validate_orcid_id,
+                     WorkRecord)
 from .schemas import affiliation_task_schema
 from .utils import dump_yaml, is_valid_url, register_orcid_webhook
 
@@ -74,12 +75,12 @@ class AppResource(Resource):
 
     @property
     def is_yaml_request(self):
-        """Test if the requst body content type is YAML."""
+        """Test if the request body content type is YAML."""
         return request.content_type in ["text/yaml", "application/x-yaml"]
 
 
 def changed_path(name, value):
-    """Create query stirng with a new paremeter value."""
+    """Create query string with a new parameter value."""
     link = request.path
     if request.args:
         link += '&' + urlencode(
@@ -93,7 +94,7 @@ class AppResourceList(AppResource):
 
     @models.lazy_property
     def page(self):
-        """Get the curretn queried page."""
+        """Get the current queried page."""
         try:
             return int(request.args.get("page", 1))
         except:
@@ -101,7 +102,7 @@ class AppResourceList(AppResource):
 
     @models.lazy_property
     def page_size(self):  # noqa: D402
-        """Get the curretn query page size, default: 20."""
+        """Get the current query page size, default: 20."""
         try:
             return int(request.args.get("page_size", 20))
         except:
@@ -109,23 +110,23 @@ class AppResourceList(AppResource):
 
     @models.lazy_property
     def next_link(self):
-        """Get the next page link of the requsted resource."""
+        """Get the next page link of the requested resource."""
         return changed_path("page", self.page + 1)
 
     @models.lazy_property
     def previous_link(self):
-        """Get the previous page link of the requsted resource."""
+        """Get the previous page link of the requested resource."""
         if self.page <= 1:
             return
         return changed_path("page", self.page - 1)
 
     @models.lazy_property
     def first_link(self):
-        """Get the first page link of the requsted resource."""
+        """Get the first page link of the requested resource."""
         return changed_path("page", 1)
 
     def api_response(self, query, exclude=None):
-        """Create and return API response with pagination likns."""
+        """Create and return API response with pagination links."""
         query = query.paginate(self.page, self.page_size)
         records = [r.to_dict(recurse=False, to_dashes=True, exclude=exclude) for r in query]
         resp = yamlfy(records) if prefers_yaml() else jsonify(records)
@@ -143,7 +144,7 @@ class AppResourceList(AppResource):
 
 
 class TaskResource(AppResource):
-    """Common task ralated reource."""
+    """Common task related resource."""
 
     available_task_types = [t.name for t in TaskType]
 
@@ -183,21 +184,14 @@ class TaskResource(AppResource):
             if task.created_by != current_user:
                 return jsonify({"error": "Access denied."}), 403
         if request.method != "HEAD":
-            task_type = TaskType(task.task_type)
-            if task_type == TaskType.AFFILIATION:
-                resp = jsonify(task.to_dict())
-            # TODO: refactor to_export_dict to to_dict for funding tasks.
-            elif task_type == TaskType.FUNDING:
-                task_dict = task.to_dict(
-                    recurse=False,
-                    to_dashes=True,
-                    exclude=[Task.created_by, Task.updated_by, Task.org, Task.task_type])
-                task_dict["task-type"] = task_type.name
-                task_dict["records"] = [r.to_export_dict() for r in task.records]
-                resp = jsonify(task_dict)
-
+            if task.task_type in [
+                    TaskType.AFFILIATION, TaskType.FUNDING, TaskType.PEER_REVIEW, TaskType.WORK
+            ]:
+                resp = jsonify(task.to_export_dict())
+            else:
+                raise Exception(f"Suppor for {task} has not yet been implemented.")
         else:
-            resp = jsonify({"updated-at": task.updated_at})
+            resp = Response()
         resp.headers["Last-Modified"] = self.httpdate(task.updated_at or task.created_at)
         return resp
 
@@ -210,12 +204,12 @@ class TaskResource(AppResource):
             return jsonify({"error": "The task doesn't exist."}), 404
         except Exception as ex:
             app.logger.exception(f"Failed to find the task with ID: {task_id}")
-            return jsonify({"error": "Unhandled except occured.", "exception": str(ex)}), 400
+            return jsonify({"error": "Unhandled exception occurred.", "exception": str(ex)}), 400
 
         if task.created_by != current_user:
             abort(403)
         task.delete_instance()
-        return {"message": "The task was successfully deletd."}
+        return {"message": "The task was successfully deleted."}
 
     def handle_affiliation_task(self, task_id=None):
         """Handle PUT, POST, or PATCH request. Request body expected to be encoded in JSON."""
@@ -226,21 +220,21 @@ class TaskResource(AppResource):
                 data = yaml.load(request.data)
             except Exception as ex:
                 return jsonify({
-                    "error": "Ivalid request format. Only JSON, CSV, or TSV are acceptable.",
+                    "error": "Invalid request format. Only JSON, CSV, or TSV are acceptable.",
                     "message": str(ex)
                 }), 415
         else:
             data = request.get_json()
 
         if not data:
-            return jsonify({"error": "Ivalid request format. Only JSON, CSV, or TSV are acceptable."}), 415
+            return jsonify({"error": "Invalid request format. Only JSON, CSV, or TSV are acceptable."}), 415
         try:
             if request.method != "PATCH":
                 jsonschema.validate(data, affiliation_task_schema)
         except jsonschema.exceptions.ValidationError as ex:
             return jsonify({"error": "Validation error.", "message": ex.message}), 422
         except Exception as ex:
-            return jsonify({"error": "Unhandled except occured.", "exception": ex}), 400
+            return jsonify({"error": "Unhandled exception occurred.", "exception": ex}), 400
         if "records" not in data:
             return jsonify({"error": "Validation error.", "message": "Missing affiliation records."}), 422
 
@@ -261,12 +255,12 @@ class TaskResource(AppResource):
                 override=(request.method == "POST"))
         except Exception as ex:
             db.rollback()
-            app.logger.exception("Failed to hadle affiliation API request.")
-            return jsonify({"error": "Unhandled except occured.", "exception": str(ex)}), 400
+            app.logger.exception("Failed to handle affiliation API request.")
+            return jsonify({"error": "Unhandled exception occurred.", "exception": str(ex)}), 400
 
         return self.jsonify_task(task)
 
-    def handle_fund_task(self, task_id=None):
+    def handle_task(self, task_id=None):
         """Handle PUT, POST, or PATCH request. Request body expected to be encoded in JSON."""
         try:
             login_user(request.oauth.user)
@@ -281,14 +275,38 @@ class TaskResource(AppResource):
                     return jsonify({"error": "Access denied."}), 403
             else:
                 task = None
-            task = FundingRecord.load_from_json(
-                request.data.decode("utf-8"), filename=self.filename, task=task)
+            task = self.load_from_json(task=task)
         except Exception as ex:
-            db.rollback()
-            app.logger.exception("Failed to hadle affiliation API request.")
-            return jsonify({"error": "Unhandled except occured.", "exception": str(ex)}), 400
+            app.logger.exception("Failed to handle funding API request.")
+            return jsonify({"error": "Unhandled exception occurred.", "exception": str(ex)}), 400
 
         return self.jsonify_task(task)
+
+    def head(self, task_id):
+        """Handle HEAD request.
+
+        ---
+        summary: "Return task update time-stamp."
+        description: "Return record processing task update time-stamp."
+        parameters:
+          - name: "task_id"
+            in: "path"
+            description: "Task ID."
+            required: true
+            type: "integer"
+        produces:
+          - "application/json"
+        responses:
+          200:
+            description: "Successful operation"
+          401:
+            $ref: "#/responses/Unauthorized"
+          403:
+            $ref: "#/responses/AccessDenied"
+          404:
+            $ref: "#/responses/NotFound"
+        """
+        return self.jsonify_task(task_id)
 
 
 class TaskList(TaskResource, AppResourceList):
@@ -344,7 +362,7 @@ class TaskList(TaskResource, AppResourceList):
               - WORK
           - in: query
             name: page
-            description: The number of the page of retrievd data starting counting from 1
+            description: The number of the page of retrieved data starting counting from 1
             type: integer
             minimum: 0
             default: 1
@@ -684,34 +702,6 @@ class AffiliationAPI(TaskResource):
         """
         return self.delete_task(task_id)
 
-    def head(self, task_id):
-        """Handle HEAD request.
-
-        ---
-        tags:
-          - "affiliations"
-        summary: "Return task update time-stamp."
-        description: "Return task update time-stamp."
-        parameters:
-          - name: "task_id"
-            in: "path"
-            description: "Affiliation task ID."
-            required: true
-            type: "integer"
-        produces:
-          - "application/json"
-        responses:
-          200:
-            description: "Successful operation"
-          401:
-            $ref: "#/responses/Unauthorized"
-          403:
-            $ref: "#/responses/AccessDenied"
-          404:
-            $ref: "#/responses/NotFound"
-        """
-        return self.jsonify_task(task_id)
-
 
 api.add_resource(TaskList, "/api/v1.0/tasks")
 api.add_resource(AffiliationListAPI, "/api/v1.0/affiliations")
@@ -720,6 +710,11 @@ api.add_resource(AffiliationAPI, "/api/v1.0/affiliations/<int:task_id>")
 
 class FundListAPI(TaskResource):
     """Fund list API."""
+
+    def load_from_json(self, task=None):
+        """Load Funding records form the JSON upload."""
+        return FundingRecord.load_from_json(
+            request.data.decode("utf-8"), filename=self.filename, task=task)
 
     def post(self, *args, **kwargs):
         """Upload the fund task.
@@ -792,10 +787,10 @@ class FundListAPI(TaskResource):
         if request.content_type in ["text/csv", "text/tsv"]:
             task = FundingRecord.load_from_csv(request.data.decode("utf-8"), filename=self.filename)
             return self.jsonify_task(task)
-        return self.handle_fund_task()
+        return self.handle_task()
 
 
-class FundAPI(TaskResource):
+class FundAPI(FundListAPI):
     """Fund task services."""
 
     def get(self, task_id):
@@ -866,7 +861,7 @@ class FundAPI(TaskResource):
           404:
             $ref: "#/responses/NotFound"
         """
-        return self.handle_fund_task(task_id)
+        return self.handle_task(task_id)
 
     def delete(self, task_id):
         """Delete the specified fund task.
@@ -896,18 +891,177 @@ class FundAPI(TaskResource):
         """
         return self.delete_task(task_id)
 
-    def head(self, task_id):
-        """Handle HEAD request.
+
+api.add_resource(FundListAPI, "/api/v1.0/funds")
+api.add_resource(FundAPI, "/api/v1.0/funds/<int:task_id>")
+
+
+class WorkListAPI(TaskResource):
+    """Work list API."""
+
+    def load_from_json(self, task=None):
+        """Load Working records form the JSON upload."""
+        return WorkRecord.load_from_json(
+            request.data.decode("utf-8"), filename=self.filename, task=task)
+
+    def post(self, *args, **kwargs):
+        """Upload the work record processing task.
 
         ---
         tags:
-          - "funds"
-        summary: "Return task update time-stamp."
-        description: "Return task update time-stamp."
+          - "works"
+        summary: "Post the work list task."
+        description: "Post the work record processing task."
+        consumes:
+        - application/json
+        - text/yaml
+        produces:
+        - application/json
+        parameters:
+        - name: "filename"
+          required: false
+          in: "query"
+          description: "The batch process filename."
+          type: "string"
+        - name: body
+          in: body
+          description: "Work task."
+          schema:
+            $ref: "#/definitions/WorkTask"
+        responses:
+          200:
+            description: "successful operation"
+            schema:
+              $ref: "#/definitions/WorkTask"
+          401:
+            $ref: "#/responses/Unauthorized"
+          403:
+            $ref: "#/responses/AccessDenied"
+          404:
+            $ref: "#/responses/NotFound"
+        definitions:
+        - schema:
+            id: WorkTask
+            properties:
+              id:
+                type: integer
+                format: int64
+              filename:
+                type: string
+              task-type:
+                type: string
+                enum:
+                - work
+                - workING
+              created-at:
+                type: string
+                format: date-time
+              expires-at:
+                type: string
+                format: date-time
+              completed-at:
+                type: string
+                format: date-time
+              records:
+                type: array
+                items:
+                  $ref: "#/definitions/WorkTaskRecord"
+        - schema:
+            id: WorkTaskRecord
+            type: object
+        """
+        login_user(request.oauth.user)
+        if request.content_type in ["text/csv", "text/tsv"]:
+            task = WorkRecord.load_from_csv(request.data.decode("utf-8"), filename=self.filename)
+            return self.jsonify_task(task)
+        return self.handle_task()
+
+
+class WorkAPI(WorkListAPI):
+    """Work record processing task services."""
+
+    def get(self, task_id):
+        """
+        Retrieve the specified work record processing task.
+
+        ---
+        tags:
+          - "works"
+        summary: "Retrieve the specified work task."
+        description: "Retrieve the specified work record processing task."
+        produces:
+          - "application/json"
+        parameters:
+          - name: "task_id"
+            required: true
+            in: "path"
+            description: "Work task ID."
+            type: "integer"
+        responses:
+          200:
+            description: "successful operation"
+            schema:
+              $ref: "#/definitions/WorkTask"
+          401:
+            $ref: "#/responses/Unauthorized"
+          403:
+            $ref: "#/responses/AccessDenied"
+          404:
+            $ref: "#/responses/NotFound"
+        """
+        return self.jsonify_task(task_id)
+
+    def post(self, task_id):
+        """Upload the task and completely override the work record processing task.
+
+        ---
+        tags:
+          - "works"
+        summary: "Update the work task."
+        description: "Update the work record processing task."
+        consumes:
+          - application/json
+          - text/yaml
+        definitions:
         parameters:
           - name: "task_id"
             in: "path"
-            description: "Fund task ID."
+            description: "Work task ID."
+            required: true
+            type: "integer"
+          - in: body
+            name: workTask
+            description: "Work task."
+            schema:
+              $ref: "#/definitions/WorkTask"
+        produces:
+          - "application/json"
+        responses:
+          200:
+            description: "successful operation"
+            schema:
+              $ref: "#/definitions/WorkTask"
+          401:
+            $ref: "#/responses/Unauthorized"
+          403:
+            $ref: "#/responses/AccessDenied"
+          404:
+            $ref: "#/responses/NotFound"
+        """
+        return self.handle_task(task_id)
+
+    def delete(self, task_id):
+        """Delete the specified work task.
+
+        ---
+        tags:
+          - "works"
+        summary: "Delete the specified work task."
+        description: "Delete the specified work record processing task."
+        parameters:
+          - name: "task_id"
+            in: "path"
+            description: "Work task ID."
             required: true
             type: "integer"
         produces:
@@ -922,11 +1076,198 @@ class FundAPI(TaskResource):
           404:
             $ref: "#/responses/NotFound"
         """
+        return self.delete_task(task_id)
+
+
+api.add_resource(WorkListAPI, "/api/v1.0/works")
+api.add_resource(WorkAPI, "/api/v1.0/works/<int:task_id>")
+
+
+class PeerReviewListAPI(TaskResource):
+    """PeerReview list API."""
+
+    def load_from_json(self, task=None):
+        """Load PeerReviewing records form the JSON upload."""
+        return PeerReviewRecord.load_from_json(
+            request.data.decode("utf-8"), filename=self.filename, task=task)
+
+    def post(self, *args, **kwargs):
+        """Upload the peer review record processing task.
+
+        ---
+        tags:
+          - "peer-reviews"
+        summary: "Post the peer review list task."
+        description: "Post the peer review record processing task."
+        consumes:
+        - application/json
+        - text/yaml
+        produces:
+        - application/json
+        parameters:
+        - name: "filename"
+          required: false
+          in: "query"
+          description: "The batch process filename."
+          type: "string"
+        - name: body
+          in: body
+          description: "PeerReview task."
+          schema:
+            $ref: "#/definitions/PeerReviewTask"
+        responses:
+          200:
+            description: "successful operation"
+            schema:
+              $ref: "#/definitions/PeerReviewTask"
+          401:
+            $ref: "#/responses/Unauthorized"
+          403:
+            $ref: "#/responses/AccessDenied"
+          404:
+            $ref: "#/responses/NotFound"
+        definitions:
+        - schema:
+            id: PeerReviewTask
+            properties:
+              id:
+                type: integer
+                format: int64
+              filename:
+                type: string
+              task-type:
+                type: string
+                enum:
+                - peer_review
+                - peer_reviewING
+              created-at:
+                type: string
+                format: date-time
+              expires-at:
+                type: string
+                format: date-time
+              completed-at:
+                type: string
+                format: date-time
+              records:
+                type: array
+                items:
+                  $ref: "#/definitions/PeerReviewTaskRecord"
+        - schema:
+            id: PeerReviewTaskRecord
+            type: object
+        """
+        login_user(request.oauth.user)
+        if request.content_type in ["text/csv", "text/tsv"]:
+            task = PeerReviewRecord.load_from_csv(request.data.decode("utf-8"), filename=self.filename)
+            return self.jsonify_task(task)
+        return self.handle_task()
+
+
+class PeerReviewAPI(PeerReviewListAPI):
+    """PeerReview record processing task services."""
+
+    def get(self, task_id):
+        """
+        Retrieve the specified peer review record processing task.
+
+        ---
+        tags:
+          - "peer-reviews"
+        summary: "Retrieve the specified peer review task."
+        description: "Retrieve the specified peer review record processing task."
+        produces:
+          - "application/json"
+        parameters:
+          - name: "task_id"
+            required: true
+            in: "path"
+            description: "PeerReview task ID."
+            type: "integer"
+        responses:
+          200:
+            description: "successful operation"
+            schema:
+              $ref: "#/definitions/PeerReviewTask"
+          401:
+            $ref: "#/responses/Unauthorized"
+          403:
+            $ref: "#/responses/AccessDenied"
+          404:
+            $ref: "#/responses/NotFound"
+        """
         return self.jsonify_task(task_id)
 
+    def post(self, task_id):
+        """Upload the task and completely override the peer review record processing task.
 
-api.add_resource(FundListAPI, "/api/v1.0/funds")
-api.add_resource(FundAPI, "/api/v1.0/funds/<int:task_id>")
+        ---
+        tags:
+          - "peer-reviews"
+        summary: "Update the peer review task."
+        description: "Update the peer review record processing task."
+        consumes:
+          - application/json
+          - text/yaml
+        definitions:
+        parameters:
+          - name: "task_id"
+            in: "path"
+            description: "PeerReview task ID."
+            required: true
+            type: "integer"
+          - in: body
+            name: peerReviewTask
+            description: "PeerReview task."
+            schema:
+              $ref: "#/definitions/PeerReviewTask"
+        produces:
+          - "application/json"
+        responses:
+          200:
+            description: "successful operation"
+            schema:
+              $ref: "#/definitions/PeerReviewTask"
+          401:
+            $ref: "#/responses/Unauthorized"
+          403:
+            $ref: "#/responses/AccessDenied"
+          404:
+            $ref: "#/responses/NotFound"
+        """
+        return self.handle_task(task_id)
+
+    def delete(self, task_id):
+        """Delete the specified peer-review task.
+
+        ---
+        tags:
+          - "peer-reviews"
+        summary: "Delete the specified peer review task."
+        description: "Delete the specified peer review record processing task."
+        parameters:
+          - name: "task_id"
+            in: "path"
+            description: "PeerReview task ID."
+            required: true
+            type: "integer"
+        produces:
+          - "application/json"
+        responses:
+          200:
+            description: "Successful operation"
+          401:
+            $ref: "#/responses/Unauthorized"
+          403:
+            $ref: "#/responses/AccessDenied"
+          404:
+            $ref: "#/responses/NotFound"
+        """
+        return self.delete_task(task_id)
+
+
+api.add_resource(PeerReviewListAPI, "/api/v1.0/peer-reviews")
+api.add_resource(PeerReviewAPI, "/api/v1.0/peer-reviews/<int:task_id>")
 
 
 class UserListAPI(AppResourceList):
@@ -959,7 +1300,7 @@ class UserListAPI(AppResourceList):
             type: integer
             minimum: 0
             default: 1
-            description: The number of the page of retrievd data starting counting from 1
+            description: The number of the page of retrieved data starting counting from 1
           - in: query
             name: page_size
             type: integer
@@ -1612,7 +1953,7 @@ def orcid_proxy(version, orcid, rest=None):
     token = OrcidToken.select().join(User).where(
         User.orcid == orcid, OrcidToken.org == current_user.organisation).first()
     if not token:
-        return jsonify({"message": "The user hasn't granted acceess to the user profile"}), 403
+        return jsonify({"message": "The user hasn't granted access to the user profile"}), 403
 
     orcid_api_host_url = app.config["ORCID_API_HOST_URL"]
     # CHUNK_SIZE = 1024
@@ -1631,7 +1972,7 @@ def orcid_proxy(version, orcid, rest=None):
     proxy_req = requests.Request(
         request.method, url, data=request.stream, headers=headers).prepare()
     session = requests.Session()
-    # TODO: add timemout
+    # TODO: add time-out
     resp = session.send(proxy_req, stream=True)
 
     def generate():

@@ -26,7 +26,7 @@ from peewee import JOIN, BlobField
 from peewee import BooleanField as BooleanField_
 from peewee import (CharField, DateTimeField, DeferredRelation, Field, FixedCharField,
                     ForeignKeyField, IntegerField, Model, OperationalError, PostgresqlDatabase,
-                    SmallIntegerField, TextField, fn)
+                    SmallIntegerField, SqliteDatabase, TextField, fn)
 from peewee_validates import ModelValidator
 from playhouse.shortcuts import model_to_dict
 from pycountry import countries
@@ -34,7 +34,7 @@ from pykwalify.core import Core
 from pykwalify.errors import SchemaError
 
 from . import app, db
-from .schemas import affiliation_task_schema
+from .schemas import affiliation_task_schema, researcher_url_task_schema, other_name_keyword_task_schema
 
 ENV = app.config["ENV"]
 DEFAULT_COUNTRY = app.config["DEFAULT_COUNTRY"]
@@ -240,6 +240,9 @@ class TaskType(IntEnum):
     FUNDING = 1  # Funding
     WORK = 2
     PEER_REVIEW = 3
+    RESEARCHER_URL = 5
+    OTHER_NAME = 6
+    KEYWORD = 7
     SYNC = 11
 
     def __eq__(self, other):
@@ -563,7 +566,7 @@ class Organisation(BaseModel, AuditMixin):
                     self.tech_contact.save()
                     app.logger.info(f"Added TECHNICAL role to user {self.tech_contact}")
 
-        super().save(*args, **kwargs)
+            super().save(*args, **kwargs)
 
     class Meta:  # noqa: D101,D106
         table_alias = "o"
@@ -693,6 +696,11 @@ class User(BaseModel, UserMixin, AuditMixin):
         return self.name or self.email or self.orcid or super().__repr__()
 
     @property
+    def username(self):
+        """Usename for comlying with Flask-Login API"""
+        return self.orcid or self.email
+
+    @property
     def organisations(self):
         """Get all linked to the user organisation query."""
         return (Organisation.select(
@@ -769,9 +777,9 @@ class User(BaseModel, UserMixin, AuditMixin):
     def is_superuser(self, value):  # noqa: D401
         """Sets user as a HUB admin."""
         if value:
-            self.roles |= Role.SUPERUSER
+            self.roles |= Role.SUPERUSER.value
         else:
-            self.roles &= ~Role.SUPERUSER
+            self.roles &= ~Role.SUPERUSER.value
 
     @property
     def is_admin(self):
@@ -878,8 +886,8 @@ class UserOrg(BaseModel, AuditMixin):
         before saving data.
         """
         if self.is_dirty():
-            if self.field_is_updated("org"):
-                self.org  # just enforce re-querying
+            # if self.field_is_updated("org"):
+            #     self.org  # just enforce re-querying
             user = self.user
             if self.is_admin != user.is_admin:
                 if self.is_admin or UserOrg.select().where((UserOrg.user_id == self.user_id) & (
@@ -891,7 +899,7 @@ class UserOrg(BaseModel, AuditMixin):
                     app.logger.info(f"Revoked ADMIN role from user {user}")
                 user.save()
 
-        return super().save(*args, **kwargs)
+            return super().save(*args, **kwargs)
 
     class Meta:  # noqa: D101,D106
         db_table = "user_org"
@@ -978,8 +986,8 @@ class OrcidAuthorizeCall(BaseModel):
     """ORCID Authorize call audit entry."""
 
     called_at = DateTimeField(default=datetime.utcnow)
-    user = ForeignKeyField(User, null=True, on_delete="SET NULL")
-    method = TextField(null=True)
+    user = ForeignKeyField(User, null=True, default=None, on_delete="SET NULL")
+    method = TextField(null=True, default="GET")
     url = TextField(null=True)
     token = TextField(null=True)
     state = TextField(null=True)
@@ -1119,7 +1127,7 @@ class Task(BaseModel, AuditMixin):
                 task = cls.create(org=org, filename=filename, task_type=TaskType.AFFILIATION)
                 for row_no, row in enumerate(reader):
                     # skip empty lines:
-                    if len(row) == 0:
+                    if len([item for item in row if item and item.strip()]) == 0:
                         continue
                     if len(row) == 1 and row[0].strip() == '':
                         continue
@@ -1198,7 +1206,7 @@ class Task(BaseModel, AuditMixin):
 
         return task
 
-    def to_dict(self, to_dashes=True, recurse=False, exclude=None):
+    def to_dict(self, to_dashes=True, recurse=False, exclude=None, include_records=True):
         """Create a dict represenatation of the task suitable for serialization into JSON or YAML."""
         # TODO: expand for the othe types of the tasks
         task_dict = super().to_dict(
@@ -1207,13 +1215,27 @@ class Task(BaseModel, AuditMixin):
             exclude=exclude,
             only=[Task.id, Task.filename, Task.task_type, Task.created_at, Task.updated_at])
         # TODO: refactor for funding task to get records here not in API or export
-        if TaskType(self.task_type) != TaskType.FUNDING:
+        if include_records and TaskType(self.task_type) != TaskType.FUNDING:
             task_dict["records"] = [
                 r.to_dict(
                     to_dashes=to_dashes,
                     recurse=recurse,
                     exclude=[self.records.model_class._meta.fields["task"]]) for r in self.records
             ]
+        return task_dict
+
+    def to_export_dict(self):
+        """Create a dictionary representation for export."""
+        if self.task_type == TaskType.AFFILIATION:
+            task_dict = self.to_dict()
+        else:
+            task_dict = self.to_dict(
+                recurse=False,
+                to_dashes=True,
+                include_records=False,
+                exclude=[Task.created_by, Task.updated_by, Task.org, Task.task_type])
+            task_dict["task-type"] = self.task_type.name
+            task_dict["records"] = [r.to_export_dict() for r in self.records]
         return task_dict
 
     class Meta:  # noqa: D101,D106
@@ -1275,6 +1297,7 @@ class UserInvitation(BaseModel, AuditMixin):
     disambiguation_source = TextField(verbose_name="Disambiguation ORG Source", null=True)
     token = TextField(unique=True)
     confirmed_at = DateTimeField(null=True)
+    is_person_update_invite = BooleanField(default=False)
 
     @property
     def sent_at(self):
@@ -1300,10 +1323,57 @@ class RecordModel(BaseModel):
         ts = datetime.utcnow().isoformat(timespec="seconds")
         self.status = (self.status + "\n" if self.status else '') + ts + ": " + line
 
+    def key_name(self, name):
+        """Map key-name to a model class key name for export."""
+        return name
+
     @classmethod
     def get_field_regxes(cls):
         """Return map of compiled field name regex to the model fields."""
         return {f: re.compile(e, re.I) for (f, e) in cls._field_regex_map}
+
+    def to_export_dict(self):
+        """Map the common record parts to dict for export into JSON/YAML."""
+        org = self.task.org
+        d = {"type": self.type} if hasattr(self, "type") else {}
+        if hasattr(self, "org_name"):
+            d["organization"] = {
+                "disambiguated-organization": {
+                    "disambiguated-organization-identifier":
+                    self.disambiguated_org_identifier or org.disambiguated_org_identifier,
+                    "disambiguation-source":
+                    self.disambiguation_source or org.disambiguation_source,
+                },
+                "name": self.org_name or org.name,
+                "address": {
+                    "city": self.city or org.city,
+                    "region": self.region or org.state,
+                    "country": self.country or org.country,
+                },
+            }
+        if hasattr(self, "title"):
+            d["title"] = {
+                "title": {
+                    "value": self.title,
+                },
+                "translated-title": {
+                    "value": self.translated_title,
+                    "language-code": self.translated_title_language_code,
+                }
+            }
+        if hasattr(self, "invitees") and self.invitees:
+            d["invitees"] = [r.to_export_dict() for r in self.invitees]
+        if hasattr(self, "contributors") and self.contributors:
+            d["contributors"] = {"contributor": [r.to_export_dict() for r in self.contributors]}
+        if hasattr(self, "external_ids") and self.external_ids:
+            d[self.key_name("external-ids")] = {
+                "external-id": [r.to_export_dict() for r in self.external_ids]
+            }
+        if hasattr(self, "start_date") and self.start_date:
+            d["start-date"] = self.start_date.as_orcid_dict()
+        if hasattr(self, "end_date") and self.end_date:
+            d["end-date"] = self.end_date.as_orcid_dict()
+        return d
 
 
 class GroupIdRecord(RecordModel):
@@ -1469,44 +1539,11 @@ class FundingRecord(RecordModel):
 
     def to_export_dict(self):
         """Map the funding record to dict for export into JSON/YAML."""
-        org = self.task.org
-        d = {
-            "type": self.type,
-            "title": {
-                "title": {
-                    "value": self.title,
-                },
-                "translated-title": {
-                    "value": self.translated_title,
-                    "language-code": self.translated_title_language_code,
-                }
-            },
-            "amount": {
-                "currency-code": self.currency,
-                "value": self.amount,
-            },
-            "organization": {
-                "disambiguated-organization": {
-                    "disambiguated-organization-identifier":
-                    self.disambiguated_org_identifier or org.disambiguated_org_identifier,
-                    "disambiguation-source":
-                    self.disambiguation_source or org.disambiguation_source,
-                },
-                "name": "Royal Society Te Apārangi",
-                "address": {
-                    "city": self.org_name,
-                    "region": self.region,
-                    "country": self.country,
-                },
-            },
-            "invitees": [r.to_export_dict() for r in self.funding_invitees],
-            "contributors": {"contributor": [r.to_export_dict() for r in self.contributors]},
-            "external-ids": {"external-id": [r.to_export_dict() for r in self.external_ids]},
+        d = super().to_export_dict()
+        d["amount"] = {
+            "currency-code": self.currency,
+            "value": self.amount,
         }
-        if self.start_date:
-            d["start-date"] = self.start_date.as_orcid_dict()
-        if self.end_date:
-            d["end-date"] = self.end_date.as_orcid_dict()
         return d
 
     @classmethod
@@ -1571,7 +1608,7 @@ class FundingRecord(RecordModel):
         rows = []
         for row_no, row in enumerate(reader):
             # skip empty lines:
-            if len(row) == 0:
+            if len([item for item in row if item and item.strip()]) == 0:
                 continue
             if len(row) == 1 and row[0].strip() == '':
                 continue
@@ -1683,7 +1720,7 @@ class FundingRecord(RecordModel):
                     for invitee in set(
                             tuple(r["invitee"].items()) for r in records
                             if r["invitee"]["email"] and not r["excluded"]):
-                        rec = FundingInvitees(funding_record=fr, **dict(invitee))
+                        rec = FundingInvitee(funding_record=fr, **dict(invitee))
                         validator = ModelValidator(rec)
                         if not validator.validate():
                             raise ModelException(f"Invalid invitee record: {validator.errors}")
@@ -1775,7 +1812,7 @@ class FundingRecord(RecordModel):
                             put_code = invitee.get("put-code")
                             visibility = invitee.get("visibility")
 
-                            FundingInvitees.create(
+                            FundingInvitee.create(
                                 funding_record=funding_record,
                                 identifier=identifier,
                                 email=email.lower(),
@@ -1861,6 +1898,12 @@ class PeerReviewRecord(RecordModel):
     processed_at = DateTimeField(null=True)
     status = TextField(null=True, help_text="Record processing status.")
 
+    def key_name(self, name):
+        """Map key-name to a model class key name for export."""
+        if name == "external-ids":
+            return "review-identifiers"
+        return name
+
     @classmethod
     def load_from_csv(cls, source, filename=None, org=None):
         """Load data from CSV/TSV file or a string."""
@@ -1942,7 +1985,7 @@ class PeerReviewRecord(RecordModel):
         rows = []
         for row_no, row in enumerate(reader):
             # skip empty lines:
-            if len(row) == 0:
+            if len([item for item in row if item and item.strip()]) == 0:
                 continue
             if len(row) == 1 and row[0].strip() == '':
                 continue
@@ -2060,11 +2103,19 @@ class PeerReviewRecord(RecordModel):
                 raise
 
     @classmethod
-    def load_from_json(cls, source, filename=None, org=None):
+    def load_from_json(cls, source, filename=None, org=None, task=None, **kwargs):
         """Load data from JSON file or a string."""
         if isinstance(source, str):
             # import data from file based on its extension; either it is YAML or JSON
             peer_review_data_list = load_yaml_json(filename=filename, source=source)
+            if not filename:
+                if isinstance(peer_review_data_list, dict):
+                    filename = peer_review_data_list.get("filename")
+                else:
+                    filename = "peer_review_" + datetime.utcnow().isoformat(
+                        timespec="seconds") + ".json"
+            if isinstance(peer_review_data_list, dict):
+                peer_review_data_list = peer_review_data_list.get("records")
 
             for peer_review_data in peer_review_data_list:
                 validation_source_data = copy.deepcopy(peer_review_data)
@@ -2078,7 +2129,10 @@ class PeerReviewRecord(RecordModel):
             try:
                 if org is None:
                     org = current_user.organisation if current_user else None
-                task = Task.create(org=org, filename=filename, task_type=TaskType.PEER_REVIEW)
+                if task:
+                    cls.delete().where(cls.task == task).execute()
+                else:
+                    task = Task.create(org=org, filename=filename, task_type=TaskType.PEER_REVIEW)
 
                 for peer_review_data in peer_review_data_list:
 
@@ -2168,7 +2222,7 @@ class PeerReviewRecord(RecordModel):
                         "convening-organization") and peer_review_data.get("convening-organization").get(
                         "disambiguated-organization") else None
 
-                    peer_review_record = PeerReviewRecord.create(
+                    peer_review_record = cls.create(
                         task=task,
                         review_group_id=review_group_id,
                         reviewer_role=reviewer_role,
@@ -2193,10 +2247,9 @@ class PeerReviewRecord(RecordModel):
                         convening_org_disambiguated_identifier=convening_org_disambiguated_identifier,
                         convening_org_disambiguation_source=convening_org_disambiguation_source)
 
-                    invitees_list = peer_review_data.get("invitees") if peer_review_data.get("invitees") else None
-
-                    if invitees_list:
-                        for invitee in invitees_list:
+                    invitee_list = peer_review_data.get("invitees")
+                    if invitee_list:
+                        for invitee in invitee_list:
                             identifier = invitee.get("identifier") if invitee.get("identifier") else None
                             email = invitee.get("email") if invitee.get("email") else None
                             first_name = invitee.get("first-name") if invitee.get("first-name") else None
@@ -2242,9 +2295,436 @@ class PeerReviewRecord(RecordModel):
                 app.logger.exception("Failed to load peer review file.")
                 raise
 
+    def to_export_dict(self):
+        """Map the peer-review record to dict for export into JSON/YAML."""
+        d = super().to_export_dict()
+        d["review-type"] = self.review_type
+        d["reviewer-role"] = self.reviewer_role
+        if self.subject_external_id_relationship or self.subject_external_id_value:
+            d["subject-external-identifier"] = {
+                "external-id-type": self.subject_external_id_type,
+                "external-id-value": self.subject_external_id_value,
+                "external-id-url": {
+                    "value": self.subject_external_id_url
+                },
+                "external-id-relationship": self.subject_external_id_relationship
+            }
+        if self.subject_container_name:
+            d["subject-container-name"] = {"value": self.subject_container_name}
+        if self.subject_type:
+            d["subject-type"] = self.subject_type
+        if self.review_completion_date:
+            cd = self.review_completion_date.as_orcid_dict()
+            d["review-completion-date"] = cd
+        if self.review_url:
+            d["review-url"] = {"value": self.review_url}
+        if self.review_group_id:
+            d["review-group-id"] = self.review_group_id
+        if self.subject_name_title:
+            sn = {"title": {"value": self.subject_name_title}}
+            if self.subject_name_subtitle:
+                sn["subtitle"] = {"value": self.subject_name_subtitle}
+            if self.subject_name_translated_title:
+                sn["translated-title"] = {"value": self.subject_name_translated_title}
+                if self.subject_name_translated_title_lang_code:
+                    sn["translated-title"]["language-code"] = self.subject_name_translated_title_lang_code
+            d["subject-name"] = sn
+        if self.subject_url:
+            d["subject-url"] = dict(value=self.subject_url)
+        if self.convening_org_name:
+            co = {
+                "name": self.convening_org_name,
+                "address": {
+                    "city": self.convening_org_city,
+                    "region": self.convening_org_region,
+                    "country": self.convening_org_country,
+                }
+            }
+            if self.convening_org_disambiguated_identifier:
+                pass
+                co["disambiguated-organization"] = {
+                    "disambiguated-organization-identifier":
+                    self.convening_org_disambiguated_identifier,
+                    "disambiguation-source":
+                    self.convening_org_disambiguation_source,
+                }
+            d["convening-organization"] = co
+        return d
+
     class Meta:  # noqa: D101,D106
         db_table = "peer_review_record"
         table_alias = "pr"
+
+
+class ResearcherUrlRecord(RecordModel):
+    """Researcher Url record loaded from Json file for batch processing."""
+
+    task = ForeignKeyField(Task, related_name="researcher_url_records", on_delete="CASCADE")
+    url_name = CharField(max_length=255)
+    url_value = CharField(max_length=255)
+    display_index = IntegerField(null=True)
+    email = CharField(max_length=120)
+    first_name = CharField(max_length=120)
+    last_name = CharField(max_length=120)
+    orcid = OrcidIdField(null=True)
+    put_code = IntegerField(null=True)
+    visibility = CharField(null=True, max_length=100)
+    is_active = BooleanField(
+        default=False, help_text="The record is marked for batch processing", null=True)
+    processed_at = DateTimeField(null=True)
+    status = TextField(null=True, help_text="Record processing status.")
+
+    @classmethod
+    def load_from_csv(cls, source, filename=None, org=None):
+        """Load data from CSV/TSV file or a string."""
+        if isinstance(source, str):
+            source = StringIO(source)
+        if filename is None:
+            if hasattr(source, "name"):
+                filename = source.name
+            else:
+                filename = datetime.utcnow().isoformat(timespec="seconds")
+        reader = csv.reader(source)
+        header = next(reader)
+
+        if len(header) == 1 and '\t' in header[0]:
+            source.seek(0)
+            reader = csv.reader(source, delimiter='\t')
+            header = next(reader)
+
+        if len(header) < 2:
+            raise ModelException("Expected CSV or TSV format file.")
+
+        if len(header) < 5:
+            raise ModelException(
+                "Wrong number of fields. Expected at least 5 fields "
+                "(first name, last name, email address or another unique identifier, url name, url value). "
+                f"Read header: {header}")
+
+        header_rexs = [
+            re.compile(ex, re.I) for ex in (r"(url)?.*name", r"(url)?.*value", r"(display)?.*index",
+                                            "email", r"first\s*(name)?", r"(last|sur)\s*(name)?",
+                                            "orcid.*", r"put|code", r"(is)?\s*visib(bility|le)?")]
+
+        def index(rex):
+            """Return first header column index matching the given regex."""
+            for i, column in enumerate(header):
+                if rex.match(column.strip()):
+                    return i
+            else:
+                return None
+
+        idxs = [index(rex) for rex in header_rexs]
+
+        if all(idx is None for idx in idxs):
+            raise ModelException(f"Failed to map fields based on the header of the file: {header}")
+
+        if org is None:
+            org = current_user.organisation if current_user else None
+
+        def val(row, i, default=None):
+            if len(idxs) <= i or idxs[i] is None or idxs[i] >= len(row):
+                return default
+            else:
+                v = row[idxs[i]].strip()
+            return default if v == '' else v
+
+        with db.atomic():
+            try:
+                task = Task.create(org=org, filename=filename, task_type=TaskType.RESEARCHER_URL)
+                for row_no, row in enumerate(reader):
+                    # skip empty lines:
+                    if len([item for item in row if item and item.strip()]) == 0:
+                        continue
+                    if len(row) == 1 and row[0].strip() == '':
+                        continue
+
+                    email = val(row, 3, "").lower()
+                    orcid = val(row, 6)
+
+                    if not (email or orcid):
+                        raise ModelException(
+                            f"Missing user identifier (email address or ORCID iD) in the row "
+                            f"#{row_no+2}: {row}. Header: {header}")
+
+                    if orcid:
+                        validate_orcid_id(orcid)
+
+                    if not email or not validators.email(email):
+                        raise ValueError(
+                            f"Invalid email address '{email}'  in the row #{row_no+2}: {row}")
+
+                    url_name = val(row, 0, "")
+                    url_value = val(row, 1, "")
+                    first_name = val(row, 4)
+                    last_name = val(row, 5)
+
+                    if not (url_name and url_value and first_name and last_name):
+                        raise ModelException(
+                            "Wrong number of fields. Expected at least 5 fields (url name, url value, first name, "
+                            f"last name, email address or another unique identifier): {row}")
+
+                    rr = cls(
+                        task=task,
+                        url_name=url_name,
+                        url_value=url_value,
+                        display_index=val(row, 2),
+                        email=email,
+                        first_name=first_name,
+                        last_name=last_name,
+                        orcid=orcid,
+                        put_code=val(row, 7),
+                        visibility=val(row, 8))
+                    validator = ModelValidator(rr)
+                    if not validator.validate():
+                        raise ModelException(f"Invalid record: {validator.errors}")
+                    rr.save()
+            except Exception:
+                db.rollback()
+                app.logger.exception("Failed to load Researcher Url Record file.")
+                raise
+
+        return task
+
+    @classmethod
+    def load_from_json(cls, source, filename=None, org=None, task=None, skip_schema_validation=False):
+        """Load data from JSON file or a string."""
+        data = load_yaml_json(filename=filename, source=source)
+        if not skip_schema_validation:
+            jsonschema.validate(data, researcher_url_task_schema)
+        records = data["records"] if isinstance(data, dict) else data
+        with db.atomic():
+            try:
+                if org is None:
+                    org = current_user.organisation if current_user else None
+                if not task:
+                    task = Task.create(org=org, filename=filename, task_type=TaskType.RESEARCHER_URL)
+                # else:
+                #   ResearcherUrlRecord.delete().where(ResearcherUrlRecord.task == task).execute()
+
+                for r in records:
+
+                    url_name = r.get("url-name")
+                    url_value = r.get("url", "value") or r.get("url-value")
+                    display_index = r.get("display-index")
+                    email = r.get("email")
+                    first_name = r.get("first-name")
+                    last_name = r.get("last-name")
+                    orcid_id = r.get("ORCID-iD") or r.get("orcid")
+                    put_code = r.get("put-code")
+                    visibility = r.get("visibility")
+
+                    cls.create(
+                        task=task,
+                        url_name=url_name,
+                        url_value=url_value,
+                        display_index=display_index,
+                        email=email.lower(),
+                        first_name=first_name,
+                        last_name=last_name,
+                        orcid=orcid_id,
+                        visibility=visibility,
+                        put_code=put_code)
+
+                return task
+
+            except Exception:
+                db.rollback()
+                app.logger.exception("Failed to load Researcher Url file.")
+                raise
+
+    class Meta:  # noqa: D101,D106
+        db_table = "researcher_url_record"
+        table_alias = "ru"
+
+
+class OtherNameKeywordModel(RecordModel):
+    """Other Name and Keyword Model for batch processing."""
+
+    content = CharField(max_length=255)
+    display_index = IntegerField(null=True)
+    visibility = CharField(null=True, max_length=100)
+    email = CharField(max_length=120)
+    first_name = CharField(max_length=120)
+    last_name = CharField(max_length=120)
+    orcid = OrcidIdField(null=True)
+    put_code = IntegerField(null=True)
+    is_active = BooleanField(
+        default=False, help_text="The record is marked for batch processing", null=True)
+    processed_at = DateTimeField(null=True)
+    status = TextField(null=True, help_text="Record processing status.")
+
+    @classmethod
+    def load_from_csv(cls, source, filename=None, org=None, task_type=TaskType.OTHER_NAME):
+        """Load keyword and Other Name data from CSV/TSV file."""
+        if isinstance(source, str):
+            source = StringIO(source)
+        if filename is None:
+            if hasattr(source, "name"):
+                filename = source.name
+            else:
+                filename = datetime.utcnow().isoformat(timespec="seconds")
+        reader = csv.reader(source)
+        header = next(reader)
+
+        if len(header) == 1 and '\t' in header[0]:
+            source.seek(0)
+            reader = csv.reader(source, delimiter='\t')
+            header = next(reader)
+
+        if len(header) < 2:
+            raise ModelException("Expected CSV or TSV format file.")
+
+        if len(header) < 4:
+            raise ModelException(
+                "Wrong number of fields. Expected at least 4 fields (first name, last name, email address "
+                f"or another unique identifier, content). Read header: {header}")
+
+        header_rexs = [
+            re.compile(ex, re.I) for ex in ("content", r"(display)?.*index", "email", r"first\s*(name)?",
+                                            r"(last|sur)\s*(name)?", "orcid.*", r"put|code",
+                                            r"(is)?\s*visib(bility|le)?")]
+
+        def index(rex):
+            """Return first header column index matching the given regex."""
+            for i, column in enumerate(header):
+                if rex.match(column.strip()):
+                    return i
+            else:
+                return None
+
+        idxs = [index(rex) for rex in header_rexs]
+
+        if all(idx is None for idx in idxs):
+            raise ModelException(f"Failed to map fields based on the header of the file: {header}")
+
+        if org is None:
+            org = current_user.organisation if current_user else None
+
+        def val(row, i, default=None):
+            if len(idxs) <= i or idxs[i] is None or idxs[i] >= len(row):
+                return default
+            else:
+                v = row[idxs[i]].strip()
+            return default if v == '' else v
+
+        with db.atomic():
+            try:
+                task = Task.create(org=org, filename=filename, task_type=task_type)
+                for row_no, row in enumerate(reader):
+                    # skip empty lines:
+                    if len([item for item in row if item and item.strip()]) == 0:
+                        continue
+                    if len(row) == 1 and row[0].strip() == '':
+                        continue
+
+                    email = val(row, 2, "").lower()
+                    orcid = val(row, 5)
+
+                    if not (email or orcid):
+                        raise ModelException(
+                            f"Missing user identifier (email address or ORCID iD) in the row "
+                            f"#{row_no+2}: {row}. Header: {header}")
+
+                    if orcid:
+                        validate_orcid_id(orcid)
+
+                    if not email or not validators.email(email):
+                        raise ValueError(
+                            f"Invalid email address '{email}'  in the row #{row_no+2}: {row}")
+
+                    content = val(row, 0, "")
+                    first_name = val(row, 3)
+                    last_name = val(row, 4)
+
+                    if not (content and first_name and last_name):
+                        raise ModelException(
+                            "Wrong number of fields. Expected at least 4 fields (content, first name, last name, "
+                            f"email address or another unique identifier): {row}")
+
+                    ot = cls(
+                        task=task,
+                        content=content,
+                        display_index=val(row, 1),
+                        email=email,
+                        first_name=first_name,
+                        last_name=last_name,
+                        orcid=orcid,
+                        put_code=val(row, 6),
+                        visibility=val(row, 7))
+                    validator = ModelValidator(ot)
+                    if not validator.validate():
+                        raise ModelException(f"Invalid record: {validator.errors}")
+                    ot.save()
+            except Exception:
+                db.rollback()
+                app.logger.exception("Failed to load Researcher Url Record file.")
+                raise
+
+        return task
+
+    @classmethod
+    def load_from_json(cls, source, filename=None, org=None, task=None, skip_schema_validation=False,
+                       task_type=TaskType.OTHER_NAME):
+        """Load data from JSON file or a string."""
+        data = load_yaml_json(filename=filename, source=source)
+        if not skip_schema_validation:
+            jsonschema.validate(data, other_name_keyword_task_schema)
+        records = data["records"] if isinstance(data, dict) else data
+        with db.atomic():
+            try:
+                if org is None:
+                    org = current_user.organisation if current_user else None
+                if not task:
+                    task = Task.create(org=org, filename=filename, task_type=task_type)
+
+                for r in records:
+                    content = r.get("content")
+                    display_index = r.get("display-index")
+                    email = r.get("email")
+                    first_name = r.get("first-name")
+                    last_name = r.get("last-name")
+                    orcid_id = r.get("ORCID-iD") or r.get("orcid")
+                    put_code = r.get("put-code")
+                    visibility = r.get("visibility")
+
+                    cls.create(
+                        task=task,
+                        content=content,
+                        display_index=display_index,
+                        email=email.lower(),
+                        first_name=first_name,
+                        last_name=last_name,
+                        orcid=orcid_id,
+                        visibility=visibility,
+                        put_code=put_code)
+
+                return task
+
+            except Exception:
+                db.rollback()
+                app.logger.exception("Failed to load Other Name Record file.")
+                raise
+
+
+class KeywordRecord(OtherNameKeywordModel):
+    """Keyword record loaded for batch processing."""
+
+    task = ForeignKeyField(Task, related_name="keyword_records", on_delete="CASCADE")
+
+    class Meta:  # noqa: D101,D106
+        db_table = "keyword_record"
+        table_alias = "onr"
+
+
+class OtherNameRecord(OtherNameKeywordModel):
+    """Other Name record loaded for batch processing."""
+
+    task = ForeignKeyField(Task, related_name="other_name_records", on_delete="CASCADE")
+
+    class Meta:  # noqa: D101,D106
+        db_table = "other_name_record"
+        table_alias = "onr"
 
 
 class WorkRecord(RecordModel):
@@ -2257,8 +2737,8 @@ class WorkRecord(RecordModel):
     translated_title_language_code = CharField(null=True, max_length=10)
     journal_title = CharField(null=True, max_length=255)
     short_description = CharField(null=True, max_length=4000)
-    citation_type = CharField(max_length=255)
-    citation_value = CharField(max_length=255)
+    citation_type = CharField(null=True, max_length=255)
+    citation_value = CharField(null=True, max_length=255)
     type = CharField(null=True, max_length=255)
     publication_date = PartialDateField(null=True)
     publication_media_type = CharField(null=True, max_length=255)
@@ -2320,7 +2800,8 @@ class WorkRecord(RecordModel):
                 r"first\s*(name)?",
                 r"(last|sur)\s*(name)?",
                 "identifier",
-                r"excluded?(\s+from(\s+profile)?)?"
+                r"excluded?(\s+from(\s+profile)?)?",
+                r".*sequence$",
             ]
         ]
 
@@ -2350,7 +2831,7 @@ class WorkRecord(RecordModel):
         rows = []
         for row_no, row in enumerate(reader):
             # skip empty lines:
-            if len(row) == 0:
+            if len([item for item in row if item and item.strip()]) == 0:
                 continue
             if len(row) == 1 and row[0].strip() == '':
                 continue
@@ -2358,7 +2839,7 @@ class WorkRecord(RecordModel):
             work_type = val(row, 6)
             if not work_type:
                 raise ModelException(
-                    f"Funding type is mandatory, #{row_no+2}: {row}. Header: {header}")
+                    f"Work type is mandatory, #{row_no+2}: {row}. Header: {header}")
 
             # The uploaded country must be from ISO 3166-1 alpha-2
             country = val(row, 14)
@@ -2419,6 +2900,7 @@ class WorkRecord(RecordModel):
                         name=name,
                         role=val(row, 18),
                         email=email,
+                        contributor_sequence=val(row, 30)
                     ),
                     invitee=dict(
                         identifier=val(row, 28),
@@ -2465,7 +2947,7 @@ class WorkRecord(RecordModel):
                     for invitee in set(
                             tuple(r["invitee"].items()) for r in records
                             if r["invitee"]["email"] and not r["excluded"]):
-                        rec = WorkInvitees(work_record=wr, **dict(invitee))
+                        rec = WorkInvitee(work_record=wr, **dict(invitee))
                         validator = ModelValidator(rec)
                         if not validator.validate():
                             raise ModelException(f"Invalid invitee record: {validator.errors}")
@@ -2479,11 +2961,15 @@ class WorkRecord(RecordModel):
                 raise
 
     @classmethod
-    def load_from_json(cls, source, filename=None, org=None):
+    def load_from_json(cls, source, filename=None, org=None, task=None, **kwargs):
         """Load data from JSON file or a string."""
         if isinstance(source, str):
             # import data from file based on its extension; either it is YAML or JSON
             work_data_list = load_yaml_json(filename=filename, source=source)
+            if not filename:
+                filename = work_data_list.get("filename")
+            if isinstance(work_data_list, dict):
+                work_data_list = work_data_list.get("records")
 
             # TODO: validation of uploaded work file
             for work_data in work_data_list:
@@ -2499,7 +2985,8 @@ class WorkRecord(RecordModel):
             try:
                 if org is None:
                     org = current_user.organisation if current_user else None
-                task = Task.create(org=org, filename=filename, task_type=TaskType.WORK)
+                if not task:
+                    task = Task.create(org=org, filename=filename, task_type=TaskType.WORK)
 
                 for work_data in work_data_list:
 
@@ -2539,10 +3026,9 @@ class WorkRecord(RecordModel):
                         language_code=language_code,
                         country=country)
 
-                    invitees_list = work_data.get("invitees") if work_data.get("invitees") else None
-
-                    if invitees_list:
-                        for invitee in invitees_list:
+                    invitee_list = work_data.get("invitees")
+                    if invitee_list:
+                        for invitee in invitee_list:
                             identifier = invitee.get("identifier")
                             email = invitee.get("email")
                             first_name = invitee.get("first-name")
@@ -2551,7 +3037,7 @@ class WorkRecord(RecordModel):
                             put_code = invitee.get("put-code")
                             visibility = get_val(invitee, "visibility")
 
-                            WorkInvitees.create(
+                            WorkInvitee.create(
                                 work_record=work_record,
                                 identifier=identifier,
                                 email=email.lower(),
@@ -2564,11 +3050,9 @@ class WorkRecord(RecordModel):
                         raise SchemaError(u"Schema validation failed:\n - "
                                           u"Expecting Invitees for which the work record will be written")
 
-                    contributors_list = work_data.get("contributors").get("contributor") if \
-                        work_data.get("contributors") else None
-
-                    if contributors_list:
-                        for contributor in contributors_list:
+                    contributor_list = work_data.get("contributors", "contributor")
+                    if contributor_list:
+                        for contributor in contributor_list:
                             orcid_id = get_val(contributor, "contributor-orcid", "path")
                             name = get_val(contributor, "credit-name", "value")
                             email = get_val(contributor, "contributor-email", "value")
@@ -2607,6 +3091,28 @@ class WorkRecord(RecordModel):
                 app.logger.exception("Failed to load work record file.")
                 raise
 
+    def to_export_dict(self):
+        """Map the work record to dict for export into JSON/YAML."""
+        d = super().to_export_dict()
+        if self.journal_title:
+            d["journal-title"] = dict(value=self.journal_title)
+        d["short-description"] = self.short_description
+        if self.publication_date:
+            pd = self.publication_date.as_orcid_dict()
+            if self.publication_media_type:
+                pd["media-type"] = self.publication_media_type
+            d["publication-date"] = pd
+        if self.url:
+            d["url"] = self.url
+        if self.citation_type or self.citation_value:
+            d["citation"] = {
+                "citation-type": self.citation_type,
+                "citation-value": self.citation_value
+            }
+        if self.country:
+            d["country"] = dict(value=self.country)
+        return d
+
     class Meta:  # noqa: D101,D106
         db_table = "work_record"
         table_alias = "wr"
@@ -2633,7 +3139,7 @@ class WorkContributor(ContributorModel):
     """Researcher or contributor - related to work."""
 
     work_record = ForeignKeyField(
-        WorkRecord, related_name="work_contributors", on_delete="CASCADE")
+        WorkRecord, related_name="contributors", on_delete="CASCADE")
     contributor_sequence = CharField(max_length=120, null=True)
 
     class Meta:  # noqa: D101,D106
@@ -2658,7 +3164,7 @@ class FundingContributor(ContributorModel):
         table_alias = "fc"
 
 
-class InviteesModel(BaseModel):
+class InviteeModel(BaseModel):
     """Common model bits of the invitees records."""
 
     identifier = CharField(max_length=120, null=True)
@@ -2684,47 +3190,44 @@ class InviteesModel(BaseModel):
 
     def to_export_dict(self):
         """Get row representation suitable for export to JSON/YAML."""
-        return self.to_dict(
+        c = self.__class__
+        d = self.to_dict(
             to_dashes=True,
             exclude_nulls=True,
-            only=[
-                self.__class__.identifier,
-                self.__class__.email,
-                self.__class__.first_name,
-                self.__class__.last_name,
-                self.__class__.orcid,
-                self.__class__.put_code,
-                self.__class__.visibility],
+            only=[c.identifier, c.email, c.first_name, c.last_name, c.put_code, c.visibility],
             recurse=False)
+        if self.orcid:
+            d["ORCID-iD"] = self.orcid
+        return d
 
 
-class PeerReviewInvitee(InviteesModel):
+class PeerReviewInvitee(InviteeModel):
     """Researcher or Invitee - related to peer review."""
 
     peer_review_record = ForeignKeyField(
-        PeerReviewRecord, related_name="peer_review_invitee", on_delete="CASCADE")
+        PeerReviewRecord, related_name="invitees", on_delete="CASCADE")
 
     class Meta:  # noqa: D101,D106
         db_table = "peer_review_invitee"
         table_alias = "pi"
 
 
-class WorkInvitees(InviteesModel):
-    """Researcher or Invitees - related to work."""
+class WorkInvitee(InviteeModel):
+    """Researcher or Invitee - related to work."""
 
     work_record = ForeignKeyField(
-        WorkRecord, related_name="work_invitees", on_delete="CASCADE")
+        WorkRecord, related_name="invitees", on_delete="CASCADE")
 
     class Meta:  # noqa: D101,D106
         db_table = "work_invitees"
         table_alias = "wi"
 
 
-class FundingInvitees(InviteesModel):
-    """Researcher or Invitees - related to funding."""
+class FundingInvitee(InviteeModel):
+    """Researcher or Invitee - related to funding."""
 
     funding_record = ForeignKeyField(
-        FundingRecord, related_name="funding_invitees", on_delete="CASCADE")
+        FundingRecord, related_name="invitees", on_delete="CASCADE")
 
     class Meta:  # noqa: D101,D106
         db_table = "funding_invitees"
@@ -2791,6 +3294,12 @@ class ExternalId(ExternalIdModel):
     class Meta:  # noqa: D101,D106
         db_table = "external_id"
         table_alias = "ei"
+
+
+class Delegate(BaseModel):
+    """External applications that can be redirected to."""
+
+    hostname = CharField()
 
 
 class Url(BaseModel, AuditMixin):
@@ -3005,16 +3514,20 @@ def create_tables():
             WorkRecord,
             WorkContributor,
             WorkExternalId,
-            WorkInvitees,
+            WorkInvitee,
             FundingContributor,
-            FundingInvitees,
+            FundingInvitee,
             ExternalId,
             PeerReviewRecord,
             PeerReviewInvitee,
             PeerReviewExternalId,
+            ResearcherUrlRecord,
+            OtherNameRecord,
+            KeywordRecord,
             Client,
             Grant,
             Token,
+            Delegate,
     ]:
 
         if not model.table_exists():
@@ -3035,14 +3548,16 @@ def create_audit_tables():
             with db.get_cursor() as cr:
                 cr.execute(sql)
             db.commit()
+    elif isinstance(db, SqliteDatabase):
+        db.execute_sql("ATTACH DATABASE ':memory:' AS audit")
 
 
 def drop_tables():
     """Drop all model tables."""
-    for m in (File, User, UserOrg, OrcidToken, UserOrgAffiliation, OrgInfo, OrgInvitation,
-              OrcidApiCall, OrcidAuthorizeCall, FundingContributor, FundingInvitees, FundingRecord,
-              PeerReviewInvitee, PeerReviewExternalId, PeerReviewRecord, WorkInvitees,
-              WorkExternalId, WorkContributor, WorkRecord, AffiliationRecord, ExternalId, Url,
+    for m in (File, User, UserOrg, OtherNameRecord, OrcidToken, UserOrgAffiliation, OrgInfo, OrgInvitation,
+              OrcidApiCall, OrcidAuthorizeCall, FundingContributor, FundingInvitee, FundingRecord,
+              PeerReviewInvitee, PeerReviewExternalId, PeerReviewRecord, ResearcherUrlRecord, KeywordRecord,
+              WorkInvitee, WorkExternalId, WorkContributor, WorkRecord, AffiliationRecord, ExternalId, Url,
               UserInvitation, Task, Organisation):
         if m.table_exists():
             try:
@@ -3051,10 +3566,16 @@ def drop_tables():
                 pass
 
 
-def load_yaml_json(filename, source):
+def load_yaml_json(filename, source, content_type=None):
     """Create a common way of loading JSON or YAML file."""
-    _, ext = os.path.splitext(filename)
-    if ext.lower() in [".yaml", ".yml"]:
+    if not content_type:
+        _, ext = os.path.splitext(filename or '')
+        if not ext:
+            source = source.strip()
+        content_type = "json" if ((not ext and (source.startswith('[') or source.startswith('{')))
+                                  or ext == ".json") else "yaml"
+
+    if content_type == "yaml":
         data = json.loads(json.dumps(yaml.load(source)), object_pairs_hook=NestedDict)
     else:
         data = json.loads(source, object_pairs_hook=NestedDict)

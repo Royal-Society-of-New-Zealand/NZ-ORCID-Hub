@@ -32,6 +32,16 @@
                           <b>{{ org_name }}</b> can create and update research activities.
                         </li>
                       </ol>
+                    {% elif d.scope == "/read-limited,/person/update" %}
+                      <p>{{ org_name }} can read and write other information about you (country, researcher-urls, keywords, etc.) to your ORCID record</p>
+                      <ol>
+                        <li>
+                          <b>{{ org_name }}</b> can read your trusted-party information.
+                        </li>
+                        <li>
+                          <b>{{ org_name }}</b> can add/update other information about you (country, keywords, etc.)
+                        </li>
+                      </ol>
                     {% elif d.scope == "/read-limited" %}
                       {{ org_name }} can read trusted-party information from your ORCID record.
                     {% elif d.scope == "/authenticate" %}
@@ -66,15 +76,12 @@
       <a class="btn btn-default btn-lg" role="button" href="{{url_for('faq')}}">
         <img class="orcidHub-id-logo" src="{{url_for('static', filename='images/logo.png')}}" width="24" height="24" alt="ORCID Hub logo" /> Hub FAQ
       </a>
-
-      {% if current_user.orcid %}
-        <a
-          role="button"
-          class="btn btn-primary btn-lg"
-          href="{{ url_for('user_cv') }}"
-          data-toggle="tooltip"
-          title="Generated CV filled in with the data from your ORCID profile">Your CV</a>
-      {% endif %}
+      <a
+        role="button"
+        class="btn btn-primary btn-lg"
+        href="{{ url_for('user_cv') }}"
+        data-toggle="tooltip"
+        title="Generated CV filled in with the data from your ORCID profile">Your CV</a>
     </div>
   </div>
   <script>

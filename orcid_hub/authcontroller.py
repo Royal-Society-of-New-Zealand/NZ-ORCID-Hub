@@ -31,14 +31,14 @@ from werkzeug.utils import secure_filename
 from orcid_api.rest import ApiException
 
 from . import app, db, orcid_client
+from . import orcid_client as scopes
 # TODO: need to read form app.config[...]
 from .config import (APP_DESCRIPTION, APP_NAME, APP_URL, AUTHORIZATION_BASE_URL, CRED_TYPE_PREMIUM,
-                     MEMBER_API_FORM_BASE_URL, NOTE_ORCID, ORCID_API_BASE, ORCID_BASE_URL,
-                     SCOPE_ACTIVITIES_UPDATE, SCOPE_AUTHENTICATE, SCOPE_READ_LIMITED, TOKEN_URL)
+                     MEMBER_API_FORM_BASE_URL, NOTE_ORCID, ORCID_API_BASE, ORCID_BASE_URL, TOKEN_URL)
 from .forms import OrgConfirmationForm, TestDataForm
 from .login_provider import roles_required
 from .models import (Affiliation, OrcidAuthorizeCall, OrcidToken, Organisation, OrgInfo,
-                     OrgInvitation, Role, Url, User, UserInvitation, UserOrg)
+                     OrgInvitation, Role, Task, TaskType, Url, User, UserInvitation, UserOrg)
 from .utils import append_qs, get_next_url, read_uploaded_file, register_orcid_webhook
 
 HEADERS = {'Accept': 'application/vnd.orcid+json', 'Content-type': 'application/vnd.orcid+json'}
@@ -62,7 +62,7 @@ def utility_processor():  # noqa: D202
         external_sp = app.config.get("EXTERNAL_SP")
         if external_sp:
             session["auth_secret"] = secret_token = secrets.token_urlsafe()
-            _next = url_for("handle_login", _next=_next, _external=True)
+            _next = url_for("sso-login", _next=_next, _external=True)
             login_url = append_qs(external_sp, _next=_next, key=secret_token)
         else:
             login_url = url_for("handle_login", _next=_next)
@@ -137,7 +137,7 @@ def get_attributes(key):
     return data
 
 
-@app.route("/sso/login")
+@app.route("/sso/login", endpoint="sso-login")
 @app.route("/Tuakiri/login")
 def handle_login():
     """Shibboleth and Rapid Connect authenitcation handler.
@@ -438,7 +438,7 @@ def link():
 
     client_write = OAuth2Session(
         current_user.organisation.orcid_client_id,
-        scope=SCOPE_ACTIVITIES_UPDATE + SCOPE_READ_LIMITED,
+        scope=[scopes.ACTIVITIES_UPDATE, scopes.READ_LIMITED],
         redirect_uri=redirect_uri)
     authorization_url_write, state = client_write.authorization_url(
         AUTHORIZATION_BASE_URL, state=session.get("oauth_state"))
@@ -467,7 +467,7 @@ def link():
                 app.logger.info(
                     "User %r has denied permissions to %r in the flow and will try to give permissions again",
                     current_user.id, current_user.organisation)
-                client_write.scope = SCOPE_READ_LIMITED
+                client_write.scope = [scopes.READ_LIMITED]
                 authorization_url_read, state = client_write.authorization_url(
                     AUTHORIZATION_BASE_URL, state)
                 orcid_url_read = append_qs(
@@ -475,7 +475,15 @@ def link():
                     family_names=current_user.last_name,
                     given_names=current_user.first_name,
                     email=current_user.email)
-                client_write.scope = SCOPE_AUTHENTICATE
+                client_write.scope = [scopes.PERSON_UPDATE, scopes.READ_LIMITED]
+                authorization_url_person_update, state = client_write.authorization_url(
+                    AUTHORIZATION_BASE_URL, state)
+                orcid_url_person_update = append_qs(
+                    iri_to_uri(authorization_url_person_update),
+                    family_names=current_user.last_name,
+                    given_names=current_user.first_name,
+                    email=current_user.email)
+                client_write.scope = [scopes.AUTHENTICATE]
                 authorization_url_authenticate, state = client_write.authorization_url(
                     AUTHORIZATION_BASE_URL, state)
                 orcid_url_authenticate = append_qs(
@@ -492,6 +500,7 @@ def link():
                     orcid_url_write=orcid_url_write,
                     orcid_url_read_limited=orcid_url_read,
                     orcid_url_authenticate=orcid_url_authenticate,
+                    orcid_url_person_update=orcid_url_person_update,
                     error=error)
         oac = OrcidAuthorizeCall.create(
             user_id=current_user.id, method="GET", url=orcid_url_write, state=state)
@@ -507,7 +516,7 @@ def link():
 @app.route("/orcid/auth/<path:url>")
 @app.route("/auth/<path:url>")
 def orcid_callback_proxy(url):
-    """Redirect to the original invocator."""
+    """Redirect to the original invokator."""
     url = unquote(url)
     return redirect(append_qs(url, **request.args))
 
@@ -551,8 +560,8 @@ def orcid_callback():
     client = OAuth2Session(current_user.organisation.orcid_client_id)
 
     try:
-        state = request.args["state"]
-        if state != session.get("oauth_state"):
+        state = request.args['state']
+        if state != session.get('oauth_state'):
             flash("Retry giving permissions, or if the issue persists "
                   "please contact orcid@royalsociety.org.nz for support", "danger")
             app.logger.error(
@@ -622,7 +631,8 @@ def orcid_callback():
     app.logger.info("User %r authorized %r to have %r access to the profile "
                     "and now trying to update employment or education record", user,
                     user.organisation, scope)
-    if scope == SCOPE_READ_LIMITED[0] + "," + SCOPE_ACTIVITIES_UPDATE[0] and orcid_token_found:
+
+    if scopes.ACTIVITIES_UPDATE in scope and orcid_token_found:
         api = orcid_client.MemberAPI(user=user, access_token=orcid_token.access_token)
 
         for a in Affiliation:
@@ -801,6 +811,8 @@ def onboard_org():
                 flash("Organisation information updated successfully!", "success")
 
             form.populate_obj(organisation)
+            organisation.disambiguated_id = organisation.disambiguated_id.strip()
+            organisation.disambiguation_source = organisation.disambiguation_source.strip()
             organisation.api_credentials_entered_at = datetime.utcnow()
             try:
                 organisation.save()
@@ -895,12 +907,13 @@ def orcid_login(invitation_token=None):
     the organisation. For technical contacts the email should be made available for
     READ LIMITED scope.
     """
-    redirect_uri = url_for("orcid_callback", _external=True)
+    _next = get_next_url()
+    redirect_uri = url_for("orcid_callback", _next=_next, _external=True)
 
     try:
-        orcid_scope = SCOPE_AUTHENTICATE[:]
+        orcid_scopes = [scopes.AUTHENTICATE]
 
-        client_id = app.config["ORCID_CLIENT_ID"]
+        client_id = app.config.get("ORCID_CLIENT_ID")
         if invitation_token:
             invitation = UserInvitation.select().where(
                 UserInvitation.token == invitation_token).first() or OrgInvitation.select().where(
@@ -913,8 +926,26 @@ def orcid_login(invitation_token=None):
             if not user:
                 user = User.get(email=invitation.email)
 
-            # if we are able to find token then show the message of permission already given
-            if OrcidToken.select().where(OrcidToken.user == user, OrcidToken.org == org).exists():
+            is_scope_person_update = invitation.is_person_update_invite if hasattr(
+                invitation, "is_person_update_invite") else False
+
+            if hasattr(invitation, "task_id") and invitation.task_id:
+                is_scope_person_update = Task.select().where(
+                    Task.id == invitation.task_id, Task.task_type == TaskType.RESEARCHER_URL).exists() or Task.select()\
+                    .where(Task.id == invitation.task_id, Task.task_type == TaskType.OTHER_NAME).exists() or Task.\
+                    select().where(Task.id == invitation.task_id, Task.task_type == TaskType.KEYWORD).exists()
+
+            if is_scope_person_update and OrcidToken.select().where(
+                    OrcidToken.user == user, OrcidToken.org == org,
+                    OrcidToken.scope.contains("/person/update")).exists():
+                flash(
+                    "You have already given permission with scope '/person/update' which allows organisation to write, "
+                    "update and delete items in the other-names, keywords, countries, researcher-urls, websites, "
+                    "and personal external identifiers sections of the record. Now you can simply login on orcidhub",
+                    "warning")
+                return redirect(url_for("index"))
+            elif not is_scope_person_update and OrcidToken.select().where(
+                    OrcidToken.user == user, OrcidToken.org == org).exists():
                 flash("You have already given permission, you can simply login on orcidhub",
                       "warning")
                 return redirect(url_for("index"))
@@ -941,9 +972,12 @@ def orcid_login(invitation_token=None):
 
                 if org.orcid_client_id and not user_org.is_admin:
                     client_id = org.orcid_client_id
-                    orcid_scope = SCOPE_ACTIVITIES_UPDATE + SCOPE_READ_LIMITED
+                    if is_scope_person_update:
+                        orcid_scopes = [scopes.PERSON_UPDATE, scopes.READ_LIMITED]
+                    else:
+                        orcid_scopes = [scopes.ACTIVITIES_UPDATE, scopes.READ_LIMITED]
                 else:
-                    orcid_scope += SCOPE_READ_LIMITED
+                    orcid_scopes.append(scopes.READ_LIMITED)
 
                 redirect_uri = append_qs(redirect_uri, invitation_token=invitation_token)
             except Organisation.DoesNotExist:
@@ -954,7 +988,7 @@ def orcid_login(invitation_token=None):
                 return redirect(url_for("index"))
 
         external_sp = app.config.get("EXTERNAL_SP")
-        if external_sp:
+        if external_sp and not client_id:
             sp_url = urlparse(external_sp)
             u = Url.shorten(redirect_uri)
             redirect_uri = url_for("short_url", short_id=u.short_id, _external=True)
@@ -962,29 +996,26 @@ def orcid_login(invitation_token=None):
         # if the invitation token is missing perform only authentication (in the call back handler)
         redirect_uri = append_qs(redirect_uri, login="1")
 
-        client_write = OAuth2Session(client_id, scope=orcid_scope, redirect_uri=redirect_uri)
+        client_write = OAuth2Session(client_id, scope=orcid_scopes, redirect_uri=redirect_uri)
 
         authorization_url, state = client_write.authorization_url(
             AUTHORIZATION_BASE_URL, state=session.get("oauth_state"))
         # if the inviation token is preset use it as OAuth state
         session["oauth_state"] = state
-        orcid_authenticate_url = iri_to_uri(authorization_url)
+        # ORCID authorization URL:
+        orcid_auth_url = iri_to_uri(authorization_url)
         if invitation_token:
-            orcid_authenticate_url = append_qs(orcid_authenticate_url, email=user.email)
+            orcid_auth_url = append_qs(orcid_auth_url, email=user.email)
             # For funding record, we dont have first name and Last Name
             if user.last_name and user.first_name:
-                orcid_authenticate_url = append_qs(
-                    orcid_authenticate_url,
+                orcid_auth_url = append_qs(
+                    orcid_auth_url,
                     family_names=user.last_name,
                     given_names=user.first_name)
 
-        OrcidAuthorizeCall.create(
-            user_id=None, method="GET", url=orcid_authenticate_url, state=state)
+        OrcidAuthorizeCall.create(url=orcid_auth_url, state=state)
 
-        return render_template(
-            "orcidLogoutAndCallback.html",
-            orcid_base_url=ORCID_BASE_URL,
-            callback_url=orcid_authenticate_url)
+        return render_template("orcidLogoutAndCallback.html", callback_url=orcid_auth_url)
 
     except Exception as ex:
         flash("Something went wrong. Please contact orcid@royalsociety.org.nz for support!",
@@ -995,6 +1026,7 @@ def orcid_login(invitation_token=None):
 
 def orcid_login_callback(request):
     """Handle call-back for user authentication via ORCID."""
+    _next = get_next_url()
     state = request.args.get("state")
     invitation_token = request.args.get("invitation_token")
 
@@ -1147,19 +1179,24 @@ def orcid_login_callback(request):
                 data = json.loads(api_response.data)
                 if data and data.get("email") and any(
                         e.get("email").lower() == email for e in data.get("email")):
+                    # Check if it is an org_invitation or user_invitation.
+                    if not hasattr(invitation, "tech_contact"):
+                        flash(f"Your are an Administrator of '{org}'.So you dont have to invite yourself "
+                              f"like a researcher. Just go to 'Your ORCID' tab to give permissions", "warning")
+                        return redirect(_next or url_for("about"))
                     if invitation.tech_contact and org.tech_contact != user:
                         org.tech_contact = user
                         org.save()
                     user.save()
                     if not (org.confirmed and org.orcid_client_id) and user.is_tech_contact_of(org):
-                        return redirect(url_for("onboard_org"))
+                        return redirect(_next or url_for("onboard_org"))
                     elif not org.confirmed and not user.is_tech_contact_of(org):
                         flash(
                             f"Your '{org}' has not be onboarded. Please, try again once your technical contact"
                             f" onboards your organisation on ORCIDHUB", "warning")
                         return redirect(url_for("about"))
                     elif org.confirmed:
-                        return redirect(url_for('viewmembers.index_view'))
+                        return redirect(_next or url_for('viewmembers.index_view'))
                 else:
                     logout_user()
                     flash(
@@ -1255,8 +1292,11 @@ def select_user_org(user_org_id):
         uo = UserOrg.get(id=user_org_id)
         if (uo.user.orcid == current_user.orcid or uo.user.email == current_user.email
                 or uo.user.eppn == current_user.eppn):
-            current_user.organisation_id = uo.org_id
-            current_user.save()
+            if uo.user_id != current_user.id:
+                login_user(uo.user)
+            if current_user.organisation_id != uo.org_id:
+                current_user.organisation_id = uo.org_id
+                current_user.save()
         else:
             flash("You cannot switch your user to this organisation", "danger")
     except UserOrg.DoesNotExist:

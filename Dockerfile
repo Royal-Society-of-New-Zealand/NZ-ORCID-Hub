@@ -4,7 +4,8 @@ ENV LANG=en_US.UTF-8
 LABEL maintainer="The University of Auckland" \
 	description="NZ ORCiD Hub Application Image with Development support"
 
-ADD http://download.opensuse.org/repositories/security://shibboleth/CentOS_7/security:shibboleth.repo /etc/yum.repos.d/shibboleth.repo
+# ADD http://download.opensuse.org/repositories/security://shibboleth/CentOS_7/security:shibboleth.repo /etc/yum.repos.d/shibboleth.repo
+ADD https://shibboleth.net/cgi-bin/sp_repo.cgi?platform=CentOS_7 /etc/yum.repos.d/shibboleth.repo
 # fix download.opensuse.org not available
 ##RUN sed -i 's|download|downloadcontent|g' /etc/yum.repos.d/shibboleth.repo
 COPY conf/app.wsgi /var/www/html/
@@ -18,8 +19,9 @@ COPY setup.* orcid* /
 COPY run-app /usr/local/bin/
 COPY ./conf /conf
 
-RUN yum -y update \
-    && yum -y install https://centos7.iuscommunity.org/ius-release.rpm \
+# && chmod +x /etc/sysconfig/shibd /etc/shibboleth/shibd-redhat \
+RUN yum -y install https://centos7.iuscommunity.org/ius-release.rpm \
+    && yum -y update \
     && yum -y install \
         shibboleth.x86_64 \
     	httpd \
@@ -38,7 +40,7 @@ RUN yum -y update \
     && [ -d /var/run/lock ] || mkdir -p /var/run/lock \
     && [ -d /var/lock/subsys/ ] || mkdir -p /var/lock/subsys/ \
     && echo $'export LD_LIBRARY_PATH=/opt/shibboleth/lib64:$LD_LIBRARY_PATH\n' > /etc/sysconfig/shibd \
-    && chmod +x /etc/sysconfig/shibd /etc/shibboleth/shibd-redhat \
+    && chmod +x /etc/shibboleth/shibd-redhat \
     && yum erase -y \
         alsa-lib \
         apr-util-devel \

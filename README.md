@@ -1,101 +1,30 @@
-# NZ-ORCID-Hub [![Build Status](https://travis-ci.org/Royal-Society-of-New-Zealand/NZ-ORCID-Hub.svg?branch=master)](https://travis-ci.org/Royal-Society-of-New-Zealand/NZ-ORCID-Hub)[![Coverage Status](https://coveralls.io/repos/github/Royal-Society-of-New-Zealand/NZ-ORCID-Hub/badge.svg)](https://coveralls.io/github/Royal-Society-of-New-Zealand/NZ-ORCID-Hub)[![RTD Status](https://readthedocs.org/projects/nz-orcid-hub/badge/)](http://docs.orcidhub.org.nz/)
-The home of development for the New Zealand ORCID Hub.
+# NZ-ORCID-Hub [![Build Status](https://travis-ci.org/Royal-Society-of-New-Zealand/NZ-ORCID-Hub.svg?branch=master)](https://travis-ci.org/Royal-Society-of-New-Zealand/NZ-ORCID-Hub)[![Coverage Status](https://coveralls.io/repos/github/Royal-Society-of-New-Zealand/NZ-ORCID-Hub/badge.svg?branch=HEAD)](https://coveralls.io/github/Royal-Society-of-New-Zealand/NZ-ORCID-Hub?branch=HEAD)[![RTD Status](https://readthedocs.org/projects/nz-orcid-hub/badge/)](http://docs.orcidhub.org.nz/)
 
-- [Application Docker Image](#application-docker-image)
-  * [Usage](#usage)
-  * [Environment Variables](#environment-variables)
-- [Steps to execute this application](#steps-to-execute-this-application)
-- [Development Environment](#development-environment)
+Work undertaken as part of the MBIE-led ORCID Working Group confirmed the view that New Zealand's research organisations exist in a wide range of sizes and ability to access IT support. As a consequence, the ability of organisations to respond to the ORCID Joint Statement of Principle that New Zealand adopt ORCID as the national researcher identifier also varied widely. In recognition that assisting all Consortia-eligible organisations to productively engage with ORCID would lead to national benefits, the Ministry has provided support for the development of the New Zealand ORCID Hub. As designed, the core function of the Hub is to provide all New Zealand ORCID Consortium members with the ability to make authoritative assertions of their relationship with researchers on the researcher's ORCID record, irrespective of their size or technical resource.
 
+Throughout 2017 to June 2018, this project is being developed by a team at the University of Auckland under contract to the Royal Society of New Zealand. As the phenomena of small research organisations is not limited to New Zealand, it is a principle of the Hub's development that it be architected for use by the global ORCID community. To support this design principle, development is being pursued in as transparent a nature as possible, with the Hub itself being developed under the permissive MIT License.
 
-## Application Docker Image
+The core development team at the University of Auckland consists of: jeff kennedy, Enterprise Architecture Manager; Radomirs Cirskis, ORCID Project Architect; and Roshan Pawar, ORCID Developer.
 
-Application Docker Image ([orcidhub/app](https://hub.docker.com/r/orcidhub/app/)) is packaged with:
-- CentOS 7
-- Apache 2.4
-- Python 3.6
-- mod_wsgi (Pythgon/WSGI Apache module)
-- psycopg2 (native PostgreSQL Python DB-API 2.0 driver)
-- PyPI packages necessary for the application
+At this stage of the Hub's development it currently operates in two modes: Tuakiri-member organisation login; and file upload (typically associated with an email invitation for researchers with non-Tuakiri member organisations).
 
-### Environment Variables
+The Tuakiri login flow takes the information presented as part of the log in process and uses this to write a minimal affiliation of organisation, city, country and employment/education. The benefit of the Tuakiri-style is that the affiliation is written though researcher interaction, with anyone having credentials at a Tuakiri-member organisation able to initiate this process. This process is also very secure as the user's email and EPPN is authenticated as part of the exchange
+The File upload flow uses additional data provided by the organisation to write richer affiliations. If the user has already logged in with Tuakiri, the affiliation written replaces the minimal affiliation item. If the Hub has no record of the individual, an email invitation is sent asking permission to write to their ORCID record, with receipt of permission resulting in the record being updated. The advantage of this flow is that fewer user interactions are required, and the result is typically a richer affiliation. It's also the only way non-Tuakiri members have for interacting with the Hub. The disadvantage is that the ability of the user to receive the invitation is the only assurance of the user's identity.
+The Hub has been awarded the following Collect and Connect badges recognising it follows ORCID's recommendations for integrating with ORCID in these stages:
 
-The application image uses several environment variables which are easy to miss. These ariable should be set up for the specific runtime environment.
+![ORCID Badge 00 AUTHENTICATE](https://orcidhub.org.nz/static/images/ORCID-Badge-00-s-AUTHENTICATE.png)
+![ORCID Badge 01 COLLECT](https://orcidhub.org.nz/static/images/ORCID-Badge-01-s-COLLECT.png)
+![ORCID Badge 02 DISPLAY](https://orcidhub.org.nz/static/images/ORCID-Badge-02-s-DISPLAY.png)
+![ORCID Badge 03 CONNECT](https://orcidhub.org.nz/static/images/ORCID-Badge-03-s-CONNECT.png)
 
-|   Variable                  |       Example         |       Description      |
-|-----------------------------|-----------------------|------------------------|
-|ENV                          |test | The runtime environment name |
-|SHIB_SP_DOMAINNAME           |${ENV}.<container domainname> | Your **Service Provider** domain name |
-|SHIB_IDP_DOMAINNAME          |http://directory.tuakiri.ac.nz | Your **Idendtity Provider** domain name |
-|SHIB_SSO_DS_URL              |https://${SHIB_IDP_DOMAINNAME}/ds/DS | SSO discovery service URL |
-|SHIB_METADATA_PROVIDER_URI   |https://engine.surfconext.nl/authentication/idp/metadata| **Shibboleth** SAML 2.0 meta data provider URI [NativeSPMetadataProvider](https://wiki.shibboleth.net/confluence/display/SHIB2/NativeSPMetadataProvider) |
-|SHIB_METADATA_CERT_FILE      |conf/tuakiri-test-metadata-cert.pem | Meta data signig certificate |
-|ORCID_CLIENT_ID              |0000-1234-2922-7589 |Orcid API client ID and secret |
-|ORCID_CLIENT_SECRET          |b2aab710-89a1-49e8-65e4-8df4f038dce9 |Orcid API client ID and secret |
+Consortium members who use the NZ ORCID Hub and who provide adequate communications to their users about what ORCID is, why its use is being encouraged within the organisation and how it is being used in the organisation’s internal systems are also eligible for these four badges.
 
-### Usage 
+For more information on the Hub's background and links to resources please visit the Hub page of the Royal Society Te Apārangi’s website.
 
-1 - run application containers: 
+##### Contact Details
 
-    docker-compose up -d
-
-2 - find container IP address: 
-
-    docker inspect --format '{{.NetworkSettings.IPAddress}}' app
-
-3 - verify it's running: 
-
-    http $(docker inspect --format '{{.NetworkSettings.IPAddress}}' app)
-
-## Steps to execute this application
-
-If you are running this application for the first time then follow steps a to d:
-
-a. From the project directory run 
-
-    pip3 install -r requirement.txt
-
-b. to install postgress and required libraries do
-
-    sh ./install_package.sh
-
-c. Create database and user in postgres
-
-    CREATE USER orcidhub WITH PASSWORD '*****';
-    CREATE DATABASE orcidhub;
-    GRANT ALL PRIVILEGES ON DATABASE orcidhub to orcidhub;
-
-d. Run initializedb.py to create table in postgres
-
-    python application.py
-
-Open link https://test.orcidhub.org.nz/index
-
-## Development Environment
-
-It is possible to run the application as stand-alone Python Flask application using another remote application instance for Tuakiri user authentication. For example, if the remote 
-(another application instance) url is https://dev.orcidhub.org.nz, all you need is to set up environment varliable `export EXTERNAL_SP=https://dev.orcidhub.org.nz/Tuakiri/SP`.
-
-In order to siplify the development environment you can use Sqlite3 DB for the backend.
-
-To set up the database use environment variable DATABASE_URL, e.g. `export DATABASE_URL=sqlite:///data.db` and run application either directly invoking it with `python application.py` or using Flask CLI (http://flask.pocoo.org/docs/0.12/cli/):
-
-    export EXTERNAL_SP=https://dev.orcidhub.org.nz/Tuakiri/SP
-    export DATABASE_URL=sqlite:///data.db
-    export FLASK_APP=/path/to/main.py
-    export PYTHONPATH=$(dirname $FLASK_APP) ## flask run has problems with setting up search paths
-    export FLASK_DEBUG=1
-    flask run
-
-You can add these setting to you virtual environment activation script, e.g. (assuming it's located in the root directory):
-
-    export FLASK_APP=$(dirname $VIRTUAL_ENV)/main.py
-    export PYTHONPATH=$(dirname $FLASK_APP)
-    export EXTERNAL_SP=https://dev.orcidhub.org.nz/Tuakiri/SP
-    export DATABASE_URL=sqlite:///data.db
-    export FLASK_DEBUG=1
-
-To connect to the PostgreSQL node:
-
-    export PGHOST=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' $(docker-compose ps -q db))
-    export DATABASE_URL=postgresql://orcidhub:p455w0rd@${PGHOST}:5432/orcidhub
+Royal Society of New Zealand
+Phone: +64 (04) 472 7421
+PO Box 598, Wellington 6140
+New Zealand
+Email: orcid@royalsociety.org.nz
