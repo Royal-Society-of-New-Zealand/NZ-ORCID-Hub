@@ -51,6 +51,7 @@ AFFILIATION_TYPES = (
     "employment",
 )
 VISIBILITIES = ["PUBLIC", "PRIVATE", "REGISTERED_ONLY", "LIMITED"]
+FUNDING_TYPES = ["AWARD", "CONTRACT", "GRANT", "SALARY_AWARD"]
 
 
 class ModelException(Exception):
@@ -1341,7 +1342,7 @@ class RecordModel(BaseModel):
             d["organization"] = {
                 "disambiguated-organization": {
                     "disambiguated-organization-identifier":
-                    self.disambiguated_org_identifier or org.disambiguated_org_identifier,
+                    self.disambiguated_id or org.disambiguated_id,
                     "disambiguation-source":
                     self.disambiguation_source or org.disambiguation_source,
                 },
@@ -1515,11 +1516,13 @@ class AffiliationRecord(RecordModel):
 class FundingRecord(RecordModel):
     """Funding record loaded from JSON file for batch processing."""
 
+    funiding_type_choices = [(v, v.replace('_', ' ').title()) for v in FUNDING_TYPES]
+
     task = ForeignKeyField(Task, related_name="funding_records", on_delete="CASCADE")
     title = CharField(max_length=255)
     translated_title = CharField(null=True, max_length=255)
     translated_title_language_code = CharField(null=True, max_length=10)
-    type = CharField(max_length=255)
+    type = CharField(max_length=255, choices=funiding_type_choices)
     organization_defined_type = CharField(null=True, max_length=255)
     short_description = CharField(null=True, max_length=4000)
     amount = CharField(null=True, max_length=255)
@@ -1530,7 +1533,7 @@ class FundingRecord(RecordModel):
     city = CharField(null=True, max_length=255)
     region = CharField(null=True, max_length=255)
     country = CharField(null=True, max_length=255)
-    disambiguated_org_identifier = CharField(null=True, max_length=255)
+    disambiguated_id = CharField(null=True, max_length=255)
     disambiguation_source = CharField(null=True, max_length=255)
     is_active = BooleanField(
         default=False, help_text="The record is marked for batch processing", null=True)
@@ -1667,7 +1670,7 @@ class FundingRecord(RecordModel):
                         city=val(row, 12) or org.city,
                         region=val(row, 13) or org.state,
                         country=country or org.country,
-                        disambiguated_org_identifier=val(row, 15) or org.disambiguated_id,
+                        disambiguated_id=val(row, 15) or org.disambiguated_id,
                         disambiguation_source=val(row, 16) or org.disambiguation_source),
                     contributor=dict(
                         orcid=orcid,
@@ -1776,9 +1779,8 @@ class FundingRecord(RecordModel):
                     city = r.get("organization", "address", "city")
                     region = r.get("organization", "address", "region")
                     country = r.get("organization", "address", "country")
-                    disambiguated_org_identifier = r.get("organization",
-                                                         "disambiguated-organization",
-                                                         "disambiguated-organization-identifier")
+                    disambiguated_id = r.get("organization", "disambiguated-organization",
+                                             "disambiguated-organization-identifier")
                     disambiguation_source = r.get("organization", "disambiguated-organization",
                                                   "disambiguation-source")
 
@@ -1796,7 +1798,7 @@ class FundingRecord(RecordModel):
                         city=city,
                         region=region,
                         country=country,
-                        disambiguated_org_identifier=disambiguated_org_identifier,
+                        disambiguated_id=disambiguated_id,
                         disambiguation_source=disambiguation_source,
                         start_date=start_date,
                         end_date=end_date)

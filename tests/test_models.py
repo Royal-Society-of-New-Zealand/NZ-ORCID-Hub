@@ -176,7 +176,7 @@ def models(testdb):
         city="Test_%d" % i,
         region="Test_%d" % i,
         country="Test_%d" % i,
-        disambiguated_org_identifier="Test_%d" % i,
+        disambiguated_id="Test_%d" % i,
         disambiguation_source="Test_%d" % i,
         is_active=False,
         status="Test_%d" % i) for i in range(10))).execute()

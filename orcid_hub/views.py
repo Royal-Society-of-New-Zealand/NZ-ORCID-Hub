@@ -734,6 +734,8 @@ to the best of your knowledge, correct!""")
         """Prefill form with organisation default values."""
         form = super().create_form()
         org = current_user.organisation
+        if hasattr(form, "org_name"):
+            form.org_name.data = org.name
         if hasattr(form, "city"):
             form.city.data = org.city
         if hasattr(form, "state"):
@@ -1116,7 +1118,7 @@ class CompositeRecordModelView(RecordModelView):
                                                                                                          'country'))
                 disambiguated_dict['disambiguated-organization-identifier'] = \
                     self.get_export_value(row, 'convening_org_disambiguated_identifier') or \
-                    self.get_export_value(row, 'disambiguated_org_identifier')
+                    self.get_export_value(row, 'disambiguated_id')
                 disambiguated_dict['disambiguation-source'] = self.get_export_value(
                     row, 'convening_org_disambiguation_source') or self.get_export_value(row, 'disambiguation_source')
                 convening_org_dict['disambiguated-organization'] = disambiguated_dict
@@ -1250,6 +1252,7 @@ class CompositeRecordModelView(RecordModelView):
 class FundingRecordAdmin(CompositeRecordModelView):
     """Funding record model view."""
 
+    can_create = True
     column_searchable_list = ("title",)
     list_template = "funding_record_list.html"
     column_export_list = (
@@ -1270,7 +1273,7 @@ class FundingRecordAdmin(CompositeRecordModelView):
         "city",
         "region",
         "country",
-        "disambiguated_org_identifier",
+        "disambiguated_id",
         "disambiguation_source",
         "visibility",
         "orcid",

@@ -235,8 +235,7 @@ class RecordForm(FlaskForm):
 class FundingForm(FlaskForm):
     """User/researcher funding detail form."""
 
-    type_choices = [(v, v.replace('_', ' ').title()) for v in ['GRANT', 'CONTRACT', 'AWARD', 'SALARY_AWARD', '']]
-    type_choices.sort(key=lambda e: e[1])
+    type_choices = [(v, v.replace('_', ' ').title()) for v in models.FUNDING_TYPES]
 
     funding_title = StringField("Funding Title", [validators.required()])
     funding_translated_title = StringField("Funding Translated Title")

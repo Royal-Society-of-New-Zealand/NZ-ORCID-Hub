@@ -15,7 +15,7 @@ from datetime import datetime, timedelta
 from os import path, remove
 from tempfile import gettempdir
 from time import time
-from urllib.parse import quote, unquote, urlparse
+from urllib.parse import parse_qs, quote, unquote, urlparse
 import validators
 
 import requests
@@ -68,10 +68,49 @@ def utility_processor():  # noqa: D202
             login_url = url_for("handle_login", _next=_next)
         return login_url
 
+    def current_task():
+        try:
+            task_id = request.args.get("task_id")
+            if task_id:
+                task_id = int(task_id)
+            else:
+                url = request.args.get("url")
+                if not url:
+                    return False
+                qs = parse_qs(urlparse(url).query)
+                task_id = qs.get("task_id", [None])[0]
+                if task_id:
+                    task_id = int(task_id)
+        except:
+            return None
+        return Task.get(task_id)
+
+    def current_record():
+        task = current_task()
+        if not task:
+            return None
+        try:
+            record_id = request.args.get("record_id")
+            if record_id:
+                record_id = int(record_id)
+            else:
+                url = request.args.get("url")
+                if not url:
+                    return None
+                qs = parse_qs(urlparse(url).query)
+                record_id = qs.get("record_id", [None])[0]
+                if record_id:
+                    record_id = int(record_id)
+        except:
+            return None
+        return task.records.model_class.get(record_id)
+
     return dict(
         orcid_login_url=orcid_login_url,
         tuakiri_login_url=tuakiri_login_url,
         onboarded_organisations=onboarded_organisations,
+        current_task=current_task,
+        current_record=current_record,
     )
 
 

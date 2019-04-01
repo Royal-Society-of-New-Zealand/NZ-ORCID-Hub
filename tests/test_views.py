@@ -2534,7 +2534,7 @@ def test_reset_all(request_ctx):
         city="Test city",
         region="Test",
         country="Test",
-        disambiguated_org_identifier="Test_dis",
+        disambiguated_id="Test_dis",
         disambiguation_source="Test_source",
         is_active=True,
         visibility="Test_visibity")
@@ -3102,7 +3102,7 @@ XXX1702,00004,,This is another project title,,,CONTRACT,Standard,This is another
     # Change contributors:
     record = task.records.first()
     contributor_count = record.invitees.count()
-    url = quote(f"/url/?record_id={record.id}", safe='')
+    url = quote(f"/admin/fundingrecord/?record_id={record.id}&task_id={task.id}", safe='')
     resp = client.post(
         f"/admin/fundingcontributor/new/?url={url}",
         data={
@@ -3122,6 +3122,35 @@ XXX1702,00004,,This is another project title,,,CONTRACT,Standard,This is another
     c = FundingContributor.get(contributor.id)
     assert c.email == "contributor_new@test.test.test.org"
     assert c.orcid == "AAAA-2738-3738-00X3"
+
+    # Add a new funding record:
+    record_count = Task.get(task.id).records.count()
+    resp = client.post(
+        f"/admin/fundingrecord/new/?url={url}",
+        follow_redirects=True,
+        data={
+            "title": "FUNDING TITLE",
+            "translated_title": "FUNDING TRANSLATED TITLE",
+            "translated_title_language_code": "EN",
+            "type": "AWARD",
+            "organization_defined_type": "Organization Defined Type",
+            "short_description": "Organization Defined Type",
+            "amount": "1234.56",
+            "currency": "EUR",
+            "start_date:year": "2001",
+            "start_date:month": "5",
+            "start_date:day": "",
+            "end_date:year": "2022",
+            "end_date:month": "",
+            "end_date:day": "",
+            "org_name": "Organisation Name",
+            "city": "Auckland City",
+            "region": "Auckland",
+            "country": "New Zealand",
+            "disambiguated_id": "ABC12345",
+            "disambiguation_source": "SOURCE",
+        })
+    assert Task.get(task.id).records.count() == record_count + 1
 
 
 def test_researcher_work(client):

@@ -461,7 +461,7 @@ def test_create_or_update_funding(app, mocker):
         city="Test city",
         region="Test",
         country="Test",
-        disambiguated_org_identifier="Test_dis",
+        disambiguated_id="Test_dis",
         disambiguation_source="Test_source",
         is_active=True)
 

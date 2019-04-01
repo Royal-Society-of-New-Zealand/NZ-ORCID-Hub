@@ -531,7 +531,7 @@ class MemberAPI(MemberAPIV20Api):
         city = fr.city
         country = fr.country
         region = fr.region
-        disambiguated_id = fr.disambiguated_org_identifier
+        disambiguated_id = fr.disambiguated_id
         disambiguation_source = fr.disambiguation_source
         org_name = fr.org_name
         funding_type = fr.type
