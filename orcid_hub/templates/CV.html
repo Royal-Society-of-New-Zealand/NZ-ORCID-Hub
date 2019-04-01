@@ -434,14 +434,39 @@ your name in lists of authors.</span></i></font></font></p>
 		<td width="596" valign="top" style="border: 1px solid #000001; padding: 0cm 0.19cm">
       <ul>
         {% for j in work_type_journal %}
-        <li><font face="Arial, serif"><font style="font-size: 12pt">{{ j.get('publication-date', 'year', 'value')}}, {{
-          j.get('title', 'title', 'value') }}, <font style="font-size: 11pt"><i>{{ j.get('type') }}</i>
-            {% if j.get('external-ids') and  j.get('external-ids', 'external-id') %}
-              {% for e in j.get('external-ids', 'external-id') %}
+        <li><font face="Arial, serif"><font style="font-size: 12pt">
+          {% if j.get('contributors', 'contributor') %}
+            {% for c in j.get('contributors', 'contributor') %}
+                {% if c.get('credit-name', 'value') %}
+                  {{ c.get('credit-name', 'value') }},
+                {% endif %}
+            {% endfor %}
+          {% else %}
+            {{person_data.get('first_name', '')}}
+            {% for s in person_data.get('second_names') %}
+              {{ s}}
+            {% endfor %}
+          {% endif %}
+          {% if j.get('publication_date', 'day', 'value') and j.get('publication_date', 'month', 'value') and
+          j.get('publication_date', 'year', 'value')%}
+            ({{j.get('publication_date', 'day', 'value')}}/{{j.get('publication_date', 'month',
+            'value')}}/{{j.get('publication_date', 'year', 'value')}})
+          {% elif j.get('publication_date', 'year', 'value')%}
+            ({{j.get('publication_date', 'year', 'value')}})
+          {% endif %}
+          , {{j.get('title', 'title', 'value') }}
+          {% if j.get('title', 'subtitle', 'value') %}
+            , {{ j.get('title', 'subtitle', 'value') }}
+          {% endif %}
+          {% if j.get('external_ids') and  j.get('external_ids', 'external-id') %}
+            {% for e in j.get('external_ids', 'external-id') %}
               , {{ e.get('external-id-type')|upper}}: {{ e.get('external-id-value') }}
-              {% endfor %}
-            {% endif %}
-          </font></font></font></li>
+              {% if e.get('external-id-url', 'value') %}
+                , {{ e.get('external-id-url', 'value') }}
+              {% endif %}
+            {% endfor %}
+          {% endif %}
+          </font></font></li>
         {% endfor %}
       </ul>
       <p style="margin-bottom: 1cm; font-style: normal; font-weight: normal">
@@ -460,14 +485,39 @@ your name in lists of authors.</span></i></font></font></p>
 		<td width="596" valign="top" style="border: 1px solid #000001; padding: 0cm 0.19cm">
       <ul>
         {% for j in work_type_books %}
-        <li><font face="Arial, serif"><font style="font-size: 12pt">{{ j.get('publication-date', 'year', 'value')}}, {{
-          j.get('title', 'title', 'value') }}, <font style="font-size: 11pt"><i>{{ j.get('type') }}</i>
-            {% if j.get('external-ids') and  j.get('external-ids', 'external-id') %}
-              {% for e in j.get('external-ids', 'external-id') %}
+        <li><font face="Arial, serif"><font style="font-size: 12pt">
+          {% if j.get('contributors', 'contributor') %}
+            {% for c in j.get('contributors', 'contributor') %}
+                {% if c.get('credit-name', 'value') %}
+                  {{ c.get('credit-name', 'value') }},
+                {% endif %}
+            {% endfor %}
+          {% else %}
+            {{person_data.get('first_name', '')}}
+            {% for s in person_data.get('second_names') %}
+              {{ s}}
+            {% endfor %}
+          {% endif %}
+          {% if j.get('publication_date', 'day', 'value') and j.get('publication_date', 'month', 'value') and
+          j.get('publication_date', 'year', 'value')%}
+            ({{j.get('publication_date', 'day', 'value')}}/{{j.get('publication_date', 'month',
+            'value')}}/{{j.get('publication_date', 'year', 'value')}})
+          {% elif j.get('publication_date', 'year', 'value')%}
+            ({{j.get('publication_date', 'year', 'value')}})
+          {% endif %}
+          , {{j.get('title', 'title', 'value') }}
+          {% if j.get('title', 'subtitle', 'value') %}
+            , {{ j.get('title', 'subtitle', 'value') }}
+          {% endif %}
+          {% if j.get('external_ids') and  j.get('external_ids', 'external-id') %}
+            {% for e in j.get('external_ids', 'external-id') %}
               , {{ e.get('external-id-type')|upper}}: {{ e.get('external-id-value') }}
-              {% endfor %}
-            {% endif %}
-          </font></font></font></li>
+              {% if e.get('external-id-url', 'value') %}
+                , {{ e.get('external-id-url', 'value') }}
+              {% endif %}
+            {% endfor %}
+          {% endif %}
+          </font></font></li>
         {% endfor %}
       </ul>
       <p style="margin-bottom: 1cm; font-style: normal; font-weight: normal">
@@ -486,14 +536,39 @@ your name in lists of authors.</span></i></font></font></p>
 		<td width="596" valign="top" style="border: 1px solid #000001; padding: 0cm 0.19cm">
       <ul>
         {% for j in work_type_book_chapter %}
-        <li><font face="Arial, serif"><font style="font-size: 12pt">{{ j.get('publication-date', 'year', 'value')}}, {{
-          j.get('title', 'title', 'value') }}, <font style="font-size: 11pt"><i>{{ j.get('type') }}</i>
-            {% if j.get('external-ids') and  j.get('external-ids', 'external-id') %}
-              {% for e in j.get('external-ids', 'external-id') %}
+        <li><font face="Arial, serif"><font style="font-size: 12pt">
+          {% if j.get('contributors', 'contributor') %}
+            {% for c in j.get('contributors', 'contributor') %}
+                {% if c.get('credit-name', 'value') %}
+                  {{ c.get('credit-name', 'value') }},
+                {% endif %}
+            {% endfor %}
+          {% else %}
+            {{person_data.get('first_name', '')}}
+            {% for s in person_data.get('second_names') %}
+              {{ s}}
+            {% endfor %}
+          {% endif %}
+          {% if j.get('publication_date', 'day', 'value') and j.get('publication_date', 'month', 'value') and
+          j.get('publication_date', 'year', 'value')%}
+            ({{j.get('publication_date', 'day', 'value')}}/{{j.get('publication_date', 'month',
+            'value')}}/{{j.get('publication_date', 'year', 'value')}})
+          {% elif j.get('publication_date', 'year', 'value')%}
+            ({{j.get('publication_date', 'year', 'value')}})
+          {% endif %}
+          , {{j.get('title', 'title', 'value') }}
+          {% if j.get('title', 'subtitle', 'value') %}
+            , {{ j.get('title', 'subtitle', 'value') }}
+          {% endif %}
+          {% if j.get('external_ids') and  j.get('external_ids', 'external-id') %}
+            {% for e in j.get('external_ids', 'external-id') %}
               , {{ e.get('external-id-type')|upper}}: {{ e.get('external-id-value') }}
-              {% endfor %}
-            {% endif %}
-          </font></font></font></li>
+              {% if e.get('external-id-url', 'value') %}
+                , {{ e.get('external-id-url', 'value') }}
+              {% endif %}
+            {% endfor %}
+          {% endif %}
+          </font></font></li>
         {% endfor %}
       </ul>
       <p style="margin-bottom: 1cm; font-style: normal; font-weight: normal">
@@ -512,14 +587,39 @@ your name in lists of authors.</span></i></font></font></p>
 		<td width="596" valign="top" style="border: 1px solid #000001; padding: 0cm 0.19cm">
       <ul>
         {% for j in work_type_conference %}
-        <li><font face="Arial, serif"><font style="font-size: 12pt">{{ j.get('publication-date', 'year', 'value')}}, {{
-          j.get('title', 'title', 'value') }}, <font style="font-size: 11pt"><i>{{ j.get('type') }}</i>
-            {% if j.get('external-ids') and  j.get('external-ids', 'external-id') %}
-              {% for e in j.get('external-ids', 'external-id') %}
+        <li><font face="Arial, serif"><font style="font-size: 12pt">
+          {% if j.get('contributors', 'contributor') %}
+            {% for c in j.get('contributors', 'contributor') %}
+                {% if c.get('credit-name', 'value') %}
+                  {{ c.get('credit-name', 'value') }},
+                {% endif %}
+            {% endfor %}
+          {% else %}
+            {{person_data.get('first_name', '')}}
+            {% for s in person_data.get('second_names') %}
+              {{ s}}
+            {% endfor %}
+          {% endif %}
+          {% if j.get('publication_date', 'day', 'value') and j.get('publication_date', 'month', 'value') and
+          j.get('publication_date', 'year', 'value')%}
+            ({{j.get('publication_date', 'day', 'value')}}/{{j.get('publication_date', 'month',
+            'value')}}/{{j.get('publication_date', 'year', 'value')}})
+          {% elif j.get('publication_date', 'year', 'value')%}
+            ({{j.get('publication_date', 'year', 'value')}})
+          {% endif %}
+          , {{j.get('title', 'title', 'value') }}
+          {% if j.get('title', 'subtitle', 'value') %}
+            , {{ j.get('title', 'subtitle', 'value') }}
+          {% endif %}
+          {% if j.get('external_ids') and  j.get('external_ids', 'external-id') %}
+            {% for e in j.get('external_ids', 'external-id') %}
               , {{ e.get('external-id-type')|upper}}: {{ e.get('external-id-value') }}
-              {% endfor %}
-            {% endif %}
-          </font></font></font></li>
+              {% if e.get('external-id-url', 'value') %}
+                , {{ e.get('external-id-url', 'value') }}
+              {% endif %}
+            {% endfor %}
+          {% endif %}
+          </font></font></li>
         {% endfor %}
       </ul>
       <p style="margin-bottom: 1cm; font-style: normal; font-weight: normal">
@@ -537,14 +637,39 @@ your name in lists of authors.</span></i></font></font></p>
 		<td width="596" valign="top" style="border: 1px solid #000001; padding: 0cm 0.19cm">
       <ul>
         {% for j in work_type_patent %}
-        <li><font face="Arial, serif"><font style="font-size: 12pt">{{ j.get('publication-date', 'year', 'value')}}, {{
-          j.get('title', 'title', 'value') }}, <font style="font-size: 11pt"><i>{{ j.get('type') }}</i>
-            {% if j.get('external-ids') and  j.get('external-ids', 'external-id') %}
-              {% for e in j.get('external-ids', 'external-id') %}
+        <li><font face="Arial, serif"><font style="font-size: 12pt">
+          {% if j.get('contributors', 'contributor') %}
+            {% for c in j.get('contributors', 'contributor') %}
+                {% if c.get('credit-name', 'value') %}
+                  {{ c.get('credit-name', 'value') }},
+                {% endif %}
+            {% endfor %}
+          {% else %}
+            {{person_data.get('first_name', '')}}
+            {% for s in person_data.get('second_names') %}
+              {{ s}}
+            {% endfor %}
+          {% endif %}
+          {% if j.get('publication_date', 'day', 'value') and j.get('publication_date', 'month', 'value') and
+          j.get('publication_date', 'year', 'value')%}
+            ({{j.get('publication_date', 'day', 'value')}}/{{j.get('publication_date', 'month',
+            'value')}}/{{j.get('publication_date', 'year', 'value')}})
+          {% elif j.get('publication_date', 'year', 'value')%}
+            ({{j.get('publication_date', 'year', 'value')}})
+          {% endif %}
+          , {{j.get('title', 'title', 'value') }}
+          {% if j.get('title', 'subtitle', 'value') %}
+            , {{ j.get('title', 'subtitle', 'value') }}
+          {% endif %}
+          {% if j.get('external_ids') and  j.get('external_ids', 'external-id') %}
+            {% for e in j.get('external_ids', 'external-id') %}
               , {{ e.get('external-id-type')|upper}}: {{ e.get('external-id-value') }}
-              {% endfor %}
-            {% endif %}
-          </font></font></font></li>
+              {% if e.get('external-id-url', 'value') %}
+                , {{ e.get('external-id-url', 'value') }}
+              {% endif %}
+            {% endfor %}
+          {% endif %}
+          </font></font></li>
         {% endfor %}
       </ul>
       <p style="margin-bottom: 1cm; font-style: normal; font-weight: normal">
@@ -564,14 +689,39 @@ your name in lists of authors.</span></i></font></font></p>
 		<td width="596" valign="top" style="border: 1px solid #000001; padding: 0cm 0.19cm">
       <ul>
         {% for j in work_type_other %}
-        <li><font face="Arial, serif"><font style="font-size: 12pt">{{ j.get('publication-date', 'year', 'value')}}, {{
-          j.get('title', 'title', 'value') }}, <font style="font-size: 11pt"><i>{{ j.get('type') }}</i>
-            {% if j.get('external-ids') and  j.get('external-ids', 'external-id') %}
-              {% for e in j.get('external-ids', 'external-id') %}
+        <li><font face="Arial, serif"><font style="font-size: 12pt">
+          {% if j.get('contributors', 'contributor') %}
+            {% for c in j.get('contributors', 'contributor') %}
+                {% if c.get('credit-name', 'value') %}
+                  {{ c.get('credit-name', 'value') }},
+                {% endif %}
+            {% endfor %}
+          {% else %}
+            {{person_data.get('first_name', '')}}
+            {% for s in person_data.get('second_names') %}
+              {{ s}}
+            {% endfor %}
+          {% endif %}
+          {% if j.get('publication_date', 'day', 'value') and j.get('publication_date', 'month', 'value') and
+          j.get('publication_date', 'year', 'value')%}
+            ({{j.get('publication_date', 'day', 'value')}}/{{j.get('publication_date', 'month',
+            'value')}}/{{j.get('publication_date', 'year', 'value')}})
+          {% elif j.get('publication_date', 'year', 'value')%}
+            ({{j.get('publication_date', 'year', 'value')}})
+          {% endif %}
+          , {{j.get('title', 'title', 'value') }}
+          {% if j.get('title', 'subtitle', 'value') %}
+            , {{ j.get('title', 'subtitle', 'value') }}
+          {% endif %}
+          {% if j.get('external_ids') and  j.get('external_ids', 'external-id') %}
+            {% for e in j.get('external_ids', 'external-id') %}
               , {{ e.get('external-id-type')|upper}}: {{ e.get('external-id-value') }}
-              {% endfor %}
-            {% endif %}
-          </font></font></font></li>
+              {% if e.get('external-id-url', 'value') %}
+                , {{ e.get('external-id-url', 'value') }}
+              {% endif %}
+            {% endfor %}
+          {% endif %}
+          </font></font></li>
         {% endfor %}
       </ul>
       <p style="margin-bottom: 1cm; font-style: normal; font-weight: normal">
