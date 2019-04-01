@@ -847,6 +847,7 @@
         </text:list-style>
     </office:automatic-styles>
     <office:body>
+        {% from "macros.html" import publication_info %}
         <office:text text:use-soft-page-breaks="true">
             <text:sequence-decls>
                 <text:sequence-decl text:display-outline-level="0" text:name="Illustration"/>
@@ -1268,41 +1269,8 @@
                             <text:list-item>
                                 <text:p text:style-name="P11">
                                     <text:span text:style-name="T2">
-                                        {% if j.get('contributors', 'contributor') %}
-                                            {% for c in j.get('contributors', 'contributor') %}
-                                                {% if c.get('credit-name', 'value') %}
-                                                    {{ c.get('credit-name', 'value') }},
-                                                {% endif %}
-                                            {% endfor %}
-                                        {% else %}
-                                            {{person_data.get('first_name', '')}}
-                                            {% for s in person_data.get('second_names') %}
-                                                {{ s}}
-                                            {% endfor %}
-                                        {% endif %}
-                                        {% if j.get('publication_date', 'day', 'value') and j.get('publication_date',
-                                        'month', 'value') and
-                                        j.get('publication_date', 'year', 'value')%}
-                                            ({{j.get('publication_date', 'day', 'value')}}/{{j.get('publication_date',
-                                            'month',
-                                            'value')}}/{{j.get('publication_date', 'year', 'value')}})
-                                        {% elif j.get('publication_date', 'year', 'value')%}
-                                            ({{j.get('publication_date', 'year', 'value')}})
-                                        {% endif %}
-                                        , {{j.get('title', 'title', 'value') }}
-                                        {% if j.get('title', 'subtitle', 'value') %}
-                                            , {{ j.get('title', 'subtitle', 'value') }}
-                                        {% endif %}
+                                        {{ publication_info(j, person_data) }}
                                     </text:span>
-                                    {% if j.get('external_ids') and j.get('external_ids', 'external-id') %}
-                                    <text:span text:style-name="T7">{% for e in j.get('external_ids', 'external-id') %}
-                                        , {{ e.get('external-id-type')|upper}}: {{ e.get('external-id-value') }}
-                                        {% if e.get('external-id-url', 'value') %}
-                                            , {{ e.get('external-id-url', 'value') }}
-                                        {% endif %}
-                                        {% endfor %}
-                                    </text:span>
-                                    {% endif %}
                                 </text:p>
                             </text:list-item>
                             {% endfor %}
@@ -1322,43 +1290,10 @@
                             </text:list-header>
                             {% for j in work_type_books %}
                             <text:list-item>
-                                <text:p text:style-name="P12">
+                                <text:p text:style-name="P11">
                                     <text:span text:style-name="T2">
-                                        {% if j.get('contributors', 'contributor') %}
-                                            {% for c in j.get('contributors', 'contributor') %}
-                                                {% if c.get('credit-name', 'value') %}
-                                                    {{ c.get('credit-name', 'value') }},
-                                                {% endif %}
-                                            {% endfor %}
-                                        {% else %}
-                                            {{person_data.get('first_name', '')}}
-                                            {% for s in person_data.get('second_names') %}
-                                                {{ s}}
-                                            {% endfor %}
-                                        {% endif %}
-                                        {% if j.get('publication_date', 'day', 'value') and j.get('publication_date',
-                                        'month', 'value') and
-                                        j.get('publication_date', 'year', 'value')%}
-                                            ({{j.get('publication_date', 'day', 'value')}}/{{j.get('publication_date',
-                                            'month',
-                                            'value')}}/{{j.get('publication_date', 'year', 'value')}})
-                                        {% elif j.get('publication_date', 'year', 'value')%}
-                                            ({{j.get('publication_date', 'year', 'value')}})
-                                        {% endif %}
-                                        , {{j.get('title', 'title', 'value') }}
-                                        {% if j.get('title', 'subtitle', 'value') %}
-                                            , {{ j.get('title', 'subtitle', 'value') }}
-                                        {% endif %}
+                                        {{ publication_info(j, person_data) }}
                                     </text:span>
-                                    {% if j.get('external_ids') and j.get('external_ids', 'external-id') %}
-                                    <text:span text:style-name="T7">{% for e in j.get('external_ids', 'external-id') %}
-                                        , {{ e.get('external-id-type')|upper}}: {{ e.get('external-id-value') }}
-                                        {% if e.get('external-id-url', 'value') %}
-                                            , {{ e.get('external-id-url', 'value') }}
-                                        {% endif %}
-                                        {% endfor %}
-                                    </text:span>
-                                    {% endif %}
                                 </text:p>
                             </text:list-item>
                             {% endfor %}
@@ -1378,43 +1313,10 @@
                             </text:list-header>
                             {% for j in work_type_book_chapter %}
                             <text:list-item>
-                                <text:p text:style-name="P13">
+                                <text:p text:style-name="P11">
                                     <text:span text:style-name="T2">
-                                        {% if j.get('contributors', 'contributor') %}
-                                            {% for c in j.get('contributors', 'contributor') %}
-                                                {% if c.get('credit-name', 'value') %}
-                                                    {{ c.get('credit-name', 'value') }},
-                                                {% endif %}
-                                            {% endfor %}
-                                        {% else %}
-                                            {{person_data.get('first_name', '')}}
-                                            {% for s in person_data.get('second_names') %}
-                                                {{ s}}
-                                            {% endfor %}
-                                        {% endif %}
-                                        {% if j.get('publication_date', 'day', 'value') and j.get('publication_date',
-                                        'month', 'value') and
-                                        j.get('publication_date', 'year', 'value')%}
-                                            ({{j.get('publication_date', 'day', 'value')}}/{{j.get('publication_date',
-                                            'month',
-                                            'value')}}/{{j.get('publication_date', 'year', 'value')}})
-                                        {% elif j.get('publication_date', 'year', 'value')%}
-                                            ({{j.get('publication_date', 'year', 'value')}})
-                                        {% endif %}
-                                        , {{j.get('title', 'title', 'value') }}
-                                        {% if j.get('title', 'subtitle', 'value') %}
-                                            , {{ j.get('title', 'subtitle', 'value') }}
-                                        {% endif %}
+                                        {{ publication_info(j, person_data) }}
                                     </text:span>
-                                    {% if j.get('external_ids') and j.get('external_ids', 'external-id') %}
-                                    <text:span text:style-name="T7">{% for e in j.get('external_ids', 'external-id') %}
-                                        , {{ e.get('external-id-type')|upper}}: {{ e.get('external-id-value') }}
-                                        {% if e.get('external-id-url', 'value') %}
-                                            , {{ e.get('external-id-url', 'value') }}
-                                        {% endif %}
-                                        {% endfor %}
-                                    </text:span>
-                                    {% endif %}
                                 </text:p>
                             </text:list-item>
                             {% endfor %}
@@ -1434,43 +1336,10 @@
                             </text:list-header>
                             {% for j in work_type_conference %}
                             <text:list-item>
-                                <text:p text:style-name="P14">
+                                <text:p text:style-name="P11">
                                     <text:span text:style-name="T2">
-                                        {% if j.get('contributors', 'contributor') %}
-                                            {% for c in j.get('contributors', 'contributor') %}
-                                                {% if c.get('credit-name', 'value') %}
-                                                    {{ c.get('credit-name', 'value') }},
-                                                {% endif %}
-                                            {% endfor %}
-                                        {% else %}
-                                            {{person_data.get('first_name', '')}}
-                                            {% for s in person_data.get('second_names') %}
-                                                {{ s}}
-                                            {% endfor %}
-                                        {% endif %}
-                                        {% if j.get('publication_date', 'day', 'value') and j.get('publication_date',
-                                        'month', 'value') and
-                                        j.get('publication_date', 'year', 'value')%}
-                                            ({{j.get('publication_date', 'day', 'value')}}/{{j.get('publication_date',
-                                            'month',
-                                            'value')}}/{{j.get('publication_date', 'year', 'value')}})
-                                        {% elif j.get('publication_date', 'year', 'value')%}
-                                            ({{j.get('publication_date', 'year', 'value')}})
-                                        {% endif %}
-                                        , {{j.get('title', 'title', 'value') }}
-                                        {% if j.get('title', 'subtitle', 'value') %}
-                                            , {{ j.get('title', 'subtitle', 'value') }}
-                                        {% endif %}
+                                        {{ publication_info(j, person_data) }}
                                     </text:span>
-                                    {% if j.get('external_ids') and j.get('external_ids', 'external-id') %}
-                                    <text:span text:style-name="T7">{% for e in j.get('external_ids', 'external-id') %}
-                                        , {{ e.get('external-id-type')|upper}}: {{ e.get('external-id-value') }}
-                                        {% if e.get('external-id-url', 'value') %}
-                                            , {{ e.get('external-id-url', 'value') }}
-                                        {% endif %}
-                                        {% endfor %}
-                                    </text:span>
-                                    {% endif %}
                                 </text:p>
                             </text:list-item>
                             {% endfor %}
@@ -1490,43 +1359,10 @@
                             </text:list-header>
                             {% for j in work_type_patent %}
                             <text:list-item>
-                                <text:p text:style-name="P15">
+                                <text:p text:style-name="P11">
                                     <text:span text:style-name="T2">
-                                        {% if j.get('contributors', 'contributor') %}
-                                            {% for c in j.get('contributors', 'contributor') %}
-                                                {% if c.get('credit-name', 'value') %}
-                                                    {{ c.get('credit-name', 'value') }},
-                                                {% endif %}
-                                            {% endfor %}
-                                        {% else %}
-                                            {{person_data.get('first_name', '')}}
-                                            {% for s in person_data.get('second_names') %}
-                                                {{ s}}
-                                            {% endfor %}
-                                        {% endif %}
-                                        {% if j.get('publication_date', 'day', 'value') and j.get('publication_date',
-                                        'month', 'value') and
-                                        j.get('publication_date', 'year', 'value')%}
-                                            ({{j.get('publication_date', 'day', 'value')}}/{{j.get('publication_date',
-                                            'month',
-                                            'value')}}/{{j.get('publication_date', 'year', 'value')}})
-                                        {% elif j.get('publication_date', 'year', 'value')%}
-                                            ({{j.get('publication_date', 'year', 'value')}})
-                                        {% endif %}
-                                        , {{j.get('title', 'title', 'value') }}
-                                        {% if j.get('title', 'subtitle', 'value') %}
-                                            , {{ j.get('title', 'subtitle', 'value') }}
-                                        {% endif %}
+                                        {{ publication_info(j, person_data) }}
                                     </text:span>
-                                    {% if j.get('external_ids') and j.get('external_ids', 'external-id') %}
-                                    <text:span text:style-name="T7">{% for e in j.get('external_ids', 'external-id') %}
-                                        , {{ e.get('external-id-type')|upper}}: {{ e.get('external-id-value') }}
-                                        {% if e.get('external-id-url', 'value') %}
-                                            , {{ e.get('external-id-url', 'value') }}
-                                        {% endif %}
-                                        {% endfor %}
-                                    </text:span>
-                                    {% endif %}
                                 </text:p>
                             </text:list-item>
                             {% endfor %}
@@ -1548,43 +1384,10 @@
                             </text:list-header>
                             {% for j in work_type_other %}
                             <text:list-item>
-                                <text:p text:style-name="P16">
+                                <text:p text:style-name="P11">
                                     <text:span text:style-name="T2">
-                                        {% if j.get('contributors', 'contributor') %}
-                                            {% for c in j.get('contributors', 'contributor') %}
-                                                {% if c.get('credit-name', 'value') %}
-                                                    {{ c.get('credit-name', 'value') }},
-                                                {% endif %}
-                                            {% endfor %}
-                                        {% else %}
-                                            {{person_data.get('first_name', '')}}
-                                            {% for s in person_data.get('second_names') %}
-                                                {{ s}}
-                                            {% endfor %}
-                                        {% endif %}
-                                        {% if j.get('publication_date', 'day', 'value') and j.get('publication_date',
-                                        'month', 'value') and
-                                        j.get('publication_date', 'year', 'value')%}
-                                            ({{j.get('publication_date', 'day', 'value')}}/{{j.get('publication_date',
-                                            'month',
-                                            'value')}}/{{j.get('publication_date', 'year', 'value')}})
-                                        {% elif j.get('publication_date', 'year', 'value')%}
-                                            ({{j.get('publication_date', 'year', 'value')}})
-                                        {% endif %}
-                                        , {{j.get('title', 'title', 'value') }}
-                                        {% if j.get('title', 'subtitle', 'value') %}
-                                            , {{ j.get('title', 'subtitle', 'value') }}
-                                        {% endif %}
+                                        {{ publication_info(j, person_data) }}
                                     </text:span>
-                                    {% if j.get('external_ids') and j.get('external_ids', 'external-id') %}
-                                    <text:span text:style-name="T7">{% for e in j.get('external_ids', 'external-id') %}
-                                        , {{ e.get('external-id-type')|upper}}: {{ e.get('external-id-value') }}
-                                        {% if e.get('external-id-url', 'value') %}
-                                            , {{ e.get('external-id-url', 'value') }}
-                                        {% endif %}
-                                        {% endfor %}
-                                    </text:span>
-                                    {% endif %}
                                 </text:p>
                             </text:list-item>
                             {% endfor %}
