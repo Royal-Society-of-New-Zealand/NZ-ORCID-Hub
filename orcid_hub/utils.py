@@ -537,8 +537,8 @@ def create_or_update_peer_review(user, org_id, records, *args, **kwargs):
 
 def create_or_update_funding(user, org_id, records, *args, **kwargs):
     """Create or update funding record of a user."""
-    records = list(unique_everseen(records, key=lambda t: t.record.id))
-    org = Organisation.get(id=org_id)
+    records = list(unique_everseen(records, key=lambda t: t.funding_record.id))
+    org = Organisation.get(org_id)
     client_id = org.orcid_client_id
     api = orcid_client.MemberAPI(org, user)
 
@@ -560,7 +560,7 @@ def create_or_update_funding(user, org_id, records, *args, **kwargs):
 
         taken_put_codes = {
             r.record.funding_invitees.put_code
-            for r in records if r.record.funding_invitees.put_code
+            for r in records if r.funding_record.funding_invitees.put_code
         }
 
         def match_put_code(records, record, funding_invitees):
@@ -588,12 +588,12 @@ def create_or_update_funding(user, org_id, records, *args, **kwargs):
                     break
 
         for task_by_user in records:
-            fr = task_by_user.record
-            fi = task_by_user.record.funding_invitees
+            fr = task_by_user.funding_record
+            fi = task_by_user.funding_record.funding_invitees
             match_put_code(fundings, fr, fi)
 
         for task_by_user in records:
-            fi = task_by_user.record.funding_invitees
+            fi = task_by_user.funding_record.funding_invitees
 
             try:
                 put_code, orcid, created = api.create_or_update_funding(task_by_user)
@@ -606,9 +606,10 @@ def create_or_update_funding(user, org_id, records, *args, **kwargs):
 
             except Exception as ex:
                 logger.exception(f"For {user} encountered exception")
-                exception_msg = ""
-                if ex and ex.body:
+                if ex and hasattr(ex, "body"):
                     exception_msg = json.loads(ex.body)
+                else:
+                    exception_msg = str(ex)
                 fi.add_status_line(f"Exception occured processing the record: {exception_msg}.")
                 fr.add_status_line(
                     f"Error processing record. Fix and reset to enable this record to be processed: {exception_msg}."
@@ -1507,8 +1508,8 @@ def process_funding_records(max_rows=20):
     for (task_id, org_id, record_id, user), tasks_by_user in groupby(tasks, lambda t: (
             t.id,
             t.org_id,
-            t.record.id,
-            t.record.funding_invitees.user,)):
+            t.funding_record.id,
+            t.funding_record.funding_invitees.user,)):
         """If we have the token associated to the user then update the funding record, otherwise send him an invite"""
         if (user.id is None or user.orcid is None or not OrcidToken.select().where(
             (OrcidToken.user_id == user.id) & (OrcidToken.org_id == org_id)

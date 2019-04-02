@@ -179,7 +179,7 @@ def test_send_work_funding_peer_review_invitation(app, mocker):
     UserOrg.create(user=u, org=org)
     task = Task.create(org=org, task_type=1)
     fr = FundingRecord.create(task=task, title="xyz", type="Award")
-    FundingInvitee.create(funding_record=fr.id, email=email, first_name="Alice", last_name="Bob")
+    FundingInvitee.create(record=fr, email=email, first_name="Alice", last_name="Bob")
 
     server_name = app.config.get("SERVER_NAME")
     app.config["SERVER_NAME"] = "abc.orcidhub.org.nz"
@@ -466,17 +466,17 @@ def test_create_or_update_funding(app, mocker):
         is_active=True)
 
     FundingInvitee.create(
-        funding_record=fr,
+        record=fr,
         first_name="Test",
         email="test1234456@mailinator.com",
         visibility="PUBLIC",
         orcid="123")
 
     ExternalId.create(
-        funding_record=fr, type="Test_type", value="Test_value", url="Test", relationship="SELF")
+        record=fr, type="Test_type", value="Test_value", url="Test", relationship="SELF")
 
     FundingContributor.create(
-        funding_record=fr, orcid="1213", role="LEAD", name="Contributor", email="contributor@mailinator.com")
+        record=fr, orcid="1213", role="LEAD", name="Contributor", email="contributor@mailinator.com")
 
     UserInvitation.create(
         invitee=u,
@@ -490,7 +490,7 @@ def test_create_or_update_funding(app, mocker):
         user=u, org=org, scope="/read-limited,/activities/update", access_token="Test_token")
 
     utils.process_funding_records()
-    funding_invitees = FundingInvitee.get(orcid=12344)
+    funding_invitees = FundingInvitee.get(orcid="12344")
     assert 12399 == funding_invitees.put_code
     assert "12344" == funding_invitees.orcid
 

@@ -181,14 +181,15 @@ def models(testdb):
         is_active=False,
         status="Test_%d" % i) for i in range(10))).execute()
 
+    record = FundingRecord.get()
     FundingContributor.insert_many((dict(
-        funding_record=FundingRecord.get(id=1),
+        record=record,
         orcid="123112311231%d" % i,
         name="Test_%d" % i,
         role="Test_%d" % i) for i in range(10))).execute()
 
     FundingInvitee.insert_many((dict(
-        funding_record=FundingRecord.get(id=1),
+        record=record,
         orcid="123112311231%d" % i,
         first_name="Test_%d" % i,
         last_name="Test_%d" % i,
@@ -199,14 +200,15 @@ def models(testdb):
         email="Test_%d" % i) for i in range(10))).execute()
 
     ExternalId.insert_many((dict(
-        funding_record=FundingRecord.get(id=1),
+        record=record,
         type="Test_%d" % i,
         value="Test_%d" % i,
         url="Test_%d" % i,
         relationship="Test_%d" % i) for i in range(10))).execute()
 
+    task = Task.get()
     PeerReviewRecord.insert_many((dict(
-        task=Task.get(id=1),
+        task=task,
         review_group_id="issn:1212_%d" % i,
         reviewer_role="reviewer_%d" % i,
         review_url="xyz_%d" % i,
@@ -230,15 +232,16 @@ def models(testdb):
         convening_org_disambiguation_source="1212_%d" % i,
         is_active=False) for i in range(10))).execute()
 
+    record = PeerReviewRecord.get()
     PeerReviewExternalId.insert_many((dict(
-        record=PeerReviewRecord.get(id=1),
+        record=record,
         type="Test1_%d" % i,
         value="Test1_%d" % i,
         url="Test1_%d" % i,
         relationship="Test1_%d" % i) for i in range(10))).execute()
 
     PeerReviewInvitee.insert_many((dict(
-        record=PeerReviewRecord.get(id=1),
+        record=record,
         orcid="1231123112311%d" % i,
         first_name="Test1_%d" % i,
         last_name="Test1_%d" % i,
@@ -249,7 +252,7 @@ def models(testdb):
         email="Test1_%d" % i) for i in range(10))).execute()
 
     WorkRecord.insert_many((dict(
-        task=Task.get(id=1),
+        task=task,
         title="Test_%d" % i,
         sub_title="Test_%d" % i,
         translated_title="Test_%d" % i,
@@ -265,22 +268,23 @@ def models(testdb):
         is_active=False,
         status="Test_%d" % i) for i in range(10))).execute()
 
+    work_record = WorkRecord.get()
     WorkContributor.insert_many((dict(
-        work_record=WorkRecord.get(id=1),
+        work_record=work_record,
         orcid="123112311231%d" % i,
         name="Test_%d" % i,
         contributor_sequence="%d" % i,
         role="Test_%d" % i) for i in range(10))).execute()
 
     WorkExternalId.insert_many((dict(
-        work_record=WorkRecord.get(id=1),
+        work_record=work_record,
         type="Test_%d" % i,
         value="Test_%d" % i,
         url="Test_%d" % i,
         relationship="Test_%d" % i) for i in range(10))).execute()
 
     WorkInvitee.insert_many((dict(
-        work_record=WorkRecord.get(id=1),
+        work_record=work_record,
         orcid="123112311231%d" % i,
         first_name="Test_%d" % i,
         last_name="Test_%d" % i,
