@@ -2070,8 +2070,8 @@ def test_edit_record(request_ctx):
                 f"/section/{user.id}/RUR/new",
                 method="POST",
                 data={
-                    "url_name": "xyz",
-                    "url_value": "https://www.xyz.com",
+                    "name": "xyz",
+                    "value": "https://www.xyz.com",
                     "visibility": "PUBLIC",
                     "display_index": "FIRST",
                 }) as ctx:
@@ -2579,8 +2579,8 @@ def test_reset_all(request_ctx):
         last_name="Test",
         email="test1234456@mailinator.com",
         visibility="PUBLIC",
-        url_name="url name",
-        url_value="https://www.xyz.com",
+        name="url name",
+        value="https://www.xyz.com",
         display_index=0)
 
     with request_ctx("/reset_all", method="POST") as ctxx:
@@ -3666,13 +3666,13 @@ def test_researcher_url(client):
   "records": [
     {
       "display-index": 0, "email": "xyzzz@mailinator.com", "first-name": "sdksdsd", "last-name": "sds1",
-      "orcid": "0000-0001-6817-9711", "put-code": 43959, "url-name": "xyzurl",
-      "url-value": "https://fdhfdasa112j.com", "visibility": "PUBLIC"
+      "orcid": "0000-0001-6817-9711", "put-code": 43959, "name": "xyzurl",
+      "value": "https://fdhfdasa112j.com", "visibility": "PUBLIC"
     },
     {
       "display-index": 10, "email": "dsjdh11222@mailinator.com", "first-name": "sdksasadsd",
-      "last-name": "sds1", "put-code": null, "orcid": null, "url-name": "xyzurl",
-      "url-value": "https://fdhfdasa112j.com", "visibility": "PUBLIC"
+      "last-name": "sds1", "put-code": null, "orcid": null, "name": "xyzurl",
+      "value": "https://fdhfdasa112j.com", "visibility": "PUBLIC"
     }]}"""),
                 "researcher_url_001.json",
             ),
@@ -3687,3 +3687,59 @@ def test_researcher_url(client):
     assert resp.status_code == 200
     assert b'xyzzz@mailinator.com' in resp.data
     assert b'https://fdhfdasa112j.com' in resp.data
+
+    resp = client.post(
+        "/load/researcher/urls",
+        data={
+            "file_": (
+                BytesIO(resp.data),
+                "researcher_url_002.json",
+            ),
+        },
+        follow_redirects=True)
+    assert resp.status_code == 200
+    assert b"https://fdhfdasa112j.com" in resp.data
+    task = Task.get(filename="researcher_url_002.json")
+    assert task.records.count() == 2
+
+    resp = client.get(f"/admin/researcherurlrecord/export/csv/?task_id={task.id}")
+    assert resp.status_code == 200
+    assert b'xyzzz@mailinator.com' in resp.data
+    assert b'https://fdhfdasa112j.com' in resp.data
+
+    resp = client.post(
+        "/load/researcher/urls",
+        data={
+            "file_": (
+                BytesIO(resp.data),
+                "researcher_url_003.csv",
+            ),
+        },
+        follow_redirects=True)
+    assert resp.status_code == 200
+    assert b"https://fdhfdasa112j.com" in resp.data
+    task = Task.get(filename="researcher_url_002.json")
+    assert task.records.count() == 2
+
+    url = quote(f"/admin/researcherurlrecord/?task_id={task.id}", safe='')
+    resp = client.post(
+        f"/admin/researcherurlrecord/new/?url={url}",
+        data=dict(
+            name="URL NAME ABC123",
+            value="URL VALUE",
+            display_index="1234",
+            email="test@test.com",
+            first_name="FN",
+            last_name="LN",
+            orcid="0000-0001-8228-7153",
+        ),
+        follow_redirects=True)
+    assert Task.get(task.id).records.count() == 3
+
+    r = ResearcherUrlRecord.get(name="URL NAME ABC123")
+    resp = client.post(
+            f"/admin/researcherurlrecord/edit/?id={r.id}&url={url}",
+            data=dict(value="http://test.test.test.com/ABC123"),
+            follow_redirects=True)
+    assert resp.status_code == 200
+    assert b"http://test.test.test.com/ABC123" in resp.data

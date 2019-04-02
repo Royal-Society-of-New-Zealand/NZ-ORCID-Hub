@@ -131,8 +131,8 @@ def models(testdb):
         last_name="Test_%d" % i,
         email="Test_%d" % i,
         orcid="123112311231%d" % i,
-        url_name="Test_%d" % i,
-        url_value="Test_%d" % i,
+        name="Test_%d" % i,
+        value="Test_%d" % i,
         visibility="Test_%d" % i,
         display_index=i) for i in range(10))).execute()
 

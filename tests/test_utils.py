@@ -658,8 +658,8 @@ def test_create_or_update_researcher_url(app, mocker):
         last_name="Test",
         email="test1234456@mailinator.com",
         visibility="PUBLIC",
-        url_name="url name",
-        url_value="https://www.xyz.com",
+        name="url name",
+        value="https://www.xyz.com",
         display_index=0)
 
     UserInvitation.create(

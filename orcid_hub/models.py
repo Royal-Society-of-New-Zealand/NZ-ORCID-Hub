@@ -2392,16 +2392,18 @@ class PeerReviewRecord(RecordModel):
 class ResearcherUrlRecord(RecordModel):
     """Researcher Url record loaded from Json file for batch processing."""
 
+    visibility_choices = [(v, v.replace('_', ' ').title()) for v in VISIBILITIES]
+
     task = ForeignKeyField(Task, related_name="researcher_url_records", on_delete="CASCADE")
-    url_name = CharField(max_length=255)
-    url_value = CharField(max_length=255)
+    name = CharField(max_length=255, verbose_name="URL Name")
+    value = CharField(max_length=255, verbose_name="URL Value")
     display_index = IntegerField(null=True)
-    email = CharField(max_length=120)
-    first_name = CharField(max_length=120)
-    last_name = CharField(max_length=120)
+    email = CharField(max_length=120, null=True)
+    first_name = CharField(max_length=120, null=True)
+    last_name = CharField(max_length=120, null=True)
     orcid = OrcidIdField(null=True)
     put_code = IntegerField(null=True)
-    visibility = CharField(null=True, max_length=100)
+    visibility = CharField(null=True, max_length=100, choices=visibility_choices)
     is_active = BooleanField(
         default=False, help_text="The record is marked for batch processing", null=True)
     processed_at = DateTimeField(null=True)
@@ -2499,8 +2501,8 @@ class ResearcherUrlRecord(RecordModel):
 
                     rr = cls(
                         task=task,
-                        url_name=url_name,
-                        url_value=url_value,
+                        name=url_name,
+                        value=url_value,
                         display_index=val(row, 2),
                         email=email,
                         first_name=first_name,
@@ -2523,6 +2525,7 @@ class ResearcherUrlRecord(RecordModel):
     def load_from_json(cls, source, filename=None, org=None, task=None, skip_schema_validation=False):
         """Load data from JSON file or a string."""
         data = load_yaml_json(filename=filename, source=source)
+        # breakpoint()
         if not skip_schema_validation:
             jsonschema.validate(data, researcher_url_task_schema)
         records = data["records"] if isinstance(data, dict) else data
@@ -2537,8 +2540,8 @@ class ResearcherUrlRecord(RecordModel):
 
                 for r in records:
 
-                    url_name = r.get("url-name")
-                    url_value = r.get("url", "value") or r.get("url-value")
+                    url_name = r.get("name") or r.get("url-name")
+                    url_value = r.get("value") or r.get("url", "value") or r.get("url-value")
                     display_index = r.get("display-index")
                     email = r.get("email")
                     first_name = r.get("first-name")
@@ -2549,8 +2552,8 @@ class ResearcherUrlRecord(RecordModel):
 
                     cls.create(
                         task=task,
-                        url_name=url_name,
-                        url_value=url_value,
+                        name=url_name,
+                        value=url_value,
                         display_index=display_index,
                         email=email.lower(),
                         first_name=first_name,

@@ -337,8 +337,8 @@ class ResearcherUrlOtherNameKeywordForm(FlaskForm):
 class ResearcherUrlForm(ResearcherUrlOtherNameKeywordForm):
     """User/researcher Url detail form."""
 
-    url_name = StringField("Url Name", [validators.required()])
-    url_value = StringField("Url Value", [validators.required()])
+    name = StringField("Url Name", [validators.required()])
+    value = StringField("Url Value", [validators.required()])
 
 
 class OtherNameKeywordForm(ResearcherUrlOtherNameKeywordForm):

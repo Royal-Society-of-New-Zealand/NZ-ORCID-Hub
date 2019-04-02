@@ -1630,7 +1630,7 @@ class AffiliationRecordAdmin(RecordModelView):
 class ResearcherUrlRecordAdmin(AffiliationRecordAdmin):
     """Researcher Url record model view."""
 
-    column_searchable_list = ("url_name", "first_name", "last_name", "email",)
+    column_searchable_list = ("name", "first_name", "last_name", "email",)
 
 
 class OtherNameRecordAdmin(AffiliationRecordAdmin):
@@ -2255,7 +2255,7 @@ def edit_record(user_id, section_type, put_code=None):
                 elif section_type in ["RUR", "ONR", "KWR"]:
                     data = dict(visibility=_data.get("visibility"), display_index=_data.get("display-index"))
                     if section_type == "RUR":
-                        data.update(dict(url_name=_data.get("url-name"), url_value=_data.get("url", "value")))
+                        data.update(dict(name=_data.get("url-name"), value=_data.get("url", "value")))
                     else:
                         data.update(dict(content=_data.get("content")))
                 else:
