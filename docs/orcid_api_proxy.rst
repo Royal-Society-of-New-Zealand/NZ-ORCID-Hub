@@ -14,15 +14,15 @@ features such as:
  - Fault handling
 
 
-ORCID Hub provides direct access to the user access tokens. And using the access tokens, you
-can directly access ORCID API. For that first you would need to retrieve a client credential access token
-and with it retrieve from ORCID Hub, so called, the 3-legged authentication access token, which are
-stored at ORCID Hub database:
+THE NZ ORCID Hub provides direct access to user access tokens. Using these access tokens, you
+can directly access ORCID's API. First, you need to obtain a client credential access token 
+and use the NZ ORCID Hub to do the 3-legged authentication dance to obtain access tokens for users, which are then
+stored at ORCID Hub database. These tokens are used to access users' ORCID records:
 
 .. image:: images/orcid_api_directly.png
 
-However, the preferred way is using the ORCID API Proxy. To access the ORCID API Proxy, you need to use
-API access tokens. Not like with the previous method, you would need to acquire only a client credential token, which you could use to access all user profiles, who are affiliated with your organisation.
+However, an easier way is to use the NZ ORCID Hub's API Proxy. To access the ORCID API Proxy, you need to use
+API access tokens. Unlike the previous method, you need only aquire a client credential token, which you can use to access all user profiles, for users who are affiliated with your organisation.
 
 .. image:: images/orcid_api_proxy.png
 
