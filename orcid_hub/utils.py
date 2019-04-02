@@ -442,7 +442,7 @@ def create_or_update_work(user, org_id, records, *args, **kwargs):
 
 def create_or_update_peer_review(user, org_id, records, *args, **kwargs):
     """Create or update peer review record of a user."""
-    records = list(unique_everseen(records, key=lambda t: t.peer_review_record.id))
+    records = list(unique_everseen(records, key=lambda t: t.record.id))
     org = Organisation.get(id=org_id)
     client_id = org.orcid_client_id
     api = orcid_client.MemberAPI(org, user)
@@ -465,11 +465,11 @@ def create_or_update_peer_review(user, org_id, records, *args, **kwargs):
                     peer_reviews.append(ps)
 
         taken_put_codes = {
-            r.peer_review_record.peer_review_invitee.put_code
-            for r in records if r.peer_review_record.peer_review_invitee.put_code
+            r.record.peer_review_invitee.put_code
+            for r in records if r.record.peer_review_invitee.put_code
         }
 
-        def match_put_code(records, peer_review_record, peer_review_invitee, taken_external_id_values):
+        def match_put_code(records, record, peer_review_invitee, taken_external_id_values):
             """Match and assign put-code to a single peer review record and the existing ORCID records."""
             if peer_review_invitee.put_code:
                 return
@@ -484,26 +484,26 @@ def create_or_update_peer_review(user, org_id, records, *args, **kwargs):
                     continue
 
                 if (r.get("review-group-id")
-                        and r.get("review-group-id") == peer_review_record.review_group_id
+                        and r.get("review-group-id") == record.review_group_id
                         and external_id_value in taken_external_id_values):  # noqa: E127
                     peer_review_invitee.put_code = put_code
                     peer_review_invitee.save()
                     taken_put_codes.add(put_code)
                     app.logger.debug(
                         f"put-code {put_code} was asigned to the peer review record "
-                        f"(ID: {peer_review_record.id}, Task ID: {peer_review_record.task_id})")
+                        f"(ID: {record.id}, Task ID: {record.task_id})")
                     break
 
         for task_by_user in records:
-            pr = task_by_user.peer_review_record
+            pr = task_by_user.record
             pi = pr.peer_review_invitee
 
-            external_ids = PeerReviewExternalId.select().where(PeerReviewExternalId.peer_review_record_id == pr.id)
+            external_ids = PeerReviewExternalId.select().where(PeerReviewExternalId.record_id == pr.id)
             taken_external_id_values = {ei.value for ei in external_ids if ei.value}
             match_put_code(peer_reviews, pr, pi, taken_external_id_values)
 
         for task_by_user in records:
-            pr = task_by_user.peer_review_record
+            pr = task_by_user.record
             pi = pr.peer_review_invitee
 
             try:
@@ -1350,7 +1350,7 @@ def process_peer_review_records(max_rows=20):
                 | (PeerReviewInvitee.status.contains("sent").__invert__())))).join(
                     PeerReviewRecord, on=(Task.id == PeerReviewRecord.task_id)).join(
                         PeerReviewInvitee,
-                        on=(PeerReviewRecord.id == PeerReviewInvitee.peer_review_record_id)).join(
+                        on=(PeerReviewRecord.id == PeerReviewInvitee.record_id)).join(
                             User,
                             JOIN.LEFT_OUTER,
                             on=((User.email == PeerReviewInvitee.email)
@@ -1374,11 +1374,11 @@ def process_peer_review_records(max_rows=20):
                              & (OrcidToken.org_id == Organisation.id)
                              & (OrcidToken.scope.contains("/activities/update")))).limit(max_rows))
 
-    for (task_id, org_id, peer_review_record_id, user), tasks_by_user in groupby(tasks, lambda t: (
+    for (task_id, org_id, record_id, user), tasks_by_user in groupby(tasks, lambda t: (
             t.id,
             t.org_id,
-            t.peer_review_record.id,
-            t.peer_review_record.peer_review_invitee.user,)):
+            t.record.id,
+            t.record.peer_review_invitee.user,)):
         """If we have the token associated to the user then update the peer record, otherwise send him an invite"""
         if (user.id is None or user.orcid is None or not OrcidToken.select().where(
             (OrcidToken.user_id == user.id) & (OrcidToken.org_id == org_id)
@@ -1389,9 +1389,9 @@ def process_peer_review_records(max_rows=20):
                     lambda t: (
                         t.created_by,
                         t.org,
-                        t.peer_review_record.peer_review_invitee.email,
-                        t.peer_review_record.peer_review_invitee.first_name,
-                        t.peer_review_record.peer_review_invitee.last_name, )
+                        t.record.peer_review_invitee.email,
+                        t.record.peer_review_invitee.first_name,
+                        t.record.peer_review_invitee.last_name, )
             ):  # noqa: E501
                 email = k[2]
                 token_expiry_in_sec = 2600000
@@ -1424,17 +1424,17 @@ def process_peer_review_records(max_rows=20):
         else:
             create_or_update_peer_review(user, org_id, tasks_by_user)
         task_ids.add(task_id)
-        peer_review_ids.add(peer_review_record_id)
+        peer_review_ids.add(record_id)
 
-    for peer_review_record in PeerReviewRecord.select().where(PeerReviewRecord.id << peer_review_ids):
+    for record in PeerReviewRecord.select().where(PeerReviewRecord.id << peer_review_ids):
         # The Peer Review record is processed for all invitees
         if not (PeerReviewInvitee.select().where(
-                PeerReviewInvitee.peer_review_record_id == peer_review_record.id,
+                PeerReviewInvitee.record_id == record.id,
                 PeerReviewInvitee.processed_at.is_null()).exists()):
-            peer_review_record.processed_at = datetime.utcnow()
-            if not peer_review_record.status or "error" not in peer_review_record.status:
-                peer_review_record.add_status_line("Peer Review record is processed.")
-            peer_review_record.save()
+            record.processed_at = datetime.utcnow()
+            if not record.status or "error" not in record.status:
+                record.add_status_line("Peer Review record is processed.")
+            record.save()
 
     for task in Task.select().where(Task.id << task_ids):
         # The task is completed (Once all records are processed):
@@ -2063,10 +2063,10 @@ def process_tasks(max_rows=20):
                 current_count = current_count + work_record.invitees.select().where(
                     WorkInvitee.processed_at.is_null(False)).distinct().count()
         elif task_type == TaskType.PEER_REVIEW:
-            for peer_review_record in current_task.peer_review_records.select():
-                total_count = total_count + peer_review_record.invitees.select().distinct().count()
+            for record in current_task.records.select():
+                total_count = total_count + record.invitees.select().distinct().count()
 
-                current_count = current_count + peer_review_record.invitees.select().where(
+                current_count = current_count + record.invitees.select().where(
                     PeerReviewInvitee.processed_at.is_null(False)).distinct().count()
 
     tasks = Task.select().where(

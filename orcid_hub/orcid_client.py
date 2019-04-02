@@ -224,7 +224,7 @@ class MemberAPI(MemberAPIV20Api):
 
     def create_or_update_peer_review(self, task_by_user, *args, **kwargs):
         """Create or update peer review record of a user."""
-        pr = task_by_user.peer_review_record
+        pr = task_by_user.record
         pi = pr.peer_review_invitee
 
         rec = PeerReview()    # noqa: F405
@@ -305,7 +305,7 @@ class MemberAPI(MemberAPIV20Api):
 
         external_id_list = []
         external_ids = PeerReviewExternalId.select().where(
-            PeerReviewExternalId.peer_review_record_id == pr.id).order_by(PeerReviewExternalId.id)
+            PeerReviewExternalId.record_id == pr.id).order_by(PeerReviewExternalId.id)
 
         for exi in external_ids:
             external_id_type = exi.type

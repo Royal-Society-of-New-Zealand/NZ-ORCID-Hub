@@ -20,6 +20,7 @@ from flask_admin.actions import action
 from flask_admin.babel import gettext
 from flask_admin.base import expose
 from flask_admin.contrib.peewee import ModelView, filters
+from flask_admin.contrib.peewee.form import CustomModelConverter
 from flask_admin.contrib.peewee.view import save_inline
 from flask_admin.form import SecureForm
 from flask_admin.helpers import get_redirect_target
@@ -32,6 +33,7 @@ from playhouse.shortcuts import model_to_dict
 from werkzeug.utils import secure_filename
 from wtforms.fields import BooleanField
 from urllib.parse import parse_qs, urlparse
+from wtforms import validators
 
 from orcid_api.rest import ApiException
 
@@ -167,6 +169,24 @@ def orcid_link_formatter(view, context, model, name):
     return Markup(f'<a href="{ORCID_BASE_URL}{model.orcid}" target="_blank">{model.orcid}</a>')
 
 
+class AppCustomModelConverter(CustomModelConverter):
+    """Customized field mapping to revove the extra validator.
+    This is a workaround for https://github.com/coleifer/wtf-peewee/issues/48.
+    TODO: remove it as soon as the issue gets resoved.
+    """
+
+    def convert(self, model, field, field_args):
+        """Remove the 'Required' validator if the model field is optional."""
+        fi = super().convert(model, field, field_args)
+        if field.null and field.choices:
+            for v in fi.field.kwargs.get("validators", []):
+                if isinstance(v, validators.Required):
+                    fi.field.kwargs["validators"].remove(v)
+                    break
+
+        return fi
+
+
 class AppModelView(ModelView):
     """ModelView customization."""
 
@@ -202,6 +222,7 @@ class AppModelView(ModelView):
     form_overrides = dict(start_date=PartialDateField, end_date=PartialDateField)
     form_widget_args = {c: {"readonly": True} for c in column_exclude_list}
     form_excluded_columns = ["created_at", "updated_at", "created_by", "updated_by"]
+    model_form_converter = AppCustomModelConverter
 
     def __init__(self, model=None, *args, **kwargs):
         """Pick the model based on the ModelView class name assuming it is ModelClass + "Admin"."""
@@ -698,7 +719,7 @@ to the best of your knowledge, correct!""")
                 elif self.model == PeerReviewRecord:
                     count = PeerReviewInvitee.update(
                         processed_at=None, status=status).where(
-                        PeerReviewInvitee.peer_review_record.in_(ids)).execute()
+                        PeerReviewInvitee.record.in_(ids)).execute()
                 elif self.model in [AffiliationRecord, ResearcherUrlRecord, OtherNameRecord, KeywordRecord]:
                     # Delete the userInvitation token for selected reset items.
                     for user_invitation in UserInvitation.select().where(UserInvitation.email.in_(
@@ -832,8 +853,8 @@ class WorkExternalIdAdmin(ExternalIdModelView):
 class PeerReviewExternalIdAdmin(ExternalIdModelView):
     """PeerReviewExternalId model view."""
 
-    list_template = "peer_review_externalid_invitees_list.html"
-    column_exclude_list = ("peer_review_record", )
+    list_template = "peer_review_externalid_invitee_list.html"
+    column_exclude_list = ("record", )
 
 
 class RecordChildModeAdmin(AppModelView):
@@ -955,11 +976,11 @@ class InviteeModelAdmin(RecordChildModeAdmin):
                         processed_at=None, status=status).where(
                         WorkRecord.is_active, WorkRecord.id == work_record_id).execute()
                 elif self.model == PeerReviewInvitee:
-                    peer_review_record_id = self.model.select().where(
-                        self.model.id.in_(ids))[0].peer_review_record_id
+                    record_id = self.model.select().where(
+                        self.model.id.in_(ids))[0].record_id
                     PeerReviewRecord.update(
                         processed_at=None, status=status).where(
-                        PeerReviewRecord.is_active, PeerReviewRecord.id == peer_review_record_id).execute()
+                        PeerReviewRecord.is_active, PeerReviewRecord.id == record_id).execute()
             except Exception as ex:
                 db.rollback()
                 flash(f"Failed to activate the selected records: {ex}")
@@ -976,21 +997,22 @@ class InviteeModelAdmin(RecordChildModeAdmin):
 class WorkInviteeAdmin(InviteeModelAdmin):
     """Work invitees record model view."""
 
-    list_template = "work_invitees_list.html"
+    list_template = "work_invitee_list.html"
     column_exclude_list = ("work_record", )
 
 
 class FundingInviteeAdmin(InviteeModelAdmin):
     """Funding invitees record model view."""
 
-    list_template = "invitees_list.html"
+    list_template = "invitee_list.html"
 
 
 class PeerReviewInviteeAdmin(InviteeModelAdmin):
     """Peer Review invitee record model view."""
 
-    list_template = "peer_review_externalid_invitees_list.html"
-    column_exclude_list = ("peer_review_record", )
+    # list_template = "peer_review_externalid_invitee_list.html"
+    list_template = "invitee_list.html"
+    # column_exclude_list = ("record", )
 
 
 class CompositeRecordModelView(RecordModelView):
@@ -1071,7 +1093,7 @@ class CompositeRecordModelView(RecordModelView):
         vals = []
         for c in self._export_columns:
             if c[0] == "invitees":
-                invitees_list = []
+                invitee_list = []
 
                 for f in row.invitees:
                     invitees_rec = {}
@@ -1083,8 +1105,8 @@ class CompositeRecordModelView(RecordModelView):
                     invitees_rec['put-code'] = int(self.get_export_value(f, 'put_code')) if \
                         self.get_export_value(f, 'put_code') else None
                     invitees_rec['visibility'] = self.get_export_value(f, 'visibility')
-                    invitees_list.append(invitees_rec)
-                vals.append(invitees_list)
+                    invitee_list.append(invitees_rec)
+                vals.append(invitee_list)
             elif c[0] in ['review_completion_date', 'start_date', 'end_date', 'publication_date']:
                 vals.append(PartialDate.create(self.get_export_value(row, c[0])).as_orcid_dict()
                             if self.get_export_value(row, c[0]) else None)
@@ -1480,6 +1502,7 @@ class WorkRecordAdmin(CompositeRecordModelView):
 class PeerReviewRecordAdmin(CompositeRecordModelView):
     """Peer Review record model view."""
 
+    can_create = True
     column_searchable_list = ("review_group_id", )
     list_template = "peer_review_record_list.html"
     form_overrides = dict(review_completion_date=PartialDateField)
@@ -1548,10 +1571,10 @@ class PeerReviewRecordAdmin(CompositeRecordModelView):
         ).join(
             PeerReviewExternalId,
             JOIN.LEFT_OUTER,
-            on=(PeerReviewExternalId.peer_review_record_id == self.model.id)).join(
+            on=(PeerReviewExternalId.record_id == self.model.id)).join(
                 PeerReviewInvitee,
                 JOIN.LEFT_OUTER,
-                on=(PeerReviewInvitee.peer_review_record_id == self.model.id)).naive()
+                on=(PeerReviewInvitee.record_id == self.model.id)).naive()
 
 
 class AffiliationRecordAdmin(RecordModelView):
@@ -1973,15 +1996,15 @@ def reset_all():
                     work_record.save()
                     count = count + 1
             elif tt == TaskType.PEER_REVIEW:
-                for peer_review_record in PeerReviewRecord.select().where(PeerReviewRecord.task_id == task_id,
+                for record in PeerReviewRecord.select().where(PeerReviewRecord.task_id == task_id,
                                                                    PeerReviewRecord.is_active == True):    # noqa: E712
-                    peer_review_record.processed_at = None
-                    peer_review_record.status = status
+                    record.processed_at = None
+                    record.status = status
 
                     PeerReviewInvitee.update(
                         processed_at=None, status=status).where(
-                        PeerReviewInvitee.peer_review_record == peer_review_record.id).execute()
-                    peer_review_record.save()
+                        PeerReviewInvitee.record == record.id).execute()
+                    record.save()
                     count = count + 1
 
         except Exception as ex:

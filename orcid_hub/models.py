@@ -52,6 +52,19 @@ AFFILIATION_TYPES = (
 )
 VISIBILITIES = ["PUBLIC", "PRIVATE", "REGISTERED_ONLY", "LIMITED"]
 FUNDING_TYPES = ["AWARD", "CONTRACT", "GRANT", "SALARY_AWARD"]
+SUBJECT_TYPES = [
+    "ARTISTIC_PERFORMANCE", "BOOK", "BOOK_CHAPTER", "BOOK_REVIEW", "CONFERENCE_ABSTRACT",
+    "CONFERENCE_PAPER", "CONFERENCE_POSTER", "DATA_SET", "DICTIONARY_ENTRY", "DISCLOSURE",
+    "DISSERTATION", "EDITED_BOOK", "ENCYCLOPEDIA_ENTRY", "INVENTION", "JOURNAL_ARTICLE",
+    "JOURNAL_ISSUE", "LECTURE_SPEECH", "LICENSE", "MAGAZINE_ARTICLE", "MANUAL",
+    "NEWSLETTER_ARTICLE", "NEWSPAPER_ARTICLE", "ONLINE_RESOURCE", "OTHER", "PATENT",
+    "REGISTERED_COPYRIGHT", "REPORT", "RESEARCH_TECHNIQUE", "RESEARCH_TOOL", "SPIN_OFF_COMPANY",
+    "STANDARDS_AND_POLICY", "SUPERVISED_STUDENT_PUBLICATION", "TECHNICAL_STANDARD", "TEST",
+    "TRADEMARK", "TRANSLATION", "UNDEFINED", "WEBSITE", "WORKING_PAPER"
+]
+REVIEWER_ROLES = ["CHAIR", "EDITOR", "MEMBER", "ORGANIZER", "REVIEWER"]
+REVIEW_TYPES = ["EVALUATION", "REVIEW"]
+SUBJECT_EXTERNAL_ID_RELATIONSHIPS = ["PART_OF", "SELF"]
 
 
 class ModelException(Exception):
@@ -1784,7 +1797,7 @@ class FundingRecord(RecordModel):
                     disambiguation_source = r.get("organization", "disambiguated-organization",
                                                   "disambiguation-source")
 
-                    funding_record = cls.create(
+                    record = cls.create(
                         task=task,
                         title=title,
                         translated_title=translated_title,
@@ -1815,7 +1828,7 @@ class FundingRecord(RecordModel):
                             visibility = invitee.get("visibility")
 
                             FundingInvitee.create(
-                                funding_record=funding_record,
+                                record=record,
                                 identifier=identifier,
                                 email=email.lower(),
                                 first_name=first_name,
@@ -1836,7 +1849,7 @@ class FundingRecord(RecordModel):
                             role = contributor.get("contributor-attributes", "contributor-role")
 
                             FundingContributor.create(
-                                funding_record=funding_record,
+                                record=record,
                                 orcid=orcid_id,
                                 name=name,
                                 email=email,
@@ -1850,7 +1863,7 @@ class FundingRecord(RecordModel):
                             url = external_id.get("external-id-url", "value")
                             relationship = external_id.get("external-id-relationship")
                             ExternalId.create(
-                                funding_record=funding_record,
+                                record=record,
                                 type=type,
                                 value=value,
                                 url=url,
@@ -1872,18 +1885,26 @@ class FundingRecord(RecordModel):
 class PeerReviewRecord(RecordModel):
     """Peer Review record loaded from Json file for batch processing."""
 
+    subject_type_choices = [(v, v.replace('_', ' ').title()) for v in SUBJECT_TYPES]
+    reviewer_role_choices = [(v, v.title()) for v in REVIEWER_ROLES]
+    review_type_choices = [(v, v.title()) for v in REVIEW_TYPES]
+    subject_external_id_relationship_choices = [(v, v.replace('_', ' ').title())
+                                                for v in SUBJECT_EXTERNAL_ID_RELATIONSHIPS]
+
     task = ForeignKeyField(Task, related_name="peer_review_records", on_delete="CASCADE")
     review_group_id = CharField(max_length=255)
-    reviewer_role = CharField(null=True, max_length=255)
+    reviewer_role = CharField(
+        null=True, max_length=255, choices=reviewer_role_choices)
     review_url = CharField(null=True, max_length=255)
-    review_type = CharField(null=True, max_length=255)
+    review_type = CharField(null=True, max_length=255, default=None, choices=review_type_choices)
     review_completion_date = PartialDateField(null=True)
     subject_external_id_type = CharField(null=True, max_length=255)
     subject_external_id_value = CharField(null=True, max_length=255)
     subject_external_id_url = CharField(null=True, max_length=255)
-    subject_external_id_relationship = CharField(null=True, max_length=255)
+    subject_external_id_relationship = CharField(
+        null=True, max_length=255, default=None, choices=subject_external_id_relationship_choices)
     subject_container_name = CharField(null=True, max_length=255)
-    subject_type = CharField(null=True, max_length=80)
+    subject_type = CharField(max_length=80, choices=subject_type_choices, null=True, default=None)
     subject_name_title = CharField(null=True, max_length=255)
     subject_name_subtitle = CharField(null=True, max_length=255)
     subject_name_translated_title_lang_code = CharField(null=True, max_length=10)
@@ -1899,6 +1920,16 @@ class PeerReviewRecord(RecordModel):
         default=False, help_text="The record is marked for batch processing", null=True)
     processed_at = DateTimeField(null=True)
     status = TextField(null=True, help_text="Record processing status.")
+
+    @property
+    def title(self):
+        """Title of the record."""
+        return self.review_group_id
+
+    @property
+    def type(self):
+        """Type of the record."""
+        return self.review_type or self.subject_type or self.subject_external_id_type
 
     def key_name(self, name):
         """Map key-name to a model class key name for export."""
@@ -2087,11 +2118,11 @@ class PeerReviewRecord(RecordModel):
 
                     for external_id in set(tuple(r["external_id"].items()) for r in records if
                                            r["external_id"]["type"] and r["external_id"]["value"]):
-                        ei = PeerReviewExternalId(peer_review_record=prr, **dict(external_id))
+                        ei = PeerReviewExternalId(record=prr, **dict(external_id))
                         ei.save()
 
                     for invitee in set(tuple(r["invitee"].items()) for r in records if r["invitee"]["email"]):
-                        rec = PeerReviewInvitee(peer_review_record=prr, **dict(invitee))
+                        rec = PeerReviewInvitee(record=prr, **dict(invitee))
                         validator = ModelValidator(rec)
                         if not validator.validate():
                             raise ModelException(f"Invalid invitee record: {validator.errors}")
@@ -2224,7 +2255,7 @@ class PeerReviewRecord(RecordModel):
                         "convening-organization") and peer_review_data.get("convening-organization").get(
                         "disambiguated-organization") else None
 
-                    peer_review_record = cls.create(
+                    record = cls.create(
                         task=task,
                         review_group_id=review_group_id,
                         reviewer_role=reviewer_role,
@@ -2261,7 +2292,7 @@ class PeerReviewRecord(RecordModel):
                             visibility = get_val(invitee, "visibility")
 
                             PeerReviewInvitee.create(
-                                peer_review_record=peer_review_record,
+                                record=record,
                                 identifier=identifier,
                                 email=email.lower(),
                                 first_name=first_name,
@@ -2283,7 +2314,7 @@ class PeerReviewRecord(RecordModel):
                                 external_id.get("external-id-url") else None
                             relationship = external_id.get("external-id-relationship")
                             PeerReviewExternalId.create(
-                                peer_review_record=peer_review_record,
+                                record=record,
                                 type=type,
                                 value=value,
                                 url=url,
@@ -3207,7 +3238,7 @@ class InviteeModel(BaseModel):
 class PeerReviewInvitee(InviteeModel):
     """Researcher or Invitee - related to peer review."""
 
-    peer_review_record = ForeignKeyField(
+    record = ForeignKeyField(
         PeerReviewRecord, related_name="invitees", on_delete="CASCADE")
 
     class Meta:  # noqa: D101,D106
@@ -3280,7 +3311,7 @@ class WorkExternalId(ExternalIdModel):
 class PeerReviewExternalId(ExternalIdModel):
     """Peer Review ExternalId loaded for batch processing."""
 
-    peer_review_record = ForeignKeyField(
+    record = ForeignKeyField(
         PeerReviewRecord, related_name="external_ids", on_delete="CASCADE")
 
     class Meta:  # noqa: D101,D106

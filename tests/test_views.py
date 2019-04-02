@@ -2618,7 +2618,7 @@ def test_reset_all(request_ctx):
         assert resp.location.startswith("http://localhost/funding_record_reset_for_batch")
     with request_ctx("/reset_all", method="POST") as ctxx:
         login_user(user, remember=True)
-        request.args = ImmutableMultiDict([('url', 'http://localhost/peer_review_record_reset_for_batch')])
+        request.args = ImmutableMultiDict([('url', 'http://localhost/record_reset_for_batch')])
         request.form = ImmutableMultiDict([('task_id', task3.id)])
         resp = ctxx.app.full_dispatch_request()
         t = Task.get(id=task3.id)
@@ -2626,7 +2626,7 @@ def test_reset_all(request_ctx):
         assert "The record was reset" in rec.status
         assert t.completed_at is None
         assert resp.status_code == 302
-        assert resp.location.startswith("http://localhost/peer_review_record_reset_for_batch")
+        assert resp.location.startswith("http://localhost/record_reset_for_batch")
     with request_ctx("/reset_all", method="POST") as ctxx:
         login_user(user, remember=True)
         request.args = ImmutableMultiDict([('url', 'http://localhost/work_record_reset_for_batch')])
@@ -2796,7 +2796,7 @@ issn:1213199811,REVIEWER,https://alt-url.com,REVIEW,2012-08-01,doi,10.1087/20120
     assert b"peer_review.csv" in resp.data
     assert Task.select().where(Task.task_type == TaskType.PEER_REVIEW).count() == 1
     task = Task.select().where(Task.task_type == TaskType.PEER_REVIEW).first()
-    prr = task.peer_review_records.where(PeerReviewRecord.review_group_id == "issn:1213199811").first()
+    prr = task.records.where(PeerReviewRecord.review_group_id == "issn:1213199811").first()
     assert prr.external_ids.count() == 2
     assert prr.invitees.count() == 2
 

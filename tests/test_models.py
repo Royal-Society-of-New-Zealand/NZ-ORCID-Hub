@@ -231,14 +231,14 @@ def models(testdb):
         is_active=False) for i in range(10))).execute()
 
     PeerReviewExternalId.insert_many((dict(
-        peer_review_record=PeerReviewRecord.get(id=1),
+        record=PeerReviewRecord.get(id=1),
         type="Test1_%d" % i,
         value="Test1_%d" % i,
         url="Test1_%d" % i,
         relationship="Test1_%d" % i) for i in range(10))).execute()
 
     PeerReviewInvitee.insert_many((dict(
-        peer_review_record=PeerReviewRecord.get(id=1),
+        record=PeerReviewRecord.get(id=1),
         orcid="1231123112311%d" % i,
         first_name="Test1_%d" % i,
         last_name="Test1_%d" % i,

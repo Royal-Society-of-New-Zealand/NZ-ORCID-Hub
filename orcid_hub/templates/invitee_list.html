@@ -6,6 +6,7 @@
     {% set record = current_record() %}
   {% endif %}
   {% if record %}
+    {% set task = record.task %}
     <h1>{{record.filename}}</h1>
     <table class="table table-hover table-bordered searchable">
       <tbody>

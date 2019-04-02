@@ -606,14 +606,14 @@ def test_create_or_update_peer_review(app, mocker):
         is_active=True)
 
     PeerReviewInvitee.create(
-        peer_review_record=pr,
+        record=pr,
         first_name="Test",
         email="test1234456@mailinator.com",
         orcid="12344",
         visibility="PUBLIC")
 
     PeerReviewExternalId.create(
-        peer_review_record=pr, type="Test_type", value="122334_different", url="Test", relationship="SELF")
+        record=pr, type="Test_type", value="122334_different", url="Test", relationship="SELF")
 
     UserInvitation.create(
         invitee=u,
@@ -626,7 +626,7 @@ def test_create_or_update_peer_review(app, mocker):
     OrcidToken.create(
         user=u, org=org, scope="/read-limited,/activities/update", access_token="Test_token")
 
-    utils.process_peer_review_records()
+    utils.process_records()
     peer_review_invitees = PeerReviewInvitee.get(orcid=12344)
     assert 12399 == peer_review_invitees.put_code
     assert "12344" == peer_review_invitees.orcid

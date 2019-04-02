@@ -258,25 +258,12 @@ class FundingForm(FlaskForm):
 class PeerReviewForm(FlaskForm):
     """User/researcher Peer review detail form."""
 
-    reviewer_role_choices = [(v, v) for v in ['MEMBER', 'REVIEWER', 'ORGANIZER', 'EDITOR', 'CHAIR', '']]
-    reviewer_role_choices.sort(key=lambda e: e[1])
-
-    review_type_choices = [(v, v) for v in ['REVIEW', 'EVALUATION', '']]
-    review_type_choices.sort(key=lambda e: e[1])
-
-    subject_external_id_relationship_choices = [(v, v.replace('_', ' ').title()) for v in ['PART_OF', 'SELF', '']]
-    subject_external_id_relationship_choices.sort(key=lambda e: e[1])
-
-    subject_type_choices = [(v, v.replace('_', ' ').title()) for v in
-                            ['MANUAL', 'CONFERENCE_PAPER', 'RESEARCH_TECHNIQUE', 'SUPERVISED_STUDENT_PUBLICATION',
-                             'INVENTION', 'NEWSLETTER_ARTICLE', 'TRANSLATION', 'TEST', 'DISSERTATION', 'BOOK_CHAPTER',
-                             'LICENSE', 'STANDARDS_AND_POLICY', 'CONFERENCE_ABSTRACT', 'PATENT', 'DICTIONARY_ENTRY',
-                             'REGISTERED_COPYRIGHT', 'MAGAZINE_ARTICLE', 'DISCLOSURE', 'BOOK_REVIEW', 'UNDEFINED',
-                             'ARTISTIC_PERFORMANCE', 'ENCYCLOPEDIA_ENTRY', 'REPORT', 'ONLINE_RESOURCE', 'WEBSITE',
-                             'RESEARCH_TOOL', 'WORKING_PAPER', 'EDITED_BOOK', 'TRADEMARK', 'LECTURE_SPEECH', 'BOOK',
-                             'DATA_SET', 'JOURNAL_ARTICLE', 'SPIN_OFF_COMPANY', 'TECHNICAL_STANDARD',
-                             'CONFERENCE_POSTER', 'JOURNAL_ISSUE', 'NEWSPAPER_ARTICLE', 'OTHER', '']]
-    subject_type_choices.sort(key=lambda e: e[1])
+    reviewer_role_choices = [(v, v) for v in models.REVIEWER_ROLES]
+    review_type_choices = [(v, v) for v in models.REVIEW_TYPES]
+    subject_external_id_relationship_choices = [
+        (v, v.replace('_', ' ').title()) for v in [''] + models.SUBJECT_EXTERNAL_ID_RELATIONSHIPS
+    ]
+    subject_type_choices = [(v, v.replace('_', ' ').title()) for v in [''] + models.SUBJECT_TYPES]
 
     org_name = StringField("Institution", [validators.required()])
     disambiguated_id = StringField("Disambiguated Organisation ID")
