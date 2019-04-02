@@ -1,0 +1,34 @@
+{% extends 'admin/model/list.html' %}
+{% block body %}
+  {% if data %}
+    {% set record = data[0].record %}
+  {% else %}
+    {% set record = current_record() %}
+  {% endif %}
+  {% set return_url = request.args.get('url') or url_for('peerreviewrecord.index_view', task_id=record.task_id) %}
+  <h1>{{record.filename}}</h1>
+  <table class="table table-hover table-bordered searchable">
+    <tbody>
+      <tr>
+        <td>
+          <b>Peer Review Group id</b>
+        </td>
+        <td>
+          {{record.review_group_id}}
+        </td>
+      </tr>
+      <tr>
+        <td>
+          <b>Task Filename</b>
+        </td>
+        <td>
+          <a href="{{ return_url }}">{{record.task.filename}}</a>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+  <span class="pull-right">
+    <a role="button" class="btn btn-primary" href="{{ return_url }}">Back</a>
+  </span>
+  {{ super() }}
+{% endblock %}

@@ -542,25 +542,17 @@ class TaskAdmin(AppModelView):
     can_edit = False
     can_create = False
     can_delete = True
-    column_searchable_list = (
-        "filename",
-        "created_by.email",
-        "created_by.name",
-        "created_by.first_name",
-        "created_by.last_name",
-        "org.name",
-    )
-    column_list = [
-        "task_type",
-        "filename",
-        "created_at",
-        "org",
-        "completed_at",
-        "created_by",
-        "expires_at",
-        "expiry_email_sent_at",
-        "completed_count",
+    column_searchable_list = [
+        "filename", "created_by.email", "created_by.name", "created_by.first_name",
+        "created_by.last_name", "org.name"
     ]
+    column_list = [
+        "task_type", "filename", "created_at", "org", "completed_at", "created_by", "expires_at",
+        "expiry_email_sent_at", "completed_count"
+    ]
+    # form_excluded_columns = [
+    #     "is_deleted", "completed_at", "expires_at", "expiry_email_sent_at", "organisation"
+    # ]
 
     column_filters = (
         filters.DateBetweenFilter(column=Task.created_at, name="Uploaded Date"),
@@ -815,48 +807,6 @@ to the best of your knowledge, correct!""")
         return model
 
 
-class ExternalIdModelView(AppModelView):
-    """Combine ExternalId model view."""
-
-    roles_required = Role.SUPERUSER | Role.ADMIN
-
-    can_edit = True
-    can_create = False
-    can_delete = False
-    can_view_details = True
-
-    form_widget_args = {"external_id": {"readonly": True}}
-
-    def is_accessible(self):
-        """Verify if the external id's view is accessible for the current user."""
-        if not super().is_accessible():
-            flash("Access denied! You cannot access this task.", "danger")
-            return False
-
-        return True
-
-
-class ExternalIdAdmin(ExternalIdModelView):
-    """ExternalId model view."""
-
-    list_template = "funding_externalid_list.html"
-    column_exclude_list = ("record", )
-
-
-class WorkExternalIdAdmin(ExternalIdModelView):
-    """WorkExternalId model view."""
-
-    list_template = "work_externalid_list.html"
-    column_exclude_list = ("work_record", )
-
-
-class PeerReviewExternalIdAdmin(ExternalIdModelView):
-    """PeerReviewExternalId model view."""
-
-    list_template = "peer_review_externalid_invitee_list.html"
-    column_exclude_list = ("record", )
-
-
 class RecordChildModeAdmin(AppModelView):
     """Batch processing record child model common bits."""
 
@@ -923,6 +873,48 @@ class RecordChildModeAdmin(AppModelView):
             self.after_model_change(form, model, True)
 
         return model
+
+
+class ExternalIdModelView(RecordChildModeAdmin):
+    """Combine ExternalId model view."""
+
+    roles_required = Role.SUPERUSER | Role.ADMIN
+
+    can_edit = True
+    can_create = True
+    can_delete = True
+    can_view_details = True
+
+    form_widget_args = {"external_id": {"readonly": True}}
+
+    def is_accessible(self):
+        """Verify if the external id's view is accessible for the current user."""
+        if not super().is_accessible():
+            flash("Access denied! You cannot access this task.", "danger")
+            return False
+
+        return True
+
+
+class ExternalIdAdmin(ExternalIdModelView):
+    """ExternalId model view."""
+
+    list_template = "funding_externalid_list.html"
+    column_exclude_list = ("record", )
+
+
+class WorkExternalIdAdmin(ExternalIdModelView):
+    """WorkExternalId model view."""
+
+    list_template = "work_externalid_list.html"
+    column_exclude_list = ("work_record", )
+
+
+class PeerReviewExternalIdAdmin(ExternalIdModelView):
+    """PeerReviewExternalId model view."""
+
+    list_template = "peer_review_externalid_invitee_list.html"
+    column_exclude_list = ("record", )
 
 
 class ContributorModelAdmin(RecordChildModeAdmin):

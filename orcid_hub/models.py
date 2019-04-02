@@ -1024,7 +1024,8 @@ class Task(BaseModel, AuditMixin):
         User, on_delete="SET NULL", null=True, related_name="created_tasks")
     updated_by = ForeignKeyField(
         User, on_delete="SET NULL", null=True, related_name="updated_tasks")
-    task_type = TaskTypeField(default=TaskType.NONE)
+    task_type = TaskTypeField(
+        default=TaskType.NONE, choices=[(tt.value, tt.name) for tt in TaskType if tt.value])
     expires_at = DateTimeField(null=True)
     expiry_email_sent_at = DateTimeField(null=True)
     completed_count = TextField(null=True, help_text="gives the status of uploaded task")
