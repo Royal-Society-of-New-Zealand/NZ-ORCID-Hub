@@ -591,7 +591,7 @@ class MemberAPI(MemberAPIV20Api):
         if end_date:
             rec.end_date = end_date.as_orcid_dict()
 
-        funding_contributors = FundingCont.select().where(FundingCont.funding_record_id == fr.id).order_by(
+        funding_contributors = FundingCont.select().where(FundingCont.record_id == fr.id).order_by(
             FundingCont.id)
 
         funding_contributor_list = []
@@ -633,7 +633,7 @@ class MemberAPI(MemberAPIV20Api):
             rec.contributors = FundingContributors(contributor=funding_contributor_list)  # noqa: F405
         external_id_list = []
 
-        external_ids = ExternalIdModel.select().where(ExternalIdModel.funding_record_id == fr.id).order_by(
+        external_ids = ExternalIdModel.select().where(ExternalIdModel.record_id == fr.id).order_by(
             ExternalIdModel.id)
 
         for exi in external_ids:
