@@ -465,13 +465,13 @@ def create_or_update_peer_review(user, org_id, records, *args, **kwargs):
                     peer_reviews.append(ps)
 
         taken_put_codes = {
-            r.record.peer_review_invitee.put_code
-            for r in records if r.record.peer_review_invitee.put_code
+            r.record.invitee.put_code
+            for r in records if r.record.invitee.put_code
         }
 
-        def match_put_code(records, record, peer_review_invitee, taken_external_id_values):
+        def match_put_code(records, record, invitee, taken_external_id_values):
             """Match and assign put-code to a single peer review record and the existing ORCID records."""
-            if peer_review_invitee.put_code:
+            if invitee.put_code:
                 return
             for r in records:
                 put_code = r.get("put-code")
@@ -486,8 +486,8 @@ def create_or_update_peer_review(user, org_id, records, *args, **kwargs):
                 if (r.get("review-group-id")
                         and r.get("review-group-id") == record.review_group_id
                         and external_id_value in taken_external_id_values):  # noqa: E127
-                    peer_review_invitee.put_code = put_code
-                    peer_review_invitee.save()
+                    invitee.put_code = put_code
+                    invitee.save()
                     taken_put_codes.add(put_code)
                     app.logger.debug(
                         f"put-code {put_code} was asigned to the peer review record "
@@ -496,7 +496,7 @@ def create_or_update_peer_review(user, org_id, records, *args, **kwargs):
 
         for task_by_user in records:
             pr = task_by_user.record
-            pi = pr.peer_review_invitee
+            pi = pr.invitee
 
             external_ids = PeerReviewExternalId.select().where(PeerReviewExternalId.record_id == pr.id)
             taken_external_id_values = {ei.value for ei in external_ids if ei.value}
@@ -504,7 +504,7 @@ def create_or_update_peer_review(user, org_id, records, *args, **kwargs):
 
         for task_by_user in records:
             pr = task_by_user.record
-            pi = pr.peer_review_invitee
+            pi = pr.invitee
 
             try:
                 put_code, orcid, created = api.create_or_update_peer_review(task_by_user)
@@ -517,9 +517,7 @@ def create_or_update_peer_review(user, org_id, records, *args, **kwargs):
 
             except Exception as ex:
                 logger.exception(f"For {user} encountered exception")
-                exception_msg = ""
-                if ex and ex.body:
-                    exception_msg = json.loads(ex.body)
+                exception_msg = json.loads(ex.body) if hasattr(ex, "body") else str(ex)
                 pi.add_status_line(f"Exception occured processing the record: {exception_msg}.")
                 pr.add_status_line(
                     f"Error processing record. Fix and reset to enable this record to be processed: {exception_msg}."
@@ -1349,9 +1347,9 @@ def process_peer_review_records(max_rows=20):
             (OrcidToken.id.is_null(False)
              | ((PeerReviewInvitee.status.is_null())
                 | (PeerReviewInvitee.status.contains("sent").__invert__())))).join(
-                    PeerReviewRecord, on=(Task.id == PeerReviewRecord.task_id)).join(
+                    PeerReviewRecord, on=(Task.id == PeerReviewRecord.task_id).alias("record")).join(
                         PeerReviewInvitee,
-                        on=(PeerReviewRecord.id == PeerReviewInvitee.record_id)).join(
+                        on=(PeerReviewRecord.id == PeerReviewInvitee.record_id).alias("invitee")).join(
                             User,
                             JOIN.LEFT_OUTER,
                             on=((User.email == PeerReviewInvitee.email)
@@ -1379,7 +1377,7 @@ def process_peer_review_records(max_rows=20):
             t.id,
             t.org_id,
             t.record.id,
-            t.record.peer_review_invitee.user,)):
+            t.record.invitee.user,)):
         """If we have the token associated to the user then update the peer record, otherwise send him an invite"""
         if (user.id is None or user.orcid is None or not OrcidToken.select().where(
             (OrcidToken.user_id == user.id) & (OrcidToken.org_id == org_id)
@@ -1390,9 +1388,9 @@ def process_peer_review_records(max_rows=20):
                     lambda t: (
                         t.created_by,
                         t.org,
-                        t.record.peer_review_invitee.email,
-                        t.record.peer_review_invitee.first_name,
-                        t.record.peer_review_invitee.last_name, )
+                        t.record.invitee.email,
+                        t.record.invitee.first_name,
+                        t.record.invitee.last_name, )
             ):  # noqa: E501
                 email = k[2]
                 token_expiry_in_sec = 2600000
