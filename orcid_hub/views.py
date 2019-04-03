@@ -42,7 +42,8 @@ from .apis import yamlfy
 from .forms import (ApplicationFrom, BitmapMultipleValueField, CredentialForm, EmailTemplateForm,
                     FileUploadForm, FundingForm, GroupIdForm, LogoForm, OrgRegistrationForm,
                     OtherNameKeywordForm, PartialDateField, PeerReviewForm, ProfileSyncForm,
-                    RecordForm, ResearcherUrlForm, UserInvitationForm, WebhookForm, WorkForm)
+                    RecordForm, ResearcherUrlForm, UserInvitationForm, WebhookForm, WorkForm,
+                    validate_orcid_id_field)
 from .login_provider import roles_required
 from .models import (JOIN, Affiliation, AffiliationRecord, CharField, Client, Delegate, ExternalId,
                      File, FundingContributor, FundingInvitee, FundingRecord, Grant, GroupIdRecord,
@@ -190,6 +191,7 @@ class AppCustomModelConverter(CustomModelConverter):
 class AppModelView(ModelView):
     """ModelView customization."""
 
+    roles = {1: "Superuser", 2: "Administrator", 4: "Researcher", 8: "Technical Contact"}
     roles_required = Role.SUPERUSER
     export_types = [
         "csv",
@@ -201,6 +203,10 @@ class AppModelView(ModelView):
         "ods",
         "html",
     ]
+    form_args = dict(
+            roles=dict(choices=roles.items()),
+            email=dict(validators=[validators.email()]),
+            orcid=dict(validators=[validate_orcid_id_field]))
 
     if app.config["ENV"] not in ["dev", "test", "dev0", ] and not app.debug:
         form_base_class = SecureForm
@@ -339,7 +345,6 @@ class UserAdmin(AppModelView):
     """User model view."""
 
     edit_template = "admin/user_edit.html"
-    roles = {1: "Superuser", 2: "Administrator", 4: "Researcher", 8: "Technical Contact"}
 
     form_extra_fields = dict(is_superuser=BooleanField("Is Superuser"))
     form_excluded_columns = (
@@ -363,8 +368,6 @@ class UserAdmin(AppModelView):
         "organisation.name",
     )
     form_overrides = dict(roles=BitmapMultipleValueField)
-    form_args = dict(roles=dict(choices=roles.items()))
-
     form_ajax_refs = {
         "organisation": {
             "fields": (Organisation.name, "name")
@@ -1627,6 +1630,15 @@ class ResearcherUrlRecordAdmin(AffiliationRecordAdmin):
 
 class OtherNameRecordAdmin(AffiliationRecordAdmin):
     """Other Name record model view."""
+
+    def validate_form(self, form):
+        """Validate the input."""
+        if request.method == "POST" and not (form.orcid.data or form.email.data
+                                             or form.put_code.data):
+            flash("Either <b>email</b>, <b>ORCID iD</b>, or <b>put-code</b> should be provided.",
+                  "danger")
+            return False
+        return super().validate_form(form)
 
     column_searchable_list = ("content", "first_name", "last_name", "email",)
 

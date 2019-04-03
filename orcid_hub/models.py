@@ -51,6 +51,7 @@ AFFILIATION_TYPES = (
     "employment",
 )
 VISIBILITIES = ["PUBLIC", "PRIVATE", "REGISTERED_ONLY", "LIMITED"]
+visibility_choices = [(v, v.replace('_', ' ').title()) for v in VISIBILITIES]
 FUNDING_TYPES = ["AWARD", "CONTRACT", "GRANT", "SALARY_AWARD"]
 SUBJECT_TYPES = [
     "ARTISTIC_PERFORMANCE", "BOOK", "BOOK_CHAPTER", "BOOK_REVIEW", "CONFERENCE_ABSTRACT",
@@ -2397,8 +2398,6 @@ class PeerReviewRecord(RecordModel):
 class ResearcherUrlRecord(RecordModel):
     """Researcher Url record loaded from Json file for batch processing."""
 
-    visibility_choices = [(v, v.replace('_', ' ').title()) for v in VISIBILITIES]
-
     task = ForeignKeyField(Task, related_name="researcher_url_records", on_delete="CASCADE")
     name = CharField(max_length=255, verbose_name="URL Name")
     value = CharField(max_length=255, verbose_name="URL Value")
@@ -2584,10 +2583,10 @@ class OtherNameKeywordModel(RecordModel):
 
     content = CharField(max_length=255)
     display_index = IntegerField(null=True)
-    visibility = CharField(null=True, max_length=100)
-    email = CharField(max_length=120)
-    first_name = CharField(max_length=120)
-    last_name = CharField(max_length=120)
+    visibility = CharField(null=True, max_length=100, choices=visibility_choices)
+    email = CharField(max_length=120, null=True)
+    first_name = CharField(max_length=120, null=True)
+    last_name = CharField(max_length=120, null=True)
     orcid = OrcidIdField(null=True)
     put_code = IntegerField(null=True)
     is_active = BooleanField(
@@ -3206,8 +3205,6 @@ class FundingContributor(ContributorModel):
 
 class InviteeModel(BaseModel):
     """Common model bits of the invitees records."""
-
-    visibility_choices = [(v, v.replace('_', ' ').title()) for v in VISIBILITIES]
 
     identifier = CharField(max_length=120, null=True)
     email = CharField(max_length=120)
