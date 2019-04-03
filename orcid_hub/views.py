@@ -22,7 +22,7 @@ from flask_admin.base import expose
 from flask_admin.contrib.peewee import ModelView, filters
 from flask_admin.contrib.peewee.form import CustomModelConverter
 from flask_admin.contrib.peewee.view import save_inline
-from flask_admin.form import SecureForm
+from flask_admin.form import BaseForm, SecureForm
 from flask_admin.helpers import get_redirect_target
 from flask_admin.model import BaseModelView, typefmt
 from flask_login import current_user, login_required
@@ -1597,11 +1597,13 @@ class AffiliationRecordAdmin(RecordModelView):
 
     def validate_form(self, form):
         """Validate the input."""
-        if request.method == "POST" and not (form.orcid.data or form.email.data
-                                             or form.put_code.data):
-            flash("Either <b>email</b>, <b>ORCID iD</b>, or <b>put-code</b> should be provided.",
-                  "danger")
-            return False
+        if request.method == "POST" and hasattr(form, "orcid") and hasattr(
+                form, "email") and hasattr(form, "put_code"):
+            if not (form.orcid.data or form.email.data or form.put_code.data):
+                flash(
+                    "Either <b>email</b>, <b>ORCID iD</b>, or <b>put-code</b> should be provided.",
+                    "danger")
+                return False
         return super().validate_form(form)
 
     @expose("/export/<export_type>/")
