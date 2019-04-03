@@ -427,6 +427,10 @@ class BaseModel(Model):
             setattr(self, field_name, val)
         self._dirty.clear()
 
+    def has_field(self, field_name):
+        """Check if the model has a field."""
+        return field_name in self._meta.fields
+
     class Meta:  # noqa: D101,D106
         database = db
         only_save_dirty = True
@@ -1351,7 +1355,7 @@ class RecordModel(BaseModel):
     def to_export_dict(self):
         """Map the common record parts to dict for export into JSON/YAML."""
         org = self.task.org
-        d = {"type": self.type} if hasattr(self, "type") else {}
+        d = {"type": self.type} if self.has_field("type") else {}
         if hasattr(self, "org_name"):
             d["organization"] = {
                 "disambiguated-organization": {
@@ -1367,7 +1371,7 @@ class RecordModel(BaseModel):
                     "country": self.country or org.country,
                 },
             }
-        if hasattr(self, "title"):
+        if self.has_field("title"):
             d["title"] = {
                 "title": {
                     "value": self.title,
@@ -2141,18 +2145,18 @@ class PeerReviewRecord(RecordModel):
         """Load data from JSON file or a string."""
         if isinstance(source, str):
             # import data from file based on its extension; either it is YAML or JSON
-            peer_review_data_list = load_yaml_json(filename=filename, source=source)
+            data_list = load_yaml_json(filename=filename, source=source)
             if not filename:
-                if isinstance(peer_review_data_list, dict):
-                    filename = peer_review_data_list.get("filename")
+                if isinstance(data_list, dict):
+                    filename = data_list.get("filename")
                 else:
                     filename = "peer_review_" + datetime.utcnow().isoformat(
                         timespec="seconds") + ".json"
-            if isinstance(peer_review_data_list, dict):
-                peer_review_data_list = peer_review_data_list.get("records")
+            if isinstance(data_list, dict):
+                data_list = data_list.get("records")
 
-            for peer_review_data in peer_review_data_list:
-                validation_source_data = copy.deepcopy(peer_review_data)
+            for data in data_list:
+                validation_source_data = copy.deepcopy(data)
                 validation_source_data = del_none(validation_source_data)
 
                 validator = Core(
@@ -2168,92 +2172,92 @@ class PeerReviewRecord(RecordModel):
                 else:
                     task = Task.create(org=org, filename=filename, task_type=TaskType.PEER_REVIEW)
 
-                for peer_review_data in peer_review_data_list:
+                for data in data_list:
 
-                    review_group_id = peer_review_data.get("review-group-id") if peer_review_data.get(
+                    review_group_id = data.get("review-group-id") if data.get(
                         "review-group-id") else None
 
-                    reviewer_role = peer_review_data.get("reviewer-role") if peer_review_data.get(
+                    reviewer_role = data.get("reviewer-role") if data.get(
                         "reviewer-role") else None
 
-                    review_url = peer_review_data.get("review-url").get("value") if peer_review_data.get(
+                    review_url = data.get("review-url").get("value") if data.get(
                         "review-url") else None
 
-                    review_type = peer_review_data.get("review-type") if peer_review_data.get("review-type") else None
+                    review_type = data.get("review-type") if data.get("review-type") else None
 
-                    review_completion_date = PartialDate.create(peer_review_data.get("review-completion-date"))
+                    review_completion_date = PartialDate.create(data.get("review-completion-date"))
 
-                    subject_external_id_type = peer_review_data.get("subject-external-identifier").get(
-                        "external-id-type") if peer_review_data.get(
+                    subject_external_id_type = data.get("subject-external-identifier").get(
+                        "external-id-type") if data.get(
                         "subject-external-identifier") else None
 
-                    subject_external_id_value = peer_review_data.get("subject-external-identifier").get(
-                        "external-id-value") if peer_review_data.get(
+                    subject_external_id_value = data.get("subject-external-identifier").get(
+                        "external-id-value") if data.get(
                         "subject-external-identifier") else None
 
-                    subject_external_id_url = peer_review_data.get("subject-external-identifier").get(
-                        "external-id-url").get("value") if peer_review_data.get(
-                        "subject-external-identifier") and peer_review_data.get("subject-external-identifier").get(
+                    subject_external_id_url = data.get("subject-external-identifier").get(
+                        "external-id-url").get("value") if data.get(
+                        "subject-external-identifier") and data.get("subject-external-identifier").get(
                         "external-id-url") else None
 
-                    subject_external_id_relationship = peer_review_data.get("subject-external-identifier").get(
-                        "external-id-relationship") if peer_review_data.get(
+                    subject_external_id_relationship = data.get("subject-external-identifier").get(
+                        "external-id-relationship") if data.get(
                         "subject-external-identifier") else None
 
-                    subject_container_name = peer_review_data.get("subject-container-name").get(
-                        "value") if peer_review_data.get(
+                    subject_container_name = data.get("subject-container-name").get(
+                        "value") if data.get(
                         "subject-container-name") else None
 
-                    subject_type = peer_review_data.get("subject-type") if peer_review_data.get(
+                    subject_type = data.get("subject-type") if data.get(
                         "subject-type") else None
 
-                    subject_name_title = peer_review_data.get("subject-name").get("title").get(
-                        "value") if peer_review_data.get(
-                        "subject-name") and peer_review_data.get("subject-name").get("title") else None
+                    subject_name_title = data.get("subject-name").get("title").get(
+                        "value") if data.get(
+                        "subject-name") and data.get("subject-name").get("title") else None
 
-                    subject_name_subtitle = peer_review_data.get("subject-name").get("subtitle").get(
-                        "value") if peer_review_data.get(
-                        "subject-name") and peer_review_data.get("subject-name").get("subtitle") else None
+                    subject_name_subtitle = data.get("subject-name").get("subtitle").get(
+                        "value") if data.get(
+                        "subject-name") and data.get("subject-name").get("subtitle") else None
 
-                    subject_name_translated_title_lang_code = peer_review_data.get("subject-name").get(
+                    subject_name_translated_title_lang_code = data.get("subject-name").get(
                         "translated-title").get(
-                        "language-code") if peer_review_data.get(
-                        "subject-name") and peer_review_data.get("subject-name").get("translated-title") else None
+                        "language-code") if data.get(
+                        "subject-name") and data.get("subject-name").get("translated-title") else None
 
-                    subject_name_translated_title = peer_review_data.get("subject-name").get(
+                    subject_name_translated_title = data.get("subject-name").get(
                         "translated-title").get(
-                        "value") if peer_review_data.get(
-                        "subject-name") and peer_review_data.get("subject-name").get("translated-title") else None
+                        "value") if data.get(
+                        "subject-name") and data.get("subject-name").get("translated-title") else None
 
-                    subject_url = peer_review_data.get("subject-url").get("value") if peer_review_data.get(
+                    subject_url = data.get("subject-url").get("value") if data.get(
                         "subject-name") else None
 
-                    convening_org_name = peer_review_data.get("convening-organization").get(
-                        "name") if peer_review_data.get(
+                    convening_org_name = data.get("convening-organization").get(
+                        "name") if data.get(
                         "convening-organization") else None
 
-                    convening_org_city = peer_review_data.get("convening-organization").get("address").get(
-                        "city") if peer_review_data.get("convening-organization") and peer_review_data.get(
+                    convening_org_city = data.get("convening-organization").get("address").get(
+                        "city") if data.get("convening-organization") and data.get(
                         "convening-organization").get("address") else None
 
-                    convening_org_region = peer_review_data.get("convening-organization").get("address").get(
-                        "region") if peer_review_data.get("convening-organization") and peer_review_data.get(
+                    convening_org_region = data.get("convening-organization").get("address").get(
+                        "region") if data.get("convening-organization") and data.get(
                         "convening-organization").get("address") else None
 
-                    convening_org_country = peer_review_data.get("convening-organization").get("address").get(
-                        "country") if peer_review_data.get("convening-organization") and peer_review_data.get(
+                    convening_org_country = data.get("convening-organization").get("address").get(
+                        "country") if data.get("convening-organization") and data.get(
                         "convening-organization").get("address") else None
 
-                    convening_org_disambiguated_identifier = peer_review_data.get(
+                    convening_org_disambiguated_identifier = data.get(
                         "convening-organization").get("disambiguated-organization").get(
-                        "disambiguated-organization-identifier") if peer_review_data.get(
-                        "convening-organization") and peer_review_data.get("convening-organization").get(
+                        "disambiguated-organization-identifier") if data.get(
+                        "convening-organization") and data.get("convening-organization").get(
                         "disambiguated-organization") else None
 
-                    convening_org_disambiguation_source = peer_review_data.get(
+                    convening_org_disambiguation_source = data.get(
                         "convening-organization").get("disambiguated-organization").get(
-                        "disambiguation-source") if peer_review_data.get(
-                        "convening-organization") and peer_review_data.get("convening-organization").get(
+                        "disambiguation-source") if data.get(
+                        "convening-organization") and data.get("convening-organization").get(
                         "disambiguated-organization") else None
 
                     record = cls.create(
@@ -2281,7 +2285,7 @@ class PeerReviewRecord(RecordModel):
                         convening_org_disambiguated_identifier=convening_org_disambiguated_identifier,
                         convening_org_disambiguation_source=convening_org_disambiguation_source)
 
-                    invitee_list = peer_review_data.get("invitees")
+                    invitee_list = data.get("invitees")
                     if invitee_list:
                         for invitee in invitee_list:
                             identifier = invitee.get("identifier") if invitee.get("identifier") else None
@@ -2305,8 +2309,8 @@ class PeerReviewRecord(RecordModel):
                         raise SchemaError(u"Schema validation failed:\n - "
                                           u"Expecting Invitees for which the peer review record will be written")
 
-                    external_ids_list = peer_review_data.get("review-identifiers").get("external-id") if \
-                        peer_review_data.get("review-identifiers") else None
+                    external_ids_list = data.get("review-identifiers").get("external-id") if \
+                        data.get("review-identifiers") else None
                     if external_ids_list:
                         for external_id in external_ids_list:
                             type = external_id.get("external-id-type")
