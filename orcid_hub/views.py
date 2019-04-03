@@ -22,7 +22,7 @@ from flask_admin.base import expose
 from flask_admin.contrib.peewee import ModelView, filters
 from flask_admin.contrib.peewee.form import CustomModelConverter
 from flask_admin.contrib.peewee.view import save_inline
-from flask_admin.form import BaseForm, SecureForm
+from flask_admin.form import SecureForm
 from flask_admin.helpers import get_redirect_target
 from flask_admin.model import BaseModelView, typefmt
 from flask_login import current_user, login_required
