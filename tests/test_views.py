@@ -209,7 +209,22 @@ def test_superuser_view_access(client):
                 webhook_enabled="y",
             ))
         user = User.get(u.id)
-        assert user.orcid == "0000-0000-XXXX-XXXX"
+        assert user.orcid != "0000-0000-XXXX-XXXX"
+
+        resp = client.post(
+            f"/admin/user/edit/?id={u.id}&url=%2Fadmin%2Fuser%2F",
+            data=dict(
+                name=u.name + "_NEW",
+                first_name=u.first_name,
+                last_name=u.last_name,
+                email="NEW_" + u.email,
+                eppn='',
+                orcid="1631-2631-3631-00X3",
+                confirmed="y",
+                webhook_enabled="y",
+            ))
+        user = User.get(u.id)
+        assert user.orcid == "1631-2631-3631-00X3"
         assert user.email == "NEW_" + u.email
         assert user.name == u.name + "_NEW"
 
@@ -3120,9 +3135,19 @@ XXX1702,00004,,This is another project title,,,CONTRACT,Standard,This is another
             "orcid": "AAAA-2738-3738-00X3",
         })
     c = FundingContributor.get(contributor.id)
-    assert c.email == "contributor_new@test.test.test.org"
-    assert c.orcid == "AAAA-2738-3738-00X3"
+    assert c.email != "contributor_new@test.test.test.org"
+    assert c.orcid != "AAAA-2738-3738-00X3"
+    assert b"Invalid ORCID" in resp.data
 
+    resp = client.post(
+        f"/admin/fundingcontributor/edit/?id={contributor.id}&url={url}",
+        data={
+            "email": "contributor_new@test.test.test.org",
+            "orcid": "1631-2631-3631-00X3",
+        })
+    c = FundingContributor.get(contributor.id)
+    assert c.email == "contributor_new@test.test.test.org"
+    assert c.orcid == "1631-2631-3631-00X3"
     # Add a new funding record:
     record_count = Task.get(task.id).records.count()
     resp = client.post(
