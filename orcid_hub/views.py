@@ -268,7 +268,7 @@ class AppModelView(ModelView):
         """Include linked columns in the search if they are defined with 'liked_table.column'."""
         if self.column_searchable_list:
             for p in self.column_searchable_list:
-                if "." in p:
+                if '.' in p:
                     m, p = p.split('.')
                     m = getattr(self.model, m).rel_model
                     p = getattr(m, p)
@@ -1595,6 +1595,15 @@ class AffiliationRecordAdmin(RecordModelView):
     )
     form_widget_args = {"task": {"readonly": True}}
 
+    def validate_form(self, form):
+        """Validate the input."""
+        if request.method == "POST" and not (form.orcid.data or form.email.data
+                                             or form.put_code.data):
+            flash("Either <b>email</b>, <b>ORCID iD</b>, or <b>put-code</b> should be provided.",
+                  "danger")
+            return False
+        return super().validate_form(form)
+
     @expose("/export/<export_type>/")
     def export(self, export_type):
         """Check the export type whether it is csv, tsv or other format."""
@@ -1622,31 +1631,16 @@ class AffiliationRecordAdmin(RecordModelView):
         return resp
 
 
-class ResearcherUrlRecordAdmin(AffiliationRecordAdmin):
-    """Researcher Url record model view."""
+class ProfilePropertyRecordAdmin(AffiliationRecordAdmin):
+    """Researcher Url, Other Name, and Keyword record model view."""
 
-    column_searchable_list = ("name", "first_name", "last_name", "email",)
-
-
-class OtherNameRecordAdmin(AffiliationRecordAdmin):
-    """Other Name record model view."""
-
-    def validate_form(self, form):
-        """Validate the input."""
-        if request.method == "POST" and not (form.orcid.data or form.email.data
-                                             or form.put_code.data):
-            flash("Either <b>email</b>, <b>ORCID iD</b>, or <b>put-code</b> should be provided.",
-                  "danger")
-            return False
-        return super().validate_form(form)
-
-    column_searchable_list = ("content", "first_name", "last_name", "email",)
-
-
-class KeywordRecordAdmin(AffiliationRecordAdmin):
-    """Keyword record model view."""
-
-    column_searchable_list = ("content", "first_name", "last_name", "email",)
+    def __init__(self, model_class, *args, **kwargs):
+        """Set up model specific attributes."""
+        self.column_searchable_list = [
+            f for f in ["content", "name", "first_name", "last_name", "email"]
+            if f in model_class._meta.fields
+        ]
+        super().__init__(model_class, *args, **kwargs)
 
 
 class ViewMembersAdmin(AppModelView):
@@ -1877,9 +1871,9 @@ admin.add_view(WorkRecordAdmin())
 admin.add_view(PeerReviewRecordAdmin())
 admin.add_view(PeerReviewInviteeAdmin())
 admin.add_view(PeerReviewExternalIdAdmin())
-admin.add_view(ResearcherUrlRecordAdmin())
-admin.add_view(OtherNameRecordAdmin())
-admin.add_view(KeywordRecordAdmin())
+admin.add_view(ProfilePropertyRecordAdmin(ResearcherUrlRecord))
+admin.add_view(ProfilePropertyRecordAdmin(OtherNameRecord))
+admin.add_view(ProfilePropertyRecordAdmin(KeywordRecord))
 admin.add_view(ViewMembersAdmin(name="viewmembers", endpoint="viewmembers"))
 
 admin.add_view(UserOrgAmin(UserOrg))

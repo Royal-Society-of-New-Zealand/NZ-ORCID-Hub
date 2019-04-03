@@ -2581,7 +2581,7 @@ class ResearcherUrlRecord(RecordModel):
 class OtherNameKeywordModel(RecordModel):
     """Other Name and Keyword Model for batch processing."""
 
-    content = CharField(max_length=255)
+    content = CharField(max_length=255, help_text="Other name or keyword")
     display_index = IntegerField(null=True)
     visibility = CharField(null=True, max_length=100, choices=visibility_choices)
     email = CharField(max_length=120, null=True)
