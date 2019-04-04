@@ -1712,7 +1712,7 @@ def get_spec(app):
     # Proxy:
     swag["paths"]["/orcid/api/{version}/{orcid}"] = {
         "parameters": [
-            {"$ref": "#/parameters/versionParam"},
+            swag["parameters"]["versionParam"],
             swag["parameters"]["orcidParam"],
         ],
         "get": {
@@ -1746,9 +1746,9 @@ def get_spec(app):
     }
     swag["paths"]["/orcid/api/{version}/{orcid}/{path}"] = {
         "parameters": [
-            {"$ref": "#/parameters/versionParam"},
-            {"$ref": "#/parameters/orcidParam"},
-            {"$ref": "#/parameters/pathParam"},
+            swag["parameters"]["versionParam"],
+            swag["parameters"]["orcidParam"],
+            swag["parameters"]["pathParam"],
         ],
         "delete": {
             "tags": ["orcid-proxy"],
