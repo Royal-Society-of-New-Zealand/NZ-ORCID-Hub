@@ -1678,11 +1678,7 @@ def get_spec(app):
         },
     }
     swag["paths"]["/api/v1.0/{orcid}/webhook"] = {
-        "parameters": [
-            {
-                "$ref": "#/parameters/orcidParam"
-            },
-        ],
+        "parameters": [swag["parameters"]["orcidParam"]],
         "put": {
             "tags": ["webhooks"],
             "responses": put_responses,
