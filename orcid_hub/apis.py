@@ -1690,7 +1690,7 @@ def get_spec(app):
     }
     swag["paths"]["/api/v1.0/{orcid}/webhook/{callback_url}"] = {
         "parameters": [
-            swag["parameters"]["orcidParam"],
+            # swag["parameters"]["orcidParam"],
             {
                 "in": "path",
                 "name": "callback_url",
