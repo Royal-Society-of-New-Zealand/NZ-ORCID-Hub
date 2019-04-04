@@ -1650,13 +1650,13 @@ def get_spec(app):
         "415": {
             "description": "Invalid call-back URL or missing ORCID iD.",
             "schema": {
-                "$rer": "#/definitions/Error"
+                "$ref": "#/definitions/Error"
             },
         },
         "404": {
             "description": "Invalid ORCID iD.",
             "schema": {
-                "$rer": "#/definitions/Error"
+                "$ref": "#/definitions/Error"
             },
         },
     }
@@ -1667,13 +1667,13 @@ def get_spec(app):
         "415": {
             "description": "Invalid call-back URL or missing ORCID iD.",
             "schema": {
-                "$rer": "#/definitions/Error"
+                "$ref": "#/definitions/Error"
             },
         },
         "404": {
             "description": "Invalid ORCID iD.",
             "schema": {
-                "$rer": "#/definitions/Error"
+                "$ref": "#/definitions/Error"
             },
         },
     }
