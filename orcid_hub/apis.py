@@ -1336,7 +1336,7 @@ class UserListAPI(AppResourceList):
               eppn:
                 type: "string"
               confirmed:
-                type: "string"
+                type: "boolean"
               updated-at:
                 type: "string"
                 format: date-time
