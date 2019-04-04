@@ -125,10 +125,10 @@ class AppResourceList(AppResource):
         """Get the first page link of the requested resource."""
         return changed_path("page", 1)
 
-    def api_response(self, query, exclude=None):
+    def api_response(self, query, exclude=None, only=None):
         """Create and return API response with pagination links."""
         query = query.paginate(self.page, self.page_size)
-        records = [r.to_dict(recurse=False, to_dashes=True, exclude=exclude) for r in query]
+        records = [r.to_dict(recurse=False, to_dashes=True, exclude=exclude, only=only) for r in query]
         resp = yamlfy(records) if prefers_yaml() else jsonify(records)
         resp.headers["Pagination-Page"] = self.page
         resp.headers["Pagination-Page-Size"] = self.page_size
@@ -1351,7 +1351,7 @@ class UserListAPI(AppResourceList):
                 users = users.where((User.created_at >= v) | (User.updated_at >= v))
             else:
                 users = users.where((User.created_at <= v) & (User.updated_at <= v))
-        return self.api_response(users)
+        return self.api_response(users, only=[User.email, User.eppn, User.name, User.orcid])
 
 
 api.add_resource(UserListAPI, "/api/v1.0/users")
