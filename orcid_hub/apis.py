@@ -1690,14 +1690,14 @@ def get_spec(app):
     }
     swag["paths"]["/api/v1.0/{orcid}/webhook/{callback_url}"] = {
         "parameters": [
-            # swag["parameters"]["orcidParam"],
+            swag["parameters"]["orcidParam"],
             {
                 "in": "path",
                 "name": "callback_url",
                 # "required": True,
                 "type": "string",
-                "description": ("The call-back URL that will receive a POST request "
-                                "when an update of a ORCID profile occurs."),
+                "description":
+                "The call-back URL that will receive a POST request when an update of a ORCID profile occurs.",
             },
         ],
         "put": {
