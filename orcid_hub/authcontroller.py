@@ -30,7 +30,7 @@ from werkzeug.utils import secure_filename
 
 from orcid_api.rest import ApiException
 
-from . import app, db, orcid_client
+from . import app, cache, db, orcid_client
 from . import orcid_client as scopes
 # TODO: need to read form app.config[...]
 from .config import (APP_DESCRIPTION, APP_NAME, APP_URL, AUTHORIZATION_BASE_URL, CRED_TYPE_PREMIUM,
@@ -50,9 +50,13 @@ def utility_processor():  # noqa: D202
     """Define funcions callable form Jinja2 using application context."""
 
     def onboarded_organisations():
-        return list(
-            Organisation.select(Organisation.name, Organisation.tuakiri_name).where(
-                Organisation.confirmed.__eq__(True)))
+        rv = cache.get("onboarded_organisations")
+        if not rv:
+            rv = list(
+                Organisation.select(Organisation.name, Organisation.tuakiri_name).where(
+                    Organisation.confirmed.__eq__(True)))
+            cache.set("onboarded_organisations", rv, timeout=3600)
+        return rv
 
     def orcid_login_url():
         return url_for("orcid_login", next=get_next_url())
