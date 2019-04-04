@@ -951,8 +951,8 @@ class WorkListAPI(TaskResource):
               task-type:
                 type: string
                 enum:
-                - work
-                - workING
+                - WORK
+                - WORKING
               created-at:
                 type: string
                 format: date-time
@@ -1314,17 +1314,7 @@ class UserListAPI(AppResourceList):
               id: UserListApiResponse
               type: array
               items:
-                type: "object"
-                properties:
-                  name:
-                    type: string
-                  orcid:
-                    type: "string"
-                    description: "User ORCID ID"
-                  email:
-                    type: "string"
-                  eppn:
-                    type: "string"
+                $ref: "#/definitions/HubUser"
           401:
             $ref: "#/responses/Unauthorized"
           403:
@@ -1333,6 +1323,23 @@ class UserListAPI(AppResourceList):
             $ref: "#/responses/NotFound"
           422:
             description: "Unprocessable Entity"
+        definitions:
+        - schema:
+            id: HubUser
+            properties:
+              orcid:
+                type: "string"
+                format: "^[0-9]{4}-?[0-9]{4}-?[0-9]{4}-?[0-9]{4}$"
+                description: "User ORCID ID"
+              email:
+                type: "string"
+              eppn:
+                type: "string"
+              confirmed:
+                type: "string"
+              updated-at:
+                type: "string"
+                format: date-time
         """
         login_user(request.oauth.user)
         users = User.select().where(User.organisation == current_user.organisation)
@@ -1351,7 +1358,9 @@ class UserListAPI(AppResourceList):
                 users = users.where((User.created_at >= v) | (User.updated_at >= v))
             else:
                 users = users.where((User.created_at <= v) & (User.updated_at <= v))
-        return self.api_response(users, only=[User.email, User.eppn, User.name, User.orcid])
+        return self.api_response(
+            users,
+            only=[User.email, User.eppn, User.name, User.orcid, User.confirmed, User.updated_at])
 
 
 api.add_resource(UserListAPI, "/api/v1.0/users")
@@ -1381,16 +1390,7 @@ class UserAPI(AppResource):
           200:
             description: "successful operation"
             schema:
-              id: UserApiResponse
-              properties:
-                orcid:
-                  type: "string"
-                  format: "^[0-9]{4}-?[0-9]{4}-?[0-9]{4}-?[0-9]{4}$"
-                  description: "User ORCID ID"
-                email:
-                  type: "string"
-                eppn:
-                  type: "string"
+              $ref: "#/definitions/HubUser"
           400:
             description: "Invalid identifier supplied"
           404:
