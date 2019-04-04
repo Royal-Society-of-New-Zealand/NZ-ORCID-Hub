@@ -1206,14 +1206,14 @@ class Task(BaseModel, AuditMixin):
 
         return task
 
-    def to_dict(self, to_dashes=True, recurse=False, exclude=None, include_records=True):
+    def to_dict(self, to_dashes=True, recurse=False, exclude=None, include_records=True, only=None):
         """Create a dict represenatation of the task suitable for serialization into JSON or YAML."""
         # TODO: expand for the othe types of the tasks
         task_dict = super().to_dict(
             recurse=False if recurse is None else recurse,
             to_dashes=to_dashes,
             exclude=exclude,
-            only=[Task.id, Task.filename, Task.task_type, Task.created_at, Task.updated_at])
+            only=only or [Task.id, Task.filename, Task.task_type, Task.created_at, Task.updated_at])
         # TODO: refactor for funding task to get records here not in API or export
         if include_records and TaskType(self.task_type) != TaskType.FUNDING:
             task_dict["records"] = [
