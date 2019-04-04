@@ -1659,7 +1659,7 @@ def get_spec(app):
                 "$rer": "#/definitions/Error"
             },
         },
-    },
+    }
     delete_responses = {
         "204": {
             "description": "A webhoook successfully unregistered.",
