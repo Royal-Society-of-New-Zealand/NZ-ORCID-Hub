@@ -1643,6 +1643,40 @@ def get_spec(app):
         }
     }
     # Webhooks:
+    put_responses = {
+        "201": {
+            "description": "A webhoook successfully set up.",
+        },
+        "415": {
+            "description": "Invalid call-back URL or missing ORCID iD.",
+            "schema": {
+                "$rer": "#/definitions/Error"
+            },
+        },
+        "404": {
+            "description": "Invalid ORCID iD.",
+            "schema": {
+                "$rer": "#/definitions/Error"
+            },
+        },
+    },
+    delete_responses = {
+        "204": {
+            "description": "A webhoook successfully unregistered.",
+        },
+        "415": {
+            "description": "Invalid call-back URL or missing ORCID iD.",
+            "schema": {
+                "$rer": "#/definitions/Error"
+            },
+        },
+        "404": {
+            "description": "Invalid ORCID iD.",
+            "schema": {
+                "$rer": "#/definitions/Error"
+            },
+        },
+    }
     swag["paths"]["/api/v1.0/{orcid}/webhook"] = {
         "parameters": [
             {
@@ -1651,15 +1685,11 @@ def get_spec(app):
         ],
         "put": {
             "tags": ["webhooks"],
-            "responses": {
-                "$ref": "#/paths/~1api~1v1.0~1{orcid}~1webhook~1{callback_url}/put/responses"
-            },
+            "responses": put_responses,
         },
         "delete": {
             "tags": ["webhooks"],
-            "responses": {
-                "$ref": "#/paths/~1api~1v1.0~1{orcid}~1webhook~1{callback_url}/delete/responses"
-            }
+            "responses": delete_responses,
         }
     }
     swag["paths"]["/api/v1.0/{orcid}/webhook/{callback_url}"] = {
@@ -1678,43 +1708,11 @@ def get_spec(app):
         ],
         "put": {
             "tags": ["webhooks"],
-            "responses": {
-                "201": {
-                    "description": "A webhoook successfully set up.",
-                },
-                "415": {
-                    "description": "Invalid call-back URL or missing ORCID iD.",
-                    "schema": {
-                        "$rer": "#/definitions/Error"
-                    },
-                },
-                "404": {
-                    "description": "Invalid ORCID iD.",
-                    "schema": {
-                        "$rer": "#/definitions/Error"
-                    },
-                },
-            },
+            "responses": put_responses,
         },
         "delete": {
             "tags": ["webhooks"],
-            "responses": {
-                "204": {
-                    "description": "A webhoook successfully unregistered.",
-                },
-                "415": {
-                    "description": "Invalid call-back URL or missing ORCID iD.",
-                    "schema": {
-                        "$rer": "#/definitions/Error"
-                    },
-                },
-                "404": {
-                    "description": "Invalid ORCID iD.",
-                    "schema": {
-                        "$rer": "#/definitions/Error"
-                    },
-                },
-            }
+            "responses": delete_responses,
         }
     }
     # Proxy:
