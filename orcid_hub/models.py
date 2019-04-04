@@ -1898,30 +1898,91 @@ class PeerReviewRecord(RecordModel):
                                                 for v in SUBJECT_EXTERNAL_ID_RELATIONSHIPS]
 
     task = ForeignKeyField(Task, related_name="peer_review_records", on_delete="CASCADE")
-    review_group_id = CharField(max_length=255)
+    review_group_id = CharField(
+        max_length=255, verbose_name="Group ID", help_text="Review Group ID")
     reviewer_role = CharField(
-        null=True, max_length=255, choices=reviewer_role_choices)
-    review_url = CharField(null=True, max_length=255)
-    review_type = CharField(null=True, max_length=255, default=None, choices=review_type_choices)
-    review_completion_date = PartialDateField(null=True)
-    subject_external_id_type = CharField(null=True, max_length=255)
-    subject_external_id_value = CharField(null=True, max_length=255)
-    subject_external_id_url = CharField(null=True, max_length=255)
+        null=True,
+        max_length=255,
+        choices=reviewer_role_choices,
+        verbose_name="Role",
+        help_text="Reviewer Role")
+    review_url = CharField(null=True, max_length=255, verbose_name="URL", help_text="Review URL")
+    review_type = CharField(
+        null=True,
+        max_length=255,
+        choices=review_type_choices,
+        verbose_name="Type",
+        help_text="Review Type")
+    review_completion_date = PartialDateField(
+        null=True, verbose_name="Completed On", help_text="Review Completion Date")
+    subject_external_id_type = CharField(
+        null=True, max_length=255, verbose_name="Type", help_text="Subject External ID Type")
+    subject_external_id_value = CharField(
+        null=True, max_length=255, verbose_name="Value", help_text="Subject External ID Value")
+    subject_external_id_url = CharField(
+        null=True, max_length=255, verbose_name="URL", help_text="Subject External ID URL")
     subject_external_id_relationship = CharField(
-        null=True, max_length=255, default=None, choices=subject_external_id_relationship_choices)
-    subject_container_name = CharField(null=True, max_length=255)
-    subject_type = CharField(max_length=80, choices=subject_type_choices, null=True, default=None)
-    subject_name_title = CharField(null=True, max_length=255)
-    subject_name_subtitle = CharField(null=True, max_length=255)
-    subject_name_translated_title_lang_code = CharField(null=True, max_length=10)
-    subject_name_translated_title = CharField(null=True, max_length=255)
-    subject_url = CharField(null=True, max_length=255)
-    convening_org_name = CharField(null=True, max_length=255)
-    convening_org_city = CharField(null=True, max_length=255)
-    convening_org_region = CharField(null=True, max_length=255)
-    convening_org_country = CharField(null=True, max_length=255)
-    convening_org_disambiguated_identifier = CharField(null=True, max_length=255)
-    convening_org_disambiguation_source = CharField(null=True, max_length=255)
+        null=True,
+        max_length=255,
+        choices=subject_external_id_relationship_choices,
+        verbose_name="Relationship",
+        help_text="Subject External ID Relationship")
+
+    subject_container_name = CharField(
+        null=True,
+        max_length=255,
+        verbose_name="Container Name",
+        help_text="Subject Container Name")
+    subject_type = CharField(
+        max_length=80,
+        choices=subject_type_choices,
+        null=True,
+        verbose_name="Type",
+        help_text="Subject Container Type")
+    subject_name_title = CharField(
+        null=True, max_length=255, verbose_name="Title", help_text="Subject Name Title")
+    subject_name_subtitle = CharField(
+        null=True, max_length=255, verbose_name="Subtitle", help_text="Subject Name Subtitle")
+    subject_name_translated_title_lang_code = CharField(
+        null=True,
+        max_length=10,
+        verbose_name="Language",
+        help_text="Subject Name Translated Title Lang Code")
+    subject_name_translated_title = CharField(
+        null=True,
+        max_length=255,
+        verbose_name="Translated Title",
+        help_text="Subject Name Translated Title")
+    subject_url = CharField(
+        null=True,
+        max_length=255,
+        verbose_name="Subject URL",
+        help_text="Subject URL")
+
+    convening_org_name = CharField(
+        null=True, max_length=255, verbose_name="Name", help_text="Convening Organisation ")
+    convening_org_city = CharField(
+        null=True, max_length=255, verbose_name="City", help_text="Convening Organisation City")
+    convening_org_region = CharField(
+        null=True,
+        max_length=255,
+        verbose_name="Region",
+        help_text="Convening Organisation Region")
+    convening_org_country = CharField(
+        null=True,
+        max_length=255,
+        verbose_name="Country",
+        help_text="Convening Organisation Country")
+    convening_org_disambiguated_identifier = CharField(
+        null=True,
+        max_length=255,
+        verbose_name="Disambiguated Identifier",
+        help_text="Convening Organisation Disambiguated Identifier")
+    convening_org_disambiguation_source = CharField(
+        null=True,
+        max_length=255,
+        verbose_name="Disambiguation Source",
+        help_text="Convening Organisation Disambiguation Source")
     is_active = BooleanField(
         default=False, help_text="The record is marked for batch processing", null=True)
     processed_at = DateTimeField(null=True)

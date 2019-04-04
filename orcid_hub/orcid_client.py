@@ -1163,9 +1163,9 @@ class MemberAPI(MemberAPIV20Api):
         if put_code:
             rec.put_code = put_code
         if url_name:
-            rec.url_name = url_name
+            rec.name = url_name
         if url_value:
-            rec.url = Url(value=url_value)      # noqa: F405
+            rec.value = Url(value=url_value)      # noqa: F405
         if visibility:
             rec.visibility = visibility
         if display_index:

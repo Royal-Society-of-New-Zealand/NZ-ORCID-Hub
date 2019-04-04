@@ -22,7 +22,7 @@ from flask_admin.base import expose
 from flask_admin.contrib.peewee import ModelView, filters
 from flask_admin.contrib.peewee.form import CustomModelConverter
 from flask_admin.contrib.peewee.view import save_inline
-from flask_admin.form import SecureForm
+from flask_admin.form import SecureForm, rules
 from flask_admin.helpers import get_redirect_target
 from flask_admin.model import BaseModelView, typefmt
 from flask_login import current_user, login_required
@@ -1501,6 +1501,26 @@ class PeerReviewRecordAdmin(CompositeRecordModelView):
     column_searchable_list = ("review_group_id", )
     list_template = "peer_review_record_list.html"
     form_overrides = dict(review_completion_date=PartialDateField)
+
+    form_rules = [
+        rules.FieldSet([
+            "review_group_id", "reviewer_role", "review_url", "review_type",
+            "review_completion_date"
+        ], "Review Group"),
+        rules.FieldSet([
+            "subject_external_id_type", "subject_external_id_value", "subject_external_id_url",
+            "subject_external_id_relationship", "subject_container_name", "subject_type",
+            "subject_name_title", "subject_name_subtitle",
+            "subject_name_translated_title_lang_code", "subject_name_translated_title",
+            "subject_url"
+        ], "Subject"),
+        rules.FieldSet([
+            "convening_org_name", "convening_org_city", "convening_org_region",
+            "convening_org_country", "convening_org_disambiguated_identifier",
+            "convening_org_disambiguation_source"
+        ], "Convening Organisation"),
+        "is_active",
+    ]
 
     column_export_list = [
         "review_group_id",

@@ -785,7 +785,7 @@ def create_or_update_researcher_url(user, org_id, records, *args, **kwargs):
             for r in records if r.researcher_url_record.put_code
         }
 
-        def match_put_code(records, researcher_url_record):
+        def match_put_code(records, record):
             """Match and assign put-code to the existing ORCID records."""
             for r in records:
                 try:
@@ -794,29 +794,29 @@ def create_or_update_researcher_url(user, org_id, records, *args, **kwargs):
                     app.logger.exception("Failed to get ORCID iD/put-code from the response.")
                     raise Exception("Failed to get ORCID iD/put-code from the response.")
 
-                if (r.get("url-name") == researcher_url_record.url_name
-                    and get_val(r, "url", "value") == researcher_url_record.url_value
-                    and get_val(r, "visibility") == researcher_url_record.visibility
-                    and get_val(r, "display-index") == researcher_url_record.display_index):         # noqa: E129
-                    researcher_url_record.put_code = put_code
-                    researcher_url_record.orcid = orcid
+                if (r.get("url-name") == record.name
+                    and get_val(r, "url", "value") == record.value
+                    and get_val(r, "visibility") == record.visibility
+                    and get_val(r, "display-index") == record.display_index):         # noqa: E129
+                    record.put_code = put_code
+                    record.orcid = orcid
                     return True
 
-                if researcher_url_record.put_code:
+                if record.put_code:
                     return
 
                 if put_code in taken_put_codes:
                     continue
 
                 if ((r.get("url-name") is None and get_val(r, "url", "value") is None)
-                    or (r.get("url-name") == researcher_url_record.url_name
-                        and get_val(r, "url", "value") == researcher_url_record.url_value)):
-                    researcher_url_record.put_code = put_code
-                    researcher_url_record.orcid = orcid
+                    or (r.get("url-name") == record.name
+                        and get_val(r, "url", "value") == record.value)):
+                    record.put_code = put_code
+                    record.orcid = orcid
                     taken_put_codes.add(put_code)
                     app.logger.debug(
                         f"put-code {put_code} was asigned to the researcher url record "
-                        f"(ID: {researcher_url_record.id}, Task ID: {researcher_url_record.task_id})")
+                        f"(ID: {record.id}, Task ID: {record.task_id})")
                     break
 
         for task_by_user in records:
