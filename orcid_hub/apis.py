@@ -1694,7 +1694,7 @@ def get_spec(app):
             {
                 "in": "path",
                 "name": "callback_url",
-                # "required": True,
+                "required": True,
                 "type": "string",
                 "description":
                 "The call-back URL that will receive a POST request when an update of a ORCID profile occurs.",
