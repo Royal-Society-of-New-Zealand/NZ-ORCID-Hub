@@ -125,10 +125,10 @@ class AppResourceList(AppResource):
         """Get the first page link of the requested resource."""
         return changed_path("page", 1)
 
-    def api_response(self, query, exclude=None):
+    def api_response(self, query, exclude=None, only=None):
         """Create and return API response with pagination links."""
         query = query.paginate(self.page, self.page_size)
-        records = [r.to_dict(recurse=False, to_dashes=True, exclude=exclude) for r in query]
+        records = [r.to_dict(recurse=False, to_dashes=True, exclude=exclude, only=only) for r in query]
         resp = yamlfy(records) if prefers_yaml() else jsonify(records)
         resp.headers["Pagination-Page"] = self.page
         resp.headers["Pagination-Page-Size"] = self.page_size
@@ -951,8 +951,8 @@ class WorkListAPI(TaskResource):
               task-type:
                 type: string
                 enum:
-                - work
-                - workING
+                - WORK
+                - WORKING
               created-at:
                 type: string
                 format: date-time
@@ -1314,17 +1314,7 @@ class UserListAPI(AppResourceList):
               id: UserListApiResponse
               type: array
               items:
-                type: "object"
-                properties:
-                  name:
-                    type: string
-                  orcid:
-                    type: "string"
-                    description: "User ORCID ID"
-                  email:
-                    type: "string"
-                  eppn:
-                    type: "string"
+                $ref: "#/definitions/HubUser"
           401:
             $ref: "#/responses/Unauthorized"
           403:
@@ -1333,6 +1323,23 @@ class UserListAPI(AppResourceList):
             $ref: "#/responses/NotFound"
           422:
             description: "Unprocessable Entity"
+        definitions:
+        - schema:
+            id: HubUser
+            properties:
+              orcid:
+                type: "string"
+                format: "^[0-9]{4}-?[0-9]{4}-?[0-9]{4}-?[0-9]{4}$"
+                description: "User ORCID ID"
+              email:
+                type: "string"
+              eppn:
+                type: "string"
+              confirmed:
+                type: "boolean"
+              updated-at:
+                type: "string"
+                format: date-time
         """
         login_user(request.oauth.user)
         users = User.select().where(User.organisation == current_user.organisation)
@@ -1351,7 +1358,9 @@ class UserListAPI(AppResourceList):
                 users = users.where((User.created_at >= v) | (User.updated_at >= v))
             else:
                 users = users.where((User.created_at <= v) & (User.updated_at <= v))
-        return self.api_response(users)
+        return self.api_response(
+            users,
+            only=[User.email, User.eppn, User.name, User.orcid, User.confirmed, User.updated_at])
 
 
 api.add_resource(UserListAPI, "/api/v1.0/users")
@@ -1381,16 +1390,7 @@ class UserAPI(AppResource):
           200:
             description: "successful operation"
             schema:
-              id: UserApiResponse
-              properties:
-                orcid:
-                  type: "string"
-                  format: "^[0-9]{4}-?[0-9]{4}-?[0-9]{4}-?[0-9]{4}$"
-                  description: "User ORCID ID"
-                email:
-                  type: "string"
-                eppn:
-                  type: "string"
+              $ref: "#/definitions/HubUser"
           400:
             description: "Invalid identifier supplied"
           404:
@@ -1643,85 +1643,77 @@ def get_spec(app):
         }
     }
     # Webhooks:
-    swag["paths"]["/api/v1.0/{orcid}/webhook"] = {
-        "parameters": [
-            {
-                "$ref": "#/parameters/orcidParam"
+    put_responses = {
+        "201": {
+            "description": "A webhoook successfully set up.",
+        },
+        "415": {
+            "description": "Invalid call-back URL or missing ORCID iD.",
+            "schema": {
+                "$ref": "#/definitions/Error"
             },
-        ],
+        },
+        "404": {
+            "description": "Invalid ORCID iD.",
+            "schema": {
+                "$ref": "#/definitions/Error"
+            },
+        },
+    }
+    delete_responses = {
+        "204": {
+            "description": "A webhoook successfully unregistered.",
+        },
+        "415": {
+            "description": "Invalid call-back URL or missing ORCID iD.",
+            "schema": {
+                "$ref": "#/definitions/Error"
+            },
+        },
+        "404": {
+            "description": "Invalid ORCID iD.",
+            "schema": {
+                "$ref": "#/definitions/Error"
+            },
+        },
+    }
+    swag["paths"]["/api/v1.0/{orcid}/webhook"] = {
+        "parameters": [swag["parameters"]["orcidParam"]],
         "put": {
             "tags": ["webhooks"],
-            "responses": {
-                "$ref": "#/paths/~1api~1v1.0~1{orcid}~1webhook~1{callback_url}/put/responses"
-            },
+            "responses": put_responses,
         },
         "delete": {
             "tags": ["webhooks"],
-            "responses": {
-                "$ref": "#/paths/~1api~1v1.0~1{orcid}~1webhook~1{callback_url}/delete/responses"
-            }
+            "responses": delete_responses,
         }
     }
     swag["paths"]["/api/v1.0/{orcid}/webhook/{callback_url}"] = {
         "parameters": [
-            {
-                "$ref": "#/parameters/orcidParam"
-            },
+            swag["parameters"]["orcidParam"],
             {
                 "in": "path",
                 "name": "callback_url",
-                "required": False,
+                "required": True,
                 "type": "string",
-                "description": ("The call-back URL that will receive a POST request "
-                                "when an update of a ORCID profile occurs."),
+                "description":
+                "The call-back URL that will receive a POST request when an update of a ORCID profile occurs.",
             },
         ],
         "put": {
             "tags": ["webhooks"],
-            "responses": {
-                "201": {
-                    "description": "A webhoook successfully set up.",
-                },
-                "415": {
-                    "description": "Invalid call-back URL or missing ORCID iD.",
-                    "schema": {
-                        "$rer": "#/definitions/Error"
-                    },
-                },
-                "404": {
-                    "description": "Invalid ORCID iD.",
-                    "schema": {
-                        "$rer": "#/definitions/Error"
-                    },
-                },
-            },
+            "responses": put_responses,
         },
         "delete": {
             "tags": ["webhooks"],
-            "responses": {
-                "204": {
-                    "description": "A webhoook successfully unregistered.",
-                },
-                "415": {
-                    "description": "Invalid call-back URL or missing ORCID iD.",
-                    "schema": {
-                        "$rer": "#/definitions/Error"
-                    },
-                },
-                "404": {
-                    "description": "Invalid ORCID iD.",
-                    "schema": {
-                        "$rer": "#/definitions/Error"
-                    },
-                },
-            }
+            "responses": delete_responses,
         }
     }
     # Proxy:
     swag["paths"]["/orcid/api/{version}/{orcid}"] = {
         "parameters": [
-            {"$ref": "#/parameters/versionParam"},
-            {"$ref": "#/parameters/orcidParam"},
+            swag["parameters"]["versionParam"],
+            swag["parameters"]["orcidParam"],
         ],
         "get": {
             "tags": ["orcid-proxy"],
@@ -1754,9 +1746,9 @@ def get_spec(app):
     }
     swag["paths"]["/orcid/api/{version}/{orcid}/{path}"] = {
         "parameters": [
-            {"$ref": "#/parameters/versionParam"},
-            {"$ref": "#/parameters/orcidParam"},
-            {"$ref": "#/parameters/pathParam"},
+            swag["parameters"]["versionParam"],
+            swag["parameters"]["orcidParam"],
+            swag["parameters"]["pathParam"],
         ],
         "delete": {
             "tags": ["orcid-proxy"],
