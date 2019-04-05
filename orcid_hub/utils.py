@@ -185,9 +185,9 @@ def send_email(template,
         mail_from=(app.config.get("APP_NAME", "ORCID Hub"), app.config.get("MAIL_DEFAULT_SENDER")),
         html=html_msg,
         text=plain_msg)
-    dkip_key_path = app.config["DKIP_KEY_PATH"]
-    if os.path.exists(dkip_key_path):
-        msg.dkim(key=open(dkip_key_path), domain="orcidhub.org.nz", selector="default")
+    dkim_key_path = app.config["DKIM_KEY_PATH"]
+    if os.path.exists(dkim_key_path):
+        msg.dkim(key=open(dkim_key_path), domain="orcidhub.org.nz", selector="default")
     if cc_email:
         msg.cc.append(cc_email)
     msg.set_headers({"reply-to": reply_to})
