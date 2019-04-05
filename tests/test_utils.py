@@ -919,8 +919,8 @@ def test_send_email(app):
             msg.send.assert_called_once()
 
             msg.reset_mock()
-            dkip_key_path = app.config["DKIP_KEY_PATH"]
-            app.config["DKIP_KEY_PATH"] = __file__
+            dkim_key_path = app.config["DKIM_KEY_PATH"]
+            app.config["DKIM_KEY_PATH"] = __file__
             utils.send_email(
                 "template", (
                     "TEST USER",
@@ -930,7 +930,7 @@ def test_send_email(app):
             msg.send.assert_called_once()
 
             msg.reset_mock()
-            app.config["DKIP_KEY_PATH"] = "NON-EXISTING FILE..."
+            app.config["DKIM_KEY_PATH"] = "NON-EXISTING FILE..."
             utils.send_email(
                 "template", (
                     "TEST USER",
@@ -938,7 +938,7 @@ def test_send_email(app):
                 ), base="BASE", subject="TEST")
             msg.dkim.assert_not_called()
             msg.send.assert_called_once()
-            app.config["DKIP_KEY_PATH"] = dkip_key_path
+            app.config["DKIM_KEY_PATH"] = dkim_key_path
 
             # User organisation's logo
             msg.reset_mock()
