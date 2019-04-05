@@ -126,7 +126,7 @@ DEFAULT_EMAIL_TEMPLATE = """<!DOCTYPE html>
 </html>
 """
 
-DKIM_KEY_PATH = path.join(path.join(getcwd(), ".keys"), "dkim.key")
+DKIM_KEY_PATH = path.join(getcwd(), ".keys", "dkim.key")
 
 # RQ:
 RQ_REDIS_URL = getenv("RQ_REDIS_URL")
