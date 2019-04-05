@@ -5,7 +5,6 @@ from datetime import date
 
 from flask_wtf import FlaskForm
 from flask_wtf.file import FileAllowed, FileField, FileRequired
-from pycountry import countries, languages, currencies
 from wtforms import (BooleanField, Field, SelectField, SelectMultipleField, StringField,
                      SubmitField, TextField, TextAreaField, validators)
 from wtforms.fields.html5 import DateField, EmailField, IntegerField
@@ -281,9 +280,8 @@ class PeerReviewForm(FlaskForm):
 class WorkForm(FlaskForm):
     """User/researcher Work detail form."""
 
-
     work_type = SelectField(
-        choices=[(None, "-------------------")] + models.work_type_choices,
+        choices=EMPTY_CHOICES + models.work_type_choices,
         description="Work Type",
         validators=[validators.required()])
     title = StringField("Title", [validators.required()])
