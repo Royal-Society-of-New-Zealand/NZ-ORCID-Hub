@@ -29,7 +29,7 @@ from peewee import (CharField, DateTimeField, DeferredRelation, Field, FixedChar
                     SmallIntegerField, SqliteDatabase, TextField, fn)
 from peewee_validates import ModelValidator
 from playhouse.shortcuts import model_to_dict
-from pycountry import countries
+from pycountry import countries, currencies, languages
 from pykwalify.core import Core
 from pykwalify.errors import SchemaError
 
@@ -91,6 +91,7 @@ language_choices = [(l.alpha_2, l.name) for l in languages if hasattr(l, "alpha_
 language_choices.sort(key=lambda e: e[1])
 currency_choices = [(l.alpha_3, l.name) for l in currencies]
 currency_choices.sort(key=lambda e: e[1])
+
 
 class ModelException(Exception):
     """Application model exception."""
@@ -1480,7 +1481,7 @@ class AffiliationRecord(RecordModel):
     end_date = PartialDateField(null=True)
     city = CharField(null=True, max_length=200)
     state = CharField(null=True, verbose_name="State/Region", max_length=100)
-    country = CharField(null=True, verbose_name="Country", max_length=2)
+    country = CharField(null=True, verbose_name="Country", max_length=2, choices=country_choices)
     disambiguated_id = CharField(
         null=True, max_length=20, verbose_name="Disambiguated Organization Identifier")
     disambiguation_source = CharField(
@@ -1564,18 +1565,18 @@ class FundingRecord(RecordModel):
     task = ForeignKeyField(Task, related_name="funding_records", on_delete="CASCADE")
     title = CharField(max_length=255)
     translated_title = CharField(null=True, max_length=255)
-    translated_title_language_code = CharField(null=True, max_length=10)
+    translated_title_language_code = CharField(null=True, max_length=10, choices=language_choices)
     type = CharField(max_length=255, choices=funiding_type_choices)
     organization_defined_type = CharField(null=True, max_length=255)
     short_description = CharField(null=True, max_length=4000)
     amount = CharField(null=True, max_length=255)
-    currency = CharField(null=True, max_length=3)
+    currency = CharField(null=True, max_length=3, choices=currency_choices)
     start_date = PartialDateField(null=True)
     end_date = PartialDateField(null=True)
     org_name = CharField(null=True, max_length=255, verbose_name="Organisation Name")
     city = CharField(null=True, max_length=255)
     region = CharField(null=True, max_length=255)
-    country = CharField(null=True, max_length=255)
+    country = CharField(null=True, max_length=255, choices=country_choices)
     disambiguated_id = CharField(null=True, max_length=255)
     disambiguation_source = CharField(null=True, max_length=255)
     is_active = BooleanField(
@@ -1971,6 +1972,7 @@ class PeerReviewRecord(RecordModel):
         null=True,
         max_length=10,
         verbose_name="Language",
+        choices=language_choices,
         help_text="Subject Name Translated Title Lang Code")
     subject_name_translated_title = CharField(
         null=True,
@@ -1996,6 +1998,7 @@ class PeerReviewRecord(RecordModel):
         null=True,
         max_length=255,
         verbose_name="Country",
+        choices=country_choices,
         help_text="Convening Organisation Country")
     convening_org_disambiguated_identifier = CharField(
         null=True,
@@ -2859,7 +2862,7 @@ class WorkRecord(RecordModel):
     title = CharField(max_length=255)
     subtitle = CharField(null=True, max_length=255)
     translated_title = CharField(null=True, max_length=255)
-    translated_title_language_code = CharField(null=True, max_length=10)
+    translated_title_language_code = CharField(null=True, max_length=10, choices=language_choices)
     journal_title = CharField(null=True, max_length=255)
     short_description = CharField(null=True, max_length=4000)
     citation_type = CharField(null=True, max_length=255, choices=citation_type_choices)
@@ -2868,8 +2871,8 @@ class WorkRecord(RecordModel):
     publication_date = PartialDateField(null=True)
     publication_media_type = CharField(null=True, max_length=255)
     url = CharField(null=True, max_length=255)
-    language_code = CharField(null=True, max_length=10)
-    country = CharField(null=True, max_length=255)
+    language_code = CharField(null=True, max_length=10, choices=language_choices)
+    country = CharField(null=True, max_length=255, choices=country_choices)
 
     is_active = BooleanField(
         default=False, help_text="The record is marked for batch processing", null=True)
@@ -3017,7 +3020,7 @@ class WorkRecord(RecordModel):
                         publication_media_type=val(row, 11),
                         url=val(row, 12),
                         language_code=val(row, 13),
-                        country=val(row, 14),
+                        country=country,
                         is_active=False,
                     ),
                     contributor=dict(
@@ -3057,7 +3060,7 @@ class WorkRecord(RecordModel):
                     for contributor in set(
                             tuple(r["contributor"].items()) for r in records
                             if r["excluded"]):
-                        fc = WorkContributor(work_record=wr, **dict(contributor))
+                        fc = WorkContributor(record=wr, **dict(contributor))
                         validator = ModelValidator(fc)
                         if not validator.validate():
                             raise ModelException(f"Invalid contributor record: {validator.errors}")
@@ -3066,13 +3069,13 @@ class WorkRecord(RecordModel):
                     for external_id in set(
                             tuple(r["external_id"].items()) for r in records
                             if r["external_id"]["type"] and r["external_id"]["value"]):
-                        ei = WorkExternalId(work_record=wr, **dict(external_id))
+                        ei = WorkExternalId(record=wr, **dict(external_id))
                         ei.save()
 
                     for invitee in set(
                             tuple(r["invitee"].items()) for r in records
                             if r["invitee"]["email"] and not r["excluded"]):
-                        rec = WorkInvitee(work_record=wr, **dict(invitee))
+                        rec = WorkInvitee(record=wr, **dict(invitee))
                         validator = ModelValidator(rec)
                         if not validator.validate():
                             raise ModelException(f"Invalid invitee record: {validator.errors}")
@@ -3134,7 +3137,7 @@ class WorkRecord(RecordModel):
                         {date_key: work_data.get("publication-date")[date_key] for date_key in
                          ('day', 'month', 'year')}) if work_data.get("publication-date") else None
 
-                    work_record = WorkRecord.create(
+                    record = WorkRecord.create(
                         task=task,
                         title=title,
                         subtitle=subtitle,
@@ -3163,7 +3166,7 @@ class WorkRecord(RecordModel):
                             visibility = get_val(invitee, "visibility")
 
                             WorkInvitee.create(
-                                work_record=work_record,
+                                record=record,
                                 identifier=identifier,
                                 email=email.lower(),
                                 first_name=first_name,
@@ -3186,7 +3189,7 @@ class WorkRecord(RecordModel):
                                                            "contributor-sequence")
 
                             WorkContributor.create(
-                                work_record=work_record,
+                                record=record,
                                 orcid=orcid_id,
                                 name=name,
                                 email=email,
@@ -3202,7 +3205,7 @@ class WorkRecord(RecordModel):
                             url = get_val(external_id, "external-id-url", "value")
                             relationship = external_id.get("external-id-relationship")
                             WorkExternalId.create(
-                                work_record=work_record,
+                                record=record,
                                 type=type,
                                 value=value,
                                 url=url,
@@ -3263,7 +3266,7 @@ class ContributorModel(BaseModel):
 class WorkContributor(ContributorModel):
     """Researcher or contributor - related to work."""
 
-    work_record = ForeignKeyField(
+    record = ForeignKeyField(
         WorkRecord, related_name="contributors", on_delete="CASCADE")
     contributor_sequence = CharField(max_length=120, null=True)
 
@@ -3339,7 +3342,7 @@ class PeerReviewInvitee(InviteeModel):
 class WorkInvitee(InviteeModel):
     """Researcher or Invitee - related to work."""
 
-    work_record = ForeignKeyField(
+    record = ForeignKeyField(
         WorkRecord, related_name="invitees", on_delete="CASCADE")
 
     class Meta:  # noqa: D101,D106
@@ -3390,7 +3393,7 @@ class ExternalIdModel(BaseModel):
 class WorkExternalId(ExternalIdModel):
     """Work ExternalId loaded for batch processing."""
 
-    work_record = ForeignKeyField(
+    record = ForeignKeyField(
         WorkRecord, related_name="external_ids", on_delete="CASCADE")
 
     class Meta:  # noqa: D101,D106

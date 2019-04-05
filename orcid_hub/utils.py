@@ -356,7 +356,7 @@ def send_work_funding_peer_review_invitation(inviter, org, email, first_name=Non
 
 def create_or_update_work(user, org_id, records, *args, **kwargs):
     """Create or update work record of a user."""
-    records = list(unique_everseen(records, key=lambda t: t.work_record.id))
+    records = list(unique_everseen(records, key=lambda t: t.record.id))
     org = Organisation.get(id=org_id)
     client_id = org.orcid_client_id
     api = orcid_client.MemberAPI(org, user)
@@ -378,13 +378,13 @@ def create_or_update_work(user, org_id, records, *args, **kwargs):
                 works.append(ws)
 
         taken_put_codes = {
-            r.work_record.work_invitees.put_code
-            for r in records if r.work_record.work_invitees.put_code
+            r.record.invitee.put_code
+            for r in records if r.record.invitee.put_code
         }
 
-        def match_put_code(records, work_record, work_invitees):
+        def match_put_code(records, record, invitee):
             """Match and assign put-code to a single work record and the existing ORCID records."""
-            if work_invitees.put_code:
+            if invitee.put_code:
                 return
             for r in records:
                 put_code = r.get("put-code")
@@ -393,23 +393,23 @@ def create_or_update_work(user, org_id, records, *args, **kwargs):
 
                 if ((r.get("title") is None and r.get("title").get("title") is None
                      and r.get("title").get("title").get("value") is None and r.get("type") is None)
-                        or (r.get("title").get("title").get("value") == work_record.title
-                            and r.get("type") == work_record.type)):
-                    work_invitees.put_code = put_code
-                    work_invitees.save()
+                        or (r.get("title").get("title").get("value") == record.title
+                            and r.get("type") == record.type)):
+                    invitee.put_code = put_code
+                    invitee.save()
                     taken_put_codes.add(put_code)
                     app.logger.debug(
                         f"put-code {put_code} was asigned to the work record "
-                        f"(ID: {work_record.id}, Task ID: {work_record.task_id})")
+                        f"(ID: {record.id}, Task ID: {record.task_id})")
                     break
 
         for task_by_user in records:
-            wr = task_by_user.work_record
-            wi = task_by_user.work_record.work_invitees
+            wr = task_by_user.record
+            wi = task_by_user.record.invitee
             match_put_code(works, wr, wi)
 
         for task_by_user in records:
-            wi = task_by_user.work_record.work_invitees
+            wi = task_by_user.record.invitee
 
             try:
                 put_code, orcid, created = api.create_or_update_work(task_by_user)
@@ -1221,8 +1221,8 @@ def process_work_records(max_rows=20):
             (OrcidToken.id.is_null(False)
              | ((WorkInvitee.status.is_null())
                 | (WorkInvitee.status.contains("sent").__invert__())))).join(
-                    WorkRecord, on=(Task.id == WorkRecord.task_id)).join(
-                        WorkInvitee, on=(WorkRecord.id == WorkInvitee.work_record_id)).join(
+                    WorkRecord, on=(Task.id == WorkRecord.task_id).alias("record")).join(
+                        WorkInvitee, on=(WorkRecord.id == WorkInvitee.record_id).alias("invitee")).join(
                             User,
                             JOIN.LEFT_OUTER,
                             on=((User.email == WorkInvitee.email)
@@ -1246,11 +1246,11 @@ def process_work_records(max_rows=20):
                      & (OrcidToken.org_id == Organisation.id)
                      & (OrcidToken.scope.contains("/activities/update")))).limit(max_rows))
 
-    for (task_id, org_id, work_record_id, user), tasks_by_user in groupby(tasks, lambda t: (
+    for (task_id, org_id, record_id, user), tasks_by_user in groupby(tasks, lambda t: (
             t.id,
             t.org_id,
-            t.work_record.id,
-            t.work_record.work_invitees.user,)):
+            t.record.id,
+            t.record.invitee.user,)):
         # If we have the token associated to the user then update the work record,
         # otherwise send him an invite
         if (user.id is None or user.orcid is None or not OrcidToken.select().where(
@@ -1262,9 +1262,9 @@ def process_work_records(max_rows=20):
                     lambda t: (
                         t.created_by,
                         t.org,
-                        t.work_record.work_invitees.email,
-                        t.work_record.work_invitees.first_name,
-                        t.work_record.work_invitees.last_name, )
+                        t.record.invitee.email,
+                        t.record.invitee.first_name,
+                        t.record.invitee.last_name, )
             ):  # noqa: E501
                 email = k[2]
                 token_expiry_in_sec = 2600000
@@ -1294,17 +1294,17 @@ def process_work_records(max_rows=20):
         else:
             create_or_update_work(user, org_id, tasks_by_user)
         task_ids.add(task_id)
-        work_ids.add(work_record_id)
+        work_ids.add(record_id)
 
-    for work_record in WorkRecord.select().where(WorkRecord.id << work_ids):
+    for record in WorkRecord.select().where(WorkRecord.id << work_ids):
         # The Work record is processed for all invitees
         if not (WorkInvitee.select().where(
-                WorkInvitee.work_record_id == work_record.id,
+                WorkInvitee.record_id == record.id,
                 WorkInvitee.processed_at.is_null()).exists()):
-            work_record.processed_at = datetime.utcnow()
-            if not work_record.status or "error" not in work_record.status:
-                work_record.add_status_line("Work record is processed.")
-            work_record.save()
+            record.processed_at = datetime.utcnow()
+            if not record.status or "error" not in record.status:
+                record.add_status_line("Work record is processed.")
+            record.save()
 
     for task in Task.select().where(Task.id << task_ids):
         # The task is completed (Once all records are processed):
@@ -2056,10 +2056,10 @@ def process_tasks(max_rows=20):
                 current_count = current_count + record.invitees.select().where(
                     FundingInvitee.processed_at.is_null(False)).distinct().count()
         elif task_type == TaskType.WORK:
-            for work_record in current_task.work_records.select():
-                total_count = total_count + work_record.invitees.select().distinct().count()
+            for record in current_task.records.select():
+                total_count = total_count + record.invitees.select().distinct().count()
 
-                current_count = current_count + work_record.invitees.select().where(
+                current_count = current_count + record.invitees.select().where(
                     WorkInvitee.processed_at.is_null(False)).distinct().count()
         elif task_type == TaskType.PEER_REVIEW:
             for record in current_task.records.select():

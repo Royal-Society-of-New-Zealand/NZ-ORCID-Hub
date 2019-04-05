@@ -2,6 +2,11 @@
 {% block body %}
   {% if data %}
     {% set record = data[0].record %}
+  {% else %}
+    {% set record = current_record() %}
+  {% endif %}
+  {% if record %}
+    {% set task = record.task %}
     <h1>{{record.filename}}</h1>
     <table class="table table-hover table-bordered searchable">
       <tbody>
@@ -19,21 +24,21 @@
           </td>
           <td>
             {{record.type}}
-         </td>
+          </td>
         </tr>
         <tr>
           <td>
             <b>Task Filename</b>
           </td>
           <td>
-            <a href="{{ url_for('.index_view', task_id=record.task_id) }}">{{record.task.filename}}</a>
+            <a href="{{ request.args.get('url') }}">{{record.task.filename}}</a>
           </td>
         </tr>
       </tbody>
     </table>
-    <span class="pull-right">
-      <a role="button" class="btn btn-primary" href="{{ request.args.get('url') or url_for('.index_view', task_id=record.task_id) }}">Back</a>
-    </span>
   {% endif %}
+  <span class="pull-right">
+    <a role="button" class="btn btn-primary" href="{{ request.args.get('url') }}">Back</a>
+  </span>
   {{ super() }}
 {% endblock %}

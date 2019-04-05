@@ -710,7 +710,7 @@ to the best of your knowledge, correct!""")
                 elif self.model == WorkRecord:
                     count = WorkInvitee.update(
                         processed_at=None, status=status).where(
-                        WorkInvitee.work_record.in_(ids)).execute()
+                        WorkInvitee.record.in_(ids)).execute()
                 elif self.model == PeerReviewRecord:
                     count = PeerReviewInvitee.update(
                         processed_at=None, status=status).where(
@@ -810,10 +810,11 @@ to the best of your knowledge, correct!""")
         return model
 
 
-class RecordChildModeAdmin(AppModelView):
+class RecordChildAdmin(AppModelView):
     """Batch processing record child model common bits."""
 
     roles_required = Role.SUPERUSER | Role.ADMIN
+    list_template = "record_child_list.html"
 
     can_edit = True
     can_create = True
@@ -878,10 +879,8 @@ class RecordChildModeAdmin(AppModelView):
         return model
 
 
-class ExternalIdModelView(RecordChildModeAdmin):
+class ExternalIdAdmin(RecordChildAdmin):
     """Combine ExternalId model view."""
-
-    roles_required = Role.SUPERUSER | Role.ADMIN
 
     can_edit = True
     can_create = True
@@ -899,54 +898,7 @@ class ExternalIdModelView(RecordChildModeAdmin):
         return True
 
 
-class ExternalIdAdmin(ExternalIdModelView):
-    """ExternalId model view."""
-
-    list_template = "funding_externalid_list.html"
-    column_exclude_list = ("record", )
-
-
-class WorkExternalIdAdmin(ExternalIdModelView):
-    """WorkExternalId model view."""
-
-    list_template = "work_externalid_list.html"
-    column_exclude_list = ("work_record", )
-
-
-class PeerReviewExternalIdAdmin(ExternalIdModelView):
-    """PeerReviewExternalId model view."""
-
-    list_template = "peer_review_externalid_invitee_list.html"
-    column_exclude_list = ("record", )
-
-
-class ContributorModelAdmin(RecordChildModeAdmin):
-    """Combine contributor record model view."""
-
-    def is_accessible(self):
-        """Verify if the contributor view is accessible for the current user."""
-        if not super().is_accessible():
-            flash("Access denied! You cannot access this task.", "danger")
-            return False
-
-        return True
-
-
-class FundingContributorAdmin(ContributorModelAdmin):
-    """Funding contributor record model view."""
-
-    list_template = "contributor_list.html"
-    column_exclude_list = ("record", )
-
-
-class WorkContributorAdmin(ContributorModelAdmin):
-    """Work contributor record model view."""
-
-    list_template = "work_contributor_list.html"
-    column_exclude_list = ("work_record", )
-
-
-class InviteeModelAdmin(RecordChildModeAdmin):
+class InviteeAdmin(RecordChildAdmin):
     """Combine Invitees record model view."""
 
     @action("reset", "Reset for processing",
@@ -958,56 +910,18 @@ class InviteeModelAdmin(RecordChildModeAdmin):
                 status = " The record was reset at " + datetime.utcnow().isoformat(timespec="seconds")
                 count = self.model.update(
                     processed_at=None, status=status).where(self.model.id.in_(ids)).execute()
-                if self.model == FundingInvitee:
-                    record_id = self.model.select().where(
-                        self.model.id.in_(ids))[0].record_id
-                    FundingRecord.update(
-                        processed_at=None, status=status).where(
-                            FundingRecord.is_active, FundingRecord.id == record_id).execute()
-                elif self.model == WorkInvitee:
-                    work_record_id = self.model.select().where(
-                        self.model.id.in_(ids))[0].work_record_id
-                    WorkRecord.update(
-                        processed_at=None, status=status).where(
-                        WorkRecord.is_active, WorkRecord.id == work_record_id).execute()
-                elif self.model == PeerReviewInvitee:
-                    record_id = self.model.select().where(
-                        self.model.id.in_(ids))[0].record_id
-                    PeerReviewRecord.update(
-                        processed_at=None, status=status).where(
-                        PeerReviewRecord.is_active, PeerReviewRecord.id == record_id).execute()
+                record_id = self.model.select().where(
+                    self.model.id.in_(ids))[0].record_id
+                rec_class = self.model.record.rel_model
+                rec_class.update(
+                    processed_at=None, status=status).where(
+                    rec_class.is_active, rec_class.id == record_id).execute()
             except Exception as ex:
                 db.rollback()
                 flash(f"Failed to activate the selected records: {ex}")
                 app.logger.exception("Failed to activate the selected records")
             else:
-                if self.model == FundingInvitee:
-                    flash(f"{count} Funding Invitee records were reset for batch processing.")
-                elif self.model == PeerReviewInvitee:
-                    flash(f"{count} Peer Review Invitee records were reset for batch processing.")
-                else:
-                    flash(f"{count} Work Invitees records were reset for batch processing.")
-
-
-class WorkInviteeAdmin(InviteeModelAdmin):
-    """Work invitees record model view."""
-
-    list_template = "work_invitee_list.html"
-    column_exclude_list = ("work_record", )
-
-
-class FundingInviteeAdmin(InviteeModelAdmin):
-    """Funding invitees record model view."""
-
-    list_template = "invitee_list.html"
-
-
-class PeerReviewInviteeAdmin(InviteeModelAdmin):
-    """Peer Review invitee record model view."""
-
-    # list_template = "peer_review_externalid_invitee_list.html"
-    list_template = "invitee_list.html"
-    # column_exclude_list = ("record", )
+                flash(f"{count} invitee records were reset for batch processing.")
 
 
 class CompositeRecordModelView(RecordModelView):
@@ -1463,7 +1377,7 @@ class WorkRecordAdmin(CompositeRecordModelView):
         ).join(
             WorkInvitee,
             JOIN.LEFT_OUTER,
-            on=((WorkInvitee.work_record_id == WorkContributor.work_record_id)
+            on=((WorkInvitee.record_id == WorkContributor.record_id)
                 & ((WorkInvitee.email == WorkContributor.email)
                    | (WorkInvitee.orcid == WorkContributor.orcid)))).join(
                        User,
@@ -1491,8 +1405,8 @@ class WorkRecordAdmin(CompositeRecordModelView):
             WorkExternalId.url.alias("external_id_url"),
             WorkExternalId.relationship.alias("external_id_relationship")).join(
                 WorkExternalId, JOIN.LEFT_OUTER,
-                on=(WorkExternalId.work_record_id == WorkRecord.id)).join(
-                    sq, JOIN.LEFT_OUTER, on=(sq.c.work_record_id == WorkRecord.id)).naive()
+                on=(WorkExternalId.record_id == WorkRecord.id)).join(
+                    sq, JOIN.LEFT_OUTER, on=(sq.c.record_id == WorkRecord.id)).naive()
 
 
 class PeerReviewRecordAdmin(CompositeRecordModelView):
@@ -1884,16 +1798,16 @@ admin.add_view(OrgInvitationAdmin())
 admin.add_view(TaskAdmin(Task))
 admin.add_view(AffiliationRecordAdmin())
 admin.add_view(FundingRecordAdmin())
-admin.add_view(FundingContributorAdmin())
-admin.add_view(FundingInviteeAdmin())
-admin.add_view(ExternalIdAdmin())
-admin.add_view(WorkContributorAdmin())
-admin.add_view(WorkExternalIdAdmin())
-admin.add_view(WorkInviteeAdmin())
+admin.add_view(RecordChildAdmin(FundingContributor))
+admin.add_view(InviteeAdmin(FundingInvitee))
+admin.add_view(RecordChildAdmin(ExternalId))
+admin.add_view(RecordChildAdmin(WorkContributor))
+admin.add_view(RecordChildAdmin(WorkExternalId))
+admin.add_view(InviteeAdmin(WorkInvitee))
 admin.add_view(WorkRecordAdmin())
 admin.add_view(PeerReviewRecordAdmin())
-admin.add_view(PeerReviewInviteeAdmin())
-admin.add_view(PeerReviewExternalIdAdmin())
+admin.add_view(InviteeAdmin(PeerReviewInvitee))
+admin.add_view(RecordChildAdmin(PeerReviewExternalId))
 admin.add_view(ProfilePropertyRecordAdmin(ResearcherUrlRecord))
 admin.add_view(ProfilePropertyRecordAdmin(OtherNameRecord))
 admin.add_view(ProfilePropertyRecordAdmin(KeywordRecord))
