@@ -1418,9 +1418,11 @@ class UserAPI(AppResource):
             }), 404
 
         return jsonify({
-            "orcid": user.orcid,
+            "confirmed": user.confirmed,
             "email": user.email,
             "eppn": user.eppn,
+            "orcid": user.orcid,
+            "updated-at": user.updated_at,
         }), 200
 
 
