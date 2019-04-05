@@ -59,7 +59,7 @@ settings_filename = os.path.join(instance_path, "settings.cfg")
 app = Flask(__name__, instance_path=instance_path)
 app.config.from_object(config)
 if not app.config.from_pyfile(settings_filename, silent=True) and app.debug:
-    print(f"*** WARNING: Failed to laod local application configuration from '{settings_filename}'")
+    print(f"*** WARNING: Failed to load local application configuration from '{settings_filename}'")
 
 
 app.url_map.strict_slashes = False
