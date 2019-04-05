@@ -347,7 +347,7 @@ def test_users_api(client):
         content_type="application/json")
 
     data = json.loads(resp.data)
-    assert list(data[0].keys()) == ["email", "eppn", "name", "orcid"]
+    assert list(data[0].keys()) == ["confirmed", "email", "eppn", "name", "orcid", "updated-at"]
     assert not any(u["email"] == "researcher102@test1.edu" for u in data)
 
     resp = client.get(
