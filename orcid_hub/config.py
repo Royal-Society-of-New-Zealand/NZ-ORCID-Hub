@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Application configuration."""
 
-from os import environ, getenv, path
+from os import environ, getenv, path, getcwd
 
 ENV = getenv("ENV", "dev")
 SHIBBOLETH_DISABLED = getenv("SHIBBOLETH_DISABLED")
@@ -126,7 +126,7 @@ DEFAULT_EMAIL_TEMPLATE = """<!DOCTYPE html>
 </html>
 """
 
-DKIM_KEY_PATH = path.join(path.join(getcwd(), ".keys") , "dkim.key")
+DKIM_KEY_PATH = path.join(path.join(getcwd(), ".keys"), "dkim.key")
 
 # RQ:
 RQ_REDIS_URL = getenv("RQ_REDIS_URL")
