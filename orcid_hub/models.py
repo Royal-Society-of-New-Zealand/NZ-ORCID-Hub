@@ -67,6 +67,30 @@ REVIEWER_ROLES = ["CHAIR", "EDITOR", "MEMBER", "ORGANIZER", "REVIEWER"]
 REVIEW_TYPES = ["EVALUATION", "REVIEW"]
 SUBJECT_EXTERNAL_ID_RELATIONSHIPS = ["PART_OF", "SELF"]
 
+WORK_TYPES = [
+    "ARTISTIC_PERFORMANCE", "BOOK", "BOOK_CHAPTER", "BOOK_REVIEW", "CONFERENCE_ABSTRACT",
+    "CONFERENCE_PAPER", "CONFERENCE_POSTER", "DATA_SET", "DICTIONARY_ENTRY", "DISCLOSURE",
+    "DISSERTATION", "EDITED_BOOK", "ENCYCLOPEDIA_ENTRY", "INVENTION", "JOURNAL_ARTICLE",
+    "JOURNAL_ISSUE", "LECTURE_SPEECH", "LICENSE", "MAGAZINE_ARTICLE", "MANUAL",
+    "NEWSLETTER_ARTICLE", "NEWSPAPER_ARTICLE", "ONLINE_RESOURCE", "OTHER"
+    "PATENT", "REGISTERED_COPYRIGHT", "REPORT", "RESEARCH_TECHNIQUE", "RESEARCH_TOOL",
+    "SPIN_OFF_COMPANY", "STANDARDS_AND_POLICY", "SUPERVISED_STUDENT_PUBLICATION",
+    "TECHNICAL_STANDARD", "TEST", "TRADEMARK", "TRANSLATION", "UNDEFINED", "WEBSITE",
+    "WORKING_PAPER"
+]
+work_type_choices = [(v, v.replace('_', ' ').title()) for v in WORK_TYPES]
+CITATION_TYPES = [
+    "BIBTEX", "FORMATTED_APA", "FORMATTED_CHICAGO", "FORMATTED_HARVARD", "FORMATTED_IEEE",
+    "FORMATTED_MLA", "FORMATTED_UNSPECIFIED", "FORMATTED_VANCOUVER", "RIS"
+]
+citation_type_choices = [(v, v.replace('_', ' ').title()) for v in CITATION_TYPES]
+
+country_choices = [(c.alpha_2, c.name) for c in countries]
+country_choices.sort(key=lambda e: e[1])
+language_choices = [(l.alpha_2, l.name) for l in languages if hasattr(l, "alpha_2")]
+language_choices.sort(key=lambda e: e[1])
+currency_choices = [(l.alpha_3, l.name) for l in currencies]
+currency_choices.sort(key=lambda e: e[1])
 
 class ModelException(Exception):
     """Application model exception."""
@@ -2833,14 +2857,14 @@ class WorkRecord(RecordModel):
 
     task = ForeignKeyField(Task, related_name="work_records", on_delete="CASCADE")
     title = CharField(max_length=255)
-    sub_title = CharField(null=True, max_length=255)
+    subtitle = CharField(null=True, max_length=255)
     translated_title = CharField(null=True, max_length=255)
     translated_title_language_code = CharField(null=True, max_length=10)
     journal_title = CharField(null=True, max_length=255)
     short_description = CharField(null=True, max_length=4000)
-    citation_type = CharField(null=True, max_length=255)
+    citation_type = CharField(null=True, max_length=255, choices=citation_type_choices)
     citation_value = CharField(null=True, max_length=255)
-    type = CharField(null=True, max_length=255)
+    type = CharField(null=True, max_length=255, choices=work_type_choices)
     publication_date = PartialDateField(null=True)
     publication_media_type = CharField(null=True, max_length=255)
     url = CharField(null=True, max_length=255)
@@ -2981,7 +3005,7 @@ class WorkRecord(RecordModel):
                     work=dict(
                         # external_identifier = val(row, 0),
                         title=val(row, 1),
-                        sub_title=val(row, 2),
+                        subtitle=val(row, 2),
                         translated_title=val(row, 3),
                         translated_title_language_code=val(row, 4),
                         journal_title=val(row, 5),
@@ -3092,7 +3116,7 @@ class WorkRecord(RecordModel):
                 for work_data in work_data_list:
 
                     title = get_val(work_data, "title", "title", "value")
-                    sub_title = get_val(work_data, "title", "subtitle", "value")
+                    subtitle = get_val(work_data, "title", "subtitle", "value")
                     translated_title = get_val(work_data, "title", "translated-title", "value")
                     translated_title_language_code = get_val(work_data, "title", "translated-title", "language-code")
                     journal_title = get_val(work_data, "journal-title", "value")
@@ -3113,7 +3137,7 @@ class WorkRecord(RecordModel):
                     work_record = WorkRecord.create(
                         task=task,
                         title=title,
-                        sub_title=sub_title,
+                        subtitle=subtitle,
                         translated_title=translated_title,
                         translated_title_language_code=translated_title_language_code,
                         journal_title=journal_title,

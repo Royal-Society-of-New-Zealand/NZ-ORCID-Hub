@@ -371,8 +371,8 @@ class MemberAPI(MemberAPIV20Api):
         if wr.title:
             title = Title(value=wr.title)  # noqa: F405
         subtitle = None
-        if wr.sub_title:
-            subtitle = Subtitle(value=wr.sub_title)     # noqa: F405
+        if wr.subtitle:
+            subtitle = Subtitle(value=wr.subtitle)     # noqa: F405
         translated_title = None
         if wr.translated_title and wr.translated_title_language_code:
             translated_title = TranslatedTitle(value=wr.translated_title,  # noqa: F405
@@ -945,14 +945,14 @@ class MemberAPI(MemberAPIV20Api):
 
         if title:
             title = Title(value=title)  # noqa: F405
-            sub_title = None
+            subtitle = None
             work_translated_title = None
             if subtitle:
-                sub_title = Subtitle(value=subtitle)  # noqa: F405
+                subtitle = Subtitle(value=subtitle)  # noqa: F405
             if translated_title and translated_title_language_code:
                 work_translated_title = TranslatedTitle(value=translated_title,  # noqa: F405
                                                         language_code=translated_title_language_code)  # noqa: F405
-            rec.title = WorkTitle(title=title, subtitle=sub_title, translated_title=work_translated_title)  # noqa: F405
+            rec.title = WorkTitle(title=title, subtitle=subtitle, translated_title=work_translated_title)  # noqa: F405
 
         if journal_title:
             rec.journal_title = Title(value=journal_title)  # noqa: F405

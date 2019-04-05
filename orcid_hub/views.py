@@ -1158,7 +1158,7 @@ class CompositeRecordModelView(RecordModelView):
                 translated_title = dict()
                 title_dict['title'] = dict(value=self.get_export_value(row, 'title'))
                 if self.model == WorkRecord:
-                    title_dict['subtitle'] = dict(value=self.get_export_value(row, 'sub_title'))
+                    title_dict['subtitle'] = dict(value=self.get_export_value(row, 'subtitle'))
                 translated_title['language-code'] = self.get_export_value(row, 'translated_title_language_code')
                 translated_title['value'] = csv_encode(self.get_export_value(row, 'translated_title'))
                 title_dict['translated-title'] = translated_title
@@ -1381,6 +1381,7 @@ class FundingRecordAdmin(CompositeRecordModelView):
 class WorkRecordAdmin(CompositeRecordModelView):
     """Work record model view."""
 
+    can_create = True
     column_searchable_list = ("title",)
     list_template = "work_record_list.html"
     form_overrides = dict(publication_date=PartialDateField)
@@ -1389,7 +1390,7 @@ class WorkRecordAdmin(CompositeRecordModelView):
         "work_id",
         "put_code",
         "title",
-        "sub_title",
+        "subtitle",
         "translated_title",
         "translated_title_language_code",
         "journal_title",

@@ -16,6 +16,7 @@ from wtfpeewee.orm import model_form
 from . import app, models
 
 DEFAULT_COUNTRY = app.config["DEFAULT_COUNTRY"]
+EMPTY_CHOICES = [(None, "----------------")]
 
 
 def validate_orcid_id_field(form, field):
@@ -106,46 +107,31 @@ class PartialDateField(Field):
 class CountrySelectField(SelectField):
     """Country dropdown widget."""
 
-    # Order the countly list by the name and add a default (Null) value
-    country_choices = [(c.alpha_2, c.name) for c in countries]
-    country_choices.sort(key=lambda e: e[1])
-    country_choices.insert(0, ("", "Country"))
-
     def __init__(self, *args, **kwargs):
         """Set up the value list."""
         if len(args) == 0 and "label" not in kwargs:
             kwargs["label"] = "Country"
-        super().__init__(*args, choices=self.country_choices, **kwargs)
+        super().__init__(*args, choices=EMPTY_CHOICES + models.country_choices, **kwargs)
 
 
 class LanguageSelectField(SelectField):
     """Languages dropdown widget."""
 
-    # Order the languages list by the name and add a default (Null) value
-    language_choices = [(l.alpha_2, l.name) for l in languages if hasattr(l, "alpha_2")]
-    language_choices.sort(key=lambda e: e[1])
-    language_choices.insert(0, ("", "Language"))
-
     def __init__(self, *args, **kwargs):
         """Set up the value list."""
         if len(args) == 0 and "label" not in kwargs:
             kwargs["label"] = "Language"
-        super().__init__(*args, choices=self.language_choices, **kwargs)
+        super().__init__(*args, choices=EMPTY_CHOICES + models.language_choices, **kwargs)
 
 
 class CurrencySelectField(SelectField):
     """currencies dropdown widget."""
 
-    # Order the currencies list by the name and add a default (Null) value
-    currency_choices = [(l.alpha_3, l.name) for l in currencies]
-    currency_choices.sort(key=lambda e: e[1])
-    currency_choices.insert(0, ("", "Currency"))
-
     def __init__(self, *args, **kwargs):
         """Set up the value list."""
         if len(args) == 0 and "label" not in kwargs:
             kwargs["label"] = "Currency"
-        super().__init__(*args, choices=self.currency_choices, **kwargs)
+        super().__init__(*args, choices=EMPTY_CHOICES + models.currency_choices, **kwargs)
 
 
 class BitmapMultipleValueField(SelectMultipleField):
@@ -295,30 +281,18 @@ class PeerReviewForm(FlaskForm):
 class WorkForm(FlaskForm):
     """User/researcher Work detail form."""
 
-    work_type_choices = [(v, v.replace('_', ' ').title()) for v in
-                         ['MANUAL', 'CONFERENCE_PAPER', 'RESEARCH_TECHNIQUE', 'SUPERVISED_STUDENT_PUBLICATION',
-                          'INVENTION', 'NEWSLETTER_ARTICLE', 'TRANSLATION', 'TEST', 'DISSERTATION', 'BOOK_CHAPTER',
-                          'LICENSE', 'STANDARDS_AND_POLICY', 'CONFERENCE_ABSTRACT', 'PATENT', 'DICTIONARY_ENTRY',
-                          'REGISTERED_COPYRIGHT', 'MAGAZINE_ARTICLE', 'DISCLOSURE', 'BOOK_REVIEW',
-                          'UNDEFINED', 'ARTISTIC_PERFORMANCE', 'ENCYCLOPEDIA_ENTRY', 'REPORT', 'ONLINE_RESOURCE',
-                          'WEBSITE', 'RESEARCH_TOOL', 'WORKING_PAPER', 'EDITED_BOOK', 'TRADEMARK', 'LECTURE_SPEECH',
-                          'BOOK', 'DATA_SET', 'JOURNAL_ARTICLE', 'SPIN_OFF_COMPANY', 'TECHNICAL_STANDARD',
-                          'CONFERENCE_POSTER', 'JOURNAL_ISSUE', 'NEWSPAPER_ARTICLE', 'OTHER', '']]
-    work_type_choices.sort(key=lambda e: e[1])
 
-    citation_type_choices = [(v, v.replace('_', ' ').title()) for v in
-                             ['FORMATTED_HARVARD', 'FORMATTED_UNSPECIFIED', 'FORMATTED_CHICAGO', 'FORMATTED_VANCOUVER',
-                              'RIS', 'FORMATTED_IEEE', 'BIBTEX', 'FORMATTED_MLA', 'FORMATTED_APA', '']]
-    citation_type_choices.sort(key=lambda e: e[1])
-
-    work_type = SelectField(choices=work_type_choices, description="Work Type", validators=[validators.required()])
+    work_type = SelectField(
+        choices=[(None, "-------------------")] + models.work_type_choices,
+        description="Work Type",
+        validators=[validators.required()])
     title = StringField("Title", [validators.required()])
     subtitle = StringField("Subtitle")
     translated_title = StringField("Translated Title")
     translated_title_language_code = LanguageSelectField("Language")
     journal_title = StringField("Work Type Title")
     short_description = TextAreaField(description="Short Description")
-    citation_type = SelectField(choices=citation_type_choices, description="Citation Type")
+    citation_type = SelectField(choices=models.citation_type_choices, description="Citation Type")
     citation = StringField("Citation Value")
     publication_date = PartialDateField("Publication date")
     url = StringField("Url")
