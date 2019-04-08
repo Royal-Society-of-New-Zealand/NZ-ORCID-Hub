@@ -1311,10 +1311,6 @@ class WorkRecordAdmin(CompositeRecordModelView):
         "identifier",
         "first_name",
         "last_name",
-        "name",
-        "role",
-        "contributor_sequence",
-        "excluded",
         "external_id_type",
         "external_id_url",
         "external_id_relationship",
@@ -1332,69 +1328,26 @@ class WorkRecordAdmin(CompositeRecordModelView):
             page_size=page_size,
             execute=False)
 
-        sq = (WorkInvitee.select(
-            WorkInvitee.record,
+        return count, query.select(
+            self.model,
             WorkInvitee.email,
             WorkInvitee.orcid,
-            SQL("NULL").alias("name"),
-            SQL("NULL").alias("role"),
-            SQL("NULL").alias("contributor_sequence"),
             WorkInvitee.identifier,
             WorkInvitee.first_name,
             WorkInvitee.last_name,
-            SQL("NULL").alias("excluded"),
             WorkInvitee.put_code,
             WorkInvitee.visibility,
-            WorkInvitee.status,
-            WorkInvitee.processed_at,
-        ) | WorkContributor.select(
-            WorkContributor.record,
-            WorkContributor.email,
-            WorkContributor.orcid,
-            WorkContributor.name,
-            WorkContributor.role,
-            WorkContributor.contributor_sequence,
-            SQL("NULL").alias("identifier"),
-            SQL("NULL").alias("first_name"),
-            SQL("NULL").alias("last_name"),
-            SQL("'Y'").alias("excluded"),
-            SQL("NULL").alias("put_code"),
-            SQL("NULL").alias("visibility"),
-            SQL("NULL").alias("status"),
-            SQL("NULL").alias("processed_at"),
-        ).join(
-            WorkInvitee,
-            JOIN.LEFT_OUTER,
-            on=((WorkInvitee.record_id == WorkContributor.record_id)
-                & ((WorkInvitee.email == WorkContributor.email)
-                   | (WorkInvitee.orcid == WorkContributor.orcid)))).join(
-                       User,
-                       JOIN.LEFT_OUTER,
-                       on=((User.email == WorkContributor.email)
-                           | (User.orcid == WorkContributor.orcid))).where(
-                               (User.id.is_null() | WorkInvitee.id.is_null()))).alias("sq")
-
-        return count, query.select(
-            WorkRecord,
-            sq.c.email,
-            sq.c.orcid,
-            sq.c.name,
-            sq.c.role,
-            sq.c.contributor_sequence,
-            sq.c.identifier,
-            sq.c.first_name,
-            sq.c.last_name,
-            sq.c.excluded,
-            sq.c.put_code,
-            sq.c.visibility,
-            sq.c.status,
             WorkExternalId.type.alias("external_id_type"),
             WorkExternalId.value.alias("work_id"),
             WorkExternalId.url.alias("external_id_url"),
-            WorkExternalId.relationship.alias("external_id_relationship")).join(
-                WorkExternalId, JOIN.LEFT_OUTER,
-                on=(WorkExternalId.record_id == WorkRecord.id)).join(
-                    sq, JOIN.LEFT_OUTER, on=(sq.c.record_id == WorkRecord.id)).naive()
+            WorkExternalId.relationship.alias("external_id_relationship"),
+        ).join(
+            WorkExternalId,
+            JOIN.LEFT_OUTER,
+            on=(WorkExternalId.record_id == self.model.id)).join(
+                WorkInvitee,
+                JOIN.LEFT_OUTER,
+                on=(WorkInvitee.record_id == self.model.id)).naive()
 
 
 class PeerReviewRecordAdmin(CompositeRecordModelView):

@@ -3319,7 +3319,6 @@ def test_researcher_work(client):
     assert task.records.count() == 1
     rec = task.records.first()
     assert rec.external_ids.count() == 1
-    assert rec.contributors.count() == 2
     assert rec.invitees.count() == 2
 
     resp = client.post(

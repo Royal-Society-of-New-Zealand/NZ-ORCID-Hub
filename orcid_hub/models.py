@@ -2897,7 +2897,7 @@ class WorkRecord(RecordModel):
                 "title$",
                 r"sub.*(title)?$",
                 r"translated\s+(title)?",
-                r"(translated)?\s*(title)?\s*language\s*(code)?",
+                r"translat(ed)?(ion)?\s+(title)?\s*lang(uage)?.*(code)?",
                 r"journal",
                 "type$",
                 r"(short\s*|description\s*)+$",
