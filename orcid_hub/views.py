@@ -420,7 +420,8 @@ class OrganisationAdmin(AppModelView):
             # Revoke the TECHNICAL role if thre is no org the user is tech.contact for.
             if model.tech_contact and model.tech_contact.has_role(
                     Role.TECHNICAL) and not Organisation.select().where(
-                        Organisation.tech_contact_id == model.tech_contact_id).exists():
+                        Organisation.tech_contact_id == model.tech_contact_id,
+                        Organisation.id != model.id).exists():
                 app.logger.info(r"Revoked TECHNICAL from {model.tech_contact}")
                 model.tech_contact.roles &= ~Role.TECHNICAL
                 super(User, model.tech_contact).save()
