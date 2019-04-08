@@ -11,7 +11,7 @@ import time
 from io import BytesIO
 from itertools import product
 from unittest.mock import MagicMock, Mock, patch
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, quote, urlparse
 
 import pytest
 import yaml
@@ -25,10 +25,11 @@ from orcid_api.rest import ApiException
 from orcid_hub import app, orcid_client, rq, utils, views
 from orcid_hub.config import ORCID_BASE_URL
 from orcid_hub.forms import FileUploadForm
-from orcid_hub.models import (
-    Affiliation, AffiliationRecord, Client, File, FundingRecord, GroupIdRecord, OrcidToken,
-    Organisation, OrgInfo, OrgInvitation, PartialDate, PeerReviewRecord, ResearcherUrlRecord, Role,
-    Task, TaskType, Token, Url, User, UserInvitation, UserOrg, UserOrgAffiliation, WorkRecord)
+from orcid_hub.models import (Affiliation, AffiliationRecord, Client, File, FundingContributor,
+                              FundingRecord, GroupIdRecord, OrcidToken, Organisation, OrgInfo,
+                              OrgInvitation, PartialDate, PeerReviewRecord, ResearcherUrlRecord,
+                              Role, Task, TaskType, Token, Url, User, UserInvitation, UserOrg,
+                              UserOrgAffiliation, WorkRecord)
 
 fake_time = time.time()
 logger = logging.getLogger(__name__)
@@ -208,7 +209,22 @@ def test_superuser_view_access(client):
                 webhook_enabled="y",
             ))
         user = User.get(u.id)
-        assert user.orcid == "0000-0000-XXXX-XXXX"
+        assert user.orcid != "0000-0000-XXXX-XXXX"
+
+        resp = client.post(
+            f"/admin/user/edit/?id={u.id}&url=%2Fadmin%2Fuser%2F",
+            data=dict(
+                name=u.name + "_NEW",
+                first_name=u.first_name,
+                last_name=u.last_name,
+                email="NEW_" + u.email,
+                eppn='',
+                orcid="1631-2631-3631-00X3",
+                confirmed="y",
+                webhook_enabled="y",
+            ))
+        user = User.get(u.id)
+        assert user.orcid == "1631-2631-3631-00X3"
         assert user.email == "NEW_" + u.email
         assert user.name == u.name + "_NEW"
 
@@ -1368,15 +1384,35 @@ Rad,Cirskis,researcher.990@mailinator.com,Student
     resp = client.get("/admin/task/?flt1_1=4")
     assert b"affiliations.csv" in resp.data
 
-    # Activate a single record:
-    id = records[0].id
+    # Add a new record:
+    url = quote(f"/url/?task_id={task_id}", safe='')
+    resp = client.post(
+        f"/admin/affiliationrecord/new/?url={url}",
+        follow_redirects=True,
+        data={
+            "external_id": "EX1234567890",
+            "first_name": "TEST FN",
+            "last_name": "TEST LN",
+            "email": "test@test.test.test.org",
+            "affiliation_type": "student",
+            "role": "ROLE",
+            "department": "DEP",
+            "start_date:year": "1990",
+            "end_date:year": "2024",
+            "city": "Auckland City",
+            "state": "Auckland",
+            "country": "NZ",
+        })
+
+    # Activate a single record:,
+    rec_id = records[0].id
     resp = client.post(
         "/admin/affiliationrecord/action/",
         follow_redirects=True,
         data={
             "url": f"/admin/affiliationrecord/?task_id={task_id}",
             "action": "activate",
-            "rowid": id,
+            "rowid": rec_id,
         })
     assert AffiliationRecord.select().where(AffiliationRecord.task_id == task_id,
                                             AffiliationRecord.is_active).count() == 1
@@ -1384,7 +1420,7 @@ Rad,Cirskis,researcher.990@mailinator.com,Student
     # Activate all:
     resp = client.post("/activate_all", follow_redirects=True, data=dict(task_id=task_id))
     assert AffiliationRecord.select().where(AffiliationRecord.task_id == task_id,
-                                            AffiliationRecord.is_active).count() == 4
+                                            AffiliationRecord.is_active).count() == 5
 
     # Reste a single record
     AffiliationRecord.update(processed_at=datetime.datetime(2018, 1, 1)).execute()
@@ -1394,7 +1430,7 @@ Rad,Cirskis,researcher.990@mailinator.com,Student
         data={
             "url": f"/admin/affiliationrecord/?task_id={task_id}",
             "action": "reset",
-            "rowid": id,
+            "rowid": rec_id,
         })
     assert AffiliationRecord.select().where(AffiliationRecord.task_id == task_id,
                                             AffiliationRecord.processed_at.is_null()).count() == 1
@@ -1402,7 +1438,7 @@ Rad,Cirskis,researcher.990@mailinator.com,Student
     # Reset all:
     resp = client.post("/reset_all", follow_redirects=True, data=dict(task_id=task_id))
     assert AffiliationRecord.select().where(AffiliationRecord.task_id == task_id,
-                                            AffiliationRecord.processed_at.is_null()).count() == 4
+                                            AffiliationRecord.processed_at.is_null()).count() == 5
 
     # Exporting:
     for export_type in ["csv", "xls", "tsv", "yaml", "json", "xlsx", "ods", "html"]:
@@ -1418,7 +1454,7 @@ Rad,Cirskis,researcher.990@mailinator.com,Student
         resp = client.get(
             f"/admin/affiliationrecord/export/{export_type}/?task_id=ERROR-9999999",
             follow_redirects=True)
-        assert b"invalid" in resp.data
+        assert b"Missing or incorrect task ID value" in resp.data
 
         resp = client.get(f"/admin/affiliationrecord/export/{export_type}/?task_id={task_id}")
         ct = resp.headers["Content-Type"]
@@ -1463,7 +1499,7 @@ Rad,Cirskis,researcher.990@mailinator.com,Student
             })
         assert resp.status_code == 302
         assert Task.select().count() == task_count + 1
-        assert Task.select().order_by(Task.id.desc()).first().records.count() == 4
+        assert Task.select().order_by(Task.id.desc()).first().records.count() == 5
 
     # Delete records:
     resp = client.post(
@@ -1472,9 +1508,9 @@ Rad,Cirskis,researcher.990@mailinator.com,Student
         data={
             "url": f"/admin/affiliationrecord/?task_id={task_id}",
             "action": "delete",
-            "rowid": id,
+            "rowid": rec_id,
         })
-    assert AffiliationRecord.select().where(AffiliationRecord.task_id == task_id).count() == 3
+    assert AffiliationRecord.select().where(AffiliationRecord.task_id == task_id).count() == 4
 
     # Delete more records:
     resp = client.post(
@@ -1485,7 +1521,7 @@ Rad,Cirskis,researcher.990@mailinator.com,Student
             "action": "delete",
             "rowid": [ar.id for ar in records[1:-1]],
         })
-    assert AffiliationRecord.select().where(AffiliationRecord.task_id == task_id).count() == 1
+    assert AffiliationRecord.select().where(AffiliationRecord.task_id == task_id).count() == 2
 
     resp = client.post(
         "/admin/task/delete/", data=dict(id=task_id, url="/admin/task/"), follow_redirects=True)
@@ -2049,8 +2085,8 @@ def test_edit_record(request_ctx):
                 f"/section/{user.id}/RUR/new",
                 method="POST",
                 data={
-                    "url_name": "xyz",
-                    "url_value": "https://www.xyz.com",
+                    "name": "xyz",
+                    "value": "https://www.xyz.com",
                     "visibility": "PUBLIC",
                     "display_index": "FIRST",
                 }) as ctx:
@@ -2445,14 +2481,14 @@ def test_action_insert_update_group_id(client):
         assert b"<!DOCTYPE html>" in resp.data, "Expected HTML content"
 
 
-def test_reset_all(request_ctx):
+def test_reset_all(client):
     """Test reset batch process."""
-    org = request_ctx.data["org"]
+    org = client.data["org"]
     user = User.create(
         email="test123@test.test.net",
         name="TEST USER",
         roles=Role.TECHNICAL,
-        orcid=123,
+        orcid="0000-0001-8930-6644",
         confirmed=True,
         organisation=org)
     UserOrg.create(user=user, org=org, is_admin=True)
@@ -2460,7 +2496,7 @@ def test_reset_all(request_ctx):
     task1 = Task.create(
         org=org,
         completed_at="12/12/12",
-        filename="xyz.txt",
+        filename="affiliations0001.txt",
         created_by=user,
         updated_by=user,
         task_type=TaskType.AFFILIATION)
@@ -2472,8 +2508,8 @@ def test_reset_all(request_ctx):
         first_name="Test",
         last_name="Test",
         email="test1234456@mailinator.com",
-        orcid="123112311231",
-        organisation="asdasd",
+        orcid="0000-0002-1645-5339",
+        organisation="TEST ORG",
         affiliation_type="staff",
         role="Test",
         department="Test",
@@ -2494,10 +2530,10 @@ def test_reset_all(request_ctx):
     task2 = Task.create(
         org=org,
         completed_at="12/12/12",
-        filename="xyz.txt",
+        filename="fundings001.txt",
         created_by=user,
         updated_by=user,
-        task_type=1)
+        task_type=TaskType.FUNDING)
 
     FundingRecord.create(
         task=task2,
@@ -2513,7 +2549,7 @@ def test_reset_all(request_ctx):
         city="Test city",
         region="Test",
         country="Test",
-        disambiguated_org_identifier="Test_dis",
+        disambiguated_id="Test_dis",
         disambiguation_source="Test_source",
         is_active=True,
         visibility="Test_visibity")
@@ -2521,24 +2557,21 @@ def test_reset_all(request_ctx):
     task3 = Task.create(
         org=org,
         completed_at="12/12/12",
-        filename="xyz.txt",
+        filename="peer-reviews-003.txt",
         created_by=user,
         updated_by=user,
-        task_type=3)
+        task_type=TaskType.PEER_REVIEW)
 
     PeerReviewRecord.create(
-        task=task3,
-        review_group_id=1212,
-        is_active=True,
-        visibility="Test_visibity")
+        task=task3, review_group_id=1212, is_active=True, visibility="Test_visibity")
 
     work_task = Task.create(
         org=org,
         completed_at="12/12/12",
-        filename="xyz.txt",
+        filename="works001.txt",
         created_by=user,
         updated_by=user,
-        task_type=2)
+        task_type=TaskType.WORK)
 
     WorkRecord.create(
         task=work_task,
@@ -2547,8 +2580,13 @@ def test_reset_all(request_ctx):
         citation_type="Test_citation_type",
         citation_value="Test_visibity")
 
-    researcher_url_task = Task.create(id=12, org=org, filename="xyz.json", created_by=user, updated_by=user,
-                                      task_type=5, completed_at="12/12/12")
+    researcher_url_task = Task.create(
+        org=org,
+        filename="xyz.json",
+        created_by=user,
+        updated_by=user,
+        task_type=TaskType.RESEARCHER_URL,
+        completed_at="12/12/12")
 
     ResearcherUrlRecord.create(
         task=researcher_url_task,
@@ -2558,65 +2596,56 @@ def test_reset_all(request_ctx):
         last_name="Test",
         email="test1234456@mailinator.com",
         visibility="PUBLIC",
-        url_name="url name",
-        url_value="https://www.xyz.com",
+        name="url name",
+        value="https://www.xyz.com",
         display_index=0)
 
-    with request_ctx("/reset_all", method="POST") as ctxx:
-        login_user(user, remember=True)
-        request.args = ImmutableMultiDict([('url', 'http://localhost/researcher_url_record_reset_for_batch')])
-        request.form = ImmutableMultiDict([('task_id', researcher_url_task.id)])
-        resp = ctxx.app.full_dispatch_request()
-        t = Task.get(id=researcher_url_task.id)
-        rec = t.records.first()
-        assert "The record was reset" in rec.status
-        assert t.completed_at is None
-        assert resp.status_code == 302
-        assert resp.location.startswith("http://localhost/researcher_url_record_reset_for_batch")
-    with request_ctx("/reset_all", method="POST") as ctxx:
-        login_user(user, remember=True)
-        request.args = ImmutableMultiDict([('url', 'http://localhost/affiliation_record_reset_for_batch')])
-        request.form = ImmutableMultiDict([('task_id', task1.id)])
-        resp = ctxx.app.full_dispatch_request()
-        t = Task.get(id=task1.id)
-        rec = t.records.first()
-        assert "The record was reset" in rec.status
-        assert t.completed_at is None
-        assert resp.status_code == 302
-        assert resp.location.startswith("http://localhost/affiliation_record_reset_for_batch")
-    with request_ctx("/reset_all", method="POST") as ctxx:
-        login_user(user, remember=True)
-        request.args = ImmutableMultiDict([('url', 'http://localhost/funding_record_reset_for_batch')])
-        request.form = ImmutableMultiDict([('task_id', task2.id)])
-        resp = ctxx.app.full_dispatch_request()
-        t = Task.get(id=task2.id)
-        rec = t.records.first()
-        assert "The record was reset" in rec.status
-        assert t.completed_at is None
-        assert resp.status_code == 302
-        assert resp.location.startswith("http://localhost/funding_record_reset_for_batch")
-    with request_ctx("/reset_all", method="POST") as ctxx:
-        login_user(user, remember=True)
-        request.args = ImmutableMultiDict([('url', 'http://localhost/peer_review_record_reset_for_batch')])
-        request.form = ImmutableMultiDict([('task_id', task3.id)])
-        resp = ctxx.app.full_dispatch_request()
-        t = Task.get(id=task3.id)
-        rec = PeerReviewRecord.get(id=1)
-        assert "The record was reset" in rec.status
-        assert t.completed_at is None
-        assert resp.status_code == 302
-        assert resp.location.startswith("http://localhost/peer_review_record_reset_for_batch")
-    with request_ctx("/reset_all", method="POST") as ctxx:
-        login_user(user, remember=True)
-        request.args = ImmutableMultiDict([('url', 'http://localhost/work_record_reset_for_batch')])
-        request.form = ImmutableMultiDict([('task_id', work_task.id)])
-        resp = ctxx.app.full_dispatch_request()
-        t = Task.get(id=4)
-        pr = WorkRecord.get(id=1)
-        assert "The record was reset" in pr.status
-        assert t.completed_at is None
-        assert resp.status_code == 302
-        assert resp.location.startswith("http://localhost/work_record_reset_for_batch")
+    resp = client.login(user, follow_redirects=True)
+    resp = client.post(
+        "/reset_all?url=/researcher_url_record_reset_for_batch",
+        data={"task_id": researcher_url_task.id})
+    t = Task.get(researcher_url_task.id)
+    rec = t.records.first()
+    assert "The record was reset" in rec.status
+    assert t.completed_at is None
+    assert resp.status_code == 302
+    assert resp.location.endswith("/researcher_url_record_reset_for_batch")
+
+    resp = client.post(
+        "/reset_all?url=/affiliation_record_reset_for_batch", data={"task_id": task1.id})
+    t = Task.get(id=task1.id)
+    rec = t.records.first()
+    assert "The record was reset" in rec.status
+    assert t.completed_at is None
+    assert resp.status_code == 302
+    assert resp.location.endswith("/affiliation_record_reset_for_batch")
+
+    resp = client.post(
+        "/reset_all?url=/funding_record_reset_for_batch", data={"task_id": task2.id})
+    t = Task.get(id=task2.id)
+    rec = t.records.first()
+    assert "The record was reset" in rec.status
+    assert t.completed_at is None
+    assert resp.status_code == 302
+    assert resp.location.endswith("/funding_record_reset_for_batch")
+
+    resp = client.post(
+        "/reset_all?url=/record_reset_for_batch", data={"task_id": task3.id})
+    t = Task.get(id=task3.id)
+    rec = t.records.first()
+    assert "The record was reset" in rec.status
+    assert t.completed_at is None
+    assert resp.status_code == 302
+    assert resp.location.endswith("/record_reset_for_batch")
+
+    resp = client.post(
+        "/reset_all?url=/work_record_reset_for_batch", data={"task_id": work_task.id})
+    t = Task.get(work_task.id)
+    rec = t.records.first()
+    assert "The record was reset" in rec.status
+    assert t.completed_at is None
+    assert resp.status_code == 302
+    assert resp.location.endswith("/work_record_reset_for_batch")
 
 
 def test_issue_470198698(request_ctx):
@@ -2633,6 +2662,7 @@ def test_issue_470198698(request_ctx):
             orcid=f"XXXX-XXXX-XXXX-{i:04d}" if i % 2 else None,
             first_name=f"FN #{i}",
             last_name=f"LF #{i}",
+            affiliation_type=["student", "staff"][i % 2],
             email=f"test{i}") for i in range(10)).execute()
 
     with request_ctx(f"/admin/affiliationrecord/?task_id={task.id}") as ctx:
@@ -2774,7 +2804,7 @@ issn:1213199811,REVIEWER,https://alt-url.com,REVIEW,2012-08-01,doi,10.1087/20120
     assert b"peer_review.csv" in resp.data
     assert Task.select().where(Task.task_type == TaskType.PEER_REVIEW).count() == 1
     task = Task.select().where(Task.task_type == TaskType.PEER_REVIEW).first()
-    prr = task.peer_review_records.where(PeerReviewRecord.review_group_id == "issn:1213199811").first()
+    prr = task.records.where(PeerReviewRecord.review_group_id == "issn:1213199811").first()
     assert prr.external_ids.count() == 2
     assert prr.invitees.count() == 2
 
@@ -2806,8 +2836,8 @@ THIS IS A TITLE #2, नमस्ते #2,hi,  CONTRACT,MY TYPE,Minerals unde.,9
     assert b"fundings.csv" in resp.data
     assert Task.select().where(Task.task_type == TaskType.FUNDING).count() == 1
     task = Task.select().where(Task.task_type == TaskType.FUNDING).first()
-    assert task.funding_records.count() == 2
-    fr = task.funding_records.where(FundingRecord.title == "THIS IS A TITLE").first()
+    assert task.records.count() == 2
+    fr = task.records.where(FundingRecord.title == "THIS IS A TITLE").first()
     assert fr.contributors.count() == 0
     assert fr.external_ids.count() == 2
 
@@ -2822,8 +2852,8 @@ THIS IS A TITLE #2, नमस्ते #2,hi,  CONTRACT,MY TYPE,Minerals unde.,9
     assert Task.select().where(Task.task_type == TaskType.FUNDING).count() == 2
     task = Task.select().where(Task.filename == "funding000.tsv",
                                Task.task_type == TaskType.FUNDING).first()
-    assert task.funding_records.count() == 2
-    fr = task.funding_records.where(FundingRecord.title == 'THIS IS A TITLE').first()
+    assert task.records.count() == 2
+    fr = task.records.where(FundingRecord.title == 'THIS IS A TITLE').first()
     assert fr.contributors.count() == 0
     assert fr.external_ids.count() == 2
 
@@ -2838,8 +2868,8 @@ THIS IS A TITLE #2, नमस्ते #2,hi,  CONTRACT,MY TYPE,Minerals unde.,9
     assert Task.select().where(Task.task_type == TaskType.FUNDING).count() == 3
     task = Task.select().where(Task.filename == "funding001.csv",
                                Task.task_type == TaskType.FUNDING).first()
-    assert task.funding_records.count() == 2
-    fr = task.funding_records.where(FundingRecord.title == 'THIS IS A TITLE').first()
+    assert task.records.count() == 2
+    fr = task.records.where(FundingRecord.title == 'THIS IS A TITLE').first()
     assert fr.contributors.count() == 0
     assert fr.external_ids.count() == 2
     assert fr.invitees.count() == 2
@@ -2870,7 +2900,7 @@ THIS IS A TITLE #4	 नमस्ते #2	hi	CONTRACT	MY TYPE	Minerals unde.	900
 
     assert Task.select().where(Task.task_type == TaskType.FUNDING).count() == 4
     task = Task.select().where(Task.task_type == TaskType.FUNDING).order_by(Task.id.desc()).first()
-    assert task.funding_records.count() == 2
+    assert task.records.count() == 2
 
     # Activate a single record:
     resp = client.post(
@@ -3019,8 +3049,8 @@ THIS IS A TITLE, नमस्ते,hi,  CONTRACT,MY TYPE,Minerals unde.,300000,
     assert b"fundings042.csv" in resp.data
     assert Task.select().where(Task.task_type == TaskType.FUNDING).count() == 4
     task = Task.select().where(Task.filename == "fundings042.csv").first()
-    assert task.funding_records.count() == 2
-    fr = task.funding_records.where(FundingRecord.title == "This is another project title").first()
+    assert task.records.count() == 2
+    fr = task.records.where(FundingRecord.title == "This is another project title").first()
     assert fr.contributors.count() == 0
     assert fr.external_ids.count() == 1
     assert fr.invitees.count() == 2
@@ -3047,9 +3077,83 @@ XXX1702,00004,,This is another project title,,,CONTRACT,Standard,This is another
     assert b"fundings_ex.csv" in resp.data
     assert Task.select().where(Task.task_type == TaskType.FUNDING).count() == 5
     task = Task.select().where(Task.task_type == TaskType.FUNDING).order_by(Task.id.desc()).first()
-    assert task.funding_records.count() == 2
-    for r in task.funding_records:
+    assert task.records.count() == 2
+    for r in task.records:
         assert r.invitees.count() == 0
+
+    # Change invitees:
+    record = task.records.first()
+    invitee_count = record.invitees.count()
+    url = quote(f"/url/?record_id={record.id}", safe='')
+    resp = client.post(
+        f"/admin/fundinginvitee/new/?url={url}",
+        data={
+            "email": "test@test.test.test.org",
+            "first_name": "TEST FN",
+            "last_name": "TEST LN",
+            "visibility": "PUBLIC",
+        })
+    assert record.invitees.count() > invitee_count
+
+    invitee = record.invitees.first()
+    resp = client.post(
+        f"/admin/fundinginvitee/edit/?id={invitee.id}&url={url}",
+        data={
+            "email": "test_new@test.test.test.org",
+            "first_name": invitee.first_name + "NEW",
+            "visibility": "PUBLIC",
+        })
+    assert record.invitees.count() > invitee_count
+    assert record.invitees.first().first_name == invitee.first_name + "NEW"
+    assert record.invitees.first().email == "test_new@test.test.test.org"
+
+    # Change contributors:
+    record = task.records.first()
+    contributor_count = record.invitees.count()
+    url = quote(f"/admin/fundingrecord/?record_id={record.id}&task_id={task.id}", safe='')
+    resp = client.post(
+        f"/admin/fundingcontributor/new/?url={url}",
+        data={
+            "email": "contributor123@test.test.test.org",
+            "name": "FN LN",
+            "role": "ROLE",
+        })
+    assert record.contributors.count() > contributor_count
+
+    contributor = record.contributors.first()
+    resp = client.post(
+        f"/admin/fundingcontributor/edit/?id={contributor.id}&url={url}",
+        data={
+            "email": "contributor_new@test.test.test.org",
+            "orcid": "AAAA-2738-3738-00X3",
+        })
+    c = FundingContributor.get(contributor.id)
+    assert c.email != "contributor_new@test.test.test.org"
+    assert c.orcid != "AAAA-2738-3738-00X3"
+    assert b"Invalid ORCID" in resp.data
+
+    resp = client.post(
+        f"/admin/fundingcontributor/edit/?id={contributor.id}&url={url}",
+        data={
+            "email": "contributor_new@test.test.test.org",
+            "orcid": "1631-2631-3631-00X3",
+        })
+    c = FundingContributor.get(contributor.id)
+    assert c.email == "contributor_new@test.test.test.org"
+    assert c.orcid == "1631-2631-3631-00X3"
+
+    # Add a new funding record:
+    url = quote(f"/admin/fundingrecord/?task_id={task.id}", safe='')
+    record_count = Task.get(task.id).records.count()
+    resp = client.post(
+        f"/admin/fundingrecord/new/?url={url}",
+        follow_redirects=True,
+        data={
+            "title": "FUNDING TITLE",
+            "type": "AWARD",
+            "_continue_editing": "Save and Continue Editing",
+        })
+    assert Task.get(task.id).records.count() == record_count + 1
 
 
 def test_researcher_work(client):
@@ -3302,6 +3406,117 @@ sdsds,,This is a title,,,hi,This is a journal title,xyz this is short descriptio
     assert resp.status_code == 200
     assert Task.select().count() == 0
     assert b"Failed to load work record file" in resp.data
+
+    # Edit task after the upload
+    resp = client.post(
+        "/load/researcher/work",
+        data={
+            "file_": (open(os.path.join(os.path.dirname(__file__), "data", "example_works.json"), "rb"),
+                      "works042.json"),
+        },
+        follow_redirects=True)
+    assert resp.status_code == 200
+    task = Task.select().order_by(Task.id.desc()).first()
+    assert task is not None
+
+    record_count = task.records.count()
+    url = quote(f"/admin/workrecord/?task_id={task.id}", safe='')
+    resp = client.post(
+        f"/admin/workrecord/new/?url={url}",
+        data=dict(title="WORK1234", _continue_editing="Save and Continue Editing"),
+        follow_redirects=True)
+    assert Task.get(task.id).records.count() == record_count + 1
+
+    record = task.records.order_by(task.record_model.id.desc()).first()
+    assert record
+
+    # Invitees:
+    invitee_count = record.invitees.count()
+    url = quote(f"/admin/workinvitee/?record_id={record.id}", safe='')
+    resp = client.post(
+        f"/admin/workinvitee/new/?url={url}",
+        data={
+            "email": "test@test.test.test.org",
+            "first_name": "TEST FN",
+            "last_name": "TEST LN",
+            "visibility": "PUBLIC",
+        })
+    assert record.invitees.count() > invitee_count
+
+    invitee = record.invitees.first()
+    resp = client.post(
+        f"/admin/workinvitee/edit/?id={invitee.id}&url={url}",
+        data={
+            "email": "test_new@test.test.test.org",
+            "first_name": invitee.first_name + "NEW",
+            "visibility": "PUBLIC",
+        })
+    assert record.invitees.first().first_name == invitee.first_name + "NEW"
+    assert record.invitees.first().email == "test_new@test.test.test.org"
+
+    resp = client.post(
+        f"/admin/workinvitee/delete/", data={
+            "id": record.invitees.first().id,
+            "url": url
+        })
+    assert record.invitees.count() == 0
+
+    # Contributors:
+    contributor_count = record.contributors.count()
+    url = quote(f"/admin/workcontributor/?record_id={record.id}", safe='')
+    resp = client.post(
+        f"/admin/workcontributor/new/?url={url}",
+        data={
+            "email": "test@test.test.test.org",
+        })
+    assert record.contributors.count() > contributor_count
+
+    contributor = record.contributors.first()
+    resp = client.post(
+        f"/admin/workcontributor/edit/?id={contributor.id}&url={url}",
+        data={
+            "email": "test_new@test.test.test.org",
+            "name": "CONTRIBUTOR NAME",
+        })
+    contributor = record.contributors.first()
+    assert record.contributors.first().name == "CONTRIBUTOR NAME"
+    assert record.contributors.first().email == "test_new@test.test.test.org"
+
+    resp = client.post(
+        f"/admin/workcontributor/delete/", data={
+            "id": record.contributors.first().id,
+            "url": url
+        })
+    assert record.contributors.count() == 0
+
+    # External IDs:
+    assert record.external_ids.count() == 0
+    url = quote(f"/admin/workexternalid/?record_id={record.id}", safe='')
+    resp = client.post(
+        f"/admin/workexternalid/new/?url={url}",
+        data={
+            "type": "grant_number",
+            "value": "EXTERNAL ID VALUE",
+            "relationship": "SELF",
+        })
+    assert record.external_ids.count() == 1
+
+    external_id = record.external_ids.first()
+    resp = client.post(
+        f"/admin/workexternalid/edit/?id={external_id.id}&url={url}",
+        data={
+            "type": "grant_number",
+            "value": "EXTERNAL ID VALUE 123",
+            "relationship": "SELF",
+        })
+    assert record.external_ids.first().value == "EXTERNAL ID VALUE 123"
+
+    resp = client.post(
+        f"/admin/workexternalid/delete/", data={
+            "id": record.external_ids.first().id,
+            "url": url
+        })
+    assert record.external_ids.count() == 0
 
 
 def test_peer_reviews(client):
@@ -3565,13 +3780,13 @@ def test_researcher_url(client):
   "records": [
     {
       "display-index": 0, "email": "xyzzz@mailinator.com", "first-name": "sdksdsd", "last-name": "sds1",
-      "orcid": "0000-0001-6817-9711", "put-code": 43959, "url-name": "xyzurl",
-      "url-value": "https://fdhfdasa112j.com", "visibility": "PUBLIC"
+      "orcid": "0000-0001-6817-9711", "put-code": 43959, "name": "xyzurl",
+      "value": "https://fdhfdasa112j.com", "visibility": "PUBLIC"
     },
     {
       "display-index": 10, "email": "dsjdh11222@mailinator.com", "first-name": "sdksasadsd",
-      "last-name": "sds1", "put-code": null, "orcid": null, "url-name": "xyzurl",
-      "url-value": "https://fdhfdasa112j.com", "visibility": "PUBLIC"
+      "last-name": "sds1", "put-code": null, "orcid": null, "name": "xyzurl",
+      "value": "https://fdhfdasa112j.com", "visibility": "PUBLIC"
     }]}"""),
                 "researcher_url_001.json",
             ),
@@ -3586,3 +3801,59 @@ def test_researcher_url(client):
     assert resp.status_code == 200
     assert b'xyzzz@mailinator.com' in resp.data
     assert b'https://fdhfdasa112j.com' in resp.data
+
+    resp = client.post(
+        "/load/researcher/urls",
+        data={
+            "file_": (
+                BytesIO(resp.data),
+                "researcher_url_002.json",
+            ),
+        },
+        follow_redirects=True)
+    assert resp.status_code == 200
+    assert b"https://fdhfdasa112j.com" in resp.data
+    task = Task.get(filename="researcher_url_002.json")
+    assert task.records.count() == 2
+
+    resp = client.get(f"/admin/researcherurlrecord/export/csv/?task_id={task.id}")
+    assert resp.status_code == 200
+    assert b'xyzzz@mailinator.com' in resp.data
+    assert b'https://fdhfdasa112j.com' in resp.data
+
+    resp = client.post(
+        "/load/researcher/urls",
+        data={
+            "file_": (
+                BytesIO(resp.data),
+                "researcher_url_003.csv",
+            ),
+        },
+        follow_redirects=True)
+    assert resp.status_code == 200
+    assert b"https://fdhfdasa112j.com" in resp.data
+    task = Task.get(filename="researcher_url_002.json")
+    assert task.records.count() == 2
+
+    url = quote(f"/admin/researcherurlrecord/?task_id={task.id}", safe='')
+    resp = client.post(
+        f"/admin/researcherurlrecord/new/?url={url}",
+        data=dict(
+            name="URL NAME ABC123",
+            value="URL VALUE",
+            display_index="1234",
+            email="test@test.com",
+            first_name="FN",
+            last_name="LN",
+            orcid="0000-0001-8228-7153",
+        ),
+        follow_redirects=True)
+    assert Task.get(task.id).records.count() == 3
+
+    r = ResearcherUrlRecord.get(name="URL NAME ABC123")
+    resp = client.post(
+            f"/admin/researcherurlrecord/edit/?id={r.id}&url={url}",
+            data=dict(value="http://test.test.test.com/ABC123"),
+            follow_redirects=True)
+    assert resp.status_code == 200
+    assert b"http://test.test.test.com/ABC123" in resp.data
