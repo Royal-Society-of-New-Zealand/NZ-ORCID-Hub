@@ -179,7 +179,7 @@ def test_send_work_funding_peer_review_invitation(app, mocker):
     UserOrg.create(user=u, org=org)
     task = Task.create(org=org, task_type=1)
     fr = FundingRecord.create(task=task, title="xyz", type="Award")
-    FundingInvitee.create(funding_record=fr.id, email=email, first_name="Alice", last_name="Bob")
+    FundingInvitee.create(record=fr, email=email, first_name="Alice", last_name="Bob")
 
     server_name = app.config.get("SERVER_NAME")
     app.config["SERVER_NAME"] = "abc.orcidhub.org.nz"
@@ -461,22 +461,22 @@ def test_create_or_update_funding(app, mocker):
         city="Test city",
         region="Test",
         country="Test",
-        disambiguated_org_identifier="Test_dis",
+        disambiguated_id="Test_dis",
         disambiguation_source="Test_source",
         is_active=True)
 
     FundingInvitee.create(
-        funding_record=fr,
+        record=fr,
         first_name="Test",
         email="test1234456@mailinator.com",
         visibility="PUBLIC",
         orcid="123")
 
     ExternalId.create(
-        funding_record=fr, type="Test_type", value="Test_value", url="Test", relationship="SELF")
+        record=fr, type="Test_type", value="Test_value", url="Test", relationship="SELF")
 
     FundingContributor.create(
-        funding_record=fr, orcid="1213", role="LEAD", name="Contributor", email="contributor@mailinator.com")
+        record=fr, orcid="1213", role="LEAD", name="Contributor", email="contributor@mailinator.com")
 
     UserInvitation.create(
         invitee=u,
@@ -490,7 +490,7 @@ def test_create_or_update_funding(app, mocker):
         user=u, org=org, scope="/read-limited,/activities/update", access_token="Test_token")
 
     utils.process_funding_records()
-    funding_invitees = FundingInvitee.get(orcid=12344)
+    funding_invitees = FundingInvitee.get(orcid="12344")
     assert 12399 == funding_invitees.put_code
     assert "12344" == funding_invitees.orcid
 
@@ -534,17 +534,17 @@ def test_create_or_update_work(app, mocker):
         is_active=True)
 
     WorkInvitee.create(
-        work_record=wr,
+        record=wr,
         first_name="Test",
         email="test1234456@mailinator.com",
         orcid="12344",
         visibility="PUBLIC")
 
     WorkExternalId.create(
-        work_record=wr, type="Test_type", value="Test_value", url="Test", relationship="SELF")
+        record=wr, type="Test_type", value="Test_value", url="Test", relationship="SELF")
 
     WorkContributor.create(
-        work_record=wr, contributor_sequence="1", orcid="1213", role="LEAD", name="xyz", email="xyz@mailiantor.com")
+        record=wr, contributor_sequence="1", orcid="1213", role="LEAD", name="xyz", email="xyz@mailiantor.com")
 
     UserInvitation.create(
         invitee=u,
@@ -558,9 +558,9 @@ def test_create_or_update_work(app, mocker):
         user=u, org=org, scope="/read-limited,/activities/update", access_token="Test_token")
 
     utils.process_work_records()
-    work_invitees = WorkInvitee.get(orcid=12344)
-    assert 12399 == work_invitees.put_code
-    assert "12344" == work_invitees.orcid
+    invitee = WorkInvitee.get(orcid="12344")
+    assert 12399 == invitee.put_code
+    assert "12344" == invitee.orcid
 
 
 def test_create_or_update_peer_review(app, mocker):
@@ -606,14 +606,14 @@ def test_create_or_update_peer_review(app, mocker):
         is_active=True)
 
     PeerReviewInvitee.create(
-        peer_review_record=pr,
+        record=pr,
         first_name="Test",
         email="test1234456@mailinator.com",
         orcid="12344",
         visibility="PUBLIC")
 
     PeerReviewExternalId.create(
-        peer_review_record=pr, type="Test_type", value="122334_different", url="Test", relationship="SELF")
+        record=pr, type="Test_type", value="122334_different", url="Test", relationship="SELF")
 
     UserInvitation.create(
         invitee=u,
@@ -658,8 +658,8 @@ def test_create_or_update_researcher_url(app, mocker):
         last_name="Test",
         email="test1234456@mailinator.com",
         visibility="PUBLIC",
-        url_name="url name",
-        url_value="https://www.xyz.com",
+        name="url name",
+        value="https://www.xyz.com",
         display_index=0)
 
     UserInvitation.create(

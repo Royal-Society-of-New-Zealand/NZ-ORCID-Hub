@@ -61,8 +61,8 @@ researcher_url_record_schema = {
         "email": {"type": ["string", "null"]},
         "first-name": {"type": ["string", "null"]},
         "last-name": {"type": ["string", "null"]},
-        "url-name": {"type": ["string", "null"]},
-        "url-value": {"type": ["string", "null"]},
+        "name": {"type": ["string", "null"]},
+        "value": {"type": ["string", "null"]},
         "display-index": {"type": ["string", "null", "integer"]},
         "visibility": {"type": ["string", "null"]},
         "processed-at": {"type": ["string", "null"], "format": "date-time"},
@@ -72,7 +72,14 @@ researcher_url_record_schema = {
             "format": "^[0-9]{4}-?[0-9]{4}-?[0-9]{4}-?[0-9]{4}$",
         }
     },
-    "required": ["email", "first-name", "last-name", "url-name", "url-value"]
+    "anyOf": [
+        {
+            "required": ["name", "value", "email"]
+        },
+        {
+            "required": ["name", "value", "orcid"]
+        }
+    ]
 }
 
 researcher_url_task_schema = {

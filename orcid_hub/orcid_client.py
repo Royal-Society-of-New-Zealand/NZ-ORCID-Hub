@@ -224,8 +224,8 @@ class MemberAPI(MemberAPIV20Api):
 
     def create_or_update_peer_review(self, task_by_user, *args, **kwargs):
         """Create or update peer review record of a user."""
-        pr = task_by_user.peer_review_record
-        pi = pr.peer_review_invitee
+        pr = task_by_user.record
+        pi = pr.invitee
 
         rec = PeerReview()    # noqa: F405
 
@@ -305,7 +305,7 @@ class MemberAPI(MemberAPIV20Api):
 
         external_id_list = []
         external_ids = PeerReviewExternalId.select().where(
-            PeerReviewExternalId.peer_review_record_id == pr.id).order_by(PeerReviewExternalId.id)
+            PeerReviewExternalId.record_id == pr.id).order_by(PeerReviewExternalId.id)
 
         for exi in external_ids:
             external_id_type = exi.type
@@ -363,16 +363,16 @@ class MemberAPI(MemberAPIV20Api):
 
     def create_or_update_work(self, task_by_user, *args, **kwargs):
         """Create or update work record of a user."""
-        wr = task_by_user.work_record
-        wi = task_by_user.work_record.work_invitees
+        wr = task_by_user.record
+        wi = wr.invitee
 
         rec = Work()    # noqa: F405
         title = None
         if wr.title:
             title = Title(value=wr.title)  # noqa: F405
         subtitle = None
-        if wr.sub_title:
-            subtitle = Subtitle(value=wr.sub_title)     # noqa: F405
+        if wr.subtitle:
+            subtitle = Subtitle(value=wr.subtitle)     # noqa: F405
         translated_title = None
         if wr.translated_title and wr.translated_title_language_code:
             translated_title = TranslatedTitle(value=wr.translated_title,  # noqa: F405
@@ -419,7 +419,7 @@ class MemberAPI(MemberAPIV20Api):
         if wr.citation_type and wr.citation_value:
             rec.citation = Citation(citation_type=wr.citation_type, citation_value=wr.citation_value)  # noqa: F405
 
-        work_contributors = WorkCont.select().where(WorkCont.work_record_id == wr.id).order_by(
+        work_contributors = WorkCont.select().where(WorkCont.record_id == wr.id).order_by(
             WorkCont.contributor_sequence)
 
         work_contributor_list = []
@@ -464,7 +464,7 @@ class MemberAPI(MemberAPIV20Api):
         rec.contributors = WorkContributors(contributor=work_contributor_list)  # noqa: F405
 
         external_id_list = []
-        external_ids = WorkExternalId.select().where(WorkExternalId.work_record_id == wr.id).order_by(WorkExternalId.id)
+        external_ids = WorkExternalId.select().where(WorkExternalId.record_id == wr.id).order_by(WorkExternalId.id)
 
         for exi in external_ids:
             external_id_type = exi.type
@@ -522,8 +522,8 @@ class MemberAPI(MemberAPIV20Api):
 
     def create_or_update_funding(self, task_by_user, *args, **kwargs):
         """Create or update funding record of a user."""
-        fr = task_by_user.funding_record
-        fi = task_by_user.funding_record.funding_invitees
+        fr = task_by_user.record
+        fi = fr.invitee
 
         if not fr.title:
             title = None
@@ -531,7 +531,7 @@ class MemberAPI(MemberAPIV20Api):
         city = fr.city
         country = fr.country
         region = fr.region
-        disambiguated_id = fr.disambiguated_org_identifier
+        disambiguated_id = fr.disambiguated_id
         disambiguation_source = fr.disambiguation_source
         org_name = fr.org_name
         funding_type = fr.type
@@ -591,7 +591,7 @@ class MemberAPI(MemberAPIV20Api):
         if end_date:
             rec.end_date = end_date.as_orcid_dict()
 
-        funding_contributors = FundingCont.select().where(FundingCont.funding_record_id == fr.id).order_by(
+        funding_contributors = FundingCont.select().where(FundingCont.record_id == fr.id).order_by(
             FundingCont.id)
 
         funding_contributor_list = []
@@ -633,7 +633,7 @@ class MemberAPI(MemberAPIV20Api):
             rec.contributors = FundingContributors(contributor=funding_contributor_list)  # noqa: F405
         external_id_list = []
 
-        external_ids = ExternalIdModel.select().where(ExternalIdModel.funding_record_id == fr.id).order_by(
+        external_ids = ExternalIdModel.select().where(ExternalIdModel.record_id == fr.id).order_by(
             ExternalIdModel.id)
 
         for exi in external_ids:
@@ -945,14 +945,14 @@ class MemberAPI(MemberAPIV20Api):
 
         if title:
             title = Title(value=title)  # noqa: F405
-            sub_title = None
+            subtitle = None
             work_translated_title = None
             if subtitle:
-                sub_title = Subtitle(value=subtitle)  # noqa: F405
+                subtitle = Subtitle(value=subtitle)  # noqa: F405
             if translated_title and translated_title_language_code:
                 work_translated_title = TranslatedTitle(value=translated_title,  # noqa: F405
                                                         language_code=translated_title_language_code)  # noqa: F405
-            rec.title = WorkTitle(title=title, subtitle=sub_title, translated_title=work_translated_title)  # noqa: F405
+            rec.title = WorkTitle(title=title, subtitle=subtitle, translated_title=work_translated_title)  # noqa: F405
 
         if journal_title:
             rec.journal_title = Title(value=journal_title)  # noqa: F405
@@ -1155,17 +1155,17 @@ class MemberAPI(MemberAPIV20Api):
         else:
             return (put_code, orcid, created)
 
-    def create_or_update_researcher_url(self, url_name=None, url_value=None, display_index=None, orcid=None,
+    def create_or_update_researcher_url(self, name=None, value=None, display_index=None, orcid=None,
                                         put_code=None, visibility=None, *args, **kwargs):
         """Create or update researcher url record of a user."""
         rec = ResearcherUrl()       # noqa: F405
 
         if put_code:
             rec.put_code = put_code
-        if url_name:
-            rec.url_name = url_name
-        if url_value:
-            rec.url = Url(value=url_value)      # noqa: F405
+        if name:
+            rec.url_name = name
+        if value:
+            rec.url_value = Url(value=value)      # noqa: F405
         if visibility:
             rec.visibility = visibility
         if display_index:
