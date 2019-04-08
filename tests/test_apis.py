@@ -332,6 +332,47 @@ def test_db_api(client):
     assert resp.json["tuakiri_name"] == org.tuakiri_name
 
 
+def test_users_api(client):
+    """Test user API."""
+    c = Client.get(client_id="TEST0-ID")
+    resp = client.post(
+        "/oauth/token",
+        content_type="application/x-www-form-urlencoded",
+        data=f"grant_type=client_credentials&client_id={c.client_id}&client_secret={c.client_secret}")
+    data = json.loads(resp.data)
+    access_token = data["access_token"]
+    resp = client.get(
+        "/api/v1.0/users?page=1&page_size=2000",
+        headers=dict(authorization=f"Bearer {access_token}"),
+        content_type="application/json")
+
+    data = json.loads(resp.data)
+    assert list(data[0].keys()) == ["confirmed", "email", "eppn", "name", "orcid", "updated-at"]
+    assert not any(u["email"] == "researcher102@test1.edu" for u in data)
+
+    resp = client.get(
+        "/api/v1.0/users?page=1&page_size=2000&from_date=2000-12-01&to_date=1999-01-01",
+        headers=dict(authorization=f"Bearer {access_token}"),
+        content_type="application/json")
+    data = json.loads(resp.data)
+    assert len(data) == 0
+
+    resp = client.get(
+        "/api/v1.0/users/researcher102@test1.edu",
+        headers=dict(authorization=f"Bearer {access_token}"),
+        content_type="application/json")
+    assert resp.status_code == 404
+    data = json.loads(resp.data)
+
+    resp = client.get(
+        "/api/v1.0/users/researcher102@test0.edu",
+        headers=dict(authorization=f"Bearer {access_token}"),
+        content_type="application/json")
+    assert resp.status_code == 200
+    data = json.loads(resp.data)
+    assert data["email"] == "researcher102@test0.edu"
+
+
 def test_affiliation_api(client):
     """Test affiliation API in various formats."""
     resp = client.post(
