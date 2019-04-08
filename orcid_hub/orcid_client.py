@@ -522,8 +522,8 @@ class MemberAPI(MemberAPIV20Api):
 
     def create_or_update_funding(self, task_by_user, *args, **kwargs):
         """Create or update funding record of a user."""
-        fr = task_by_user.funding_record
-        fi = task_by_user.funding_record.funding_invitees
+        fr = task_by_user.record
+        fi = fr.invitee
 
         if not fr.title:
             title = None

@@ -731,37 +731,25 @@ to the best of your knowledge, correct!""")
                 task.expiry_email_sent_at = None
                 task.completed_at = None
                 task.save()
-                if self.model == FundingRecord:
-                    flash(f"{count} Funding Invitee records were reset for batch processing.")
-                elif self.model == WorkRecord:
-                    flash(f"{count} Work Invitee records were reset for batch processing.")
-                elif self.model == PeerReviewRecord:
-                    flash(f"{count} Peer Review Invitee records were reset for batch processing.")
-                elif self.model == ResearcherUrlRecord:
-                    flash(f"{count} Researcher Url records were reset for batch processing.")
-                elif self.model == OtherNameRecord:
-                    flash(f"{count} Other Name records were reset for batch processing.")
-                elif self.model == KeywordRecord:
-                    flash(f"{count} Keyword records were reset for batch processing.")
-                else:
-                    flash(f"{count} Affiliation records were reset for batch processing.")
+                flash(f"{count} {task.task_type.name} records were reset for batch processing.")
 
     def create_form(self):
         """Prefill form with organisation default values."""
         form = super().create_form()
-        org = current_user.organisation
-        if hasattr(form, "org_name"):
-            form.org_name.data = org.name
-        if hasattr(form, "city"):
-            form.city.data = org.city
-        if hasattr(form, "state"):
-            form.state.data = org.state
-        if hasattr(form, "country"):
-            form.country.data = org.country
-        if hasattr(form, "disambiguated_id"):
-            form.disambiguated_id.data = org.disambiguated_id
-        if hasattr(form, "disambiguation_source"):
-            form.disambiguation_source.data = org.disambiguation_source
+        if request.method == "GET":
+            org = current_user.organisation
+            if hasattr(form, "org_name"):
+                form.org_name.data = org.name
+            if hasattr(form, "city"):
+                form.city.data = org.city
+            if hasattr(form, "state"):
+                form.state.data = org.state
+            if hasattr(form, "country"):
+                form.country.data = org.country
+            if hasattr(form, "disambiguated_id"):
+                form.disambiguated_id.data = org.disambiguated_id
+            if hasattr(form, "disambiguation_source"):
+                form.disambiguation_source.data = org.disambiguation_source
         return form
 
     @property
@@ -790,9 +778,8 @@ to the best of your knowledge, correct!""")
             return False
 
         try:
-            model = self.model()
+            model = self.model(task_id=task_id)
             form.populate_obj(model)
-            model.task_id = task_id
             self._on_model_change(form, model, True)
             model.save()
 
@@ -1345,7 +1332,7 @@ class WorkRecordAdmin(CompositeRecordModelView):
             execute=False)
 
         sq = (WorkInvitee.select(
-            WorkInvitee.work_record,
+            WorkInvitee.record,
             WorkInvitee.email,
             WorkInvitee.orcid,
             SQL("NULL").alias("name"),
@@ -1360,7 +1347,7 @@ class WorkRecordAdmin(CompositeRecordModelView):
             WorkInvitee.status,
             WorkInvitee.processed_at,
         ) | WorkContributor.select(
-            WorkContributor.work_record,
+            WorkContributor.record,
             WorkContributor.email,
             WorkContributor.orcid,
             WorkContributor.name,
