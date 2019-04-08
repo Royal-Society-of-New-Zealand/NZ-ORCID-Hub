@@ -534,17 +534,17 @@ def test_create_or_update_work(app, mocker):
         is_active=True)
 
     WorkInvitee.create(
-        work_record=wr,
+        record=wr,
         first_name="Test",
         email="test1234456@mailinator.com",
         orcid="12344",
         visibility="PUBLIC")
 
     WorkExternalId.create(
-        work_record=wr, type="Test_type", value="Test_value", url="Test", relationship="SELF")
+        record=wr, type="Test_type", value="Test_value", url="Test", relationship="SELF")
 
     WorkContributor.create(
-        work_record=wr, contributor_sequence="1", orcid="1213", role="LEAD", name="xyz", email="xyz@mailiantor.com")
+        record=wr, contributor_sequence="1", orcid="1213", role="LEAD", name="xyz", email="xyz@mailiantor.com")
 
     UserInvitation.create(
         invitee=u,
@@ -558,9 +558,9 @@ def test_create_or_update_work(app, mocker):
         user=u, org=org, scope="/read-limited,/activities/update", access_token="Test_token")
 
     utils.process_work_records()
-    work_invitees = WorkInvitee.get(orcid=12344)
-    assert 12399 == work_invitees.put_code
-    assert "12344" == work_invitees.orcid
+    invitee = WorkInvitee.get(orcid="12344")
+    assert 12399 == invitee.put_code
+    assert "12344" == invitee.orcid
 
 
 def test_create_or_update_peer_review(app, mocker):

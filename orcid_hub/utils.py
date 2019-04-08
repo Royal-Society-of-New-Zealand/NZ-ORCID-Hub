@@ -354,11 +354,17 @@ def send_work_funding_peer_review_invitation(inviter, org, email, first_name=Non
         raise ex
 
 
+def is_org_rec(org, rec):
+    """Test if the record was authoritized by the organisation."""
+    client_id = org.orcid_client_id
+    source_client_id = rec.get("source").get("source-client-id")
+    return (source_client_id and source_client_id.get("path") == client_id)
+
+
 def create_or_update_work(user, org_id, records, *args, **kwargs):
     """Create or update work record of a user."""
     records = list(unique_everseen(records, key=lambda t: t.record.id))
     org = Organisation.get(id=org_id)
-    client_id = org.orcid_client_id
     api = orcid_client.MemberAPI(org, user)
 
     profile_record = api.get_record()
@@ -366,15 +372,11 @@ def create_or_update_work(user, org_id, records, *args, **kwargs):
     if profile_record:
         activities = profile_record.get("activities-summary")
 
-        def is_org_rec(rec):
-            return (rec.get("source").get("source-client-id")
-                    and rec.get("source").get("source-client-id").get("path") == client_id)
-
         works = []
 
         for r in activities.get("works").get("group"):
             ws = r.get("work-summary")[0]
-            if is_org_rec(ws):
+            if is_org_rec(org, ws):
                 works.append(ws)
 
         taken_put_codes = {
@@ -422,9 +424,7 @@ def create_or_update_work(user, org_id, records, *args, **kwargs):
 
             except Exception as ex:
                 logger.exception(f"For {user} encountered exception")
-                exception_msg = ""
-                if ex and ex.body:
-                    exception_msg = json.loads(ex.body)
+                exception_msg = json.loads(ex.body) if hasattr(ex, "body") else str(ex)
                 wi.add_status_line(f"Exception occured processing the record: {exception_msg}.")
                 wr.add_status_line(
                     f"Error processing record. Fix and reset to enable this record to be processed: {exception_msg}."
@@ -444,7 +444,6 @@ def create_or_update_peer_review(user, org_id, records, *args, **kwargs):
     """Create or update peer review record of a user."""
     records = list(unique_everseen(records, key=lambda t: t.record.id))
     org = Organisation.get(id=org_id)
-    client_id = org.orcid_client_id
     api = orcid_client.MemberAPI(org, user)
 
     profile_record = api.get_record()
@@ -452,16 +451,12 @@ def create_or_update_peer_review(user, org_id, records, *args, **kwargs):
     if profile_record:
         activities = profile_record.get("activities-summary")
 
-        def is_org_rec(rec):
-            return (rec.get("source").get("source-client-id")
-                    and rec.get("source").get("source-client-id").get("path") == client_id)
-
         peer_reviews = []
 
         for r in activities.get("peer-reviews").get("group"):
             peer_review_summary = r.get("peer-review-summary")
             for ps in peer_review_summary:
-                if is_org_rec(ps):
+                if is_org_rec(org, ps):
                     peer_reviews.append(ps)
 
         taken_put_codes = {
@@ -537,7 +532,6 @@ def create_or_update_funding(user, org_id, records, *args, **kwargs):
     """Create or update funding record of a user."""
     records = list(unique_everseen(records, key=lambda t: t.funding_record.id))
     org = Organisation.get(org_id)
-    client_id = org.orcid_client_id
     api = orcid_client.MemberAPI(org, user)
 
     profile_record = api.get_record()
@@ -545,15 +539,11 @@ def create_or_update_funding(user, org_id, records, *args, **kwargs):
     if profile_record:
         activities = profile_record.get("activities-summary")
 
-        def is_org_rec(rec):
-            return (rec.get("source").get("source-client-id")
-                    and rec.get("source").get("source-client-id").get("path") == client_id)
-
         fundings = []
 
         for r in activities.get("fundings").get("group"):
             fs = r.get("funding-summary")[0]
-            if is_org_rec(fs):
+            if is_org_rec(org, fs):
                 fundings.append(fs)
 
         taken_put_codes = {
@@ -762,7 +752,6 @@ def create_or_update_researcher_url(user, org_id, records, *args, **kwargs):
     """Create or update researcher url record of a user."""
     records = list(unique_everseen(records, key=lambda t: t.researcher_url_record.id))
     org = Organisation.get(id=org_id)
-    client_id = org.orcid_client_id
     profile_record = None
     token = OrcidToken.select(OrcidToken.access_token).where(OrcidToken.user_id == user.id, OrcidToken.org_id == org.id,
                                                              OrcidToken.scope.contains("/person/update")).first()
@@ -772,12 +761,8 @@ def create_or_update_researcher_url(user, org_id, records, *args, **kwargs):
     if profile_record:
         activities = profile_record.get("person")
 
-        def is_org_rec(rec):
-            return (rec.get("source").get("source-client-id")
-                    and rec.get("source").get("source-client-id").get("path") == client_id)
-
         researcher_urls = [
-            r for r in (activities.get("researcher-urls").get("researcher-url")) if is_org_rec(r)
+            r for r in (activities.get("researcher-urls").get("researcher-url")) if is_org_rec(org, r)
         ]
 
         taken_put_codes = {
@@ -858,7 +843,6 @@ def create_or_update_other_name(user, org_id, records, *args, **kwargs):
     """Create or update Other name record of a user."""
     records = list(unique_everseen(records, key=lambda t: t.other_name_record.id))
     org = Organisation.get(id=org_id)
-    client_id = org.orcid_client_id
     profile_record = None
     token = OrcidToken.select(OrcidToken.access_token).where(OrcidToken.user_id == user.id, OrcidToken.org_id == org.id,
                                                              OrcidToken.scope.contains("/person/update")).first()
@@ -868,12 +852,8 @@ def create_or_update_other_name(user, org_id, records, *args, **kwargs):
     if profile_record:
         activities = profile_record.get("person")
 
-        def is_org_rec(rec):
-            return (rec.get("source").get("source-client-id")
-                    and rec.get("source").get("source-client-id").get("path") == client_id)
-
         other_name_records = [
-            r for r in (activities.get("other-names").get("other-name")) if is_org_rec(r)
+            r for r in (activities.get("other-names").get("other-name")) if is_org_rec(org, r)
         ]
 
         taken_put_codes = {
@@ -951,7 +931,6 @@ def create_or_update_keyword(user, org_id, records, *args, **kwargs):
     """Create or update Keyword record of a user."""
     records = list(unique_everseen(records, key=lambda t: t.keyword_record.id))
     org = Organisation.get(id=org_id)
-    client_id = org.orcid_client_id
     profile_record = None
     token = OrcidToken.select(OrcidToken.access_token).where(OrcidToken.user_id == user.id, OrcidToken.org_id == org.id,
                                                              OrcidToken.scope.contains("/person/update")).first()
@@ -961,12 +940,8 @@ def create_or_update_keyword(user, org_id, records, *args, **kwargs):
     if profile_record:
         activities = profile_record.get("person")
 
-        def is_org_rec(rec):
-            return (rec.get("source").get("source-client-id")
-                    and rec.get("source").get("source-client-id").get("path") == client_id)
-
         keyword_records = [
-            r for r in (activities.get("keywords").get("keyword")) if is_org_rec(r)
+            r for r in (activities.get("keywords").get("keyword")) if is_org_rec(org, r)
         ]
 
         taken_put_codes = {
@@ -1050,21 +1025,16 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
     """
     records = list(unique_everseen(records, key=lambda t: t.affiliation_record.id))
     org = Organisation.get(id=org_id)
-    client_id = org.orcid_client_id
     api = orcid_client.MemberAPI(org, user)
     profile_record = api.get_record()
     if profile_record:
         activities = profile_record.get("activities-summary")
 
-        def is_org_rec(rec):
-            return (rec.get("source").get("source-client-id")
-                    and rec.get("source").get("source-client-id").get("path") == client_id)
-
         employments = [
-            r for r in (activities.get("employments").get("employment-summary")) if is_org_rec(r)
+            r for r in (activities.get("employments").get("employment-summary")) if is_org_rec(org, r)
         ]
         educations = [
-            r for r in (activities.get("educations").get("education-summary")) if is_org_rec(r)
+            r for r in (activities.get("educations").get("education-summary")) if is_org_rec(org, r)
         ]
 
         taken_put_codes = {

@@ -2481,14 +2481,14 @@ def test_action_insert_update_group_id(client):
         assert b"<!DOCTYPE html>" in resp.data, "Expected HTML content"
 
 
-def test_reset_all(request_ctx):
+def test_reset_all(client):
     """Test reset batch process."""
-    org = request_ctx.data["org"]
+    org = client.data["org"]
     user = User.create(
         email="test123@test.test.net",
         name="TEST USER",
         roles=Role.TECHNICAL,
-        orcid=123,
+        orcid="0000-0001-8930-6644",
         confirmed=True,
         organisation=org)
     UserOrg.create(user=user, org=org, is_admin=True)
@@ -2496,7 +2496,7 @@ def test_reset_all(request_ctx):
     task1 = Task.create(
         org=org,
         completed_at="12/12/12",
-        filename="xyz.txt",
+        filename="affiliations0001.txt",
         created_by=user,
         updated_by=user,
         task_type=TaskType.AFFILIATION)
@@ -2508,8 +2508,8 @@ def test_reset_all(request_ctx):
         first_name="Test",
         last_name="Test",
         email="test1234456@mailinator.com",
-        orcid="123112311231",
-        organisation="asdasd",
+        orcid="0000-0002-1645-5339",
+        organisation="TEST ORG",
         affiliation_type="staff",
         role="Test",
         department="Test",
@@ -2530,10 +2530,10 @@ def test_reset_all(request_ctx):
     task2 = Task.create(
         org=org,
         completed_at="12/12/12",
-        filename="xyz.txt",
+        filename="fundings001.txt",
         created_by=user,
         updated_by=user,
-        task_type=1)
+        task_type=TaskType.FUNDING)
 
     FundingRecord.create(
         task=task2,
@@ -2557,24 +2557,21 @@ def test_reset_all(request_ctx):
     task3 = Task.create(
         org=org,
         completed_at="12/12/12",
-        filename="xyz.txt",
+        filename="peer-reviews-003.txt",
         created_by=user,
         updated_by=user,
-        task_type=3)
+        task_type=TaskType.PEER_REVIEW)
 
     PeerReviewRecord.create(
-        task=task3,
-        review_group_id=1212,
-        is_active=True,
-        visibility="Test_visibity")
+        task=task3, review_group_id=1212, is_active=True, visibility="Test_visibity")
 
     work_task = Task.create(
         org=org,
         completed_at="12/12/12",
-        filename="xyz.txt",
+        filename="works001.txt",
         created_by=user,
         updated_by=user,
-        task_type=2)
+        task_type=TaskType.WORK)
 
     WorkRecord.create(
         task=work_task,
@@ -2583,8 +2580,13 @@ def test_reset_all(request_ctx):
         citation_type="Test_citation_type",
         citation_value="Test_visibity")
 
-    researcher_url_task = Task.create(id=12, org=org, filename="xyz.json", created_by=user, updated_by=user,
-                                      task_type=5, completed_at="12/12/12")
+    researcher_url_task = Task.create(
+        org=org,
+        filename="xyz.json",
+        created_by=user,
+        updated_by=user,
+        task_type=TaskType.RESEARCHER_URL,
+        completed_at="12/12/12")
 
     ResearcherUrlRecord.create(
         task=researcher_url_task,
@@ -2598,61 +2600,52 @@ def test_reset_all(request_ctx):
         value="https://www.xyz.com",
         display_index=0)
 
-    with request_ctx("/reset_all", method="POST") as ctxx:
-        login_user(user, remember=True)
-        request.args = ImmutableMultiDict([('url', 'http://localhost/researcher_url_record_reset_for_batch')])
-        request.form = ImmutableMultiDict([('task_id', researcher_url_task.id)])
-        resp = ctxx.app.full_dispatch_request()
-        t = Task.get(id=researcher_url_task.id)
-        rec = t.records.first()
-        assert "The record was reset" in rec.status
-        assert t.completed_at is None
-        assert resp.status_code == 302
-        assert resp.location.startswith("http://localhost/researcher_url_record_reset_for_batch")
-    with request_ctx("/reset_all", method="POST") as ctxx:
-        login_user(user, remember=True)
-        request.args = ImmutableMultiDict([('url', 'http://localhost/affiliation_record_reset_for_batch')])
-        request.form = ImmutableMultiDict([('task_id', task1.id)])
-        resp = ctxx.app.full_dispatch_request()
-        t = Task.get(id=task1.id)
-        rec = t.records.first()
-        assert "The record was reset" in rec.status
-        assert t.completed_at is None
-        assert resp.status_code == 302
-        assert resp.location.startswith("http://localhost/affiliation_record_reset_for_batch")
-    with request_ctx("/reset_all", method="POST") as ctxx:
-        login_user(user, remember=True)
-        request.args = ImmutableMultiDict([('url', 'http://localhost/funding_record_reset_for_batch')])
-        request.form = ImmutableMultiDict([('task_id', task2.id)])
-        resp = ctxx.app.full_dispatch_request()
-        t = Task.get(id=task2.id)
-        rec = t.records.first()
-        assert "The record was reset" in rec.status
-        assert t.completed_at is None
-        assert resp.status_code == 302
-        assert resp.location.startswith("http://localhost/funding_record_reset_for_batch")
-    with request_ctx("/reset_all", method="POST") as ctxx:
-        login_user(user, remember=True)
-        request.args = ImmutableMultiDict([('url', 'http://localhost/record_reset_for_batch')])
-        request.form = ImmutableMultiDict([('task_id', task3.id)])
-        resp = ctxx.app.full_dispatch_request()
-        t = Task.get(id=task3.id)
-        rec = PeerReviewRecord.get(id=1)
-        assert "The record was reset" in rec.status
-        assert t.completed_at is None
-        assert resp.status_code == 302
-        assert resp.location.startswith("http://localhost/record_reset_for_batch")
-    with request_ctx("/reset_all", method="POST") as ctxx:
-        login_user(user, remember=True)
-        request.args = ImmutableMultiDict([('url', 'http://localhost/work_record_reset_for_batch')])
-        request.form = ImmutableMultiDict([('task_id', work_task.id)])
-        resp = ctxx.app.full_dispatch_request()
-        t = Task.get(id=4)
-        pr = WorkRecord.get(id=1)
-        assert "The record was reset" in pr.status
-        assert t.completed_at is None
-        assert resp.status_code == 302
-        assert resp.location.startswith("http://localhost/work_record_reset_for_batch")
+    resp = client.login(user, follow_redirects=True)
+    resp = client.post(
+        "/reset_all?url=/researcher_url_record_reset_for_batch",
+        data={"task_id": researcher_url_task.id})
+    t = Task.get(researcher_url_task.id)
+    rec = t.records.first()
+    assert "The record was reset" in rec.status
+    assert t.completed_at is None
+    assert resp.status_code == 302
+    assert resp.location.endswith("/researcher_url_record_reset_for_batch")
+
+    resp = client.post(
+        "/reset_all?url=/affiliation_record_reset_for_batch", data={"task_id": task1.id})
+    t = Task.get(id=task1.id)
+    rec = t.records.first()
+    assert "The record was reset" in rec.status
+    assert t.completed_at is None
+    assert resp.status_code == 302
+    assert resp.location.endswith("/affiliation_record_reset_for_batch")
+
+    resp = client.post(
+        "/reset_all?url=/funding_record_reset_for_batch", data={"task_id": task2.id})
+    t = Task.get(id=task2.id)
+    rec = t.records.first()
+    assert "The record was reset" in rec.status
+    assert t.completed_at is None
+    assert resp.status_code == 302
+    assert resp.location.endswith("/funding_record_reset_for_batch")
+
+    resp = client.post(
+        "/reset_all?url=/record_reset_for_batch", data={"task_id": task3.id})
+    t = Task.get(id=task3.id)
+    rec = t.records.first()
+    assert "The record was reset" in rec.status
+    assert t.completed_at is None
+    assert resp.status_code == 302
+    assert resp.location.endswith("/record_reset_for_batch")
+
+    resp = client.post(
+        "/reset_all?url=/work_record_reset_for_batch", data={"task_id": work_task.id})
+    t = Task.get(work_task.id)
+    rec = t.records.first()
+    assert "The record was reset" in rec.status
+    assert t.completed_at is None
+    assert resp.status_code == 302
+    assert resp.location.endswith("/work_record_reset_for_batch")
 
 
 def test_issue_470198698(request_ctx):

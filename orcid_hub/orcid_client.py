@@ -363,8 +363,8 @@ class MemberAPI(MemberAPIV20Api):
 
     def create_or_update_work(self, task_by_user, *args, **kwargs):
         """Create or update work record of a user."""
-        wr = task_by_user.work_record
-        wi = task_by_user.work_record.work_invitees
+        wr = task_by_user.record
+        wi = wr.invitee
 
         rec = Work()    # noqa: F405
         title = None
@@ -419,7 +419,7 @@ class MemberAPI(MemberAPIV20Api):
         if wr.citation_type and wr.citation_value:
             rec.citation = Citation(citation_type=wr.citation_type, citation_value=wr.citation_value)  # noqa: F405
 
-        work_contributors = WorkCont.select().where(WorkCont.work_record_id == wr.id).order_by(
+        work_contributors = WorkCont.select().where(WorkCont.record_id == wr.id).order_by(
             WorkCont.contributor_sequence)
 
         work_contributor_list = []
@@ -464,7 +464,7 @@ class MemberAPI(MemberAPIV20Api):
         rec.contributors = WorkContributors(contributor=work_contributor_list)  # noqa: F405
 
         external_id_list = []
-        external_ids = WorkExternalId.select().where(WorkExternalId.work_record_id == wr.id).order_by(WorkExternalId.id)
+        external_ids = WorkExternalId.select().where(WorkExternalId.record_id == wr.id).order_by(WorkExternalId.id)
 
         for exi in external_ids:
             external_id_type = exi.type

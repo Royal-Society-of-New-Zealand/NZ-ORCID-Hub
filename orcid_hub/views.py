@@ -1896,10 +1896,14 @@ def reset_all():
         try:
             status = "The record was reset at " + datetime.now().isoformat(timespec="seconds")
             tt = task.task_type
-            if tt in [TaskType.AFFILIATION, TaskType.RESEARCHER_URL, TaskType.OTHER_NAME, TaskType.KEYWORD]:
-                count = task.record_model.update(processed_at=None, status=status).where(
-                    task.record_model.task_id == task_id,
-                    task.record_model.is_active == True).execute()  # noqa: E712
+            if tt in [
+                    TaskType.AFFILIATION, TaskType.RESEARCHER_URL, TaskType.OTHER_NAME,
+                    TaskType.KEYWORD
+            ]:
+                count = task.record_model.update(
+                    processed_at=None, status=status).where(
+                        task.record_model.task_id == task_id,
+                        task.record_model.is_active == True).execute()  # noqa: E712
 
                 for user_invitation in UserInvitation.select().where(UserInvitation.task == task):
                     try:
@@ -1907,38 +1911,16 @@ def reset_all():
                     except UserInvitation.DoesNotExist:
                         pass
 
-            elif tt == TaskType.FUNDING:
-                for record in FundingRecord.select().where(FundingRecord.task_id == task_id,
-                                                                   FundingRecord.is_active == True):    # noqa: E712
+            else:
+                for record in task.records.where(
+                        task.record_model.is_active == True):  # noqa: E712
                     record.processed_at = None
                     record.status = status
 
-                    FundingInvitee.update(
-                        processed_at=None, status=status).where(
-                        FundingInvitee.record == record.id).execute()
-                    record.save()
-                    count = count + 1
-
-            elif tt == TaskType.WORK:
-                for work_record in WorkRecord.select().where(WorkRecord.task_id == task_id,
-                                                                   WorkRecord.is_active == True):    # noqa: E712
-                    work_record.processed_at = None
-                    work_record.status = status
-
-                    WorkInvitee.update(
-                        processed_at=None, status=status).where(
-                        WorkInvitee.work_record == work_record.id).execute()
-                    work_record.save()
-                    count = count + 1
-            elif tt == TaskType.PEER_REVIEW:
-                for record in PeerReviewRecord.select().where(PeerReviewRecord.task_id == task_id,
-                                                                   PeerReviewRecord.is_active == True):    # noqa: E712
-                    record.processed_at = None
-                    record.status = status
-
-                    PeerReviewInvitee.update(
-                        processed_at=None, status=status).where(
-                        PeerReviewInvitee.record == record.id).execute()
+                    invitee_class = record.invitees.model_class
+                    invitee_class.update(
+                        processed_at=None,
+                        status=status).where(invitee_class.record == record.id).execute()
                     record.save()
                     count = count + 1
 
@@ -1951,20 +1933,7 @@ def reset_all():
             task.expiry_email_sent_at = None
             task.completed_at = None
             task.save()
-            if task.task_type == 1:
-                flash(f"{count} Funding records were reset for batch processing.")
-            elif task.task_type == 2:
-                flash(f"{count} Work records were reset for batch processing.")
-            elif task.task_type == 3:
-                flash(f"{count} Peer Review records were reset for batch processing.")
-            elif task.task_type == 5:
-                flash(f"{count} Researcher Url records were reset for batch processing.")
-            elif task.task_type == 6:
-                flash(f"{count} Other Name records were reset for batch processing.")
-            elif task.task_type == 7:
-                flash(f"{count} Keyword records were reset for batch processing.")
-            else:
-                flash(f"{count} Affiliation records were reset for batch processing.")
+            flash(f"{count} {task.task_type.name} records were reset for batch processing.", "info")
     return redirect(_url)
 
 

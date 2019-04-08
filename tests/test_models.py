@@ -254,7 +254,7 @@ def models(testdb):
     WorkRecord.insert_many((dict(
         task=task,
         title="Test_%d" % i,
-        sub_title="Test_%d" % i,
+        subtitle="Test_%d" % i,
         translated_title="Test_%d" % i,
         translated_title_language_code="Test_%d" % i,
         journal_title="Test_%d" % i,
@@ -268,23 +268,23 @@ def models(testdb):
         is_active=False,
         status="Test_%d" % i) for i in range(10))).execute()
 
-    work_record = WorkRecord.get()
+    record = WorkRecord.get()
     WorkContributor.insert_many((dict(
-        work_record=work_record,
+        record=record,
         orcid="123112311231%d" % i,
         name="Test_%d" % i,
         contributor_sequence="%d" % i,
         role="Test_%d" % i) for i in range(10))).execute()
 
     WorkExternalId.insert_many((dict(
-        work_record=work_record,
+        record=record,
         type="Test_%d" % i,
         value="Test_%d" % i,
         url="Test_%d" % i,
         relationship="Test_%d" % i) for i in range(10))).execute()
 
     WorkInvitee.insert_many((dict(
-        work_record=work_record,
+        record=record,
         orcid="123112311231%d" % i,
         first_name="Test_%d" % i,
         last_name="Test_%d" % i,

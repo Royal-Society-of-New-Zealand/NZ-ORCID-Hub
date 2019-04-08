@@ -1078,11 +1078,7 @@ class Task(BaseModel, AuditMixin):
     @property
     def record_model(self):
         """Get record model class."""
-        if self.records is not None:
-            _, models = self.records.get_query_meta()
-            model, = models.keys()
-            return model
-        return None
+        return self.records.model_class
 
     @lazy_property
     def records(self):
@@ -3346,7 +3342,7 @@ class WorkInvitee(InviteeModel):
         WorkRecord, related_name="invitees", on_delete="CASCADE")
 
     class Meta:  # noqa: D101,D106
-        db_table = "work_invitees"
+        db_table = "work_invitee"
         table_alias = "wi"
 
 
@@ -3357,7 +3353,7 @@ class FundingInvitee(InviteeModel):
         FundingRecord, related_name="invitees", on_delete="CASCADE")
 
     class Meta:  # noqa: D101,D106
-        db_table = "funding_invitees"
+        db_table = "funding_invitee"
         table_alias = "fi"
 
 
