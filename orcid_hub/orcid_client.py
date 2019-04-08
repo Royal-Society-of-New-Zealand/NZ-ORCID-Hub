@@ -1155,17 +1155,17 @@ class MemberAPI(MemberAPIV20Api):
         else:
             return (put_code, orcid, created)
 
-    def create_or_update_researcher_url(self, url_name=None, url_value=None, display_index=None, orcid=None,
+    def create_or_update_researcher_url(self, name=None, value=None, display_index=None, orcid=None,
                                         put_code=None, visibility=None, *args, **kwargs):
         """Create or update researcher url record of a user."""
         rec = ResearcherUrl()       # noqa: F405
 
         if put_code:
             rec.put_code = put_code
-        if url_name:
-            rec.name = url_name
-        if url_value:
-            rec.value = Url(value=url_value)      # noqa: F405
+        if name:
+            rec.url_name = name
+        if value:
+            rec.url_value = Url(value=value)      # noqa: F405
         if visibility:
             rec.visibility = visibility
         if display_index:

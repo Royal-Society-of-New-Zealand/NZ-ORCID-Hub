@@ -3407,6 +3407,117 @@ sdsds,,This is a title,,,hi,This is a journal title,xyz this is short descriptio
     assert Task.select().count() == 0
     assert b"Failed to load work record file" in resp.data
 
+    # Edit task after the upload
+    resp = client.post(
+        "/load/researcher/work",
+        data={
+            "file_": (open(os.path.join(os.path.dirname(__file__), "data", "example_works.json"), "rb"),
+                      "works042.json"),
+        },
+        follow_redirects=True)
+    assert resp.status_code == 200
+    task = Task.select().order_by(Task.id.desc()).first()
+    assert task is not None
+
+    record_count = task.records.count()
+    url = quote(f"/admin/workrecord/?task_id={task.id}", safe='')
+    resp = client.post(
+        f"/admin/workrecord/new/?url={url}",
+        data=dict(title="WORK1234", _continue_editing="Save and Continue Editing"),
+        follow_redirects=True)
+    assert Task.get(task.id).records.count() == record_count + 1
+
+    record = task.records.order_by(task.record_model.id.desc()).first()
+    assert record
+
+    # Invitees:
+    invitee_count = record.invitees.count()
+    url = quote(f"/admin/workinvitee/?record_id={record.id}", safe='')
+    resp = client.post(
+        f"/admin/workinvitee/new/?url={url}",
+        data={
+            "email": "test@test.test.test.org",
+            "first_name": "TEST FN",
+            "last_name": "TEST LN",
+            "visibility": "PUBLIC",
+        })
+    assert record.invitees.count() > invitee_count
+
+    invitee = record.invitees.first()
+    resp = client.post(
+        f"/admin/workinvitee/edit/?id={invitee.id}&url={url}",
+        data={
+            "email": "test_new@test.test.test.org",
+            "first_name": invitee.first_name + "NEW",
+            "visibility": "PUBLIC",
+        })
+    assert record.invitees.first().first_name == invitee.first_name + "NEW"
+    assert record.invitees.first().email == "test_new@test.test.test.org"
+
+    resp = client.post(
+        f"/admin/workinvitee/delete/", data={
+            "id": record.invitees.first().id,
+            "url": url
+        })
+    assert record.invitees.count() == 0
+
+    # Contributors:
+    contributor_count = record.contributors.count()
+    url = quote(f"/admin/workcontributor/?record_id={record.id}", safe='')
+    resp = client.post(
+        f"/admin/workcontributor/new/?url={url}",
+        data={
+            "email": "test@test.test.test.org",
+        })
+    assert record.contributors.count() > contributor_count
+
+    contributor = record.contributors.first()
+    resp = client.post(
+        f"/admin/workcontributor/edit/?id={contributor.id}&url={url}",
+        data={
+            "email": "test_new@test.test.test.org",
+            "name": "CONTRIBUTOR NAME",
+        })
+    contributor = record.contributors.first()
+    assert record.contributors.first().name == "CONTRIBUTOR NAME"
+    assert record.contributors.first().email == "test_new@test.test.test.org"
+
+    resp = client.post(
+        f"/admin/workcontributor/delete/", data={
+            "id": record.contributors.first().id,
+            "url": url
+        })
+    assert record.contributors.count() == 0
+
+    # External IDs:
+    assert record.external_ids.count() == 0
+    url = quote(f"/admin/workexternalid/?record_id={record.id}", safe='')
+    resp = client.post(
+        f"/admin/workexternalid/new/?url={url}",
+        data={
+            "type": "grant_number",
+            "value": "EXTERNAL ID VALUE",
+            "relationship": "SELF",
+        })
+    assert record.external_ids.count() == 1
+
+    external_id = record.external_ids.first()
+    resp = client.post(
+        f"/admin/workexternalid/edit/?id={external_id.id}&url={url}",
+        data={
+            "type": "grant_number",
+            "value": "EXTERNAL ID VALUE 123",
+            "relationship": "SELF",
+        })
+    assert record.external_ids.first().value == "EXTERNAL ID VALUE 123"
+
+    resp = client.post(
+        f"/admin/workexternalid/delete/", data={
+            "id": record.external_ids.first().id,
+            "url": url
+        })
+    assert record.external_ids.count() == 0
+
 
 def test_peer_reviews(client):
     """Test peer review data management."""

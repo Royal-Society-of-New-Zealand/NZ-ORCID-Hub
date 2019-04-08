@@ -245,9 +245,6 @@ class PeerReviewForm(FlaskForm):
 
     reviewer_role_choices = [(v, v) for v in models.REVIEWER_ROLES]
     review_type_choices = [(v, v) for v in models.REVIEW_TYPES]
-    subject_external_id_relationship_choices = [
-        (v, v.replace('_', ' ').title()) for v in [''] + models.SUBJECT_EXTERNAL_ID_RELATIONSHIPS
-    ]
     subject_type_choices = [(v, v.replace('_', ' ').title()) for v in [''] + models.SUBJECT_TYPES]
 
     org_name = StringField("Institution", [validators.required()])
@@ -265,7 +262,7 @@ class PeerReviewForm(FlaskForm):
     subject_external_identifier_type = StringField("Subject External Identifier Type")
     subject_external_identifier_value = StringField("Subject External Identifier Value")
     subject_external_identifier_url = StringField("Subject External Identifier Url")
-    subject_external_identifier_relationship = SelectField(choices=subject_external_id_relationship_choices,
+    subject_external_identifier_relationship = SelectField(choices=EMPTY_CHOICES + models.relationship_choices,
                                                            description="Subject External Id Relationship")
     subject_container_name = StringField("Subject Container Name")
     subject_type = SelectField(choices=subject_type_choices, description="Subject Type")

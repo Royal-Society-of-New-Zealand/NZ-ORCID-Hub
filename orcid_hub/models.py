@@ -65,7 +65,7 @@ SUBJECT_TYPES = [
 ]
 REVIEWER_ROLES = ["CHAIR", "EDITOR", "MEMBER", "ORGANIZER", "REVIEWER"]
 REVIEW_TYPES = ["EVALUATION", "REVIEW"]
-SUBJECT_EXTERNAL_ID_RELATIONSHIPS = ["PART_OF", "SELF"]
+RELATIONSHIPS = ["PART_OF", "SELF"]
 
 WORK_TYPES = [
     "ARTISTIC_PERFORMANCE", "BOOK", "BOOK_CHAPTER", "BOOK_REVIEW", "CONFERENCE_ABSTRACT",
@@ -91,6 +91,7 @@ language_choices = [(l.alpha_2, l.name) for l in languages if hasattr(l, "alpha_
 language_choices.sort(key=lambda e: e[1])
 currency_choices = [(l.alpha_3, l.name) for l in currencies]
 currency_choices.sort(key=lambda e: e[1])
+relationship_choices = [(v, v.replace('_', ' ').title()) for v in RELATIONSHIPS]
 
 
 class ModelException(Exception):
@@ -1915,8 +1916,6 @@ class PeerReviewRecord(RecordModel):
     subject_type_choices = [(v, v.replace('_', ' ').title()) for v in SUBJECT_TYPES]
     reviewer_role_choices = [(v, v.title()) for v in REVIEWER_ROLES]
     review_type_choices = [(v, v.title()) for v in REVIEW_TYPES]
-    subject_external_id_relationship_choices = [(v, v.replace('_', ' ').title())
-                                                for v in SUBJECT_EXTERNAL_ID_RELATIONSHIPS]
 
     task = ForeignKeyField(Task, related_name="peer_review_records", on_delete="CASCADE")
     review_group_id = CharField(
@@ -1945,7 +1944,7 @@ class PeerReviewRecord(RecordModel):
     subject_external_id_relationship = CharField(
         null=True,
         max_length=255,
-        choices=subject_external_id_relationship_choices,
+        choices=relationship_choices,
         verbose_name="Relationship",
         help_text="Subject External ID Relationship")
 
@@ -3360,13 +3359,12 @@ class FundingInvitee(InviteeModel):
 class ExternalIdModel(BaseModel):
     """Common model bits of the ExternalId records."""
 
-    relationship_choices = [(v, v.replace('_', ' ').title()) for v in ['', "PART_OF", "SELF"]]
     type_choices = [(v, v.replace("_", " ").replace("-", " ").title()) for v in [
-        '', "agr", "ark", "arxiv", "asin", "asin-tld", "authenticusid", "bibcode", "cba",
-        "cienciaiul", "cit", "ctx", "dnb", "doi", "eid", "ethos", "grant_number", "handle", "hir",
-        "isbn", "issn", "jfm", "jstor", "kuid", "lccn", "lensid", "mr", "oclc", "ol", "osti",
-        "other-id", "pat", "pdb", "pmc", "pmid", "rfc", "rrid", "source-work-id", "ssrn", "uri",
-        "urn", "wosuid", "zbl"
+        "agr", "ark", "arxiv", "asin", "asin-tld", "authenticusid", "bibcode", "cba", "cienciaiul",
+        "cit", "ctx", "dnb", "doi", "eid", "ethos", "grant_number", "handle", "hir", "isbn",
+        "issn", "jfm", "jstor", "kuid", "lccn", "lensid", "mr", "oclc", "ol", "osti", "other-id",
+        "pat", "pdb", "pmc", "pmid", "rfc", "rrid", "source-work-id", "ssrn", "uri", "urn",
+        "wosuid", "zbl"
     ]]
 
     type = CharField(max_length=255, choices=type_choices)
