@@ -3222,11 +3222,11 @@ def test_researcher_work(client):
 
     resp = client.get(f"/admin/workrecord/export/csv/?task_id={task.id}")
     assert resp.headers["Content-Type"] == "text/csv; charset=utf-8"
-    assert len(resp.data.splitlines()) == 3
+    assert len(resp.data.splitlines()) == 2
 
     resp = client.get(f"/admin/workrecord/export/csv/?task_id={task.id}")
     assert resp.headers["Content-Type"] == "text/csv; charset=utf-8"
-    assert len(resp.data.splitlines()) == 3
+    assert len(resp.data.splitlines()) == 2
 
     resp = client.post(
         "/load/researcher/work",
@@ -3307,7 +3307,8 @@ def test_researcher_work(client):
 
     resp = client.get(f"/admin/workrecord/export/csv/?task_id={task.id}")
     assert resp.headers["Content-Type"] == "text/csv; charset=utf-8"
-    assert len(resp.data.splitlines()) == 5
+    # we are not exporting contributor in case of csv/tsv.
+    assert len(resp.data.splitlines()) == 3
 
     resp = client.post(
         "/load/researcher/work",
