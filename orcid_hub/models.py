@@ -2118,6 +2118,7 @@ class PeerReviewRecord(RecordModel):
             return default if v == '' else v
 
         rows = []
+        cached_row = []
         for row_no, row in enumerate(reader):
             # skip empty lines:
             if len([item for item in row if item and item.strip()]) == 0:
@@ -2125,10 +2126,45 @@ class PeerReviewRecord(RecordModel):
             if len(row) == 1 and row[0].strip() == '':
                 continue
 
+            orcid, email = val(row, 23), val(row, 22, "").lower()
+            if orcid:
+                validate_orcid_id(orcid)
+            if email and not validators.email(email):
+                raise ValueError(
+                    f"Invalid email address '{email}'  in the row #{row_no+2}: {row}")
+
+            invitee = dict(
+                email=email,
+                orcid=orcid,
+                identifier=val(row, 24),
+                first_name=val(row, 25),
+                last_name=val(row, 26),
+                put_code=val(row, 27),
+                visibility=val(row, 28),
+            )
+
             review_group_id = val(row, 0)
             if not review_group_id:
                 raise ModelException(
                     f"Review Group ID is mandatory, #{row_no+2}: {row}. Header: {header}")
+
+            external_id_type = val(row, 29)
+            external_id_value = val(row, 30)
+            external_id_relationship = val(row, 32)
+            if bool(external_id_type) != bool(external_id_value):
+                raise ModelException(
+                    f"Invalid External ID the row #{row_no}.Type:{external_id_type},Peer Review Id:{external_id_value}")
+            if not external_id_relationship:
+                raise ModelException(
+                    f"External Id Relationship is mandatory, #{row_no+2}: {row}. Header: {header}")
+
+            if cached_row and review_group_id.lower() == val(cached_row, 0).lower() and \
+                    external_id_type.lower() == val(cached_row, 29).lower() and \
+                    external_id_value.lower() == val(cached_row, 30).lower() and \
+                    external_id_relationship.lower() == val(cached_row, 32).lower():
+                row = cached_row
+            else:
+                cached_row = row
 
             convening_org_name = val(row, 16)
             convening_org_city = val(row, 17)
@@ -2147,19 +2183,6 @@ class PeerReviewRecord(RecordModel):
                     raise ModelException(
                         f" (Convening Org Country must be 2 character from ISO 3166-1 alpha-2) in the row "
                         f"#{row_no+2}: {row}. Header: {header}")
-
-            orcid, email = val(row, 23), val(row, 22, "").lower()
-            if orcid:
-                validate_orcid_id(orcid)
-            if email and not validators.email(email):
-                raise ValueError(
-                    f"Invalid email address '{email}'  in the row #{row_no+2}: {row}")
-
-            external_id_type = val(row, 29)
-            external_id_value = val(row, 30)
-            if bool(external_id_type) != bool(external_id_value):
-                raise ModelException(
-                    f"Invalid External ID the row #{row_no}.Type:{external_id_type},Peer Review Id:{external_id_value}")
 
             review_completion_date = val(row, 4)
 
@@ -2191,20 +2214,12 @@ class PeerReviewRecord(RecordModel):
                         convening_org_disambiguated_identifier=val(row, 20),
                         convening_org_disambiguation_source=val(row, 21),
                     ),
-                    invitee=dict(
-                        email=email,
-                        orcid=orcid,
-                        identifier=val(row, 24),
-                        first_name=val(row, 25),
-                        last_name=val(row, 26),
-                        put_code=val(row, 27),
-                        visibility=val(row, 28),
-                    ),
+                    invitee=invitee,
                     external_id=dict(
                         type=external_id_type,
                         value=external_id_value,
                         url=val(row, 31),
-                        relationship=val(row, 32))))
+                        relationship=external_id_relationship)))
 
         with db.atomic():
             try:

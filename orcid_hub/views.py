@@ -1390,6 +1390,11 @@ class PeerReviewRecordAdmin(CompositeRecordModelView):
         count, query = self.get_list(
             0, sort_column, sort_desc, search, filters, page_size=page_size, execute=False)
 
+        ext_ids = [r.id for r in
+                   PeerReviewExternalId.select(models.fn.min(PeerReviewExternalId.id).alias("id")).join(
+                       PeerReviewRecord).where(
+                       PeerReviewRecord.task == self.current_task_id).group_by(PeerReviewRecord.id).naive()]
+
         return count, query.select(
             self.model,
             PeerReviewInvitee.email,
@@ -1406,7 +1411,7 @@ class PeerReviewRecordAdmin(CompositeRecordModelView):
         ).join(
             PeerReviewExternalId,
             JOIN.LEFT_OUTER,
-            on=(PeerReviewExternalId.record_id == self.model.id)).join(
+            on=(PeerReviewExternalId.record_id == self.model.id)).where(PeerReviewExternalId.id << ext_ids).join(
                 PeerReviewInvitee,
                 JOIN.LEFT_OUTER,
                 on=(PeerReviewInvitee.record_id == self.model.id)).naive()
