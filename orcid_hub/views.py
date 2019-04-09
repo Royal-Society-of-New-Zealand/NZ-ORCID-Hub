@@ -1328,6 +1328,10 @@ class WorkRecordAdmin(CompositeRecordModelView):
             page_size=page_size,
             execute=False)
 
+        ext_ids = [r.id for r in
+                   WorkExternalId.select(models.fn.min(WorkExternalId.id).alias("id")).join(WorkRecord).where(
+                       WorkRecord.task == self.current_task_id).group_by(WorkRecord.id).naive()]
+
         return count, query.select(
             self.model,
             WorkInvitee.email,
@@ -1344,10 +1348,10 @@ class WorkRecordAdmin(CompositeRecordModelView):
         ).join(
             WorkExternalId,
             JOIN.LEFT_OUTER,
-            on=(WorkExternalId.record_id == self.model.id)).join(
-                WorkInvitee,
-                JOIN.LEFT_OUTER,
-                on=(WorkInvitee.record_id == self.model.id)).naive()
+            on=(WorkExternalId.record_id == self.model.id)).where(WorkExternalId.id << ext_ids).join(
+            WorkInvitee,
+            JOIN.LEFT_OUTER,
+            on=(WorkInvitee.record_id == self.model.id)).naive()
 
 
 class PeerReviewRecordAdmin(CompositeRecordModelView):
