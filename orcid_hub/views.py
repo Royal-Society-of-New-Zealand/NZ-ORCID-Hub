@@ -28,13 +28,12 @@ from flask_admin.model import BaseModelView, typefmt
 from flask_login import current_user, login_required
 from flask_rq2.job import FlaskJob
 from jinja2 import Markup
+from orcid_api.rest import ApiException
 from playhouse.shortcuts import model_to_dict
 from werkzeug.utils import secure_filename
 from wtforms.fields import BooleanField
 from urllib.parse import parse_qs, urlparse
 from wtforms import validators
-
-from orcid_api.rest import ApiException
 
 from . import SENTRY_DSN, admin, app, limiter, models, orcid_client, rq, utils
 from .apis import yamlfy
@@ -45,10 +44,10 @@ from .forms import (ApplicationFrom, BitmapMultipleValueField, CredentialForm, E
                     validate_orcid_id_field)
 from .login_provider import roles_required
 from .models import (JOIN, Affiliation, AffiliationRecord, CharField, Client, Delegate, ExternalId,
-                     File, FundingContributor, FundingInvitee, FundingRecord, Grant, GroupIdRecord,
-                     KeywordRecord, ModelException, NestedDict, OrcidApiCall, OrcidToken,
-                     Organisation, OrgInfo, OrgInvitation, OtherNameRecord, PartialDate,
-                     PeerReviewExternalId, PeerReviewInvitee, PeerReviewRecord,
+                     FixedCharField, File, FundingContributor, FundingInvitee, FundingRecord,
+                     Grant, GroupIdRecord, KeywordRecord, ModelException, NestedDict, OrcidApiCall,
+                     OrcidToken, Organisation, OrgInfo, OrgInvitation, OtherNameRecord,
+                     PartialDate, PeerReviewExternalId, PeerReviewInvitee, PeerReviewRecord,
                      ResearcherUrlRecord, Role, Task, TaskType, TextField, Token, Url, User,
                      UserInvitation, UserOrg, UserOrgAffiliation, WorkContributor, WorkExternalId,
                      WorkInvitee, WorkRecord, db, get_val)
@@ -267,13 +266,14 @@ class AppModelView(ModelView):
         """Include linked columns in the search if they are defined with 'liked_table.column'."""
         if self.column_searchable_list:
             for p in self.column_searchable_list:
-                if '.' in p:
-                    m, p = p.split('.')
-                    m = getattr(self.model, m).rel_model
-                    p = getattr(m, p)
 
-                elif isinstance(p, str):
-                    p = getattr(self.model, p)
+                if isinstance(p, str):
+                    if "." in p:
+                        m, p = p.split('.')
+                        m = getattr(self.model, m).rel_model
+                        p = getattr(m, p)
+                    else:
+                        p = getattr(self.model, p)
 
                 # Check type
                 if not isinstance(p, (
@@ -340,9 +340,34 @@ class AppModelView(ModelView):
         return view_args
 
 
+class AuditLogModelView(AppModelView):
+    """Audit Log model view."""
+
+    can_edit = False
+    can_delete = False
+    can_create = False
+    can_view_details = False
+
+    def __init__(self, model, *args, **kwargs):
+        """Set up the search list."""
+        self.column_searchable_list = [
+            f for f in model._meta.fields.values() if isinstance(f, (CharField, FixedCharField, TextField))
+        ]
+        self.column_filters = [
+            filters.DateBetweenFilter(column=model.ts, name="Time-stamp"),
+            filters.FilterEqual(
+                column=model.op,
+                options=[("U", "Updated"), ("D", "Deleted")],
+                name="Operation"),
+        ]
+
+        super().__init__(model, *args, **kwargs)
+
+
 class UserAdmin(AppModelView):
     """User model view."""
 
+    roles = {1: "Superuser", 2: "Administrator", 4: "Researcher", 8: "Technical Contact"}
     edit_template = "admin/user_edit.html"
 
     form_extra_fields = dict(is_superuser=BooleanField("Is Superuser"))
@@ -1730,6 +1755,9 @@ admin.add_view(AppModelView(Token))
 admin.add_view(AppModelView(Delegate))
 admin.add_view(GroupIdRecordAdmin(GroupIdRecord))
 
+for name, model in models.audit_models.items():
+    admin.add_view(AuditLogModelView(model, endpoint=name + "_log"))
+
 
 @app.template_filter("year_range")
 def year_range(entry):
@@ -2164,7 +2192,6 @@ def edit_record(user_id, section_type, put_code=None):
                         **{f.name: f.data
                            for f in form})
             elif section_type == "RUR":
-
                 put_code, orcid, created = api.create_or_update_researcher_url(
                     put_code=put_code,
                     **{f.name: f.data

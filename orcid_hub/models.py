@@ -23,11 +23,12 @@ import validators
 import yaml
 from flask_login import UserMixin, current_user
 from peewee import JOIN, BlobField
-from peewee import BooleanField as BooleanField_
+from peewee import BaseModel as BaseModel_, BooleanField as BooleanField_
 from peewee import (CharField, DateTimeField, DeferredRelation, Field, FixedCharField,
                     ForeignKeyField, IntegerField, Model, OperationalError, PostgresqlDatabase,
-                    SmallIntegerField, SqliteDatabase, TextField, fn)
+                    SmallIntegerField, TextField, fn)
 from peewee_validates import ModelValidator
+from playhouse.reflection import Introspector
 from playhouse.shortcuts import model_to_dict
 from pycountry import countries, currencies, languages
 from pykwalify.core import Core
@@ -3688,8 +3689,8 @@ def create_audit_tables():
             with db.get_cursor() as cr:
                 cr.execute(sql)
             db.commit()
-    elif isinstance(db, SqliteDatabase):
-        db.execute_sql("ATTACH DATABASE ':memory:' AS audit")
+    # elif isinstance(db, SqliteDatabase):
+    #     db.execute_sql("ATTACH DATABASE ':memory:' AS audit")
 
 
 def drop_tables():
@@ -3754,3 +3755,12 @@ def get_val(d, *keys, default=None):
             break
         d = d.get(k, default)
     return d
+
+
+audit_models = {
+    n: m
+    for n, m in Introspector.from_database(db, schema="audit").generate_models().items()
+    if isinstance(m, BaseModel_)
+}
+for m in audit_models.values():
+    m._meta.schema = "audit"
