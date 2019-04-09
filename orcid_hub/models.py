@@ -3653,7 +3653,6 @@ def create_tables():
 
         if not model.table_exists():
             model.create_table()
-        create_audit_tables()
 
 
 def create_audit_tables():
