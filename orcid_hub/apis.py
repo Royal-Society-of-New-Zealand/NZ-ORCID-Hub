@@ -17,8 +17,9 @@ from flask_swagger import swagger
 
 from . import api, app, db, models, oauth
 from .login_provider import roles_required
-from .models import (ORCID_ID_REGEX, AffiliationRecord, Client, FundingRecord, OrcidToken, Role,
-                     Task, TaskType, User, UserOrg, validate_orcid_id, WorkRecord)
+from .models import (ORCID_ID_REGEX, AffiliationRecord, Client, FundingRecord, OrcidToken,
+                     PeerReviewRecord, Role, Task, TaskType, User, UserOrg, validate_orcid_id,
+                     WorkRecord)
 from .schemas import affiliation_task_schema
 from .utils import dump_yaml, is_valid_url, register_orcid_webhook
 
@@ -124,10 +125,10 @@ class AppResourceList(AppResource):
         """Get the first page link of the requested resource."""
         return changed_path("page", 1)
 
-    def api_response(self, query, exclude=None):
+    def api_response(self, query, exclude=None, only=None):
         """Create and return API response with pagination links."""
         query = query.paginate(self.page, self.page_size)
-        records = [r.to_dict(recurse=False, to_dashes=True, exclude=exclude) for r in query]
+        records = [r.to_dict(recurse=False, to_dashes=True, exclude=exclude, only=only) for r in query]
         resp = yamlfy(records) if prefers_yaml() else jsonify(records)
         resp.headers["Pagination-Page"] = self.page
         resp.headers["Pagination-Page-Size"] = self.page_size
@@ -183,7 +184,9 @@ class TaskResource(AppResource):
             if task.created_by != current_user:
                 return jsonify({"error": "Access denied."}), 403
         if request.method != "HEAD":
-            if task.task_type in [TaskType.AFFILIATION, TaskType.FUNDING, TaskType.WORK]:
+            if task.task_type in [
+                    TaskType.AFFILIATION, TaskType.FUNDING, TaskType.PEER_REVIEW, TaskType.WORK
+            ]:
                 resp = jsonify(task.to_export_dict())
             else:
                 raise Exception(f"Suppor for {task} has not yet been implemented.")
@@ -283,10 +286,6 @@ class TaskResource(AppResource):
         """Handle HEAD request.
 
         ---
-        tags:
-        - "affiliations"
-        - "funds"
-        - "works"
         summary: "Return task update time-stamp."
         description: "Return record processing task update time-stamp."
         parameters:
@@ -915,7 +914,6 @@ class WorkListAPI(TaskResource):
         description: "Post the work record processing task."
         consumes:
         - application/json
-        - text/csv
         - text/yaml
         produces:
         - application/json
@@ -953,8 +951,8 @@ class WorkListAPI(TaskResource):
               task-type:
                 type: string
                 enum:
-                - work
-                - workING
+                - WORK
+                - WORKING
               created-at:
                 type: string
                 format: date-time
@@ -1085,6 +1083,193 @@ api.add_resource(WorkListAPI, "/api/v1.0/works")
 api.add_resource(WorkAPI, "/api/v1.0/works/<int:task_id>")
 
 
+class PeerReviewListAPI(TaskResource):
+    """PeerReview list API."""
+
+    def load_from_json(self, task=None):
+        """Load PeerReviewing records form the JSON upload."""
+        return PeerReviewRecord.load_from_json(
+            request.data.decode("utf-8"), filename=self.filename, task=task)
+
+    def post(self, *args, **kwargs):
+        """Upload the peer review record processing task.
+
+        ---
+        tags:
+          - "peer-reviews"
+        summary: "Post the peer review list task."
+        description: "Post the peer review record processing task."
+        consumes:
+        - application/json
+        - text/yaml
+        produces:
+        - application/json
+        parameters:
+        - name: "filename"
+          required: false
+          in: "query"
+          description: "The batch process filename."
+          type: "string"
+        - name: body
+          in: body
+          description: "PeerReview task."
+          schema:
+            $ref: "#/definitions/PeerReviewTask"
+        responses:
+          200:
+            description: "successful operation"
+            schema:
+              $ref: "#/definitions/PeerReviewTask"
+          401:
+            $ref: "#/responses/Unauthorized"
+          403:
+            $ref: "#/responses/AccessDenied"
+          404:
+            $ref: "#/responses/NotFound"
+        definitions:
+        - schema:
+            id: PeerReviewTask
+            properties:
+              id:
+                type: integer
+                format: int64
+              filename:
+                type: string
+              task-type:
+                type: string
+                enum:
+                - peer_review
+                - peer_reviewING
+              created-at:
+                type: string
+                format: date-time
+              expires-at:
+                type: string
+                format: date-time
+              completed-at:
+                type: string
+                format: date-time
+              records:
+                type: array
+                items:
+                  $ref: "#/definitions/PeerReviewTaskRecord"
+        - schema:
+            id: PeerReviewTaskRecord
+            type: object
+        """
+        login_user(request.oauth.user)
+        if request.content_type in ["text/csv", "text/tsv"]:
+            task = PeerReviewRecord.load_from_csv(request.data.decode("utf-8"), filename=self.filename)
+            return self.jsonify_task(task)
+        return self.handle_task()
+
+
+class PeerReviewAPI(PeerReviewListAPI):
+    """PeerReview record processing task services."""
+
+    def get(self, task_id):
+        """
+        Retrieve the specified peer review record processing task.
+
+        ---
+        tags:
+          - "peer-reviews"
+        summary: "Retrieve the specified peer review task."
+        description: "Retrieve the specified peer review record processing task."
+        produces:
+          - "application/json"
+        parameters:
+          - name: "task_id"
+            required: true
+            in: "path"
+            description: "PeerReview task ID."
+            type: "integer"
+        responses:
+          200:
+            description: "successful operation"
+            schema:
+              $ref: "#/definitions/PeerReviewTask"
+          401:
+            $ref: "#/responses/Unauthorized"
+          403:
+            $ref: "#/responses/AccessDenied"
+          404:
+            $ref: "#/responses/NotFound"
+        """
+        return self.jsonify_task(task_id)
+
+    def post(self, task_id):
+        """Upload the task and completely override the peer review record processing task.
+
+        ---
+        tags:
+          - "peer-reviews"
+        summary: "Update the peer review task."
+        description: "Update the peer review record processing task."
+        consumes:
+          - application/json
+          - text/yaml
+        definitions:
+        parameters:
+          - name: "task_id"
+            in: "path"
+            description: "PeerReview task ID."
+            required: true
+            type: "integer"
+          - in: body
+            name: peerReviewTask
+            description: "PeerReview task."
+            schema:
+              $ref: "#/definitions/PeerReviewTask"
+        produces:
+          - "application/json"
+        responses:
+          200:
+            description: "successful operation"
+            schema:
+              $ref: "#/definitions/PeerReviewTask"
+          401:
+            $ref: "#/responses/Unauthorized"
+          403:
+            $ref: "#/responses/AccessDenied"
+          404:
+            $ref: "#/responses/NotFound"
+        """
+        return self.handle_task(task_id)
+
+    def delete(self, task_id):
+        """Delete the specified peer-review task.
+
+        ---
+        tags:
+          - "peer-reviews"
+        summary: "Delete the specified peer review task."
+        description: "Delete the specified peer review record processing task."
+        parameters:
+          - name: "task_id"
+            in: "path"
+            description: "PeerReview task ID."
+            required: true
+            type: "integer"
+        produces:
+          - "application/json"
+        responses:
+          200:
+            description: "Successful operation"
+          401:
+            $ref: "#/responses/Unauthorized"
+          403:
+            $ref: "#/responses/AccessDenied"
+          404:
+            $ref: "#/responses/NotFound"
+        """
+        return self.delete_task(task_id)
+
+
+api.add_resource(PeerReviewListAPI, "/api/v1.0/peer-reviews")
+api.add_resource(PeerReviewAPI, "/api/v1.0/peer-reviews/<int:task_id>")
+
+
 class UserListAPI(AppResourceList):
     """User list data service."""
 
@@ -1129,17 +1314,7 @@ class UserListAPI(AppResourceList):
               id: UserListApiResponse
               type: array
               items:
-                type: "object"
-                properties:
-                  name:
-                    type: string
-                  orcid:
-                    type: "string"
-                    description: "User ORCID ID"
-                  email:
-                    type: "string"
-                  eppn:
-                    type: "string"
+                $ref: "#/definitions/HubUser"
           401:
             $ref: "#/responses/Unauthorized"
           403:
@@ -1148,6 +1323,23 @@ class UserListAPI(AppResourceList):
             $ref: "#/responses/NotFound"
           422:
             description: "Unprocessable Entity"
+        definitions:
+        - schema:
+            id: HubUser
+            properties:
+              orcid:
+                type: "string"
+                format: "^[0-9]{4}-?[0-9]{4}-?[0-9]{4}-?[0-9]{4}$"
+                description: "User ORCID ID"
+              email:
+                type: "string"
+              eppn:
+                type: "string"
+              confirmed:
+                type: "boolean"
+              updated-at:
+                type: "string"
+                format: date-time
         """
         login_user(request.oauth.user)
         users = User.select().where(User.organisation == current_user.organisation)
@@ -1166,7 +1358,9 @@ class UserListAPI(AppResourceList):
                 users = users.where((User.created_at >= v) | (User.updated_at >= v))
             else:
                 users = users.where((User.created_at <= v) & (User.updated_at <= v))
-        return self.api_response(users)
+        return self.api_response(
+            users,
+            only=[User.email, User.eppn, User.name, User.orcid, User.confirmed, User.updated_at])
 
 
 api.add_resource(UserListAPI, "/api/v1.0/users")
@@ -1196,16 +1390,7 @@ class UserAPI(AppResource):
           200:
             description: "successful operation"
             schema:
-              id: UserApiResponse
-              properties:
-                orcid:
-                  type: "string"
-                  format: "^[0-9]{4}-?[0-9]{4}-?[0-9]{4}-?[0-9]{4}$"
-                  description: "User ORCID ID"
-                email:
-                  type: "string"
-                eppn:
-                  type: "string"
+              $ref: "#/definitions/HubUser"
           400:
             description: "Invalid identifier supplied"
           404:
@@ -1233,9 +1418,11 @@ class UserAPI(AppResource):
             }), 404
 
         return jsonify({
-            "orcid": user.orcid,
+            "confirmed": user.confirmed,
             "email": user.email,
             "eppn": user.eppn,
+            "orcid": user.orcid,
+            "updated-at": user.updated_at,
         }), 200
 
 
@@ -1458,85 +1645,77 @@ def get_spec(app):
         }
     }
     # Webhooks:
-    swag["paths"]["/api/v1.0/{orcid}/webhook"] = {
-        "parameters": [
-            {
-                "$ref": "#/parameters/orcidParam"
+    put_responses = {
+        "201": {
+            "description": "A webhoook successfully set up.",
+        },
+        "415": {
+            "description": "Invalid call-back URL or missing ORCID iD.",
+            "schema": {
+                "$ref": "#/definitions/Error"
             },
-        ],
+        },
+        "404": {
+            "description": "Invalid ORCID iD.",
+            "schema": {
+                "$ref": "#/definitions/Error"
+            },
+        },
+    }
+    delete_responses = {
+        "204": {
+            "description": "A webhoook successfully unregistered.",
+        },
+        "415": {
+            "description": "Invalid call-back URL or missing ORCID iD.",
+            "schema": {
+                "$ref": "#/definitions/Error"
+            },
+        },
+        "404": {
+            "description": "Invalid ORCID iD.",
+            "schema": {
+                "$ref": "#/definitions/Error"
+            },
+        },
+    }
+    swag["paths"]["/api/v1.0/{orcid}/webhook"] = {
+        "parameters": [swag["parameters"]["orcidParam"]],
         "put": {
             "tags": ["webhooks"],
-            "responses": {
-                "$ref": "#/paths/~1api~1v1.0~1{orcid}~1webhook~1{callback_url}/put/responses"
-            },
+            "responses": put_responses,
         },
         "delete": {
             "tags": ["webhooks"],
-            "responses": {
-                "$ref": "#/paths/~1api~1v1.0~1{orcid}~1webhook~1{callback_url}/delete/responses"
-            }
+            "responses": delete_responses,
         }
     }
     swag["paths"]["/api/v1.0/{orcid}/webhook/{callback_url}"] = {
         "parameters": [
-            {
-                "$ref": "#/parameters/orcidParam"
-            },
+            swag["parameters"]["orcidParam"],
             {
                 "in": "path",
                 "name": "callback_url",
-                "required": False,
+                "required": True,
                 "type": "string",
-                "description": ("The call-back URL that will receive a POST request "
-                                "when an update of a ORCID profile occurs."),
+                "description":
+                "The call-back URL that will receive a POST request when an update of a ORCID profile occurs.",
             },
         ],
         "put": {
             "tags": ["webhooks"],
-            "responses": {
-                "201": {
-                    "description": "A webhoook successfully set up.",
-                },
-                "415": {
-                    "description": "Invalid call-back URL or missing ORCID iD.",
-                    "schema": {
-                        "$rer": "#/definitions/Error"
-                    },
-                },
-                "404": {
-                    "description": "Invalid ORCID iD.",
-                    "schema": {
-                        "$rer": "#/definitions/Error"
-                    },
-                },
-            },
+            "responses": put_responses,
         },
         "delete": {
             "tags": ["webhooks"],
-            "responses": {
-                "204": {
-                    "description": "A webhoook successfully unregistered.",
-                },
-                "415": {
-                    "description": "Invalid call-back URL or missing ORCID iD.",
-                    "schema": {
-                        "$rer": "#/definitions/Error"
-                    },
-                },
-                "404": {
-                    "description": "Invalid ORCID iD.",
-                    "schema": {
-                        "$rer": "#/definitions/Error"
-                    },
-                },
-            }
+            "responses": delete_responses,
         }
     }
     # Proxy:
     swag["paths"]["/orcid/api/{version}/{orcid}"] = {
         "parameters": [
-            {"$ref": "#/parameters/versionParam"},
-            {"$ref": "#/parameters/orcidParam"},
+            swag["parameters"]["versionParam"],
+            swag["parameters"]["orcidParam"],
         ],
         "get": {
             "tags": ["orcid-proxy"],
@@ -1569,9 +1748,9 @@ def get_spec(app):
     }
     swag["paths"]["/orcid/api/{version}/{orcid}/{path}"] = {
         "parameters": [
-            {"$ref": "#/parameters/versionParam"},
-            {"$ref": "#/parameters/orcidParam"},
-            {"$ref": "#/parameters/pathParam"},
+            swag["parameters"]["versionParam"],
+            swag["parameters"]["orcidParam"],
+            swag["parameters"]["pathParam"],
         ],
         "delete": {
             "tags": ["orcid-proxy"],

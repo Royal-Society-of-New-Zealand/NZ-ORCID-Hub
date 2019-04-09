@@ -11,7 +11,8 @@ Shibboleth installation and SP Creation
     sudo a2enmod shib2
     sudo service apache2 restart
 #. Modify /etc/hosts file to allow url that you decided to go with, Basically add SP URL (your **sp.example.org**).
-#. Follow documentation given at below link: https://tuakiri.ac.nz/confluence/display/Tuakiri/Installing+Shibboleth+2.x+SP+on+RedHat+based+Linux. Primarily the documentation given under `Federation Membership <https://tuakiri.ac.nz/confluence/display/Tuakiri/Installing+Shibboleth+2.x+SP+on+RedHat+based+Linux#InstallingShibboleth2.xSPonRedHatbasedLinux-FederationMembership>`_ and `Configuration <https://tuakiri.ac.nz/confluence/display/Tuakiri/Installing+Shibboleth+2.x+SP+on+RedHat+based+Linux#InstallingShibboleth2.xSPonRedHatbasedLinux-Configuration>`_ sections.
+#. Follow documentation given at below link: https://tuakiri.ac.nz/confluence/display/Tuakiri/Installing+Shibboleth+SP+on+RedHat+based+Linux. Primarily the documentation given under `Federation Membership <https://tuakiri.ac.nz/confluence/display/Tuakiri/Installing+Shibboleth+SP+on+RedHat+based+Linux#InstallingShibbolethSPonRedHatbasedLinux-FederationMembership>`_ and `Configuration <https://tuakiri.ac.nz/confluence/display/Tuakiri/Installing+Shibboleth+SP+on+RedHat+based+Linux#InstallingShibbolethSPonRedHatbasedLinux-Configuration>`_ sections.
+ (We already have a SP registered for ORCIDHUB with name: https://test.orcidhub.org.nz at https://registry.test.tuakiri.ac.nz/federationregistry)
 #. You also have to generate certificate to paste in New SP request, which can be done by below sample command::
 
       sudo /usr/sbin/shib-keygen -f -u ubuntu -g ubuntu -h ubuntu.auckland.ac.nz -e http://ubuntu.auckland.ac.nz/shibboleth
