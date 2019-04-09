@@ -119,6 +119,7 @@ def utility_processor():  # noqa: D202
         onboarded_organisations=onboarded_organisations,
         current_task=current_task,
         current_record=current_record,
+        has_audit_logs=has_audit_logs,
     )
 
 

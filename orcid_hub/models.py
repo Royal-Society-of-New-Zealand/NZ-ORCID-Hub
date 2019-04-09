@@ -23,7 +23,7 @@ import validators
 import yaml
 from flask_login import UserMixin, current_user
 from peewee import JOIN, BlobField
-from peewee import BooleanField as BooleanField_
+from peewee import BaseModel as BaseModel_, BooleanField as BooleanField_
 from peewee import (CharField, DateTimeField, DeferredRelation, Field, FixedCharField,
                     ForeignKeyField, IntegerField, Model, OperationalError, PostgresqlDatabase,
                     SmallIntegerField, TextField, fn)
@@ -3741,7 +3741,7 @@ def get_val(d, *keys, default=None):
 audit_models = {
     n: m
     for n, m in Introspector.from_database(db, schema="audit").generate_models().items()
-    if isinstance(m, Model)
+    if isinstance(m, BaseModel_)
 }
 for m in audit_models.values():
     m._meta.schema = "audit"

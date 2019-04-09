@@ -163,7 +163,7 @@
                   {% endif -%}
                   <li id="userinvitation.index_view"><a data-toggle="tooltip" title="The User Invitations recently sent." href="{{ url_for('userinvitation.index_view')}}">User Invitations</a></li>
                   <li id="orginvitation.index_view"><a data-toggle="tooltip" title="The Organisation On-boarding Invitations recently sent." href="{{ url_for('orginvitation.index_view')}}">Organisation Invitations</a></li>
-                  {% if has_audit_logs %}
+                  {% if has_audit_logs() %}
                   <li class="divider"></li>
                   <li class="dropdown-submenu">
                     <a class="dropdown-toggle" tabindex="-1" href="#">Audit Logs<!-- span class="caret"></span --></a>
