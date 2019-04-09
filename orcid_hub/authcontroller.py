@@ -38,7 +38,8 @@ from .config import (APP_DESCRIPTION, APP_NAME, APP_URL, AUTHORIZATION_BASE_URL,
 from .forms import OrgConfirmationForm, TestDataForm
 from .login_provider import roles_required
 from .models import (Affiliation, OrcidAuthorizeCall, OrcidToken, Organisation, OrgInfo,
-                     OrgInvitation, Role, Task, TaskType, Url, User, UserInvitation, UserOrg)
+                     OrgInvitation, Role, Task, TaskType, Url, User, UserInvitation, UserOrg,
+                     audit_models)
 from .utils import append_qs, get_next_url, read_uploaded_file, register_orcid_webhook
 
 HEADERS = {'Accept': 'application/vnd.orcid+json', 'Content-type': 'application/vnd.orcid+json'}
@@ -48,6 +49,9 @@ ENV = app.config.get("ENV")
 @app.context_processor
 def utility_processor():  # noqa: D202
     """Define funcions callable form Jinja2 using application context."""
+
+    def has_audit_logs():
+        return bool(audit_models)
 
     def onboarded_organisations():
         rv = cache.get("onboarded_organisations")

@@ -26,7 +26,7 @@ from peewee import JOIN, BlobField
 from peewee import BooleanField as BooleanField_
 from peewee import (CharField, DateTimeField, DeferredRelation, Field, FixedCharField,
                     ForeignKeyField, IntegerField, Model, OperationalError, PostgresqlDatabase,
-                    SmallIntegerField, SqliteDatabase, TextField, fn)
+                    SmallIntegerField, TextField, fn)
 from peewee_validates import ModelValidator
 from playhouse.reflection import Introspector
 from playhouse.shortcuts import model_to_dict
@@ -3653,6 +3653,7 @@ def create_tables():
 
         if not model.table_exists():
             model.create_table()
+        create_audit_tables()
 
 
 def create_audit_tables():
@@ -3669,8 +3670,8 @@ def create_audit_tables():
             with db.get_cursor() as cr:
                 cr.execute(sql)
             db.commit()
-    elif isinstance(db, SqliteDatabase):
-        db.execute_sql("ATTACH DATABASE ':memory:' AS audit")
+    # elif isinstance(db, SqliteDatabase):
+    #     db.execute_sql("ATTACH DATABASE ':memory:' AS audit")
 
 
 def drop_tables():
@@ -3737,4 +3738,10 @@ def get_val(d, *keys, default=None):
     return d
 
 
-audit_models = Introspector.from_database(db, schema="audit").generate_models()
+audit_models = {
+    n: m
+    for n, m in Introspector.from_database(db, schema="audit").generate_models().items()
+    if isinstance(m, Model)
+}
+for m in audit_models.values():
+    m._meta.schema = "audit"

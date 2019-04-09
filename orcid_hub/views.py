@@ -36,8 +36,6 @@ from wtforms.fields import BooleanField
 from urllib.parse import parse_qs, urlparse
 from wtforms import validators
 
-from orcid_api.rest import ApiException
-
 from . import SENTRY_DSN, admin, app, limiter, models, orcid_client, rq, utils
 from .apis import yamlfy
 from .forms import (ApplicationFrom, BitmapMultipleValueField, CredentialForm, EmailTemplateForm,
@@ -47,10 +45,10 @@ from .forms import (ApplicationFrom, BitmapMultipleValueField, CredentialForm, E
                     validate_orcid_id_field)
 from .login_provider import roles_required
 from .models import (JOIN, Affiliation, AffiliationRecord, CharField, Client, Delegate, ExternalId,
-                     File, FundingContributor, FundingInvitee, FundingRecord, Grant, GroupIdRecord,
-                     KeywordRecord, ModelException, NestedDict, OrcidApiCall, OrcidToken,
-                     Organisation, OrgInfo, OrgInvitation, OtherNameRecord, PartialDate,
-                     PeerReviewExternalId, PeerReviewInvitee, PeerReviewRecord,
+                     FixedCharField, File, FundingContributor, FundingInvitee, FundingRecord,
+                     Grant, GroupIdRecord, KeywordRecord, ModelException, NestedDict, OrcidApiCall,
+                     OrcidToken, Organisation, OrgInfo, OrgInvitation, OtherNameRecord,
+                     PartialDate, PeerReviewExternalId, PeerReviewInvitee, PeerReviewRecord,
                      ResearcherUrlRecord, Role, Task, TaskType, TextField, Token, Url, User,
                      UserInvitation, UserOrg, UserOrgAffiliation, WorkContributor, WorkExternalId,
                      WorkInvitee, WorkRecord, db, get_val)
@@ -269,10 +267,6 @@ class AppModelView(ModelView):
         """Include linked columns in the search if they are defined with 'liked_table.column'."""
         if self.column_searchable_list:
             for p in self.column_searchable_list:
-                if '.' in p:
-                    m, p = p.split('.')
-                    m = getattr(self.model, m).rel_model
-                    p = getattr(m, p)
 
                 if isinstance(p, str):
                     if "." in p:
@@ -354,7 +348,6 @@ class AuditLogModelView(AppModelView):
     can_delete = False
     can_create = False
     can_view_details = False
-    roles = {1: "Superuser", 2: "Administrator", 4: "Researcher", 8: "Technical Contact"}
 
     def __init__(self, model, *args, **kwargs):
         """Set up the search list."""
@@ -375,6 +368,7 @@ class AuditLogModelView(AppModelView):
 class UserAdmin(AppModelView):
     """User model view."""
 
+    roles = {1: "Superuser", 2: "Administrator", 4: "Researcher", 8: "Technical Contact"}
     edit_template = "admin/user_edit.html"
 
     form_extra_fields = dict(is_superuser=BooleanField("Is Superuser"))
@@ -1838,6 +1832,9 @@ admin.add_view(AppModelView(Grant))
 admin.add_view(AppModelView(Token))
 admin.add_view(AppModelView(Delegate))
 admin.add_view(GroupIdRecordAdmin(GroupIdRecord))
+
+for name, model in models.audit_models.items():
+    admin.add_view(AuditLogModelView(model, endpoint=name + "_log"))
 
 
 @app.template_filter("year_range")
