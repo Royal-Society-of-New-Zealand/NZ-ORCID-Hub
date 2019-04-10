@@ -465,11 +465,18 @@ class OrgInfoAdmin(AppModelView):
         "last_name",
         "email",
     )
+    form_rules = [
+        rules.FieldSet(["name", "tuakiri_name"], "Naming"),
+        rules.FieldSet(["title", "first_name", "last_name", "role", "email", "phone", "is_public"],
+                       "Technical Contact"),
+        rules.FieldSet(["country", "city"], "Address"),
+        rules.FieldSet(["disambiguated_id", "disambiguation_source"], "Disambiguation Data"),
+    ]
 
     @action("invite", "Register Organisation",
             "Are you sure you want to register selected organisations?")
     def action_invite(self, ids):
-        """Batch registraion of organisatons."""
+        """Batch registration of organisations."""
         count = 0
         for oi in OrgInfo.select().where(OrgInfo.id.in_(ids)):
             try:

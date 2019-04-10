@@ -45,12 +45,8 @@ ORCID_ID_REGEX = re.compile(r"^([X\d]{4}-?){3}[X\d]{4}$")
 PARTIAL_DATE_REGEX = re.compile(r"\d+([/\-]\d+){,2}")
 
 
-AFFILIATION_TYPES = (
-    "student",
-    "education",
-    "staff",
-    "employment",
-)
+AFFILIATION_TYPES = ["student", "education", "staff", "employment"]
+DISAMBIGUATION_SOURCES = ["RINGGOLD", "GRID", "FUNDREF", "ISNI"]
 VISIBILITIES = ["PUBLIC", "PRIVATE", "REGISTERED_ONLY", "LIMITED"]
 visibility_choices = [(v, v.replace('_', ' ').title()) for v in VISIBILITIES]
 FUNDING_TYPES = ["AWARD", "CONTRACT", "GRANT", "SALARY_AWARD"]
@@ -93,6 +89,7 @@ language_choices.sort(key=lambda e: e[1])
 currency_choices = [(l.alpha_3, l.name) for l in currencies]
 currency_choices.sort(key=lambda e: e[1])
 relationship_choices = [(v, v.replace('_', ' ').title()) for v in RELATIONSHIPS]
+disambiguation_source_choices = [(v, v) for v in DISAMBIGUATION_SOURCES]
 
 
 class ModelException(Exception):
@@ -400,8 +397,13 @@ class BaseModel(Model):
         if query and not kwargs and len(query) == 1 and isinstance(query[0], (int, str, )):
             return super().get(id=query[0])
         elif not query and not kwargs:
-            return super().select().limit(1).first()
+            return cls.select().limit(1).first()
         return super().get(*query, **kwargs)
+
+    @classmethod
+    def last(cls):
+        """Get last inserted entry."""
+        return cls.select().order_by(cls.id).limit(1).first()
 
     @classmethod
     def model_class_name(cls):
@@ -540,7 +542,7 @@ class Organisation(BaseModel, AuditMixin):
     state = CharField(null=True, verbose_name="State/Region", max_length=100)
     country = CharField(null=True, choices=country_choices, default=DEFAULT_COUNTRY)
     disambiguated_id = CharField(null=True)
-    disambiguation_source = CharField(null=True)
+    disambiguation_source = CharField(null=True, choices=disambiguation_source_choices)
     is_email_sent = BooleanField(default=False)
     tech_contact = ForeignKeyField(
         DeferredUser,
@@ -622,21 +624,26 @@ class Organisation(BaseModel, AuditMixin):
 class OrgInfo(BaseModel):
     """Preloaded organisation data."""
 
-    name = CharField(max_length=100, unique=True, verbose_name="Organisation")
-    tuakiri_name = CharField(max_length=100, unique=True, null=True, verbose_name="TUAKIRI Name")
-    title = CharField(null=True, verbose_name="Contact Person Tile")
-    first_name = CharField(null=True, verbose_name="Contact Person's First Name")
-    last_name = CharField(null=True, verbose_name="Contact Person's Last Name")
-    role = CharField(null=True, verbose_name="Contact Person's Role")
-    email = CharField(null=True, verbose_name="Contact Person's Email Address")
-    phone = CharField(null=True, verbose_name="Contact Person's Phone")
+    name = CharField(max_length=100, unique=True, help_text="Organisation name")
+    tuakiri_name = CharField(max_length=100, unique=True, null=True, help_text="TUAKIRI Name")
+    title = CharField(null=True, help_text="Contact Person Tile")
+    first_name = CharField(null=True, help_text="Contact Person's First Name")
+    last_name = CharField(null=True, help_text="Contact Person's Last Name")
+    role = CharField(null=True, help_text="Contact Person's Role")
+    email = CharField(null=True, help_text="Contact Person's Email Address")
+    phone = CharField(null=True, help_text="Contact Person's Phone")
     is_public = BooleanField(
         null=True, default=False, help_text="Permission to post contact information to WEB")
-    country = CharField(null=True, verbose_name="Country Code", default=DEFAULT_COUNTRY)
-    city = CharField(null=True, verbose_name="City of Home Campus")
+    country = CharField(null=True, help_text="Country Code", default=DEFAULT_COUNTRY)
+    city = CharField(null=True, help_text="City of Home Campus")
     disambiguated_id = CharField(
-        null=True, verbose_name="common:disambiguated-organization-identifier")
-    disambiguation_source = CharField(null=True, verbose_name="common:disambiguation-source")
+        null=True, verbose_name="Identifier",
+        help_text="Organisation disambiguated identifier")
+    disambiguation_source = CharField(
+        null=True,
+        verbose_name="Source",
+        help_text="Organisation disambiguated ID source",
+        choices=disambiguation_source_choices)
 
     def __repr__(self):
         return self.name or self.disambiguated_id or super().__repr__()
@@ -994,7 +1001,8 @@ class UserOrgAffiliation(BaseModel, AuditMixin):
     organisation = ForeignKeyField(
         Organisation, index=True, on_delete="CASCADE", verbose_name="Organisation")
     disambiguated_id = CharField(verbose_name="Disambiguation ORG Id", null=True)
-    disambiguation_source = CharField(verbose_name="Disambiguation ORG Source", null=True)
+    disambiguation_source = CharField(
+        verbose_name="Disambiguation ORG Source", null=True, choices=disambiguation_source_choices)
     name = TextField(null=True, verbose_name="Institution/employer")
     start_date = PartialDateField(null=True)
     end_date = PartialDateField(null=True)
@@ -1338,7 +1346,8 @@ class UserInvitation(BaseModel, AuditMixin):
     end_date = PartialDateField(verbose_name="End date (leave blank if current)", null=True)
     affiliations = SmallIntegerField(verbose_name="User affiliations", null=True)
     disambiguated_id = TextField(verbose_name="Disambiguation ORG Id", null=True)
-    disambiguation_source = TextField(verbose_name="Disambiguation ORG Source", null=True)
+    disambiguation_source = TextField(
+        verbose_name="Disambiguation ORG Source", null=True, choices=disambiguation_source_choices)
     token = TextField(unique=True)
     confirmed_at = DateTimeField(null=True)
     is_person_update_invite = BooleanField(
@@ -1486,7 +1495,10 @@ class AffiliationRecord(RecordModel):
     disambiguated_id = CharField(
         null=True, max_length=20, verbose_name="Disambiguated Organization Identifier")
     disambiguation_source = CharField(
-        null=True, max_length=100, verbose_name="Disambiguation Source")
+        null=True,
+        max_length=100,
+        verbose_name="Disambiguation Source",
+        choices=disambiguation_source_choices)
 
     class Meta:  # noqa: D101,D106
         db_table = "affiliation_record"
@@ -1579,7 +1591,8 @@ class FundingRecord(RecordModel):
     region = CharField(null=True, max_length=255)
     country = CharField(null=True, max_length=255, choices=country_choices)
     disambiguated_id = CharField(null=True, max_length=255)
-    disambiguation_source = CharField(null=True, max_length=255)
+    disambiguation_source = CharField(
+        null=True, max_length=255, choices=disambiguation_source_choices)
     is_active = BooleanField(
         default=False, help_text="The record is marked for batch processing", null=True)
     processed_at = DateTimeField(null=True)
@@ -2021,7 +2034,7 @@ class PeerReviewRecord(RecordModel):
         null=True,
         max_length=255,
         verbose_name="Disambiguation Source",
-        help_text="Convening Organisation Disambiguation Source")
+        help_text="Convening Organisation Disambiguation Source", choices=disambiguation_source_choices)
     is_active = BooleanField(
         default=False, help_text="The record is marked for batch processing", null=True)
     processed_at = DateTimeField(null=True)

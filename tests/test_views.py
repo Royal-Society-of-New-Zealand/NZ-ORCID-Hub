@@ -733,6 +733,56 @@ Institute of Geological & Nuclear Sciences Ltd,5180,RINGGOLD
         oi = OrgInvitation.select().first()
         assert oi.sent_at == oi.created_at
 
+    # Editing data:
+    resp = client.post(
+        "/admin/orginfo/new",
+        data={
+            "name": "A NEW ORGANISATION",
+            "disambiguation_source": "ABC123",
+            "disambiguated_id": "123456",
+        })
+    assert b"Not a valid choice" in resp.data
+    assert OrgInfo.select().count() == 3
+
+    resp = client.post(
+        "/admin/orginfo/new",
+        data={
+            "name": "A NEW ORGANISATION",
+            "disambiguation_source": "RINGGOLD",
+            "disambiguated_id": "123456",
+        })
+    assert b"Not a valid choice" not in resp.data
+    assert OrgInfo.select().count() == 4
+
+    oi = OrgInfo.last()
+    resp = client.post(
+        f"/admin/orginfo/edit/?id={oi.id}",
+        data={
+            "name": "A NEW ORGANISATION",
+            "disambiguation_source": "RINGGOLD 123",
+            "disambiguated_id": "123456",
+        })
+    assert b"Not a valid choice" in resp.data
+
+    resp = client.post(
+        f"/admin/orginfo/edit/?id={oi.id}",
+        data={
+            "name": "A NEW ORGANISATION ABC",
+            "disambiguation_source": "RINGGOLD",
+            "disambiguated_id": "ABC",
+        })
+    assert b"Not a valid choice" not in resp.data
+    oi = OrgInfo.get(oi.id)
+    assert oi.name == "A NEW ORGANISATION ABC"
+    assert oi.disambiguated_id == "ABC"
+
+    resp = client.post(
+        "/admin/orginfo/delete", data={
+            "id": oi.id,
+            "url": "/admin/orginfo/?search=test"
+        })
+    assert OrgInfo.select().count() == 3
+
 
 def test_user_orgs_org(client):
     """Test add an organisation to the user."""
