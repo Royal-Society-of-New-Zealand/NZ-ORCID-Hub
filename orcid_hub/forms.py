@@ -15,7 +15,7 @@ from wtfpeewee.orm import model_form
 from . import app, models
 
 DEFAULT_COUNTRY = app.config["DEFAULT_COUNTRY"]
-EMPTY_CHOICES = [(None, "----------------")]
+EMPTY_CHOICES = [("", "")]
 
 
 def validate_orcid_id_field(form, field):
@@ -220,7 +220,7 @@ class RecordForm(FlaskForm):
 class FundingForm(FlaskForm):
     """User/researcher funding detail form."""
 
-    type_choices = [(v, v.replace('_', ' ').title()) for v in models.FUNDING_TYPES]
+    type_choices = [(v, v.replace('_', ' ').title()) for v in [''] + models.FUNDING_TYPES]
 
     funding_title = StringField("Funding Title", [validators.required()])
     funding_translated_title = StringField("Funding Translated Title")
@@ -243,9 +243,10 @@ class FundingForm(FlaskForm):
 class PeerReviewForm(FlaskForm):
     """User/researcher Peer review detail form."""
 
-    reviewer_role_choices = [(v, v) for v in models.REVIEWER_ROLES]
-    review_type_choices = [(v, v) for v in models.REVIEW_TYPES]
+    reviewer_role_choices = [(v, v.replace('_', ' ').title()) for v in [''] + models.REVIEWER_ROLES]
+    review_type_choices = [(v, v.replace('_', ' ').title()) for v in [''] + models.REVIEW_TYPES]
     subject_type_choices = [(v, v.replace('_', ' ').title()) for v in [''] + models.SUBJECT_TYPES]
+    relationship_choices = [(v, v.replace('_', ' ').title()) for v in [''] + models.RELATIONSHIPS]
 
     org_name = StringField("Institution", [validators.required()])
     disambiguated_id = StringField("Disambiguated Organisation ID")
@@ -262,7 +263,7 @@ class PeerReviewForm(FlaskForm):
     subject_external_identifier_type = StringField("Subject External Identifier Type")
     subject_external_identifier_value = StringField("Subject External Identifier Value")
     subject_external_identifier_url = StringField("Subject External Identifier Url")
-    subject_external_identifier_relationship = SelectField(choices=EMPTY_CHOICES + models.relationship_choices,
+    subject_external_identifier_relationship = SelectField(choices=relationship_choices,
                                                            description="Subject External Id Relationship")
     subject_container_name = StringField("Subject Container Name")
     subject_type = SelectField(choices=subject_type_choices, description="Subject Type")
@@ -287,7 +288,7 @@ class WorkForm(FlaskForm):
     translated_title_language_code = LanguageSelectField("Language")
     journal_title = StringField("Work Type Title")
     short_description = TextAreaField(description="Short Description")
-    citation_type = SelectField(choices=models.citation_type_choices, description="Citation Type")
+    citation_type = SelectField(choices=EMPTY_CHOICES + models.citation_type_choices, description="Citation Type")
     citation = StringField("Citation Value")
     publication_date = PartialDateField("Publication date")
     url = StringField("Url")

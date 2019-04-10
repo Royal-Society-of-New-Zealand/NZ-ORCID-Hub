@@ -945,7 +945,6 @@ class MemberAPI(MemberAPIV20Api):
 
         if title:
             title = Title(value=title)  # noqa: F405
-            subtitle = None
             work_translated_title = None
             if subtitle:
                 subtitle = Subtitle(value=subtitle)  # noqa: F405
@@ -1165,7 +1164,7 @@ class MemberAPI(MemberAPIV20Api):
         if name:
             rec.url_name = name
         if value:
-            rec.url_value = Url(value=value)      # noqa: F405
+            rec.url = Url(value=value)      # noqa: F405
         if visibility:
             rec.visibility = visibility
         if display_index:
