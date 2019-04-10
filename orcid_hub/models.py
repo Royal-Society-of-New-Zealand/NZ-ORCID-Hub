@@ -1341,7 +1341,10 @@ class UserInvitation(BaseModel, AuditMixin):
     disambiguation_source = TextField(verbose_name="Disambiguation ORG Source", null=True)
     token = TextField(unique=True)
     confirmed_at = DateTimeField(null=True)
-    is_person_update_invite = BooleanField(default=False)
+    is_person_update_invite = BooleanField(
+        default=False,
+        verbose_name="'Person/Update' Invitation",
+        help_text="Invitation to grant 'Person/Update' scope")
 
     @property
     def sent_at(self):
