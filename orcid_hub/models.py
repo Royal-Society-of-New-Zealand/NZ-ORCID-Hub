@@ -1341,7 +1341,10 @@ class UserInvitation(BaseModel, AuditMixin):
     disambiguation_source = TextField(verbose_name="Disambiguation ORG Source", null=True)
     token = TextField(unique=True)
     confirmed_at = DateTimeField(null=True)
-    is_person_update_invite = BooleanField(default=False)
+    is_person_update_invite = BooleanField(
+        default=False,
+        verbose_name="'Person/Update' Invitation",
+        help_text="Invitation to grant 'Person/Update' scope")
 
     @property
     def sent_at(self):
@@ -1611,19 +1614,34 @@ class FundingRecord(RecordModel):
 
         header_rexs = [
             re.compile(ex, re.I) for ex in [
-                r"ext(ernal)?\s*id(entifier)?$", "title$", r"translated\s+(title)?",
-                r"(translated)?\s*(title)?\s*language\s*(code)?", "type$",
-                r"org(ani[sz]ation)?\s*(defined)?\s*type", r"(short\s*|description\s*)+$",
-                "amount", "currency", r"start\s*(date)?", r"end\s*(date)?",
-                r"(org(gani[zs]ation)?)?\s*name$", "city", "region|state", "country",
+                "title$",
+                r"translated\s+(title)?",
+                r"translat(ed)?(ion)?\s+(title)?\s*lang(uage)?.*(code)?",
+                "type$",
+                r"org(ani[sz]ation)?\s*(defined)?\s*type",
+                r"(short\s*|description\s*)+$",
+                "amount",
+                "currency",
+                r"start\s*(date)?",
+                r"end\s*(date)?",
+                r"(org(gani[zs]ation)?)?\s*name$",
+                "city",
+                "region|state",
+                "country",
                 r"disambiguated\s*(org(ani[zs]ation)?)?\s*id(entifier)?",
-                r"disambiguation\s+source$", r"(is)?\s*active$", r"orcid\s*(id)?$", "name$",
-                "role$", "email", r"(external)?\s*id(entifier)?\s+type$",
+                r"disambiguation\s+source$",
+                r"(is)?\s*active$",
+                r"orcid\s*(id)?$",
+                "email",
+                r"(external)?\s*id(entifier)?\s+type$",
                 r"((external)?\s*id(entifier)?\s+value|funding.*id)$",
                 r"(external)?\s*id(entifier)?\s*url",
-                r"(external)?\s*id(entifier)?\s*rel(ationship)?", "put.*code",
-                r"(is)?\s*visib(bility|le)?", r"first\s*(name)?", r"(last|sur)\s*(name)?",
-                "identifier", r"excluded?(\s+from(\s+profile)?)?"
+                r"(external)?\s*id(entifier)?\s*rel(ationship)?",
+                "put.*code",
+                r"(is)?\s*visib(bility|le)?",
+                r"first\s*(name)?",
+                r"(last|sur)\s*(name)?",
+                "identifier",
             ]
         ]
 
@@ -1651,6 +1669,7 @@ class FundingRecord(RecordModel):
             return default if v == '' else v
 
         rows = []
+        cached_row = []
         for row_no, row in enumerate(reader):
             # skip empty lines:
             if len([item for item in row if item and item.strip()]) == 0:
@@ -1658,13 +1677,55 @@ class FundingRecord(RecordModel):
             if len(row) == 1 and row[0].strip() == '':
                 continue
 
-            funding_type = val(row, 4)
+            orcid, email = val(row, 17), val(row, 18, "").lower()
+            if orcid:
+                validate_orcid_id(orcid)
+            if email and not validators.email(email):
+                raise ValueError(
+                    f"Invalid email address '{email}'  in the row #{row_no+2}: {row}")
+
+            invitee = dict(
+                identifier=val(row, 27),
+                email=email,
+                first_name=val(row, 25),
+                last_name=val(row, 26),
+                orcid=orcid,
+                put_code=val(row, 23),
+                visibility=val(row, 24),
+            )
+
+            title = val(row, 0)
+            external_id_type = val(row, 19)
+            external_id_value = val(row, 20)
+            external_id_relationship = val(row, 22)
+
+            if bool(external_id_type) != bool(external_id_value):
+                raise ModelException(
+                    f"Invalid external ID the row #{row_no}. Type: {external_id_type}, Value: {external_id_value}")
+
+            if not title:
+                raise ModelException(
+                    f"Title is mandatory, #{row_no+2}: {row}. Header: {header}")
+
+            if not external_id_relationship:
+                raise ModelException(
+                    f"External Id Relationship is mandatory, #{row_no+2}: {row}. Header: {header}")
+
+            if cached_row and title.lower() == val(cached_row, 0).lower() and \
+                    external_id_type.lower() == val(cached_row, 19).lower() and \
+                    external_id_value.lower() == val(cached_row, 20).lower() and \
+                    external_id_relationship.lower() == val(cached_row, 22).lower():
+                row = cached_row
+            else:
+                cached_row = row
+
+            funding_type = val(row, 3)
             if not funding_type:
                 raise ModelException(
                     f"Funding type is mandatory, #{row_no+2}: {row}. Header: {header}")
 
             # The uploaded country must be from ISO 3166-1 alpha-2
-            country = val(row, 14)
+            country = val(row, 13)
             if country:
                 try:
                     country = countries.lookup(country).alpha_2
@@ -1673,67 +1734,31 @@ class FundingRecord(RecordModel):
                         f" (Country must be 2 character from ISO 3166-1 alpha-2) in the row "
                         f"#{row_no+2}: {row}. Header: {header}")
 
-            orcid, email = val(row, 18), val(row, 21, "").lower()
-            if orcid:
-                validate_orcid_id(orcid)
-            if email and not validators.email(email):
-                raise ValueError(
-                    f"Invalid email address '{email}'  in the row #{row_no+2}: {row}")
-
-            external_id_type = val(row, 22)
-            external_id_value = val(row, 23)
-            if bool(external_id_type) != bool(external_id_value):
-                raise ModelException(
-                    f"Invalid external ID the row #{row_no}. Type: {external_id_type}, Value: {external_id_value}")
-
-            name, first_name, last_name = val(row, 19), val(row, 28), val(row, 29)
-            if not name and first_name and last_name:
-                name = first_name + ' ' + last_name
-
-            # exclude the record from the profile
-            excluded = val(row, 31)
-            excluded = bool(excluded and excluded.lower() in ["y", "yes", "true", "1"])
             rows.append(
                 dict(
-                    excluded=excluded,
                     funding=dict(
-                        # external_identifier = val(row, 0),
-                        title=val(row, 1),
-                        translated_title=val(row, 2),
-                        translated_title_language_code=val(row, 3),
+                        title=title,
+                        translated_title=val(row, 1),
+                        translated_title_language_code=val(row, 2),
                         type=funding_type,
-                        organization_defined_type=val(row, 5),
-                        short_description=val(row, 6),
-                        amount=val(row, 7),
-                        currency=val(row, 8),
-                        start_date=PartialDate.create(val(row, 9)),
-                        end_date=PartialDate.create(val(row, 10)),
-                        org_name=val(row, 11) or org.name,
-                        city=val(row, 12) or org.city,
-                        region=val(row, 13) or org.state,
+                        organization_defined_type=val(row, 4),
+                        short_description=val(row, 5),
+                        amount=val(row, 6),
+                        currency=val(row, 7),
+                        start_date=PartialDate.create(val(row, 8)),
+                        end_date=PartialDate.create(val(row, 9)),
+                        org_name=val(row, 10) or org.name,
+                        city=val(row, 11) or org.city,
+                        region=val(row, 12) or org.state,
                         country=country or org.country,
-                        disambiguated_id=val(row, 15) or org.disambiguated_id,
-                        disambiguation_source=val(row, 16) or org.disambiguation_source),
-                    contributor=dict(
-                        orcid=orcid,
-                        name=name,
-                        role=val(row, 20),
-                        email=email,
-                    ),
-                    invitee=dict(
-                        identifier=val(row, 30),
-                        email=email,
-                        first_name=val(row, 28),
-                        last_name=val(row, 29),
-                        orcid=orcid,
-                        put_code=val(row, 26),
-                        visibility=val(row, 27),
-                    ),
+                        disambiguated_id=val(row, 14) or org.disambiguated_id,
+                        disambiguation_source=val(row, 15) or org.disambiguation_source),
+                    invitee=invitee,
                     external_id=dict(
                         type=external_id_type,
                         value=external_id_value,
-                        url=val(row, 24),
-                        relationship=val(row, 25))))
+                        url=val(row, 21),
+                        relationship=external_id_relationship)))
 
         with db.atomic():
             try:
@@ -1747,15 +1772,6 @@ class FundingRecord(RecordModel):
                         raise ModelException(f"Invalid record: {validator.errors}")
                     fr.save()
 
-                    for contributor in set(
-                            tuple(r["contributor"].items()) for r in records
-                            if r["excluded"]):
-                        fc = FundingContributor(record=fr, **dict(contributor))
-                        validator = ModelValidator(fc)
-                        if not validator.validate():
-                            raise ModelException(f"Invalid contributor record: {validator.errors}")
-                        fc.save()
-
                     for external_id in set(
                             tuple(r["external_id"].items()) for r in records
                             if r["external_id"]["type"] and r["external_id"]["value"]):
@@ -1764,7 +1780,7 @@ class FundingRecord(RecordModel):
 
                     for invitee in set(
                             tuple(r["invitee"].items()) for r in records
-                            if r["invitee"]["email"] and not r["excluded"]):
+                            if r["invitee"]["email"]):
                         rec = FundingInvitee(record=fr, **dict(invitee))
                         validator = ModelValidator(rec)
                         if not validator.validate():
@@ -2106,6 +2122,7 @@ class PeerReviewRecord(RecordModel):
             return default if v == '' else v
 
         rows = []
+        cached_row = []
         for row_no, row in enumerate(reader):
             # skip empty lines:
             if len([item for item in row if item and item.strip()]) == 0:
@@ -2113,10 +2130,45 @@ class PeerReviewRecord(RecordModel):
             if len(row) == 1 and row[0].strip() == '':
                 continue
 
+            orcid, email = val(row, 23), val(row, 22, "").lower()
+            if orcid:
+                validate_orcid_id(orcid)
+            if email and not validators.email(email):
+                raise ValueError(
+                    f"Invalid email address '{email}'  in the row #{row_no+2}: {row}")
+
+            invitee = dict(
+                email=email,
+                orcid=orcid,
+                identifier=val(row, 24),
+                first_name=val(row, 25),
+                last_name=val(row, 26),
+                put_code=val(row, 27),
+                visibility=val(row, 28),
+            )
+
             review_group_id = val(row, 0)
             if not review_group_id:
                 raise ModelException(
                     f"Review Group ID is mandatory, #{row_no+2}: {row}. Header: {header}")
+
+            external_id_type = val(row, 29)
+            external_id_value = val(row, 30)
+            external_id_relationship = val(row, 32)
+            if bool(external_id_type) != bool(external_id_value):
+                raise ModelException(
+                    f"Invalid External ID the row #{row_no}.Type:{external_id_type},Peer Review Id:{external_id_value}")
+            if not external_id_relationship:
+                raise ModelException(
+                    f"External Id Relationship is mandatory, #{row_no+2}: {row}. Header: {header}")
+
+            if cached_row and review_group_id.lower() == val(cached_row, 0).lower() and \
+                    external_id_type.lower() == val(cached_row, 29).lower() and \
+                    external_id_value.lower() == val(cached_row, 30).lower() and \
+                    external_id_relationship.lower() == val(cached_row, 32).lower():
+                row = cached_row
+            else:
+                cached_row = row
 
             convening_org_name = val(row, 16)
             convening_org_city = val(row, 17)
@@ -2135,19 +2187,6 @@ class PeerReviewRecord(RecordModel):
                     raise ModelException(
                         f" (Convening Org Country must be 2 character from ISO 3166-1 alpha-2) in the row "
                         f"#{row_no+2}: {row}. Header: {header}")
-
-            orcid, email = val(row, 23), val(row, 22, "").lower()
-            if orcid:
-                validate_orcid_id(orcid)
-            if email and not validators.email(email):
-                raise ValueError(
-                    f"Invalid email address '{email}'  in the row #{row_no+2}: {row}")
-
-            external_id_type = val(row, 29)
-            external_id_value = val(row, 30)
-            if bool(external_id_type) != bool(external_id_value):
-                raise ModelException(
-                    f"Invalid External ID the row #{row_no}.Type:{external_id_type},Peer Review Id:{external_id_value}")
 
             review_completion_date = val(row, 4)
 
@@ -2179,20 +2218,12 @@ class PeerReviewRecord(RecordModel):
                         convening_org_disambiguated_identifier=val(row, 20),
                         convening_org_disambiguation_source=val(row, 21),
                     ),
-                    invitee=dict(
-                        email=email,
-                        orcid=orcid,
-                        identifier=val(row, 24),
-                        first_name=val(row, 25),
-                        last_name=val(row, 26),
-                        put_code=val(row, 27),
-                        visibility=val(row, 28),
-                    ),
+                    invitee=invitee,
                     external_id=dict(
                         type=external_id_type,
                         value=external_id_value,
                         url=val(row, 31),
-                        relationship=val(row, 32))))
+                        relationship=external_id_relationship)))
 
         with db.atomic():
             try:
@@ -2895,11 +2926,10 @@ class WorkRecord(RecordModel):
 
         header_rexs = [
             re.compile(ex, re.I) for ex in [
-                r"ext(ernal)?\s*id(entifier)?$",
                 "title$",
                 r"sub.*(title)?$",
                 r"translated\s+(title)?",
-                r"(translated)?\s*(title)?\s*language\s*(code)?",
+                r"translat(ed)?(ion)?\s+(title)?\s*lang(uage)?.*(code)?",
                 r"journal",
                 "type$",
                 r"(short\s*|description\s*)+$",
@@ -2912,8 +2942,6 @@ class WorkRecord(RecordModel):
                 r"country",
                 r"(is)?\s*active$",
                 r"orcid\s*(id)?$",
-                "name$",
-                "role$",
                 "email",
                 r"(external)?\s*id(entifier)?\s+type$",
                 r"((external)?\s*id(entifier)?\s+value|work.*id)$",
@@ -2924,8 +2952,6 @@ class WorkRecord(RecordModel):
                 r"first\s*(name)?",
                 r"(last|sur)\s*(name)?",
                 "identifier",
-                r"excluded?(\s+from(\s+profile)?)?",
-                r".*sequence$",
             ]
         ]
 
@@ -2953,6 +2979,7 @@ class WorkRecord(RecordModel):
             return default if v == '' else v
 
         rows = []
+        cached_row = []
         for row_no, row in enumerate(reader):
             # skip empty lines:
             if len([item for item in row if item and item.strip()]) == 0:
@@ -2960,13 +2987,55 @@ class WorkRecord(RecordModel):
             if len(row) == 1 and row[0].strip() == '':
                 continue
 
-            work_type = val(row, 6)
+            orcid, email = val(row, 15), val(row, 16, "").lower()
+            if orcid:
+                validate_orcid_id(orcid)
+            if email and not validators.email(email):
+                raise ValueError(
+                    f"Invalid email address '{email}'  in the row #{row_no+2}: {row}")
+
+            invitee = dict(
+                identifier=val(row, 25),
+                email=email,
+                first_name=val(row, 23),
+                last_name=val(row, 24),
+                orcid=orcid,
+                put_code=val(row, 21),
+                visibility=val(row, 22),
+            )
+
+            title = val(row, 0)
+            external_id_type = val(row, 17)
+            external_id_value = val(row, 18)
+            external_id_relationship = val(row, 20)
+
+            if bool(external_id_type) != bool(external_id_value):
+                raise ModelException(
+                    f"Invalid external ID the row #{row_no}. Type: {external_id_type}, Value: {external_id_value}")
+
+            if not title:
+                raise ModelException(
+                    f"Title is mandatory, #{row_no+2}: {row}. Header: {header}")
+
+            if not external_id_relationship:
+                raise ModelException(
+                    f"External Id Relationship is mandatory, #{row_no+2}: {row}. Header: {header}")
+
+            if cached_row and title.lower() == val(cached_row, 0).lower() and \
+                    external_id_type.lower() == val(cached_row, 17).lower() and \
+                    external_id_value.lower() == val(cached_row, 18).lower() and \
+                    external_id_relationship.lower() == val(cached_row, 20).lower():
+                row = cached_row
+            else:
+                cached_row = row
+
+            work_type = val(row, 5)
             if not work_type:
                 raise ModelException(
                     f"Work type is mandatory, #{row_no+2}: {row}. Header: {header}")
 
             # The uploaded country must be from ISO 3166-1 alpha-2
-            country = val(row, 14)
+            country = val(row, 13)
             if country:
                 try:
                     country = countries.lookup(country).alpha_2
@@ -2975,71 +3044,34 @@ class WorkRecord(RecordModel):
                         f" (Country must be 2 character from ISO 3166-1 alpha-2) in the row "
                         f"#{row_no+2}: {row}. Header: {header}")
 
-            orcid, email = val(row, 16), val(row, 19, "").lower()
-            if orcid:
-                validate_orcid_id(orcid)
-            if email and not validators.email(email):
-                raise ValueError(
-                    f"Invalid email address '{email}'  in the row #{row_no+2}: {row}")
-
-            external_id_type = val(row, 20)
-            external_id_value = val(row, 21)
-            if bool(external_id_type) != bool(external_id_value):
-                raise ModelException(
-                    f"Invalid external ID the row #{row_no}. Type: {external_id_type}, Value: {external_id_value}")
-
-            name, first_name, last_name = val(row, 17), val(row, 26), val(row, 27)
-            if not name and first_name and last_name:
-                name = first_name + ' ' + last_name
-
-            # exclude the record from the profile
-            excluded = val(row, 29)
-            excluded = bool(excluded and excluded.lower() in ["y", "yes", "true", "1"])
-            publication_date = val(row, 10)
+            publication_date = val(row, 9)
             if publication_date:
                 publication_date = PartialDate.create(publication_date)
             rows.append(
                 dict(
-                    excluded=excluded,
                     work=dict(
-                        # external_identifier = val(row, 0),
-                        title=val(row, 1),
-                        subtitle=val(row, 2),
-                        translated_title=val(row, 3),
-                        translated_title_language_code=val(row, 4),
-                        journal_title=val(row, 5),
+                        title=title,
+                        subtitle=val(row, 1),
+                        translated_title=val(row, 2),
+                        translated_title_language_code=val(row, 3),
+                        journal_title=val(row, 4),
                         type=work_type,
-                        short_description=val(row, 7),
-                        citation_type=val(row, 8),
-                        citation_value=val(row, 9),
+                        short_description=val(row, 6),
+                        citation_type=val(row, 7),
+                        citation_value=val(row, 8),
                         publication_date=publication_date,
-                        publication_media_type=val(row, 11),
-                        url=val(row, 12),
-                        language_code=val(row, 13),
+                        publication_media_type=val(row, 10),
+                        url=val(row, 11),
+                        language_code=val(row, 12),
                         country=country,
                         is_active=False,
                     ),
-                    contributor=dict(
-                        orcid=orcid,
-                        name=name,
-                        role=val(row, 18),
-                        email=email,
-                        contributor_sequence=val(row, 30)
-                    ),
-                    invitee=dict(
-                        identifier=val(row, 28),
-                        email=email,
-                        first_name=first_name,
-                        last_name=last_name,
-                        orcid=orcid,
-                        put_code=val(row, 24),
-                        visibility=val(row, 25),
-                    ),
+                    invitee=invitee,
                     external_id=dict(
                         type=external_id_type,
                         value=external_id_value,
-                        url=val(row, 22),
-                        relationship=val(row, 23))))
+                        url=val(row, 19),
+                        relationship=external_id_relationship)))
 
         with db.atomic():
             try:
@@ -3053,15 +3085,6 @@ class WorkRecord(RecordModel):
                         raise ModelException(f"Invalid record: {validator.errors}")
                     wr.save()
 
-                    for contributor in set(
-                            tuple(r["contributor"].items()) for r in records
-                            if r["excluded"]):
-                        fc = WorkContributor(record=wr, **dict(contributor))
-                        validator = ModelValidator(fc)
-                        if not validator.validate():
-                            raise ModelException(f"Invalid contributor record: {validator.errors}")
-                        fc.save()
-
                     for external_id in set(
                             tuple(r["external_id"].items()) for r in records
                             if r["external_id"]["type"] and r["external_id"]["value"]):
@@ -3070,7 +3093,7 @@ class WorkRecord(RecordModel):
 
                     for invitee in set(
                             tuple(r["invitee"].items()) for r in records
-                            if r["invitee"]["email"] and not r["excluded"]):
+                            if r["invitee"]["email"]):
                         rec = WorkInvitee(record=wr, **dict(invitee))
                         validator = ModelValidator(rec)
                         if not validator.validate():

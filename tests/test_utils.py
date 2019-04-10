@@ -155,6 +155,24 @@ def test_send_user_invitation(app, mocker):
     send_email.assert_called_once()
     assert result == UserInvitation.select().order_by(UserInvitation.id.desc()).first().id
 
+    with pytest.raises(Exception) as excinfo:
+        send_email.reset_mock()
+        dkim_key_path = utils.app.conig["DKIM_KEY_PATH"]
+        app.conig["DKIM_KEY_PATH"] = "/file/not/found.key"
+        result = utils.send_user_invitation(
+            inviter=inviter.id,
+            org=org.id,
+            email=email,
+            first_name=first_name,
+            last_name=last_name,
+            affiliation_types=affiliation_types,
+            start_date=[1971, 1, 1],
+            end_date=[2018, 5, 29],
+            task_id=task.id)
+        send_email.assert_not_called()
+        utils.app.conig["DKIM_KEY_PATH"] = dkim_key_path
+        assert "/file/not/found.key" in str(excinfo.value)
+
 
 def test_send_work_funding_peer_review_invitation(app, mocker):
     """Test to send user invitation."""
@@ -931,14 +949,16 @@ def test_send_email(app):
 
             msg.reset_mock()
             app.config["DKIM_KEY_PATH"] = "NON-EXISTING FILE..."
-            utils.send_email(
-                "template", (
-                    "TEST USER",
-                    "test123@test0.edu",
-                ), base="BASE", subject="TEST")
-            msg.dkim.assert_not_called()
-            msg.send.assert_called_once()
+            with pytest.raises(Exception) as excinfo:
+                utils.send_email(
+                    "template", (
+                        "TEST USER",
+                        "test123@test0.edu",
+                    ), base="BASE", subject="TEST")
             app.config["DKIM_KEY_PATH"] = dkim_key_path
+            msg.dkim.assert_not_called()
+            msg.send.assert_not_called()
+            assert"NON-EXISTING FILE..." in str(excinfo.value)
 
             # User organisation's logo
             msg.reset_mock()

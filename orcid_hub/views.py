@@ -29,7 +29,6 @@ from flask_login import current_user, login_required
 from flask_rq2.job import FlaskJob
 from jinja2 import Markup
 from orcid_api.rest import ApiException
-from peewee import SQL
 from playhouse.shortcuts import model_to_dict
 from werkzeug.utils import secure_filename
 from wtforms.fields import BooleanField
@@ -1224,9 +1223,6 @@ class FundingRecordAdmin(CompositeRecordModelView):
         "email",
         "first_name",
         "last_name",
-        "name",
-        "role",
-        "excluded",
         "external_id_type",
         "external_id_url",
         "external_id_relationship",
@@ -1243,66 +1239,30 @@ class FundingRecordAdmin(CompositeRecordModelView):
             page_size=page_size,
             execute=False)
 
-        sq = (FundingInvitee.select(
-            FundingInvitee.record,
+        ext_ids = [r.id for r in
+                   ExternalId.select(models.fn.min(ExternalId.id).alias("id")).join(FundingRecord).where(
+                       FundingRecord.task == self.current_task_id).group_by(FundingRecord.id).naive()]
+
+        return count, query.select(
+            self.model,
             FundingInvitee.email,
             FundingInvitee.orcid,
-            SQL("NULL").alias("name"),
-            SQL("NULL").alias("role"),
             FundingInvitee.identifier,
             FundingInvitee.first_name,
             FundingInvitee.last_name,
-            SQL("NULL").alias("excluded"),
             FundingInvitee.put_code,
             FundingInvitee.visibility,
-            FundingInvitee.status,
-            FundingInvitee.processed_at,
-        ) | FundingContributor.select(
-            FundingContributor.record,
-            FundingContributor.email,
-            FundingContributor.orcid,
-            FundingContributor.name,
-            FundingContributor.role,
-            SQL("NULL").alias("identifier"),
-            SQL("NULL").alias("first_name"),
-            SQL("NULL").alias("last_name"),
-            SQL("'Y'").alias("excluded"),
-            SQL("NULL").alias("put_code"),
-            SQL("NULL").alias("visibility"),
-            SQL("NULL").alias("status"),
-            SQL("NULL").alias("processed_at"),
-        ).join(
-            FundingInvitee,
-            JOIN.LEFT_OUTER,
-            on=((FundingInvitee.record_id == FundingContributor.record_id)
-                & ((FundingInvitee.email == FundingContributor.email)
-                   | (FundingInvitee.orcid == FundingContributor.orcid)))).join(
-                       User,
-                       JOIN.LEFT_OUTER,
-                       on=((User.email == FundingContributor.email)
-                           | (User.orcid == FundingContributor.orcid))).where(
-                               (User.id.is_null() | FundingInvitee.id.is_null()))).alias("sq")
-
-        return count, query.select(
-            FundingRecord,
-            sq.c.email,
-            sq.c.orcid,
-            sq.c.name,
-            sq.c.role,
-            sq.c.identifier,
-            sq.c.first_name,
-            sq.c.last_name,
-            sq.c.excluded,
-            sq.c.put_code,
-            sq.c.visibility,
-            sq.c.status,
             ExternalId.type.alias("external_id_type"),
             ExternalId.value.alias("funding_id"),
             ExternalId.url.alias("external_id_url"),
-            ExternalId.relationship.alias("external_id_relationship")).join(
-                ExternalId, JOIN.LEFT_OUTER,
-                on=(ExternalId.record_id == FundingRecord.id)).join(
-                    sq, JOIN.LEFT_OUTER, on=(sq.c.record_id == FundingRecord.id)).naive()
+            ExternalId.relationship.alias("external_id_relationship"),
+        ).join(
+            ExternalId,
+            JOIN.LEFT_OUTER,
+            on=(ExternalId.record_id == self.model.id)).where(ExternalId.id << ext_ids).join(
+            FundingInvitee,
+            JOIN.LEFT_OUTER,
+            on=(FundingInvitee.record_id == self.model.id)).naive()
 
 
 class WorkRecordAdmin(CompositeRecordModelView):
@@ -1336,10 +1296,6 @@ class WorkRecordAdmin(CompositeRecordModelView):
         "identifier",
         "first_name",
         "last_name",
-        "name",
-        "role",
-        "contributor_sequence",
-        "excluded",
         "external_id_type",
         "external_id_url",
         "external_id_relationship",
@@ -1357,69 +1313,30 @@ class WorkRecordAdmin(CompositeRecordModelView):
             page_size=page_size,
             execute=False)
 
-        sq = (WorkInvitee.select(
-            WorkInvitee.record,
+        ext_ids = [r.id for r in
+                   WorkExternalId.select(models.fn.min(WorkExternalId.id).alias("id")).join(WorkRecord).where(
+                       WorkRecord.task == self.current_task_id).group_by(WorkRecord.id).naive()]
+
+        return count, query.select(
+            self.model,
             WorkInvitee.email,
             WorkInvitee.orcid,
-            SQL("NULL").alias("name"),
-            SQL("NULL").alias("role"),
-            SQL("NULL").alias("contributor_sequence"),
             WorkInvitee.identifier,
             WorkInvitee.first_name,
             WorkInvitee.last_name,
-            SQL("NULL").alias("excluded"),
             WorkInvitee.put_code,
             WorkInvitee.visibility,
-            WorkInvitee.status,
-            WorkInvitee.processed_at,
-        ) | WorkContributor.select(
-            WorkContributor.record,
-            WorkContributor.email,
-            WorkContributor.orcid,
-            WorkContributor.name,
-            WorkContributor.role,
-            WorkContributor.contributor_sequence,
-            SQL("NULL").alias("identifier"),
-            SQL("NULL").alias("first_name"),
-            SQL("NULL").alias("last_name"),
-            SQL("'Y'").alias("excluded"),
-            SQL("NULL").alias("put_code"),
-            SQL("NULL").alias("visibility"),
-            SQL("NULL").alias("status"),
-            SQL("NULL").alias("processed_at"),
-        ).join(
-            WorkInvitee,
-            JOIN.LEFT_OUTER,
-            on=((WorkInvitee.record_id == WorkContributor.record_id)
-                & ((WorkInvitee.email == WorkContributor.email)
-                   | (WorkInvitee.orcid == WorkContributor.orcid)))).join(
-                       User,
-                       JOIN.LEFT_OUTER,
-                       on=((User.email == WorkContributor.email)
-                           | (User.orcid == WorkContributor.orcid))).where(
-                               (User.id.is_null() | WorkInvitee.id.is_null()))).alias("sq")
-
-        return count, query.select(
-            WorkRecord,
-            sq.c.email,
-            sq.c.orcid,
-            sq.c.name,
-            sq.c.role,
-            sq.c.contributor_sequence,
-            sq.c.identifier,
-            sq.c.first_name,
-            sq.c.last_name,
-            sq.c.excluded,
-            sq.c.put_code,
-            sq.c.visibility,
-            sq.c.status,
             WorkExternalId.type.alias("external_id_type"),
             WorkExternalId.value.alias("work_id"),
             WorkExternalId.url.alias("external_id_url"),
-            WorkExternalId.relationship.alias("external_id_relationship")).join(
-                WorkExternalId, JOIN.LEFT_OUTER,
-                on=(WorkExternalId.record_id == WorkRecord.id)).join(
-                    sq, JOIN.LEFT_OUTER, on=(sq.c.record_id == WorkRecord.id)).naive()
+            WorkExternalId.relationship.alias("external_id_relationship"),
+        ).join(
+            WorkExternalId,
+            JOIN.LEFT_OUTER,
+            on=(WorkExternalId.record_id == self.model.id)).where(WorkExternalId.id << ext_ids).join(
+            WorkInvitee,
+            JOIN.LEFT_OUTER,
+            on=(WorkInvitee.record_id == self.model.id)).naive()
 
 
 class PeerReviewRecordAdmin(CompositeRecordModelView):
@@ -1498,6 +1415,11 @@ class PeerReviewRecordAdmin(CompositeRecordModelView):
         count, query = self.get_list(
             0, sort_column, sort_desc, search, filters, page_size=page_size, execute=False)
 
+        ext_ids = [r.id for r in
+                   PeerReviewExternalId.select(models.fn.min(PeerReviewExternalId.id).alias("id")).join(
+                       PeerReviewRecord).where(
+                       PeerReviewRecord.task == self.current_task_id).group_by(PeerReviewRecord.id).naive()]
+
         return count, query.select(
             self.model,
             PeerReviewInvitee.email,
@@ -1514,7 +1436,7 @@ class PeerReviewRecordAdmin(CompositeRecordModelView):
         ).join(
             PeerReviewExternalId,
             JOIN.LEFT_OUTER,
-            on=(PeerReviewExternalId.record_id == self.model.id)).join(
+            on=(PeerReviewExternalId.record_id == self.model.id)).where(PeerReviewExternalId.id << ext_ids).join(
                 PeerReviewInvitee,
                 JOIN.LEFT_OUTER,
                 on=(PeerReviewInvitee.record_id == self.model.id)).naive()
