@@ -208,7 +208,9 @@ class RecordForm(FlaskForm):
     end_date = PartialDateField("End date (leave blank if current)")
     disambiguated_id = StringField("Disambiguated Organisation ID")
     disambiguation_source = SelectField(
-        "Disambiguation Source", choices=EMPTY_CHOICES + models.disambiguation_source_choices)
+        "Disambiguation Source",
+        validators=[optional()],
+        choices=EMPTY_CHOICES + models.disambiguation_source_choices)
 
     def __init__(self, *args, form_type=None, **kwargs):
         """Create form."""
@@ -239,7 +241,9 @@ class FundingForm(FlaskForm):
     end_date = PartialDateField("End date (leave blank if current)")
     disambiguated_id = StringField("Disambiguated Organisation ID")
     disambiguation_source = SelectField(
-        "Disambiguation Source", choices=EMPTY_CHOICES + models.disambiguation_source_choices)
+        "Disambiguation Source",
+        validators=[optional()],
+        choices=EMPTY_CHOICES + models.disambiguation_source_choices)
 
 
 class PeerReviewForm(FlaskForm):
@@ -252,7 +256,9 @@ class PeerReviewForm(FlaskForm):
     org_name = StringField("Institution", [validators.required()])
     disambiguated_id = StringField("Disambiguated Organisation ID")
     disambiguation_source = SelectField(
-        "Disambiguation Source", choices=EMPTY_CHOICES + models.disambiguation_source_choices)
+        "Disambiguation Source",
+        validators=[optional()],
+        choices=EMPTY_CHOICES + models.disambiguation_source_choices)
     city = StringField("City", [validators.required()])
     state = StringField("State/region", filters=[lambda x: x or None])
     country = CountrySelectField("Country", [validators.required()])
@@ -458,7 +464,9 @@ class OrgRegistrationForm(FlaskForm):
     course_or_role = StringField("Course or Job title")
     disambiguated_id = StringField("Disambiguated Id")
     disambiguation_source = SelectField(
-        "Disambiguation Source", choices=EMPTY_CHOICES + models.disambiguation_source_choices)
+        "Disambiguation Source",
+        validators=[optional()],
+        choices=EMPTY_CHOICES + models.disambiguation_source_choices)
 
 
 class OrgConfirmationForm(FlaskForm):
@@ -468,7 +476,7 @@ class OrgConfirmationForm(FlaskForm):
     email = EmailField('Organisation EmailId', validators=[DataRequired(), email()])
     show_api_credentials = BooleanField("Show API Credentials", default=False)
     orcid_client_id = StringField(
-        'Organisation Orcid Client Id: ',
+        "Organisation Orcid Client Id: ",
         validators=[
             DataRequired(),
             Regexp(r"^\S+$", message="The value shouldn't contain any spaces"),
@@ -489,7 +497,9 @@ class OrgConfirmationForm(FlaskForm):
     city = StringField("City", [validators.required()])
     disambiguated_id = StringField("Disambiguated Id", [validators.required()])
     disambiguation_source = SelectField(
-        "Disambiguation Source", choices=EMPTY_CHOICES + models.disambiguation_source_choices)
+        "Disambiguation Source",
+        validators=[optional()],
+        choices=EMPTY_CHOICES + models.disambiguation_source_choices)
 
 
 class UserInvitationForm(FlaskForm):
@@ -513,7 +523,9 @@ class UserInvitationForm(FlaskForm):
     is_employee = BooleanField("Staff")
     disambiguated_id = StringField("Disambiguated Id")
     disambiguation_source = SelectField(
-        "Disambiguation Source", choices=EMPTY_CHOICES + models.disambiguation_source_choices)
+        "Disambiguation Source",
+        validators=[optional()],
+        choices=EMPTY_CHOICES + models.disambiguation_source_choices)
     resend = BooleanField("Resend")
 
 
