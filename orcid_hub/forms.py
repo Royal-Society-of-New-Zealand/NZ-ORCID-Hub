@@ -92,9 +92,28 @@ class PartialDateField(Field):
                     else:
                         value = getattr(self.data, f)
                     new_data[f] = value
+                    if isinstance(value, int):
+                        if f == "month" and (value < 1 or value > 12):
+                            self.process_errors.append(f"Invalid month: {value}")
+                        if f == "day":
+                            if value < 1 or value > 31:
+                                self.process_errors.append(f"Invalid day: {value}.")
+                            elif new_data["month"] % 2 == 0 and value > 30:
+                                self.process_errors.append(
+                                    f"Invalid day: {value}. It should be less than 31.")
+                            elif new_data["month"] == 2:
+                                if value > 29:
+                                    self.process_errors.append(
+                                        f"Invalid day: {value}. February has at most 29 days.")
+                                elif new_data["year"] % 4 != 0 and value > 28:
+                                    self.process_errors.append(
+                                        f"Invalid day: {value}. It should be less than 29 (Leap Year)."
+                                    )
+
                 except ValueError as e:
                     new_data[f] = None
                     self.process_errors.append(e.args[0])
+
             self.data = models.PartialDate(**new_data)
         try:
             for filter in self.filters:
