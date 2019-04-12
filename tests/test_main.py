@@ -112,20 +112,36 @@ def test_org_switch(client):
     """Test organisation switching."""
     user = User.get(orcid=User.select(fn.COUNT(User.orcid).alias("id_count"), User.orcid).group_by(
         User.orcid).having(fn.COUNT(User.orcid) > 1).naive().first().orcid)
-    resp = client.login(user, follow_redirects=True)
+    user_orgs = UserOrg.select().join(User).where(User.orcid == user.orcid)
+    new_org = Organisation.select().where(Organisation.id.not_in([uo.org_id for uo in user_orgs])).first()
+    UserOrg.create(user=user, org=new_org, affiliations=0)
 
+    resp = client.login(user, follow_redirects=True)
     assert user.email.encode() in resp.data
     assert len(user.org_links) > 1
     assert current_user == user
 
+    # Nothing changes if it is the same organisation
+    uo = user.userorg_set.where(UserOrg.org_id == user.organisation_id).first()
+    resp = client.get(f"/select/user_org/{uo.id}", follow_redirects=True)
+    assert User.get(user.id).organisation_id == user.organisation_id
+    assert user.email.encode() in resp.data
+
+    # The current org changes if it's a dirrerent org on the list
+    uo = user.userorg_set.where(UserOrg.org_id != user.organisation_id).first()
+    resp = client.get(f"/select/user_org/{uo.id}", follow_redirects=True)
+    assert User.get(user.id).organisation_id != user.organisation_id
+    assert User.get(user.id).organisation_id == uo.org_id
+
     for ol in user.org_links:
         assert ol.org.name.encode() in resp.data
-        if ol.org.id != user.organisation.id:
+        if UserOrg.get(ol.id).user.id != user.id:
             next_ol = ol
 
+    # Shoud be a totally different user account:
     resp = client.get(f"/select/user_org/{next_ol.id}", follow_redirects=True)
     next_user = UserOrg.get(next_ol.id).user
-    assert next_user != user
+    assert next_user.id != user.id
 
 
 def test_access(client):
@@ -364,7 +380,7 @@ def test_onboard_org(client):
         city="CITY",
         country="COUNTRY",
         disambiguated_id="ID",
-        disambiguation_source="SOURCE",
+        disambiguation_source="RINGGOLD",
         is_email_sent=True)
     u = User.create(
         email="test123@test.test.net",
@@ -391,13 +407,16 @@ def test_onboard_org(client):
     with patch("orcid_hub.utils.send_email"):
         resp = client.post(
             "/invite/organisation",
-            data=dict(org_name="A NEW ORGANISATION", org_email="test_abc_123@test.test.net"))
+            data=dict(org_name="A NEW ORGANISATION", org_email="test_abc_123@test.test.net"),
+            follow_redirects=True)
         assert User.select().where(User.email == "test_abc_123@test.test.net").exists()
         resp = client.post(
             "/invite/organisation",
             data=dict(
-                org_name="A NEW ORGANISATION", org_email="test12345@test.test.net",
-                tech_contact='y'))
+                org_name="A NEW ORGANISATION",
+                org_email="test12345@test.test.net",
+                tech_contact='y'),
+            follow_redirects=True)
         assert User.select().where(User.email == "test12345@test.test.net").exists()
     org = Organisation.get(name="A NEW ORGANISATION")
     user = User.get(email="test12345@test.test.net")
@@ -433,7 +452,7 @@ def test_onboard_org(client):
                 "country": "NZ",
                 "city": "Auckland",
                 "disambiguated_id": "XYZ123",
-                "disambiguation_source": "XYZ",
+                "disambiguation_source": "RINGGOLD",
                 "name": org.name,
                 "email": user.email,
             })
@@ -444,7 +463,7 @@ def test_onboard_org(client):
     client.logout()
     org = Organisation.get(org.id)
     assert org.disambiguated_id == "XYZ123"
-    assert org.disambiguation_source == "XYZ"
+    assert org.disambiguation_source == "RINGGOLD"
     assert org.orcid_client_id == "APP-1234567890ABCDEF"
     assert org.orcid_secret == "12345678-1234-1234-1234-1234567890ab"
 
@@ -609,7 +628,7 @@ def test_orcid_login_callback_admin_flow(patch, patch2, request_ctx):
         city="CITY",
         country="COUNTRY",
         disambiguated_id="ID",
-        disambiguation_source="SOURCE",
+        disambiguation_source="RINGGOLD",
         is_email_sent=True)
     u = User.create(
         email="test123@test.test.net",
@@ -745,7 +764,7 @@ def test_orcid_login_callback_researcher_flow(patch, patch2, request_ctx):
         city="CITY",
         country="COUNTRY",
         disambiguated_id="ID",
-        disambiguation_source="SOURCE",
+        disambiguation_source="RINGGOLD",
         is_email_sent=True)
     u = User.create(
         email="test123@test.test.net",
@@ -778,7 +797,7 @@ def test_select_user_org(request_ctx):
         city="CITY",
         country="COUNTRY",
         disambiguated_id="ID",
-        disambiguation_source="SOURCE",
+        disambiguation_source="RINGGOLD",
         is_email_sent=True)
     org2 = Organisation.create(
         name="THE ORGANISATION2:test_select_user_org",
@@ -789,7 +808,7 @@ def test_select_user_org(request_ctx):
         city="CITY",
         country="COUNTRY",
         disambiguated_id="ID",
-        disambiguation_source="SOURCE",
+        disambiguation_source="RINGGOLD",
         is_email_sent=True)
 
     user = User.create(
@@ -848,7 +867,7 @@ def test_link(request_ctx):
         city="CITY",
         country="COUNTRY",
         disambiguated_id="ID",
-        disambiguation_source="SOURCE",
+        disambiguation_source="RINGGOLD",
         is_email_sent=True)
     user = User.create(
         email="test123@test.test.net",
@@ -886,7 +905,7 @@ def test_orcid_callback(client, mocker):
         city="CITY",
         country="COUNTRY",
         disambiguated_id="ID",
-        disambiguation_source="SOURCE",
+        disambiguation_source="RINGGOLD",
         is_email_sent=True)
     user = User.create(
         email="test123_test_orcid_callback@test.test.net",

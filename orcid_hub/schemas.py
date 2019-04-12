@@ -61,8 +61,8 @@ researcher_url_record_schema = {
         "email": {"type": ["string", "null"]},
         "first-name": {"type": ["string", "null"]},
         "last-name": {"type": ["string", "null"]},
-        "url-name": {"type": ["string", "null"]},
-        "url-value": {"type": ["string", "null"]},
+        "name": {"type": ["string", "null"]},
+        "value": {"type": ["string", "null"]},
         "display-index": {"type": ["string", "null", "integer"]},
         "visibility": {"type": ["string", "null"]},
         "processed-at": {"type": ["string", "null"], "format": "date-time"},
@@ -72,7 +72,14 @@ researcher_url_record_schema = {
             "format": "^[0-9]{4}-?[0-9]{4}-?[0-9]{4}-?[0-9]{4}$",
         }
     },
-    "required": ["email", "first-name", "last-name", "url-name", "url-value"]
+    "anyOf": [
+        {
+            "required": ["name", "value", "email"]
+        },
+        {
+            "required": ["name", "value", "orcid"]
+        }
+    ]
 }
 
 researcher_url_task_schema = {
@@ -94,7 +101,7 @@ researcher_url_task_schema = {
     "required": ["records"]
 }
 
-other_name_record_schema = {
+other_name_keyword_record_schema = {
     "title": "OtherNameRecord",
     "type": "object",
     "properties": {
@@ -117,20 +124,20 @@ other_name_record_schema = {
     "required": ["email", "first-name", "last-name", "content"]
 }
 
-other_name_task_schema = {
+other_name_keyword_task_schema = {
     "title": "OtherNameTask",
     "type": "object",
     "properties": {
         "id": {"type": "integer", "format": "int64"},
         "filename": {"type": ["string", "null"]},
-        "task-type": {"type": ["string", "null"], "enum": ["OTHER_NAME", "OTHER NAME", ]},
+        "task-type": {"type": ["string", "null"], "enum": ["OTHER_NAME", "OTHER NAME", "KEYWORD"]},
         "created-at": {"type": ["string", "null"], "format": "date-time"},
         "updated-at": {"type": ["string", "null"], "format": "date-time"},
         "expires-at": {"type": ["string", "null"], "format": "date-time"},
         "completed-at": {"type": ["string", "null"], "format": "date-time"},
         "records": {
             "type": "array",
-            "items": other_name_record_schema
+            "items": other_name_keyword_record_schema
         },
     },
     "required": ["records"]

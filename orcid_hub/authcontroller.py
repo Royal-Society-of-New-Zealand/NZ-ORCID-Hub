@@ -15,7 +15,7 @@ from datetime import datetime, timedelta
 from os import path, remove
 from tempfile import gettempdir
 from time import time
-from urllib.parse import quote, unquote, urlparse
+from urllib.parse import parse_qs, quote, unquote, urlparse
 import validators
 
 import requests
@@ -30,7 +30,7 @@ from werkzeug.utils import secure_filename
 
 from orcid_api.rest import ApiException
 
-from . import app, db, orcid_client
+from . import app, cache, db, orcid_client
 from . import orcid_client as scopes
 # TODO: need to read form app.config[...]
 from .config import (APP_DESCRIPTION, APP_NAME, APP_URL, AUTHORIZATION_BASE_URL, CRED_TYPE_PREMIUM,
@@ -38,7 +38,8 @@ from .config import (APP_DESCRIPTION, APP_NAME, APP_URL, AUTHORIZATION_BASE_URL,
 from .forms import OrgConfirmationForm, TestDataForm
 from .login_provider import roles_required
 from .models import (Affiliation, OrcidAuthorizeCall, OrcidToken, Organisation, OrgInfo,
-                     OrgInvitation, Role, Task, TaskType, Url, User, UserInvitation, UserOrg)
+                     OrgInvitation, Role, Task, TaskType, Url, User, UserInvitation, UserOrg,
+                     audit_models)
 from .utils import append_qs, get_next_url, read_uploaded_file, register_orcid_webhook
 
 HEADERS = {'Accept': 'application/vnd.orcid+json', 'Content-type': 'application/vnd.orcid+json'}
@@ -49,10 +50,17 @@ ENV = app.config.get("ENV")
 def utility_processor():  # noqa: D202
     """Define funcions callable form Jinja2 using application context."""
 
+    def has_audit_logs():
+        return bool(audit_models)
+
     def onboarded_organisations():
-        return list(
-            Organisation.select(Organisation.name, Organisation.tuakiri_name).where(
-                Organisation.confirmed.__eq__(True)))
+        rv = cache.get("onboarded_organisations")
+        if not rv:
+            rv = list(
+                Organisation.select(Organisation.name, Organisation.tuakiri_name).where(
+                    Organisation.confirmed.__eq__(True)))
+            cache.set("onboarded_organisations", rv, timeout=3600)
+        return rv
 
     def orcid_login_url():
         return url_for("orcid_login", next=get_next_url())
@@ -68,10 +76,50 @@ def utility_processor():  # noqa: D202
             login_url = url_for("handle_login", _next=_next)
         return login_url
 
+    def current_task():
+        try:
+            task_id = request.args.get("task_id")
+            if task_id:
+                task_id = int(task_id)
+            else:
+                url = request.args.get("url")
+                if not url:
+                    return False
+                qs = parse_qs(urlparse(url).query)
+                task_id = qs.get("task_id", [None])[0]
+                if task_id:
+                    task_id = int(task_id)
+        except:
+            return None
+        return Task.get(task_id)
+
+    def current_record():
+        task = current_task()
+        if not task:
+            return None
+        try:
+            record_id = request.args.get("record_id")
+            if record_id:
+                record_id = int(record_id)
+            else:
+                url = request.args.get("url")
+                if not url:
+                    return None
+                qs = parse_qs(urlparse(url).query)
+                record_id = qs.get("record_id", [None])[0]
+                if record_id:
+                    record_id = int(record_id)
+        except:
+            return None
+        return task.records.model_class.get(record_id)
+
     return dict(
         orcid_login_url=orcid_login_url,
         tuakiri_login_url=tuakiri_login_url,
         onboarded_organisations=onboarded_organisations,
+        current_task=current_task,
+        current_record=current_record,
+        has_audit_logs=has_audit_logs,
     )
 
 
@@ -932,7 +980,8 @@ def orcid_login(invitation_token=None):
             if hasattr(invitation, "task_id") and invitation.task_id:
                 is_scope_person_update = Task.select().where(
                     Task.id == invitation.task_id, Task.task_type == TaskType.RESEARCHER_URL).exists() or Task.select()\
-                    .where(Task.id == invitation.task_id, Task.task_type == TaskType.OTHER_NAME).exists()
+                    .where(Task.id == invitation.task_id, Task.task_type == TaskType.OTHER_NAME).exists() or Task.\
+                    select().where(Task.id == invitation.task_id, Task.task_type == TaskType.KEYWORD).exists()
 
             if is_scope_person_update and OrcidToken.select().where(
                     OrcidToken.user == user, OrcidToken.org == org,
@@ -1291,8 +1340,11 @@ def select_user_org(user_org_id):
         uo = UserOrg.get(id=user_org_id)
         if (uo.user.orcid == current_user.orcid or uo.user.email == current_user.email
                 or uo.user.eppn == current_user.eppn):
-            current_user.organisation_id = uo.org_id
-            current_user.save()
+            if uo.user_id != current_user.id:
+                login_user(uo.user)
+            if current_user.organisation_id != uo.org_id:
+                current_user.organisation_id = uo.org_id
+                current_user.save()
         else:
             flash("You cannot switch your user to this organisation", "danger")
     except UserOrg.DoesNotExist:

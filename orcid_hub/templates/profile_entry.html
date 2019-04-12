@@ -139,8 +139,8 @@
           {{ render_field(form.review_completion_date) }}
           {{ render_field(form.disambiguation_source) }}
         {% elif section_type == "RUR" %}
-          {{ render_field(form.url_name) }}
-          {{ render_field(form.url_value) }}
+          {{ render_field(form.name) }}
+          {{ render_field(form.value) }}
         {% elif section_type in ["ONR", "KWR"] %}
           {{ render_field(form.content) }}
         {% else %}
