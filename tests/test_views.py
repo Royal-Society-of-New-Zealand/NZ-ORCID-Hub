@@ -2865,8 +2865,9 @@ issn:1213199811,REVIEWER,https://alt-url.com,REVIEW,2012-08-01,doi,10.1087/20120
     assert prr.invitees.count() == 2
 
 
-def test_load_funding_csv(client):
+def test_load_funding_csv(client, mocker):
     """Test preload organisation data."""
+    capture_event = mocker.patch("sentry_sdk.transport.HttpTransport.capture_event")
     user = client.data["admin"]
     client.login(user, follow_redirects=True)
     resp = client.post(
@@ -3208,6 +3209,7 @@ XXX1702,00004,,This is another project title,,,CONTRACT,Standard,This is another
             "_continue_editing": "Save and Continue Editing",
         })
     assert Task.get(task.id).records.count() == record_count + 1
+    capture_event.assert_called()
 
 
 def test_researcher_work(client, mocker):
