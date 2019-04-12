@@ -7,7 +7,7 @@
     regardless of technical resources. The technology partner, with oversight from
     the IT Advisory Group, lead agency and ORCID, will develop and maintain the Hub.
 
-    :copyright: (c) 2017, 2018 Royal Society of New Zealand.
+    :copyright: (c) 2017, 2018, 2019 Royal Society of New Zealand.
     :license: MIT, see LICENSE for more details.
 """
 

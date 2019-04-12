@@ -789,15 +789,16 @@ def test_create_or_update_keyword(app, mocker):
     assert "12344" == keyword_record.orcid
 
 
-@patch(
-    "orcid_api.MemberAPIV20Api.update_employment",
-    return_value=Mock(status=201, headers={'Location': '12344/XYZ/12399'}))
-@patch(
-    "orcid_api.MemberAPIV20Api.create_employment",
-    return_value=Mock(status=201, headers={'Location': '12344/XYZ/12399'}))
-@patch("orcid_hub.utils.send_email")
-def test_create_or_update_affiliation(send_email, update_employment, create_employment, app):
+def test_create_or_update_affiliation(app, mocker):
     """Test create or update affiliation."""
+    mocker.patch(
+        "orcid_api.MemberAPIV20Api.update_employment",
+        return_value=Mock(status=201, headers={'Location': '12344/XYZ/12399'}))
+    mocker.patch(
+        "orcid_api.MemberAPIV20Api.create_employment",
+        return_value=Mock(status=201, headers={'Location': '12344/XYZ/12399'}))
+    send_email = mocker.patch("orcid_hub.utils.send_email")
+    capture_event = mocker.patch("sentry_sdk.transport.HttpTransport.capture_event")
     org = app.data["org"]
     u = User.create(
         email="test1234456@mailinator.com",
@@ -915,6 +916,7 @@ def test_create_or_update_affiliation(send_email, update_employment, create_empl
     assert "12344" == affiliation_record.orcid
     assert ("Employment record was updated" in affiliation_record.status
             or "Employment record was created" in affiliation_record.status)
+    capture_event.assert_called()
     send_email.assert_called_once()
 
 

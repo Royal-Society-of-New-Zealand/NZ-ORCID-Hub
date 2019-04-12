@@ -144,18 +144,17 @@ def test_org_switch(client):
     assert next_user.id != user.id
 
 
-@pytest.mark.parametrize("url",
-                         ["/link", "/auth", "/pyinfo", "/invite/organisation", "/invite/user"])
-def test_access(url, client):
+def test_access(client):
     """Test access to the app for unauthorized user."""
-    resp = client.get(url)
-    assert resp.status_code == 302
-    assert "Location" in resp.headers, pprint.pformat(resp.headers, indent=4)
-    assert "next=" in resp.location
-    resp = client.get(url, follow_redirects=True)
-    assert resp.status_code == 200
-    assert b"<!DOCTYPE html>" in resp.data, "Expected HTML content"
-    assert b"Please log in to access this page." in resp.data
+    for url in ["/link", "/auth", "/pyinfo", "/invite/organisation", "/invite/user"]:
+        resp = client.get(url)
+        assert resp.status_code == 302
+        assert "Location" in resp.headers, pprint.pformat(resp.headers, indent=4)
+        assert "next=" in resp.location
+        resp = client.get(url, follow_redirects=True)
+        assert resp.status_code == 200
+        assert b"<!DOCTYPE html>" in resp.data, "Expected HTML content"
+        assert b"Please log in to access this page." in resp.data
 
 
 def test_tuakiri_login(client):
@@ -895,7 +894,7 @@ def test_faq_and_about(client, url):
     assert resp.status_code == 200
 
 
-def test_orcid_callback(client):
+def test_orcid_callback(client, mocker):
     """Test orcid researcher deny flow."""
     org = Organisation.create(
         name="THE ORGANISATION:test_orcid_callback",
