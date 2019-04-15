@@ -421,7 +421,7 @@ def test_onboard_org(client):
     org = Organisation.get(name="A NEW ORGANISATION")
     user = User.get(email="test12345@test.test.net")
     assert user.name is None
-    assert org.tech_contact is None
+    assert org.tech_contact == user
     client.logout()
 
     resp = client.login(
@@ -509,7 +509,7 @@ def test_invite_tech_contact(send_email, client):
 
     assert not u.confirmed
     assert oi.org.name == "A NEW ORGANISATION"
-    assert oi.org.tech_contact is None
+    assert oi.org.tech_contact == u
     send_email.assert_called_once()
     client.logout()
 
