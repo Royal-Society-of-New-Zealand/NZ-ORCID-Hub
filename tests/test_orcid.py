@@ -296,11 +296,7 @@ def test_link_orcid_auth_callback(name, request_ctx):
             organisation=org,
             orcid="ABC123",
             confirmed=True)
-        orcidtoken = OrcidToken.create(
-            user=test_user,
-            org=org,
-            scope="/read-limited,/activities/update",
-            access_token="ABC1234")
+        UserOrg.create(user=test_user, org=org, affiliations=Affiliation.NONE)
         login_user(test_user, remember=True)
         session['oauth_state'] = "xyz"
         rv = ctx.app.full_dispatch_request()
@@ -310,7 +306,7 @@ def test_link_orcid_auth_callback(name, request_ctx):
         u = User.get(id=test_user.id)
         orcidtoken = OrcidToken.get(user=u)
         assert u.orcid == "ABC-123-456-789"
-        assert orcidtoken.access_token == "ABC1234"
+        assert orcidtoken.access_token == "ABC123"
         if name:
             assert u.name == name, "The user name should be changed"
         else:
@@ -352,8 +348,15 @@ def test_link_orcid_auth_callback_with_affiliation(name, request_ctx):
             call(affiliation=Affiliation.EDU, initial=True),
             call(affiliation=Affiliation.EMP, initial=True),
         ])
-        # api_mock.create_employment.assert_called_once()
-        # api_mock.create_education.assert_called_once()
+        # User with no Affiliation, should get flash warning.
+        user_org = UserOrg.get(user=test_user, org=org)
+        user_org.affiliations = Affiliation.NONE
+        user_org.save()
+        orcid_token.delete_instance()
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 302
+        assert b"<!DOCTYPE HTML" in resp.data, "Expected HTML content"
+        assert "profile" in resp.location, "redirection to 'profile' showing the ORCID"
 
 
 def make_fake_response(text, *args, **kwargs):
