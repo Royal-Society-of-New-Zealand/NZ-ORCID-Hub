@@ -8,8 +8,7 @@ from flask_wtf.file import FileAllowed, FileField, FileRequired
 from wtforms import (BooleanField, Field, SelectField, SelectMultipleField, StringField,
                      SubmitField, TextField, TextAreaField, validators)
 from wtforms.fields.html5 import DateField, EmailField, IntegerField
-from wtforms.validators import (UUID, DataRequired, email, Regexp, Required, StopValidation,
-                                ValidationError, optional, url)
+from wtforms.validators import (UUID, DataRequired, email, Regexp, StopValidation, ValidationError, optional, url)
 from wtforms.widgets import HTMLString, TextArea, html_params
 from wtfpeewee.orm import model_form
 
@@ -445,12 +444,14 @@ class OnboardingTokenForm(FlaskForm):
     token = StringField("Token", [validators.required()])
 
 
-class RequiredIf(Required):
+class RequiredIf(DataRequired):
     """Condition validator.
 
     A validator which makes a field required if
     another field is set and has a truthy value.
     """
+
+    field_flags = ('requiredif',)
 
     def __init__(self, other_field_name, *args, **kwargs):
         """Link the condtion field to the validator."""
@@ -459,11 +460,11 @@ class RequiredIf(Required):
 
     def __call__(self, form, field):
         """Validate conditionally if the linked field has a value."""
-        other_field = form._fields.get(self.other_field_name)
+        other_field = form[self.other_field_name]
         if other_field is None:
             raise Exception(f'no field named "{self.other_field_name}" in form')
         if bool(other_field.data):
-            super().__call__(form, field)
+            super(RequiredIf, self).__call__(form, field)
 
 
 class OrgRegistrationForm(FlaskForm):
@@ -530,7 +531,7 @@ class OrgConfirmationForm(FlaskForm):
     disambiguated_id = StringField("Disambiguated Id", [validators.required()])
     disambiguation_source = SelectField(
         "Disambiguation Source",
-        validators=[optional()],
+        validators=[validators.required()],
         choices=EMPTY_CHOICES + models.disambiguation_source_choices)
 
 

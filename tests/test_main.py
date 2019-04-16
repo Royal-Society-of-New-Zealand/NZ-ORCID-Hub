@@ -398,7 +398,7 @@ def test_onboard_org(client):
         organisation=org)
     UserOrg.create(user=second_user, org=org, is_admin=True)
     org_info = OrgInfo.create(
-        name="THE ORGANISATION:test_onboard_org", tuakiri_name="THE ORGANISATION:test_onboard_org")
+        name="A NEW ORGANISATION", tuakiri_name="A NEW ORGANISATION")
     org.tech_contact = u
     org_info.save()
     org.save()
@@ -421,7 +421,7 @@ def test_onboard_org(client):
     org = Organisation.get(name="A NEW ORGANISATION")
     user = User.get(email="test12345@test.test.net")
     assert user.name is None
-    assert org.tech_contact is None
+    assert org.tech_contact == user
     client.logout()
 
     resp = client.login(
@@ -478,7 +478,6 @@ def test_onboard_org(client):
         },
         follow_redirects=True)
     assert b"Take me to ORCID to allow A NEW ORGANISATION permission to access my ORCID record" in resp.data
-
     resp = client.get("/confirm/organisation")
     assert resp.status_code == 302
     assert urlparse(resp.location).path == "/admin/viewmembers/"
@@ -509,7 +508,7 @@ def test_invite_tech_contact(send_email, client):
 
     assert not u.confirmed
     assert oi.org.name == "A NEW ORGANISATION"
-    assert oi.org.tech_contact is None
+    assert oi.org.tech_contact == u
     send_email.assert_called_once()
     client.logout()
 

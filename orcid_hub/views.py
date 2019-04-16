@@ -2769,7 +2769,6 @@ def register_org(org_name,
         try:
             user = User.get(email=email)
             user.organisation = org
-            user.confirmed = True
         except User.DoesNotExist:
             user = User.create(
                 email=email,
@@ -2830,6 +2829,8 @@ def register_org(org_name,
             cc_email=(current_user.name, current_user.email))
 
         org.is_email_sent = True
+        if tech_contact:
+            org.tech_contact = user
         try:
             org.save()
         except Exception:
