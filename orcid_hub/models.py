@@ -62,6 +62,7 @@ SUBJECT_TYPES = [
 ]
 REVIEWER_ROLES = ["CHAIR", "EDITOR", "MEMBER", "ORGANIZER", "REVIEWER"]
 REVIEW_TYPES = ["EVALUATION", "REVIEW"]
+review_type_choices = [(v, v.title()) for v in REVIEW_TYPES]
 RELATIONSHIPS = ["PART_OF", "SELF"]
 
 WORK_TYPES = [
@@ -1945,7 +1946,6 @@ class PeerReviewRecord(RecordModel):
 
     subject_type_choices = [(v, v.replace('_', ' ').title()) for v in SUBJECT_TYPES]
     reviewer_role_choices = [(v, v.title()) for v in REVIEWER_ROLES]
-    review_type_choices = [(v, v.title()) for v in REVIEW_TYPES]
 
     task = ForeignKeyField(Task, related_name="peer_review_records", on_delete="CASCADE")
     review_group_id = CharField(
