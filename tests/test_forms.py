@@ -107,25 +107,40 @@ def test_partial_date_field_errors(test_form):  # noqa
             "pdf1:month": "ERROR",
             "pdf1:day": "ERROR"
         }))
+    tf.validate()
     assert len(tf.pdf1.process_errors) > 0
+
+    tf = test_form(DummyPostData({"pdf1:year": "2001", "pdf1:month": "", "pdf1:day": "31"}))
+    tf.validate()
+    assert len(tf.pdf1.errors) > 0
+
+    tf = test_form(DummyPostData({"pdf1:year": "", "pdf1:month": "12", "pdf1:day": "31"}))
+    tf.validate()
+    assert len(tf.pdf1.errors) > 0
 
     tf = test_form(DummyPostData({"pdf1:year": "2001", "pdf1:month": "13", "pdf1:day": ""}))
-    assert len(tf.pdf1.process_errors) > 0
+    tf.validate()
+    assert len(tf.pdf1.errors) > 0
 
     tf = test_form(DummyPostData({"pdf1:year": "2001", "pdf1:month": "-1", "pdf1:day": ""}))
-    assert len(tf.pdf1.process_errors) > 0
+    tf.validate()
+    assert len(tf.pdf1.errors) > 0
 
     tf = test_form(DummyPostData({"pdf1:year": "1995", "pdf1:month": "2", "pdf1:day": "29"}))
-    assert len(tf.pdf1.process_errors) > 0
+    tf.validate()
+    assert len(tf.pdf1.errors) > 0
 
     tf = test_form(DummyPostData({"pdf1:year": "1996", "pdf1:month": "2", "pdf1:day": "29"}))
-    assert not tf.pdf1.process_errors
+    tf.validate()
+    assert not tf.pdf1.errors
 
     tf = test_form(DummyPostData({"pdf1:year": "1994", "pdf1:month": "2", "pdf1:day": "30"}))
-    assert len(tf.pdf1.process_errors) > 0
+    tf.validate()
+    assert len(tf.pdf1.errors) > 0
 
     tf = test_form(DummyPostData({"pdf1:year": "1994", "pdf1:month": "4", "pdf1:day": "31"}))
-    assert len(tf.pdf1.process_errors) > 0
+    tf.validate()
+    assert len(tf.pdf1.errors) > 0
 
 
 def test_partial_date_field_with_filter(test_form):  # noqa

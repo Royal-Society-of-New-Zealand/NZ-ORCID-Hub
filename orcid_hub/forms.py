@@ -8,7 +8,8 @@ from flask_wtf.file import FileAllowed, FileField, FileRequired
 from wtforms import (BooleanField, Field, SelectField, SelectMultipleField, StringField,
                      SubmitField, TextField, TextAreaField, validators)
 from wtforms.fields.html5 import DateField, EmailField, IntegerField
-from wtforms.validators import UUID, DataRequired, email, Regexp, Required, ValidationError, optional, url
+from wtforms.validators import (UUID, DataRequired, email, Regexp, Required, StopValidation,
+                                ValidationError, optional, url)
 from wtforms.widgets import HTMLString, TextArea, html_params
 from wtfpeewee.orm import model_form
 
@@ -92,24 +93,6 @@ class PartialDateField(Field):
                     else:
                         value = getattr(self.data, f)
                     new_data[f] = value
-                    if isinstance(value, int):
-                        if f == "month" and (value < 1 or value > 12):
-                            self.process_errors.append(f"Invalid month: {value}")
-                        if f == "day":
-                            if value < 1 or value > 31:
-                                self.process_errors.append(f"Invalid day: {value}.")
-                            elif new_data["month"] % 2 == 0 and value > 30:
-                                self.process_errors.append(
-                                    f"Invalid day: {value}. It should be less than 31.")
-                            elif new_data["month"] == 2:
-                                if value > 29:
-                                    self.process_errors.append(
-                                        f"Invalid day: {value}. February has at most 29 days.")
-                                elif new_data["year"] % 4 != 0 and value > 28:
-                                    self.process_errors.append(
-                                        f"Invalid day: {value}. It should be less than 29 (Leap Year)."
-                                    )
-
                 except ValueError as e:
                     new_data[f] = None
                     self.process_errors.append(e.args[0])
@@ -120,6 +103,29 @@ class PartialDateField(Field):
                 self.data = filter(self.data)
         except ValueError as e:
             self.process_errors.append(e.args[0])
+
+    def pre_validate(self, form):
+        """Validate entered fuzzy/partial date value."""
+        if self.data.day and not(self.data.month and self.data.year):
+            raise StopValidation(f"Invalid date: {self.data}. Missing year and/or month value.")
+        if self.data.month is not None:
+            if self.data.year is None:
+                raise StopValidation(f"Invalid date: {self.data}. Missing year value.")
+            if self.data.month < 1 or self.data.month > 12:
+                raise StopValidation(f"Invalid month: {self.data.month}")
+            if self.data.day is not None:
+                if self.data.day < 1 or self.data.day > 31:
+                    raise StopValidation(f"Invalid day: {self.data.day}.")
+                elif self.data.month % 2 == 0 and self.data.day > 30:
+                    raise StopValidation(f"Invalid day: {self.data.day}. It should be less than 31.")
+                elif self.data.month == 2:
+                    if self.data.day > 29:
+                        raise StopValidation(
+                            f"Invalid day: {self.data.day}. February has at most 29 days.")
+                    elif self.data.year % 4 != 0 and self.data.day > 28:
+                        raise StopValidation(
+                            f"Invalid day: {self.data.day}. It should be less than 29 (Leap Year)."
+                        )
 
 
 class CountrySelectField(SelectField):
@@ -268,10 +274,9 @@ class FundingForm(FlaskForm):
 class PeerReviewForm(FlaskForm):
     """User/researcher Peer review detail form."""
 
-    reviewer_role_choices = [(v, v.replace('_', ' ').title()) for v in [''] + models.REVIEWER_ROLES]
-    review_type_choices = [(v, v.replace('_', ' ').title()) for v in [''] + models.REVIEW_TYPES]
+    reviewer_role_choices = [(v, v.replace('_', ' ').title())
+                             for v in [''] + models.REVIEWER_ROLES]
     subject_type_choices = [(v, v.replace('_', ' ').title()) for v in [''] + models.SUBJECT_TYPES]
-    relationship_choices = [(v, v.replace('_', ' ').title()) for v in [''] + models.RELATIONSHIPS]
 
     org_name = StringField("Institution", [validators.required()])
     disambiguated_id = StringField("Disambiguated Organisation ID")
@@ -282,17 +287,22 @@ class PeerReviewForm(FlaskForm):
     city = StringField("City", [validators.required()])
     state = StringField("State/region", filters=[lambda x: x or None])
     country = CountrySelectField("Country", [validators.required()])
-    reviewer_role = SelectField(choices=reviewer_role_choices, description="Reviewer Role",
-                                validators=[validators.required()])
+    reviewer_role = SelectField(
+        choices=reviewer_role_choices,
+        description="Reviewer Role",
+        validators=[validators.required()])
     review_url = StringField("Review Url")
-    review_type = SelectField(choices=review_type_choices, description="Review Type",
-                              validators=[validators.required()])
+    review_type = SelectField(
+        choices=EMPTY_CHOICES + models.review_type_choices,
+        description="Review Type",
+        validators=[validators.required()])
     review_group_id = StringField("Peer Review Group Id", [validators.required()])
     subject_external_identifier_type = StringField("Subject External Identifier Type")
     subject_external_identifier_value = StringField("Subject External Identifier Value")
     subject_external_identifier_url = StringField("Subject External Identifier Url")
-    subject_external_identifier_relationship = SelectField(choices=relationship_choices,
-                                                           description="Subject External Id Relationship")
+    subject_external_identifier_relationship = SelectField(
+        choices=EMPTY_CHOICES + models.relationship_choices,
+        description="Subject External Id Relationship")
     subject_container_name = StringField("Subject Container Name")
     subject_type = SelectField(choices=subject_type_choices, description="Subject Type")
     subject_title = StringField("Subject Title")
@@ -300,7 +310,8 @@ class PeerReviewForm(FlaskForm):
     subject_translated_title = StringField("Subject Translated Title")
     subject_translated_title_language_code = LanguageSelectField("Language")
     subject_url = StringField("Subject Url")
-    review_completion_date = PartialDateField("Review Completion date", validators=[validators.required()])
+    review_completion_date = PartialDateField(
+        "Review Completion date", validators=[validators.required()])
 
 
 class WorkForm(FlaskForm):
@@ -316,7 +327,8 @@ class WorkForm(FlaskForm):
     translated_title_language_code = LanguageSelectField("Language")
     journal_title = StringField("Work Type Title")
     short_description = TextAreaField(description="Short Description")
-    citation_type = SelectField(choices=EMPTY_CHOICES + models.citation_type_choices, description="Citation Type")
+    citation_type = SelectField(
+        choices=EMPTY_CHOICES + models.citation_type_choices, description="Citation Type")
     citation = StringField("Citation Value")
     publication_date = PartialDateField("Publication date")
     url = StringField("Url")
