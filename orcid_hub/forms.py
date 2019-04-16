@@ -106,7 +106,11 @@ class PartialDateField(Field):
 
     def pre_validate(self, form):
         """Validate entered fuzzy/partial date value."""
+        if self.data.day and not(self.data.month and self.data.year):
+            raise StopValidation(f"Invalid date: {self.data}. Missing year and/or month value.")
         if self.data.month is not None:
+            if self.data.year is None:
+                raise StopValidation(f"Invalid date: {self.data}. Missing year value.")
             if self.data.month < 1 or self.data.month > 12:
                 raise StopValidation(f"Invalid month: {self.data.month}")
             if self.data.day is not None:
@@ -118,7 +122,7 @@ class PartialDateField(Field):
                     if self.data.day > 29:
                         raise StopValidation(
                             f"Invalid day: {self.data.day}. February has at most 29 days.")
-                    elif self.data.month % 4 != 0 and self.data.day > 28:
+                    elif self.data.year % 4 != 0 and self.data.day > 28:
                         raise StopValidation(
                             f"Invalid day: {self.data.day}. It should be less than 29 (Leap Year)."
                         )
