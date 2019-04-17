@@ -3720,55 +3720,60 @@ def test_other_names(client):
     """Test researcher other name data management."""
     user = client.data["admin"]
     client.login(user, follow_redirects=True)
+    raw_data0 = open(os.path.join(os.path.dirname(__file__), "data", "othernames.json"), "rb").read()
     resp = client.post(
         "/load/other/names",
-        data={
-            "file_": (
-                BytesIO(b"""{
-  "created-at": "2019-02-15T04:39:23",
-  "filename": "othernames_sample_latest.json",
-  "records": [
-    {
-      "content": "dummy 1220",
-      "display-index": 0,
-      "email": "rad42@mailinator.com",
-      "first-name": "sdsd",
-      "last-name": "sds1",
-      "orcid": null,
-      "processed-at": null,
-      "put-code": null,
-      "status": "The record was reset at 2019-02-20T08:31:49",
-      "visibility": "PUBLIC"
-    },
-    {
-      "content": "dummy 10",
-      "display-index": 0,
-      "email": "xyzz@mailinator.com",
-      "first-name": "sdsd",
-      "last-name": "sds1",
-      "orcid": "0000-0002-0146-7409",
-      "processed-at": null,
-      "put-code": 16878,
-      "status": "The record was reset at 2019-02-20T08:31:49",
-      "visibility": "PUBLIC"
-    }
-  ],
-  "task-type": "OTHER_NAME",
-  "updated-at": "2019-02-19T19:31:49"}"""),
-                "othernames_sample_latest.json",
-            ),
-        },
+        data={"file_": (BytesIO(raw_data0), "othernames_sample_latest.json")},
         follow_redirects=True)
     assert resp.status_code == 200
     assert b"dummy 1220" in resp.data
     task = Task.get(filename="othernames_sample_latest.json")
-    assert task.records.count() == 2
+    assert task.records.count() == 6
 
     resp = client.get(f"/admin/othernamerecord/export/json/?task_id={task.id}")
     assert resp.status_code == 200
-    assert b'xyzz@mailinator.com' in resp.data
+    assert b'rad42@mailinator.com' in resp.data
     assert b'dummy 1220' in resp.data
     assert b'dummy 10' in resp.data
+
+    resp = client.post(
+        "/load/other/names",
+        data={"file_": (BytesIO(resp.data), "othernames0001.json")},
+        follow_redirects=True)
+    assert resp.status_code == 200
+    assert b"dummy 1220" in resp.data
+    task = Task.get(filename="othernames0001.json")
+    assert task.records.count() == 6
+
+    resp = client.get(f"/admin/othernamerecord/export/csv/?task_id={task.id}")
+    assert resp.status_code == 200
+    assert b'rad42@mailinator.com' in resp.data
+    assert b'dummy 1220' in resp.data
+    assert b'dummy 10' in resp.data
+
+    resp = client.post(
+        "/load/other/names",
+        data={"file_": (BytesIO(resp.data), "othernames0002.csv")},
+        follow_redirects=True)
+    assert resp.status_code == 200
+    assert b"dummy 1220" in resp.data
+    task = Task.get(filename="othernames0002.csv")
+    assert task.records.count() == 6
+
+    resp = client.get(f"/admin/othernamerecord/export/tsv/?task_id={task.id}")
+    assert resp.status_code == 200
+    assert b'rad42@mailinator.com' in resp.data
+    assert b'dummy 1220' in resp.data
+    assert b'dummy 10' in resp.data
+
+    resp = client.post(
+        "/load/other/names",
+        data={"file_": (BytesIO(resp.data), "othernames0003.tsv")},
+        follow_redirects=True)
+    assert resp.status_code == 200
+    assert b"dummy 1220" in resp.data
+    task = Task.get(filename="othernames0003.tsv")
+    assert task.records.count() == 6
 
 
 def test_keyword(client):

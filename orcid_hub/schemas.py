@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """JSON Schemas."""
 
-affiliation_record_schema = {
+affiliation_record = {
     "title": "AffiliationRecord",
     "type": "object",
     "properties": {
@@ -33,7 +33,7 @@ affiliation_record_schema = {
     "required": ["email", "first-name", "last-name", "affiliation-type"]
 }
 
-affiliation_task_schema = {
+affiliation_task = {
     "title": "AffiliationTask",
     "type": "object",
     "properties": {
@@ -45,13 +45,13 @@ affiliation_task_schema = {
         "completed-at": {"type": ["string", "null"], "format": "date-time"},
         "records": {
             "type": "array",
-            "items": affiliation_record_schema
+            "items": affiliation_record
         },
     },
     "required": ["records"]
 }
 
-researcher_url_record_schema = {
+researcher_url_record = {
     "title": "ResearcherUrlRecord",
     "type": "object",
     "properties": {
@@ -82,7 +82,7 @@ researcher_url_record_schema = {
     ]
 }
 
-researcher_url_task_schema = {
+researcher_url_task = {
     "title": "ResearcherUrlTask",
     "type": "object",
     "properties": {
@@ -95,13 +95,13 @@ researcher_url_task_schema = {
         "completed-at": {"type": ["string", "null"], "format": "date-time"},
         "records": {
             "type": "array",
-            "items": researcher_url_record_schema
+            "items": researcher_url_record
         },
     },
     "required": ["records"]
 }
 
-other_name_keyword_record_schema = {
+other_name_keyword_record = {
     "title": "OtherNameRecord",
     "type": "object",
     "properties": {
@@ -131,7 +131,12 @@ other_name_keyword_record_schema = {
     ]
 }
 
-other_name_keyword_task_schema = {
+other_name_keyword_record_list = {
+    "type": "array",
+    "items": other_name_keyword_record,
+}
+
+other_name_keyword_task = {
     "title": "OtherNameTask",
     "type": "object",
     "properties": {
@@ -142,10 +147,7 @@ other_name_keyword_task_schema = {
         "updated-at": {"type": ["string", "null"], "format": "date-time"},
         "expires-at": {"type": ["string", "null"], "format": "date-time"},
         "completed-at": {"type": ["string", "null"], "format": "date-time"},
-        "records": {
-            "type": "array",
-            "items": other_name_keyword_record_schema
-        },
+        "records": other_name_keyword_record_list,
     },
     "required": ["records"]
 }
