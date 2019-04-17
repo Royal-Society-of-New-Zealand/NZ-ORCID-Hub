@@ -710,3 +710,31 @@ def test_base_model_to_dict():
 
     rec = TestTable.get()
     assert rec.test_field == "ABC123"
+
+
+def test_other_names(models):
+    org = Organisation.select().first()
+    raw_data0 = open(os.path.join(os.path.dirname(__file__), "data", "othernames.json"), "r").read()
+    data0 = load_yaml_json("othernames000.json", raw_data0)
+    assert isinstance(data0, list) and isinstance(data0[0], NestedDict)
+    data0 = load_yaml_json(None, source=raw_data0, content_type="json")
+    assert isinstance(data0, list) and isinstance(data0[0], NestedDict)
+    data0 = load_yaml_json(None, source=raw_data0)
+    assert isinstance(data0, list) and isinstance(data0[0], NestedDict)
+    task0 = OtherNameRecord.load_from_json(filename="othernames000.json", source=raw_data0, org=org)
+    data = task0.to_dict()
+    raw_data = json.dumps(data, cls=JSONEncoder)
+    task = OtherNameRecord.load_from_json(filename="othernames001.json", source=raw_data, org=org)
+    assert len(data0) == len(task.to_dict()["records"])
+
+
+def test_researcher_urls(models):
+    org = Organisation.select().first()
+    raw_data0 = open(os.path.join(os.path.dirname(__file__), "data", "researchurls.json"), "r").read()
+    data0 = load_yaml_json("researchurls.json", raw_data0)
+    assert isinstance(data0, list) and isinstance(data0[0], NestedDict)
+    task0 = ResearcherUrlRecord.load_from_json(filename="researchurls000.json", source=raw_data0, org=org)
+    data = task0.to_dict()
+    raw_data = json.dumps(data, cls=JSONEncoder)
+    task = ResearcherUrlRecord.load_from_json(filename="researchurls001.json", source=raw_data, org=org)
+    assert len(data0) == len(task.to_dict()["records"])

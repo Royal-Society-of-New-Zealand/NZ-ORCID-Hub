@@ -34,8 +34,7 @@ from pycountry import countries, currencies, languages
 from pykwalify.core import Core
 from pykwalify.errors import SchemaError
 
-from . import app, db
-from .schemas import affiliation_task_schema, researcher_url_task_schema, other_name_keyword_task_schema
+from . import app, db, schemas
 
 ENV = app.config["ENV"]
 DEFAULT_COUNTRY = app.config["DEFAULT_COUNTRY"]
@@ -1534,7 +1533,7 @@ class AffiliationRecord(RecordModel):
         if org is None:
             org = current_user.organisation if current_user else None
         if not skip_schema_validation:
-            jsonschema.validate(data, affiliation_task_schema)
+            jsonschema.validate(data, schemas.affiliation_task)
         if not task and task_id:
             task = Task.select().where(Task.id == task_id).first()
         if not task and "id" in data:
@@ -2562,10 +2561,10 @@ class ResearcherUrlRecord(RecordModel):
         if len(header) < 2:
             raise ModelException("Expected CSV or TSV format file.")
 
-        if len(header) < 5:
+        if len(header) < 3:
             raise ModelException(
-                "Wrong number of fields. Expected at least 5 fields "
-                "(first name, last name, email address or another unique identifier, url name, url value). "
+                "Wrong number of fields. Expected at least 3 fields "
+                "(email address or another unique identifier, url name, url value). "
                 f"Read header: {header}")
 
         header_rexs = [
@@ -2617,7 +2616,7 @@ class ResearcherUrlRecord(RecordModel):
                     if orcid:
                         validate_orcid_id(orcid)
 
-                    if not email or not validators.email(email):
+                    if email and not validators.email(email):
                         raise ValueError(
                             f"Invalid email address '{email}'  in the row #{row_no+2}: {row}")
 
@@ -2626,10 +2625,10 @@ class ResearcherUrlRecord(RecordModel):
                     first_name = val(row, 4)
                     last_name = val(row, 5)
 
-                    if not (url_name and url_value and first_name and last_name):
+                    if not (url_name and url_value):
                         raise ModelException(
-                            "Wrong number of fields. Expected at least 5 fields (url name, url value, first name, "
-                            f"last name, email address or another unique identifier): {row}")
+                            "Wrong number of fields. Expected at least 3 fields (url name, url value "
+                            f"email address or another unique identifier): {row}")
 
                     rr = cls(
                         task=task,
@@ -2657,9 +2656,11 @@ class ResearcherUrlRecord(RecordModel):
     def load_from_json(cls, source, filename=None, org=None, task=None, skip_schema_validation=False):
         """Load data from JSON file or a string."""
         data = load_yaml_json(filename=filename, source=source)
-        # breakpoint()
         if not skip_schema_validation:
-            jsonschema.validate(data, researcher_url_task_schema)
+            if isinstance(data, dict):
+                jsonschema.validate(data, schemas.researcher_url_task)
+            else:
+                jsonschema.validate(data, schemas.researcher_url_record_list)
         records = data["records"] if isinstance(data, dict) else data
         with db.atomic():
             try:
@@ -2667,8 +2668,6 @@ class ResearcherUrlRecord(RecordModel):
                     org = current_user.organisation if current_user else None
                 if not task:
                     task = Task.create(org=org, filename=filename, task_type=TaskType.RESEARCHER_URL)
-                # else:
-                #   ResearcherUrlRecord.delete().where(ResearcherUrlRecord.task == task).execute()
 
                 for r in records:
 
@@ -2676,6 +2675,8 @@ class ResearcherUrlRecord(RecordModel):
                     url_value = r.get("value") or r.get("url", "value") or r.get("url-value")
                     display_index = r.get("display-index")
                     email = r.get("email")
+                    if email:
+                        email = email.lower()
                     first_name = r.get("first-name")
                     last_name = r.get("last-name")
                     orcid_id = r.get("ORCID-iD") or r.get("orcid")
@@ -2687,7 +2688,7 @@ class ResearcherUrlRecord(RecordModel):
                         name=url_name,
                         value=url_value,
                         display_index=display_index,
-                        email=email.lower(),
+                        email=email,
                         first_name=first_name,
                         last_name=last_name,
                         orcid=orcid_id,
@@ -2741,12 +2742,9 @@ class OtherNameKeywordModel(RecordModel):
             header = next(reader)
 
         if len(header) < 2:
-            raise ModelException("Expected CSV or TSV format file.")
-
-        if len(header) < 4:
             raise ModelException(
-                "Wrong number of fields. Expected at least 4 fields (first name, last name, email address "
-                f"or another unique identifier, content). Read header: {header}")
+                "Wrong number of fields. Expected at least 2 fields (content and unique identifier)."
+                "Read header: {header}")
 
         header_rexs = [
             re.compile(ex, re.I) for ex in ("content", r"(display)?.*index", "email", r"first\s*(name)?",
@@ -2797,7 +2795,7 @@ class OtherNameKeywordModel(RecordModel):
                     if orcid:
                         validate_orcid_id(orcid)
 
-                    if not email or not validators.email(email):
+                    if email and not validators.email(email):
                         raise ValueError(
                             f"Invalid email address '{email}'  in the row #{row_no+2}: {row}")
 
@@ -2805,10 +2803,10 @@ class OtherNameKeywordModel(RecordModel):
                     first_name = val(row, 3)
                     last_name = val(row, 4)
 
-                    if not (content and first_name and last_name):
+                    if not (content and (email or orcid)):
                         raise ModelException(
-                            "Wrong number of fields. Expected at least 4 fields (content, first name, last name, "
-                            f"email address or another unique identifier): {row}")
+                            "Wrong number of fields. Expected at least 2 fields (content and unique identifier)."
+                            "Read header: {header}")
 
                     ot = cls(
                         task=task,
@@ -2837,7 +2835,10 @@ class OtherNameKeywordModel(RecordModel):
         """Load data from JSON file or a string."""
         data = load_yaml_json(filename=filename, source=source)
         if not skip_schema_validation:
-            jsonschema.validate(data, other_name_keyword_task_schema)
+            if isinstance(data, dict):
+                jsonschema.validate(data, schemas.other_name_keyword_task)
+            else:
+                jsonschema.validate(data, schemas.other_name_keyword_record_list)
         records = data["records"] if isinstance(data, dict) else data
         with db.atomic():
             try:
@@ -2850,9 +2851,11 @@ class OtherNameKeywordModel(RecordModel):
                     content = r.get("content")
                     display_index = r.get("display-index")
                     email = r.get("email")
+                    if email:
+                        email = email.lower()
                     first_name = r.get("first-name")
                     last_name = r.get("last-name")
-                    orcid_id = r.get("ORCID-iD") or r.get("orcid")
+                    orcid = r.get("ORCID-iD") or r.get("orcid")
                     put_code = r.get("put-code")
                     visibility = r.get("visibility")
 
@@ -2860,10 +2863,10 @@ class OtherNameKeywordModel(RecordModel):
                         task=task,
                         content=content,
                         display_index=display_index,
-                        email=email.lower(),
+                        email=email,
                         first_name=first_name,
                         last_name=last_name,
-                        orcid=orcid_id,
+                        orcid=orcid,
                         visibility=visibility,
                         put_code=put_code)
 
