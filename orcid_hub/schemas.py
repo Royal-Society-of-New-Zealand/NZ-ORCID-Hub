@@ -121,7 +121,14 @@ other_name_keyword_record_schema = {
             "format": "^[0-9]{4}-?[0-9]{4}-?[0-9]{4}-?[0-9]{4}$",
         }
     },
-    "required": ["email", "first-name", "last-name", "content"]
+    "anyOf": [
+        {
+            "required": ["content", "email"]
+        },
+        {
+            "required": ["content", "orcid"]
+        }
+    ]
 }
 
 other_name_keyword_task_schema = {
