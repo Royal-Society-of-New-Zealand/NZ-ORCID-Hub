@@ -1,0 +1,61 @@
+[
+    {
+      "content": "And Another Name", 
+      "display-index": null, 
+      "email": "rad42@mailinator.com", 
+      "first-name": null, 
+      "is-active": false, 
+      "last-name": null, 
+      "orcid": null, 
+      "processed-at": null, 
+      "put-code": null, 
+      "status": null, 
+      "visibility": "PUBLIC"
+    }, 
+    {
+      "content": "Other Name", 
+      "display-index": null, 
+      "email": null, 
+      "is-active": false, 
+      "last-name": null, 
+      "orcid": "0000-0001-8228-7153", 
+      "processed-at": null, 
+      "put-code": null, 
+      "status": null, 
+      "visibility": null
+    }, 
+    {
+      "content": "dummy 10", 
+      "display-index": 0, 
+      "email": "other_name@mailinator.com", 
+      "first-name": "sdsd", 
+      "is-active": false, 
+      "last-name": "sds1", 
+      "orcid": "0000-0002-0146-7409", 
+      "processed-at": null, 
+      "put-code": 16878, 
+      "status": null, 
+      "visibility": "PUBLIC"
+    }, 
+    {
+      "content": "dummy 1220", 
+      "display-index": 0, 
+      "email": "rad42@mailinator.com", 
+      "first-name": "sdsd", 
+      "is-active": false, 
+      "last-name": "sds1", 
+      "orcid": null, 
+      "processed-at": null, 
+      "put-code": null, 
+      "status": null, 
+      "visibility": "PUBLIC"
+    },
+    {
+      "content": "Other Name #2", 
+      "orcid": "0000-0001-8228-7153"
+    },
+    {
+      "content": "Other Name with email", 
+      "email": "rad123456789@mailinator.com"
+    }
+]

@@ -15,12 +15,11 @@ from flask_login import current_user, login_user
 from flask_restful import Resource, reqparse
 from flask_swagger import swagger
 
-from . import api, app, db, models, oauth
+from . import api, app, db, models, oauth, schemas
 from .login_provider import roles_required
 from .models import (ORCID_ID_REGEX, AffiliationRecord, Client, FundingRecord, OrcidToken,
                      PeerReviewRecord, Role, Task, TaskType, User, UserOrg, validate_orcid_id,
                      WorkRecord)
-from .schemas import affiliation_task_schema
 from .utils import dump_yaml, is_valid_url, register_orcid_webhook
 
 ORCID_API_VERSION_REGEX = re.compile(r"^v[2-3].\d+(_rc\d+)?$")
@@ -230,7 +229,7 @@ class TaskResource(AppResource):
             return jsonify({"error": "Invalid request format. Only JSON, CSV, or TSV are acceptable."}), 415
         try:
             if request.method != "PATCH":
-                jsonschema.validate(data, affiliation_task_schema)
+                jsonschema.validate(data, schemas.affiliation_task)
         except jsonschema.exceptions.ValidationError as ex:
             return jsonify({"error": "Validation error.", "message": ex.message}), 422
         except Exception as ex:
