@@ -3789,6 +3789,16 @@ def test_keyword(client):
   "filename": "keyword_sample_latest.json",
   "records": [
     {
+      "content": "keyword ABC",
+      "email": "rad42@mailinator.com",
+      "visibility": "PUBLIC"
+    },
+    {
+      "content": "keyword XYZ",
+      "orcid": "0000-0002-0146-7409",
+      "visibility": "PUBLIC"
+    },
+    {
       "content": "keyword 1",
       "display-index": 0,
       "email": "rad42@mailinator.com",
@@ -3822,83 +3832,100 @@ def test_keyword(client):
     assert resp.status_code == 200
     assert b"keyword 2" in resp.data
     task = Task.get(filename="keyword_sample_latest.json")
-    assert task.records.count() == 2
+    assert task.records.count() == 4
 
     resp = client.get(f"/admin/keywordrecord/export/json/?task_id={task.id}")
     assert resp.status_code == 200
-    assert b'xyzz@mailinator.com' in resp.data
-    assert b'"keyword 2' in resp.data
-    assert b'"keyword 1' in resp.data
+    assert b"xyzz@mailinator.com" in resp.data
+    assert b"keyword 2" in resp.data
+    assert b"keyword 1" in resp.data
+
+    resp = client.post(
+        "/load/keyword",
+        data={"file_": (BytesIO(resp.data), "keyword001.json")},
+        follow_redirects=True)
+    assert resp.status_code == 200
+    assert b"rad42@mailinator.com" in resp.data
+    assert b"keyword XYZ" in resp.data
+    assert task.records.count() == 4
+
+    task = Task.get(filename="keyword001.json")
+    resp = client.get(f"/admin/keywordrecord/export/csv/?task_id={task.id}")
+    assert resp.status_code == 200
+    assert b"xyzz@mailinator.com" in resp.data
+    assert b"keyword 2" in resp.data
+    assert b"keyword 1" in resp.data
+
+    resp = client.post(
+        "/load/keyword",
+        data={"file_": (BytesIO(resp.data), "keyword002.csv")},
+        follow_redirects=True)
+    assert resp.status_code == 200
+    assert b"rad42@mailinator.com" in resp.data
+    assert b"keyword XYZ" in resp.data
+    task = Task.get(filename="keyword002.csv")
+    assert task.records.count() == 4
+
+    resp = client.get(f"/admin/keywordrecord/export/tsv/?task_id={task.id}")
+    assert resp.status_code == 200
+    assert b"xyzz@mailinator.com" in resp.data
+    assert b"keyword 2" in resp.data
+    assert b"keyword 1" in resp.data
+
+    resp = client.post(
+        "/load/keyword",
+        data={"file_": (BytesIO(resp.data), "keyword003.tsv")},
+        follow_redirects=True)
+    assert resp.status_code == 200
+    assert b"rad42@mailinator.com" in resp.data
+    assert b"keyword XYZ" in resp.data
+    task = Task.get(filename="keyword003.tsv")
+    assert task.records.count() == 4
 
 
-def test_researcher_url(client):
+def test_researcher_urls(client):
     """Test researcher url data management."""
     user = client.data["admin"]
     client.login(user, follow_redirects=True)
+    raw_data0 = open(os.path.join(os.path.dirname(__file__), "data", "researchurls.json"), "rb").read()
     resp = client.post(
         "/load/researcher/urls",
-        data={
-            "file_": (
-                BytesIO(b"""{
-  "records": [
-    {
-      "display-index": 0, "email": "xyzzz@mailinator.com", "first-name": "sdksdsd", "last-name": "sds1",
-      "orcid": "0000-0001-6817-9711", "put-code": 43959, "name": "xyzurl",
-      "value": "https://fdhfdasa112j.com", "visibility": "PUBLIC"
-    },
-    {
-      "display-index": 10, "email": "dsjdh11222@mailinator.com", "first-name": "sdksasadsd",
-      "last-name": "sds1", "put-code": null, "orcid": null, "name": "xyzurl",
-      "value": "https://fdhfdasa112j.com", "visibility": "PUBLIC"
-    }]}"""),
-                "researcher_url_001.json",
-            ),
-        },
+        data={"file_": (BytesIO(raw_data0), "researcher_url_001.json")},
         follow_redirects=True)
     assert resp.status_code == 200
     assert b"https://fdhfdasa112j.com" in resp.data
     task = Task.get(filename="researcher_url_001.json")
-    assert task.records.count() == 2
+    assert task.records.count() == 5
 
     resp = client.get(f"/admin/researcherurlrecord/export/json/?task_id={task.id}")
     assert resp.status_code == 200
-    assert b'xyzzz@mailinator.com' in resp.data
-    assert b'https://fdhfdasa112j.com' in resp.data
+    assert b"abc123@mailinator.com" in resp.data
+    assert b"https://w3.test.test.test.edu" in resp.data
 
     resp = client.post(
         "/load/researcher/urls",
-        data={
-            "file_": (
-                BytesIO(resp.data),
-                "researcher_url_002.json",
-            ),
-        },
+        data={"file_": (BytesIO(resp.data), "researcher_url_002.json")},
         follow_redirects=True)
     assert resp.status_code == 200
-    assert b"https://fdhfdasa112j.com" in resp.data
-    task = Task.get(filename="researcher_url_002.json")
-    assert task.records.count() == 2
+    assert b"abc123@mailinator.com" in resp.data
+    assert b"https://w3.test.test.test.edu" in resp.data
+    assert task.records.count() == 5
 
     resp = client.get(f"/admin/researcherurlrecord/export/csv/?task_id={task.id}")
     assert resp.status_code == 200
-    assert b'xyzzz@mailinator.com' in resp.data
-    assert b'https://fdhfdasa112j.com' in resp.data
+    assert b"abc123@mailinator.com" in resp.data
+    assert b"https://w3.test.test.test.edu" in resp.data
 
     resp = client.post(
         "/load/researcher/urls",
-        data={
-            "file_": (
-                BytesIO(resp.data),
-                "researcher_url_003.csv",
-            ),
-        },
+        data={"file_": (BytesIO(resp.data), "researcher_url_003.csv")},
         follow_redirects=True)
     assert resp.status_code == 200
-    assert b"https://fdhfdasa112j.com" in resp.data
-    task = Task.get(filename="researcher_url_002.json")
-    assert task.records.count() == 2
+    assert b"abc123@mailinator.com" in resp.data
+    assert b"https://w3.test.test.test.edu" in resp.data
+    assert task.records.count() == 5
 
-    url = quote(f"/admin/researcherurlrecord/?task_id={task.id}", safe='')
+    url = quote(f"/admin/researcherurlrecord/?task_id={task.id}", safe="")
     resp = client.post(
         f"/admin/researcherurlrecord/new/?url={url}",
         data=dict(
@@ -3911,7 +3938,7 @@ def test_researcher_url(client):
             orcid="0000-0001-8228-7153",
         ),
         follow_redirects=True)
-    assert Task.get(task.id).records.count() == 3
+    assert Task.get(task.id).records.count() == 6
 
     r = ResearcherUrlRecord.get(name="URL NAME ABC123")
     resp = client.post(

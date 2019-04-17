@@ -2561,10 +2561,10 @@ class ResearcherUrlRecord(RecordModel):
         if len(header) < 2:
             raise ModelException("Expected CSV or TSV format file.")
 
-        if len(header) < 5:
+        if len(header) < 3:
             raise ModelException(
-                "Wrong number of fields. Expected at least 5 fields "
-                "(first name, last name, email address or another unique identifier, url name, url value). "
+                "Wrong number of fields. Expected at least 3 fields "
+                "(email address or another unique identifier, url name, url value). "
                 f"Read header: {header}")
 
         header_rexs = [
@@ -2616,7 +2616,7 @@ class ResearcherUrlRecord(RecordModel):
                     if orcid:
                         validate_orcid_id(orcid)
 
-                    if not email or not validators.email(email):
+                    if email and not validators.email(email):
                         raise ValueError(
                             f"Invalid email address '{email}'  in the row #{row_no+2}: {row}")
 
@@ -2625,10 +2625,10 @@ class ResearcherUrlRecord(RecordModel):
                     first_name = val(row, 4)
                     last_name = val(row, 5)
 
-                    if not (url_name and url_value and first_name and last_name):
+                    if not (url_name and url_value):
                         raise ModelException(
-                            "Wrong number of fields. Expected at least 5 fields (url name, url value, first name, "
-                            f"last name, email address or another unique identifier): {row}")
+                            "Wrong number of fields. Expected at least 3 fields (url name, url value "
+                            f"email address or another unique identifier): {row}")
 
                     rr = cls(
                         task=task,
@@ -2656,9 +2656,11 @@ class ResearcherUrlRecord(RecordModel):
     def load_from_json(cls, source, filename=None, org=None, task=None, skip_schema_validation=False):
         """Load data from JSON file or a string."""
         data = load_yaml_json(filename=filename, source=source)
-        # breakpoint()
         if not skip_schema_validation:
-            jsonschema.validate(data, schemas.researcher_url_task)
+            if isinstance(data, dict):
+                jsonschema.validate(data, schemas.researcher_url_task)
+            else:
+                jsonschema.validate(data, schemas.researcher_url_record_list)
         records = data["records"] if isinstance(data, dict) else data
         with db.atomic():
             try:
@@ -2666,8 +2668,6 @@ class ResearcherUrlRecord(RecordModel):
                     org = current_user.organisation if current_user else None
                 if not task:
                     task = Task.create(org=org, filename=filename, task_type=TaskType.RESEARCHER_URL)
-                # else:
-                #   ResearcherUrlRecord.delete().where(ResearcherUrlRecord.task == task).execute()
 
                 for r in records:
 
@@ -2675,6 +2675,8 @@ class ResearcherUrlRecord(RecordModel):
                     url_value = r.get("value") or r.get("url", "value") or r.get("url-value")
                     display_index = r.get("display-index")
                     email = r.get("email")
+                    if email:
+                        email = email.lower()
                     first_name = r.get("first-name")
                     last_name = r.get("last-name")
                     orcid_id = r.get("ORCID-iD") or r.get("orcid")
@@ -2686,7 +2688,7 @@ class ResearcherUrlRecord(RecordModel):
                         name=url_name,
                         value=url_value,
                         display_index=display_index,
-                        email=email.lower(),
+                        email=email,
                         first_name=first_name,
                         last_name=last_name,
                         orcid=orcid_id,

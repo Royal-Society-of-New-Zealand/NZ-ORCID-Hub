@@ -78,8 +78,19 @@ researcher_url_record = {
         },
         {
             "required": ["name", "value", "orcid"]
+        },
+        {
+            "required": ["url-name", "url-value", "email"]
+        },
+        {
+            "required": ["url-name", "url-value", "orcid"]
         }
     ]
+}
+
+researcher_url_record_list = {
+    "type": "array",
+    "items": researcher_url_record
 }
 
 researcher_url_task = {
@@ -93,10 +104,7 @@ researcher_url_task = {
         "updated-at": {"type": ["string", "null"], "format": "date-time"},
         "expires-at": {"type": ["string", "null"], "format": "date-time"},
         "completed-at": {"type": ["string", "null"], "format": "date-time"},
-        "records": {
-            "type": "array",
-            "items": researcher_url_record
-        },
+        "records": researcher_url_record_list,
     },
     "required": ["records"]
 }
