@@ -23,12 +23,12 @@ import validators
 import yaml
 from flask_login import UserMixin, current_user
 from peewee import JOIN, BlobField
-from peewee import BaseModel as BaseModel_, BooleanField as BooleanField_
+from peewee import BooleanField as BooleanField_
 from peewee import (CharField, DateTimeField, DeferredRelation, Field, FixedCharField,
                     ForeignKeyField, IntegerField, Model, OperationalError, PostgresqlDatabase,
                     SmallIntegerField, TextField, fn)
 from peewee_validates import ModelValidator
-from playhouse.reflection import Introspector
+# from playhouse.reflection import Introspector
 from playhouse.shortcuts import model_to_dict
 from pycountry import countries, currencies, languages
 from pykwalify.core import Core
@@ -3776,10 +3776,12 @@ def get_val(d, *keys, default=None):
     return d
 
 
+audit_models = {}
+""" Need to find a way to display audit tables without breaking RQ
 audit_models = {
     n: m
     for n, m in Introspector.from_database(db, schema="audit").generate_models().items()
     if isinstance(m, BaseModel_)
-}
+}"""
 for m in audit_models.values():
     m._meta.schema = "audit"
