@@ -352,7 +352,7 @@ def send_work_funding_peer_review_invitation(inviter, org, email, first_name=Non
         return ui
 
     except Exception as ex:
-        logger.error(f"Exception occured while sending mails {ex}")
+        logger.error(f"Exception occured while sending mail: {ex}")
         raise ex
 
 
@@ -640,9 +640,6 @@ def send_user_invitation(inviter,
                          **kwargs):
     """Send an invitation to join ORCID Hub logging in via ORCID."""
     try:
-        logger.info(f"*** send_user_invitation called with  org={org} email={email} first_name={first_name} last_name={last_name} affiliation_types={affiliation_types} orcid={orcid} department={department} organisation={organisation} city={city} state={state} country={country} course_or_role={course_or_role} start_date={start_date} end_date={end_date} affiliations={affiliations} disambiguated_id={disambiguated_id} disambiguation_source={disambiguation_source} task_id={task_id} cc_email={cc_email} token_expiry_in_sec={token_expiry_in_sec} ... {**kwargs}")
-        logger.info(f"*** DB: {User._meta.database} / {User._meta.database.connect_kwargs}")
-
         if isinstance(inviter, int):
             inviter = User.get(id=inviter)
         if isinstance(org, int):
@@ -726,7 +723,7 @@ def send_user_invitation(inviter,
         return ui.id
 
     except Exception as ex:
-        logger.exception(f"Exception occured while sending mails {ex}")
+        logger.exception(f"Exception occured while sending mail {ex}")
         raise
 
 

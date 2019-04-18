@@ -16,6 +16,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from orcid_hub import config
 DATABASE_URL = os.environ.get("TEST_DATABASE_URL") or "sqlite:///:memory:"
 config.DATABASE_URL = DATABASE_URL
+config.RQ_CONNECTION_CLASS = "fakeredis.FakeStrictRedis"
 os.environ["DATABASE_URL"] = DATABASE_URL
 # Patch it before is gets patched by 'orcid_client'
 # import orcid_api
