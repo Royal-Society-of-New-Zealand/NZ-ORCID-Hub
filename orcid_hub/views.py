@@ -30,12 +30,13 @@ from flask_rq2.job import FlaskJob
 from jinja2 import Markup
 from orcid_api.rest import ApiException
 from playhouse.shortcuts import model_to_dict
+from peewee import SQL
 from werkzeug.utils import secure_filename
 from wtforms.fields import BooleanField
 from urllib.parse import parse_qs, urlparse
 from wtforms import validators
 
-from . import SENTRY_DSN, admin, app, limiter, models, orcid_client, rq, utils
+from . import SENTRY_DSN, admin, app, cache, limiter, models, orcid_client, rq, utils
 from .apis import yamlfy
 from .forms import (ApplicationFrom, BitmapMultipleValueField, CredentialForm, EmailTemplateForm,
                     FileUploadForm, FundingForm, GroupIdForm, LogoForm, OrgRegistrationForm,
@@ -2905,9 +2906,28 @@ def invite_organisation():
             app.logger.exception(f"Failed to send registration invitation with {params}.")
             flash(f"Failed to send registration invitation: {ex}.", "danger")
 
-    return render_template(
-        "registration.html", form=form, org_info={r.name: r.to_dict()
-                                                  for r in OrgInfo.select()})
+    org_info = cache.get("org_info")
+    if not org_info:
+        org_info = {
+            r.name: r.to_dict(only=[
+                OrgInfo.email, OrgInfo.first_name, OrgInfo.last_name, OrgInfo.country,
+                OrgInfo.city, OrgInfo.disambiguated_id, OrgInfo.disambiguation_source
+            ])
+            for r in OrgInfo.select(OrgInfo.name, OrgInfo.email, OrgInfo.first_name,
+                                    OrgInfo.last_name, OrgInfo.country, OrgInfo.city,
+                                    OrgInfo.disambiguated_id, OrgInfo.disambiguation_source)
+            | Organisation.select(
+                Organisation.name,
+                SQL('NULL').alias("email"),
+                SQL('NULL').alias("first_name"),
+                SQL('NULL').alias("last_name"), Organisation.country, Organisation.city,
+                Organisation.disambiguated_id, Organisation.disambiguation_source).join(
+                    OrgInfo, JOIN.LEFT_OUTER, on=(
+                        OrgInfo.name == Organisation.name)).where(OrgInfo.name.is_null())
+        }
+        cache.set("org_info", org_info, timeout=60)
+
+    return render_template("registration.html", form=form, org_info=org_info)
 
 
 @app.route("/user/<int:user_id>/organisations", methods=["GET", "POST"])
