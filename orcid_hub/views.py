@@ -709,6 +709,10 @@ to the best of your knowledge, correct!""")
             count = self.model.update(is_active=True).where(
                 self.model.is_active == False,  # noqa: E712
                 self.model.id.in_(ids)).execute()
+            func = getattr(utils, f"process_{self.model.underscore_name()}s")
+            for record_id in ids:
+                func.queue(record_id=record_id)
+
         except Exception as ex:
             flash(f"Failed to activate the selected records: {ex}")
             app.logger.exception("Failed to activate the selected records")

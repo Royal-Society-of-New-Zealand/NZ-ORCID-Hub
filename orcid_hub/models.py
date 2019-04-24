@@ -1388,6 +1388,12 @@ class RecordModel(BaseModel):
         """Return map of compiled field name regex to the model fields."""
         return {f: re.compile(e, re.I) for (f, e) in cls._field_regex_map}
 
+    @classmethod
+    def underscore_name(cls):
+        """Get the class underscore name of the model."""
+        s1 = re.sub('(.)([A-Z][a-z]+)', r'\1_\2', cls.__name__)
+        return re.sub('([a-z0-9])([A-Z])', r'\1_\2', s1).lower()
+
     def to_export_dict(self):
         """Map the common record parts to dict for export into JSON/YAML."""
         org = self.task.org

@@ -1178,7 +1178,8 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
             return
 
 
-def process_work_records(max_rows=20):
+@rq.job(timeout=300)
+def process_work_records(max_rows=20, record_id=None):
     """Process uploaded work records."""
     set_server_name()
     task_ids = set()
@@ -1217,6 +1218,8 @@ def process_work_records(max_rows=20):
                  on=((OrcidToken.user_id == User.id)
                      & (OrcidToken.org_id == Organisation.id)
                      & (OrcidToken.scope.contains("/activities/update")))).limit(max_rows))
+    if record_id:
+        tasks.where(WorkRecord.id == record_id)
 
     for (task_id, org_id, record_id, user), tasks_by_user in groupby(tasks, lambda t: (
             t.id,
@@ -1305,7 +1308,8 @@ def process_work_records(max_rows=20):
                     filename=task.filename)
 
 
-def process_peer_review_records(max_rows=20):
+@rq.job(timeout=300)
+def process_peer_review_records(max_rows=20, record_id=None):
     """Process uploaded peer_review records."""
     set_server_name()
     task_ids = set()
@@ -1344,6 +1348,8 @@ def process_peer_review_records(max_rows=20):
                          on=((OrcidToken.user_id == User.id)
                              & (OrcidToken.org_id == Organisation.id)
                              & (OrcidToken.scope.contains("/activities/update")))).limit(max_rows))
+    if record_id:
+        tasks.where(PeerReviewRecord.id == record_id)
 
     for (task_id, org_id, record_id, user), tasks_by_user in groupby(tasks, lambda t: (
             t.id,
@@ -1435,7 +1441,8 @@ def process_peer_review_records(max_rows=20):
                     filename=task.filename)
 
 
-def process_funding_records(max_rows=20):
+@rq.job(timeout=300)
+def process_funding_records(max_rows=20, record_id=None):
     """Process uploaded affiliation records."""
     set_server_name()
     task_ids = set()
@@ -1474,6 +1481,8 @@ def process_funding_records(max_rows=20):
                          on=((OrcidToken.user_id == User.id)
                              & (OrcidToken.org_id == Organisation.id)
                              & (OrcidToken.scope.contains("/activities/update")))).limit(max_rows))
+    if record_id:
+        tasks.where(FundingRecord.id == record_id)
 
     for (task_id, org_id, record_id, user), tasks_by_user in groupby(tasks, lambda t: (
             t.id,
@@ -1563,7 +1572,8 @@ def process_funding_records(max_rows=20):
                     filename=task.filename)
 
 
-def process_affiliation_records(max_rows=20):
+@rq.job(timeout=300)
+def process_affiliation_records(max_rows=20, record_id=None):
     """Process uploaded affiliation records."""
     set_server_name()
     # TODO: optimize removing redundant fields
@@ -1600,6 +1610,8 @@ def process_affiliation_records(max_rows=20):
                          on=((OrcidToken.user_id == User.id)
                              & (OrcidToken.org_id == Organisation.id)
                              & (OrcidToken.scope.contains("/activities/update")))).limit(max_rows))
+    if record_id:
+        tasks.where(AffiliationRecord.id == record_id)
     for (task_id, org_id, user), tasks_by_user in groupby(tasks, lambda t: (
             t.id,
             t.org_id,
@@ -1678,7 +1690,8 @@ def process_affiliation_records(max_rows=20):
                         "Failed to send batch process comletion notification message.")
 
 
-def process_researcher_url_records(max_rows=20):
+@rq.job(timeout=300)
+def process_researcher_url_records(max_rows=20, record_id=None):
     """Process uploaded researcher_url records."""
     set_server_name()
     # TODO: optimize removing redundant fields
@@ -1715,6 +1728,8 @@ def process_researcher_url_records(max_rows=20):
                          on=((OrcidToken.user_id == User.id)
                              & (OrcidToken.org_id == Organisation.id)
                              & (OrcidToken.scope.contains("/person/update")))).limit(max_rows))
+    if record_id:
+        tasks.where(ResearcherUrlRecord.id == record_id)
     for (task_id, org_id, user), tasks_by_user in groupby(tasks, lambda t: (
             t.id,
             t.org_id,
@@ -1779,7 +1794,8 @@ def process_researcher_url_records(max_rows=20):
                         "Failed to send batch process completion notification message.")
 
 
-def process_other_name_records(max_rows=20):
+@rq.job(timeout=300)
+def process_other_name_records(max_rows=20, record_id=None):
     """Process uploaded Other Name records."""
     set_server_name()
     # TODO: optimize
@@ -1815,6 +1831,8 @@ def process_other_name_records(max_rows=20):
                          on=((OrcidToken.user_id == User.id)
                              & (OrcidToken.org_id == Organisation.id)
                              & (OrcidToken.scope.contains("/person/update")))).limit(max_rows))
+    if record_id:
+        tasks.where(OtherNameRecord.id == record_id)
     for (task_id, org_id, user), tasks_by_user in groupby(tasks, lambda t: (
             t.id,
             t.org_id,
@@ -1879,7 +1897,8 @@ def process_other_name_records(max_rows=20):
                         "Failed to send batch process completion notification message.")
 
 
-def process_keyword_records(max_rows=20):
+@rq.job(timeout=300)
+def process_keyword_records(max_rows=20, record_id=None):
     """Process uploaded Keyword records."""
     set_server_name()
     # TODO: optimize
@@ -1915,6 +1934,8 @@ def process_keyword_records(max_rows=20):
                          on=((OrcidToken.user_id == User.id)
                              & (OrcidToken.org_id == Organisation.id)
                              & (OrcidToken.scope.contains("/person/update")))).limit(max_rows))
+    if record_id:
+        tasks.where(KeywordRecord.id == record_id)
     for (task_id, org_id, user), tasks_by_user in groupby(tasks, lambda t: (
             t.id,
             t.org_id,
