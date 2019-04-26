@@ -173,6 +173,8 @@ def app():
         _app.config["LOAD_TEST"] = True
         #_app.config["SERVER_NAME"] = "ORCIDHUB"
         _app.sentry = None
+        _app.config["RQ_CONNECTION_CLASS"] = "fakeredis.FakeStrictRedis"
+        _app.extensions["rq2"].init_app(_app)
 
         # Add some data:
         for org_no in range(2):

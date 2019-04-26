@@ -22,7 +22,7 @@ from playhouse.test_utils import test_database
 from werkzeug.datastructures import ImmutableMultiDict
 
 from orcid_api.rest import ApiException
-from orcid_hub import app, orcid_client, rq, utils, views
+from orcid_hub import orcid_client, rq, utils, views
 from orcid_hub.config import ORCID_BASE_URL
 from orcid_hub.forms import FileUploadForm
 from orcid_hub.models import (Affiliation, AffiliationRecord, Client, File, FundingContributor,
@@ -256,7 +256,7 @@ def test_superuser_view_access(client):
 
 def test_pyinfo(client, mocker):
     """Test /pyinfo."""
-    app.config["PYINFO_TEST_42"] = "Life, the Universe and Everything"
+    client.applicaion.config["PYINFO_TEST_42"] = "Life, the Universe and Everything"
     client.login_root()
     resp = client.get("/pyinfo")
     assert b"PYINFO_TEST_42" in resp.data
@@ -484,7 +484,7 @@ def test_status(client):
 
 def test_application_registration(client):
     """Test application registration."""
-    org = app.data["org"]
+    org = client.data["org"]
     user = User.create(
         email="test123456@test.test.net",
         name="TEST USER",
@@ -935,13 +935,7 @@ def test_favicon(request_ctx):
         assert resp.mimetype == "image/vnd.microsoft.icon"
 
 
-def send_mail_mock(*argvs, **kwargs):
-    """Mock email invitation."""
-    app.logger.info(f"***\nActually email invitation was mocked, so no email sent!!!!!")
-    return True
-
-
-@patch("orcid_hub.utils.send_email", side_effect=send_mail_mock)
+@patch("orcid_hub.utils.send_email")
 def test_action_invite(patch, request_ctx):
     """Test handle nonexistin pages."""
     org = request_ctx.data["org"]
@@ -1051,7 +1045,7 @@ def test_logo(request_ctx):
         assert resp.location.endswith("images/banner-small.png")
 
 
-@patch("orcid_hub.utils.send_email", side_effect=send_mail_mock)
+@patch("orcid_hub.utils.send_email")
 def test_manage_email_template(patch, request_ctx):
     """Test manage organisation invitation email template."""
     org = request_ctx.data["org"]
@@ -1108,37 +1102,41 @@ def test_manage_email_template(patch, request_ctx):
         assert b"<!DOCTYPE html>" in resp.data, "Expected HTML content"
 
 
-def send_mail_mock(*argvs, **kwargs):
-    """Mock email invitation."""
-    logger.info(f"***\nActually email invitation was mocked, so no email sent!!!!!")
-    return True
-
-
-def test_invite_user(request_ctx):
+def test_invite_user(client):
     """Test invite a researcher to join the hub."""
     org = Organisation.get(name="TEST0")
     admin = User.get(email="admin@test0.edu")
     user = User.create(
-        email="test123@test.test.net",
-        name="TEST USER",
-        confirmed=True,
-        organisation=org)
+        email="test123@test.test.net", name="TEST USER", confirmed=True, organisation=org)
     UserOrg.create(user=user, org=org, affiliations=Affiliation.EMP)
     UserInvitation.create(
-        invitee=user,
-        inviter=admin,
-        org=org,
-        email="test1234456@mailinator.com",
-        token="xyztoken")
-    with request_ctx("/invite/user") as ctx:
-        login_user(admin, remember=True)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 200
-        assert b"<!DOCTYPE html>" in resp.data, "Expected HTML content"
-        assert org.name.encode() in resp.data
-    with request_ctx(
+        invitee=user, inviter=admin, org=org, email="test1234456@mailinator.com", token="xyztoken")
+    resp = client.login(admin)
+    resp = client.get("/invite/user")
+    assert resp.status_code == 200
+    assert b"<!DOCTYPE html>" in resp.data, "Expected HTML content"
+    assert org.name.encode() in resp.data
+
+    resp = client.post(
+        "/invite/user",
+        data={
+            "name": "TEST APP",
+            "is_employee": "false",
+            "email_address": "test123abc@test.test.net",
+            "resend": "enable",
+            "is_student": "true",
+            "first_name": "test fn",
+            "last_name": "test ln",
+            "city": "test"
+        })
+    assert resp.status_code == 200
+    assert b"<!DOCTYPE html>" in resp.data, "Expected HTML content"
+    assert b"test123abc@test.test.net" in resp.data
+    assert client.application.extensions["rq2"].get_queue().count == 1
+
+    with patch("orcid_hub.views.send_user_invitation.queue") as queue_send_user_invitation:
+        resp = client.post(
             "/invite/user",
-            method="POST",
             data={
                 "name": "TEST APP",
                 "is_employee": "false",
@@ -1148,31 +1146,33 @@ def test_invite_user(request_ctx):
                 "first_name": "test",
                 "last_name": "test",
                 "city": "test"
-            }) as ctx, patch("orcid_hub.views.send_user_invitation.queue") as queue_send_user_invitation:
-        login_user(admin, remember=True)
-        resp = ctx.app.full_dispatch_request()
+            })
         assert resp.status_code == 200
         assert b"<!DOCTYPE html>" in resp.data, "Expected HTML content"
         assert b"test123@test.test.net" in resp.data
         queue_send_user_invitation.assert_called_once()
+
     with patch("orcid_hub.orcid_client.MemberAPI") as m, patch(
-        "orcid_hub.orcid_client.SourceClientId"), request_ctx(
-        "/invite/user",
-        method="POST",
-        data={
-            "name": "TEST APP",
-            "is_employee": "false",
-            "email_address": "test123@test.test.net",
-            "resend": "enable",
-            "is_student": "true",
-            "first_name": "test",
-            "last_name": "test",
-            "city": "test"}) as ctx:
-        login_user(admin, remember=True)
-        OrcidToken.create(access_token="ACCESS123", user=user, org=org, scope="/read-limited,/activities/update",
-                          expires_in='121')
+            "orcid_hub.orcid_client.SourceClientId"):
+        OrcidToken.create(
+            access_token="ACCESS123",
+            user=user,
+            org=org,
+            scope="/read-limited,/activities/update",
+            expires_in='121')
         api_mock = m.return_value
-        resp = ctx.app.full_dispatch_request()
+        resp = client.post(
+            "/invite/user",
+            data={
+                "name": "TEST APP",
+                "is_employee": "false",
+                "email_address": "test123@test.test.net",
+                "resend": "enable",
+                "is_student": "true",
+                "first_name": "test",
+                "last_name": "test",
+                "city": "test"
+            })
         assert resp.status_code == 200
         assert b"<!DOCTYPE html>" in resp.data, "Expected HTML content"
         assert b"test123@test.test.net" in resp.data
@@ -1181,7 +1181,7 @@ def test_invite_user(request_ctx):
 
 def test_researcher_invitation(client, mocker):
     """Test full researcher invitation flow."""
-    exception = mocker.patch.object(app.logger, "exception")
+    exception = mocker.patch.object(client.applicaion.logger, "exception")
     mocker.patch("sentry_sdk.transport.HttpTransport.capture_event")
     mocker.patch(
         "orcid_hub.views.send_user_invitation.queue",
@@ -1586,7 +1586,7 @@ Rad,Cirskis,researcher.990@mailinator.com,Student
 
 def test_invite_organisation(client, mocker):
     """Test invite an organisation to register."""
-    exception = mocker.patch.object(app.logger, "exception")
+    exception = mocker.patch.object(client.application.logger, "exception")
     html = mocker.patch(
         "emails.html", return_value=Mock(send=lambda *args, **kwargs: Mock(success=False)))
     org = Organisation.get(name="TEST0")
