@@ -145,6 +145,12 @@ class HubClient(FlaskClient):
         return data["access_token"]
 
 
+@pytest.fixture(autouse=True)
+def no_mailing(mocker):
+    """Mock HTML message for all tests."""
+    yield mocker.patch("emails.html")
+
+
 @pytest.fixture
 def app():
     """Session-wide test `Flask` application."""
