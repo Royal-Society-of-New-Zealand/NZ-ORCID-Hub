@@ -947,6 +947,7 @@ class InviteeAdmin(RecordChildAdmin):
                 rec_class.update(
                     processed_at=None, status=status).where(
                     rec_class.is_active, rec_class.id == record_id).execute()
+                self.enqueue_record(record_id)
             except Exception as ex:
                 db.rollback()
                 flash(f"Failed to activate the selected records: {ex}")

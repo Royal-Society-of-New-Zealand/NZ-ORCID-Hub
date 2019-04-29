@@ -2999,6 +2999,7 @@ THIS IS A TITLE #4	 नमस्ते #2	hi	CONTRACT	MY TYPE	Minerals unde.	900
         })
     assert FundingRecord.select().where(FundingRecord.task_id == task.id,
                                         FundingRecord.processed_at.is_null()).count() == 1
+    assert UserInvitation.select().count() == 1
 
     resp = client.post(
         "/admin/task/delete/",
@@ -3122,6 +3123,15 @@ THIS IS A TITLE, नमस्ते,hi,  CONTRACT,MY TYPE,Minerals unde.,300000,
     assert fr.contributors.count() == 0
     assert fr.external_ids.count() == 1
     assert fr.invitees.count() == 2
+
+    resp = client.post("/activate_all", follow_redirects=True, data=dict(task_id=task.id))
+    UserInvitation.select().where(UserInvitation.task_id == task.id).count() == 2
+
+    FundingRecord.update(processed_at="1/1/2019").where(FundingRecord.task_id == task.id).execute()
+    resp = client.post("/rest_all", follow_redirects=True, data=dict(task_id=task.id))
+    UserInvitation.select().where(UserInvitation.task_id == task.id).count() == 2
+    FundingRecord.select().where(FundingRecord.task_id == task.id,
+                                 FundingRecord.processed_at.is_null()).execute()
 
     resp = client.get(f"/admin/fundingrecord/export/tsv/?task_id={task.id}")
     assert resp.headers["Content-Type"] == "text/tsv; charset=utf-8"
