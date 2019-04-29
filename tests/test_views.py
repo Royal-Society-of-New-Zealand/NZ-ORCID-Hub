@@ -255,7 +255,7 @@ def test_superuser_view_access(client):
 
 def test_pyinfo(client, mocker):
     """Test /pyinfo."""
-    client.applicaion.config["PYINFO_TEST_42"] = "Life, the Universe and Everything"
+    client.application.config["PYINFO_TEST_42"] = "Life, the Universe and Everything"
     client.login_root()
     resp = client.get("/pyinfo")
     assert b"PYINFO_TEST_42" in resp.data
@@ -1143,7 +1143,7 @@ def test_invite_user(client):
     assert resp.status_code == 200
     assert b"<!DOCTYPE html>" in resp.data, "Expected HTML content"
     assert b"test123abc@test.test.net" in resp.data
-    assert client.application.extensions["rq2"].get_queue().count == 1
+    assert UserInvitation.select().count() == 2
 
     with patch("orcid_hub.views.send_user_invitation.queue") as queue_send_user_invitation:
         resp = client.post(
@@ -1192,7 +1192,7 @@ def test_invite_user(client):
 
 def test_researcher_invitation(client, mocker):
     """Test full researcher invitation flow."""
-    exception = mocker.patch.object(client.applicaion.logger, "exception")
+    exception = mocker.patch.object(client.application.logger, "exception")
     mocker.patch("sentry_sdk.transport.HttpTransport.capture_event")
     mocker.patch(
         "orcid_hub.views.send_user_invitation.queue",
