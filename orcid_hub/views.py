@@ -698,6 +698,15 @@ class RecordModelView(AppModelView):
 
         return super().get_export_name(export_type=export_type)
 
+    @models.lazy_property
+    def record_processing_func(self):
+        """Reocord processing funcion."""
+        return getattr(utils, f"process_{self.model.underscore_name()}s")
+
+    def enqueue_record(self, record_id):
+        """Enqueue the specified record or all active and not yet processed ones."""
+        self.record_processing_func.queue(record_id=record_id)
+
     @action("activate", "Activate for processing",
             """Are you sure you want to activate the selected records for batch processing?
 
@@ -709,9 +718,8 @@ to the best of your knowledge, correct!""")
             count = self.model.update(is_active=True).where(
                 self.model.is_active == False,  # noqa: E712
                 self.model.id.in_(ids)).execute()
-            func = getattr(utils, f"process_{self.model.underscore_name()}s")
             for record_id in ids:
-                func.queue(record_id=record_id)
+                self.enqueue_record(record_id)
 
         except Exception as ex:
             flash(f"Failed to activate the selected records: {ex}")
@@ -739,23 +747,21 @@ to the best of your knowledge, correct!""")
                     processed_at=None, status=status).where(self.model.is_active,
                                                             self.model.id.in_(ids)).execute()
 
-                if self.model == FundingRecord:
-                    count = FundingInvitee.update(
-                        processed_at=None, status=status).where(
-                            FundingInvitee.record.in_(ids)).execute()
-                elif self.model == WorkRecord:
-                    count = WorkInvitee.update(
-                        processed_at=None, status=status).where(
-                        WorkInvitee.record.in_(ids)).execute()
-                elif self.model == PeerReviewRecord:
-                    count = PeerReviewInvitee.update(
-                        processed_at=None, status=status).where(
-                        PeerReviewInvitee.record.in_(ids)).execute()
-                elif self.model in [AffiliationRecord, ResearcherUrlRecord, OtherNameRecord, KeywordRecord]:
-                    # Delete the userInvitation token for selected reset items.
-                    for user_invitation in UserInvitation.select().where(UserInvitation.email.in_(
-                            self.model.select(self.model.email).where(self.model.id.in_(ids)))):
-                        user_invitation.delete_instance()
+                if hasattr(self.model, "invitees"):
+                    im = self.model.invitees.rel_model
+                    count += im.update(
+                        processed_at=None, status=status).where(im.record.in_(ids)).execute()
+                    emails = im.select(im.email).where(im.record_id.in_(ids))
+                else:
+                    count += self.model.update(
+                        processed_at=None,
+                        status=status).where(self.model.record.in_(ids)).execute()
+                    emails = self.model.select(self.model.email).where(self.model.id.in_(ids))
+                # Delete the userInvitation token for selected reset items.
+                UserInvitation.delete().where(UserInvitation.email.in_(emails)).execute()
+
+                for record_id in ids:
+                    self.enqueue_record(record_id)
 
             except Exception as ex:
                 db.rollback()
@@ -767,7 +773,9 @@ to the best of your knowledge, correct!""")
                 task.expiry_email_sent_at = None
                 task.completed_at = None
                 task.save()
-                flash(f"{count} {task.task_type.name} records were reset for batch processing.")
+                flash(
+                    f"{count} {task.task_type.name} records were reset and/or updated for batch processing."
+                )
 
     def create_form(self):
         """Prefill form with organisation default values."""
@@ -1814,17 +1822,25 @@ def shorturl(url):
     return url_for("short_url", short_id=u.short_id, _external=True)
 
 
+def enqueue_task_records(task):
+    """Enqueue all active and not yet processed records."""
+    func = getattr(utils, f"process_{task.task_type.name.lower()}_records")
+    for r in task.records.where(task.record_model.is_active, task.record_model.processed_at.is_null()):
+        func.queue(record_id=r.id)
+
+
 @app.route("/activate_all", methods=["POST"])
 @roles_required(Role.SUPERUSER, Role.ADMIN, Role.TECHNICAL)
 def activate_all():
     """Batch registraion of users."""
     _url = request.args.get("url") or request.referrer
-    task_id = request.form.get('task_id')
-    task = Task.get(id=task_id)
+    task_id = request.form.get("task_id")
+    task = Task.get(task_id)
     try:
         count = task.record_model.update(is_active=True).where(
             task.record_model.task_id == task_id,
             task.record_model.is_active == False).execute()  # noqa: E712
+        enqueue_task_records(task)
     except Exception as ex:
         flash(f"Failed to activate the selected records: {ex}")
         app.logger.exception("Failed to activate the selected records")
@@ -1838,8 +1854,8 @@ def activate_all():
 def reset_all():
     """Batch reset of batch records."""
     _url = request.args.get("url") or request.referrer
-    task_id = request.form.get('task_id')
-    task = Task.get(id=task_id)
+    task_id = request.form.get("task_id")
+    task = Task.get(task_id)
     count = 0
     with db.atomic():
         try:
@@ -1854,12 +1870,6 @@ def reset_all():
                         task.record_model.task_id == task_id,
                         task.record_model.is_active == True).execute()  # noqa: E712
 
-                for user_invitation in UserInvitation.select().where(UserInvitation.task == task):
-                    try:
-                        user_invitation.delete_instance()
-                    except UserInvitation.DoesNotExist:
-                        pass
-
             else:
                 for record in task.records.where(
                         task.record_model.is_active == True):  # noqa: E712
@@ -1872,6 +1882,9 @@ def reset_all():
                         status=status).where(invitee_class.record == record.id).execute()
                     record.save()
                     count = count + 1
+
+            UserInvitation.delete().where(UserInvitation.task == task).execute()
+            enqueue_task_records(task)
 
         except Exception as ex:
             db.rollback()

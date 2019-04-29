@@ -1394,6 +1394,12 @@ class RecordModel(BaseModel):
         s1 = re.sub('(.)([A-Z][a-z]+)', r'\1_\2', cls.__name__)
         return re.sub('([a-z0-9])([A-Z])', r'\1_\2', s1).lower()
 
+    @property
+    def invitee_model(self):
+        """Get invitee model class."""
+        if hasattr(self, "invitees"):
+            return self.invitees.model_class
+
     def to_export_dict(self):
         """Map the common record parts to dict for export into JSON/YAML."""
         org = self.task.org

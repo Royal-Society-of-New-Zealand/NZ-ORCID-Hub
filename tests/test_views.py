@@ -15,11 +15,10 @@ from urllib.parse import parse_qs, quote, urlparse
 
 import pytest
 import yaml
-from flask import make_response, request, session
+from flask import make_response, session
 from flask_login import login_user
 from peewee import SqliteDatabase
 from playhouse.test_utils import test_database
-from werkzeug.datastructures import ImmutableMultiDict
 
 from orcid_api.rest import ApiException
 from orcid_hub import orcid_client, rq, utils, views
@@ -978,9 +977,9 @@ def test_shorturl(request_ctx):
         assert "http://" in resp
 
 
-def test_activate_all(request_ctx):
+def test_activate_all(client):
     """Test batch registraion of users."""
-    org = request_ctx.data["org"]
+    org = client.data["org"]
     user = User.create(
         email="test123@test.test.net",
         name="TEST USER",
@@ -998,28 +997,40 @@ def test_activate_all(request_ctx):
         created_by=user,
         updated_by=user,
         task_type=TaskType.AFFILIATION)
+    AffiliationRecord.create(
+        first_name="F",
+        last_name="L",
+        email="test123_activate_all@test.edu",
+        affiliation_type="staff",
+        task=task1)
+    AffiliationRecord.create(
+        first_name="F",
+        last_name="L",
+        email="test456_activate_all@test.edu",
+        affiliation_type="student",
+        task=task1)
+
     task2 = Task.create(
         org=org,
         completed_at="12/12/12",
         filename="xyz.txt",
         created_by=user,
         updated_by=user,
-        task_type=1)
+        task_type=TaskType.FUNDING)
 
-    with request_ctx("/activate_all", method="POST") as ctxx:
-        login_user(user, remember=True)
-        request.args = ImmutableMultiDict([('url', 'http://localhost/affiliation_record_activate_for_batch')])
-        request.form = ImmutableMultiDict([('task_id', task1.id)])
-        resp = ctxx.app.full_dispatch_request()
-        assert resp.status_code == 302
-        assert resp.location.startswith("http://localhost/affiliation_record_activate_for_batch")
-    with request_ctx("/activate_all", method="POST") as ctxx:
-        login_user(user, remember=True)
-        request.args = ImmutableMultiDict([('url', 'http://localhost/funding_record_activate_for_batch')])
-        request.form = ImmutableMultiDict([('task_id', task2.id)])
-        resp = ctxx.app.full_dispatch_request()
-        assert resp.status_code == 302
-        assert resp.location.startswith("http://localhost/funding_record_activate_for_batch")
+    client.login(user)
+    resp = client.post(
+        "/activate_all/?url=http://localhost/affiliation_record_activate_for_batch",
+        data=dict(task_id=task1.id))
+    assert resp.status_code == 302
+    assert resp.location.endswith("http://localhost/affiliation_record_activate_for_batch")
+    assert UserInvitation.select().count() == 2
+
+    resp = client.post(
+        "/activate_all/?url=http://localhost/funding_record_activate_for_batch",
+        data=dict(task_id=task2.id))
+    assert resp.status_code == 302
+    assert resp.location.endswith("http://localhost/funding_record_activate_for_batch")
 
 
 def test_logo(request_ctx):
