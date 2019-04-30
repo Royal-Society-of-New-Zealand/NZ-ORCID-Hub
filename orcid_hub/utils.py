@@ -1219,7 +1219,7 @@ def process_work_records(max_rows=20, record_id=None):
                      & (OrcidToken.org_id == Organisation.id)
                      & (OrcidToken.scope.contains("/activities/update")))).limit(max_rows))
     if record_id:
-        tasks.where(WorkRecord.id == record_id)
+        tasks = tasks.where(WorkRecord.id == record_id)
 
     for (task_id, org_id, record_id, user), tasks_by_user in groupby(tasks, lambda t: (
             t.id,
@@ -1349,7 +1349,7 @@ def process_peer_review_records(max_rows=20, record_id=None):
                              & (OrcidToken.org_id == Organisation.id)
                              & (OrcidToken.scope.contains("/activities/update")))).limit(max_rows))
     if record_id:
-        tasks.where(PeerReviewRecord.id == record_id)
+        tasks = tasks.where(PeerReviewRecord.id == record_id)
 
     for (task_id, org_id, record_id, user), tasks_by_user in groupby(tasks, lambda t: (
             t.id,
@@ -1482,7 +1482,7 @@ def process_funding_records(max_rows=20, record_id=None):
                              & (OrcidToken.org_id == Organisation.id)
                              & (OrcidToken.scope.contains("/activities/update")))).limit(max_rows))
     if record_id:
-        tasks.where(FundingRecord.id == record_id)
+        tasks = tasks.where(FundingRecord.id == record_id)
 
     for (task_id, org_id, record_id, user), tasks_by_user in groupby(tasks, lambda t: (
             t.id,
@@ -1611,7 +1611,7 @@ def process_affiliation_records(max_rows=20, record_id=None):
                              & (OrcidToken.org_id == Organisation.id)
                              & (OrcidToken.scope.contains("/activities/update")))).limit(max_rows))
     if record_id:
-        tasks.where(AffiliationRecord.id == record_id)
+        tasks = tasks.where(AffiliationRecord.id == record_id)
     for (task_id, org_id, user), tasks_by_user in groupby(tasks, lambda t: (
             t.id,
             t.org_id,
@@ -1729,7 +1729,7 @@ def process_researcher_url_records(max_rows=20, record_id=None):
                              & (OrcidToken.org_id == Organisation.id)
                              & (OrcidToken.scope.contains("/person/update")))).limit(max_rows))
     if record_id:
-        tasks.where(ResearcherUrlRecord.id == record_id)
+        tasks = tasks.where(ResearcherUrlRecord.id == record_id)
     for (task_id, org_id, user), tasks_by_user in groupby(tasks, lambda t: (
             t.id,
             t.org_id,
@@ -1832,7 +1832,7 @@ def process_other_name_records(max_rows=20, record_id=None):
                              & (OrcidToken.org_id == Organisation.id)
                              & (OrcidToken.scope.contains("/person/update")))).limit(max_rows))
     if record_id:
-        tasks.where(OtherNameRecord.id == record_id)
+        tasks = tasks.where(OtherNameRecord.id == record_id)
     for (task_id, org_id, user), tasks_by_user in groupby(tasks, lambda t: (
             t.id,
             t.org_id,
@@ -1935,7 +1935,7 @@ def process_keyword_records(max_rows=20, record_id=None):
                              & (OrcidToken.org_id == Organisation.id)
                              & (OrcidToken.scope.contains("/person/update")))).limit(max_rows))
     if record_id:
-        tasks.where(KeywordRecord.id == record_id)
+        tasks = tasks.where(KeywordRecord.id == record_id)
     for (task_id, org_id, user), tasks_by_user in groupby(tasks, lambda t: (
             t.id,
             t.org_id,

@@ -1450,7 +1450,7 @@ Rad,Cirskis,researcher.990@mailinator.com,Student
     assert b"affiliations.csv" in resp.data
 
     # Add a new record:
-    url = quote(f"/url/?task_id={task_id}", safe='')
+    url = quote(f"/admin/affiliationrecord/?task_id={task_id}", safe='')
     resp = client.post(
         f"/admin/affiliationrecord/new/?url={url}",
         follow_redirects=True,
@@ -1483,10 +1483,52 @@ Rad,Cirskis,researcher.990@mailinator.com,Student
                                             AffiliationRecord.is_active).count() == 1
     assert UserInvitation.select().count() == 1
 
+    resp = client.post(
+        f"/admin/affiliationrecord/new/?url={url}",
+        follow_redirects=True,
+        data={
+            "first_name": "TEST FN",
+            "last_name": "TEST LN",
+            "email": "testABC1@test.test.test.org",
+            "affiliation_type": "student",
+            "is_active": 'y',
+        })
+
+    rec = Task.get(task_id).records.order_by(AffiliationRecord.id.desc()).first()
+    assert rec.is_active
+    assert UserInvitation.select().count() == 2
+
+    resp = client.post(
+        f"/admin/affiliationrecord/new/?url={url}",
+        follow_redirects=True,
+        data={
+            "first_name": "TEST1 FN",
+            "last_name": "TEST LN",
+            "email": "testABC2@test.test.test.org",
+            "affiliation_type": "student",
+        })
+    rec = Task.get(task_id).records.order_by(AffiliationRecord.id.desc()).first()
+    assert not rec.is_active
+    assert UserInvitation.select().count() == 2
+
+    resp = client.post(
+        f"/admin/affiliationrecord/edit/?id={rec.id}&url={url}",
+        follow_redirects=True,
+        data={
+            "first_name": "TEST2 FN",
+            "last_name": "TEST LN",
+            "email": "testABC2@test.test.test.org",
+            "affiliation_type": "student",
+            "is_active": 'y',
+        })
+    rec = AffiliationRecord.get(rec.id)
+    assert rec.is_active
+    assert UserInvitation.select().count() == 3
+
     # Activate all:
     resp = client.post("/activate_all", follow_redirects=True, data=dict(task_id=task_id))
     assert AffiliationRecord.select().where(AffiliationRecord.task_id == task_id,
-                                            AffiliationRecord.is_active).count() == 5
+                                            AffiliationRecord.is_active).count() == 7
 
     # Reste a single record
     AffiliationRecord.update(processed_at=datetime.datetime(2018, 1, 1)).execute()
@@ -1504,7 +1546,7 @@ Rad,Cirskis,researcher.990@mailinator.com,Student
     # Reset all:
     resp = client.post("/reset_all", follow_redirects=True, data=dict(task_id=task_id))
     assert AffiliationRecord.select().where(AffiliationRecord.task_id == task_id,
-                                            AffiliationRecord.processed_at.is_null()).count() == 5
+                                            AffiliationRecord.processed_at.is_null()).count() == 7
 
     # Exporting:
     for export_type in ["csv", "xls", "tsv", "yaml", "json", "xlsx", "ods", "html"]:

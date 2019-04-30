@@ -838,15 +838,18 @@ to the best of your knowledge, correct!""")
             return False
         else:
             self.after_model_change(form, model, True)
+        if model.is_active:
+            self.enqueue_record(model.id)
 
         return model
 
     def update_model(self, form, model):
         """Handle change of the record. Enqueue the record if got activated."""
         is_active = model.is_active
-        return super().update_model(form, model)
-        if not is_active and model.is_active:
+        update_resp = super().update_model(form, model)
+        if update_resp and not is_active and model.is_active:
             self.enqueue_record(model.id)
+        return update_resp
 
 
 class RecordChildAdmin(AppModelView):
