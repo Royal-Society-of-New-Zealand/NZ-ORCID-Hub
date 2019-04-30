@@ -15,14 +15,13 @@ from urllib.parse import parse_qs, quote, urlparse
 
 import pytest
 import yaml
-from flask import make_response, request, session
+from flask import make_response, session
 from flask_login import login_user
 from peewee import SqliteDatabase
 from playhouse.test_utils import test_database
-from werkzeug.datastructures import ImmutableMultiDict
 
 from orcid_api.rest import ApiException
-from orcid_hub import app, orcid_client, rq, utils, views
+from orcid_hub import orcid_client, rq, utils, views
 from orcid_hub.config import ORCID_BASE_URL
 from orcid_hub.forms import FileUploadForm
 from orcid_hub.models import (Affiliation, AffiliationRecord, Client, File, FundingContributor,
@@ -256,7 +255,7 @@ def test_superuser_view_access(client):
 
 def test_pyinfo(client, mocker):
     """Test /pyinfo."""
-    app.config["PYINFO_TEST_42"] = "Life, the Universe and Everything"
+    client.application.config["PYINFO_TEST_42"] = "Life, the Universe and Everything"
     client.login_root()
     resp = client.get("/pyinfo")
     assert b"PYINFO_TEST_42" in resp.data
@@ -484,7 +483,7 @@ def test_status(client):
 
 def test_application_registration(client):
     """Test application registration."""
-    org = app.data["org"]
+    org = client.data["org"]
     user = User.create(
         email="test123456@test.test.net",
         name="TEST USER",
@@ -935,13 +934,7 @@ def test_favicon(request_ctx):
         assert resp.mimetype == "image/vnd.microsoft.icon"
 
 
-def send_mail_mock(*argvs, **kwargs):
-    """Mock email invitation."""
-    app.logger.info(f"***\nActually email invitation was mocked, so no email sent!!!!!")
-    return True
-
-
-@patch("orcid_hub.utils.send_email", side_effect=send_mail_mock)
+@patch("orcid_hub.utils.send_email")
 def test_action_invite(patch, request_ctx):
     """Test handle nonexistin pages."""
     org = request_ctx.data["org"]
@@ -984,9 +977,9 @@ def test_shorturl(request_ctx):
         assert "http://" in resp
 
 
-def test_activate_all(request_ctx):
+def test_activate_all(client):
     """Test batch registraion of users."""
-    org = request_ctx.data["org"]
+    org = client.data["org"]
     user = User.create(
         email="test123@test.test.net",
         name="TEST USER",
@@ -1004,28 +997,40 @@ def test_activate_all(request_ctx):
         created_by=user,
         updated_by=user,
         task_type=TaskType.AFFILIATION)
+    AffiliationRecord.create(
+        first_name="F",
+        last_name="L",
+        email="test123_activate_all@test.edu",
+        affiliation_type="staff",
+        task=task1)
+    AffiliationRecord.create(
+        first_name="F",
+        last_name="L",
+        email="test456_activate_all@test.edu",
+        affiliation_type="student",
+        task=task1)
+
     task2 = Task.create(
         org=org,
         completed_at="12/12/12",
         filename="xyz.txt",
         created_by=user,
         updated_by=user,
-        task_type=1)
+        task_type=TaskType.FUNDING)
 
-    with request_ctx("/activate_all", method="POST") as ctxx:
-        login_user(user, remember=True)
-        request.args = ImmutableMultiDict([('url', 'http://localhost/affiliation_record_activate_for_batch')])
-        request.form = ImmutableMultiDict([('task_id', task1.id)])
-        resp = ctxx.app.full_dispatch_request()
-        assert resp.status_code == 302
-        assert resp.location.startswith("http://localhost/affiliation_record_activate_for_batch")
-    with request_ctx("/activate_all", method="POST") as ctxx:
-        login_user(user, remember=True)
-        request.args = ImmutableMultiDict([('url', 'http://localhost/funding_record_activate_for_batch')])
-        request.form = ImmutableMultiDict([('task_id', task2.id)])
-        resp = ctxx.app.full_dispatch_request()
-        assert resp.status_code == 302
-        assert resp.location.startswith("http://localhost/funding_record_activate_for_batch")
+    client.login(user)
+    resp = client.post(
+        "/activate_all/?url=http://localhost/affiliation_record_activate_for_batch",
+        data=dict(task_id=task1.id))
+    assert resp.status_code == 302
+    assert resp.location.endswith("http://localhost/affiliation_record_activate_for_batch")
+    assert UserInvitation.select().count() == 2
+
+    resp = client.post(
+        "/activate_all/?url=http://localhost/funding_record_activate_for_batch",
+        data=dict(task_id=task2.id))
+    assert resp.status_code == 302
+    assert resp.location.endswith("http://localhost/funding_record_activate_for_batch")
 
 
 def test_logo(request_ctx):
@@ -1051,7 +1056,7 @@ def test_logo(request_ctx):
         assert resp.location.endswith("images/banner-small.png")
 
 
-@patch("orcid_hub.utils.send_email", side_effect=send_mail_mock)
+@patch("orcid_hub.utils.send_email")
 def test_manage_email_template(patch, request_ctx):
     """Test manage organisation invitation email template."""
     org = request_ctx.data["org"]
@@ -1108,37 +1113,41 @@ def test_manage_email_template(patch, request_ctx):
         assert b"<!DOCTYPE html>" in resp.data, "Expected HTML content"
 
 
-def send_mail_mock(*argvs, **kwargs):
-    """Mock email invitation."""
-    logger.info(f"***\nActually email invitation was mocked, so no email sent!!!!!")
-    return True
-
-
-def test_invite_user(request_ctx):
+def test_invite_user(client):
     """Test invite a researcher to join the hub."""
     org = Organisation.get(name="TEST0")
     admin = User.get(email="admin@test0.edu")
     user = User.create(
-        email="test123@test.test.net",
-        name="TEST USER",
-        confirmed=True,
-        organisation=org)
+        email="test123@test.test.net", name="TEST USER", confirmed=True, organisation=org)
     UserOrg.create(user=user, org=org, affiliations=Affiliation.EMP)
     UserInvitation.create(
-        invitee=user,
-        inviter=admin,
-        org=org,
-        email="test1234456@mailinator.com",
-        token="xyztoken")
-    with request_ctx("/invite/user") as ctx:
-        login_user(admin, remember=True)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 200
-        assert b"<!DOCTYPE html>" in resp.data, "Expected HTML content"
-        assert org.name.encode() in resp.data
-    with request_ctx(
+        invitee=user, inviter=admin, org=org, email="test1234456@mailinator.com", token="xyztoken")
+    resp = client.login(admin)
+    resp = client.get("/invite/user")
+    assert resp.status_code == 200
+    assert b"<!DOCTYPE html>" in resp.data, "Expected HTML content"
+    assert org.name.encode() in resp.data
+
+    resp = client.post(
+        "/invite/user",
+        data={
+            "name": "TEST APP",
+            "is_employee": "false",
+            "email_address": "test123abc@test.test.net",
+            "resend": "enable",
+            "is_student": "true",
+            "first_name": "test fn",
+            "last_name": "test ln",
+            "city": "test"
+        })
+    assert resp.status_code == 200
+    assert b"<!DOCTYPE html>" in resp.data, "Expected HTML content"
+    assert b"test123abc@test.test.net" in resp.data
+    assert UserInvitation.select().count() == 2
+
+    with patch("orcid_hub.views.send_user_invitation.queue") as queue_send_user_invitation:
+        resp = client.post(
             "/invite/user",
-            method="POST",
             data={
                 "name": "TEST APP",
                 "is_employee": "false",
@@ -1148,31 +1157,33 @@ def test_invite_user(request_ctx):
                 "first_name": "test",
                 "last_name": "test",
                 "city": "test"
-            }) as ctx, patch("orcid_hub.views.send_user_invitation.queue") as queue_send_user_invitation:
-        login_user(admin, remember=True)
-        resp = ctx.app.full_dispatch_request()
+            })
         assert resp.status_code == 200
         assert b"<!DOCTYPE html>" in resp.data, "Expected HTML content"
         assert b"test123@test.test.net" in resp.data
         queue_send_user_invitation.assert_called_once()
+
     with patch("orcid_hub.orcid_client.MemberAPI") as m, patch(
-        "orcid_hub.orcid_client.SourceClientId"), request_ctx(
-        "/invite/user",
-        method="POST",
-        data={
-            "name": "TEST APP",
-            "is_employee": "false",
-            "email_address": "test123@test.test.net",
-            "resend": "enable",
-            "is_student": "true",
-            "first_name": "test",
-            "last_name": "test",
-            "city": "test"}) as ctx:
-        login_user(admin, remember=True)
-        OrcidToken.create(access_token="ACCESS123", user=user, org=org, scope="/read-limited,/activities/update",
-                          expires_in='121')
+            "orcid_hub.orcid_client.SourceClientId"):
+        OrcidToken.create(
+            access_token="ACCESS123",
+            user=user,
+            org=org,
+            scope="/read-limited,/activities/update",
+            expires_in='121')
         api_mock = m.return_value
-        resp = ctx.app.full_dispatch_request()
+        resp = client.post(
+            "/invite/user",
+            data={
+                "name": "TEST APP",
+                "is_employee": "false",
+                "email_address": "test123@test.test.net",
+                "resend": "enable",
+                "is_student": "true",
+                "first_name": "test",
+                "last_name": "test",
+                "city": "test"
+            })
         assert resp.status_code == 200
         assert b"<!DOCTYPE html>" in resp.data, "Expected HTML content"
         assert b"test123@test.test.net" in resp.data
@@ -1181,7 +1192,7 @@ def test_invite_user(request_ctx):
 
 def test_researcher_invitation(client, mocker):
     """Test full researcher invitation flow."""
-    exception = mocker.patch.object(app.logger, "exception")
+    exception = mocker.patch.object(client.application.logger, "exception")
     mocker.patch("sentry_sdk.transport.HttpTransport.capture_event")
     mocker.patch(
         "orcid_hub.views.send_user_invitation.queue",
@@ -1292,7 +1303,7 @@ def test_email_template(app, request_ctx):
         assert org.email_template_enabled
         assert "TEST TEMPLATE TO SAVE {MESSAGE} {INCLUDED_URL}" in org.email_template
 
-    with patch("emails.message.Message") as msg_cls, request_ctx(
+    with patch("emails.html") as html, request_ctx(
             "/settings/email_template",
             method="POST",
             data={
@@ -1305,8 +1316,8 @@ def test_email_template(app, request_ctx):
         assert resp.status_code == 200
         org.reload()
         assert org.email_template_enabled
-        msg_cls.assert_called_once()
-        _, kwargs = msg_cls.call_args
+        html.assert_called_once()
+        _, kwargs = html.call_args
         assert kwargs["subject"] == "TEST EMAIL"
         assert kwargs["mail_from"] == (
             "NZ ORCID HUB",
@@ -1439,7 +1450,7 @@ Rad,Cirskis,researcher.990@mailinator.com,Student
     assert b"affiliations.csv" in resp.data
 
     # Add a new record:
-    url = quote(f"/url/?task_id={task_id}", safe='')
+    url = quote(f"/admin/affiliationrecord/?task_id={task_id}", safe='')
     resp = client.post(
         f"/admin/affiliationrecord/new/?url={url}",
         follow_redirects=True,
@@ -1470,11 +1481,54 @@ Rad,Cirskis,researcher.990@mailinator.com,Student
         })
     assert AffiliationRecord.select().where(AffiliationRecord.task_id == task_id,
                                             AffiliationRecord.is_active).count() == 1
+    assert UserInvitation.select().count() == 1
+
+    resp = client.post(
+        f"/admin/affiliationrecord/new/?url={url}",
+        follow_redirects=True,
+        data={
+            "first_name": "TEST FN",
+            "last_name": "TEST LN",
+            "email": "testABC1@test.test.test.org",
+            "affiliation_type": "student",
+            "is_active": 'y',
+        })
+
+    rec = Task.get(task_id).records.order_by(AffiliationRecord.id.desc()).first()
+    assert rec.is_active
+    assert UserInvitation.select().count() == 2
+
+    resp = client.post(
+        f"/admin/affiliationrecord/new/?url={url}",
+        follow_redirects=True,
+        data={
+            "first_name": "TEST1 FN",
+            "last_name": "TEST LN",
+            "email": "testABC2@test.test.test.org",
+            "affiliation_type": "student",
+        })
+    rec = Task.get(task_id).records.order_by(AffiliationRecord.id.desc()).first()
+    assert not rec.is_active
+    assert UserInvitation.select().count() == 2
+
+    resp = client.post(
+        f"/admin/affiliationrecord/edit/?id={rec.id}&url={url}",
+        follow_redirects=True,
+        data={
+            "first_name": "TEST2 FN",
+            "last_name": "TEST LN",
+            "email": "testABC2@test.test.test.org",
+            "affiliation_type": "student",
+            "is_active": 'y',
+        })
+    rec = AffiliationRecord.get(rec.id)
+    assert rec.is_active
+    assert UserInvitation.select().count() == 3
 
     # Activate all:
     resp = client.post("/activate_all", follow_redirects=True, data=dict(task_id=task_id))
     assert AffiliationRecord.select().where(AffiliationRecord.task_id == task_id,
-                                            AffiliationRecord.is_active).count() == 5
+                                            AffiliationRecord.is_active).count() == 7
 
     # Reste a single record
     AffiliationRecord.update(processed_at=datetime.datetime(2018, 1, 1)).execute()
@@ -1492,7 +1546,7 @@ Rad,Cirskis,researcher.990@mailinator.com,Student
     # Reset all:
     resp = client.post("/reset_all", follow_redirects=True, data=dict(task_id=task_id))
     assert AffiliationRecord.select().where(AffiliationRecord.task_id == task_id,
-                                            AffiliationRecord.processed_at.is_null()).count() == 5
+                                            AffiliationRecord.processed_at.is_null()).count() == 7
 
     # Exporting:
     for export_type in ["csv", "xls", "tsv", "yaml", "json", "xlsx", "ods", "html"]:
@@ -1553,7 +1607,7 @@ Rad,Cirskis,researcher.990@mailinator.com,Student
             })
         assert resp.status_code == 302
         assert Task.select().count() == task_count + 1
-        assert Task.select().order_by(Task.id.desc()).first().records.count() == 5
+        assert Task.select().order_by(Task.id.desc()).first().records.count() == 7
 
     # Delete records:
     resp = client.post(
@@ -1564,7 +1618,7 @@ Rad,Cirskis,researcher.990@mailinator.com,Student
             "action": "delete",
             "rowid": rec_id,
         })
-    assert AffiliationRecord.select().where(AffiliationRecord.task_id == task_id).count() == 4
+    assert AffiliationRecord.select().where(AffiliationRecord.task_id == task_id).count() == 6
 
     # Delete more records:
     resp = client.post(
@@ -1575,7 +1629,7 @@ Rad,Cirskis,researcher.990@mailinator.com,Student
             "action": "delete",
             "rowid": [ar.id for ar in records[1:-1]],
         })
-    assert AffiliationRecord.select().where(AffiliationRecord.task_id == task_id).count() == 2
+    assert AffiliationRecord.select().where(AffiliationRecord.task_id == task_id).count() == 4
 
     resp = client.post(
         "/admin/task/delete/", data=dict(id=task_id, url="/admin/task/"), follow_redirects=True)
@@ -1586,7 +1640,7 @@ Rad,Cirskis,researcher.990@mailinator.com,Student
 
 def test_invite_organisation(client, mocker):
     """Test invite an organisation to register."""
-    exception = mocker.patch.object(app.logger, "exception")
+    exception = mocker.patch.object(client.application.logger, "exception")
     html = mocker.patch(
         "emails.html", return_value=Mock(send=lambda *args, **kwargs: Mock(success=False)))
     org = Organisation.get(name="TEST0")
@@ -2988,6 +3042,7 @@ THIS IS A TITLE #4	 नमस्ते #2	hi	CONTRACT	MY TYPE	Minerals unde.	900
         })
     assert FundingRecord.select().where(FundingRecord.task_id == task.id,
                                         FundingRecord.processed_at.is_null()).count() == 1
+    assert UserInvitation.select().count() == 1
 
     resp = client.post(
         "/admin/task/delete/",
@@ -3111,6 +3166,15 @@ THIS IS A TITLE, नमस्ते,hi,  CONTRACT,MY TYPE,Minerals unde.,300000,
     assert fr.contributors.count() == 0
     assert fr.external_ids.count() == 1
     assert fr.invitees.count() == 2
+
+    resp = client.post("/activate_all", follow_redirects=True, data=dict(task_id=task.id))
+    UserInvitation.select().where(UserInvitation.task_id == task.id).count() == 2
+
+    FundingRecord.update(processed_at="1/1/2019").where(FundingRecord.task_id == task.id).execute()
+    resp = client.post("/rest_all", follow_redirects=True, data=dict(task_id=task.id))
+    UserInvitation.select().where(UserInvitation.task_id == task.id).count() == 2
+    FundingRecord.select().where(FundingRecord.task_id == task.id,
+                                 FundingRecord.processed_at.is_null()).execute()
 
     resp = client.get(f"/admin/fundingrecord/export/tsv/?task_id={task.id}")
     assert resp.headers["Content-Type"] == "text/tsv; charset=utf-8"
