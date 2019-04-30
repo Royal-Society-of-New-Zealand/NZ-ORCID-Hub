@@ -841,6 +841,13 @@ to the best of your knowledge, correct!""")
 
         return model
 
+    def update_model(self, form, model):
+        """Handle change of the record. Enqueue the record if got activated."""
+        is_active = model.is_active
+        return super().update_model(form, model)
+        if not is_active and model.is_active:
+            self.enqueue_record(model.id)
+
 
 class RecordChildAdmin(AppModelView):
     """Batch processing record child model common bits."""

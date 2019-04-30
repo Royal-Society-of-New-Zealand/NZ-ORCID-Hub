@@ -1481,6 +1481,7 @@ Rad,Cirskis,researcher.990@mailinator.com,Student
         })
     assert AffiliationRecord.select().where(AffiliationRecord.task_id == task_id,
                                             AffiliationRecord.is_active).count() == 1
+    assert UserInvitation.select().count() == 1
 
     # Activate all:
     resp = client.post("/activate_all", follow_redirects=True, data=dict(task_id=task_id))
