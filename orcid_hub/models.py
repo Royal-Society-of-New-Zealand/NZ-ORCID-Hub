@@ -41,7 +41,7 @@ DEFAULT_COUNTRY = app.config["DEFAULT_COUNTRY"]
 SCHEMA_DIR = os.path.normpath(os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "schemas"))
 
 ORCID_ID_REGEX = re.compile(r"^([X\d]{4}-?){3}[X\d]{4}$")
-PARTIAL_DATE_REGEX = re.compile(r"\d+([/\-]\d+){,2}")
+PARTIAL_DATE_REGEX = re.compile(r"\d+([/\-\.]\d+){,2}")
 
 
 AFFILIATION_TYPES = ["student", "education", "staff", "employment"]
@@ -192,9 +192,11 @@ class PartialDate(namedtuple("PartialDate", ["year", "month", "day"])):
             if not match:
                 raise ModelException(f"Wrong partial date value '{value}'")
             value0 = match[0]
-            if '/' in value0:
-                parts = value0.split('/')
-                return cls(*[int(v) for v in (parts[::-1] if len(parts[-1]) > 2 else parts)])
+            for sep in ['/', '.']:
+                if sep in value0:
+                    parts = value0.split(sep)
+                    return cls(*[int(v) for v in (parts[::-1] if len(parts[-1]) > 2 else parts)])
+
             return cls(*[int(v) for v in value0.split('-')])
 
         return cls(**{k: int(v.get("value")) if v else None for k, v in value.items()})
@@ -1387,6 +1389,18 @@ class RecordModel(BaseModel):
     def get_field_regxes(cls):
         """Return map of compiled field name regex to the model fields."""
         return {f: re.compile(e, re.I) for (f, e) in cls._field_regex_map}
+
+    @classmethod
+    def underscore_name(cls):
+        """Get the class underscore name of the model."""
+        s1 = re.sub('(.)([A-Z][a-z]+)', r'\1_\2', cls.__name__)
+        return re.sub('([a-z0-9])([A-Z])', r'\1_\2', s1).lower()
+
+    @property
+    def invitee_model(self):
+        """Get invitee model class."""
+        if hasattr(self, "invitees"):
+            return self.invitees.model_class
 
     def to_export_dict(self):
         """Map the common record parts to dict for export into JSON/YAML."""

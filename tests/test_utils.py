@@ -926,8 +926,8 @@ def test_send_email(app):
     app.config["SERVER_NAME"] = "abc.orcidhub.org.nz"
     with app.app_context():
 
-        with patch("emails.message.Message") as msg_cls, patch("flask.current_app.jinja_env"):
-            msg = msg_cls.return_value = Mock()
+        with patch("emails.html") as html, patch("flask.current_app.jinja_env"):
+            msg = html.return_value = Mock()
             app.config["SERVER_NAME"] = "abc.orcidhub.org.nz"
             utils.send_email(
                 "template.html", (
@@ -935,7 +935,7 @@ def test_send_email(app):
                     "test123@test0.edu",
                 ), subject="TEST")
 
-            msg_cls.assert_called_once()
+            html.assert_called_once()
             msg.send.assert_called_once()
 
             msg.reset_mock()
@@ -989,7 +989,7 @@ def test_send_email(app):
                 subject="TEST WITH BASE AND LOGO",
                 org=org)
             msg.send.assert_called_once()
-            _, kwargs = msg_cls.call_args
+            _, kwargs = html.call_args
             assert kwargs["subject"] == "TEST WITH BASE AND LOGO"
             assert kwargs["mail_from"] == (
                 "NZ ORCID HUB",
@@ -1016,7 +1016,7 @@ def test_send_email(app):
                 subject="TEST WITH ORG BASE AND LOGO",
                 org=org)
             msg.send.assert_called_once()
-            _, kwargs = msg_cls.call_args
+            _, kwargs = html.call_args
             assert kwargs["subject"] == "TEST WITH ORG BASE AND LOGO"
             assert kwargs["mail_from"] == (
                 "NZ ORCID HUB",

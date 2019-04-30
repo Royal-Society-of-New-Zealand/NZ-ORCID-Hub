@@ -160,7 +160,7 @@ def test_webhook_registration(client):
             f"/api/v1.0/{orcid_id}/webhook/http%3A%2F%2FCALL-BACK",
             headers=dict(authorization=f"Bearer {token.access_token}"))
         assert resp.status_code == 204
-        assert urlparse(resp.location).path == "/TEST-LOCATION"
+        assert urlparse(resp.location).path == f"/api/v1.0/{orcid_id}/webhook/http://TEST-LOCATION"
 
         args, kwargs = mockput.call_args
         assert args[

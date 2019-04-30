@@ -131,6 +131,10 @@ DKIM_KEY_PATH = path.join(getcwd(), ".keys", "dkim.key")
 # RQ:
 RQ_REDIS_URL = getenv("RQ_REDIS_URL")
 RQ_QUEUE_CLASS = "orcid_hub.queuing.ThrottledQueue"
+RQ_CONNECTION_CLASS = getenv("RQ_CONNECTION_CLASS", "redis.StrictRedis")
+RQ_ASYNC = getenv("RQ_ASYNC", True)
+if isinstance(RQ_ASYNC, str):
+    RQ_ASYNC = RQ_ASYNC.lower() in ["true", "1", "yes", "on"]
 
 # rq-dashboard config:
 RQ_POLL_INTERVAL = 5000  #: Web interface poll period for updates in ms
