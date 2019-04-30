@@ -1303,7 +1303,7 @@ def test_email_template(app, request_ctx):
         assert org.email_template_enabled
         assert "TEST TEMPLATE TO SAVE {MESSAGE} {INCLUDED_URL}" in org.email_template
 
-    with patch("emails.message.Message") as msg_cls, request_ctx(
+    with patch("emails.html") as html, request_ctx(
             "/settings/email_template",
             method="POST",
             data={
@@ -1316,8 +1316,8 @@ def test_email_template(app, request_ctx):
         assert resp.status_code == 200
         org.reload()
         assert org.email_template_enabled
-        msg_cls.assert_called_once()
-        _, kwargs = msg_cls.call_args
+        html.assert_called_once()
+        _, kwargs = html.call_args
         assert kwargs["subject"] == "TEST EMAIL"
         assert kwargs["mail_from"] == (
             "NZ ORCID HUB",
