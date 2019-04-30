@@ -1618,7 +1618,7 @@ Rad,Cirskis,researcher.990@mailinator.com,Student
             "action": "delete",
             "rowid": rec_id,
         })
-    assert AffiliationRecord.select().where(AffiliationRecord.task_id == task_id).count() == 4
+    assert AffiliationRecord.select().where(AffiliationRecord.task_id == task_id).count() == 6
 
     # Delete more records:
     resp = client.post(
@@ -1629,7 +1629,7 @@ Rad,Cirskis,researcher.990@mailinator.com,Student
             "action": "delete",
             "rowid": [ar.id for ar in records[1:-1]],
         })
-    assert AffiliationRecord.select().where(AffiliationRecord.task_id == task_id).count() == 2
+    assert AffiliationRecord.select().where(AffiliationRecord.task_id == task_id).count() == 4
 
     resp = client.post(
         "/admin/task/delete/", data=dict(id=task_id, url="/admin/task/"), follow_redirects=True)
