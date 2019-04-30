@@ -1607,7 +1607,7 @@ Rad,Cirskis,researcher.990@mailinator.com,Student
             })
         assert resp.status_code == 302
         assert Task.select().count() == task_count + 1
-        assert Task.select().order_by(Task.id.desc()).first().records.count() == 5
+        assert Task.select().order_by(Task.id.desc()).first().records.count() == 7
 
     # Delete records:
     resp = client.post(
