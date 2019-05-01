@@ -29,10 +29,10 @@ from yaml.representer import SafeRepresenter
 
 from . import app, orcid_client, rq
 from .models import (AFFILIATION_TYPES, Affiliation, AffiliationRecord, Delegate, FundingInvitee,
-                     FundingRecord, KeywordRecord, Log, OtherNameRecord, OrcidToken, Organisation, OrgInvitation,
-                     PartialDate, PeerReviewExternalId, PeerReviewInvitee, PeerReviewRecord,
-                     ResearcherUrlRecord, Role, Task, TaskType, User, UserInvitation, UserOrg,
-                     WorkInvitee, WorkRecord, get_val)
+                     FundingRecord, KeywordRecord, Log, OtherNameRecord, OrcidToken, Organisation,
+                     OrgInvitation, PartialDate, PeerReviewExternalId, PeerReviewInvitee,
+                     PeerReviewRecord, ResearcherUrlRecord, Role, Task, User, UserInvitation,
+                     UserOrg, WorkInvitee, WorkRecord, get_val)
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -2032,34 +2032,6 @@ def process_tasks(max_rows=20):
 
         task.expires_at = max_expiry_date
         task.save()
-
-    for current_task in Task.select():
-        total_count = 0
-        current_count = 0
-
-        task_type = TaskType(current_task.task_type)
-        if task_type == TaskType.AFFILIATION:
-            total_count = current_task.affiliation_records.select().distinct().count()
-            current_count = current_task.affiliation_records.select().where(
-                AffiliationRecord.processed_at.is_null(False)).distinct().count()
-        elif task_type == TaskType.FUNDING:
-            for record in current_task.records.select():
-                total_count = total_count + record.invitees.select().distinct().count()
-
-                current_count = current_count + record.invitees.select().where(
-                    FundingInvitee.processed_at.is_null(False)).distinct().count()
-        elif task_type == TaskType.WORK:
-            for record in current_task.records.select():
-                total_count = total_count + record.invitees.select().distinct().count()
-
-                current_count = current_count + record.invitees.select().where(
-                    WorkInvitee.processed_at.is_null(False)).distinct().count()
-        elif task_type == TaskType.PEER_REVIEW:
-            for record in current_task.records.select():
-                total_count = total_count + record.invitees.select().distinct().count()
-
-                current_count = current_count + record.invitees.select().where(
-                    PeerReviewInvitee.processed_at.is_null(False)).distinct().count()
 
     tasks = Task.select().where(
             Task.expires_at.is_null(False),

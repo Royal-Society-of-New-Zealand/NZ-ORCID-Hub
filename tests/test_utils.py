@@ -1205,3 +1205,27 @@ def test_get_next_url(client):
     ]:
         with client.get(f"/?_next={quote(url)}"):
             assert utils.get_next_url() is None
+
+
+def test_scheduled_tasks(app, mocker):
+    """Test scheduled tasks."""
+    org = app.data["org"]
+    task = Task.create(org=org, task_type=TaskType.AFFILIATION)
+    rq = app.extensions["rq2"]
+    s = rq.get_scheduler()
+    s.run(burst=True)
+    task = Task.get(task.id)
+    utils.process_tasks.queue()
+    task = Task.get(task.id)
+    assert task.expires_at is not None
+    task.expires_at = utils.datetime(1988, 1, 1)
+    task.save()
+    utils.process_tasks.queue()
+    assert Task.select().where(Task.id == task.id).count() == 0
+
+    Organisation.update(webhook_enabled=True, email_notifications_enabled=True).execute()
+    User.update(orcid_updated_at=utils.date.today().replace(day=1)
+                - utils.timedelta(days=1)).execute()
+    send_email = mocker.patch("orcid_hub.utils.send_email")
+    utils.send_orcid_update_summary.queue(org_id=org.id)
+    send_email.assert_called()
