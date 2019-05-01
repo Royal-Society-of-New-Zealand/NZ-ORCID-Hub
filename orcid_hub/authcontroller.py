@@ -1201,15 +1201,14 @@ def orcid_login_callback(request):
                     message = json.loads(ex.body.decode()).get('user-message')
                     if ex.status == 401:
                         flash(f"Got ORCID API Exception: {message}", "danger")
-                        logout_user()
                     else:
-                        flash(
-                            "Exception when calling MemberAPIV20Api->view_employments: %s\n" %
-                            message, "danger")
+                        flash(f"Exception when calling MemberAPI: {message}", "danger")
                         flash(
                             f"The Hub cannot verify your email address from your ORCID record. "
                             f"Please, change the visibility level for your organisation email address "
-                            f"'{email}' to 'trusted parties'.", "danger")
+                            f"'{email}' to 'trusted parties' and also remember to verify the email address "
+                            "under ORCID account settings.", "danger")
+                    logout_user()
                     return redirect(url_for("index"))
                 data = json.loads(api_response.data)
                 if data and data.get("email") and any(
@@ -1236,8 +1235,9 @@ def orcid_login_callback(request):
                     logout_user()
                     flash(
                         f"The Hub cannot verify your email address from your ORCID record. "
-                        f"Please, change the visibility level for your "
-                        f"organisation email address '{email}' to 'trusted parties'.", "danger")
+                        f"Please, change the visibility level for your organisation email address "
+                        f"'{email}' to 'trusted parties' and also remember to verify the email address "
+                        "under ORCID account settings.", "danger")
                     return redirect(url_for("index"))
 
             else:
