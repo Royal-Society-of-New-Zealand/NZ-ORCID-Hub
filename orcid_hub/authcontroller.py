@@ -979,15 +979,17 @@ def orcid_login(invitation_token=None):
 
             if is_scope_person_update and OrcidToken.select().where(
                     OrcidToken.user == user, OrcidToken.org == org,
-                    OrcidToken.scope.contains("/person/update")).exists():
+                    OrcidToken.scope.contains(scopes.PERSON_UPDATE)).exists():
                 flash(
                     "You have already given permission with scope '/person/update' which allows organisation to write, "
                     "update and delete items in the other-names, keywords, countries, researcher-urls, websites, "
                     "and personal external identifiers sections of the record. Now you can simply login on orcidhub",
                     "warning")
                 return redirect(url_for("index"))
-            elif not is_scope_person_update and OrcidToken.select().where(
-                    OrcidToken.user == user, OrcidToken.org == org).exists():
+            elif not is_scope_person_update and invitation._meta.model_class != OrgInvitation \
+                and OrcidToken.select().where(
+                    OrcidToken.user == user, OrcidToken.org == org,
+                    OrcidToken.scope.contains(scopes.ACTIVITIES_UPDATE)).exists():
                 flash("You have already given permission, you can simply login on orcidhub",
                       "warning")
                 return redirect(url_for("index"))
@@ -1012,7 +1014,7 @@ def orcid_login(invitation_token=None):
                         "was trying old invitation token")
                     return redirect(url_for("index"))
 
-                if org.orcid_client_id and not invitation._meta.model_class == OrgInvitation:
+                if org.orcid_client_id and invitation._meta.model_class != OrgInvitation:
                     client_id = org.orcid_client_id
                     if is_scope_person_update:
                         orcid_scopes = [scopes.PERSON_UPDATE, scopes.READ_LIMITED]
@@ -1111,7 +1113,7 @@ def orcid_login_callback(request):
                     f"User '{user}' attempted to affiliate with an organisation that's not known: {org.name}"
                 )
                 return redirect(url_for("index"))
-            if org.orcid_client_id and org.orcid_secret and not invitation._meta.model_class == OrgInvitation:
+            if org.orcid_client_id and org.orcid_secret and invitation._meta.model_class != OrgInvitation:
                 orcid_client_id = org.orcid_client_id
                 orcid_client_secret = org.orcid_secret
 
