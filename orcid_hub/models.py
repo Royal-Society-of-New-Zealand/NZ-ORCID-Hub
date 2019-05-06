@@ -1146,11 +1146,12 @@ class Task(BaseModel, AuditMixin):
 
         header_rexs = [
             re.compile(ex, re.I)
-            for ex in (r"first\s*(name)?", r"last\s*(name)?", "email", "organisation|^name",
+            for ex in [r"first\s*(name)?", r"last\s*(name)?", "email", "organisation|^name",
                        "campus|department", "city", "state|region", "course|title|role",
                        r"start\s*(date)?", r"end\s*(date)?",
                        r"affiliation(s)?\s*(type)?|student|staff", "country", r"disambiguat.*id",
-                       r"disambiguat.*source", r"put|code", "orcid.*", "external.*|.*identifier")
+                       r"disambiguat.*source", r"put|code", "orcid.*", "external.*|.*identifier",
+                       "delete(.*record)?", ]
         ]
 
         def index(rex):
@@ -1186,6 +1187,17 @@ class Task(BaseModel, AuditMixin):
                     if len(row) == 1 and row[0].strip() == '':
                         continue
 
+                    put_code = val(row, 14)
+                    delete_record = val(row, 17)
+                    delete_record = delete_record and delete_record.lower() in [
+                        'y', "yes", "ok", "delete", '1'
+                    ]
+                    if delete_record:
+                        if not put_code:
+                            raise ModelException(
+                                f"Missing put-code. Cannot delete a record without put-code. "
+                                f"#{row_no+2}: {row}. Header: {header}")
+
                     email = val(row, 2, "").lower()
                     orcid = val(row, 15)
                     external_id = val(row, 16)
@@ -1204,7 +1216,7 @@ class Task(BaseModel, AuditMixin):
                                 f" (Country must be 2 character from ISO 3166-1 alpha-2) in the row "
                                 f"#{row_no+2}: {row}. Header: {header}")
 
-                    if not (email or orcid):
+                    if not delete_record and not (email or orcid):
                         raise ModelException(
                             f"Missing user identifier (email address or ORCID iD) in the row "
                             f"#{row_no+2}: {row}. Header: {header}")
@@ -1212,19 +1224,20 @@ class Task(BaseModel, AuditMixin):
                     if orcid:
                         validate_orcid_id(orcid)
 
-                    if not email or not validators.email(email):
+                    if email and not validators.email(email):
                         raise ValueError(
                             f"Invalid email address '{email}'  in the row #{row_no+2}: {row}")
 
-                    affiliation_type = val(row, 10, "").lower()
-                    if not affiliation_type or affiliation_type not in AFFILIATION_TYPES:
+                    affiliation_type = val(row, 10)
+                    if not delete_record and (not affiliation_type
+                                              or affiliation_type.lower() not in AFFILIATION_TYPES):
                         raise ValueError(
                             f"Invalid affiliation type '{affiliation_type}' in the row #{row_no+2}: {row}. "
                             f"Expected values: {', '.join(at for at in AFFILIATION_TYPES)}.")
 
                     first_name = val(row, 0)
                     last_name = val(row, 1)
-                    if not(first_name and last_name):
+                    if not delete_record and not(first_name and last_name):
                         raise ModelException(
                             "Wrong number of fields. Expected at least 4 fields "
                             "(first name, last name, email address or another unique identifier, "
@@ -1246,9 +1259,10 @@ class Task(BaseModel, AuditMixin):
                         country=country,
                         disambiguated_id=val(row, 12),
                         disambiguation_source=val(row, 13),
-                        put_code=val(row, 14),
+                        put_code=put_code,
                         orcid=orcid,
-                        external_id=external_id)
+                        external_id=external_id,
+                        delete_record=delete_record)
                     validator = ModelValidator(af)
                     if not validator.validate():
                         raise ModelException(f"Invalid record: {validator.errors}")
@@ -1493,12 +1507,12 @@ class AffiliationRecord(RecordModel):
         help_text="Record identifier used in the data source system.")
     processed_at = DateTimeField(null=True)
     status = TextField(null=True, help_text="Record processing status.")
-    first_name = CharField(max_length=120)
-    last_name = CharField(max_length=120)
+    first_name = CharField(null=True, max_length=120)
+    last_name = CharField(null=True, max_length=120)
     email = CharField(max_length=80)
     orcid = OrcidIdField(null=True)
     organisation = CharField(null=True, index=True, max_length=200)
-    affiliation_type = CharField(max_length=20, choices=[(v, v) for v in AFFILIATION_TYPES])
+    affiliation_type = CharField(null=True, max_length=20, choices=[(v, v) for v in AFFILIATION_TYPES])
     role = CharField(null=True, verbose_name="Role/Course", max_length=100)
     department = CharField(null=True, max_length=200)
     start_date = PartialDateField(null=True)
@@ -1513,6 +1527,7 @@ class AffiliationRecord(RecordModel):
         max_length=100,
         verbose_name="Disambiguation Source",
         choices=disambiguation_source_choices)
+    delete_record = BooleanField(null=True)
 
     class Meta:  # noqa: D101,D106
         db_table = "affiliation_record"

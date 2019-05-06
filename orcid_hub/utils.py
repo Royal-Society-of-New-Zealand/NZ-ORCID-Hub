@@ -38,8 +38,8 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 logger.addHandler(logging.StreamHandler())
 
-EDU_CODES = {"student", "edu"}
-EMP_CODES = {"faculty", "staff", "emp"}
+EDU_CODES = {"student", "edu", "education"}
+EMP_CODES = {"faculty", "staff", "emp", "employment"}
 
 ENV = app.config.get("ENV")
 EXTERNAL_SP = app.config.get("EXTERNAL_SP")
@@ -1025,7 +1025,7 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
     3. If there is match update the record;
     4. If no match create a new one.
     """
-    records = list(unique_everseen(records, key=lambda t: t.affiliation_record.id))
+    records = list(unique_everseen(records, key=lambda t: t.record.id))
     org = Organisation.get(id=org_id)
     api = orcid_client.MemberAPI(org, user)
     profile_record = api.get_record()
@@ -1040,11 +1040,14 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
         ]
 
         taken_put_codes = {
-            r.affiliation_record.put_code
-            for r in records if r.affiliation_record.put_code
+            r.record.put_code
+            for r in records if r.record.put_code
         }
 
-        def match_put_code(records, affiliation_record):
+        edu_put_codes = [e["put-code"] for e in educations]
+        emp_put_codes = [e["put-code"] for e in employments]
+
+        def match_put_code(records, record):
             """Match and asign put-code to a single affiliation record and the existing ORCID records."""
             for r in records:
                 try:
@@ -1052,26 +1055,26 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
                 except Exception:
                     app.logger.exception("Failed to get ORCID iD/put-code from the response.")
                     raise Exception("Failed to get ORCID iD/put-code from the response.")
-                start_date = affiliation_record.start_date.as_orcid_dict() if affiliation_record.start_date else None
-                end_date = affiliation_record.end_date.as_orcid_dict() if affiliation_record.end_date else None
+                start_date = record.start_date.as_orcid_dict() if record.start_date else None
+                end_date = record.end_date.as_orcid_dict() if record.end_date else None
 
                 if (r.get("start-date") == start_date and r.get(
                     "end-date") == end_date and r.get(
-                    "department-name") == affiliation_record.department
-                    and r.get("role-title") == affiliation_record.role
-                    and get_val(r, "organization", "name") == affiliation_record.organisation
-                    and get_val(r, "organization", "address", "city") == affiliation_record.city
-                    and get_val(r, "organization", "address", "region") == affiliation_record.state
-                    and get_val(r, "organization", "address", "country") == affiliation_record.country
+                    "department-name") == record.department
+                    and r.get("role-title") == record.role
+                    and get_val(r, "organization", "name") == record.organisation
+                    and get_val(r, "organization", "address", "city") == record.city
+                    and get_val(r, "organization", "address", "region") == record.state
+                    and get_val(r, "organization", "address", "country") == record.country
                     and get_val(r, "organization", "disambiguated-organization",
-                                "disambiguated-organization-identifier") == affiliation_record.disambiguated_id
+                                "disambiguated-organization-identifier") == record.disambiguated_id
                     and get_val(r, "organization", "disambiguated-organization",
-                                "disambiguation-source") == affiliation_record.disambiguation_source):
-                    affiliation_record.put_code = put_code
-                    affiliation_record.orcid = orcid
+                                "disambiguation-source") == record.disambiguation_source):
+                    record.put_code = put_code
+                    record.orcid = orcid
                     return True
 
-                if affiliation_record.put_code:
+                if record.put_code:
                     return
 
                 if put_code in taken_put_codes:
@@ -1079,21 +1082,56 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
 
                 if ((r.get("start-date") is None and r.get("end-date") is None and r.get(
                     "department-name") is None and r.get("role-title") is None)
-                    or (r.get("start-date") == start_date and r.get("department-name") == affiliation_record.department
-                        and r.get("role-title") == affiliation_record.role)):
-                    affiliation_record.put_code = put_code
-                    affiliation_record.orcid = orcid
+                    or (r.get("start-date") == start_date and r.get("department-name") == record.department
+                        and r.get("role-title") == record.role)):
+                    record.put_code = put_code
+                    record.orcid = orcid
                     taken_put_codes.add(put_code)
                     app.logger.debug(
                         f"put-code {put_code} was asigned to the affiliation record "
-                        f"(ID: {affiliation_record.id}, Task ID: {affiliation_record.task_id})")
+                        f"(ID: {record.id}, Task ID: {record.task_id})")
                     break
 
         for task_by_user in records:
             try:
-                ar = task_by_user.affiliation_record
-                at = ar.affiliation_type.lower()
+                ar = task_by_user.record
+                at = ar.affiliation_type.lower() if ar.affiliation_type else None
                 no_orcid_call = False
+
+                if ar.delete_record and profile_record:
+                    if ar.put_code in emp_put_codes:
+                        affiliation = Affiliation.EMP
+                    elif ar.put_code in edu_put_codes:
+                        affiliation = Affiliation.EDU
+                    else:
+                        affiliation = None
+                    for a in employments:
+                        if a["put-code"] == ar.put_code:
+                            affiliation = Affiliation.EMP
+                            break
+                    if not affiliation:
+                        for a in employments:
+                            if a["put-code"] == ar.put_code:
+                                affiliation = Affiliation.EDU
+                                break
+
+                    try:
+                        if affiliation:
+                            if affiliation == Affiliation.EDU:
+                                api.delete_education(user.orcid, ar.put_code)
+                            else:
+                                api.delete_employment(user.orcid, ar.put_code)
+                            ar.add_status_line(f"Record was sucessfully deleted.")
+                            app.logger.info(f"ORCID record of {user} with put-code {ar.put_code} was deleted.")
+                        else:
+                            ar.add_status_line(
+                                f"There is no record with the given put-code {ar.put_code} in the user {user} profile."
+                            )
+                    except Exception as ex:
+                        ar.add_status_line(f"Exception occured processing the record: {ex}.")
+                    ar.processed_at = datetime.utcnow()
+                    ar.save()
+                    continue
 
                 if at in EMP_CODES:
                     no_orcid_call = match_put_code(employments, ar)
@@ -1131,7 +1169,7 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
     else:
         for task_by_user in records:
             user = User.get(
-                email=task_by_user.affiliation_record.email, organisation=task_by_user.org)
+                email=task_by_user.record.email, organisation=task_by_user.org)
             user_org = UserOrg.get(user=user, org=task_by_user.org)
             token = new_invitation_token()
             with app.app_context():
@@ -1160,8 +1198,8 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
                 city=org.city,
                 state=org.state,
                 country=org.country,
-                start_date=task_by_user.affiliation_record.start_date,
-                end_date=task_by_user.affiliation_record.end_date,
+                start_date=task_by_user.record.start_date,
+                end_date=task_by_user.record.end_date,
                 affiliations=user_org.affiliations,
                 disambiguated_id=org.disambiguated_id,
                 disambiguation_source=org.disambiguation_source,
@@ -1587,7 +1625,7 @@ def process_affiliation_records(max_rows=20, record_id=None):
                 & UserInvitation.id.is_null()
                 & (AffiliationRecord.status.is_null()
                    | AffiliationRecord.status.contains("sent").__invert__())))).join(
-                       AffiliationRecord, on=(Task.id == AffiliationRecord.task_id)).join(
+                       AffiliationRecord, on=(Task.id == AffiliationRecord.task_id).alias("record")).join(
                            User,
                            JOIN.LEFT_OUTER,
                            on=((User.email == AffiliationRecord.email)
@@ -1610,12 +1648,14 @@ def process_affiliation_records(max_rows=20, record_id=None):
                          on=((OrcidToken.user_id == User.id)
                              & (OrcidToken.org_id == Organisation.id)
                              & (OrcidToken.scope.contains("/activities/update")))).limit(max_rows))
-    if record_id:
+    if isinstance(record_id, list):
+        tasks = tasks.where(AffiliationRecord.id.in_(record_id))
+    else:
         tasks = tasks.where(AffiliationRecord.id == record_id)
     for (task_id, org_id, user), tasks_by_user in groupby(tasks, lambda t: (
             t.id,
             t.org_id,
-            t.affiliation_record.user, )):
+            t.record.user, )):
         if (user.id is None or user.orcid is None or not OrcidToken.select().where(
             (OrcidToken.user_id == user.id) & (OrcidToken.org_id == org_id)
                 & (OrcidToken.scope.contains("/activities/update"))).exists()):  # noqa: E127, E129
@@ -1626,10 +1666,10 @@ def process_affiliation_records(max_rows=20, record_id=None):
             # - the invitee first_name;
             # - the invitee last_name
             invitation_dict = {
-                k: set(t.affiliation_record.affiliation_type.lower() for t in tasks)
+                k: set(t.record.affiliation_type.lower() for t in tasks)
                 for k, tasks in groupby(
                     tasks_by_user,
-                    lambda t: (t.created_by, t.org, t.affiliation_record.email, t.affiliation_record.first_name, t.affiliation_record.last_name)  # noqa: E501
+                    lambda t: (t.created_by, t.org, t.record.email, t.record.first_name, t.record.last_name)  # noqa: E501
                 )  # noqa: E501
             }
             for invitation, affiliations in invitation_dict.items():

@@ -115,9 +115,14 @@ def get_profile(org=None, user=None):
                             }
                         },
                         "department-name": None,
-                        "role-title": None,
-                        "start-date": None,
-                        "end-date": None,
+                        "role-title": "ROLE",
+                        "start-date": {
+                            "year": {"value": "1996"},
+                            "month": {"value": "11"}},
+                        "end-date": {
+                            "year": {"value": "2019"},
+                            "month": {"value": "02"},
+                            "day": {"value": "29"}},
                         "organization": {
                             "name": "The University of Auckland",
                             "address": {
@@ -126,7 +131,7 @@ def get_profile(org=None, user=None):
                                 "country": "NZ"
                             },
                             "disambiguated-organization": {
-                                "disambiguated-organization-identifier": None,
+                                "disambiguated-organization-identifier": "123456",
                                 "disambiguation-source": "RINGGOLD"
                             }
                         },

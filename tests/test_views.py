@@ -29,6 +29,7 @@ from orcid_hub.models import (Affiliation, AffiliationRecord, Client, File, Fund
                               OrgInvitation, PartialDate, PeerReviewRecord, ResearcherUrlRecord,
                               Role, Task, TaskType, Token, Url, User, UserInvitation, UserOrg,
                               UserOrgAffiliation, WorkRecord)
+from tests.utils import get_profile
 
 fake_time = time.time()
 logger = logging.getLogger(__name__)
@@ -3196,7 +3197,7 @@ THIS IS A TITLE, नमस्ते,hi,  CONTRACT,MY TYPE,Minerals unde.,300000,
                 BytesIO(b"""Funding Id,Identifier,Put Code,Title,Translated Title,Translated Title Language Code,Type,Organization Defined Type,Short Description,Amount,Currency,Start Date,End Date,Org Name,City,Region,Country,Disambiguated Org Identifier,Disambiguation Source,Visibility,ORCID iD,Email,First Name,Last Name,Name,Role,Excluded,External Id Type,External Id Url,External Id Relationship
 XXX1701,00002,,This is the project title,,,CONTRACT,Fast-Start,This is the project abstract,300000,NZD,2018,2021,Marsden Fund,Wellington,,NZ,http://dx.doi.org/10.13039/501100009193,FUNDREF,,,contributor2@mailinator.com,Bob,Contributor 2,,,Y,grant_number,,SELF
 XXX1701,00003,,This is the project title,,,CONTRACT,Fast-Start,This is the project abstract,300000,NZD,2018,2021,Marsden Fund,Wellington,,NZ,http://dx.doi.org/10.13039/501100009193,FUNDREF,,,contributor3@mailinator.com,Eve,Contributor 3,,,Y,grant_number,,SELF
-XXX1702,00004,,This is another project title,,,CONTRACT,Standard,This is another project abstract,800000,NZD,2018,2021,Marsden Fund,Wellington,,NZ,http://dx.doi.org/10.13039/501100009193,FUNDREF,,,contributor4@mailinator.com,Felix,Contributor 4,,,Y,grant_number,,SELF"""  # noqa: E501
+XXX1702,00004,,This is another project title,,,CONTRACT,Standard,This is another project abstract,800000,NZD,2018,2021,Marsden Fund,Wellington,,NZ,http://dx.doi.org/10.13039/501100009193,FUNDREF,,,contributor4@mailinator.com,Felix,Contributor 4,,,Y,grant_number,,SELF"""# noqa: E501
                 ),  # noqa: E501
                 "fundings_ex.csv",
             ),
@@ -4020,3 +4021,16 @@ def test_researcher_urls(client):
             follow_redirects=True)
     assert resp.status_code == 200
     assert b"http://test.test.test.com/ABC123" in resp.data
+
+
+def test_export_affiliations(client, mocker):
+    """Test export of existing affiliation records."""
+    mocker.patch("orcid_hub.orcid_client.MemberAPI.get_record", return_value=get_profile())
+    client.login_root()
+    resp = client.post("/admin/viewmembers/action/",
+                       data=dict(action="export_affiations",
+                                 rowid=[
+                                     u.id for u in User.select().join(Organisation).where(
+                                         Organisation.orcid_client_id.is_null(False))
+                                 ]))
+    assert b"0000-0003-1255-9023" in resp.data

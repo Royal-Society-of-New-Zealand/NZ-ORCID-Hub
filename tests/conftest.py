@@ -235,6 +235,7 @@ def app():
             OrcidToken.insert_many(
                 dict(
                     access_token=f"TOKEN-{org_no}-{u.id}",
+                    scope="/read-limited",
                     org=org,
                     user=u,
                     expires_in=0,
