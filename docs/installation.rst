@@ -55,15 +55,15 @@ the ORCID API, public API credentials for the ORCID sandbox can be obtained like
    - Copy the resulting CLIENT_ID and CLIENT_SECRET for the needed environment variables: ORCID_CLIENT_ID and ORCID_CLIENT_SECRET
 
 To enable Identity Federation SSO, you'll either need to configure your Hub instance
-as a Shibboleth Service Provider or be able to specify an external SP that's configured
-to allow redirection to your instance.  As well as registering your instance SP, running
+as a Shibboleth Service Provider. As well as registering your instance SP, running
 Shibboleth also comes with its own dependency of Apache. See: `Shibboleth installation and
 SP Creation <http://docs.orcidhub.org.nz/latest/shibboleth.rst>`_.
 
-It is possible to run the application as stand-alone Python Flask application and use
-another remote application for user authentication. For example, if the remote SP url
-is being provided by https://dev.orcidhub.org.nz, all you need is to set up the
-*EXTERNAL_SP* environment variable, e.g.,
+As an alternative to setting up the instance as a SP, it is possible to run the application
+as a stand-alone Python Flask application and use another remote application for user
+authentication. For example, if the remote SP is being provided by
+https://dev.orcidhub.org.nz, all you need is to set up the *EXTERNAL_SP* environment
+variable, e.g.,
 
 .. code-block:: bash
 
