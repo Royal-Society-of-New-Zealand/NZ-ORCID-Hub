@@ -1223,7 +1223,7 @@ def orcid_login_callback(request):
                         return redirect(_next or url_for("onboard_org"))
                     elif not org.confirmed and not user.is_tech_contact_of(org):
                         flash(
-                            f"Your '{org}' has not be onboarded. Please, try again once your technical contact"
+                            f"Your '{org}' has yet not been onboard. Please, try again once your technical contact"
                             f" onboards your organisation on ORCIDHUB", "warning")
                         return redirect(url_for("about"))
                     elif org.confirmed:
