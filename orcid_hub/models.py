@@ -80,6 +80,7 @@ CITATION_TYPES = [
     "BIBTEX", "FORMATTED_APA", "FORMATTED_CHICAGO", "FORMATTED_HARVARD", "FORMATTED_IEEE",
     "FORMATTED_MLA", "FORMATTED_UNSPECIFIED", "FORMATTED_VANCOUVER", "RIS"
 ]
+PROPERTY_TYPES = ["URL", "NAME", "KEYWORD", "COUNTRY", "ID", "EMAIL"]
 citation_type_choices = [(v, v.replace('_', ' ').title()) for v in CITATION_TYPES]
 
 country_choices = [(c.alpha_2, c.name) for c in countries]
@@ -90,6 +91,7 @@ currency_choices = [(l.alpha_3, l.name) for l in currencies]
 currency_choices.sort(key=lambda e: e[1])
 relationship_choices = [(v, v.replace('_', ' ').title()) for v in RELATIONSHIPS]
 disambiguation_source_choices = [(v, v) for v in DISAMBIGUATION_SOURCES]
+property_type_choices = [(v, v) for v in PROPERTY_TYPES]
 
 
 class ModelException(Exception):
@@ -2912,6 +2914,205 @@ class OtherNameRecord(OtherNameKeywordModel):
         table_alias = "onr"
 
 
+class PropertyRecord(RecordModel):
+    """Researcher Url record loaded from Json file for batch processing."""
+
+    task = ForeignKeyField(Task, related_name="property_records", on_delete="CASCADE")
+    type = CharField(verbose_name="Propery Type", choices=property_type_choices)
+    display_index = IntegerField(null=True)
+    name = CharField(null=True, max_length=255, verbose_name="Property Name")
+    value = CharField(max_length=255, verbose_name="Property Value")
+    email = CharField(max_length=120, null=True)
+    first_name = CharField(max_length=120, null=True)
+    last_name = CharField(max_length=120, null=True)
+    orcid = OrcidIdField(null=True)
+    put_code = IntegerField(null=True)
+    visibility = CharField(null=True, max_length=100, choices=visibility_choices)
+    is_active = BooleanField(
+        default=False, help_text="The record is marked for batch processing", null=True)
+    processed_at = DateTimeField(null=True)
+    status = TextField(null=True, help_text="Record processing status.")
+
+    @classmethod
+    def load_from_csv(cls, source, filename=None, org=None):
+        """Load data from CSV/TSV file or a string."""
+        if isinstance(source, str):
+            source = StringIO(source)
+        if filename is None:
+            if hasattr(source, "name"):
+                filename = source.name
+            else:
+                filename = datetime.utcnow().isoformat(timespec="seconds")
+        reader = csv.reader(source)
+        header = next(reader)
+
+        if len(header) == 1 and '\t' in header[0]:
+            source.seek(0)
+            reader = csv.reader(source, delimiter='\t')
+            header = next(reader)
+
+        if len(header) < 2:
+            raise ModelException("Expected CSV or TSV format file.")
+
+        if len(header) < 4:
+            raise ModelException(
+                "Wrong number of fields. Expected at least 3 fields "
+                "(email address or another unique identifier, url name, url value) "
+                f"and property type.Read header: {header}")
+
+        header_rexs = [
+            re.compile(ex, re.I) for ex in [
+                r"(url)?.*name", r".*value|.*content", r"(display)?.*index", "email",
+                r"first\s*(name)?", r"(last|sur)\s*(name)?", "orcid.*", r"put|code",
+                r"(is)?\s*visib(bility|le)?", "(propery)?.*type"
+            ]
+        ]
+
+        def index(rex):
+            """Return first header column index matching the given regex."""
+            for i, column in enumerate(header):
+                if rex.match(column.strip()):
+                    return i
+            else:
+                return None
+
+        idxs = [index(rex) for rex in header_rexs]
+
+        if all(idx is None for idx in idxs):
+            raise ModelException(f"Failed to map fields based on the header of the file: {header}")
+
+        if org is None:
+            org = current_user.organisation if current_user else None
+
+        def val(row, i, default=None):
+            if len(idxs) <= i or idxs[i] is None or idxs[i] >= len(row):
+                return default
+            else:
+                v = row[idxs[i]].strip()
+            return default if v == '' else v
+
+        with db.atomic():
+            try:
+                task = Task.create(org=org, filename=filename, task_type=TaskType.RESEARCHER_URL)
+                for row_no, row in enumerate(reader):
+                    # skip empty lines:
+                    if len([item for item in row if item and item.strip()]) == 0:
+                        continue
+                    if len(row) == 1 and row[0].strip() == '':
+                        continue
+
+                    email = val(row, 3, "").lower()
+                    orcid = val(row, 6)
+
+                    if not (email or orcid):
+                        raise ModelException(
+                            f"Missing user identifier (email address or ORCID iD) in the row "
+                            f"#{row_no+2}: {row}. Header: {header}")
+
+                    if orcid:
+                        validate_orcid_id(orcid)
+
+                    if email and not validators.email(email):
+                        raise ValueError(
+                            f"Invalid email address '{email}'  in the row #{row_no+2}: {row}")
+
+                    name = val(row, 0, "")
+                    value = val(row, 1, "")
+                    first_name = val(row, 4)
+                    last_name = val(row, 5)
+                    property_type = val(row, 9)
+
+                    if not property_type or property_type not in PROPERTY_TYPES:
+                        raise ModelException("Missing or incorrect property type. "
+                                             f"(expected: {','.join(PROPERTY_TYPES)}: {row}")
+
+                    if property_type == "URL" and not name:
+                        raise ModelException(
+                            f"Missing URL name. For Researcher ULR name is expected: {row}.")
+
+                    if not (name and value):
+                        raise ModelException(
+                            "Wrong number of fields. Expected at least 3 fields (url name, url value "
+                            f"email address or another unique identifier): {row}")
+
+                    rr = cls(
+                        task=task,
+                        type=property_type,
+                        name=name,
+                        value=value,
+                        display_index=val(row, 2),
+                        email=email,
+                        first_name=first_name,
+                        last_name=last_name,
+                        orcid=orcid,
+                        put_code=val(row, 7),
+                        visibility=val(row, 8))
+                    validator = ModelValidator(rr)
+                    if not validator.validate():
+                        raise ModelException(f"Invalid record: {validator.errors}")
+                    rr.save()
+            except Exception:
+                db.rollback()
+                app.logger.exception("Failed to load Researcher Url Record file.")
+                raise
+
+        return task
+
+    @classmethod
+    def load_from_json(cls, source, filename=None, org=None, task=None, skip_schema_validation=False):
+        """Load data from JSON file or a string."""
+        data = load_yaml_json(filename=filename, source=source)
+        if not skip_schema_validation:
+            if isinstance(data, dict):
+                jsonschema.validate(data, schemas.researcher_url_task)
+            else:
+                jsonschema.validate(data, schemas.researcher_url_record_list)
+        records = data["records"] if isinstance(data, dict) else data
+        with db.atomic():
+            try:
+                if org is None:
+                    org = current_user.organisation if current_user else None
+                if not task:
+                    task = Task.create(org=org, filename=filename, task_type=TaskType.RESEARCHER_URL)
+
+                for r in records:
+
+                    name = r.get("name") or r.get("url-name")
+                    value = r.get("value") or r.get("url", "value") or r.get("url-value")
+                    display_index = r.get("display-index")
+                    email = r.get("email")
+                    if email:
+                        email = email.lower()
+                    first_name = r.get("first-name")
+                    last_name = r.get("last-name")
+                    orcid_id = r.get("ORCID-iD") or r.get("orcid")
+                    put_code = r.get("put-code")
+                    visibility = r.get("visibility")
+
+                    cls.create(
+                        task=task,
+                        name=name,
+                        value=value,
+                        display_index=display_index,
+                        email=email,
+                        first_name=first_name,
+                        last_name=last_name,
+                        orcid=orcid_id,
+                        visibility=visibility,
+                        put_code=put_code)
+
+                return task
+
+            except Exception:
+                db.rollback()
+                app.logger.exception("Failed to load Researcher property file.")
+                raise
+
+    class Meta:  # noqa: D101,D106
+        db_table = "property_record"
+        table_alias = "pr"
+
+
 class WorkRecord(RecordModel):
     """Work record loaded from Json file for batch processing."""
 
@@ -3696,6 +3897,7 @@ def create_tables():
             PeerReviewInvitee,
             PeerReviewExternalId,
             ResearcherUrlRecord,
+            PropertyRecord,
             OtherNameRecord,
             KeywordRecord,
             Client,

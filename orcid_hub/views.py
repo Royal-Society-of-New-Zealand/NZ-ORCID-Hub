@@ -48,10 +48,10 @@ from .models import (JOIN, Affiliation, AffiliationRecord, CharField, Client, De
                      FixedCharField, File, FundingContributor, FundingInvitee, FundingRecord,
                      Grant, GroupIdRecord, KeywordRecord, ModelException, NestedDict, OrcidApiCall,
                      OrcidToken, Organisation, OrgInfo, OrgInvitation, OtherNameRecord,
-                     PartialDate, PeerReviewExternalId, PeerReviewInvitee, PeerReviewRecord,
-                     ResearcherUrlRecord, Role, Task, TaskType, TextField, Token, Url, User,
-                     UserInvitation, UserOrg, UserOrgAffiliation, WorkContributor, WorkExternalId,
-                     WorkInvitee, WorkRecord, db, get_val)
+                     PartialDate, PropertyRecord, PeerReviewExternalId, PeerReviewInvitee,
+                     PeerReviewRecord, ResearcherUrlRecord, Role, Task, TaskType, TextField, Token,
+                     Url, User, UserInvitation, UserOrg, UserOrgAffiliation, WorkContributor,
+                     WorkExternalId, WorkInvitee, WorkRecord, db, get_val)
 # NB! Should be disabled in production
 from .pyinfo import info
 from .utils import get_next_url, read_uploaded_file, send_user_invitation
@@ -1540,7 +1540,7 @@ class ProfilePropertyRecordAdmin(AffiliationRecordAdmin):
     def __init__(self, model_class, *args, **kwargs):
         """Set up model specific attributes."""
         self.column_searchable_list = [
-            f for f in ["content", "name", "first_name", "last_name", "email"]
+            f for f in ["content", "name", "value", "first_name", "last_name", "email"]
             if f in model_class._meta.fields
         ]
         super().__init__(model_class, *args, **kwargs)
@@ -1774,6 +1774,7 @@ admin.add_view(WorkRecordAdmin())
 admin.add_view(PeerReviewRecordAdmin())
 admin.add_view(InviteeAdmin(PeerReviewInvitee))
 admin.add_view(RecordChildAdmin(PeerReviewExternalId))
+admin.add_view(ProfilePropertyRecordAdmin(PropertyRecord))
 admin.add_view(ProfilePropertyRecordAdmin(ResearcherUrlRecord))
 admin.add_view(ProfilePropertyRecordAdmin(OtherNameRecord))
 admin.add_view(ProfilePropertyRecordAdmin(KeywordRecord))
@@ -2660,10 +2661,10 @@ def load_researcher_peer_review():
     return render_template("fileUpload.html", form=form, title="Peer Review Info Upload")
 
 
-@app.route("/load/researcher/urls", methods=["GET", "POST"])
+@app.route("/load/researcher/properties", methods=["GET", "POST"])
 @roles_required(Role.ADMIN)
-def load_researcher_urls():
-    """Preload researcher's url data."""
+def load_properties():
+    """Preload researcher's property data."""
     form = FileUploadForm(extensions=["json", "yaml", "csv", "tsv"])
     if form.validate_on_submit():
         filename = secure_filename(form.file_.data.filename)
@@ -2671,17 +2672,17 @@ def load_researcher_urls():
         try:
             if content_type in ["text/tab-separated-values", "text/csv"] or (
                     filename and filename.lower().endswith(('.csv', '.tsv'))):
-                task = ResearcherUrlRecord.load_from_csv(
+                task = PropertyRecord.load_from_csv(
                     read_uploaded_file(form), filename=filename)
             else:
-                task = ResearcherUrlRecord.load_from_json(read_uploaded_file(form), filename=filename)
+                task = PropertyRecord.load_from_json(read_uploaded_file(form), filename=filename)
             flash(f"Successfully loaded {task.record_count} rows.")
-            return redirect(url_for("researcherurlrecord.index_view", task_id=task.id))
+            return redirect(url_for("propertyrecord.index_view", task_id=task.id))
         except Exception as ex:
-            flash(f"Failed to load researcher url record file: {ex}", "danger")
-            app.logger.exception("Failed to load researcher url records.")
+            flash(f"Failed to load researcher property record file: {ex}", "danger")
+            app.logger.exception("Failed to load researcher property records.")
 
-    return render_template("fileUpload.html", form=form, title="Researcher Urls Info Upload")
+    return render_template("fileUpload.html", form=form, title="Researcher Property Data Upload")
 
 
 @app.route("/load/other/names", methods=["GET", "POST"])
