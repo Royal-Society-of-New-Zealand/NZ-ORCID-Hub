@@ -16,6 +16,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from orcid_hub import config
 DATABASE_URL = os.environ.get("TEST_DATABASE_URL") or "sqlite:///:memory:"
 config.DATABASE_URL = DATABASE_URL
+config.RQ_CONNECTION_CLASS = "fakeredis.FakeStrictRedis"
 os.environ["DATABASE_URL"] = DATABASE_URL
 # Patch it before is gets patched by 'orcid_client'
 # import orcid_api
@@ -144,6 +145,12 @@ class HubClient(FlaskClient):
         return data["access_token"]
 
 
+@pytest.fixture(autouse=True)
+def no_mailing(mocker):
+    """Mock HTML message for all tests."""
+    yield mocker.patch("emails.html")
+
+
 @pytest.fixture
 def app():
     """Session-wide test `Flask` application."""
@@ -172,6 +179,8 @@ def app():
         _app.config["LOAD_TEST"] = True
         #_app.config["SERVER_NAME"] = "ORCIDHUB"
         _app.sentry = None
+        _app.config["RQ_CONNECTION_CLASS"] = "fakeredis.FakeStrictRedis"
+        _app.extensions["rq2"].init_app(_app)
 
         # Add some data:
         for org_no in range(2):

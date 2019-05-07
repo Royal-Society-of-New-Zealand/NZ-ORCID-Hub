@@ -10,4 +10,4 @@ export RQ_REDIS_URL="${RQ_REDIS_URL:-redis://redis:6379/0}"
 [ -z "$DATABASE_URL" ] && DATABASE_URL=postgresql://orcidhub@db:5432/orcidhub?options='-c statement_timeout=3000'
 export DATABASE_URL
 
-exec flask rq scheduler -v
+exec flask rq scheduler -v $@

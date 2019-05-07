@@ -20,32 +20,38 @@ from flask_admin.actions import action
 from flask_admin.babel import gettext
 from flask_admin.base import expose
 from flask_admin.contrib.peewee import ModelView, filters
-from flask_admin.form import SecureForm
+from flask_admin.contrib.peewee.form import CustomModelConverter
+from flask_admin.contrib.peewee.view import save_inline
+from flask_admin.form import SecureForm, rules
 from flask_admin.helpers import get_redirect_target
 from flask_admin.model import BaseModelView, typefmt
 from flask_login import current_user, login_required
+from flask_rq2.job import FlaskJob
 from jinja2 import Markup
-from peewee import SQL
+from orcid_api.rest import ApiException
 from playhouse.shortcuts import model_to_dict
+from peewee import SQL
 from werkzeug.utils import secure_filename
 from wtforms.fields import BooleanField
-from flask_rq2.job import FlaskJob
+from urllib.parse import parse_qs, urlparse
+from wtforms import validators
 
-from orcid_api.rest import ApiException
-
-from . import admin, app, limiter, models, orcid_client, rq, utils, SENTRY_DSN
+from . import SENTRY_DSN, admin, app, cache, limiter, models, orcid_client, rq, utils
 from .apis import yamlfy
 from .forms import (ApplicationFrom, BitmapMultipleValueField, CredentialForm, EmailTemplateForm,
-                    FileUploadForm, FundingForm, GroupIdForm, LogoForm, OtherNameKeywordForm, OrgRegistrationForm,
-                    PartialDateField, PeerReviewForm, ProfileSyncForm, RecordForm, ResearcherUrlForm,
-                    UserInvitationForm, WebhookForm, WorkForm)
+                    FileUploadForm, FundingForm, GroupIdForm, LogoForm, OrgRegistrationForm,
+                    OtherNameKeywordForm, PartialDateField, PeerReviewForm, ProfileSyncForm,
+                    RecordForm, ResearcherUrlForm, UserInvitationForm, WebhookForm, WorkForm,
+                    validate_orcid_id_field)
 from .login_provider import roles_required
 from .models import (JOIN, Affiliation, AffiliationRecord, CharField, Client, Delegate, ExternalId,
-                     File, FundingContributor, FundingInvitee, FundingRecord, Grant, GroupIdRecord, KeywordRecord,
-                     ModelException, NestedDict, OtherNameRecord, OrcidApiCall, OrcidToken, Organisation,
-                     OrgInfo, OrgInvitation, PartialDate, PeerReviewExternalId, PeerReviewInvitee, PeerReviewRecord,
-                     ResearcherUrlRecord, Role, Task, TaskType, TextField, Token, Url, User, UserInvitation, UserOrg,
-                     UserOrgAffiliation, WorkContributor, WorkExternalId, WorkInvitee, WorkRecord, db, get_val)
+                     FixedCharField, File, FundingContributor, FundingInvitee, FundingRecord,
+                     Grant, GroupIdRecord, KeywordRecord, ModelException, NestedDict, OrcidApiCall,
+                     OrcidToken, Organisation, OrgInfo, OrgInvitation, OtherNameRecord,
+                     PartialDate, PeerReviewExternalId, PeerReviewInvitee, PeerReviewRecord,
+                     ResearcherUrlRecord, Role, Task, TaskType, TextField, Token, Url, User,
+                     UserInvitation, UserOrg, UserOrgAffiliation, WorkContributor, WorkExternalId,
+                     WorkInvitee, WorkRecord, db, get_val)
 # NB! Should be disabled in production
 from .pyinfo import info
 from .utils import get_next_url, read_uploaded_file, send_user_invitation
@@ -163,9 +169,28 @@ def orcid_link_formatter(view, context, model, name):
     return Markup(f'<a href="{ORCID_BASE_URL}{model.orcid}" target="_blank">{model.orcid}</a>')
 
 
+class AppCustomModelConverter(CustomModelConverter):
+    """Customized field mapping to revove the extra validator.
+    This is a workaround for https://github.com/coleifer/wtf-peewee/issues/48.
+    TODO: remove it as soon as the issue gets resoved.
+    """
+
+    def convert(self, model, field, field_args):
+        """Remove the 'Required' validator if the model field is optional."""
+        fi = super().convert(model, field, field_args)
+        if field.null and field.choices:
+            for v in fi.field.kwargs.get("validators", []):
+                if isinstance(v, validators.Required):
+                    fi.field.kwargs["validators"].remove(v)
+                    break
+
+        return fi
+
+
 class AppModelView(ModelView):
     """ModelView customization."""
 
+    roles = {1: "Superuser", 2: "Administrator", 4: "Researcher", 8: "Technical Contact"}
     roles_required = Role.SUPERUSER
     export_types = [
         "csv",
@@ -177,6 +202,10 @@ class AppModelView(ModelView):
         "ods",
         "html",
     ]
+    form_args = dict(
+            roles=dict(choices=roles.items()),
+            email=dict(validators=[validators.email()]),
+            orcid=dict(validators=[validate_orcid_id_field]))
 
     if app.config["ENV"] not in ["dev", "test", "dev0", ] and not app.debug:
         form_base_class = SecureForm
@@ -198,6 +227,7 @@ class AppModelView(ModelView):
     form_overrides = dict(start_date=PartialDateField, end_date=PartialDateField)
     form_widget_args = {c: {"readonly": True} for c in column_exclude_list}
     form_excluded_columns = ["created_at", "updated_at", "created_by", "updated_by"]
+    model_form_converter = AppCustomModelConverter
 
     def __init__(self, model=None, *args, **kwargs):
         """Pick the model based on the ModelView class name assuming it is ModelClass + "Admin"."""
@@ -237,13 +267,14 @@ class AppModelView(ModelView):
         """Include linked columns in the search if they are defined with 'liked_table.column'."""
         if self.column_searchable_list:
             for p in self.column_searchable_list:
-                if "." in p:
-                    m, p = p.split('.')
-                    m = getattr(self.model, m).rel_model
-                    p = getattr(m, p)
 
-                elif isinstance(p, str):
-                    p = getattr(self.model, p)
+                if isinstance(p, str):
+                    if "." in p:
+                        m, p = p.split('.')
+                        m = getattr(self.model, m).rel_model
+                        p = getattr(m, p)
+                    else:
+                        p = getattr(self.model, p)
 
                 # Check type
                 if not isinstance(p, (
@@ -310,11 +341,35 @@ class AppModelView(ModelView):
         return view_args
 
 
+class AuditLogModelView(AppModelView):
+    """Audit Log model view."""
+
+    can_edit = False
+    can_delete = False
+    can_create = False
+    can_view_details = False
+
+    def __init__(self, model, *args, **kwargs):
+        """Set up the search list."""
+        self.column_searchable_list = [
+            f for f in model._meta.fields.values() if isinstance(f, (CharField, FixedCharField, TextField))
+        ]
+        self.column_filters = [
+            filters.DateBetweenFilter(column=model.ts, name="Time-stamp"),
+            filters.FilterEqual(
+                column=model.op,
+                options=[("U", "Updated"), ("D", "Deleted")],
+                name="Operation"),
+        ]
+
+        super().__init__(model, *args, **kwargs)
+
+
 class UserAdmin(AppModelView):
     """User model view."""
 
-    edit_template = "admin/user_edit.html"
     roles = {1: "Superuser", 2: "Administrator", 4: "Researcher", 8: "Technical Contact"}
+    edit_template = "admin/user_edit.html"
 
     form_extra_fields = dict(is_superuser=BooleanField("Is Superuser"))
     form_excluded_columns = (
@@ -338,8 +393,6 @@ class UserAdmin(AppModelView):
         "organisation.name",
     )
     form_overrides = dict(roles=BitmapMultipleValueField)
-    form_args = dict(roles=dict(choices=roles.items()))
-
     form_ajax_refs = {
         "organisation": {
             "fields": (Organisation.name, "name")
@@ -392,7 +445,8 @@ class OrganisationAdmin(AppModelView):
             # Revoke the TECHNICAL role if thre is no org the user is tech.contact for.
             if model.tech_contact and model.tech_contact.has_role(
                     Role.TECHNICAL) and not Organisation.select().where(
-                        Organisation.tech_contact_id == model.tech_contact_id).exists():
+                        Organisation.tech_contact_id == model.tech_contact_id,
+                        Organisation.id != model.id).exists():
                 app.logger.info(r"Revoked TECHNICAL from {model.tech_contact}")
                 model.tech_contact.roles &= ~Role.TECHNICAL
                 super(User, model.tech_contact).save()
@@ -412,11 +466,18 @@ class OrgInfoAdmin(AppModelView):
         "last_name",
         "email",
     )
+    form_rules = [
+        rules.FieldSet(["name", "tuakiri_name"], "Naming"),
+        rules.FieldSet(["title", "first_name", "last_name", "role", "email", "phone", "is_public"],
+                       "Technical Contact"),
+        rules.FieldSet(["country", "city"], "Address"),
+        rules.FieldSet(["disambiguated_id", "disambiguation_source"], "Disambiguation Data"),
+    ]
 
     @action("invite", "Register Organisation",
             "Are you sure you want to register selected organisations?")
     def action_invite(self, ids):
-        """Batch registraion of organisatons."""
+        """Batch registration of organisations."""
         count = 0
         for oi in OrgInfo.select().where(OrgInfo.id.in_(ids)):
             try:
@@ -517,25 +578,17 @@ class TaskAdmin(AppModelView):
     can_edit = False
     can_create = False
     can_delete = True
-    column_searchable_list = (
-        "filename",
-        "created_by.email",
-        "created_by.name",
-        "created_by.first_name",
-        "created_by.last_name",
-        "org.name",
-    )
-    column_list = [
-        "task_type",
-        "filename",
-        "created_at",
-        "org",
-        "completed_at",
-        "created_by",
-        "expires_at",
-        "expiry_email_sent_at",
-        "completed_count",
+    column_searchable_list = [
+        "filename", "created_by.email", "created_by.name", "created_by.first_name",
+        "created_by.last_name", "org.name"
     ]
+    column_list = [
+        "task_type", "filename", "created_at", "org", "completed_at", "created_by", "expires_at",
+        "expiry_email_sent_at", "completed_count"
+    ]
+    # form_excluded_columns = [
+    #     "is_deleted", "completed_at", "expires_at", "expiry_email_sent_at", "organisation"
+    # ]
 
     column_filters = (
         filters.DateBetweenFilter(column=Task.created_at, name="Uploaded Date"),
@@ -556,10 +609,12 @@ class RecordModelView(AppModelView):
         "task",
         "organisation",
     )
-    form_excluded_columns = (
+    form_excluded_columns = [
         "task",
         "organisation",
-    )
+        "processed_at",
+        "status",
+    ]
     column_export_exclude_list = (
         "task",
         "is_active",
@@ -600,11 +655,12 @@ class RecordModelView(AppModelView):
             rowid = int(request.form.get("rowid"))
             task_id = self.model.get(id=rowid).task_id
         else:
-            task_id = request.args.get("task_id")
+            task_id = self.current_task_id
             if not task_id:
                 _id = request.args.get("id")
                 if not _id:
                     flash("Cannot invoke the task view without task ID", "danger")
+                    flash("Missing or incorrect task ID value", "danger")
                     return False
                 else:
                     task_id = self.model.get(id=_id).task_id
@@ -643,6 +699,15 @@ class RecordModelView(AppModelView):
 
         return super().get_export_name(export_type=export_type)
 
+    @models.lazy_property
+    def record_processing_func(self):
+        """Record processing function."""
+        return getattr(utils, f"process_{self.model.underscore_name()}s")
+
+    def enqueue_record(self, record_id):
+        """Enqueue the specified record or all active and not yet processed ones."""
+        self.record_processing_func.queue(record_id=record_id)
+
     @action("activate", "Activate for processing",
             """Are you sure you want to activate the selected records for batch processing?
 
@@ -654,6 +719,9 @@ to the best of your knowledge, correct!""")
             count = self.model.update(is_active=True).where(
                 self.model.is_active == False,  # noqa: E712
                 self.model.id.in_(ids)).execute()
+            for record_id in ids:
+                self.enqueue_record(record_id)
+
         except Exception as ex:
             flash(f"Failed to activate the selected records: {ex}")
             app.logger.exception("Failed to activate the selected records")
@@ -680,23 +748,18 @@ to the best of your knowledge, correct!""")
                     processed_at=None, status=status).where(self.model.is_active,
                                                             self.model.id.in_(ids)).execute()
 
-                if self.model == FundingRecord:
-                    count = FundingInvitee.update(
-                        processed_at=None, status=status).where(
-                            FundingInvitee.funding_record.in_(ids)).execute()
-                elif self.model == WorkRecord:
-                    count = WorkInvitee.update(
-                        processed_at=None, status=status).where(
-                        WorkInvitee.work_record.in_(ids)).execute()
-                elif self.model == PeerReviewRecord:
-                    count = PeerReviewInvitee.update(
-                        processed_at=None, status=status).where(
-                        PeerReviewInvitee.peer_review_record.in_(ids)).execute()
-                elif self.model in [AffiliationRecord, ResearcherUrlRecord, OtherNameRecord, KeywordRecord]:
-                    # Delete the userInvitation token for selected reset items.
-                    for user_invitation in UserInvitation.select().where(UserInvitation.email.in_(
-                            self.model.select(self.model.email).where(self.model.id.in_(ids)))):
-                        user_invitation.delete_instance()
+                if hasattr(self.model, "invitees"):
+                    im = self.model.invitees.rel_model
+                    count = im.update(
+                        processed_at=None, status=status).where(im.record.in_(ids)).execute()
+                    emails = im.select(im.email).where(im.record_id.in_(ids))
+                else:
+                    emails = self.model.select(self.model.email).where(self.model.id.in_(ids))
+                # Delete the userInvitation token for selected reset items.
+                UserInvitation.delete().where(UserInvitation.email.in_(emails)).execute()
+
+                for record_id in ids:
+                    self.enqueue_record(record_id)
 
             except Exception as ex:
                 db.rollback()
@@ -708,30 +771,159 @@ to the best of your knowledge, correct!""")
                 task.expiry_email_sent_at = None
                 task.completed_at = None
                 task.save()
-                if self.model == FundingRecord:
-                    flash(f"{count} Funding Invitee records were reset for batch processing.")
-                elif self.model == WorkRecord:
-                    flash(f"{count} Work Invitee records were reset for batch processing.")
-                elif self.model == PeerReviewRecord:
-                    flash(f"{count} Peer Review Invitee records were reset for batch processing.")
-                elif self.model == ResearcherUrlRecord:
-                    flash(f"{count} Researcher Url records were reset for batch processing.")
-                elif self.model == OtherNameRecord:
-                    flash(f"{count} Other Name records were reset for batch processing.")
-                elif self.model == KeywordRecord:
-                    flash(f"{count} Keyword records were reset for batch processing.")
-                else:
-                    flash(f"{count} Affiliation records were reset for batch processing.")
+                flash(
+                    f"{count} {task.task_type.name} records were reset and/or updated for batch processing."
+                )
+
+    def create_form(self):
+        """Prefill form with organisation default values."""
+        form = super().create_form()
+        if request.method == "GET":
+            org = current_user.organisation
+            if hasattr(form, "org_name"):
+                form.org_name.data = org.name
+            if hasattr(form, "city"):
+                form.city.data = org.city
+            if hasattr(form, "state"):
+                form.state.data = org.state
+            if hasattr(form, "country"):
+                form.country.data = org.country
+            if hasattr(form, "disambiguated_id"):
+                form.disambiguated_id.data = org.disambiguated_id
+            if hasattr(form, "disambiguation_source"):
+                form.disambiguation_source.data = org.disambiguation_source
+        return form
+
+    @property
+    def current_task_id(self):
+        """Get task_id form the query pameter task_id or url."""
+        try:
+            task_id = request.args.get("task_id")
+            if task_id:
+                return int(task_id)
+            url = request.args.get("url")
+            if not url:
+                flash("Missing return URL.", "danger")
+                return False
+            qs = parse_qs(urlparse(url).query)
+            task_id = qs.get("task_id", [None])[0]
+            if task_id:
+                return int(task_id)
+        except:
+            return None
+
+    def create_model(self, form):
+        """Link model to the current task."""
+        task_id = self.current_task_id
+        if not task_id:
+            flash("Missing task ID.", "danger")
+            return False
+
+        try:
+            model = self.model(task_id=task_id)
+            form.populate_obj(model)
+            self._on_model_change(form, model, True)
+            model.save()
+
+            # For peewee have to save inline forms after model was saved
+            save_inline(form, model)
+        except Exception as ex:
+            if not self.handle_view_exception(ex):
+                flash(f"Failed to create record: {ex}", "danger")
+                app.log.exception("Failed to create record.")
+
+            return False
+        else:
+            self.after_model_change(form, model, True)
+        if model.is_active:
+            self.enqueue_record(model.id)
+
+        return model
+
+    def update_model(self, form, model):
+        """Handle change of the record. Enqueue the record if got activated."""
+        is_active = model.is_active
+        update_resp = super().update_model(form, model)
+        if update_resp and not is_active and model.is_active:
+            self.enqueue_record(model.id)
+        return update_resp
 
 
-class ExternalIdModelView(AppModelView):
-    """Combine ExternalId model view."""
+class RecordChildAdmin(AppModelView):
+    """Batch processing record child model common bits."""
 
     roles_required = Role.SUPERUSER | Role.ADMIN
+    list_template = "record_child_list.html"
 
     can_edit = True
-    can_create = False
-    can_delete = False
+    can_create = True
+    can_delete = True
+    can_view_details = True
+
+    column_exclude_list = ["record"]
+    form_excluded_columns = ["record", "record", "status", "processed_at"]
+    column_details_exclude_list = ["record"]
+
+    def is_accessible(self):
+        """Verify if the view is accessible for the current user."""
+        if not super().is_accessible():
+            flash("Access denied! You cannot access this record.", "danger")
+            return False
+
+        return True
+
+    @property
+    def current_record_id(self):
+        """Get record_id form the query pameter record_id or url."""
+        try:
+            record_id = request.args.get("record_id")
+            if record_id:
+                return int(record_id)
+            url = request.args.get("url")
+            if not url:
+                flash("Missing return URL.", "danger")
+                return None
+            qs = parse_qs(urlparse(url).query)
+            record_id = qs.get("record_id", [None])[0]
+            if record_id:
+                return int(record_id)
+        except:
+            return None
+
+    def create_model(self, form):
+        """Link model to the current record."""
+        record_id = self.current_record_id
+        if not record_id:
+            flash("Missing record ID.", "danger")
+            return False
+
+        try:
+            model = self.model()
+            form.populate_obj(model)
+            model.record_id = record_id
+            self._on_model_change(form, model, True)
+            model.save()
+
+            # For peewee have to save inline forms after model was saved
+            save_inline(form, model)
+        except Exception as ex:
+            if not self.handle_view_exception(ex):
+                flash(f"Failed to create record: {ex}", "danger")
+                app.log.exception("Failed to create record.")
+
+            return False
+        else:
+            self.after_model_change(form, model, True)
+
+        return model
+
+
+class ExternalIdAdmin(RecordChildAdmin):
+    """Combine ExternalId model view."""
+
+    can_edit = True
+    can_create = True
+    can_delete = True
     can_view_details = True
 
     form_widget_args = {"external_id": {"readonly": True}}
@@ -745,79 +937,8 @@ class ExternalIdModelView(AppModelView):
         return True
 
 
-class ExternalIdAdmin(ExternalIdModelView):
-    """ExternalId model view."""
-
-    list_template = "funding_externalid_list.html"
-    column_exclude_list = ("funding_record", )
-
-
-class WorkExternalIdAdmin(ExternalIdModelView):
-    """WorkExternalId model view."""
-
-    list_template = "work_externalid_list.html"
-    column_exclude_list = ("work_record", )
-
-
-class PeerReviewExternalIdAdmin(ExternalIdModelView):
-    """PeerReviewExternalId model view."""
-
-    list_template = "peer_review_externalid_invitees_list.html"
-    column_exclude_list = ("peer_review_record", )
-
-
-class ContributorModelAdmin(AppModelView):
-    """Combine contributor record model view."""
-
-    roles_required = Role.SUPERUSER | Role.ADMIN
-
-    can_edit = True
-    can_create = False
-    can_delete = False
-    can_view_details = True
-
-    form_widget_args = {"external_id": {"readonly": True}}
-
-    def is_accessible(self):
-        """Verify if the contributor view is accessible for the current user."""
-        if not super().is_accessible():
-            flash("Access denied! You cannot access this task.", "danger")
-            return False
-
-        return True
-
-
-class FundingContributorAdmin(ContributorModelAdmin):
-    """Funding contributor record model view."""
-
-    list_template = "funding_contributor_list.html"
-    column_exclude_list = ("funding_record", )
-
-
-class WorkContributorAdmin(ContributorModelAdmin):
-    """Work contributor record model view."""
-
-    list_template = "work_contributor_list.html"
-    column_exclude_list = ("work_record", )
-
-
-class InviteeModelAdmin(AppModelView):
+class InviteeAdmin(RecordChildAdmin):
     """Combine Invitees record model view."""
-
-    roles_required = Role.SUPERUSER | Role.ADMIN
-
-    can_edit = True
-    can_create = False
-    can_delete = False
-    can_view_details = True
-
-    def is_accessible(self):
-        """Verify if the invitees view is accessible for the current user."""
-        if not super().is_accessible():
-            flash("Access denied! You cannot access this task.", "danger")
-            return False
-
-        return True
 
     @action("reset", "Reset for processing",
             "Are you sure you want to reset the selected records for batch processing?")
@@ -828,56 +949,19 @@ class InviteeModelAdmin(AppModelView):
                 status = " The record was reset at " + datetime.utcnow().isoformat(timespec="seconds")
                 count = self.model.update(
                     processed_at=None, status=status).where(self.model.id.in_(ids)).execute()
-                if self.model == FundingInvitee:
-                    funding_record_id = self.model.select().where(
-                        self.model.id.in_(ids))[0].funding_record_id
-                    FundingRecord.update(
-                        processed_at=None, status=status).where(
-                            FundingRecord.is_active, FundingRecord.id == funding_record_id).execute()
-                elif self.model == WorkInvitee:
-                    work_record_id = self.model.select().where(
-                        self.model.id.in_(ids))[0].work_record_id
-                    WorkRecord.update(
-                        processed_at=None, status=status).where(
-                        WorkRecord.is_active, WorkRecord.id == work_record_id).execute()
-                elif self.model == PeerReviewInvitee:
-                    peer_review_record_id = self.model.select().where(
-                        self.model.id.in_(ids))[0].peer_review_record_id
-                    PeerReviewRecord.update(
-                        processed_at=None, status=status).where(
-                        PeerReviewRecord.is_active, PeerReviewRecord.id == peer_review_record_id).execute()
+                record_id = self.model.select().where(
+                    self.model.id.in_(ids))[0].record_id
+                rec_class = self.model.record.rel_model
+                rec_class.update(
+                    processed_at=None, status=status).where(
+                    rec_class.is_active, rec_class.id == record_id).execute()
+                self.enqueue_record(record_id)
             except Exception as ex:
                 db.rollback()
                 flash(f"Failed to activate the selected records: {ex}")
                 app.logger.exception("Failed to activate the selected records")
             else:
-                if self.model == FundingInvitee:
-                    flash(f"{count} Funding Invitee records were reset for batch processing.")
-                elif self.model == PeerReviewInvitee:
-                    flash(f"{count} Peer Review Invitee records were reset for batch processing.")
-                else:
-                    flash(f"{count} Work Invitees records were reset for batch processing.")
-
-
-class WorkInviteeAdmin(InviteeModelAdmin):
-    """Work invitees record model view."""
-
-    list_template = "work_invitees_list.html"
-    column_exclude_list = ("work_record", )
-
-
-class FundingInviteeAdmin(InviteeModelAdmin):
-    """Funding invitees record model view."""
-
-    list_template = "funding_invitees_list.html"
-    column_exclude_list = ("funding_record", )
-
-
-class PeerReviewInviteeAdmin(InviteeModelAdmin):
-    """Peer Review invitee record model view."""
-
-    list_template = "peer_review_externalid_invitees_list.html"
-    column_exclude_list = ("peer_review_record", )
+                flash(f"{count} invitee records were reset for batch processing.")
 
 
 class CompositeRecordModelView(RecordModelView):
@@ -958,7 +1042,7 @@ class CompositeRecordModelView(RecordModelView):
         vals = []
         for c in self._export_columns:
             if c[0] == "invitees":
-                invitees_list = []
+                invitee_list = []
 
                 for f in row.invitees:
                     invitees_rec = {}
@@ -970,8 +1054,8 @@ class CompositeRecordModelView(RecordModelView):
                     invitees_rec['put-code'] = int(self.get_export_value(f, 'put_code')) if \
                         self.get_export_value(f, 'put_code') else None
                     invitees_rec['visibility'] = self.get_export_value(f, 'visibility')
-                    invitees_list.append(invitees_rec)
-                vals.append(invitees_list)
+                    invitee_list.append(invitees_rec)
+                vals.append(invitee_list)
             elif c[0] in ['review_completion_date', 'start_date', 'end_date', 'publication_date']:
                 vals.append(PartialDate.create(self.get_export_value(row, c[0])).as_orcid_dict()
                             if self.get_export_value(row, c[0]) else None)
@@ -1005,7 +1089,7 @@ class CompositeRecordModelView(RecordModelView):
                                                                                                          'country'))
                 disambiguated_dict['disambiguated-organization-identifier'] = \
                     self.get_export_value(row, 'convening_org_disambiguated_identifier') or \
-                    self.get_export_value(row, 'disambiguated_org_identifier')
+                    self.get_export_value(row, 'disambiguated_id')
                 disambiguated_dict['disambiguation-source'] = self.get_export_value(
                     row, 'convening_org_disambiguation_source') or self.get_export_value(row, 'disambiguation_source')
                 convening_org_dict['disambiguated-organization'] = disambiguated_dict
@@ -1028,7 +1112,7 @@ class CompositeRecordModelView(RecordModelView):
                 translated_title = dict()
                 title_dict['title'] = dict(value=self.get_export_value(row, 'title'))
                 if self.model == WorkRecord:
-                    title_dict['subtitle'] = dict(value=self.get_export_value(row, 'sub_title'))
+                    title_dict['subtitle'] = dict(value=self.get_export_value(row, 'subtitle'))
                 translated_title['language-code'] = self.get_export_value(row, 'translated_title_language_code')
                 translated_title['value'] = csv_encode(self.get_export_value(row, 'translated_title'))
                 title_dict['translated-title'] = translated_title
@@ -1139,6 +1223,7 @@ class CompositeRecordModelView(RecordModelView):
 class FundingRecordAdmin(CompositeRecordModelView):
     """Funding record model view."""
 
+    can_create = True
     column_searchable_list = ("title",)
     list_template = "funding_record_list.html"
     column_export_list = (
@@ -1159,16 +1244,13 @@ class FundingRecordAdmin(CompositeRecordModelView):
         "city",
         "region",
         "country",
-        "disambiguated_org_identifier",
+        "disambiguated_id",
         "disambiguation_source",
         "visibility",
         "orcid",
         "email",
         "first_name",
         "last_name",
-        "name",
-        "role",
-        "excluded",
         "external_id_type",
         "external_id_url",
         "external_id_relationship",
@@ -1185,71 +1267,36 @@ class FundingRecordAdmin(CompositeRecordModelView):
             page_size=page_size,
             execute=False)
 
-        sq = (FundingInvitee.select(
-            FundingInvitee.funding_record,
+        ext_ids = [r.id for r in
+                   ExternalId.select(models.fn.min(ExternalId.id).alias("id")).join(FundingRecord).where(
+                       FundingRecord.task == self.current_task_id).group_by(FundingRecord.id).naive()]
+
+        return count, query.select(
+            self.model,
             FundingInvitee.email,
             FundingInvitee.orcid,
-            SQL("NULL").alias("name"),
-            SQL("NULL").alias("role"),
             FundingInvitee.identifier,
             FundingInvitee.first_name,
             FundingInvitee.last_name,
-            SQL("NULL").alias("excluded"),
             FundingInvitee.put_code,
             FundingInvitee.visibility,
-            FundingInvitee.status,
-            FundingInvitee.processed_at,
-        ) | FundingContributor.select(
-            FundingContributor.funding_record,
-            FundingContributor.email,
-            FundingContributor.orcid,
-            FundingContributor.name,
-            FundingContributor.role,
-            SQL("NULL").alias("identifier"),
-            SQL("NULL").alias("first_name"),
-            SQL("NULL").alias("last_name"),
-            SQL("'Y'").alias("excluded"),
-            SQL("NULL").alias("put_code"),
-            SQL("NULL").alias("visibility"),
-            SQL("NULL").alias("status"),
-            SQL("NULL").alias("processed_at"),
-        ).join(
-            FundingInvitee,
-            JOIN.LEFT_OUTER,
-            on=((FundingInvitee.funding_record_id == FundingContributor.funding_record_id)
-                & ((FundingInvitee.email == FundingContributor.email)
-                   | (FundingInvitee.orcid == FundingContributor.orcid)))).join(
-                       User,
-                       JOIN.LEFT_OUTER,
-                       on=((User.email == FundingContributor.email)
-                           | (User.orcid == FundingContributor.orcid))).where(
-                               (User.id.is_null() | FundingInvitee.id.is_null()))).alias("sq")
-
-        return count, query.select(
-            FundingRecord,
-            sq.c.email,
-            sq.c.orcid,
-            sq.c.name,
-            sq.c.role,
-            sq.c.identifier,
-            sq.c.first_name,
-            sq.c.last_name,
-            sq.c.excluded,
-            sq.c.put_code,
-            sq.c.visibility,
-            sq.c.status,
             ExternalId.type.alias("external_id_type"),
             ExternalId.value.alias("funding_id"),
             ExternalId.url.alias("external_id_url"),
-            ExternalId.relationship.alias("external_id_relationship")).join(
-                ExternalId, JOIN.LEFT_OUTER,
-                on=(ExternalId.funding_record_id == FundingRecord.id)).join(
-                    sq, JOIN.LEFT_OUTER, on=(sq.c.funding_record_id == FundingRecord.id)).naive()
+            ExternalId.relationship.alias("external_id_relationship"),
+        ).join(
+            ExternalId,
+            JOIN.LEFT_OUTER,
+            on=(ExternalId.record_id == self.model.id)).where(ExternalId.id << ext_ids).join(
+            FundingInvitee,
+            JOIN.LEFT_OUTER,
+            on=(FundingInvitee.record_id == self.model.id)).naive()
 
 
 class WorkRecordAdmin(CompositeRecordModelView):
     """Work record model view."""
 
+    can_create = True
     column_searchable_list = ("title",)
     list_template = "work_record_list.html"
     form_overrides = dict(publication_date=PartialDateField)
@@ -1258,7 +1305,7 @@ class WorkRecordAdmin(CompositeRecordModelView):
         "work_id",
         "put_code",
         "title",
-        "sub_title",
+        "subtitle",
         "translated_title",
         "translated_title_language_code",
         "journal_title",
@@ -1277,10 +1324,6 @@ class WorkRecordAdmin(CompositeRecordModelView):
         "identifier",
         "first_name",
         "last_name",
-        "name",
-        "role",
-        "contributor_sequence",
-        "excluded",
         "external_id_type",
         "external_id_url",
         "external_id_relationship",
@@ -1298,77 +1341,59 @@ class WorkRecordAdmin(CompositeRecordModelView):
             page_size=page_size,
             execute=False)
 
-        sq = (WorkInvitee.select(
-            WorkInvitee.work_record,
+        ext_ids = [r.id for r in
+                   WorkExternalId.select(models.fn.min(WorkExternalId.id).alias("id")).join(WorkRecord).where(
+                       WorkRecord.task == self.current_task_id).group_by(WorkRecord.id).naive()]
+
+        return count, query.select(
+            self.model,
             WorkInvitee.email,
             WorkInvitee.orcid,
-            SQL("NULL").alias("name"),
-            SQL("NULL").alias("role"),
-            SQL("NULL").alias("contributor_sequence"),
             WorkInvitee.identifier,
             WorkInvitee.first_name,
             WorkInvitee.last_name,
-            SQL("NULL").alias("excluded"),
             WorkInvitee.put_code,
             WorkInvitee.visibility,
-            WorkInvitee.status,
-            WorkInvitee.processed_at,
-        ) | WorkContributor.select(
-            WorkContributor.work_record,
-            WorkContributor.email,
-            WorkContributor.orcid,
-            WorkContributor.name,
-            WorkContributor.role,
-            WorkContributor.contributor_sequence,
-            SQL("NULL").alias("identifier"),
-            SQL("NULL").alias("first_name"),
-            SQL("NULL").alias("last_name"),
-            SQL("'Y'").alias("excluded"),
-            SQL("NULL").alias("put_code"),
-            SQL("NULL").alias("visibility"),
-            SQL("NULL").alias("status"),
-            SQL("NULL").alias("processed_at"),
-        ).join(
-            WorkInvitee,
-            JOIN.LEFT_OUTER,
-            on=((WorkInvitee.work_record_id == WorkContributor.work_record_id)
-                & ((WorkInvitee.email == WorkContributor.email)
-                   | (WorkInvitee.orcid == WorkContributor.orcid)))).join(
-                       User,
-                       JOIN.LEFT_OUTER,
-                       on=((User.email == WorkContributor.email)
-                           | (User.orcid == WorkContributor.orcid))).where(
-                               (User.id.is_null() | WorkInvitee.id.is_null()))).alias("sq")
-
-        return count, query.select(
-            WorkRecord,
-            sq.c.email,
-            sq.c.orcid,
-            sq.c.name,
-            sq.c.role,
-            sq.c.contributor_sequence,
-            sq.c.identifier,
-            sq.c.first_name,
-            sq.c.last_name,
-            sq.c.excluded,
-            sq.c.put_code,
-            sq.c.visibility,
-            sq.c.status,
             WorkExternalId.type.alias("external_id_type"),
             WorkExternalId.value.alias("work_id"),
             WorkExternalId.url.alias("external_id_url"),
-            WorkExternalId.relationship.alias("external_id_relationship")).join(
-                WorkExternalId, JOIN.LEFT_OUTER,
-                on=(WorkExternalId.work_record_id == WorkRecord.id)).join(
-                    sq, JOIN.LEFT_OUTER, on=(sq.c.work_record_id == WorkRecord.id)).naive()
+            WorkExternalId.relationship.alias("external_id_relationship"),
+        ).join(
+            WorkExternalId,
+            JOIN.LEFT_OUTER,
+            on=(WorkExternalId.record_id == self.model.id)).where(WorkExternalId.id << ext_ids).join(
+            WorkInvitee,
+            JOIN.LEFT_OUTER,
+            on=(WorkInvitee.record_id == self.model.id)).naive()
 
 
 class PeerReviewRecordAdmin(CompositeRecordModelView):
     """Peer Review record model view."""
 
+    can_create = True
     column_searchable_list = ("review_group_id", )
     list_template = "peer_review_record_list.html"
     form_overrides = dict(review_completion_date=PartialDateField)
+
+    form_rules = [
+        rules.FieldSet([
+            "review_group_id", "reviewer_role", "review_url", "review_type",
+            "review_completion_date"
+        ], "Review Group"),
+        rules.FieldSet([
+            "subject_external_id_type", "subject_external_id_value", "subject_external_id_url",
+            "subject_external_id_relationship", "subject_container_name", "subject_type",
+            "subject_name_title", "subject_name_subtitle",
+            "subject_name_translated_title_lang_code", "subject_name_translated_title",
+            "subject_url"
+        ], "Subject"),
+        rules.FieldSet([
+            "convening_org_name", "convening_org_city", "convening_org_region",
+            "convening_org_country", "convening_org_disambiguated_identifier",
+            "convening_org_disambiguation_source"
+        ], "Convening Organisation"),
+        "is_active",
+    ]
 
     column_export_list = [
         "review_group_id",
@@ -1418,6 +1443,11 @@ class PeerReviewRecordAdmin(CompositeRecordModelView):
         count, query = self.get_list(
             0, sort_column, sort_desc, search, filters, page_size=page_size, execute=False)
 
+        ext_ids = [r.id for r in
+                   PeerReviewExternalId.select(models.fn.min(PeerReviewExternalId.id).alias("id")).join(
+                       PeerReviewRecord).where(
+                       PeerReviewRecord.task == self.current_task_id).group_by(PeerReviewRecord.id).naive()]
+
         return count, query.select(
             self.model,
             PeerReviewInvitee.email,
@@ -1434,15 +1464,16 @@ class PeerReviewRecordAdmin(CompositeRecordModelView):
         ).join(
             PeerReviewExternalId,
             JOIN.LEFT_OUTER,
-            on=(PeerReviewExternalId.peer_review_record_id == self.model.id)).join(
+            on=(PeerReviewExternalId.record_id == self.model.id)).where(PeerReviewExternalId.id << ext_ids).join(
                 PeerReviewInvitee,
                 JOIN.LEFT_OUTER,
-                on=(PeerReviewInvitee.peer_review_record_id == self.model.id)).naive()
+                on=(PeerReviewInvitee.record_id == self.model.id)).naive()
 
 
 class AffiliationRecordAdmin(RecordModelView):
     """Affiliation record model view."""
 
+    can_create = True
     list_template = "affiliation_record_list.html"
     column_exclude_list = (
         "task",
@@ -1460,6 +1491,18 @@ class AffiliationRecordAdmin(RecordModelView):
         "task",
         "is_active",
     )
+    form_widget_args = {"task": {"readonly": True}}
+
+    def validate_form(self, form):
+        """Validate the input."""
+        if request.method == "POST" and hasattr(form, "orcid") and hasattr(
+                form, "email") and hasattr(form, "put_code"):
+            if not (form.orcid.data or form.email.data or form.put_code.data):
+                flash(
+                    "Either <b>email</b>, <b>ORCID iD</b>, or <b>put-code</b> should be provided.",
+                    "danger")
+                return False
+        return super().validate_form(form)
 
     @expose("/export/<export_type>/")
     def export(self, export_type):
@@ -1468,7 +1511,7 @@ class AffiliationRecordAdmin(RecordModelView):
             return super().export(export_type)
         return_url = get_redirect_target() or self.get_url(".index_view")
 
-        task_id = request.args.get("task_id")
+        task_id = self.current_task_id
         if not task_id:
             flash("Missing task ID.", "danger")
             return redirect(return_url)
@@ -1488,22 +1531,16 @@ class AffiliationRecordAdmin(RecordModelView):
         return resp
 
 
-class ResearcherUrlRecordAdmin(AffiliationRecordAdmin):
-    """Researcher Url record model view."""
+class ProfilePropertyRecordAdmin(AffiliationRecordAdmin):
+    """Researcher Url, Other Name, and Keyword record model view."""
 
-    column_searchable_list = ("url_name", "first_name", "last_name", "email",)
-
-
-class OtherNameRecordAdmin(AffiliationRecordAdmin):
-    """Other Name record model view."""
-
-    column_searchable_list = ("content", "first_name", "last_name", "email",)
-
-
-class KeywordRecordAdmin(AffiliationRecordAdmin):
-    """Keyword record model view."""
-
-    column_searchable_list = ("content", "first_name", "last_name", "email",)
+    def __init__(self, model_class, *args, **kwargs):
+        """Set up model specific attributes."""
+        self.column_searchable_list = [
+            f for f in ["content", "name", "first_name", "last_name", "email"]
+            if f in model_class._meta.fields
+        ]
+        super().__init__(model_class, *args, **kwargs)
 
 
 class ViewMembersAdmin(AppModelView):
@@ -1724,19 +1761,19 @@ admin.add_view(OrgInvitationAdmin())
 admin.add_view(TaskAdmin(Task))
 admin.add_view(AffiliationRecordAdmin())
 admin.add_view(FundingRecordAdmin())
-admin.add_view(FundingContributorAdmin())
-admin.add_view(FundingInviteeAdmin())
-admin.add_view(ExternalIdAdmin())
-admin.add_view(WorkContributorAdmin())
-admin.add_view(WorkExternalIdAdmin())
-admin.add_view(WorkInviteeAdmin())
+admin.add_view(RecordChildAdmin(FundingContributor))
+admin.add_view(InviteeAdmin(FundingInvitee))
+admin.add_view(RecordChildAdmin(ExternalId))
+admin.add_view(RecordChildAdmin(WorkContributor))
+admin.add_view(RecordChildAdmin(WorkExternalId))
+admin.add_view(InviteeAdmin(WorkInvitee))
 admin.add_view(WorkRecordAdmin())
 admin.add_view(PeerReviewRecordAdmin())
-admin.add_view(PeerReviewInviteeAdmin())
-admin.add_view(PeerReviewExternalIdAdmin())
-admin.add_view(ResearcherUrlRecordAdmin())
-admin.add_view(OtherNameRecordAdmin())
-admin.add_view(KeywordRecordAdmin())
+admin.add_view(InviteeAdmin(PeerReviewInvitee))
+admin.add_view(RecordChildAdmin(PeerReviewExternalId))
+admin.add_view(ProfilePropertyRecordAdmin(ResearcherUrlRecord))
+admin.add_view(ProfilePropertyRecordAdmin(OtherNameRecord))
+admin.add_view(ProfilePropertyRecordAdmin(KeywordRecord))
 admin.add_view(ViewMembersAdmin(name="viewmembers", endpoint="viewmembers"))
 
 admin.add_view(UserOrgAmin(UserOrg))
@@ -1745,6 +1782,9 @@ admin.add_view(AppModelView(Grant))
 admin.add_view(AppModelView(Token))
 admin.add_view(AppModelView(Delegate))
 admin.add_view(GroupIdRecordAdmin(GroupIdRecord))
+
+for name, model in models.audit_models.items():
+    admin.add_view(AuditLogModelView(model, endpoint=name + "_log"))
 
 
 @app.template_filter("year_range")
@@ -1791,17 +1831,25 @@ def shorturl(url):
     return url_for("short_url", short_id=u.short_id, _external=True)
 
 
+def enqueue_task_records(task):
+    """Enqueue all active and not yet processed records."""
+    func = getattr(utils, f"process_{task.task_type.name.lower()}_records")
+    for r in task.records.where(task.record_model.is_active, task.record_model.processed_at.is_null()):
+        func.queue(record_id=r.id)
+
+
 @app.route("/activate_all", methods=["POST"])
 @roles_required(Role.SUPERUSER, Role.ADMIN, Role.TECHNICAL)
 def activate_all():
     """Batch registraion of users."""
     _url = request.args.get("url") or request.referrer
-    task_id = request.form.get('task_id')
-    task = Task.get(id=task_id)
+    task_id = request.form.get("task_id")
+    task = Task.get(task_id)
     try:
         count = task.record_model.update(is_active=True).where(
             task.record_model.task_id == task_id,
             task.record_model.is_active == False).execute()  # noqa: E712
+        enqueue_task_records(task)
     except Exception as ex:
         flash(f"Failed to activate the selected records: {ex}")
         app.logger.exception("Failed to activate the selected records")
@@ -1815,58 +1863,37 @@ def activate_all():
 def reset_all():
     """Batch reset of batch records."""
     _url = request.args.get("url") or request.referrer
-    task_id = request.form.get('task_id')
-    task = Task.get(id=task_id)
+    task_id = request.form.get("task_id")
+    task = Task.get(task_id)
     count = 0
     with db.atomic():
         try:
             status = "The record was reset at " + datetime.now().isoformat(timespec="seconds")
             tt = task.task_type
-            if tt in [TaskType.AFFILIATION, TaskType.RESEARCHER_URL, TaskType.OTHER_NAME, TaskType.KEYWORD]:
-                count = task.record_model.update(processed_at=None, status=status).where(
-                    task.record_model.task_id == task_id,
-                    task.record_model.is_active == True).execute()  # noqa: E712
+            if tt in [
+                    TaskType.AFFILIATION, TaskType.RESEARCHER_URL, TaskType.OTHER_NAME,
+                    TaskType.KEYWORD
+            ]:
+                count = task.record_model.update(
+                    processed_at=None, status=status).where(
+                        task.record_model.task_id == task_id,
+                        task.record_model.is_active == True).execute()  # noqa: E712
 
-                for user_invitation in UserInvitation.select().where(UserInvitation.task == task):
-                    try:
-                        user_invitation.delete_instance()
-                    except UserInvitation.DoesNotExist:
-                        pass
+            else:
+                for record in task.records.where(
+                        task.record_model.is_active == True):  # noqa: E712
+                    record.processed_at = None
+                    record.status = status
 
-            elif tt == TaskType.FUNDING:
-                for funding_record in FundingRecord.select().where(FundingRecord.task_id == task_id,
-                                                                   FundingRecord.is_active == True):    # noqa: E712
-                    funding_record.processed_at = None
-                    funding_record.status = status
-
-                    FundingInvitee.update(
-                        processed_at=None, status=status).where(
-                        FundingInvitee.funding_record == funding_record.id).execute()
-                    funding_record.save()
+                    invitee_class = record.invitees.model_class
+                    invitee_class.update(
+                        processed_at=None,
+                        status=status).where(invitee_class.record == record.id).execute()
+                    record.save()
                     count = count + 1
 
-            elif tt == TaskType.WORK:
-                for work_record in WorkRecord.select().where(WorkRecord.task_id == task_id,
-                                                                   WorkRecord.is_active == True):    # noqa: E712
-                    work_record.processed_at = None
-                    work_record.status = status
-
-                    WorkInvitee.update(
-                        processed_at=None, status=status).where(
-                        WorkInvitee.work_record == work_record.id).execute()
-                    work_record.save()
-                    count = count + 1
-            elif tt == TaskType.PEER_REVIEW:
-                for peer_review_record in PeerReviewRecord.select().where(PeerReviewRecord.task_id == task_id,
-                                                                   PeerReviewRecord.is_active == True):    # noqa: E712
-                    peer_review_record.processed_at = None
-                    peer_review_record.status = status
-
-                    PeerReviewInvitee.update(
-                        processed_at=None, status=status).where(
-                        PeerReviewInvitee.peer_review_record == peer_review_record.id).execute()
-                    peer_review_record.save()
-                    count = count + 1
+            UserInvitation.delete().where(UserInvitation.task == task).execute()
+            enqueue_task_records(task)
 
         except Exception as ex:
             db.rollback()
@@ -1877,20 +1904,7 @@ def reset_all():
             task.expiry_email_sent_at = None
             task.completed_at = None
             task.save()
-            if task.task_type == 1:
-                flash(f"{count} Funding records were reset for batch processing.")
-            elif task.task_type == 2:
-                flash(f"{count} Work records were reset for batch processing.")
-            elif task.task_type == 3:
-                flash(f"{count} Peer Review records were reset for batch processing.")
-            elif task.task_type == 5:
-                flash(f"{count} Researcher Url records were reset for batch processing.")
-            elif task.task_type == 6:
-                flash(f"{count} Other Name records were reset for batch processing.")
-            elif task.task_type == 7:
-                flash(f"{count} Keyword records were reset for batch processing.")
-            else:
-                flash(f"{count} Affiliation records were reset for batch processing.")
+            flash(f"{count} {task.task_type.name} records were reset for batch processing.", "info")
     return redirect(_url)
 
 
@@ -2116,7 +2130,7 @@ def edit_record(user_id, section_type, put_code=None):
                 elif section_type in ["RUR", "ONR", "KWR"]:
                     data = dict(visibility=_data.get("visibility"), display_index=_data.get("display-index"))
                     if section_type == "RUR":
-                        data.update(dict(url_name=_data.get("url-name"), url_value=_data.get("url", "value")))
+                        data.update(dict(name=_data.get("url-name"), value=_data.get("url", "value")))
                     else:
                         data.update(dict(content=_data.get("content")))
                 else:
@@ -2211,7 +2225,6 @@ def edit_record(user_id, section_type, put_code=None):
                         **{f.name: f.data
                            for f in form})
             elif section_type == "RUR":
-
                 put_code, orcid, created = api.create_or_update_researcher_url(
                     put_code=put_code,
                     **{f.name: f.data
@@ -2782,7 +2795,6 @@ def register_org(org_name,
         try:
             user = User.get(email=email)
             user.organisation = org
-            user.confirmed = True
         except User.DoesNotExist:
             user = User.create(
                 email=email,
@@ -2843,6 +2855,8 @@ def register_org(org_name,
             cc_email=(current_user.name, current_user.email))
 
         org.is_email_sent = True
+        if tech_contact:
+            org.tech_contact = user
         try:
             org.save()
         except Exception:
@@ -2917,9 +2931,28 @@ def invite_organisation():
             app.logger.exception(f"Failed to send registration invitation with {params}.")
             flash(f"Failed to send registration invitation: {ex}.", "danger")
 
-    return render_template(
-        "registration.html", form=form, org_info={r.name: r.to_dict()
-                                                  for r in OrgInfo.select()})
+    org_info = cache.get("org_info")
+    if not org_info:
+        org_info = {
+            r.name: r.to_dict(only=[
+                OrgInfo.email, OrgInfo.first_name, OrgInfo.last_name, OrgInfo.country,
+                OrgInfo.city, OrgInfo.disambiguated_id, OrgInfo.disambiguation_source
+            ])
+            for r in OrgInfo.select(OrgInfo.name, OrgInfo.email, OrgInfo.first_name,
+                                    OrgInfo.last_name, OrgInfo.country, OrgInfo.city,
+                                    OrgInfo.disambiguated_id, OrgInfo.disambiguation_source)
+            | Organisation.select(
+                Organisation.name,
+                SQL('NULL').alias("email"),
+                SQL('NULL').alias("first_name"),
+                SQL('NULL').alias("last_name"), Organisation.country, Organisation.city,
+                Organisation.disambiguated_id, Organisation.disambiguation_source).join(
+                    OrgInfo, JOIN.LEFT_OUTER, on=(
+                        OrgInfo.name == Organisation.name)).where(OrgInfo.name.is_null())
+        }
+        cache.set("org_info", org_info, timeout=60)
+
+    return render_template("registration.html", form=form, org_info=org_info)
 
 
 @app.route("/user/<int:user_id>/organisations", methods=["GET", "POST"])

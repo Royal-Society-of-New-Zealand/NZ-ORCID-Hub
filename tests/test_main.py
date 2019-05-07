@@ -144,18 +144,17 @@ def test_org_switch(client):
     assert next_user.id != user.id
 
 
-@pytest.mark.parametrize("url",
-                         ["/link", "/auth", "/pyinfo", "/invite/organisation", "/invite/user"])
-def test_access(url, client):
+def test_access(client):
     """Test access to the app for unauthorized user."""
-    resp = client.get(url)
-    assert resp.status_code == 302
-    assert "Location" in resp.headers, pprint.pformat(resp.headers, indent=4)
-    assert "next=" in resp.location
-    resp = client.get(url, follow_redirects=True)
-    assert resp.status_code == 200
-    assert b"<!DOCTYPE html>" in resp.data, "Expected HTML content"
-    assert b"Please log in to access this page." in resp.data
+    for url in ["/link", "/auth", "/pyinfo", "/invite/organisation", "/invite/user"]:
+        resp = client.get(url)
+        assert resp.status_code == 302
+        assert "Location" in resp.headers, pprint.pformat(resp.headers, indent=4)
+        assert "next=" in resp.location
+        resp = client.get(url, follow_redirects=True)
+        assert resp.status_code == 200
+        assert b"<!DOCTYPE html>" in resp.data, "Expected HTML content"
+        assert b"Please log in to access this page." in resp.data
 
 
 def test_tuakiri_login(client):
@@ -381,7 +380,7 @@ def test_onboard_org(client):
         city="CITY",
         country="COUNTRY",
         disambiguated_id="ID",
-        disambiguation_source="SOURCE",
+        disambiguation_source="RINGGOLD",
         is_email_sent=True)
     u = User.create(
         email="test123@test.test.net",
@@ -399,7 +398,7 @@ def test_onboard_org(client):
         organisation=org)
     UserOrg.create(user=second_user, org=org, is_admin=True)
     org_info = OrgInfo.create(
-        name="THE ORGANISATION:test_onboard_org", tuakiri_name="THE ORGANISATION:test_onboard_org")
+        name="A NEW ORGANISATION", tuakiri_name="A NEW ORGANISATION")
     org.tech_contact = u
     org_info.save()
     org.save()
@@ -408,18 +407,21 @@ def test_onboard_org(client):
     with patch("orcid_hub.utils.send_email"):
         resp = client.post(
             "/invite/organisation",
-            data=dict(org_name="A NEW ORGANISATION", org_email="test_abc_123@test.test.net"))
+            data=dict(org_name="A NEW ORGANISATION", org_email="test_abc_123@test.test.net"),
+            follow_redirects=True)
         assert User.select().where(User.email == "test_abc_123@test.test.net").exists()
         resp = client.post(
             "/invite/organisation",
             data=dict(
-                org_name="A NEW ORGANISATION", org_email="test12345@test.test.net",
-                tech_contact='y'))
+                org_name="A NEW ORGANISATION",
+                org_email="test12345@test.test.net",
+                tech_contact='y'),
+            follow_redirects=True)
         assert User.select().where(User.email == "test12345@test.test.net").exists()
     org = Organisation.get(name="A NEW ORGANISATION")
     user = User.get(email="test12345@test.test.net")
     assert user.name is None
-    assert org.tech_contact is None
+    assert org.tech_contact == user
     client.logout()
 
     resp = client.login(
@@ -450,7 +452,7 @@ def test_onboard_org(client):
                 "country": "NZ",
                 "city": "Auckland",
                 "disambiguated_id": "XYZ123",
-                "disambiguation_source": "XYZ",
+                "disambiguation_source": "RINGGOLD",
                 "name": org.name,
                 "email": user.email,
             })
@@ -461,7 +463,7 @@ def test_onboard_org(client):
     client.logout()
     org = Organisation.get(org.id)
     assert org.disambiguated_id == "XYZ123"
-    assert org.disambiguation_source == "XYZ"
+    assert org.disambiguation_source == "RINGGOLD"
     assert org.orcid_client_id == "APP-1234567890ABCDEF"
     assert org.orcid_secret == "12345678-1234-1234-1234-1234567890ab"
 
@@ -476,7 +478,6 @@ def test_onboard_org(client):
         },
         follow_redirects=True)
     assert b"Take me to ORCID to allow A NEW ORGANISATION permission to access my ORCID record" in resp.data
-
     resp = client.get("/confirm/organisation")
     assert resp.status_code == 302
     assert urlparse(resp.location).path == "/admin/viewmembers/"
@@ -507,7 +508,7 @@ def test_invite_tech_contact(send_email, client):
 
     assert not u.confirmed
     assert oi.org.name == "A NEW ORGANISATION"
-    assert oi.org.tech_contact is None
+    assert oi.org.tech_contact == u
     send_email.assert_called_once()
     client.logout()
 
@@ -626,7 +627,7 @@ def test_orcid_login_callback_admin_flow(patch, patch2, request_ctx):
         city="CITY",
         country="COUNTRY",
         disambiguated_id="ID",
-        disambiguation_source="SOURCE",
+        disambiguation_source="RINGGOLD",
         is_email_sent=True)
     u = User.create(
         email="test123@test.test.net",
@@ -762,7 +763,7 @@ def test_orcid_login_callback_researcher_flow(patch, patch2, request_ctx):
         city="CITY",
         country="COUNTRY",
         disambiguated_id="ID",
-        disambiguation_source="SOURCE",
+        disambiguation_source="RINGGOLD",
         is_email_sent=True)
     u = User.create(
         email="test123@test.test.net",
@@ -795,7 +796,7 @@ def test_select_user_org(request_ctx):
         city="CITY",
         country="COUNTRY",
         disambiguated_id="ID",
-        disambiguation_source="SOURCE",
+        disambiguation_source="RINGGOLD",
         is_email_sent=True)
     org2 = Organisation.create(
         name="THE ORGANISATION2:test_select_user_org",
@@ -806,7 +807,7 @@ def test_select_user_org(request_ctx):
         city="CITY",
         country="COUNTRY",
         disambiguated_id="ID",
-        disambiguation_source="SOURCE",
+        disambiguation_source="RINGGOLD",
         is_email_sent=True)
 
     user = User.create(
@@ -865,7 +866,7 @@ def test_link(request_ctx):
         city="CITY",
         country="COUNTRY",
         disambiguated_id="ID",
-        disambiguation_source="SOURCE",
+        disambiguation_source="RINGGOLD",
         is_email_sent=True)
     user = User.create(
         email="test123@test.test.net",
@@ -892,7 +893,7 @@ def test_faq_and_about(client, url):
     assert resp.status_code == 200
 
 
-def test_orcid_callback(client):
+def test_orcid_callback(client, mocker):
     """Test orcid researcher deny flow."""
     org = Organisation.create(
         name="THE ORGANISATION:test_orcid_callback",
@@ -903,7 +904,7 @@ def test_orcid_callback(client):
         city="CITY",
         country="COUNTRY",
         disambiguated_id="ID",
-        disambiguation_source="SOURCE",
+        disambiguation_source="RINGGOLD",
         is_email_sent=True)
     user = User.create(
         email="test123_test_orcid_callback@test.test.net",
