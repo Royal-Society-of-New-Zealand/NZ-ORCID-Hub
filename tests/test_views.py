@@ -180,7 +180,7 @@ def test_superuser_view_access(client):
     resp = client.get("/admin/organisation/edit/?id=999999")
     assert resp.status_code == 404
     assert b"404" in resp.data
-    assert b"The record with given ID: 999999 doesn't exist or it was deleted." in resp.data
+    assert b"The record with given ID: 999999 doesn't exist or it has been deleted." in resp.data
 
     resp = client.get("/admin/orcidtoken/")
     assert resp.status_code == 200

@@ -954,7 +954,7 @@ class InviteeAdmin(RecordChildAdmin):
                 rec_class.update(
                     processed_at=None, status=status).where(
                     rec_class.is_active, rec_class.id == record_id).execute()
-                self.enqueue_record(record_id)
+                getattr(utils, f"process_{rec_class.underscore_name()}s").queue(record_id)
             except Exception as ex:
                 db.rollback()
                 flash(f"Failed to activate the selected records: {ex}")
@@ -1371,7 +1371,8 @@ class WorkRecordAdmin(CompositeRecordModelView):
 class PeerReviewRecordAdmin(CompositeRecordModelView):
     """Peer Review record model view."""
 
-    column_exclude_list = ("task", "subject_external_id_type", "external_id_type", "convening_org_disambiguation_source")
+    column_exclude_list = (
+        "task", "subject_external_id_type", "external_id_type", "convening_org_disambiguation_source")
     can_create = True
     column_searchable_list = ("review_group_id", )
     list_template = "peer_review_record_list.html"
