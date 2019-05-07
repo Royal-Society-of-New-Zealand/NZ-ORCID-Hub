@@ -701,7 +701,7 @@ class RecordModelView(AppModelView):
 
     @models.lazy_property
     def record_processing_func(self):
-        """Reocord processing funcion."""
+        """Record processing function."""
         return getattr(utils, f"process_{self.model.underscore_name()}s")
 
     def enqueue_record(self, record_id):
@@ -750,13 +750,10 @@ to the best of your knowledge, correct!""")
 
                 if hasattr(self.model, "invitees"):
                     im = self.model.invitees.rel_model
-                    count += im.update(
+                    count = im.update(
                         processed_at=None, status=status).where(im.record.in_(ids)).execute()
                     emails = im.select(im.email).where(im.record_id.in_(ids))
                 else:
-                    count += self.model.update(
-                        processed_at=None,
-                        status=status).where(self.model.record.in_(ids)).execute()
                     emails = self.model.select(self.model.email).where(self.model.id.in_(ids))
                 # Delete the userInvitation token for selected reset items.
                 UserInvitation.delete().where(UserInvitation.email.in_(emails)).execute()

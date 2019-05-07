@@ -979,15 +979,17 @@ def orcid_login(invitation_token=None):
 
             if is_scope_person_update and OrcidToken.select().where(
                     OrcidToken.user == user, OrcidToken.org == org,
-                    OrcidToken.scope.contains("/person/update")).exists():
+                    OrcidToken.scope.contains(scopes.PERSON_UPDATE)).exists():
                 flash(
                     "You have already given permission with scope '/person/update' which allows organisation to write, "
                     "update and delete items in the other-names, keywords, countries, researcher-urls, websites, "
                     "and personal external identifiers sections of the record. Now you can simply login on orcidhub",
                     "warning")
                 return redirect(url_for("index"))
-            elif not is_scope_person_update and OrcidToken.select().where(
-                    OrcidToken.user == user, OrcidToken.org == org).exists():
+            elif not is_scope_person_update and invitation._meta.model_class != OrgInvitation \
+                and OrcidToken.select().where(
+                    OrcidToken.user == user, OrcidToken.org == org,
+                    OrcidToken.scope.contains(scopes.ACTIVITIES_UPDATE)).exists():
                 flash("You have already given permission, you can simply login on orcidhub",
                       "warning")
                 return redirect(url_for("index"))
@@ -1012,7 +1014,7 @@ def orcid_login(invitation_token=None):
                         "was trying old invitation token")
                     return redirect(url_for("index"))
 
-                if org.orcid_client_id and not user_org.is_admin:
+                if org.orcid_client_id and invitation._meta.model_class != OrgInvitation:
                     client_id = org.orcid_client_id
                     if is_scope_person_update:
                         orcid_scopes = [scopes.PERSON_UPDATE, scopes.READ_LIMITED]
@@ -1104,14 +1106,14 @@ def orcid_login_callback(request):
                 org = user.organisation
 
             try:
-                user_org = UserOrg.get(user=user, org=org)
+                UserOrg.get(user=user, org=org)
             except Organisation.DoesNotExist:
                 flash("The linkage with the organisation '{org.name}' doesn't exist in the Hub!", "danger")
                 app.logger.error(
                     f"User '{user}' attempted to affiliate with an organisation that's not known: {org.name}"
                 )
                 return redirect(url_for("index"))
-            if org.orcid_client_id and org.orcid_secret and not user_org.is_admin:
+            if org.orcid_client_id and org.orcid_secret and invitation._meta.model_class != OrgInvitation:
                 orcid_client_id = org.orcid_client_id
                 orcid_client_secret = org.orcid_secret
 
@@ -1186,7 +1188,7 @@ def orcid_login_callback(request):
 
         session['Should_not_logout_from_ORCID'] = True
         if invitation_token:
-            if user_org.is_admin:
+            if invitation._meta.model_class == OrgInvitation:
                 access_token = token.get("access_token")
                 if not access_token:
                     app.logger.error(f"Missing access token: {token}")
@@ -1213,11 +1215,6 @@ def orcid_login_callback(request):
                 data = json.loads(api_response.data)
                 if data and data.get("email") and any(
                         e.get("email").lower() == email for e in data.get("email")):
-                    # Check if it is an org_invitation or user_invitation.
-                    if not hasattr(invitation, "tech_contact"):
-                        flash(f"Your are an Administrator of '{org}'.So you dont have to invite yourself "
-                              f"like a researcher. Just go to 'Your ORCID' tab to give permissions", "warning")
-                        return redirect(_next or url_for("about"))
                     if invitation.tech_contact and org.tech_contact != user:
                         org.tech_contact = user
                         org.save()
@@ -1226,7 +1223,7 @@ def orcid_login_callback(request):
                         return redirect(_next or url_for("onboard_org"))
                     elif not org.confirmed and not user.is_tech_contact_of(org):
                         flash(
-                            f"Your '{org}' has not be onboarded. Please, try again once your technical contact"
+                            f"Your '{org}' has yet not been onboard. Please, try again once your technical contact"
                             f" onboards your organisation on ORCIDHUB", "warning")
                         return redirect(url_for("about"))
                     elif org.confirmed:
