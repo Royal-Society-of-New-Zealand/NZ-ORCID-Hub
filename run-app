@@ -11,7 +11,13 @@ echo "Domain name: \"$DOMAINNAME\""
 echo "Host anem: \"$HOSTNAME\""
 
 ## Shibboleth SP domainname:
-[ -z "$SHIB_SP_DOMAINNAME" ] && SHIB_SP_DOMAINNAME=${DOMAINNAME/$HOSTNAME/$ENV}
+if [ -z "$SHIB_SP_DOMAINNAME" ] ; then
+  if [ "$ENV" == "prod" ] ; then
+    SHIB_SP_DOMAINNAME=${DOMAINNAME/$HOSTNAME./}
+  else
+    SHIB_SP_DOMAINNAME=${DOMAINNAME/$HOSTNAME/$ENV}
+  fi
+fi
 echo "Shibboleth SP Domainname (\$SHIB_SP_DOMAINNAME): \"$SHIB_SP_DOMAINNAME\""
 
 ## Shibboleth SP domainname:

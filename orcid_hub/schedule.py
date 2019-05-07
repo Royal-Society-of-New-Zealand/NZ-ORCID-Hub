@@ -11,5 +11,6 @@ def setup():
     for job in scheduler.get_jobs():
         job.delete()
 
-    tasks.process_tasks.schedule(datetime.utcnow(), interval=3600)
-    tasks.send_orcid_update_summary.cron("0 0 1 * *", "orcid-update-summary")
+    # NB! add result_ttl! Otherwise it won't get rescheduled
+    tasks.process_tasks.schedule(datetime.utcnow(), interval=3600, result_ttl=-1, job_id="*PROCESS-TASKS*")
+    tasks.send_orcid_update_summary.cron("0 0 1 * *", "*ORCID-UPDATE-SUMMARY*")

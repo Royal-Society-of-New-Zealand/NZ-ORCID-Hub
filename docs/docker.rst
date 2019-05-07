@@ -13,8 +13,12 @@ Application Docker Image (`orcidhub/app`) is packaged with:
 Usage
 ~~~~~
 
+The following steps will set up a local ORCID Hub application instance using docker.
+
 #. Install **docker** following the instruction at https://docs.docker.com/install/linux/docker-ce/ubuntu/
 #. Install **git** and **docker-compose**: `sudo apt install -y git docker-compose`
+#. Add your user to the **docker** user group: https://docs.docker.com/install/linux/linux-postinstall/#manage-docker-as-a-non-root-user
+#. And configure Docker to start on boot: https://docs.docker.com/install/linux/linux-postinstall/#configure-docker-to-start-on-boot
 #. Clone the project repository: `git clone https://github.com/Royal-Society-of-New-Zealand/NZ-ORCID-Hub.git`
 #. Change the current directory: `cd NZ-ORCID-Hub`
 #. Create the environment configuration file **.env** from **.env.sample**

@@ -34,22 +34,31 @@
       {% if onboarded_organisations() %}
         <h3>Organisations using the Hub:</h3>
         <div class="row">
-          <div class="col-sm-6">
+          <div class="col-sm-5">
             <h4>Tuakiri Members</h4>
+            <div class="box-blue">
+              <ul>
             {% for r in onboarded_organisations() %}
               {% if (r.tuakiri_name != None and not(r.name == 'Royal Society Te Apārangi')) %}
-                <p>{{ r.name }}</p>
+                <li>{{ r.name }}</li>
               {% endif %}
             {% endfor %}
+              </ul>
+            </div>
           </div>
-          <div class="col-sm-6">
+          <div class="col-sm-1"></div>
+          <div class="col-sm-5">
             <h4>Non-Tuakiri Members</h4>
-            <p>Royal Society Te Apārangi</p>
+            <div class="box-green">
+            <ul>
+            <li>Royal Society Te Apārangi</li>
             {% for r in onboarded_organisations() %}
               {% if r.tuakiri_name == None %}
-                <p>{{ r.name }}</p>
+                <li>{{ r.name }}</li>
               {% endif %}
             {% endfor %}
+            </ul>
+            </div>
           </div>
         </div>
       {% endif %}

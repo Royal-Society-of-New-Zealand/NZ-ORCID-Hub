@@ -15,7 +15,7 @@ from datetime import datetime, timedelta
 from os import path, remove
 from tempfile import gettempdir
 from time import time
-from urllib.parse import quote, unquote, urlparse
+from urllib.parse import parse_qs, quote, unquote, urlparse
 import validators
 
 import requests
@@ -30,7 +30,7 @@ from werkzeug.utils import secure_filename
 
 from orcid_api.rest import ApiException
 
-from . import app, db, orcid_client
+from . import app, cache, db, orcid_client
 from . import orcid_client as scopes
 # TODO: need to read form app.config[...]
 from .config import (APP_DESCRIPTION, APP_NAME, APP_URL, AUTHORIZATION_BASE_URL, CRED_TYPE_PREMIUM,
@@ -38,7 +38,8 @@ from .config import (APP_DESCRIPTION, APP_NAME, APP_URL, AUTHORIZATION_BASE_URL,
 from .forms import OrgConfirmationForm, TestDataForm
 from .login_provider import roles_required
 from .models import (Affiliation, OrcidAuthorizeCall, OrcidToken, Organisation, OrgInfo,
-                     OrgInvitation, Role, Task, TaskType, Url, User, UserInvitation, UserOrg)
+                     OrgInvitation, Role, Task, TaskType, Url, User, UserInvitation, UserOrg,
+                     audit_models)
 from .utils import append_qs, get_next_url, read_uploaded_file, register_orcid_webhook
 
 HEADERS = {'Accept': 'application/vnd.orcid+json', 'Content-type': 'application/vnd.orcid+json'}
@@ -49,10 +50,17 @@ ENV = app.config.get("ENV")
 def utility_processor():  # noqa: D202
     """Define funcions callable form Jinja2 using application context."""
 
+    def has_audit_logs():
+        return bool(audit_models)
+
     def onboarded_organisations():
-        return list(
-            Organisation.select(Organisation.name, Organisation.tuakiri_name).where(
-                Organisation.confirmed.__eq__(True)))
+        rv = cache.get("onboarded_organisations")
+        if not rv:
+            rv = list(
+                Organisation.select(Organisation.name, Organisation.tuakiri_name).where(
+                    Organisation.confirmed.__eq__(True)))
+            cache.set("onboarded_organisations", rv, timeout=3600)
+        return rv
 
     def orcid_login_url():
         return url_for("orcid_login", next=get_next_url())
@@ -68,10 +76,50 @@ def utility_processor():  # noqa: D202
             login_url = url_for("handle_login", _next=_next)
         return login_url
 
+    def current_task():
+        try:
+            task_id = request.args.get("task_id")
+            if task_id:
+                task_id = int(task_id)
+            else:
+                url = request.args.get("url")
+                if not url:
+                    return False
+                qs = parse_qs(urlparse(url).query)
+                task_id = qs.get("task_id", [None])[0]
+                if task_id:
+                    task_id = int(task_id)
+        except:
+            return None
+        return Task.get(task_id)
+
+    def current_record():
+        task = current_task()
+        if not task:
+            return None
+        try:
+            record_id = request.args.get("record_id")
+            if record_id:
+                record_id = int(record_id)
+            else:
+                url = request.args.get("url")
+                if not url:
+                    return None
+                qs = parse_qs(urlparse(url).query)
+                record_id = qs.get("record_id", [None])[0]
+                if record_id:
+                    record_id = int(record_id)
+        except:
+            return None
+        return task.records.model_class.get(record_id)
+
     return dict(
         orcid_login_url=orcid_login_url,
         tuakiri_login_url=tuakiri_login_url,
         onboarded_organisations=onboarded_organisations,
+        current_task=current_task,
+        current_record=current_record,
+        has_audit_logs=has_audit_logs,
     )
 
 
@@ -274,12 +322,6 @@ def handle_login():
 
     if not user.confirmed:
         user.confirmed = True
-        if user.has_role(Role.TECHNICAL):
-            oi = OrgInvitation.select().where(OrgInvitation.invitee == user).order_by(
-                OrgInvitation.created_at.desc()).limit(1).first()
-            if oi and oi.tech_contact and oi.org.tech_contact != user:
-                oi.org.tech_contact = user
-                oi.org.save()
 
     try:
         user.save()
@@ -516,7 +558,7 @@ def link():
 @app.route("/orcid/auth/<path:url>")
 @app.route("/auth/<path:url>")
 def orcid_callback_proxy(url):
-    """Redirect to the original invocator."""
+    """Redirect to the original invokator."""
     url = unquote(url)
     return redirect(append_qs(url, **request.args))
 
@@ -560,8 +602,8 @@ def orcid_callback():
     client = OAuth2Session(current_user.organisation.orcid_client_id)
 
     try:
-        state = request.args["state"]
-        if state != session.get("oauth_state"):
+        state = request.args['state']
+        if state != session.get('oauth_state'):
             flash("Retry giving permissions, or if the issue persists "
                   "please contact orcid@royalsociety.org.nz for support", "danger")
             app.logger.error(
@@ -811,6 +853,8 @@ def onboard_org():
                 flash("Organisation information updated successfully!", "success")
 
             form.populate_obj(organisation)
+            organisation.disambiguated_id = organisation.disambiguated_id.strip()
+            organisation.disambiguation_source = organisation.disambiguation_source.strip()
             organisation.api_credentials_entered_at = datetime.utcnow()
             try:
                 organisation.save()
@@ -905,7 +949,9 @@ def orcid_login(invitation_token=None):
     the organisation. For technical contacts the email should be made available for
     READ LIMITED scope.
     """
-    redirect_uri = url_for("orcid_callback", _external=True)
+    _next = get_next_url()
+    redirect_uri = url_for("orcid_callback", _next=_next, _external=True)
+
     try:
         orcid_scopes = [scopes.AUTHENTICATE]
 
@@ -922,23 +968,28 @@ def orcid_login(invitation_token=None):
             if not user:
                 user = User.get(email=invitation.email)
 
-            is_scope_person_update = False
-            if hasattr(invitation, "task_id"):
+            is_scope_person_update = invitation.is_person_update_invite if hasattr(
+                invitation, "is_person_update_invite") else False
+
+            if hasattr(invitation, "task_id") and invitation.task_id:
                 is_scope_person_update = Task.select().where(
                     Task.id == invitation.task_id, Task.task_type == TaskType.RESEARCHER_URL).exists() or Task.select()\
-                    .where(Task.id == invitation.task_id, Task.task_type == TaskType.OTHER_NAME).exists()
+                    .where(Task.id == invitation.task_id, Task.task_type == TaskType.OTHER_NAME).exists() or Task.\
+                    select().where(Task.id == invitation.task_id, Task.task_type == TaskType.KEYWORD).exists()
 
             if is_scope_person_update and OrcidToken.select().where(
                     OrcidToken.user == user, OrcidToken.org == org,
-                    OrcidToken.scope.contains("/person/update")).exists():
+                    OrcidToken.scope.contains(scopes.PERSON_UPDATE)).exists():
                 flash(
                     "You have already given permission with scope '/person/update' which allows organisation to write, "
                     "update and delete items in the other-names, keywords, countries, researcher-urls, websites, "
                     "and personal external identifiers sections of the record. Now you can simply login on orcidhub",
                     "warning")
                 return redirect(url_for("index"))
-            elif not is_scope_person_update and OrcidToken.select().where(
-                    OrcidToken.user == user, OrcidToken.org == org).exists():
+            elif not is_scope_person_update and invitation._meta.model_class != OrgInvitation \
+                and OrcidToken.select().where(
+                    OrcidToken.user == user, OrcidToken.org == org,
+                    OrcidToken.scope.contains(scopes.ACTIVITIES_UPDATE)).exists():
                 flash("You have already given permission, you can simply login on orcidhub",
                       "warning")
                 return redirect(url_for("index"))
@@ -963,7 +1014,7 @@ def orcid_login(invitation_token=None):
                         "was trying old invitation token")
                     return redirect(url_for("index"))
 
-                if org.orcid_client_id and not user_org.is_admin:
+                if org.orcid_client_id and invitation._meta.model_class != OrgInvitation:
                     client_id = org.orcid_client_id
                     if is_scope_person_update:
                         orcid_scopes = [scopes.PERSON_UPDATE, scopes.READ_LIMITED]
@@ -1019,6 +1070,7 @@ def orcid_login(invitation_token=None):
 
 def orcid_login_callback(request):
     """Handle call-back for user authentication via ORCID."""
+    _next = get_next_url()
     state = request.args.get("state")
     invitation_token = request.args.get("invitation_token")
 
@@ -1054,14 +1106,14 @@ def orcid_login_callback(request):
                 org = user.organisation
 
             try:
-                user_org = UserOrg.get(user=user, org=org)
+                UserOrg.get(user=user, org=org)
             except Organisation.DoesNotExist:
                 flash("The linkage with the organisation '{org.name}' doesn't exist in the Hub!", "danger")
                 app.logger.error(
                     f"User '{user}' attempted to affiliate with an organisation that's not known: {org.name}"
                 )
                 return redirect(url_for("index"))
-            if org.orcid_client_id and org.orcid_secret and not user_org.is_admin:
+            if org.orcid_client_id and org.orcid_secret and invitation._meta.model_class != OrgInvitation:
                 orcid_client_id = org.orcid_client_id
                 orcid_client_secret = org.orcid_secret
 
@@ -1120,18 +1172,11 @@ def orcid_login_callback(request):
             user.name = token["name"]
         if not user.confirmed:
             user.confirmed = True
-            if user.has_role(Role.TECHNICAL):
-                oi = OrgInvitation.select().where(OrgInvitation.invitee == user).order_by(
-                    OrgInvitation.created_at.desc()).limit(1).first()
-                if oi and oi.tech_contact and oi.org.tech_contact != user:
-                    oi.org.tech_contact = user
-                    oi.org.save()
 
         login_user(user)
         oac.user_id = current_user.id
         oac.save()
 
-        # User is a technical conatct. We should verify email address
         try:
             user_org = UserOrg.get(user=user, org=org)
         except UserOrg.DoesNotExist:
@@ -1143,7 +1188,7 @@ def orcid_login_callback(request):
 
         session['Should_not_logout_from_ORCID'] = True
         if invitation_token:
-            if user_org.is_admin:
+            if invitation._meta.model_class == OrgInvitation:
                 access_token = token.get("access_token")
                 if not access_token:
                     app.logger.error(f"Missing access token: {token}")
@@ -1158,44 +1203,38 @@ def orcid_login_callback(request):
                     message = json.loads(ex.body.decode()).get('user-message')
                     if ex.status == 401:
                         flash(f"Got ORCID API Exception: {message}", "danger")
-                        logout_user()
                     else:
-                        flash(
-                            "Exception when calling MemberAPIV20Api->view_employments: %s\n" %
-                            message, "danger")
+                        flash(f"Exception when calling MemberAPI: {message}", "danger")
                         flash(
                             f"The Hub cannot verify your email address from your ORCID record. "
                             f"Please, change the visibility level for your organisation email address "
                             f"'{email}' to 'trusted parties' and, if the error persists, that you have"
                             f"verified this email in your record.", "danger")
+                    logout_user()
                     return redirect(url_for("index"))
                 data = json.loads(api_response.data)
                 if data and data.get("email") and any(
                         e.get("email").lower() == email for e in data.get("email")):
-                    # Check if it is an org_invitation or user_invitation.
-                    if not hasattr(invitation, "tech_contact"):
-                        flash(f"Your are an Administrator of '{org}'.So you dont have to invite yourself "
-                              f"like a researcher. Just go to 'Your ORCID' tab to give permissions", "warning")
-                        return redirect(url_for("about"))
                     if invitation.tech_contact and org.tech_contact != user:
                         org.tech_contact = user
                         org.save()
                     user.save()
                     if not (org.confirmed and org.orcid_client_id) and user.is_tech_contact_of(org):
-                        return redirect(url_for("onboard_org"))
+                        return redirect(_next or url_for("onboard_org"))
                     elif not org.confirmed and not user.is_tech_contact_of(org):
                         flash(
-                            f"Your '{org}' has not be onboarded. Please, try again once your technical contact"
+                            f"Your '{org}' has yet not been onboard. Please, try again once your technical contact"
                             f" onboards your organisation on ORCIDHUB", "warning")
                         return redirect(url_for("about"))
                     elif org.confirmed:
-                        return redirect(url_for('viewmembers.index_view'))
+                        return redirect(_next or url_for('viewmembers.index_view'))
                 else:
                     logout_user()
                     flash(
                         f"The Hub cannot verify your email address from your ORCID record. "
-                        f"Please, change the visibility level for your "
-                        f"organisation email address '{email}' to 'trusted parties'.", "danger")
+                        f"Please, change the visibility level for your organisation email address "
+                        f"'{email}' to 'trusted parties' and also remember to verify the email address "
+                        "under ORCID account settings.", "danger")
                     return redirect(url_for("index"))
 
             else:
@@ -1285,8 +1324,11 @@ def select_user_org(user_org_id):
         uo = UserOrg.get(id=user_org_id)
         if (uo.user.orcid == current_user.orcid or uo.user.email == current_user.email
                 or uo.user.eppn == current_user.eppn):
-            current_user.organisation_id = uo.org_id
-            current_user.save()
+            if uo.user_id != current_user.id:
+                login_user(uo.user)
+            if current_user.organisation_id != uo.org_id:
+                current_user.organisation_id = uo.org_id
+                current_user.save()
         else:
             flash("You cannot switch your user to this organisation", "danger")
     except UserOrg.DoesNotExist:

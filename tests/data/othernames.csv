@@ -1,0 +1,5 @@
+Content,Display Index,Visibility,Email,First Name,Last Name,ORCID iD,Put Code
+dummy 1220,0,PUBLIC,rad42@mailinator.com,sdsd,sds1,,
+dummy 10,0,PUBLIC,other_name@mailinator.com,sdsd,sds1,0000-0002-0146-7409,16878
+Other Name,,,,,,0000-0001-8228-7153,
+And Another Name,,PUBLIC,rad42@mailinator.com,,,,

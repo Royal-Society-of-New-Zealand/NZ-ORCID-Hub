@@ -5,17 +5,17 @@ from datetime import date
 
 from flask_wtf import FlaskForm
 from flask_wtf.file import FileAllowed, FileField, FileRequired
-from pycountry import countries, languages, currencies
 from wtforms import (BooleanField, Field, SelectField, SelectMultipleField, StringField,
                      SubmitField, TextField, TextAreaField, validators)
 from wtforms.fields.html5 import DateField, EmailField, IntegerField
-from wtforms.validators import UUID, DataRequired, email, Regexp, Required, ValidationError, optional, url
+from wtforms.validators import (UUID, DataRequired, email, Regexp, StopValidation, ValidationError, optional, url)
 from wtforms.widgets import HTMLString, TextArea, html_params
 from wtfpeewee.orm import model_form
 
 from . import app, models
 
 DEFAULT_COUNTRY = app.config["DEFAULT_COUNTRY"]
+EMPTY_CHOICES = [("", "")]
 
 
 def validate_orcid_id_field(form, field):
@@ -95,6 +95,7 @@ class PartialDateField(Field):
                 except ValueError as e:
                     new_data[f] = None
                     self.process_errors.append(e.args[0])
+
             self.data = models.PartialDate(**new_data)
         try:
             for filter in self.filters:
@@ -102,50 +103,58 @@ class PartialDateField(Field):
         except ValueError as e:
             self.process_errors.append(e.args[0])
 
+    def pre_validate(self, form):
+        """Validate entered fuzzy/partial date value."""
+        if self.data.day and not(self.data.month and self.data.year):
+            raise StopValidation(f"Invalid date: {self.data}. Missing year and/or month value.")
+        if self.data.month is not None:
+            if self.data.year is None:
+                raise StopValidation(f"Invalid date: {self.data}. Missing year value.")
+            if self.data.month < 1 or self.data.month > 12:
+                raise StopValidation(f"Invalid month: {self.data.month}")
+            if self.data.day is not None:
+                if self.data.day < 1 or self.data.day > 31:
+                    raise StopValidation(f"Invalid day: {self.data.day}.")
+                elif self.data.month % 2 == 0 and self.data.day > 30:
+                    raise StopValidation(f"Invalid day: {self.data.day}. It should be less than 31.")
+                elif self.data.month == 2:
+                    if self.data.day > 29:
+                        raise StopValidation(
+                            f"Invalid day: {self.data.day}. February has at most 29 days.")
+                    elif self.data.year % 4 != 0 and self.data.day > 28:
+                        raise StopValidation(
+                            f"Invalid day: {self.data.day}. It should be less than 29 (Leap Year)."
+                        )
+
 
 class CountrySelectField(SelectField):
     """Country dropdown widget."""
-
-    # Order the countly list by the name and add a default (Null) value
-    country_choices = [(c.alpha_2, c.name) for c in countries]
-    country_choices.sort(key=lambda e: e[1])
-    country_choices.insert(0, ("", "Country"))
 
     def __init__(self, *args, **kwargs):
         """Set up the value list."""
         if len(args) == 0 and "label" not in kwargs:
             kwargs["label"] = "Country"
-        super().__init__(*args, choices=self.country_choices, **kwargs)
+        super().__init__(*args, choices=EMPTY_CHOICES + models.country_choices, **kwargs)
 
 
 class LanguageSelectField(SelectField):
     """Languages dropdown widget."""
 
-    # Order the languages list by the name and add a default (Null) value
-    language_choices = [(l.alpha_2, l.name) for l in languages if hasattr(l, "alpha_2")]
-    language_choices.sort(key=lambda e: e[1])
-    language_choices.insert(0, ("", "Language"))
-
     def __init__(self, *args, **kwargs):
         """Set up the value list."""
         if len(args) == 0 and "label" not in kwargs:
             kwargs["label"] = "Language"
-        super().__init__(*args, choices=self.language_choices, **kwargs)
+        super().__init__(*args, choices=EMPTY_CHOICES + models.language_choices, **kwargs)
 
 
 class CurrencySelectField(SelectField):
     """currencies dropdown widget."""
 
-    # Order the currencies list by the name and add a default (Null) value
-    currency_choices = [(l.alpha_3, l.name) for l in currencies]
-    currency_choices.sort(key=lambda e: e[1])
-    currency_choices.insert(0, ("", "Currency"))
-
     def __init__(self, *args, **kwargs):
         """Set up the value list."""
         if len(args) == 0 and "label" not in kwargs:
             kwargs["label"] = "Currency"
-        super().__init__(*args, choices=self.currency_choices, **kwargs)
+        super().__init__(*args, choices=EMPTY_CHOICES + models.currency_choices, **kwargs)
 
 
 class BitmapMultipleValueField(SelectMultipleField):
@@ -222,7 +231,10 @@ class RecordForm(FlaskForm):
     start_date = PartialDateField("Start date")
     end_date = PartialDateField("End date (leave blank if current)")
     disambiguated_id = StringField("Disambiguated Organisation ID")
-    disambiguation_source = StringField("Disambiguation Source")
+    disambiguation_source = SelectField(
+        "Disambiguation Source",
+        validators=[optional()],
+        choices=EMPTY_CHOICES + models.disambiguation_source_choices)
 
     def __init__(self, *args, form_type=None, **kwargs):
         """Create form."""
@@ -235,8 +247,7 @@ class RecordForm(FlaskForm):
 class FundingForm(FlaskForm):
     """User/researcher funding detail form."""
 
-    type_choices = [(v, v.replace('_', ' ').title()) for v in ['GRANT', 'CONTRACT', 'AWARD', 'SALARY_AWARD', '']]
-    type_choices.sort(key=lambda e: e[1])
+    type_choices = [(v, v.replace('_', ' ').title()) for v in [''] + models.FUNDING_TYPES]
 
     funding_title = StringField("Funding Title", [validators.required()])
     funding_translated_title = StringField("Funding Translated Title")
@@ -253,49 +264,44 @@ class FundingForm(FlaskForm):
     start_date = PartialDateField("Start date")
     end_date = PartialDateField("End date (leave blank if current)")
     disambiguated_id = StringField("Disambiguated Organisation ID")
-    disambiguation_source = StringField("Disambiguation Source")
+    disambiguation_source = SelectField(
+        "Disambiguation Source",
+        validators=[optional()],
+        choices=EMPTY_CHOICES + models.disambiguation_source_choices)
 
 
 class PeerReviewForm(FlaskForm):
     """User/researcher Peer review detail form."""
 
-    reviewer_role_choices = [(v, v) for v in ['MEMBER', 'REVIEWER', 'ORGANIZER', 'EDITOR', 'CHAIR', '']]
-    reviewer_role_choices.sort(key=lambda e: e[1])
-
-    review_type_choices = [(v, v) for v in ['REVIEW', 'EVALUATION', '']]
-    review_type_choices.sort(key=lambda e: e[1])
-
-    subject_external_id_relationship_choices = [(v, v.replace('_', ' ').title()) for v in ['PART_OF', 'SELF', '']]
-    subject_external_id_relationship_choices.sort(key=lambda e: e[1])
-
-    subject_type_choices = [(v, v.replace('_', ' ').title()) for v in
-                            ['MANUAL', 'CONFERENCE_PAPER', 'RESEARCH_TECHNIQUE', 'SUPERVISED_STUDENT_PUBLICATION',
-                             'INVENTION', 'NEWSLETTER_ARTICLE', 'TRANSLATION', 'TEST', 'DISSERTATION', 'BOOK_CHAPTER',
-                             'LICENSE', 'STANDARDS_AND_POLICY', 'CONFERENCE_ABSTRACT', 'PATENT', 'DICTIONARY_ENTRY',
-                             'REGISTERED_COPYRIGHT', 'MAGAZINE_ARTICLE', 'DISCLOSURE', 'BOOK_REVIEW', 'UNDEFINED',
-                             'ARTISTIC_PERFORMANCE', 'ENCYCLOPEDIA_ENTRY', 'REPORT', 'ONLINE_RESOURCE', 'WEBSITE',
-                             'RESEARCH_TOOL', 'WORKING_PAPER', 'EDITED_BOOK', 'TRADEMARK', 'LECTURE_SPEECH', 'BOOK',
-                             'DATA_SET', 'JOURNAL_ARTICLE', 'SPIN_OFF_COMPANY', 'TECHNICAL_STANDARD',
-                             'CONFERENCE_POSTER', 'JOURNAL_ISSUE', 'NEWSPAPER_ARTICLE', 'OTHER', '']]
-    subject_type_choices.sort(key=lambda e: e[1])
+    reviewer_role_choices = [(v, v.replace('_', ' ').title())
+                             for v in [''] + models.REVIEWER_ROLES]
+    subject_type_choices = [(v, v.replace('_', ' ').title()) for v in [''] + models.SUBJECT_TYPES]
 
     org_name = StringField("Institution", [validators.required()])
     disambiguated_id = StringField("Disambiguated Organisation ID")
-    disambiguation_source = StringField("Disambiguation Source")
+    disambiguation_source = SelectField(
+        "Disambiguation Source",
+        validators=[optional()],
+        choices=EMPTY_CHOICES + models.disambiguation_source_choices)
     city = StringField("City", [validators.required()])
     state = StringField("State/region", filters=[lambda x: x or None])
     country = CountrySelectField("Country", [validators.required()])
-    reviewer_role = SelectField(choices=reviewer_role_choices, description="Reviewer Role",
-                                validators=[validators.required()])
+    reviewer_role = SelectField(
+        choices=reviewer_role_choices,
+        description="Reviewer Role",
+        validators=[validators.required()])
     review_url = StringField("Review Url")
-    review_type = SelectField(choices=review_type_choices, description="Review Type",
-                              validators=[validators.required()])
+    review_type = SelectField(
+        choices=EMPTY_CHOICES + models.review_type_choices,
+        description="Review Type",
+        validators=[validators.required()])
     review_group_id = StringField("Peer Review Group Id", [validators.required()])
     subject_external_identifier_type = StringField("Subject External Identifier Type")
     subject_external_identifier_value = StringField("Subject External Identifier Value")
     subject_external_identifier_url = StringField("Subject External Identifier Url")
-    subject_external_identifier_relationship = SelectField(choices=subject_external_id_relationship_choices,
-                                                           description="Subject External Id Relationship")
+    subject_external_identifier_relationship = SelectField(
+        choices=EMPTY_CHOICES + models.relationship_choices,
+        description="Subject External Id Relationship")
     subject_container_name = StringField("Subject Container Name")
     subject_type = SelectField(choices=subject_type_choices, description="Subject Type")
     subject_title = StringField("Subject Title")
@@ -303,41 +309,51 @@ class PeerReviewForm(FlaskForm):
     subject_translated_title = StringField("Subject Translated Title")
     subject_translated_title_language_code = LanguageSelectField("Language")
     subject_url = StringField("Subject Url")
-    review_completion_date = PartialDateField("Review Completion date", validators=[validators.required()])
+    review_completion_date = PartialDateField(
+        "Review Completion date", validators=[validators.required()])
 
 
 class WorkForm(FlaskForm):
     """User/researcher Work detail form."""
 
-    work_type_choices = [(v, v.replace('_', ' ').title()) for v in
-                         ['MANUAL', 'CONFERENCE_PAPER', 'RESEARCH_TECHNIQUE', 'SUPERVISED_STUDENT_PUBLICATION',
-                          'INVENTION', 'NEWSLETTER_ARTICLE', 'TRANSLATION', 'TEST', 'DISSERTATION', 'BOOK_CHAPTER',
-                          'LICENSE', 'STANDARDS_AND_POLICY', 'CONFERENCE_ABSTRACT', 'PATENT', 'DICTIONARY_ENTRY',
-                          'REGISTERED_COPYRIGHT', 'MAGAZINE_ARTICLE', 'DISCLOSURE', 'BOOK_REVIEW',
-                          'UNDEFINED', 'ARTISTIC_PERFORMANCE', 'ENCYCLOPEDIA_ENTRY', 'REPORT', 'ONLINE_RESOURCE',
-                          'WEBSITE', 'RESEARCH_TOOL', 'WORKING_PAPER', 'EDITED_BOOK', 'TRADEMARK', 'LECTURE_SPEECH',
-                          'BOOK', 'DATA_SET', 'JOURNAL_ARTICLE', 'SPIN_OFF_COMPANY', 'TECHNICAL_STANDARD',
-                          'CONFERENCE_POSTER', 'JOURNAL_ISSUE', 'NEWSPAPER_ARTICLE', 'OTHER', '']]
-    work_type_choices.sort(key=lambda e: e[1])
-
-    citation_type_choices = [(v, v.replace('_', ' ').title()) for v in
-                             ['FORMATTED_HARVARD', 'FORMATTED_UNSPECIFIED', 'FORMATTED_CHICAGO', 'FORMATTED_VANCOUVER',
-                              'RIS', 'FORMATTED_IEEE', 'BIBTEX', 'FORMATTED_MLA', 'FORMATTED_APA', '']]
-    citation_type_choices.sort(key=lambda e: e[1])
-
-    work_type = SelectField(choices=work_type_choices, description="Work Type", validators=[validators.required()])
+    work_type = SelectField(
+        choices=EMPTY_CHOICES + models.work_type_choices,
+        description="Work Type",
+        validators=[validators.required()])
     title = StringField("Title", [validators.required()])
     subtitle = StringField("Subtitle")
     translated_title = StringField("Translated Title")
     translated_title_language_code = LanguageSelectField("Language")
     journal_title = StringField("Work Type Title")
     short_description = TextAreaField(description="Short Description")
-    citation_type = SelectField(choices=citation_type_choices, description="Citation Type")
+    citation_type = SelectField(
+        choices=EMPTY_CHOICES + models.citation_type_choices, description="Citation Type")
     citation = StringField("Citation Value")
     publication_date = PartialDateField("Publication date")
     url = StringField("Url")
     language_code = LanguageSelectField("Language used in this form")
     country = CountrySelectField("Country of publication")
+
+
+class ResearcherUrlOtherNameKeywordForm(FlaskForm):
+    """User/researcher Url and Other Name Common form."""
+
+    visibility_choices = [(v, v.replace('_', ' ').title()) for v in models.VISIBILITIES]
+    display_index = StringField("Display Index")
+    visibility = SelectField(choices=visibility_choices, description="Visibility")
+
+
+class ResearcherUrlForm(ResearcherUrlOtherNameKeywordForm):
+    """User/researcher Url detail form."""
+
+    name = StringField("Url Name", [validators.required()])
+    value = StringField("Url Value", [validators.required()])
+
+
+class OtherNameKeywordForm(ResearcherUrlOtherNameKeywordForm):
+    """User/researcher other name detail form."""
+
+    content = StringField("Content", [validators.required()])
 
 
 class GroupIdForm(FlaskForm):
@@ -386,6 +402,13 @@ class TestDataForm(FileUploadForm):
         label="Organisation Count",
         default=400,
         render_kw=dict(style="width: 10%; max-width: 10em;"))
+    upload = SubmitField(
+        "Upload or Generate",
+        render_kw={
+            "class": "btn btn-primary",
+            "data-toggle": "tooltip",
+            "title": "Sign the uploaded data entries or generate them from the scratch"
+        })
 
 
 class LogoForm(FlaskForm):
@@ -421,12 +444,14 @@ class OnboardingTokenForm(FlaskForm):
     token = StringField("Token", [validators.required()])
 
 
-class RequiredIf(Required):
+class RequiredIf(DataRequired):
     """Condition validator.
 
     A validator which makes a field required if
     another field is set and has a truthy value.
     """
+
+    field_flags = ('requiredif',)
 
     def __init__(self, other_field_name, *args, **kwargs):
         """Link the condtion field to the validator."""
@@ -435,11 +460,11 @@ class RequiredIf(Required):
 
     def __call__(self, form, field):
         """Validate conditionally if the linked field has a value."""
-        other_field = form._fields.get(self.other_field_name)
+        other_field = form[self.other_field_name]
         if other_field is None:
             raise Exception(f'no field named "{self.other_field_name}" in form')
         if bool(other_field.data):
-            super().__call__(form, field)
+            super(RequiredIf, self).__call__(form, field)
 
 
 class OrgRegistrationForm(FlaskForm):
@@ -471,7 +496,10 @@ class OrgRegistrationForm(FlaskForm):
         ])
     course_or_role = StringField("Course or Job title")
     disambiguated_id = StringField("Disambiguated Id")
-    disambiguation_source = StringField("Disambiguation Source")
+    disambiguation_source = SelectField(
+        "Disambiguation Source",
+        validators=[optional()],
+        choices=EMPTY_CHOICES + models.disambiguation_source_choices)
 
 
 class OrgConfirmationForm(FlaskForm):
@@ -481,7 +509,7 @@ class OrgConfirmationForm(FlaskForm):
     email = EmailField('Organisation EmailId', validators=[DataRequired(), email()])
     show_api_credentials = BooleanField("Show API Credentials", default=False)
     orcid_client_id = StringField(
-        'Organisation Orcid Client Id: ',
+        "Organisation Orcid Client Id: ",
         validators=[
             DataRequired(),
             Regexp(r"^\S+$", message="The value shouldn't contain any spaces"),
@@ -501,7 +529,10 @@ class OrgConfirmationForm(FlaskForm):
     country = CountrySelectField("Country", [validators.required()], default=DEFAULT_COUNTRY)
     city = StringField("City", [validators.required()])
     disambiguated_id = StringField("Disambiguated Id", [validators.required()])
-    disambiguation_source = StringField("Disambiguation Source", [validators.required()])
+    disambiguation_source = SelectField(
+        "Disambiguation Source",
+        validators=[validators.required()],
+        choices=EMPTY_CHOICES + models.disambiguation_source_choices)
 
 
 class UserInvitationForm(FlaskForm):
@@ -524,7 +555,10 @@ class UserInvitationForm(FlaskForm):
     is_student = BooleanField("Student")
     is_employee = BooleanField("Staff")
     disambiguated_id = StringField("Disambiguated Id")
-    disambiguation_source = StringField("Disambiguation Source")
+    disambiguation_source = SelectField(
+        "Disambiguation Source",
+        validators=[optional()],
+        choices=EMPTY_CHOICES + models.disambiguation_source_choices)
     resend = BooleanField("Resend")
 
 

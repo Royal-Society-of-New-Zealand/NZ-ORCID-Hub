@@ -1,18 +1,21 @@
+import json
+import os
 from datetime import datetime
-from itertools import product
 from io import StringIO
+from itertools import product
 
 import pytest
 from peewee import Model, SqliteDatabase
 from playhouse.test_utils import test_database
 
+from orcid_hub import JSONEncoder
 from orcid_hub.models import (
     Affiliation, AffiliationRecord, BaseModel, BooleanField, ExternalId, File, ForeignKeyField,
-    FundingContributor, FundingRecord, FundingInvitees, ModelException, OtherNameRecord, OrcidToken, Organisation,
-    OrgInfo, PartialDate, PartialDateField, ResearcherUrlRecord, Role, Task, TaskType, TaskTypeField, Log, TextField,
-    User, UserInvitation, UserOrg, UserOrgAffiliation, WorkRecord, WorkContributor, WorkExternalId,
-    WorkInvitees, PeerReviewRecord, PeerReviewInvitee, PeerReviewExternalId, create_tables,
-    drop_tables, validate_orcid_id)
+    FundingContributor, FundingInvitee, FundingRecord, KeywordRecord, Log, ModelException, NestedDict, OrcidToken,
+    Organisation, OrgInfo, OtherNameRecord, PartialDate, PartialDateField, PeerReviewExternalId,
+    PeerReviewInvitee, PeerReviewRecord, ResearcherUrlRecord, Role, Task, TaskType, TaskTypeField,
+    TextField, User, UserInvitation, UserOrg, UserOrgAffiliation, WorkContributor, WorkExternalId,
+    WorkInvitee, WorkRecord, app, create_tables, drop_tables, load_yaml_json, validate_orcid_id)
 
 
 @pytest.fixture
@@ -28,10 +31,11 @@ def testdb():
     """
     _db = SqliteDatabase(":memory:", pragmas=[("foreign_keys", "on")])
     with test_database(
-            _db, (Organisation, File, User, UserInvitation, UserOrg, OtherNameRecord, OrgInfo, OrcidToken,
-                  UserOrgAffiliation, Task, AffiliationRecord, ExternalId, FundingRecord,
-                  FundingContributor, FundingInvitees, WorkRecord, WorkContributor, WorkExternalId,
-                  WorkInvitees, PeerReviewRecord, PeerReviewExternalId, PeerReviewInvitee, ResearcherUrlRecord),
+            _db, (Organisation, File, KeywordRecord, User, UserInvitation, UserOrg, OtherNameRecord, OrgInfo,
+                  OrcidToken, UserOrgAffiliation, Task, AffiliationRecord, ExternalId,
+                  FundingRecord, FundingContributor, FundingInvitee, WorkRecord, WorkContributor,
+                  WorkExternalId, WorkInvitee, PeerReviewRecord, PeerReviewExternalId,
+                  PeerReviewInvitee, ResearcherUrlRecord),
             fail_silently=True) as _test_db:
         yield _test_db
 
@@ -127,12 +131,25 @@ def models(testdb):
         last_name="Test_%d" % i,
         email="Test_%d" % i,
         orcid="123112311231%d" % i,
-        url_name="Test_%d" % i,
-        url_value="Test_%d" % i,
+        name="Test_%d" % i,
+        value="Test_%d" % i,
         visibility="Test_%d" % i,
         display_index=i) for i in range(10))).execute()
 
     OtherNameRecord.insert_many((dict(
+        is_active=False,
+        task=Task.get(id=1),
+        put_code=90,
+        status="Test_%d" % i,
+        first_name="Test_%d" % i,
+        last_name="Test_%d" % i,
+        email="Test_%d" % i,
+        orcid="123112311231%d" % i,
+        content="Test_%d" % i,
+        visibility="Test_%d" % i,
+        display_index=i) for i in range(10))).execute()
+
+    KeywordRecord.insert_many((dict(
         is_active=False,
         task=Task.get(id=1),
         put_code=90,
@@ -159,19 +176,20 @@ def models(testdb):
         city="Test_%d" % i,
         region="Test_%d" % i,
         country="Test_%d" % i,
-        disambiguated_org_identifier="Test_%d" % i,
+        disambiguated_id="Test_%d" % i,
         disambiguation_source="Test_%d" % i,
         is_active=False,
         status="Test_%d" % i) for i in range(10))).execute()
 
+    record = FundingRecord.get()
     FundingContributor.insert_many((dict(
-        funding_record=FundingRecord.get(id=1),
+        record=record,
         orcid="123112311231%d" % i,
         name="Test_%d" % i,
         role="Test_%d" % i) for i in range(10))).execute()
 
-    FundingInvitees.insert_many((dict(
-        funding_record=FundingRecord.get(id=1),
+    FundingInvitee.insert_many((dict(
+        record=record,
         orcid="123112311231%d" % i,
         first_name="Test_%d" % i,
         last_name="Test_%d" % i,
@@ -182,14 +200,15 @@ def models(testdb):
         email="Test_%d" % i) for i in range(10))).execute()
 
     ExternalId.insert_many((dict(
-        funding_record=FundingRecord.get(id=1),
+        record=record,
         type="Test_%d" % i,
         value="Test_%d" % i,
         url="Test_%d" % i,
         relationship="Test_%d" % i) for i in range(10))).execute()
 
+    task = Task.get()
     PeerReviewRecord.insert_many((dict(
-        task=Task.get(id=1),
+        task=task,
         review_group_id="issn:1212_%d" % i,
         reviewer_role="reviewer_%d" % i,
         review_url="xyz_%d" % i,
@@ -213,15 +232,16 @@ def models(testdb):
         convening_org_disambiguation_source="1212_%d" % i,
         is_active=False) for i in range(10))).execute()
 
+    record = PeerReviewRecord.get()
     PeerReviewExternalId.insert_many((dict(
-        peer_review_record=PeerReviewRecord.get(id=1),
+        record=record,
         type="Test1_%d" % i,
         value="Test1_%d" % i,
         url="Test1_%d" % i,
         relationship="Test1_%d" % i) for i in range(10))).execute()
 
     PeerReviewInvitee.insert_many((dict(
-        peer_review_record=PeerReviewRecord.get(id=1),
+        record=record,
         orcid="1231123112311%d" % i,
         first_name="Test1_%d" % i,
         last_name="Test1_%d" % i,
@@ -232,9 +252,9 @@ def models(testdb):
         email="Test1_%d" % i) for i in range(10))).execute()
 
     WorkRecord.insert_many((dict(
-        task=Task.get(id=1),
+        task=task,
         title="Test_%d" % i,
-        sub_title="Test_%d" % i,
+        subtitle="Test_%d" % i,
         translated_title="Test_%d" % i,
         translated_title_language_code="Test_%d" % i,
         journal_title="Test_%d" % i,
@@ -248,22 +268,23 @@ def models(testdb):
         is_active=False,
         status="Test_%d" % i) for i in range(10))).execute()
 
+    record = WorkRecord.get()
     WorkContributor.insert_many((dict(
-        work_record=WorkRecord.get(id=1),
+        record=record,
         orcid="123112311231%d" % i,
         name="Test_%d" % i,
         contributor_sequence="%d" % i,
         role="Test_%d" % i) for i in range(10))).execute()
 
     WorkExternalId.insert_many((dict(
-        work_record=WorkRecord.get(id=1),
+        record=record,
         type="Test_%d" % i,
         value="Test_%d" % i,
         url="Test_%d" % i,
         relationship="Test_%d" % i) for i in range(10))).execute()
 
-    WorkInvitees.insert_many((dict(
-        work_record=WorkRecord.get(id=1),
+    WorkInvitee.insert_many((dict(
+        record=record,
         orcid="123112311231%d" % i,
         first_name="Test_%d" % i,
         last_name="Test_%d" % i,
@@ -289,10 +310,10 @@ def test_user_org_link_user_constraint(models):
 
 
 def test_user_org_link_org_constraint(models):
-    user = User.get(id=1)
-    uo = UserOrg(user=user, org_id=999999)
-    with pytest.raises(Organisation.DoesNotExist):
-        uo.save()
+    user = User.select().limit(1).first()
+    from peewee import IntegrityError
+    with pytest.raises(IntegrityError):
+        UserOrg.create(user=user, org_id=999999)
 
 
 def test_test_database(models):
@@ -303,17 +324,18 @@ def test_test_database(models):
     assert AffiliationRecord.select().count() == 10
     assert FundingRecord.select().count() == 10
     assert FundingContributor.select().count() == 10
-    assert FundingInvitees.select().count() == 10
+    assert FundingInvitee.select().count() == 10
     assert ExternalId.select().count() == 10
     assert WorkRecord.select().count() == 10
     assert WorkContributor.select().count() == 10
     assert WorkExternalId.select().count() == 10
-    assert WorkInvitees.select().count() == 10
+    assert WorkInvitee.select().count() == 10
     assert PeerReviewRecord.select().count() == 10
     assert PeerReviewExternalId.select().count() == 10
     assert PeerReviewInvitee.select().count() == 10
     assert ResearcherUrlRecord.select().count() == 10
     assert OtherNameRecord.select().count() == 10
+    assert KeywordRecord.select().count() == 10
     assert Task.select().count() == 30
     assert UserOrgAffiliation.select().count() == 30
 
@@ -451,6 +473,11 @@ def test_partial_date():
     assert PartialDate.create("1997/12/31") == PartialDate(year=1997, month=12, day=31)
     assert PartialDate.create("12/1997") == PartialDate(year=1997, month=12, day=None)
     assert PartialDate.create("31/12/1997") == PartialDate(year=1997, month=12, day=31)
+    assert PartialDate.create("1997.12") == PartialDate(year=1997, month=12, day=None)
+    assert PartialDate.create("1997.12.31") == PartialDate(year=1997, month=12, day=31)
+    assert PartialDate.create("12.1997") == PartialDate(year=1997, month=12, day=None)
+    assert PartialDate.create("31.12.1997") == PartialDate(year=1997, month=12, day=31)
+    assert PartialDate.create("5.03.2018") == PartialDate(year=2018, month=3, day=5)
     assert PartialDate.create("1997 12:00:00 PM") == PartialDate(year=1997, month=None, day=None)
     assert PartialDate.create("1997-12 12:00:00 PM") == PartialDate(year=1997, month=12, day=None)
     assert PartialDate.create("1997-12-31 12:00:00 PM") == PartialDate(year=1997, month=12, day=31)
@@ -459,6 +486,11 @@ def test_partial_date():
     assert PartialDate.create("12/1997 12:00:00 PM") == PartialDate(year=1997, month=12, day=None)
     assert PartialDate.create("31/12/1997 12:00:00 PM") == PartialDate(year=1997, month=12, day=31)
     assert PartialDate.create("6/08/2017 12:00:00 PM") == PartialDate(year=2017, month=8, day=6)
+    assert PartialDate.create("1997.12 12:00:00 PM") == PartialDate(year=1997, month=12, day=None)
+    assert PartialDate.create("1997.12.31 12:00:00 PM") == PartialDate(year=1997, month=12, day=31)
+    assert PartialDate.create("12.1997 12:00:00 PM") == PartialDate(year=1997, month=12, day=None)
+    assert PartialDate.create("31.12.1997 12:00:00 PM") == PartialDate(year=1997, month=12, day=31)
+    assert PartialDate.create("6.08.2017 12:00:00 PM") == PartialDate(year=2017, month=8, day=6)
 
     with pytest.raises(ModelException):
         PartialDate.create("ABC")
@@ -470,7 +502,7 @@ def test_partial_date():
     assert str(pd) == ""
 
 
-def test_task_type_field():
+def test_task_type_field(mocker):
 
     db = SqliteDatabase(":memory:")
 
@@ -480,17 +512,20 @@ def test_task_type_field():
         class Meta:
             database = db
 
+    exception = mocker.patch.object(app.logger, "exception")
     TestModel.create_table()
+    TestModel.create(tt=None)
     for v in TaskType:
         TestModel.create(tt=v)
         TestModel.create(tt=str(v.value))
         TestModel.create(tt=v.value)
         TestModel.create(tt=v.name)
-    TestModel(pf=None).save()
+    TestModel.create(tt=dict())
+    exception.assert_called_once()
     res = {r[0]:r[1] for r in db.execute_sql(
         "SELECT tt, count(*) AS rc FROM testmodel GROUP BY tt ORDER BY 1").fetchall()}
     assert all(res[v.value] == 4 for v in TaskType)
-    assert res[None] == 1
+    assert res[None] == 2
 
 
 def test_pd_field():
@@ -566,6 +601,7 @@ def test_affiliations(models):
 def test_field_is_updated(testdb):
     u = User.create(email="test@test.com", name="TESTER")
     u.save()
+    u.save()
     assert not u.field_is_updated("name")
     u.name = "NEW VALUE"
     assert u.field_is_updated("name")
@@ -591,6 +627,26 @@ FNB	LNB	b.b@test.com	TEST0	Science and Education Group	Wellington	Manager Specia
     assert test.record_count == 9
     assert AffiliationRecord.select().count(
     ) == test.record_count + 10  # The 10 value is from already inserted entries.
+
+
+def test_work_task(models):
+    org = Organisation.select().first()
+    raw_data0 = open(os.path.join(os.path.dirname(__file__), "data", "example_works.json"), "r").read()
+    data0 = load_yaml_json("test0001.json", raw_data0)
+    assert isinstance(data0, list) and isinstance(data0[0], NestedDict)
+    data0 = load_yaml_json(None, source=raw_data0, content_type="json")
+    assert isinstance(data0, list) and isinstance(data0[0], NestedDict)
+    data0 = load_yaml_json(None, source=raw_data0)
+    assert isinstance(data0, list) and isinstance(data0[0], NestedDict)
+    task0 = WorkRecord.load_from_json(filename="work0042.json", source=raw_data0, org=org)
+    data = task0.to_export_dict()
+    raw_data = json.dumps(data, cls=JSONEncoder)
+    task = WorkRecord.load_from_json(filename="work0001.json", source=raw_data, org=org)
+    export = task.to_export_dict()
+    for a in ["id", "filename", "created-at", "updated-at"]:
+        del(export[a])
+        del(data[a])
+    assert data == export
 
 
 def test_is_superuser():
@@ -661,3 +717,34 @@ def test_base_model_to_dict():
 
     rec = TestTable.get(1)
     assert rec.test_field == "ABC123"
+
+    rec = TestTable.get()
+    assert rec.test_field == "ABC123"
+
+
+def test_other_names(models):
+    org = Organisation.select().first()
+    raw_data0 = open(os.path.join(os.path.dirname(__file__), "data", "othernames.json"), "r").read()
+    data0 = load_yaml_json("othernames000.json", raw_data0)
+    assert isinstance(data0, list) and isinstance(data0[0], NestedDict)
+    data0 = load_yaml_json(None, source=raw_data0, content_type="json")
+    assert isinstance(data0, list) and isinstance(data0[0], NestedDict)
+    data0 = load_yaml_json(None, source=raw_data0)
+    assert isinstance(data0, list) and isinstance(data0[0], NestedDict)
+    task0 = OtherNameRecord.load_from_json(filename="othernames000.json", source=raw_data0, org=org)
+    data = task0.to_dict()
+    raw_data = json.dumps(data, cls=JSONEncoder)
+    task = OtherNameRecord.load_from_json(filename="othernames001.json", source=raw_data, org=org)
+    assert len(data0) == len(task.to_dict()["records"])
+
+
+def test_researcher_urls(models):
+    org = Organisation.select().first()
+    raw_data0 = open(os.path.join(os.path.dirname(__file__), "data", "researchurls.json"), "r").read()
+    data0 = load_yaml_json("researchurls.json", raw_data0)
+    assert isinstance(data0, list) and isinstance(data0[0], NestedDict)
+    task0 = ResearcherUrlRecord.load_from_json(filename="researchurls000.json", source=raw_data0, org=org)
+    data = task0.to_dict()
+    raw_data = json.dumps(data, cls=JSONEncoder)
+    task = ResearcherUrlRecord.load_from_json(filename="researchurls001.json", source=raw_data, org=org)
+    assert len(data0) == len(task.to_dict()["records"])

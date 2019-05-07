@@ -15,11 +15,11 @@ from peewee import JOIN
 from urllib.parse import quote
 
 from orcid_hub import utils
-from orcid_hub.models import (AffiliationRecord, ExternalId, File, FundingContributor,
-                              FundingInvitees, FundingRecord, Log, OtherNameRecord, OrcidToken, Organisation,
+from orcid_hub.models import (AffiliationRecord, ExternalId, File, FundingContributor, FundingInvitee,
+                              FundingRecord, KeywordRecord, Log, OtherNameRecord, OrcidToken, Organisation,
                               OrgInfo, PeerReviewExternalId, PeerReviewInvitee, PeerReviewRecord, ResearcherUrlRecord,
                               Role, Task, TaskType, User, UserInvitation, UserOrg, WorkContributor,
-                              WorkExternalId, WorkInvitees, WorkRecord)
+                              WorkExternalId, WorkInvitee, WorkRecord)
 
 from tests.utils import get_profile
 
@@ -155,6 +155,24 @@ def test_send_user_invitation(app, mocker):
     send_email.assert_called_once()
     assert result == UserInvitation.select().order_by(UserInvitation.id.desc()).first().id
 
+    with pytest.raises(Exception) as excinfo:
+        send_email.reset_mock()
+        dkim_key_path = utils.app.conig["DKIM_KEY_PATH"]
+        app.conig["DKIM_KEY_PATH"] = "/file/not/found.key"
+        result = utils.send_user_invitation(
+            inviter=inviter.id,
+            org=org.id,
+            email=email,
+            first_name=first_name,
+            last_name=last_name,
+            affiliation_types=affiliation_types,
+            start_date=[1971, 1, 1],
+            end_date=[2018, 5, 29],
+            task_id=task.id)
+        send_email.assert_not_called()
+        utils.app.conig["DKIM_KEY_PATH"] = dkim_key_path
+        assert "/file/not/found.key" in str(excinfo.value)
+
 
 def test_send_work_funding_peer_review_invitation(app, mocker):
     """Test to send user invitation."""
@@ -179,7 +197,7 @@ def test_send_work_funding_peer_review_invitation(app, mocker):
     UserOrg.create(user=u, org=org)
     task = Task.create(org=org, task_type=1)
     fr = FundingRecord.create(task=task, title="xyz", type="Award")
-    FundingInvitees.create(funding_record=fr.id, email=email, first_name="Alice", last_name="Bob")
+    FundingInvitee.create(record=fr, email=email, first_name="Alice", last_name="Bob")
 
     server_name = app.config.get("SERVER_NAME")
     app.config["SERVER_NAME"] = "abc.orcidhub.org.nz"
@@ -187,6 +205,228 @@ def test_send_work_funding_peer_review_invitation(app, mocker):
         inviter=inviter, org=org, email=email, name=u.name, task_id=task.id)
     app.config["SERVER_NAME"] = server_name
     send_email.assert_called_once()
+
+
+def get_record_mock():
+    """Mock profile api call."""
+    return {
+        'activities-summary': {
+            'last-modified-date': {
+                'value': 1513136293368
+            },  # noqa: E127
+            'educations': {
+                'last-modified-date': None,
+                'education-summary': [],
+                'path': '/0000-0002-3879-2651/educations'
+            },
+            "employments": {
+                "last-modified-date": {
+                    "value": 1511401310144
+                },
+                "employment-summary": [{
+                    "created-date": {
+                        "value": 1511401310144
+                    },
+                    "last-modified-date": {
+                        "value": 1511401310144
+                    },
+                    "source": {
+                        "source-orcid": None,
+                        "source-client-id": {
+                            "uri": "http://sandbox.orcid.org/client/APP-5ZVH4JRQ0C27RVH5",
+                            "path": "APP-5ZVH4JRQ0C27RVH5",
+                            "host": "sandbox.orcid.org"
+                        },
+                        "source-name": {
+                            "value": "The University of Auckland - MyORCiD"
+                        }
+                    },
+                    "department-name": None,
+                    "role-title": None,
+                    "start-date": None,
+                    "end-date": None,
+                    "organization": {
+                        "name": "The University of Auckland",
+                        "address": {
+                            "city": "Auckland",
+                            "region": None,
+                            "country": "NZ"
+                        },
+                        "disambiguated-organization": None
+                    },
+                    "visibility": "PUBLIC",
+                    "put-code": 29272,
+                    "path": "/0000-0003-1255-9023/employment/29272"
+                }],
+                "path":
+                "/0000-0003-1255-9023/employments"
+            },
+            'fundings': {
+                'last-modified-date': {
+                    'value': 1513136293368
+                },
+                'group': [{
+                    'last-modified-date': {
+                        'value': 1513136293368
+                    },
+                    'external-ids': {
+                        'external-id': [{
+                            'external-id-type': 'grant_number',
+                            'external-id-value': 'GNS1701',
+                            'external-id-url': None,
+                            'external-id-relationship': 'SELF'
+                        }, {
+                            'external-id-type': 'grant_number',
+                            'external-id-value': '17-GNS-022',
+                            'external-id-url': None,
+                            'external-id-relationship': 'SELF'
+                        }]
+                    },
+                    'funding-summary': [{
+                        'created-date': {
+                            'value': 1511935227017
+                        },
+                        'last-modified-date': {
+                            'value': 1513136293368
+                        },
+                        'source': {
+                            'source-orcid': None,
+                            'source-client-id': {
+                                'uri': 'http://sandbox.orcid.org/client/APP-5ZVH4JRQ0C27RVH5',
+                                'path': 'APP-5ZVH4JRQ0C27RVH5',
+                                'host': 'sandbox.orcid.org'
+                            },
+                            'source-name': {
+                                'value': 'The University of Auckland - MyORCiD'
+                            }
+                        },
+                        'title': {
+                            'title': {
+                                'value': 'Probing the crust with zirco'
+                            },
+                            'translated-title': {
+                                'value': 'नमस्ते',
+                                'language-code': 'hi'
+                            }
+                        },
+                        'type': 'CONTRACT',
+                        'start-date': None,
+                        'end-date': {
+                            'year': {
+                                'value': '2025'
+                            },
+                            'month': None,
+                            'day': None
+                        },
+                        'organization': {
+                            'name': 'Royal Society Te Apārangi'
+                        },
+                        'put-code': 9597,
+                        'path': '/0000-0002-3879-2651/funding/9597'
+                    }]
+                }],
+                'path':
+                '/0000-0002-3879-2651/fundings'
+            },
+            "peer-reviews": {
+                "group": [
+                    {
+                        "external-ids": {
+                            "external-id": [
+                                {
+                                    "external-id-type": "peer-review",
+                                    "external-id-value": "issn:12131",
+                                    "external-id-url": None,
+                                    "external-id-relationship": None
+                                }
+                            ]
+                        },
+                        "peer-review-summary": [
+                            {
+                                "source": {
+                                    "source-orcid": None,
+                                    "source-client-id": {
+                                        "uri": "http://sandbox.orcid.org/client/APP-5ZVH4JRQ0C27RVH5",
+                                        "path": "APP-5ZVH4JRQ0C27RVH5",
+                                        "host": "sandbox.orcid.org"
+                                    },
+                                    "source-name": {
+                                        "value": "The University of Auckland - MyORCiD"
+                                    }
+                                },
+                                "external-ids": {
+                                    "external-id": [
+                                        {
+                                            "external-id-type": "source-work-id",
+                                            "external-id-value": "122334",
+                                            "external-id-url": {
+                                                "value": "https://localsystem.org/1234"
+                                            },
+                                            "external-id-relationship": "SELF"
+                                        }
+                                    ]
+                                },
+                                "review-group-id": "issn:12131",
+                                "convening-organization": {
+                                    "name": "The University of Auckland",
+                                    "address": {
+                                        "city": "Auckland",
+                                        "region": "Auckland",
+                                        "country": "NZ"
+                                    },
+                                    "disambiguated-organization": None
+                                },
+                                "visibility": "PUBLIC",
+                                "put-code": 2622,
+                            }
+                        ]
+                    }
+                ],
+                "path": "/0000-0003-1255-9023/peer-reviews"
+            },
+            'works': {
+                'group': [{
+                    'external-ids': {
+                        'external-id': [{
+                            'external-id-type': 'grant_number',
+                            'external-id-value': 'GNS1701',
+                            'external-id-url': None,
+                            'external-id-relationship': 'SELF'
+                        }]
+                    },
+                    'work-summary': [{
+                        'source': {
+                            'source-orcid': None,
+                            'source-client-id': {
+                                'uri': 'http://sandbox.orcid.org/client/APP-5ZVH4JRQ0C27RVH5',
+                                'path': 'APP-5ZVH4JRQ0C27RVH5',
+                                'host': 'sandbox.orcid.org'
+                            },
+                            'source-name': {
+                                'value': 'The University of Auckland - MyORCiD'
+                            }
+                        },
+                        'title': {
+                            'title': {
+                                'value': 'Test titile2'
+                            },
+                            'translated-title': {
+                                'value': 'नमस्ते',
+                                'language-code': 'hi'
+                            }
+                        },
+                        'type': 'BOOK_CHAPTER',
+                        'put-code': 9597,
+                        'path': '/0000-0002-3879-2651/works/9597'
+                    }]
+                }],
+                'path':
+                    '/0000-0002-3879-2651/works'
+            },
+            'path': '/0000-0002-3879-2651/activities'
+        },
+        'path': '/0000-0002-3879-2651'
+    }
 
 
 def create_or_update_fund_mock(self=None, orcid=None, **kwargs):
@@ -239,22 +479,22 @@ def test_create_or_update_funding(app, mocker):
         city="Test city",
         region="Test",
         country="Test",
-        disambiguated_org_identifier="Test_dis",
+        disambiguated_id="Test_dis",
         disambiguation_source="Test_source",
         is_active=True)
 
-    FundingInvitees.create(
-        funding_record=fr,
+    FundingInvitee.create(
+        record=fr,
         first_name="Test",
         email="test1234456@mailinator.com",
         visibility="PUBLIC",
         orcid="123")
 
     ExternalId.create(
-        funding_record=fr, type="Test_type", value="Test_value", url="Test", relationship="SELF")
+        record=fr, type="Test_type", value="Test_value", url="Test", relationship="SELF")
 
     FundingContributor.create(
-        funding_record=fr, orcid="1213", role="LEAD", name="Contributor", email="contributor@mailinator.com")
+        record=fr, orcid="1213", role="LEAD", name="Contributor", email="contributor@mailinator.com")
 
     UserInvitation.create(
         invitee=u,
@@ -268,7 +508,7 @@ def test_create_or_update_funding(app, mocker):
         user=u, org=org, scope="/read-limited,/activities/update", access_token="Test_token")
 
     utils.process_funding_records()
-    funding_invitees = FundingInvitees.get(orcid=12344)
+    funding_invitees = FundingInvitee.get(orcid="12344")
     assert 12399 == funding_invitees.put_code
     assert "12344" == funding_invitees.orcid
 
@@ -311,18 +551,18 @@ def test_create_or_update_work(app, mocker):
         region="Test",
         is_active=True)
 
-    WorkInvitees.create(
-        work_record=wr,
+    WorkInvitee.create(
+        record=wr,
         first_name="Test",
         email="test1234456@mailinator.com",
         orcid="12344",
         visibility="PUBLIC")
 
     WorkExternalId.create(
-        work_record=wr, type="Test_type", value="Test_value", url="Test", relationship="SELF")
+        record=wr, type="Test_type", value="Test_value", url="Test", relationship="SELF")
 
     WorkContributor.create(
-        work_record=wr, contributor_sequence="1", orcid="1213", role="LEAD", name="xyz", email="xyz@mailiantor.com")
+        record=wr, contributor_sequence="1", orcid="1213", role="LEAD", name="xyz", email="xyz@mailiantor.com")
 
     UserInvitation.create(
         invitee=u,
@@ -336,9 +576,9 @@ def test_create_or_update_work(app, mocker):
         user=u, org=org, scope="/read-limited,/activities/update", access_token="Test_token")
 
     utils.process_work_records()
-    work_invitees = WorkInvitees.get(orcid=12344)
-    assert 12399 == work_invitees.put_code
-    assert "12344" == work_invitees.orcid
+    invitee = WorkInvitee.get(orcid="12344")
+    assert 12399 == invitee.put_code
+    assert "12344" == invitee.orcid
 
 
 def test_create_or_update_peer_review(app, mocker):
@@ -384,14 +624,14 @@ def test_create_or_update_peer_review(app, mocker):
         is_active=True)
 
     PeerReviewInvitee.create(
-        peer_review_record=pr,
+        record=pr,
         first_name="Test",
         email="test1234456@mailinator.com",
         orcid="12344",
         visibility="PUBLIC")
 
     PeerReviewExternalId.create(
-        peer_review_record=pr, type="Test_type", value="122334_different", url="Test", relationship="SELF")
+        record=pr, type="Test_type", value="122334_different", url="Test", relationship="SELF")
 
     UserInvitation.create(
         invitee=u,
@@ -436,8 +676,8 @@ def test_create_or_update_researcher_url(app, mocker):
         last_name="Test",
         email="test1234456@mailinator.com",
         visibility="PUBLIC",
-        url_name="url name",
-        url_value="https://www.xyz.com",
+        name="url name",
+        value="https://www.xyz.com",
         display_index=0)
 
     UserInvitation.create(
@@ -473,7 +713,7 @@ def test_create_or_update_other_name(app, mocker):
 
     UserOrg.create(user=u, org=org)
 
-    t = Task.create(id=12, org=org, filename="xyz.json", created_by=u, updated_by=u, task_type=5)
+    t = Task.create(id=12, org=org, filename="xyz.json", created_by=u, updated_by=u, task_type=6)
 
     OtherNameRecord.create(
         task=t,
@@ -503,15 +743,62 @@ def test_create_or_update_other_name(app, mocker):
     assert "12344" == other_name_record.orcid
 
 
-@patch(
-    "orcid_api.MemberAPIV20Api.update_employment",
-    return_value=Mock(status=201, headers={'Location': '12344/XYZ/12399'}))
-@patch(
-    "orcid_api.MemberAPIV20Api.create_employment",
-    return_value=Mock(status=201, headers={'Location': '12344/XYZ/12399'}))
-@patch("orcid_hub.utils.send_email")
-def test_create_or_update_affiliation(send_email, update_employment, create_employment, app):
+def test_create_or_update_keyword(app, mocker):
+    """Test create or update researcher keyword."""
+    mocker.patch("orcid_hub.utils.send_email", send_mail_mock)
+    mocker.patch("orcid_api.MemberAPIV20Api.create_keyword", create_or_update_fund_mock)
+    mocker.patch("orcid_hub.orcid_client.MemberAPI.get_record", return_value=get_profile())
+    org = app.data["org"]
+    u = User.create(
+        email="test1234456@mailinator.com",
+        name="TEST USER",
+        roles=Role.RESEARCHER,
+        orcid="12344",
+        confirmed=True,
+        organisation=org)
+
+    UserOrg.create(user=u, org=org)
+
+    t = Task.create(id=12, org=org, filename="xyz.json", created_by=u, updated_by=u, task_type=7)
+
+    KeywordRecord.create(
+        task=t,
+        is_active=True,
+        status="email sent",
+        first_name="Test",
+        last_name="Test",
+        email="test1234456@mailinator.com",
+        visibility="PUBLIC",
+        content="dummy name",
+        display_index=0)
+
+    UserInvitation.create(
+        invitee=u,
+        inviter=u,
+        org=org,
+        task=t,
+        email="test1234456@mailinator.com",
+        token="xyztoken")
+
+    OrcidToken.create(
+        user=u, org=org, scope="/read-limited,/person/update", access_token="Test_token")
+
+    utils.process_keyword_records()
+    keyword_record = KeywordRecord.get(email="test1234456@mailinator.com")
+    assert 12399 == keyword_record.put_code
+    assert "12344" == keyword_record.orcid
+
+
+def test_create_or_update_affiliation(app, mocker):
     """Test create or update affiliation."""
+    mocker.patch(
+        "orcid_api.MemberAPIV20Api.update_employment",
+        return_value=Mock(status=201, headers={'Location': '12344/XYZ/12399'}))
+    mocker.patch(
+        "orcid_api.MemberAPIV20Api.create_employment",
+        return_value=Mock(status=201, headers={'Location': '12344/XYZ/12399'}))
+    send_email = mocker.patch("orcid_hub.utils.send_email")
+    capture_event = mocker.patch("sentry_sdk.transport.HttpTransport.capture_event")
     org = app.data["org"]
     u = User.create(
         email="test1234456@mailinator.com",
@@ -629,6 +916,7 @@ def test_create_or_update_affiliation(send_email, update_employment, create_empl
     assert "12344" == affiliation_record.orcid
     assert ("Employment record was updated" in affiliation_record.status
             or "Employment record was created" in affiliation_record.status)
+    capture_event.assert_called()
     send_email.assert_called_once()
 
 
@@ -638,8 +926,8 @@ def test_send_email(app):
     app.config["SERVER_NAME"] = "abc.orcidhub.org.nz"
     with app.app_context():
 
-        with patch("emails.message.Message") as msg_cls, patch("flask.current_app.jinja_env"):
-            msg = msg_cls.return_value = Mock()
+        with patch("emails.html") as html, patch("flask.current_app.jinja_env"):
+            msg = html.return_value = Mock()
             app.config["SERVER_NAME"] = "abc.orcidhub.org.nz"
             utils.send_email(
                 "template.html", (
@@ -647,12 +935,12 @@ def test_send_email(app):
                     "test123@test0.edu",
                 ), subject="TEST")
 
-            msg_cls.assert_called_once()
+            html.assert_called_once()
             msg.send.assert_called_once()
 
             msg.reset_mock()
-            dkip_key_path = app.config["DKIP_KEY_PATH"]
-            app.config["DKIP_KEY_PATH"] = __file__
+            dkim_key_path = app.config["DKIM_KEY_PATH"]
+            app.config["DKIM_KEY_PATH"] = __file__
             utils.send_email(
                 "template", (
                     "TEST USER",
@@ -662,15 +950,17 @@ def test_send_email(app):
             msg.send.assert_called_once()
 
             msg.reset_mock()
-            app.config["DKIP_KEY_PATH"] = "NON-EXISTING FILE..."
-            utils.send_email(
-                "template", (
-                    "TEST USER",
-                    "test123@test0.edu",
-                ), base="BASE", subject="TEST")
+            app.config["DKIM_KEY_PATH"] = "NON-EXISTING FILE..."
+            with pytest.raises(Exception) as excinfo:
+                utils.send_email(
+                    "template", (
+                        "TEST USER",
+                        "test123@test0.edu",
+                    ), base="BASE", subject="TEST")
+            app.config["DKIM_KEY_PATH"] = dkim_key_path
             msg.dkim.assert_not_called()
-            msg.send.assert_called_once()
-            app.config["DKIP_KEY_PATH"] = dkip_key_path
+            msg.send.assert_not_called()
+            assert"NON-EXISTING FILE..." in str(excinfo.value)
 
             # User organisation's logo
             msg.reset_mock()
@@ -699,7 +989,7 @@ def test_send_email(app):
                 subject="TEST WITH BASE AND LOGO",
                 org=org)
             msg.send.assert_called_once()
-            _, kwargs = msg_cls.call_args
+            _, kwargs = html.call_args
             assert kwargs["subject"] == "TEST WITH BASE AND LOGO"
             assert kwargs["mail_from"] == (
                 "NZ ORCID HUB",
@@ -726,7 +1016,7 @@ def test_send_email(app):
                 subject="TEST WITH ORG BASE AND LOGO",
                 org=org)
             msg.send.assert_called_once()
-            _, kwargs = msg_cls.call_args
+            _, kwargs = html.call_args
             assert kwargs["subject"] == "TEST WITH ORG BASE AND LOGO"
             assert kwargs["mail_from"] == (
                 "NZ ORCID HUB",
@@ -915,3 +1205,27 @@ def test_get_next_url(client):
     ]:
         with client.get(f"/?_next={quote(url)}"):
             assert utils.get_next_url() is None
+
+
+def test_scheduled_tasks(app, mocker):
+    """Test scheduled tasks."""
+    org = app.data["org"]
+    task = Task.create(org=org, task_type=TaskType.AFFILIATION)
+    rq = app.extensions["rq2"]
+    s = rq.get_scheduler()
+    s.run(burst=True)
+    task = Task.get(task.id)
+    utils.process_tasks.queue()
+    task = Task.get(task.id)
+    assert task.expires_at is not None
+    task.expires_at = utils.datetime(1988, 1, 1)
+    task.save()
+    utils.process_tasks.queue()
+    assert Task.select().where(Task.id == task.id).count() == 0
+
+    Organisation.update(webhook_enabled=True, email_notifications_enabled=True).execute()
+    User.update(orcid_updated_at=utils.date.today().replace(day=1)
+                - utils.timedelta(days=1)).execute()
+    send_email = mocker.patch("orcid_hub.utils.send_email")
+    utils.send_orcid_update_summary.queue(org_id=org.id)
+    send_email.assert_called()

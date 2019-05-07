@@ -6,10 +6,9 @@ import json
 import yaml
 from datetime import datetime
 from io import BytesIO
+import os
 
 import pytest
-from flask import url_for
-from flask_login import login_user
 
 from orcid_hub.apis import yamlfy
 from orcid_hub.data_apis import plural
@@ -32,117 +31,99 @@ def test_plural():
     assert plural("carrot") == "carrots"
 
 
-def test_get_oauth_access_token(app_req_ctx):
+def test_get_oauth_access_token(client):
     """Test the acquisition of OAuth access token."""
-    with app_req_ctx(
+    resp = client.post(
             "/oauth/token",
-            method="POST",
             data=dict(
                 grant_type="client_credentials",
                 client_id="CLIENT_ID",
-                client_secret="CLIENT_SECRET")) as ctx:
-        rv = ctx.app.full_dispatch_request()
-        assert rv.status_code == 200
-        data = json.loads(rv.data)
-        client = Client.get(client_id="CLIENT_ID")
-        token = Token.get(client=client)
-        assert data["access_token"] == token.access_token
-        assert data["expires_in"] == ctx.app.config["OAUTH2_PROVIDER_TOKEN_EXPIRES_IN"]
-        assert data["token_type"] == token.token_type
-        # prevously created access token should be removed
-        assert not Token.select().where(Token.access_token == "TEST").exists()
+                client_secret="CLIENT_SECRET"))
+    assert resp.status_code == 200
+    c = Client.get(client_id="CLIENT_ID")
+    token = Token.get(client=c)
+    assert resp.json["access_token"] == token.access_token
+    assert resp.json["expires_in"] == client.application.config["OAUTH2_PROVIDER_TOKEN_EXPIRES_IN"]
+    assert resp.json["token_type"] == token.token_type
+    # prevously created access token should be removed
+    assert not Token.select().where(Token.access_token == "TEST").exists()
 
-    with app_req_ctx(
+    resp = client.post(
             "/oauth/token",
-            method="POST",
             data=dict(
                 grant_type="client_credentials",
                 client_id="NOT-EXISTING-CLIENT_ID",
-                client_secret="CLIENT_SECRET")) as ctx:
-        # login_user(user, remember=True)
-        rv = ctx.app.full_dispatch_request()
-        assert rv.status_code == 401
-        data = json.loads(rv.data)
-        assert data["error"] == "invalid_client"
+                client_secret="CLIENT_SECRET"))
+    # login_user(user, remember=True)
+    assert resp.status_code == 401
+    assert resp.json["error"] == "invalid_client"
 
-    with app_req_ctx(
+    resp = client.post(
             "/oauth/token",
-            method="POST",
             data=dict(
                 grant_type="client_credentials",
                 client_id="CLIENT_ID",
-                client_secret="INCORRECT")) as ctx:
-        # login_user(user, remember=True)
-        rv = ctx.app.full_dispatch_request()
-        assert rv.status_code == 401
-        data = json.loads(rv.data)
-        assert data["error"] == "invalid_client"
+                client_secret="INCORRECT"))
+    # login_user(user, remember=True)
+    assert resp.status_code == 401
+    assert resp.json["error"] == "invalid_client"
 
-    with app_req_ctx(
+    resp = client.post(
             "/oauth/token",
-            method="POST",
             data=dict(
                 grant_type="INCORRECT",
                 client_id="NOT-EXISTING-CLIENT_ID",
-                client_secret="CLIENT_SECRET")) as ctx:
-        # login_user(user, remember=True)
-        rv = ctx.app.full_dispatch_request()
-        assert rv.status_code == 400
-        data = json.loads(rv.data)
-        assert data["error"] == "unsupported_grant_type"
+                client_secret="CLIENT_SECRET"))
+    # login_user(user, remember=True)
+    assert resp.status_code == 400
+    assert resp.json["error"] == "unsupported_grant_type"
 
 
-# def test_revoke_access_token(app_req_ctx):
+# def test_revoke_access_token(client):
 #     """Test the acquisition of OAuth access token."""
-#     with app_req_ctx(
+#     resp = client.get(
 #             "/oauth/token",
 #             method="POST",
 #             data=dict(
 #                 grant_type="client_credentials",
 #                 client_id="CLIENT_ID",
-#                 client_secret="CLIENT_SECRET")) as ctx:
-#         rv = ctx.app.full_dispatch_request()
-#         assert rv.status_code == 200
-#         data = json.loads(rv.data)
+#                 client_secret="CLIENT_SECRET"))
+#         resp = ctx.app.full_dispatch_request()
+#         assert resp.status_code == 200
+#         data = json.loads(resp.data)
 #         client = Client.get(client_id="CLIENT_ID")
 #         token = Token.get(client=client)
 #         assert data["access_token"] == token.access_token
 
-#     with app_req_ctx(
+#     resp = client.get(
 #             "/oauth/token",
-#             method="POST",
 #             data=dict(
 #                 grant_type="client_credentials",
 #                 client_id="CLIENT_ID",
-#                 client_secret="CLIENT_SECRET")) as ctx:
-#         rv = ctx.app.full_dispatch_request()
-#         assert rv.status_code == 200
-#         data = json.loads(rv.data)
+#                 client_secret="CLIENT_SECRET"))
+#         resp = ctx.app.full_dispatch_request()
+#         assert resp.status_code == 200
+#         data = json.loads(resp.data)
 
 
-def test_me(app_req_ctx):
+def test_me(client):
     """Test the echo endpoint."""
     user = User.get(email="app123@test0.edu")
     token = Token.get(user=user)
-    with app_req_ctx("/api/me", headers=dict(authorization=f"Bearer {token.access_token}")) as ctx:
-        rv = ctx.app.full_dispatch_request()
-        assert rv.status_code == 200
-        data = json.loads(rv.data)
-        assert data["email"] == user.email
-        assert data["name"] == user.name
+    resp = client.get("/api/me", headers=dict(authorization=f"Bearer {token.access_token}"))
+    assert resp.status_code == 200
+    assert resp.json["email"] == user.email
+    assert resp.json["name"] == user.name
 
     # Test invalid token:
-    with app_req_ctx("/api/me", headers=dict(authorization="Bearer INVALID")) as ctx:
-        user = User.get(email="app123@test0.edu")
-        rv = ctx.app.full_dispatch_request()
-        assert rv.status_code == 401
+    resp = client.get("/api/me", headers=dict(authorization="Bearer INVALID"))
+    assert resp.status_code == 401
 
     # Test expired token:
     token.expires = datetime(1971, 1, 1)
     token.save()
-    with app_req_ctx("/api/me", headers=dict(authorization=f"Bearer {token.access_token}")) as ctx:
-        rv = ctx.app.full_dispatch_request()
-        assert rv.status_code == 401
+    resp = client.get("/api/me", headers=dict(authorization=f"Bearer {token.access_token}"))
+    assert resp.status_code == 401
 
 
 @pytest.mark.parametrize("resource", [
@@ -152,130 +133,106 @@ def test_me(app_req_ctx):
 @pytest.mark.parametrize("version", [
     "v1.0",
 ])
-def test_user_and_token_api(app_req_ctx, resource, version):
+def test_user_and_token_api(client, resource, version):
     """Test the echo endpoint."""
     user = User.get(email="researcher@test0.edu")
     org2_user = User.get(email="researcher@org2.edu")
-    with app_req_ctx(
-            f"/api/{version}/{resource}/ABC123", headers=dict(authorization="Bearer TEST")) as ctx:
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 400
-        data = json.loads(resp.data)
-        assert "error" in data
-        assert "incorrect identifier" in data["error"].lower()
-    with app_req_ctx(
+    resp = client.get(
+            f"/api/{version}/{resource}/ABC123", headers=dict(authorization="Bearer TEST"))
+    assert resp.status_code == 400
+    assert "error" in resp.json
+    assert "incorrect identifier" in resp.json["error"].lower()
+
+    resp = client.get(
             f"/api/{version}/{resource}/0000-0000-0000-0000",
-            headers=dict(authorization="Bearer TEST")) as ctx:
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 400
-        data = json.loads(resp.data)
-        assert "error" in data
-        assert "incorrect identifier" in data["error"].lower()
-    with app_req_ctx(
+            headers=dict(authorization="Bearer TEST"))
+    assert resp.status_code == 400
+    assert "error" in resp.json
+    assert "incorrect identifier" in resp.json["error"].lower()
+
+    resp = client.get(
             f"/api/{version}/{resource}/abc123@some.org",
-            headers=dict(authorization="Bearer TEST")) as ctx:
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 404
-        data = json.loads(resp.data)
-        assert "error" in data
-        assert "not found" in data["error"].lower()
-    with app_req_ctx(
+            headers=dict(authorization="Bearer TEST"))
+    assert resp.status_code == 404
+    assert "error" in resp.json
+    assert "not found" in resp.json["error"].lower()
+
+    resp = client.get(
             f"/api/{version}/{resource}/0000-0000-0000-0001",
-            headers=dict(authorization="Bearer TEST")) as ctx:
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 404
-        data = json.loads(resp.data)
-        assert "error" in data
-        assert "not found" in data["error"].lower()
+            headers=dict(authorization="Bearer TEST"))
+    assert resp.status_code == 404
+    assert "error" in resp.json
+    assert "not found" in resp.json["error"].lower()
+
     for identifier in [
             user.email,
             user.orcid,
     ]:
-        with app_req_ctx(
+        resp = client.get(
                 f"/api/{version}/{resource}/{identifier}",
-                headers=dict(authorization="Bearer TEST")) as ctx:
-            resp = ctx.app.full_dispatch_request()
-            data = json.loads(resp.data)
-            assert resp.status_code == 200
-            data = json.loads(resp.data)
-            if resource == "users":
-                assert data["email"] == user.email
-                assert data["eppn"] == user.eppn
-                assert data["orcid"] == user.orcid
-            else:
-                token = OrcidToken.get(user_id=user.id)
-                assert data["access_token"] == token.access_token
+                headers=dict(authorization="Bearer TEST"))
+        assert resp.status_code == 200
+        if resource == "users":
+            assert resp.json["email"] == user.email
+            assert resp.json["eppn"] == user.eppn
+            assert resp.json["orcid"] == user.orcid
+        else:
+            token = OrcidToken.get(user_id=user.id)
+            assert resp.json["access_token"] == token.access_token
+
     if resource == "users":  # test user listing
-        with app_req_ctx(
+        resp = client.get(
                 f"/api/{version}/{resource}",
-                headers=dict(authorization="Bearer TEST")) as ctx:
-            resp = ctx.app.full_dispatch_request()
-            data = json.loads(resp.data)
-            assert resp.status_code == 200
-            data = json.loads(resp.data)
-            assert len(data) == 11
-        with app_req_ctx(
+                headers=dict(authorization="Bearer TEST"))
+        assert resp.status_code == 200
+        assert len(resp.json) == 11
+
+        resp = client.get(
                 f"/api/{version}/{resource}?page=INVALID&page_size=INVALID",
-                headers=dict(authorization="Bearer TEST")) as ctx:
-            resp = ctx.app.full_dispatch_request()
-            data = json.loads(resp.data)
-            assert resp.status_code == 200
-            data = json.loads(resp.data)
-            assert len(data) == 11
-        with app_req_ctx(
+                headers=dict(authorization="Bearer TEST"))
+        assert resp.status_code == 200
+        assert len(resp.json) == 11
+
+        resp = client.get(
                 f"/api/{version}/{resource}?page=2&page_size=3",
-                headers=dict(authorization="Bearer TEST")) as ctx:
-            resp = ctx.app.full_dispatch_request()
-            data = json.loads(resp.data)
-            assert resp.status_code == 200
-            data = json.loads(resp.data)
-            assert len(data) == 3
-        with app_req_ctx(
+                headers=dict(authorization="Bearer TEST"))
+        assert resp.status_code == 200
+        assert len(resp.json) == 3
+
+        resp = client.get(
                 f"/api/{version}/{resource}?page_size=3",
-                headers=dict(authorization="Bearer TEST")) as ctx:
-            resp = ctx.app.full_dispatch_request()
-            data = json.loads(resp.data)
-            assert resp.status_code == 200
-            data = json.loads(resp.data)
-            assert len(data) == 3
-        with app_req_ctx(
+                headers=dict(authorization="Bearer TEST"))
+        assert resp.status_code == 200
+        assert len(resp.json) == 3
+
+        resp = client.get(
                 f"/api/{version}/{resource}?page=42",
-                headers=dict(authorization="Bearer TEST")) as ctx:
-            resp = ctx.app.full_dispatch_request()
-            data = json.loads(resp.data)
-            assert resp.status_code == 200
-            data = json.loads(resp.data)
-            assert len(data) == 0
-        with app_req_ctx(
+                headers=dict(authorization="Bearer TEST"))
+        assert resp.status_code == 200
+        assert len(resp.json) == 0
+
+        resp = client.get(
                 f"/api/{version}/{resource}?from_date=ABCD",
-                headers=dict(authorization="Bearer TEST")) as ctx:
-            resp = ctx.app.full_dispatch_request()
-            data = json.loads(resp.data)
-            assert resp.status_code == 422
-        with app_req_ctx(
+                headers=dict(authorization="Bearer TEST"))
+        assert resp.status_code == 422
+
+        resp = client.get(
                 f"/api/{version}/{resource}?from_date=2018-01-01",
-                headers=dict(authorization="Bearer TEST")) as ctx:
-            resp = ctx.app.full_dispatch_request()
-            data = json.loads(resp.data)
-            assert resp.status_code == 200
-            data = json.loads(resp.data)
-            assert len(data) == 4
-        with app_req_ctx(
+                headers=dict(authorization="Bearer TEST"))
+        assert resp.status_code == 200
+        assert len(resp.json) == 4
+
+        resp = client.get(
                 f"/api/{version}/{resource}?to_date=2018-01-01",
-                headers=dict(authorization="Bearer TEST")) as ctx:
-            resp = ctx.app.full_dispatch_request()
-            data = json.loads(resp.data)
-            assert resp.status_code == 200
-            data = json.loads(resp.data)
-            assert len(data) == 7
-        with app_req_ctx(
+                headers=dict(authorization="Bearer TEST"))
+        assert resp.status_code == 200
+        assert len(resp.json) == 7
+
+        resp = client.get(
                 f"/api/{version}/{resource}?from_date=2017-12-20&to_date=2017-12-21",
-                headers=dict(authorization="Bearer TEST")) as ctx:
-            resp = ctx.app.full_dispatch_request()
-            data = json.loads(resp.data)
-            assert resp.status_code == 200
-            data = json.loads(resp.data)
-            assert len(data) == 2
+                headers=dict(authorization="Bearer TEST"))
+        assert resp.status_code == 200
+        assert len(resp.json) == 2
 
     if resource == "tokens":
         user2 = User.get(email="researcher2@test0.edu")
@@ -283,21 +240,17 @@ def test_user_and_token_api(app_req_ctx, resource, version):
                 user2.email,
                 user2.orcid,
         ]:
-            with app_req_ctx(
+            resp = client.get(
                     f"/api/{version}/tokens/{identifier}",
-                    headers=dict(authorization="Bearer TEST")) as ctx:
-                resp = ctx.app.full_dispatch_request()
-                assert resp.status_code == 404
-                data = json.loads(resp.data)
-                assert "error" in data
+                    headers=dict(authorization="Bearer TEST"))
+            assert resp.status_code == 404
+            assert "error" in resp.json
 
-    with app_req_ctx(
+    resp = client.get(
             f"/api/{version}/{resource}/{org2_user.email}",
-            headers=dict(authorization="Bearer TEST")) as ctx:
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 404
-        data = json.loads(resp.data)
-        assert "error" in data
+            headers=dict(authorization="Bearer TEST"))
+    assert resp.status_code == 404
+    assert "error" in resp.json
 
 
 @pytest.mark.parametrize("url", [
@@ -307,14 +260,14 @@ def test_user_and_token_api(app_req_ctx, resource, version):
 ])
 def test_spec(client, url):
     """Test API specs."""
-    rv = client.get(url)
-    assert rv.status_code == 200
+    resp = client.get(url)
+    assert resp.status_code == 200
 
 
 def test_yaml_spec(client):
     """Test API specs (the default entry point with yaml content type)."""
-    rv = client.get("/spec", headers={"Accept": "text/yaml"})
-    assert rv.status_code == 200
+    resp = client.get("/spec", headers={"Accept": "text/yaml"})
+    assert resp.status_code == 200
 
 
 def test_yamlfy(app):
@@ -330,68 +283,100 @@ def test_yamlfy(app):
     assert yaml.load(resp.data) == datetime(2018, 7, 10, 16, 26, 25)
 
 
-def test_api_docs(app_req_ctx):
+def test_api_docs(client):
     """Test API docs."""
-    data = app_req_ctx.data
+    data = client.data
     tech_contact = data["tech_contact"]
     super_user = data["super_user"]
-    with app_req_ctx("/api-docs") as ctx:
-        spec_url = url_for("spec", _external=True)
-        data_api_spec_url = url_for("Swagger.model_resources", _external=True)
-        login_user(tech_contact)
-        rv = ctx.app.full_dispatch_request()
-        assert rv.status_code == 200
-        assert spec_url.encode("utf-8") in rv.data
-        assert data_api_spec_url.encode("utf-8") not in rv.data
+    client.login(tech_contact)
+    # assert resp is None
+    resp = client.get("/api-docs")
+    assert resp.status_code == 200
+    assert b"/spec" in resp.data
+    assert b"ORCID HUB Data API" not in resp.data
+    client.logout()
 
-    with app_req_ctx("/api-docs") as ctx:
-        login_user(super_user)
-        rv = ctx.app.full_dispatch_request()
-        assert rv.status_code == 200
-        assert spec_url.encode("utf-8") in rv.data
-        assert data_api_spec_url.encode("utf-8") in rv.data
+    client.login(super_user)
+    resp = client.get("/api-docs")
+    assert resp.status_code == 200
+    assert b"/spec" in resp.data
+    assert b"ORCID HUB Data API" in resp.data
 
 
-def test_db_api(app_req_ctx):
+def test_db_api(client):
     """Test DB API."""
-    with app_req_ctx(
-            "/data/api/v0.1/organisations/", headers=dict(authorization="Bearer TEST")) as ctx:
-        rv = ctx.app.full_dispatch_request()
-        assert rv.status_code == 200
-        data = json.loads(rv.data)
-        assert "objects" in data
-        assert len(data["objects"]) == 4
+    resp = client.get("/data/api/v0.1/organisations/", headers=dict(authorization="Bearer TEST"))
+    assert resp.status_code == 200
+    assert "objects" in resp.json
+    assert len(resp.json["objects"]) == 4
 
-    with app_req_ctx("/data/api/v0.1/tasks/", headers=dict(authorization="Bearer TEST")) as ctx:
-        rv = ctx.app.full_dispatch_request()
-        assert rv.status_code == 200
-        data = json.loads(rv.data)
-        assert "objects" in data
-        assert len(data["objects"]) == 0
+    resp = client.get("/data/api/v0.1/tasks/", headers=dict(authorization="Bearer TEST"))
+    assert resp.status_code == 200
+    assert "objects" in resp.json
+    assert len(resp.json["objects"]) == 0
 
-    org = Organisation.get(id=1)
-    with app_req_ctx(
+    org = Organisation.select().where(Organisation.tuakiri_name.is_null(False)).first()
+    resp = client.get(
             f"/data/api/v0.1/organisations/{org.id}",
-            headers=dict(authorization="Bearer TEST")) as ctx:
-        rv = ctx.app.full_dispatch_request()
-        assert rv.status_code == 200
-        data = json.loads(rv.data)
-        assert data["name"] == org.name
-        assert data["tuakiri_name"] == org.tuakiri_name
+            headers=dict(authorization="Bearer TEST"))
+    assert resp.status_code == 200
+    assert resp.json["name"] == org.name
+    assert resp.json["tuakiri_name"] == org.tuakiri_name
 
-    org = Organisation.get(id=2)
-    with app_req_ctx(
+    org = Organisation.select().where(Organisation.tuakiri_name.is_null(False), Organisation.id != org.id).first()
+    resp = client.get(
             f"/data/api/v0.1/organisations/{org.id}",
-            headers=dict(authorization="Bearer TEST")) as ctx:
-        rv = ctx.app.full_dispatch_request()
-        assert rv.status_code == 200
-        data = json.loads(rv.data)
-        assert data["name"] == org.name
-        assert data["tuakiri_name"] == org.tuakiri_name
+            headers=dict(authorization="Bearer TEST"))
+    assert resp.status_code == 200
+    assert resp.json["name"] == org.name
+    assert resp.json["tuakiri_name"] == org.tuakiri_name
 
 
-def test_affiliation_api(client):
+def test_users_api(client):
+    """Test user API."""
+    c = Client.get(client_id="TEST0-ID")
+    resp = client.post(
+        "/oauth/token",
+        content_type="application/x-www-form-urlencoded",
+        data=f"grant_type=client_credentials&client_id={c.client_id}&client_secret={c.client_secret}")
+    data = json.loads(resp.data)
+    access_token = data["access_token"]
+    resp = client.get(
+        "/api/v1.0/users?page=1&page_size=2000",
+        headers=dict(authorization=f"Bearer {access_token}"),
+        content_type="application/json")
+
+    data = json.loads(resp.data)
+    assert list(data[0].keys()) == ["confirmed", "email", "eppn", "name", "orcid", "updated-at"]
+    assert not any(u["email"] == "researcher102@test1.edu" for u in data)
+
+    resp = client.get(
+        "/api/v1.0/users?page=1&page_size=2000&from_date=2000-12-01&to_date=1999-01-01",
+        headers=dict(authorization=f"Bearer {access_token}"),
+        content_type="application/json")
+    data = json.loads(resp.data)
+    assert len(data) == 0
+
+    resp = client.get(
+        "/api/v1.0/users/researcher102@test1.edu",
+        headers=dict(authorization=f"Bearer {access_token}"),
+        content_type="application/json")
+    assert resp.status_code == 404
+    data = json.loads(resp.data)
+
+    resp = client.get(
+        "/api/v1.0/users/researcher102@test0.edu",
+        headers=dict(authorization=f"Bearer {access_token}"),
+        content_type="application/json")
+    assert resp.status_code == 200
+    data = json.loads(resp.data)
+    assert data["email"] == "researcher102@test0.edu"
+
+
+def test_affiliation_api(client, mocker):
     """Test affiliation API in various formats."""
+    exception = mocker.patch.object(client.application.logger, "exception")
+    capture_event = mocker.patch("sentry_sdk.transport.HttpTransport.capture_event")
     resp = client.post(
         "/oauth/token",
         content_type="application/x-www-form-urlencoded",
@@ -450,7 +435,7 @@ def test_affiliation_api(client):
         content_type="application/json",
         data=json.dumps(data))
     data = json.loads(resp.data)
-    assert len(data["records"]) == 3
+    assert len(resp.json["records"]) == 3
     # should get a new set of records
 
     del(data["records"][2])
@@ -459,8 +444,7 @@ def test_affiliation_api(client):
         headers=dict(authorization=f"Bearer {access_token}"),
         content_type="application/json",
         data=json.dumps(data))
-    new_data = json.loads(resp.data)
-    assert len(new_data["records"]) == 2
+    assert len(resp.json["records"]) == 2
 
     incorrect_data = copy.deepcopy(data)
     incorrect_data["records"].insert(0, {
@@ -472,15 +456,13 @@ def test_affiliation_api(client):
         headers=dict(authorization=f"Bearer {access_token}"),
         content_type="application/json",
         data=json.dumps(incorrect_data))
-    data = json.loads(resp.data)
     assert resp.status_code == 422
-    assert data["error"] == "Validation error."
+    assert resp.json["error"] == "Validation error."
 
     resp = client.get(
         f"/api/v1.0/affiliations/{task_id}",
         headers=dict(authorization=f"Bearer {access_token}"))
-    data = json.loads(resp.data)
-    incorrect_data = copy.deepcopy(data)
+    incorrect_data = copy.deepcopy(resp.json)
     incorrect_data["records"].insert(0, {
         "email": "test1234@test.edu",
         "first-name": "TEST000 FN",
@@ -491,15 +473,13 @@ def test_affiliation_api(client):
         headers=dict(authorization=f"Bearer {access_token}"),
         content_type="application/json",
         data=json.dumps(incorrect_data))
-    data = json.loads(resp.data)
     assert resp.status_code == 422
-    assert data["error"] == "Validation error."
+    assert resp.json["error"] == "Validation error."
 
     resp = client.get(
         f"/api/v1.0/affiliations/{task_id}",
         headers=dict(authorization=f"Bearer {access_token}"))
-    data = json.loads(resp.data)
-    new_data = copy.deepcopy(data)
+    new_data = copy.deepcopy(resp.json)
     new_data["records"].insert(0, {
         "email": "test1234@test.edu",
         "first-name": "TEST000 FN",
@@ -523,13 +503,12 @@ def test_affiliation_api(client):
         data=json.dumps(data))
     data = json.loads(resp.data)
     assert resp.status_code == 200
-    assert len(data["records"]) == 3
+    assert len(resp.json["records"]) == 3
 
     resp = client.get(
         f"/api/v1.0/affiliations/{task_id}",
         headers=dict(authorization=f"Bearer {access_token}"))
-    data = json.loads(resp.data)
-    new_data = copy.deepcopy(data)
+    new_data = copy.deepcopy(resp.json)
     for i, r in enumerate(new_data["records"]):
         new_data["records"][i] = {"id": r["id"], "is-active": True}
     resp = client.patch(
@@ -537,11 +516,10 @@ def test_affiliation_api(client):
         headers=dict(authorization=f"Bearer {access_token}"),
         content_type="application/json",
         data=json.dumps(new_data))
-    data = json.loads(resp.data)
     assert resp.status_code == 200
-    assert len(data["records"]) == 3
-    assert all(r["is-active"] for r in data["records"])
-    assert all(r["city"] == "TEST000" for r in data["records"])
+    assert len(resp.json["records"]) == 3
+    assert all(r["is-active"] for r in resp.json["records"])
+    assert all(r["city"] == "TEST000" for r in resp.json["records"])
 
     resp = client.head(
         f"/api/v1.0/affiliations/{task_id}",
@@ -570,7 +548,7 @@ def test_affiliation_api(client):
             f"/api/v1.0/affiliations/{task_id}",
             headers=dict(authorization=f"Bearer {access_token}"))
         assert resp.status_code == 400
-        assert resp.get_json() == {"error": "Unhandled except occured.", "exception": "ERROR"}
+        assert resp.json == {"error": "Unhandled exception occurred.", "exception": "ERROR"}
 
     resp = client.delete(
         f"/api/v1.0/affiliations/{task_id}",
@@ -657,11 +635,10 @@ records:
   role: Programme Guide - ORCID
   start-date: 2016-09
 """)
-    data = json.loads(resp.data)
-    assert data["filename"] == "TEST42.yml"
-    assert data["task-type"] == "AFFILIATION"
-    assert len(data["records"]) == 3
-    task_id = data["id"]
+    assert resp.json["filename"] == "TEST42.yml"
+    assert resp.json["task-type"] == "AFFILIATION"
+    assert len(resp.json["records"]) == 3
+    task_id = resp.json["id"]
     task = Task.get(id=task_id)
     assert task.affiliation_records.count() == 3
 
@@ -684,10 +661,9 @@ records:
   role: BBB
   start-date: 2016-09
 """)
-    data = resp.get_json()
     assert resp.status_code == 400
-    assert data["error"] == "Unhandled except occured."
-    assert "Instance matching query does not exist" in data["exception"]
+    assert resp.json["error"] == "Unhandled exception occurred."
+    assert "Instance matching query does not exist" in resp.json["exception"]
 
     with patch.object(AffiliationRecord, "get", side_effect=Exception("ERROR")):
         resp = client.put(
@@ -709,9 +685,8 @@ records:
   role: BBB
   start-date: 2016-09
 """)
-        data = resp.get_json()
         assert resp.status_code == 400
-        assert data == {"error": "Unhandled except occured.", "exception": "ERROR"}
+        assert resp.json == {"error": "Unhandled exception occurred.", "exception": "ERROR"}
 
     resp = client.post(
         f"/api/v1.0/affiliations/?filename=TEST42.csv",
@@ -724,9 +699,8 @@ records:
   id: 9999999999
 """)
     assert resp.status_code == 422
-    data = resp.get_json()
-    assert data["error"] == "Validation error."
-    assert "INCORRECT" in data["message"]
+    assert resp.json["error"] == "Validation error."
+    assert "INCORRECT" in resp.json["message"]
 
     resp = client.post(
         "/api/v1.0/affiliations/?filename=TEST_ERROR.csv",
@@ -739,9 +713,10 @@ records:
 something fishy is going here...
 """)
     assert resp.status_code == 415
-    data = resp.get_json()
-    assert data["error"] == "Ivalid request format. Only JSON, CSV, or TSV are acceptable."
-    assert "something fishy is going here..." in data["message"]
+    assert resp.json["error"] == "Invalid request format. Only JSON, CSV, or TSV are acceptable."
+    assert "something fishy is going here..." in resp.json["message"]
+    exception.assert_called()
+    capture_event.assert_called()
 
 
 def test_funding_api(client):
@@ -832,89 +807,235 @@ def test_funding_api(client):
     assert resp.status_code == 404
 
 
-def test_proxy_get_profile(app_req_ctx):
+def test_work_api(client):
+    """Test work API in various formats."""
+    admin = client.data.get("admin")
+    resp = client.login(admin, follow_redirects=True)
+    resp = client.post(
+        "/load/researcher/work",
+        data={
+            "file_": (open(os.path.join(os.path.dirname(__file__), "data", "example_works.json"), "rb"),
+                      "works042.json"),
+        },
+        follow_redirects=True)
+    assert resp.status_code == 200
+    assert Task.select().count() == 1
+
+    access_token = client.get_access_token()
+
+    resp = client.get(
+        "/api/v1.0/tasks?type=work",
+        headers=dict(authorization=f"Bearer {access_token}"))
+    data = json.loads(resp.data)
+    task_id = int(data[0]["id"])
+
+    resp = client.get(
+        f"/api/v1.0/works/{task_id}",
+        headers=dict(authorization=f"Bearer {access_token}"))
+    data = json.loads(resp.data)
+    assert len(data["records"]) == 1
+    assert data["filename"] == "works042.json"
+
+    del(data["id"])
+    resp = client.post(
+        "/api/v1.0/works/?filename=works333.json",
+        headers=dict(authorization=f"Bearer {access_token}"),
+        content_type="application/json",
+        data=json.dumps(data))
+    assert resp.status_code == 200
+    assert Task.select().count() == 2
+
+    records = data["records"]
+    resp = client.post(
+        "/api/v1.0/works/?filename=works444.json",
+        headers=dict(authorization=f"Bearer {access_token}"),
+        content_type="application/json",
+        data=json.dumps(records))
+    assert resp.status_code == 200
+    assert Task.select().count() == 3
+
+    resp = client.post(
+        f"/api/v1.0/works/{task_id}",
+        headers=dict(authorization=f"Bearer {access_token}"),
+        content_type="application/json",
+        data=json.dumps(records))
+    assert resp.status_code == 200
+    assert Task.select().count() == 3
+
+    resp = client.head(
+        f"/api/v1.0/works/{task_id}",
+        headers=dict(authorization=f"Bearer {access_token}"))
+    assert "Last-Modified" in resp.headers
+    assert resp.status_code == 200
+
+    resp = client.delete(
+        f"/api/v1.0/works/{task_id}",
+        headers=dict(authorization=f"Bearer {access_token}"))
+    assert resp.status_code == 200
+    assert Task.select().count() == 2
+
+    resp = client.head(
+        f"/api/v1.0/works/{task_id}",
+        headers=dict(authorization=f"Bearer {access_token}"))
+    assert resp.status_code == 404
+
+
+def test_peer_review_api(client):
+    """Test peer review API in various formats."""
+    admin = client.data.get("admin")
+    resp = client.login(admin, follow_redirects=True)
+    resp = client.post(
+        "/load/researcher/peer_review",
+        data={
+            "file_": (open(
+                os.path.join(os.path.dirname(__file__), "data", "example_peer_reviews.json"),
+                "rb"), "peer-reviews042.json"),
+        },
+        follow_redirects=True)
+    assert resp.status_code == 200
+    assert Task.select().count() == 1
+
+    access_token = client.get_access_token()
+
+    resp = client.get(
+        "/api/v1.0/tasks?type=PEER_REVIEW",
+        headers=dict(authorization=f"Bearer {access_token}"))
+    data = json.loads(resp.data)
+    task_id = int(data[0]["id"])
+
+    resp = client.get(
+        f"/api/v1.0/peer-reviews/{task_id}",
+        headers=dict(authorization=f"Bearer {access_token}"))
+    data = json.loads(resp.data)
+    assert len(data["records"]) == 1
+    assert data["filename"] == "peer-reviews042.json"
+
+    del(data["id"])
+    resp = client.post(
+        "/api/v1.0/peer-reviews/?filename=peer_reviews333.json",
+        headers=dict(authorization=f"Bearer {access_token}"),
+        content_type="application/json",
+        data=json.dumps(data))
+    assert resp.status_code == 200
+    assert Task.select().count() == 2
+
+    records = data["records"]
+    resp = client.post(
+        "/api/v1.0/peer-reviews/?filename=peer_reviews444.json",
+        headers=dict(authorization=f"Bearer {access_token}"),
+        content_type="application/json",
+        data=json.dumps(records))
+    assert resp.status_code == 200
+    assert Task.select().count() == 3
+
+    resp = client.post(
+        "/api/v1.0/peer-reviews",
+        headers=dict(authorization=f"Bearer {access_token}"),
+        content_type="application/json",
+        data=json.dumps(records))
+    assert resp.status_code == 200
+    assert Task.select().count() == 4
+
+    resp = client.post(
+        f"/api/v1.0/peer-reviews/{task_id}",
+        headers=dict(authorization=f"Bearer {access_token}"),
+        content_type="application/json",
+        data=json.dumps(records))
+    assert resp.status_code == 200
+    assert Task.select().count() == 4
+
+    resp = client.head(
+        f"/api/v1.0/peer-reviews/{task_id}",
+        headers=dict(authorization=f"Bearer {access_token}"))
+    assert "Last-Modified" in resp.headers
+    assert resp.status_code == 200
+
+    resp = client.delete(
+        f"/api/v1.0/peer-reviews/{task_id}",
+        headers=dict(authorization=f"Bearer {access_token}"))
+    assert resp.status_code == 200
+    assert Task.select().count() == 3
+
+    resp = client.head(
+        f"/api/v1.0/peer-reviews/{task_id}",
+        headers=dict(authorization=f"Bearer {access_token}"))
+    assert resp.status_code == 404
+
+
+def test_proxy_get_profile(client):
     """Test the echo endpoint."""
     user = User.get(email="app123@test0.edu")
     token = Token.get(user=user)
     orcid_id = "0000-0000-0000-00X3"
 
-    with app_req_ctx(
-            f"/orcid/api/v2.23/{orcid_id}", headers=dict(
-                authorization=f"Bearer {token.access_token}")) as ctx, patch(
-                        "orcid_hub.apis.requests.Session.send") as mocksend:
+    with patch("orcid_hub.apis.requests.Session.send") as mocksend:
         mockresp = MagicMock(status_code=200)
         mockresp.raw.stream = lambda *args, **kwargs: iter([b"""{"data": "TEST"}"""])
         mockresp.raw.headers = {
-                "Server": "TEST123",
-                "Content-Type": "application/json;charset=UTF-8",
-                "Transfer-Encoding": "chunked",
-                "Connection": "keep-alive",
-                "Access-Control-Allow-Origin": "*",
-                "Cache-Control": "no -cache, no-store, max-age=0, must-revalidate",
-                "Pragma": "no-cache",
-                "Expires": "0",
+            "Server": "TEST123",
+            "Content-Type": "application/json;charset=UTF-8",
+            "Transfer-Encoding": "chunked",
+            "Connection": "keep-alive",
+            "Access-Control-Allow-Origin": "*",
+            "Cache-Control": "no -cache, no-store, max-age=0, must-revalidate",
+            "Pragma": "no-cache",
+            "Expires": "0",
         }
         mocksend.return_value = mockresp
-        resp = ctx.app.full_dispatch_request()
+        resp = client.get(
+            f"/orcid/api/v2.23/{orcid_id}",
+            headers=dict(authorization=f"Bearer {token.access_token}"))
         assert resp.status_code == 200
         args, kwargs = mocksend.call_args
         assert kwargs["stream"]
         assert args[0].url == f"https://api.sandbox.orcid.org/v2.23/{orcid_id}"
         assert args[0].headers["Authorization"] == "Bearer ORCID-TEST-ACCESS-TOKEN"
+        assert resp.json == {"data": "TEST"}
 
-        data = json.loads(resp.data)
-        assert data == {"data": "TEST"}
-
-    with app_req_ctx(
-            f"/orcid/api/v2.23/{orcid_id}/SOMETHING-MORE", headers=dict(
-                authorization=f"Bearer {token.access_token}"), method="POST",
-            data=b"""{"data": "REQUEST"}""") as ctx, patch(
-                        "orcid_hub.apis.requests.Session.send") as mocksend:
+    with patch("orcid_hub.apis.requests.Session.send") as mocksend:
         mockresp = MagicMock(status_code=201)
         mockresp.raw.stream = lambda *args, **kwargs: iter([b"""{"data": "TEST"}"""])
         mockresp.raw.headers = {
-                "Server": "TEST123",
-                "Content-Type": "application/json;charset=UTF-8",
-                "Transfer-Encoding": "chunked",
-                "Connection": "keep-alive",
-                "Access-Control-Allow-Origin": "*",
-                "Cache-Control": "no -cache, no-store, max-age=0, must-revalidate",
-                "Pragma": "no-cache",
-                "Loction": "TEST-LOCATION",
-                "Expires": "0",
+            "Server": "TEST123",
+            "Content-Type": "application/json;charset=UTF-8",
+            "Transfer-Encoding": "chunked",
+            "Connection": "keep-alive",
+            "Access-Control-Allow-Origin": "*",
+            "Cache-Control": "no -cache, no-store, max-age=0, must-revalidate",
+            "Pragma": "no-cache",
+            "Loction": "TEST-LOCATION",
+            "Expires": "0",
         }
         mocksend.return_value = mockresp
-        resp = ctx.app.full_dispatch_request()
+        resp = client.post(
+            f"/orcid/api/v2.23/{orcid_id}/SOMETHING-MORE",
+            headers=dict(authorization=f"Bearer {token.access_token}"),
+            data=b"""{"data": "REQUEST"}""")
         assert resp.status_code == 201
         args, kwargs = mocksend.call_args
         assert kwargs["stream"]
         assert args[0].url == f"https://api.sandbox.orcid.org/v2.23/{orcid_id}/SOMETHING-MORE"
         assert args[0].headers["Authorization"] == "Bearer ORCID-TEST-ACCESS-TOKEN"
-
-        data = json.loads(resp.data)
-        assert data == {"data": "TEST"}
+        assert resp.json == {"data": "TEST"}
 
     # malformatted ORCID ID:
-    with app_req_ctx(
-            "/orcid/api/v2.23/NOT-ORCID-ID/PATH",
-            headers=dict(authorization=f"Bearer {token.access_token}")) as ctx:
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 415
+    resp = client.get(
+        "/orcid/api/v2.23/NOT-ORCID-ID/PATH",
+        headers=dict(authorization=f"Bearer {token.access_token}"))
+    assert resp.status_code == 415
 
     # wrong version number:
-    with app_req_ctx(
-            f"/orcid/api/v1.23_ERROR/{orcid_id}/PATH", headers=dict(
-                authorization=f"Bearer {token.access_token}")) as ctx:
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 404
-        assert resp.get_json() == {
-            "error": "Resource not found",
-            "message": "Incorrect version: v1.23_ERROR"
-        }
+    resp = client.get(
+        f"/orcid/api/v1.23_ERROR/{orcid_id}/PATH",
+        headers=dict(authorization=f"Bearer {token.access_token}"))
+    assert resp.status_code == 404
+    assert resp.json == {
+        "error": "Resource not found",
+        "message": "Incorrect version: v1.23_ERROR"
+    }
 
     # no ORCID access token
-    with app_req_ctx(
-            "/orcid/api/v2.23/0000-0000-0000-11X2/PATH", headers=dict(
-                authorization=f"Bearer {token.access_token}")) as ctx:
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 403
+    resp = client.get(
+        "/orcid/api/v2.23/0000-0000-0000-11X2/PATH",
+        headers=dict(authorization=f"Bearer {token.access_token}"))
+    assert resp.status_code == 403

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """JSON Schemas."""
 
-affiliation_record_schema = {
+affiliation_record = {
     "title": "AffiliationRecord",
     "type": "object",
     "properties": {
@@ -33,7 +33,7 @@ affiliation_record_schema = {
     "required": ["email", "first-name", "last-name", "affiliation-type"]
 }
 
-affiliation_task_schema = {
+affiliation_task = {
     "title": "AffiliationTask",
     "type": "object",
     "properties": {
@@ -45,13 +45,13 @@ affiliation_task_schema = {
         "completed-at": {"type": ["string", "null"], "format": "date-time"},
         "records": {
             "type": "array",
-            "items": affiliation_record_schema
+            "items": affiliation_record
         },
     },
     "required": ["records"]
 }
 
-researcher_url_record_schema = {
+researcher_url_record = {
     "title": "ResearcherUrlRecord",
     "type": "object",
     "properties": {
@@ -61,8 +61,8 @@ researcher_url_record_schema = {
         "email": {"type": ["string", "null"]},
         "first-name": {"type": ["string", "null"]},
         "last-name": {"type": ["string", "null"]},
-        "url-name": {"type": ["string", "null"]},
-        "url-value": {"type": ["string", "null"]},
+        "name": {"type": ["string", "null"]},
+        "value": {"type": ["string", "null"]},
         "display-index": {"type": ["string", "null", "integer"]},
         "visibility": {"type": ["string", "null"]},
         "processed-at": {"type": ["string", "null"], "format": "date-time"},
@@ -72,29 +72,44 @@ researcher_url_record_schema = {
             "format": "^[0-9]{4}-?[0-9]{4}-?[0-9]{4}-?[0-9]{4}$",
         }
     },
-    "required": ["email", "first-name", "last-name", "url-name", "url-value"]
+    "anyOf": [
+        {
+            "required": ["name", "value", "email"]
+        },
+        {
+            "required": ["name", "value", "orcid"]
+        },
+        {
+            "required": ["url-name", "url-value", "email"]
+        },
+        {
+            "required": ["url-name", "url-value", "orcid"]
+        }
+    ]
 }
 
-researcher_url_task_schema = {
+researcher_url_record_list = {
+    "type": "array",
+    "items": researcher_url_record
+}
+
+researcher_url_task = {
     "title": "ResearcherUrlTask",
     "type": "object",
     "properties": {
         "id": {"type": "integer", "format": "int64"},
         "filename": {"type": ["string", "null"]},
-        "task-type": {"type": ["string", "null"], "enum": ["RESEARCHER_URL", "FUNDING", ]},
+        "task-type": {"type": ["string", "null"], "enum": ["RESEARCHER_URL", "RESEARCHER URL", ]},
         "created-at": {"type": ["string", "null"], "format": "date-time"},
         "updated-at": {"type": ["string", "null"], "format": "date-time"},
         "expires-at": {"type": ["string", "null"], "format": "date-time"},
         "completed-at": {"type": ["string", "null"], "format": "date-time"},
-        "records": {
-            "type": "array",
-            "items": researcher_url_record_schema
-        },
+        "records": researcher_url_record_list,
     },
     "required": ["records"]
 }
 
-other_name_record_schema = {
+other_name_keyword_record = {
     "title": "OtherNameRecord",
     "type": "object",
     "properties": {
@@ -114,24 +129,33 @@ other_name_record_schema = {
             "format": "^[0-9]{4}-?[0-9]{4}-?[0-9]{4}-?[0-9]{4}$",
         }
     },
-    "required": ["email", "first-name", "last-name", "content"]
+    "anyOf": [
+        {
+            "required": ["content", "email"]
+        },
+        {
+            "required": ["content", "orcid"]
+        }
+    ]
 }
 
-other_name_task_schema = {
+other_name_keyword_record_list = {
+    "type": "array",
+    "items": other_name_keyword_record,
+}
+
+other_name_keyword_task = {
     "title": "OtherNameTask",
     "type": "object",
     "properties": {
         "id": {"type": "integer", "format": "int64"},
         "filename": {"type": ["string", "null"]},
-        "task-type": {"type": ["string", "null"], "enum": ["OTHER_NAME", ]},
+        "task-type": {"type": ["string", "null"], "enum": ["OTHER_NAME", "OTHER NAME", "KEYWORD"]},
         "created-at": {"type": ["string", "null"], "format": "date-time"},
         "updated-at": {"type": ["string", "null"], "format": "date-time"},
         "expires-at": {"type": ["string", "null"], "format": "date-time"},
         "completed-at": {"type": ["string", "null"], "format": "date-time"},
-        "records": {
-            "type": "array",
-            "items": other_name_record_schema
-        },
+        "records": other_name_keyword_record_list,
     },
     "required": ["records"]
 }
