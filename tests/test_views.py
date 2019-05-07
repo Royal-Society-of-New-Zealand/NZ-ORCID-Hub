@@ -1406,7 +1406,7 @@ def test_affiliation_tasks(client):
     user = User.get(email="admin@test0.edu")
 
     resp = client.login(user, follow_redirects=True)
-    assert b"log in" not in resp.data
+    assert b"Organisations using the Hub:" in resp.data
     resp = client.post(
         "/load/researcher",
         data={
@@ -2445,7 +2445,7 @@ def test_viewmembers_delete(mockpost, client):
 
     # admin0 cannot deleted researcher1:
     resp = client.login(admin0, follow_redirects=True)
-    assert b"log in" not in resp.data
+    assert b"Organisations using the Hub:" in resp.data
 
     resp = client.post(
         "/admin/viewmembers/delete/",
