@@ -1153,7 +1153,7 @@ def orcid_login_callback(request):
             if not email:
                 flash(
                     f"The account with ORCID iD {orcid_id} is not known in the Hub. "
-                    "Try again when you've linked your ORCID iD with an organistion through either "
+                    "Try again when you've linked your ORCID iD with an organisation through either "
                     "a Tuakiri-mediated log in, or from an organisation's email invitation",
                     "warning")
                 return redirect(url_for("index"))
@@ -1208,8 +1208,8 @@ def orcid_login_callback(request):
                         flash(
                             f"The Hub cannot verify your email address from your ORCID record. "
                             f"Please, change the visibility level for your organisation email address "
-                            f"'{email}' to 'trusted parties' and also remember to verify the email address "
-                            "under ORCID account settings.", "danger")
+                            f"'{email}' to 'trusted parties' and, if the error persists, that you have"
+                            f"verified this email in your record.", "danger")
                     logout_user()
                     return redirect(url_for("index"))
                 data = json.loads(api_response.data)
