@@ -66,7 +66,7 @@ def unauthorized(e):
     _next = get_next_url()
     if _next:
         flash(
-            "You might not have the necessary permissions to access this page or you were not authenticted",
+            "You have not been authenticated, or do not have the necessary permissions to access this page",
             "danger")
         return redirect(_next)
     return render_template("401.html"), 401
@@ -112,7 +112,7 @@ def internal_error(error):
 
 @app.route("/favicon.ico")
 def favicon():
-    """Support for the "favicon" legacy: faveicon location in the root directory."""
+    """Support for the "favicon" legacy: favicon location in the root directory."""
     return send_from_directory(
         os.path.join(app.root_path, "static", "images"),
         "favicon.ico",
@@ -124,8 +124,8 @@ def favicon():
 def status():
     """Check the application health status attempting to connect to the DB.
 
-    NB! This entry point should be protectd and accessible
-    only form the appliction monitoring servers.
+    NB! This entry point should be protected and accessible
+    only form the application monitoring servers.
     """
     try:
         now = db.execute_sql("SELECT now();").fetchone()[0]
@@ -144,7 +144,7 @@ def status():
 @app.route("/pyinfo")
 @roles_required(Role.SUPERUSER)
 def pyinfo(message=None):
-    """Show Python and runtime environment and settings or test exeption handling."""
+    """Show Python and runtime environment and settings or test exception handling."""
     if message:
         raise Exception(message)
     return render_template("pyinfo.html", **info)
@@ -243,8 +243,8 @@ class AppModelView(ModelView):
                 model = models.__dict__.get(model_class_name)
         super().__init__(model, *args, **kwargs)
 
-    # TODO: remove whent it gets merged into the upsteem repo (it's a workaround to make
-    # joins LEFT OUTERE)
+    # TODO: remove when it gets merged into the upstream repo (it's a workaround to make
+    # joins LEFT OUTER)
     def _handle_join(self, query, field, joins):
         if field.model_class != self.model:
             model_name = field.model_class.__name__
@@ -260,7 +260,7 @@ class AppModelView(ModelView):
         try:
             return super().get_one(id)
         except self.model.DoesNotExist:
-            flash(f"The record with given ID: {id} doesn't exist or it was deleted.", "danger")
+            flash(f"The record with given ID: {id} doesn't exist or it has been deleted.", "danger")
             abort(404)
 
     def init_search(self):
@@ -308,7 +308,7 @@ class AppModelView(ModelView):
 
         if current_user and not current_user.has_role(Role.SUPERUSER) and current_user.has_role(
                 Role.ADMIN):
-            # Show only rows realted to the curretn organisation the user is admin for.
+            # Show only rows related to the current organisation the user is admin for.
             # Skip this part for SUPERUSER.
             db_columns = [c.db_column for c in self.model._meta.fields.values()]
             if "org_id" in db_columns or "organisation_id" in db_columns:
@@ -324,7 +324,7 @@ class AppModelView(ModelView):
         return query
 
     def _get_list_extra_args(self):
-        """Workaournd for https://github.com/flask-admin/flask-admin/issues/1512."""
+        """Workaround for https://github.com/flask-admin/flask-admin/issues/1512."""
         view_args = super()._get_list_extra_args()
         extra_args = {
             k: v
@@ -701,7 +701,7 @@ class RecordModelView(AppModelView):
 
     @models.lazy_property
     def record_processing_func(self):
-        """Reocord processing funcion."""
+        """Record processing function."""
         return getattr(utils, f"process_{self.model.underscore_name()}s")
 
     def enqueue_record(self, record_id):
@@ -710,9 +710,8 @@ class RecordModelView(AppModelView):
 
     @action("activate", "Activate for processing",
             """Are you sure you want to activate the selected records for batch processing?
-
-By clicking "OK" you are affirming that the selected records to be written are,
-to the best of your knowledge, correct!""")
+            By clicking "OK" you are affirming that the selected records to be written are,
+            to the best of your knowledge, correct!""")
     def action_activate(self, ids):
         """Batch registraion of users."""
         try:
@@ -750,13 +749,10 @@ to the best of your knowledge, correct!""")
 
                 if hasattr(self.model, "invitees"):
                     im = self.model.invitees.rel_model
-                    count += im.update(
+                    count = im.update(
                         processed_at=None, status=status).where(im.record.in_(ids)).execute()
                     emails = im.select(im.email).where(im.record_id.in_(ids))
                 else:
-                    count += self.model.update(
-                        processed_at=None,
-                        status=status).where(self.model.record.in_(ids)).execute()
                     emails = self.model.select(self.model.email).where(self.model.id.in_(ids))
                 # Delete the userInvitation token for selected reset items.
                 UserInvitation.delete().where(UserInvitation.email.in_(emails)).execute()
@@ -958,7 +954,7 @@ class InviteeAdmin(RecordChildAdmin):
                 rec_class.update(
                     processed_at=None, status=status).where(
                     rec_class.is_active, rec_class.id == record_id).execute()
-                self.enqueue_record(record_id)
+                getattr(utils, f"process_{rec_class.underscore_name()}s").queue(record_id)
             except Exception as ex:
                 db.rollback()
                 flash(f"Failed to activate the selected records: {ex}")
@@ -1226,6 +1222,7 @@ class CompositeRecordModelView(RecordModelView):
 class FundingRecordAdmin(CompositeRecordModelView):
     """Funding record model view."""
 
+    column_exclude_list = ("task", "translated_title_language_code", "short_description", "disambiguation_source")
     can_create = True
     column_searchable_list = ("title",)
     list_template = "funding_record_list.html"
@@ -1299,6 +1296,7 @@ class FundingRecordAdmin(CompositeRecordModelView):
 class WorkRecordAdmin(CompositeRecordModelView):
     """Work record model view."""
 
+    column_exclude_list = ("task", "translated_title_language_code", "short_description", "citation_value")
     can_create = True
     column_searchable_list = ("title",)
     list_template = "work_record_list.html"
@@ -1373,6 +1371,8 @@ class WorkRecordAdmin(CompositeRecordModelView):
 class PeerReviewRecordAdmin(CompositeRecordModelView):
     """Peer Review record model view."""
 
+    column_exclude_list = (
+        "task", "subject_external_id_type", "external_id_type", "convening_org_disambiguation_source")
     can_create = True
     column_searchable_list = ("review_group_id", )
     list_template = "peer_review_record_list.html"
