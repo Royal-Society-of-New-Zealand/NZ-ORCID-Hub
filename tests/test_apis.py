@@ -12,8 +12,8 @@ import pytest
 
 from orcid_hub.apis import yamlfy
 from orcid_hub.data_apis import plural
-from orcid_hub.models import (AffiliationRecord, Client, OrcidToken, Organisation, Task, TaskType,
-                              Token, User)
+from orcid_hub.models import (AffiliationRecord, Client, OrcidApiCall, OrcidToken, Organisation,
+                              Task, TaskType, Token, User)
 
 from unittest.mock import patch, MagicMock
 
@@ -1039,3 +1039,16 @@ def test_proxy_get_profile(client):
         "/orcid/api/v2.23/0000-0000-0000-11X2/PATH",
         headers=dict(authorization=f"Bearer {token.access_token}"))
     assert resp.status_code == 403
+
+
+def test_orcid_api_rep(client):
+    """Test report on the ORCID API calls."""
+    OrcidApiCall.insert_many(
+        dict(
+            method="GET",
+            url=f"http://call/{i}",
+            called_at=datetime(2017, 12, i % 31 + 1)) for i in range(1000)).execute()
+    client.login_root()
+    resp = client.get("/orcid_api_rep")
+    assert resp.status_code == 200
+    assert b"2019-04-04" in resp.data

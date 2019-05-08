@@ -49,9 +49,10 @@ from .models import (JOIN, Affiliation, AffiliationRecord, CharField, Client, De
                      Grant, GroupIdRecord, KeywordRecord, ModelException, NestedDict, OrcidApiCall,
                      OrcidToken, Organisation, OrgInfo, OrgInvitation, OtherNameRecord,
                      PartialDate, PropertyRecord, PeerReviewExternalId, PeerReviewInvitee,
-                     PeerReviewRecord, ResearcherUrlRecord, Role, Task, TaskType, TextField, Token,
-                     Url, User, UserInvitation, UserOrg, UserOrgAffiliation, WorkContributor,
-                     WorkExternalId, WorkInvitee, WorkRecord, db, get_val)
+                     PeerReviewRecord, PostgresqlDatabase, ResearcherUrlRecord, Role, Task,
+                     TaskType, TextField, Token, Url, User, UserInvitation, UserOrg,
+                     UserOrgAffiliation, WorkContributor, WorkExternalId, WorkInvitee, WorkRecord,
+                     db, get_val)
 # NB! Should be disabled in production
 from .pyinfo import info
 from .utils import get_next_url, read_uploaded_file, send_user_invitation
@@ -1818,13 +1819,17 @@ def user_orcid_id_url(user):
 
 
 @app.template_filter("isodate")
-def isodate(d, sep="&nbsp;"):
+def isodate(d, sep="&nbsp;", no_time=False):
     """Render date into format YYYY-mm-dd HH:MM."""
-    if d and isinstance(d, datetime):
-        return Markup(
-            f"""<time datetime="{d.isoformat(timespec='minutes')}" """
-            f"""data-toggle="tooltip" title="{d.isoformat(timespec='minutes', sep=' ')} UTC" """
-            f"""data-format="YYYY[&#8209;]MM[&#8209;]DD[{sep}]HH:mm" />""")
+    if d:
+        if isinstance(d, datetime):
+            ts_format = '' if no_time else f"[{sep}]HH:mm"
+            return Markup(
+                f"""<time datetime="{d.isoformat(timespec='minutes')}" """
+                f"""data-toggle="tooltip" title="{d.isoformat(timespec='minutes', sep=' ')} UTC" """
+                f"""data-format="YYYY[&#8209;]MM[&#8209;]DD{ts_format}" />""")
+        if isinstance(d, str):
+            return Markup(f"""<time datetime="{d}" />""")
     return ''
 
 
@@ -2661,9 +2666,10 @@ def load_researcher_peer_review():
     return render_template("fileUpload.html", form=form, title="Peer Review Info Upload")
 
 
+@app.route("/load/researcher/properties/<string:property_type>", methods=["GET", "POST"])
 @app.route("/load/researcher/properties", methods=["GET", "POST"])
 @roles_required(Role.ADMIN)
-def load_properties():
+def load_properties(property_type=None):
     """Preload researcher's property data."""
     form = FileUploadForm(extensions=["json", "yaml", "csv", "tsv"])
     if form.validate_on_submit():
@@ -2672,10 +2678,13 @@ def load_properties():
         try:
             if content_type in ["text/tab-separated-values", "text/csv"] or (
                     filename and filename.lower().endswith(('.csv', '.tsv'))):
-                task = PropertyRecord.load_from_csv(
-                    read_uploaded_file(form), filename=filename)
+                task = PropertyRecord.load_from_csv(read_uploaded_file(form),
+                                                    filename=filename,
+                                                    file_property_type=property_type)
             else:
-                task = PropertyRecord.load_from_json(read_uploaded_file(form), filename=filename)
+                task = PropertyRecord.load_from_json(read_uploaded_file(form),
+                                                     filename=filename,
+                                                     file_property_type=property_type)
             flash(f"Successfully loaded {task.record_count} rows.")
             return redirect(url_for("propertyrecord.index_view", task_id=task.id))
         except Exception as ex:
@@ -2685,69 +2694,50 @@ def load_properties():
     return render_template("fileUpload.html", form=form, title="Researcher Property Data Upload")
 
 
+@app.route("/load/researcher/urls", methods=["GET", "POST"])
+@roles_required(Role.ADMIN)
+def load_researcher_urls():
+    """Preload researcher's property data."""
+    return load_properties(property_type="URL")
+
+
 @app.route("/load/other/names", methods=["GET", "POST"])
 @roles_required(Role.ADMIN)
 def load_other_names():
     """Preload Other Name data."""
-    form = FileUploadForm(extensions=["json", "yaml", "csv", "tsv"])
-    if form.validate_on_submit():
-        filename = secure_filename(form.file_.data.filename)
-        content_type = form.file_.data.content_type
-        try:
-            if content_type in ["text/tab-separated-values", "text/csv"] or (
-                    filename and filename.lower().endswith(('.csv', '.tsv'))):
-                task = OtherNameRecord.load_from_csv(
-                    read_uploaded_file(form), filename=filename)
-            else:
-                task = OtherNameRecord.load_from_json(read_uploaded_file(form), filename=filename)
-            flash(f"Successfully loaded {task.record_count} rows.")
-            return redirect(url_for("othernamerecord.index_view", task_id=task.id))
-        except Exception as ex:
-            flash(f"Failed to load Other Name record file: {ex}", "danger")
-            app.logger.exception("Failed to load Other Name records.")
-
-    return render_template("fileUpload.html", form=form, title="Other Names Info Upload")
+    return load_properties(property_type="NAME")
 
 
 @app.route("/load/keyword", methods=["GET", "POST"])
 @roles_required(Role.ADMIN)
 def load_keyword():
     """Preload Keywords data."""
-    form = FileUploadForm(extensions=["json", "yaml", "csv", "tsv"])
-    if form.validate_on_submit():
-        filename = secure_filename(form.file_.data.filename)
-        content_type = form.file_.data.content_type
-        try:
-            if content_type in ["text/tab-separated-values", "text/csv"] or (
-                    filename and filename.lower().endswith(('.csv', '.tsv'))):
-                task = KeywordRecord.load_from_csv(
-                    read_uploaded_file(form), filename=filename, task_type=TaskType.KEYWORD)
-            else:
-                task = KeywordRecord.load_from_json(
-                    read_uploaded_file(form), filename=filename, task_type=TaskType.KEYWORD)
-            flash(f"Successfully loaded {task.record_count} rows.")
-            return redirect(url_for("keywordrecord.index_view", task_id=task.id))
-        except Exception as ex:
-            flash(f"Failed to load Keyword record file: {ex}", "danger")
-            app.logger.exception("Failed to load Keyword records.")
-
-    return render_template("fileUpload.html", form=form, title="Keyword Info Upload")
+    return load_properties(property_type="KEYWORD")
 
 
 @app.route("/orcid_api_rep", methods=["GET", "POST"])
 @roles_required(Role.SUPERUSER)
 def orcid_api_rep():
     """Show ORCID API invocation report."""
-    data = db.execute_sql("""
-    WITH rd AS (
-        SELECT date_trunc("minute", call_datetime) AS d, count(*) AS c
-        FROM orcid_api_call
-        GROUP BY date_trunc("minute", call_datetime))
-    SELECT date_trunc("day", d) AS d, max(c) AS c
-    FROM rd GROUP BY DATE_TRUNC("day", d) ORDER BY 1
-    """).fetchall()
-
-    return render_template("orcid_api_call_report.html", data=data)
+    if isinstance(db, PostgresqlDatabase):
+        data = db.execute_sql("""
+        WITH rd AS (
+            SELECT date_trunc('minute', called_at) AS d, count(*) AS c
+            FROM orcid_api_call
+            GROUP BY date_trunc('minute', called_at))
+        SELECT date_trunc('day', d) AS d, max(c) AS c
+        FROM rd GROUP BY DATE_TRUNC('day', d) ORDER BY 1
+        """).fetchall()
+    else:
+        data = db.execute_sql("""
+        WITH rd AS (
+            SELECT strftime('YYYY-MM-DDTHH:MM', called_at) AS d, count(*) AS c
+            FROM orcid_api_call
+            GROUP BY strftime('YYYY-MM-DDTHH:MM', called_at))
+        SELECT strftime('YYYY-MM-DD', d) AS d, max(c) AS c
+        FROM rd GROUP BY strftime('YYYY-MM-DD', d) ORDER BY 1
+        """).fetchall()
+    return render_template("orcid_api_call_report.html", data=data, title="ORCID API Call Summary")
 
 
 def register_org(org_name,

@@ -2934,7 +2934,7 @@ class PropertyRecord(RecordModel):
     status = TextField(null=True, help_text="Record processing status.")
 
     @classmethod
-    def load_from_csv(cls, source, filename=None, org=None):
+    def load_from_csv(cls, source, filename=None, org=None, file_property_type=None):
         """Load data from CSV/TSV file or a string."""
         if isinstance(source, str):
             source = StringIO(source)
@@ -3020,7 +3020,7 @@ class PropertyRecord(RecordModel):
                     value = val(row, 1, "")
                     first_name = val(row, 4)
                     last_name = val(row, 5)
-                    property_type = val(row, 9)
+                    property_type = val(row, 9) or file_property_type
 
                     if not property_type or property_type not in PROPERTY_TYPES:
                         raise ModelException("Missing or incorrect property type. "
@@ -3059,7 +3059,13 @@ class PropertyRecord(RecordModel):
         return task
 
     @classmethod
-    def load_from_json(cls, source, filename=None, org=None, task=None, skip_schema_validation=False):
+    def load_from_json(cls,
+                       source,
+                       filename=None,
+                       org=None,
+                       task=None,
+                       skip_schema_validation=False,
+                       file_property_type=None):
         """Load data from JSON file or a string."""
         data = load_yaml_json(filename=filename, source=source)
         if not skip_schema_validation:
