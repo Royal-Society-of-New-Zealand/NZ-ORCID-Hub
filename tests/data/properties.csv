@@ -1,0 +1,14 @@
+Type,Display Index,Name,Value,Email,First Name,Last Name,ORCID iD,Put Code,Visibility
+NAME,0,sdsd,dummy 1220,rad42@mailinator.com,sdsd,sds1,,,PUBLIC
+NAME,0,sdsd,dummy 10,raosti12dckerpr13233jsdpos8jj2@mailinator.com,sdsd,sds1,0000-0002-0146-7409,16878,PUBLIC
+KEYWORD,0,sdsnewed,keyword 1220,rad42997298@mailinator.com,sdsnewed,sds1sdsds,0000-0003-1245-2541,5699,PUBLIC
+KEYWORD,0,sdsd,keyword 10,raosti12dckerpr13233jsdpos8jj2@mailinator.com,sdsd,sds1,0000-0002-0146-7409,5696,PUBLIC
+KEYWORD,0,sdsnewed,keyword 1220,rad42997298@mailinator.com,sdsnewed,sds1sdsds,0000-0003-1245-2541,5699,PUBLIC
+KEYWORD,0,sdsd,keyword 10,raosti12dckerpr13233jsdpos8jj2@mailinator.com,sdsd,sds1,0000-0002-0146-7409,5696,PUBLIC
+KEYWORD,1111,,keyword #123,nad2000@gmail.com,,,,,PUBLIC
+KEYWORD,2222,,keyword #222,,,,0000-0001-8228-7153,,PUBLIC
+URL,,myhome,http://my.home.com,,,,0000-0001-8228-7153,,PUBLIC
+URL,,myhome2,https://www.my.home.ac.nz,,,,0000-0001-8228-7153,,
+ID,1111,,external ID #123,nad2000@gmail.com,,,,,PUBLIC
+ID,2222,,external ID #222,,,,0000-0001-8228-7153,,PUBLIC
+

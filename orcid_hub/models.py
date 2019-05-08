@@ -287,6 +287,7 @@ class TaskType(IntEnum):
     RESEARCHER_URL = 5
     OTHER_NAME = 6
     KEYWORD = 7
+    PROPERTY = 8
     SYNC = 11
 
     def __eq__(self, other):
@@ -2993,7 +2994,7 @@ class PropertyRecord(RecordModel):
 
         with db.atomic():
             try:
-                task = Task.create(org=org, filename=filename, task_type=TaskType.RESEARCHER_URL)
+                task = Task.create(org=org, filename=filename, task_type=TaskType.PROPERTY)
                 for row_no, row in enumerate(reader):
                     # skip empty lines:
                     if len([item for item in row if item and item.strip()]) == 0:
@@ -3030,9 +3031,9 @@ class PropertyRecord(RecordModel):
                         raise ModelException(
                             f"Missing URL name. For Researcher ULR name is expected: {row}.")
 
-                    if not (name and value):
+                    if not value:
                         raise ModelException(
-                            "Wrong number of fields. Expected at least 3 fields (url name, url value "
+                            "Wrong number of fields. Expected at least 3 fields (type, value "
                             f"email address or another unique identifier): {row}")
 
                     rr = cls(
@@ -3107,6 +3108,12 @@ class PropertyRecord(RecordModel):
                 db.rollback()
                 app.logger.exception("Failed to load Researcher property file.")
                 raise
+
+    def to_export_dict(self):
+        """Map the property record to dict for export into JSON/YAML."""
+        d = super().to_export_dict()
+        d.update(self.to_dict(recurse=False, to_dashes=True, exclude=[PropertyRecord.type]))
+        return d
 
     class Meta:  # noqa: D101,D106
         db_table = "property_record"
