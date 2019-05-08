@@ -49,9 +49,10 @@ from .models import (JOIN, Affiliation, AffiliationRecord, CharField, Client, De
                      Grant, GroupIdRecord, KeywordRecord, ModelException, NestedDict, OrcidApiCall,
                      OrcidToken, Organisation, OrgInfo, OrgInvitation, OtherNameRecord,
                      PartialDate, PropertyRecord, PeerReviewExternalId, PeerReviewInvitee,
-                     PeerReviewRecord, ResearcherUrlRecord, Role, Task, TaskType, TextField, Token,
-                     Url, User, UserInvitation, UserOrg, UserOrgAffiliation, WorkContributor,
-                     WorkExternalId, WorkInvitee, WorkRecord, db, get_val)
+                     PeerReviewRecord, PostgresqlDatabase, ResearcherUrlRecord, Role, Task,
+                     TaskType, TextField, Token, Url, User, UserInvitation, UserOrg,
+                     UserOrgAffiliation, WorkContributor, WorkExternalId, WorkInvitee, WorkRecord,
+                     db, get_val)
 # NB! Should be disabled in production
 from .pyinfo import info
 from .utils import get_next_url, read_uploaded_file, send_user_invitation
@@ -66,7 +67,7 @@ def unauthorized(e):
     _next = get_next_url()
     if _next:
         flash(
-            "You might not have the necessary permissions to access this page or you were not authenticted",
+            "You have not been authenticated, or do not have the necessary permissions to access this page",
             "danger")
         return redirect(_next)
     return render_template("401.html"), 401
@@ -112,7 +113,7 @@ def internal_error(error):
 
 @app.route("/favicon.ico")
 def favicon():
-    """Support for the "favicon" legacy: faveicon location in the root directory."""
+    """Support for the "favicon" legacy: favicon location in the root directory."""
     return send_from_directory(
         os.path.join(app.root_path, "static", "images"),
         "favicon.ico",
@@ -124,8 +125,8 @@ def favicon():
 def status():
     """Check the application health status attempting to connect to the DB.
 
-    NB! This entry point should be protectd and accessible
-    only form the appliction monitoring servers.
+    NB! This entry point should be protected and accessible
+    only form the application monitoring servers.
     """
     try:
         now = db.execute_sql("SELECT now();").fetchone()[0]
@@ -144,7 +145,7 @@ def status():
 @app.route("/pyinfo")
 @roles_required(Role.SUPERUSER)
 def pyinfo(message=None):
-    """Show Python and runtime environment and settings or test exeption handling."""
+    """Show Python and runtime environment and settings or test exception handling."""
     if message:
         raise Exception(message)
     return render_template("pyinfo.html", **info)
@@ -243,8 +244,8 @@ class AppModelView(ModelView):
                 model = models.__dict__.get(model_class_name)
         super().__init__(model, *args, **kwargs)
 
-    # TODO: remove whent it gets merged into the upsteem repo (it's a workaround to make
-    # joins LEFT OUTERE)
+    # TODO: remove when it gets merged into the upstream repo (it's a workaround to make
+    # joins LEFT OUTER)
     def _handle_join(self, query, field, joins):
         if field.model_class != self.model:
             model_name = field.model_class.__name__
@@ -260,7 +261,7 @@ class AppModelView(ModelView):
         try:
             return super().get_one(id)
         except self.model.DoesNotExist:
-            flash(f"The record with given ID: {id} doesn't exist or it was deleted.", "danger")
+            flash(f"The record with given ID: {id} doesn't exist or it has been deleted.", "danger")
             abort(404)
 
     def init_search(self):
@@ -308,7 +309,7 @@ class AppModelView(ModelView):
 
         if current_user and not current_user.has_role(Role.SUPERUSER) and current_user.has_role(
                 Role.ADMIN):
-            # Show only rows realted to the curretn organisation the user is admin for.
+            # Show only rows related to the current organisation the user is admin for.
             # Skip this part for SUPERUSER.
             db_columns = [c.db_column for c in self.model._meta.fields.values()]
             if "org_id" in db_columns or "organisation_id" in db_columns:
@@ -324,7 +325,7 @@ class AppModelView(ModelView):
         return query
 
     def _get_list_extra_args(self):
-        """Workaournd for https://github.com/flask-admin/flask-admin/issues/1512."""
+        """Workaround for https://github.com/flask-admin/flask-admin/issues/1512."""
         view_args = super()._get_list_extra_args()
         extra_args = {
             k: v
@@ -701,7 +702,7 @@ class RecordModelView(AppModelView):
 
     @models.lazy_property
     def record_processing_func(self):
-        """Reocord processing funcion."""
+        """Record processing function."""
         return getattr(utils, f"process_{self.model.underscore_name()}s")
 
     def enqueue_record(self, record_id):
@@ -710,9 +711,8 @@ class RecordModelView(AppModelView):
 
     @action("activate", "Activate for processing",
             """Are you sure you want to activate the selected records for batch processing?
-
-By clicking "OK" you are affirming that the selected records to be written are,
-to the best of your knowledge, correct!""")
+            By clicking "OK" you are affirming that the selected records to be written are,
+            to the best of your knowledge, correct!""")
     def action_activate(self, ids):
         """Batch registraion of users."""
         try:
@@ -750,13 +750,10 @@ to the best of your knowledge, correct!""")
 
                 if hasattr(self.model, "invitees"):
                     im = self.model.invitees.rel_model
-                    count += im.update(
+                    count = im.update(
                         processed_at=None, status=status).where(im.record.in_(ids)).execute()
                     emails = im.select(im.email).where(im.record_id.in_(ids))
                 else:
-                    count += self.model.update(
-                        processed_at=None,
-                        status=status).where(self.model.record.in_(ids)).execute()
                     emails = self.model.select(self.model.email).where(self.model.id.in_(ids))
                 # Delete the userInvitation token for selected reset items.
                 UserInvitation.delete().where(UserInvitation.email.in_(emails)).execute()
@@ -958,7 +955,7 @@ class InviteeAdmin(RecordChildAdmin):
                 rec_class.update(
                     processed_at=None, status=status).where(
                     rec_class.is_active, rec_class.id == record_id).execute()
-                self.enqueue_record(record_id)
+                getattr(utils, f"process_{rec_class.underscore_name()}s").queue(record_id)
             except Exception as ex:
                 db.rollback()
                 flash(f"Failed to activate the selected records: {ex}")
@@ -1226,6 +1223,7 @@ class CompositeRecordModelView(RecordModelView):
 class FundingRecordAdmin(CompositeRecordModelView):
     """Funding record model view."""
 
+    column_exclude_list = ("task", "translated_title_language_code", "short_description", "disambiguation_source")
     can_create = True
     column_searchable_list = ("title",)
     list_template = "funding_record_list.html"
@@ -1299,6 +1297,7 @@ class FundingRecordAdmin(CompositeRecordModelView):
 class WorkRecordAdmin(CompositeRecordModelView):
     """Work record model view."""
 
+    column_exclude_list = ("task", "translated_title_language_code", "short_description", "citation_value")
     can_create = True
     column_searchable_list = ("title",)
     list_template = "work_record_list.html"
@@ -1373,6 +1372,8 @@ class WorkRecordAdmin(CompositeRecordModelView):
 class PeerReviewRecordAdmin(CompositeRecordModelView):
     """Peer Review record model view."""
 
+    column_exclude_list = (
+        "task", "subject_external_id_type", "external_id_type", "convening_org_disambiguation_source")
     can_create = True
     column_searchable_list = ("review_group_id", )
     list_template = "peer_review_record_list.html"
@@ -1818,13 +1819,17 @@ def user_orcid_id_url(user):
 
 
 @app.template_filter("isodate")
-def isodate(d, sep="&nbsp;"):
+def isodate(d, sep="&nbsp;", no_time=False):
     """Render date into format YYYY-mm-dd HH:MM."""
-    if d and isinstance(d, datetime):
-        return Markup(
-            f"""<time datetime="{d.isoformat(timespec='minutes')}" """
-            f"""data-toggle="tooltip" title="{d.isoformat(timespec='minutes', sep=' ')} UTC" """
-            f"""data-format="YYYY[&#8209;]MM[&#8209;]DD[{sep}]HH:mm" />""")
+    if d:
+        if isinstance(d, datetime):
+            ts_format = '' if no_time else f"[{sep}]HH:mm"
+            return Markup(
+                f"""<time datetime="{d.isoformat(timespec='minutes')}" """
+                f"""data-toggle="tooltip" title="{d.isoformat(timespec='minutes', sep=' ')} UTC" """
+                f"""data-format="YYYY[&#8209;]MM[&#8209;]DD{ts_format}" />""")
+        if isinstance(d, str):
+            return Markup(f"""<time datetime="{d}" />""")
     return ''
 
 
@@ -2661,9 +2666,10 @@ def load_researcher_peer_review():
     return render_template("fileUpload.html", form=form, title="Peer Review Info Upload")
 
 
+@app.route("/load/researcher/properties/<string:property_type>", methods=["GET", "POST"])
 @app.route("/load/researcher/properties", methods=["GET", "POST"])
 @roles_required(Role.ADMIN)
-def load_properties():
+def load_properties(property_type=None):
     """Preload researcher's property data."""
     form = FileUploadForm(extensions=["json", "yaml", "csv", "tsv"])
     if form.validate_on_submit():
@@ -2672,10 +2678,13 @@ def load_properties():
         try:
             if content_type in ["text/tab-separated-values", "text/csv"] or (
                     filename and filename.lower().endswith(('.csv', '.tsv'))):
-                task = PropertyRecord.load_from_csv(
-                    read_uploaded_file(form), filename=filename)
+                task = PropertyRecord.load_from_csv(read_uploaded_file(form),
+                                                    filename=filename,
+                                                    file_property_type=property_type)
             else:
-                task = PropertyRecord.load_from_json(read_uploaded_file(form), filename=filename)
+                task = PropertyRecord.load_from_json(read_uploaded_file(form),
+                                                     filename=filename,
+                                                     file_property_type=property_type)
             flash(f"Successfully loaded {task.record_count} rows.")
             return redirect(url_for("propertyrecord.index_view", task_id=task.id))
         except Exception as ex:
@@ -2685,69 +2694,50 @@ def load_properties():
     return render_template("fileUpload.html", form=form, title="Researcher Property Data Upload")
 
 
+@app.route("/load/researcher/urls", methods=["GET", "POST"])
+@roles_required(Role.ADMIN)
+def load_researcher_urls():
+    """Preload researcher's property data."""
+    return load_properties(property_type="URL")
+
+
 @app.route("/load/other/names", methods=["GET", "POST"])
 @roles_required(Role.ADMIN)
 def load_other_names():
     """Preload Other Name data."""
-    form = FileUploadForm(extensions=["json", "yaml", "csv", "tsv"])
-    if form.validate_on_submit():
-        filename = secure_filename(form.file_.data.filename)
-        content_type = form.file_.data.content_type
-        try:
-            if content_type in ["text/tab-separated-values", "text/csv"] or (
-                    filename and filename.lower().endswith(('.csv', '.tsv'))):
-                task = OtherNameRecord.load_from_csv(
-                    read_uploaded_file(form), filename=filename)
-            else:
-                task = OtherNameRecord.load_from_json(read_uploaded_file(form), filename=filename)
-            flash(f"Successfully loaded {task.record_count} rows.")
-            return redirect(url_for("othernamerecord.index_view", task_id=task.id))
-        except Exception as ex:
-            flash(f"Failed to load Other Name record file: {ex}", "danger")
-            app.logger.exception("Failed to load Other Name records.")
-
-    return render_template("fileUpload.html", form=form, title="Other Names Info Upload")
+    return load_properties(property_type="NAME")
 
 
 @app.route("/load/keyword", methods=["GET", "POST"])
 @roles_required(Role.ADMIN)
 def load_keyword():
     """Preload Keywords data."""
-    form = FileUploadForm(extensions=["json", "yaml", "csv", "tsv"])
-    if form.validate_on_submit():
-        filename = secure_filename(form.file_.data.filename)
-        content_type = form.file_.data.content_type
-        try:
-            if content_type in ["text/tab-separated-values", "text/csv"] or (
-                    filename and filename.lower().endswith(('.csv', '.tsv'))):
-                task = KeywordRecord.load_from_csv(
-                    read_uploaded_file(form), filename=filename, task_type=TaskType.KEYWORD)
-            else:
-                task = KeywordRecord.load_from_json(
-                    read_uploaded_file(form), filename=filename, task_type=TaskType.KEYWORD)
-            flash(f"Successfully loaded {task.record_count} rows.")
-            return redirect(url_for("keywordrecord.index_view", task_id=task.id))
-        except Exception as ex:
-            flash(f"Failed to load Keyword record file: {ex}", "danger")
-            app.logger.exception("Failed to load Keyword records.")
-
-    return render_template("fileUpload.html", form=form, title="Keyword Info Upload")
+    return load_properties(property_type="KEYWORD")
 
 
 @app.route("/orcid_api_rep", methods=["GET", "POST"])
 @roles_required(Role.SUPERUSER)
 def orcid_api_rep():
     """Show ORCID API invocation report."""
-    data = db.execute_sql("""
-    WITH rd AS (
-        SELECT date_trunc("minute", call_datetime) AS d, count(*) AS c
-        FROM orcid_api_call
-        GROUP BY date_trunc("minute", call_datetime))
-    SELECT date_trunc("day", d) AS d, max(c) AS c
-    FROM rd GROUP BY DATE_TRUNC("day", d) ORDER BY 1
-    """).fetchall()
-
-    return render_template("orcid_api_call_report.html", data=data)
+    if isinstance(db, PostgresqlDatabase):
+        data = db.execute_sql("""
+        WITH rd AS (
+            SELECT date_trunc('minute', called_at) AS d, count(*) AS c
+            FROM orcid_api_call
+            GROUP BY date_trunc('minute', called_at))
+        SELECT date_trunc('day', d) AS d, max(c) AS c
+        FROM rd GROUP BY DATE_TRUNC('day', d) ORDER BY 1
+        """).fetchall()
+    else:
+        data = db.execute_sql("""
+        WITH rd AS (
+            SELECT strftime('YYYY-MM-DDTHH:MM', called_at) AS d, count(*) AS c
+            FROM orcid_api_call
+            GROUP BY strftime('YYYY-MM-DDTHH:MM', called_at))
+        SELECT strftime('YYYY-MM-DD', d) AS d, max(c) AS c
+        FROM rd GROUP BY strftime('YYYY-MM-DD', d) ORDER BY 1
+        """).fetchall()
+    return render_template("orcid_api_call_report.html", data=data, title="ORCID API Call Summary")
 
 
 def register_org(org_name,

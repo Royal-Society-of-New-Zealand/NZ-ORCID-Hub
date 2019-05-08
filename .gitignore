@@ -134,7 +134,7 @@ tests/vi
 tuakiri-test-metadata-signed.xml
 tuakiri_mock/
 tags.tmp
+*.ps1
 load_testing/*.csv
 output*.json
 output*.html
-

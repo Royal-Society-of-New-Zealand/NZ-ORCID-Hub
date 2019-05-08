@@ -12,8 +12,8 @@ import pytest
 
 from orcid_hub.apis import yamlfy
 from orcid_hub.data_apis import plural
-from orcid_hub.models import (AffiliationRecord, Client, OrcidToken, Organisation, Task, TaskType,
-                              Token, User)
+from orcid_hub.models import (AffiliationRecord, Client, OrcidApiCall, OrcidToken, Organisation,
+                              Task, TaskType, Token, User)
 
 from unittest.mock import patch, MagicMock
 
@@ -1039,85 +1039,3 @@ def test_proxy_get_profile(client):
         "/orcid/api/v2.23/0000-0000-0000-11X2/PATH",
         headers=dict(authorization=f"Bearer {token.access_token}"))
     assert resp.status_code == 403
-
-
-def test_property_api(client):
-    """Test property API in various formats."""
-    admin = client.data.get("admin")
-    resp = client.login(admin, follow_redirects=True)
-    resp = client.post(
-        "/load/researcher/properties",
-        data={
-            "file_": (open(
-                os.path.join(os.path.dirname(__file__), "data", "properties.csv"),
-                "rb"), "properties042.csv"),
-        },
-        follow_redirects=True)
-    assert resp.status_code == 200
-    assert Task.select().count() == 1
-
-    access_token = client.get_access_token()
-
-    resp = client.get(
-        "/api/v1.0/tasks?type=PROPERTY",
-        headers=dict(authorization=f"Bearer {access_token}"))
-    data = json.loads(resp.data)
-    task_id = int(data[0]["id"])
-
-    resp = client.get(
-        f"/api/v1.0/properties/{task_id}",
-        headers=dict(authorization=f"Bearer {access_token}"))
-    data = json.loads(resp.data)
-    assert len(data["records"]) == 12
-    assert data["filename"] == "properties042.csv"
-
-    del(data["id"])
-    resp = client.post(
-        "/api/v1.0/properties/?filename=properties333.json",
-        headers=dict(authorization=f"Bearer {access_token}"),
-        content_type="application/json",
-        data=json.dumps(data))
-    assert resp.status_code == 200
-    assert Task.select().count() == 2
-
-    records = data["records"]
-    resp = client.post(
-        "/api/v1.0/properties/?filename=properties444.json",
-        headers=dict(authorization=f"Bearer {access_token}"),
-        content_type="application/json",
-        data=json.dumps(records))
-    assert resp.status_code == 200
-    assert Task.select().count() == 3
-
-    resp = client.post(
-        "/api/v1.0/properties",
-        headers=dict(authorization=f"Bearer {access_token}"),
-        content_type="application/json",
-        data=json.dumps(records))
-    assert resp.status_code == 200
-    assert Task.select().count() == 4
-
-    resp = client.post(
-        f"/api/v1.0/properties/{task_id}",
-        headers=dict(authorization=f"Bearer {access_token}"),
-        content_type="application/json",
-        data=json.dumps(records))
-    assert resp.status_code == 200
-    assert Task.select().count() == 4
-
-    resp = client.head(
-        f"/api/v1.0/properties/{task_id}",
-        headers=dict(authorization=f"Bearer {access_token}"))
-    assert "Last-Modified" in resp.headers
-    assert resp.status_code == 200
-
-    resp = client.delete(
-        f"/api/v1.0/properties/{task_id}",
-        headers=dict(authorization=f"Bearer {access_token}"))
-    assert resp.status_code == 200
-    assert Task.select().count() == 3
-
-    resp = client.head(
-        f"/api/v1.0/properties/{task_id}",
-        headers=dict(authorization=f"Bearer {access_token}"))
-    assert resp.status_code == 404
