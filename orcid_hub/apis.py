@@ -160,7 +160,7 @@ class TaskResource(AppResource):
             task_type = parsed_args.get("type")
             if task_type:
                 task_type = task_type.upper()
-            filename = parsed_args.get("filename")
+            filename = request.args.get("filename") or parsed_args.get("filename")
         # TODO: fix Flask-Restful
         # TODO: Remove when the fix gets merged in
         except ValueError:
@@ -267,8 +267,6 @@ class TaskResource(AppResource):
             if task_id:
                 try:
                     task = Task.get(id=task_id)
-                    if not self.filename:
-                        self.filename = task.filename
                 except Task.DoesNotExist:
                     return jsonify({"error": "The task doesn't exist."}), 404
                 if task.created_by != current_user:
@@ -339,6 +337,7 @@ class TaskList(TaskResource, AppResourceList):
                 - AFFILIATION
                 - FUNDING
                 - PEER_REVIEW
+                - PROPERTY
                 - WORK
               created-at:
                 type: string
@@ -359,6 +358,7 @@ class TaskList(TaskResource, AppResourceList):
               - AFFILIATION
               - FUNDING
               - PEER_REVIEW
+              - PROPERTY
               - WORK
           - in: query
             name: page
@@ -1273,6 +1273,11 @@ api.add_resource(PeerReviewAPI, "/api/v1.0/peer-reviews/<int:task_id>")
 class PropertyListAPI(TaskResource):
     """Property list API."""
 
+    def load_from_json(self, task=None):
+        """Load records form the JSON upload."""
+        return PropertyRecord.load_from_json(
+            request.data.decode("utf-8"), filename=self.filename, task=task)
+
     def post(self, *args, **kwargs):
         """Upload the property task.
 
@@ -1407,7 +1412,7 @@ class PropertyListAPI(TaskResource):
         return self.handle_task()
 
 
-class PropertyAPI(TaskResource):
+class PropertyAPI(PropertyListAPI):
     """Property task services."""
 
     def get(self, task_id):

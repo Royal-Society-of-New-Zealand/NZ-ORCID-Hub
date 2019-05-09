@@ -3071,22 +3071,39 @@ class PropertyRecord(RecordModel):
         data = load_yaml_json(filename=filename, source=source)
         if not skip_schema_validation:
             if isinstance(data, dict):
-                jsonschema.validate(data, schemas.researcher_url_task)
+                jsonschema.validate(data, schemas.property_task)
             else:
-                jsonschema.validate(data, schemas.researcher_url_record_list)
+                jsonschema.validate(data, schemas.property_record_list)
         records = data["records"] if isinstance(data, dict) else data
+        if isinstance(data, dict):
+            records = data["records"]
+            if not filename:
+                filename = data.get("filename")
+            task_type = data.get("taks-type")
+            if not file_property_type and task_type:
+                file_property_type = {
+                    "RESEARCHER_URL": "URL",
+                    "OTHER_NAME": "NAME",
+                    "KEYWORD": "KEYWORD"
+                }.get(task_type)
+        else:
+            records = data
         with db.atomic():
             try:
                 if org is None:
                     org = current_user.organisation if current_user else None
                 if not task:
-                    task = Task.create(org=org, filename=filename, task_type=TaskType.RESEARCHER_URL)
+                    task = Task.create(org=org, filename=filename, task_type=TaskType.PROPERTY)
+                else:
+                    cls.delete().where(cls.task_id == task.id).execute()
 
                 for r in records:
 
                     name = r.get("name") or r.get("url-name")
-                    value = r.get("value") or r.get("url", "value") or r.get("url-value")
+                    value = r.get("value") or r.get(
+                        "url", "value") or r.get("url-value") or r.get("content")
                     display_index = r.get("display-index")
+                    property_type = r.get("type") or file_property_type
                     email = r.get("email")
                     if email:
                         email = email.lower()
@@ -3096,8 +3113,17 @@ class PropertyRecord(RecordModel):
                     put_code = r.get("put-code")
                     visibility = r.get("visibility")
 
+                    if not property_type or property_type not in PROPERTY_TYPES:
+                        raise ModelException("Missing or incorrect property type. "
+                                             f"(expected: {','.join(PROPERTY_TYPES)}: {r}")
+
+                    if property_type == "URL" and not name:
+                        raise ModelException(
+                            f"Missing URL name. For Researcher ULR name is expected: {r}.")
+
                     cls.create(
                         task=task,
+                        type=property_type,
                         name=name,
                         value=value,
                         display_index=display_index,
@@ -3356,15 +3382,15 @@ class WorkRecord(RecordModel):
         """Load data from JSON file or a string."""
         if isinstance(source, str):
             # import data from file based on its extension; either it is YAML or JSON
-            work_data_list = load_yaml_json(filename=filename, source=source)
-            if not filename:
-                filename = work_data_list.get("filename")
-            if isinstance(work_data_list, dict):
-                work_data_list = work_data_list.get("records")
+            data = load_yaml_json(filename=filename, source=source)
+            if not filename and isinstance(data, dict):
+                filename = data.get("filename")
+            if isinstance(data, dict):
+                data = data.get("records")
 
             # TODO: validation of uploaded work file
-            for work_data in work_data_list:
-                validation_source_data = copy.deepcopy(work_data)
+            for r in data:
+                validation_source_data = copy.deepcopy(r)
                 validation_source_data = del_none(validation_source_data)
 
                 # Adding schema validation for Work
@@ -3379,26 +3405,26 @@ class WorkRecord(RecordModel):
                 if not task:
                     task = Task.create(org=org, filename=filename, task_type=TaskType.WORK)
 
-                for work_data in work_data_list:
+                for r in data:
 
-                    title = get_val(work_data, "title", "title", "value")
-                    subtitle = get_val(work_data, "title", "subtitle", "value")
-                    translated_title = get_val(work_data, "title", "translated-title", "value")
-                    translated_title_language_code = get_val(work_data, "title", "translated-title", "language-code")
-                    journal_title = get_val(work_data, "journal-title", "value")
-                    short_description = get_val(work_data, "short-description")
-                    citation_type = get_val(work_data, "citation", "citation-type")
-                    citation_value = get_val(work_data, "citation", "citation-value")
-                    type = get_val(work_data, "type")
-                    publication_media_type = get_val(work_data, "publication-date", "media-type")
-                    url = get_val(work_data, "url", "value")
-                    language_code = get_val(work_data, "language-code")
-                    country = get_val(work_data, "country", "value")
+                    title = r.get("title", "title", "value")
+                    subtitle = r.get("title", "subtitle", "value")
+                    translated_title = r.get("title", "translated-title", "value")
+                    translated_title_language_code = r.get("title", "translated-title", "language-code")
+                    journal_title = r.get("journal-title", "value")
+                    short_description = r.get("short-description")
+                    citation_type = r.get("citation", "citation-type")
+                    citation_value = r.get("citation", "citation-value")
+                    type = r.get("type")
+                    publication_media_type = r.get("publication-date", "media-type")
+                    url = r.get("url", "value")
+                    language_code = r.get("language-code")
+                    country = r.get("country", "value")
 
                     # Removing key 'media-type' from the publication_date dict. and only considering year, day & month
                     publication_date = PartialDate.create(
-                        {date_key: work_data.get("publication-date")[date_key] for date_key in
-                         ('day', 'month', 'year')}) if work_data.get("publication-date") else None
+                        {date_key: r.get("publication-date")[date_key] for date_key in
+                         ('day', 'month', 'year')}) if r.get("publication-date") else None
 
                     record = WorkRecord.create(
                         task=task,
@@ -3417,7 +3443,7 @@ class WorkRecord(RecordModel):
                         language_code=language_code,
                         country=country)
 
-                    invitee_list = work_data.get("invitees")
+                    invitee_list = r.get("invitees")
                     if invitee_list:
                         for invitee in invitee_list:
                             identifier = invitee.get("identifier")
@@ -3441,7 +3467,7 @@ class WorkRecord(RecordModel):
                         raise SchemaError(u"Schema validation failed:\n - "
                                           u"Expecting Invitees for which the work record will be written")
 
-                    contributor_list = work_data.get("contributors", "contributor")
+                    contributor_list = r.get("contributors", "contributor")
                     if contributor_list:
                         for contributor in contributor_list:
                             orcid_id = get_val(contributor, "contributor-orcid", "path")
@@ -3459,8 +3485,8 @@ class WorkRecord(RecordModel):
                                 role=role,
                                 contributor_sequence=contributor_sequence)
 
-                    external_ids_list = work_data.get("external-ids").get("external-id") if \
-                        work_data.get("external-ids") else None
+                    external_ids_list = r.get("external-ids").get("external-id") if \
+                        r.get("external-ids") else None
                     if external_ids_list:
                         for external_id in external_ids_list:
                             type = external_id.get("external-id-type")
