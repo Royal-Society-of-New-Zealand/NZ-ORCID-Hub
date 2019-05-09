@@ -48,6 +48,11 @@ AFFILIATION_TYPES = ["student", "education", "staff", "employment"]
 DISAMBIGUATION_SOURCES = ["RINGGOLD", "GRID", "FUNDREF", "ISNI"]
 VISIBILITIES = ["PUBLIC", "PRIVATE", "REGISTERED_ONLY", "LIMITED"]
 visibility_choices = [(v, v.replace('_', ' ').title()) for v in VISIBILITIES]
+EXTERNAL_ID_TYPES = ["agr", "ark", "arxiv", "asin", "asin-tld", "authenticusid", "bibcode", "cba", "cienciaiul",
+                     "cit", "ctx", "dnb", "doi", "eid", "ethos", "grant_number", "handle", "hir", "isbn",
+                     "issn", "jfm", "jstor", "kuid", "lccn", "lensid", "mr", "oclc", "ol", "osti", "other-id",
+                     "pat", "pdb", "pmc", "pmid", "rfc", "rrid", "source-work-id", "ssrn", "uri", "urn",
+                     "wosuid", "zbl"]
 FUNDING_TYPES = ["AWARD", "CONTRACT", "GRANT", "SALARY_AWARD"]
 SUBJECT_TYPES = [
     "ARTISTIC_PERFORMANCE", "BOOK", "BOOK_CHAPTER", "BOOK_REVIEW", "CONFERENCE_ABSTRACT",
@@ -1725,21 +1730,27 @@ class FundingRecord(RecordModel):
             )
 
             title = val(row, 0)
-            external_id_type = val(row, 19)
+            external_id_type = val(row, 19, "").lower()
             external_id_value = val(row, 20)
-            external_id_relationship = val(row, 22)
+            external_id_relationship = val(row, 22, "").upper()
 
-            if bool(external_id_type) != bool(external_id_value):
+            if external_id_type not in EXTERNAL_ID_TYPES:
                 raise ModelException(
-                    f"Invalid external ID the row #{row_no}. Type: {external_id_type}, Value: {external_id_value}")
+                    f"Invalid External Id Type: '{external_id_type}', Use 'doi', 'issn' "
+                    f"or one of the accepted types found here: https://pub.orcid.org/v2.0/identifiers")
+
+            if not external_id_value:
+                raise ModelException(
+                    f"Invalid External Id Value or Funding Id: {external_id_value}, #{row_no+2}: {row}.")
 
             if not title:
                 raise ModelException(
                     f"Title is mandatory, #{row_no+2}: {row}. Header: {header}")
 
-            if not external_id_relationship:
+            if external_id_relationship not in RELATIONSHIPS:
                 raise ModelException(
-                    f"External Id Relationship is mandatory, #{row_no+2}: {row}. Header: {header}")
+                    f"Invalid External Id Relationship '{external_id_relationship}' as it is not one of the "
+                    f"{RELATIONSHIPS}, #{row_no+2}: {row}.")
 
             if cached_row and title.lower() == val(cached_row, 0).lower() and \
                     external_id_type.lower() == val(cached_row, 19).lower() and \
@@ -2181,15 +2192,23 @@ class PeerReviewRecord(RecordModel):
                 raise ModelException(
                     f"Review Group ID is mandatory, #{row_no+2}: {row}. Header: {header}")
 
-            external_id_type = val(row, 29)
+            external_id_type = val(row, 29, "").lower()
             external_id_value = val(row, 30)
-            external_id_relationship = val(row, 32)
-            if bool(external_id_type) != bool(external_id_value):
+            external_id_relationship = val(row, 32, "").upper()
+
+            if external_id_type not in EXTERNAL_ID_TYPES:
                 raise ModelException(
-                    f"Invalid External ID the row #{row_no}.Type:{external_id_type},Peer Review Id:{external_id_value}")
-            if not external_id_relationship:
+                    f"Invalid External Id Type: '{external_id_type}', Use 'doi', 'issn' "
+                    f"or one of the accepted types found here: https://pub.orcid.org/v2.0/identifiers")
+
+            if not external_id_value:
                 raise ModelException(
-                    f"External Id Relationship is mandatory, #{row_no+2}: {row}. Header: {header}")
+                    f"Invalid External Id Value or Peer Review Id: {external_id_value}, #{row_no+2}: {row}.")
+
+            if external_id_relationship not in RELATIONSHIPS:
+                raise ModelException(
+                    f"Invalid External Id Relationship '{external_id_relationship}' as it is not one of the "
+                    f"{RELATIONSHIPS}, #{row_no+2}: {row}.")
 
             if cached_row and review_group_id.lower() == val(cached_row, 0).lower() and \
                     external_id_type.lower() == val(cached_row, 29).lower() and \
@@ -3275,21 +3294,27 @@ class WorkRecord(RecordModel):
             )
 
             title = val(row, 0)
-            external_id_type = val(row, 17)
+            external_id_type = val(row, 17, "").lower()
             external_id_value = val(row, 18)
-            external_id_relationship = val(row, 20)
+            external_id_relationship = val(row, 20, "").upper()
 
-            if bool(external_id_type) != bool(external_id_value):
+            if external_id_type not in EXTERNAL_ID_TYPES:
                 raise ModelException(
-                    f"Invalid external ID the row #{row_no}. Type: {external_id_type}, Value: {external_id_value}")
+                    f"Invalid External Id Type: '{external_id_type}', Use 'doi', 'issn' "
+                    f"or one of the accepted types found here: https://pub.orcid.org/v2.0/identifiers")
+
+            if not external_id_value:
+                raise ModelException(
+                    f"Invalid External Id Value or Work Id: {external_id_value}, #{row_no+2}: {row}.")
 
             if not title:
                 raise ModelException(
                     f"Title is mandatory, #{row_no+2}: {row}. Header: {header}")
 
-            if not external_id_relationship:
+            if external_id_relationship not in RELATIONSHIPS:
                 raise ModelException(
-                    f"External Id Relationship is mandatory, #{row_no+2}: {row}. Header: {header}")
+                    f"Invalid External Id Relationship '{external_id_relationship}' as it is not one of the "
+                    f"{RELATIONSHIPS}, #{row_no+2}: {row}.")
 
             if cached_row and title.lower() == val(cached_row, 0).lower() and \
                     external_id_type.lower() == val(cached_row, 17).lower() and \
@@ -3653,13 +3678,7 @@ class FundingInvitee(InviteeModel):
 class ExternalIdModel(BaseModel):
     """Common model bits of the ExternalId records."""
 
-    type_choices = [(v, v.replace("_", " ").replace("-", " ").title()) for v in [
-        "agr", "ark", "arxiv", "asin", "asin-tld", "authenticusid", "bibcode", "cba", "cienciaiul",
-        "cit", "ctx", "dnb", "doi", "eid", "ethos", "grant_number", "handle", "hir", "isbn",
-        "issn", "jfm", "jstor", "kuid", "lccn", "lensid", "mr", "oclc", "ol", "osti", "other-id",
-        "pat", "pdb", "pmc", "pmid", "rfc", "rrid", "source-work-id", "ssrn", "uri", "urn",
-        "wosuid", "zbl"
-    ]]
+    type_choices = [(v, v.replace("_", " ").replace("-", " ").title()) for v in EXTERNAL_ID_TYPES]
 
     type = CharField(max_length=255, choices=type_choices)
     value = CharField(max_length=255)

@@ -2926,6 +2926,48 @@ issn:1213199811,REVIEWER,https://alt-url.com,REVIEW,2012-08-01,doi,10.1087/20120
     prr = task.records.where(PeerReviewRecord.review_group_id == "issn:1213199811").first()
     assert prr.external_ids.count() == 2
     assert prr.invitees.count() == 2
+    resp = client.post(
+        "/load/researcher/peer_review",
+        data={
+            "file_": (
+                BytesIO(
+                    """Review Group Id,Reviewer Role,Review Url,Review Type,Review Completion Date,Subject External Id Type,Subject External Id Value,Subject External Id Url,Subject External Id Relationship,Subject Container Name,Subject Type,Subject Name Title,Subject Name Subtitle,Subject Name Translated Title Lang Code,Subject Name Translated Title,Subject Url,Convening Org Name,Convening Org City,Convening Org Region,Convening Org Country,Convening Org Disambiguated Identifier,Convening Org Disambiguation Source,Email,ORCID iD,Identifier,First Name,Last Name,Put Code,Visibility,External Id Type,Peer Review Id,External Id Url,External Id Relationship
+issn:1213199811,REVIEWER,https://alt-url.com,REVIEW,2012-08-01,doi,10.1087/20120404,https://doi.org/10.1087/20120404,SELF,Journal title,JOURNAL_ARTICLE,Name of the paper reviewed,Subtitle of the paper reviewed,en,Translated title,https://subject-alt-url.com,The University of Auckland,Auckland,Auckland,NZ,385488,RINGGOLD,rad4wwww299ssspppw99pos@mailinator.com,,00001,sdsd,sds1,,PUBLIC,grant_number,,https://www.grant-url.com2,PART_OF""".encode()  # noqa: E501
+                ),  # noqa: E501
+                "peer_review.csv",
+            ),
+        },
+        follow_redirects=True)
+    assert resp.status_code == 200
+    assert b"Invalid External Id Value or Peer Review Id" in resp.data
+    resp = client.post(
+        "/load/researcher/peer_review",
+        data={
+            "file_": (
+                BytesIO(
+                    """Review Group Id,Reviewer Role,Review Url,Review Type,Review Completion Date,Subject External Id Type,Subject External Id Value,Subject External Id Url,Subject External Id Relationship,Subject Container Name,Subject Type,Subject Name Title,Subject Name Subtitle,Subject Name Translated Title Lang Code,Subject Name Translated Title,Subject Url,Convening Org Name,Convening Org City,Convening Org Region,Convening Org Country,Convening Org Disambiguated Identifier,Convening Org Disambiguation Source,Email,ORCID iD,Identifier,First Name,Last Name,Put Code,Visibility,External Id Type,Peer Review Id,External Id Url,External Id Relationship
+issn:1213199811,REVIEWER,https://alt-url.com,REVIEW,2012-08-01,doi,10.1087/20120404,https://doi.org/10.1087/20120404,SELF,Journal title,JOURNAL_ARTICLE,Name of the paper reviewed,Subtitle of the paper reviewed,en,Translated title,https://subject-alt-url.com,The University of Auckland,Auckland,Auckland,NZ,385488,RINGGOLD,rad4wwww299ssspppw99pos@mailinator.com,,00001,sdsd,sds1,,PUBLIC,grant_number_incorrect,sdsds,https://www.grant-url.com2,PART_OF""".encode()   # noqa: E501
+                ),
+                "peer_review.csv",
+            ),
+        },
+        follow_redirects=True)
+    assert resp.status_code == 200
+    assert b"Invalid External Id Type: 'grant_number_incorrect'" in resp.data
+    resp = client.post(
+        "/load/researcher/peer_review",
+        data={
+            "file_": (
+                BytesIO(
+                    """Review Group Id,Reviewer Role,Review Url,Review Type,Review Completion Date,Subject External Id Type,Subject External Id Value,Subject External Id Url,Subject External Id Relationship,Subject Container Name,Subject Type,Subject Name Title,Subject Name Subtitle,Subject Name Translated Title Lang Code,Subject Name Translated Title,Subject Url,Convening Org Name,Convening Org City,Convening Org Region,Convening Org Country,Convening Org Disambiguated Identifier,Convening Org Disambiguation Source,Email,ORCID iD,Identifier,First Name,Last Name,Put Code,Visibility,External Id Type,Peer Review Id,External Id Url,External Id Relationship
+issn:1213199811,REVIEWER,https://alt-url.com,REVIEW,2012-08-01,doi,10.1087/20120404,https://doi.org/10.1087/20120404,SELF,Journal title,JOURNAL_ARTICLE,Name of the paper reviewed,Subtitle of the paper reviewed,en,Translated title,https://subject-alt-url.com,The University of Auckland,Auckland,Auckland,NZ,385488,RINGGOLD,rad4wwww299ssspppw99pos@mailinator.com,,00001,sdsd,sds1,,PUBLIC,grant_number,sdsds,https://www.grant-url.com2,PART_OF_incorrect""".encode()     # noqa: E501
+                ),
+                "peer_review.csv",
+            ),
+        },
+        follow_redirects=True)
+    assert resp.status_code == 200
+    assert b"Invalid External Id Relationship 'PART_OF_INCORRECT'" in resp.data
 
 
 def test_load_funding_csv(client, mocker):
@@ -2942,9 +2984,9 @@ def test_load_funding_csv(client, mocker):
 
 THIS IS A TITLE, नमस्ते,hi,  CONTRACT,MY TYPE,Minerals unde.,300000,NZD,,2025,Royal Society Te Apārangi,Wellington,,New Zealand,210126,RINGGOLD,1914-2914-3914-00X3, GivenName Surname, LEAD, test123@org1.edu,grant_number,GNS1706900961,https://www.grant-url2.com,PART_OF
 THIS IS A TITLE, नमस्ते,hi,  CONTRACT,MY TYPE,Minerals unde.,300000,NZD,,2025,Royal Society Te Apārangi,Wellington,,New Zealand,210126,RINGGOLD,1885-2885-3885-00X3, GivenName Surname #2, LEAD, test123_2@org1.edu,grant_number,GNS1706900961,https://www.grant-url2.com,PART_OF
-THIS IS A TITLE, नमस्ते,hi,  CONTRACT,MY TYPE,Minerals unde.,300000,NZD,,2025,Royal Society Te Apārangi,Wellington,,New Zealand,210126,RINGGOLD,1914-2914-3914-00X3, GivenName Surname, LEAD, test123@org1.edu,type2,GNS9999999999,https://www.grant-url2.com,PART_OF
-THIS IS A TITLE, नमस्ते,hi,  CONTRACT,MY TYPE,Minerals unde.,300000,NZD,,2025,Royal Society Te Apārangi,Wellington,,New Zealand,210126,RINGGOLD,1885-2885-3885-00X3, GivenName Surname #2, LEAD, test123_2@org1.edu,type2,GNS9999999999,https://www.grant-url2.com,PART_OF
-THIS IS A TITLE #2, नमस्ते #2,hi,  CONTRACT,MY TYPE,Minerals unde.,900000,USD,,2025,,,,,210126,RINGGOLD,1914-2914-3914-00X3, GivenName Surname, LEAD, test123@org1.edu,type2,GNS9999999999,https://www.grant-url2.com,PART_OF""".encode()  # noqa: E501
+THIS IS A TITLE, नमस्ते,hi,  CONTRACT,MY TYPE,Minerals unde.,300000,NZD,,2025,Royal Society Te Apārangi,Wellington,,New Zealand,210126,RINGGOLD,1914-2914-3914-00X3, GivenName Surname, LEAD, test123@org1.edu,grant_number,GNS9999999999,https://www.grant-url2.com,PART_OF
+THIS IS A TITLE, नमस्ते,hi,  CONTRACT,MY TYPE,Minerals unde.,300000,NZD,,2025,Royal Society Te Apārangi,Wellington,,New Zealand,210126,RINGGOLD,1885-2885-3885-00X3, GivenName Surname #2, LEAD, test123_2@org1.edu,grant_number,GNS9999999999,https://www.grant-url2.com,PART_OF
+THIS IS A TITLE #2, नमस्ते #2,hi,  CONTRACT,MY TYPE,Minerals unde.,900000,USD,,2025,,,,,210126,RINGGOLD,1914-2914-3914-00X3, GivenName Surname, LEAD, test123@org1.edu,grant_number,GNS9999999999,https://www.grant-url2.com,PART_OF""".encode()  # noqa: E501
                 ),  # noqa: E501
                 "fundings.csv",
             ),
@@ -3283,6 +3325,42 @@ XXX1702,00004,,This is another project title,,,CONTRACT,Standard,This is another
         })
     assert Task.get(task.id).records.count() == record_count + 1
     capture_event.assert_called()
+    resp = client.post(
+        "/load/researcher/funding",
+        data={
+            "file_": (
+                BytesIO(b"""Funding Id,Identifier,Put Code,Title,Translated Title,Translated Title Language Code,Type,Organization Defined Type,Short Description,Amount,Currency,Start Date,End Date,Org Name,City,Region,Country,Disambiguated Org Identifier,Disambiguation Source,Visibility,ORCID iD,Email,First Name,Last Name,Name,Role,Excluded,External Id Type,External Id Url,External Id Relationship
+    XXX1701,00002,,This is the project title,,,CONTRACT,Fast-Start,This is the project abstract,300000,NZD,2018,2021,Marsden Fund,Wellington,,NZ,http://dx.doi.org/10.13039/501100009193,FUNDREF,,,contributor2@mailinator.com,Bob,Contributor 2,,,Y,grant_number_incorrect,,SELF"""),  # noqa: E501
+                "fundings_ex.csv",
+            ),
+        },
+        follow_redirects=True)
+    assert resp.status_code == 200
+    assert b"Invalid External Id Type: 'grant_number_incorrect'" in resp.data
+    resp = client.post(
+        "/load/researcher/funding",
+        data={
+            "file_": (
+                BytesIO(b"""Funding Id,Identifier,Put Code,Title,Translated Title,Translated Title Language Code,Type,Organization Defined Type,Short Description,Amount,Currency,Start Date,End Date,Org Name,City,Region,Country,Disambiguated Org Identifier,Disambiguation Source,Visibility,ORCID iD,Email,First Name,Last Name,Name,Role,Excluded,External Id Type,External Id Url,External Id Relationship
+    XXX1701,00002,,This is the project title,,,CONTRACT,Fast-Start,This is the project abstract,300000,NZD,2018,2021,Marsden Fund,Wellington,,NZ,http://dx.doi.org/10.13039/501100009193,FUNDREF,,,contributor2@mailinator.com,Bob,Contributor 2,,,Y,grant_number,,SELF_incorrect"""),  # noqa: E501
+                "fundings_ex.csv",
+            ),
+        },
+        follow_redirects=True)
+    assert resp.status_code == 200
+    assert b"Invalid External Id Relationship 'SELF_INCORRECT'" in resp.data
+    resp = client.post(
+        "/load/researcher/funding",
+        data={
+            "file_": (
+                BytesIO(b"""Funding Id,Identifier,Put Code,Title,Translated Title,Translated Title Language Code,Type,Organization Defined Type,Short Description,Amount,Currency,Start Date,End Date,Org Name,City,Region,Country,Disambiguated Org Identifier,Disambiguation Source,Visibility,ORCID iD,Email,First Name,Last Name,Name,Role,Excluded,External Id Type,External Id Url,External Id Relationship
+    ,00002,,This is the project title,,,CONTRACT,Fast-Start,This is the project abstract,300000,NZD,2018,2021,Marsden Fund,Wellington,,NZ,http://dx.doi.org/10.13039/501100009193,FUNDREF,,,contributor2@mailinator.com,Bob,Contributor 2,,,Y,grant_number,,SELF"""),  # noqa: E501
+                "fundings_ex.csv",
+            ),
+        },
+        follow_redirects=True)
+    assert resp.status_code == 200
+    assert b"Invalid External Id Value or Funding Id" in resp.data
 
 
 def test_researcher_work(client, mocker):
@@ -3648,6 +3726,45 @@ sdsds,,This is a title,,,hi,This is a journal title,xyz this is short descriptio
             "url": url
         })
     assert record.external_ids.count() == 0
+    resp = client.post(
+        "/load/researcher/work",
+        data={
+            "file_": (
+                BytesIO(
+                    """Identifier,Email,First Name,Last Name,ORCID iD,Visibility,Put Code,Title,Subtitle,Translated Title,Translation Language Code,Journal Title,Short Description,Citation Type,Citation Value,Type,Publication Date,Media Type,External ID Type,Work Id,External ID URL,External ID Relationship,Url,Language Code,Country
+1,invitee1@mailinator.com,Alice,invitee 1,0000-0002-9207-4933,,,This is a title,Subtiitle,xxx,hi,This is a journal title,this is short description,FORMATTED_UNSPECIFIED,This is citation value,BOOK_CHAPTER,12/01/2001,,bibcode,,http://url.edu/abs/ghjghghj,SELF,,en,NZ""".encode()),     # noqa: E501
+                "work.csv",
+            ),
+        },
+        follow_redirects=True)
+    assert resp.status_code == 200
+    assert b"Invalid External Id Value or Work Id" in resp.data
+    resp = client.post(
+        "/load/researcher/work",
+        data={
+            "file_": (
+                BytesIO(
+                    """Identifier,Email,First Name,Last Name,ORCID iD,Visibility,Put Code,Title,Subtitle,Translated Title,Translation Language Code,Journal Title,Short Description,Citation Type,Citation Value,Type,Publication Date,Media Type,External ID Type,Work Id,External ID URL,External ID Relationship,Url,Language Code,Country
+1,invitee1@mailinator.com,Alice,invitee 1,0000-0002-9207-4933,,,This is a title,Subtiitle,xxx,hi,This is a journal title,this is short description,FORMATTED_UNSPECIFIED,This is citation value,BOOK_CHAPTER,12/01/2001,,bibcode_incorrect,sdsd,http://url.edu/abs/ghjghghj,SELF,,en,NZ""".encode()),   # noqa: E501
+                "work.csv",
+            ),
+        },
+        follow_redirects=True)
+    assert resp.status_code == 200
+    assert b"Invalid External Id Type: 'bibcode_incorrect'" in resp.data
+    resp = client.post(
+        "/load/researcher/work",
+        data={
+            "file_": (
+                BytesIO(
+                    """Identifier,Email,First Name,Last Name,ORCID iD,Visibility,Put Code,Title,Subtitle,Translated Title,Translation Language Code,Journal Title,Short Description,Citation Type,Citation Value,Type,Publication Date,Media Type,External ID Type,Work Id,External ID URL,External ID Relationship,Url,Language Code,Country
+1,invitee1@mailinator.com,Alice,invitee 1,0000-0002-9207-4933,,,This is a title,Subtiitle,xxx,hi,This is a journal title,this is short description,FORMATTED_UNSPECIFIED,This is citation value,BOOK_CHAPTER,12/01/2001,,bibcode,sdsd,http://url.edu/abs/ghjghghj,SELF_incorrect,,en,NZ""".encode()),   # noqa: E501
+                "work.csv",
+            ),
+        },
+        follow_redirects=True)
+    assert resp.status_code == 200
+    assert b"Invalid External Id Relationship 'SELF_INCORRECT'" in resp.data
 
 
 def test_peer_reviews(client):
