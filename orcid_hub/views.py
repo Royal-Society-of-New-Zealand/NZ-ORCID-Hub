@@ -1,6 +1,5 @@
 """Application views."""
 
-import copy
 import csv
 import itertools
 import json
