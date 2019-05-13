@@ -26,7 +26,7 @@ from orcid_hub.config import ORCID_BASE_URL
 from orcid_hub.forms import FileUploadForm
 from orcid_hub.models import (Affiliation, AffiliationRecord, Client, File, FundingContributor,
                               FundingRecord, GroupIdRecord, OrcidToken, Organisation, OrgInfo,
-                              OrgInvitation, PartialDate, PeerReviewRecord, ResearcherUrlRecord,
+                              OrgInvitation, PartialDate, PeerReviewRecord, PropertyRecord,
                               Role, Task, TaskType, Token, Url, User, UserInvitation, UserOrg,
                               UserOrgAffiliation, WorkRecord)
 
@@ -2707,7 +2707,7 @@ def test_reset_all(client):
         task_type=TaskType.RESEARCHER_URL,
         completed_at="12/12/12")
 
-    ResearcherUrlRecord.create(
+    PropertyRecord.create(
         task=researcher_url_task,
         is_active=True,
         status="email sent",
@@ -2875,9 +2875,9 @@ xyzurlinfo,https://test123.com,10,xyz1@mailinator.com,sdksasadsd,sds1,,,PUBLIC,,
     assert resp.status_code == 200
     assert b"https://test.com" in resp.data
     assert b"researcher_urls.csv" in resp.data
-    assert Task.select().where(Task.task_type == TaskType.RESEARCHER_URL).count() == 1
-    task = Task.select().where(Task.task_type == TaskType.RESEARCHER_URL).first()
-    assert task.researcher_url_records.count() == 2
+    assert Task.select().where(Task.task_type == TaskType.PROPERTY).count() == 1
+    task = Task.select().where(Task.task_type == TaskType.PROPERTY).first()
+    assert task.records.count() == 2
 
 
 def test_load_other_names_csv(client):
@@ -2894,9 +2894,9 @@ dummy 10,0,raosti12dckerpr13233jsdpos8jj2@mailinator.com,sdsd,sds1,0000-0002-014
     assert resp.status_code == 200
     assert b"dummy 1220" in resp.data
     assert b"other_names.csv" in resp.data
-    assert Task.select().where(Task.task_type == TaskType.OTHER_NAME).count() == 1
-    task = Task.select().where(Task.task_type == TaskType.OTHER_NAME).first()
-    assert task.other_name_records.count() == 2
+    assert Task.select().where(Task.task_type == TaskType.PROPERTY).count() == 1
+    task = Task.select().where(Task.task_type == TaskType.PROPERTY).first()
+    assert task.records.count() == 2
 
 
 def test_load_peer_review_csv(client):
@@ -3920,7 +3920,7 @@ def test_other_names(client):
     task = Task.get(filename="othernames_sample_latest.json")
     assert task.records.count() == 6
 
-    resp = client.get(f"/admin/othernamerecord/export/json/?task_id={task.id}")
+    resp = client.get(f"/admin/propertyrecord/export/json/?task_id={task.id}")
     assert resp.status_code == 200
     assert b'rad42@mailinator.com' in resp.data
     assert b'dummy 1220' in resp.data
@@ -3935,7 +3935,7 @@ def test_other_names(client):
     task = Task.get(filename="othernames0001.json")
     assert task.records.count() == 6
 
-    resp = client.get(f"/admin/othernamerecord/export/csv/?task_id={task.id}")
+    resp = client.get(f"/admin/propertyrecord/export/csv/?task_id={task.id}")
     assert resp.status_code == 200
     assert b'rad42@mailinator.com' in resp.data
     assert b'dummy 1220' in resp.data
@@ -3950,7 +3950,7 @@ def test_other_names(client):
     task = Task.get(filename="othernames0002.csv")
     assert task.records.count() == 6
 
-    resp = client.get(f"/admin/othernamerecord/export/tsv/?task_id={task.id}")
+    resp = client.get(f"/admin/propertyrecord/export/tsv/?task_id={task.id}")
     assert resp.status_code == 200
     assert b'rad42@mailinator.com' in resp.data
     assert b'dummy 1220' in resp.data
@@ -4024,7 +4024,7 @@ def test_keyword(client):
     task = Task.get(filename="keyword_sample_latest.json")
     assert task.records.count() == 4
 
-    resp = client.get(f"/admin/keywordrecord/export/json/?task_id={task.id}")
+    resp = client.get(f"/admin/propertyrecord/export/json/?task_id={task.id}")
     assert resp.status_code == 200
     assert b"xyzz@mailinator.com" in resp.data
     assert b"keyword 2" in resp.data
@@ -4040,7 +4040,7 @@ def test_keyword(client):
     assert task.records.count() == 4
 
     task = Task.get(filename="keyword001.json")
-    resp = client.get(f"/admin/keywordrecord/export/csv/?task_id={task.id}")
+    resp = client.get(f"/admin/propertyrecord/export/csv/?task_id={task.id}")
     assert resp.status_code == 200
     assert b"xyzz@mailinator.com" in resp.data
     assert b"keyword 2" in resp.data
@@ -4056,7 +4056,7 @@ def test_keyword(client):
     task = Task.get(filename="keyword002.csv")
     assert task.records.count() == 4
 
-    resp = client.get(f"/admin/keywordrecord/export/tsv/?task_id={task.id}")
+    resp = client.get(f"/admin/propertyrecord/export/tsv/?task_id={task.id}")
     assert resp.status_code == 200
     assert b"xyzz@mailinator.com" in resp.data
     assert b"keyword 2" in resp.data
@@ -4087,7 +4087,7 @@ def test_researcher_urls(client):
     task = Task.get(filename="researcher_url_001.json")
     assert task.records.count() == 5
 
-    resp = client.get(f"/admin/researcherurlrecord/export/json/?task_id={task.id}")
+    resp = client.get(f"/admin/propertyrecord/export/json/?task_id={task.id}")
     assert resp.status_code == 200
     assert b"abc123@mailinator.com" in resp.data
     assert b"https://w3.test.test.test.edu" in resp.data
@@ -4101,7 +4101,7 @@ def test_researcher_urls(client):
     assert b"https://w3.test.test.test.edu" in resp.data
     assert task.records.count() == 5
 
-    resp = client.get(f"/admin/researcherurlrecord/export/csv/?task_id={task.id}")
+    resp = client.get(f"/admin/propertyrecord/export/csv/?task_id={task.id}")
     assert resp.status_code == 200
     assert b"abc123@mailinator.com" in resp.data
     assert b"https://w3.test.test.test.edu" in resp.data
@@ -4115,9 +4115,9 @@ def test_researcher_urls(client):
     assert b"https://w3.test.test.test.edu" in resp.data
     assert task.records.count() == 5
 
-    url = quote(f"/admin/researcherurlrecord/?task_id={task.id}", safe="")
+    url = quote(f"/admin/propertyrecord/?task_id={task.id}", safe="")
     resp = client.post(
-        f"/admin/researcherurlrecord/new/?url={url}",
+        f"/admin/propertyrecord/new/?url={url}",
         data=dict(
             name="URL NAME ABC123",
             value="URL VALUE",
@@ -4130,9 +4130,9 @@ def test_researcher_urls(client):
         follow_redirects=True)
     assert Task.get(task.id).records.count() == 6
 
-    r = ResearcherUrlRecord.get(name="URL NAME ABC123")
+    r = PropertyRecord.get(name="URL NAME ABC123")
     resp = client.post(
-            f"/admin/researcherurlrecord/edit/?id={r.id}&url={url}",
+            f"/admin/prepertyrecord/edit/?id={r.id}&url={url}",
             data=dict(value="http://test.test.test.com/ABC123"),
             follow_redirects=True)
     assert resp.status_code == 200

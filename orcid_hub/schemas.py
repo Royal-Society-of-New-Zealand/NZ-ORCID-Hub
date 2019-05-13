@@ -188,6 +188,12 @@ property_record = {
     },
     "anyOf": [
         {
+            "required": ["url-name", "url-value", "email"]
+        },
+        {
+            "required": ["url-name", "url-value", "orcid"]
+        },
+        {
             "required": ["type", "value", "email"]
         },
         {
@@ -198,6 +204,12 @@ property_record = {
         },
         {
             "required": ["content", "orcid"]
+        },
+        {
+            "required": ["name", "value", "email"]
+        },
+        {
+            "required": ["name", "value", "orcid"]
         },
     ]
 }

@@ -2940,8 +2940,13 @@ class PropertyRecord(RecordModel):
     task = ForeignKeyField(Task, related_name="property_records", on_delete="CASCADE")
     type = CharField(verbose_name="Propery Type", choices=property_type_choices)
     display_index = IntegerField(null=True)
-    name = CharField(null=True, max_length=255, verbose_name="Property Name")
-    value = CharField(max_length=255, verbose_name="Property Value")
+    name = CharField(null=True,
+                     max_length=255,
+                     verbose_name="Property Name",
+                     help_text="Website name.")
+    value = CharField(max_length=255,
+                      verbose_name="Property Value",
+                      help_text="URL, Also known as, Keyword, Other ID, or Country value.")
     email = CharField(max_length=120, null=True)
     first_name = CharField(max_length=120, null=True)
     last_name = CharField(max_length=120, null=True)
