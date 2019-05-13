@@ -689,7 +689,7 @@ Institute of Geological & Nuclear Sciences Ltd,5180,RINGGOLD
             ),
         })
     assert OrgInfo.select().count() == 14, "A new entry should be added."
-    assert b"8888" not in resp.data, "Etry should be updated."
+    assert b"8888" not in resp.data, "Entry should be updated."
     assert b"Landcare Research" in resp.data
 
     resp = client.post(
@@ -1401,6 +1401,48 @@ def test_logo_file(request_ctx):
         assert org.logo is None
 
 
+def test_affiliation_deletion_task(client, mocker):
+    """Test affilaffiliation task upload."""
+    user = OrcidToken.select().join(User).where(User.orcid.is_null(False)).first().user
+    org = user.organisation
+    admin = org.admins.first()
+
+    resp = client.login(admin, follow_redirects=True)
+    assert b"log in" not in resp.data
+    content = ("Orcid,Put Code,Delete\n" + '\n'.join(f"{user.orcid},{put_code},yes"
+                                                     for put_code in range(1, 3)))
+    resp = client.post("/load/researcher",
+                       data={
+                           "save": "Upload",
+                           "file_": (
+                               BytesIO(content.encode()),
+                               "affiliations.csv",
+                           ),
+                       })
+    assert resp.status_code == 302
+    task_id = int(re.search(r"\/admin\/affiliationrecord/\?task_id=(\d+)", resp.location)[1])
+    assert task_id
+    task = Task.get(task_id)
+    assert task.org == org
+    records = list(task.records)
+    assert len(records) == len(content.split('\n')) - 1
+
+    mocker.patch("orcid_hub.orcid_client.MemberAPI.get_record", return_value=get_profile(org=org, user=user))
+    delete_education = mocker.patch("orcid_hub.orcid_client.MemberAPI.delete_education")
+    delete_employment = mocker.patch("orcid_hub.orcid_client.MemberAPI.delete_employment")
+    resp = client.post(
+        "/admin/affiliationrecord/action/",
+        follow_redirects=True,
+        data={
+            "url": f"/admin/affiliationrecord/?task_id={task_id}",
+            "action": "activate",
+            "rowid": [r.id for r in task.records],
+        })
+    assert task.records.where(AffiliationRecord.is_active).count() == 2
+    delete_education.assert_called()
+    delete_employment.assert_called()
+
+
 def test_affiliation_tasks(client):
     """Test affilaffiliation task upload."""
     org = Organisation.get(name="TEST0")
@@ -1443,9 +1485,8 @@ Rad,Cirskis,researcher.990@mailinator.com,Student
     assert task_id
     task = Task.get(task_id)
     assert task.org == org
-    records = list(task.affiliation_records)
+    records = list(task.records)
     assert len(records) == 4
-    assert AffiliationRecord.select().where(AffiliationRecord.task_id == task_id).count() == 4
 
     url = resp.location
     session_cookie, _ = resp.headers["Set-Cookie"].split(';', 1)

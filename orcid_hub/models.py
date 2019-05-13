@@ -1138,7 +1138,7 @@ class Task(BaseModel, AuditMixin):
         if len(header) < 2:
             raise ModelException("Expected CSV or TSV format file.")
 
-        if len(header) < 4:
+        if len(header) < 3:
             raise ModelException(
                 "Wrong number of fields. Expected at least 4 fields "
                 "(first name, last name, email address or another unique identifier, student/staff). "

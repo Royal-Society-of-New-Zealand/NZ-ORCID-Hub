@@ -8,8 +8,8 @@ from orcid_hub import orcid_client
 def get_profile(org=None, user=None):
     """Mock ORCID profile api call."""
     orcid = user.orcid if user else "0000-0003-1255-9023"
-    if org and org.client_id:
-        client_id = org.client_id
+    if org and org.orcid_client_id:
+        client_id = org.orcid_client_id
     else:
         client_id = "APP-5ZVH4JRQ0C27RVH5"
     resp = {
@@ -139,6 +139,49 @@ def get_profile(org=None, user=None):
                         "put-code": 31136,
                         "path": f"/{orcid}/education/31136"
                     },
+                    {
+                        "created-date": {
+                            "value": 1532322530230
+                        },
+                        "last-modified-date": {
+                            "value": 1532322530230
+                        },
+                        "source": {
+                            "source-orcid": None,
+                            "source-client-id": {
+                                "uri": f"http://sandbox.orcid.org/client/{client_id}",
+                                "path": client_id,
+                                "host": "sandbox.orcid.org"
+                            },
+                            "source-name": {
+                                "value": "The University of Auckland - MyORCiD"
+                            }
+                        },
+                        "department-name": None,
+                        "role-title": "ROLE",
+                        "start-date": {
+                            "year": {"value": "1996"},
+                            "month": {"value": "11"}},
+                        "end-date": {
+                            "year": {"value": "2019"},
+                            "month": {"value": "02"},
+                            "day": {"value": "29"}},
+                        "organization": {
+                            "name": "The University of Auckland",
+                            "address": {
+                                "city": "Auckland",
+                                "region": "Auckland",
+                                "country": "NZ"
+                            },
+                            "disambiguated-organization": {
+                                "disambiguated-organization-identifier": "123456",
+                                "disambiguation-source": "RINGGOLD"
+                            }
+                        },
+                        "visibility": "PUBLIC",
+                        "put-code": 1,
+                        "path": f"/{orcid}/education/1"
+                    },
                 ],
                 'path':
                 f"/{orcid}/educations"
@@ -181,6 +224,41 @@ def get_profile(org=None, user=None):
                     "visibility": "PUBLIC",
                     "put-code": 29272,
                     "path": f"/{orcid}/employment/29272"
+                },
+                {
+                    "created-date": {
+                        "value": 1511401310144
+                    },
+                    "last-modified-date": {
+                        "value": 1511401310144
+                    },
+                    "source": {
+                        "source-orcid": None,
+                        "source-client-id": {
+                            "uri": "http://sandbox.orcid.org/client/{client_id}",
+                            "path": client_id,
+                            "host": "sandbox.orcid.org"
+                        },
+                        "source-name": {
+                            "value": "The University of Auckland - MyORCiD"
+                        }
+                    },
+                    "department-name": None,
+                    "role-title": None,
+                    "start-date": None,
+                    "end-date": None,
+                    "organization": {
+                        "name": "The University of Auckland",
+                        "address": {
+                            "city": "Auckland",
+                            "region": None,
+                            "country": "NZ"
+                        },
+                        "disambiguated-organization": None
+                    },
+                    "visibility": "PUBLIC",
+                    "put-code": 2,
+                    "path": f"/{orcid}/employment/2"
                 }],
                 "path":
                 f"//employments"
