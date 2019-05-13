@@ -721,7 +721,8 @@ to the best of your knowledge, correct!""")
                 self.model.is_active == False,  # noqa: E712
                 self.model.id.in_(ids)).execute()
             if self.model == AffiliationRecord:
-                records = self.model.select().where(self.model.id.in_(ids)).order_by(self.email, self.orcid)
+                records = self.model.select().where(self.model.id.in_(ids)).order_by(
+                    self.model.email, self.model.orcid)
                 for _, chunk in itertools.groupby(records, lambda r: (r.email, r.orcid, )):
                     self.enqueue_record([r.id for r in chunk])
             else:

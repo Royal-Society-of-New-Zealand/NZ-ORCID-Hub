@@ -1229,6 +1229,8 @@ class Task(BaseModel, AuditMixin):
                             f"Invalid email address '{email}'  in the row #{row_no+2}: {row}")
 
                     affiliation_type = val(row, 10)
+                    if affiliation_type:
+                        affiliation_type = affiliation_type.lower()
                     if not delete_record and (not affiliation_type
                                               or affiliation_type.lower() not in AFFILIATION_TYPES):
                         raise ValueError(

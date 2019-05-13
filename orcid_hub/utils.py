@@ -1648,10 +1648,11 @@ def process_affiliation_records(max_rows=20, record_id=None):
                          on=((OrcidToken.user_id == User.id)
                              & (OrcidToken.org_id == Organisation.id)
                              & (OrcidToken.scope.contains("/activities/update")))).limit(max_rows))
-    if isinstance(record_id, list):
-        tasks = tasks.where(AffiliationRecord.id.in_(record_id))
-    else:
-        tasks = tasks.where(AffiliationRecord.id == record_id)
+    if record_id:
+        if isinstance(record_id, list):
+            tasks = tasks.where(AffiliationRecord.id.in_(record_id))
+        else:
+            tasks = tasks.where(AffiliationRecord.id == record_id)
     for (task_id, org_id, user), tasks_by_user in groupby(tasks, lambda t: (
             t.id,
             t.org_id,
