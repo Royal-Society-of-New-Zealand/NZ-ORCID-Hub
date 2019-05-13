@@ -686,9 +686,9 @@ def send_user_invitation(inviter,
 
         if affiliations is None and affiliation_types:
             affiliations = 0
-            if affiliation_types & {"faculty", "staff"}:
+            if affiliation_types & EMP_CODES:
                 affiliations = Affiliation.EMP
-            if affiliation_types & {"student", "alum"}:
+            if affiliation_types & EDU_CODES:
                 affiliations |= Affiliation.EDU
         user_org.affiliations = affiliations
 
