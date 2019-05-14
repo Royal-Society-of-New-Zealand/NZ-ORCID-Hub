@@ -1747,7 +1747,6 @@ class ViewMembersAdmin(AppModelView):
                         r.get("organization", "address", "city"),
                         r.get("organization", "address", "region"),
                         r.get("organization", "address", "country"),
-                        r.get("organization", "address", "country"),
                         r.get("disambiguated-organization",
                               "disambiguated-organization-identifier"),
                         r.get("disambiguated-organization", "disambiguation-source")

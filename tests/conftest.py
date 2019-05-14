@@ -294,6 +294,8 @@ def app():
             email="researcher@test0.edu",
             eppn="eppn@test0.edu",
             name="TEST REASEARCHER",
+            first_name="FN",
+            last_name="LN",
             orcid="0000-0000-0000-00X3",
             confirmed=True,
             organisation=org)
