@@ -4057,7 +4057,6 @@ def test_export_affiliations(client, mocker):
 
 def test_delete_affiliations(client, mocker):
     """Test export of existing affiliation records."""
-    mocker.patch("orcid_hub.orcid_client.MemberAPI.get_record", return_value=get_profile())
     user = OrcidToken.select().join(User).where(User.first_name.is_null(False),
                                                 User.orcid.is_null(False)).first().user
     org = user.organisation
@@ -4090,3 +4089,14 @@ def test_delete_affiliations(client, mocker):
         "/activate_all/?url=http://localhost/affiliation_record_activate_for_batch", data=dict(task_id=task_id))
     delete_education.assert_called()
     delete_employment.assert_called()
+
+
+def test_remove_linkage(client, mocker):
+    """Test export of existing affiliation records."""
+    post = mocker.patch("requests.post", return_value=Mock(status_code=200))
+    user = OrcidToken.select().join(User).where(User.orcid.is_null(False)).first().user
+
+    client.login(user)
+    client.post("/remove/orcid/linkage")
+    post.assert_called()
+    assert not OrcidToken.select().where(OrcidToken.user_id == user.id).exists()
