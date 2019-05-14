@@ -1,6 +1,7 @@
 """Application views."""
 
 import csv
+import itertools
 import json
 import math
 import mimetypes
@@ -719,8 +720,14 @@ class RecordModelView(AppModelView):
             count = self.model.update(is_active=True).where(
                 self.model.is_active == False,  # noqa: E712
                 self.model.id.in_(ids)).execute()
-            for record_id in ids:
-                self.enqueue_record(record_id)
+            if self.model == AffiliationRecord:
+                records = self.model.select().where(self.model.id.in_(ids)).order_by(
+                    self.model.email, self.model.orcid)
+                for _, chunk in itertools.groupby(records, lambda r: (r.email, r.orcid, )):
+                    self.enqueue_record([r.id for r in chunk])
+            else:
+                for record_id in ids:
+                    self.enqueue_record(record_id)
 
         except Exception as ex:
             flash(f"Failed to activate the selected records: {ex}")
@@ -1603,21 +1610,20 @@ class ViewMembersAdmin(AppModelView):
         org = current_user.organisation
         token_revoke_url = app.config["ORCID_BASE_URL"] + "oauth/revoke"
 
-        if UserOrg.select().where(
-                    (UserOrg.user_id == model.id) & (UserOrg.org_id == org.id) & UserOrg.is_admin).exists():
-            flash(f"Failed to delete record for {model}, As User appears to be one of the admins. "
-                  f"Please contact orcid@royalsociety.org.nz for support", "danger")
+        if UserOrg.select().where((UserOrg.user_id == model.id) & (UserOrg.org_id == org.id)
+                                  & UserOrg.is_admin).exists():
+            flash(
+                f"Failed to delete record for {model}, As User appears to be one of the admins. "
+                f"Please contact orcid@royalsociety.org.nz for support", "danger")
             return False
 
         for token in OrcidToken.select().where(OrcidToken.org == org, OrcidToken.user == model):
             try:
-                resp = requests.post(
-                    token_revoke_url,
-                    headers={"Accepts": "application/json"},
-                    data=dict(
-                        client_id=org.orcid_client_id,
-                        client_secret=org.orcid_secret,
-                        token=token.access_token))
+                resp = requests.post(token_revoke_url,
+                                     headers={"Accepts": "application/json"},
+                                     data=dict(client_id=org.orcid_client_id,
+                                               client_secret=org.orcid_secret,
+                                               token=token.access_token))
 
                 if resp.status_code != 200:
                     flash("Failed to revoke token {token.access_token}: {ex}", "danger")
@@ -1630,9 +1636,7 @@ class ViewMembersAdmin(AppModelView):
                 app.logger.exception('Failed to delete record.')
                 return False
 
-        user_org = UserOrg.select().where(
-                UserOrg.user == model,
-                UserOrg.org == org).first()
+        user_org = UserOrg.select().where(UserOrg.user == model, UserOrg.org == org).first()
         try:
             self.on_model_delete(model)
             if model.organisations.count() < 2:
@@ -1653,24 +1657,108 @@ class ViewMembersAdmin(AppModelView):
             self.after_model_delete(model)
         return True
 
-    @action("delete", "Delete",
-            "Are you sure you want to delete selected records?")
+    @action("delete", "Delete", "Are you sure you want to delete selected records?")
     def action_delete(self, ids):
         """Delete a record for selected entries."""
         try:
             model_pk = getattr(self.model, self._primary_key)
             count = 0
 
-            query = self.model.select().filter(model_pk << ids)
+            query = self.model.select().where(model_pk << ids)
 
             for m in query:
                 if self.delete_model(m):
                     count += 1
             if count:
-                flash(gettext('Record was successfully deleted.%(count)s records were successfully deleted.',
-                              count=count), 'success')
+                flash(
+                    gettext(
+                        'Record was successfully deleted.%(count)s records were successfully deleted.',
+                        count=count), 'success')
         except Exception as ex:
             flash(gettext('Failed to delete records. %(error)s', error=str(ex)), 'danger')
+
+    @action(
+        "export_affiations", "Expoert Affiliation Records",
+        "Are you sure you want to retrieve and export selected records affiliation entries from ORCID?"
+    )
+    def action_export_affiliations(self, ids):
+        """Export all user profile section list (either 'Education' or 'Employment')."""
+        tokens = OrcidToken.select(User, OrcidToken).join(
+            User, on=(OrcidToken.user_id == User.id)).where(
+                OrcidToken.user_id << ids,
+                OrcidToken.scope.contains(orcid_client.READ_LIMITED))
+        if not current_user.is_superuser:
+            tokens = tokens.where(OrcidToken.org_id == current_user.organisation.id)
+
+        records = []
+        for t in tokens:
+
+            try:
+                api = orcid_client.MemberAPI(user=t.user, access_token=t.access_token)
+                profile = api.get_record()
+                if not profile:
+                    continue
+            except ApiException as ex:
+                if ex.status == 401:
+                    flash(f"User {t.user} has revoked the permissions to update his/her records",
+                          "warning")
+                else:
+                    flash(
+                        "Exception when calling ORCID API: \n"
+                        + json.loads(ex.body.replace("''", "\"")).get('user-messsage'), "danger")
+            except Exception as ex:
+                abort(500, ex)
+
+            records = itertools.chain(
+                records,
+                [(t.user, r)
+                 for r in profile.get("activities-summary", "employments", "employment-summary")],
+                [(t.user, r)
+                 for r in profile.get("activities-summary", "educations", "education-summary")])
+
+        # https://docs.djangoproject.com/en/1.8/howto/outputting-csv/
+        class Echo(object):
+            """An object that implements just the write method of the file-like interface."""
+
+            def write(self, value):
+                """Write the value by returning it, instead of storing in a buffer."""
+                return '' if value is None or value == "None" else value
+
+        writer = csv.writer(Echo(), delimiter=",")
+
+        def generate():
+            titles = [
+                csv_encode(c) for c in [
+                    "Put Code", "First Name", "Last Name", "Email", "ORCID iD", "Affiliation Type",
+                    "Role", "Department", "Start Date", "End Date", "City", "State", "Country",
+                    "Disambiguated Id", "Disambiguation Source"
+                ]
+            ]
+            yield writer.writerow(titles)
+
+            for row in records:
+                u, r = row
+
+                _, orcid, affiliation_type, put_code = r.get("path").split("/")
+                yield writer.writerow(
+                    csv_encode(v or '') for v in [
+                        r.get("put-code"), u.first_name, u.last_name, u.email, orcid,
+                        affiliation_type,
+                        r.get("role-title"),
+                        r.get("department-name"),
+                        PartialDate.create(r.get("start-date")),
+                        PartialDate.create(r.get("end-date")),
+                        r.get("organization", "address", "city"),
+                        r.get("organization", "address", "region"),
+                        r.get("organization", "address", "country"),
+                        r.get("disambiguated-organization",
+                              "disambiguated-organization-identifier"),
+                        r.get("disambiguated-organization", "disambiguation-source")
+                    ])
+
+        return Response(stream_with_context(generate()),
+                        headers={"Content-Disposition": "attachment;filename=affiliations.csv"},
+                        mimetype="text/csv")
 
 
 class GroupIdRecordAdmin(AppModelView):
@@ -1838,10 +1926,16 @@ def shorturl(url):
 
 
 def enqueue_task_records(task):
-    """Enqueue all active and not yet processed records."""
+    """Enqueue all active and not yet processed record."""
+    records = task.records.where(task.record_model.is_active, task.record_model.processed_at.is_null())
     func = getattr(utils, f"process_{task.task_type.name.lower()}_records")
-    for r in task.records.where(task.record_model.is_active, task.record_model.processed_at.is_null()):
-        func.queue(record_id=r.id)
+    if task.task_type == TaskType.AFFILIATION:
+        records = records.order_by(task.record_model.email, task.record_model.orcid)
+        for _, chunk in itertools.groupby(records, lambda r: (r.email, r.orcid, )):
+            func.queue(record_id=[r.id for r in chunk])
+    else:
+        for r in task.records.where(task.record_model.is_active, task.record_model.processed_at.is_null()):
+            func.queue(record_id=r.id)
 
 
 @app.route("/activate_all", methods=["POST"])

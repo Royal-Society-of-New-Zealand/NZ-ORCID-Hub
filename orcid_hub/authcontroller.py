@@ -16,11 +16,12 @@ from os import path, remove
 from tempfile import gettempdir
 from time import time
 from urllib.parse import parse_qs, quote, unquote, urlparse
-import validators
 
 import requests
-from flask import (abort, current_app, flash, redirect, render_template, request, Response,
-                   session, stream_with_context, url_for)
+import validators
+from flask import (Response, abort, current_app, flash, redirect,
+                   render_template, request, session, stream_with_context,
+                   url_for)
 from flask_login import current_user, login_required, login_user, logout_user
 from itsdangerous import Signer
 from oauthlib.oauth2 import rfc6749
@@ -34,13 +35,15 @@ from . import app, cache, db, orcid_client
 from . import orcid_client as scopes
 # TODO: need to read form app.config[...]
 from .config import (APP_DESCRIPTION, APP_NAME, APP_URL, AUTHORIZATION_BASE_URL, CRED_TYPE_PREMIUM,
-                     MEMBER_API_FORM_BASE_URL, NOTE_ORCID, ORCID_API_BASE, ORCID_BASE_URL, TOKEN_URL)
+                     MEMBER_API_FORM_BASE_URL, NOTE_ORCID, ORCID_API_BASE, ORCID_BASE_URL,
+                     TOKEN_URL)
 from .forms import OrgConfirmationForm, TestDataForm
 from .login_provider import roles_required
 from .models import (Affiliation, OrcidAuthorizeCall, OrcidToken, Organisation, OrgInfo,
                      OrgInvitation, Role, Task, TaskType, Url, User, UserInvitation, UserOrg,
                      audit_models)
-from .utils import append_qs, get_next_url, read_uploaded_file, register_orcid_webhook
+from .utils import (append_qs, get_next_url, enqueue_user_records, read_uploaded_file,
+                    register_orcid_webhook)
 
 HEADERS = {'Accept': 'application/vnd.orcid+json', 'Content-type': 'application/vnd.orcid+json'}
 ENV = app.config.get("ENV")
@@ -1293,6 +1296,8 @@ def orcid_login_callback(request):
                 return redirect(url_for('viewmembers.index_view'))
             else:
                 return redirect(url_for("link"))
+        if invitation_token:
+            enqueue_user_records(user)
         return redirect(url_for("profile"))
 
     except User.DoesNotExist:
