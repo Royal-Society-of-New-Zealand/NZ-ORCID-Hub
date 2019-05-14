@@ -886,7 +886,7 @@ def test_create_or_update_affiliation(app, mocker):
 
     tasks = (Task.select(
         Task, AffiliationRecord, User, UserInvitation.id.alias("invitation_id"), OrcidToken).join(
-            AffiliationRecord, on=(Task.id == AffiliationRecord.task_id)).join(
+            AffiliationRecord, on=(Task.id == AffiliationRecord.task_id).alias("record")).join(
                 User,
                 JOIN.LEFT_OUTER,
                 on=((User.email == AffiliationRecord.email)
@@ -905,7 +905,7 @@ def test_create_or_update_affiliation(app, mocker):
     for (task_id, org_id, user), tasks_by_user in groupby(tasks, lambda t: (
             t.id,
             t.org_id,
-            t.affiliation_record.user, )):
+            t.record.user, )):
         with patch(
                 "orcid_hub.orcid_client.MemberAPI.get_record",
                 return_value=get_profile() if user.orcid else None) as get_record:
