@@ -5,11 +5,13 @@
 			<thead>
 				<tr class="info">
 					<th class="col-md-1">&nbsp;</th>
-          {% if section_type in ["RUR", "ONR", "KWR"] %}
+          {% if section_type in ["RUR", "ONR", "KWR", "ADR"] %}
             <th class="column-header">Record Source</th>
             {% if section_type == "RUR" %}
               <th class="column-header">Url Name</th>
               <th class="column-header">Url Value</th>
+            {% elif section_type == "ADR" %}
+              <th class="column-header">Country</th>
             {% else %}
               <th class="column-header">Content</th>
             {% endif %}
@@ -67,11 +69,13 @@
               {% else %}
                 <td class="list-buttons-column"></td>
               {% endif %}
-              {% if section_type in ["RUR", "ONR", "KWR"] %}
+              {% if section_type in ["RUR", "ONR", "KWR", "ADR"] %}
                 <td>{{r.get("source", "source-name", "value")|default("", True)}}</td>
                 {% if section_type == "RUR" %}
                   <td>{{r.get("url-name")|default("", True)}}</td>
                   <td>{{r.get("url", "value")|default("", True)}}</td>
+                {% elif section_type == "ADR" %}
+                  <td>{{r.get("country", "value")|default("", True)}}</td>
                 {% else %}
                   <td>{{r.get("content")|default("", True)}}</td>
                 {% endif %}
@@ -102,7 +106,7 @@
 				<a role="button" class="btn btn-danger" href="{{url}}">Cancel</a>
 			{% endif %}
 			<a role="button" class="btn btn-primary" href="{{url_for('edit_record', user_id=user_id, section_type=section_type)}}">New...</a>
-      {% if section_type in ["RUR", "ONR", "KWR"] %}
+      {% if section_type in ["RUR", "ONR", "KWR", "ADR"] %}
         <div style="float: left; width: auto">
                   <form class="icon" method="POST" action="{{url_for('section', user_id=user_id, section_type=section_type)}}">
                     <button onclick="return safeConfirm('Are you sure you want to send an invite to researcher to get 'PERSON/UPDATE' Permissions?\n\nBy clicking &quot;OK&quot;'+

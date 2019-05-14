@@ -356,6 +356,12 @@ class OtherNameKeywordForm(ResearcherUrlOtherNameKeywordForm):
     content = StringField("Content", [validators.required()])
 
 
+class AddressForm(ResearcherUrlOtherNameKeywordForm):
+    """User/researcher address detail form."""
+
+    country = CountrySelectField("Country", [validators.required()])
+
+
 class GroupIdForm(FlaskForm):
     """GroupID record form."""
 

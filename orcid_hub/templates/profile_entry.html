@@ -62,12 +62,13 @@
   <div class="col-md-9 col-sm-8 col-xs-12">
     <h1>{{tile or ("Education" if section_type == "EDU" else "Funding" if section_type == "FUN" else "Peer Review" if
       section_type == "PRR" else "Work" if section_type == "WOR" else "Researcher Url" if section_type == "RUR" else
-      "Other Name" if section_type == "ONR" else "Keyword" if section_type == "KWR" else "Employment")}}</h1>
+      "Other Name" if section_type == "ONR" else "Keyword" if section_type == "KWR" else
+      "Address" if section_type == "ADR" else "Employment")}}</h1>
   </div>
 </div>
     <div class="row" ng-app="MyApp" ng-controller="MyController">
       <div class="col-md-6 col-sm-6 col-xs-12">
-        {% if section_type in ["RUR", "ONR", "KWR"] %}
+        {% if section_type in ["RUR", "ONR", "KWR", "ADR"] %}
           {{ render_field(form.display_index) }}
           {{ render_field(form.visibility) }}
         {% else %}
@@ -141,6 +142,8 @@
         {% elif section_type == "RUR" %}
           {{ render_field(form.name) }}
           {{ render_field(form.value) }}
+        {% elif section_type == "ADR" %}
+          {{ render_field(form.country) }}
         {% elif section_type in ["ONR", "KWR"] %}
           {{ render_field(form.content) }}
         {% else %}
