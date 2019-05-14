@@ -362,6 +362,17 @@ class AddressForm(ResearcherUrlOtherNameKeywordForm):
     country = CountrySelectField("Country", [validators.required()])
 
 
+class ExternalIdentifierForm(ResearcherUrlOtherNameKeywordForm):
+    """User/researcher Other IDs detail form."""
+
+    type = SelectField(choices=EMPTY_CHOICES + models.external_id_type_choices, validators=[validators.required()],
+                       description="External Identifier Type")
+    value = StringField("External Identifier Value", [validators.required()])
+    url = StringField("External Identifier Url", [validators.required()])
+    relationship = SelectField(choices=models.relationship_choices, default="SELF",
+                               description="External Id Relationship")
+
+
 class GroupIdForm(FlaskForm):
     """GroupID record form."""
 

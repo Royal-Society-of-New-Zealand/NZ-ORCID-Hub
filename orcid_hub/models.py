@@ -89,6 +89,13 @@ language_choices = [(l.alpha_2, l.name) for l in languages if hasattr(l, "alpha_
 language_choices.sort(key=lambda e: e[1])
 currency_choices = [(l.alpha_3, l.name) for l in currencies]
 currency_choices.sort(key=lambda e: e[1])
+external_id_type_choices = [(v, v.replace("_", " ").replace("-", " ").title()) for v in [
+    "agr", "ark", "arxiv", "asin", "asin-tld", "authenticusid", "bibcode", "cba", "cienciaiul",
+    "cit", "ctx", "dnb", "doi", "eid", "ethos", "grant_number", "handle", "hir", "isbn",
+    "issn", "jfm", "jstor", "kuid", "lccn", "lensid", "mr", "oclc", "ol", "osti", "other-id",
+    "pat", "pdb", "pmc", "pmid", "rfc", "rrid", "source-work-id", "ssrn", "uri", "urn",
+    "wosuid", "zbl"
+]]
 relationship_choices = [(v, v.replace('_', ' ').title()) for v in RELATIONSHIPS]
 disambiguation_source_choices = [(v, v) for v in DISAMBIGUATION_SOURCES]
 property_type_choices = [(v, v) for v in PROPERTY_TYPES]
@@ -3653,15 +3660,7 @@ class FundingInvitee(InviteeModel):
 class ExternalIdModel(BaseModel):
     """Common model bits of the ExternalId records."""
 
-    type_choices = [(v, v.replace("_", " ").replace("-", " ").title()) for v in [
-        "agr", "ark", "arxiv", "asin", "asin-tld", "authenticusid", "bibcode", "cba", "cienciaiul",
-        "cit", "ctx", "dnb", "doi", "eid", "ethos", "grant_number", "handle", "hir", "isbn",
-        "issn", "jfm", "jstor", "kuid", "lccn", "lensid", "mr", "oclc", "ol", "osti", "other-id",
-        "pat", "pdb", "pmc", "pmid", "rfc", "rrid", "source-work-id", "ssrn", "uri", "urn",
-        "wosuid", "zbl"
-    ]]
-
-    type = CharField(max_length=255, choices=type_choices)
+    type = CharField(max_length=255, choices=external_id_type_choices)
     value = CharField(max_length=255)
     url = CharField(max_length=200, null=True)
     relationship = CharField(max_length=255, choices=relationship_choices)
