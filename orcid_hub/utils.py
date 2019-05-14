@@ -31,8 +31,8 @@ from . import app, orcid_client, rq
 from .models import (AFFILIATION_TYPES, Affiliation, AffiliationRecord, Delegate, FundingInvitee,
                      FundingRecord, KeywordRecord, Log, OtherNameRecord, OrcidToken, Organisation,
                      OrgInvitation, PartialDate, PeerReviewExternalId, PeerReviewInvitee,
-                     PeerReviewRecord, ResearcherUrlRecord, Role, Task, User, UserInvitation,
-                     UserOrg, WorkInvitee, WorkRecord, get_val)
+                     PeerReviewRecord, ResearcherUrlRecord, Role, Task, TaskType, User,
+                     UserInvitation, UserOrg, WorkInvitee, WorkRecord, get_val)
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -2305,3 +2305,36 @@ def dump_yaml(data):
     yaml.add_representer(datetime, SafeRepresenterWithISODate.represent_datetime, Dumper=Dumper)
     yaml.add_representer(defaultdict, SafeRepresenter.represent_dict)
     return yaml.dump(data)
+
+
+def enqueue_user_records(user):
+    """Enqueue all active and not yet processed record related to the user."""
+    for task in Task.select().where(Task.completed_at.is_null()):
+        func = globals().get(f"process_{task.task_type.name.lower()}_records")
+        records = task.records.where(
+                task.record_model.is_active,
+                task.record_model.processed_at.is_null())
+        if task.task_type == TaskType.FUNDING:
+            records = records.join(FundingInvitee).where(
+                (FundingInvitee.email.is_null() | (FundingInvitee.email == user.email)),
+                (FundingInvitee.orcid.is_null() | (FundingInvitee.orcid == user.orcid)))
+        elif task.task_type == TaskType.PEER_REVIEW:
+            records = records.join(PeerReviewInvitee).where(
+                (PeerReviewInvitee.email.is_null() | (PeerReviewInvitee.email == user.email)),
+                (PeerReviewInvitee.orcid.is_null() | (PeerReviewInvitee.orcid == user.orcid)))
+        elif task.task_type == TaskType.WORK:
+            records = records.join(WorkInvitee).where(
+                (WorkInvitee.email.is_null() | (WorkInvitee.email == user.email)),
+                (WorkInvitee.orcid.is_null() | (WorkInvitee.orcid == user.orcid)))
+        else:
+            records = records.where(
+                (task.record_model.email.is_null() | (task.record_model.email == user.email)),
+                (task.record_model.orcid.is_null() | (task.record_model.orcid == user.orcid)))
+
+        if task.task_type == TaskType.AFFILIATION:
+            record_ids = [r.id for r in records]
+            if record_ids:
+                func.queue(record_id=record_ids)
+        else:
+            for r in records:
+                func.queue(record_id=r.id)

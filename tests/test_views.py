@@ -1456,8 +1456,8 @@ def test_affiliation_tasks(client):
             "save":
             "Upload",
             "file_": (
-                BytesIO(b"""First Name,Last Name,Email
-Roshan,Pawar,researcher.010@mailinator.com
+                BytesIO(b"""First Name,Email
+Roshan,researcher.010@mailinator.com
 """),
                 "affiliations.csv",
             ),

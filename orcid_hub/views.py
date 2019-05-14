@@ -1921,7 +1921,7 @@ def shorturl(url):
 
 
 def enqueue_task_records(task):
-    """Enqueue all active and not yet processed records."""
+    """Enqueue all active and not yet processed record."""
     records = task.records.where(task.record_model.is_active, task.record_model.processed_at.is_null())
     func = getattr(utils, f"process_{task.task_type.name.lower()}_records")
     if task.task_type == TaskType.AFFILIATION:
