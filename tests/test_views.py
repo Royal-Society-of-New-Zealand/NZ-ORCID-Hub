@@ -17,7 +17,7 @@ import pytest
 import yaml
 from flask import make_response, session
 from flask_login import login_user
-from peewee import SqliteDatabase
+from peewee import SqliteDatabase, JOIN
 from playhouse.test_utils import test_database
 
 from orcid_api.rest import ApiException
@@ -2285,37 +2285,36 @@ def test_edit_record(request_ctx):
         assert resp.location == f"/section/{user.id}/KWR/list"
 
 
-def test_delete_employment(request_ctx, app):
+def test_delete_profile_entries(client, mocker):
     """Test delete an employment record."""
     admin = User.get(email="admin@test0.edu")
-    user = User.get(email="researcher100@test0.edu")
+    user = User.select().join(OrcidToken,
+                              JOIN.LEFT_OUTER).where(User.organisation == admin.organisation,
+                                                     User.orcid.is_null(),
+                                                     OrcidToken.id.is_null()).first()
 
-    with request_ctx(f"/section/{user.id}/EMP/1212/delete", method="POST") as ctx:
-        login_user(user)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 302
-        assert resp.location.startswith("/?next=")
+    client.login(user)
+    resp = client.post(f"/section/{user.id}/EMP/1212/delete")
+    assert resp.status_code == 302
+    assert "/?next=" in resp.location
 
-    with request_ctx(f"/section/99999999/EMP/1212/delete", method="POST") as ctx:
-        login_user(admin)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 302
-        assert resp.location == "/admin/viewmembers/"
+    client.logout()
+    client.login(admin)
+    resp = client.post(f"/section/{user.id}/EMP/1212/delete")
+    resp = client.post(f"/section/99999999/EMP/1212/delete")
+    assert resp.status_code == 302
+    assert resp.location.endswith("/admin/viewmembers/")
 
-    with request_ctx(f"/section/{user.id}/EMP/1212/delete", method="POST") as ctx:
-        login_user(admin)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 302
-        assert resp.location == f"/section/{user.id}/EMP/list"
+    resp = client.post(f"/section/{user.id}/EMP/1212/delete")
+    assert resp.status_code == 302
+    assert resp.location.endswith(f"/section/{user.id}/EMP/list")
 
     admin.organisation.orcid_client_id = "ABC123"
     admin.organisation.save()
 
-    with request_ctx(f"/section/{user.id}/EMP/1212/delete", method="POST") as ctx:
-        login_user(admin)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 302
-        assert resp.location == f"/section/{user.id}/EMP/list"
+    resp = client.post(f"/section/{user.id}/EMP/1212/delete")
+    assert resp.status_code == 302
+    assert resp.location.endswith(f"/section/{user.id}/EMP/list")
 
     if not user.orcid:
         user.orcid = "XXXX-XXXX-XXXX-0001"
@@ -2324,91 +2323,70 @@ def test_delete_employment(request_ctx, app):
     token = OrcidToken.create(
         user=user, org=user.organisation, access_token="ABC123", scope="/read-limited")
 
-    with request_ctx(f"/section/{user.id}/EMP/1212/delete", method="POST") as ctx:
-        login_user(admin)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 302
-        assert resp.location == f"/section/{user.id}/EMP/list"
+    resp = client.post(f"/section/{user.id}/EMP/1212/delete")
+    assert resp.status_code == 302
+    assert resp.location.endswith(f"/section/{user.id}/EMP/list")
 
     token.scope = "/read-limited,/activities/update"
     token.save()
 
-    with patch.object(
-            orcid_client.MemberAPIV20Api,
-            "delete_employment",
-            MagicMock(
-                return_value='{"test": "TEST1234567890"}')) as delete_employment, request_ctx(
-                    f"/section/{user.id}/EMP/12345/delete", method="POST") as ctx:
-        login_user(admin)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 302
-        delete_employment.assert_called_once_with("XXXX-XXXX-XXXX-0001", 12345)
+    delete_employment = mocker.patch(
+            "orcid_hub.orcid_client.MemberAPIV20Api.delete_employment",
+            MagicMock(return_value='{"test": "TEST1234567890"}'))
+    resp = client.post(f"/section/{user.id}/EMP/12345/delete")
+    assert resp.status_code == 302
+    delete_employment.assert_called_once_with("XXXX-XXXX-XXXX-0001", 12345)
 
-    with patch.object(
-            orcid_client.MemberAPIV20Api,
-            "delete_education",
-            MagicMock(return_value='{"test": "TEST1234567890"}')) as delete_education, request_ctx(
-                f"/section/{user.id}/EDU/54321/delete", method="POST") as ctx:
-        login_user(admin)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 302
-        delete_education.assert_called_once_with("XXXX-XXXX-XXXX-0001", 54321)
-    with patch.object(
-        orcid_client.MemberAPIV20Api,
-        "delete_funding",
-            MagicMock(return_value='{"test": "TEST1234567890"}')) as delete_funding, request_ctx(
-                f"/section/{user.id}/FUN/54321/delete", method="POST") as ctx:
-        login_user(admin)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 302
-        delete_funding.assert_called_once_with("XXXX-XXXX-XXXX-0001", 54321)
-    with patch.object(
-        orcid_client.MemberAPIV20Api,
-        "delete_peer_review",
-            MagicMock(return_value='{"test": "TEST1234567890"}')) as delete_peer_review, request_ctx(
-                f"/section/{user.id}/PRR/54321/delete", method="POST") as ctx:
-        login_user(admin)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 302
-        delete_peer_review.assert_called_once_with("XXXX-XXXX-XXXX-0001", 54321)
-    with patch.object(
-        orcid_client.MemberAPIV20Api,
-        "delete_work",
-            MagicMock(return_value='{"test": "TEST1234567890"}')) as delete_work, request_ctx(
-                f"/section/{user.id}/WOR/54321/delete", method="POST") as ctx:
-        login_user(admin)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 302
-        delete_work.assert_called_once_with("XXXX-XXXX-XXXX-0001", 54321)
+    delete_education = mocker.patch(
+            "orcid_hub.orcid_client.MemberAPIV20Api.delete_education",
+            MagicMock(return_value='{"test": "TEST1234567890"}'))
+    resp = client.post(f"/section/{user.id}/EDU/54321/delete")
+    assert resp.status_code == 302
+    delete_education.assert_called_once_with("XXXX-XXXX-XXXX-0001", 54321)
+
+    delete_funding = mocker.patch(
+            "orcid_hub.orcid_client.MemberAPIV20Api.delete_funding",
+            MagicMock(return_value='{"test": "TEST1234567890"}'))
+    resp = client.post(f"/section/{user.id}/FUN/54321/delete")
+    assert resp.status_code == 302
+    delete_funding.assert_called_once_with("XXXX-XXXX-XXXX-0001", 54321)
+
+    delete_peer_review = mocker.patch(
+            "orcid_hub.orcid_client.MemberAPIV20Api.delete_peer_review",
+            MagicMock(return_value='{"test": "TEST1234567890"}'))
+    resp = client.post(f"/section/{user.id}/PRR/54321/delete")
+    assert resp.status_code == 302
+    delete_peer_review.assert_called_once_with("XXXX-XXXX-XXXX-0001", 54321)
+
+    delete_work = mocker.patch(
+            "orcid_hub.orcid_client.MemberAPIV20Api.delete_work",
+            MagicMock(return_value='{"test": "TEST1234567890"}'))
+    resp = client.post(f"/section/{user.id}/WOR/54321/delete")
+    assert resp.status_code == 302
+    delete_work.assert_called_once_with("XXXX-XXXX-XXXX-0001", 54321)
+
     token.scope = "/read-limited,/person/update"
     token.save()
-    with patch.object(
-            orcid_client.MemberAPIV20Api,
-            "delete_researcher_url",
-            MagicMock(return_value='{"test": "TEST1234567890"}')) as delete_researcher_url, request_ctx(
-                f"/section/{user.id}/RUR/54321/delete", method="POST") as ctx:
-        login_user(admin)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 302
-        delete_researcher_url.assert_called_once_with("XXXX-XXXX-XXXX-0001", 54321)
-    with patch.object(
-            orcid_client.MemberAPIV20Api,
-            "delete_other_name",
-            MagicMock(return_value='{"test": "TEST1234567890"}')) as delete_other_name, request_ctx(
-                f"/section/{user.id}/ONR/54321/delete", method="POST") as ctx:
-        login_user(admin)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 302
-        delete_other_name.assert_called_once_with("XXXX-XXXX-XXXX-0001", 54321)
-    with patch.object(
-            orcid_client.MemberAPIV20Api,
-            "delete_keyword",
-            MagicMock(return_value='{"test": "TEST1234567890"}')) as delete_keyword, request_ctx(
-                f"/section/{user.id}/KWR/54321/delete", method="POST") as ctx:
-        login_user(admin)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 302
-        delete_keyword.assert_called_once_with("XXXX-XXXX-XXXX-0001", 54321)
+    delete_researcher_url = mocker.patch(
+            "orcid_hub.orcid_client.MemberAPIV20Api.delete_researcher_url",
+            MagicMock(return_value='{"test": "TEST1234567890"}'))
+    resp = client.post(f"/section/{user.id}/RUR/54321/delete")
+    assert resp.status_code == 302
+    delete_researcher_url.assert_called_once_with("XXXX-XXXX-XXXX-0001", 54321)
+
+    delete_other_name = mocker.patch(
+            "orcid_hub.orcid_client.MemberAPIV20Api.delete_other_name",
+            MagicMock(return_value='{"test": "TEST1234567890"}'))
+    resp = client.post(f"/section/{user.id}/ONR/54321/delete")
+    assert resp.status_code == 302
+    delete_other_name.assert_called_once_with("XXXX-XXXX-XXXX-0001", 54321)
+
+    delete_keyword = mocker.patch(
+            "orcid_hub.orcid_client.MemberAPIV20Api.delete_keyword",
+            MagicMock(return_value='{"test": "TEST1234567890"}'))
+    resp = client.post(f"/section/{user.id}/KWR/54321/delete")
+    assert resp.status_code == 302
+    delete_keyword.assert_called_once_with("XXXX-XXXX-XXXX-0001", 54321)
 
 
 def test_viewmembers(client):
