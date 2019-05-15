@@ -29,7 +29,7 @@ from yaml.representer import SafeRepresenter
 
 from . import app, orcid_client, rq
 from .models import (AFFILIATION_TYPES, Affiliation, AffiliationRecord, Delegate, FundingInvitee,
-                     FundingRecord, KeywordRecord, Log, OtherNameRecord, OrcidToken, Organisation,
+                     FundingRecord, KeywordRecord, Log, OtherIdRecord, OrcidToken, Organisation,
                      OrgInvitation, PartialDate, PeerReviewExternalId, PeerReviewInvitee,
                      PeerReviewRecord, PropertyRecord, Role, Task, TaskType, User,
                      UserInvitation, UserOrg, WorkInvitee, WorkRecord, get_val)
@@ -873,9 +873,9 @@ def create_or_update_properties(user, org_id, records, *args, **kwargs):
 
 
 # TODO: delete
-def create_or_update_other_name(user, org_id, records, *args, **kwargs):
-    """Create or update Other name record of a user."""
-    records = list(unique_everseen(records, key=lambda t: t.other_name_record.id))
+def create_or_update_other_id(user, org_id, records, *args, **kwargs):
+    """Create or update Other Id record of a user."""
+    records = list(unique_everseen(records, key=lambda t: t.other_id_record.id))
     org = Organisation.get(id=org_id)
     profile_record = None
     token = OrcidToken.select(OrcidToken.access_token).where(OrcidToken.user_id == user.id, OrcidToken.org_id == org.id,
@@ -886,16 +886,16 @@ def create_or_update_other_name(user, org_id, records, *args, **kwargs):
     if profile_record:
         activities = profile_record.get("person")
 
-        other_name_records = [
-            r for r in (activities.get("other-names").get("other-name")) if is_org_rec(org, r)
+        other_id_records = [
+            r for r in (activities.get("external-identifiers").get("external-identifier")) if is_org_rec(org, r)
         ]
 
         taken_put_codes = {
-            r.other_name_record.put_code
-            for r in records if r.other_name_record.put_code
+            r.other_id_record.put_code
+            for r in records if r.other_id_record.put_code
         }
 
-        def match_put_code(records, other_name_record):
+        def match_put_code(records, other_id_record):
             """Match and assign put-code to the existing ORCID records."""
             for r in records:
                 try:
@@ -904,41 +904,45 @@ def create_or_update_other_name(user, org_id, records, *args, **kwargs):
                     app.logger.exception("Failed to get ORCID iD/put-code from the response.")
                     raise Exception("Failed to get ORCID iD/put-code from the response.")
 
-                if (r.get("content") == other_name_record.content
-                    and get_val(r, "visibility") == other_name_record.visibility
-                    and get_val(r, "display-index") == other_name_record.display_index):         # noqa: E129
-                    other_name_record.put_code = put_code
-                    other_name_record.orcid = orcid
+                if (r.get("external-id-type") == other_id_record.type
+                    and get_val(r, "external-id-value") == other_id_record.value
+                    and get_val(r, "external-id-url", "value") == other_id_record.url
+                    and get_val(r, "external-id-relationship") == other_id_record.relationship):        # noqa: E129
+                    other_id_record.put_code = put_code
+                    other_id_record.orcid = orcid
                     return True
 
-                if other_name_record.put_code:
+                if other_id_record.put_code:
                     return
 
                 if put_code in taken_put_codes:
                     continue
 
-                if (r.get("content") is None or r.get("content") == other_name_record.content):
-                    other_name_record.put_code = put_code
-                    other_name_record.orcid = orcid
+                if ((r.get("external-id-type") is None and r.get("external-id-value") is None and get_val(
+                    r, "external-id-url", "value") is None and get_val(r, "external-id-relationship") is None)
+                    or (r.get("external-id-type") == other_id_record.type
+                        and get_val(r, "external-id-value") == other_id_record.value)):
+                    other_id_record.put_code = put_code
+                    other_id_record.orcid = orcid
                     taken_put_codes.add(put_code)
                     app.logger.debug(
-                        f"put-code {put_code} was asigned to the other name record "
-                        f"(ID: {other_name_record.id}, Task ID: {other_name_record.task_id})")
+                        f"put-code {put_code} was asigned to the other id record "
+                        f"(ID: {other_id_record.id}, Task ID: {other_id_record.task_id})")
                     break
 
         for task_by_user in records:
             try:
-                rr = task_by_user.other_name_record
-                no_orcid_call = match_put_code(other_name_records, rr)
+                rr = task_by_user.other_id_record
+                no_orcid_call = match_put_code(other_id_records, rr)
 
                 if no_orcid_call:
-                    rr.add_status_line("Other Name url record unchanged.")
+                    rr.add_status_line("Other ID record unchanged.")
                 else:
-                    put_code, orcid, created = api.create_or_update_other_name(**rr._data)
+                    put_code, orcid, created = api.create_or_update_person_external_id(**rr._data)
                     if created:
-                        rr.add_status_line("Other Name record was created.")
+                        rr.add_status_line("Other ID record was created.")
                     else:
-                        rr.add_status_line("Other Name record was updated.")
+                        rr.add_status_line("Other ID record was updated.")
                     rr.orcid = orcid
                     rr.put_code = put_code
             except ApiException as ex:
@@ -1869,24 +1873,24 @@ def process_property_records(max_rows=20, record_id=None):
 
 
 @rq.job(timeout=300)
-def process_other_name_records(max_rows=20, record_id=None):
-    """Process uploaded Other Name records."""
+def process_other_id_records(max_rows=20, record_id=None):
+    """Process uploaded Other ID records."""
     set_server_name()
     # TODO: optimize
     task_ids = set()
     tasks = (Task.select(
-        Task, OtherNameRecord, User, UserInvitation.id.alias("invitation_id"), OrcidToken).where(
-            OtherNameRecord.processed_at.is_null(), OtherNameRecord.is_active,
+        Task, OtherIdRecord, User, UserInvitation.id.alias("invitation_id"), OrcidToken).where(
+            OtherIdRecord.processed_at.is_null(), OtherIdRecord.is_active,
             ((User.id.is_null(False) & User.orcid.is_null(False) & OrcidToken.id.is_null(False))
              | ((User.id.is_null() | User.orcid.is_null() | OrcidToken.id.is_null())
                 & UserInvitation.id.is_null()
-                & (OtherNameRecord.status.is_null()
-                   | OtherNameRecord.status.contains("sent").__invert__())))).join(
-                       OtherNameRecord, on=(Task.id == OtherNameRecord.task_id)).join(
+                & (OtherIdRecord.status.is_null()
+                   | OtherIdRecord.status.contains("sent").__invert__())))).join(
+                       OtherIdRecord, on=(Task.id == OtherIdRecord.task_id)).join(
                            User,
                            JOIN.LEFT_OUTER,
-                           on=((User.email == OtherNameRecord.email)
-                               | ((User.orcid == OtherNameRecord.orcid)
+                           on=((User.email == OtherIdRecord.email)
+                               | ((User.orcid == OtherIdRecord.orcid)
                                   & (User.organisation_id == Task.org_id)))).join(
                                    Organisation,
                                    JOIN.LEFT_OUTER,
@@ -1898,7 +1902,7 @@ def process_other_name_records(max_rows=20, record_id=None):
              join(
                  UserInvitation,
                  JOIN.LEFT_OUTER,
-                 on=((UserInvitation.email == OtherNameRecord.email)
+                 on=((UserInvitation.email == OtherIdRecord.email)
                      & (UserInvitation.task_id == Task.id))).join(
                          OrcidToken,
                          JOIN.LEFT_OUTER,
@@ -1906,18 +1910,18 @@ def process_other_name_records(max_rows=20, record_id=None):
                              & (OrcidToken.org_id == Organisation.id)
                              & (OrcidToken.scope.contains("/person/update")))).limit(max_rows))
     if record_id:
-        tasks = tasks.where(OtherNameRecord.id == record_id)
+        tasks = tasks.where(OtherIdRecord.id == record_id)
     for (task_id, org_id, user), tasks_by_user in groupby(tasks, lambda t: (
             t.id,
             t.org_id,
-            t.other_name_record.user, )):
+            t.other_id_record.user, )):
         if (user.id is None or user.orcid is None or not OrcidToken.select().where(
             (OrcidToken.user_id == user.id) & (OrcidToken.org_id == org_id)
                 & (OrcidToken.scope.contains("/person/update"))).exists()):  # noqa: E127, E129
             for k, tasks in groupby(
                     tasks_by_user,
-                    lambda t: (t.created_by, t.org, t.other_name_record.email, t.other_name_record.first_name,
-                               t.other_name_record.last_name)):  # noqa: E501
+                    lambda t: (t.created_by, t.org, t.other_id_record.email, t.other_id_record.first_name,
+                               t.other_id_record.last_name)):  # noqa: E501
                 try:
                     email = k[2]
                     send_work_funding_peer_review_invitation(
@@ -1925,33 +1929,33 @@ def process_other_name_records(max_rows=20, record_id=None):
                         task_id=task_id,
                         invitation_template="email/person_update_invitation.html")
                     status = "The invitation sent at " + datetime.utcnow().isoformat(timespec="seconds")
-                    (OtherNameRecord.update(status=OtherNameRecord.status + "\n" + status).where(
-                        OtherNameRecord.status.is_null(False), OtherNameRecord.email == email).execute())
-                    (OtherNameRecord.update(status=status).where(OtherNameRecord.status.is_null(),
-                                                                 OtherNameRecord.email == email).execute())
+                    (OtherIdRecord.update(status=OtherIdRecord.status + "\n" + status).where(
+                        OtherIdRecord.status.is_null(False), OtherIdRecord.email == email).execute())
+                    (OtherIdRecord.update(status=status).where(OtherIdRecord.status.is_null(),
+                                                               OtherIdRecord.email == email).execute())
                 except Exception as ex:
-                    (OtherNameRecord.update(
+                    (OtherIdRecord.update(
                         processed_at=datetime.utcnow(),
                         status=f"Failed to send an invitation: {ex}.").where(
-                            OtherNameRecord.task_id == task_id, OtherNameRecord.email == email,
-                            OtherNameRecord.processed_at.is_null())).execute()
+                            OtherIdRecord.task_id == task_id, OtherIdRecord.email == email,
+                            OtherIdRecord.processed_at.is_null())).execute()
         else:
-            create_or_update_other_name(user, org_id, tasks_by_user)
+            create_or_update_other_id(user, org_id, tasks_by_user)
         task_ids.add(task_id)
     for task in Task.select().where(Task.id << task_ids):
         # The task is completed (all recores are processed):
-        if not (OtherNameRecord.select().where(
-                OtherNameRecord.task_id == task.id,
-                OtherNameRecord.processed_at.is_null()).exists()):
+        if not (OtherIdRecord.select().where(
+                OtherIdRecord.task_id == task.id,
+                OtherIdRecord.processed_at.is_null()).exists()):
             task.completed_at = datetime.utcnow()
             task.save()
-            error_count = OtherNameRecord.select().where(
-                OtherNameRecord.task_id == task.id, OtherNameRecord.status**"%error%").count()
+            error_count = OtherIdRecord.select().where(
+                OtherIdRecord.task_id == task.id, OtherIdRecord.status**"%error%").count()
             row_count = task.record_count
 
             with app.app_context():
                 export_url = flask.url_for(
-                    "othernamerecord.export",
+                    "otheridrecord.export",
                     export_type="json",
                     _scheme="http" if EXTERNAL_SP else "https",
                     task_id=task.id,
@@ -1959,12 +1963,12 @@ def process_other_name_records(max_rows=20, record_id=None):
                 try:
                     send_email(
                         "email/work_task_completed.html",
-                        subject="Other Name Record Process Update",
+                        subject="Other ID Record Process Update",
                         recipient=(task.created_by.name, task.created_by.email),
                         error_count=error_count,
                         row_count=row_count,
                         export_url=export_url,
-                        task_name="Other Name",
+                        task_name="Other ID",
                         filename=task.filename)
                 except Exception:
                     logger.exception(
@@ -2246,6 +2250,7 @@ def process_records(n):
     process_work_records(n)
     process_peer_review_records(n)
     process_property_records(n)
+    process_other_id_records(n)
     # process_tasks(n)
 
 

@@ -185,7 +185,7 @@ class TaskResource(AppResource):
         if request.method != "HEAD":
             if task.task_type in [
                     TaskType.AFFILIATION, TaskType.FUNDING, TaskType.PEER_REVIEW,
-                    TaskType.PROPERTY, TaskType.WORK
+                    TaskType.PROPERTY, TaskType.WORK, TaskType.OTHER_ID
             ]:
                 resp = jsonify(task.to_export_dict())
             else:

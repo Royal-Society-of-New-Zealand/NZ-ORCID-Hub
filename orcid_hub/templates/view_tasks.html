@@ -22,6 +22,10 @@
     <a class="icon" href="{{ url_for('peerreviewrecord.index_view', task_id=row.id, url=request.url) }}" title="View Details">
       <span class="fa fa-eye glyphicon glyphicon-eye-open"></span>
     </a>
+{% elif row.task_type == 5 %}
+    <a class="icon" href="{{ url_for('otheridrecord.index_view', task_id=row.id, url=request.url) }}" title="View Details">
+      <span class="fa fa-eye glyphicon glyphicon-eye-open"></span>
+    </a>
 {% elif row.task_type == 8 %}
     <a class="icon" href="{{ url_for('propertyrecord.index_view', task_id=row.id, url=request.url) }}" title="View Details">
       <span class="fa fa-eye glyphicon glyphicon-eye-open"></span>

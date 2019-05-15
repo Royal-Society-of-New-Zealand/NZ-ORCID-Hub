@@ -47,7 +47,7 @@ from .forms import (AddressForm, ApplicationFrom, BitmapMultipleValueField, Cred
 from .login_provider import roles_required
 from .models import (JOIN, Affiliation, AffiliationRecord, CharField, Client, Delegate, ExternalId,
                      FixedCharField, File, FundingContributor, FundingInvitee, FundingRecord,
-                     Grant, GroupIdRecord, ModelException, NestedDict, OrcidApiCall, OrcidToken,
+                     Grant, GroupIdRecord, ModelException, NestedDict, OtherIdRecord, OrcidApiCall, OrcidToken,
                      Organisation, OrgInfo, OrgInvitation, PartialDate, PropertyRecord,
                      PeerReviewExternalId, PeerReviewInvitee, PeerReviewRecord, PostgresqlDatabase,
                      Role, Task, TaskType, TextField, Token, Url, User, UserInvitation, UserOrg,
@@ -1863,6 +1863,7 @@ admin.add_view(PeerReviewRecordAdmin())
 admin.add_view(InviteeAdmin(PeerReviewInvitee))
 admin.add_view(RecordChildAdmin(PeerReviewExternalId))
 admin.add_view(ProfilePropertyRecordAdmin(PropertyRecord))
+admin.add_view(ProfilePropertyRecordAdmin(OtherIdRecord))
 admin.add_view(ViewMembersAdmin(name="viewmembers", endpoint="viewmembers"))
 
 admin.add_view(UserOrgAmin(UserOrg))
@@ -1956,7 +1957,7 @@ def reset_all():
         try:
             status = "The record was reset at " + datetime.now().isoformat(timespec="seconds")
             tt = task.task_type
-            if tt in [TaskType.AFFILIATION, TaskType.PROPERTY]:
+            if tt in [TaskType.AFFILIATION, TaskType.PROPERTY, TaskType.OTHER_ID]:
                 count = task.record_model.update(
                     processed_at=None, status=status).where(
                         task.record_model.task_id == task_id,
@@ -2828,6 +2829,30 @@ def load_keyword():
 def load_country():
     """Preload Country data."""
     return load_properties(property_type="COUNTRY")
+
+
+@app.route("/load/other/ids", methods=["GET", "POST"])
+@roles_required(Role.ADMIN)
+def load_other_ids():
+    """Preload researcher's Other IDs data."""
+    form = FileUploadForm(extensions=["json", "yaml", "csv", "tsv"])
+    if form.validate_on_submit():
+        filename = secure_filename(form.file_.data.filename)
+        content_type = form.file_.data.content_type
+        try:
+            if content_type in ["text/tab-separated-values", "text/csv"] or (
+                    filename and filename.lower().endswith(('.csv', '.tsv'))):
+                task = OtherIdRecord.load_from_csv(
+                    read_uploaded_file(form), filename=filename)
+            else:
+                task = OtherIdRecord.load_from_json(read_uploaded_file(form), filename=filename)
+            flash(f"Successfully loaded {task.record_count} rows.")
+            return redirect(url_for("otheridrecord.index_view", task_id=task.id))
+        except Exception as ex:
+            flash(f"Failed to load Other IDs record file: {ex}", "danger")
+            app.logger.exception("Failed to load  Other IDs records.")
+
+    return render_template("fileUpload.html", form=form, title="Other IDs Info Upload")
 
 
 @app.route("/orcid_api_rep", methods=["GET", "POST"])

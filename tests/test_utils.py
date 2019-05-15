@@ -729,7 +729,7 @@ def test_create_or_update_other_name(app, mocker):
         last_name="Test",
         email="test1234456@mailinator.com",
         visibility="PUBLIC",
-        content="dummy name",
+        value="dummy name",
         display_index=0)
 
     UserInvitation.create(
@@ -776,7 +776,7 @@ def test_create_or_update_keyword(app, mocker):
         last_name="Test",
         email="test1234456@mailinator.com",
         visibility="PUBLIC",
-        content="dummy name",
+        value="dummy name",
         display_index=0)
 
     UserInvitation.create(

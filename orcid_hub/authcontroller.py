@@ -976,7 +976,8 @@ def orcid_login(invitation_token=None):
 
             if hasattr(invitation, "task_id") and invitation.task_id:
                 is_scope_person_update = Task.select().where(
-                    Task.id == invitation.task_id, Task.task_type == TaskType.PROPERTY).exists()
+                    Task.id == invitation.task_id, Task.task_type == TaskType.PROPERTY).exists() or Task.select().where(
+                    Task.id == invitation.task_id, Task.task_type == TaskType.OTHER_ID).exists()
 
             if is_scope_person_update and OrcidToken.select().where(
                     OrcidToken.user == user, OrcidToken.org == org,
