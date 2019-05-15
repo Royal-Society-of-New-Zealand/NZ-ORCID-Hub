@@ -1241,13 +1241,14 @@ class MemberAPI(MemberAPIV20Api):
         else:
             return (put_code, orcid, created)
 
-    def create_or_update_address(self, country=None, display_index=None, orcid=None, put_code=None, visibility=None,
-                                 *args, **kwargs):
+    def create_or_update_address(self, country=None, value=None, display_index=None, orcid=None, put_code=None,
+                                 visibility=None, *args, **kwargs):
         """Create or update address record of an user."""
         rec = Address()       # noqa: F405
 
         if put_code:
             rec.put_code = put_code
+        country = country or value
         if country:
             rec.country = Country(value=country)      # noqa: F405
         if visibility:

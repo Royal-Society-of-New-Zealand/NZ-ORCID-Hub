@@ -2823,6 +2823,13 @@ def load_keyword():
     return load_properties(property_type="KEYWORD")
 
 
+@app.route("/load/country", methods=["GET", "POST"])
+@roles_required(Role.ADMIN)
+def load_country():
+    """Preload Country data."""
+    return load_properties(property_type="COUNTRY")
+
+
 @app.route("/orcid_api_rep", methods=["GET", "POST"])
 @roles_required(Role.SUPERUSER)
 def orcid_api_rep():

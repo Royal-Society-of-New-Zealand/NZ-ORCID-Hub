@@ -772,6 +772,9 @@ def create_or_update_properties(user, org_id, records, *args, **kwargs):
         keywords = [
             r for r in (activities.get("keywords").get("keyword")) if is_org_rec(org, r)
         ]
+        countries = [
+            r for r in (activities.get("addresses").get("address")) if is_org_rec(org, r)
+        ]
 
         taken_put_codes = {
             r.record.put_code
@@ -781,7 +784,8 @@ def create_or_update_properties(user, org_id, records, *args, **kwargs):
         def match_put_code(record):
             """Match and assign put-code to the existing ORCID records."""
             for r in (researcher_urls if record.type == "URL" else
-                      other_names if record.type == "NAME" else keywords):
+                      other_names if record.type == "NAME" else
+                      countries if record.type == "COUNTRY" else keywords):
 
                 try:
                     orcid, put_code = r.get("path").split("/")[-3::2]
@@ -794,7 +798,9 @@ def create_or_update_properties(user, org_id, records, *args, **kwargs):
                 if ((record.type == "URL" and r.get("url-name") == record.name
                      and r.get("url", "value") == record.value) or
                         (record.type in ["NAME", "KEYWORD"]
-                         and r.get("content") == record.value)):  # noqa: E129
+                         and r.get("content") == record.value) or
+                        (record.type == "COUNTRY"
+                         and r.get("country", "value") == record.value)):  # noqa: E129
 
                     record.put_code = put_code
                     record.orcid = orcid
@@ -807,12 +813,10 @@ def create_or_update_properties(user, org_id, records, *args, **kwargs):
                     continue
 
                 # Partial match of URLs
-                if ((record.type == "URL" and
-                    ((r.get("url-name") is None and get_val(r, "url", "value") is None) or
-                     (r.get("url-name") == record.name
-                      and get_val(r, "url", "value") == record.value))) or (
-                          record.type in ["NAME", "KEYWORD"]
-                          and r.get("content") == record.value)):
+                if ((record.type == "URL" and ((r.get("url-name") is None and get_val(r, "url", "value") is None) or (
+                            r.get("url-name") == record.name and get_val(r, "url", "value") == record.value)))
+                    or (record.type in ["NAME", "KEYWORD"] and r.get("content") == record.value) or (
+                        record.type == "COUNTRY" and r.get("country", "value") == record.value)):
                     record.put_code = put_code
                     record.orcid = orcid
                     if not record.visibility:
@@ -837,6 +841,8 @@ def create_or_update_properties(user, org_id, records, *args, **kwargs):
                         put_code, orcid, created = api.create_or_update_researcher_url(**rr._data)
                     elif rr.type == "NAME":
                         put_code, orcid, created = api.create_or_update_other_name(**rr._data)
+                    elif rr.type == "COUNTRY":
+                        put_code, orcid, created = api.create_or_update_address(**rr._data)
                     else:
                         put_code, orcid, created = api.create_or_update_keyword(**rr._data)
 

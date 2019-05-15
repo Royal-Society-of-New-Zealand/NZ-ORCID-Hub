@@ -211,6 +211,12 @@ property_record = {
         {
             "required": ["name", "value", "orcid"]
         },
+        {
+            "required": ["country", "email"]
+        },
+        {
+            "required": ["country", "orcid"]
+        },
     ]
 }
 

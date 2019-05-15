@@ -3005,7 +3005,7 @@ class PropertyRecord(RecordModel):
 
         header_rexs = [
             re.compile(ex, re.I) for ex in [
-                r"(url)?.*name", r".*value|.*content", r"(display)?.*index", "email",
+                r"(url)?.*name", r".*value|.*content|.*country", r"(display)?.*index", "email",
                 r"first\s*(name)?", r"(last|sur)\s*(name)?", "orcid.*", r"put|code",
                 r"(is)?\s*visib(bility|le)?", "(propery)?.*type", r"(is)?\s*active$",
             ]
@@ -3077,10 +3077,19 @@ class PropertyRecord(RecordModel):
                         if not name:
                             raise ModelException(
                                 f"Missing URL Name. For Researcher URL Name is expected: {row}.")
+                    elif property_type == "COUNTRY":
+                        # The uploaded country must be from ISO 3166-1 alpha-2
+                        if value:
+                            try:
+                                value = countries.lookup(value).alpha_2
+                            except Exception:
+                                raise ModelException(
+                                    f" (Country must be 2 character from ISO 3166-1 alpha-2) in the row "
+                                    f"#{row_no+2}: {row}. Header: {header}")
 
                     if not value:
                         raise ModelException(
-                            "Wrong number of fields. Expected at least fields ( content or value "
+                            "Wrong number of fields. Expected at least fields ( content or value or country and "
                             f"email address or another unique identifier): {row}")
 
                     rr = cls(
@@ -3132,7 +3141,8 @@ class PropertyRecord(RecordModel):
                 file_property_type = {
                     "RESEARCHER_URL": "URL",
                     "OTHER_NAME": "NAME",
-                    "KEYWORD": "KEYWORD"
+                    "KEYWORD": "KEYWORD",
+                    "COUNTRY": "COUNTRY"
                 }.get(task_type)
         else:
             records = data
@@ -3148,7 +3158,7 @@ class PropertyRecord(RecordModel):
                 for r in records:
 
                     value = r.get("value") or r.get(
-                        "url", "value") or r.get("url-value") or r.get("content")
+                        "url", "value") or r.get("url-value") or r.get("content") or r.get("country")
                     display_index = r.get("display-index")
                     property_type = r.get("type") or file_property_type
                     if property_type:
@@ -3173,6 +3183,14 @@ class PropertyRecord(RecordModel):
                         if not name:
                             raise ModelException(
                                 f"Missing URL Name. For Researcher URL Name is expected: {r}.")
+                    elif property_type == "COUNTRY":
+                        # The uploaded country must be from ISO 3166-1 alpha-2
+                        if value:
+                            try:
+                                value = countries.lookup(value).alpha_2
+                            except Exception:
+                                raise ModelException(
+                                    f"(Country {value} must be 2 character from ISO 3166-1 alpha-2): {r}.")
 
                     cls.create(
                         task=task,
@@ -3477,10 +3495,9 @@ class WorkRecord(RecordModel):
                     translated_title_language_code = r.get("title", "translated-title", "language-code")
                     journal_title = r.get("journal-title", "value")
                     short_description = r.get("short-description")
-                    citation_type = get_val(work_data, "citation", "citation-type")
+                    citation_type = r.get("citation", "citation-type")
                     if citation_type:
                         citation_type = citation_type.strip().upper()
-                    citation_type = r.get("citation", "citation-type")
                     citation_value = r.get("citation", "citation-value")
                     type = r.get("type")
                     publication_media_type = r.get("publication-date", "media-type")
