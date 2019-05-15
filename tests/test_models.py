@@ -12,7 +12,7 @@ from orcid_hub import JSONEncoder
 from orcid_hub.models import (
     Affiliation, AffiliationRecord, BaseModel, BooleanField, ExternalId, File, ForeignKeyField,
     FundingContributor, FundingInvitee, FundingRecord, Log, ModelException, NestedDict, OrcidToken,
-    Organisation, OrgInfo, PartialDate, PartialDateField, PeerReviewExternalId,
+    Organisation, OrgInfo, OrcidApiCall, PartialDate, PartialDateField, PropertyRecord, PeerReviewExternalId,
     PeerReviewInvitee, PeerReviewRecord, Role, Task, TaskType, TaskTypeField,
     TextField, User, UserInvitation, UserOrg, UserOrgAffiliation, WorkContributor, WorkExternalId,
     WorkInvitee, WorkRecord, app, create_tables, drop_tables, load_yaml_json, validate_orcid_id)
@@ -32,9 +32,9 @@ def testdb():
     _db = SqliteDatabase(":memory:", pragmas=[("foreign_keys", "on")])
     with test_database(
             _db, (Organisation, File, User, UserInvitation, UserOrg, OrgInfo,
-                  OrcidToken, UserOrgAffiliation, Task, AffiliationRecord, ExternalId,
+                  OrcidToken, OrcidApiCall, UserOrgAffiliation, Task, AffiliationRecord, ExternalId,
                   FundingRecord, FundingContributor, FundingInvitee, WorkRecord, WorkContributor,
-                  WorkExternalId, WorkInvitee, PeerReviewRecord, PeerReviewExternalId,
+                  WorkExternalId, WorkInvitee, PropertyRecord, PeerReviewRecord, PeerReviewExternalId,
                   PeerReviewInvitee),
             fail_silently=True) as _test_db:
         yield _test_db
@@ -147,7 +147,7 @@ def models(testdb):
         last_name="Test_%d" % i,
         email="Test_%d" % i,
         orcid="123112311231%d" % i,
-        content="Test_%d" % i,
+        value="Test_%d" % i,
         visibility="Test_%d" % i,
         display_index=i) for i in range(10))).execute()
 
@@ -161,7 +161,7 @@ def models(testdb):
         last_name="Test_%d" % i,
         email="Test_%d" % i,
         orcid="123112311231%d" % i,
-        content="Test_%d" % i,
+        value="Test_%d" % i,
         visibility="Test_%d" % i,
         display_index=i) for i in range(10))).execute()
 
