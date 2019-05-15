@@ -168,7 +168,7 @@ def app():
          AffiliationRecord, FundingRecord, FundingContributor, FundingInvitee, GroupIdRecord,
          OrcidAuthorizeCall, OrcidApiCall, Url, UserInvitation, OrgInvitation, ExternalId, Client,
          Grant, Token, WorkRecord, WorkContributor, WorkExternalId, WorkInvitee, PeerReviewRecord,
-         PeerReviewInvitee, PeerReviewExternalId, PropertyRecord, ResearcherUrlRecord, OrcidApiCall,
+         PeerReviewInvitee, PeerReviewExternalId, PropertyRecord, OrcidApiCall,
          OtherNameRecord, KeywordRecord),
             fail_silently=True):  # noqa: F405
         _app.db = _db

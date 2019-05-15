@@ -85,7 +85,7 @@ CITATION_TYPES = [
     "BIBTEX", "FORMATTED_APA", "FORMATTED_CHICAGO", "FORMATTED_HARVARD", "FORMATTED_IEEE",
     "FORMATTED_MLA", "FORMATTED_UNSPECIFIED", "FORMATTED_VANCOUVER", "RIS"
 ]
-PROPERTY_TYPES = ["URL", "NAME", "KEYWORD", "COUNTRY", "ID", "EMAIL"]
+PROPERTY_TYPES = ["URL", "NAME", "KEYWORD", "COUNTRY"]
 citation_type_choices = [(v, v.replace('_', ' ').title()) for v in CITATION_TYPES]
 
 country_choices = [(c.alpha_2, c.name) for c in countries]

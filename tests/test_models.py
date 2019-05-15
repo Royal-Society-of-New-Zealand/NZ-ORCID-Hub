@@ -11,9 +11,9 @@ from playhouse.test_utils import test_database
 from orcid_hub import JSONEncoder
 from orcid_hub.models import (
     Affiliation, AffiliationRecord, BaseModel, BooleanField, ExternalId, File, ForeignKeyField,
-    FundingContributor, FundingInvitee, FundingRecord, KeywordRecord, Log, ModelException, NestedDict, OrcidToken,
-    Organisation, OrgInfo, OtherNameRecord, PartialDate, PartialDateField, PeerReviewExternalId,
-    PeerReviewInvitee, PeerReviewRecord, ResearcherUrlRecord, Role, Task, TaskType, TaskTypeField,
+    FundingContributor, FundingInvitee, FundingRecord, Log, ModelException, NestedDict, OrcidToken,
+    Organisation, OrgInfo, PartialDate, PartialDateField, PeerReviewExternalId,
+    PeerReviewInvitee, PeerReviewRecord, Role, Task, TaskType, TaskTypeField,
     TextField, User, UserInvitation, UserOrg, UserOrgAffiliation, WorkContributor, WorkExternalId,
     WorkInvitee, WorkRecord, app, create_tables, drop_tables, load_yaml_json, validate_orcid_id)
 
@@ -31,11 +31,11 @@ def testdb():
     """
     _db = SqliteDatabase(":memory:", pragmas=[("foreign_keys", "on")])
     with test_database(
-            _db, (Organisation, File, KeywordRecord, User, UserInvitation, UserOrg, OtherNameRecord, OrgInfo,
+            _db, (Organisation, File, User, UserInvitation, UserOrg, OrgInfo,
                   OrcidToken, UserOrgAffiliation, Task, AffiliationRecord, ExternalId,
                   FundingRecord, FundingContributor, FundingInvitee, WorkRecord, WorkContributor,
                   WorkExternalId, WorkInvitee, PeerReviewRecord, PeerReviewExternalId,
-                  PeerReviewInvitee, ResearcherUrlRecord),
+                  PeerReviewInvitee),
             fail_silently=True) as _test_db:
         yield _test_db
 
@@ -122,7 +122,8 @@ def models(testdb):
         disambiguated_id="Test_%d" % i,
         disambiguation_source="Test_%d" % i) for i in range(10))).execute()
 
-    ResearcherUrlRecord.insert_many((dict(
+    PropertyRecord.insert_many((dict(
+        type="URL",
         is_active=False,
         task=Task.get(id=1),
         put_code=90,
@@ -136,7 +137,8 @@ def models(testdb):
         visibility="Test_%d" % i,
         display_index=i) for i in range(10))).execute()
 
-    OtherNameRecord.insert_many((dict(
+    PropertyRecord.insert_many((dict(
+        type="NAME",
         is_active=False,
         task=Task.get(id=1),
         put_code=90,
@@ -149,7 +151,8 @@ def models(testdb):
         visibility="Test_%d" % i,
         display_index=i) for i in range(10))).execute()
 
-    KeywordRecord.insert_many((dict(
+    PropertyRecord.insert_many((dict(
+        type="KEYWORD",
         is_active=False,
         task=Task.get(id=1),
         put_code=90,
@@ -333,9 +336,9 @@ def test_test_database(models):
     assert PeerReviewRecord.select().count() == 10
     assert PeerReviewExternalId.select().count() == 10
     assert PeerReviewInvitee.select().count() == 10
-    assert ResearcherUrlRecord.select().count() == 10
-    assert OtherNameRecord.select().count() == 10
-    assert KeywordRecord.select().count() == 10
+    assert PropertyRecord.select().where(PropertyRecord.type == "URL").count() == 10
+    assert PropertyRecord.select().where(PropertyRecord.type == "NAME").count() == 10
+    assert PropertyRecord.select().where(PropertyRecord.type == "KEYWORD").count() == 10
     assert Task.select().count() == 30
     assert UserOrgAffiliation.select().count() == 30
 
@@ -731,10 +734,10 @@ def test_other_names(models):
     assert isinstance(data0, list) and isinstance(data0[0], NestedDict)
     data0 = load_yaml_json(None, source=raw_data0)
     assert isinstance(data0, list) and isinstance(data0[0], NestedDict)
-    task0 = OtherNameRecord.load_from_json(filename="othernames000.json", source=raw_data0, org=org)
+    task0 = PropertyRecord.load_from_json(filename="othernames000.json", source=raw_data0, org=org, file_property_type="NAME")
     data = task0.to_dict()
     raw_data = json.dumps(data, cls=JSONEncoder)
-    task = OtherNameRecord.load_from_json(filename="othernames001.json", source=raw_data, org=org)
+    task = PropertyRecord.load_from_json(filename="othernames001.json", source=raw_data, org=org, file_property_type="NAME")
     assert len(data0) == len(task.to_dict()["records"])
 
 
@@ -743,8 +746,8 @@ def test_researcher_urls(models):
     raw_data0 = open(os.path.join(os.path.dirname(__file__), "data", "researchurls.json"), "r").read()
     data0 = load_yaml_json("researchurls.json", raw_data0)
     assert isinstance(data0, list) and isinstance(data0[0], NestedDict)
-    task0 = ResearcherUrlRecord.load_from_json(filename="researchurls000.json", source=raw_data0, org=org)
+    task0 = PropertyRecord.load_from_json(filename="researchurls000.json", source=raw_data0, org=org, file_property_type="URL")
     data = task0.to_dict()
     raw_data = json.dumps(data, cls=JSONEncoder)
-    task = ResearcherUrlRecord.load_from_json(filename="researchurls001.json", source=raw_data, org=org)
+    task = PropertyRecord.load_from_json(filename="researchurls001.json", source=raw_data, org=org, file_property_type="URL")
     assert len(data0) == len(task.to_dict()["records"])

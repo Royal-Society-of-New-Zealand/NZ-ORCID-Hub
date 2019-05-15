@@ -2719,16 +2719,17 @@ def test_reset_all(client):
         citation_type="Test_citation_type",
         citation_value="Test_visibity")
 
-    researcher_url_task = Task.create(
+    property_task = Task.create(
         org=org,
         filename="xyz.json",
         created_by=user,
         updated_by=user,
-        task_type=TaskType.RESEARCHER_URL,
+        task_type=TaskType.PROPERTY,
         completed_at="12/12/12")
 
     PropertyRecord.create(
-        task=researcher_url_task,
+        task=property_task,
+        type="URL",
         is_active=True,
         status="email sent",
         first_name="Test",
@@ -2742,8 +2743,8 @@ def test_reset_all(client):
     resp = client.login(user, follow_redirects=True)
     resp = client.post(
         "/reset_all?url=/researcher_url_record_reset_for_batch",
-        data={"task_id": researcher_url_task.id})
-    t = Task.get(researcher_url_task.id)
+        data={"task_id": property_task.id})
+    t = Task.get(property_task.id)
     rec = t.records.first()
     assert "The record was reset" in rec.status
     assert t.completed_at is None
@@ -4139,6 +4140,7 @@ def test_researcher_urls(client):
     resp = client.post(
         f"/admin/propertyrecord/new/?url={url}",
         data=dict(
+            type="URL",
             name="URL NAME ABC123",
             value="URL VALUE",
             display_index="1234",
@@ -4152,7 +4154,7 @@ def test_researcher_urls(client):
 
     r = PropertyRecord.get(name="URL NAME ABC123")
     resp = client.post(
-            f"/admin/prepertyrecord/edit/?id={r.id}&url={url}",
+            f"/admin/propertyrecord/edit/?id={r.id}&url={url}",
             data=dict(value="http://test.test.test.com/ABC123"),
             follow_redirects=True)
     assert resp.status_code == 200

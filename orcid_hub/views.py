@@ -47,11 +47,10 @@ from .forms import (AddressForm, ApplicationFrom, BitmapMultipleValueField, Cred
 from .login_provider import roles_required
 from .models import (JOIN, Affiliation, AffiliationRecord, CharField, Client, Delegate, ExternalId,
                      FixedCharField, File, FundingContributor, FundingInvitee, FundingRecord,
-                     Grant, GroupIdRecord, KeywordRecord, ModelException, NestedDict, OrcidApiCall,
-                     OrcidToken, Organisation, OrgInfo, OrgInvitation, OtherNameRecord,
-                     PartialDate, PropertyRecord, PeerReviewExternalId, PeerReviewInvitee,
-                     PeerReviewRecord, PostgresqlDatabase, ResearcherUrlRecord, Role, Task,
-                     TaskType, TextField, Token, Url, User, UserInvitation, UserOrg,
+                     Grant, GroupIdRecord, ModelException, NestedDict, OrcidApiCall, OrcidToken,
+                     Organisation, OrgInfo, OrgInvitation, PartialDate, PropertyRecord,
+                     PeerReviewExternalId, PeerReviewInvitee, PeerReviewRecord, PostgresqlDatabase,
+                     Role, Task, TaskType, TextField, Token, Url, User, UserInvitation, UserOrg,
                      UserOrgAffiliation, WorkContributor, WorkExternalId, WorkInvitee, WorkRecord,
                      db, get_val)
 # NB! Should be disabled in production
@@ -1970,10 +1969,7 @@ def reset_all():
         try:
             status = "The record was reset at " + datetime.now().isoformat(timespec="seconds")
             tt = task.task_type
-            if tt in [
-                    TaskType.AFFILIATION, TaskType.RESEARCHER_URL, TaskType.OTHER_NAME,
-                    TaskType.KEYWORD
-            ]:
+            if tt in [TaskType.AFFILIATION, TaskType.PROPERTY]:
                 count = task.record_model.update(
                     processed_at=None, status=status).where(
                         task.record_model.task_id == task_id,

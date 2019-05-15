@@ -31,7 +31,7 @@ from . import app, orcid_client, rq
 from .models import (AFFILIATION_TYPES, Affiliation, AffiliationRecord, Delegate, FundingInvitee,
                      FundingRecord, KeywordRecord, Log, OtherNameRecord, OrcidToken, Organisation,
                      OrgInvitation, PartialDate, PeerReviewExternalId, PeerReviewInvitee,
-                     PeerReviewRecord, ResearcherUrlRecord, Role, Task, TaskType, User,
+                     PeerReviewRecord, PropertyRecord, Role, Task, TaskType, User,
                      UserInvitation, UserOrg, WorkInvitee, WorkRecord, get_val)
 
 logger = logging.getLogger(__name__)
@@ -750,10 +750,10 @@ def unique_everseen(iterable, key=None):
                 yield element
 
 
-def create_or_update_researcher_url(user, org_id, records, *args, **kwargs):
-    """Create or update researcher url record of a user."""
-    records = list(unique_everseen(records, key=lambda t: t.researcher_url_record.id))
-    org = Organisation.get(id=org_id)
+def create_or_update_properties(user, org_id, records, *args, **kwargs):
+    """Create or update researcher property records of a user."""
+    records = list(unique_everseen(records, key=lambda t: t.record.id))
+    org = Organisation.get(org_id)
     profile_record = None
     token = OrcidToken.select(OrcidToken.access_token).where(OrcidToken.user_id == user.id, OrcidToken.org_id == org.id,
                                                              OrcidToken.scope.contains("/person/update")).first()
@@ -766,25 +766,40 @@ def create_or_update_researcher_url(user, org_id, records, *args, **kwargs):
         researcher_urls = [
             r for r in (activities.get("researcher-urls").get("researcher-url")) if is_org_rec(org, r)
         ]
+        other_names = [
+            r for r in (activities.get("other-names").get("other-name")) if is_org_rec(org, r)
+        ]
+        keywords = [
+            r for r in (activities.get("keywords").get("keyword")) if is_org_rec(org, r)
+        ]
 
         taken_put_codes = {
-            r.researcher_url_record.put_code
-            for r in records if r.researcher_url_record.put_code
+            r.record.put_code
+            for r in records if r.record.put_code
         }
 
-        def match_put_code(records, record):
+        def get_put_code(entry):
+            """Extract put-code."""
+
+        def match_put_code(record):
             """Match and assign put-code to the existing ORCID records."""
-            for r in records:
+            for r in (researcher_urls if record.type == "URL" else
+                      other_names if record.type == "NAME" else keywords):
+
                 try:
-                    orcid, put_code = r.get('path').split("/")[-3::2]
+                    orcid, put_code = r.get("path").split("/")[-3::2]
                 except Exception:
                     app.logger.exception("Failed to get ORCID iD/put-code from the response.")
                     raise Exception("Failed to get ORCID iD/put-code from the response.")
 
-                if (r.get("url-name") == record.name
-                    and get_val(r, "url", "value") == record.value
-                    and get_val(r, "visibility") == record.visibility
-                    and get_val(r, "display-index") == record.display_index):         # noqa: E129
+                # Exact match
+                if r.get("visibility") == record.visibility and r.get(
+                        "display-index") == record.display_index and (
+                            (record.type == "URL" and r.get("url-name") == record.name
+                             and r.get("url", "value") == record.value) or
+                            (record.type in ["NAME", "KEYWORD"]
+                             and r.get("content") == record.content)):  # noqa: E129
+
                     record.put_code = put_code
                     record.orcid = orcid
                     return True
@@ -795,30 +810,45 @@ def create_or_update_researcher_url(user, org_id, records, *args, **kwargs):
                 if put_code in taken_put_codes:
                     continue
 
-                if ((r.get("url-name") is None and get_val(r, "url", "value") is None)
-                    or (r.get("url-name") == record.name
-                        and get_val(r, "url", "value") == record.value)):
+                # Partial match of URLs
+                if ((record.type == "URL" and
+                    ((r.get("url-name") is None and get_val(r, "url", "value") is None) or
+                     (r.get("url-name") == record.name
+                      and get_val(r, "url", "value") == record.value))) or (
+                          record.type in ["NAME", "KEYWORD"]
+                          and r.get("content") == record.content)):
                     record.put_code = put_code
                     record.orcid = orcid
+                    if not record.visibility:
+                        record.visibility = r.get("visibility")
+                    if not record.display_index:
+                        record.display_index = r.get("display-index")
+
                     taken_put_codes.add(put_code)
                     app.logger.debug(
-                        f"put-code {put_code} was asigned to the researcher url record "
-                        f"(ID: {record.id}, Task ID: {record.task_id})")
+                        f"put-code {put_code} was asigned to the record (ID: {record.id}, Task ID: {record.task_id})"
+                    )
                     break
 
         for task_by_user in records:
             try:
-                rr = task_by_user.researcher_url_record
-                no_orcid_call = match_put_code(researcher_urls, rr)
+                rr = task_by_user.record
+                no_orcid_call = match_put_code(rr)
 
                 if no_orcid_call:
-                    rr.add_status_line("Researcher url record unchanged.")
+                    rr.add_status_line("Researcher property record unchanged.")
                 else:
-                    put_code, orcid, created = api.create_or_update_researcher_url(**rr._data)
-                    if created:
-                        rr.add_status_line("Researcher Url record was created.")
+                    if rr.type == "URL":
+                        put_code, orcid, created = api.create_or_update_researcher_url(**rr._data)
+                    elif rr.type == "NAME":
+                        put_code, orcid, created = api.create_or_update_other_name(**rr._data)
                     else:
-                        rr.add_status_line("Researcher Url record was updated.")
+                        put_code, orcid, created = api.create_or_update_keyword(**rr._data)
+
+                    if created:
+                        rr.add_status_line("Researcher property record was created.")
+                    else:
+                        rr.add_status_line("Researcher property record was updated.")
                     rr.orcid = orcid
                     rr.put_code = put_code
             except ApiException as ex:
@@ -841,6 +871,7 @@ def create_or_update_researcher_url(user, org_id, records, *args, **kwargs):
         return
 
 
+# TODO: delete
 def create_or_update_other_name(user, org_id, records, *args, **kwargs):
     """Create or update Other name record of a user."""
     records = list(unique_everseen(records, key=lambda t: t.other_name_record.id))
@@ -929,6 +960,7 @@ def create_or_update_other_name(user, org_id, records, *args, **kwargs):
         return
 
 
+# TODO: delete
 def create_or_update_keyword(user, org_id, records, *args, **kwargs):
     """Create or update Keyword record of a user."""
     records = list(unique_everseen(records, key=lambda t: t.keyword_record.id))
@@ -1732,25 +1764,25 @@ def process_affiliation_records(max_rows=20, record_id=None):
 
 
 @rq.job(timeout=300)
-def process_researcher_url_records(max_rows=20, record_id=None):
+def process_property_records(max_rows=20, record_id=None):
     """Process uploaded researcher_url records."""
     set_server_name()
     # TODO: optimize removing redundant fields
     # TODO: perhaps it should be broken into 2 queries
     task_ids = set()
     tasks = (Task.select(
-        Task, ResearcherUrlRecord, User, UserInvitation.id.alias("invitation_id"), OrcidToken).where(
-            ResearcherUrlRecord.processed_at.is_null(), ResearcherUrlRecord.is_active,
+        Task, PropertyRecord, User, UserInvitation.id.alias("invitation_id"), OrcidToken).where(
+            PropertyRecord.processed_at.is_null(), PropertyRecord.is_active,
             ((User.id.is_null(False) & User.orcid.is_null(False) & OrcidToken.id.is_null(False))
              | ((User.id.is_null() | User.orcid.is_null() | OrcidToken.id.is_null())
                 & UserInvitation.id.is_null()
-                & (ResearcherUrlRecord.status.is_null()
-                   | ResearcherUrlRecord.status.contains("sent").__invert__())))).join(
-                       ResearcherUrlRecord, on=(Task.id == ResearcherUrlRecord.task_id)).join(
+                & (PropertyRecord.status.is_null()
+                   | PropertyRecord.status.contains("sent").__invert__())))).join(
+                       PropertyRecord, on=(Task.id == PropertyRecord.task_id).alias("record")).join(
                            User,
                            JOIN.LEFT_OUTER,
-                           on=((User.email == ResearcherUrlRecord.email)
-                               | ((User.orcid == ResearcherUrlRecord.orcid)
+                           on=((User.email == PropertyRecord.email)
+                               | ((User.orcid == PropertyRecord.orcid)
                                   & (User.organisation_id == Task.org_id)))).join(
                                    Organisation,
                                    JOIN.LEFT_OUTER,
@@ -1762,7 +1794,7 @@ def process_researcher_url_records(max_rows=20, record_id=None):
              join(
                  UserInvitation,
                  JOIN.LEFT_OUTER,
-                 on=((UserInvitation.email == ResearcherUrlRecord.email)
+                 on=((UserInvitation.email == PropertyRecord.email)
                      & (UserInvitation.task_id == Task.id))).join(
                          OrcidToken,
                          JOIN.LEFT_OUTER,
@@ -1770,18 +1802,18 @@ def process_researcher_url_records(max_rows=20, record_id=None):
                              & (OrcidToken.org_id == Organisation.id)
                              & (OrcidToken.scope.contains("/person/update")))).limit(max_rows))
     if record_id:
-        tasks = tasks.where(ResearcherUrlRecord.id == record_id)
+        tasks = tasks.where(PropertyRecord.id == record_id)
     for (task_id, org_id, user), tasks_by_user in groupby(tasks, lambda t: (
             t.id,
             t.org_id,
-            t.researcher_url_record.user, )):
+            t.record.user, )):
         if (user.id is None or user.orcid is None or not OrcidToken.select().where(
             (OrcidToken.user_id == user.id) & (OrcidToken.org_id == org_id)
                 & (OrcidToken.scope.contains("/person/update"))).exists()):  # noqa: E127, E129
             for k, tasks in groupby(
                     tasks_by_user,
-                    lambda t: (t.created_by, t.org, t.researcher_url_record.email, t.researcher_url_record.first_name,
-                               t.researcher_url_record.last_name)):  # noqa: E501
+                    lambda t: (t.created_by, t.org, t.record.email, t.record.first_name,
+                               t.record.last_name)):  # noqa: E501
                 try:
                     email = k[2]
                     send_work_funding_peer_review_invitation(
@@ -1789,33 +1821,33 @@ def process_researcher_url_records(max_rows=20, record_id=None):
                         task_id=task_id,
                         invitation_template="email/person_update_invitation.html")
                     status = "The invitation sent at " + datetime.utcnow().isoformat(timespec="seconds")
-                    (ResearcherUrlRecord.update(status=ResearcherUrlRecord.status + "\n" + status).where(
-                        ResearcherUrlRecord.status.is_null(False), ResearcherUrlRecord.email == email).execute())
-                    (ResearcherUrlRecord.update(status=status).where(ResearcherUrlRecord.status.is_null(),
-                                                                     ResearcherUrlRecord.email == email).execute())
+                    (PropertyRecord.update(status=PropertyRecord.status + "\n" + status).where(
+                        PropertyRecord.status.is_null(False), PropertyRecord.email == email).execute())
+                    (PropertyRecord.update(status=status).where(PropertyRecord.status.is_null(),
+                                                                PropertyRecord.email == email).execute())
                 except Exception as ex:
-                    (ResearcherUrlRecord.update(
+                    (PropertyRecord.update(
                         processed_at=datetime.utcnow(),
                         status=f"Failed to send an invitation: {ex}.").where(
-                            ResearcherUrlRecord.task_id == task_id, ResearcherUrlRecord.email == email,
-                            ResearcherUrlRecord.processed_at.is_null())).execute()
+                            PropertyRecord.task_id == task_id, PropertyRecord.email == email,
+                            PropertyRecord.processed_at.is_null())).execute()
         else:
-            create_or_update_researcher_url(user, org_id, tasks_by_user)
+            create_or_update_properties(user, org_id, tasks_by_user)
         task_ids.add(task_id)
     for task in Task.select().where(Task.id << task_ids):
         # The task is completed (all recores are processed):
-        if not (ResearcherUrlRecord.select().where(
-                ResearcherUrlRecord.task_id == task.id,
-                ResearcherUrlRecord.processed_at.is_null()).exists()):
+        if not (PropertyRecord.select().where(
+                PropertyRecord.task_id == task.id,
+                PropertyRecord.processed_at.is_null()).exists()):
             task.completed_at = datetime.utcnow()
             task.save()
-            error_count = ResearcherUrlRecord.select().where(
-                ResearcherUrlRecord.task_id == task.id, ResearcherUrlRecord.status**"%error%").count()
+            error_count = PropertyRecord.select().where(
+                PropertyRecord.task_id == task.id, PropertyRecord.status**"%error%").count()
             row_count = task.record_count
 
             with app.app_context():
                 export_url = flask.url_for(
-                    "researcherurlrecord.export",
+                    "propertyrecord.export",
                     export_type="json",
                     _scheme="http" if EXTERNAL_SP else "https",
                     task_id=task.id,
@@ -2212,9 +2244,7 @@ def process_records(n):
     process_funding_records(n)
     process_work_records(n)
     process_peer_review_records(n)
-    process_researcher_url_records(n)
-    process_other_name_records(n)
-    process_keyword_records(n)
+    process_property_records(n)
     # process_tasks(n)
 
 

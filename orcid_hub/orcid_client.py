@@ -1198,13 +1198,14 @@ class MemberAPI(MemberAPIV20Api):
         else:
             return (put_code, orcid, created)
 
-    def create_or_update_other_name(self, content=None, display_index=None, orcid=None, put_code=None,
+    def create_or_update_other_name(self, content=None, value=None, display_index=None, orcid=None, put_code=None,
                                     visibility=None, *args, **kwargs):
         """Create or update other name record of a user."""
         rec = OtherName()       # noqa: F405
 
         if put_code:
             rec.put_code = put_code
+        content = content or value
         if content:
             rec.content = content
         if visibility:
@@ -1331,13 +1332,15 @@ class MemberAPI(MemberAPIV20Api):
         else:
             return (put_code, orcid, created)
 
-    def create_or_update_keyword(self, content=None, display_index=None, orcid=None, put_code=None,
+    def create_or_update_keyword(self, content=None, value=None, display_index=None, orcid=None, put_code=None,
                                  visibility=None, *args, **kwargs):
         """Create or update Keyword record of a user."""
         rec = Keyword()       # noqa: F405
 
         if put_code:
             rec.put_code = put_code
+
+        content = content or value
         if content:
             rec.content = content
         if visibility:

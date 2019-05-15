@@ -15,11 +15,11 @@ from peewee import JOIN
 from urllib.parse import quote
 
 from orcid_hub import utils
-from orcid_hub.models import (AffiliationRecord, ExternalId, File, FundingContributor, FundingInvitee,
-                              FundingRecord, KeywordRecord, Log, OtherNameRecord, OrcidToken, Organisation,
-                              OrgInfo, PeerReviewExternalId, PeerReviewInvitee, PeerReviewRecord, ResearcherUrlRecord,
-                              Role, Task, TaskType, User, UserInvitation, UserOrg, WorkContributor,
-                              WorkExternalId, WorkInvitee, WorkRecord)
+from orcid_hub.models import (AffiliationRecord, ExternalId, File, FundingContributor,
+                              FundingInvitee, FundingRecord, Log, OrcidToken, Organisation,
+                              OrgInfo, PeerReviewExternalId, PeerReviewInvitee, PeerReviewRecord,
+                              PropertyRecord, Role, Task, TaskType, User, UserInvitation, UserOrg,
+                              WorkContributor, WorkExternalId, WorkInvitee, WorkRecord)
 
 from tests.utils import get_profile
 
@@ -666,10 +666,15 @@ def test_create_or_update_researcher_url(app, mocker):
 
     UserOrg.create(user=u, org=org)
 
-    t = Task.create(id=12, org=org, filename="xyz.json", created_by=u, updated_by=u, task_type=5)
+    t = Task.create(org=org,
+                    filename="xyz.json",
+                    created_by=u,
+                    updated_by=u,
+                    task_type=TaskType.PROPERTY)
 
-    ResearcherUrlRecord.create(
+    PropertyRecord.create(
         task=t,
+        type="URL",
         is_active=True,
         status="email sent",
         first_name="Test",
@@ -691,10 +696,10 @@ def test_create_or_update_researcher_url(app, mocker):
     OrcidToken.create(
         user=u, org=org, scope="/read-limited,/person/update", access_token="Test_token")
 
-    utils.process_researcher_url_records()
-    researcher_url_record = ResearcherUrlRecord.get(email="test1234456@mailinator.com")
-    assert 12399 == researcher_url_record.put_code
-    assert "12344" == researcher_url_record.orcid
+    utils.process_property_records()
+    record = PropertyRecord.get(email="test1234456@mailinator.com")
+    assert 12399 == record.put_code
+    assert "12344" == record.orcid
 
 
 def test_create_or_update_other_name(app, mocker):
@@ -713,10 +718,11 @@ def test_create_or_update_other_name(app, mocker):
 
     UserOrg.create(user=u, org=org)
 
-    t = Task.create(id=12, org=org, filename="xyz.json", created_by=u, updated_by=u, task_type=6)
+    t = Task.create(id=12, org=org, filename="xyz.json", created_by=u, updated_by=u, task_type=TaskType.PROPERTY)
 
-    OtherNameRecord.create(
+    PropertyRecord.create(
         task=t,
+        type="NAME",
         is_active=True,
         status="email sent",
         first_name="Test",
@@ -737,10 +743,10 @@ def test_create_or_update_other_name(app, mocker):
     OrcidToken.create(
         user=u, org=org, scope="/read-limited,/person/update", access_token="Test_token")
 
-    utils.process_other_name_records()
-    other_name_record = OtherNameRecord.get(email="test1234456@mailinator.com")
-    assert 12399 == other_name_record.put_code
-    assert "12344" == other_name_record.orcid
+    utils.process_property_records()
+    record = PropertyRecord.get(email="test1234456@mailinator.com")
+    assert 12399 == record.put_code
+    assert "12344" == record.orcid
 
 
 def test_create_or_update_keyword(app, mocker):
@@ -761,8 +767,9 @@ def test_create_or_update_keyword(app, mocker):
 
     t = Task.create(id=12, org=org, filename="xyz.json", created_by=u, updated_by=u, task_type=7)
 
-    KeywordRecord.create(
+    PropertyRecord.create(
         task=t,
+        type="KEYWORD",
         is_active=True,
         status="email sent",
         first_name="Test",
@@ -784,7 +791,7 @@ def test_create_or_update_keyword(app, mocker):
         user=u, org=org, scope="/read-limited,/person/update", access_token="Test_token")
 
     utils.process_keyword_records()
-    keyword_record = KeywordRecord.get(email="test1234456@mailinator.com")
+    keyword_record = PropertyRecord.get(email="test1234456@mailinator.com")
     assert 12399 == keyword_record.put_code
     assert "12344" == keyword_record.orcid
 
