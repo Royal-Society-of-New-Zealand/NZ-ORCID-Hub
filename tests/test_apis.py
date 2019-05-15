@@ -13,7 +13,7 @@ import pytest
 from orcid_hub.apis import yamlfy
 from orcid_hub.data_apis import plural
 from orcid_hub.models import (AffiliationRecord, Client, OrcidApiCall, OrcidToken, Organisation,
-                              Task, TaskType, Token, User)
+                              Task, TaskType, Token, User, UserInvitation)
 
 from unittest.mock import patch, MagicMock
 
@@ -1054,13 +1054,13 @@ def test_orcid_api_rep(client):
 
 def test_property_api(client):
     """Test property API in various formats."""
+    data_path = os.path.join(os.path.dirname(__file__), "data")
     admin = client.data.get("admin")
     resp = client.login(admin, follow_redirects=True)
     resp = client.post("/load/researcher/properties",
                        data={
-                           "file_":
-                           (open(os.path.join(os.path.dirname(__file__), "data", "properties.csv"),
-                                 "rb"), "properties042.csv"),
+                           "file_": (open(os.path.join(data_path, "properties.csv"),
+                                          "rb"), "properties042.csv"),
                        },
                        follow_redirects=True)
     assert resp.status_code == 200
@@ -1076,7 +1076,7 @@ def test_property_api(client):
     resp = client.get(f"/api/v1.0/properties/{task_id}",
                       headers=dict(authorization=f"Bearer {access_token}"))
     data = json.loads(resp.data)
-    assert len(data["records"]) == 12
+    assert len(data["records"]) == 10
     assert data["filename"] == "properties042.csv"
 
     del (data["id"])
@@ -1116,3 +1116,27 @@ def test_property_api(client):
 
     resp = client.delete(f"/api/v1.0/properties/{task_id}",
                          headers=dict(authorization=f"Bearer {access_token}"))
+
+    resp = client.post("/api/v1.0/properties/?filename=properties333.csv",
+                       headers=dict(authorization=f"Bearer {access_token}"),
+                       content_type="text/csv",
+                       data=open(os.path.join(data_path, "properties.csv")).read())
+    assert resp.status_code == 200
+    assert Task.select().count() == 4
+
+    resp = client.post("/api/v1.0/properties/?filename=properties333.json",
+                       headers=dict(authorization=f"Bearer {access_token}"),
+                       content_type="application/json",
+                       data=open(os.path.join(data_path, "properties.json")).read())
+    assert resp.status_code == 200
+    assert Task.select().count() == 5
+
+    for r in records:
+        r["is-active"] = True
+    resp = client.post("/api/v1.0/properties/?filename=properties777.json",
+                       headers=dict(authorization=f"Bearer {access_token}"),
+                       content_type="application/json",
+                       data=json.dumps(records))
+    assert resp.status_code == 200
+    assert Task.select().count() == 6
+    assert UserInvitation.select().count() == 5

@@ -1924,19 +1924,6 @@ def shorturl(url):
     return url_for("short_url", short_id=u.short_id, _external=True)
 
 
-def enqueue_task_records(task):
-    """Enqueue all active and not yet processed record."""
-    records = task.records.where(task.record_model.is_active, task.record_model.processed_at.is_null())
-    func = getattr(utils, f"process_{task.task_type.name.lower()}_records")
-    if task.task_type == TaskType.AFFILIATION:
-        records = records.order_by(task.record_model.email, task.record_model.orcid)
-        for _, chunk in itertools.groupby(records, lambda r: (r.email, r.orcid, )):
-            func.queue(record_id=[r.id for r in chunk])
-    else:
-        for r in task.records.where(task.record_model.is_active, task.record_model.processed_at.is_null()):
-            func.queue(record_id=r.id)
-
-
 @app.route("/activate_all", methods=["POST"])
 @roles_required(Role.SUPERUSER, Role.ADMIN, Role.TECHNICAL)
 def activate_all():
@@ -1948,7 +1935,7 @@ def activate_all():
         count = task.record_model.update(is_active=True).where(
             task.record_model.task_id == task_id,
             task.record_model.is_active == False).execute()  # noqa: E712
-        enqueue_task_records(task)
+        utils.enqueue_task_records(task)
     except Exception as ex:
         flash(f"Failed to activate the selected records: {ex}")
         app.logger.exception("Failed to activate the selected records")
@@ -1989,7 +1976,7 @@ def reset_all():
                     count = count + 1
 
             UserInvitation.delete().where(UserInvitation.task == task).execute()
-            enqueue_task_records(task)
+            utils.enqueue_task_records(task)
 
         except Exception as ex:
             db.rollback()

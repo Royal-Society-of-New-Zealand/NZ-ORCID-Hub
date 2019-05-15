@@ -3007,7 +3007,7 @@ class PropertyRecord(RecordModel):
             re.compile(ex, re.I) for ex in [
                 r"(url)?.*name", r".*value|.*content", r"(display)?.*index", "email",
                 r"first\s*(name)?", r"(last|sur)\s*(name)?", "orcid.*", r"put|code",
-                r"(is)?\s*visib(bility|le)?", "(propery)?.*type"
+                r"(is)?\s*visib(bility|le)?", "(propery)?.*type", r"(is)?\s*active$",
             ]
         ]
 
@@ -3064,6 +3064,7 @@ class PropertyRecord(RecordModel):
                     first_name = val(row, 4)
                     last_name = val(row, 5)
                     property_type = val(row, 9) or file_property_type
+                    is_active = val(row, 10, '').lower() in ['y', "yes", "1", "true"]
 
                     if not property_type or property_type not in PROPERTY_TYPES:
                         raise ModelException("Missing or incorrect property type. "
@@ -3081,6 +3082,7 @@ class PropertyRecord(RecordModel):
                     rr = cls(
                         task=task,
                         type=property_type,
+                        is_active=is_active,
                         name=name,
                         value=value,
                         display_index=val(row, 2),
@@ -3154,6 +3156,7 @@ class PropertyRecord(RecordModel):
                     orcid_id = r.get("ORCID-iD") or r.get("orcid")
                     put_code = r.get("put-code")
                     visibility = r.get("visibility")
+                    is_active = bool(r.get("is-active"))
 
                     if not property_type or property_type not in PROPERTY_TYPES:
                         raise ModelException("Missing or incorrect property type. "
@@ -3166,6 +3169,7 @@ class PropertyRecord(RecordModel):
                     cls.create(
                         task=task,
                         type=property_type,
+                        is_active=is_active,
                         name=name,
                         value=value,
                         display_index=display_index,
@@ -3186,7 +3190,7 @@ class PropertyRecord(RecordModel):
     def to_export_dict(self):
         """Map the property record to dict for export into JSON/YAML."""
         d = super().to_export_dict()
-        d.update(self.to_dict(recurse=False, to_dashes=True, exclude=[PropertyRecord.type]))
+        d.update(self.to_dict(recurse=False, to_dashes=True, exclude=[PropertyRecord.type, PropertyRecord.task]))
         return d
 
     class Meta:  # noqa: D101,D106

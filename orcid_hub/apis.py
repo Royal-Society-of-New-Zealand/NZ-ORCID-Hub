@@ -20,7 +20,7 @@ from .login_provider import roles_required
 from .models import (ORCID_ID_REGEX, AffiliationRecord, Client, FundingRecord, OrcidToken,
                      PeerReviewRecord, PropertyRecord, Role, Task, TaskType, User, UserOrg,
                      validate_orcid_id, WorkRecord)
-from .utils import dump_yaml, is_valid_url, register_orcid_webhook
+from .utils import dump_yaml, is_valid_url, register_orcid_webhook, enqueue_task_records
 
 ORCID_API_VERSION_REGEX = re.compile(r"^v[2-3].\d+(_rc\d+)?$")
 
@@ -274,6 +274,7 @@ class TaskResource(AppResource):
             else:
                 task = None
             task = self.load_from_json(task=task)
+            enqueue_task_records(task)
         except Exception as ex:
             app.logger.exception("Failed to handle funding API request.")
             return jsonify({"error": "Unhandled exception occurred.", "exception": str(ex)}), 400
@@ -1408,6 +1409,7 @@ class PropertyListAPI(TaskResource):
         login_user(request.oauth.user)
         if request.content_type in ["text/csv", "text/tsv"]:
             task = PropertyRecord.load_from_csv(request.data.decode("utf-8"), filename=self.filename)
+            enqueue_task_records(task)
             return self.jsonify_task(task)
         return self.handle_task()
 
