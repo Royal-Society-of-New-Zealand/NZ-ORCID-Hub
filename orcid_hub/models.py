@@ -3007,7 +3007,7 @@ class PropertyRecord(RecordModel):
             re.compile(ex, re.I) for ex in [
                 r"(url)?.*name", r".*value|.*content", r"(display)?.*index", "email",
                 r"first\s*(name)?", r"(last|sur)\s*(name)?", "orcid.*", r"put|code",
-                r"(is)?\s*visib(bility|le)?", "(propery)?.*type"
+                r"(is)?\s*visib(bility|le)?", "(propery)?.*type", r"(is)?\s*active$",
             ]
         ]
 
@@ -3063,6 +3063,7 @@ class PropertyRecord(RecordModel):
                     first_name = val(row, 4)
                     last_name = val(row, 5)
                     property_type = val(row, 9) or file_property_type
+                    is_active = val(row, 10, '').lower() in ['y', "yes", "1", "true"]
 
                     if property_type:
                         property_type = property_type.strip().upper()
@@ -3085,6 +3086,7 @@ class PropertyRecord(RecordModel):
                     rr = cls(
                         task=task,
                         type=property_type,
+                        is_active=is_active,
                         name=name,
                         value=value,
                         display_index=val(row, 2),
@@ -3159,6 +3161,7 @@ class PropertyRecord(RecordModel):
                     orcid_id = r.get("ORCID-iD") or r.get("orcid")
                     put_code = r.get("put-code")
                     visibility = r.get("visibility")
+                    is_active = bool(r.get("is-active"))
 
                     if not property_type or property_type not in PROPERTY_TYPES:
                         raise ModelException("Missing or incorrect property type. "
@@ -3174,6 +3177,7 @@ class PropertyRecord(RecordModel):
                     cls.create(
                         task=task,
                         type=property_type,
+                        is_active=is_active,
                         name=name,
                         value=value,
                         display_index=display_index,
@@ -3194,7 +3198,7 @@ class PropertyRecord(RecordModel):
     def to_export_dict(self):
         """Map the property record to dict for export into JSON/YAML."""
         d = super().to_export_dict()
-        d.update(self.to_dict(recurse=False, to_dashes=True, exclude=[PropertyRecord.type]))
+        d.update(self.to_dict(recurse=False, to_dashes=True, exclude=[PropertyRecord.type, PropertyRecord.task]))
         return d
 
     class Meta:  # noqa: D101,D106
@@ -3371,6 +3375,10 @@ class WorkRecord(RecordModel):
                         f"#{row_no+2}: {row}. Header: {header}")
 
             publication_date = val(row, 9)
+            citation_type = val(row, 7)
+            if citation_type:
+                citation_type = citation_type.upper()
+
             if publication_date:
                 publication_date = PartialDate.create(publication_date)
             rows.append(
@@ -3383,7 +3391,7 @@ class WorkRecord(RecordModel):
                         journal_title=val(row, 4),
                         type=work_type,
                         short_description=val(row, 6),
-                        citation_type=val(row, 7),
+                        citation_type=citation_type,
                         citation_value=val(row, 8),
                         publication_date=publication_date,
                         publication_media_type=val(row, 10),
@@ -3469,6 +3477,9 @@ class WorkRecord(RecordModel):
                     translated_title_language_code = r.get("title", "translated-title", "language-code")
                     journal_title = r.get("journal-title", "value")
                     short_description = r.get("short-description")
+                    citation_type = get_val(work_data, "citation", "citation-type")
+                    if citation_type:
+                        citation_type = citation_type.strip().upper()
                     citation_type = r.get("citation", "citation-type")
                     citation_value = r.get("citation", "citation-value")
                     type = r.get("type")

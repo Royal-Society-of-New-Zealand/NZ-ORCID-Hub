@@ -2363,3 +2363,16 @@ def enqueue_user_records(user):
         else:
             for r in records:
                 func.queue(record_id=r.id)
+
+
+def enqueue_task_records(task):
+    """Enqueue all active and not yet processed record."""
+    records = task.records.where(task.record_model.is_active, task.record_model.processed_at.is_null())
+    func = globals().get(f"process_{task.task_type.name.lower()}_records")
+    if task.task_type == TaskType.AFFILIATION:
+        records = records.order_by(task.record_model.email, task.record_model.orcid)
+        for _, chunk in groupby(records, lambda r: (r.email, r.orcid, )):
+            func.queue(record_id=[r.id for r in chunk])
+    else:
+        for r in records:
+            func.queue(record_id=r.id)
