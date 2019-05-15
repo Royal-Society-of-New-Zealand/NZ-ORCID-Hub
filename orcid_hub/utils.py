@@ -778,9 +778,6 @@ def create_or_update_properties(user, org_id, records, *args, **kwargs):
             for r in records if r.record.put_code
         }
 
-        def get_put_code(entry):
-            """Extract put-code."""
-
         def match_put_code(record):
             """Match and assign put-code to the existing ORCID records."""
             for r in (researcher_urls if record.type == "URL" else
@@ -793,12 +790,11 @@ def create_or_update_properties(user, org_id, records, *args, **kwargs):
                     raise Exception("Failed to get ORCID iD/put-code from the response.")
 
                 # Exact match
-                if r.get("visibility") == record.visibility and r.get(
-                        "display-index") == record.display_index and (
-                            (record.type == "URL" and r.get("url-name") == record.name
-                             and r.get("url", "value") == record.value) or
-                            (record.type in ["NAME", "KEYWORD"]
-                             and r.get("content") == record.content)):  # noqa: E129
+                # Visibility and Display Index condition can be added once the bug of display index is fixed by ORCID.
+                if ((record.type == "URL" and r.get("url-name") == record.name
+                     and r.get("url", "value") == record.value) or
+                        (record.type in ["NAME", "KEYWORD"]
+                         and r.get("content") == record.value)):  # noqa: E129
 
                     record.put_code = put_code
                     record.orcid = orcid
@@ -816,7 +812,7 @@ def create_or_update_properties(user, org_id, records, *args, **kwargs):
                      (r.get("url-name") == record.name
                       and get_val(r, "url", "value") == record.value))) or (
                           record.type in ["NAME", "KEYWORD"]
-                          and r.get("content") == record.content)):
+                          and r.get("content") == record.value)):
                     record.put_code = put_code
                     record.orcid = orcid
                     if not record.visibility:
@@ -834,7 +830,6 @@ def create_or_update_properties(user, org_id, records, *args, **kwargs):
             try:
                 rr = task_by_user.record
                 no_orcid_call = match_put_code(rr)
-
                 if no_orcid_call:
                     rr.add_status_line("Researcher property record unchanged.")
                 else:
@@ -1765,7 +1760,7 @@ def process_affiliation_records(max_rows=20, record_id=None):
 
 @rq.job(timeout=300)
 def process_property_records(max_rows=20, record_id=None):
-    """Process uploaded researcher_url records."""
+    """Process uploaded property records."""
     set_server_name()
     # TODO: optimize removing redundant fields
     # TODO: perhaps it should be broken into 2 queries
@@ -1855,12 +1850,12 @@ def process_property_records(max_rows=20, record_id=None):
                 try:
                     send_email(
                         "email/work_task_completed.html",
-                        subject="Researcher Url Record Process Update",
+                        subject="Researcher Property Record Process Update",
                         recipient=(task.created_by.name, task.created_by.email),
                         error_count=error_count,
                         row_count=row_count,
                         export_url=export_url,
-                        task_name="Researcher Url",
+                        task_name="Researcher Property",
                         filename=task.filename)
                 except Exception:
                     logger.exception(

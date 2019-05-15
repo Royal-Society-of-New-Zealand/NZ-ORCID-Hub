@@ -3000,8 +3000,8 @@ class PropertyRecord(RecordModel):
         if len(header) < 4:
             raise ModelException(
                 "Wrong number of fields. Expected at least 3 fields "
-                "(email address or another unique identifier, url name, url value) "
-                f"and property type.Read header: {header}")
+                "(email address or another unique identifier, name and/or value) "
+                f"and property type. Read header: {header}")
 
         header_rexs = [
             re.compile(ex, re.I) for ex in [
@@ -3059,23 +3059,27 @@ class PropertyRecord(RecordModel):
                         raise ValueError(
                             f"Invalid email address '{email}'  in the row #{row_no+2}: {row}")
 
-                    name = val(row, 0, "")
                     value = val(row, 1, "")
                     first_name = val(row, 4)
                     last_name = val(row, 5)
                     property_type = val(row, 9) or file_property_type
 
+                    if property_type:
+                        property_type = property_type.strip().upper()
+
                     if not property_type or property_type not in PROPERTY_TYPES:
                         raise ModelException("Missing or incorrect property type. "
                                              f"(expected: {','.join(PROPERTY_TYPES)}: {row}")
-
-                    if property_type == "URL" and not name:
-                        raise ModelException(
-                            f"Missing URL name. For Researcher ULR name is expected: {row}.")
+                    name = None
+                    if property_type == "URL":
+                        name = val(row, 0, "")
+                        if not name:
+                            raise ModelException(
+                                f"Missing URL Name. For Researcher URL Name is expected: {row}.")
 
                     if not value:
                         raise ModelException(
-                            "Wrong number of fields. Expected at least 3 fields (type, value "
+                            "Wrong number of fields. Expected at least fields ( content or value "
                             f"email address or another unique identifier): {row}")
 
                     rr = cls(
@@ -3141,11 +3145,12 @@ class PropertyRecord(RecordModel):
 
                 for r in records:
 
-                    name = r.get("name") or r.get("url-name")
                     value = r.get("value") or r.get(
                         "url", "value") or r.get("url-value") or r.get("content")
                     display_index = r.get("display-index")
                     property_type = r.get("type") or file_property_type
+                    if property_type:
+                        property_type = property_type.strip().upper()
                     email = r.get("email")
                     if email:
                         email = email.lower()
@@ -3159,9 +3164,12 @@ class PropertyRecord(RecordModel):
                         raise ModelException("Missing or incorrect property type. "
                                              f"(expected: {','.join(PROPERTY_TYPES)}: {r}")
 
-                    if property_type == "URL" and not name:
-                        raise ModelException(
-                            f"Missing URL name. For Researcher ULR name is expected: {r}.")
+                    name = None
+                    if property_type == "URL":
+                        name = r.get("name") or r.get("url-name")
+                        if not name:
+                            raise ModelException(
+                                f"Missing URL Name. For Researcher URL Name is expected: {r}.")
 
                     cls.create(
                         task=task,

@@ -167,7 +167,7 @@ property_record = {
         "id": {"type": ["integer", "null"]},
         "type": {
             "type": ["string", "null", "integer"],
-            "enum": ["URL", "NAME", "KEYWORD", "COUNTRY", "ID", "EMAIL"]
+            "enum": ["URL", "NAME", "KEYWORD", "COUNTRY", "url", "name", "keyword", "country", None]
         },
         "put-code": {"type": ["string", "null", "integer"]},
         "is-active": {"type": "boolean"},

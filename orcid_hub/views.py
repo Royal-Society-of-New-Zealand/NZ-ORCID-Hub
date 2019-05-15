@@ -2812,7 +2812,7 @@ def load_properties(property_type=None):
             flash(f"Failed to load researcher property record file: {ex}", "danger")
             app.logger.exception("Failed to load researcher property records.")
 
-    return render_template("fileUpload.html", form=form, title="Researcher Property Data Upload")
+    return render_template("fileUpload.html", form=form, title=f"Researcher {property_type.title()} Upload")
 
 
 @app.route("/load/researcher/urls", methods=["GET", "POST"])
