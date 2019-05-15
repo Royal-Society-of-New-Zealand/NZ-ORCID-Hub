@@ -3482,7 +3482,7 @@ def test_researcher_work(client, mocker):
     },
     "journal-title": {"value": "This is a journal title"},
     "short-description": "xyz this is short description",
-    "citation": {"citation-type": "FORMATTED_UNSPECIFIED", "citation-value": "This is citation value"},
+    "citation": {"citation-type": "formatted_unspecified", "citation-value": "This is citation value"},
     "type": "BOOK_CHAPTER",
     "publication-date": {
       "year": {"value": "2001"},
@@ -3579,7 +3579,7 @@ def test_researcher_work(client, mocker):
                 BytesIO(
                     """Work Id,Put Code,Title,Sub Title,Translated Title,Translated Title Language Code,Journal Title,Short Description,Citation Type,Citation Value,Type,Publication Date,Publication Media Type,Url,Language Code,Country,Visibility,ORCID iD,Email,First Name,Last Name,Name,Role,Excluded,External Id Type,External Id Url,External Id Relationship
 sdsds,,This is a title,,,hi,This is a journal title,xyz this is short description,FORMATTED_UNSPECIFIED,This is citation value,BOOK_CHAPTER,**ERROR**,,,en,NZ,,0000-0002-9207-4933,contributor1@mailinator.com,Alice,Contributor 1,,,,bibcode,http://url.edu/abs/ghjghghj,SELF
-sdsds,,This is a title,,,hi,This is a journal title,xyz this is short description,FORMATTED_UNSPECIFIED,This is citation value,BOOK_CHAPTER,2001-01-12,,,en,NZ,,0000-0002-9207-4933,,,,Associate Professor Alice,AUTHOR,Y,bibcode,http://url.edu/abs/ghjghghj,SELF""".encode()  # noqa: E501
+sdsds,,This is a title,,,hi,This is a journal title,xyz this is short description,formatted_unspecified,This is citation value,BOOK_CHAPTER,2001-01-12,,,en,NZ,,0000-0002-9207-4933,,,,Associate Professor Alice,AUTHOR,Y,bibcode,http://url.edu/abs/ghjghghj,SELF""".encode()  # noqa: E501
                 ),  # noqa: E501
                 "work.csv",
             ),

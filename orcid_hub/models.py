@@ -3367,6 +3367,10 @@ class WorkRecord(RecordModel):
                         f"#{row_no+2}: {row}. Header: {header}")
 
             publication_date = val(row, 9)
+            citation_type = val(row, 7)
+            if citation_type:
+                citation_type = citation_type.upper()
+
             if publication_date:
                 publication_date = PartialDate.create(publication_date)
             rows.append(
@@ -3379,7 +3383,7 @@ class WorkRecord(RecordModel):
                         journal_title=val(row, 4),
                         type=work_type,
                         short_description=val(row, 6),
-                        citation_type=val(row, 7),
+                        citation_type=citation_type,
                         citation_value=val(row, 8),
                         publication_date=publication_date,
                         publication_media_type=val(row, 10),
@@ -3465,6 +3469,9 @@ class WorkRecord(RecordModel):
                     translated_title_language_code = r.get("title", "translated-title", "language-code")
                     journal_title = r.get("journal-title", "value")
                     short_description = r.get("short-description")
+                    citation_type = get_val(work_data, "citation", "citation-type")
+                    if citation_type:
+                        citation_type = citation_type.strip().upper()
                     citation_type = r.get("citation", "citation-type")
                     citation_value = r.get("citation", "citation-value")
                     type = r.get("type")
