@@ -302,11 +302,6 @@ def send_work_funding_peer_review_invitation(inviter,
         logger.info(f"*** Sending an invitation to '{first_name} <{email}>' "
                     f"submitted by {inviter} of {org}")
 
-        if not email and user:
-            email = user.email
-        else:
-            raise Exception("Missing email, cannot send the invitation.")
-
         email = email.lower()
         if user is None:
             user, user_created = User.get_or_create(first_nam="N/A", last_nam="N/A", email=email)
