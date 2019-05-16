@@ -17,7 +17,7 @@ import pytest
 import yaml
 from flask import make_response, session
 from flask_login import login_user
-from peewee import SqliteDatabase
+from peewee import SqliteDatabase, JOIN
 from playhouse.test_utils import test_database
 
 from orcid_api.rest import ApiException
@@ -29,6 +29,7 @@ from orcid_hub.models import (Affiliation, AffiliationRecord, Client, File, Fund
                               OrgInvitation, PartialDate, PeerReviewRecord, ResearcherUrlRecord,
                               Role, Task, TaskType, Token, Url, User, UserInvitation, UserOrg,
                               UserOrgAffiliation, WorkRecord)
+from tests.utils import get_profile
 
 fake_time = time.time()
 logger = logging.getLogger(__name__)
@@ -688,7 +689,7 @@ Institute of Geological & Nuclear Sciences Ltd,5180,RINGGOLD
             ),
         })
     assert OrgInfo.select().count() == 14, "A new entry should be added."
-    assert b"8888" not in resp.data, "Etry should be updated."
+    assert b"8888" not in resp.data, "Entry should be updated."
     assert b"Landcare Research" in resp.data
 
     resp = client.post(
@@ -1400,6 +1401,48 @@ def test_logo_file(request_ctx):
         assert org.logo is None
 
 
+def test_affiliation_deletion_task(client, mocker):
+    """Test affilaffiliation task upload."""
+    user = OrcidToken.select().join(User).where(User.orcid.is_null(False)).first().user
+    org = user.organisation
+    admin = org.admins.first()
+
+    resp = client.login(admin, follow_redirects=True)
+    assert b"log in" not in resp.data
+    content = ("Orcid,Put Code,Delete\n" + '\n'.join(f"{user.orcid},{put_code},yes"
+                                                     for put_code in range(1, 3)))
+    resp = client.post("/load/researcher",
+                       data={
+                           "save": "Upload",
+                           "file_": (
+                               BytesIO(content.encode()),
+                               "affiliations.csv",
+                           ),
+                       })
+    assert resp.status_code == 302
+    task_id = int(re.search(r"\/admin\/affiliationrecord/\?task_id=(\d+)", resp.location)[1])
+    assert task_id
+    task = Task.get(task_id)
+    assert task.org == org
+    records = list(task.records)
+    assert len(records) == len(content.split('\n')) - 1
+
+    mocker.patch("orcid_hub.orcid_client.MemberAPI.get_record", return_value=get_profile(org=org, user=user))
+    delete_education = mocker.patch("orcid_hub.orcid_client.MemberAPI.delete_education")
+    delete_employment = mocker.patch("orcid_hub.orcid_client.MemberAPI.delete_employment")
+    resp = client.post(
+        "/admin/affiliationrecord/action/",
+        follow_redirects=True,
+        data={
+            "url": f"/admin/affiliationrecord/?task_id={task_id}",
+            "action": "activate",
+            "rowid": [r.id for r in task.records],
+        })
+    assert task.records.where(AffiliationRecord.is_active).count() == 2
+    delete_education.assert_called()
+    delete_employment.assert_called()
+
+
 def test_affiliation_tasks(client):
     """Test affilaffiliation task upload."""
     org = Organisation.get(name="TEST0")
@@ -1413,8 +1456,8 @@ def test_affiliation_tasks(client):
             "save":
             "Upload",
             "file_": (
-                BytesIO(b"""First Name,Last Name,Email
-Roshan,Pawar,researcher.010@mailinator.com
+                BytesIO(b"""First Name,Email
+Roshan,researcher.010@mailinator.com
 """),
                 "affiliations.csv",
             ),
@@ -1442,9 +1485,8 @@ Rad,Cirskis,researcher.990@mailinator.com,Student
     assert task_id
     task = Task.get(task_id)
     assert task.org == org
-    records = list(task.affiliation_records)
+    records = list(task.records)
     assert len(records) == 4
-    assert AffiliationRecord.select().where(AffiliationRecord.task_id == task_id).count() == 4
 
     url = resp.location
     session_cookie, _ = resp.headers["Set-Cookie"].split(';', 1)
@@ -2243,37 +2285,36 @@ def test_edit_record(request_ctx):
         assert resp.location == f"/section/{user.id}/KWR/list"
 
 
-def test_delete_employment(request_ctx, app):
+def test_delete_profile_entries(client, mocker):
     """Test delete an employment record."""
     admin = User.get(email="admin@test0.edu")
-    user = User.get(email="researcher100@test0.edu")
+    user = User.select().join(OrcidToken,
+                              JOIN.LEFT_OUTER).where(User.organisation == admin.organisation,
+                                                     User.orcid.is_null(),
+                                                     OrcidToken.id.is_null()).first()
 
-    with request_ctx(f"/section/{user.id}/EMP/1212/delete", method="POST") as ctx:
-        login_user(user)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 302
-        assert resp.location.startswith("/?next=")
+    client.login(user)
+    resp = client.post(f"/section/{user.id}/EMP/1212/delete")
+    assert resp.status_code == 302
+    assert "/?next=" in resp.location
 
-    with request_ctx(f"/section/99999999/EMP/1212/delete", method="POST") as ctx:
-        login_user(admin)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 302
-        assert resp.location == "/admin/viewmembers/"
+    client.logout()
+    client.login(admin)
+    resp = client.post(f"/section/{user.id}/EMP/1212/delete")
+    resp = client.post(f"/section/99999999/EMP/1212/delete")
+    assert resp.status_code == 302
+    assert resp.location.endswith("/admin/viewmembers/")
 
-    with request_ctx(f"/section/{user.id}/EMP/1212/delete", method="POST") as ctx:
-        login_user(admin)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 302
-        assert resp.location == f"/section/{user.id}/EMP/list"
+    resp = client.post(f"/section/{user.id}/EMP/1212/delete")
+    assert resp.status_code == 302
+    assert resp.location.endswith(f"/section/{user.id}/EMP/list")
 
     admin.organisation.orcid_client_id = "ABC123"
     admin.organisation.save()
 
-    with request_ctx(f"/section/{user.id}/EMP/1212/delete", method="POST") as ctx:
-        login_user(admin)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 302
-        assert resp.location == f"/section/{user.id}/EMP/list"
+    resp = client.post(f"/section/{user.id}/EMP/1212/delete")
+    assert resp.status_code == 302
+    assert resp.location.endswith(f"/section/{user.id}/EMP/list")
 
     if not user.orcid:
         user.orcid = "XXXX-XXXX-XXXX-0001"
@@ -2282,91 +2323,70 @@ def test_delete_employment(request_ctx, app):
     token = OrcidToken.create(
         user=user, org=user.organisation, access_token="ABC123", scope="/read-limited")
 
-    with request_ctx(f"/section/{user.id}/EMP/1212/delete", method="POST") as ctx:
-        login_user(admin)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 302
-        assert resp.location == f"/section/{user.id}/EMP/list"
+    resp = client.post(f"/section/{user.id}/EMP/1212/delete")
+    assert resp.status_code == 302
+    assert resp.location.endswith(f"/section/{user.id}/EMP/list")
 
     token.scope = "/read-limited,/activities/update"
     token.save()
 
-    with patch.object(
-            orcid_client.MemberAPIV20Api,
-            "delete_employment",
-            MagicMock(
-                return_value='{"test": "TEST1234567890"}')) as delete_employment, request_ctx(
-                    f"/section/{user.id}/EMP/12345/delete", method="POST") as ctx:
-        login_user(admin)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 302
-        delete_employment.assert_called_once_with("XXXX-XXXX-XXXX-0001", 12345)
+    delete_employment = mocker.patch(
+            "orcid_hub.orcid_client.MemberAPIV20Api.delete_employment",
+            MagicMock(return_value='{"test": "TEST1234567890"}'))
+    resp = client.post(f"/section/{user.id}/EMP/12345/delete")
+    assert resp.status_code == 302
+    delete_employment.assert_called_once_with("XXXX-XXXX-XXXX-0001", 12345)
 
-    with patch.object(
-            orcid_client.MemberAPIV20Api,
-            "delete_education",
-            MagicMock(return_value='{"test": "TEST1234567890"}')) as delete_education, request_ctx(
-                f"/section/{user.id}/EDU/54321/delete", method="POST") as ctx:
-        login_user(admin)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 302
-        delete_education.assert_called_once_with("XXXX-XXXX-XXXX-0001", 54321)
-    with patch.object(
-        orcid_client.MemberAPIV20Api,
-        "delete_funding",
-            MagicMock(return_value='{"test": "TEST1234567890"}')) as delete_funding, request_ctx(
-                f"/section/{user.id}/FUN/54321/delete", method="POST") as ctx:
-        login_user(admin)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 302
-        delete_funding.assert_called_once_with("XXXX-XXXX-XXXX-0001", 54321)
-    with patch.object(
-        orcid_client.MemberAPIV20Api,
-        "delete_peer_review",
-            MagicMock(return_value='{"test": "TEST1234567890"}')) as delete_peer_review, request_ctx(
-                f"/section/{user.id}/PRR/54321/delete", method="POST") as ctx:
-        login_user(admin)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 302
-        delete_peer_review.assert_called_once_with("XXXX-XXXX-XXXX-0001", 54321)
-    with patch.object(
-        orcid_client.MemberAPIV20Api,
-        "delete_work",
-            MagicMock(return_value='{"test": "TEST1234567890"}')) as delete_work, request_ctx(
-                f"/section/{user.id}/WOR/54321/delete", method="POST") as ctx:
-        login_user(admin)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 302
-        delete_work.assert_called_once_with("XXXX-XXXX-XXXX-0001", 54321)
+    delete_education = mocker.patch(
+            "orcid_hub.orcid_client.MemberAPIV20Api.delete_education",
+            MagicMock(return_value='{"test": "TEST1234567890"}'))
+    resp = client.post(f"/section/{user.id}/EDU/54321/delete")
+    assert resp.status_code == 302
+    delete_education.assert_called_once_with("XXXX-XXXX-XXXX-0001", 54321)
+
+    delete_funding = mocker.patch(
+            "orcid_hub.orcid_client.MemberAPIV20Api.delete_funding",
+            MagicMock(return_value='{"test": "TEST1234567890"}'))
+    resp = client.post(f"/section/{user.id}/FUN/54321/delete")
+    assert resp.status_code == 302
+    delete_funding.assert_called_once_with("XXXX-XXXX-XXXX-0001", 54321)
+
+    delete_peer_review = mocker.patch(
+            "orcid_hub.orcid_client.MemberAPIV20Api.delete_peer_review",
+            MagicMock(return_value='{"test": "TEST1234567890"}'))
+    resp = client.post(f"/section/{user.id}/PRR/54321/delete")
+    assert resp.status_code == 302
+    delete_peer_review.assert_called_once_with("XXXX-XXXX-XXXX-0001", 54321)
+
+    delete_work = mocker.patch(
+            "orcid_hub.orcid_client.MemberAPIV20Api.delete_work",
+            MagicMock(return_value='{"test": "TEST1234567890"}'))
+    resp = client.post(f"/section/{user.id}/WOR/54321/delete")
+    assert resp.status_code == 302
+    delete_work.assert_called_once_with("XXXX-XXXX-XXXX-0001", 54321)
+
     token.scope = "/read-limited,/person/update"
     token.save()
-    with patch.object(
-            orcid_client.MemberAPIV20Api,
-            "delete_researcher_url",
-            MagicMock(return_value='{"test": "TEST1234567890"}')) as delete_researcher_url, request_ctx(
-                f"/section/{user.id}/RUR/54321/delete", method="POST") as ctx:
-        login_user(admin)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 302
-        delete_researcher_url.assert_called_once_with("XXXX-XXXX-XXXX-0001", 54321)
-    with patch.object(
-            orcid_client.MemberAPIV20Api,
-            "delete_other_name",
-            MagicMock(return_value='{"test": "TEST1234567890"}')) as delete_other_name, request_ctx(
-                f"/section/{user.id}/ONR/54321/delete", method="POST") as ctx:
-        login_user(admin)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 302
-        delete_other_name.assert_called_once_with("XXXX-XXXX-XXXX-0001", 54321)
-    with patch.object(
-            orcid_client.MemberAPIV20Api,
-            "delete_keyword",
-            MagicMock(return_value='{"test": "TEST1234567890"}')) as delete_keyword, request_ctx(
-                f"/section/{user.id}/KWR/54321/delete", method="POST") as ctx:
-        login_user(admin)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 302
-        delete_keyword.assert_called_once_with("XXXX-XXXX-XXXX-0001", 54321)
+    delete_researcher_url = mocker.patch(
+            "orcid_hub.orcid_client.MemberAPIV20Api.delete_researcher_url",
+            MagicMock(return_value='{"test": "TEST1234567890"}'))
+    resp = client.post(f"/section/{user.id}/RUR/54321/delete")
+    assert resp.status_code == 302
+    delete_researcher_url.assert_called_once_with("XXXX-XXXX-XXXX-0001", 54321)
+
+    delete_other_name = mocker.patch(
+            "orcid_hub.orcid_client.MemberAPIV20Api.delete_other_name",
+            MagicMock(return_value='{"test": "TEST1234567890"}'))
+    resp = client.post(f"/section/{user.id}/ONR/54321/delete")
+    assert resp.status_code == 302
+    delete_other_name.assert_called_once_with("XXXX-XXXX-XXXX-0001", 54321)
+
+    delete_keyword = mocker.patch(
+            "orcid_hub.orcid_client.MemberAPIV20Api.delete_keyword",
+            MagicMock(return_value='{"test": "TEST1234567890"}'))
+    resp = client.post(f"/section/{user.id}/KWR/54321/delete")
+    assert resp.status_code == 302
+    delete_keyword.assert_called_once_with("XXXX-XXXX-XXXX-0001", 54321)
 
 
 def test_viewmembers(client):
@@ -3461,7 +3481,7 @@ def test_researcher_work(client, mocker):
     },
     "journal-title": {"value": "This is a journal title"},
     "short-description": "xyz this is short description",
-    "citation": {"citation-type": "FORMATTED_UNSPECIFIED", "citation-value": "This is citation value"},
+    "citation": {"citation-type": "formatted_unspecified", "citation-value": "This is citation value"},
     "type": "BOOK_CHAPTER",
     "publication-date": {
       "year": {"value": "2001"},
@@ -3558,7 +3578,7 @@ def test_researcher_work(client, mocker):
                 BytesIO(
                     """Work Id,Put Code,Title,Sub Title,Translated Title,Translated Title Language Code,Journal Title,Short Description,Citation Type,Citation Value,Type,Publication Date,Publication Media Type,Url,Language Code,Country,Visibility,ORCID iD,Email,First Name,Last Name,Name,Role,Excluded,External Id Type,External Id Url,External Id Relationship
 sdsds,,This is a title,,,hi,This is a journal title,xyz this is short description,FORMATTED_UNSPECIFIED,This is citation value,BOOK_CHAPTER,**ERROR**,,,en,NZ,,0000-0002-9207-4933,contributor1@mailinator.com,Alice,Contributor 1,,,,bibcode,http://url.edu/abs/ghjghghj,SELF
-sdsds,,This is a title,,,hi,This is a journal title,xyz this is short description,FORMATTED_UNSPECIFIED,This is citation value,BOOK_CHAPTER,2001-01-12,,,en,NZ,,0000-0002-9207-4933,,,,Associate Professor Alice,AUTHOR,Y,bibcode,http://url.edu/abs/ghjghghj,SELF""".encode()  # noqa: E501
+sdsds,,This is a title,,,hi,This is a journal title,xyz this is short description,formatted_unspecified,This is citation value,BOOK_CHAPTER,2001-01-12,,,en,NZ,,0000-0002-9207-4933,,,,Associate Professor Alice,AUTHOR,Y,bibcode,http://url.edu/abs/ghjghghj,SELF""".encode()  # noqa: E501
                 ),  # noqa: E501
                 "work.csv",
             ),
@@ -4137,3 +4157,63 @@ def test_researcher_urls(client):
             follow_redirects=True)
     assert resp.status_code == 200
     assert b"http://test.test.test.com/ABC123" in resp.data
+
+
+def test_export_affiliations(client, mocker):
+    """Test export of existing affiliation records."""
+    mocker.patch("orcid_hub.orcid_client.MemberAPI.get_record", return_value=get_profile())
+    client.login_root()
+    resp = client.post("/admin/viewmembers/action/",
+                       data=dict(action="export_affiations",
+                                 rowid=[
+                                     u.id for u in User.select().join(Organisation).where(
+                                         Organisation.orcid_client_id.is_null(False))
+                                 ]))
+    assert b"0000-0003-1255-9023" in resp.data
+
+
+def test_delete_affiliations(client, mocker):
+    """Test export of existing affiliation records."""
+    user = OrcidToken.select().join(User).where(User.first_name.is_null(False),
+                                                User.orcid.is_null(False)).first().user
+    org = user.organisation
+
+    mocker.patch("orcid_hub.orcid_client.MemberAPI.get_record", return_value=get_profile(org=org, user=user))
+
+    admin = org.admins.first()
+    client.login(admin)
+    resp = client.post("/admin/viewmembers/action/",
+                       data=dict(action="export_affiations",
+                                 rowid=[
+                                     u.id for u in User.select().join(Organisation).where(
+                                         Organisation.orcid_client_id.is_null(False))
+                                 ]))
+    resp = client.post("/load/researcher",
+                       data={
+                           "save": "Upload",
+                           "file_": (
+                               BytesIO(resp.data),
+                               "affiliations.csv",
+                           ),
+                       })
+    assert resp.status_code == 302
+    task_id = int(re.search(r"\/admin\/affiliationrecord/\?task_id=(\d+)", resp.location)[1])
+    AffiliationRecord.update(delete_record=True).execute()
+
+    delete_education = mocker.patch("orcid_hub.orcid_client.MemberAPI.delete_education")
+    delete_employment = mocker.patch("orcid_hub.orcid_client.MemberAPI.delete_employment")
+    resp = client.post(
+        "/activate_all/?url=http://localhost/affiliation_record_activate_for_batch", data=dict(task_id=task_id))
+    delete_education.assert_called()
+    delete_employment.assert_called()
+
+
+def test_remove_linkage(client, mocker):
+    """Test export of existing affiliation records."""
+    post = mocker.patch("requests.post", return_value=Mock(status_code=200))
+    user = OrcidToken.select().join(User).where(User.orcid.is_null(False)).first().user
+
+    client.login(user)
+    client.post("/remove/orcid/linkage")
+    post.assert_called()
+    assert not OrcidToken.select().where(OrcidToken.user_id == user.id).exists()
