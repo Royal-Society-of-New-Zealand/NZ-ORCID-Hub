@@ -169,7 +169,7 @@ def app():
          OrcidAuthorizeCall, OrcidApiCall, Url, UserInvitation, OrgInvitation, ExternalId, Client,
          Grant, Token, WorkRecord, WorkContributor, WorkExternalId, WorkInvitee, PeerReviewRecord,
          PeerReviewInvitee, PeerReviewExternalId, PropertyRecord, OrcidApiCall,
-         OtherIdRecord, KeywordRecord),
+         OtherIdRecord),
             fail_silently=True):  # noqa: F405
         _app.db = _db
         _app.config["DATABASE_URL"] = DATABASE_URL

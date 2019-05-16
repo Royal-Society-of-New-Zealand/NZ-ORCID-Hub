@@ -291,8 +291,6 @@ class TaskType(IntEnum):
     WORK = 2
     PEER_REVIEW = 3
     OTHER_ID = 5
-    OTHER_NAME = 6
-    KEYWORD = 7
     PROPERTY = 8
     SYNC = 11
 
@@ -2578,197 +2576,6 @@ class PeerReviewRecord(RecordModel):
         table_alias = "pr"
 
 
-class OtherNameKeywordModel(RecordModel):
-    """Other Name and Keyword Model for batch processing."""
-
-    content = CharField(max_length=255, help_text="Other name or keyword")
-    display_index = IntegerField(null=True)
-    visibility = CharField(null=True, max_length=100, choices=visibility_choices)
-    email = CharField(max_length=120, null=True)
-    first_name = CharField(max_length=120, null=True)
-    last_name = CharField(max_length=120, null=True)
-    orcid = OrcidIdField(null=True)
-    put_code = IntegerField(null=True)
-    is_active = BooleanField(
-        default=False, help_text="The record is marked for batch processing", null=True)
-    processed_at = DateTimeField(null=True)
-    status = TextField(null=True, help_text="Record processing status.")
-
-    @classmethod
-    def load_from_csv(cls, source, filename=None, org=None, task_type=TaskType.OTHER_NAME):
-        """Load keyword and Other Name data from CSV/TSV file."""
-        if isinstance(source, str):
-            source = StringIO(source)
-        if filename is None:
-            if hasattr(source, "name"):
-                filename = source.name
-            else:
-                filename = datetime.utcnow().isoformat(timespec="seconds")
-        reader = csv.reader(source)
-        header = next(reader)
-
-        if len(header) == 1 and '\t' in header[0]:
-            source.seek(0)
-            reader = csv.reader(source, delimiter='\t')
-            header = next(reader)
-
-        if len(header) < 2:
-            raise ModelException(
-                "Wrong number of fields. Expected at least 2 fields (content and unique identifier)."
-                "Read header: {header}")
-
-        header_rexs = [
-            re.compile(ex, re.I) for ex in ("content", r"(display)?.*index", "email", r"first\s*(name)?",
-                                            r"(last|sur)\s*(name)?", "orcid.*", r"put|code",
-                                            r"(is)?\s*visib(bility|le)?")]
-
-        def index(rex):
-            """Return first header column index matching the given regex."""
-            for i, column in enumerate(header):
-                if rex.match(column.strip()):
-                    return i
-            else:
-                return None
-
-        idxs = [index(rex) for rex in header_rexs]
-
-        if all(idx is None for idx in idxs):
-            raise ModelException(f"Failed to map fields based on the header of the file: {header}")
-
-        if org is None:
-            org = current_user.organisation if current_user else None
-
-        def val(row, i, default=None):
-            if len(idxs) <= i or idxs[i] is None or idxs[i] >= len(row):
-                return default
-            else:
-                v = row[idxs[i]].strip()
-            return default if v == '' else v
-
-        with db.atomic():
-            try:
-                task = Task.create(org=org, filename=filename, task_type=task_type)
-                for row_no, row in enumerate(reader):
-                    # skip empty lines:
-                    if len([item for item in row if item and item.strip()]) == 0:
-                        continue
-                    if len(row) == 1 and row[0].strip() == '':
-                        continue
-
-                    email = val(row, 2, "").lower()
-                    orcid = val(row, 5)
-
-                    if not (email or orcid):
-                        raise ModelException(
-                            f"Missing user identifier (email address or ORCID iD) in the row "
-                            f"#{row_no+2}: {row}. Header: {header}")
-
-                    if orcid:
-                        validate_orcid_id(orcid)
-
-                    if email and not validators.email(email):
-                        raise ValueError(
-                            f"Invalid email address '{email}'  in the row #{row_no+2}: {row}")
-
-                    content = val(row, 0, "")
-                    first_name = val(row, 3)
-                    last_name = val(row, 4)
-
-                    if not (content and (email or orcid)):
-                        raise ModelException(
-                            "Wrong number of fields. Expected at least 2 fields (content and unique identifier)."
-                            "Read header: {header}")
-
-                    ot = cls(
-                        task=task,
-                        content=content,
-                        display_index=val(row, 1),
-                        email=email,
-                        first_name=first_name,
-                        last_name=last_name,
-                        orcid=orcid,
-                        put_code=val(row, 6),
-                        visibility=val(row, 7))
-                    validator = ModelValidator(ot)
-                    if not validator.validate():
-                        raise ModelException(f"Invalid record: {validator.errors}")
-                    ot.save()
-            except Exception:
-                db.rollback()
-                app.logger.exception("Failed to load Researcher Url Record file.")
-                raise
-
-        return task
-
-    @classmethod
-    def load_from_json(cls, source, filename=None, org=None, task=None, skip_schema_validation=False,
-                       task_type=TaskType.OTHER_NAME):
-        """Load data from JSON file or a string."""
-        data = load_yaml_json(filename=filename, source=source)
-        if not skip_schema_validation:
-            if isinstance(data, dict):
-                jsonschema.validate(data, schemas.other_name_keyword_task)
-            else:
-                jsonschema.validate(data, schemas.other_name_keyword_record_list)
-        records = data["records"] if isinstance(data, dict) else data
-        with db.atomic():
-            try:
-                if org is None:
-                    org = current_user.organisation if current_user else None
-                if not task:
-                    task = Task.create(org=org, filename=filename, task_type=task_type)
-
-                for r in records:
-                    content = r.get("content")
-                    display_index = r.get("display-index")
-                    email = r.get("email")
-                    if email:
-                        email = email.lower()
-                    first_name = r.get("first-name")
-                    last_name = r.get("last-name")
-                    orcid = r.get("ORCID-iD") or r.get("orcid")
-                    put_code = r.get("put-code")
-                    visibility = r.get("visibility")
-
-                    cls.create(
-                        task=task,
-                        content=content,
-                        display_index=display_index,
-                        email=email,
-                        first_name=first_name,
-                        last_name=last_name,
-                        orcid=orcid,
-                        visibility=visibility,
-                        put_code=put_code)
-
-                return task
-
-            except Exception:
-                db.rollback()
-                app.logger.exception("Failed to load Other Name Record file.")
-                raise
-
-
-class KeywordRecord(OtherNameKeywordModel):
-    """Keyword record loaded for batch processing."""
-
-    task = ForeignKeyField(Task, related_name="keyword_records", on_delete="CASCADE")
-
-    class Meta:  # noqa: D101,D106
-        db_table = "keyword_record"
-        table_alias = "onr"
-
-
-class OtherNameRecord(OtherNameKeywordModel):
-    """Other Name record loaded for batch processing."""
-
-    task = ForeignKeyField(Task, related_name="other_name_records", on_delete="CASCADE")
-
-    class Meta:  # noqa: D101,D106
-        db_table = "other_name_record"
-        table_alias = "onr"
-
-
 class PropertyRecord(RecordModel):
     """Researcher Url record loaded from Json file for batch processing."""
 
@@ -4023,8 +3830,6 @@ def create_tables():
             PeerReviewExternalId,
             OtherIdRecord,
             PropertyRecord,
-            OtherNameRecord,
-            KeywordRecord,
             Client,
             Grant,
             Token,
@@ -4055,11 +3860,11 @@ def create_audit_tables():
 
 def drop_tables():
     """Drop all model tables."""
-    for m in (File, User, UserOrg, OtherNameRecord, OrcidToken, UserOrgAffiliation, OrgInfo, OrgInvitation,
-              OrcidApiCall, OrcidAuthorizeCall, OtherIdRecord, FundingContributor, FundingInvitee, FundingRecord,
-              PropertyRecord, PeerReviewInvitee, PeerReviewExternalId, PeerReviewRecord, KeywordRecord,
-              WorkInvitee, WorkExternalId, WorkContributor, WorkRecord, AffiliationRecord, ExternalId, Url,
-              UserInvitation, Task, Organisation):
+    for m in (File, User, UserOrg, OrcidToken, UserOrgAffiliation, OrgInfo, OrgInvitation,
+              OrcidApiCall, OrcidAuthorizeCall, OtherIdRecord, FundingContributor, FundingInvitee,
+              FundingRecord, PropertyRecord, PeerReviewInvitee, PeerReviewExternalId,
+              PeerReviewRecord, WorkInvitee, WorkExternalId, WorkContributor, WorkRecord,
+              AffiliationRecord, ExternalId, Url, UserInvitation, Task, Organisation):
         if m.table_exists():
             try:
                 m.drop_table(fail_silently=True, cascade=m._meta.database.drop_cascade)
