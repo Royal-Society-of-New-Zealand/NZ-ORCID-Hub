@@ -663,7 +663,7 @@ class OrgInfo(BaseModel):
     def load_from_csv(cls, source):
         """Load data from CSV file or a string."""
         if isinstance(source, str):
-            source = StringIO(source)
+            source = StringIO(source, newline='')
         reader = csv.reader(source)
         header = next(reader)
 
@@ -1127,7 +1127,7 @@ class Task(BaseModel, AuditMixin):
     def load_from_csv(cls, source, filename=None, org=None):
         """Load affiliation record data from CSV/TSV file or a string."""
         if isinstance(source, str):
-            source = StringIO(source)
+            source = StringIO(source, newline='')
         reader = csv.reader(source)
         header = next(reader)
         if filename is None:
@@ -1647,7 +1647,7 @@ class FundingRecord(RecordModel):
     def load_from_csv(cls, source, filename=None, org=None):
         """Load data from CSV/TSV file or a string."""
         if isinstance(source, str):
-            source = StringIO(source)
+            source = StringIO(source, newline='')
         if filename is None:
             filename = datetime.utcnow().isoformat(timespec="seconds")
         reader = csv.reader(source)
@@ -2101,7 +2101,7 @@ class PeerReviewRecord(RecordModel):
     def load_from_csv(cls, source, filename=None, org=None):
         """Load data from CSV/TSV file or a string."""
         if isinstance(source, str):
-            source = StringIO(source)
+            source = StringIO(source, newline='')
         if filename is None:
             filename = datetime.utcnow().isoformat(timespec="seconds")
         reader = csv.reader(source)
@@ -2594,7 +2594,7 @@ class ResearcherUrlRecord(RecordModel):
     def load_from_csv(cls, source, filename=None, org=None):
         """Load data from CSV/TSV file or a string."""
         if isinstance(source, str):
-            source = StringIO(source)
+            source = StringIO(source, newline='')
         if filename is None:
             if hasattr(source, "name"):
                 filename = source.name
@@ -2777,7 +2777,7 @@ class OtherNameKeywordModel(RecordModel):
     def load_from_csv(cls, source, filename=None, org=None, task_type=TaskType.OTHER_NAME):
         """Load keyword and Other Name data from CSV/TSV file."""
         if isinstance(source, str):
-            source = StringIO(source)
+            source = StringIO(source, newline='')
         if filename is None:
             if hasattr(source, "name"):
                 filename = source.name
@@ -2976,7 +2976,7 @@ class WorkRecord(RecordModel):
     def load_from_csv(cls, source, filename=None, org=None):
         """Load data from CSV/TSV file or a string."""
         if isinstance(source, str):
-            source = StringIO(source)
+            source = StringIO(source, newline='')
         if filename is None:
             filename = datetime.utcnow().isoformat(timespec="seconds")
         reader = csv.reader(source)
