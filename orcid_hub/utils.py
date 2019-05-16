@@ -764,16 +764,16 @@ def create_or_update_properties(user, org_id, records, *args, **kwargs):
         activities = profile_record.get("person")
 
         researcher_urls = [
-            r for r in (activities.get("researcher-urls").get("researcher-url")) if is_org_rec(org, r)
+            r for r in (activities.get("researcher-urls", "researcher-url", default=[])) if is_org_rec(org, r)
         ]
         other_names = [
-            r for r in (activities.get("other-names").get("other-name")) if is_org_rec(org, r)
+            r for r in (activities.get("other-names", "other-name", default=[])) if is_org_rec(org, r)
         ]
         keywords = [
-            r for r in (activities.get("keywords").get("keyword")) if is_org_rec(org, r)
+            r for r in (activities.get("keywords", "keyword", default=[])) if is_org_rec(org, r)
         ]
         countries = [
-            r for r in (activities.get("addresses").get("address")) if is_org_rec(org, r)
+            r for r in (activities.get("addresses", "address", default=[])) if is_org_rec(org, r)
         ]
 
         taken_put_codes = {
