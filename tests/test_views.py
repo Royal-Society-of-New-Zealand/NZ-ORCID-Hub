@@ -2440,8 +2440,8 @@ def test_viewmembers(client):
             "orcid": non_admin.orcid,
         },
         follow_redirects=True)
-    assert b"NEW_EMAIL@test0.edu" in resp.data
-    assert User.get(non_admin.id).email == "NEW_EMAIL@test0.edu"
+    assert b"new_email@test0.edu" in resp.data
+    assert User.get(non_admin.id).email == "new_email@test0.edu"
 
     resp = client.get(f"/admin/viewmembers/edit/?id=9999999999")
     assert resp.status_code == 404
