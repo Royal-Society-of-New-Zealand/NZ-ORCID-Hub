@@ -3120,9 +3120,6 @@ class WorkRecord(RecordModel):
             citation_type = val(row, 7)
             if citation_type:
                 citation_type = citation_type.upper()
-                if citation_type not in CITATION_TYPES:
-                    raise ModelException(
-                        f"Invalid Citation Type: '{citation_type}', Use {CITATION_TYPES}")
 
             if publication_date:
                 publication_date = PartialDate.create(publication_date)
@@ -3225,9 +3222,6 @@ class WorkRecord(RecordModel):
                     citation_type = get_val(work_data, "citation", "citation-type")
                     if citation_type:
                         citation_type = citation_type.strip().upper()
-                        if citation_type not in CITATION_TYPES:
-                            raise ModelException(
-                                f"Invalid Citation Type: '{citation_type}', Use {CITATION_TYPES}")
                     citation_value = get_val(work_data, "citation", "citation-value")
                     type = get_val(work_data, "type")
                     publication_media_type = get_val(work_data, "publication-date", "media-type")
@@ -3256,6 +3250,10 @@ class WorkRecord(RecordModel):
                         url=url,
                         language_code=language_code,
                         country=country)
+
+                    validator = ModelValidator(record)
+                    if not validator.validate():
+                        raise ModelException(f"Invalid Work record: {validator.errors}")
 
                     invitee_list = work_data.get("invitees")
                     if invitee_list:
