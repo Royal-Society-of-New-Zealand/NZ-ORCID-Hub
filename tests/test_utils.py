@@ -790,10 +790,10 @@ def test_create_or_update_keyword(app, mocker):
     OrcidToken.create(
         user=u, org=org, scope="/read-limited,/person/update", access_token="Test_token")
 
-    utils.process_keyword_records()
-    keyword_record = PropertyRecord.get(email="test1234456@mailinator.com")
-    assert 12399 == keyword_record.put_code
-    assert "12344" == keyword_record.orcid
+    utils.process_property_records()
+    record = PropertyRecord.get(email="test1234456@mailinator.com")
+    assert 12399 == record.put_code
+    assert "12344" == record.orcid
 
 
 def test_create_or_update_affiliation(app, mocker):
