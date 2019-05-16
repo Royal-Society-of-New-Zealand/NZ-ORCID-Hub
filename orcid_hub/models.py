@@ -404,7 +404,7 @@ class BaseModel(Model):
 
     def save(self, *args, **kwargs):
         """Consistency validation and saving."""
-        if self.is_dirty() and hasattr(self, "task"):
+        if self.is_dirty() and hasattr(self, "task") and self.task:
             self.task.updated_at = datetime.utcnow()
             self.task.save()
         if self.is_dirty() and hasattr(self, "email") and self.email and self.field_is_updated("email"):
