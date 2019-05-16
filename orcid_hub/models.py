@@ -2959,7 +2959,7 @@ class WorkRecord(RecordModel):
     journal_title = CharField(null=True, max_length=255)
     short_description = CharField(null=True, max_length=4000)
     citation_type = CharField(null=True, max_length=255, choices=citation_type_choices)
-    citation_value = CharField(null=True, max_length=255)
+    citation_value = CharField(null=True, max_length=1000)
     type = CharField(null=True, max_length=255, choices=work_type_choices)
     publication_date = PartialDateField(null=True)
     publication_media_type = CharField(null=True, max_length=255)
@@ -3250,6 +3250,10 @@ class WorkRecord(RecordModel):
                         url=url,
                         language_code=language_code,
                         country=country)
+
+                    validator = ModelValidator(record)
+                    if not validator.validate():
+                        raise ModelException(f"Invalid Work record: {validator.errors}")
 
                     invitee_list = work_data.get("invitees")
                     if invitee_list:
