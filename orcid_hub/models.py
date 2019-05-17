@@ -679,7 +679,7 @@ class OrgInfo(BaseModel):
     def load_from_csv(cls, source):
         """Load data from CSV file or a string."""
         if isinstance(source, str):
-            source = StringIO(source)
+            source = StringIO(source, newline='')
         reader = csv.reader(source)
         header = next(reader)
 
@@ -1143,7 +1143,7 @@ class Task(BaseModel, AuditMixin):
     def load_from_csv(cls, source, filename=None, org=None):
         """Load affiliation record data from CSV/TSV file or a string."""
         if isinstance(source, str):
-            source = StringIO(source)
+            source = StringIO(source, newline='')
         reader = csv.reader(source)
         header = next(reader)
         if filename is None:
@@ -1651,7 +1651,7 @@ class FundingRecord(RecordModel):
     def load_from_csv(cls, source, filename=None, org=None):
         """Load data from CSV/TSV file or a string."""
         if isinstance(source, str):
-            source = StringIO(source)
+            source = StringIO(source, newline='')
         if filename is None:
             filename = datetime.utcnow().isoformat(timespec="seconds")
         reader = csv.reader(source)
@@ -2105,7 +2105,7 @@ class PeerReviewRecord(RecordModel):
     def load_from_csv(cls, source, filename=None, org=None):
         """Load data from CSV/TSV file or a string."""
         if isinstance(source, str):
-            source = StringIO(source)
+            source = StringIO(source, newline='')
         if filename is None:
             filename = datetime.utcnow().isoformat(timespec="seconds")
         reader = csv.reader(source)
@@ -2604,7 +2604,7 @@ class PropertyRecord(RecordModel):
     def load_from_csv(cls, source, filename=None, org=None, file_property_type=None):
         """Load data from CSV/TSV file or a string."""
         if isinstance(source, str):
-            source = StringIO(source)
+            source = StringIO(source, newline='')
         if filename is None:
             if hasattr(source, "name"):
                 filename = source.name
@@ -2800,7 +2800,6 @@ class PropertyRecord(RecordModel):
                     if not property_type or property_type not in PROPERTY_TYPES:
                         raise ModelException("Missing or incorrect property type. "
                                              f"(expected: {','.join(PROPERTY_TYPES)}: {r}")
-
                     name = None
                     if property_type == "URL":
                         name = r.get("name") or r.get("url-name")
@@ -2815,7 +2814,6 @@ class PropertyRecord(RecordModel):
                             except Exception:
                                 raise ModelException(
                                     f"(Country {value} must be 2 character from ISO 3166-1 alpha-2): {r}.")
-
                     cls.create(
                         task=task,
                         type=property_type,
@@ -2859,7 +2857,7 @@ class WorkRecord(RecordModel):
     journal_title = CharField(null=True, max_length=255)
     short_description = CharField(null=True, max_length=4000)
     citation_type = CharField(null=True, max_length=255, choices=citation_type_choices)
-    citation_value = CharField(null=True, max_length=255)
+    citation_value = CharField(null=True, max_length=1000)
     type = CharField(null=True, max_length=255, choices=work_type_choices)
     publication_date = PartialDateField(null=True)
     publication_media_type = CharField(null=True, max_length=255)
@@ -2876,7 +2874,7 @@ class WorkRecord(RecordModel):
     def load_from_csv(cls, source, filename=None, org=None):
         """Load data from CSV/TSV file or a string."""
         if isinstance(source, str):
-            source = StringIO(source)
+            source = StringIO(source, newline='')
         if filename is None:
             filename = datetime.utcnow().isoformat(timespec="seconds")
         reader = csv.reader(source)
@@ -3150,6 +3148,10 @@ class WorkRecord(RecordModel):
                         url=url,
                         language_code=language_code,
                         country=country)
+
+                    validator = ModelValidator(record)
+                    if not validator.validate():
+                        raise ModelException(f"Invalid Work record: {validator.errors}")
 
                     invitee_list = r.get("invitees")
                     if invitee_list:

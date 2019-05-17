@@ -1966,7 +1966,7 @@ def test_load_researcher_work(patch, patch2, request_ctx):
                             b'[{"invitees": [{"identifier":"00001", "email": "marco.232323newwjwewkppp@mailinator.com",'
                             b'"first-name": "Alice", "last-name": "Contributor 1", "ORCID-iD": null, "put-code":null}],'
                             b'"title": { "title": { "value": "1ral"}}, "citation": {"citation-type": '
-                            b'"FORMATTED_UNSPECIFIED", "citation-value": "This is citation value"}, "type": "BOOK_CHR",'
+                            b'"FORMATTED_UNSPECIFIED", "citation-value": "This is value"}, "type": "BOOK_CHAPTER",'
                             b'"contributors": {"contributor": [{"contributor-attributes": {"contributor-role": '
                             b'"AUTHOR", "contributor-sequence" : "1"},"credit-name": {"value": "firentini"}}]}'
                             b', "external-ids": {"external-id": [{"external-id-value": '
@@ -3397,7 +3397,7 @@ def test_researcher_work(client, mocker):
                     b'[{"invitees": [{"identifier":"00001", "email": "marco.232323newwjwewkppp@mailinator.com",'
                     b'"first-name": "Alice", "last-name": "Contributor 1", "ORCID-iD": null, "put-code":null}],'
                     b'"title": { "title": { "value": "WORK TITLE #1"}}, "citation": {"citation-type": '
-                    b'"FORMATTED_UNSPECIFIED", "citation-value": "This is citation value"}, "type": "BOOK_CHR",'
+                    b'"FORMATTED_UNSPECIFIED", "citation-value": "This is citation value"}, "type": "BOOK_CHAPTER",'
                     b'"contributors": {"contributor": [{"contributor-attributes": {"contributor-role": '
                     b'"AUTHOR", "contributor-sequence" : "1"},"credit-name": {"value": "firentini"}}]}'
                     b', "external-ids": {"external-id": [{"external-id-value": '
@@ -3411,7 +3411,7 @@ def test_researcher_work(client, mocker):
     assert resp.status_code == 200
     # Work file successfully loaded.
     assert b"WORK TITLE #1" in resp.data
-    assert b"BOOK_CHR" in resp.data
+    assert b"BOOK_CHAPTER" in resp.data
     task = Task.get(filename="work001.json")
     assert task.records.count() == 1
     rec = task.records.first()
