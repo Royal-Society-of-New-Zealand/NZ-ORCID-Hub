@@ -225,7 +225,7 @@ def test_superuser_view_access(client):
             ))
         user = User.get(u.id)
         assert user.orcid == "1631-2631-3631-00X3"
-        assert user.email == "NEW_" + u.email
+        assert user.email == "new_" + u.email
         assert user.name == u.name + "_NEW"
 
     resp = client.get("/admin/schedude/")
