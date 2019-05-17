@@ -299,24 +299,37 @@ def send_work_funding_peer_review_invitation(inviter,
                                              **kwargs):
     """Send a work, funding or peer review invitation to join ORCID Hub logging in via ORCID."""
     try:
+        if not email:
+            if user and user.email:
+                email = user.email
+            else:
+                raise Exception("Failed to find the email address for the record. Cannot send an invitation.")
+        else:
+            email = email.lower()
+
         logger.info(f"*** Sending an invitation to '{first_name} <{email}>' "
                     f"submitted by {inviter} of {org}")
 
-        email = email.lower()
-        if user is None:
-            user, user_created = User.get_or_create(first_nam="N/A", last_nam="N/A", email=email)
+        if not user or not user.id:
+            user, user_created = User.get_or_create(first_name=first_name or "N/A",
+                                                    last_name=last_name or "N/A",
+                                                    email=email)
             if user_created:
+                user.organisation = org
                 user.created_by = inviter.id
             else:
                 user.updated_by = inviter.id
 
         if first_name and not user.first_name:
             user.first_name = first_name
-
         if last_name and not user.last_name:
             user.last_name = last_name
 
-        user.organisation = org
+        if not first_name:
+            first_name = user.first_name
+        if not last_name:
+            last_name = user.last_name
+
         user.roles |= Role.RESEARCHER
         token = new_invitation_token()
         with app.app_context():
@@ -339,9 +352,9 @@ def send_work_funding_peer_review_invitation(inviter,
         user_org, user_org_created = UserOrg.get_or_create(user=user, org=org)
         if user_org_created:
             user_org.created_by = inviter.id
+            user_org.affiliations = 0
         else:
             user_org.updated_by = inviter.id
-        user_org.affiliations = 0
         user_org.save()
 
         ui = UserInvitation.create(
@@ -1703,12 +1716,12 @@ def process_property_records(max_rows=20, record_id=None):
                 & UserInvitation.id.is_null()
                 & (PropertyRecord.status.is_null()
                    | PropertyRecord.status.contains("sent").__invert__())))).join(
-                       PropertyRecord, on=(Task.id == PropertyRecord.task_id).alias("record")).join(
+                       PropertyRecord,
+                       on=(Task.id == PropertyRecord.task_id).alias("record")).join(
                            User,
                            JOIN.LEFT_OUTER,
                            on=((User.email == PropertyRecord.email)
-                               | ((User.orcid == PropertyRecord.orcid)
-                                  & (User.organisation_id == Task.org_id)))).join(
+                               | (User.orcid == PropertyRecord.orcid))).join(
                                    Organisation,
                                    JOIN.LEFT_OUTER,
                                    on=(Organisation.id == Task.org_id)).join(
@@ -1716,46 +1729,47 @@ def process_property_records(max_rows=20, record_id=None):
                                        JOIN.LEFT_OUTER,
                                        on=((UserOrg.user_id == User.id)
                                            & (UserOrg.org_id == Organisation.id))).
-             join(
-                 UserInvitation,
-                 JOIN.LEFT_OUTER,
-                 on=((UserInvitation.email == PropertyRecord.email)
-                     & (UserInvitation.task_id == Task.id))).join(
-                         OrcidToken,
-                         JOIN.LEFT_OUTER,
-                         on=((OrcidToken.user_id == User.id)
-                             & (OrcidToken.org_id == Organisation.id)
-                             & (OrcidToken.scope.contains("/person/update")))).limit(max_rows))
+             join(UserInvitation,
+                  JOIN.LEFT_OUTER,
+                  on=(((UserInvitation.email == PropertyRecord.email | UserInvitation.email == User.email))
+                      & (UserInvitation.task_id == Task.id))).join(
+                          OrcidToken,
+                          JOIN.LEFT_OUTER,
+                          on=((OrcidToken.user_id == User.id)
+                              & (OrcidToken.org_id == Organisation.id)
+                              & (OrcidToken.scope.contains("/person/update")))))
+    if max_rows:
+        tasks = tasks.limit(max_rows)
     if record_id:
-        tasks = tasks.where(PropertyRecord.id == record_id)
+        if isinstance(record_id, list):
+            tasks = tasks.where(PropertyRecord.id.in_(record_id))
+        else:
+            tasks = tasks.where(PropertyRecord.id == record_id)
+
     for (task_id, org_id, user), tasks_by_user in groupby(tasks, lambda t: (
             t.id,
             t.org_id,
             t.record.user, )):
-        if (user.id is None or user.orcid is None or not OrcidToken.select().where(
-            (OrcidToken.user_id == user.id) & (OrcidToken.org_id == org_id)
-                & (OrcidToken.scope.contains("/person/update"))).exists()):  # noqa: E127, E129
+        if (not user.id or not user.orcid or not OrcidToken.select().where(
+                OrcidToken.user_id == user.id, OrcidToken.org_id == org_id,
+                OrcidToken.scope.contains("/person/update")).exists()):  # noqa: E127, E129
             for k, tasks in groupby(
                     tasks_by_user,
                     lambda t: (t.created_by, t.org, t.record.email, t.record.first_name,
                                t.record.last_name, t.record.user)):  # noqa: E501
                 try:
-                    email = k[2]
                     send_work_funding_peer_review_invitation(
                         *k,
                         task_id=task_id,
                         invitation_template="email/person_update_invitation.html")
                     status = "The invitation sent at " + datetime.utcnow().isoformat(timespec="seconds")
-                    (PropertyRecord.update(status=PropertyRecord.status + "\n" + status).where(
-                        PropertyRecord.status.is_null(False), PropertyRecord.email == email).execute())
-                    (PropertyRecord.update(status=status).where(PropertyRecord.status.is_null(),
-                                                                PropertyRecord.email == email).execute())
+                    for r in tasks_by_user:
+                        r.record.add_status_line(status)
+                        r.record.save()
                 except Exception as ex:
-                    (PropertyRecord.update(
-                        processed_at=datetime.utcnow(),
-                        status=f"Failed to send an invitation: {ex}.").where(
-                            PropertyRecord.task_id == task_id, PropertyRecord.email == email,
-                            PropertyRecord.processed_at.is_null())).execute()
+                    for r in tasks_by_user:
+                        r.record.add_status_line(f"Failed to send an invitation: {ex}.")
+                        r.record.save()
         else:
             create_or_update_properties(user, org_id, tasks_by_user)
         task_ids.add(task_id)
@@ -2197,7 +2211,7 @@ def enqueue_task_records(task):
     """Enqueue all active and not yet processed record."""
     records = task.records.where(task.record_model.is_active, task.record_model.processed_at.is_null())
     func = globals().get(f"process_{task.task_type.name.lower()}_records")
-    if task.task_type == TaskType.AFFILIATION:
+    if task.task_type in [TaskType.AFFILIATION, TaskType.PROPERTY]:
         records = records.order_by(task.record_model.email, task.record_model.orcid)
         for _, chunk in groupby(records, lambda r: (r.email, r.orcid, )):
             func.queue(record_id=[r.id for r in chunk])

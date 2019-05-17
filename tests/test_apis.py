@@ -16,6 +16,7 @@ from orcid_hub.models import (AffiliationRecord, Client, OrcidApiCall, OrcidToke
                               Task, TaskType, Token, User, UserInvitation)
 
 from unittest.mock import patch, MagicMock
+from tests import utils
 
 
 def test_plural():
@@ -1052,7 +1053,7 @@ def test_orcid_api_rep(client):
     assert b"2019-04-04" in resp.data
 
 
-def test_property_api(client):
+def test_property_api(client, mocker):
     """Test property API in various formats."""
     data_path = os.path.join(os.path.dirname(__file__), "data")
     admin = client.data.get("admin")
@@ -1076,7 +1077,7 @@ def test_property_api(client):
     resp = client.get(f"/api/v1.0/properties/{task_id}",
                       headers=dict(authorization=f"Bearer {access_token}"))
     data = json.loads(resp.data)
-    assert len(data["records"]) == 10
+    assert len(data["records"]) == 19
     assert data["filename"] == "properties042.csv"
 
     del (data["id"])
@@ -1131,7 +1132,16 @@ def test_property_api(client):
     assert resp.status_code == 200
     assert Task.select().count() == 5
 
+    user = User.get(orcid="0000-0000-0000-00X3")
+    OrcidToken.create(user=user, org=user.organisation, scope="/person/update")
+    get_profile = mocker.patch("orcid_hub.orcid_client.MemberAPI.get_record", return_value=utils.get_profile(user=user))
+    send_email = mocker.patch("orcid_hub.utils.send_email")
+    create_or_update_researcher_url = mocker.patch("orcid_hub.orcid_client.MemberAPI.create_or_update_researcher_url")
+    create_or_update_other_name = mocker.patch("orcid_hub.orcid_client.MemberAPI.create_or_update_other_name")
+    create_or_update_address = mocker.patch("orcid_hub.orcid_client.MemberAPI.create_or_update_address")
+    create_or_update_keyword = mocker.patch("orcid_hub.orcid_client.MemberAPI.create_or_update_keyword")
     for r in records:
+        del(r["id"])
         r["is-active"] = True
     resp = client.post("/api/v1.0/properties/?filename=properties777.json",
                        headers=dict(authorization=f"Bearer {access_token}"),
@@ -1139,4 +1149,10 @@ def test_property_api(client):
                        data=json.dumps(records))
     assert resp.status_code == 200
     assert Task.select().count() == 6
-    assert UserInvitation.select().count() == 5
+    assert UserInvitation.select().count() == 7
+    get_profile.assert_called()
+    send_email.assert_called()
+    create_or_update_researcher_url.assert_called_once()
+    create_or_update_other_name.assert_called_once()
+    create_or_update_keyword.assert_called_once()
+    create_or_update_address.assert_called()
