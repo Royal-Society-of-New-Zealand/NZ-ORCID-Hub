@@ -463,7 +463,7 @@ def test_create_or_update_funding(app, mocker):
 
     UserOrg.create(user=u, org=org)
 
-    t = Task.create(org=org, filename="xyz.json", created_by=u, updated_by=u, task_type=1)
+    t = Task.create(org=org, filename="xyz.json", created_by=u, updated_by=u, task_type=TaskType.FUNDING)
 
     fr = FundingRecord.create(
         task=t,
@@ -530,7 +530,7 @@ def test_create_or_update_work(app, mocker):
 
     UserOrg.create(user=u, org=org)
 
-    t = Task.create(org=org, filename="xyz.json", created_by=u, updated_by=u, task_type=2)
+    t = Task.create(org=org, filename="xyz.json", created_by=u, updated_by=u, task_type=TaskType.WORK)
 
     wr = WorkRecord.create(
         task=t,
@@ -597,7 +597,7 @@ def test_create_or_update_peer_review(app, mocker):
 
     UserOrg.create(user=u, org=org)
 
-    t = Task.create(id=12, org=org, filename="xyz.json", created_by=u, updated_by=u, task_type=3)
+    t = Task.create(id=12, org=org, filename="xyz.json", created_by=u, updated_by=u, task_type=TaskType.PEER_REVIEW)
     pr = PeerReviewRecord.create(
         task=t,
         review_group_id="issn:12131",
@@ -765,7 +765,7 @@ def test_create_or_update_keyword(app, mocker):
 
     UserOrg.create(user=u, org=org)
 
-    t = Task.create(id=12, org=org, filename="xyz.json", created_by=u, updated_by=u, task_type=7)
+    t = Task.create(id=12, org=org, filename="xyz.json", created_by=u, updated_by=u, task_type=TaskType.PROPERTY)
 
     PropertyRecord.create(
         task=t,
@@ -815,7 +815,7 @@ def test_create_or_update_affiliation(app, mocker):
         confirmed=True,
         organisation=org)
     UserOrg.create(user=u, org=org)
-    t = Task.create(org=org, filename="xyz.json", created_by=u, updated_by=u, task_type=0)
+    t = Task.create(org=org, filename="xyz.json", created_by=u, updated_by=u, task_type=TaskType.AFFILIATION)
     OrcidToken.create(
         user=u, org=org, scope="/read-limited,/activities/update", access_token="Test_token")
     UserInvitation.create(
