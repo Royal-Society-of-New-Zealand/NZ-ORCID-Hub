@@ -1050,7 +1050,7 @@ def test_orcid_api_rep(client):
     client.login_root()
     resp = client.get("/orcid_api_rep")
     assert resp.status_code == 200
-    assert b"2019-04-04" in resp.data
+    assert b"2017-12-04" in resp.data
 
 
 def test_property_api(client, mocker):

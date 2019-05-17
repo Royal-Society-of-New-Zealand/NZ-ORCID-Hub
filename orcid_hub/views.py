@@ -2874,11 +2874,11 @@ def orcid_api_rep():
     else:
         data = db.execute_sql("""
         WITH rd AS (
-            SELECT strftime('YYYY-MM-DDTHH:MM', called_at) AS d, count(*) AS c
+            SELECT strftime('%Y-%m-%dT%H:%M', called_at) AS d, count(*) AS c
             FROM orcid_api_call
-            GROUP BY strftime('YYYY-MM-DDTHH:MM', called_at))
-        SELECT strftime('YYYY-MM-DD', d) AS d, max(c) AS c
-        FROM rd GROUP BY strftime('YYYY-MM-DD', d) ORDER BY 1
+            GROUP BY strftime('%Y-%m-%dT%H:%M', called_at))
+        SELECT strftime('%Y-%m-%d', d) AS d, max(c) AS c
+        FROM rd GROUP BY strftime('%Y-%m-%d', d) ORDER BY 1
         """).fetchall()
     return render_template("orcid_api_call_report.html", data=data, title="ORCID API Call Summary")
 

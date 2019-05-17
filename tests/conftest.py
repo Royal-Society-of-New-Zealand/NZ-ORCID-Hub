@@ -31,7 +31,7 @@ import pytest
 from playhouse import db_url
 from playhouse.test_utils import test_database
 
-from orcid_hub import app as _app
+from orcid_hub import app as _app, models, views
 _app.config["DATABASE_URL"] = DATABASE_URL
 from orcid_hub.models import *  # noqa: F401, F403
 from orcid_hub.authcontroller import *  # noqa: F401, F403
@@ -171,7 +171,7 @@ def app():
          PeerReviewInvitee, PeerReviewExternalId, PropertyRecord, OrcidApiCall,
          OtherIdRecord),
             fail_silently=True):  # noqa: F405
-        _app.db = _db
+        _app.db = models.db = views.db = _db
         _app.config["DATABASE_URL"] = DATABASE_URL
         _app.config["EXTERNAL_SP"] = None
         _app.config["SENTRY_DSN"] = None
