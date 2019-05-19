@@ -311,12 +311,12 @@ def send_work_funding_peer_review_invitation(inviter,
                     f"submitted by {inviter} of {org}")
 
         if not user or not user.id:
-            user, user_created = User.get_or_create(first_name=first_name or "N/A",
-                                                    last_name=last_name or "N/A",
-                                                    email=email)
+            user, user_created = User.get_or_create(email=email)
             if user_created:
                 user.organisation = org
                 user.created_by = inviter.id
+                user.first_name = first_name or "N/A"
+                user.last_name = last_name or "N/A"
             else:
                 user.updated_by = inviter.id
 
