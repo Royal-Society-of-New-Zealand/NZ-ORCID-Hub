@@ -1203,7 +1203,8 @@ def process_work_records(max_rows=20, record_id=None):
              | ((WorkInvitee.status.is_null())
                 | (WorkInvitee.status.contains("sent").__invert__())))).join(
                     WorkRecord, on=(Task.id == WorkRecord.task_id).alias("record")).join(
-                        WorkInvitee, on=(WorkRecord.id == WorkInvitee.record_id).alias("invitee")).join(
+                        WorkInvitee,
+                        on=(WorkRecord.id == WorkInvitee.record_id).alias("invitee")).join(
                             User,
                             JOIN.LEFT_OUTER,
                             on=((User.email == WorkInvitee.email)
@@ -1215,19 +1216,22 @@ def process_work_records(max_rows=20, record_id=None):
                                            UserOrg,
                                            JOIN.LEFT_OUTER,
                                            on=((UserOrg.user_id == User.id)
-                                               & (UserOrg.org_id == Organisation.id))).join(
-                                                   UserInvitation,
-                                                   JOIN.LEFT_OUTER,
-                                                   on=((UserInvitation.email == WorkInvitee.email)
-                                                       & (UserInvitation.task_id == Task.id))).
-             join(
-                 OrcidToken,
-                 JOIN.LEFT_OUTER,
-                 on=((OrcidToken.user_id == User.id)
-                     & (OrcidToken.org_id == Organisation.id)
-                     & (OrcidToken.scope.contains("/activities/update")))).limit(max_rows))
+                                               & (UserOrg.org_id == Organisation.id))).
+             join(UserInvitation,
+                  JOIN.LEFT_OUTER,
+                  on=((UserInvitation.email == WorkInvitee.email)
+                      & (UserInvitation.task_id == Task.id))).join(
+                          OrcidToken,
+                          JOIN.LEFT_OUTER,
+                          on=((OrcidToken.user_id == User.id)
+                              & (OrcidToken.org_id == Organisation.id)
+                              & (OrcidToken.scope.contains("/activities/update")))))
+
     if record_id:
         tasks = tasks.where(WorkRecord.id == record_id)
+
+    tasks = tasks.order_by(Task.id, Task.org_id, WorkRecord.id, User.id).limit(max_rows)
+    tasks = list(tasks)
 
     for (task_id, org_id, record_id, user), tasks_by_user in groupby(tasks, lambda t: (
             t.id,
@@ -1355,9 +1359,12 @@ def process_peer_review_records(max_rows=20, record_id=None):
                          JOIN.LEFT_OUTER,
                          on=((OrcidToken.user_id == User.id)
                              & (OrcidToken.org_id == Organisation.id)
-                             & (OrcidToken.scope.contains("/activities/update")))).limit(max_rows))
+                             & (OrcidToken.scope.contains("/activities/update")))))
+
     if record_id:
         tasks = tasks.where(PeerReviewRecord.id == record_id)
+    tasks = tasks.order_by(Task.id, Task.org_id, PeerReviewRecord.id, User.id).limit(max_rows)
+    tasks = list(tasks)
 
     for (task_id, org_id, record_id, user), tasks_by_user in groupby(tasks, lambda t: (
             t.id,
@@ -2176,7 +2183,7 @@ def dump_yaml(data):
 
 def enqueue_user_records(user):
     """Enqueue all active and not yet processed record related to the user."""
-    for task in Task.select().where(Task.completed_at.is_null()):
+    for task in list(Task.select().where(Task.completed_at.is_null())):
         func = globals().get(f"process_{task.task_type.name.lower()}_records")
         records = task.records.where(
                 task.record_model.is_active,
@@ -2198,13 +2205,13 @@ def enqueue_user_records(user):
                 (task.record_model.email.is_null() | (task.record_model.email == user.email)),
                 (task.record_model.orcid.is_null() | (task.record_model.orcid == user.orcid)))
 
-        if task.task_type == TaskType.AFFILIATION:
-            record_ids = [r.id for r in records]
-            if record_ids:
+        record_ids = [r.id for r in records]
+        if record_ids:
+            if task.task_type == TaskType.AFFILIATION:
                 func.queue(record_id=record_ids)
-        else:
-            for r in records:
-                func.queue(record_id=r.id)
+            else:
+                for record_id in record_ids:
+                    func.queue(record_id=record_id)
 
 
 def enqueue_task_records(task):
