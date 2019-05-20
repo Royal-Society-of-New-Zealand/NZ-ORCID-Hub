@@ -2107,7 +2107,7 @@ def process_tasks(max_rows=20):
         task.save()
 
 
-def get_client_credentials_token(org, scope="/webhook"):
+def get_client_credentials_token(org, scopes="/webhook"):
     """Request a cient credetials grant type access token and store it.
 
     The any previously requesed with the give scope tokens will be deleted.
@@ -2118,7 +2118,7 @@ def get_client_credentials_token(org, scope="/webhook"):
         data=dict(
             client_id=org.orcid_client_id,
             client_secret=org.orcid_secret,
-            scope=scope,
+            scopes=scopes,
             grant_type="client_credentials"))
     OrcidToken.delete().where(OrcidToken.org == org, OrcidToken.scopes == "/webhook").execute()
     data = resp.json()
@@ -2126,7 +2126,7 @@ def get_client_credentials_token(org, scope="/webhook"):
         org=org,
         access_token=data["access_token"],
         refresh_token=data["refresh_token"],
-        scope=data.get("scope") or scope,
+        scopes=data.get("scope") or scopes,
         expires_in=data["expires_in"])
     return token
 
@@ -2144,9 +2144,9 @@ def register_orcid_webhook(user, callback_url=None, delete=False):
         return
 
     try:
-        token = OrcidToken.get(org=user.organisation, scope="/webhook")
+        token = OrcidToken.get(org=user.organisation, scopes="/webhook")
     except OrcidToken.DoesNotExist:
-        token = get_client_credentials_token(org=user.organisation, scope="/webhook")
+        token = get_client_credentials_token(org=user.organisation, scopes="/webhook")
     if local_handler:
         with app.app_context():
             callback_url = quote(url_for("update_webhook", user_id=user.id), safe='')
