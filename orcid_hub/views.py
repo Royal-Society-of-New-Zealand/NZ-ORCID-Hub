@@ -39,20 +39,20 @@ from wtforms import validators
 
 from . import SENTRY_DSN, admin, app, cache, limiter, models, orcid_client, rq, utils
 from .apis import yamlfy
-from .forms import (ApplicationFrom, BitmapMultipleValueField, CredentialForm, EmailTemplateForm,
-                    FileUploadForm, FundingForm, GroupIdForm, LogoForm, OrgRegistrationForm,
+from .forms import (AddressForm, ApplicationFrom, BitmapMultipleValueField, CredentialForm, EmailTemplateForm,
+                    ExternalIdentifierForm, FileUploadForm, FundingForm, GroupIdForm, LogoForm, OrgRegistrationForm,
                     OtherNameKeywordForm, PartialDateField, PeerReviewForm, ProfileSyncForm,
                     RecordForm, ResearcherUrlForm, UserInvitationForm, WebhookForm, WorkForm,
                     validate_orcid_id_field)
 from .login_provider import roles_required
 from .models import (JOIN, Affiliation, AffiliationRecord, CharField, Client, Delegate, ExternalId,
                      FixedCharField, File, FundingContributor, FundingInvitee, FundingRecord,
-                     Grant, GroupIdRecord, KeywordRecord, ModelException, NestedDict, OrcidApiCall,
-                     OrcidToken, Organisation, OrgInfo, OrgInvitation, OtherNameRecord,
-                     PartialDate, PeerReviewExternalId, PeerReviewInvitee, PeerReviewRecord,
-                     ResearcherUrlRecord, Role, Task, TaskType, TextField, Token, Url, User,
-                     UserInvitation, UserOrg, UserOrgAffiliation, WorkContributor, WorkExternalId,
-                     WorkInvitee, WorkRecord, db, get_val)
+                     Grant, GroupIdRecord, ModelException, NestedDict, OtherIdRecord, OrcidApiCall, OrcidToken,
+                     Organisation, OrgInfo, OrgInvitation, PartialDate, PropertyRecord,
+                     PeerReviewExternalId, PeerReviewInvitee, PeerReviewRecord, PostgresqlDatabase,
+                     Role, Task, TaskType, TextField, Token, Url, User, UserInvitation, UserOrg,
+                     UserOrgAffiliation, WorkContributor, WorkExternalId, WorkInvitee, WorkRecord,
+                     db, get_val)
 # NB! Should be disabled in production
 from .pyinfo import info
 from .utils import get_next_url, read_uploaded_file, send_user_invitation
@@ -1547,7 +1547,7 @@ class ProfilePropertyRecordAdmin(AffiliationRecordAdmin):
     def __init__(self, model_class, *args, **kwargs):
         """Set up model specific attributes."""
         self.column_searchable_list = [
-            f for f in ["content", "name", "first_name", "last_name", "email"]
+            f for f in ["content", "name", "value", "first_name", "last_name", "email"]
             if f in model_class._meta.fields
         ]
         super().__init__(model_class, *args, **kwargs)
@@ -1862,9 +1862,8 @@ admin.add_view(WorkRecordAdmin())
 admin.add_view(PeerReviewRecordAdmin())
 admin.add_view(InviteeAdmin(PeerReviewInvitee))
 admin.add_view(RecordChildAdmin(PeerReviewExternalId))
-admin.add_view(ProfilePropertyRecordAdmin(ResearcherUrlRecord))
-admin.add_view(ProfilePropertyRecordAdmin(OtherNameRecord))
-admin.add_view(ProfilePropertyRecordAdmin(KeywordRecord))
+admin.add_view(ProfilePropertyRecordAdmin(PropertyRecord))
+admin.add_view(ProfilePropertyRecordAdmin(OtherIdRecord))
 admin.add_view(ViewMembersAdmin(name="viewmembers", endpoint="viewmembers"))
 
 admin.add_view(UserOrgAmin(UserOrg))
@@ -1905,13 +1904,17 @@ def user_orcid_id_url(user):
 
 
 @app.template_filter("isodate")
-def isodate(d, sep="&nbsp;"):
+def isodate(d, sep="&nbsp;", no_time=False):
     """Render date into format YYYY-mm-dd HH:MM."""
-    if d and isinstance(d, datetime):
-        return Markup(
-            f"""<time datetime="{d.isoformat(timespec='minutes')}" """
-            f"""data-toggle="tooltip" title="{d.isoformat(timespec='minutes', sep=' ')} UTC" """
-            f"""data-format="YYYY[&#8209;]MM[&#8209;]DD[{sep}]HH:mm" />""")
+    if d:
+        if isinstance(d, datetime):
+            ts_format = '' if no_time else f"[{sep}]HH:mm"
+            return Markup(
+                f"""<time datetime="{d.isoformat(timespec='minutes')}" """
+                f"""data-toggle="tooltip" title="{d.isoformat(timespec='minutes', sep=' ')} UTC" """
+                f"""data-format="YYYY[&#8209;]MM[&#8209;]DD{ts_format}" />""")
+        if isinstance(d, str):
+            return Markup(f"""<time datetime="{d}" />""")
     return ''
 
 
@@ -1920,19 +1923,6 @@ def shorturl(url):
     """Create and render short url."""
     u = Url.shorten(url)
     return url_for("short_url", short_id=u.short_id, _external=True)
-
-
-def enqueue_task_records(task):
-    """Enqueue all active and not yet processed record."""
-    records = task.records.where(task.record_model.is_active, task.record_model.processed_at.is_null())
-    func = getattr(utils, f"process_{task.task_type.name.lower()}_records")
-    if task.task_type == TaskType.AFFILIATION:
-        records = records.order_by(task.record_model.email, task.record_model.orcid)
-        for _, chunk in itertools.groupby(records, lambda r: (r.email, r.orcid, )):
-            func.queue(record_id=[r.id for r in chunk])
-    else:
-        for r in task.records.where(task.record_model.is_active, task.record_model.processed_at.is_null()):
-            func.queue(record_id=r.id)
 
 
 @app.route("/activate_all", methods=["POST"])
@@ -1946,7 +1936,7 @@ def activate_all():
         count = task.record_model.update(is_active=True).where(
             task.record_model.task_id == task_id,
             task.record_model.is_active == False).execute()  # noqa: E712
-        enqueue_task_records(task)
+        utils.enqueue_task_records(task)
     except Exception as ex:
         flash(f"Failed to activate the selected records: {ex}")
         app.logger.exception("Failed to activate the selected records")
@@ -1967,10 +1957,7 @@ def reset_all():
         try:
             status = "The record was reset at " + datetime.now().isoformat(timespec="seconds")
             tt = task.task_type
-            if tt in [
-                    TaskType.AFFILIATION, TaskType.RESEARCHER_URL, TaskType.OTHER_NAME,
-                    TaskType.KEYWORD
-            ]:
+            if tt in [TaskType.AFFILIATION, TaskType.PROPERTY, TaskType.OTHER_ID]:
                 count = task.record_model.update(
                     processed_at=None, status=status).where(
                         task.record_model.task_id == task_id,
@@ -1990,7 +1977,7 @@ def reset_all():
                     count = count + 1
 
             UserInvitation.delete().where(UserInvitation.task == task).execute()
-            enqueue_task_records(task)
+            utils.enqueue_task_records(task)
 
         except Exception as ex:
             db.rollback()
@@ -2021,7 +2008,7 @@ def delete_record(user_id, section_type, put_code):
         return redirect(_url)
 
     orcid_token = None
-    if section_type in ["RUR", "ONR", "KWR"]:
+    if section_type in ["RUR", "ONR", "KWR", "ADR", "EXR"]:
         orcid_token = OrcidToken.select(OrcidToken.access_token).where(OrcidToken.user_id == user.id,
                                                                        OrcidToken.org_id == user.organisation_id,
                                                                        OrcidToken.scope.contains(
@@ -2052,6 +2039,10 @@ def delete_record(user_id, section_type, put_code):
             api_instance.delete_work(user.orcid, put_code)
         elif section_type == "RUR":
             api_instance.delete_researcher_url(user.orcid, put_code)
+        elif section_type == "ADR":
+            api_instance.delete_address(user.orcid, put_code)
+        elif section_type == "EXR":
+            api_instance.delete_external_identifier(user.orcid, put_code)
         elif section_type == "ONR":
             api_instance.delete_other_name(user.orcid, put_code)
         elif section_type == "KWR":
@@ -2092,7 +2083,7 @@ def edit_record(user_id, section_type, put_code=None):
         return redirect(_url)
 
     orcid_token = None
-    if section_type in ["RUR", "ONR", "KWR"]:
+    if section_type in ["RUR", "ONR", "KWR", "ADR", "EXR"]:
         orcid_token = OrcidToken.select(OrcidToken.access_token).where(OrcidToken.user_id == user.id,
                                                                        OrcidToken.org_id == org.id,
                                                                        OrcidToken.scope.contains(
@@ -2119,6 +2110,10 @@ def edit_record(user_id, section_type, put_code=None):
         form = WorkForm(form_type=section_type)
     elif section_type == "RUR":
         form = ResearcherUrlForm(form_type=section_type)
+    elif section_type == "ADR":
+        form = AddressForm(form_type=section_type)
+    elif section_type == "EXR":
+        form = ExternalIdentifierForm(form_type=section_type)
     elif section_type in ["ONR", "KWR"]:
         form = OtherNameKeywordForm(form_type=section_type)
     else:
@@ -2144,10 +2139,14 @@ def edit_record(user_id, section_type, put_code=None):
                     api_response = api.view_researcher_url(user.orcid, put_code, _preload_content=False)
                 elif section_type == "ONR":
                     api_response = api.view_other_name(user.orcid, put_code, _preload_content=False)
+                elif section_type == "ADR":
+                    api_response = api.view_address(user.orcid, put_code, _preload_content=False)
+                elif section_type == "EXR":
+                    api_response = api.view_external_identifier(user.orcid, put_code, _preload_content=False)
                 elif section_type == "KWR":
                     api_response = api.view_keyword(user.orcid, put_code, _preload_content=False)
 
-                if section_type in ["RUR", "ONR", "KWR"]:
+                if section_type in ["RUR", "ONR", "KWR", "ADR", "EXR"]:
                     _data = json.loads(api_response.data, object_pairs_hook=NestedDict)
                 else:
                     _data = api_response.to_dict()
@@ -2224,10 +2223,16 @@ def edit_record(user_id, section_type, put_code=None):
                                                                            "language-code"),
                             subject_url=get_val(_data, "subject_url", "value"),
                             review_completion_date=PartialDate.create(_data.get("review_completion_date")))
-                elif section_type in ["RUR", "ONR", "KWR"]:
+                elif section_type in ["RUR", "ONR", "KWR", "ADR", "EXR"]:
                     data = dict(visibility=_data.get("visibility"), display_index=_data.get("display-index"))
                     if section_type == "RUR":
                         data.update(dict(name=_data.get("url-name"), value=_data.get("url", "value")))
+                    elif section_type == "ADR":
+                        data.update(dict(country=_data.get("country", "value")))
+                    elif section_type == "EXR":
+                        data.update(dict(type=_data.get("external-id-type"), value=_data.get("external-id-value"),
+                                         url=_data.get("external-id-url", "value"),
+                                         relationship=_data.get("external-id-relationship")))
                     else:
                         data.update(dict(content=_data.get("content")))
                 else:
@@ -2331,6 +2336,16 @@ def edit_record(user_id, section_type, put_code=None):
                     put_code=put_code,
                     **{f.name: f.data
                        for f in form})
+            elif section_type == "ADR":
+                put_code, orcid, created = api.create_or_update_address(
+                    put_code=put_code,
+                    **{f.name: f.data
+                       for f in form})
+            elif section_type == "EXR":
+                put_code, orcid, created = api.create_or_update_person_external_id(
+                    put_code=put_code,
+                    **{f.name: f.data
+                       for f in form})
             elif section_type == "KWR":
                 put_code, orcid, created = api.create_or_update_keyword(
                     put_code=put_code,
@@ -2389,7 +2404,7 @@ def section(user_id, section_type="EMP"):
     _url = request.args.get("url") or request.referrer or url_for("viewmembers.index_view")
 
     section_type = section_type.upper()[:3]  # normalize the section type
-    if section_type not in ["EDU", "EMP", "FUN", "PRR", "WOR", "RUR", "ONR", "KWR"]:
+    if section_type not in ["EDU", "EMP", "FUN", "PRR", "WOR", "RUR", "ONR", "KWR", "ADR", "EXR"]:
         flash("Incorrect user profile section", "danger")
         return redirect(_url)
 
@@ -2404,7 +2419,7 @@ def section(user_id, section_type="EMP"):
         return redirect(_url)
 
     orcid_token = None
-    if request.method == "POST" and section_type in ["RUR", "ONR", "KWR"]:
+    if request.method == "POST" and section_type in ["RUR", "ONR", "KWR", "ADR", "EXR"]:
         try:
             orcid_token = OrcidToken.select(OrcidToken.access_token).where(OrcidToken.user_id == user.id,
                                                                            OrcidToken.org_id == user.organisation_id,
@@ -2467,6 +2482,10 @@ def section(user_id, section_type="EMP"):
             api_response = api_instance.view_researcher_urls(user.orcid, _preload_content=False)
         elif section_type == "ONR":
             api_response = api_instance.view_other_names(user.orcid, _preload_content=False)
+        elif section_type == "ADR":
+            api_response = api_instance.view_addresses(user.orcid, _preload_content=False)
+        elif section_type == "EXR":
+            api_response = api_instance.view_external_identifiers(user.orcid, _preload_content=False)
         elif section_type == "KWR":
             api_response = api_instance.view_keywords(user.orcid, _preload_content=False)
         elif section_type == "FUN":
@@ -2490,7 +2509,7 @@ def section(user_id, section_type="EMP"):
     # TODO: Organisation has access to the employment records
     # TODO: retrieve and tranform for presentation (order, etc)
     try:
-        if section_type in ["EMP", "EDU", "RUR", "ONR", "KWR"]:
+        if section_type in ["EMP", "EDU", "RUR", "ONR", "KWR", "ADR", "EXR"]:
             data = json.loads(api_response.data, object_pairs_hook=NestedDict)
         else:
             data = api_response.to_dict()
@@ -2542,7 +2561,9 @@ def section(user_id, section_type="EMP"):
         records = data.get("education-summary" if section_type == "EDU" else
                            "employment-summary" if section_type == "EMP" else
                            "researcher-url" if section_type == "RUR" else
-                           "keyword" if section_type == "KWR" else "other-name")
+                           "keyword" if section_type == "KWR" else
+                           "address" if section_type == "ADR" else
+                           "external-identifier" if section_type == "EXR" else "other-name")
 
     return render_template(
         "section.html",
@@ -2754,10 +2775,11 @@ def load_researcher_peer_review():
     return render_template("fileUpload.html", form=form, title="Peer Review Info Upload")
 
 
-@app.route("/load/researcher/urls", methods=["GET", "POST"])
+@app.route("/load/researcher/properties/<string:property_type>", methods=["GET", "POST"])
+@app.route("/load/researcher/properties", methods=["GET", "POST"])
 @roles_required(Role.ADMIN)
-def load_researcher_urls():
-    """Preload researcher's url data."""
+def load_properties(property_type=None):
+    """Preload researcher's property data."""
     form = FileUploadForm(extensions=["json", "yaml", "csv", "tsv"])
     if form.validate_on_submit():
         filename = secure_filename(form.file_.data.filename)
@@ -2765,47 +2787,57 @@ def load_researcher_urls():
         try:
             if content_type in ["text/tab-separated-values", "text/csv"] or (
                     filename and filename.lower().endswith(('.csv', '.tsv'))):
-                task = ResearcherUrlRecord.load_from_csv(
-                    read_uploaded_file(form), filename=filename)
+                task = PropertyRecord.load_from_csv(read_uploaded_file(form),
+                                                    filename=filename,
+                                                    file_property_type=property_type)
             else:
-                task = ResearcherUrlRecord.load_from_json(read_uploaded_file(form), filename=filename)
+                task = PropertyRecord.load_from_json(read_uploaded_file(form),
+                                                     filename=filename,
+                                                     file_property_type=property_type)
             flash(f"Successfully loaded {task.record_count} rows.")
-            return redirect(url_for("researcherurlrecord.index_view", task_id=task.id))
+            return redirect(url_for("propertyrecord.index_view", task_id=task.id))
         except Exception as ex:
-            flash(f"Failed to load researcher url record file: {ex}", "danger")
-            app.logger.exception("Failed to load researcher url records.")
+            flash(f"Failed to load researcher property record file: {ex}", "danger")
+            app.logger.exception("Failed to load researcher property records.")
 
-    return render_template("fileUpload.html", form=form, title="Researcher Urls Info Upload")
+    return render_template(
+        "fileUpload.html",
+        form=form,
+        title=f"Researcher {property_type.title() if property_type else 'Property'} Upload")
+
+
+@app.route("/load/researcher/urls", methods=["GET", "POST"])
+@roles_required(Role.ADMIN)
+def load_researcher_urls():
+    """Preload researcher's property data."""
+    return load_properties(property_type="URL")
 
 
 @app.route("/load/other/names", methods=["GET", "POST"])
 @roles_required(Role.ADMIN)
 def load_other_names():
     """Preload Other Name data."""
-    form = FileUploadForm(extensions=["json", "yaml", "csv", "tsv"])
-    if form.validate_on_submit():
-        filename = secure_filename(form.file_.data.filename)
-        content_type = form.file_.data.content_type
-        try:
-            if content_type in ["text/tab-separated-values", "text/csv"] or (
-                    filename and filename.lower().endswith(('.csv', '.tsv'))):
-                task = OtherNameRecord.load_from_csv(
-                    read_uploaded_file(form), filename=filename)
-            else:
-                task = OtherNameRecord.load_from_json(read_uploaded_file(form), filename=filename)
-            flash(f"Successfully loaded {task.record_count} rows.")
-            return redirect(url_for("othernamerecord.index_view", task_id=task.id))
-        except Exception as ex:
-            flash(f"Failed to load Other Name record file: {ex}", "danger")
-            app.logger.exception("Failed to load Other Name records.")
-
-    return render_template("fileUpload.html", form=form, title="Other Names Info Upload")
+    return load_properties(property_type="NAME")
 
 
 @app.route("/load/keyword", methods=["GET", "POST"])
 @roles_required(Role.ADMIN)
 def load_keyword():
     """Preload Keywords data."""
+    return load_properties(property_type="KEYWORD")
+
+
+@app.route("/load/country", methods=["GET", "POST"])
+@roles_required(Role.ADMIN)
+def load_country():
+    """Preload Country data."""
+    return load_properties(property_type="COUNTRY")
+
+
+@app.route("/load/other/ids", methods=["GET", "POST"])
+@roles_required(Role.ADMIN)
+def load_other_ids():
+    """Preload researcher's Other IDs data."""
     form = FileUploadForm(extensions=["json", "yaml", "csv", "tsv"])
     if form.validate_on_submit():
         filename = secure_filename(form.file_.data.filename)
@@ -2813,34 +2845,42 @@ def load_keyword():
         try:
             if content_type in ["text/tab-separated-values", "text/csv"] or (
                     filename and filename.lower().endswith(('.csv', '.tsv'))):
-                task = KeywordRecord.load_from_csv(
-                    read_uploaded_file(form), filename=filename, task_type=TaskType.KEYWORD)
+                task = OtherIdRecord.load_from_csv(
+                    read_uploaded_file(form), filename=filename)
             else:
-                task = KeywordRecord.load_from_json(
-                    read_uploaded_file(form), filename=filename, task_type=TaskType.KEYWORD)
+                task = OtherIdRecord.load_from_json(read_uploaded_file(form), filename=filename)
             flash(f"Successfully loaded {task.record_count} rows.")
-            return redirect(url_for("keywordrecord.index_view", task_id=task.id))
+            return redirect(url_for("otheridrecord.index_view", task_id=task.id))
         except Exception as ex:
-            flash(f"Failed to load Keyword record file: {ex}", "danger")
-            app.logger.exception("Failed to load Keyword records.")
+            flash(f"Failed to load Other IDs record file: {ex}", "danger")
+            app.logger.exception("Failed to load  Other IDs records.")
 
-    return render_template("fileUpload.html", form=form, title="Keyword Info Upload")
+    return render_template("fileUpload.html", form=form, title="Other IDs Info Upload")
 
 
 @app.route("/orcid_api_rep", methods=["GET", "POST"])
 @roles_required(Role.SUPERUSER)
 def orcid_api_rep():
     """Show ORCID API invocation report."""
-    data = db.execute_sql("""
-    WITH rd AS (
-        SELECT date_trunc("minute", call_datetime) AS d, count(*) AS c
-        FROM orcid_api_call
-        GROUP BY date_trunc("minute", call_datetime))
-    SELECT date_trunc("day", d) AS d, max(c) AS c
-    FROM rd GROUP BY DATE_TRUNC("day", d) ORDER BY 1
-    """).fetchall()
-
-    return render_template("orcid_api_call_report.html", data=data)
+    if isinstance(db, PostgresqlDatabase):
+        data = db.execute_sql("""
+        WITH rd AS (
+            SELECT date_trunc('minute', called_at) AS d, count(*) AS c
+            FROM orcid_api_call
+            GROUP BY date_trunc('minute', called_at))
+        SELECT date_trunc('day', d) AS d, max(c) AS c
+        FROM rd GROUP BY DATE_TRUNC('day', d) ORDER BY 1
+        """).fetchall()
+    else:
+        data = db.execute_sql("""
+        SELECT strftime('%Y-%m-%d', d) AS d, max(c) AS c
+        FROM (
+            SELECT strftime('%Y-%m-%dT%H:%M', called_at) AS d, count(*) AS c
+            FROM orcid_api_call
+            GROUP BY strftime('%Y-%m-%dT%H:%M', called_at)) AS rd
+        GROUP BY strftime('%Y-%m-%d', d) ORDER BY 1
+        """).fetchall()
+    return render_template("orcid_api_call_report.html", data=data, title="ORCID API Call Summary")
 
 
 def register_org(org_name,

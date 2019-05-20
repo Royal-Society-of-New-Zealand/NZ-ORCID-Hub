@@ -105,7 +105,7 @@ def test_process_tasks(request_ctx):
             filename="FUNDING.json",
             created_by=super_user,
             updated_by=super_user,
-            task_type=TaskType.FUNDING.value)
+            task_type=TaskType.FUNDING)
 
         Task.update(updated_at=datetime(1999, 1, 1)).execute()
         assert Task.select().where(Task.expires_at.is_null()).count() == 1
