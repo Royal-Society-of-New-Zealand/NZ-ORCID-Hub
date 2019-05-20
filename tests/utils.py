@@ -41,7 +41,7 @@ def get_profile(org=None, user=None):
                     {
                         "source": {
                             "source-client-id": {
-                                "uri": "https://sandbox.orcid.org/client/{client_id}",
+                                "uri": f"https://sandbox.orcid.org/client/{client_id}",
                                 "path": client_id,
                                 "host": "sandbox.orcid.org"
                             },
@@ -51,12 +51,12 @@ def get_profile(org=None, user=None):
                         },
                         "content": "xyz",
                         "visibility": "PUBLIC",
-                        "path": "/{orcid}/keywords/43944",
+                        "path": f"/{orcid}/keywords/43944",
                         "put-code": 43944,
                         "display-index": 0
                     }
                 ],
-                "path": "/0000-0002-6765-5429/keywords"
+                "path": f"/{orcid}/keywords"
             },
             "researcher-urls": {
                 "researcher-url": [
@@ -96,12 +96,17 @@ def get_profile(org=None, user=None):
                                 "value": "The University of Auckland - MyORCiD"
                             }
                         },
-                        "country": {"value": "NZ"},
+                        "country": {
+                            "value": "NZ"
+                        },
                         "visibility": "PUBLIC",
                         "path": f"/{orcid}/address/5373",
                         "put-code": 5373,
-                        "display-index": 0}],
-                "path": f"/{orcid}/address"},
+                        "display-index": 0
+                    }
+                ],
+                "path": f"/{orcid}/address"
+            },
             "external-identifiers": {
                 "external-identifier": [
                     {
@@ -115,13 +120,20 @@ def get_profile(org=None, user=None):
                                 "value": "The University of Auckland - MyORCiD"
                             }
                         },
-                        "external-id-type": "cba", "external-id-value": "dfdsfd",
-                        "external-id-url": {"value": "dfsdfs"},
-                        "external-id-relationship": "SELF", "visibility": "PUBLIC",
+                        "external-id-type": "cba",
+                        "external-id-value": "dfdsfd",
+                        "external-id-url": {
+                            "value": "dfsdfs"
+                        },
+                        "external-id-relationship": "SELF",
+                        "visibility": "PUBLIC",
                         "path": f"/{orcid}/external-identifiers/5373",
                         "put-code": 5373,
-                        "display-index": 0}],
-                "path": f"/{orcid}/external-identifiers"},
+                        "display-index": 0
+                    }
+                ],
+                "path": f"/{orcid}/external-identifiers"
+            },
             "path": f"/{orcid}/person"
         },
         'activities-summary': {
