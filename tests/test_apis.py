@@ -1042,17 +1042,6 @@ def test_proxy_get_profile(client):
     assert resp.status_code == 403
 
 
-def test_orcid_api_rep(client):
-    """Test report on the ORCID API calls."""
-    OrcidApiCall.insert_many(
-        dict(method="GET", url=f"http://call/{i}", called_at=datetime(2017, 12, i % 31 + 1))
-        for i in range(100)).execute()
-    client.login_root()
-    resp = client.get("/orcid_api_rep")
-    assert resp.status_code == 200
-    assert b"2017-12-04" in resp.data
-
-
 def test_property_api(client, mocker):
     """Test property API in various formats."""
     data_path = os.path.join(os.path.dirname(__file__), "data")

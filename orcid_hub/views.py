@@ -2858,31 +2858,6 @@ def load_other_ids():
     return render_template("fileUpload.html", form=form, title="Other IDs Info Upload")
 
 
-@app.route("/orcid_api_rep", methods=["GET", "POST"])
-@roles_required(Role.SUPERUSER)
-def orcid_api_rep():
-    """Show ORCID API invocation report."""
-    if isinstance(db, PostgresqlDatabase):
-        data = db.execute_sql("""
-        WITH rd AS (
-            SELECT date_trunc('minute', called_at) AS d, count(*) AS c
-            FROM orcid_api_call
-            GROUP BY date_trunc('minute', called_at))
-        SELECT date_trunc('day', d) AS d, max(c) AS c
-        FROM rd GROUP BY DATE_TRUNC('day', d) ORDER BY 1
-        """).fetchall()
-    else:
-        data = db.execute_sql("""
-        SELECT strftime('%Y-%m-%d', d) AS d, max(c) AS c
-        FROM (
-            SELECT strftime('%Y-%m-%dT%H:%M', called_at) AS d, count(*) AS c
-            FROM orcid_api_call
-            GROUP BY strftime('%Y-%m-%dT%H:%M', called_at)) AS rd
-        GROUP BY strftime('%Y-%m-%d', d) ORDER BY 1
-        """).fetchall()
-    return render_template("orcid_api_call_report.html", data=data, title="ORCID API Call Summary")
-
-
 def register_org(org_name,
                  email=None,
                  org_email=None,
