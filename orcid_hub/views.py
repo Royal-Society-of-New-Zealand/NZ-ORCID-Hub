@@ -49,7 +49,7 @@ from .models import (JOIN, Affiliation, AffiliationRecord, CharField, Client, De
                      FixedCharField, File, FundingContributor, FundingInvitee, FundingRecord,
                      Grant, GroupIdRecord, ModelException, NestedDict, OtherIdRecord, OrcidApiCall, OrcidToken,
                      Organisation, OrgInfo, OrgInvitation, PartialDate, PropertyRecord,
-                     PeerReviewExternalId, PeerReviewInvitee, PeerReviewRecord, PostgresqlDatabase,
+                     PeerReviewExternalId, PeerReviewInvitee, PeerReviewRecord,
                      Role, Task, TaskType, TextField, Token, Url, User, UserInvitation, UserOrg,
                      UserOrgAffiliation, WorkContributor, WorkExternalId, WorkInvitee, WorkRecord,
                      db, get_val)

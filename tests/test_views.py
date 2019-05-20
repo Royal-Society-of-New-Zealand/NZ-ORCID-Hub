@@ -4161,6 +4161,57 @@ def test_researcher_urls(client):
     assert b"http://test.test.test.com/ABC123" in resp.data
 
 
+def test_load_other_ids(client):
+    """Test load_other_ids data management."""
+    user = client.data["admin"]
+    client.login(user, follow_redirects=True)
+    raw_data0 = open(os.path.join(os.path.dirname(__file__), "data", "example_other_ids.csv"), "rb").read()
+    resp = client.post(
+        "/load/other/ids",
+        data={"file_": (BytesIO(raw_data0), "example_other_ids.csv")},
+        follow_redirects=True)
+    assert resp.status_code == 200
+    assert b"http://url.edu/abs/ghjghghj" in resp.data
+    task = Task.get(filename="example_other_ids.csv")
+    assert task.records.count() == 1
+
+    resp = client.get(f"/admin/otheridrecord/export/json/?task_id={task.id}")
+    assert resp.status_code == 200
+    assert b"rostaindhfjsingradik2@mailinator.com" in resp.data
+
+    raw_data0 = open(os.path.join(os.path.dirname(__file__), "data", "example_other_ids.json"), "rb").read()
+    resp = client.post(
+        "/load/other/ids",
+        data={"file_": (BytesIO(raw_data0), "example_other_ids.json")},
+        follow_redirects=True)
+
+    assert resp.status_code == 200
+    assert b"http://url.edu/abs/ghjghghj" in resp.data
+    task = Task.get(filename="example_other_ids.json")
+    assert task.records.count() == 2
+
+    resp = client.get(f"/admin/otheridrecord/export/csv/?task_id={task.id}")
+    assert resp.status_code == 200
+    assert b"rad42@mailinator.com" in resp.data
+
+    other_id = quote(f"/admin/otheridrecord/?task_id={task.id}", safe="")
+    client.post(
+        f"/admin/otheridrecord/new/?url={other_id}",
+        data=dict(
+            type="grant_number",
+            value="12323",
+            url="http://url.edu/abs/ghjghghj",
+            relationship="SELF",
+            display_index="1234",
+            email="test@test.com",
+            first_name="FN",
+            last_name="LN",
+            orcid="0000-0001-8228-7153",
+        ),
+        follow_redirects=True)
+    assert Task.get(task.id).records.count() == 3
+
+
 def test_export_affiliations(client, mocker):
     """Test export of existing affiliation records."""
     mocker.patch("orcid_hub.orcid_client.MemberAPI.get_record", return_value=get_profile())
