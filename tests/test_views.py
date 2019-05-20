@@ -468,6 +468,21 @@ def test_show_record_section(request_ctx):
         assert admin.email.encode() in resp.data
         assert admin.name.encode() in resp.data
         view_keywords.assert_called_once_with("XXXX-XXXX-XXXX-0001", _preload_content=False)
+    with patch.object(
+        orcid_client.MemberAPIV20Api,
+        "view_external_identifiers",
+        MagicMock(return_value=Mock(data="""{"test": "TEST1234567890"}"""))
+    ) as view_external_identifiers, patch("orcid_hub.utils.send_email") as send_email, request_ctx(
+        f"/section/{user.id}/EXR/list",
+        method="POST",
+    ) as ctx:
+        login_user(admin)
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 200
+        send_email.assert_called_once()
+        assert admin.email.encode() in resp.data
+        assert admin.name.encode() in resp.data
+        view_external_identifiers.assert_called_once_with("XXXX-XXXX-XXXX-0001", _preload_content=False)
 
 
 def test_status(client):

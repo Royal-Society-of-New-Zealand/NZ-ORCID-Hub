@@ -17,7 +17,7 @@ from urllib.parse import quote
 from orcid_hub import utils
 from orcid_hub.models import (AffiliationRecord, ExternalId, File, FundingContributor,
                               FundingInvitee, FundingRecord, Log, OrcidToken, Organisation,
-                              OrgInfo, PeerReviewExternalId, PeerReviewInvitee, PeerReviewRecord,
+                              OrgInfo, OtherIdRecord, PeerReviewExternalId, PeerReviewInvitee, PeerReviewRecord,
                               PropertyRecord, Role, Task, TaskType, User, UserInvitation, UserOrg,
                               WorkContributor, WorkExternalId, WorkInvitee, WorkRecord)
 
@@ -650,109 +650,13 @@ def test_create_or_update_peer_review(app, mocker):
     assert "12344" == peer_review_invitees.orcid
 
 
-def test_create_or_update_researcher_url(app, mocker):
-    """Test create or update researcher url."""
-    mocker.patch("orcid_hub.utils.send_email", send_mail_mock)
-    mocker.patch("orcid_api.MemberAPIV20Api.create_researcher_url", create_or_update_fund_mock)
-    mocker.patch("orcid_hub.orcid_client.MemberAPI.get_record", return_value=get_profile())
-    org = app.data["org"]
-    u = User.create(
-        email="test1234456@mailinator.com",
-        name="TEST USER",
-        roles=Role.RESEARCHER,
-        orcid="12344",
-        confirmed=True,
-        organisation=org)
-
-    UserOrg.create(user=u, org=org)
-
-    t = Task.create(org=org,
-                    filename="xyz.json",
-                    created_by=u,
-                    updated_by=u,
-                    task_type=TaskType.PROPERTY)
-
-    PropertyRecord.create(
-        task=t,
-        type="URL",
-        is_active=True,
-        status="email sent",
-        first_name="Test",
-        last_name="Test",
-        email="test1234456@mailinator.com",
-        visibility="PUBLIC",
-        name="url name",
-        value="https://www.xyz.com",
-        display_index=0)
-
-    UserInvitation.create(
-        invitee=u,
-        inviter=u,
-        org=org,
-        task=t,
-        email="test1234456@mailinator.com",
-        token="xyztoken")
-
-    OrcidToken.create(
-        user=u, org=org, scope="/read-limited,/person/update", access_token="Test_token")
-
-    utils.process_property_records()
-    record = PropertyRecord.get(email="test1234456@mailinator.com")
-    assert 12399 == record.put_code
-    assert "12344" == record.orcid
-
-
-def test_create_or_update_other_name(app, mocker):
-    """Test create or update researcher other name."""
-    mocker.patch("orcid_hub.utils.send_email", send_mail_mock)
-    mocker.patch("orcid_api.MemberAPIV20Api.create_other_name", create_or_update_fund_mock)
-    mocker.patch("orcid_hub.orcid_client.MemberAPI.get_record", return_value=get_profile())
-    org = app.data["org"]
-    u = User.create(
-        email="test1234456@mailinator.com",
-        name="TEST USER",
-        roles=Role.RESEARCHER,
-        orcid="12344",
-        confirmed=True,
-        organisation=org)
-
-    UserOrg.create(user=u, org=org)
-
-    t = Task.create(id=12, org=org, filename="xyz.json", created_by=u, updated_by=u, task_type=TaskType.PROPERTY)
-
-    PropertyRecord.create(
-        task=t,
-        type="NAME",
-        is_active=True,
-        status="email sent",
-        first_name="Test",
-        last_name="Test",
-        email="test1234456@mailinator.com",
-        visibility="PUBLIC",
-        value="dummy name",
-        display_index=0)
-
-    UserInvitation.create(
-        invitee=u,
-        inviter=u,
-        org=org,
-        task=t,
-        email="test1234456@mailinator.com",
-        token="xyztoken")
-
-    OrcidToken.create(
-        user=u, org=org, scope="/read-limited,/person/update", access_token="Test_token")
-
-    utils.process_property_records()
-    record = PropertyRecord.get(email="test1234456@mailinator.com")
-    assert 12399 == record.put_code
-    assert "12344" == record.orcid
-
-
-def test_create_or_update_keyword(app, mocker):
-    """Test create or update researcher keyword."""
+def test_create_or_update_property_record(app, mocker):
+    """Test create or update researcher keyword, researcher url, other name and country"""
     mocker.patch("orcid_hub.utils.send_email", send_mail_mock)
     mocker.patch("orcid_api.MemberAPIV20Api.create_keyword", create_or_update_fund_mock)
+    mocker.patch("orcid_api.MemberAPIV20Api.create_researcher_url", create_or_update_fund_mock)
+    mocker.patch("orcid_api.MemberAPIV20Api.create_other_name", create_or_update_fund_mock)
+    mocker.patch("orcid_api.MemberAPIV20Api.create_address", create_or_update_fund_mock)
     mocker.patch("orcid_hub.orcid_client.MemberAPI.get_record", return_value=get_profile())
     org = app.data["org"]
     u = User.create(
@@ -779,6 +683,43 @@ def test_create_or_update_keyword(app, mocker):
         value="dummy name",
         display_index=0)
 
+    PropertyRecord.create(
+        task=t,
+        type="COUNTRY",
+        is_active=True,
+        status="email sent",
+        first_name="Test",
+        last_name="Test",
+        email="test1234456@mailinator.com",
+        visibility="PUBLIC",
+        value="IN",
+        display_index=0)
+
+    PropertyRecord.create(
+        task=t,
+        type="URL",
+        is_active=True,
+        status="email sent",
+        first_name="Test",
+        last_name="Test",
+        email="test1234456@mailinator.com",
+        visibility="PUBLIC",
+        name="url name",
+        value="https://www.xyz.com",
+        display_index=0)
+
+    PropertyRecord.create(
+        task=t,
+        type="NAME",
+        is_active=True,
+        status="email sent",
+        first_name="Test",
+        last_name="Test",
+        email="test1234456@mailinator.com",
+        visibility="PUBLIC",
+        value="dummy name",
+        display_index=0)
+
     UserInvitation.create(
         invitee=u,
         inviter=u,
@@ -791,7 +732,64 @@ def test_create_or_update_keyword(app, mocker):
         user=u, org=org, scope="/read-limited,/person/update", access_token="Test_token")
 
     utils.process_property_records()
-    record = PropertyRecord.get(email="test1234456@mailinator.com")
+    keyword_record = PropertyRecord.get(email="test1234456@mailinator.com", type="KEYWORD")
+    assert 12399 == keyword_record.put_code
+    assert "12344" == keyword_record.orcid
+    address_record = PropertyRecord.get(email="test1234456@mailinator.com", type="COUNTRY")
+    assert 12399 == address_record.put_code
+    assert "12344" == address_record.orcid
+    url_record = PropertyRecord.get(email="test1234456@mailinator.com", type="URL")
+    assert 12399 == url_record.put_code
+    assert "12344" == url_record.orcid
+    other_name_record = PropertyRecord.get(email="test1234456@mailinator.com", type="NAME")
+    assert 12399 == other_name_record.put_code
+    assert "12344" == other_name_record.orcid
+
+
+def test_process_other_id_records(app, mocker):
+    """Test create or update researcher other id."""
+    mocker.patch("orcid_hub.utils.send_email", send_mail_mock)
+    mocker.patch("orcid_api.MemberAPIV20Api.create_external_identifier", create_or_update_fund_mock)
+    mocker.patch("orcid_hub.orcid_client.MemberAPI.get_record", return_value=get_profile())
+    org = app.data["org"]
+    u = User.create(
+        email="test1234456@mailinator.com",
+        name="TEST USER",
+        roles=Role.RESEARCHER,
+        orcid="12344",
+        confirmed=True,
+        organisation=org)
+
+    UserOrg.create(user=u, org=org)
+
+    t = Task.create(org=org, filename="xyz.json", created_by=u, updated_by=u, task_type=TaskType.OTHER_ID)
+
+    OtherIdRecord.create(
+        task=t,
+        type="grant_number",
+        value="xyz",
+        url="https://xyz.com",
+        relationship="SELF",
+        is_active=True,
+        status="email sent",
+        first_name="Test",
+        last_name="Test",
+        email="test1234456@mailinator.com",
+        visibility="PUBLIC",
+        display_index=0)
+
+    UserInvitation.create(
+        invitee=u,
+        inviter=u,
+        org=org,
+        task=t,
+        email="test1234456@mailinator.com",
+        token="xyztoken")
+
+    OrcidToken.create(
+        user=u, org=org, scope="/read-limited,/person/update", access_token="Test_token")
+    utils.process_other_id_records()
+    record = OtherIdRecord.get(email="test1234456@mailinator.com")
     assert 12399 == record.put_code
     assert "12344" == record.orcid
 

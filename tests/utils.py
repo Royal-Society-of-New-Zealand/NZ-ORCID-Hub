@@ -86,6 +86,47 @@ def get_profile(org=None, user=None):
                 ],
                 "path": f"/{orcid}/researcher-urls"
             },
+            "addresses": {
+                "address": [
+                    {
+                        "source": {
+                            "source-orcid": None,
+                            "source-client-id": {
+                                "uri": f"http://sandbox.orcid.org/client/{client_id}",
+                                "path": client_id,
+                                "host": "sandbox.orcid.org"
+                            },
+                            "source-name": {
+                                "value": "The University of Auckland - MyORCiD"
+                            }
+                        },
+                        "country": {"value": "NZ"},
+                        "visibility": "PUBLIC",
+                        "path": f"/{orcid}/address/5373",
+                        "put-code": 5373,
+                        "display-index": 0}],
+                "path": f"/{orcid}/address"},
+            "external-identifiers": {
+                "external-identifier": [
+                    {
+                        "source": {
+                            "source-orcid": None,
+                            "source-client-id": {
+                                "uri": f"http://sandbox.orcid.org/client/{client_id}",
+                                "path": client_id,
+                                "host": "sandbox.orcid.org"
+                            },
+                            "source-name": {
+                                "value": "The University of Auckland - MyORCiD"
+                            }
+                        },
+                        "external-id-type": "cba", "external-id-value": "dfdsfd",
+                        "external-id-url": {"value": "dfsdfs"},
+                        "external-id-relationship": "SELF", "visibility": "PUBLIC",
+                        "path": f"/{orcid}/external-identifiers/5373",
+                        "put-code": 5373,
+                        "display-index": 0}],
+                "path": f"/{orcid}/external-identifiers"},
             "path": f"/{orcid}/person"
         },
         'activities-summary': {
