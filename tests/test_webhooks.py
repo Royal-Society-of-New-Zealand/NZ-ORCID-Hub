@@ -35,13 +35,13 @@ def test_get_client_credentials_token(request_ctx):
         mockpost.return_value = mockresp
 
         OrcidToken.create(
-            org=org, access_token="access_token", refresh_token="refresh_token", scope="/webhook")
+            org=org, access_token="access_token", refresh_token="refresh_token", scopes="/webhook")
         token = utils.get_client_credentials_token(org, "/webhook")
-        assert OrcidToken.select().where(OrcidToken.org == org, OrcidToken.scope == "/webhook").count() == 1
+        assert OrcidToken.select().where(OrcidToken.org == org, OrcidToken.scopes == "/webhook").count() == 1
         assert token.access_token == "ACCESS-TOKEN-123"
         assert token.refresh_token == "REFRESH-TOKEN-123"
         assert token.expires_in == 99999
-        assert token.scope == "/webhook"
+        assert token.scopes == "/webhook"
 
 
 def test_webhook_registration(client):
@@ -60,7 +60,7 @@ def test_webhook_registration(client):
             grant_type="client_credentials",
             client_id=client.client_id,
             client_secret=client.client_secret,
-            scope="/webhook"))
+            scopes="/webhook"))
     assert resp.status_code == 200
     data = json.loads(resp.data)
     token = Token.get(user=user, _scopes="/webhook")
@@ -137,13 +137,13 @@ def test_webhook_registration(client):
             "Content-Length": "0"
         }
 
-        q = OrcidToken.select().where(OrcidToken.org == org, OrcidToken.scope == "/webhook")
+        q = OrcidToken.select().where(OrcidToken.org == org, OrcidToken.scopes == "/webhook")
         assert q.count() == 1
         orcid_token = q.first()
         assert orcid_token.access_token == "ACCESS-TOKEN-123"
         assert orcid_token.refresh_token == "REFRESH-TOKEN-123"
         assert orcid_token.expires_in == 99999
-        assert orcid_token.scope == "/webhook"
+        assert orcid_token.scopes == "/webhook"
 
     with patch("orcid_hub.utils.requests.delete") as mockdelete:
         # Webhook deletion response:
@@ -171,13 +171,13 @@ def test_webhook_registration(client):
             "Content-Length": "0"
         }
 
-        q = OrcidToken.select().where(OrcidToken.org == org, OrcidToken.scope == "/webhook")
+        q = OrcidToken.select().where(OrcidToken.org == org, OrcidToken.scopes == "/webhook")
         assert q.count() == 1
         token = q.first()
         assert token.access_token == "ACCESS-TOKEN-123"
         assert token.refresh_token == "REFRESH-TOKEN-123"
         assert token.expires_in == 99999
-        assert token.scope == "/webhook"
+        assert token.scopes == "/webhook"
 
 
 def test_org_webhook(client, mocker):

@@ -649,18 +649,14 @@ def orcid_callback():
     if not user.name and name:
         user.name = name
 
-    scope = ''
-    if len(token["scope"]) >= 1 and token["scope"][0] is not None:
-        scope = token["scope"][0]
-    else:
+    scopes = ','.join(token.get("scope", []))
+    if not scopes:
         flash("Scope missing, contact orcidhub support", "danger")
-        app.logger.error("For %r encountered exception: Scope missing", current_user)
+        app.logger.error(f"For {current_user} encountered exception: Scope missing")
         return redirect(url_for("index"))
-    if len(token["scope"]) >= 2 and token["scope"][1] is not None:
-        scope = scope + "," + token["scope"][1]
 
     orcid_token, orcid_token_found = OrcidToken.get_or_create(
-        user_id=user.id, org=user.organisation, scope=scope)
+        user_id=user.id, org=user.organisation, scopes=scopes)
     orcid_token.access_token = token["access_token"]
     orcid_token.refresh_token = token["refresh_token"]
     orcid_token.expires_in = token["expires_in"]
@@ -675,9 +671,9 @@ def orcid_callback():
 
     app.logger.info("User %r authorized %r to have %r access to the profile "
                     "and now trying to update employment or education record", user,
-                    user.organisation, scope)
+                    user.organisation, scopes)
 
-    if scopes.ACTIVITIES_UPDATE in scope and orcid_token_found:
+    if scopes.ACTIVITIES_UPDATE in scopes and orcid_token_found:
         api = orcid_client.MemberAPI(user=user, access_token=orcid_token.access_token)
 
         for a in Affiliation:
@@ -982,7 +978,7 @@ def orcid_login(invitation_token=None):
 
             if is_scope_person_update and OrcidToken.select().where(
                     OrcidToken.user == user, OrcidToken.org == org,
-                    OrcidToken.scope.contains(scopes.PERSON_UPDATE)).exists():
+                    OrcidToken.scopes.contains(scopes.PERSON_UPDATE)).exists():
                 flash(
                     "You have already given permission with scope '/person/update' which allows organisation to write, "
                     "update and delete items in the other-names, keywords, countries, researcher-urls, websites, "
@@ -992,7 +988,7 @@ def orcid_login(invitation_token=None):
             elif not is_scope_person_update and invitation._meta.model_class != OrgInvitation \
                 and OrcidToken.select().where(
                     OrcidToken.user == user, OrcidToken.org == org,
-                    OrcidToken.scope.contains(scopes.ACTIVITIES_UPDATE)).exists():
+                    OrcidToken.scopes.contains(scopes.ACTIVITIES_UPDATE)).exists():
                 flash("You have already given permission, you can simply login on orcidhub",
                       "warning")
                 return redirect(url_for("index"))
@@ -1043,7 +1039,7 @@ def orcid_login(invitation_token=None):
         # if the invitation token is missing perform only authentication (in the call back handler)
         redirect_uri = append_qs(redirect_uri, login="1")
 
-        client_write = OAuth2Session(client_id, scope=orcid_scopes, redirect_uri=redirect_uri)
+        client_write = OAuth2Session(client_id, scopes=orcid_scopes, redirect_uri=redirect_uri)
 
         authorization_url, state = client_write.authorization_url(
             AUTHORIZATION_BASE_URL, state=session.get("oauth_state"))
@@ -1241,7 +1237,7 @@ def orcid_login_callback(request):
                     return redirect(url_for("index"))
 
             else:
-                scope = ",".join(token.get("scope", []))
+                scope = ','.join(token.get("scope", []))
                 if not scope:
                     flash("Scope missing, contact orcidhub support", "danger")
                     app.logger.error("For %r encountered exception: Scope missing", user)

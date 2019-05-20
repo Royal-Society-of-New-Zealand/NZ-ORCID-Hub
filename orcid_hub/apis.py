@@ -3,11 +3,13 @@
 from datetime import datetime
 import re
 from urllib.parse import unquote, urlencode
+import dateutil.parser
 
 import jsonschema
 import requests
 import validators
 import yaml
+from uuid import UUID
 from flask import (Response, abort, current_app, jsonify, make_response, render_template, request,
                    stream_with_context, url_for)
 from flask.views import MethodView
@@ -23,6 +25,7 @@ from .models import (ORCID_ID_REGEX, AffiliationRecord, Client, FundingRecord, O
 from .utils import dump_yaml, is_valid_url, register_orcid_webhook
 
 ORCID_API_VERSION_REGEX = re.compile(r"^v[2-3].\d+(_rc\d+)?$")
+SCOPE_REGEX = re.compile(r"^(/[a-z\-]+)+(\,(/[a-z\-]+)+)*$")
 
 
 def prefers_yaml():
@@ -32,6 +35,21 @@ def prefers_yaml():
         "text/yaml",
         "application/x-yaml",
     ] and request.accept_mimetypes[best] > request.accept_mimetypes["application/json"])
+
+
+def validate_uuid4(uuid_string):
+    """Validate that a UUID string is in fact a valid uuid4.
+
+    Happily, the uuid module does the actual checking for us.
+    It is vital that the 'version' kwarg be passed
+    to the UUID() call, otherwise any 32-character
+    hex string is considered valid.
+    """
+    try:
+        val = UUID(uuid_string, version=4)
+    except ValueError:
+        return False
+    return val.hex == uuid_string.replace('-', '')
 
 
 @app.route('/api/me')
@@ -1435,14 +1453,55 @@ class TokenAPI(MethodView):
         oauth.require_oauth(),
     ]
 
+    def get_user(self, identifier):
+        """Get the user account record. Returns a tuple: (user, error_message, status_code)."""
+        identifier = identifier.strip()
+        if validators.email(identifier):
+            user = User.select().where((User.email == identifier)
+                                       | (User.eppn == identifier)).first()
+        elif ORCID_ID_REGEX.match(identifier):
+            try:
+                models.validate_orcid_id(identifier)
+            except Exception as ex:
+                return None, f"Incorrect identifier value '{identifier}': {ex}", 400
+            user = User.select().where(User.orcid == identifier).first()
+        else:
+            return None, f"Incorrect identifier value: {identifier}.", 400
+
+        org = request.oauth.client.org
+        if user is None or (user.organisation != org
+                            and not UserOrg.select().where(
+                                UserOrg.org == org,
+                                UserOrg.user == user,
+                            ).exists()):
+            return None, f"User with specified identifier '{identifier}' not found.", 404
+        return user, None, None
+
     def get(self, identifier=None):
         """
-        Retrieve user access token and refresh token.
+        Retrieve user ORCID API access token and refresh tokens.
 
         ---
+        definitions:
+        - schema:
+            id: OrcidToken
+            properties:
+              access_token:
+                type: "string"
+                description: "ORCID API user profile access token"
+              refresh_token:
+                type: "string"
+                description: "ORCID API user profile refresh token"
+              scopes:
+                type: "string"
+                description: "ORCID API user token scopes"
+              issue_time:
+                type: "string"
+              expires_in:
+                type: "integer"
         tags:
           - "token"
-        summary: "Retrieves user access and refresh tokens."
+        summary: "Retrieves user ORCID API access and refresh tokens."
         description: ""
         produces:
           - "application/json"
@@ -1456,21 +1515,9 @@ class TokenAPI(MethodView):
           200:
             description: "successful operation"
             schema:
-              id: OrcidToken
-              properties:
-                access_token:
-                  type: "string"
-                  description: "ORCID API user profile access token"
-                refresh_token:
-                  type: "string"
-                  description: "ORCID API user profile refresh token"
-                scopes:
-                  type: "string"
-                  description: "ORCID API user token scopes"
-                issue_time:
-                  type: "string"
-                expires_in:
-                  type: "integer"
+              type: array
+              items:
+                $ref: "#/definitions/OrcidToken"
           400:
             description: "Invalid identifier supplied"
           401:
@@ -1480,50 +1527,139 @@ class TokenAPI(MethodView):
           404:
             $ref: "#/responses/NotFound"
         """
-        identifier = identifier.strip()
-        if validators.email(identifier):
-            user = User.select().where((User.email == identifier)
-                                       | (User.eppn == identifier)).first()
-        elif ORCID_ID_REGEX.match(identifier):
-            try:
-                models.validate_orcid_id(identifier)
-            except Exception as ex:
-                return jsonify({"error": f"Incorrect identifier value '{identifier}': {ex}"}), 400
-            user = User.select().where(User.orcid == identifier).first()
-        else:
-            return jsonify({"error": f"Incorrect identifier value: {identifier}."}), 400
+        user, error_message, status_code = self.get_user(identifier)
+        if not user:
+            return jsonify(error=error_message), status_code
 
         org = request.oauth.client.org
-        if user is None or (user.organisation != request.oauth.client.org
-                            and not UserOrg.select().where(
-                                UserOrg.org == request.oauth.client.org,
-                                UserOrg.user == user,
-                            ).exists()):
+        tokens = OrcidToken.select().where(OrcidToken.user == user,
+                                           OrcidToken.org == org)
+
+        return jsonify([
+            t.to_dict(recurse=False,
+                      only=[
+                          OrcidToken.access_token, OrcidToken.refresh_token, OrcidToken.scopes,
+                          OrcidToken.issue_time, OrcidToken.expires_in
+                      ]) for t in tokens
+        ]), 200
+
+    def post(self, identifier=None):
+        """
+        Add an ORCID API access token for a user account.
+
+        ---
+        tags:
+          - "token"
+        summary: "Add an access token for a user specified by a unique identifier."
+        description: "Add an access token for a user specified by a unique identifier (email or orcid)."
+        produces:
+          - "application/json"
+        parameters:
+          - name: "identifier"
+            in: "path"
+            description: "User identifier (either email, eppn or ORCID ID)"
+            required: true
+            type: "string"
+          - name: "body"
+            in: "body"
+            description: "ORCID API access token."
+            type: "object"
+            scheme:
+              $ref: "#/definitions/OrcidToken"
+        responses:
+          200:
+            description: "successful operation"
+            schema:
+              $ref: "#/definitions/OrcidToken"
+          400:
+            description: "Invalid identifier supplied"
+          401:
+            $ref: "#/responses/Unauthorized"
+          403:
+            $ref: "#/responses/AccessDenied"
+          404:
+            $ref: "#/responses/NotFound"
+        """
+        user, error_message, status_code = self.get_user(identifier)
+        if not user:
+            return jsonify(error=error_message), status_code
+
+        data = request.get_json()
+        access_token = data.get("access_token")
+        if not validate_uuid4(access_token):
             return jsonify({
-                "error": f"User with specified identifier '{identifier}' not found."
-            }), 404
+                "error":
+                f"Invalid access token value: {access_token}."
+            }), 400
+
+        refresh_token = data.get("refresh_token")
+        if refresh_token and not validate_uuid4(refresh_token):
+            return jsonify({
+                "error":
+                f"Invalid refresh token value: {access_token}."
+            }), 400
+
+        scopes = data.get("scopes")
+        if not SCOPE_REGEX.match(scopes):
+            return jsonify({
+                "error":
+                f"Invalid scope value: {scopes}."
+            }), 400
+
+        issue_time = data.get("issue_time")
+        if issue_time:
+            try:
+                issue_time = dateutil.parser.parse(issue_time)
+            except ValueError as ex:
+                return jsonify({
+                    "error":
+                    f"Invalid access token issue time value: {issue_time}: {ex.args}."
+                }), 400
+
+        expires_in = data.get("expires_in")
+        if expires_in:
+            try:
+                expires_in = int(expires_in)
+            except:
+                return jsonify({
+                    "error":
+                    f"Invalid access token expires in value: {expires_in}."
+                }), 400
+
+        org = request.oauth.client.org
+        q = OrcidToken.select().where(OrcidToken.user == user, OrcidToken.org == org)
+        if scopes:
+            q = q.where(OrcidToken.scopes == scopes)
+
+        if q.exists():
+            return jsonify({
+                "error":
+                f"Token for the users {user} ({identifier}) with the scope '{scopes}' already exists."
+            }), 400
 
         try:
-            token = OrcidToken.get(user=user, org=org)
+            token = OrcidToken.create(user=user,
+                                      org=org,
+                                      scopes=scopes,
+                                      issue_time=issue_time,
+                                      expires_in=expires_in,
+                                      access_token=access_token,
+                                      refresh_token=refresh_token)
         except OrcidToken.DoesNotExist:
             return jsonify({
                 "error":
                 f"Token for the users {user} ({identifier}) affiliated with {org} not found."
             }), 404
 
-        return jsonify({
-            "access_token": token.access_token,
-            "refresh_token": token.refresh_token,
-            "scopes": token.scope,
-            "issue_time": token.issue_time.isoformat(),
-            "expires_in": token.expires_in,
-        }), 200
+        return jsonify(
+            token.to_dict(recurse=False,
+                          only=[
+                              OrcidToken.access_token, OrcidToken.refresh_token, OrcidToken.scopes,
+                              OrcidToken.issue_time, OrcidToken.expires_in
+                          ])), 201
 
 
-app.add_url_rule(
-    "/api/v1.0/tokens/<identifier>", view_func=TokenAPI.as_view("tokens"), methods=[
-        "GET",
-    ])
+app.add_url_rule("/api/v1.0/tokens/<identifier>", view_func=TokenAPI.as_view("tokens"))
 
 
 def get_spec(app):

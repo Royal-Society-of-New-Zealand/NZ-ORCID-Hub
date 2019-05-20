@@ -756,7 +756,7 @@ def create_or_update_researcher_url(user, org_id, records, *args, **kwargs):
     org = Organisation.get(id=org_id)
     profile_record = None
     token = OrcidToken.select(OrcidToken.access_token).where(OrcidToken.user_id == user.id, OrcidToken.org_id == org.id,
-                                                             OrcidToken.scope.contains("/person/update")).first()
+                                                             OrcidToken.scopes.contains("/person/update")).first()
     if token:
         api = orcid_client.MemberAPI(org, user, access_token=token.access_token)
         profile_record = api.get_record()
@@ -847,7 +847,7 @@ def create_or_update_other_name(user, org_id, records, *args, **kwargs):
     org = Organisation.get(id=org_id)
     profile_record = None
     token = OrcidToken.select(OrcidToken.access_token).where(OrcidToken.user_id == user.id, OrcidToken.org_id == org.id,
-                                                             OrcidToken.scope.contains("/person/update")).first()
+                                                             OrcidToken.scopes.contains("/person/update")).first()
     if token:
         api = orcid_client.MemberAPI(org, user, access_token=token.access_token)
         profile_record = api.get_record()
@@ -935,7 +935,7 @@ def create_or_update_keyword(user, org_id, records, *args, **kwargs):
     org = Organisation.get(id=org_id)
     profile_record = None
     token = OrcidToken.select(OrcidToken.access_token).where(OrcidToken.user_id == user.id, OrcidToken.org_id == org.id,
-                                                             OrcidToken.scope.contains("/person/update")).first()
+                                                             OrcidToken.scopes.contains("/person/update")).first()
     if token:
         api = orcid_client.MemberAPI(org, user, access_token=token.access_token)
         profile_record = api.get_record()
@@ -1255,7 +1255,7 @@ def process_work_records(max_rows=20, record_id=None):
                  JOIN.LEFT_OUTER,
                  on=((OrcidToken.user_id == User.id)
                      & (OrcidToken.org_id == Organisation.id)
-                     & (OrcidToken.scope.contains("/activities/update")))).limit(max_rows))
+                     & (OrcidToken.scopes.contains("/activities/update")))).limit(max_rows))
     if record_id:
         tasks = tasks.where(WorkRecord.id == record_id)
 
@@ -1268,7 +1268,7 @@ def process_work_records(max_rows=20, record_id=None):
         # otherwise send him an invite
         if (user.id is None or user.orcid is None or not OrcidToken.select().where(
             (OrcidToken.user_id == user.id) & (OrcidToken.org_id == org_id)
-                & (OrcidToken.scope.contains("/activities/update"))).exists()):  # noqa: E127, E129
+                & (OrcidToken.scopes.contains("/activities/update"))).exists()):  # noqa: E127, E129
 
             for k, tasks in groupby(
                     tasks_by_user,
@@ -1385,7 +1385,7 @@ def process_peer_review_records(max_rows=20, record_id=None):
                          JOIN.LEFT_OUTER,
                          on=((OrcidToken.user_id == User.id)
                              & (OrcidToken.org_id == Organisation.id)
-                             & (OrcidToken.scope.contains("/activities/update")))).limit(max_rows))
+                             & (OrcidToken.scopes.contains("/activities/update")))).limit(max_rows))
     if record_id:
         tasks = tasks.where(PeerReviewRecord.id == record_id)
 
@@ -1397,7 +1397,7 @@ def process_peer_review_records(max_rows=20, record_id=None):
         """If we have the token associated to the user then update the peer record, otherwise send him an invite"""
         if (user.id is None or user.orcid is None or not OrcidToken.select().where(
             (OrcidToken.user_id == user.id) & (OrcidToken.org_id == org_id)
-                & (OrcidToken.scope.contains("/activities/update"))).exists()):  # noqa: E127, E129
+                & (OrcidToken.scopes.contains("/activities/update"))).exists()):  # noqa: E127, E129
 
             for k, tasks in groupby(
                     tasks_by_user,
@@ -1518,7 +1518,7 @@ def process_funding_records(max_rows=20, record_id=None):
                          JOIN.LEFT_OUTER,
                          on=((OrcidToken.user_id == User.id)
                              & (OrcidToken.org_id == Organisation.id)
-                             & (OrcidToken.scope.contains("/activities/update")))).limit(max_rows))
+                             & (OrcidToken.scopes.contains("/activities/update")))).limit(max_rows))
     if record_id:
         tasks = tasks.where(FundingRecord.id == record_id)
 
@@ -1530,7 +1530,7 @@ def process_funding_records(max_rows=20, record_id=None):
         """If we have the token associated to the user then update the funding record, otherwise send him an invite"""
         if (user.id is None or user.orcid is None or not OrcidToken.select().where(
             (OrcidToken.user_id == user.id) & (OrcidToken.org_id == org_id)
-                & (OrcidToken.scope.contains("/activities/update"))).exists()):  # noqa: E127, E129
+                & (OrcidToken.scopes.contains("/activities/update"))).exists()):  # noqa: E127, E129
 
             for k, tasks in groupby(
                     tasks_by_user,
@@ -1647,7 +1647,7 @@ def process_affiliation_records(max_rows=20, record_id=None):
                          JOIN.LEFT_OUTER,
                          on=((OrcidToken.user_id == User.id)
                              & (OrcidToken.org_id == Organisation.id)
-                             & (OrcidToken.scope.contains("/activities/update")))).limit(max_rows))
+                             & (OrcidToken.scopes.contains("/activities/update")))).limit(max_rows))
     if record_id:
         if isinstance(record_id, list):
             tasks = tasks.where(AffiliationRecord.id.in_(record_id))
@@ -1659,7 +1659,7 @@ def process_affiliation_records(max_rows=20, record_id=None):
             t.record.user, )):
         if (user.id is None or user.orcid is None or not OrcidToken.select().where(
             (OrcidToken.user_id == user.id) & (OrcidToken.org_id == org_id)
-                & (OrcidToken.scope.contains("/activities/update"))).exists()):  # noqa: E127, E129
+                & (OrcidToken.scopes.contains("/activities/update"))).exists()):  # noqa: E127, E129
             # maps invitation attributes to affiliation type set:
             # - the user who uploaded the task;
             # - the user organisation;
@@ -1768,7 +1768,7 @@ def process_researcher_url_records(max_rows=20, record_id=None):
                          JOIN.LEFT_OUTER,
                          on=((OrcidToken.user_id == User.id)
                              & (OrcidToken.org_id == Organisation.id)
-                             & (OrcidToken.scope.contains("/person/update")))).limit(max_rows))
+                             & (OrcidToken.scopes.contains("/person/update")))).limit(max_rows))
     if record_id:
         tasks = tasks.where(ResearcherUrlRecord.id == record_id)
     for (task_id, org_id, user), tasks_by_user in groupby(tasks, lambda t: (
@@ -1777,7 +1777,7 @@ def process_researcher_url_records(max_rows=20, record_id=None):
             t.researcher_url_record.user, )):
         if (user.id is None or user.orcid is None or not OrcidToken.select().where(
             (OrcidToken.user_id == user.id) & (OrcidToken.org_id == org_id)
-                & (OrcidToken.scope.contains("/person/update"))).exists()):  # noqa: E127, E129
+                & (OrcidToken.scopes.contains("/person/update"))).exists()):  # noqa: E127, E129
             for k, tasks in groupby(
                     tasks_by_user,
                     lambda t: (t.created_by, t.org, t.researcher_url_record.email, t.researcher_url_record.first_name,
@@ -1871,7 +1871,7 @@ def process_other_name_records(max_rows=20, record_id=None):
                          JOIN.LEFT_OUTER,
                          on=((OrcidToken.user_id == User.id)
                              & (OrcidToken.org_id == Organisation.id)
-                             & (OrcidToken.scope.contains("/person/update")))).limit(max_rows))
+                             & (OrcidToken.scopes.contains("/person/update")))).limit(max_rows))
     if record_id:
         tasks = tasks.where(OtherNameRecord.id == record_id)
     for (task_id, org_id, user), tasks_by_user in groupby(tasks, lambda t: (
@@ -1880,7 +1880,7 @@ def process_other_name_records(max_rows=20, record_id=None):
             t.other_name_record.user, )):
         if (user.id is None or user.orcid is None or not OrcidToken.select().where(
             (OrcidToken.user_id == user.id) & (OrcidToken.org_id == org_id)
-                & (OrcidToken.scope.contains("/person/update"))).exists()):  # noqa: E127, E129
+                & (OrcidToken.scopes.contains("/person/update"))).exists()):  # noqa: E127, E129
             for k, tasks in groupby(
                     tasks_by_user,
                     lambda t: (t.created_by, t.org, t.other_name_record.email, t.other_name_record.first_name,
@@ -1974,7 +1974,7 @@ def process_keyword_records(max_rows=20, record_id=None):
                          JOIN.LEFT_OUTER,
                          on=((OrcidToken.user_id == User.id)
                              & (OrcidToken.org_id == Organisation.id)
-                             & (OrcidToken.scope.contains("/person/update")))).limit(max_rows))
+                             & (OrcidToken.scopes.contains("/person/update")))).limit(max_rows))
     if record_id:
         tasks = tasks.where(KeywordRecord.id == record_id)
     for (task_id, org_id, user), tasks_by_user in groupby(tasks, lambda t: (
@@ -1983,7 +1983,7 @@ def process_keyword_records(max_rows=20, record_id=None):
             t.keyword_record.user, )):
         if (user.id is None or user.orcid is None or not OrcidToken.select().where(
             (OrcidToken.user_id == user.id) & (OrcidToken.org_id == org_id)
-                & (OrcidToken.scope.contains("/person/update"))).exists()):  # noqa: E127, E129
+                & (OrcidToken.scopes.contains("/person/update"))).exists()):  # noqa: E127, E129
             for k, tasks in groupby(
                     tasks_by_user,
                     lambda t: (t.created_by, t.org, t.keyword_record.email, t.keyword_record.first_name,
@@ -2120,7 +2120,7 @@ def get_client_credentials_token(org, scope="/webhook"):
             client_secret=org.orcid_secret,
             scope=scope,
             grant_type="client_credentials"))
-    OrcidToken.delete().where(OrcidToken.org == org, OrcidToken.scope == "/webhook").execute()
+    OrcidToken.delete().where(OrcidToken.org == org, OrcidToken.scopes == "/webhook").execute()
     data = resp.json()
     token = OrcidToken.create(
         org=org,
@@ -2283,7 +2283,7 @@ def sync_profile(task_id, delay=0.1):
     for u in task.org.users.select(User, OrcidToken.access_token.alias("access_token")).where(
             User.orcid.is_null(False)).join(
             OrcidToken,
-            on=((OrcidToken.user_id == User.id) & OrcidToken.scope.contains("/activities/update"))).naive():
+            on=((OrcidToken.user_id == User.id) & OrcidToken.scopes.contains("/activities/update"))).naive():
         Log.create(task=task_id, message=f"Processing user {u} / {u.orcid} profile.")
         api.sync_profile(user=u, access_token=u.access_token, task=task)
         count += 1

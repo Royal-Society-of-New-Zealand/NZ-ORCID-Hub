@@ -1685,7 +1685,7 @@ class ViewMembersAdmin(AppModelView):
         tokens = OrcidToken.select(User, OrcidToken).join(
             User, on=(OrcidToken.user_id == User.id)).where(
                 OrcidToken.user_id << ids,
-                OrcidToken.scope.contains(orcid_client.READ_LIMITED))
+                OrcidToken.scopes.contains(orcid_client.READ_LIMITED))
         if not current_user.is_superuser:
             tokens = tokens.where(OrcidToken.org_id == current_user.organisation.id)
 
@@ -2024,7 +2024,7 @@ def delete_record(user_id, section_type, put_code):
     if section_type in ["RUR", "ONR", "KWR"]:
         orcid_token = OrcidToken.select(OrcidToken.access_token).where(OrcidToken.user_id == user.id,
                                                                        OrcidToken.org_id == user.organisation_id,
-                                                                       OrcidToken.scope.contains(
+                                                                       OrcidToken.scopes.contains(
                                                                            orcid_client.PERSON_UPDATE)).first()
         if not orcid_token:
             flash("The user hasn't given 'PERSON/UPDATE' permission to delete this record", "warning")
@@ -2032,7 +2032,7 @@ def delete_record(user_id, section_type, put_code):
     else:
         orcid_token = OrcidToken.select(OrcidToken.access_token).where(OrcidToken.user_id == user.id,
                                                                        OrcidToken.org_id == user.organisation_id,
-                                                                       OrcidToken.scope.contains(
+                                                                       OrcidToken.scopes.contains(
                                                                            orcid_client.ACTIVITIES_UPDATE)).first()
         if not orcid_token:
             flash("The user hasn't given 'ACTIVITIES/UPDATE' permission to delete this record", "warning")
@@ -2095,7 +2095,7 @@ def edit_record(user_id, section_type, put_code=None):
     if section_type in ["RUR", "ONR", "KWR"]:
         orcid_token = OrcidToken.select(OrcidToken.access_token).where(OrcidToken.user_id == user.id,
                                                                        OrcidToken.org_id == org.id,
-                                                                       OrcidToken.scope.contains(
+                                                                       OrcidToken.scopes.contains(
                                                                            orcid_client.PERSON_UPDATE)).first()
         if not orcid_token:
             flash("The user hasn't given 'PERSON/UPDATE' permission to you to Add/Update these records", "warning")
@@ -2103,7 +2103,7 @@ def edit_record(user_id, section_type, put_code=None):
     else:
         orcid_token = OrcidToken.select(OrcidToken.access_token).where(OrcidToken.user_id == user.id,
                                                                        OrcidToken.org_id == org.id,
-                                                                       OrcidToken.scope.contains(
+                                                                       OrcidToken.scopes.contains(
                                                                            orcid_client.ACTIVITIES_UPDATE)).first()
         if not orcid_token:
             flash("The user hasn't given 'ACTIVITIES/UPDATE' permission to you to Add/Update these records", "warning")
@@ -2408,7 +2408,7 @@ def section(user_id, section_type="EMP"):
         try:
             orcid_token = OrcidToken.select(OrcidToken.access_token).where(OrcidToken.user_id == user.id,
                                                                            OrcidToken.org_id == user.organisation_id,
-                                                                           OrcidToken.scope.contains(
+                                                                           OrcidToken.scopes.contains(
                                                                                orcid_client.PERSON_UPDATE)).first()
             if orcid_token:
                 flash(
@@ -3091,7 +3091,7 @@ def invite_user():
         invited_user = User.select().where(User.email == email).first()
         if (invited_user and OrcidToken.select().where(
             (OrcidToken.user_id == invited_user.id) & (OrcidToken.org_id == org.id)
-                & (OrcidToken.scope.contains("/activities/update"))).exists()):
+                & (OrcidToken.scopes.contains("/activities/update"))).exists()):
             try:
                 if affiliations & (Affiliation.EMP | Affiliation.EDU):
                     api = orcid_client.MemberAPI(org, invited_user)

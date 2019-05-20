@@ -602,7 +602,7 @@ def fetch_token_mock(self,
         'name': 'ros',
         'access_token': 'xyz',
         'refresh_token': 'xyz',
-        'scope': '/activities/update',
+        'scopes': '/activities/update',
         'expires_in': '12121'
     }
     return token
@@ -775,7 +775,7 @@ def test_orcid_login_callback_researcher_flow(patch, patch2, request_ctx):
     UserOrg.create(user=u, org=org, is_admin=False)
     token = utils.generate_confirmation_token(email=u.email, org=org.name)
     UserInvitation.create(email=u.email, token=token, affiliations=Affiliation.EMP)
-    OrcidToken.create(user=u, org=org, scope="/read-limited,/activities/update")
+    OrcidToken.create(user=u, org=org, scopes="/read-limited,/activities/update")
     with request_ctx():
         request.args = {"invitation_token": token, "state": "xyz"}
         session['oauth_state'] = "xyz"

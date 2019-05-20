@@ -975,26 +975,13 @@ class OrcidToken(BaseModel, AuditMixin):
         User, null=True, index=True,
         on_delete="CASCADE")  # TODO: add validation for 3-legged authorization tokens
     org = ForeignKeyField(Organisation, index=True, verbose_name="Organisation")
-    scope = TextField(null=True)  # TODO implement property
+    scopes = TextField(null=True)
     access_token = CharField(max_length=36, unique=True, null=True)
     issue_time = DateTimeField(default=datetime.utcnow)
     refresh_token = CharField(max_length=36, unique=True, null=True)
     expires_in = IntegerField(default=0)
     created_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
     updated_by = ForeignKeyField(DeferredUser, on_delete="SET NULL", null=True)
-
-    @property
-    def scopes(self):  # noqa: D102
-        if self.scope:
-            return self.scope.split(',')
-        return []
-
-    @scopes.setter
-    def scopes(self, value):  # noqa: D102
-        if isinstance(value, str):
-            self.scope = value
-        else:
-            self.scope = ','.join(value)
 
     class Meta:  # noqa: D101,D106
         db_table = "orcid_token"

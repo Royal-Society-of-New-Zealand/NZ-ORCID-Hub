@@ -235,7 +235,7 @@ def app():
             OrcidToken.insert_many(
                 dict(
                     access_token=f"TOKEN-{org_no}-{u.id}",
-                    scope="/read-limited,/activities/update",
+                    scopes="/read-limited,/activities/update",
                     org=org,
                     user=u,
                     expires_in=0,
@@ -301,7 +301,7 @@ def app():
             organisation=org)
         OrcidToken.create(user=user,
                           org=org,
-                          scope="/read-limited,/activities/update",
+                          scopes="/read-limited,/activities/update",
                           access_token="ORCID-TEST-ACCESS-TOKEN")
         UserOrg.create(user=user, org=org)
 

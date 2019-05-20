@@ -51,7 +51,7 @@ def test_member_api(app, mocker):
     assert configuration.access_token == 'ACCESS000'
 
     OrcidToken.create(
-        access_token="ACCESS123", user=user, org=org, scope="/read-limited,/activities/update", expires_in='121')
+        access_token="ACCESS123", user=user, org=org, scopes="/read-limited,/activities/update", expires_in='121')
     api = MemberAPI(user=user, org=org)
     assert configuration.access_token == "ACCESS123"
 
@@ -261,11 +261,11 @@ def test_link_already_affiliated(request_ctx):
             confirmed=True)
         test_user.save()
         orcidtoken = OrcidToken(
-            user=test_user, org=org, scope="/read-limited", access_token="ABC1234")
+            user=test_user, org=org, scopes="/read-limited", access_token="ABC1234")
         orcidtoken_write = OrcidToken(
             user=test_user,
             org=org,
-            scope="/read-limited,/activities/update",
+            scopes="/read-limited,/activities/update",
             access_token="ABC234")
         orcidtoken.save()
         orcidtoken_write.save()
@@ -283,7 +283,7 @@ def test_link_already_affiliated(request_ctx):
     name="NEW TEST",
     access_token="ABC123",
     orcid="ABC-123-456-789",
-    scope=['/read-limited'],
+    scopes=['/read-limited'],
     expires_in="1212",
     refresh_token="ABC1235"))
 def test_link_orcid_auth_callback(name, request_ctx):
@@ -318,7 +318,7 @@ def test_link_orcid_auth_callback(name, request_ctx):
     name="NEW TEST",
     access_token="ABC123",
     orcid="ABC-123-456-789",
-    scope=['/read-limited,/activities/update'],
+    scopes=['/read-limited,/activities/update'],
     expires_in="1212",
     refresh_token="ABC1235"))
 def test_link_orcid_auth_callback_with_affiliation(name, request_ctx):
@@ -380,7 +380,7 @@ def test_profile(client):
     test_user = User.create(
         email="test123@test.test.net", organisation=org, orcid="ABC123", confirmed=True)
     OrcidToken.create(
-        user=test_user, org=org, scope="/read-limited,/activities/update", access_token="ABC1234")
+        user=test_user, org=org, scopes="/read-limited,/activities/update", access_token="ABC1234")
     resp = client.login(test_user, follow_redirects=True)
     resp = client.get("/profile", follow_redirects=True)
 
@@ -444,7 +444,7 @@ def test_sync_profile(app, mocker):
     mocker.patch("orcid_hub.orcid_client.MemberAPI.get_record", lambda *args: None)
     api.sync_profile(task=t, user=u, access_token=access_token)
 
-    OrcidToken.create(user=u, org=org, scope="/read-limited,/activities/update")
+    OrcidToken.create(user=u, org=org, scopes="/read-limited,/activities/update")
     mocker.patch("orcid_hub.orcid_client.MemberAPI.get_record", lambda *args: None)
     api.sync_profile(task=t, user=u, access_token=access_token)
     assert Log.select().count() > 0
