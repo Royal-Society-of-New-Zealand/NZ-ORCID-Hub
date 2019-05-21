@@ -1759,7 +1759,7 @@ def process_property_records(max_rows=20, record_id=None):
             t.record.user, )):
         if (not user.id or not user.orcid or not OrcidToken.select().where(
                 OrcidToken.user_id == user.id, OrcidToken.org_id == org_id,
-                OrcidToken.scope.contains("/person/update")).exists()):  # noqa: E127, E129
+                OrcidToken.scopes.contains("/person/update")).exists()):  # noqa: E127, E129
             for k, tasks in groupby(
                     tasks_by_user,
                     lambda t: (t.created_by, t.org, t.record.email, t.record.first_name,

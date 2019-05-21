@@ -12,8 +12,8 @@ import pytest
 
 from orcid_hub.apis import yamlfy
 from orcid_hub.data_apis import plural
-from orcid_hub.models import (AffiliationRecord, Client, OrcidApiCall, OrcidToken, Organisation,
-                              Task, TaskType, Token, User, UserInvitation)
+from orcid_hub.models import (AffiliationRecord, Client, OrcidToken, Organisation, Task, TaskType,
+                              Token, User, UserInvitation)
 
 from unittest.mock import patch, MagicMock
 from tests import utils
@@ -1213,7 +1213,7 @@ def test_property_api(client, mocker):
     assert Task.select().count() == 5
 
     user = User.get(orcid="0000-0000-0000-00X3")
-    OrcidToken.create(user=user, org=user.organisation, scope="/person/update")
+    OrcidToken.create(user=user, org=user.organisation, scopes="/person/update")
     get_profile = mocker.patch("orcid_hub.orcid_client.MemberAPI.get_record", return_value=utils.get_profile(user=user))
     send_email = mocker.patch("orcid_hub.utils.send_email")
     create_or_update_researcher_url = mocker.patch("orcid_hub.orcid_client.MemberAPI.create_or_update_researcher_url")
