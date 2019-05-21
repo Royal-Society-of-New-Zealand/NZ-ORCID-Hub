@@ -60,7 +60,7 @@ def test_member_api(app, mocker):
                 reason="FAILURE", status=401)) as call_api:
         with patch.object(OrcidToken, "delete") as delete:
             api.get_record()
-            app.logger.error.assert_called_with("ApiException Occured: (401)\nReason: FAILURE\n")
+            app.logger.error.assert_called_with("ApiException Occurred: (401)\nReason: FAILURE\n")
             call_api.assert_called_once()
             delete.assert_called_once()
 
@@ -69,17 +69,15 @@ def test_member_api(app, mocker):
             "call_api",
             side_effect=ApiException(reason="FAILURE 999", status=999)) as call_api:
         api.get_record()
-        app.logger.error.assert_called_with("ApiException Occured: (999)\nReason: FAILURE 999\n")
+        app.logger.error.assert_called_with("ApiException Occurred: (999)\nReason: FAILURE 999\n")
 
     with patch.object(
             api_client.ApiClient, "call_api", side_effect=ApiException(
                 reason="FAILURE", status=401)) as call_api:
-        with patch.object(OrcidToken, "get", side_effect=Exception("FAILURE")) as get:
-            api.get_record()
-            app.logger.exception.assert_called_with(
-                "Exception occured while retriving ORCID Token")
-            call_api.assert_called_once()
-            get.assert_called_once()
+        api.get_record()
+        app.logger.exception.assert_called_with(
+            "Failed to find an ORCID API access token.")
+        call_api.assert_called_once()
 
     with patch.object(
             api_client.ApiClient,

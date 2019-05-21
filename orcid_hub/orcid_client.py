@@ -86,6 +86,13 @@ class MemberAPI(MemberAPIV20Api):
         super().__init__(*args, **kwargs)
         self.set_config(org, user, access_token)
 
+    def get_token(self, scopes=READ_LIMITED + "," + ACTIVITIES_UPDATE):
+        """Retrieve the user ORCID API access token given the the organisation."""
+        return OrcidToken.select().where(
+            OrcidToken.user_id == self.user.id,
+            OrcidToken.org_id == self.org.id,
+            OrcidToken.scopes.contains(scopes)).first()
+
     def set_config(self, org=None, user=None, access_token=None):
         """Set up clietn configuration."""
         # global configuration
@@ -103,14 +110,10 @@ class MemberAPI(MemberAPIV20Api):
             source_orcid=None, source_client_id=self.source_clientid, source_name=org.name)
 
         if access_token is None and user:
-            try:
-                orcid_token = OrcidToken.get(
-                    user_id=user.id,
-                    org_id=org.id,
-                    scope=READ_LIMITED + "," + ACTIVITIES_UPDATE)
-            except Exception:
+            orcid_token = self.get_token()
+            if not orcid_token:
                 configuration.access_token = None
-                app.logger.exception("Exception occured while retriving ORCID Token")
+                app.logger.exception("Failed to find an ORCID API access token.")
                 return None
 
             configuration.access_token = orcid_token.access_token
@@ -129,16 +132,13 @@ class MemberAPI(MemberAPIV20Api):
                 _preload_content=False)
         except ApiException as ex:
             if ex.status == 401:
-                try:
-                    orcid_token = OrcidToken.get(
-                        user_id=self.user.id,
-                        org_id=self.org.id,
-                        scope=READ_LIMITED + "," + ACTIVITIES_UPDATE)
+                orcid_token = self.get_token()
+                if orcid_token:
                     orcid_token.delete_instance()
-                except Exception:
-                    app.logger.exception("Exception occured while retriving ORCID Token")
+                else:
+                    app.logger.exception("Exception occurred while retrieving ORCID Token")
                     return None
-            app.logger.error(f"ApiException Occured: {ex}")
+            app.logger.error(f"ApiException Occurred: {ex}")
             return None
 
         if code != 200:

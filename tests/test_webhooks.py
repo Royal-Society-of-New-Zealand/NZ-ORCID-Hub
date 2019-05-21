@@ -53,6 +53,7 @@ def test_webhook_registration(client):
     orcid_id = "0000-0000-0000-00X3"
     client = Client.get(org=org)
 
+    breakpoint()
     resp = test_client.post(
         "/oauth/token",
         method="POST",
