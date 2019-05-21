@@ -18,7 +18,6 @@ def get_profile(org=None, user=None):
                 "other-name": [
                     {
                         "source": {
-                            "source-orcid": None,
                             "source-client-id": {
                                 "uri": f"https://sandbox.orcid.org/client/{client_id}",
                                 "path": client_id,
@@ -39,32 +38,30 @@ def get_profile(org=None, user=None):
             },
             "keywords": {
                 "keyword": [
-                   {
-                       "source": {
-                           "source-orcid": None,
-                           "source-client-id": {
-                               "uri": "https://sandbox.orcid.org/client/{client_id}",
-                               "path": client_id,
-                               "host": "sandbox.orcid.org"
-                           },
-                           "source-name": {
-                               "value": "The University of Auckland - MyORCiD"
-                           }
-                       },
-                       "content": "xyz",
-                       "visibility": "PUBLIC",
-                       "path": "/{orcid}/keywords/43944",
-                       "put-code": 43944,
-                       "display-index": 0
-                   }
-               ],
-               "path": "/0000-0002-6765-5429/keywords"
-           },
+                    {
+                        "source": {
+                            "source-client-id": {
+                                "uri": f"https://sandbox.orcid.org/client/{client_id}",
+                                "path": client_id,
+                                "host": "sandbox.orcid.org"
+                            },
+                            "source-name": {
+                                "value": "The University of Auckland - MyORCiD"
+                            }
+                        },
+                        "content": "xyz",
+                        "visibility": "PUBLIC",
+                        "path": f"/{orcid}/keywords/43944",
+                        "put-code": 43944,
+                        "display-index": 0
+                    }
+                ],
+                "path": f"/{orcid}/keywords"
+            },
             "researcher-urls": {
                 "researcher-url": [
                     {
                         "source": {
-                            "source-orcid": None,
                             "source-client-id": {
                                 "uri": f"http://sandbox.orcid.org/client/{client_id}",
                                 "path": client_id,
@@ -86,25 +83,10 @@ def get_profile(org=None, user=None):
                 ],
                 "path": f"/{orcid}/researcher-urls"
             },
-            "path": f"/{orcid}/person"
-        },
-        'activities-summary': {
-            'last-modified-date': {
-                'value': 1513136293368
-            },  # noqa: E127
-            'educations': {
-                'last-modified-date':
-                None,
-                'education-summary': [
+            "addresses": {
+                "address": [
                     {
-                        "created-date": {
-                            "value": 1532322530230
-                        },
-                        "last-modified-date": {
-                            "value": 1532322530230
-                        },
                         "source": {
-                            "source-orcid": None,
                             "source-client-id": {
                                 "uri": f"http://sandbox.orcid.org/client/{client_id}",
                                 "path": client_id,
@@ -114,7 +96,67 @@ def get_profile(org=None, user=None):
                                 "value": "The University of Auckland - MyORCiD"
                             }
                         },
-                        "department-name": None,
+                        "country": {
+                            "value": "NZ"
+                        },
+                        "visibility": "PUBLIC",
+                        "path": f"/{orcid}/address/5373",
+                        "put-code": 5373,
+                        "display-index": 0
+                    }
+                ],
+                "path": f"/{orcid}/address"
+            },
+            "external-identifiers": {
+                "external-identifier": [
+                    {
+                        "source": {
+                            "source-client-id": {
+                                "uri": f"http://sandbox.orcid.org/client/{client_id}",
+                                "path": client_id,
+                                "host": "sandbox.orcid.org"
+                            },
+                            "source-name": {
+                                "value": "The University of Auckland - MyORCiD"
+                            }
+                        },
+                        "external-id-type": "cba",
+                        "external-id-value": "dfdsfd",
+                        "external-id-url": {
+                            "value": "dfsdfs"
+                        },
+                        "external-id-relationship": "SELF",
+                        "visibility": "PUBLIC",
+                        "path": f"/{orcid}/external-identifiers/5373",
+                        "put-code": 5373,
+                        "display-index": 0
+                    }
+                ],
+                "path": f"/{orcid}/external-identifiers"
+            },
+            "path": f"/{orcid}/person"
+        },
+        'activities-summary': {
+            'educations': {
+                'education-summary': [
+                    {
+                        "created-date": {
+                            "value": 1532322530230
+                        },
+                        "last-modified-date": {
+                            "value": 1532322530230
+                        },
+                        "source": {
+                            "source-client-id": {
+                                "uri": f"http://sandbox.orcid.org/client/{client_id}",
+                                "path": client_id,
+                                "host": "sandbox.orcid.org"
+                            },
+                            "source-name": {
+                                "value": "The University of Auckland - MyORCiD"
+                            }
+                        },
+                        "department-name": "",
                         "role-title": "ROLE",
                         "start-date": {
                             "year": {"value": "1996"},
@@ -147,7 +189,6 @@ def get_profile(org=None, user=None):
                             "value": 1532322530230
                         },
                         "source": {
-                            "source-orcid": None,
                             "source-client-id": {
                                 "uri": f"http://sandbox.orcid.org/client/{client_id}",
                                 "path": client_id,
@@ -157,7 +198,7 @@ def get_profile(org=None, user=None):
                                 "value": "The University of Auckland - MyORCiD"
                             }
                         },
-                        "department-name": None,
+                        "department-name": "",
                         "role-title": "ROLE",
                         "start-date": {
                             "year": {"value": "1996"},
@@ -187,81 +228,65 @@ def get_profile(org=None, user=None):
                 f"/{orcid}/educations"
             },
             "employments": {
-                "last-modified-date": {
-                    "value": 1511401310144
-                },
-                "employment-summary": [{
-                    "created-date": {
-                        "value": 1511401310144
-                    },
-                    "last-modified-date": {
-                        "value": 1511401310144
-                    },
-                    "source": {
-                        "source-orcid": None,
-                        "source-client-id": {
-                            "uri": "http://sandbox.orcid.org/client/{client_id}",
-                            "path": client_id,
-                            "host": "sandbox.orcid.org"
+                "employment-summary": [
+                    {
+                        "source": {
+                            "source-client-id": {
+                                "uri": "http://sandbox.orcid.org/client/{client_id}",
+                                "path": client_id,
+                                "host": "sandbox.orcid.org"
+                            },
+                            "source-name": {
+                                "value": "The University of Auckland - MyORCiD"
+                            }
                         },
-                        "source-name": {
-                            "value": "The University of Auckland - MyORCiD"
-                        }
-                    },
-                    "department-name": None,
-                    "role-title": None,
-                    "start-date": None,
-                    "end-date": None,
-                    "organization": {
-                        "name": "The University of Auckland",
-                        "address": {
-                            "city": "Auckland",
-                            "region": None,
-                            "country": "NZ"
+                        "department-name": None,
+                        "role-title": None,
+                        "start-date": None,
+                        "end-date": None,
+                        "organization": {
+                            "name": "The University of Auckland",
+                            "address": {
+                                "city": "Auckland",
+                                "region": None,
+                                "country": "NZ"
+                            },
+                            "disambiguated-organization": None
                         },
-                        "disambiguated-organization": None
+                        "visibility": "PUBLIC",
+                        "put-code": 29272,
+                        "path": f"/{orcid}/employment/29272"
                     },
-                    "visibility": "PUBLIC",
-                    "put-code": 29272,
-                    "path": f"/{orcid}/employment/29272"
-                },
-                {
-                    "created-date": {
-                        "value": 1511401310144
-                    },
-                    "last-modified-date": {
-                        "value": 1511401310144
-                    },
-                    "source": {
-                        "source-orcid": None,
-                        "source-client-id": {
-                            "uri": "http://sandbox.orcid.org/client/{client_id}",
-                            "path": client_id,
-                            "host": "sandbox.orcid.org"
+                    {
+                        "source": {
+                            "source-client-id": {
+                                "uri": "http://sandbox.orcid.org/client/{client_id}",
+                                "path": client_id,
+                                "host": "sandbox.orcid.org"
+                            },
+                            "source-name": {
+                                "value": "The University of Auckland - MyORCiD"
+                            }
                         },
-                        "source-name": {
-                            "value": "The University of Auckland - MyORCiD"
-                        }
-                    },
-                    "department-name": None,
-                    "role-title": None,
-                    "start-date": None,
-                    "end-date": None,
-                    "organization": {
-                        "name": "The University of Auckland",
-                        "address": {
-                            "city": "Auckland",
-                            "region": None,
-                            "country": "NZ"
+                        "department-name": None,
+                        "role-title": None,
+                        "start-date": None,
+                        "end-date": None,
+                        "organization": {
+                            "name": "The University of Auckland",
+                            "address": {
+                                "city": "Auckland",
+                                "region": None,
+                                "country": "NZ"
+                            },
+                            "disambiguated-organization": None
                         },
-                        "disambiguated-organization": None
-                    },
-                    "visibility": "PUBLIC",
-                    "put-code": 2,
-                    "path": f"/{orcid}/employment/2"
-                }],
+                        "visibility": "PUBLIC",
+                        "put-code": 2,
+                        "path": f"/{orcid}/employment/2"
+                    }],
                 "path":
-                f"//employments"
+                    f"//employments"
             },
             'fundings': {
                 'last-modified-date': {
@@ -292,7 +317,6 @@ def get_profile(org=None, user=None):
                             "value": 1513136293368
                         },
                         "source": {
-                            "source-orcid": None,
                             "source-client-id": {
                                 "uri": "http://sandbox.orcid.org/client/{client_id}",
                                 "path": client_id,
@@ -342,7 +366,6 @@ def get_profile(org=None, user=None):
                     },
                     "peer-review-summary": [{
                         "source": {
-                            "source-orcid": None,
                             "source-client-id": {
                                 "uri": "http://sandbox.orcid.org/client/{client_id}",
                                 "path": client_id,
@@ -391,7 +414,6 @@ def get_profile(org=None, user=None):
                     },
                     "work-summary": [{
                         "source": {
-                            "source-orcid": None,
                             "source-client-id": {
                                 "uri": "http://sandbox.orcid.org/client/{client_id}",
                                 "path": client_id,

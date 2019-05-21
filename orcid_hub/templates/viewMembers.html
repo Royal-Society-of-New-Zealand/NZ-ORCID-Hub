@@ -40,6 +40,14 @@
            title="Keyword Record">
           <span class="fa fa-key"></span>
         </a>
+        <a class="icon" href="{{ url_for('section', user_id=row.id, section_type='ADR', url=request.url) }}"
+           title="Address Record">
+          <span class="fa fa-globe"></span>
+        </a>
+        <a class="icon" href="{{ url_for('section', user_id=row.id, section_type='EXR', url=request.url) }}"
+           title="Other IDs">
+          <span class="fa fa-external-link"></span>
+        </a>
       </div>
       {% endif %}
     </div>
