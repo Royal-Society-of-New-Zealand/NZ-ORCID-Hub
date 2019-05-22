@@ -614,10 +614,10 @@ def get_record_mock(self, orcid=None, **kwargs):
     return request
 
 
-@patch("orcid_hub.OAuth2Session.fetch_token", side_effect=fetch_token_mock)
-@patch("orcid_hub.orcid_client.MemberAPIV20Api.view_emails", side_effect=get_record_mock)
-def test_orcid_login_callback_admin_flow(patch, patch2, request_ctx):
+def test_orcid_login_callback_admin_flow(mocker, client):
     """Test login from orcid callback function for Organisation Technical contact."""
+    mocker.patch("orcid_hub.OAuth2Session.fetch_token", side_effect=fetch_token_mock)
+    mocker.patch("orcid_hub.orcid_client.MemberAPIV20Api.view_emails", side_effect=get_record_mock)
     org = Organisation.create(
         name="THE ORGANISATION:test_orcid_login_callback_admin_flow",
         tuakiri_name="THE ORGANISATION:test_orcid_login_callback_admin_flow",
@@ -636,93 +636,56 @@ def test_orcid_login_callback_admin_flow(patch, patch2, request_ctx):
         confirmed=False,
         organisation=org)
     UserOrg.create(user=u, org=org, is_admin=True)
-    token = utils.generate_confirmation_token(email=u.email, org=org.name)
+    token = utils.new_invitation_token()
+    OrgInvitation.create(token=token, univitee=u, email=u.email, org=org)
 
-    with request_ctx() as resp:
-        request.args = {"invitation_token": token, "state": "xyz"}
-        session['oauth_state'] = "xyz"
-        resp = authcontroller.orcid_login_callback(request)
-        assert resp.status_code == 302
-        assert resp.location.startswith("/")
-    with request_ctx() as respx:
-        request.args = {"invitation_token": token, "state": "xyzabc"}
-        session['oauth_state'] = "xyz"
-        respx = authcontroller.orcid_login_callback(request)
-        assert respx.status_code == 302
-        assert respx.location.startswith("/")
-    with request_ctx() as resp:
-        request.args = {"invitation_token": token, "state": "xyz", "error": "access_denied"}
-        session['oauth_state'] = "xyz"
-        resp = authcontroller.orcid_login_callback(request)
-        assert resp.status_code == 302
-        assert resp.location.startswith("/")
-    with request_ctx() as ct:
-        token = utils.generate_confirmation_token(email=u.email, org=None)
-        request.args = {"invitation_token": token, "state": "xyz"}
-        session['oauth_state'] = "xyz"
-        ctxx = authcontroller.orcid_login_callback(request)
-        assert ctxx.status_code == 302
-        assert ctxx.location.startswith("/")
-    with request_ctx() as ctxxx:
-        request.args = {"invitation_token": token, "state": "xyzabc"}
-        session['oauth_state'] = "xyz"
-        ctxxx = authcontroller.orcid_login_callback(request)
-        assert ctxxx.status_code == 302
-        assert ctxxx.location.startswith("/")
-    with request_ctx() as cttxx:
-        request.args = {"invitation_token": token, "state": "xyz", "error": "access_denied"}
-        session['oauth_state'] = "xyz"
-        cttxx = authcontroller.orcid_login_callback(request)
-        assert cttxx.status_code == 302
-        assert cttxx.location.startswith("/")
-    with request_ctx() as ct:
-        token = utils.generate_confirmation_token(email=u.email, org=None)
-        request.args = {"invitation_token": token, "state": "xyz"}
-        session['oauth_state'] = "xyz"
-        ct = authcontroller.orcid_login_callback(request)
-        assert ct.status_code == 302
-        assert ct.location.startswith("/")
-    with request_ctx():
-        request.args = {"invitation_token": None, "state": "xyz"}
-        session['oauth_state'] = "xyz"
-        ct = authcontroller.orcid_login_callback(request)
-        assert ct.status_code == 302
-        assert ct.location.startswith("/")
-    with request_ctx():
-        # Test case for catching general exception: invitation token here is integer, so an exception will be thrown.
-        request.args = {"invitation_token": 123, "state": "xyz"}
-        session['oauth_state'] = "xyz"
-        ct = authcontroller.orcid_login_callback(request)
-        assert ct.status_code == 302
-        assert ct.location.startswith("/")
-    with request_ctx():
-        # User login via orcid, where organisation is not confirmed.
-        u.orcid = "123"
-        u.save()
-        request.args = {"invitation_token": None, "state": "xyz-about"}
-        session['oauth_state'] = "xyz-about"
-        resp = authcontroller.orcid_login_callback(request)
-        assert resp.status_code == 302
-        assert resp.location.startswith("/about")
-    with request_ctx():
-        # User login via orcid, where organisation is confirmed, so showing viewmembers page.
-        org.tech_contact = u
-        org.confirmed = True
-        org.save()
-        request.args = {"invitation_token": None, "state": "xyz"}
-        session['oauth_state'] = "xyz"
-        resp = authcontroller.orcid_login_callback(request)
-        assert resp.status_code == 302
-        assert resp.location.startswith("/admin/viewmembers/")
-    with request_ctx():
-        # User login via orcid, where organisation is not confirmed and user is tech, so showing confirm org page.
-        org.confirmed = False
-        org.save()
-        request.args = {"invitation_token": None, "state": "xyz"}
-        session['oauth_state'] = "xyz"
-        resp = authcontroller.orcid_login_callback(request)
-        assert resp.status_code == 302
-        assert resp.location.startswith("/confirm/organisation")
+    resp = client.get(f"/orcid/login/{token}")
+    assert resp.status_code == 200
+    assert token.encode() in resp.data
+
+    state = session["oauth_state"]
+
+    resp = client.get(f"/auth/?invitation_token={token}&state={state}&login=1")
+    assert resp.status_code == 302
+    assert urlparse(resp.location).path == "/"
+
+    resp = client.get(f"/auth/?invitation_token={token}&state={state}abc&login=1")
+    assert resp.status_code == 302
+    assert urlparse(resp.location).path == "/"
+
+    resp = client.get(f"/auth/?invitation_token={token}&state={state}&error=access_denied&login=1")
+    assert resp.status_code == 302
+    assert urlparse(resp.location).path == "/"
+
+    resp = client.get(f"/auth/?state=xyz&login=1")
+    assert resp.status_code == 302
+    assert urlparse(resp.location).path == "/"
+
+    resp = client.get(f"/auth/?invitation_token=abc12345&state={state}ABC&login=1")
+    assert resp.status_code == 302
+    assert urlparse(resp.location).path == "/"
+
+    # User login via orcid, where organisation is not confirmed.
+    u.orcid = "123"
+    u.save()
+    resp = client.get(f"/auth/?state={state}&login=1")
+    assert resp.status_code == 302
+    assert urlparse(resp.location).path == "/about"
+
+    # User login via orcid, where organisation is confirmed, so showing viewmembers page.
+    org.tech_contact = u
+    org.confirmed = True
+    org.save()
+    resp = client.get(f"/auth/?state={state}&login=1")
+    assert resp.status_code == 302
+    assert urlparse(resp.location).path == "/admin/viewmembers/"
+
+    # User login via orcid, where organisation is not confirmed and user is tech, so showing confirm org page.
+    org.confirmed = False
+    org.save()
+    resp = client.get(f"/auth/?state={state}&login=1")
+    assert resp.status_code == 302
+    assert urlparse(resp.location).path == "/confirm/organisation"
 
 
 def affiliation_mock(

@@ -985,7 +985,7 @@ def orcid_login(invitation_token=None):
                     "warning")
                 return redirect(url_for("index"))
             elif not is_scope_person_update and not isinstance(
-                    invitation, OrgInvitation) and not OrcidToken.select().where(
+                    invitation, OrgInvitation) and OrcidToken.select().where(
                         OrcidToken.user == user, OrcidToken.org == org,
                         OrcidToken.scopes.contains(scopes.ACTIVITIES_UPDATE)).exists():
                 flash("You have already given permission, you can simply login on orcidhub",
