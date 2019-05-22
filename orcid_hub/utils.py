@@ -1771,11 +1771,11 @@ def process_property_records(max_rows=20, record_id=None):
                         task_id=task_id,
                         invitation_template="email/person_update_invitation.html")
                     status = "The invitation sent at " + datetime.utcnow().isoformat(timespec="seconds")
-                    for r in tasks_by_user:
+                    for r in tasks:
                         r.record.add_status_line(status)
                         r.record.save()
                 except Exception as ex:
-                    for r in tasks_by_user:
+                    for r in tasks:
                         r.record.add_status_line(f"Failed to send an invitation: {ex}.")
                         r.record.save()
         else:
