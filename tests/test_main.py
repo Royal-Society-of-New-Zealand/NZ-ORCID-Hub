@@ -598,12 +598,12 @@ def fetch_token_mock(self,
                      **kwargs):
     """Mock token fetching api call."""
     token = {
-        'orcid': '123',
-        'name': 'ros',
-        'access_token': 'xyz',
-        'refresh_token': 'xyz',
-        'scopes': '/activities/update',
-        'expires_in': '12121'
+        "orcid": "123",
+        "name": "ros",
+        "access_token": "xyz",
+        "refresh_token": "xyz",
+        "scope": ["/activities/update", "/read/limited"],
+        "expires_in": "12121"
     }
     return token
 
@@ -749,11 +749,11 @@ def affiliation_mock(
     return "xyz"
 
 
-@patch("orcid_hub.OAuth2Session.fetch_token", side_effect=fetch_token_mock)
-@patch(
-    "orcid_hub.orcid_client.MemberAPI.create_or_update_affiliation", side_effect=affiliation_mock)
-def test_orcid_login_callback_researcher_flow(patch, patch2, request_ctx):
+def test_orcid_login_callback_researcher_flow(client, mocker):
     """Test login from orcid callback function for researcher and display profile."""
+    fetch_token = mocker.patch("orcid_hub.OAuth2Session.fetch_token", side_effect=fetch_token_mock)
+    mocker.patch("orcid_hub.orcid_client.MemberAPI.create_or_update_affiliation",
+                 side_effect=affiliation_mock)
     org = Organisation.create(
         name="THE ORGANISATION:test_orcid_login_callback_researcher_flow",
         tuakiri_name="THE ORGANISATION:test_orcid_login_callback_researcher_flow",
@@ -773,16 +773,21 @@ def test_orcid_login_callback_researcher_flow(patch, patch2, request_ctx):
         confirmed=True,
         organisation=org)
     UserOrg.create(user=u, org=org, is_admin=False)
-    token = utils.generate_confirmation_token(email=u.email, org=org.name)
-    UserInvitation.create(email=u.email, token=token, affiliations=Affiliation.EMP)
-    OrcidToken.create(user=u, org=org, scopes="/read-limited,/activities/update")
-    with request_ctx():
-        request.args = {"invitation_token": token, "state": "xyz"}
-        session['oauth_state'] = "xyz"
-        resp = authcontroller.orcid_login_callback(request)
-        assert resp.status_code == 302
-        # display profile
-        assert resp.location.startswith("/profile")
+    token = utils.new_invitation_token()
+    UserInvitation.create(email=u.email, token=token, affiliations=Affiliation.EMP, org=org, invitee=u)
+    OrcidToken.create(user=u,
+                      org=org,
+                      scopes="/read-limited,/activities/update",
+                      access_token="ACCESS-TOKEN")
+
+    resp = client.get(f"/orcid/login/{token}")
+    assert resp.status_code == 200
+    assert token.encode() in resp.data
+
+    resp = client.get(f"/auth/?invitation_token={token}&state={session['oauth_state']}&login=1")
+    assert resp.status_code == 302
+    assert resp.location.endswith("/profile")
+    fetch_token.assert_called_once()
 
 
 def test_select_user_org(request_ctx):
