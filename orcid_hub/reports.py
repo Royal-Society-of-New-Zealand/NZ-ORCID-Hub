@@ -145,7 +145,7 @@ def user_cv(op=None):
     if not record:
         token = OrcidToken.select(OrcidToken.access_token).where(
             OrcidToken.user_id == user.id, OrcidToken.org_id == user.organisation_id,
-            OrcidToken.scope.contains("read-limited")).first()
+            OrcidToken.scopes.contains("read-limited")).first()
         if token is None:
             flash("You haven't granted your organisation necessary access to your profile..",
                   "danger")
