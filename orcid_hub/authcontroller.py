@@ -649,18 +649,14 @@ def orcid_callback():
     if not user.name and name:
         user.name = name
 
-    scope = ''
-    if len(token["scope"]) >= 1 and token["scope"][0] is not None:
-        scope = token["scope"][0]
-    else:
+    scope_list = ','.join(token.get("scope", []))
+    if not scope_list:
         flash("Scope missing, contact orcidhub support", "danger")
-        app.logger.error("For %r encountered exception: Scope missing", current_user)
+        app.logger.error(f"For {current_user} encountered exception: Scope missing")
         return redirect(url_for("index"))
-    if len(token["scope"]) >= 2 and token["scope"][1] is not None:
-        scope = scope + "," + token["scope"][1]
 
     orcid_token, orcid_token_found = OrcidToken.get_or_create(
-        user_id=user.id, org=user.organisation, scope=scope)
+        user_id=user.id, org=user.organisation, scopes=scope_list)
     orcid_token.access_token = token["access_token"]
     orcid_token.refresh_token = token["refresh_token"]
     orcid_token.expires_in = token["expires_in"]
@@ -675,9 +671,9 @@ def orcid_callback():
 
     app.logger.info("User %r authorized %r to have %r access to the profile "
                     "and now trying to update employment or education record", user,
-                    user.organisation, scope)
+                    user.organisation, scope_list)
 
-    if scopes.ACTIVITIES_UPDATE in scope and orcid_token_found:
+    if scopes.ACTIVITIES_UPDATE in scope_list and orcid_token_found:
         api = orcid_client.MemberAPI(user=user, access_token=orcid_token.access_token)
 
         for a in Affiliation:
@@ -971,8 +967,8 @@ def orcid_login(invitation_token=None):
             if not user:
                 user = User.get(email=invitation.email)
 
-            is_scope_person_update = invitation.is_person_update_invite if hasattr(
-                invitation, "is_person_update_invite") else False
+            is_scope_person_update = hasattr(
+                invitation, "is_person_update_invite") and invitation.is_person_update_invite
 
             if hasattr(invitation, "task_id") and invitation.task_id:
                 is_scope_person_update = Task.select().where(
@@ -981,17 +977,17 @@ def orcid_login(invitation_token=None):
 
             if is_scope_person_update and OrcidToken.select().where(
                     OrcidToken.user == user, OrcidToken.org == org,
-                    OrcidToken.scope.contains(scopes.PERSON_UPDATE)).exists():
+                    OrcidToken.scopes.contains(scopes.PERSON_UPDATE)).exists():
                 flash(
                     "You have already given permission with scope '/person/update' which allows organisation to write, "
                     "update and delete items in the other-names, keywords, countries, researcher-urls, websites, "
                     "and personal external identifiers sections of the record. Now you can simply login on orcidhub",
                     "warning")
                 return redirect(url_for("index"))
-            elif not is_scope_person_update and invitation._meta.model_class != OrgInvitation \
-                and OrcidToken.select().where(
-                    OrcidToken.user == user, OrcidToken.org == org,
-                    OrcidToken.scope.contains(scopes.ACTIVITIES_UPDATE)).exists():
+            elif not is_scope_person_update and not isinstance(
+                    invitation, OrgInvitation) and OrcidToken.select().where(
+                        OrcidToken.user == user, OrcidToken.org == org,
+                        OrcidToken.scopes.contains(scopes.ACTIVITIES_UPDATE)).exists():
                 flash("You have already given permission, you can simply login on orcidhub",
                       "warning")
                 return redirect(url_for("index"))
@@ -1016,14 +1012,13 @@ def orcid_login(invitation_token=None):
                         "was trying old invitation token")
                     return redirect(url_for("index"))
 
-                if org.orcid_client_id and invitation._meta.model_class != OrgInvitation:
+                if org.orcid_client_id and not isinstance(invitation, OrgInvitation):
                     client_id = org.orcid_client_id
                     if is_scope_person_update:
-                        orcid_scopes = [scopes.PERSON_UPDATE, scopes.READ_LIMITED]
+                        orcid_scopes = [scopes.PERSON_UPDATE]
                     else:
-                        orcid_scopes = [scopes.ACTIVITIES_UPDATE, scopes.READ_LIMITED]
-                else:
-                    orcid_scopes.append(scopes.READ_LIMITED)
+                        orcid_scopes = [scopes.ACTIVITIES_UPDATE]
+                orcid_scopes.append(scopes.READ_LIMITED)
 
                 redirect_uri = append_qs(redirect_uri, invitation_token=invitation_token)
             except Organisation.DoesNotExist:
@@ -1115,7 +1110,7 @@ def orcid_login_callback(request):
                     f"User '{user}' attempted to affiliate with an organisation that's not known: {org.name}"
                 )
                 return redirect(url_for("index"))
-            if org.orcid_client_id and org.orcid_secret and invitation._meta.model_class != OrgInvitation:
+            if org.orcid_client_id and org.orcid_secret and not isinstance(invitation, OrgInvitation):
                 orcid_client_id = org.orcid_client_id
                 orcid_client_secret = org.orcid_secret
 
@@ -1190,7 +1185,7 @@ def orcid_login_callback(request):
 
         session['Should_not_logout_from_ORCID'] = True
         if invitation_token:
-            if invitation._meta.model_class == OrgInvitation:
+            if isinstance(invitation, OrgInvitation):
                 access_token = token.get("access_token")
                 if not access_token:
                     app.logger.error(f"Missing access token: {token}")
@@ -1240,14 +1235,14 @@ def orcid_login_callback(request):
                     return redirect(url_for("index"))
 
             else:
-                scope = ",".join(token.get("scope", []))
-                if not scope:
+                scope_list = ','.join(token.get("scope", []))
+                if not scope_list:
                     flash("Scope missing, contact orcidhub support", "danger")
                     app.logger.error("For %r encountered exception: Scope missing", user)
                     return redirect(url_for("index"))
 
                 orcid_token, orcid_token_found = OrcidToken.get_or_create(
-                    user_id=user.id, org=org, scope=scope)
+                    user_id=user.id, org=org, scopes=scope_list)
                 orcid_token.access_token = token["access_token"]
                 orcid_token.refresh_token = token["refresh_token"]
                 orcid_token.expires_in = token["expires_in"]
@@ -1262,17 +1257,16 @@ def orcid_login_callback(request):
                         app.logger.exception("Failed to save token.")
 
                 try:
-                    ui = UserInvitation.get(token=invitation_token)
-                    if ui.affiliations & (Affiliation.EMP | Affiliation.EDU):
+                    if invitation.affiliations & (Affiliation.EMP | Affiliation.EDU):
                         api = orcid_client.MemberAPI(org, user)
-                        params = {k: v for k, v in ui._data.items() if v != ""}
+                        params = {k: v for k, v in invitation._data.items() if v != ""}
                         for a in Affiliation:
-                            if a & ui.affiliations:
+                            if a & invitation.affiliations:
                                 params["affiliation"] = a
                                 params["initial"] = True
                                 api.create_or_update_affiliation(**params)
-                    ui.confirmed_at = datetime.utcnow()
-                    ui.save()
+                    invitation.confirmed_at = datetime.utcnow()
+                    invitation.save()
 
                 except UserInvitation.DoesNotExist:
                     pass
@@ -1280,9 +1274,7 @@ def orcid_login_callback(request):
                     flash(f"Something went wrong: {ex}", "danger")
                     app.logger.exception("Failed to create affiliation record")
 
-        try:
-            OrcidToken.get(user=user, org=org)
-        except OrcidToken.DoesNotExist:
+        if not OrcidToken.select().where(OrcidToken.user == user, OrcidToken.org == org).exists():
             if user.is_tech_contact_of(org) and not org.confirmed:
                 return redirect(url_for("onboard_org"))
             elif not user.is_tech_contact_of(org) and user_org.is_admin and not org.confirmed:

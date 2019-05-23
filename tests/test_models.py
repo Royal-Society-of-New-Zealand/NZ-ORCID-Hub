@@ -83,7 +83,7 @@ def models(testdb):
     OrcidToken.insert_many((dict(
         user=User.get(id=1),
         org=Organisation.get(id=1),
-        scope="/read-limited",
+        scopes="/read-limited",
         access_token="Test_%d" % i) for i in range(60))).execute()
 
     UserOrgAffiliation.insert_many((dict(
@@ -368,11 +368,7 @@ def test_test_database(models):
 
     org = Organisation.select().limit(1).first()
     user = User.select().limit(1).first()
-    ot = OrcidToken.create(user=user, org=org, scope="S1,S2,S3")
-    assert len(ot.scopes) == 3
-
-    ot.scopes = ["A", "B", "C", "D"]
-    assert ot.scope == "A,B,C,D"
+    ot = OrcidToken.create(user=user, org=org, scopes="S1,S2,S3")
 
 
 def test_roles():

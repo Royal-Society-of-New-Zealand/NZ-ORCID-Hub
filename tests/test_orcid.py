@@ -51,7 +51,7 @@ def test_member_api(app, mocker):
     assert configuration.access_token == 'ACCESS000'
 
     OrcidToken.create(
-        access_token="ACCESS123", user=user, org=org, scope="/read-limited,/activities/update", expires_in='121')
+        access_token="ACCESS123", user=user, org=org, scopes="/read-limited,/activities/update", expires_in='121')
     api = MemberAPI(user=user, org=org)
     assert configuration.access_token == "ACCESS123"
 
@@ -60,7 +60,7 @@ def test_member_api(app, mocker):
                 reason="FAILURE", status=401)) as call_api:
         with patch.object(OrcidToken, "delete") as delete:
             api.get_record()
-            app.logger.error.assert_called_with("ApiException Occured: (401)\nReason: FAILURE\n")
+            app.logger.error.assert_called_with("ApiException Occurred: (401)\nReason: FAILURE\n")
             call_api.assert_called_once()
             delete.assert_called_once()
 
@@ -69,17 +69,15 @@ def test_member_api(app, mocker):
             "call_api",
             side_effect=ApiException(reason="FAILURE 999", status=999)) as call_api:
         api.get_record()
-        app.logger.error.assert_called_with("ApiException Occured: (999)\nReason: FAILURE 999\n")
+        app.logger.error.assert_called_with("ApiException Occurred: (999)\nReason: FAILURE 999\n")
 
     with patch.object(
             api_client.ApiClient, "call_api", side_effect=ApiException(
                 reason="FAILURE", status=401)) as call_api:
-        with patch.object(OrcidToken, "get", side_effect=Exception("FAILURE")) as get:
-            api.get_record()
-            app.logger.exception.assert_called_with(
-                "Exception occured while retriving ORCID Token")
-            call_api.assert_called_once()
-            get.assert_called_once()
+        api.get_record()
+        app.logger.exception.assert_called_with(
+            "Failed to find an ORCID API access token.")
+        call_api.assert_called_once()
 
     with patch.object(
             api_client.ApiClient,
@@ -261,11 +259,11 @@ def test_link_already_affiliated(request_ctx):
             confirmed=True)
         test_user.save()
         orcidtoken = OrcidToken(
-            user=test_user, org=org, scope="/read-limited", access_token="ABC1234")
+            user=test_user, org=org, scopes="/read-limited", access_token="ABC1234")
         orcidtoken_write = OrcidToken(
             user=test_user,
             org=org,
-            scope="/read-limited,/activities/update",
+            scopes="/read-limited,/activities/update",
             access_token="ABC234")
         orcidtoken.save()
         orcidtoken_write.save()
@@ -279,84 +277,92 @@ def test_link_already_affiliated(request_ctx):
 
 
 @pytest.mark.parametrize("name", ["TEST USER", None])
-@patch.object(requests_oauthlib.OAuth2Session, "fetch_token", lambda self, *args, **kwargs: dict(
-    name="NEW TEST",
-    access_token="ABC123",
-    orcid="ABC-123-456-789",
-    scope=['/read-limited'],
-    expires_in="1212",
-    refresh_token="ABC1235"))
-def test_link_orcid_auth_callback(name, request_ctx):
+def test_link_orcid_auth_callback(name, mocker, client):
     """Test ORCID callback - the user authorized the organisation access to the ORCID profile."""
-    with request_ctx("/auth?state=xyz") as ctx:
-        org = Organisation.get(name="THE ORGANISATION")
-        test_user = User.create(
-            name=name,
-            email="test123@test.test.net",
-            organisation=org,
-            orcid="ABC123",
-            confirmed=True)
-        UserOrg.create(user=test_user, org=org, affiliations=Affiliation.NONE)
-        login_user(test_user, remember=True)
-        session['oauth_state'] = "xyz"
-        rv = ctx.app.full_dispatch_request()
-        assert rv.status_code == 302, "If the user is already affiliated, the user should be redirected ..."
-        assert "profile" in rv.location, "redirection to 'profile' showing the ORCID"
+    mocker.patch("requests_oauthlib.OAuth2Session.fetch_token", lambda self, *args, **kwargs: dict(
+        name="NEW TEST",
+        access_token="ABC123",
+        orcid="ABC-123-456-789",
+        scope=["/read-limited"],
+        expires_in="1212",
+        refresh_token="ABC1235"))
 
-        u = User.get(id=test_user.id)
-        orcidtoken = OrcidToken.get(user=u)
-        assert u.orcid == "ABC-123-456-789"
-        assert orcidtoken.access_token == "ABC123"
-        if name:
-            assert u.name == name, "The user name should be changed"
-        else:
-            assert u.name == "NEW TEST", "the user name should be set from record coming from ORCID"
+    org = Organisation.get(name="THE ORGANISATION")
+    test_user = User.create(
+        name=name,
+        email="test123@test.test.net",
+        organisation=org,
+        orcid="ABC123",
+        confirmed=True)
+    UserOrg.create(user=test_user, org=org, affiliations=Affiliation.NONE)
+    client.login(test_user)
+    User.update(name=name).execute()
+    resp = client.get("/link")
+    state = session['oauth_state']
+    resp = client.get(f"/auth?state={state}")
+    assert resp.status_code == 302, "If the user is already affiliated, the user should be redirected ..."
+    assert "profile" in resp.location, "redirection to 'profile' showing the ORCID"
+
+    u = User.get(id=test_user.id)
+    orcidtoken = OrcidToken.get(user=u)
+    assert u.orcid == "ABC-123-456-789"
+    assert orcidtoken.access_token == "ABC123"
+    if name:
+        assert u.name == name, "The user name should be changed"
+    else:
+        assert u.name == "NEW TEST", "the user name should be set from record coming from ORCID"
 
 
 @pytest.mark.parametrize("name", ["TEST USER", None])
-@patch.object(requests_oauthlib.OAuth2Session, "fetch_token", lambda self, *args, **kwargs: dict(
-    name="NEW TEST",
-    access_token="ABC123",
-    orcid="ABC-123-456-789",
-    scope=['/read-limited,/activities/update'],
-    expires_in="1212",
-    refresh_token="ABC1235"))
-def test_link_orcid_auth_callback_with_affiliation(name, request_ctx):
+def test_link_orcid_auth_callback_with_affiliation(name, mocker, client):
     """Test ORCID callback - the user authorized the organisation access to the ORCID profile."""
-    with patch("orcid_hub.orcid_client.MemberAPI") as m, patch(
-            "orcid_hub.orcid_client.SourceClientId"), request_ctx("/auth?state=xyz") as ctx:
-        org = Organisation.get(name="THE ORGANISATION")
-        test_user = User.create(
-            name=name,
-            email="test123@test.test.net",
-            organisation=org,
-            orcid="ABC123",
-            confirmed=True)
+    mocker.patch("requests_oauthlib.OAuth2Session.fetch_token", lambda self, *args, **kwargs: dict(
+        name="NEW TEST",
+        access_token="ABC123",
+        orcid="ABC-123-456-789",
+        scope=['/read-limited,/activities/update'],
+        expires_in="1212",
+        refresh_token="ABC1235"))
+    m = mocker.patch("orcid_hub.orcid_client.MemberAPI")
+    mocker.patch("orcid_hub.orcid_client.SourceClientId")
 
-        UserOrg.create(user=test_user, org=org, affiliations=Affiliation.EMP | Affiliation.EDU)
+    org = Organisation.get(name="THE ORGANISATION")
+    test_user = User.create(
+        name=name,
+        email="test123@test.test.net",
+        organisation=org,
+        orcid="ABC123",
+        confirmed=True)
 
-        login_user(test_user, remember=True)
-        session['oauth_state'] = "xyz"
-        api_mock = m.return_value
-        ctx.app.full_dispatch_request()
-        assert test_user.orcid == "ABC-123-456-789"
+    UserOrg.create(user=test_user, org=org, affiliations=Affiliation.EMP | Affiliation.EDU)
 
-        orcid_token = OrcidToken.get(user=test_user, org=org)
-        assert orcid_token.access_token == "ABC123"
+    client.login(test_user)
+    resp = client.get("/link")
+    state = session['oauth_state']
 
-        api_mock.create_or_update_affiliation.assert_has_calls([
-            call(affiliation=Affiliation.EDU, initial=True),
-            call(affiliation=Affiliation.EMP, initial=True),
-        ])
-        # User with no Affiliation, should get flash warning.
-        user_org = UserOrg.get(user=test_user, org=org)
-        user_org.affiliations = Affiliation.NONE
-        user_org.save()
-        orcid_token.delete_instance()
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 302
-        assert b"<!DOCTYPE HTML" in resp.data, "Expected HTML content"
-        assert "profile" in resp.location, "redirection to 'profile' showing the ORCID"
+    resp = client.get(f"/auth?state={state}")
+    api_mock = m.return_value
+    test_user = User.get(test_user.id)
+    assert test_user.orcid == "ABC-123-456-789"
+
+    orcid_token = OrcidToken.get(user=test_user, org=org)
+    assert orcid_token.access_token == "ABC123"
+
+    api_mock.create_or_update_affiliation.assert_has_calls([
+        call(affiliation=Affiliation.EDU, initial=True),
+        call(affiliation=Affiliation.EMP, initial=True),
+    ])
+
+    # User with no Affiliation, should get flash warning.
+    user_org = UserOrg.get(user=test_user, org=org)
+    user_org.affiliations = Affiliation.NONE
+    user_org.save()
+    orcid_token.delete_instance()
+
+    resp = client.get(f"/auth?state={state}")
+    assert resp.status_code == 302
+    assert b"<!DOCTYPE HTML" in resp.data, "Expected HTML content"
+    assert "profile" in resp.location, "redirection to 'profile' showing the ORCID"
 
 
 def make_fake_response(text, *args, **kwargs):
@@ -380,7 +386,7 @@ def test_profile(client):
     test_user = User.create(
         email="test123@test.test.net", organisation=org, orcid="ABC123", confirmed=True)
     OrcidToken.create(
-        user=test_user, org=org, scope="/read-limited,/activities/update", access_token="ABC1234")
+        user=test_user, org=org, scopes="/read-limited,/activities/update", access_token="ABC1234")
     resp = client.login(test_user, follow_redirects=True)
     resp = client.get("/profile", follow_redirects=True)
 
@@ -444,7 +450,7 @@ def test_sync_profile(app, mocker):
     mocker.patch("orcid_hub.orcid_client.MemberAPI.get_record", lambda *args: None)
     api.sync_profile(task=t, user=u, access_token=access_token)
 
-    OrcidToken.create(user=u, org=org, scope="/read-limited,/activities/update")
+    OrcidToken.create(user=u, org=org, scopes="/read-limited,/activities/update")
     mocker.patch("orcid_hub.orcid_client.MemberAPI.get_record", lambda *args: None)
     api.sync_profile(task=t, user=u, access_token=access_token)
     assert Log.select().count() > 0

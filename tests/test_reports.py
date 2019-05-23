@@ -82,7 +82,7 @@ def test_user_cv(client, mocker):
         access_token="ABC12345678901",
         user=user,
         org=user.organisation,
-        scope="/scope/read-limited")
+        scopes="/scope/read-limited")
 
     mocker.patch("orcid_hub.reports.MemberAPI.get_record", side_effect=Exception("ERROR!!!"))
     resp = client.get("/user_cv", follow_redirects=True)

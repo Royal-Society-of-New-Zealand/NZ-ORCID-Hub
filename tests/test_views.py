@@ -84,7 +84,7 @@ def test_models(test_db):
     OrcidToken.insert_many((dict(
         user=User.get(id=1),
         org=Organisation.get(id=1),
-        scope="/read-limited",
+        scopes="/read-limited",
         access_token="Test_%d" % i) for i in range(60))).execute()
 
     UserOrgAffiliation.insert_many((dict(
@@ -1194,7 +1194,7 @@ def test_invite_user(client):
             access_token="ACCESS123",
             user=user,
             org=org,
-            scope="/read-limited,/activities/update",
+            scopes="/read-limited,/activities/update",
             expires_in='121')
         api_mock = m.return_value
         resp = client.post(
@@ -2066,8 +2066,14 @@ def test_edit_record(request_ctx):
     fake_response = make_response
     fake_response.status = 201
     fake_response.headers = {'Location': '12344/xyz/12399'}
-    OrcidToken.create(user=user, org=user.organisation, access_token="ABC123", scope="/read-limited,/activities/update")
-    OrcidToken.create(user=user, org=user.organisation, access_token="ABC1234", scope="/read-limited,/person/update")
+    OrcidToken.create(user=user,
+                      org=user.organisation,
+                      access_token="ABC123",
+                      scopes="/read-limited,/activities/update")
+    OrcidToken.create(user=user,
+                      org=user.organisation,
+                      access_token="ABC1234",
+                      scopes="/read-limited,/person/update")
     with patch.object(
             orcid_client.MemberAPIV20Api,
             "view_employment",
@@ -2336,13 +2342,13 @@ def test_delete_profile_entries(client, mocker):
         user.save()
 
     token = OrcidToken.create(
-        user=user, org=user.organisation, access_token="ABC123", scope="/read-limited")
+        user=user, org=user.organisation, access_token="ABC123", scopes="/read-limited")
 
     resp = client.post(f"/section/{user.id}/EMP/1212/delete")
     assert resp.status_code == 302
     assert resp.location.endswith(f"/section/{user.id}/EMP/list")
 
-    token.scope = "/read-limited,/activities/update"
+    token.scopes = "/read-limited,/activities/update"
     token.save()
 
     delete_employment = mocker.patch(
@@ -2380,7 +2386,7 @@ def test_delete_profile_entries(client, mocker):
     assert resp.status_code == 302
     delete_work.assert_called_once_with("XXXX-XXXX-XXXX-0001", 54321)
 
-    token.scope = "/read-limited,/person/update"
+    token.scopes = "/read-limited,/person/update"
     token.save()
     delete_researcher_url = mocker.patch(
             "orcid_hub.orcid_client.MemberAPIV20Api.delete_researcher_url",
@@ -2562,7 +2568,7 @@ def test_viewmembers_delete(mockpost, client):
                                      OrcidToken.user == researcher1).count() == 0
 
 
-def test_action_insert_update_group_id(client):
+def test_action_insert_update_group_id(mocker, client):
     """Test update or insert of group id."""
     admin = User.get(email="admin@test0.edu")
     org = admin.organisation
@@ -2582,8 +2588,8 @@ def test_action_insert_update_group_id(client):
     fake_response.data = '{"group_id": "new_group_id"}'
     fake_response.headers = {'Location': '12344/xyz/12399'}
 
-    OrcidToken.create(org=org, access_token="ABC123", scope="/group-id-record/update")
-    OrcidToken.create(org=org, access_token="ABC123112", scope="/group-id-record/read")
+    OrcidToken.create(org=org, access_token="ABC123", scopes="/group-id-record/update")
+    OrcidToken.create(org=org, access_token="ABC123112", scopes="/group-id-record/read")
 
     client.login(admin)
 
