@@ -17,7 +17,7 @@ from flask_login import current_user, login_user, logout_user
 from peewee import fn
 from werkzeug.datastructures import ImmutableMultiDict
 
-from orcid_hub import authcontroller, create_hub_administrator, login_provider, utils
+from orcid_hub import create_hub_administrator, login_provider, utils
 from orcid_hub.models import (Affiliation, OrcidAuthorizeCall, OrcidToken, Organisation, OrgInfo,
                               OrgInvitation, Role, User, UserInvitation, UserOrg)
 
@@ -738,19 +738,42 @@ def test_orcid_login_callback_researcher_flow(client, mocker):
     UserOrg.create(user=u, org=org, is_admin=False)
     token = utils.new_invitation_token()
     UserInvitation.create(email=u.email, token=token, affiliations=Affiliation.EMP, org=org, invitee=u)
-    OrcidToken.create(user=u,
-                      org=org,
-                      scopes="/read-limited,/activities/update",
-                      access_token="ACCESS-TOKEN")
 
     resp = client.get(f"/orcid/login/{token}")
     assert resp.status_code == 200
     assert token.encode() in resp.data
 
-    resp = client.get(f"/auth/?invitation_token={token}&state={session['oauth_state']}&login=1")
+    state = session['oauth_state']
+
+    resp = client.get(f"/auth/?state={state}&login=1")
+    assert resp.status_code == 302
+    assert resp.location.endswith("/link")
+    fetch_token.assert_called_once()
+
+    resp = client.get(f"/auth/?invitation_token={token}&login=1")
+    assert resp.status_code == 302
+    assert urlparse(resp.location).path == "/"
+    fetch_token.assert_called_once()
+
+    resp = client.get(f"/auth/?invitation_token={token}&login=1", follow_redirects=True)
+    assert b"Danger" in resp.data
+    assert b"Something went wrong, Please retry giving permissions " in resp.data
+
+    fetch_token.reset_mock()
+    resp = client.get(f"/auth/?invitation_token={token}&state={state}", follow_redirects=True)
+    assert b"Warning" in resp.data
+    assert b"The ORCID Hub was not able to automatically write an affiliation" in resp.data
+
+    OrcidToken.delete().where(OrcidToken.user == u, OrcidToken.org == org).execute()
+    fetch_token.reset_mock()
+    resp = client.get(f"/auth/?invitation_token={token}&state={state}&login=1")
     assert resp.status_code == 302
     assert resp.location.endswith("/profile")
     fetch_token.assert_called_once()
+    assert OrcidToken.select().where(OrcidToken.user == u).count() == 1
+
+    resp = client.get(f"/orcid/login/{token}", follow_redirects=True)
+    assert b"You have already given permission" in resp.data
 
 
 def test_select_user_org(request_ctx):

@@ -649,14 +649,14 @@ def orcid_callback():
     if not user.name and name:
         user.name = name
 
-    scopes = ','.join(token.get("scope", []))
-    if not scopes:
+    scope_list = ','.join(token.get("scope", []))
+    if not scope_list:
         flash("Scope missing, contact orcidhub support", "danger")
         app.logger.error(f"For {current_user} encountered exception: Scope missing")
         return redirect(url_for("index"))
 
     orcid_token, orcid_token_found = OrcidToken.get_or_create(
-        user_id=user.id, org=user.organisation, scopes=scopes)
+        user_id=user.id, org=user.organisation, scopes=scope_list)
     orcid_token.access_token = token["access_token"]
     orcid_token.refresh_token = token["refresh_token"]
     orcid_token.expires_in = token["expires_in"]
@@ -671,9 +671,9 @@ def orcid_callback():
 
     app.logger.info("User %r authorized %r to have %r access to the profile "
                     "and now trying to update employment or education record", user,
-                    user.organisation, scopes)
+                    user.organisation, scope_list)
 
-    if scopes.ACTIVITIES_UPDATE in scopes and orcid_token_found:
+    if scopes.ACTIVITIES_UPDATE in scope_list and orcid_token_found:
         api = orcid_client.MemberAPI(user=user, access_token=orcid_token.access_token)
 
         for a in Affiliation:
@@ -1235,14 +1235,14 @@ def orcid_login_callback(request):
                     return redirect(url_for("index"))
 
             else:
-                scopes = ','.join(token.get("scope", []))
-                if not scopes:
+                scope_list = ','.join(token.get("scope", []))
+                if not scope_list:
                     flash("Scope missing, contact orcidhub support", "danger")
                     app.logger.error("For %r encountered exception: Scope missing", user)
                     return redirect(url_for("index"))
 
                 orcid_token, orcid_token_found = OrcidToken.get_or_create(
-                    user_id=user.id, org=org, scopes=scopes)
+                    user_id=user.id, org=org, scopes=scope_list)
                 orcid_token.access_token = token["access_token"]
                 orcid_token.refresh_token = token["refresh_token"]
                 orcid_token.expires_in = token["expires_in"]
@@ -1274,7 +1274,7 @@ def orcid_login_callback(request):
                     flash(f"Something went wrong: {ex}", "danger")
                     app.logger.exception("Failed to create affiliation record")
 
-        if not OrcidToken.select(OrcidToken.user == user, OrcidToken.org == org).exists():
+        if not OrcidToken.select().where(OrcidToken.user == user, OrcidToken.org == org).exists():
             if user.is_tech_contact_of(org) and not org.confirmed:
                 return redirect(url_for("onboard_org"))
             elif not user.is_tech_contact_of(org) and user_org.is_admin and not org.confirmed:
