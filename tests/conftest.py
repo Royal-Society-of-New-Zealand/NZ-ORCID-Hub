@@ -344,7 +344,6 @@ def app():
         yield _app
 
     ctx.pop()
-    return
 
 
 @pytest.fixture
