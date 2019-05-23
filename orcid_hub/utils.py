@@ -1728,7 +1728,8 @@ def process_property_records(max_rows=20, record_id=None):
                            User,
                            JOIN.LEFT_OUTER,
                            on=((User.email == PropertyRecord.email)
-                               | (User.orcid == PropertyRecord.orcid))).join(
+                               | ((User.orcid == PropertyRecord.orcid)
+                                  & (User.organisation_id == Task.org_id)))).join(
                                    Organisation,
                                    JOIN.LEFT_OUTER,
                                    on=(Organisation.id == Task.org_id)).join(
@@ -1738,7 +1739,7 @@ def process_property_records(max_rows=20, record_id=None):
                                            & (UserOrg.org_id == Organisation.id))).
              join(UserInvitation,
                   JOIN.LEFT_OUTER,
-                  on=(((UserInvitation.email == PropertyRecord.email | UserInvitation.email == User.email))
+                  on=(((UserInvitation.email == PropertyRecord.email) | (UserInvitation.email == User.email))
                       & (UserInvitation.task_id == Task.id))).join(
                           OrcidToken,
                           JOIN.LEFT_OUTER,
