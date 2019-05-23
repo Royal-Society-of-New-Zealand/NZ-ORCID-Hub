@@ -730,9 +730,6 @@ def test_create_or_update_property_record(app, mocker):
         email="test1234456@mailinator.com",
         token="xyztoken")
 
-    OrcidToken.create(
-        user=u, org=org, scopes="/read-limited,/person/update", access_token="Test_token")
-
     utils.process_property_records()
     keyword_record = PropertyRecord.get(email="test1234456@mailinator.com", type="KEYWORD")
     assert 12399 == keyword_record.put_code
