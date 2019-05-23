@@ -1797,7 +1797,7 @@ class GroupIdRecordAdmin(AppModelView):
                     orcid_token = None
                     gid.status = None
                     try:
-                        orcid_token = OrcidToken.get(org=org, scope='/group-id-record/update')
+                        orcid_token = OrcidToken.get(org=org, scopes='/group-id-record/update')
                     except OrcidToken.DoesNotExist:
                         orcid_token = utils.get_client_credentials_token(org=org, scope="/group-id-record/update")
                     except Exception as ex:
