@@ -1994,7 +1994,7 @@ def get_client_credentials_token(org, scopes="/webhook"):
         data=dict(
             client_id=org.orcid_client_id,
             client_secret=org.orcid_secret,
-            scopes=scopes,
+            scope=scopes,
             grant_type="client_credentials"))
     OrcidToken.delete().where(OrcidToken.org == org, OrcidToken.scopes == "/webhook").execute()
     data = resp.json()
