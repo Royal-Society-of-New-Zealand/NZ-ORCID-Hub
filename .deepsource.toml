@@ -1,0 +1,24 @@
+version = 1
+
+test_patterns = [
+  'tests/',
+  'test_*.py'
+]
+
+exclude_patterns = [
+  'orcid_api'  
+]
+
+[[analyzers]]
+name = 'python'
+enabled = true
+runtime_version = '3.x.x'
+dependency_file_paths = [
+  'dev_requirements.txt',
+  'requirements.txt'
+]
+
+# Test coverage analyzer
+[[analyzers]]
+name = "test-coverage"
+enabled = true
