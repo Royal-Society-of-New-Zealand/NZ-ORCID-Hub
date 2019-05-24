@@ -236,6 +236,101 @@ def test_user_and_token_api(client, resource, version):
         assert resp.status_code == 200
         assert len(resp.json) == 2
 
+        resp = client.post(
+                f"/api/{version}/users/",
+                headers=dict(authorization="Bearer TEST"))
+        assert resp.status_code == 415
+
+        resp = client.post(
+                f"/api/{version}/users/",
+                headers=dict(authorization="Bearer TEST"),
+                data=b"thsi doesn't make much sense.")
+        assert resp.status_code == 415
+
+        resp = client.post(
+                f"/api/{version}/users/",
+                headers=dict(authorization="Bearer TEST"),
+                data=json.dumps({"incorrect": "ERROR"}),
+                content_type="application/json")
+        assert resp.status_code == 422
+
+        resp = client.post(
+                f"/api/{version}/users/",
+                headers=dict(authorization="Bearer TEST"),
+                data=yaml.dump({"incorrect": "ERROR"}),
+                content_type="application/x-yaml")
+        assert resp.status_code == 422
+
+        resp = client.post(
+                f"/api/{version}/users/",
+                headers=dict(authorization="Bearer TEST"),
+                data=yaml.dump({"email": "ERROR@ERROR"}),
+                content_type="application/x-yaml")
+        assert resp.status_code == 422
+
+        resp = client.post(
+                f"/api/{version}/users/",
+                headers=dict(authorization="Bearer TEST"),
+                data=yaml.dump({"orcid": "ERROR@ERROR"}),
+                content_type="application/x-yaml")
+        assert resp.status_code == 422
+
+        resp = client.post(
+                f"/api/{version}/users/",
+                headers=dict(authorization="Bearer TEST"),
+                data=yaml.dump({"orcid": "1535-2535-3535-00X3"}),
+                content_type="application/x-yaml")
+        assert resp.status_code == 201
+        assert resp.json["orcid"] == "1535-2535-3535-00X3"
+
+        resp = client.post(
+                f"/api/{version}/users/",
+                headers=dict(authorization="Bearer TEST"),
+                data=yaml.dump({"email": "and_now_something@different.ac.nz"}),
+                content_type="application/x-yaml")
+        assert resp.status_code == 201
+        assert resp.json["email"] == "and_now_something@different.ac.nz"
+
+        resp = client.post(
+                f"/api/{version}/users/",
+                headers=dict(authorization="Bearer TEST"),
+                data=yaml.dump({
+                    "email": "and_now_something_more@different.ac.nz",
+                    "orcid": "1826-2826-3826-00X3"
+                }),
+                content_type="application/x-yaml")
+        assert resp.status_code == 201
+        assert resp.json["orcid"] == "1826-2826-3826-00X3"
+        assert resp.json["email"] == "and_now_something_more@different.ac.nz"
+
+        # org_user = User.select().where(User.organisation == org, User.orcid.is_null(False)).first()
+        resp = client.post(
+                f"/api/{version}/users/",
+                headers=dict(authorization="Bearer TEST"),
+                data=yaml.dump({"email": user.email, "orcid": "1906-2906-3906-00X3"}),
+                content_type="application/x-yaml")
+        assert resp.status_code == 200
+        assert resp.json["orcid"] == "1906-2906-3906-00X3"
+
+        resp = client.post(f"/api/{version}/users/",
+                           headers=dict(authorization="Bearer TEST"),
+                           data=yaml.dump({
+                               "email": "a_different_email_address@org.ac.nz",
+                               "orcid": "1906-2906-3906-00X3"
+                           }),
+                           content_type="application/x-yaml")
+        assert resp.status_code == 200
+        assert resp.json["email"] == "a_different_email_address@org.ac.nz"
+        assert resp.json["orcid"] == "1906-2906-3906-00X3"
+        assert User.get(orcid="1906-2906-3906-00X3").email == "a_different_email_address@org.ac.nz"
+
+        resp = client.post(
+                f"/api/{version}/users/",
+                headers=dict(authorization="Bearer TEST"),
+                data=yaml.dump({"email": org2_user.email, "orcid": "1447-2447-3447-00X3"}),
+                content_type="application/x-yaml")
+        assert resp.status_code == 400
+
     if resource == "tokens":
         user2 = User.get(email="researcher2@test0.edu")
         for identifier in [

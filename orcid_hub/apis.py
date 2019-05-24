@@ -95,6 +95,88 @@ class AppResource(Resource):
         """Test if the request body content type is YAML."""
         return request.content_type in ["text/yaml", "application/x-yaml"]
 
+    def handle_user(self, identifier=None):
+        """Create, update or delete user account entry."""
+        login_user(request.oauth.user)
+
+        if self.is_yaml_request:
+            try:
+                data = yaml.load(request.data)
+            except Exception as ex:
+                return jsonify({
+                    "error": "Invalid request format. Only JSON or YAML are acceptable.",
+                    "message": str(ex)
+                }), 415
+        else:
+            data = request.get_json()
+        if not data:
+            return jsonify({"error": "Invalid request format. Only JSON or YAML are acceptable."}), 415
+        try:
+            if request.method != "PATCH":
+                jsonschema.validate(data, schemas.hub_user)
+        except jsonschema.exceptions.ValidationError as ex:
+            return jsonify({"error": "Validation error.", "message": ex.message}), 422
+        except Exception as ex:
+            return jsonify({"error": "Unhandled exception occurred.", "exception": ex}), 400
+
+        org = current_user.organisation
+        email = data.get("email")
+        if email and not validators.email(email):
+            return jsonify({"error": "Validation error.", "message": f"Invalid email address: {email}"}), 422
+        orcid = data.get("orcid")
+        if orcid:
+            try:
+                models.validate_orcid_id(orcid)
+            except Exception as ex:
+                return jsonify({"error": f"Incorrect ORCID iD value '{orcid}': {ex}"}), 422
+
+        created = False
+        if identifier:
+            if validators.email(identifier):
+                user = User.select().where(User.email == identifier).first()
+            elif ORCID_ID_REGEX.match(identifier):
+                try:
+                    models.validate_orcid_id(identifier)
+                except Exception as ex:
+                    return jsonify({"error": f"Incorrect identifier value '{identifier}': {ex}"}), 400
+                user = User.select().where(User.orcid == identifier).first()
+            else:
+                return jsonify({"error": f"Incorrect identifier value: {identifier}."}), 400
+            if not user:
+                return jsonify({"error": f"The user ({identifier}) doesn't exist."}), 404
+
+        elif request.method == "POST":
+            user = User.select()
+            if email:
+                user = user.orwhere(User.email == email)
+            if orcid:
+                user = user.orwhere(User.orcid == orcid)
+            user = user.first()
+            if not user:
+                user, created = User.get_or_create(email=email, orcid=orcid)
+            if not created and (user.organisation != org or not UserOrg.select().where(
+                    UserOrg.org == org, UserOrg.user == user).exists()):
+                return jsonify({"error": f"The user ({identifier or email or orcid}) already exists."}), 400
+            if created:
+                user.organisation = org
+                UserOrg.create(user=user, org=org)
+
+        for k in ["orcid", "email", "name", "eppn", "confirmed"]:
+            if k in data:
+                setattr(user, k, data[k])
+        try:
+            user.save()
+        except Exception as ex:
+            return jsonify({"error": "Failed to update the user.", "message": str(ex)}), 400
+
+        data = user.to_dict(
+                recurse=False, to_dashes=True,
+                only=[User.email, User.eppn, User.name, User.orcid, User.confirmed, User.updated_at])
+        resp = yamlfy(data) if prefers_yaml() else jsonify(data)
+        resp.headers["Last-Modified"] = self.httpdate(user.updated_at or user.created_at)
+        resp.status_code = 201 if created else 200
+        return resp
+
 
 def changed_path(name, value):
     """Create query string with a new parameter value."""
@@ -1684,6 +1766,10 @@ class UserListAPI(AppResourceList):
               updated-at:
                 type: "string"
                 format: date-time
+              name:
+                type: "string"
+            required:
+            - email
         """
         login_user(request.oauth.user)
         users = User.select().where(User.organisation == current_user.organisation)
@@ -1705,6 +1791,42 @@ class UserListAPI(AppResourceList):
         return self.api_response(
             users,
             only=[User.email, User.eppn, User.name, User.orcid, User.confirmed, User.updated_at])
+
+    def post(self):
+        """
+        Create a bare user account that could be used for further ORCID profile management.
+
+        ---
+        tags:
+          - "users"
+        summary: "Create a bare user account."
+        description: "Create a bare user account that could be used for further ORCID profile management."
+        produces:
+          - "application/json"
+        consumes:
+          - "application/json"
+        parameters:
+          - name: "body"
+            in: "body"
+            description: "ORCID API access token."
+            type: "object"
+            scheme:
+              $ref: "#/definitions/OrcidToken"
+        responses:
+          200:
+            description: "successful operation"
+            schema:
+              $ref: "#/definitions/HubUser"
+          401:
+            $ref: "#/responses/Unauthorized"
+          403:
+            $ref: "#/responses/AccessDenied"
+          404:
+            $ref: "#/responses/NotFound"
+          422:
+            description: "Unprocessable Entity"
+        """
+        return self.handle_user()
 
 
 api.add_resource(UserListAPI, "/api/v1.0/users")
@@ -1768,6 +1890,48 @@ class UserAPI(AppResource):
             "orcid": user.orcid,
             "updated-at": user.updated_at,
         }), 200
+
+    def post(self, identifier=None):
+        """
+        Override a bare user account that could be used for further ORCID profile management.
+
+        ---
+        tags:
+          - "users"
+        summary: "Create a bare user account."
+        description: "Create a bare user account that could be used for further ORCID profile management."
+        produces:
+          - "application/json"
+        consumes:
+          - "application/json"
+        parameters:
+          - name: "identifier"
+            in: "path"
+            description: "User identifier (either email, eppn or ORCID ID)"
+            required: true
+            type: "string"
+          - name: "body"
+            in: "body"
+            description: "ORCID API access token."
+            type: "object"
+            scheme:
+              $ref: "#/definitions/OrcidToken"
+        responses:
+          200:
+            description: "successful operation"
+            schema:
+              $ref: "#/definitions/HubUser"
+          401:
+            $ref: "#/responses/Unauthorized"
+          403:
+            $ref: "#/responses/AccessDenied"
+          404:
+            $ref: "#/responses/NotFound"
+          422:
+            description: "Unprocessable Entity"
+        """
+        login_user(request.oauth.user)
+        pass
 
 
 api.add_resource(UserAPI, "/api/v1.0/users/<identifier>")
