@@ -77,7 +77,7 @@ def read_uploaded_file(form):
         return
     raw = request.files[form.file_.name].read()
     detected_encoding = chardet.detect(raw).get('encoding')
-    encoding_list = ["utf-8", "utf-8-sig", "utf-16"]
+    encoding_list = ["utf-8", "utf-8-sig", "utf-16", "latin-1"]
     if detected_encoding:
         encoding_list.insert(0, detected_encoding)
 
@@ -86,7 +86,7 @@ def read_uploaded_file(form):
             return raw.decode(encoding)
         except UnicodeDecodeError:
             continue
-    return raw.decode("latin-1")
+    raise ValueError("Unable to decode encoding.")
 
 
 def send_email(template,
