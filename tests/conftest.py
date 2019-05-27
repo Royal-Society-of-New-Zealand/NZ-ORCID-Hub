@@ -31,7 +31,7 @@ import pytest
 from playhouse import db_url
 from playhouse.test_utils import test_database
 
-from orcid_hub import app as _app
+from orcid_hub import app as _app, models, views
 _app.config["DATABASE_URL"] = DATABASE_URL
 from orcid_hub.models import *  # noqa: F401, F403
 from orcid_hub.authcontroller import *  # noqa: F401, F403
@@ -164,13 +164,14 @@ def app():
 
     with test_database(
             _db,
-        (File, Organisation, User, UserOrg, OrcidToken, UserOrgAffiliation, OrgInfo, Task, Log,
+        (File, Organisation, User, UserOrg, OrcidToken, OrcidApiCall, UserOrgAffiliation, OrgInfo, Task, Log,
          AffiliationRecord, FundingRecord, FundingContributor, FundingInvitee, GroupIdRecord,
          OrcidAuthorizeCall, OrcidApiCall, Url, UserInvitation, OrgInvitation, ExternalId, Client,
          Grant, Token, WorkRecord, WorkContributor, WorkExternalId, WorkInvitee, PeerReviewRecord,
-         PeerReviewInvitee, PeerReviewExternalId, ResearcherUrlRecord, OtherNameRecord, KeywordRecord),
+         PeerReviewInvitee, PeerReviewExternalId, PropertyRecord, OrcidApiCall,
+         OtherIdRecord),
             fail_silently=True):  # noqa: F405
-        _app.db = _db
+        _app.db = models.db = views.db = _db
         _app.config["DATABASE_URL"] = DATABASE_URL
         _app.config["EXTERNAL_SP"] = None
         _app.config["SENTRY_DSN"] = None
@@ -235,6 +236,7 @@ def app():
             OrcidToken.insert_many(
                 dict(
                     access_token=f"TOKEN-{org_no}-{u.id}",
+                    scopes="/read-limited,/activities/update",
                     org=org,
                     user=u,
                     expires_in=0,
@@ -293,10 +295,15 @@ def app():
             email="researcher@test0.edu",
             eppn="eppn@test0.edu",
             name="TEST REASEARCHER",
+            first_name="FN",
+            last_name="LN",
             orcid="0000-0000-0000-00X3",
             confirmed=True,
             organisation=org)
-        OrcidToken.create(user=user, org=org, access_token="ORCID-TEST-ACCESS-TOKEN")
+        OrcidToken.create(user=user,
+                          org=org,
+                          scopes="/read-limited,/activities/update",
+                          access_token="ORCID-TEST-ACCESS-TOKEN")
         UserOrg.create(user=user, org=org)
 
         User.insert_many(
@@ -337,7 +344,6 @@ def app():
         yield _app
 
     ctx.pop()
-    return
 
 
 @pytest.fixture

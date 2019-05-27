@@ -21,8 +21,8 @@
               {% set org_name = d.org.name %}
               <tr class="active">
                 <td> {% if d.user.email %}{{ d.user.email}} {% endif %} </td>
-                <td> {% if d.scope %}
-                    {% if d.scope == "/read-limited,/activities/update" %}
+                <td> {% if d.scopes %}
+                    {% if d.scopes == "/read-limited,/activities/update" %}
                       <p>{{ org_name }} can read and write information to your ORCID record</p>
                       <ol>
                         <li>
@@ -32,7 +32,7 @@
                           <b>{{ org_name }}</b> can create and update research activities.
                         </li>
                       </ol>
-                    {% elif d.scope == "/read-limited,/person/update" %}
+                    {% elif d.scopes == "/read-limited,/person/update" %}
                       <p>{{ org_name }} can read and write other information about you (country, researcher-urls, keywords, etc.) to your ORCID record</p>
                       <ol>
                         <li>
@@ -42,12 +42,12 @@
                           <b>{{ org_name }}</b> can add/update other information about you (country, keywords, etc.)
                         </li>
                       </ol>
-                    {% elif d.scope == "/read-limited" %}
+                    {% elif d.scopes == "/read-limited" %}
                       {{ org_name }} can read trusted-party information from your ORCID record.
-                    {% elif d.scope == "/authenticate" %}
+                    {% elif d.scopes == "/authenticate" %}
                       {{ org_name }} knows your authenticated ORCID iD
                     {% else %}
-                      {{d.scope}}
+                      {{d.scopes}}
                     {% endif %}
                   {% endif %} </td>
               </tr>

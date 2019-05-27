@@ -17,7 +17,7 @@ import pytest
 import yaml
 from flask import make_response, session
 from flask_login import login_user
-from peewee import SqliteDatabase
+from peewee import SqliteDatabase, JOIN
 from playhouse.test_utils import test_database
 
 from orcid_api.rest import ApiException
@@ -26,9 +26,10 @@ from orcid_hub.config import ORCID_BASE_URL
 from orcid_hub.forms import FileUploadForm
 from orcid_hub.models import (Affiliation, AffiliationRecord, Client, File, FundingContributor,
                               FundingRecord, GroupIdRecord, OrcidToken, Organisation, OrgInfo,
-                              OrgInvitation, PartialDate, PeerReviewRecord, ResearcherUrlRecord,
+                              OrgInvitation, PartialDate, PeerReviewRecord, PropertyRecord,
                               Role, Task, TaskType, Token, Url, User, UserInvitation, UserOrg,
                               UserOrgAffiliation, WorkRecord)
+from tests.utils import get_profile
 
 fake_time = time.time()
 logger = logging.getLogger(__name__)
@@ -83,7 +84,7 @@ def test_models(test_db):
     OrcidToken.insert_many((dict(
         user=User.get(id=1),
         org=Organisation.get(id=1),
-        scope="/read-limited",
+        scopes="/read-limited",
         access_token="Test_%d" % i) for i in range(60))).execute()
 
     UserOrgAffiliation.insert_many((dict(
@@ -180,7 +181,7 @@ def test_superuser_view_access(client):
     resp = client.get("/admin/organisation/edit/?id=999999")
     assert resp.status_code == 404
     assert b"404" in resp.data
-    assert b"The record with given ID: 999999 doesn't exist or it was deleted." in resp.data
+    assert b"The record with given ID: 999999 doesn't exist or it has been deleted." in resp.data
 
     resp = client.get("/admin/orcidtoken/")
     assert resp.status_code == 200
@@ -224,7 +225,7 @@ def test_superuser_view_access(client):
             ))
         user = User.get(u.id)
         assert user.orcid == "1631-2631-3631-00X3"
-        assert user.email == "NEW_" + u.email
+        assert user.email == "new_" + u.email
         assert user.name == u.name + "_NEW"
 
     resp = client.get("/admin/schedude/")
@@ -467,6 +468,21 @@ def test_show_record_section(request_ctx):
         assert admin.email.encode() in resp.data
         assert admin.name.encode() in resp.data
         view_keywords.assert_called_once_with("XXXX-XXXX-XXXX-0001", _preload_content=False)
+    with patch.object(
+        orcid_client.MemberAPIV20Api,
+        "view_external_identifiers",
+        MagicMock(return_value=Mock(data="""{"test": "TEST1234567890"}"""))
+    ) as view_external_identifiers, patch("orcid_hub.utils.send_email") as send_email, request_ctx(
+        f"/section/{user.id}/EXR/list",
+        method="POST",
+    ) as ctx:
+        login_user(admin)
+        resp = ctx.app.full_dispatch_request()
+        assert resp.status_code == 200
+        send_email.assert_called_once()
+        assert admin.email.encode() in resp.data
+        assert admin.name.encode() in resp.data
+        view_external_identifiers.assert_called_once_with("XXXX-XXXX-XXXX-0001", _preload_content=False)
 
 
 def test_status(client):
@@ -688,7 +704,7 @@ Institute of Geological & Nuclear Sciences Ltd,5180,RINGGOLD
             ),
         })
     assert OrgInfo.select().count() == 14, "A new entry should be added."
-    assert b"8888" not in resp.data, "Etry should be updated."
+    assert b"8888" not in resp.data, "Entry should be updated."
     assert b"Landcare Research" in resp.data
 
     resp = client.post(
@@ -1178,7 +1194,7 @@ def test_invite_user(client):
             access_token="ACCESS123",
             user=user,
             org=org,
-            scope="/read-limited,/activities/update",
+            scopes="/read-limited,/activities/update",
             expires_in='121')
         api_mock = m.return_value
         resp = client.post(
@@ -1400,21 +1416,63 @@ def test_logo_file(request_ctx):
         assert org.logo is None
 
 
+def test_affiliation_deletion_task(client, mocker):
+    """Test affilaffiliation task upload."""
+    user = OrcidToken.select().join(User).where(User.orcid.is_null(False)).first().user
+    org = user.organisation
+    admin = org.admins.first()
+
+    resp = client.login(admin, follow_redirects=True)
+    assert b"log in" not in resp.data
+    content = ("Orcid,Put Code,Delete\n" + '\n'.join(f"{user.orcid},{put_code},yes"
+                                                     for put_code in range(1, 3)))
+    resp = client.post("/load/researcher",
+                       data={
+                           "save": "Upload",
+                           "file_": (
+                               BytesIO(content.encode()),
+                               "affiliations.csv",
+                           ),
+                       })
+    assert resp.status_code == 302
+    task_id = int(re.search(r"\/admin\/affiliationrecord/\?task_id=(\d+)", resp.location)[1])
+    assert task_id
+    task = Task.get(task_id)
+    assert task.org == org
+    records = list(task.records)
+    assert len(records) == len(content.split('\n')) - 1
+
+    mocker.patch("orcid_hub.orcid_client.MemberAPI.get_record", return_value=get_profile(org=org, user=user))
+    delete_education = mocker.patch("orcid_hub.orcid_client.MemberAPI.delete_education")
+    delete_employment = mocker.patch("orcid_hub.orcid_client.MemberAPI.delete_employment")
+    resp = client.post(
+        "/admin/affiliationrecord/action/",
+        follow_redirects=True,
+        data={
+            "url": f"/admin/affiliationrecord/?task_id={task_id}",
+            "action": "activate",
+            "rowid": [r.id for r in task.records],
+        })
+    assert task.records.where(AffiliationRecord.is_active).count() == 2
+    delete_education.assert_called()
+    delete_employment.assert_called()
+
+
 def test_affiliation_tasks(client):
     """Test affilaffiliation task upload."""
     org = Organisation.get(name="TEST0")
     user = User.get(email="admin@test0.edu")
 
     resp = client.login(user, follow_redirects=True)
-    assert b"log in" not in resp.data
+    assert b"Organisations using the Hub:" in resp.data
     resp = client.post(
         "/load/researcher",
         data={
             "save":
             "Upload",
             "file_": (
-                BytesIO(b"""First Name,Last Name,Email
-Roshan,Pawar,researcher.010@mailinator.com
+                BytesIO(b"""First Name,Email
+Roshan,researcher.010@mailinator.com
 """),
                 "affiliations.csv",
             ),
@@ -1442,9 +1500,8 @@ Rad,Cirskis,researcher.990@mailinator.com,Student
     assert task_id
     task = Task.get(task_id)
     assert task.org == org
-    records = list(task.affiliation_records)
+    records = list(task.records)
     assert len(records) == 4
-    assert AffiliationRecord.select().where(AffiliationRecord.task_id == task_id).count() == 4
 
     url = resp.location
     session_cookie, _ = resp.headers["Set-Cookie"].split(';', 1)
@@ -1924,7 +1981,7 @@ def test_load_researcher_work(patch, patch2, request_ctx):
                             b'[{"invitees": [{"identifier":"00001", "email": "marco.232323newwjwewkppp@mailinator.com",'
                             b'"first-name": "Alice", "last-name": "Contributor 1", "ORCID-iD": null, "put-code":null}],'
                             b'"title": { "title": { "value": "1ral"}}, "citation": {"citation-type": '
-                            b'"FORMATTED_UNSPECIFIED", "citation-value": "This is citation value"}, "type": "BOOK_CHR",'
+                            b'"FORMATTED_UNSPECIFIED", "citation-value": "This is value"}, "type": "BOOK_CHAPTER",'
                             b'"contributors": {"contributor": [{"contributor-attributes": {"contributor-role": '
                             b'"AUTHOR", "contributor-sequence" : "1"},"credit-name": {"value": "firentini"}}]}'
                             b', "external-ids": {"external-id": [{"external-id-value": '
@@ -2009,8 +2066,14 @@ def test_edit_record(request_ctx):
     fake_response = make_response
     fake_response.status = 201
     fake_response.headers = {'Location': '12344/xyz/12399'}
-    OrcidToken.create(user=user, org=user.organisation, access_token="ABC123", scope="/read-limited,/activities/update")
-    OrcidToken.create(user=user, org=user.organisation, access_token="ABC1234", scope="/read-limited,/person/update")
+    OrcidToken.create(user=user,
+                      org=user.organisation,
+                      access_token="ABC123",
+                      scopes="/read-limited,/activities/update")
+    OrcidToken.create(user=user,
+                      org=user.organisation,
+                      access_token="ABC1234",
+                      scopes="/read-limited,/person/update")
     with patch.object(
             orcid_client.MemberAPIV20Api,
             "view_employment",
@@ -2243,130 +2306,108 @@ def test_edit_record(request_ctx):
         assert resp.location == f"/section/{user.id}/KWR/list"
 
 
-def test_delete_employment(request_ctx, app):
+def test_delete_profile_entries(client, mocker):
     """Test delete an employment record."""
     admin = User.get(email="admin@test0.edu")
-    user = User.get(email="researcher100@test0.edu")
+    user = User.select().join(OrcidToken,
+                              JOIN.LEFT_OUTER).where(User.organisation == admin.organisation,
+                                                     User.orcid.is_null(),
+                                                     OrcidToken.id.is_null()).first()
 
-    with request_ctx(f"/section/{user.id}/EMP/1212/delete", method="POST") as ctx:
-        login_user(user)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 302
-        assert resp.location.startswith("/?next=")
+    client.login(user)
+    resp = client.post(f"/section/{user.id}/EMP/1212/delete")
+    assert resp.status_code == 302
+    assert "/?next=" in resp.location
 
-    with request_ctx(f"/section/99999999/EMP/1212/delete", method="POST") as ctx:
-        login_user(admin)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 302
-        assert resp.location == "/admin/viewmembers/"
+    client.logout()
+    client.login(admin)
+    resp = client.post(f"/section/{user.id}/EMP/1212/delete")
+    resp = client.post(f"/section/99999999/EMP/1212/delete")
+    assert resp.status_code == 302
+    assert resp.location.endswith("/admin/viewmembers/")
 
-    with request_ctx(f"/section/{user.id}/EMP/1212/delete", method="POST") as ctx:
-        login_user(admin)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 302
-        assert resp.location == f"/section/{user.id}/EMP/list"
+    resp = client.post(f"/section/{user.id}/EMP/1212/delete")
+    assert resp.status_code == 302
+    assert resp.location.endswith(f"/section/{user.id}/EMP/list")
 
     admin.organisation.orcid_client_id = "ABC123"
     admin.organisation.save()
 
-    with request_ctx(f"/section/{user.id}/EMP/1212/delete", method="POST") as ctx:
-        login_user(admin)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 302
-        assert resp.location == f"/section/{user.id}/EMP/list"
+    resp = client.post(f"/section/{user.id}/EMP/1212/delete")
+    assert resp.status_code == 302
+    assert resp.location.endswith(f"/section/{user.id}/EMP/list")
 
     if not user.orcid:
         user.orcid = "XXXX-XXXX-XXXX-0001"
         user.save()
 
     token = OrcidToken.create(
-        user=user, org=user.organisation, access_token="ABC123", scope="/read-limited")
+        user=user, org=user.organisation, access_token="ABC123", scopes="/read-limited")
 
-    with request_ctx(f"/section/{user.id}/EMP/1212/delete", method="POST") as ctx:
-        login_user(admin)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 302
-        assert resp.location == f"/section/{user.id}/EMP/list"
+    resp = client.post(f"/section/{user.id}/EMP/1212/delete")
+    assert resp.status_code == 302
+    assert resp.location.endswith(f"/section/{user.id}/EMP/list")
 
-    token.scope = "/read-limited,/activities/update"
+    token.scopes = "/read-limited,/activities/update"
     token.save()
 
-    with patch.object(
-            orcid_client.MemberAPIV20Api,
-            "delete_employment",
-            MagicMock(
-                return_value='{"test": "TEST1234567890"}')) as delete_employment, request_ctx(
-                    f"/section/{user.id}/EMP/12345/delete", method="POST") as ctx:
-        login_user(admin)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 302
-        delete_employment.assert_called_once_with("XXXX-XXXX-XXXX-0001", 12345)
+    delete_employment = mocker.patch(
+            "orcid_hub.orcid_client.MemberAPIV20Api.delete_employment",
+            MagicMock(return_value='{"test": "TEST1234567890"}'))
+    resp = client.post(f"/section/{user.id}/EMP/12345/delete")
+    assert resp.status_code == 302
+    delete_employment.assert_called_once_with("XXXX-XXXX-XXXX-0001", 12345)
 
-    with patch.object(
-            orcid_client.MemberAPIV20Api,
-            "delete_education",
-            MagicMock(return_value='{"test": "TEST1234567890"}')) as delete_education, request_ctx(
-                f"/section/{user.id}/EDU/54321/delete", method="POST") as ctx:
-        login_user(admin)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 302
-        delete_education.assert_called_once_with("XXXX-XXXX-XXXX-0001", 54321)
-    with patch.object(
-        orcid_client.MemberAPIV20Api,
-        "delete_funding",
-            MagicMock(return_value='{"test": "TEST1234567890"}')) as delete_funding, request_ctx(
-                f"/section/{user.id}/FUN/54321/delete", method="POST") as ctx:
-        login_user(admin)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 302
-        delete_funding.assert_called_once_with("XXXX-XXXX-XXXX-0001", 54321)
-    with patch.object(
-        orcid_client.MemberAPIV20Api,
-        "delete_peer_review",
-            MagicMock(return_value='{"test": "TEST1234567890"}')) as delete_peer_review, request_ctx(
-                f"/section/{user.id}/PRR/54321/delete", method="POST") as ctx:
-        login_user(admin)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 302
-        delete_peer_review.assert_called_once_with("XXXX-XXXX-XXXX-0001", 54321)
-    with patch.object(
-        orcid_client.MemberAPIV20Api,
-        "delete_work",
-            MagicMock(return_value='{"test": "TEST1234567890"}')) as delete_work, request_ctx(
-                f"/section/{user.id}/WOR/54321/delete", method="POST") as ctx:
-        login_user(admin)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 302
-        delete_work.assert_called_once_with("XXXX-XXXX-XXXX-0001", 54321)
-    token.scope = "/read-limited,/person/update"
+    delete_education = mocker.patch(
+            "orcid_hub.orcid_client.MemberAPIV20Api.delete_education",
+            MagicMock(return_value='{"test": "TEST1234567890"}'))
+    resp = client.post(f"/section/{user.id}/EDU/54321/delete")
+    assert resp.status_code == 302
+    delete_education.assert_called_once_with("XXXX-XXXX-XXXX-0001", 54321)
+
+    delete_funding = mocker.patch(
+            "orcid_hub.orcid_client.MemberAPIV20Api.delete_funding",
+            MagicMock(return_value='{"test": "TEST1234567890"}'))
+    resp = client.post(f"/section/{user.id}/FUN/54321/delete")
+    assert resp.status_code == 302
+    delete_funding.assert_called_once_with("XXXX-XXXX-XXXX-0001", 54321)
+
+    delete_peer_review = mocker.patch(
+            "orcid_hub.orcid_client.MemberAPIV20Api.delete_peer_review",
+            MagicMock(return_value='{"test": "TEST1234567890"}'))
+    resp = client.post(f"/section/{user.id}/PRR/54321/delete")
+    assert resp.status_code == 302
+    delete_peer_review.assert_called_once_with("XXXX-XXXX-XXXX-0001", 54321)
+
+    delete_work = mocker.patch(
+            "orcid_hub.orcid_client.MemberAPIV20Api.delete_work",
+            MagicMock(return_value='{"test": "TEST1234567890"}'))
+    resp = client.post(f"/section/{user.id}/WOR/54321/delete")
+    assert resp.status_code == 302
+    delete_work.assert_called_once_with("XXXX-XXXX-XXXX-0001", 54321)
+
+    token.scopes = "/read-limited,/person/update"
     token.save()
-    with patch.object(
-            orcid_client.MemberAPIV20Api,
-            "delete_researcher_url",
-            MagicMock(return_value='{"test": "TEST1234567890"}')) as delete_researcher_url, request_ctx(
-                f"/section/{user.id}/RUR/54321/delete", method="POST") as ctx:
-        login_user(admin)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 302
-        delete_researcher_url.assert_called_once_with("XXXX-XXXX-XXXX-0001", 54321)
-    with patch.object(
-            orcid_client.MemberAPIV20Api,
-            "delete_other_name",
-            MagicMock(return_value='{"test": "TEST1234567890"}')) as delete_other_name, request_ctx(
-                f"/section/{user.id}/ONR/54321/delete", method="POST") as ctx:
-        login_user(admin)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 302
-        delete_other_name.assert_called_once_with("XXXX-XXXX-XXXX-0001", 54321)
-    with patch.object(
-            orcid_client.MemberAPIV20Api,
-            "delete_keyword",
-            MagicMock(return_value='{"test": "TEST1234567890"}')) as delete_keyword, request_ctx(
-                f"/section/{user.id}/KWR/54321/delete", method="POST") as ctx:
-        login_user(admin)
-        resp = ctx.app.full_dispatch_request()
-        assert resp.status_code == 302
-        delete_keyword.assert_called_once_with("XXXX-XXXX-XXXX-0001", 54321)
+    delete_researcher_url = mocker.patch(
+            "orcid_hub.orcid_client.MemberAPIV20Api.delete_researcher_url",
+            MagicMock(return_value='{"test": "TEST1234567890"}'))
+    resp = client.post(f"/section/{user.id}/RUR/54321/delete")
+    assert resp.status_code == 302
+    delete_researcher_url.assert_called_once_with("XXXX-XXXX-XXXX-0001", 54321)
+
+    delete_other_name = mocker.patch(
+            "orcid_hub.orcid_client.MemberAPIV20Api.delete_other_name",
+            MagicMock(return_value='{"test": "TEST1234567890"}'))
+    resp = client.post(f"/section/{user.id}/ONR/54321/delete")
+    assert resp.status_code == 302
+    delete_other_name.assert_called_once_with("XXXX-XXXX-XXXX-0001", 54321)
+
+    delete_keyword = mocker.patch(
+            "orcid_hub.orcid_client.MemberAPIV20Api.delete_keyword",
+            MagicMock(return_value='{"test": "TEST1234567890"}'))
+    resp = client.post(f"/section/{user.id}/KWR/54321/delete")
+    assert resp.status_code == 302
+    delete_keyword.assert_called_once_with("XXXX-XXXX-XXXX-0001", 54321)
 
 
 def test_viewmembers(client):
@@ -2420,8 +2461,8 @@ def test_viewmembers(client):
             "orcid": non_admin.orcid,
         },
         follow_redirects=True)
-    assert b"NEW_EMAIL@test0.edu" in resp.data
-    assert User.get(non_admin.id).email == "NEW_EMAIL@test0.edu"
+    assert b"new_email@test0.edu" in resp.data
+    assert User.get(non_admin.id).email == "new_email@test0.edu"
 
     resp = client.get(f"/admin/viewmembers/edit/?id=9999999999")
     assert resp.status_code == 404
@@ -2445,7 +2486,7 @@ def test_viewmembers_delete(mockpost, client):
 
     # admin0 cannot deleted researcher1:
     resp = client.login(admin0, follow_redirects=True)
-    assert b"log in" not in resp.data
+    assert b"Organisations using the Hub:" in resp.data
 
     resp = client.post(
         "/admin/viewmembers/delete/",
@@ -2527,7 +2568,7 @@ def test_viewmembers_delete(mockpost, client):
                                      OrcidToken.user == researcher1).count() == 0
 
 
-def test_action_insert_update_group_id(client):
+def test_action_insert_update_group_id(mocker, client):
     """Test update or insert of group id."""
     admin = User.get(email="admin@test0.edu")
     org = admin.organisation
@@ -2547,8 +2588,8 @@ def test_action_insert_update_group_id(client):
     fake_response.data = '{"group_id": "new_group_id"}'
     fake_response.headers = {'Location': '12344/xyz/12399'}
 
-    OrcidToken.create(org=org, access_token="ABC123", scope="/group-id-record/update")
-    OrcidToken.create(org=org, access_token="ABC123112", scope="/group-id-record/read")
+    OrcidToken.create(org=org, access_token="ABC123", scopes="/group-id-record/update")
+    OrcidToken.create(org=org, access_token="ABC123112", scopes="/group-id-record/read")
 
     client.login(admin)
 
@@ -2699,16 +2740,17 @@ def test_reset_all(client):
         citation_type="Test_citation_type",
         citation_value="Test_visibity")
 
-    researcher_url_task = Task.create(
+    property_task = Task.create(
         org=org,
         filename="xyz.json",
         created_by=user,
         updated_by=user,
-        task_type=TaskType.RESEARCHER_URL,
+        task_type=TaskType.PROPERTY,
         completed_at="12/12/12")
 
-    ResearcherUrlRecord.create(
-        task=researcher_url_task,
+    PropertyRecord.create(
+        task=property_task,
+        type="URL",
         is_active=True,
         status="email sent",
         first_name="Test",
@@ -2722,8 +2764,8 @@ def test_reset_all(client):
     resp = client.login(user, follow_redirects=True)
     resp = client.post(
         "/reset_all?url=/researcher_url_record_reset_for_batch",
-        data={"task_id": researcher_url_task.id})
-    t = Task.get(researcher_url_task.id)
+        data={"task_id": property_task.id})
+    t = Task.get(property_task.id)
     rec = t.records.first()
     assert "The record was reset" in rec.status
     assert t.completed_at is None
@@ -2875,9 +2917,9 @@ xyzurlinfo,https://test123.com,10,xyz1@mailinator.com,sdksasadsd,sds1,,,PUBLIC,,
     assert resp.status_code == 200
     assert b"https://test.com" in resp.data
     assert b"researcher_urls.csv" in resp.data
-    assert Task.select().where(Task.task_type == TaskType.RESEARCHER_URL).count() == 1
-    task = Task.select().where(Task.task_type == TaskType.RESEARCHER_URL).first()
-    assert task.researcher_url_records.count() == 2
+    assert Task.select().where(Task.task_type == TaskType.PROPERTY).count() == 1
+    task = Task.select().where(Task.task_type == TaskType.PROPERTY).first()
+    assert task.records.count() == 2
 
 
 def test_load_other_names_csv(client):
@@ -2894,9 +2936,9 @@ dummy 10,0,raosti12dckerpr13233jsdpos8jj2@mailinator.com,sdsd,sds1,0000-0002-014
     assert resp.status_code == 200
     assert b"dummy 1220" in resp.data
     assert b"other_names.csv" in resp.data
-    assert Task.select().where(Task.task_type == TaskType.OTHER_NAME).count() == 1
-    task = Task.select().where(Task.task_type == TaskType.OTHER_NAME).first()
-    assert task.other_name_records.count() == 2
+    assert Task.select().where(Task.task_type == TaskType.PROPERTY).count() == 1
+    task = Task.select().where(Task.task_type == TaskType.PROPERTY).first()
+    assert task.records.count() == 2
 
 
 def test_load_peer_review_csv(client):
@@ -2926,6 +2968,48 @@ issn:1213199811,REVIEWER,https://alt-url.com,REVIEW,2012-08-01,doi,10.1087/20120
     prr = task.records.where(PeerReviewRecord.review_group_id == "issn:1213199811").first()
     assert prr.external_ids.count() == 2
     assert prr.invitees.count() == 2
+    resp = client.post(
+        "/load/researcher/peer_review",
+        data={
+            "file_": (
+                BytesIO(
+                    """Review Group Id,Reviewer Role,Review Url,Review Type,Review Completion Date,Subject External Id Type,Subject External Id Value,Subject External Id Url,Subject External Id Relationship,Subject Container Name,Subject Type,Subject Name Title,Subject Name Subtitle,Subject Name Translated Title Lang Code,Subject Name Translated Title,Subject Url,Convening Org Name,Convening Org City,Convening Org Region,Convening Org Country,Convening Org Disambiguated Identifier,Convening Org Disambiguation Source,Email,ORCID iD,Identifier,First Name,Last Name,Put Code,Visibility,External Id Type,Peer Review Id,External Id Url,External Id Relationship
+issn:1213199811,REVIEWER,https://alt-url.com,REVIEW,2012-08-01,doi,10.1087/20120404,https://doi.org/10.1087/20120404,SELF,Journal title,JOURNAL_ARTICLE,Name of the paper reviewed,Subtitle of the paper reviewed,en,Translated title,https://subject-alt-url.com,The University of Auckland,Auckland,Auckland,NZ,385488,RINGGOLD,rad4wwww299ssspppw99pos@mailinator.com,,00001,sdsd,sds1,,PUBLIC,grant_number,,https://www.grant-url.com2,PART_OF""".encode()  # noqa: E501
+                ),  # noqa: E501
+                "peer_review.csv",
+            ),
+        },
+        follow_redirects=True)
+    assert resp.status_code == 200
+    assert b"Invalid External Id Value or Peer Review Id" in resp.data
+    resp = client.post(
+        "/load/researcher/peer_review",
+        data={
+            "file_": (
+                BytesIO(
+                    """Review Group Id,Reviewer Role,Review Url,Review Type,Review Completion Date,Subject External Id Type,Subject External Id Value,Subject External Id Url,Subject External Id Relationship,Subject Container Name,Subject Type,Subject Name Title,Subject Name Subtitle,Subject Name Translated Title Lang Code,Subject Name Translated Title,Subject Url,Convening Org Name,Convening Org City,Convening Org Region,Convening Org Country,Convening Org Disambiguated Identifier,Convening Org Disambiguation Source,Email,ORCID iD,Identifier,First Name,Last Name,Put Code,Visibility,External Id Type,Peer Review Id,External Id Url,External Id Relationship
+issn:1213199811,REVIEWER,https://alt-url.com,REVIEW,2012-08-01,doi,10.1087/20120404,https://doi.org/10.1087/20120404,SELF,Journal title,JOURNAL_ARTICLE,Name of the paper reviewed,Subtitle of the paper reviewed,en,Translated title,https://subject-alt-url.com,The University of Auckland,Auckland,Auckland,NZ,385488,RINGGOLD,rad4wwww299ssspppw99pos@mailinator.com,,00001,sdsd,sds1,,PUBLIC,grant_number_incorrect,sdsds,https://www.grant-url.com2,PART_OF""".encode()   # noqa: E501
+                ),
+                "peer_review.csv",
+            ),
+        },
+        follow_redirects=True)
+    assert resp.status_code == 200
+    assert b"Invalid External Id Type: 'grant_number_incorrect'" in resp.data
+    resp = client.post(
+        "/load/researcher/peer_review",
+        data={
+            "file_": (
+                BytesIO(
+                    """Review Group Id,Reviewer Role,Review Url,Review Type,Review Completion Date,Subject External Id Type,Subject External Id Value,Subject External Id Url,Subject External Id Relationship,Subject Container Name,Subject Type,Subject Name Title,Subject Name Subtitle,Subject Name Translated Title Lang Code,Subject Name Translated Title,Subject Url,Convening Org Name,Convening Org City,Convening Org Region,Convening Org Country,Convening Org Disambiguated Identifier,Convening Org Disambiguation Source,Email,ORCID iD,Identifier,First Name,Last Name,Put Code,Visibility,External Id Type,Peer Review Id,External Id Url,External Id Relationship
+issn:1213199811,REVIEWER,https://alt-url.com,REVIEW,2012-08-01,doi,10.1087/20120404,https://doi.org/10.1087/20120404,SELF,Journal title,JOURNAL_ARTICLE,Name of the paper reviewed,Subtitle of the paper reviewed,en,Translated title,https://subject-alt-url.com,The University of Auckland,Auckland,Auckland,NZ,385488,RINGGOLD,rad4wwww299ssspppw99pos@mailinator.com,,00001,sdsd,sds1,,PUBLIC,grant_number,sdsds,https://www.grant-url.com2,PART_OF_incorrect""".encode()     # noqa: E501
+                ),
+                "peer_review.csv",
+            ),
+        },
+        follow_redirects=True)
+    assert resp.status_code == 200
+    assert b"Invalid External Id Relationship 'PART_OF_INCORRECT'" in resp.data
 
 
 def test_load_funding_csv(client, mocker):
@@ -2942,9 +3026,9 @@ def test_load_funding_csv(client, mocker):
 
 THIS IS A TITLE, नमस्ते,hi,  CONTRACT,MY TYPE,Minerals unde.,300000,NZD,,2025,Royal Society Te Apārangi,Wellington,,New Zealand,210126,RINGGOLD,1914-2914-3914-00X3, GivenName Surname, LEAD, test123@org1.edu,grant_number,GNS1706900961,https://www.grant-url2.com,PART_OF
 THIS IS A TITLE, नमस्ते,hi,  CONTRACT,MY TYPE,Minerals unde.,300000,NZD,,2025,Royal Society Te Apārangi,Wellington,,New Zealand,210126,RINGGOLD,1885-2885-3885-00X3, GivenName Surname #2, LEAD, test123_2@org1.edu,grant_number,GNS1706900961,https://www.grant-url2.com,PART_OF
-THIS IS A TITLE, नमस्ते,hi,  CONTRACT,MY TYPE,Minerals unde.,300000,NZD,,2025,Royal Society Te Apārangi,Wellington,,New Zealand,210126,RINGGOLD,1914-2914-3914-00X3, GivenName Surname, LEAD, test123@org1.edu,type2,GNS9999999999,https://www.grant-url2.com,PART_OF
-THIS IS A TITLE, नमस्ते,hi,  CONTRACT,MY TYPE,Minerals unde.,300000,NZD,,2025,Royal Society Te Apārangi,Wellington,,New Zealand,210126,RINGGOLD,1885-2885-3885-00X3, GivenName Surname #2, LEAD, test123_2@org1.edu,type2,GNS9999999999,https://www.grant-url2.com,PART_OF
-THIS IS A TITLE #2, नमस्ते #2,hi,  CONTRACT,MY TYPE,Minerals unde.,900000,USD,,2025,,,,,210126,RINGGOLD,1914-2914-3914-00X3, GivenName Surname, LEAD, test123@org1.edu,type2,GNS9999999999,https://www.grant-url2.com,PART_OF""".encode()  # noqa: E501
+THIS IS A TITLE, नमस्ते,hi,  CONTRACT,MY TYPE,Minerals unde.,300000,NZD,,2025,Royal Society Te Apārangi,Wellington,,New Zealand,210126,RINGGOLD,1914-2914-3914-00X3, GivenName Surname, LEAD, test123@org1.edu,grant_number,GNS9999999999,https://www.grant-url2.com,PART_OF
+THIS IS A TITLE, नमस्ते,hi,  CONTRACT,MY TYPE,Minerals unde.,300000,NZD,,2025,Royal Society Te Apārangi,Wellington,,New Zealand,210126,RINGGOLD,1885-2885-3885-00X3, GivenName Surname #2, LEAD, test123_2@org1.edu,grant_number,GNS9999999999,https://www.grant-url2.com,PART_OF
+THIS IS A TITLE #2, नमस्ते #2,hi,  CONTRACT,MY TYPE,Minerals unde.,900000,USD,,2025,,,,,210126,RINGGOLD,1914-2914-3914-00X3, GivenName Surname, LEAD, test123@org1.edu,grant_number,GNS9999999999,https://www.grant-url2.com,PART_OF""".encode()  # noqa: E501
                 ),  # noqa: E501
                 "fundings.csv",
             ),
@@ -3283,6 +3367,42 @@ XXX1702,00004,,This is another project title,,,CONTRACT,Standard,This is another
         })
     assert Task.get(task.id).records.count() == record_count + 1
     capture_event.assert_called()
+    resp = client.post(
+        "/load/researcher/funding",
+        data={
+            "file_": (
+                BytesIO(b"""Funding Id,Identifier,Put Code,Title,Translated Title,Translated Title Language Code,Type,Organization Defined Type,Short Description,Amount,Currency,Start Date,End Date,Org Name,City,Region,Country,Disambiguated Org Identifier,Disambiguation Source,Visibility,ORCID iD,Email,First Name,Last Name,Name,Role,Excluded,External Id Type,External Id Url,External Id Relationship
+    XXX1701,00002,,This is the project title,,,CONTRACT,Fast-Start,This is the project abstract,300000,NZD,2018,2021,Marsden Fund,Wellington,,NZ,http://dx.doi.org/10.13039/501100009193,FUNDREF,,,contributor2@mailinator.com,Bob,Contributor 2,,,Y,grant_number_incorrect,,SELF"""),  # noqa: E501
+                "fundings_ex.csv",
+            ),
+        },
+        follow_redirects=True)
+    assert resp.status_code == 200
+    assert b"Invalid External Id Type: 'grant_number_incorrect'" in resp.data
+    resp = client.post(
+        "/load/researcher/funding",
+        data={
+            "file_": (
+                BytesIO(b"""Funding Id,Identifier,Put Code,Title,Translated Title,Translated Title Language Code,Type,Organization Defined Type,Short Description,Amount,Currency,Start Date,End Date,Org Name,City,Region,Country,Disambiguated Org Identifier,Disambiguation Source,Visibility,ORCID iD,Email,First Name,Last Name,Name,Role,Excluded,External Id Type,External Id Url,External Id Relationship
+    XXX1701,00002,,This is the project title,,,CONTRACT,Fast-Start,This is the project abstract,300000,NZD,2018,2021,Marsden Fund,Wellington,,NZ,http://dx.doi.org/10.13039/501100009193,FUNDREF,,,contributor2@mailinator.com,Bob,Contributor 2,,,Y,grant_number,,SELF_incorrect"""),  # noqa: E501
+                "fundings_ex.csv",
+            ),
+        },
+        follow_redirects=True)
+    assert resp.status_code == 200
+    assert b"Invalid External Id Relationship 'SELF_INCORRECT'" in resp.data
+    resp = client.post(
+        "/load/researcher/funding",
+        data={
+            "file_": (
+                BytesIO(b"""Funding Id,Identifier,Put Code,Title,Translated Title,Translated Title Language Code,Type,Organization Defined Type,Short Description,Amount,Currency,Start Date,End Date,Org Name,City,Region,Country,Disambiguated Org Identifier,Disambiguation Source,Visibility,ORCID iD,Email,First Name,Last Name,Name,Role,Excluded,External Id Type,External Id Url,External Id Relationship
+    ,00002,,This is the project title,,,CONTRACT,Fast-Start,This is the project abstract,300000,NZD,2018,2021,Marsden Fund,Wellington,,NZ,http://dx.doi.org/10.13039/501100009193,FUNDREF,,,contributor2@mailinator.com,Bob,Contributor 2,,,Y,grant_number,,SELF"""),  # noqa: E501
+                "fundings_ex.csv",
+            ),
+        },
+        follow_redirects=True)
+    assert resp.status_code == 200
+    assert b"Invalid External Id Value or Funding Id" in resp.data
 
 
 def test_researcher_work(client, mocker):
@@ -3298,7 +3418,7 @@ def test_researcher_work(client, mocker):
                     b'[{"invitees": [{"identifier":"00001", "email": "marco.232323newwjwewkppp@mailinator.com",'
                     b'"first-name": "Alice", "last-name": "Contributor 1", "ORCID-iD": null, "put-code":null}],'
                     b'"title": { "title": { "value": "WORK TITLE #1"}}, "citation": {"citation-type": '
-                    b'"FORMATTED_UNSPECIFIED", "citation-value": "This is citation value"}, "type": "BOOK_CHR",'
+                    b'"FORMATTED_UNSPECIFIED", "citation-value": "This is citation value"}, "type": "BOOK_CHAPTER",'
                     b'"contributors": {"contributor": [{"contributor-attributes": {"contributor-role": '
                     b'"AUTHOR", "contributor-sequence" : "1"},"credit-name": {"value": "firentini"}}]}'
                     b', "external-ids": {"external-id": [{"external-id-value": '
@@ -3312,7 +3432,7 @@ def test_researcher_work(client, mocker):
     assert resp.status_code == 200
     # Work file successfully loaded.
     assert b"WORK TITLE #1" in resp.data
-    assert b"BOOK_CHR" in resp.data
+    assert b"BOOK_CHAPTER" in resp.data
     task = Task.get(filename="work001.json")
     assert task.records.count() == 1
     rec = task.records.first()
@@ -3383,7 +3503,7 @@ def test_researcher_work(client, mocker):
     },
     "journal-title": {"value": "This is a journal title"},
     "short-description": "xyz this is short description",
-    "citation": {"citation-type": "FORMATTED_UNSPECIFIED", "citation-value": "This is citation value"},
+    "citation": {"citation-type": "formatted_unspecified", "citation-value": "This is citation value"},
     "type": "BOOK_CHAPTER",
     "publication-date": {
       "year": {"value": "2001"},
@@ -3480,7 +3600,7 @@ def test_researcher_work(client, mocker):
                 BytesIO(
                     """Work Id,Put Code,Title,Sub Title,Translated Title,Translated Title Language Code,Journal Title,Short Description,Citation Type,Citation Value,Type,Publication Date,Publication Media Type,Url,Language Code,Country,Visibility,ORCID iD,Email,First Name,Last Name,Name,Role,Excluded,External Id Type,External Id Url,External Id Relationship
 sdsds,,This is a title,,,hi,This is a journal title,xyz this is short description,FORMATTED_UNSPECIFIED,This is citation value,BOOK_CHAPTER,**ERROR**,,,en,NZ,,0000-0002-9207-4933,contributor1@mailinator.com,Alice,Contributor 1,,,,bibcode,http://url.edu/abs/ghjghghj,SELF
-sdsds,,This is a title,,,hi,This is a journal title,xyz this is short description,FORMATTED_UNSPECIFIED,This is citation value,BOOK_CHAPTER,2001-01-12,,,en,NZ,,0000-0002-9207-4933,,,,Associate Professor Alice,AUTHOR,Y,bibcode,http://url.edu/abs/ghjghghj,SELF""".encode()  # noqa: E501
+sdsds,,This is a title,,,hi,This is a journal title,xyz this is short description,formatted_unspecified,This is citation value,BOOK_CHAPTER,2001-01-12,,,en,NZ,,0000-0002-9207-4933,,,,Associate Professor Alice,AUTHOR,Y,bibcode,http://url.edu/abs/ghjghghj,SELF""".encode()  # noqa: E501
                 ),  # noqa: E501
                 "work.csv",
             ),
@@ -3648,6 +3768,45 @@ sdsds,,This is a title,,,hi,This is a journal title,xyz this is short descriptio
             "url": url
         })
     assert record.external_ids.count() == 0
+    resp = client.post(
+        "/load/researcher/work",
+        data={
+            "file_": (
+                BytesIO(
+                    """Identifier,Email,First Name,Last Name,ORCID iD,Visibility,Put Code,Title,Subtitle,Translated Title,Translation Language Code,Journal Title,Short Description,Citation Type,Citation Value,Type,Publication Date,Media Type,External ID Type,Work Id,External ID URL,External ID Relationship,Url,Language Code,Country
+1,invitee1@mailinator.com,Alice,invitee 1,0000-0002-9207-4933,,,This is a title,Subtiitle,xxx,hi,This is a journal title,this is short description,FORMATTED_UNSPECIFIED,This is citation value,BOOK_CHAPTER,12/01/2001,,bibcode,,http://url.edu/abs/ghjghghj,SELF,,en,NZ""".encode()),     # noqa: E501
+                "work.csv",
+            ),
+        },
+        follow_redirects=True)
+    assert resp.status_code == 200
+    assert b"Invalid External Id Value or Work Id" in resp.data
+    resp = client.post(
+        "/load/researcher/work",
+        data={
+            "file_": (
+                BytesIO(
+                    """Identifier,Email,First Name,Last Name,ORCID iD,Visibility,Put Code,Title,Subtitle,Translated Title,Translation Language Code,Journal Title,Short Description,Citation Type,Citation Value,Type,Publication Date,Media Type,External ID Type,Work Id,External ID URL,External ID Relationship,Url,Language Code,Country
+1,invitee1@mailinator.com,Alice,invitee 1,0000-0002-9207-4933,,,This is a title,Subtiitle,xxx,hi,This is a journal title,this is short description,FORMATTED_UNSPECIFIED,This is citation value,BOOK_CHAPTER,12/01/2001,,bibcode_incorrect,sdsd,http://url.edu/abs/ghjghghj,SELF,,en,NZ""".encode()),   # noqa: E501
+                "work.csv",
+            ),
+        },
+        follow_redirects=True)
+    assert resp.status_code == 200
+    assert b"Invalid External Id Type: 'bibcode_incorrect'" in resp.data
+    resp = client.post(
+        "/load/researcher/work",
+        data={
+            "file_": (
+                BytesIO(
+                    """Identifier,Email,First Name,Last Name,ORCID iD,Visibility,Put Code,Title,Subtitle,Translated Title,Translation Language Code,Journal Title,Short Description,Citation Type,Citation Value,Type,Publication Date,Media Type,External ID Type,Work Id,External ID URL,External ID Relationship,Url,Language Code,Country
+1,invitee1@mailinator.com,Alice,invitee 1,0000-0002-9207-4933,,,This is a title,Subtiitle,xxx,hi,This is a journal title,this is short description,FORMATTED_UNSPECIFIED,This is citation value,BOOK_CHAPTER,12/01/2001,,bibcode,sdsd,http://url.edu/abs/ghjghghj,SELF_incorrect,,en,NZ""".encode()),   # noqa: E501
+                "work.csv",
+            ),
+        },
+        follow_redirects=True)
+    assert resp.status_code == 200
+    assert b"Invalid External Id Relationship 'SELF_INCORRECT'" in resp.data
 
 
 def test_peer_reviews(client):
@@ -3803,7 +3962,7 @@ def test_other_names(client):
     task = Task.get(filename="othernames_sample_latest.json")
     assert task.records.count() == 6
 
-    resp = client.get(f"/admin/othernamerecord/export/json/?task_id={task.id}")
+    resp = client.get(f"/admin/propertyrecord/export/json/?task_id={task.id}")
     assert resp.status_code == 200
     assert b'rad42@mailinator.com' in resp.data
     assert b'dummy 1220' in resp.data
@@ -3818,7 +3977,7 @@ def test_other_names(client):
     task = Task.get(filename="othernames0001.json")
     assert task.records.count() == 6
 
-    resp = client.get(f"/admin/othernamerecord/export/csv/?task_id={task.id}")
+    resp = client.get(f"/admin/propertyrecord/export/csv/?task_id={task.id}")
     assert resp.status_code == 200
     assert b'rad42@mailinator.com' in resp.data
     assert b'dummy 1220' in resp.data
@@ -3833,7 +3992,7 @@ def test_other_names(client):
     task = Task.get(filename="othernames0002.csv")
     assert task.records.count() == 6
 
-    resp = client.get(f"/admin/othernamerecord/export/tsv/?task_id={task.id}")
+    resp = client.get(f"/admin/propertyrecord/export/tsv/?task_id={task.id}")
     assert resp.status_code == 200
     assert b'rad42@mailinator.com' in resp.data
     assert b'dummy 1220' in resp.data
@@ -3907,7 +4066,7 @@ def test_keyword(client):
     task = Task.get(filename="keyword_sample_latest.json")
     assert task.records.count() == 4
 
-    resp = client.get(f"/admin/keywordrecord/export/json/?task_id={task.id}")
+    resp = client.get(f"/admin/propertyrecord/export/json/?task_id={task.id}")
     assert resp.status_code == 200
     assert b"xyzz@mailinator.com" in resp.data
     assert b"keyword 2" in resp.data
@@ -3923,7 +4082,7 @@ def test_keyword(client):
     assert task.records.count() == 4
 
     task = Task.get(filename="keyword001.json")
-    resp = client.get(f"/admin/keywordrecord/export/csv/?task_id={task.id}")
+    resp = client.get(f"/admin/propertyrecord/export/csv/?task_id={task.id}")
     assert resp.status_code == 200
     assert b"xyzz@mailinator.com" in resp.data
     assert b"keyword 2" in resp.data
@@ -3939,7 +4098,7 @@ def test_keyword(client):
     task = Task.get(filename="keyword002.csv")
     assert task.records.count() == 4
 
-    resp = client.get(f"/admin/keywordrecord/export/tsv/?task_id={task.id}")
+    resp = client.get(f"/admin/propertyrecord/export/tsv/?task_id={task.id}")
     assert resp.status_code == 200
     assert b"xyzz@mailinator.com" in resp.data
     assert b"keyword 2" in resp.data
@@ -3970,7 +4129,7 @@ def test_researcher_urls(client):
     task = Task.get(filename="researcher_url_001.json")
     assert task.records.count() == 5
 
-    resp = client.get(f"/admin/researcherurlrecord/export/json/?task_id={task.id}")
+    resp = client.get(f"/admin/propertyrecord/export/json/?task_id={task.id}")
     assert resp.status_code == 200
     assert b"abc123@mailinator.com" in resp.data
     assert b"https://w3.test.test.test.edu" in resp.data
@@ -3984,7 +4143,7 @@ def test_researcher_urls(client):
     assert b"https://w3.test.test.test.edu" in resp.data
     assert task.records.count() == 5
 
-    resp = client.get(f"/admin/researcherurlrecord/export/csv/?task_id={task.id}")
+    resp = client.get(f"/admin/propertyrecord/export/csv/?task_id={task.id}")
     assert resp.status_code == 200
     assert b"abc123@mailinator.com" in resp.data
     assert b"https://w3.test.test.test.edu" in resp.data
@@ -3998,10 +4157,11 @@ def test_researcher_urls(client):
     assert b"https://w3.test.test.test.edu" in resp.data
     assert task.records.count() == 5
 
-    url = quote(f"/admin/researcherurlrecord/?task_id={task.id}", safe="")
+    url = quote(f"/admin/propertyrecord/?task_id={task.id}", safe="")
     resp = client.post(
-        f"/admin/researcherurlrecord/new/?url={url}",
+        f"/admin/propertyrecord/new/?url={url}",
         data=dict(
+            type="URL",
             name="URL NAME ABC123",
             value="URL VALUE",
             display_index="1234",
@@ -4013,10 +4173,121 @@ def test_researcher_urls(client):
         follow_redirects=True)
     assert Task.get(task.id).records.count() == 6
 
-    r = ResearcherUrlRecord.get(name="URL NAME ABC123")
+    r = PropertyRecord.get(name="URL NAME ABC123")
     resp = client.post(
-            f"/admin/researcherurlrecord/edit/?id={r.id}&url={url}",
+            f"/admin/propertyrecord/edit/?id={r.id}&url={url}",
             data=dict(value="http://test.test.test.com/ABC123"),
             follow_redirects=True)
     assert resp.status_code == 200
     assert b"http://test.test.test.com/ABC123" in resp.data
+
+
+def test_load_other_ids(client):
+    """Test load_other_ids data management."""
+    user = client.data["admin"]
+    client.login(user, follow_redirects=True)
+    raw_data0 = open(os.path.join(os.path.dirname(__file__), "data", "example_other_ids.csv"), "rb").read()
+    resp = client.post(
+        "/load/other/ids",
+        data={"file_": (BytesIO(raw_data0), "example_other_ids.csv")},
+        follow_redirects=True)
+    assert resp.status_code == 200
+    assert b"http://url.edu/abs/ghjghghj" in resp.data
+    task = Task.get(filename="example_other_ids.csv")
+    assert task.records.count() == 1
+
+    resp = client.get(f"/admin/otheridrecord/export/json/?task_id={task.id}")
+    assert resp.status_code == 200
+    assert b"rostaindhfjsingradik2@mailinator.com" in resp.data
+
+    raw_data0 = open(os.path.join(os.path.dirname(__file__), "data", "example_other_ids.json"), "rb").read()
+    resp = client.post(
+        "/load/other/ids",
+        data={"file_": (BytesIO(raw_data0), "example_other_ids.json")},
+        follow_redirects=True)
+
+    assert resp.status_code == 200
+    assert b"http://url.edu/abs/ghjghghj" in resp.data
+    task = Task.get(filename="example_other_ids.json")
+    assert task.records.count() == 2
+
+    resp = client.get(f"/admin/otheridrecord/export/csv/?task_id={task.id}")
+    assert resp.status_code == 200
+    assert b"rad42@mailinator.com" in resp.data
+
+    other_id = quote(f"/admin/otheridrecord/?task_id={task.id}", safe="")
+    client.post(
+        f"/admin/otheridrecord/new/?url={other_id}",
+        data=dict(
+            type="grant_number",
+            value="12323",
+            url="http://url.edu/abs/ghjghghj",
+            relationship="SELF",
+            display_index="1234",
+            email="test@test.com",
+            first_name="FN",
+            last_name="LN",
+            orcid="0000-0001-8228-7153",
+        ),
+        follow_redirects=True)
+    assert Task.get(task.id).records.count() == 3
+
+
+def test_export_affiliations(client, mocker):
+    """Test export of existing affiliation records."""
+    mocker.patch("orcid_hub.orcid_client.MemberAPI.get_record", return_value=get_profile())
+    client.login_root()
+    resp = client.post("/admin/viewmembers/action/",
+                       data=dict(action="export_affiations",
+                                 rowid=[
+                                     u.id for u in User.select().join(Organisation).where(
+                                         Organisation.orcid_client_id.is_null(False))
+                                 ]))
+    assert b"0000-0003-1255-9023" in resp.data
+
+
+def test_delete_affiliations(client, mocker):
+    """Test export of existing affiliation records."""
+    user = OrcidToken.select().join(User).where(User.first_name.is_null(False),
+                                                User.orcid.is_null(False)).first().user
+    org = user.organisation
+
+    mocker.patch("orcid_hub.orcid_client.MemberAPI.get_record", return_value=get_profile(org=org, user=user))
+
+    admin = org.admins.first()
+    client.login(admin)
+    resp = client.post("/admin/viewmembers/action/",
+                       data=dict(action="export_affiations",
+                                 rowid=[
+                                     u.id for u in User.select().join(Organisation).where(
+                                         Organisation.orcid_client_id.is_null(False))
+                                 ]))
+    resp = client.post("/load/researcher",
+                       data={
+                           "save": "Upload",
+                           "file_": (
+                               BytesIO(resp.data),
+                               "affiliations.csv",
+                           ),
+                       })
+    assert resp.status_code == 302
+    task_id = int(re.search(r"\/admin\/affiliationrecord/\?task_id=(\d+)", resp.location)[1])
+    AffiliationRecord.update(delete_record=True).execute()
+
+    delete_education = mocker.patch("orcid_hub.orcid_client.MemberAPI.delete_education")
+    delete_employment = mocker.patch("orcid_hub.orcid_client.MemberAPI.delete_employment")
+    resp = client.post(
+        "/activate_all/?url=http://localhost/affiliation_record_activate_for_batch", data=dict(task_id=task_id))
+    delete_education.assert_called()
+    delete_employment.assert_called()
+
+
+def test_remove_linkage(client, mocker):
+    """Test export of existing affiliation records."""
+    post = mocker.patch("requests.post", return_value=Mock(status_code=200))
+    user = OrcidToken.select().join(User).where(User.orcid.is_null(False)).first().user
+
+    client.login(user)
+    client.post("/remove/orcid/linkage")
+    post.assert_called()
+    assert not OrcidToken.select().where(OrcidToken.user_id == user.id).exists()

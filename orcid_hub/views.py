@@ -1,6 +1,7 @@
 """Application views."""
 
 import csv
+import itertools
 import json
 import math
 import mimetypes
@@ -38,20 +39,20 @@ from wtforms import validators
 
 from . import SENTRY_DSN, admin, app, cache, limiter, models, orcid_client, rq, utils
 from .apis import yamlfy
-from .forms import (ApplicationFrom, BitmapMultipleValueField, CredentialForm, EmailTemplateForm,
-                    FileUploadForm, FundingForm, GroupIdForm, LogoForm, OrgRegistrationForm,
+from .forms import (AddressForm, ApplicationFrom, BitmapMultipleValueField, CredentialForm, EmailTemplateForm,
+                    ExternalIdentifierForm, FileUploadForm, FundingForm, GroupIdForm, LogoForm, OrgRegistrationForm,
                     OtherNameKeywordForm, PartialDateField, PeerReviewForm, ProfileSyncForm,
                     RecordForm, ResearcherUrlForm, UserInvitationForm, WebhookForm, WorkForm,
                     validate_orcid_id_field)
 from .login_provider import roles_required
 from .models import (JOIN, Affiliation, AffiliationRecord, CharField, Client, Delegate, ExternalId,
                      FixedCharField, File, FundingContributor, FundingInvitee, FundingRecord,
-                     Grant, GroupIdRecord, KeywordRecord, ModelException, NestedDict, OrcidApiCall,
-                     OrcidToken, Organisation, OrgInfo, OrgInvitation, OtherNameRecord,
-                     PartialDate, PeerReviewExternalId, PeerReviewInvitee, PeerReviewRecord,
-                     ResearcherUrlRecord, Role, Task, TaskType, TextField, Token, Url, User,
-                     UserInvitation, UserOrg, UserOrgAffiliation, WorkContributor, WorkExternalId,
-                     WorkInvitee, WorkRecord, db, get_val)
+                     Grant, GroupIdRecord, ModelException, NestedDict, OtherIdRecord, OrcidApiCall, OrcidToken,
+                     Organisation, OrgInfo, OrgInvitation, PartialDate, PropertyRecord,
+                     PeerReviewExternalId, PeerReviewInvitee, PeerReviewRecord,
+                     Role, Task, TaskType, TextField, Token, Url, User, UserInvitation, UserOrg,
+                     UserOrgAffiliation, WorkContributor, WorkExternalId, WorkInvitee, WorkRecord,
+                     db, get_val)
 # NB! Should be disabled in production
 from .pyinfo import info
 from .utils import get_next_url, read_uploaded_file, send_user_invitation
@@ -66,7 +67,7 @@ def unauthorized(e):
     _next = get_next_url()
     if _next:
         flash(
-            "You might not have the necessary permissions to access this page or you were not authenticted",
+            "You have not been authenticated, or do not have the necessary permissions to access this page",
             "danger")
         return redirect(_next)
     return render_template("401.html"), 401
@@ -112,7 +113,7 @@ def internal_error(error):
 
 @app.route("/favicon.ico")
 def favicon():
-    """Support for the "favicon" legacy: faveicon location in the root directory."""
+    """Support for the "favicon" legacy: favicon location in the root directory."""
     return send_from_directory(
         os.path.join(app.root_path, "static", "images"),
         "favicon.ico",
@@ -124,8 +125,8 @@ def favicon():
 def status():
     """Check the application health status attempting to connect to the DB.
 
-    NB! This entry point should be protectd and accessible
-    only form the appliction monitoring servers.
+    NB! This entry point should be protected and accessible
+    only form the application monitoring servers.
     """
     try:
         now = db.execute_sql("SELECT now();").fetchone()[0]
@@ -144,7 +145,7 @@ def status():
 @app.route("/pyinfo")
 @roles_required(Role.SUPERUSER)
 def pyinfo(message=None):
-    """Show Python and runtime environment and settings or test exeption handling."""
+    """Show Python and runtime environment and settings or test exception handling."""
     if message:
         raise Exception(message)
     return render_template("pyinfo.html", **info)
@@ -243,8 +244,8 @@ class AppModelView(ModelView):
                 model = models.__dict__.get(model_class_name)
         super().__init__(model, *args, **kwargs)
 
-    # TODO: remove whent it gets merged into the upsteem repo (it's a workaround to make
-    # joins LEFT OUTERE)
+    # TODO: remove when it gets merged into the upstream repo (it's a workaround to make
+    # joins LEFT OUTER)
     def _handle_join(self, query, field, joins):
         if field.model_class != self.model:
             model_name = field.model_class.__name__
@@ -260,7 +261,7 @@ class AppModelView(ModelView):
         try:
             return super().get_one(id)
         except self.model.DoesNotExist:
-            flash(f"The record with given ID: {id} doesn't exist or it was deleted.", "danger")
+            flash(f"The record with given ID: {id} doesn't exist or it has been deleted.", "danger")
             abort(404)
 
     def init_search(self):
@@ -308,7 +309,7 @@ class AppModelView(ModelView):
 
         if current_user and not current_user.has_role(Role.SUPERUSER) and current_user.has_role(
                 Role.ADMIN):
-            # Show only rows realted to the curretn organisation the user is admin for.
+            # Show only rows related to the current organisation the user is admin for.
             # Skip this part for SUPERUSER.
             db_columns = [c.db_column for c in self.model._meta.fields.values()]
             if "org_id" in db_columns or "organisation_id" in db_columns:
@@ -324,7 +325,7 @@ class AppModelView(ModelView):
         return query
 
     def _get_list_extra_args(self):
-        """Workaournd for https://github.com/flask-admin/flask-admin/issues/1512."""
+        """Workaround for https://github.com/flask-admin/flask-admin/issues/1512."""
         view_args = super()._get_list_extra_args()
         extra_args = {
             k: v
@@ -710,17 +711,22 @@ class RecordModelView(AppModelView):
 
     @action("activate", "Activate for processing",
             """Are you sure you want to activate the selected records for batch processing?
-
-By clicking "OK" you are affirming that the selected records to be written are,
-to the best of your knowledge, correct!""")
+            By clicking "OK" you are affirming that the selected records to be written are,
+            to the best of your knowledge, correct!""")
     def action_activate(self, ids):
         """Batch registraion of users."""
         try:
             count = self.model.update(is_active=True).where(
                 self.model.is_active == False,  # noqa: E712
                 self.model.id.in_(ids)).execute()
-            for record_id in ids:
-                self.enqueue_record(record_id)
+            if self.model == AffiliationRecord:
+                records = self.model.select().where(self.model.id.in_(ids)).order_by(
+                    self.model.email, self.model.orcid)
+                for _, chunk in itertools.groupby(records, lambda r: (r.email, r.orcid, )):
+                    self.enqueue_record([r.id for r in chunk])
+            else:
+                for record_id in ids:
+                    self.enqueue_record(record_id)
 
         except Exception as ex:
             flash(f"Failed to activate the selected records: {ex}")
@@ -955,7 +961,7 @@ class InviteeAdmin(RecordChildAdmin):
                 rec_class.update(
                     processed_at=None, status=status).where(
                     rec_class.is_active, rec_class.id == record_id).execute()
-                self.enqueue_record(record_id)
+                getattr(utils, f"process_{rec_class.underscore_name()}s").queue(record_id)
             except Exception as ex:
                 db.rollback()
                 flash(f"Failed to activate the selected records: {ex}")
@@ -1223,6 +1229,7 @@ class CompositeRecordModelView(RecordModelView):
 class FundingRecordAdmin(CompositeRecordModelView):
     """Funding record model view."""
 
+    column_exclude_list = ("task", "translated_title_language_code", "short_description", "disambiguation_source")
     can_create = True
     column_searchable_list = ("title",)
     list_template = "funding_record_list.html"
@@ -1296,6 +1303,7 @@ class FundingRecordAdmin(CompositeRecordModelView):
 class WorkRecordAdmin(CompositeRecordModelView):
     """Work record model view."""
 
+    column_exclude_list = ("task", "translated_title_language_code", "short_description", "citation_value")
     can_create = True
     column_searchable_list = ("title",)
     list_template = "work_record_list.html"
@@ -1370,6 +1378,8 @@ class WorkRecordAdmin(CompositeRecordModelView):
 class PeerReviewRecordAdmin(CompositeRecordModelView):
     """Peer Review record model view."""
 
+    column_exclude_list = (
+        "task", "subject_external_id_type", "external_id_type", "convening_org_disambiguation_source")
     can_create = True
     column_searchable_list = ("review_group_id", )
     list_template = "peer_review_record_list.html"
@@ -1537,7 +1547,7 @@ class ProfilePropertyRecordAdmin(AffiliationRecordAdmin):
     def __init__(self, model_class, *args, **kwargs):
         """Set up model specific attributes."""
         self.column_searchable_list = [
-            f for f in ["content", "name", "first_name", "last_name", "email"]
+            f for f in ["content", "name", "value", "first_name", "last_name", "email"]
             if f in model_class._meta.fields
         ]
         super().__init__(model_class, *args, **kwargs)
@@ -1599,21 +1609,20 @@ class ViewMembersAdmin(AppModelView):
         org = current_user.organisation
         token_revoke_url = app.config["ORCID_BASE_URL"] + "oauth/revoke"
 
-        if UserOrg.select().where(
-                    (UserOrg.user_id == model.id) & (UserOrg.org_id == org.id) & UserOrg.is_admin).exists():
-            flash(f"Failed to delete record for {model}, As User appears to be one of the admins. "
-                  f"Please contact orcid@royalsociety.org.nz for support", "danger")
+        if UserOrg.select().where((UserOrg.user_id == model.id) & (UserOrg.org_id == org.id)
+                                  & UserOrg.is_admin).exists():
+            flash(
+                f"Failed to delete record for {model}, As User appears to be one of the admins. "
+                f"Please contact orcid@royalsociety.org.nz for support", "danger")
             return False
 
         for token in OrcidToken.select().where(OrcidToken.org == org, OrcidToken.user == model):
             try:
-                resp = requests.post(
-                    token_revoke_url,
-                    headers={"Accepts": "application/json"},
-                    data=dict(
-                        client_id=org.orcid_client_id,
-                        client_secret=org.orcid_secret,
-                        token=token.access_token))
+                resp = requests.post(token_revoke_url,
+                                     headers={"Accepts": "application/json"},
+                                     data=dict(client_id=org.orcid_client_id,
+                                               client_secret=org.orcid_secret,
+                                               token=token.access_token))
 
                 if resp.status_code != 200:
                     flash("Failed to revoke token {token.access_token}: {ex}", "danger")
@@ -1626,9 +1635,7 @@ class ViewMembersAdmin(AppModelView):
                 app.logger.exception('Failed to delete record.')
                 return False
 
-        user_org = UserOrg.select().where(
-                UserOrg.user == model,
-                UserOrg.org == org).first()
+        user_org = UserOrg.select().where(UserOrg.user == model, UserOrg.org == org).first()
         try:
             self.on_model_delete(model)
             if model.organisations.count() < 2:
@@ -1649,24 +1656,108 @@ class ViewMembersAdmin(AppModelView):
             self.after_model_delete(model)
         return True
 
-    @action("delete", "Delete",
-            "Are you sure you want to delete selected records?")
+    @action("delete", "Delete", "Are you sure you want to delete selected records?")
     def action_delete(self, ids):
         """Delete a record for selected entries."""
         try:
             model_pk = getattr(self.model, self._primary_key)
             count = 0
 
-            query = self.model.select().filter(model_pk << ids)
+            query = self.model.select().where(model_pk << ids)
 
             for m in query:
                 if self.delete_model(m):
                     count += 1
             if count:
-                flash(gettext('Record was successfully deleted.%(count)s records were successfully deleted.',
-                              count=count), 'success')
+                flash(
+                    gettext(
+                        'Record was successfully deleted.%(count)s records were successfully deleted.',
+                        count=count), 'success')
         except Exception as ex:
             flash(gettext('Failed to delete records. %(error)s', error=str(ex)), 'danger')
+
+    @action(
+        "export_affiations", "Expoert Affiliation Records",
+        "Are you sure you want to retrieve and export selected records affiliation entries from ORCID?"
+    )
+    def action_export_affiliations(self, ids):
+        """Export all user profile section list (either 'Education' or 'Employment')."""
+        tokens = OrcidToken.select(User, OrcidToken).join(
+            User, on=(OrcidToken.user_id == User.id)).where(
+                OrcidToken.user_id << ids,
+                OrcidToken.scopes.contains(orcid_client.READ_LIMITED))
+        if not current_user.is_superuser:
+            tokens = tokens.where(OrcidToken.org_id == current_user.organisation.id)
+
+        records = []
+        for t in tokens:
+
+            try:
+                api = orcid_client.MemberAPI(user=t.user, access_token=t.access_token)
+                profile = api.get_record()
+                if not profile:
+                    continue
+            except ApiException as ex:
+                if ex.status == 401:
+                    flash(f"User {t.user} has revoked the permissions to update his/her records",
+                          "warning")
+                else:
+                    flash(
+                        "Exception when calling ORCID API: \n"
+                        + json.loads(ex.body.replace("''", "\"")).get('user-messsage'), "danger")
+            except Exception as ex:
+                abort(500, ex)
+
+            records = itertools.chain(
+                records,
+                [(t.user, r)
+                 for r in profile.get("activities-summary", "employments", "employment-summary")],
+                [(t.user, r)
+                 for r in profile.get("activities-summary", "educations", "education-summary")])
+
+        # https://docs.djangoproject.com/en/1.8/howto/outputting-csv/
+        class Echo(object):
+            """An object that implements just the write method of the file-like interface."""
+
+            def write(self, value):
+                """Write the value by returning it, instead of storing in a buffer."""
+                return '' if value is None or value == "None" else value
+
+        writer = csv.writer(Echo(), delimiter=",")
+
+        def generate():
+            titles = [
+                csv_encode(c) for c in [
+                    "Put Code", "First Name", "Last Name", "Email", "ORCID iD", "Affiliation Type",
+                    "Role", "Department", "Start Date", "End Date", "City", "State", "Country",
+                    "Disambiguated Id", "Disambiguation Source"
+                ]
+            ]
+            yield writer.writerow(titles)
+
+            for row in records:
+                u, r = row
+
+                _, orcid, affiliation_type, put_code = r.get("path").split("/")
+                yield writer.writerow(
+                    csv_encode(v or '') for v in [
+                        r.get("put-code"), u.first_name, u.last_name, u.email, orcid,
+                        affiliation_type,
+                        r.get("role-title"),
+                        r.get("department-name"),
+                        PartialDate.create(r.get("start-date")),
+                        PartialDate.create(r.get("end-date")),
+                        r.get("organization", "address", "city"),
+                        r.get("organization", "address", "region"),
+                        r.get("organization", "address", "country"),
+                        r.get("disambiguated-organization",
+                              "disambiguated-organization-identifier"),
+                        r.get("disambiguated-organization", "disambiguation-source")
+                    ])
+
+        return Response(stream_with_context(generate()),
+                        headers={"Content-Disposition": "attachment;filename=affiliations.csv"},
+                        mimetype="text/csv")
 
 
 class GroupIdRecordAdmin(AppModelView):
@@ -1706,7 +1797,7 @@ class GroupIdRecordAdmin(AppModelView):
                     orcid_token = None
                     gid.status = None
                     try:
-                        orcid_token = OrcidToken.get(org=org, scope='/group-id-record/update')
+                        orcid_token = OrcidToken.get(org=org, scopes='/group-id-record/update')
                     except OrcidToken.DoesNotExist:
                         orcid_token = utils.get_client_credentials_token(org=org, scope="/group-id-record/update")
                     except Exception as ex:
@@ -1771,9 +1862,8 @@ admin.add_view(WorkRecordAdmin())
 admin.add_view(PeerReviewRecordAdmin())
 admin.add_view(InviteeAdmin(PeerReviewInvitee))
 admin.add_view(RecordChildAdmin(PeerReviewExternalId))
-admin.add_view(ProfilePropertyRecordAdmin(ResearcherUrlRecord))
-admin.add_view(ProfilePropertyRecordAdmin(OtherNameRecord))
-admin.add_view(ProfilePropertyRecordAdmin(KeywordRecord))
+admin.add_view(ProfilePropertyRecordAdmin(PropertyRecord))
+admin.add_view(ProfilePropertyRecordAdmin(OtherIdRecord))
 admin.add_view(ViewMembersAdmin(name="viewmembers", endpoint="viewmembers"))
 
 admin.add_view(UserOrgAmin(UserOrg))
@@ -1814,13 +1904,17 @@ def user_orcid_id_url(user):
 
 
 @app.template_filter("isodate")
-def isodate(d, sep="&nbsp;"):
+def isodate(d, sep="&nbsp;", no_time=False):
     """Render date into format YYYY-mm-dd HH:MM."""
-    if d and isinstance(d, datetime):
-        return Markup(
-            f"""<time datetime="{d.isoformat(timespec='minutes')}" """
-            f"""data-toggle="tooltip" title="{d.isoformat(timespec='minutes', sep=' ')} UTC" """
-            f"""data-format="YYYY[&#8209;]MM[&#8209;]DD[{sep}]HH:mm" />""")
+    if d:
+        if isinstance(d, datetime):
+            ts_format = '' if no_time else f"[{sep}]HH:mm"
+            return Markup(
+                f"""<time datetime="{d.isoformat(timespec='minutes')}" """
+                f"""data-toggle="tooltip" title="{d.isoformat(timespec='minutes', sep=' ')} UTC" """
+                f"""data-format="YYYY[&#8209;]MM[&#8209;]DD{ts_format}" />""")
+        if isinstance(d, str):
+            return Markup(f"""<time datetime="{d}" />""")
     return ''
 
 
@@ -1829,13 +1923,6 @@ def shorturl(url):
     """Create and render short url."""
     u = Url.shorten(url)
     return url_for("short_url", short_id=u.short_id, _external=True)
-
-
-def enqueue_task_records(task):
-    """Enqueue all active and not yet processed records."""
-    func = getattr(utils, f"process_{task.task_type.name.lower()}_records")
-    for r in task.records.where(task.record_model.is_active, task.record_model.processed_at.is_null()):
-        func.queue(record_id=r.id)
 
 
 @app.route("/activate_all", methods=["POST"])
@@ -1849,7 +1936,7 @@ def activate_all():
         count = task.record_model.update(is_active=True).where(
             task.record_model.task_id == task_id,
             task.record_model.is_active == False).execute()  # noqa: E712
-        enqueue_task_records(task)
+        utils.enqueue_task_records(task)
     except Exception as ex:
         flash(f"Failed to activate the selected records: {ex}")
         app.logger.exception("Failed to activate the selected records")
@@ -1870,10 +1957,7 @@ def reset_all():
         try:
             status = "The record was reset at " + datetime.now().isoformat(timespec="seconds")
             tt = task.task_type
-            if tt in [
-                    TaskType.AFFILIATION, TaskType.RESEARCHER_URL, TaskType.OTHER_NAME,
-                    TaskType.KEYWORD
-            ]:
+            if tt in [TaskType.AFFILIATION, TaskType.PROPERTY, TaskType.OTHER_ID]:
                 count = task.record_model.update(
                     processed_at=None, status=status).where(
                         task.record_model.task_id == task_id,
@@ -1893,7 +1977,7 @@ def reset_all():
                     count = count + 1
 
             UserInvitation.delete().where(UserInvitation.task == task).execute()
-            enqueue_task_records(task)
+            utils.enqueue_task_records(task)
 
         except Exception as ex:
             db.rollback()
@@ -1924,10 +2008,10 @@ def delete_record(user_id, section_type, put_code):
         return redirect(_url)
 
     orcid_token = None
-    if section_type in ["RUR", "ONR", "KWR"]:
+    if section_type in ["RUR", "ONR", "KWR", "ADR", "EXR"]:
         orcid_token = OrcidToken.select(OrcidToken.access_token).where(OrcidToken.user_id == user.id,
                                                                        OrcidToken.org_id == user.organisation_id,
-                                                                       OrcidToken.scope.contains(
+                                                                       OrcidToken.scopes.contains(
                                                                            orcid_client.PERSON_UPDATE)).first()
         if not orcid_token:
             flash("The user hasn't given 'PERSON/UPDATE' permission to delete this record", "warning")
@@ -1935,7 +2019,7 @@ def delete_record(user_id, section_type, put_code):
     else:
         orcid_token = OrcidToken.select(OrcidToken.access_token).where(OrcidToken.user_id == user.id,
                                                                        OrcidToken.org_id == user.organisation_id,
-                                                                       OrcidToken.scope.contains(
+                                                                       OrcidToken.scopes.contains(
                                                                            orcid_client.ACTIVITIES_UPDATE)).first()
         if not orcid_token:
             flash("The user hasn't given 'ACTIVITIES/UPDATE' permission to delete this record", "warning")
@@ -1955,6 +2039,10 @@ def delete_record(user_id, section_type, put_code):
             api_instance.delete_work(user.orcid, put_code)
         elif section_type == "RUR":
             api_instance.delete_researcher_url(user.orcid, put_code)
+        elif section_type == "ADR":
+            api_instance.delete_address(user.orcid, put_code)
+        elif section_type == "EXR":
+            api_instance.delete_external_identifier(user.orcid, put_code)
         elif section_type == "ONR":
             api_instance.delete_other_name(user.orcid, put_code)
         elif section_type == "KWR":
@@ -1995,10 +2083,10 @@ def edit_record(user_id, section_type, put_code=None):
         return redirect(_url)
 
     orcid_token = None
-    if section_type in ["RUR", "ONR", "KWR"]:
+    if section_type in ["RUR", "ONR", "KWR", "ADR", "EXR"]:
         orcid_token = OrcidToken.select(OrcidToken.access_token).where(OrcidToken.user_id == user.id,
                                                                        OrcidToken.org_id == org.id,
-                                                                       OrcidToken.scope.contains(
+                                                                       OrcidToken.scopes.contains(
                                                                            orcid_client.PERSON_UPDATE)).first()
         if not orcid_token:
             flash("The user hasn't given 'PERSON/UPDATE' permission to you to Add/Update these records", "warning")
@@ -2006,7 +2094,7 @@ def edit_record(user_id, section_type, put_code=None):
     else:
         orcid_token = OrcidToken.select(OrcidToken.access_token).where(OrcidToken.user_id == user.id,
                                                                        OrcidToken.org_id == org.id,
-                                                                       OrcidToken.scope.contains(
+                                                                       OrcidToken.scopes.contains(
                                                                            orcid_client.ACTIVITIES_UPDATE)).first()
         if not orcid_token:
             flash("The user hasn't given 'ACTIVITIES/UPDATE' permission to you to Add/Update these records", "warning")
@@ -2022,6 +2110,10 @@ def edit_record(user_id, section_type, put_code=None):
         form = WorkForm(form_type=section_type)
     elif section_type == "RUR":
         form = ResearcherUrlForm(form_type=section_type)
+    elif section_type == "ADR":
+        form = AddressForm(form_type=section_type)
+    elif section_type == "EXR":
+        form = ExternalIdentifierForm(form_type=section_type)
     elif section_type in ["ONR", "KWR"]:
         form = OtherNameKeywordForm(form_type=section_type)
     else:
@@ -2047,10 +2139,14 @@ def edit_record(user_id, section_type, put_code=None):
                     api_response = api.view_researcher_url(user.orcid, put_code, _preload_content=False)
                 elif section_type == "ONR":
                     api_response = api.view_other_name(user.orcid, put_code, _preload_content=False)
+                elif section_type == "ADR":
+                    api_response = api.view_address(user.orcid, put_code, _preload_content=False)
+                elif section_type == "EXR":
+                    api_response = api.view_external_identifier(user.orcid, put_code, _preload_content=False)
                 elif section_type == "KWR":
                     api_response = api.view_keyword(user.orcid, put_code, _preload_content=False)
 
-                if section_type in ["RUR", "ONR", "KWR"]:
+                if section_type in ["RUR", "ONR", "KWR", "ADR", "EXR"]:
                     _data = json.loads(api_response.data, object_pairs_hook=NestedDict)
                 else:
                     _data = api_response.to_dict()
@@ -2127,10 +2223,16 @@ def edit_record(user_id, section_type, put_code=None):
                                                                            "language-code"),
                             subject_url=get_val(_data, "subject_url", "value"),
                             review_completion_date=PartialDate.create(_data.get("review_completion_date")))
-                elif section_type in ["RUR", "ONR", "KWR"]:
+                elif section_type in ["RUR", "ONR", "KWR", "ADR", "EXR"]:
                     data = dict(visibility=_data.get("visibility"), display_index=_data.get("display-index"))
                     if section_type == "RUR":
                         data.update(dict(name=_data.get("url-name"), value=_data.get("url", "value")))
+                    elif section_type == "ADR":
+                        data.update(dict(country=_data.get("country", "value")))
+                    elif section_type == "EXR":
+                        data.update(dict(type=_data.get("external-id-type"), value=_data.get("external-id-value"),
+                                         url=_data.get("external-id-url", "value"),
+                                         relationship=_data.get("external-id-relationship")))
                     else:
                         data.update(dict(content=_data.get("content")))
                 else:
@@ -2234,6 +2336,16 @@ def edit_record(user_id, section_type, put_code=None):
                     put_code=put_code,
                     **{f.name: f.data
                        for f in form})
+            elif section_type == "ADR":
+                put_code, orcid, created = api.create_or_update_address(
+                    put_code=put_code,
+                    **{f.name: f.data
+                       for f in form})
+            elif section_type == "EXR":
+                put_code, orcid, created = api.create_or_update_person_external_id(
+                    put_code=put_code,
+                    **{f.name: f.data
+                       for f in form})
             elif section_type == "KWR":
                 put_code, orcid, created = api.create_or_update_keyword(
                     put_code=put_code,
@@ -2292,7 +2404,7 @@ def section(user_id, section_type="EMP"):
     _url = request.args.get("url") or request.referrer or url_for("viewmembers.index_view")
 
     section_type = section_type.upper()[:3]  # normalize the section type
-    if section_type not in ["EDU", "EMP", "FUN", "PRR", "WOR", "RUR", "ONR", "KWR"]:
+    if section_type not in ["EDU", "EMP", "FUN", "PRR", "WOR", "RUR", "ONR", "KWR", "ADR", "EXR"]:
         flash("Incorrect user profile section", "danger")
         return redirect(_url)
 
@@ -2307,11 +2419,11 @@ def section(user_id, section_type="EMP"):
         return redirect(_url)
 
     orcid_token = None
-    if request.method == "POST" and section_type in ["RUR", "ONR", "KWR"]:
+    if request.method == "POST" and section_type in ["RUR", "ONR", "KWR", "ADR", "EXR"]:
         try:
             orcid_token = OrcidToken.select(OrcidToken.access_token).where(OrcidToken.user_id == user.id,
                                                                            OrcidToken.org_id == user.organisation_id,
-                                                                           OrcidToken.scope.contains(
+                                                                           OrcidToken.scopes.contains(
                                                                                orcid_client.PERSON_UPDATE)).first()
             if orcid_token:
                 flash(
@@ -2370,6 +2482,10 @@ def section(user_id, section_type="EMP"):
             api_response = api_instance.view_researcher_urls(user.orcid, _preload_content=False)
         elif section_type == "ONR":
             api_response = api_instance.view_other_names(user.orcid, _preload_content=False)
+        elif section_type == "ADR":
+            api_response = api_instance.view_addresses(user.orcid, _preload_content=False)
+        elif section_type == "EXR":
+            api_response = api_instance.view_external_identifiers(user.orcid, _preload_content=False)
         elif section_type == "KWR":
             api_response = api_instance.view_keywords(user.orcid, _preload_content=False)
         elif section_type == "FUN":
@@ -2393,7 +2509,7 @@ def section(user_id, section_type="EMP"):
     # TODO: Organisation has access to the employment records
     # TODO: retrieve and tranform for presentation (order, etc)
     try:
-        if section_type in ["EMP", "EDU", "RUR", "ONR", "KWR"]:
+        if section_type in ["EMP", "EDU", "RUR", "ONR", "KWR", "ADR", "EXR"]:
             data = json.loads(api_response.data, object_pairs_hook=NestedDict)
         else:
             data = api_response.to_dict()
@@ -2445,7 +2561,9 @@ def section(user_id, section_type="EMP"):
         records = data.get("education-summary" if section_type == "EDU" else
                            "employment-summary" if section_type == "EMP" else
                            "researcher-url" if section_type == "RUR" else
-                           "keyword" if section_type == "KWR" else "other-name")
+                           "keyword" if section_type == "KWR" else
+                           "address" if section_type == "ADR" else
+                           "external-identifier" if section_type == "EXR" else "other-name")
 
     return render_template(
         "section.html",
@@ -2657,10 +2775,11 @@ def load_researcher_peer_review():
     return render_template("fileUpload.html", form=form, title="Peer Review Info Upload")
 
 
-@app.route("/load/researcher/urls", methods=["GET", "POST"])
+@app.route("/load/researcher/properties/<string:property_type>", methods=["GET", "POST"])
+@app.route("/load/researcher/properties", methods=["GET", "POST"])
 @roles_required(Role.ADMIN)
-def load_researcher_urls():
-    """Preload researcher's url data."""
+def load_properties(property_type=None):
+    """Preload researcher's property data."""
     form = FileUploadForm(extensions=["json", "yaml", "csv", "tsv"])
     if form.validate_on_submit():
         filename = secure_filename(form.file_.data.filename)
@@ -2668,47 +2787,57 @@ def load_researcher_urls():
         try:
             if content_type in ["text/tab-separated-values", "text/csv"] or (
                     filename and filename.lower().endswith(('.csv', '.tsv'))):
-                task = ResearcherUrlRecord.load_from_csv(
-                    read_uploaded_file(form), filename=filename)
+                task = PropertyRecord.load_from_csv(read_uploaded_file(form),
+                                                    filename=filename,
+                                                    file_property_type=property_type)
             else:
-                task = ResearcherUrlRecord.load_from_json(read_uploaded_file(form), filename=filename)
+                task = PropertyRecord.load_from_json(read_uploaded_file(form),
+                                                     filename=filename,
+                                                     file_property_type=property_type)
             flash(f"Successfully loaded {task.record_count} rows.")
-            return redirect(url_for("researcherurlrecord.index_view", task_id=task.id))
+            return redirect(url_for("propertyrecord.index_view", task_id=task.id))
         except Exception as ex:
-            flash(f"Failed to load researcher url record file: {ex}", "danger")
-            app.logger.exception("Failed to load researcher url records.")
+            flash(f"Failed to load researcher property record file: {ex}", "danger")
+            app.logger.exception("Failed to load researcher property records.")
 
-    return render_template("fileUpload.html", form=form, title="Researcher Urls Info Upload")
+    return render_template(
+        "fileUpload.html",
+        form=form,
+        title=f"Researcher {property_type.title() if property_type else 'Property'} Upload")
+
+
+@app.route("/load/researcher/urls", methods=["GET", "POST"])
+@roles_required(Role.ADMIN)
+def load_researcher_urls():
+    """Preload researcher's property data."""
+    return load_properties(property_type="URL")
 
 
 @app.route("/load/other/names", methods=["GET", "POST"])
 @roles_required(Role.ADMIN)
 def load_other_names():
     """Preload Other Name data."""
-    form = FileUploadForm(extensions=["json", "yaml", "csv", "tsv"])
-    if form.validate_on_submit():
-        filename = secure_filename(form.file_.data.filename)
-        content_type = form.file_.data.content_type
-        try:
-            if content_type in ["text/tab-separated-values", "text/csv"] or (
-                    filename and filename.lower().endswith(('.csv', '.tsv'))):
-                task = OtherNameRecord.load_from_csv(
-                    read_uploaded_file(form), filename=filename)
-            else:
-                task = OtherNameRecord.load_from_json(read_uploaded_file(form), filename=filename)
-            flash(f"Successfully loaded {task.record_count} rows.")
-            return redirect(url_for("othernamerecord.index_view", task_id=task.id))
-        except Exception as ex:
-            flash(f"Failed to load Other Name record file: {ex}", "danger")
-            app.logger.exception("Failed to load Other Name records.")
-
-    return render_template("fileUpload.html", form=form, title="Other Names Info Upload")
+    return load_properties(property_type="NAME")
 
 
 @app.route("/load/keyword", methods=["GET", "POST"])
 @roles_required(Role.ADMIN)
 def load_keyword():
     """Preload Keywords data."""
+    return load_properties(property_type="KEYWORD")
+
+
+@app.route("/load/country", methods=["GET", "POST"])
+@roles_required(Role.ADMIN)
+def load_country():
+    """Preload Country data."""
+    return load_properties(property_type="COUNTRY")
+
+
+@app.route("/load/other/ids", methods=["GET", "POST"])
+@roles_required(Role.ADMIN)
+def load_other_ids():
+    """Preload researcher's Other IDs data."""
     form = FileUploadForm(extensions=["json", "yaml", "csv", "tsv"])
     if form.validate_on_submit():
         filename = secure_filename(form.file_.data.filename)
@@ -2716,34 +2845,17 @@ def load_keyword():
         try:
             if content_type in ["text/tab-separated-values", "text/csv"] or (
                     filename and filename.lower().endswith(('.csv', '.tsv'))):
-                task = KeywordRecord.load_from_csv(
-                    read_uploaded_file(form), filename=filename, task_type=TaskType.KEYWORD)
+                task = OtherIdRecord.load_from_csv(
+                    read_uploaded_file(form), filename=filename)
             else:
-                task = KeywordRecord.load_from_json(
-                    read_uploaded_file(form), filename=filename, task_type=TaskType.KEYWORD)
+                task = OtherIdRecord.load_from_json(read_uploaded_file(form), filename=filename)
             flash(f"Successfully loaded {task.record_count} rows.")
-            return redirect(url_for("keywordrecord.index_view", task_id=task.id))
+            return redirect(url_for("otheridrecord.index_view", task_id=task.id))
         except Exception as ex:
-            flash(f"Failed to load Keyword record file: {ex}", "danger")
-            app.logger.exception("Failed to load Keyword records.")
+            flash(f"Failed to load Other IDs record file: {ex}", "danger")
+            app.logger.exception("Failed to load  Other IDs records.")
 
-    return render_template("fileUpload.html", form=form, title="Keyword Info Upload")
-
-
-@app.route("/orcid_api_rep", methods=["GET", "POST"])
-@roles_required(Role.SUPERUSER)
-def orcid_api_rep():
-    """Show ORCID API invocation report."""
-    data = db.execute_sql("""
-    WITH rd AS (
-        SELECT date_trunc("minute", call_datetime) AS d, count(*) AS c
-        FROM orcid_api_call
-        GROUP BY date_trunc("minute", call_datetime))
-    SELECT date_trunc("day", d) AS d, max(c) AS c
-    FROM rd GROUP BY DATE_TRUNC("day", d) ORDER BY 1
-    """).fetchall()
-
-    return render_template("orcid_api_call_report.html", data=data)
+    return render_template("fileUpload.html", form=form, title="Other IDs Info Upload")
 
 
 def register_org(org_name,
@@ -2994,7 +3106,7 @@ def invite_user():
         invited_user = User.select().where(User.email == email).first()
         if (invited_user and OrcidToken.select().where(
             (OrcidToken.user_id == invited_user.id) & (OrcidToken.org_id == org.id)
-                & (OrcidToken.scope.contains("/activities/update"))).exists()):
+                & (OrcidToken.scopes.contains("/activities/update"))).exists()):
             try:
                 if affiliations & (Affiliation.EMP | Affiliation.EDU):
                     api = orcid_client.MemberAPI(org, invited_user)

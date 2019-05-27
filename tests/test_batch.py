@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """Tests for batch processing."""
 from datetime import datetime
+import os
 from unittest.mock import Mock, patch
 
 import pytest
@@ -9,11 +10,7 @@ from peewee import Model, SqliteDatabase
 from playhouse.test_utils import test_database
 
 from orcid_hub import utils
-from orcid_hub.models import (Affiliation, AffiliationRecord, ModelException, OrcidToken,
-                              Organisation, OrgInfo, PartialDate, PartialDateField, Role, Task,
-                              TaskType, User, UserOrg, UserOrgAffiliation, create_tables,
-                              drop_tables)
-
+from orcid_hub.models import *
 
 def test_process_task_from_csv_with_failures(request_ctx):
     """Test task loading and processing with failures."""
@@ -108,7 +105,7 @@ def test_process_tasks(request_ctx):
             filename="FUNDING.json",
             created_by=super_user,
             updated_by=super_user,
-            task_type=TaskType.FUNDING.value)
+            task_type=TaskType.FUNDING)
 
         Task.update(updated_at=datetime(1999, 1, 1)).execute()
         assert Task.select().where(Task.expires_at.is_null()).count() == 1
@@ -157,3 +154,37 @@ def test_process_tasks(request_ctx):
             utils.process_tasks()
             utils.process_tasks()
             assert Task.select().count() == 0
+
+
+def test_enqueue_user_records(client, mocker):
+    """Test user related record enqueing."""
+
+    mocker.patch("orcid_hub.utils.send_email")
+    data_dir = os.path.join(os.path.dirname(__file__), "data")
+    raw_data = open(os.path.join(data_dir, "example_works.json"), "r").read()
+
+    user = User.select().join(OrcidToken).where(User.orcid.is_null(False)).first()
+    org = user.organisation
+    admin = org.admins.first()
+    client.login(admin)
+
+    task = WorkRecord.load_from_json(raw_data, filename="works.json", org=org)
+    WorkInvitee.update(email=user.email, orcid=user.orcid).execute()
+    WorkRecord.update(is_active=True).execute()
+
+    raw_data = open(os.path.join(data_dir, "example_peer_reviews.json"), "r").read()
+    task = PeerReviewRecord.load_from_json(raw_data, filename="example_peer_reviews.json", org=org)
+    PeerReviewRecord.update(is_active=True).execute()
+    PeerReviewInvitee.update(email=user.email, orcid=user.orcid).execute()
+
+    task = Task.create(org=org, task_type=TaskType.AFFILIATION, filename="affiliations.csv")
+    AffiliationRecord.insert_many(
+        dict(task_id=task.id,
+             is_active=True,
+             email=user.email,
+             orcid=user.orcid,
+             affiliation_type="student" if i % 2 else "staff",
+             organisation=org.name,
+             role=f"ROLE #{i}") for i in range(1, 100))
+
+    utils.enqueue_user_records(user)

@@ -13,9 +13,10 @@ import pytest
 from orcid_hub.apis import yamlfy
 from orcid_hub.data_apis import plural
 from orcid_hub.models import (AffiliationRecord, Client, OrcidToken, Organisation, Task, TaskType,
-                              Token, User)
+                              Token, User, UserInvitation)
 
 from unittest.mock import patch, MagicMock
+from tests import utils
 
 
 def test_plural():
@@ -177,8 +178,9 @@ def test_user_and_token_api(client, resource, version):
             assert resp.json["eppn"] == user.eppn
             assert resp.json["orcid"] == user.orcid
         else:
+            data = resp.json[0]
             token = OrcidToken.get(user_id=user.id)
-            assert resp.json["access_token"] == token.access_token
+            assert data["access_token"] == token.access_token
 
     if resource == "users":  # test user listing
         resp = client.get(
@@ -243,12 +245,102 @@ def test_user_and_token_api(client, resource, version):
             resp = client.get(
                     f"/api/{version}/tokens/{identifier}",
                     headers=dict(authorization="Bearer TEST"))
-            assert resp.status_code == 404
-            assert "error" in resp.json
+            assert resp.status_code == 200
+            assert resp.json == []
 
-    resp = client.get(
-            f"/api/{version}/{resource}/{org2_user.email}",
-            headers=dict(authorization="Bearer TEST"))
+        OrcidToken.delete().where(OrcidToken.user == user).execute()
+        for identifier in [
+                user2.email,
+                user2.orcid,
+        ]:
+            resp = client.post(f"/api/{version}/tokens/{identifier}",
+                               data=json.dumps({
+                                   "access_token": "ERROR",
+                                   "expires_in": 631138518,
+                                   "issue_time": "2018-09-11T00:31:50.534013",
+                                   "refresh_token": "5f9d7d7a-b8ff-4744-ab9d-4006d2a2383c",
+                                   "scopes": "/read-limited,/activities/update",
+                               }),
+                               content_type="application/json",
+                               headers=dict(authorization="Bearer TEST"))
+            assert resp.status_code == 400
+            assert "error" in resp.json
+            assert not OrcidToken.select().where(OrcidToken.user == user).exists()
+
+            resp = client.post(f"/api/{version}/tokens/{identifier}",
+                               data=json.dumps({
+                                   "access_token": "4614050b-3a27-4793-a964-f3f3712e18b2",
+                                   "expires_in": "ERROR",
+                                   "issue_time": "2018-09-11T00:31:50.534013",
+                                   "refresh_token": "5f9d7d7a-b8ff-4744-ab9d-4006d2a2383c",
+                                   "scopes": "/read-limited,/activities/update",
+                               }),
+                               content_type="application/json",
+                               headers=dict(authorization="Bearer TEST"))
+            assert resp.status_code == 400
+            assert "error" in resp.json
+            assert not OrcidToken.select().where(OrcidToken.user == user).exists()
+
+            resp = client.post(f"/api/{version}/tokens/{identifier}",
+                               data=json.dumps({
+                                   "access_token": "4614050b-3a27-4793-a964-f3f3712e18b2",
+                                   "expires_in": 9999999,
+                                   "issue_time": "ERROR",
+                                   "refresh_token": "5f9d7d7a-b8ff-4744-ab9d-4006d2a2383c",
+                                   "scopes": "/read-limited,/activities/update",
+                               }),
+                               content_type="application/json",
+                               headers=dict(authorization="Bearer TEST"))
+            assert resp.status_code == 400
+            assert "error" in resp.json
+            assert not OrcidToken.select().where(OrcidToken.user == user).exists()
+
+            resp = client.post(f"/api/{version}/tokens/{identifier}",
+                               data=json.dumps({
+                                   "access_token": "4614050b-3a27-4793-a964-f3f3712e18b2",
+                                   "expires_in": 9999999,
+                                   "issue_time": "2018-09-11T00:31:50.534013",
+                                   "refresh_token": "ERROR",
+                                   "scopes": "/read-limited,/activities/update",
+                               }),
+                               content_type="application/json",
+                               headers=dict(authorization="Bearer TEST"))
+            assert resp.status_code == 400
+            assert "error" in resp.json
+            assert not OrcidToken.select().where(OrcidToken.user == user).exists()
+
+            resp = client.post(f"/api/{version}/tokens/{identifier}",
+                               data=json.dumps({
+                                   "access_token": "4614050b-3a27-4793-a964-f3f3712e18b2",
+                                   "expires_in": 9999999,
+                                   "issue_time": "2018-09-11T00:31:50.534013",
+                                   "refresh_token": "5f9d7d7a-b8ff-4744-ab9d-4006d2a2383c",
+                                   "scopes": "ERROR",
+                               }),
+                               content_type="application/json",
+                               headers=dict(authorization="Bearer TEST"))
+            assert resp.status_code == 400
+            assert "error" in resp.json
+            assert not OrcidToken.select().where(OrcidToken.user == user).exists()
+
+            resp = client.post(f"/api/{version}/tokens/{identifier}",
+                               data=json.dumps({
+                                   "access_token": "4614050b-3a27-4793-a964-f3f3712e18b2",
+                                   "expires_in": 9999999,
+                                   "issue_time": "2018-09-11T00:31:50.534013",
+                                   "refresh_token": "5f9d7d7a-b8ff-4744-ab9d-4006d2a2383c",
+                                   "scopes": "/read-limited,/activities/update",
+                               }),
+                               content_type="application/json",
+                               headers=dict(authorization="Bearer TEST"))
+
+            assert resp.status_code == 201
+            assert OrcidToken.select().where(OrcidToken.user == user2).count() == 1
+
+            OrcidToken.delete().where(OrcidToken.user == user2).execute()
+
+    resp = client.get(f"/api/{version}/{resource}/{org2_user.email}",
+                      headers=dict(authorization="Bearer TEST"))
     assert resp.status_code == 404
     assert "error" in resp.json
 
@@ -1039,3 +1131,108 @@ def test_proxy_get_profile(client):
         "/orcid/api/v2.23/0000-0000-0000-11X2/PATH",
         headers=dict(authorization=f"Bearer {token.access_token}"))
     assert resp.status_code == 403
+
+
+def test_property_api(client, mocker):
+    """Test property API in various formats."""
+    data_path = os.path.join(os.path.dirname(__file__), "data")
+    admin = client.data.get("admin")
+    resp = client.login(admin, follow_redirects=True)
+    resp = client.post("/load/researcher/properties",
+                       data={
+                           "file_": (open(os.path.join(data_path, "properties.csv"),
+                                          "rb"), "properties042.csv"),
+                       },
+                       follow_redirects=True)
+    assert resp.status_code == 200
+    assert Task.select().count() == 1
+
+    access_token = client.get_access_token()
+
+    resp = client.get("/api/v1.0/tasks?type=PROPERTY",
+                      headers=dict(authorization=f"Bearer {access_token}"))
+    data = json.loads(resp.data)
+    task_id = int(data[0]["id"])
+
+    resp = client.get(f"/api/v1.0/properties/{task_id}",
+                      headers=dict(authorization=f"Bearer {access_token}"))
+    data = json.loads(resp.data)
+    assert len(data["records"]) == 19
+    assert data["filename"] == "properties042.csv"
+
+    del (data["id"])
+    resp = client.post("/api/v1.0/properties/?filename=properties333.json",
+                       headers=dict(authorization=f"Bearer {access_token}"),
+                       content_type="application/json",
+                       data=json.dumps(data))
+    assert resp.status_code == 200
+    assert Task.select().count() == 2
+
+    records = data["records"]
+    resp = client.post("/api/v1.0/properties/?filename=properties444.json",
+                       headers=dict(authorization=f"Bearer {access_token}"),
+                       content_type="application/json",
+                       data=json.dumps(records))
+    assert resp.status_code == 200
+    assert Task.select().count() == 3
+
+    resp = client.post("/api/v1.0/properties",
+                       headers=dict(authorization=f"Bearer {access_token}"),
+                       content_type="application/json",
+                       data=json.dumps(records))
+    assert resp.status_code == 200
+    assert Task.select().count() == 4
+
+    resp = client.post(f"/api/v1.0/properties/{task_id}",
+                       headers=dict(authorization=f"Bearer {access_token}"),
+                       content_type="application/json",
+                       data=json.dumps(records))
+    assert resp.status_code == 200
+    assert Task.select().count() == 4
+
+    resp = client.head(f"/api/v1.0/properties/{task_id}",
+                       headers=dict(authorization=f"Bearer {access_token}"))
+    assert "Last-Modified" in resp.headers
+    assert resp.status_code == 200
+
+    resp = client.delete(f"/api/v1.0/properties/{task_id}",
+                         headers=dict(authorization=f"Bearer {access_token}"))
+
+    resp = client.post("/api/v1.0/properties/?filename=properties333.csv",
+                       headers=dict(authorization=f"Bearer {access_token}"),
+                       content_type="text/csv",
+                       data=open(os.path.join(data_path, "properties.csv")).read())
+    assert resp.status_code == 200
+    assert Task.select().count() == 4
+
+    resp = client.post("/api/v1.0/properties/?filename=properties333.json",
+                       headers=dict(authorization=f"Bearer {access_token}"),
+                       content_type="application/json",
+                       data=open(os.path.join(data_path, "properties.json")).read())
+    assert resp.status_code == 200
+    assert Task.select().count() == 5
+
+    user = User.get(orcid="0000-0000-0000-00X3")
+    OrcidToken.create(user=user, org=user.organisation, scopes="/person/update")
+    get_profile = mocker.patch("orcid_hub.orcid_client.MemberAPI.get_record", return_value=utils.get_profile(user=user))
+    send_email = mocker.patch("orcid_hub.utils.send_email")
+    create_or_update_researcher_url = mocker.patch("orcid_hub.orcid_client.MemberAPI.create_or_update_researcher_url")
+    create_or_update_other_name = mocker.patch("orcid_hub.orcid_client.MemberAPI.create_or_update_other_name")
+    create_or_update_address = mocker.patch("orcid_hub.orcid_client.MemberAPI.create_or_update_address")
+    create_or_update_keyword = mocker.patch("orcid_hub.orcid_client.MemberAPI.create_or_update_keyword")
+    for r in records:
+        del(r["id"])
+        r["is-active"] = True
+    resp = client.post("/api/v1.0/properties/?filename=properties777.json",
+                       headers=dict(authorization=f"Bearer {access_token}"),
+                       content_type="application/json",
+                       data=json.dumps(records))
+    assert resp.status_code == 200
+    assert Task.select().count() == 6
+    assert UserInvitation.select().count() == 7
+    get_profile.assert_called()
+    send_email.assert_called()
+    create_or_update_researcher_url.assert_called_once()
+    create_or_update_other_name.assert_called_once()
+    create_or_update_keyword.assert_called_once()
+    create_or_update_address.assert_called()
