@@ -331,6 +331,78 @@ def test_user_and_token_api(client, resource, version):
                 content_type="application/x-yaml")
         assert resp.status_code == 400
 
+        resp = client.put(
+                f"/api/{version}/users/1906-2906-3906-00X3",
+                headers=dict(authorization="Bearer TEST"),
+                data=yaml.dump({"email": "a_new_different_email_address@org.ac.nz"}),
+                content_type="application/x-yaml")
+        assert resp.status_code == 200
+        assert resp.json["email"] == "a_new_different_email_address@org.ac.nz"
+        assert User.get(orcid="1906-2906-3906-00X3").email == "a_new_different_email_address@org.ac.nz"
+
+        User.update(confirmed=True).where(User.orcid == "1906-2906-3906-00X3")
+        resp = client.patch(
+                f"/api/{version}/users/a_new_different_email_address@org.ac.nz",
+                headers=dict(authorization="Bearer TEST"),
+                data=yaml.dump({"confirmed": False}),
+                content_type="application/x-yaml")
+        assert resp.status_code == 200
+        assert resp.json["email"] == "a_new_different_email_address@org.ac.nz"
+        assert not User.get(orcid="1906-2906-3906-00X3").confirmed
+
+        resp = client.patch(
+                f"/api/{version}/users/NON-EXISTING",
+                headers=dict(authorization="Bearer TEST"),
+                data=yaml.dump({"confirmed": False}),
+                content_type="application/x-yaml")
+        assert resp.status_code == 400
+
+        resp = client.patch(
+                f"/api/{version}/users/non-existing@correct.email.com",
+                headers=dict(authorization="Bearer TEST"),
+                data=yaml.dump({"confirmed": False}),
+                content_type="application/x-yaml")
+        assert resp.status_code == 404
+
+        resp = client.patch(
+                f"/api/{version}/users/0000-0001-9436-9121",
+                headers=dict(authorization="Bearer TEST"),
+                data=yaml.dump({"confirmed": False}),
+                content_type="application/x-yaml")
+        assert resp.status_code == 404
+
+        resp = client.patch(
+                f"/api/{version}/users/0000-0001-9436-XXXX",
+                headers=dict(authorization="Bearer TEST"),
+                data=yaml.dump({"confirmed": False}),
+                content_type="application/x-yaml")
+        assert resp.status_code == 400
+
+        resp = client.delete(
+                f"/api/{version}/users/0000-0001-9436-XXXX",
+                headers=dict(authorization="Bearer TEST"),
+                content_type="application/x-yaml")
+        assert resp.status_code == 400
+
+        resp = client.delete(
+                f"/api/{version}/users/0000-0001-9436-9121",
+                headers=dict(authorization="Bearer TEST"),
+                content_type="application/x-yaml")
+        assert resp.status_code == 404
+
+        resp = client.delete(
+                f"/api/{version}/users/1906-2906-3906-00X3",
+                headers=dict(authorization="Bearer TEST"),
+                content_type="application/x-yaml")
+        assert resp.status_code == 204
+
+        resp = client.delete(
+                f"/api/{version}/users/and_now_something@different.ac.nz",
+                headers=dict(authorization="Bearer TEST"),
+                content_type="application/x-yaml")
+        assert resp.status_code == 204
+        assert not User.select().where(User.email == "and_now_something@different.ac.nz").exists()
+
     if resource == "tokens":
         user2 = User.get(email="researcher2@test0.edu")
         for identifier in [
