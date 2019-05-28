@@ -716,7 +716,8 @@ class RecordModelView(AppModelView):
     def action_activate(self, ids):
         """Batch registraion of users."""
         try:
-            count = self.model.update(is_active=True).where(
+            status = "The record was activated at " + datetime.now().isoformat(timespec="seconds")
+            count = self.model.update(is_active=True, status=status).where(
                 self.model.is_active == False,  # noqa: E712
                 self.model.id.in_(ids)).execute()
             if self.model == AffiliationRecord:
@@ -1933,7 +1934,8 @@ def activate_all():
     task_id = request.form.get("task_id")
     task = Task.get(task_id)
     try:
-        count = task.record_model.update(is_active=True).where(
+        status = "The record was activated at " + datetime.now().isoformat(timespec="seconds")
+        count = task.record_model.update(is_active=True, status=status).where(
             task.record_model.task_id == task_id,
             task.record_model.is_active == False).execute()  # noqa: E712
         utils.enqueue_task_records(task)
