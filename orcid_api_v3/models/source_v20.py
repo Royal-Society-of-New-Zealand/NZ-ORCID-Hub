@@ -14,9 +14,9 @@ import pprint
 import re  # noqa: F401
 
 import six
-from swagger_client.models.source_client_id_v20 import SourceClientIdV20  # noqa: F401,E501
-from swagger_client.models.source_name_v20 import SourceNameV20  # noqa: F401,E501
-from swagger_client.models.source_orcid_v20 import SourceOrcidV20  # noqa: F401,E501
+from orcid_api_v3.models.source_client_id_v20 import SourceClientIdV20  # noqa: F401,E501
+from orcid_api_v3.models.source_name_v20 import SourceNameV20  # noqa: F401,E501
+from orcid_api_v3.models.source_orcid_v20 import SourceOrcidV20  # noqa: F401,E501
 
 
 class SourceV20(object):

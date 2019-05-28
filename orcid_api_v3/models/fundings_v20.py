@@ -14,8 +14,8 @@ import pprint
 import re  # noqa: F401
 
 import six
-from swagger_client.models.funding_group_v20 import FundingGroupV20  # noqa: F401,E501
-from swagger_client.models.last_modified_date_v20 import LastModifiedDateV20  # noqa: F401,E501
+from orcid_api_v3.models.funding_group_v20 import FundingGroupV20  # noqa: F401,E501
+from orcid_api_v3.models.last_modified_date_v20 import LastModifiedDateV20  # noqa: F401,E501
 
 
 class FundingsV20(object):

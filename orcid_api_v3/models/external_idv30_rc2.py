@@ -14,9 +14,9 @@ import pprint
 import re  # noqa: F401
 
 import six
-from swagger_client.models.transient_error import TransientError  # noqa: F401,E501
-from swagger_client.models.transient_non_empty_string import TransientNonEmptyString  # noqa: F401,E501
-from swagger_client.models.url_v30_rc2 import UrlV30Rc2  # noqa: F401,E501
+from orcid_api_v3.models.transient_error import TransientError  # noqa: F401,E501
+from orcid_api_v3.models.transient_non_empty_string import TransientNonEmptyString  # noqa: F401,E501
+from orcid_api_v3.models.url_v30_rc2 import UrlV30Rc2  # noqa: F401,E501
 
 
 class ExternalIDV30Rc2(object):

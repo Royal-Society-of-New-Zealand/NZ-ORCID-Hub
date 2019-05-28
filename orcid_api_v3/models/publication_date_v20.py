@@ -14,9 +14,9 @@ import pprint
 import re  # noqa: F401
 
 import six
-from swagger_client.models.day_v20 import DayV20  # noqa: F401,E501
-from swagger_client.models.month_v20 import MonthV20  # noqa: F401,E501
-from swagger_client.models.year_v20 import YearV20  # noqa: F401,E501
+from orcid_api_v3.models.day_v20 import DayV20  # noqa: F401,E501
+from orcid_api_v3.models.month_v20 import MonthV20  # noqa: F401,E501
+from orcid_api_v3.models.year_v20 import YearV20  # noqa: F401,E501
 
 
 class PublicationDateV20(object):

@@ -14,7 +14,7 @@ import pprint
 import re  # noqa: F401
 
 import six
-from swagger_client.models.orcid_identifier_v30 import OrcidIdentifierV30  # noqa: F401,E501
+from orcid_api_v3.models.orcid_identifier_v30 import OrcidIdentifierV30  # noqa: F401,E501
 
 
 class ResultV30(object):

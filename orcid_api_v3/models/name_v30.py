@@ -14,12 +14,12 @@ import pprint
 import re  # noqa: F401
 
 import six
-from swagger_client.models.created_date_v30 import CreatedDateV30  # noqa: F401,E501
-from swagger_client.models.credit_name_v30 import CreditNameV30  # noqa: F401,E501
-from swagger_client.models.family_name_v30 import FamilyNameV30  # noqa: F401,E501
-from swagger_client.models.given_names_v30 import GivenNamesV30  # noqa: F401,E501
-from swagger_client.models.last_modified_date_v30 import LastModifiedDateV30  # noqa: F401,E501
-from swagger_client.models.source_v30 import SourceV30  # noqa: F401,E501
+from orcid_api_v3.models.created_date_v30 import CreatedDateV30  # noqa: F401,E501
+from orcid_api_v3.models.credit_name_v30 import CreditNameV30  # noqa: F401,E501
+from orcid_api_v3.models.family_name_v30 import FamilyNameV30  # noqa: F401,E501
+from orcid_api_v3.models.given_names_v30 import GivenNamesV30  # noqa: F401,E501
+from orcid_api_v3.models.last_modified_date_v30 import LastModifiedDateV30  # noqa: F401,E501
+from orcid_api_v3.models.source_v30 import SourceV30  # noqa: F401,E501
 
 
 class NameV30(object):

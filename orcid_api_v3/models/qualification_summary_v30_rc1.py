@@ -14,13 +14,13 @@ import pprint
 import re  # noqa: F401
 
 import six
-from swagger_client.models.created_date_v30_rc1 import CreatedDateV30Rc1  # noqa: F401,E501
-from swagger_client.models.external_i_ds_v30_rc1 import ExternalIDsV30Rc1  # noqa: F401,E501
-from swagger_client.models.fuzzy_date_v30_rc1 import FuzzyDateV30Rc1  # noqa: F401,E501
-from swagger_client.models.last_modified_date_v30_rc1 import LastModifiedDateV30Rc1  # noqa: F401,E501
-from swagger_client.models.organization_v30_rc1 import OrganizationV30Rc1  # noqa: F401,E501
-from swagger_client.models.source_v30_rc1 import SourceV30Rc1  # noqa: F401,E501
-from swagger_client.models.url_v30_rc1 import UrlV30Rc1  # noqa: F401,E501
+from orcid_api_v3.models.created_date_v30_rc1 import CreatedDateV30Rc1  # noqa: F401,E501
+from orcid_api_v3.models.external_i_ds_v30_rc1 import ExternalIDsV30Rc1  # noqa: F401,E501
+from orcid_api_v3.models.fuzzy_date_v30_rc1 import FuzzyDateV30Rc1  # noqa: F401,E501
+from orcid_api_v3.models.last_modified_date_v30_rc1 import LastModifiedDateV30Rc1  # noqa: F401,E501
+from orcid_api_v3.models.organization_v30_rc1 import OrganizationV30Rc1  # noqa: F401,E501
+from orcid_api_v3.models.source_v30_rc1 import SourceV30Rc1  # noqa: F401,E501
+from orcid_api_v3.models.url_v30_rc1 import UrlV30Rc1  # noqa: F401,E501
 
 
 class QualificationSummaryV30Rc1(object):

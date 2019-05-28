@@ -14,11 +14,11 @@ import pprint
 import re  # noqa: F401
 
 import six
-from swagger_client.models.completion_date_v30_rc2 import CompletionDateV30Rc2  # noqa: F401,E501
-from swagger_client.models.deactivation_date_v30_rc2 import DeactivationDateV30Rc2  # noqa: F401,E501
-from swagger_client.models.last_modified_date_v30_rc2 import LastModifiedDateV30Rc2  # noqa: F401,E501
-from swagger_client.models.source_v30_rc2 import SourceV30Rc2  # noqa: F401,E501
-from swagger_client.models.submission_date_v30_rc2 import SubmissionDateV30Rc2  # noqa: F401,E501
+from orcid_api_v3.models.completion_date_v30_rc2 import CompletionDateV30Rc2  # noqa: F401,E501
+from orcid_api_v3.models.deactivation_date_v30_rc2 import DeactivationDateV30Rc2  # noqa: F401,E501
+from orcid_api_v3.models.last_modified_date_v30_rc2 import LastModifiedDateV30Rc2  # noqa: F401,E501
+from orcid_api_v3.models.source_v30_rc2 import SourceV30Rc2  # noqa: F401,E501
+from orcid_api_v3.models.submission_date_v30_rc2 import SubmissionDateV30Rc2  # noqa: F401,E501
 
 
 class HistoryV30Rc2(object):

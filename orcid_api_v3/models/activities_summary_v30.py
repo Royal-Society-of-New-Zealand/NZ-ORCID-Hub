@@ -14,18 +14,18 @@ import pprint
 import re  # noqa: F401
 
 import six
-from swagger_client.models.distinctions_summary_v30 import DistinctionsSummaryV30  # noqa: F401,E501
-from swagger_client.models.educations_summary_v30 import EducationsSummaryV30  # noqa: F401,E501
-from swagger_client.models.employments_summary_v30 import EmploymentsSummaryV30  # noqa: F401,E501
-from swagger_client.models.fundings_v30 import FundingsV30  # noqa: F401,E501
-from swagger_client.models.invited_positions_v30 import InvitedPositionsV30  # noqa: F401,E501
-from swagger_client.models.last_modified_date_v30 import LastModifiedDateV30  # noqa: F401,E501
-from swagger_client.models.memberships_v30 import MembershipsV30  # noqa: F401,E501
-from swagger_client.models.peer_reviews_v30 import PeerReviewsV30  # noqa: F401,E501
-from swagger_client.models.qualifications_v30 import QualificationsV30  # noqa: F401,E501
-from swagger_client.models.research_resources_v30 import ResearchResourcesV30  # noqa: F401,E501
-from swagger_client.models.services_v30 import ServicesV30  # noqa: F401,E501
-from swagger_client.models.works_summary_v30 import WorksSummaryV30  # noqa: F401,E501
+from orcid_api_v3.models.distinctions_summary_v30 import DistinctionsSummaryV30  # noqa: F401,E501
+from orcid_api_v3.models.educations_summary_v30 import EducationsSummaryV30  # noqa: F401,E501
+from orcid_api_v3.models.employments_summary_v30 import EmploymentsSummaryV30  # noqa: F401,E501
+from orcid_api_v3.models.fundings_v30 import FundingsV30  # noqa: F401,E501
+from orcid_api_v3.models.invited_positions_v30 import InvitedPositionsV30  # noqa: F401,E501
+from orcid_api_v3.models.last_modified_date_v30 import LastModifiedDateV30  # noqa: F401,E501
+from orcid_api_v3.models.memberships_v30 import MembershipsV30  # noqa: F401,E501
+from orcid_api_v3.models.peer_reviews_v30 import PeerReviewsV30  # noqa: F401,E501
+from orcid_api_v3.models.qualifications_v30 import QualificationsV30  # noqa: F401,E501
+from orcid_api_v3.models.research_resources_v30 import ResearchResourcesV30  # noqa: F401,E501
+from orcid_api_v3.models.services_v30 import ServicesV30  # noqa: F401,E501
+from orcid_api_v3.models.works_summary_v30 import WorksSummaryV30  # noqa: F401,E501
 
 
 class ActivitiesSummaryV30(object):

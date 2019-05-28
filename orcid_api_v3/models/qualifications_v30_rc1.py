@@ -14,8 +14,8 @@ import pprint
 import re  # noqa: F401
 
 import six
-from swagger_client.models.affiliation_group_v30_rc1_qualification_summary_v30_rc1 import AffiliationGroupV30Rc1QualificationSummaryV30Rc1  # noqa: F401,E501
-from swagger_client.models.last_modified_date_v30_rc1 import LastModifiedDateV30Rc1  # noqa: F401,E501
+from orcid_api_v3.models.affiliation_group_v30_rc1_qualification_summary_v30_rc1 import AffiliationGroupV30Rc1QualificationSummaryV30Rc1  # noqa: F401,E501
+from orcid_api_v3.models.last_modified_date_v30_rc1 import LastModifiedDateV30Rc1  # noqa: F401,E501
 
 
 class QualificationsV30Rc1(object):

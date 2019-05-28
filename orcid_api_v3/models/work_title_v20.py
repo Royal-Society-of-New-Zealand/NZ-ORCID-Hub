@@ -14,9 +14,9 @@ import pprint
 import re  # noqa: F401
 
 import six
-from swagger_client.models.subtitle_v20 import SubtitleV20  # noqa: F401,E501
-from swagger_client.models.title_v20 import TitleV20  # noqa: F401,E501
-from swagger_client.models.translated_title_v20 import TranslatedTitleV20  # noqa: F401,E501
+from orcid_api_v3.models.subtitle_v20 import SubtitleV20  # noqa: F401,E501
+from orcid_api_v3.models.title_v20 import TitleV20  # noqa: F401,E501
+from orcid_api_v3.models.translated_title_v20 import TranslatedTitleV20  # noqa: F401,E501
 
 
 class WorkTitleV20(object):

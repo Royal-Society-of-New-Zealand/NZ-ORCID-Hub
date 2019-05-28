@@ -22,9 +22,9 @@ import tempfile
 import six
 from six.moves.urllib.parse import quote
 
-from swagger_client.configuration import Configuration
-import swagger_client.models
-from swagger_client import rest
+from orcid_api_v3.configuration import Configuration
+import orcid_api_v3.models
+from orcid_api_v3 import rest
 
 
 class ApiClient(object):
@@ -257,7 +257,7 @@ class ApiClient(object):
             if klass in self.NATIVE_TYPES_MAPPING:
                 klass = self.NATIVE_TYPES_MAPPING[klass]
             else:
-                klass = getattr(swagger_client.models, klass)
+                klass = getattr(orcid_api_v3.models, klass)
 
         if klass in self.PRIMITIVE_TYPES:
             return self.__deserialize_primitive(data, klass)

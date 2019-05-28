@@ -14,7 +14,7 @@ import pprint
 import re  # noqa: F401
 
 import six
-from swagger_client.models.bulk_element import BulkElement  # noqa: F401,E501
+from orcid_api_v3.models.bulk_element import BulkElement  # noqa: F401,E501
 
 
 class WorkBulkV30(object):

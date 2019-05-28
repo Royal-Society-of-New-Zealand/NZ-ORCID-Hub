@@ -14,10 +14,10 @@ import pprint
 import re  # noqa: F401
 
 import six
-from swagger_client.models.created_date_v30_rc2 import CreatedDateV30Rc2  # noqa: F401,E501
-from swagger_client.models.last_modified_date_v30_rc2 import LastModifiedDateV30Rc2  # noqa: F401,E501
-from swagger_client.models.research_resource_proposal_v30_rc2 import ResearchResourceProposalV30Rc2  # noqa: F401,E501
-from swagger_client.models.source_v30_rc2 import SourceV30Rc2  # noqa: F401,E501
+from orcid_api_v3.models.created_date_v30_rc2 import CreatedDateV30Rc2  # noqa: F401,E501
+from orcid_api_v3.models.last_modified_date_v30_rc2 import LastModifiedDateV30Rc2  # noqa: F401,E501
+from orcid_api_v3.models.research_resource_proposal_v30_rc2 import ResearchResourceProposalV30Rc2  # noqa: F401,E501
+from orcid_api_v3.models.source_v30_rc2 import SourceV30Rc2  # noqa: F401,E501
 
 
 class ResearchResourceSummaryV30Rc2(object):

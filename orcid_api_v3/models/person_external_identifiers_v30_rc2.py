@@ -14,8 +14,8 @@ import pprint
 import re  # noqa: F401
 
 import six
-from swagger_client.models.last_modified_date_v30_rc2 import LastModifiedDateV30Rc2  # noqa: F401,E501
-from swagger_client.models.person_external_identifier_v30_rc2 import PersonExternalIdentifierV30Rc2  # noqa: F401,E501
+from orcid_api_v3.models.last_modified_date_v30_rc2 import LastModifiedDateV30Rc2  # noqa: F401,E501
+from orcid_api_v3.models.person_external_identifier_v30_rc2 import PersonExternalIdentifierV30Rc2  # noqa: F401,E501
 
 
 class PersonExternalIdentifiersV30Rc2(object):

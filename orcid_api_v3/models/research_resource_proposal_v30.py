@@ -14,11 +14,11 @@ import pprint
 import re  # noqa: F401
 
 import six
-from swagger_client.models.external_i_ds_v30 import ExternalIDsV30  # noqa: F401,E501
-from swagger_client.models.fuzzy_date_v30 import FuzzyDateV30  # noqa: F401,E501
-from swagger_client.models.research_resource_hosts_v30 import ResearchResourceHostsV30  # noqa: F401,E501
-from swagger_client.models.research_resource_title_v30 import ResearchResourceTitleV30  # noqa: F401,E501
-from swagger_client.models.url_v30 import UrlV30  # noqa: F401,E501
+from orcid_api_v3.models.external_i_ds_v30 import ExternalIDsV30  # noqa: F401,E501
+from orcid_api_v3.models.fuzzy_date_v30 import FuzzyDateV30  # noqa: F401,E501
+from orcid_api_v3.models.research_resource_hosts_v30 import ResearchResourceHostsV30  # noqa: F401,E501
+from orcid_api_v3.models.research_resource_title_v30 import ResearchResourceTitleV30  # noqa: F401,E501
+from orcid_api_v3.models.url_v30 import UrlV30  # noqa: F401,E501
 
 
 class ResearchResourceProposalV30(object):

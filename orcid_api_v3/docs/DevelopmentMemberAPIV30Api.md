@@ -1,4 +1,4 @@
-# swagger_client.DevelopmentMemberAPIV30Api
+# orcid_api_v3.DevelopmentMemberAPIV30Api
 
 All URIs are relative to *//api.orcid.org/*
 
@@ -124,18 +124,18 @@ Add a notification
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_two_legs
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
-body = swagger_client.NotificationPermissionV30() # NotificationPermissionV30 |  (optional)
+body = orcid_api_v3.NotificationPermissionV30() # NotificationPermissionV30 |  (optional)
 
 try:
     # Add a notification
@@ -176,18 +176,18 @@ Add an address
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
-body = swagger_client.AddressV30() # AddressV30 |  (optional)
+body = orcid_api_v3.AddressV30() # AddressV30 |  (optional)
 
 try:
     # Add an address
@@ -227,18 +227,18 @@ Create an Distinction
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
-body = swagger_client.DistinctionV30() # DistinctionV30 |  (optional)
+body = orcid_api_v3.DistinctionV30() # DistinctionV30 |  (optional)
 
 try:
     # Create an Distinction
@@ -279,18 +279,18 @@ Create an Education
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
-body = swagger_client.EducationV30() # EducationV30 |  (optional)
+body = orcid_api_v3.EducationV30() # EducationV30 |  (optional)
 
 try:
     # Create an Education
@@ -331,18 +331,18 @@ Create an Employment
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
-body = swagger_client.EmploymentV30() # EmploymentV30 |  (optional)
+body = orcid_api_v3.EmploymentV30() # EmploymentV30 |  (optional)
 
 try:
     # Create an Employment
@@ -383,18 +383,18 @@ Add external identifier
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
-body = swagger_client.PersonExternalIdentifierV30() # PersonExternalIdentifierV30 |  (optional)
+body = orcid_api_v3.PersonExternalIdentifierV30() # PersonExternalIdentifierV30 |  (optional)
 
 try:
     # Add external identifier
@@ -434,18 +434,18 @@ Create a Funding
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
-body = swagger_client.FundingV30() # FundingV30 |  (optional)
+body = orcid_api_v3.FundingV30() # FundingV30 |  (optional)
 
 try:
     # Create a Funding
@@ -486,17 +486,17 @@ Create a Group
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_two_legs
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
-body = swagger_client.GroupIdRecord() # GroupIdRecord |  (optional)
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
+body = orcid_api_v3.GroupIdRecord() # GroupIdRecord |  (optional)
 
 try:
     # Create a Group
@@ -535,18 +535,18 @@ Create an InvitedPosition
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
-body = swagger_client.InvitedPositionV30() # InvitedPositionV30 |  (optional)
+body = orcid_api_v3.InvitedPositionV30() # InvitedPositionV30 |  (optional)
 
 try:
     # Create an InvitedPosition
@@ -587,18 +587,18 @@ Add keyword
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
-body = swagger_client.KeywordV30() # KeywordV30 |  (optional)
+body = orcid_api_v3.KeywordV30() # KeywordV30 |  (optional)
 
 try:
     # Add keyword
@@ -638,18 +638,18 @@ Create an Membership
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
-body = swagger_client.MembershipV30() # MembershipV30 |  (optional)
+body = orcid_api_v3.MembershipV30() # MembershipV30 |  (optional)
 
 try:
     # Create an Membership
@@ -690,18 +690,18 @@ Add other name
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
-body = swagger_client.OtherNameV30() # OtherNameV30 |  (optional)
+body = orcid_api_v3.OtherNameV30() # OtherNameV30 |  (optional)
 
 try:
     # Add other name
@@ -741,18 +741,18 @@ Create a Peer Review
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
-body = swagger_client.PeerReviewV30() # PeerReviewV30 |  (optional)
+body = orcid_api_v3.PeerReviewV30() # PeerReviewV30 |  (optional)
 
 try:
     # Create a Peer Review
@@ -793,18 +793,18 @@ Create an Qualification
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
-body = swagger_client.QualificationV30() # QualificationV30 |  (optional)
+body = orcid_api_v3.QualificationV30() # QualificationV30 |  (optional)
 
 try:
     # Create an Qualification
@@ -845,18 +845,18 @@ Create a Research Resource
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
-body = swagger_client.ResearchResourceV30() # ResearchResourceV30 |  (optional)
+body = orcid_api_v3.ResearchResourceV30() # ResearchResourceV30 |  (optional)
 
 try:
     # Create a Research Resource
@@ -897,18 +897,18 @@ Add a new researcher url for an ORCID ID
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
-body = swagger_client.ResearcherUrlV30() # ResearcherUrlV30 |  (optional)
+body = orcid_api_v3.ResearcherUrlV30() # ResearcherUrlV30 |  (optional)
 
 try:
     # Add a new researcher url for an ORCID ID
@@ -948,18 +948,18 @@ Create an Service
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
-body = swagger_client.ServiceV30() # ServiceV30 |  (optional)
+body = orcid_api_v3.ServiceV30() # ServiceV30 |  (optional)
 
 try:
     # Create an Service
@@ -1000,18 +1000,18 @@ Create a listo of Work
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
-body = swagger_client.WorkBulkV30() # WorkBulkV30 |  (optional)
+body = orcid_api_v3.WorkBulkV30() # WorkBulkV30 |  (optional)
 
 try:
     # Create a listo of Work
@@ -1052,18 +1052,18 @@ Create a Work
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
-body = swagger_client.WorkV30() # WorkV30 |  (optional)
+body = orcid_api_v3.WorkV30() # WorkV30 |  (optional)
 
 try:
     # Create a Work
@@ -1104,16 +1104,16 @@ Delete an address
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
 put_code = 'put_code_example' # str | 
 
@@ -1155,16 +1155,16 @@ Delete an Distinction
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
 put_code = 'put_code_example' # str | 
 
@@ -1206,16 +1206,16 @@ Delete an Education
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
 put_code = 'put_code_example' # str | 
 
@@ -1257,16 +1257,16 @@ Delete an Employment
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
 put_code = 'put_code_example' # str | 
 
@@ -1308,16 +1308,16 @@ Delete external identifier
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
 put_code = 'put_code_example' # str | 
 
@@ -1359,16 +1359,16 @@ Delete a Funding
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
 put_code = 'put_code_example' # str | 
 
@@ -1410,16 +1410,16 @@ Delete a Group
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_two_legs
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 put_code = 'put_code_example' # str | 
 
 try:
@@ -1459,16 +1459,16 @@ Delete an InvitedPosition
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
 put_code = 'put_code_example' # str | 
 
@@ -1510,16 +1510,16 @@ Delete keyword
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
 put_code = 'put_code_example' # str | 
 
@@ -1561,16 +1561,16 @@ Delete an Membership
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
 put_code = 'put_code_example' # str | 
 
@@ -1612,16 +1612,16 @@ Delete other name
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
 put_code = 'put_code_example' # str | 
 
@@ -1663,16 +1663,16 @@ Delete a Peer Review
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
 put_code = 'put_code_example' # str | 
 
@@ -1714,16 +1714,16 @@ Delete an Qualification
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
 put_code = 'put_code_example' # str | 
 
@@ -1765,16 +1765,16 @@ Delete an Research Resource
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
 put_code = 'put_code_example' # str | 
 
@@ -1816,16 +1816,16 @@ Delete one researcher url from an ORCID ID
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
 put_code = 'put_code_example' # str | 
 
@@ -1867,16 +1867,16 @@ Delete an Service
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
 put_code = 'put_code_example' # str | 
 
@@ -1918,16 +1918,16 @@ Delete a Work
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
 put_code = 'put_code_example' # str | 
 
@@ -1969,19 +1969,19 @@ Edit an address
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
 put_code = 'put_code_example' # str | 
-body = swagger_client.AddressV30() # AddressV30 |  (optional)
+body = orcid_api_v3.AddressV30() # AddressV30 |  (optional)
 
 try:
     # Edit an address
@@ -2022,19 +2022,19 @@ Edit external identifier
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
 put_code = 'put_code_example' # str | 
-body = swagger_client.PersonExternalIdentifierV30() # PersonExternalIdentifierV30 |  (optional)
+body = orcid_api_v3.PersonExternalIdentifierV30() # PersonExternalIdentifierV30 |  (optional)
 
 try:
     # Edit external identifier
@@ -2075,19 +2075,19 @@ Edit keyword
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
 put_code = 'put_code_example' # str | 
-body = swagger_client.KeywordV30() # KeywordV30 |  (optional)
+body = orcid_api_v3.KeywordV30() # KeywordV30 |  (optional)
 
 try:
     # Edit keyword
@@ -2128,19 +2128,19 @@ Edit other name
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
 put_code = 'put_code_example' # str | 
-body = swagger_client.OtherNameV30() # OtherNameV30 |  (optional)
+body = orcid_api_v3.OtherNameV30() # OtherNameV30 |  (optional)
 
 try:
     # Edit other name
@@ -2181,19 +2181,19 @@ Edits researcher url for an ORCID ID
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
 put_code = 'put_code_example' # str | 
-body = swagger_client.ResearcherUrlV30() # ResearcherUrlV30 |  (optional)
+body = orcid_api_v3.ResearcherUrlV30() # ResearcherUrlV30 |  (optional)
 
 try:
     # Edits researcher url for an ORCID ID
@@ -2234,16 +2234,16 @@ Archive a notification
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_two_legs
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
 id = 789 # int | 
 
@@ -2286,16 +2286,16 @@ Search records
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_two_legs
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 q = 'q_example' # str |  (optional)
 
 try:
@@ -2336,19 +2336,19 @@ Update an Distinction
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
 put_code = 'put_code_example' # str | 
-body = swagger_client.DistinctionV30() # DistinctionV30 |  (optional)
+body = orcid_api_v3.DistinctionV30() # DistinctionV30 |  (optional)
 
 try:
     # Update an Distinction
@@ -2389,19 +2389,19 @@ Update an Education
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
 put_code = 'put_code_example' # str | 
-body = swagger_client.EducationV30() # EducationV30 |  (optional)
+body = orcid_api_v3.EducationV30() # EducationV30 |  (optional)
 
 try:
     # Update an Education
@@ -2442,19 +2442,19 @@ Update an Employment
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
 put_code = 'put_code_example' # str | 
-body = swagger_client.EmploymentV30() # EmploymentV30 |  (optional)
+body = orcid_api_v3.EmploymentV30() # EmploymentV30 |  (optional)
 
 try:
     # Update an Employment
@@ -2495,19 +2495,19 @@ Update a Funding
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
 put_code = 'put_code_example' # str | 
-body = swagger_client.FundingV30() # FundingV30 |  (optional)
+body = orcid_api_v3.FundingV30() # FundingV30 |  (optional)
 
 try:
     # Update a Funding
@@ -2548,18 +2548,18 @@ Update a Group
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_two_legs
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 put_code = 'put_code_example' # str | 
-body = swagger_client.GroupIdRecord() # GroupIdRecord |  (optional)
+body = orcid_api_v3.GroupIdRecord() # GroupIdRecord |  (optional)
 
 try:
     # Update a Group
@@ -2599,19 +2599,19 @@ Update an InvitedPosition
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
 put_code = 'put_code_example' # str | 
-body = swagger_client.InvitedPositionV30() # InvitedPositionV30 |  (optional)
+body = orcid_api_v3.InvitedPositionV30() # InvitedPositionV30 |  (optional)
 
 try:
     # Update an InvitedPosition
@@ -2652,19 +2652,19 @@ Update an Membership
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
 put_code = 'put_code_example' # str | 
-body = swagger_client.MembershipV30() # MembershipV30 |  (optional)
+body = orcid_api_v3.MembershipV30() # MembershipV30 |  (optional)
 
 try:
     # Update an Membership
@@ -2705,19 +2705,19 @@ Update a Peer Review
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
 put_code = 'put_code_example' # str | 
-body = swagger_client.PeerReviewV30() # PeerReviewV30 |  (optional)
+body = orcid_api_v3.PeerReviewV30() # PeerReviewV30 |  (optional)
 
 try:
     # Update a Peer Review
@@ -2758,19 +2758,19 @@ Update an Qualification
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
 put_code = 'put_code_example' # str | 
-body = swagger_client.QualificationV30() # QualificationV30 |  (optional)
+body = orcid_api_v3.QualificationV30() # QualificationV30 |  (optional)
 
 try:
     # Update an Qualification
@@ -2811,19 +2811,19 @@ Update a Research Resource
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
 put_code = 'put_code_example' # str | 
-body = swagger_client.ResearchResourceV30() # ResearchResourceV30 |  (optional)
+body = orcid_api_v3.ResearchResourceV30() # ResearchResourceV30 |  (optional)
 
 try:
     # Update a Research Resource
@@ -2864,19 +2864,19 @@ Update an Service
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
 put_code = 'put_code_example' # str | 
-body = swagger_client.ServiceV30() # ServiceV30 |  (optional)
+body = orcid_api_v3.ServiceV30() # ServiceV30 |  (optional)
 
 try:
     # Update an Service
@@ -2917,19 +2917,19 @@ Update a Work
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
 put_code = 'put_code_example' # str | 
-body = swagger_client.WorkV30() # WorkV30 |  (optional)
+body = orcid_api_v3.WorkV30() # WorkV30 |  (optional)
 
 try:
     # Update a Work
@@ -2970,16 +2970,16 @@ Fetch all activities
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
 
 try:
@@ -3020,16 +3020,16 @@ Fetch all addresses of a profile
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
 
 try:
@@ -3070,16 +3070,16 @@ Fetch an address
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
 put_code = 'put_code_example' # str | 
 
@@ -3121,16 +3121,16 @@ Get biography details
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
 
 try:
@@ -3171,16 +3171,16 @@ Fetch client details
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_two_legs
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 client_id = 'client_id_example' # str | 
 
 try:
@@ -3220,16 +3220,16 @@ Fetch an Distinction summary
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
 put_code = 'put_code_example' # str | 
 
@@ -3272,16 +3272,16 @@ Fetch all distinctions
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
 
 try:
@@ -3322,16 +3322,16 @@ Fetch an Distinction
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
 put_code = 'put_code_example' # str | 
 
@@ -3374,16 +3374,16 @@ Fetch an Education summary
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
 put_code = 'put_code_example' # str | 
 
@@ -3426,16 +3426,16 @@ Fetch all educations
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
 
 try:
@@ -3476,16 +3476,16 @@ Fetch an Education
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
 put_code = 'put_code_example' # str | 
 
@@ -3528,16 +3528,16 @@ Fetch all emails for an ORCID ID
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
 
 try:
@@ -3577,16 +3577,16 @@ Fetch an Employment Summary
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
 put_code = 'put_code_example' # str | 
 
@@ -3629,16 +3629,16 @@ Fetch all employments
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
 
 try:
@@ -3679,16 +3679,16 @@ Fetch an Employment
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
 put_code = 'put_code_example' # str | 
 
@@ -3731,16 +3731,16 @@ Fetch external identifiers
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
 
 try:
@@ -3780,16 +3780,16 @@ Fetch external identifier
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
 put_code = 'put_code_example' # str | 
 
@@ -3831,16 +3831,16 @@ Fetch a Funding Summary
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
 put_code = 'put_code_example' # str | 
 
@@ -3883,16 +3883,16 @@ Fetch all fundings
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
 
 try:
@@ -3933,16 +3933,16 @@ Fetch a Funding
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
 put_code = 'put_code_example' # str | 
 
@@ -3985,16 +3985,16 @@ Fetch Groups
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_two_legs
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 page_size = 'page_size_example' # str |  (optional)
 page = 'page_example' # str |  (optional)
 name = 'name_example' # str |  (optional)
@@ -4041,16 +4041,16 @@ Fetch a Group
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_two_legs
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 put_code = 'put_code_example' # str | 
 
 try:
@@ -4091,16 +4091,16 @@ Fetch an InvitedPosition summary
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
 put_code = 'put_code_example' # str | 
 
@@ -4143,16 +4143,16 @@ Fetch all invitedPositions
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
 
 try:
@@ -4193,16 +4193,16 @@ Fetch an InvitedPosition
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
 put_code = 'put_code_example' # str | 
 
@@ -4245,16 +4245,16 @@ Fetch keywords
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
 
 try:
@@ -4294,16 +4294,16 @@ Fetch keyword
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
 put_code = 'put_code_example' # str | 
 
@@ -4345,16 +4345,16 @@ Fetch an Membership summary
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
 put_code = 'put_code_example' # str | 
 
@@ -4397,16 +4397,16 @@ Fetch all memberships
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
 
 try:
@@ -4447,16 +4447,16 @@ Fetch an Membership
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
 put_code = 'put_code_example' # str | 
 
@@ -4499,16 +4499,16 @@ Fetch Other names
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
 
 try:
@@ -4548,16 +4548,16 @@ Fetch Other name
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
 put_code = 'put_code_example' # str | 
 
@@ -4599,16 +4599,16 @@ Fetch a Peer Review Summary
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
 put_code = 'put_code_example' # str | 
 
@@ -4651,16 +4651,16 @@ Fetch all peer reviews
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
 
 try:
@@ -4701,16 +4701,16 @@ Fetch a Peer Review
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
 put_code = 'put_code_example' # str | 
 
@@ -4753,16 +4753,16 @@ Fetch a notification by id
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_two_legs
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
 id = 789 # int | 
 
@@ -4805,16 +4805,16 @@ Fetch personal details for an ORCID ID
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
 
 try:
@@ -4855,16 +4855,16 @@ Fetch person details
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
 
 try:
@@ -4904,16 +4904,16 @@ Fetch an Qualification summary
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
 put_code = 'put_code_example' # str | 
 
@@ -4956,16 +4956,16 @@ Fetch all qualifications
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
 
 try:
@@ -5006,16 +5006,16 @@ Fetch an Qualification
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
 put_code = 'put_code_example' # str | 
 
@@ -5058,16 +5058,16 @@ Fetch record details
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
 
 try:
@@ -5108,16 +5108,16 @@ Fetch a Research Resource summary
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
 put_code = 'put_code_example' # str | 
 
@@ -5160,16 +5160,16 @@ Fetch all Research Resources
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
 
 try:
@@ -5210,16 +5210,16 @@ Fetch a Research Resource
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
 put_code = 'put_code_example' # str | 
 
@@ -5262,16 +5262,16 @@ Fetch all researcher urls for an ORCID ID
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
 
 try:
@@ -5311,16 +5311,16 @@ Fetch one researcher url for an ORCID ID
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
 put_code = 'put_code_example' # str | 
 
@@ -5362,16 +5362,16 @@ Fetch an Service summary
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
 put_code = 'put_code_example' # str | 
 
@@ -5414,16 +5414,16 @@ Fetch all services
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
 
 try:
@@ -5464,16 +5464,16 @@ Fetch an Service
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
 put_code = 'put_code_example' # str | 
 
@@ -5516,16 +5516,16 @@ Fetch specified works
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
 put_codes = 'put_codes_example' # str | 
 
@@ -5568,12 +5568,12 @@ Name | Type | Description  | Notes
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api()
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api()
 
 try:
     api_instance.view_status_json()
@@ -5608,16 +5608,16 @@ Fetch a Work Summary
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
 put_code = 'put_code_example' # str | 
 
@@ -5660,16 +5660,16 @@ Fetch all works
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
 
 try:
@@ -5710,16 +5710,16 @@ Fetch a Work
 ```python
 from __future__ import print_function
 import time
-import swagger_client
-from swagger_client.rest import ApiException
+import orcid_api_v3
+from orcid_api_v3.rest import ApiException
 from pprint import pprint
 
 # Configure OAuth2 access token for authorization: orcid_auth
-configuration = swagger_client.Configuration()
+configuration = orcid_api_v3.Configuration()
 configuration.access_token = 'YOUR_ACCESS_TOKEN'
 
 # create an instance of the API class
-api_instance = swagger_client.DevelopmentMemberAPIV30Api(swagger_client.ApiClient(configuration))
+api_instance = orcid_api_v3.DevelopmentMemberAPIV30Api(orcid_api_v3.ApiClient(configuration))
 orcid = 'orcid_example' # str | 
 put_code = 'put_code_example' # str | 
 

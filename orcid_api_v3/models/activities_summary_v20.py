@@ -14,12 +14,12 @@ import pprint
 import re  # noqa: F401
 
 import six
-from swagger_client.models.educations_summary_v20 import EducationsSummaryV20  # noqa: F401,E501
-from swagger_client.models.employments_summary_v20 import EmploymentsSummaryV20  # noqa: F401,E501
-from swagger_client.models.fundings_v20 import FundingsV20  # noqa: F401,E501
-from swagger_client.models.last_modified_date_v20 import LastModifiedDateV20  # noqa: F401,E501
-from swagger_client.models.peer_reviews_v20 import PeerReviewsV20  # noqa: F401,E501
-from swagger_client.models.works_summary_v20 import WorksSummaryV20  # noqa: F401,E501
+from orcid_api_v3.models.educations_summary_v20 import EducationsSummaryV20  # noqa: F401,E501
+from orcid_api_v3.models.employments_summary_v20 import EmploymentsSummaryV20  # noqa: F401,E501
+from orcid_api_v3.models.fundings_v20 import FundingsV20  # noqa: F401,E501
+from orcid_api_v3.models.last_modified_date_v20 import LastModifiedDateV20  # noqa: F401,E501
+from orcid_api_v3.models.peer_reviews_v20 import PeerReviewsV20  # noqa: F401,E501
+from orcid_api_v3.models.works_summary_v20 import WorksSummaryV20  # noqa: F401,E501
 
 
 class ActivitiesSummaryV20(object):

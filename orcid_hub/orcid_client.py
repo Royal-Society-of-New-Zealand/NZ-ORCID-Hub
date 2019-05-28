@@ -13,6 +13,7 @@ from .models import (OrcidApiCall, Affiliation, OrcidToken, FundingContributor a
 from orcid_api import (configuration, rest, api_client, MemberAPIV20Api, SourceClientId, Source,
                        OrganizationAddress, DisambiguatedOrganization, Employment, Education,
                        Organization)
+import orcid_api_v3 as v3
 from orcid_api.rest import ApiException
 from time import time
 from urllib.parse import urlparse

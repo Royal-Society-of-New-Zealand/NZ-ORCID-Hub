@@ -14,9 +14,9 @@ import pprint
 import re  # noqa: F401
 
 import six
-from swagger_client.models.external_i_ds_v20 import ExternalIDsV20  # noqa: F401,E501
-from swagger_client.models.last_modified_date_v20 import LastModifiedDateV20  # noqa: F401,E501
-from swagger_client.models.work_summary_v20 import WorkSummaryV20  # noqa: F401,E501
+from orcid_api_v3.models.external_i_ds_v20 import ExternalIDsV20  # noqa: F401,E501
+from orcid_api_v3.models.last_modified_date_v20 import LastModifiedDateV20  # noqa: F401,E501
+from orcid_api_v3.models.work_summary_v20 import WorkSummaryV20  # noqa: F401,E501
 
 
 class WorkGroupV20(object):

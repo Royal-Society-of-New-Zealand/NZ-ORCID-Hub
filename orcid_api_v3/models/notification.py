@@ -14,7 +14,7 @@ import pprint
 import re  # noqa: F401
 
 import six
-from swagger_client.models.source_v30_rc2 import SourceV30Rc2  # noqa: F401,E501
+from orcid_api_v3.models.source_v30_rc2 import SourceV30Rc2  # noqa: F401,E501
 
 
 class Notification(object):

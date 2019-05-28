@@ -14,16 +14,16 @@ import pprint
 import re  # noqa: F401
 
 import six
-from swagger_client.models.created_date_v20 import CreatedDateV20  # noqa: F401,E501
-from swagger_client.models.external_i_ds_v20 import ExternalIDsV20  # noqa: F401,E501
-from swagger_client.models.external_idv20 import ExternalIDV20  # noqa: F401,E501
-from swagger_client.models.fuzzy_date_v20 import FuzzyDateV20  # noqa: F401,E501
-from swagger_client.models.last_modified_date_v20 import LastModifiedDateV20  # noqa: F401,E501
-from swagger_client.models.organization_v20 import OrganizationV20  # noqa: F401,E501
-from swagger_client.models.source_v20 import SourceV20  # noqa: F401,E501
-from swagger_client.models.title_v20 import TitleV20  # noqa: F401,E501
-from swagger_client.models.url_v20 import UrlV20  # noqa: F401,E501
-from swagger_client.models.work_title_v20 import WorkTitleV20  # noqa: F401,E501
+from orcid_api_v3.models.created_date_v20 import CreatedDateV20  # noqa: F401,E501
+from orcid_api_v3.models.external_i_ds_v20 import ExternalIDsV20  # noqa: F401,E501
+from orcid_api_v3.models.external_idv20 import ExternalIDV20  # noqa: F401,E501
+from orcid_api_v3.models.fuzzy_date_v20 import FuzzyDateV20  # noqa: F401,E501
+from orcid_api_v3.models.last_modified_date_v20 import LastModifiedDateV20  # noqa: F401,E501
+from orcid_api_v3.models.organization_v20 import OrganizationV20  # noqa: F401,E501
+from orcid_api_v3.models.source_v20 import SourceV20  # noqa: F401,E501
+from orcid_api_v3.models.title_v20 import TitleV20  # noqa: F401,E501
+from orcid_api_v3.models.url_v20 import UrlV20  # noqa: F401,E501
+from orcid_api_v3.models.work_title_v20 import WorkTitleV20  # noqa: F401,E501
 
 
 class PeerReviewV20(object):

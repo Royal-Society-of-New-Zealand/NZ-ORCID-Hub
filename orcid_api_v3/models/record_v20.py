@@ -14,11 +14,11 @@ import pprint
 import re  # noqa: F401
 
 import six
-from swagger_client.models.activities_summary_v20 import ActivitiesSummaryV20  # noqa: F401,E501
-from swagger_client.models.history_v20 import HistoryV20  # noqa: F401,E501
-from swagger_client.models.orcid_identifier_v20 import OrcidIdentifierV20  # noqa: F401,E501
-from swagger_client.models.person_v20 import PersonV20  # noqa: F401,E501
-from swagger_client.models.preferences_v20 import PreferencesV20  # noqa: F401,E501
+from orcid_api_v3.models.activities_summary_v20 import ActivitiesSummaryV20  # noqa: F401,E501
+from orcid_api_v3.models.history_v20 import HistoryV20  # noqa: F401,E501
+from orcid_api_v3.models.orcid_identifier_v20 import OrcidIdentifierV20  # noqa: F401,E501
+from orcid_api_v3.models.person_v20 import PersonV20  # noqa: F401,E501
+from orcid_api_v3.models.preferences_v20 import PreferencesV20  # noqa: F401,E501
 
 
 class RecordV20(object):

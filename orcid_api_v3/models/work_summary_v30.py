@@ -14,14 +14,14 @@ import pprint
 import re  # noqa: F401
 
 import six
-from swagger_client.models.created_date_v30 import CreatedDateV30  # noqa: F401,E501
-from swagger_client.models.external_i_ds_v30 import ExternalIDsV30  # noqa: F401,E501
-from swagger_client.models.last_modified_date_v30 import LastModifiedDateV30  # noqa: F401,E501
-from swagger_client.models.publication_date_v30 import PublicationDateV30  # noqa: F401,E501
-from swagger_client.models.source_v30 import SourceV30  # noqa: F401,E501
-from swagger_client.models.title_v30 import TitleV30  # noqa: F401,E501
-from swagger_client.models.url_v30 import UrlV30  # noqa: F401,E501
-from swagger_client.models.work_title_v30 import WorkTitleV30  # noqa: F401,E501
+from orcid_api_v3.models.created_date_v30 import CreatedDateV30  # noqa: F401,E501
+from orcid_api_v3.models.external_i_ds_v30 import ExternalIDsV30  # noqa: F401,E501
+from orcid_api_v3.models.last_modified_date_v30 import LastModifiedDateV30  # noqa: F401,E501
+from orcid_api_v3.models.publication_date_v30 import PublicationDateV30  # noqa: F401,E501
+from orcid_api_v3.models.source_v30 import SourceV30  # noqa: F401,E501
+from orcid_api_v3.models.title_v30 import TitleV30  # noqa: F401,E501
+from orcid_api_v3.models.url_v30 import UrlV30  # noqa: F401,E501
+from orcid_api_v3.models.work_title_v30 import WorkTitleV30  # noqa: F401,E501
 
 
 class WorkSummaryV30(object):

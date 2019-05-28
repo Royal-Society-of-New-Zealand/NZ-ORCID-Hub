@@ -14,7 +14,7 @@ import pprint
 import re  # noqa: F401
 
 import six
-from swagger_client.models.organization_v30_rc2 import OrganizationV30Rc2  # noqa: F401,E501
+from orcid_api_v3.models.organization_v30_rc2 import OrganizationV30Rc2  # noqa: F401,E501
 
 
 class ResearchResourceHostsV30Rc2(object):

@@ -14,7 +14,7 @@ import pprint
 import re  # noqa: F401
 
 import six
-from swagger_client.models.url_v20 import UrlV20  # noqa: F401,E501
+from orcid_api_v3.models.url_v20 import UrlV20  # noqa: F401,E501
 
 
 class ExternalIDV20(object):

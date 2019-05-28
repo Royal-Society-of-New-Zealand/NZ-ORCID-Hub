@@ -14,9 +14,9 @@ import pprint
 import re  # noqa: F401
 
 import six
-from swagger_client.models.created_date_v20 import CreatedDateV20  # noqa: F401,E501
-from swagger_client.models.last_modified_date_v20 import LastModifiedDateV20  # noqa: F401,E501
-from swagger_client.models.source_v20 import SourceV20  # noqa: F401,E501
+from orcid_api_v3.models.created_date_v20 import CreatedDateV20  # noqa: F401,E501
+from orcid_api_v3.models.last_modified_date_v20 import LastModifiedDateV20  # noqa: F401,E501
+from orcid_api_v3.models.source_v20 import SourceV20  # noqa: F401,E501
 
 
 class EmailV20(object):

@@ -14,8 +14,8 @@ import pprint
 import re  # noqa: F401
 
 import six
-from swagger_client.models.last_modified_date_v30_rc1 import LastModifiedDateV30Rc1  # noqa: F401,E501
-from swagger_client.models.peer_review_group_v30_rc1 import PeerReviewGroupV30Rc1  # noqa: F401,E501
+from orcid_api_v3.models.last_modified_date_v30_rc1 import LastModifiedDateV30Rc1  # noqa: F401,E501
+from orcid_api_v3.models.peer_review_group_v30_rc1 import PeerReviewGroupV30Rc1  # noqa: F401,E501
 
 
 class PeerReviewsV30Rc1(object):

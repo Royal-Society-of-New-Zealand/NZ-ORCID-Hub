@@ -14,10 +14,10 @@ import pprint
 import re  # noqa: F401
 
 import six
-from swagger_client.models.biography_v30 import BiographyV30  # noqa: F401,E501
-from swagger_client.models.last_modified_date_v30 import LastModifiedDateV30  # noqa: F401,E501
-from swagger_client.models.name_v30 import NameV30  # noqa: F401,E501
-from swagger_client.models.other_names_v30 import OtherNamesV30  # noqa: F401,E501
+from orcid_api_v3.models.biography_v30 import BiographyV30  # noqa: F401,E501
+from orcid_api_v3.models.last_modified_date_v30 import LastModifiedDateV30  # noqa: F401,E501
+from orcid_api_v3.models.name_v30 import NameV30  # noqa: F401,E501
+from orcid_api_v3.models.other_names_v30 import OtherNamesV30  # noqa: F401,E501
 
 
 class PersonalDetailsV30(object):

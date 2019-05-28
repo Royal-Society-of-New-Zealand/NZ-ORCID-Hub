@@ -14,7 +14,7 @@ import pprint
 import re  # noqa: F401
 
 import six
-from swagger_client.models.result_v30_rc1 import ResultV30Rc1  # noqa: F401,E501
+from orcid_api_v3.models.result_v30_rc1 import ResultV30Rc1  # noqa: F401,E501
 
 
 class SearchV30Rc1(object):

@@ -14,7 +14,7 @@ import pprint
 import re  # noqa: F401
 
 import six
-from swagger_client.models.funding_contributor_v20 import FundingContributorV20  # noqa: F401,E501
+from orcid_api_v3.models.funding_contributor_v20 import FundingContributorV20  # noqa: F401,E501
 
 
 class FundingContributorsV20(object):

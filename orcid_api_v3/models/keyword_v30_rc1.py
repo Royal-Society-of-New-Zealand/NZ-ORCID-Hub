@@ -14,9 +14,9 @@ import pprint
 import re  # noqa: F401
 
 import six
-from swagger_client.models.created_date_v30_rc1 import CreatedDateV30Rc1  # noqa: F401,E501
-from swagger_client.models.last_modified_date_v30_rc1 import LastModifiedDateV30Rc1  # noqa: F401,E501
-from swagger_client.models.source_v30_rc1 import SourceV30Rc1  # noqa: F401,E501
+from orcid_api_v3.models.created_date_v30_rc1 import CreatedDateV30Rc1  # noqa: F401,E501
+from orcid_api_v3.models.last_modified_date_v30_rc1 import LastModifiedDateV30Rc1  # noqa: F401,E501
+from orcid_api_v3.models.source_v30_rc1 import SourceV30Rc1  # noqa: F401,E501
 
 
 class KeywordV30Rc1(object):

@@ -14,9 +14,9 @@ import pprint
 import re  # noqa: F401
 
 import six
-from swagger_client.models.day_v30_rc2 import DayV30Rc2  # noqa: F401,E501
-from swagger_client.models.month_v30_rc2 import MonthV30Rc2  # noqa: F401,E501
-from swagger_client.models.year_v30_rc2 import YearV30Rc2  # noqa: F401,E501
+from orcid_api_v3.models.day_v30_rc2 import DayV30Rc2  # noqa: F401,E501
+from orcid_api_v3.models.month_v30_rc2 import MonthV30Rc2  # noqa: F401,E501
+from orcid_api_v3.models.year_v30_rc2 import YearV30Rc2  # noqa: F401,E501
 
 
 class PublicationDateV30Rc2(object):

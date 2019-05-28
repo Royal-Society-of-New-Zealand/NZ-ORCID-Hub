@@ -14,9 +14,9 @@ import pprint
 import re  # noqa: F401
 
 import six
-from swagger_client.models.authorization_url_v30_rc2 import AuthorizationUrlV30Rc2  # noqa: F401,E501
-from swagger_client.models.items_v30_rc2 import ItemsV30Rc2  # noqa: F401,E501
-from swagger_client.models.source_v30_rc2 import SourceV30Rc2  # noqa: F401,E501
+from orcid_api_v3.models.authorization_url_v30_rc2 import AuthorizationUrlV30Rc2  # noqa: F401,E501
+from orcid_api_v3.models.items_v30_rc2 import ItemsV30Rc2  # noqa: F401,E501
+from orcid_api_v3.models.source_v30_rc2 import SourceV30Rc2  # noqa: F401,E501
 
 
 class NotificationPermissionV30Rc2(object):

@@ -14,17 +14,17 @@ import pprint
 import re  # noqa: F401
 
 import six
-from swagger_client.models.amount_v30_rc1 import AmountV30Rc1  # noqa: F401,E501
-from swagger_client.models.created_date_v30_rc1 import CreatedDateV30Rc1  # noqa: F401,E501
-from swagger_client.models.external_i_ds_v30_rc1 import ExternalIDsV30Rc1  # noqa: F401,E501
-from swagger_client.models.funding_contributors_v30_rc1 import FundingContributorsV30Rc1  # noqa: F401,E501
-from swagger_client.models.funding_title_v30_rc1 import FundingTitleV30Rc1  # noqa: F401,E501
-from swagger_client.models.fuzzy_date_v30_rc1 import FuzzyDateV30Rc1  # noqa: F401,E501
-from swagger_client.models.last_modified_date_v30_rc1 import LastModifiedDateV30Rc1  # noqa: F401,E501
-from swagger_client.models.organization_defined_funding_sub_type_v30_rc1 import OrganizationDefinedFundingSubTypeV30Rc1  # noqa: F401,E501
-from swagger_client.models.organization_v30_rc1 import OrganizationV30Rc1  # noqa: F401,E501
-from swagger_client.models.source_v30_rc1 import SourceV30Rc1  # noqa: F401,E501
-from swagger_client.models.url_v30_rc1 import UrlV30Rc1  # noqa: F401,E501
+from orcid_api_v3.models.amount_v30_rc1 import AmountV30Rc1  # noqa: F401,E501
+from orcid_api_v3.models.created_date_v30_rc1 import CreatedDateV30Rc1  # noqa: F401,E501
+from orcid_api_v3.models.external_i_ds_v30_rc1 import ExternalIDsV30Rc1  # noqa: F401,E501
+from orcid_api_v3.models.funding_contributors_v30_rc1 import FundingContributorsV30Rc1  # noqa: F401,E501
+from orcid_api_v3.models.funding_title_v30_rc1 import FundingTitleV30Rc1  # noqa: F401,E501
+from orcid_api_v3.models.fuzzy_date_v30_rc1 import FuzzyDateV30Rc1  # noqa: F401,E501
+from orcid_api_v3.models.last_modified_date_v30_rc1 import LastModifiedDateV30Rc1  # noqa: F401,E501
+from orcid_api_v3.models.organization_defined_funding_sub_type_v30_rc1 import OrganizationDefinedFundingSubTypeV30Rc1  # noqa: F401,E501
+from orcid_api_v3.models.organization_v30_rc1 import OrganizationV30Rc1  # noqa: F401,E501
+from orcid_api_v3.models.source_v30_rc1 import SourceV30Rc1  # noqa: F401,E501
+from orcid_api_v3.models.url_v30_rc1 import UrlV30Rc1  # noqa: F401,E501
 
 
 class FundingV30Rc1(object):

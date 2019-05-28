@@ -14,9 +14,9 @@ import pprint
 import re  # noqa: F401
 
 import six
-from swagger_client.models.external_i_ds_v30_rc2 import ExternalIDsV30Rc2  # noqa: F401,E501
-from swagger_client.models.last_modified_date_v30_rc2 import LastModifiedDateV30Rc2  # noqa: F401,E501
-from swagger_client.models.service_summary_v30_rc2 import ServiceSummaryV30Rc2  # noqa: F401,E501
+from orcid_api_v3.models.external_i_ds_v30_rc2 import ExternalIDsV30Rc2  # noqa: F401,E501
+from orcid_api_v3.models.last_modified_date_v30_rc2 import LastModifiedDateV30Rc2  # noqa: F401,E501
+from orcid_api_v3.models.service_summary_v30_rc2 import ServiceSummaryV30Rc2  # noqa: F401,E501
 
 
 class AffiliationGroupV30Rc2ServiceSummaryV30Rc2(object):

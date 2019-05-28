@@ -14,10 +14,10 @@ import pprint
 import re  # noqa: F401
 
 import six
-from swagger_client.models.contributor_email_v30 import ContributorEmailV30  # noqa: F401,E501
-from swagger_client.models.contributor_orcid_v30 import ContributorOrcidV30  # noqa: F401,E501
-from swagger_client.models.credit_name_v30 import CreditNameV30  # noqa: F401,E501
-from swagger_client.models.funding_contributor_attributes_v30 import FundingContributorAttributesV30  # noqa: F401,E501
+from orcid_api_v3.models.contributor_email_v30 import ContributorEmailV30  # noqa: F401,E501
+from orcid_api_v3.models.contributor_orcid_v30 import ContributorOrcidV30  # noqa: F401,E501
+from orcid_api_v3.models.credit_name_v30 import CreditNameV30  # noqa: F401,E501
+from orcid_api_v3.models.funding_contributor_attributes_v30 import FundingContributorAttributesV30  # noqa: F401,E501
 
 
 class FundingContributorV30(object):

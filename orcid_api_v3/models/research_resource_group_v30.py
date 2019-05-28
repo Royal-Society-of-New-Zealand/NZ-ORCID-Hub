@@ -14,9 +14,9 @@ import pprint
 import re  # noqa: F401
 
 import six
-from swagger_client.models.external_i_ds_v30 import ExternalIDsV30  # noqa: F401,E501
-from swagger_client.models.last_modified_date_v30 import LastModifiedDateV30  # noqa: F401,E501
-from swagger_client.models.research_resource_summary_v30 import ResearchResourceSummaryV30  # noqa: F401,E501
+from orcid_api_v3.models.external_i_ds_v30 import ExternalIDsV30  # noqa: F401,E501
+from orcid_api_v3.models.last_modified_date_v30 import LastModifiedDateV30  # noqa: F401,E501
+from orcid_api_v3.models.research_resource_summary_v30 import ResearchResourceSummaryV30  # noqa: F401,E501
 
 
 class ResearchResourceGroupV30(object):

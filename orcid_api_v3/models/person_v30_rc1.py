@@ -14,15 +14,15 @@ import pprint
 import re  # noqa: F401
 
 import six
-from swagger_client.models.addresses_v30_rc1 import AddressesV30Rc1  # noqa: F401,E501
-from swagger_client.models.biography_v30_rc1 import BiographyV30Rc1  # noqa: F401,E501
-from swagger_client.models.emails_v30_rc1 import EmailsV30Rc1  # noqa: F401,E501
-from swagger_client.models.keywords_v30_rc1 import KeywordsV30Rc1  # noqa: F401,E501
-from swagger_client.models.last_modified_date_v30_rc1 import LastModifiedDateV30Rc1  # noqa: F401,E501
-from swagger_client.models.name_v30_rc1 import NameV30Rc1  # noqa: F401,E501
-from swagger_client.models.other_names_v30_rc1 import OtherNamesV30Rc1  # noqa: F401,E501
-from swagger_client.models.person_external_identifiers_v30_rc1 import PersonExternalIdentifiersV30Rc1  # noqa: F401,E501
-from swagger_client.models.researcher_urls_v30_rc1 import ResearcherUrlsV30Rc1  # noqa: F401,E501
+from orcid_api_v3.models.addresses_v30_rc1 import AddressesV30Rc1  # noqa: F401,E501
+from orcid_api_v3.models.biography_v30_rc1 import BiographyV30Rc1  # noqa: F401,E501
+from orcid_api_v3.models.emails_v30_rc1 import EmailsV30Rc1  # noqa: F401,E501
+from orcid_api_v3.models.keywords_v30_rc1 import KeywordsV30Rc1  # noqa: F401,E501
+from orcid_api_v3.models.last_modified_date_v30_rc1 import LastModifiedDateV30Rc1  # noqa: F401,E501
+from orcid_api_v3.models.name_v30_rc1 import NameV30Rc1  # noqa: F401,E501
+from orcid_api_v3.models.other_names_v30_rc1 import OtherNamesV30Rc1  # noqa: F401,E501
+from orcid_api_v3.models.person_external_identifiers_v30_rc1 import PersonExternalIdentifiersV30Rc1  # noqa: F401,E501
+from orcid_api_v3.models.researcher_urls_v30_rc1 import ResearcherUrlsV30Rc1  # noqa: F401,E501
 
 
 class PersonV30Rc1(object):
