@@ -433,6 +433,12 @@ class BaseModel(Model):
         """Get the class name of the model."""
         return cls._meta.name
 
+    @classmethod
+    def underscore_name(cls):
+        """Get the class underscore name of the model."""
+        s1 = re.sub('(.)([A-Z][a-z]+)', r'\1_\2', cls.__name__)
+        return re.sub('([a-z0-9])([A-Z])', r'\1_\2', s1).lower()
+
     def __to_dashes(self, o):
         """Replace '_' with '-' in the dict keys."""
         if isinstance(o, dict):
@@ -1401,12 +1407,6 @@ class RecordModel(BaseModel):
     def get_field_regxes(cls):
         """Return map of compiled field name regex to the model fields."""
         return {f: re.compile(e, re.I) for (f, e) in cls._field_regex_map}
-
-    @classmethod
-    def underscore_name(cls):
-        """Get the class underscore name of the model."""
-        s1 = re.sub('(.)([A-Z][a-z]+)', r'\1_\2', cls.__name__)
-        return re.sub('([a-z0-9])([A-Z])', r'\1_\2', s1).lower()
 
     @property
     def invitee_model(self):
