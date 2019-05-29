@@ -3424,24 +3424,7 @@ def update_webhook(user_id):
         user = User.get(user_id)
         user.orcid_updated_at = updated_at
         user.save()
-
-        for org in user.organisations.where(Organisation.webhook_enabled):
-
-            if org.webhook_url:
-                utils.invoke_webhook_handler.queue(
-                    org.webhook_url,
-                    user.orcid,
-                    updated_at,
-                )
-
-            if org.email_notifications_enabled:
-                url = app.config["ORCID_BASE_URL"] + user.orcid
-                utils.send_email(
-                    f"""<p>User {user.name} (<a href="{url}" target="_blank">{user.orcid}</a>)
-                    profile was updated at {updated_at.isoformat(timespec="minutes", sep=' ')}.</p>""",
-                    recipient=org.notification_email or (org.tech_contact.name, org.tech_contact.email),
-                    subject=f"ORCID Profile Update ({user.orcid})",
-                    org=org)
+        utils.notify_about_update(user)
 
     except Exception:
         app.logger.exception(f"Invalid user_id: {user_id}")

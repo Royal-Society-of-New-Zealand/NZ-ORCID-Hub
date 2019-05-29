@@ -42,8 +42,8 @@ from .login_provider import roles_required
 from .models import (Affiliation, OrcidAuthorizeCall, OrcidToken, Organisation, OrgInfo,
                      OrgInvitation, Role, Task, TaskType, Url, User, UserInvitation, UserOrg,
                      audit_models)
-from .utils import (append_qs, get_next_url, enqueue_user_records, read_uploaded_file,
-                    register_orcid_webhook)
+from .utils import (append_qs, get_next_url, enqueue_user_records, notify_about_update,
+                    read_uploaded_file, register_orcid_webhook)
 
 HEADERS = {'Accept': 'application/vnd.orcid+json', 'Content-type': 'application/vnd.orcid+json'}
 ENV = app.config.get("ENV")
@@ -696,6 +696,7 @@ def orcid_callback():
                 f"Please contact your Organisation Administrator(s) if you believe this is an error.",
                 "warning")
 
+    notify_about_update(user, event_type="UPDATED" if orcid_token_found else "CREATED")
     session['Should_not_logout_from_ORCID'] = True
     return redirect(url_for("profile"))
 

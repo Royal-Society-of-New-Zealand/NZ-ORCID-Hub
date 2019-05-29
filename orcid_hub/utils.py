@@ -2045,8 +2045,33 @@ def register_orcid_webhook(user, callback_url=None, delete=False):
     return resp
 
 
+def notify_about_update(user, event_type="UPDATED"):
+    """Notify all organisation about changes of the user."""
+    for org in user.organisations.where(Organisation.webhook_enabled):
+
+        if org.webhook_url:
+            invoke_webhook_handler.queue(org.webhook_url,
+                                         user.orcid,
+                                         user.updated_at or user.created_at,
+                                         event_type=event_type)
+
+        if org.email_notifications_enabled:
+            url = app.config["ORCID_BASE_URL"] + user.orcid
+            send_email(f"""<p>User {user.name} (<a href="{url}" target="_blank">{user.orcid}</a>)
+                profile was updated or user had linked her/his account at
+                {(user.updated_at or user.created_at).isoformat(timespec="minutes", sep=' ')}.</p>""",
+                       recipient=org.notification_email
+                       or (org.tech_contact.name, org.tech_contact.email),
+                       subject=f"ORCID Profile Update ({user.orcid})",
+                       org=org)
+
+
 @rq.job(timeout=300)
-def invoke_webhook_handler(webhook_url=None, orcid=None, updated_at=None, message=None,
+def invoke_webhook_handler(webhook_url=None,
+                           orcid=None,
+                           updated_at=None,
+                           message=None,
+                           event_type="UPDATED",
                            attempts=3):
     """Propagate 'updated' event to the organisation event handler URL."""
     url = app.config["ORCID_BASE_URL"] + orcid
@@ -2054,13 +2079,22 @@ def invoke_webhook_handler(webhook_url=None, orcid=None, updated_at=None, messag
         message = {
             "orcid": orcid,
             "updated-at": updated_at.isoformat(timespec="minutes"),
-            "url": url
+            "url": url,
+            "type": event_type,
         }
+        if orcid:
+            user = User.select().where(User.orcid == orcid).limit(1).first()
+            if user:
+                message["email"] = user.email
+                if user.eppn:
+                    message["eppn"] = user.eppn
+
     resp = requests.post(webhook_url + '/' + orcid, json=message)
     if resp.status_code // 200 != 1:
         if attempts > 0:
-            invoke_webhook_handler.schedule(
-                timedelta(minutes=5), message=message, attempts=attempts - 1)
+            invoke_webhook_handler.schedule(timedelta(minutes=5),
+                                            message=message,
+                                            attempts=attempts - 1)
     return resp
 
 
