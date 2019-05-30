@@ -359,10 +359,22 @@ def test_link_orcid_auth_callback_with_affiliation(name, mocker, client):
     user_org.save()
     orcid_token.delete_instance()
 
+    assert OrcidToken.select().where(OrcidToken.user == test_user, OrcidToken.org == org).count() == 0
     resp = client.get(f"/auth?state={state}")
     assert resp.status_code == 302
     assert b"<!DOCTYPE HTML" in resp.data, "Expected HTML content"
     assert "profile" in resp.location, "redirection to 'profile' showing the ORCID"
+    assert OrcidToken.select().where(OrcidToken.user == test_user, OrcidToken.org == org).count() == 1
+
+    get_person = mocker.patch("requests_oauthlib.OAuth2Session.get", return_value=Mock(status_code=200))
+    resp = client.get(f"/profile", follow_redirects=True)
+    assert b"can create and update research activities" in resp.data
+    get_person.assert_called_once()
+
+    get_person = mocker.patch("requests_oauthlib.OAuth2Session.get", return_value=Mock(status_code=401))
+    resp = client.get(f"/profile", follow_redirects=True)
+    assert b"you'll be taken to ORCID to create or sign into your ORCID record" in resp.data
+    get_person.assert_called_once()
 
 
 def make_fake_response(text, *args, **kwargs):

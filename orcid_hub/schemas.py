@@ -51,6 +51,27 @@ affiliation_task = {
     "required": ["records"]
 }
 
+hub_user = {
+    "title": "HubUser",
+    "type": "object",
+    "properties": {
+        "id": {"type": "integer", "format": "int64"},
+        "name": {"type": ["string", "null"]},
+        "orcid": {
+            "type": ["string", "null"],
+            "format": "^[0-9]{4}-?[0-9]{4}-?[0-9]{4}-?[0-9]{4}$",
+        },
+        "email": {"type": ["string", "null"], "format": ".{1,}@.{1,}"},
+        "eppn": {"type": ["string", "null"]},
+        "confirmed": {"type": ["boolean", "null"]},
+        "created-at": {"type": ["string", "null"], "format": "date-time"},
+        "updated-at": {"type": ["string", "null"], "format": "date-time"},
+        "completed-at": {"type": ["string", "null"], "format": "date-time"},
+    },
+    "anyOf": [{"required": ["email"]}, {"required": ["orcid"]}]
+}
+
+
 other_id_record = {
     "title": "OtherIdRecord",
     "type": "object",
