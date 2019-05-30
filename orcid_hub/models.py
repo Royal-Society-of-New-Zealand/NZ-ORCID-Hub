@@ -1526,6 +1526,7 @@ class AffiliationRecord(RecordModel):
         verbose_name="Disambiguation Source",
         choices=disambiguation_source_choices)
     delete_record = BooleanField(null=True)
+    visibility = CharField(null=True, max_length=100, choices=visibility_choices)
 
     class Meta:  # noqa: D101,D106
         db_table = "affiliation_record"
