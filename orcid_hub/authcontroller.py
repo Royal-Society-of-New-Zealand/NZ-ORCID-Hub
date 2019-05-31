@@ -1288,7 +1288,9 @@ def orcid_login_callback(request):
                 return redirect(url_for('viewmembers.index_view'))
             else:
                 return redirect(url_for("link"))
+        # Loging by invitation
         if invitation_token:
+            notify_about_update(user, event_type="CREATED")
             enqueue_user_records(user)
         return redirect(url_for("profile"))
 
