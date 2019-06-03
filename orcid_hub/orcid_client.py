@@ -579,9 +579,10 @@ class MemberAPI(MemberAPIV20Api):
         rec.title = FundingTitle(title=title, translated_title=translated_title)  # noqa: F405
         rec.short_description = short_description
         rec.amount = Amount(value=amount, currency_code=currency_code)  # noqa: F405
+        visibility = fi.visibility
 
-        if fi.visibility:
-            rec.visibility = fi.visibility
+        if visibility:
+            rec.visibility = visibility
 
         if put_code:
             rec.put_code = put_code
@@ -671,13 +672,13 @@ class MemberAPI(MemberAPIV20Api):
                 try:
                     orcid, put_code = location.split("/")[-3::2]
                     put_code = int(put_code)
-                    fi.put_code = put_code
-                    fi.save()
+                    visibility = None
                 except:
                     app.logger.exception("Failed to get ORCID iD/put-code from the response.")
                     raise Exception("Failed to get ORCID iD/put-code from the response.")
             elif resp.status == 200:
                 orcid = self.user.orcid
+                visibility = json.loads(resp.data).get("visibility") if hasattr(resp, "data") else None
 
         except ApiException as ex:
             if ex.status == 404:
@@ -689,7 +690,7 @@ class MemberAPI(MemberAPIV20Api):
         except:
             app.logger.exception(f"For {self.user} encountered exception")
         else:
-            return (put_code, orcid, created)
+            return (put_code, orcid, created, visibility)
 
     def create_or_update_individual_funding(self, funding_title=None, funding_translated_title=None,
                                             translated_title_language=None, funding_type=None, funding_subtype=None,

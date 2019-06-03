@@ -609,13 +609,15 @@ def create_or_update_funding(user, org_id, records, *args, **kwargs):
             fi = task_by_user.record.invitee
 
             try:
-                put_code, orcid, created = api.create_or_update_funding(task_by_user)
+                put_code, orcid, created, visibility = api.create_or_update_funding(task_by_user)
                 if created:
                     fi.add_status_line(f"Funding record was created.")
                 else:
                     fi.add_status_line(f"Funding record was updated.")
                 fi.orcid = orcid
                 fi.put_code = put_code
+                if fi.visibility != visibility:
+                    fi.visibility = visibility
 
             except Exception as ex:
                 logger.exception(f"For {user} encountered exception")
