@@ -2329,27 +2329,27 @@ def edit_record(user_id, section_type, put_code=None):
                         **{f.name: f.data
                            for f in form})
             elif section_type == "RUR":
-                put_code, orcid, created = api.create_or_update_researcher_url(
+                put_code, orcid, created, visibility = api.create_or_update_researcher_url(
                     put_code=put_code,
                     **{f.name: f.data
                        for f in form})
             elif section_type == "ONR":
-                put_code, orcid, created = api.create_or_update_other_name(
+                put_code, orcid, created, visibility = api.create_or_update_other_name(
                     put_code=put_code,
                     **{f.name: f.data
                        for f in form})
             elif section_type == "ADR":
-                put_code, orcid, created = api.create_or_update_address(
+                put_code, orcid, created, visibility = api.create_or_update_address(
                     put_code=put_code,
                     **{f.name: f.data
                        for f in form})
             elif section_type == "EXR":
-                put_code, orcid, created = api.create_or_update_person_external_id(
+                put_code, orcid, created, visibility = api.create_or_update_person_external_id(
                     put_code=put_code,
                     **{f.name: f.data
                        for f in form})
             elif section_type == "KWR":
-                put_code, orcid, created = api.create_or_update_keyword(
+                put_code, orcid, created, visibility = api.create_or_update_keyword(
                     put_code=put_code,
                     **{f.name: f.data
                        for f in form})
