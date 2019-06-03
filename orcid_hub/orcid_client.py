@@ -1050,6 +1050,7 @@ class MemberAPI(MemberAPIV20Api):
             end_date=None,
             put_code=None,
             initial=False,
+            visibility=None,
             *args,
             **kwargs):
         """Create or update affiliation record of a user.
@@ -1112,6 +1113,9 @@ class MemberAPI(MemberAPIV20Api):
         if put_code:
             rec.put_code = put_code
 
+        if visibility:
+            rec.visibility = visibility
+
         rec.department_name = department
         rec.role_title = role or course_or_role
 
@@ -1139,11 +1143,13 @@ class MemberAPI(MemberAPIV20Api):
                 try:
                     orcid, put_code = location.split("/")[-3::2]
                     put_code = int(put_code)
+                    visibility = None
                 except Exception:
                     app.logger.exception("Failed to get ORCID iD/put-code from the response.")
                     raise Exception("Failed to get ORCID iD/put-code from the response.")
             elif resp.status == 200:
                 orcid = self.user.orcid
+                visibility = json.loads(resp.data).get("visibility") if hasattr(resp, "data") else None
 
         except ApiException as apiex:
             app.logger.exception(f"For {self.user} encountered exception: {apiex}")
@@ -1152,7 +1158,7 @@ class MemberAPI(MemberAPIV20Api):
             app.logger.exception(f"For {self.user} encountered exception")
             raise ex
         else:
-            return (put_code, orcid, created)
+            return (put_code, orcid, created, visibility)
 
     def create_or_update_researcher_url(self, name=None, value=None, display_index=None, orcid=None,
                                         put_code=None, visibility=None, *args, **kwargs):

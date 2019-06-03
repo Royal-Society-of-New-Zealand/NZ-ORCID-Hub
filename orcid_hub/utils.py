@@ -1121,7 +1121,7 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
                 if no_orcid_call:
                     ar.add_status_line(f"{str(affiliation)} record unchanged.")
                 else:
-                    put_code, orcid, created = api.create_or_update_affiliation(
+                    put_code, orcid, created, visibility = api.create_or_update_affiliation(
                         affiliation=affiliation, **ar._data)
                     if created:
                         ar.add_status_line(f"{str(affiliation)} record was created.")
@@ -1129,6 +1129,8 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
                         ar.add_status_line(f"{str(affiliation)} record was updated.")
                     ar.orcid = orcid
                     ar.put_code = put_code
+                    if ar.visibility != visibility:
+                        ar.visibility = visibility
 
             except Exception as ex:
                 logger.exception(f"For {user} encountered exception")

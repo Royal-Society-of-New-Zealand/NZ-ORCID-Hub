@@ -2354,7 +2354,7 @@ def edit_record(user_id, section_type, put_code=None):
                     **{f.name: f.data
                        for f in form})
             else:
-                put_code, orcid, created = api.create_or_update_affiliation(
+                put_code, orcid, created, visibility = api.create_or_update_affiliation(
                     put_code=put_code,
                     affiliation=Affiliation[section_type],
                     **{f.name: f.data
