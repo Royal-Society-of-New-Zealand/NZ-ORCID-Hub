@@ -164,7 +164,7 @@ def shib_sp():
     _key = request.args.get("key")
     if _next:
         data = {k: v for k, v in request.headers.items()}
-        data = zlib.compress(json.dumps(data))
+        data = zlib.compress(json.dumps(data).encode())
 
         resp = redirect(_next)
         with open(path.join(gettempdir(), _key), 'wb') as kf:
