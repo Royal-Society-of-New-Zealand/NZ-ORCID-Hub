@@ -151,6 +151,13 @@ def lazy_property(fn):
     return _lazy_property
 
 
+def normalize_email(value):
+    """Extact and normalize email value from the given raw data value, eg, 'Name <test@test.edu>'."""
+    if value:
+        value = value.strip().lower()
+        return re.match(r"^(.*\<)?([^\>]*)\>?$", value).group(2) if '<' in value else value
+
+
 class PartialDate(namedtuple("PartialDate", ["year", "month", "day"])):
     """Partial date (without month day or both month and month day."""
 
@@ -432,6 +439,12 @@ class BaseModel(Model):
     def model_class_name(cls):
         """Get the class name of the model."""
         return cls._meta.name
+
+    @classmethod
+    def underscore_name(cls):
+        """Get the class underscore name of the model."""
+        s1 = re.sub('(.)([A-Z][a-z]+)', r'\1_\2', cls.__name__)
+        return re.sub('([a-z0-9])([A-Z])', r'\1_\2', s1).lower()
 
     def __to_dashes(self, o):
         """Replace '_' with '-' in the dict keys."""
@@ -724,7 +737,7 @@ class OrgInfo(BaseModel):
             oi.first_name = val(row, 2)
             oi.last_name = val(row, 3)
             oi.role = val(row, 4)
-            oi.email = val(row, 5)
+            oi.email = normalize_email(val(row, 5))
             oi.phone = val(row, 6)
             oi.is_public = val(row, 7) and val(row, 7).upper() == "YES"
             oi.country = val(row, 8) or DEFAULT_COUNTRY
@@ -1206,7 +1219,7 @@ class Task(BaseModel, AuditMixin):
                                 f"Missing put-code. Cannot delete a record without put-code. "
                                 f"#{row_no+2}: {row}. Header: {header}")
 
-                    email = val(row, 2, "").lower()
+                    email = normalize_email(val(row, 2, ""))
                     orcid = val(row, 15)
                     external_id = val(row, 16)
 
@@ -1402,12 +1415,6 @@ class RecordModel(BaseModel):
         """Return map of compiled field name regex to the model fields."""
         return {f: re.compile(e, re.I) for (f, e) in cls._field_regex_map}
 
-    @classmethod
-    def underscore_name(cls):
-        """Get the class underscore name of the model."""
-        s1 = re.sub('(.)([A-Z][a-z]+)', r'\1_\2', cls.__name__)
-        return re.sub('([a-z0-9])([A-Z])', r'\1_\2', s1).lower()
-
     @property
     def invitee_model(self):
         """Get invitee model class."""
@@ -1507,7 +1514,7 @@ class AffiliationRecord(RecordModel):
     status = TextField(null=True, help_text="Record processing status.")
     first_name = CharField(null=True, max_length=120)
     last_name = CharField(null=True, max_length=120)
-    email = CharField(max_length=80)
+    email = CharField(max_length=80, null=True)
     orcid = OrcidIdField(null=True)
     organisation = CharField(null=True, index=True, max_length=200)
     affiliation_type = CharField(null=True, max_length=20, choices=[(v, v) for v in AFFILIATION_TYPES])
@@ -1717,7 +1724,7 @@ class FundingRecord(RecordModel):
             if len(row) == 1 and row[0].strip() == '':
                 continue
 
-            orcid, email = val(row, 17), val(row, 18, "").lower()
+            orcid, email = val(row, 17), normalize_email(val(row, 18, ""))
             if orcid:
                 validate_orcid_id(orcid)
             if email and not validators.email(email):
@@ -1911,7 +1918,7 @@ class FundingRecord(RecordModel):
                     if invitees:
                         for invitee in invitees:
                             identifier = invitee.get("identifier")
-                            email = invitee.get("email")
+                            email = normalize_email(invitee.get("email"))
                             first_name = invitee.get("first-name")
                             last_name = invitee.get("last-name")
                             orcid_id = invitee.get("ORCID-iD")
@@ -1921,7 +1928,7 @@ class FundingRecord(RecordModel):
                             FundingInvitee.create(
                                 record=record,
                                 identifier=identifier,
-                                email=email.lower(),
+                                email=email,
                                 first_name=first_name,
                                 last_name=last_name,
                                 orcid=orcid_id,
@@ -1936,7 +1943,7 @@ class FundingRecord(RecordModel):
                         for contributor in contributors:
                             orcid_id = contributor.get("contributor-orcid", "path")
                             name = contributor.get("credit-name", "value")
-                            email = contributor.get("contributor-email", "value")
+                            email = normalize_email(contributor.get("contributor-email", "value"))
                             role = contributor.get("contributor-attributes", "contributor-role")
 
                             FundingContributor.create(
@@ -2175,7 +2182,7 @@ class PeerReviewRecord(RecordModel):
             if len(row) == 1 and row[0].strip() == '':
                 continue
 
-            orcid, email = val(row, 23), val(row, 22, "").lower()
+            orcid, email = val(row, 23), normalize_email(val(row, 22, ""))
             if orcid:
                 validate_orcid_id(orcid)
             if email and not validators.email(email):
@@ -2457,18 +2464,18 @@ class PeerReviewRecord(RecordModel):
                     invitee_list = data.get("invitees")
                     if invitee_list:
                         for invitee in invitee_list:
-                            identifier = invitee.get("identifier") if invitee.get("identifier") else None
-                            email = invitee.get("email") if invitee.get("email") else None
-                            first_name = invitee.get("first-name") if invitee.get("first-name") else None
-                            last_name = invitee.get("last-name") if invitee.get("last-name") else None
-                            orcid_id = invitee.get("ORCID-iD") if invitee.get("ORCID-iD") else None
-                            put_code = invitee.get("put-code") if invitee.get("put-code") else None
+                            identifier = invitee.get("identifier")
+                            email = normalize_email(invitee.get("email"))
+                            first_name = invitee.get("first-name")
+                            last_name = invitee.get("last-name")
+                            orcid_id = invitee.get("ORCID-iD")
+                            put_code = invitee.get("put-code")
                             visibility = get_val(invitee, "visibility")
 
                             PeerReviewInvitee.create(
                                 record=record,
                                 identifier=identifier,
-                                email=email.lower(),
+                                email=email,
                                 first_name=first_name,
                                 last_name=last_name,
                                 orcid=orcid_id,
@@ -2655,7 +2662,7 @@ class PropertyRecord(RecordModel):
                     if len(row) == 1 and row[0].strip() == '':
                         continue
 
-                    email = val(row, 3, "").lower()
+                    email = normalize_email(val(row, 3, ""))
                     orcid = val(row, 6)
 
                     if not (email or orcid):
@@ -2774,9 +2781,7 @@ class PropertyRecord(RecordModel):
                     property_type = r.get("type") or file_property_type
                     if property_type:
                         property_type = property_type.strip().upper()
-                    email = r.get("email")
-                    if email:
-                        email = email.lower()
+                    email = normalize_email(r.get("email"))
                     first_name = r.get("first-name")
                     last_name = r.get("last-name")
                     orcid_id = r.get("ORCID-iD") or r.get("orcid")
@@ -2938,7 +2943,7 @@ class WorkRecord(RecordModel):
             if len(row) == 1 and row[0].strip() == '':
                 continue
 
-            orcid, email = val(row, 15), val(row, 16, "").lower()
+            orcid, email = val(row, 15), normalize_email(val(row, 16))
             if orcid:
                 validate_orcid_id(orcid)
             if email and not validators.email(email):
@@ -3144,7 +3149,7 @@ class WorkRecord(RecordModel):
                     if invitee_list:
                         for invitee in invitee_list:
                             identifier = invitee.get("identifier")
-                            email = invitee.get("email")
+                            email = normalize_email(invitee.get("email"))
                             first_name = invitee.get("first-name")
                             last_name = invitee.get("last-name")
                             orcid_id = invitee.get("ORCID-iD")
@@ -3169,7 +3174,7 @@ class WorkRecord(RecordModel):
                         for contributor in contributor_list:
                             orcid_id = get_val(contributor, "contributor-orcid", "path")
                             name = get_val(contributor, "credit-name", "value")
-                            email = get_val(contributor, "contributor-email", "value")
+                            email = normalize_email(get_val(contributor, "contributor-email", "value"))
                             role = get_val(contributor, "contributor-attributes", "contributor-role")
                             contributor_sequence = get_val(contributor, "contributor-attributes",
                                                            "contributor-sequence")
@@ -3473,7 +3478,7 @@ class OtherIdRecord(ExternalIdModel):
                     if len(row) == 1 and row[0].strip() == '':
                         continue
 
-                    email = val(row, 5, "").lower()
+                    email = normalize_email(val(row, 5))
                     orcid = val(row, 8)
 
                     if not (email or orcid):
@@ -3557,9 +3562,7 @@ class OtherIdRecord(ExternalIdModel):
                     url = r.get("url") or r.get("external-id-url", "value") or r.get("external-id-url")
                     relationship = r.get("relationship") or r.get("external-id-relationship")
                     display_index = r.get("display-index")
-                    email = r.get("email")
-                    if email:
-                        email = email.lower()
+                    email = normalize_email(r.get("email"))
                     first_name = r.get("first-name")
                     last_name = r.get("last-name")
                     orcid_id = r.get("ORCID-iD") or r.get("orcid")

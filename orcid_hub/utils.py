@@ -77,15 +77,16 @@ def read_uploaded_file(form):
         return
     raw = request.files[form.file_.name].read()
     detected_encoding = chardet.detect(raw).get('encoding')
+    encoding_list = ["utf-8", "utf-8-sig", "utf-16", "latin-1"]
     if detected_encoding:
-        return raw.decode(detected_encoding)
-    else:
-        for encoding in "utf-8", "utf-8-sig", "utf-16":
-            try:
-                return raw.decode(encoding)
-            except UnicodeDecodeError:
-                continue
-    return raw.decode("latin-1")
+        encoding_list.insert(0, detected_encoding)
+
+    for encoding in encoding_list:
+        try:
+            return raw.decode(encoding)
+        except UnicodeDecodeError:
+            continue
+    raise ValueError("Unable to decode encoding.")
 
 
 def send_email(template,
@@ -373,9 +374,9 @@ def send_work_funding_peer_review_invitation(inviter,
 
         return ui
 
-    except Exception as ex:
-        logger.error(f"Exception occured while sending mail: {ex}")
-        raise ex
+    except:
+        logger.exception(f"While sending an invitation email to {user} encountered exception")
+        raise
 
 
 def is_org_rec(org, rec):
@@ -1771,11 +1772,11 @@ def process_property_records(max_rows=20, record_id=None):
                         task_id=task_id,
                         invitation_template="email/person_update_invitation.html")
                     status = "The invitation sent at " + datetime.utcnow().isoformat(timespec="seconds")
-                    for r in tasks_by_user:
+                    for r in tasks:
                         r.record.add_status_line(status)
                         r.record.save()
                 except Exception as ex:
-                    for r in tasks_by_user:
+                    for r in tasks:
                         r.record.add_status_line(f"Failed to send an invitation: {ex}.")
                         r.record.save()
         else:
