@@ -374,9 +374,9 @@ def send_work_funding_peer_review_invitation(inviter,
 
         return ui
 
-    except Exception as ex:
-        logger.error(f"Exception occured while sending mail: {ex}")
-        raise ex
+    except:
+        logger.exception(f"While sending an invitation email to {user} encountered exception")
+        raise
 
 
 def is_org_rec(org, rec):
