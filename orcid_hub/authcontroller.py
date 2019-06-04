@@ -224,8 +224,8 @@ def handle_login():
         sp_url = urlparse(external_sp)
         attr_url = sp_url.scheme + "://" + sp_url.netloc + "/sp/attributes/" + session.get(
             "auth_secret")
-        data = requests.get(attr_url).data
-        data = json.loads(zlib.decompress(data))
+        resp = requests.get(attr_url)
+        data = json.loads(zlib.decompress(resp.content))
     else:
         data = request.headers
 
