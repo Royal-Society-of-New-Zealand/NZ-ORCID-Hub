@@ -156,7 +156,7 @@ def send_email(template,
     if '\n' not in template and template.endswith(".html"):
         template = jinja_env.get_template(template)
     else:
-        template = Template(template)
+        template = Template(source=template)
 
     kwargs["sender"] = _jinja2_email(*sender)
     if isinstance(recipient, str):
@@ -188,7 +188,8 @@ def send_email(template,
         text=plain_msg)
     dkim_key_path = app.config["DKIM_KEY_PATH"]
     if os.path.exists(dkim_key_path):
-        msg.dkim(key=open(dkim_key_path), domain="orcidhub.org.nz", selector="default")
+        with open(dkim_key_path) as key_file:
+            msg.dkim(key=key_file, domain="orcidhub.org.nz", selector="default")
     elif dkim_key_path:
         raise Exception(f"Cannot find DKIM key file: {dkim_key_path}!")
     if cc_email:
