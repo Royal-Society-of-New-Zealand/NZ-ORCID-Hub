@@ -1172,7 +1172,7 @@ class Task(BaseModel, AuditMixin):
                        r"start\s*(date)?", r"end\s*(date)?",
                        r"affiliation(s)?\s*(type)?|student|staff", "country", r"disambiguat.*id",
                        r"disambiguat.*source", r"put|code", "orcid.*", "external.*|.*identifier",
-                       "delete(.*record)?", ]
+                       "delete(.*record)?", r"(is)?\s*visib(bility|le)?", ]
         ]
 
         def index(rex):
@@ -1265,7 +1265,12 @@ class Task(BaseModel, AuditMixin):
                             "Wrong number of fields. Expected at least 4 fields "
                             "(first name, last name, email address or another unique identifier, "
                             f"student/staff): {row}")
-
+                    disambiguation_source = val(row, 13)
+                    if disambiguation_source:
+                        disambiguation_source = disambiguation_source.upper()
+                    visibility = val(row, 18)
+                    if visibility:
+                        visibility = visibility.upper()
                     af = AffiliationRecord(
                         task=task,
                         first_name=first_name,
@@ -1281,11 +1286,12 @@ class Task(BaseModel, AuditMixin):
                         affiliation_type=affiliation_type,
                         country=country,
                         disambiguated_id=val(row, 12),
-                        disambiguation_source=val(row, 13),
+                        disambiguation_source=disambiguation_source,
                         put_code=put_code,
                         orcid=orcid,
                         external_id=external_id,
-                        delete_record=delete_record)
+                        delete_record=delete_record,
+                        visibility=visibility,)
                     validator = ModelValidator(af)
                     if not validator.validate():
                         raise ModelException(f"Invalid record: {validator.errors}")
@@ -1533,6 +1539,7 @@ class AffiliationRecord(RecordModel):
         verbose_name="Disambiguation Source",
         choices=disambiguation_source_choices)
     delete_record = BooleanField(null=True)
+    visibility = CharField(null=True, max_length=100, choices=visibility_choices)
 
     class Meta:  # noqa: D101,D106
         db_table = "affiliation_record"
@@ -1592,10 +1599,15 @@ class AffiliationRecord(RecordModel):
                         if k == "id":
                             continue
                         k = k.replace('-', '_')
+                        if k in ["visibility", "disambiguation_source"] and v:
+                            v = v.upper()
                         if k in record_fields and rec._data.get(k) != v:
                             rec._data[k] = PartialDate.create(v) if k.endswith("date") else v
                             rec._dirty.add(k)
                     if rec.is_dirty():
+                        validator = ModelValidator(rec)
+                        if not validator.validate():
+                            raise ModelException(f"Invalid record: {validator.errors}")
                         rec.save()
             except:
                 db.rollback()

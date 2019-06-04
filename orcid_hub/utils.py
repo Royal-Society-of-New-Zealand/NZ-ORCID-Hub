@@ -440,13 +440,15 @@ def create_or_update_work(user, org_id, records, *args, **kwargs):
             wi = task_by_user.record.invitee
 
             try:
-                put_code, orcid, created = api.create_or_update_work(task_by_user)
+                put_code, orcid, created, visibility = api.create_or_update_work(task_by_user)
                 if created:
                     wi.add_status_line(f"Work record was created.")
                 else:
                     wi.add_status_line(f"Work record was updated.")
                 wi.orcid = orcid
                 wi.put_code = put_code
+                if wi.visibility != visibility:
+                    wi.visibility = visibility
 
             except Exception as ex:
                 logger.exception(f"For {user} encountered exception")
@@ -528,13 +530,15 @@ def create_or_update_peer_review(user, org_id, records, *args, **kwargs):
             pi = pr.invitee
 
             try:
-                put_code, orcid, created = api.create_or_update_peer_review(task_by_user)
+                put_code, orcid, created, visibility = api.create_or_update_peer_review(task_by_user)
                 if created:
                     pi.add_status_line(f"Peer review record was created.")
                 else:
                     pi.add_status_line(f"Peer review record was updated.")
                 pi.orcid = orcid
                 pi.put_code = put_code
+                if pi.visibility != visibility:
+                    pi.visibility = visibility
 
             except Exception as ex:
                 logger.exception(f"For {user} encountered exception")
@@ -610,13 +614,15 @@ def create_or_update_funding(user, org_id, records, *args, **kwargs):
             fi = task_by_user.record.invitee
 
             try:
-                put_code, orcid, created = api.create_or_update_funding(task_by_user)
+                put_code, orcid, created, visibility = api.create_or_update_funding(task_by_user)
                 if created:
                     fi.add_status_line(f"Funding record was created.")
                 else:
                     fi.add_status_line(f"Funding record was updated.")
                 fi.orcid = orcid
                 fi.put_code = put_code
+                if fi.visibility != visibility:
+                    fi.visibility = visibility
 
             except Exception as ex:
                 logger.exception(f"For {user} encountered exception")
@@ -862,13 +868,13 @@ def create_or_update_properties(user, org_id, records, *args, **kwargs):
                     rr.add_status_line("Researcher property record unchanged.")
                 else:
                     if rr.type == "URL":
-                        put_code, orcid, created = api.create_or_update_researcher_url(**rr._data)
+                        put_code, orcid, created, visibility = api.create_or_update_researcher_url(**rr._data)
                     elif rr.type == "NAME":
-                        put_code, orcid, created = api.create_or_update_other_name(**rr._data)
+                        put_code, orcid, created, visibility = api.create_or_update_other_name(**rr._data)
                     elif rr.type == "COUNTRY":
-                        put_code, orcid, created = api.create_or_update_address(**rr._data)
+                        put_code, orcid, created, visibility = api.create_or_update_address(**rr._data)
                     else:
-                        put_code, orcid, created = api.create_or_update_keyword(**rr._data)
+                        put_code, orcid, created, visibility = api.create_or_update_keyword(**rr._data)
 
                     if created:
                         rr.add_status_line("Researcher property record was created.")
@@ -876,6 +882,8 @@ def create_or_update_properties(user, org_id, records, *args, **kwargs):
                         rr.add_status_line("Researcher property record was updated.")
                     rr.orcid = orcid
                     rr.put_code = put_code
+                    if rr.visibility != visibility:
+                        rr.visibility = visibility
             except ApiException as ex:
                 if ex.status == 404:
                     rr.put_code = None
@@ -962,13 +970,15 @@ def create_or_update_other_id(user, org_id, records, *args, **kwargs):
                 if no_orcid_call:
                     rr.add_status_line("Other ID record unchanged.")
                 else:
-                    put_code, orcid, created = api.create_or_update_person_external_id(**rr._data)
+                    put_code, orcid, created, visibility = api.create_or_update_person_external_id(**rr._data)
                     if created:
                         rr.add_status_line("Other ID record was created.")
                     else:
                         rr.add_status_line("Other ID record was updated.")
                     rr.orcid = orcid
                     rr.put_code = put_code
+                    if rr.visibility != visibility:
+                        rr.visibility = visibility
             except ApiException as ex:
                 if ex.status == 404:
                     rr.put_code = None
@@ -1122,7 +1132,7 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
                 if no_orcid_call:
                     ar.add_status_line(f"{str(affiliation)} record unchanged.")
                 else:
-                    put_code, orcid, created = api.create_or_update_affiliation(
+                    put_code, orcid, created, visibility = api.create_or_update_affiliation(
                         affiliation=affiliation, **ar._data)
                     if created:
                         ar.add_status_line(f"{str(affiliation)} record was created.")
@@ -1130,6 +1140,8 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
                         ar.add_status_line(f"{str(affiliation)} record was updated.")
                     ar.orcid = orcid
                     ar.put_code = put_code
+                    if ar.visibility != visibility:
+                        ar.visibility = visibility
 
             except Exception as ex:
                 logger.exception(f"For {user} encountered exception")

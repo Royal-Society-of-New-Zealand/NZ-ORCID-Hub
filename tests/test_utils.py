@@ -683,7 +683,7 @@ def test_create_or_update_property_record(app, mocker):
         email="test1234456@mailinator.com",
         visibility="PUBLIC",
         value="dummy name",
-        display_index=0)
+        display_index=1)
 
     PropertyRecord.create(
         task=t,
@@ -695,7 +695,7 @@ def test_create_or_update_property_record(app, mocker):
         email="test1234456@mailinator.com",
         visibility="PUBLIC",
         value="IN",
-        display_index=0)
+        display_index=1)
 
     PropertyRecord.create(
         task=t,
@@ -708,7 +708,7 @@ def test_create_or_update_property_record(app, mocker):
         visibility="PUBLIC",
         name="url name",
         value="https://www.xyz.com",
-        display_index=0)
+        display_index=1)
 
     PropertyRecord.create(
         task=t,
@@ -720,7 +720,7 @@ def test_create_or_update_property_record(app, mocker):
         email="test1234456@mailinator.com",
         visibility="PUBLIC",
         value="dummy name",
-        display_index=0)
+        display_index=1)
 
     UserInvitation.create(
         invitee=u,
@@ -775,7 +775,7 @@ def test_process_other_id_records(app, mocker):
         last_name="Test",
         email="test1234456@mailinator.com",
         visibility="PUBLIC",
-        display_index=0)
+        display_index=1)
 
     UserInvitation.create(
         invitee=u,
@@ -877,7 +877,8 @@ def test_create_or_update_affiliation(app, mocker):
         department="Test",
         city="Test",
         state="Test",
-        country="Test")
+        country="Test",
+        visibility="PUBLIC")
     AffiliationRecord.create(
         is_active=True,
         task=t,

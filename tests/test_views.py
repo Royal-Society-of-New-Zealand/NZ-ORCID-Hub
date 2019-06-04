@@ -1543,11 +1543,11 @@ Roshan,researcher.010@mailinator.com
             "save":
             "Upload",
             "file_": (
-                BytesIO(b"""First Name,Last Name,Email,Affiliation Type
-Roshan,Pawar,researcher.010@mailinator.com,Student
-Roshan,Pawar,researcher.010@mailinator.com,Staff
-Rad,Cirskis,researcher.990@mailinator.com,Staff
-Rad,Cirskis,researcher.990@mailinator.com,Student
+                BytesIO(b"""First Name,Last Name,Email,Affiliation Type, Visibility, Disambiguated Id, Disambiguation Source
+Roshan,Pawar,researcher.010@mailinator.com,Student,PRIVate,3232,RINGGOLD
+Roshan,Pawar,researcher.010@mailinator.com,Staff,PRIVate,3232,RINGGOLD
+Rad,Cirskis,researcher.990@mailinator.com,Staff,PRIVate,3232,RINGGOLD
+Rad,Cirskis,researcher.990@mailinator.com,Student,PRIVate,3232,RINGGOLD
 """),
                 "affiliations.csv",
             ),
@@ -2245,7 +2245,9 @@ def test_edit_record(request_ctx):
                     "org_name": "TEST",
                     "funding_title": "TEST",
                     "funding_type": "AWARD",
+                    "funding_translated_title": "HI",
                     "translated_title_language": "hi",
+                    "total_funding_amount": "1000",
                     "total_funding_amount_currency": "NZD",
                     "grant_type": "https://test.com",
                     "grant_url": "https://test.com",
