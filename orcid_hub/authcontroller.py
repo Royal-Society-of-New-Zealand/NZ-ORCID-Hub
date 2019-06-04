@@ -164,7 +164,7 @@ def shib_sp():
     _key = request.args.get("key")
     if _next:
         data = {k: v for k, v in request.headers.items()}
-        data = base64.b64encode(zlib.compress(pickle.dumps(data)))
+        data = zlib.compress(json.dumps(data))
 
         resp = redirect(_next)
         with open(path.join(gettempdir(), _key), 'wb') as kf:
@@ -224,8 +224,8 @@ def handle_login():
         sp_url = urlparse(external_sp)
         attr_url = sp_url.scheme + "://" + sp_url.netloc + "/sp/attributes/" + session.get(
             "auth_secret")
-        data = requests.get(attr_url, verify=False).text
-        data = pickle.loads(zlib.decompress(base64.b64decode(data)))
+        data = requests.get(attr_url).data
+        data = json.loads(zlib.decompress(data))
     else:
         data = request.headers
 
