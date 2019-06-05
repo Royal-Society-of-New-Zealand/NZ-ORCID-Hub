@@ -7,7 +7,6 @@ user (reseaser) affiliations.
 
 import base64
 import json
-import pickle
 import re
 import secrets
 import zlib

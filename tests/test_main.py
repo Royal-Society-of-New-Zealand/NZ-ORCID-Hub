@@ -914,7 +914,6 @@ def test_orcid_callback(client, mocker):
 
 def test_login0(client):
     """Test login from orcid."""
-    from orcid_hub import current_user
     resp = client.get("/login0")
     assert resp.status_code == 401
 

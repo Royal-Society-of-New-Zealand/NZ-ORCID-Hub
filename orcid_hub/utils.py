@@ -156,7 +156,7 @@ def send_email(template,
     if '\n' not in template and template.endswith(".html"):
         template = jinja_env.get_template(template)
     else:
-        template = Template(source=template)
+        template = Template(template)
 
     kwargs["sender"] = _jinja2_email(*sender)
     if isinstance(recipient, str):

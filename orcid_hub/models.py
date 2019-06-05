@@ -853,7 +853,7 @@ class User(BaseModel, UserMixin, AuditMixin):
                 return bool(Role[role.upper()] & Role(self.roles))
             except Exception:
                 False
-        elif type(role) is int:
+        elif isinstance(role, int):
             return bool(role & self.roles)
         else:
             return False
@@ -1091,7 +1091,6 @@ class Task(BaseModel, AuditMixin):
         default=TaskType.NONE, choices=[(tt.value, tt.name) for tt in TaskType if tt.value])
     expires_at = DateTimeField(null=True)
     expiry_email_sent_at = DateTimeField(null=True)
-    completed_count = TextField(null=True, help_text="gives the status of uploaded task")
 
     def __repr__(self):
         return ("Synchronization task" if self.task_type == TaskType.SYNC else (
@@ -1133,9 +1132,6 @@ class Task(BaseModel, AuditMixin):
     @property
     def error_count(self):
         """Get error count encountered during processing batch task."""
-        q = self.records
-        _, models = q.get_query_meta()
-        model, = models.keys()
         return self.records.where(self.record_model.status ** "%error%").count()
 
     # TODO: move this one to AffiliationRecord
