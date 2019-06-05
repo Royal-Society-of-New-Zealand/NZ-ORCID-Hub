@@ -179,12 +179,12 @@ def get_attributes(key):
     data = ''
     data_filename = path.join(gettempdir(), key)
     try:
-        with open(data_filename, 'rb') as kf:
+        with open(data_filename, "rb") as kf:
             data = kf.read()
         remove(data_filename)
     except Exception as ex:
         abort(403, ex)
-    return data
+    return data, 200, {"Content-Type": "application/octet-stream"}
 
 
 @app.route("/sso/login", endpoint="sso-login")

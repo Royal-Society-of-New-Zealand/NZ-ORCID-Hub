@@ -1,9 +1,8 @@
 # -*- coding: utf-8 -*-
 """Tests for core functions."""
 
-import base64
 from datetime import timedelta
-import pickle
+import json
 import pprint
 import zlib
 from io import BytesIO
@@ -201,7 +200,7 @@ def test_sso_loging_with_external_sp(client, mocker):
     assert b"https://exernal.ac.nz/SP" in resp.data
     get = mocker.patch(
         "requests.get",
-        return_value=Mock(text=base64.b64encode(zlib.compress(pickle.dumps(data)))))
+        return_value=Mock(content=zlib.compress(json.dumps(data).encode())))
 
     resp = client.get("/sso/login", follow_redirects=True)
     get.assert_called_once()
@@ -830,7 +829,7 @@ def test_shib_sp(client):
 
     resp = client.get("/sp/attributes/123ABC")
     assert resp.status_code == 200
-    data = pickle.loads(zlib.decompress(base64.b64decode(resp.data)))
+    data = json.loads(zlib.decompress(resp.data))
     assert data["User"] == "TEST123ABC"
 
     resp = client.get("/Tuakiri/SP?key=123&url=https://harmfull.one/profile")
