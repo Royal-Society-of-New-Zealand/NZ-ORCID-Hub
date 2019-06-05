@@ -266,8 +266,8 @@ def handle_login():
         try:
             org.save()
         except Exception as ex:
-            flash(f"Failed to save organisation data: {ex}")
-            app.logger.exception(f"Failed to save organisation data: {ex}")
+            app.logger.exception("Failed to save organisation data")
+            abort(500, ex)
 
     q = User.select().where(User.email == email)
     if eppn:

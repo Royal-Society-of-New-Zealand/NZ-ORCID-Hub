@@ -142,6 +142,18 @@ def test_org_switch(client):
     next_user = UserOrg.get(next_ol.id).user
     assert next_user.id != user.id
 
+    # Non-exiting
+    resp = client.get("/select/user_org/9999999", follow_redirects=True)
+    assert b"Your are not related to this organisation" in resp.data
+
+    # Wrong organisations
+    uo = UserOrg.select().where(
+        UserOrg.id.in_([uo.id for uo in user.org_links]).__invert__(),
+        UserOrg.org != user.organisation).order_by(UserOrg.id.desc()).first()
+
+    resp = client.get(f"/select/user_org/{uo.id}", follow_redirects=True)
+    assert b"You cannot switch your user to this organisation" in resp.data
+
 
 def test_access(client):
     """Test access to the app for unauthorized user."""
@@ -196,8 +208,21 @@ def test_sso_loging_with_external_sp(client, mocker):
     }
 
     client.application.config["EXTERNAL_SP"] = "https://exernal.ac.nz/SP"
+
+    resp = client.get("/sso/login")
+    assert resp.status_code == 302
+    assert urlparse(resp.location).path == '/'
+
     resp = client.get("/index")
     assert b"https://exernal.ac.nz/SP" in resp.data
+
+    get = mocker.patch(
+        "requests.get",
+        return_value=Mock(content=zlib.compress(b"""{"GARBAGE": 123}""")))
+    resp = client.get("/sso/login", follow_redirects=True)
+    assert b"500" in resp.data
+    get.assert_called_once()
+
     get = mocker.patch(
         "requests.get",
         return_value=Mock(content=zlib.compress(json.dumps(data).encode())))
@@ -208,6 +233,36 @@ def test_sso_loging_with_external_sp(client, mocker):
     assert b"test_external_sp@test.ac.nz" in resp.data
     u = User.get(email="test_external_sp@test.ac.nz")
     assert u.name == "TEST USER #42"
+
+    resp = client.logout(follow_redirects=False)
+    data["Unscoped-Affiliation"] = "NONSENSE"
+    data["Mail"] = "a_new_user_1234567890@test123.test.edu"
+    data["Eppn"] = "a_new_user_1234567890@test123.test.edu"
+    get = mocker.patch(
+        "requests.get",
+        return_value=Mock(content=zlib.compress(json.dumps(data).encode())))
+    resp = client.get("/index")
+    resp = client.get("/sso/login", follow_redirects=True)
+    assert b"NONSENSE" in resp.data
+
+    resp = client.logout(follow_redirects=False)
+    data["O"] = "A BRAND NEW ORGANISATION"
+    get = mocker.patch(
+        "requests.get",
+        return_value=Mock(content=zlib.compress(json.dumps(data).encode())))
+    resp = client.get("/index")
+    resp = client.get("/sso/login", follow_redirects=True)
+    assert b"Your organisation (A BRAND NEW ORGANISATION) is not yet using the Hub" in resp.data
+
+    resp = client.logout(follow_redirects=False)
+    data["O"] = "A COMPLETELY BRAND NEW ORGANISATION"
+    get = mocker.patch(
+        "requests.get",
+        return_value=Mock(content=zlib.compress(json.dumps(data).encode())))
+    mocker.patch("orcid_hub.models.Organisation.save", side_effect=Exception("FAILURE"))
+    resp = client.get("/index")
+    resp = client.get("/sso/login", follow_redirects=True)
+    assert b"FAILURE" in resp.data
 
 
 def test_tuakiri_login_usgin_eppn(client):
@@ -560,6 +615,11 @@ def test_orcid_login(client):
         confirmed=True,
         organisation=org)
     user_org = UserOrg.create(user=u, org=org, is_admin=True)
+
+    resp = client.get("/orcid/login/NOT-EXISTTING", follow_redirects=True)
+    assert resp.status_code == 200
+    assert b"Failed to login via ORCID using token NOT-EXISTTING" in resp.data
+
     token = "TOKEN-1234567"
     ui = UserInvitation.create(org=org, invitee=u, email=u.email, token=token)
     resp = client.get(f"/orcid/login/{token}")
