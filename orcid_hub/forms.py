@@ -98,8 +98,8 @@ class PartialDateField(Field):
 
             self.data = models.PartialDate(**new_data)
         try:
-            for filter in self.filters:
-                self.data = filter(self.data)
+            for f in self.filters:
+                self.data = f(self.data)
         except ValueError as e:
             self.process_errors.append(e.args[0])
 

@@ -1887,7 +1887,7 @@ class FundingRecord(RecordModel):
                     translated_title = r.get("title", "translated-title", "value")
                     translated_title_language_code = r.get("title", "translated-title",
                                                            "language-code")
-                    type = r.get("type")
+                    rec_type = r.get("type")
                     organization_defined_type = r.get("organization-defined-type", "value")
                     short_description = r.get("short-description")
                     amount = r.get("amount", "value")
@@ -1908,7 +1908,7 @@ class FundingRecord(RecordModel):
                         title=title,
                         translated_title=translated_title,
                         translated_title_language_code=translated_title_language_code,
-                        type=type,
+                        type=rec_type,
                         organization_defined_type=organization_defined_type,
                         short_description=short_description,
                         amount=amount,
@@ -1964,13 +1964,13 @@ class FundingRecord(RecordModel):
                     external_ids = r.get("external-ids", "external-id", default=[])
                     if external_ids:
                         for external_id in external_ids:
-                            type = external_id.get("external-id-type")
+                            id_type = external_id.get("external-id-type")
                             value = external_id.get("external-id-value")
                             url = external_id.get("external-id-url", "value")
                             relationship = external_id.get("external-id-relationship")
                             ExternalId.create(
                                 record=record,
-                                type=type,
+                                type=id_type,
                                 value=value,
                                 url=url,
                                 relationship=relationship)
@@ -2497,14 +2497,14 @@ class PeerReviewRecord(RecordModel):
                         data.get("review-identifiers") else None
                     if external_ids_list:
                         for external_id in external_ids_list:
-                            type = external_id.get("external-id-type")
+                            id_type = external_id.get("external-id-type")
                             value = external_id.get("external-id-value")
                             url = external_id.get("external-id-url").get("value") if \
                                 external_id.get("external-id-url") else None
                             relationship = external_id.get("external-id-relationship")
                             PeerReviewExternalId.create(
                                 record=record,
-                                type=type,
+                                type=id_type,
                                 value=value,
                                 url=url,
                                 relationship=relationship)
@@ -3121,7 +3121,7 @@ class WorkRecord(RecordModel):
                     if citation_type:
                         citation_type = citation_type.strip().upper()
                     citation_value = r.get("citation", "citation-value")
-                    type = r.get("type")
+                    rec_type = r.get("type")
                     publication_media_type = r.get("publication-date", "media-type")
                     url = r.get("url", "value")
                     language_code = r.get("language-code")
@@ -3142,7 +3142,7 @@ class WorkRecord(RecordModel):
                         short_description=short_description,
                         citation_type=citation_type,
                         citation_value=citation_value,
-                        type=type,
+                        type=rec_type,
                         publication_date=publication_date,
                         publication_media_type=publication_media_type,
                         url=url,
@@ -3199,13 +3199,13 @@ class WorkRecord(RecordModel):
                         r.get("external-ids") else None
                     if external_ids_list:
                         for external_id in external_ids_list:
-                            type = external_id.get("external-id-type")
+                            id_type = external_id.get("external-id-type")
                             value = external_id.get("external-id-value")
                             url = get_val(external_id, "external-id-url", "value")
                             relationship = external_id.get("external-id-relationship")
                             WorkExternalId.create(
                                 record=record,
-                                type=type,
+                                type=id_type,
                                 value=value,
                                 url=url,
                                 relationship=relationship)
@@ -3501,16 +3501,16 @@ class OtherIdRecord(ExternalIdModel):
                         raise ValueError(
                             f"Invalid email address '{email}'  in the row #{row_no+2}: {row}")
 
-                    type = val(row, 1, "").lower()
+                    rec_type = val(row, 1, "").lower()
                     value = val(row, 2)
                     url = val(row, 3)
                     relationship = val(row, 4, "").upper()
                     first_name = val(row, 6)
                     last_name = val(row, 7)
 
-                    if type not in EXTERNAL_ID_TYPES:
+                    if rec_type not in EXTERNAL_ID_TYPES:
                         raise ModelException(
-                            f"Invalid External Id Type: '{type}', Use 'doi', 'issn' "
+                            f"Invalid External Id Type: '{rec_type}', Use 'doi', 'issn' "
                             f"or one of the accepted types found here: https://pub.orcid.org/v2.0/identifiers")
 
                     if not value:
@@ -3524,7 +3524,7 @@ class OtherIdRecord(ExternalIdModel):
 
                     rr = cls(
                         task=task,
-                        type=type,
+                        type=rec_type,
                         url=url,
                         relationship=relationship,
                         value=value,
