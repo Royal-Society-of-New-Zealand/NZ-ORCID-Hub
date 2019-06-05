@@ -412,7 +412,7 @@ class BaseModel(Model):
         if self.is_dirty() and hasattr(self, "task") and self.task:
             self.task.updated_at = datetime.utcnow()
             self.task.save()
-        if self.is_dirty() and hasattr(self, "email") and self.email and self.field_is_updated("email"):
+        if self.is_dirty() and getattr(self, "email", False) and self.field_is_updated("email"):
             self.email = self.email.lower()
         return super().save(*args, **kwargs)
 
@@ -3664,7 +3664,7 @@ class Client(BaseModel, AuditMixin):
     _default_scopes = TextField(null=True)
 
     def save(self, *args, **kwargs):  # noqa: D102
-        if self.is_dirty() and self.user_id is None and current_user:
+        if self.is_dirty() and not getattr(self, "user_id") and current_user:
             self.user_id = current_user.id
         return super().save(*args, **kwargs)
 
