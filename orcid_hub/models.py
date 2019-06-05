@@ -3565,7 +3565,7 @@ class OtherIdRecord(ExternalIdModel):
 
                 for r in records:
 
-                    type = r.get("type") or r.get("external-id-type")
+                    id_type = r.get("type") or r.get("external-id-type")
                     value = r.get("value") or r.get("external-id-value")
                     url = r.get("url") or r.get("external-id-url", "value") or r.get("external-id-url")
                     relationship = r.get("relationship") or r.get("external-id-relationship")
@@ -3579,7 +3579,7 @@ class OtherIdRecord(ExternalIdModel):
 
                     cls.create(
                         task=task,
-                        type=type,
+                        type=id_type,
                         value=value,
                         url=url,
                         relationship=relationship,
