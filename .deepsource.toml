@@ -7,6 +7,7 @@ test_patterns = [
 exclude_patterns = [
   'docs',
   'orcid_api',
+  'tests/test_*.py',
   'orcid_api_v3'
 ]
 
