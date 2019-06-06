@@ -194,6 +194,66 @@ def test_tuakiri_login(client):
     assert u.last_name == "LAST NAME/SURNAME/FAMILY NAME"
 
 
+def test_tuakiri_login_with_orcid(client):
+    """
+    Test logging attempt via Shibboleth.
+
+    After getting logged in a new user entry shoulg be created.
+    """
+    data = {
+        "Auedupersonsharedtoken": "ABC123",
+        "Sn": "LAST NAME/SURNAME/FAMILY NAME",
+        'Givenname': "FIRST NAME/GIVEN NAME",
+        "Mail": "user@test.test.net",
+        "O": "ORGANISATION 123",
+        "Displayname": "TEST USER FROM 123",
+        "Unscoped-Affiliation": "staff",
+        "Eppn": "user@test.test.net",
+        "Orcid": "ERROR-ERROR-ERROR",
+    }
+
+    # Incorrect ORCID iD
+    resp = client.get("/sso/login", headers=data)
+    assert resp.status_code == 302
+    u = User.get(email="user@test.test.net")
+    assert u.name == "TEST USER FROM 123", "Expected to have the user in the DB"
+    assert u.first_name == "FIRST NAME/GIVEN NAME"
+    assert u.last_name == "LAST NAME/SURNAME/FAMILY NAME"
+    assert u.orcid is None
+
+    # Correct ORCID iD, existing user:
+    client.logout()
+    data["Orcid"] = "1893-2893-3893-00X3"
+    resp = client.get("/sso/login", headers=data)
+    assert resp.status_code == 302
+    u = User.get(email="user@test.test.net")
+    assert u.name == "TEST USER FROM 123", "Expected to have the user in the DB"
+    assert u.first_name == "FIRST NAME/GIVEN NAME"
+    assert u.last_name == "LAST NAME/SURNAME/FAMILY NAME"
+    assert u.orcid == "1893-2893-3893-00X3"
+
+    # A new user with ORCID iD:
+    client.logout()
+    data = {
+        "Auedupersonsharedtoken": "ABC123ABC123",
+        "Sn": "LAST NAME/SURNAME/FAMILY NAME",
+        'Givenname': "FIRST NAME/GIVEN NAME",
+        "Mail": "test1234567@test.test.net",
+        "O": "ORGANISATION 123",
+        "Displayname": "TEST USER FROM 123",
+        "Unscoped-Affiliation": "staff",
+        "Eppn": "test1234567@test.test.net",
+        "Orcid": "1965-2965-3965-00X3",
+    }
+    resp = client.get("/sso/login", headers=data)
+    assert resp.status_code == 302
+    u = User.get(email="test1234567@test.test.net")
+    assert u.name == "TEST USER FROM 123", "Expected to have the user in the DB"
+    assert u.first_name == "FIRST NAME/GIVEN NAME"
+    assert u.last_name == "LAST NAME/SURNAME/FAMILY NAME"
+    assert u.orcid == "1965-2965-3965-00X3"
+
+
 def test_sso_loging_with_external_sp(client, mocker):
     """Test with EXTERNAL_SP."""
     data = {

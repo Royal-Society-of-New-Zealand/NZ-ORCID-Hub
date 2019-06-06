@@ -40,7 +40,7 @@ from .forms import OrgConfirmationForm, TestDataForm
 from .login_provider import roles_required
 from .models import (Affiliation, OrcidAuthorizeCall, OrcidToken, Organisation, OrgInfo,
                      OrgInvitation, Role, Task, TaskType, Url, User, UserInvitation, UserOrg,
-                     audit_models)
+                     audit_models, validate_orcid_id)
 from .utils import (append_qs, get_next_url, enqueue_user_records, notify_about_update,
                     read_uploaded_file, register_orcid_webhook)
 
@@ -239,6 +239,17 @@ def handle_login():
         unscoped_affiliation = set(a.strip()
                                    for a in data.get("Unscoped-Affiliation", '').encode("latin-1")
                                    .decode("utf-8").replace(',', ';').split(';'))
+
+        orcid = None
+        for attribute_name in data.keys():
+            if "orcid" in attribute_name.lower():
+                orcid = data[attribute_name]
+                try:
+                    validate_orcid_id(orcid)
+                except ValueError:
+                    app.logger.exception(f"Invalid OCID iD value recieved via '{attribute_name}': {orcid}")
+                    orcid = None
+
         app.logger.info(
             f"User with email address {email} (eppn: {eppn} is trying "
             f"to login having affiliation as {unscoped_affiliation} with {shib_org_name}")
@@ -286,6 +297,8 @@ def handle_login():
             user.last_name = last_name
         if not user.eppn and eppn:
             user.eppn = eppn
+        if not user.orcid:
+            user.orcid = orcid
     else:
 
         if not (unscoped_affiliation & {"faculty", "staff", "student"}):
@@ -301,6 +314,7 @@ def handle_login():
             name=name,
             first_name=first_name,
             last_name=last_name,
+            orcid=orcid,
             roles=Role.RESEARCHER)
 
     # TODO: need to find out a simple way of tracking
