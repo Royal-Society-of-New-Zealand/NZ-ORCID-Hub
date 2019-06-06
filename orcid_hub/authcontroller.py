@@ -243,7 +243,7 @@ def handle_login():
         orcid = None
         for attribute_name in data.keys():
             if "orcid" in attribute_name.lower():
-                orcid = data[attribute_name]
+                orcid = data[attribute_name].split('/')[-1]
                 try:
                     validate_orcid_id(orcid)
                 except ValueError:
