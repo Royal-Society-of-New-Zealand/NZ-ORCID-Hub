@@ -7,7 +7,6 @@ user (reseaser) affiliations.
 
 import base64
 import json
-import pickle
 import re
 import secrets
 import zlib
@@ -42,8 +41,8 @@ from .login_provider import roles_required
 from .models import (Affiliation, OrcidAuthorizeCall, OrcidToken, Organisation, OrgInfo,
                      OrgInvitation, Role, Task, TaskType, Url, User, UserInvitation, UserOrg,
                      audit_models)
-from .utils import (append_qs, get_next_url, enqueue_user_records, read_uploaded_file,
-                    register_orcid_webhook)
+from .utils import (append_qs, get_next_url, enqueue_user_records, notify_about_update,
+                    read_uploaded_file, register_orcid_webhook)
 
 HEADERS = {'Accept': 'application/vnd.orcid+json', 'Content-type': 'application/vnd.orcid+json'}
 ENV = app.config.get("ENV")
@@ -164,7 +163,7 @@ def shib_sp():
     _key = request.args.get("key")
     if _next:
         data = {k: v for k, v in request.headers.items()}
-        data = base64.b64encode(zlib.compress(pickle.dumps(data)))
+        data = zlib.compress(json.dumps(data).encode())
 
         resp = redirect(_next)
         with open(path.join(gettempdir(), _key), 'wb') as kf:
@@ -180,12 +179,12 @@ def get_attributes(key):
     data = ''
     data_filename = path.join(gettempdir(), key)
     try:
-        with open(data_filename, 'rb') as kf:
+        with open(data_filename, "rb") as kf:
             data = kf.read()
         remove(data_filename)
     except Exception as ex:
         abort(403, ex)
-    return data
+    return data, 200, {"Content-Type": "application/octet-stream"}
 
 
 @app.route("/sso/login", endpoint="sso-login")
@@ -224,8 +223,8 @@ def handle_login():
         sp_url = urlparse(external_sp)
         attr_url = sp_url.scheme + "://" + sp_url.netloc + "/sp/attributes/" + session.get(
             "auth_secret")
-        data = requests.get(attr_url, verify=False).text
-        data = pickle.loads(zlib.decompress(base64.b64decode(data)))
+        resp = requests.get(attr_url)
+        data = json.loads(zlib.decompress(resp.content))
     else:
         data = request.headers
 
@@ -267,8 +266,8 @@ def handle_login():
         try:
             org.save()
         except Exception as ex:
-            flash(f"Failed to save organisation data: {ex}")
-            app.logger.exception(f"Failed to save organisation data: {ex}")
+            app.logger.exception("Failed to save organisation data")
+            abort(500, ex)
 
     q = User.select().where(User.email == email)
     if eppn:
@@ -696,6 +695,7 @@ def orcid_callback():
                 f"Please contact your Organisation Administrator(s) if you believe this is an error.",
                 "warning")
 
+    notify_about_update(user, event_type="UPDATED" if orcid_token_found else "CREATED")
     session['Should_not_logout_from_ORCID'] = True
     return redirect(url_for("profile"))
 
@@ -1287,7 +1287,9 @@ def orcid_login_callback(request):
                 return redirect(url_for('viewmembers.index_view'))
             else:
                 return redirect(url_for("link"))
+        # Loging by invitation
         if invitation_token:
+            notify_about_update(user, event_type="CREATED")
             enqueue_user_records(user)
         return redirect(url_for("profile"))
 

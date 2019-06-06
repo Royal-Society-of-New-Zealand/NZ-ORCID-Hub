@@ -256,12 +256,12 @@ class AppModelView(ModelView):
 
         return query
 
-    def get_one(self, id):
+    def get_one(self, rec_id):
         """Handle missing data."""
         try:
-            return super().get_one(id)
+            return super().get_one(rec_id)
         except self.model.DoesNotExist:
-            flash(f"The record with given ID: {id} doesn't exist or it has been deleted.", "danger")
+            flash(f"The record with given ID: {rec_id} doesn't exist or it has been deleted.", "danger")
             abort(404)
 
     def init_search(self):
@@ -450,7 +450,7 @@ class OrganisationAdmin(AppModelView):
                         Organisation.id != model.id).exists():
                 app.logger.info(r"Revoked TECHNICAL from {model.tech_contact}")
                 model.tech_contact.roles &= ~Role.TECHNICAL
-                super(User, model.tech_contact).save()
+                model.tech_contact.save()
 
         return super().update_model(form, model)
 
@@ -1593,16 +1593,16 @@ class ViewMembersAdmin(AppModelView):
             query = query.order_by(*clauses)
         return query, joins
 
-    def get_one(self, id):
+    def get_one(self, rec_id):
         """Limit access only to the userers belonging to the current organisation."""
         try:
-            user = User.get(id=id)
+            user = User.get(id=rec_id)
             if not user.organisations.where(UserOrg.org == current_user.organisation).exists():
                 flash("Access Denied!", "danger")
                 abort(403)
             return user
         except User.DoesNotExist:
-            flash(f"The user with given ID: {id} doesn't exist or it was deleted.", "danger")
+            flash(f"The user with given ID: {rec_id} doesn't exist or it was deleted.", "danger")
             abort(404)
 
     def delete_model(self, model):
@@ -2595,14 +2595,14 @@ def search_group_id_record():
         group_id = request.form.get('group_id')
         name = request.form.get('name')
         description = request.form.get('description')
-        type = request.form.get('type')
+        id_type = request.form.get('type')
         put_code = request.form.get('put_code')
 
         with db.atomic():
             try:
                 gir, created = GroupIdRecord.get_or_create(organisation=current_user.organisation,
                                                            group_id=group_id, name=name, description=description,
-                                                           type=type)
+                                                           type=id_type)
                 gir.put_code = put_code
 
                 if created:
@@ -3424,24 +3424,7 @@ def update_webhook(user_id):
         user = User.get(user_id)
         user.orcid_updated_at = updated_at
         user.save()
-
-        for org in user.organisations.where(Organisation.webhook_enabled):
-
-            if org.webhook_url:
-                utils.invoke_webhook_handler.queue(
-                    org.webhook_url,
-                    user.orcid,
-                    updated_at,
-                )
-
-            if org.email_notifications_enabled:
-                url = app.config["ORCID_BASE_URL"] + user.orcid
-                utils.send_email(
-                    f"""<p>User {user.name} (<a href="{url}" target="_blank">{user.orcid}</a>)
-                    profile was updated at {updated_at.isoformat(timespec="minutes", sep=' ')}.</p>""",
-                    recipient=org.notification_email or (org.tech_contact.name, org.tech_contact.email),
-                    subject=f"ORCID Profile Update ({user.orcid})",
-                    org=org)
+        utils.notify_about_update(user)
 
     except Exception:
         app.logger.exception(f"Invalid user_id: {user_id}")
@@ -3651,8 +3634,8 @@ class ScheduerView(BaseModelView):
     def scaffold_filters(self, name):  # noqa: D102
         return None
 
-    def is_valid_filter(self, filter):  # noqa: D102
-        return isinstance(filter, filters.BasePeeweeFilter)
+    def is_valid_filter(self, filter_object):  # noqa: D102
+        return isinstance(filter_object, filters.BasePeeweeFilter)
 
     def scaffold_form(self):  # noqa: D102
         from wtforms import Form

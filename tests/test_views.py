@@ -1217,8 +1217,8 @@ def test_invite_user(client):
 
 def test_researcher_invitation(client, mocker):
     """Test full researcher invitation flow."""
-    exception = mocker.patch.object(client.application.logger, "exception")
     mocker.patch("sentry_sdk.transport.HttpTransport.capture_event")
+    mocker.patch("orcid_hub.MemberAPI.create_or_update_affiliation")
     mocker.patch(
         "orcid_hub.views.send_user_invitation.queue",
         lambda *args, **kwargs: (views.send_user_invitation(*args, **kwargs) and Mock()))
@@ -1244,7 +1244,6 @@ def test_researcher_invitation(client, mocker):
     _, kwargs = send_email.call_args
     invitation_url = urlparse(kwargs["invitation_url"]).path
     client.logout()
-    client.cookie_jar.clear()
 
     # Attempt to login via ORCID with the invitation token
     resp = client.get(invitation_url)
@@ -1261,13 +1260,71 @@ def test_researcher_invitation(client, mocker):
             "name": "TESTER TESTERON",
             "access_token": "xyz",
             "refresh_token": "xyz",
-            "scope": "/activities/update",
+            "scope": ["/read-limited", "/activities/update"],
             "expires_in": "12121"
         })
     resp = client.get(callback_url, follow_redirects=True)
     user = User.get(email="test123abc@test.test.net")
     assert user.orcid == "0123-1234-5678-0123"
-    exception.assert_called()
+
+    # Test web-hook:
+    send_email.reset_mock()
+    org = admin.organisation
+    org.webhook_enabled = True
+    org.webhook_url = "http://test.webhook"
+    org.confirmed = True
+    org.save()
+    client.logout()
+    client.login(admin)
+    post = mocker.patch("requests.post")
+    resp = client.post(
+            "/invite/user",
+            data={
+                "name": "TEST APP",
+                "is_employee": "false",
+                "email_address": "test123abc123@test.test.net",
+                "resend": "enable",
+                "is_student": "true",
+                "first_name": "test",
+                "last_name": "test",
+                "city": "test"
+            })
+    assert resp.status_code == 200
+    send_email.assert_called_once()
+    _, kwargs = send_email.call_args
+    invitation_url = urlparse(kwargs["invitation_url"]).path
+    client.logout()
+
+    # Attempt to login via ORCID with the invitation token
+    resp = client.get(invitation_url)
+    auth_url = re.search(r"window.location='([^']*)'", resp.data.decode()).group(1)
+    qs = parse_qs(urlparse(auth_url).query)
+    redirect_uri = qs["redirect_uri"][0]
+    oauth_state = qs["state"][0]
+    callback_url = redirect_uri + "&state=" + oauth_state
+    assert session["oauth_state"] == oauth_state
+    mocker.patch(
+        "orcid_hub.authcontroller.OAuth2Session.fetch_token",
+        return_value={
+            "orcid": "0123-1234-5678-0124",
+            "name": "TESTER TESTERON",
+            "access_token": "xyz",
+            "refresh_token": "xyz",
+            "scope": ["/read-limited", "/activities/update"],
+            "expires_in": "12121"
+        })
+    send_email.reset_mock()
+    post.reset_mock()
+    resp = client.get(callback_url, follow_redirects=True)
+    user = User.get(email="test123abc123@test.test.net")
+    assert user.orcid == "0123-1234-5678-0124"
+    assert post.call_count == 2
+    # Last "post":
+    args, kwargs = post.call_args
+    assert args[0] == 'http://test.webhook/0123-1234-5678-0124'
+    message = kwargs["json"]
+    assert message["type"] == "CREATED"
+    assert message["email"] == user.email
 
 
 def test_email_template(app, request_ctx):
