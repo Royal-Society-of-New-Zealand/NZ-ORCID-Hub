@@ -1054,6 +1054,7 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
                                 "disambiguation-source") == record.disambiguation_source):
                     record.put_code = put_code
                     record.orcid = orcid
+                    record.visibility = r.get("visibility")
                     return True
 
                 if record.put_code:
@@ -1066,6 +1067,7 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
                     "department-name") is None and r.get("role-title") is None)
                     or (r.get("start-date") == start_date and r.get("department-name") == record.department
                         and r.get("role-title") == record.role)):
+                    record.visibility = r.get("visibility")
                     record.put_code = put_code
                     record.orcid = orcid
                     taken_put_codes.add(put_code)
