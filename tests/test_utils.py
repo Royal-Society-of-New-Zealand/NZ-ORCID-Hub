@@ -201,7 +201,7 @@ def test_send_work_funding_peer_review_invitation(app, mocker):
 
     server_name = app.config.get("SERVER_NAME")
     app.config["SERVER_NAME"] = "abc.orcidhub.org.nz"
-    utils.send_work_funding_peer_review_invitation(
+    utils.send_user_invitation(
         inviter=inviter, org=org, email=email, name=u.name, user=u, task_id=task.id)
     app.config["SERVER_NAME"] = server_name
     send_email.assert_called_once()
