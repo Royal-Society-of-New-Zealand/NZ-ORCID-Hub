@@ -601,8 +601,8 @@ def send_user_invitation(inviter,
 
         task_type = Task.get(task_id).task_type if task_id else TaskType.AFFILIATION
         if not invitation_template:
-            if task_type == TaskType.AFFILIATION:
-                invitation_template = f"email/{task_type.name().lower()}_invitation.html"
+            if task_type != TaskType.AFFILIATION:
+                invitation_template = f"email/{task_type.name.lower()}_invitation.html"
             else:
                 invitation_template = "email/researcher_invitation.html"
 
@@ -617,6 +617,7 @@ def send_user_invitation(inviter,
 
         if not user or not user.id:
             user, user_created = User.get_or_create(email=email)
+
             if user_created:
                 user.organisation = org
                 user.created_by = inviter.id
@@ -645,11 +646,11 @@ def send_user_invitation(inviter,
                 _scheme="http" if app.debug else "https")
             send_email(
                 invitation_template,
-                recipient=(user.organisation.name, user.email),
+                recipient=(user.organisation.name if user.organisation else org.name, user.email),
                 reply_to=(inviter.name, inviter.email),
                 cc_email=cc_email,
                 invitation_url=invitation_url,
-                org_name=user.organisation.name,
+                org_name=user.organisation.name if user.organisation else org.name,
                 org=org,
                 user=user)
 

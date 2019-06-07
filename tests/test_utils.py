@@ -153,7 +153,7 @@ def test_send_user_invitation(app, mocker):
         end_date=[2018, 5, 29],
         task_id=task.id)
     send_email.assert_called_once()
-    assert result == UserInvitation.select().order_by(UserInvitation.id.desc()).first().id
+    assert result == UserInvitation.select().order_by(UserInvitation.id.desc()).first()
 
     with pytest.raises(Exception) as excinfo:
         send_email.reset_mock()
