@@ -289,97 +289,6 @@ def set_server_name():
                 "SERVER_NAME"] = "orcidhub.org.nz" if ENV == "prod" else ENV + ".orcidhub.org.nz"
 
 
-def send_work_funding_peer_review_invitation(inviter,
-                                             org,
-                                             email=None,
-                                             first_name=None,
-                                             last_name=None,
-                                             user=None,
-                                             task_id=None,
-                                             invitation_template=None,
-                                             token_expiry_in_sec=1300000,
-                                             **kwargs):
-    """Send a work, funding or peer review invitation to join ORCID Hub logging in via ORCID."""
-    try:
-        if not email:
-            if user and user.email:
-                email = user.email
-            else:
-                raise Exception("Failed to find the email address for the record. Cannot send an invitation.")
-        else:
-            email = email.lower()
-
-        logger.info(f"*** Sending an invitation to '{first_name} <{email}>' "
-                    f"submitted by {inviter} of {org}")
-
-        if not user or not user.id:
-            user, user_created = User.get_or_create(email=email)
-            if user_created:
-                user.organisation = org
-                user.created_by = inviter.id
-                user.first_name = first_name or "N/A"
-                user.last_name = last_name or "N/A"
-            else:
-                user.updated_by = inviter.id
-
-        if first_name and not user.first_name:
-            user.first_name = first_name
-        if last_name and not user.last_name:
-            user.last_name = last_name
-
-        if not first_name:
-            first_name = user.first_name
-        if not last_name:
-            last_name = user.last_name
-
-        user.roles |= Role.RESEARCHER
-        token = new_invitation_token()
-        with app.app_context():
-            invitation_url = flask.url_for(
-                "orcid_login",
-                invitation_token=token,
-                _external=True,
-                _scheme="http" if app.debug else "https")
-            send_email(
-                invitation_template,
-                recipient=(user.organisation.name, user.email),
-                reply_to=(inviter.name, inviter.email),
-                invitation_url=invitation_url,
-                org_name=user.organisation.name,
-                org=org,
-                user=user)
-
-        user.save()
-
-        user_org, user_org_created = UserOrg.get_or_create(user=user, org=org)
-        if user_org_created:
-            user_org.created_by = inviter.id
-            user_org.affiliations = 0
-        else:
-            user_org.updated_by = inviter.id
-        user_org.save()
-
-        ui = UserInvitation.create(
-            task_id=task_id,
-            invitee_id=user.id,
-            inviter_id=inviter.id,
-            org=org,
-            email=email,
-            first_name=first_name,
-            last_name=last_name,
-            affiliations=0,
-            organisation=org.name,
-            disambiguated_id=org.disambiguated_id,
-            disambiguation_source=org.disambiguation_source,
-            token=token)
-
-        return ui
-
-    except:
-        logger.exception(f"While sending an invitation email to {user} encountered exception")
-        raise
-
-
 def is_org_rec(org, rec):
     """Test if the record was authoritized by the organisation."""
     client_id = org.orcid_client_id
@@ -648,9 +557,11 @@ def create_or_update_funding(user, org_id, records, *args, **kwargs):
 @rq.job(timeout=300)
 def send_user_invitation(inviter,
                          org,
-                         email,
-                         first_name,
-                         last_name,
+                         email=None,
+                         first_name=None,
+                         last_name=None,
+                         user=None,
+                         task_id=None,
                          affiliation_types=None,
                          orcid=None,
                          department=None,
@@ -664,12 +575,20 @@ def send_user_invitation(inviter,
                          affiliations=None,
                          disambiguated_id=None,
                          disambiguation_source=None,
-                         task_id=None,
                          cc_email=None,
+                         invitation_template=None,
                          token_expiry_in_sec=1300000,
                          **kwargs):
     """Send an invitation to join ORCID Hub logging in via ORCID."""
     try:
+        if not email:
+            if user and user.email:
+                email = user.email
+            else:
+                raise Exception("Failed to find the email address for the record. Cannot send an invitation.")
+        else:
+            email = email.lower()
+
         if isinstance(inviter, int):
             inviter = User.get(id=inviter)
         if isinstance(org, int):
@@ -679,16 +598,45 @@ def send_user_invitation(inviter,
         if isinstance(end_date, list):
             end_date = PartialDate(*end_date)
         set_server_name()
-        logger.info(f"*** Sending an invitation to '{first_name} {last_name} <{email}>' "
-                    f"submitted by {inviter} of {org} for affiliations: {affiliation_types}")
+
+        task_type = Task.get(task_id).task_type if task_id else TaskType.AFFILIATION
+        if not invitation_template:
+            if task_type != TaskType.AFFILIATION:
+                invitation_template = f"email/{task_type.name.lower()}_invitation.html"
+            else:
+                invitation_template = "email/researcher_invitation.html"
+
+        if task_type == TaskType.AFFILIATION:
+            logger.info(f"*** Sending an invitation to '{first_name} {last_name} <{email}>' "
+                        f"submitted by {inviter} of {org} for affiliations: {affiliation_types}")
+        else:
+            logger.info(f"*** Sending an invitation to '{first_name} <{email}>' "
+                        f"submitted by {inviter} of {org}")
 
         email = email.lower()
-        user, user_created = User.get_or_create(email=email)
-        if user_created:
+
+        if not user or not user.id:
+            user, user_created = User.get_or_create(email=email)
+
+            if user_created:
+                user.organisation = org
+                user.created_by = inviter.id
+                user.first_name = first_name or "N/A"
+                user.last_name = last_name or "N/A"
+            else:
+                user.updated_by = inviter.id
+
+        if first_name and not user.first_name:
             user.first_name = first_name
+        if last_name and not user.last_name:
             user.last_name = last_name
-        user.organisation = org
+
+        if not first_name:
+            first_name = user.first_name
+        if not last_name:
+            last_name = user.last_name
         user.roles |= Role.RESEARCHER
+
         token = new_invitation_token()
         with app.app_context():
             invitation_url = flask.url_for(
@@ -697,12 +645,12 @@ def send_user_invitation(inviter,
                 _external=True,
                 _scheme="http" if app.debug else "https")
             send_email(
-                "email/researcher_invitation.html",
-                recipient=(user.organisation.name, user.email),
+                invitation_template,
+                recipient=(user.organisation.name if user.organisation else org.name, user.email),
                 reply_to=(inviter.name, inviter.email),
                 cc_email=cc_email,
                 invitation_url=invitation_url,
-                org_name=user.organisation.name,
+                org_name=user.organisation.name if user.organisation else org.name,
                 org=org,
                 user=user)
 
@@ -711,18 +659,17 @@ def send_user_invitation(inviter,
         user_org, user_org_created = UserOrg.get_or_create(user=user, org=org)
         if user_org_created:
             user_org.created_by = inviter.id
+            if affiliations is None and affiliation_types:
+                affiliations = 0
+                if affiliation_types & EMP_CODES:
+                    affiliations = Affiliation.EMP
+                if affiliation_types & EDU_CODES:
+                    affiliations |= Affiliation.EDU
+            user_org.affiliations = affiliations
         else:
             user_org.updated_by = inviter.id
-
-        if affiliations is None and affiliation_types:
-            affiliations = 0
-            if affiliation_types & EMP_CODES:
-                affiliations = Affiliation.EMP
-            if affiliation_types & EDU_CODES:
-                affiliations |= Affiliation.EDU
-        user_org.affiliations = affiliations
-
         user_org.save()
+
         ui = UserInvitation.create(
             task_id=task_id,
             invitee_id=user.id,
@@ -745,12 +692,14 @@ def send_user_invitation(inviter,
             disambiguation_source=disambiguation_source,
             token=token)
 
-        status = "The invitation sent at " + datetime.utcnow().isoformat(timespec="seconds")
-        (AffiliationRecord.update(status=AffiliationRecord.status + "\n" + status).where(
-            AffiliationRecord.status.is_null(False), AffiliationRecord.email == email).execute())
-        (AffiliationRecord.update(status=status).where(AffiliationRecord.status.is_null(),
-                                                       AffiliationRecord.email == email).execute())
-        return ui.id
+        if task_type == TaskType.AFFILIATION:
+            status = "The invitation sent at " + datetime.utcnow().isoformat(timespec="seconds")
+            (AffiliationRecord.update(status=AffiliationRecord.status + "\n" + status).where(
+                AffiliationRecord.status.is_null(False),
+                AffiliationRecord.email == email).execute())
+            (AffiliationRecord.update(status=status).where(
+                AffiliationRecord.status.is_null(), AffiliationRecord.email == email).execute())
+        return ui
 
     except Exception as ex:
         logger.exception(f"Exception occured while sending mail {ex}")
@@ -1276,11 +1225,10 @@ def process_work_records(max_rows=20, record_id=None):
                     if WorkInvitee.select().where(
                             WorkInvitee.email == email, WorkInvitee.status ** "%reset%").count() != 0:
                         token_expiry_in_sec = 1300000
-                    send_work_funding_peer_review_invitation(
+                    send_user_invitation(
                         *k,
                         task_id=task_id,
-                        token_expiry_in_sec=token_expiry_in_sec,
-                        invitation_template="email/work_invitation.html")
+                        token_expiry_in_sec=token_expiry_in_sec)
 
                     (WorkInvitee.update(status=WorkInvitee.status + "\n" + status).where(
                         WorkInvitee.status.is_null(False), WorkInvitee.email == email).execute())
@@ -1408,11 +1356,10 @@ def process_peer_review_records(max_rows=20, record_id=None):
                                                         PeerReviewInvitee.status
                                                         ** "%reset%").count() != 0:
                         token_expiry_in_sec = 1300000
-                    send_work_funding_peer_review_invitation(
+                    send_user_invitation(
                         *k,
                         task_id=task_id,
-                        token_expiry_in_sec=token_expiry_in_sec,
-                        invitation_template="email/peer_review_invitation.html")
+                        token_expiry_in_sec=token_expiry_in_sec)
 
                     (PeerReviewInvitee.update(
                         status=PeerReviewInvitee.status + "\n" + status).where(
@@ -1541,11 +1488,10 @@ def process_funding_records(max_rows=20, record_id=None):
                             FundingInvitee.email == email,
                             FundingInvitee.status ** "%reset%").count() != 0:
                         token_expiry_in_sec = 1300000
-                    send_work_funding_peer_review_invitation(
+                    send_user_invitation(
                         *k,
                         task_id=task_id,
-                        token_expiry_in_sec=token_expiry_in_sec,
-                        invitation_template="email/funding_invitation.html")
+                        token_expiry_in_sec=token_expiry_in_sec)
 
                     (FundingInvitee.update(status=FundingInvitee.status + "\n" + status).where(
                         FundingInvitee.status.is_null(False),
@@ -1675,7 +1621,7 @@ def process_affiliation_records(max_rows=20, record_id=None):
                         token_expiry_in_sec = 1300000
                     send_user_invitation(
                         *invitation,
-                        affiliations,
+                        affiliation_types=affiliations,
                         task_id=task_id,
                         token_expiry_in_sec=token_expiry_in_sec)
                 except Exception as ex:
@@ -1780,10 +1726,7 @@ def process_property_records(max_rows=20, record_id=None):
                     lambda t: (t.created_by, t.org, t.record.email, t.record.first_name,
                                t.record.last_name, t.record.user)):  # noqa: E501
                 try:
-                    send_work_funding_peer_review_invitation(
-                        *k,
-                        task_id=task_id,
-                        invitation_template="email/person_update_invitation.html")
+                    send_user_invitation(*k, task_id=task_id)
                     status = "The invitation sent at " + datetime.utcnow().isoformat(timespec="seconds")
                     for r in tasks:
                         r.record.add_status_line(status)
@@ -1880,10 +1823,7 @@ def process_other_id_records(max_rows=20, record_id=None):
                                t.other_id_record.last_name)):  # noqa: E501
                 try:
                     email = k[2]
-                    send_work_funding_peer_review_invitation(
-                        *k,
-                        task_id=task_id,
-                        invitation_template="email/person_update_invitation.html")
+                    send_user_invitation(*k, task_id=task_id)
                     status = "The invitation sent at " + datetime.utcnow().isoformat(timespec="seconds")
                     (OtherIdRecord.update(status=OtherIdRecord.status + "\n" + status).where(
                         OtherIdRecord.status.is_null(False), OtherIdRecord.email == email).execute())
