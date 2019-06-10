@@ -240,16 +240,14 @@ def handle_login():
                                    for a in data.get("Unscoped-Affiliation", '').encode("latin-1")
                                    .decode("utf-8").replace(',', ';').split(';'))
 
-        breakpoint()
-        orcid = None
-        for attribute_name in data.keys():
-            if "orcid" in attribute_name.lower():
-                orcid = data[attribute_name].split('/')[-1]
-                try:
-                    validate_orcid_id(orcid)
-                except ValueError:
-                    app.logger.exception(f"Invalid OCID iD value recieved via '{attribute_name}': {orcid}")
-                    orcid = None
+        orcid = data.get("Orcid-Id")
+        if orcid:
+            orcid = orcid.split('/')[-1]
+            try:
+                validate_orcid_id(orcid)
+            except ValueError:
+                app.logger.exception(f"Invalid OCID iD value recieved via 'Orcid-Id': {orcid}")
+                orcid = None
 
         app.logger.info(
             f"User with email address {email} (eppn: {eppn} is trying "

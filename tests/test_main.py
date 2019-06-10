@@ -209,7 +209,7 @@ def test_tuakiri_login_with_orcid(client):
         "Displayname": "TEST USER FROM 123",
         "Unscoped-Affiliation": "staff",
         "Eppn": "user@test.test.net",
-        "Orcid": "http://orcid.org/ERROR-ERROR-ERROR",
+        "Orcid-Id": "http://orcid.org/ERROR-ERROR-ERROR",
     }
 
     # Incorrect ORCID iD
@@ -223,7 +223,7 @@ def test_tuakiri_login_with_orcid(client):
 
     # Correct ORCID iD, existing user:
     client.logout()
-    data["Orcid"] = "http://orcid.org/1893-2893-3893-00X3"
+    data["Orcid-Id"] = "http://orcid.org/1893-2893-3893-00X3"
     resp = client.get("/sso/login", headers=data)
     assert resp.status_code == 302
     u = User.get(email="user@test.test.net")
@@ -243,7 +243,7 @@ def test_tuakiri_login_with_orcid(client):
         "Displayname": "TEST USER FROM 123",
         "Unscoped-Affiliation": "staff",
         "Eppn": "test1234567@test.test.net",
-        "Orcid": "1965-2965-3965-00X3",
+        "Orcid-Id": "1965-2965-3965-00X3",
     }
     resp = client.get("/sso/login", headers=data)
     assert resp.status_code == 302
