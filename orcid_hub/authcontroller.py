@@ -240,6 +240,7 @@ def handle_login():
                                    for a in data.get("Unscoped-Affiliation", '').encode("latin-1")
                                    .decode("utf-8").replace(',', ';').split(';'))
 
+        breakpoint()
         orcid = None
         for attribute_name in data.keys():
             if "orcid" in attribute_name.lower():

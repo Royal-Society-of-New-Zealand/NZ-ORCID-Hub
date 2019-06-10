@@ -225,8 +225,8 @@
     <!-- Tuakiri: attributes with an external definition -->
     <Attribute name="urn:mace:dir:attribute-def:mobile" id="mobile"/>
     <Attribute name="urn:oid:0.9.2342.19200300.100.1.41" id="mobile"/>
-    <Attribute name="urn:oid:1.3.6.1.4.1.5923.1.1.1.16" id="eduPersonOrcid"/>
     <Attribute name="urn:mace:dir:attribute-def:eduPersonOrcid" id="orcid-id"/>
+    <Attribute name="urn:oid:1.3.6.1.4.1.5923.1.1.1.16" id="orcid-id"/>
 
     <!-- Tuakiri: auEduPerson attributes -->
     <Attribute name="urn:mace:federation.org.au:attribute:auEduPersonSharedToken" id="auEduPersonSharedToken"/>
