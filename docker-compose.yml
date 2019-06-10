@@ -46,7 +46,6 @@ services:
       - .:/var/www/orcidhub/
       - ./run-app:/usr/local/bin/run-app
       - ./app.conf:/etc/httpd/conf.d/ZZ-app.conf
-      - ./conf/attribute-map.xml:/etc/shibboleth/attribute-map.xml
       - ./tuakiri-test-metadata-cert.pem:/etc/shibboleth/tuakiri-test-metadata-cert.pem
       - ./tuakiri-metadata-cert.pem:/etc/shibboleth/tuakiri-metadata-cert.pem
       - ./.keys:/.keys
