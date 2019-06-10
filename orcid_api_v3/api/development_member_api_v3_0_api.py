@@ -4466,6 +4466,10 @@ class DevelopmentMemberAPIV30Api(object):
         body_params = None
         if 'body' in params:
             body_params = params['body']
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/vnd.orcid+xml; qs=5', 'application/orcid+xml; qs=3', 'application/xml', 'application/vnd.orcid+json; qs=4', 'application/orcid+json; qs=2', 'application/json'])  # noqa: E501
+
         # HTTP header `Content-Type`
         header_params['Content-Type'] = self.api_client.select_header_content_type(  # noqa: E501
             ['application/vnd.orcid+xml; qs=5', 'application/orcid+xml; qs=3', 'application/xml', 'application/vnd.orcid+json; qs=4', 'application/orcid+json; qs=2', 'application/json'])  # noqa: E501
@@ -4571,6 +4575,11 @@ class DevelopmentMemberAPIV30Api(object):
         body_params = None
         if 'body' in params:
             body_params = params['body']
+
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/vnd.orcid+xml; qs=5', 'application/orcid+xml; qs=3', 'application/xml', 'application/vnd.orcid+json; qs=4', 'application/orcid+json; qs=2', 'application/json'])  # noqa: E501
+
         # HTTP header `Content-Type`
         header_params['Content-Type'] = self.api_client.select_header_content_type(  # noqa: E501
             ['application/vnd.orcid+xml; qs=5', 'application/orcid+xml; qs=3', 'application/xml', 'application/vnd.orcid+json; qs=4', 'application/orcid+json; qs=2', 'application/json'])  # noqa: E501

@@ -11,8 +11,7 @@ from .models import (OrcidApiCall, Affiliation, OrcidToken, FundingContributor a
                      ExternalId as ExternalIdModel, NestedDict, WorkContributor as WorkCont,
                      WorkExternalId, PeerReviewExternalId)
 from orcid_api import (configuration, rest, api_client, MemberAPIV20Api, SourceClientId, Source,
-                       OrganizationAddress, DisambiguatedOrganization, Employment, Education,
-                       Organization)
+                       OrganizationAddress, DisambiguatedOrganization, Organization)
 import orcid_api_v3 as v3
 from orcid_api.rest import ApiException
 from time import time
@@ -1121,9 +1120,9 @@ class MemberAPIMixin:
             disambiguation_source=disambiguation_source) if disambiguation_source else None
 
         if affiliation == Affiliation.EMP:
-            rec = Employment()
+            rec = v3.EmploymentV30()
         elif affiliation == Affiliation.EDU:
-            rec = Education()
+            rec = v3.EducationV30()
         else:
             app.logger.info(
                 f"For {self.user} not able to determine affiliaton type with {self.org}")
@@ -1152,9 +1151,9 @@ class MemberAPIMixin:
 
         try:
             if affiliation == Affiliation.EMP:
-                api_call = self.update_employment if put_code else self.create_employment
+                api_call = self.update_employmentv3 if put_code else self.create_employmentv3
             else:
-                api_call = self.update_education if put_code else self.create_education
+                api_call = self.update_educationv3 if put_code else self.create_educationv3
             params = dict(orcid=self.user.orcid, body=rec, _preload_content=False)
             if put_code:
                 params["put_code"] = put_code

@@ -1009,17 +1009,22 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
     """
     records = list(unique_everseen(records, key=lambda t: t.record.id))
     org = Organisation.get(id=org_id)
-    api = orcid_client.MemberAPI(org, user)
+    api = orcid_client.MemberAPIV3(org, user)
     profile_record = api.get_record()
     if profile_record:
         activities = profile_record.get("activities-summary")
 
-        employments = [
-            r for r in (activities.get("employments").get("employment-summary")) if is_org_rec(org, r)
-        ]
-        educations = [
-            r for r in (activities.get("educations").get("education-summary")) if is_org_rec(org, r)
-        ]
+        employments = []
+        educations = []
+        for r in activities.get("employments").get("affiliation-group"):
+            es = r.get("summaries")[0].get("employment-summary")
+            if is_org_rec(org, es):
+                employments.append(es)
+
+        for r in activities.get("educations").get("affiliation-group"):
+            es = r.get("summaries")[0].get("education-summary")
+            if is_org_rec(org, es):
+                educations.append(es)
 
         taken_put_codes = {
             r.record.put_code
