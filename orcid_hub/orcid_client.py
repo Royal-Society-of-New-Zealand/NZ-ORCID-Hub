@@ -1105,7 +1105,7 @@ class MemberAPIMixin:
             if put_code:
                 return put_code, self.user.orcid, False
 
-        organisation_address = OrganizationAddress(
+        organisation_address = v3.OrganizationAddressV30(
             city=city or self.org.city,
             country=country or self.org.country,
             region=state or region or self.org.state)
@@ -1115,7 +1115,7 @@ class MemberAPIMixin:
         elif self.org.disambiguation_source:
             disambiguation_source = self.org.disambiguation_source.upper()
 
-        disambiguated_organization_details = DisambiguatedOrganization(
+        disambiguated_organization_details = v3.DisambiguatedOrganizationV30(
             disambiguated_organization_identifier=disambiguated_id or self.org.disambiguated_id,
             disambiguation_source=disambiguation_source) if disambiguation_source else None
 
@@ -1129,8 +1129,7 @@ class MemberAPIMixin:
             raise Exception(
                 f"Unsupported affiliation type '{affiliation}' for {self.user} affiliaton type with {self.org}"
             )
-
-        rec.organization = Organization(
+        rec.organization = v3.OrganizationV30(
             name=organisation or org_name or self.org.name,
             address=organisation_address,
             disambiguated_organization=disambiguated_organization_details)

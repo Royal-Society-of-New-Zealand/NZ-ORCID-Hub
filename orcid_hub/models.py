@@ -1167,7 +1167,7 @@ class Task(BaseModel, AuditMixin):
                        "campus|department", "city", "state|region", "course|title|role",
                        r"start\s*(date)?", r"end\s*(date)?",
                        r"affiliation(s)?\s*(type)?|student|staff", "country", r"disambiguat.*id",
-                       r"disambiguat.*source", r"put|code", "orcid.*", "external.*|.*identifier",
+                       r"disambiguat.*source", r"put|code", "orcid.*", "local.*|.*identifier",
                        "delete(.*record)?", r"(is)?\s*visib(bility|le)?", ]
         ]
 
@@ -1217,11 +1217,11 @@ class Task(BaseModel, AuditMixin):
 
                     email = normalize_email(val(row, 2, ""))
                     orcid = val(row, 15)
-                    external_id = val(row, 16)
+                    local_id = val(row, 16)
 
-                    if not email and not orcid and external_id and validators.email(external_id):
-                        # if email is missing and external ID is given as a valid email, use it:
-                        email = external_id
+                    if not email and not orcid and local_id and validators.email(local_id):
+                        # if email is missing and local ID is given as a valid email, use it:
+                        email = local_id
 
                     # The uploaded country must be from ISO 3166-1 alpha-2
                     country = val(row, 11)
@@ -1285,7 +1285,7 @@ class Task(BaseModel, AuditMixin):
                         disambiguation_source=disambiguation_source,
                         put_code=put_code,
                         orcid=orcid,
-                        external_id=external_id,
+                        local_id=local_id,
                         delete_record=delete_record,
                         visibility=visibility,)
                     validator = ModelValidator(af)
@@ -1507,7 +1507,7 @@ class AffiliationRecord(RecordModel):
         default=False, help_text="The record is marked 'active' for batch processing", null=True)
     task = ForeignKeyField(Task, related_name="affiliation_records", on_delete="CASCADE")
     put_code = IntegerField(null=True)
-    external_id = CharField(
+    local_id = CharField(
         max_length=100,
         null=True,
         verbose_name="External ID",
@@ -1558,7 +1558,7 @@ class AffiliationRecord(RecordModel):
         ("disambiguation_source", r"disambiguat.*source"),
         ("put_code", r"put|code"),
         ("orcid", "orcid.*"),
-        ("external_id", "external.*|.*identifier"),
+        ("local_id", "local.*|.*identifier"),
     ]
 
     @classmethod

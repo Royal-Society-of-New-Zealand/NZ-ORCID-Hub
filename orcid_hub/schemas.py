@@ -7,7 +7,7 @@ affiliation_record = {
     "properties": {
         "id": {"type": "integer", "format": "int64"},
         "put-code": {"type": ["string", "null", "integer"]},
-        "external-id": {"type": ["string", "null"]},
+        "local-id": {"type": ["string", "null"]},
         "is-active": {"type": "boolean"},
         "email": {"type": ["string", "null"]},
         "first-name": {"type": ["string", "null"]},
