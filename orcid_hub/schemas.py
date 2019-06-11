@@ -25,6 +25,8 @@ affiliation_record = {
         "end-date": {"type": ["string", "null"]},
         "processed-at": {"type": ["string", "null"], "format": "date-time"},
         "status": {"type": ["string", "null"]},
+        "url": {"type": ["string", "null"]},
+        "visibility": {"type": ["string", "null"]},
         "orcid": {
             "type": ["string", "null"],
             "format": "^[0-9]{4}-?[0-9]{4}-?[0-9]{4}-?[0-9]{4}$",
