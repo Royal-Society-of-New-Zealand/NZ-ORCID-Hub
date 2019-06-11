@@ -45,25 +45,6 @@ def test_append_qs():
         "https://abc.com/bar?p=foo", p2="A&B&C D") == "https://abc.com/bar?p=foo&p2=A%26B%26C+D"
 
 
-def test_generate_confirmation_token():
-    """Test to generate confirmation token."""
-    token = utils.generate_confirmation_token(["testemail@example.com"], expiration=0.00001)
-    data = utils.confirm_token(token)
-    # Test positive testcase
-    assert 'testemail@example.com' == data[0]
-
-    token = utils.generate_confirmation_token(["testemail@example.com"], expiration=-1)
-    is_valid, token = utils.confirm_token(token)
-    assert not is_valid
-
-    _salt = utils.app.config["SALT"]
-    utils.app.config["SALT"] = None
-    token = utils.generate_confirmation_token(["testemail123@example.com"])
-    utils.app.config["SALT"] = _salt
-    data = utils.confirm_token(token)
-    assert 'testemail123@example.com' == data[0]
-
-
 def test_track_event(client, mocker):
     """Test to track event."""
     category = "test"

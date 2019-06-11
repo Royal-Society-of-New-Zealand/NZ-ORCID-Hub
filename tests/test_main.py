@@ -444,19 +444,6 @@ def test_tuakiri_login_by_techical_contact_organisation_not_onboarded(client):
     assert b"<!DOCTYPE html>" in resp.data, "Expected HTML content"
 
 
-def test_confirmation_token(app):
-    """Test generate_confirmation_token and confirm_token."""
-    app.config['SECRET_KEY'] = "SECRET"
-    token = utils.generate_confirmation_token("TEST@ORGANISATION.COM")
-    assert utils.confirm_token(token) == "TEST@ORGANISATION.COM"
-
-    app.config['SECRET_KEY'] = "COMPROMISED SECRET"
-    with pytest.raises(Exception) as ex_info:
-        utils.confirm_token(token)
-    # Got exception
-    assert "does not match" in ex_info.value.message
-
-
 def test_login_provider_load_user(request_ctx):  # noqa: D103
     """Test to load user."""
     u = User(
