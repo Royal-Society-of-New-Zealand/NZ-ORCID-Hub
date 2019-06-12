@@ -2263,16 +2263,20 @@ def edit_record(user_id, section_type, put_code=None):
 
     if form.validate_on_submit():
         try:
-            if section_type == "FUN" or section_type == "PRR" or section_type == "WOR":
+            if section_type in ["FUN", "PRR", "WOR"]:
                 grant_type = request.form.getlist('grant_type')
                 grant_number = request.form.getlist('grant_number')
                 grant_url = request.form.getlist('grant_url')
                 grant_relationship = request.form.getlist('grant_relationship')
 
-                grant_data_list = [{'grant_number': gn, 'grant_type': gt, 'grant_url': gu, 'grant_relationship': gr} for
-                                   gn, gt, gu, gr in
-                                   zip(grant_number, grant_type, grant_url, grant_relationship)] if list(
-                    filter(None, grant_number)) else []
+                # Skip entries with no grant number:
+                grant_data_list = [{
+                    'grant_number': gn,
+                    'grant_type': gt,
+                    'grant_url': gu,
+                    'grant_relationship': gr
+                } for gn, gt, gu, gr in zip(grant_number, grant_type, grant_url,
+                                            grant_relationship) if gn]
 
                 if section_type == "FUN":
                     put_code, orcid, created = api.create_or_update_individual_funding(
