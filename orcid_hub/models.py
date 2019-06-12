@@ -1168,7 +1168,9 @@ class Task(BaseModel, AuditMixin):
                        r"start\s*(date)?", r"end\s*(date)?",
                        r"affiliation(s)?\s*(type)?|student|staff", "country", r"disambiguat.*id",
                        r"disambiguat.*source", r"put|code", "orcid.*", "local.*|.*identifier",
-                       "delete(.*record)?", r"(is)?\s*visib(bility|le)?", r"url", r"(display)?.*index", ]
+                       "delete(.*record)?", r"(is)?\s*visib(bility|le)?", r"url", r"(display)?.*index",
+                       r"(external)?\s*id(entifier)?\s+type$", r"(external)?\s*id(entifier)?\s*(value)?$",
+                       r"(external)?\s*id(entifier)?\s*url", r"(external)?\s*id(entifier)?\s*rel(ationship)?", ]
         ]
 
         def index(rex):
@@ -1267,6 +1269,7 @@ class Task(BaseModel, AuditMixin):
                     visibility = val(row, 18)
                     if visibility:
                         visibility = visibility.upper()
+
                     af = AffiliationRecord(
                         task=task,
                         first_name=first_name,
@@ -1294,6 +1297,24 @@ class Task(BaseModel, AuditMixin):
                     if not validator.validate():
                         raise ModelException(f"Invalid record: {validator.errors}")
                     af.save()
+
+                    external_id_type = val(row, 21, "").lower()
+                    external_id_relationship = val(row, 24, "").upper()
+                    external_id_value = val(row, 22)
+
+                    if external_id_type and external_id_relationship and external_id_value:
+
+                        ae = AffiliationExternalId(
+                            record=af,
+                            type=external_id_type,
+                            value=external_id_value,
+                            url=val(row, 23),
+                            relationship=external_id_relationship)
+
+                        validator = ModelValidator(ae)
+                        if not validator.validate():
+                            raise ModelException(f"Invalid record: {validator.errors}")
+                        ae.save()
             except Exception:
                 db.rollback()
                 app.logger.exception("Failed to load affiliation file.")
@@ -3405,6 +3426,16 @@ class ExternalId(ExternalIdModel):
         table_alias = "ei"
 
 
+class AffiliationExternalId(ExternalIdModel):
+    """Affiliation ExternalId loaded for batch processing."""
+
+    record = ForeignKeyField(AffiliationRecord, related_name="external_ids", on_delete="CASCADE")
+
+    class Meta:  # noqa: D101,D106
+        db_table = "affiliation_external_id"
+        table_alias = "aei"
+
+
 class OtherIdRecord(ExternalIdModel):
     """Other ID record loaded from json/csv file for batch processing."""
 
@@ -3817,6 +3848,7 @@ def create_tables():
             Task,
             Log,
             AffiliationRecord,
+            AffiliationExternalId,
             GroupIdRecord,
             OrgInvitation,
             Url,
@@ -3868,7 +3900,7 @@ def drop_tables():
               OrcidApiCall, OrcidAuthorizeCall, OtherIdRecord, FundingContributor, FundingInvitee,
               FundingRecord, PropertyRecord, PeerReviewInvitee, PeerReviewExternalId,
               PeerReviewRecord, WorkInvitee, WorkExternalId, WorkContributor, WorkRecord,
-              AffiliationRecord, ExternalId, Url, UserInvitation, Task, Organisation):
+              AffiliationRecord, AffiliationExternalId, ExternalId, Url, UserInvitation, Task, Organisation):
         if m.table_exists():
             try:
                 m.drop_table(fail_silently=True, cascade=m._meta.database.drop_cascade)

@@ -45,8 +45,8 @@ from .forms import (AddressForm, ApplicationFrom, BitmapMultipleValueField, Cred
                     RecordForm, ResearcherUrlForm, UserInvitationForm, WebhookForm, WorkForm,
                     validate_orcid_id_field)
 from .login_provider import roles_required
-from .models import (JOIN, Affiliation, AffiliationRecord, CharField, Client, Delegate, ExternalId,
-                     FixedCharField, File, FundingContributor, FundingInvitee, FundingRecord,
+from .models import (JOIN, Affiliation, AffiliationRecord, AffiliationExternalId, CharField, Client, Delegate,
+                     ExternalId, FixedCharField, File, FundingContributor, FundingInvitee, FundingRecord,
                      Grant, GroupIdRecord, ModelException, NestedDict, OtherIdRecord, OrcidApiCall, OrcidToken,
                      Organisation, OrgInfo, OrgInvitation, PartialDate, PropertyRecord,
                      PeerReviewExternalId, PeerReviewInvitee, PeerReviewRecord,
@@ -1852,6 +1852,7 @@ admin.add_view(OrgInvitationAdmin())
 
 admin.add_view(TaskAdmin(Task))
 admin.add_view(AffiliationRecordAdmin())
+admin.add_view(RecordChildAdmin(AffiliationExternalId))
 admin.add_view(FundingRecordAdmin())
 admin.add_view(RecordChildAdmin(FundingContributor))
 admin.add_view(InviteeAdmin(FundingInvitee))
