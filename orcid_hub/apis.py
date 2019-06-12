@@ -243,8 +243,7 @@ class AppResourceList(AppResource):
                 recurse=recurse,
                 to_dashes=True,
                 exclude=exclude,
-                only=only,
-                include_records=recurse) for r in query
+                only=only) for r in query
         ]
         resp = yamlfy(records) if prefers_yaml() else jsonify(records)
         resp.headers["Pagination-Page"] = self.page
