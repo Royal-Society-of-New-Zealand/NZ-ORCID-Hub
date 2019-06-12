@@ -2,71 +2,16 @@
 {% from "macros.html" import render_field, form_tag %}
 
 {% block content %}
-  <script type="text/javascript" src="//ajax.googleapis.com/ajax/libs/angularjs/1.3.9/angular.min.js"></script>
-    <script type="text/javascript">
-        var app = angular.module('MyApp', [])
-        app.config(['$interpolateProvider', function($interpolateProvider) {
-        $interpolateProvider.startSymbol('{a');
-        $interpolateProvider.endSymbol('a}'); }]);
-
-        app.controller('MyController', function ($scope, $window) {
-            $scope.externalids = {{grant_data_list | safe}};
-            $scope.grant_number = ''
-            $scope.url = ''
-            $scope.relationship = ''
-            $scope.grant_type = ''
-            $scope.grant_type_list = [{'label': 'Agricola', 'value': 'agr'}, {'label': 'Archival Resource Key Identifier', 'value': 'ark'},
-            {'label': 'ArXiv', 'value': 'arxiv'}, {'label': 'Amazon Standard Identification Number', 'value': 'asin'},
-            {'label': 'ASIN top-level domain', 'value': 'asin-tld'}, {'label': 'AuthenticusID', 'value': 'authenticusid'},
-            {'label': 'Bibcode', 'value': 'bibcode'}, {'label': 'Chinese Biological Abstracts', 'value': 'cba'},
-            {'label': 'Ciência-IUL Identifier', 'value': 'cienciaiul'}, {'label': 'CiteSeer', 'value': 'cit'},
-            {'label': 'CiteExplore submission', 'value': 'ctx'}, {'label': 'German National Library identifier', 'value': 'dnb'},
-            {'label': 'Digital object identifier', 'value': 'doi'}, {'label': 'Scopus Identifier', 'value': 'eid'},
-            {'label': 'EThOS Peristent ID', 'value': 'ethos'}, {'label': 'grant number', 'value': 'grant_number'},
-            {'label': 'Handle', 'value': 'handle'}, {'label': 'Chinese Biological Abstracts', 'value': 'cba'},
-            {'label': 'NHS Evidence', 'value': 'hir'}, {'label': 'International Standard Book Number', 'value': 'isbn'},
-            {'label': 'International Standard Serial Number. Includes print and electronic ISSN', 'value': 'issn'},
-            {'label': 'Jahrbuch über die Fortschritte der Mathematik', 'value': 'jfm'}, {'label': 'JSTOR abstract', 'value': 'jstor'},
-            {'label': 'KoreaMed Unique Identifier', 'value': 'kuid'}, {'label': 'Mathematical Reviews', 'value': 'mr'},
-            {'label': 'Online Computer Library Center', 'value': 'oclc'}, {'label': 'Open Library', 'value': 'ol'},
-            {'label': 'Office of Scientific and Technical Information', 'value': 'osti'}, {'label': 'Other identifier type', 'value': 'other-id'},
-            {'label': 'Patent number', 'value': 'pat'}, {'label': 'Protein Data Bank identifier', 'value': 'pdb'},
-            {'label': 'PubMed Central article number', 'value': 'pmc'}, {'label': 'PubMed Unique Identifier', 'value': 'pmid'},
-            {'label': 'Request for Comments', 'value': 'rfc'}, {'label': 'Research Resource IDentifier', 'value': 'rrid'},
-            {'label': 'Non-standard ID from work data source', 'value': 'source-work-id'}, {'label': 'Social Science Research Network', 'value': 'ssrn'},
-            {'label': ' URI', 'value': 'uri'}, {'label': 'URN', 'value': 'urn'}, {'label': 'Web of Science™ identifier', 'value': 'wosuid'},
-            {'label': 'Zentralblatt MATH', 'value': 'zbl'}];
-            $scope.grant_relationship_list = [{'label': 'Part Of', 'value': 'PART_OF'}, {'label': 'Self', 'value': 'SELF'}];
-
-            $scope.Add = function () {
-                //Add the new item to the Array.
-                var externalid = {};
-                externalid.grant_number = $scope.grant_number;
-                externalid.grant_type = $scope.grant_type;
-                externalid.grant_url = $scope.grant_url;
-                externalid.grant_relationship = $scope.grant_relationship;
-                $scope.externalids.push(externalid);
-            };
-
-            $scope.Remove = function (index) {
-                //Find the record using Index from Array.
-                if ($window.confirm("Do you want to delete")) {
-                    //Remove the item from Array using Index.
-                    $scope.externalids.splice(index, 1);
-                }
-            }
-        });
-    </script>
   {% call form_tag(form) %}
-<div class="row">
-  <div class="col-md-9 col-sm-8 col-xs-12">
-    <h1>{{tile or ("Education" if section_type == "EDU" else "Funding" if section_type == "FUN" else "Peer Review" if
-      section_type == "PRR" else "Work" if section_type == "WOR" else "Researcher Url" if section_type == "RUR" else
-      "Other Name" if section_type == "ONR" else "Keyword" if section_type == "KWR" else
-      "Address" if section_type == "ADR" else "Other IDs" if section_type == "EXR" else "Employment")}}</h1>
-  </div>
-</div>
-    <div class="row" ng-app="MyApp" ng-controller="MyController">
+    <div class="row">
+      <div class="col-md-9 col-sm-8 col-xs-12">
+        <h1>{{tile or ("Education" if section_type == "EDU" else "Funding" if section_type == "FUN" else "Peer Review" if
+          section_type == "PRR" else "Work" if section_type == "WOR" else "Researcher Url" if section_type == "RUR" else
+          "Other Name" if section_type == "ONR" else "Keyword" if section_type == "KWR" else
+          "Address" if section_type == "ADR" else "Other IDs" if section_type == "EXR" else "Employment")}}</h1>
+      </div>
+    </div>
+    <div class="row">
       <div class="col-md-6 col-sm-6 col-xs-12">
         {% if section_type in ["RUR", "ONR", "KWR", "ADR", "EXR"] %}
           {{ render_field(form.display_index) }}
@@ -89,31 +34,51 @@
           {% endif %}
           {{ render_field(form.country) }}
         {% endif %}
-        {% if section_type == "FUN" or section_type == "PRR" or section_type == "WOR"%}
-        <input type="button" class="btn btn-danger" ng-click="Add()"
-               value="External Identifier Info (Atleast add one info)"/><br>
-        <div ng-repeat="m in externalids">
-          <strong>{{"External ID Type" if section_type != "FUN" else "Funding Grant Type"}}</strong><br>
-          <select ng-model="selectedGrantvalue" class="form-control" name="grant_type">
-            <option value="">-- Select --</option>
-            <option ng-repeat="gtl in grant_type_list" ng-selected="m.grant_type == gtl.value"
-                    value="{a gtl.value a}">{a gtl.label a}
-            </option>
-          </select>
-          <strong>{{"External ID" if section_type != "FUN" else "Funding Grant Number"}}</strong><br>
-          <input type="text" class="form-control" name="grant_number" value="{a m.grant_number a}"/><br>
-          <strong>{{"External ID Url" if section_type != "FUN" else "Funding Grant Url"}}</strong><br>
-          <input type="text" class="form-control" name="grant_url" value="{a m.grant_url a}"/><br>
-          <strong>{{"External ID Relationship" if section_type != "FUN" else "Funding Grant Relationship"}}</strong><br>
-          <select ng-model="selectedItemvalue" class="form-control" name="grant_relationship">
-            <option value="">-- Select --</option>
-            <option ng-repeat="grl in grant_relationship_list" ng-selected="m.grant_relationship == grl.value"
-                    value="{a grl.value a}">{a grl.label a}
-            </option>
-          </select>
-          <input type="button" class="btn btn-danger" ng-click="Remove($index)" value="Remove"/><br>
-        </div>
+
+        {% if section_type in ["FUN", "PRR", "WOR"] %}
+          {# Dynamically addded external IDs #}
+          {% raw %}
+          <div id="external-ids" class="box-white">
+            <div class="form-group text-right">
+              <button type="button" class="btn btn-success" @click="addEntry();">External Identifier Info (add at least one entry)</button>
+            </div>
+            <div v-for="(m, index) in externalids">
+
+                <div class="form-group">
+                  <label for="grant-type-{{idex}}">{{labelPrefix}} Type</label>
+                  <select v-model="m.grant_type" class="form-control" name="grant_type" id="grant-type-{{index}}">
+                    <option value="">-- Select --</option>
+                    <option v-for="o in grantTypeList" v-bind:value="o.value">{{o.label}}</option>
+                  </select>
+                </div>
+
+                <div class="form-group">
+                  <label for="grant-number-{{idex}}">{{labelPrefix}}</label>
+                  <input type="text" class="form-control" name="grant_number" v-bind:value="m.grant_number" id="grant-number-{{index}}"/>
+                </div>
+
+                <div class="form-group">
+                  <label for="grant-url-{{idex}}">{{labelPrefix}} Url</label>
+                  <input type="text" class="form-control" name="grant_url" v-bind:value="m.grant_url" id="grant-url-{{index}}"/>
+                </div>
+
+                <div class="form-group">
+                  <label for="grant-relationship-{{idex}}">{{labelPrefix}} Relationship</label>
+                  <select v-model="m.grant_relationship" class="form-control" name="grant_relationship" id="grant-relationship-{{index}}">
+                    <option value="">-- Select --</option>
+                    <option v-for="o in grantRelationshipList" v-bind:value="o.value">{{o.label}}</option>
+                  </select>
+                </div>
+
+                <div class="form-group text-right">
+                  <button type="button" class="btn btn-danger" @click="deleteEntry(index);">Remove</button>
+                </div>
+
+            </div>
+          </div>
+          {% endraw %}
         {% endif %}
+
       </div>
       <div class="col-md-6 col-sm-6 col-xs-12">
         {% if section_type == "WOR" %}
@@ -177,3 +142,67 @@
     </div>
   {% endcall %}
 {% endblock %}
+{% if section_type in ["FUN", "PRR", "WOR"] %}
+{% block scripts %}
+  {{super()}}
+  {%- if config.debug %}
+  <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+  {% else %}
+  <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.min.js"></script>
+  {% endif -%}
+
+<script>
+var vm = new Vue({
+  el: "#external-ids",
+  data: {
+      labelPrefix: '{{"External ID" if section_type != "FUN" else "Funding Grant"}}',
+      externalids: {{grant_data_list | safe}},
+      grantNumber: "",
+      url: "",
+      relationship: "",
+      grantType: "",
+      grantTypeList: [
+        {"label": "Agricola", "value": "agr"}, {"label": "Archival Resource Key Identifier", "value": "ark"},
+        {"label": "ArXiv", "value": "arxiv"}, {"label": "Amazon Standard Identification Number", "value": "asin"},
+        {"label": "ASIN top-level domain", "value": "asin-tld"}, {"label": "AuthenticusID", "value": "authenticusid"},
+        {"label": "Bibcode", "value": "bibcode"}, {"label": "Chinese Biological Abstracts", "value": "cba"},
+        {"label": "Ciência-IUL Identifier", "value": "cienciaiul"}, {"label": "CiteSeer", "value": "cit"},
+        {"label": "CiteExplore submission", "value": "ctx"}, {"label": "German National Library identifier", "value": "dnb"},
+        {"label": "Digital object identifier", "value": "doi"}, {"label": "Scopus Identifier", "value": "eid"},
+        {"label": "EThOS Peristent ID", "value": "ethos"}, {"label": "grant number", "value": "grant_number"},
+        {"label": "Handle", "value": "handle"}, {"label": "Chinese Biological Abstracts", "value": "cba"},
+        {"label": "NHS Evidence", "value": "hir"}, {"label": "International Standard Book Number", "value": "isbn"},
+        {"label": "International Standard Serial Number. Includes print and electronic ISSN", "value": "issn"},
+        {"label": "Jahrbuch über die Fortschritte der Mathematik", "value": "jfm"}, {"label": "JSTOR abstract", "value": "jstor"},
+        {"label": "KoreaMed Unique Identifier", "value": "kuid"}, {"label": "Mathematical Reviews", "value": "mr"},
+        {"label": "Online Computer Library Center", "value": "oclc"}, {"label": "Open Library", "value": "ol"},
+        {"label": "Office of Scientific and Technical Information", "value": "osti"}, {"label": "Other identifier type", "value": "other-id"},
+        {"label": "Patent number", "value": "pat"}, {"label": "Protein Data Bank identifier", "value": "pdb"},
+        {"label": "PubMed Central article number", "value": "pmc"}, {"label": "PubMed Unique Identifier", "value": "pmid"},
+        {"label": "Request for Comments", "value": "rfc"}, {"label": "Research Resource IDentifier", "value": "rrid"},
+        {"label": "Non-standard ID from work data source", "value": "source-work-id"}, {"label": "Social Science Research Network", "value": "ssrn"},
+        {"label": " URI", "value": "uri"}, {"label": "URN", "value": "urn"}, {"label": "Web of Science™ identifier", "value": "wosuid"},
+        {"label": "Zentralblatt MATH", "value": "zbl"}],
+      grantRelationshipList: [{"label": "Part Of", "value": "PART_OF"}, {"label": "Self", "value": "SELF"}]
+  },
+  methods: {
+    addEntry: function() {
+      this.externalids.push({
+          grant_number: this.grantNumber,
+          grant_type: this.grantType,
+          grant_url: this.url,
+          grant_relationship: this.relationship
+      });
+      return false;
+    },
+    deleteEntry: function(index) {
+      if (window.confirm("Do you want to delete?")) {
+          this.externalids.splice(index, 1);
+          return false;
+      }
+    }
+  }
+});
+</script>
+{% endblock %}
+{%endif%}
