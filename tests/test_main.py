@@ -209,7 +209,7 @@ def test_tuakiri_login_with_orcid(client):
         "Displayname": "TEST USER FROM 123",
         "Unscoped-Affiliation": "staff",
         "Eppn": "user@test.test.net",
-        "Orcid": "http://orcid.org/ERROR-ERROR-ERROR",
+        "Orcid-Id": "http://orcid.org/ERROR-ERROR-ERROR",
     }
 
     # Incorrect ORCID iD
@@ -223,7 +223,7 @@ def test_tuakiri_login_with_orcid(client):
 
     # Correct ORCID iD, existing user:
     client.logout()
-    data["Orcid"] = "http://orcid.org/1893-2893-3893-00X3"
+    data["Orcid-Id"] = "http://orcid.org/1893-2893-3893-00X3"
     resp = client.get("/sso/login", headers=data)
     assert resp.status_code == 302
     u = User.get(email="user@test.test.net")
@@ -243,7 +243,7 @@ def test_tuakiri_login_with_orcid(client):
         "Displayname": "TEST USER FROM 123",
         "Unscoped-Affiliation": "staff",
         "Eppn": "test1234567@test.test.net",
-        "Orcid": "1965-2965-3965-00X3",
+        "Orcid-Id": "1965-2965-3965-00X3",
     }
     resp = client.get("/sso/login", headers=data)
     assert resp.status_code == 302
@@ -442,19 +442,6 @@ def test_tuakiri_login_by_techical_contact_organisation_not_onboarded(client):
     assert u.is_tech_contact_of(org)
     assert resp.status_code == 200
     assert b"<!DOCTYPE html>" in resp.data, "Expected HTML content"
-
-
-def test_confirmation_token(app):
-    """Test generate_confirmation_token and confirm_token."""
-    app.config['SECRET_KEY'] = "SECRET"
-    token = utils.generate_confirmation_token("TEST@ORGANISATION.COM")
-    assert utils.confirm_token(token) == "TEST@ORGANISATION.COM"
-
-    app.config['SECRET_KEY'] = "COMPROMISED SECRET"
-    with pytest.raises(Exception) as ex_info:
-        utils.confirm_token(token)
-    # Got exception
-    assert "does not match" in ex_info.value.message
 
 
 def test_login_provider_load_user(request_ctx):  # noqa: D103

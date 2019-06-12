@@ -1935,14 +1935,9 @@ def activate_all():
     task_id = request.form.get("task_id")
     task = Task.get(task_id)
     try:
-        status = "The record was activated at " + datetime.now().isoformat(timespec="seconds")
-        count = task.record_model.update(is_active=True, status=status).where(
-            task.record_model.task_id == task_id,
-            task.record_model.is_active == False).execute()  # noqa: E712
-        utils.enqueue_task_records(task)
+        count = utils.activate_all_records(task)
     except Exception as ex:
         flash(f"Failed to activate the selected records: {ex}")
-        app.logger.exception("Failed to activate the selected records")
     else:
         flash(f"{count} records were activated for batch processing.")
     return redirect(_url)
@@ -1955,43 +1950,12 @@ def reset_all():
     _url = request.args.get("url") or request.referrer
     task_id = request.form.get("task_id")
     task = Task.get(task_id)
-    count = 0
-    with db.atomic():
-        try:
-            status = "The record was reset at " + datetime.now().isoformat(timespec="seconds")
-            tt = task.task_type
-            if tt in [TaskType.AFFILIATION, TaskType.PROPERTY, TaskType.OTHER_ID]:
-                count = task.record_model.update(
-                    processed_at=None, status=status).where(
-                        task.record_model.task_id == task_id,
-                        task.record_model.is_active == True).execute()  # noqa: E712
-
-            else:
-                for record in task.records.where(
-                        task.record_model.is_active == True):  # noqa: E712
-                    record.processed_at = None
-                    record.status = status
-
-                    invitee_class = record.invitees.model_class
-                    invitee_class.update(
-                        processed_at=None,
-                        status=status).where(invitee_class.record == record.id).execute()
-                    record.save()
-                    count = count + 1
-
-            UserInvitation.delete().where(UserInvitation.task == task).execute()
-            utils.enqueue_task_records(task)
-
-        except Exception as ex:
-            db.rollback()
-            flash(f"Failed to reset the selected records: {ex}")
-            app.logger.exception("Failed to reset the selected records")
-        else:
-            task.expires_at = None
-            task.expiry_email_sent_at = None
-            task.completed_at = None
-            task.save()
-            flash(f"{count} {task.task_type.name} records were reset for batch processing.", "info")
+    try:
+        count = utils.reset_all_records(task)
+    except Exception as ex:
+        flash(f"Failed to reset the selected records: {ex}")
+    else:
+        flash(f"{count} {task.task_type.name} records were reset for batch processing.", "info")
     return redirect(_url)
 
 
@@ -2300,16 +2264,20 @@ def edit_record(user_id, section_type, put_code=None):
 
     if form.validate_on_submit():
         try:
-            if section_type == "FUN" or section_type == "PRR" or section_type == "WOR":
+            if section_type in ["FUN", "PRR", "WOR"]:
                 grant_type = request.form.getlist('grant_type')
                 grant_number = request.form.getlist('grant_number')
                 grant_url = request.form.getlist('grant_url')
                 grant_relationship = request.form.getlist('grant_relationship')
 
-                grant_data_list = [{'grant_number': gn, 'grant_type': gt, 'grant_url': gu, 'grant_relationship': gr} for
-                                   gn, gt, gu, gr in
-                                   zip(grant_number, grant_type, grant_url, grant_relationship)] if list(
-                    filter(None, grant_number)) else []
+                # Skip entries with no grant number:
+                grant_data_list = [{
+                    'grant_number': gn,
+                    'grant_type': gt,
+                    'grant_url': gu,
+                    'grant_relationship': gr
+                } for gn, gt, gu, gr in zip(grant_number, grant_type, grant_url,
+                                            grant_relationship) if gn]
 
                 if section_type == "FUN":
                     put_code, orcid, created = api.create_or_update_individual_funding(

@@ -901,6 +901,50 @@ records:
     task = Task.get(id=task_id)
     assert task.affiliation_records.count() == 3
 
+    resp = client.patch(
+        f"/api/v1.0/tasks/{task_id}",
+        headers=dict(authorization=f"Bearer {access_token}", accept="text/yaml"),
+        content_type="text/yaml",
+        data="status: ACTIVE\n")
+    assert Task.get(task_id).status == "ACTIVE"
+    assert task.records.where(task.record_model.is_active).count() == 3
+
+    resp = client.put(
+        f"/api/v1.0/tasks/{task_id}",
+        headers=dict(authorization=f"Bearer {access_token}", accept="application/json"),
+        content_type="application/json",
+        data="""{"status": "RESET"}""")
+    assert Task.get(task_id).status == "RESET"
+
+    resp = client.put(
+        f"/api/v1.0/tasks/{task_id}",
+        headers=dict(authorization=f"Bearer {access_token}", accept="application/json"),
+        content_type="application/json",
+        data="""{"status": "INVALID"}""")
+    assert Task.get(task_id).status == "RESET"
+
+    with patch("orcid_hub.models.Task.save", side_effect=Exception("FAILURE")):
+        resp = client.put(
+            f"/api/v1.0/tasks/{task_id}",
+            headers=dict(authorization=f"Bearer {access_token}", accept="application/json"),
+            content_type="application/json",
+            data="""{"status": "ACTIVE"}""")
+        assert Task.get(task_id).status == "RESET"
+        assert resp.status_code == 400
+        assert resp.json["exception"] == "FAILURE"
+
+    resp = client.post(
+        "/api/v1.0/tasks/999999999999",
+        headers=dict(authorization=f"Bearer {access_token}", accept="application/json"),
+        content_type="application/json",
+        data="""{"status": "RESET"}""")
+    assert resp.status_code == 404
+
+    resp = client.get(
+        f"/api/v1.0/tasks/{other_task.id}",
+        headers=dict(authorization=f"Bearer {access_token}"))
+    assert resp.status_code == 403
+
     resp = client.put(
         f"/api/v1.0/affiliations/{task_id}",
         headers=dict(authorization=f"Bearer {access_token}", accept="text/yaml"),
@@ -1059,6 +1103,11 @@ def test_funding_api(client):
         headers=dict(authorization=f"Bearer {access_token}"))
     assert resp.status_code == 200
     assert Task.select().count() == 2
+
+    resp = client.delete(
+        f"/api/v1.0/tesks/{task_id}",
+        headers=dict(authorization=f"Bearer {access_token}"))
+    assert resp.status_code == 404
 
     resp = client.head(
         f"/api/v1.0/funds/{task_id}",
