@@ -27,7 +27,7 @@ from peewee import JOIN, SQL
 from yaml.dumper import Dumper
 from yaml.representer import SafeRepresenter
 
-from . import app, orcid_client, rq
+from . import app, db, orcid_client, rq
 from .models import (AFFILIATION_TYPES, Affiliation, AffiliationRecord, Delegate, FundingInvitee,
                      FundingRecord, Log, OtherIdRecord, OrcidToken, Organisation, OrgInvitation,
                      PartialDate, PeerReviewExternalId, PeerReviewInvitee, PeerReviewRecord,
@@ -2216,3 +2216,63 @@ def enqueue_task_records(task):
     else:
         for r in records:
             func.queue(record_id=r.id)
+
+
+def activate_all_records(task):
+    """Activate all submitted task records and enqueue it for processing."""
+    with db.atomic():
+        try:
+            status = "The record was activated at " + datetime.now().isoformat(timespec="seconds")
+            count = task.record_model.update(is_active=True, status=status).where(
+                task.record_model.task == task,
+                task.record_model.is_active == False).execute()  # noqa: E712
+            task.status = "ACTIVE"
+            task.save()
+            enqueue_task_records(task)
+        except:
+            db.rollback()
+            app.logger.exception("Failed to activate the selected records")
+            raise
+    return count
+
+
+def reset_all_records(task):
+    """Batch reset of batch records."""
+    count = 0
+    with db.atomic():
+        try:
+            status = "The record was reset at " + datetime.now().isoformat(timespec="seconds")
+            tt = task.task_type
+            if tt in [TaskType.AFFILIATION, TaskType.PROPERTY, TaskType.OTHER_ID]:
+                count = task.record_model.update(
+                    processed_at=None, status=status).where(
+                        task.record_model.task_id == task.id,
+                        task.record_model.is_active == True).execute()  # noqa: E712
+
+            else:
+                for record in task.records.where(
+                        task.record_model.is_active == True):  # noqa: E712
+                    record.processed_at = None
+                    record.status = status
+
+                    invitee_class = record.invitees.model_class
+                    invitee_class.update(
+                        processed_at=None,
+                        status=status).where(invitee_class.record == record.id).execute()
+                    record.save()
+                    count = count + 1
+
+            UserInvitation.delete().where(UserInvitation.task == task).execute()
+            enqueue_task_records(task)
+
+        except:
+            db.rollback()
+            app.logger.exception("Failed to reset the selected records")
+            raise
+        else:
+            task.expires_at = None
+            task.expiry_email_sent_at = None
+            task.completed_at = None
+            task.status = "RESET"
+            task.save()
+    return count

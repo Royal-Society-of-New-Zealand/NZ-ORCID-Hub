@@ -1091,6 +1091,7 @@ class Task(BaseModel, AuditMixin):
         default=TaskType.NONE, choices=[(tt.value, tt.name) for tt in TaskType if tt.value])
     expires_at = DateTimeField(null=True)
     expiry_email_sent_at = DateTimeField(null=True)
+    status = CharField(null=True, choices=[(v, v) for v in ["ACTIVE", "RESET"]])
 
     def __repr__(self):
         return ("Synchronization task" if self.task_type == TaskType.SYNC else (

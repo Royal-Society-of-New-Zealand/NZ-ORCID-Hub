@@ -2830,6 +2830,7 @@ def test_reset_all(client):
     assert t.completed_at is None
     assert resp.status_code == 302
     assert resp.location.endswith("/researcher_url_record_reset_for_batch")
+    assert Task.get(property_task.id).status == "RESET"
 
     resp = client.post(
         "/reset_all?url=/affiliation_record_reset_for_batch", data={"task_id": task1.id})
@@ -3181,6 +3182,7 @@ THIS IS A TITLE #4	 नमस्ते #2	hi	CONTRACT	MY TYPE	Minerals unde.	900
     resp = client.post("/activate_all", follow_redirects=True, data=dict(task_id=task.id))
     assert FundingRecord.select().where(FundingRecord.task_id == task.id,
                                         FundingRecord.is_active).count() == 2
+    assert Task.get(task.id).status == "ACTIVE"
 
     # Reste a single record
     FundingRecord.update(processed_at=datetime.datetime(2018, 1, 1)).execute()
