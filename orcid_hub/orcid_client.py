@@ -1077,6 +1077,7 @@ class MemberAPIMixin:
             initial=False,
             visibility=None,
             url=None,
+            display_index=None,
             *args,
             **kwargs):
         """Create or update affiliation record of a user.
@@ -1140,6 +1141,9 @@ class MemberAPIMixin:
 
         if visibility:
             rec.visibility = visibility
+
+        if display_index:
+            rec.display_index = display_index
 
         if url:
             rec.url = v3.UrlV30(value=url)  # noqa: F405

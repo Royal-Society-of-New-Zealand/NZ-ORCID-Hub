@@ -27,6 +27,7 @@ affiliation_record = {
         "status": {"type": ["string", "null"]},
         "url": {"type": ["string", "null"]},
         "visibility": {"type": ["string", "null"]},
+        "display_index": {"type": ["string", "null"]},
         "orcid": {
             "type": ["string", "null"],
             "format": "^[0-9]{4}-?[0-9]{4}-?[0-9]{4}-?[0-9]{4}$",

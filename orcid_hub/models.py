@@ -1168,7 +1168,7 @@ class Task(BaseModel, AuditMixin):
                        r"start\s*(date)?", r"end\s*(date)?",
                        r"affiliation(s)?\s*(type)?|student|staff", "country", r"disambiguat.*id",
                        r"disambiguat.*source", r"put|code", "orcid.*", "local.*|.*identifier",
-                       "delete(.*record)?", r"(is)?\s*visib(bility|le)?", r"url", ]
+                       "delete(.*record)?", r"(is)?\s*visib(bility|le)?", r"url", r"(display)?.*index", ]
         ]
 
         def index(rex):
@@ -1288,6 +1288,7 @@ class Task(BaseModel, AuditMixin):
                         local_id=local_id,
                         delete_record=delete_record,
                         url=val(row, 19),
+                        display_index=val(row, 20),
                         visibility=visibility,)
                     validator = ModelValidator(af)
                     if not validator.validate():
@@ -1538,6 +1539,7 @@ class AffiliationRecord(RecordModel):
     delete_record = BooleanField(null=True)
     visibility = CharField(null=True, max_length=100, choices=visibility_choices)
     url = CharField(max_length=200, null=True)
+    display_index = CharField(max_length=100, null=True)
 
     class Meta:  # noqa: D101,D106
         db_table = "affiliation_record"
