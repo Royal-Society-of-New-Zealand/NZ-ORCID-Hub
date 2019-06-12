@@ -901,6 +901,21 @@ records:
     task = Task.get(id=task_id)
     assert task.affiliation_records.count() == 3
 
+    resp = client.patch(
+        f"/api/v1.0/tasks/{task_id}",
+        headers=dict(authorization=f"Bearer {access_token}", accept="text/yaml"),
+        content_type="text/yaml",
+        data="status: ACTIVE\n")
+    assert Task.get(task_id).status == "ACTIVE"
+    assert task.records.where(task.record_model.is_active).count() == 3
+
+    resp = client.patch(
+        f"/api/v1.0/tasks/{task_id}",
+        headers=dict(authorization=f"Bearer {access_token}", accept="application/json"),
+        content_type="application/json",
+        data="""{"status": "RESET"}""")
+    assert Task.get(task_id).status == "RESET"
+
     resp = client.put(
         f"/api/v1.0/affiliations/{task_id}",
         headers=dict(authorization=f"Bearer {access_token}", accept="text/yaml"),

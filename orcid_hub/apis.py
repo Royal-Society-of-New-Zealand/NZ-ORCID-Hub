@@ -22,7 +22,8 @@ from .login_provider import roles_required
 from .models import (ORCID_ID_REGEX, AffiliationRecord, Client, FundingRecord, OrcidToken,
                      PeerReviewRecord, PropertyRecord, Role, Task, TaskType, User, UserOrg,
                      validate_orcid_id, WorkRecord)
-from .utils import dump_yaml, is_valid_url, register_orcid_webhook, enqueue_task_records
+from .utils import (activate_all_records, dump_yaml, enqueue_task_records, is_valid_url,
+                    register_orcid_webhook, reset_all_records)
 
 ORCID_API_VERSION_REGEX = re.compile(r"^v[2-3].\d+(_rc\d+)?$")
 SCOPE_REGEX = re.compile(r"^(/[a-z\-]+)+(\,(/[a-z\-]+)+)*$")
@@ -234,10 +235,17 @@ class AppResourceList(AppResource):
         """Get the first page link of the requested resource."""
         return changed_path("page", 1)
 
-    def api_response(self, query, exclude=None, only=None):
+    def api_response(self, query, exclude=None, only=None, recurse=False):
         """Create and return API response with pagination links."""
         query = query.paginate(self.page, self.page_size)
-        records = [r.to_dict(recurse=False, to_dashes=True, exclude=exclude, only=only) for r in query]
+        records = [
+            r.to_dict(
+                recurse=recurse,
+                to_dashes=True,
+                exclude=exclude,
+                only=only,
+                include_records=recurse) for r in query
+        ]
         resp = yamlfy(records) if prefers_yaml() else jsonify(records)
         resp.headers["Pagination-Page"] = self.page
         resp.headers["Pagination-Page-Size"] = self.page_size
@@ -282,7 +290,7 @@ class TaskResource(AppResource):
             self.task_type = None
         return super().dispatch_request(*args, **kwargs)
 
-    def jsonify_task(self, task):
+    def jsonify_task(self, task, include_records=True):
         """Create JSON response with the task payload."""
         if isinstance(task, int):
             login_user(request.oauth.user)
@@ -297,7 +305,7 @@ class TaskResource(AppResource):
                     TaskType.AFFILIATION, TaskType.FUNDING, TaskType.PEER_REVIEW,
                     TaskType.PROPERTY, TaskType.WORK, TaskType.OTHER_ID
             ]:
-                resp = jsonify(task.to_export_dict())
+                resp = jsonify(task.to_export_dict(include_records=include_records))
             else:
                 raise Exception(f"Suppor for {task} has not yet been implemented.")
         else:
@@ -459,6 +467,11 @@ class TaskList(TaskResource, AppResourceList):
               completed-at:
                 type: string
                 format: date-time
+              status:
+                type: string
+                enum:
+                - ACTIVE
+                - RESET
         parameters:
           - name: "type"
             in: "query"
@@ -502,7 +515,232 @@ class TaskList(TaskResource, AppResourceList):
         task_type = request.args.get("type")
         if task_type:
             query = query.where(Task.task_type == TaskType[task_type.upper()].value)
-        return self.api_response(query, exclude=[Task.created_by, Task.updated_by, Task.org])
+        return self.api_response(
+            query,
+            exclude=[Task.created_by, Task.updated_by, Task.org],
+            recurse=False)
+
+
+class TaskAPI(TaskList):
+    """Task services."""
+
+    def handle_task(self, task_id=None):
+        """Handle PUT, POST, or PATCH request. Request body expected to be encoded in JSON."""
+        try:
+            login_user(request.oauth.user)
+            if self.is_yaml_request:
+                data = yaml.load(request.data)
+            else:
+                data = request.json
+
+            if task_id:
+                try:
+                    task = Task.get(id=task_id)
+                except Task.DoesNotExist:
+                    return jsonify({"error": "The task doesn't exist."}), 404
+                if task.created_by != current_user:
+                    return jsonify({"error": "Access denied."}), 403
+            else:
+                task_type = TaskType(data["task-type"]) if "task-type" in data else None
+                task = Task(task_type=task_type, org=current_user.organisaion)
+            if "filename" in data:
+                task.filename = data["filename"]
+            status = data.get("status")
+            status_has_changed = task.status != status
+            if status in ["ACTIVE", "RESET"]:
+                task.status = status
+            task.save()
+            if status_has_changed:
+                if status == "ACTIVE":
+                    activate_all_records(task)
+                elif status == "RESET":
+                    reset_all_records(task)
+        except Exception as ex:
+            app.logger.exception("Failed to handle funding API request.")
+            return jsonify({"error": "Unhandled exception occurred.", "exception": str(ex)}), 400
+
+        return self.jsonify_task(task, include_records=False)
+
+    def get(self, task_id, *args, **kwargs):
+        """
+        Retrieve a single task.
+
+        ---
+        tags:
+          - "tasks"
+        summary: "Retrieve a single task."
+        description: "Retrieve a single task."
+        produces:
+          - "application/json"
+          - "text/yaml"
+        parameters:
+          - name: "task_id"
+            required: true
+            in: "path"
+            description: "Task ID."
+            type: "integer"
+        responses:
+          200:
+            description: "successful operation"
+            schema:
+              $ref: "#/definitions/Task"
+          401:
+            $ref: "#/responses/Unauthorized"
+          403:
+            $ref: "#/responses/AccessDenied"
+          404:
+            $ref: "#/responses/NotFound"
+        """
+        return self.jsonify_task(task_id, include_records=False)
+
+    def post(self, task_id):
+        """Upload the task and completely override the task.
+
+        ---
+        tags:
+          - "tasks"
+        summary: "Update the task."
+        description: "Update the task."
+        consumes:
+          - application/json
+          - text/yaml
+        definitions:
+        parameters:
+          - name: "task_id"
+            in: "path"
+            description: "Task ID."
+            required: true
+            type: "integer"
+          - in: body
+            name: task
+            description: "Task."
+            schema:
+              $ref: "#/definitions/Task"
+        produces:
+          - "application/json"
+        responses:
+          200:
+            description: "successful operation"
+            schema:
+              $ref: "#/definitions/AffiliationTask"
+          401:
+            $ref: "#/responses/Unauthorized"
+          403:
+            $ref: "#/responses/AccessDenied"
+          404:
+            $ref: "#/responses/NotFound"
+        """
+        return self.handle_task(task_id)
+
+    def put(self, task_id):
+        """Update the task.
+
+        ---
+        tags:
+          - "tasks"
+        summary: "Update the task."
+        description: "Update the task."
+        consumes:
+          - application/json
+          - text/yaml
+        definitions:
+        parameters:
+          - name: "task_id"
+            in: "path"
+            description: "Task ID."
+            required: true
+            type: "integer"
+          - in: body
+            name: task
+            description: "Task."
+            schema:
+              $ref: "#/definitions/Task"
+        produces:
+          - "application/json"
+        responses:
+          200:
+            description: "successful operation"
+            schema:
+              $ref: "#/definitions/AffiliationTask"
+          401:
+            $ref: "#/responses/Unauthorized"
+          403:
+            $ref: "#/responses/AccessDenied"
+          404:
+            $ref: "#/responses/NotFound"
+        """
+        return self.handle_task(task_id)
+
+    def patch(self, task_id):
+        """Update the task.
+
+        ---
+        tags:
+          - "tasks"
+        summary: "Update the task."
+        description: "Update the task."
+        consumes:
+          - application/json
+          - text/yaml
+        definitions:
+        parameters:
+          - name: "task_id"
+            in: "path"
+            description: "Task ID."
+            required: true
+            type: "integer"
+          - in: body
+            name: task
+            description: "Task."
+            schema:
+              $ref: "#/definitions/Task"
+        produces:
+          - "application/json"
+        responses:
+          200:
+            description: "successful operation"
+            schema:
+              $ref: "#/definitions/AffiliationTask"
+          401:
+            $ref: "#/responses/Unauthorized"
+          403:
+            $ref: "#/responses/AccessDenied"
+          404:
+            $ref: "#/responses/NotFound"
+        """
+        return self.handle_task(task_id)
+
+    def delete(self, task_id):
+        """Delete the specified task.
+
+        ---
+        tags:
+          - "tasks"
+        summary: "Delete the specified task."
+        description: "Delete the specified task."
+        parameters:
+          - name: "task_id"
+            in: "path"
+            description: "Task ID."
+            required: true
+            type: "integer"
+        produces:
+          - "application/json"
+        responses:
+          200:
+            description: "Successful operation"
+          401:
+            $ref: "#/responses/Unauthorized"
+          403:
+            $ref: "#/responses/AccessDenied"
+          404:
+            $ref: "#/responses/NotFound"
+        """
+        return self.delete_task(task_id)
+
+
+api.add_resource(TaskList, "/api/v1.0/tasks")
+api.add_resource(TaskAPI, "/api/v1.0/tasks/<int:task_id>")
 
 
 class AffiliationListAPI(TaskResource):
@@ -814,7 +1052,6 @@ class AffiliationAPI(TaskResource):
         return self.delete_task(task_id)
 
 
-api.add_resource(TaskList, "/api/v1.0/tasks")
 api.add_resource(AffiliationListAPI, "/api/v1.0/affiliations")
 api.add_resource(AffiliationAPI, "/api/v1.0/affiliations/<int:task_id>")
 
