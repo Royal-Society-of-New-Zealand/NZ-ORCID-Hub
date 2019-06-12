@@ -1091,6 +1091,7 @@ class Task(BaseModel, AuditMixin):
         default=TaskType.NONE, choices=[(tt.value, tt.name) for tt in TaskType if tt.value])
     expires_at = DateTimeField(null=True)
     expiry_email_sent_at = DateTimeField(null=True)
+    status = CharField(null=True, max_length=10, choices=[(v, v) for v in ["ACTIVE", "RESET"]])
 
     def __repr__(self):
         return ("Synchronization task" if self.task_type == TaskType.SYNC else (
@@ -1303,10 +1304,13 @@ class Task(BaseModel, AuditMixin):
         """Create a dict represenatation of the task suitable for serialization into JSON or YAML."""
         # TODO: expand for the othe types of the tasks
         task_dict = super().to_dict(
-            recurse=False if recurse is None else recurse,
+            recurse=bool(False),
             to_dashes=to_dashes,
             exclude=exclude,
-            only=only or [Task.id, Task.filename, Task.task_type, Task.created_at, Task.updated_at])
+            only=only or [
+                Task.id, Task.filename, Task.task_type, Task.created_at, Task.updated_at,
+                Task.status
+            ])
         # TODO: refactor for funding task to get records here not in API or export
         if include_records and TaskType(self.task_type) != TaskType.FUNDING:
             task_dict["records"] = [
@@ -1317,10 +1321,10 @@ class Task(BaseModel, AuditMixin):
             ]
         return task_dict
 
-    def to_export_dict(self):
+    def to_export_dict(self, include_records=True):
         """Create a dictionary representation for export."""
         if self.task_type == TaskType.AFFILIATION:
-            task_dict = self.to_dict()
+            task_dict = self.to_dict(recurse=include_records, include_records=include_records)
         else:
             task_dict = self.to_dict(
                 recurse=False,
@@ -1328,7 +1332,8 @@ class Task(BaseModel, AuditMixin):
                 include_records=False,
                 exclude=[Task.created_by, Task.updated_by, Task.org, Task.task_type])
             task_dict["task-type"] = self.task_type.name
-            task_dict["records"] = [r.to_export_dict() for r in self.records]
+            if include_records:
+                task_dict["records"] = [r.to_export_dict() for r in self.records]
         return task_dict
 
     class Meta:  # noqa: D101,D106
@@ -3872,7 +3877,7 @@ def drop_tables():
                 pass
 
 
-def load_yaml_json(filename, source, content_type=None):
+def load_yaml_json(filename=None, source=None, content_type=None):
     """Create a common way of loading JSON or YAML file."""
     if not content_type:
         _, ext = os.path.splitext(filename or '')
