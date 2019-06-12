@@ -44,7 +44,7 @@ ORCID_ID_REGEX = re.compile(r"^([X\d]{4}-?){3}[X\d]{4}$")
 PARTIAL_DATE_REGEX = re.compile(r"\d+([/\-\.]\d+){,2}")
 
 
-AFFILIATION_TYPES = ["student", "education", "staff", "employment"]
+AFFILIATION_TYPES = ["student", "education", "staff", "employment", "distinction"]
 DISAMBIGUATION_SOURCES = ["RINGGOLD", "GRID", "FUNDREF", "ISNI"]
 VISIBILITIES = ["PUBLIC", "PRIVATE", "REGISTERED_ONLY", "LIMITED"]
 visibility_choices = [(v, v.replace('_', ' ').title()) for v in VISIBILITIES]
@@ -384,6 +384,7 @@ class Affiliation(IntFlag):
     NONE = 0  # NONE
     EDU = 1  # Education
     EMP = 2  # Employment
+    DIST = 3  # Distinction
 
     def __eq__(self, other):
         if isinstance(other, Affiliation):
@@ -396,7 +397,8 @@ class Affiliation(IntFlag):
     def __str__(self):
         return ", ".join({
             self.EDU: "Education",
-            self.EMP: "Employment"
+            self.EMP: "Employment",
+            self.DIST: "Distinction",
         }[a] for a in Affiliation if a & self)
 
 

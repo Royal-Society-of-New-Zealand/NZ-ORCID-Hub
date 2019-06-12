@@ -1126,6 +1126,8 @@ class MemberAPIMixin:
             rec = v3.EmploymentV30()
         elif affiliation == Affiliation.EDU:
             rec = v3.EducationV30()
+        elif affiliation == Affiliation.DIST:
+            rec = v3.DistinctionV30()
         else:
             app.logger.info(
                 f"For {self.user} not able to determine affiliaton type with {self.org}")
@@ -1141,7 +1143,7 @@ class MemberAPIMixin:
             rec.put_code = put_code
 
         if visibility:
-            rec.visibility = visibility
+            rec.visibility = visibility.lower()
 
         if display_index:
             rec.display_index = display_index
@@ -1182,6 +1184,8 @@ class MemberAPIMixin:
         try:
             if affiliation == Affiliation.EMP:
                 api_call = self.update_employmentv3 if put_code else self.create_employmentv3
+            elif affiliation == Affiliation.DIST:
+                api_call = self.update_distinctionv3 if put_code else self.create_distinctionv3
             else:
                 api_call = self.update_educationv3 if put_code else self.create_educationv3
             params = dict(orcid=self.user.orcid, body=rec, _preload_content=False)

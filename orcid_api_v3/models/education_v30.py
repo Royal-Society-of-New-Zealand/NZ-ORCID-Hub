@@ -410,7 +410,8 @@ class EducationV30(object):
         :param visibility: The visibility of this EducationV30.  # noqa: E501
         :type: str
         """
-        allowed_values = ["LIMITED", "REGISTERED_ONLY", "PUBLIC", "PRIVATE"]  # noqa: E501
+        allowed_values = ["LIMITED", "REGISTERED_ONLY", "PUBLIC", "PRIVATE", "public", "private",
+                          "limited", "registered-only"]  # noqa: E501
         if visibility not in allowed_values:
             raise ValueError(
                 "Invalid value for `visibility` ({0}), must be one of {1}"  # noqa: E501
