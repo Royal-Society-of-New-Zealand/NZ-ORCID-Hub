@@ -7,8 +7,8 @@ isort:skip_file
 
 from .config import ORCID_API_BASE, ORCID_BASE_URL
 from flask_login import current_user
-from .models import (OrcidApiCall, Affiliation, OrcidToken, FundingContributor as FundingCont, Log,
-                     ExternalId as ExternalIdModel, NestedDict, WorkContributor as WorkCont,
+from .models import (OrcidApiCall, Affiliation, AffiliationExternalId, OrcidToken, FundingContributor as FundingCont,
+                     Log, ExternalId as ExternalIdModel, NestedDict, WorkContributor as WorkCont,
                      WorkExternalId, PeerReviewExternalId)
 from orcid_api import (configuration, rest, api_client, MemberAPIV20Api, SourceClientId, Source,
                        OrganizationAddress, DisambiguatedOrganization, Organization)
@@ -1078,6 +1078,7 @@ class MemberAPIMixin:
             visibility=None,
             url=None,
             display_index=None,
+            id=None,
             *args,
             **kwargs):
         """Create or update affiliation record of a user.
@@ -1155,6 +1156,28 @@ class MemberAPIMixin:
             rec.start_date = start_date.as_orcid_dict()
         if end_date:
             rec.end_date = end_date.as_orcid_dict()
+
+        if id:
+            external_id_list = []
+            external_ids = AffiliationExternalId.select().where(AffiliationExternalId.record_id == id).order_by(
+                AffiliationExternalId.id)
+
+            for exi in external_ids:
+                external_id_type = exi.type
+                external_id_value = exi.value
+                external_id_url = None
+                if exi.url:
+                    external_id_url = v3.UrlV30(value=exi.url)  # noqa: F405
+                # Currently ORCID is not supporting external_id_relationship in upper case
+                external_id_relationship = exi.relationship.replace('_', '-').lower() if exi.relationship else None
+                external_id_list.append(
+                    v3.ExternalIDV30(  # noqa: F405
+                        external_id_type=external_id_type,
+                        external_id_value=external_id_value,
+                        external_id_url=external_id_url,
+                        external_id_relationship=external_id_relationship))
+
+            rec.external_ids = v3.ExternalIDsV30(external_id=external_id_list)  # noqa: F405
 
         try:
             if affiliation == Affiliation.EMP:

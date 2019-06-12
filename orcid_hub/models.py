@@ -1300,10 +1300,12 @@ class Task(BaseModel, AuditMixin):
                     af.save()
 
                     external_id_type = val(row, 21, "").lower()
-                    external_id_relationship = val(row, 24, "").upper()
+                    external_id_relationship = val(row, 24)
+                    if external_id_relationship:
+                        external_id_relationship = external_id_relationship.upper()
                     external_id_value = val(row, 22)
 
-                    if external_id_type and external_id_relationship and external_id_value:
+                    if external_id_type and external_id_value:
 
                         ae = AffiliationExternalId(
                             record=af,
@@ -3385,7 +3387,7 @@ class ExternalIdModel(BaseModel):
     type = CharField(max_length=255, choices=external_id_type_choices)
     value = CharField(max_length=255)
     url = CharField(max_length=200, null=True)
-    relationship = CharField(max_length=255, choices=relationship_choices)
+    relationship = CharField(null=True, max_length=255, choices=relationship_choices)
 
     def to_export_dict(self):
         """Map the external ID record to dict for exprt into JSON/YAML."""

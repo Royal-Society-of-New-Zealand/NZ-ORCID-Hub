@@ -1021,9 +1021,9 @@ def create_or_update_affiliations(user, org_id, records, *args, **kwargs):
                     try:
                         if affiliation:
                             if affiliation == Affiliation.EDU:
-                                api.delete_education(user.orcid, ar.put_code)
+                                api.delete_educationv3(user.orcid, ar.put_code)
                             else:
-                                api.delete_employment(user.orcid, ar.put_code)
+                                api.delete_employmentv3(user.orcid, ar.put_code)
                             ar.add_status_line(f"Record was sucessfully deleted.")
                             app.logger.info(f"ORCID record of {user} with put-code {ar.put_code} was deleted.")
                         else:
