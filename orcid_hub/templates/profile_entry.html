@@ -54,12 +54,12 @@
 
                 <div class="form-group">
                   <label for="grant-number-{{idex}}">{{labelPrefix}}</label>
-                  <input type="text" class="form-control" name="grant_number" v-bind:value="m.grant_number" id="grant-number-{{index}}"/>
+                  <input type="text" class="form-control" name="grant_number" v-model="m.grant_number" id="grant-number-{{index}}"/>
                 </div>
 
                 <div class="form-group">
                   <label for="grant-url-{{idex}}">{{labelPrefix}} Url</label>
-                  <input type="text" class="form-control" name="grant_url" v-bind:value="m.grant_url" id="grant-url-{{index}}"/>
+                  <input type="text" class="form-control" name="grant_url" v-model="m.grant_url" id="grant-url-{{index}}"/>
                 </div>
 
                 <div class="form-group">
@@ -157,10 +157,6 @@ var vm = new Vue({
   data: {
       labelPrefix: '{{"External ID" if section_type != "FUN" else "Funding Grant"}}',
       externalids: {{grant_data_list | safe}},
-      grantNumber: "",
-      url: "",
-      relationship: "",
-      grantType: "",
       grantTypeList: [
         {"label": "Agricola", "value": "agr"}, {"label": "Archival Resource Key Identifier", "value": "ark"},
         {"label": "ArXiv", "value": "arxiv"}, {"label": "Amazon Standard Identification Number", "value": "asin"},
@@ -187,12 +183,7 @@ var vm = new Vue({
   },
   methods: {
     addEntry: function() {
-      this.externalids.push({
-          grant_number: this.grantNumber,
-          grant_type: this.grantType,
-          grant_url: this.url,
-          grant_relationship: this.relationship
-      });
+      this.externalids.unshift({grant_type: "", grant_relationship: ""});
       return false;
     },
     deleteEntry: function(index) {
