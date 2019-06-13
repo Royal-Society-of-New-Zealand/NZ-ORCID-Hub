@@ -1559,6 +1559,7 @@ class ViewMembersAdmin(AppModelView):
 
     roles_required = Role.SUPERUSER | Role.ADMIN
     list_template = "viewMembers.html"
+    edit_template = "admin/member_edit.html"
     form_columns = ["name", "orcid", "email", "eppn"]
     form_widget_args = {c: {"readonly": True} for c in form_columns if c != "email"}
     column_list = ["email", "orcid", "created_at", "updated_at", "orcid_updated_at"]
@@ -2537,10 +2538,10 @@ def section(user_id, section_type="EMP"):
 
     return render_template(
         "section.html",
+        user=user,
         url=_url,
         records=records,
         section_type=section_type,
-        user_id=user_id,
         org_client_id=user.organisation.orcid_client_id)
 
 

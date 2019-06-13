@@ -141,3 +141,22 @@ j.get('publication_date', 'year', 'value')%}
     </ul>
   {% endif %}
 {%- endmacro -%}
+
+{% macro section_button_group(user_id, section_type=None, url=None) -%}
+  <div class="btn-group btn-group-justified">
+    {% for (st, sn) in [
+      ("EMP", "Employment"),
+      ("EDU", "Education"),
+      ("FUN", "Fundings"),
+      ("PRR", "Peer Reviews"),
+      ("WOR", "Works"),
+      ("RUR", "Urls"),
+      ("ONR", "Other Names"),
+      ("KWR", "Keywords"),
+      ("ADR", "Addresses"),
+      ("EXR", "External IDs"),] %}
+      <a href="{{ url_for('section', user_id=user_id, section_type=st, url=url) if section_type != st else '#' }}"
+         class="{{'btn btn-primary' if section_type != st else 'btn btn-light'}}">{{ sn }}</a>
+    {% endfor %}
+  </div>
+{%- endmacro -%}
