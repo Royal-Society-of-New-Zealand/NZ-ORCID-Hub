@@ -43,21 +43,39 @@
             <th class="column-header">Display Index</th>
             <th class="column-header">Visibility</th>
           {% else %}
-            {% if section_type == "EDU" %}
-              <th class="column-header">Institution</th>
-            {% else %}
-              <th class="column-header">Institution/employer</th>
+            <th class="column-header">
+              {% if section_type == "EDU" %}Institution
+              {% elif section_type == "EMP" %}Institution/Employer
+              {% elif section_type == "FUN" %}Institution/Funding Agency
+              {% elif section_type == "PRR" %}Institution/Peer Review Agency
+              {% endif %}
+            </th>
+            {% if section_type == "FUN" %}
+              <th class="column-header">Title</th>
+              <th class="column-header">Translated Title</th>
+              <th class="column-header">Language</th>
+              <th class="column-header">Funding Type</th>
+            {% elif section_type == "PRR" %}
+              <th class="column-header">Review Group Id</th>
             {% endif %}
             <th class="column-header">City</th>
             <th class="column-header">State/region</th>
             <th class="column-header">Country</th>
-            <th class="column-header">Department</th>
-            {% if section_type == "EDU" %}
-              <th class="column-header">Degree</th>
-            {% else %}
-              <th class="column-header">Role</th>
+            {% if section_type in ["EMP", "EDU"] %}
+              <th class="column-header">Department</th>
+              <th class="column-header">
+              {% if section_type == "EDU" %}Degree
+              {% elif section_type == "EMP" %}Role
+              {% endif %}
+              </th>
+            {% elif section_type == "PRR" %}
+              <th class="column-header">Completion Date</th>
+              <th class="column-header">Disambiguated Id</th>
+              <th class="column-header">Disambiguation Source</th>
             {% endif %}
-            <th class="column-header"></th>
+            {% if section_type != "PRR" %}
+              <th class="column-header"></th>
+            {% endif %}
           {% endif %}
           <th class="column-header">Put-code</th>
 				</tr>
@@ -110,20 +128,40 @@
                   <td>{{r.get("content")|default("", True)}}</td>
                 {% endif %}
                 <td>{{r.get("display-index")}}</td>
-                <td>{{r.get("visibility")|default("", True)}}</td>
+                <td>{{r.get("visibility", default='')}}</td>
               {% else %}
                 <td>
-                  {{r.get("organization", "name")|default("", True)}}<br/>
+                  {% set org = r.get("convening-organization" if section_type == "PRR" else "organization") %}
+                  {{org.get("name", default='')}}<br/>
                   <span class="small">
-                    Source: {{r.get("source", "source-name", "value")|default("", True)}}
+                    Source: {{r.get("source", "source-name", "value", default='')}}
                   </span>
                 </td>
-                <td>{{r.get("organization", "address", "city")|default("", True)}}</td>
-                <td>{{r.get("organization", "address", "region")|default("", True)}}</td>
-                <td>{{r.get("organization", "address", "country")|default("", True)}}</td>
-                <td>{{r.get("department-name")|default("", True)}}</td>
-                <td>{{r.get("role-title")|default("", True)}}</td>
-                <td>{{r|year_range}}</td>
+
+                {% if section_type == "FUN" %}
+                  <td>{{r.get("title", "title", "value", default='')}}</td>
+                  <td>{{r.get("title", "translated-title", "value", default='')}}</td>
+                  <td>{{r.get("title", "translated-title", "language-code", default='')}}</td>
+                  <td>{{r.get("type", default='')}}</td>
+                {% elif section_type == "PRR" %}
+                  <td>{{r.get("review-group-id", default='')}}</td>
+                {% endif %}
+
+                <td>{{org.get("address", "city", default='')}}</td>
+                <td>{{org.get("address", "region", default='')}}</td>
+                <td>{{org.get("address", "country", default='')}}</td>
+                {% if section_type in ["EMP", "EDU"] %}
+                  <td>{{r.get("department-name", default='')}}</td>
+                  <td>{{r.get("role-title", default='')}}</td>
+                {% endif %}
+
+                {% if section_type == "PRR" %}
+                  <td>{{r.get("completion-date", "year", "value", default='')}}</td>
+                  <td>{{r.get("convening-organization", "disambiguated-organization", "disambiguated-organization-identifier", default="")}}</td>
+              <td>{{r.get("convening-organization", "disambiguated-organization", "disambiguation-source", default="")}}</td>
+                {% else %}
+                  <td>{{r|year_range}}</td>
+                {% endif %}
               {% endif %}
               <td>{{r.get("put-code")|default("", True)}}</td>
             </tr>

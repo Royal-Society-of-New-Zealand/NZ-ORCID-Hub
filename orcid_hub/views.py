@@ -2460,11 +2460,11 @@ def section(user_id, section_type="EMP"):
         elif section_type == "KWR":
             api_response = api_instance.view_keywords(user.orcid, _preload_content=False)
         elif section_type == "FUN":
-            api_response = api_instance.view_fundings(user.orcid)
+            api_response = api_instance.view_fundings(user.orcid, _preload_content=False)
         elif section_type == "WOR":
             api_response = api_instance.view_works(user.orcid)
         else:
-            api_response = api_instance.view_peer_reviews(user.orcid)
+            api_response = api_instance.view_peer_reviews(user.orcid, _preload_content=False)
     except ApiException as ex:
         if ex.status == 401:
             flash("User has revoked the permissions to update his/her records", "warning")
@@ -2480,7 +2480,7 @@ def section(user_id, section_type="EMP"):
     # TODO: Organisation has access to the employment records
     # TODO: retrieve and tranform for presentation (order, etc)
     try:
-        if section_type in ["EMP", "EDU", "RUR", "ONR", "KWR", "ADR", "EXR"]:
+        if section_type in ["EMP", "EDU", "RUR", "ONR", "KWR", "ADR", "EXR", "FUN", "PRR"]:
             data = json.loads(api_response.data, object_pairs_hook=NestedDict)
         else:
             data = api_response.to_dict()
@@ -2492,18 +2492,10 @@ def section(user_id, section_type="EMP"):
     # TODO: transform data for presentation:
 
     records = []
-    if section_type == 'FUN':
-        if data and data.get("group"):
-            for k in data.get("group"):
-                fs = k.get("funding_summary")[0]
-                records.append(fs)
-        return render_template(
-            "funding_section.html",
-            url=_url,
-            records=records,
-            section_type=section_type,
-            user_id=user_id,
-            org_client_id=user.organisation.orcid_client_id)
+    if section_type in ["FUN", "PRR"]:
+        records = (
+            fs for g in data.get("group")
+            for fs in g.get("funding-summary" if section_type == "FUN" else "peer-review-summary"))
     elif section_type == 'PRR':
         if data and data.get("group"):
             for k in data.get("group"):
